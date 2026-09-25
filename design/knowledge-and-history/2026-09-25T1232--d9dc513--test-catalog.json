@@ -1,0 +1,2093 @@
+{
+ "schema_version": 2,
+ "kind": "development_test_catalog",
+ "status": "planned-runtime-tests-not-executed",
+ "ssot": "2026-09-24T0553--9b26d79--consolidated-design-ssot.md",
+ "cases": [
+  {
+   "id": "B01",
+   "title": "Legacy identity and compatibility",
+   "availability": "existing",
+   "path": "compose/test_instructions_compatibility.py",
+   "command_template": [
+    "python3",
+    "compose/test_instructions_compatibility.py"
+   ],
+   "oracles": [
+    "Old/new import spellings share one writer and lock; immutable historical bytes resolve exactly",
+    "Conflicting root aliases and altered historical snapshot bytes are rejected"
+   ],
+   "requires_real_evidence": false,
+   "implemented": null
+  },
+  {
+   "id": "B02",
+   "title": "Existing app delivery and off",
+   "availability": "existing",
+   "path": "compose/test_instructions_app.py",
+   "command_template": [
+    "python3",
+    "compose/test_instructions_app.py"
+   ],
+   "oracles": [
+    "Explicit registration/use retains actual returned-as-context receipts",
+    "Stale preview, corrupt bridge and off cannot claim context retraction"
+   ],
+   "requires_real_evidence": false,
+   "implemented": null
+  },
+  {
+   "id": "B03",
+   "title": "Existing installer transaction recovery",
+   "availability": "existing",
+   "path": "compose/test_instructions_transactions.py",
+   "command_template": [
+    "python3",
+    "compose/test_instructions_transactions.py"
+   ],
+   "oracles": [
+    "Observed durable install/reset phases recover using the same operation",
+    "Every injected interrupted phase guards readers and preserves unrelated state"
+   ],
+   "requires_real_evidence": false,
+   "implemented": null
+  },
+  {
+   "id": "B04",
+   "title": "Complete legacy regression subject",
+   "availability": "existing",
+   "path": "compose/test_instructions*.py",
+   "command_template": [
+    "<prepared-python>",
+    "-m",
+    "unittest",
+    "discover",
+    "-s",
+    "compose",
+    "-p",
+    "test_instructions*.py"
+   ],
+   "oracles": [
+    "All discovered Instructions modules run under the prepared interpreter",
+    "Record native/npm prerequisites and skips; empty discovery or missing required coverage is not green"
+   ],
+   "requires_real_evidence": false,
+   "implemented": null
+  },
+  {
+   "id": "B05",
+   "title": "Package, ontology and mirror boundary",
+   "availability": "existing",
+   "path": "gates/check-parity.sh",
+   "command_template": [
+    "bash",
+    "gates/check-parity.sh"
+   ],
+   "oracles": [
+    "Package inventory, exact mirrors, ontology and negative controls judge the integrated index",
+    "New test suite omission, unshipped runtime and author code in payload fail by name"
+   ],
+   "requires_real_evidence": false,
+   "implemented": null
+  },
+  {
+   "id": "N01",
+   "title": "Frozen contract conformance",
+   "availability": "planned",
+   "path": "gates/workenv/test_contracts.py",
+   "command_template": [
+    "<prepared-python>",
+    "<conformance-driver>",
+    "--case-profile",
+    "<frozen-profile-id>",
+    "--family",
+    "N01"
+   ],
+   "oracles": [
+    "Positive versioned request/source/result examples round-trip",
+    "Reject unknown required semantics, duplicate keys, altered signed bytes and empty test-discovery/oracle sets. Legitimate empty memory/selection remains valid."
+   ],
+   "requires_real_evidence": false,
+   "implemented": false
+  },
+  {
+   "id": "N02",
+   "title": "Account-free identity",
+   "availability": "planned",
+   "path": "gates/workenv/test_identity.py",
+   "command_template": [
+    "<prepared-python>",
+    "<conformance-driver>",
+    "--case-profile",
+    "<frozen-profile-id>",
+    "--family",
+    "N02"
+   ],
+   "oracles": [
+    "Personal work starts without Team/signup/network; renamed profile/rotated credential retains identity",
+    "Names, local host/task IDs and a second key cannot impersonate an enrolled principal or independent human"
+   ],
+   "requires_real_evidence": false,
+   "implemented": false
+  },
+  {
+   "id": "N03",
+   "title": "Lock/signout barrier",
+   "availability": "planned",
+   "path": "gates/workenv/test_access.py",
+   "command_template": [
+    "<prepared-python>",
+    "<conformance-driver>",
+    "--case-profile",
+    "<frozen-profile-id>",
+    "--family",
+    "N03"
+   ],
+   "oracles": [
+    "Explicit local proof reenters valid offline scope after durable lock/signout",
+    "Old CLI/MCP/child handles, restart, background refresh, late response and expired controls cannot silently reopen access; dispatched commit retains its original result"
+   ],
+   "requires_real_evidence": false,
+   "implemented": false
+  },
+  {
+   "id": "N04",
+   "title": "Target protected-entry admission",
+   "availability": "planned",
+   "path": "gates/workenv/test_instruction_admission.py",
+   "command_template": [
+    "<prepared-python>",
+    "<conformance-driver>",
+    "--case-profile",
+    "<frozen-profile-id>",
+    "--family",
+    "N04"
+   ],
+   "oracles": [
+    "New role-specific compilation and permitted personal work use explicit supported owner boundaries",
+    "Every retained current CLI/owner/catalog/install/setup/import/host route, including --repo and custom roots, rejects denied protected resources; removed routes do not silently fall through"
+   ],
+   "requires_real_evidence": false,
+   "implemented": false
+  },
+  {
+   "id": "N05",
+   "title": "Durable object/control storage",
+   "availability": "planned",
+   "path": "gates/workenv/test_storage.py",
+   "command_template": [
+    "<prepared-python>",
+    "<conformance-driver>",
+    "--case-profile",
+    "<frozen-profile-id>",
+    "--family",
+    "N05"
+   ],
+   "oracles": [
+    "Verified immutable objects plus owned conditional head and operation receipt survive process restart",
+    "Crash at each observed durable boundary, same-ID/different payload, advanced base and forked lineage cannot produce duplicate or falsely committed state",
+    "Restore a consistent covered local-state backup after losing the live database, including private candidate/draft, outbox and unknown-request/receipt/control mappings",
+    "Incomplete/mixed backup, missing required objects, invalid control/time evidence and post-backup changes cannot be silently declared fully recovered or reactivate an authority"
+   ],
+   "requires_real_evidence": false,
+   "implemented": false,
+   "evidence_kinds": [
+    "process_restart",
+    "local_backup_restore"
+   ],
+   "atomic_cases": [
+    {
+     "id": "BKP-RESTORE",
+     "title": "Consistent local backup restore",
+     "positive": "Covered C03-level draft/outbox/unknown request and control mappings restore exactly after live DB loss",
+     "negative": "Source-only peer inventory or surviving-DB restart is not this proof",
+     "requires_nodes": [],
+     "implemented": false
+    },
+    {
+     "id": "BKP-INTEGRITY",
+     "title": "Backup DB/object closure",
+     "positive": "A supported consistent backup binds exact DB snapshot and required immutable members",
+     "negative": "Missing/corrupt/mixed object members give incomplete restore, never guessed acceptance",
+     "requires_nodes": [],
+     "implemented": false
+    },
+    {
+     "id": "BKP-COVERAGE",
+     "title": "Restore coverage horizon",
+     "positive": "Report the exact covered frontier and unavailable later private work under the configured recovery objective",
+     "negative": "Do not infer that post-backup unique work is absent, recovered or safe to discard",
+     "requires_nodes": [],
+     "implemented": false
+    },
+    {
+     "id": "BKP-PASSIVE",
+     "title": "Passive authority restoration",
+     "positive": "Restored sequencing/control data remains in a safe passive state until current authority/clock/key conditions are established",
+     "negative": "A restored copy or old access-generation state cannot auto-unlock or create another active finalizer",
+     "requires_nodes": [],
+     "implemented": false
+    },
+    {
+     "id": "DC-DURABLE",
+     "title": "Durable preference and invalidation",
+     "positive": "Private preferences/questions/answers/use receipts and invalidations recover atomically with source continuity checks; known A-to-B-to-A or add/remove does not revive old consent.",
+     "negative": "Matching old content hashes, lost invalidation state or restored stale DB data automatically revives a choice; recovery rewrites original decision records.",
+     "implemented": false
+    }
+   ]
+  },
+  {
+   "id": "N06",
+   "title": "Knowledge applicability",
+   "availability": "planned",
+   "path": "gates/workenv/test_knowledge.py",
+   "command_template": [
+    "<prepared-python>",
+    "<conformance-driver>",
+    "--case-profile",
+    "<frozen-profile-id>",
+    "--family",
+    "N06"
+   ],
+   "oracles": [
+    "Coherent table/definition/conditions and exact future/late revisions support the selected question",
+    "Missing applicability/companions and conflicting evidence retain qualifications under scoped application; choosing a higher layer does not certify truth."
+   ],
+   "requires_real_evidence": false,
+   "implemented": false
+  },
+  {
+   "id": "N07",
+   "title": "Decision state closure",
+   "availability": "planned",
+   "path": "gates/workenv/test_memory.py",
+   "command_template": [
+    "<prepared-python>",
+    "<conformance-driver>",
+    "--case-profile",
+    "<frozen-profile-id>",
+    "--family",
+    "N07"
+   ],
+   "oracles": [
+    "Multi-workstream decisions retain stated basis and typed outcomes; cross-lane corrections change current state",
+    "Required old decisions survive ranking; missing targets, cycles, competing replacements and private closure produce unresolved state or verified permitted projection"
+   ],
+   "requires_real_evidence": false,
+   "implemented": false,
+   "atomic_cases": [
+    {
+     "id": "DC-SET",
+     "title": "Current conflict set",
+     "positive": "Applicable surviving decision alternatives across scopes form a qualified comparison set; compatible/duplicate/empty material is normal.",
+     "negative": "Scope order, newest arrival, missing user choice or invalid lifecycle state silently produces a decision winner.",
+     "implemented": false
+    }
+   ]
+  },
+  {
+   "id": "N08",
+   "title": "Bounded role readers",
+   "availability": "planned",
+   "path": "gates/workenv/test_readers.py",
+   "command_template": [
+    "<prepared-python>",
+    "<conformance-driver>",
+    "--case-profile",
+    "<frozen-profile-id>",
+    "--family",
+    "N08"
+   ],
+   "oracles": [
+    "Required meaning precedes optional ranking; finite processing/output budgets and exact cursors support expansion",
+    "Scope/frontier/auth changes reject old cursors; empty, unavailable and truncation stay different; hashes alone never satisfy child retention"
+   ],
+   "requires_real_evidence": false,
+   "implemented": false
+  },
+  {
+   "id": "N09",
+   "title": "Personal and brownfield preparation",
+   "availability": "planned",
+   "path": "gates/workenv/test_preparation.py",
+   "command_template": [
+    "<prepared-python>",
+    "<conformance-driver>",
+    "--case-profile",
+    "<frozen-profile-id>",
+    "--family",
+    "N09"
+   ],
+   "oracles": [
+    "Projectless/personal/unadopted preparation uses exact sources without fake Team/session IDs",
+    "Dirty/untracked byte changes invalidate dependent work; missing why is not inferred; knowledge/memory never become instruction_text"
+   ],
+   "requires_real_evidence": false,
+   "implemented": false,
+   "atomic_cases": [
+    {
+     "id": "DC-CHOICE",
+     "title": "Explicit application and mode",
+     "positive": "At the first or changed conflict basis, a relevant actual use waits for an explicit user source choice/bounded resolution and keep/ask mode. A valid keep preference can apply automatically; unchanged ask-mode requests only the new application.",
+     "negative": "First/repository option, unsubmitted default or canceled prompt becomes consent; startup without an actual task forces arbitration of future conflicts. An agent-generated consent flag substitutes for actual user-answer evidence.",
+     "implemented": false
+    },
+    {
+     "id": "DC-KEEP",
+     "title": "Scoped reusable preference",
+     "positive": "Keep mode survives new sessions/restart for the same authorized principal, concern, context and unchanged full relevant basis; current access is rechecked.",
+     "negative": "A session ID causes needless requestions, another person/context borrows the choice, or a preference bypasses current source rights.",
+     "implemented": false
+    },
+    {
+     "id": "DC-ASK",
+     "title": "Logical-use prompting",
+     "positive": "Ask mode requests the application on each new logical use; retry/page/reconnect of the same unchanged use restores its one pending question/answer.",
+     "negative": "A new use silently reuses the last answer, or repeated pages/retries create duplicate prompts or operations.",
+     "implemented": false
+    },
+    {
+     "id": "DC-CHANGE",
+     "title": "Relevant-set invalidation",
+     "positive": "Any participating chosen/unchosen revision, lifecycle/condition change or relevant participant addition/removal invalidates application and mode; unrelated records and presentation aliases do not.",
+     "negative": "Only the chosen hash is checked, a new alternative is missed, or unrelated whole-Team frontier movement forces requestions.",
+     "implemented": false
+    },
+    {
+     "id": "DC-RACE",
+     "title": "Answer admission",
+     "positive": "Question and answer bind the full comparison basis and relevant change generation; changed evidence before application refreshes the prompt and prevents stale use.",
+     "negative": "Same outer request ID or stale UI answer applies to new decisions; unavailable required comparison evidence is treated as empty or user-approved.",
+     "implemented": false
+    }
+   ]
+  },
+  {
+   "id": "N10",
+   "title": "Manual Team enrollment",
+   "availability": "planned",
+   "path": "gates/workenv/test_enrollment.py",
+   "command_template": [
+    "<prepared-python>",
+    "<conformance-driver>",
+    "--case-profile",
+    "<frozen-profile-id>",
+    "--family",
+    "N10"
+   ],
+   "oracles": [
+    "Exact founding/invite/consent/control commit supports manual device enrollment without external SSO",
+    "Changed founding proposal, delayed canceled invite, duplicate Team name, missing independent participant and reused bootstrap cannot grant access"
+   ],
+   "requires_real_evidence": false,
+   "implemented": false
+  },
+  {
+   "id": "N11",
+   "title": "Rights and exact approvals",
+   "availability": "planned",
+   "path": "gates/workenv/test_governance.py",
+   "command_template": [
+    "<prepared-python>",
+    "<conformance-driver>",
+    "--case-profile",
+    "<frozen-profile-id>",
+    "--family",
+    "N11"
+   ],
+   "oracles": [
+    "Scoped contribution/review/publication/adoption act within source ceilings",
+    "Self-add, requester/author self-review, revoked reviewer, stale policy/base and replayed request fail at owner execution, not just UI"
+   ],
+   "requires_real_evidence": false,
+   "implemented": false
+  },
+  {
+   "id": "N12",
+   "title": "Environment edition and adoption",
+   "availability": "planned",
+   "path": "gates/workenv/test_environments.py",
+   "command_template": [
+    "<prepared-python>",
+    "<conformance-driver>",
+    "--case-profile",
+    "<frozen-profile-id>",
+    "--family",
+    "N12"
+   ],
+   "oracles": [
+    "Exact layered repository/personal/Team composition and separate source publication/Team adoption retain durable source and effective-result identities.",
+    "Floating parents, unresolved winning required material, unexplained same-layer pins or partial shared publication cannot silently alter existing recipient state; a shadowed lower Team item cannot gate local startup."
+   ],
+   "requires_real_evidence": false,
+   "implemented": false
+  },
+  {
+   "id": "N13",
+   "title": "Exchange import and restrictions",
+   "availability": "planned",
+   "path": "gates/workenv/test_exchange.py",
+   "command_template": [
+    "<prepared-python>",
+    "<conformance-driver>",
+    "--case-profile",
+    "<frozen-profile-id>",
+    "--family",
+    "N13"
+   ],
+   "oracles": [
+    "Full/incremental/return packages verify control then permitted required bodies and retain acknowledgments",
+    "Truncation, missing baseline, altered bytes, wrong audience, traversal/executable payload, stale controls and newly learned revocation during partial import fail safely"
+   ],
+   "requires_real_evidence": false,
+   "implemented": false
+  },
+  {
+   "id": "N14",
+   "title": "Peer custody and recovery",
+   "availability": "planned",
+   "path": "gates/workenv/test_peer_recovery.py",
+   "command_template": [
+    "<prepared-python>",
+    "<conformance-driver>",
+    "--case-profile",
+    "<frozen-profile-id>",
+    "--family",
+    "N14"
+   ],
+   "oracles": [
+    "Two isolated real stores exchange and reconstruct exact permitted inventory without GitHub; storage generation scopes custody",
+    "Lost finalizer stays pending; copied keys, old-disk rollback, storage reset, unavailable full package and conflicting successors cannot fake authority or complete copies"
+   ],
+   "requires_real_evidence": false,
+   "implemented": false,
+   "evidence_kinds": [
+    "peer_reconstruction"
+   ]
+  },
+  {
+   "id": "N15",
+   "title": "Actual recipient adapters",
+   "availability": "planned",
+   "path": "gates/workenv/test_delivery.py",
+   "command_template": [
+    "<prepared-python>",
+    "<conformance-driver>",
+    "--case-profile",
+    "<frozen-profile-id>",
+    "--family",
+    "N15"
+   ],
+   "oracles": [
+    "Supported new/current/child/rehydrated recipient gets real bounded bodies with exact outcome evidence",
+    "Unsupported/custom-root resume bypass, incompatible context, missing reader, access change and lost responses never claim delivery or create duplicate effects"
+   ],
+   "requires_real_evidence": false,
+   "implemented": false,
+   "atomic_cases": [
+    {
+     "id": "DEL-PERSONAL",
+     "title": "Personal actual recipient",
+     "positive": "Actual bounded role bodies reach the identified personal recipient",
+     "negative": "Wrong recipient, missing body and invented session IDs fail",
+     "requires_nodes": [],
+     "implemented": false
+    },
+    {
+     "id": "DEL-TEAM",
+     "title": "Team actual recipient",
+     "positive": "Current Team grants, scoped sources and exact bodies reach the actual Team recipient",
+     "negative": "Revoked rights, wrong Team/recipient, unsupported resume and parent-only receipt cannot certify delivery",
+     "requires_nodes": [],
+     "implemented": false
+    },
+    {
+     "id": "CMP-PINS",
+     "title": "Existing recipient continuity",
+     "positive": "Later scope/order/on-off changes affect future preparation; stored original refs and delivered snapshots/pins stay attributable and unchanged.",
+     "negative": "Recomposition mutates an existing recipient, its historical premises or its source owners.",
+     "implemented": false
+    },
+    {
+     "id": "DC-HOST",
+     "title": "Decision-use question in the consuming host",
+     "positive": "The actual working CLI/app conversation asks only at its bound conflicting use, through the common local prepare/answer/resume owner and a qualified host reply route; accepted human-answer evidence resumes that same use.",
+     "negative": "Studio/TUI becomes the mandatory chooser, a new management task is opened to answer, a missing reply channel invents consent, or an agent-written user_confirmed/tool argument substitutes for a verified user response.",
+     "implemented": false
+    }
+   ]
+  },
+  {
+   "id": "N16",
+   "title": "Connected Studio/TUI routes",
+   "availability": "planned",
+   "path": "gates/workenv/test_studio.py",
+   "command_template": [
+    "<prepared-python>",
+    "<conformance-driver>",
+    "--case-profile",
+    "<frozen-profile-id>",
+    "--family",
+    "N16"
+   ],
+   "oracles": [
+    "One shared actor/Team/preparation fixture traverses personal start, W01-W10, direct links and returns through real operation adapters",
+    "Review-only save, navigation-cleared missing body, stale approval and closed-Team revival are rejected through visible controls and direct submissions"
+   ],
+   "requires_real_evidence": false,
+   "implemented": false,
+   "atomic_cases": [
+    {
+     "id": "TUI-ENTRY-OPTIONS",
+     "positive": "Concrete product names, selected values and action labels make normal startup understandable; its single explicit start action performs current owner checks and dispatches. Blocked conditions show a relevant reason and remedy. Important permission, additional model-call and shared effects remain visible at the choice. Explicit host routes and exact links preserve their scope.",
+     "negative": "Design criteria become permanent headings, generic effect panels, repeated normal-state disclaimers or a compulsory preview-confirm-start ceremony. Simplification hides a material effect, bypasses owner validation, infers business intent from a known host or starts from focus alone."
+    },
+    {
+     "id": "TUI-ENTRY-FOCUS",
+     "positive": "Different focused, explicitly selected and executing references stay attributable through arrows, Enter, Back and return.",
+     "negative": "Moving focus changes committed selection or the actual operation uses another item; color alone carries the distinction."
+    },
+    {
+     "id": "TUI-ENTRY-ACCOUNT-FREE",
+     "positive": "A first user with no Team/account/network/project can discover personal material or permitted preparation; defaults are labeled suggestions. Environment/startup preparation works without a goal form or business-target input.",
+     "negative": "Creating a Team, signing in or connecting GitHub is required before personal use, or a default fabricates source/session/Team identity. Missing intent is turned into a required-field error or filled with a guessed task."
+    },
+    {
+     "id": "TUI-ENTRY-REPO-NO-ENV",
+     "positive": "A bounded observed repository with no environment/history can use permitted personal/unadopted preparation and retain explicit provenance. Show observed cwd/revision and dated bounded checkpoints without treating them as current intent.",
+     "negative": "Folder presence becomes Team membership/adoption/recorded why; browsing initializes or uploads the project. A commit, previous next-step note or folder is treated as whole-task completion, current request or business target."
+    },
+    {
+     "id": "TUI-ENTRY-LOCAL-OFFLINE",
+     "positive": "Permitted local material remains useful; not-checked, checked-empty, missing, denied and remote-unknown states differ and retain selection and qualified next actions.",
+     "negative": "Connection failure empties the selected environment, implies latest shared state or silently logs in/syncs."
+    },
+    {
+     "id": "TUI-ENTRY-LOCKED",
+     "positive": "Locked/signed-out views disclose only permitted information; explicit reentry and late-response checks preserve the correct actor/scope.",
+     "negative": "Private titles/counts leak, navigation unlocks implicitly, or a late result appears in another scope."
+    },
+    {
+     "id": "TUI-ENTRY-UNKNOWN",
+     "positive": "A local preparation/delivery unknown result returns to the same request and last confirmed stage with an action to check that request. The recent record names its last confirmed stage, observed time and coverage without becoming a new task.",
+     "negative": "Reopen/back/default start generates a new request for the same unknown operation, claims failure/success or discards its draft. Reading history implicitly resumes/replays its work or adopts its suggested next step as current intention."
+    },
+    {
+     "id": "TUI-ENTRY-KO-STATE",
+     "positive": "Locale changes, long Korean/combining strings and paste fixtures preserve identities, choices, payload and field-local key behavior.",
+     "negative": "Translated labels alter source IDs or settings; raw character length clips important state; typing triggers global launch shortcuts. String injection is mislabeled as actual IME proof."
+    },
+    {
+     "id": "TUI-ENTRY-TEAM-SCOPE",
+     "positive": "Real multiple-Team providers preserve browse scope, selected basis and existing recipient independently, including no-environment and offline states. Location/checkpoints do not select the current Team; only explicit selection and actual recipient bindings do.",
+     "negative": "Matching Team names merge identities, browsing switches existing work, or local presence becomes adoption/current authority. A record associated with Team A silently assigns that Team or its old goal to current work.",
+     "requires_nodes": []
+    },
+    {
+     "id": "TUI-ENTRY-SHARED-UNKNOWN",
+     "positive": "Real shared-operation/lifecycle state returns to its exact Team/request and actual recovery route.",
+     "negative": "Another Team selection rehomes a prior unknown request, starts a duplicate operation or revives a closed Team.",
+     "requires_nodes": []
+    },
+    {
+     "id": "CMP-UI",
+     "title": "Original scopes and effective view",
+     "positive": "Nine original scope/role positions and their actual states are separately reachable; effective view identifies applied and shadowed units without hiding original metadata/bodies that are permitted. Conflicting decision material exposes pending/user-resolved application rather than an automatic repository winner.",
+     "negative": "One mixed environment erases scope boundaries; an effective output is displayed as an unchanged Team original, or selection/focus mutates another scope or active recipient.",
+     "implemented": false
+    }
+   ]
+  },
+  {
+   "id": "N17",
+   "title": "Optional GitHub carrier",
+   "availability": "planned",
+   "path": "gates/workenv/test_github_transport.py",
+   "command_template": [
+    "<prepared-python>",
+    "<conformance-driver>",
+    "--case-profile",
+    "<frozen-profile-id>",
+    "--family",
+    "N17"
+   ],
+   "oracles": [
+    "Explicitly bound permitted repository exchange preserves P2P-only operation and per-Team disconnect",
+    "Preference alone causes no network/auth/upload; repository rights are not Team grants; unknown provisioning does not create duplicates"
+   ],
+   "requires_real_evidence": false,
+   "implemented": false
+  },
+  {
+   "id": "N18",
+   "title": "Optional OIDC adapters",
+   "availability": "planned",
+   "path": "gates/workenv/test_oidc.py",
+   "command_template": [
+    "<prepared-python>",
+    "<conformance-driver>",
+    "--case-profile",
+    "<frozen-profile-id>",
+    "--family",
+    "N18"
+   ],
+   "oracles": [
+    "Verified Google/Slack/OIDC claims link intended principals under configured Team policy and explicit recovery",
+    "Wrong issuer/audience/workspace/nonce/replay, auto-email merge, secret export, provider outage and logout cannot create rights or override signout"
+   ],
+   "requires_real_evidence": false,
+   "implemented": false
+  },
+  {
+   "id": "N19",
+   "title": "Complete Team lifecycle",
+   "availability": "planned",
+   "path": "gates/workenv/test_team_lifecycle.py",
+   "command_template": [
+    "<prepared-python>",
+    "<conformance-driver>",
+    "--case-profile",
+    "<frozen-profile-id>",
+    "--family",
+    "N19"
+   ],
+   "oracles": [
+    "Metadata, membership, device/ownership and archive/restore/leave/forget/close have separate effects",
+    "Last custodian/finalizer, unfinished handoff, canceled founding, scoped continuation and closed evidence cases preserve authority and unique work"
+   ],
+   "requires_real_evidence": false,
+   "implemented": false
+  },
+  {
+   "id": "N20",
+   "title": "Advanced authoring and validation",
+   "availability": "planned",
+   "path": "gates/workenv/test_authoring.py",
+   "command_template": [
+    "<prepared-python>",
+    "<conformance-driver>",
+    "--case-profile",
+    "<frozen-profile-id>",
+    "--family",
+    "N20"
+   ],
+   "oracles": [
+    "Instructions, knowledge models/forms/questions and decision/event editors create owned revisions/events; validation is pinned",
+    "Dangling graphs, lost form exceptions, arbitrary validators, partial/empty lens results and changed targets cannot become accepted clean state"
+   ],
+   "requires_real_evidence": false,
+   "implemented": false
+  },
+  {
+   "id": "N21",
+   "title": "Search, derivatives, bulk and retention",
+   "availability": "planned",
+   "path": "gates/workenv/test_bulk_retention.py",
+   "command_template": [
+    "<prepared-python>",
+    "<conformance-driver>",
+    "--case-profile",
+    "<frozen-profile-id>",
+    "--family",
+    "N21"
+   ],
+   "oracles": [
+    "Scoped search and distinct permitted derivatives lead to provider-scoped bulk results and copy-specific retention outcomes",
+    "Restricted metadata, old required decisions, mixed-batch retry, held/unknown removal and derivative rights cannot be hidden by summaries"
+   ],
+   "requires_real_evidence": false,
+   "implemented": false
+  },
+  {
+   "id": "N22",
+   "title": "Disconnected end-to-end fault scenarios",
+   "availability": "planned",
+   "path": "gates/workenv/test_disconnected_e2e.py",
+   "command_template": [
+    "<prepared-python>",
+    "<conformance-driver>",
+    "--case-profile",
+    "<frozen-profile-id>",
+    "--family",
+    "N22"
+   ],
+   "oracles": [
+    "Three isolated processes, controlled test clock and network policy execute a week-scale offline scenario with actual durable stores",
+    "Missed exchange, logout plus committed write, partial restrictions, finalizer loss and recovery retain exact results; never modify the user clock"
+   ],
+   "requires_real_evidence": false,
+   "implemented": false
+  },
+  {
+   "id": "N23",
+   "title": "Real adapter qualification",
+   "availability": "planned",
+   "path": "gates/workenv/test_adapter_qualification.py",
+   "command_template": [
+    "<prepared-python>",
+    "<conformance-driver>",
+    "--case-profile",
+    "<frozen-profile-id>",
+    "--family",
+    "N23"
+   ],
+   "oracles": [
+    "Supported platform secret protection, native host delivery and controlled configured provider callback are observed at claimed evidence level",
+    "Missing keystore/provider/host capability is explicit unsupported/unverified; mocked keys or fake identity cannot certify production assurance",
+    "Working-host question qualification distinguishes actual human input from automated/native synthetic results and demonstrates supported fallback or truthful no-channel pending behavior without a Studio dependency."
+   ],
+   "requires_real_evidence": true,
+   "implemented": false,
+   "atomic_cases": [
+    {
+     "id": "DH-CONVERSATION",
+     "title": "Verified in-conversation fallback",
+     "positive": "Qualify a native question or ordinary-message fallback on the actual working CLI/app where independently verified human reply origin is available, bound to the same pending use/question. If that route is unavailable, record the observed limitation without a support claim; a separately qualified native form remains usable. The chosen interactive host scope must prove at least one human reply route.",
+     "negative": "An assistant quotation, agent-confirmed field, submitted tool payload, replayed other conversation, timeout/automatic answer or synthetic hook message is counted as a user reply. A transport result without distinguishable human origin remains pending or uses another qualified route.",
+     "human_evidence_artifact": "host-conversation-evidence",
+     "implemented": false
+    },
+    {
+     "id": "DH-PENDING",
+     "title": "No reply channel and non-answers",
+     "positive": "An actual unsupported/headless route or cancel/decline/timeout retains the affected use as durable pending_user with its existing identity; reconnect resumes it through a supported host. Independent work and an unchanged valid keep preference remain usable without a new question.",
+     "negative": "Headless execution chooses a default, repeatedly creates a new question/use, sends the user to mandatory Studio, or treats non-answer/automatic acceptance as consent.",
+     "implemented": false
+    }
+   ]
+  },
+  {
+   "id": "N24",
+   "title": "Controlled cutover and target package",
+   "availability": "planned",
+   "path": "gates/workenv/test_cutover.py",
+   "command_template": [
+    "<prepared-python>",
+    "<conformance-driver>",
+    "--case-profile",
+    "<frozen-profile-id>",
+    "--family",
+    "N24"
+   ],
+   "oracles": [
+    "Target fresh install or explicit one-time selected-data transfer verifies before ownership changes; unfinished transfer preserves the source",
+    "Old writers are stopped before cutover; target runtime/assets/tests are correctly packaged; target-version recovery preserves new control history; no generic downgrade or legacy API support required",
+    "A source edit or new outbox item between initial conversion and writer shutdown prevents switching until the final quiesced revision is captured and validated"
+   ],
+   "requires_real_evidence": false,
+   "implemented": false,
+   "evidence_kinds": [
+    "candidate_construction",
+    "controlled_cutover"
+   ]
+  },
+  {
+   "id": "N25",
+   "title": "AI runner evidence/replan conformance",
+   "availability": "planned",
+   "path": "gates/workenv/test_runner_contract.py",
+   "command_template": [
+    "<prepared-python>",
+    "<conformance-driver>",
+    "--case-profile",
+    "<frozen-profile-id>",
+    "--family",
+    "N25"
+   ],
+   "oracles": [
+    "A chosen runner resumes exact run/task/attempt IDs and consumes only accepted predecessor artifacts",
+    "Missing or stale result, cycle, conflicting file owner, changed contract, interrupted integration and skipped mandatory checks cannot mark a task accepted"
+   ],
+   "requires_real_evidence": true,
+   "implemented": false,
+   "atomic_cases": [
+    {
+     "id": "RUN-DEPENDENCIES",
+     "title": "Required evidence graph",
+     "positive": "Synthetic build and verification results unlock only their true dependents",
+     "negative": "Missing/stale/failed verification or wrong subject blocks terminal acceptance",
+     "requires_nodes": [],
+     "implemented": false
+    },
+    {
+     "id": "RUN-RESUME",
+     "title": "Exact attempt recovery",
+     "positive": "Restart resumes recorded run/node/attempt and reconciles unknown integration",
+     "negative": "Unknown attempt must not be silently duplicated or overwritten",
+     "requires_nodes": [],
+     "implemented": false
+    },
+    {
+     "id": "RUN-OWNERSHIP",
+     "title": "Bounded integration",
+     "positive": "Selected runner enforces owned-file scopes and serialized shared integration",
+     "negative": "Conflicting writers, stale base or unexpected edits cannot be accepted",
+     "requires_nodes": [],
+     "implemented": false
+    },
+    {
+     "id": "RUN-MODE",
+     "title": "Qualification and execution mode",
+     "positive": "Unattended dispatch records an already accepted matching qualification",
+     "negative": "Absent, stale or self-issued unattended qualification cannot authorize dispatch",
+     "requires_nodes": [],
+     "implemented": false
+    }
+   ]
+  },
+  {
+   "id": "N27",
+   "title": "Source storage, scope and repository binding",
+   "availability": "planned",
+   "path": "gates/workenv/test_source_binding.py",
+   "command_template": [
+    "<prepared-python>",
+    "<conformance-driver>",
+    "--case-profile",
+    "<frozen-profile-id>",
+    "--family",
+    "N27"
+   ],
+   "oracles": [
+    "Enforce the positive cases within their declared source/authority scope",
+    "Reject the named negative cases without changing unrelated or unaccepted state"
+   ],
+   "requires_real_evidence": false,
+   "implemented": false,
+   "atomic_cases": [
+    {
+     "id": "SRC-01",
+     "title": "Exact repository observation",
+     "positive": "Selected tracked, dirty and untracked bytes retain one exact snapshot",
+     "negative": "HEAD-only or changed selected bytes cannot certify an unchanged observation",
+     "implemented": false
+    },
+    {
+     "id": "SRC-02",
+     "title": "Bounded acquisition",
+     "positive": "Only selected permitted roots/records are inspected",
+     "negative": "Traversal, adjacent repo, unselected transcript or hidden companion is not read; required missing content is a gap",
+     "implemented": false
+    },
+    {
+     "id": "SRC-03",
+     "title": "Work versus sync repository",
+     "positive": "Project evidence and Team exchange binding stay separate",
+     "negative": "Selecting a repo creates no Team/metadata/commit/upload",
+     "implemented": false
+    },
+    {
+     "id": "SRC-04",
+     "title": "Supplied source",
+     "positive": "Exact publisher-owned K is installed/read with evidence and original ownership",
+     "negative": "Installation cannot make Team adoption/history or edit rights; illustrative ADR is not a real past choice",
+     "implemented": false
+    },
+    {
+     "id": "SRC-06",
+     "title": "Applicability versus recipient",
+     "positive": "Repo/Team home and broader applicability keep separate access constraints",
+     "negative": "Same repo or wider label cannot expose another Team source or add a processing recipient",
+     "implemented": false
+    },
+    {
+     "id": "SRC-07",
+     "title": "Cached source",
+     "positive": "Exact local sources support scoped authorized offline work",
+     "negative": "Denied/unreachable is not empty and unchanged bytes do not cancel a new qualification",
+     "implemented": false
+    },
+    {
+     "id": "SRC-08",
+     "title": "New domain",
+     "positive": "A new local knowledge source/candidate can be created with scope",
+     "negative": "Unknown category cannot change Instructions domains/global ontology or auto-adopt Team content",
+     "implemented": false
+    },
+    {
+     "id": "SRC-10",
+     "title": "Clone fork branch continuity",
+     "positive": "Verified worktrees share repo identity with exact observations; fork records deliberate ancestry/new authority",
+     "negative": "Copied manifest cannot create another writer; file absence or branch switch is not a withdrawal",
+     "implemented": false
+    },
+    {
+     "id": "SRC-11",
+     "title": "Qualified record identity",
+     "positive": "Same local ADR number in two repos remains distinct; shared reference is one source record Collection application layer and original source ownership remain separate.",
+     "negative": "Title/body equality cannot merge owners or rewrite repo R when Team A edits its own wrapper",
+     "implemented": false
+    },
+    {
+     "id": "CMP-STORAGE",
+     "title": "Nine original collection positions",
+     "positive": "Repository/personal/Team each persist separate Instructions, knowledge and memory bindings, originals and drafts; optional effective snapshots retain source refs outside source authority.",
+     "negative": "A flattened applied view overwrites a scope/role original, changes its owner or is reimported as a second authoritative source.",
+     "implemented": false
+    },
+    {
+     "id": "CMP-ORDER",
+     "title": "Repository-first units",
+     "positive": "For Instructions/knowledge under the same explicit concern and applicable conditions, repository wins then personal then Team; no repository starts at personal, and non-overlapping lower units remain. Unkeyed prose retains separately labeled layers and the same Instructions/knowledge application order; lack of machine keys does not restore no precedence.",
+     "negative": "A whole higher collection hides unrelated lower material; default order silently changes or a lower body rewrites the resolver priority. This order must not silently select a conflicting decision.",
+     "implemented": false
+    },
+    {
+     "id": "CMP-SELECT",
+     "title": "Persistent explicit selection",
+     "positive": "Absence permits lower inheritance; disabling a source or scope/role position excludes only that selection across restart/recomposition, while other layers may supply the concern.",
+     "negative": "An excluded source reappears, disabling one position suppresses unrelated layers, or an empty higher layer erases all lower content.",
+     "implemented": false
+    },
+    {
+     "id": "CMP-LOCAL",
+     "title": "Local adaptation without Team control",
+     "positive": "Own repository/personal content overrides Team work content without Team approval/adoption/waiver or connection. A shadowed/disabled lower Team mandatory, missing or denied unit cannot gate independent startup. This removes Team approval, not the separate user arbitration of conflicting decision application.",
+     "negative": "A Team approval RPC, research-only condition or mandatory-content check restores Team control over a permitted local override. Protected bytes genuinely reused retain their own rights.",
+     "implemented": false
+    },
+    {
+     "id": "CMP-QUALIFIED",
+     "title": "Unresolved winner is not absence",
+     "positive": "Known missing/denied/corrupt winning required startup units are qualified and resolved or explicitly deselected; same-layer ambiguity uses explicit choice or stays unresolved for the affected query.",
+     "negative": "Silent lower fallback claims an inaccessible selected winner is satisfied; every future semantic question is forced into first-screen approval despite no actual task.",
+     "implemented": false
+    },
+    {
+     "id": "CMP-MEANING",
+     "title": "Application preserves meaning",
+     "positive": "Knowledge keeps conditions/evidence. Conflicting decision application uses a current user resolution; all original decisions, reasons and source-internal lifecycle remain intact.",
+     "negative": "Priority is treated as factual truth, cross-source withdrawal, acceptance or deletion; historical rationale disappears from source views.",
+     "implemented": false
+    },
+    {
+     "id": "CMP-RIGHTS",
+     "title": "Priority is not a grant",
+     "positive": "Actual protected bytes retain read/use/export/retention constraints even when referenced in a repository layer; actual Team source/grant/shared mutations use their owner.",
+     "negative": "Independent local content is blocked by Team content policy, or local override is used to acquire protected bodies or change Team-owned state.",
+     "implemented": false
+    }
+   ]
+  },
+  {
+   "id": "N28",
+   "title": "Typed intake, distillation and destination acceptance",
+   "availability": "planned",
+   "path": "gates/workenv/test_intake.py",
+   "command_template": [
+    "<prepared-python>",
+    "<conformance-driver>",
+    "--case-profile",
+    "<frozen-profile-id>",
+    "--family",
+    "N28"
+   ],
+   "oracles": [
+    "Enforce the positive cases within their declared source/authority scope",
+    "Reject the named negative cases without changing unrelated or unaccepted state"
+   ],
+   "requires_real_evidence": false,
+   "implemented": false,
+   "atomic_cases": [
+    {
+     "id": "CAP-01",
+     "title": "Input and processor authority",
+     "positive": "Explicit source/range/processor creates attributable capture",
+     "negative": "On-disk transcript or guessed session name does not grant wider source or model access",
+     "implemented": false
+    },
+    {
+     "id": "CAP-02",
+     "title": "Disclosure boundary",
+     "positive": "Each contributing source permits the processing/storage/destination",
+     "negative": "Redaction or read permission alone cannot authorize cloud prompts, logs or another Team receipt",
+     "implemented": false
+    },
+    {
+     "id": "CAP-03",
+     "title": "Role separation",
+     "positive": "Knowledge and decision candidates enter their typed source path",
+     "negative": "Capture cannot become an always instruction or accepted current memory",
+     "implemented": false
+    },
+    {
+     "id": "CAP-04",
+     "title": "Candidate editing",
+     "positive": "Candidate changes preserve captured source provenance",
+     "negative": "Editing candidate cannot mutate transcript, repository original, supplied package or past event",
+     "implemented": false
+    },
+    {
+     "id": "CAP-05",
+     "title": "Missing historical why",
+     "positive": "Explicit choice without reason remains missing; later explanation is labeled",
+     "negative": "No invented rationale/alternatives/approval or backdated capture/adoption",
+     "implemented": false
+    },
+    {
+     "id": "CAP-06",
+     "title": "Attribution",
+     "positive": "Imported ADR retains source actor/time/claims and their evidence strength",
+     "negative": "Importer/model is not historical author; commit/status string is not Team approval",
+     "implemented": false
+    },
+    {
+     "id": "CAP-07",
+     "title": "Destination acceptance",
+     "positive": "Allowed exact revision/event commit yields destination receipt, then separate adoption if needed",
+     "negative": "Review-only/candidate save/upload cannot publish, adopt or modify active preparation",
+     "implemented": false
+    },
+    {
+     "id": "CAP-08",
+     "title": "Candidate consumption",
+     "positive": "Selected local candidates can support ordinary permitted work with their actual candidate/unadopted provenance; Team source publication/adoption stays separate.",
+     "negative": "Local use is restricted to research solely because Team adoption is absent, or using a candidate falsely establishes shared acceptance or overrides actual source rights.",
+     "implemented": false
+    },
+    {
+     "id": "CAP-09",
+     "title": "Scope expansion",
+     "positive": "A repo-local finding can become a qualified broader candidate under actual source/target rights",
+     "negative": "Repo-to-Team or Team-A-to-B promotion cannot silently widen authority/applicability or disclose private evidence",
+     "implemented": false
+    },
+    {
+     "id": "CAP-10",
+     "title": "Replay and unknown outcome",
+     "positive": "Same exact operation/source frontier returns prior result; separate sources remain attributable",
+     "negative": "Replays or multiple model extracts of one source cannot duplicate decisions/recurrence; unknown commit uses same ID",
+     "implemented": false
+    },
+    {
+     "id": "CAP-11",
+     "title": "Access and late responses",
+     "positive": "Save/present/promote reevaluates current session and source rights for fixed target",
+     "negative": "Logout, changed Team/policy, canceled nonce or changed selected bytes cannot redirect a late extraction",
+     "implemented": false
+    },
+    {
+     "id": "CAP-12",
+     "title": "Retention",
+     "positive": "Candidates, excerpts, prompts and indexes have permitted retained provenance and cleanup",
+     "negative": "Deleting forbidden retained evidence cannot silently keep derived copies or invent replacement proof",
+     "implemented": false
+    },
+    {
+     "id": "CAP-13",
+     "title": "Restricted state",
+     "positive": "Permitted qualified current state can inform a bounded candidate",
+     "negative": "No inference/disclosure of confidential reasons, hidden IDs/counts or claim hidden event delivery",
+     "implemented": false
+    },
+    {
+     "id": "CAP-14",
+     "title": "Packaged real extractor",
+     "positive": "Installed target uses a supported packaged adapter and declared dependencies",
+     "negative": "No runtime import of author-only ledger/distill scripts, shared mutable out directory or fake success fallback",
+     "implemented": false,
+     "requires_nodes": [
+      "PK"
+     ]
+    }
+   ]
+  }
+ ],
+ "observed_baseline": [
+  {
+   "id": "B01",
+   "command": [
+    "python3",
+    "compose/test_instructions_compatibility.py"
+   ],
+   "tests": 12,
+   "seconds": 0.332,
+   "exit_code": 0
+  },
+  {
+   "id": "B02",
+   "command": [
+    "python3",
+    "compose/test_instructions_app.py"
+   ],
+   "tests": 23,
+   "seconds": 21.127,
+   "exit_code": 0
+  },
+  {
+   "id": "B03",
+   "command": [
+    "python3",
+    "compose/test_instructions_transactions.py"
+   ],
+   "tests": 3,
+   "seconds": 6.756,
+   "exit_code": 0
+  }
+ ],
+ "baseline_semantics": "Historical/current behavior evidence only; user does not require backward compatibility. Changes to obsolete tests must be traced to target contract, not treated as silent passes.",
+ "profiles": {
+  "P00": {
+   "family_ids": [
+    "B01",
+    "B02",
+    "B03",
+    "B04",
+    "B05"
+   ],
+   "scope": "Only the task-owned contract behaviors and explicit negative cases; no unimplemented downstream family requirement",
+   "case_ids_status": "fixed-coordinator-bootstrap",
+   "required_case_ids": [],
+   "meaning": "Empty case IDs before contract-freeze mean not yet runnable, never a passed/empty test profile.",
+   "required_atomic_case_ids": [],
+   "binding_policy": "P01 freezes executable case/adapter binding without changing this immutable acceptance contract; unbound implementation profiles are not runnable.",
+   "bootstrap_cases": [
+    "P00-contract-positive",
+    "P00-contract-negative"
+   ]
+  },
+  "P01": {
+   "family_ids": [
+    "N01"
+   ],
+   "scope": "Coordinator-controlled contract/schema/case registry and platform binding freeze; R0 separately performs actual runner qualification before unattended dispatch",
+   "case_ids_status": "fixed-coordinator-bootstrap",
+   "required_case_ids": [],
+   "meaning": "Empty case IDs before contract-freeze mean not yet runnable, never a passed/empty test profile.",
+   "required_atomic_case_ids": [],
+   "binding_policy": "P01 freezes executable case/adapter binding without changing this immutable acceptance contract; unbound implementation profiles are not runnable.",
+   "bootstrap_cases": [
+    "P01-contract-positive",
+    "P01-contract-negative"
+   ]
+  },
+  "V1": {
+   "family_ids": [
+    "N01",
+    "N04",
+    "N05",
+    "N09",
+    "N15",
+    "N16",
+    "N27"
+   ],
+   "scope": "Personal start in this repository: local profile, repository/personal/supplied composition, preparation, delivery to an actual session and its record. Steps a case uses that a later stage serves are given.",
+   "case_ids_status": "frozen-by-P01",
+   "required_case_ids": [],
+   "meaning": "Empty case IDs before contract-freeze mean not yet runnable, never a passed/empty test profile.",
+   "required_atomic_case_ids": [
+    "CMP-ORDER",
+    "CMP-PINS",
+    "CMP-QUALIFIED",
+    "CMP-SELECT",
+    "CMP-STORAGE",
+    "DEL-PERSONAL",
+    "SRC-01",
+    "TUI-ENTRY-ACCOUNT-FREE",
+    "TUI-ENTRY-FOCUS",
+    "TUI-ENTRY-KO-STATE",
+    "TUI-ENTRY-OPTIONS",
+    "TUI-ENTRY-REPO-NO-ENV",
+    "TUI-ENTRY-UNKNOWN"
+   ],
+   "binding_policy": "P01 freezes executable case/adapter binding without changing this immutable acceptance contract; unbound implementation profiles are not runnable."
+  },
+  "V2": {
+   "family_ids": [
+    "N01",
+    "N04",
+    "N05",
+    "N07",
+    "N08",
+    "N09",
+    "N15",
+    "N16",
+    "N23",
+    "N27"
+   ],
+   "scope": "Decision memory and its use: recording, reading across sessions and models, conflict questions in the actual working host with verified human answers, keep/ask lifetime; with every V1 case.",
+   "case_ids_status": "frozen-by-P01",
+   "required_case_ids": [],
+   "meaning": "Empty case IDs before contract-freeze mean not yet runnable, never a passed/empty test profile.",
+   "required_atomic_case_ids": [
+    "CMP-ORDER",
+    "CMP-PINS",
+    "CMP-QUALIFIED",
+    "CMP-SELECT",
+    "CMP-STORAGE",
+    "CMP-UI",
+    "DC-ASK",
+    "DC-CHANGE",
+    "DC-CHOICE",
+    "DC-HOST",
+    "DC-KEEP",
+    "DC-RACE",
+    "DC-SET",
+    "DEL-PERSONAL",
+    "DH-CONVERSATION",
+    "DH-PENDING",
+    "SRC-01",
+    "SRC-10",
+    "SRC-11",
+    "TUI-ENTRY-ACCOUNT-FREE",
+    "TUI-ENTRY-FOCUS",
+    "TUI-ENTRY-KO-STATE",
+    "TUI-ENTRY-OPTIONS",
+    "TUI-ENTRY-REPO-NO-ENV",
+    "TUI-ENTRY-UNKNOWN"
+   ],
+   "binding_policy": "P01 freezes executable case/adapter binding without changing this immutable acceptance contract; unbound implementation profiles are not runnable."
+  },
+  "V3": {
+   "family_ids": [
+    "N01",
+    "N04",
+    "N05",
+    "N06",
+    "N07",
+    "N08",
+    "N09",
+    "N15",
+    "N16",
+    "N23",
+    "N27"
+   ],
+   "scope": "Scoped knowledge with applicability and revisions, its packages and imports, read by a session; with every earlier stage's case.",
+   "case_ids_status": "frozen-by-P01",
+   "required_case_ids": [],
+   "meaning": "Empty case IDs before contract-freeze mean not yet runnable, never a passed/empty test profile.",
+   "required_atomic_case_ids": [
+    "CMP-ORDER",
+    "CMP-PINS",
+    "CMP-QUALIFIED",
+    "CMP-SELECT",
+    "CMP-STORAGE",
+    "CMP-UI",
+    "DC-ASK",
+    "DC-CHANGE",
+    "DC-CHOICE",
+    "DC-HOST",
+    "DC-KEEP",
+    "DC-RACE",
+    "DC-SET",
+    "DEL-PERSONAL",
+    "DH-CONVERSATION",
+    "DH-PENDING",
+    "SRC-01",
+    "SRC-04",
+    "SRC-10",
+    "SRC-11",
+    "TUI-ENTRY-ACCOUNT-FREE",
+    "TUI-ENTRY-FOCUS",
+    "TUI-ENTRY-KO-STATE",
+    "TUI-ENTRY-OPTIONS",
+    "TUI-ENTRY-REPO-NO-ENV",
+    "TUI-ENTRY-UNKNOWN"
+   ],
+   "binding_policy": "P01 freezes executable case/adapter binding without changing this immutable acceptance contract; unbound implementation profiles are not runnable."
+  },
+  "V4": {
+   "family_ids": [
+    "N01",
+    "N02",
+    "N03",
+    "N04",
+    "N05",
+    "N06",
+    "N07",
+    "N08",
+    "N09",
+    "N15",
+    "N16",
+    "N23",
+    "N27"
+   ],
+   "scope": "Access lifecycle: lock, sign-out, unlock, stale handles and key rotation over everything earlier stages built; with every earlier stage's case.",
+   "case_ids_status": "frozen-by-P01",
+   "required_case_ids": [],
+   "meaning": "Empty case IDs before contract-freeze mean not yet runnable, never a passed/empty test profile.",
+   "required_atomic_case_ids": [
+    "CMP-ORDER",
+    "CMP-PINS",
+    "CMP-QUALIFIED",
+    "CMP-SELECT",
+    "CMP-STORAGE",
+    "CMP-UI",
+    "DC-ASK",
+    "DC-CHANGE",
+    "DC-CHOICE",
+    "DC-HOST",
+    "DC-KEEP",
+    "DC-RACE",
+    "DC-SET",
+    "DEL-PERSONAL",
+    "DH-CONVERSATION",
+    "DH-PENDING",
+    "SRC-01",
+    "SRC-04",
+    "SRC-10",
+    "SRC-11",
+    "TUI-ENTRY-ACCOUNT-FREE",
+    "TUI-ENTRY-FOCUS",
+    "TUI-ENTRY-KO-STATE",
+    "TUI-ENTRY-LOCKED",
+    "TUI-ENTRY-OPTIONS",
+    "TUI-ENTRY-REPO-NO-ENV",
+    "TUI-ENTRY-UNKNOWN"
+   ],
+   "binding_policy": "P01 freezes executable case/adapter binding without changing this immutable acceptance contract; unbound implementation profiles are not runnable."
+  },
+  "V5": {
+   "family_ids": [
+    "N01",
+    "N02",
+    "N03",
+    "N04",
+    "N05",
+    "N06",
+    "N07",
+    "N08",
+    "N09",
+    "N10",
+    "N11",
+    "N12",
+    "N13",
+    "N14",
+    "N15",
+    "N16",
+    "N22",
+    "N23",
+    "N27"
+   ],
+   "scope": "Manual Team founding and membership, governance, environments, package and peer exchange, and the Team position of composition; with every earlier stage's case.",
+   "case_ids_status": "frozen-by-P01",
+   "required_case_ids": [],
+   "meaning": "Empty case IDs before contract-freeze mean not yet runnable, never a passed/empty test profile.",
+   "required_atomic_case_ids": [
+    "CMP-LOCAL",
+    "CMP-MEANING",
+    "CMP-ORDER",
+    "CMP-PINS",
+    "CMP-QUALIFIED",
+    "CMP-RIGHTS",
+    "CMP-SELECT",
+    "CMP-STORAGE",
+    "CMP-UI",
+    "DC-ASK",
+    "DC-CHANGE",
+    "DC-CHOICE",
+    "DC-HOST",
+    "DC-KEEP",
+    "DC-RACE",
+    "DC-SET",
+    "DEL-PERSONAL",
+    "DEL-TEAM",
+    "DH-CONVERSATION",
+    "DH-PENDING",
+    "SRC-01",
+    "SRC-03",
+    "SRC-04",
+    "SRC-06",
+    "SRC-07",
+    "SRC-10",
+    "SRC-11",
+    "TUI-ENTRY-ACCOUNT-FREE",
+    "TUI-ENTRY-FOCUS",
+    "TUI-ENTRY-KO-STATE",
+    "TUI-ENTRY-LOCAL-OFFLINE",
+    "TUI-ENTRY-LOCKED",
+    "TUI-ENTRY-OPTIONS",
+    "TUI-ENTRY-REPO-NO-ENV",
+    "TUI-ENTRY-TEAM-SCOPE",
+    "TUI-ENTRY-UNKNOWN"
+   ],
+   "binding_policy": "P01 freezes executable case/adapter binding without changing this immutable acceptance contract; unbound implementation profiles are not runnable."
+  },
+  "V6": {
+   "family_ids": [
+    "N01",
+    "N02",
+    "N03",
+    "N04",
+    "N05",
+    "N06",
+    "N07",
+    "N08",
+    "N09",
+    "N10",
+    "N11",
+    "N12",
+    "N13",
+    "N14",
+    "N15",
+    "N16",
+    "N22",
+    "N23",
+    "N27",
+    "N28"
+   ],
+   "scope": "Permitted capture, typed candidates, validation, destination acceptance and candidate use; with every earlier stage's case.",
+   "case_ids_status": "frozen-by-P01",
+   "required_case_ids": [],
+   "meaning": "Empty case IDs before contract-freeze mean not yet runnable, never a passed/empty test profile.",
+   "required_atomic_case_ids": [
+    "CAP-01",
+    "CAP-02",
+    "CAP-03",
+    "CAP-04",
+    "CAP-05",
+    "CAP-06",
+    "CAP-07",
+    "CAP-08",
+    "CAP-09",
+    "CAP-10",
+    "CAP-11",
+    "CAP-13",
+    "CMP-LOCAL",
+    "CMP-MEANING",
+    "CMP-ORDER",
+    "CMP-PINS",
+    "CMP-QUALIFIED",
+    "CMP-RIGHTS",
+    "CMP-SELECT",
+    "CMP-STORAGE",
+    "CMP-UI",
+    "DC-ASK",
+    "DC-CHANGE",
+    "DC-CHOICE",
+    "DC-HOST",
+    "DC-KEEP",
+    "DC-RACE",
+    "DC-SET",
+    "DEL-PERSONAL",
+    "DEL-TEAM",
+    "DH-CONVERSATION",
+    "DH-PENDING",
+    "SRC-01",
+    "SRC-02",
+    "SRC-03",
+    "SRC-04",
+    "SRC-06",
+    "SRC-07",
+    "SRC-08",
+    "SRC-10",
+    "SRC-11",
+    "TUI-ENTRY-ACCOUNT-FREE",
+    "TUI-ENTRY-FOCUS",
+    "TUI-ENTRY-KO-STATE",
+    "TUI-ENTRY-LOCAL-OFFLINE",
+    "TUI-ENTRY-LOCKED",
+    "TUI-ENTRY-OPTIONS",
+    "TUI-ENTRY-REPO-NO-ENV",
+    "TUI-ENTRY-TEAM-SCOPE",
+    "TUI-ENTRY-UNKNOWN"
+   ],
+   "binding_policy": "P01 freezes executable case/adapter binding without changing this immutable acceptance contract; unbound implementation profiles are not runnable."
+  },
+  "V7": {
+   "family_ids": [
+    "N01",
+    "N02",
+    "N03",
+    "N04",
+    "N05",
+    "N06",
+    "N07",
+    "N08",
+    "N09",
+    "N10",
+    "N11",
+    "N12",
+    "N13",
+    "N14",
+    "N15",
+    "N16",
+    "N17",
+    "N18",
+    "N22",
+    "N23",
+    "N27",
+    "N28"
+   ],
+   "scope": "GitHub carrier and provider sign-in, each optional, with every permitted path still working without them; with every earlier stage's case.",
+   "case_ids_status": "frozen-by-P01",
+   "required_case_ids": [],
+   "meaning": "Empty case IDs before contract-freeze mean not yet runnable, never a passed/empty test profile.",
+   "required_atomic_case_ids": [
+    "CAP-01",
+    "CAP-02",
+    "CAP-03",
+    "CAP-04",
+    "CAP-05",
+    "CAP-06",
+    "CAP-07",
+    "CAP-08",
+    "CAP-09",
+    "CAP-10",
+    "CAP-11",
+    "CAP-13",
+    "CMP-LOCAL",
+    "CMP-MEANING",
+    "CMP-ORDER",
+    "CMP-PINS",
+    "CMP-QUALIFIED",
+    "CMP-RIGHTS",
+    "CMP-SELECT",
+    "CMP-STORAGE",
+    "CMP-UI",
+    "DC-ASK",
+    "DC-CHANGE",
+    "DC-CHOICE",
+    "DC-HOST",
+    "DC-KEEP",
+    "DC-RACE",
+    "DC-SET",
+    "DEL-PERSONAL",
+    "DEL-TEAM",
+    "DH-CONVERSATION",
+    "DH-PENDING",
+    "SRC-01",
+    "SRC-02",
+    "SRC-03",
+    "SRC-04",
+    "SRC-06",
+    "SRC-07",
+    "SRC-08",
+    "SRC-10",
+    "SRC-11",
+    "TUI-ENTRY-ACCOUNT-FREE",
+    "TUI-ENTRY-FOCUS",
+    "TUI-ENTRY-KO-STATE",
+    "TUI-ENTRY-LOCAL-OFFLINE",
+    "TUI-ENTRY-LOCKED",
+    "TUI-ENTRY-OPTIONS",
+    "TUI-ENTRY-REPO-NO-ENV",
+    "TUI-ENTRY-TEAM-SCOPE",
+    "TUI-ENTRY-UNKNOWN"
+   ],
+   "binding_policy": "P01 freezes executable case/adapter binding without changing this immutable acceptance contract; unbound implementation profiles are not runnable."
+  },
+  "V8": {
+   "family_ids": [
+    "N01",
+    "N02",
+    "N03",
+    "N04",
+    "N05",
+    "N06",
+    "N07",
+    "N08",
+    "N09",
+    "N10",
+    "N11",
+    "N12",
+    "N13",
+    "N14",
+    "N15",
+    "N16",
+    "N17",
+    "N18",
+    "N19",
+    "N20",
+    "N21",
+    "N22",
+    "N23",
+    "N27",
+    "N28"
+   ],
+   "scope": "Backup and recovery, retention and deletion, search, bulk operations, authoring, the Studio bridge, guarded entrances and the Team lifecycle; with every earlier stage's case.",
+   "case_ids_status": "frozen-by-P01",
+   "required_case_ids": [],
+   "meaning": "Empty case IDs before contract-freeze mean not yet runnable, never a passed/empty test profile.",
+   "required_atomic_case_ids": [
+    "BKP-COVERAGE",
+    "BKP-INTEGRITY",
+    "BKP-PASSIVE",
+    "BKP-RESTORE",
+    "CAP-01",
+    "CAP-02",
+    "CAP-03",
+    "CAP-04",
+    "CAP-05",
+    "CAP-06",
+    "CAP-07",
+    "CAP-08",
+    "CAP-09",
+    "CAP-10",
+    "CAP-11",
+    "CAP-12",
+    "CAP-13",
+    "CMP-LOCAL",
+    "CMP-MEANING",
+    "CMP-ORDER",
+    "CMP-PINS",
+    "CMP-QUALIFIED",
+    "CMP-RIGHTS",
+    "CMP-SELECT",
+    "CMP-STORAGE",
+    "CMP-UI",
+    "DC-ASK",
+    "DC-CHANGE",
+    "DC-CHOICE",
+    "DC-DURABLE",
+    "DC-HOST",
+    "DC-KEEP",
+    "DC-RACE",
+    "DC-SET",
+    "DEL-PERSONAL",
+    "DEL-TEAM",
+    "DH-CONVERSATION",
+    "DH-PENDING",
+    "SRC-01",
+    "SRC-02",
+    "SRC-03",
+    "SRC-04",
+    "SRC-06",
+    "SRC-07",
+    "SRC-08",
+    "SRC-10",
+    "SRC-11",
+    "TUI-ENTRY-ACCOUNT-FREE",
+    "TUI-ENTRY-FOCUS",
+    "TUI-ENTRY-KO-STATE",
+    "TUI-ENTRY-LOCAL-OFFLINE",
+    "TUI-ENTRY-LOCKED",
+    "TUI-ENTRY-OPTIONS",
+    "TUI-ENTRY-REPO-NO-ENV",
+    "TUI-ENTRY-SHARED-UNKNOWN",
+    "TUI-ENTRY-TEAM-SCOPE",
+    "TUI-ENTRY-UNKNOWN"
+   ],
+   "binding_policy": "P01 freezes executable case/adapter binding without changing this immutable acceptance contract; unbound implementation profiles are not runnable."
+  },
+  "PK": {
+   "family_ids": [
+    "N24"
+   ],
+   "scope": "Candidate tarball, inventory and cutover plan built from the accepted stages, using this node's own candidate; no real cutover and no product source change.",
+   "case_ids_status": "frozen-by-P01",
+   "required_case_ids": [],
+   "meaning": "Empty case IDs before contract-freeze mean not yet runnable, never a passed/empty test profile.",
+   "required_atomic_case_ids": [],
+   "binding_policy": "P01 freezes executable case/adapter binding without changing this immutable acceptance contract; unbound implementation profiles are not runnable.",
+   "uses_own_candidate": [
+    "package-candidate"
+   ]
+  },
+  "V9": {
+   "family_ids": [
+    "N01",
+    "N02",
+    "N03",
+    "N04",
+    "N05",
+    "N06",
+    "N07",
+    "N08",
+    "N09",
+    "N10",
+    "N11",
+    "N12",
+    "N13",
+    "N14",
+    "N15",
+    "N16",
+    "N17",
+    "N18",
+    "N19",
+    "N20",
+    "N21",
+    "N22",
+    "N23",
+    "N24",
+    "N27",
+    "N28"
+   ],
+   "scope": "Every stage's cases and direct checks on the installed candidate, the actual host routes and the packaged extractor; read-only.",
+   "case_ids_status": "frozen-by-P01",
+   "required_case_ids": [],
+   "meaning": "Empty case IDs before contract-freeze mean not yet runnable, never a passed/empty test profile.",
+   "required_atomic_case_ids": [
+    "BKP-COVERAGE",
+    "BKP-INTEGRITY",
+    "BKP-PASSIVE",
+    "BKP-RESTORE",
+    "CAP-01",
+    "CAP-02",
+    "CAP-03",
+    "CAP-04",
+    "CAP-05",
+    "CAP-06",
+    "CAP-07",
+    "CAP-08",
+    "CAP-09",
+    "CAP-10",
+    "CAP-11",
+    "CAP-12",
+    "CAP-13",
+    "CAP-14",
+    "CMP-LOCAL",
+    "CMP-MEANING",
+    "CMP-ORDER",
+    "CMP-PINS",
+    "CMP-QUALIFIED",
+    "CMP-RIGHTS",
+    "CMP-SELECT",
+    "CMP-STORAGE",
+    "CMP-UI",
+    "DC-ASK",
+    "DC-CHANGE",
+    "DC-CHOICE",
+    "DC-DURABLE",
+    "DC-HOST",
+    "DC-KEEP",
+    "DC-RACE",
+    "DC-SET",
+    "DEL-PERSONAL",
+    "DEL-TEAM",
+    "DH-CONVERSATION",
+    "DH-PENDING",
+    "SRC-01",
+    "SRC-02",
+    "SRC-03",
+    "SRC-04",
+    "SRC-06",
+    "SRC-07",
+    "SRC-08",
+    "SRC-10",
+    "SRC-11",
+    "TUI-ENTRY-ACCOUNT-FREE",
+    "TUI-ENTRY-FOCUS",
+    "TUI-ENTRY-KO-STATE",
+    "TUI-ENTRY-LOCAL-OFFLINE",
+    "TUI-ENTRY-LOCKED",
+    "TUI-ENTRY-OPTIONS",
+    "TUI-ENTRY-REPO-NO-ENV",
+    "TUI-ENTRY-SHARED-UNKNOWN",
+    "TUI-ENTRY-TEAM-SCOPE",
+    "TUI-ENTRY-UNKNOWN"
+   ],
+   "binding_policy": "P01 freezes executable case/adapter binding without changing this immutable acceptance contract; unbound implementation profiles are not runnable."
+  },
+  "R0": {
+   "scope": "Actual coordinator-controlled runner preflight on an isolated synthetic development graph; no product implementation prerequisite",
+   "family_ids": [
+    "N25"
+   ],
+   "required_atomic_case_ids": [
+    "RUN-DEPENDENCIES",
+    "RUN-RESUME",
+    "RUN-OWNERSHIP",
+    "RUN-MODE"
+   ],
+   "binding_policy": "P01 freezes executable case/adapter binding without changing this immutable acceptance contract; unbound implementation profiles are not runnable.",
+   "required_case_ids": [],
+   "case_ids_status": "preflight-binding-from-P01"
+  }
+ },
+ "profile_rule": "P01 emits concrete task-scoped case IDs and runnable adapter bindings. Shared conformance cases are authored/integrated once. whole-family coverage is required only at declared integration scope. Missing case IDs or skips cannot accept a ready runtime task. N27/N28 contain proposed atomic source/capture cases; P01 freezes executable implementations/adapter selectors. Their IDs alone do not mean tests exist or passed. A stage profile holds its own cases and every case of the implementation stages before it, so each stage re-runs every earlier guarantee on the bytes that exist now; the package profile holds its own; the terminal profile holds every case.",
+ "observed_baseline_note": "Inherited 17:20 present-state test evidence only. No product test or live extractor was run during this storage design update.",
+ "acceptance_obligations": [
+  {
+   "id": "personal-start",
+   "required_for": "terminal",
+   "profile": "V1",
+   "producer_kinds": [
+    "implementation"
+   ],
+   "required_families": [
+    "N01",
+    "N04",
+    "N05",
+    "N09",
+    "N15",
+    "N16",
+    "N27"
+   ],
+   "required_atomic_cases": [
+    "CMP-ORDER",
+    "CMP-PINS",
+    "CMP-QUALIFIED",
+    "CMP-SELECT",
+    "CMP-STORAGE",
+    "DEL-PERSONAL",
+    "SRC-01",
+    "TUI-ENTRY-ACCOUNT-FREE",
+    "TUI-ENTRY-FOCUS",
+    "TUI-ENTRY-KO-STATE",
+    "TUI-ENTRY-OPTIONS",
+    "TUI-ENTRY-REPO-NO-ENV",
+    "TUI-ENTRY-UNKNOWN"
+   ],
+   "required_subjects": [
+    "component:V1"
+   ],
+   "independent_of_facets": [
+    "team",
+    "external"
+   ]
+  },
+  {
+   "id": "decision-continuity",
+   "required_for": "terminal",
+   "profile": "V2",
+   "producer_kinds": [
+    "implementation"
+   ],
+   "required_families": [
+    "N04",
+    "N05",
+    "N07",
+    "N08",
+    "N09",
+    "N15",
+    "N16",
+    "N23",
+    "N27"
+   ],
+   "required_atomic_cases": [
+    "CMP-UI",
+    "DC-ASK",
+    "DC-CHANGE",
+    "DC-CHOICE",
+    "DC-HOST",
+    "DC-KEEP",
+    "DC-RACE",
+    "DC-SET",
+    "DH-CONVERSATION",
+    "DH-PENDING",
+    "SRC-10",
+    "SRC-11"
+   ],
+   "required_subjects": [
+    "component:V2"
+   ],
+   "independent_of_facets": [
+    "team",
+    "external"
+   ]
+  },
+  {
+   "id": "knowledge-use",
+   "required_for": "terminal",
+   "profile": "V3",
+   "producer_kinds": [
+    "implementation"
+   ],
+   "required_families": [
+    "N06",
+    "N27"
+   ],
+   "required_atomic_cases": [
+    "SRC-04"
+   ],
+   "required_subjects": [
+    "component:V3"
+   ],
+   "independent_of_facets": [
+    "team",
+    "external"
+   ]
+  },
+  {
+   "id": "local-protection",
+   "required_for": "terminal",
+   "profile": "V4",
+   "producer_kinds": [
+    "implementation"
+   ],
+   "required_families": [
+    "N02",
+    "N03",
+    "N08",
+    "N15",
+    "N16"
+   ],
+   "required_atomic_cases": [
+    "TUI-ENTRY-LOCKED"
+   ],
+   "required_subjects": [
+    "component:V4"
+   ],
+   "independent_of_facets": [
+    "team",
+    "external"
+   ]
+  },
+  {
+   "id": "team-sharing",
+   "required_for": "terminal",
+   "profile": "V5",
+   "producer_kinds": [
+    "implementation"
+   ],
+   "required_families": [
+    "N05",
+    "N09",
+    "N10",
+    "N11",
+    "N12",
+    "N13",
+    "N14",
+    "N15",
+    "N16",
+    "N22",
+    "N27"
+   ],
+   "required_atomic_cases": [
+    "CMP-LOCAL",
+    "CMP-MEANING",
+    "CMP-RIGHTS",
+    "DEL-TEAM",
+    "SRC-03",
+    "SRC-06",
+    "SRC-07",
+    "TUI-ENTRY-LOCAL-OFFLINE",
+    "TUI-ENTRY-TEAM-SCOPE"
+   ],
+   "required_subjects": [
+    "component:V5"
+   ]
+  },
+  {
+   "id": "learning-intake",
+   "required_for": "terminal",
+   "profile": "V6",
+   "producer_kinds": [
+    "implementation"
+   ],
+   "required_families": [
+    "N27",
+    "N28"
+   ],
+   "required_atomic_cases": [
+    "CAP-01",
+    "CAP-02",
+    "CAP-03",
+    "CAP-04",
+    "CAP-05",
+    "CAP-06",
+    "CAP-07",
+    "CAP-08",
+    "CAP-09",
+    "CAP-10",
+    "CAP-11",
+    "CAP-13",
+    "SRC-02",
+    "SRC-08"
+   ],
+   "required_subjects": [
+    "component:V6"
+   ]
+  },
+  {
+   "id": "optional-connections",
+   "required_for": "terminal",
+   "profile": "V7",
+   "producer_kinds": [
+    "implementation"
+   ],
+   "required_families": [
+    "N03",
+    "N10",
+    "N17",
+    "N18",
+    "N23"
+   ],
+   "required_atomic_cases": [],
+   "required_subjects": [
+    "component:V7"
+   ]
+  },
+  {
+   "id": "complete-operations",
+   "required_for": "terminal",
+   "profile": "V8",
+   "producer_kinds": [
+    "implementation"
+   ],
+   "required_families": [
+    "N03",
+    "N04",
+    "N05",
+    "N16",
+    "N19",
+    "N20",
+    "N21",
+    "N28"
+   ],
+   "required_atomic_cases": [
+    "BKP-COVERAGE",
+    "BKP-INTEGRITY",
+    "BKP-PASSIVE",
+    "BKP-RESTORE",
+    "CAP-12",
+    "DC-DURABLE",
+    "TUI-ENTRY-SHARED-UNKNOWN"
+   ],
+   "required_subjects": [
+    "component:V8"
+   ]
+  },
+  {
+   "id": "package-readiness",
+   "required_for": "terminal",
+   "profile": "PK",
+   "producer_kinds": [
+    "package"
+   ],
+   "required_families": [
+    "N24"
+   ],
+   "required_atomic_cases": [],
+   "required_subjects": [
+    "package"
+   ]
+  },
+  {
+   "id": "real-use-verified",
+   "required_for": "terminal",
+   "profile": "V9",
+   "producer_kinds": [
+    "verification"
+   ],
+   "required_families": [
+    "N15",
+    "N23",
+    "N24",
+    "N28"
+   ],
+   "required_atomic_cases": [
+    "CAP-14",
+    "DC-HOST",
+    "DH-CONVERSATION",
+    "DH-PENDING"
+   ],
+   "required_subjects": [
+    "full-runtime",
+    "package"
+   ]
+  },
+  {
+   "id": "runner-qualified",
+   "required_for": "unattended",
+   "profile": "R0",
+   "producer_kinds": [
+    "qualification"
+   ],
+   "required_families": [
+    "N25"
+   ],
+   "required_atomic_cases": [
+    "RUN-DEPENDENCIES",
+    "RUN-RESUME",
+    "RUN-OWNERSHIP",
+    "RUN-MODE"
+   ],
+   "required_subjects": [
+    "runner"
+   ]
+  }
+ ]
+}

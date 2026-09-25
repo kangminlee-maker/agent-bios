@@ -13,6 +13,11 @@ A profile's bound cases come from three places, each with one owner.
              catalog atomic cases a profile runs beyond its required ones, in a family it holds.
              SUBJECT is a contract id or a token naming what the case drives, so one case serves
              every profile whose scope it fits instead of being written once per profile.
+  inherited  an implementation or verification node also runs every case the registry selects
+             for an implementation or package node it depends on, directly or through another.
+             A stage is selected once, where it is introduced, and every later stage runs it
+             again on the bytes that exist then; the catalog states the same inheritance for
+             atomic cases by listing them, because the evaluator reads the catalog alone.
 
 A carried binding is one an accepted record already holds. It is kept verbatim, because its
 record states its digest and any edit would make that record stale.
@@ -42,10 +47,11 @@ its bound cases can drive, with the reason.
   - a selection outside the profile's families, a case nobody selects, a selected id nobody
     defines
   - a profile whose case map the dated evaluator's own `binding_errors` refuses
-  - an operation no case drives, and a runtime rule no case checks at a node that implements it
+  - an operation no case drives, and a runtime rule no case checks at a node whose scope
+    implements it
   - an implementation profile that joins no case to a predecessor that implements, one that
-    joins a case it does not select or joins it to a node it does not depend on, and one that
-    states nothing at all — the two profiles with no such predecessor say so with an empty list
+    joins a case it does not bind or joins it to a node it does not depend on, and one that
+    states nothing at all — a profile with no such predecessor says so with an empty list
   - a profile without its `covers`, a `done_when` item no bound case realizes, a node contract
     no bound case drives and `elsewhere` does not name, and an `elsewhere` its cases do drive
   - a serving table (`conformance/serving.json`, which node answers each operation and at which
@@ -97,6 +103,9 @@ SCHEMA = pathlib.Path(__file__).with_name("case-index.schema.json")
 RUNNER = "runner"
 # The plan kind whose nodes build product, and so can have a predecessor that built some.
 IMPLEMENTATION = "implementation"
+# Who runs an earlier node's selected cases again, and whose are run again.
+INHERITS = ("implementation", "verification")
+INHERITED = ("implementation", "package")
 RUNNER_FIXTURES = "gates/workenv/fixtures/runner"
 PREFLIGHT = f"{RUNNER_FIXTURES}/preflight.json"
 RULE_FIXTURES = "gates/workenv/fixtures/rules"
@@ -306,7 +315,7 @@ def unexercised(registry: dict, catalog: dict, nodes: dict[str, dict], open_prof
             continue
         reach = scope(by_profile[name], nodes)
         layered = any(node in reach for node in layers.values())
-        for case in sorted(case_map(registry, catalog, name)):
+        for case in sorted(case_map(registry, catalog, name, nodes)):
             steps = derived.get(case, {}).get("steps")
             if not steps:
                 continue
@@ -380,7 +389,8 @@ def implementation_predecessors(node: dict, nodes: dict[str, dict]) -> list[str]
             if nodes.get(name, {}).get("kind") == IMPLEMENTATION]
 
 
-def joined_problems(rows: dict[str, dict], nodes: dict[str, dict]) -> list[str]:
+def joined_problems(rows: dict[str, dict], nodes: dict[str, dict],
+                    bound: dict[str, dict[str, str]]) -> list[str]:
     """A joined case is one an implementation profile runs against an accepted predecessor's
     real files rather than against anything stood in for it. Every implementation profile
     states its own either way, because a profile that says nothing and a profile with nothing
@@ -407,8 +417,8 @@ def joined_problems(rows: dict[str, dict], nodes: dict[str, dict]) -> list[str]:
                          f"{len(joined)} case(s) are joined to one")
         for entry in joined:
             case, predecessor = entry["case"], entry["predecessor"]
-            if case not in row["cases"]:
-                found.append(f"selects {name}: {case} is joined and not selected")
+            if case not in bound.get(name, {}):
+                found.append(f"selects {name}: {case} is joined and not bound")
             if predecessor not in predecessors:
                 found.append(f"selects {name}: {case} is joined to {predecessor}, which "
                              f"{identifier} does not depend on as an implementation")
@@ -458,8 +468,10 @@ def carried_binding(row: dict) -> dict:
             "fixture_fingerprint": row["fixture_fingerprint"]}
 
 
-def case_map(registry: dict, catalog: dict, profile: str) -> dict[str, str]:
-    """case id -> family for one profile that is not carried."""
+def case_map(registry: dict, catalog: dict, profile: str,
+             nodes: dict[str, dict]) -> dict[str, str]:
+    """case id -> family for one profile that is not carried: its own cases, and the selected
+    cases of every implementation or package node its node depends on when it inherits."""
     wanted = catalog["profiles"][profile]
     atomic = {a["id"]: f["id"] for f in catalog["cases"] for a in f.get("atomic_cases", [])}
     found = {case: atomic[case] for case in wanted.get("required_atomic_case_ids", [])
@@ -468,8 +480,13 @@ def case_map(registry: dict, catalog: dict, profile: str) -> dict[str, str]:
     for case in wanted.get("bootstrap_cases", []):
         if len(families) == 1:
             found[case] = families[0]
+    owner = next((n for n in nodes.values() if n.get("test_profile") == profile), None)
+    selectors = {profile}
+    if owner is not None and owner["kind"] in INHERITS:
+        selectors |= {nodes[name]["test_profile"] for name in scope(owner["id"], nodes)
+                      if nodes[name]["kind"] in INHERITED}
     for row in registry["selects"]:
-        if row["profile"] == profile:
+        if row["profile"] in selectors:
             found.update({case: atomic.get(case, family_of(case)) for case in row["cases"]})
     return found
 
@@ -574,7 +591,9 @@ def check(registry: dict | None = None, root: pathlib.Path = ROOT,
                 problems.append(f"selects {name}: {case} is outside its families")
     for case in sorted({row["id"] for row in registry["cases"]} - set(selected)):
         problems.append(f"{case}: defined and selected by no profile")
-    problems.extend(joined_problems({row["profile"]: row for row in registry["selects"]}, nodes))
+    problems.extend(joined_problems({row["profile"]: row for row in registry["selects"]}, nodes,
+                                    {name: case_map(registry, catalog, name, nodes)
+                                     for name in open_profiles}))
 
     all_operations = {op for module in modules.values() for op in getattr(module, "OPERATIONS", ())}
     for operation in sorted(all_operations - driven):
@@ -585,13 +604,17 @@ def check(registry: dict | None = None, root: pathlib.Path = ROOT,
             checked.setdefault(rule, []).append(row["id"])
     for rule in sorted(set(rules) - set(checked)):
         problems.append(f"rule {rule}: no case checks it")
+    # A node runs the code of every node it depends on, so a rule is checked where the case is
+    # bound at a node whose scope implements the rule's contract.
+    binders = {name: set(case_map(registry, catalog, name, nodes)) for name in open_profiles}
     for rule, case in sorted((rule, case) for rule, held in checked.items() for case in held):
         contract = rule.split("/")[0]
         implementers = {n["test_profile"] for n in nodes.values()
-                        if contract in n.get("contracts", [])}
-        if not selected.get(case, set()) & implementers:
-            problems.append(f"rule {rule}: {case} is selected by no profile whose node "
-                            f"implements {contract}")
+                        if any(contract in nodes[m].get("contracts", [])
+                               for m in scope(n["id"], nodes))}
+        if not {name for name, bound in binders.items() if case in bound} & implementers:
+            problems.append(f"rule {rule}: {case} is bound at no profile whose node or a node it "
+                            f"depends on implements {contract}")
 
     problems.extend(coverage(registry, catalog, nodes, open_profiles, derived))
     serving = load_serving(root)
@@ -600,7 +623,7 @@ def check(registry: dict | None = None, root: pathlib.Path = ROOT,
 
     report = {}
     for name in open_profiles:
-        bound = case_map(registry, catalog, name)
+        bound = case_map(registry, catalog, name, nodes)
         binding = {"profile_digest": evaluator.digest(profiles[name]), "cases": bound,
                    "adapter_fingerprint": PROBE, "fixture_fingerprint": PROBE}
         for error in evaluator.binding_errors(profiles[name], binding, atomic):
@@ -627,7 +650,7 @@ def coverage(registry: dict, catalog: dict, nodes: dict, open_profiles: list[str
         rows[row["profile"]] = row
     for name in sorted(set(rows) - set(open_profiles)):
         problems.append(f"covers {name}: not a profile the registry binds")
-    qualifier = set(case_map(registry, catalog, QUALIFIER)) if QUALIFIER in open_profiles \
+    qualifier = set(case_map(registry, catalog, QUALIFIER, nodes)) if QUALIFIER in open_profiles \
         else set()
     for name in open_profiles:
         node = next((n for n in nodes.values() if n.get("test_profile") == name), None)
@@ -636,7 +659,7 @@ def coverage(registry: dict, catalog: dict, nodes: dict, open_profiles: list[str
         if name not in rows:
             problems.append(f"covers {name}: no row maps its done_when items")
             continue
-        bound = set(case_map(registry, catalog, name))
+        bound = set(case_map(registry, catalog, name, nodes))
         items = rows[name]["done_when"]
         if len(items) != len(node.get("done_when", [])):
             problems.append(f"covers {name}: {len(items)} items for "
@@ -726,7 +749,7 @@ def binding(registry: dict, profile: str, loaded: tuple | None = None,
     def sha(path: str) -> str:
         return hashlib.sha256((root / path).read_bytes()).hexdigest()
 
-    bound = case_map(registry, catalog, profile)
+    bound = case_map(registry, catalog, profile, {n["id"]: n for n in plan["nodes"]})
     derived = derive(registry, root)[0] if derived is None else derived
     rows = {row["id"]: row for key in ("bootstrap", "atomic", "cases") for row in registry[key]}
     families = {f["id"]: f for f in catalog["cases"]}

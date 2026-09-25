@@ -294,7 +294,7 @@ def self_test():
         got, _ = unit_tests(tree(case("u-fail"), tests={"test_fail.py": FAILING_TEST}), python)
         expect("unit failing test", got, "test_fail.py: 1 test(s) failed")
         nested = tree(case("u-task"))
-        task = nested / TEST_DIR / UNITS / "P02"
+        task = nested / TEST_DIR / UNITS / "v1"
         task.mkdir(parents=True)
         (task / "test_task.py").write_text(FAILING_TEST, encoding="utf-8")
         got, _ = unit_tests(nested, python)

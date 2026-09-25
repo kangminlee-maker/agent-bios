@@ -822,98 +822,81 @@
   ],
   "selects": [
     {
-      "profile": "P02",
-      "cases": [
-        "N02-C01-POS",
-        "N02-C01-NEG",
-        "N03-C02-POS",
-        "N03-C02-NEG",
-        "N03-ENTRANCES-NEG",
-        "N03-SECRET-NEG"
-      ],
-      "joined": []
-    },
-    {
-      "profile": "P03",
+      "profile": "V1",
       "cases": [
         "N01-STORE-POS",
         "N01-STORE-NEG",
+        "N09-C07-POS",
+        "N15-C11-POS",
         "N27-SELECTION-NEG",
-        "N05-AVAILABLE-NEG",
-        "N05-CRASH-NEG",
-        "N05-LINEAGE-NEG",
+        "N04-ACTIVATION-NEG",
+        "N04-ACTIVATION-POS",
         "N05-RESTART-POS",
-        "N05-WAIT-POS"
+        "N16-ENTRANCES-POS"
       ],
       "joined": []
     },
     {
-      "profile": "P04",
-      "cases": [
-        "N06-C04-POS",
-        "N08-C06-POS",
-        "N08-C06-NEG",
-        "N08-READER-GAP-NEG",
-        "N06-MODEL-NEG",
-        "N27-IMPORT-POS",
-        "N27-PACKAGE-POS"
-      ],
-      "joined": [
-        {
-          "case": "N27-IMPORT-POS",
-          "predecessor": "P03"
-        }
-      ]
-    },
-    {
-      "profile": "P05",
+      "profile": "V2",
       "cases": [
         "N07-C05-POS",
         "N07-C05-NEG",
         "N07-STATE-GAP-NEG",
         "N07-STATE-SOURCE-NEG",
         "N08-C06-POS",
-        "N08-C06-NEG",
-        "N08-READER-GAP-NEG",
-        "N28-CANDIDATE-NEG",
+        "N09-C07-NEG",
+        "N15-ANSWER-NEG",
+        "N04-ROUTER-NEG",
+        "N04-ROUTER-POS",
+        "N05-WAIT-POS",
+        "N08-INSPECT-NEG",
+        "N08-PENDING-NEG",
         "N27-ADR-POS"
       ],
       "joined": [
         {
-          "case": "N27-ADR-POS",
-          "predecessor": "P03"
+          "case": "N01-STORE-POS",
+          "predecessor": "V1"
         }
       ]
     },
     {
-      "profile": "P06",
+      "profile": "V3",
       "cases": [
-        "N04-C03-POS",
-        "N04-C03-NEG",
-        "N08-C06-POS",
-        "N08-C06-NEG",
-        "N09-C07-POS",
-        "N09-C07-NEG",
-        "N04-ACTIVATION-NEG",
-        "N04-ACTIVATION-POS",
-        "N04-ROUTER-NEG",
-        "N04-ROUTER-POS",
-        "N08-INSPECT-NEG",
-        "N08-PENDING-NEG",
-        "N08-READER-GAP-NEG",
+        "N06-C04-POS",
+        "N06-MODEL-NEG",
         "N27-IMPORT-POS",
-        "N27-PACKAGE-POS",
-        "N27-SELECTION-NEG"
+        "N27-PACKAGE-POS"
       ],
       "joined": [
         {
-          "case": "N08-C06-POS",
-          "predecessor": "P04"
+          "case": "N07-C05-POS",
+          "predecessor": "V2"
         }
       ]
     },
     {
-      "profile": "P07",
+      "profile": "V4",
+      "cases": [
+        "N02-C01-POS",
+        "N02-C01-NEG",
+        "N03-C02-POS",
+        "N03-C02-NEG",
+        "N08-C06-NEG",
+        "N08-READER-GAP-NEG",
+        "N15-C11-NEG",
+        "N03-ENTRANCES-NEG",
+        "N03-SECRET-NEG"
+      ],
+      "joined": [
+        {
+          "case": "N06-C04-POS",
+          "predecessor": "V3"
+        }
+      ]
+    },
+    {
+      "profile": "V5",
       "cases": [
         "N05-CONTROL-POS",
         "N05-CONTROL-NEG",
@@ -921,233 +904,100 @@
         "N10-C08-NEG",
         "N11-C08-POS",
         "N11-C08-NEG",
-        "N11-ACCESS-NEG",
-        "N11-CEILING-NEG",
-        "BKP-INTEGRITY",
-        "BKP-PASSIVE",
-        "N05-CRASH-NEG",
-        "N05-RESTART-POS"
-      ],
-      "joined": [
-        {
-          "case": "N05-CONTROL-POS",
-          "predecessor": "P03"
-        }
-      ]
-    },
-    {
-      "profile": "P08",
-      "cases": [
-        "N09-C07-POS",
-        "N09-C07-NEG",
-        "N11-C08-POS",
-        "N11-C08-NEG",
         "N12-C07-POS",
         "N12-C07-NEG",
-        "N27-C01-POS",
-        "N27-C01-NEG",
-        "N27-RIGHTS-NEG",
-        "N09-FIRSTUSE-POS",
-        "N12-POLICY-POS"
-      ],
-      "joined": [
-        {
-          "case": "N09-C07-POS",
-          "predecessor": "P06"
-        }
-      ]
-    },
-    {
-      "profile": "P09",
-      "cases": [
         "N13-C09-POS",
         "N13-C09-NEG",
         "N14-C10-POS",
         "N14-C10-NEG",
         "N22-E2E-POS",
+        "N27-C01-POS",
+        "N27-C01-NEG",
+        "N27-RIGHTS-NEG",
+        "N05-AVAILABLE-NEG",
+        "N09-FIRSTUSE-POS",
+        "N11-ACCESS-NEG",
+        "N11-CEILING-NEG",
+        "N12-POLICY-POS",
+        "N16-CAPABILITY-POS",
         "N22-OUTBOX-POS"
       ],
       "joined": [
         {
-          "case": "N13-C09-POS",
-          "predecessor": "P08"
+          "case": "N02-C01-POS",
+          "predecessor": "V4"
         }
       ]
     },
     {
-      "profile": "P10",
+      "profile": "V6",
       "cases": [
-        "N04-C03-POS",
-        "N04-C03-NEG",
-        "N15-C11-POS",
-        "N15-C11-NEG",
-        "N15-ANSWER-NEG",
-        "DEL-PERSONAL",
-        "N04-ACTIVATION-NEG",
-        "N04-ACTIVATION-POS",
-        "N04-ROUTER-NEG",
-        "N04-ROUTER-POS"
+        "N28-C01-POS",
+        "N28-CANDIDATE-NEG",
+        "N28-NO-TEAM-POS",
+        "N28-PRODUCER-POS",
+        "N28-REJECT-POS"
       ],
       "joined": [
         {
-          "case": "N04-C03-POS",
-          "predecessor": "P06"
+          "case": "N05-CONTROL-POS",
+          "predecessor": "V5"
         }
       ]
     },
     {
-      "profile": "P11",
+      "profile": "V7",
       "cases": [
-        "N03-C02-POS",
-        "N03-C02-NEG",
-        "N03-BRIDGE-NEG",
-        "N09-C07-POS",
-        "N09-C07-NEG",
-        "N15-C11-POS",
-        "N15-C11-NEG",
-        "N15-ANSWER-NEG",
-        "N16-CAPABILITY-POS",
-        "N16-ENTRANCES-POS"
-      ],
-      "joined": [
-        {
-          "case": "N15-C11-POS",
-          "predecessor": "P10"
-        }
-      ]
-    },
-    {
-      "profile": "P12",
-      "cases": [
-        "N13-C09-POS",
-        "N13-C09-NEG",
-        "N14-C10-POS",
-        "N14-C10-NEG",
-        "N17-C09-POS",
-        "N17-C09-NEG",
-        "N17-DISCONNECT-NEG",
-        "N17-IDENTITY-NEG"
-      ],
-      "joined": [
-        {
-          "case": "N13-C09-POS",
-          "predecessor": "P09"
-        }
-      ]
-    },
-    {
-      "profile": "P13",
-      "cases": [
-        "N03-C02-POS",
-        "N03-C02-NEG",
         "N03-PROVIDER-NEG",
-        "N10-C08-POS",
-        "N10-C08-NEG",
         "N10-PROVIDER-POS",
         "N10-PROVIDER-NEG",
+        "N17-C09-POS",
+        "N17-C09-NEG",
         "N18-C01-POS",
         "N18-C01-NEG",
         "N23-PROVIDER-POS",
-        "N18-EXCHANGE-NEG",
-        "N03-ENTRANCES-NEG",
-        "N03-SECRET-NEG"
+        "N17-DISCONNECT-NEG",
+        "N17-IDENTITY-NEG",
+        "N18-EXCHANGE-NEG"
       ],
       "joined": [
         {
-          "case": "N10-C08-POS",
-          "predecessor": "P07"
+          "case": "N28-C01-POS",
+          "predecessor": "V6"
         }
       ]
     },
     {
-      "profile": "P14",
+      "profile": "V8",
       "cases": [
-        "N03-C02-POS",
-        "N03-C02-NEG",
-        "N14-C10-POS",
-        "N14-C10-NEG",
+        "N03-BRIDGE-NEG",
+        "N04-C03-POS",
+        "N04-C03-NEG",
+        "N16-C12-POS",
+        "N16-C12-NEG",
         "N19-C08-POS",
+        "N20-C04-POS",
+        "N20-C04-NEG",
+        "N21-C10-POS",
+        "N21-DERIVED-NEG",
+        "N05-CRASH-NEG",
+        "N05-LINEAGE-NEG",
         "N19-BOOTSTRAP-NEG",
         "N19-CRUD-POS",
         "N19-TRANSFER-NEG",
-        "N19-TRANSFER-POS"
-      ],
-      "joined": [
-        {
-          "case": "N14-C10-POS",
-          "predecessor": "P09"
-        }
-      ]
-    },
-    {
-      "profile": "P15",
-      "cases": [
-        "N06-C04-POS",
-        "N07-C05-POS",
-        "N07-C05-NEG",
-        "N16-C12-POS",
-        "N16-C12-NEG",
-        "N20-C04-POS",
-        "N20-C04-NEG",
-        "N06-MODEL-NEG",
+        "N19-TRANSFER-POS",
         "N20-READER-POS",
-        "N28-REJECT-POS",
-        "N28-CANDIDATE-NEG",
-        "N28-C01-POS"
-      ],
-      "joined": [
-        {
-          "case": "N06-C04-POS",
-          "predecessor": "P04"
-        }
-      ]
-    },
-    {
-      "profile": "P16",
-      "cases": [
-        "N13-C09-POS",
-        "N13-C09-NEG",
-        "N16-C12-POS",
-        "N16-C12-NEG",
-        "N19-C08-POS",
-        "N21-C10-POS",
-        "N27-C01-POS",
-        "N27-C01-NEG",
-        "N21-DERIVED-NEG",
         "N21-HISTORY-POS"
       ],
       "joined": [
         {
-          "case": "N13-C09-POS",
-          "predecessor": "P09"
+          "case": "N03-PROVIDER-NEG",
+          "predecessor": "V7"
         }
       ]
     },
     {
-      "profile": "P17",
-      "cases": [
-        "N03-C02-POS",
-        "N03-C02-NEG",
-        "N03-BRIDGE-NEG",
-        "N03-PROVIDER-NEG",
-        "N04-C03-POS",
-        "N04-C03-NEG",
-        "N07-STATE-GAP-NEG",
-        "N07-STATE-SOURCE-NEG",
-        "N11-C08-POS",
-        "N11-C08-NEG",
-        "N14-C10-POS",
-        "N14-C10-NEG",
-        "N18-C01-POS",
-        "N18-C01-NEG",
-        "N22-E2E-POS",
-        "BKP-RESTORE",
-        "N05-AVAILABLE-NEG",
-        "N05-LINEAGE-NEG"
-      ]
-    },
-    {
-      "profile": "P18",
+      "profile": "PK",
       "cases": [
         "N24-C03-POS",
         "N24-C03-NEG",
@@ -1156,83 +1006,9 @@
       ]
     },
     {
-      "profile": "P19",
+      "profile": "V9",
       "cases": [
-        "N03-C02-POS",
-        "N03-C02-NEG",
-        "N08-C06-POS",
-        "N08-C06-NEG",
-        "N09-C07-POS",
-        "N09-C07-NEG",
-        "N28-NO-TEAM-POS",
-        "N28-PRODUCER-POS",
-        "N28-CANDIDATE-NEG"
-      ],
-      "joined": [
-        {
-          "case": "N28-PRODUCER-POS",
-          "predecessor": "P06"
-        }
-      ]
-    },
-    {
-      "profile": "M1",
-      "cases": [
-        "N02-C01-POS",
-        "N02-C01-NEG",
-        "N03-C02-POS",
-        "N03-C02-NEG",
-        "N04-C03-POS",
-        "N04-C03-NEG",
-        "N27-C01-POS",
-        "BKP-COVERAGE",
-        "N05-WAIT-POS"
-      ]
-    },
-    {
-      "profile": "M2",
-      "cases": [
-        "N10-C08-POS",
-        "N10-C08-NEG",
-        "N11-C08-POS",
-        "N11-C08-NEG",
-        "N12-C07-POS",
-        "N12-C07-NEG",
-        "N13-C09-POS",
-        "N13-C09-NEG",
-        "N14-C10-POS",
-        "N14-C10-NEG",
-        "N28-C01-POS",
-        "N16-CAPABILITY-POS",
-        "N16-ENTRANCES-POS"
-      ]
-    },
-    {
-      "profile": "M3",
-      "cases": [
-        "N17-C09-POS",
-        "N17-C09-NEG",
-        "N18-C01-POS",
-        "N18-C01-NEG",
-        "N19-C08-POS",
-        "N20-C04-POS",
-        "N20-C04-NEG",
-        "N21-C10-POS",
-        "N16-C12-POS",
-        "N16-C12-NEG",
-        "N23-PROVIDER-POS",
-        "N18-EXCHANGE-NEG"
-      ]
-    },
-    {
-      "profile": "M4",
-      "cases": [
-        "N22-E2E-POS",
         "N23-SECRET-POS",
-        "N24-C03-POS",
-        "N24-C03-NEG",
-        "N27-C01-POS",
-        "N27-C01-NEG",
         "N24-CANDIDATE-NEG",
         "N24-RECOVERY-POS",
         "N24-WRITERS-NEG"
@@ -1328,85 +1104,111 @@
       ]
     },
     {
-      "profile": "P02",
+      "profile": "V1",
       "done_when": [
         [
-          "N02-C01-POS",
-          "N03-C02-POS",
-          "N03-C02-NEG"
+          "DEL-PERSONAL",
+          "CMP-PINS",
+          "TUI-ENTRY-OPTIONS",
+          "TUI-ENTRY-FOCUS",
+          "TUI-ENTRY-ACCOUNT-FREE",
+          "TUI-ENTRY-REPO-NO-ENV",
+          "TUI-ENTRY-UNKNOWN",
+          "TUI-ENTRY-KO-STATE",
+          "SRC-01",
+          "CMP-STORAGE",
+          "CMP-ORDER",
+          "CMP-SELECT",
+          "CMP-QUALIFIED",
+          "N01-STORE-POS",
+          "N01-STORE-NEG",
+          "N09-C07-POS",
+          "N15-C11-POS",
+          "N27-SELECTION-NEG",
+          "N04-ACTIVATION-NEG",
+          "N04-ACTIVATION-POS",
+          "N05-RESTART-POS",
+          "N16-ENTRANCES-POS"
         ],
-        [
-          "N03-C02-NEG",
-          "N03-C02-POS",
-          "N03-SECRET-NEG",
-          "N03-ENTRANCES-NEG"
-        ]
-      ]
-    },
-    {
-      "profile": "P03",
-      "done_when": [
         [
           "N01-STORE-POS",
           "N01-STORE-NEG",
-          "BKP-RESTORE",
           "N05-RESTART-POS"
         ],
         [
-          "SRC-10",
-          "N05-RESTART-POS",
-          "N05-CRASH-NEG",
-          "N05-LINEAGE-NEG",
-          "N05-AVAILABLE-NEG"
-        ],
-        [
           "N01-STORE-POS",
-          "N01-STORE-NEG",
-          "SRC-10",
-          "BKP-INTEGRITY",
-          "N05-CRASH-NEG"
-        ],
-        [
-          "BKP-RESTORE",
-          "BKP-INTEGRITY",
-          "BKP-COVERAGE",
-          "BKP-PASSIVE"
+          "N01-STORE-NEG"
         ],
         [
           "CMP-STORAGE"
         ],
         [
-          "DC-DURABLE"
+          "N09-C07-POS",
+          "SRC-01"
         ],
         [
-          "DC-DURABLE",
-          "N05-WAIT-POS"
+          "N04-ACTIVATION-POS",
+          "N04-ACTIVATION-NEG"
+        ],
+        [
+          "CMP-PINS",
+          "N15-C11-POS",
+          "DEL-PERSONAL"
+        ],
+        [
+          "TUI-ENTRY-OPTIONS",
+          "TUI-ENTRY-FOCUS",
+          "N16-ENTRANCES-POS"
+        ],
+        [
+          "TUI-ENTRY-FOCUS",
+          "TUI-ENTRY-KO-STATE",
+          "TUI-ENTRY-OPTIONS",
+          "RUN-OWNERSHIP"
+        ],
+        [
+          "TUI-ENTRY-REPO-NO-ENV",
+          "TUI-ENTRY-ACCOUNT-FREE"
+        ],
+        [
+          "TUI-ENTRY-OPTIONS",
+          "TUI-ENTRY-UNKNOWN"
         ]
       ]
     },
     {
-      "profile": "P04",
+      "profile": "V2",
       "done_when": [
         [
-          "N06-C04-POS",
-          "N06-MODEL-NEG"
-        ],
-        [
-          "N06-C04-POS",
+          "DC-SET",
+          "DC-CHOICE",
+          "DC-KEEP",
+          "DC-ASK",
+          "DC-CHANGE",
+          "DC-RACE",
+          "DC-HOST",
+          "CMP-UI",
+          "DH-CONVERSATION",
+          "DH-PENDING",
+          "SRC-10",
+          "SRC-11",
+          "N07-C05-POS",
+          "N07-C05-NEG",
+          "N07-STATE-GAP-NEG",
+          "N07-STATE-SOURCE-NEG",
           "N08-C06-POS",
-          "N08-C06-NEG",
-          "N08-READER-GAP-NEG"
+          "N09-C07-NEG",
+          "N15-ANSWER-NEG",
+          "N04-ROUTER-NEG",
+          "N04-ROUTER-POS",
+          "N05-WAIT-POS",
+          "N08-INSPECT-NEG",
+          "N08-PENDING-NEG",
+          "N27-ADR-POS"
         ],
         [
-          "SRC-04",
-          "N27-IMPORT-POS",
-          "N27-PACKAGE-POS"
-        ]
-      ]
-    },
-    {
-      "profile": "P05",
-      "done_when": [
+          "N05-WAIT-POS"
+        ],
         [
           "N07-C05-POS",
           "N07-C05-NEG",
@@ -1419,40 +1221,10 @@
         ],
         [
           "SRC-11",
-          "CAP-06",
-          "SRC-04",
           "N27-ADR-POS"
         ],
         [
           "DC-SET"
-        ]
-      ]
-    },
-    {
-      "profile": "P06",
-      "done_when": [
-        [
-          "N09-C07-POS",
-          "SRC-03",
-          "CAP-08",
-          "SRC-01"
-        ],
-        [
-          "N09-C07-NEG",
-          "N04-C03-NEG"
-        ],
-        [
-          "CMP-ORDER",
-          "DC-CHOICE",
-          "CAP-08",
-          "CMP-QUALIFIED",
-          "SRC-07"
-        ],
-        [
-          "CMP-ORDER",
-          "CMP-SELECT",
-          "CMP-LOCAL",
-          "N04-C03-NEG"
         ],
         [
           "DC-CHOICE",
@@ -1473,14 +1245,130 @@
           "N04-ROUTER-NEG"
         ],
         [
-          "N04-ACTIVATION-POS",
-          "N04-ACTIVATION-NEG"
+          "DC-HOST",
+          "DH-CONVERSATION",
+          "N15-ANSWER-NEG"
+        ],
+        [
+          "DH-CONVERSATION",
+          "DH-PENDING",
+          "DC-HOST"
+        ],
+        [
+          "CMP-UI"
+        ],
+        [
+          "CMP-UI"
         ]
       ]
     },
     {
-      "profile": "P07",
+      "profile": "V3",
       "done_when": [
+        [
+          "SRC-04",
+          "N06-C04-POS",
+          "N06-MODEL-NEG",
+          "N27-IMPORT-POS",
+          "N27-PACKAGE-POS"
+        ],
+        [
+          "N06-C04-POS",
+          "N06-MODEL-NEG"
+        ],
+        [
+          "N06-C04-POS",
+          "N08-C06-POS"
+        ],
+        [
+          "SRC-04",
+          "N27-IMPORT-POS",
+          "N27-PACKAGE-POS"
+        ]
+      ]
+    },
+    {
+      "profile": "V4",
+      "done_when": [
+        [
+          "TUI-ENTRY-LOCKED",
+          "N02-C01-POS",
+          "N02-C01-NEG",
+          "N03-C02-POS",
+          "N03-C02-NEG",
+          "N08-C06-NEG",
+          "N08-READER-GAP-NEG",
+          "N15-C11-NEG",
+          "N03-ENTRANCES-NEG",
+          "N03-SECRET-NEG"
+        ],
+        [
+          "N02-C01-POS",
+          "N03-C02-POS",
+          "N03-C02-NEG"
+        ],
+        [
+          "N03-C02-NEG",
+          "N03-C02-POS",
+          "N03-SECRET-NEG",
+          "N03-ENTRANCES-NEG"
+        ],
+        [
+          "DH-CONVERSATION",
+          "N15-C11-NEG"
+        ],
+        [
+          "TUI-ENTRY-ACCOUNT-FREE",
+          "N09-C07-POS",
+          "N15-C11-POS",
+          "N03-C02-POS",
+          "N03-C02-NEG",
+          "TUI-ENTRY-LOCKED"
+        ]
+      ]
+    },
+    {
+      "profile": "V5",
+      "done_when": [
+        [
+          "DEL-TEAM",
+          "TUI-ENTRY-LOCAL-OFFLINE",
+          "TUI-ENTRY-TEAM-SCOPE",
+          "SRC-03",
+          "SRC-06",
+          "SRC-07",
+          "CMP-LOCAL",
+          "CMP-MEANING",
+          "CMP-RIGHTS",
+          "N05-CONTROL-POS",
+          "N05-CONTROL-NEG",
+          "N10-C08-POS",
+          "N10-C08-NEG",
+          "N11-C08-POS",
+          "N11-C08-NEG",
+          "N12-C07-POS",
+          "N12-C07-NEG",
+          "N13-C09-POS",
+          "N13-C09-NEG",
+          "N14-C10-POS",
+          "N14-C10-NEG",
+          "N22-E2E-POS",
+          "N27-C01-POS",
+          "N27-C01-NEG",
+          "N27-RIGHTS-NEG",
+          "N05-AVAILABLE-NEG",
+          "N09-FIRSTUSE-POS",
+          "N11-ACCESS-NEG",
+          "N11-CEILING-NEG",
+          "N12-POLICY-POS",
+          "N16-CAPABILITY-POS",
+          "N22-OUTBOX-POS"
+        ],
+        [
+          "CMP-ORDER",
+          "CMP-SELECT",
+          "CMP-LOCAL"
+        ],
         [
           "N10-C08-POS",
           "N10-C08-NEG",
@@ -1492,12 +1380,7 @@
           "N05-CONTROL-POS",
           "N05-CONTROL-NEG",
           "N11-CEILING-NEG"
-        ]
-      ]
-    },
-    {
-      "profile": "P08",
-      "done_when": [
+        ],
         [
           "N12-C07-POS",
           "N12-C07-NEG",
@@ -1509,12 +1392,7 @@
           "N12-C07-POS",
           "N11-C08-POS",
           "N09-FIRSTUSE-POS"
-        ]
-      ]
-    },
-    {
-      "profile": "P09",
-      "done_when": [
+        ],
         [
           "N13-C09-POS",
           "N14-C10-POS",
@@ -1524,80 +1402,84 @@
           "N13-C09-NEG",
           "N13-C09-POS",
           "N14-C10-NEG"
-        ]
-      ]
-    },
-    {
-      "profile": "P10",
-      "done_when": [
-        [
-          "CMP-PINS",
-          "N15-C11-POS",
-          "DEL-PERSONAL"
-        ],
-        [
-          "N04-C03-POS",
-          "N04-C03-NEG",
-          "DH-CONVERSATION",
-          "N15-C11-NEG"
-        ],
-        [
-          "DC-HOST",
-          "DH-CONVERSATION",
-          "N15-ANSWER-NEG"
-        ],
-        [
-          "DH-CONVERSATION",
-          "DH-PENDING",
-          "DC-HOST"
-        ]
-      ]
-    },
-    {
-      "profile": "P11",
-      "done_when": [
-        [
-          "TUI-ENTRY-ACCOUNT-FREE",
-          "N09-C07-POS",
-          "N15-C11-POS",
-          "N03-C02-POS",
-          "N03-C02-NEG",
-          "TUI-ENTRY-LOCKED"
         ],
         [
           "N16-CAPABILITY-POS"
-        ],
-        [
-          "TUI-ENTRY-OPTIONS",
-          "TUI-ENTRY-FOCUS",
-          "N16-ENTRANCES-POS"
-        ],
-        [
-          "TUI-ENTRY-FOCUS",
-          "TUI-ENTRY-KO-STATE",
-          "TUI-ENTRY-OPTIONS",
-          "RUN-OWNERSHIP",
-          "CMP-UI"
-        ],
-        [
-          "TUI-ENTRY-REPO-NO-ENV",
-          "TUI-ENTRY-ACCOUNT-FREE"
-        ],
-        [
-          "TUI-ENTRY-OPTIONS",
-          "TUI-ENTRY-UNKNOWN"
-        ],
-        [
-          "CMP-UI"
-        ],
-        [
-          "CMP-UI"
         ]
       ]
     },
     {
-      "profile": "P12",
+      "profile": "V6",
       "done_when": [
+        [
+          "SRC-02",
+          "SRC-08",
+          "CAP-01",
+          "CAP-02",
+          "CAP-03",
+          "CAP-04",
+          "CAP-05",
+          "CAP-06",
+          "CAP-07",
+          "CAP-08",
+          "CAP-09",
+          "CAP-10",
+          "CAP-11",
+          "CAP-13",
+          "N28-C01-POS",
+          "N28-CANDIDATE-NEG",
+          "N28-NO-TEAM-POS",
+          "N28-PRODUCER-POS",
+          "N28-REJECT-POS"
+        ],
+        [
+          "CMP-ORDER",
+          "DC-CHOICE",
+          "CAP-08",
+          "CMP-QUALIFIED",
+          "SRC-07"
+        ],
+        [
+          "CAP-01",
+          "SRC-02",
+          "CAP-02",
+          "CAP-03",
+          "CAP-11",
+          "SRC-08",
+          "N28-NO-TEAM-POS"
+        ],
+        [
+          "CAP-05",
+          "CAP-03",
+          "SRC-02",
+          "CAP-02",
+          "CAP-10",
+          "CAP-06",
+          "N28-PRODUCER-POS"
+        ],
+        [
+          "CAP-08",
+          "CAP-04",
+          "N28-CANDIDATE-NEG"
+        ]
+      ]
+    },
+    {
+      "profile": "V7",
+      "done_when": [
+        [
+          "N03-PROVIDER-NEG",
+          "N10-PROVIDER-POS",
+          "N10-PROVIDER-NEG",
+          "N17-C09-POS",
+          "N17-C09-NEG",
+          "N18-C01-POS",
+          "N18-C01-NEG",
+          "N23-PROVIDER-POS",
+          "N17-DISCONNECT-NEG",
+          "N17-IDENTITY-NEG",
+          "N18-EXCHANGE-NEG"
+        ],
         [
           "N17-C09-POS",
           "N17-C09-NEG",
@@ -1608,12 +1490,7 @@
           "N17-C09-POS",
           "N17-C09-NEG",
           "N17-DISCONNECT-NEG"
-        ]
-      ]
-    },
-    {
-      "profile": "P13",
-      "done_when": [
+        ],
         [
           "N18-C01-POS",
           "N18-C01-NEG",
@@ -1629,8 +1506,55 @@
       ]
     },
     {
-      "profile": "P14",
+      "profile": "V8",
       "done_when": [
+        [
+          "BKP-RESTORE",
+          "BKP-INTEGRITY",
+          "BKP-COVERAGE",
+          "BKP-PASSIVE",
+          "DC-DURABLE",
+          "TUI-ENTRY-SHARED-UNKNOWN",
+          "CAP-12",
+          "N03-BRIDGE-NEG",
+          "N04-C03-POS",
+          "N04-C03-NEG",
+          "N16-C12-POS",
+          "N16-C12-NEG",
+          "N19-C08-POS",
+          "N20-C04-POS",
+          "N20-C04-NEG",
+          "N21-C10-POS",
+          "N21-DERIVED-NEG",
+          "N05-CRASH-NEG",
+          "N05-LINEAGE-NEG",
+          "N19-BOOTSTRAP-NEG",
+          "N19-CRUD-POS",
+          "N19-TRANSFER-NEG",
+          "N19-TRANSFER-POS",
+          "N20-READER-POS",
+          "N21-HISTORY-POS"
+        ],
+        [
+          "SRC-10",
+          "N05-RESTART-POS",
+          "N05-CRASH-NEG",
+          "N05-LINEAGE-NEG",
+          "N05-AVAILABLE-NEG"
+        ],
+        [
+          "BKP-RESTORE",
+          "BKP-INTEGRITY",
+          "BKP-COVERAGE",
+          "BKP-PASSIVE"
+        ],
+        [
+          "DC-DURABLE"
+        ],
+        [
+          "N09-C07-NEG",
+          "N04-C03-NEG"
+        ],
         [
           "N19-C08-POS",
           "N19-CRUD-POS",
@@ -1641,12 +1565,7 @@
           "N19-C08-POS",
           "N14-C10-NEG",
           "N19-BOOTSTRAP-NEG"
-        ]
-      ]
-    },
-    {
-      "profile": "P15",
-      "done_when": [
+        ],
         [
           "N20-C04-POS",
           "N20-C04-NEG",
@@ -1662,12 +1581,7 @@
           "N28-CANDIDATE-NEG",
           "N28-REJECT-POS",
           "N16-C12-POS"
-        ]
-      ]
-    },
-    {
-      "profile": "P16",
-      "done_when": [
+        ],
         [
           "N21-C10-POS",
           "N21-DERIVED-NEG",
@@ -1680,27 +1594,14 @@
       ]
     },
     {
-      "profile": "P17",
+      "profile": "PK",
       "done_when": [
         [
-          "DEL-TEAM",
-          "N22-E2E-POS",
-          "RUN-DEPENDENCIES"
+          "N24-C03-POS",
+          "N24-C03-NEG",
+          "N24-CANDIDATE-POS",
+          "N24-CLOSURE-NEG"
         ],
-        [
-          "RUN-DEPENDENCIES",
-          "RUN-OWNERSHIP"
-        ],
-        [
-          "DH-CONVERSATION",
-          "DH-PENDING",
-          "DC-HOST"
-        ]
-      ]
-    },
-    {
-      "profile": "P18",
-      "done_when": [
         [
           "N24-C03-POS",
           "N24-CANDIDATE-POS"
@@ -1733,165 +1634,29 @@
       ]
     },
     {
-      "profile": "P19",
+      "profile": "V9",
       "done_when": [
         [
-          "CAP-01",
-          "SRC-02",
-          "CAP-02",
-          "CAP-03",
-          "CAP-11",
-          "SRC-08",
-          "N28-NO-TEAM-POS"
+          "CAP-14",
+          "N23-SECRET-POS",
+          "N24-CANDIDATE-NEG",
+          "N24-RECOVERY-POS",
+          "N24-WRITERS-NEG"
         ],
         [
-          "CAP-05",
-          "CAP-03",
-          "SRC-02",
-          "CAP-02",
-          "CAP-10",
-          "CAP-06",
-          "N28-PRODUCER-POS"
+          "DEL-TEAM",
+          "N22-E2E-POS",
+          "RUN-DEPENDENCIES"
         ],
         [
-          "CAP-08",
-          "CAP-04",
-          "N28-CANDIDATE-NEG"
-        ]
-      ],
-      "elsewhere": [
-        {
-          "contract": "C12",
-          "reason": "P19's done_when puts the full candidate UI in the later M3, P15 and P17 profiles and its profile excludes GUI and external adapter qualification; capability probes qualify host clients, not capture adapters or model providers, so C12 is driven by those profiles' cases"
-        }
-      ]
-    },
-    {
-      "profile": "M1",
-      "done_when": [
+          "RUN-DEPENDENCIES",
+          "RUN-OWNERSHIP"
+        ],
         [
-          "N02-C01-POS",
-          "N02-C01-NEG",
-          "TUI-ENTRY-ACCOUNT-FREE",
-          "N03-C02-POS",
-          "N03-C02-NEG",
-          "TUI-ENTRY-LOCKED",
-          "DEL-PERSONAL",
-          "CMP-PINS",
-          "TUI-ENTRY-REPO-NO-ENV",
-          "CMP-LOCAL",
-          "TUI-ENTRY-LOCAL-OFFLINE",
-          "CMP-ORDER",
-          "CMP-SELECT",
-          "CMP-QUALIFIED",
-          "N04-C03-POS",
-          "N04-C03-NEG",
-          "TUI-ENTRY-OPTIONS",
-          "TUI-ENTRY-FOCUS",
-          "TUI-ENTRY-UNKNOWN",
-          "TUI-ENTRY-KO-STATE",
-          "CMP-UI",
-          "DC-SET",
-          "DC-CHOICE",
-          "DC-KEEP",
-          "DC-ASK",
-          "DC-CHANGE",
-          "DC-RACE",
-          "DC-DURABLE",
           "DH-CONVERSATION",
           "DH-PENDING",
-          "DC-HOST",
-          "N27-C01-POS"
+          "DC-HOST"
         ],
-        [
-          "RUN-DEPENDENCIES",
-          "RUN-OWNERSHIP"
-        ]
-      ]
-    },
-    {
-      "profile": "M2",
-      "done_when": [
-        [
-          "N10-C08-POS",
-          "N10-C08-NEG",
-          "N11-C08-POS",
-          "N11-C08-NEG",
-          "N12-C07-POS",
-          "N12-C07-NEG",
-          "N13-C09-POS",
-          "N13-C09-NEG",
-          "N14-C10-POS",
-          "N14-C10-NEG",
-          "DEL-TEAM",
-          "CMP-PINS",
-          "DC-HOST",
-          "DC-SET",
-          "DC-CHOICE",
-          "DC-KEEP",
-          "DC-ASK",
-          "DC-CHANGE",
-          "DC-RACE",
-          "SRC-06",
-          "CMP-RIGHTS",
-          "SRC-10",
-          "SRC-11",
-          "CMP-MEANING",
-          "CMP-ORDER",
-          "CMP-SELECT",
-          "CMP-LOCAL",
-          "CMP-QUALIFIED",
-          "CMP-UI",
-          "TUI-ENTRY-TEAM-SCOPE",
-          "N28-C01-POS"
-        ],
-        [
-          "RUN-DEPENDENCIES",
-          "RUN-OWNERSHIP"
-        ]
-      ]
-    },
-    {
-      "profile": "M3",
-      "done_when": [
-        [
-          "N17-C09-POS",
-          "N17-C09-NEG",
-          "N18-C01-POS",
-          "N18-C01-NEG",
-          "N19-C08-POS",
-          "N20-C04-POS",
-          "N20-C04-NEG",
-          "N21-C10-POS",
-          "SRC-06",
-          "CMP-STORAGE",
-          "CAP-02",
-          "CAP-07",
-          "CAP-08",
-          "CAP-09",
-          "CAP-10",
-          "CAP-13",
-          "CMP-UI",
-          "DH-PENDING",
-          "DC-HOST",
-          "DC-CHOICE",
-          "DC-RACE",
-          "CMP-RIGHTS",
-          "CMP-MEANING",
-          "TUI-ENTRY-SHARED-UNKNOWN",
-          "N16-C12-POS",
-          "N16-C12-NEG",
-          "N23-PROVIDER-POS"
-        ],
-        [
-          "RUN-DEPENDENCIES",
-          "RUN-OWNERSHIP"
-        ]
-      ]
-    },
-    {
-      "profile": "M4",
-      "done_when": [
         [
           "N24-C03-POS",
           "CAP-14",
@@ -1930,41 +1695,5 @@
       ]
     }
   ],
-  "given": [
-    {
-      "case": "N01-STORE-NEG",
-      "steps": [
-        "bind_device_key",
-        "bind_a_key_naming_its_own_id",
-        "stage_a_package_carrying_its_key"
-      ],
-      "reason": "N01 is held by P01 and P03 alone in the catalog, and neither scope holds P02 or P09. What N01 asserts is admission and sealed storage, which P03's journal layer runs on every one of these steps; the steps' own semantics are exercised where P02 and P09 are in scope."
-    },
-    {
-      "case": "N01-STORE-POS",
-      "steps": [
-        "bind_device_key",
-        "found_the_team"
-      ],
-      "reason": "N01 is held by P01 and P03 alone in the catalog, and neither scope holds P02 or P07. Both steps are setup for the records whose storage the case asserts, and P03's journal layer runs on them."
-    },
-    {
-      "case": "N02-C01-NEG",
-      "steps": [
-        "found_team",
-        "ask_to_grant_bob",
-        "approve_from_second_key"
-      ],
-      "reason": "N02 is held by P02 and M1, and neither scope holds P07, which serves Team founding, grants and approvals. That a second key of one person cannot approve as an independent reviewer is P07's to show in its own families; the identity refusals this case asserts are P02's and run at both profiles."
-    },
-    {
-      "case": "N08-PENDING-NEG",
-      "steps": [
-        "link_the_conversation",
-        "deliver_the_question",
-        "record_the_cancellation"
-      ],
-      "reason": "N08 is held by profiles none of whose scopes holds P10, which serves recipient links, delivery and answers. The pending question and its unchosen state are P06's and run at P06; delivering and cancelling it through a host is P10's, exercised where P10 is in scope."
-    }
-  ]
+  "given": []
 }

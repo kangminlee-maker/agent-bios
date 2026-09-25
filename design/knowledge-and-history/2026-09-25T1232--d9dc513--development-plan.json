@@ -1,0 +1,1764 @@
+{
+ "schema_version": 2,
+ "kind": "development_evidence_graph",
+ "status": "planned-not-runtime-qualified",
+ "ssot": "2026-09-24T0553--9b26d79--consolidated-design-ssot.md",
+ "spec": "2026-09-25T1232--d9dc513--development-spec.md",
+ "test_catalog": "2026-09-25T1232--d9dc513--test-catalog.json",
+ "baseline_manifest": "2026-09-15T1026--35c75ca--brownfield-evidence.json",
+ "required_requirement_ids": [
+  "U01",
+  "U02",
+  "U03",
+  "U04",
+  "U05",
+  "U06",
+  "U07",
+  "U08",
+  "U09",
+  "U10",
+  "U11",
+  "U12",
+  "U13",
+  "U14",
+  "U15",
+  "U16",
+  "U17",
+  "U18",
+  "U19",
+  "U20",
+  "U21"
+ ],
+ "required_wireframe_ids": [
+  "W01",
+  "W02",
+  "W03",
+  "W04",
+  "W05",
+  "W06",
+  "W07",
+  "W08",
+  "W09",
+  "W10"
+ ],
+ "required_contract_ids": [
+  "C01",
+  "C02",
+  "C03",
+  "C04",
+  "C05",
+  "C06",
+  "C07",
+  "C08",
+  "C09",
+  "C10",
+  "C11",
+  "C12"
+ ],
+ "shared_integrator_paths": [
+  "install.sh",
+  "package.json",
+  "compose/instructions_store.py",
+  "compose/instructions_session.py",
+  "compose/instructions_app.py",
+  "compose/app_bridge/",
+  "launch/agent-launch.py",
+  "gates/check-parity.sh",
+  "gates/check-package.sh",
+  "gates/check-endpoints.py",
+  "gates/check-surfaces.py",
+  "ontology/instances/graph.json",
+  "AGENTS.md",
+  "CLAUDE.md",
+  "compose/instructions_catalog.py",
+  "compose/instructions_install.py",
+  "compose/instructions_setup.py",
+  "compose/instructions_setup_cli.py",
+  "compose/instructions_import.py",
+  "workenv/__init__.py",
+  "workenv/contracts/",
+  "gates/workenv/conformance/",
+  "gates/workenv/fixtures/",
+  "gates/workenv/case-index.json",
+  "gates/workenv/test_contracts.py",
+  "gates/workenv/test_identity.py",
+  "gates/workenv/test_access.py",
+  "gates/workenv/test_instruction_admission.py",
+  "gates/workenv/test_storage.py",
+  "gates/workenv/test_knowledge.py",
+  "gates/workenv/test_memory.py",
+  "gates/workenv/test_readers.py",
+  "gates/workenv/test_preparation.py",
+  "gates/workenv/test_enrollment.py",
+  "gates/workenv/test_governance.py",
+  "gates/workenv/test_environments.py",
+  "gates/workenv/test_exchange.py",
+  "gates/workenv/test_peer_recovery.py",
+  "gates/workenv/test_delivery.py",
+  "gates/workenv/test_studio.py",
+  "gates/workenv/test_github_transport.py",
+  "gates/workenv/test_oidc.py",
+  "gates/workenv/test_team_lifecycle.py",
+  "gates/workenv/test_authoring.py",
+  "gates/workenv/test_bulk_retention.py",
+  "gates/workenv/test_disconnected_e2e.py",
+  "gates/workenv/test_adapter_qualification.py",
+  "gates/workenv/test_cutover.py",
+  "gates/workenv/test_runner_contract.py",
+  "gates/workenv/manual_usability_cases.md",
+  "learn/collect-learning.py",
+  "learn/learning.schema.json",
+  "learn/check-learning.py",
+  "learn/build-promotions.py",
+  "session-distill/",
+  "gates/workenv/test_source_binding.py",
+  "gates/workenv/test_intake.py",
+  "compose/instructions_setup_ui.py",
+  "compose/instructions_setup_i18n.py",
+  "compose/instructions_ui.py",
+  "launch/i18n/"
+ ],
+ "concurrency_ceiling": 3,
+ "concurrency_meaning": "At most three active delegated workers plus the coordinator; further constrain by ownership and available host slots. No model is selected by this plan.",
+ "compatibility_policy": "User explicitly waives backward compatibility. Old commands, schema readers, native resume and mixed-version operation may be removed. Preserve scoped source work and explicitly selected migration data; quiesce old writers before cutover.",
+ "baseline_evidence_policy": "B01-B05 describe current behavior and test assets, not permanent target acceptance contracts. P00 classifies them; target cases are owned by N profiles.",
+ "nodes": [
+  {
+   "id": "P00",
+   "title": "Capture the brownfield input and regression baseline",
+   "status": "planned",
+   "kind": "baseline",
+   "depends_on": [],
+   "owned_paths": [],
+   "shared_paths_policy": "integrator-only patch proposals; never concurrent writes",
+   "test_ids": [
+    "B01",
+    "B02",
+    "B03",
+    "B04",
+    "B05"
+   ],
+   "contracts": [],
+   "requirements": [
+    "U03",
+    "U04"
+   ],
+   "wireframes": [],
+   "done_when": [
+    "Capture tracked modifications/deletions and needed untracked files without touching the main index; create an isolated reproducible source baseline",
+    "Run and classify present-state tests and environment skips; freeze the new target acceptance separately instead of promising old behavior forever"
+   ],
+   "required_evidence": [
+    "run/node/attempt and fixed plan/node identities",
+    "accepted predecessor result digests",
+    "current tested-subject and frozen profile/case-binding fingerprints",
+    "complete required case outcomes and exact artifact inventory",
+    "observed mode/runner identity and prior qualification reference for unattended execution",
+    "explicit failed/pending/unsupported conditions; no status-only acceptance",
+    "independent review evidence bound to the recorded revision by a reviewer from a provider other than the authors'; verdicts and per-finding decisions are disclosed, never judged by the evaluator"
+   ],
+   "replan_on": [
+    "changed input/contract or overlapping owner",
+    "new authority/data-loss/delivery boundary",
+    "repeated root-cause failure not fixed by current unit"
+   ],
+   "rollback": "Before cutover preserve the approved source baseline and selected data export. Abort an uncommitted candidate without losing unique work. After cutover use target-version recovery or an explicit governed inverse; no old-binary downgrade guarantee.",
+   "test_profile": "P00",
+   "profile_freeze": "P01 binds these family oracles to explicit per-task case IDs and adapter selectors. P00 uses existing baseline cases. No whole-family pass is implied at an early task.",
+   "allowed_modes": [
+    "coordinator"
+   ],
+   "provides": [],
+   "effects": "bootstrap",
+   "subject_ids": [
+    "baseline"
+   ],
+   "artifact_outputs": [
+    "result-evidence",
+    "review-evidence"
+   ],
+   "facets": [
+    "local"
+   ]
+  },
+  {
+   "id": "P01",
+   "title": "Freeze implementation contracts and blocking platform choices",
+   "status": "planned",
+   "kind": "contract_freeze",
+   "depends_on": [
+    "P00"
+   ],
+   "owned_paths": [
+    "workenv/contracts/"
+   ],
+   "shared_paths_policy": "integrator-only patch proposals; never concurrent writes",
+   "test_ids": [
+    "N01"
+   ],
+   "contracts": [
+    "C01",
+    "C02",
+    "C03",
+    "C04",
+    "C05",
+    "C06",
+    "C07",
+    "C08",
+    "C09",
+    "C10",
+    "C11",
+    "C12"
+   ],
+   "requirements": [
+    "U04",
+    "U12",
+    "U17",
+    "U19"
+   ],
+   "wireframes": [],
+   "done_when": [
+    "Freeze target API/schema/storage, codec/signature, secret/unlock and bridge bindings through bounded spikes; select reused/retired entrypoints and one controlled data cutover",
+    "Version request/result examples, errors and fixture identities; record unavailable adapters before dependent implementation",
+    "Freeze source manifest/home modes, repo identity, starter package inventory and role-specific capture/request/provenance examples; no automatic K/M to Instructions projection",
+    "Freeze scoped subject-resolver manifests, concrete case-binding registry and coordinator-controlled bootstrap; runner qualification is an early separate R0 proof, not this node’s own prerequisite",
+    "Freeze entrance routing and choice/selection/next-effect examples, supported terminal/locale bindings and actual first-exposure observation protocol; do not treat the prototype as product or human evidence.",
+    "Freeze selected instruction/guide routing, the one local decision-use API, and actual host interaction/response-origin bindings. Negotiate each host's supported wire/version; published MCP or app-server features alone prove no installed capability.",
+    "Wire per-task unit-test discovery and a pinned, offline static-analysis leg over the new runtime and its tests into the umbrella gate, each failing by name on an empty subject set or an absent or mismatched tool, each with a self-built negative control.",
+    "Freeze a joined-case rule: every implementation profile whose node has an implementation predecessor binds at least one existing-family case that the conformance driver runs against that accepted predecessor's real files, proving which files were loaded and that their hashes are in the accepted subject manifest; a fixture double is unavailable to that process, and a name alone cannot satisfy the rule."
+   ],
+   "required_evidence": [
+    "run/node/attempt and fixed plan/node identities",
+    "accepted predecessor result digests",
+    "current tested-subject and frozen profile/case-binding fingerprints",
+    "complete required case outcomes and exact artifact inventory",
+    "observed mode/runner identity and prior qualification reference for unattended execution",
+    "explicit failed/pending/unsupported conditions; no status-only acceptance",
+    "independent review evidence bound to the recorded revision by a reviewer from a provider other than the authors'; verdicts and per-finding decisions are disclosed, never judged by the evaluator"
+   ],
+   "replan_on": [
+    "changed input/contract or overlapping owner",
+    "new authority/data-loss/delivery boundary",
+    "repeated root-cause failure not fixed by current unit"
+   ],
+   "rollback": "Before cutover preserve the approved source baseline and selected data export. Abort an uncommitted candidate without losing unique work. After cutover use target-version recovery or an explicit governed inverse; no old-binary downgrade guarantee.",
+   "test_profile": "P01",
+   "profile_freeze": "P01 binds these family oracles to explicit per-task case IDs and adapter selectors. P00 uses existing baseline cases. No whole-family pass is implied at an early task.",
+   "allowed_modes": [
+    "coordinator"
+   ],
+   "provides": [],
+   "effects": "bootstrap",
+   "subject_ids": [
+    "contracts"
+   ],
+   "artifact_outputs": [
+    "case-bindings",
+    "result-evidence",
+    "review-evidence"
+   ],
+   "facets": [
+    "local"
+   ]
+  },
+  {
+   "id": "V1",
+   "title": "Personal start: a session in this repository receives an environment fitted to it",
+   "status": "planned",
+   "kind": "implementation",
+   "depends_on": [
+    "P01"
+   ],
+   "owned_paths": [
+    "workenv/access.py",
+    "workenv/admission.py",
+    "workenv/cli.py",
+    "workenv/delivery.py",
+    "workenv/hosts/",
+    "workenv/identity.py",
+    "workenv/instructions_adapter.py",
+    "workenv/journal.py",
+    "workenv/preparation.py",
+    "workenv/sources/",
+    "workenv/storage.py",
+    "workenv/tui.py",
+    "gates/workenv/units/v1/"
+   ],
+   "shared_paths_policy": "integrator-only patch proposals; never concurrent writes",
+   "test_ids": [
+    "N01",
+    "N04",
+    "N05",
+    "N09",
+    "N15",
+    "N16",
+    "N27"
+   ],
+   "contracts": [
+    "C01",
+    "C02",
+    "C03",
+    "C04",
+    "C07",
+    "C11",
+    "C12"
+   ],
+   "requirements": [
+    "U01",
+    "U03",
+    "U04",
+    "U11",
+    "U19",
+    "U20"
+   ],
+   "wireframes": [
+    "W01",
+    "W02",
+    "W09"
+   ],
+   "done_when": [
+    "On this machine, start a Claude or Codex session in this repository with an environment fitted to it: a local profile made at first use, with no signup or Team; repository Instructions, then personal ones, then supplied ones, composed in that order; and a record of what the session actually received. Checked here by seeing the profile, the sources and their order, preparing, launching a real session and reading what reached it, and written down in a dated direct-use record.",
+    "Exact portable objects and scoped mutable authority transactions have request-bound receipts",
+    "Implement versioned JSON/member bundles and SQLite local state with staged-file/DB publication barriers; namespace manifests have one authoring home and exact repository bindings",
+    "Store independently addressable repository/personal/Team Instructions, knowledge and memory collections; preserve original sources and separate derived snapshots.",
+    "Prepare personal/projectless/brownfield/unadopted work without synthetic Team or host IDs",
+    "Explicit activation of the memory reader capability supplies a runtime-owned compact usage contract and reachable guide through the supported host projection, even with zero business Instructions selected. Source selection alone is not activation; add no canonical always rule or native global file write, and claim no inactive/plain-session coverage.",
+    "Deliver actual personal new/current/child/rehydrated role bodies with exact result evidence before any Team dependency",
+    "Implement the S11 entry grammar across generic Studio, explicit host launcher and setup; separate work environment from tool/execution choices and focus/selection from observed use.",
+    "Pass mandatory N16 entry cases with different focused/selected/installed/delivered references, 80x24/locale and exact next-action effects; submit shared launcher/setup/localization edits through the integrator.",
+    "First entry shows observed location/checkpoints without a goal or inferred target; taskless environment/startup preparation is valid, task support stays unassessed and task-specific K/M calls wait for the actual host request.",
+    "Keep authoring criteria out of product copy; normal explicit start validates and dispatches without a mandatory preview screen, while relevant gaps/material effects and same-request recovery stay visible and enforced."
+   ],
+   "done_when_from": [
+    "stage",
+    "P03[0]",
+    "P03[2]",
+    "P03[4]",
+    "P06[0]",
+    "P06[7]",
+    "P10[0]",
+    "P11[2]",
+    "P11[3]",
+    "P11[4]",
+    "P11[5]"
+   ],
+   "required_evidence": [
+    "run/node/attempt and fixed plan/node identities",
+    "accepted predecessor result digests",
+    "current tested-subject and frozen profile/case-binding fingerprints",
+    "complete required case outcomes and exact artifact inventory",
+    "observed mode/runner identity and prior qualification reference for unattended execution",
+    "explicit failed/pending/unsupported conditions; no status-only acceptance",
+    "a dated direct-use record of this stage's check performed on this machine, stating what was run and what was seen; it stands beside the cases, never in place of one",
+    "independent review evidence bound to the recorded revision by a reviewer from a provider other than the authors'; verdicts and per-finding decisions are disclosed, never judged by the evaluator"
+   ],
+   "replan_on": [
+    "changed input/contract or overlapping owner",
+    "new authority/data-loss/delivery boundary",
+    "repeated root-cause failure not fixed by current unit"
+   ],
+   "rollback": "Before cutover preserve the approved source baseline and selected data export. Abort an uncommitted candidate without losing unique work. After cutover use target-version recovery or an explicit governed inverse; no old-binary downgrade guarantee.",
+   "test_profile": "V1",
+   "profile_freeze": "P01 binds these family oracles to explicit per-task case IDs and adapter selectors. P00 uses existing baseline cases. No whole-family pass is implied at an early task.",
+   "allowed_modes": [
+    "coordinator",
+    "unattended"
+   ],
+   "provides": [
+    "personal-start"
+   ],
+   "effects": "source-build",
+   "subject_ids": [
+    "contracts",
+    "component:V1"
+   ],
+   "artifact_outputs": [
+    "result-evidence",
+    "direct-use-evidence",
+    "review-evidence"
+   ],
+   "facets": [
+    "local"
+   ]
+  },
+  {
+   "id": "V2",
+   "title": "Decision memory: decisions carry forward, and a conflict is asked in the working CLI",
+   "status": "planned",
+   "kind": "implementation",
+   "depends_on": [
+    "V1"
+   ],
+   "owned_paths": [
+    "workenv/access.py",
+    "workenv/admission.py",
+    "workenv/cli.py",
+    "workenv/delivery.py",
+    "workenv/hosts/",
+    "workenv/identity.py",
+    "workenv/instructions_adapter.py",
+    "workenv/journal.py",
+    "workenv/preparation.py",
+    "workenv/sources/",
+    "workenv/storage.py",
+    "workenv/tui.py",
+    "gates/workenv/units/v1/",
+    "workenv/decision_use.py",
+    "workenv/memory.py",
+    "workenv/reading.py",
+    "gates/workenv/units/v2/"
+   ],
+   "shared_paths_policy": "integrator-only patch proposals; never concurrent writes",
+   "test_ids": [
+    "N01",
+    "N04",
+    "N05",
+    "N07",
+    "N08",
+    "N09",
+    "N15",
+    "N16",
+    "N23",
+    "N27"
+   ],
+   "contracts": [
+    "C05",
+    "C06",
+    "C11"
+   ],
+   "requirements": [
+    "U07",
+    "U08",
+    "U09"
+   ],
+   "wireframes": [
+    "W04"
+   ],
+   "done_when": [
+    "On this machine, record a decision with its context, alternatives, reasons and premises; a later session, or another model, reads the decisions that apply in this repository and continues from them; two conflicting decisions produce a question to the user inside the working CLI, and the answer is kept or asked again as chosen. Checked here by recording two conflicting decisions, starting a new session, being asked in the CLI, answering, restarting and seeing the choice hold, and written down in a dated direct-use record.",
+    "Keep pending decision uses/questions/answers and preference invalidations in the same durable local state; no store/source lock is held while waiting for a human.",
+    "Record actual choices/events and reduce qualified state across workstreams before ranking",
+    "Conflicting/missing lifecycle closure is handled without invented resolution",
+    "Repository ADR, Team ADR and personal records retain source authority, exact observed Markdown and qualified acceptance; no independent editable twin",
+    "Derive relevant decision-conflict participants after source lifecycle/applicability; never select an incompatible decision by scope or recency.",
+    "At actual conflicting decision use, require a user application and keep/ask mode; bind all relevant participants and continuity, invalidate on relevant change/revert, and deduplicate retries of one logical use.",
+    "Expose inspect/prepare-use/answer/resume entrances to one local owner using the memory semantics and the store's durability; verified user response origin is distinct from agent arguments, and no reply channel returns resumable pending_user without blocking independent work.",
+    "Deliver the selected compact recognition router and reachable guide to managed consumers. Hooks are optional exact-use reminders/revalidation; owner admission remains authoritative with hooks off, and receipts claim managed-use coverage only.",
+    "Ask in the actual working CLI/app conversation at decision consumption through a qualified native-question or ordinary-conversation route with independently verified human response origin. Bind conversation/recipient/use/question/basis and resume the same broker use.",
+    "Qualify actual capability/version/configuration and distinguish human, automatic, synthetic, cancel/decline/timeout outcomes. A headless route or one without a qualified reply preserves an explicit pending gap; no Studio chooser or universal hook interception is introduced.",
+    "Display nine scope/role source positions and a distinct effective-material view; retain lower sources and source versions with compact product labels.",
+    "Show pending/resolved decision-use status and permitted source inspection only; do not own the decision question or require opening Studio/TUI to answer. The actual consuming CLI/app asks, through the host route V2 builds."
+   ],
+   "done_when_from": [
+    "stage",
+    "P03[6]",
+    "P05[0]",
+    "P05[1]",
+    "P05[2]",
+    "P05[3]",
+    "P06[4]",
+    "P06[5]",
+    "P06[6]",
+    "P10[2]",
+    "P10[3]",
+    "P11[6]",
+    "P11[7]"
+   ],
+   "required_evidence": [
+    "run/node/attempt and fixed plan/node identities",
+    "accepted predecessor result digests",
+    "current tested-subject and frozen profile/case-binding fingerprints",
+    "complete required case outcomes and exact artifact inventory",
+    "observed mode/runner identity and prior qualification reference for unattended execution",
+    "explicit failed/pending/unsupported conditions; no status-only acceptance",
+    "a dated direct-use record of this stage's check performed on this machine, stating what was run and what was seen; it stands beside the cases, never in place of one",
+    "Actual host interaction observation artifacts for the conversation case, with independently recorded response origin and exact conversation/use/question/basis binding; automatic or agent-declared replies are not human evidence.",
+    "independent review evidence bound to the recorded revision by a reviewer from a provider other than the authors'; verdicts and per-finding decisions are disclosed, never judged by the evaluator"
+   ],
+   "replan_on": [
+    "changed input/contract or overlapping owner",
+    "new authority/data-loss/delivery boundary",
+    "repeated root-cause failure not fixed by current unit"
+   ],
+   "rollback": "Before cutover preserve the approved source baseline and selected data export. Abort an uncommitted candidate without losing unique work. After cutover use target-version recovery or an explicit governed inverse; no old-binary downgrade guarantee.",
+   "test_profile": "V2",
+   "profile_freeze": "P01 binds these family oracles to explicit per-task case IDs and adapter selectors. P00 uses existing baseline cases. No whole-family pass is implied at an early task.",
+   "allowed_modes": [
+    "coordinator",
+    "unattended"
+   ],
+   "provides": [
+    "decision-continuity"
+   ],
+   "effects": "source-build",
+   "subject_ids": [
+    "contracts",
+    "component:V1",
+    "component:V2"
+   ],
+   "artifact_outputs": [
+    "result-evidence",
+    "direct-use-evidence",
+    "host-conversation-evidence",
+    "review-evidence"
+   ],
+   "facets": [
+    "local"
+   ]
+  },
+  {
+   "id": "V3",
+   "title": "Domain knowledge: the knowledge that applies is read when it is needed",
+   "status": "planned",
+   "kind": "implementation",
+   "depends_on": [
+    "V2"
+   ],
+   "owned_paths": [
+    "workenv/access.py",
+    "workenv/admission.py",
+    "workenv/cli.py",
+    "workenv/delivery.py",
+    "workenv/hosts/",
+    "workenv/identity.py",
+    "workenv/instructions_adapter.py",
+    "workenv/journal.py",
+    "workenv/preparation.py",
+    "workenv/sources/",
+    "workenv/storage.py",
+    "workenv/tui.py",
+    "gates/workenv/units/v1/",
+    "workenv/decision_use.py",
+    "workenv/memory.py",
+    "workenv/reading.py",
+    "gates/workenv/units/v2/",
+    "workenv/knowledge.py",
+    "gates/workenv/units/v3/"
+   ],
+   "shared_paths_policy": "integrator-only patch proposals; never concurrent writes",
+   "test_ids": [
+    "N01",
+    "N04",
+    "N05",
+    "N06",
+    "N07",
+    "N08",
+    "N09",
+    "N15",
+    "N16",
+    "N23",
+    "N27"
+   ],
+   "contracts": [
+    "C04",
+    "C06"
+   ],
+   "requirements": [
+    "U05"
+   ],
+   "wireframes": [
+    "W03"
+   ],
+   "done_when": [
+    "On this machine, add repository or personal knowledge with where it applies and its revisions; a session reads the knowledge that applies when it needs it. Checked here by adding a knowledge item with a condition, revising it and seeing a session read the right revision, and written down in a dated direct-use record.",
+    "Immutable scoped knowledge with applicability/evidence/companions supports map/support/evidence",
+    "Future and late corrections retain past references; bounded processing reports missing or uncertain requirements",
+    "Ship one real scoped reviewed knowledge package and add/import paths; product-supplied provenance grants no automatic priority or Team adoption"
+   ],
+   "done_when_from": [
+    "stage",
+    "P04[0]",
+    "P04[1]",
+    "P04[2]"
+   ],
+   "required_evidence": [
+    "run/node/attempt and fixed plan/node identities",
+    "accepted predecessor result digests",
+    "current tested-subject and frozen profile/case-binding fingerprints",
+    "complete required case outcomes and exact artifact inventory",
+    "observed mode/runner identity and prior qualification reference for unattended execution",
+    "explicit failed/pending/unsupported conditions; no status-only acceptance",
+    "a dated direct-use record of this stage's check performed on this machine, stating what was run and what was seen; it stands beside the cases, never in place of one",
+    "Actual host interaction observation artifacts for the conversation case, with independently recorded response origin and exact conversation/use/question/basis binding; automatic or agent-declared replies are not human evidence.",
+    "independent review evidence bound to the recorded revision by a reviewer from a provider other than the authors'; verdicts and per-finding decisions are disclosed, never judged by the evaluator"
+   ],
+   "replan_on": [
+    "changed input/contract or overlapping owner",
+    "new authority/data-loss/delivery boundary",
+    "repeated root-cause failure not fixed by current unit"
+   ],
+   "rollback": "Before cutover preserve the approved source baseline and selected data export. Abort an uncommitted candidate without losing unique work. After cutover use target-version recovery or an explicit governed inverse; no old-binary downgrade guarantee.",
+   "test_profile": "V3",
+   "profile_freeze": "P01 binds these family oracles to explicit per-task case IDs and adapter selectors. P00 uses existing baseline cases. No whole-family pass is implied at an early task.",
+   "allowed_modes": [
+    "coordinator",
+    "unattended"
+   ],
+   "provides": [
+    "knowledge-use"
+   ],
+   "effects": "source-build",
+   "subject_ids": [
+    "contracts",
+    "component:V1",
+    "component:V2",
+    "component:V3"
+   ],
+   "artifact_outputs": [
+    "result-evidence",
+    "direct-use-evidence",
+    "host-conversation-evidence",
+    "review-evidence"
+   ],
+   "facets": [
+    "local"
+   ]
+  },
+  {
+   "id": "V4",
+   "title": "Protection: lock, sign-out, unlock and key rotation",
+   "status": "planned",
+   "kind": "implementation",
+   "depends_on": [
+    "V3"
+   ],
+   "owned_paths": [
+    "workenv/access.py",
+    "workenv/admission.py",
+    "workenv/cli.py",
+    "workenv/delivery.py",
+    "workenv/hosts/",
+    "workenv/identity.py",
+    "workenv/instructions_adapter.py",
+    "workenv/journal.py",
+    "workenv/preparation.py",
+    "workenv/sources/",
+    "workenv/storage.py",
+    "workenv/tui.py",
+    "gates/workenv/units/v1/",
+    "workenv/decision_use.py",
+    "workenv/memory.py",
+    "workenv/reading.py",
+    "gates/workenv/units/v2/",
+    "workenv/knowledge.py",
+    "gates/workenv/units/v3/",
+    "workenv/credentials/",
+    "gates/workenv/units/v4/"
+   ],
+   "shared_paths_policy": "integrator-only patch proposals; never concurrent writes",
+   "test_ids": [
+    "N01",
+    "N02",
+    "N03",
+    "N04",
+    "N05",
+    "N06",
+    "N07",
+    "N08",
+    "N09",
+    "N15",
+    "N16",
+    "N23",
+    "N27"
+   ],
+   "contracts": [
+    "C01",
+    "C02"
+   ],
+   "requirements": [
+    "U19"
+   ],
+   "wireframes": [],
+   "done_when": [
+    "On this machine, lock or sign out, and every open session and handle loses access to protected material; unlock with the device key; rotate the key and remain the same person. Checked here by locking while a session is open, trying the old handle, unlocking and rotating the key, and written down in a dated direct-use record.",
+    "Account-free local profile and explicit lock/signout/unlock have durable session-generation barriers",
+    "All access-owner entrypoints reject stale handles; secrets remain protected and valid offline reentry is explicit",
+    "Define guarded host capability and access-generation handling; Team-specific runtime proof belongs to V5 and V9, not to this stage",
+    "Account-free personal entry/source/preparation/actual recipient uses real local operations and survives lock/signout/reentry"
+   ],
+   "done_when_from": [
+    "stage",
+    "P02[0]",
+    "P02[1]",
+    "P10[1]",
+    "P11[0]"
+   ],
+   "required_evidence": [
+    "run/node/attempt and fixed plan/node identities",
+    "accepted predecessor result digests",
+    "current tested-subject and frozen profile/case-binding fingerprints",
+    "complete required case outcomes and exact artifact inventory",
+    "observed mode/runner identity and prior qualification reference for unattended execution",
+    "explicit failed/pending/unsupported conditions; no status-only acceptance",
+    "a dated direct-use record of this stage's check performed on this machine, stating what was run and what was seen; it stands beside the cases, never in place of one",
+    "Actual host interaction observation artifacts for the conversation case, with independently recorded response origin and exact conversation/use/question/basis binding; automatic or agent-declared replies are not human evidence.",
+    "independent review evidence bound to the recorded revision by a reviewer from a provider other than the authors'; verdicts and per-finding decisions are disclosed, never judged by the evaluator"
+   ],
+   "replan_on": [
+    "changed input/contract or overlapping owner",
+    "new authority/data-loss/delivery boundary",
+    "repeated root-cause failure not fixed by current unit"
+   ],
+   "rollback": "Before cutover preserve the approved source baseline and selected data export. Abort an uncommitted candidate without losing unique work. After cutover use target-version recovery or an explicit governed inverse; no old-binary downgrade guarantee.",
+   "test_profile": "V4",
+   "profile_freeze": "P01 binds these family oracles to explicit per-task case IDs and adapter selectors. P00 uses existing baseline cases. No whole-family pass is implied at an early task.",
+   "allowed_modes": [
+    "coordinator",
+    "unattended"
+   ],
+   "provides": [
+    "local-protection"
+   ],
+   "effects": "source-build",
+   "subject_ids": [
+    "contracts",
+    "component:V1",
+    "component:V2",
+    "component:V3",
+    "component:V4"
+   ],
+   "artifact_outputs": [
+    "result-evidence",
+    "direct-use-evidence",
+    "host-conversation-evidence",
+    "review-evidence"
+   ],
+   "facets": [
+    "local"
+   ]
+  },
+  {
+   "id": "V5",
+   "title": "Teams: found, enrol, publish, adopt and exchange, with no GitHub",
+   "status": "planned",
+   "kind": "implementation",
+   "depends_on": [
+    "V4"
+   ],
+   "owned_paths": [
+    "workenv/access.py",
+    "workenv/admission.py",
+    "workenv/cli.py",
+    "workenv/delivery.py",
+    "workenv/hosts/",
+    "workenv/identity.py",
+    "workenv/instructions_adapter.py",
+    "workenv/journal.py",
+    "workenv/preparation.py",
+    "workenv/sources/",
+    "workenv/storage.py",
+    "workenv/tui.py",
+    "gates/workenv/units/v1/",
+    "workenv/decision_use.py",
+    "workenv/memory.py",
+    "workenv/reading.py",
+    "gates/workenv/units/v2/",
+    "workenv/knowledge.py",
+    "gates/workenv/units/v3/",
+    "workenv/credentials/",
+    "gates/workenv/units/v4/",
+    "workenv/authority.py",
+    "workenv/custody.py",
+    "workenv/environments.py",
+    "workenv/exchange.py",
+    "workenv/team.py",
+    "workenv/transports/package.py",
+    "workenv/transports/peer.py",
+    "workenv/trust.py",
+    "gates/workenv/units/v5/"
+   ],
+   "shared_paths_policy": "integrator-only patch proposals; never concurrent writes",
+   "test_ids": [
+    "N01",
+    "N02",
+    "N03",
+    "N04",
+    "N05",
+    "N06",
+    "N07",
+    "N08",
+    "N09",
+    "N10",
+    "N11",
+    "N12",
+    "N13",
+    "N14",
+    "N15",
+    "N16",
+    "N22",
+    "N23",
+    "N27"
+   ],
+   "contracts": [
+    "C02",
+    "C07",
+    "C08",
+    "C09",
+    "C10"
+   ],
+   "requirements": [
+    "U02",
+    "U12",
+    "U13",
+    "U15",
+    "U17",
+    "U18"
+   ],
+   "wireframes": [
+    "W05",
+    "W06",
+    "W07",
+    "W08"
+   ],
+   "done_when": [
+    "On this machine, found a Team, enrol a second device or person, publish an environment and adopt it, and exchange it by package or peer with no GitHub; the repository > personal > Team order is complete. Checked here with two local profiles that found, enrol, publish, adopt and exchange, and written down in a dated direct-use record.",
+    "Resolve applicable Instructions/knowledge units by repository > personal > Team for Instructions/knowledge, preserve non-overlaps/disabled selections/source rights, and allow own local content overrides without Team approval or shadowed-Team startup gates.",
+    "Exact manual founding/join, membership/grants and independent-review eligibility work without SSO",
+    "Conditional finalization and request/cancellation recovery preserve source ceilings and actual outcomes",
+    "Immutable flattened editions and permitted derivatives preserve exact static pins and memory policy",
+    "Team adoption, local readiness and active recipient remain separate; new Team follows continuous first-use identity",
+    "Real isolated peer stores exchange full/delta/return objects with control-first verification and durable outboxes",
+    "Missing baseline, duplicate/interrupted transfer, device loss and unavailable finalizer have truthful recovery",
+    "Typed capability-driven client shell supports later Team/advanced views; absent operations are explicitly unsupported and not counted complete"
+   ],
+   "done_when_from": [
+    "stage",
+    "P06[3]",
+    "P07[0]",
+    "P07[1]",
+    "P08[0]",
+    "P08[1]",
+    "P09[0]",
+    "P09[1]",
+    "P11[1]"
+   ],
+   "required_evidence": [
+    "run/node/attempt and fixed plan/node identities",
+    "accepted predecessor result digests",
+    "current tested-subject and frozen profile/case-binding fingerprints",
+    "complete required case outcomes and exact artifact inventory",
+    "observed mode/runner identity and prior qualification reference for unattended execution",
+    "explicit failed/pending/unsupported conditions; no status-only acceptance",
+    "a dated direct-use record of this stage's check performed on this machine, stating what was run and what was seen; it stands beside the cases, never in place of one",
+    "Actual host interaction observation artifacts for the conversation case, with independently recorded response origin and exact conversation/use/question/basis binding; automatic or agent-declared replies are not human evidence.",
+    "independent review evidence bound to the recorded revision by a reviewer from a provider other than the authors'; verdicts and per-finding decisions are disclosed, never judged by the evaluator"
+   ],
+   "replan_on": [
+    "changed input/contract or overlapping owner",
+    "new authority/data-loss/delivery boundary",
+    "repeated root-cause failure not fixed by current unit"
+   ],
+   "rollback": "Before cutover preserve the approved source baseline and selected data export. Abort an uncommitted candidate without losing unique work. After cutover use target-version recovery or an explicit governed inverse; no old-binary downgrade guarantee.",
+   "test_profile": "V5",
+   "profile_freeze": "P01 binds these family oracles to explicit per-task case IDs and adapter selectors. P00 uses existing baseline cases. No whole-family pass is implied at an early task.",
+   "allowed_modes": [
+    "coordinator",
+    "unattended"
+   ],
+   "provides": [
+    "team-sharing"
+   ],
+   "effects": "source-build",
+   "subject_ids": [
+    "contracts",
+    "component:V1",
+    "component:V2",
+    "component:V3",
+    "component:V4",
+    "component:V5"
+   ],
+   "artifact_outputs": [
+    "result-evidence",
+    "direct-use-evidence",
+    "host-conversation-evidence",
+    "review-evidence"
+   ],
+   "facets": [
+    "team"
+   ]
+  },
+  {
+   "id": "V6",
+   "title": "Learning intake: what a session learned becomes an accepted source, with its provenance",
+   "status": "planned",
+   "kind": "implementation",
+   "depends_on": [
+    "V5"
+   ],
+   "owned_paths": [
+    "workenv/access.py",
+    "workenv/admission.py",
+    "workenv/cli.py",
+    "workenv/delivery.py",
+    "workenv/hosts/",
+    "workenv/identity.py",
+    "workenv/instructions_adapter.py",
+    "workenv/journal.py",
+    "workenv/preparation.py",
+    "workenv/sources/",
+    "workenv/storage.py",
+    "workenv/tui.py",
+    "gates/workenv/units/v1/",
+    "workenv/decision_use.py",
+    "workenv/memory.py",
+    "workenv/reading.py",
+    "gates/workenv/units/v2/",
+    "workenv/knowledge.py",
+    "gates/workenv/units/v3/",
+    "workenv/credentials/",
+    "gates/workenv/units/v4/",
+    "workenv/authority.py",
+    "workenv/custody.py",
+    "workenv/environments.py",
+    "workenv/exchange.py",
+    "workenv/team.py",
+    "workenv/transports/package.py",
+    "workenv/transports/peer.py",
+    "workenv/trust.py",
+    "gates/workenv/units/v5/",
+    "workenv/intake/",
+    "gates/workenv/units/v6/"
+   ],
+   "shared_paths_policy": "integrator-only patch proposals; never concurrent writes",
+   "test_ids": [
+    "N01",
+    "N02",
+    "N03",
+    "N04",
+    "N05",
+    "N06",
+    "N07",
+    "N08",
+    "N09",
+    "N10",
+    "N11",
+    "N12",
+    "N13",
+    "N14",
+    "N15",
+    "N16",
+    "N22",
+    "N23",
+    "N27",
+    "N28"
+   ],
+   "contracts": [
+    "C01",
+    "C05"
+   ],
+   "requirements": [
+    "U21"
+   ],
+   "wireframes": [
+    "W10"
+   ],
+   "done_when": [
+    "On this machine, what a session learned becomes a typed candidate, is validated, and is accepted into its destination with its provenance. Checked here by capturing from a real session, validating, accepting and seeing it applied, and written down in a dated direct-use record.",
+    "Combine selected repo/Team/domain/personal sources with repository > personal > Team default application for Instructions/knowledge and explicit user arbitration for decision conflicts; explicit candidate use is unadopted and missing required sources remain gaps",
+    "Capture explicitly permitted local/session/exported inputs into typed candidates with exact source/frontier and fixed intended destination; no Team/SSO/GitHub prerequisite",
+    "Provide learning and distillation producer adapters that preserve role-specific details, missing rationale, source privacy and same-request recovery; no old always-rule or broad author-history scanner fallback",
+    "Selected local candidates can support ordinary permitted work while preserving their actual candidate/unadopted provenance. Team promotion, live-provider quality and full candidate UI belong to V8 and V9, not to this stage"
+   ],
+   "done_when_from": [
+    "stage",
+    "P06[2]",
+    "P19[0]",
+    "P19[1]",
+    "P19[2]"
+   ],
+   "required_evidence": [
+    "run/node/attempt and fixed plan/node identities",
+    "accepted predecessor result digests",
+    "current tested-subject and frozen profile/case-binding fingerprints",
+    "complete required case outcomes and exact artifact inventory",
+    "observed mode/runner identity and prior qualification reference for unattended execution",
+    "explicit failed/pending/unsupported conditions; no status-only acceptance",
+    "a dated direct-use record of this stage's check performed on this machine, stating what was run and what was seen; it stands beside the cases, never in place of one",
+    "Actual host interaction observation artifacts for the conversation case, with independently recorded response origin and exact conversation/use/question/basis binding; automatic or agent-declared replies are not human evidence.",
+    "independent review evidence bound to the recorded revision by a reviewer from a provider other than the authors'; verdicts and per-finding decisions are disclosed, never judged by the evaluator"
+   ],
+   "replan_on": [
+    "changed input/contract or overlapping owner",
+    "new authority/data-loss/delivery boundary",
+    "repeated root-cause failure not fixed by current unit"
+   ],
+   "rollback": "Before cutover preserve the approved source baseline and selected data export. Abort an uncommitted candidate without losing unique work. After cutover use target-version recovery or an explicit governed inverse; no old-binary downgrade guarantee.",
+   "test_profile": "V6",
+   "profile_freeze": "P01 binds these family oracles to explicit per-task case IDs and adapter selectors. P00 uses existing baseline cases. No whole-family pass is implied at an early task.",
+   "allowed_modes": [
+    "coordinator",
+    "unattended"
+   ],
+   "provides": [
+    "learning-intake"
+   ],
+   "effects": "source-build",
+   "subject_ids": [
+    "contracts",
+    "component:V1",
+    "component:V2",
+    "component:V3",
+    "component:V4",
+    "component:V5",
+    "component:V6"
+   ],
+   "artifact_outputs": [
+    "result-evidence",
+    "direct-use-evidence",
+    "host-conversation-evidence",
+    "review-evidence"
+   ],
+   "facets": [
+    "local"
+   ]
+  },
+  {
+   "id": "V7",
+   "title": "Optional connections: a GitHub carrier and provider sign-in",
+   "status": "planned",
+   "kind": "implementation",
+   "depends_on": [
+    "V6"
+   ],
+   "owned_paths": [
+    "workenv/access.py",
+    "workenv/admission.py",
+    "workenv/cli.py",
+    "workenv/delivery.py",
+    "workenv/hosts/",
+    "workenv/identity.py",
+    "workenv/instructions_adapter.py",
+    "workenv/journal.py",
+    "workenv/preparation.py",
+    "workenv/sources/",
+    "workenv/storage.py",
+    "workenv/tui.py",
+    "gates/workenv/units/v1/",
+    "workenv/decision_use.py",
+    "workenv/memory.py",
+    "workenv/reading.py",
+    "gates/workenv/units/v2/",
+    "workenv/knowledge.py",
+    "gates/workenv/units/v3/",
+    "workenv/credentials/",
+    "gates/workenv/units/v4/",
+    "workenv/authority.py",
+    "workenv/custody.py",
+    "workenv/environments.py",
+    "workenv/exchange.py",
+    "workenv/team.py",
+    "workenv/transports/package.py",
+    "workenv/transports/peer.py",
+    "workenv/trust.py",
+    "gates/workenv/units/v5/",
+    "workenv/intake/",
+    "gates/workenv/units/v6/",
+    "workenv/auth/",
+    "workenv/transports/github.py",
+    "gates/workenv/units/v7/"
+   ],
+   "shared_paths_policy": "integrator-only patch proposals; never concurrent writes",
+   "test_ids": [
+    "N01",
+    "N02",
+    "N03",
+    "N04",
+    "N05",
+    "N06",
+    "N07",
+    "N08",
+    "N09",
+    "N10",
+    "N11",
+    "N12",
+    "N13",
+    "N14",
+    "N15",
+    "N16",
+    "N17",
+    "N18",
+    "N22",
+    "N23",
+    "N27",
+    "N28"
+   ],
+   "contracts": [
+    "C02",
+    "C09",
+    "C12"
+   ],
+   "requirements": [
+    "U16"
+   ],
+   "wireframes": [],
+   "done_when": [
+    "On this machine, connect a GitHub carrier, and sign in with Google, Slack or OIDC, each of them optional. Checked here by connecting a real repository and one provider and disconnecting both, and written down in a dated direct-use record.",
+    "Recommended option is explicit connection with permitted real shared state and verified repository identity",
+    "P2P works without credentials/GitHub; interrupted setup/disconnect has scoped durable outcomes",
+    "Configured supported provider callbacks verify identity and guarded linking with protected confidential exchange",
+    "No auto-email merge/login-implies-grant, silent post-logout reentry or offline-provider requirement for independent permitted paths"
+   ],
+   "done_when_from": [
+    "stage",
+    "P12[0]",
+    "P12[1]",
+    "P13[0]",
+    "P13[1]"
+   ],
+   "required_evidence": [
+    "run/node/attempt and fixed plan/node identities",
+    "accepted predecessor result digests",
+    "current tested-subject and frozen profile/case-binding fingerprints",
+    "complete required case outcomes and exact artifact inventory",
+    "observed mode/runner identity and prior qualification reference for unattended execution",
+    "explicit failed/pending/unsupported conditions; no status-only acceptance",
+    "a dated direct-use record of this stage's check performed on this machine, stating what was run and what was seen; it stands beside the cases, never in place of one",
+    "Actual host interaction observation artifacts for the conversation case, with independently recorded response origin and exact conversation/use/question/basis binding; automatic or agent-declared replies are not human evidence.",
+    "independent review evidence bound to the recorded revision by a reviewer from a provider other than the authors'; verdicts and per-finding decisions are disclosed, never judged by the evaluator"
+   ],
+   "replan_on": [
+    "changed input/contract or overlapping owner",
+    "new authority/data-loss/delivery boundary",
+    "repeated root-cause failure not fixed by current unit"
+   ],
+   "rollback": "Before cutover preserve the approved source baseline and selected data export. Abort an uncommitted candidate without losing unique work. After cutover use target-version recovery or an explicit governed inverse; no old-binary downgrade guarantee.",
+   "test_profile": "V7",
+   "profile_freeze": "P01 binds these family oracles to explicit per-task case IDs and adapter selectors. P00 uses existing baseline cases. No whole-family pass is implied at an early task.",
+   "allowed_modes": [
+    "coordinator",
+    "unattended"
+   ],
+   "provides": [
+    "optional-connections"
+   ],
+   "effects": "source-build",
+   "subject_ids": [
+    "contracts",
+    "component:V1",
+    "component:V2",
+    "component:V3",
+    "component:V4",
+    "component:V5",
+    "component:V6",
+    "component:V7"
+   ],
+   "artifact_outputs": [
+    "result-evidence",
+    "direct-use-evidence",
+    "host-conversation-evidence",
+    "review-evidence"
+   ],
+   "facets": [
+    "external"
+   ]
+  },
+  {
+   "id": "V8",
+   "title": "Operational completeness",
+   "status": "planned",
+   "kind": "implementation",
+   "depends_on": [
+    "V7"
+   ],
+   "owned_paths": [
+    "workenv/access.py",
+    "workenv/admission.py",
+    "workenv/cli.py",
+    "workenv/delivery.py",
+    "workenv/hosts/",
+    "workenv/identity.py",
+    "workenv/instructions_adapter.py",
+    "workenv/journal.py",
+    "workenv/preparation.py",
+    "workenv/sources/",
+    "workenv/storage.py",
+    "workenv/tui.py",
+    "gates/workenv/units/v1/",
+    "workenv/decision_use.py",
+    "workenv/memory.py",
+    "workenv/reading.py",
+    "gates/workenv/units/v2/",
+    "workenv/knowledge.py",
+    "gates/workenv/units/v3/",
+    "workenv/credentials/",
+    "gates/workenv/units/v4/",
+    "workenv/authority.py",
+    "workenv/custody.py",
+    "workenv/environments.py",
+    "workenv/exchange.py",
+    "workenv/team.py",
+    "workenv/transports/package.py",
+    "workenv/transports/peer.py",
+    "workenv/trust.py",
+    "gates/workenv/units/v5/",
+    "workenv/intake/",
+    "gates/workenv/units/v6/",
+    "workenv/auth/",
+    "workenv/transports/github.py",
+    "gates/workenv/units/v7/",
+    "workenv/authoring/",
+    "workenv/lifecycle.py",
+    "workenv/operations.py",
+    "workenv/retention.py",
+    "workenv/search.py",
+    "workenv/studio/assets/",
+    "workenv/studio/bridge.py",
+    "workenv/studio/operation_views/",
+    "workenv/studio/source_views/",
+    "workenv/studio/team_views/",
+    "workenv/validation/",
+    "gates/workenv/units/v8/"
+   ],
+   "shared_paths_policy": "integrator-only patch proposals; never concurrent writes",
+   "test_ids": [
+    "N01",
+    "N02",
+    "N03",
+    "N04",
+    "N05",
+    "N06",
+    "N07",
+    "N08",
+    "N09",
+    "N10",
+    "N11",
+    "N12",
+    "N13",
+    "N14",
+    "N15",
+    "N16",
+    "N17",
+    "N18",
+    "N19",
+    "N20",
+    "N21",
+    "N22",
+    "N23",
+    "N27",
+    "N28"
+   ],
+   "contracts": [
+    "C02",
+    "C03",
+    "C08",
+    "C10",
+    "C12"
+   ],
+   "requirements": [
+    "U06",
+    "U10",
+    "U14"
+   ],
+   "wireframes": [
+    "W10"
+   ],
+   "done_when": [
+    "On this machine, corrections, retention and deletion, backup and recovery, search, bulk operations, advanced Studio and authoring, and the Team lifecycle work. Checked here by backing up and restoring after deleting local state, archiving and restoring a Team, and doing bulk edits, and written down in a dated direct-use record.",
+    "Kill/restart at durable boundaries, verify lineage/forks and distinguish local availability from shared acceptance",
+    "Create and restore a supported consistent local backup after loss of live state, retaining covered private drafts/outboxes/unknown-operation mappings and required objects; report post-backup gaps and keep restored authority passive",
+    "Durably retain private decision-use preferences, pending questions/answers, use receipts and invalidations; restart/backup cannot revive stale choices.",
+    "Keep knowledge/history separate from instruction authority; new protected namespaces cannot be exposed by any retained supported entrypoint, including repo/root overrides",
+    "Typed full CRUD, device/ownership transfer, archive continuation and leave/forget/close operate with real prerequisites",
+    "Final closure follows required stewardship disposition; no lost outbox, bootstrap reuse or evidence-induced revival",
+    "Complete Instructions source, knowledge table/model/form/question and memory event authoring with exact owned effects",
+    "Show canonical authoring home, owner, home/applicability scope and origin; candidate compare/edit/reject/promote uses actual destination receipts",
+    "Current/history scoped search, source derivatives, mixed bulk/import/export and copy-specific cleanup produce exact outcomes"
+   ],
+   "done_when_from": [
+    "stage",
+    "P03[1]",
+    "P03[3]",
+    "P03[5]",
+    "P06[1]",
+    "P14[0]",
+    "P14[1]",
+    "P15[0]",
+    "P15[1]",
+    "P16[0]"
+   ],
+   "required_evidence": [
+    "run/node/attempt and fixed plan/node identities",
+    "accepted predecessor result digests",
+    "current tested-subject and frozen profile/case-binding fingerprints",
+    "complete required case outcomes and exact artifact inventory",
+    "observed mode/runner identity and prior qualification reference for unattended execution",
+    "explicit failed/pending/unsupported conditions; no status-only acceptance",
+    "a dated direct-use record of this stage's check performed on this machine, stating what was run and what was seen; it stands beside the cases, never in place of one",
+    "Actual host interaction observation artifacts for the conversation case, with independently recorded response origin and exact conversation/use/question/basis binding; automatic or agent-declared replies are not human evidence.",
+    "independent review evidence bound to the recorded revision by a reviewer from a provider other than the authors'; verdicts and per-finding decisions are disclosed, never judged by the evaluator"
+   ],
+   "replan_on": [
+    "changed input/contract or overlapping owner",
+    "new authority/data-loss/delivery boundary",
+    "repeated root-cause failure not fixed by current unit"
+   ],
+   "rollback": "Before cutover preserve the approved source baseline and selected data export. Abort an uncommitted candidate without losing unique work. After cutover use target-version recovery or an explicit governed inverse; no old-binary downgrade guarantee.",
+   "test_profile": "V8",
+   "profile_freeze": "P01 binds these family oracles to explicit per-task case IDs and adapter selectors. P00 uses existing baseline cases. No whole-family pass is implied at an early task.",
+   "allowed_modes": [
+    "coordinator",
+    "unattended"
+   ],
+   "provides": [
+    "complete-operations"
+   ],
+   "effects": "source-build",
+   "subject_ids": [
+    "contracts",
+    "component:V1",
+    "component:V2",
+    "component:V3",
+    "component:V4",
+    "component:V5",
+    "component:V6",
+    "component:V7",
+    "component:V8"
+   ],
+   "artifact_outputs": [
+    "result-evidence",
+    "direct-use-evidence",
+    "host-conversation-evidence",
+    "review-evidence"
+   ],
+   "facets": [
+    "local",
+    "team"
+   ]
+  },
+  {
+   "id": "PK",
+   "title": "Package: an immutable candidate, installed on this machine",
+   "status": "planned",
+   "kind": "package",
+   "depends_on": [
+    "V8"
+   ],
+   "owned_paths": [],
+   "shared_paths_policy": "integrator-only patch proposals; never concurrent writes",
+   "test_ids": [
+    "N24"
+   ],
+   "contracts": [
+    "C01",
+    "C02",
+    "C03",
+    "C07",
+    "C09",
+    "C11",
+    "C12"
+   ],
+   "requirements": [
+    "U01",
+    "U02",
+    "U03",
+    "U04",
+    "U05",
+    "U06",
+    "U07",
+    "U08",
+    "U09",
+    "U10",
+    "U11",
+    "U12",
+    "U13",
+    "U14",
+    "U15",
+    "U16",
+    "U17",
+    "U18",
+    "U19",
+    "U20",
+    "U21"
+   ],
+   "wireframes": [
+    "W01",
+    "W02",
+    "W03",
+    "W04",
+    "W05",
+    "W06",
+    "W07",
+    "W08",
+    "W09",
+    "W10"
+   ],
+   "done_when": [
+    "An immutable candidate package is built from the accepted source and installed on this machine. Checked here by installing the candidate, and written down in a dated direct-use record.",
+    "Produce an immutable candidate tarball, inventory, source-to-package mapping and isolated cutover plan from the accepted integrated source",
+    "Check candidate construction and required object closure; do not switch real user state or change tested source in this packaging node. Source repairs go back to their implementation owner."
+   ],
+   "done_when_from": [
+    "stage",
+    "P18[0]",
+    "P18[1]"
+   ],
+   "required_evidence": [
+    "run/node/attempt and fixed plan/node identities",
+    "accepted predecessor result digests",
+    "current tested-subject and frozen profile/case-binding fingerprints",
+    "complete required case outcomes and exact artifact inventory",
+    "observed mode/runner identity and prior qualification reference for unattended execution",
+    "explicit failed/pending/unsupported conditions; no status-only acceptance",
+    "a dated direct-use record of this stage's check performed on this machine, stating what was run and what was seen; it stands beside the cases, never in place of one",
+    "independent review evidence bound to the recorded revision by a reviewer from a provider other than the authors'; verdicts and per-finding decisions are disclosed, never judged by the evaluator"
+   ],
+   "replan_on": [
+    "changed input/contract or overlapping owner",
+    "new authority/data-loss/delivery boundary",
+    "repeated root-cause failure not fixed by current unit"
+   ],
+   "rollback": "Before cutover preserve the approved source baseline and selected data export. Abort an uncommitted candidate without losing unique work. After cutover use target-version recovery or an explicit governed inverse; no old-binary downgrade guarantee.",
+   "test_profile": "PK",
+   "profile_freeze": "P01 binds these family oracles to explicit per-task case IDs and adapter selectors. P00 uses existing baseline cases. No whole-family pass is implied at an early task.",
+   "allowed_modes": [
+    "coordinator",
+    "unattended"
+   ],
+   "provides": [
+    "package-readiness"
+   ],
+   "effects": "candidate-build",
+   "subject_ids": [
+    "full-runtime",
+    "package"
+   ],
+   "artifact_outputs": [
+    "package-candidate",
+    "result-evidence",
+    "direct-use-evidence",
+    "review-evidence"
+   ],
+   "facets": [
+    "local"
+   ]
+  },
+  {
+   "id": "V9",
+   "title": "The whole real-use test on this machine",
+   "status": "planned",
+   "kind": "verification",
+   "depends_on": [
+    "PK"
+   ],
+   "owned_paths": [],
+   "shared_paths_policy": "integrator-only patch proposals; never concurrent writes",
+   "test_ids": [
+    "N01",
+    "N02",
+    "N03",
+    "N04",
+    "N05",
+    "N06",
+    "N07",
+    "N08",
+    "N09",
+    "N10",
+    "N11",
+    "N12",
+    "N13",
+    "N14",
+    "N15",
+    "N16",
+    "N17",
+    "N18",
+    "N19",
+    "N20",
+    "N21",
+    "N22",
+    "N23",
+    "N24",
+    "N27",
+    "N28"
+   ],
+   "contracts": [],
+   "requirements": [],
+   "wireframes": [],
+   "done_when": [
+    "Every stage's check, performed end to end on the installed candidate, finds no problem on this machine, and is written down in a dated direct-use record. Deployment is the next action and is not part of this node.",
+    "Verify the installed candidate and every stage's current required evidence, including actual Team delivery and recipient restrictions",
+    "Emit passed, failed or pending evidence without modifying product source. Any repair returns to an owning build node and invalidates affected fingerprints/results.",
+    "Verify actual working-host conversation and no-channel decision interaction and response provenance on the immutable integrated candidate; synthetic model tests do not qualify a real host.",
+    "Verify the exact immutable PK candidate, installed-target behavior and controlled test cutover after all required upstream claims pass",
+    "All required cases including CAP-14 pass on current package evidence; real publishing/cutover is a separate action, not this verification"
+   ],
+   "done_when_from": [
+    "stage",
+    "P17[0]",
+    "P17[1]",
+    "P17[2]",
+    "M4[0]",
+    "M4[1]"
+   ],
+   "required_evidence": [
+    "run/node/attempt and fixed plan/node identities",
+    "accepted predecessor result digests",
+    "current tested-subject and frozen profile/case-binding fingerprints",
+    "complete required case outcomes and exact artifact inventory",
+    "observed mode/runner identity and prior qualification reference for unattended execution",
+    "explicit failed/pending/unsupported conditions; no status-only acceptance",
+    "a dated direct-use record of this stage's check performed on this machine, stating what was run and what was seen; it stands beside the cases, never in place of one",
+    "Actual host interaction observation artifacts for the conversation case, with independently recorded response origin and exact conversation/use/question/basis binding; automatic or agent-declared replies are not human evidence.",
+    "independent review evidence bound to the recorded revision by a reviewer from a provider other than the authors'; verdicts and per-finding decisions are disclosed, never judged by the evaluator"
+   ],
+   "replan_on": [
+    "changed input/contract or overlapping owner",
+    "new authority/data-loss/delivery boundary",
+    "repeated root-cause failure not fixed by current unit"
+   ],
+   "rollback": "Before cutover preserve the approved source baseline and selected data export. Abort an uncommitted candidate without losing unique work. After cutover use target-version recovery or an explicit governed inverse; no old-binary downgrade guarantee.",
+   "test_profile": "V9",
+   "profile_freeze": "P01 binds these family oracles to explicit per-task case IDs and adapter selectors. P00 uses existing baseline cases. No whole-family pass is implied at an early task.",
+   "allowed_modes": [
+    "coordinator"
+   ],
+   "provides": [
+    "real-use-verified"
+   ],
+   "effects": "read-only-verification",
+   "subject_ids": [
+    "contracts",
+    "component:V1",
+    "component:V2",
+    "component:V3",
+    "component:V4",
+    "component:V5",
+    "component:V6",
+    "component:V7",
+    "component:V8",
+    "full-runtime",
+    "package"
+   ],
+   "artifact_outputs": [
+    "result-evidence",
+    "direct-use-evidence",
+    "host-conversation-evidence",
+    "review-evidence"
+   ],
+   "facets": [
+    "local"
+   ]
+  },
+  {
+   "id": "R0",
+   "title": "Qualify the selected runner before unattended dispatch",
+   "status": "planned",
+   "kind": "qualification",
+   "depends_on": [
+    "P01"
+   ],
+   "owned_paths": [],
+   "effects": "read-only-verification",
+   "allowed_modes": [
+    "coordinator"
+   ],
+   "test_profile": "R0",
+   "test_ids": [
+    "N25"
+   ],
+   "provides": [
+    "runner-qualified"
+   ],
+   "subject_ids": [
+    "runner"
+   ],
+   "artifact_outputs": [
+    "result-evidence",
+    "review-evidence"
+   ],
+   "facets": [
+    "local"
+   ],
+   "requirements": [],
+   "wireframes": [],
+   "contracts": [],
+   "done_when": [
+    "Under coordinator control, exercise a small synthetic development graph against the actual selected runner/configuration",
+    "Prove receipt/dependency/ownership/restart/interruption and mode barriers without requiring the future product; never self-qualify via an unattended run"
+   ],
+   "required_evidence": [
+    "run/node/attempt and fixed plan/node identities",
+    "accepted predecessor result digests",
+    "current tested-subject and frozen profile/case-binding fingerprints",
+    "complete required case outcomes and exact artifact inventory",
+    "observed mode/runner identity and prior qualification reference for unattended execution",
+    "explicit failed/pending/unsupported conditions; no status-only acceptance",
+    "independent review evidence bound to the recorded revision by a reviewer from a provider other than the authors'; verdicts and per-finding decisions are disclosed, never judged by the evaluator"
+   ]
+  }
+ ],
+ "terminal_node": "V9",
+ "execution": {
+  "default_mode": "coordinator",
+  "unattended_claim": "runner-qualified",
+  "qualification_node": "R0",
+  "bootstrap_nodes": [
+   "P00",
+   "P01",
+   "R0"
+  ],
+  "mode_note": "Coordinator-controlled is explicit dispatch/review in the active coordinating task; it does not require repeated human confirmation or claim unattended-runner assurance."
+ },
+ "subjects": {
+  "baseline": {
+   "meaning": "baseline",
+   "resolution": "Current independent coordinator/runner measurement of the declared source, config, fixture, adapter or artifact closure; not copied from a past receipt"
+  },
+  "contracts": {
+   "meaning": "contracts",
+   "resolution": "Current independent coordinator/runner measurement of the declared source, config, fixture, adapter or artifact closure; not copied from a past receipt"
+  },
+  "component:V1": {
+   "meaning": "component:V1",
+   "resolution": "Current independent coordinator/runner measurement of the declared source, config, fixture, adapter or artifact closure; not copied from a past receipt"
+  },
+  "component:V2": {
+   "meaning": "component:V2",
+   "resolution": "Current independent coordinator/runner measurement of the declared source, config, fixture, adapter or artifact closure; not copied from a past receipt"
+  },
+  "component:V3": {
+   "meaning": "component:V3",
+   "resolution": "Current independent coordinator/runner measurement of the declared source, config, fixture, adapter or artifact closure; not copied from a past receipt"
+  },
+  "component:V4": {
+   "meaning": "component:V4",
+   "resolution": "Current independent coordinator/runner measurement of the declared source, config, fixture, adapter or artifact closure; not copied from a past receipt"
+  },
+  "component:V5": {
+   "meaning": "component:V5",
+   "resolution": "Current independent coordinator/runner measurement of the declared source, config, fixture, adapter or artifact closure; not copied from a past receipt"
+  },
+  "component:V6": {
+   "meaning": "component:V6",
+   "resolution": "Current independent coordinator/runner measurement of the declared source, config, fixture, adapter or artifact closure; not copied from a past receipt"
+  },
+  "component:V7": {
+   "meaning": "component:V7",
+   "resolution": "Current independent coordinator/runner measurement of the declared source, config, fixture, adapter or artifact closure; not copied from a past receipt"
+  },
+  "component:V8": {
+   "meaning": "component:V8",
+   "resolution": "Current independent coordinator/runner measurement of the declared source, config, fixture, adapter or artifact closure; not copied from a past receipt"
+  },
+  "full-runtime": {
+   "meaning": "full-runtime",
+   "resolution": "Current independent coordinator/runner measurement of the declared source, config, fixture, adapter or artifact closure; not copied from a past receipt Include relevant local decision-use owner, selected router/guide, actual host interaction adapter/capability and response-origin configuration; no host-name-only qualification."
+  },
+  "package": {
+   "meaning": "package",
+   "resolution": "Current independent coordinator/runner measurement of the declared source, config, fixture, adapter or artifact closure; not copied from a past receipt"
+  },
+  "runner": {
+   "meaning": "runner",
+   "resolution": "Current independent coordinator/runner measurement of the declared source, config, fixture, adapter or artifact closure; not copied from a past receipt"
+  }
+ },
+ "evidence_contract": {
+  "receipt_version": 1,
+  "states_that_satisfy": "Only a passed record with current run/plan/node/profile/binding/subject fingerprints, exact accepted inputs, required passed cases and verified evidence artifacts",
+  "invalidation": "Changed subject/profile/runner or predecessor receipt invalidates affected records and transitive consumers; unrelated scoped subjects remain valid",
+  "verification_effects": "Product-read-only; writes are isolated test/evidence outputs. Repairs create a successor owner build/plan, never mutate an already-tested product behind a passed verification.",
+  "subject_boundary": "The evaluator compares supplied current measurements; a qualified adapter must derive them from actual manifests/bytes/tool identities. It does not prove a dishonest operator ran a test.",
+  "host_answer_observations": "The two answer-route qualification cases use declared existing evidence artifacts with case-specific conversation/use/question/basis and verified human-origin observations. Either route may record an observed capability-unavailable negative; the chosen interactive host scope must demonstrate at least one actual human reply route. Synthetic regression artifacts are not real host proof.",
+  "run_shape": "A run file is one JSON object with no duplicate keys or non-finite constants. records, bindings, in_flight and current_subjects are required objects; in_flight has no default and names exact node ids, each with a nonempty attempt_id; an absent requested_mode takes execution.default_mode. A malformed run is reported invalid as a whole; a malformed record rejects only its node. records names exact node ids too. A present record that is not one readable attempt result is rejected and holds its node; run and attempt identities are non-blank text.",
+  "independent_review": "Every record carries a review-evidence artifact and an authors list. At least one successful dispatch must carry the record's review subject on its packet's first line and come from a provider that is not an author's; its packet and result bytes must match its receipt, its result must list findings and a non-empty checked scope, and every finding needs a recorded decision (not-a-defect or deferred) with a note. A fix is never claimed: changed bytes change the review subject and require a new bound dispatch. The review subject covers the node as the plan defines it, every field of the record except the plan digest, predecessor inputs, the qualification reference and run/attempt ids, and the other artifacts' hashes. Every review of the recorded revision, an author's own provider's included, needs its findings decided and is disclosed. Receipts are not authenticated: this stops a forgotten, stale or same-provider review, not a fabricated one.",
+  "chain": "Stages form one dependency chain and each extends files an earlier one wrote, so two nodes may own overlapping paths only when one depends on the other and the later one's profile and subjects hold the earlier one's. A record whose tested subject moved stays current while a later node in its chain is accepted with current subjects that include the earlier node's and a bound case map that holds every bound case of the earlier node's; the evaluator discloses each such discharge. A node waits while another owner of its paths has an unresolved attempt.",
+  "direct_use": "Every stage records a dated direct-use record of its check performed on this machine as the direct-use-evidence artifact. The evaluator holds its presence and hash, not its content; it stands beside the cases and never in place of one."
+ },
+ "validator": "2026-09-25T1232--d9dc513--check-development-plan.py",
+ "regression_tests": "2026-09-25T1232--d9dc513--acceptance-tests.py",
+ "ui_projection": {
+  "entry_contract": "2026-09-15T1026--35c75ca--consolidated-design-ssot.md#s11-tui-entry",
+  "wireframes": "2026-09-15T1026--35c75ca--tui-entry-wireframes.md",
+  "prototype": "2026-09-15T1026--35c75ca--tui-entry-prototype.html",
+  "scope": "Nine original positions and I/K default scope order; Studio inspects pending/resolved decision status only. Actual working CLI/app consumption owns the question and input-bound keep/ask application."
+ },
+ "composition_contract": {
+  "default_order": [
+   "repository",
+   "personal",
+   "team"
+  ],
+  "roles": [
+   "instructions",
+   "knowledge",
+   "memory"
+  ],
+  "source_separation": "scope-and-role",
+  "local_content_override_requires_team_approval": false,
+  "shadowed_team_content_blocks_start": false,
+  "effective_view_is_source": false,
+  "priority_roles": [
+   "instructions",
+   "knowledge"
+  ],
+  "decision_conflicts": {
+   "resolver": "user",
+   "modes": [
+    "reuse_until_change",
+    "ask_each_use"
+   ],
+   "validity": "all-relevant-participants-and-change-continuity",
+   "unit": "logical-use",
+   "session_key": false,
+   "question_surface": "consuming-host-conversation",
+   "answer_evidence": "verified-human-origin",
+   "no_reply": "pending_user",
+   "hook_role": "optional-exact-use-only",
+   "receipt_scope": "managed-use-only"
+  }
+ },
+ "document_bindings": [
+  {
+   "path": "2026-09-24T0553--9b26d79--consolidated-design-ssot.md",
+   "sha256": "a4059e46e4bb1d68921c301670de0ab3bf384e4215bf87545dfb821f4d0bba76"
+  },
+  {
+   "path": "2026-09-25T1232--d9dc513--development-spec.md",
+   "sha256": "a875ca45e07f86b88f1097c7657acac64fb012ef641fcd057024673b3882f399"
+  },
+  {
+   "path": "2026-09-25T1232--d9dc513--test-catalog.json",
+   "sha256": "45e72a04555b30cf3dca2ffad3b2b4ad291a2f6b1a8156861cd502027a570a99"
+  },
+  {
+   "path": "2026-09-15T1026--35c75ca--brownfield-evidence.json",
+   "sha256": "b884acda0942cffed714f2d7e24763b80b22fc3cfaf74513c3eee039b2b1ddc1"
+  },
+  {
+   "path": "2026-09-25T1232--d9dc513--check-development-plan.py",
+   "sha256": "ec0fc0f3a7afd47a5c09157d95a6d9e1be3079a692e8f9e070e8622fa53e2e68"
+  },
+  {
+   "path": "2026-09-25T1232--d9dc513--acceptance-tests.py",
+   "sha256": "82dc64838c43ff0f36c9bbb448dbbf1324b91f9963c74ba66b051089991659cf"
+  },
+  {
+   "path": "2026-09-15T1026--35c75ca--tui-entry-wireframes.md",
+   "sha256": "986bee6d3d66d745a3f15ed3d40aec467a287398a82b65482b9088a14b75958f"
+  },
+  {
+   "path": "2026-09-15T1026--35c75ca--tui-entry-prototype.html",
+   "sha256": "c18cdd3141a5f82bebaa07a60f76eb29b70df4b364e7b335a0f72f6c90243310"
+  },
+  {
+   "path": "2026-09-15T1026--35c75ca--consumption-mechanism-review.md",
+   "sha256": "76ad17f81d1f21f2e011cee5236210331f840a94fc62835c962b89d8f9e30a3a"
+  },
+  {
+   "path": "2026-09-15T1026--35c75ca--ssot-sources.json",
+   "sha256": "ead8949ab7ca493d88a8254fe7fbcf4e19c6dd1a74dd53a9770712f8532e086e"
+  },
+  {
+   "path": "2026-09-15T1026--35c75ca--tui-entry-check.cjs",
+   "sha256": "2c5edf4b86557320577baa6d814ee8b833f212db596c0ba566fc1f5f27274bcf"
+  },
+  {
+   "path": "2026-09-15T1026--35c75ca--tui-entry-evidence.json",
+   "sha256": "22fb1fe20ee4cf1703a0a45d6cf15a83ffacdeef4b43736b387c0bd7baa92b0b"
+  },
+  {
+   "path": "2026-09-25T1232--d9dc513--mutation-sweep.py",
+   "sha256": "6effb20a270cf688380fa4cae96ba9c09dfc5b1810ebdd0cc317c41178b89d41"
+  }
+ ]
+}

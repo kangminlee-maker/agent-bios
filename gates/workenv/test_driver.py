@@ -17,7 +17,7 @@ import subjects  # noqa: E402
 
 # One profile whose node has an implementation predecessor, and the family its joined case is
 # of. Read from the registry rather than written down, so a registry edit moves the test with it.
-PROFILE = "P04"
+PROFILE = "V3"
 
 
 def joined_case() -> tuple[str, str, str]:

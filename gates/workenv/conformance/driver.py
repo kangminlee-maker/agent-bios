@@ -3,7 +3,10 @@
 The catalog spells 27 of its families' commands as `<conformance-driver> --case-profile <P>
 --family <Nxx>`, and the registry names this file as that driver, so a family case cannot run
 until it exists. It resolves what a profile runs in one family, and it owns the joined-case
-rule.
+rule. What a profile runs is what its binding holds — its own selection, and every case an
+earlier stage in its node's scope introduced, which a later stage runs again on the bytes that
+exist then — and `cases.case_map` is the one reader of that, so the driver cannot run a set the
+binding does not name.
 
 A **joined case** is one an implementation profile runs against an accepted predecessor's real
 files. The registry says which case joins to which node (`selects[].joined`); this module is
@@ -49,8 +52,8 @@ mapping honest, and they are deliberately asymmetric:
 A named test that runs no test at all is `failed`, not `passed`: naming a class that holds
 nothing would otherwise report the case satisfied by an empty run.
 
-  python3 gates/workenv/conformance/driver.py --case-profile P04 --family N27
-  python3 gates/workenv/conformance/driver.py --case-profile P04 --family N27 --accepted RUN
+  python3 gates/workenv/conformance/driver.py --case-profile V3 --family N27
+  python3 gates/workenv/conformance/driver.py --case-profile V3 --family N27 --accepted RUN
 """
 from __future__ import annotations
 
@@ -88,10 +91,19 @@ def selection(registry: dict, profile: str) -> dict:
     return rows[0]
 
 
-def bound(registry: dict, profile: str, family: str) -> tuple[list[str], dict[str, str]]:
-    """(the profile's cases in the family, case -> the node each joined one runs against)."""
+def bound(registry: dict, profile: str, family: str,
+          selected: tuple[dict, dict, object]) -> tuple[list[str], dict[str, str]]:
+    """(the profile's cases in the family, case -> the node each joined one runs against).
+
+    `selected` is the bundle `CURRENT.md` selects, read where the registry is: the plan's nodes
+    say which earlier stages a profile runs again, and the catalog holds the profile.
+    """
     row = selection(registry, profile)
-    chosen = sorted(case for case in row["cases"] if family_of(case) == family)
+    plan, catalog, _ = selected
+    nodes = {node["id"]: node for node in plan["nodes"]}
+    defined = family_cases(registry, family)
+    chosen = sorted(case for case in cases.case_map(registry, catalog, profile, nodes)
+                    if case in defined)
     if not chosen:
         raise DriverError(f"{profile}: it runs no case of {family}")
     joined = {entry["case"]: entry["predecessor"] for entry in row.get("joined", [])
@@ -216,13 +228,14 @@ def run(profile: str, family: str, accepted: dict | None, subject_root: pathlib.
     selects. A caller that already holds the bundle passes it rather than having it read again.
     """
     registry = cases.load()
-    chosen, joined = bound(registry, profile, family)
+    selected = cases.bundle(cases.ROOT)
+    chosen, joined = bound(registry, profile, family, selected)
     if joined and subject_root is not None:
         raise DriverError(f"{profile}: {', '.join(sorted(joined))} run against an accepted "
                           f"predecessor's real files, and --subject-root would resolve them "
                           f"somewhere else")
     if catalog is None:
-        _, catalog, _ = cases.bundle(root)
+        catalog = selected[1] if root == cases.ROOT else cases.bundle(root)[1]
     tests, absent = judge(registry, catalog, family, root)
     outcomes, loaded = {}, {}
     for case in chosen:
