@@ -833,8 +833,7 @@
         "N04-ACTIVATION-POS",
         "N05-RESTART-POS",
         "N16-ENTRANCES-POS"
-      ],
-      "joined": []
+      ]
     },
     {
       "profile": "V2",
@@ -851,13 +850,8 @@
         "N05-WAIT-POS",
         "N08-INSPECT-NEG",
         "N08-PENDING-NEG",
+        "N21-HISTORY-POS",
         "N27-ADR-POS"
-      ],
-      "joined": [
-        {
-          "case": "N01-STORE-POS",
-          "predecessor": "V1"
-        }
       ]
     },
     {
@@ -865,14 +859,9 @@
       "cases": [
         "N06-C04-POS",
         "N06-MODEL-NEG",
+        "N20-READER-POS",
         "N27-IMPORT-POS",
         "N27-PACKAGE-POS"
-      ],
-      "joined": [
-        {
-          "case": "N07-C05-POS",
-          "predecessor": "V2"
-        }
       ]
     },
     {
@@ -887,12 +876,6 @@
         "N15-C11-NEG",
         "N03-ENTRANCES-NEG",
         "N03-SECRET-NEG"
-      ],
-      "joined": [
-        {
-          "case": "N06-C04-POS",
-          "predecessor": "V3"
-        }
       ]
     },
     {
@@ -921,12 +904,6 @@
         "N12-POLICY-POS",
         "N16-CAPABILITY-POS",
         "N22-OUTBOX-POS"
-      ],
-      "joined": [
-        {
-          "case": "N02-C01-POS",
-          "predecessor": "V4"
-        }
       ]
     },
     {
@@ -937,12 +914,6 @@
         "N28-NO-TEAM-POS",
         "N28-PRODUCER-POS",
         "N28-REJECT-POS"
-      ],
-      "joined": [
-        {
-          "case": "N05-CONTROL-POS",
-          "predecessor": "V5"
-        }
       ]
     },
     {
@@ -959,12 +930,6 @@
         "N17-DISCONNECT-NEG",
         "N17-IDENTITY-NEG",
         "N18-EXCHANGE-NEG"
-      ],
-      "joined": [
-        {
-          "case": "N28-C01-POS",
-          "predecessor": "V6"
-        }
       ]
     },
     {
@@ -985,15 +950,7 @@
         "N19-BOOTSTRAP-NEG",
         "N19-CRUD-POS",
         "N19-TRANSFER-NEG",
-        "N19-TRANSFER-POS",
-        "N20-READER-POS",
-        "N21-HISTORY-POS"
-      ],
-      "joined": [
-        {
-          "case": "N03-PROVIDER-NEG",
-          "predecessor": "V7"
-        }
+        "N19-TRANSFER-POS"
       ]
     },
     {
@@ -1182,7 +1139,6 @@
         [
           "DC-SET",
           "DC-CHOICE",
-          "DC-KEEP",
           "DC-ASK",
           "DC-CHANGE",
           "DC-RACE",
@@ -1192,6 +1148,7 @@
           "DH-PENDING",
           "SRC-10",
           "SRC-11",
+          "CMP-LOCAL",
           "N07-C05-POS",
           "N07-C05-NEG",
           "N07-STATE-GAP-NEG",
@@ -1204,6 +1161,7 @@
           "N05-WAIT-POS",
           "N08-INSPECT-NEG",
           "N08-PENDING-NEG",
+          "N21-HISTORY-POS",
           "N27-ADR-POS"
         ],
         [
@@ -1228,7 +1186,6 @@
         ],
         [
           "DC-CHOICE",
-          "DC-KEEP",
           "DC-ASK",
           "DC-CHANGE",
           "DC-RACE"
@@ -1267,8 +1224,10 @@
       "done_when": [
         [
           "SRC-04",
+          "CAP-06",
           "N06-C04-POS",
           "N06-MODEL-NEG",
+          "N20-READER-POS",
           "N27-IMPORT-POS",
           "N27-PACKAGE-POS"
         ],
@@ -1291,6 +1250,8 @@
       "profile": "V4",
       "done_when": [
         [
+          "DC-KEEP",
+          "TUI-ENTRY-LOCAL-OFFLINE",
           "TUI-ENTRY-LOCKED",
           "N02-C01-POS",
           "N02-C01-NEG",
@@ -1332,12 +1293,10 @@
       "done_when": [
         [
           "DEL-TEAM",
-          "TUI-ENTRY-LOCAL-OFFLINE",
           "TUI-ENTRY-TEAM-SCOPE",
           "SRC-03",
           "SRC-06",
           "SRC-07",
-          "CMP-LOCAL",
           "CMP-MEANING",
           "CMP-RIGHTS",
           "N05-CONTROL-POS",
@@ -1419,7 +1378,6 @@
           "CAP-03",
           "CAP-04",
           "CAP-05",
-          "CAP-06",
           "CAP-07",
           "CAP-08",
           "CAP-09",
@@ -1531,9 +1489,7 @@
           "N19-BOOTSTRAP-NEG",
           "N19-CRUD-POS",
           "N19-TRANSFER-NEG",
-          "N19-TRANSFER-POS",
-          "N20-READER-POS",
-          "N21-HISTORY-POS"
+          "N19-TRANSFER-POS"
         ],
         [
           "SRC-10",
@@ -1613,23 +1569,23 @@
       "elsewhere": [
         {
           "contract": "C02",
-          "reason": "P18 only packages (its one family is N24); M4 drives this contract on the installed candidate"
+          "reason": "PK only packages (its one family is N24); V9 drives this contract on the installed candidate"
         },
         {
           "contract": "C07",
-          "reason": "P18 only packages (its one family is N24); M4 drives this contract on the installed candidate"
+          "reason": "PK only packages (its one family is N24); V9 drives this contract on the installed candidate"
         },
         {
           "contract": "C09",
-          "reason": "P18 only packages (its one family is N24); M4 drives this contract on the installed candidate"
+          "reason": "PK only packages (its one family is N24); V9 drives this contract on the installed candidate"
         },
         {
           "contract": "C11",
-          "reason": "P18 only packages (its one family is N24); the host reply and its answer evidence are driven where a person is asked, in P10's conversation cases and P11's and P17's surfaces, not on the installed candidate"
+          "reason": "PK only packages (its one family is N24); the host reply and its answer evidence are driven where a person is asked, in V2's conversation cases, and again on the installed candidate in V9"
         },
         {
           "contract": "C12",
-          "reason": "P18 only packages (its one family is N24); the surfaces are driven where they are shown, in P11, P15 and P17, not on the installed candidate"
+          "reason": "PK only packages (its one family is N24); the surfaces are driven where they are shown, from V1 on, and again on the installed candidate in V9"
         }
       ]
     },

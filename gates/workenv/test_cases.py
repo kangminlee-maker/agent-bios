@@ -3,6 +3,7 @@ per file."""
 import copy
 import json
 import pathlib
+import shutil
 import sys
 import tempfile
 import unittest
@@ -171,16 +172,29 @@ class Registry(unittest.TestCase):
             del self.row(r, "cases", "N08-READER-GAP-NEG")["rules"]
         self.refused("rule C06/gap_named_frontier_not_returned: no case checks it", edit)
 
-    def test_a_rule_checked_only_where_nobody_implements_it_is_refused(self):
+    def test_a_rule_checked_only_where_no_implementation_node_is_in_scope_is_refused(self):
         # Every stage after V2 runs V2's cases, so the case cannot be moved out of reach of C05;
-        # the plan is made to say that nothing implements C05 instead.
+        # the implementation nodes are made to list no C05 instead. The freeze still lists every
+        # contract, and implements none, so it must not count.
         plan = copy.deepcopy(self.loaded[0])
         for node in plan["nodes"]:
-            node["contracts"] = [c for c in node.get("contracts", []) if c != "C05"]
+            if node["kind"] == "implementation":
+                node["contracts"] = [c for c in node.get("contracts", []) if c != "C05"]
+        self.assertIn("C05", next(n for n in plan["nodes"] if n["id"] == "P01")["contracts"])
         problems = cases.check(self.registry, loaded=(plan, self.loaded[1], self.loaded[2]),
                                paths=self.paths)[0]
         self.assertIn("rule C05/gap_named_entry_not_current: N07-STATE-GAP-NEG is bound at no "
-                      "profile whose node or a node it depends on implements C05", problems)
+                      "profile whose scope holds an implementation node of C05", problems)
+
+    def test_a_rule_checked_by_a_case_that_never_drives_its_contract_is_refused(self):
+        # The storage case drives C01, C03, C08 and C09 and no C05 operation or record, and it
+        # is bound where C05 is implemented: only the case's own contracts can tell.
+        rule = "C05/gap_named_entry_not_current"
+
+        def edit(registry):
+            self.row(registry, "cases", "N07-STATE-GAP-NEG")["rules"].remove(rule)
+            self.row(registry, "cases", "N01-STORE-POS").setdefault("rules", []).append(rule)
+        self.refused(f"rule {rule}: N01-STORE-POS drives no operation or record of C05", edit)
 
     def test_a_rule_is_checked_where_a_node_in_scope_implements_it(self):
         # V4 lists no C06 of its own and runs V2's code, which does: the reading a stage chain
@@ -205,40 +219,41 @@ class Registry(unittest.TestCase):
         self.refused("is defined nowhere",
                      lambda r: self.selection(r, "V1")["cases"].append("N02-GHOST-POS"))
 
-    def test_an_implementation_profile_that_states_no_joined_cases_is_refused(self):
-        # Silence and "I have none" read alike in a document, and only one of them is correct.
-        self.refused("V3 implements something and the row states no joined cases",
-                     lambda r: self.selection(r, "V3").pop("joined"))
+    def test_a_stage_runs_every_case_the_stages_before_it_selected(self):
+        # The re-run rule: nothing is joined to one predecessor; every case an implementation or
+        # package node in scope selects is bound again, and the driver runs it on the tree.
+        nodes = {n["id"]: n for n in self.loaded[0]["nodes"]}
+        bound = cases.case_map(self.registry, self.loaded[1], "V3", nodes)
+        for earlier in ("V1", "V2"):
+            for case in self.selection(self.registry, earlier)["cases"]:
+                self.assertIn(case, bound, (earlier, case))
 
-    def test_an_implementation_profile_joining_nothing_to_its_predecessor_is_refused(self):
-        self.refused("V3 depends on V2, which implement, and no case is joined to any of them",
-                     lambda r: self.selection(r, "V3").__setitem__("joined", []))
-
-    def test_a_profile_with_no_implementation_predecessor_that_joins_one_is_refused(self):
+    def test_a_row_that_states_joined_cases_is_refused(self):
         def edit(registry):
-            self.selection(registry, "V1")["joined"] = [{"case": "N01-STORE-POS",
+            self.selection(registry, "V3")["joined"] = [{"case": "N07-C05-POS",
                                                          "predecessor": "V2"}]
-        self.refused("V1 depends on no node that implements", edit)
+        path = pathlib.Path(tempfile.mkdtemp()) / "case-index.json"
+        self.addCleanup(shutil.rmtree, path.parent, True)
+        registry = copy.deepcopy(self.registry)
+        path.write_text(json.dumps(registry), encoding="utf-8")
+        cases.load(path)  # positive control: the registry as it stands loads
+        edit(registry)
+        path.write_text(json.dumps(registry), encoding="utf-8")
+        with self.assertRaises(cases.CaseError) as raised:
+            cases.load(path)
+        self.assertIn("joined", str(raised.exception))
 
-    def test_a_joined_case_the_profile_does_not_bind_is_refused(self):
-        def edit(registry):
-            self.selection(registry, "V3")["joined"][0]["case"] = "N24-C03-NEG"
-        self.refused("selects V3: N24-C03-NEG is joined and not bound", edit)
+    def test_a_case_bound_where_a_layer_it_needs_is_out_of_scope_is_refused(self):
+        # DC-KEEP's last step is V2's own use, refused access_locked; only the admission layer
+        # states that, and it arrives with V4. Bound at V2, the case cannot pass there.
+        self.refused("V2: DC-KEEP cannot pass here: use_while_locked expects access_locked, which "
+                     "only the admission layer states, and V4 is not in its scope",
+                     lambda r: self.selection(r, "V2")["cases"].append("DC-KEEP"))
 
-    def test_a_stage_joins_a_case_it_holds_from_its_predecessor(self):
-        # The joined case is one the predecessor introduced, which the stage runs again; it is
-        # not selected by the stage's own row, and it needs no second selection there.
-        row = self.selection(self.registry, "V3")
-        case = row["joined"][0]["case"]
-        self.assertNotIn(case, row["cases"])
-        self.assertIn(case, self.selection(self.registry, "V2")["cases"])
-        self.assertIn(case, cases.case_map(self.registry, self.loaded[1], "V3",
-                                           {n["id"]: n for n in self.loaded[0]["nodes"]}))
-
-    def test_a_case_joined_to_a_node_the_profile_does_not_depend_on_is_refused(self):
-        def edit(registry):
-            self.selection(registry, "V3")["joined"][0]["predecessor"] = "V4"
-        self.refused("is joined to V4, which V3 does not depend on as an implementation", edit)
+    def test_the_same_case_bound_where_the_layer_is_in_scope_passes_the_check(self):
+        nodes = {n["id"]: n for n in self.loaded[0]["nodes"]}
+        self.assertIn("DC-KEEP", cases.case_map(self.registry, self.loaded[1], "V4", nodes))
+        self.assertFalse([p for p in self.check(self.registry) if "DC-KEEP" in p])
 
     def test_the_bindings_artifact_covers_every_profile_the_plan_names(self):
         artifact = cases.bindings(self.registry, loaded=self.loaded, paths=self.paths)
@@ -348,6 +363,13 @@ class Serving(unittest.TestCase):
 
     def test_the_table_serves_every_declared_operation_and_nothing_else(self):
         self.assertEqual(cases.serving_problems(self.serving, self.loaded[0]), [])
+
+    def test_a_layer_stating_a_refusal_its_contract_does_not_declare_is_refused(self):
+        def edit(serving):
+            layer = next(row for row in serving["layers"] if row["name"] == "admission")
+            layer["states"].append("request_id_conflict")
+        self.serving_refused("serving layer admission: it states request_id_conflict, which C02 "
+                             "does not declare", edit)
         self.assertEqual(set(self.serving["operations"]), set(cases.owners()[0]))
         self.assertEqual(len(self.serving["operations"]), 91)
 

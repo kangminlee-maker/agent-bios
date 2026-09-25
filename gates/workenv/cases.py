@@ -47,16 +47,17 @@ its bound cases can drive, with the reason.
   - a selection outside the profile's families, a case nobody selects, a selected id nobody
     defines
   - a profile whose case map the dated evaluator's own `binding_errors` refuses
-  - an operation no case drives, and a runtime rule no case checks at a node whose scope
-    implements it
-  - an implementation profile that joins no case to a predecessor that implements, one that
-    joins a case it does not bind or joins it to a node it does not depend on, and one that
-    states nothing at all — a profile with no such predecessor says so with an empty list
+  - an operation no case drives, and a runtime rule no case checks: a rule counts for a case
+    whose scenario drives the rule's contract, bound at a profile whose scope holds an
+    implementation node of it (the contract freeze lists every contract and implements none)
+  - a case bound where it cannot pass: a step served in the profile's scope expects a refusal
+    that only a layer states, and that layer is not in the scope
   - a profile without its `covers`, a `done_when` item no bound case realizes, a node contract
     no bound case drives and `elsewhere` does not name, and an `elsewhere` its cases do drive
   - a serving table (`conformance/serving.json`, which node answers each operation and at which
     entry, and the layers every request passes through) that misses a declared operation, names
-    a node that does not implement its contract, or an entry outside that node's owned paths
+    a node that does not implement its contract, or an entry outside that node's owned paths, or
+    whose layer states a refusal its contract does not declare
   - a step addressing a request no step of its scenario submits
   - a profile binding a case on which no code in its scope runs, and a `given` row that no
     longer matches a step the driver answers at every profile binding its case
@@ -125,9 +126,8 @@ EXPECTATION = ".expect.json"
 # Which node answers each operation, and at which entry: the adapter selectors P01 freezes.
 SERVING = "gates/workenv/conformance/serving.json"
 # What decides a family case's verdict besides the driver path, so it is in the adapter
-# fingerprint of every profile whose cases the driver runs: the rule oracles, and the resolver
-# that verifies a joined predecessor.
-CORE = ("gates/workenv/conformance/rules.py", "gates/workenv/subjects.py")
+# fingerprint of every profile whose cases the driver runs: the rule oracles.
+CORE = ("gates/workenv/conformance/rules.py",)
 FEATURES = "gates/workenv/conformance/features"
 # What a scenario states beyond one answered step. Each is a module under FEATURES; a case uses
 # the ones its scenario does, and a profile's fingerprint holds only those.
@@ -223,13 +223,21 @@ def served_steps(built: dict, serving: dict) -> tuple[list[dict], list[str]]:
                                 f"step of this scenario submits a request under that id")
                 continue
             steps.append({"name": step["name"], "operation": operation,
-                          "node": rows[addressed]["node"], "addresses": addressed})
+                          "node": rows[addressed]["node"], "addresses": addressed,
+                          "expects": expects(held, step)})
             continue
         if "node" not in row:
             problems.append(f"step {step['name']}: {operation} has no serving row")
             continue
-        steps.append({"name": step["name"], "operation": operation, "node": row["node"]})
+        steps.append({"name": step["name"], "operation": operation, "node": row["node"],
+                      "expects": expects(held, step)})
     return steps, problems
+
+
+def expects(held: dict[str, dict], step: dict) -> list[str]:
+    """The refusal codes the step's stated result carries."""
+    outcome = held.get(step.get("result"), {}).get("outcome", {})
+    return sorted({gap["code"] for gap in outcome.get("material_gaps", []) if "code" in gap})
 
 
 def serving_problems(serving: dict, plan: dict) -> list[str]:
@@ -271,9 +279,14 @@ def serving_problems(serving: dict, plan: dict) -> list[str]:
         problems.append(f"serving layers: no {JOURNAL} layer, so no one holds requests and results")
     for name in sorted({n for n in names if names.count(n) > 1}):
         problems.append(f"serving layers: {name} is stated twice")
+    table = errors.table()
     for layer in serving.get("layers", []):
         held(f"layer {layer.get('name')}", layer.get("node", "?"), layer.get("entry", ""),
              layer.get("contract", "?"))
+        for code in layer.get("states", []):
+            if table.get(code, {}).get("owner", "").upper() != layer.get("contract"):
+                problems.append(f"serving layer {layer.get('name')}: it states {code}, which "
+                                f"{layer.get('contract')} does not declare")
     for node, entry in sorted(serving.get("places", {}).items()):
         held(f"places {node}", node, entry, None)
     for kind, row in sorted(serving.get("events", {}).items()):
@@ -344,6 +357,33 @@ def unexercised(registry: dict, catalog: dict, nodes: dict[str, dict], open_prof
     return problems, disclosures
 
 
+def unpassable(registry: dict, catalog: dict, nodes: dict[str, dict], open_profiles: list[str],
+               derived: dict[str, dict], serving: dict) -> list[str]:
+    """A case bound where it cannot pass. A step served in the profile's scope is answered by
+    code there, so a refusal it expects that only a layer states can come from nowhere while
+    that layer is out of scope; a step the driver answers states whatever its result says."""
+    stated = {code: layer for layer in serving.get("layers", [])
+              for code in layer.get("states", [])}
+    layers = {layer["name"]: layer["node"] for layer in serving.get("layers", [])}
+    by_profile = {n["test_profile"]: n["id"] for n in nodes.values() if n.get("test_profile")}
+    problems = []
+    for name in open_profiles:
+        if name not in by_profile:
+            continue
+        reach = scope(by_profile[name], nodes)
+        for case in sorted(case_map(registry, catalog, name, nodes)):
+            for step in derived.get(case, {}).get("steps", []):
+                if step["node"] == DRIVER or not answered_in(step, reach, layers):
+                    continue
+                for code in step.get("expects", []):
+                    layer = stated.get(code)
+                    if layer is not None and layer["node"] not in reach:
+                        problems.append(f"{name}: {case} cannot pass here: {step['name']} expects "
+                                        f"{code}, which only the {layer['name']} layer states, "
+                                        f"and {layer['node']} is not in its scope")
+    return problems
+
+
 def derive(registry: dict, root: pathlib.Path = ROOT,
            serving: dict | None = None) -> tuple[dict[str, dict], list[str]]:
     """case -> {"operations", "contracts", "fixtures", "features", "steps"} read from its
@@ -381,48 +421,6 @@ def derive(registry: dict, root: pathlib.Path = ROOT,
         derived[case] = {"operations": operations, "contracts": contracts, "fixtures": fixtures,
                          "features": features_of(built), "steps": steps}
     return derived, problems
-
-
-def implementation_predecessors(node: dict, nodes: dict[str, dict]) -> list[str]:
-    """The nodes this one depends on that implement something."""
-    return [name for name in node.get("depends_on", [])
-            if nodes.get(name, {}).get("kind") == IMPLEMENTATION]
-
-
-def joined_problems(rows: dict[str, dict], nodes: dict[str, dict],
-                    bound: dict[str, dict[str, str]]) -> list[str]:
-    """A joined case is one an implementation profile runs against an accepted predecessor's
-    real files rather than against anything stood in for it. Every implementation profile
-    states its own either way, because a profile that says nothing and a profile with nothing
-    to say read alike, and only one of them is correct."""
-    found = []
-    for identifier in sorted(nodes):
-        node = nodes[identifier]
-        if node["kind"] != IMPLEMENTATION:
-            continue
-        row = rows.get(node["test_profile"])
-        if row is None:
-            continue  # an unbound or miswritten profile is already reported by its own rule
-        name, joined = node["test_profile"], row.get("joined")
-        predecessors = implementation_predecessors(node, nodes)
-        if joined is None:
-            found.append(f"selects {name}: {identifier} implements something and the row states "
-                         f"no joined cases, not even that it has none")
-            continue
-        if predecessors and not joined:
-            found.append(f"selects {name}: {identifier} depends on {', '.join(predecessors)}, "
-                         f"which implement, and no case is joined to any of them")
-        if not predecessors and joined:
-            found.append(f"selects {name}: {identifier} depends on no node that implements, and "
-                         f"{len(joined)} case(s) are joined to one")
-        for entry in joined:
-            case, predecessor = entry["case"], entry["predecessor"]
-            if case not in bound.get(name, {}):
-                found.append(f"selects {name}: {case} is joined and not bound")
-            if predecessor not in predecessors:
-                found.append(f"selects {name}: {case} is joined to {predecessor}, which "
-                             f"{identifier} does not depend on as an implementation")
-    return found
 
 
 def load(path: pathlib.Path = REGISTRY) -> dict:
@@ -591,9 +589,6 @@ def check(registry: dict | None = None, root: pathlib.Path = ROOT,
                 problems.append(f"selects {name}: {case} is outside its families")
     for case in sorted({row["id"] for row in registry["cases"]} - set(selected)):
         problems.append(f"{case}: defined and selected by no profile")
-    problems.extend(joined_problems({row["profile"]: row for row in registry["selects"]}, nodes,
-                                    {name: case_map(registry, catalog, name, nodes)
-                                     for name in open_profiles}))
 
     all_operations = {op for module in modules.values() for op in getattr(module, "OPERATIONS", ())}
     for operation in sorted(all_operations - driven):
@@ -604,22 +599,28 @@ def check(registry: dict | None = None, root: pathlib.Path = ROOT,
             checked.setdefault(rule, []).append(row["id"])
     for rule in sorted(set(rules) - set(checked)):
         problems.append(f"rule {rule}: no case checks it")
-    # A node runs the code of every node it depends on, so a rule is checked where the case is
-    # bound at a node whose scope implements the rule's contract.
+    # A rule is checked by a case that drives its contract, where the case is bound at a
+    # profile whose scope holds an implementation node of it: a node runs the code of every
+    # node it depends on, and the contract freeze lists every contract and implements none.
     binders = {name: set(case_map(registry, catalog, name, nodes)) for name in open_profiles}
     for rule, case in sorted((rule, case) for rule, held in checked.items() for case in held):
         contract = rule.split("/")[0]
+        if contract not in derived.get(case, {}).get("contracts", set()):
+            problems.append(f"rule {rule}: {case} drives no operation or record of {contract}")
+            continue
         implementers = {n["test_profile"] for n in nodes.values()
                         if any(contract in nodes[m].get("contracts", [])
+                               and nodes[m]["kind"] == IMPLEMENTATION
                                for m in scope(n["id"], nodes))}
         if not {name for name, bound in binders.items() if case in bound} & implementers:
-            problems.append(f"rule {rule}: {case} is bound at no profile whose node or a node it "
-                            f"depends on implements {contract}")
+            problems.append(f"rule {rule}: {case} is bound at no profile whose scope holds an "
+                            f"implementation node of {contract}")
 
     problems.extend(coverage(registry, catalog, nodes, open_profiles, derived))
     serving = load_serving(root)
     problems.extend(serving_problems(serving, plan))
     problems.extend(unexercised(registry, catalog, nodes, open_profiles, derived, serving)[0])
+    problems.extend(unpassable(registry, catalog, nodes, open_profiles, derived, serving))
 
     report = {}
     for name in open_profiles:

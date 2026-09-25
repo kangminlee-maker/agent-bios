@@ -2,35 +2,17 @@
 
 The catalog spells 27 of its families' commands as `<conformance-driver> --case-profile <P>
 --family <Nxx>`, and the registry names this file as that driver, so a family case cannot run
-until it exists. It resolves what a profile runs in one family, and it owns the joined-case
-rule. What a profile runs is what its binding holds — its own selection, and every case an
-earlier stage in its node's scope introduced, which a later stage runs again on the bytes that
-exist then — and `cases.case_map` is the one reader of that, so the driver cannot run a set the
-binding does not name.
+until it exists. It resolves what a profile runs in one family.
 
-A **joined case** is one an implementation profile runs against an accepted predecessor's real
-files. The registry says which case joins to which node (`selects[].joined`); this module is
-what makes the joining real, because a marker that nothing acts on would let a name satisfy the
-rule. Three things follow from that, and each is a refusal rather than a convention:
-
-  a substituted resolver   `--subject-root` points subject resolution at some other tree. It is
-                           how a fixture double would reach a joined run, so a selection holding
-                           a joined case refuses it outright. Nothing else in the run is allowed
-                           to decide this: a flag that is merely ignored still reads as accepted.
-  an unaccepted predecessor  without the accepted run evidence there is no manifest to hold the
-                           files against, so every joined case is `blocked` and named. It is
-                           never `passed`: at this point in the plan nothing is accepted, and a
-                           driver that reported otherwise would report the rule satisfied by its
-                           own absence of work.
-  files that moved         the predecessor's subjects are re-measured from the real tree and
-                           their fingerprints compared with the ones its record was accepted on.
-                           A difference means the bytes are not the accepted ones, and the run
-                           stops there rather than proving a hash against itself.
-
-What it hands back for a joined case is the verified member map — every path the predecessor's
-accepted subjects cover and the sha256 each was accepted with — so a case that later reads any
-of them is reading something already held against the accepted manifest, and the driver's own
-output states which files that was.
+What a profile runs is what its binding holds: its own selection, its catalog cases, and every
+case an implementation or package node its node depends on selects, which it runs again on the
+tree as it stands (the re-run rule P01 freezes). `cases.case_map` is the one reader of that, so
+the driver runs exactly the family's part of the binding — atomic cases included, which the
+catalog files under the family — and no other set. Every case runs on the real tree: the driver
+takes no option that would point it at another one, so a fixture double has no way into a run.
+A stage extends files an earlier stage wrote, so a case is never held against an earlier
+stage's accepted bytes; whether that stage is still current is the evaluator's question, answered
+by the later stage's record.
 
 `passed` still belongs to the node that implements the family, never to this module. What the
 driver owns is the route to it. Every family in the catalog names the module that judges it
@@ -53,7 +35,6 @@ A named test that runs no test at all is `failed`, not `passed`: naming a class 
 nothing would otherwise report the case satisfied by an empty run.
 
   python3 gates/workenv/conformance/driver.py --case-profile V3 --family N27
-  python3 gates/workenv/conformance/driver.py --case-profile V3 --family N27 --accepted RUN
 """
 from __future__ import annotations
 
@@ -67,7 +48,6 @@ import unittest
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[3]))
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 import cases  # noqa: E402
-import subjects  # noqa: E402
 
 PASSED = "passed"
 FAILED = "failed"
@@ -92,64 +72,31 @@ def selection(registry: dict, profile: str) -> dict:
 
 
 def bound(registry: dict, profile: str, family: str,
-          selected: tuple[dict, dict, object]) -> tuple[list[str], dict[str, str]]:
-    """(the profile's cases in the family, case -> the node each joined one runs against).
+          selected: tuple[dict, dict, object]) -> list[str]:
+    """The profile's cases in the family: the family's part of its binding.
 
     `selected` is the bundle `CURRENT.md` selects, read where the registry is: the plan's nodes
-    say which earlier stages a profile runs again, and the catalog holds the profile.
+    say which earlier stages a profile runs again, and the catalog holds the profile and which
+    atomic cases a family files.
     """
-    row = selection(registry, profile)
+    selection(registry, profile)
     plan, catalog, _ = selected
     nodes = {node["id"]: node for node in plan["nodes"]}
-    defined = family_cases(registry, family)
+    members = family_cases(registry, family, catalog)
     chosen = sorted(case for case in cases.case_map(registry, catalog, profile, nodes)
-                    if case in defined)
+                    if case in members)
     if not chosen:
         raise DriverError(f"{profile}: it runs no case of {family}")
-    joined = {entry["case"]: entry["predecessor"] for entry in row.get("joined", [])
-              if family_of(entry["case"]) == family}
-    return chosen, joined
+    return chosen
 
 
-def accepted_subjects(record: dict, node: str) -> dict[str, str]:
-    """The subject fingerprints the predecessor's record was accepted on."""
-    stated = record.get("subjects")
-    if not isinstance(stated, dict) or not stated:
-        raise DriverError(f"{node}: its record states no subject it was accepted on")
-    return stated
-
-
-def predecessor_members(node: str, accepted: dict, root: pathlib.Path) -> dict[str, str]:
-    """Every path the node's accepted subjects cover, by the sha256 it was accepted with.
-
-    The fingerprints are re-measured from `root` and compared with the accepted ones, so a
-    member map only comes back when the tree still holds the bytes the record was accepted on.
-    """
-    records = accepted.get("records") or {}
-    if node not in records:
-        raise DriverError(f"{node}: the run evidence holds no accepted record for it")
-    declared = subjects.manifests()
-    members: dict[str, str] = {}
-    for name, stated in sorted(accepted_subjects(records[node], node).items()):
-        if name not in declared:
-            raise DriverError(f"{node}: it was accepted on subject {name}, which no manifest "
-                              f"declares")
-        identity, why = subjects.state(name, declared[name], root)
-        if identity is None:
-            raise DriverError(f"{node}: subject {name} measures nothing here: {why}")
-        if subjects.fingerprint(identity) != stated:
-            raise DriverError(f"{node}: subject {name} measures "
-                              f"{subjects.fingerprint(identity)} and its record was accepted on "
-                              f"{stated}")
-        members.update(identity.get("members", {}))
-    if not members:
-        raise DriverError(f"{node}: its accepted subjects cover no file to run against")
-    return members
-
-
-def family_cases(registry: dict, family: str) -> set[str]:
-    """Every case of the family the registry defines, across all profiles."""
-    return {row["id"] for row in registry["cases"] if family_of(row["id"]) == family}
+def family_cases(registry: dict, family: str, catalog: dict) -> set[str]:
+    """Every case of the family the registry defines, across all profiles: its new cases, and the
+    atomic ones the catalog files under it, which run through the family's command too."""
+    atomic = {a["id"] for f in catalog["cases"] if f["id"] == family
+              for a in f.get("atomic_cases", [])}
+    return ({row["id"] for row in registry["cases"] if family_of(row["id"]) == family}
+            | {row["id"] for row in registry["atomic"] if row["id"] in atomic})
 
 
 def module_of(catalog: dict, family: str) -> str:
@@ -183,7 +130,7 @@ def judge(registry: dict, catalog: dict, family: str,
     named = getattr(module, "CASES", None)
     if not isinstance(named, dict) or not named:
         return None, f"{declared} names no case it shows"
-    unknown = sorted(set(named) - family_cases(registry, family))
+    unknown = sorted(set(named) - family_cases(registry, family, catalog))
     if unknown:
         raise DriverError(f"{declared}: it names {', '.join(unknown)}, which the registry does "
                           f"not define as a case of {family}")
@@ -220,63 +167,42 @@ def stated_cause(traceback: str) -> str:
     return "the test failed and stated no cause"
 
 
-def run(profile: str, family: str, accepted: dict | None, subject_root: pathlib.Path | None,
-        root: pathlib.Path = cases.ROOT, catalog: dict | None = None) -> dict:
-    """What this profile runs of this family, what was held for it, and what each case shows.
+def run(profile: str, family: str, root: pathlib.Path = cases.ROOT,
+        catalog: dict | None = None) -> dict:
+    """What this profile runs of this family, and what each case shows.
 
-    `catalog` is the bundle the families are read from; left out, it is the one `CURRENT.md`
-    selects. A caller that already holds the bundle passes it rather than having it read again.
+    `root` is where the family's judging module is found; `catalog` is the bundle the families
+    are read from, the one `CURRENT.md` selects when left out. What the profile runs is read from
+    the registry and bundle where they are, never from `root`.
     """
     registry = cases.load()
     selected = cases.bundle(cases.ROOT)
-    chosen, joined = bound(registry, profile, family, selected)
-    if joined and subject_root is not None:
-        raise DriverError(f"{profile}: {', '.join(sorted(joined))} run against an accepted "
-                          f"predecessor's real files, and --subject-root would resolve them "
-                          f"somewhere else")
+    chosen = bound(registry, profile, family, selected)
     if catalog is None:
         catalog = selected[1] if root == cases.ROOT else cases.bundle(root)[1]
     tests, absent = judge(registry, catalog, family, root)
-    outcomes, loaded = {}, {}
+    outcomes = {}
     for case in chosen:
-        node = joined.get(case)
-        held = {}
-        if node is not None:
-            # A joined case reaches its predecessor's files only after they are held against the
-            # manifest its record was accepted on; nothing is judged before that succeeds.
-            try:
-                members = predecessor_members(node, accepted or {}, subject_root or root)
-            except DriverError as error:
-                outcomes[case] = {"outcome": BLOCKED, "joined_to": node, "why": str(error)}
-                continue
-            loaded[case] = members
-            held = {"joined_to": node, "loaded": len(members)}
         if tests is None:
-            outcomes[case] = {"outcome": BLOCKED, **held, "why": absent}
+            outcomes[case] = {"outcome": BLOCKED, "why": absent}
             continue
         if case not in tests:
-            outcomes[case] = {"outcome": BLOCKED, **held,
+            outcomes[case] = {"outcome": BLOCKED,
                               "why": f"{module_of(catalog, family)} names no test for {case}"}
             continue
         module, test = tests[case]
         outcome, detail = shown(module, test)
-        outcomes[case] = {"outcome": outcome, **held, "test": test, "why": detail}
-    return {"profile": profile, "family": family, "driver": registry["driver"],
-            "cases": outcomes, "joined": joined, "loaded_files": loaded}
+        outcomes[case] = {"outcome": outcome, "test": test, "why": detail}
+    return {"profile": profile, "family": family, "driver": registry["driver"], "cases": outcomes}
 
 
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--case-profile", required=True)
     parser.add_argument("--family", required=True)
-    parser.add_argument("--accepted", type=pathlib.Path,
-                        help="run evidence holding the predecessors' accepted records")
-    parser.add_argument("--subject-root", type=pathlib.Path,
-                        help="resolve subjects from this tree; refused for a joined case")
     args = parser.parse_args(argv)
-    evidence = json.loads(args.accepted.read_text()) if args.accepted else None
     try:
-        report = run(args.case_profile, args.family, evidence, args.subject_root)
+        report = run(args.case_profile, args.family)
     except DriverError as error:
         print(json.dumps({"outcome": REFUSED, "why": str(error)}, ensure_ascii=False))
         return 2
