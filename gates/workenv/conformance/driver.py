@@ -32,7 +32,9 @@ mapping honest, and they are deliberately asymmetric:
                                     than incomplete, and reporting per case would hide it.
 
 A named test that runs no test at all is `failed`, not `passed`: naming a class that holds
-nothing would otherwise report the case satisfied by an empty run.
+nothing would otherwise report the case satisfied by an empty run. So is one that is skipped or
+marked as an expected failure: unittest counts either as run, and neither shows its assertion
+holding.
 
   python3 gates/workenv/conformance/driver.py --case-profile V3 --family N27
 """
@@ -63,12 +65,15 @@ def family_of(case: str) -> str:
     return case.split("-")[0]
 
 
-def selection(registry: dict, profile: str) -> dict:
-    """The profile's `selects` row, or a DriverError naming what is missing."""
-    rows = [row for row in registry["selects"] if row["profile"] == profile]
-    if not rows:
-        raise DriverError(f"{profile}: the registry selects no cases for it")
-    return rows[0]
+def runnable(registry: dict, catalog: dict, profile: str) -> None:
+    """A DriverError unless the profile is one whose binding is run: a catalog profile that is
+    not carried. A `selects` row is not asked for, because a profile can hold catalog cases
+    alone, as the runner qualification does."""
+    if profile not in catalog["profiles"]:
+        raise DriverError(f"{profile}: the catalog defines no such profile")
+    if profile in {row["profile"] for row in registry["carried"]}:
+        raise DriverError(f"{profile}: its binding is carried from its accepted record, so "
+                          f"nothing here runs it")
 
 
 def bound(registry: dict, profile: str, family: str,
@@ -79,8 +84,8 @@ def bound(registry: dict, profile: str, family: str,
     say which earlier stages a profile runs again, and the catalog holds the profile and which
     atomic cases a family files.
     """
-    selection(registry, profile)
     plan, catalog, _ = selected
+    runnable(registry, catalog, profile)
     nodes = {node["id"]: node for node in plan["nodes"]}
     members = family_cases(registry, family, catalog)
     chosen = sorted(case for case in cases.case_map(registry, catalog, profile, nodes)
@@ -151,6 +156,10 @@ def shown(module: object, test: str) -> tuple[str, str]:
     problems = [text for _, text in result.failures + result.errors]
     if problems:
         return FAILED, stated_cause(problems[0])
+    if result.skipped:
+        return FAILED, f"{test} was skipped, so it shows nothing: {result.skipped[0][1]}"
+    if result.expectedFailures or result.unexpectedSuccesses:
+        return FAILED, f"{test} is marked as an expected failure, so its run shows nothing"
     return PASSED, f"{result.testsRun} test(s) in {test}"
 
 

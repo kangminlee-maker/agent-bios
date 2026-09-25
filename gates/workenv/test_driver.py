@@ -6,6 +6,7 @@ import shutil
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 HERE = pathlib.Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parents[1]))
@@ -25,6 +26,32 @@ def selected() -> tuple[dict, dict, object]:
 
 def nodes_of(plan: dict) -> dict[str, dict]:
     return {node["id"]: node for node in plan["nodes"]}
+
+
+def disagreements(bundle: tuple[dict, dict, object]) -> tuple[list, list[tuple[str, str]]]:
+    """(each profile and family where the driver's set differs from the binding's, every pair
+    compared). The binding's set is read from `case_map` alone, never through the driver, so a
+    driver that drops cases cannot drop them from what it is held to as well. A bootstrap case
+    runs its own command, not the driver's."""
+    registry = cases.load()
+    plan, catalog, _ = bundle
+    nodes = nodes_of(plan)
+    carried = {row["profile"] for row in registry["carried"]}
+    commanded = {row["id"] for row in registry["bootstrap"]}
+    found, pairs = [], []
+    for name in sorted(set(catalog["profiles"]) - carried):
+        bound = {c: f for c, f in cases.case_map(registry, catalog, name, nodes).items()
+                 if c not in commanded}
+        for family in sorted(set(bound.values())):
+            want = sorted(c for c, f in bound.items() if f == family)
+            try:
+                got = driver.bound(registry, name, family, bundle)
+            except driver.DriverError as error:
+                got = [f"refused: {error}"]
+            if got != want:
+                found.append((name, family, got, want))
+            pairs.append((name, family))
+    return found, pairs
 
 
 def inherited_family() -> tuple[str, str]:
@@ -49,22 +76,27 @@ class Resolution(unittest.TestCase):
         self.assertEqual(report["driver"], cases.load()["driver"])
 
     def test_what_it_runs_is_the_familys_part_of_every_binding(self):
-        # The one-reader property the registry rests on, asked of every profile and family:
-        # the driver runs exactly the cases the binding files under the family, atomic ones
-        # included, and no other set.
-        registry, bundle = cases.load(), selected()
-        plan, catalog, _ = bundle
-        nodes, checked = nodes_of(plan), 0
-        for name in sorted(row["profile"] for row in registry["selects"]):
-            bound = cases.case_map(registry, catalog, name, nodes)
-            for family in sorted(set(bound.values())):
-                want = sorted(c for c, f in bound.items() if f == family
-                              and c in driver.family_cases(registry, family, catalog))
-                if not want:
-                    continue
-                self.assertEqual(driver.bound(registry, name, family, bundle), want, (name, family))
-                checked += 1
-        self.assertGreater(checked, 50, "the comparison judged almost nothing")
+        # The one-reader property the registry rests on, asked of every open profile and
+        # family, the runner qualification included: the driver runs exactly the cases the
+        # binding files under the family, atomic ones included, and no other set.
+        found, pairs = disagreements(selected())
+        self.assertEqual(found, [])
+        self.assertGreater(len(pairs), 50, "the comparison judged almost nothing")
+        self.assertIn(("R0", "N25"), pairs)
+
+    def test_a_driver_that_drops_atomic_cases_disagrees_with_the_binding(self):
+        # The control for the comparison above: keep one atomic case of all of them, and the
+        # binding, read without the driver, must show every profile that lost one.
+        real = driver.family_cases
+
+        def fewer(registry, family, catalog):
+            atomic = {row["id"] for row in registry["atomic"]}
+            return {c for c in real(registry, family, catalog)
+                    if c not in atomic or c == min(atomic)}
+        with mock.patch.object(driver, "family_cases", fewer):
+            found, _ = disagreements(selected())
+        self.assertTrue(found)
+        self.assertIn("R0", {name for name, *_ in found})
 
     def test_an_atomic_case_runs_through_its_family(self):
         registry, bundle = cases.load(), selected()
@@ -92,10 +124,25 @@ class Resolution(unittest.TestCase):
             self.assertEqual(outcome["outcome"], driver.BLOCKED, case)
             self.assertIn(declared, outcome["why"], case)
 
-    def test_a_profile_the_registry_selects_nothing_for_is_refused(self):
+    def test_a_profile_the_catalog_does_not_define_is_refused(self):
         with self.assertRaises(driver.DriverError) as raised:
             driver.run("P99", self.family)
-        self.assertIn("the registry selects no cases for it", str(raised.exception))
+        self.assertIn("P99: the catalog defines no such profile", str(raised.exception))
+
+    def test_a_carried_profile_is_refused_because_nothing_here_runs_it(self):
+        carried = cases.load()["carried"][0]["profile"]
+        with self.assertRaises(driver.DriverError) as raised:
+            driver.run(carried, self.family)
+        self.assertIn(f"{carried}: its binding is carried", str(raised.exception))
+
+    def test_a_profile_holding_catalog_cases_alone_runs_them(self):
+        # The runner qualification has no `selects` row: every case it binds is the catalog's.
+        registry, bundle = cases.load(), selected()
+        profile = bundle[1]["profiles"]["R0"]
+        self.assertNotIn("R0", {row["profile"] for row in registry["selects"]})
+        self.assertTrue(profile["required_atomic_case_ids"])
+        self.assertEqual(driver.bound(registry, "R0", profile["family_ids"][0], bundle),
+                         sorted(profile["required_atomic_case_ids"]))
 
     def test_a_family_the_profile_runs_no_case_of_is_refused(self):
         with self.assertRaises(driver.DriverError) as raised:
@@ -127,6 +174,14 @@ class Shows(unittest.TestCase):
 
     def test_nothing(self):
         pass
+
+    @unittest.skip("planted: the test is not written yet")
+    def test_skipped(self):
+        self.assertEqual({verdict}, "holds")
+
+    @unittest.expectedFailure
+    def test_expected_to_fail(self):
+        self.assertEqual({verdict}, "broken")
 
 
 class Nothing(unittest.TestCase):
@@ -223,6 +278,17 @@ class Judging(unittest.TestCase):
         outcome, detail = self.outcome_of("Nothing")
         self.assertEqual(outcome, driver.FAILED)
         self.assertIn("ran no test", detail)
+
+    def test_a_skipped_test_fails_the_case_rather_than_passing_it(self):
+        # unittest counts a skipped test as run, so `testsRun` alone would report it passed.
+        outcome, detail = self.outcome_of("Shows.test_skipped")
+        self.assertEqual(outcome, driver.FAILED)
+        self.assertIn("was skipped", detail)
+
+    def test_a_test_marked_as_an_expected_failure_fails_the_case(self):
+        outcome, detail = self.outcome_of("Shows.test_expected_to_fail")
+        self.assertEqual(outcome, driver.FAILED)
+        self.assertIn("expected failure", detail)
 
     def test_a_name_that_is_not_a_test_at_all_fails(self):
         outcome, detail = self.outcome_of("Empty")

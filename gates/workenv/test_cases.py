@@ -172,19 +172,22 @@ class Registry(unittest.TestCase):
             del self.row(r, "cases", "N08-READER-GAP-NEG")["rules"]
         self.refused("rule C06/gap_named_frontier_not_returned: no case checks it", edit)
 
-    def test_a_rule_checked_only_where_no_implementation_node_is_in_scope_is_refused(self):
-        # Every stage after V2 runs V2's cases, so the case cannot be moved out of reach of C05;
-        # the implementation nodes are made to list no C05 instead. The freeze still lists every
-        # contract, and implements none, so it must not count.
-        plan = copy.deepcopy(self.loaded[0])
-        for node in plan["nodes"]:
-            if node["kind"] == "implementation":
-                node["contracts"] = [c for c in node.get("contracts", []) if c != "C05"]
-        self.assertIn("C05", next(n for n in plan["nodes"] if n["id"] == "P01")["contracts"])
-        problems = cases.check(self.registry, loaded=(plan, self.loaded[1], self.loaded[2]),
-                               paths=self.paths)[0]
+    def test_a_rule_whose_contract_steps_no_binding_profile_serves_is_refused(self):
+        # Every C05 operation served by a node no profile's scope holds: the case's C05 steps
+        # are the driver's wherever it is bound. V2 still lists C05 and is in scope of every
+        # profile binding the case, so a check that asked only whether a node in scope lists
+        # the contract would count the rule checked.
+        serving = copy.deepcopy(cases.load_serving())
+        c05 = {op for op, contract in cases.owners()[0].items() if contract == "C05"}
+        for operation in c05:
+            if not serving["operations"][operation].get("addressed"):
+                serving["operations"][operation]["node"] = "SYNTHETIC-UNREACHED"
+        derived = cases.derive(self.registry, serving=serving)[0]
+        self.assertIn("C05", {n["id"]: n for n in self.loaded[0]["nodes"]}["V2"]["contracts"])
+        problems = cases.check(self.registry, loaded=self.loaded, paths=self.paths,
+                               derived=derived)[0]
         self.assertIn("rule C05/gap_named_entry_not_current: N07-STATE-GAP-NEG is bound at no "
-                      "profile whose scope holds an implementation node of C05", problems)
+                      "profile whose scope serves one of its C05 steps", problems)
 
     def test_a_rule_checked_by_a_case_that_never_drives_its_contract_is_refused(self):
         # The storage case drives C01, C03, C08 and C09 and no C05 operation or record, and it
@@ -406,6 +409,29 @@ class Serving(unittest.TestCase):
         def edit(s):
             s["layers"] = [layer for layer in s["layers"] if layer["name"] != cases.JOURNAL]
         self.serving_refused("no journal layer", edit)
+
+    def test_a_refusal_two_layers_state_can_come_from_either(self):
+        # A second layer stating access_locked, at V8: DC-KEEP at V4 still has the admission
+        # layer in scope, whichever of the two is declared first.
+        admission = next(row for row in self.serving["layers"] if row["name"] == "admission")
+        later = dict(copy.deepcopy(admission), name="later-admission", node="V8")
+        on_v2 = copy.deepcopy(self.registry)
+        next(r for r in on_v2["selects"] if r["profile"] == "V2")["cases"].append("DC-KEEP")
+        for first in (False, True):
+            with self.subTest(later_declared_first=first):
+                serving = copy.deepcopy(self.serving)
+                serving["layers"].insert(0 if first else len(serving["layers"]), later)
+                self.assertEqual(cases.serving_problems(serving, self.loaded[0]), [])
+                self.assertEqual(cases.unpassable(self.registry, self.loaded[1], self.nodes,
+                                                  self.open, self.derived, serving), [])
+                names = ("later-admission and admission" if first
+                         else "admission and later-admission")
+                where = "V8, V4" if first else "V4, V8"
+                self.assertIn(f"V2: DC-KEEP cannot pass here: use_while_locked expects "
+                              f"access_locked, which only the {names} layers state, and none "
+                              f"of {where} is in its scope",
+                              cases.unpassable(on_v2, self.loaded[1], self.nodes, self.open,
+                                               self.derived, serving))
 
     def test_a_layer_stated_twice_is_refused(self):
         self.serving_refused("serving layers: admission is stated twice",

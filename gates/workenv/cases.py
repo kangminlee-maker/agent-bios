@@ -48,8 +48,8 @@ its bound cases can drive, with the reason.
     defines
   - a profile whose case map the dated evaluator's own `binding_errors` refuses
   - an operation no case drives, and a runtime rule no case checks: a rule counts for a case
-    whose scenario drives the rule's contract, bound at a profile whose scope holds an
-    implementation node of it (the contract freeze lists every contract and implements none)
+    whose scenario drives the rule's contract, bound at a profile whose scope holds the node that
+    serves one of the case's steps of that contract, so code of the contract answers it there
   - a case bound where it cannot pass: a step served in the profile's scope expects a refusal
     that only a layer states, and that layer is not in the scope
   - a profile without its `covers`, a `done_when` item no bound case realizes, a node contract
@@ -360,10 +360,12 @@ def unexercised(registry: dict, catalog: dict, nodes: dict[str, dict], open_prof
 def unpassable(registry: dict, catalog: dict, nodes: dict[str, dict], open_profiles: list[str],
                derived: dict[str, dict], serving: dict) -> list[str]:
     """A case bound where it cannot pass. A step served in the profile's scope is answered by
-    code there, so a refusal it expects that only a layer states can come from nowhere while
-    that layer is out of scope; a step the driver answers states whatever its result says."""
-    stated = {code: layer for layer in serving.get("layers", [])
-              for code in layer.get("states", [])}
+    code there, so a refusal it expects that only layers state can come from nowhere while none
+    of them is in scope; a step the driver answers states whatever its result says."""
+    stated: dict[str, list[dict]] = {}
+    for layer in serving.get("layers", []):
+        for code in layer.get("states", []):
+            stated.setdefault(code, []).append(layer)
     layers = {layer["name"]: layer["node"] for layer in serving.get("layers", [])}
     by_profile = {n["test_profile"]: n["id"] for n in nodes.values() if n.get("test_profile")}
     problems = []
@@ -376,11 +378,15 @@ def unpassable(registry: dict, catalog: dict, nodes: dict[str, dict], open_profi
                 if step["node"] == DRIVER or not answered_in(step, reach, layers):
                     continue
                 for code in step.get("expects", []):
-                    layer = stated.get(code)
-                    if layer is not None and layer["node"] not in reach:
+                    held = stated.get(code, [])
+                    if held and not any(layer["node"] in reach for layer in held):
+                        names = " and ".join(layer["name"] for layer in held)
+                        where = ", ".join(layer["node"] for layer in held)
+                        stated_by = (f"the {names} layer states, and {where} is not"
+                                     if len(held) == 1 else
+                                     f"the {names} layers state, and none of {where} is")
                         problems.append(f"{name}: {case} cannot pass here: {step['name']} expects "
-                                        f"{code}, which only the {layer['name']} layer states, "
-                                        f"and {layer['node']} is not in its scope")
+                                        f"{code}, which only {stated_by} in its scope")
     return problems
 
 
@@ -600,24 +606,29 @@ def check(registry: dict | None = None, root: pathlib.Path = ROOT,
     for rule in sorted(set(rules) - set(checked)):
         problems.append(f"rule {rule}: no case checks it")
     # A rule is checked by a case that drives its contract, where the case is bound at a
-    # profile whose scope holds an implementation node of it: a node runs the code of every
-    # node it depends on, and the contract freeze lists every contract and implements none.
+    # profile whose scope serves one of the case's steps of that contract: code of the contract
+    # answers the step there. That a node in scope lists the contract is not enough, because
+    # the node that serves the case's steps may be another one, and the contract freeze lists
+    # every contract and implements none.
+    serving = load_serving(root)
+    layers = {layer["name"]: layer["node"] for layer in serving.get("layers", [])}
+    by_operation = owners()[0]
+    by_profile = {n["test_profile"]: n["id"] for n in nodes.values() if n.get("test_profile")}
     binders = {name: set(case_map(registry, catalog, name, nodes)) for name in open_profiles}
     for rule, case in sorted((rule, case) for rule, held in checked.items() for case in held):
         contract = rule.split("/")[0]
         if contract not in derived.get(case, {}).get("contracts", set()):
             problems.append(f"rule {rule}: {case} drives no operation or record of {contract}")
             continue
-        implementers = {n["test_profile"] for n in nodes.values()
-                        if any(contract in nodes[m].get("contracts", [])
-                               and nodes[m]["kind"] == IMPLEMENTATION
-                               for m in scope(n["id"], nodes))}
-        if not {name for name, bound in binders.items() if case in bound} & implementers:
-            problems.append(f"rule {rule}: {case} is bound at no profile whose scope holds an "
-                            f"implementation node of {contract}")
+        steps = [step for step in derived[case]["steps"]
+                 if step["node"] != DRIVER and by_operation.get(step["operation"]) == contract]
+        if not any(answered_in(step, scope(by_profile[name], nodes), layers)
+                   for name, bound in binders.items() if case in bound and name in by_profile
+                   for step in steps):
+            problems.append(f"rule {rule}: {case} is bound at no profile whose scope serves one "
+                            f"of its {contract} steps")
 
     problems.extend(coverage(registry, catalog, nodes, open_profiles, derived))
-    serving = load_serving(root)
     problems.extend(serving_problems(serving, plan))
     problems.extend(unexercised(registry, catalog, nodes, open_profiles, derived, serving)[0])
     problems.extend(unpassable(registry, catalog, nodes, open_profiles, derived, serving))
