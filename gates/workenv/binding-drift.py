@@ -10,10 +10,10 @@ freeze it equals what `cases.py --bindings` emits from the tree.
 **Nothing holds it there.** The evaluator compares the artifact with the `bindings` recorded in
 the same run — two copies of one producer's output — and never recomputes from the tree. So an
 edit to shared machinery after the freeze moves what a later profile would run under, and
-every check stays green: editing `gates/workenv/conformance/driver.py` moves 23 of the 25
-profiles, because the driver's bytes are inside the adapter fingerprint of every profile whose
-cases the driver runs. `P00` and `P01` are the two that do not move, which is why an accepted
-node keeps its acceptance and the drift is invisible.
+every check stays green: editing `gates/workenv/conformance/driver.py` moves every profile
+whose cases the driver runs, because the driver's bytes are inside each one's adapter
+fingerprint. `P00`, whose binding is carried, and `P01`, whose cases are bootstrap commands, do
+not move, which is why an accepted node keeps its acceptance and the drift is invisible.
 
 This discloses that drift and exits 0 either way. It does not block, because a drift can be
 either a regression or the intended result of shared work that the freeze has yet to catch up

@@ -187,7 +187,60 @@ class Registry(unittest.TestCase):
         problems = cases.check(self.registry, loaded=self.loaded, paths=self.paths,
                                derived=derived)[0]
         self.assertIn("rule C05/gap_named_entry_not_current: N07-STATE-GAP-NEG is bound at no "
-                      "profile whose scope serves one of its C05 steps", problems)
+                      "profile whose scope serves a C05 step of it that handles the "
+                      "qualified_state record the rule judges", problems)
+
+    def test_a_rule_whose_judged_record_only_an_unreached_step_writes_is_refused(self):
+        # Only memory.state.resolve, which returns the qualified_state records the two C05
+        # oracles judge, is served out of every scope; the case's other C05 steps are still
+        # served by V2. Crediting a sibling step would apply the oracles to the driver's words.
+        serving = copy.deepcopy(cases.load_serving())
+        serving["operations"]["memory.state.resolve"]["node"] = "SYNTHETIC-UNREACHED"
+        derived = cases.derive(self.registry, serving=serving)[0]
+        others = [s for s in derived["N07-STATE-GAP-NEG"]["steps"]
+                  if s.get("operation", "").startswith("memory.") and s["node"] == "V2"]
+        self.assertTrue(others, "no sibling C05 step is left served in scope")
+        problems = cases.check(self.registry, loaded=self.loaded, paths=self.paths,
+                               derived=derived)[0]
+        for rule, case in (("C05/gap_named_entry_not_current", "N07-STATE-GAP-NEG"),
+                           ("C05/entry_from_named_source", "N07-STATE-SOURCE-NEG")):
+            self.assertIn(f"rule {rule}: {case} is bound at no profile whose scope serves a C05 "
+                          f"step of it that handles the qualified_state record the rule judges",
+                          problems)
+
+    def test_a_query_answered_from_the_journal_earns_no_rule_credit(self):
+        # package.candidate.register, the one C03 operation that writes the package_candidate
+        # the closure rule judges, is served out of every scope; the case's operation.query
+        # steps still reach the journal in scope, which holds only what the driver stated. The
+        # queries are made to name the candidate too, so only their exclusion refuses the rule.
+        serving = copy.deepcopy(cases.load_serving())
+        serving["operations"]["package.candidate.register"]["node"] = "SYNTHETIC-UNREACHED"
+        derived = cases.derive(self.registry, serving=serving)[0]
+        queries = [s for s in derived["N24-CLOSURE-NEG"]["steps"] if "addresses" in s]
+        self.assertTrue(queries)
+        for step in queries:
+            step["handles"] = sorted({*step["handles"], "package_candidate"})
+        problems = cases.check(self.registry, loaded=self.loaded, paths=self.paths,
+                               derived=derived)[0]
+        self.assertIn("rule C03/reached_paths_are_members: N24-CLOSURE-NEG is bound at no "
+                      "profile whose scope serves a C03 step of it that handles the "
+                      "package_candidate record the rule judges", problems)
+
+    def test_a_rule_whose_contract_steps_all_expect_another_contracts_refusal_is_refused(self):
+        # The reader's C06 steps made to expect request_id_conflict, which C03 states: the
+        # journal refuses each reused request before any C06 code runs, so none of them checks a
+        # C06 rule, although each is served by a C06 node in scope.
+        derived = copy.deepcopy(cases.derive(self.registry)[0])
+        c06 = {op for op, contract in cases.owners()[0].items() if contract == "C06"}
+        steps = [s for s in derived["N08-READER-GAP-NEG"]["steps"] if s.get("operation") in c06]
+        self.assertTrue(steps)
+        for step in steps:
+            step["expects"] = ["request_id_conflict"]
+        problems = cases.check(self.registry, loaded=self.loaded, paths=self.paths,
+                               derived=derived)[0]
+        self.assertIn("rule C06/gap_named_frontier_not_returned: N08-READER-GAP-NEG is bound at no "
+                      "profile whose scope serves a C06 step of it that handles the "
+                      "reader_result record the rule judges", problems)
 
     def test_a_rule_checked_by_a_case_that_never_drives_its_contract_is_refused(self):
         # The storage case drives C01, C03, C08 and C09 and no C05 operation or record, and it
@@ -208,6 +261,16 @@ class Registry(unittest.TestCase):
         self.assertIn("C06/gap_named_frontier_not_returned",
                       self.row(self.registry, "cases", "N08-READER-GAP-NEG")["rules"])
         self.assertFalse([p for p in self.check(self.registry) if "N08-READER-GAP-NEG" in p])
+
+    def test_a_selection_for_a_profile_no_node_is_tested_by_is_refused(self):
+        catalog = copy.deepcopy(self.loaded[1])
+        catalog["profiles"]["X9"] = copy.deepcopy(catalog["profiles"]["V4"])
+        registry = copy.deepcopy(self.registry)
+        registry["selects"].append({"profile": "X9", "cases": ["N03-SECRET-NEG"]})
+        problems = cases.check(registry, loaded=(self.loaded[0], catalog, self.loaded[2]),
+                               paths=self.paths)[0]
+        self.assertIn("selects X9: no node of the plan is tested by it, so nothing runs what it "
+                      "selects", problems)
 
     def test_a_selection_outside_the_profiles_families_is_refused(self):
         self.refused("is outside its families",
@@ -432,6 +495,29 @@ class Serving(unittest.TestCase):
                               f"of {where} is in its scope",
                               cases.unpassable(on_v2, self.loaded[1], self.nodes, self.open,
                                                self.derived, serving))
+
+    def test_a_malformed_layer_or_addressed_row_is_named_rather_than_crashing(self):
+        serving = copy.deepcopy(self.serving)
+        serving["layers"].append({"contract": "C02", "entry": "workenv.access:x"})
+        problems = cases.serving_problems(serving, self.loaded[0])
+        self.assertIn("serving layers: a layer states no name", problems)
+        self.assertIsInstance(cases.unpassable(self.registry, self.loaded[1], self.nodes,
+                                               self.open, self.derived, serving), list)
+        self.assertIsInstance(self.unexercised(serving=serving), tuple)
+        built = json.loads((cases.ROOT / cases.scenario_dir("N02-C01-POS")
+                            / cases.scenarios.GENERATED).read_bytes())
+        rows = copy.deepcopy(self.serving)
+        del rows["operations"]["identity.binding.add"]["node"]
+        problems = cases.served_steps(built, rows)[1]
+        self.assertTrue(any("no step of this scenario submits a request under that id" in p
+                            for p in problems), problems)
+
+    def test_a_refusal_stated_twice_by_one_layer_is_refused(self):
+        def edit(serving):
+            layer = next(row for row in serving["layers"] if row["name"] == "admission")
+            layer["states"].append(layer["states"][0])
+        self.serving_refused("serving layer admission: it states access_generation_moved twice",
+                             edit)
 
     def test_a_layer_stated_twice_is_refused(self):
         self.serving_refused("serving layers: admission is stated twice",

@@ -1,8 +1,11 @@
 """The conformance driver: what it resolves for a profile, and that it runs nowhere but the tree."""
 from __future__ import annotations
 
+import contextlib
+import io
 import pathlib
 import shutil
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -28,11 +31,17 @@ def nodes_of(plan: dict) -> dict[str, dict]:
     return {node["id"]: node for node in plan["nodes"]}
 
 
-def disagreements(bundle: tuple[dict, dict, object]) -> tuple[list, list[tuple[str, str]]]:
-    """(each profile and family where the driver's set differs from the binding's, every pair
-    compared). The binding's set is read from `case_map` alone, never through the driver, so a
-    driver that drops cases cannot drop them from what it is held to as well. A bootstrap case
-    runs its own command, not the driver's."""
+NOTHING = "refused: it runs no case of the family"
+COMMANDED = "refused: its cases of the family are bootstrap cases"
+
+
+def disagreements(bundle: tuple[dict, dict, object]) -> tuple[list, list[tuple[str, str, bool]]]:
+    """(each profile and family where the driver's answer differs from the binding's, every pair
+    compared with whether a refusal was expected). Every open profile is asked about every
+    catalog family: the binding's cases in it, or a refusal naming why it runs none. The
+    binding's set is read from `case_map` alone, never through the driver, so a driver that
+    drops or adds cases cannot move what it is held to as well. A bootstrap case runs its own
+    command, not the driver's."""
     registry = cases.load()
     plan, catalog, _ = bundle
     nodes = nodes_of(plan)
@@ -40,17 +49,22 @@ def disagreements(bundle: tuple[dict, dict, object]) -> tuple[list, list[tuple[s
     commanded = {row["id"] for row in registry["bootstrap"]}
     found, pairs = [], []
     for name in sorted(set(catalog["profiles"]) - carried):
-        bound = {c: f for c, f in cases.case_map(registry, catalog, name, nodes).items()
-                 if c not in commanded}
-        for family in sorted(set(bound.values())):
-            want = sorted(c for c, f in bound.items() if f == family)
+        full = cases.case_map(registry, catalog, name, nodes)
+        for family in sorted(row["id"] for row in catalog["cases"]):
+            want = sorted(c for c, f in full.items() if f == family and c not in commanded)
+            if not want:
+                want = (COMMANDED if any(f == family for c, f in full.items() if c in commanded)
+                        else NOTHING)
             try:
                 got = driver.bound(registry, name, family, bundle)
             except driver.DriverError as error:
-                got = [f"refused: {error}"]
+                text = str(error)
+                got = (NOTHING if f"it runs no case of {family}" in text
+                       else COMMANDED if f"its cases of {family} are bootstrap cases" in text
+                       else text)
             if got != want:
                 found.append((name, family, got, want))
-            pairs.append((name, family))
+            pairs.append((name, family, want in (NOTHING, COMMANDED)))
     return found, pairs
 
 
@@ -81,8 +95,27 @@ class Resolution(unittest.TestCase):
         # binding files under the family, atomic ones included, and no other set.
         found, pairs = disagreements(selected())
         self.assertEqual(found, [])
-        self.assertGreater(len(pairs), 50, "the comparison judged almost nothing")
-        self.assertIn(("R0", "N25"), pairs)
+        self.assertGreater(len([p for p in pairs if not p[2]]), 50,
+                           "the comparison judged almost no bound family")
+        self.assertTrue([p for p in pairs if p[2]],
+                        "no family a profile binds nothing of was asked")
+        self.assertIn(("R0", "N25", False), pairs)
+
+    def test_a_driver_that_answers_for_a_family_it_binds_nothing_of_disagrees(self):
+        # The control for the refusal half: a driver that hands back the family's cases where
+        # the profile binds none of them must be caught at every such pair.
+        real = driver.bound
+
+        def generous(registry, profile, family, selected):
+            try:
+                return real(registry, profile, family, selected)
+            except driver.DriverError:
+                return sorted(driver.family_cases(registry, family, selected[1]))
+        with mock.patch.object(driver, "bound", generous):
+            found, _ = disagreements(selected())
+        self.assertTrue(found)
+        self.assertTrue(all(want in (NOTHING, COMMANDED) for *_, want in found), found[:3])
+        self.assertIn("P01", {name for name, *_ in found})
 
     def test_a_driver_that_drops_atomic_cases_disagrees_with_the_binding(self):
         # The control for the comparison above: keep one atomic case of all of them, and the
@@ -95,8 +128,10 @@ class Resolution(unittest.TestCase):
                     if c not in atomic or c == min(atomic)}
         with mock.patch.object(driver, "family_cases", fewer):
             found, _ = disagreements(selected())
-        self.assertTrue(found)
         self.assertIn("R0", {name for name, *_ in found})
+        # a partial drop, not only a family left with nothing: the driver still answers with
+        # cases, and fewer than the binding holds
+        self.assertTrue([f for f in found if isinstance(f[2], list) and f[2]], found[:3])
 
     def test_an_atomic_case_runs_through_its_family(self):
         registry, bundle = cases.load(), selected()
@@ -144,6 +179,30 @@ class Resolution(unittest.TestCase):
         self.assertEqual(driver.bound(registry, "R0", profile["family_ids"][0], bundle),
                          sorted(profile["required_atomic_case_ids"]))
 
+    def test_the_report_holds_every_case_the_profile_runs(self):
+        registry, bundle = cases.load(), selected()
+        # V1's N27 and R0's N25 hold atomic cases, which a filter by family prefix would drop.
+        for profile, family in ((PROFILE, self.family), ("V1", "N27"), ("R0", "N25")):
+            with self.subTest(profile=profile):
+                self.assertEqual(sorted(driver.run(profile, family)["cases"]),
+                                 driver.bound(registry, profile, family, bundle))
+
+    def test_a_family_bound_only_by_bootstrap_cases_is_refused_with_that_reason(self):
+        with self.assertRaises(driver.DriverError) as raised:
+            driver.run("P01", "N01")
+        self.assertIn("P01: its cases of N01 are bootstrap cases", str(raised.exception))
+
+    def test_the_command_exits_zero_only_when_every_case_passed(self):
+        def report(*outcomes):
+            return {"cases": {f"c{i}": {"outcome": o} for i, o in enumerate(outcomes)}}
+        self.assertEqual(driver.status(report(driver.PASSED, driver.PASSED)), 0)
+        for outcomes in ((driver.PASSED, driver.FAILED), (driver.BLOCKED,), ()):
+            with self.subTest(outcomes=outcomes):
+                self.assertEqual(driver.status(report(*outcomes)), 1)
+        with contextlib.redirect_stdout(io.StringIO()) as printed:
+            self.assertEqual(driver.main(["--case-profile", PROFILE, "--family", self.family]), 1)
+        self.assertIn(driver.BLOCKED, printed.getvalue())
+
     def test_a_family_the_profile_runs_no_case_of_is_refused(self):
         with self.assertRaises(driver.DriverError) as raised:
             driver.run(PROFILE, "N99")
@@ -167,6 +226,12 @@ FAMILY_MODULE = '''\
 """A family module standing in for a real one, written by the test that uses it."""
 import unittest
 
+SET_UP = []
+
+
+def setUpModule():
+    SET_UP.append("up")
+
 
 class Shows(unittest.TestCase):
     def test_the_thing_holds(self):
@@ -182,6 +247,47 @@ class Shows(unittest.TestCase):
     @unittest.expectedFailure
     def test_expected_to_fail(self):
         self.assertEqual({verdict}, "broken")
+
+    async def test_never_awaited(self):
+        self.assertEqual({verdict}, "holds")
+
+    @unittest.expectedFailure
+    def test_expected_to_fail_but_holds(self):
+        self.assertEqual({verdict}, "holds")
+
+    def test_lists(self):
+        self.assertEqual([1, 2], [1, {verdict}])
+
+    def test_the_module_was_set_up(self):
+        self.assertTrue(SET_UP)
+
+    def check_helper(self):
+        self.assertEqual({verdict}, "holds")
+
+    def test_generator(self):
+        yield
+        self.assertEqual({verdict}, "holds")
+
+
+def a_bare_case():
+    """A callable the loader turns into a TestCase instance with no method to run."""
+    return unittest.TestCase()
+
+
+class BrokenSetUp(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        raise RuntimeError("the class could not be set up")
+
+    def test_anything(self):
+        pass
+
+
+class Awaited(unittest.IsolatedAsyncioTestCase):
+    """A coroutine test on a TestCase that awaits it, which runs its body as any test does."""
+
+    async def test_the_thing_holds(self):
+        self.assertEqual({verdict}, "holds")
 
 
 class Nothing(unittest.TestCase):
@@ -290,6 +396,61 @@ class Judging(unittest.TestCase):
         self.assertEqual(outcome, driver.FAILED)
         self.assertIn("expected failure", detail)
 
+    def test_an_unexpected_success_fails_the_case(self):
+        outcome, detail = self.outcome_of("Shows.test_expected_to_fail_but_holds")
+        self.assertEqual(outcome, driver.FAILED)
+        self.assertIn("expected failure", detail)
+
+    def test_a_method_that_is_not_a_test_fails_the_case(self):
+        outcome, detail = self.outcome_of("Shows.check_helper")
+        self.assertEqual(outcome, driver.FAILED)
+        self.assertIn("not a test method", detail)
+
+    def test_a_name_that_loads_to_a_case_with_no_method_fails_that_case_alone(self):
+        outcome, detail = self.outcome_of("a_bare_case")
+        self.assertEqual(outcome, driver.FAILED)
+        self.assertIn("runTest", detail)
+
+    def test_a_class_that_cannot_be_set_up_fails_with_its_cause(self):
+        outcome, detail = self.outcome_of("BrokenSetUp.test_anything")
+        self.assertEqual(outcome, driver.FAILED)
+        self.assertIn("the class could not be set up", detail)
+
+    def test_a_list_difference_is_stated_by_the_exception_line(self):
+        outcome, detail = self.outcome_of("Shows.test_lists")
+        self.assertEqual(outcome, driver.FAILED)
+        self.assertTrue(detail.startswith("AssertionError: Lists differ"), detail)
+
+    def test_the_modules_own_set_up_runs_before_its_tests(self):
+        self.assertEqual(self.outcome_of("Shows.test_the_module_was_set_up")[0], driver.PASSED)
+
+    def test_a_generator_test_fails_the_case_because_its_body_never_runs(self):
+        outcome, detail = self.outcome_of("Shows.test_generator", verdict='"broken"')
+        self.assertEqual(outcome, driver.FAILED)
+        self.assertIn("is a generator", detail)
+
+    def test_a_coroutine_nothing_awaits_fails_the_case_because_its_body_never_runs(self):
+        outcome, detail = self.outcome_of("Shows.test_never_awaited", verdict='"broken"')
+        self.assertEqual(outcome, driver.FAILED)
+        self.assertIn("never awaits", detail)
+
+    def test_a_coroutine_its_testcase_awaits_is_judged_by_its_body(self):
+        # The positive control for the two above: an awaited coroutine runs, so what it asserts
+        # decides the case either way.
+        self.assertEqual(self.outcome_of("Awaited.test_the_thing_holds")[0], driver.PASSED)
+        outcome, detail = self.outcome_of("Awaited.test_the_thing_holds", verdict='"broken"')
+        self.assertEqual(outcome, driver.FAILED)
+        self.assertIn("broken", detail)
+
+    def test_the_driver_refuses_to_run_with_assertions_stripped(self):
+        case, family = inherited_family()
+        ran = subprocess.run([sys.executable, "-O", "-B", str(HERE / "conformance" / "driver.py"),
+                              "--case-profile", PROFILE, "--family", family],
+                             capture_output=True, text=True)
+        self.assertEqual(ran.returncode, 2, ran.stdout + ran.stderr)
+        self.assertIn('"outcome": "refused"', ran.stdout)
+        self.assertIn("-O", ran.stdout)
+
     def test_a_name_that_is_not_a_test_at_all_fails(self):
         outcome, detail = self.outcome_of("Empty")
         self.assertEqual(outcome, driver.FAILED)
@@ -322,6 +483,32 @@ class Judging(unittest.TestCase):
         for case, outcome in report["cases"].items():
             self.assertEqual(outcome["outcome"], driver.PASSED, case)
             self.assertEqual(outcome["test"], "Shows.test_the_thing_holds")
+
+    def test_a_case_the_module_names_no_test_for_is_blocked_and_still_reported(self):
+        profile = self.profile_of()
+        chosen = driver.bound(self.registry, profile, self.FAMILY, cases.bundle(cases.ROOT))
+        self.assertGreater(len(chosen), 1)
+        self.write({chosen[0]: "Shows.test_the_thing_holds"})
+        report = driver.run(profile, self.FAMILY, root=self.root, catalog=self.catalog())
+        self.assertEqual(sorted(report["cases"]), chosen)
+        self.assertEqual(report["cases"][chosen[0]]["outcome"], driver.PASSED)
+        for case in chosen[1:]:
+            self.assertEqual(report["cases"][case]["outcome"], driver.BLOCKED, case)
+            self.assertIn(f"names no test for {case}", report["cases"][case]["why"])
+
+    def test_a_module_that_cannot_be_imported_fails_every_case_and_still_reports(self):
+        profile = self.profile_of()
+        chosen = driver.bound(self.registry, profile, self.FAMILY, cases.bundle(cases.ROOT))
+        for text, cause in (('raise RuntimeError("import broke")\n', "import broke"),
+                            ('import unittest\nraise unittest.SkipTest("not here")\n',
+                             "skips itself on import")):
+            with self.subTest(cause=cause):
+                (self.root / self.declared).write_text(text, encoding="utf-8")
+                report = driver.run(profile, self.FAMILY, root=self.root, catalog=self.catalog())
+                self.assertEqual(sorted(report["cases"]), chosen)
+                for case, outcome in report["cases"].items():
+                    self.assertEqual(outcome["outcome"], driver.FAILED, case)
+                    self.assertIn(cause, outcome["why"], case)
 
     def test_a_wrong_implementation_fails_the_case_by_name(self):
         # The control the plan asks for: plant a wrong judgement and require the case to fall

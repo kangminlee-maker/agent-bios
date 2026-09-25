@@ -34,7 +34,13 @@ mapping honest, and they are deliberately asymmetric:
 A named test that runs no test at all is `failed`, not `passed`: naming a class that holds
 nothing would otherwise report the case satisfied by an empty run. So is one that is skipped or
 marked as an expected failure: unittest counts either as run, and neither shows its assertion
-holding.
+holding. A generator test, or a coroutine on a TestCase that does not await it, is `failed` for the
+same reason: unittest records it as a success without running its body. And the driver refuses to
+run at all under `python -O`, which strips every bare `assert` from a judging module.
+
+The command exits 0 only when every case it runs passed, 1 when any failed or is blocked, and
+2 when the run itself is refused. A family module that cannot be imported, or skips itself on
+import, fails every case it would have judged, with the cause; it does not end the report.
 
   python3 gates/workenv/conformance/driver.py --case-profile V3 --family N27
 """
@@ -42,6 +48,7 @@ from __future__ import annotations
 
 import argparse
 import importlib.util
+import inspect
 import json
 import pathlib
 import sys
@@ -59,6 +66,10 @@ REFUSED = "refused"
 
 class DriverError(ValueError):
     """A run this module refuses, named."""
+
+
+class ModuleFailed(Exception):
+    """A family module that cannot be imported, so every case it would judge fails."""
 
 
 def family_of(case: str) -> str:
@@ -88,9 +99,14 @@ def bound(registry: dict, profile: str, family: str,
     runnable(registry, catalog, profile)
     nodes = {node["id"]: node for node in plan["nodes"]}
     members = family_cases(registry, family, catalog)
-    chosen = sorted(case for case in cases.case_map(registry, catalog, profile, nodes)
-                    if case in members)
+    binding = cases.case_map(registry, catalog, profile, nodes)
+    chosen = sorted(case for case in binding if case in members)
     if not chosen:
+        commanded = sorted(case for case, of in binding.items() if of == family
+                           and case in {row["id"] for row in registry["bootstrap"]})
+        if commanded:
+            raise DriverError(f"{profile}: its cases of {family} are bootstrap cases "
+                              f"({', '.join(commanded)}), which run their own commands")
         raise DriverError(f"{profile}: it runs no case of {family}")
     return chosen
 
@@ -131,7 +147,18 @@ def judge(registry: dict, catalog: dict, family: str,
     if spec is None or spec.loader is None:
         raise DriverError(f"{family}: {declared} cannot be loaded as a module")
     module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
+    # Registered, so unittest finds the module to run its setUpModule and tearDownModule.
+    sys.modules[spec.name] = module
+    try:
+        spec.loader.exec_module(module)
+    except unittest.SkipTest as skip:
+        sys.modules.pop(spec.name, None)
+        raise ModuleFailed(f"{declared} skips itself on import, so it shows nothing: "
+                           f"{skip}") from skip
+    except (Exception, SystemExit) as error:
+        sys.modules.pop(spec.name, None)
+        raise ModuleFailed(f"{declared} cannot be imported: {type(error).__name__}: "
+                           f"{error}") from error
     named = getattr(module, "CASES", None)
     if not isinstance(named, dict) or not named:
         return None, f"{declared} names no case it shows"
@@ -149,28 +176,68 @@ def shown(module: object, test: str) -> tuple[str, str]:
         suite = loader.loadTestsFromName(test, module)
     except Exception as error:  # a name the module does not hold is the module's defect
         return FAILED, f"{test} cannot be loaded: {error}"
+    for case in tests_in(suite):
+        why = unrunnable(case)
+        if why:
+            return FAILED, f"{test} {why}"
     result = unittest.TestResult()
-    suite.run(result)
-    if result.testsRun == 0:
-        return FAILED, f"{test} ran no test, so it shows nothing"
+    try:
+        suite.run(result)
+    except Exception as error:
+        return FAILED, f"{test} raised outside its test body: {type(error).__name__}: {error}"
     problems = [text for _, text in result.failures + result.errors]
     if problems:
         return FAILED, stated_cause(problems[0])
     if result.skipped:
         return FAILED, f"{test} was skipped, so it shows nothing: {result.skipped[0][1]}"
+    if result.testsRun == 0:
+        return FAILED, f"{test} ran no test, so it shows nothing"
     if result.expectedFailures or result.unexpectedSuccesses:
         return FAILED, f"{test} is marked as an expected failure, so its run shows nothing"
     return PASSED, f"{result.testsRun} test(s) in {test}"
+
+
+def tests_in(suite: unittest.TestSuite):
+    """Every test in a suite, through any nesting."""
+    for item in suite:
+        if isinstance(item, unittest.TestSuite):
+            yield from tests_in(item)
+        else:
+            yield item
+
+
+def unrunnable(case: unittest.TestCase) -> str:
+    """Why unittest would record this test as a success without running its body, or ""."""
+    name = getattr(case, "_testMethodName", "")
+    method = getattr(case, name, None)
+    if method is None:
+        return f"has no method {name} to run"
+    if not (name.startswith(unittest.defaultTestLoader.testMethodPrefix) or name == "runTest"):
+        return f"names {name}, which is not a test method, so running it shows nothing"
+    if inspect.isgeneratorfunction(method) or inspect.isasyncgenfunction(method):
+        return "is a generator, so unittest never runs its body"
+    if (inspect.iscoroutinefunction(method)
+            and not isinstance(case, unittest.IsolatedAsyncioTestCase)):
+        return "is a coroutine its TestCase never awaits, so its body never runs"
+    return ""
 
 
 def stated_cause(traceback: str) -> str:
     """The line naming why it failed, not the last line of the text.
 
     unittest ends an `assertEqual` failure with the diff, so taking the last line reports `+ x`
-    and loses the values that differed. The line wanted is the last one that is not part of that
-    diff, which is where the exception states itself.
+    and loses the values that differed, and a list diff's element lines look like causes. The
+    line wanted is the exception's own, the first unindented line after the traceback's last
+    frame; without frames, the last line that is not part of a diff.
     """
-    for line in reversed(traceback.strip().splitlines()):
+    lines = traceback.strip().splitlines()
+    frames = [index for index, line in enumerate(lines) if line.startswith("  File ")]
+    if frames:
+        # After the last frame and its indented source lines comes the exception's own line.
+        for line in lines[frames[-1] + 1:]:
+            if line.strip() and line[:1] not in (" ", "\t"):
+                return line.strip()
+    for line in reversed(lines):
         if line.strip() and line[:1] not in ("-", "+", "?", " ", "\t"):
             return line.strip()
     return "the test failed and stated no cause"
@@ -184,12 +251,19 @@ def run(profile: str, family: str, root: pathlib.Path = cases.ROOT,
     are read from, the one `CURRENT.md` selects when left out. What the profile runs is read from
     the registry and bundle where they are, never from `root`.
     """
+    if sys.flags.optimize:
+        raise DriverError("python runs with -O, which strips every bare assert from a judging "
+                          "module, so a case could pass on an assertion that never ran")
     registry = cases.load()
     selected = cases.bundle(cases.ROOT)
     chosen = bound(registry, profile, family, selected)
     if catalog is None:
         catalog = selected[1] if root == cases.ROOT else cases.bundle(root)[1]
-    tests, absent = judge(registry, catalog, family, root)
+    try:
+        tests, absent = judge(registry, catalog, family, root)
+    except ModuleFailed as failure:
+        return {"profile": profile, "family": family, "driver": registry["driver"],
+                "cases": {case: {"outcome": FAILED, "why": str(failure)} for case in chosen}}
     outcomes = {}
     for case in chosen:
         if tests is None:
@@ -216,7 +290,13 @@ def main(argv: list[str]) -> int:
         print(json.dumps({"outcome": REFUSED, "why": str(error)}, ensure_ascii=False))
         return 2
     print(json.dumps(report, ensure_ascii=False, sort_keys=True))
-    return 0 if all(c["outcome"] != REFUSED for c in report["cases"].values()) else 2
+    return status(report)
+
+
+def status(report: dict) -> int:
+    """0 when every case the report holds passed, else 1: a blocked case has shown nothing."""
+    outcomes = [case["outcome"] for case in report["cases"].values()]
+    return 0 if outcomes and all(outcome == PASSED for outcome in outcomes) else 1
 
 
 if __name__ == "__main__":

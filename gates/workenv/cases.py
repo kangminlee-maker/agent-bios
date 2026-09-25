@@ -48,10 +48,12 @@ its bound cases can drive, with the reason.
     defines
   - a profile whose case map the dated evaluator's own `binding_errors` refuses
   - an operation no case drives, and a runtime rule no case checks: a rule counts for a case
-    whose scenario drives the rule's contract, bound at a profile whose scope holds the node that
-    serves one of the case's steps of that contract, so code of the contract answers it there
+    whose scenario drives the rule's contract, bound at a profile whose scope serves a step of
+    the case that is an operation of that contract, handles a record of the kind the rule's
+    oracle judges, expects no refusal another contract states, and does not merely address an
+    earlier request, so code of the contract writes what the oracle reads there
   - a case bound where it cannot pass: a step served in the profile's scope expects a refusal
-    that only a layer states, and that layer is not in the scope
+    that only layers state, and none of them is in the scope
   - a profile without its `covers`, a `done_when` item no bound case realizes, a node contract
     no bound case drives and `elsewhere` does not name, and an `elsewhere` its cases do drive
   - a serving table (`conformance/serving.json`, which node answers each operation and at which
@@ -90,6 +92,8 @@ import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2]))
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent / "conformance"))
+import rules as oracles  # noqa: E402
 import scenarios  # noqa: E402
 import subjects  # noqa: E402
 from workenv.contracts import canonical, errors, examples, records  # noqa: E402
@@ -218,20 +222,30 @@ def served_steps(built: dict, serving: dict) -> tuple[list[dict], list[str]]:
         if row.get("addressed"):
             target = held[step["request"]].get("target", {}).get("resource_id")
             addressed = by_request.get(target)
-            if addressed not in rows or rows[addressed].get("addressed"):
+            if (addressed not in rows or rows[addressed].get("addressed")
+                    or "node" not in rows[addressed]):
                 problems.append(f"step {step['name']}: {operation} addresses {target}, and no "
                                 f"step of this scenario submits a request under that id")
                 continue
             steps.append({"name": step["name"], "operation": operation,
                           "node": rows[addressed]["node"], "addresses": addressed,
-                          "expects": expects(held, step)})
+                          "expects": expects(held, step), "handles": handles(held, step)})
             continue
         if "node" not in row:
             problems.append(f"step {step['name']}: {operation} has no serving row")
             continue
         steps.append({"name": step["name"], "operation": operation, "node": row["node"],
-                      "expects": expects(held, step)})
+                      "expects": expects(held, step), "handles": handles(held, step)})
     return steps, problems
+
+
+def handles(held: dict[str, dict], step: dict) -> list[str]:
+    """The record kinds a step's owner takes in or writes: what the request carries, what the
+    step returns, and the outputs its stated result names."""
+    names = [*step.get("carries", []), *step.get("returns", [])]
+    kinds = {held[name].get("kind") for name in names if name in held}
+    kinds |= {out.get("kind") for out in held.get(step.get("result"), {}).get("outputs", [])}
+    return sorted(kind for kind in kinds if kind)
 
 
 def expects(held: dict[str, dict], step: dict) -> list[str]:
@@ -275,6 +289,12 @@ def serving_problems(serving: dict, plan: dict) -> list[str]:
             continue
         held(operation, row.get("node", "?"), row.get("entry", ""), by_operation[operation])
     names = [layer.get("name") for layer in serving.get("layers", [])]
+    if None in names:
+        problems.append("serving layers: a layer states no name")
+    for layer in serving.get("layers", []):
+        codes = layer.get("states", [])
+        for code in sorted({c for c in codes if codes.count(c) > 1}):
+            problems.append(f"serving layer {layer.get('name')}: it states {code} twice")
     if JOURNAL not in names:
         problems.append(f"serving layers: no {JOURNAL} layer, so no one holds requests and results")
     for name in sorted({n for n in names if names.count(n) > 1}):
@@ -320,7 +340,7 @@ def unexercised(registry: dict, catalog: dict, nodes: dict[str, dict], open_prof
             twice.append(f"given {row['case']}: stated twice")
         accepted.setdefault(row["case"], set()).update(row["steps"])
     by_profile = {n["test_profile"]: n["id"] for n in nodes.values() if n.get("test_profile")}
-    layers = {layer["name"]: layer["node"] for layer in serving.get("layers", [])}
+    layers = {layer.get("name"): layer.get("node") for layer in serving.get("layers", [])}
     binders: dict[str, list[str]] = {}
     problems = twice
     for name in open_profiles:
@@ -364,9 +384,9 @@ def unpassable(registry: dict, catalog: dict, nodes: dict[str, dict], open_profi
     of them is in scope; a step the driver answers states whatever its result says."""
     stated: dict[str, list[dict]] = {}
     for layer in serving.get("layers", []):
-        for code in layer.get("states", []):
+        for code in dict.fromkeys(layer.get("states", [])):
             stated.setdefault(code, []).append(layer)
-    layers = {layer["name"]: layer["node"] for layer in serving.get("layers", [])}
+    layers = {layer.get("name"): layer.get("node") for layer in serving.get("layers", [])}
     by_profile = {n["test_profile"]: n["id"] for n in nodes.values() if n.get("test_profile")}
     problems = []
     for name in open_profiles:
@@ -379,9 +399,9 @@ def unpassable(registry: dict, catalog: dict, nodes: dict[str, dict], open_profi
                     continue
                 for code in step.get("expects", []):
                     held = stated.get(code, [])
-                    if held and not any(layer["node"] in reach for layer in held):
-                        names = " and ".join(layer["name"] for layer in held)
-                        where = ", ".join(layer["node"] for layer in held)
+                    if held and not any(layer.get("node") in reach for layer in held):
+                        names = " and ".join(str(layer.get("name")) for layer in held)
+                        where = ", ".join(str(layer.get("node")) for layer in held)
                         stated_by = (f"the {names} layer states, and {where} is not"
                                      if len(held) == 1 else
                                      f"the {names} layers state, and none of {where} is")
@@ -587,6 +607,9 @@ def check(registry: dict | None = None, root: pathlib.Path = ROOT,
         if name not in profiles or name in carried:
             problems.append(f"selects {name}: not a profile the registry binds")
             continue
+        if name not in {n.get("test_profile") for n in nodes.values()}:
+            problems.append(f"selects {name}: no node of the plan is tested by it, so nothing "
+                            f"runs what it selects")
         for case in row["cases"]:
             selected.setdefault(case, set()).add(name)
             if case not in defined:
@@ -605,13 +628,17 @@ def check(registry: dict | None = None, root: pathlib.Path = ROOT,
             checked.setdefault(rule, []).append(row["id"])
     for rule in sorted(set(rules) - set(checked)):
         problems.append(f"rule {rule}: no case checks it")
-    # A rule is checked by a case that drives its contract, where the case is bound at a
-    # profile whose scope serves one of the case's steps of that contract: code of the contract
-    # answers the step there. That a node in scope lists the contract is not enough, because
-    # the node that serves the case's steps may be another one, and the contract freeze lists
-    # every contract and implements none.
+    # A rule's oracle judges one kind of record, so a rule is checked where code of its contract
+    # writes that record: the case is bound at a profile whose scope serves a step that is an
+    # operation of the contract and handles a record of the rule's kind. That a node in scope
+    # lists the contract is not enough, and neither is a sibling step of the contract: the step
+    # that writes what the oracle reads may be the driver's everywhere. A step that expects a
+    # refusal another contract states is answered by that contract's code first (the journal
+    # refusing a reused request id, the access layer refusing a locked session), and a step
+    # that addresses an earlier request is answered from the journal, which holds whatever the
+    # earlier step's answerer wrote; neither writes anything of this contract.
     serving = load_serving(root)
-    layers = {layer["name"]: layer["node"] for layer in serving.get("layers", [])}
+    owner = {code: row.get("owner", "").upper() for code, row in errors.table().items()}
     by_operation = owners()[0]
     by_profile = {n["test_profile"]: n["id"] for n in nodes.values() if n.get("test_profile")}
     binders = {name: set(case_map(registry, catalog, name, nodes)) for name in open_profiles}
@@ -620,13 +647,21 @@ def check(registry: dict | None = None, root: pathlib.Path = ROOT,
         if contract not in derived.get(case, {}).get("contracts", set()):
             problems.append(f"rule {rule}: {case} drives no operation or record of {contract}")
             continue
+        if rule not in oracles.RULES:
+            problems.append(f"rule {rule}: no oracle in conformance/rules.py judges it")
+            continue
+        kind = oracles.RULES[rule][0]
         steps = [step for step in derived[case]["steps"]
-                 if step["node"] != DRIVER and by_operation.get(step["operation"]) == contract]
-        if not any(answered_in(step, scope(by_profile[name], nodes), layers)
+                 if step["node"] != DRIVER and "addresses" not in step
+                 and by_operation.get(step["operation"]) == contract
+                 and kind in step.get("handles", [])
+                 and all(owner.get(code) == contract for code in step.get("expects", []))]
+        if not any(step["node"] in scope(by_profile[name], nodes)
                    for name, bound in binders.items() if case in bound and name in by_profile
                    for step in steps):
-            problems.append(f"rule {rule}: {case} is bound at no profile whose scope serves one "
-                            f"of its {contract} steps")
+            problems.append(f"rule {rule}: {case} is bound at no profile whose scope serves a "
+                            f"{contract} step of it that handles the {kind} record the rule "
+                            f"judges")
 
     problems.extend(coverage(registry, catalog, nodes, open_profiles, derived))
     problems.extend(serving_problems(serving, plan))
@@ -740,7 +775,7 @@ def executed(plan: dict, profile: str, bound: dict[str, str], derived: dict[str,
     places = {name: entry for name, entry in sorted(serving.get("places", {}).items())
               if gives and name in reach}
     modules = {name: f"{FEATURES}/{name}.py" for name in sorted(features)}
-    layers = [layer for layer in serving.get("layers", []) if layer["node"] in reach]
+    layers = [layer for layer in serving.get("layers", []) if layer.get("node") in reach]
     return {"core": {path: sha(path) for path in CORE}, "layers": layers,
             "features": {name: sha(path) if path in paths else None
                          for name, path in modules.items()},
