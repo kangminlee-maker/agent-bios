@@ -2,7 +2,7 @@
 
 The catalog spells 27 of its families' commands as `<conformance-driver> --case-profile <P>
 --family <Nxx>`, and the registry names this file as that driver, so a family case cannot run
-until it exists. It resolves what a profile runs in one family.
+until it exists. It resolves what a profile runs in one family and runs each case.
 
 What a profile runs is what its binding holds: its own selection, its catalog cases, and every
 case an implementation or package node its node depends on selects, which it runs again on the
@@ -14,62 +14,42 @@ A stage extends files an earlier stage wrote, so a case is never held against an
 stage's accepted bytes; whether that stage is still current is the evaluator's question, answered
 by the later stage's record.
 
-`passed` still belongs to the node that implements the family, never to this module. What the
-driver owns is the route to it. Every family in the catalog names the module that judges it
-(`cases[].path`), and this is what reads that field: it imports the module, asks which case each
-of its tests shows, runs that test, and reports `passed` or `failed` with the failure text. A
-family whose module does not exist yet, or that names no test for a case, is `blocked` and says
-which module and which case — so the report names the work that is owed rather than going quiet.
-
-The module declares `CASES`, mapping a case id to the test that shows it, the way a contract
-declares `RUNTIME_RULES` and `rules.py` holds the oracle for each name. Two rules keep the
-mapping honest, and they are deliberately asymmetric:
-
-  a case the module does not name   `blocked`. The registry defines the case and nobody has
-                                    written its test yet, which is a state the plan expects.
-  a name the registry does not have refused outright. The module claims to show a case of its
-                                    family that does not exist, so the mapping is wrong rather
-                                    than incomplete, and reporting per case would hide it.
-
-A named test that runs no test at all is `failed`, not `passed`: naming a class that holds
-nothing would otherwise report the case satisfied by an empty run. So is one that is skipped or
-marked as an expected failure: unittest counts either as run, and neither shows its assertion
-holding. A generator test, or a coroutine on a TestCase that does not await it, is `failed` for the
-same reason: unittest records it as a success without running its body. And the driver refuses to
-run at all under `python -O`, which strips every bare `assert` from a judging module.
+A case is its frozen scenario, and `executor.py` runs it: each step is submitted to the entry
+`conformance/serving.json` names for its operation when that node is in the profile's scope (the
+profile's node and every node it depends on), through the layers in scope, and every other step
+is given its stated answer. `passed` means every step was answered as stated; the first
+difference is `failed` and names the step, the record and the pointer; a case whose code, or the
+feature of the driver it needs, is not written yet is `blocked` and says which. So `passed`
+belongs to the code that serves the case, and the report names the work that is owed rather than
+going quiet.
 
 The command exits 0 only when every case it runs passed, 1 when any failed or is blocked, and
-2 when the run itself is refused. A family module that cannot be imported, or skips itself on
-import, fails every case it would have judged, with the cause; it does not end the report.
+2 when the run itself is refused.
 
-  python3 gates/workenv/conformance/driver.py --case-profile V3 --family N27
+  python3 gates/workenv/conformance/driver.py --case-profile V1 --family N27
 """
 from __future__ import annotations
 
 import argparse
-import importlib.util
-import inspect
 import json
 import pathlib
 import sys
-import unittest
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[3]))
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import cases  # noqa: E402
+import executor  # noqa: E402
+import scenarios  # noqa: E402
 
-PASSED = "passed"
-FAILED = "failed"
-BLOCKED = "blocked"
+PASSED = executor.PASSED
+FAILED = executor.FAILED
+BLOCKED = executor.BLOCKED
 REFUSED = "refused"
 
 
 class DriverError(ValueError):
     """A run this module refuses, named."""
-
-
-class ModuleFailed(Exception):
-    """A family module that cannot be imported, so every case it would judge fails."""
 
 
 def family_of(case: str) -> str:
@@ -120,162 +100,28 @@ def family_cases(registry: dict, family: str, catalog: dict) -> set[str]:
             | {row["id"] for row in registry["atomic"] if row["id"] in atomic})
 
 
-def module_of(catalog: dict, family: str) -> str:
-    """The module the catalog says judges this family. One reader, so one answer."""
-    entry = next((row for row in catalog["cases"] if row["id"] == family), None)
-    if entry is None:
-        raise DriverError(f"{family}: the catalog defines no such family")
-    declared = entry.get("path")
-    if not declared:
-        raise DriverError(f"{family}: the catalog names no module to judge it")
-    return declared
-
-
-def judge(registry: dict, catalog: dict, family: str,
-          root: pathlib.Path) -> tuple[dict | None, str]:
-    """(case -> the test that shows it, "") for the family's module, or (None, why not yet).
-
-    The module is located by the catalog's own `path` for the family, so the field the bundle
-    already carries is what decides where a family is judged, rather than a second list here
-    that could disagree with it.
-    """
-    declared = module_of(catalog, family)
-    path = root / declared
-    if not path.is_file():
-        return None, f"{family} is judged by {declared}, which does not exist yet"
-    spec = importlib.util.spec_from_file_location(f"_family_{family}", path)
-    if spec is None or spec.loader is None:
-        raise DriverError(f"{family}: {declared} cannot be loaded as a module")
-    module = importlib.util.module_from_spec(spec)
-    # Registered, so unittest finds the module to run its setUpModule and tearDownModule.
-    sys.modules[spec.name] = module
-    try:
-        spec.loader.exec_module(module)
-    except unittest.SkipTest as skip:
-        sys.modules.pop(spec.name, None)
-        raise ModuleFailed(f"{declared} skips itself on import, so it shows nothing: "
-                           f"{skip}") from skip
-    except (Exception, SystemExit) as error:
-        sys.modules.pop(spec.name, None)
-        raise ModuleFailed(f"{declared} cannot be imported: {type(error).__name__}: "
-                           f"{error}") from error
-    named = getattr(module, "CASES", None)
-    if not isinstance(named, dict) or not named:
-        return None, f"{declared} names no case it shows"
-    unknown = sorted(set(named) - family_cases(registry, family, catalog))
-    if unknown:
-        raise DriverError(f"{declared}: it names {', '.join(unknown)}, which the registry does "
-                          f"not define as a case of {family}")
-    return {case: (module, test) for case, test in named.items()}, ""
-
-
-def shown(module: object, test: str) -> tuple[str, str]:
-    """(outcome, detail) from running the one test a case names."""
-    loader = unittest.defaultTestLoader
-    try:
-        suite = loader.loadTestsFromName(test, module)
-    except Exception as error:  # a name the module does not hold is the module's defect
-        return FAILED, f"{test} cannot be loaded: {error}"
-    for case in tests_in(suite):
-        why = unrunnable(case)
-        if why:
-            return FAILED, f"{test} {why}"
-    result = unittest.TestResult()
-    try:
-        suite.run(result)
-    except Exception as error:
-        return FAILED, f"{test} raised outside its test body: {type(error).__name__}: {error}"
-    problems = [text for _, text in result.failures + result.errors]
-    if problems:
-        return FAILED, stated_cause(problems[0])
-    if result.skipped:
-        return FAILED, f"{test} was skipped, so it shows nothing: {result.skipped[0][1]}"
-    if result.testsRun == 0:
-        return FAILED, f"{test} ran no test, so it shows nothing"
-    if result.expectedFailures or result.unexpectedSuccesses:
-        return FAILED, f"{test} is marked as an expected failure, so its run shows nothing"
-    return PASSED, f"{result.testsRun} test(s) in {test}"
-
-
-def tests_in(suite: unittest.TestSuite):
-    """Every test in a suite, through any nesting."""
-    for item in suite:
-        if isinstance(item, unittest.TestSuite):
-            yield from tests_in(item)
-        else:
-            yield item
-
-
-def unrunnable(case: unittest.TestCase) -> str:
-    """Why unittest would record this test as a success without running its body, or ""."""
-    name = getattr(case, "_testMethodName", "")
-    method = getattr(case, name, None)
-    if method is None:
-        return f"has no method {name} to run"
-    if not (name.startswith(unittest.defaultTestLoader.testMethodPrefix) or name == "runTest"):
-        return f"names {name}, which is not a test method, so running it shows nothing"
-    if inspect.isgeneratorfunction(method) or inspect.isasyncgenfunction(method):
-        return "is a generator, so unittest never runs its body"
-    if (inspect.iscoroutinefunction(method)
-            and not isinstance(case, unittest.IsolatedAsyncioTestCase)):
-        return "is a coroutine its TestCase never awaits, so its body never runs"
-    return ""
-
-
-def stated_cause(traceback: str) -> str:
-    """The line naming why it failed, not the last line of the text.
-
-    unittest ends an `assertEqual` failure with the diff, so taking the last line reports `+ x`
-    and loses the values that differed, and a list diff's element lines look like causes. The
-    line wanted is the exception's own, the first unindented line after the traceback's last
-    frame; without frames, the last line that is not part of a diff.
-    """
-    lines = traceback.strip().splitlines()
-    frames = [index for index, line in enumerate(lines) if line.startswith("  File ")]
-    if frames:
-        # After the last frame and its indented source lines comes the exception's own line.
-        for line in lines[frames[-1] + 1:]:
-            if line.strip() and line[:1] not in (" ", "\t"):
-                return line.strip()
-    for line in reversed(lines):
-        if line.strip() and line[:1] not in ("-", "+", "?", " ", "\t"):
-            return line.strip()
-    return "the test failed and stated no cause"
-
-
-def run(profile: str, family: str, root: pathlib.Path = cases.ROOT,
-        catalog: dict | None = None) -> dict:
+def run(profile: str, family: str, root: pathlib.Path = cases.ROOT) -> dict:
     """What this profile runs of this family, and what each case shows.
 
-    `root` is where the family's judging module is found; `catalog` is the bundle the families
-    are read from, the one `CURRENT.md` selects when left out. What the profile runs is read from
-    the registry and bundle where they are, never from `root`.
+    What the profile runs, and the scenarios and serving table it runs them by, are read from the
+    registry and bundle where they are; `root` is where the code under test is imported from.
     """
-    if sys.flags.optimize:
-        raise DriverError("python runs with -O, which strips every bare assert from a judging "
-                          "module, so a case could pass on an assertion that never ran")
     registry = cases.load()
     selected = cases.bundle(cases.ROOT)
     chosen = bound(registry, profile, family, selected)
-    if catalog is None:
-        catalog = selected[1] if root == cases.ROOT else cases.bundle(root)[1]
-    try:
-        tests, absent = judge(registry, catalog, family, root)
-    except ModuleFailed as failure:
-        return {"profile": profile, "family": family, "driver": registry["driver"],
-                "cases": {case: {"outcome": FAILED, "why": str(failure)} for case in chosen}}
+    nodes = {node["id"]: node for node in selected[0]["nodes"]}
+    node = next(node["id"] for node in selected[0]["nodes"] if node.get("test_profile") == profile)
+    routing = executor.routing(cases.load_serving(), cases.scope(node, nodes))
+    rows = {row["id"]: row for key in ("atomic", "cases") for row in registry[key]}
     outcomes = {}
     for case in chosen:
-        if tests is None:
-            outcomes[case] = {"outcome": BLOCKED, "why": absent}
-            continue
-        if case not in tests:
+        path = cases.ROOT / cases.scenario_dir(case) / scenarios.GENERATED
+        if not path.is_file():
             outcomes[case] = {"outcome": BLOCKED,
-                              "why": f"{module_of(catalog, family)} names no test for {case}"}
+                              "why": f"{case} has no scenario at {cases.scenario_dir(case)}"}
             continue
-        module, test = tests[case]
-        outcome, detail = shown(module, test)
-        outcomes[case] = {"outcome": outcome, "test": test, "why": detail}
+        outcomes[case] = executor.run_case(json.loads(path.read_bytes()), routing,
+                                           rules=tuple(rows[case].get("rules", ())), root=root)
     return {"profile": profile, "family": family, "driver": registry["driver"], "cases": outcomes}
 
 

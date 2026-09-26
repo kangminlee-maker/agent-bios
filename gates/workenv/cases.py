@@ -130,13 +130,17 @@ EXPECTATION = ".expect.json"
 # Which node answers each operation, and at which entry: the adapter selectors P01 freezes.
 SERVING = "gates/workenv/conformance/serving.json"
 # What decides a family case's verdict besides the driver path, so it is in the adapter
-# fingerprint of every profile whose cases the driver runs: the rule oracles.
-CORE = ("gates/workenv/conformance/rules.py",)
+# fingerprint of every profile whose cases the driver runs: the executor that runs a scenario,
+# the host that runs the code under test, and the rule oracles.
+CORE = ("gates/workenv/conformance/executor.py", "gates/workenv/conformance/host.py",
+        "gates/workenv/conformance/rules.py")
 FEATURES = "gates/workenv/conformance/features"
 # What a scenario states beyond one answered step. Each is a module under FEATURES; a case uses
 # the ones its scenario does, and a profile's fingerprint holds only those.
 WORLD_FEATURES = ("processes", "clock", "partitions", "faults", "during")
-STEP_FEATURES = ("replays", "receipt_of", "runner", "route")
+# A replay and an answer `receipt_of` an earlier step are not features: the generator writes each
+# as a step whose stated result names the earlier result or receipt, so the core judges them.
+STEP_FEATURES = ("runner", "route")
 SIGNING = "signing"
 # A step the driver exercises itself rather than an owner, which is never given.
 DRIVER = "driver"
