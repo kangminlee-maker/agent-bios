@@ -219,13 +219,12 @@
    "from": "c01/clone_shares_the_repository_id.json",
    "set": [
     {
-     "pointer": "/observed/working_bytes_digest",
-     "value": "$digest:checkout_bytes"
-    },
-    {
      "pointer": "/repository_id",
      "value": "@work_repo"
     }
+   ],
+   "drop": [
+    "/observed/working_bytes_digest"
    ]
   },
   {
@@ -1223,7 +1222,8 @@
    "name": "first_start_prepared",
    "from": "c07/preparation_where_the_repository_rule_wins_and_the_team_rule_gates_nothing.json",
    "drop": [
-    "/units/3"
+    "/units/3",
+    "/observed/working_bytes_digest"
    ],
    "set": [
     {
@@ -1261,10 +1261,6 @@
     {
      "pointer": "/frontiers",
      "value": []
-    },
-    {
-     "pointer": "/observed/working_bytes_digest",
-     "value": "$digest:checkout_bytes"
     },
     {
      "pointer": "/order/0/repository_id",
@@ -1542,7 +1538,8 @@
    "drop": [
     "/units/3",
     "/units/0/body_digest",
-    "/units/1/shadowed_by"
+    "/units/1/shadowed_by",
+    "/observed/working_bytes_digest"
    ],
    "set": [
     {
@@ -1580,10 +1577,6 @@
     {
      "pointer": "/frontiers",
      "value": []
-    },
-    {
-     "pointer": "/observed/working_bytes_digest",
-     "value": "$digest:checkout_bytes"
     },
     {
      "pointer": "/order/0/repository_id",
@@ -1956,7 +1949,8 @@
    "drop": [
     "/units/3",
     "/units/2",
-    "/units/1"
+    "/units/1",
+    "/observed/working_bytes_digest"
    ],
    "set": [
     {
@@ -1990,10 +1984,6 @@
     {
      "pointer": "/frontiers",
      "value": []
-    },
-    {
-     "pointer": "/observed/working_bytes_digest",
-     "value": "$digest:checkout_bytes"
     },
     {
      "pointer": "/order/0/repository_id",

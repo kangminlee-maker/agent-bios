@@ -320,11 +320,6 @@
    "record": "bind_repository_receipt"
   },
   {
-   "minted": "payments_working_bytes",
-   "pointer": "/observed/working_bytes_digest",
-   "record": "repo_bound"
-  },
-  {
    "digest_of": "bind_repository_receipt",
    "pointer": "/outcome/receipt_digest",
    "record": "bind_repository_result"
@@ -919,11 +914,6 @@
   {
    "name": "bind_repository_sequence",
    "shape": "integer",
-   "step": "bind_repository"
-  },
-  {
-   "name": "payments_working_bytes",
-   "shape": "digest",
    "step": "bind_repository"
   },
   {
@@ -1597,15 +1587,14 @@
    }
   },
   {
-   "digest": "7193b97a185dc61c48e1e16d12547f2f030538d6dc162002706dbdb3473f460e",
+   "digest": "5727c9cb118e62d16223e13a0c945311357cb66f5276ceda5112ecfe56985a59",
    "name": "repo_bound",
    "record": {
     "kind": "repository_binding",
     "observed": {
      "branch": "main",
      "commit": "0123456789abcdef0123456789abcdef01234567",
-     "locator": "git@github.com:example/payments.git",
-     "working_bytes_digest": "6f32bc8d0aead2ab1335deea589b05868ee00c63ecf224b13ae7016fcfcb7a7f"
+     "locator": "git@github.com:example/payments.git"
     },
     "relation": {
      "how": "clone"
@@ -1615,7 +1604,7 @@
    }
   },
   {
-   "digest": "84628e906a6db6bc4ed73cdc4a340bc810821e967e2205de4f8e72f2632afb4c",
+   "digest": "fc3e98250066ebf466a6ca2b2afeee31d4e4357cdc3338b5d626628ff1c1e9e2",
    "name": "bind_repository_result",
    "record": {
     "kind": "operation_result",
@@ -1627,7 +1616,7 @@
     },
     "outputs": [
      {
-      "digest": "7193b97a185dc61c48e1e16d12547f2f030538d6dc162002706dbdb3473f460e",
+      "digest": "5727c9cb118e62d16223e13a0c945311357cb66f5276ceda5112ecfe56985a59",
       "kind": "repository_binding"
      }
     ],
@@ -5351,7 +5340,7 @@
   }
  ],
  "says": "alice binds her laptop key, founds the Team Platform, binds the payments repository she works in, and a probe qualifies the installed client's read capability. The entry flow is then driven from three entrances with the same keys: from studio_hub (the Team's scope), from host_launcher (the repository's scope) and from setup (her personal scope). Each entrance's route.offer offers one start route in that entrance's own scope, qualified by the probe. In each drive the environment choice and the tool choice are two separate elements: selecting the environment with Space leaves the tool's value Codex CLI, and changing the tool to Claude Code leaves the environment selected with its value unchanged. Enter on the one start action dispatches one route.select, whose selection names that entrance's start route (and so its scope) and the start request it produces, expecting it prepared; the owner answers with a real run. No entrance starts in another entrance's scope, and no frame shows one choice changing the other's value.",
- "spec_sha256": "81caed1dbff160657d6191972a063224c003de45cfbec239d5cff921b6897983",
+ "spec_sha256": "5792c7e586ce35334eecb8a409b41f75443e7ea86126c3898c064385ee84c4e0",
  "steps": [
   {
    "carries": [

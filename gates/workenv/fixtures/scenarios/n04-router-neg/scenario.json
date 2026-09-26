@@ -163,11 +163,6 @@
    "record": "bind_repository_receipt"
   },
   {
-   "minted": "repo_bound_bytes",
-   "pointer": "/observed/working_bytes_digest",
-   "record": "repo_binding"
-  },
-  {
    "digest_of": "bind_repository_receipt",
    "pointer": "/outcome/receipt_digest",
    "record": "bind_repository_result"
@@ -1030,11 +1025,6 @@
    "step": "bind_repository"
   },
   {
-   "name": "repo_bound_bytes",
-   "shape": "digest",
-   "step": "bind_repository"
-  },
-  {
    "name": "open_storage_work_committed_at",
    "shape": "instant",
    "step": "open_storage_work"
@@ -1452,15 +1442,14 @@
    }
   },
   {
-   "digest": "2fa9d12d816bb9d0039563928a871e462e32507ba7896931e90f1cca502253dc",
+   "digest": "a574ea1cadbb6a63fed769ca59c1815498f53e3ce7fb41424ebd025885dfeec1",
    "name": "repo_binding",
    "record": {
     "kind": "repository_binding",
     "observed": {
      "branch": "main",
      "commit": "0123456789abcdef0123456789abcdef01234567",
-     "locator": "git@github.com:example/work.git",
-     "working_bytes_digest": "f4a72b619e6e35cd8ee60a03c321df4e220a2fa94b47e898e9ad94a9ceb96795"
+     "locator": "git@github.com:example/work.git"
     },
     "relation": {
      "how": "clone"
@@ -1470,7 +1459,7 @@
    }
   },
   {
-   "digest": "cd344f6739d1f43bc692287ec8af1141d8e2014de4d469dff924a31ea5901d69",
+   "digest": "3b3a45cf1b256cd81d80acd2c7c96be3f593420247a25f1ed2d87f54e6e54d08",
    "name": "bind_repository_result",
    "record": {
     "kind": "operation_result",
@@ -1482,7 +1471,7 @@
     },
     "outputs": [
      {
-      "digest": "2fa9d12d816bb9d0039563928a871e462e32507ba7896931e90f1cca502253dc",
+      "digest": "a574ea1cadbb6a63fed769ca59c1815498f53e3ce7fb41424ebd025885dfeec1",
       "kind": "repository_binding"
      }
     ],
@@ -3093,7 +3082,7 @@
   }
  ],
  "says": "Alice opens a link to her host session and starts a managed session whose preparation selected only memory; the composition records the session selected only, and activating it returns a routing with no projection and the usage contract. The repository's memory and her personal memory each hold a current choice for the same journal-mode question, so a use that relies on it is held and a sealed question is asked through the host's native question tool on that link. A hook configured on the host answers the tool by itself, picking the repository's choice. The owner records that reply as evidence whose origin is hook_generated, carrying no choice, beside the host configuration measured when it arrived - its Elicitation hook enabled - and resuming the use with that evidence is blocked as answer_not_from_a_person: the use stays pending on the same question, so no use is admitted and no choice is applied. Observing delivery names only the managed session's preparation and the link it was started on; it has no field for, and makes no claim about, anything the agent did with memory outside this managed route, such as reading the raw text of a memory file.",
- "spec_sha256": "7fc195744fbea9761ac89f5b58b05c7081a31bc03fc8fc0c7fd07906b87d66a3",
+ "spec_sha256": "ef6d103d457203a981d4cfbe49f7e5a816cf749209e233f868c413026f5b62e5",
  "steps": [
   {
    "carries": [

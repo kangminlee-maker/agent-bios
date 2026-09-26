@@ -236,6 +236,95 @@ class Ruled(Base):
         self.assertEqual(unknown.calls, 2)
 
 
+class Prepared(Base):
+    def entry_with(self, prepare) -> Entry:
+        entry = Entry(lambda call: journal.committed(call, [journal.payload(call)],
+                                                     head=call.prepared["head"]))
+        entry.prepare = prepare
+        return entry
+
+    def test_a_prepare_step_runs_outside_the_unit_and_hands_the_entry_what_it_staged(self):
+        seen = []
+
+        def prepare(call):
+            seen.append(self.bench.store().writing)
+            return {"head": "a" * 64}
+        sealed, payload = self.rename()
+        answer = self.bench.run(self.entry_with(prepare), sealed, [payload])
+        self.assertEqual((seen, answer["receipt"]["head_digest"]), ([False], "a" * 64))
+
+    def test_an_answer_from_the_prepare_step_is_held_and_the_entry_does_not_run(self):
+        def prepare(call):
+            return {"answer": journal.answered(call, "refused",
+                                               gaps=[{"code": c03.OBJECT_DIGEST_MISMATCH}])}
+        sealed, payload = self.rename()
+        entry = self.entry_with(prepare)
+        answer = self.bench.run(entry, sealed, [payload])
+        self.assertEqual((entry.calls, answer["result"]["outcome"]["stage"]), (0, "refused"))
+        self.assertEqual(self.query(sealed["request_id"])["returned"], [answer["result"]])
+
+    def test_nothing_is_prepared_for_a_request_answered_before_it_runs(self):
+        prepared = []
+
+        def prepare(call):
+            prepared.append(call.request["request_id"])
+            return {"head": "a" * 64}
+        sealed, payload = self.rename()
+        self.bench.run(self.entry_with(prepare), sealed, [payload])
+        self.bench.run(self.entry_with(prepare), sealed, [payload])
+        other, _ = self.rename(effect_class="pure_preview")
+        self.bench.run(self.entry_with(prepare), other, [payload])
+        self.assertEqual(prepared, [sealed["request_id"]])
+
+
+class Stale(Base):
+    """On a source, the kind of target whose requests state the head they expect."""
+
+    def setUp(self):
+        super().setUp()
+        self.source = bench.ident("src")
+
+    def run_on(self, base: dict | None) -> dict:
+        target = {"resource_id": self.source, **({"base": base} if base else {})}
+        payload = {"kind": "source_home", "schema": 1, "source_id": self.source,
+                   "role": "knowledge", "scope": self.person.scope,
+                   "acceptance_authority": self.person.scope, "format_version": 1,
+                   "home": {"mode": "managed", "markdown_view": {"view": "none"}},
+                   "applicability": {"states": "unstated"}, "disclosure": "private",
+                   "retention": {"keep": "until_withdrawn"}, "publication_evidence_digests": []}
+        sealed = bench.request(self.person, "source.home.register", target, payload)
+        return self.bench.run(
+            Entry(lambda call: journal.stale(call, self.bench.store()) or commits(call)),
+            sealed, [payload])
+
+    def test_a_request_on_the_head_its_target_is_at_runs(self):
+        first = self.run_on({"expects": "absent"})
+        head = first["receipt"]["head_digest"]
+        self.assertEqual(journal.head_of(self.bench.store(), self.source), head)
+        self.assertEqual(self.run_on({"expects": "head", "head_digest": head})
+                         ["result"]["outcome"]["stage"], "committed")
+
+    def test_a_request_on_another_head_or_on_none_where_one_is_is_stale(self):
+        self.run_on({"expects": "absent"})
+        for base in ({"expects": "head", "head_digest": "b" * 64}, {"expects": "absent"}):
+            answer = self.run_on(base)
+            self.assertEqual((answer["result"]["outcome"], answer["result"]["supported_recovery"]),
+                             ({"stage": "stale", "material_gaps": [{"code": c03.STALE_BASE}]},
+                              ["reseal_on_current_head"]), base)
+
+    def test_a_request_expecting_a_head_on_a_target_with_none_is_stale(self):
+        answer = self.run_on({"expects": "head", "head_digest": "b" * 64})
+        self.assertEqual(answer["result"]["outcome"]["stage"], "stale")
+
+    def test_a_request_stating_no_base_is_never_stale(self):
+        sealed, payload = self.rename()
+        stated = self.bench.run(
+            Entry(lambda call: journal.stale(call, self.bench.store()) or commits(call)),
+            sealed, [payload])
+        self.assertEqual(stated["result"]["outcome"]["stage"], "committed")
+        self.assertIsNone(journal.stale(self.bench.call(self.rename()[0]), self.bench.store()))
+
+
 class Committing(Base):
     def test_the_answer_committed_is_handed_to_the_point_after_the_commit(self):
         sealed, payload = self.rename()

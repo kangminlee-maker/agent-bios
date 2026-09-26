@@ -311,13 +311,12 @@
    "from": "c01/clone_shares_the_repository_id.json",
    "set": [
     {
-     "pointer": "/observed/working_bytes_digest",
-     "value": "$digest:checkout_bytes"
-    },
-    {
      "pointer": "/repository_id",
      "value": "@work_repo"
     }
+   ],
+   "drop": [
+    "/observed/working_bytes_digest"
    ]
   },
   {
@@ -2134,10 +2133,11 @@
    "answer": {
     "stage": "previewed",
     "local_effect": "none",
-    "provider_effect": "none",
+    "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
     "returns": [
+     "repo_rules_r1_stored",
      "repo_rules_home_stored"
     ]
    }

@@ -188,11 +188,14 @@
     },
     {
       "name": "stored_binding",
-      "from": "binding_payload",
+      "from": "c01/clone_shares_the_repository_id.json",
+      "drop": [
+        "/observed/working_bytes_digest"
+      ],
       "set": [
         {
-          "pointer": "/observed/locator",
-          "value": "git@github.com:example/work.git"
+          "pointer": "/repository_id",
+          "value": "@repo"
         }
       ]
     },

@@ -131,11 +131,6 @@
    "record": "bind_repository_receipt"
   },
   {
-   "minted": "checkout_bytes",
-   "pointer": "/observed/working_bytes_digest",
-   "record": "repo_binding"
-  },
-  {
    "digest_of": "bind_repository_receipt",
    "pointer": "/outcome/receipt_digest",
    "record": "bind_repository_result"
@@ -487,11 +482,6 @@
    "step": "bind_repository"
   },
   {
-   "name": "checkout_bytes",
-   "shape": "digest",
-   "step": "bind_repository"
-  },
-  {
    "name": "content_review_evidence",
    "shape": "digest",
    "step": "install_package"
@@ -729,15 +719,14 @@
    }
   },
   {
-   "digest": "fce2665d5ffbdf9bf2ebfaad4700b382376cce0231a330b1379750856b1928f2",
+   "digest": "50a1cbee389f03ce538c95b947406ba498f07b734f4dbe2568d068e490b04f47",
    "name": "repo_binding",
    "record": {
     "kind": "repository_binding",
     "observed": {
      "branch": "main",
      "commit": "0123456789abcdef0123456789abcdef01234567",
-     "locator": "git@github.com:example/work.git",
-     "working_bytes_digest": "77744edded358a95c0ad6d1b02cd6cfce606de2aaefac4bad6aa6218529cc884"
+     "locator": "git@github.com:example/work.git"
     },
     "relation": {
      "how": "clone"
@@ -747,7 +736,7 @@
    }
   },
   {
-   "digest": "f6e71d9b2811555d1983ad4c2ce77240b6a7414411102189a2938daecbbaa365",
+   "digest": "0d5f8d4ab040fe89423478821f56c22881eae5ad6a3448546bb75aea6f6ab2b5",
    "name": "bind_repository_result",
    "record": {
     "kind": "operation_result",
@@ -759,7 +748,7 @@
     },
     "outputs": [
      {
-      "digest": "fce2665d5ffbdf9bf2ebfaad4700b382376cce0231a330b1379750856b1928f2",
+      "digest": "50a1cbee389f03ce538c95b947406ba498f07b734f4dbe2568d068e490b04f47",
       "kind": "repository_binding"
      }
     ],
@@ -1142,7 +1131,7 @@
    }
   },
   {
-   "digest": "c676a8eafc20ceb22178eec2e16092a7e76e331415ea59aff06f86187ce44eab",
+   "digest": "293748ea0c4f60fb80c3ae38316d2c65b6be150fe7f16a088fb0f79b09721604",
    "name": "resolve_installed_member_result",
    "record": {
     "kind": "operation_result",
@@ -1165,7 +1154,7 @@
       "kind": "source_member"
      }
     ],
-    "provider_effect": "none",
+    "provider_effect": "not_applicable",
     "request_digest": "b4fbda107c77115e11b099ae3a6d3cbd9d66447e5479928a33fc56f37c1ff852",
     "request_id": "req_27b55def9d86d8eb35671bea9f522696",
     "schema": 1,
@@ -1334,7 +1323,7 @@
   }
  ],
  "says": "A person with no Team installs the knowledge package shipped in the product through the add_published_package route (source.revision.admit), naming the exact revision by the digest of the shipped manifest. The owner commits it and returns that same manifest and a provenance whose origin is the product-supplied package, whose acceptance is not_accepted and whose content-review statement is kept as an approval claim with verified support against the publisher's own review evidence, never as a Team acceptance. The same shipped package content is also installed into a bound repository, as a second, distinct source with its own exact manifest; asking one question pinned to both returns a view citing the repository copy as preferred and the personal copy as retained, by the ordinary layer order alone, since being the product's own package earns it no elevated standing. Resolving an exact member (reference.resolve) returns the same manifest, whose member digest is the member the reference names, the same provenance, and that member's own bytes. Asking a question against that exact revision (knowledge.question.ask) returns a view whose members are the package's bytes in the person's own layer, cited to that revision. Nothing here adopts the package for a Team, records a Team acceptance, or gives it a priority beyond ordinary layer order: the provenance has no priority field, and the view places each copy in the layer it was installed into.",
- "spec_sha256": "bbf8ab6eea38832f7b9878e97a5f4f258f1d753968bdb844f39d3fed0bc245ad",
+ "spec_sha256": "0822f544deb2cfbd35444197e336b910ebf90ac1cac8eac5be9b5ba661217dab",
  "steps": [
   {
    "carries": [

@@ -144,19 +144,19 @@ class Resolution(unittest.TestCase):
     def test_nothing_is_passed_while_the_code_that_serves_it_is_unwritten(self):
         # The driver resolves and runs; the code the serving table names is what passes a case.
         # A driver that reported otherwise would report the rule satisfied by its own absence of
-        # work. Every case of this family registers or observes a source after binding its key,
-        # so while the sources module is absent each case names it, or the driver feature it
+        # work. Every N07 case publishes or resolves a memory record, which the memory module
+        # serves, so while that module is absent each case names it, or the driver feature it
         # waits for.
-        sources = "workenv/sources"
-        self.assertFalse((cases.ROOT / sources).exists(),
-                         f"{sources} now exists, so this test no longer stands on its absence")
-        report = driver.run(PROFILE, self.family)
+        module, family = "workenv/memory", "N07"
+        self.assertFalse(any((cases.ROOT / path).exists() for path in (module, f"{module}.py")),
+                         f"{module} now exists, so this test no longer stands on its absence")
+        report = driver.run(PROFILE, family)
         self.assertTrue(report["cases"])
         for case, outcome in report["cases"].items():
             self.assertEqual(outcome["outcome"], driver.BLOCKED, case)
-            self.assertTrue("module workenv.sources is not written yet" in outcome["why"]
+            self.assertTrue("module workenv.memory is not written yet" in outcome["why"]
                             or "no feature module" in outcome["why"], outcome)
-        self.assertTrue(any("workenv.sources" in o["why"] for o in report["cases"].values()))
+        self.assertTrue(any("workenv.memory" in o["why"] for o in report["cases"].values()))
 
     def test_a_profile_the_catalog_does_not_define_is_refused(self):
         with self.assertRaises(driver.DriverError) as raised:
@@ -198,9 +198,15 @@ class Resolution(unittest.TestCase):
         for outcomes in ((driver.PASSED, driver.FAILED), (driver.BLOCKED,), ()):
             with self.subTest(outcomes=outcomes):
                 self.assertEqual(driver.status(report(*outcomes)), 1)
+        # A family with a case waiting for unwritten code, and one whose cases the code in scope
+        # serves in full.
         with contextlib.redirect_stdout(io.StringIO()) as printed:
-            self.assertEqual(driver.main(["--case-profile", PROFILE, "--family", self.family]), 1)
+            self.assertEqual(driver.main(["--case-profile", PROFILE, "--family", "N07"]), 1)
         self.assertIn(driver.BLOCKED, printed.getvalue())
+        with contextlib.redirect_stdout(io.StringIO()) as printed:
+            self.assertEqual(driver.main(["--case-profile", PROFILE, "--family", "N01"]), 0)
+        self.assertEqual({case["outcome"] for case in json.loads(printed.getvalue())["cases"]
+                          .values()}, {driver.PASSED})
 
     def test_a_family_the_profile_runs_no_case_of_is_refused(self):
         with self.assertRaises(driver.DriverError) as raised:

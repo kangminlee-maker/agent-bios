@@ -159,11 +159,6 @@
    "record": "bind_repository_receipt"
   },
   {
-   "minted": "repo_bound_bytes",
-   "pointer": "/observed/working_bytes_digest",
-   "record": "repo_binding"
-  },
-  {
    "digest_of": "bind_repository_receipt",
    "pointer": "/outcome/receipt_digest",
    "record": "bind_repository_result"
@@ -691,11 +686,6 @@
    "step": "bind_repository"
   },
   {
-   "name": "repo_bound_bytes",
-   "shape": "digest",
-   "step": "bind_repository"
-  },
-  {
    "name": "author_repo_rules_committed_at",
    "shape": "instant",
    "step": "author_repo_rules"
@@ -1053,15 +1043,14 @@
    }
   },
   {
-   "digest": "e112d6bf8752e4aab1b2afb326e18a62645efed28c641bbeed62f66e5a3eb685",
+   "digest": "053bef00248ccebcf02fec095e25299c4f31cf09792d345c846a4e5376aaf15d",
    "name": "repo_binding",
    "record": {
     "kind": "repository_binding",
     "observed": {
      "branch": "main",
      "commit": "0123456789abcdef0123456789abcdef01234567",
-     "locator": "git@github.com:example/work.git",
-     "working_bytes_digest": "b0bc957a2ba76c459c737cf935e5fdab98c34ea72dc9a56803b2d7208e93696a"
+     "locator": "git@github.com:example/work.git"
     },
     "relation": {
      "how": "clone"
@@ -1071,7 +1060,7 @@
    }
   },
   {
-   "digest": "faeea77ec1382fe3dc7a943ceb6885541d61203196b921262a1e8b165d7ba5ad",
+   "digest": "e8cb1ecbd3d23a1931c8e1fa860a75b79ccd09fb22a45e8cdd68f7f802d64175",
    "name": "bind_repository_result",
    "record": {
     "kind": "operation_result",
@@ -1083,7 +1072,7 @@
     },
     "outputs": [
      {
-      "digest": "e112d6bf8752e4aab1b2afb326e18a62645efed28c641bbeed62f66e5a3eb685",
+      "digest": "053bef00248ccebcf02fec095e25299c4f31cf09792d345c846a4e5376aaf15d",
       "kind": "repository_binding"
      }
     ],
@@ -2292,7 +2281,7 @@
   }
  ],
  "says": "In a bound repository checkout, Alice composes a preparation from the repository's rules revision; it records the checkout's branch, commit and working-bytes digest as observed. She then edits a tracked rules file and leaves a new untracked draft beside it, and observing the rules directory shows one file modified and one untracked. Activating her session with the earlier preparation is refused as working_bytes_moved - the claims it rested on are no longer true - and composing again records the new working bytes. A choice recorded to the repository's memory with no reason written down is stored with its reason and alternatives named as unrecorded; the owner does not infer or fill in a reason. Asking to project the repository's knowledge source, or its memory source, as behavioural Instructions is refused as role_promotion_refused and returns nothing.",
- "spec_sha256": "859cd5eed806db016ca618fa763f9b89b30a1881f9c34bd528d1fa8d1cc76545",
+ "spec_sha256": "f83b9f47ed7f4c2f4fdb872dee1f45973038f2969fc365121ca3f2891bbfe1a7",
  "steps": [
   {
    "carries": [

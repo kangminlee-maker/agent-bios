@@ -135,11 +135,6 @@
    "record": "bind_repository_receipt"
   },
   {
-   "minted": "checkout_bytes",
-   "pointer": "/observed/working_bytes_digest",
-   "record": "repo_binding"
-  },
-  {
    "digest_of": "bind_repository_receipt",
    "pointer": "/outcome/receipt_digest",
    "record": "bind_repository_result"
@@ -581,11 +576,6 @@
    "step": "bind_repository"
   },
   {
-   "name": "checkout_bytes",
-   "shape": "digest",
-   "step": "bind_repository"
-  },
-  {
    "name": "adr_acquired_at",
    "shape": "instant",
    "step": "import_adr"
@@ -898,15 +888,14 @@
    }
   },
   {
-   "digest": "775da2fd34699b84f98781eed58c3e79722d842472039cd04fe425147e68dee7",
+   "digest": "9352ec596ab241786a474936bf2da939b4daeaa6336af532082d1140b65c7b2c",
    "name": "repo_binding",
    "record": {
     "kind": "repository_binding",
     "observed": {
      "branch": "main",
      "commit": "0123456789abcdef0123456789abcdef01234567",
-     "locator": "git@github.com:example/work.git",
-     "working_bytes_digest": "ae5572322515c5f2f29d89abaa36bcb1f5ad8560eb7f357a206068dc349b0fd6"
+     "locator": "git@github.com:example/work.git"
     },
     "relation": {
      "how": "clone"
@@ -916,7 +905,7 @@
    }
   },
   {
-   "digest": "b88984a765629a89c1b56e5b176d0c2005af421bb0bf106a8dd21ad2f416b85e",
+   "digest": "bf09718feaa7870cf68906f1458c26f6b3198c64fde00c3909ef76d6d21743db",
    "name": "bind_repository_result",
    "record": {
     "kind": "operation_result",
@@ -928,7 +917,7 @@
     },
     "outputs": [
      {
-      "digest": "775da2fd34699b84f98781eed58c3e79722d842472039cd04fe425147e68dee7",
+      "digest": "9352ec596ab241786a474936bf2da939b4daeaa6336af532082d1140b65c7b2c",
       "kind": "repository_binding"
      }
     ],
@@ -1779,7 +1768,7 @@
   }
  ],
  "says": "A person binds this device's key and the checkout, then imports an architecture decision record from an inherited repository's ADR directory into a memory source of this repository (source.revision.admit, import_external_package with its declared origin, license conditions and exact package revision). The owner commits the revision and its provenance. The provenance keeps what the ADR says about its own history as claims, each with how far it is supported: its author 'Architecture group' as stated only, its decision date 2025-11-04 as verified against evidence, its status 'Accepted' and 'Approved by the platform council' as stated only. The person who imported it is not named as its author anywhere, and nothing is accepted: acceptance stays not_accepted and no Team receipt exists. Resolving the committed revision later returns the same manifest and the same provenance, so the ADR's status string and stated approval never became an acceptance by being imported, read or committed. The same person then founds a Team alone (team.found) and imports a second ADR the same way into the Team's own memory source: its claims keep the same shape and support, its acceptance likewise stays not_accepted, and resolving it back later returns the same manifest and provenance - a founder's own import, and the ADR's own status string, are not a Team's approval either.",
- "spec_sha256": "bc2d2872ebb87e72d2ac640f2da494772e1d48a8e395ee97cad1dfc80688c779",
+ "spec_sha256": "97731b099c9c4d92a0582601a4929c4116e5cb039e481ef6db8ecef7dbc138d5",
  "steps": [
   {
    "carries": [

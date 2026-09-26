@@ -315,13 +315,12 @@
    "from": "c01/clone_shares_the_repository_id.json",
    "set": [
     {
-     "pointer": "/observed/working_bytes_digest",
-     "value": "$digest:checkout_bytes"
-    },
-    {
      "pointer": "/repository_id",
      "value": "@work_repo"
     }
+   ],
+   "drop": [
+    "/observed/working_bytes_digest"
    ]
   },
   {
@@ -2437,10 +2436,6 @@
      "value": []
     },
     {
-     "pointer": "/observed/working_bytes_digest",
-     "value": "$digest:checkout_bytes"
-    },
-    {
      "pointer": "/order/0/repository_id",
      "value": "@work_repo"
     },
@@ -2848,6 +2843,9 @@
      "pointer": "/units/8/home_digest",
      "value": "#team_glossary_home_stored"
     }
+   ],
+   "drop": [
+    "/observed/working_bytes_digest"
    ]
   },
   {
@@ -3096,7 +3094,8 @@
     "/order/1/principal_id",
     "/recipient/work_scope/repository_id",
     "/units/1/concern",
-    "/units/1/shadowed_by"
+    "/units/1/shadowed_by",
+    "/observed/working_bytes_digest"
    ],
    "set": [
     {
@@ -3118,10 +3117,6 @@
     {
      "pointer": "/frontiers",
      "value": []
-    },
-    {
-     "pointer": "/observed/working_bytes_digest",
-     "value": "$digest:checkout_bytes"
     },
     {
      "pointer": "/order/0/layer",

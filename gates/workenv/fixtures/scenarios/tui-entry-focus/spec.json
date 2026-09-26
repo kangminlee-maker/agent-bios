@@ -211,13 +211,12 @@
    "from": "c01/clone_shares_the_repository_id.json",
    "set": [
     {
-     "pointer": "/observed/working_bytes_digest",
-     "value": "$digest:checkout_bytes"
-    },
-    {
      "pointer": "/repository_id",
      "value": "@repo"
     }
+   ],
+   "drop": [
+    "/observed/working_bytes_digest"
    ]
   },
   {
@@ -2410,7 +2409,8 @@
    "from": "c07/start_whose_task_support_is_not_assessed.json",
    "drop": [
     "/order/2",
-    "/units/1"
+    "/units/1",
+    "/observed/working_bytes_digest"
    ],
    "set": [
     {
@@ -2420,10 +2420,6 @@
     {
      "pointer": "/frontiers/0/checkpoint_digest",
      "value": "$digest:instr_head"
-    },
-    {
-     "pointer": "/observed/working_bytes_digest",
-     "value": "$digest:checkout_bytes"
     },
     {
      "pointer": "/order/0/repository_id",

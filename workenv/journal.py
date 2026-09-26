@@ -25,10 +25,12 @@ someone else — and does, in order:
      pending outcome yet. `operation.cancel` of a request the journal holds is `cancel_too_late`,
      because every request it holds has been answered; a request runs in flight nowhere yet, so
      a cancel of one the journal does not hold is not served.
-  6. Otherwise the request is handed on. Steps 3 to 6 run in one unit of work with whatever the
-     entry writes, and the answer is kept in the same unit, so a crash leaves the request either
-     held with its answer or not held at all. The first request from a profile writes that
-     profile (`workenv.access`), in the same unit.
+  6. Otherwise the request is handed on. An entry that publishes bytes before its commit
+     carries a `prepare` step, which runs first, outside the unit, and hands the entry what it
+     staged as `call.prepared`, or answers the request itself. Then the entry runs in one unit of
+     work, and the answer is kept in the same unit, so a crash leaves the request either held
+     with its answer or not held at all. The first request from a profile writes that profile
+     (`workenv.access`), in the same unit.
 
 After the unit commits and before the answer returns, the journal passes the fault point
 `after_commit_before_return` the answer it committed. A refusal by triples from anything it
@@ -37,7 +39,8 @@ a resubmission, a late cancel — reached no provider: its provider effect is `n
 where the held request had no provider to reach, and `none` where it had.
 
 `committed` and `answered` build the answers an entry returns: the result, and for a commit its
-receipt with the owner's next sequence and the head the target moved to.
+receipt with the owner's next sequence and the head the target moved to. `stale` is the answer to
+a request on a head-keeping target whose expected base is not the head the journal holds.
 """
 from __future__ import annotations
 
@@ -237,6 +240,27 @@ def keep(store: storage.Store, request: dict, digest: str, answer: dict, at: str
          json.dumps(returned), receipt_digest, at, position))
 
 
+def head_of(store: storage.Store, resource_id: str) -> str | None:
+    """The head the last receipt on this target moved it to, or None."""
+    found = store.read("SELECT head_digest FROM heads WHERE resource_id = ?", (resource_id,))
+    return found[0][0] if found else None
+
+
+def stale(call, store: storage.Store) -> dict | None:
+    """`stale_base` when the request expects a head the target is not at, or expects no head
+    where one is; else None."""
+    target = call.request["target"]
+    base = target.get("base")
+    if base is None:
+        return None
+    current = head_of(store, target["resource_id"])
+    expected = base["head_digest"] if base["expects"] == "head" else None
+    if current == expected:
+        return None
+    return answered(call, "stale", gaps=[{"code": c03.STALE_BASE}],
+                    recovery=["reseal_on_current_head"])
+
+
 def provider_after(earlier: dict) -> str:
     """The provider effect of a refusal that answers in place of a held request: no provider
     was reached, where the held one had any provider to reach."""
@@ -303,10 +327,14 @@ def layer_journal(call, inner):
                         provider_effect=provider_after(earlier))
     if earlier is not None and earlier["stage"] not in PENDING:
         return earlier["answer"]
+    answer = ruled(call, store)
+    prepare = getattr(inner, "prepare", None)
+    if answer is None and prepare is not None and request["operation"] not in (QUERY, CANCEL):
+        call.prepared = prepare(call)
+        answer = call.prepared.get("answer")
     try:
         with store.unit(call):
             access.first_use(store, request["actor"], now(call))
-            answer = ruled(call, store)
             if answer is None:
                 answer = (addressed(call, store) if request["operation"] in (QUERY, CANCEL)
                           else inner(call))

@@ -253,11 +253,6 @@
    "record": "bind_repo_receipt"
   },
   {
-   "minted": "checkout_bytes",
-   "pointer": "/observed/working_bytes_digest",
-   "record": "repo_bound"
-  },
-  {
    "digest_of": "bind_repo_receipt",
    "pointer": "/outcome/receipt_digest",
    "record": "bind_repo_result"
@@ -788,8 +783,13 @@
    "record": "resolve_repo_rules_home_result"
   },
   {
-   "digest_of": "repo_rules_home_stored",
+   "digest_of": "repo_rules_r1_stored",
    "pointer": "/outputs/0/digest",
+   "record": "resolve_repo_rules_home_result"
+  },
+  {
+   "digest_of": "repo_rules_home_stored",
+   "pointer": "/outputs/1/digest",
    "record": "resolve_repo_rules_home_result"
   },
   {
@@ -1175,11 +1175,6 @@
   {
    "name": "bind_repo_sequence",
    "shape": "integer",
-   "step": "bind_repo"
-  },
-  {
-   "name": "checkout_bytes",
-   "shape": "digest",
    "step": "bind_repo"
   },
   {
@@ -1704,15 +1699,14 @@
    }
   },
   {
-   "digest": "ae7c8913ef211999ae19adb7d57fad62406251fae5d3a64cf23cdadf51289aad",
+   "digest": "73743aa2194ed4cf65e998237f5e3dd9a9a88dd159e705c6b2daab54620fab9e",
    "name": "repo_bound",
    "record": {
     "kind": "repository_binding",
     "observed": {
      "branch": "main",
      "commit": "0123456789abcdef0123456789abcdef01234567",
-     "locator": "git@github.com:example/work.git",
-     "working_bytes_digest": "e480a7d26a352101d2dda43c28cf8b334dc40610724ffe27b2aac2e5c3aa5afe"
+     "locator": "git@github.com:example/work.git"
     },
     "relation": {
      "how": "clone"
@@ -1722,7 +1716,7 @@
    }
   },
   {
-   "digest": "1427c06a92152e42d1bdc5fdb38a0478949ab1d974ccb8c979fc881f6ade269f",
+   "digest": "31afecbbdbc7b9174816e8ed263364827a4a12ef82b9ada188d66628a6655100",
    "name": "bind_repo_result",
    "record": {
     "kind": "operation_result",
@@ -1734,7 +1728,7 @@
     },
     "outputs": [
      {
-      "digest": "ae7c8913ef211999ae19adb7d57fad62406251fae5d3a64cf23cdadf51289aad",
+      "digest": "73743aa2194ed4cf65e998237f5e3dd9a9a88dd159e705c6b2daab54620fab9e",
       "kind": "repository_binding"
      }
     ],
@@ -2433,7 +2427,7 @@
    }
   },
   {
-   "digest": "10df5cefbb10df4fd066ed2bc510e1aee15433d99fbe12eafa5359ce5d4e3c3e",
+   "digest": "f81f3b771950fdb180751563842d194f40e7b369bee913c46bda790d753936a1",
    "name": "repo_rules_home",
    "record": {
     "acceptance_authority": {
@@ -2446,7 +2440,7 @@
     "disclosure": "private",
     "format_version": 1,
     "home": {
-     "binding_evidence_digest": "ae7c8913ef211999ae19adb7d57fad62406251fae5d3a64cf23cdadf51289aad",
+     "binding_evidence_digest": "73743aa2194ed4cf65e998237f5e3dd9a9a88dd159e705c6b2daab54620fab9e",
      "document_root": "rules",
      "mode": "repository_authored",
      "repository_id": "rep_3f4fd9fac7994086c3844d213e23441f"
@@ -2466,7 +2460,7 @@
    }
   },
   {
-   "digest": "a93d10720e28b5148c64ae1253d57a8dce4ea9951e2a96755a919781752553bd",
+   "digest": "73619e2f655850bc29314db5445a6871a9cf8ef56c0949dab5e8e39b39255305",
    "name": "register_repo_rules",
    "record": {
     "action": "contribute",
@@ -2484,7 +2478,7 @@
      "layer": "repository",
      "repository_id": "rep_3f4fd9fac7994086c3844d213e23441f"
     },
-    "payload_digest": "10df5cefbb10df4fd066ed2bc510e1aee15433d99fbe12eafa5359ce5d4e3c3e",
+    "payload_digest": "f81f3b771950fdb180751563842d194f40e7b369bee913c46bda790d753936a1",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_02ddd4cf6e987a2cc96983b19d1de262",
@@ -2498,7 +2492,7 @@
    }
   },
   {
-   "digest": "0fd50844e9e7ff866130f33fded73044752b7b4b3357a878ff53358324684677",
+   "digest": "b61dbaf2e310c70670cb9252042801eb8758fa2a67bf2073172df7979b999c4c",
    "name": "register_repo_rules_receipt",
    "record": {
     "committed_at": "2000-01-01T00:00:00Z",
@@ -2508,7 +2502,7 @@
      "layer": "repository",
      "repository_id": "rep_3f4fd9fac7994086c3844d213e23441f"
     },
-    "request_digest": "a93d10720e28b5148c64ae1253d57a8dce4ea9951e2a96755a919781752553bd",
+    "request_digest": "73619e2f655850bc29314db5445a6871a9cf8ef56c0949dab5e8e39b39255305",
     "request_id": "req_02ddd4cf6e987a2cc96983b19d1de262",
     "schema": 1,
     "sequence": 1,
@@ -2521,7 +2515,7 @@
    }
   },
   {
-   "digest": "ec30070dfa3d0a86fe3645fcf75451e2f8b20e33b627e5fb0452570c30edde82",
+   "digest": "bef540daa75e826402a1a04297e68f728e1d714cfee96c5d384cde728fb0fa4e",
    "name": "repo_rules_home_stored",
    "record": {
     "acceptance_authority": {
@@ -2534,7 +2528,7 @@
     "disclosure": "private",
     "format_version": 1,
     "home": {
-     "binding_evidence_digest": "ae7c8913ef211999ae19adb7d57fad62406251fae5d3a64cf23cdadf51289aad",
+     "binding_evidence_digest": "73743aa2194ed4cf65e998237f5e3dd9a9a88dd159e705c6b2daab54620fab9e",
      "document_root": "rules",
      "mode": "repository_authored",
      "repository_id": "rep_3f4fd9fac7994086c3844d213e23441f"
@@ -2555,24 +2549,24 @@
    }
   },
   {
-   "digest": "c8e0ce6fecbce6d019423066b8e8b7c7927ef6e8b4f33c66fe7849d6a384cae3",
+   "digest": "54ae944de12ee4da7c40bd8f034b8307619052082d23cfd3a2c06fd112b01c22",
    "name": "register_repo_rules_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "0fd50844e9e7ff866130f33fded73044752b7b4b3357a878ff53358324684677",
+     "receipt_digest": "b61dbaf2e310c70670cb9252042801eb8758fa2a67bf2073172df7979b999c4c",
      "stage": "committed"
     },
     "outputs": [
      {
-      "digest": "ec30070dfa3d0a86fe3645fcf75451e2f8b20e33b627e5fb0452570c30edde82",
+      "digest": "bef540daa75e826402a1a04297e68f728e1d714cfee96c5d384cde728fb0fa4e",
       "kind": "source_home"
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "a93d10720e28b5148c64ae1253d57a8dce4ea9951e2a96755a919781752553bd",
+    "request_digest": "73619e2f655850bc29314db5445a6871a9cf8ef56c0949dab5e8e39b39255305",
     "request_id": "req_02ddd4cf6e987a2cc96983b19d1de262",
     "schema": 1,
     "supported_recovery": []
@@ -2864,7 +2858,7 @@
    }
   },
   {
-   "digest": "c90dc2978f499b81d833ccea0bd50f5ca114f3c9fc2bfd11848de4797a7b23d9",
+   "digest": "91f09b9036dee2cb1c4d2639c1be853e51e344362b0f9e102d93feefb656f254",
    "name": "resolve_repo_rules_home_result",
    "record": {
     "kind": "operation_result",
@@ -2875,11 +2869,15 @@
     },
     "outputs": [
      {
-      "digest": "ec30070dfa3d0a86fe3645fcf75451e2f8b20e33b627e5fb0452570c30edde82",
+      "digest": "fcd917517f73447e5dd3f3ca5b1db1c777ce243738103d0268c59934fdb3d9f5",
+      "kind": "source_manifest"
+     },
+     {
+      "digest": "bef540daa75e826402a1a04297e68f728e1d714cfee96c5d384cde728fb0fa4e",
       "kind": "source_home"
      }
     ],
-    "provider_effect": "none",
+    "provider_effect": "not_applicable",
     "request_digest": "36989f4c231634217755a859ad324c22cb08bc9c14a6e3ed7c344dd6a2eda6ff",
     "request_id": "req_9bbe03ffd6b0cfc09e788df021c10a9b",
     "schema": 1,
@@ -3766,7 +3764,7 @@
   }
  ],
  "says": "The Team platform keeps a security rule source and, as that source's owner, sets its rights to read, use and derive, and not export. The repository reuses the Team's security.md bytes unchanged in a repository source of its own, and records rights for it that carry the Team source's rights and allow read and use: the reused bytes keep their owner's ceiling while the repository layer outranks the Team for the concern. A second rights change that would let the repository copy export those bytes is refused with source_right_not_overridable, and the first rights stay in force. bob, who works in the same repository with no grant from the Team, keeps an independent personal source and sets its rights to everything, export included; that commits with no Team policy named, because the Team's content policy does not reach content it does not own. bob's access is admitted for a projection of the Team's source (his profile is unlocked), and the projection itself is refused with source_not_authorized: admission and layer priority grant no right to a Team body. bob's attempt to widen the Team source's rights is refused with grant_not_held, since only the Team's owner changes Team-owned state. alice's projection over the repository and Team sources then names the repository security unit winning, with the Team's bytes by digest, and the Team unit shadowed by it. What must not happen: local content blocked by Team policy, a local override used to export or read protected Team bodies, or Team state changed by someone the Team did not authorize.",
- "spec_sha256": "5759d6fb2ad697053521660015c9c30d824478ed2e8c63178d4e8ced77ed5833",
+ "spec_sha256": "fde4b48561b3cf609d73bffb21031fe72d6bc9d983bb9f479bcd5f84e777f88e",
  "steps": [
   {
    "carries": [
@@ -3903,6 +3901,7 @@
    "request": "resolve_repo_rules_home",
    "result": "resolve_repo_rules_home_result",
    "returns": [
+    "repo_rules_r1_stored",
     "repo_rules_home_stored"
    ]
   },

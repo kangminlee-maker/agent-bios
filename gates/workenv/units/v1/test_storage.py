@@ -1,6 +1,8 @@
-"""The store: the B03 connection profile read back, writes only inside a unit, one layout."""
+"""The store: the B03 connection profile read back, writes only inside a unit, its layouts, and
+revision bundles published in the binding's order."""
 from __future__ import annotations
 
+import pathlib
 import sqlite3
 import unittest
 from unittest import mock
@@ -64,6 +66,113 @@ class ConnectionProfile(unittest.TestCase):
         with self.assertRaises(storage.StorageError) as refused:
             storage.of(self.bench.state)
         self.assertEqual(refused.exception.code, "layout_newer")
+
+
+class Layouts(unittest.TestCase):
+    def setUp(self):
+        self.bench = Bench()
+        self.path = self.bench.state / storage.DATABASE
+        self.bench.state.mkdir(parents=True)
+        with sqlite3.connect(self.path) as raw:
+            for statement in storage.LAYOUT_1:
+                raw.execute(statement)
+            raw.execute("INSERT INTO objects (digest, kind, body) VALUES ('d', 'k', x'00')")
+            raw.execute("PRAGMA user_version = 1")
+
+    def tearDown(self):
+        self.bench.close()
+
+    def tables(self) -> set[str]:
+        with sqlite3.connect(self.path) as raw:
+            return {row[0] for row in raw.execute("SELECT name FROM sqlite_master")}
+
+    def test_a_store_an_earlier_runtime_wrote_is_brought_up_to_this_layout_keeping_its_rows(self):
+        store = self.bench.store()
+        self.assertEqual(store.read("PRAGMA user_version")[0][0], storage.LAYOUT)
+        self.assertLessEqual({"sources", "revisions", "repositories"}, self.tables())
+        self.assertEqual(store.read("SELECT digest FROM objects"), [("d",)])
+
+    def test_an_upgrade_that_fails_part_way_leaves_the_earlier_layout_whole(self):
+        broken = {**storage.LAYOUTS, 2: (*storage.LAYOUT_2, "CREATE TABLE sources (x)")}
+        with mock.patch.object(storage, "LAYOUTS", broken), \
+                self.assertRaises(sqlite3.OperationalError):
+            storage.of(self.bench.state)
+        with sqlite3.connect(self.path) as raw:
+            self.assertEqual(raw.execute("PRAGMA user_version").fetchone()[0], 1)
+        self.assertNotIn("sources", self.tables())
+
+
+class Publication(unittest.TestCase):
+    MEMBERS = {"concepts.md": b"# Concepts\n", "tables/rates.csv": b"period,rate\n"}
+
+    def setUp(self):
+        self.bench = Bench()
+        self.person = bench.Person()
+
+    def tearDown(self):
+        self.bench.close()
+
+    def call(self, **options) -> bench.Call:
+        return self.bench.call(bench.request(self.person, "access.profile.read",
+                                             self.person.profile), **options)
+
+    def staged(self) -> list[pathlib.Path]:
+        staging = self.bench.state / storage.OBJECTS / storage.STAGING
+        return sorted(staging.iterdir()) if staging.is_dir() else []
+
+    def test_a_bundle_is_written_in_the_binding_order_under_its_name(self):
+        call = self.call()
+        final = storage.publish(call, "r1", b"{}", self.MEMBERS)
+        self.assertEqual(call.points, list(storage.PUBLICATION))
+        self.assertEqual(call.points, list(b03.FAULT_POINTS[:5]))
+        self.assertEqual(final, storage.bundle(self.bench.state, "r1"))
+        self.assertEqual((final / storage.MANIFEST).read_bytes(), b"{}")
+        self.assertEqual((final / storage.MEMBERS / "tables/rates.csv").read_bytes(),
+                         b"period,rate\n")
+        self.assertEqual(self.staged(), [])
+
+    def test_every_staged_file_is_synced_before_the_rename_and_the_directory_after_it(self):
+        call = self.call()
+        synced = []
+        with mock.patch.object(storage, "_synced",
+                               lambda path: synced.append((len(call.points), path))):
+            final = storage.publish(call, "r1", b"{}", self.MEMBERS)
+        before = {path.name for when, path in synced
+                  if call.points[:when] == list(storage.PUBLICATION[:2])}
+        after = [path for when, path in synced if when == 4]
+        self.assertEqual(before, {storage.MANIFEST, "concepts.md", "rates.csv"})
+        self.assertEqual(after, [final.parent])
+
+    def test_a_process_killed_before_the_rename_leaves_no_bundle_by_that_name(self):
+        for point in storage.PUBLICATION[:3]:
+            with self.assertRaises(Killed):
+                storage.publish(self.call(arm=point), "r1", b"{}", self.MEMBERS)
+            self.assertFalse(storage.bundle(self.bench.state, "r1").exists(), point)
+        storage.publish(self.call(), "r1", b"{}", self.MEMBERS)
+        self.assertTrue(storage.bundle(self.bench.state, "r1").is_dir())
+
+    def test_a_bundle_already_there_by_its_name_is_kept_and_the_staging_removed(self):
+        storage.publish(self.call(), "r1", b"{}", self.MEMBERS)
+        storage.publish(self.call(), "r1", b"{}", self.MEMBERS)
+        self.assertEqual(self.staged(), [])
+        self.assertEqual(sorted(p.name for p in (self.bench.state / storage.OBJECTS).iterdir()
+                                if p.name != storage.STAGING), ["r1"])
+
+    def test_bytes_that_read_back_otherwise_are_refused_and_nothing_takes_the_name(self):
+        test = self
+
+        class Corrupting(bench.Call):
+            def point(self, name, answer=None):
+                super().point(name, answer)
+                if name == storage.PUBLICATION[1]:
+                    (test.staged()[0] / storage.MEMBERS / "concepts.md").write_bytes(b"other")
+
+        call = Corrupting(bench.request(self.person, "access.profile.read", self.person.profile),
+                          state=self.bench.state)
+        with self.assertRaises(storage.StorageError) as refused:
+            storage.publish(call, "r1", b"{}", self.MEMBERS)
+        self.assertEqual(refused.exception.code, "staged_bytes_differ")
+        self.assertFalse(storage.bundle(self.bench.state, "r1").exists())
 
 
 class UnitOfWork(unittest.TestCase):

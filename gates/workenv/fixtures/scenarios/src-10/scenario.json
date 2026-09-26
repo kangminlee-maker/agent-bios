@@ -2357,7 +2357,7 @@
    }
   },
   {
-   "digest": "1c548c3b68f12c4911598400f4627630b40adff20c0a7aa84e1a5862a6cfb652",
+   "digest": "f84b6183c70ce96c1fb9b5b2a34b3ab8afdb9f97f05e8e73ca9e002f84ba9582",
    "name": "refuse_the_fork_read_as_its_original_result",
    "record": {
     "kind": "operation_result",
@@ -2371,7 +2371,7 @@
      "stage": "refused"
     },
     "outputs": [],
-    "provider_effect": "none",
+    "provider_effect": "not_applicable",
     "request_digest": "84b70b72bc1141a5b0607edc22cc625fbabb0e5aaac39b9aebfcb9af463d53a1",
     "request_id": "req_5edc97393712d2118fc63787869be212",
     "schema": 1,
@@ -2772,7 +2772,7 @@
   }
  ],
  "says": "One person has two checkouts of repository W on their laptop: a clone on main at /home/ana/work and a worktree on a feature branch at /home/ana/work-feature-backups; each observation's selection names its own checkout. Each is observed and bound with repository.bind; both bindings name the same repository id W, each with the working_bytes_digest of its own observation. The ADR directory of W is registered as a memory source, a workstream is opened, and memory.record.publish records the journal-mode choice from 0001-journal-mode.md as that source's first revision. A fork of W is observed and bound with its own repository id, naming W as the ancestor it derives new authority from and the clone's binding as its authority evidence, not as an explicit binding to read W through it. Resolving the ADR source from the fork as if it were W is refused with repository_binding_required, and registering a second home for the same source in the fork (a copied manifest taking over as another writer) is refused with source_home_conflict; neither writes anything. Then the clone switches to a branch where 0001-journal-mode.md is absent; a new observation no longer lists it, and rebinding the same repository id now observes branch chore/prune-old-adrs in place of main, still sharing W's identity and this later observation's working_bytes_digest. memory.state.resolve for the workstream still reports the choice as current from the ADR source at the head it was published at: a file missing from a checkout or a branch switch is not a withdrawal.",
- "spec_sha256": "9d1014f45474233d6150e6e7bf4c7bd740deed83fb04ee8f26308d3490ee66be",
+ "spec_sha256": "c8c6a5bbd34d3fdd150cbeb64440356ff038c28cd834e35c13c5a409973a17e3",
  "steps": [
   {
    "carries": [

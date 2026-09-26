@@ -111,11 +111,6 @@
    "record": "bind_repo_receipt"
   },
   {
-   "minted": "checkout_bytes",
-   "pointer": "/observed/working_bytes_digest",
-   "record": "repo_bound"
-  },
-  {
    "digest_of": "bind_repo_receipt",
    "pointer": "/outcome/receipt_digest",
    "record": "bind_repo_result"
@@ -220,11 +215,6 @@
   {
    "name": "bind_repo_sequence",
    "shape": "integer",
-   "step": "bind_repo"
-  },
-  {
-   "name": "checkout_bytes",
-   "shape": "digest",
    "step": "bind_repo"
   },
   {
@@ -410,15 +400,14 @@
    }
   },
   {
-   "digest": "7a400b6a9d588be1dd8dfc9e34df4e341a56954506bc586abc61fabcbd6150eb",
+   "digest": "c31b026828639c3248da33e3365f88ae429d8bd768546fb035db933b18a5c459",
    "name": "repo_bound",
    "record": {
     "kind": "repository_binding",
     "observed": {
      "branch": "main",
      "commit": "0123456789abcdef0123456789abcdef01234567",
-     "locator": "git@github.com:example/work.git",
-     "working_bytes_digest": "5a4e99853e6aa53680fa67b789549ba3f0fd62db1416e7af4f6b7901f281dbde"
+     "locator": "git@github.com:example/work.git"
     },
     "relation": {
      "how": "clone"
@@ -428,7 +417,7 @@
    }
   },
   {
-   "digest": "dabd22d8274324f3e3d9df33b301aee42a2e0049fd5c5ae382ec18c30a6fb334",
+   "digest": "ef79c2891cf13faa0c7910c1c627175602c6171efe88addbdd35b416aac46c6d",
    "name": "bind_repo_result",
    "record": {
     "kind": "operation_result",
@@ -440,7 +429,7 @@
     },
     "outputs": [
      {
-      "digest": "7a400b6a9d588be1dd8dfc9e34df4e341a56954506bc586abc61fabcbd6150eb",
+      "digest": "c31b026828639c3248da33e3365f88ae429d8bd768546fb035db933b18a5c459",
       "kind": "repository_binding"
      }
     ],
@@ -668,7 +657,7 @@
   }
  ],
  "says": "alice selects two roots of her bound checkout to read: the directory docs/adr, which is required, and README.md, which is optional; beside docs/adr the checkout also holds docs/adr-private/notes.md, which she did not select. The owner observes the selection and writes nothing: the source_observation it returns names that selection's digest and reads the three files under docs/adr (committed, modified and untracked, each with its state) and README.md, each under the root it belongs to, and nothing under docs/adr-private. After docs/adr is removed from the working tree, the same selection is observed again: the observation lists root 0 as missing, reads only README.md, and the answer carries ref_unavailable at /roots/0. Every observation the owner writes must satisfy C01/read_within_selection against the selection it observed; what it must never write is a read outside the selected roots (the sibling docs/adr-private file), a read under a root the selection does not have, transcript records beyond the selected span, or a missing optional root reported as missing (the rule fixture's breaking records).",
- "spec_sha256": "eea173fc0de553b31eadfffb6ce68ae8081533541622ffe9438f7b6fd0823cb2",
+ "spec_sha256": "ee131a6222b9672a6c212f0449e40a47e34531afb09ca16ba58bd65c6557ddd7",
  "steps": [
   {
    "carries": [
