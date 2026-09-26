@@ -38,4 +38,5 @@ def install(run) -> None:
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_bytes(event["bytes"].encode("utf-8"))
 
-    run.before_hooks.append(edit)
+    # The person's edit lands before the step, and before anything the driver reads for it.
+    run.before_hooks.insert(0, edit)

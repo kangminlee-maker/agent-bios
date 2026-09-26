@@ -31,6 +31,7 @@ def install(run) -> None:
     keys = Keys(run.workdir / "keys")
     run.prepare_hooks.append(keys.replace)
     run.record_hooks.append(keys.seal)
+    run.reply_hooks.append(keys.intact)
 
 
 def stated_keys(value, found: list[str]) -> None:
@@ -59,6 +60,7 @@ class Keys:
     def __init__(self, directory: pathlib.Path):
         self.directory = directory
         self.files: dict[str, pathlib.Path] = {}   # generated public key -> private key file
+        self.made: dict[str, bytes] = {}            # generated public key -> its private key
         self.signed: dict[tuple[str, str, str], str] = {}
 
     def replace(self, run) -> None:
@@ -74,9 +76,20 @@ class Keys:
             public = " ".join(path.with_suffix(".pub").read_text().split()[:2])
             made[example] = public
             self.files[public] = path
+            self.made[public] = path.read_bytes()
         for name, record in run.templates.items():
             run.templates[name] = swapped(record, made)
         run.forget()
+
+    def intact(self, run, step: dict, message: dict, reply: dict):
+        """After each reply, the driver's private keys as it made them: code under test that
+        wrote over them wrote outside its state root."""
+        for public, path in self.files.items():
+            if not path.is_file() or path.read_bytes() != self.made[public]:
+                raise executor.Stop(executor.FAILED, f"the private key the driver made for "
+                                    f"{path.name} was changed while the code under test ran, "
+                                    "outside its state root", step=step["name"])
+        return reply
 
     def signer(self, run, binding_id: str) -> str | None:
         """The public key of the principal binding the run knows under this binding id."""

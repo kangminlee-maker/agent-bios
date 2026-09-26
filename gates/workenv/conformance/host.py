@@ -1,14 +1,14 @@
 """The host: one world process of a case, running the code under test.
 
-The executor starts one host per world process, `python3 -B -P host.py <root> <state>`. It
-imports the code under test from `<root>` and nothing from `gates/`: `-P` keeps this directory
-off its path, and the host's environment carries no PYTHON* variable, so neither the caller's
-PYTHONPATH nor its PYTHONOPTIMIZE reaches it: the code under test runs its own assertions and
-cannot import the judge. Nor does any XDG_* or GIT_* variable, so a git the code under test runs
-never reaches the repository a caller's commit hook exported; HOME is a directory of the run's
-own, so nothing the code under test writes outside its state root lands in the person's home. It
-runs in the scenario's checkout when there is one, as a person runs the product inside their
-repository.
+The executor starts one host per world process, `python3 -B -P host.py <root> <state>`. It imports
+the code under test from `<root>` and nothing from `gates/`: `-P` keeps this directory off its
+path, an import of `gates` or anything under it is refused, and the host's environment carries no
+PYTHON* variable, so neither the caller's PYTHONPATH nor its PYTHONOPTIMIZE reaches it: the code
+under test runs its own assertions and cannot import the judge, though `<root>` is the repository
+that holds it. Nor does any XDG_* or GIT_* variable, so a git the code under test runs never
+reaches the repository a caller's commit hook exported; HOME is a directory of the run's own, so
+nothing the code under test writes outside its state root lands in the person's home. It runs in
+the scenario's checkout when there is one, as a person runs the product inside their repository.
 
 The host reads one message per line on stdin and answers one per line on stdout. A message names
 what answers the step, outermost first: the layers in scope, each called `layer(call, inner)`;
@@ -17,15 +17,21 @@ driver's given answer, which the host returns after handing it to each place ent
 `place(call)` as `call.given`. Its answer is one of:
 
   {"answer": <the entry's answer>, "admitted": <times admitted() was called>, "points": [...]}
-  {"blocked": "<why>"}   the entry, a layer or a place is not written yet
+  {"blocked": "<why>"}   the entry, a layer or a place is not written yet, found before any runs
   {"error": "<why>"}     the code under test raised; the line is the exception's own
 
 A process that dies answers nothing, and the driver's side reports it as dead. The call is
 duck-typed, as the adapter design fixes it: `request`, `carried`, `members` (bytes by sha256),
 `now`, `state` (this process's state root, the same one after a restart), `exchange` (a directory
-every process of the case shares), `point(name)` (the fault hook) and `admitted()` (the
-admission hook). Bytes cross the pipe as {"bytes": base64}: no record holds such an object, since
-a record's keys are ASCII snake_case.
+every process of the case shares), `point(name, answer=None)` (the fault hook) and `admitted()`
+(the admission hook). Bytes cross the pipe as {"bytes": base64}: no record holds such an object,
+since a record's keys are ASCII snake_case.
+
+A process killed at its armed point says so first, `{"reached": <point>, "withheld": <answer>}`,
+and exits with status 70; an exit with that status and no such line is not a kill at the point.
+At `after_commit_before_return` the code under test passes the answer it has committed and is
+about to return, which the caller never receives: the driver holds it, so a restart that loses
+the commit, and answers the resubmission afresh, is seen.
 
 Only the protocol uses the pipes. At start the host moves them to descriptors of its own and
 points stdin at /dev/null and stdout at stderr, so code that prints or reads cannot corrupt a
@@ -35,6 +41,7 @@ from __future__ import annotations
 
 import base64
 import importlib
+import importlib.abc
 import json
 import os
 import pathlib
@@ -48,6 +55,8 @@ TIMEOUT = 120
 # The exit status of a host killed at an armed fault point.
 KILLED = 70
 BYTES = "bytes"
+# The package the judge lives in, which the code under test may not import.
+JUDGE = "gates"
 
 
 def encode(value):
@@ -85,13 +94,16 @@ class Host:
         environment.update(env or {})
         environment["HOME"] = str(base / "home")
         self.log = open(base / "host.log", "ab")
+        # The point the process said it was killed at, once it has.
+        self.reached: str | None = None
         self.process = subprocess.Popen(
             [sys.executable, "-B", "-P", __file__, str(root), str(state)],
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=self.log, env=environment,
             cwd=cwd or base)
 
     def call(self, message: dict) -> dict:
-        """The host's reply, or {"dead": why} when it died or did not answer in time."""
+        """The host's reply, or {"dead": why} when it died or did not answer in time; a process
+        killed at its armed point adds the point and the answer it withheld."""
         try:
             self.process.stdin.write(json.dumps(encode(message)).encode("utf-8") + b"\n")
             self.process.stdin.flush()
@@ -106,19 +118,25 @@ class Host:
         if not line:
             return {"dead": self.death()}
         try:
-            return decode(json.loads(line))
+            reply = decode(json.loads(line))
         except ValueError:
             return {"error": f"the host wrote a line that is no message: {line[:120]!r}"}
+        if isinstance(reply, dict) and "reached" in reply:
+            self.reached = reply["reached"]
+            return {"dead": self.death(), "reached": reply["reached"],
+                    "withheld": reply.get("withheld")}
+        return reply
 
     def death(self) -> str:
         status = self.process.wait()
         tail = self.tail()
-        return (f"died with status {status}" if status != KILLED
-                else "was killed at its armed fault point") + (f": {tail}" if tail else "")
-
-    def killed(self) -> bool:
-        """Whether the process ended at its armed fault point."""
-        return self.process.poll() == KILLED
+        if status == KILLED and self.reached is not None:
+            why = f"was killed at its armed fault point {self.reached}"
+        elif status == KILLED:
+            why = f"exited with status {KILLED} without reaching its armed fault point"
+        else:
+            why = f"died with status {status}"
+        return why + (f": {tail}" if tail else "")
 
     def tail(self) -> str:
         self.log.flush()
@@ -148,7 +166,7 @@ class NotWritten(Exception):
 class Call:
     """What the code under test is called with."""
 
-    def __init__(self, message: dict, state: pathlib.Path):
+    def __init__(self, message: dict, state: pathlib.Path, replies=None):
         self.request = message["request"]
         self.carried = message["carried"]
         self.members = message.get("members", {})
@@ -157,12 +175,21 @@ class Call:
         self.exchange = pathlib.Path(message["exchange"])
         self.given = message.get("given")
         self._armed = message.get("arm")
+        self._replies = replies
         self.points: list[str] = []
         self.admissions = 0
 
-    def point(self, name: str) -> None:
+    def point(self, name: str, answer=None) -> None:
         self.points.append(name)
         if name == self._armed:
+            if self._replies is not None:
+                try:
+                    line = json.dumps(encode({"reached": name, "withheld": answer}))
+                except (TypeError, ValueError) as error:
+                    line = json.dumps({"reached": name, "withheld": None,
+                                       "unsent": f"the answer is not JSON: {error}"})
+                self._replies.write(line.encode("utf-8") + b"\n")
+                self._replies.flush()
             os._exit(KILLED)
 
     def admitted(self) -> None:
@@ -190,8 +217,17 @@ class Addressed(Exception):
     """An addressed operation no layer answered."""
 
 
-def answer(message: dict, state: pathlib.Path, loaded: dict) -> dict:
-    call = Call(message, state)
+class NoJudge(importlib.abc.MetaPathFinder):
+    """Refuses the judge's package to the code under test, whatever path would find it."""
+
+    def find_spec(self, name, path=None, target=None):
+        if name == JUDGE or name.startswith(JUDGE + "."):
+            raise ModuleNotFoundError(f"the code under test may not import {name}", name=name)
+        return None
+
+
+def answer(message: dict, state: pathlib.Path, loaded: dict, replies=None) -> dict:
+    call = Call(message, state, replies)
     try:
         layers = [resolve(entry, loaded) for entry in message.get("layers", [])]
         if "given" in message:
@@ -213,8 +249,6 @@ def answer(message: dict, state: pathlib.Path, loaded: dict) -> dict:
         inner = (lambda layer, inner: lambda call: layer(call, inner))(layer, inner)
     try:
         found = inner(call)
-    except NotWritten as why:
-        return {"blocked": str(why)}
     except Exception as error:  # the code under test's defect, reported as its own line
         traceback.print_exc()
         return {"error": f"{type(error).__name__}: {error}"}
@@ -228,9 +262,10 @@ def serve(root: str, state: str) -> None:
     os.dup2(null, 0)
     os.dup2(2, 1)
     sys.path.insert(0, root)
+    sys.meta_path.insert(0, NoJudge())
     loaded: dict = {}
     for line in requests:
-        reply = answer(decode(json.loads(line)), pathlib.Path(state), loaded)
+        reply = answer(decode(json.loads(line)), pathlib.Path(state), loaded, replies)
         try:
             data = json.dumps(encode(reply)).encode("utf-8")
         except (TypeError, ValueError) as error:

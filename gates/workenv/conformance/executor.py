@@ -14,13 +14,16 @@ records to the code under test and holds each answer to the stated one. For one 
      layer is in scope; every other step is given.
   3. A given step is answered by the driver with its stated answer, the values it mints standing
      as the scenario states them, and the records it returns are handed to every `places` entry
-     in scope. The layers in scope run on a given step as on any other.
+     in scope. The layers in scope run on a given step as on any other, and what they return
+     is held to the stated answer like any answer.
   4. Learn each value the step mints at its first place in the answer, and refuse one that is
-     not of its shape. A value the answer holds only inside a record it names by digest, or one
-     a step minted though its reply never reached the caller (a fault a later step observes), is
-     learned where a later answer first holds it; until then a digest or size of a record
-     resting on it is learned where an answer states it, and held to that record once the
-     record is known. A request resting on a value no answer has returned is `failed`.
+     not of its shape; a value the driver already knows, because the world fixes it or an
+     answer the caller never received stated it, is held there instead. A value the answer holds
+     only inside a record it names by digest is learned where a later answer first holds it;
+     until then a digest or size of a record resting on it is learned where an answer states
+     it, and held to that record once the record is known, at the latest when the run ends. A
+     request resting on a value no answer has returned is `failed`, and a run that ends with
+     such a record never shown is `blocked`: nothing judged what the code wrote there.
   5. Hold the answer to the stated one: its result, then its receipt, then each record it
      returns, by position. Minted places hold what was learned, and a digest of a record this
      answer returns is the digest of what the owner actually returned, so a difference is
@@ -31,7 +34,8 @@ records to the code under test and holds each answer to the stated one. For one 
      step's i-th carried record, because the code under test never sees the scenario's names.
   7. Apply each runtime rule the case's registry row names to every record of the kind its
      oracle judges that code in scope returned, with the context `rules.context` finds for it
-     among the run's records. A given answer is the driver's, so no rule judges it.
+     among the run's records. A given answer is the driver's, held to the stated one, so no
+     rule judges it.
 
 The receipt a step is held to is the one its stated result names: its own when it committed,
 the earlier step's for an answer stated `receipt_of` it, and for a replay the replayed step's.
@@ -40,9 +44,10 @@ neither needs more than the core to be judged.
 
 Everything beyond that is a feature, one module under `features/` that `install(run)` hooks into
 the run: before the first step, on every record built, before each step, on every message to a
-host, on every reply, or by running a step itself. A case whose scenario uses a feature with no
-module is `blocked` by name before any step runs, and so is a case naming a rule whose context no
-run finds yet. A step whose entry, layer or place has not been written is `blocked` naming it.
+host, on every reply, after an answer is held, or by running a step itself. A case whose scenario
+uses a feature with no module is `blocked` by name before any step runs, and so is a case naming a
+rule whose context no run finds yet. A step whose entry, layer or place has not been written is
+`blocked` naming it.
 
 The code under test runs in host processes (`host.py`), one per world process, each with its own
 state root; the call it receives and the answer it gives are the adapter design's
@@ -287,17 +292,20 @@ class Run:
         # The directory the code under test runs in, and the checkout a feature built.
         self.cwd: pathlib.Path | None = None
         self.checkout: pathlib.Path | None = None
+        self.file_digests: dict[str, tuple[str, str]] = {}
+        self.written: dict[str, dict[str, str]] = {}
         self.rules: tuple[str, ...] = ()
         self.applied: dict[str, int] = {}
         # What features hook: before the first step; on every record built; before each step;
         # on every message to a host; on every reply, which a hook may replace, or end the step
-        # with None when no answer reaches the caller; and a step a feature runs itself, which
-        # it claims by returning True.
+        # with None when no answer reaches the caller; after an answer is held; and a step a
+        # feature runs itself, which it claims by returning True.
         self.prepare_hooks: list = []
         self.record_hooks: list = []
         self.before_hooks: list = []
         self.message_hooks: list = []
         self.reply_hooks: list = []
+        self.after_hooks: list = []
         self.step_hooks: list = []
 
     # What the scenario's records are now.
@@ -463,6 +471,8 @@ class Run:
             self.refused(step, answer, reply)
             return
         self.answered(step, answer)
+        for hook in self.after_hooks:
+            hook(self, step, answer, how)
         if how != "given":
             self.judge_rules(step, answer)
 
@@ -486,6 +496,25 @@ class Run:
                                record=step["returns"][index], pointer=broken[0])
                 self.applied[rule] = self.applied.get(rule, 0) + 1
 
+    def settle(self) -> None:
+        """At the end of the run: each digest or size learned before its record is held to the
+        record now it is known, and a record still resting on a value no answer returned was
+        never shown, so the case cannot pass on it."""
+        for (record, what), stated in self.later.items():
+            if self.unknowable(record):
+                continue
+            measured = self.digest(record) if what == "digest" else len(self.bytes_of(record))
+            if measured != stated:
+                raise Stop(FAILED, f"{record} is not the record an earlier answer named: its "
+                                   f"{what} is {measured}, and that answer stated {stated}",
+                           record=record)
+        unshown = sorted({record for record, _ in self.later if self.unknowable(record)}
+                         | set(self.pending))
+        if unshown:
+            raise Stop(BLOCKED, f"no answer of the scenario shows {', '.join(unshown)}; answers "
+                                "name it only by digest, so what the code under test wrote "
+                                "there cannot be judged")
+
     def known(self, digest: str):
         """The record or member the run holds under this digest, or None."""
         for name in [*self.templates, *self.members]:
@@ -498,7 +527,8 @@ class Run:
         if "refused" in step:
             return {"refused": self.positioned(step)}
         for minted in self.minted_at.get(step["name"], []):
-            self.learned[minted] = self.stand_in(minted)
+            if minted not in self.learned:
+                self.learned[minted] = self.stand_in(minted)
         self.forget()
         receipt = self.receipt_of_result(step["result"])
         return {"result": self.materialize(step["result"]),
@@ -521,9 +551,9 @@ class Run:
         if "dead" in reply:
             raise Stop(FAILED, f"process {step.get('process', MAIN)} {reply['dead']}", step=name)
         answer = reply.get("answer")
-        if not isinstance(answer, dict) or not ({"result"} <= set(answer)
+        if not isinstance(answer, dict) or not (("result" in answer and "refused" not in answer)
                                                 or set(answer) == {"refused"}):
-            raise Stop(FAILED, f"{who} answered neither a result nor a refusal: "
+            raise Stop(FAILED, f"{who} answered neither a result nor a refusal alone: "
                                f"{shown(answer)}", step=name)
         return answer
 
@@ -625,7 +655,9 @@ class Run:
         """Each value this step mints, from its first place in the answer, and each value an
         earlier step minted without its reply reaching the caller, where this answer holds it."""
         name = step["name"]
-        due = self.minted_at.get(name, [])
+        # A value already known, from the world or from an answer the caller never received, is
+        # held where it is minted rather than learned again.
+        due = [m for m in self.minted_at.get(name, []) if m not in self.learned]
         for minted in [*due, *(m for m in self.pending if m not in due)]:
             place = next(((j["record"], j["pointer"]) for j in self.built["joins"]
                           if j.get("minted") == minted and j["record"] in records), None)
@@ -682,6 +714,7 @@ def run_case(built: dict, routing: Routing, rules: tuple[str, ...] = (),
                 hook(run)
             for step in built["steps"]:
                 run.step(step)
+            run.settle()
         except Stop as stop:
             return stop.report()
         finally:

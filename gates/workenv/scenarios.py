@@ -32,13 +32,14 @@ Signing is the person's side, and the driver acts for the person: a key binding'
 a signature envelope's `sshsig` stand for what the driver's own key for that binding makes. The
 driver holds one key per bound key and signs each envelope's `signed_digest` with it at run time,
 so a signature verifies exactly when the bytes it names are the bytes it was made over.
-The person's checkout is the person's side too. A checkout path a record names, the digest a record
-states for a file of the checkout (one an observation reads from the working tree, or a member of a
-source authored in the repository), and the commit a repository binding observed stand for what
-the checkout the driver builds from those records holds: it writes each file at its stated size and
-git state, and replaces those values with the real ones before the first step. A file whose digest
-names a member holds that member's bytes, and the digest of bytes a file edit writes is already
-real. A file the scenario never states is not in the checkout.
+The person's checkout is the person's side too. The checkout path a source selection names, the
+digest a record states for a file of the checkout (one an observation reads from the working tree,
+or a member of a source authored in the repository), and the commit a repository binding observed
+stand for what the checkout the driver builds from those records holds: it writes each file at its
+stated size and git state, and replaces those values with the real ones before the first step. A
+file whose digest names a member holds that member's bytes, and the digest of bytes a file edit
+writes is already real. A file the scenario never states is not in the checkout, and neither is
+one whose size the owner mints: the code under test writes it.
 A profile runs a case against the real files of its node and of every node its node depends on,
 directly or through another. A step whose operation another node serves
 (`conformance/serving.json` names who serves each; team.found in a case M1 runs, when M1 depends

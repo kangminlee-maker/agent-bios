@@ -10,9 +10,9 @@ minted, carried it where the scenario joins it, and recomputed what depends on i
 It reads the world it runs in as a real owner does: where it runs in a git checkout, a file digest
 the scenario states is the digest of the file at that path, the checkout path is the directory it
 runs in and a stated commit is HEAD. It keeps what it has written under the call's state root and
-passes every B03 fault point, committing before `after_commit_before_return`, so a process killed
-at a point and started again answers as a restarted owner does: with what it committed, or afresh
-when it was killed before committing.
+passes every B03 fault point, committing before `after_commit_before_return` and handing that
+point the answer it committed, so a process killed at a point and started again answers as a
+restarted owner does: with what it committed, or afresh when it was killed before committing.
 
 A request it has answered before, by the same bytes, gets the same answer: a replay writes
 nothing new. `SCRIPTED_PLANTS` lists deliberate departures, each a negative control's single
@@ -27,8 +27,8 @@ difference:
   {"step": s, "forget": true}        commit nothing durable for step s, so a restart loses it
 
 `journal` is a layer that answers addressed operations from the script and passes every other
-call inward; `place` takes a given answer. Both append what they saw to `SCRIPTED_LOG`, one JSON
-line each, so a test can read who ran on what.
+call inward; `place` takes a given answer. They and the owner append what they saw to
+`SCRIPTED_LOG`, one JSON line each, so a test can read who ran on what.
 """
 from __future__ import annotations
 
@@ -45,6 +45,7 @@ import sys
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent / "conformance"))
 import executor  # noqa: E402
 import host as hosts  # noqa: E402
+from features import checkout  # noqa: E402
 from workenv.contracts import b03, canonical  # noqa: E402
 
 ADDRESSED = ("operation.query", "operation.cancel")
@@ -128,20 +129,11 @@ def world(run) -> dict[str, str]:
     joined = {(j["record"], j["pointer"]) for j in run.built["joins"]}
     edited = {event.get("digest") for event in run.built.get("world", {}).get("events", [])
               if event["kind"] == "file_edit"}
-    authored = {record.get("source_id") for record in run.templates.values()
-                if record.get("kind") == "source_home"
-                and record.get("home", {}).get("mode") == "repository_authored"}
     found: dict[str, str] = {}
     for name, record in run.templates.items():
-        places = []
-        if record.get("kind") == "source_observation":
-            places = [(f"/read/{i}/digest", read) for i, read in enumerate(record["read"])
-                      if read.get("read") == "tree"]
-        if record.get("kind") == "source_manifest" and record.get("source_id") in authored:
-            places = [(f"/members/{i}/digest", m) for i, m in enumerate(record["members"])]
-        for pointer, stated in places:
+        for pointer, stated in checkout.places(run, name, record):
             target = here / stated["path"]
-            if (name, pointer) not in joined and target.is_file() \
+            if (name, pointer + "/digest") not in joined and target.is_file() \
                     and stated["digest"] not in edited:
                 found.setdefault(stated["digest"], hashlib.sha256(target.read_bytes()).hexdigest())
         seen = record.get("observed") if record.get("kind") == "repository_binding" else None
@@ -150,23 +142,8 @@ def world(run) -> dict[str, str]:
             env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
             found[seen["commit"]] = subprocess.run(["git", "rev-parse", "HEAD"], cwd=here, env=env,
                                                    capture_output=True, text=True).stdout.strip()
-    paths: set[str] = set()
-    for record in run.templates.values():
-        executor_paths(record, paths)
-    found.update({path: str(here) for path in paths})
+    found.update({path: str(here) for path in checkout.named_checkouts(run.templates)})
     return found
-
-
-def executor_paths(value, found: set[str]) -> None:
-    if isinstance(value, dict):
-        for key, item in value.items():
-            if key == "checkout" and isinstance(item, str):
-                found.add(item)
-            else:
-                executor_paths(item, found)
-    elif isinstance(value, list):
-        for item in value:
-            executor_paths(item, found)
 
 
 class Owner:
@@ -176,6 +153,18 @@ class Owner:
         self.saved = state / "owner.json"
         self.run = executor.Run(built, None, state / "owner", None)
         self.run.record_hooks.append(lambda run, name, value: substituted(value, self.found))
+        # The digests it mints for files it reads are those of the files where it runs, and a
+        # file a manifest it returns says it wrote is written there.
+        here = (pathlib.Path.cwd() / ".git").exists()
+        self.files = checkout.file_digests(self.run) if here else {}
+        self.writes = {}
+        if here:
+            minted = {(j["record"], j["pointer"]): j["minted"] for j in built["joins"]
+                      if "minted" in j}
+            for record, members in checkout.written(self.run).items():
+                for pointer, path in members.items():
+                    self.writes[minted[(record, pointer + "/digest")]] = (
+                        path, minted[(record, pointer + "/size")])
         # Started again on a state root it wrote: the first request may be the one it was
         # answering when it was killed.
         self.restarted = self.saved.exists()
@@ -203,6 +192,7 @@ class Owner:
         raise ValueError(f"the script sends no further request {request['request_id']}")
 
     def answer(self, call) -> dict:
+        log({"answer": call.request["request_id"]})
         sent = hashlib.sha256(canonical.encode(call.request)).hexdigest()
         restarted, self.restarted = self.restarted, False
         if restarted and sent in self.answered:
@@ -242,7 +232,8 @@ class Owner:
         self.answered[sent] = copy.deepcopy(found)
         if not any(p["step"] == step["name"] and p.get("forget") for p in self.plants):
             self.save()
-        for point in b03.FAULT_POINTS[b03.FAULT_POINTS.index(COMMIT_POINT):]:
+        call.point(COMMIT_POINT, copy.deepcopy(found))
+        for point in b03.FAULT_POINTS[b03.FAULT_POINTS.index(COMMIT_POINT) + 1:]:
             call.point(point)
         return found
 
@@ -253,8 +244,21 @@ class Owner:
         so a planted difference is consistent and shows where it was planted."""
         run = self.run
         if mint:
+            here = pathlib.Path.cwd()
             for minted in run.minted_at.get(step["name"], []):
-                run.learned[minted] = fresh(run.shapes[minted])
+                read = self.files.get(minted)
+                if read is not None and (here / read[1]).is_file():
+                    run.learned[minted] = hashlib.sha256((here / read[1]).read_bytes()).hexdigest()
+                else:
+                    run.learned[minted] = fresh(run.shapes[minted])
+            for minted in run.minted_at.get(step["name"], []):
+                if minted in self.writes:
+                    path, size = self.writes[minted]
+                    data = f"{step['name']} {secrets.token_hex(8)}\n".encode()
+                    (here / path).parent.mkdir(parents=True, exist_ok=True)
+                    (here / path).write_bytes(data)
+                    run.learned[minted] = hashlib.sha256(data).hexdigest()
+                    run.learned[size] = len(data)
         run.forget()
         receipt = run.receipt_of_result(step["result"])
         names = [n for n in [*step["returns"], receipt, step["result"]]
