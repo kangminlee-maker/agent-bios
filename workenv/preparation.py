@@ -47,9 +47,10 @@ is composed yet; an adopted environment's basis and a requested task's support a
   - **Bodies.** A unit's body is its member's bytes in the pinned revision's bundle, the
     immutable snapshot every revision is read from, whoever authors it: a repository-authored
     source's working tree is what the checkout records, never a body. A unit states its body's
-    digest only where the bundle holds the member's bytes. A winning or layered unit whose bytes
-    the bundle does not hold is `role_body_unavailable`, and one whose bytes are other bytes is
-    `object_digest_mismatch`, each at that unit; a shadowed or disabled unit gates nothing.
+    digest only where the bundle holds the member's bytes. A winning unit, or a unit a winning
+    unit needs, whose bytes the bundle does not hold is `role_body_unavailable`, and one whose
+    bytes are other bytes is `object_digest_mismatch`, each at that unit; any other unit whose
+    body is not held states none and gates nothing, as nothing depends on its bytes.
   - **Memory.** A memory entry, or a pinned memory source, contributes no unit: it fixes the
     frontier of its source as this operation observes it, the source's head.
   - **The checkout.** The preparation records the checkout it was composed in as it is now: the
@@ -79,7 +80,6 @@ DEFAULT_ORDER = ("repository", "personal", "team")
 SESSION_START = "session.routing.activate"
 # The one adapter this module composes for: the host session a preparation is handed to.
 ADAPTER = {"name": "session_adapter", "version": "0.1.0"}
-DELIVERED = ("winning", "layered")
 
 
 def refused(call, code: str, pointer: str | None = None) -> dict:
@@ -322,7 +322,7 @@ class Composition:
             digest, why = body_of(self.call, unit["revision_digest"], held["member"])
             if digest is not None:
                 unit["body_digest"] = digest
-            elif unit["standing"] in DELIVERED:
+            elif unit["standing"] == "winning" or "needed_by" in unit:
                 self.gaps.append({"code": why, "pointer": f"/units/{index}"})
 
 

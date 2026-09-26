@@ -536,17 +536,33 @@ class Bodies(Composing):
         self.assertEqual((prepared["material_gaps"], "body_digest" in prepared["units"][1]),
                          ([], False))
 
-    def test_a_layered_unit_whose_body_is_not_held_is_unavailable(self):
+    def test_a_layered_unit_whose_body_is_not_held_states_none_and_gates_nothing(self):
         mine, mine_rev = self.authored(self.person.scope, {"notes.md": NOTE}, held=False)
         answer = self.compose(self.ask([self.person.scope], pins=[(mine, mine_rev)]))
+        self.assertEqual((gaps(answer), "body_digest" in answer["returned"][0]["units"][0]),
+                         ([], False))
+
+    def test_a_unit_a_winner_needs_whose_body_is_not_held_is_unavailable(self):
+        base, base_rev = self.authored(self.team, {"rules/base.md": NOTE}, held=False)
+        team, team_rev = self.authored(self.team, {"rules/review.md": REVIEW})
+        needs = [{"source_id": base, "member": "rules/base.md"}]
+        self.placed(self.collection(self.team, "instructions", [
+            self.entry(team, team_rev, [unit("rules/review.md", "review", needs=needs)]),
+            self.entry(base, base_rev, [unit("rules/base.md")])]))
+        answer = self.compose(self.ask([self.team]))
+        units = answer["returned"][0]["units"]
+        self.assertEqual([(u["standing"], "needed_by" in u) for u in units],
+                         [("winning", False), ("layered", True)])
         self.assertEqual(gaps(answer), [{"code": c04.ROLE_BODY_UNAVAILABLE,
-                                         "pointer": "/units/0"}])
+                                         "pointer": "/units/1"}])
 
     def test_bundle_bytes_that_are_not_the_members_are_a_mismatch_and_not_named(self):
         mine, mine_rev = self.authored(self.person.scope, {"rules/review.md": REVIEW})
         path = storage.bundle(self.bench.state, mine_rev) / storage.MEMBERS / "rules/review.md"
         path.write_bytes(REVIEW.replace(b"One", b"Two"))   # the same size, other bytes
-        answer = self.compose(self.ask([self.person.scope], pins=[(mine, mine_rev)]))
+        self.placed(self.collection(self.person.scope, "instructions", [self.entry(
+            mine, mine_rev, [unit("rules/review.md", "review")])]))
+        answer = self.compose(self.ask([self.person.scope]))
         self.assertEqual(gaps(answer), [{"code": c03.OBJECT_DIGEST_MISMATCH,
                                          "pointer": "/units/0"}])
         self.assertNotIn("body_digest", answer["returned"][0]["units"][0])
