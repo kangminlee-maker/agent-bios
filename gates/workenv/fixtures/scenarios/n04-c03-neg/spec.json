@@ -467,6 +467,32 @@
    ]
   },
   {
+   "name": "repo_rules_rev_submitted",
+   "from": "sources/revision_of_a_published_package.json",
+   "drop": [
+    "/members/1",
+    "/produced_at"
+   ],
+   "set": [
+    {
+     "pointer": "/members/0/digest",
+     "value": "#repo_rules_review_text"
+    },
+    {
+     "pointer": "/members/0/path",
+     "value": "rules/review.md"
+    },
+    {
+     "pointer": "/members/0/size",
+     "value": 600
+    },
+    {
+     "pointer": "/source_id",
+     "value": "@repo_rules"
+    }
+   ]
+  },
+  {
    "name": "repo_rules_request",
    "from": "sources/request_to_author_here.json",
    "set": [
@@ -477,6 +503,10 @@
     {
      "pointer": "/role",
      "value": "instructions"
+    },
+    {
+     "pointer": "/route/manifest_digest",
+     "value": "#repo_rules_rev_submitted"
     }
    ]
   },
@@ -547,30 +577,37 @@
   },
   {
    "name": "repo_rules_rev",
+   "from": "repo_rules_rev_submitted",
+   "set": [
+    {
+     "pointer": "/produced_at",
+     "value": "$instant:repo_rules_produced_at"
+    }
+   ]
+  },
+  {
+   "name": "bob_rules_rev_submitted",
    "from": "sources/revision_of_a_published_package.json",
    "drop": [
-    "/members/1"
+    "/members/1",
+    "/produced_at"
    ],
    "set": [
     {
      "pointer": "/members/0/digest",
-     "value": "#repo_rules_review_text"
+     "value": "#bob_rules_private_text"
     },
     {
      "pointer": "/members/0/path",
-     "value": "rules/review.md"
+     "value": "private.md"
     },
     {
      "pointer": "/members/0/size",
-     "value": 600
-    },
-    {
-     "pointer": "/produced_at",
-     "value": "$instant:repo_rules_produced_at"
+     "value": 240
     },
     {
      "pointer": "/source_id",
-     "value": "@repo_rules"
+     "value": "@bob_rules"
     }
    ]
   },
@@ -596,6 +633,10 @@
     {
      "pointer": "/role",
      "value": "instructions"
+    },
+    {
+     "pointer": "/route/manifest_digest",
+     "value": "#bob_rules_rev_submitted"
     }
    ]
   },
@@ -666,30 +707,11 @@
   },
   {
    "name": "bob_rules_rev",
-   "from": "sources/revision_of_a_published_package.json",
-   "drop": [
-    "/members/1"
-   ],
+   "from": "bob_rules_rev_submitted",
    "set": [
-    {
-     "pointer": "/members/0/digest",
-     "value": "#bob_rules_private_text"
-    },
-    {
-     "pointer": "/members/0/path",
-     "value": "private.md"
-    },
-    {
-     "pointer": "/members/0/size",
-     "value": 240
-    },
     {
      "pointer": "/produced_at",
      "value": "$instant:bob_rules_produced_at"
-    },
-    {
-     "pointer": "/source_id",
-     "value": "@bob_rules"
     }
    ]
   },
@@ -3402,7 +3424,8 @@
    "name": "author_repo_rules",
    "request": "author_repo_rules_request",
    "carries": [
-    "repo_rules_request"
+    "repo_rules_request",
+    "repo_rules_rev_submitted"
    ],
    "answer": {
     "stage": "committed",
@@ -3414,13 +3437,17 @@
      "repo_rules_rev"
     ],
     "head": "repo_rules_head"
-   }
+   },
+   "submits": [
+    "repo_rules_rev_submitted"
+   ]
   },
   {
    "name": "author_bob_rules",
    "request": "author_bob_rules_request",
    "carries": [
-    "bob_rules_request"
+    "bob_rules_request",
+    "bob_rules_rev_submitted"
    ],
    "answer": {
     "stage": "committed",
@@ -3432,7 +3459,10 @@
      "bob_rules_rev"
     ],
     "head": "bob_rules_head"
-   }
+   },
+   "submits": [
+    "bob_rules_rev_submitted"
+   ]
   },
   {
    "name": "issue_setup_handle",

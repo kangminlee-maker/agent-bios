@@ -190,6 +190,32 @@
    ]
   },
   {
+   "name": "rules_rev_submitted",
+   "from": "sources/revision_of_a_published_package.json",
+   "drop": [
+    "/members/1",
+    "/produced_at"
+   ],
+   "set": [
+    {
+     "pointer": "/source_id",
+     "value": "@rules"
+    },
+    {
+     "pointer": "/members/0/path",
+     "value": "rules/review.md"
+    },
+    {
+     "pointer": "/members/0/digest",
+     "value": "a84f030b0cb7d92637f74785b277acd055eecc7330ba65c06e0d896eed110b6b"
+    },
+    {
+     "pointer": "/members/0/size",
+     "value": 2048
+    }
+   ]
+  },
+  {
    "name": "rules_rev_request",
    "from": "sources/request_to_author_here.json",
    "drop": [
@@ -211,6 +237,10 @@
     {
      "pointer": "/role",
      "value": "instructions"
+    },
+    {
+     "pointer": "/route/manifest_digest",
+     "value": "#rules_rev_submitted"
     }
    ]
   },
@@ -289,27 +319,8 @@
   },
   {
    "name": "rules_rev",
-   "from": "sources/revision_of_a_published_package.json",
-   "drop": [
-    "/members/1"
-   ],
+   "from": "rules_rev_submitted",
    "set": [
-    {
-     "pointer": "/source_id",
-     "value": "@rules"
-    },
-    {
-     "pointer": "/members/0/path",
-     "value": "rules/review.md"
-    },
-    {
-     "pointer": "/members/0/digest",
-     "value": "$digest:review_body"
-    },
-    {
-     "pointer": "/members/0/size",
-     "value": 2048
-    },
     {
      "pointer": "/produced_at",
      "value": "$instant:rules_rev_at"
@@ -754,7 +765,7 @@
     },
     {
      "pointer": "/units/0/body_digest",
-     "value": "$digest:review_body"
+     "value": "a84f030b0cb7d92637f74785b277acd055eecc7330ba65c06e0d896eed110b6b"
     }
    ]
   },
@@ -781,7 +792,7 @@
     {
      "pointer": "/requested/bodies",
      "value": [
-      "$digest:review_body"
+      "a84f030b0cb7d92637f74785b277acd055eecc7330ba65c06e0d896eed110b6b"
      ]
     }
    ]
@@ -904,7 +915,7 @@
     {
      "pointer": "/requested/bodies",
      "value": [
-      "$digest:review_body"
+      "a84f030b0cb7d92637f74785b277acd055eecc7330ba65c06e0d896eed110b6b"
      ]
     }
    ]
@@ -1027,7 +1038,7 @@
     {
      "pointer": "/requested/bodies",
      "value": [
-      "$digest:review_body"
+      "a84f030b0cb7d92637f74785b277acd055eecc7330ba65c06e0d896eed110b6b"
      ]
     }
    ]
@@ -1431,7 +1442,7 @@
     {
      "pointer": "/requested/bodies",
      "value": [
-      "$digest:review_body"
+      "a84f030b0cb7d92637f74785b277acd055eecc7330ba65c06e0d896eed110b6b"
      ]
     }
    ]
@@ -1528,7 +1539,8 @@
    "name": "author_rules_rev",
    "request": "admit_rules_rev",
    "carries": [
-    "rules_rev_request"
+    "rules_rev_request",
+    "rules_rev_submitted"
    ],
    "answer": {
     "stage": "committed",
@@ -1540,7 +1552,10 @@
      "rules_rev"
     ],
     "head": "rules_head"
-   }
+   },
+   "submits": [
+    "rules_rev_submitted"
+   ]
   },
   {
    "name": "select_rules_selection",

@@ -134,6 +134,16 @@
    "record": "bind_alice_key_result"
   },
   {
+   "digest_of": "review_body_v1",
+   "pointer": "/members/0/digest",
+   "record": "rules_rev_submitted"
+  },
+  {
+   "digest_of": "rules_rev_submitted",
+   "pointer": "/route/manifest_digest",
+   "record": "rules_rev_request"
+  },
+  {
    "digest_of": "rules_rev_request",
    "pointer": "/payload_digest",
    "record": "admit_rules_rev"
@@ -507,6 +517,16 @@
    "minted": "rules_head",
    "pointer": "/target/base/head_digest",
    "record": "admit_rules_rev_2"
+  },
+  {
+   "digest_of": "review_body_v2",
+   "pointer": "/members/0/digest",
+   "record": "rules_rev_2_submitted"
+  },
+  {
+   "digest_of": "rules_rev_2_submitted",
+   "pointer": "/route/manifest_digest",
+   "record": "rules_rev_2_request"
   },
   {
    "digest_of": "rules_rev_2_request",
@@ -1196,7 +1216,24 @@
    }
   },
   {
-   "digest": "b4bad4fc069e6fcdb3ff6f09270b5bfa7bc26bf6dc63f96d7d762b081d6feed6",
+   "digest": "d802276272fe2a1bdf86489c30301aa49936e0be88f2a27c08e93a168823f40d",
+   "name": "rules_rev_submitted",
+   "record": {
+    "format_version": 1,
+    "kind": "source_manifest",
+    "members": [
+     {
+      "digest": "a689478d3466f688d2c06f1dd1b30fe11688dbdd99c2f65e1b3b60edda4423a7",
+      "path": "rules/review.md",
+      "size": 129
+     }
+    ],
+    "schema": 1,
+    "source_id": "src_28413031dabcabca6865b6d20179eebc"
+   }
+  },
+  {
+   "digest": "3d8d013f05f0949bd4844135c679ca86507d6b40c701ca6e32df16caad78c919",
    "name": "rules_rev_request",
    "record": {
     "destination": {
@@ -1209,13 +1246,14 @@
     "kind": "source_request",
     "role": "instructions",
     "route": {
+     "manifest_digest": "d802276272fe2a1bdf86489c30301aa49936e0be88f2a27c08e93a168823f40d",
      "route": "author_here"
     },
     "schema": 1
    }
   },
   {
-   "digest": "6f67e89f46838f198556d8783ad1c6bfab57a1f69574d0cae635c209896ff6a8",
+   "digest": "d04ff670e21be5f377baa944aaabaa314aed33ef67cea21f5a33d5ea046f71c5",
    "name": "admit_rules_rev",
    "record": {
     "action": "contribute",
@@ -1233,7 +1271,7 @@
      "layer": "personal",
      "principal_id": "prn_690d9aaabe67416cd7dc45a547327119"
     },
-    "payload_digest": "b4bad4fc069e6fcdb3ff6f09270b5bfa7bc26bf6dc63f96d7d762b081d6feed6",
+    "payload_digest": "3d8d013f05f0949bd4844135c679ca86507d6b40c701ca6e32df16caad78c919",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_8346f0cf0983b589b12c469f882e89f2",
@@ -1247,7 +1285,7 @@
    }
   },
   {
-   "digest": "5f2254ee84ca4f32c3a51faa55877382030d322a9e3dd4fe1c59c264059f794f",
+   "digest": "19303e4689c3d488429309403108372b498c25c5f67adc19ca516ed7a1232946",
    "name": "author_rules_rev_receipt",
    "record": {
     "committed_at": "2000-01-01T00:00:00Z",
@@ -1257,7 +1295,7 @@
      "layer": "personal",
      "principal_id": "prn_690d9aaabe67416cd7dc45a547327119"
     },
-    "request_digest": "6f67e89f46838f198556d8783ad1c6bfab57a1f69574d0cae635c209896ff6a8",
+    "request_digest": "d04ff670e21be5f377baa944aaabaa314aed33ef67cea21f5a33d5ea046f71c5",
     "request_id": "req_8346f0cf0983b589b12c469f882e89f2",
     "schema": 1,
     "sequence": 1,
@@ -1288,14 +1326,14 @@
    }
   },
   {
-   "digest": "673482103d30fc2dfe6a4844daa8161929f95e7ccfc83f6b00675e14bda2ffa1",
+   "digest": "61d5cfc3e5146e7ae7319126e0ce2d1fab1a60cfe5e9b67361916e0194713b1f",
    "name": "author_rules_rev_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "5f2254ee84ca4f32c3a51faa55877382030d322a9e3dd4fe1c59c264059f794f",
+     "receipt_digest": "19303e4689c3d488429309403108372b498c25c5f67adc19ca516ed7a1232946",
      "stage": "committed"
     },
     "outputs": [
@@ -1305,7 +1343,7 @@
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "6f67e89f46838f198556d8783ad1c6bfab57a1f69574d0cae635c209896ff6a8",
+    "request_digest": "d04ff670e21be5f377baa944aaabaa314aed33ef67cea21f5a33d5ea046f71c5",
     "request_id": "req_8346f0cf0983b589b12c469f882e89f2",
     "schema": 1,
     "supported_recovery": []
@@ -1916,7 +1954,24 @@
    }
   },
   {
-   "digest": "b4bad4fc069e6fcdb3ff6f09270b5bfa7bc26bf6dc63f96d7d762b081d6feed6",
+   "digest": "ea4c6a0ef74e033f6412d6c8b5719b7bacafb6ddebf83fb9423219310a88aed6",
+   "name": "rules_rev_2_submitted",
+   "record": {
+    "format_version": 1,
+    "kind": "source_manifest",
+    "members": [
+     {
+      "digest": "459a628f20138adb4178dba2fb14caeaddf5be508237c93742adaa58f96e1528",
+      "path": "rules/review.md",
+      "size": 205
+     }
+    ],
+    "schema": 1,
+    "source_id": "src_28413031dabcabca6865b6d20179eebc"
+   }
+  },
+  {
+   "digest": "d34a3d6b6e8a3c1a9fad698cc15397d3a8f2ff4c0317a312053c9710b3ba08eb",
    "name": "rules_rev_2_request",
    "record": {
     "destination": {
@@ -1929,13 +1984,14 @@
     "kind": "source_request",
     "role": "instructions",
     "route": {
+     "manifest_digest": "ea4c6a0ef74e033f6412d6c8b5719b7bacafb6ddebf83fb9423219310a88aed6",
      "route": "author_here"
     },
     "schema": 1
    }
   },
   {
-   "digest": "d60f89c28cf6c280b2d423e071c18050dcc31c3a1f61d52bacd7d586964bcb62",
+   "digest": "55f5dbe7acd17fbf953fe23b13cb678977f7c7de95e5cf0ff5a8aec27f39a565",
    "name": "admit_rules_rev_2",
    "record": {
     "action": "contribute",
@@ -1953,7 +2009,7 @@
      "layer": "personal",
      "principal_id": "prn_690d9aaabe67416cd7dc45a547327119"
     },
-    "payload_digest": "b4bad4fc069e6fcdb3ff6f09270b5bfa7bc26bf6dc63f96d7d762b081d6feed6",
+    "payload_digest": "d34a3d6b6e8a3c1a9fad698cc15397d3a8f2ff4c0317a312053c9710b3ba08eb",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_95862bfb06ed67f869288a7e69fe4c27",
@@ -1968,7 +2024,7 @@
    }
   },
   {
-   "digest": "6606331eb2dfd9a085981851c13b750a6c596bb904ec67ee8640128640aa490a",
+   "digest": "74190e2cabaee0d4cad3815e7d433493680afbc4c1aea18b4a69f6973b7d8f62",
    "name": "author_revision_two_receipt",
    "record": {
     "committed_at": "2000-01-01T00:00:00Z",
@@ -1978,7 +2034,7 @@
      "layer": "personal",
      "principal_id": "prn_690d9aaabe67416cd7dc45a547327119"
     },
-    "request_digest": "d60f89c28cf6c280b2d423e071c18050dcc31c3a1f61d52bacd7d586964bcb62",
+    "request_digest": "55f5dbe7acd17fbf953fe23b13cb678977f7c7de95e5cf0ff5a8aec27f39a565",
     "request_id": "req_95862bfb06ed67f869288a7e69fe4c27",
     "schema": 1,
     "sequence": 1,
@@ -2010,14 +2066,14 @@
    }
   },
   {
-   "digest": "6fcc70f5547ced3fe2de545ca8d7fdc1b5d02a391193962fa1e9dae8d22e9020",
+   "digest": "a358c8531720d197d572454fd75155c38d75dd02ff8510a1eba2181b6aed4207",
    "name": "author_revision_two_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "6606331eb2dfd9a085981851c13b750a6c596bb904ec67ee8640128640aa490a",
+     "receipt_digest": "74190e2cabaee0d4cad3815e7d433493680afbc4c1aea18b4a69f6973b7d8f62",
      "stage": "committed"
     },
     "outputs": [
@@ -2027,7 +2083,7 @@
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "d60f89c28cf6c280b2d423e071c18050dcc31c3a1f61d52bacd7d586964bcb62",
+    "request_digest": "55f5dbe7acd17fbf953fe23b13cb678977f7c7de95e5cf0ff5a8aec27f39a565",
     "request_id": "req_95862bfb06ed67f869288a7e69fe4c27",
     "schema": 1,
     "supported_recovery": []
@@ -2687,7 +2743,7 @@
   }
  ],
  "says": "Alice binds her device key, authors a personal Instructions source (revision one, whose body digest the owner computes) and selects revision one in her personal Instructions position. She opens a link to her working conversation, composes a first preparation for delivery on it (basis scoped to her personal layer alone), delivers its body to the current recipient and observes the delivery: the inventory names revision one's unit and body. Later she authors revision two of the same source against the head revision one left, re-pins her position to revision two against the position's head (the digest of the collection her first change stored), and composes a second preparation for the same recipient whose basis now also scopes a repository layer alongside her personal one (a scope change from the first preparation): it names the position's new head and revision two's body. She then switches that entry off, and composes a third preparation over the same two scopes but with an explicit order preferring her personal layer over the repository one — the reverse of the repository-before-personal default the second preparation's unstated order applied (an order change from the second preparation): it names the position's newest head and holds the same source, member and revision two as disabled, with no body. Each preparation mints its own unit id; a unit is followed across preparations by its source, member and revision. Observing the first preparation after all three changes — the revision, the scope and the order — returns the same delivery observation as before, naming revision one, and writes nothing: the changes reached only the preparations composed after them. What must not happen: a recomposition rewriting the first preparation, the recipient's delivered inventory or the revision, scope or order it was composed under, or a change to the position writing the source itself — revision two moves the source's own head only through its own admission.",
- "spec_sha256": "871bd9c6e64c7392e51d749a51fd3a4c0745169bed67b2a8adc9d73b3c66f109",
+ "spec_sha256": "28d991c4a3ab2fca5b5f0df3d014e2019fa55d2021fcfe9a6236cd7f061330d8",
  "steps": [
   {
    "carries": [
@@ -2702,7 +2758,8 @@
   },
   {
    "carries": [
-    "rules_rev_request"
+    "rules_rev_request",
+    "rules_rev_submitted"
    ],
    "head": "rules_head",
    "name": "author_rules_rev",
@@ -2710,6 +2767,9 @@
    "result": "author_rules_rev_result",
    "returns": [
     "rules_rev"
+   ],
+   "submits": [
+    "rules_rev_submitted"
    ]
   },
   {
@@ -2768,7 +2828,8 @@
   },
   {
    "carries": [
-    "rules_rev_2_request"
+    "rules_rev_2_request",
+    "rules_rev_2_submitted"
    ],
    "head": "rules_head_2",
    "name": "author_revision_two",
@@ -2776,6 +2837,9 @@
    "result": "author_revision_two_result",
    "returns": [
     "rules_rev_2"
+   ],
+   "submits": [
+    "rules_rev_2_submitted"
    ]
   },
   {

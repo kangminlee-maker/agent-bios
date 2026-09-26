@@ -90,6 +90,7 @@ class Layouts(unittest.TestCase):
         store = self.bench.store()
         self.assertEqual(store.read("PRAGMA user_version")[0][0], storage.LAYOUT)
         self.assertLessEqual({"sources", "revisions", "repositories"}, self.tables())
+        self.assertIn("home_mode", [row[1] for row in store.read("PRAGMA table_info(sources)")])
         self.assertEqual(store.read("SELECT digest FROM objects"), [("d",)])
 
     def test_an_upgrade_that_fails_part_way_leaves_the_earlier_layout_whole(self):

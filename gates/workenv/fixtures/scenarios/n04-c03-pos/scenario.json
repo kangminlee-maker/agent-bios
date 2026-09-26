@@ -198,6 +198,16 @@
    "record": "bind_repository_result"
   },
   {
+   "digest_of": "repo_rules_review_text",
+   "pointer": "/members/0/digest",
+   "record": "repo_rules_rev_submitted"
+  },
+  {
+   "digest_of": "repo_rules_rev_submitted",
+   "pointer": "/route/manifest_digest",
+   "record": "repo_rules_request"
+  },
+  {
    "digest_of": "repo_rules_request",
    "pointer": "/payload_digest",
    "record": "author_repo_rules_request"
@@ -853,6 +863,11 @@
    "record": "open_storage_work_result"
   },
   {
+   "digest_of": "repo_memory_rev_submitted",
+   "pointer": "/route/manifest_digest",
+   "record": "repo_memory_request"
+  },
+  {
    "digest_of": "repo_memory_request",
    "pointer": "/payload_digest",
    "record": "author_repo_memory_request"
@@ -876,11 +891,6 @@
    "minted": "author_repo_memory_committed_at",
    "pointer": "/committed_at",
    "record": "author_repo_memory_receipt"
-  },
-  {
-   "minted": "repo_memory_decisions_body",
-   "pointer": "/members/0/digest",
-   "record": "repo_memory_rev"
   },
   {
    "minted": "repo_memory_produced_at",
@@ -1403,11 +1413,6 @@
    "step": "author_repo_memory"
   },
   {
-   "name": "repo_memory_decisions_body",
-   "shape": "digest",
-   "step": "author_repo_memory"
-  },
-  {
    "name": "repo_memory_head",
    "shape": "digest",
    "step": "author_repo_memory"
@@ -1691,7 +1696,24 @@
    }
   },
   {
-   "digest": "a4b072c75a84df53b7d39785d85c498bcf243276ef451b42f05c90650375ac21",
+   "digest": "a82538b152ade53a91717a8893948979e2047f1012205da8f1d00fc0ac986dd7",
+   "name": "repo_rules_rev_submitted",
+   "record": {
+    "format_version": 1,
+    "kind": "source_manifest",
+    "members": [
+     {
+      "digest": "ad05e3f102bbd8e54db9587a0ec1be1a5685d5f8a1d310163a644183c523689d",
+      "path": "rules/review.md",
+      "size": 600
+     }
+    ],
+    "schema": 1,
+    "source_id": "src_9fcfb24e8f6b2fe84b22c42f31e7fea9"
+   }
+  },
+  {
+   "digest": "d5eca4ce07762a6399a97a3389fcd0f4cefc29893ac026b25d6d4abed18d80e7",
    "name": "repo_rules_request",
    "record": {
     "destination": {
@@ -1704,13 +1726,14 @@
     "kind": "source_request",
     "role": "instructions",
     "route": {
+     "manifest_digest": "a82538b152ade53a91717a8893948979e2047f1012205da8f1d00fc0ac986dd7",
      "route": "author_here"
     },
     "schema": 1
    }
   },
   {
-   "digest": "a74afed5d23f13335101f7776021c600d790d0e61f407b4adca8845f9139058a",
+   "digest": "851307389373bec34775cafe3be1edab3415762a07869529bef1188c6ca358e5",
    "name": "author_repo_rules_request",
    "record": {
     "action": "contribute",
@@ -1728,7 +1751,7 @@
      "layer": "repository",
      "repository_id": "rep_dd0bbb5181d59816c36a0389958bf1b0"
     },
-    "payload_digest": "a4b072c75a84df53b7d39785d85c498bcf243276ef451b42f05c90650375ac21",
+    "payload_digest": "d5eca4ce07762a6399a97a3389fcd0f4cefc29893ac026b25d6d4abed18d80e7",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_c9f5c217f270bbf17f585bf8e11bd7f2",
@@ -1742,7 +1765,7 @@
    }
   },
   {
-   "digest": "3543f6bed2ea82dae6a3e08b5bcaf4e01637da46c86624073285c095a21db51d",
+   "digest": "2bfe56cf6cd3d9d3713c5751a6248b7720567e62dc15c0a778caf813ad20983b",
    "name": "author_repo_rules_receipt",
    "record": {
     "committed_at": "2000-01-01T00:00:00Z",
@@ -1752,7 +1775,7 @@
      "layer": "repository",
      "repository_id": "rep_dd0bbb5181d59816c36a0389958bf1b0"
     },
-    "request_digest": "a74afed5d23f13335101f7776021c600d790d0e61f407b4adca8845f9139058a",
+    "request_digest": "851307389373bec34775cafe3be1edab3415762a07869529bef1188c6ca358e5",
     "request_id": "req_c9f5c217f270bbf17f585bf8e11bd7f2",
     "schema": 1,
     "sequence": 1,
@@ -1783,14 +1806,14 @@
    }
   },
   {
-   "digest": "602a66147470c5f20f43ddc1b3b81231b10ad6d223ebe76f0d184f4a465dc72e",
+   "digest": "a0ce1e5b05715989215d88c46f39b7b5b350503ed320e3157f033db9b55050f0",
    "name": "author_repo_rules_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "3543f6bed2ea82dae6a3e08b5bcaf4e01637da46c86624073285c095a21db51d",
+     "receipt_digest": "2bfe56cf6cd3d9d3713c5751a6248b7720567e62dc15c0a778caf813ad20983b",
      "stage": "committed"
     },
     "outputs": [
@@ -1800,7 +1823,7 @@
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "a74afed5d23f13335101f7776021c600d790d0e61f407b4adca8845f9139058a",
+    "request_digest": "851307389373bec34775cafe3be1edab3415762a07869529bef1188c6ca358e5",
     "request_id": "req_c9f5c217f270bbf17f585bf8e11bd7f2",
     "schema": 1,
     "supported_recovery": []
@@ -3069,7 +3092,24 @@
    }
   },
   {
-   "digest": "414889ba4a51a4b7b1449e04931bf2a5f8862f7a1e498bb0ded57ceb262913ea",
+   "digest": "c75d0af27dba2f4914b160a059351ce903fae075c3bfbc70086a947646305376",
+   "name": "repo_memory_rev_submitted",
+   "record": {
+    "format_version": 1,
+    "kind": "source_manifest",
+    "members": [
+     {
+      "digest": "486cc6da44c711a3ea862de192ac924db4f36c68d540e40311b837846966338c",
+      "path": "decisions.jsonl",
+      "size": 512
+     }
+    ],
+    "schema": 1,
+    "source_id": "src_c1dfb3f7ead70ec18dc196cf2634227f"
+   }
+  },
+  {
+   "digest": "8c10f7a3bb1dfb84c44af1d018f6f569e25799a2e65bf6195c5d1d417e268a81",
    "name": "repo_memory_request",
    "record": {
     "destination": {
@@ -3082,13 +3122,14 @@
     "kind": "source_request",
     "role": "memory",
     "route": {
+     "manifest_digest": "c75d0af27dba2f4914b160a059351ce903fae075c3bfbc70086a947646305376",
      "route": "author_here"
     },
     "schema": 1
    }
   },
   {
-   "digest": "499112e2829f185717f4542c5c666fb911d28a7d864577c082948e325a5a09df",
+   "digest": "da6f149469a7d176df524035370317ab0c4d95b565ad549d288e8ed1719b8a9d",
    "name": "author_repo_memory_request",
    "record": {
     "action": "contribute",
@@ -3106,7 +3147,7 @@
      "layer": "repository",
      "repository_id": "rep_dd0bbb5181d59816c36a0389958bf1b0"
     },
-    "payload_digest": "414889ba4a51a4b7b1449e04931bf2a5f8862f7a1e498bb0ded57ceb262913ea",
+    "payload_digest": "8c10f7a3bb1dfb84c44af1d018f6f569e25799a2e65bf6195c5d1d417e268a81",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_6d3cb0bbf67e569746e6417a1f78a6c1",
@@ -3120,7 +3161,7 @@
    }
   },
   {
-   "digest": "82cc7fe9338fef361c0f253d77668ac905c5e78d1f2691393fe2e9f49ae1a72a",
+   "digest": "6a481b52269cf3b5861ccfa757dbfa4fd9fc6343183c5d07fc4748469c31022e",
    "name": "author_repo_memory_receipt",
    "record": {
     "committed_at": "2000-01-01T00:00:00Z",
@@ -3130,7 +3171,7 @@
      "layer": "repository",
      "repository_id": "rep_dd0bbb5181d59816c36a0389958bf1b0"
     },
-    "request_digest": "499112e2829f185717f4542c5c666fb911d28a7d864577c082948e325a5a09df",
+    "request_digest": "da6f149469a7d176df524035370317ab0c4d95b565ad549d288e8ed1719b8a9d",
     "request_id": "req_6d3cb0bbf67e569746e6417a1f78a6c1",
     "schema": 1,
     "sequence": 1,
@@ -3161,14 +3202,14 @@
    }
   },
   {
-   "digest": "41f63de5330951466981ea3fb7bbf7a011a56dbe9995cde0b8836fc74717a84e",
+   "digest": "ecae1cfff41c5d9c1dfc23e2c401995dc6b2be957ae3f99c7cab48b79b80b467",
    "name": "author_repo_memory_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "82cc7fe9338fef361c0f253d77668ac905c5e78d1f2691393fe2e9f49ae1a72a",
+     "receipt_digest": "6a481b52269cf3b5861ccfa757dbfa4fd9fc6343183c5d07fc4748469c31022e",
      "stage": "committed"
     },
     "outputs": [
@@ -3178,7 +3219,7 @@
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "499112e2829f185717f4542c5c666fb911d28a7d864577c082948e325a5a09df",
+    "request_digest": "da6f149469a7d176df524035370317ab0c4d95b565ad549d288e8ed1719b8a9d",
     "request_id": "req_6d3cb0bbf67e569746e6417a1f78a6c1",
     "schema": 1,
     "supported_recovery": []
@@ -3552,7 +3593,7 @@
   }
  ],
  "says": "Four entrances are traced and recorded on Alice's profile with the guard each reaches kept state through: setup is a choke point of the projection owner admitting role.project and session.routing.activate; session start and a maintenance command, both with roots the caller chooses, are routed through the projection owner; the studio hub is a choke point of the source store admitting source and memory writes. The access owner then issues Alice a handle through each entrance she will ask through - setup, session start, maintenance and the studio hub - and every later request names the handle of the entrance it came through among its proofs. A repository's rules revision is projected for the executor view through each entrance whose guard is the projection owner - setup, session start and maintenance - and each projection succeeds with the rules body; for setup, the access owner first answers that exact request, under the setup handle at the current generation, as allowed. The memory write the studio hub's store admits, publishing a choice to the repository's memory under the studio hub's handle, succeeds as well. Nothing is projected through the store's entrances, because their dispositions do not admit role.project, and no entrance is asked for an operation its disposition does not name. Compose/instructions_app.py is traced and recorded as the choke point of the publication lock, admitting role.project; Alice's setup handle, already issued through the setup entrance, also proves a request through this route, and projecting the repository's rules for the executor view through it succeeds the same way as through the projection owner's entrances.",
- "spec_sha256": "a001afef029b644a5305b0dc391e3c9ccd20815d808c6ba9c325dab39f7518ef",
+ "spec_sha256": "df9d516ce656f48cd43d72fcc126d374ec0f11e3386859d92b9882c4b17eb401",
  "steps": [
   {
    "carries": [
@@ -3578,7 +3619,8 @@
   },
   {
    "carries": [
-    "repo_rules_request"
+    "repo_rules_request",
+    "repo_rules_rev_submitted"
    ],
    "head": "repo_rules_head",
    "name": "author_repo_rules",
@@ -3586,6 +3628,9 @@
    "result": "author_repo_rules_result",
    "returns": [
     "repo_rules_rev"
+   ],
+   "submits": [
+    "repo_rules_rev_submitted"
    ]
   },
   {
@@ -3760,7 +3805,8 @@
   },
   {
    "carries": [
-    "repo_memory_request"
+    "repo_memory_request",
+    "repo_memory_rev_submitted"
    ],
    "head": "repo_memory_head",
    "name": "author_repo_memory",
@@ -3768,6 +3814,9 @@
    "result": "author_repo_memory_result",
    "returns": [
     "repo_memory_rev"
+   ],
+   "submits": [
+    "repo_memory_rev_submitted"
    ]
   },
   {

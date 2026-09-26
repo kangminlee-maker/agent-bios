@@ -359,12 +359,42 @@
    ]
   },
   {
+   "name": "repo_memory_rev_submitted",
+   "from": "sources/revision_of_a_published_package.json",
+   "drop": [
+    "/members/1",
+    "/produced_at"
+   ],
+   "set": [
+    {
+     "pointer": "/members/0/digest",
+     "value": "ad2be28b0a993e05eab8f52987e73c1325620cdc2fe51f8451dba53d4694b3a0"
+    },
+    {
+     "pointer": "/members/0/path",
+     "value": "decisions.jsonl"
+    },
+    {
+     "pointer": "/members/0/size",
+     "value": 512
+    },
+    {
+     "pointer": "/source_id",
+     "value": "@repo_memory"
+    }
+   ]
+  },
+  {
    "name": "repo_memory_request",
    "from": "sources/request_to_author_here.json",
    "set": [
     {
      "pointer": "/destination/scope/repository_id",
      "value": "@repo"
+    },
+    {
+     "pointer": "/route/manifest_digest",
+     "value": "#repo_memory_rev_submitted"
     }
    ]
   },
@@ -435,14 +465,25 @@
   },
   {
    "name": "repo_memory_rev",
+   "from": "repo_memory_rev_submitted",
+   "set": [
+    {
+     "pointer": "/produced_at",
+     "value": "$instant:repo_memory_produced_at"
+    }
+   ]
+  },
+  {
+   "name": "alice_memory_rev_submitted",
    "from": "sources/revision_of_a_published_package.json",
    "drop": [
-    "/members/1"
+    "/members/1",
+    "/produced_at"
    ],
    "set": [
     {
      "pointer": "/members/0/digest",
-     "value": "$digest:repo_memory_decisions_body"
+     "value": "23ccd7cf0482c5f58115a26a6dda767ea2d3346f776d37435773c3f5fffe9c60"
     },
     {
      "pointer": "/members/0/path",
@@ -450,15 +491,11 @@
     },
     {
      "pointer": "/members/0/size",
-     "value": 512
-    },
-    {
-     "pointer": "/produced_at",
-     "value": "$instant:repo_memory_produced_at"
+     "value": 256
     },
     {
      "pointer": "/source_id",
-     "value": "@repo_memory"
+     "value": "@alice_memory"
     }
    ]
   },
@@ -480,6 +517,10 @@
     {
      "pointer": "/destination/scope/principal_id",
      "value": "@alice"
+    },
+    {
+     "pointer": "/route/manifest_digest",
+     "value": "#alice_memory_rev_submitted"
     }
    ]
   },
@@ -550,30 +591,11 @@
   },
   {
    "name": "alice_memory_rev",
-   "from": "sources/revision_of_a_published_package.json",
-   "drop": [
-    "/members/1"
-   ],
+   "from": "alice_memory_rev_submitted",
    "set": [
-    {
-     "pointer": "/members/0/digest",
-     "value": "$digest:alice_memory_decisions_body"
-    },
-    {
-     "pointer": "/members/0/path",
-     "value": "decisions.jsonl"
-    },
-    {
-     "pointer": "/members/0/size",
-     "value": 256
-    },
     {
      "pointer": "/produced_at",
      "value": "$instant:alice_memory_produced_at"
-    },
-    {
-     "pointer": "/source_id",
-     "value": "@alice_memory"
     }
    ]
   },
@@ -1884,7 +1906,8 @@
    "name": "author_repo_memory",
    "request": "author_repo_memory_request",
    "carries": [
-    "repo_memory_request"
+    "repo_memory_request",
+    "repo_memory_rev_submitted"
    ],
    "answer": {
     "stage": "committed",
@@ -1896,13 +1919,17 @@
      "repo_memory_rev"
     ],
     "head": "repo_memory_head"
-   }
+   },
+   "submits": [
+    "repo_memory_rev_submitted"
+   ]
   },
   {
    "name": "author_alice_memory",
    "request": "author_alice_memory_request",
    "carries": [
-    "alice_memory_request"
+    "alice_memory_request",
+    "alice_memory_rev_submitted"
    ],
    "answer": {
     "stage": "committed",
@@ -1914,7 +1941,10 @@
      "alice_memory_rev"
     ],
     "head": "alice_memory_head"
-   }
+   },
+   "submits": [
+    "alice_memory_rev_submitted"
+   ]
   },
   {
    "name": "record_repo_choice",

@@ -580,6 +580,10 @@
     {
      "pointer": "/destination/scope/team_id",
      "value": "@team"
+    },
+    {
+     "pointer": "/route/manifest_digest",
+     "value": "#notes_manifest"
     }
    ]
   },
@@ -7680,7 +7684,8 @@
    "name": "admit_notes_revision",
    "request": "admit_notes",
    "carries": [
-    "notes_request_payload"
+    "notes_request_payload",
+    "notes_manifest"
    ],
    "answer": {
     "stage": "committed",
@@ -7693,7 +7698,10 @@
      "notes_provenance"
     ],
     "head": "notes_admitted_head"
-   }
+   },
+   "submits": [
+    "notes_manifest"
+   ]
   },
   {
    "name": "probe_read",

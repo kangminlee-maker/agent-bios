@@ -48,7 +48,7 @@ from workenv.contracts import b03, canonical
 DATABASE = "state.sqlite"
 # The layout this module writes, as PRAGMA user_version; a store with a later one was written
 # by a later runtime and is not opened.
-LAYOUT = 2
+LAYOUT = 3
 # What a member's bytes are kept as among records: they have no kind of their own.
 MEMBER = "source_member"
 IN_TXN = "in_txn_before_commit"
@@ -103,8 +103,14 @@ LAYOUT_2 = (
          repository_id TEXT PRIMARY KEY, binding_digest TEXT NOT NULL, checkout TEXT NOT NULL)""",
 )
 
+LAYOUT_3 = (
+    # How each source's home keeps it — managed, repository-authored or package-published — for a
+    # source admitted with no home record as for one registered with one.
+    "ALTER TABLE sources ADD COLUMN home_mode TEXT",
+)
+
 # What each layout adds to the one before it.
-LAYOUTS = {1: LAYOUT_1, 2: LAYOUT_2}
+LAYOUTS = {1: LAYOUT_1, 2: LAYOUT_2, 3: LAYOUT_3}
 
 
 class StorageError(Exception):

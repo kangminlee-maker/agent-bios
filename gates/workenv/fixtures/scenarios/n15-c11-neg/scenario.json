@@ -142,6 +142,11 @@
    "record": "bind_alice_key_result"
   },
   {
+   "digest_of": "rules_rev_submitted",
+   "pointer": "/route/manifest_digest",
+   "record": "rules_rev_request"
+  },
+  {
    "digest_of": "rules_rev_request",
    "pointer": "/payload_digest",
    "record": "admit_rules_rev"
@@ -165,11 +170,6 @@
    "minted": "author_rules_rev_committed_at",
    "pointer": "/committed_at",
    "record": "author_rules_rev_receipt"
-  },
-  {
-   "minted": "review_body",
-   "pointer": "/members/0/digest",
-   "record": "rules_rev"
   },
   {
    "minted": "rules_rev_at",
@@ -347,11 +347,6 @@
    "record": "preparation"
   },
   {
-   "minted": "review_body",
-   "pointer": "/units/0/body_digest",
-   "record": "preparation"
-  },
-  {
    "digest_of": "compose_preparation",
    "pointer": "/request_digest",
    "record": "compose_preparation_result"
@@ -367,11 +362,6 @@
    "record": "invented_submitted"
   },
   {
-   "minted": "review_body",
-   "pointer": "/requested/bodies/0",
-   "record": "invented_submitted"
-  },
-  {
    "digest_of": "invented_submitted",
    "pointer": "/payload_digest",
    "record": "attempt_invented"
@@ -379,11 +369,6 @@
   {
    "digest_of": "preparation",
    "pointer": "/requested/preparation_digest",
-   "record": "unknown_link_attempt"
-  },
-  {
-   "minted": "review_body",
-   "pointer": "/requested/bodies/0",
    "record": "unknown_link_attempt"
   },
   {
@@ -417,11 +402,6 @@
    "record": "resume_submitted"
   },
   {
-   "minted": "review_body",
-   "pointer": "/requested/bodies/0",
-   "record": "resume_submitted"
-  },
-  {
    "digest_of": "resume_submitted",
    "pointer": "/payload_digest",
    "record": "attempt_resume"
@@ -434,11 +414,6 @@
   {
    "digest_of": "preparation",
    "pointer": "/requested/preparation_digest",
-   "record": "unsupported_resume"
-  },
-  {
-   "minted": "review_body",
-   "pointer": "/requested/bodies/0",
    "record": "unsupported_resume"
   },
   {
@@ -472,11 +447,6 @@
    "record": "current_submitted"
   },
   {
-   "minted": "review_body",
-   "pointer": "/requested/bodies/0",
-   "record": "current_submitted"
-  },
-  {
    "digest_of": "current_submitted",
    "pointer": "/payload_digest",
    "record": "attempt_current"
@@ -489,11 +459,6 @@
   {
    "digest_of": "preparation",
    "pointer": "/requested/preparation_digest",
-   "record": "current_lost"
-  },
-  {
-   "minted": "review_body",
-   "pointer": "/requested/bodies/0",
    "record": "current_lost"
   },
   {
@@ -617,11 +582,6 @@
    "record": "after_lock_submitted"
   },
   {
-   "minted": "review_body",
-   "pointer": "/requested/bodies/0",
-   "record": "after_lock_submitted"
-  },
-  {
    "digest_of": "after_lock_submitted",
    "pointer": "/payload_digest",
    "record": "attempt_after_lock"
@@ -666,11 +626,6 @@
   {
    "name": "author_rules_rev_sequence",
    "shape": "integer",
-   "step": "author_rules_rev"
-  },
-  {
-   "name": "review_body",
-   "shape": "digest",
    "step": "author_rules_rev"
   },
   {
@@ -895,7 +850,24 @@
    }
   },
   {
-   "digest": "e0e03081922c9c52aa3386abd31d4c4959fdc85edb7b6962a3ec45bd4f10190b",
+   "digest": "05643a72374692b4db6066b231f41ccebab81df65cf0264e27b0308c62530796",
+   "name": "rules_rev_submitted",
+   "record": {
+    "format_version": 1,
+    "kind": "source_manifest",
+    "members": [
+     {
+      "digest": "a84f030b0cb7d92637f74785b277acd055eecc7330ba65c06e0d896eed110b6b",
+      "path": "rules/review.md",
+      "size": 2048
+     }
+    ],
+    "schema": 1,
+    "source_id": "src_f4fd3819fa06a88ac25e95af74dde1c0"
+   }
+  },
+  {
+   "digest": "a510ea9f7e9ead27fb5ca0afd84133acee1a057f0661adb058d5c84f6eb4f869",
    "name": "rules_rev_request",
    "record": {
     "destination": {
@@ -908,13 +880,14 @@
     "kind": "source_request",
     "role": "instructions",
     "route": {
+     "manifest_digest": "05643a72374692b4db6066b231f41ccebab81df65cf0264e27b0308c62530796",
      "route": "author_here"
     },
     "schema": 1
    }
   },
   {
-   "digest": "baa37651edf3c5710fbe157b38e10231660814cb63d5f1f7b28700aa318cd4ad",
+   "digest": "7e0fe5c211ce623ef72cfacb218b657288ccc3cfd2e05e075af0574fff096e0f",
    "name": "admit_rules_rev",
    "record": {
     "action": "contribute",
@@ -932,7 +905,7 @@
      "layer": "personal",
      "principal_id": "prn_ba7282e6d0742025a6b9439b6965100d"
     },
-    "payload_digest": "e0e03081922c9c52aa3386abd31d4c4959fdc85edb7b6962a3ec45bd4f10190b",
+    "payload_digest": "a510ea9f7e9ead27fb5ca0afd84133acee1a057f0661adb058d5c84f6eb4f869",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_810a262026fa645b51b753325da8a2e4",
@@ -946,7 +919,7 @@
    }
   },
   {
-   "digest": "40d61d8d530a45e124f23bb6ace6eb462e2bac21fc3df3504c780deea11cdc47",
+   "digest": "cde1a93bbc3ebe12715da7e6eedae491c899739906ea374b7e339994e1603208",
    "name": "author_rules_rev_receipt",
    "record": {
     "committed_at": "2000-01-01T00:00:00Z",
@@ -956,7 +929,7 @@
      "layer": "personal",
      "principal_id": "prn_ba7282e6d0742025a6b9439b6965100d"
     },
-    "request_digest": "baa37651edf3c5710fbe157b38e10231660814cb63d5f1f7b28700aa318cd4ad",
+    "request_digest": "7e0fe5c211ce623ef72cfacb218b657288ccc3cfd2e05e075af0574fff096e0f",
     "request_id": "req_810a262026fa645b51b753325da8a2e4",
     "schema": 1,
     "sequence": 1,
@@ -987,14 +960,14 @@
    }
   },
   {
-   "digest": "f8ec9c7b1a989c5784a67d8f444a43082f5d3c623ca19b6cfbd8e4f54d95afdf",
+   "digest": "5cbd23bbd3d7ec71d0c75667c8080deca573087f18b1641502c26398bdc3b465",
    "name": "author_rules_rev_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "40d61d8d530a45e124f23bb6ace6eb462e2bac21fc3df3504c780deea11cdc47",
+     "receipt_digest": "cde1a93bbc3ebe12715da7e6eedae491c899739906ea374b7e339994e1603208",
      "stage": "committed"
     },
     "outputs": [
@@ -1004,7 +977,7 @@
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "baa37651edf3c5710fbe157b38e10231660814cb63d5f1f7b28700aa318cd4ad",
+    "request_digest": "7e0fe5c211ce623ef72cfacb218b657288ccc3cfd2e05e075af0574fff096e0f",
     "request_id": "req_810a262026fa645b51b753325da8a2e4",
     "schema": 1,
     "supported_recovery": []
@@ -2039,7 +2012,7 @@
   }
  ],
  "says": "Alice binds her device key, authors and selects a personal Instructions source, opens a link to her working conversation in a Codex host, and composes a preparation for delivery on it. Four attempts on that preparation must never claim a delivery nor repeat an effect. An attempt naming a link id the runtime never issued is refused as recipient_link_unknown and sees no channel. A resume of that session as a rehydrated recipient, which this host's route cannot carry, is recorded as unsupported, sees no channel, and is refused as route_unsupported. A delivery to the current conversation is recorded, but the host's own acknowledgement of it never arrives: the attempt sees lost, names no received body and no evidence, and its answer is outcome_unknown with recovery by querying the same request id — nothing here claims the body arrived. Resubmitting the identical request replays that same unresolved answer and writes nothing new; querying it afterward by its request id returns that same result again, still lost and still unclaimed. She then locks her profile: the access state moves to a new generation, and a delivery attempted afterwards still states the generation before the lock and is refused as access_locked and access_generation_moved, with unlock as its recovery, and returns no attempt. Observing the preparation at the end finds nothing delivered — not_observed with delivery_unobserved — because none of the four attempts, nor the resubmission, ever claimed a body arrived.",
- "spec_sha256": "54be5960875045b84b969d9607664cc07cb8a697c392334fd41793b5cfe2dd31",
+ "spec_sha256": "5b868c8452dff5e7a77cb4e963e31c871415d3b070bf9da29a92bdacee96863c",
  "steps": [
   {
    "carries": [
@@ -2054,7 +2027,8 @@
   },
   {
    "carries": [
-    "rules_rev_request"
+    "rules_rev_request",
+    "rules_rev_submitted"
    ],
    "head": "rules_head",
    "name": "author_rules_rev",
@@ -2062,6 +2036,9 @@
    "result": "author_rules_rev_result",
    "returns": [
     "rules_rev"
+   ],
+   "submits": [
+    "rules_rev_submitted"
    ]
   },
   {

@@ -228,6 +228,11 @@
    "record": "open_storage_work_result"
   },
   {
+   "digest_of": "repo_memory_rev_submitted",
+   "pointer": "/route/manifest_digest",
+   "record": "repo_memory_request"
+  },
+  {
    "digest_of": "repo_memory_request",
    "pointer": "/payload_digest",
    "record": "author_repo_memory_request"
@@ -253,11 +258,6 @@
    "record": "author_repo_memory_receipt"
   },
   {
-   "minted": "repo_memory_decisions_body",
-   "pointer": "/members/0/digest",
-   "record": "repo_memory_rev"
-  },
-  {
    "minted": "repo_memory_produced_at",
    "pointer": "/produced_at",
    "record": "repo_memory_rev"
@@ -276,6 +276,11 @@
    "digest_of": "repo_memory_rev",
    "pointer": "/outputs/0/digest",
    "record": "author_repo_memory_result"
+  },
+  {
+   "digest_of": "alice_memory_rev_submitted",
+   "pointer": "/route/manifest_digest",
+   "record": "alice_memory_request"
   },
   {
    "digest_of": "alice_memory_request",
@@ -301,11 +306,6 @@
    "minted": "author_alice_memory_committed_at",
    "pointer": "/committed_at",
    "record": "author_alice_memory_receipt"
-  },
-  {
-   "minted": "alice_memory_decisions_body",
-   "pointer": "/members/0/digest",
-   "record": "alice_memory_rev"
   },
   {
    "minted": "alice_memory_produced_at",
@@ -1060,11 +1060,6 @@
    "step": "author_repo_memory"
   },
   {
-   "name": "repo_memory_decisions_body",
-   "shape": "digest",
-   "step": "author_repo_memory"
-  },
-  {
    "name": "repo_memory_head",
    "shape": "digest",
    "step": "author_repo_memory"
@@ -1073,11 +1068,6 @@
    "name": "repo_memory_produced_at",
    "shape": "instant",
    "step": "author_repo_memory"
-  },
-  {
-   "name": "alice_memory_decisions_body",
-   "shape": "digest",
-   "step": "author_alice_memory"
   },
   {
    "name": "alice_memory_head",
@@ -1586,7 +1576,24 @@
    }
   },
   {
-   "digest": "1f01720ae4d1b0511b39ea2c19b77aa822a896248e992aec239b5b36f30022a0",
+   "digest": "76d018c0afcabb24ba1ce300d995d417a500f72a4cf105518ed6c04037d04539",
+   "name": "repo_memory_rev_submitted",
+   "record": {
+    "format_version": 1,
+    "kind": "source_manifest",
+    "members": [
+     {
+      "digest": "ad2be28b0a993e05eab8f52987e73c1325620cdc2fe51f8451dba53d4694b3a0",
+      "path": "decisions.jsonl",
+      "size": 512
+     }
+    ],
+    "schema": 1,
+    "source_id": "src_974ca0eb3ed4867315d171ceb077c6b6"
+   }
+  },
+  {
+   "digest": "d4279ca6afebfd65ccd15d0ccf1bd1b1e686f7e54943820ad2d367a56d8fa630",
    "name": "repo_memory_request",
    "record": {
     "destination": {
@@ -1599,13 +1606,14 @@
     "kind": "source_request",
     "role": "memory",
     "route": {
+     "manifest_digest": "76d018c0afcabb24ba1ce300d995d417a500f72a4cf105518ed6c04037d04539",
      "route": "author_here"
     },
     "schema": 1
    }
   },
   {
-   "digest": "34e5626064de94bf1a04cbfb03a47ff055ef306b521fb8cc8848ea0ff0d1227a",
+   "digest": "9ab7ff4e8f8e55f4c27ac531ba2c2161688f443e87238a462f36a5f7931287bf",
    "name": "author_repo_memory_request",
    "record": {
     "action": "contribute",
@@ -1623,7 +1631,7 @@
      "layer": "repository",
      "repository_id": "rep_de30365273f9e58765ff01ae447fb484"
     },
-    "payload_digest": "1f01720ae4d1b0511b39ea2c19b77aa822a896248e992aec239b5b36f30022a0",
+    "payload_digest": "d4279ca6afebfd65ccd15d0ccf1bd1b1e686f7e54943820ad2d367a56d8fa630",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_a6614a695a660fdbd958368f0d61b79e",
@@ -1637,7 +1645,7 @@
    }
   },
   {
-   "digest": "4e0f564fb75adc012fb0a124bb94c96320d0931e85d29def6e7c1dbac0d925c7",
+   "digest": "8c43efe88d2dfa84f1159d164c05b490a8170d1dc4245cfb6c1942c9f0be7516",
    "name": "author_repo_memory_receipt",
    "record": {
     "committed_at": "2000-01-01T00:00:00Z",
@@ -1647,7 +1655,7 @@
      "layer": "repository",
      "repository_id": "rep_de30365273f9e58765ff01ae447fb484"
     },
-    "request_digest": "34e5626064de94bf1a04cbfb03a47ff055ef306b521fb8cc8848ea0ff0d1227a",
+    "request_digest": "9ab7ff4e8f8e55f4c27ac531ba2c2161688f443e87238a462f36a5f7931287bf",
     "request_id": "req_a6614a695a660fdbd958368f0d61b79e",
     "schema": 1,
     "sequence": 1,
@@ -1678,14 +1686,14 @@
    }
   },
   {
-   "digest": "a7d2f12cc9df8fd61680672f7080eb12501a1eecbfd5b86cb4728faf325a1f79",
+   "digest": "684c507421e2c4c2edb1691f8446b37f1cc875283f913be339ece849953ade80",
    "name": "author_repo_memory_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "4e0f564fb75adc012fb0a124bb94c96320d0931e85d29def6e7c1dbac0d925c7",
+     "receipt_digest": "8c43efe88d2dfa84f1159d164c05b490a8170d1dc4245cfb6c1942c9f0be7516",
      "stage": "committed"
     },
     "outputs": [
@@ -1695,14 +1703,31 @@
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "34e5626064de94bf1a04cbfb03a47ff055ef306b521fb8cc8848ea0ff0d1227a",
+    "request_digest": "9ab7ff4e8f8e55f4c27ac531ba2c2161688f443e87238a462f36a5f7931287bf",
     "request_id": "req_a6614a695a660fdbd958368f0d61b79e",
     "schema": 1,
     "supported_recovery": []
    }
   },
   {
-   "digest": "3d2a3cd7866da28585277e09fe42143ca035a695f434f3483a501d945f39fba5",
+   "digest": "08a8af8cfa8a138d489e85f762ed9fb96009800903dd3e57f22918b0c9e80eae",
+   "name": "alice_memory_rev_submitted",
+   "record": {
+    "format_version": 1,
+    "kind": "source_manifest",
+    "members": [
+     {
+      "digest": "23ccd7cf0482c5f58115a26a6dda767ea2d3346f776d37435773c3f5fffe9c60",
+      "path": "decisions.jsonl",
+      "size": 256
+     }
+    ],
+    "schema": 1,
+    "source_id": "src_b6fff497003598ff78323515652b6700"
+   }
+  },
+  {
+   "digest": "74d901280dfd005a5ad4f9a6bcda58e319f76a2518a1c0fd3f38b62ed82a2022",
    "name": "alice_memory_request",
    "record": {
     "destination": {
@@ -1715,13 +1740,14 @@
     "kind": "source_request",
     "role": "memory",
     "route": {
+     "manifest_digest": "08a8af8cfa8a138d489e85f762ed9fb96009800903dd3e57f22918b0c9e80eae",
      "route": "author_here"
     },
     "schema": 1
    }
   },
   {
-   "digest": "f32e4624c9aad8a2c33d0bd4587c263bb233c8dbaea3d6538610e7e789bd399b",
+   "digest": "2b92ba527bdfdb36a0cf0a4be721408e6368d53db062f52dd55909d64c38efc1",
    "name": "author_alice_memory_request",
    "record": {
     "action": "contribute",
@@ -1739,7 +1765,7 @@
      "layer": "personal",
      "principal_id": "prn_a67fd5ef572205b28ce0dd64dcae918b"
     },
-    "payload_digest": "3d2a3cd7866da28585277e09fe42143ca035a695f434f3483a501d945f39fba5",
+    "payload_digest": "74d901280dfd005a5ad4f9a6bcda58e319f76a2518a1c0fd3f38b62ed82a2022",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_ee32f05273e97fc5a65b75f0defa91df",
@@ -1753,7 +1779,7 @@
    }
   },
   {
-   "digest": "fbb4f48477aceec2e612a8d5d551ab07b1f9820cfc8d51e7ba68badf4479b51d",
+   "digest": "6761639e1487565cd0ab51dc5fec61be40604b7c9efcf7efad53d3a3ac831272",
    "name": "author_alice_memory_receipt",
    "record": {
     "committed_at": "2000-01-01T00:00:00Z",
@@ -1763,7 +1789,7 @@
      "layer": "personal",
      "principal_id": "prn_a67fd5ef572205b28ce0dd64dcae918b"
     },
-    "request_digest": "f32e4624c9aad8a2c33d0bd4587c263bb233c8dbaea3d6538610e7e789bd399b",
+    "request_digest": "2b92ba527bdfdb36a0cf0a4be721408e6368d53db062f52dd55909d64c38efc1",
     "request_id": "req_ee32f05273e97fc5a65b75f0defa91df",
     "schema": 1,
     "sequence": 1,
@@ -1794,14 +1820,14 @@
    }
   },
   {
-   "digest": "4acb5f27afd8f46bda3a62f63b0a57c52be4779f4888cb92c8c6ca995511b02f",
+   "digest": "728d5b30591cfd1f65c04454741e9f2f12f7130be436a6329ef829d7fd576b2c",
    "name": "author_alice_memory_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "fbb4f48477aceec2e612a8d5d551ab07b1f9820cfc8d51e7ba68badf4479b51d",
+     "receipt_digest": "6761639e1487565cd0ab51dc5fec61be40604b7c9efcf7efad53d3a3ac831272",
      "stage": "committed"
     },
     "outputs": [
@@ -1811,7 +1837,7 @@
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "f32e4624c9aad8a2c33d0bd4587c263bb233c8dbaea3d6538610e7e789bd399b",
+    "request_digest": "2b92ba527bdfdb36a0cf0a4be721408e6368d53db062f52dd55909d64c38efc1",
     "request_id": "req_ee32f05273e97fc5a65b75f0defa91df",
     "schema": 1,
     "supported_recovery": []
@@ -3082,7 +3108,7 @@
   }
  ],
  "says": "Alice opens a link to her host session and starts a managed session whose preparation selected only memory; the composition records the session selected only, and activating it returns a routing with no projection and the usage contract. The repository's memory and her personal memory each hold a current choice for the same journal-mode question, so a use that relies on it is held and a sealed question is asked through the host's native question tool on that link. A hook configured on the host answers the tool by itself, picking the repository's choice. The owner records that reply as evidence whose origin is hook_generated, carrying no choice, beside the host configuration measured when it arrived - its Elicitation hook enabled - and resuming the use with that evidence is blocked as answer_not_from_a_person: the use stays pending on the same question, so no use is admitted and no choice is applied. Observing delivery names only the managed session's preparation and the link it was started on; it has no field for, and makes no claim about, anything the agent did with memory outside this managed route, such as reading the raw text of a memory file.",
- "spec_sha256": "ef6d103d457203a981d4cfbe49f7e5a816cf749209e233f868c413026f5b62e5",
+ "spec_sha256": "6406ec163cf9777294f1d94bffbd650d42307fd4be7c2cce4966074ba321ea0f",
  "steps": [
   {
    "carries": [
@@ -3119,7 +3145,8 @@
   },
   {
    "carries": [
-    "repo_memory_request"
+    "repo_memory_request",
+    "repo_memory_rev_submitted"
    ],
    "head": "repo_memory_head",
    "name": "author_repo_memory",
@@ -3127,11 +3154,15 @@
    "result": "author_repo_memory_result",
    "returns": [
     "repo_memory_rev"
+   ],
+   "submits": [
+    "repo_memory_rev_submitted"
    ]
   },
   {
    "carries": [
-    "alice_memory_request"
+    "alice_memory_request",
+    "alice_memory_rev_submitted"
    ],
    "head": "alice_memory_head",
    "name": "author_alice_memory",
@@ -3139,6 +3170,9 @@
    "result": "author_alice_memory_result",
    "returns": [
     "alice_memory_rev"
+   ],
+   "submits": [
+    "alice_memory_rev_submitted"
    ]
   },
   {

@@ -447,6 +447,32 @@
    ]
   },
   {
+   "name": "team_rules_rev_submitted",
+   "from": "sources/revision_of_a_published_package.json",
+   "drop": [
+    "/members/1",
+    "/produced_at"
+   ],
+   "set": [
+    {
+     "pointer": "/members/0/digest",
+     "value": "efaf0a6455da05ae26bc7a63c619bf7a363dca817fcea64efc5b30fffacf4556"
+    },
+    {
+     "pointer": "/members/0/path",
+     "value": "rules/review.md"
+    },
+    {
+     "pointer": "/members/0/size",
+     "value": 2048
+    },
+    {
+     "pointer": "/source_id",
+     "value": "@team_rules"
+    }
+   ]
+  },
+  {
    "name": "team_rules_request",
    "from": "sources/request_to_author_here.json",
    "drop": [
@@ -468,6 +494,10 @@
     {
      "pointer": "/role",
      "value": "instructions"
+    },
+    {
+     "pointer": "/route/manifest_digest",
+     "value": "#team_rules_rev_submitted"
     }
    ]
   },
@@ -533,30 +563,29 @@
   },
   {
    "name": "team_rules_rev",
+   "from": "team_rules_rev_submitted",
+   "set": [
+    {
+     "pointer": "/produced_at",
+     "value": "$instant:team_rules_produced_at"
+    }
+   ]
+  },
+  {
+   "name": "team_kb_rev_submitted",
    "from": "sources/revision_of_a_published_package.json",
    "drop": [
-    "/members/1"
+    "/members/1",
+    "/produced_at"
    ],
    "set": [
     {
      "pointer": "/members/0/digest",
-     "value": "$digest:team_rules_review_body"
-    },
-    {
-     "pointer": "/members/0/path",
-     "value": "rules/review.md"
-    },
-    {
-     "pointer": "/members/0/size",
-     "value": 2048
-    },
-    {
-     "pointer": "/produced_at",
-     "value": "$instant:team_rules_produced_at"
+     "value": "005f1f68ef406ec8bda723015d50c76126c9445235222e02bb0ba8e4e586fdba"
     },
     {
      "pointer": "/source_id",
-     "value": "@team_rules"
+     "value": "@team_kb"
     }
    ]
   },
@@ -582,6 +611,10 @@
     {
      "pointer": "/role",
      "value": "knowledge"
+    },
+    {
+     "pointer": "/route/manifest_digest",
+     "value": "#team_kb_rev_submitted"
     }
    ]
   },
@@ -647,22 +680,37 @@
   },
   {
    "name": "team_kb_rev",
+   "from": "team_kb_rev_submitted",
+   "set": [
+    {
+     "pointer": "/produced_at",
+     "value": "$instant:team_kb_produced_at"
+    }
+   ]
+  },
+  {
+   "name": "team_memory_rev_submitted",
    "from": "sources/revision_of_a_published_package.json",
    "drop": [
-    "/members/1"
+    "/members/1",
+    "/produced_at"
    ],
    "set": [
     {
      "pointer": "/members/0/digest",
-     "value": "$digest:team_kb_concepts_body"
+     "value": "0a71554f5befa2d09734d8dce532bfadfb4e46cf72700bbf808d5aa8d57d6d9c"
     },
     {
-     "pointer": "/produced_at",
-     "value": "$instant:team_kb_produced_at"
+     "pointer": "/members/0/path",
+     "value": "decisions.jsonl"
+    },
+    {
+     "pointer": "/members/0/size",
+     "value": 512
     },
     {
      "pointer": "/source_id",
-     "value": "@team_kb"
+     "value": "@team_memory"
     }
    ]
   },
@@ -684,6 +732,10 @@
     {
      "pointer": "/destination/scope/team_id",
      "value": "@team"
+    },
+    {
+     "pointer": "/route/manifest_digest",
+     "value": "#team_memory_rev_submitted"
     }
    ]
   },
@@ -749,30 +801,11 @@
   },
   {
    "name": "team_memory_rev",
-   "from": "sources/revision_of_a_published_package.json",
-   "drop": [
-    "/members/1"
-   ],
+   "from": "team_memory_rev_submitted",
    "set": [
-    {
-     "pointer": "/members/0/digest",
-     "value": "$digest:team_memory_decisions_body"
-    },
-    {
-     "pointer": "/members/0/path",
-     "value": "decisions.jsonl"
-    },
-    {
-     "pointer": "/members/0/size",
-     "value": 512
-    },
     {
      "pointer": "/produced_at",
      "value": "$instant:team_memory_produced_at"
-    },
-    {
-     "pointer": "/source_id",
-     "value": "@team_memory"
     }
    ]
   },
@@ -1061,7 +1094,7 @@
     },
     {
      "pointer": "/units/0/body_digest",
-     "value": "$digest:team_rules_review_body"
+     "value": "efaf0a6455da05ae26bc7a63c619bf7a363dca817fcea64efc5b30fffacf4556"
     },
     {
      "pointer": "/units/1/unit_id",
@@ -1085,7 +1118,7 @@
     },
     {
      "pointer": "/units/1/body_digest",
-     "value": "$digest:team_kb_concepts_body"
+     "value": "005f1f68ef406ec8bda723015d50c76126c9445235222e02bb0ba8e4e586fdba"
     },
     {
      "pointer": "/units/0/standing",
@@ -1209,7 +1242,8 @@
    "name": "author_team_rules",
    "request": "author_team_rules_request",
    "carries": [
-    "team_rules_request"
+    "team_rules_request",
+    "team_rules_rev_submitted"
    ],
    "answer": {
     "stage": "committed",
@@ -1221,13 +1255,17 @@
      "team_rules_rev"
     ],
     "head": "team_rules_head"
-   }
+   },
+   "submits": [
+    "team_rules_rev_submitted"
+   ]
   },
   {
    "name": "author_team_kb",
    "request": "author_team_kb_request",
    "carries": [
-    "team_kb_request"
+    "team_kb_request",
+    "team_kb_rev_submitted"
    ],
    "answer": {
     "stage": "committed",
@@ -1239,13 +1277,17 @@
      "team_kb_rev"
     ],
     "head": "team_kb_head"
-   }
+   },
+   "submits": [
+    "team_kb_rev_submitted"
+   ]
   },
   {
    "name": "author_team_memory",
    "request": "author_team_memory_request",
    "carries": [
-    "team_memory_request"
+    "team_memory_request",
+    "team_memory_rev_submitted"
    ],
    "answer": {
     "stage": "committed",
@@ -1257,7 +1299,10 @@
      "team_memory_rev"
     ],
     "head": "team_memory_head"
-   }
+   },
+   "submits": [
+    "team_memory_rev_submitted"
+   ]
   },
   {
    "name": "publish_backend_edition",

@@ -106,6 +106,11 @@
    "record": "bind_alice_result"
   },
   {
+   "digest_of": "my_rules_rev_submitted",
+   "pointer": "/route/manifest_digest",
+   "record": "my_rules_request"
+  },
+  {
    "digest_of": "my_rules_request",
    "pointer": "/payload_digest",
    "record": "author_my_rules_request"
@@ -129,11 +134,6 @@
    "minted": "author_my_rules_committed_at",
    "pointer": "/committed_at",
    "record": "author_my_rules_receipt"
-  },
-  {
-   "minted": "my_rules_habits_body",
-   "pointer": "/members/0/digest",
-   "record": "my_rules_rev"
   },
   {
    "minted": "my_rules_produced_at",
@@ -188,11 +188,6 @@
   {
    "digest_of": "my_rules_rev",
    "pointer": "/units/0/revision_digest",
-   "record": "personal_preparation"
-  },
-  {
-   "minted": "my_rules_habits_body",
-   "pointer": "/units/0/body_digest",
    "record": "personal_preparation"
   },
   {
@@ -276,6 +271,11 @@
    "record": "bind_repository_result"
   },
   {
+   "digest_of": "repo_rules_rev_submitted",
+   "pointer": "/route/manifest_digest",
+   "record": "repo_rules_request"
+  },
+  {
    "digest_of": "repo_rules_request",
    "pointer": "/payload_digest",
    "record": "author_repo_rules_request"
@@ -299,11 +299,6 @@
    "minted": "author_repo_rules_committed_at",
    "pointer": "/committed_at",
    "record": "author_repo_rules_receipt"
-  },
-  {
-   "minted": "repo_rules_review_body",
-   "pointer": "/members/0/digest",
-   "record": "repo_rules_rev"
   },
   {
    "minted": "repo_rules_produced_at",
@@ -371,11 +366,6 @@
    "record": "brownfield_preparation"
   },
   {
-   "minted": "repo_rules_review_body",
-   "pointer": "/units/0/body_digest",
-   "record": "brownfield_preparation"
-  },
-  {
    "minted": "habits_in_repo",
    "pointer": "/units/1/unit_id",
    "record": "brownfield_preparation"
@@ -383,11 +373,6 @@
   {
    "digest_of": "my_rules_rev",
    "pointer": "/units/1/revision_digest",
-   "record": "brownfield_preparation"
-  },
-  {
-   "minted": "my_rules_habits_body",
-   "pointer": "/units/1/body_digest",
    "record": "brownfield_preparation"
   },
   {
@@ -435,11 +420,6 @@
   {
    "name": "author_my_rules_sequence",
    "shape": "integer",
-   "step": "author_my_rules"
-  },
-  {
-   "name": "my_rules_habits_body",
-   "shape": "digest",
    "step": "author_my_rules"
   },
   {
@@ -510,11 +490,6 @@
   {
    "name": "repo_rules_produced_at",
    "shape": "instant",
-   "step": "author_repo_rules"
-  },
-  {
-   "name": "repo_rules_review_body",
-   "shape": "digest",
    "step": "author_repo_rules"
   },
   {
@@ -654,7 +629,24 @@
    }
   },
   {
-   "digest": "aa827ca6bcb3c839989c2ec9bcfe8b8a971096944f06997ffc8816216b3ccc29",
+   "digest": "9bdff8dc07e4667e01f14c68860d664257763ec3690b3fbf942d0e18ed655929",
+   "name": "my_rules_rev_submitted",
+   "record": {
+    "format_version": 1,
+    "kind": "source_manifest",
+    "members": [
+     {
+      "digest": "9c54daee2dfe8308d09984fd0529e1eb23af0054c493e451268c14218f9d85e9",
+      "path": "habits.md",
+      "size": 900
+     }
+    ],
+    "schema": 1,
+    "source_id": "src_31d5e34e2c010ba7ed8120563ceaf49a"
+   }
+  },
+  {
+   "digest": "adf4c090d0343212ecaa4c8ffb05a911eb1d3ada7711e2e8a4cc8e3c6e4b8552",
    "name": "my_rules_request",
    "record": {
     "destination": {
@@ -667,13 +659,14 @@
     "kind": "source_request",
     "role": "instructions",
     "route": {
+     "manifest_digest": "9bdff8dc07e4667e01f14c68860d664257763ec3690b3fbf942d0e18ed655929",
      "route": "author_here"
     },
     "schema": 1
    }
   },
   {
-   "digest": "d34f51e0326aabd4251aa2aa7ca49bdf8cb8e7f5ad624f7902c3c13165bc033a",
+   "digest": "042a9f047dfb19bc559d39859cf2f056537aaef7ae4f99b72cc8ea634b399eb9",
    "name": "author_my_rules_request",
    "record": {
     "action": "contribute",
@@ -691,7 +684,7 @@
      "layer": "personal",
      "principal_id": "prn_5ea15b251cca2d86a13504ed279d5378"
     },
-    "payload_digest": "aa827ca6bcb3c839989c2ec9bcfe8b8a971096944f06997ffc8816216b3ccc29",
+    "payload_digest": "adf4c090d0343212ecaa4c8ffb05a911eb1d3ada7711e2e8a4cc8e3c6e4b8552",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_22b7d5e07c8a3c4cb20408ba68d44a29",
@@ -705,7 +698,7 @@
    }
   },
   {
-   "digest": "1334c427019f23586e1d90abc3224a3a2ca60c600788098387e67cb5287f707a",
+   "digest": "3c0eb928e6da598e8dc312394c1455f80195e7d9b35e997ea129e0bc546d46df",
    "name": "author_my_rules_receipt",
    "record": {
     "committed_at": "2000-01-01T00:00:00Z",
@@ -715,7 +708,7 @@
      "layer": "personal",
      "principal_id": "prn_5ea15b251cca2d86a13504ed279d5378"
     },
-    "request_digest": "d34f51e0326aabd4251aa2aa7ca49bdf8cb8e7f5ad624f7902c3c13165bc033a",
+    "request_digest": "042a9f047dfb19bc559d39859cf2f056537aaef7ae4f99b72cc8ea634b399eb9",
     "request_id": "req_22b7d5e07c8a3c4cb20408ba68d44a29",
     "schema": 1,
     "sequence": 1,
@@ -746,14 +739,14 @@
    }
   },
   {
-   "digest": "94be42513a89c6cfc9f32a393fdb725612d949bc8b934277f244f2f15b7f4d5b",
+   "digest": "0551b5f08f50f6bd1f6092533cb1078a84f7702c39df2c950002c91c515d2a67",
    "name": "author_my_rules_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "1334c427019f23586e1d90abc3224a3a2ca60c600788098387e67cb5287f707a",
+     "receipt_digest": "3c0eb928e6da598e8dc312394c1455f80195e7d9b35e997ea129e0bc546d46df",
      "stage": "committed"
     },
     "outputs": [
@@ -763,7 +756,7 @@
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "d34f51e0326aabd4251aa2aa7ca49bdf8cb8e7f5ad624f7902c3c13165bc033a",
+    "request_digest": "042a9f047dfb19bc559d39859cf2f056537aaef7ae4f99b72cc8ea634b399eb9",
     "request_id": "req_22b7d5e07c8a3c4cb20408ba68d44a29",
     "schema": 1,
     "supported_recovery": []
@@ -1114,7 +1107,24 @@
    }
   },
   {
-   "digest": "7acd8380386f2c3410413adacf34c217fd3f0375817c17c35eececbeeb2e1270",
+   "digest": "4f2b4acd14ef4d23c3212a988d84e14a0dab33b2f3a712428ac706bf164a64bc",
+   "name": "repo_rules_rev_submitted",
+   "record": {
+    "format_version": 1,
+    "kind": "source_manifest",
+    "members": [
+     {
+      "digest": "342d27f44cfe86545bb9b9fbd9da2a17ec6037e7d041b6e61e6ac4522c9f69b6",
+      "path": "rules/review.md",
+      "size": 2048
+     }
+    ],
+    "schema": 1,
+    "source_id": "src_213405e78576467ccddecf96f054594c"
+   }
+  },
+  {
+   "digest": "6309fb337560e7a42746391cc419416d5cda8fd057a86a618b93117b6f021b2a",
    "name": "repo_rules_request",
    "record": {
     "destination": {
@@ -1127,13 +1137,14 @@
     "kind": "source_request",
     "role": "instructions",
     "route": {
+     "manifest_digest": "4f2b4acd14ef4d23c3212a988d84e14a0dab33b2f3a712428ac706bf164a64bc",
      "route": "author_here"
     },
     "schema": 1
    }
   },
   {
-   "digest": "5a89a38acd3b365d07d1057ba1dbdf31ea9ad6a063067a4d4bed930b07de4d92",
+   "digest": "8ec970f5923174f19ea2fd4b6f44815193482bdec5ad30d0f9550eec5f27fe13",
    "name": "author_repo_rules_request",
    "record": {
     "action": "contribute",
@@ -1151,7 +1162,7 @@
      "layer": "repository",
      "repository_id": "rep_ddab1c6892e5eac36b5d3e51c964fba4"
     },
-    "payload_digest": "7acd8380386f2c3410413adacf34c217fd3f0375817c17c35eececbeeb2e1270",
+    "payload_digest": "6309fb337560e7a42746391cc419416d5cda8fd057a86a618b93117b6f021b2a",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_933e174ad1a05939ea349a6b542815fa",
@@ -1165,7 +1176,7 @@
    }
   },
   {
-   "digest": "2a853ea9471adb63519a79b50d4134267073913484c11ede5da5338edeef8d9a",
+   "digest": "435c1f05dab1ad71faf4df69a3c54167f47319a3c41cd079b66710990e97200c",
    "name": "author_repo_rules_receipt",
    "record": {
     "committed_at": "2000-01-01T00:00:00Z",
@@ -1175,7 +1186,7 @@
      "layer": "repository",
      "repository_id": "rep_ddab1c6892e5eac36b5d3e51c964fba4"
     },
-    "request_digest": "5a89a38acd3b365d07d1057ba1dbdf31ea9ad6a063067a4d4bed930b07de4d92",
+    "request_digest": "8ec970f5923174f19ea2fd4b6f44815193482bdec5ad30d0f9550eec5f27fe13",
     "request_id": "req_933e174ad1a05939ea349a6b542815fa",
     "schema": 1,
     "sequence": 1,
@@ -1206,14 +1217,14 @@
    }
   },
   {
-   "digest": "e3baba6c89a05a568bce429112ae1873646c68790a9512ff068cc7183f8a8f8c",
+   "digest": "5c8f0a6ecb3b8ed65ef393666e6d265c5bb4f63882c1e3af4c763aba3330bc7a",
    "name": "author_repo_rules_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "2a853ea9471adb63519a79b50d4134267073913484c11ede5da5338edeef8d9a",
+     "receipt_digest": "435c1f05dab1ad71faf4df69a3c54167f47319a3c41cd079b66710990e97200c",
      "stage": "committed"
     },
     "outputs": [
@@ -1223,7 +1234,7 @@
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "5a89a38acd3b365d07d1057ba1dbdf31ea9ad6a063067a4d4bed930b07de4d92",
+    "request_digest": "8ec970f5923174f19ea2fd4b6f44815193482bdec5ad30d0f9550eec5f27fe13",
     "request_id": "req_933e174ad1a05939ea349a6b542815fa",
     "schema": 1,
     "supported_recovery": []
@@ -1385,7 +1396,7 @@
   }
  ],
  "says": "Alice has no Team and no adopted environment. She authors one personal Instructions source and composes three preparations. Outside any project, a personal preparation that pins her source's exact revision holds that revision's unit and nothing else; a personal preparation that selects nothing holds no unit; and in a bound repository checkout with no adopted environment, a preparation that pins the repository's rules revision and her personal revision holds exactly those two. Each preparation names the exact revisions its request pinned, orders only the layers it was given, and names its request. None may name a Team, invent a Team or an environment it was not given, or carry a session or host id; the checkout is recorded only where there is one.",
- "spec_sha256": "6fc8f73ffc10d1346684cbc9f77f1378f12f4fd6895bf306431265c19b5beec7",
+ "spec_sha256": "f227e72b16b3428f81a28b458a6c2f2f15b23cf7669423bab2b8b14324bd241e",
  "steps": [
   {
    "carries": [
@@ -1400,7 +1411,8 @@
   },
   {
    "carries": [
-    "my_rules_request"
+    "my_rules_request",
+    "my_rules_rev_submitted"
    ],
    "head": "my_rules_head",
    "name": "author_my_rules",
@@ -1408,6 +1420,9 @@
    "result": "author_my_rules_result",
    "returns": [
     "my_rules_rev"
+   ],
+   "submits": [
+    "my_rules_rev_submitted"
    ]
   },
   {
@@ -1445,7 +1460,8 @@
   },
   {
    "carries": [
-    "repo_rules_request"
+    "repo_rules_request",
+    "repo_rules_rev_submitted"
    ],
    "head": "repo_rules_head",
    "name": "author_repo_rules",
@@ -1453,6 +1469,9 @@
    "result": "author_repo_rules_result",
    "returns": [
     "repo_rules_rev"
+   ],
+   "submits": [
+    "repo_rules_rev_submitted"
    ]
   },
   {

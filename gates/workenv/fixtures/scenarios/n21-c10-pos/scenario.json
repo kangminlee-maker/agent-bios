@@ -516,6 +516,11 @@
    "record": "admit_excerpt"
   },
   {
+   "digest_of": "excerpt_manifest",
+   "pointer": "/route/manifest_digest",
+   "record": "excerpt_request_payload"
+  },
+  {
    "digest_of": "excerpt_request_payload",
    "pointer": "/payload_digest",
    "record": "admit_excerpt"
@@ -2560,7 +2565,24 @@
    }
   },
   {
-   "digest": "00f2aa77b603e8463e84305dd6547b57a3e75558a422d4c5b58041d07ba5e080",
+   "digest": "160b92d8a25a7543f734f6266aa0138bd1ec1061ab4995d401dedfb1ffb2a942",
+   "name": "excerpt_manifest",
+   "record": {
+    "format_version": 1,
+    "kind": "source_manifest",
+    "members": [
+     {
+      "digest": "2702a48949ff2ef94c13c8f8e0a45a7a481e0e19482d3ffa8f8fc2c584a1d2c2",
+      "path": "tables/rates.csv",
+      "size": 918
+     }
+    ],
+    "schema": 1,
+    "source_id": "src_432fa540b918cd8d70ecac06aab285a3"
+   }
+  },
+  {
+   "digest": "01e816b60b5984964ca3fe4270567f8ebded22af809398ae790efadbfc55ed5b",
    "name": "excerpt_request_payload",
    "record": {
     "destination": {
@@ -2573,13 +2595,14 @@
     "kind": "source_request",
     "role": "knowledge",
     "route": {
+     "manifest_digest": "160b92d8a25a7543f734f6266aa0138bd1ec1061ab4995d401dedfb1ffb2a942",
      "route": "author_here"
     },
     "schema": 1
    }
   },
   {
-   "digest": "9987ea79188e3bb57e6a81cd6cdb2a5eccae77161e80b4031e16e98a422d6fdb",
+   "digest": "0234433e4ea0de4ede3b89a74fd606544d3ea0a29676df493c48a9995bcecf06",
    "name": "admit_excerpt",
    "record": {
     "action": "contribute",
@@ -2597,7 +2620,7 @@
      "layer": "personal",
      "principal_id": "prn_30b63971c742e4fde9f913e3c366a2bd"
     },
-    "payload_digest": "00f2aa77b603e8463e84305dd6547b57a3e75558a422d4c5b58041d07ba5e080",
+    "payload_digest": "01e816b60b5984964ca3fe4270567f8ebded22af809398ae790efadbfc55ed5b",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_518db9229658fcc7b156addd526457cb",
@@ -2612,7 +2635,7 @@
    }
   },
   {
-   "digest": "3137f5ad4ee11fb1e33209231ca82d0c629ba8f1009daaf46e90833b6fe594dd",
+   "digest": "996b20a71c7823847f618a2c577948768d2c452c689cd980a13e34113149f554",
    "name": "admit_the_excerpt_derivative_receipt",
    "record": {
     "committed_at": "2000-01-01T00:00:00Z",
@@ -2622,7 +2645,7 @@
      "layer": "personal",
      "principal_id": "prn_30b63971c742e4fde9f913e3c366a2bd"
     },
-    "request_digest": "9987ea79188e3bb57e6a81cd6cdb2a5eccae77161e80b4031e16e98a422d6fdb",
+    "request_digest": "0234433e4ea0de4ede3b89a74fd606544d3ea0a29676df493c48a9995bcecf06",
     "request_id": "req_518db9229658fcc7b156addd526457cb",
     "schema": 1,
     "sequence": 1,
@@ -2633,23 +2656,6 @@
      },
      "resource_id": "src_432fa540b918cd8d70ecac06aab285a3"
     }
-   }
-  },
-  {
-   "digest": "160b92d8a25a7543f734f6266aa0138bd1ec1061ab4995d401dedfb1ffb2a942",
-   "name": "excerpt_manifest",
-   "record": {
-    "format_version": 1,
-    "kind": "source_manifest",
-    "members": [
-     {
-      "digest": "2702a48949ff2ef94c13c8f8e0a45a7a481e0e19482d3ffa8f8fc2c584a1d2c2",
-      "path": "tables/rates.csv",
-      "size": 918
-     }
-    ],
-    "schema": 1,
-    "source_id": "src_432fa540b918cd8d70ecac06aab285a3"
    }
   },
   {
@@ -2695,14 +2701,14 @@
    }
   },
   {
-   "digest": "4a570584cb8b62b850228ee32898e5d1383b52299c3616e19fa5c65903df6b65",
+   "digest": "2becfbab5eb90ad0f7e0376c83702caf1855ac67fc3cfde3868b96b9f0c572c6",
    "name": "admit_the_excerpt_derivative_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "3137f5ad4ee11fb1e33209231ca82d0c629ba8f1009daaf46e90833b6fe594dd",
+     "receipt_digest": "996b20a71c7823847f618a2c577948768d2c452c689cd980a13e34113149f554",
      "stage": "committed"
     },
     "outputs": [
@@ -2716,7 +2722,7 @@
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "9987ea79188e3bb57e6a81cd6cdb2a5eccae77161e80b4031e16e98a422d6fdb",
+    "request_digest": "0234433e4ea0de4ede3b89a74fd606544d3ea0a29676df493c48a9995bcecf06",
     "request_id": "req_518db9229658fcc7b156addd526457cb",
     "schema": 1,
     "supported_recovery": []
@@ -3936,7 +3942,7 @@
   }
  ],
  "says": "Alice founds a Team on her laptop, which returns the Team's founding epoch, registers its knowledge source and commits a revision, and her enrolled desktop imports it by peer (staged on the laptop as a draft with no receipt, carrying the epoch as a member), so the revision has a copy on each device. A read scoped to the Team and to that source delivers its one unit with the frontier it read at. The derivation map of the revision, read in the Team's scope, names two distinct derivatives, an excerpt and an index. A retention plan promises the Team's continuity record — its founding epoch — and lists the index as evictable, apart from it; nothing promises the revision. One batch asks each holder to undertake custody of what the plan promises, the laptop through its own store and the desktop by peer; its result states each item's own outcome under its carrier, with a receipt each. Finally removing the revision in the Team's scope, which no plan still promises, returns a removal_outcome with one row per copy (laptop and desktop, each confirmed with its tombstone) and each derivative's own rows, and moves the Team head. What must not happen: the read reaching past the Team's scope or the named source, the two derivatives counted as one, the batch summarised into one outcome across carriers, or a removal stated once for all copies.",
- "spec_sha256": "2c4008fa54edfa6a2ed50b01720c422e6c94f223e7736308a059e8a036e39b5c",
+ "spec_sha256": "aaa0f53fd7c8a59ebccec3c726a7c57a5c9cd32297902b624535ff41b381f68c",
  "steps": [
   {
    "at": "2026-09-21T09:00:00Z",
@@ -4034,7 +4040,8 @@
   {
    "at": "2026-09-21T09:00:00Z",
    "carries": [
-    "excerpt_request_payload"
+    "excerpt_request_payload",
+    "excerpt_manifest"
    ],
    "head": "excerpt_admitted_head",
    "name": "admit_the_excerpt_derivative",
@@ -4044,6 +4051,9 @@
    "returns": [
     "stored_excerpt_manifest",
     "excerpt_provenance"
+   ],
+   "submits": [
+    "excerpt_manifest"
    ]
   },
   {

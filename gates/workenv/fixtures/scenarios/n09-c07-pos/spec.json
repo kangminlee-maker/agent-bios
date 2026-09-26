@@ -154,6 +154,32 @@
    ]
   },
   {
+   "name": "my_rules_rev_submitted",
+   "from": "sources/revision_of_a_published_package.json",
+   "drop": [
+    "/members/1",
+    "/produced_at"
+   ],
+   "set": [
+    {
+     "pointer": "/members/0/digest",
+     "value": "9c54daee2dfe8308d09984fd0529e1eb23af0054c493e451268c14218f9d85e9"
+    },
+    {
+     "pointer": "/members/0/path",
+     "value": "habits.md"
+    },
+    {
+     "pointer": "/members/0/size",
+     "value": 900
+    },
+    {
+     "pointer": "/source_id",
+     "value": "@my_rules"
+    }
+   ]
+  },
+  {
    "name": "my_rules_request",
    "from": "sources/request_to_author_here.json",
    "drop": [
@@ -175,6 +201,10 @@
     {
      "pointer": "/role",
      "value": "instructions"
+    },
+    {
+     "pointer": "/route/manifest_digest",
+     "value": "#my_rules_rev_submitted"
     }
    ]
   },
@@ -245,30 +275,11 @@
   },
   {
    "name": "my_rules_rev",
-   "from": "sources/revision_of_a_published_package.json",
-   "drop": [
-    "/members/1"
-   ],
+   "from": "my_rules_rev_submitted",
    "set": [
-    {
-     "pointer": "/members/0/digest",
-     "value": "$digest:my_rules_habits_body"
-    },
-    {
-     "pointer": "/members/0/path",
-     "value": "habits.md"
-    },
-    {
-     "pointer": "/members/0/size",
-     "value": 900
-    },
     {
      "pointer": "/produced_at",
      "value": "$instant:my_rules_produced_at"
-    },
-    {
-     "pointer": "/source_id",
-     "value": "@my_rules"
     }
    ]
   },
@@ -349,7 +360,7 @@
     },
     {
      "pointer": "/units/0/body_digest",
-     "value": "$digest:my_rules_habits_body"
+     "value": "9c54daee2dfe8308d09984fd0529e1eb23af0054c493e451268c14218f9d85e9"
     },
     {
      "pointer": "/units/0/member",
@@ -608,6 +619,32 @@
    ]
   },
   {
+   "name": "repo_rules_rev_submitted",
+   "from": "sources/revision_of_a_published_package.json",
+   "drop": [
+    "/members/1",
+    "/produced_at"
+   ],
+   "set": [
+    {
+     "pointer": "/members/0/digest",
+     "value": "342d27f44cfe86545bb9b9fbd9da2a17ec6037e7d041b6e61e6ac4522c9f69b6"
+    },
+    {
+     "pointer": "/members/0/path",
+     "value": "rules/review.md"
+    },
+    {
+     "pointer": "/members/0/size",
+     "value": 2048
+    },
+    {
+     "pointer": "/source_id",
+     "value": "@repo_rules"
+    }
+   ]
+  },
+  {
    "name": "repo_rules_request",
    "from": "sources/request_to_author_here.json",
    "set": [
@@ -618,6 +655,10 @@
     {
      "pointer": "/role",
      "value": "instructions"
+    },
+    {
+     "pointer": "/route/manifest_digest",
+     "value": "#repo_rules_rev_submitted"
     }
    ]
   },
@@ -688,30 +729,11 @@
   },
   {
    "name": "repo_rules_rev",
-   "from": "sources/revision_of_a_published_package.json",
-   "drop": [
-    "/members/1"
-   ],
+   "from": "repo_rules_rev_submitted",
    "set": [
-    {
-     "pointer": "/members/0/digest",
-     "value": "$digest:repo_rules_review_body"
-    },
-    {
-     "pointer": "/members/0/path",
-     "value": "rules/review.md"
-    },
-    {
-     "pointer": "/members/0/size",
-     "value": 2048
-    },
     {
      "pointer": "/produced_at",
      "value": "$instant:repo_rules_produced_at"
-    },
-    {
-     "pointer": "/source_id",
-     "value": "@repo_rules"
     }
    ]
   },
@@ -834,7 +856,7 @@
     },
     {
      "pointer": "/units/0/body_digest",
-     "value": "$digest:repo_rules_review_body"
+     "value": "342d27f44cfe86545bb9b9fbd9da2a17ec6037e7d041b6e61e6ac4522c9f69b6"
     },
     {
      "pointer": "/units/0/member",
@@ -866,7 +888,7 @@
     },
     {
      "pointer": "/units/1/body_digest",
-     "value": "$digest:my_rules_habits_body"
+     "value": "9c54daee2dfe8308d09984fd0529e1eb23af0054c493e451268c14218f9d85e9"
     },
     {
      "pointer": "/units/1/member",
@@ -962,7 +984,8 @@
    "name": "author_my_rules",
    "request": "author_my_rules_request",
    "carries": [
-    "my_rules_request"
+    "my_rules_request",
+    "my_rules_rev_submitted"
    ],
    "answer": {
     "stage": "committed",
@@ -974,7 +997,10 @@
      "my_rules_rev"
     ],
     "head": "my_rules_head"
-   }
+   },
+   "submits": [
+    "my_rules_rev_submitted"
+   ]
   },
   {
    "name": "compose_personal",
@@ -1031,7 +1057,8 @@
    "name": "author_repo_rules",
    "request": "author_repo_rules_request",
    "carries": [
-    "repo_rules_request"
+    "repo_rules_request",
+    "repo_rules_rev_submitted"
    ],
    "answer": {
     "stage": "committed",
@@ -1043,7 +1070,10 @@
      "repo_rules_rev"
     ],
     "head": "repo_rules_head"
-   }
+   },
+   "submits": [
+    "repo_rules_rev_submitted"
+   ]
   },
   {
    "name": "compose_brownfield",

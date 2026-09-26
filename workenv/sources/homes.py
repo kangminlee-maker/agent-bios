@@ -12,7 +12,10 @@ home rests on the binding this installation holds for its repository; a home nam
 binding is `binding_unverified`.
 
 A source's head is the digest of the record its last commit stored: the home a registration
-stored, or the manifest a revision commit stored.
+stored, or the manifest a revision commit or admission stored. How a source's home keeps it —
+managed, repository-authored or package-published — is held for every source, whether its home
+was registered or it was admitted with none, so a registration keeping it another way is a second
+home too.
 """
 from __future__ import annotations
 
@@ -24,26 +27,28 @@ WHERE = ("mode", "repository_id", "document_root", "package_id")
 
 
 def source_of(store: storage.Store, source_id: str) -> dict | None:
-    """The source this installation holds: its scope, role, home and current revision."""
-    found = store.read("SELECT scope, role, home_digest, revision_digest FROM sources "
+    """The source this installation holds: its scope, role, home, how the home keeps it, and its
+    current revision."""
+    found = store.read("SELECT scope, role, home_digest, revision_digest, home_mode FROM sources "
                        "WHERE source_id = ?", (source_id,))
     if not found:
         return None
-    scope, role, home, revision = found[0]
+    scope, role, home, revision, mode = found[0]
+    record = store.get(home) if home else None
     return {"source_id": source_id, "scope": canonical.load(scope.encode("utf-8")),
-            "role": role, "home": store.get(home) if home else None,
-            "home_digest": home, "revision_digest": revision}
+            "role": role, "home": record, "home_digest": home, "revision_digest": revision,
+            "home_mode": mode or (record["home"]["mode"] if record else None)}
 
 
-def keep_source(store: storage.Store, source_id: str, scope: dict, role: str,
+def keep_source(store: storage.Store, source_id: str, scope: dict, role: str, home_mode: str,
                 home_digest: str | None = None, revision_digest: str | None = None) -> None:
     """Write the source's row, keeping what the call leaves out as it was."""
     held = source_of(store, source_id)
     store.write("INSERT OR REPLACE INTO sources (source_id, scope, role, home_digest, "
-                "revision_digest) VALUES (?, ?, ?, ?, ?)",
+                "revision_digest, home_mode) VALUES (?, ?, ?, ?, ?, ?)",
                 (source_id, journal.scope_key(scope), role,
                  home_digest or (held or {}).get("home_digest"),
-                 revision_digest or (held or {}).get("revision_digest")))
+                 revision_digest or (held or {}).get("revision_digest"), home_mode))
 
 
 def authored_at(home: dict) -> dict:
@@ -76,7 +81,8 @@ def source_home_register(call) -> dict:
     moved = journal.stale(call, store)
     if moved is not None:
         return moved
-    if held is not None and (held["scope"] != home["scope"] or held["role"] != home["role"] or (
+    if held is not None and (held["scope"] != home["scope"] or held["role"] != home["role"]
+                             or held["home_mode"] != home["home"]["mode"] or (
             held["home"] is not None and (
                 authored_at(held["home"]) != authored_at(home)
                 or held["home"]["acceptance_authority"] != home["acceptance_authority"]))):
@@ -86,5 +92,6 @@ def source_home_register(call) -> dict:
                                 recovery=["new_governed_request"])
     stored = {**home, "registered_at": journal.now(call)}
     digest = store.put(stored)
-    keep_source(store, source_id, home["scope"], home["role"], home_digest=digest)
+    keep_source(store, source_id, home["scope"], home["role"], home["home"]["mode"],
+                home_digest=digest)
     return journal.committed(call, [stored], head=digest)

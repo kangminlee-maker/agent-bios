@@ -267,6 +267,11 @@
    "record": "found_team_result"
   },
   {
+   "digest_of": "team_rules_rev_submitted",
+   "pointer": "/route/manifest_digest",
+   "record": "team_rules_request"
+  },
+  {
    "digest_of": "team_rules_request",
    "pointer": "/payload_digest",
    "record": "author_team_rules_request"
@@ -292,11 +297,6 @@
    "record": "author_team_rules_receipt"
   },
   {
-   "minted": "team_rules_review_body",
-   "pointer": "/members/0/digest",
-   "record": "team_rules_rev"
-  },
-  {
    "minted": "team_rules_produced_at",
    "pointer": "/produced_at",
    "record": "team_rules_rev"
@@ -315,6 +315,11 @@
    "digest_of": "team_rules_rev",
    "pointer": "/outputs/0/digest",
    "record": "author_team_rules_result"
+  },
+  {
+   "digest_of": "team_kb_rev_submitted",
+   "pointer": "/route/manifest_digest",
+   "record": "team_kb_request"
   },
   {
    "digest_of": "team_kb_request",
@@ -340,11 +345,6 @@
    "minted": "author_team_kb_committed_at",
    "pointer": "/committed_at",
    "record": "author_team_kb_receipt"
-  },
-  {
-   "minted": "team_kb_concepts_body",
-   "pointer": "/members/0/digest",
-   "record": "team_kb_rev"
   },
   {
    "minted": "team_kb_produced_at",
@@ -602,11 +602,6 @@
    "record": "adopted_preparation"
   },
   {
-   "minted": "team_rules_review_body",
-   "pointer": "/units/0/body_digest",
-   "record": "adopted_preparation"
-  },
-  {
    "minted": "kb_unit",
    "pointer": "/units/1/unit_id",
    "record": "adopted_preparation"
@@ -614,11 +609,6 @@
   {
    "digest_of": "team_kb_rev",
    "pointer": "/units/1/revision_digest",
-   "record": "adopted_preparation"
-  },
-  {
-   "minted": "team_kb_concepts_body",
-   "pointer": "/units/1/body_digest",
    "record": "adopted_preparation"
   },
   {
@@ -719,11 +709,6 @@
    "step": "author_team_rules"
   },
   {
-   "name": "team_rules_review_body",
-   "shape": "digest",
-   "step": "author_team_rules"
-  },
-  {
    "name": "author_team_kb_committed_at",
    "shape": "instant",
    "step": "author_team_kb"
@@ -731,11 +716,6 @@
   {
    "name": "author_team_kb_sequence",
    "shape": "integer",
-   "step": "author_team_kb"
-  },
-  {
-   "name": "team_kb_concepts_body",
-   "shape": "digest",
    "step": "author_team_kb"
   },
   {
@@ -1248,7 +1228,24 @@
    }
   },
   {
-   "digest": "a3a617db909c494ece69517f37b1a574d068b7692c8fb902d5ffff8f8d9510a3",
+   "digest": "02fbdfd9a514bceab1f88087063863759d88ebbd7d687901cb8c6acdd97dcf28",
+   "name": "team_rules_rev_submitted",
+   "record": {
+    "format_version": 1,
+    "kind": "source_manifest",
+    "members": [
+     {
+      "digest": "2345a11a09f6111f0df5d193adc2515e365b01a66429ea0007dfc70098d8be79",
+      "path": "rules/review.md",
+      "size": 2048
+     }
+    ],
+    "schema": 1,
+    "source_id": "src_37892d2f575eea98ce806905c0f0e22f"
+   }
+  },
+  {
+   "digest": "3886cadd95606262df75f3287b4abd64cb766abde1a475ef455b9d04f93b0dc0",
    "name": "team_rules_request",
    "record": {
     "destination": {
@@ -1261,13 +1258,14 @@
     "kind": "source_request",
     "role": "instructions",
     "route": {
+     "manifest_digest": "02fbdfd9a514bceab1f88087063863759d88ebbd7d687901cb8c6acdd97dcf28",
      "route": "author_here"
     },
     "schema": 1
    }
   },
   {
-   "digest": "4340cbf52dc57d7566329df33d694d14288917486024530c346e2281aa18b9ec",
+   "digest": "0c96a9afc4342b3a3d024f99dbacc24a824eca9e04cd7e7f43ec2e9463823d95",
    "name": "author_team_rules_request",
    "record": {
     "action": "contribute",
@@ -1285,7 +1283,7 @@
      "layer": "team",
      "team_id": "tem_cd8552be2aaf32a04545359d12048f38"
     },
-    "payload_digest": "a3a617db909c494ece69517f37b1a574d068b7692c8fb902d5ffff8f8d9510a3",
+    "payload_digest": "3886cadd95606262df75f3287b4abd64cb766abde1a475ef455b9d04f93b0dc0",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_8a60a08db568a1c1789ebd4a671f07f9",
@@ -1299,7 +1297,7 @@
    }
   },
   {
-   "digest": "c6d8ff4e02f9c3712e79fed2c6e0cd3cb4f89209458878be22a943091581a91e",
+   "digest": "d0ef87074dcb54532adaef5c673e3648b8aaa75fad4fbc87de7f739a693e68c9",
    "name": "author_team_rules_receipt",
    "record": {
     "committed_at": "2000-01-01T00:00:00Z",
@@ -1309,7 +1307,7 @@
      "layer": "team",
      "team_id": "tem_cd8552be2aaf32a04545359d12048f38"
     },
-    "request_digest": "4340cbf52dc57d7566329df33d694d14288917486024530c346e2281aa18b9ec",
+    "request_digest": "0c96a9afc4342b3a3d024f99dbacc24a824eca9e04cd7e7f43ec2e9463823d95",
     "request_id": "req_8a60a08db568a1c1789ebd4a671f07f9",
     "schema": 1,
     "sequence": 1,
@@ -1340,14 +1338,14 @@
    }
   },
   {
-   "digest": "be7eaeb93a5a81d64aa153a4fc11f7eaf05046ea2d9fe7593d6f26bcdf0f5385",
+   "digest": "d5f5b22cfb52cfbc656769d7cfb5a90c754f6823072b3ee4cada7dab74dea575",
    "name": "author_team_rules_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "c6d8ff4e02f9c3712e79fed2c6e0cd3cb4f89209458878be22a943091581a91e",
+     "receipt_digest": "d0ef87074dcb54532adaef5c673e3648b8aaa75fad4fbc87de7f739a693e68c9",
      "stage": "committed"
     },
     "outputs": [
@@ -1357,14 +1355,31 @@
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "4340cbf52dc57d7566329df33d694d14288917486024530c346e2281aa18b9ec",
+    "request_digest": "0c96a9afc4342b3a3d024f99dbacc24a824eca9e04cd7e7f43ec2e9463823d95",
     "request_id": "req_8a60a08db568a1c1789ebd4a671f07f9",
     "schema": 1,
     "supported_recovery": []
    }
   },
   {
-   "digest": "dfe0f095ef9637e797f8585ea58f9f40bd7f0f3e2268676c260325d76cb4516e",
+   "digest": "b257fe19294e07a121b0d1487c58ce1ba42da53538d61380c4a6a1e28e6a8c58",
+   "name": "team_kb_rev_submitted",
+   "record": {
+    "format_version": 1,
+    "kind": "source_manifest",
+    "members": [
+     {
+      "digest": "a0c2c38b52c865bd7db280f081b3c72d036be9bc1149c074255db05d8486452e",
+      "path": "concepts.md",
+      "size": 4120
+     }
+    ],
+    "schema": 1,
+    "source_id": "src_80ada528ab7a2b97ecf1f04b638b94f8"
+   }
+  },
+  {
+   "digest": "141feecfb77bcb9a49753e0da99e94f20767fd6e6fa0538582a2ff91844b3977",
    "name": "team_kb_request",
    "record": {
     "destination": {
@@ -1377,13 +1392,14 @@
     "kind": "source_request",
     "role": "knowledge",
     "route": {
+     "manifest_digest": "b257fe19294e07a121b0d1487c58ce1ba42da53538d61380c4a6a1e28e6a8c58",
      "route": "author_here"
     },
     "schema": 1
    }
   },
   {
-   "digest": "a22eb15ed8618cf1793b27a74c816ef5741e544c3cb117a4ad61b218311e25b9",
+   "digest": "5a19f3504b792a656c7a5ce83b599c4367de245f4d2391eed48aeb4f60b3202e",
    "name": "author_team_kb_request",
    "record": {
     "action": "contribute",
@@ -1401,7 +1417,7 @@
      "layer": "team",
      "team_id": "tem_cd8552be2aaf32a04545359d12048f38"
     },
-    "payload_digest": "dfe0f095ef9637e797f8585ea58f9f40bd7f0f3e2268676c260325d76cb4516e",
+    "payload_digest": "141feecfb77bcb9a49753e0da99e94f20767fd6e6fa0538582a2ff91844b3977",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_27b6656cfb066965f0e383fb30abab6c",
@@ -1415,7 +1431,7 @@
    }
   },
   {
-   "digest": "ea1f21e1debf7df5d6b6f5629306f2b2642817c47f8d3b06a8858ac3b8cd72e8",
+   "digest": "48110c005a871de307687a5d041d1c2fb5ec1a3413cce6a3562edb7fde55a85b",
    "name": "author_team_kb_receipt",
    "record": {
     "committed_at": "2000-01-01T00:00:00Z",
@@ -1425,7 +1441,7 @@
      "layer": "team",
      "team_id": "tem_cd8552be2aaf32a04545359d12048f38"
     },
-    "request_digest": "a22eb15ed8618cf1793b27a74c816ef5741e544c3cb117a4ad61b218311e25b9",
+    "request_digest": "5a19f3504b792a656c7a5ce83b599c4367de245f4d2391eed48aeb4f60b3202e",
     "request_id": "req_27b6656cfb066965f0e383fb30abab6c",
     "schema": 1,
     "sequence": 1,
@@ -1456,14 +1472,14 @@
    }
   },
   {
-   "digest": "414281001c79b17c02a3ee762181c4a0abdc5879e3a87aee86ed09557e721200",
+   "digest": "0889f2534ebef409886f3e197dc7d4957583dc5ad91644d71e16fb342aa329e8",
    "name": "author_team_kb_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "ea1f21e1debf7df5d6b6f5629306f2b2642817c47f8d3b06a8858ac3b8cd72e8",
+     "receipt_digest": "48110c005a871de307687a5d041d1c2fb5ec1a3413cce6a3562edb7fde55a85b",
      "stage": "committed"
     },
     "outputs": [
@@ -1473,7 +1489,7 @@
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "a22eb15ed8618cf1793b27a74c816ef5741e544c3cb117a4ad61b218311e25b9",
+    "request_digest": "5a19f3504b792a656c7a5ce83b599c4367de245f4d2391eed48aeb4f60b3202e",
     "request_id": "req_27b6656cfb066965f0e383fb30abab6c",
     "schema": 1,
     "supported_recovery": []
@@ -2056,7 +2072,7 @@
   }
  ],
  "says": "Alice founds a Team alone and authors its rules (Instructions) and its knowledge as two Team sources. She publishes a first environment edition that pins the knowledge revision, then publishes the rules revision as a source on its own. She publishes a second environment whose edition derives from the exact digest of the first and adds the rules revision as an explicit change, and only then adopts that edition for the Team as a separate request. Each step answers with its own record: the source keeps its revision digest, each edition its own digest and environment id, and the adoption names the exact edition it adopted. A preparation composed from the adopted environment names the adoption record in its request and composes exactly the pinned rules and knowledge revisions. Publishing the edition must not adopt it, and adopting must not rewrite the edition or the source revision.",
- "spec_sha256": "07549648c1a1b37365e7e98108cac7bed2fbb3dc0dbe83fb152c0ad3f4bd5e43",
+ "spec_sha256": "adff63ffee50be3b871b8db8dc8fd426903e4a877a76bc3db980d657a30d3a32",
  "steps": [
   {
    "carries": [
@@ -2093,7 +2109,8 @@
   },
   {
    "carries": [
-    "team_rules_request"
+    "team_rules_request",
+    "team_rules_rev_submitted"
    ],
    "head": "team_rules_head",
    "name": "author_team_rules",
@@ -2101,11 +2118,15 @@
    "result": "author_team_rules_result",
    "returns": [
     "team_rules_rev"
+   ],
+   "submits": [
+    "team_rules_rev_submitted"
    ]
   },
   {
    "carries": [
-    "team_kb_request"
+    "team_kb_request",
+    "team_kb_rev_submitted"
    ],
    "head": "team_kb_head",
    "name": "author_team_kb",
@@ -2113,6 +2134,9 @@
    "result": "author_team_kb_result",
    "returns": [
     "team_kb_rev"
+   ],
+   "submits": [
+    "team_kb_rev_submitted"
    ]
   },
   {

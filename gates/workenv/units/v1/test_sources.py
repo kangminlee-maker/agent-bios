@@ -16,6 +16,7 @@ from workenv import identity, journal, sources, storage
 from workenv.contracts import b01, c01, c03, canonical
 
 REGISTER, COMMIT, RESOLVE = "source.home.register", "source.revision.commit", "reference.resolve"
+ADMIT = "source.revision.admit"
 BIND, OBSERVE = "repository.bind", "source.observe"
 INSTANT = "2026-09-26T09:00:00Z"
 ORIGIN = "git@github.com:example/work.git"
@@ -120,6 +121,20 @@ class Base(unittest.TestCase):
         self.assertEqual(answer["result"]["outcome"]["stage"], "committed", gaps(answer))
         return answer["returned"][0], answer["receipt"]["head_digest"]
 
+    def signed(self, signer: Person, record: dict, namespace: str = "agent-bios/source_manifest",
+               data: bytes | None = None) -> dict:
+        """An envelope over the record by the signer's key, bound here on first use."""
+        signers = self.__dict__.setdefault("signers", {})
+        if signer.principal not in signers:
+            key = self.bench.keys.make()
+            payload = bench.binding(signer.principal, key)
+            added = self.run_with(identity.identity_binding_add,
+                                  bench.request(signer, "identity.binding.add", signer.principal,
+                                                payload), [payload])
+            signers[signer.principal] = key, added["returned"][0]["binding_id"]
+        key, binding_id = signers[signer.principal]
+        return self.bench.keys.envelope(key, binding_id, record, namespace, data)
+
     def count(self, table: str) -> int:
         return self.bench.store().read(f"SELECT COUNT(*) FROM {table}")[0][0]
 
@@ -186,6 +201,19 @@ class Homes(Base):
                                    {"expects": "head", "head_digest": head})
             self.assertEqual(gaps(answer), [{"code": c01.SOURCE_HOME_CONFLICT}], changes)
         self.assertEqual(journal.head_of(self.bench.store(), self.source), head)
+
+    def test_another_package_in_the_same_mode_is_a_second_home(self):
+        published = {"mode": "package_published", "package_id": bench.ident("pkg"),
+                     "publisher_evidence_digest": sha(b"publisher"), "license_conditions": "MIT"}
+        _, head = self.registered(home=published)
+        other = self.register(home(self.person, self.source,
+                                   home={**published, "package_id": bench.ident("pkg")}),
+                              {"expects": "head", "head_digest": head})
+        self.assertEqual(gaps(other), [{"code": c01.SOURCE_HOME_CONFLICT}])
+        same = self.register(home(self.person, self.source,
+                                  home={**published, "license_conditions": "CC-BY-4.0"}),
+                             {"expects": "head", "head_digest": head})
+        self.assertEqual(same["result"]["outcome"]["stage"], "committed", gaps(same))
 
     def test_a_first_registration_of_a_source_held_here_is_a_second_home(self):
         self.registered()
@@ -316,20 +344,6 @@ class Revisions(Base):
         answer = self.commit(manifest(self.source, {"concepts.md": CONCEPTS}), head)
         self.assertEqual(gaps(answer), [{"code": c01.PUBLISHER_BYTES_MODIFIED}])
 
-    def signed(self, signer: Person, record: dict, namespace: str = "agent-bios/source_manifest",
-               data: bytes | None = None) -> dict:
-        """An envelope over the record by the signer's key, bound here on first use."""
-        signers = self.__dict__.setdefault("signers", {})
-        if signer.principal not in signers:
-            key = self.bench.keys.make()
-            payload = bench.binding(signer.principal, key)
-            added = self.run_with(identity.identity_binding_add,
-                                  bench.request(signer, "identity.binding.add", signer.principal,
-                                                payload), [payload])
-            signers[signer.principal] = key, added["returned"][0]["binding_id"]
-        key, binding_id = signers[signer.principal]
-        return self.bench.keys.envelope(key, binding_id, record, namespace, data)
-
     def test_a_signature_by_the_actors_own_key_over_the_manifest_is_accepted(self):
         _, head = self.registered()
         submitted = manifest(self.source, {"concepts.md": CONCEPTS})
@@ -408,6 +422,131 @@ class Revisions(Base):
                             answer["receipt"]["head_digest"])
         self.assertEqual(gaps(moved), [{"code": c03.OBJECT_DIGEST_MISMATCH,
                                         "pointer": "/members/0"}])
+
+
+class Admissions(Base):
+    """A revision authored here, admitted with the manifest its route names."""
+
+    def asked(self, manifest: dict | None, *, role: str = "instructions", scope: dict | None = None,
+              mode: str = "managed", route: dict | None = None) -> dict:
+        return {"kind": "source_request", "schema": 1, "role": role,
+                "destination": {"scope": scope or self.person.scope, "home_mode": mode},
+                "route": route or {"route": "author_here",
+                                   "manifest_digest": canonical.digest_of(manifest)}}
+
+    def admit(self, request: dict, manifest: dict | None, base: dict | None = None,
+              members=None, proofs=()) -> dict:
+        target = {"resource_id": self.source, "base": base or {"expects": "absent"}}
+        carried = [request, *([manifest] if manifest else []), *proofs]
+        return self.run_with(sources.source_revision_admit,
+                             bench.request(self.person, ADMIT, target, request, proofs=proofs),
+                             carried, members=members, now=INSTANT)
+
+    def authored(self, members: dict[str, bytes], base: dict | None = None, **options) -> dict:
+        submitted = manifest(self.source, members)
+        return self.admit(self.asked(submitted, **options), submitted, base,
+                          members={sha(data): data for data in members.values()})
+
+    def test_an_authored_revision_creates_its_source_kept_as_its_destination_states(self):
+        answer = self.authored({"rules/review.md": CONCEPTS})
+        stored = {**manifest(self.source, {"rules/review.md": CONCEPTS}), "produced_at": INSTANT}
+        self.assertEqual((answer["returned"], answer["receipt"]["head_digest"]),
+                         ([stored], canonical.digest_of(stored)))
+        held = sources.homes.source_of(self.bench.store(), self.source)
+        self.assertEqual((held["scope"], held["role"], held["home"], held["home_mode"]),
+                         (self.person.scope, "instructions", None, "managed"))
+        bundle = storage.bundle(self.bench.state, canonical.digest_of(stored))
+        self.assertEqual((bundle / storage.MEMBERS / "rules/review.md").read_bytes(), CONCEPTS)
+
+    def test_a_later_admission_names_the_head_it_expects(self):
+        head = self.authored({"rules/review.md": CONCEPTS})["receipt"]["head_digest"]
+        second = self.authored({"rules/review.md": RATES}, {"expects": "head", "head_digest": head})
+        self.assertEqual(second["result"]["outcome"]["stage"], "committed", gaps(second))
+        stale = self.authored({"rules/review.md": CONCEPTS + RATES},
+                              {"expects": "head", "head_digest": head})
+        self.assertEqual(stale["result"]["outcome"]["stage"], "stale")
+        again = self.authored({"rules/review.md": RATES})
+        self.assertEqual(again["result"]["outcome"]["stage"], "stale")
+        self.assertEqual((self.count("revisions"), len(self.bundles())), (2, 2))
+
+    def test_a_route_naming_a_manifest_the_request_does_not_carry_is_unavailable(self):
+        submitted = manifest(self.source, {"rules/review.md": CONCEPTS})
+        answer = self.admit(self.asked(submitted), None)
+        self.assertEqual(gaps(answer), [{"code": c01.REF_UNAVAILABLE,
+                                         "pointer": "/route/manifest_digest"}])
+        other = manifest(self.source, {"rules/review.md": RATES})
+        carried = self.admit(self.asked(submitted), other)
+        self.assertEqual(gaps(carried), [{"code": c01.REF_UNAVAILABLE,
+                                          "pointer": "/route/manifest_digest"}])
+
+    def test_a_manifest_of_another_source_than_the_target_is_a_mismatch(self):
+        submitted = manifest(bench.ident("src"), {"rules/review.md": CONCEPTS})
+        answer = self.admit(self.asked(submitted), submitted)
+        self.assertEqual(gaps(answer), [{"code": c03.REQUEST_MISMATCH,
+                                         "pointer": "/target/resource_id"}])
+        self.assertEqual(self.count("sources"), 0)
+
+    def test_an_admission_into_another_scope_role_or_way_of_keeping_is_a_second_home(self):
+        head = self.authored({"rules/review.md": CONCEPTS})["receipt"]["head_digest"]
+        base = {"expects": "head", "head_digest": head}
+        repository = {"layer": "repository", "repository_id": self.repository}
+        for options in ({"role": "knowledge"}, {"scope": Person().scope},
+                        {"mode": "repository_authored"},
+                        {"scope": repository, "mode": "repository_authored"}):
+            answer = self.authored({"rules/review.md": RATES}, base, **options)
+            self.assertEqual(gaps(answer), [{"code": c01.SOURCE_HOME_CONFLICT}], options)
+        registered = self.register(home(self.person, self.source, role="instructions", home={
+            "mode": "package_published", "package_id": bench.ident("pkg"),
+            "publisher_evidence_digest": sha(b"publisher"), "license_conditions": "MIT"}), base)
+        self.assertEqual(gaps(registered), [{"code": c01.SOURCE_HOME_CONFLICT}])
+        same_way = self.register(home(self.person, self.source, role="instructions"), base)
+        self.assertEqual(same_way["result"]["outcome"]["stage"], "committed", gaps(same_way))
+
+    def test_a_source_held_before_its_way_of_keeping_was_is_read_from_its_home(self):
+        _, head = self.registered(role="instructions")
+        store = self.bench.store()
+        with store.unit(self.bench.call(bench.request(self.person, "access.profile.read",
+                                                      self.person.profile))):
+            store.write("UPDATE sources SET home_mode = NULL")
+        answer = self.authored({"rules/review.md": CONCEPTS},
+                               {"expects": "head", "head_digest": head})
+        self.assertEqual(answer["result"]["outcome"]["stage"], "committed", gaps(answer))
+
+    def test_a_destination_kept_by_a_package_is_the_publishers(self):
+        answer = self.authored({"rules/review.md": CONCEPTS}, mode="package_published")
+        self.assertEqual(gaps(answer), [{"code": c01.PUBLISHER_BYTES_MODIFIED}])
+
+    def test_a_repository_destination_rests_on_its_binding_and_reads_its_checkout(self):
+        checkout = Checkout(self.scratch)
+        checkout.write("rules/review.md", CONCEPTS)
+        checkout.commit()
+        repository = {"layer": "repository", "repository_id": self.repository}
+        submitted = manifest(self.source, {"rules/review.md": CONCEPTS})
+        asked = self.asked(submitted, scope=repository, mode="repository_authored")
+        self.assertEqual(gaps(self.admit(asked, submitted)), [{"code": c01.BINDING_UNVERIFIED}])
+        self.bind(checkout)
+        checkout.write("rules/review.md", RATES)
+        moved = self.admit(asked, submitted)
+        self.assertEqual(gaps(moved), [{"code": c03.OBJECT_DIGEST_MISMATCH,
+                                        "pointer": "/members/0"}])
+        checkout.write("rules/review.md", CONCEPTS)
+        answer = self.admit(asked, submitted)
+        bundle = storage.bundle(self.bench.state, answer["receipt"]["head_digest"])
+        self.assertEqual((bundle / storage.MEMBERS / "rules/review.md").read_bytes(), CONCEPTS)
+
+    def test_a_signature_among_its_proofs_is_held_to_what_a_commit_holds_it_to(self):
+        submitted = manifest(self.source, {"rules/review.md": CONCEPTS})
+        altered = manifest(self.source, {"rules/review.md": RATES})
+        envelope = self.signed(self.person, submitted, data=canonical.encode(altered))
+        answer = self.admit(self.asked(submitted), submitted, proofs=[envelope])
+        self.assertEqual(gaps(answer), [{"code": b01.SIGNATURE_INVALID,
+                                         "pointer": "/proof_digests/0"}])
+
+    def test_adding_or_importing_a_package_is_not_served_yet(self):
+        route = {"route": "import_external_package", "declared_origin": "a vendor",
+                 "license_conditions": "MIT", "revision_digest": sha(b"revision")}
+        with self.assertRaises(journal.JournalError):
+            self.admit(self.asked(None, route=route), None)
 
 
 class Reading(Base):

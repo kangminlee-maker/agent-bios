@@ -1212,6 +1212,32 @@
    ]
   },
   {
+   "name": "team_rules_rev_submitted",
+   "from": "sources/revision_of_a_published_package.json",
+   "drop": [
+    "/members/1",
+    "/produced_at"
+   ],
+   "set": [
+    {
+     "pointer": "/source_id",
+     "value": "@team_rules"
+    },
+    {
+     "pointer": "/members/0/path",
+     "value": "rules/review.md"
+    },
+    {
+     "pointer": "/members/0/digest",
+     "value": "0f0556027c5a003612b25e769c4db34e92ea5f06237fe89969b65d016404dd2a"
+    },
+    {
+     "pointer": "/members/0/size",
+     "value": 2048
+    }
+   ]
+  },
+  {
    "name": "team_rules_rev_request",
    "from": "sources/request_to_author_here.json",
    "drop": [
@@ -1233,6 +1259,10 @@
     {
      "pointer": "/role",
      "value": "instructions"
+    },
+    {
+     "pointer": "/route/manifest_digest",
+     "value": "#team_rules_rev_submitted"
     }
    ]
   },
@@ -1306,27 +1336,8 @@
   },
   {
    "name": "team_rules_rev",
-   "from": "sources/revision_of_a_published_package.json",
-   "drop": [
-    "/members/1"
-   ],
+   "from": "team_rules_rev_submitted",
    "set": [
-    {
-     "pointer": "/source_id",
-     "value": "@team_rules"
-    },
-    {
-     "pointer": "/members/0/path",
-     "value": "rules/review.md"
-    },
-    {
-     "pointer": "/members/0/digest",
-     "value": "$digest:team_review_body"
-    },
-    {
-     "pointer": "/members/0/size",
-     "value": 2048
-    },
     {
      "pointer": "/produced_at",
      "value": "$instant:team_rules_rev_at"
@@ -1762,7 +1773,7 @@
     },
     {
      "pointer": "/units/0/body_digest",
-     "value": "$digest:team_review_body"
+     "value": "0f0556027c5a003612b25e769c4db34e92ea5f06237fe89969b65d016404dd2a"
     }
    ]
   },
@@ -1789,7 +1800,7 @@
     {
      "pointer": "/requested/bodies",
      "value": [
-      "$digest:team_review_body"
+      "0f0556027c5a003612b25e769c4db34e92ea5f06237fe89969b65d016404dd2a"
      ]
     }
    ]
@@ -1983,7 +1994,7 @@
     {
      "pointer": "/observed/received",
      "value": [
-      "$digest:team_review_body"
+      "0f0556027c5a003612b25e769c4db34e92ea5f06237fe89969b65d016404dd2a"
      ]
     },
     {
@@ -2042,7 +2053,7 @@
     },
     {
      "pointer": "/observed/inventory/0/body_digest",
-     "value": "$digest:team_review_body"
+     "value": "0f0556027c5a003612b25e769c4db34e92ea5f06237fe89969b65d016404dd2a"
     }
    ]
   },
@@ -2255,7 +2266,7 @@
     {
      "pointer": "/requested/bodies",
      "value": [
-      "$digest:team_review_body"
+      "0f0556027c5a003612b25e769c4db34e92ea5f06237fe89969b65d016404dd2a"
      ]
     }
    ]
@@ -2791,7 +2802,7 @@
     {
      "pointer": "/requested/bodies",
      "value": [
-      "$digest:team_review_body"
+      "0f0556027c5a003612b25e769c4db34e92ea5f06237fe89969b65d016404dd2a"
      ]
     }
    ]
@@ -2988,7 +2999,7 @@
     {
      "pointer": "/requested/bodies",
      "value": [
-      "$digest:team_review_body"
+      "0f0556027c5a003612b25e769c4db34e92ea5f06237fe89969b65d016404dd2a"
      ]
     }
    ]
@@ -3215,7 +3226,7 @@
     {
      "pointer": "/requested/bodies",
      "value": [
-      "$digest:team_review_body"
+      "0f0556027c5a003612b25e769c4db34e92ea5f06237fe89969b65d016404dd2a"
      ]
     }
    ]
@@ -3556,7 +3567,8 @@
    "name": "author_team_rules_rev",
    "request": "admit_team_rules_rev",
    "carries": [
-    "team_rules_rev_request"
+    "team_rules_rev_request",
+    "team_rules_rev_submitted"
    ],
    "answer": {
     "stage": "committed",
@@ -3568,7 +3580,10 @@
      "team_rules_rev"
     ],
     "head": "team_rules_head"
-   }
+   },
+   "submits": [
+    "team_rules_rev_submitted"
+   ]
   },
   {
    "name": "select_team_selection",

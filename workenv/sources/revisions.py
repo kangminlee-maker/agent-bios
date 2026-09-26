@@ -1,4 +1,4 @@
-"""Source revisions (C01): committing one immutable revision of a source this installation holds.
+"""Source revisions (C01): committing or admitting one immutable revision of a source.
 
 `source.revision.commit` takes the manifest its payload states for the source the request
 targets and stores it with the `produced_at` the runtime owns; the stored manifest's digest is
@@ -17,6 +17,18 @@ the revision, and the source's head moves to it. In order:
     in a repository, the files at the members' paths in the checkout bound to it. Bytes of
     another size or digest than the member states are `object_digest_mismatch` at that member;
     a member whose bytes are not at hand is stored by its hash alone.
+
+`source.revision.admit` admits a revision through the route its `source_request` payload names.
+Only a revision authored here (`author_here`) is admitted yet; adding a published package or
+importing an external one is not. The request carries the manifest the route names by
+`manifest_digest`, and a route naming one it does not carry is `ref_unavailable` at
+`/route/manifest_digest`. The first admission of a source expects no head and creates it in the
+destination's scope, with the payload's role, kept the destination's way; a later one names the
+head it expects and must name the same scope, role and way, or it is a second home:
+`source_home_conflict`. A destination kept by a package is the publisher's:
+`publisher_bytes_modified`. A repository-authored destination rests on a binding of its
+repository held here, or it is `binding_unverified`, and its members' bytes come from that
+checkout. From there an admission is a commit: the same signatures, bytes, bundle and head.
 
 The manifest and the bytes at hand are published as the bundle `objects/<revision>/` before the
 unit of work begins, in the storage binding's order (`workenv.storage.publish`), so a revision the
@@ -65,17 +77,16 @@ def unsigned(call, store: storage.Store, manifest: dict) -> dict | None:
     return None
 
 
-def checkout_of(store: storage.Store, home: dict) -> pathlib.Path | None:
+def checkout_of(store: storage.Store, repository_id: str) -> pathlib.Path | None:
     found = store.read("SELECT checkout FROM repositories WHERE repository_id = ?",
-                       (home["repository_id"],))
+                       (repository_id,))
     return pathlib.Path(found[0][0]) if found and found[0][0] else None
 
 
 def gathered(call, store: storage.Store, manifest: dict,
-             home: dict) -> tuple[dict | None, dict[str, bytes]]:
+             checkout: pathlib.Path | None) -> tuple[dict | None, dict[str, bytes]]:
     """The refusal of the first member whose bytes at hand differ, or None; and the members'
     bytes at hand, by path."""
-    checkout = checkout_of(store, home) if home["mode"] == AUTHORED else None
     found: dict[str, bytes] = {}
     for index, member in enumerate(manifest["members"]):
         data = call.members.get(member["digest"])
@@ -89,8 +100,24 @@ def gathered(call, store: storage.Store, manifest: dict,
     return None, found
 
 
+def published(call, store: storage.Store, manifest: dict, source: dict,
+              checkout: pathlib.Path | None) -> dict:
+    """What the unit of work commits, once the signatures and the bytes at hand are the manifest's
+    and its bundle is published; or the answer refusing them."""
+    refusal = unsigned(call, store, manifest)
+    if refusal is not None:
+        return {"answer": refusal}
+    refusal, members = gathered(call, store, manifest, checkout)
+    if refusal is not None:
+        return {"answer": refusal}
+    stored = {**manifest, "produced_at": journal.now(call)}
+    digest = canonical.digest_of(stored)
+    storage.publish(call, digest, canonical.encode(stored), members)
+    return {"stored": stored, "digest": digest, "source": source}
+
+
 def prepare(call) -> dict:
-    """Refuse what can be refused before anything is written, then publish the bundle."""
+    """A commit: refuse what can be refused before anything is written, then publish."""
     store = storage.of(call.state)
     manifest = journal.payload(call)
     source_id = call.request["target"]["resource_id"]
@@ -102,37 +129,74 @@ def prepare(call) -> dict:
     moved = journal.stale(call, store)
     if moved is not None:
         return {"answer": moved}
-    if held["home"]["home"]["mode"] == PUBLISHED:
+    where = held["home"]["home"]
+    if where["mode"] == PUBLISHED:
         return {"answer": refused(call, c01.PUBLISHER_BYTES_MODIFIED)}
-    refusal = unsigned(call, store, manifest)
-    if refusal is not None:
-        return {"answer": refusal}
-    refusal, members = gathered(call, store, manifest, held["home"]["home"])
-    if refusal is not None:
-        return {"answer": refusal}
-    stored = {**manifest, "produced_at": journal.now(call)}
-    digest = canonical.digest_of(stored)
-    storage.publish(call, digest, canonical.encode(stored), members)
-    return {"stored": stored, "digest": digest, "held": held}
+    return published(call, store, manifest, held, checkout_of(
+        store, where["repository_id"]) if where["mode"] == AUTHORED else None)
 
 
-def source_revision_commit(call) -> dict:
-    prepared = getattr(call, "prepared", None) or prepare(call)
+def prepare_admission(call) -> dict:
+    """An admission: refuse what can be refused before anything is written, then publish."""
+    store = storage.of(call.state)
+    asked = journal.payload(call)
+    route = asked["route"]
+    if route["route"] != "author_here":
+        raise journal.JournalError(f"admitting through {route['route']} is not served yet")
+    manifest = next((value for value in call.carried
+                     if isinstance(value, dict) and value.get("kind") == "source_manifest"
+                     and journal.digest_of(value) == route["manifest_digest"]), None)
+    if manifest is None:
+        return {"answer": refused(call, c01.REF_UNAVAILABLE, "/route/manifest_digest")}
+    source_id = call.request["target"]["resource_id"]
+    if manifest["source_id"] != source_id:
+        return {"answer": refused(call, c03.REQUEST_MISMATCH, "/target/resource_id")}
+    moved = journal.stale(call, store)
+    if moved is not None:
+        return {"answer": moved}
+    destination = asked["destination"]
+    source = {"source_id": source_id, "scope": destination["scope"], "role": asked["role"],
+              "home_mode": destination["home_mode"]}
+    held = homes.source_of(store, source_id)
+    if held is not None and any(held[field] != source[field]
+                                for field in ("scope", "role", "home_mode")):
+        return {"answer": homes.conflict(call)}
+    if destination["home_mode"] == PUBLISHED:
+        return {"answer": refused(call, c01.PUBLISHER_BYTES_MODIFIED)}
+    checkout = None
+    if destination["home_mode"] == AUTHORED:
+        checkout = checkout_of(store, destination["scope"].get("repository_id", ""))
+        if checkout is None:
+            return {"answer": refused(call, c01.BINDING_UNVERIFIED)}
+    return published(call, store, manifest, source, checkout)
+
+
+def settled(call, prepared: dict) -> dict:
+    """The unit of work of a commit or an admission: the revision, and the head it moves to."""
     if "answer" in prepared:
         return prepared["answer"]
     store = storage.of(call.state)
     moved = journal.stale(call, store)
     if moved is not None:
         return moved
-    stored, digest, held = prepared["stored"], prepared["digest"], prepared["held"]
+    stored, digest, source = prepared["stored"], prepared["digest"], prepared["source"]
     store.put(stored)
     position = store.read("SELECT COUNT(*) FROM revisions WHERE source_id = ?",
-                          (held["source_id"],))[0][0] + 1
+                          (source["source_id"],))[0][0] + 1
     store.write("INSERT OR IGNORE INTO revisions (revision_digest, source_id, position) "
-                "VALUES (?, ?, ?)", (digest, held["source_id"], position))
-    homes.keep_source(store, held["source_id"], held["scope"], held["role"],
-                      revision_digest=digest)
+                "VALUES (?, ?, ?)", (digest, source["source_id"], position))
+    homes.keep_source(store, source["source_id"], source["scope"], source["role"],
+                      source["home_mode"], revision_digest=digest)
     return journal.committed(call, [stored], head=digest)
 
 
+def source_revision_commit(call) -> dict:
+    return settled(call, getattr(call, "prepared", None) or prepare(call))
+
+
+def source_revision_admit(call) -> dict:
+    return settled(call, getattr(call, "prepared", None) or prepare_admission(call))
+
+
 source_revision_commit.prepare = prepare
+source_revision_admit.prepare = prepare_admission

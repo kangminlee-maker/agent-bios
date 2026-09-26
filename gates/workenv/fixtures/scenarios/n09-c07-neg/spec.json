@@ -266,6 +266,32 @@
    ]
   },
   {
+   "name": "repo_rules_rev_submitted",
+   "from": "sources/revision_of_a_published_package.json",
+   "drop": [
+    "/members/1",
+    "/produced_at"
+   ],
+   "set": [
+    {
+     "pointer": "/members/0/digest",
+     "value": "82e5cfa0d0e2ee0751b01faebe7e4a2b7fa428392279f9e48b79b00fb47308a2"
+    },
+    {
+     "pointer": "/members/0/path",
+     "value": "rules/review.md"
+    },
+    {
+     "pointer": "/members/0/size",
+     "value": 2048
+    },
+    {
+     "pointer": "/source_id",
+     "value": "@repo_rules"
+    }
+   ]
+  },
+  {
    "name": "repo_rules_request",
    "from": "sources/request_to_author_here.json",
    "set": [
@@ -276,6 +302,10 @@
     {
      "pointer": "/role",
      "value": "instructions"
+    },
+    {
+     "pointer": "/route/manifest_digest",
+     "value": "#repo_rules_rev_submitted"
     }
    ]
   },
@@ -346,30 +376,29 @@
   },
   {
    "name": "repo_rules_rev",
+   "from": "repo_rules_rev_submitted",
+   "set": [
+    {
+     "pointer": "/produced_at",
+     "value": "$instant:repo_rules_produced_at"
+    }
+   ]
+  },
+  {
+   "name": "repo_kb_rev_submitted",
    "from": "sources/revision_of_a_published_package.json",
    "drop": [
-    "/members/1"
+    "/members/1",
+    "/produced_at"
    ],
    "set": [
     {
      "pointer": "/members/0/digest",
-     "value": "$digest:repo_rules_review_body"
-    },
-    {
-     "pointer": "/members/0/path",
-     "value": "rules/review.md"
-    },
-    {
-     "pointer": "/members/0/size",
-     "value": 2048
-    },
-    {
-     "pointer": "/produced_at",
-     "value": "$instant:repo_rules_produced_at"
+     "value": "358c9ea65e8ce6246f804852ee8fdf020aa532d0ec431e488e46a1d870fd6a6b"
     },
     {
      "pointer": "/source_id",
-     "value": "@repo_rules"
+     "value": "@repo_kb"
     }
    ]
   },
@@ -384,6 +413,10 @@
     {
      "pointer": "/role",
      "value": "knowledge"
+    },
+    {
+     "pointer": "/route/manifest_digest",
+     "value": "#repo_kb_rev_submitted"
     }
    ]
   },
@@ -454,22 +487,11 @@
   },
   {
    "name": "repo_kb_rev",
-   "from": "sources/revision_of_a_published_package.json",
-   "drop": [
-    "/members/1"
-   ],
+   "from": "repo_kb_rev_submitted",
    "set": [
-    {
-     "pointer": "/members/0/digest",
-     "value": "$digest:repo_kb_concepts_body"
-    },
     {
      "pointer": "/produced_at",
      "value": "$instant:repo_kb_produced_at"
-    },
-    {
-     "pointer": "/source_id",
-     "value": "@repo_kb"
     }
    ]
   },
@@ -563,12 +585,42 @@
    ]
   },
   {
+   "name": "repo_memory_rev_submitted",
+   "from": "sources/revision_of_a_published_package.json",
+   "drop": [
+    "/members/1",
+    "/produced_at"
+   ],
+   "set": [
+    {
+     "pointer": "/members/0/digest",
+     "value": "7c1a9104698b3ed5be10fca6f0d79e980b79c77730a9afa63679e6417fd4900b"
+    },
+    {
+     "pointer": "/members/0/path",
+     "value": "decisions.jsonl"
+    },
+    {
+     "pointer": "/members/0/size",
+     "value": 512
+    },
+    {
+     "pointer": "/source_id",
+     "value": "@repo_memory"
+    }
+   ]
+  },
+  {
    "name": "repo_memory_request",
    "from": "sources/request_to_author_here.json",
    "set": [
     {
      "pointer": "/destination/scope/repository_id",
      "value": "@repo"
+    },
+    {
+     "pointer": "/route/manifest_digest",
+     "value": "#repo_memory_rev_submitted"
     }
    ]
   },
@@ -639,30 +691,11 @@
   },
   {
    "name": "repo_memory_rev",
-   "from": "sources/revision_of_a_published_package.json",
-   "drop": [
-    "/members/1"
-   ],
+   "from": "repo_memory_rev_submitted",
    "set": [
-    {
-     "pointer": "/members/0/digest",
-     "value": "$digest:repo_memory_decisions_body"
-    },
-    {
-     "pointer": "/members/0/path",
-     "value": "decisions.jsonl"
-    },
-    {
-     "pointer": "/members/0/size",
-     "value": 512
-    },
     {
      "pointer": "/produced_at",
      "value": "$instant:repo_memory_produced_at"
-    },
-    {
-     "pointer": "/source_id",
-     "value": "@repo_memory"
     }
    ]
   },
@@ -777,7 +810,7 @@
     },
     {
      "pointer": "/units/0/body_digest",
-     "value": "$digest:repo_rules_review_body"
+     "value": "82e5cfa0d0e2ee0751b01faebe7e4a2b7fa428392279f9e48b79b00fb47308a2"
     },
     {
      "pointer": "/units/0/member",
@@ -1212,7 +1245,7 @@
     },
     {
      "pointer": "/units/0/body_digest",
-     "value": "$digest:repo_rules_review_body"
+     "value": "82e5cfa0d0e2ee0751b01faebe7e4a2b7fa428392279f9e48b79b00fb47308a2"
     },
     {
      "pointer": "/units/0/member",
@@ -1564,7 +1597,8 @@
    "name": "author_repo_rules",
    "request": "author_repo_rules_request",
    "carries": [
-    "repo_rules_request"
+    "repo_rules_request",
+    "repo_rules_rev_submitted"
    ],
    "answer": {
     "stage": "committed",
@@ -1576,13 +1610,17 @@
      "repo_rules_rev"
     ],
     "head": "repo_rules_head"
-   }
+   },
+   "submits": [
+    "repo_rules_rev_submitted"
+   ]
   },
   {
    "name": "author_repo_kb",
    "request": "author_repo_kb_request",
    "carries": [
-    "repo_kb_request"
+    "repo_kb_request",
+    "repo_kb_rev_submitted"
    ],
    "answer": {
     "stage": "committed",
@@ -1594,7 +1632,10 @@
      "repo_kb_rev"
     ],
     "head": "repo_kb_head"
-   }
+   },
+   "submits": [
+    "repo_kb_rev_submitted"
+   ]
   },
   {
    "name": "open_storage_work",
@@ -1617,7 +1658,8 @@
    "name": "author_repo_memory",
    "request": "author_repo_memory_request",
    "carries": [
-    "repo_memory_request"
+    "repo_memory_request",
+    "repo_memory_rev_submitted"
    ],
    "answer": {
     "stage": "committed",
@@ -1629,7 +1671,10 @@
      "repo_memory_rev"
     ],
     "head": "repo_memory_head"
-   }
+   },
+   "submits": [
+    "repo_memory_rev_submitted"
+   ]
   },
   {
    "name": "compose_first",

@@ -2,7 +2,7 @@
   "type": "object",
   "additionalProperties": false,
   "title": "C01 source request",
-  "description": "What was asked for: this role, in this home, by one of four routes. It carries no id and no time because it is the payload of a C03 operation request, which owns both.",
+  "description": "What was asked for: this role, in this home, by one of three routes. It carries no id and no time because it is the payload of a C03 operation request, which owns both.",
   "required": [
     "kind",
     "schema",
@@ -52,12 +52,17 @@
     "author_here_route": {
       "type": "object",
       "additionalProperties": false,
+      "description": "A revision authored on this installation. The request carries the source_manifest it submits, and this names it by digest: its members by path, digest and size, whose bytes come with the request or, for a repository-authored destination, from the bound checkout. The owner stores that manifest with the time it produced it, so the revision digest is not this one.",
       "required": [
-        "route"
+        "route",
+        "manifest_digest"
       ],
       "properties": {
         "route": {
           "const": "author_here"
+        },
+        "manifest_digest": {
+          "$ref": "#/$defs/digest"
         }
       }
     },

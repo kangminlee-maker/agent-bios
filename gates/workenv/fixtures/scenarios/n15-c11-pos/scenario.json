@@ -142,6 +142,16 @@
    "record": "bind_alice_key_result"
   },
   {
+   "digest_of": "review_body",
+   "pointer": "/members/0/digest",
+   "record": "rules_rev_submitted"
+  },
+  {
+   "digest_of": "rules_rev_submitted",
+   "pointer": "/route/manifest_digest",
+   "record": "rules_rev_request"
+  },
+  {
    "digest_of": "rules_rev_request",
    "pointer": "/payload_digest",
    "record": "admit_rules_rev"
@@ -1433,7 +1443,24 @@
    }
   },
   {
-   "digest": "f7aaefe48c56cf5e63ed57a135f6f9428471ab3caab257c9c4d2e06c47cdb865",
+   "digest": "4a3965e8bb58eb3fe46df039107e421382b51329a1be04ca178519ea20905000",
+   "name": "rules_rev_submitted",
+   "record": {
+    "format_version": 1,
+    "kind": "source_manifest",
+    "members": [
+     {
+      "digest": "4e90f23c4380aa1e3165d6ee5ea7794c2564b666d313ff6e8477bef68fcb8c81",
+      "path": "rules/review.md",
+      "size": 2048
+     }
+    ],
+    "schema": 1,
+    "source_id": "src_5e75085872d199439caf0e089b2726a1"
+   }
+  },
+  {
+   "digest": "e997d7673531b3520028a599356ee34e953df4b4f511a1c8f9ee1858118794cb",
    "name": "rules_rev_request",
    "record": {
     "destination": {
@@ -1446,13 +1473,14 @@
     "kind": "source_request",
     "role": "instructions",
     "route": {
+     "manifest_digest": "4a3965e8bb58eb3fe46df039107e421382b51329a1be04ca178519ea20905000",
      "route": "author_here"
     },
     "schema": 1
    }
   },
   {
-   "digest": "0cb97df4368e01d887aed38d1e872cf398a8945111f99d536b8abf2845bba043",
+   "digest": "bd0881f3696fc4f6b46ca54966341ebcbeb79b628614bd143c0c07c7d4e92d59",
    "name": "admit_rules_rev",
    "record": {
     "action": "contribute",
@@ -1470,7 +1498,7 @@
      "layer": "personal",
      "principal_id": "prn_735b1e8b938bda9c7eab0fbb9c1ddd35"
     },
-    "payload_digest": "f7aaefe48c56cf5e63ed57a135f6f9428471ab3caab257c9c4d2e06c47cdb865",
+    "payload_digest": "e997d7673531b3520028a599356ee34e953df4b4f511a1c8f9ee1858118794cb",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_e584064f01b4195a72269e11266300fd",
@@ -1484,7 +1512,7 @@
    }
   },
   {
-   "digest": "a4144cfc4a0a1bba392fd4d68def75193dd19416ef4c937607af013922734871",
+   "digest": "d25e7efb6b085cd0c0fabc2ee4deaa8cee719a2f0d5a1d0691e9209cf449440f",
    "name": "author_rules_rev_receipt",
    "record": {
     "committed_at": "2000-01-01T00:00:00Z",
@@ -1494,7 +1522,7 @@
      "layer": "personal",
      "principal_id": "prn_735b1e8b938bda9c7eab0fbb9c1ddd35"
     },
-    "request_digest": "0cb97df4368e01d887aed38d1e872cf398a8945111f99d536b8abf2845bba043",
+    "request_digest": "bd0881f3696fc4f6b46ca54966341ebcbeb79b628614bd143c0c07c7d4e92d59",
     "request_id": "req_e584064f01b4195a72269e11266300fd",
     "schema": 1,
     "sequence": 1,
@@ -1525,14 +1553,14 @@
    }
   },
   {
-   "digest": "5a89c8b03b52c8341979ab2e5ee80ad8cd78de6b1bce35d51fddfb414cf76e38",
+   "digest": "71bfd6f193dca29bdc35ce2eecb81c6bbf306f0592ad4d908cd7e6c27173712e",
    "name": "author_rules_rev_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "a4144cfc4a0a1bba392fd4d68def75193dd19416ef4c937607af013922734871",
+     "receipt_digest": "d25e7efb6b085cd0c0fabc2ee4deaa8cee719a2f0d5a1d0691e9209cf449440f",
      "stage": "committed"
     },
     "outputs": [
@@ -1542,7 +1570,7 @@
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "0cb97df4368e01d887aed38d1e872cf398a8945111f99d536b8abf2845bba043",
+    "request_digest": "bd0881f3696fc4f6b46ca54966341ebcbeb79b628614bd143c0c07c7d4e92d59",
     "request_id": "req_e584064f01b4195a72269e11266300fd",
     "schema": 1,
     "supported_recovery": []
@@ -2878,7 +2906,7 @@
   }
  ],
  "says": "Alice binds her device key, authors a personal Instructions source whose revision the owner returns with the body digest it computed, and selects it in her personal Instructions position. She opens a link to the conversation her work is in and composes a preparation for delivery on it. The client supports each recipient in turn and each attempt names that preparation and its one body: the current conversation receives it; a child session started from that conversation receives it under its own use; and the same conversation rehydrated after its context was compacted receives the body again, supplied whole. She then opens a second, fresh conversation and composes a preparation for delivery on that link, and the new recipient receives its body. Every attempt answers with a receipt naming exactly the body that arrived, and observing each preparation returns an inventory naming the unit, source, revision and body delivered: one for the host session and one for the child session of the first preparation, one for the new conversation of the second. No attempt may claim more than it asked to deliver, and no observation may name a body its preparation did not compose.",
- "spec_sha256": "068ddb606f615e53906b58495de0df17bd4bc9067fcca497fcbf290914b83612",
+ "spec_sha256": "87e36ff309c4b585ed66f5f40c36027bbca5d113b93e9366e0bea68025ce8ed7",
  "steps": [
   {
    "carries": [
@@ -2893,7 +2921,8 @@
   },
   {
    "carries": [
-    "rules_rev_request"
+    "rules_rev_request",
+    "rules_rev_submitted"
    ],
    "head": "rules_head",
    "name": "author_rules_rev",
@@ -2901,6 +2930,9 @@
    "result": "author_rules_rev_result",
    "returns": [
     "rules_rev"
+   ],
+   "submits": [
+    "rules_rev_submitted"
    ]
   },
   {

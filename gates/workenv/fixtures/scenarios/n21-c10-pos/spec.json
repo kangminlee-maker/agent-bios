@@ -765,6 +765,10 @@
         {
           "pointer": "/destination/scope/principal_id",
           "value": "@alice"
+        },
+        {
+          "pointer": "/route/manifest_digest",
+          "value": "#excerpt_manifest"
         }
       ]
     },
@@ -2371,7 +2375,8 @@
       "name": "admit_the_excerpt_derivative",
       "request": "admit_excerpt",
       "carries": [
-        "excerpt_request_payload"
+        "excerpt_request_payload",
+        "excerpt_manifest"
       ],
       "answer": {
         "stage": "committed",
@@ -2385,7 +2390,10 @@
         ],
         "head": "excerpt_admitted_head"
       },
-      "process": "laptop"
+      "process": "laptop",
+      "submits": [
+        "excerpt_manifest"
+      ]
     },
     {
       "name": "set_the_excerpt_rights",

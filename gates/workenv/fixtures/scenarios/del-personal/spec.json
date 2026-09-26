@@ -182,6 +182,32 @@
    ]
   },
   {
+   "name": "rules_rev_submitted",
+   "from": "sources/revision_of_a_published_package.json",
+   "drop": [
+    "/members/1",
+    "/produced_at"
+   ],
+   "set": [
+    {
+     "pointer": "/source_id",
+     "value": "@rules"
+    },
+    {
+     "pointer": "/members/0/path",
+     "value": "rules/review.md"
+    },
+    {
+     "pointer": "/members/0/digest",
+     "value": "#review_body"
+    },
+    {
+     "pointer": "/members/0/size",
+     "value": 152
+    }
+   ]
+  },
+  {
    "name": "rules_rev_request",
    "from": "sources/request_to_author_here.json",
    "drop": [
@@ -203,6 +229,10 @@
     {
      "pointer": "/role",
      "value": "instructions"
+    },
+    {
+     "pointer": "/route/manifest_digest",
+     "value": "#rules_rev_submitted"
     }
    ]
   },
@@ -281,27 +311,8 @@
   },
   {
    "name": "rules_rev",
-   "from": "sources/revision_of_a_published_package.json",
-   "drop": [
-    "/members/1"
-   ],
+   "from": "rules_rev_submitted",
    "set": [
-    {
-     "pointer": "/source_id",
-     "value": "@rules"
-    },
-    {
-     "pointer": "/members/0/path",
-     "value": "rules/review.md"
-    },
-    {
-     "pointer": "/members/0/digest",
-     "value": "#review_body"
-    },
-    {
-     "pointer": "/members/0/size",
-     "value": 152
-    },
     {
      "pointer": "/produced_at",
      "value": "$instant:rules_rev_at"
@@ -1734,7 +1745,8 @@
    "name": "author_rules_rev",
    "request": "admit_rules_rev",
    "carries": [
-    "rules_rev_request"
+    "rules_rev_request",
+    "rules_rev_submitted"
    ],
    "answer": {
     "stage": "committed",
@@ -1746,7 +1758,10 @@
      "rules_rev"
     ],
     "head": "rules_head"
-   }
+   },
+   "submits": [
+    "rules_rev_submitted"
+   ]
   },
   {
    "name": "select_rules_selection",

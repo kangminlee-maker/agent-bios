@@ -335,6 +335,11 @@
    "record": "admit_notes"
   },
   {
+   "digest_of": "notes_manifest",
+   "pointer": "/route/manifest_digest",
+   "record": "notes_request_payload"
+  },
+  {
    "digest_of": "notes_request_payload",
    "pointer": "/payload_digest",
    "record": "admit_notes"
@@ -1903,7 +1908,24 @@
    }
   },
   {
-   "digest": "f2676a4a3b7bcb61ecb749747dcbef6a1900622d48dcf9db6584409fc40aad21",
+   "digest": "4b2499239fd8640602ca1ddc1a4444ff41b709c6547117643b19d4eba87ae97a",
+   "name": "notes_manifest",
+   "record": {
+    "format_version": 1,
+    "kind": "source_manifest",
+    "members": [
+     {
+      "digest": "c4933a82770781b42504ac60a6252bfd06ccfce66170394620ba473ade98365d",
+      "path": "team-platform-notes.md",
+      "size": 4120
+     }
+    ],
+    "schema": 1,
+    "source_id": "src_6e9f27516641c413abab9dea99e4cd8c"
+   }
+  },
+  {
+   "digest": "a39167a197b7b3af4f53dcf0022fb6b0a43a606e267bfc27eabd88646f105143",
    "name": "notes_request_payload",
    "record": {
     "destination": {
@@ -1916,13 +1938,14 @@
     "kind": "source_request",
     "role": "knowledge",
     "route": {
+     "manifest_digest": "4b2499239fd8640602ca1ddc1a4444ff41b709c6547117643b19d4eba87ae97a",
      "route": "author_here"
     },
     "schema": 1
    }
   },
   {
-   "digest": "0e5aeefbd692a781f48b239030b028cdc0f4347a8fdc8c404c974ece80c9aa1d",
+   "digest": "e9f23a93327f782b5f73ad0fee49e9ac79d2cb3785a665c6f973750a226f6a01",
    "name": "admit_notes",
    "record": {
     "action": "contribute",
@@ -1940,7 +1963,7 @@
      "layer": "team",
      "team_id": "tem_1c7b4bb84bf47faf53d9b050ec3b1905"
     },
-    "payload_digest": "f2676a4a3b7bcb61ecb749747dcbef6a1900622d48dcf9db6584409fc40aad21",
+    "payload_digest": "a39167a197b7b3af4f53dcf0022fb6b0a43a606e267bfc27eabd88646f105143",
     "policy_digests": [
      "06a8fdc2e7c5a0a896368756c87fd154ade93faacadde9b306df36759bb30d95"
     ],
@@ -1957,7 +1980,7 @@
    }
   },
   {
-   "digest": "a208444946e623f6f036653b9b5ca27d54db88b824a13d7c7889421b36b568e6",
+   "digest": "6a64b8d24d47e593741fb88d9fb6048e000399a61ab789d47e45239da07a849b",
    "name": "admit_notes_revision_receipt",
    "record": {
     "committed_at": "2000-01-01T00:00:00Z",
@@ -1967,7 +1990,7 @@
      "layer": "team",
      "team_id": "tem_1c7b4bb84bf47faf53d9b050ec3b1905"
     },
-    "request_digest": "0e5aeefbd692a781f48b239030b028cdc0f4347a8fdc8c404c974ece80c9aa1d",
+    "request_digest": "e9f23a93327f782b5f73ad0fee49e9ac79d2cb3785a665c6f973750a226f6a01",
     "request_id": "req_e907200fc1be8c31659a6d779e8aea88",
     "schema": 1,
     "sequence": 1,
@@ -1978,23 +2001,6 @@
      },
      "resource_id": "src_6e9f27516641c413abab9dea99e4cd8c"
     }
-   }
-  },
-  {
-   "digest": "4b2499239fd8640602ca1ddc1a4444ff41b709c6547117643b19d4eba87ae97a",
-   "name": "notes_manifest",
-   "record": {
-    "format_version": 1,
-    "kind": "source_manifest",
-    "members": [
-     {
-      "digest": "c4933a82770781b42504ac60a6252bfd06ccfce66170394620ba473ade98365d",
-      "path": "team-platform-notes.md",
-      "size": 4120
-     }
-    ],
-    "schema": 1,
-    "source_id": "src_6e9f27516641c413abab9dea99e4cd8c"
    }
   },
   {
@@ -2040,14 +2046,14 @@
    }
   },
   {
-   "digest": "e3c95884ed195906b56706e4834f2b1bfb989e2f3cc35422990c533c3d148f86",
+   "digest": "b41a0c54b9b03432aeddefc1e9e32f67396663a502b887089bdefd8c7b526bb2",
    "name": "admit_notes_revision_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "a208444946e623f6f036653b9b5ca27d54db88b824a13d7c7889421b36b568e6",
+     "receipt_digest": "6a64b8d24d47e593741fb88d9fb6048e000399a61ab789d47e45239da07a849b",
      "stage": "committed"
     },
     "outputs": [
@@ -2061,7 +2067,7 @@
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "0e5aeefbd692a781f48b239030b028cdc0f4347a8fdc8c404c974ece80c9aa1d",
+    "request_digest": "e9f23a93327f782b5f73ad0fee49e9ac79d2cb3785a665c6f973750a226f6a01",
     "request_id": "req_e907200fc1be8c31659a6d779e8aea88",
     "schema": 1,
     "supported_recovery": []
@@ -5959,7 +5965,7 @@
   }
  ],
  "says": "One actor, alice, binds her laptop key and founds the Team Platform (the founding returns her membership by founding and the Team's first authority epoch), and a probe qualifies the installed client's read capability. Alice also registers the Team's notes source at its canonical authoring home and admits its first revision, source.home.register and source.revision.admit run here as real owner operations, returning the source's home and its provenance. From the host launcher she starts personally: the launcher's route.offer offers one start route qualified by that probe, she selects the Team's instructions beside her own, and Enter on the single start action dispatches preparation.compose, which composes her own preparation and stores it without a receipt, and one route.select. The selection names the compose request and expects it prepared; compose returns the preparation, and the route outcome is a real run whose output is that preparation. From the Studio hub the same Team and preparation are then carried through W01 to W10, each view keeping the Team as browse and selected scope, the preparation as its target and the view it came from as its return; W07 reads the Team's state through team.state.read and W08 its recent history through operation.history.read, both real owner operations run as steps here; W03's authoring view shows that source's canonical authoring home, owner, home and applicability scope, and origin, each element joined to the real source_home and source_provenance records. Esc returns to W01 with the same target. A direct work link opens W09 on the same preparation in the same scope, and Esc returns to W01 on it. No view changes the actor, the Team or the preparation, and no navigation dispatches a request.",
- "spec_sha256": "6f427c366d0a8f2975a2d98edbf23b5e420d4fff83ccbc8ef404f1bd5df2e6c7",
+ "spec_sha256": "7ea3ed08ddadeabedbcdda90e2ade7a174800acf7c6b604de1e49150a4a35293",
  "steps": [
   {
    "carries": [
@@ -6008,7 +6014,8 @@
   },
   {
    "carries": [
-    "notes_request_payload"
+    "notes_request_payload",
+    "notes_manifest"
    ],
    "head": "notes_admitted_head",
    "name": "admit_notes_revision",
@@ -6017,6 +6024,9 @@
    "returns": [
     "stored_notes_manifest",
     "notes_provenance"
+   ],
+   "submits": [
+    "notes_manifest"
    ]
   },
   {

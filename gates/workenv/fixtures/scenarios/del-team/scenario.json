@@ -812,6 +812,11 @@
    "record": "grant_bob_use_result"
   },
   {
+   "digest_of": "team_rules_rev_submitted",
+   "pointer": "/route/manifest_digest",
+   "record": "team_rules_rev_request"
+  },
+  {
    "digest_of": "team_rules_rev_request",
    "pointer": "/payload_digest",
    "record": "admit_team_rules_rev"
@@ -835,11 +840,6 @@
    "minted": "author_team_rules_rev_committed_at",
    "pointer": "/committed_at",
    "record": "author_team_rules_rev_receipt"
-  },
-  {
-   "minted": "team_review_body",
-   "pointer": "/members/0/digest",
-   "record": "team_rules_rev"
   },
   {
    "minted": "team_rules_rev_at",
@@ -1027,11 +1027,6 @@
    "record": "team_preparation"
   },
   {
-   "minted": "team_review_body",
-   "pointer": "/units/0/body_digest",
-   "record": "team_preparation"
-  },
-  {
    "digest_of": "compose_team_preparation",
    "pointer": "/request_digest",
    "record": "compose_team_preparation_result"
@@ -1054,11 +1049,6 @@
   {
    "digest_of": "team_preparation",
    "pointer": "/requested/preparation_digest",
-   "record": "deliver_submitted"
-  },
-  {
-   "minted": "team_review_body",
-   "pointer": "/requested/bodies/0",
    "record": "deliver_submitted"
   },
   {
@@ -1127,16 +1117,6 @@
    "record": "delivered"
   },
   {
-   "minted": "team_review_body",
-   "pointer": "/requested/bodies/0",
-   "record": "delivered"
-  },
-  {
-   "minted": "team_review_body",
-   "pointer": "/observed/received/0",
-   "record": "delivered"
-  },
-  {
    "minted": "delivered_receipt_evidence",
    "pointer": "/observed/evidence_digest",
    "record": "delivered"
@@ -1199,11 +1179,6 @@
   {
    "digest_of": "team_rules_rev",
    "pointer": "/observed/inventory/0/revision_digest",
-   "record": "host_observed"
-  },
-  {
-   "minted": "team_review_body",
-   "pointer": "/observed/inventory/0/body_digest",
    "record": "host_observed"
   },
   {
@@ -1279,11 +1254,6 @@
   {
    "digest_of": "team_preparation",
    "pointer": "/requested/preparation_digest",
-   "record": "wrong_submitted"
-  },
-  {
-   "minted": "team_review_body",
-   "pointer": "/requested/bodies/0",
    "record": "wrong_submitted"
   },
   {
@@ -1512,11 +1482,6 @@
    "record": "wrong_team_submitted"
   },
   {
-   "minted": "team_review_body",
-   "pointer": "/requested/bodies/0",
-   "record": "wrong_team_submitted"
-  },
-  {
    "minted": "bob_team_b_link",
    "pointer": "/link_id",
    "record": "wrong_team_submitted"
@@ -1547,11 +1512,6 @@
    "record": "child_submitted"
   },
   {
-   "minted": "team_review_body",
-   "pointer": "/requested/bodies/0",
-   "record": "child_submitted"
-  },
-  {
    "digest_of": "child_submitted",
    "pointer": "/payload_digest",
    "record": "attempt_child"
@@ -1564,11 +1524,6 @@
   {
    "digest_of": "team_preparation",
    "pointer": "/requested/preparation_digest",
-   "record": "child_unsupported"
-  },
-  {
-   "minted": "team_review_body",
-   "pointer": "/requested/bodies/0",
    "record": "child_unsupported"
   },
   {
@@ -1632,11 +1587,6 @@
    "record": "resume_submitted"
   },
   {
-   "minted": "team_review_body",
-   "pointer": "/requested/bodies/0",
-   "record": "resume_submitted"
-  },
-  {
    "digest_of": "resume_submitted",
    "pointer": "/payload_digest",
    "record": "attempt_resume"
@@ -1649,11 +1599,6 @@
   {
    "digest_of": "team_preparation",
    "pointer": "/requested/preparation_digest",
-   "record": "unsupported_resume"
-  },
-  {
-   "minted": "team_review_body",
-   "pointer": "/requested/bodies/0",
    "record": "unsupported_resume"
   },
   {
@@ -1759,11 +1704,6 @@
   {
    "digest_of": "team_preparation",
    "pointer": "/requested/preparation_digest",
-   "record": "late_submitted"
-  },
-  {
-   "minted": "team_review_body",
-   "pointer": "/requested/bodies/0",
    "record": "late_submitted"
   },
   {
@@ -2016,11 +1956,6 @@
   {
    "name": "author_team_rules_rev_sequence",
    "shape": "integer",
-   "step": "author_team_rules_rev"
-  },
-  {
-   "name": "team_review_body",
-   "shape": "digest",
    "step": "author_team_rules_rev"
   },
   {
@@ -3385,7 +3320,24 @@
    }
   },
   {
-   "digest": "42ba2dac034af7b9c8a9b9fd482501ce0de7564e555ca4aaf4aad134b1d3331d",
+   "digest": "d75fe40324361960ca69212e7c48e6002f02fb6228ce8166ba8bbf8415d252e8",
+   "name": "team_rules_rev_submitted",
+   "record": {
+    "format_version": 1,
+    "kind": "source_manifest",
+    "members": [
+     {
+      "digest": "0f0556027c5a003612b25e769c4db34e92ea5f06237fe89969b65d016404dd2a",
+      "path": "rules/review.md",
+      "size": 2048
+     }
+    ],
+    "schema": 1,
+    "source_id": "src_4a7c1e46ba6620c07fa7c0939a878f16"
+   }
+  },
+  {
+   "digest": "7f3ba055adb77500e594cc246a3c9adbdbe61fe08410334e39116838dbac5754",
    "name": "team_rules_rev_request",
    "record": {
     "destination": {
@@ -3398,13 +3350,14 @@
     "kind": "source_request",
     "role": "instructions",
     "route": {
+     "manifest_digest": "d75fe40324361960ca69212e7c48e6002f02fb6228ce8166ba8bbf8415d252e8",
      "route": "author_here"
     },
     "schema": 1
    }
   },
   {
-   "digest": "d70a650aa819733869b3efcda785981534dcda0a3b3da54bf255bce94316081b",
+   "digest": "1f50285c8fdf1602b22d8cc44779de68c42631f616870875ff67c2fc59697247",
    "name": "admit_team_rules_rev",
    "record": {
     "action": "contribute",
@@ -3422,7 +3375,7 @@
      "layer": "team",
      "team_id": "tem_9eac420192e8c113ad826fd5dd41efbb"
     },
-    "payload_digest": "42ba2dac034af7b9c8a9b9fd482501ce0de7564e555ca4aaf4aad134b1d3331d",
+    "payload_digest": "7f3ba055adb77500e594cc246a3c9adbdbe61fe08410334e39116838dbac5754",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_6ca70c67c01941704ca1b4574bbeacfc",
@@ -3436,7 +3389,7 @@
    }
   },
   {
-   "digest": "68ba4ccfa7c73cc2986178d4c52a1e8b3dcae02336f6dba71b8ad9b109f70554",
+   "digest": "d29d12bc3de3f4a7cfb1955b62a3e31284f37a064c5a091a0417c2dc2d6ea1d4",
    "name": "author_team_rules_rev_receipt",
    "record": {
     "committed_at": "2000-01-01T00:00:00Z",
@@ -3446,7 +3399,7 @@
      "layer": "team",
      "team_id": "tem_9eac420192e8c113ad826fd5dd41efbb"
     },
-    "request_digest": "d70a650aa819733869b3efcda785981534dcda0a3b3da54bf255bce94316081b",
+    "request_digest": "1f50285c8fdf1602b22d8cc44779de68c42631f616870875ff67c2fc59697247",
     "request_id": "req_6ca70c67c01941704ca1b4574bbeacfc",
     "schema": 1,
     "sequence": 1,
@@ -3477,14 +3430,14 @@
    }
   },
   {
-   "digest": "f054c5c1ce07fd6d35a63c03d4ed2c4b37b6de34bf0c8cfa6b051c421099bc79",
+   "digest": "8556e19164d261733e5311268f48120a95379ecc6f0f8663eed64ac8ea255fa0",
    "name": "author_team_rules_rev_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "68ba4ccfa7c73cc2986178d4c52a1e8b3dcae02336f6dba71b8ad9b109f70554",
+     "receipt_digest": "d29d12bc3de3f4a7cfb1955b62a3e31284f37a064c5a091a0417c2dc2d6ea1d4",
      "stage": "committed"
     },
     "outputs": [
@@ -3494,7 +3447,7 @@
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "d70a650aa819733869b3efcda785981534dcda0a3b3da54bf255bce94316081b",
+    "request_digest": "1f50285c8fdf1602b22d8cc44779de68c42631f616870875ff67c2fc59697247",
     "request_id": "req_6ca70c67c01941704ca1b4574bbeacfc",
     "schema": 1,
     "supported_recovery": []
@@ -5467,7 +5420,7 @@
   }
  ],
  "says": "Alice founds a Team alone: the founding returns her membership by founding and the Team's first authority epoch. She invites Bob, verifies in person that the device key he bound is the one the invitation is for, Bob consents naming that verification, and Alice admits him as an active member and grants him read and use in the Team, each against the Team head the previous change moved to. Alice authors the Team's Instructions source and selects its exact revision in the Team's Instructions position. Bob opens a link to his Team conversation naming the grant he receives the Team's material under, and composes a preparation for delivery of the Team position on that link. Before delivering, the owner assesses Bob's delivery request: he may act, on a current Team grant for use. The attempt delivers the exact Team body to the current recipient, and observing the preparation names the Team unit, source, revision and body that arrived for his conversation. None of the following may certify a delivery: the same bodies sent on a personal conversation of his that the preparation does not name are refused as recipient_mismatch; so are the same bodies sent to his conversation in a second Team, Payments, which he founds alone and whose link names that Team's scope and his grant there, because the preparation names his Platform conversation as its recipient; a child session this route cannot reach is recorded as child_route_unsupported, and observing the preparation then names the host session's delivery beside a child session that was not observed (delivery_unobserved), because the parent's receipt proves nothing of the child; and a rehydrated resume the route cannot carry is refused as route_unsupported. Alice then revokes Bob's grant by committing its next revision on the Team head; the owner's assessment of his next delivery request says he may not act (grant_not_held, the grant seen as revoked), and that delivery is refused as grant_not_held and delivers nothing.",
- "spec_sha256": "eea8ef06093cf1e8dd6dcf59719c182479fe3841987bb5b557b99868ee000e6a",
+ "spec_sha256": "f3438d7dc11b3f187fc20027f4dc9b0ed52cbfd056939bf7d41f9e9ea71a99af",
  "steps": [
   {
    "carries": [
@@ -5575,7 +5528,8 @@
   },
   {
    "carries": [
-    "team_rules_rev_request"
+    "team_rules_rev_request",
+    "team_rules_rev_submitted"
    ],
    "head": "team_rules_head",
    "name": "author_team_rules_rev",
@@ -5583,6 +5537,9 @@
    "result": "author_team_rules_rev_result",
    "returns": [
     "team_rules_rev"
+   ],
+   "submits": [
+    "team_rules_rev_submitted"
    ]
   },
   {

@@ -320,6 +320,16 @@
    "record": "bind_repository_result"
   },
   {
+   "digest_of": "repo_rules_review_text",
+   "pointer": "/members/0/digest",
+   "record": "repo_rules_rev_submitted"
+  },
+  {
+   "digest_of": "repo_rules_rev_submitted",
+   "pointer": "/route/manifest_digest",
+   "record": "repo_rules_request"
+  },
+  {
    "digest_of": "repo_rules_request",
    "pointer": "/payload_digest",
    "record": "author_repo_rules_request"
@@ -368,6 +378,16 @@
    "digest_of": "repo_rules_rev",
    "pointer": "/outputs/0/digest",
    "record": "author_repo_rules_result"
+  },
+  {
+   "digest_of": "bob_rules_private_text",
+   "pointer": "/members/0/digest",
+   "record": "bob_rules_rev_submitted"
+  },
+  {
+   "digest_of": "bob_rules_rev_submitted",
+   "pointer": "/route/manifest_digest",
+   "record": "bob_rules_request"
   },
   {
    "digest_of": "bob_rules_request",
@@ -2243,7 +2263,24 @@
    }
   },
   {
-   "digest": "6982e5543bfe3f8f1c1dbbee91be2b36a07bc45c51b5b30a42ae343d866f84be",
+   "digest": "6cddc974817c5850bee693f8d13913ce11ca4b541225b588d9a91e55d8718e65",
+   "name": "repo_rules_rev_submitted",
+   "record": {
+    "format_version": 1,
+    "kind": "source_manifest",
+    "members": [
+     {
+      "digest": "ad05e3f102bbd8e54db9587a0ec1be1a5685d5f8a1d310163a644183c523689d",
+      "path": "rules/review.md",
+      "size": 600
+     }
+    ],
+    "schema": 1,
+    "source_id": "src_45c20cccb9321b5560db08152fe8c9d5"
+   }
+  },
+  {
+   "digest": "2753b0d303604457df86d54394b2d972a3e67d1e03551e7ce6979de1040a9696",
    "name": "repo_rules_request",
    "record": {
     "destination": {
@@ -2256,13 +2293,14 @@
     "kind": "source_request",
     "role": "instructions",
     "route": {
+     "manifest_digest": "6cddc974817c5850bee693f8d13913ce11ca4b541225b588d9a91e55d8718e65",
      "route": "author_here"
     },
     "schema": 1
    }
   },
   {
-   "digest": "7abf87f1f76ef7212f35e4bc60d5bdebff50f7990676f0c0b2e83355b2717dde",
+   "digest": "03a3fb1add9bcc0641d8d76a688bda72b501b8eed3685a7d6f4955cc7df502d5",
    "name": "author_repo_rules_request",
    "record": {
     "action": "contribute",
@@ -2280,7 +2318,7 @@
      "layer": "repository",
      "repository_id": "rep_42ffe644a9d05d291d54a5365eef4e19"
     },
-    "payload_digest": "6982e5543bfe3f8f1c1dbbee91be2b36a07bc45c51b5b30a42ae343d866f84be",
+    "payload_digest": "2753b0d303604457df86d54394b2d972a3e67d1e03551e7ce6979de1040a9696",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_4f269f325be55ab8acbe20d0345c9942",
@@ -2294,7 +2332,7 @@
    }
   },
   {
-   "digest": "f5ce559e7b4d8aba96977f843e36851d83d5904073b914627bf2af63124fb173",
+   "digest": "2457746e1b89e4eca51cec00874d29197c04e48b68c688dd7c561d62fd45f40c",
    "name": "author_repo_rules_receipt",
    "record": {
     "committed_at": "2000-01-01T00:00:00Z",
@@ -2304,7 +2342,7 @@
      "layer": "repository",
      "repository_id": "rep_42ffe644a9d05d291d54a5365eef4e19"
     },
-    "request_digest": "7abf87f1f76ef7212f35e4bc60d5bdebff50f7990676f0c0b2e83355b2717dde",
+    "request_digest": "03a3fb1add9bcc0641d8d76a688bda72b501b8eed3685a7d6f4955cc7df502d5",
     "request_id": "req_4f269f325be55ab8acbe20d0345c9942",
     "schema": 1,
     "sequence": 1,
@@ -2335,14 +2373,14 @@
    }
   },
   {
-   "digest": "1243f48be5f0dea0c1304f66a5c7bdf3cee6f450013f8170a3c350a9e4a15307",
+   "digest": "4316a522d496aca736953eb06120b4de1f2b063124237b7eb15ea9ed0756cfb8",
    "name": "author_repo_rules_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "f5ce559e7b4d8aba96977f843e36851d83d5904073b914627bf2af63124fb173",
+     "receipt_digest": "2457746e1b89e4eca51cec00874d29197c04e48b68c688dd7c561d62fd45f40c",
      "stage": "committed"
     },
     "outputs": [
@@ -2352,14 +2390,31 @@
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "7abf87f1f76ef7212f35e4bc60d5bdebff50f7990676f0c0b2e83355b2717dde",
+    "request_digest": "03a3fb1add9bcc0641d8d76a688bda72b501b8eed3685a7d6f4955cc7df502d5",
     "request_id": "req_4f269f325be55ab8acbe20d0345c9942",
     "schema": 1,
     "supported_recovery": []
    }
   },
   {
-   "digest": "8a3be38808dff9649264a7bafcca6c21587db7a4f2175208bcc1550fc3fc8d24",
+   "digest": "5a53831df6406341abda60d7de971218ebd30090c38b77b4f4d42bb8e70603a0",
+   "name": "bob_rules_rev_submitted",
+   "record": {
+    "format_version": 1,
+    "kind": "source_manifest",
+    "members": [
+     {
+      "digest": "73ad8b39e67d9b45ffb959c0dc585e0becb09d762179b900ecdc2b74cf74b88a",
+      "path": "private.md",
+      "size": 240
+     }
+    ],
+    "schema": 1,
+    "source_id": "src_dfae51482b547557827181c45217b214"
+   }
+  },
+  {
+   "digest": "44e78e2d700900499d8b279192ece8cd6b0596d06dec289c567d755b58595e02",
    "name": "bob_rules_request",
    "record": {
     "destination": {
@@ -2372,13 +2427,14 @@
     "kind": "source_request",
     "role": "instructions",
     "route": {
+     "manifest_digest": "5a53831df6406341abda60d7de971218ebd30090c38b77b4f4d42bb8e70603a0",
      "route": "author_here"
     },
     "schema": 1
    }
   },
   {
-   "digest": "167d93fcde5f03e1ac1abd1e9c413bafcf1d2ac77b5c565b7b3cb39ea19612f1",
+   "digest": "815ced9b7cb03b2db6936e06757994e11f0af739a5502058d76ee00e65acd1cf",
    "name": "author_bob_rules_request",
    "record": {
     "action": "contribute",
@@ -2396,7 +2452,7 @@
      "layer": "personal",
      "principal_id": "prn_acb58e56e5f592786f26498a10712d36"
     },
-    "payload_digest": "8a3be38808dff9649264a7bafcca6c21587db7a4f2175208bcc1550fc3fc8d24",
+    "payload_digest": "44e78e2d700900499d8b279192ece8cd6b0596d06dec289c567d755b58595e02",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_7663391b4921ed9482fbc43af55ed894",
@@ -2410,7 +2466,7 @@
    }
   },
   {
-   "digest": "8800d9d62bc3060c9aff794d8e4bf8e989d513e1570d5aafa29e64ad880b448a",
+   "digest": "82f4ac800fc5288dec533db15b8aedee757309a8ed95bdaa673b4fdca27f1f20",
    "name": "author_bob_rules_receipt",
    "record": {
     "committed_at": "2000-01-01T00:00:00Z",
@@ -2420,7 +2476,7 @@
      "layer": "personal",
      "principal_id": "prn_acb58e56e5f592786f26498a10712d36"
     },
-    "request_digest": "167d93fcde5f03e1ac1abd1e9c413bafcf1d2ac77b5c565b7b3cb39ea19612f1",
+    "request_digest": "815ced9b7cb03b2db6936e06757994e11f0af739a5502058d76ee00e65acd1cf",
     "request_id": "req_7663391b4921ed9482fbc43af55ed894",
     "schema": 1,
     "sequence": 1,
@@ -2451,14 +2507,14 @@
    }
   },
   {
-   "digest": "69d7e50bcf4dadee38170bb49a7983ee939994f8070e18105314aa31b9d4459a",
+   "digest": "3555db776ddc12e10d1e2610aa8c8be8845c0193ad8f524fd239b41f73d63db2",
    "name": "author_bob_rules_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "8800d9d62bc3060c9aff794d8e4bf8e989d513e1570d5aafa29e64ad880b448a",
+     "receipt_digest": "82f4ac800fc5288dec533db15b8aedee757309a8ed95bdaa673b4fdca27f1f20",
      "stage": "committed"
     },
     "outputs": [
@@ -2468,7 +2524,7 @@
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "167d93fcde5f03e1ac1abd1e9c413bafcf1d2ac77b5c565b7b3cb39ea19612f1",
+    "request_digest": "815ced9b7cb03b2db6936e06757994e11f0af739a5502058d76ee00e65acd1cf",
     "request_id": "req_7663391b4921ed9482fbc43af55ed894",
     "schema": 1,
     "supported_recovery": []
@@ -5123,7 +5179,7 @@
   }
  ],
  "says": "Alice and Bob each have a principal; Bob keeps private rules in his personal source, and Alice's repository has its own rules. The access owner issues Alice a handle through each of eight entrances - setup, session start, maintenance, the studio hub, capture intake, the host launcher, supplied requests, and the old corpus-store compatibility route while it is still a route - and every later request names the handle of the entrance it came through among its proofs. The seven entrances that reach kept state are recorded with their guards, the compatibility route is recorded as retired at cutover naming the store that succeeds it, and a registered package candidate is installed by one fresh-start cutover, which retires that route. Alice then asks, through each of the seven entrances and from a root she chose (as with --repo or AGENT_BIOS_STATE_DIR pointing at another directory - the setup entrance overridden with --repo and the studio hub with AGENT_BIOS_STATE_DIR), for a projection of Bob's rules: every request is refused as source_not_authorized and returns nothing. The setup handle also proves a request through compose/instructions_app.py, the publication lock's own choke point on that same entrance name; asked there too, overridden to another root, for a projection of Bob's rules, it is refused the same way. Asking for her own repository's rules through capture intake and supplied requests, whose guard is the source store rather than the projection owner, is refused as protected_root_bypass. Asking under the compatibility route's handle is refused as route_retired at that proof, and asking for a new handle through that route is refused as route_retired at its entrance: the retired route names its successor and serves nothing itself. No refused request may return a projection, a handle or any body.",
- "spec_sha256": "056fa68fbbc05dee07403403a75f16f366c08c279e11bddef67957a3884695e2",
+ "spec_sha256": "a01e12476a22571d7f325770841db4c3f21743f99b876f89322120de613ad9c9",
  "steps": [
   {
    "carries": [
@@ -5160,7 +5216,8 @@
   },
   {
    "carries": [
-    "repo_rules_request"
+    "repo_rules_request",
+    "repo_rules_rev_submitted"
    ],
    "head": "repo_rules_head",
    "name": "author_repo_rules",
@@ -5168,11 +5225,15 @@
    "result": "author_repo_rules_result",
    "returns": [
     "repo_rules_rev"
+   ],
+   "submits": [
+    "repo_rules_rev_submitted"
    ]
   },
   {
    "carries": [
-    "bob_rules_request"
+    "bob_rules_request",
+    "bob_rules_rev_submitted"
    ],
    "head": "bob_rules_head",
    "name": "author_bob_rules",
@@ -5180,6 +5241,9 @@
    "result": "author_bob_rules_result",
    "returns": [
     "bob_rules_rev"
+   ],
+   "submits": [
+    "bob_rules_rev_submitted"
    ]
   },
   {
