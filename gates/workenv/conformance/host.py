@@ -4,8 +4,11 @@ The executor starts one host per world process, `python3 -B -P host.py <root> <s
 imports the code under test from `<root>` and nothing from `gates/`: `-P` keeps this directory
 off its path, and the host's environment carries no PYTHON* variable, so neither the caller's
 PYTHONPATH nor its PYTHONOPTIMIZE reaches it: the code under test runs its own assertions and
-cannot import the judge. Nor does any XDG_* variable, and HOME is a directory of the run's own, so
-nothing the code under test writes outside its state root lands in the person's home.
+cannot import the judge. Nor does any XDG_* or GIT_* variable, so a git the code under test runs
+never reaches the repository a caller's commit hook exported; HOME is a directory of the run's
+own, so nothing the code under test writes outside its state root lands in the person's home. It
+runs in the scenario's checkout when there is one, as a person runs the product inside their
+repository.
 
 The host reads one message per line on stdin and answers one per line on stdout. A message names
 what answers the step, outermost first: the layers in scope, each called `layer(call, inner)`;
@@ -72,20 +75,20 @@ class Host:
     """The driver's side of one host process."""
 
     def __init__(self, root: pathlib.Path, base: pathlib.Path, timeout: int = TIMEOUT,
-                 env: dict[str, str] | None = None):
+                 env: dict[str, str] | None = None, cwd: pathlib.Path | None = None):
         self.base, self.timeout = base, timeout
         state = base / "state"
         state.mkdir(parents=True, exist_ok=True)
         (base / "home").mkdir(exist_ok=True)
         environment = {key: value for key, value in os.environ.items()
-                       if not key.startswith(("PYTHON", "XDG_"))}
+                       if not key.startswith(("PYTHON", "XDG_", "GIT_"))}
         environment.update(env or {})
         environment["HOME"] = str(base / "home")
         self.log = open(base / "host.log", "ab")
         self.process = subprocess.Popen(
             [sys.executable, "-B", "-P", __file__, str(root), str(state)],
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=self.log, env=environment,
-            cwd=base)
+            cwd=cwd or base)
 
     def call(self, message: dict) -> dict:
         """The host's reply, or {"dead": why} when it died or did not answer in time."""
@@ -112,6 +115,10 @@ class Host:
         tail = self.tail()
         return (f"died with status {status}" if status != KILLED
                 else "was killed at its armed fault point") + (f": {tail}" if tail else "")
+
+    def killed(self) -> bool:
+        """Whether the process ended at its armed fault point."""
+        return self.process.poll() == KILLED
 
     def tail(self) -> str:
         self.log.flush()

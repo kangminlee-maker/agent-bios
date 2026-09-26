@@ -23,6 +23,7 @@ sys.path.insert(0, str(HERE / "conformance"))
 import cases  # noqa: E402
 import executor  # noqa: E402
 import host as hosts  # noqa: E402
+import rules as oracles  # noqa: E402
 from workenv.contracts import canonical  # noqa: E402
 
 SCENARIOS = HERE / "fixtures" / "scenarios"
@@ -49,7 +50,7 @@ def everything(built: dict, entry: str = OWNER) -> executor.Routing:
 
 
 def run(case: str, plants=(), routing=None, features=None, shared=False, env=None,
-        root: pathlib.Path = HERE, built=None) -> dict:
+        root: pathlib.Path = HERE, built=None, rules=()) -> dict:
     """The case run against the scripted owner, or whatever `root` and `routing` name.
 
     `shared` gives every world process one host, so one owner sees the whole script."""
@@ -59,13 +60,13 @@ def run(case: str, plants=(), routing=None, features=None, shared=False, env=Non
                    **(env or {})}
     made: list = []
 
-    def spawn(base):
+    def spawn(base, cwd=None):
         if shared and made:
             return made[0]
-        made.append(hosts.Host(root, base, env=environment))
+        made.append(hosts.Host(root, base, env=environment, cwd=cwd))
         return made[-1]
     return executor.run_case(built, routing or everything(built), spawn=spawn,
-                             features=features)
+                             features=features, rules=rules)
 
 
 def module_root(test: unittest.TestCase, source: str) -> pathlib.Path:
@@ -88,22 +89,42 @@ class Positive(unittest.TestCase):
         for path in sorted(SCENARIOS.glob("*/scenario.json")):
             outcomes[path.parent.name] = run(path.parent.name)
         failed = {case: got for case, got in outcomes.items() if got["outcome"] != "passed"
-                  and not got["why"].endswith("which no feature module under features/ runs yet")}
+                  and not (got["outcome"] == executor.BLOCKED
+                           and got["why"].endswith(("runs yet", "is not built yet")))}
         self.assertEqual(failed, {})
         passed = [case for case, got in outcomes.items() if got["outcome"] == executor.PASSED]
-        self.assertGreaterEqual(len(passed), 80, "the control ran almost nothing")
+        self.assertGreaterEqual(len(passed), 88, "the control ran almost nothing")
+        worlds = {"faults": "n05-restart-pos", "checkout": "src-01", "clock": "src-01",
+                  "event_file_edit": "n27-selection-neg"}
+        for feature, case in worlds.items():
+            self.assertIn(feature, cases.features_of(scenario(case)[1]), case)
+            self.assertIn(case, passed, f"no scenario using {feature} passed")
         signed = [case for case in passed
                   if "signature_envelope" in (SCENARIOS / case / "scenario.json").read_text()]
         self.assertTrue(signed, "no scenario that signs was run")
 
     def test_an_answer_stated_receipt_of_an_earlier_step_passes_with_that_receipt(self):
-        got = run("n13-c09-pos", features=self.inert_clock(), shared=True)
+        got = run("n13-c09-pos", features=self.one_process("n13-c09-pos"), shared=True)
         self.assertEqual(got["outcome"], executor.PASSED, got)
 
+    def test_every_v1_case_but_the_lost_reply_passes(self):
+        registry, (plan, catalog, _) = cases.load(), cases.bundle(cases.ROOT)
+        rows = {row["id"]: row for key in ("atomic", "cases") for row in registry[key]}
+        bound = cases.case_map(registry, catalog, "V1", {n["id"]: n for n in plan["nodes"]})
+        self.assertEqual(len(bound), 22)
+        for case in sorted(bound):
+            with self.subTest(case=case):
+                got = run(case.lower(), rules=tuple(rows[case].get("rules", ())))
+                if case == "TUI-ENTRY-UNKNOWN":
+                    self.assertIn("event_reply_lost", got["why"])
+                else:
+                    self.assertEqual(got["outcome"], executor.PASSED, got)
+
     @staticmethod
-    def inert_clock() -> dict:
-        signing, _ = executor.feature_modules({"signing"})
-        return {"clock": INERT, "processes": INERT, **signing}
+    def one_process(case: str) -> dict:
+        """Every feature the case uses, its processes run as one."""
+        used = cases.features_of(scenario(case)[1]) - {"processes"}
+        return {**executor.feature_modules(used)[0], "processes": INERT}
 
 
 class Core(unittest.TestCase):
@@ -181,7 +202,7 @@ class Core(unittest.TestCase):
     def test_a_settled_duplicate_that_writes_a_new_receipt_fails(self):
         self.failed("n13-c09-pos", [{"step": "accept_full_transfer_again", "path": "receipt",
                                      "pointer": "/sequence", "value": 424242}],
-                    run={"features": Positive.inert_clock(), "shared": True},
+                    run={"features": Positive.one_process("n13-c09-pos"), "shared": True},
                     step="accept_full_transfer_again", record="accept_full_transfer_receipt",
                     pointer="/sequence")
 
@@ -283,17 +304,20 @@ class Blocking(unittest.TestCase):
 
     def test_a_feature_not_written_blocks_before_any_step(self):
         _, built = scenario("n09-c07-pos")
-        planted = {**copy.deepcopy(built), "world": {"clock": {"start": "2026-01-01T00:00:00Z"}}}
+        steps = [step["name"] for step in built["steps"]]
+        planted = {**copy.deepcopy(built),
+                   "world": {"during": [{"step": steps[1], "runs": steps[0]}]}}
         got = run("n09-c07-pos", built=planted)
         self.assertEqual(got["outcome"], executor.BLOCKED, got)
         self.assertNotIn("step", got)
-        self.assertIn("uses clock", got["why"])
+        self.assertIn("uses during", got["why"])
 
-    def test_a_case_naming_runtime_rules_is_blocked_rather_than_judged_without_them(self):
+    def test_a_rule_whose_context_no_run_finds_is_blocked_rather_than_judged_without_it(self):
         _, built = scenario("n09-c07-pos")
-        got = executor.run_case(built, everything(built), rules=("C01/read_within_selection",))
+        rule = "C08/grant_revision_keeps_its_grant"
+        got = executor.run_case(built, everything(built), rules=(rule,))
         self.assertEqual(got["outcome"], executor.BLOCKED, got)
-        self.assertIn("C01/read_within_selection", got["why"])
+        self.assertIn(rule, got["why"])
 
 
 class Hosting(unittest.TestCase):
@@ -317,6 +341,14 @@ class Hosting(unittest.TestCase):
         _, built = scenario("n09-c07-pos")
         got = run("n09-c07-pos", routing=everything(built, "bare:answer"), root=root)
         self.assertIn("judge importable: False", got["why"])
+
+    def test_a_git_the_caller_exported_does_not_reach_the_code_under_test(self):
+        source = ("import os\ndef answer(call):\n"
+                  "    assert not [k for k in os.environ if k.startswith('GIT_')], 'GIT_ leaked'\n"
+                  "    return scripted_owner.answer(call)\n")
+        with mock.patch.dict(os.environ, {"GIT_DIR": "/nonexistent/.git"}):
+            got = self.outcome(source)
+        self.assertEqual(got["outcome"], executor.PASSED, got)
 
     def test_code_that_raises_fails_with_its_own_line(self):
         got = self.outcome("def answer(call):\n    raise RuntimeError('boom')\n")
@@ -363,6 +395,28 @@ class Materializing(unittest.TestCase):
         self.assertEqual(run.materialize("b")["ref"],
                          {"digest": hashlib.sha256(canonical.encode(a)).hexdigest(),
                           "size": len(canonical.encode(a))})
+
+    def test_a_request_resting_on_a_value_no_answer_returned_fails_by_name(self):
+        run = self.fresh_run()
+        run.pending.append("m")
+        with self.assertRaises(executor.Stop) as raised:
+            run.step({"name": "send", "request": "a", "carries": []})
+        self.assertEqual(raised.exception.outcome, executor.FAILED)
+        self.assertIn("rests on a value no answer has returned yet", raised.exception.why)
+
+    def test_a_digest_resting_on_a_pending_value_is_learned_and_then_held(self):
+        run = self.fresh_run()
+        run.pending.append("m")
+        self.assertIsInstance(run.materialize("b")["ref"]["digest"], executor.Unknown)
+        answered = {"ref": {"digest": "c" * 64, "size": 9}}
+        self.assertEqual(run.resolve(run.materialize("b"), answered, "s", "b", ""), answered)
+        self.assertEqual((run.later[("a", "digest")], run.later[("a", "size")]), ("c" * 64, 9))
+        run.pending.clear()
+        run.learned["m"] = "f" * 64
+        run.forget()
+        with self.assertRaises(executor.Stop) as raised:
+            run.hold("t", "a", run.materialize("a"))
+        self.assertIn("not the record an earlier answer named", raised.exception.why)
 
     def test_an_unlearned_value_keeps_its_stand_in(self):
         self.assertEqual(self.fresh_run().materialize("a"), {"v": "stand-in"})
@@ -429,6 +483,176 @@ class Signing(unittest.TestCase):
             self.run_.materialize("signature")
         self.assertEqual(raised.exception.outcome, executor.FAILED)
         self.assertIn("no principal binding", raised.exception.why)
+
+
+
+def built_run(test: unittest.TestCase, case: str, *features: str) -> executor.Run:
+    """A run of the case with these features installed and prepared, and no step taken."""
+    _, built = scenario(case)
+    workdir = pathlib.Path(tempfile.mkdtemp())
+    test.addCleanup(shutil.rmtree, workdir, True)
+    run_ = executor.Run(copy.deepcopy(built), None, workdir, None)
+    modules = executor.feature_modules(set(features))[0]
+    for name in features:
+        modules[name].install(run_)
+    for hook in run_.prepare_hooks:
+        hook(run_)
+    return run_
+
+
+def git_status(checkout: pathlib.Path) -> str:
+    env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+    return subprocess.run(["git", "status", "--porcelain"], cwd=checkout, env=env,
+                          capture_output=True, text=True).stdout
+
+
+class Clock(unittest.TestCase):
+    def test_the_call_is_given_the_instant_its_step_states(self):
+        root = module_root(self, "def answer(call):\n    raise RuntimeError(f'now={call.now}')\n")
+        _, built = scenario("src-01")
+        got = run("src-01", routing=everything(built, "planted:answer"), root=root)
+        self.assertIn(f"now={built['steps'][0]['at']}", got["why"])
+        _, built = scenario("n09-c07-pos")
+        got = run("n09-c07-pos", routing=everything(built, "planted:answer"), root=root)
+        self.assertIn("now=None", got["why"])
+
+
+class Faults(unittest.TestCase):
+    def test_a_fault_the_code_never_reaches_fails_naming_the_point_and_the_step(self):
+        root = module_root(self, "def answer(call):\n    call.point = lambda name: None\n"
+                                 "    return scripted_owner.answer(call)\n")
+        _, built = scenario("n05-restart-pos")
+        got = run("n05-restart-pos", routing=everything(built, "planted:answer"), root=root)
+        self.assertEqual((got["outcome"], got["step"]), (executor.FAILED, "commit_first_revision"))
+        self.assertIn("after_commit_before_return was armed on this step, and the process "
+                      "answered anyway", got["why"])
+
+    def test_a_restart_that_loses_what_was_committed_fails(self):
+        got = run("n05-restart-pos", [{"step": "commit_first_revision", "forget": True}])
+        self.assertEqual(got["outcome"], executor.FAILED, got)
+
+    def test_a_resubmission_after_a_restart_is_answered_with_what_was_committed(self):
+        self.assertEqual(run("cmp-select")["outcome"], executor.PASSED)
+
+    def test_a_fault_on_a_step_the_driver_gives_is_blocked(self):
+        _, built = scenario("n05-restart-pos")
+        routing = everything(built)
+        del routing.entries["source.revision.commit"]
+        got = run("n05-restart-pos", routing=routing)
+        self.assertEqual((got["outcome"], got["step"]), (executor.BLOCKED, "commit_first_revision"))
+
+    def test_a_digest_learned_before_its_record_is_held_to_it(self):
+        # The query after the restart names the revision by a digest the caller could not yet
+        # compute; the replay later returns the revision, which must be the one it named.
+        got = run("n05-restart-pos", [{"step": "query_after_restart", "path": "returned/0",
+                                       "pointer": "/outputs/0/digest", "value": "e" * 64}])
+        self.assertEqual((got["outcome"], got["step"], got.get("record")),
+                         (executor.FAILED, "resubmit_the_same_commit", "stored_revision"), got)
+        self.assertIn("not the record an earlier answer named", got["why"])
+
+
+class Checkout(unittest.TestCase):
+    def test_the_checkout_holds_what_the_records_state_and_replaces_its_stand_ins(self):
+        _, built = scenario("n27-selection-neg")
+        run_ = built_run(self, "n27-selection-neg", "checkout")
+        checkout = run_.checkout
+        self.assertEqual(run_.cwd, checkout)
+        observation = next(r["record"] for r in built["records"]
+                           if r["name"] == "observe_the_selection_observation")
+        for read in observation["read"]:
+            data = (checkout / read["path"]).read_bytes()
+            self.assertEqual(len(data), read["size"], read["path"])
+        status = git_status(checkout)
+        self.assertIn(" M docs/adr/0002-backups.md", status)
+        self.assertIn("?? docs/adr/0003-draft.md", status)
+        self.assertNotIn("0001-journal-mode.md", status)
+        text = json.dumps(run_.templates)
+        stated = [read["digest"] for read in observation["read"]] + ["/home/ana/work",
+                                                                     "0123456789abcdef" * 2]
+        for value in stated:
+            self.assertNotIn(value, text)
+        env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+        head = subprocess.run(["git", "rev-parse", "HEAD"], cwd=checkout, env=env,
+                              capture_output=True, text=True).stdout.strip()
+        self.assertIn(head, text)
+        self.assertIn(str(checkout), text)
+
+    def test_a_git_the_caller_exported_does_not_reach_the_checkout(self):
+        with mock.patch.dict(os.environ, {"GIT_DIR": "/nonexistent/.git",
+                                          "GIT_WORK_TREE": "/nonexistent"}):
+            run_ = built_run(self, "n09-c07-pos", "checkout")
+        self.assertTrue((run_.checkout / ".git").is_dir())
+
+    def test_what_a_checkout_cannot_hold_is_blocked_by_name(self):
+        for case, said in (("src-02", "names 2 checkouts"),
+                           ("n27-c01-neg", "two contents for rules/review.md")):
+            with self.subTest(case=case):
+                with self.assertRaises(executor.Stop) as raised:
+                    built_run(self, case, "checkout")
+                self.assertEqual(raised.exception.outcome, executor.BLOCKED)
+                self.assertIn(said, raised.exception.why)
+
+
+class FileEdit(unittest.TestCase):
+    def test_an_edit_lands_before_its_step_and_nowhere_else(self):
+        run_ = built_run(self, "n27-selection-neg", "checkout", "event_file_edit")
+        target = run_.checkout / "docs" / "adr"
+        steps = {s["name"]: s for s in run_.built["steps"]}
+        for hook in run_.before_hooks:
+            hook(run_, steps["observe_the_selection"])
+        self.assertTrue(target.is_dir())
+        for hook in run_.before_hooks:
+            hook(run_, steps["observe_after_the_directory_is_gone"])
+        self.assertFalse(target.exists())
+        run_ = built_run(self, "src-01", "checkout", "event_file_edit")
+        event = run_.built["world"]["events"][0]
+        for hook in run_.before_hooks:
+            hook(run_, {"name": event["before"]})
+        self.assertEqual((run_.checkout / event["path"]).read_text(), event["bytes"])
+
+    def test_an_edit_reaching_outside_the_checkout_fails(self):
+        run_ = built_run(self, "src-01", "checkout", "event_file_edit")
+        run_.built["world"]["events"][0]["path"] = "../outside.md"
+        run_.before_hooks.clear()
+        executor.feature_modules({"event_file_edit"})[0]["event_file_edit"].install(run_)
+        with self.assertRaises(executor.Stop) as raised:
+            run_.before_hooks[0](run_, {"name": run_.built["world"]["events"][0]["before"]})
+        self.assertIn("outside the checkout", raised.exception.why)
+
+
+class Rules(unittest.TestCase):
+    RULE = "C01/read_within_selection"
+
+    def test_a_rule_is_applied_to_what_code_in_scope_wrote(self):
+        got = run("n27-selection-neg", rules=(self.RULE,))
+        self.assertEqual(got["outcome"], executor.PASSED, got)
+        self.assertIn(f"{self.RULE} held on 2 record(s)", got["why"])
+
+    def test_a_record_breaking_the_rule_fails_naming_it(self):
+        kind, store, _ = oracles.RULES[self.RULE]
+        with mock.patch.dict(oracles.RULES, {self.RULE: (kind, store,
+                                                         lambda record, context: ["/read/0"])}):
+            got = run("n27-selection-neg", rules=(self.RULE,))
+        self.assertEqual((got["outcome"], got["pointer"]), (executor.FAILED, "/read/0"), got)
+        self.assertIn(f"breaks {self.RULE}", got["why"])
+
+    def test_the_rule_reads_the_selection_the_record_names(self):
+        seen = []
+        kind, store, oracle = oracles.RULES[self.RULE]
+
+        def watched(record, context):
+            seen.append(context["selection"]["kind"])
+            return oracle(record, context)
+        with mock.patch.dict(oracles.RULES, {self.RULE: (kind, store, watched)}):
+            run("n27-selection-neg", rules=(self.RULE,))
+        self.assertEqual(seen, ["source_selection", "source_selection"])
+
+    def test_a_given_answer_is_not_judged_by_a_rule(self):
+        _, built = scenario("n27-selection-neg")
+        routing = everything(built)
+        del routing.entries["source.observe"]
+        got = run("n27-selection-neg", routing=routing, rules=(self.RULE,))
+        self.assertIn(f"{self.RULE} held on 0 record(s)", got["why"])
 
 
 if __name__ == "__main__":

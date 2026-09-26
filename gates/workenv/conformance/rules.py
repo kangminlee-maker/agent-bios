@@ -389,3 +389,30 @@ RULES: dict[str, tuple[str, bool, Callable[[dict, dict], list[str]]]] = {
     "C01/input_within_its_root":
         ("memory_capture", True, input_within_its_root),
 }
+
+
+# What a run reads for a rule besides the record, found by the digests the record names:
+# rule -> (record, known) -> context, where `known(digest)` is the record the run holds under that
+# digest, or None. A rule whose oracle reads no store needs none. A rule neither covers is one no
+# run can apply yet, and a case naming it is blocked rather than judged without it.
+CONTEXT: dict[str, Callable[[dict, Callable[[str], Any]], dict | None]] = {
+    "C01/read_within_selection":
+        lambda record, known: _found(selection=known(record["selection_digest"])),
+}
+
+
+def _found(**named) -> dict | None:
+    return None if any(value is None for value in named.values()) else named
+
+
+def readable(rule: str) -> bool:
+    """Whether a run can give this rule's oracle what it reads."""
+    return rule in CONTEXT or not RULES[rule][1]
+
+
+def context(rule: str, record: dict, known: Callable[[str], Any]) -> dict | None:
+    """The context a run holds for applying this rule to this record; None when a record it
+    names is one the run does not hold."""
+    if rule in CONTEXT:
+        return CONTEXT[rule](record, known)
+    return {}

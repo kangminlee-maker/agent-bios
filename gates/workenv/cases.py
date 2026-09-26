@@ -142,6 +142,8 @@ WORLD_FEATURES = ("processes", "clock", "partitions", "faults", "during")
 # as a step whose stated result names the earlier result or receipt, so the core judges them.
 STEP_FEATURES = ("runner", "route")
 SIGNING = "signing"
+# The feature that builds the checkout a scenario's person works in, derived from its records.
+CHECKOUT = "checkout"
 # A step the driver exercises itself rather than an owner, which is never given.
 DRIVER = "driver"
 # The id prefix an addressed operation targets: a request.
@@ -203,7 +205,27 @@ def features_of(built: dict) -> set[str]:
     if any(keyed(r["record"], "sshsig") or keyed(r["record"], "public_key")
            for r in built["records"]):
         found.add(SIGNING)
+    if reads_a_checkout(built):
+        found.add(CHECKOUT)
     return found
+
+
+def reads_a_checkout(built: dict) -> bool:
+    """Whether a scenario's person works in a checkout: a record observes one or names one, a
+    source is authored in one, or the world edits one."""
+    for row in built["records"]:
+        record = row["record"]
+        kind = record.get("kind")
+        if kind == "source_observation" and any(read.get("read") == "tree"
+                                                for read in record.get("read", [])):
+            return True
+        if kind == "repository_binding" and "observed" in record:
+            return True
+        if kind == "source_home" and record.get("home", {}).get("mode") == "repository_authored":
+            return True
+        if '"checkout":' in json.dumps(record):
+            return True
+    return any(event["kind"] == "file_edit" for event in built.get("world", {}).get("events", []))
 
 
 def served_steps(built: dict, serving: dict) -> tuple[list[dict], list[str]]:

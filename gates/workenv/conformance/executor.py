@@ -16,7 +16,11 @@ records to the code under test and holds each answer to the stated one. For one 
      as the scenario states them, and the records it returns are handed to every `places` entry
      in scope. The layers in scope run on a given step as on any other.
   4. Learn each value the step mints at its first place in the answer, and refuse one that is
-     not of its shape.
+     not of its shape. A value the answer holds only inside a record it names by digest, or one
+     a step minted though its reply never reached the caller (a fault a later step observes), is
+     learned where a later answer first holds it; until then a digest or size of a record
+     resting on it is learned where an answer states it, and held to that record once the
+     record is known. A request resting on a value no answer has returned is `failed`.
   5. Hold the answer to the stated one: its result, then its receipt, then each record it
      returns, by position. Minted places hold what was learned, and a digest of a record this
      answer returns is the digest of what the owner actually returned, so a difference is
@@ -25,6 +29,9 @@ records to the code under test and holds each answer to the stated one. For one 
   6. A refused step must be refused with exactly the stated triples, and without calling
      `admitted()`. A triple names its record by position: `request`, or `carried/<i>` for the
      step's i-th carried record, because the code under test never sees the scenario's names.
+  7. Apply each runtime rule the case's registry row names to every record of the kind its
+     oracle judges that code in scope returned, with the context `rules.context` finds for it
+     among the run's records. A given answer is the driver's, so no rule judges it.
 
 The receipt a step is held to is the one its stated result names: its own when it committed,
 the earlier step's for an answer stated `receipt_of` it, and for a replay the replayed step's.
@@ -32,9 +39,10 @@ So a replay or a settled duplicate that writes a new receipt differs from the st
 neither needs more than the core to be judged.
 
 Everything beyond that is a feature, one module under `features/` that `install(run)` hooks into
-the run. A case whose scenario uses a feature with no module is `blocked` by name before any
-step runs, and so is a case whose registry row names runtime rules: applying the rule oracles is
-not built yet. A step whose entry, layer or place has not been written is `blocked` naming it.
+the run: before the first step, on every record built, before each step, on every message to a
+host, on every reply, or by running a step itself. A case whose scenario uses a feature with no
+module is `blocked` by name before any step runs, and so is a case naming a rule whose context no
+run finds yet. A step whose entry, layer or place has not been written is `blocked` naming it.
 
 The code under test runs in host processes (`host.py`), one per world process, each with its own
 state root; the call it receives and the answer it gives are the adapter design's
@@ -55,6 +63,7 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import cases  # noqa: E402
 import host as hosts  # noqa: E402
+import rules as oracles  # noqa: E402
 from workenv.contracts import canonical, examples, records  # noqa: E402
 from workenv.contracts.schema import STORED  # noqa: E402
 
@@ -90,6 +99,21 @@ class Stop(Exception):
             if getattr(self, key) is not None:
                 found[key] = getattr(self, key)
         return found
+
+
+class Unknown:
+    """A digest or size of a record that rests on a value no answer has returned yet.
+
+    A step whose reply never reached the caller (a fault observed by a later step) minted values
+    the caller first learns later. Until then a digest of a record resting on one of them cannot
+    be computed; where an answer states it, it is learned like a minted value, and it is held to
+    the record once the record is known."""
+
+    def __init__(self, name: str, what: str):
+        self.name, self.what = name, what
+
+    def __repr__(self) -> str:
+        return f"<the {self.what} of {self.name}, not yet known>"
 
 
 class Routing:
@@ -250,23 +274,37 @@ class Run:
         for row in built["minted"]:
             self.minted_at.setdefault(row["step"], []).append(row["name"])
         self.learned: dict[str, object] = {}
+        # Values a step minted whose reply never reached the caller, learned where they appear.
+        self.pending: list[str] = []
+        self.later: dict[tuple[str, str], object] = {}   # (record, digest|size) learned early
+        self._dark: dict[str, bool] = {}
         self.current: dict[str, object] = {}   # this answer's records while it is judged
         self.cache: dict[str, object] = {}
         self.sent: dict[str, tuple[dict, list]] = {}
         self.processes: dict[str, hosts.Host] = {}
         self.exchange = workdir / "exchange"
         self.exchange.mkdir(parents=True, exist_ok=True)
-        # What features hook: before the first step; on every record built; on every message to
-        # a host; and a step a feature runs itself, which it claims by returning True.
+        # The directory the code under test runs in, and the checkout a feature built.
+        self.cwd: pathlib.Path | None = None
+        self.checkout: pathlib.Path | None = None
+        self.rules: tuple[str, ...] = ()
+        self.applied: dict[str, int] = {}
+        # What features hook: before the first step; on every record built; before each step;
+        # on every message to a host; on every reply, which a hook may replace, or end the step
+        # with None when no answer reaches the caller; and a step a feature runs itself, which
+        # it claims by returning True.
         self.prepare_hooks: list = []
         self.record_hooks: list = []
+        self.before_hooks: list = []
         self.message_hooks: list = []
+        self.reply_hooks: list = []
         self.step_hooks: list = []
 
     # What the scenario's records are now.
 
     def forget(self) -> None:
         self.cache.clear()
+        self._dark.clear()
 
     def value(self, name: str):
         """A record or member as it stands: this answer's own while it is judged."""
@@ -276,7 +314,33 @@ class Run:
             return self.members[name]
         return self.materialize(name)
 
+    def unknowable(self, name: str) -> bool:
+        """Whether a record holds a value no answer has returned yet: a pending minted value,
+        or the digest or size of such a record that no answer has stated either."""
+        if name in self.current or name in self.members:
+            return False
+        if name not in self._dark:
+            self._dark[name] = False    # a digest cycle is refused by the generator
+            for join in self.joins.get(name, []):
+                if "minted" in join:
+                    dark = join["minted"] in self.pending
+                else:
+                    named, pointer = join["digest_of"], join["pointer"]
+                    sized = pointer.endswith("/digest") and isinstance(
+                        at(self.templates[name], pointer[:-len("/digest")])[1], dict) and \
+                        isinstance(at(self.templates[name], pointer[:-len("/digest")])[1]
+                                   .get("size"), int)
+                    dark = self.unknowable(named) and (
+                        (named, "digest") not in self.later
+                        or (sized and (named, "size") not in self.later))
+                if dark:
+                    self._dark[name] = True
+                    break
+        return self._dark[name]
+
     def bytes_of(self, name: str) -> bytes:
+        if self.unknowable(name):
+            raise Stop(FAILED, f"{name} rests on a value no answer has returned yet")
         found = self.value(name)
         return found if isinstance(found, bytes) else canonical.encode(found)
 
@@ -297,11 +361,14 @@ class Run:
                     put(value, join["pointer"], self.learned[join["minted"]])
                 continue
             named = join["digest_of"]
-            put(value, join["pointer"], self.digest(named))
+            dark = self.unknowable(named)
+            put(value, join["pointer"], self.later.get((named, "digest"), Unknown(named, "digest"))
+                if dark else self.digest(named))
             if join["pointer"].endswith("/digest"):
                 found, parent = at(value, join["pointer"][:-len("/digest")])
                 if found and isinstance(parent, dict) and isinstance(parent.get("size"), int):
-                    parent["size"] = len(self.bytes_of(named))
+                    parent["size"] = (self.later.get((named, "size"), Unknown(named, "size"))
+                                      if dark else len(self.bytes_of(named)))
         for hook in self.record_hooks:
             value = hook(self, name, value)
         self.cache[name] = value
@@ -335,8 +402,14 @@ class Run:
         if name not in self.processes:
             base = self.workdir / "processes" / name
             (base / "state").mkdir(parents=True, exist_ok=True)
-            self.processes[name] = self.spawn(base)
+            self.processes[name] = self.spawn(base, self.cwd)
         return self.processes[name]
+
+    def restart(self, name: str) -> hosts.Host:
+        """The process started again on the state root it had."""
+        if name in self.processes:
+            self.processes.pop(name).close()
+        return self.process(name)
 
     def close(self) -> None:
         for process in self.processes.values():
@@ -346,6 +419,8 @@ class Run:
 
     def step(self, step: dict) -> None:
         name = step["name"]
+        for hook in self.before_hooks:
+            hook(self, step)
         if any(hook(self, step) for hook in self.step_hooks):
             return
         if "request" not in step:
@@ -355,6 +430,9 @@ class Run:
         else:
             request = self.materialize(step["request"])
             carried = [self.materialize(n) for n in step["carries"]]
+        if any(self.unknowable(n) for n in [step["request"], *step["carries"]]):
+            raise Stop(FAILED, "its request rests on a value no answer has returned yet",
+                       step=name)
         self.sent[name] = (request, carried)
         how, entry = self.routing.route(request.get("operation"))
         message = {"request": request, "carried": carried,
@@ -376,11 +454,44 @@ class Run:
             reply = {"answer": message["given"], "admitted": 0}
         else:
             reply = self.process(process).call(message)
+        for hook in self.reply_hooks:
+            reply = hook(self, step, message, reply)
+            if reply is None:
+                return
         answer = self.answer_of(step, reply, how, entry)
         if "refused" in step:
             self.refused(step, answer, reply)
-        else:
-            self.answered(step, answer)
+            return
+        self.answered(step, answer)
+        if how != "given":
+            self.judge_rules(step, answer)
+
+    def judge_rules(self, step: dict, answer: dict) -> None:
+        """Each rule the case names, applied to every record of the kind it judges that code in
+        scope returned at this step, with the context the run holds for it."""
+        for rule in self.rules:
+            kind, _, oracle = oracles.RULES[rule]
+            for index, record in enumerate(answer.get("returned", [])):
+                if not isinstance(record, dict) or record.get("kind") != kind:
+                    continue
+                context = oracles.context(rule, record, self.known)
+                if context is None:
+                    raise Stop(FAILED, f"{rule} reads what {step['returns'][index]} names, and "
+                                       "the run holds no record by that digest",
+                               step=step["name"], record=step["returns"][index])
+                broken = oracle(record, context)
+                if broken:
+                    raise Stop(FAILED, f"{step['returns'][index]} breaks {rule} at "
+                                       f"{', '.join(broken)}", step=step["name"],
+                               record=step["returns"][index], pointer=broken[0])
+                self.applied[rule] = self.applied.get(rule, 0) + 1
+
+    def known(self, digest: str):
+        """The record or member the run holds under this digest, or None."""
+        for name in [*self.templates, *self.members]:
+            if not self.unknowable(name) and self.digest(name) == digest:
+                return self.value(name)
+        return None
 
     def given(self, step: dict) -> dict:
         """The stated answer, which the driver gives for a step no code in scope serves."""
@@ -471,11 +582,19 @@ class Run:
                 raise Stop(FAILED, f"returns the bytes of member {record}, answered "
                                    f"{shown(actual)}", step=step, record=record)
             return
+        stated = self.resolve(stated, actual, step, record, "")
         found = difference(stated, actual)
         if found:
             pointer, what = found
             raise Stop(FAILED, f"{record}{'' if pointer == '/' else pointer} {what}",
                        step=step, record=record, pointer=pointer)
+        for what, measured in (("digest", lambda: self.digest(record)),
+                               ("size", lambda: len(self.bytes_of(record)))):
+            earlier = self.later.get((record, what))
+            if earlier is not None and not self.unknowable(record) and measured() != earlier:
+                raise Stop(FAILED, f"{record} is not the record an earlier answer named: its "
+                                   f"{what} is {measured()}, and that answer stated {earlier}",
+                           step=step, record=record)
         # Equal to the stated record, so only a value it mints can make it one its owner could
         # not store.
         refused = stored_violation(actual)
@@ -484,15 +603,38 @@ class Run:
             raise Stop(FAILED, f"{record}{'' if pointer == '/' else pointer} is refused in "
                                f"stored mode: {code}", step=step, record=record, pointer=pointer)
 
+    def resolve(self, stated, actual, step: str, record: str, pointer: str):
+        """The stated value with each digest or size not yet known learned from the answer."""
+        if isinstance(stated, Unknown):
+            found, value = at(actual, pointer) if pointer else (True, actual)
+            shape = "digest" if stated.what == "digest" else "integer"
+            if not found or not fits(shape, value):
+                raise Stop(FAILED, f"{record}{pointer} states {stated!r}, answered "
+                                   f"{shown(value)}", step=step, record=record, pointer=pointer)
+            self.later[(stated.name, stated.what)] = value
+            return value
+        if isinstance(stated, dict):
+            return {key: self.resolve(item, actual, step, record, f"{pointer}/{escape(key)}")
+                    for key, item in stated.items()}
+        if isinstance(stated, list):
+            return [self.resolve(item, actual, step, record, f"{pointer}/{index}")
+                    for index, item in enumerate(stated)]
+        return stated
+
     def learn(self, step: dict, records: dict[str, object]) -> None:
-        """Each value this step mints, from its first place in the answer."""
+        """Each value this step mints, from its first place in the answer, and each value an
+        earlier step minted without its reply reaching the caller, where this answer holds it."""
         name = step["name"]
-        for minted in self.minted_at.get(name, []):
+        due = self.minted_at.get(name, [])
+        for minted in [*due, *(m for m in self.pending if m not in due)]:
             place = next(((j["record"], j["pointer"]) for j in self.built["joins"]
                           if j.get("minted") == minted and j["record"] in records), None)
             if place is None:
-                raise Stop(FAILED, f"mints {minted}, and no record of its answer holds it",
-                           step=name)
+                # Held only inside a record this answer names by digest: learned where a
+                # later answer returns it, and a digest resting on it where one states it.
+                if minted not in self.pending:
+                    self.pending.append(minted)
+                continue
             record, pointer = place
             found, value = at(records[record], pointer)
             if not found:
@@ -504,6 +646,8 @@ class Run:
                                    f"{self.shapes[minted]}, answered {shown(value)}",
                            step=name, record=record, pointer=pointer)
             self.learned[minted] = value
+            if minted in self.pending:
+                self.pending.remove(minted)
         self.forget()
 
 
@@ -515,7 +659,7 @@ def run_case(built: dict, routing: Routing, rules: tuple[str, ...] = (),
     its directory, a host importing from `root` when left out; `features` maps a feature name to
     its module, the ones `features/` holds when left out. The features a scenario uses are the
     ones `cases.features_of` derives, the derivation the adapter fingerprint holds."""
-    spawn = spawn or (lambda base: hosts.Host(root, base))
+    spawn = spawn or (lambda base, cwd: hosts.Host(root, base, cwd=cwd))
     used = cases.features_of(built)
     if features is None:
         features, missing = feature_modules(used)
@@ -524,11 +668,13 @@ def run_case(built: dict, routing: Routing, rules: tuple[str, ...] = (),
     if missing:
         return Stop(BLOCKED, f"uses {', '.join(missing)}, which no feature module under "
                              f"{FEATURES.name}/ runs yet").report()
-    if rules:
-        return Stop(BLOCKED, f"applies {', '.join(rules)}, and the executor does not apply "
-                             "runtime rule oracles yet").report()
+    unread = [rule for rule in rules if not oracles.readable(rule)]
+    if unread:
+        return Stop(BLOCKED, f"applies {', '.join(unread)}, whose context the executor does not "
+                             "find in a run yet").report()
     with tempfile.TemporaryDirectory(prefix="workenv-case-") as workdir:
         run = Run(built, routing, pathlib.Path(workdir), spawn)
+        run.rules = tuple(rules)
         try:
             for name in sorted(used):
                 features[name].install(run)
@@ -540,4 +686,8 @@ def run_case(built: dict, routing: Routing, rules: tuple[str, ...] = (),
             return stop.report()
         finally:
             run.close()
-    return {"outcome": PASSED, "why": f"{len(built['steps'])} step(s) answered as stated"}
+    why = f"{len(built['steps'])} step(s) answered as stated"
+    if rules:
+        why += "; " + "; ".join(f"{rule} held on {run.applied.get(rule, 0)} record(s)"
+                                for rule in rules)
+    return {"outcome": PASSED, "why": why}
