@@ -175,6 +175,11 @@
    "digest_of": "commit_cutover_result",
    "pointer": "/outputs/0/digest",
    "record": "confirm_installed_result"
+  },
+  {
+   "digest_of": "commit_cutover_receipt",
+   "pointer": "/outputs/1/digest",
+   "record": "confirm_installed_result"
   }
  ],
  "minted": [
@@ -611,7 +616,7 @@
    }
   },
   {
-   "digest": "43a133f37dce45474c92105463d6469b7451c71e1f8ceaa5454ddd36ac10ff37",
+   "digest": "89a8219d7f44ba941587ca4980f4b90a917e599e456cea28efe6698f141f7f7a",
    "name": "confirm_installed_result",
    "record": {
     "kind": "operation_result",
@@ -624,6 +629,10 @@
      {
       "digest": "78a08f67134e8ae960165cd56c8ce8b1ec8a572cdbf404e2344efbaf54a4a399",
       "kind": "operation_result"
+     },
+     {
+      "digest": "70abe3e26081ea6c1eeed8d7a2e1571e49d1516019273110fd5456200d0183f0",
+      "kind": "operation_receipt"
      }
     ],
     "provider_effect": "not_applicable",
@@ -691,7 +700,7 @@
   }
  ],
  "says": "Alice binds her device key and registers the package candidate the target will run: its runtime module (workenv/contracts/c03.py), an asset (the cutover plan schema) and a shipped check (compose/check-domains.py), each copied from source_commit, and provenance.json made at pack time. Before she submits the cutover, an inventory of the installed target holds an unrelated earlier revision, none of the candidate's members. She then submits one cutover plan to the target: one explicit transfer of the data she selected, whose quiesced capture names the source revision and outbox captured after the old writers stopped and the import validated against exactly them; all three owners sealed with nothing in flight; the entrance trace verified with no writer left unrouted; one commit; the old source kept; and candidate_digest naming the candidate just registered. The owner commits the cutover once. A later inventory of the installed target then shows exactly the four members the registered candidate named, at the same paths, digests and sizes: ownership moved only after the plan's own verify stage, and what the target runs is what the candidate named, nothing else. What must not happen: ownership moving before the verified stage, the cutover installing any package other than the registered candidate, or the old source being deleted.",
- "spec_sha256": "22e8e35787e6e614fd3d1b3a3f011ae16e163e9373f8d1d41ac1fd8758fc1d32",
+ "spec_sha256": "a3ce0ee1438b776dfc1c08ca37ab1d5b6758116295ca811d4776bf4d79c36b8b",
  "steps": [
   {
    "carries": [
@@ -732,7 +741,8 @@
    "request": "confirm",
    "result": "confirm_installed_result",
    "returns": [
-    "commit_cutover_result"
+    "commit_cutover_result",
+    "commit_cutover_receipt"
    ]
   }
  ],

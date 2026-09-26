@@ -3442,7 +3442,7 @@
    }
   },
   {
-   "digest": "e92807f29ac5840d45bd9aeea1a7fb41df3f23fae3da217a69db53f1a331dfe7",
+   "digest": "fe076edf6c49244e9c59ccaba19852b3f79ec0b95fddf67bef9c0f1360d2efa2",
    "name": "resubmit_that_id_with_other_bytes_result",
    "record": {
     "kind": "operation_result",
@@ -3456,7 +3456,7 @@
      "stage": "refused"
     },
     "outputs": [],
-    "provider_effect": "none",
+    "provider_effect": "not_applicable",
     "request_digest": "3679bbe9c131b3718d9cf2e84d7ac71d8ea34bda061f6949230d2413bf875f27",
     "request_id": "req_5b91e1ec2f3de843322e52dcd1f2a17e",
     "schema": 1,
@@ -3467,7 +3467,7 @@
   }
  ],
  "says": "Alice registers a private notes source on her laptop, which makes its first head, and commits it once on that head; she then commits seven more times, the process being killed at a different B03 publication fault point during each commit — before staging, after the member write before sync, after staging before rename, after rename before the directory sync, after that sync before the transaction begins, inside the transaction before commit, and after commit before the answer returns. A kill before the transaction commits leaves the prior head and no receipt — a query of that request id taken before the retry finds the owner never held it — so the same request, sent again after the restart, commits exactly once; each next commit expects exactly the head the previous one moved to and is accepted, so no staged member was counted as committed and no request moved a head twice. The kill after commit and before the answer leaves Alice without a reply: the outcome is unknown to her, and querying that request id settles it with the original result and its receipt, whose head the next commit then expects. Alice then takes two backups of the profile, outside the source's head: the first killed during its checkpoint and the second killed during the backup copy itself; each is answered by the same discipline as the commits — the same request, sent again after its own restart, commits exactly once, writing one backup_set and one receipt. A later commit on the source, after both backups, still expects the head the last commit moved to. A later query of the commit killed inside its transaction returns the one result and receipt its resubmission wrote. Submitting the settled request id again with other bytes (another revision) is refused with request_id_conflict and writes nothing. What must not happen: a head naming staged members without a receipt, a second receipt for one request, or the conflicting bytes replacing the original.",
- "spec_sha256": "c5b09f692290d5ef6beb3f1ffa02749d6d914923f914b663b14f36b501e2657e",
+ "spec_sha256": "b11d7480e738c622271af2731427316dc3be2bf967e03e175c7df1689a5c91e7",
  "steps": [
   {
    "carries": [

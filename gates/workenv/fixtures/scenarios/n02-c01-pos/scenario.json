@@ -425,6 +425,11 @@
    "digest_of": "bind_first_key_result",
    "pointer": "/outputs/0/digest",
    "record": "query_first_binding_after_rotation_result"
+  },
+  {
+   "digest_of": "bind_first_key_receipt",
+   "pointer": "/outputs/1/digest",
+   "record": "query_first_binding_after_rotation_result"
   }
  ],
  "minted": [
@@ -1388,7 +1393,7 @@
    }
   },
   {
-   "digest": "ff9fdb0b57ec22c3440e5538f0be2d1d9afecc31057f45359206fd22bbe6b3a2",
+   "digest": "08c41837b8b72eecc11c76827d37bbc91525bf9c1c47a942c82246e3d7be8b99",
    "name": "query_first_binding_after_rotation_result",
    "record": {
     "kind": "operation_result",
@@ -1401,6 +1406,10 @@
      {
       "digest": "223f65a7839a2b8dc0cea8b3898ef70f97d5818d4667a6c2e3062baaeb11aa87",
       "kind": "operation_result"
+     },
+     {
+      "digest": "11131343c8209ff383a9d79826c1738d5b01bb9809edfcaf2a84c3f5eca1c1d3",
+      "kind": "operation_receipt"
      }
     ],
     "provider_effect": "not_applicable",
@@ -1412,7 +1421,7 @@
   }
  ],
  "says": "Alice starts personal work on her laptop with no Team, account, sign-up or network: her first step reads the profile the runtime wrote at first use (active, generation 1), and she binds her first device key to the principal that profile names (established by local creation). She locks the profile (generation 2) and unlocks it at a terminal with that key (still generation 2), and names the profile 'Laptop'. She then rotates her credential: a second key, signed by the first as proof of control, is bound to the same principal, and the first binding is revoked. Every answer names the same principal id and profile id: the second binding, and the profile after a second rename, carry alice's principal id and the creation time the first read returned. After the rotation and the second rename, a query for the first binding's own request still answers with its original, unchanged result, naming the same principal. No step reaches a provider, a Team or the network. What must not happen: a new principal id after the rotation, a profile whose identity moves with its name, the first binding's stored result changing after the revoke, or any step that needs an account or Team.",
- "spec_sha256": "bb7ca4e005bed2b143d3da2c68582099120d3ba373a5f7f8818bc910a1c8bd21",
+ "spec_sha256": "c2ca61adb56278e3e1369ae3a7996c9b547e877d561493aad705c928f3ea617d",
  "steps": [
   {
    "carries": [],
@@ -1506,7 +1515,8 @@
    "request": "query_first_binding_request",
    "result": "query_first_binding_after_rotation_result",
    "returns": [
-    "bind_first_key_result"
+    "bind_first_key_result",
+    "bind_first_key_receipt"
    ]
   }
  ]

@@ -144,18 +144,19 @@ class Resolution(unittest.TestCase):
     def test_nothing_is_passed_while_the_code_that_serves_it_is_unwritten(self):
         # The driver resolves and runs; the code the serving table names is what passes a case.
         # A driver that reported otherwise would report the rule satisfied by its own absence of
-        # work. Every V1 case passes through the journal layer, so while that module is absent
-        # each case names it, or the driver feature it waits for.
-        journal = "workenv/journal.py"
-        self.assertFalse((cases.ROOT / journal).exists(),
-                         f"{journal} now exists, so this test no longer stands on its absence")
+        # work. Every case of this family registers or observes a source after binding its key,
+        # so while the sources module is absent each case names it, or the driver feature it
+        # waits for.
+        sources = "workenv/sources"
+        self.assertFalse((cases.ROOT / sources).exists(),
+                         f"{sources} now exists, so this test no longer stands on its absence")
         report = driver.run(PROFILE, self.family)
         self.assertTrue(report["cases"])
         for case, outcome in report["cases"].items():
             self.assertEqual(outcome["outcome"], driver.BLOCKED, case)
-            self.assertTrue("module workenv.journal is not written yet" in outcome["why"]
+            self.assertTrue("module workenv.sources is not written yet" in outcome["why"]
                             or "no feature module" in outcome["why"], outcome)
-        self.assertTrue(any("workenv.journal" in o["why"] for o in report["cases"].values()))
+        self.assertTrue(any("workenv.sources" in o["why"] for o in report["cases"].values()))
 
     def test_a_profile_the_catalog_does_not_define_is_refused(self):
         with self.assertRaises(driver.DriverError) as raised:

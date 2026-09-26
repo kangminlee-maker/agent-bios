@@ -2947,7 +2947,7 @@
    }
   },
   {
-   "digest": "517867aa0e9abcad325f25d9749e77b90e2131697bc1aa77ebc55b565c471c88",
+   "digest": "9d3529f15a131f493349fb15df720e76a420ff26d3f77899374c8d27ac36dd29",
    "name": "resubmit_that_id_with_other_bytes_result",
    "record": {
     "kind": "operation_result",
@@ -2961,7 +2961,7 @@
      "stage": "refused"
     },
     "outputs": [],
-    "provider_effect": "none",
+    "provider_effect": "not_applicable",
     "request_digest": "db5dd19c7620a24def6c924dc6e0170a7025028c0fa93956071c73905a884519",
     "request_id": "req_a8b21dbbf22cceffa975839c25977483",
     "schema": 1,
@@ -3097,7 +3097,7 @@
    }
   },
   {
-   "digest": "7157cdb5b7263eb99f570daa6c8d37b2e34aeead60e2a0a9906df6d511cdc853",
+   "digest": "26f470bb3e01ad4c64dcc5d0134bdf0a0622249efaae4bed916b96f53cd35926",
    "name": "cancel_after_the_commit_result",
    "record": {
     "kind": "operation_result",
@@ -3111,7 +3111,7 @@
      "stage": "refused"
     },
     "outputs": [],
-    "provider_effect": "none",
+    "provider_effect": "not_applicable",
     "request_digest": "75173fa1a2bc573e729e5d068499c3535aaae6f5c19355b940a1f2b7a2da01c8",
     "request_id": "req_9a22f506a61891ebbadbae45c7e752f5",
     "schema": 1,
@@ -3187,7 +3187,7 @@
   }
  ],
  "says": "Alice founds a Team alone on her laptop; the founding returns her founder grant among the Team's first records. She then revises that grant eight times, each revision naming the one it replaces and expecting the Team head the previous change moved to, while the process is killed at a different durable boundary of each control commit — before staging, after the member write before sync, after staging before rename, after rename before the directory sync, after that sync before the transaction begins, inside the transaction before commit, after commit before the answer returns, and during the checkpoint that follows — and restarted. A kill before the commit leaves the prior head and no receipt, so the same request sent again after the restart commits once; each next change is accepted on the head it expects, so no control was applied twice or left half applied. The change killed after its commit and before its answer leaves Alice without a reply: querying its request id settles the unknown outcome with the original result and its receipt, before the next change expects the head it moved to. That request id with other bytes (another revision) is refused with request_id_conflict; a change still expecting a Team head that has since advanced is refused as stale with stale_base; a cancellation of the last committed change reaches the owner after its commit and is refused with cancel_too_late; and querying that change afterwards still returns its committed result and receipt. What must not happen: a duplicate or second grant revision from one request, a refused request moving the Team head, or the late cancellation undoing the commit.",
- "spec_sha256": "741e20eaf57a3016bb72e9de2536973a7d40d35051093923fdec977e709409a9",
+ "spec_sha256": "0987d4c9790b1f6570ce0f1f88ea1895bd50a20f86b603c9e615fed549874c00",
  "steps": [
   {
    "carries": [

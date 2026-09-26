@@ -471,6 +471,11 @@
    "digest_of": "accept_on_the_laptop_result",
    "pointer": "/outputs/0/digest",
    "record": "query_the_accept_result"
+  },
+  {
+   "digest_of": "accept_on_the_laptop_receipt",
+   "pointer": "/outputs/1/digest",
+   "record": "query_the_accept_result"
   }
  ],
  "members": [
@@ -1581,7 +1586,7 @@
    }
   },
   {
-   "digest": "b3fa99e88088f7c63bcd24edc58b2a7ba78305821e5f22caf883e708705c93ec",
+   "digest": "f4f9d2921e34c18137f6e424594b40d9defc385fed16d201a9fea3e04b945664",
    "name": "query_the_accept_result",
    "record": {
     "kind": "operation_result",
@@ -1594,6 +1599,10 @@
      {
       "digest": "e65812cb60a194dde12a04b6e59ab9d2189108ee72f1361597860f10f0f3ee4c",
       "kind": "operation_result"
+     },
+     {
+      "digest": "36f1abeac9931ac382aba754767d3d49c621a93de452a7fdf94609583f5fa435",
+      "kind": "operation_receipt"
      }
     ],
     "provider_effect": "not_applicable",
@@ -1605,7 +1614,7 @@
   }
  ],
  "says": "Alice's desktop and laptop are two isolated runtimes. On the desktop she binds its key, registers her private notes source and commits a revision on the head the registration made, then stages the package that carries that revision and its home for her laptop, trusted by the desktop's enrolment binding, which travels with it: the desktop records it exported. On the laptop, after binding the laptop's key, the same package is staged and recorded received. Querying that staging request on the laptop returns its original result: objects staged, stage draft, no receipt. The revision's member is readable on the laptop — resolving a reference to it returns the revision and its home — but the resolution is a preview on a source whose head the laptop still does not hold, not an acceptance. Only accepting the package commits it with a receipt and records the package committed, naming that receipt; querying the accept returns that result. What must not happen: an exported or received package, or members written without a receipt, reported as accepted or committed — no result before the accept names a receipt or a settled stage.",
- "spec_sha256": "3284442d636022cbf1e8c8d87a6ee30bc5b71c849e7a2cc8cf04fbbb7f720837",
+ "spec_sha256": "5289ed769a7d1803b03b3bae6ac6820205e3fe4783aea5aa24b58b3d7d9d033f",
  "steps": [
   {
    "carries": [
@@ -1737,7 +1746,8 @@
    "request": "ask_accept",
    "result": "query_the_accept_result",
    "returns": [
-    "accept_on_the_laptop_result"
+    "accept_on_the_laptop_result",
+    "accept_on_the_laptop_receipt"
    ]
   }
  ],
