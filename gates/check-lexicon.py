@@ -19,6 +19,7 @@ are deliberately NOT listed — see LEXICON.md.
   --self-test   prove the detector fires on a planted token and stays silent
                 on a clean string; exits 0 only if both hold.
 """
+import json
 import pathlib
 import re
 import subprocess
@@ -157,6 +158,36 @@ def concept_homes():
         return []
     body = section[1].split("\n## ", 1)[0]
     return [(slug, home) for slug, home in HOME_ROW.findall(body)]
+
+
+def planned_paths(read=None):
+    """(plan, paths): the development plan CURRENT.md selects, as the plan gate selects it, and
+    every path it assigns to a node or to the integrator. A planned path is a file the day its
+    node is written, so its concept home is held from the day it is planned."""
+    sys.path.insert(0, str(REPO / "gates"))
+    from current_selector import PLAN_SELECTOR, current_selector_prose
+    folder = REPO / "design" / "knowledge-and-history"
+    read = read or (lambda path: path.read_text(encoding="utf-8"))
+    names = re.findall(PLAN_SELECTOR, current_selector_prose(read(folder / "CURRENT.md")))
+    if len(names) != 1:
+        return None, []
+    plan = json.loads(read(folder / names[0]))
+    paths = set(plan.get("shared_integrator_paths", []))
+    for node in plan.get("nodes", []):
+        paths.update(node.get("owned_paths", []))
+    return names[0], sorted(paths)
+
+
+def misplaced(plan, paths, homes):
+    """Planned paths carrying a concept slug outside that concept's home."""
+    if plan is None:
+        return ["planned paths: CURRENT.md selects no single implementation task graph"]
+    if not paths:
+        return [f"planned paths: {plan} assigns no path (vacuous)"]
+    return [f"{path}: {plan} assigns it, and it carries concept slug {slug!r} outside its "
+            f"declared home {home} (see LEXICON.md 'Concept homes')"
+            for path in paths if not path.startswith(NOT_A_HOME) and path not in DOC_MENTIONS
+            for slug, home in homes if slug in path and not path.startswith(home)]
 
 
 def scattered(files, homes):
@@ -391,6 +422,8 @@ def gate():
     if not homes:
         failures.append("LEXICON.md declares no concept homes (vacuous layout gate)")
     failures += scattered(tracked_text_files(), homes)
+    plan, planned = planned_paths()
+    failures += misplaced(plan, planned, homes)
     failures += archive_referenced_by_runtime(tracked_text_files())
     failures += findings_queue_open_only()
 
@@ -412,7 +445,8 @@ def gate():
             print(f"  - {f}")
         return 1
     print(f"check-lexicon: OK ({len(files)} files scanned, {len(DENY)} deprecated tokens enforced, "
-          f"{len(homes)} concept homes held, {ARCHIVE_DIR} unreferenced by runtime, "
+          f"{len(homes)} concept homes held over files and {len(planned)} planned paths, "
+          f"{ARCHIVE_DIR} unreferenced by runtime, "
           f"{len(guide_files)} guides name each other by path over {len(runs)} identifying runs)")
     return 0
 
@@ -556,6 +590,22 @@ def self_test():
         failures.append("reference-form check missed a dehyphenated full-stem reference "
                         "that prefixes a sibling guide's name")
 
+    # Planned-path controls: a planned module outside its home is caught, one inside or with no
+    # slug is not, and a plan assigning nothing, or no plan selected, is not a pass.
+    home = [("instructions", "compose/")]
+    if not misplaced("plan.json", ["workenv/instructions_adapter.py"], home):
+        failures.append("planned-path check missed a planned path carrying a concept slug "
+                        "outside its home")
+    if misplaced("plan.json", ["workenv/roles.py", "compose/instructions_store.py"], home):
+        failures.append("planned-path check fired on paths inside their home or with no slug")
+    if not misplaced("plan.json", [], home) or not misplaced(None, [], home):
+        failures.append("planned-path check passed a plan assigning nothing, or no plan")
+    fake = {"CURRENT.md": "- **Implementation task graph:** [graph](p.json). Current.\n",
+            "p.json": json.dumps({"shared_integrator_paths": ["install.sh"],
+                                  "nodes": [{"owned_paths": ["workenv/x.py"]}]})}
+    if planned_paths(lambda path: fake[path.name]) != ("p.json", ["install.sh", "workenv/x.py"]):
+        failures.append("planned-path reader did not return the selected plan's paths")
+
     # Findings-queue controls, also read-injected.
     if not findings_queue_open_only(lambda _: "### F-1 · RESOLVED 2026-07-31 — closed"):
         failures.append("findings check missed a resolution marker")
@@ -572,7 +622,8 @@ def self_test():
     print("check-lexicon --self-test: OK (planted + title-case caught, clean silent, "
           "self-exempt, concept homes held with scatter/vacuity controls, archive "
           "unreferenced with operator/design/vacuity controls, findings queue open-only "
-          "with marker/open-entry/missing-file controls, guide reference form with "
+          "with marker/open-entry/missing-file controls, planned paths with outside-home/"
+          "inside/vacuity/reader controls, guide reference form with "
           "bare-name/KO/path/concept-exempt/concept-still-referring/vacuity controls)")
     return 0
 

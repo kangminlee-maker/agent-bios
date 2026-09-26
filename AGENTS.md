@@ -236,7 +236,8 @@ the file set and the denylist are asserted non-empty, so a green run cannot pass
 over nothing.
 
 It also enforces **concept homes**: a machinery file whose path carries a
-concept's slug must live under that concept's declared home. The trees named in
+concept's slug must live under that concept's declared home, and so must every path
+the development plan `CURRENT.md` selects assigns to a node, from the day it is planned. The trees named in
 `NOT_A_HOME` (the instructions trees, `design/`, `benchmarks/`, `research/`, `packages/`)
 are exempt — a slug there is a mention, not a home. A home matching no file fails
 as a stale declaration.
