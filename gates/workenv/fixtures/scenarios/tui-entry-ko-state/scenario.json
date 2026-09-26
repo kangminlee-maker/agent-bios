@@ -637,11 +637,6 @@
    "record": "drive_entry_result"
   },
   {
-   "minted": "instr_head",
-   "pointer": "/frontiers/0/checkpoint_digest",
-   "record": "start_preparation"
-  },
-  {
    "minted": "start_preparation",
    "pointer": "/preparation_id",
    "record": "start_preparation"
@@ -657,13 +652,13 @@
    "record": "start_preparation"
   },
   {
-   "minted": "instr_unit",
-   "pointer": "/units/0/unit_id",
+   "digest_of": "know_observation",
+   "pointer": "/observed/working_bytes_digest",
    "record": "start_preparation"
   },
   {
-   "digest_of": "instr_revision",
-   "pointer": "/units/0/revision_digest",
+   "minted": "instr_bytes",
+   "pointer": "/units/0/body_digest",
    "record": "start_preparation"
   },
   {
@@ -672,8 +667,13 @@
    "record": "start_preparation"
   },
   {
-   "minted": "instr_bytes",
-   "pointer": "/units/0/body_digest",
+   "digest_of": "instr_revision",
+   "pointer": "/units/0/revision_digest",
+   "record": "start_preparation"
+  },
+  {
+   "minted": "instr_unit",
+   "pointer": "/units/0/unit_id",
    "record": "start_preparation"
   },
   {
@@ -3740,7 +3740,7 @@
    }
   },
   {
-   "digest": "76fec61c549f5e446d34a7143a4c8688deaa788915fc7721a9209fe09df39c97",
+   "digest": "0fa4d42878a534e314934303364c892d334711e47989914c190980d54f45ef6a",
    "name": "start_preparation",
    "record": {
     "adapter": {
@@ -3748,18 +3748,14 @@
      "version": "0.1.0"
     },
     "collections": [],
-    "frontiers": [
-     {
-      "checkpoint_digest": "6a8b5a0a106e456fe54a1a3d2d143fbe41c8244ccff6ba0e22798ec04d55b665",
-      "source_id": "src_c6d1e5e1f4bb4bca1938b31e26c4d836"
-     }
-    ],
+    "frontiers": [],
     "kind": "preparation",
     "material_gaps": [],
     "observed": {
      "branch": "main",
      "commit": "0123456789abcdef0123456789abcdef01234567",
-     "locator": "git@github.com:example/work.git"
+     "locator": "git@github.com:example/work.git",
+     "working_bytes_digest": "64d4f1d2ad4aefbcdb603651cc88e6274a8739f0acd0d30b28326bd4633aa7ca"
     },
     "omissions": [],
     "order": [
@@ -3788,6 +3784,7 @@
       "body_digest": "f0316045a1c71999099454525b0f515b456d33e8f2c5a612b1b7518182efa480",
       "home_digest": "109677335e6a09651ac9fab7b2fddd339455969c35f05c77bd4a1c6b7721c7e4",
       "layer": "repository",
+      "member": "AGENTS.md",
       "revision_digest": "778f04307330f99b34818e866769e3838e35919fc8a3a4f58e1db2816fe849b9",
       "role": "instructions",
       "source_id": "src_c6d1e5e1f4bb4bca1938b31e26c4d836",
@@ -3801,7 +3798,7 @@
    }
   },
   {
-   "digest": "67094856fcdef8349026bf054762378c9d63b9f71e666a7f83f14b7240f4606e",
+   "digest": "0fc69bda6691bee0c6ce7bc3acc1cf057b62176dd6704e990675c68d13b83eca",
    "name": "compose_start_result",
    "record": {
     "kind": "operation_result",
@@ -3812,7 +3809,7 @@
     },
     "outputs": [
      {
-      "digest": "76fec61c549f5e446d34a7143a4c8688deaa788915fc7721a9209fe09df39c97",
+      "digest": "0fa4d42878a534e314934303364c892d334711e47989914c190980d54f45ef6a",
       "kind": "preparation"
      }
     ],
@@ -3890,7 +3887,7 @@
    }
   },
   {
-   "digest": "c7485f557a14cca52a0ac9f0f1616cb77b21c247db78a8a5b4cdca578573b5a0",
+   "digest": "f6ddf75b5d522b4b762fd525b8a5b58157c2846dfa361cd69f82a1b047678de7",
    "name": "selection_outcome",
    "record": {
     "at": "2000-01-01T00:00:00Z",
@@ -3907,13 +3904,13 @@
     },
     "result": {
      "got": "result",
-     "output_digest": "76fec61c549f5e446d34a7143a4c8688deaa788915fc7721a9209fe09df39c97"
+     "output_digest": "0fa4d42878a534e314934303364c892d334711e47989914c190980d54f45ef6a"
     },
     "schema": 1
    }
   },
   {
-   "digest": "1457b8a23c1672b9bca3407357db4b705f5fa7e6128369e4b32004b735aa2432",
+   "digest": "9f1e7a808cc1d9ddbe92940734d9c649941872bc18acfa8f51f9b1dfcf964f25",
    "name": "select_start_result",
    "record": {
     "kind": "operation_result",
@@ -3925,7 +3922,7 @@
     },
     "outputs": [
      {
-      "digest": "c7485f557a14cca52a0ac9f0f1616cb77b21c247db78a8a5b4cdca578573b5a0",
+      "digest": "f6ddf75b5d522b4b762fd525b8a5b58157c2846dfa361cd69f82a1b047678de7",
       "kind": "route_outcome"
      }
     ],
@@ -3990,7 +3987,7 @@
   }
  ],
  "says": "The launcher entry opens in Korean at 100x30 over a bound repository with a selected instructions source and an unselected knowledge source. The person tabs into the note field and, from gates/workenv/fixtures/text/korean.json, types 'q 종료 s 시작', pastes a two-line string and a string holding a terminal escape sequence, and types '작업 환경 선택' as conjoining jamo; then resizes to 80x24, switches the locale to English, tabs to the start action and presses Enter (surface.drive). Each frame must keep the field's value as exactly the code points entered so far, with the pasted newline and escape kept as data; the two positions keep their ids, selection and state when their labels change language; at 80 columns the over-wide location label is marked clipped while the positions, the field and the start action stay whole. Only the final Enter dispatches, and the preparation.compose request it names carries the field value, byte for byte, as its rationale; route.select answers for that request. Negative: neither 'q' nor 's' typed in the field, nor the pasted newline, starts or quits anything; translated labels change no id; a script that presses a start shortcut is refused at admission (variant_mismatch /inputs/0); and the trace records typed and pasted text only — it is no evidence of input-method composition, which TUI-OBS-KOREAN-TERMINAL observes.",
- "spec_sha256": "61a600c46e04d686693caa751b1151bcb5a0bc953fb6c7fac9135d85cd9bc2cd",
+ "spec_sha256": "35fd84cb30915dbedc0cfb126f8989bbbe4ccdb9fb532811cf2a3191765deccc",
  "steps": [
   {
    "carries": [

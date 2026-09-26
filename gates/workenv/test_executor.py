@@ -601,6 +601,16 @@ def built_run(test: unittest.TestCase, case: str, *features: str) -> executor.Ru
     return run_
 
 
+def facts(*steps: tuple[str, str, list[str]], **records: dict) -> dict:
+    """A built scenario of the records named and the steps (name, operation, carried names)."""
+    requests = {f"{name}_request": {"kind": "operation_request", "operation": operation}
+                for name, operation, _ in steps}
+    return {"records": [{"name": name, "record": record}
+                        for name, record in {**records, **requests}.items()],
+            "steps": [{"name": name, "request": f"{name}_request", "carries": carried}
+                      for name, _, carried in steps], "joins": []}
+
+
 def git_status(checkout: pathlib.Path) -> str:
     env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
     return subprocess.run(["git", "status", "--porcelain"], cwd=checkout, env=env,
@@ -823,6 +833,101 @@ class Checkout(unittest.TestCase):
                   rules=("C01/read_within_selection",))
         self.assertEqual((got["outcome"], got["step"]), (executor.FAILED, "observe_the_selection"),
                          got)
+
+
+    def test_a_preparation_records_the_checkout_it_was_composed_in_where_none_is_bound(self):
+        # N09-C07-POS composes twice before it binds a repository: the directory it works in
+        # stands for the checkout the driver builds, and a scenario with a preparation builds one.
+        _, built = scenario("n09-c07-pos")
+        self.assertIn("checkout", cases.features_of(built))
+        run_ = built_run(self, "n09-c07-pos", "checkout")
+        text = json.dumps(run_.templates)
+        self.assertNotIn('"/workspace"', text)
+        self.assertEqual(run_.templates["empty_preparation"]["observed"],
+                         {"locator": str(run_.checkout)})
+        got = run("n09-c07-pos", [{"step": "compose_nothing", "path": "returned/0",
+                                   "pointer": "/observed/locator", "value": "/workspace"}])
+        self.assertEqual((got["outcome"], got["step"], got.get("pointer")),
+                         (executor.FAILED, "compose_nothing", "/observed/locator"), got)
+
+    def test_a_preparation_or_an_admission_into_a_repository_alone_needs_a_checkout(self):
+        preparation = {"kind": "preparation", "observed": {"locator": "/workspace"}}
+        admission = {"kind": "source_request",
+                     "destination": {"home_mode": "repository_authored"}}
+        managed = {"kind": "source_request", "destination": {"home_mode": "managed"}}
+        for records, wanted in (({"p": preparation}, True), ({"a": admission}, True),
+                                ({"m": managed}, False)):
+            with self.subTest(records=records):
+                self.assertEqual(cases.reads_a_checkout(facts(**records)), wanted)
+
+    def test_a_remote_a_preparation_observed_is_not_a_directory_the_driver_builds(self):
+        feature = executor.feature_modules({"checkout"})[0]["checkout"]
+        templates = {"here": {"kind": "preparation", "observed": {"locator": "/workspace"}},
+                     "there": {"kind": "preparation",
+                               "observed": {"locator": "https://example.org/team/rules.git"}}}
+        self.assertEqual(feature.worked_in(templates), {"/workspace"})
+
+    def test_a_revision_admitted_into_a_repository_is_read_from_its_files(self):
+        # N09-C07-POS admits the repository's rules revision into the repository itself, so its
+        # member is a file of the checkout; N09-C07-NEG's later publication of its memory file is
+        # written by the code, and only the admitted content is the first state.
+        run_ = built_run(self, "n09-c07-pos", "checkout")
+        stated = run_.templates["repo_rules_rev_submitted"]["members"][0]
+        data = (run_.checkout / stated["path"]).read_bytes()
+        self.assertEqual((len(data), hashlib.sha256(data).hexdigest()),
+                         (stated["size"], stated["digest"]))
+        built_run(self, "n09-c07-neg", "checkout")
+
+
+class RevisionBytes(unittest.TestCase):
+    def test_a_member_stated_by_digest_alone_stands_for_bytes_its_commit_carries(self):
+        # CMP-SELECT commits the Team's managed revision stating each member by digest alone.
+        _, built = scenario("cmp-select")
+        stated = cases.stated_revision_members(built)
+        self.assertTrue(stated)
+        self.assertIn("revision_bytes", cases.features_of(built))
+        run_ = built_run(self, "cmp-select", "revision_bytes")
+        literals = {executor.at(next(r["record"] for r in built["records"] if r["name"] == name),
+                                pointer)[1]["digest"] for name, pointer in stated}
+        text = json.dumps(run_.templates)
+        for literal in literals:
+            self.assertNotIn(literal, text)
+        for name, pointer in stated:
+            member = executor.at(run_.templates[name], pointer)[1]
+            data = run_.revision_bytes[member["digest"]]
+            self.assertEqual((len(data), hashlib.sha256(data).hexdigest()),
+                             (member["size"], member["digest"]))
+        feature = executor.feature_modules({"revision_bytes"})[0]["revision_bytes"]
+        commit = next(step for step in built["steps"] if step["name"] == "commit_team_rules_r1")
+        other = next(step for step in built["steps"] if step["name"] == "first_start")
+        manifests = [run_.templates[name] for name in commit["carries"]]
+        sent = {"carried": manifests, "members": {}}
+        feature.attach(run_, commit, sent)
+        self.assertEqual(set(sent["members"]),
+                         {m["digest"] for record in manifests for m in record["members"]})
+        self.assertEqual({hashlib.sha256(data).hexdigest() for data in sent["members"].values()},
+                         set(sent["members"]))
+        elsewhere = {"carried": manifests, "members": {}}
+        feature.attach(run_, other, elsewhere)
+        self.assertEqual(elsewhere["members"], {})
+
+    def test_a_member_whose_text_digest_or_file_is_stated_otherwise_is_left_alone(self):
+        # SRC-01 authors its revision in the repository, and DEL-PERSONAL gives its member's text.
+        for case in ("src-01", "del-personal"):
+            with self.subTest(case=case):
+                self.assertEqual(cases.stated_revision_members(scenario(case)[1]), [])
+
+    def test_only_a_revision_its_author_commits_or_admits_is_stated_and_not_a_file_it_reads(self):
+        def members(*paths):
+            return {"kind": "source_manifest", "source_id": "src_a",
+                    "members": [{"path": path, "digest": path, "size": 1} for path in paths]}
+        built = facts(("commit", "source.revision.commit", ["committed"]),
+                      ("stage", "collection.change", ["drafted"]),
+                      committed=members("rules/a.md", "docs/read.md"),
+                      drafted=members("rules/b.md"),
+                      observed={"kind": "source_observation", "read": [
+                          {"read": "tree", "path": "docs/read.md"}]})
+        self.assertEqual(cases.stated_revision_members(built), [("committed", "/members/0")])
 
 
 class FileEdit(unittest.TestCase):

@@ -641,11 +641,6 @@
    "record": "drive_entry_result"
   },
   {
-   "minted": "instr_head",
-   "pointer": "/frontiers/0/checkpoint_digest",
-   "record": "start_preparation"
-  },
-  {
    "minted": "start_preparation",
    "pointer": "/preparation_id",
    "record": "start_preparation"
@@ -661,13 +656,13 @@
    "record": "start_preparation"
   },
   {
-   "minted": "instr_unit",
-   "pointer": "/units/0/unit_id",
+   "digest_of": "know_observation",
+   "pointer": "/observed/working_bytes_digest",
    "record": "start_preparation"
   },
   {
-   "digest_of": "instr_revision",
-   "pointer": "/units/0/revision_digest",
+   "minted": "instr_bytes",
+   "pointer": "/units/0/body_digest",
    "record": "start_preparation"
   },
   {
@@ -676,8 +671,13 @@
    "record": "start_preparation"
   },
   {
-   "minted": "instr_bytes",
-   "pointer": "/units/0/body_digest",
+   "digest_of": "instr_revision",
+   "pointer": "/units/0/revision_digest",
+   "record": "start_preparation"
+  },
+  {
+   "minted": "instr_unit",
+   "pointer": "/units/0/unit_id",
    "record": "start_preparation"
   },
   {
@@ -3192,7 +3192,7 @@
    }
   },
   {
-   "digest": "c2b8fbcd8796afb91d91bedf1d0efeca26da45f521d4bff09ab6ee86b02d8cd8",
+   "digest": "fde013d2452a1f6c3c9e0e7398da6264f45ee401ca03cec9ca06d03b23732dca",
    "name": "start_preparation",
    "record": {
     "adapter": {
@@ -3200,18 +3200,14 @@
      "version": "0.1.0"
     },
     "collections": [],
-    "frontiers": [
-     {
-      "checkpoint_digest": "ec8c236271f6effbc54e7619ce2f44785896c3aab2fe0eb0022ae640bc06b9fd",
-      "source_id": "src_2d682493160393090f40d964e941c8ba"
-     }
-    ],
+    "frontiers": [],
     "kind": "preparation",
     "material_gaps": [],
     "observed": {
      "branch": "main",
      "commit": "0123456789abcdef0123456789abcdef01234567",
-     "locator": "git@github.com:example/work.git"
+     "locator": "git@github.com:example/work.git",
+     "working_bytes_digest": "b84f8bc68f94ed9682a396b1a12c62bc056bfa77fe4f9d66f345a1d44b88a4d6"
     },
     "omissions": [],
     "order": [
@@ -3240,6 +3236,7 @@
       "body_digest": "7f22b49f026105f291f0b635d82597ba3aaeba027f9913ce2df7763cf656669e",
       "home_digest": "49a604a0ce9f3ed2a5347caa8351ae6ef67a6343a1708eecbbd937c8931c8da4",
       "layer": "repository",
+      "member": "AGENTS.md",
       "revision_digest": "bac84628ac55efe70a3404b8389b2895768582a57309c2bf6acdffaa526bbbce",
       "role": "instructions",
       "source_id": "src_2d682493160393090f40d964e941c8ba",
@@ -3253,7 +3250,7 @@
    }
   },
   {
-   "digest": "9d9e918fec0c5c01fc07d7aa9b89eef247fd3a9a9d1dff2f3caf98786f88a380",
+   "digest": "14c7316082c5e63d4aa5598a3da37a1bfef1db1e8f5571e2ace0746e0a33738a",
    "name": "compose_start_result",
    "record": {
     "kind": "operation_result",
@@ -3264,7 +3261,7 @@
     },
     "outputs": [
      {
-      "digest": "c2b8fbcd8796afb91d91bedf1d0efeca26da45f521d4bff09ab6ee86b02d8cd8",
+      "digest": "fde013d2452a1f6c3c9e0e7398da6264f45ee401ca03cec9ca06d03b23732dca",
       "kind": "preparation"
      }
     ],
@@ -3342,7 +3339,7 @@
    }
   },
   {
-   "digest": "074f747fadacf2329f4ce762bdd7feec124284b1112ec63b387c782bb212e769",
+   "digest": "6ce340ffab22b7ebb5f6fbab731a356d48e353efd7a00951c13431f5317d31be",
    "name": "selection_outcome",
    "record": {
     "at": "2000-01-01T00:00:00Z",
@@ -3359,13 +3356,13 @@
     },
     "result": {
      "got": "result",
-     "output_digest": "c2b8fbcd8796afb91d91bedf1d0efeca26da45f521d4bff09ab6ee86b02d8cd8"
+     "output_digest": "fde013d2452a1f6c3c9e0e7398da6264f45ee401ca03cec9ca06d03b23732dca"
     },
     "schema": 1
    }
   },
   {
-   "digest": "d965e40ca284cc83004404354e6a794f3234c7d53e9e1eb5135fb9c970c45606",
+   "digest": "3b0ab5f1633b497d81a3e3d122077b0fe2e800dff2fce39258b5151be61b11dc",
    "name": "select_start_result",
    "record": {
     "kind": "operation_result",
@@ -3377,7 +3374,7 @@
     },
     "outputs": [
      {
-      "digest": "074f747fadacf2329f4ce762bdd7feec124284b1112ec63b387c782bb212e769",
+      "digest": "6ce340ffab22b7ebb5f6fbab731a356d48e353efd7a00951c13431f5317d31be",
       "kind": "route_outcome"
      }
     ],
@@ -3481,7 +3478,7 @@
   }
  ],
  "says": "In a bound repository with a committed instructions source (AGENTS.md, selected) and a committed knowledge source (docs/retry.md, not selected), the host launcher offers a qualified start route in Claude Code and an unqualified personal decision route. The person presses Down, Enter, Esc, Tab, Enter (surface.drive). The trace must show three separate facts on every frame: focus (the › mark and `focused`) moves to the knowledge position without changing its selection; Enter opens that position's detail (view w02, target the knowledge position, return_view w01) and Esc returns to w01 with focus and selection exactly as before; only the final Enter on the focused start action dispatches, the start element is `executing`, and a result element names the one dispatched request. The call the trace names is the preparation.compose request of the next step, whose basis pins only the selected instructions revision, and route.select records the start route as selected and answers for that same request with the preparation it produced. Negative: a selection carrying only a focused route and no `selected` is refused at admission (missing_field /selected), and one naming the item by its visible label instead of its route id is refused (pattern_mismatch /selected); no frame dispatches on arrows, Enter on a position, or Esc, the knowledge source is never pinned, and nothing in the trace distinguishes these states by colour, which has no field.",
- "spec_sha256": "df739f2866241b7d4a2c65e530916b96dd5e43f20cbdb8818f6d30c4b299453a",
+ "spec_sha256": "3c34a516a2bc87b3af9d29579b3831bd1e6cd83eaaf99f75cf148836b4b6fa19",
  "steps": [
   {
    "carries": [

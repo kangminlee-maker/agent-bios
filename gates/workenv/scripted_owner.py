@@ -45,7 +45,8 @@ import sys
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent / "conformance"))
 import executor  # noqa: E402
 import host as hosts  # noqa: E402
-from features import checkout  # noqa: E402
+import cases  # noqa: E402
+from features import checkout, revision_bytes  # noqa: E402
 from workenv.contracts import b03, canonical  # noqa: E402
 
 ADDRESSED = ("operation.query", "operation.cancel")
@@ -122,14 +123,15 @@ def substituted(value, found: dict):
 
 def world(run) -> dict[str, str]:
     """What the stated checkout facts are where this owner runs: the digests of the files at
-    their paths, the directory itself, and HEAD."""
+    their paths, the directory itself, and HEAD; and the digest of the bytes the person holds for
+    each member of a revision they commit that the scenario states by digest alone."""
+    found = stated_bytes(run)
     here = pathlib.Path.cwd()
     if not (here / ".git").exists():
-        return {}
+        return found
     joined = {(j["record"], j["pointer"]) for j in run.built["joins"]}
     edited = {event.get("digest") for event in run.built.get("world", {}).get("events", [])
               if event["kind"] == "file_edit"}
-    found: dict[str, str] = {}
     for name, record in run.templates.items():
         for pointer, stated in checkout.places(run, name, record):
             target = here / stated["path"]
@@ -143,6 +145,16 @@ def world(run) -> dict[str, str]:
             found[seen["commit"]] = subprocess.run(["git", "rev-parse", "HEAD"], cwd=here, env=env,
                                                    capture_output=True, text=True).stdout.strip()
     found.update({path: str(here) for path in checkout.named_checkouts(run.templates)})
+    found.update({place: str(here) for place in checkout.worked_in(run.templates)})
+    return found
+
+
+def stated_bytes(run) -> dict[str, str]:
+    found = {}
+    for name, pointer in cases.stated_revision_members(run.built):
+        member = executor.at(run.templates[name], pointer)[1]
+        data = revision_bytes.made(member["digest"], member["size"])
+        found[member["digest"]] = hashlib.sha256(data).hexdigest()
     return found
 
 

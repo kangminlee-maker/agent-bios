@@ -678,11 +678,6 @@
    "record": "drive_exact_link_result"
   },
   {
-   "minted": "instr_head",
-   "pointer": "/frontiers/0/checkpoint_digest",
-   "record": "start_preparation"
-  },
-  {
    "minted": "start_preparation",
    "pointer": "/preparation_id",
    "record": "start_preparation"
@@ -698,13 +693,13 @@
    "record": "start_preparation"
   },
   {
-   "minted": "instr_unit",
-   "pointer": "/units/0/unit_id",
+   "digest_of": "know_observation",
+   "pointer": "/observed/working_bytes_digest",
    "record": "start_preparation"
   },
   {
-   "digest_of": "instr_revision",
-   "pointer": "/units/0/revision_digest",
+   "digest_of": "instr_body",
+   "pointer": "/units/0/body_digest",
    "record": "start_preparation"
   },
   {
@@ -713,8 +708,13 @@
    "record": "start_preparation"
   },
   {
-   "digest_of": "instr_body",
-   "pointer": "/units/0/body_digest",
+   "digest_of": "instr_revision",
+   "pointer": "/units/0/revision_digest",
+   "record": "start_preparation"
+  },
+  {
+   "minted": "instr_unit",
+   "pointer": "/units/0/unit_id",
    "record": "start_preparation"
   },
   {
@@ -3220,7 +3220,7 @@
    }
   },
   {
-   "digest": "56b49757064d51f89eb9f40ff4da217e64b31ed91b9bcb3c598c1a192edcf94e",
+   "digest": "ecbf961fa343ca4aaa5b65dc14bcbd68a38b5ca4f529fa4b4537f98cf9d3bad1",
    "name": "start_preparation",
    "record": {
     "adapter": {
@@ -3228,18 +3228,14 @@
      "version": "0.1.0"
     },
     "collections": [],
-    "frontiers": [
-     {
-      "checkpoint_digest": "659bbcdf84156f178f603d589e73e309e38c5fa65ad32d875f5ba229eecc651e",
-      "source_id": "src_b617fbe65d4741c4dc953ea133da59a0"
-     }
-    ],
+    "frontiers": [],
     "kind": "preparation",
     "material_gaps": [],
     "observed": {
      "branch": "main",
      "commit": "0123456789abcdef0123456789abcdef01234567",
-     "locator": "git@github.com:example/work.git"
+     "locator": "git@github.com:example/work.git",
+     "working_bytes_digest": "0c9edc301b75464fb8122eecbdb988caf8f4a0b4dc04a93b17dd55ffbdcf273b"
     },
     "omissions": [],
     "order": [
@@ -3268,6 +3264,7 @@
       "body_digest": "af26ac6e67fd24e2e873454623df72f19c8d23fb7ec382c97e5825d0f4270e76",
       "home_digest": "1966dc421015ced40717f10c11c96133b426927de39e7d4505983a8e3633f13f",
       "layer": "repository",
+      "member": "AGENTS.md",
       "revision_digest": "9998af208fe6513b4327069482131ea95c23429280e5a834ac88d783076031eb",
       "role": "instructions",
       "source_id": "src_b617fbe65d4741c4dc953ea133da59a0",
@@ -3281,7 +3278,7 @@
    }
   },
   {
-   "digest": "892de9bd8f0c0bbb9a1fa9d78ca11c2449cab00c2bdb58c6dcfa756641b67878",
+   "digest": "4a4214578a4b0a2a90ff6f0d2c58c962f31555111a391cb47f5d75458b112613",
    "name": "compose_start_result",
    "record": {
     "kind": "operation_result",
@@ -3292,7 +3289,7 @@
     },
     "outputs": [
      {
-      "digest": "56b49757064d51f89eb9f40ff4da217e64b31ed91b9bcb3c598c1a192edcf94e",
+      "digest": "ecbf961fa343ca4aaa5b65dc14bcbd68a38b5ca4f529fa4b4537f98cf9d3bad1",
       "kind": "preparation"
      }
     ],
@@ -3370,7 +3367,7 @@
    }
   },
   {
-   "digest": "54363f06979e3c78c150d58ecd724b7f0e15790153f44b6f44e4618bddd7e50d",
+   "digest": "52e81bde82464c23e047915e2910be38120c96daa29ac354b8d6e584e8d7f2d5",
    "name": "selection_outcome",
    "record": {
     "at": "2000-01-01T00:00:00Z",
@@ -3387,13 +3384,13 @@
     },
     "result": {
      "got": "result",
-     "output_digest": "56b49757064d51f89eb9f40ff4da217e64b31ed91b9bcb3c598c1a192edcf94e"
+     "output_digest": "ecbf961fa343ca4aaa5b65dc14bcbd68a38b5ca4f529fa4b4537f98cf9d3bad1"
     },
     "schema": 1
    }
   },
   {
-   "digest": "f0688b2281bbad6da354bb0a813f0dedb7eb4fda8d223a02fe9c81dd2cef286e",
+   "digest": "12169e6b85d158193bfed83be9cc5ae33815a6c47348f07a2e967c10e3aad2fa",
    "name": "select_start_result",
    "record": {
     "kind": "operation_result",
@@ -3405,7 +3402,7 @@
     },
     "outputs": [
      {
-      "digest": "54363f06979e3c78c150d58ecd724b7f0e15790153f44b6f44e4618bddd7e50d",
+      "digest": "52e81bde82464c23e047915e2910be38120c96daa29ac354b8d6e584e8d7f2d5",
       "kind": "route_outcome"
      }
     ],
@@ -3417,11 +3414,11 @@
    }
   },
   {
-   "digest": "5bf4d7106390356355033c7d5f25bc90b22c2b64b93153ff646187b37d976202",
+   "digest": "ee47cbc3ff4e2d403ca120bb68b015fe936d4e5bc957583c5a9d62ce84124843",
    "name": "activation",
    "record": {
     "kind": "session_activation",
-    "preparation_digest": "56b49757064d51f89eb9f40ff4da217e64b31ed91b9bcb3c598c1a192edcf94e",
+    "preparation_digest": "ecbf961fa343ca4aaa5b65dc14bcbd68a38b5ca4f529fa4b4537f98cf9d3bad1",
     "schema": 1,
     "session": {
      "host": {
@@ -3433,7 +3430,7 @@
    }
   },
   {
-   "digest": "094846ccefa6a8a245a06ff317f78c07e00f1e6b5b04a506a5bf1ab9f6f03a2f",
+   "digest": "f9810b8828518d2e2c2df93d50f87ade33f124d5cd1d1ceace3d7d21c111ff31",
    "name": "activation_request",
    "record": {
     "action": "use",
@@ -3451,7 +3448,7 @@
      "layer": "personal",
      "principal_id": "prn_eecbbea79af4af8423345babb1947b92"
     },
-    "payload_digest": "5bf4d7106390356355033c7d5f25bc90b22c2b64b93153ff646187b37d976202",
+    "payload_digest": "ee47cbc3ff4e2d403ca120bb68b015fe936d4e5bc957583c5a9d62ce84124843",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_32b1891222e830f173b6bf4309505a1f",
@@ -3462,7 +3459,7 @@
    }
   },
   {
-   "digest": "f1231a59fca2f5367f9a3eb8fe9a646257b052a876e96861bde9c3f439cc86ae",
+   "digest": "d38065462892a1641a3000c666df38079cefdc556e62b91209cc02574f7a5e16",
    "name": "activate_session_receipt",
    "record": {
     "committed_at": "2000-01-01T00:00:00Z",
@@ -3472,7 +3469,7 @@
      "layer": "personal",
      "principal_id": "prn_eecbbea79af4af8423345babb1947b92"
     },
-    "request_digest": "094846ccefa6a8a245a06ff317f78c07e00f1e6b5b04a506a5bf1ab9f6f03a2f",
+    "request_digest": "f9810b8828518d2e2c2df93d50f87ade33f124d5cd1d1ceace3d7d21c111ff31",
     "request_id": "req_32b1891222e830f173b6bf4309505a1f",
     "schema": 1,
     "sequence": 1,
@@ -3538,14 +3535,14 @@
    }
   },
   {
-   "digest": "49986a319549316aae4cf8ffc38a8f73291b5ec89879c7556730fcff091c7e7c",
+   "digest": "2f03a4130a5e62a061631fd1ff43dfb3910545dfe944c13767a032c758abd0d8",
    "name": "activate_session_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "f1231a59fca2f5367f9a3eb8fe9a646257b052a876e96861bde9c3f439cc86ae",
+     "receipt_digest": "d38065462892a1641a3000c666df38079cefdc556e62b91209cc02574f7a5e16",
      "stage": "committed"
     },
     "outputs": [
@@ -3563,7 +3560,7 @@
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "094846ccefa6a8a245a06ff317f78c07e00f1e6b5b04a506a5bf1ab9f6f03a2f",
+    "request_digest": "f9810b8828518d2e2c2df93d50f87ade33f124d5cd1d1ceace3d7d21c111ff31",
     "request_id": "req_32b1891222e830f173b6bf4309505a1f",
     "schema": 1,
     "supported_recovery": []
@@ -3716,7 +3713,7 @@
   }
  ],
  "says": "From the host launcher in a bound repository, the entry shows concrete names and values: the repository and branch, the selected instructions source AGENTS.md, the unselected knowledge source, the suggested tool 'Claude Code 2.1.278 · 새 세션' marked as a suggestion with its model-call effect, a blocker for the unqualified personal decision route that names why and how to fix it, and one start action whose file-change, model-call, permission and shared effects sit on the action itself. The person presses Tab and Enter (surface.drive): the single Enter dispatches exactly one request, with no preview, confirm or extra view between, and the call it makes is preparation.compose — the owner check — for a session start that declares session.routing.activate and carries no work_request, so no business intent is inferred from the launcher. route.select records the start route, selected in the launcher's own repository scope, and answers for that request with the preparation. Negative: selecting the unqualified decision route is answered by its owner as refused with capability_not_qualified and an unsupported route outcome, never run; a selection carrying only a focused route is refused at admission (missing_field /selected); and no frame shows a generic effect panel or confirmation view.",
- "spec_sha256": "5eb0a9202a4bdd17ce8b6e5c02f099af9013b815ee3382e3e6a1d85cc8ad3915",
+ "spec_sha256": "9f25cdec816425d78fbdf490439be72d024a31429fb4dbb770533639ac853531",
  "steps": [
   {
    "carries": [

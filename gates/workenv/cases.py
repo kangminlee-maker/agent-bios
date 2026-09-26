@@ -144,6 +144,9 @@ STEP_FEATURES = ("runner", "route")
 SIGNING = "signing"
 # The feature that builds the checkout a scenario's person works in, derived from its records.
 CHECKOUT = "checkout"
+# The feature that makes the bytes of a revision its author commits, stated only by digest.
+REVISION_BYTES = "revision_bytes"
+AUTHORING = ("source.revision.commit", "source.revision.admit")
 # A step the driver exercises itself rather than an owner, which is never given.
 DRIVER = "driver"
 # The id prefix an addressed operation targets: a request.
@@ -207,21 +210,74 @@ def features_of(built: dict) -> set[str]:
         found.add(SIGNING)
     if reads_a_checkout(built):
         found.add(CHECKOUT)
+    if stated_revision_members(built):
+        found.add(REVISION_BYTES)
+    return found
+
+
+def admitted_into_a_repository(built: dict) -> dict[str, set[str]]:
+    """Each source an admission authors into a repository-authored destination, with the
+    manifests those admissions carry: the target of each `source.revision.admit` whose
+    `source_request` names such a destination. The manifest an admission returns states the same
+    members, so their literals are replaced with the carried ones."""
+    held = {row["name"]: row["record"] for row in built["records"]}
+    found: dict[str, set[str]] = {}
+    for step in built["steps"]:
+        request = held.get(step.get("request"), {})
+        if request.get("operation") == "source.revision.admit" and any(
+                held[name].get("kind") == "source_request"
+                and held[name].get("destination", {}).get("home_mode") == "repository_authored"
+                for name in step.get("carries", [])):
+            found.setdefault(request.get("target", {}).get("resource_id"), set()).update(
+                name for name in step.get("carries", [])
+                if held[name].get("kind") == "source_manifest")
+    return found
+
+
+def stated_revision_members(built: dict) -> list[tuple[str, str]]:
+    """(record, pointer) of each member of a revision its author commits or admits that the
+    scenario states by a literal digest alone: no member's text, no digest the owner mints, and
+    no file of the checkout, whose bytes the checkout feature makes."""
+    held = {row["name"]: row["record"] for row in built["records"]}
+    joined = {(join["record"], join["pointer"]) for join in built["joins"]}
+    authored = {record.get("source_id") for record in held.values()
+                if record.get("kind") == "source_home"
+                and record.get("home", {}).get("mode") == "repository_authored"}
+    authored |= set(admitted_into_a_repository(built))
+    tree = {read.get("path") for record in held.values()
+            if record.get("kind") == "source_observation"
+            for read in record.get("read", []) if read.get("read") == "tree"}
+    found = []
+    for step in built["steps"]:
+        if held.get(step.get("request"), {}).get("operation") not in AUTHORING:
+            continue
+        for name in step.get("carries", []):
+            record = held[name]
+            if record.get("kind") != "source_manifest" or record.get("source_id") in authored:
+                continue
+            for index, member in enumerate(record.get("members", [])):
+                pointer = f"/members/{index}"
+                if (name, pointer + "/digest") not in joined and member.get("path") not in tree:
+                    found.append((name, pointer))
     return found
 
 
 def reads_a_checkout(built: dict) -> bool:
     """Whether a scenario's person works in a checkout: a record observes one or names one, a
-    source is authored in one, or the world edits one."""
+    source is authored in one, a preparation records the one it was composed in, or the world
+    edits one."""
     for row in built["records"]:
         record = row["record"]
         kind = record.get("kind")
         if kind == "source_observation" and any(read.get("read") == "tree"
                                                 for read in record.get("read", [])):
             return True
-        if kind == "repository_binding" and "observed" in record:
+        if kind in ("repository_binding", "preparation") and "observed" in record:
             return True
         if kind == "source_home" and record.get("home", {}).get("mode") == "repository_authored":
+            return True
+        if kind == "source_request" and \
+                record.get("destination", {}).get("home_mode") == "repository_authored":
             return True
         if '"checkout":' in json.dumps(record):
             return True

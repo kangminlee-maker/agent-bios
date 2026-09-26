@@ -48,7 +48,7 @@ from workenv.contracts import b03, canonical
 DATABASE = "state.sqlite"
 # The layout this module writes, as PRAGMA user_version; a store with a later one was written
 # by a later runtime and is not opened.
-LAYOUT = 3
+LAYOUT = 4
 # What a member's bytes are kept as among records: they have no kind of their own.
 MEMBER = "source_member"
 IN_TXN = "in_txn_before_commit"
@@ -109,8 +109,18 @@ LAYOUT_3 = (
     "ALTER TABLE sources ADD COLUMN home_mode TEXT",
 )
 
+LAYOUT_4 = (
+    # Each collection held here and the one scope/role position it keeps; its head is the
+    # journal's, like every target's.
+    """CREATE TABLE collections (
+         collection_id TEXT PRIMARY KEY, scope TEXT NOT NULL, role TEXT NOT NULL)""",
+    "CREATE UNIQUE INDEX collections_by_position ON collections (scope, role)",
+    # Each preparation composed here, by id: the digest of the record kept whole.
+    "CREATE TABLE preparations (preparation_id TEXT PRIMARY KEY, digest TEXT NOT NULL)",
+)
+
 # What each layout adds to the one before it.
-LAYOUTS = {1: LAYOUT_1, 2: LAYOUT_2, 3: LAYOUT_3}
+LAYOUTS = {1: LAYOUT_1, 2: LAYOUT_2, 3: LAYOUT_3, 4: LAYOUT_4}
 
 
 class StorageError(Exception):

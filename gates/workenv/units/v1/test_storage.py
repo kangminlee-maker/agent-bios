@@ -89,9 +89,17 @@ class Layouts(unittest.TestCase):
     def test_a_store_an_earlier_runtime_wrote_is_brought_up_to_this_layout_keeping_its_rows(self):
         store = self.bench.store()
         self.assertEqual(store.read("PRAGMA user_version")[0][0], storage.LAYOUT)
-        self.assertLessEqual({"sources", "revisions", "repositories"}, self.tables())
+        self.assertLessEqual({"sources", "revisions", "repositories", "collections",
+                              "collections_by_position", "preparations"}, self.tables())
         self.assertIn("home_mode", [row[1] for row in store.read("PRAGMA table_info(sources)")])
         self.assertEqual(store.read("SELECT digest FROM objects"), [("d",)])
+
+    def test_a_position_is_held_by_one_collection(self):
+        self.bench.store()
+        with sqlite3.connect(self.path) as raw:
+            raw.execute("INSERT INTO collections VALUES ('col_1', 'scope', 'memory')")
+            with self.assertRaises(sqlite3.IntegrityError):
+                raw.execute("INSERT INTO collections VALUES ('col_2', 'scope', 'memory')")
 
     def test_an_upgrade_that_fails_part_way_leaves_the_earlier_layout_whole(self):
         broken = {**storage.LAYOUTS, 2: (*storage.LAYOUT_2, "CREATE TABLE sources (x)")}

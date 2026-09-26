@@ -1,6 +1,6 @@
 {
  "case": "N09-C07-NEG",
- "says": "In a bound repository checkout, Alice composes a preparation from the repository's rules revision; it records the checkout's branch, commit and working-bytes digest as observed. She then edits a tracked rules file and leaves a new untracked draft beside it, and observing the rules directory shows one file modified and one untracked. Activating her session with the earlier preparation is refused as working_bytes_moved - the claims it rested on are no longer true - and composing again records the new working bytes. A choice recorded to the repository's memory with no reason written down is stored with its reason and alternatives named as unrecorded; the owner does not infer or fill in a reason. Asking to project the repository's knowledge source, or its memory source, as behavioural Instructions is refused as role_promotion_refused and returns nothing.",
+ "says": "In a bound repository checkout, Alice composes a preparation from the repository's rules revision; it records the checkout's branch and commit as observed, and no working bytes, because nothing has observed the working tree yet. She then edits a tracked rules file and leaves a new untracked draft beside it, and observing the rules directory shows one file modified and one untracked. Activating her session with the earlier preparation is refused as working_bytes_moved - the claims it rested on are no longer true - and composing again records the working bytes of the observation that read the edit. A choice recorded to the repository's memory with no reason written down is stored with its reason and alternatives named as unrecorded; the owner does not infer or fill in a reason. Asking to project the repository's knowledge source, or its memory source, as behavioural Instructions is refused as role_promotion_refused and returns nothing.",
  "ids": [
   {
    "name": "alice",
@@ -745,10 +745,6 @@
      "value": "git@github.com:example/work.git"
     },
     {
-     "pointer": "/observed/working_bytes_digest",
-     "value": "$digest:bytes_at_compose"
-    },
-    {
      "pointer": "/order/0/layer",
      "value": "repository"
     },
@@ -1180,10 +1176,6 @@
      "value": "git@github.com:example/work.git"
     },
     {
-     "pointer": "/observed/working_bytes_digest",
-     "value": "$digest:bytes_after_edit"
-    },
-    {
      "pointer": "/order/0/layer",
      "value": "repository"
     },
@@ -1250,6 +1242,10 @@
     {
      "pointer": "/units/0/member",
      "value": "rules/review.md"
+    },
+    {
+     "pointer": "/observed/working_bytes_digest",
+     "value": "#tree_after_edit"
     }
    ]
   },

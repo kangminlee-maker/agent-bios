@@ -384,11 +384,6 @@
    "record": "compose_first_request"
   },
   {
-   "minted": "bytes_at_compose",
-   "pointer": "/observed/working_bytes_digest",
-   "record": "first_preparation"
-  },
-  {
    "minted": "first_preparation_id",
    "pointer": "/preparation_id",
    "record": "first_preparation"
@@ -479,11 +474,6 @@
    "record": "compose_again_request"
   },
   {
-   "minted": "bytes_after_edit",
-   "pointer": "/observed/working_bytes_digest",
-   "record": "second_preparation"
-  },
-  {
    "minted": "second_preparation_id",
    "pointer": "/preparation_id",
    "record": "second_preparation"
@@ -506,6 +496,11 @@
   {
    "digest_of": "repo_rules_rev",
    "pointer": "/units/0/revision_digest",
+   "record": "second_preparation"
+  },
+  {
+   "digest_of": "tree_after_edit",
+   "pointer": "/observed/working_bytes_digest",
    "record": "second_preparation"
   },
   {
@@ -761,11 +756,6 @@
    "step": "author_repo_memory"
   },
   {
-   "name": "bytes_at_compose",
-   "shape": "digest",
-   "step": "compose_first"
-  },
-  {
    "name": "first_preparation_at",
    "shape": "instant",
    "step": "compose_first"
@@ -794,11 +784,6 @@
    "name": "tree_observed_at",
    "shape": "instant",
    "step": "observe_tree"
-  },
-  {
-   "name": "bytes_after_edit",
-   "shape": "digest",
-   "step": "compose_again"
   },
   {
    "name": "review_unit_again",
@@ -1624,7 +1609,7 @@
    }
   },
   {
-   "digest": "1baedc40e28456550ca4519c24368bbf81332edb7f132dfe3182bb774b710c1f",
+   "digest": "0b34888da043090357fc6cc95ebba5b61bf93185985f23cfe88891208454443c",
    "name": "first_preparation",
    "record": {
     "adapter": {
@@ -1638,8 +1623,7 @@
     "observed": {
      "branch": "main",
      "commit": "0123456789abcdef0123456789abcdef01234567",
-     "locator": "git@github.com:example/work.git",
-     "working_bytes_digest": "c4ebc4eecf55066ebe43860c3857162a5bd59249c786405c8830d2ee4d10704a"
+     "locator": "git@github.com:example/work.git"
     },
     "omissions": [],
     "order": [
@@ -1681,7 +1665,7 @@
    }
   },
   {
-   "digest": "eed2cd8ead91ae19ddbe262c009d8eb9fd9d74d71d2211eb78e3f7dc468b94ea",
+   "digest": "e4d7d4af5bd106c24e44e4963718b04786a0bead286b939f0e93feea0367003f",
    "name": "compose_first_result",
    "record": {
     "kind": "operation_result",
@@ -1692,7 +1676,7 @@
     },
     "outputs": [
      {
-      "digest": "1baedc40e28456550ca4519c24368bbf81332edb7f132dfe3182bb774b710c1f",
+      "digest": "0b34888da043090357fc6cc95ebba5b61bf93185985f23cfe88891208454443c",
       "kind": "preparation"
      }
     ],
@@ -1814,11 +1798,11 @@
    }
   },
   {
-   "digest": "a7fc777eb5d17a944fb44cd9155fbc86ac5c9d8621ab06e467fdb077470ad8ce",
+   "digest": "bc2867e6ac25c5955bf61edf3cadf51d36cff3f64d90292c383cf8354de46a62",
    "name": "stale_activation",
    "record": {
     "kind": "session_activation",
-    "preparation_digest": "1baedc40e28456550ca4519c24368bbf81332edb7f132dfe3182bb774b710c1f",
+    "preparation_digest": "0b34888da043090357fc6cc95ebba5b61bf93185985f23cfe88891208454443c",
     "schema": 1,
     "session": {
      "host": {
@@ -1830,7 +1814,7 @@
    }
   },
   {
-   "digest": "47db3a924315ce398bff650ee5d921c619aa65d5b015f1d805976d6512ffa359",
+   "digest": "886e6fa9095866ae3b9e3f536e473a876e8e9210dab86423ea083dce367a195a",
    "name": "activate_stale_request",
    "record": {
     "action": "use",
@@ -1848,7 +1832,7 @@
      "layer": "personal",
      "principal_id": "prn_9245ae9ab086ae7a180033d256c0fe7e"
     },
-    "payload_digest": "a7fc777eb5d17a944fb44cd9155fbc86ac5c9d8621ab06e467fdb077470ad8ce",
+    "payload_digest": "bc2867e6ac25c5955bf61edf3cadf51d36cff3f64d90292c383cf8354de46a62",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_38fcd5fcbcd64a7fcc220053aa79fb25",
@@ -1859,7 +1843,7 @@
    }
   },
   {
-   "digest": "97dcf6638338080ea10505c58f840d825daa83824daf00689c78a1a0d107d03b",
+   "digest": "adb3282f5ab93f6c86ecb38983ff9dde895a56c6375336fde30e03cb386ffac9",
    "name": "activate_stale_result",
    "record": {
     "kind": "operation_result",
@@ -1874,7 +1858,7 @@
     },
     "outputs": [],
     "provider_effect": "not_applicable",
-    "request_digest": "47db3a924315ce398bff650ee5d921c619aa65d5b015f1d805976d6512ffa359",
+    "request_digest": "886e6fa9095866ae3b9e3f536e473a876e8e9210dab86423ea083dce367a195a",
     "request_id": "req_38fcd5fcbcd64a7fcc220053aa79fb25",
     "schema": 1,
     "supported_recovery": [
@@ -1912,7 +1896,7 @@
    }
   },
   {
-   "digest": "a2dd2173912ec485155674185a712aeb047e4c5152c1be88840a80e57c36c773",
+   "digest": "5350e3fa9c5a60b5e69f715e95c8a8a306139e0bc8f1ea5dec7343266535c5aa",
    "name": "second_preparation",
    "record": {
     "adapter": {
@@ -1927,7 +1911,7 @@
      "branch": "main",
      "commit": "0123456789abcdef0123456789abcdef01234567",
      "locator": "git@github.com:example/work.git",
-     "working_bytes_digest": "4912863333150870958427e82004a68731fc716755bf979cca10e99ea5e11be1"
+     "working_bytes_digest": "e6ac7b3cf8312e2a33ef4754d0084efc578f4f7cd4d4a15229b932b0273a2ecd"
     },
     "omissions": [],
     "order": [
@@ -1969,7 +1953,7 @@
    }
   },
   {
-   "digest": "20ca189eded17fde4eccdbbd6842a632c77ec8eded9fa3d5ae941275cfa0695b",
+   "digest": "4ba10f5628cc4cff573a32a758cf8aae5854d51506c2e152c3f10b6873c27285",
    "name": "compose_again_result",
    "record": {
     "kind": "operation_result",
@@ -1980,7 +1964,7 @@
     },
     "outputs": [
      {
-      "digest": "a2dd2173912ec485155674185a712aeb047e4c5152c1be88840a80e57c36c773",
+      "digest": "5350e3fa9c5a60b5e69f715e95c8a8a306139e0bc8f1ea5dec7343266535c5aa",
       "kind": "preparation"
      }
     ],
@@ -2309,8 +2293,8 @@
    }
   }
  ],
- "says": "In a bound repository checkout, Alice composes a preparation from the repository's rules revision; it records the checkout's branch, commit and working-bytes digest as observed. She then edits a tracked rules file and leaves a new untracked draft beside it, and observing the rules directory shows one file modified and one untracked. Activating her session with the earlier preparation is refused as working_bytes_moved - the claims it rested on are no longer true - and composing again records the new working bytes. A choice recorded to the repository's memory with no reason written down is stored with its reason and alternatives named as unrecorded; the owner does not infer or fill in a reason. Asking to project the repository's knowledge source, or its memory source, as behavioural Instructions is refused as role_promotion_refused and returns nothing.",
- "spec_sha256": "58f673926592cbe59fa1ac8008f1c102efbab1c3b6bc819e764b74f56d610678",
+ "says": "In a bound repository checkout, Alice composes a preparation from the repository's rules revision; it records the checkout's branch and commit as observed, and no working bytes, because nothing has observed the working tree yet. She then edits a tracked rules file and leaves a new untracked draft beside it, and observing the rules directory shows one file modified and one untracked. Activating her session with the earlier preparation is refused as working_bytes_moved - the claims it rested on are no longer true - and composing again records the working bytes of the observation that read the edit. A choice recorded to the repository's memory with no reason written down is stored with its reason and alternatives named as unrecorded; the owner does not infer or fill in a reason. Asking to project the repository's knowledge source, or its memory source, as behavioural Instructions is refused as role_promotion_refused and returns nothing.",
+ "spec_sha256": "ebeeba95f4293270b3ac06279a09f95218e05ef4e61247efaa8a41fd5ab4ebba",
  "steps": [
   {
    "carries": [

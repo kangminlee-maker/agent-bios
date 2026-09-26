@@ -154,17 +154,9 @@ def selected_bytes(store: storage.Store, repository_id: str,
     return None
 
 
-def repository_bind(call) -> dict:
-    store = storage.of(call.state)
-    binding = journal.payload(call)
-    if binding["repository_id"] != call.request["target"]["resource_id"]:
-        return journal.answered(call, "refused", gaps=[{"code": c03.REQUEST_MISMATCH,
-                                                        "pointer": "/target/resource_id"}],
-                                recovery=["new_governed_request"])
-    checkout = top(pathlib.Path.cwd())
-    if checkout is None:
-        return journal.answered(call, "refused", gaps=[{"code": c01.REF_UNAVAILABLE}],
-                                recovery=["new_governed_request"])
+def observed_in(store: storage.Store, repository_id: str, checkout: pathlib.Path) -> dict:
+    """What the checkout shows now: the remote it calls `origin` (else its own directory), its
+    branch and HEAD, and the selected working bytes of the repository read there, if any."""
     observed = {"locator": str(checkout)}
     try:
         observed["locator"] = git(checkout, "remote", "get-url", "origin").strip()
@@ -180,10 +172,34 @@ def repository_bind(call) -> dict:
         observed["commit"] = git(checkout, "rev-parse", "--verify", "-q", "HEAD").strip()
     except NotAGitCheckout:
         pass   # a checkout with no commit yet
-    selected = selected_bytes(store, binding["repository_id"], checkout)
+    selected = selected_bytes(store, repository_id, checkout)
     if selected is not None:
         observed["working_bytes_digest"] = selected
-    stored = {**binding, "observed": observed}
+    return observed
+
+
+def bound_at(store: storage.Store, checkout: pathlib.Path) -> tuple[str, dict] | None:
+    """The repository last bound here from this checkout, with its binding, or None."""
+    for repository_id, binding, place in store.read(
+            "SELECT repository_id, binding_digest, checkout FROM repositories "
+            "ORDER BY rowid DESC"):
+        if place and same_place(place, checkout):
+            return repository_id, store.get(binding)
+    return None
+
+
+def repository_bind(call) -> dict:
+    store = storage.of(call.state)
+    binding = journal.payload(call)
+    if binding["repository_id"] != call.request["target"]["resource_id"]:
+        return journal.answered(call, "refused", gaps=[{"code": c03.REQUEST_MISMATCH,
+                                                        "pointer": "/target/resource_id"}],
+                                recovery=["new_governed_request"])
+    checkout = top(pathlib.Path.cwd())
+    if checkout is None:
+        return journal.answered(call, "refused", gaps=[{"code": c01.REF_UNAVAILABLE}],
+                                recovery=["new_governed_request"])
+    stored = {**binding, "observed": observed_in(store, binding["repository_id"], checkout)}
     store.write("INSERT OR REPLACE INTO repositories (repository_id, binding_digest, checkout) "
                 "VALUES (?, ?, ?)", (binding["repository_id"], store.put(stored), str(checkout)))
     return journal.committed(call, [stored])
