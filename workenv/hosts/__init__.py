@@ -19,6 +19,10 @@ observe.
 
 The destination a link names is the digest of the session id the adapter reported, the host's
 own bytes and never an id the runtime makes up.
+
+An adapter also says how its host is driven for a probe: the executable that runs it, the
+environment that marks a process as running inside one of its sessions, and a run that starts
+the host with the probe's hook on the route to one recipient (`workenv.hosts.probes`).
 """
 from __future__ import annotations
 
@@ -26,6 +30,7 @@ import dataclasses
 import hashlib
 import importlib
 import json
+from typing import Callable
 
 from workenv import storage
 
@@ -53,6 +58,14 @@ class Adapter:
     session_env: str
     # The field of an event's input that holds the session id.
     session_field: str = "session_id"
+    # The executable that runs the host.
+    binary: str = ""
+    # The environment variables that mark a process as running inside one of its sessions,
+    # dropped before a probe starts a session of its own.
+    nested: tuple[str, ...] = ()
+    # Starts the host with a hook on the route to one recipient and asks what it read:
+    # (recipient, executable, hook command, working directory, environment) -> probes.Run.
+    drive: Callable | None = None
 
     def recipient_of(self, event: dict) -> str | None:
         """The recipient one event of this host reaches, or None where it reaches none."""
@@ -116,6 +129,20 @@ def qualified(store: storage.Store, host: dict, recipient: str) -> bool:
 def supports(store: storage.Store, host: dict, recipient: str) -> bool:
     """Whether a route reaches this recipient on the host installed here."""
     return declares(host["name"], recipient) and qualified(store, host, recipient)
+
+
+def capability_probe(call) -> dict:
+    """C12 `capability.probe`, served by `workenv.hosts.probes`, which drives the adapters."""
+    from workenv.hosts import probes
+    return probes.capability_probe(call)
+
+
+def _prepare_probe(call) -> dict:
+    from workenv.hosts import probes
+    return probes.prepare(call)
+
+
+capability_probe.prepare = _prepare_probe
 
 
 def destination_digest(session_id: str) -> str:

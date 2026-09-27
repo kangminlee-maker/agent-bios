@@ -27,7 +27,8 @@ def event(route: hosts.Route, **more) -> dict:
 
 class Registry(unittest.TestCase):
     def test_every_adapter_module_is_listed_and_every_listed_one_ships(self):
-        on_disk = sorted(path.stem for path in HOSTS.glob("*.py") if path.stem != "__init__")
+        on_disk = sorted(path.stem for path in HOSTS.glob("*.py")
+                         if "\nADAPTER = Adapter(" in path.read_text(encoding="utf-8"))
         self.assertEqual(sorted(hosts.MODULES), on_disk)
         files = shipped()
         self.assertEqual([name for name in hosts.MODULES
@@ -97,6 +98,12 @@ class Suite:
         for missing in ({field: ""}, {field: 7}, {}):
             self.assertIsNone(self.adapter.session_of(missing, {}), missing)
         self.assertIsNone(self.adapter.session_of())
+
+    def test_it_can_drive_its_host_as_a_session_of_its_own(self):
+        # A probe started from inside one of the host's sessions must not run as part of it.
+        self.assertTrue(self.adapter.binary)
+        self.assertTrue(callable(self.adapter.drive))
+        self.assertIn(self.adapter.session_env, self.adapter.nested)
 
     def test_the_output_is_the_text_as_context_for_the_event_that_asked(self):
         for route in self.adapter.routes.values():
