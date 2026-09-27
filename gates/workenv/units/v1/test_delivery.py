@@ -45,6 +45,13 @@ class Delivering(Composing):
             self.probed(host, recipient)
         return answer["returned"][0], canonical.digest_of(answer["returned"][0])
 
+    def without(self, host: str, recipient: str) -> None:
+        """The host's adapter declaring no route to the recipient, for the length of a test."""
+        adapter = hosts.adapter_for(host)
+        routes = adapter.routes
+        object.__setattr__(adapter, "routes", {r: v for r, v in routes.items() if r != recipient})
+        self.addCleanup(object.__setattr__, adapter, "routes", routes)
+
     def probed(self, host: str, recipient: str, outcome: str = "worked", runs: str = "real",
                version: str = "1", at: str = INSTANT) -> None:
         """A probe of a recipient's delivery on the host, kept as capability.probe keeps one."""
@@ -202,6 +209,7 @@ class Attempts(Delivering):
         self.assertEqual(gaps(answer), [{"code": c11.REHYDRATION_NEEDS_BODIES}])
 
     def test_a_route_the_hosts_adapter_does_not_declare_is_not_delivered_on(self):
+        self.without("codex", "child")
         link, digest = self.linked("codex")
         answer = self.attempt(link, self.for_link(digest), "child")
         self.assertEqual(gaps(answer), [{"code": c06.CHILD_ROUTE_UNSUPPORTED}])
@@ -260,6 +268,7 @@ class Qualification(Delivering):
         self.unsupported(self.attempt(link, prepared, "new"))
 
     def test_a_probe_does_not_qualify_a_route_the_adapter_does_not_declare(self):
+        self.without("codex", "child")
         link, digest = self.linked("codex", qualify=False)
         self.probed("codex", "child")
         self.unsupported(self.attempt(link, self.for_link(digest), "child"), "child")
@@ -324,6 +333,7 @@ class Observations(Delivering):
                          [sha(NOTE)])
 
     def test_a_recipient_a_delivery_was_requested_of_and_nothing_reached_is_not_observed(self):
+        self.without("codex", "child")
         link, digest = self.linked("codex")
         prepared = self.for_link(digest)
         self.received(link, prepared, "current")

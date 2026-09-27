@@ -7,6 +7,7 @@ the machine itself, and the record of that run says what they did.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import pathlib
@@ -14,6 +15,7 @@ import shlex
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 
 import bench
@@ -22,7 +24,7 @@ from test_sources import INSTANT, Base, gaps
 from workenv import hosts, journal
 from workenv.contracts import c03, c12
 from workenv.contracts.schema import STORED
-from workenv.hosts import hook, probes
+from workenv.hosts import codex, hook, probes
 
 PROBE = "capability.probe"
 FAKE = pathlib.Path(__file__).with_name("fakehost.py")
@@ -34,6 +36,9 @@ class Hosts(unittest.TestCase):
     """A PATH holding the fake hosts, and the environment a probe runs in."""
 
     def setUp(self):
+        # A fake host answers at once, so a probe that waits out its time has hung.
+        self.addCleanup(setattr, probes, "TIMEOUT", probes.TIMEOUT)
+        probes.TIMEOUT = 20
         self.scratch = tempfile.TemporaryDirectory(prefix="workenv-probe-")
         root = pathlib.Path(self.scratch.name)
         (root / "bin").mkdir()
@@ -44,7 +49,7 @@ class Hosts(unittest.TestCase):
         self.environ = {"PATH": f"{root / 'bin'}{os.pathsep}{os.environ['PATH']}",
                         "HOME": str(root), "FAKE_HOST_LOG": str(self.log),
                         "FAKE_HOST_VERSION": VERSION, "FAKE_HOST_MODE": "obey",
-                        "FAKE_HOST_TRUST": "trusted", "CLAUDECODE": "1",
+                        "FAKE_HOST_TRUST": "all", "CLAUDECODE": "1",
                         "CLAUDE_CODE_SESSION_ID": "outer", "CODEX_THREAD_ID": "outer"}
         self.work = root / "work"
         self.work.mkdir()
@@ -56,6 +61,7 @@ class Hosts(unittest.TestCase):
         asked = {"kind": "capability_probe", "schema": 1,
                  "client": {"name": host, "version": version}, "wire": probes.WIRE,
                  "capability": hosts.CAPABILITY[recipient]}
+        pathlib.Path(f"{self.log}.calls").unlink(missing_ok=True)
         with tempfile.TemporaryDirectory(dir=self.work) as workdir:
             return probes.probed(asked, {**self.environ, **environ},
                                  pathlib.Path(workdir).resolve())
@@ -66,6 +72,19 @@ class Hosts(unittest.TestCase):
         original = adapter.drive
         object.__setattr__(adapter, "drive", drive)
         self.addCleanup(object.__setattr__, adapter, "drive", original)
+
+    def calls(self) -> list[dict]:
+        """The requests the fake Codex answered, in order."""
+        calls = pathlib.Path(f"{self.log}.calls")
+        if not calls.is_file():
+            return []
+        return [json.loads(line) for line in calls.read_text().splitlines()]
+
+    def asked(self) -> list[str]:
+        """What the probe asked the host: Claude Code's prompts and Codex's turns."""
+        return [run["argv"][-1] for run in self.runs() if run["host"] == "claude"] + \
+            [call["params"]["input"][0]["text"] for call in self.calls()
+             if call["method"] == "turn/start"]
 
     def runs(self) -> list[dict]:
         if not self.log.is_file():
@@ -78,8 +97,6 @@ class Probing(Hosts):
     def test_a_route_that_hands_the_recipient_the_code_worked_on_every_declared_route(self):
         for host, recipients in EVERY.items():
             for recipient in recipients:
-                if (host, recipient) == ("codex", "rehydrated"):
-                    continue
                 with self.subTest(host=host, recipient=recipient):
                     found, ran_under = self.probe(host, recipient)
                     self.assertEqual((found["offered"], found["outcome"]), (True, "worked"),
@@ -105,40 +122,51 @@ class Probing(Hosts):
         for host, recipients in EVERY.items():
             for recipient in recipients:
                 for mode in ("silent", "error"):
-                    if (host, recipient) == ("codex", "rehydrated"):
-                        continue
                     with self.subTest(host=host, recipient=recipient, mode=mode):
                         found, _ = self.probe(host, recipient, FAKE_HOST_MODE=mode)
                         self.assertEqual((found["offered"], found["outcome"]),
                                          (True, "no_response"))
 
-    def test_a_claude_session_that_could_not_be_compacted_did_not_respond(self):
-        found, _ = self.probe("claude-code", "rehydrated", FAKE_HOST_MODE="nocompact")
+    def test_a_session_that_could_not_be_compacted_did_not_respond_and_was_not_asked(self):
+        # Refused at once, not after the probe's time has run out.
+        for host in EVERY:
+            with self.subTest(host=host):
+                self.log.unlink(missing_ok=True)
+                began = time.monotonic()
+                found, _ = self.probe(host, "rehydrated", FAKE_HOST_MODE="nocompact")
+                self.assertLess(time.monotonic() - began, 10)
+                self.assertEqual(found["outcome"], "no_response")
+                asked = self.asked()
+                self.assertNotIn(probes.ASK, asked)
+
+    def test_a_codex_turn_that_did_not_end_gave_no_reply(self):
+        found, _ = self.probe("codex", "new", FAKE_HOST_MODE="noend")
         self.assertEqual(found["outcome"], "no_response")
-        self.assertEqual(len(self.runs()), 2)
+
+    def test_codex_starting_no_conversation_did_not_respond_and_asked_nothing(self):
+        found, _ = self.probe("codex", "new", FAKE_HOST_MODE="nothread")
+        self.assertEqual(found["outcome"], "no_response")
+        self.assertIn("did not start a conversation", found["observed"])
+        self.assertEqual(self.asked(), [])
 
     def test_codex_listing_no_hooks_did_not_respond_and_asked_nothing(self):
         found, ran_under = self.probe("codex", "new", FAKE_HOST_MODE="nolist")
         self.assertEqual((found["offered"], found["outcome"], ran_under),
                          (True, "no_response", []))
-        self.assertEqual([run for run in self.runs() if "exec" in run["argv"]], [])
+        self.assertEqual([call["method"] for call in self.calls()],
+                         ["initialize", "initialized", "hooks/list"])
 
-    def test_the_probe_configures_only_the_route_it_probes_as_declared(self):
+    def test_every_run_gives_the_host_every_declared_route_in_its_own_place(self):
         for host, recipients in EVERY.items():
+            groups = hosts.adapter_for(host).groups(probes.command(host))
             for recipient in recipients:
-                if (host, recipient) == ("codex", "rehydrated"):
-                    continue
                 with self.subTest(host=host, recipient=recipient):
                     self.log.unlink(missing_ok=True)
                     self.probe(host, recipient)
-                    route = hosts.adapter_for(host).routes[recipient]
-                    group = {"hooks": [{"type": "command", "command": probes.command(host)}]}
-                    if route.source is not None:
-                        group["matcher"] = route.source
                     runs = self.runs()
                     self.assertTrue(runs)
                     for run in runs:
-                        self.assertEqual(run["groups"], {route.event: [group]})
+                        self.assertEqual(run["groups"], groups)
 
     def test_claude_runs_on_no_setting_sources_and_keeps_a_session_only_to_compact_it(self):
         for recipient in EVERY["claude-code"]:
@@ -151,11 +179,32 @@ class Probing(Hosts):
                     self.assertEqual("--no-session-persistence" in argv,
                                      recipient != "rehydrated")
 
-    def test_codex_runs_keep_no_session_and_change_nothing(self):
-        self.probe("codex", "current")
-        [run] = [run for run in self.runs() if "exec" in run["argv"]]
-        self.assertIn("--ephemeral", run["argv"])
-        self.assertEqual(run["argv"][run["argv"].index("-s") + 1], "read-only")
+    def test_codex_conversations_keep_no_session_and_change_nothing(self):
+        for recipient in EVERY["codex"]:
+            with self.subTest(recipient=recipient):
+                self.log.unlink(missing_ok=True)
+                self.probe("codex", recipient)
+                [opened] = [call["params"] for call in self.calls()
+                            if call["method"] == "thread/start"]
+                self.assertEqual((opened["ephemeral"], opened["sandbox"],
+                                  opened["approvalPolicy"]), (True, "read-only", "never"))
+
+    def test_a_rehydrated_codex_session_is_compacted_before_it_is_asked(self):
+        found, _ = self.probe("codex", "rehydrated")
+        self.assertEqual(found["outcome"], "worked")
+        calls = self.calls()
+        self.assertEqual([call["method"] for call in calls],
+                         ["initialize", "initialized", "hooks/list", "thread/start", "turn/start",
+                          "thread/compact/start", "turn/start"])
+        self.assertEqual(calls[-1]["params"]["input"][0]["text"], probes.ASK)
+
+    def test_a_child_is_asked_for_through_the_session(self):
+        for host in EVERY:
+            with self.subTest(host=host):
+                self.log.unlink(missing_ok=True)
+                self.probe(host, "child")
+                asked = self.asked()
+                self.assertEqual(asked, [probes.ASK_CHILD])
 
     def test_an_adapter_that_cannot_drive_its_host_is_unsupported(self):
         self.drive("claude-code", None)
@@ -175,18 +224,16 @@ class Probing(Hosts):
         self.assertEqual(self.runs(), [])
 
     def test_a_route_no_adapter_declares_is_unsupported_and_nothing_runs(self):
+        adapter = hosts.adapter_for("codex")
+        original = adapter.routes
+        object.__setattr__(adapter, "routes", {r: v for r, v in original.items() if r != "child"})
+        self.addCleanup(object.__setattr__, adapter, "routes", original)
         for host, recipient in (("codex", "child"), ("a-host-nobody-wrote", "new")):
             with self.subTest(host=host):
                 found, ran_under = self.probe(host, recipient)
                 self.assertEqual((found["offered"], found["outcome"], ran_under),
                                  (False, "unsupported", []))
         self.assertFalse(self.log.exists())
-
-    def test_a_rehydrated_codex_session_is_unsupported_without_a_run(self):
-        found, _ = self.probe("codex", "rehydrated")
-        self.assertEqual((found["offered"], found["outcome"]), (False, "unsupported"))
-        self.assertIn("compact", found["observed"])
-        self.assertEqual(self.runs(), [])
 
     def test_a_rehydrated_claude_session_sees_only_what_was_handed_over_at_compaction(self):
         found, _ = self.probe("claude-code", "rehydrated")
@@ -198,14 +245,25 @@ class Probing(Hosts):
         self.probe("claude-code", "rehydrated")
         self.assertNotIn(session, self.runs()[3]["argv"])
 
-    def test_codex_records_every_hook_it_would_run_and_an_untrusted_probe_hook_as_not(self):
-        found, ran_under = self.probe("codex", "new", FAKE_HOST_TRUST="untrusted")
+    def test_codex_records_every_hook_it_would_run_and_an_untrusted_hook_as_not(self):
+        found, ran_under = self.probe("codex", "new", FAKE_HOST_TRUST="")
         self.assertEqual(found["outcome"], "refused")
         self.assertIn("/hooks", found["observed"])
-        self.assertEqual(ran_under, [probes.hook("stop", "the person's own hook", True),
-                                     probes.hook("stop", "a managed hook", True),
-                                     probes.hook("sessionStart", probes.command("codex"),
-                                                 False)])
+        command = probes.command("codex")
+        self.assertEqual([(hook["event"], hook["enabled"]) for hook in ran_under],
+                         [("stop", True), ("stop", True), ("sessionStart", False),
+                          ("userPromptSubmit", False), ("subagentStart", False)])
+        self.assertEqual([hook["handler_digest"] for hook in ran_under[2:]],
+                         [hashlib.sha256(command.encode("utf-8")).hexdigest()] * 3)
+
+    def test_a_route_is_refused_when_its_own_place_is_untrusted_whatever_its_event_shares(self):
+        found, ran_under = self.probe("codex", "rehydrated",
+                                      FAKE_HOST_TRUST="sessionStart:startup,userPromptSubmit:")
+        self.assertEqual(found["outcome"], "refused")
+        self.assertIn("/hooks", found["observed"])
+        self.assertIn(probes.hook("sessionStart", probes.command("codex"), True), ran_under)
+        found, _ = self.probe("codex", "new", FAKE_HOST_TRUST="sessionStart:startup")
+        self.assertEqual((found["outcome"], "/hooks" in found["observed"]), ("worked", False))
 
     def test_the_host_runs_as_a_session_of_its_own_with_the_job_it_serves(self):
         for host in EVERY:
@@ -218,7 +276,7 @@ class Probing(Hosts):
                              (set(), True))
 
     def test_what_was_observed_is_kept_within_its_bound(self):
-        long = probes.Run(None, [], "x" * 5000, outcome="no_response")
+        long = probes.Run(None, [], "x" * 5000)
         self.drive("claude-code", lambda *arguments: long)
         found, _ = self.probe("claude-code", "new")
         self.assertEqual(len(found["observed"]), probes.OBSERVED)
@@ -227,6 +285,8 @@ class Probing(Hosts):
         slow = [sys.executable, "-c", "import time; time.sleep(5)"]
         self.assertIsNone(probes.ran(slow, self.work, dict(os.environ), timeout=0.2))
         self.assertIsNone(probes.ran([str(self.work / "missing")], self.work, dict(os.environ)))
+        missing = codex.drive("new", str(self.work / "missing"), "c", self.work, {})
+        self.assertEqual((missing.reply, missing.hooks), (None, []))
 
 
 class Hook(unittest.TestCase):
@@ -331,7 +391,8 @@ class Serving(Hosts, Base):
         self.assertEqual((configuration["kind"], configuration["client"], configuration["hooks"],
                           configuration["measured_at"]),
                          ("host_configuration", probe["client"],
-                          [probes.hook("SessionStart", probes.command("claude-code"), True)],
+                          [probes.hook(event, probes.command("claude-code"), True)
+                           for event in ("SessionStart", "SubagentStart", "UserPromptSubmit")],
                           INSTANT))
         for value in answer["returned"]:
             self.assertEqual(journal.refusals(value, STORED, "/"), [])

@@ -11,7 +11,7 @@ context as a developer message, and its model declines to disclose one.
 What the run found is recorded as C12 states it, kept apart from what was declared:
 
   - `unsupported`, not offered: no adapter names the host, the adapter declares no route to
-    that recipient, or it cannot drive its host there without a person;
+    that recipient, or it cannot drive its host;
   - `unreachable`, not offered: the host is not installed on this machine's path, or the
     installed version is not the one the probe names, since a probe qualifies one version;
   - `worked`: the reply carried the code;
@@ -58,11 +58,10 @@ RECIPIENT = {capability: recipient for recipient, capability in hosts.CAPABILITY
 @dataclasses.dataclass
 class Run:
     """What one run of a host showed: the recipient's reply (None where the host gave none),
-    the hooks it ran under, what the host reported, and an outcome the adapter already knows."""
+    the hooks it ran under, and what the host reported."""
     reply: str | None
     hooks: list[dict]
     note: str = ""
-    outcome: str | None = None
 
 
 def handed(code: str) -> str:
@@ -133,8 +132,6 @@ def probed(asked: dict, environ: dict, workdir: pathlib.Path) -> tuple[dict, lis
                         {**quiet, JOB: str(job)})
     route = adapter.routes[recipient]
     where = f"{route.event}" + (f" ({route.source})" if route.source else "")
-    if run.outcome is not None:
-        return found(run.outcome != "unsupported", run.outcome, run.note, run.hooks)
     if run.reply is None:
         return found(True, "no_response", f"The host gave no reply to the {where} probe.",
                      run.hooks, run.note)

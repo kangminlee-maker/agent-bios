@@ -6,11 +6,11 @@ current session before each prompt. Each takes `hookSpecificOutput.additionalCon
 reads its session's id in `session_id`; a command the session runs reads it in
 `CLAUDE_CODE_SESSION_ID`. Read 2026-09-27 against the references for version 2.1.278.
 
-A probe runs `claude -p` with the hook in a plugin of its own (`--plugin-dir`) and no setting
-sources, so the only hook configured is the probe's and the person's settings are neither read
-nor changed. A new, current or child session is one run that keeps no session; a child is asked
-for through the session's subagent tool. A rehydrated session is three runs of one kept session:
-a first prompt, `/compact`, and the question asked after it.
+A probe runs `claude -p` with the adapter's hooks in a plugin of its own (`--plugin-dir`) and no
+setting sources, so the only hooks configured are the adapter's and the person's settings are
+neither read nor changed. A new, current or child session is one run that keeps no session; a
+child is asked for through the session's subagent tool. A rehydrated session is three runs of one
+kept session: a first prompt, `/compact`, and the question asked after it.
 """
 from __future__ import annotations
 
@@ -39,19 +39,15 @@ def drive(recipient: str, executable: str, command: str, workdir: pathlib.Path,
           environ: dict):
     from workenv.hosts import probes
 
-    route = ADAPTER.routes[recipient]
-    group = {"hooks": [{"type": "command", "command": command}]}
-    if route.source is not None:
-        group["matcher"] = route.source
+    groups = ADAPTER.groups(command)
     plugin = workdir / "plugin"
     (plugin / ".claude-plugin").mkdir(parents=True)
     (plugin / ".claude-plugin" / "plugin.json").write_text(json.dumps(
         {"name": "agent-bios-probe", "version": "1.0.0",
-         "description": "One hook for one agent-bios probe."}), encoding="utf-8")
+         "description": "The hooks of one agent-bios probe."}), encoding="utf-8")
     (plugin / "hooks").mkdir()
-    (plugin / "hooks" / "hooks.json").write_text(
-        json.dumps({"hooks": {route.event: [group]}}), encoding="utf-8")
-    hooks = [probes.hook(route.event, command, True)]
+    (plugin / "hooks" / "hooks.json").write_text(json.dumps({"hooks": groups}), encoding="utf-8")
+    hooks = [probes.hook(event, command, True) for event in groups]
     base = [executable, "-p", "--plugin-dir", str(plugin), "--setting-sources", "",
             "--output-format", "json"]
     if recipient == "rehydrated":

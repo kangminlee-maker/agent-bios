@@ -49,12 +49,12 @@ class Registry(unittest.TestCase):
         self.assertEqual(hosts.destination_digest("1f0e-세션"),
                          hashlib.sha256("1f0e-세션".encode("utf-8")).hexdigest())
 
-    def test_an_adapter_declares_a_child_route_where_its_hosts_reference_shows_one(self):
-        # Claude Code's reference shows SubagentStart taking context; what Codex's takes is not
-        # shown on the installed version yet. A declared route is still delivered on only where
-        # a probe qualified it (test_delivery).
+    def test_an_adapter_declares_a_child_route_where_its_host_shows_one(self):
+        # Claude Code's reference and the subagent-start output schema in Codex 0.157.1's binary
+        # both show SubagentStart taking context. A declared route is still delivered on only
+        # where a probe qualified it (test_delivery).
         self.assertEqual((hosts.declares("claude-code", "child"), hosts.declares("codex", "child")),
-                         (True, False))
+                         (True, True))
 
 
 class Suite:
@@ -98,6 +98,19 @@ class Suite:
         for missing in ({field: ""}, {field: 7}, {}):
             self.assertIsNone(self.adapter.session_of(missing, {}), missing)
         self.assertIsNone(self.adapter.session_of())
+
+    def test_its_hooks_give_every_route_a_place_of_its_own_in_declaration_order(self):
+        # Codex trusts a hook by its place, so two routes on one event keep two places.
+        groups = self.adapter.groups("run it")
+        routes = list(self.adapter.routes.values())
+        expected = [(event, route.source) for event in dict.fromkeys(r.event for r in routes)
+                    for route in routes if route.event == event]
+        self.assertEqual([(event, group.get("matcher")) for event, listed in groups.items()
+                          for group in listed], expected)
+        for listed in groups.values():
+            for group in listed:
+                self.assertEqual(group["hooks"], [{"type": "command", "command": "run it"}])
+                self.assertNotIn(None, group.values())
 
     def test_it_can_drive_its_host_as_a_session_of_its_own(self):
         # A probe started from inside one of the host's sessions must not run as part of it.

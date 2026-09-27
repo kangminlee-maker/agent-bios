@@ -22,7 +22,10 @@ own bytes and never an id the runtime makes up.
 
 An adapter also says how its host is driven for a probe: the executable that runs it, the
 environment that marks a process as running inside one of its sessions, and a run that starts
-the host with the probe's hook on the route to one recipient (`workenv.hosts.probes`).
+the host with its hooks and asks one recipient (`workenv.hosts.probes`). A host is always given
+every declared route's hook, one group per route in the order the routes are declared, so a
+route keeps its place across runs: Codex trusts a hook by its place, and two routes on one event
+would otherwise take the same place in turn.
 """
 from __future__ import annotations
 
@@ -63,7 +66,7 @@ class Adapter:
     # The environment variables that mark a process as running inside one of its sessions,
     # dropped before a probe starts a session of its own.
     nested: tuple[str, ...] = ()
-    # Starts the host with a hook on the route to one recipient and asks what it read:
+    # Starts the host with its hooks and asks one recipient for what the hook handed it:
     # (recipient, executable, hook command, working directory, environment) -> probes.Run.
     drive: Callable | None = None
 
@@ -79,6 +82,17 @@ class Adapter:
         """The session id the host reported: in the event's input, else in the environment."""
         found = (event or {}).get(self.session_field) or (environ or {}).get(self.session_env)
         return found if isinstance(found, str) and found else None
+
+    def groups(self, command: str) -> dict[str, list[dict]]:
+        """The hooks a host is given: one group per declared route, running `command`, grouped
+        by event in the order the routes are declared."""
+        found: dict[str, list[dict]] = {}
+        for route in self.routes.values():
+            group = {"hooks": [{"type": "command", "command": command}]}
+            if route.source is not None:
+                group = {"matcher": route.source, **group}
+            found.setdefault(route.event, []).append(group)
+        return found
 
     def output(self, event: dict, text: str) -> str:
         """What the command answering this event prints, for its host to add to the session."""
