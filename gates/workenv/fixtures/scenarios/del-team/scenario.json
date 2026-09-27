@@ -168,6 +168,10 @@
   {
    "id": "req_464355b84e85b7095fcf7633fb6cbb1d",
    "name": "reassess_delivery_id"
+  },
+  {
+   "id": "req_81a4439524d4df754d82b18a3ac1c7f0",
+   "name": "qualify_current_delivery_id"
   }
  ],
  "joins": [
@@ -1075,6 +1079,66 @@
    "digest_of": "bob_may_act",
    "pointer": "/outputs/0/digest",
    "record": "assess_the_delivery_result"
+  },
+  {
+   "digest_of": "current_delivery_probe",
+   "pointer": "/payload_digest",
+   "record": "qualify_current_delivery_request"
+  },
+  {
+   "digest_of": "qualify_current_delivery_request",
+   "pointer": "/request_digest",
+   "record": "qualify_current_delivery_receipt"
+  },
+  {
+   "minted": "qualify_current_delivery_head",
+   "pointer": "/head_digest",
+   "record": "qualify_current_delivery_receipt"
+  },
+  {
+   "minted": "qualify_current_delivery_sequence",
+   "pointer": "/sequence",
+   "record": "qualify_current_delivery_receipt"
+  },
+  {
+   "minted": "qualify_current_delivery_committed_at",
+   "pointer": "/committed_at",
+   "record": "qualify_current_delivery_receipt"
+  },
+  {
+   "minted": "current_delivery_probed_at",
+   "pointer": "/at",
+   "record": "current_delivery_probed"
+  },
+  {
+   "minted": "current_delivery_probe",
+   "pointer": "/probe_id",
+   "record": "current_delivery_probed"
+  },
+  {
+   "minted": "current_delivery_measured_at",
+   "pointer": "/measured_at",
+   "record": "current_delivery_configuration"
+  },
+  {
+   "digest_of": "qualify_current_delivery_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "qualify_current_delivery_result"
+  },
+  {
+   "digest_of": "qualify_current_delivery_request",
+   "pointer": "/request_digest",
+   "record": "qualify_current_delivery_result"
+  },
+  {
+   "digest_of": "current_delivery_probed",
+   "pointer": "/outputs/0/digest",
+   "record": "qualify_current_delivery_result"
+  },
+  {
+   "digest_of": "current_delivery_configuration",
+   "pointer": "/outputs/1/digest",
+   "record": "qualify_current_delivery_result"
   },
   {
    "digest_of": "attempt_deliver",
@@ -2022,6 +2086,36 @@
    "name": "bob_may_act_at",
    "shape": "instant",
    "step": "assess_the_delivery"
+  },
+  {
+   "name": "current_delivery_measured_at",
+   "shape": "instant",
+   "step": "qualify_current_delivery"
+  },
+  {
+   "name": "current_delivery_probe",
+   "shape": "prb",
+   "step": "qualify_current_delivery"
+  },
+  {
+   "name": "current_delivery_probed_at",
+   "shape": "instant",
+   "step": "qualify_current_delivery"
+  },
+  {
+   "name": "qualify_current_delivery_committed_at",
+   "shape": "instant",
+   "step": "qualify_current_delivery"
+  },
+  {
+   "name": "qualify_current_delivery_head",
+   "shape": "digest",
+   "step": "qualify_current_delivery"
+  },
+  {
+   "name": "qualify_current_delivery_sequence",
+   "shape": "integer",
+   "step": "qualify_current_delivery"
   },
   {
    "name": "deliver_the_team_body_committed_at",
@@ -3983,6 +4077,148 @@
    }
   },
   {
+   "digest": "814d09112098a5123d4d392facf7c3c0fb405a0f50eb24a181f46e5928b39b5a",
+   "name": "current_delivery_probe",
+   "record": {
+    "capability": "current_delivery",
+    "client": {
+     "name": "claude-code",
+     "version": "2.1.278"
+    },
+    "kind": "capability_probe",
+    "schema": 1,
+    "wire": {
+     "protocol": "command_hook",
+     "version": "1"
+    }
+   }
+  },
+  {
+   "digest": "1d62c5e0ab5c5600ea616fe0b6760f2c9c05756fdbe76d408d9e66542b084ea3",
+   "name": "qualify_current_delivery_request",
+   "record": {
+    "action": "local_profile",
+    "actor": {
+     "device_id": "dev_c7f3ab66a4b490b551bb495931e2dd79",
+     "principal_id": "prn_e289085277086e93eca2500ffb4f0d81",
+     "profile_id": "prf_c53849abcd497c58e83eed5bcef3d945"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 1,
+    "operation": "capability.probe",
+    "owner": {
+     "layer": "team",
+     "team_id": "tem_9eac420192e8c113ad826fd5dd41efbb"
+    },
+    "payload_digest": "814d09112098a5123d4d392facf7c3c0fb405a0f50eb24a181f46e5928b39b5a",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_81a4439524d4df754d82b18a3ac1c7f0",
+    "schema": 1,
+    "target": {
+     "resource_id": "prf_c53849abcd497c58e83eed5bcef3d945"
+    }
+   }
+  },
+  {
+   "digest": "4ace8f38598ece5d8431c01957281370b3114aed392d8478cca6bf16f62a73ba",
+   "name": "qualify_current_delivery_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "e524840d0c647c53335f036e6d27f17bc0178f14cd1aa06c7b3fa979a23da5f1",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "team",
+     "team_id": "tem_9eac420192e8c113ad826fd5dd41efbb"
+    },
+    "request_digest": "1d62c5e0ab5c5600ea616fe0b6760f2c9c05756fdbe76d408d9e66542b084ea3",
+    "request_id": "req_81a4439524d4df754d82b18a3ac1c7f0",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "prf_c53849abcd497c58e83eed5bcef3d945"
+    }
+   }
+  },
+  {
+   "digest": "4be713b28444f87fc830975e3704be462566865e697699f0aa652a05cd8eeaed",
+   "name": "current_delivery_probed",
+   "record": {
+    "at": "2000-01-01T00:00:00Z",
+    "capability": "current_delivery",
+    "client": {
+     "name": "claude-code",
+     "version": "2.1.278"
+    },
+    "kind": "capability_probe",
+    "mode": {
+     "runs": "real"
+    },
+    "observed": "The session in use read the context its adapter handed it before the prompt.",
+    "offered": true,
+    "outcome": "worked",
+    "probe_id": "prb_adee33cd2dbd41e4a07c5c0ef298fa26",
+    "schema": 1,
+    "wire": {
+     "protocol": "command_hook",
+     "version": "1"
+    }
+   }
+  },
+  {
+   "digest": "03f4586d7b8cc7aa69781ec88461396f1f48ba944ebc9c5ec5fd3326f73c0d05",
+   "name": "current_delivery_configuration",
+   "record": {
+    "client": {
+     "name": "claude-code",
+     "version": "2.1.278"
+    },
+    "hooks": [
+     {
+      "enabled": true,
+      "event": "UserPromptSubmit",
+      "handler_digest": "89b6de153d8e3936d31baa7ef464b40f10dd47d046b00d9c560684b04d6e4654"
+     }
+    ],
+    "kind": "host_configuration",
+    "measured_at": "2000-01-01T00:00:00Z",
+    "mode": {
+     "runs": "real"
+    },
+    "schema": 1
+   }
+  },
+  {
+   "digest": "3e437d5dfc423748c1f2211c2c8ffed1284959c2f24b42d521e362ea092cd914",
+   "name": "qualify_current_delivery_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "4ace8f38598ece5d8431c01957281370b3114aed392d8478cca6bf16f62a73ba",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "4be713b28444f87fc830975e3704be462566865e697699f0aa652a05cd8eeaed",
+      "kind": "capability_probe"
+     },
+     {
+      "digest": "03f4586d7b8cc7aa69781ec88461396f1f48ba944ebc9c5ec5fd3326f73c0d05",
+      "kind": "host_configuration"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "1d62c5e0ab5c5600ea616fe0b6760f2c9c05756fdbe76d408d9e66542b084ea3",
+    "request_id": "req_81a4439524d4df754d82b18a3ac1c7f0",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
    "digest": "28bf2bd2ecf4a3d25efa7fd9b5186c3f090613a3d5cae6335933ba90dede5c3a",
    "name": "deliver_the_team_body_receipt",
    "record": {
@@ -5406,8 +5642,8 @@
    }
   }
  ],
- "says": "Alice founds a Team alone: the founding returns her membership by founding and the Team's first authority epoch. She invites Bob, verifies in person that the device key he bound is the one the invitation is for, Bob consents naming that verification, and Alice admits him as an active member and grants him read and use in the Team, each against the Team head the previous change moved to. Alice authors the Team's Instructions source and selects its exact revision in the Team's Instructions position. Bob opens a link to his Team conversation naming the grant he receives the Team's material under, and composes a preparation for delivery of the Team position on that link. Before delivering, the owner assesses Bob's delivery request: he may act, on a current Team grant for use. The attempt delivers the exact Team body to the current recipient, and observing the preparation names the Team unit, source, revision and body that arrived for his conversation. None of the following may certify a delivery: the same bodies sent on a personal conversation of his that the preparation does not name are refused as recipient_mismatch; so are the same bodies sent to his conversation in a second Team, Payments, which he founds alone and whose link names that Team's scope and his grant there, because the preparation names his Platform conversation as its recipient; a child session this route cannot reach is recorded as child_route_unsupported, and observing the preparation then names the host session's delivery beside a child session that was not observed (delivery_unobserved), because the parent's receipt proves nothing of the child; and a rehydrated resume the route cannot carry is refused as route_unsupported. Alice then revokes Bob's grant by committing its next revision on the Team head; the owner's assessment of his next delivery request says he may not act (grant_not_held, the grant seen as revoked), and that delivery is refused as grant_not_held and delivers nothing.",
- "spec_sha256": "c84695bc5e9fd306e31a0844042bd913288af7421f5ef60ed06500311ddfff81",
+ "says": "Alice founds a Team alone: the founding returns her membership by founding and the Team's first authority epoch. She invites Bob, verifies in person that the device key he bound is the one the invitation is for, Bob consents naming that verification, and Alice admits him as an active member and grants him read and use in the Team, each against the Team head the previous change moved to. Alice authors the Team's Instructions source and selects its exact revision in the Team's Instructions position. Bob opens a link to his Team conversation naming the grant he receives the Team's material under, and composes a preparation for delivery of the Team position on that link. Before delivering, the owner assesses Bob's delivery request: he may act, on a current Team grant for use. The attempt delivers the exact Team body to the probed current recipient, and observing the preparation names the Team unit, source, revision and body that arrived for his conversation. None of the following may certify a delivery: the same bodies sent on a personal conversation of his that the preparation does not name are refused as recipient_mismatch; so are the same bodies sent to his conversation in a second Team, Payments, which he founds alone and whose link names that Team's scope and his grant there, because the preparation names his Platform conversation as its recipient; a child session no probe qualified a route to is recorded as child_route_unsupported, and observing the preparation then names the host session's delivery beside a child session that was not observed (delivery_unobserved), because the parent's receipt proves nothing of the child; and a rehydrated resume no probe qualified is refused as route_unsupported. Alice then revokes Bob's grant by committing its next revision on the Team head; the owner's assessment of his next delivery request says he may not act (grant_not_held, the grant seen as revoked), and that delivery is refused as grant_not_held and delivers nothing.",
+ "spec_sha256": "5d128c0f93375d8f4443aaca080e5dac62aa1f45b5080369f9ae582652266142",
  "steps": [
   {
    "carries": [
@@ -5572,6 +5808,18 @@
    "result": "assess_the_delivery_result",
    "returns": [
     "bob_may_act"
+   ]
+  },
+  {
+   "carries": [
+    "current_delivery_probe"
+   ],
+   "name": "qualify_current_delivery",
+   "request": "qualify_current_delivery_request",
+   "result": "qualify_current_delivery_result",
+   "returns": [
+    "current_delivery_probed",
+    "current_delivery_configuration"
    ]
   },
   {

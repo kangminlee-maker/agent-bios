@@ -88,6 +88,10 @@
   {
    "id": "req_63ba475f97b5f0182df16ba07849b38f",
    "name": "attempt_after_lock_id"
+  },
+  {
+   "id": "req_394734c04eb0a26adeeb2284e14b6843",
+   "name": "qualify_current_delivery_id"
   }
  ],
  "joins": [
@@ -350,6 +354,66 @@
    "digest_of": "preparation",
    "pointer": "/outputs/0/digest",
    "record": "compose_preparation_result"
+  },
+  {
+   "digest_of": "current_delivery_probe",
+   "pointer": "/payload_digest",
+   "record": "qualify_current_delivery_request"
+  },
+  {
+   "digest_of": "qualify_current_delivery_request",
+   "pointer": "/request_digest",
+   "record": "qualify_current_delivery_receipt"
+  },
+  {
+   "minted": "qualify_current_delivery_head",
+   "pointer": "/head_digest",
+   "record": "qualify_current_delivery_receipt"
+  },
+  {
+   "minted": "qualify_current_delivery_sequence",
+   "pointer": "/sequence",
+   "record": "qualify_current_delivery_receipt"
+  },
+  {
+   "minted": "qualify_current_delivery_committed_at",
+   "pointer": "/committed_at",
+   "record": "qualify_current_delivery_receipt"
+  },
+  {
+   "minted": "current_delivery_probed_at",
+   "pointer": "/at",
+   "record": "current_delivery_probed"
+  },
+  {
+   "minted": "current_delivery_probe",
+   "pointer": "/probe_id",
+   "record": "current_delivery_probed"
+  },
+  {
+   "minted": "current_delivery_measured_at",
+   "pointer": "/measured_at",
+   "record": "current_delivery_configuration"
+  },
+  {
+   "digest_of": "qualify_current_delivery_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "qualify_current_delivery_result"
+  },
+  {
+   "digest_of": "qualify_current_delivery_request",
+   "pointer": "/request_digest",
+   "record": "qualify_current_delivery_result"
+  },
+  {
+   "digest_of": "current_delivery_probed",
+   "pointer": "/outputs/0/digest",
+   "record": "qualify_current_delivery_result"
+  },
+  {
+   "digest_of": "current_delivery_configuration",
+   "pointer": "/outputs/1/digest",
+   "record": "qualify_current_delivery_result"
   },
   {
    "digest_of": "preparation",
@@ -687,6 +751,36 @@
    "name": "preparation_review",
    "shape": "unt",
    "step": "compose_preparation"
+  },
+  {
+   "name": "current_delivery_measured_at",
+   "shape": "instant",
+   "step": "qualify_current_delivery"
+  },
+  {
+   "name": "current_delivery_probe",
+   "shape": "prb",
+   "step": "qualify_current_delivery"
+  },
+  {
+   "name": "current_delivery_probed_at",
+   "shape": "instant",
+   "step": "qualify_current_delivery"
+  },
+  {
+   "name": "qualify_current_delivery_committed_at",
+   "shape": "instant",
+   "step": "qualify_current_delivery"
+  },
+  {
+   "name": "qualify_current_delivery_head",
+   "shape": "digest",
+   "step": "qualify_current_delivery"
+  },
+  {
+   "name": "qualify_current_delivery_sequence",
+   "shape": "integer",
+   "step": "qualify_current_delivery"
   },
   {
    "name": "unknown_link_attempt_at",
@@ -1377,6 +1471,148 @@
    }
   },
   {
+   "digest": "5ddce2782116c46d1b77492394781ab1f7ff061a5b404269bc078c702b3614a7",
+   "name": "current_delivery_probe",
+   "record": {
+    "capability": "current_delivery",
+    "client": {
+     "name": "codex",
+     "version": "0.40.0"
+    },
+    "kind": "capability_probe",
+    "schema": 1,
+    "wire": {
+     "protocol": "command_hook",
+     "version": "1"
+    }
+   }
+  },
+  {
+   "digest": "8b92c80ce56ad0294e866936915761c459da0ec2fcfb725de84bc82c48c63e55",
+   "name": "qualify_current_delivery_request",
+   "record": {
+    "action": "local_profile",
+    "actor": {
+     "device_id": "dev_2afef3ff7f4c286e61221579e6fd37a5",
+     "principal_id": "prn_ba7282e6d0742025a6b9439b6965100d",
+     "profile_id": "prf_4dc6dc1e804ddeb1d2aaacece78217a8"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 1,
+    "operation": "capability.probe",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_ba7282e6d0742025a6b9439b6965100d"
+    },
+    "payload_digest": "5ddce2782116c46d1b77492394781ab1f7ff061a5b404269bc078c702b3614a7",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_394734c04eb0a26adeeb2284e14b6843",
+    "schema": 1,
+    "target": {
+     "resource_id": "prf_4dc6dc1e804ddeb1d2aaacece78217a8"
+    }
+   }
+  },
+  {
+   "digest": "8d15b7f0ed68bd00df2fbb0f72fee0abf5d74707fe04252393242d9dc72821b3",
+   "name": "qualify_current_delivery_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "fa24e99817bfc7135810b3dcecb20b19d40db8f8a3716634ab2c91d1db45a535",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_ba7282e6d0742025a6b9439b6965100d"
+    },
+    "request_digest": "8b92c80ce56ad0294e866936915761c459da0ec2fcfb725de84bc82c48c63e55",
+    "request_id": "req_394734c04eb0a26adeeb2284e14b6843",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "prf_4dc6dc1e804ddeb1d2aaacece78217a8"
+    }
+   }
+  },
+  {
+   "digest": "3d7344c16b18e8874c07d5296c8dafaa6adca8079ac42537769662413c4ad598",
+   "name": "current_delivery_probed",
+   "record": {
+    "at": "2000-01-01T00:00:00Z",
+    "capability": "current_delivery",
+    "client": {
+     "name": "codex",
+     "version": "0.40.0"
+    },
+    "kind": "capability_probe",
+    "mode": {
+     "runs": "real"
+    },
+    "observed": "The session in use read the context its adapter handed it before the prompt.",
+    "offered": true,
+    "outcome": "worked",
+    "probe_id": "prb_701c60f59c6689624e8fbb9094a5a220",
+    "schema": 1,
+    "wire": {
+     "protocol": "command_hook",
+     "version": "1"
+    }
+   }
+  },
+  {
+   "digest": "2148d31709fcb508d49ea341dd0ff6f4065e912e9c6b9d5a220cce7e4aa67e43",
+   "name": "current_delivery_configuration",
+   "record": {
+    "client": {
+     "name": "codex",
+     "version": "0.40.0"
+    },
+    "hooks": [
+     {
+      "enabled": true,
+      "event": "UserPromptSubmit",
+      "handler_digest": "aa40a9970e86dd3ae4a099865c7b6249be8f57ff01434079783d295b5f794aa2"
+     }
+    ],
+    "kind": "host_configuration",
+    "measured_at": "2000-01-01T00:00:00Z",
+    "mode": {
+     "runs": "real"
+    },
+    "schema": 1
+   }
+  },
+  {
+   "digest": "a6ee51a1df08d54bac893925cfb28b012ac33a28d906a4fcdbaf5f33a396f404",
+   "name": "qualify_current_delivery_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "8d15b7f0ed68bd00df2fbb0f72fee0abf5d74707fe04252393242d9dc72821b3",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "3d7344c16b18e8874c07d5296c8dafaa6adca8079ac42537769662413c4ad598",
+      "kind": "capability_probe"
+     },
+     {
+      "digest": "2148d31709fcb508d49ea341dd0ff6f4065e912e9c6b9d5a220cce7e4aa67e43",
+      "kind": "host_configuration"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "8b92c80ce56ad0294e866936915761c459da0ec2fcfb725de84bc82c48c63e55",
+    "request_id": "req_394734c04eb0a26adeeb2284e14b6843",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
    "digest": "39fddfef8fce53dfc2d0c6db74df0fbf226044173fe9250608d2bbe57a071637",
    "name": "invented_submitted",
    "record": {
@@ -1998,8 +2234,8 @@
    }
   }
  ],
- "says": "Alice binds her device key, authors and selects a personal Instructions source, opens a link to her working conversation in a Codex host, and composes a preparation for delivery on it. Four attempts on that preparation must never claim a delivery nor repeat an effect. An attempt naming a link id the runtime never issued is refused as recipient_link_unknown and sees no channel. A resume of that session as a rehydrated recipient, which this host's route cannot carry, is recorded as unsupported, sees no channel, and is refused as route_unsupported. A delivery to the current conversation is recorded, but the host's own acknowledgement of it never arrives: the attempt sees lost, names no received body and no evidence, and its answer is outcome_unknown with recovery by querying the same request id — nothing here claims the body arrived. Resubmitting the identical request replays that same unresolved answer and writes nothing new; querying it afterward by its request id returns that same result again, still lost and still unclaimed. She then locks her profile: the access state moves to a new generation, and a delivery attempted afterwards still states the generation before the lock and is refused as access_locked and access_generation_moved, with unlock as its recovery, and returns no attempt. Observing the preparation at the end finds nothing delivered — not_observed with delivery_unobserved — because none of the four attempts, nor the resubmission, ever claimed a body arrived.",
- "spec_sha256": "3e0d74e2e2f012378e93ae629039db8106ecd016ce514537515b57d5140c71ba",
+ "says": "Alice binds her device key, authors and selects a personal Instructions source, opens a link to her working conversation in a Codex host, and composes a preparation for delivery on it. Four attempts on that preparation must never claim a delivery nor repeat an effect. An attempt naming a link id the runtime never issued is refused as recipient_link_unknown and sees no channel. A resume of that session as a rehydrated recipient, which this host's route cannot carry, is recorded as unsupported, sees no channel, and is refused as route_unsupported. A delivery to the current conversation is recorded, but the host's own acknowledgement of it never arrives: the attempt sees lost, names no received body and no evidence, and its answer is outcome_unknown with recovery by querying the same request id — nothing here claims the body arrived. Resubmitting the identical request replays that same unresolved answer and writes nothing new; querying it afterward by its request id returns that same result again, still lost and still unclaimed. She then locks her profile: the access state moves to a new generation, and a delivery attempted afterwards still states the generation before the lock and is refused as access_locked and access_generation_moved, with unlock as its recovery, and returns no attempt. Observing the preparation at the end finds nothing delivered — not_observed with delivery_unobserved — because none of the four attempts, nor the resubmission, ever claimed a body arrived. Before the first attempt, a probe of the installed host qualified delivery to the current recipient on it; no probe qualified a rehydrated one.",
+ "spec_sha256": "934e0d60659fb3abcf4a61557ec3613974920153d6c92063d63556bee564bf9e",
  "steps": [
   {
    "carries": [
@@ -2060,6 +2296,18 @@
    "result": "compose_preparation_result",
    "returns": [
     "preparation"
+   ]
+  },
+  {
+   "carries": [
+    "current_delivery_probe"
+   ],
+   "name": "qualify_current_delivery",
+   "request": "qualify_current_delivery_request",
+   "result": "qualify_current_delivery_result",
+   "returns": [
+    "current_delivery_probed",
+    "current_delivery_configuration"
    ]
   },
   {

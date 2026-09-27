@@ -11,7 +11,8 @@ records to the code under test and holds each answer to the stated one. For one 
   2. Route it by the serving table: an operation a node in the profile's scope serves is
      submitted to that node's entry; an addressed operation (`operation.query`,
      `operation.cancel`) is submitted to the layers, the journal answering it, when the journal
-     layer is in scope; every other step is given.
+     layer is in scope; every other step is given, and so is a step a feature names in
+     `given_steps` because what it states only a real run outside any driver can make.
   3. A given step is answered by the driver with its stated answer, the values it mints standing
      as the scenario states them, and the records it returns are handed to every `places` entry
      in scope. The layers in scope run on a given step as on any other, and what they return
@@ -296,6 +297,9 @@ class Run:
         self.written: dict[str, dict[str, str]] = {}
         self.rules: tuple[str, ...] = ()
         self.applied: dict[str, int] = {}
+        # The steps a feature has the driver give although code in scope serves their
+        # operation: each states a result only a real run outside any driver makes.
+        self.given_steps: set[str] = set()
         # What features hook: before the first step; on every record built; before each step;
         # on every message to a host; on every reply, which a hook may replace, or end the step
         # with None when no answer reaches the caller; after an answer is held; and a step a
@@ -442,7 +446,8 @@ class Run:
             raise Stop(FAILED, "its request rests on a value no answer has returned yet",
                        step=name)
         self.sent[name] = (request, carried)
-        how, entry = self.routing.route(request.get("operation"))
+        how, entry = (("given", None) if name in self.given_steps
+                      else self.routing.route(request.get("operation")))
         message = {"request": request, "carried": carried,
                    "members": {hashlib.sha256(data).hexdigest(): data
                                for data in self.members.values()},
@@ -707,6 +712,7 @@ def run_case(built: dict, routing: Routing, rules: tuple[str, ...] = (),
     with tempfile.TemporaryDirectory(prefix="workenv-case-") as workdir:
         run = Run(built, routing, pathlib.Path(workdir), spawn)
         run.rules = tuple(rules)
+        run.root = root
         try:
             for name in sorted(used):
                 features[name].install(run)

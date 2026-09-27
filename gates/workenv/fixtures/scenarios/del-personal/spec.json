@@ -1,6 +1,6 @@
 {
  "case": "DEL-PERSONAL",
- "says": "Alice binds her device key, authors a personal Instructions source whose revision the owner returns with the body digest it computed, and selects that exact revision in her personal Instructions position. She opens a recipient link to the conversation her work is in, and composes a preparation for delivery on that link (it declares recipient.delivery.attempt, names the position head her selection stored, and is stored privately without a receipt): one winning unit whose body is the revision's member. She also composes a second preparation on the same link and selection, whose own winning unit names a body digest this installation never wrote or retained, and the preparation itself is never delivered. Delivering the first preparation's body to the current recipient on that link returns an attempt that received exactly that body, and observing the first preparation returns an inventory naming the unit, source, revision and body that arrived for that recipient. Three negatives follow, none of which may claim a delivery: the same bodies sent on a second link she opened for another conversation are refused as recipient_mismatch, because the preparation names its recipient; an attempt naming a link id the runtime never issued is refused as recipient_link_unknown and sees no channel; and a rehydrated recipient offered only the second preparation's body hash — bytes this runtime never delivered or otherwise retained — is refused as rehydration_needs_bodies. After them observing the first preparation returns the same observation and writes nothing: no refused attempt added a body, a recipient or a second delivery.",
+ "says": "Alice binds her device key, authors a personal Instructions source whose revision the owner returns with the body digest it computed, and selects that exact revision in her personal Instructions position. She opens a recipient link to the conversation her work is in, and composes a preparation for delivery on that link (it declares recipient.delivery.attempt, names the position head her selection stored, and is stored privately without a receipt): one winning unit whose body is the revision's member. She also composes a second preparation on the same link and selection, whose own winning unit names a body digest this installation never wrote or retained, and the preparation itself is never delivered. Delivering the first preparation's body to the current recipient on that link returns an attempt that received exactly that body, and observing the first preparation returns an inventory naming the unit, source, revision and body that arrived for that recipient. Three negatives follow, none of which may claim a delivery: the same bodies sent on a second link she opened for another conversation are refused as recipient_mismatch, because the preparation names its recipient; an attempt naming a link id the runtime never issued is refused as recipient_link_unknown and sees no channel; and a rehydrated recipient offered only the second preparation's body hash — bytes this runtime never delivered or otherwise retained — is refused as rehydration_needs_bodies. After them observing the first preparation returns the same observation and writes nothing: no refused attempt added a body, a recipient or a second delivery. Before the first delivery, a probe of the installed host qualified delivery to the current recipient on it.",
  "ids": [
   {
    "name": "alice",
@@ -80,6 +80,10 @@
   },
   {
    "name": "compose_second_preparation_id",
+   "prefix": "req"
+  },
+  {
+   "name": "qualify_current_delivery_id",
    "prefix": "req"
   }
  ],
@@ -1721,6 +1725,110 @@
      "value": 1
     }
    ]
+  },
+  {
+   "name": "current_delivery_probe",
+   "from": "c12/a_delivery_probe_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/capability",
+     "value": "current_delivery"
+    },
+    {
+     "pointer": "/client/name",
+     "value": "claude-code"
+    },
+    {
+     "pointer": "/client/version",
+     "value": "2.1.278"
+    }
+   ]
+  },
+  {
+   "name": "current_delivery_probed",
+   "from": "c12/a_child_delivery_probe_that_worked.json",
+   "set": [
+    {
+     "pointer": "/at",
+     "value": "$instant:current_delivery_probed_at"
+    },
+    {
+     "pointer": "/capability",
+     "value": "current_delivery"
+    },
+    {
+     "pointer": "/client/name",
+     "value": "claude-code"
+    },
+    {
+     "pointer": "/client/version",
+     "value": "2.1.278"
+    },
+    {
+     "pointer": "/observed",
+     "value": "The session in use read the context its adapter handed it before the prompt."
+    },
+    {
+     "pointer": "/probe_id",
+     "value": "$prb:current_delivery_probe"
+    }
+   ]
+  },
+  {
+   "name": "current_delivery_configuration",
+   "from": "c12/a_host_measured_with_its_delivery_hook.json",
+   "set": [
+    {
+     "pointer": "/measured_at",
+     "value": "$instant:current_delivery_measured_at"
+    },
+    {
+     "pointer": "/client/name",
+     "value": "claude-code"
+    },
+    {
+     "pointer": "/client/version",
+     "value": "2.1.278"
+    },
+    {
+     "pointer": "/hooks/0/event",
+     "value": "UserPromptSubmit"
+    },
+    {
+     "pointer": "/hooks/0/handler_digest",
+     "value": "89b6de153d8e3936d31baa7ef464b40f10dd47d046b00d9c560684b04d6e4654"
+    }
+   ]
+  },
+  {
+   "name": "qualify_current_delivery_request",
+   "from": "open_work_link",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@qualify_current_delivery_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "capability.probe"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#current_delivery_probe"
+    }
+   ]
   }
  ],
  "members": [
@@ -1835,6 +1943,24 @@
     "recovery": [],
     "returns": [
      "second_preparation"
+    ]
+   }
+  },
+  {
+   "name": "qualify_current_delivery",
+   "request": "qualify_current_delivery_request",
+   "carries": [
+    "current_delivery_probe"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "current_delivery_probed",
+     "current_delivery_configuration"
     ]
    }
   },

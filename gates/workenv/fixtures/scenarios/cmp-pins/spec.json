@@ -1,6 +1,6 @@
 {
  "case": "CMP-PINS",
- "says": "Alice binds her device key, authors a personal Instructions source (revision one, whose body digest the owner computes) and selects revision one in her personal Instructions position. She opens a link to her working conversation, composes a first preparation for delivery on it (basis scoped to her personal layer alone), delivers its body to the current recipient and observes the delivery: the inventory names revision one's unit and body. Later she authors revision two of the same source against the head revision one left, re-pins her position to revision two against the position's head (the digest of the collection her first change stored), and composes a second preparation for the same recipient whose basis now also scopes a repository layer alongside her personal one (a scope change from the first preparation): it names the position's new head and revision two's body. She then switches that entry off, and composes a third preparation over the same two scopes but with an explicit order preferring her personal layer over the repository one — the reverse of the repository-before-personal default the second preparation's unstated order applied (an order change from the second preparation): it names the position's newest head and holds the same source, member and revision two as disabled, with no body. Each preparation mints its own unit id; a unit is followed across preparations by its source, member and revision. Observing the first preparation after all three changes — the revision, the scope and the order — returns the same delivery observation as before, naming revision one, and writes nothing: the changes reached only the preparations composed after them. What must not happen: a recomposition rewriting the first preparation, the recipient's delivered inventory or the revision, scope or order it was composed under, or a change to the position writing the source itself — revision two moves the source's own head only through its own admission.",
+ "says": "Alice binds her device key, authors a personal Instructions source (revision one, whose body digest the owner computes) and selects revision one in her personal Instructions position. She opens a link to her working conversation, composes a first preparation for delivery on it (basis scoped to her personal layer alone), delivers its body to the current recipient, on a route a probe qualified, and observes it: the inventory names revision one's unit and body. Later she authors revision two of the same source against the head revision one left, re-pins her position to revision two against the position's head (the digest of the collection her first change stored), and composes a second preparation for the same recipient whose basis now also scopes a repository layer alongside her personal one (a scope change from the first preparation): it names the position's new head and revision two's body. She then switches that entry off, and composes a third preparation over the same two scopes but with an explicit order preferring her personal layer over the repository one — the reverse of the repository-before-personal default the second preparation's unstated order applied (an order change from the second preparation): it names the position's newest head and holds the same source, member and revision two as disabled, with no body. Each preparation mints its own unit id; a unit is followed across preparations by its source, member and revision. Observing the first preparation after all three changes — the revision, the scope and the order — returns the same delivery observation as before, naming revision one, and writes nothing: the changes reached only the preparations composed after them. What must not happen: a recomposition rewriting the first preparation, the recipient's delivered inventory or the revision, scope or order it was composed under, or a change to the position writing the source itself — revision two moves the source's own head only through its own admission.",
  "ids": [
   {
    "name": "alice",
@@ -81,6 +81,10 @@
   {
    "name": "shared_repo",
    "prefix": "rep"
+  },
+  {
+   "name": "qualify_current_delivery_id",
+   "prefix": "req"
   }
  ],
  "records": [
@@ -1888,6 +1892,110 @@
      "value": 1
     }
    ]
+  },
+  {
+   "name": "current_delivery_probe",
+   "from": "c12/a_delivery_probe_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/capability",
+     "value": "current_delivery"
+    },
+    {
+     "pointer": "/client/name",
+     "value": "claude-code"
+    },
+    {
+     "pointer": "/client/version",
+     "value": "2.1.278"
+    }
+   ]
+  },
+  {
+   "name": "current_delivery_probed",
+   "from": "c12/a_child_delivery_probe_that_worked.json",
+   "set": [
+    {
+     "pointer": "/at",
+     "value": "$instant:current_delivery_probed_at"
+    },
+    {
+     "pointer": "/capability",
+     "value": "current_delivery"
+    },
+    {
+     "pointer": "/client/name",
+     "value": "claude-code"
+    },
+    {
+     "pointer": "/client/version",
+     "value": "2.1.278"
+    },
+    {
+     "pointer": "/observed",
+     "value": "The session in use read the context its adapter handed it before the prompt."
+    },
+    {
+     "pointer": "/probe_id",
+     "value": "$prb:current_delivery_probe"
+    }
+   ]
+  },
+  {
+   "name": "current_delivery_configuration",
+   "from": "c12/a_host_measured_with_its_delivery_hook.json",
+   "set": [
+    {
+     "pointer": "/measured_at",
+     "value": "$instant:current_delivery_measured_at"
+    },
+    {
+     "pointer": "/client/name",
+     "value": "claude-code"
+    },
+    {
+     "pointer": "/client/version",
+     "value": "2.1.278"
+    },
+    {
+     "pointer": "/hooks/0/event",
+     "value": "UserPromptSubmit"
+    },
+    {
+     "pointer": "/hooks/0/handler_digest",
+     "value": "89b6de153d8e3936d31baa7ef464b40f10dd47d046b00d9c560684b04d6e4654"
+    }
+   ]
+  },
+  {
+   "name": "qualify_current_delivery_request",
+   "from": "open_work_link",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@qualify_current_delivery_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "capability.probe"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#current_delivery_probe"
+    }
+   ]
   }
  ],
  "members": [
@@ -1989,6 +2097,24 @@
     "recovery": [],
     "returns": [
      "first_preparation"
+    ]
+   }
+  },
+  {
+   "name": "qualify_current_delivery",
+   "request": "qualify_current_delivery_request",
+   "carries": [
+    "current_delivery_probe"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "current_delivery_probed",
+     "current_delivery_configuration"
     ]
    }
   },

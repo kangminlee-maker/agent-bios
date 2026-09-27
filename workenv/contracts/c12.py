@@ -4,15 +4,18 @@ Record kinds: `capability_profile`, `capability_probe`, `route_outcome`,
 `route_offer`, `route_selection`, `surface_script`, `surface_trace`, `validation_request`,
 `validation_run`, `host_configuration`.
 
-Read, question, user event, resume, a provider callback and a validator are qualified one
-at a time, against the installed client
+Read, question, user event, resume, a provider callback, a validator, and delivery to each kind
+of recipient (a new, current, child or rehydrated session) are qualified one at a time, against
+the installed client
 and the wire version it actually negotiated. A capability is qualified only by naming the probe
 that qualified it, so a published specification, a registered tool name or a product's reputation
-cannot stand in for one. A probe keeps what the client declared apart from what it did, because
-a client that offers a capability and then refuses it is the case worth seeing. A probe
-against a fixture names it, so a mocked provider or key qualifies nothing; that a profile
-rests only on probes that ran for real relates the profile to its probes, which a schema
-cannot state, so the runtime owner keeps it.
+cannot stand in for one. A delivery capability is qualified on one host when a real run handed
+context through that host's adapter to a recipient of its kind and the recipient read it; a route
+no such probe qualified on a link's host is not delivered on (C11), whatever the host documents.
+A probe keeps what the client declared apart from what it did, because a client that offers a
+capability and then refuses it is the case worth seeing. A probe against a fixture names it, so
+a mocked provider or key qualifies nothing; that a profile rests only on probes that ran for real
+relates the profile to its probes, which a schema cannot state, so the runtime owner keeps it.
 
 A host is qualified under the configuration it runs, so what of that configuration can act for a
 person is measured and kept: `host_configuration` lists every hook the host would run, on which

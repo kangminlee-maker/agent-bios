@@ -25,7 +25,8 @@ A question or resume attempt names the use the reader owner minted; a body attem
 the caller's own name for that one delivery, as a request id is.
 An attempt names exactly what it delivers — a question version, one preparation's bodies to a
 new, current, child or rehydrated recipient, or a resume — and a receipt names exactly the
-bodies that arrived.
+bodies that arrived. It is `supported` only where the latest probe of that recipient's delivery
+capability on the link's host (C12) ran for real and worked.
 
 What a host delivered is a `host_reply`, which names no origin: the runtime decides that. A
 verified answer carries what the person chose. That the choice is one of the alternatives its

@@ -80,6 +80,10 @@
   {
    "id": "rep_1e5bc99295322129fe7797d5c98b5850",
    "name": "shared_repo"
+  },
+  {
+   "id": "req_6cbc3c5b930e3c4d998ed261c64dcd9d",
+   "name": "qualify_current_delivery_id"
   }
  ],
  "joins": [
@@ -357,6 +361,66 @@
    "digest_of": "first_preparation",
    "pointer": "/outputs/0/digest",
    "record": "compose_first_preparation_result"
+  },
+  {
+   "digest_of": "current_delivery_probe",
+   "pointer": "/payload_digest",
+   "record": "qualify_current_delivery_request"
+  },
+  {
+   "digest_of": "qualify_current_delivery_request",
+   "pointer": "/request_digest",
+   "record": "qualify_current_delivery_receipt"
+  },
+  {
+   "minted": "qualify_current_delivery_head",
+   "pointer": "/head_digest",
+   "record": "qualify_current_delivery_receipt"
+  },
+  {
+   "minted": "qualify_current_delivery_sequence",
+   "pointer": "/sequence",
+   "record": "qualify_current_delivery_receipt"
+  },
+  {
+   "minted": "qualify_current_delivery_committed_at",
+   "pointer": "/committed_at",
+   "record": "qualify_current_delivery_receipt"
+  },
+  {
+   "minted": "current_delivery_probed_at",
+   "pointer": "/at",
+   "record": "current_delivery_probed"
+  },
+  {
+   "minted": "current_delivery_probe",
+   "pointer": "/probe_id",
+   "record": "current_delivery_probed"
+  },
+  {
+   "minted": "current_delivery_measured_at",
+   "pointer": "/measured_at",
+   "record": "current_delivery_configuration"
+  },
+  {
+   "digest_of": "qualify_current_delivery_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "qualify_current_delivery_result"
+  },
+  {
+   "digest_of": "qualify_current_delivery_request",
+   "pointer": "/request_digest",
+   "record": "qualify_current_delivery_result"
+  },
+  {
+   "digest_of": "current_delivery_probed",
+   "pointer": "/outputs/0/digest",
+   "record": "qualify_current_delivery_result"
+  },
+  {
+   "digest_of": "current_delivery_configuration",
+   "pointer": "/outputs/1/digest",
+   "record": "qualify_current_delivery_result"
   },
   {
    "minted": "work_link",
@@ -953,6 +1017,36 @@
    "name": "first_preparation_review",
    "shape": "unt",
    "step": "compose_first_preparation"
+  },
+  {
+   "name": "current_delivery_measured_at",
+   "shape": "instant",
+   "step": "qualify_current_delivery"
+  },
+  {
+   "name": "current_delivery_probe",
+   "shape": "prb",
+   "step": "qualify_current_delivery"
+  },
+  {
+   "name": "current_delivery_probed_at",
+   "shape": "instant",
+   "step": "qualify_current_delivery"
+  },
+  {
+   "name": "qualify_current_delivery_committed_at",
+   "shape": "instant",
+   "step": "qualify_current_delivery"
+  },
+  {
+   "name": "qualify_current_delivery_head",
+   "shape": "digest",
+   "step": "qualify_current_delivery"
+  },
+  {
+   "name": "qualify_current_delivery_sequence",
+   "shape": "integer",
+   "step": "qualify_current_delivery"
   },
   {
    "name": "deliver_the_first_body_committed_at",
@@ -1718,6 +1812,148 @@
     "provider_effect": "not_applicable",
     "request_digest": "65da07a35402ba39df67c5da871f5aa14a047290640bfa6449ef4f4104164277",
     "request_id": "req_dd9d4dd748fb1e5a60dd7f404f9233c8",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "814d09112098a5123d4d392facf7c3c0fb405a0f50eb24a181f46e5928b39b5a",
+   "name": "current_delivery_probe",
+   "record": {
+    "capability": "current_delivery",
+    "client": {
+     "name": "claude-code",
+     "version": "2.1.278"
+    },
+    "kind": "capability_probe",
+    "schema": 1,
+    "wire": {
+     "protocol": "command_hook",
+     "version": "1"
+    }
+   }
+  },
+  {
+   "digest": "96849d3d25ccdf0de78ada33205eee6b9b465459d9322b20e7d4b3515acd1aeb",
+   "name": "qualify_current_delivery_request",
+   "record": {
+    "action": "local_profile",
+    "actor": {
+     "device_id": "dev_058ce082b4e9518d8b2e27619a6e3e07",
+     "principal_id": "prn_690d9aaabe67416cd7dc45a547327119",
+     "profile_id": "prf_8bef187e205d3019ddaf16d608019fb3"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 1,
+    "operation": "capability.probe",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_690d9aaabe67416cd7dc45a547327119"
+    },
+    "payload_digest": "814d09112098a5123d4d392facf7c3c0fb405a0f50eb24a181f46e5928b39b5a",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_6cbc3c5b930e3c4d998ed261c64dcd9d",
+    "schema": 1,
+    "target": {
+     "resource_id": "prf_8bef187e205d3019ddaf16d608019fb3"
+    }
+   }
+  },
+  {
+   "digest": "690f180bfa8feffbcb70b6035bd53bf383946fa7780ce524ca5265b2b546f7fc",
+   "name": "qualify_current_delivery_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "c9570c0f0e35065ed9d016daf765afe434cd4d220b25274b0371967bc653a297",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_690d9aaabe67416cd7dc45a547327119"
+    },
+    "request_digest": "96849d3d25ccdf0de78ada33205eee6b9b465459d9322b20e7d4b3515acd1aeb",
+    "request_id": "req_6cbc3c5b930e3c4d998ed261c64dcd9d",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "prf_8bef187e205d3019ddaf16d608019fb3"
+    }
+   }
+  },
+  {
+   "digest": "e00c8cdb751096f41817254235eee2339195a91fab0cb7e572b69b97d4a59a2c",
+   "name": "current_delivery_probed",
+   "record": {
+    "at": "2000-01-01T00:00:00Z",
+    "capability": "current_delivery",
+    "client": {
+     "name": "claude-code",
+     "version": "2.1.278"
+    },
+    "kind": "capability_probe",
+    "mode": {
+     "runs": "real"
+    },
+    "observed": "The session in use read the context its adapter handed it before the prompt.",
+    "offered": true,
+    "outcome": "worked",
+    "probe_id": "prb_92b2c19e04f1dddf5e65f869498dbcd4",
+    "schema": 1,
+    "wire": {
+     "protocol": "command_hook",
+     "version": "1"
+    }
+   }
+  },
+  {
+   "digest": "03f4586d7b8cc7aa69781ec88461396f1f48ba944ebc9c5ec5fd3326f73c0d05",
+   "name": "current_delivery_configuration",
+   "record": {
+    "client": {
+     "name": "claude-code",
+     "version": "2.1.278"
+    },
+    "hooks": [
+     {
+      "enabled": true,
+      "event": "UserPromptSubmit",
+      "handler_digest": "89b6de153d8e3936d31baa7ef464b40f10dd47d046b00d9c560684b04d6e4654"
+     }
+    ],
+    "kind": "host_configuration",
+    "measured_at": "2000-01-01T00:00:00Z",
+    "mode": {
+     "runs": "real"
+    },
+    "schema": 1
+   }
+  },
+  {
+   "digest": "23e94b7c670fb9dd77b5443a6c313af2c72179e5dcc21d53502603296a6b664d",
+   "name": "qualify_current_delivery_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "690f180bfa8feffbcb70b6035bd53bf383946fa7780ce524ca5265b2b546f7fc",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "e00c8cdb751096f41817254235eee2339195a91fab0cb7e572b69b97d4a59a2c",
+      "kind": "capability_probe"
+     },
+     {
+      "digest": "03f4586d7b8cc7aa69781ec88461396f1f48ba944ebc9c5ec5fd3326f73c0d05",
+      "kind": "host_configuration"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "96849d3d25ccdf0de78ada33205eee6b9b465459d9322b20e7d4b3515acd1aeb",
+    "request_id": "req_6cbc3c5b930e3c4d998ed261c64dcd9d",
     "schema": 1,
     "supported_recovery": []
    }
@@ -2705,8 +2941,8 @@
    }
   }
  ],
- "says": "Alice binds her device key, authors a personal Instructions source (revision one, whose body digest the owner computes) and selects revision one in her personal Instructions position. She opens a link to her working conversation, composes a first preparation for delivery on it (basis scoped to her personal layer alone), delivers its body to the current recipient and observes the delivery: the inventory names revision one's unit and body. Later she authors revision two of the same source against the head revision one left, re-pins her position to revision two against the position's head (the digest of the collection her first change stored), and composes a second preparation for the same recipient whose basis now also scopes a repository layer alongside her personal one (a scope change from the first preparation): it names the position's new head and revision two's body. She then switches that entry off, and composes a third preparation over the same two scopes but with an explicit order preferring her personal layer over the repository one — the reverse of the repository-before-personal default the second preparation's unstated order applied (an order change from the second preparation): it names the position's newest head and holds the same source, member and revision two as disabled, with no body. Each preparation mints its own unit id; a unit is followed across preparations by its source, member and revision. Observing the first preparation after all three changes — the revision, the scope and the order — returns the same delivery observation as before, naming revision one, and writes nothing: the changes reached only the preparations composed after them. What must not happen: a recomposition rewriting the first preparation, the recipient's delivered inventory or the revision, scope or order it was composed under, or a change to the position writing the source itself — revision two moves the source's own head only through its own admission.",
- "spec_sha256": "5e14562acab0f2e3bb430cc2ce17f8f684c3bfd1244e0beb3d22ef341cb761c4",
+ "says": "Alice binds her device key, authors a personal Instructions source (revision one, whose body digest the owner computes) and selects revision one in her personal Instructions position. She opens a link to her working conversation, composes a first preparation for delivery on it (basis scoped to her personal layer alone), delivers its body to the current recipient, on a route a probe qualified, and observes it: the inventory names revision one's unit and body. Later she authors revision two of the same source against the head revision one left, re-pins her position to revision two against the position's head (the digest of the collection her first change stored), and composes a second preparation for the same recipient whose basis now also scopes a repository layer alongside her personal one (a scope change from the first preparation): it names the position's new head and revision two's body. She then switches that entry off, and composes a third preparation over the same two scopes but with an explicit order preferring her personal layer over the repository one — the reverse of the repository-before-personal default the second preparation's unstated order applied (an order change from the second preparation): it names the position's newest head and holds the same source, member and revision two as disabled, with no body. Each preparation mints its own unit id; a unit is followed across preparations by its source, member and revision. Observing the first preparation after all three changes — the revision, the scope and the order — returns the same delivery observation as before, naming revision one, and writes nothing: the changes reached only the preparations composed after them. What must not happen: a recomposition rewriting the first preparation, the recipient's delivered inventory or the revision, scope or order it was composed under, or a change to the position writing the source itself — revision two moves the source's own head only through its own admission.",
+ "spec_sha256": "829602b52c8f7d7d7b48c91ad7fd9c13f90a8e115317d5b1e60b15f6624d597c",
  "steps": [
   {
    "carries": [
@@ -2767,6 +3003,18 @@
    "result": "compose_first_preparation_result",
    "returns": [
     "first_preparation"
+   ]
+  },
+  {
+   "carries": [
+    "current_delivery_probe"
+   ],
+   "name": "qualify_current_delivery",
+   "request": "qualify_current_delivery_request",
+   "result": "qualify_current_delivery_result",
+   "returns": [
+    "current_delivery_probed",
+    "current_delivery_configuration"
    ]
   },
   {

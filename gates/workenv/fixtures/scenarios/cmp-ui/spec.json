@@ -1,6 +1,6 @@
 {
  "case": "CMP-UI",
- "says": "One person has a bound repository and a Team 'Platform'. Repository and Team instructions sources are committed, and each scope's decision source receives a published choice for the same question (memory.record.publish): WAL in the repository, a rollback journal in the Team. memory.state.resolve leaves both entries unresolved with choice_conflict_unresolved; role.project over repository, personal and Team applies the repository unit and names the Team unit as shadowed by it under one concern key; reader.body.read of the Team original returns that unit's own body. The studio hub (surface.drive) lists all nine scope and role positions as separate elements, each with its own selection and state, both decision positions pending. Tab and Enter open the effective view (target the repository instructions position, effective), which names the applied unit, the shadowed Team unit with its Team original unchanged, and the decision conflict as waiting for the person; Down and Enter open the Team original with its body; Esc twice returns to the hub with every position as it was. Negative: no frame merges the three scopes into one list or shows the effective result as the Team original; the conflict is never resolved to the repository's choice; and navigating dispatches nothing and changes no other scope's selection or any recipient. A recipient link opened earlier, with a delivery already observed for it, names the same recipient_link_id in every frame while navigation proceeds. Further scripts open each of the other eight original positions in turn and return, each frame showing that position's own target and state. The person then resolves the journal-mode conflict through a probed real user event, memory.use.prepare, recipient.answer.record and reader.use.resume naming the Team's rollback journal, and memory.preference.record against the whole participant set; a further script's effective view then names the resolved application, not an automatic repository winner.",
+ "says": "One person has a bound repository and a Team 'Platform'. Repository and Team instructions sources are committed, and each scope's decision source receives a published choice for the same question (memory.record.publish): WAL in the repository, a rollback journal in the Team. memory.state.resolve leaves both entries unresolved with choice_conflict_unresolved; role.project over repository, personal and Team applies the repository unit and names the Team unit as shadowed by it under one concern key; reader.body.read of the Team original returns that unit's own body. The studio hub (surface.drive) lists all nine scope and role positions as separate elements, each with its own selection and state, both decision positions pending. Tab and Enter open the effective view (target the repository instructions position, effective), which names the applied unit, the shadowed Team unit with its Team original unchanged, and the decision conflict as waiting for the person; Down and Enter open the Team original with its body; Esc twice returns to the hub with every position as it was. Negative: no frame merges the three scopes into one list or shows the effective result as the Team original; the conflict is never resolved to the repository's choice; and navigating dispatches nothing and changes no other scope's selection or any recipient. A recipient link opened earlier, with a probe-qualified delivery observed on it, names the same recipient_link_id in every frame while navigation proceeds. Further scripts open each of the other eight original positions in turn and return, each frame showing that position's own target and state. The person then resolves the journal-mode conflict through a probed real user event, memory.use.prepare, recipient.answer.record and reader.use.resume naming the Team's rollback journal, and memory.preference.record against the whole participant set; a further script's effective view then names the resolved application, not an automatic repository winner.",
  "ids": [
   {
    "name": "me",
@@ -192,6 +192,10 @@
   },
   {
    "name": "earlier_attempt_id",
+   "prefix": "req"
+  },
+  {
+   "name": "qualify_current_delivery_id",
    "prefix": "req"
   }
  ],
@@ -17910,6 +17914,110 @@
      "value": "#resolved_script"
     }
    ]
+  },
+  {
+   "name": "current_delivery_probe",
+   "from": "c12/a_delivery_probe_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/capability",
+     "value": "current_delivery"
+    },
+    {
+     "pointer": "/client/name",
+     "value": "claude-code"
+    },
+    {
+     "pointer": "/client/version",
+     "value": "2.1.278"
+    }
+   ]
+  },
+  {
+   "name": "current_delivery_probed",
+   "from": "c12/a_child_delivery_probe_that_worked.json",
+   "set": [
+    {
+     "pointer": "/at",
+     "value": "$instant:current_delivery_probed_at"
+    },
+    {
+     "pointer": "/capability",
+     "value": "current_delivery"
+    },
+    {
+     "pointer": "/client/name",
+     "value": "claude-code"
+    },
+    {
+     "pointer": "/client/version",
+     "value": "2.1.278"
+    },
+    {
+     "pointer": "/observed",
+     "value": "The session in use read the context its adapter handed it before the prompt."
+    },
+    {
+     "pointer": "/probe_id",
+     "value": "$prb:current_delivery_probe"
+    }
+   ]
+  },
+  {
+   "name": "current_delivery_configuration",
+   "from": "c12/a_host_measured_with_its_delivery_hook.json",
+   "set": [
+    {
+     "pointer": "/measured_at",
+     "value": "$instant:current_delivery_measured_at"
+    },
+    {
+     "pointer": "/client/name",
+     "value": "claude-code"
+    },
+    {
+     "pointer": "/client/version",
+     "value": "2.1.278"
+    },
+    {
+     "pointer": "/hooks/0/event",
+     "value": "UserPromptSubmit"
+    },
+    {
+     "pointer": "/hooks/0/handler_digest",
+     "value": "89b6de153d8e3936d31baa7ef464b40f10dd47d046b00d9c560684b04d6e4654"
+    }
+   ]
+  },
+  {
+   "name": "qualify_current_delivery_request",
+   "from": "open_link_request",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@qualify_current_delivery_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "capability.probe"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#current_delivery_probe"
+    }
+   ]
   }
  ],
  "steps": [
@@ -18346,6 +18454,24 @@
     "recovery": [],
     "returns": [
      "earlier_preparation"
+    ]
+   }
+  },
+  {
+   "name": "qualify_current_delivery",
+   "request": "qualify_current_delivery_request",
+   "carries": [
+    "current_delivery_probe"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "current_delivery_probed",
+     "current_delivery_configuration"
     ]
    }
   },

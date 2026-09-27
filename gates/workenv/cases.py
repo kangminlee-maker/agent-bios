@@ -147,6 +147,12 @@ CHECKOUT = "checkout"
 # The feature that makes the bytes of a revision its author commits, stated only by digest.
 REVISION_BYTES = "revision_bytes"
 AUTHORING = ("source.revision.commit", "source.revision.admit")
+# The feature that states a routing's guide pointer as the guide the code under test ships.
+SHIPPED_GUIDE = "shipped_guide"
+# The feature that gives the probes of a delivery route a scenario states (C12).
+QUALIFIED_ROUTES = "qualified_routes"
+DELIVERY_CAPABILITIES = ("new_delivery", "current_delivery", "child_delivery",
+                         "rehydrated_delivery")
 # A step the driver exercises itself rather than an owner, which is never given.
 DRIVER = "driver"
 # The id prefix an addressed operation targets: a request.
@@ -212,7 +218,28 @@ def features_of(built: dict) -> set[str]:
         found.add(CHECKOUT)
     if stated_revision_members(built):
         found.add(REVISION_BYTES)
+    if guide_pointers(built):
+        found.add(SHIPPED_GUIDE)
+    if delivery_probes(built):
+        found.add(QUALIFIED_ROUTES)
     return found
+
+
+def delivery_probes(built: dict) -> list[str]:
+    """The steps that probe a delivery capability: a `capability.probe` request carrying a
+    probe of one."""
+    held = {row["name"]: row["record"] for row in built["records"]}
+    return [step["name"] for step in built["steps"]
+            if held.get(step.get("request"), {}).get("operation") == "capability.probe"
+            and any(held[name].get("capability") in DELIVERY_CAPABILITIES
+                    for name in step.get("carries", []))]
+
+
+def guide_pointers(built: dict) -> list[str]:
+    """The records whose memory usage contract points at a guide."""
+    return [row["name"] for row in built["records"]
+            if row["record"].get("kind") == "session_routing"
+            and "memory_usage" in row["record"].get("delivery", {})]
 
 
 def admitted_into_a_repository(built: dict) -> dict[str, set[str]]:

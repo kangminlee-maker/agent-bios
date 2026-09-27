@@ -90,7 +90,8 @@ class Layouts(unittest.TestCase):
         store = self.bench.store()
         self.assertEqual(store.read("PRAGMA user_version")[0][0], storage.LAYOUT)
         self.assertLessEqual({"sources", "revisions", "repositories", "collections",
-                              "collections_by_position", "preparations"}, self.tables())
+                              "collections_by_position", "preparations", "links", "deliveries"},
+                             self.tables())
         self.assertIn("home_mode", [row[1] for row in store.read("PRAGMA table_info(sources)")])
         self.assertEqual(store.read("SELECT digest FROM objects"), [("d",)])
 

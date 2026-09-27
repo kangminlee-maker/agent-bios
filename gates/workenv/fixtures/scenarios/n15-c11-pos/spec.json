@@ -1,6 +1,6 @@
 {
  "case": "N15-C11-POS",
- "says": "Alice binds her device key, authors a personal Instructions source whose revision the owner returns with the body digest it computed, and selects it in her personal Instructions position. She opens a link to the conversation her work is in and composes a preparation for delivery on it. The client supports each recipient in turn and each attempt names that preparation and its one body: the current conversation receives it; a child session started from that conversation receives it under its own use; and the same conversation rehydrated after its context was compacted receives the body again, supplied whole. She then opens a second, fresh conversation and composes a preparation for delivery on that link, and the new recipient receives its body. Every attempt answers with a receipt naming exactly the body that arrived, and observing each preparation returns an inventory naming the unit, source, revision and body delivered: one for the host session and one for the child session of the first preparation, one for the new conversation of the second. No attempt may claim more than it asked to deliver, and no observation may name a body its preparation did not compose.",
+ "says": "Alice binds her device key, authors a personal Instructions source whose revision the owner returns with the body digest it computed, and selects it in her personal Instructions position. She opens a link to the conversation her work is in and composes a preparation for delivery on it. A probe of the installed host qualified each recipient's delivery in turn and each attempt names that preparation and its one body: the current conversation receives it; a child session started from that conversation receives it under its own use; and the same conversation rehydrated after its context was compacted receives the body again, supplied whole. She then opens a second, fresh conversation and composes a preparation for delivery on that link, and the new recipient receives its body. Every attempt answers with a receipt naming exactly the body that arrived, and observing each preparation returns an inventory naming the unit, source, revision and body delivered: one for the host session and one for the child session of the first preparation, one for the new conversation of the second. No attempt may claim more than it asked to deliver, and no observation may name a body its preparation did not compose.",
  "ids": [
   {
    "name": "alice",
@@ -88,6 +88,22 @@
   },
   {
    "name": "observe_fresh_id",
+   "prefix": "req"
+  },
+  {
+   "name": "qualify_current_delivery_id",
+   "prefix": "req"
+  },
+  {
+   "name": "qualify_child_delivery_id",
+   "prefix": "req"
+  },
+  {
+   "name": "qualify_rehydrated_delivery_id",
+   "prefix": "req"
+  },
+  {
+   "name": "qualify_new_delivery_id",
    "prefix": "req"
   }
  ],
@@ -1866,6 +1882,422 @@
      "value": 1
     }
    ]
+  },
+  {
+   "name": "current_delivery_probe",
+   "from": "c12/a_delivery_probe_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/capability",
+     "value": "current_delivery"
+    },
+    {
+     "pointer": "/client/name",
+     "value": "claude-code"
+    },
+    {
+     "pointer": "/client/version",
+     "value": "2.1.278"
+    }
+   ]
+  },
+  {
+   "name": "current_delivery_probed",
+   "from": "c12/a_child_delivery_probe_that_worked.json",
+   "set": [
+    {
+     "pointer": "/at",
+     "value": "$instant:current_delivery_probed_at"
+    },
+    {
+     "pointer": "/capability",
+     "value": "current_delivery"
+    },
+    {
+     "pointer": "/client/name",
+     "value": "claude-code"
+    },
+    {
+     "pointer": "/client/version",
+     "value": "2.1.278"
+    },
+    {
+     "pointer": "/observed",
+     "value": "The session in use read the context its adapter handed it before the prompt."
+    },
+    {
+     "pointer": "/probe_id",
+     "value": "$prb:current_delivery_probe"
+    }
+   ]
+  },
+  {
+   "name": "current_delivery_configuration",
+   "from": "c12/a_host_measured_with_its_delivery_hook.json",
+   "set": [
+    {
+     "pointer": "/measured_at",
+     "value": "$instant:current_delivery_measured_at"
+    },
+    {
+     "pointer": "/client/name",
+     "value": "claude-code"
+    },
+    {
+     "pointer": "/client/version",
+     "value": "2.1.278"
+    },
+    {
+     "pointer": "/hooks/0/event",
+     "value": "UserPromptSubmit"
+    },
+    {
+     "pointer": "/hooks/0/handler_digest",
+     "value": "89b6de153d8e3936d31baa7ef464b40f10dd47d046b00d9c560684b04d6e4654"
+    }
+   ]
+  },
+  {
+   "name": "qualify_current_delivery_request",
+   "from": "open_work_link",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@qualify_current_delivery_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "capability.probe"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#current_delivery_probe"
+    }
+   ]
+  },
+  {
+   "name": "child_delivery_probe",
+   "from": "c12/a_delivery_probe_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/capability",
+     "value": "child_delivery"
+    },
+    {
+     "pointer": "/client/name",
+     "value": "claude-code"
+    },
+    {
+     "pointer": "/client/version",
+     "value": "2.1.278"
+    }
+   ]
+  },
+  {
+   "name": "child_delivery_probed",
+   "from": "c12/a_child_delivery_probe_that_worked.json",
+   "set": [
+    {
+     "pointer": "/at",
+     "value": "$instant:child_delivery_probed_at"
+    },
+    {
+     "pointer": "/capability",
+     "value": "child_delivery"
+    },
+    {
+     "pointer": "/client/name",
+     "value": "claude-code"
+    },
+    {
+     "pointer": "/client/version",
+     "value": "2.1.278"
+    },
+    {
+     "pointer": "/observed",
+     "value": "A child session started from the probed session read the context its adapter handed it."
+    },
+    {
+     "pointer": "/probe_id",
+     "value": "$prb:child_delivery_probe"
+    }
+   ]
+  },
+  {
+   "name": "child_delivery_configuration",
+   "from": "c12/a_host_measured_with_its_delivery_hook.json",
+   "set": [
+    {
+     "pointer": "/measured_at",
+     "value": "$instant:child_delivery_measured_at"
+    },
+    {
+     "pointer": "/client/name",
+     "value": "claude-code"
+    },
+    {
+     "pointer": "/client/version",
+     "value": "2.1.278"
+    },
+    {
+     "pointer": "/hooks/0/event",
+     "value": "SubagentStart"
+    },
+    {
+     "pointer": "/hooks/0/handler_digest",
+     "value": "b5078a96931f9b02cfe226b23d50e45b473f891ef36befc72c531ab9861a7859"
+    }
+   ]
+  },
+  {
+   "name": "qualify_child_delivery_request",
+   "from": "open_work_link",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@qualify_child_delivery_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "capability.probe"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#child_delivery_probe"
+    }
+   ]
+  },
+  {
+   "name": "rehydrated_delivery_probe",
+   "from": "c12/a_delivery_probe_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/capability",
+     "value": "rehydrated_delivery"
+    },
+    {
+     "pointer": "/client/name",
+     "value": "claude-code"
+    },
+    {
+     "pointer": "/client/version",
+     "value": "2.1.278"
+    }
+   ]
+  },
+  {
+   "name": "rehydrated_delivery_probed",
+   "from": "c12/a_child_delivery_probe_that_worked.json",
+   "set": [
+    {
+     "pointer": "/at",
+     "value": "$instant:rehydrated_delivery_probed_at"
+    },
+    {
+     "pointer": "/capability",
+     "value": "rehydrated_delivery"
+    },
+    {
+     "pointer": "/client/name",
+     "value": "claude-code"
+    },
+    {
+     "pointer": "/client/version",
+     "value": "2.1.278"
+    },
+    {
+     "pointer": "/observed",
+     "value": "The session, compacted and started again, read the context its adapter handed it."
+    },
+    {
+     "pointer": "/probe_id",
+     "value": "$prb:rehydrated_delivery_probe"
+    }
+   ]
+  },
+  {
+   "name": "rehydrated_delivery_configuration",
+   "from": "c12/a_host_measured_with_its_delivery_hook.json",
+   "set": [
+    {
+     "pointer": "/measured_at",
+     "value": "$instant:rehydrated_delivery_measured_at"
+    },
+    {
+     "pointer": "/client/name",
+     "value": "claude-code"
+    },
+    {
+     "pointer": "/client/version",
+     "value": "2.1.278"
+    },
+    {
+     "pointer": "/hooks/0/event",
+     "value": "SessionStart"
+    },
+    {
+     "pointer": "/hooks/0/handler_digest",
+     "value": "a123fe1def8c103c6d04833f97e94911e22f97ad381740fccd1994e21aadd0fd"
+    }
+   ]
+  },
+  {
+   "name": "qualify_rehydrated_delivery_request",
+   "from": "open_work_link",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@qualify_rehydrated_delivery_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "capability.probe"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#rehydrated_delivery_probe"
+    }
+   ]
+  },
+  {
+   "name": "new_delivery_probe",
+   "from": "c12/a_delivery_probe_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/capability",
+     "value": "new_delivery"
+    },
+    {
+     "pointer": "/client/name",
+     "value": "claude-code"
+    },
+    {
+     "pointer": "/client/version",
+     "value": "2.1.278"
+    }
+   ]
+  },
+  {
+   "name": "new_delivery_probed",
+   "from": "c12/a_child_delivery_probe_that_worked.json",
+   "set": [
+    {
+     "pointer": "/at",
+     "value": "$instant:new_delivery_probed_at"
+    },
+    {
+     "pointer": "/capability",
+     "value": "new_delivery"
+    },
+    {
+     "pointer": "/client/name",
+     "value": "claude-code"
+    },
+    {
+     "pointer": "/client/version",
+     "value": "2.1.278"
+    },
+    {
+     "pointer": "/observed",
+     "value": "A new session the host started read the context its adapter handed it."
+    },
+    {
+     "pointer": "/probe_id",
+     "value": "$prb:new_delivery_probe"
+    }
+   ]
+  },
+  {
+   "name": "new_delivery_configuration",
+   "from": "c12/a_host_measured_with_its_delivery_hook.json",
+   "set": [
+    {
+     "pointer": "/measured_at",
+     "value": "$instant:new_delivery_measured_at"
+    },
+    {
+     "pointer": "/client/name",
+     "value": "claude-code"
+    },
+    {
+     "pointer": "/client/version",
+     "value": "2.1.278"
+    },
+    {
+     "pointer": "/hooks/0/event",
+     "value": "SessionStart"
+    },
+    {
+     "pointer": "/hooks/0/handler_digest",
+     "value": "a123fe1def8c103c6d04833f97e94911e22f97ad381740fccd1994e21aadd0fd"
+    }
+   ]
+  },
+  {
+   "name": "qualify_new_delivery_request",
+   "from": "open_work_link",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@qualify_new_delivery_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "capability.probe"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#new_delivery_probe"
+    }
+   ]
   }
  ],
  "members": [
@@ -1963,6 +2395,78 @@
     "recovery": [],
     "returns": [
      "preparation"
+    ]
+   }
+  },
+  {
+   "name": "qualify_current_delivery",
+   "request": "qualify_current_delivery_request",
+   "carries": [
+    "current_delivery_probe"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "current_delivery_probed",
+     "current_delivery_configuration"
+    ]
+   }
+  },
+  {
+   "name": "qualify_child_delivery",
+   "request": "qualify_child_delivery_request",
+   "carries": [
+    "child_delivery_probe"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "child_delivery_probed",
+     "child_delivery_configuration"
+    ]
+   }
+  },
+  {
+   "name": "qualify_rehydrated_delivery",
+   "request": "qualify_rehydrated_delivery_request",
+   "carries": [
+    "rehydrated_delivery_probe"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "rehydrated_delivery_probed",
+     "rehydrated_delivery_configuration"
+    ]
+   }
+  },
+  {
+   "name": "qualify_new_delivery",
+   "request": "qualify_new_delivery_request",
+   "carries": [
+    "new_delivery_probe"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "new_delivery_probed",
+     "new_delivery_configuration"
     ]
    }
   },

@@ -930,6 +930,69 @@ class RevisionBytes(unittest.TestCase):
         self.assertEqual(cases.stated_revision_members(built), [("committed", "/members/0")])
 
 
+class ShippedGuide(unittest.TestCase):
+    def prepared(self, case: str, root: pathlib.Path) -> executor.Run:
+        _, built = scenario(case)
+        workdir = pathlib.Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, workdir, True)
+        run_ = executor.Run(copy.deepcopy(built), None, workdir, None)
+        run_.root = root
+        executor.feature_modules({"shipped_guide"})[0]["shipped_guide"].install(run_)
+        for hook in run_.prepare_hooks:
+            hook(run_)
+        return run_
+
+    def test_a_routings_guide_is_the_one_the_code_under_test_ships(self):
+        # N04-ACTIVATION-POS states the guide's digest as a literal standing for the guide.
+        _, built = scenario("n04-activation-pos")
+        self.assertEqual(cases.guide_pointers(built), ["empty_routing"])
+        self.assertIn("shipped_guide", cases.features_of(built))
+        self.assertNotIn("shipped_guide", cases.features_of(scenario("n01-store-pos")[1]))
+        guide = self.prepared("n04-activation-pos", cases.ROOT).templates["empty_routing"][
+            "delivery"]["memory_usage"]["guide"]
+        shipped = (cases.ROOT / "workenv" / guide["path"]).read_bytes()
+        self.assertEqual(guide["digest"], hashlib.sha256(shipped).hexdigest())
+
+    def test_a_guide_the_code_under_test_does_not_ship_is_left_as_stated(self):
+        _, built = scenario("n04-activation-pos")
+        stated = next(row["record"] for row in built["records"] if row["name"] == "empty_routing")
+        empty = pathlib.Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, empty, True)
+        guide = self.prepared("n04-activation-pos", empty).templates["empty_routing"][
+            "delivery"]["memory_usage"]["guide"]
+        self.assertEqual(guide, stated["delivery"]["memory_usage"]["guide"])
+
+
+class QualifiedRoutes(unittest.TestCase):
+    def test_a_probe_of_a_delivery_route_is_given_and_a_probe_of_anything_else_is_not(self):
+        _, built = scenario("n15-c11-pos")
+        probes = cases.delivery_probes(built)
+        self.assertEqual(probes, [f"qualify_{r}_delivery"
+                                  for r in ("current", "child", "rehydrated", "new")])
+        self.assertIn("qualified_routes", cases.features_of(built))
+        self.assertEqual(built_run(self, "n15-c11-pos", "qualified_routes").given_steps,
+                         set(probes))
+        _, reads = scenario("tui-entry-options")
+        self.assertEqual(cases.delivery_probes(reads), [])
+        self.assertNotIn("qualified_routes", cases.features_of(reads))
+
+    def test_code_in_scope_that_serves_probes_never_answers_a_delivery_probe(self):
+        root = module_root(self, "def answer(call):\n"
+                                 "    if call.request['operation'] == 'capability.probe':\n"
+                                 "        raise RuntimeError('probed by the code')\n"
+                                 "    return scripted_owner.answer(call)\n")
+        _, built = scenario("cmp-pins")
+        routing = everything(built, "planted:answer")
+        got = run("cmp-pins", routing=routing, root=root)
+        self.assertEqual(got["outcome"], executor.PASSED, got)
+        inert = {**executor.feature_modules(cases.features_of(built))[0],
+                 "qualified_routes": INERT}
+        got = run("cmp-pins", routing=routing, root=root, features=inert)
+        self.assertEqual((got["outcome"], got["step"]),
+                         (executor.FAILED, "qualify_current_delivery"), got)
+        self.assertIn("probed by the code", got["why"])
+
+
 class FileEdit(unittest.TestCase):
     def test_an_edit_lands_before_its_step_and_nowhere_else(self):
         run_ = built_run(self, "n27-selection-neg", "checkout", "event_file_edit")

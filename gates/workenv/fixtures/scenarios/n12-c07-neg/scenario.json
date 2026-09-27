@@ -108,6 +108,10 @@
   {
    "id": "req_0c153964872e914b308dacd01e36b59d",
    "name": "compose_after_request_req"
+  },
+  {
+   "id": "req_99cfef49a1c841b945dce7cdd511cbd9",
+   "name": "qualify_current_delivery_id"
   }
  ],
  "joins": [
@@ -627,6 +631,66 @@
    "record": "open_team_link_result"
   },
   {
+   "digest_of": "current_delivery_probe",
+   "pointer": "/payload_digest",
+   "record": "qualify_current_delivery_request"
+  },
+  {
+   "digest_of": "qualify_current_delivery_request",
+   "pointer": "/request_digest",
+   "record": "qualify_current_delivery_receipt"
+  },
+  {
+   "minted": "qualify_current_delivery_head",
+   "pointer": "/head_digest",
+   "record": "qualify_current_delivery_receipt"
+  },
+  {
+   "minted": "qualify_current_delivery_sequence",
+   "pointer": "/sequence",
+   "record": "qualify_current_delivery_receipt"
+  },
+  {
+   "minted": "qualify_current_delivery_committed_at",
+   "pointer": "/committed_at",
+   "record": "qualify_current_delivery_receipt"
+  },
+  {
+   "minted": "current_delivery_probed_at",
+   "pointer": "/at",
+   "record": "current_delivery_probed"
+  },
+  {
+   "minted": "current_delivery_probe",
+   "pointer": "/probe_id",
+   "record": "current_delivery_probed"
+  },
+  {
+   "minted": "current_delivery_measured_at",
+   "pointer": "/measured_at",
+   "record": "current_delivery_configuration"
+  },
+  {
+   "digest_of": "qualify_current_delivery_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "qualify_current_delivery_result"
+  },
+  {
+   "digest_of": "qualify_current_delivery_request",
+   "pointer": "/request_digest",
+   "record": "qualify_current_delivery_result"
+  },
+  {
+   "digest_of": "current_delivery_probed",
+   "pointer": "/outputs/0/digest",
+   "record": "qualify_current_delivery_result"
+  },
+  {
+   "digest_of": "current_delivery_configuration",
+   "pointer": "/outputs/1/digest",
+   "record": "qualify_current_delivery_result"
+  },
+  {
    "minted": "team_link",
    "pointer": "/target/resource_id",
    "record": "attempt_deliver_before_request"
@@ -1127,6 +1191,36 @@
    "name": "team_link_at",
    "shape": "instant",
    "step": "open_team_link"
+  },
+  {
+   "name": "current_delivery_measured_at",
+   "shape": "instant",
+   "step": "qualify_current_delivery"
+  },
+  {
+   "name": "current_delivery_probe",
+   "shape": "prb",
+   "step": "qualify_current_delivery"
+  },
+  {
+   "name": "current_delivery_probed_at",
+   "shape": "instant",
+   "step": "qualify_current_delivery"
+  },
+  {
+   "name": "qualify_current_delivery_committed_at",
+   "shape": "instant",
+   "step": "qualify_current_delivery"
+  },
+  {
+   "name": "qualify_current_delivery_head",
+   "shape": "digest",
+   "step": "qualify_current_delivery"
+  },
+  {
+   "name": "qualify_current_delivery_sequence",
+   "shape": "integer",
+   "step": "qualify_current_delivery"
   },
   {
    "name": "deliver_before_committed_at",
@@ -2383,6 +2477,148 @@
    }
   },
   {
+   "digest": "814d09112098a5123d4d392facf7c3c0fb405a0f50eb24a181f46e5928b39b5a",
+   "name": "current_delivery_probe",
+   "record": {
+    "capability": "current_delivery",
+    "client": {
+     "name": "claude-code",
+     "version": "2.1.278"
+    },
+    "kind": "capability_probe",
+    "schema": 1,
+    "wire": {
+     "protocol": "command_hook",
+     "version": "1"
+    }
+   }
+  },
+  {
+   "digest": "eeb1a05282f583533a28f72422142f62f1124892c74a72f2a09b09eebceaa8f0",
+   "name": "qualify_current_delivery_request",
+   "record": {
+    "action": "local_profile",
+    "actor": {
+     "device_id": "dev_aed4e799889aefbc85fe14658fb6fd25",
+     "principal_id": "prn_3d9390ba78db6260d96ffd6f0263dfe8",
+     "profile_id": "prf_32eccd3b418df7154ebad63cc2d6c60e"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "capability.probe",
+    "owner": {
+     "layer": "team",
+     "team_id": "tem_8e73fb418b5dd7443c8e7afd1b192391"
+    },
+    "payload_digest": "814d09112098a5123d4d392facf7c3c0fb405a0f50eb24a181f46e5928b39b5a",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_99cfef49a1c841b945dce7cdd511cbd9",
+    "schema": 1,
+    "target": {
+     "resource_id": "prf_32eccd3b418df7154ebad63cc2d6c60e"
+    }
+   }
+  },
+  {
+   "digest": "89e1e1f40d1075932e1b0c6b9304259267d1b4583568e6ecfda3a57e13c6443e",
+   "name": "qualify_current_delivery_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "106c395aaad0249a9d1d2254cf443f70c386494900ecea9d28575947348d60a2",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "team",
+     "team_id": "tem_8e73fb418b5dd7443c8e7afd1b192391"
+    },
+    "request_digest": "eeb1a05282f583533a28f72422142f62f1124892c74a72f2a09b09eebceaa8f0",
+    "request_id": "req_99cfef49a1c841b945dce7cdd511cbd9",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "prf_32eccd3b418df7154ebad63cc2d6c60e"
+    }
+   }
+  },
+  {
+   "digest": "48faa621a36532c37ed8afc4030dc7d91245583c8d3a640bb8924d27cb8efb8c",
+   "name": "current_delivery_probed",
+   "record": {
+    "at": "2000-01-01T00:00:00Z",
+    "capability": "current_delivery",
+    "client": {
+     "name": "claude-code",
+     "version": "2.1.278"
+    },
+    "kind": "capability_probe",
+    "mode": {
+     "runs": "real"
+    },
+    "observed": "The session in use read the context its adapter handed it before the prompt.",
+    "offered": true,
+    "outcome": "worked",
+    "probe_id": "prb_09cf07107f9caa3dda07243378177c4c",
+    "schema": 1,
+    "wire": {
+     "protocol": "command_hook",
+     "version": "1"
+    }
+   }
+  },
+  {
+   "digest": "03f4586d7b8cc7aa69781ec88461396f1f48ba944ebc9c5ec5fd3326f73c0d05",
+   "name": "current_delivery_configuration",
+   "record": {
+    "client": {
+     "name": "claude-code",
+     "version": "2.1.278"
+    },
+    "hooks": [
+     {
+      "enabled": true,
+      "event": "UserPromptSubmit",
+      "handler_digest": "89b6de153d8e3936d31baa7ef464b40f10dd47d046b00d9c560684b04d6e4654"
+     }
+    ],
+    "kind": "host_configuration",
+    "measured_at": "2000-01-01T00:00:00Z",
+    "mode": {
+     "runs": "real"
+    },
+    "schema": 1
+   }
+  },
+  {
+   "digest": "f973b4497cd0e00ec33572a13b48f7c867cd20600284edb843e112205eee1ad8",
+   "name": "qualify_current_delivery_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "89e1e1f40d1075932e1b0c6b9304259267d1b4583568e6ecfda3a57e13c6443e",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "48faa621a36532c37ed8afc4030dc7d91245583c8d3a640bb8924d27cb8efb8c",
+      "kind": "capability_probe"
+     },
+     {
+      "digest": "03f4586d7b8cc7aa69781ec88461396f1f48ba944ebc9c5ec5fd3326f73c0d05",
+      "kind": "host_configuration"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "eeb1a05282f583533a28f72422142f62f1124892c74a72f2a09b09eebceaa8f0",
+    "request_id": "req_99cfef49a1c841b945dce7cdd511cbd9",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
    "digest": "97ceaeb8d422866a10acd335d9f9cd8bcaf0c79c5ce2b97257a10823f924423d",
    "name": "deliver_before_submitted",
    "record": {
@@ -3240,8 +3476,8 @@
    }
   }
  ],
- "says": "A Team has adopted an environment whose first edition pins its rules and knowledge revisions, and Alice's preparation composed from that adoption holds exactly those units. Four things are then attempted. A child edition that names its parent environment without the parent edition's digest (a floating parent) and a child edition that pins the same source twice are both refused at admission. A composition that names the adopted environment without its adoption evidence is refused at admission. The Team authors a checklist source, and a second edition of the adopted environment that adds its pin is interrupted after its objects are staged and before they are renamed into place; after the restart the owner answers the same request as unknown, with nothing committed, and offers only to query or retry that request. None of these may change what the recipient holds: composing again from the same adoption returns the same rules and knowledge revisions and bodies, and no attempt returns an edition, an adoption or a preparation.",
- "spec_sha256": "c4660d0c76ba270b41f5dfdad53e32fd99a90924ff16cde1bf0dd529e966d1c6",
+ "says": "A Team has adopted an environment whose first edition pins its rules and knowledge revisions, and Alice's preparation composed from that adoption holds exactly those units. Four things are then attempted. A child edition that names its parent environment without the parent edition's digest (a floating parent) and a child edition that pins the same source twice are both refused at admission. A composition that names the adopted environment without its adoption evidence is refused at admission. The Team authors a checklist source, and a second edition of the adopted environment that adds its pin is interrupted after its objects are staged and before they are renamed into place; after the restart the owner answers the same request as unknown, with nothing committed, and offers only to query or retry that request. None of these may change what the recipient holds: composing again from the same adoption returns the same rules and knowledge revisions and bodies, and no attempt returns an edition, an adoption or a preparation. Before the delivery, a probe of the installed host qualified delivery to the current recipient on it.",
+ "spec_sha256": "5e99e5a2a55586c854d92eb95db76ee62d198c55fa035aa1726d8088300b9120",
  "steps": [
   {
    "carries": [
@@ -3350,6 +3586,18 @@
    "result": "open_team_link_result",
    "returns": [
     "team_link"
+   ]
+  },
+  {
+   "carries": [
+    "current_delivery_probe"
+   ],
+   "name": "qualify_current_delivery",
+   "request": "qualify_current_delivery_request",
+   "result": "qualify_current_delivery_result",
+   "returns": [
+    "current_delivery_probed",
+    "current_delivery_configuration"
    ]
   },
   {

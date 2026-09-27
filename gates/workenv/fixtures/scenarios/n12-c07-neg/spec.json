@@ -1,6 +1,6 @@
 {
  "case": "N12-C07-NEG",
- "says": "A Team has adopted an environment whose first edition pins its rules and knowledge revisions, and Alice's preparation composed from that adoption holds exactly those units. Four things are then attempted. A child edition that names its parent environment without the parent edition's digest (a floating parent) and a child edition that pins the same source twice are both refused at admission. A composition that names the adopted environment without its adoption evidence is refused at admission. The Team authors a checklist source, and a second edition of the adopted environment that adds its pin is interrupted after its objects are staged and before they are renamed into place; after the restart the owner answers the same request as unknown, with nothing committed, and offers only to query or retry that request. None of these may change what the recipient holds: composing again from the same adoption returns the same rules and knowledge revisions and bodies, and no attempt returns an edition, an adoption or a preparation.",
+ "says": "A Team has adopted an environment whose first edition pins its rules and knowledge revisions, and Alice's preparation composed from that adoption holds exactly those units. Four things are then attempted. A child edition that names its parent environment without the parent edition's digest (a floating parent) and a child edition that pins the same source twice are both refused at admission. A composition that names the adopted environment without its adoption evidence is refused at admission. The Team authors a checklist source, and a second edition of the adopted environment that adds its pin is interrupted after its objects are staged and before they are renamed into place; after the restart the owner answers the same request as unknown, with nothing committed, and offers only to query or retry that request. None of these may change what the recipient holds: composing again from the same adoption returns the same rules and knowledge revisions and bodies, and no attempt returns an edition, an adoption or a preparation. Before the delivery, a probe of the installed host qualified delivery to the current recipient on it.",
  "ids": [
   {
    "name": "alice",
@@ -108,6 +108,10 @@
   },
   {
    "name": "compose_after_request_req",
+   "prefix": "req"
+  },
+  {
+   "name": "qualify_current_delivery_id",
    "prefix": "req"
   }
  ],
@@ -2205,6 +2209,110 @@
      "value": "layered"
     }
    ]
+  },
+  {
+   "name": "current_delivery_probe",
+   "from": "c12/a_delivery_probe_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/capability",
+     "value": "current_delivery"
+    },
+    {
+     "pointer": "/client/name",
+     "value": "claude-code"
+    },
+    {
+     "pointer": "/client/version",
+     "value": "2.1.278"
+    }
+   ]
+  },
+  {
+   "name": "current_delivery_probed",
+   "from": "c12/a_child_delivery_probe_that_worked.json",
+   "set": [
+    {
+     "pointer": "/at",
+     "value": "$instant:current_delivery_probed_at"
+    },
+    {
+     "pointer": "/capability",
+     "value": "current_delivery"
+    },
+    {
+     "pointer": "/client/name",
+     "value": "claude-code"
+    },
+    {
+     "pointer": "/client/version",
+     "value": "2.1.278"
+    },
+    {
+     "pointer": "/observed",
+     "value": "The session in use read the context its adapter handed it before the prompt."
+    },
+    {
+     "pointer": "/probe_id",
+     "value": "$prb:current_delivery_probe"
+    }
+   ]
+  },
+  {
+   "name": "current_delivery_configuration",
+   "from": "c12/a_host_measured_with_its_delivery_hook.json",
+   "set": [
+    {
+     "pointer": "/measured_at",
+     "value": "$instant:current_delivery_measured_at"
+    },
+    {
+     "pointer": "/client/name",
+     "value": "claude-code"
+    },
+    {
+     "pointer": "/client/version",
+     "value": "2.1.278"
+    },
+    {
+     "pointer": "/hooks/0/event",
+     "value": "UserPromptSubmit"
+    },
+    {
+     "pointer": "/hooks/0/handler_digest",
+     "value": "89b6de153d8e3936d31baa7ef464b40f10dd47d046b00d9c560684b04d6e4654"
+    }
+   ]
+  },
+  {
+   "name": "qualify_current_delivery_request",
+   "from": "open_team_link_request",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@qualify_current_delivery_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "capability.probe"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#current_delivery_probe"
+    }
+   ]
   }
  ],
  "steps": [
@@ -2362,6 +2470,24 @@
     "recovery": [],
     "returns": [
      "team_link"
+    ]
+   }
+  },
+  {
+   "name": "qualify_current_delivery",
+   "request": "qualify_current_delivery_request",
+   "carries": [
+    "current_delivery_probe"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "current_delivery_probed",
+     "current_delivery_configuration"
     ]
    }
   },

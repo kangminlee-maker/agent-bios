@@ -9,10 +9,12 @@ minted, carried it where the scenario joins it, and recomputed what depends on i
 
 It reads the world it runs in as a real owner does: where it runs in a git checkout, a file digest
 the scenario states is the digest of the file at that path, the checkout path is the directory it
-runs in and a stated commit is HEAD. It keeps what it has written under the call's state root and
-passes every B03 fault point, committing before `after_commit_before_return` and handing that
-point the answer it committed, so a process killed at a point and started again answers as a
-restarted owner does: with what it committed, or afresh when it was killed before committing.
+runs in and a stated commit is HEAD. The guide a routing's usage contract points at is the one
+its `workenv` package ships at that path, wherever it runs. It keeps what it has written under
+the call's state root and passes every B03 fault point, committing before
+`after_commit_before_return` and handing that point the answer it committed, so a process killed
+at a point and started again answers as a restarted owner does: with what it committed, or
+afresh when it was killed before committing.
 
 A request it has answered before, by the same bytes, gets the same answer: a replay writes
 nothing new. `SCRIPTED_PLANTS` lists deliberate departures, each a negative control's single
@@ -46,7 +48,8 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent / "conformance"))
 import executor  # noqa: E402
 import host as hosts  # noqa: E402
 import cases  # noqa: E402
-from features import checkout, revision_bytes  # noqa: E402
+from features import checkout, revision_bytes, shipped_guide  # noqa: E402
+import workenv  # noqa: E402
 from workenv.contracts import b03, canonical  # noqa: E402
 
 ADDRESSED = ("operation.query", "operation.cancel")
@@ -124,8 +127,14 @@ def substituted(value, found: dict):
 def world(run) -> dict[str, str]:
     """What the stated checkout facts are where this owner runs: the digests of the files at
     their paths, the directory itself, and HEAD; and the digest of the bytes the person holds for
-    each member of a revision they commit that the scenario states by digest alone."""
+    each member of a revision they commit that the scenario states by digest alone, and of the
+    guide its package ships where a routing's usage contract points."""
     found = stated_bytes(run)
+    for name in cases.guide_pointers(run.built):
+        guide = run.templates[name]["delivery"]["memory_usage"]["guide"]
+        digest = shipped_guide.shipped(pathlib.Path(workenv.__file__).parent.parent, guide["path"])
+        if digest is not None:
+            found.setdefault(guide["digest"], digest)
     here = pathlib.Path.cwd()
     if not (here / ".git").exists():
         return found

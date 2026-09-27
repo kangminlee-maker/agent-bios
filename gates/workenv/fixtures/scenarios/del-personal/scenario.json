@@ -80,6 +80,10 @@
   {
    "id": "req_8662e00346f29c76ff571db642d7d7ed",
    "name": "compose_second_preparation_id"
+  },
+  {
+   "id": "req_6251171196109b1e3dc629695102a25a",
+   "name": "qualify_current_delivery_id"
   }
  ],
  "joins": [
@@ -412,6 +416,66 @@
    "digest_of": "second_preparation",
    "pointer": "/outputs/0/digest",
    "record": "compose_a_second_preparation_never_delivered_result"
+  },
+  {
+   "digest_of": "current_delivery_probe",
+   "pointer": "/payload_digest",
+   "record": "qualify_current_delivery_request"
+  },
+  {
+   "digest_of": "qualify_current_delivery_request",
+   "pointer": "/request_digest",
+   "record": "qualify_current_delivery_receipt"
+  },
+  {
+   "minted": "qualify_current_delivery_head",
+   "pointer": "/head_digest",
+   "record": "qualify_current_delivery_receipt"
+  },
+  {
+   "minted": "qualify_current_delivery_sequence",
+   "pointer": "/sequence",
+   "record": "qualify_current_delivery_receipt"
+  },
+  {
+   "minted": "qualify_current_delivery_committed_at",
+   "pointer": "/committed_at",
+   "record": "qualify_current_delivery_receipt"
+  },
+  {
+   "minted": "current_delivery_probed_at",
+   "pointer": "/at",
+   "record": "current_delivery_probed"
+  },
+  {
+   "minted": "current_delivery_probe",
+   "pointer": "/probe_id",
+   "record": "current_delivery_probed"
+  },
+  {
+   "minted": "current_delivery_measured_at",
+   "pointer": "/measured_at",
+   "record": "current_delivery_configuration"
+  },
+  {
+   "digest_of": "qualify_current_delivery_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "qualify_current_delivery_result"
+  },
+  {
+   "digest_of": "qualify_current_delivery_request",
+   "pointer": "/request_digest",
+   "record": "qualify_current_delivery_result"
+  },
+  {
+   "digest_of": "current_delivery_probed",
+   "pointer": "/outputs/0/digest",
+   "record": "qualify_current_delivery_result"
+  },
+  {
+   "digest_of": "current_delivery_configuration",
+   "pointer": "/outputs/1/digest",
+   "record": "qualify_current_delivery_result"
   },
   {
    "minted": "work_link",
@@ -867,6 +931,36 @@
    "name": "second_preparation_review",
    "shape": "unt",
    "step": "compose_a_second_preparation_never_delivered"
+  },
+  {
+   "name": "current_delivery_measured_at",
+   "shape": "instant",
+   "step": "qualify_current_delivery"
+  },
+  {
+   "name": "current_delivery_probe",
+   "shape": "prb",
+   "step": "qualify_current_delivery"
+  },
+  {
+   "name": "current_delivery_probed_at",
+   "shape": "instant",
+   "step": "qualify_current_delivery"
+  },
+  {
+   "name": "qualify_current_delivery_committed_at",
+   "shape": "instant",
+   "step": "qualify_current_delivery"
+  },
+  {
+   "name": "qualify_current_delivery_head",
+   "shape": "digest",
+   "step": "qualify_current_delivery"
+  },
+  {
+   "name": "qualify_current_delivery_sequence",
+   "shape": "integer",
+   "step": "qualify_current_delivery"
   },
   {
    "name": "deliver_the_body_committed_at",
@@ -1726,6 +1820,148 @@
    }
   },
   {
+   "digest": "814d09112098a5123d4d392facf7c3c0fb405a0f50eb24a181f46e5928b39b5a",
+   "name": "current_delivery_probe",
+   "record": {
+    "capability": "current_delivery",
+    "client": {
+     "name": "claude-code",
+     "version": "2.1.278"
+    },
+    "kind": "capability_probe",
+    "schema": 1,
+    "wire": {
+     "protocol": "command_hook",
+     "version": "1"
+    }
+   }
+  },
+  {
+   "digest": "276e69a744b5e00398e95dde8e262dab457b265fc54e1805e280ca1a6cdd3468",
+   "name": "qualify_current_delivery_request",
+   "record": {
+    "action": "local_profile",
+    "actor": {
+     "device_id": "dev_12ace61c78f609bd4cdfab056483ed94",
+     "principal_id": "prn_8eead531138259df436c5c0b399bb8a7",
+     "profile_id": "prf_eb518ec01151af637d272d4934340ee0"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 1,
+    "operation": "capability.probe",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_8eead531138259df436c5c0b399bb8a7"
+    },
+    "payload_digest": "814d09112098a5123d4d392facf7c3c0fb405a0f50eb24a181f46e5928b39b5a",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_6251171196109b1e3dc629695102a25a",
+    "schema": 1,
+    "target": {
+     "resource_id": "prf_eb518ec01151af637d272d4934340ee0"
+    }
+   }
+  },
+  {
+   "digest": "cf9b665207e5c786ff2b066b1f289a25803ea7dd7a364c14605c3057b7800757",
+   "name": "qualify_current_delivery_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "162e39e26c855c88d5cc93a060316d6dd1026c0cb304f11b29846e90360faf36",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_8eead531138259df436c5c0b399bb8a7"
+    },
+    "request_digest": "276e69a744b5e00398e95dde8e262dab457b265fc54e1805e280ca1a6cdd3468",
+    "request_id": "req_6251171196109b1e3dc629695102a25a",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "prf_eb518ec01151af637d272d4934340ee0"
+    }
+   }
+  },
+  {
+   "digest": "17ec7fea689977eb7491b41389e59a4de4081ae88cf41f2c09cca4a39e011f13",
+   "name": "current_delivery_probed",
+   "record": {
+    "at": "2000-01-01T00:00:00Z",
+    "capability": "current_delivery",
+    "client": {
+     "name": "claude-code",
+     "version": "2.1.278"
+    },
+    "kind": "capability_probe",
+    "mode": {
+     "runs": "real"
+    },
+    "observed": "The session in use read the context its adapter handed it before the prompt.",
+    "offered": true,
+    "outcome": "worked",
+    "probe_id": "prb_18f5d98781ce7e63403a9547d7dc3b95",
+    "schema": 1,
+    "wire": {
+     "protocol": "command_hook",
+     "version": "1"
+    }
+   }
+  },
+  {
+   "digest": "03f4586d7b8cc7aa69781ec88461396f1f48ba944ebc9c5ec5fd3326f73c0d05",
+   "name": "current_delivery_configuration",
+   "record": {
+    "client": {
+     "name": "claude-code",
+     "version": "2.1.278"
+    },
+    "hooks": [
+     {
+      "enabled": true,
+      "event": "UserPromptSubmit",
+      "handler_digest": "89b6de153d8e3936d31baa7ef464b40f10dd47d046b00d9c560684b04d6e4654"
+     }
+    ],
+    "kind": "host_configuration",
+    "measured_at": "2000-01-01T00:00:00Z",
+    "mode": {
+     "runs": "real"
+    },
+    "schema": 1
+   }
+  },
+  {
+   "digest": "8b8afa3dd13578e6746ba3d18f2fce0b7bd5227e5be8dcdafb32757e60e77b95",
+   "name": "qualify_current_delivery_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "cf9b665207e5c786ff2b066b1f289a25803ea7dd7a364c14605c3057b7800757",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "17ec7fea689977eb7491b41389e59a4de4081ae88cf41f2c09cca4a39e011f13",
+      "kind": "capability_probe"
+     },
+     {
+      "digest": "03f4586d7b8cc7aa69781ec88461396f1f48ba944ebc9c5ec5fd3326f73c0d05",
+      "kind": "host_configuration"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "276e69a744b5e00398e95dde8e262dab457b265fc54e1805e280ca1a6cdd3468",
+    "request_id": "req_6251171196109b1e3dc629695102a25a",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
    "digest": "63f269377778508f807d014ff6f9b754c8db8c407ac191f815d38a870698974f",
    "name": "deliver_submitted",
    "record": {
@@ -2367,8 +2603,8 @@
    }
   }
  ],
- "says": "Alice binds her device key, authors a personal Instructions source whose revision the owner returns with the body digest it computed, and selects that exact revision in her personal Instructions position. She opens a recipient link to the conversation her work is in, and composes a preparation for delivery on that link (it declares recipient.delivery.attempt, names the position head her selection stored, and is stored privately without a receipt): one winning unit whose body is the revision's member. She also composes a second preparation on the same link and selection, whose own winning unit names a body digest this installation never wrote or retained, and the preparation itself is never delivered. Delivering the first preparation's body to the current recipient on that link returns an attempt that received exactly that body, and observing the first preparation returns an inventory naming the unit, source, revision and body that arrived for that recipient. Three negatives follow, none of which may claim a delivery: the same bodies sent on a second link she opened for another conversation are refused as recipient_mismatch, because the preparation names its recipient; an attempt naming a link id the runtime never issued is refused as recipient_link_unknown and sees no channel; and a rehydrated recipient offered only the second preparation's body hash — bytes this runtime never delivered or otherwise retained — is refused as rehydration_needs_bodies. After them observing the first preparation returns the same observation and writes nothing: no refused attempt added a body, a recipient or a second delivery.",
- "spec_sha256": "46c4c3210dcd58a94029d1184bd84aded0ab2ece96e0d6b1bc09cc40f6cf016f",
+ "says": "Alice binds her device key, authors a personal Instructions source whose revision the owner returns with the body digest it computed, and selects that exact revision in her personal Instructions position. She opens a recipient link to the conversation her work is in, and composes a preparation for delivery on that link (it declares recipient.delivery.attempt, names the position head her selection stored, and is stored privately without a receipt): one winning unit whose body is the revision's member. She also composes a second preparation on the same link and selection, whose own winning unit names a body digest this installation never wrote or retained, and the preparation itself is never delivered. Delivering the first preparation's body to the current recipient on that link returns an attempt that received exactly that body, and observing the first preparation returns an inventory naming the unit, source, revision and body that arrived for that recipient. Three negatives follow, none of which may claim a delivery: the same bodies sent on a second link she opened for another conversation are refused as recipient_mismatch, because the preparation names its recipient; an attempt naming a link id the runtime never issued is refused as recipient_link_unknown and sees no channel; and a rehydrated recipient offered only the second preparation's body hash — bytes this runtime never delivered or otherwise retained — is refused as rehydration_needs_bodies. After them observing the first preparation returns the same observation and writes nothing: no refused attempt added a body, a recipient or a second delivery. Before the first delivery, a probe of the installed host qualified delivery to the current recipient on it.",
+ "spec_sha256": "e73cb11d0e8714f95999c778b277b64b85188609da402e09568baa593ccf16a4",
  "steps": [
   {
    "carries": [
@@ -2440,6 +2676,18 @@
    "result": "compose_a_second_preparation_never_delivered_result",
    "returns": [
     "second_preparation"
+   ]
+  },
+  {
+   "carries": [
+    "current_delivery_probe"
+   ],
+   "name": "qualify_current_delivery",
+   "request": "qualify_current_delivery_request",
+   "result": "qualify_current_delivery_result",
+   "returns": [
+    "current_delivery_probed",
+    "current_delivery_configuration"
    ]
   },
   {

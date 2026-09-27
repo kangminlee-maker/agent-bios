@@ -1,6 +1,6 @@
 {
  "case": "N15-C11-NEG",
- "says": "Alice binds her device key, authors and selects a personal Instructions source, opens a link to her working conversation in a Codex host, and composes a preparation for delivery on it. Four attempts on that preparation must never claim a delivery nor repeat an effect. An attempt naming a link id the runtime never issued is refused as recipient_link_unknown and sees no channel. A resume of that session as a rehydrated recipient, which this host's route cannot carry, is recorded as unsupported, sees no channel, and is refused as route_unsupported. A delivery to the current conversation is recorded, but the host's own acknowledgement of it never arrives: the attempt sees lost, names no received body and no evidence, and its answer is outcome_unknown with recovery by querying the same request id — nothing here claims the body arrived. Resubmitting the identical request replays that same unresolved answer and writes nothing new; querying it afterward by its request id returns that same result again, still lost and still unclaimed. She then locks her profile: the access state moves to a new generation, and a delivery attempted afterwards still states the generation before the lock and is refused as access_locked and access_generation_moved, with unlock as its recovery, and returns no attempt. Observing the preparation at the end finds nothing delivered — not_observed with delivery_unobserved — because none of the four attempts, nor the resubmission, ever claimed a body arrived.",
+ "says": "Alice binds her device key, authors and selects a personal Instructions source, opens a link to her working conversation in a Codex host, and composes a preparation for delivery on it. Four attempts on that preparation must never claim a delivery nor repeat an effect. An attempt naming a link id the runtime never issued is refused as recipient_link_unknown and sees no channel. A resume of that session as a rehydrated recipient, which this host's route cannot carry, is recorded as unsupported, sees no channel, and is refused as route_unsupported. A delivery to the current conversation is recorded, but the host's own acknowledgement of it never arrives: the attempt sees lost, names no received body and no evidence, and its answer is outcome_unknown with recovery by querying the same request id — nothing here claims the body arrived. Resubmitting the identical request replays that same unresolved answer and writes nothing new; querying it afterward by its request id returns that same result again, still lost and still unclaimed. She then locks her profile: the access state moves to a new generation, and a delivery attempted afterwards still states the generation before the lock and is refused as access_locked and access_generation_moved, with unlock as its recovery, and returns no attempt. Observing the preparation at the end finds nothing delivered — not_observed with delivery_unobserved — because none of the four attempts, nor the resubmission, ever claimed a body arrived. Before the first attempt, a probe of the installed host qualified delivery to the current recipient on it; no probe qualified a rehydrated one.",
  "ids": [
   {
    "name": "alice",
@@ -88,6 +88,10 @@
   },
   {
    "name": "attempt_after_lock_id",
+   "prefix": "req"
+  },
+  {
+   "name": "qualify_current_delivery_id",
    "prefix": "req"
   }
  ],
@@ -1518,6 +1522,110 @@
      "value": 1
     }
    ]
+  },
+  {
+   "name": "current_delivery_probe",
+   "from": "c12/a_delivery_probe_as_submitted.json",
+   "set": [
+    {
+     "pointer": "/capability",
+     "value": "current_delivery"
+    },
+    {
+     "pointer": "/client/name",
+     "value": "codex"
+    },
+    {
+     "pointer": "/client/version",
+     "value": "0.40.0"
+    }
+   ]
+  },
+  {
+   "name": "current_delivery_probed",
+   "from": "c12/a_child_delivery_probe_that_worked.json",
+   "set": [
+    {
+     "pointer": "/at",
+     "value": "$instant:current_delivery_probed_at"
+    },
+    {
+     "pointer": "/capability",
+     "value": "current_delivery"
+    },
+    {
+     "pointer": "/client/name",
+     "value": "codex"
+    },
+    {
+     "pointer": "/client/version",
+     "value": "0.40.0"
+    },
+    {
+     "pointer": "/observed",
+     "value": "The session in use read the context its adapter handed it before the prompt."
+    },
+    {
+     "pointer": "/probe_id",
+     "value": "$prb:current_delivery_probe"
+    }
+   ]
+  },
+  {
+   "name": "current_delivery_configuration",
+   "from": "c12/a_host_measured_with_its_delivery_hook.json",
+   "set": [
+    {
+     "pointer": "/measured_at",
+     "value": "$instant:current_delivery_measured_at"
+    },
+    {
+     "pointer": "/client/name",
+     "value": "codex"
+    },
+    {
+     "pointer": "/client/version",
+     "value": "0.40.0"
+    },
+    {
+     "pointer": "/hooks/0/event",
+     "value": "UserPromptSubmit"
+    },
+    {
+     "pointer": "/hooks/0/handler_digest",
+     "value": "aa40a9970e86dd3ae4a099865c7b6249be8f57ff01434079783d295b5f794aa2"
+    }
+   ]
+  },
+  {
+   "name": "qualify_current_delivery_request",
+   "from": "open_work_link",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@qualify_current_delivery_id"
+    },
+    {
+     "pointer": "/operation",
+     "value": "capability.probe"
+    },
+    {
+     "pointer": "/action",
+     "value": "local_profile"
+    },
+    {
+     "pointer": "/effect_class",
+     "value": "owner_commit"
+    },
+    {
+     "pointer": "/target/resource_id",
+     "value": "@alice_profile"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#current_delivery_probe"
+    }
+   ]
   }
  ],
  "steps": [
@@ -1609,6 +1717,24 @@
     "recovery": [],
     "returns": [
      "preparation"
+    ]
+   }
+  },
+  {
+   "name": "qualify_current_delivery",
+   "request": "qualify_current_delivery_request",
+   "carries": [
+    "current_delivery_probe"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "current_delivery_probed",
+     "current_delivery_configuration"
     ]
    }
   },
