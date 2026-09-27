@@ -64,7 +64,7 @@ Decision이 아니라 execution을 위임한다. Unit은 decision-complete, self
 - Prompt constant, threshold, signature, judgment criterion도 코드 안의 decision이다. Decision-tainted output은 clean re-dispatch보다 review가 비싸면 폐기한다.
 - Worker 비용은 request count × transcript prefix로 증가한다. 독립 read를 batch하고 edit round를 줄이며 독립 worker/message를 한 turn에 dispatch한다.
 - **dispatch 전에 tier를 pin한다.** pin하지 않으면 tier가 작업을 본 뒤에 정해지고, 작업의 난이도가 아니라 크기를 따라간다. 비용 우위는 해당 작업의 근거가 있을 때에만 주장한다.
-- Codex `spawn_agent`은 부모의 무엇이 얼마나 넘어갈지를 정한다: `fork_turns`의 기본값은 `all`이고 `none` 또는 turn 수를 받는다. 그 host의 `SubagentStart` hook은 `agent_type`을 받고 `continue: false`를 반환할 수 있으므로, tier 규칙을 문장이 아니라 강제로 둘 수 있다.
+- Codex `spawn_agent`은 부모의 무엇이 얼마나 넘어갈지를 정한다: `fork_turns`의 기본값은 `all`이고 `none` 또는 turn 수를 받는다. 그 host의 `SubagentStart` hook은 `agent_type`을 받고 `continue: false`를 반환할 수 있으므로, tier 규칙을 문장이 아니라 강제로 둘 수 있다. 리뷰 자식은 `none`으로 띄운다: 리뷰는 리뷰 지시만 받아야 하는데, 복사된 turn에는 부모가 받은 것이 hook이 넣은 컨텍스트까지 그대로 실려 간다. 세션 전체 `developer_instructions`는 `fork_turns`와 상관없이 모든 자식에게 닿으므로, 리뷰가 보면 안 되는 내용을 둘 곳이 아니다.
 - 어느 host에도 spawn 단위의 instructions 억제 수단은 없다: subagent 정의는 model과 effort를 담을 뿐 scope를 담지 않는다. standing instruction 배제는 프로세스 수준의 행위이며(`claude --setting-sources ''`, 또는 `auth.json`만 든 디렉터리를 가리키는 `CODEX_HOME`), tier 정의도 함께 사라지므로 instructions 없는 reader와 pin된 tier를 한 프로세스에서 얻을 수 없다. `auth.json` 없이 비운 `CODEX_HOME`은 401로 실패하고, skill은 그래도 로드된다.
 - Resident teammate는 한 burst의 dependent slice에만 쓴다. CLI가 model/context를 보존하는지 확인한다. Resume-after-completion은 둘 다 바꿀 수 있다. Burst/cache TTL 뒤 retire하고 durable knowledge는 파일에 둔다.
 - Discard/direction change 뒤 routine round가 fresh slice와 비슷하게 비싸지면 respawn한다. 유일한 in-flight state는 먼저 파일로 회수한다.
@@ -269,4 +269,5 @@ Numeric default의 single owner다. 각 관측에 날짜와 작업 범위를 명
 | Cost 요소별로 분해한 session 2개 (2026-08) | input이 비용의 92-94%, output 6-8%, cache hit 95-97%, uncached input 0.0%; 867K→200K budget은 request당 비용을 ~4배 줄인다 |
 | Independence gate를 발동시키도록 만든 상황 3개 + positive control, dispatch 4회 (2026-09-01) | 3개 중 spawn 0회, control 1회; de-minimis가 셋 모두를 흡수했고 inline 답은 모두 정확 — 항상 발동한다고 쓴 spawn 의무가 발동하지 않았다 |
 | 60/150 파일 mechanical scan, load-bearing cell은 N=5 (2026-09-02) | inline $0.627→$0.919; tier를 pin한 위임 $0.665→$0.921; pin하지 않으면 +57-73%; 같은 cell의 N=2 최초 판독은 19%·36% 절감을 보고했고 N=5가 둘 다 지웠다 |
+| Codex 자식 격리 probe (2026-09-28, Codex 0.157.1) | 부모에게 `SessionStart` hook이 넣은 표지가 `fork_turns: none` 자식에는 0회, `all` 자식에는 1회(복사된 developer message로) 닿음; 세션 전체 `developer_instructions` 표지는 둘 다 닿음; 자식에서는 `SessionStart`가 아니라 `SubagentStart`가 실행됨 |
 | 양쪽 host의 fork cache 재사용 (2026-09-02) | Claude 같은 model 98.9%, 다른 model 0-26%; Codex는 어느 model이든 14-18% (Codex cell은 각 N=1) — fork 지침은 host 한정 |
