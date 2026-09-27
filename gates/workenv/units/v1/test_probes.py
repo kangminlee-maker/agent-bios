@@ -1,5 +1,5 @@
 """Probing delivery routes: `capability.probe` runs the installed host through its adapter, and
-the hook the host runs hands the recipient the probe's line.
+the hook the host runs hands the recipient the probe's code.
 
 The host here is `fakehost.py`, installed as `claude` and `codex` on a PATH of the test's own;
 the probe, each adapter's drive and `hook.py` are the real code. The real hosts are probed on
@@ -75,7 +75,7 @@ class Hosts(unittest.TestCase):
 
 
 class Probing(Hosts):
-    def test_a_route_that_hands_the_recipient_the_line_worked_on_every_declared_route(self):
+    def test_a_route_that_hands_the_recipient_the_code_worked_on_every_declared_route(self):
         for host, recipients in EVERY.items():
             for recipient in recipients:
                 if (host, recipient) == ("codex", "rehydrated"):
@@ -95,7 +95,7 @@ class Probing(Hosts):
                 found, _ = self.probe(host, "new", FAKE_HOST_MODE="ignore")
                 self.assertEqual((found["offered"], found["outcome"]), (True, "refused"))
 
-    def test_a_marker_the_hook_did_not_hand_over_does_not_count(self):
+    def test_a_code_the_hook_did_not_hand_over_does_not_count(self):
         for host in EVERY:
             with self.subTest(host=host):
                 found, _ = self.probe(host, "current", FAKE_HOST_MODE="stale")

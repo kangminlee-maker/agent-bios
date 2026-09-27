@@ -2,9 +2,11 @@
 
 A delivery capability (`new_delivery`, `current_delivery`, `child_delivery`,
 `rehydrated_delivery`) is probed by a real run of the installed host: the host is started with
-its adapter's hook on the route to that recipient, the hook hands the recipient a line carrying a
-nonce, and the recipient is asked to repeat any such line. The route worked only if the reply
-carries that nonce, which nothing but the hook's context could have told it.
+its adapter's hook on the route to that recipient, the hook hands the recipient a random code
+with the instruction to give it when asked, and the recipient is asked for it. The route worked
+only if the reply carries that code, which nothing but the hook's context could have told it.
+The recipient is asked to act on what it was handed, not to repeat it: Codex adds a hook's
+context as a developer message, and its model declines to disclose one.
 
 What the run found is recorded as C12 states it, kept apart from what was declared:
 
@@ -12,7 +14,7 @@ What the run found is recorded as C12 states it, kept apart from what was declar
     that recipient, or it cannot drive its host there without a person;
   - `unreachable`, not offered: the host is not installed on this machine's path, or the
     installed version is not the one the probe names, since a probe qualifies one version;
-  - `worked`: the reply carried the nonce;
+  - `worked`: the reply carried the code;
   - `refused`: the host answered without it, as when it did not run a hook it was given;
   - `no_response`: the host gave no reply, failed or ran out of time.
 
@@ -40,15 +42,13 @@ import tempfile
 from workenv import hosts, journal
 from workenv.contracts import c03, c12
 
-MARKER = "agent-bios probe marker: "
+CODE = "agent-bios probe code"
 JOB = "AGENT_BIOS_HOOK_JOB"
 HOOK = pathlib.Path(__file__).with_name("hook.py")
 WIRE = {"protocol": "command_hook", "version": "1"}
-ASK = ("Reply with every line in your context that starts with 'agent-bios probe marker:', "
-       "exactly as written, or reply NONE if there is no such line. Reply with nothing else.")
-ASK_CHILD = ("Start one subagent with your subagent tool. Ask it to reply with every line in its "
-             "own context that starts with 'agent-bios probe marker:', exactly as written, or "
-             "NONE. Then reply with exactly what the subagent replied and nothing else.")
+ASK = f"What is the {CODE}? Reply with the code alone, or NONE if you were not given one."
+ASK_CHILD = (f"Start one subagent with your subagent tool and ask it: \"{ASK}\" Then reply with "
+             "exactly what the subagent replied and nothing else.")
 TIMEOUT = 300
 # The longest `observed` a probe keeps (C12).
 OBSERVED = 4000
@@ -63,6 +63,11 @@ class Run:
     hooks: list[dict]
     note: str = ""
     outcome: str | None = None
+
+
+def handed(code: str) -> str:
+    """What the hook hands the recipient."""
+    return f"If you are asked for the {CODE}, reply with {code}."
 
 
 def command(host_name: str) -> str:
@@ -120,9 +125,9 @@ def probed(asked: dict, environ: dict, workdir: pathlib.Path) -> tuple[dict, lis
     if host[1] != client["version"]:
         return found(False, "unreachable",
                      f"The installed {client['name']} is {host[1]}, not {client['version']}.")
-    text = MARKER + secrets.token_hex(8)
+    code = secrets.token_hex(8)
     job = workdir / "job.json"
-    job.write_text(json.dumps({"recipient": recipient, "text": text}), encoding="utf-8")
+    job.write_text(json.dumps({"recipient": recipient, "text": handed(code)}), encoding="utf-8")
     quiet = {name: value for name, value in environ.items() if name not in adapter.nested}
     run = adapter.drive(recipient, host[0], command(client["name"]), workdir,
                         {**quiet, JOB: str(job)})
@@ -133,10 +138,10 @@ def probed(asked: dict, environ: dict, workdir: pathlib.Path) -> tuple[dict, lis
     if run.reply is None:
         return found(True, "no_response", f"The host gave no reply to the {where} probe.",
                      run.hooks, run.note)
-    if text in run.reply:
-        return found(True, "worked", f"The {recipient} session repeated the line the adapter "
-                     f"handed it on {where}.", run.hooks, run.note)
-    return found(True, "refused", f"The {recipient} session did not repeat the line the adapter "
+    if code in run.reply:
+        return found(True, "worked", f"The {recipient} session gave the code the adapter handed "
+                     f"it on {where}.", run.hooks, run.note)
+    return found(True, "refused", f"The {recipient} session did not give the code the adapter "
                  f"handed it on {where}.", run.hooks, run.note)
 
 

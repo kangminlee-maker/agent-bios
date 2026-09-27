@@ -3,9 +3,9 @@ directory put first on PATH, it takes the arguments a probe gives the real host 
 hooks it was given on the events the real host would fire, so the probe, the adapter's drive and
 `hook.py` are the real code and only the host is not.
 
-`FAKE_HOST_MODE` says how it behaves: `obey` (runs the hooks and repeats every probe marker it
-was handed), `ignore` (runs no hook), `silent` (fails with nothing printed), `error` (reports an
-error), `stale` (runs no hook and repeats a marker it made up), `nocompact` (Claude Code fails to
+`FAKE_HOST_MODE` says how it behaves: `obey` (runs the hooks and gives every probe code it was
+handed), `ignore` (runs no hook), `silent` (fails with nothing printed), `error` (reports an
+error), `stale` (runs no hook and gives a code it made up), `nocompact` (Claude Code fails to
 compact), `nolist` (Codex's app server answers nothing). `FAKE_HOST_VERSION` is the version it
 reports and `FAKE_HOST_TRUST` (`trusted` or not) whether Codex would run a session hook. Every
 run appends to `FAKE_HOST_LOG` its host, its arguments, the hooks it was configured with, and
@@ -16,11 +16,12 @@ from __future__ import annotations
 import json
 import os
 import pathlib
+import re
 import subprocess
 import sys
 import tomllib
 
-MARKER = "agent-bios probe marker: "
+HANDED = re.compile(r"If you are asked for the agent-bios probe code, reply with ([0-9a-f]+)\.")
 MODE = os.environ.get("FAKE_HOST_MODE", "obey")
 NESTED = ("CLAUDECODE", "CLAUDE_CODE_SESSION_ID", "CLAUDE_CODE_ENTRYPOINT", "CODEX_THREAD_ID")
 
@@ -52,8 +53,8 @@ def fire(groups: dict, event: str, source: str | None, cwd: str) -> list[str]:
 
 def answer(context: list[str]) -> str:
     if MODE == "stale":
-        return MARKER + "0000000000000000"
-    found = [line for text in context for line in text.splitlines() if line.startswith(MARKER)]
+        return "0000000000000000"
+    found = [code for text in context for code in HANDED.findall(text)]
     return "\n".join(found) or "NONE"
 
 
