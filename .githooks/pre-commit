@@ -18,7 +18,8 @@
 #
 # check-package.sh is cheap and guards the one failure class that is invisible
 # from a clone: a runtime path the installer reads but the npm payload omits.
-# check-parity.sh (~15s) owns everything else, each leg with its own --self-test.
+# check-parity.sh owns everything else, each leg with its own --self-test. Its legs run
+# concurrently and it still takes minutes, not seconds (AGENTS.md §3).
 set -u
 REPO="$(git rev-parse --show-toplevel)" || exit 1
 cd "$REPO" || exit 1

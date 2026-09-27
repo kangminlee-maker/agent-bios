@@ -129,13 +129,21 @@ git config core.hooksPath .githooks
 ```
 
 `.githooks/pre-commit` runs `gates/check-package.sh` and `gates/check-parity.sh`
-and aborts the commit on failure. Budget **minutes, not seconds** — on the author's
-machine the umbrella runs ~4.5 minutes (2026-08-31) — 267s, of which the install
-scenarios in `gates/test-install-guides.sh` are 42s and the umbrella's own other legs
-are the remaining ~217s; measure with `time`, and never
-`pkill -f check-parity` while a commit runs, because that kills your own commit.
+and aborts the commit on failure. Budget **minutes, not seconds**.
 
-That figure was **50m26s** until 2026-08-31, and the cause was not the scenarios.
+- **Concurrency.** The umbrella runs each leg as a concurrent job (`gates/parallel-legs.sh`).
+  `PARITY_JOBS` caps how many run at once; it defaults to the CPU count, and
+  `PARITY_JOBS=1` is the serial run.
+- **Output and failure.** Each leg writes to its own output slot and `TMPDIR`, and the slots
+  print in file order. A leg that exits non-zero is named as
+  `FAIL: leg '<name>' exited <status>`, even when it printed nothing.
+- **Time.** On the author's 18-core machine (2026-09-28) the hook took 212 s. With the
+  serial umbrella it took 865 s on a change to one design record. The longest legs are now
+  `gates/workenv/check-workenv.py` and the publish self-test, each serial inside itself.
+- **Measuring.** Measure with `time`. Never `pkill -f check-parity` while a commit runs,
+  because that kills your own commit.
+
+The serial umbrella took **50m26s** until 2026-08-31, and the cause was not the scenarios.
 Each of the suite's twelve `install`/`verify` runs ends in `install.sh`'s `cmd_verify`,
 which re-ran this umbrella on the tree the umbrella was already judging — the suite sets
 `REPO="$PWD"` and writes only into a sandbox HOME, so all twelve re-derived one unchanged
@@ -143,7 +151,7 @@ answer, 3m37s each, 86% of a commit, and no assertion in the suite read the resu
 `cmd_verify` now skips the parity gate under `AGENT_BIOS_IN_INSTALL_TEST`, announcing the
 skip; the payload and prompting-target gates keep running there because at 0.16s together
 they buy back nothing and their running is what proves verify still wires its gates up.
-Re-measure before quoting either number — this one has been wrong by 4× before.
+Re-measure before quoting any of these numbers — one has been wrong by 4× before.
 
 `gates/test-install-guides.sh` exercises compatibility installation; the instructions
 test suite exercises private installation and session delivery. The hook lives in

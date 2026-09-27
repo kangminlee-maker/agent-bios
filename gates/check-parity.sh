@@ -16,27 +16,12 @@ SELF="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"   # resolved BEFORE the c
 cd "$(dirname "$0")/.."
 fail=0
 
-# The selected development contract is an author-side live subject. The gateway
-# checks its exact dated members and runs both validation and acceptance controls.
-python3 gates/check-development-plan.py \
-  || { echo "FAIL: current development evidence graph"; fail=1; }
-python3 gates/check-development-plan.py --self-test \
-  || { echo "FAIL: development gate negative controls"; fail=1; }
-
-# Project purpose reaches the repository entrypoints and public README coherently.
-if [ -f gates/check-product-purpose.py ]; then
-  python3 gates/check-product-purpose.py --self-test \
-    || { echo "FAIL: product purpose negative controls"; fail=1; }
-  python3 gates/check-product-purpose.py \
-    || { echo "FAIL: product purpose projection or entrypoint"; fail=1; }
-fi
-
 # Non-empty-subject guards: a parity check over missing inputs must fail, not pass vacuously.
 for p in claude/guides codex/guides ko/claude/guides ko/codex/guides; do
   [ -d "$p" ] || { echo "FAIL: required dir missing: $p"; exit 1; }
 done
 for p in claude/CLAUDE.md codex/AGENTS.md ko/claude/CLAUDE.md ko/codex/AGENTS.md gates/emit-mirrors.py \
-         gates/test-install-guides.sh; do
+         gates/test-install-guides.sh gates/parallel-legs.sh; do
   [ -f "$p" ] || { echo "FAIL: required file missing: $p"; exit 1; }
 done
 guide_count=$(ls claude/guides/*.md 2>/dev/null | wc -l | tr -d ' ')
@@ -81,21 +66,54 @@ done
 # check-domains.py), which is not decidable by grep, and a gate on an
 # undecidable rule is one people route around.
 
+# The legs below run concurrently: each is one background job with its own output slot and
+# TMPDIR, and the slots print in file order at the end, so the log reads as a serial run would.
+# gates/parallel-legs.sh holds the helpers; PARITY_JOBS caps the concurrency (default: the CPU
+# count; PARITY_JOBS=1 is the serial run). Its self-test runs here, outside the helpers it
+# judges, because a collector that lost failures could not report its own loss.
+# Design: design/gate-parallelism/2026-09-28T0717--6c4f2c1--design.md.
+bash gates/parallel-legs.sh --self-test >/dev/null \
+  || { echo "FAIL: parallel-legs self-test missed a negative control (run bash gates/parallel-legs.sh --self-test)"; fail=1; }
+. gates/parallel-legs.sh
+legs_init || exit 1
+
+# The selected development contract is an author-side live subject. The gateway
+# checks its exact dated members and runs both validation and acceptance controls.
+leg "development plan"; { leg_enter
+python3 gates/check-development-plan.py \
+  || { echo "FAIL: current development evidence graph"; fail=1; }
+python3 gates/check-development-plan.py --self-test \
+  || { echo "FAIL: development gate negative controls"; fail=1; }
+exit "$fail"; } >"$LEG_OUT" 2>&1 </dev/null & started $!
+
+# Project purpose reaches the repository entrypoints and public README coherently.
+leg "product purpose"; { leg_enter
+if [ -f gates/check-product-purpose.py ]; then
+  python3 gates/check-product-purpose.py --self-test \
+    || { echo "FAIL: product purpose negative controls"; fail=1; }
+  python3 gates/check-product-purpose.py \
+    || { echo "FAIL: product purpose projection or entrypoint"; fail=1; }
+fi
+exit "$fail"; } >"$LEG_OUT" 2>&1 </dev/null & started $!
+
 # Mirror gate: codex/ and ko/codex/ are PROJECTIONS of the claude-side canonical,
 # emitted by gates/emit-mirrors.py, which owns the projection rule (config-home
 # variable, title, and the one declared Codex-only standing-authorization bullet the
 # host trigger contract requires). Checking the generator's own output subsumes the
 # per-file mirror diffs it replaces and additionally pins the declared bullet's
 # position, which a presence grep could not. --self-test proves each drift kind fails.
+leg "codex mirrors"; { leg_enter
 python3 gates/emit-mirrors.py --check >/dev/null \
   || { echo "FAIL: codex mirrors diverge from their projection (run gates/emit-mirrors.py)"; fail=1; }
 python3 gates/emit-mirrors.py --self-test >/dev/null \
   || { echo "FAIL: mirror gate self-test missed a negative control"; fail=1; }
+exit "$fail"; } >"$LEG_OUT" 2>&1 </dev/null & started $!
 
 # EN/KO guide-bundle parity: primary names and every exact member path agree.  A directory
 # name alone is not enough — it can hide a missing Korean RUNBOOK or an immutable asset the
 # generator was meant to project.  The member resolver also rejects orphan trees/symlinks, so
 # this is a subject check rather than an `ls` comparison that silently flattens the structure.
+leg "EN/KO guide bundles"; { leg_enter
 if ! python3 - <<'PY'
 import pathlib
 import sys
@@ -118,8 +136,10 @@ PY
 then
   echo "FAIL: EN and KO guide bundle sets differ"; fail=1
 fi
+exit "$fail"; } >"$LEG_OUT" 2>&1 </dev/null & started $!
 
 # Every guide referenced from the global file must exist in both EN guide dirs.
+leg "global guide references"; { leg_enter
 refs=$(grep -o 'guides/[a-z0-9-]*\.md' claude/CLAUDE.md | sort -u)
 [ -n "$refs" ] || { echo "FAIL: global file references no guides (extraction empty)"; fail=1; }
 for ref in $refs; do
@@ -128,10 +148,12 @@ for ref in $refs; do
     [ -f "$dir/$name" ] || { echo "FAIL: $dir/$name referenced from a global file but missing"; fail=1; }
   done
 done
+exit "$fail"; } >"$LEG_OUT" 2>&1 </dev/null & started $!
 
 # Frontmatter gate: every guide declares guide_id/language; guide_id matches the
 # filename, language matches the tree (files under ko/ are ko, else en), and any
 # declared parent resolves to a sibling guide in the same dir.
+leg "guide frontmatter"; { leg_enter
 for f in claude/guides/*.md codex/guides/*.md ko/claude/guides/*.md ko/codex/guides/*.md; do
   name=$(basename "$f")
   case "$f" in ko/*) want_lang=ko ;; *) want_lang=en ;; esac
@@ -148,10 +170,12 @@ for f in claude/guides/*.md codex/guides/*.md ko/claude/guides/*.md ko/codex/gui
     echo "FAIL: parent guide missing: $f (parent=$parent)"; fail=1
   fi
 done
+exit "$fail"; } >"$LEG_OUT" 2>&1 </dev/null & started $!
 
 # Anchor-phrase gate: the global↔guide restatement pairs kept on purpose share a
 # fixed anchor phrase; a one-sided edit that drops or rewords the anchor fails here.
 # Format: anchor|fileA|fileB (EN canonical only; ko is a translation, not checked).
+leg "anchor phrases"; { leg_enter
 while IFS='|' read -r anchor fa fb; do
   [ -n "$anchor" ] || continue
   for f in "$fa" "$fb"; do
@@ -169,15 +193,19 @@ Ambient state|claude/CLAUDE.md|claude/guides/tooling-gotchas.md
 the full lifecycle of what you create|claude/CLAUDE.md|claude/guides/tooling-gotchas.md
 dual-provider frontier design drafts|claude/CLAUDE.md|claude/guides/cli-multi-model-workflow.md
 ANCHORS
+exit "$fail"; } >"$LEG_OUT" 2>&1 </dev/null & started $!
 
 # Domain-manifest gate: bullet<->anchor bijection, file coverage, router
 # co-packaging (compose/domains.json vs the monolith); its --self-test proves
 # every negative control still fails, so a green gate is falsifiable.
+leg "fixture isolation"; { leg_enter
 if [ -f gates/fixture_support.py ]; then
   python3 gates/fixture_support.py --self-test >/dev/null \
     || { echo "FAIL: author fixture isolation (gates/fixture_support.py --self-test)"; fail=1; }
 fi
+exit "$fail"; } >"$LEG_OUT" 2>&1 </dev/null & started $!
 
+leg "domain manifest and assembler"; { leg_enter
 if [ -f compose/domains.json ]; then
   python3 compose/check-domains.py >/dev/null \
     || { echo "FAIL: domains manifest gate (run compose/check-domains.py)"; fail=1; }
@@ -186,6 +214,7 @@ if [ -f compose/domains.json ]; then
   bash gates/test-assemble.sh >/dev/null \
     || { echo "FAIL: assembler scenario suite (run gates/test-assemble.sh)"; fail=1; }
 fi
+exit "$fail"; } >"$LEG_OUT" 2>&1 </dev/null & started $!
 
 # Full-mode install scenarios. The assembler suite above only exercises the
 # domain-selected path; `packaged_mode()` keys on that selection, not on npm
@@ -198,6 +227,7 @@ fi
 # Not conditional on the file existing — it is asserted above with the other
 # required subjects, because an `if [ -f ]` around the ONLY suite covering a
 # branch means deleting the file deletes the leg and the umbrella still says OK.
+leg "full-mode install scenarios"; { leg_enter
 if [ "${AGENT_BIOS_IN_INSTALL_TEST:-0}" = 1 ]; then
   echo "SKIP: full-mode install scenarios — already inside them (install.sh verify)"
 else
@@ -220,19 +250,23 @@ else
     fail=1
   fi
 fi
+exit "$fail"; } >"$LEG_OUT" 2>&1 </dev/null & started $!
 
 # Payload boundary (gates/check-package.sh). The gate itself runs from the
 # pre-commit hook and install.sh verify; what runs HERE is its negative control,
 # which until now did not exist — the flag was rejected rather than implemented,
 # so no leg had ever been shown to fail. It plants each violation into a
 # throwaway copy of the tree, so it costs a few seconds rather than milliseconds.
+leg "package gate self-test"; { leg_enter
 if [ -x gates/check-package.sh ]; then
   ./gates/check-package.sh --self-test >/dev/null \
     || { echo "FAIL: package gate self-test missed a planted violation"; fail=1; }
 fi
+exit "$fail"; } >"$LEG_OUT" 2>&1 </dev/null & started $!
 
 # Learning record gate: learn/learning.schema.json (collection-loop
 # SSOT) vs its fixtures; --self-test proves every mutation is still caught.
+leg "learning record"; { leg_enter
 if [ -f learn/learning.schema.json ]; then
   python3 learn/check-learning.py >/dev/null \
     || { echo "FAIL: learning record gate (run learn/check-learning.py)"; fail=1; }
@@ -244,56 +278,70 @@ if [ -f learn/learning.schema.json ]; then
   python3 learn/collect-learning.py --self-test >/dev/null \
     || { echo "FAIL: collect-learning upload-drain self-test"; fail=1; }
 fi
+exit "$fail"; } >"$LEG_OUT" 2>&1 </dev/null & started $!
 
 # Instructions rollback (compose/instructions-state.py) — a destructive path with no other
 # coverage: every version registered today is UNAVAILABLE (it predates the assembled
 # layout), so the write loop is unreachable from `list` and nothing else exercises it.
 # --self-test drives it against a throwaway git repo and proves a run that fails
 # partway restores rather than leaving the instructions split across two versions.
+leg "instructions rollback"; { leg_enter
 if [ -f compose/instructions-state.py ]; then
   python3 compose/instructions-state.py --self-test >/dev/null \
     || { echo "FAIL: instructions rollback self-test (compose/instructions-state.py)"; fail=1; }
 fi
+exit "$fail"; } >"$LEG_OUT" 2>&1 </dev/null & started $!
 
 # Secret-redaction floor (learn/redact.py) — single-sourced by the heavy
 # (digest.py) and light (collect-learning.py) flows; --self-test proves each
 # pattern fires and that lessons ABOUT secrets are not over-redacted.
+leg "secret redaction"; { leg_enter
 if [ -f learn/redact.py ]; then
   python3 learn/redact.py --self-test >/dev/null \
     || { echo "FAIL: secret-redaction floor self-test (learn/redact.py)"; fail=1; }
 fi
+exit "$fail"; } >"$LEG_OUT" 2>&1 </dev/null & started $!
 
 # Phase 3 curation intake (learn/ingest-learnings-export.py) — validates a
 # dashboard learnings export and maps it to ledger candidates; --self-test
 # proves valid rows map (cardinality > 0) and broken/non-v1 rows are diverted.
+leg "curation intake"; { leg_enter
 if [ -f learn/ingest-learnings-export.py ]; then
   python3 learn/ingest-learnings-export.py --self-test >/dev/null \
     || { echo "FAIL: curation-intake self-test (learn/ingest-learnings-export.py)"; fail=1; }
 fi
+exit "$fail"; } >"$LEG_OUT" 2>&1 </dev/null & started $!
 
 # Phase 4 promote->migrate: the promotion manifest (learn/promotions.json) is
 # DERIVED from the ledger — --check fails if it is stale, so a promotion can't
 # ship without its manifest entry; migrate-learnings clears personal copies only
 # for in-bundle promotions (--self-test proves the not-in-bundle keep guard).
+leg "promotion manifest"; { leg_enter
 if [ -f learn/build-promotions.py ]; then
   python3 learn/build-promotions.py --self-test >/dev/null \
     || { echo "FAIL: build-promotions self-test"; fail=1; }
   python3 learn/build-promotions.py --check >/dev/null \
     || { echo "FAIL: learn/promotions.json is stale vs the ledger (run learn/build-promotions.py)"; fail=1; }
 fi
+exit "$fail"; } >"$LEG_OUT" 2>&1 </dev/null & started $!
+leg "backup retention"; { leg_enter
 if [ -f compose/prune-backups.py ]; then
   python3 compose/prune-backups.py --self-test >/dev/null \
     || { echo "FAIL: backup retention self-test"; fail=1; }
 fi
+exit "$fail"; } >"$LEG_OUT" 2>&1 </dev/null & started $!
+leg "migrate learnings"; { leg_enter
 if [ -f learn/migrate-learnings.py ]; then
   python3 learn/migrate-learnings.py --self-test >/dev/null \
     || { echo "FAIL: migrate-learnings self-test (personal-copy prune + in-bundle guard)"; fail=1; }
 fi
+exit "$fail"; } >"$LEG_OUT" 2>&1 </dev/null & started $!
 
 # Decision record (decisions/record-decision.py) — the submit tool that owns id,
 # timestamp, provenance, and interval so a caller cannot author its own. Its
 # --self-test proves the recording bar refuses, no stamped field is settable from
 # the payload, and a backfilled record claims no interval it cannot derive.
+leg "decision record"; { leg_enter
 if [ -f decisions/record-decision.py ]; then
   python3 decisions/record-decision.py --self-test >/dev/null \
     || { echo "FAIL: decision-record self-test (decisions/record-decision.py)"; fail=1; }
@@ -302,27 +350,32 @@ if [ -f decisions/record-decision.py ]; then
   python3 decisions/record-decision.py --check >/dev/null \
     || { echo "FAIL: decision ledger (run decisions/record-decision.py --check)"; fail=1; }
 fi
+exit "$fail"; } >"$LEG_OUT" 2>&1 </dev/null & started $!
 
 # Lexicon gate: forbid deprecated terminology tokens in live files
 # (LEXICON.md is the SSOT); --self-test proves the detector can fire.
+leg "lexicon"; { leg_enter
 if [ -f LEXICON.md ]; then
   python3 gates/check-lexicon.py >/dev/null \
     || { echo "FAIL: lexicon gate (run gates/check-lexicon.py)"; fail=1; }
   python3 gates/check-lexicon.py --self-test >/dev/null \
     || { echo "FAIL: lexicon gate self-test failed"; fail=1; }
 fi
+exit "$fail"; } >"$LEG_OUT" 2>&1 </dev/null & started $!
 
 # Content-hygiene gate: the shipped distribution (npm payload + ko instructions trees) stays
 # free of org identifiers everywhere and author identifiers outside `(private)`-marked
 # lines or per-reason exemptions. The subject set is derived from package.json files[]
 # and asserted non-empty; --self-test plants each violation class and requires a named
 # failure, positive control first.
+leg "content hygiene"; { leg_enter
 if [ -f gates/check-hygiene.py ]; then
   python3 gates/check-hygiene.py >/dev/null \
     || { echo "FAIL: content-hygiene gate (run gates/check-hygiene.py)"; fail=1; }
   python3 gates/check-hygiene.py --self-test >/dev/null \
     || { echo "FAIL: content-hygiene self-test failed"; fail=1; }
 fi
+exit "$fail"; } >"$LEG_OUT" 2>&1 </dev/null & started $!
 
 # Endpoint contract gate: ENDPOINTS.md's wire literals are held against the code,
 # a default install resolves no transport (probed through the real transport_config
@@ -334,63 +387,75 @@ fi
 # reaches the network fails in a tunnel. What runs is the structural half — that every pin
 # names a mapped document and every mapped document is pinned — which is what makes the
 # online comparison able to run at all.
+leg "prompting source pins"; { leg_enter
 if [ -f gates/check-prompting-sources.py ]; then
   python3 gates/check-prompting-sources.py >/dev/null \
     || { echo "FAIL: prompting source pins (run gates/check-prompting-sources.py)"; fail=1; }
   python3 gates/check-prompting-sources.py --self-test >/dev/null \
     || { echo "FAIL: prompting-source self-test (gates/check-prompting-sources.py --self-test)"; fail=1; }
 fi
+exit "$fail"; } >"$LEG_OUT" 2>&1 </dev/null & started $!
 
+leg "endpoint contract"; { leg_enter
 if [ -f gates/check-endpoints.py ]; then
   python3 gates/check-endpoints.py >/dev/null \
     || { echo "FAIL: endpoint contract gate (run gates/check-endpoints.py)"; fail=1; }
   python3 gates/check-endpoints.py --self-test >/dev/null \
     || { echo "FAIL: endpoint-contract self-test failed"; fail=1; }
 fi
+exit "$fail"; } >"$LEG_OUT" 2>&1 </dev/null & started $!
 
 # Coverage, which is a different question from every check above: those ask whether
 # a claim holds, this asks whether any harness EXECUTES the branch that would break
 # the claim. It is here rather than in a report because the lesson that produced it
 # was a 105-minute audit nobody ran — a check that is not run is not a check. Seconds,
 # not minutes: it traces two in-process harnesses.
+leg "seam coverage"; { leg_enter
 if [ -f gates/check-seam-coverage.py ]; then
   python3 gates/check-seam-coverage.py >/dev/null \
     || { echo "FAIL: transport seam has statements no harness executes (run gates/check-seam-coverage.py)"; fail=1; }
   python3 gates/check-seam-coverage.py --self-test >/dev/null \
     || { echo "FAIL: seam-coverage self-test failed"; fail=1; }
 fi
+exit "$fail"; } >"$LEG_OUT" 2>&1 </dev/null & started $!
 
 # Receipt chain, over a space derived from the config rather than listed: every preset
 # and host the config declares, the plan the real launcher renders for it, and the seat
 # that plan projects. A stub adapter keeps it free of spend; --real dispatches for
 # real and is deliberately never run here. --self-test proves a cell can fail.
+leg "receipt chain"; { leg_enter
 if [ -f gates/check-receipt-chain.py ]; then
   python3 gates/check-receipt-chain.py >/dev/null \
     || { echo "FAIL: receipt chain (run gates/check-receipt-chain.py)"; fail=1; }
   python3 gates/check-receipt-chain.py --self-test >/dev/null \
     || { echo "FAIL: receipt chain self-test missed a negative control"; fail=1; }
 fi
+exit "$fail"; } >"$LEG_OUT" 2>&1 </dev/null & started $!
 
 # Publication provenance gate: npm lifecycle runs it for real (prepack stamps,
 # prepublishOnly guards); here only its self-test runs, because the guard's
 # verdict on THIS tree at commit time is meaningless — trees are legitimately
 # dirty mid-work — while a broken stamp or guard would let the next publish
 # repeat the v0.9.9 unbound-tarball shape silently.
+leg "publication provenance"; { leg_enter
 if [ -f gates/check-publish.sh ]; then
   bash gates/check-publish.sh --self-test >/dev/null \
     || { echo "FAIL: publish-provenance self-test (run gates/check-publish.sh --self-test)"; fail=1; }
 fi
+exit "$fail"; } >"$LEG_OUT" 2>&1 </dev/null & started $!
 
 # Surface catalog gate: SURFACES.md routes every promoted learning and every new tool,
 # so a catalog that has drifted routes them wrongly while reading as current. Two
 # decidable directions — an authority path matching no file, and a deploy target no
 # surface claims. --self-test proves each fires.
+leg "surface catalog"; { leg_enter
 if [ -f SURFACES.md ]; then
   python3 gates/check-surfaces.py >/dev/null \
     || { echo "FAIL: surface catalog gate (run gates/check-surfaces.py)"; fail=1; }
   python3 gates/check-surfaces.py --self-test >/dev/null \
     || { echo "FAIL: surface catalog gate self-test failed"; fail=1; }
 fi
+exit "$fail"; } >"$LEG_OUT" 2>&1 </dev/null & started $!
 
 # Review-routing golden: normalised dry-run projections + resolver decisions
 # (gates/goldens/ — count the entries there; a number written here went stale once).
@@ -399,23 +464,27 @@ fi
 # prose substrings the runtime checks used to assert — and unlike them it also covers
 # reviewers this repo has never seen. --self-test proves each of its four controls
 # still fires, so a green golden is falsifiable rather than merely large.
+leg "review routing golden"; { leg_enter
 if [ -f gates/goldens/review-matrix.json ]; then
   python3 gates/capture-review-goldens.py --check >/dev/null \
     || { echo "FAIL: review routing diverges from gates/goldens/review-matrix.json"; fail=1; }
   python3 gates/capture-review-goldens.py --self-test >/dev/null \
     || { echo "FAIL: review golden self-test missed a negative control"; fail=1; }
 fi
+exit "$fail"; } >"$LEG_OUT" 2>&1 </dev/null & started $!
 
 # The ontology (ontology/) claims dependency facts about this repo. A claim nobody
 # checks decays into a confidently wrong dependency map, which is worse than none — so
 # the gate re-derives the facts from source and fails on disagreement, and --self-test
 # proves each of its negative controls still fires.
+leg "ontology"; { leg_enter
 if [ -f ontology/check-ontology.py ]; then
   python3 ontology/check-ontology.py >/dev/null \
     || { echo "FAIL: ontology disagrees with the code (run ontology/check-ontology.py)"; fail=1; }
   python3 ontology/check-ontology.py --self-test >/dev/null \
     || { echo "FAIL: ontology gate self-test missed a negative control"; fail=1; }
 fi
+exit "$fail"; } >"$LEG_OUT" 2>&1 </dev/null & started $!
 
 # The hook is the one mechanism here that provably fires on every session, and until now it was
 # asserted only by "the file was copied" and "the registration string is present" — a hook that
@@ -426,6 +495,7 @@ fi
 # Every shipped hook, not a named one: the list is the directory, so a hook added later is
 # covered by existing, and a hook that ships without a --self-test fails here rather than
 # riding along untested. The count is asserted because an empty glob satisfies a loop.
+leg "hook self-tests"; { leg_enter
 hook_count=0
 for hook in claude/hooks/*.py; do
   [ -f "$hook" ] || continue
@@ -437,15 +507,18 @@ if [ "$hook_count" -eq 0 ]; then
   echo "FAIL: no hook self-tests ran — claude/hooks/ holds no .py, so this leg judged nothing"
   fail=1
 fi
+exit "$fail"; } >"$LEG_OUT" 2>&1 </dev/null & started $!
 
 # Prompting guides name concrete models, so they go stale on a rebinding rather than degrading
 # quietly. This ran only from `install.sh verify`, which means a commit that bound a tier to a
 # model no guide covered landed clean and surfaced at the next install. 26ms, no network, no
 # install state — it was unwired rather than deliberately deferred.
+leg "prompting targets"; { leg_enter
 if [ -x launch/check-prompting-targets.sh ]; then
   ./launch/check-prompting-targets.sh >/dev/null \
     || { echo "FAIL: prompting guides do not cover a configured model (run launch/check-prompting-targets.sh)"; fail=1; }
 fi
+exit "$fail"; } >"$LEG_OUT" 2>&1 </dev/null & started $!
 
 # Reach: a check that exists, has a subject, and never runs before a commit is indistinguishable
 # from no check. The subject set is every check-shaped file in the repo; reachability is the
@@ -455,6 +528,7 @@ fi
 # Not inside $( ... ): the shell matches parens through a heredoc body, so a python
 # program this size eventually trips its quote scanner. The scan prints its own
 # failure, so there is nothing to capture.
+leg "check reachability"; { leg_enter
 python3 - <<'REACH' || fail=1
 import hashlib, importlib.util, json, pathlib, posixpath, re, subprocess, sys, tempfile
 
@@ -1377,19 +1451,23 @@ for text, want, why in probes:
 print(f"CHECK REACHABILITY OK: {len(subjects)} checker subjects; "
       f"{len(set(subjects) & historical)} pinned historical artifact(s) excluded by exact path")
 REACH
+exit "$fail"; } >"$LEG_OUT" 2>&1 </dev/null & started $!
 
+leg "UI runtime bundle"; { leg_enter
 if [ -f compose/ui_runtime/manifest.json ]; then
   python3 gates/build-ui-runtime.py --check >/dev/null \
     || { echo "FAIL: bundled Textual runtime is incomplete or incompatible"; fail=1; }
   python3 gates/build-ui-runtime.py --self-test >/dev/null \
     || { echo "FAIL: UI runtime bundle gate missed a negative control"; fail=1; }
 fi
+exit "$fail"; } >"$LEG_OUT" 2>&1 </dev/null & started $!
 
 # Work-environment runtime: every gates/workenv/test_*.py in its own process, and ruff at
 # its exact pin over workenv/ and gates/workenv/. Each leg fails by name on an empty subject
 # set and on an absent or mismatched tool, and nothing is installed here — a missing ruff
 # is a failure, not a skip. The self-test runs first so a miss reads as the machine's and
 # not the tree's: its positive controls need the same pinned tool the live run does.
+leg "work environment"; { leg_enter
 if [ -f gates/workenv/check-workenv.py ]; then
   python3 gates/workenv/check-workenv.py --self-test >/dev/null \
     || { echo "FAIL: workenv gate self-test missed a negative control (run python3 gates/workenv/check-workenv.py --self-test)"; fail=1; }
@@ -1399,18 +1477,23 @@ else
   # P01 done_when clause 7 wires both legs in; the checker going missing is a failure, not a skip.
   echo "FAIL: gates/workenv/check-workenv.py is missing, so no workenv unit test or static analysis ran"; fail=1
 fi
+exit "$fail"; } >"$LEG_OUT" 2>&1 </dev/null & started $!
 
 # A contract freeze keeps every profile's case binding outside the repository, and nothing
 # re-derives it from the tree, so gates/workenv/binding-drift.py compares the two when handed
 # a run's evidence. The comparison needs that evidence and runs where a node is recorded; its
 # controls need nothing and run here, so a tool that stopped telling moved from unmoved fails.
+leg "binding drift"; { leg_enter
 python3 gates/workenv/binding-drift.py --self-test >/dev/null \
   || { echo "FAIL: binding-drift self-test missed a negative control (run python3 gates/workenv/binding-drift.py --self-test)"; fail=1; }
+exit "$fail"; } >"$LEG_OUT" 2>&1 </dev/null & started $!
 
 # The launcher's Textual preflight UI tests need the managed venv (textual).
 # Provision it if missing; every non-UI check above runs under system python.
 VENV="${AGENT_LAUNCH_VENV:-$HOME/.local/share/agent-launch/venv}"
 if ! { [ -x "$VENV/bin/python" ] && "$VENV/bin/python" -c 'import textual' 2>/dev/null; }; then
+  # Serially every leg above had finished before this ran; none may see a half-built venv.
+  legs_report
   echo "provisioning agent-launch venv for parity UI tests ($VENV) ..."
   AGENT_LAUNCH_VENV="$VENV" bash launch/provision-venv.sh >/dev/null 2>&1 || {
     echo "FAIL: could not provision the textual venv required for UI parity tests"; exit 1; }
@@ -1419,21 +1502,42 @@ export AGENT_LAUNCH_VENV="$VENV"
 
 # Runtime-projection checks (role slots, wrapper defaults, launcher behavior) live in
 # gates/check_parity.py — a real module so it can be syntax-checked and read.
+leg "runtime projections"; { leg_enter
 if ! AGENT_BIOS_LEGACY_INSTALL=1 "$VENV/bin/python" gates/check_parity.py; then
   fail=1
 fi
+exit "$fail"; } >"$LEG_OUT" 2>&1 </dev/null & started $!
 
 # Default private installation and the manager are exercised independently of
 # the retained legacy migration regression fixtures above.
+leg "tier effort"; { leg_enter
 if ! "$VENV/bin/python" launch/test-tier-effort.py; then
   fail=1
 fi
-if ! "$VENV/bin/python" -m unittest discover -s compose -p 'test_instructions*.py'; then
-  fail=1
-fi
+exit "$fail"; } >"$LEG_OUT" 2>&1 </dev/null & started $!
+
+# One job per test file, each in its own process: as one process they were the longest leg by
+# far, and split they run the same tests (measured in the design record named above).
+suite_n=0
+for suite in compose/test_instructions*.py; do
+  [ -f "$suite" ] || continue
+  suite_n=$((suite_n + 1))
+  leg "instructions unit tests $(basename "$suite")"; { leg_enter
+  "$VENV/bin/python" -m unittest discover -s compose -p "$(basename "$suite")" || fail=1
+  exit "$fail"; } >"$LEG_OUT" 2>&1 </dev/null & started $!
+done
+leg "instructions unit test files"; { leg_enter
+[ "$suite_n" -gt 0 ] \
+  || { echo "FAIL: no compose/test_instructions*.py matched, so no instructions unit test ran"; fail=1; }
+exit "$fail"; } >"$LEG_OUT" 2>&1 </dev/null & started $!
+
+leg "slide writing"; { leg_enter
 if ! "$VENV/bin/python" gates/test-slide-writing.py; then
   fail=1
 fi
+exit "$fail"; } >"$LEG_OUT" 2>&1 </dev/null & started $!
+
+legs_finish
 
 [ "$fail" -eq 0 ] && echo "PARITY OK: mirrors, globals, guides, domain manifest, assembler, launch profile, bypass paths, role bindings, and wrapper defaults aligned"
 exit "$fail"
