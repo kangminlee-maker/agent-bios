@@ -159,6 +159,38 @@ class Generator(unittest.TestCase):
         self.assertIn({"record": "bind_again", "pointer": "/payload_digest",
                        "digest_of": "first_key"}, built["joins"])
 
+    def test_a_request_id_minted_by_a_client_is_minted_in_its_answers(self):
+        # An entry mints the id of the request it dispatches, and its trace returns that id
+        # before the request is sent: the request's answers carry the id as minted, not as fixed.
+        spec = copy.deepcopy(BASE)
+        spec["ids"] += [{"name": "drive_request", "prefix": "req"},
+                        {"name": "profile", "prefix": "prf"}]
+        spec["records"] += [
+            {"name": "script", "from": "c12/a_launcher_driven_at_80_by_24.json"},
+            {"name": "drive", "from": "bind",
+             "set": [{"pointer": "/request_id", "value": "@drive_request"},
+                     {"pointer": "/operation", "value": "surface.drive"},
+                     {"pointer": "/effect_class", "value": "pure_preview"},
+                     {"pointer": "/action", "value": "read"},
+                     {"pointer": "/target/resource_id", "value": "@profile"},
+                     {"pointer": "/payload_digest", "value": "#script"}]},
+            {"name": "trace", "from": "c12/a_launcher_trace_where_focus_moved_and_one_selection_"
+                                      "changed.json",
+             "set": [{"pointer": "/frames/4/dispatched", "value": ["$req:later_request"]}]},
+            {"name": "bind_again", "from": "bind",
+             "set": [{"pointer": "/request_id", "value": "$req:later_request"}]}]
+        answer = spec["steps"][0]["answer"]
+        spec["steps"] += [
+            {"name": "drive_entry", "request": "drive", "carries": ["script"],
+             "answer": {**answer, "stage": "previewed", "local_effect": "none",
+                        "returns": ["trace"]}},
+            {"name": "bind_again", "request": "bind_again", "carries": ["first_key"],
+             "answer": {**answer, "returns": []}}]
+        joins = self.generate(spec)["joins"]
+        for record in ("bind_again_result", "bind_again_receipt"):
+            self.assertIn({"record": record, "pointer": "/request_id",
+                           "minted": "later_request"}, joins)
+
     def test_a_derived_record_keeps_no_join_where_it_replaces_the_value(self):
         spec = copy.deepcopy(BASE)
         spec["ids"].append({"name": "again_request", "prefix": "req"})

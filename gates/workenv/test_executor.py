@@ -522,6 +522,46 @@ class Materializing(unittest.TestCase):
     def test_an_unlearned_value_keeps_its_stand_in(self):
         self.assertEqual(self.fresh_run().materialize("a"), {"v": "stand-in"})
 
+    @staticmethod
+    def trace(label: str = "Start", marks=("›",)) -> dict:
+        element = {"element_id": "action.start", "role": "action", "label": label,
+                   "marks": list(marks), "focused": True, "selection": "none",
+                   "executing": False, "shown": "whole"}
+        frame = {"after": 0, "terminal": {"columns": 80, "rows": 24}, "locale": "en",
+                 "access": "active", "elements": [element], "dispatched": [], "calls": [],
+                 "view": {"view": "w01", "origin": {"name": "host_launcher",
+                                                    "root_origin": "owner"},
+                          "missing_bodies": []}}
+        return {"kind": "surface_trace", "schema": 1, "script_digest": "a" * 64,
+                "client": {"name": "agent-bios-entry", "version": "1"},
+                "mode": {"runs": "real"}, "frames": [frame], "at": "2026-09-28T00:00:00Z"}
+
+    def holding(self, stated: dict) -> executor.Run:
+        run = self.fresh_run()
+        run.templates["t"] = stated
+        return run
+
+    def test_a_trace_is_held_without_its_labels_and_later_digests_take_the_answered_one(self):
+        run = self.holding(self.trace("Start"))
+        answered = self.trace("새 세션 시작")
+        run.hold("drive", "t", answered)
+        self.assertEqual(run.digest("t"), hashlib.sha256(canonical.encode(answered)).hexdigest())
+
+    def test_a_trace_differing_in_anything_but_a_label_fails_there(self):
+        run = self.holding(self.trace())
+        with self.assertRaises(executor.Stop) as raised:
+            run.hold("drive", "t", self.trace(marks=()))
+        self.assertEqual(raised.exception.pointer, "/frames/0/elements/0/marks")
+
+    def test_a_label_of_any_other_record_is_compared(self):
+        # Shaped as a trace, and of another kind: its labels are held like any other field.
+        stated = {"kind": "profile_label", "schema": 1, "display_name": "Laptop",
+                  "frames": [{"elements": [{"label": "a"}]}]}
+        run = self.holding(stated)
+        with self.assertRaises(executor.Stop) as raised:
+            run.hold("s", "t", {**stated, "frames": [{"elements": [{"label": "b"}]}]})
+        self.assertEqual(raised.exception.pointer, "/frames/0/elements/0/label")
+
     def test_the_first_difference_is_named_by_pointer(self):
         self.assertEqual(executor.difference({"a": [1, {"b~/": 2}]}, {"a": [1, {"b~/": 3}]}),
                          ("/a/1/b~0~1", "states 2, answered 3"))

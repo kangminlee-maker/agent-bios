@@ -358,17 +358,22 @@ class _Scenario:
                    "sequence": self.value(f"$integer:{step}_sequence", name, "/sequence"),
                    "committed_at": self.value(f"$instant:{step}_committed_at", name,
                                               "/committed_at")}
-        # The owner and target are the request's, and so are the names resolved inside them.
-        for join in [j for j in self.joins if j["record"] == request_name
-                     and j["pointer"].startswith(("/owner/", "/target/"))]:
-            self.joins.append({**join, "record": name})
-            if "minted" in join:
-                self.uses[name].add(join["minted"])
+        # The id, owner and target are the request's, and so are the names resolved in them.
+        self.echo(request_name, name, lambda p: p == "/request_id" or p.startswith(
+            ("/owner/", "/target/")))
         found = _violations(receipt, STORED, self.schemas)
         if found:
             self.fail(step, f"no receipt the contract permits answers this request: {found}")
         self.built[name] = receipt
         self.digests[name] = canonical.digest_of(receipt)
+
+    def echo(self, request_name: str, name: str, copied) -> None:
+        """`name` copies fields of the request at the pointers `copied` accepts, and with them the
+        names resolved there: a request id the owner minted is minted in the answer too."""
+        for join in [j for j in self.joins if j["record"] == request_name and copied(j["pointer"])]:
+            self.joins.append({**join, "record": name})
+            if "minted" in join:
+                self.uses[name].add(join["minted"])
 
     def convention(self, step: str, name: str, table: dict, gaps: list) -> None:
         """A request states its operation's effect class, grant action and kind of target."""
@@ -513,6 +518,7 @@ class _Scenario:
             if found:
                 self.fail(name, f"{returned} is not a record its owner could store: {found}")
         self.uses[result_name] = set()
+        self.echo(row["request"], result_name, lambda p: p == "/request_id")
         outcome = {"stage": answer["stage"], "material_gaps": answer["gaps"]}
         if answer["stage"] == "committed":
             outcome["receipt_digest"] = self.value(f"#{receipt_name}", result_name,

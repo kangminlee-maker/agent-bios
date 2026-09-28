@@ -29,7 +29,10 @@ records to the code under test and holds each answer to the stated one. For one 
      returns, by position. Minted places hold what was learned, and a digest of a record this
      answer returns is the digest of what the owner actually returned, so a difference is
      reported where it is, not as the digest that names it. The first difference is `failed`,
-     naming the step, the record and the JSON pointer.
+     naming the step, the record and the JSON pointer. A surface trace is held without its
+     elements' labels: its state and behaviour are the case's, and its wording is the entry
+     model's own tests' (D-20260928-380689). Once held, the trace the owner returned is the one
+     every later digest of it is taken over.
   6. A refused step must be refused with exactly the stated triples, and without calling
      `admitted()`. A triple names its record by position: `request`, or `carried/<i>` for the
      step's i-th carried record, because the code under test never sees the scenario's names.
@@ -76,6 +79,8 @@ from workenv.contracts.schema import STORED  # noqa: E402
 PASSED = "passed"
 FAILED = "failed"
 BLOCKED = "blocked"
+# The record kind held without its elements' labels, and the field left out.
+TRACE, LABEL = "surface_trace", "label"
 
 FEATURES = pathlib.Path(__file__).resolve().parent / "features"
 # A scenario without world processes runs every step on this one.
@@ -229,6 +234,18 @@ def difference(stated, answered, pointer: str = "") -> tuple[str, str] | None:
     return None
 
 
+def unworded(value):
+    """A surface trace with its elements' labels left out; any other value as it is."""
+    if not isinstance(value, dict) or value.get("kind") != TRACE:
+        return value
+    value = copy.deepcopy(value)
+    for frame in value.get("frames", []) if isinstance(value.get("frames"), list) else []:
+        for element in frame.get("elements", []) if isinstance(frame, dict) else []:
+            if isinstance(element, dict):
+                element.pop(LABEL, None)
+    return value
+
+
 def stored_violation(value) -> tuple[str, str] | None:
     """(pointer, code) of the first refusal of a record read as its owner would store it."""
     if not _SCHEMAS:
@@ -285,6 +302,7 @@ class Run:
         self.later: dict[tuple[str, str], object] = {}   # (record, digest|size) learned early
         self._dark: dict[str, bool] = {}
         self.current: dict[str, object] = {}   # this answer's records while it is judged
+        self.traces: dict[str, object] = {}    # each surface trace held, as it was answered
         self.cache: dict[str, object] = {}
         self.sent: dict[str, tuple[dict, list]] = {}
         self.processes: dict[str, hosts.Host] = {}
@@ -324,6 +342,8 @@ class Run:
             return self.current[name]
         if name in self.members:
             return self.members[name]
+        if name in self.traces:
+            return self.traces[name]
         return self.materialize(name)
 
     def unknowable(self, name: str) -> bool:
@@ -618,7 +638,7 @@ class Run:
                                    f"{shown(actual)}", step=step, record=record)
             return
         stated = self.resolve(stated, actual, step, record, "")
-        found = difference(stated, actual)
+        found = difference(unworded(stated), unworded(actual))
         if found:
             pointer, what = found
             raise Stop(FAILED, f"{record}{'' if pointer == '/' else pointer} {what}",
@@ -637,6 +657,8 @@ class Run:
             pointer, code = refused
             raise Stop(FAILED, f"{record}{'' if pointer == '/' else pointer} is refused in "
                                f"stored mode: {code}", step=step, record=record, pointer=pointer)
+        if unworded(actual) is not actual:
+            self.traces[record] = actual
 
     def resolve(self, stated, actual, step: str, record: str, pointer: str):
         """The stated value with each digest or size not yet known learned from the answer."""
