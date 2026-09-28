@@ -20,7 +20,9 @@ its hooks but reads neither), `forget` (drops its launch instructions on compact
 (fails with nothing printed), `error` (reports an error), `stale` (gives a code it made up),
 `nocompact` (fails to compact), `nolist` (Codex answers no hook listing), `nothread` (Codex
 starts no conversation), `noend` (Codex answers and closes before the turn ends). In `error`
-Codex leaves only a plan, no message. `FAKE_HOST_VERSION` is the version it reports.
+Codex leaves only a plan, no message. `FAKE_HOST_VERSION` is the version it reports, and
+`FAKE_HOST_NATIVE` the developer instructions Codex is configured with, which its `config/read`
+answers and a session given none at launch starts with.
 `FAKE_HOST_TRUST` is which of the hooks given per run Codex would run: `all`, or a comma list of
 `<event>:<matcher>` places, an empty matcher for none. Every run appends to `FAKE_HOST_LOG` its
 host, its arguments, the hooks it was configured with, and whether nested-session variables and
@@ -60,14 +62,15 @@ def called(method: str, params) -> None:
         out.write(json.dumps({"method": method, "params": params}) + "\n")
 
 
-def fire(groups: dict, event: str, source: str | None, cwd: str) -> list[str]:
+def fire(groups: dict, event: str, source: str | None, cwd: str, **more) -> list[str]:
     """Run every configured hook on one event, as the host would, and collect the context."""
     context = []
     for group in groups.get(event, []) if HOOKS else []:
         if group.get("matcher") and group["matcher"] != source:
             continue
         for handler in group["hooks"]:
-            payload = {"hook_event_name": event, "session_id": "fake-session", "cwd": cwd}
+            payload = {"hook_event_name": event, "session_id": "fake-session", "cwd": cwd,
+                       **more}
             if source is not None:
                 payload["source"] = source
             done = subprocess.run(handler["command"], shell=True, input=json.dumps(payload),
@@ -106,7 +109,8 @@ class Session:
             return answer(self.launched + self.hooked)
         kind = self.kinds.get(asked.group(1))
         start = [kind] if kind is not None else self.launched if self.inherits else []
-        return answer(start + fire(self.groups, "SubagentStart", None, os.getcwd()))
+        return answer(start + fire(self.groups, "SubagentStart", None, os.getcwd(),
+                                   agent_type=asked.group(1)))
 
 
 def argument(argv: list[str], name: str) -> str | None:
@@ -153,9 +157,9 @@ def claude(argv: list[str]) -> int:
     return 0
 
 
-def configured(argv: list[str]) -> tuple[dict, list[str], dict[str, str]]:
-    """What Codex was given per run: its hooks, its launch instructions, and the instructions of
-    each role defined for the run."""
+def configured(argv: list[str]) -> tuple[dict, list[str], dict[str, dict]]:
+    """What Codex was given per run: its hooks, its launch instructions (else the ones it is
+    configured with), and each role defined for the run."""
     given = {}
     for i, a in enumerate(argv):
         if a == "-c":
@@ -163,14 +167,14 @@ def configured(argv: list[str]) -> tuple[dict, list[str], dict[str, str]]:
             given[key] = tomllib.loads(f"v = {value}")["v"]
     hooks = {key.removeprefix("hooks."): value for key, value in given.items()
              if key.startswith("hooks.")}
-    launched = [given["developer_instructions"]] if "developer_instructions" in given else []
-    kinds = {}
+    native = os.environ.get("FAKE_HOST_NATIVE")
+    launched = [given.get("developer_instructions", native)]
+    roles: dict[str, dict] = {}
     for key, value in given.items():
         parts = key.split(".")
-        if parts[0] == "agents" and parts[-1] == "config_file":
-            role = tomllib.loads(pathlib.Path(value).read_text())
-            kinds[".".join(parts[1:-1])] = role["developer_instructions"]
-    return hooks, launched, kinds
+        if parts[0] == "agents" and len(parts) > 2:
+            roles.setdefault(".".join(parts[1:-1]), {})[parts[-1]] = value
+    return hooks, [text for text in launched if text], roles
 
 
 def camel(event: str) -> str:
@@ -178,7 +182,9 @@ def camel(event: str) -> str:
 
 
 def codex(argv: list[str]) -> int:
-    groups, launched, kinds = configured(argv)
+    groups, launched, roles = configured(argv)
+    kinds = {name: tomllib.loads(pathlib.Path(role["config_file"]).read_text())
+             ["developer_instructions"] for name, role in roles.items() if "config_file" in role}
     log(argv, groups or None)
     if argv == ["--version"]:
         print(f"codex-cli {os.environ['FAKE_HOST_VERSION']}")
@@ -210,6 +216,10 @@ def codex(argv: list[str]) -> int:
         called(method, params)
         if method == "initialize":
             say({"id": ident, "result": {}})
+        elif method == "config/read":
+            say({"id": ident, "result": {"config": {
+                "developer_instructions": os.environ.get("FAKE_HOST_NATIVE"),
+                "agents": {"max_depth": None, **roles}}, "origins": {}}})
         elif method == "hooks/list":
             if MODE == "nolist":
                 return 0

@@ -18,7 +18,15 @@ Each route names the carrier that hands its recipient the text, the same on ever
 
 The event of a launch or definition route is where the host reports that the recipient began,
 not how the text reaches it. An adapter states its host's arguments for the first two carriers
-(`launch`), and its hook output for the third (`output`).
+(`launch`), and its hook output for the third (`output`), with the most a hook's output carries
+whole (`limit`).
+
+An adapter also says what the host would give a session it started on its own (`configured`),
+because launch arguments stand in for some of it: the person's own instructions, where the
+host's launch instructions replace them rather than add to them, and each kind of child the
+host would load, the person's own definition over the one this installation ships. A kind
+defined for the session keeps every field of the definition it stands in for (its model, its
+effort, the tools it may not use), so defining one changes only its instructions.
 
 What an adapter declares is how it would reach a recipient, never that it does. A route is
 supported on a host only where the adapter declares it and the latest probe of that recipient's
@@ -63,6 +71,10 @@ WIRES = {"launch": {"protocol": "launch_instructions", "version": "1"},
          "hook": {"protocol": "command_hook", "version": "1"}}
 
 
+class HostError(Exception):
+    """The host could not tell an adapter what it needs, named."""
+
+
 @dataclasses.dataclass(frozen=True)
 class Route:
     """One host event, the value of its `source` field where the event has one, and the carrier
@@ -79,11 +91,23 @@ class Route:
 @dataclasses.dataclass(frozen=True)
 class Kind:
     """A kind of child defined for one session: what it is for, the instructions it starts with,
-    and the model and reasoning effort it runs on where they are set."""
+    and every other field of its definition in the host's own terms, carried as they are."""
     description: str
     instructions: str
-    model: str | None = None
-    effort: str | None = None
+    settings: dict = dataclasses.field(default_factory=dict)
+
+    def adding(self, text: str) -> Kind:
+        """The same kind, starting from its own instructions and then `text`."""
+        return dataclasses.replace(self, instructions=f"{self.instructions.rstrip()}\n\n{text}")
+
+
+@dataclasses.dataclass(frozen=True)
+class Configured:
+    """What the host would give a session it starts on its own: the person's instructions where
+    launch instructions replace them (None where they add to them), and each kind of child it
+    would load, by name."""
+    native: str | None
+    kinds: dict[str, Kind]
 
 
 @dataclasses.dataclass(frozen=True)
@@ -104,6 +128,18 @@ class Adapter:
     # the kinds defined for that session alone, writing any file they name in the directory:
     # (directory, text or None, {name: Kind}) -> arguments.
     launch: Callable | None = None
+    # The arguments that give the host its hooks, one group per declared route, each running the
+    # command, writing any file they name in the directory: (command, directory) -> arguments.
+    hooked: Callable | None = None
+    # What the host would give a session it started on its own:
+    # (executable, working directory, environment) -> Configured.
+    configured: Callable | None = None
+    # The kind a child started with no kind is, where such a child takes the session's launch
+    # instructions; a start defines it with the person's own instructions alone.
+    plain: str | None = None
+    # The most a hook's output carries whole, and what that is counted in: `characters`, or
+    # `bytes` of UTF-8 where the host counts tokens, since no token is shorter than a byte.
+    limit: tuple[int, str] = (0, "characters")
     # Starts the host with the given arguments and its hooks and asks one recipient for what it
     # was handed: (recipient, executable, hook command, arguments, working directory,
     # environment) -> probes.Run.
@@ -132,6 +168,11 @@ class Adapter:
                 group = {"matcher": route.source, **group}
             found.setdefault(route.event, []).append(group)
         return found
+
+    def fits(self, text: str) -> bool:
+        """Whether a hook's output carries the text whole on this host."""
+        most, unit = self.limit
+        return (len(text.encode("utf-8")) if unit == "bytes" else len(text)) <= most
 
     def output(self, event: dict, text: str) -> str:
         """What the command answering this event prints, for its host to add to the session."""

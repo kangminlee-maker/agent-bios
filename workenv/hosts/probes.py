@@ -163,7 +163,8 @@ def probed(asked: dict, environ: dict, workdir: pathlib.Path) -> tuple[dict, lis
                      f"The installed {client['name']} is {host[1]}, not {client['version']}.")
     code = secrets.token_hex(8)
     job = workdir / "job.json"
-    job.write_text(json.dumps({"recipient": recipient, "text": handed(code)}), encoding="utf-8")
+    job.write_text(json.dumps({"kind": "probe", "recipient": recipient, "text": handed(code)}),
+                   encoding="utf-8")
     launched = workdir / "launch"
     launched.mkdir()
     arguments = given(adapter, route, launched, handed(code))

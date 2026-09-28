@@ -60,6 +60,15 @@ class Registry(unittest.TestCase):
         self.assertEqual([name for name, found in carriers.items()
                           if found != carriers["claude-code"]], [])
 
+    def test_a_hooks_limit_is_counted_as_its_host_counts(self):
+        # Codex counts tokens, and no token is shorter than a byte of UTF-8.
+        text = "규칙" * 5
+        by_characters = hosts.Adapter(names=(), routes={}, session_env="", limit=(10, "characters"))
+        by_bytes = hosts.Adapter(names=(), routes={}, session_env="", limit=(10, "bytes"))
+        self.assertEqual((by_characters.fits(text), by_bytes.fits(text)), (True, False))
+        self.assertEqual({adapter.limit for adapter in hosts.adapters().values()},
+                         {(10_000, "characters"), (2_500, "bytes")})
+
     def test_an_adapter_declares_a_child_route_where_its_host_shows_one(self):
         # Claude Code's reference and the subagent-start output schema in Codex 0.157.1's binary
         # both show SubagentStart taking context. A declared route is still delivered on only
@@ -149,11 +158,12 @@ class Suite:
             self.assertIn("규칙 하나", reached(given))
         with tempfile.TemporaryDirectory() as directory:
             where = pathlib.Path(directory)
-            kind = hosts.Kind(description="A seat.", instructions="자식 규칙.", model="m",
-                              effort="high")
+            # Every other field of the definition is carried as it is, a tool fence included.
+            kind = hosts.Kind(description="A seat.", instructions="자식 규칙.",
+                              settings={"model": "a-model", "fence": ["Edit", "Write"]})
             given = self.adapter.launch(where, None, {"seat": kind})
-            self.assertIn("seat", reached(given))
-            self.assertIn("자식 규칙.", reached(given))
+            for part in ("seat", "자식 규칙.", "a-model", "fence", "Write"):
+                self.assertIn(part, reached(given))
             self.assertNotIn("규칙 하나", reached(given))
 
     def test_it_can_drive_its_host_as_a_session_of_its_own(self):

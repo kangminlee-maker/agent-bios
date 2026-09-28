@@ -11,7 +11,9 @@ the person's own instructions, and the session keeps it through compaction; it d
 child. `--agents` defines subagents for the session alone, each with its prompt, model and
 effort, and a definition given that way wins over an installed one of the same name. Measured on
 2.1.283 on 2026-09-28: the appended text went in whole to 120,000 characters, where a hook's
-output is cut at 10,000.
+output is cut at 10,000 (a fixed threshold in the binary, with no setting). A subagent Claude
+Code would load on its own is the project's `.claude/agents/<name>.md`, else the person's in
+their configuration directory, else, for a kind this installation ships, `claude/agents/`.
 
 A probe runs `claude -p` with the adapter's hooks in a plugin of its own (`--plugin-dir`) and no
 setting sources, so the only hooks configured are the adapter's and the person's settings are
@@ -24,6 +26,7 @@ process: a second run given them again would be handed them anew, not keep them.
 from __future__ import annotations
 
 import json
+import os
 import pathlib
 import queue
 import subprocess
@@ -31,7 +34,9 @@ import threading
 import time
 import uuid
 
-from workenv.hosts import Adapter, Route
+from workenv.hosts import Adapter, Configured, Kind, Route
+
+SHIPPED = pathlib.Path(__file__).resolve().parents[2] / "claude" / "agents"
 
 
 def reply(done) -> tuple[str | None, str]:
@@ -57,12 +62,64 @@ def launch(directory: pathlib.Path, text: str | None, kinds: dict) -> list[str]:
     if kinds:
         path = directory / "agents.json"
         path.write_text(json.dumps(
-            {name: {"description": kind.description, "prompt": kind.instructions,
-                    **({"model": kind.model} if kind.model else {}),
-                    **({"effort": kind.effort} if kind.effort else {})}
-             for name, kind in kinds.items()}, ensure_ascii=False), encoding="utf-8")
+            {name: {**kind.settings, "description": kind.description,
+                    "prompt": kind.instructions} for name, kind in kinds.items()},
+            ensure_ascii=False), encoding="utf-8")
         arguments += ["--agents", str(path)]
     return arguments
+
+
+def hooked(command: str, directory: pathlib.Path) -> list[str]:
+    """The adapter's hooks, in a plugin of their own."""
+    plugin = directory / "plugin"
+    (plugin / ".claude-plugin").mkdir(parents=True)
+    (plugin / ".claude-plugin" / "plugin.json").write_text(json.dumps(
+        {"name": "agent-bios", "version": "1.0.0",
+         "description": "The hooks agent-bios gives a session it starts."}), encoding="utf-8")
+    (plugin / "hooks").mkdir()
+    (plugin / "hooks" / "hooks.json").write_text(json.dumps({"hooks": ADAPTER.groups(command)}),
+                                                 encoding="utf-8")
+    return ["--plugin-dir", str(plugin)]
+
+
+def value(text: str):
+    """One frontmatter value: a flow list as a list, a quoted string unquoted, else the text."""
+    text = text.strip()
+    if text.startswith("[") and text.endswith("]"):
+        return [value(item) for item in text[1:-1].split(",") if item.strip()]
+    if len(text) >= 2 and text[0] == text[-1] and text[0] in "'\"":
+        return text[1:-1]
+    return text
+
+
+def defined(path: pathlib.Path) -> Kind | None:
+    """A subagent's definition file as a kind: its frontmatter's description, its body as the
+    instructions, and every other field as it is. None where it has no frontmatter."""
+    lines = path.read_text(encoding="utf-8").splitlines()
+    if not lines or lines[0].strip() != "---" or "---" not in (line.strip() for line in lines[1:]):
+        return None
+    end = next(i for i in range(1, len(lines)) if lines[i].strip() == "---")
+    fields = {}
+    for line in lines[1:end]:
+        if ":" in line and not line.startswith((" ", "\t")):
+            key, _, rest = line.partition(":")
+            fields[key.strip()] = value(rest)
+    fields.pop("name", None)
+    description = fields.pop("description", "")
+    return Kind(description=description if isinstance(description, str) else "",
+                instructions="\n".join(lines[end + 1:]).strip() + "\n", settings=fields)
+
+
+def configured(executable: str, workdir: pathlib.Path, environ: dict) -> Configured:
+    home = pathlib.Path(environ.get("CLAUDE_CONFIG_DIR") or
+                        pathlib.Path(environ.get("HOME", os.path.expanduser("~"))) / ".claude")
+    kinds: dict[str, Kind] = {}
+    for where in (workdir / ".claude" / "agents", home / "agents", SHIPPED):
+        for path in sorted(where.glob("*.md")) if where.is_dir() else ():
+            kind = defined(path)
+            if kind is not None:
+                kinds.setdefault(path.stem, kind)
+    return Configured(native=None, kinds=kinds)
 
 
 def conversed(argv: list[str], workdir: pathlib.Path, environ: dict,
@@ -127,16 +184,8 @@ def drive(recipient: str, executable: str, command: str, given: list[str],
           workdir: pathlib.Path, environ: dict):
     from workenv.hosts import probes
 
-    groups = ADAPTER.groups(command)
-    plugin = workdir / "plugin"
-    (plugin / ".claude-plugin").mkdir(parents=True)
-    (plugin / ".claude-plugin" / "plugin.json").write_text(json.dumps(
-        {"name": "agent-bios-probe", "version": "1.0.0",
-         "description": "The hooks of one agent-bios probe."}), encoding="utf-8")
-    (plugin / "hooks").mkdir()
-    (plugin / "hooks" / "hooks.json").write_text(json.dumps({"hooks": groups}), encoding="utf-8")
-    hooks = [probes.hook(event, command, True) for event in groups]
-    base = [executable, "-p", "--plugin-dir", str(plugin), "--setting-sources", "", *given]
+    hooks = [probes.hook(event, command, True) for event in ADAPTER.groups(command)]
+    base = [executable, "-p", *hooked(command, workdir), "--setting-sources", "", *given]
     if recipient == "rehydrated":
         answered, note = conversed(
             base + ["--input-format", "stream-json", "--output-format", "stream-json",
@@ -159,5 +208,8 @@ ADAPTER = Adapter(
     binary="claude",
     nested=("CLAUDECODE", "CLAUDE_CODE_SESSION_ID", "CLAUDE_CODE_ENTRYPOINT"),
     launch=launch,
+    hooked=hooked,
+    configured=configured,
+    limit=(10_000, "characters"),
     drive=drive,
 )

@@ -13,7 +13,11 @@ any the person configured, and the session keeps them through compaction; a chil
 role takes them too. `-c agents.<name>.description=` and `-c agents.<name>.config_file=` define a
 role for the session alone, and a role's own `developer_instructions` replace the session's in its
 child. Measured on 0.157.1 on 2026-09-28: the instructions went in whole to 120,000 characters,
-where a hook's output is cut at about 2,500 tokens.
+where a hook's output is cut at about 2,500 tokens. A child started with no role is of the role
+`default`, so defining `default` for the session decides what such a child starts from. What
+Codex would give a session on its own, its effective developer instructions and the roles it
+defines, is what its app server's `config/read` answers for the working directory; a role this
+installation ships and the person did not define is read from `codex/agents/`.
 
 A probe drives Codex through its app server (`codex app-server --stdio`), which runs the same
 conversations a person does without a terminal: it lists every hook Codex would run, starts a
@@ -33,8 +37,13 @@ import queue
 import subprocess
 import threading
 import time
+import tomllib
 
-from workenv.hosts import Adapter, Route
+from workenv.hosts import Adapter, Configured, HostError, Kind, Route
+
+SHIPPED = pathlib.Path(__file__).resolve().parents[2] / "codex" / "agents"
+# The fields of a role file that a kind states apart from its settings.
+OWN = ("name", "description", "developer_instructions")
 
 
 def toml(value) -> str:
@@ -61,16 +70,26 @@ def flags(command: str) -> list[str]:
 def launch(directory: pathlib.Path, text: str | None, kinds: dict) -> list[str]:
     arguments = [] if text is None else ["-c", f"developer_instructions={toml(text)}"]
     for name, kind in kinds.items():
-        role = {"name": name, "description": kind.description,
-                "developer_instructions": kind.instructions,
-                **({"model": kind.model} if kind.model else {}),
-                **({"model_reasoning_effort": kind.effort} if kind.effort else {})}
+        role = {**kind.settings, "name": name, "description": kind.description,
+                "developer_instructions": kind.instructions}
         path = directory / f"{name}.toml"
         path.write_text("".join(f"{key} = {toml(value)}\n" for key, value in role.items()),
                         encoding="utf-8")
         arguments += ["-c", f"agents.{name}.description={toml(kind.description)}",
                       "-c", f"agents.{name}.config_file={toml(str(path))}"]
     return arguments
+
+
+def hooked(command: str, directory: pathlib.Path) -> list[str]:
+    return flags(command)
+
+
+def role(path: pathlib.Path, description: str | None = None) -> Kind:
+    """A role file as a kind: its instructions, and every other field as it is."""
+    fields = tomllib.loads(path.read_text(encoding="utf-8"))
+    return Kind(description=description or fields.get("description", ""),
+                instructions=fields.get("developer_instructions", ""),
+                settings={key: item for key, item in fields.items() if key not in OWN})
 
 
 class Server:
@@ -149,6 +168,35 @@ class Server:
         self.process.wait()
 
 
+def configured(executable: str, workdir: pathlib.Path, environ: dict) -> Configured:
+    from workenv.hosts import probes
+
+    try:
+        server = Server(executable, [], workdir, environ, probes.TIMEOUT)
+    except OSError as error:
+        raise HostError("Codex could not be started.") from error
+    try:
+        started = server.call("initialize", {"clientInfo": {"name": "agent-bios", "version": "1"},
+                                             "capabilities": {"experimentalApi": True}})
+        server.send({"method": "initialized"})
+        read = (server.call("config/read", {"cwd": str(workdir), "includeLayers": False})
+                if started is not None else None)
+    finally:
+        server.close()
+    config = read.get("config") if isinstance(read, dict) else None
+    if not isinstance(config, dict):
+        raise HostError("Codex did not answer what configuration a session starts with.")
+    native = config.get("developer_instructions")
+    if native is not None and not isinstance(native, str):
+        raise HostError("Codex did not say what developer instructions a session starts with.")
+    kinds = {name: role(pathlib.Path(entry["config_file"]), entry.get("description"))
+             for name, entry in (config.get("agents") or {}).items()
+             if isinstance(entry, dict) and isinstance(entry.get("config_file"), str)}
+    for path in sorted(SHIPPED.glob("*.toml")) if SHIPPED.is_dir() else ():
+        kinds.setdefault(path.stem, role(path))
+    return Configured(native=native or "", kinds=kinds)
+
+
 def recorded(rows: list[dict]) -> list[dict]:
     """Every hook Codex lists, as a host configuration records it: whether Codex would run it is
     whether it is enabled and either trusted or managed."""
@@ -177,7 +225,8 @@ def drive(recipient: str, executable: str, command: str, given: list[str],
     from workenv.hosts import probes
 
     try:
-        server = Server(executable, [*flags(command), *given], workdir, environ, probes.TIMEOUT)
+        server = Server(executable, [*hooked(command, workdir), *given], workdir, environ,
+                        probes.TIMEOUT)
     except OSError:
         return probes.Run(None, [], "Codex could not be started.")
     try:
@@ -223,5 +272,9 @@ ADAPTER = Adapter(
     binary="codex",
     nested=("CODEX_THREAD_ID",),
     launch=launch,
+    hooked=hooked,
+    configured=configured,
+    plain="default",
+    limit=(2_500, "bytes"),
     drive=drive,
 )

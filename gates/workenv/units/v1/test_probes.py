@@ -49,8 +49,8 @@ class Hosts(unittest.TestCase):
         # A fake host answers at once, so a probe that waits out its time has hung.
         self.addCleanup(setattr, probes, "TIMEOUT", probes.TIMEOUT)
         probes.TIMEOUT = 20
-        self.scratch = tempfile.TemporaryDirectory(prefix="workenv-probe-")
-        root = pathlib.Path(self.scratch.name)
+        self.fakes = tempfile.TemporaryDirectory(prefix="workenv-probe-")
+        root = pathlib.Path(self.fakes.name)
         (root / "bin").mkdir()
         for name in ("claude", "codex"):
             (root / "bin" / name).write_text(f"#!{sys.executable}\n" + FAKE.read_text())
@@ -65,7 +65,7 @@ class Hosts(unittest.TestCase):
         self.work.mkdir()
 
     def tearDown(self):
-        self.scratch.cleanup()
+        self.fakes.cleanup()
 
     def probe(self, host: str, recipient: str, version: str = VERSION, **environ) -> tuple:
         asked = {"kind": "capability_probe", "schema": 1,
