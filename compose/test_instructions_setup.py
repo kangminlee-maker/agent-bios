@@ -434,7 +434,7 @@ class DependencyInventoryTests(unittest.TestCase):
 
     def test_unsupported_platform_offers_no_execution_recipe(self):
         rows = dependency_inventory(Path("/fixture"), {}, runner=lambda *a, **k: SimpleNamespace(returncode=1, stdout="", stderr=""),
-                                    which=lambda name, **kwargs: "/fixture/" + name, system="Windows")
+                                    which=lambda name, **kwargs: "/fixture/" + name, system="FreeBSD")
         self.assertTrue(rows)
         self.assertTrue(all(row["install_argv"] is None for row in rows))
 
@@ -527,7 +527,7 @@ class DependencyInventoryTests(unittest.TestCase):
     def test_old_node_does_not_restore_unsupported_platform_recipe(self):
         rows = dependency_inventory(Path("/fixture"), {},
             runner=lambda *a, **k: SimpleNamespace(returncode=0, stdout="v20.0.0\n", stderr=""),
-            which=lambda name, **kwargs: "/fixture/" + name, system="Windows")
+            which=lambda name, **kwargs: "/fixture/" + name, system="FreeBSD")
         self.assertTrue(rows)
         self.assertTrue(all(row["install_argv"] is None for row in rows))
 

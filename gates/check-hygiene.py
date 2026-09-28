@@ -21,7 +21,7 @@ Declared exceptions have different scopes:
     describes, never the file and never a longer line that smuggles a second
     token past the declared shape (hygiene rounds 1 #4, 2 #2). A pair whose
     file is gone or whose shape no longer matches anything fails as stale.
-  - PUBLIC_INSTALL_REQUESTS admits only each named README's exact one-line
+  - PUBLIC_INSTALL_REQUESTS admits only each named document's exact one-line
     installation request in a text code block, using repository.url as identity.
     It excuses the repository's author identifier, never additional bindings.
 
@@ -101,6 +101,7 @@ EXEMPT = {
 PUBLIC_INSTALL_REQUESTS = {
     "README.md": ("Install ", "", "the public installation request names the package's declared source"),
     "ko/README.md": ("", " 설치해줘", "the Korean installation request names the same declared source"),
+
 }
 
 
@@ -384,7 +385,7 @@ def self_test() -> int:
         repository = json.loads((scratch / "package.json").read_text(encoding="utf-8"))["repository"]["url"]
         uri = repository.removeprefix("git+").removesuffix(".git")
         base, owner, repo_name = uri.rsplit("/", 2)
-        for name, prefix, suffix in (("README.md", "Install ", ""), ("ko/README.md", "", " 설치해줘")):
+        for name, (prefix, suffix, _reason) in PUBLIC_INSTALL_REQUESTS.items():
             if name not in subjects:
                 fail(f"self-test: public install request subject {name} is absent")
             content = (scratch / name).read_text(encoding="utf-8")

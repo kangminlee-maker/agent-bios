@@ -10,9 +10,13 @@ import sys
 
 
 def main() -> int:
+    # A Windows PowerShell 5.1 caller may prefix piped input with a UTF-8 BOM.
+    for stream, encoding in ((sys.stdin, "utf-8-sig"), (sys.stdout, "utf-8"), (sys.stderr, "utf-8")):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding=encoding, errors="strict")
     root = Path(__file__).resolve().parents[1]
     expected = {"SKILL.md", "agents/openai.yaml", "scripts/bridge.py",
-                "scripts/instructions_transaction.py", "bridge.json"}
+                "scripts/instructions_transaction.py", "scripts/host_platform.py", "bridge.json"}
     try:
         paths = list(root.rglob("*"))
         if any(path.is_symlink() for path in paths):
@@ -32,6 +36,8 @@ def main() -> int:
             if not isinstance(config.get(key), str) or not Path(config[key]).is_absolute():
                 raise RuntimeError("registered bridge needs absolute private roots")
         sys.dont_write_bytecode = True
+        sys.path.insert(0, str(root / "scripts"))
+        from host_platform import cli_argv, python_argv, runtime_environment
         from instructions_transaction import confirmed_release, guard_pending, reject_symlink_ancestors
         state = Path(config["state_root"])
         reject_symlink_ancestors(state)
@@ -52,27 +58,38 @@ def main() -> int:
             if not isinstance(value, str) or (value and not Path(value).is_absolute()):
                 raise RuntimeError("registered bridge has an invalid managed runtime path")
             env["AGENT_LAUNCH_VENV"] = value
+        if "python_binding" in config:
+            bound = config["python_binding"]
+            if not isinstance(bound, dict):
+                raise RuntimeError('registered Python binding must be an object')
+            env.update(runtime_environment(bound))
         args = sys.argv[1:]
         command = args[0] if args else "session"
         tail = args[1:] if args else ["status", "--json"]
         if command == "bootstrap":
-            print((release / "compose/bootstrap/SKILL.md").read_text(encoding="utf-8"), end="")
+            text = (release / "compose/bootstrap/SKILL.md").read_text(encoding="utf-8")
+            if os.name == "nt":
+                prefix = "& '" + sys.executable.replace("'", "''") + "' '" + str(root / "scripts/bridge.py").replace("'", "''") + "' instructions"
+                text = text.replace('bash "$AGENT_BIOS_PACKAGE_ROOT/install.sh" instructions', prefix).replace('agent-bios instructions', prefix)
+            print(text, end="")
             return 0
         if command == "tui":
             operation = "instructions" if (release / "compose/instructions.py").is_file() else "corpus"
-            argv = ["/bin/bash", str(release / "install.sh"), operation, *tail]
+            argv = python_argv(release / 'compose/native_cli.py', operation, *tail, environ=env) if os.name == 'nt' else cli_argv(release, operation, *tail)
         elif command in {"setup", "instructions", "corpus", "import", "learn"}:
             if command == "instructions" and not (release / "compose/instructions.py").is_file():
                 command = "corpus"
-            argv = ["/bin/bash", str(release / "install.sh"), command, *tail]
+            argv = python_argv(release / 'compose/native_cli.py', command, *tail, environ=env) if os.name == 'nt' else cli_argv(release, command, *tail)
         elif command == "session":
             manager = release / "compose/instructions_app.py"
             if not manager.is_file():
                 manager = release / "compose/corpus_app.py"
-            argv = [sys.executable, str(manager), "--repo", str(release),
-                    "--state-dir", config["state_root"], "--user-dir", config["user_root"], "session", *tail]
+            argv = python_argv(manager, "--repo", str(release), "--state-dir", config["state_root"], "--user-dir", config["user_root"], "session", *tail, environ=env)
         else:
             raise RuntimeError("bridge supports setup, session, instructions, import, learn, bootstrap and tui")
+        if os.name == "nt":
+            import subprocess
+            return subprocess.call(argv, env=env)
         os.execve(argv[0], argv, env)
     except (OSError, RuntimeError, ValueError, KeyError) as exc:
         print(f"agent-bios app bridge: {exc}", file=sys.stderr)

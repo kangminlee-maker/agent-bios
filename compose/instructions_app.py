@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """Explicit Codex app discovery and per-task instructions context delivery."""
 from __future__ import annotations
+try:
+    from host_platform import cli_argv, create_junction, python_argv, runtime_environment
+except ImportError:
+    from .host_platform import cli_argv, create_junction, python_argv, runtime_environment
 
 import argparse
 from datetime import datetime, timezone
@@ -26,7 +30,8 @@ except ImportError:
 
 SCHEMA_VERSION = 1
 BRIDGE_MEMBERS = ("SKILL.md", "agents/openai.yaml", "scripts/bridge.py",
-                  "scripts/instructions_transaction.py", "bridge.json")
+                  "scripts/instructions_transaction.py", "scripts/host_platform.py", "bridge.json")
+PREVIOUS_BRIDGE_MEMBERS = tuple(x for x in BRIDGE_MEMBERS if x != "scripts/host_platform.py")
 LEGACY_BRIDGE_MEMBERS = ("SKILL.md", "agents/openai.yaml", "scripts/bridge.py",
                          "scripts/corpus_transaction.py", "bridge.json")
 SESSION_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]{0,127}\Z")
@@ -106,6 +111,11 @@ class AppBridge:
                 saved = _read_json(current / "bridge.json")
                 if "launch_venv" in saved:
                     config["launch_venv"] = saved["launch_venv"]
+                if "python_binding" in saved:
+                    config["python_binding"] = saved["python_binding"]
+        binding = runtime_environment(self.env)
+        if binding:
+            config["python_binding"] = binding
         return config
 
     def _source_members(self) -> dict[str, bytes]:
@@ -121,23 +131,36 @@ class AppBridge:
                 members[name] = _json_bytes(self._config())
                 continue
             path = release / "compose" / Path(name).name if name in {
-                "scripts/instructions_transaction.py", "scripts/corpus_transaction.py"
+                "scripts/instructions_transaction.py", "scripts/corpus_transaction.py", "scripts/host_platform.py"
             } else source / name
             reject_symlink_ancestors(path)
             if not path.is_file():
                 raise AppError(f"installed release has no app bridge member: {path}")
             members[name] = path.read_bytes()
+            if os.name == "nt" and name == "SKILL.md":
+                interpreter = sys.executable.replace("'", "''")
+                command = python_argv(Path('$BRIDGE'))
+                prefix = '& ' + ' '.join(('"$BRIDGE"' if word == '$BRIDGE' else "'" + word.replace("'", "''") + "'") for word in command)
+                text = members[name].decode("utf-8").replace('python3 "$BRIDGE"', prefix)
+                text += "\nOn Windows use PowerShell and the bundled interpreter shown above. Set $BRIDGE to the absolute scripts/bridge.py path beside this skill. Follow returned command argument arrays for setup; do not translate them into Bash commands.\n"
+                members[name] = text.encode("utf-8")
         return members
 
     def _owned_target(self) -> Path | None:
         reject_symlink_ancestors(self.target.parent)
         if not os.path.lexists(self.target):
             return None
-        if not self.target.is_symlink():
+        if not (self.target.is_symlink() or (os.name == "nt" and self.target.is_junction())):
             raise AppError(f"preserving unowned app skill: {self.target}")
-        raw = Path(os.readlink(self.target))
-        if not raw.is_absolute() or raw.parent != self.generations or not re.fullmatch(r"[a-f0-9]{64}", raw.name):
+        raw = self.target.resolve() if os.name == "nt" else Path(os.readlink(self.target))
+        reject_symlink_ancestors(self.generations)
+        same_parent = raw.parent.resolve() == self.generations.resolve() if os.name == "nt" else raw.parent == self.generations
+        if not raw.is_absolute() or not same_parent or not re.fullmatch(r"[a-f0-9]{64}", raw.name):
             raise AppError(f"preserving unowned app skill link: {self.target}")
+        if os.name == "nt":
+            # Keep the saved root spelling: canonicalizing the record itself would
+            # invalidate its exact ownership/context checks. Only compare locations.
+            raw = self.generations / raw.name
         reject_symlink_ancestors(raw)
         if not raw.is_dir():
             raise AppError(f"owned app skill generation is unavailable: {raw}")
@@ -145,12 +168,12 @@ class AppBridge:
         if any(path.is_symlink() for path in paths):
             raise AppError(f"preserving redirected app skill generation: {raw}")
         files = {path.relative_to(raw).as_posix(): path.read_bytes() for path in paths if path.is_file()}
-        if set(files) not in (set(BRIDGE_MEMBERS), set(LEGACY_BRIDGE_MEMBERS)) or _tree_digest(files) != raw.name:
+        if set(files) not in (set(BRIDGE_MEMBERS), set(PREVIOUS_BRIDGE_MEMBERS), set(LEGACY_BRIDGE_MEMBERS)) or _tree_digest(files) != raw.name:
             raise AppError(f"preserving changed app skill generation: {raw}")
         config = _read_json(raw / "bridge.json")
         base = self._base_config()
         if (any(config.get(key) != value for key, value in base.items())
-                or set(config) - set(base) - {"launch_venv"}
+                or set(config) - set(base) - {"launch_venv", "python_binding"}
                 or ("launch_venv" in config and (not isinstance(config["launch_venv"], str)
                     or (config["launch_venv"] and not Path(config["launch_venv"]).is_absolute())))):
             raise AppError(f"app skill belongs to different private root settings: {self.target}")
@@ -170,10 +193,12 @@ class AppBridge:
         """Identify our link namespace without opening unrelated skill contents."""
         try:
             reject_symlink_ancestors(self.target.parent)
-            if not self.target.is_symlink():
+            if not (self.target.is_symlink() or (os.name == "nt" and self.target.is_junction())):
                 return False
-            target = Path(os.readlink(self.target))
-            return target.is_absolute() and target.parent == self.generations
+            target = self.target.resolve() if os.name == "nt" else Path(os.readlink(self.target))
+            reject_symlink_ancestors(self.generations)
+            same_parent = target.parent.resolve() == self.generations.resolve() if os.name == "nt" else target.parent == self.generations
+            return target.is_absolute() and same_parent
         except (OSError, TransactionError):
             return False
 
@@ -228,11 +253,16 @@ class AppBridge:
             os.close(descriptor)
             os.unlink(temporary)
             try:
-                os.symlink(str(generation), temporary)
+                if os.name == "nt":
+                    create_junction(Path(temporary), generation)
+                    if before is not None:
+                        self.target.rmdir()
+                else:
+                    os.symlink(str(generation), temporary)
                 os.replace(temporary, self.target)
             finally:
                 if os.path.lexists(temporary):
-                    os.unlink(temporary)
+                    os.rmdir(temporary) if os.name == "nt" and Path(temporary).is_junction() else os.unlink(temporary)
             return result
 
     def unregister(self, dry_run: bool = False) -> dict[str, Any]:
@@ -244,7 +274,7 @@ class AppBridge:
         with transaction_lock(self.state_root):
             before = self._owned_target()
             if before is not None:
-                self.target.unlink()
+                self.target.rmdir() if os.name == "nt" else self.target.unlink()
             return {"registered": False, "dry_run": False, "changed": before is not None,
                     "discovery_path": str(self.target), "retained_private_generations": True}
 
@@ -335,20 +365,21 @@ class AppSessions:
         release = confirmed_release(self.state_root)
         bridge = AppBridge(self.repo, self.env)
         result = {"package_root": str(release),
-                  "learn_argv": ["/bin/bash", str(release / "install.sh"), "learn"],
+                  "learn_argv": cli_argv(release, "learn"),
                   "environment": {"AGENT_BIOS_PACKAGE_ROOT": str(release),
                                   "AGENT_BIOS_STATE_DIR": str(self.state_root),
                                   "AGENT_BIOS_INSTRUCTIONS_DIR": str(self.user_root),
                                   "AGENT_BIOS_CORPUS_DIR": str(self.user_root),
                                   "AGENT_BIOS_PRIVATE_CORPUS": "1",
                                   "AGENT_BIOS_PRIVATE_INSTRUCTIONS": "1", "AGENT_BIOS_LEGACY_INSTALL": "0"}}
+        result["environment"].update(runtime_environment())
         registered = bridge.managed_status().get("registered")
         if "AGENT_LAUNCH_VENV" in self.env or registered:
             config = bridge._config()
             if "launch_venv" in config:
                 result["environment"]["AGENT_LAUNCH_VENV"] = config["launch_venv"]
         if registered:
-            result["bridge_learn_argv"] = [sys.executable, str(bridge.target / "scripts/bridge.py"), "learn"]
+            result["bridge_learn_argv"] = python_argv(bridge.target / "scripts/bridge.py", "learn")
         return result
 
     def preview(self, session: str | None = None, *, selection: list[str] | None = None,

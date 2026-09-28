@@ -1,0 +1,82 @@
+name: Windows native build
+on:
+  workflow_dispatch:
+  push:
+    branches: [feat/windows-native]
+permissions:
+  contents: read
+jobs:
+  windows:
+    runs-on: windows-2022
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Build bundled application
+        run: python packages/windows/build.py
+      - name: Compile per-user installer
+        shell: pwsh
+        run: |
+          $version = (Get-Content package.json | ConvertFrom-Json).version
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "/DAppVersion=$version" packages/windows/installer.iss
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Verify native install and lifecycle
+        run: python packages/windows/smoke.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: agent-bios-windows-x64
+          path: |
+            dist/windows/*setup.exe
+            dist/windows/build-manifest.json
+            dist/windows/smoke-result.json
+            dist/windows/*.log
+  windows-script:
+    # Script distribution: signed PowerShell bootstrap + wrappers, approved or
+    # provisioned CPython 3.13 x64, no custom EXE. Test-signed on this runner only.
+    runs-on: windows-2022
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          architecture: x64
+      - name: Create the runner-only test signing identity
+        shell: powershell
+        run: |
+          & .\packages\windows\test-signing.ps1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Build test-signed script-distribution assets
+        shell: pwsh
+        run: |
+          python packages/windows/build-script-bundle.py --signer-thumbprint $env:AGENT_BIOS_TEST_SIGNER
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Build the unsigned preview bundle the release workflow would publish
+        # The pinned base URL names no published release; the smoke suite serves
+        # these assets locally and only qualifies the explicit-acceptance path.
+        shell: pwsh
+        run: |
+          python packages/windows/build-script-bundle.py --channel preview --output dist/windows-script-preview --public-base-url "https://github.com/${env:GITHUB_REPOSITORY}/releases/download/unpublished-ci-build/"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Qualify bootstrap, wrappers and lifecycle in PowerShell 5.1 and 7
+        shell: pwsh
+        run: |
+          python packages/windows/script-smoke.py --assets dist/windows-script --preview-assets dist/windows-script-preview
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: agent-bios-windows-x64-script-test-signed
+          path: |
+            dist/windows-script/install.ps1
+            dist/windows-script/release.json
+            dist/windows-script/checksums.json
+            dist/windows-script/application.zip
+            dist/windows-script/script-smoke-result.json
+            dist/windows-script-preview/install.ps1
+            dist/windows-script-preview/release.json
+            dist/windows-script-preview/checksums.json
+            dist/windows-script-preview/release-notes.md

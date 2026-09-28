@@ -58,6 +58,15 @@ accepts that older command name. See [compatibility](docs/instructions-compatibi
 This is an instruction and launch layer, not a replacement for either host CLI.
 It does not train the model or guarantee that the model follows every instruction.
 
+## Windows native preview
+
+A Windows x64 installer with a bundled Python runtime is built by the Windows
+workflow. It provides `agent-bios.exe` and `agent-launch.exe` without npm or WSL.
+The same workflow also qualifies a script distribution that uses an approved or
+provisioned CPython 3.13 with signed PowerShell commands and no custom EXE.
+Each Windows script release page carries the one-line PowerShell command for
+that release. See [Windows installation and validation limits](docs/windows.md).
+
 ## Quick start
 
 Use the terminal installer or set up through a Codex app conversation. Both offer

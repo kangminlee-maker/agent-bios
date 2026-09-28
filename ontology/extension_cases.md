@@ -106,7 +106,7 @@ P1/P4/P6) — anchored at `install.sh deploy_file, compose/instructions_install.
 **Situation.** A new agent-bios subcommand is introduced.
 
 **Entity.** `CliSubcommand` (F4, guard unguarded, reaches
-P1/P3/P4/P5) — anchored at `install.sh, compose/instructions.py, compose/instructions_install.py, compose/instructions_understand.py, compose/instructions_import.py, compose/instructions_app.py, compose/instructions_setup.py, compose/app_bridge/scripts/bridge.py, compose/instructions_setup_ui.py, compose/instructions_setup_i18n.py, compose/instructions_setup_cli.py, compose/setup/START.md, INSTALL.md, docs/setup.md`.
+P1/P3/P4/P5) — anchored at `install.sh, compose/instructions.py, compose/instructions_install.py, compose/instructions_understand.py, compose/instructions_import.py, compose/instructions_app.py, compose/instructions_setup.py, compose/app_bridge/scripts/bridge.py, compose/instructions_setup_ui.py, compose/instructions_setup_i18n.py, compose/instructions_setup_cli.py, compose/setup/START.md, INSTALL.md, docs/setup.md, compose/native_cli.py`.
 
 ### Impact — computed from the obligation graph
 

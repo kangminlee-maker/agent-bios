@@ -21,6 +21,11 @@ if __name__ == "__main__":
     sys.dont_write_bytecode = True
 
 try:
+    from host_platform import sync_directory, cli_argv, python_argv, runtime_environment
+except ImportError:
+    from .host_platform import sync_directory, cli_argv, python_argv, runtime_environment
+
+try:
     from instructions_install import InstructionsInstaller
     from instructions_setup import SetupController, SetupError, format_setup_result, review_summary
     from instructions_setup_i18n import LANGUAGES, choice_label, dependency_display, detect_language, translate
@@ -91,6 +96,24 @@ def _identity() -> dict[str, Any]:
 
 
 def _process_identity(pid: int) -> str | None:
+    if os.name == "nt":
+        import ctypes
+        from ctypes import wintypes
+        kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+        kernel.OpenProcess.restype = wintypes.HANDLE
+        kernel.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+        kernel.GetProcessTimes.argtypes = [wintypes.HANDLE] + [ctypes.POINTER(wintypes.FILETIME)] * 4
+        kernel.CloseHandle.argtypes = [wintypes.HANDLE]
+        handle = kernel.OpenProcess(0x1000, False, pid)
+        if not handle:
+            return None
+        try:
+            times = [wintypes.FILETIME() for _ in range(4)]
+            if not kernel.GetProcessTimes(handle, *(ctypes.byref(t) for t in times)):
+                return None
+            return str((times[0].dwHighDateTime << 32) | times[0].dwLowDateTime)
+        finally:
+            kernel.CloseHandle(handle)
     if sys.platform.startswith("linux"):
         try:
             fields = (Path("/proc") / str(pid) / "stat").read_text().rsplit(")", 1)[1].split()
@@ -131,11 +154,7 @@ def _write_json(path: Path, value: dict[str, Any]) -> None:
             os.fsync(output.fileno())
         temporary.chmod(0o600)
         os.replace(temporary, path)
-        directory = os.open(path.parent, os.O_RDONLY)
-        try:
-            os.fsync(directory)
-        finally:
-            os.close(directory)
+        sync_directory(path.parent)
     finally:
         temporary.unlink(missing_ok=True)
 
@@ -191,7 +210,7 @@ class SetupService:
 
     def start(self, language: str | None = None) -> dict[str, Any]:
         package = Path(self.installer.repo).resolve()
-        cli = ["/bin/bash", str(package / "install.sh")]
+        cli = cli_argv(package)
         return {"schema_version": SCHEMA_VERSION, "kind": "agent-bios-setup-start",
                 "languages": [{"label": label, "id": identifier} for label, identifier in LANGUAGES],
                 "suggested_language": detect_language(self.installer.env), "language": self._language(language),
@@ -302,6 +321,7 @@ class SetupService:
                                   "AGENT_BIOS_INSTRUCTIONS_DIR": context["user_dir"], "CODEX_HOME": context["codex_dir"],
                                   "AGENT_BIOS_CORPUS_DIR": context["user_dir"],
                                   "CLAUDE_CONFIG_DIR": context["claude_dir"]}, "needs_action": []}
+        result["environment"].update(runtime_environment())
         try:
             with try_transaction_lock(Path(context["state_dir"])) as acquired:
                 if not acquired:
@@ -312,7 +332,8 @@ class SetupService:
                 return self._verified_handoff(context, result)
         except (OSError, RuntimeError, ValueError) as exc:
             result["needs_action"].append(str(exc))
-            return result
+            result["environment"].update(runtime_environment())
+        return result
 
     def _verified_handoff(self, context: dict[str, Any], result: dict[str, Any]) -> dict[str, Any]:
         record = Path(context["state_dir"]) / "runtime/private-install.json"
@@ -322,8 +343,8 @@ class SetupService:
                 reject_symlink_ancestors(record)
                 release = confirmed_release(Path(context["state_dir"]))
                 result.update(package_verified=True, package_root=str(release), release_digest=release.name,
-                              cli_argv=["/bin/bash", str(release / "install.sh")],
-                              setup_argv=["/bin/bash", str(release / "install.sh"), "setup"], guide_path=str(release / "compose/setup/START.md"))
+                              cli_argv=cli_argv(release),
+                              setup_argv=cli_argv(release, "setup"), guide_path=str(release / "compose/setup/START.md"))
                 result["environment"].update(AGENT_BIOS_PACKAGE_ROOT=str(release), AGENT_BIOS_PRIVATE_INSTRUCTIONS="1", AGENT_BIOS_PRIVATE_CORPUS="1", AGENT_BIOS_LEGACY_INSTALL="0")
             except (OSError, RuntimeError, ValueError) as exc:
                 result["needs_action"].append(str(exc))
@@ -348,7 +369,7 @@ class SetupService:
             result["needs_action"].extend(bridge.get("needs_action", []))
             if bridge.get("registered") and not bridge.get("needs_action"):
                 helper = manager.target / "scripts/bridge.py"
-                result.update(helper_verified=True, helper_argv=[sys.executable, str(helper)])
+                result.update(helper_verified=True, helper_argv=python_argv(helper))
             if "AGENT_LAUNCH_VENV" in self.installer.env:
                 result["environment"]["AGENT_LAUNCH_VENV"] = self.installer.env["AGENT_LAUNCH_VENV"]
         except (OSError, RuntimeError, ValueError) as exc:

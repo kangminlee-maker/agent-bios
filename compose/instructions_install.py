@@ -6,6 +6,10 @@ activation path: installed instructions are stored and verifiable, while a launc
 activation creates the per-session snapshot and pin.
 """
 from __future__ import annotations
+try:
+    from host_platform import WINDOWS, runtime_environment
+except ImportError:
+    from .host_platform import WINDOWS, runtime_environment
 
 import argparse
 import base64
@@ -482,7 +486,7 @@ class InstructionsInstaller:
     def _projection_matches(self, entry: dict[str, Any]) -> bool:
         path, after = Path(entry["path"]), entry["after"]
         return self._matches_version(path, after) and (
-            not after.get("exists") or path.stat().st_mode & 0o777 == int(entry["mode"]))
+            not after.get("exists") or WINDOWS or path.stat().st_mode & 0o777 == int(entry["mode"]))
 
     def _old_record(self) -> dict[str, Any] | None:
         return _read_json(self.record_path) if self.record_path.exists() else None
@@ -500,8 +504,8 @@ class InstructionsInstaller:
             if current.is_symlink():
                 raise InstallError(f"owned destination has symlink ancestor: {current}")
 
-    def _expected_owned(self, release: Path) -> dict[str, str]:
-        expected = {str(self.bin_root / "agent-launch"): hashlib.sha256(self._launcher_body(release)).hexdigest(),
+    def _expected_owned(self, release: Path, launcher_runtime=None) -> dict[str, str]:
+        expected = {str(self.bin_root / ("agent-launch.cmd" if WINDOWS else "agent-launch")): hashlib.sha256(self._launcher_body(release, launcher_runtime=launcher_runtime, current=False)).hexdigest(),
                     str(self.launch_root / "profiles.toml"): _sha256(release / "launch" / "agent-launch.toml")}
         i18n = release / "launch" / "i18n"
         for source in sorted(i18n.glob("*.toml")):
@@ -509,11 +513,11 @@ class InstructionsInstaller:
         return expected
 
     def _validate_owned_record(self, record: dict[str, Any], release: Path) -> None:
-        expected = self._expected_owned(release)
+        expected = self._expected_owned(release, record.get("launcher_runtime"))
         launcher = record.get("launcher")
         if launcher is not None:
-            if not isinstance(launcher, dict) or launcher.get("path") != str(self.bin_root / "agent-launch") \
-                    or launcher.get("sha256") != expected[str(self.bin_root / "agent-launch")]:
+            if not isinstance(launcher, dict) or launcher.get("path") != str(self.bin_root / ("agent-launch.cmd" if WINDOWS else "agent-launch")) \
+                    or launcher.get("sha256") != expected[str(self.bin_root / ("agent-launch.cmd" if WINDOWS else "agent-launch"))]:
                 raise InstallError("private install record has an invalid launcher ownership claim")
             self._safe_owned_path(Path(launcher["path"]), self.bin_root)
         seen: set[str] = set()
@@ -535,7 +539,7 @@ class InstructionsInstaller:
         return None
 
     def _write_owned(self, path: Path, content: bytes, old: dict[str, Any] | None, mode: int) -> dict[str, str] | None:
-        root = self.bin_root if path == self.bin_root / "agent-launch" else self.launch_root
+        root = self.bin_root if path == self.bin_root / ("agent-launch.cmd" if WINDOWS else "agent-launch") else self.launch_root
         self._safe_owned_path(path, root)
         expected = self._owned_hash(old, path)
         if path.exists() and (path.is_symlink() or (expected is None and _sha256(path) != hashlib.sha256(content).hexdigest())
@@ -544,7 +548,35 @@ class InstructionsInstaller:
         _atomic_bytes(path, content, mode)
         return {"path": str(path), "sha256": hashlib.sha256(content).hexdigest()}
 
-    def _launcher_body(self, package_root: Path) -> bytes:
+    def _current_launcher_runtime(self):
+        if not WINDOWS:
+            return None
+        env = runtime_environment(self.env)
+        return {'schema_version': 1, 'python': env.get('AGENT_BIOS_PYTHON_EXECUTABLE', str(Path(sys.executable).resolve())),
+                'environment': env}
+
+    def _launcher_body(self, package_root: Path, *, launcher_runtime=None, current=True) -> bytes:
+        if WINDOWS:
+            spec = self._current_launcher_runtime() if current else launcher_runtime
+            if spec is None:
+                # Exact pre-binding Windows source format, for existing receipts.
+                return ('@echo off\r\n"' + sys.executable + '" "' + str(package_root / "compose/native_cli.py") + '" launch %*\r\n').encode("utf-8")
+            if (not isinstance(spec, dict) or set(spec) != {'schema_version', 'python', 'environment'}
+                    or spec['schema_version'] != 1 or not isinstance(spec['python'], str)
+                    or not Path(spec['python']).is_absolute() or not isinstance(spec['environment'], dict)):
+                raise InstallError('invalid recorded launcher runtime')
+            env = spec['environment']
+            allowed = {'AGENT_BIOS_PYTHON_ENTRY', 'AGENT_BIOS_PYTHON_DEPS', 'AGENT_BIOS_PYTHON_EXECUTABLE'}
+            if env and (set(env) != allowed or any(not isinstance(v, str) or not Path(v).is_absolute() for v in env.values())):
+                raise InstallError('invalid recorded launcher dependency binding')
+            argv = [spec['python']]
+            if env:
+                argv += ['-I', '-X', 'utf8', env['AGENT_BIOS_PYTHON_ENTRY'], '--dependencies', env['AGENT_BIOS_PYTHON_DEPS'], '--script']
+            argv += [str(package_root / 'compose/native_cli.py'), 'launch']
+            if any(any(c in value for c in '\r\n\0"') for value in argv):
+                raise InstallError('unsafe launcher runtime argument')
+            command = ' '.join('"' + value.replace('%', '%%') + '"' for value in argv)
+            return ('@echo off\r\nsetlocal DisableDelayedExpansion\r\nchcp 65001 >nul\r\n' + command + ' %*\r\n').encode('utf-8')
         quoted = shlex.quote(str(package_root))
         # Verify historical ownership using the exact released launcher vocabulary.
         canonical = (package_root / "compose/instructions_store.py").is_file()
@@ -650,6 +682,8 @@ class InstructionsInstaller:
         return result
 
     def _shell_paths(self, action: str) -> list[dict[str, Any]]:
+        if WINDOWS:
+            return []
         try:
             manager = self._shell_manager()
             # A receipt-less managed script may survive an interrupted opt-in.
@@ -736,7 +770,7 @@ class InstructionsInstaller:
         if not isinstance(baseline_ref, str):
             raise InstallError("private instructions store candidate has no baseline ref")
         owned: list[tuple[Path, bytes, int]] = [
-            (self.bin_root / "agent-launch", self._launcher_body(release), 0o755),
+            (self.bin_root / ("agent-launch.cmd" if WINDOWS else "agent-launch"), self._launcher_body(release), 0o755),
             (self.launch_root / "profiles.toml", (release / "launch" / "agent-launch.toml").read_bytes(), 0o644),
         ]
         owned.extend((self.launch_root / "i18n" / source.name, source.read_bytes(), 0o644)
@@ -759,6 +793,8 @@ class InstructionsInstaller:
             "launcher": launcher, "config_files": config, "created_at": int(time.time()),
             "mode": "private-session-scoped", "needs_action": [],
         }
+        if WINDOWS:
+            record["launcher_runtime"] = self._current_launcher_runtime()
         if selection_mode is not None:
             record["selection_mode"] = selection_mode
         paths = [{"path": str(path), "before": self._file_version(path),
@@ -990,7 +1026,7 @@ class InstructionsInstaller:
         local = [self.launch_root / name for name in ("presets.local.toml", "review-methods.local.toml", "launcher.local.toml")]
         connections = self.launch_root.parent / "agent-bios"
         cleanup = [*local, connections / "ingest-url", self.user_root / "understand" / "state.json"]
-        owned = [(self.bin_root / "agent-launch", self._launcher_body(release), 0o755),
+        owned = [(self.bin_root / ("agent-launch.cmd" if WINDOWS else "agent-launch"), self._launcher_body(release, launcher_runtime=record.get("launcher_runtime"), current=False), 0o755),
                  (self.launch_root / "profiles.toml", (release / "launch" / "agent-launch.toml").read_bytes(), 0o644)]
         owned.extend((self.launch_root / "i18n" / p.name, p.read_bytes(), 0o644)
                      for p in sorted((release / "launch" / "i18n").glob("*.toml")))
@@ -1190,7 +1226,7 @@ class InstructionsInstaller:
             ("wrappers/codex-run.sh", self.codex_root / "bin" / "codex-run"),
             ("wrappers/codex-helm.sh", self.codex_root / "bin" / "codex-helm"),
             ("wrappers/claude-run.sh", self.claude_root / "bin" / "claude-run"),
-            ("launch/agent-launch.py", self.bin_root / "agent-launch"),
+            ("launch/agent-launch.py", self.bin_root / ("agent-launch.cmd" if WINDOWS else "agent-launch")),
             ("launch/agent-launch.toml", self.launch_root / "profiles.toml"),
             ("launch/agent-launch.zsh", self.launch_root / "shell.zsh"),
         )

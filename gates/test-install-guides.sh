@@ -611,7 +611,7 @@ chmod 700 "$BLOCKED"
 # half must be real and the version half must say it cannot know — null, never 0, because
 # a fabricated zero is indistinguishable from a real count.
 NPM="$T/i17npm"; mkdir -p "$NPM/compose"
-cp "$REPO/compose/domains.json" "$REPO/compose/instructions-state.py" "$REPO/compose/instructions_transaction.py" "$REPO/compose/assemble.py" "$NPM/compose/"
+cp "$REPO/compose/domains.json" "$REPO/compose/instructions-state.py" "$REPO/compose/instructions_transaction.py" "$REPO/compose/host_platform.py" "$REPO/compose/assemble.py" "$NPM/compose/"
 env AGENT_BIOS_INSTRUCTIONS_STATUS="$NPM/status.json" python3 "$NPM/compose/instructions-state.py" \
     project --repo "$NPM" >"$T/log" 2>&1
 echo $? > "$T/rc"

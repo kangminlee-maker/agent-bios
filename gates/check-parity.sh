@@ -1405,3 +1405,4 @@ fi
 
 [ "$fail" -eq 0 ] && echo "PARITY OK: mirrors, globals, guides, domain manifest, assembler, launch profile, bypass paths, role bindings, and wrapper defaults aligned"
 exit "$fail"
+
