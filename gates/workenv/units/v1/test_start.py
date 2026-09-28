@@ -8,16 +8,18 @@ fake session that answers the probe code was handed that body.
 from __future__ import annotations
 
 import contextlib
+import dataclasses
 import io
 import json
 import pathlib
 import tomllib
 import unittest
+from unittest import mock
 
 from test_delivery import Delivering
 from test_probes import VERSION, Hosts
 
-from workenv import delivery, hosts, storage
+from workenv import delivery, hosts, journal, storage
 from workenv.contracts import canonical
 from workenv.hosts import codex, hook, probes, start
 
@@ -55,13 +57,29 @@ class Starting(Hosts, Delivering):
         return json.dumps({"helper": {"description": "Helps.", "config_file": str(helper)},
                            "keeper": {"description": "Keeps.", "config_file": str(keeper)}})
 
-    def launched(self, host: str, recipients=None, **environ) -> start.Launch:
+    def launched(self, host: str, recipients=None, sealed: dict | None = None,
+                 skip: bool = False, **environ) -> start.Launch:
         """A start on the host, with a real probe of each recipient's route that worked."""
         for recipient in sorted(hosts.adapter_for(host).routes) if recipients is None \
                 else recipients:
             self.probed(host, recipient, version=VERSION)
         return start.start(self.bench.state, self.person.actor, host, self.request, self.work,
-                           {**self.environ, **environ})
+                           {**self.environ, **environ}, sealed=sealed, skip=skip)
+
+    def sealed(self, payload: dict | None = None, **more) -> dict:
+        """The composition request an entry seals for the payload, as the actor's."""
+        row, actor = journal.OPERATIONS[start.COMPOSE], self.person.actor
+        return {"kind": "operation_request", "schema": 1, "request_id": journal.mint("req"),
+                "operation": start.COMPOSE, "effect_class": row["effect"],
+                "action": row["action"], "actor": actor, "local_access_generation": 1,
+                "owner": self.person.scope, "target": {"resource_id": actor["principal_id"]},
+                "policy_digests": [], "control_digests": [], "proof_digests": [],
+                "payload_digest": canonical.digest_of(self.request if payload is None
+                                                      else payload), **more}
+
+    def composed(self) -> list[tuple[str, str]]:
+        return self.bench.store().read("SELECT request_id, request_digest FROM requests "
+                                       "WHERE operation = ?", (start.COMPOSE,))
 
     def given(self, launch: start.Launch, flag: str) -> list[str]:
         return [launch.arguments[i + 1] for i, part in enumerate(launch.arguments)
@@ -201,6 +219,40 @@ class Start(Starting):
         launch = self.launched("codex", recipients=["new", "current", "rehydrated"])
         self.assertEqual({key.split(".")[1] for key in self.settings(launch)
                           if key.startswith("agents.")}, {"default"})
+
+    def test_skipping_the_confirmations_passes_the_host_s_arguments_for_it_last(self):
+        for host, flag in (("claude-code", "--dangerously-skip-permissions"),
+                           ("codex", "--dangerously-bypass-approvals-and-sandbox")):
+            with self.subTest(host=host):
+                self.assertNotIn(flag, self.launched(host).arguments)
+                launch = self.launched(host, skip=True)
+                self.assertEqual((launch.arguments[-1], launch.arguments.count(flag)), (flag, 1))
+
+    def test_a_host_with_no_arguments_to_skip_its_confirmations_is_not_started_skipping_them(
+            self):
+        adapter = dataclasses.replace(hosts.adapter_for("codex"), skip=())
+        self.launched("codex")
+        with mock.patch.object(hosts, "adapter_for", return_value=adapter), \
+                self.assertRaisesRegex(start.StartError, "confirmations skipped"):
+            self.launched("codex", recipients=[], skip=True)
+        self.assertEqual(len(self.composed()), 1)
+
+    def test_a_sealed_composition_is_submitted_as_it_was_sealed(self):
+        sealed = self.sealed(rationale="다음 단계")
+        launch = self.launched("codex", sealed=sealed)
+        self.assertEqual(self.composed(), [(sealed["request_id"], canonical.digest_of(sealed))])
+        self.assertEqual(self.job(launch)["request"], self.request)
+
+    def test_a_sealed_request_not_this_actor_s_composition_of_this_request_is_refused(self):
+        other = {**self.person.actor, "profile_id": journal.mint("prf")}
+        for name, sealed in (("payload", self.sealed(payload={**self.request, "schema": 2})),
+                             ("actor", self.sealed(actor=other)),
+                             ("operation", self.sealed(operation="operation.query"))):
+            with self.subTest(name=name), \
+                    self.assertRaisesRegex(start.StartError, "sealed request"):
+                self.launched("codex", sealed=sealed)
+        self.assertEqual(self.composed(), [])
+        self.assertFalse((self.bench.state / start.LAUNCHES).exists())
 
     def test_a_body_that_is_not_the_one_its_unit_names_is_not_handed_over(self):
         unit = {"unit_id": "u", "source_id": "s", "body_digest": canonical.digest_of({})}

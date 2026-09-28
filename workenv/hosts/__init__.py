@@ -124,6 +124,9 @@ class Adapter:
     # The environment variables that mark a process as running inside one of its sessions,
     # dropped before a probe starts a session of its own.
     nested: tuple[str, ...] = ()
+    # The arguments that start the host with its confirmations skipped: it asks the person
+    # before no action, and a host that sandboxes its commands runs them outside the sandbox.
+    skip: tuple[str, ...] = ()
     # The arguments that start the host with the text as its session's launch instructions and
     # the kinds defined for that session alone, writing any file they name in the directory:
     # (directory, text or None, {name: Kind}) -> arguments.

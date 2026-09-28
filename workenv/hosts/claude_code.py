@@ -207,6 +207,7 @@ ADAPTER = Adapter(
     session_env="CLAUDE_CODE_SESSION_ID",
     binary="claude",
     nested=("CLAUDECODE", "CLAUDE_CODE_SESSION_ID", "CLAUDE_CODE_ENTRYPOINT"),
+    skip=("--dangerously-skip-permissions",),
     launch=launch,
     hooked=hooked,
     configured=configured,

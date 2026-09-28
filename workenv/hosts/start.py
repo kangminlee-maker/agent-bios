@@ -3,12 +3,14 @@ person's work environment, and what the owner is asked on the host's behalf.
 
 An entrance calls `start` with the state root, the actor, the host's name, a preparation
 request and the working directory the session will run in, which is the checkout the owner
-composes in, as the hook's composition later is. In order:
+composes in, as the hook's composition later is. An entry that sealed the composition request
+itself hands it over too, and the person's choice to skip the host's confirmations. In order:
 
   1. It composes the request's preparation for no link and activates the session with it,
-     through the owner. A host session's id exists only once the host reports it, so nothing
-     names the session yet: the activation is recorded for nobody, and it returns every
-     delivered body.
+     through the owner. A sealed composition request is submitted unchanged, so the request the
+     person's screen dispatched is the one composed. A host session's id exists only once the
+     host reports it, so nothing names the session yet: the activation is recorded for nobody,
+     and it returns every delivered body.
   2. It renders the environment: the memory usage contract and its guide, then each delivered
      body under a header naming its unit, its source and its digest.
   3. It writes the launch's files in a private directory of its own under the state root: the
@@ -18,7 +20,8 @@ composes in, as the hook's composition later is. In order:
      and the job the hook reads.
   4. It returns what the entrance runs: the host's executable, the arguments that give it the
      launch instructions (the person's own first, where the host's replace them), the
-     definitions and the hooks, and the environment that names the job.
+     definitions and the hooks, then, where the person chose it, the host's arguments that skip
+     its confirmations; and the environment that names the job.
 
 Nothing is launched on a route no probe qualified: a host whose `new` route no probe qualified on
 its installed version is not started with the environment, and the start says so; where its
@@ -34,7 +37,7 @@ not apply a kind whose instructions are blank, so an empty definition would hand
 environment.
 
 `submit` is how this process asks the owner: a request sealed for the actor, answered by the
-journal around the operation's entry. The hook asks the same way.
+journal around the operation's entry (`answered`). The hook asks the same way.
 """
 from __future__ import annotations
 
@@ -51,7 +54,8 @@ from workenv.hosts import probes
 
 # The kinds the tier rule dispatches, which start from the main session's environment.
 TIERS = ("frontier", "workhorse", "sweep")
-ENTRIES = {"preparation.compose": preparation.preparation_compose,
+COMPOSE = "preparation.compose"
+ENTRIES = {COMPOSE: preparation.preparation_compose,
            "session.routing.activate": roles.session_routing_activate,
            "recipient.link.open": delivery.recipient_link_open,
            "recipient.delivery.attempt": delivery.recipient_delivery_attempt}
@@ -95,8 +99,13 @@ def submit(state: pathlib.Path, actor: dict, operation: str, target: str,
                "proof_digests": [], **fields}
     if payload is not None:
         request["payload_digest"] = canonical.digest_of(payload)
+    return answered(state, request, payload)
+
+
+def answered(state: pathlib.Path, request: dict, payload: dict | None) -> dict:
+    """The owner's answer to a request already sealed, carrying its payload."""
     return journal.layer_journal(Call(request, [] if payload is None else [payload], state),
-                                 ENTRIES[operation])
+                                 ENTRIES[request["operation"]])
 
 
 def stage(answer: dict) -> str:
@@ -163,12 +172,19 @@ class Launch:
 
 
 def start(state: pathlib.Path, actor: dict, host_name: str, request: dict,
-          workdir: pathlib.Path, environ: dict) -> Launch:
+          workdir: pathlib.Path, environ: dict, *, sealed: dict | None = None,
+          skip: bool = False) -> Launch:
     state, workdir = pathlib.Path(state), pathlib.Path(workdir)
     adapter = hosts.adapter_for(host_name)
     if adapter is None or adapter.launch is None or adapter.hooked is None or \
             adapter.configured is None:
         raise StartError(f"no adapter here can start {host_name}")
+    if sealed is not None and (sealed.get("operation") != COMPOSE or
+                               sealed.get("actor") != actor or
+                               sealed.get("payload_digest") != canonical.digest_of(request)):
+        raise StartError("the sealed request is not this actor's composition of this request")
+    if skip and not adapter.skip:
+        raise StartError(f"no arguments here start {host_name} with its confirmations skipped")
     found = probes.installed(adapter, environ, workdir)
     if found is None:
         raise StartError(f"no {host_name} is installed on this machine's path")
@@ -179,7 +195,8 @@ def start(state: pathlib.Path, actor: dict, host_name: str, request: dict,
         raise StartError(f"no probe qualified delivery to a new session on {host_name} "
                          f"{version}; probe new_delivery first")
     with contextlib.chdir(workdir):
-        composed = submit(state, actor, "preparation.compose", actor["principal_id"], request)
+        composed = answered(state, sealed, request) if sealed is not None else \
+            submit(state, actor, COMPOSE, actor["principal_id"], request)
         if stage(composed) != "previewed":
             raise StartError(f"composing the environment was {reason(composed)}")
         prepared = composed["returned"][0]
@@ -217,6 +234,6 @@ def start(state: pathlib.Path, actor: dict, host_name: str, request: dict,
         "tiers": tiers}, ensure_ascii=False), encoding="utf-8")
     launched = "\n\n".join(part for part in (configured.native, text) if part)
     arguments = [*adapter.hooked(probes.command(host_name), directory),
-                 *adapter.launch(directory, launched, kinds)]
+                 *adapter.launch(directory, launched, kinds), *(adapter.skip if skip else ())]
     return Launch(executable, arguments, {probes.JOB: str(job)}, adapter.nested, directory,
                   text)

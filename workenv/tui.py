@@ -20,7 +20,8 @@ V1 has no owner operation that lists a scope's sources, so the kept records abov
 directly. `calls` names the requests a frame rests on: that history read, and the request an
 input dispatches.
 
-The grammar (design record `2026-09-28T1601--4e305e5--v1-slice5-entry-grammar-design.md`):
+The grammar (design records `2026-09-28T1601--4e305e5--v1-slice5-entry-grammar-design.md` and
+`2026-09-29T0402--69ebae1--v1-slice5-terminal-design.md`):
 
   - **Views.** The Studio hub opens `hub`, and every other entrance `w01`. A link opens `w01` at
     its target, with its draft and return view. `w02` is one position's detail. Enter opens a
@@ -28,8 +29,8 @@ The grammar (design record `2026-09-28T1601--4e305e5--v1-slice5-entry-grammar-de
     the hub over it.
   - **W01**, in order: where the work is; the last checkpoint; an unknown start with its check;
     the positions of the basis (the selected scope's, then the person's, each Instructions,
-    knowledge, memory); the note; the tool; a blocker for each route not qualified now; the
-    start; the keys. After a start, its result.
+    knowledge, memory); the note; the tool; the permissions; a blocker for each route not
+    qualified now; the start; the keys. After a start, its result.
   - **Selection.** A position whose collection the owner holds shows that recorded choice. With
     no collection, an Instructions source with an accepted revision is `suggested` and included,
     while knowledge and memory are not included: their bodies are read only for a task. Space
@@ -37,9 +38,11 @@ The grammar (design record `2026-09-28T1601--4e305e5--v1-slice5-entry-grammar-de
     includes and no collection already applies.
   - **Focus and keys.** Focus starts on the check of an unknown start, else a link's target,
     else the first position, else the first Tab stop. Tab stops are the check, the note, the
-    tool (when it has alternatives) and the start. The arrows move through the positions,
-    and ← → change the tool. Text and paste go into a focused field code point for code point,
-    and nowhere else, so no letter is a shortcut.
+    tool (when it has alternatives), the permissions and the start. The arrows move through the
+    positions, and ← → change the tool or the permissions until a start is dispatched. The
+    permissions are the host's own settings, suggested, until changed; they are an argument of
+    the launch, not of the composition. Text and paste go into a focused field code point for
+    code point, and nowhere else, so no letter is a shortcut.
   - **Dispatch.** Enter on the start dispatches one `preparation.compose` for the basis, with the
     note as its rationale. While a start is unknown it dispatches nothing, and the start shows
     `blocked` and hands focus to the check. Enter on the check dispatches one `operation.query`
@@ -75,6 +78,9 @@ PENDING = {"unknown": "unknown", "partial": "partial", "in_review": "pending",
 GUTTER, VALUE_LINES = 2, 3
 # Hosts by the name a probe gives them.
 TOOLS = {"claude-code": "Claude Code", "codex": "Codex CLI"}
+# What a session's permissions can start as: the host's own settings, suggested, or its
+# confirmations skipped. A launch argument, not part of the composition (D-20260929-e1d487).
+PERMISSIONS = ("host_settings", "skip_confirmations")
 RATIONALE = 2000
 
 CATALOG = {
@@ -100,13 +106,16 @@ CATALOG = {
         "state.checked_empty": "비어 있음", "state.configured": "확정된 판 없음",
         "note": "메모 · 시작 요청에 함께 기록",
         "tool": "도구 {tool} · 새 세션",
+        "permissions": "권한 · {choice}",
+        "permissions.host_settings": "호스트 설정대로 확인",
+        "permissions.skip_confirmations": "확인 없이 실행",
         "blocker": "{layer} {action}: {tool}에서 확인 안 됨 · 이 호스트에서 확인 필요",
         "start": "{tool} 새 세션 시작",
         "started": "시작 요청을 보냈습니다 · 결과 확인 중",
         "job.prepare": "새 세션 준비",
         "signal": "결과 모름 · 지난 시작",
         "key.tab": "Tab 이동", "key.arrows": "↑↓ 자료", "key.space": "Space 선택",
-        "key.tool": "←→ 도구", "key.enter": "Enter 열기·시작", "key.escape": "Esc 뒤로",
+        "key.change": "←→ 변경", "key.enter": "Enter 열기·시작", "key.escape": "Esc 뒤로",
     },
     "en": {
         "suggested": "(suggested)",
@@ -131,13 +140,16 @@ CATALOG = {
         "state.checked_empty": "empty", "state.configured": "no accepted revision",
         "note": "Note · recorded with the start",
         "tool": "Tool {tool} · new session",
+        "permissions": "Permissions · {choice}",
+        "permissions.host_settings": "confirm as the host is set",
+        "permissions.skip_confirmations": "run without confirmations",
         "blocker": "{layer} {action}: not confirmed in {tool} · confirm on this host",
         "start": "Start a new {tool} session",
         "started": "Start sent · checking the result",
         "job.prepare": "Prepare a new session",
         "signal": "Result unknown · last start",
-        "key.tab": "Tab move", "key.arrows": "↑↓ material", "key.space": "Space select",
-        "key.tool": "←→ tool", "key.enter": "Enter open·start", "key.escape": "Esc back",
+        "key.tab": "Tab move", "key.arrows": "↑↓ items", "key.space": "Space select",
+        "key.change": "←→ change", "key.enter": "Enter open·start", "key.escape": "Esc back",
     },
     "ja": {
         "suggested": "(提案)",
@@ -161,13 +173,16 @@ CATALOG = {
         "state.checked_empty": "空", "state.configured": "確定した版なし",
         "note": "メモ · 開始リクエストと一緒に記録",
         "tool": "ツール {tool} · 新しいセッション",
+        "permissions": "権限 · {choice}",
+        "permissions.host_settings": "ホストの設定どおり確認",
+        "permissions.skip_confirmations": "確認なしで実行",
         "blocker": "{layer}{action}: {tool} で未確認 · このホストで確認が必要",
         "start": "{tool} の新しいセッションを開始",
         "started": "開始リクエストを送信しました · 結果を確認中",
         "job.prepare": "新しいセッションを準備",
         "signal": "結果不明 · 前回の開始",
         "key.tab": "Tab 移動", "key.arrows": "↑↓ 資料", "key.space": "Space 選択",
-        "key.tool": "←→ ツール", "key.enter": "Enter 開く・開始", "key.escape": "Esc 戻る",
+        "key.change": "←→ 変更", "key.enter": "Enter 開く・開始", "key.escape": "Esc 戻る",
     },
 }
 
@@ -340,6 +355,7 @@ class Entry:
                     route.tool not in {start.tool for start in self.starts}:
                 self.starts.append(route)
         self.tool, self.tool_chosen = 0, False
+        self.permission, self.permission_chosen = 0, False
         self.scope = self.starts[0].route["scope"] if self.starts else self.person
         layers = [self.scope] + ([self.person] if self.scope != self.person else [])
         self.positions = [position_of(store, scope, role) for scope in layers for role in ROLES]
@@ -376,6 +392,10 @@ class Entry:
     @property
     def start(self) -> Route | None:
         return self.starts[self.tool] if self.starts else None
+
+    @property
+    def permissions(self) -> str:
+        return PERMISSIONS[self.permission]
 
     def text(self, key: str, **values) -> str:
         return CATALOG[self.locale][key].format(**values)
@@ -425,6 +445,7 @@ class Entry:
             stops.append("field.note")
             if len(self.starts) > 1:
                 stops.append("execution.tool")
+            stops.append("execution.permissions")
             stops.append("action.start")
         return stops
 
@@ -503,6 +524,13 @@ class Entry:
                                       selection="selected" if self.tool_chosen
                                       else "suggested",
                                       value=start.tool, effects=["model_calls"]))
+            found.append(self.element(
+                "execution.permissions", "setting",
+                self.text("permissions", choice=self.text(f"permissions.{self.permissions}")),
+                [] if self.permission_chosen else [suggested],
+                selection="selected" if self.permission_chosen else "suggested",
+                value=self.permissions,
+                effects=["permission_request"] if self.permissions == "host_settings" else None))
         tool = start.tool if start else ""
         for element_id, route in self.blockers():
             found.append(self.element(element_id, "blocker", self.text(
@@ -561,8 +589,8 @@ class Entry:
                 keys.append("key.arrows")
             if any(position.toggles for position in self.positions):
                 keys.append("key.space")
-            if len(self.starts) > 1:
-                keys.append("key.tool")
+            if self.start:
+                keys.append("key.change")
         keys.append("key.enter")
         if view != HUB or len(self.nav) > 1 or self.link_return:
             keys.append("key.escape")
@@ -671,9 +699,13 @@ class Entry:
             position.chosen, position.included = True, not position.included
 
     def turn(self, step: int) -> None:
-        if self.here["focus"] == "execution.tool" and len(self.starts) > 1 and \
-                self.started is None:
+        if self.started is not None:
+            return
+        if self.here["focus"] == "execution.tool" and len(self.starts) > 1:
             self.tool, self.tool_chosen = (self.tool + step) % len(self.starts), True
+        elif self.here["focus"] == "execution.permissions":
+            self.permission = (self.permission + step) % len(PERMISSIONS)
+            self.permission_chosen = True
 
     def key_left(self) -> None:
         self.turn(-1)

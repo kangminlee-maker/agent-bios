@@ -53,10 +53,12 @@ class Catalog(unittest.TestCase):
                     "action": longest(table, "action."),
                     "coverage": longest(table, "coverage."),
                     "state": longest(table, "state."), "more": "99",
-                    "tool": max(tui.TOOLS.values(), key=tui.cells)}
+                    "tool": max(tui.TOOLS.values(), key=tui.cells),
+                    "choice": longest(table, "permissions.")}
             marks = {"position.empty": ["›", "[x]", table["suggested"]],
                      "position.configured": ["›", "[x]", table["suggested"]],
-                     "tool": ["›", table["suggested"]]}
+                     "tool": ["›", table["suggested"]],
+                     "permissions": ["›", table["suggested"]]}
             for key, text in table.items():
                 if key in named or key.startswith("key."):
                     continue
@@ -153,13 +155,14 @@ class Entering(Routing):
 
 
 class Drawing(Entering):
-    def test_w01_draws_the_basis_then_the_note_the_tool_the_blockers_the_start_and_the_keys(self):
+    def test_w01_draws_the_basis_the_note_the_tool_the_permissions_the_blockers_and_the_start(self):
         decide = self.route("decide", scope=self.person.scope)
         start = self.launcher(decide)[0]
         frame = self.drive()[0]
         self.assertEqual(self.ids(frame), ["context.location",
                                            *self.positions("repository", "personal"),
                                            "field.note", "execution.tool",
+                                           "execution.permissions",
                                            "blocker.personal.decide", "action.start",
                                            "help.keys"])
         self.assertEqual(frame["view"], {"view": "w01", "selected_scope": self.repository,
@@ -178,6 +181,11 @@ class Drawing(Entering):
         tool = self.element(frame, "execution.tool")
         self.assertEqual((tool["value"], tool["selection"], tool["marks"], tool["effects"]),
                          ("Claude Code", "suggested", ["(제안)"], ["model_calls"]))
+        permissions = self.element(frame, "execution.permissions")
+        self.assertEqual((permissions["role"], permissions["value"], permissions["selection"],
+                          permissions["marks"], permissions["effects"], permissions["label"]),
+                         ("setting", "host_settings", "suggested", ["(제안)"],
+                          ["permission_request"], "권한 · 호스트 설정대로 확인"))
         self.assertEqual(self.element(frame, "field.note")["value"], "")
 
     def test_a_start_in_the_person_s_scope_draws_their_positions_alone(self):
@@ -220,19 +228,19 @@ class Drawing(Entering):
         codex = self.route(probe=self.probe("codex"))
         self.offer_at("host_launcher", claude, codex)
         self.probe("codex", outcome="failed", at=LATER)
-        frames = self.drive("tab", "tab")
+        frames = self.drive("tab", "tab", "tab")
         self.assertEqual(self.element(frames[0], "blocker.repository.use")["refers_to"],
                          {"ref": "route", "route_id": codex["route_id"]})
         self.assertEqual(self.element(frames[0], "blocker.repository.use")["label"],
                          tui.CATALOG["ko"]["blocker"].format(layer="레포", action="새 세션",
                                                              tool="Codex CLI"))
         self.assertEqual(self.element(frames[0], "execution.tool")["value"], "Claude Code")
-        self.assertEqual(self.focus(frames[2]), "action.start")
+        self.assertEqual(self.focus(frames[3]), "action.start")
 
     def test_one_start_is_offered_per_host(self):
         self.launcher(hosts=("claude-code", "claude-code"))
-        frames = self.drive("tab", "tab")
-        self.assertEqual(self.focus(frames[2]), "action.start")
+        frames = self.drive("tab", "tab", "tab")
+        self.assertEqual(self.focus(frames[3]), "action.start")
         self.assertFalse([i for i in self.ids(frames[0]) if i.startswith("blocker.")])
 
     def test_two_blockers_of_one_layer_and_action_are_told_apart(self):
@@ -315,12 +323,17 @@ class Selecting(Entering):
         for frame in frames:
             self.assertEqual(self.element(frame, "execution.tool")["selection"], "suggested")
         self.assertEqual(self.element(frames[1], "help.keys")["label"],
-                         "Tab 이동 · ↑↓ 자료 · Space 선택 · Enter 열기·시작 · Esc 뒤로")
+                         "Tab 이동 · ↑↓ 자료 · Space 선택 · ←→ 변경 · Enter 열기·시작 · Esc 뒤로")
 
     def test_the_keys_name_space_only_where_a_position_can_change(self):
         self.launcher(scope=self.person.scope)
         self.assertEqual(self.element(self.drive()[0], "help.keys")["label"],
-                         "Tab 이동 · ↑↓ 자료 · Enter 열기·시작 · Esc 뒤로")
+                         "Tab 이동 · ↑↓ 자료 · ←→ 변경 · Enter 열기·시작 · Esc 뒤로")
+
+    def test_the_keys_name_the_arrows_changing_a_setting_only_with_a_start(self):
+        self.offer_at("host_launcher", self.route("use"))
+        self.assertEqual(self.element(self.drive()[0], "help.keys")["label"],
+                         "↑↓ 자료 · Enter 열기·시작 · Esc 뒤로")
 
     def test_the_tool_changes_only_on_the_tool_and_leaves_the_positions(self):
         me = self.person.scope
@@ -338,7 +351,10 @@ class Selecting(Entering):
         for frame in frames[3:]:
             self.assertEqual(self.marks(frame, "positions.personal.knowledge")[1], "selected")
         self.assertEqual(self.element(frames[0], "help.keys")["label"],
-                         "Tab 이동 · ↑↓ 자료 · Space 선택 · ←→ 도구 · Enter 열기·시작 · Esc 뒤로")
+                         "Tab 이동 · ↑↓ 자료 · Space 선택 · ←→ 변경 · Enter 열기·시작 · Esc 뒤로")
+        for frame in frames:
+            self.assertEqual(self.element(frame, "execution.permissions")["value"],
+                             "host_settings")
         self.assertEqual(claude["route_id"],
                          self.element(frames[0], "action.start")["refers_to"]["route_id"])
 
@@ -350,16 +366,18 @@ class Moving(Entering):
 
     def test_tab_moves_through_the_stops_and_wraps(self):
         self.launcher()
-        frames = self.drive("tab", "tab", "tab", "back_tab", "back_tab")
+        frames = self.drive("tab", "tab", "tab", "tab", "back_tab", "back_tab")
         self.assertEqual([self.focus(f) for f in frames],
-                         ["positions.repository.instructions", "field.note", "action.start",
-                          "field.note", "action.start", "field.note"])
+                         ["positions.repository.instructions", "field.note",
+                          "execution.permissions", "action.start", "field.note", "action.start",
+                          "execution.permissions"])
 
     def test_the_tool_is_a_stop_only_when_it_has_an_alternative(self):
         self.launcher(hosts=("claude-code", "codex"))
-        frames = self.drive("tab", "tab", "tab", "tab")
+        frames = self.drive("tab", "tab", "tab", "tab", "tab")
         self.assertEqual([self.focus(f) for f in frames[1:]],
-                         ["field.note", "execution.tool", "action.start", "field.note"])
+                         ["field.note", "execution.tool", "execution.permissions",
+                          "action.start", "field.note"])
 
     def test_back_tab_from_a_position_goes_to_the_stop_before_it(self):
         self.launcher()
@@ -461,7 +479,7 @@ class Starting(Entering):
         me = self.person.scope
         rules, revision = self.authored(me, RULES)
         self.authored(me, NOTES, role="knowledge")
-        frames = self.drive("tab", {"input": "text", "text": "다음 단계"}, "tab", "enter",
+        frames = self.drive("tab", {"input": "text", "text": "다음 단계"}, "tab", "tab", "enter",
                             "enter", "up", "up", "space")
         self.assertEqual(len(self.sent), 1)
         sealed, carried = self.sent[0]
@@ -481,7 +499,7 @@ class Starting(Entering):
                           "policy_digests": [], "control_digests": [], "proof_digests": [],
                           "payload_digest": canonical.digest_of(asked), "rationale": "다음 단계"})
         self.assertRegex(sealed["request_id"], r"\Areq_[0-9a-f]{32}\Z")
-        sent = frames[4]
+        sent = frames[5]
         self.assertEqual(sent["dispatched"], [sealed["request_id"]])
         self.assertEqual(sent["calls"], [{"operation": COMPOSE, "reads": "bodies",
                                           "request_digest": canonical.digest_of(sealed)}])
@@ -492,33 +510,60 @@ class Starting(Entering):
                          ("result", "pending",
                           {"ref": "request", "request_id": sealed["request_id"]}))
         self.assertEqual(self.ids(sent)[-2:], ["help.keys", "result.start"])
-        for frame in frames[5:]:
+        for frame in frames[6:]:
             self.assertEqual((frame["dispatched"], frame["calls"]), ([], []))
             self.assertEqual(self.element(frame, "action.start")["state"], "pending")
-        self.assertEqual(self.marks(frames[8], "positions.personal.knowledge")[1:],
+        self.assertEqual(self.marks(frames[9], "positions.personal.knowledge")[1:],
                          ("none", ["›", "[ ]"]))
         self.assertEqual(start["route_id"], begin["refers_to"]["route_id"])
 
-    def test_the_tool_stays_once_the_start_is_sent(self):
+    def test_the_tool_and_the_permissions_stay_once_the_start_is_sent(self):
         self.launcher(hosts=("claude-code", "codex"))
-        frames = self.drive("tab", "tab", "tab", "enter", "back_tab", "right")
-        self.assertEqual(self.focus(frames[6]), "execution.tool")
-        self.assertEqual(self.element(frames[6], "execution.tool")["value"], "Claude Code")
-        self.assertEqual(self.element(frames[6], "execution.tool")["selection"], "suggested")
+        frames = self.drive("tab", "tab", "tab", "tab", "enter", "back_tab", "right",
+                            "back_tab", "right")
+        self.assertEqual(self.focus(frames[7]), "execution.permissions")
+        self.assertEqual(self.element(frames[7], "execution.permissions")["value"],
+                         "host_settings")
+        self.assertEqual(self.element(frames[7], "execution.permissions")["selection"],
+                         "suggested")
+        self.assertEqual(self.focus(frames[9]), "execution.tool")
+        self.assertEqual(self.element(frames[9], "execution.tool")["value"], "Claude Code")
+        self.assertEqual(self.element(frames[9], "execution.tool")["selection"], "suggested")
+
+    def test_the_arrows_change_the_permissions_only_while_they_are_focused(self):
+        self.launcher(hosts=("claude-code", "codex"))
+        frames = self.drive("right", "tab", "tab", "tab", "right", "right", "left",
+                            locale="en")
+        for frame in frames[:5]:
+            self.assertEqual(self.element(frame, "execution.permissions")["value"],
+                             "host_settings")
+        self.assertEqual(self.element(frames[3], "execution.tool")["value"], "Claude Code")
+        skipped = self.element(frames[5], "execution.permissions")
+        self.assertEqual((skipped["value"], skipped["selection"], skipped["marks"],
+                          skipped["label"]),
+                         ("skip_confirmations", "selected", ["›"],
+                          "Permissions · run without confirmations"))
+        self.assertNotIn("effects", skipped)
+        again = self.element(frames[6], "execution.permissions")
+        self.assertEqual((again["value"], again["selection"], again["marks"], again["effects"]),
+                         ("host_settings", "selected", ["›"], ["permission_request"]))
+        self.assertEqual(self.element(frames[7], "execution.permissions")["value"],
+                         "skip_confirmations")
+        self.assertEqual(self.element(frames[7], "execution.tool")["value"], "Claude Code")
 
     def test_a_start_that_includes_nothing_reads_nothing_and_carries_no_note(self):
         self.launcher()
-        frames = self.drive("tab", "tab", "enter")
+        frames = self.drive("tab", "tab", "tab", "enter")
         sealed, carried = self.sent[0]
         self.assertEqual(carried[0]["basis"]["source_pins"], [])
         self.assertNotIn("rationale", sealed)
-        self.assertEqual(frames[3]["calls"][0]["reads"], "nothing")
+        self.assertEqual(frames[4]["calls"][0]["reads"], "nothing")
 
     def test_a_position_the_person_excluded_is_not_pinned(self):
         me = self.person.scope
         self.launcher(scope=me)
         self.authored(me, RULES)
-        self.drive("space", "tab", "tab", "enter")
+        self.drive("space", "tab", "tab", "tab", "enter")
         self.assertEqual(self.sent[0][1][0]["basis"]["source_pins"], [])
 
     def test_a_collection_the_composition_applies_is_not_pinned_again(self):
@@ -526,18 +571,18 @@ class Starting(Entering):
         self.launcher(scope=me)
         source, revision = self.authored(me, RULES)
         self.placed(self.collection(me, "instructions", [self.entry(source, revision)]))
-        frames = self.drive("tab", "tab", "enter")
+        frames = self.drive("tab", "tab", "tab", "enter")
         self.assertEqual(self.sent[0][1][0]["basis"]["source_pins"], [])
-        self.assertEqual(frames[3]["calls"][0]["reads"], "bodies")
+        self.assertEqual(frames[4]["calls"][0]["reads"], "bodies")
 
     def test_a_note_longer_than_a_rationale_holds_is_not_sent(self):
         self.launcher()
         long = [{"input": "text", "text": "a" * 1000}] * 2
-        frames = self.drive("tab", *long, {"input": "text", "text": "b"}, "tab", "enter",
-                            "back_tab", "backspace", "tab", "enter")
-        self.assertEqual(self.element(frames[6], "action.start")["state"], "blocked")
-        self.assertEqual(self.element(frames[6], "action.start")["executing"], False)
-        self.assertEqual(self.focus(frames[6]), "action.start")
+        frames = self.drive("tab", *long, {"input": "text", "text": "b"}, "tab", "tab", "enter",
+                            "back_tab", "back_tab", "backspace", "tab", "tab", "enter")
+        self.assertEqual(self.element(frames[7], "action.start")["state"], "blocked")
+        self.assertEqual(self.element(frames[7], "action.start")["executing"], False)
+        self.assertEqual(self.focus(frames[7]), "action.start")
         self.assertEqual(len(self.sent), 1)
         self.assertEqual(self.sent[0][0]["rationale"], "a" * 2000)
 
@@ -591,7 +636,7 @@ class Unknown(Entering):
     def test_the_check_dispatches_one_query_and_the_start_dispatches_nothing(self):
         _, activated, _ = self.unknown_start()
         draft = activated["result"]["request_id"]
-        frames = self.drive("enter", "enter", "tab", "tab", "enter")
+        frames = self.drive("enter", "enter", "tab", "tab", "tab", "enter")
         self.assertEqual(len(self.sent), 1)
         sealed, carried = self.sent[0]
         asked = {"kind": "operation_query", "schema": 1, "request_id": draft}
@@ -604,8 +649,9 @@ class Unknown(Entering):
         for frame in frames[1:]:
             check = self.element(frame, "action.check")
             self.assertEqual((check["executing"], check["state"]), (True, "pending"))
-        self.assertEqual(self.focus(frames[4]), "action.start")
-        held = frames[5]
+        self.assertEqual(self.focus(frames[4]), "execution.permissions")
+        self.assertEqual(self.focus(frames[5]), "action.start")
+        held = frames[6]
         self.assertEqual(self.element(held, "action.start")["state"], "blocked")
         self.assertEqual(self.focus(held), "action.check")
         self.assertEqual((held["dispatched"], held["calls"]), ([], []))
@@ -701,8 +747,9 @@ class Shown(Entering):
         rows = {e["element_id"]: e["shown"] for e in self.drive(
             "tab", {"input": "text", "text": "a" * room * 3}, terminal=(40, 9),
             locale="en")[2]["elements"]}
+        # The permissions start on the first row past the last.
         self.assertNotEqual(rows["execution.tool"], "off_screen")
-        self.assertEqual(rows["action.start"], "off_screen")
+        self.assertEqual(rows["execution.permissions"], "off_screen")
 
     def test_a_locale_changes_the_wording_and_the_marks_and_nothing_else(self):
         me = self.person.scope
@@ -727,7 +774,8 @@ class Driving(Entering):
         script = {"kind": "surface_script", "schema": 1,
                   "entrance": {"name": "host_launcher", "root_origin": "owner"},
                   "terminal": {"columns": 80, "rows": 24}, "locale": "ko",
-                  "inputs": [{"input": "key", "key": key} for key in ("tab", "tab", "enter")]}
+                  "inputs": [{"input": "key", "key": key}
+                             for key in ("tab", "tab", "tab", "enter")]}
         answer = self.run_with(tui.surface_drive,
                                bench.request(self.person, DRIVE, self.person.profile, script),
                                [script], now=LATER)
@@ -739,8 +787,8 @@ class Driving(Entering):
                           "client": {"name": "agent-bios-entry", "version": "1"},
                           "mode": {"runs": "real"}, "at": LATER,
                           "script_digest": canonical.digest_of(script)})
-        self.assertEqual(len(trace["frames"]), 4)
-        self.assertEqual(len(trace["frames"][3]["dispatched"]), 1)
+        self.assertEqual(len(trace["frames"]), 5)
+        self.assertEqual(len(trace["frames"][4]["dispatched"]), 1)
         store = self.bench.store()
         self.assertEqual(store.read("SELECT COUNT(*) FROM requests WHERE operation = ?",
                                     (COMPOSE,))[0][0], 0)

@@ -273,6 +273,7 @@ ADAPTER = Adapter(
     session_env="CODEX_THREAD_ID",
     binary="codex",
     nested=("CODEX_THREAD_ID",),
+    skip=("--dangerously-bypass-approvals-and-sandbox",),
     launch=launch,
     hooked=hooked,
     configured=configured,
