@@ -44,6 +44,17 @@ class Starting(Hosts, Delivering):
         Hosts.tearDown(self)
         Delivering.tearDown(self)
 
+    def roles(self) -> str:
+        """Two roles the person defined for Codex: one with instructions of its own, one
+        without, as FAKE_HOST_ROLES states them."""
+        helper, keeper = self.home / "helper.toml", self.home / "keeper.toml"
+        helper.write_text('name = "helper"\ndescription = "Helps."\nmodel = "a-model"\n'
+                          'developer_instructions = "  "\n')
+        keeper.write_text('name = "keeper"\ndescription = "Keeps."\n'
+                          'developer_instructions = "Keep things."\n')
+        return json.dumps({"helper": {"description": "Helps.", "config_file": str(helper)},
+                           "keeper": {"description": "Keeps.", "config_file": str(keeper)}})
+
     def launched(self, host: str, recipients=None, **environ) -> start.Launch:
         """A start on the host, with a real probe of each recipient's route that worked."""
         for recipient in sorted(hosts.adapter_for(host).routes) if recipients is None \
@@ -170,6 +181,19 @@ class Start(Starting):
         self.assertTrue(sweep["developer_instructions"].endswith(launch.text))
         plain = tomllib.loads(pathlib.Path(given["agents.default.config_file"]).read_text())
         self.assertEqual(plain["developer_instructions"], "native rules")
+
+    def test_with_no_instructions_of_the_persons_a_blank_kind_is_given_the_least_that_is_not(
+            self):
+        # Codex applies no role whose instructions are blank: its child would take the session's.
+        launch = self.launched("codex", FAKE_HOST_ROLES=self.roles())
+        given = self.settings(launch)
+        self.assertEqual({key.split(".")[1] for key in given if key.startswith("agents.")},
+                         {*start.TIERS, "default", "helper"})
+        for name in ("default", "helper"):
+            role = tomllib.loads(pathlib.Path(given[f"agents.{name}.config_file"]).read_text())
+            self.assertEqual(role["developer_instructions"], start.PLAIN, name)
+        helper = tomllib.loads(pathlib.Path(given["agents.helper.config_file"]).read_text())
+        self.assertEqual((helper["model"], helper["description"]), ("a-model", "Helps."))
 
     def test_where_no_probe_qualified_a_child_every_kind_is_the_hosts_own(self):
         launch = self.launched("claude-code", recipients=["new", "current", "rehydrated"])
@@ -320,6 +344,23 @@ class Hosted(Starting):
                                            ("delivered", "rehydrated"), ("delivered", "child")])
         store = storage.of(self.bench.state)
         self.assertEqual(store.read("SELECT count(*) FROM links"), [(1,)])
+
+    def test_no_codex_child_outside_the_tiers_takes_the_environment_whatever_it_was_given(self):
+        # The person has no instructions of their own and a role that states none.
+        launch = self.launched("codex", FAKE_HOST_ROLES=self.roles())
+        server = codex.Server(launch.executable, launch.arguments, self.work,
+                              {**self.environ, "FAKE_HOST_ROLES": self.roles(),
+                               **launch.environ}, 20)
+        try:
+            server.call("initialize", {"clientInfo": {"name": "t", "version": "1"},
+                                       "capabilities": {}})
+            thread = server.call("thread/start", {"cwd": str(self.work)})["thread"]["id"]
+            replies = [server.turn(thread, prompt) for prompt in
+                       (ASK, child("default"), child("helper"), child("keeper"),
+                        child("workhorse"))]
+        finally:
+            server.close()
+        self.assertEqual(replies, [[CODE], ["NONE"], ["NONE"], ["NONE"], [CODE]])
 
 
 if __name__ == "__main__":

@@ -14,7 +14,9 @@ role takes them too. `-c agents.<name>.description=` and `-c agents.<name>.confi
 role for the session alone, and a role's own `developer_instructions` replace the session's in its
 child. Measured on 0.157.1 on 2026-09-28: the instructions went in whole to 120,000 characters,
 where a hook's output is cut at about 2,500 tokens. A child started with no role is of the role
-`default`, so defining `default` for the session decides what such a child starts from. What
+`default`, so defining `default` for the session decides what such a child starts from. A role
+whose `developer_instructions` are absent, empty or only whitespace does not replace the session's:
+its child starts from the session's instructions (measured the same day, one child each). What
 Codex would give a session on its own, its effective developer instructions and the roles it
 defines, is what its app server's `config/read` answers for the working directory; a role this
 installation ships and the person did not define is read from `codex/agents/`.

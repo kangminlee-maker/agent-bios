@@ -26,7 +26,12 @@ its installed version is not started with the environment, and the start says so
 
 The tiers (`TIERS`) are the kinds the tier rule dispatches, and they start from the environment
 the main session does. A child of any other kind, a review above all, starts from its own
-definition alone (`D-20260928-4a1cc3`).
+definition alone (`D-20260928-4a1cc3`). On a host whose children take the session's launch
+instructions unless their kind states instructions of its own (Codex), every kind the person
+defined with none, and the kind a child started with no kind is, are defined for the session
+with the person's own instructions, or with `PLAIN` where the person has none: that host does
+not apply a kind whose instructions are blank, so an empty definition would hand its child the
+environment.
 
 `submit` is how this process asks the owner: a request sealed for the actor, answered by the
 journal around the operation's entry. The hook asks the same way.
@@ -53,6 +58,9 @@ ENTRIES = {"preparation.compose": preparation.preparation_compose,
 # Where each launch's files are kept, under the state root.
 LAUNCHES = "launches"
 TITLE = "# agent-bios work environment"
+# The instructions of a kind that must replace the session's where the person has none of their
+# own: the least that is not blank.
+PLAIN = "Carry out the task you are given."
 
 
 class StartError(Exception):
@@ -192,10 +200,13 @@ def start(state: pathlib.Path, actor: dict, host_name: str, request: dict,
     tiers = [tier for tier in TIERS if tier in configured.kinds] \
         if hosts.supports(store, host, "child") else []
     kinds = {tier: configured.kinds[tier].adding(text) for tier in tiers}
-    if adapter.plain is not None and adapter.plain not in kinds:
-        kinds[adapter.plain] = configured.kinds.get(adapter.plain) or hosts.Kind(
-            description="A child started with no kind of its own.",
-            instructions=configured.native or "")
+    if adapter.plain is not None:
+        own = configured.native if (configured.native or "").strip() else PLAIN
+        defined = {name: kind for name, kind in configured.kinds.items() if name not in kinds}
+        defined.setdefault(adapter.plain, hosts.Kind(
+            description="A child started with no kind of its own.", instructions=""))
+        kinds.update({name: dataclasses.replace(kind, instructions=own)
+                      for name, kind in defined.items() if not kind.instructions.strip()})
     directory = state / LAUNCHES / secrets.token_hex(8)
     directory.mkdir(parents=True, mode=0o700)
     (directory / "environment.md").write_text(text, encoding="utf-8")

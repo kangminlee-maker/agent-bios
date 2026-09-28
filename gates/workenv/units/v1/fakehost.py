@@ -22,7 +22,10 @@ its hooks but reads neither), `forget` (drops its launch instructions on compact
 starts no conversation), `noend` (Codex answers and closes before the turn ends). In `error`
 Codex leaves only a plan, no message. `FAKE_HOST_VERSION` is the version it reports, and
 `FAKE_HOST_NATIVE` the developer instructions Codex is configured with, which its `config/read`
-answers and a session given none at launch starts with.
+answers and a session given none at launch starts with, and `FAKE_HOST_ROLES` the roles the person
+defined (JSON: name to description and config_file), which a run's own `-c agents.*` override. As
+Codex does, a role whose developer instructions are absent or blank leaves its child the
+session's.
 `FAKE_HOST_TRUST` is which of the hooks given per run Codex would run: `all`, or a comma list of
 `<event>:<matcher>` places, an empty matcher for none. Every run appends to `FAKE_HOST_LOG` its
 host, its arguments, the hooks it was configured with, and whether nested-session variables and
@@ -182,9 +185,12 @@ def camel(event: str) -> str:
 
 
 def codex(argv: list[str]) -> int:
-    groups, launched, roles = configured(argv)
+    groups, launched, given = configured(argv)
+    roles = {**json.loads(os.environ.get("FAKE_HOST_ROLES", "{}")), **given}
     kinds = {name: tomllib.loads(pathlib.Path(role["config_file"]).read_text())
-             ["developer_instructions"] for name, role in roles.items() if "config_file" in role}
+             .get("developer_instructions", "") for name, role in roles.items()
+             if "config_file" in role}
+    kinds = {name: text for name, text in kinds.items() if text.strip()}
     log(argv, groups or None)
     if argv == ["--version"]:
         print(f"codex-cli {os.environ['FAKE_HOST_VERSION']}")
