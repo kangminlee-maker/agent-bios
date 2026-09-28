@@ -27,6 +27,19 @@ Activation is committed with a receipt. Where the preparation names a link, it i
 what the preparation's recipient, the host session that link names, received. A preparation
 composed for no link names no recipient, and the owner makes none up, so its activation is
 observed for nobody.
+
+A start hands its activation to a host whose session reports only once it has begun, so it asks
+the same operation through two more answers of this owner (`workenv.hosts.start`):
+
+  - `session_routing_dispatched`, as the activation is handed on: refused as the activation
+    would be, and otherwise unknown (`outcome_unknown`), returning and committing nothing. The
+    session's report asks the same request again, and the activation itself answers it.
+  - `session_routing_unreported`, once nothing waits for that report any more: `expired` with
+    `delivery_unobserved`. The host was handed the environment, and nothing observed that it
+    arrived; a new start is a new request.
+
+The conformance driver answers a step whose reply is lost with the first (`reply_lost` in its
+serving table).
 """
 from __future__ import annotations
 
@@ -108,21 +121,47 @@ def projection(call, prepared: dict) -> tuple[dict | None, list[bytes]]:
             "prepared_at": journal.now(call)}, members
 
 
-def session_routing_activate(call) -> dict:
+def activating(call) -> tuple[dict | None, dict | None]:
+    """The refusal of an activation, or None and the preparation it activates."""
     store = storage.of(call.state)
     activation = journal.payload(call)
     profile = call.request["target"]["resource_id"]
     if profile != call.request["actor"]["profile_id"] or \
             activation["session"]["profile_id"] != profile:
-        return refused(call, c03.REQUEST_MISMATCH, "/target/resource_id")
+        return refused(call, c03.REQUEST_MISMATCH, "/target/resource_id"), None
     prepared = delivery.preparation_by_digest(store, activation["preparation_digest"])
     if prepared is None:
-        return refused(call, c01.REF_UNAVAILABLE, "/preparation_digest")
+        return refused(call, c01.REF_UNAVAILABLE, "/preparation_digest"), None
     recipient = prepared["recipient"].get("recipient_digest")
     if recipient is not None and store.get(recipient)["host"] != activation["session"]["host"]:
-        return refused(call, c02.RECIPIENT_MISMATCH, "/session/host")
+        return refused(call, c02.RECIPIENT_MISMATCH, "/session/host"), None
     if moved(store, prepared):
-        return refused(call, c07.WORKING_BYTES_MOVED)
+        return refused(call, c07.WORKING_BYTES_MOVED), None
+    return None, prepared
+
+
+def session_routing_dispatched(call) -> dict:
+    refusal, _ = activating(call)
+    if refusal is not None:
+        return refusal
+    return journal.answered(call, journal.UNKNOWN, gaps=[{"code": c03.OUTCOME_UNKNOWN}],
+                            recovery=["query_same_request", "retry_same_request"],
+                            local_effect="private_state_written", provider_effect="unknown")
+
+
+def session_routing_unreported(call) -> dict:
+    return journal.answered(call, "expired", gaps=[{"code": c07.DELIVERY_UNOBSERVED}],
+                            recovery=["new_governed_request"],
+                            local_effect="private_state_written", provider_effect="dispatched")
+
+
+def session_routing_activate(call) -> dict:
+    refusal, prepared = activating(call)
+    if refusal is not None:
+        return refusal
+    store = storage.of(call.state)
+    activation = journal.payload(call)
+    recipient = prepared["recipient"].get("recipient_digest")
     projected, members = projection(call, prepared)
     projections = [] if projected is None else [projected]
     routing = {"kind": "session_routing", "schema": 1, "session": activation["session"],

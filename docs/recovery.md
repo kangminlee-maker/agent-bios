@@ -40,6 +40,14 @@ wiring. Neither activates instructions in a task.
 
 `agent-launch` examples assume `~/.local/bin` is on `PATH`; otherwise use `"$HOME/.local/bin/agent-launch"`. From a checkout, deploy with `bash install.sh install` at its root, not the globally installed CLI. A blocked npm postinstall message does not deploy the instructions; the explicit `install` command remains necessary.
 
+A start from the entry keeps `agent-bios start` running until the host exits, and exits with
+the host's status. The session reports through its hook that it began. When the host exits
+without reporting—a Codex hook not yet trusted, for one—the start is recorded as not reported
+and the command says so. When the start program itself is ended, by a closed terminal for one,
+the entry shows that start as unknown next time, with its check focused. Enter checks it, and
+once nothing waits on it any more, the check records it as not reported; open the entry again
+to start.
+
 ## Ownership and legacy migration
 
 `install`, `onboard`, `reset`, `migrate`, and `uninstall` expose dry-run or preview

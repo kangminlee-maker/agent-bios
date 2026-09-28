@@ -12,7 +12,9 @@ import io
 import json
 import os
 import pathlib
+import signal
 import stat
+import sys
 import unittest
 from unittest import mock
 
@@ -271,8 +273,11 @@ class Start(Commanding):
         self.authored(self.person.scope, {"rules/review.md": BODY})
         screen = Screen(TAB, "다음 단계".encode(), TAB, TAB, ENTER)
         code, said = self.run_command("start", "claude-code", screen=screen)
-        self.assertEqual((code, said), (0, ""), self.err)
         [(launch, environ)] = self.launched
+        # The fake session never reports, so its start is settled once the host has exited.
+        self.assertEqual((code, said), (0, "agent-bios start: the session never reported that "
+                                           "it began, so its start is recorded as not reported "
+                                           f"({launch.activation})."), self.err)
         self.assertEqual(pathlib.Path(launch.executable).name, "claude")
         self.assertNotIn("--dangerously-skip-permissions", launch.arguments)
         self.assertEqual(environ[local.BASE], str(self.base))
@@ -283,11 +288,32 @@ class Start(Commanding):
             "SELECT rationale FROM requests WHERE request_id = ?", (compose,)), [("다음 단계",)])
         [(select, stage)] = self.held_requests("route.select")
         self.assertEqual(stage, "committed")
-        self.assertEqual([stage for _, stage in self.held_requests("session.routing.activate")],
-                         ["committed"])
+        self.assertEqual(self.held_requests("session.routing.activate"),
+                         [(launch.activation, "expired")])
         self.assertEqual(screen.frames[0]["view"]["origin"],
                          {"name": "setup", "root_origin": "caller"})
         self.assertFalse(screen.held)
+        self.assertFalse(start.waiting(self.bench.state, launch.activation))
+
+    def test_a_session_that_reports_activates_its_start_and_nothing_more_is_said(self):
+        self.qualified("claude-code")
+        self.authored(self.person.scope, {"rules/review.md": BODY})
+
+        def reported(launch: start.Launch, environ: dict) -> int:
+            self.assertTrue(start.waiting(self.bench.state, launch.activation))
+            event = {"hook_event_name": "SessionStart", "source": "startup", "session_id": "s-1"}
+            with contextlib.chdir(self.work), contextlib.redirect_stdout(io.StringIO()):
+                hook.main(["claude-code"], io.StringIO(json.dumps(event)),
+                          {hook.JOB: launch.environ[probes.JOB]})
+            self.launched.append((launch, environ))
+            return 7
+        self.became = reported
+        code, said = self.run_command("start", "claude-code", screen=Screen(TAB, TAB, TAB, ENTER))
+        self.assertEqual((code, said, self.err), (7, "", ""))
+        [(launch, _)] = self.launched
+        self.assertEqual(self.held_requests("session.routing.activate")[0],
+                         (launch.activation, "committed"))
+        self.assertFalse(start.waiting(self.bench.state, launch.activation))
 
     def element_of(self, screen: Screen, element_id: str) -> dict:
         return next(e for frame in reversed(screen.frames) for e in frame["elements"]
@@ -366,19 +392,75 @@ class Start(Commanding):
         self.assertEqual((check["executing"], checked["dispatched"] != []), (False, True))
         self.assertEqual(self.held_requests("preparation.compose")[1:], [])
 
+    def test_the_check_settles_a_start_nothing_waits_for_any_more_and_says_so(self):
+        self.qualified("claude-code")
+        launch = start.start(self.bench.state, self.person.actor, "claude-code",
+                             self.ask([self.person.scope]), self.work, self.env)
+        # Its program still waits on the host, from another terminal: the start stays unknown.
+        screen = Screen(ENTER, QUIT)
+        self.run_command("start", "claude-code", screen=screen)
+        draft = screen.element("result.draft")
+        self.assertEqual((draft["state"], draft["refers_to"]["request_id"]),
+                         ("unknown", launch.activation))
+        # Its program ended without settling it, as a closed terminal ends it.
+        start.release(launch)
+        screen = Screen(ENTER, QUIT)
+        self.run_command("start", "claude-code", "--locale", "en", screen=screen)
+        draft = screen.element("result.draft")
+        self.assertEqual((draft["state"], draft["label"]),
+                         ("unavailable", f"Not checked · {commands.UNREPORTED}"))
+        self.assertEqual(self.held_requests("session.routing.activate"),
+                         [(launch.activation, "expired")])
+        screen = Screen(QUIT)
+        self.run_command("start", "claude-code", screen=screen)
+        self.assertNotIn("result.draft", [e["element_id"] for e in screen.frames[0]["elements"]])
+
     def test_the_entry_needs_a_terminal(self):
         self.qualified("claude-code")
         with mock.patch.object(os, "isatty", return_value=False):
             self.assertEqual(self.run_command("start", "claude-code")[0], 1)
         self.assertIn("the entry needs a terminal", self.err)
 
-    def test_the_program_becomes_the_host_with_the_launch_s_environment(self):
-        launch = start.Launch("/bin/host", ["--a"], {probes.JOB: "/j"}, ("NESTED",),
+    def hosted(self, mode: str) -> tuple[int, dict]:
+        """A host run as the program's child: its exit status, and what it saw."""
+        seen = self.scratch / "seen.json"
+        host = self.scratch / "host"
+        host.write_text(
+            f"#!{sys.executable}\nimport json, os, signal, sys\n"
+            "json.dump({'argv': sys.argv[1:], 'environ': {name: os.environ.get(name) for name in "
+            f"('NESTED', 'KEEP', {probes.JOB!r})}}, 'signals': [repr(signal.getsignal(number)) "
+            "for number in (signal.SIGINT, signal.SIGQUIT)]}, open(os.environ['SEEN'], 'w'))\n"
+            "if sys.argv[1] == 'interrupt':\n"
+            "    os.kill(os.getppid(), signal.SIGINT)\n    os.kill(os.getppid(), signal.SIGQUIT)\n"
+            "if sys.argv[1] == 'killed':\n    os.kill(os.getpid(), signal.SIGTERM)\n"
+            "sys.exit(3)\n")
+        host.chmod(0o700)
+        launch = start.Launch(str(host), [mode], {probes.JOB: "/j"}, ("NESTED",),
                               pathlib.Path("/d"), "text")
-        with mock.patch.object(os, "execve") as execve:
-            commands.execute(launch, {"NESTED": "1", "KEEP": "2", probes.JOB: "old"})
-        execve.assert_called_once_with("/bin/host", ["/bin/host", "--a"],
-                                       {"KEEP": "2", probes.JOB: "/j"})
+        before = [signal.getsignal(number) for number in (signal.SIGINT, signal.SIGQUIT)]
+        code = commands.execute(launch, {"NESTED": "1", "KEEP": "2", probes.JOB: "old",
+                                         "SEEN": str(seen)})
+        self.assertEqual([signal.getsignal(number) for number in (signal.SIGINT, signal.SIGQUIT)],
+                         before)
+        return code, json.loads(seen.read_text())
+
+    def test_the_host_runs_as_the_program_s_child_with_the_launch_s_environment(self):
+        code, seen = self.hosted("plain")
+        self.assertEqual((code, seen["argv"], seen["environ"]),
+                         (3, ["plain"], {"NESTED": None, "KEEP": "2", probes.JOB: "/j"}))
+        # What the program catches while it waits is the default again in the host.
+        self.assertFalse([found for found in seen["signals"] if "SIG_IGN" in found], seen)
+
+    def test_an_interrupt_or_quit_the_terminal_sends_leaves_the_program_waiting(self):
+        self.assertEqual(self.hosted("interrupt")[0], 3)
+
+    def test_a_host_ended_by_a_signal_is_reported_as_a_shell_reports_it(self):
+        self.assertEqual(self.hosted("killed")[0], 128 + signal.SIGTERM)
+
+    def test_a_host_that_cannot_be_run_is_named(self):
+        launch = start.Launch(str(self.scratch / "absent"), [], {}, (), pathlib.Path("/d"), "")
+        with self.assertRaisesRegex(commands.CommandError, "absent could not be run"):
+            commands.execute(launch, {})
 
     def test_a_check_is_drawn_unknown_only_while_the_request_is_held_pending(self):
         def query(*returned, stage="previewed", gaps=()):

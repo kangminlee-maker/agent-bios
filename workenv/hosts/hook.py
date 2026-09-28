@@ -12,15 +12,17 @@ command prints the adapter's output carrying the text, and otherwise nothing. A 
 carrier serves was handed its text when the host started, so the hook hands it nothing.
 
 A session's job (`workenv.hosts.start`) names the state root, the actor, the host, the
-preparation request the session was started with, the bodies handed at launch, and the tiers.
-The hook records, through the owner, what reached the session, at the event where the host
-reports that it did:
+preparation request the session was started with, the bodies handed at launch, the tiers, and
+the activation the start handed on. The hook records, through the owner, what reached the
+session, at the event where the host reports that it did:
 
-  - `new` (the session began): it opens the link for the session id the host reported, composes
-    the job's request for that link, and only where the composed bodies are exactly the ones
-    handed at launch activates the session with it and records that the new session received
-    them. Where they differ, the checkout moved between the start and the session, and it
-    records nothing more and says so.
+  - `new` (the session began): it first asks the start's activation again under its own id, so
+    one still unknown activates, and one already settled stays as it was: the session began
+    either way. Then it opens the link for the session id the host reported, composes the job's
+    request for that link, and only where the composed bodies are exactly the ones handed at
+    launch activates the session with it and records that the new session received them. Where
+    they differ, the checkout moved between the start and the session, and it records nothing
+    more and says so.
   - `rehydrated` (the session was compacted): it records that the session received again the
     bodies it was activated with, which the host kept.
   - `child` (a child began): for a tier, it records that the child, under a use id of its own,
@@ -125,7 +127,15 @@ class Session:
                           "preparation_digest": canonical.digest_of(prepared),
                           "bodies": [unit["body_digest"] for unit in start.delivered(prepared)]}})
 
+    def confirmed(self) -> None:
+        """The start's activation, asked again under its own id now the session has begun."""
+        asked = self.job["activation"]
+        answer = start.answered(self.state, asked["request"], asked["payload"])
+        if start.stage(answer) == "refused" or start.stage(answer) in journal.PENDING:
+            raise Unrecorded(f"the start's activation was {start.reason(answer)}")
+
     def began(self) -> None:
+        self.confirmed()
         principal = self.actor["principal_id"]
         link = self.asked("recipient.link.open", principal, {
             "kind": "recipient_link", "schema": 1, "principal_id": principal,

@@ -397,6 +397,9 @@ def serving_problems(serving: dict, plan: dict) -> list[str]:
                 problems.append(f"serving {operation}: marked addressed and it targets no request")
             continue
         held(operation, row.get("node", "?"), row.get("entry", ""), by_operation[operation])
+        if "reply_lost" in row:
+            held(f"{operation} reply_lost", row.get("node", "?"), row["reply_lost"],
+                 by_operation[operation])
     names = [layer.get("name") for layer in serving.get("layers", [])]
     if None in names:
         problems.append("serving layers: a layer states no name")

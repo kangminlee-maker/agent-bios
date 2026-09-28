@@ -459,6 +459,12 @@ class Serving(unittest.TestCase):
                              lambda s: s["operations"]["team.found"].__setitem__(
                                  "entry", "workenv.lifecycle:team_found"))
 
+    def test_a_lost_reply_s_entry_outside_the_nodes_owned_paths_is_refused(self):
+        self.serving_refused("serving session.routing.activate reply_lost: workenv.lifecycle:lost "
+                             "is not under V1's",
+                             lambda s: s["operations"]["session.routing.activate"].__setitem__(
+                                 "reply_lost", "workenv.lifecycle:lost"))
+
     def test_a_node_that_builds_nothing_is_refused(self):
         self.serving_refused("serving team.found: V9 is not an implementation node",
                              lambda s: s["operations"]["team.found"].__setitem__("node", "V9"))

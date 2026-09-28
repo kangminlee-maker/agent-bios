@@ -133,13 +133,16 @@ class Routing:
     `entries` maps each operation a node in scope serves to its entry; `addressed` holds the
     operations that target a request rather than name a server; `layers` are the layer entries in
     scope, outermost first; `places` the place entries in scope; `journal` whether the journal
-    layer is among them, which is what answers an addressed operation.
+    layer is among them, which is what answers an addressed operation; `lost` maps an operation
+    to the entry that answers it while the reply it handed on is outstanding, where a node in
+    scope names one (`reply_lost` on its row).
     """
 
     def __init__(self, entries: dict[str, str], addressed: set[str], layers: list[str],
-                 places: list[str], journal: bool):
+                 places: list[str], journal: bool, lost: dict[str, str] | None = None):
         self.entries, self.addressed = entries, addressed
         self.layers, self.places, self.journal = layers, places, journal
+        self.lost = dict(lost or {})
 
     def route(self, operation: str) -> tuple[str, str | None]:
         if operation in self.addressed:
@@ -158,7 +161,9 @@ def routing(serving: dict, reach: set[str]) -> Routing:
                    [layer["entry"] for layer in layers],
                    [entry for node, entry in sorted(serving.get("places", {}).items())
                     if node in reach],
-                   any(layer.get("name") == cases.JOURNAL for layer in layers))
+                   any(layer.get("name") == cases.JOURNAL for layer in layers),
+                   {op: row["reply_lost"] for op, row in rows.items()
+                    if "reply_lost" in row and row.get("node") in reach})
 
 
 def segments(pointer: str) -> list[str]:

@@ -45,8 +45,10 @@ def operations(built: dict) -> set[str]:
 
 
 def everything(built: dict, entry: str = OWNER) -> executor.Routing:
-    """Every operation the scenario sends, served by one entry, with no layer in scope."""
-    return executor.Routing({op: entry for op in operations(built)}, set(), [], [], False)
+    """Every operation the scenario sends, served by one entry, its lost replies too, with no
+    layer in scope."""
+    served = {op: entry for op in operations(built)}
+    return executor.Routing(served, set(), [], [], False, served)
 
 
 def run(case: str, plants=(), routing=None, features=None, shared=False, env=None,
@@ -113,7 +115,7 @@ class Positive(unittest.TestCase):
         got = run("n13-c09-pos", features=self.one_process("n13-c09-pos"), shared=True)
         self.assertEqual(got["outcome"], executor.PASSED, got)
 
-    def test_every_v1_case_but_the_lost_reply_passes(self):
+    def test_every_v1_case_passes(self):
         registry, (plan, catalog, _) = cases.load(), cases.bundle(cases.ROOT)
         rows = {row["id"]: row for key in ("atomic", "cases") for row in registry[key]}
         bound = cases.case_map(registry, catalog, "V1", {n["id"]: n for n in plan["nodes"]})
@@ -121,10 +123,20 @@ class Positive(unittest.TestCase):
         for case in sorted(bound):
             with self.subTest(case=case):
                 got = run(case.lower(), rules=tuple(rows[case].get("rules", ())))
-                if case == "TUI-ENTRY-UNKNOWN":
-                    self.assertIn("event_reply_lost", got["why"])
-                else:
-                    self.assertEqual(got["outcome"], executor.PASSED, got)
+                self.assertEqual(got["outcome"], executor.PASSED, got)
+
+    def test_every_scenario_that_loses_a_reply_runs_it(self):
+        lost = {path.parent.name for path in SCENARIOS.glob("*/scenario.json")
+                if "event_reply_lost" in cases.features_of(json.loads(path.read_bytes()))}
+        self.assertEqual(lost, {"n15-c11-neg", "n17-c09-neg", "n19-transfer-pos",
+                                "tui-entry-shared-unknown", "tui-entry-unknown"})
+        outcomes = {case: run(case) for case in sorted(lost)}
+        self.assertEqual({case for case, got in outcomes.items()
+                          if got["outcome"] == executor.PASSED},
+                         {"n15-c11-neg", "tui-entry-unknown"})
+        for case, got in outcomes.items():
+            with self.subTest(case=case):
+                self.assertNotIn("reply", got["why"])
 
     @staticmethod
     def one_process(case: str) -> dict:
@@ -340,6 +352,37 @@ class Routing(unittest.TestCase):
         self.assertEqual((got["outcome"], got["step"]), (executor.FAILED, "query_the_binding"))
         self.assertIn("reached past every layer", got["why"])
 
+    def test_a_lost_reply_is_answered_by_the_entry_that_answers_while_it_is_outstanding(self):
+        root = module_root(self, "import json, os\nanswer = scripted_owner.answer\n"
+                                 "def lost(call):\n"
+                                 "    line = json.dumps({'lost': call.request['request_id']})\n"
+                                 "    with open(os.environ['SCRIPTED_LOG'], 'a') as out:\n"
+                                 "        out.write(line + '\\n')\n"
+                                 "    return scripted_owner.answer(call)\n")
+        _, built = scenario("tui-entry-unknown")
+        served = {op: "planted:answer" for op in operations(built)}
+        routing = executor.Routing(served, set(), [], [], False,
+                                   {"session.routing.activate": "planted:lost"})
+        got = run("tui-entry-unknown", routing=routing, root=root,
+                  env={"SCRIPTED_LOG": str(self.log)})
+        self.assertEqual(got["outcome"], executor.PASSED, got)
+        self.assertEqual({line["lost"] for line in self.seen() if "lost" in line},
+                         self.request_ids(built, ["activate_session"]))
+
+    def test_a_lost_reply_no_code_in_scope_answers_is_blocked_by_name(self):
+        _, built = scenario("tui-entry-unknown")
+        served = {op: OWNER for op in operations(built)}
+        for routing in (executor.Routing(served, set(), [], [], False),
+                        executor.Routing({op: entry for op, entry in served.items()
+                                          if op != "session.routing.activate"}, set(), [], [],
+                                         False, {"session.routing.activate": OWNER})):
+            with self.subTest(lost=routing.lost):
+                got = run("tui-entry-unknown", routing=routing)
+                self.assertEqual((got["outcome"], got["step"]),
+                                 (executor.BLOCKED, "activate_session"), got)
+                self.assertIn("no code in scope answers session.routing.activate while its "
+                              "reply is outstanding", got["why"])
+
     def test_the_profile_routing_serves_in_scope_operations_and_gives_the_rest(self):
         serving = cases.load_serving()
         routing = executor.routing(serving, {"V1", "P01"})
@@ -352,6 +395,9 @@ class Routing(unittest.TestCase):
         below = executor.routing(serving, {"P01"})
         self.assertEqual((below.route("operation.query"), below.layers, below.places),
                          (("given", None), [], []))
+        self.assertEqual((routing.lost, below.lost),
+                         ({"session.routing.activate": "workenv.roles:session_routing_dispatched"},
+                          {}))
 
 
 class Blocking(unittest.TestCase):

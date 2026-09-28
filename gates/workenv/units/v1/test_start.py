@@ -19,8 +19,8 @@ from unittest import mock
 from test_delivery import Delivering
 from test_probes import VERSION, Hosts
 
-from workenv import delivery, hosts, journal, storage
-from workenv.contracts import canonical
+from workenv import delivery, hosts, journal, roles, storage
+from workenv.contracts import c07, canonical
 from workenv.hosts import codex, hook, probes, start
 
 CODE = "5eed5eed5eed5eed"
@@ -121,6 +121,10 @@ class Starting(Hosts, Delivering):
 
     def job(self, launch: start.Launch) -> dict:
         return json.loads(pathlib.Path(launch.environ[probes.JOB]).read_text())
+
+    def activations(self) -> list[tuple[str, str]]:
+        return self.bench.store().read("SELECT request_id, stage FROM requests WHERE "
+                                       "operation = ? ORDER BY position", (start.ACTIVATE,))
 
 
 class Start(Starting):
@@ -258,6 +262,58 @@ class Start(Starting):
         with self.assertRaisesRegex(start.StartError, "does not ask the owner for team.found"):
             start.answered(self.bench.state, {"operation": "team.found"}, None)
 
+    def test_the_activation_is_handed_on_and_held_unknown_while_the_start_waits(self):
+        launch = self.launched("claude-code")
+        self.assertEqual(self.activations(), [(launch.activation, "unknown")])
+        self.assertEqual(launch.directory, self.bench.state / start.LAUNCHES / launch.activation)
+        asked = self.job(launch)["activation"]
+        self.assertEqual(asked["request"]["request_id"], launch.activation)
+        self.assertEqual(asked["request"]["payload_digest"], canonical.digest_of(asked["payload"]))
+        self.assertEqual(asked["payload"]["session"]["host"], {"name": "claude-code",
+                                                               "version": VERSION})
+        store = self.bench.store()
+        [(digest,)] = store.read("SELECT digest FROM preparations")
+        self.assertEqual(asked["payload"]["preparation_digest"], digest)
+        self.assertTrue(start.waiting(self.bench.state, launch.activation))
+        # Only a request id names a launch, never a path that reaches one.
+        self.assertFalse(start.waiting(self.bench.state,
+                                       f"../{start.LAUNCHES}/{launch.activation}"))
+        start.release(launch)
+        self.assertFalse(start.waiting(self.bench.state, launch.activation))
+
+    def test_an_activation_refused_as_it_is_handed_on_launches_nothing(self):
+        with mock.patch.object(roles, "moved", return_value=True), \
+                self.assertRaisesRegex(start.StartError, "refused with working_bytes_moved"):
+            self.launched("codex")
+        self.assertEqual(list((self.bench.state / start.LAUNCHES).iterdir()), [])
+        self.assertEqual([stage for _, stage in self.activations()], ["refused"])
+
+    def test_an_unknown_start_is_settled_as_not_reported_once_nothing_waits_for_it(self):
+        state = self.bench.state
+        launch = self.launched("codex")
+        self.assertIsNone(start.settle(state, launch.activation))
+        settled = start.settle(state, launch.activation, waited=True)
+        result = settled["result"]
+        self.assertEqual((result["outcome"], result["provider_effect"]),
+                         ({"stage": "expired",
+                           "material_gaps": [{"code": c07.DELIVERY_UNOBSERVED}]}, "dispatched"))
+        self.assertIsNone(start.settle(state, launch.activation, waited=True))
+        start.release(launch)
+        left = self.launched("codex")
+        start.release(left)
+        self.assertEqual(start.stage(start.settle(state, left.activation)), "expired")
+        self.assertEqual([stage for _, stage in self.activations()], ["expired", "expired"])
+        for other in (journal.mint("req"), "../" + launch.activation, "req_x"):
+            self.assertIsNone(start.settle(state, other), other)
+            self.assertFalse(start.waiting(state, other), other)
+
+    def test_an_unknown_activation_no_launch_holds_is_left_for_its_owner(self):
+        launch = self.launched("codex")
+        start.release(launch)
+        (launch.directory / "job.json").unlink()
+        self.assertIsNone(start.settle(self.bench.state, launch.activation))
+        self.assertEqual([stage for _, stage in self.activations()], ["unknown"])
+
     def test_a_body_that_is_not_the_one_its_unit_names_is_not_handed_over(self):
         unit = {"unit_id": "u", "source_id": "s", "body_digest": canonical.digest_of({})}
         with self.assertRaisesRegex(start.StartError, "not the one its unit names"):
@@ -277,6 +333,30 @@ class Events(Starting):
                           for (link,) in store.read("SELECT digest FROM links")},
                          {hosts.destination_digest(f"{host}-1") for host in ("claude-code",
                                                                              "codex")})
+
+    def test_the_session_s_report_activates_the_start_s_activation_first(self):
+        launch = self.launched("claude-code")
+        self.fired(launch, "claude-code", "new")
+        [first, second] = self.activations()
+        self.assertEqual((first, second[1]), ((launch.activation, "committed"), "committed"))
+
+    def test_a_report_after_its_start_was_settled_still_records_the_session(self):
+        launch = self.launched("claude-code")
+        start.release(launch)
+        start.settle(self.bench.state, launch.activation)
+        self.assertEqual(self.fired(launch, "claude-code", "new"), ("", ""))
+        self.assertEqual(self.recorded(), [("activated", "session"), ("delivered", "new")])
+        self.assertEqual(self.activations()[0], (launch.activation, "expired"))
+
+    def test_a_start_s_activation_the_owner_refuses_on_the_report_records_nothing(self):
+        launch = self.launched("claude-code")
+        with mock.patch.object(roles, "moved", return_value=True):
+            printed, said = self.fired(launch, "claude-code", "new")
+        self.assertEqual(printed, "")
+        self.assertIn("nothing recorded: the start's activation was refused with "
+                      "working_bytes_moved", said)
+        self.assertEqual((self.recorded(), self.activations()),
+                         ([], [(launch.activation, "refused")]))
 
     def test_a_checkout_that_moved_after_the_start_records_nothing(self):
         launch = self.launched("claude-code")

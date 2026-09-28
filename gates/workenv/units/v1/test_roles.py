@@ -24,14 +24,14 @@ class Activating(Delivering):
 
     def activate(self, prepared: dict, where=None, target: str | None = None,
                  profile: str | None = None, now: str = INSTANT, host: str = "claude-code",
-                 version: str = "1") -> dict:
+                 version: str = "1", entry=roles.session_routing_activate) -> dict:
         activation = {"kind": "session_activation", "schema": 1,
                       "preparation_digest": canonical.digest_of(prepared),
                       "session": {"host": {"name": host, "version": version},
                                   "profile_id": profile or self.person.profile}}
         sealed = bench.request(self.person, ACTIVATE, target or self.person.profile, activation)
         with contextlib.chdir(where or self.scratch):
-            return self.run_with(roles.session_routing_activate, sealed, [activation], now=now)
+            return self.run_with(entry, sealed, [activation], now=now)
 
     def activated(self, prepared: dict, **options) -> dict:
         answer = self.activate(prepared, **options)
@@ -168,6 +168,75 @@ class Refusals(Activating):
         self.assertEqual(gaps(self.activate(prepared)), [{"code": c01.REF_UNAVAILABLE,
                                                           "pointer": "/preparation_digest"}])
 
+
+class Handed(Activating):
+    """The activation a start hands to a host, and the answers it has before and after."""
+
+    def handed(self, prepared: dict) -> tuple[dict, dict, dict]:
+        """The request, its activation and the answer the start is given as it hands it on."""
+        activation = {"kind": "session_activation", "schema": 1,
+                      "preparation_digest": canonical.digest_of(prepared),
+                      "session": {"host": {"name": "claude-code", "version": "1"},
+                                  "profile_id": self.person.profile}}
+        sealed = bench.request(self.person, ACTIVATE, self.person.profile, activation)
+        with contextlib.chdir(self.scratch):
+            answer = self.run_with(roles.session_routing_dispatched, sealed, [activation],
+                                   now=INSTANT)
+        return sealed, activation, answer
+
+    def again(self, sealed: dict, activation: dict, entry) -> dict:
+        with contextlib.chdir(self.scratch):
+            return self.run_with(entry, sealed, [activation], now=LATER)
+
+    def test_an_activation_handed_on_is_unknown_until_its_session_reports(self):
+        prepared = self.for_link(None)
+        sealed, activation, answer = self.handed(prepared)
+        result = answer["result"]
+        self.assertEqual((result["outcome"], result["supported_recovery"], result["local_effect"],
+                          result["provider_effect"], result["outputs"], answer["returned"],
+                          answer["receipt"]),
+                         ({"stage": "unknown", "material_gaps": [{"code": c03.OUTCOME_UNKNOWN}]},
+                          ["query_same_request", "retry_same_request"], "private_state_written",
+                          "unknown", [], [], None))
+        reported = self.again(sealed, activation, roles.session_routing_activate)
+        self.assertEqual(reported["result"]["outcome"]["stage"], "committed", gaps(reported))
+        self.assertEqual(reported["returned"][-1], REVIEW)
+
+    def test_an_activation_handed_on_is_refused_as_the_activation_is(self):
+        _, digest = self.linked()
+        prepared = self.for_link(digest)
+        for options, gap in (({"target": bench.ident("prf")},
+                              {"code": c03.REQUEST_MISMATCH, "pointer": "/target/resource_id"}),
+                             ({"host": "codex"},
+                              {"code": c02.RECIPIENT_MISMATCH, "pointer": "/session/host"})):
+            answer = self.activate(prepared, entry=roles.session_routing_dispatched, **options)
+            self.assertEqual(gaps(answer), [gap])
+        elsewhere = {**prepared, "preparation_id": bench.ident("prp")}
+        self.assertEqual(gaps(self.activate(elsewhere, entry=roles.session_routing_dispatched)),
+                         [{"code": c01.REF_UNAVAILABLE, "pointer": "/preparation_digest"}])
+        self.assertEqual(self.bench.store().read(
+            "SELECT stage FROM requests WHERE operation = ?", (ACTIVATE,)), [("refused",)] * 3)
+
+    def test_an_activation_its_session_never_reported_is_settled_as_not_reported(self):
+        prepared = self.for_link(None)
+        sealed, activation, _ = self.handed(prepared)
+        settled = self.again(sealed, activation, roles.session_routing_unreported)
+        result = settled["result"]
+        self.assertEqual((result["outcome"], result["supported_recovery"], result["local_effect"],
+                          result["provider_effect"], settled["returned"], settled["receipt"]),
+                         ({"stage": "expired",
+                           "material_gaps": [{"code": c07.DELIVERY_UNOBSERVED}]},
+                          ["new_governed_request"], "private_state_written", "dispatched", [],
+                          None))
+        late = self.again(sealed, activation, roles.session_routing_activate)
+        self.assertEqual(late, settled)
+        self.activated(prepared, now=LATER)
+
+    def test_an_unknown_activation_holds_back_the_same_one_under_a_new_id(self):
+        prepared = self.for_link(None)
+        self.handed(prepared)
+        self.assertEqual(gaps(self.activate(prepared)),
+                         [{"code": c03.RESUBMITTED_WHILE_UNKNOWN, "pointer": "/request_id"}])
 
 
 class Moved(Activating):

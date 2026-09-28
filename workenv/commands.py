@@ -17,12 +17,19 @@ person's.
     here that a probe qualified, the named host's first; `operation.history.read` of the scope;
     then the entry, drawn in the terminal (`workenv.terminal`). On a dispatched start, the entry's
     sealed composition request goes unchanged to `workenv.hosts.start` with the permissions the
-    person chose. The start composes and activates; `route.select` records the route for that
-    request; and the program replaces itself with the host. A start the owner refuses is drawn as
-    its answer, and nothing is launched.
+    person chose. The start composes and hands the activation on; `route.select` records the
+    route for that request; and the program runs the host as its child and waits for it, exiting
+    with its status. A start the owner refuses is drawn as its answer, and nothing is launched.
   - `received` answers `delivery.observe` for the latest session this installation activated.
 
 Leaving the entry (Ctrl-C, Ctrl-D) sends nothing, and `start` exits with 130.
+
+A session reports that it began through its hook, which activates the start. A start whose
+session has not reported by the time its host exits is settled as not reported, and `start` says
+so: the next start is not held behind it (`D-20260929-703c89`). A start whose program was itself
+ended, by a closed terminal for one, stays unknown, and the entry shows it with its check. The
+check queries it, and where no program waits on that start's host any more, it settles the start
+as not reported and says so; opening the entry again starts anew.
 
 The host probe: a host whose installed version no probe qualified for delivery to a new session is
 probed before anything else, which launches it once and makes one model call; the command says so
@@ -39,6 +46,8 @@ import argparse
 import contextlib
 import os
 import pathlib
+import signal
+import subprocess
 import sys
 
 if __package__ in (None, ""):
@@ -60,6 +69,9 @@ SKIP = "skip_confirmations"
 LEFT = 130
 # Where a person the launcher routed here goes when the entry cannot start.
 PRESETS = "agent-launch --presets HOST opens the preset menu instead."
+# What the check of an unknown start says once it settled that start as not reported.
+UNREPORTED = ("the session never reported that it began, and nothing waits for it any more, so "
+              "the start is recorded as not reported; open the entry again to start")
 # What each state of a position means, for a person to read.
 STATES = {"installed": "installed", "not_checked": "held; its bodies are read for a task",
           "checked_empty": "none", "configured": "registered, with no accepted revision"}
@@ -283,8 +295,10 @@ def begin(owner: Owner, host_name: str, entrance: str, locale: str, screen, say,
             captured.append((sealed, carried[0]))
             return
         with contextlib.chdir(owner.workdir):
-            answers.append((sealed["request_id"],
-                            checked(start.answered(owner.state, sealed, carried[0]))))
+            found = checked(start.answered(owner.state, sealed, carried[0]))
+            if found[0] == "unknown" and start.settle(owner.state, carried[0]["request_id"]):
+                found = ("unavailable", UNREPORTED)
+        answers.append((sealed["request_id"], found))
 
     held_entry, offered = entry(owner, host_name, entrance, locale, screen.size(), say,
                                 dispatch)
@@ -322,10 +336,18 @@ def begin(owner: Owner, host_name: str, entrance: str, locale: str, screen, say,
                  "expected": {"stage": "prepared", "material_gaps": [], "recovery": []},
                  "request_id": sealed["request_id"]}
     try:
-        owner.ask("route.select", owner.actor["profile_id"], selection)
-    except CommandError as error:
-        say(f"agent-bios start: the start is not recorded as the route's: {error}")
-    return execute(launch, owner.environ)
+        try:
+            owner.ask("route.select", owner.actor["profile_id"], selection)
+        except CommandError as error:
+            say(f"agent-bios start: the start is not recorded as the route's: {error}")
+        return execute(launch, owner.environ)
+    finally:
+        with contextlib.chdir(owner.workdir):
+            settled = start.settle(owner.state, launch.activation, waited=True)
+        start.release(launch)
+        if settled is not None:
+            say(f"agent-bios start: the session never reported that it began, so its start is "
+                f"recorded as not reported ({launch.activation}).")
 
 
 def received(owner: Owner | None, out) -> int:
@@ -355,12 +377,27 @@ def received(owner: Owner | None, out) -> int:
     return 0
 
 
+def waited(number, frame) -> None:
+    """An interrupt or quit typed at the terminal while the host runs: it is the host's."""
+
+
 def execute(launch: start.Launch, environ: dict) -> int:
-    """Replace this process with the host, as the start said to run it."""
+    """Run the host as this process's child, as the start said to run it, and wait for it; its
+    exit status, as a shell reports it. While it runs, this process catches the interrupt and
+    quit the terminal sends both, and does nothing with them. A caught signal is the default
+    again after `exec`, so the host handles its own."""
     kept = {name: value for name, value in environ.items() if name not in launch.dropped}
-    os.execve(launch.executable, [launch.executable, *launch.arguments],
-              {**kept, **launch.environ})
-    return 0
+    previous = {number: signal.signal(number, waited)
+                for number in (signal.SIGINT, signal.SIGQUIT)}
+    try:
+        done = subprocess.run([launch.executable, *launch.arguments],
+                              env={**kept, **launch.environ}, check=False)
+    except OSError as error:
+        raise CommandError(f"{launch.executable} could not be run: {error}") from error
+    finally:
+        for number, handler in previous.items():
+            signal.signal(number, handler)
+    return done.returncode if done.returncode >= 0 else 128 - done.returncode
 
 
 def parser() -> argparse.ArgumentParser:

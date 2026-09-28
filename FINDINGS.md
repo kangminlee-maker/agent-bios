@@ -77,3 +77,27 @@ same burst pattern and have not been examined.
    a person typing quickly; the wrong fix if the race is reachable by hand.
 4. **Leave it and re-run the commit.** Acceptable only while the rate stays unmeasured and low;
    measure with a loop of the full suite before choosing.
+
+---
+
+## F-19 — a session started with no Instructions body loses its `new` delivery record
+
+When a session started from the entry reports that it began (the hook's `new`), the hook asks
+`recipient.delivery.attempt` for the bodies handed at launch. C11's body attempt requires at
+least one body (`bodies`, `minItems: 1`). So a start whose preparation delivers no Instructions
+body is refused as unreadable (`variant_mismatch` at `/requested`), and the hook prints
+"nothing recorded" on standard error. The start's activation and the link-bound activation are
+recorded before that, so `received` shows the session activated with no body; only the `new`
+delivery is missing. Zero selected Instructions is a valid start (design `CURRENT.md`).
+
+Found on 2026-09-29 by a unit test of the unconfirmed-start increment whose person held no
+Instructions. No real start has hit it yet.
+
+1. **Attempt nothing where nothing is handed.** The hook records the activation and skips the
+   body attempt when the preparation delivers no body. Risk: `received` then shows no `new`
+   delivery for a session that began, which reads like one that received nothing.
+2. **Name an empty hand-over in the contract.** A C11 attempt variant, or `bodies` allowing
+   none, for a session handed only the usage contract. Risk: a contract change after P01's
+   freeze, with the cases it moves.
+3. **Leave it.** Acceptable while every real start carries at least one Instructions body; the
+   real use shows whether one does.
