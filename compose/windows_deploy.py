@@ -46,11 +46,18 @@ class DeploymentError(RuntimeError):
 
 
 def _shim(target: str) -> bytes:
-    """A cmd.exe entry point for a PowerShell command in the same directory."""
+    """A cmd.exe entry point for a PowerShell command in the same directory.
+
+    The interpreter is named by its fixed location, not looked up on PATH, which
+    is what the Start menu shortcut already does. A caller whose PATH lacks the
+    Windows PowerShell directory is exactly the caller this shim exists for, and
+    a bare `powershell.exe` fails there with cmd's own 9009.
+    """
     if target not in COMMANDS:
         raise DeploymentError(f"a shim may only target an owned command: {target}")
     return ("@echo off\r\n"
-            "powershell.exe -NoProfile -ExecutionPolicy Bypass "
+            '"%SystemRoot%\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" '
+            "-NoProfile -ExecutionPolicy Bypass "
             f'-File "%~dp0{target}" %*\r\n'
             "exit /b %ERRORLEVEL%\r\n").encode("ascii")
 

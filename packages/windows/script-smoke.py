@@ -122,13 +122,17 @@ class Driver:
         carries its own policy relaxation, so the machine's policy stays untouched.
         """
         comspec = Path(os.environ.get("ComSpec") or Path(os.environ["WINDIR"]) / "System32/cmd.exe")
-        scoped = dict(env, PATH=str(root / "bin") + ";" + env["PATH"])
+        # PATH carries the command directory and nothing else. That is the caller the
+        # shim exists for, and it is also the control: everything the hop needs after
+        # PATH resolves `agent-bios` -- the interpreter, then the bound Python -- has
+        # to be reached by an absolute path or this fails with cmd's 9009.
+        scoped = dict(env, PATH=str(root / "bin"))
         result = subprocess.run([str(comspec), "/d", "/c", "agent-bios", "--version"], env=scoped,
                                 capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=240)
         if result.returncode != 0 or result.stdout.strip() != self.release["version"]:
-            raise AssertionError({"comspec": str(comspec), "returncode": result.returncode,
+            raise AssertionError({"comspec": str(comspec), "returncode": result.returncode, "path": scoped["PATH"],
                                   "stdout": result.stdout[-6000:], "stderr": result.stderr[-6000:]})
-        self.checked("cmd.exe reaches the installed command through its shim")
+        self.checked("cmd.exe reaches the installed command through its shim on a PATH of one directory")
 
     def ps_json(self, shell: Path, source: str, env: dict[str, str]) -> object:
         result = self.ps(shell, source, env)

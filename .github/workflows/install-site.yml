@@ -100,10 +100,14 @@ jobs:
           done
           [ "${matched:-0}" = 1 ] || { echo 'Public POSIX bootstrap differs from this checkout.' >&2; exit 1; }
           bash -n published.sh
-          # A refusal path must refuse. An empty PATH leaves npm unfindable, so the
-          # script has to stop before it installs anything.
+          # A refusal path must refuse. The probe PATH carries what the script needs
+          # to reach its npm check and nothing more; emptying PATH outright would
+          # hide npm behind a missing uname and refuse for the wrong reason.
+          probe=$(mktemp -d)
+          ln -s "$(command -v uname)" "$probe/uname"
+          ln -s "$(command -v python3)" "$probe/python3"
           set +e
-          out=$(PATH=/nonexistent bash published.sh 2>&1); code=$?
+          out=$(PATH="$probe" /bin/bash published.sh 2>&1); code=$?
           set -e
           [ "$code" -ne 0 ] || { echo 'The bootstrap continued without npm.' >&2; exit 1; }
           case "$out" in *npm*) ;; *) echo "Unexpected refusal: $out" >&2; exit 1 ;; esac

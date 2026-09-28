@@ -146,6 +146,11 @@ class WindowsDeploymentTests(unittest.TestCase):
             self.assertIn(f'-File "%~dp0{target}"', body)
             # The machine's default Restricted policy would refuse the target.
             self.assertIn("-ExecutionPolicy Bypass", body)
+            # A caller whose PATH lacks the PowerShell directory is the caller this
+            # shim is for, so the interpreter is named by its fixed location. A bare
+            # name fails there with cmd's 9009, which a CI runner demonstrated.
+            self.assertIn('"%SystemRoot%\\System32\\WindowsPowerShell\\v1.0\\powershell.exe"', body)
+            self.assertNotIn("\npowershell.exe ", body)
             # Arguments and the command's verdict both have to survive the hop.
             self.assertIn("%*", body)
             self.assertIn("exit /b %ERRORLEVEL%", body)
