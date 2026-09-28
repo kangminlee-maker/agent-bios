@@ -44,9 +44,9 @@ A start from the entry keeps `agent-bios start` running until the host exits, an
 the host's status. The session reports through its hook that it began. When the host exits
 without reporting—a Codex hook not yet trusted, for one—the start is recorded as not reported
 and the command says so. When the start program itself is ended, by a closed terminal for one,
-the entry shows that start as unknown next time, with its check focused. Enter checks it, and
-once nothing waits on it any more, the check records it as not reported; open the entry again
-to start.
+the entry shows that start as unknown next time, with its check focused. Enter checks it:
+once nothing waits on it any more, the check records it as not reported, the entry shows it so,
+and the next start can run from the same screen.
 
 ## Ownership and legacy migration
 

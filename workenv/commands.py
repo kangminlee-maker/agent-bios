@@ -27,9 +27,10 @@ Leaving the entry (Ctrl-C, Ctrl-D) sends nothing, and `start` exits with 130.
 A session reports that it began through its hook, which activates the start. A start whose
 session has not reported by the time its host exits is settled as not reported, and `start` says
 so: the next start is not held behind it (`D-20260929-703c89`). A start whose program was itself
-ended, by a closed terminal for one, stays unknown, and the entry shows it with its check. The
-check queries it, and where no program waits on that start's host any more, it settles the start
-as not reported and says so; opening the entry again starts anew.
+ended, by a closed terminal for one, stays unknown, and the entry shows it with its check. Where
+no program waits on that start's host any more, the check first settles it as not reported; the
+check's query then answers the stage the start stands at, and a start no longer pending is drawn
+settled on the same screen, where the next start can run at once.
 
 The host probe: a host whose installed version no probe qualified for delivery to a new session is
 probed before anything else, which launches it once and makes one model call; the command says so
@@ -69,9 +70,6 @@ SKIP = "skip_confirmations"
 LEFT = 130
 # Where a person the launcher routed here goes when the entry cannot start.
 PRESETS = "agent-launch --presets HOST opens the preset menu instead."
-# What the check of an unknown start says once it settled that start as not reported.
-UNREPORTED = ("the session never reported that it began, and nothing waits for it any more, so "
-              "the start is recorded as not reported; open the entry again to start")
 # What each state of a position means, for a person to read.
 STATES = {"installed": "installed", "not_checked": "held; its bodies are read for a task",
           "checked_empty": "none", "configured": "registered, with no accepted revision"}
@@ -197,7 +195,8 @@ def entry(owner: Owner, host_name: str, entrance: str, locale: str, size: tuple[
 
 def checked(answer: dict) -> tuple[str, str | None]:
     """How the entry draws the answer to its check, a query of the unknown start: an outcome the
-    journal still holds pending stays unknown, and anything else is unavailable, with why."""
+    journal still holds pending stays unknown, one it no longer holds pending is settled at its
+    stage, and a query not answered is unavailable, with why."""
     if start.stage(answer) != "previewed":
         return "unavailable", start.reason(answer)
     found = answer["returned"][0]
@@ -206,7 +205,7 @@ def checked(answer: dict) -> tuple[str, str | None]:
     stage = found["outcome"]["stage"]
     if stage in journal.PENDING:
         return "unknown", None
-    return "unavailable", f"the request was answered {stage}; open the entry again to see it"
+    return "settled", stage
 
 
 # The commands.
@@ -295,10 +294,10 @@ def begin(owner: Owner, host_name: str, entrance: str, locale: str, screen, say,
             captured.append((sealed, carried[0]))
             return
         with contextlib.chdir(owner.workdir):
-            found = checked(start.answered(owner.state, sealed, carried[0]))
-            if found[0] == "unknown" and start.settle(owner.state, carried[0]["request_id"]):
-                found = ("unavailable", UNREPORTED)
-        answers.append((sealed["request_id"], found))
+            # A start nothing waits for any more is settled first, so the query answers it.
+            start.settle(owner.state, carried[0]["request_id"])
+            answers.append((sealed["request_id"],
+                            checked(start.answered(owner.state, sealed, carried[0]))))
 
     held_entry, offered = entry(owner, host_name, entrance, locale, screen.size(), say,
                                 dispatch)

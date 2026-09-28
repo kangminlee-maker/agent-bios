@@ -54,7 +54,7 @@ class Catalog(unittest.TestCase):
                     "coverage": longest(table, "coverage."),
                     "state": longest(table, "state."), "more": "99",
                     "tool": max(tui.TOOLS.values(), key=tui.cells),
-                    "choice": longest(table, "permissions.")}
+                    "choice": longest(table, "permissions."), "stage": "changes_requested"}
             marks = {"position.empty": ["›", "[x]", table["suggested"]],
                      "position.configured": ["›", "[x]", table["suggested"]],
                      "tool": ["›", table["suggested"]],
@@ -634,10 +634,14 @@ class Starting(Entering):
                                           ("refused", None, entry.started),
                                           ("unavailable", None, entry.started),
                                           ("unknown", "why", entry.started),
-                                          ("unknown", None, bench.ident("req"))):
+                                          ("unknown", None, bench.ident("req")),
+                                          ("settled", "expired", entry.started)):
             with self.subTest(state=state, reason=reason), self.assertRaises(ValueError):
                 entry.answered(request_id, state, reason)
         self.assertEqual(entry.answers, {})
+        idle = self.holding()
+        with self.assertRaises(ValueError):
+            idle.answered(None, "unknown")
 
     def test_text_and_paste_go_into_the_note_as_given_and_nowhere_else(self):
         self.launcher()
@@ -725,6 +729,46 @@ class Unknown(Entering):
         draft = self.element(entry.frame(2), "result.draft")
         self.assertEqual((draft["state"], draft["label"]),
                          ("unavailable", "확인하지 못함 · request_not_held"))
+
+    def test_a_check_that_finds_its_start_settled_draws_it_so_and_lets_the_next_start_run(self):
+        self.unknown_start()
+        for stage, state, key in (("expired", "unavailable", "settled.expired"),
+                                  ("committed", "delivered", "settled.committed"),
+                                  ("refused", "unavailable", "settled.other")):
+            with self.subTest(stage=stage):
+                entry = self.holding("tab", "tab", "tab", "enter", "enter")
+                self.assertEqual(self.element(entry.frame(5), "action.start")["state"],
+                                 "blocked")
+                entry.answered(entry.checking, "settled", stage)
+                frame = entry.frame(6)
+                draft = self.element(frame, "result.draft")
+                self.assertEqual((draft["state"], draft["label"]),
+                                 (state, tui.CATALOG["ko"][key].format(stage=stage)))
+                self.assertNotIn("state", self.element(frame, "action.start"))
+                for given in ("tab", "tab", "tab", "enter"):
+                    entry.press({"input": "key", "key": given})
+                self.assertEqual([sealed["operation"] for sealed, _ in self.sent],
+                                 ["operation.query", "preparation.compose"])
+                self.assertIsNotNone(entry.started)
+
+    def test_a_settled_start_is_no_longer_signalled_on_the_hub(self):
+        self.unknown_start()
+        entry = self.holding("enter")
+        entry.answered(entry.checking, "settled", "expired")
+        entry.press({"input": "key", "key": "escape"})
+        hub = entry.frame(2)
+        self.assertEqual(self.ids(hub), ["context.location", "job.prepare", "help.keys"])
+        self.assertEqual(self.focus(hub), "job.prepare")
+
+    def test_only_the_check_is_answered_settled_and_only_at_a_stage_no_longer_pending(self):
+        self.unknown_start()
+        entry = self.holding("enter")
+        for request_id, stage in ((entry.checking, None), (entry.checking, "unknown"),
+                                  (entry.checking, "partial"), (entry.checking, "executing"),
+                                  (bench.ident("req"), "expired")):
+            with self.subTest(stage=stage), self.assertRaises(ValueError):
+                entry.answered(request_id, "settled", stage)
+        self.assertEqual(entry.answers, {})
 
     def test_the_history_read_is_cited_once_by_the_first_frame_that_shows_it(self):
         self.unknown_start()

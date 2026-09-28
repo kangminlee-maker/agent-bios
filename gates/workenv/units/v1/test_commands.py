@@ -402,15 +402,20 @@ class Start(Commanding):
         draft = screen.element("result.draft")
         self.assertEqual((draft["state"], draft["refers_to"]["request_id"]),
                          ("unknown", launch.activation))
-        # Its program ended without settling it, as a closed terminal ends it.
+        # Its program ended without settling it, as a closed terminal ends it: the check settles
+        # it, draws it settled, and the next start runs from the same screen.
         start.release(launch)
-        screen = Screen(ENTER, QUIT)
-        self.run_command("start", "claude-code", "--locale", "en", screen=screen)
-        draft = screen.element("result.draft")
+        screen = Screen(ENTER, TAB, TAB, TAB, ENTER)
+        code, _ = self.run_command("start", "claude-code", "--locale", "en", screen=screen)
+        draft = screen.element("result.draft", 1)
         self.assertEqual((draft["state"], draft["label"]),
-                         ("unavailable", f"Not checked · {commands.UNREPORTED}"))
-        self.assertEqual(self.held_requests("session.routing.activate"),
-                         [(launch.activation, "expired")])
+                         ("unavailable", tui.CATALOG["en"]["settled.expired"]))
+        [(started, _)] = self.launched
+        self.assertEqual(code, 0, self.err)
+        self.assertEqual([request_id for request_id, _ in
+                          self.held_requests("session.routing.activate")],
+                         [launch.activation, started.activation])
+        self.assertEqual(self.held_requests("session.routing.activate")[0][1], "expired")
         screen = Screen(QUIT)
         self.run_command("start", "claude-code", screen=screen)
         self.assertNotIn("result.draft", [e["element_id"] for e in screen.frames[0]["elements"]])
@@ -471,7 +476,8 @@ class Start(Commanding):
             return {"kind": "operation_result", "outcome": {"stage": stage}}
         self.assertEqual(commands.checked(query(result("unknown"))), ("unknown", None))
         self.assertEqual(commands.checked(query(result("partial"))), ("unknown", None))
-        self.assertEqual(commands.checked(query(result("committed")))[0], "unavailable")
+        self.assertEqual(commands.checked(query(result("committed"))), ("settled", "committed"))
+        self.assertEqual(commands.checked(query(result("expired"))), ("settled", "expired"))
         self.assertEqual(commands.checked(query({"kind": "request_not_held"})),
                          ("unavailable", "this installation holds no such request"))
         self.assertEqual(commands.checked(query(stage="refused", gaps=[{"code": "x"}])),

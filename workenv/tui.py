@@ -51,7 +51,10 @@ The grammar (design records `2026-09-28T1601--4e305e5--v1-slice5-entry-grammar-d
     for the unknown request. A dispatched action stays `executing` and `pending` until its
     answer is handed over. Then its result element shows it: the start's result, or the unknown
     start the check was for. An unknown outcome stays `unknown`, and a refusal or a failure is
-    `unavailable`, labelled with the owner's reason.
+    `unavailable`, labelled with the owner's reason. A check can also find its start settled,
+    no longer pending, at the stage it now stands at (`settled`): the start is drawn as settled
+    on the same screen, `delivered` where its session reported and `unavailable` otherwise, the
+    start is no longer held back by it, and the hub no longer signals it.
   - **`shown`.** An element is one line of `columns - 2` cells (wide characters take two cells,
     combining marks and Hangul medial and final jamo none, and a control character two), and a
     field's value takes up to three more lines. An element wider is `clipped`, and one starting
@@ -88,7 +91,9 @@ TOOLS = {"claude-code": "Claude Code", "codex": "Codex CLI"}
 PERMISSIONS = ("host_settings", "skip_confirmations")
 RATIONALE = 2000
 # What an answer handed to the entry is drawn as.
-ANSWERED = ("unknown", "unavailable")
+ANSWERED = ("unknown", "unavailable", "settled")
+# The stages a settled start has its own words for; any other is named as it is.
+SETTLED = ("committed", "expired")
 
 CATALOG = {
     "ko": {
@@ -121,6 +126,9 @@ CATALOG = {
         "started": "시작 요청을 보냈습니다 · 결과 확인 중",
         "not_started": "시작하지 못함 · {reason}",
         "not_checked": "확인하지 못함 · {reason}",
+        "settled.committed": "지난 시작 · 세션이 시작을 알려와 확정됨 · 새로 시작 가능",
+        "settled.expired": "지난 시작 · 세션이 시작을 알리지 않음으로 기록됨 · 새로 시작 가능",
+        "settled.other": "지난 시작 · {stage}(으)로 끝남 · 새로 시작 가능",
         "job.prepare": "새 세션 준비",
         "signal": "결과 모름 · 지난 시작",
         "key.tab": "Tab 이동", "key.arrows": "↑↓ 자료", "key.space": "Space 선택",
@@ -157,6 +165,10 @@ CATALOG = {
         "started": "Start sent · checking the result",
         "not_started": "Not started · {reason}",
         "not_checked": "Not checked · {reason}",
+        "settled.committed": "Last start: the session reported it began · you can start again",
+        "settled.expired": "Last start: recorded as not reported by its session · you can "
+                           "start again",
+        "settled.other": "Last start: ended as {stage} · you can start again",
         "job.prepare": "Prepare a new session",
         "signal": "Result unknown · last start",
         "key.tab": "Tab move", "key.arrows": "↑↓ items", "key.space": "Space select",
@@ -192,6 +204,9 @@ CATALOG = {
         "started": "開始リクエストを送信しました · 結果を確認中",
         "not_started": "開始できませんでした · {reason}",
         "not_checked": "確認できませんでした · {reason}",
+        "settled.committed": "前回の開始 · セッションが開始を報告し確定 · 新しく開始できます",
+        "settled.expired": "前回の開始 · セッションの報告なしとして記録 · 新しく開始できます",
+        "settled.other": "前回の開始 · {stage} で終了 · 新しく開始できます",
         "job.prepare": "新しいセッションを準備",
         "signal": "結果不明 · 前回の開始",
         "key.tab": "Tab 移動", "key.arrows": "↑↓ 資料", "key.space": "Space 選択",
@@ -467,9 +482,18 @@ class Entry:
     def ids(self) -> list[str]:
         return [element["element_id"] for element in self.elements()]
 
+    def settled(self) -> str | None:
+        """The stage the check found its unknown start settled at, or None."""
+        checked = self.answers.get(self.checking) if self.checking else None
+        return checked[1] if checked and checked[0] == "settled" else None
+
+    def holds_back(self) -> bool:
+        """Whether an unknown start holds the next one back: until a check finds it settled."""
+        return self.draft is not None and self.settled() is None
+
     def first_focus(self, view: str) -> str | None:
         if view == HUB:
-            return "signal.draft" if self.draft else "job.prepare"
+            return "signal.draft" if self.holds_back() else "job.prepare"
         if view == W02:
             return None
         if self.draft:
@@ -513,11 +537,18 @@ class Entry:
         if self.draft:
             request = {"ref": "request", "request_id": self.draft["request_id"]}
             checked = self.answers.get(self.checking) if self.checking else None
-            found.append(self.element("result.draft", "result", self.text(
-                "not_checked", reason=checked[1]) if checked and checked[1] else self.text(
-                "draft", coverage=self.text(f"coverage.{self.draft['coverage']}")),
-                state=checked[0] if checked else PENDING[self.draft["confirmed_stage"]],
-                refers_to=request))
+            stage = self.settled()
+            if stage is not None:
+                label = self.text(f"settled.{stage}" if stage in SETTLED else "settled.other",
+                                  stage=stage)
+                state = "delivered" if stage == "committed" else "unavailable"
+            elif checked and checked[1]:
+                label, state = self.text("not_checked", reason=checked[1]), checked[0]
+            else:
+                label = self.text("draft", coverage=self.text(f"coverage.{self.draft['coverage']}"))
+                state = checked[0] if checked else PENDING[self.draft["confirmed_stage"]]
+            found.append(self.element("result.draft", "result", label, state=state,
+                                      refers_to=request))
             checking = self.checking is not None and checked is None
             found.append(self.element("action.check", "action", self.text("check"),
                                       executing=checking,
@@ -590,7 +621,7 @@ class Entry:
 
     def hub(self) -> list[dict]:
         found = [self.location()]
-        if self.draft:
+        if self.holds_back():
             found.append(self.element("signal.draft", "signal", self.text("signal"), ["?"],
                                       state=PENDING[self.draft["confirmed_stage"]],
                                       refers_to={"ref": "request",
@@ -803,9 +834,9 @@ class Entry:
     def begin(self) -> None:
         if self.started is not None:
             return
-        if self.draft is not None or len(self.note) > RATIONALE:
+        if self.holds_back() or len(self.note) > RATIONALE:
             self.blocked = True
-            if self.draft is not None:
+            if self.holds_back():
                 self.here["focus"] = "action.check"
             return
         # A position a collection applies carries no pins: the composition applies it.
@@ -821,12 +852,16 @@ class Entry:
         self.started = sealed["request_id"]
 
     def answered(self, request_id: str, state: str, reason: str | None = None) -> None:
-        """Hand over the answer to a request this entry dispatched: `unknown`, or `unavailable`
-        with the owner's reason."""
-        if state not in ANSWERED or (state == "unavailable") != bool(reason) or \
-                request_id not in (self.started, self.checking):
+        """Hand over the answer to a request this entry dispatched: `unknown`; `unavailable` with
+        the owner's reason; or, for the check, `settled` with the stage its start now stands at,
+        which is no longer pending."""
+        if state not in ANSWERED or (state == "unknown") == bool(reason) or request_id is None or \
+                request_id not in (self.started, self.checking) or \
+                (state == "settled" and (request_id != self.checking or reason in PENDING)):
             raise ValueError(f"no answer {state!r} to {request_id} is drawn here")
         self.answers[request_id] = (state, reason)
+        if state == "settled":
+            self.blocked = False
 
     def check(self) -> None:
         if self.checking is not None:
