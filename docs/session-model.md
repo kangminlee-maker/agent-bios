@@ -24,8 +24,9 @@ Two authored layers:
 ## Activation and Vanilla
 
 The private install does not replace the `codex` or `claude` shell commands by default. Run
-`agent-launch claude` or `agent-launch codex` explicitly to open the preflight, or pass `--preset NAME HOST` for a
-configured non-interactive launch. Software Engineer / Vanilla structurally projects
+`agent-launch claude` or `agent-launch codex` explicitly to open the work environment's entry
+(`agent-bios start`), `agent-launch --presets HOST` to open the preset preflight, or pass
+`--preset NAME HOST` for a configured non-interactive launch. Software Engineer / Vanilla structurally projects
 no agent-bios snapshot, launch contract, tier binding, or permission flag. After a
 fresh private install—or after an explicit legacy migration—the native CLI therefore
 receives no automatic agent-bios content; the user's own native global and project

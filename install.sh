@@ -1766,7 +1766,7 @@ agent-bios — manage private instructions content for explicitly activated sess
   agent-bios app session off   stop future delivery; earlier context requires a new task to exclude
   agent-bios understand  list instructions learning bundles; --help shows session/discovery commands
   agent-bios shell       show the optional zsh connection status
-  agent-bios shell restore   make bare claude/codex open the launcher TUI
+  agent-bios shell restore   make bare claude/codex open the work environment's entry
   agent-bios shell remove    return bare claude/codex to their native CLI
   agent-bios migrate     preview legacy global cleanup; --apply --yes applies it
   agent-bios reset       preview reset; --apply --yes --expected-revision REV applies it
@@ -1791,8 +1791,9 @@ agent-bios — manage private instructions content for explicitly activated sess
   agent-bios help
 
 Launcher (run in an interactive terminal):
-  agent-launch claude    open the Claude launch TUI
-  agent-launch codex     open the Codex launch TUI
+  agent-launch claude    open the work environment's entry for a Claude Code session
+  agent-launch codex     open the work environment's entry for a Codex session
+  agent-launch --presets claude   open the preset menu instead
   agent-launch --instructions  open Instructions Studio directly
   agent-launch --understand BUNDLE claude   start an instruction understanding session
   agent-launch --preset balanced claude   launch with a named preset

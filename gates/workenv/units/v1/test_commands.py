@@ -254,6 +254,15 @@ class Prepare(Commanding):
         self.env["PATH"] = "/nonexistent"
         self.assertEqual(self.run_command("prepare", "claude-code")[0], 1)
         self.assertIn("no Claude Code is installed on this machine's path", self.err)
+        self.assertNotIn(commands.PRESETS, self.err)
+
+    def test_a_person_the_launcher_routed_here_is_told_the_way_back_to_the_presets(self):
+        self.env["PATH"] = "/nonexistent"
+        self.assertEqual(self.run_command("start", "claude-code", "--entrance",
+                                          "host_launcher", screen=Screen())[0], 1)
+        self.assertEqual(self.err.splitlines()[-1], commands.PRESETS)
+        self.run_command("start", "claude-code", screen=Screen())
+        self.assertNotIn(commands.PRESETS, self.err)
 
 
 class Start(Commanding):

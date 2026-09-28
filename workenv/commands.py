@@ -58,6 +58,8 @@ HISTORY_LIMIT = 10
 SKIP = "skip_confirmations"
 # What `start` exits with when the person leaves the entry, as a shell reports an interrupt.
 LEFT = 130
+# Where a person the launcher routed here goes when the entry cannot start.
+PRESETS = "agent-launch --presets HOST opens the preset menu instead."
 # What each state of a position means, for a person to read.
 STATES = {"installed": "installed", "not_checked": "held; its bodies are read for a task",
           "checked_empty": "none", "configured": "registered, with no accepted revision"}
@@ -399,6 +401,8 @@ def main(argv: list[str] | None = None, environ: dict | None = None,
                      screen, out, run)
     except (CommandError, local.LocalError, start.StartError, storage.StorageError) as error:
         print(f"agent-bios {args.verb}: {error}", file=sys.stderr)
+        if args.verb == "start" and args.entrance == "host_launcher":
+            print(PRESETS, file=sys.stderr)
         return 1
 
 

@@ -11377,6 +11377,9 @@ def launcher_fixture(launcher_module):
             config_path=fake_profile,
             dry_run=True,
             env_overrides=None,
+            # A bare launch on a terminal opens the work environment's entry, so a scenario
+            # of the preset menu asks for it (D-20260929-0d8aa3).
+            presets=True,
         ):
             scenario_env = pty_env.copy()
             scenario_env["TERM"] = term
@@ -11396,6 +11399,8 @@ def launcher_fixture(launcher_module):
                     ]
                     if dry_run:
                         child_argv.append("--dry-run")
+                    if presets:
+                        child_argv.append("--presets")
                     child_argv.append(host)
                     os.execve(
                         sys.executable,
@@ -11514,6 +11519,29 @@ def launcher_fixture(launcher_module):
                 run_picker_scenario=run_picker_scenario,
                 tmp=tmp,
             )
+
+
+@launcher_check
+def bare_launch_opens_the_entry(fx):
+    # A bare launch on a terminal is the work environment's entry, not the preset menu. The
+    # entry runs with no host on its PATH and a state root of its own, so it stops at its
+    # first step, naming the host it could not find, before any host or model is reached.
+    empty = fx.tmp / "entry-empty-bin"
+    empty.mkdir(exist_ok=True)
+    transcript, status = fx.run_picker_scenario(
+        "bare launch opens the entry",
+        ((b"agent-bios start: no Claude Code is installed", b""),),
+        host="claude", dry_run=False, presets=False,
+        env_overrides={"PATH": str(empty), "AGENT_BIOS_STATE_DIR": str(fx.tmp / "entry-state")},
+    )
+    fired = conditions_that_held(
+        exit_not_1=status != 1,
+        preset_menu_shown=b"Launch? [Y/n/q]" in transcript or b"Software Engineer" in transcript,
+        presets_hint_absent=b"agent-launch --presets HOST opens the preset menu" not in transcript,
+    )
+    if fired:
+        mark_fail(f"agent-launch bare launch did not open the work environment's entry: {fired} "
+                  f"(exit {status})")
 
 
 @launcher_check

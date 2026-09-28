@@ -26,9 +26,11 @@ wiring. Neither activates instructions in a task.
 | `agent-bios verify` | verify stored bytes/catalog/baseline; not host activation |
 | `agent-bios status` | show the private release, baseline, conflicts, and evidence state |
 | `agent-bios instructions` | rich Instructions Studio in a TTY; list in a non-TTY |
-| `agent-launch claude` | open the launch TUI for Claude |
-| `agent-launch codex` | open the launch TUI for Codex |
-| `agent-bios shell restore` | opt in: bare claude/codex opens the TUI |
+| `agent-launch claude` | open the work environment's entry and start a Claude Code session from it |
+| `agent-launch codex` | open the work environment's entry and start a Codex session from it |
+| `agent-launch --presets claude` | open the preset menu instead of the entry |
+| `agent-bios start claude-code` | the same entry, started from the CLI; `profile`, `sources`, `prepare HOST` and `received` show what it holds |
+| `agent-bios shell restore` | opt in: bare claude/codex opens the entry |
 | `agent-bios shell remove` | remove only that optional shell connection |
 | `agent-bios reset` | preview reset; keep sources, snapshots, and pins |
 | `agent-bios reset --apply --yes --expected-revision REV` | use the revision returned by preview |

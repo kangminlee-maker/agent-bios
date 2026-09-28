@@ -4126,6 +4126,46 @@ def exec_backend(command: str, args: list[str], env: dict[str, str] | None = Non
     os.execve(command, [command, *args], os.environ.copy() if env is None else env)
 
 
+# The adapter each launcher host is started through by the work environment (workenv.hosts).
+ENTRY_HOSTS = {"claude": "claude-code", "codex": "codex"}
+
+
+def opens_entry(args: argparse.Namespace) -> bool:
+    """Whether this launch opens the work environment's entry: a bare launch on a terminal
+    (D-20260929-0d8aa3). A preset, Custom, understand, a dry run, a resume, the instructions
+    options and --presets keep the preset menu; --no-tui, forwarded arguments and
+    AGENT_LAUNCH_TUI=0 keep the direct launch."""
+    return (sys.stdin.isatty() and sys.stdout.isatty()
+            and not (args.no_tui or args.forward or os.environ.get("AGENT_LAUNCH_TUI") == "0")
+            and not (args.preset or args.custom or args.understand or args.dry_run
+                     or args.presets or args.resume_session or args.instructions_native
+                     or args.instructions_domains is not None
+                     or args.exclude_global_instructions))
+
+
+def workenv_commands() -> pathlib.Path:
+    """The work environment's commands: beside this launcher, else in the installed package."""
+    beside = pathlib.Path(__file__).resolve().parents[1] / "workenv" / "commands.py"
+    if beside.is_file():
+        return beside
+    try:
+        installed = instructions_package_root() / "workenv" / "commands.py"
+    except LaunchError:
+        installed = None
+    if installed is None or not installed.is_file():
+        raise LaunchError("the work environment's entry is not installed here; "
+                          "agent-launch --presets HOST opens the preset menu")
+    return installed
+
+
+def exec_entry(host: str, config_path: pathlib.Path) -> NoReturn:
+    """Replace the launcher with the entry, under this interpreter, in the launcher's language:
+    the Codex hook the entry's start gives the host names this interpreter, as its probe did."""
+    argv = [sys.executable, str(workenv_commands()), "start", ENTRY_HOSTS[host],
+            "--entrance", "host_launcher", "--locale", ui_language(config_path)]
+    os.execv(sys.executable, argv)
+
+
 def _instructions_environment(canonical: str, legacy: str, default=None):
     # The launcher also runs standalone, before any private package is located.
     current, previous = os.environ.get(canonical), os.environ.get(legacy)
@@ -10736,6 +10776,11 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         help="open customization after preset selection",
     )
     parser.add_argument("--yes", action="store_true", help="skip launch confirmation")
+    parser.add_argument(
+        "--presets",
+        action="store_true",
+        help="open the preset menu; a bare launch on a terminal opens the work environment's entry",
+    )
     parser.add_argument("--dry-run", action="store_true", help="print projection without launching")
     parser.add_argument("--instructions", "--corpus", action="store_true", help="open private Instructions Studio")
     parser.add_argument("--understand", metavar="BUNDLE", help="start an interactive learning session for an instruction bundle; list with agent-bios understand list")
@@ -11087,6 +11132,8 @@ def main(argv: list[str], *, bundled_ui: bool = False) -> int:
             raise LaunchError("--check-adapter takes a seat and then the adapter command")
         return check_adapter_command(args.check_adapter[0], args.check_adapter[1:])
     config_path = args.config.expanduser()
+    if opens_entry(args):
+        exec_entry(args.host, config_path)
     generation = None
     if private_instructions_enabled():
         bare = not args.preset and not args.custom and not args.understand and not args.dry_run and (

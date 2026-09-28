@@ -7,7 +7,8 @@
 
 ## Preflight와 Custom
 
-명시적인 `agent-launch claude` 또는 `agent-launch codex`가 런처를 연다.
+명시적인 `agent-launch claude` 또는 `agent-launch codex`는 작업 환경 입력 화면
+(`agent-bios start`가 그리는 화면)을 연다. 프리셋 화면은 `--presets`를 붙여 연다.
 전역 PATH에 없다면 `"$HOME/.local/bin/agent-launch"`를 사용한다.
 일반 `claude`·`codex`가 런처를 열려면 별도의 셸 연결을 먼저 선택해야 한다.
 

@@ -95,7 +95,8 @@ class BundledUiEntrypointTests(unittest.TestCase):
         self.no_runtime_leak()
 
     def test_checkout_launcher_without_site_packages_opens_real_textual_screen(self):
-        code, output = self.run_pty(ROOT / "launch/agent-launch.py", ["--config", str(self.config), "claude"], ready="Esc cancel", keys=b"q")
+        # --presets: a bare launch opens the work environment's entry, which is not this UI.
+        code, output = self.run_pty(ROOT / "launch/agent-launch.py", ["--config", str(self.config), "--presets", "claude"], ready="Esc cancel", keys=b"q")
         self.assertEqual(130, code, output)
         self.assertIn("\x1b[?1049h", output)
         self.assertNotIn("using numbered prompts", output)
@@ -112,7 +113,7 @@ class BundledUiEntrypointTests(unittest.TestCase):
         self.env.update(AGENT_BIOS_PRIVATE_INSTRUCTIONS="1", AGENT_BIOS_PACKAGE_ROOT=str(release),
                         PATH=str(binaries) + os.pathsep + self.env["PATH"])
         code, output = self.run_pty(release / "launch/agent-launch.py",
-                                    ["--config", str(installer.launch_root / "profiles.toml"), "claude"],
+                                    ["--config", str(installer.launch_root / "profiles.toml"), "--presets", "claude"],
                                     ready="Esc cancel", keys=b"q")
         self.assertEqual(130, code, output)
         self.assertIn("\x1b[?1049h", output)
@@ -143,7 +144,7 @@ class BundledUiEntrypointTests(unittest.TestCase):
     def test_corrupt_launcher_bundle_is_actionable_and_does_not_fall_back(self):
         package = self.package_copy("bad-launcher")
         next((package / "compose/ui_runtime").glob("*.whl")).unlink()
-        code, output = self.run_pty(package / "launch/agent-launch.py", ["--config", str(self.config), "claude"])
+        code, output = self.run_pty(package / "launch/agent-launch.py", ["--config", str(self.config), "--presets", "claude"])
         self.assertEqual(2, code, output)
         self.assertIn("bundled UI wheel missing", output)
         self.assertNotIn("using numbered prompts", output)

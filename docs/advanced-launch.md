@@ -6,6 +6,12 @@ Inspect settings before launching. Some Builder and internal-wrapper defaults us
 
 ## Preflight and settings
 
+A bare `agent-launch HOST` on a terminal opens the work environment's entry, the screen
+`agent-bios start` draws: it composes the session's Instructions, knowledge and decision
+memory, lets you choose the tool and whether the host asks before acting, and starts the
+host. `--presets` opens the preflight below instead, as do `--preset`, `--custom`,
+`--dry-run` and the instructions options.
+
 The preflight keeps the current setup above each choice, supports the configured model
 catalog and **Other**, and offers Builder presets, Software Engineer / Vanilla,
 Session distill, Custom, Language, and **Instructions Studio**. Studio is the same backend as
