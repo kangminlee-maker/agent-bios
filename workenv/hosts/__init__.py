@@ -8,11 +8,24 @@ delivery rules: which of its events reaches which recipient C11 names (`new`, `c
 context. A host is added by writing its module and listing it in `MODULES`; nothing in the owner
 changes.
 
+Each route names the carrier that hands its recipient the text, the same on every host:
+
+  - `launch`: the instructions the host is started with, which it keeps for the session's life,
+    compaction included; a `new` and a `rehydrated` session take their text this way;
+  - `definition`: a kind of child the session is started with, defined for that session alone;
+    a child of that kind starts from its definition's instructions;
+  - `hook`: a command the host runs on the route's event, whose output it adds to the session.
+
+The event of a launch or definition route is where the host reports that the recipient began,
+not how the text reaches it. An adapter states its host's arguments for the first two carriers
+(`launch`), and its hook output for the third (`output`).
+
 What an adapter declares is how it would reach a recipient, never that it does. A route is
 supported on a host only where the adapter declares it and the latest probe of that recipient's
-delivery capability (C12) on that host, by name and version, ran for real and worked; a probe
-run against a fixture, one that did not work, or none at all leaves the route unsupported, and a
-host's documentation cannot stand in for the probe. A route without that is not delivered on: no
+delivery capability (C12) on that host, by name and version, ran for real through the wire the
+route takes now and worked; a probe run against a fixture, one that did not work, one through
+another carrier, or none at all leaves the route unsupported, and a host's documentation cannot
+stand in for the probe. A route without that is not delivered on: no
 other route stands in for it. A host no adapter names has no route at all, so its sessions can
 take what the owner composes only by hand, and nothing records a delivery the runtime did not
 observe.
@@ -22,10 +35,11 @@ own bytes and never an id the runtime makes up.
 
 An adapter also says how its host is driven for a probe: the executable that runs it, the
 environment that marks a process as running inside one of its sessions, and a run that starts
-the host with its hooks and asks one recipient (`workenv.hosts.probes`). A host is always given
-every declared route's hook, one group per route in the order the routes are declared, so a
-route keeps its place across runs: Codex trusts a hook by its place, and two routes on one event
-would otherwise take the same place in turn.
+the host with the arguments a probe gives it and its hooks, and asks one recipient
+(`workenv.hosts.probes`). A host is always given every declared route's hook, whatever the
+route's carrier, one group per route in the order the routes are declared, so a route keeps its
+place across runs: Codex trusts a hook by its place, and two routes on one event would otherwise
+take the same place in turn.
 """
 from __future__ import annotations
 
@@ -43,13 +57,33 @@ CAPABILITY = {recipient: f"{recipient}_delivery" for recipient in RECIPIENTS}
 PROBE = "capability_probe"
 # The adapters this installation carries, by module under this package.
 MODULES = ("claude_code", "codex")
+# The wire a probe of a route states (C12), by the route's carrier.
+WIRES = {"launch": {"protocol": "launch_instructions", "version": "1"},
+         "definition": {"protocol": "session_definition", "version": "1"},
+         "hook": {"protocol": "command_hook", "version": "1"}}
 
 
 @dataclasses.dataclass(frozen=True)
 class Route:
-    """One host event, and the value of its `source` field where the event has one."""
+    """One host event, the value of its `source` field where the event has one, and the carrier
+    that hands the recipient its text."""
     event: str
     source: str | None = None
+    carrier: str = dataclasses.field(kw_only=True)
+
+    @property
+    def wire(self) -> dict:
+        return WIRES[self.carrier]
+
+
+@dataclasses.dataclass(frozen=True)
+class Kind:
+    """A kind of child defined for one session: what it is for, the instructions it starts with,
+    and the model and reasoning effort it runs on where they are set."""
+    description: str
+    instructions: str
+    model: str | None = None
+    effort: str | None = None
 
 
 @dataclasses.dataclass(frozen=True)
@@ -66,8 +100,13 @@ class Adapter:
     # The environment variables that mark a process as running inside one of its sessions,
     # dropped before a probe starts a session of its own.
     nested: tuple[str, ...] = ()
-    # Starts the host with its hooks and asks one recipient for what the hook handed it:
-    # (recipient, executable, hook command, working directory, environment) -> probes.Run.
+    # The arguments that start the host with the text as its session's launch instructions and
+    # the kinds defined for that session alone, writing any file they name in the directory:
+    # (directory, text or None, {name: Kind}) -> arguments.
+    launch: Callable | None = None
+    # Starts the host with the given arguments and its hooks and asks one recipient for what it
+    # was handed: (recipient, executable, hook command, arguments, working directory,
+    # environment) -> probes.Run.
     drive: Callable | None = None
 
     def recipient_of(self, event: dict) -> str | None:
@@ -133,11 +172,15 @@ def latest_probes(store: storage.Store, host: dict, capability: str) -> list[dic
 
 
 def qualified(store: storage.Store, host: dict, recipient: str) -> bool:
-    """Whether the latest probe of this recipient's delivery on the host ran for real and worked;
-    probes of one instant that disagree qualify nothing."""
+    """Whether the latest probe of this recipient's delivery on the host ran for real, through
+    the wire the host's route to it takes now, and worked; probes of one instant that disagree
+    qualify nothing, and neither does a probe of a carrier the route no longer takes."""
+    adapter = adapter_for(host["name"])
+    route = adapter.routes.get(recipient) if adapter is not None else None
     probes = latest_probes(store, host, CAPABILITY[recipient])
-    return bool(probes) and all(probe["mode"] == {"runs": "real"} and probe["outcome"] == "worked"
-                                for probe in probes)
+    return route is not None and bool(probes) and all(
+        probe["mode"] == {"runs": "real"} and probe["outcome"] == "worked"
+        and probe["wire"] == route.wire for probe in probes)
 
 
 def supports(store: storage.Store, host: dict, recipient: str) -> bool:

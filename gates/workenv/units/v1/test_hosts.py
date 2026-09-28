@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import pathlib
+import tempfile
 import unittest
 
 import bench  # noqa: F401 -- puts the repository root on the import path
@@ -48,6 +50,15 @@ class Registry(unittest.TestCase):
     def test_a_destination_is_the_digest_of_the_session_id_the_host_reported(self):
         self.assertEqual(hosts.destination_digest("1f0e-세션"),
                          hashlib.sha256("1f0e-세션".encode("utf-8")).hexdigest())
+
+    def test_every_host_hands_each_recipient_through_the_same_carrier(self):
+        # One method on both hosts (D-20260928-7c45ce): only the arguments differ.
+        carriers = {name: {recipient: route.carrier for recipient, route in adapter.routes.items()}
+                    for name, adapter in hosts.adapters().items()}
+        self.assertEqual(carriers["claude-code"], {"new": "launch", "rehydrated": "launch",
+                                                   "child": "definition", "current": "hook"})
+        self.assertEqual([name for name, found in carriers.items()
+                          if found != carriers["claude-code"]], [])
 
     def test_an_adapter_declares_a_child_route_where_its_host_shows_one(self):
         # Claude Code's reference and the subagent-start output schema in Codex 0.157.1's binary
@@ -111,6 +122,39 @@ class Suite:
             for group in listed:
                 self.assertEqual(group["hooks"], [{"type": "command", "command": "run it"}])
                 self.assertNotIn(None, group.values())
+
+    def test_every_route_names_a_carrier_with_its_own_wire(self):
+        for recipient, route in self.adapter.routes.items():
+            self.assertEqual(route.wire, hosts.WIRES[route.carrier], recipient)
+        self.assertEqual(len({json.dumps(wire, sort_keys=True)
+                              for wire in hosts.WIRES.values()}), len(hosts.WIRES))
+
+    def test_its_launch_hands_over_the_text_and_each_kind_and_nothing_else(self):
+        if all(route.carrier == "hook" for route in self.adapter.routes.values()):
+            return
+        self.assertTrue(callable(self.adapter.launch))
+        with tempfile.TemporaryDirectory() as directory:
+            where = pathlib.Path(directory)
+            self.assertEqual((self.adapter.launch(where, None, {}), list(where.iterdir())),
+                             ([], []))
+
+            def reached(arguments: list[str]) -> str:
+                """Every argument, and every file an argument names, as one text."""
+                return "\n".join(arguments + [path.read_text(encoding="utf-8")
+                                              for path in sorted(where.iterdir())
+                                              if any(str(path) in part for part in arguments)])
+            text = "규칙 하나: \"인용\" 그리고 \\ 백슬래시.\n"
+            given = self.adapter.launch(where, text, {})
+            self.assertTrue(given and all(isinstance(part, str) for part in given))
+            self.assertIn("규칙 하나", reached(given))
+        with tempfile.TemporaryDirectory() as directory:
+            where = pathlib.Path(directory)
+            kind = hosts.Kind(description="A seat.", instructions="자식 규칙.", model="m",
+                              effort="high")
+            given = self.adapter.launch(where, None, {"seat": kind})
+            self.assertIn("seat", reached(given))
+            self.assertIn("자식 규칙.", reached(given))
+            self.assertNotIn("규칙 하나", reached(given))
 
     def test_it_can_drive_its_host_as_a_session_of_its_own(self):
         # A probe started from inside one of the host's sessions must not run as part of it.

@@ -1,12 +1,26 @@
 """Probing delivery to a recipient on the host installed here (C12 `capability.probe`).
 
 A delivery capability (`new_delivery`, `current_delivery`, `child_delivery`,
-`rehydrated_delivery`) is probed by a real run of the installed host: the host is started with
-its adapter's hook on the route to that recipient, the hook hands the recipient a random code
-with the instruction to give it when asked, and the recipient is asked for it. The route worked
-only if the reply carries that code, which nothing but the hook's context could have told it.
-The recipient is asked to act on what it was handed, not to repeat it: Codex adds a hook's
-context as a developer message, and its model declines to disclose one.
+`rehydrated_delivery`) is probed by a real run of the installed host: the route's carrier hands
+the recipient a random code with the instruction to give it when asked, and the recipient is
+asked for it. The route worked only if the reply carries that code, which nothing but what the
+carrier handed could have told it. The recipient is asked to act on what it was handed, not to
+repeat it: Codex adds what it is handed as a developer message, and its model declines to
+disclose one.
+
+Each carrier is probed as it delivers (`workenv.hosts`):
+
+  - `launch`: the host is started with the code in its launch instructions. A `new` session is
+    asked at once; a `rehydrated` one after a first turn and a compaction, which is what it keeps
+    them through.
+  - `definition`: the host is started with the code in the definition of a kind of child made
+    for the probe (`KIND`) and nowhere else, and the session is asked to start a child of that
+    kind and relay its answer.
+  - `hook`: the host is started with its adapter's hooks, and the hook on the route's event hands
+    over the code that the job file names.
+
+Every run gives the host every declared route's hook, so a probe of any carrier runs under the
+hooks a delivery does, and the hook hands over nothing on a route it does not carry.
 
 What the run found is recorded as C12 states it, kept apart from what was declared:
 
@@ -45,10 +59,11 @@ from workenv.contracts import c03, c12
 CODE = "agent-bios probe code"
 JOB = "AGENT_BIOS_HOOK_JOB"
 HOOK = pathlib.Path(__file__).with_name("hook.py")
-WIRE = {"protocol": "command_hook", "version": "1"}
+# The kind of child a probe of a `definition` route defines, and hands the code in.
+KIND = "agent-bios-probe"
 ASK = f"What is the {CODE}? Reply with the code alone, or NONE if you were not given one."
-ASK_CHILD = (f"Start one subagent with your subagent tool and ask it: \"{ASK}\" Then reply with "
-             "exactly what the subagent replied and nothing else.")
+ASK_CHILD = (f"Start one subagent of type \"{KIND}\" with your subagent tool and ask it: "
+             f"\"{ASK}\" Then reply with exactly what the subagent replied and nothing else.")
 TIMEOUT = 300
 # The longest `observed` a probe keeps (C12).
 OBSERVED = 4000
@@ -65,8 +80,29 @@ class Run:
 
 
 def handed(code: str) -> str:
-    """What the hook hands the recipient."""
+    """What the carrier hands the recipient."""
     return f"If you are asked for the {CODE}, reply with {code}."
+
+
+def given(adapter: hosts.Adapter, route: hosts.Route, directory: pathlib.Path,
+          text: str) -> list[str]:
+    """The arguments that hand `text` to the route's recipient through the route's carrier; a
+    hook's are its job file's, so it takes none."""
+    if route.carrier == "launch":
+        return adapter.launch(directory, text, {})
+    if route.carrier == "definition":
+        return adapter.launch(directory, None, {KIND: hosts.Kind(
+            description="Answers the agent-bios probe's question.", instructions=text)})
+    return []
+
+
+def carried(route: hosts.Route) -> str:
+    """How the route's carrier handed the recipient its text, for what a probe observed."""
+    if route.carrier == "launch":
+        return "in the instructions its host was started with"
+    if route.carrier == "definition":
+        return "in the definition of the kind it was started as"
+    return f"by the hook on {route.event}" + (f" ({route.source})" if route.source else "")
 
 
 def command(host_name: str) -> str:
@@ -115,7 +151,8 @@ def probed(asked: dict, environ: dict, workdir: pathlib.Path) -> tuple[dict, lis
     if recipient not in adapter.routes:
         return found(False, "unsupported",
                      f"The {client['name']} adapter declares no route to a {recipient} session.")
-    if adapter.drive is None:
+    route = adapter.routes[recipient]
+    if adapter.drive is None or (route.carrier != "hook" and adapter.launch is None):
         return found(False, "unsupported", f"The {client['name']} adapter cannot drive its host.")
     host = installed(adapter, environ, workdir)
     if host is None:
@@ -127,19 +164,21 @@ def probed(asked: dict, environ: dict, workdir: pathlib.Path) -> tuple[dict, lis
     code = secrets.token_hex(8)
     job = workdir / "job.json"
     job.write_text(json.dumps({"recipient": recipient, "text": handed(code)}), encoding="utf-8")
+    launched = workdir / "launch"
+    launched.mkdir()
+    arguments = given(adapter, route, launched, handed(code))
     quiet = {name: value for name, value in environ.items() if name not in adapter.nested}
-    run = adapter.drive(recipient, host[0], command(client["name"]), workdir,
+    run = adapter.drive(recipient, host[0], command(client["name"]), arguments, workdir,
                         {**quiet, JOB: str(job)})
-    route = adapter.routes[recipient]
-    where = f"{route.event}" + (f" ({route.source})" if route.source else "")
+    how = carried(route)
     if run.reply is None:
-        return found(True, "no_response", f"The host gave no reply to the {where} probe.",
-                     run.hooks, run.note)
+        return found(True, "no_response", f"The host gave no reply to the probe of the code "
+                     f"handed to the {recipient} session {how}.", run.hooks, run.note)
     if code in run.reply:
         return found(True, "worked", f"The {recipient} session gave the code the adapter handed "
-                     f"it on {where}.", run.hooks, run.note)
+                     f"it {how}.", run.hooks, run.note)
     return found(True, "refused", f"The {recipient} session did not give the code the adapter "
-                 f"handed it on {where}.", run.hooks, run.note)
+                 f"handed it {how}.", run.hooks, run.note)
 
 
 def refused(call, code: str, pointer: str) -> dict:
@@ -148,13 +187,16 @@ def refused(call, code: str, pointer: str) -> dict:
 
 
 def prepare(call) -> dict:
-    """Refuse what can be refused, then run the host, before the unit of work."""
+    """Refuse what can be refused, then run the host, before the unit of work. A probe states
+    the wire of the route it probes; one no adapter declares is run to record that."""
     asked = journal.payload(call)
     if asked["capability"] not in RECIPIENT:
         raise journal.JournalError(f"probing {asked['capability']} is not served yet")
     if call.request["target"]["resource_id"] != call.request["actor"]["profile_id"]:
         return {"answer": refused(call, c03.REQUEST_MISMATCH, "/target/resource_id")}
-    if asked["wire"] != WIRE:
+    adapter = hosts.adapter_for(asked["client"]["name"])
+    route = adapter.routes.get(RECIPIENT[asked["capability"]]) if adapter is not None else None
+    if route is not None and asked["wire"] != route.wire:
         return {"answer": refused(call, c12.WIRE_VERSION_UNSUPPORTED, "/wire")}
     with tempfile.TemporaryDirectory(prefix="agent-bios-probe-") as workdir:
         fields, ran_under = probed(asked, dict(os.environ), pathlib.Path(workdir).resolve())

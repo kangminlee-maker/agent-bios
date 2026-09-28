@@ -53,13 +53,16 @@ class Delivering(Composing):
         self.addCleanup(object.__setattr__, adapter, "routes", routes)
 
     def probed(self, host: str, recipient: str, outcome: str = "worked", runs: str = "real",
-               version: str = "1", at: str = INSTANT) -> None:
-        """A probe of a recipient's delivery on the host, kept as capability.probe keeps one."""
+               version: str = "1", at: str = INSTANT, carrier: str | None = None) -> None:
+        """A probe of a recipient's delivery on the host, kept as capability.probe keeps one:
+        through the carrier the host's route to it takes, unless another is named."""
         mode = {"runs": "real"} if runs == "real" else {"runs": "fixture",
                                                           "fixture_digest": sha(b"fixture")}
+        adapter = hosts.adapter_for(host)
+        route = adapter.routes.get(recipient) if adapter is not None else None
+        carrier = carrier or (route.carrier if route is not None else "hook")
         probe = {"kind": "capability_probe", "schema": 1, "probe_id": bench.ident("prb"),
-                 "client": {"name": host, "version": version},
-                 "wire": {"protocol": "command_hook", "version": "1"},
+                 "client": {"name": host, "version": version}, "wire": hosts.WIRES[carrier],
                  "capability": hosts.CAPABILITY[recipient], "offered": True, "outcome": outcome,
                  "observed": "what the host did", "mode": mode, "at": at}
         store = self.bench.store()
@@ -266,6 +269,19 @@ class Qualification(Delivering):
         self.probed("claude-code", "new", at=LATER)
         self.probed("claude-code", "new", outcome="refused", at=LATER)
         self.unsupported(self.attempt(link, prepared, "new"))
+
+    def test_a_probe_through_a_carrier_the_route_no_longer_takes_qualifies_nothing(self):
+        # A route that moved to launch instructions is not qualified by a probe of its hook.
+        link, digest = self.linked(qualify=False)
+        prepared = self.for_link(digest)
+        for recipient in ("new", "rehydrated", "child"):
+            with self.subTest(recipient=recipient):
+                self.probed("claude-code", recipient, carrier="hook")
+                self.unsupported(self.attempt(link, prepared, recipient), recipient)
+        self.probed("claude-code", "new", at=LATER)
+        self.received(link, prepared, "new")
+        self.probed("claude-code", "current", carrier="launch")
+        self.unsupported(self.attempt(link, prepared, "current"))
 
     def test_a_probe_does_not_qualify_a_route_the_adapter_does_not_declare(self):
         self.without("codex", "child")

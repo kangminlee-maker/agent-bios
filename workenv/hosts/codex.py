@@ -8,6 +8,13 @@ takes `hookSpecificOutput.additionalContext`, which Codex adds as a developer me
 binary). A hook reads its session's id in `session_id`; a command the session runs reads it in
 `CODEX_THREAD_ID`. Read 2026-09-27.
 
+At launch, `-c developer_instructions=` gives the session its developer instructions, replacing
+any the person configured, and the session keeps them through compaction; a child started with no
+role takes them too. `-c agents.<name>.description=` and `-c agents.<name>.config_file=` define a
+role for the session alone, and a role's own `developer_instructions` replace the session's in its
+child. Measured on 0.157.1 on 2026-09-28: the instructions went in whole to 120,000 characters,
+where a hook's output is cut at about 2,500 tokens.
+
 A probe drives Codex through its app server (`codex app-server --stdio`), which runs the same
 conversations a person does without a terminal: it lists every hook Codex would run, starts a
 conversation that keeps no session (`ephemeral`) in a read-only sandbox, and asks it. A child is
@@ -36,6 +43,11 @@ def toml(value) -> str:
         return "{" + ", ".join(f"{key} = {toml(item)}" for key, item in value.items()) + "}"
     if isinstance(value, list):
         return "[" + ", ".join(toml(item) for item in value) + "]"
+    if isinstance(value, str):
+        # A TOML basic string: every character as itself but the quote, the backslash and the
+        # control characters, which TOML admits only escaped.
+        return '"' + "".join(f"\\u{ord(c):04x}" if c in '"\\' or ord(c) < 0x20 or ord(c) == 0x7f
+                             else c for c in value) + '"'
     return json.dumps(value)
 
 
@@ -44,6 +56,21 @@ def flags(command: str) -> list[str]:
     hooks by opening Codex with them and trusting them in `/hooks`."""
     return [part for event, groups in ADAPTER.groups(command).items()
             for part in ("-c", f"hooks.{event}={toml(groups)}")]
+
+
+def launch(directory: pathlib.Path, text: str | None, kinds: dict) -> list[str]:
+    arguments = [] if text is None else ["-c", f"developer_instructions={toml(text)}"]
+    for name, kind in kinds.items():
+        role = {"name": name, "description": kind.description,
+                "developer_instructions": kind.instructions,
+                **({"model": kind.model} if kind.model else {}),
+                **({"model_reasoning_effort": kind.effort} if kind.effort else {})}
+        path = directory / f"{name}.toml"
+        path.write_text("".join(f"{key} = {toml(value)}\n" for key, value in role.items()),
+                        encoding="utf-8")
+        arguments += ["-c", f"agents.{name}.description={toml(kind.description)}",
+                      "-c", f"agents.{name}.config_file={toml(str(path))}"]
+    return arguments
 
 
 class Server:
@@ -145,12 +172,12 @@ def runs(rows: list[dict], route: Route, command: str) -> bool:
                row["enabled"] and row["trustStatus"] == "trusted" for row in rows)
 
 
-def drive(recipient: str, executable: str, command: str, workdir: pathlib.Path,
-          environ: dict):
+def drive(recipient: str, executable: str, command: str, given: list[str],
+          workdir: pathlib.Path, environ: dict):
     from workenv.hosts import probes
 
     try:
-        server = Server(executable, flags(command), workdir, environ, probes.TIMEOUT)
+        server = Server(executable, [*flags(command), *given], workdir, environ, probes.TIMEOUT)
     except OSError:
         return probes.Run(None, [], "Codex could not be started.")
     try:
@@ -164,7 +191,8 @@ def drive(recipient: str, executable: str, command: str, workdir: pathlib.Path,
         except (KeyError, IndexError, TypeError):
             return probes.Run(None, [], "Codex did not list the hooks it would run.")
         hooks = recorded(rows)
-        note = "" if runs(rows, ADAPTER.routes[recipient], command) else (
+        route = ADAPTER.routes[recipient]
+        note = "" if route.carrier != "hook" or runs(rows, route, command) else (
             "Codex would not run the adapter's hook on this route: it is not trusted until the "
             "person reviews it in /hooks.")
         opened = server.call("thread/start", {"cwd": str(workdir), "ephemeral": True,
@@ -187,12 +215,13 @@ def drive(recipient: str, executable: str, command: str, workdir: pathlib.Path,
 
 ADAPTER = Adapter(
     names=("codex",),
-    routes={"new": Route("SessionStart", "startup"),
-            "rehydrated": Route("SessionStart", "compact"),
-            "current": Route("UserPromptSubmit"),
-            "child": Route("SubagentStart")},
+    routes={"new": Route("SessionStart", "startup", carrier="launch"),
+            "rehydrated": Route("SessionStart", "compact", carrier="launch"),
+            "current": Route("UserPromptSubmit", carrier="hook"),
+            "child": Route("SubagentStart", carrier="definition")},
     session_env="CODEX_THREAD_ID",
     binary="codex",
     nested=("CODEX_THREAD_ID",),
+    launch=launch,
     drive=drive,
 )
