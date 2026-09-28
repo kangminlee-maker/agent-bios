@@ -48,7 +48,7 @@ from workenv.contracts import b03, canonical
 DATABASE = "state.sqlite"
 # The layout this module writes, as PRAGMA user_version; a store with a later one was written
 # by a later runtime and is not opened.
-LAYOUT = 5
+LAYOUT = 6
 # What a member's bytes are kept as among records: they have no kind of their own.
 MEMBER = "source_member"
 IN_TXN = "in_txn_before_commit"
@@ -134,8 +134,16 @@ LAYOUT_5 = (
          record TEXT NOT NULL, evidence TEXT NOT NULL, at TEXT NOT NULL)""",
 )
 
+LAYOUT_6 = (
+    # What the journal keeps of a request beyond its row, which a history read needs: the note
+    # it carried (`rationale`), and the scopes its work names beside its owner and target
+    # (`works_in`, the canonical JSON of a list of scopes).
+    "ALTER TABLE requests ADD COLUMN rationale TEXT",
+    "ALTER TABLE requests ADD COLUMN works_in TEXT",
+)
+
 # What each layout adds to the one before it.
-LAYOUTS = {1: LAYOUT_1, 2: LAYOUT_2, 3: LAYOUT_3, 4: LAYOUT_4, 5: LAYOUT_5}
+LAYOUTS = {1: LAYOUT_1, 2: LAYOUT_2, 3: LAYOUT_3, 4: LAYOUT_4, 5: LAYOUT_5, 6: LAYOUT_6}
 
 
 class StorageError(Exception):

@@ -41,6 +41,23 @@ where the held request had no provider to reach, and `none` where it had.
 `committed` and `answered` build the answers an entry returns: the result, and for a commit its
 receipt with the owner's next sequence and the head the target moved to. `stale` is the answer to
 a request on a head-keeping target whose expected base is not the head the journal holds.
+
+With each request the journal keeps the note it carried (`rationale`) and the scopes its work
+names (`works_in`), which `operation.history.read` answers from. C03 does not say which requests
+belong to a scope, so this module says it, in three rules:
+
+  - A request acts in a scope when the scope is its owner, its target is the scope's id, or its
+    work names the scope: its work scope, the scopes its payload's basis names, or the order of a
+    preparation its payload names.
+  - A scope's recent requests are those of them that start work, the ones whose action is `use`.
+    The others change what the scope holds, which an entrance reads from that owner; a start
+    leaves nothing but its request, so the journal is the only place its stage can be seen.
+  - A dated checkpoint is the first record a request that acts in the scope returned, when the
+    person wrote a note with that request. The note is kept as written; one longer than a
+    checkpoint holds is cut and ends in an ellipsis.
+
+History is evidence, never intent: reading it resumes nothing, so an entry offers only the
+recovery that reads, querying the same request.
 """
 from __future__ import annotations
 
@@ -66,6 +83,14 @@ SCHEMAS = pathlib.Path(canonical.__file__).with_name("schemas")
 SCHEMA_SUFFIX = ".schema.json"
 # The stages a request can still leave when it is asked again under its own id.
 PENDING = ("in_review", "approved", "executing", UNKNOWN, "partial")
+# What a history read covers: this installation's journal, and no provider's.
+COVERAGE = "local_only"
+# The recovery a history entry offers, of what its request's answer supports: the one that reads.
+READS = ("query_same_request",)
+# The action of the requests that start work, the ones a history read lists.
+STARTS = "use"
+# The most characters a checkpoint's note holds.
+NOTE = 500
 
 _READER: dict = {}
 
@@ -198,21 +223,24 @@ def committed(call, values=(), head: str | None = None, gaps=(),
 # What the journal holds.
 
 def held(store: storage.Store, request_id: str) -> dict | None:
-    """The request held under this id: its digest, stage and provider effect, and the answer
-    it was given, or None."""
-    found = store.read("SELECT request_digest, stage, provider_effect, result_digest, returned, "
-                       "receipt_digest FROM requests WHERE request_id = ?", (request_id,))
+    """The request held under this id: its digest, operation, stage and provider effect, and the
+    answer it was given, or None."""
+    found = store.read("SELECT request_digest, operation, stage, provider_effect, result_digest, "
+                       "returned, receipt_digest FROM requests WHERE request_id = ?", (request_id,))
     if not found:
         return None
-    digest, stage, provider, result, returned, receipt = found[0]
-    return {"request_digest": digest, "stage": stage, "provider_effect": provider,
+    digest, operation, stage, provider, result, returned, receipt = found[0]
+    return {"request_digest": digest, "operation": operation, "stage": stage,
+            "provider_effect": provider,
             "answer": {"result": store.get(result),
                        "returned": [store.get(item) for item in json.loads(returned)],
                        "receipt": store.get(receipt) if receipt else None}}
 
 
-def keep(store: storage.Store, request: dict, digest: str, answer: dict, at: str) -> None:
-    """Hold a request with the answer it was given, in place of a pending one it had."""
+def keep(store: storage.Store, request: dict, digest: str, answer: dict, at: str,
+         works: list[dict] = ()) -> None:
+    """Hold a request with the answer it was given, in place of a pending one it had, with the
+    note it carried and the scopes its work names (`works_in`)."""
     result = answer["result"]
     if result.get("request_id") != request["request_id"] or \
             result.get("request_digest") != digest:
@@ -233,11 +261,28 @@ def keep(store: storage.Store, request: dict, digest: str, answer: dict, at: str
     store.write(
         "INSERT OR REPLACE INTO requests (request_id, request_digest, operation, owner, target, "
         "payload_digest, stage, provider_effect, result_digest, returned, receipt_digest, "
-        "answered_at, position) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        "answered_at, position, rationale, works_in) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         (request["request_id"], digest, request["operation"], scope_key(request["owner"]),
          scope_key(request["target"]), request.get("payload_digest"),
          result["outcome"]["stage"], result["provider_effect"], store.put(result),
-         json.dumps(returned), receipt_digest, at, position))
+         json.dumps(returned), receipt_digest, at, position, request.get("rationale"),
+         canonical.encode(list(works)).decode("ascii")))
+
+
+def works_in(store: storage.Store, call) -> list[dict]:
+    """The scopes a request's work names, beside its owner and target: its work scope, the
+    scopes its payload's basis names, and the order of a preparation held here that its payload
+    names."""
+    request, asked = call.request, payload(call) or {}
+    found = [request["work_scope"]] if "work_scope" in request else []
+    if asked.get("kind") == "preparation_request":
+        found += asked["basis"].get("scopes", [])
+    named = asked.get("preparation_digest")
+    prepared = store.get(named) if named else None
+    if isinstance(prepared, dict) and prepared.get("kind") == "preparation":
+        found += prepared["order"]
+    return found
 
 
 def head_of(store: storage.Store, resource_id: str) -> str | None:
@@ -340,8 +385,58 @@ def layer_journal(call, inner):
                           else inner(call))
             if "refused" in answer:
                 raise _Refused(answer)
-            keep(store, request, digest, answer, now(call))
+            keep(store, request, digest, answer, now(call), works_in(store, call))
     except _Refused as refusal:
         return refusal.answer
     call.point(COMMITTED, answer)
     return answer
+
+
+# History.
+
+def scope_id(scope: dict) -> str:
+    """The id a scope names: its repository, principal or Team."""
+    return next(value for key, value in scope.items() if key != "layer")
+
+
+def acts_in(row: tuple, key: str, ident: str) -> bool:
+    """Whether a held request acts in the scope: its owner, its target, or its work names it."""
+    owner, target, works = row
+    return owner == key or canonical.load(target.encode("ascii"))["resource_id"] == ident or \
+        key in {scope_key(scope) for scope in canonical.load((works or "[]").encode("ascii"))}
+
+
+def noted(text: str) -> str:
+    """A request's note as a checkpoint holds it."""
+    return text if len(text) <= NOTE else text[:NOTE - 1] + "\u2026"
+
+
+def operation_history_read(call) -> dict:
+    """C03 `operation.history.read`: one scope's recent starts, each with the last stage its
+    request was answered at and when, and its dated checkpoints, as the module docstring states.
+    Each list holds the latest `limit`, oldest first."""
+    store = storage.of(call.state)
+    asked = payload(call)
+    scope, limit = asked["scope"], asked["limit"]
+    key, ident = scope_key(scope), scope_id(scope)
+    entries, checkpoints = [], []
+    for (request_id, digest, operation, stage, result_digest, at, rationale, owner, target,
+         works) in store.read("SELECT request_id, request_digest, operation, stage, result_digest, "
+                              "answered_at, rationale, owner, target, works_in FROM requests "
+                              "ORDER BY position"):
+        if not acts_in((owner, target, works), key, ident):
+            continue
+        result = store.get(result_digest)
+        if OPERATIONS[operation]["action"] == STARTS:
+            entries.append({"request_id": request_id, "request_digest": digest,
+                            "operation": operation, "confirmed_stage": stage,
+                            "confirmed_at": at, "coverage": COVERAGE,
+                            "recovery": [way for way in result["supported_recovery"]
+                                         if way in READS]})
+        if rationale and result["outputs"]:
+            first = result["outputs"][0]
+            checkpoints.append({"digest": first["digest"], "kind": first["kind"],
+                                "recorded_at": at, "note": noted(rationale)})
+    history = {"kind": "recent_history", "schema": 1, "scope": scope, "observed_at": now(call),
+               "entries": entries[-limit:], "checkpoints": checkpoints[-limit:]}
+    return answered(call, "previewed", [history])
