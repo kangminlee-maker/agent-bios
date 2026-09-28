@@ -16,6 +16,10 @@ their roles within the standards and context of their team, industry, and organi
 
 A team is the basic unit for selecting, adopting, and sharing a work environment.
 
+The goal is efficient work and continuity. Shared environments provide reusable
+defaults that workers can adapt to their repository and personal working needs;
+they are not a mechanism for enforcing uniform working methods.
+
 Workers should be able to select an environment appropriate to their role and
 team, collaborate from shared standards and decision context, and continue
 the work when a worker, model, session, or device changes. Shared context does

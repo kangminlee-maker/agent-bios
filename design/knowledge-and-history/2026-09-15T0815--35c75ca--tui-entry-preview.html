@@ -1,0 +1,1674 @@
+<!doctype html>
+<html lang="en" data-visualize-standalone>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; style-src 'unsafe-inline' blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; img-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; font-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; media-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; worker-src blob:; connect-src blob: data:; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<title>2026 09 15t0815 35c75ca Tui Entry Prototype</title>
+<style>:root{color-scheme:light dark;background:light-dark(rgb(255 255 255), rgb(24 24 24))}html,body{margin:0}body{box-sizing:border-box;padding:1rem;background:inherit}iframe{display:block;width:100%;height:calc(100vh - 2rem);margin:0 auto;border:0}</style>
+</head>
+<body>
+<iframe sandbox="allow-scripts" referrerpolicy="no-referrer" title="2026 09 15t0815 35c75ca Tui Entry Prototype" srcdoc="&lt;!doctype html&gt;
+&lt;html lang=&quot;en&quot; data-visualize-standalone&gt;
+&lt;head&gt;
+&lt;meta charset=&quot;utf-8&quot;&gt;
+&lt;meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1&quot;&gt;
+&lt;meta name=&quot;referrer&quot; content=&quot;no-referrer&quot;&gt;
+&lt;meta http-equiv=&quot;Content-Security-Policy&quot; content=&quot;default-src &#x27;none&#x27;; script-src &#x27;unsafe-inline&#x27; &#x27;unsafe-eval&#x27; &#x27;wasm-unsafe-eval&#x27; blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; style-src &#x27;unsafe-inline&#x27; blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; img-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; font-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; media-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; worker-src blob:; connect-src blob: data:; frame-src &#x27;none&#x27;; object-src &#x27;none&#x27;; base-uri &#x27;none&#x27;; form-action &#x27;none&#x27;&quot;&gt;
+&lt;title&gt;2026 09 15t0815 35c75ca Tui Entry Prototype&lt;/title&gt;
+&lt;style&gt;:root {
+  color-scheme: light dark;
+  background-color: var(
+    --background,
+    var(--color-background-primary, light-dark(rgb(255 255 255), rgb(24 24 24)))
+  ) !important;
+
+  /* Agent-facing contract; keep in sync with SKILL.md. */
+  --background: var(
+    --color-background-primary,
+    light-dark(rgb(255 255 255), rgb(24 24 24))
+  );
+  --foreground: var(
+    --color-text-primary,
+    light-dark(rgb(26 28 31), rgb(255 255 255))
+  );
+  --card: color-mix(in oklab, var(--foreground) 5%, var(--background));
+  --card-foreground: var(
+    --color-text-primary,
+    light-dark(rgb(26 28 31), rgb(255 255 255))
+  );
+  --popover: var(
+    --color-background-secondary,
+    light-dark(rgb(255 255 255), rgb(45 45 45))
+  );
+  --popover-foreground: var(
+    --color-text-primary,
+    light-dark(rgb(26 28 31), rgb(255 255 255))
+  );
+  --primary: var(
+    --color-text-info,
+    light-dark(rgb(51 156 255), rgb(131 195 255))
+  );
+  --primary-foreground: var(
+    --color-text-inverse,
+    light-dark(rgb(255 255 255), rgb(13 13 13))
+  );
+  --secondary: var(
+    --color-background-secondary,
+    light-dark(rgb(255 255 255 / 96%), rgb(54 54 54 / 96%))
+  );
+  --secondary-foreground: var(
+    --color-text-primary,
+    light-dark(rgb(26 28 31), rgb(255 255 255))
+  );
+  --muted: color-mix(in srgb, var(--foreground) 10%, transparent);
+  --muted-foreground: var(
+    --color-text-secondary,
+    light-dark(rgb(26 28 31 / 49.4%), rgb(255 255 255 / 49.8%))
+  );
+  --accent: var(
+    --color-background-info,
+    light-dark(rgb(229 242 255), rgb(13 39 63))
+  );
+  --accent-foreground: var(
+    --color-text-info,
+    light-dark(rgb(51 156 255), rgb(131 195 255))
+  );
+  --destructive: var(
+    --color-text-warning,
+    light-dark(rgb(226 85 7), rgb(255 133 73))
+  );
+  --border: var(
+    --color-border-secondary,
+    light-dark(rgb(26 28 31 / 8%), rgb(255 255 255 / 8.2%))
+  );
+  --input: var(
+    --color-border-primary,
+    light-dark(
+      rgb(26 28 31 / 11.8%),
+      color-mix(in oklab, rgb(0 0 0) 10%, transparent)
+    )
+  );
+  --ring: var(
+    --color-ring-primary,
+    light-dark(rgb(51 156 255), rgb(131 195 255 / 76%))
+  );
+  --font-size-base: var(--font-text-md-size, 14px);
+  --blue: light-dark(rgb(51 156 255), rgb(51 156 255));
+  --orange: light-dark(rgb(226 85 7), rgb(251 106 34));
+  --green: light-dark(rgb(0 162 64), rgb(64 201 119));
+  --red: light-dark(rgb(224 46 42), rgb(255 103 100));
+  --purple: light-dark(rgb(146 79 247), rgb(173 123 249));
+  --yellow: light-dark(rgb(255 195 0), rgb(255 210 64));
+  --viz-series-1: var(--primary);
+  --viz-series-2: light-dark(rgb(243 136 59), rgb(245 154 86));
+  --viz-series-3: light-dark(rgb(93 201 119), rgb(116 213 139));
+  --viz-series-4: light-dark(rgb(235 119 177), rgb(240 143 192));
+  --viz-series-5: light-dark(rgb(155 121 236), rgb(170 145 239));
+  --viz-series-6: light-dark(rgb(58 185 177), rgb(90 203 194));
+
+  /* Internal implementation variables; not part of the agent contract. */
+  --font-sans: -apple-system, system-ui, &quot;Segoe UI&quot;, sans-serif;
+  --font-mono:
+    ui-monospace, SFMono-Regular, &quot;SF Mono&quot;, Menlo, Consolas, &quot;Liberation Mono&quot;,
+    monospace;
+  --font-size-normal: max(11px, var(--font-size-base));
+  --font-size-tooltip: calc(var(--font-size-base) - 1px);
+  --font-size-small: max(11px, calc(var(--font-size-base) - 2px));
+  --font-size-h1: calc(var(--font-size-normal) * 1.7142857143);
+  --font-size-h2: calc(var(--font-size-normal) * 1.4285714286);
+  --font-size-h3: calc(var(--font-size-normal) * 1.2857142857);
+  --font-weight-normal: 430;
+  --font-weight-medium: 500;
+  --icon-size: 16px;
+  --line-height-normal: calc(var(--font-size-normal) * 1.5);
+  --line-height-tooltip: calc(var(--font-size-tooltip) * 1.4285714286);
+  --line-height-small: calc(var(--font-size-small) + 4px);
+  --corner-shape: round;
+  --radius: var(--border-radius-lg, 10px);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-2xl: calc(var(--radius) * 1.6);
+  --radius-full: 9999px;
+  --shadow-sm: 0 1px 2px -1px rgb(0 0 0 / 8%);
+  --checkmark-image: url(&quot;data:image/svg+xml,%3Csvg xmlns=&#x27;http://www.w3.org/2000/svg&#x27; viewBox=&#x27;0 0 17 17&#x27;%3E%3Cpath d=&#x27;M12.8961 3.64101C13.1297 3.41418 13.4984 3.37523 13.7779 3.56581C14.0571 3.75635 14.1554 4.11331 14.0299 4.41347L13.9615 4.53847L7.71151 13.7045C7.59411 13.8767 7.4063 13.9877 7.19881 14.0072C6.99136 14.0267 6.78564 13.9533 6.63826 13.806L2.88826 10.056L2.79842 9.9457C2.6192 9.67407 2.64927 9.30496 2.88826 9.06581C3.12738 8.82669 3.49647 8.79676 3.76815 8.97597L3.8785 9.06581L7.03084 12.2182L12.8053 3.74941L12.8961 3.64101Z&#x27;/%3E%3C/svg%3E&quot;);
+
+  /* Legacy aliases; not part of the current agent contract. */
+  --viz-bg: transparent;
+  --viz-panel: var(--card);
+  --viz-border: var(--border);
+  --viz-text: var(--foreground);
+  --viz-muted: var(--muted-foreground);
+  --viz-accent: var(--primary);
+  --viz-accent-text: var(--primary-foreground);
+  --viz-accent-bg: var(--accent);
+  --viz-font-size: var(--font-size-base);
+  --viz-warning: var(--destructive);
+}
+
+:root[data-theme=&quot;light&quot;] {
+  color-scheme: light;
+}
+
+:root[data-theme=&quot;dark&quot;] {
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html &gt; body {
+  /* Preserve MCP aliases for older inline renderers without creating :root cycles. */
+  --color-background-primary: var(
+    --background,
+    light-dark(rgb(255 255 255), rgb(24 24 24))
+  );
+  --color-text-primary: var(
+    --foreground,
+    light-dark(rgb(26 28 31), rgb(255 255 255))
+  );
+  --color-border-secondary: var(
+    --border,
+    light-dark(rgb(26 28 31 / 8%), rgb(255 255 255 / 8.2%))
+  );
+
+  margin: 0;
+  padding: var(--visualize-paint-gutter, 0px);
+  color: var(--foreground);
+  background: transparent !important;
+  font-family: var(--font-sans) !important;
+  font-size: var(--font-size-normal);
+  font-weight: var(--font-weight-normal);
+  line-height: var(--line-height-normal);
+}
+
+a {
+  color: color-mix(in srgb, var(--viz-accent) 80%, var(--viz-text) 20%);
+  cursor: pointer;
+  font-weight: var(--font-weight-medium, 500);
+  text-decoration: none;
+  text-underline-offset: 2px;
+}
+
+a:is(:hover, :focus-visible) {
+  text-decoration-line: underline;
+  text-decoration-style: dashed;
+  text-decoration-thickness: 0.5px;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p {
+  margin-block: 0;
+}
+
+h1 {
+  font-size: var(--font-size-h1);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.25;
+}
+
+h2 {
+  font-size: var(--font-size-h2);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.25;
+}
+
+h3,
+h4,
+h5,
+h6 {
+  font-size: var(--font-size-h3);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.3;
+}
+
+b,
+strong,
+th {
+  font-weight: var(--font-weight-medium);
+}
+
+code:not(pre code) {
+  display: inline;
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  corner-shape: var(--corner-shape);
+  background: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+  overflow-wrap: anywhere;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  word-break: break-word;
+}
+
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  color: var(--foreground);
+  font: inherit;
+  text-align: start;
+}
+
+.table :is(th, td) {
+  padding-block: 10px;
+  padding-inline: 0 24px;
+  overflow-wrap: anywhere;
+  border-bottom: 1px solid var(--border);
+  text-align: start;
+  vertical-align: top;
+}
+
+.table-responsive &gt; .table :is(th, td) {
+  overflow-wrap: break-word;
+}
+
+.table :is(th, td):last-child {
+  padding-inline-end: 0;
+}
+
+.table :is(caption, thead th) {
+  font-weight: 600;
+}
+
+.table thead th {
+  padding-block: 8px;
+  border-bottom-color: color-mix(in srgb, var(--foreground) 16%, transparent);
+}
+
+.table tbody tr:last-child :is(th, td) {
+  border-bottom: 0;
+}
+
+.table.table-sm :is(th, td) {
+  padding-block: 6px;
+}
+
+.table.table-sm :is(th, td):not(:last-child) {
+  padding-inline-end: 16px;
+}
+
+.table :is(.text-end, [align=&quot;right&quot;]) {
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+}
+
+.table :is(.text-center, [align=&quot;center&quot;]) {
+  text-align: center;
+}
+
+.table .text-nowrap {
+  white-space: nowrap;
+}
+
+#widget {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  padding: 0;
+  background: transparent !important;
+}
+
+.card {
+  min-width: 0;
+  padding: 12px;
+  overflow: hidden;
+  overflow-wrap: break-word;
+  border-radius: var(--radius-2xl);
+  corner-shape: var(--corner-shape);
+  color: var(--card-foreground);
+  background: var(--card);
+}
+
+#widget &gt; :not(.card, .progress) {
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.tooltip {
+  position: fixed;
+  z-index: 50;
+  top: 0;
+  left: 0;
+  width: max-content;
+  max-width: min(
+    20rem,
+    var(--tooltip-available-width, calc(100vw - 10px)),
+    calc(100vw - 10px)
+  );
+  max-height: min(
+    var(--tooltip-available-height, calc(100vh - 10px)),
+    calc(100vh - 10px)
+  );
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  corner-shape: var(--corner-shape);
+  color: var(--popover-foreground);
+  background: var(--popover);
+  box-shadow: none;
+  font-size: var(--font-size-tooltip);
+  line-height: var(--line-height-tooltip);
+  overflow-wrap: break-word;
+  white-space: normal;
+  pointer-events: none;
+  user-select: none;
+}
+
+.viz-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(max(180px, 24%), 1fr));
+  gap: 10px;
+}
+
+.viz-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.viz-stat-value {
+  font-size: var(--font-size-h2);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.25;
+}
+
+.viz-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+hr {
+  width: 100%;
+  height: 1px;
+  margin-block: 6px;
+  border: 0;
+  background: var(--border);
+}
+
+.nav {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 4px;
+}
+
+.progress {
+  display: flex;
+  height: 8px;
+  margin-block: calc((var(--line-height-normal, 1.5em) - 8px) / 2);
+  overflow: hidden;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--muted);
+}
+
+.progress-bar:only-child {
+  border-radius: var(--radius-full);
+}
+
+.progress-bar {
+  height: 100%;
+  flex-shrink: 0;
+  border: 0;
+  background: var(--viz-series-1);
+}
+
+.viz-badge {
+  padding: 3px 8px;
+  border-radius: var(--radius-full);
+  color: var(--accent-foreground);
+  background: var(--accent);
+  font-weight: var(--font-weight-medium);
+}
+
+small,
+.text-small,
+.viz-badge {
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-small);
+}
+
+.text-muted {
+  color: var(--muted-foreground);
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.viz-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.viz-controls &gt; .form-label {
+  display: grid;
+  min-width: min(100%, 260px);
+  flex: 1 1 280px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 2px 12px;
+  margin-bottom: 0;
+}
+
+.viz-controls &gt; .form-label &gt; :is(.form-control, .form-range, .form-select) {
+  grid-column: 1 / -1;
+}
+
+.btn,
+.nav-link,
+.form-check-input,
+.form-control,
+.form-range,
+.form-select {
+  font: inherit;
+}
+
+.btn,
+.nav-link {
+  appearance: button;
+  display: inline-flex;
+  inline-size: fit-content;
+  max-inline-size: 100%;
+  min-height: 28px;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  margin: 0;
+  padding: 0 8px;
+  -webkit-app-region: no-drag;
+  border: 1px solid var(--input);
+  border-radius: var(--radius-lg);
+  corner-shape: var(--corner-shape);
+  color: var(--secondary-foreground);
+  background: var(--secondary);
+  cursor: var(--cursor-interaction, pointer);
+  text-align: center;
+  text-decoration: none;
+  white-space: nowrap;
+  user-select: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+.btn:is(.btn-block, .viz-tile) {
+  inline-size: 100%;
+}
+
+.btn.viz-tile {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+a.btn {
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.btn:not(:disabled):hover,
+.nav-link:not(:disabled):not([aria-disabled=&quot;true&quot;]):hover {
+  background: color-mix(in srgb, var(--foreground) 6%, var(--secondary));
+}
+
+.btn-primary {
+  border-color: transparent;
+  color: var(--primary-foreground);
+  background: var(--foreground);
+  background-clip: padding-box;
+}
+
+.btn-primary .text-muted {
+  color: color-mix(in srgb, var(--primary-foreground) 50%, transparent);
+}
+
+.btn-primary:not(:disabled):hover {
+  background: color-mix(in srgb, var(--foreground) 80%, transparent);
+  background-clip: padding-box;
+}
+
+.btn-ghost {
+  border-color: transparent;
+  color: var(--muted-foreground);
+  background: transparent;
+}
+
+.btn-ghost:not(:disabled):hover {
+  color: var(--foreground);
+  background: color-mix(in srgb, var(--foreground) 6%, var(--secondary));
+}
+
+.nav-pills .nav-link {
+  min-width: 0;
+  border-color: transparent;
+  color: var(--muted-foreground);
+  background: transparent;
+}
+
+.nav-justified .nav-link {
+  flex: 1 1 0;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.nav-pills .nav-link.active {
+  color: var(--foreground);
+  background: var(--muted);
+}
+
+.btn:disabled,
+.nav-link:disabled,
+.nav-link[aria-disabled=&quot;true&quot;] {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+[data-lucide] {
+  stroke-width: 1.6;
+}
+
+.form-label {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--foreground);
+}
+
+.form-control {
+  display: block;
+  width: 100%;
+  min-height: 28px;
+  padding: 0 8px;
+  outline: none;
+  border: 1px solid var(--input);
+  border-radius: var(--radius-lg);
+  corner-shape: var(--corner-shape);
+  color: var(--foreground);
+  background: var(--secondary);
+}
+
+.form-control::placeholder {
+  color: var(--muted-foreground);
+}
+
+.form-control[type=&quot;file&quot;] {
+  padding: 0;
+  overflow: hidden;
+  cursor: var(--cursor-interaction, pointer);
+}
+
+.form-control[type=&quot;file&quot;]::file-selector-button {
+  min-height: 26px;
+  margin-right: 8px;
+  padding: 0 8px;
+  border: 0;
+  border-right: 1px solid var(--input);
+  color: var(--secondary-foreground);
+  background: var(--secondary);
+  cursor: inherit;
+  font: inherit;
+}
+
+.form-control[type=&quot;file&quot;]:not(:disabled):hover::file-selector-button {
+  background: color-mix(in srgb, var(--foreground) 6%, var(--secondary));
+}
+
+.form-control-color[type=&quot;color&quot;] {
+  width: 40px;
+  height: 28px;
+  padding: 3px;
+  cursor: var(--cursor-interaction, pointer);
+}
+
+.form-control-color[type=&quot;color&quot;]::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.form-control-color[type=&quot;color&quot;]::-webkit-color-swatch {
+  border: 0;
+  border-radius: calc(var(--radius-lg) - 4px);
+  corner-shape: var(--corner-shape);
+}
+
+textarea.form-control {
+  height: auto;
+  min-height: 72px;
+  padding: 8px 10px;
+  resize: vertical;
+}
+
+.form-control:focus-visible {
+  border-color: var(--ring);
+  box-shadow: inset 0 0 0 1px var(--ring);
+}
+
+.form-control:disabled,
+.form-select:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.form-select {
+  appearance: none;
+  display: block;
+  width: 100%;
+  min-height: 28px;
+  margin: 0;
+  padding: 0 32px 0 8px;
+  outline: none;
+  border: 1px solid var(--input);
+  border-radius: var(--radius-lg);
+  corner-shape: var(--corner-shape);
+  color: var(--foreground);
+  background-color: var(--secondary);
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--muted-foreground) 50%),
+    linear-gradient(135deg, var(--muted-foreground) 50%, transparent 50%);
+  background-position:
+    calc(100% - 14px) 50%,
+    calc(100% - 10px) 50%;
+  background-repeat: no-repeat;
+  background-size: 4px 4px;
+  cursor: var(--cursor-interaction, default);
+}
+
+.form-select:not(:disabled):hover {
+  background-color: color-mix(in srgb, var(--foreground) 6%, var(--secondary));
+}
+
+.form-select:focus-visible {
+  border-color: var(--ring);
+  box-shadow: inset 0 0 0 1px var(--ring);
+}
+
+.form-check {
+  display: flex;
+  min-height: 20px;
+  align-items: center;
+  gap: 6px;
+}
+
+.form-check-input {
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+  margin: 0;
+  border: 1px solid var(--input);
+  color: var(--primary-foreground);
+  background-color: transparent;
+  cursor: var(--cursor-interaction, default);
+  transition:
+    background-color 150ms,
+    border-color 150ms,
+    box-shadow 150ms;
+}
+
+.form-check:not(.form-switch) .form-check-input[type=&quot;checkbox&quot;] {
+  border-color: var(--input);
+  border-radius: var(--radius-sm);
+  corner-shape: var(--corner-shape);
+  background-color: var(--secondary);
+  box-shadow: var(--shadow-sm);
+}
+
+.form-check:not(.form-switch)
+  .form-check-input:not(:disabled):not(:checked):hover {
+  background-color: var(--card);
+}
+
+.form-check:not(.form-switch) .form-check-input[type=&quot;checkbox&quot;]:checked {
+  border-color: var(--primary);
+  background-color: var(--primary);
+}
+
+.form-check:not(.form-switch)
+  .form-check-input[type=&quot;checkbox&quot;]:checked::before {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--primary-foreground);
+  content: &quot;&quot;;
+  mask: var(--checkmark-image) center / 12px 12px no-repeat;
+}
+
+.form-check-input[type=&quot;radio&quot;] {
+  width: 14px;
+  height: 14px;
+  border-radius: var(--radius-full);
+}
+
+.form-check-input[type=&quot;radio&quot;]:checked {
+  border: 2px solid var(--primary);
+  background:
+    radial-gradient(circle, var(--primary-foreground) 0 2.5px, transparent 3px),
+    var(--primary);
+}
+
+.form-check:not(.form-switch) .form-check-input:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.form-check:not(.form-switch) .form-check-input:disabled {
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.form-check:not(.form-switch) .form-check-input:disabled + .form-check-label {
+  cursor: not-allowed;
+}
+
+.form-switch .form-check-input:disabled,
+.form-switch .form-check-input:disabled + .form-check-label {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.form-check-label {
+  color: var(--foreground);
+  cursor: var(--cursor-interaction, default);
+}
+
+.form-switch .form-check-input {
+  position: relative;
+  width: 32px;
+  height: 20px;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--muted);
+  box-shadow: none;
+  transition: background-color 200ms cubic-bezier(0, 0, 0.2, 1);
+}
+
+.form-switch .form-check-input::before {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 16px;
+  height: 16px;
+  box-sizing: border-box;
+  border: 1px solid light-dark(var(--primary-foreground), var(--foreground));
+  border-radius: var(--radius-full);
+  background: light-dark(var(--primary-foreground), var(--foreground));
+  box-shadow: var(--shadow-sm);
+  content: &quot;&quot;;
+  transform: translate(2px, -50%);
+  transition: transform 200ms cubic-bezier(0, 0, 0.2, 1);
+}
+
+.form-switch .form-check-input:checked {
+  background: var(--primary);
+}
+
+.form-switch .form-check-input:checked::before {
+  transform: translate(14px, -50%);
+}
+
+.form-switch .form-check-input:focus-visible {
+  box-shadow: 0 0 0 2px var(--ring);
+}
+
+.form-range {
+  appearance: none;
+  display: block;
+  width: 100%;
+  height: 28px;
+  flex: 1;
+  margin: 0;
+  padding: 0;
+  outline: none;
+  border: 0;
+  accent-color: var(--primary);
+  background: linear-gradient(
+      color-mix(in srgb, var(--foreground) 7%, transparent),
+      color-mix(in srgb, var(--foreground) 7%, transparent)
+    )
+    center / 100% 2px no-repeat;
+}
+
+.form-range::-webkit-slider-runnable-track {
+  height: 28px;
+  background: transparent;
+}
+
+.form-range::-webkit-slider-thumb {
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  margin-top: 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background: light-dark(var(--primary-foreground), var(--foreground));
+}
+
+.form-range:focus-visible::-webkit-slider-thumb {
+  border-color: var(--ring);
+  box-shadow: inset 0 0 0 1px var(--ring);
+}
+
+.form-range::-moz-range-track {
+  height: 28px;
+  background: transparent;
+}
+
+.form-range::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background: light-dark(var(--primary-foreground), var(--foreground));
+}
+
+.form-range:focus-visible::-moz-range-thumb {
+  border-color: var(--ring);
+  box-shadow: inset 0 0 0 1px var(--ring);
+}
+
+.form-range:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.btn:not(.btn-primary, .viz-tile):is(
+  [aria-pressed=&quot;true&quot;],
+  [aria-selected=&quot;true&quot;],
+  .is-selected
+) {
+  border-color: var(--primary);
+  color: var(--primary-foreground);
+  background: var(--primary);
+}
+
+.btn.viz-tile:is([aria-pressed=&quot;true&quot;], [aria-selected=&quot;true&quot;], .is-selected) {
+  border-color: var(--primary);
+  box-shadow: inset 0 0 0 1px var(--primary);
+}
+
+.btn:focus-visible,
+.nav-link:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+@media (pointer: coarse) {
+  .btn,
+  .nav-link,
+  .form-control,
+  .form-select {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  /* Keep small-screen WebKit from zooming when a text field receives focus. */
+  .form-control,
+  .form-select {
+    font-size: max(16px, var(--font-size-normal));
+  }
+
+  .form-control[type=&quot;file&quot;]::file-selector-button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .form-control-color[type=&quot;color&quot;] {
+    width: 44px;
+    height: 44px;
+  }
+
+  .form-control:is(
+    [type=&quot;date&quot;],
+    [type=&quot;datetime-local&quot;],
+    [type=&quot;month&quot;],
+    [type=&quot;time&quot;],
+    [type=&quot;week&quot;]
+  ) {
+    min-width: 0;
+    max-width: 100%;
+    padding-block: 8px;
+  }
+
+  .form-check {
+    min-height: 44px;
+    padding-inline: 15px;
+  }
+
+  .form-check-input {
+    position: relative;
+  }
+
+  .form-check-input::after {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 44px;
+    height: 44px;
+    content: &quot;&quot;;
+    transform: translate(-50%, -50%);
+  }
+
+  .form-check-label {
+    display: inline-flex;
+    min-width: 44px;
+    min-height: 44px;
+    align-items: center;
+  }
+
+  .form-range {
+    height: 44px;
+    touch-action: pan-y;
+  }
+
+  .form-range::-webkit-slider-runnable-track {
+    height: 44px;
+  }
+
+  .form-range::-moz-range-track {
+    height: 44px;
+  }
+
+  .form-range::-webkit-slider-thumb {
+    margin-top: 12px;
+  }
+}
+
+svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+#widget &gt; svg {
+  width: 100%;
+}
+
+/* Model-authored chart rules can otherwise stretch icons after these styles load. */
+svg.lucide {
+  display: block;
+  width: var(--icon-size) !important;
+  height: var(--icon-size) !important;
+  flex: none;
+  margin: 0 !important;
+  stroke-width: 1.6;
+}
+
+.text-warning,
+.text-destructive {
+  color: var(--destructive);
+}
+
+html&gt;body{padding:0}&lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+&lt;div id=&quot;bios-entry-demo&quot;&gt;
+  &lt;div class=&quot;demo-caption&quot;&gt;인터랙션 시안 · 가상 데이터 · 실제 실행 없음&lt;/div&gt;
+  &lt;div id=&quot;bios-app&quot; aria-label=&quot;agent-bios Studio&quot;&gt;&lt;/div&gt;
+&lt;/div&gt;
+&lt;style&gt;
+#bios-entry-demo{color-scheme:light dark;--bg:light-dark(#fff,#1c1c1c);--fg:light-dark(#242424,#ededeb);--soft:light-dark(#f5f5f2,#272727);--muted:light-dark(#64645d,#b2b2ac);--line:light-dark(#d7d7cf,#51514b);--sel:light-dark(#242424,#ecece5);--on:light-dark(#fff,#232323);font:14px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,&quot;Apple SD Gothic Neo&quot;,monospace;color:var(--fg)}
+#bios-entry-demo *{box-sizing:border-box}
+#bios-entry-demo .demo-caption{font-size:12px;color:var(--muted);margin-bottom:8px}
+#bios-app{background:var(--bg);border:1px solid var(--line);overflow-wrap:anywhere}
+#bios-app header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 16px;border-bottom:1px solid var(--line);background:var(--soft);flex-wrap:wrap}
+#bios-app h1,#bios-app h2,#bios-app h3,#bios-app p{margin:0}
+#bios-app h1{font-size:18px;font-weight:500}
+#bios-app h2,#bios-app h3{font-size:14px;font-weight:500}
+#bios-app button,#bios-app select,#bios-app input{font:inherit;color:inherit}
+#bios-app button{background:var(--bg);border:1px solid var(--line);padding:6px 10px;border-radius:2px;cursor:pointer;min-height:34px}
+#bios-app button:disabled{opacity:.5;cursor:default}
+#bios-app .primary{background:var(--sel);color:var(--on);border-color:var(--sel)}
+#bios-app .link{border:0;background:transparent;text-decoration:underline;text-underline-offset:3px;padding:3px 0;text-align:left}
+#bios-app .actions{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+#bios-app main{padding:16px}
+#bios-app .project{margin-bottom:12px}
+#bios-app .project-top,#bios-app .section-top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+#bios-app .small{color:var(--muted);font-size:12px}
+#bios-app .record{margin-top:3px}
+#bios-app .columns{display:grid;grid-template-columns:minmax(0,1fr) minmax(210px,.55fr);gap:24px}
+#bios-app[data-layout=&quot;stack&quot;] .columns{grid-template-columns:1fr;gap:14px}
+#bios-app section{min-width:0;border-top:1px solid var(--line);padding-top:8px}
+#bios-app .name{margin:7px 0 10px}
+#bios-app dl{display:grid;grid-template-columns:75px minmax(0,1fr);gap:7px 12px;margin:10px 0}
+#bios-app dt{color:var(--muted)}
+#bios-app dd{margin:0;min-width:0}
+#bios-app .bottom{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;border-top:1px solid var(--line);margin-top:16px;padding-top:12px}
+#bios-app .alert{padding:9px 11px;border-left:3px solid var(--fg);background:var(--soft);margin:12px 0}
+#bios-app .alert .actions{margin-top:5px}
+#bios-app .list{display:grid;gap:0;margin:10px 0}
+#bios-app .row{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--line);min-width:0}
+#bios-app .row:last-child{border-bottom:0}
+#bios-app .scope-table{width:100%;table-layout:fixed;border-collapse:collapse;margin:8px 0 4px}
+#bios-app .scope-table th,#bios-app .scope-table td{padding:7px 5px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle}
+#bios-app .scope-table th{font-weight:500}
+#bios-app .scope-table th:first-child{width:50px;padding-left:0}
+#bios-app .source-cell{display:flex;align-items:center;gap:6px;min-width:0}
+#bios-app .source-cell button{min-width:0;white-space:normal;overflow-wrap:anywhere}
+#bios-app .source-cell button span{display:block;font-size:12px;color:var(--muted)}
+#bios-app .source-cell label{display:flex;align-items:center;justify-content:center;min-height:32px;margin:0;flex:none}
+#bios-app input[type=&quot;checkbox&quot;]{width:15px;height:15px;margin:0;accent-color:var(--sel)}
+#bios-app .off-label{display:block;font-size:12px;color:var(--muted)}
+#bios-app .scope-title{display:block}
+#bios-app .execution{margin-top:14px}
+#bios-app .execution-summary{display:flex;align-items:center;gap:8px 20px;flex-wrap:wrap;margin-top:7px}
+#bios-app .unit{padding:12px 0;border-bottom:1px solid var(--line)}
+#bios-app .unit:last-child{border-bottom:0}
+#bios-app .unit-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap}
+#bios-app .unit-value{margin:6px 0}
+#bios-app .unit-originals{display:grid;gap:5px;margin-top:8px}
+#bios-app .unit-originals .original{display:flex;align-items:center;gap:6px 12px;flex-wrap:wrap}
+#bios-app .role-heading{margin-top:16px;border-bottom:1px solid var(--line);padding-bottom:5px}
+#bios-app label.field{display:grid;gap:6px;margin:14px 0}
+#bios-app select{background:var(--bg);border:1px solid var(--line);padding:8px;max-width:100%;min-width:0}
+#bios-app .body-text{white-space:pre-wrap;margin:10px 0;padding-left:10px;border-left:2px solid var(--line)}
+#bios-app details{margin:12px 0}
+#bios-app summary{cursor:pointer}
+#bios-app footer{padding:8px 16px;border-top:1px solid var(--line);color:var(--muted);font-size:12px;background:var(--soft)}
+#bios-app .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+@media(max-width:750px){#bios-app .columns{grid-template-columns:1fr;gap:14px}}
+@media(max-width:620px){#bios-app main{padding:12px}#bios-app select{font-size:16px}#bios-app .scope-table th:first-child{width:35px}#bios-app .scope-table th,#bios-app .scope-table td{padding:6px 3px}#bios-app .source-cell{align-items:flex-start;gap:4px}#bios-app .source-cell input{width:13px;height:13px}#bios-app dl{grid-template-columns:62px minmax(0,1fr);gap:7px 10px}}
+@media(pointer:coarse){#bios-app button,#bios-app select,#bios-app .source-cell label{min-height:44px}#bios-app .source-cell label{min-width:44px}}
+@media(max-width:480px){
+  #bios-app .scope-table,#bios-app .scope-table tbody{display:block}
+  #bios-app .scope-table thead{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+  #bios-app .scope-table tr{display:block;margin:10px 0;border-bottom:1px solid var(--line);padding-bottom:6px}
+  #bios-app .scope-table th[scope=&quot;row&quot;]{display:block;width:auto;border-bottom:0;padding:4px 0}
+  #bios-app .scope-table td{display:grid;grid-template-columns:64px minmax(0,1fr);align-items:center;gap:6px;border-bottom:0;padding:4px 0}
+  #bios-app .scope-table td::before{content:attr(data-role-label);color:var(--muted)}
+  #bios-app .source-cell{align-items:center}
+}
+&lt;/style&gt;
+&lt;script&gt;
+(()=&gt;{
+  &#x27;use strict&#x27;;
+  const app=document.getElementById(&#x27;bios-app&#x27;),root=document.getElementById(&#x27;bios-entry-demo&#x27;);
+  const design={entry:&#x27;host&#x27;,scenario:&#x27;all&#x27;,layout:&#x27;columns&#x27;};
+  let applied={...design},s;
+  const esc=x=&gt;String(x??&#x27;&#x27;).replace(/[&amp;&lt;&gt;&quot;&#x27;]/g,c=&gt;({&#x27;&amp;&#x27;:&#x27;&amp;amp;&#x27;,&#x27;&lt;&#x27;:&#x27;&amp;lt;&#x27;,&#x27;&gt;&#x27;:&#x27;&amp;gt;&#x27;,&#x27;&quot;&#x27;:&#x27;&amp;quot;&#x27;,&quot;&#x27;&quot;:&#x27;&amp;#39;&#x27;}[c]));
+  const copy=x=&gt;JSON.parse(JSON.stringify(x));
+  function freeze(value){if(value&amp;&amp;typeof value===&#x27;object&#x27;){Object.values(value).forEach(freeze);Object.freeze(value);}return value;}
+  const scopes=[{id:&#x27;repo&#x27;,label:&#x27;레포&#x27;},{id:&#x27;personal&#x27;,label:&#x27;개인&#x27;},{id:&#x27;team&#x27;,label:&#x27;팀&#x27;}];
+  const roles=[{id:&#x27;instructions&#x27;,label:&#x27;지침&#x27;},{id:&#x27;knowledge&#x27;,label:&#x27;지식 자료&#x27;},{id:&#x27;memory&#x27;,label:&#x27;결정 자료&#x27;}];
+  const rank={repo:0,personal:1,team:2};
+  const cases={
+    all:{label:&#x27;레포·개인·팀 자료&#x27;,repo:&#x27;payments&#x27;,team:true,record:&#x27;9/14 14:20 · 검토 메모&#x27;},
+    noRepo:{label:&#x27;레포 없음 · 개인과 팀&#x27;,repo:null,team:true,record:null},
+    personal:{label:&#x27;개인 자료만&#x27;,repo:null,team:false,record:null},
+    missingTop:{label:&#x27;상위 필수 지침 본문 없음&#x27;,repo:&#x27;payments&#x27;,team:true,record:null},
+    deniedTop:{label:&#x27;상위 지침 열람 제한&#x27;,repo:&#x27;payments&#x27;,team:true,record:null},
+    sendDenied:{label:&#x27;상위 지침 도구 제공 제한&#x27;,repo:&#x27;payments&#x27;,team:true,record:null},
+    deniedLower:{label:&#x27;대체된 팀 지침 접근 제한&#x27;,repo:&#x27;payments&#x27;,team:true,record:null},
+    missingLower:{label:&#x27;대체된 팀 필수 본문 없음&#x27;,repo:&#x27;payments&#x27;,team:true,record:null},
+    conflict:{label:&#x27;레포의 같은 항목 충돌&#x27;,repo:&#x27;payments&#x27;,team:true,record:null},
+    offline:{label:&#x27;오프라인&#x27;,repo:&#x27;payments&#x27;,team:true,record:&#x27;9/12 · 검토 메모&#x27;},
+    unknown:{label:&#x27;이전 시작 응답 미확인&#x27;,repo:&#x27;payments&#x27;,team:true,record:&#x27;9/14 14:20 · 검토 메모&#x27;},
+    locked:{label:&#x27;잠김&#x27;,repo:&#x27;payments&#x27;,team:true,record:&#x27;9/14 14:20 · 검토 메모&#x27;}
+  };
+  const modes={solo:&#x27;단독&#x27;,review:&#x27;검토자 1명 추가&#x27;};
+  const c=()=&gt;cases[design.scenario];
+  const roleName=id=&gt;roles.find(x=&gt;x.id===id)?.label||id;
+  const scopeName=id=&gt;id===&#x27;team&#x27;?&#x27;팀 · 제품팀&#x27;:id===&#x27;repo&#x27;?&#x27;레포 · payments&#x27;:&#x27;개인&#x27;;
+  const btn=(text,action,primary=false,extra=&#x27;&#x27;)=&gt;&#x27;&lt;button type=&quot;button&quot; data-action=&quot;&#x27;+action+&#x27;&quot; class=&quot;&#x27;+(primary?&#x27;primary&#x27;:&#x27;&#x27;)+&#x27;&quot; &#x27;+extra+&#x27;&gt;&#x27;+text+&#x27;&lt;/button&gt;&#x27;;
+  const link=(text,action,extra=&#x27;&#x27;)=&gt;&#x27;&lt;button type=&quot;button&quot; class=&quot;link&quot; data-action=&quot;&#x27;+action+&#x27;&quot; &#x27;+extra+&#x27;&gt;&#x27;+text+&#x27;&lt;/button&gt;&#x27;;
+  const facts=rows=&gt;&#x27;&lt;dl&gt;&#x27;+rows.map(([k,v])=&gt;&#x27;&lt;dt&gt;&#x27;+k+&#x27;&lt;/dt&gt;&lt;dd&gt;&#x27;+v+&#x27;&lt;/dd&gt;&#x27;).join(&#x27;&#x27;)+&#x27;&lt;/dl&gt;&#x27;;
+
+  // Keys are declared application units. Their labels/body text are never used
+  // to infer equivalence. The ordinary-request key fixes the K/M query condition.
+  function unit(id,key,title,value,body,extra={}){return {id,key,title,value,body,metadata:true,read:true,use:true,send:true,available:true,startupRequired:false,...extra};}
+  function source(scope,role,name,version,items){return {id:scope+&#x27;-&#x27;+role,scope,role,name,version,items};}
+  function fixtureSources(){
+    const result=[
+      source(&#x27;repo&#x27;,&#x27;instructions&#x27;,&#x27;응답 지침&#x27;,4,[unit(&#x27;ri-language&#x27;,&#x27;response-language&#x27;,&#x27;응답 언어&#x27;,&#x27;한국어&#x27;,&#x27;응답은 한국어로 작성한다.&#x27;,{startupRequired:true})]),
+      source(&#x27;repo&#x27;,&#x27;knowledge&#x27;,&#x27;재시도 기준&#x27;,7,[unit(&#x27;rk-retry&#x27;,&#x27;retry-limit/ordinary-request&#x27;,&#x27;재시도 상한 · 일반 요청&#x27;,&#x27;2회&#x27;,&#x27;이 레포의 일반 요청은 재시도 상한 2회를 기준으로 둔다.&#x27;)]),
+      source(&#x27;repo&#x27;,&#x27;memory&#x27;,&#x27;재시도 결정&#x27;,3,[unit(&#x27;rm-retry&#x27;,&#x27;retry-choice/ordinary-request&#x27;,&#x27;재시도 선택 · 일반 요청&#x27;,&#x27;2회&#x27;,&#x27;레포 기록: 일반 요청의 재시도를 2회로 선택했다.&#x27;,{recordStatus:&#x27;기록됨&#x27;})]),
+      source(&#x27;personal&#x27;,&#x27;instructions&#x27;,&#x27;개인 지침&#x27;,2,[unit(&#x27;pi-language&#x27;,&#x27;response-language&#x27;,&#x27;응답 언어&#x27;,&#x27;영어&#x27;,&#x27;개인 지침의 응답 언어는 영어다.&#x27;,{startupRequired:true})]),
+      source(&#x27;personal&#x27;,&#x27;knowledge&#x27;,&#x27;검토 원칙&#x27;,1,[unit(&#x27;pk-evidence&#x27;,&#x27;evidence-link&#x27;,&#x27;검토 근거&#x27;,&#x27;출처 연결&#x27;,&#x27;검토한 주장에 출처를 연결한다.&#x27;)]),
+      source(&#x27;personal&#x27;,&#x27;memory&#x27;,&#x27;검토 기록&#x27;,1,[unit(&#x27;pm-review&#x27;,&#x27;review-record&#x27;,&#x27;검토 기록 방식&#x27;,&#x27;주요 이유 기록&#x27;,&#x27;개인 기록: 중요한 검토의 이유를 남기기로 했다.&#x27;,{recordStatus:&#x27;기록됨&#x27;})]),
+      source(&#x27;team&#x27;,&#x27;instructions&#x27;,&#x27;팀 지침&#x27;,5,[
+        unit(&#x27;ti-language&#x27;,&#x27;response-language&#x27;,&#x27;응답 언어&#x27;,&#x27;영어&#x27;,&#x27;팀 지침의 응답 언어는 영어다.&#x27;,{startupRequired:true}),
+        unit(&#x27;ti-evidence&#x27;,&#x27;show-evidence&#x27;,&#x27;근거 표시&#x27;,&#x27;근거 함께 표시&#x27;,&#x27;결론에 확인한 근거를 함께 표시한다.&#x27;,{startupRequired:true})
+      ]),
+      source(&#x27;team&#x27;,&#x27;knowledge&#x27;,&#x27;팀 업무 기준&#x27;,6,[
+        unit(&#x27;tk-retry&#x27;,&#x27;retry-limit/ordinary-request&#x27;,&#x27;재시도 상한 · 일반 요청&#x27;,&#x27;3회&#x27;,&#x27;팀 업무 기준은 일반 요청의 재시도 상한을 3회로 둔다.&#x27;),
+        unit(&#x27;tk-timeout&#x27;,&#x27;timeout-limit/ordinary-request&#x27;,&#x27;대기 상한 · 일반 요청&#x27;,&#x27;30초&#x27;,&#x27;일반 요청의 대기 상한은 30초다.&#x27;)
+      ]),
+      source(&#x27;team&#x27;,&#x27;memory&#x27;,&#x27;팀 결정 기록&#x27;,2,[
+        unit(&#x27;tm-retry&#x27;,&#x27;retry-choice/ordinary-request&#x27;,&#x27;재시도 선택 · 일반 요청&#x27;,&#x27;3회&#x27;,&#x27;팀 기록: 일반 요청의 재시도를 3회로 선택했다.&#x27;,{recordStatus:&#x27;기록됨&#x27;}),
+        unit(&#x27;tm-release&#x27;,&#x27;release-choice/check-complete&#x27;,&#x27;배포 시점 · 점검 완료&#x27;,&#x27;점검 후 배포&#x27;,&#x27;팀 기록: 점검이 끝난 뒤 배포하기로 했다.&#x27;,{recordStatus:&#x27;기록됨&#x27;})
+      ])
+    ];
+    if(design.scenario===&#x27;missingTop&#x27;)result[0].items[0].available=false;
+    if(design.scenario===&#x27;deniedTop&#x27;)result[0].items[0].read=false;
+    if(design.scenario===&#x27;sendDenied&#x27;)result[0].items[0].send=false;
+    if(design.scenario===&#x27;deniedLower&#x27;){result[6].items[0].metadata=false;result[6].items[0].read=false;result[6].items[0].use=false;}
+    if(design.scenario===&#x27;missingLower&#x27;)result[6].items[0].available=false;
+    if(design.scenario===&#x27;conflict&#x27;)result[0].items.push(unit(&#x27;ri-conflict&#x27;,&#x27;response-language&#x27;,&#x27;응답 언어&#x27;,&#x27;일본어&#x27;,&#x27;이 레포의 다른 항목은 일본어 응답을 지정한다.&#x27;,{startupRequired:true}));
+    return freeze(result.filter(x=&gt;(x.scope!==&#x27;repo&#x27;||c().repo)&amp;&amp;(x.scope!==&#x27;team&#x27;||c().team)));
+  }
+  function reset(){
+    const originals=fixtureSources();
+    s={page:design.entry===&#x27;host&#x27;?&#x27;start&#x27;:&#x27;home&#x27;,originals,originalSignature:JSON.stringify(originals),enabled:Object.fromEntries(originals.map(x=&gt;[x.id,true])),resolution:{},recovered:[],draft:{mode:&#x27;solo&#x27;,permission:&#x27;confirm&#x27;},revision:0,assessment:null,result:null,pending:null,history:[],locked:design.scenario===&#x27;locked&#x27;,returnPage:&#x27;start&#x27;,source:null,sequence:0,announcement:&#x27;&#x27;,error:&#x27;&#x27;};
+    if(design.scenario===&#x27;unknown&#x27;)s.pending={id:&#x27;07&#x27;,location:c().repo,selection:captureSelection(),draft:copy(s.draft)};
+  }
+  const sourceById=id=&gt;s.originals.find(x=&gt;x.id===id);
+  const isEnabled=source=&gt;s.enabled[source.id]===true;
+  const bodyAvailable=item=&gt;item.available||s.recovered.includes(item.id);
+  const groupId=(source,item)=&gt;source.role+&#x27;|&#x27;+item.key;
+
+  function effective(){
+    const grouped=new Map();
+    for(const origin of s.originals){for(const item of origin.items){const id=groupId(origin,item);if(!grouped.has(id))grouped.set(id,[]);grouped.get(id).push({origin,item});}}
+    return [...grouped].map(([id,originals])=&gt;{
+      const candidates=originals.filter(x=&gt;isEnabled(x.origin));
+      const firstRank=candidates.length?Math.min(...candidates.map(x=&gt;rank[x.origin.scope])):null;
+      const top=candidates.filter(x=&gt;rank[x.origin.scope]===firstRank);
+      const chosen=top.length===1?top[0]:top.find(x=&gt;x.item.id===s.resolution[id])||null;
+      return {id,role:originals[0].origin.role,key:originals[0].item.key,originals,candidates,top,winner:chosen,conflict:top.length&gt;1&amp;&amp;!chosen};
+    });
+  }
+  function captureSelection(){return {enabled:copy(s.enabled),resolution:copy(s.resolution),groups:effective().map(g=&gt;({id:g.id,winner:g.winner?g.winner.item.id:null,source:g.winner?g.winner.origin.id:null,conflict:g.conflict}))};}
+  function issue(){
+    if(s.locked)return {kind:&#x27;locked&#x27;};
+    if(s.pending)return {kind:&#x27;unknown&#x27;};
+    for(const group of effective()){
+      if(group.conflict&amp;&amp;group.top.some(x=&gt;x.item.startupRequired))return {kind:&#x27;conflict&#x27;,group};
+      const winner=group.winner;if(!winner)continue;
+      const item=winner.item;
+      if(!item.metadata||!item.use||!item.send)return {kind:&#x27;denied&#x27;,group,winner};
+      if(item.startupRequired&amp;&amp;!item.read)return {kind:&#x27;denied&#x27;,group,winner};
+      if(item.startupRequired&amp;&amp;!bodyAvailable(item))return {kind:&#x27;missing&#x27;,group,winner};
+    }
+    return {kind:&#x27;ready&#x27;};
+  }
+  function change(message=&#x27;자료 선택 변경&#x27;){s.revision++;s.assessment=null;s.result=null;s.error=&#x27;&#x27;;s.announcement=message;}
+  function visibleTitle(entry){return entry.item.metadata?entry.item.title:&#x27;접근 제한&#x27;;}
+  function visibleValue(entry){return !entry.item.metadata||!entry.item.read?&#x27;열람 제한&#x27;:!bodyAvailable(entry.item)?&#x27;본문 없음&#x27;:entry.item.value;}
+  function entryLink(entry,label){return link(esc(label||entry.origin.name+&#x27; · &#x27;+entry.origin.version+&#x27;판&#x27;),&#x27;source&#x27;,&#x27;data-source=&quot;&#x27;+entry.origin.id+&#x27;&quot;&#x27;);}
+
+  function sourceCell(scope,role){
+    const origin=s.originals.find(x=&gt;x.scope===scope&amp;&amp;x.role===role);
+    if(!origin)return &#x27;&lt;span class=&quot;small&quot;&gt;&#x27;+(scope===&#x27;repo&#x27;?&#x27;연결 안 함&#x27;:&#x27;참여 팀 없음&#x27;)+&#x27;&lt;/span&gt;&#x27;;
+    return &#x27;&lt;div class=&quot;source-cell&quot;&gt;&lt;label&gt;&lt;input type=&quot;checkbox&quot; data-toggle-source=&quot;&#x27;+origin.id+&#x27;&quot; aria-label=&quot;&#x27;+esc(scopes.find(x=&gt;x.id===scope).label+&#x27; &#x27;+roleName(role)+&#x27; 사용&#x27;)+&#x27;&quot; &#x27;+(isEnabled(origin)?&#x27;checked&#x27;:&#x27;&#x27;)+&#x27;&gt;&lt;/label&gt;&#x27;+link(esc(origin.name)+&#x27;&lt;span&gt;&#x27;+origin.version+&#x27;판&#x27;+(isEnabled(origin)?&#x27;&#x27;:&#x27; · 사용 안 함&#x27;)+&#x27;&lt;/span&gt;&#x27;,&#x27;source&#x27;,&#x27;data-source=&quot;&#x27;+origin.id+&#x27;&quot;&#x27;)+&#x27;&lt;/div&gt;&#x27;;
+  }
+  function sourceMatrix(){return &#x27;&lt;table class=&quot;scope-table&quot; aria-label=&quot;범위별 지침 지식 결정 자료&quot;&gt;&lt;thead&gt;&lt;tr&gt;&lt;th scope=&quot;col&quot;&gt;범위&lt;/th&gt;&#x27;+roles.map(r=&gt;&#x27;&lt;th scope=&quot;col&quot;&gt;&#x27;+r.label+&#x27;&lt;/th&gt;&#x27;).join(&#x27;&#x27;)+&#x27;&lt;/tr&gt;&lt;/thead&gt;&lt;tbody&gt;&#x27;+scopes.map(scope=&gt;&#x27;&lt;tr&gt;&lt;th scope=&quot;row&quot;&gt;&#x27;+scope.label+&#x27;&lt;/th&gt;&#x27;+roles.map(role=&gt;&#x27;&lt;td data-cell=&quot;&#x27;+scope.id+&#x27;-&#x27;+role.id+&#x27;&quot; data-role-label=&quot;&#x27;+esc(role.label)+&#x27;&quot;&gt;&#x27;+sourceCell(scope.id,role.id)+&#x27;&lt;/td&gt;&#x27;).join(&#x27;&#x27;)+&#x27;&lt;/tr&gt;&#x27;).join(&#x27;&#x27;)+&#x27;&lt;/tbody&gt;&lt;/table&gt;&#x27;;}
+  function status(){
+    const state=issue();
+    if(state.kind===&#x27;missing&#x27;)return &#x27;&lt;div class=&quot;alert&quot;&gt;&#x27;+esc(state.winner.origin.name)+&#x27; · &#x27;+esc(visibleTitle(state.winner))+&#x27; 본문 없음&lt;div class=&quot;actions&quot;&gt;&#x27;+link(&#x27;자료 받기&#x27;,&#x27;recovery&#x27;)+&#x27;&lt;/div&gt;&lt;/div&gt;&#x27;;
+    if(state.kind===&#x27;denied&#x27;)return &#x27;&lt;div class=&quot;alert&quot;&gt;선택한 자료를 Codex CLI에 제공할 수 없습니다.&lt;div class=&quot;actions&quot;&gt;&#x27;+link(&#x27;접근 방법&#x27;,&#x27;recovery&#x27;)+&#x27;&lt;/div&gt;&lt;/div&gt;&#x27;;
+    if(state.kind===&#x27;conflict&#x27;)return &#x27;&lt;div class=&quot;alert&quot;&gt;&#x27;+esc(visibleTitle(state.group.top[0]))+&#x27; · 같은 범위의 선택 충돌&lt;div class=&quot;actions&quot;&gt;&#x27;+link(&#x27;항목 선택&#x27;,&#x27;effective&#x27;)+&#x27;&lt;/div&gt;&lt;/div&gt;&#x27;;
+    if(state.kind===&#x27;unknown&#x27;)return &#x27;&lt;div class=&quot;alert&quot;&gt;실행 &#x27;+esc(s.pending.id)+&#x27; · 응답 미확인&lt;div class=&quot;actions&quot;&gt;&#x27;+link(&#x27;결과 확인&#x27;,&#x27;pending&#x27;)+&#x27;&lt;/div&gt;&lt;/div&gt;&#x27;;
+    return &#x27;&#x27;;
+  }
+  function startView(){return &#x27;&lt;div class=&quot;project&quot;&gt;&lt;div class=&quot;project-top&quot;&gt;&lt;h1&gt;&#x27;+esc(c().repo||&#x27;레포 없음&#x27;)+&#x27;&lt;/h1&gt;&#x27;+link(&#x27;기록&#x27;,&#x27;records&#x27;)+&#x27;&lt;/div&gt;&#x27;+(c().repo?&#x27;&lt;p class=&quot;small&quot;&gt;로컬 레포 · main&lt;/p&gt;&#x27;:&#x27;&#x27;)+&#x27;&lt;p class=&quot;small record&quot;&gt;&#x27;+esc(c().record||&#x27;연결된 진행 기록 없음&#x27;)+&#x27;&lt;/p&gt;&lt;/div&gt;&lt;div class=&quot;columns&quot;&gt;&lt;section&gt;&lt;div class=&quot;section-top&quot;&gt;&lt;h2&gt;환경·자료&lt;/h2&gt;&#x27;+link(&#x27;적용 자료 보기&#x27;,&#x27;effective&#x27;)+&#x27;&lt;/div&gt;&lt;p class=&quot;small name&quot;&gt;적용 순서: 레포 → 개인 → 팀&#x27;+(c().team?&#x27; · 제품팀&#x27;:&#x27;&#x27;)+&#x27;&lt;/p&gt;&#x27;+sourceMatrix()+&#x27;&lt;/section&gt;&lt;section&gt;&lt;div class=&quot;section-top&quot;&gt;&lt;h2&gt;실행&lt;/h2&gt;&#x27;+link(&#x27;설정&#x27;,&#x27;settings&#x27;)+&#x27;&lt;/div&gt;&#x27;+facts([[&#x27;도구&#x27;,&#x27;Codex CLI · 새 세션&#x27;],[&#x27;구성&#x27;,esc(modes[s.draft.mode])],[&#x27;파일 변경&#x27;,s.draft.permission===&#x27;confirm&#x27;?&#x27;변경 전 확인&#x27;:&#x27;세션의 허용 범위&#x27;]])+(s.draft.mode===&#x27;review&#x27;?&#x27;&lt;p class=&quot;small&quot;&gt;검토 모델 호출 추가&lt;/p&gt;&#x27;:&#x27;&#x27;)+&#x27;&lt;/section&gt;&lt;/div&gt;&#x27;+status()+&#x27;&lt;div class=&quot;bottom&quot;&gt;&lt;span class=&quot;small&quot;&gt;&#x27;+(design.scenario===&#x27;offline&#x27;?&#x27;오프라인 · 9/12 확인 · 이후 변경 미확인&#x27;:&#x27;&#x27;)+&#x27;&lt;/span&gt;&#x27;+btn(&#x27;새 세션 시작&#x27;,&#x27;start-session&#x27;,true,issue().kind===&#x27;ready&#x27;?&#x27;&#x27;:&#x27;disabled&#x27;)+&#x27;&lt;/div&gt;&#x27;;}
+  function homeView(){return &#x27;&lt;h1&gt;Studio&lt;/h1&gt;&lt;p class=&quot;small&quot;&gt;&#x27;+(c().team?&#x27;제품팀&#x27;:&#x27;개인&#x27;)+&#x27;&lt;/p&gt;&lt;div class=&quot;list&quot; data-menu&gt;&#x27;+[
+    [&#x27;시작&#x27;,&#x27;start&#x27;],[&#x27;환경·자료&#x27;,&#x27;materials&#x27;],[&#x27;기록&#x27;,&#x27;records&#x27;],[&#x27;변경 검토&#x27;,&#x27;reviews&#x27;],[&#x27;팀&#x27;,&#x27;team&#x27;],[&#x27;동기화·복구&#x27;,&#x27;recovery&#x27;]
+  ].map(([label,action])=&gt;&#x27;&lt;div class=&quot;row&quot;&gt;&#x27;+link(label,action)+&#x27;&lt;/div&gt;&#x27;).join(&#x27;&#x27;)+&#x27;&lt;/div&gt;&#x27;;}
+  function materialsView(){return &#x27;&lt;h1&gt;환경·자료&lt;/h1&gt;&lt;p class=&quot;small name&quot;&gt;적용 순서: 레포 → 개인 → 팀&lt;/p&gt;&#x27;+sourceMatrix()+&#x27;&lt;div class=&quot;bottom&quot;&gt;&#x27;+link(&#x27;돌아가기&#x27;,&#x27;start&#x27;)+btn(&#x27;적용 자료 보기&#x27;,&#x27;effective&#x27;,true)+&#x27;&lt;/div&gt;&#x27;;}
+  function originalsList(group){return &#x27;&lt;details&gt;&lt;summary&gt;다른 원본&lt;/summary&gt;&lt;div class=&quot;unit-originals&quot;&gt;&#x27;+group.originals.filter(x=&gt;!group.winner||x.item.id!==group.winner.item.id).map(entry=&gt;&#x27;&lt;div class=&quot;original&quot;&gt;&#x27;+entryLink(entry,scopeName(entry.origin.scope)+&#x27; · &#x27;+entry.origin.name+&#x27; &#x27;+entry.origin.version+&#x27;판&#x27;)+&#x27;&lt;span class=&quot;small&quot;&gt;&#x27;+esc(visibleValue(entry))+&#x27; · &#x27;+(!isEnabled(entry.origin)?&#x27;사용 안 함&#x27;:group.winner&amp;&amp;rank[entry.origin.scope]&gt;rank[group.winner.origin.scope]?&#x27;후순위&#x27;:&#x27;같은 범위&#x27;)+&#x27;&lt;/span&gt;&lt;/div&gt;&#x27;).join(&#x27;&#x27;)+&#x27;&lt;/div&gt;&lt;/details&gt;&#x27;;}
+  function effectiveView(){
+    let html=&#x27;&lt;h1&gt;적용 자료&lt;/h1&gt;&lt;p class=&quot;small name&quot;&gt;레포 → 개인 → 팀&lt;/p&gt;&#x27;;
+    for(const role of roles){const groups=effective().filter(x=&gt;x.role===role.id);html+=&#x27;&lt;h2 class=&quot;role-heading&quot;&gt;&#x27;+(role.id===&#x27;instructions&#x27;?&#x27;지침&#x27;:role.id===&#x27;knowledge&#x27;?&#x27;참고 지식&#x27;:&#x27;참고할 결정 자료&#x27;)+&#x27;&lt;/h2&gt;&#x27;;
+      if(!groups.length)html+=&#x27;&lt;p class=&quot;name&quot;&gt;선택한 자료 없음&lt;/p&gt;&#x27;;
+      for(const group of groups){const title=group.winner?visibleTitle(group.winner):group.top[0]?visibleTitle(group.top[0]):visibleTitle(group.originals[0]);html+=&#x27;&lt;div class=&quot;unit&quot; data-effective-group=&quot;&#x27;+esc(group.id)+&#x27;&quot;&gt;&lt;h3&gt;&#x27;+esc(title)+&#x27;&lt;/h3&gt;&#x27;;
+        if(group.conflict){html+=&#x27;&lt;p class=&quot;small&quot;&gt;&#x27;+esc(scopeName(group.top[0].origin.scope))+&#x27; · 항목 선택 필요&lt;/p&gt;&lt;div class=&quot;actions&quot;&gt;&#x27;+group.top.map(entry=&gt;btn(esc(visibleValue(entry))+&#x27; 항목 선택&#x27;,&#x27;resolve&#x27;,false,&#x27;data-group=&quot;&#x27;+esc(group.id)+&#x27;&quot; data-unit=&quot;&#x27;+entry.item.id+&#x27;&quot; &#x27;+(!entry.item.metadata||!entry.item.read?&#x27;disabled&#x27;:&#x27;&#x27;))).join(&#x27;&#x27;)+&#x27;&lt;/div&gt;&#x27;;}
+        else if(group.winner){html+=&#x27;&lt;div class=&quot;unit-value&quot; data-winner=&quot;&#x27;+group.winner.item.id+&#x27;&quot;&gt;&#x27;+esc(visibleValue(group.winner))+&#x27;&lt;/div&gt;&lt;div class=&quot;small&quot;&gt;&#x27;+entryLink(group.winner,scopeName(group.winner.origin.scope)+&#x27; · &#x27;+group.winner.origin.name+&#x27; &#x27;+group.winner.origin.version+&#x27;판&#x27;)+&#x27;&lt;/div&gt;&#x27;;}
+        else html+=&#x27;&lt;p class=&quot;small&quot;&gt;사용 안 함&lt;/p&gt;&#x27;;
+        if(group.originals.length&gt;1||!group.winner)html+=originalsList(group);
+        html+=&#x27;&lt;/div&gt;&#x27;;
+      }
+    }
+    return html+&#x27;&lt;div class=&quot;bottom&quot;&gt;&#x27;+link(&#x27;돌아가기&#x27;,&#x27;start&#x27;)+&#x27;&lt;/div&gt;&#x27;;
+  }
+  function sourceView(){
+    const origin=sourceById(s.source);if(!origin)return recoveryView();
+    const groups=effective();
+    return &#x27;&lt;h1&gt;&#x27;+esc(origin.name)+&#x27; · &#x27;+origin.version+&#x27;판&lt;/h1&gt;&lt;p class=&quot;small name&quot;&gt;&#x27;+esc(scopeName(origin.scope))+&#x27; · &#x27;+roleName(origin.role)+&#x27;&lt;/p&gt;&lt;div class=&quot;actions&quot;&gt;&lt;label&gt;&lt;input type=&quot;checkbox&quot; data-toggle-source=&quot;&#x27;+origin.id+&#x27;&quot; aria-label=&quot;이 자료 사용&quot; &#x27;+(isEnabled(origin)?&#x27;checked&#x27;:&#x27;&#x27;)+&#x27;&gt; 이 자료 사용&lt;/label&gt;&lt;/div&gt;&#x27;+origin.items.map(item=&gt;{
+      const entry={origin,item},group=groups.find(x=&gt;x.id===groupId(origin,item));
+      const choice=!isEnabled(origin)?&#x27;사용 안 함&#x27;:group.winner?.item.id===item.id?&#x27;선택된 자료&#x27;:group.conflict?&#x27;선택 충돌&#x27;:&#x27;후순위 자료&#x27;;
+      return &#x27;&lt;div class=&quot;unit&quot;&#x27;+(item.metadata?&#x27; data-original-unit=&quot;&#x27;+item.id+&#x27;&quot;&#x27;:&#x27;&#x27;)+&#x27;&gt;&lt;div class=&quot;unit-head&quot;&gt;&lt;h2&gt;&#x27;+esc(visibleTitle(entry))+&#x27;&lt;/h2&gt;&lt;span class=&quot;small&quot;&gt;&#x27;+choice+&#x27;&lt;/span&gt;&lt;/div&gt;&#x27;+(item.metadata&amp;&amp;item.startupRequired?&#x27;&lt;p class=&quot;small&quot;&gt;초기 필수&lt;/p&gt;&#x27;:&#x27;&#x27;)+(!item.metadata||!item.read?&#x27;&lt;p class=&quot;name&quot;&gt;본문 열람 제한&lt;/p&gt;&#x27;:!bodyAvailable(item)?&#x27;&lt;p class=&quot;name&quot;&gt;본문 없음&lt;/p&gt;&#x27;:&#x27;&lt;div class=&quot;body-text&quot;&gt;&#x27;+esc(item.body)+&#x27;&lt;/div&gt;&#x27;)+(item.metadata&amp;&amp;item.recordStatus?&#x27;&lt;p class=&quot;small&quot;&gt;&#x27;+esc(item.recordStatus)+&#x27;&lt;/p&gt;&#x27;:&#x27;&#x27;)+(item.metadata&amp;&amp;!item.send?&#x27;&lt;p class=&quot;small&quot;&gt;도구 제공 제한&lt;/p&gt;&#x27;:&#x27;&#x27;)+(item.metadata?&#x27;&lt;details&gt;&lt;summary&gt;식별 정보&lt;/summary&gt;&#x27;+facts([[&#x27;항목&#x27;,esc(item.id)],[&#x27;자료 키&#x27;,esc(item.key)]])+&#x27;&lt;/details&gt;&#x27;:&#x27;&#x27;)+&#x27;&lt;/div&gt;&#x27;;
+    }).join(&#x27;&#x27;)+&#x27;&lt;div class=&quot;bottom&quot;&gt;&#x27;+link(&#x27;돌아가기&#x27;,&#x27;return&#x27;)+link(&#x27;적용 자료 보기&#x27;,&#x27;effective&#x27;)+&#x27;&lt;/div&gt;&#x27;;
+  }
+  function settingsView(){return &#x27;&lt;h1&gt;Codex CLI&lt;/h1&gt;&lt;label class=&quot;field&quot;&gt;구성&lt;select data-field=&quot;mode&quot;&gt;&#x27;+Object.entries(modes).map(([id,label])=&gt;&#x27;&lt;option value=&quot;&#x27;+id+&#x27;&quot; &#x27;+(id===s.draft.mode?&#x27;selected&#x27;:&#x27;&#x27;)+&#x27;&gt;&#x27;+label+&#x27;&lt;/option&gt;&#x27;).join(&#x27;&#x27;)+&#x27;&lt;/select&gt;&lt;/label&gt;&#x27;+(s.draft.mode===&#x27;review&#x27;?&#x27;&lt;p class=&quot;small&quot;&gt;추가 검토자 1명 · 모델 호출 추가&lt;/p&gt;&#x27;:&#x27;&#x27;)+&#x27;&lt;label class=&quot;field&quot;&gt;파일 변경&lt;select data-field=&quot;permission&quot;&gt;&lt;option value=&quot;confirm&quot; &#x27;+(s.draft.permission===&#x27;confirm&#x27;?&#x27;selected&#x27;:&#x27;&#x27;)+&#x27;&gt;변경 전 확인&lt;/option&gt;&lt;option value=&quot;scoped&quot; &#x27;+(s.draft.permission===&#x27;scoped&#x27;?&#x27;selected&#x27;:&#x27;&#x27;)+&#x27;&gt;세션에서 명시적으로 허용한 범위&lt;/option&gt;&lt;/select&gt;&lt;/label&gt;&lt;div class=&quot;bottom&quot;&gt;&#x27;+link(&#x27;돌아가기&#x27;,&#x27;start&#x27;)+&#x27;&lt;/div&gt;&#x27;;}
+  function recordsView(){return &#x27;&lt;h1&gt;&#x27;+esc(c().repo?c().repo+&#x27; · 기록&#x27;:&#x27;기록&#x27;)+&#x27;&lt;/h1&gt;&#x27;+(c().record?&#x27;&lt;div class=&quot;list&quot;&gt;&lt;div class=&quot;row&quot;&gt;&#x27;+esc(c().record)+&#x27;&lt;/div&gt;&lt;/div&gt;&#x27;:&#x27;&lt;p class=&quot;name&quot;&gt;연결된 진행 기록 없음&lt;/p&gt;&#x27;)+s.history.map(result=&gt;&#x27;&lt;div class=&quot;row&quot;&gt;실행 &#x27;+esc(result.id)+&#x27; · &#x27;+(result.reconciled?&#x27;전달 기록 확인&#x27;:&#x27;시작 요청 전송됨&#x27;)+&#x27;&lt;/div&gt;&#x27;).join(&#x27;&#x27;)+&#x27;&lt;div class=&quot;bottom&quot;&gt;&#x27;+link(&#x27;돌아가기&#x27;,&#x27;start&#x27;)+&#x27;&lt;/div&gt;&#x27;;}
+  function recoveryView(){
+    if(s.pending)return pendingView();const state=issue();
+    if(state.kind===&#x27;conflict&#x27;)return effectiveView();
+    return &#x27;&lt;h1&gt;&#x27;+(state.kind===&#x27;denied&#x27;?&#x27;자료 접근&#x27;:&#x27;동기화·복구&#x27;)+&#x27;&lt;/h1&gt;&#x27;+(state.kind===&#x27;missing&#x27;?&#x27;&lt;p class=&quot;name&quot;&gt;&#x27;+esc(state.winner.origin.name)+&#x27; · &#x27;+esc(visibleTitle(state.winner))+&#x27; 본문 없음&lt;/p&gt;&#x27;+btn(&#x27;자료 받기&#x27;,&#x27;receive&#x27;,true,&#x27;data-unit=&quot;&#x27;+state.winner.item.id+&#x27;&quot;&#x27;):state.kind===&#x27;denied&#x27;?&#x27;&lt;p class=&quot;name&quot;&gt;선택한 자료의 열람·도구 제공 권한을 확인하세요.&lt;/p&gt;&#x27;:facts([[&#x27;연결&#x27;,&#x27;동료 사본 · 파일 교환&#x27;],[&#x27;GitHub&#x27;,&#x27;연결 안 함&#x27;],[&#x27;마지막 확인&#x27;,design.scenario===&#x27;offline&#x27;?&#x27;9/12 · 이후 변경 미확인&#x27;:&#x27;9/14&#x27;]]))+&#x27;&lt;div class=&quot;bottom&quot;&gt;&#x27;+link(&#x27;돌아가기&#x27;,&#x27;start&#x27;)+&#x27;&lt;/div&gt;&#x27;;
+  }
+  function selectionSummary(selection){return selection.groups.filter(x=&gt;x.winner).map(x=&gt;{const origin=sourceById(x.source),item=origin?.items.find(unit=&gt;unit.id===x.winner);return origin&amp;&amp;item?roleName(origin.role)+&#x27; · &#x27;+scopeName(origin.scope)+&#x27; · &#x27;+(item.metadata?item.title:&#x27;접근 제한&#x27;):&#x27;&#x27;;}).filter(Boolean).map(x=&gt;&#x27;&lt;div&gt;&#x27;+esc(x)+&#x27;&lt;/div&gt;&#x27;).join(&#x27;&#x27;);}
+  function pendingView(){if(!s.pending)return recoveryView();return &#x27;&lt;h1&gt;실행 &#x27;+esc(s.pending.id)+&#x27;&lt;/h1&gt;&lt;p class=&quot;name&quot;&gt;응답 미확인&lt;/p&gt;&#x27;+facts([[&#x27;레포&#x27;,esc(s.pending.location||&#x27;없음&#x27;)],[&#x27;당시 자료&#x27;,selectionSummary(s.pending.selection)],[&#x27;구성&#x27;,esc(modes[s.pending.draft.mode])]])+&#x27;&lt;div class=&quot;bottom&quot;&gt;&#x27;+link(&#x27;돌아가기&#x27;,&#x27;start&#x27;)+btn(&#x27;결과 확인&#x27;,&#x27;check-request&#x27;,true)+&#x27;&lt;/div&gt;&#x27;;}
+  function resultView(){const result=s.result;if(!result)return startView();return &#x27;&lt;h1&gt;Codex CLI&lt;/h1&gt;&lt;p class=&quot;name&quot;&gt;&#x27;+(result.reconciled?&#x27;실행 &#x27;+esc(result.id)+&#x27; · 전달 기록 확인&#x27;:&#x27;새 세션 · 시작 요청 전송됨&#x27;)+&#x27;&lt;/p&gt;&#x27;+facts([[&#x27;구성&#x27;,esc(modes[result.draft.mode])],[&#x27;선택 자료&#x27;,selectionSummary(result.selection)],[&#x27;요청 내용&#x27;,&#x27;선택된 지침 · 지식·결정 조회 규칙&#x27;],[&#x27;실행 번호&#x27;,esc(result.id)]])+&#x27;&lt;div class=&quot;bottom&quot;&gt;&#x27;+link(&#x27;시작 화면&#x27;,&#x27;start&#x27;)+link(&#x27;기록&#x27;,&#x27;records&#x27;)+&#x27;&lt;/div&gt;&#x27;;}
+  function lockView(){return &#x27;&lt;h1&gt;잠김&lt;/h1&gt;&lt;div class=&quot;bottom&quot;&gt;&#x27;+btn(&#x27;잠금 해제&#x27;,&#x27;unlock&#x27;,true)+&#x27;&lt;/div&gt;&#x27;;}
+  const views={start:startView,home:homeView,materials:materialsView,effective:effectiveView,settings:settingsView,source:sourceView,records:recordsView,recovery:recoveryView,pending:pendingView,result:resultView,reviews:()=&gt;&#x27;&lt;h1&gt;변경 검토&lt;/h1&gt;&lt;p class=&quot;name&quot;&gt;검토 요청 없음&lt;/p&gt;&lt;div class=&quot;bottom&quot;&gt;&#x27;+link(&#x27;돌아가기&#x27;,&#x27;home&#x27;)+&#x27;&lt;/div&gt;&#x27;,team:()=&gt;&#x27;&lt;h1&gt;팀&lt;/h1&gt;&lt;p class=&quot;name&quot;&gt;&#x27;+(c().team?&#x27;제품팀&#x27;:&#x27;참여한 팀 없음&#x27;)+&#x27;&lt;/p&gt;&lt;div class=&quot;bottom&quot;&gt;&#x27;+link(&#x27;돌아가기&#x27;,&#x27;home&#x27;)+&#x27;&lt;/div&gt;&#x27;};
+  function render(){
+    if(JSON.stringify(s.originals)!==s.originalSignature)throw new Error(&#x27;원본 배열 변경&#x27;);
+    const active=document.activeElement,keep=app.contains(active)?{action:active.dataset.action,field:active.dataset.field,source:active.dataset.source,toggle:active.dataset.toggleSource,unit:active.dataset.unit}:{};
+    app.dataset.screen=s.locked?&#x27;locked&#x27;:s.page;app.dataset.layout=design.layout;app.dataset.revision=String(s.revision);app.dataset.requestId=s.locked?&#x27;&#x27;:s.pending?.id||s.result?.id||&#x27;&#x27;;app.dataset.assessedRevision=s.assessment?String(s.assessment.revision):&#x27;&#x27;;app.dataset.issue=s.locked?&#x27;locked&#x27;:issue().kind;
+    app.innerHTML=&#x27;&lt;header&gt;&lt;span&gt;agent-bios &lt;span class=&quot;small&quot;&gt;/ Studio&lt;/span&gt;&lt;/span&gt;&lt;nav class=&quot;actions&quot;&gt;&#x27;+(s.locked?&#x27;&#x27;:link(&#x27;메뉴&#x27;,&#x27;home&#x27;)+link(&#x27;잠금&#x27;,&#x27;lock&#x27;))+&#x27;&lt;/nav&gt;&lt;/header&gt;&lt;main&gt;&#x27;+(s.locked?lockView():(views[s.page]||startView)())+(s.error?&#x27;&lt;div class=&quot;alert&quot; role=&quot;alert&quot;&gt;&#x27;+esc(s.error)+&#x27;&lt;/div&gt;&#x27;:&#x27;&#x27;)+&#x27;&lt;/main&gt;&lt;footer&gt;Tab 이동 · Enter 열기 · Space 선택 · Esc 뒤로&lt;span class=&quot;sr&quot; role=&quot;status&quot; aria-live=&quot;polite&quot;&gt;&#x27;+esc(s.announcement)+&#x27;&lt;/span&gt;&lt;/footer&gt;&#x27;;
+    let target=keep.toggle?app.querySelector(&#x27;[data-toggle-source=&quot;&#x27;+keep.toggle+&#x27;&quot;]&#x27;):keep.field?app.querySelector(&#x27;[data-field=&quot;&#x27;+keep.field+&#x27;&quot;]&#x27;):keep.action?app.querySelector(&#x27;[data-action=&quot;&#x27;+keep.action+&#x27;&quot;]&#x27;+(keep.source?&#x27;[data-source=&quot;&#x27;+keep.source+&#x27;&quot;]&#x27;:&#x27;&#x27;)+(keep.unit?&#x27;[data-unit=&quot;&#x27;+keep.unit+&#x27;&quot;]&#x27;:&#x27;&#x27;)):null;
+    if(!target&amp;&amp;(keep.action||keep.toggle))target=app.querySelector(&#x27;main button:not(:disabled),main input,main select&#x27;);if(target)target.focus({preventScroll:true});
+  }
+  function navigate(page){s.page=page;s.error=&#x27;&#x27;;s.announcement=&#x27;&#x27;;}
+  app.addEventListener(&#x27;click&#x27;,event=&gt;{
+    const button=event.target.closest(&#x27;button[data-action]&#x27;);if(!button||button.disabled)return;const action=button.dataset.action;if(s.locked&amp;&amp;action!==&#x27;unlock&#x27;)return;s.error=&#x27;&#x27;;
+    if(action===&#x27;source&#x27;){const origin=sourceById(button.dataset.source);if(origin){s.source=origin.id;s.returnPage=s.page===&#x27;source&#x27;?s.returnPage:s.page;navigate(&#x27;source&#x27;);}}
+    else if(action===&#x27;return&#x27;)navigate(s.returnPage||&#x27;start&#x27;);
+    else if(action===&#x27;resolve&#x27;){const group=effective().find(x=&gt;x.id===button.dataset.group),entry=group?.top.find(x=&gt;x.item.id===button.dataset.unit);if(entry&amp;&amp;entry.item.metadata&amp;&amp;entry.item.read){s.resolution[group.id]=entry.item.id;change(&#x27;이번 시작의 항목 선택 변경&#x27;);}}
+    else if(action===&#x27;start-session&#x27;){
+      if(s.page!==&#x27;start&#x27;)return;const state=issue();s.assessment={revision:s.revision,issue:state.kind,taskSupport:&#x27;not-assessed&#x27;};
+      if(state.kind===&#x27;ready&#x27;){s.sequence++;s.result=freeze({id:String(s.sequence).padStart(2,&#x27;0&#x27;),draft:copy(s.draft),selection:captureSelection(),reconciled:false});s.history.push(s.result);navigate(&#x27;result&#x27;);}
+      else navigate(state.kind===&#x27;unknown&#x27;?&#x27;pending&#x27;:state.kind===&#x27;conflict&#x27;?&#x27;effective&#x27;:&#x27;recovery&#x27;);
+    }
+    else if(action===&#x27;receive&#x27;){const state=issue();if(state.kind===&#x27;missing&#x27;&amp;&amp;state.winner.item.id===button.dataset.unit&amp;&amp;state.winner.item.read&amp;&amp;state.winner.item.use&amp;&amp;state.winner.item.send){s.recovered.push(state.winner.item.id);change(&#x27;본문 수신 확인&#x27;);navigate(&#x27;start&#x27;);}}
+    else if(action===&#x27;check-request&#x27;){if(s.pending){s.result=freeze({id:s.pending.id,draft:copy(s.pending.draft),selection:copy(s.pending.selection),reconciled:true});s.history.push(s.result);s.pending=null;navigate(&#x27;result&#x27;);}}
+    else if(action===&#x27;lock&#x27;){s.locked=true;s.assessment=null;}
+    else if(action===&#x27;unlock&#x27;){s.locked=false;s.assessment=null;navigate(design.entry===&#x27;host&#x27;?&#x27;start&#x27;:&#x27;home&#x27;);}
+    else if(views[action])navigate(action);
+    render();
+  });
+  app.addEventListener(&#x27;change&#x27;,event=&gt;{
+    if(s.locked)return;const sourceId=event.target.dataset.toggleSource;
+    if(sourceId&amp;&amp;sourceById(sourceId)){s.enabled[sourceId]=event.target.checked===true;change();render();return;}
+    const key=event.target.dataset.field,value=event.target.value;
+    if(key===&#x27;mode&#x27;&amp;&amp;Object.hasOwn(modes,value)||key===&#x27;permission&#x27;&amp;&amp;[&#x27;confirm&#x27;,&#x27;scoped&#x27;].includes(value)){s.draft[key]=value;change(&#x27;실행 설정 변경&#x27;);render();}
+  });
+  app.addEventListener(&#x27;keydown&#x27;,event=&gt;{
+    if(event.target.closest(&#x27;input,select,textarea,[contenteditable]&#x27;))return;
+    if(event.key===&#x27;Escape&#x27;&amp;&amp;!s.locked&amp;&amp;![&#x27;start&#x27;,&#x27;home&#x27;].includes(s.page)){event.preventDefault();navigate(s.page===&#x27;source&#x27;?s.returnPage:&#x27;start&#x27;);render();return;}
+    const menu=event.target.closest(&#x27;[data-menu]&#x27;);if(menu&amp;&amp;[&#x27;ArrowDown&#x27;,&#x27;ArrowUp&#x27;].includes(event.key)){const buttons=[...menu.querySelectorAll(&#x27;button&#x27;)],i=buttons.indexOf(document.activeElement);if(i&gt;=0){event.preventDefault();buttons[(i+(event.key===&#x27;ArrowDown&#x27;?1:-1)+buttons.length)%buttons.length].focus();}}
+  });
+  function applyDesign(){if(!cases[design.scenario])design.scenario=&#x27;all&#x27;;if(design.scenario!==applied.scenario)reset();else if(design.entry!==applied.entry)navigate(design.entry===&#x27;host&#x27;?&#x27;start&#x27;:&#x27;home&#x27;);applied={...design};render();}
+  reset();render();
+  if(globalThis.Tweak){const tweak=new Tweak({container:root,onChange:applyDesign});tweak.addSelect(design,&#x27;entry&#x27;,{label:&#x27;진입&#x27;,options:[{label:&#x27;런처&#x27;,value:&#x27;host&#x27;},{label:&#x27;Studio&#x27;,value:&#x27;studio&#x27;}]});tweak.addSelect(design,&#x27;scenario&#x27;,{label:&#x27;사례&#x27;,options:Object.entries(cases).map(([value,valueCase])=&gt;({label:valueCase.label,value}))});tweak.addSelect(design,&#x27;layout&#x27;,{label:&#x27;배치&#x27;,options:[{label:&#x27;표와 실행&#x27;,value:&#x27;columns&#x27;},{label:&#x27;한 열&#x27;,value:&#x27;stack&#x27;}]});}
+})();
+&lt;/script&gt;
+
+&lt;script src=&quot;https://unpkg.com/@floating-ui/core@1.7.3/dist/floating-ui.core.umd.min.js&quot;&gt;&lt;/script&gt;
+&lt;script src=&quot;https://unpkg.com/@floating-ui/dom@1.7.4/dist/floating-ui.dom.umd.min.js&quot;&gt;&lt;/script&gt;
+&lt;script&gt;
+(() =&gt; {
+  if (window.FloatingUIDOM == null) {
+    return;
+  }
+  const { autoUpdate, computePosition, flip, offset, shift, size } =
+    window.FloatingUIDOM;
+  const tooltipPlacements = new Set([&quot;top&quot;, &quot;right&quot;, &quot;bottom&quot;, &quot;left&quot;]);
+  const tooltipId = `codex-visualization-tooltip-${
+    window.crypto?.randomUUID?.() ?? Date.now().toString(36)
+  }`;
+  const tooltipGap = 5;
+  const hoverDelay = 700;
+  const skipDelay = 300;
+  let activeTrigger = null;
+  let pendingTrigger = null;
+  let tooltip = null;
+  let openTimeout = null;
+  let autoUpdateCleanup = null;
+  let positionRequest = 0;
+  let skipDelayUntil = 0;
+  let lastPointerWasTouch = false;
+  let pinnedByTouch = false;
+
+  const getTrigger = (target) =&gt;
+    target?.nodeType === Node.ELEMENT_NODE
+      ? target.closest(&quot;[data-tooltip]&quot;)
+      : null;
+  const containsTarget = (trigger, target) =&gt;
+    target?.nodeType != null &amp;&amp; trigger.contains(target);
+  const getContent = (trigger) =&gt;
+    trigger.getAttribute(&quot;data-tooltip&quot;)?.trim() ?? &quot;&quot;;
+  const getPlacement = (trigger) =&gt; {
+    const placement = trigger.getAttribute(&quot;data-tooltip-placement&quot;);
+    return tooltipPlacements.has(placement) ? placement : &quot;top&quot;;
+  };
+  const getTooltip = () =&gt; {
+    if (tooltip == null) {
+      tooltip = document.createElement(&quot;div&quot;);
+      tooltip.id = tooltipId;
+      tooltip.className = &quot;tooltip&quot;;
+      tooltip.setAttribute(&quot;role&quot;, &quot;tooltip&quot;);
+    }
+    return tooltip;
+  };
+  const setDescribedBy = (trigger, described) =&gt; {
+    const ids = new Set(
+      (trigger.getAttribute(&quot;aria-describedby&quot;) ?? &quot;&quot;)
+        .split(/\s+/)
+        .filter(Boolean),
+    );
+    if (described) {
+      ids.add(tooltipId);
+    } else {
+      ids.delete(tooltipId);
+    }
+    if (ids.size === 0) {
+      trigger.removeAttribute(&quot;aria-describedby&quot;);
+    } else {
+      trigger.setAttribute(&quot;aria-describedby&quot;, [...ids].join(&quot; &quot;));
+    }
+  };
+  const clearOpenTimeout = () =&gt; {
+    if (openTimeout != null) {
+      window.clearTimeout(openTimeout);
+      openTimeout = null;
+    }
+    pendingTrigger = null;
+  };
+  const closeTooltip = (activateSkipDelay = true) =&gt; {
+    clearOpenTimeout();
+    pinnedByTouch = false;
+    positionRequest += 1;
+    autoUpdateCleanup?.();
+    autoUpdateCleanup = null;
+    if (activeTrigger == null) {
+      return;
+    }
+    setDescribedBy(activeTrigger, false);
+    activeTrigger = null;
+    tooltip?.remove();
+    if (activateSkipDelay) {
+      skipDelayUntil = Date.now() + skipDelay;
+    }
+  };
+  const updatePosition = (trigger, floating) =&gt; {
+    const request = ++positionRequest;
+    void computePosition(trigger, floating, {
+      middleware: [
+        offset(tooltipGap),
+        flip({ padding: tooltipGap }),
+        shift({ padding: tooltipGap }),
+        size({
+          padding: tooltipGap,
+          apply({ availableHeight, availableWidth, elements }) {
+            elements.floating.style.setProperty(
+              &quot;--tooltip-available-width&quot;,
+              `${Math.max(0, availableWidth)}px`,
+            );
+            elements.floating.style.setProperty(
+              &quot;--tooltip-available-height&quot;,
+              `${Math.max(0, availableHeight)}px`,
+            );
+          },
+        }),
+      ],
+      placement: getPlacement(trigger),
+      strategy: &quot;fixed&quot;,
+    })
+      .then(({ x, y }) =&gt; {
+        if (activeTrigger !== trigger || request !== positionRequest) {
+          return;
+        }
+        const scale = window.devicePixelRatio || 1;
+        floating.style.transform = `translate(${Math.round(x * scale) / scale}px, ${Math.round(y * scale) / scale}px)`;
+        floating.style.visibility = &quot;visible&quot;;
+      })
+      .catch(() =&gt; {
+        if (activeTrigger === trigger &amp;&amp; request === positionRequest) {
+          closeTooltip(false);
+        }
+      });
+  };
+  const openTooltip = (trigger) =&gt; {
+    const content = getContent(trigger);
+    if (!trigger.isConnected || content.length === 0) {
+      return;
+    }
+    clearOpenTimeout();
+    if (activeTrigger === trigger) {
+      return;
+    }
+    closeTooltip();
+    const floating = getTooltip();
+    floating.textContent = content;
+    floating.style.visibility = &quot;hidden&quot;;
+    floating.style.transform = &quot;translate(0, 0)&quot;;
+    document.body.appendChild(floating);
+    activeTrigger = trigger;
+    setDescribedBy(trigger, true);
+    autoUpdateCleanup = autoUpdate(trigger, floating, () =&gt; {
+      updatePosition(trigger, floating);
+    });
+  };
+  const requestOpen = (trigger, immediate = false) =&gt; {
+    if (
+      getContent(trigger).length === 0 ||
+      activeTrigger === trigger ||
+      pendingTrigger === trigger
+    ) {
+      return;
+    }
+    clearOpenTimeout();
+    pendingTrigger = trigger;
+    const delay =
+      immediate || activeTrigger != null || Date.now() &lt; skipDelayUntil
+        ? 0
+        : hoverDelay;
+    if (delay === 0) {
+      openTooltip(trigger);
+      return;
+    }
+    openTimeout = window.setTimeout(() =&gt; {
+      openTimeout = null;
+      pendingTrigger = null;
+      openTooltip(trigger);
+    }, delay);
+  };
+  const handlePointerOpen = (event) =&gt; {
+    if (event.pointerType === &quot;touch&quot;) {
+      return;
+    }
+    const trigger = getTrigger(event.target);
+    if (trigger == null || containsTarget(trigger, event.relatedTarget)) {
+      return;
+    }
+    requestOpen(trigger);
+  };
+  const handlePointer = (event) =&gt; {
+    lastPointerWasTouch =
+      event.type === &quot;pointerdown&quot; &amp;&amp; event.pointerType === &quot;touch&quot;;
+  };
+  const handleTouchClick = (event) =&gt; {
+    const isTouch = event.pointerType === &quot;touch&quot; || lastPointerWasTouch;
+    lastPointerWasTouch = false;
+    if (!isTouch || event.detail === 0) {
+      return;
+    }
+    const trigger = getTrigger(event.target);
+    if (
+      trigger == null ||
+      !trigger.isConnected ||
+      getContent(trigger).length === 0 ||
+      (pinnedByTouch &amp;&amp; activeTrigger === trigger)
+    ) {
+      if (pinnedByTouch) {
+        closeTooltip();
+      }
+      return;
+    }
+    openTooltip(trigger);
+    pinnedByTouch = activeTrigger === trigger;
+    window.setTimeout(() =&gt; {
+      if (activeTrigger === trigger &amp;&amp; !trigger.isConnected) {
+        closeTooltip(false);
+      }
+    }, 0);
+  };
+  const handleLeave = (event) =&gt; {
+    if (pinnedByTouch) {
+      return;
+    }
+    const trigger = getTrigger(event.target);
+    if (trigger == null || containsTarget(trigger, event.relatedTarget)) {
+      return;
+    }
+    if (activeTrigger === trigger || pendingTrigger === trigger) {
+      closeTooltip();
+    }
+  };
+  const handleFocusIn = (event) =&gt; {
+    const trigger = getTrigger(event.target);
+    if (trigger?.matches(&quot;:focus-visible&quot;)) {
+      requestOpen(trigger, true);
+    }
+  };
+  const handleKeyDown = (event) =&gt; {
+    if (event.key === &quot;Escape&quot;) {
+      closeTooltip();
+    }
+  };
+  const handleContextMenu = (event) =&gt; {
+    lastPointerWasTouch = false;
+    const trigger = getTrigger(event.target);
+    if (activeTrigger === trigger || pendingTrigger === trigger) {
+      closeTooltip();
+    }
+  };
+  const destroy = () =&gt; {
+    closeTooltip(false);
+    lastPointerWasTouch = false;
+    document.removeEventListener(&quot;pointerover&quot;, handlePointerOpen);
+    document.removeEventListener(&quot;pointerdown&quot;, handlePointer);
+    document.removeEventListener(&quot;pointercancel&quot;, handlePointer);
+    document.removeEventListener(&quot;click&quot;, handleTouchClick);
+    document.removeEventListener(&quot;pointerout&quot;, handleLeave);
+    document.removeEventListener(&quot;focusin&quot;, handleFocusIn);
+    document.removeEventListener(&quot;focusout&quot;, handleLeave);
+    document.removeEventListener(&quot;keydown&quot;, handleKeyDown);
+    document.removeEventListener(&quot;contextmenu&quot;, handleContextMenu);
+    tooltip = null;
+  };
+
+  document.addEventListener(&quot;pointerover&quot;, handlePointerOpen);
+  document.addEventListener(&quot;pointerdown&quot;, handlePointer);
+  document.addEventListener(&quot;pointercancel&quot;, handlePointer);
+  document.addEventListener(&quot;click&quot;, handleTouchClick);
+  document.addEventListener(&quot;pointerout&quot;, handleLeave);
+  document.addEventListener(&quot;focusin&quot;, handleFocusIn);
+  document.addEventListener(&quot;focusout&quot;, handleLeave);
+  document.addEventListener(&quot;keydown&quot;, handleKeyDown);
+  document.addEventListener(&quot;contextmenu&quot;, handleContextMenu);
+  window.addEventListener(&quot;pagehide&quot;, destroy, { once: true });
+})();
+&lt;/script&gt;
+&lt;script id=&quot;codex-visualization-tabs&quot;&gt;
+(() =&gt; {
+  const selector = &#x27;.nav[role=&quot;tablist&quot;] [role=&quot;tab&quot;]&#x27;;
+  const disabled = &#x27;:disabled,[aria-disabled=&quot;true&quot;]&#x27;;
+  const selectTab = (selected) =&gt; {
+    const panelId = selected.getAttribute(&quot;aria-controls&quot;);
+    for (const tab of selected.closest(&#x27;[role=&quot;tablist&quot;]&#x27;).querySelectorAll(&#x27;[role=&quot;tab&quot;]&#x27;)) {
+      const active = tab === selected;
+      tab.classList.toggle(&quot;active&quot;, active);
+      tab.setAttribute(&quot;aria-selected&quot;, String(active));
+      const id = tab.getAttribute(&quot;aria-controls&quot;);
+      const panel = id &amp;&amp; document.getElementById(id);
+      if (panel != null) {
+        panel.hidden = id !== panelId;
+        if (!panel.hidden &amp;&amp; selected.id) {
+          panel.setAttribute(&quot;aria-labelledby&quot;, selected.id);
+        }
+      }
+    }
+  };
+  const interact = (event) =&gt; {
+    const tab = event.target?.closest?.(selector);
+    if (event.defaultPrevented || tab == null || tab.matches(disabled)) {
+      return;
+    }
+    if (event.type === &quot;click&quot;) {
+      selectTab(tab);
+      return;
+    }
+    const tabs = Array.from(
+      tab.closest(&#x27;[role=&quot;tablist&quot;]&#x27;).querySelectorAll(&#x27;[role=&quot;tab&quot;]&#x27;),
+    ).filter((candidate) =&gt; !candidate.matches(disabled));
+    const current = tabs.indexOf(tab);
+    let next;
+    if (event.key === &quot;ArrowRight&quot; || event.key === &quot;ArrowDown&quot;) {
+      next = (current + 1) % tabs.length;
+    } else if (event.key === &quot;ArrowLeft&quot; || event.key === &quot;ArrowUp&quot;) {
+      next = (current + tabs.length - 1) % tabs.length;
+    } else if (event.key === &quot;Home&quot;) {
+      next = 0;
+    } else if (event.key === &quot;End&quot;) {
+      next = tabs.length - 1;
+    } else {
+      return;
+    }
+    event.preventDefault();
+    tabs[next].focus();
+    selectTab(tabs[next]);
+  };
+
+  for (const list of document.querySelectorAll(&#x27;.nav[role=&quot;tablist&quot;]&#x27;)) {
+    const selected =
+      list.querySelector(&#x27;[role=&quot;tab&quot;][aria-selected=&quot;true&quot;]&#x27;) ??
+      list.querySelector(&#x27;[role=&quot;tab&quot;].active&#x27;) ??
+      list.querySelector(&#x27;[role=&quot;tab&quot;]&#x27;);
+    if (selected != null) {
+      selectTab(selected);
+    }
+  }
+  document.addEventListener(&quot;click&quot;, interact);
+  document.addEventListener(&quot;keydown&quot;, interact);
+  window.addEventListener(&quot;pagehide&quot;, () =&gt; {
+    document.removeEventListener(&quot;click&quot;, interact);
+    document.removeEventListener(&quot;keydown&quot;, interact);
+  }, { once: true });
+})();
+&lt;/script&gt;
+&lt;script id=&quot;codex-visualization-lucide&quot; async src=&quot;https://unpkg.com/lucide@1.17.0/dist/umd/lucide.js&quot;&gt;&lt;/script&gt;
+&lt;script&gt;
+(() =&gt; {
+  const initialize = () =&gt; {
+    globalThis.lucide?.createIcons({ attrs: { width: 16, height: 16 } });
+  };
+  if (globalThis.lucide != null) {
+    initialize();
+    return;
+  }
+  document
+    .getElementById(&quot;codex-visualization-lucide&quot;)
+    ?.addEventListener(&quot;load&quot;, initialize, { once: true });
+})();
+&lt;/script&gt;
+
+&lt;/body&gt;
+&lt;/html&gt;
+"></iframe>
+</body>
+</html>

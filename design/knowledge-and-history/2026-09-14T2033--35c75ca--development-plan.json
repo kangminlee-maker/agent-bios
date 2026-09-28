@@ -1,0 +1,2116 @@
+{
+  "schema_version": 2,
+  "kind": "development_evidence_graph",
+  "status": "planned-not-runtime-qualified",
+  "ssot": "2026-09-14T2033--35c75ca--consolidated-design-ssot.md",
+  "spec": "2026-09-14T2033--35c75ca--development-spec.md",
+  "test_catalog": "2026-09-14T2033--35c75ca--test-catalog.json",
+  "baseline_manifest": "2026-09-14T2033--35c75ca--brownfield-evidence.json",
+  "required_requirement_ids": [
+    "U01",
+    "U02",
+    "U03",
+    "U04",
+    "U05",
+    "U06",
+    "U07",
+    "U08",
+    "U09",
+    "U10",
+    "U11",
+    "U12",
+    "U13",
+    "U14",
+    "U15",
+    "U16",
+    "U17",
+    "U18",
+    "U19",
+    "U20",
+    "U21"
+  ],
+  "required_wireframe_ids": [
+    "W01",
+    "W02",
+    "W03",
+    "W04",
+    "W05",
+    "W06",
+    "W07",
+    "W08",
+    "W09",
+    "W10"
+  ],
+  "required_contract_ids": [
+    "C01",
+    "C02",
+    "C03",
+    "C04",
+    "C05",
+    "C06",
+    "C07",
+    "C08",
+    "C09",
+    "C10",
+    "C11",
+    "C12"
+  ],
+  "shared_integrator_paths": [
+    "install.sh",
+    "package.json",
+    "compose/instructions_store.py",
+    "compose/instructions_session.py",
+    "compose/instructions_app.py",
+    "compose/app_bridge/",
+    "launch/agent-launch.py",
+    "gates/check-parity.sh",
+    "gates/check-package.sh",
+    "gates/check-endpoints.py",
+    "gates/check-surfaces.py",
+    "ontology/instances/graph.json",
+    "AGENTS.md",
+    "CLAUDE.md",
+    "compose/instructions_catalog.py",
+    "compose/instructions_install.py",
+    "compose/instructions_setup.py",
+    "compose/instructions_setup_cli.py",
+    "compose/instructions_import.py",
+    "workenv/__init__.py",
+    "workenv/contracts/",
+    "gates/workenv/conformance/",
+    "gates/workenv/fixtures/",
+    "gates/workenv/case-index.json",
+    "gates/workenv/test_contracts.py",
+    "gates/workenv/test_identity.py",
+    "gates/workenv/test_access.py",
+    "gates/workenv/test_instruction_admission.py",
+    "gates/workenv/test_storage.py",
+    "gates/workenv/test_knowledge.py",
+    "gates/workenv/test_memory.py",
+    "gates/workenv/test_readers.py",
+    "gates/workenv/test_preparation.py",
+    "gates/workenv/test_enrollment.py",
+    "gates/workenv/test_governance.py",
+    "gates/workenv/test_environments.py",
+    "gates/workenv/test_exchange.py",
+    "gates/workenv/test_peer_recovery.py",
+    "gates/workenv/test_delivery.py",
+    "gates/workenv/test_studio.py",
+    "gates/workenv/test_github_transport.py",
+    "gates/workenv/test_oidc.py",
+    "gates/workenv/test_team_lifecycle.py",
+    "gates/workenv/test_authoring.py",
+    "gates/workenv/test_bulk_retention.py",
+    "gates/workenv/test_disconnected_e2e.py",
+    "gates/workenv/test_adapter_qualification.py",
+    "gates/workenv/test_cutover.py",
+    "gates/workenv/test_runner_contract.py",
+    "gates/workenv/manual_usability_cases.md",
+    "learn/collect-learning.py",
+    "learn/learning.schema.json",
+    "learn/check-learning.py",
+    "learn/build-promotions.py",
+    "session-distill/",
+    "gates/workenv/test_source_binding.py",
+    "gates/workenv/test_intake.py",
+    "compose/instructions_setup_ui.py",
+    "compose/instructions_setup_i18n.py",
+    "compose/instructions_ui.py",
+    "launch/i18n/"
+  ],
+  "concurrency_ceiling": 3,
+  "concurrency_meaning": "At most three active delegated workers plus the coordinator; further constrain by ownership and available host slots. No model is selected by this plan.",
+  "compatibility_policy": "User explicitly waives backward compatibility. Old commands, schema readers, native resume and mixed-version operation may be removed. Preserve scoped source work and explicitly selected migration data; quiesce old writers before cutover.",
+  "baseline_evidence_policy": "B01-B05 describe current behavior and test assets, not permanent target acceptance contracts. P00 classifies them; target cases are owned by N profiles.",
+  "document_bindings": [
+    {
+      "path": "2026-09-14T2033--35c75ca--consolidated-design-ssot.md",
+      "sha256": "1892db17f61983110c928ce3e0b7f7d51928a86d928779d7c9d1e931fa5f7bb4"
+    },
+    {
+      "path": "2026-09-14T2033--35c75ca--development-spec.md",
+      "sha256": "9a82fc90897fb5608c29998c1548dfa96c97ef639cb586e997458b03a11f07c4"
+    },
+    {
+      "path": "2026-09-14T2033--35c75ca--test-catalog.json",
+      "sha256": "6b4795a6a0f97581296497110123281a47549e5e7dc953bc56f1c140fa3dd48a"
+    },
+    {
+      "path": "2026-09-14T2033--35c75ca--brownfield-evidence.json",
+      "sha256": "b185a9bf1e1f5bc5d033256a4deeb898c0a32aee749a18f5ea05b73906e9f81e"
+    },
+    {
+      "path": "2026-09-14T2033--35c75ca--check-development-plan.py",
+      "sha256": "7c09df738b9d99dd84dc4ae027894fd950f99bd97a29a712f7e726409d7a8612"
+    },
+    {
+      "path": "2026-09-14T2033--35c75ca--acceptance-tests.py",
+      "sha256": "683bf4998a29ce7ede4c4678feb1c0edbbd6c3af93055d59ec0125eb360fe532"
+    },
+    {
+      "path": "2026-09-14T2033--35c75ca--tui-entry-wireframes.md",
+      "sha256": "3633821e3d6450f627e1709d787bb5adb212fcec4fda545687cde6bc86766df6"
+    },
+    {
+      "path": "2026-09-14T2033--35c75ca--tui-entry-prototype.html",
+      "sha256": "420228a1d47ca8db284b12c3596de704ffb6fe8c52d3727aee1d2fdd0b9cba68"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "P00",
+      "title": "Capture the brownfield input and regression baseline",
+      "status": "planned",
+      "kind": "baseline",
+      "depends_on": [],
+      "owned_paths": [],
+      "shared_paths_policy": "integrator-only patch proposals; never concurrent writes",
+      "test_ids": [
+        "B01",
+        "B02",
+        "B03",
+        "B04",
+        "B05"
+      ],
+      "contracts": [],
+      "requirements": [
+        "U03",
+        "U04"
+      ],
+      "wireframes": [],
+      "done_when": [
+        "Capture tracked modifications/deletions and needed untracked files without touching the main index; create an isolated reproducible source baseline",
+        "Run and classify present-state tests and environment skips; freeze the new target acceptance separately instead of promising old behavior forever"
+      ],
+      "required_evidence": [
+        "run/node/attempt and fixed plan/node identities",
+        "accepted predecessor result digests",
+        "current tested-subject and frozen profile/case-binding fingerprints",
+        "complete required case outcomes and exact artifact inventory",
+        "observed mode/runner identity and prior qualification reference for unattended execution",
+        "explicit failed/pending/unsupported conditions; no status-only acceptance"
+      ],
+      "replan_on": [
+        "changed input/contract or overlapping owner",
+        "new authority/data-loss/delivery boundary",
+        "repeated root-cause failure not fixed by current unit"
+      ],
+      "rollback": "Before cutover preserve the approved source baseline and selected data export. Abort an uncommitted candidate without losing unique work. After cutover use target-version recovery or an explicit governed inverse; no old-binary downgrade guarantee.",
+      "test_profile": "P00",
+      "profile_freeze": "P01 binds these family oracles to explicit per-task case IDs and adapter selectors. P00 uses existing baseline cases. No whole-family pass is implied at an early task.",
+      "allowed_modes": [
+        "coordinator"
+      ],
+      "provides": [],
+      "effects": "bootstrap",
+      "subject_ids": [
+        "baseline"
+      ],
+      "artifact_outputs": [
+        "result-evidence"
+      ],
+      "facets": [
+        "local"
+      ]
+    },
+    {
+      "id": "P01",
+      "title": "Freeze implementation contracts and blocking platform choices",
+      "status": "planned",
+      "kind": "contract_freeze",
+      "depends_on": [
+        "P00"
+      ],
+      "owned_paths": [
+        "workenv/contracts/"
+      ],
+      "shared_paths_policy": "integrator-only patch proposals; never concurrent writes",
+      "test_ids": [
+        "N01"
+      ],
+      "contracts": [
+        "C01",
+        "C02",
+        "C03",
+        "C04",
+        "C05",
+        "C06",
+        "C07",
+        "C08",
+        "C09",
+        "C10",
+        "C11",
+        "C12"
+      ],
+      "requirements": [
+        "U04",
+        "U12",
+        "U17",
+        "U19"
+      ],
+      "wireframes": [],
+      "done_when": [
+        "Freeze target API/schema/storage, codec/signature, secret/unlock and bridge bindings through bounded spikes; select reused/retired entrypoints and one controlled data cutover",
+        "Version request/result examples, errors and fixture identities; record unavailable adapters before dependent implementation",
+        "Freeze source manifest/home modes, repo identity, starter package inventory and role-specific capture/request/provenance examples; no automatic K/M to Instructions projection",
+        "Freeze scoped subject-resolver manifests, concrete case-binding registry and coordinator-controlled bootstrap; runner qualification is an early separate R0 proof, not this node’s own prerequisite",
+        "Freeze entrance routing and choice/selection/next-effect examples, supported terminal/locale bindings and actual first-exposure observation protocol; do not treat the prototype as product or human evidence."
+      ],
+      "required_evidence": [
+        "run/node/attempt and fixed plan/node identities",
+        "accepted predecessor result digests",
+        "current tested-subject and frozen profile/case-binding fingerprints",
+        "complete required case outcomes and exact artifact inventory",
+        "observed mode/runner identity and prior qualification reference for unattended execution",
+        "explicit failed/pending/unsupported conditions; no status-only acceptance"
+      ],
+      "replan_on": [
+        "changed input/contract or overlapping owner",
+        "new authority/data-loss/delivery boundary",
+        "repeated root-cause failure not fixed by current unit"
+      ],
+      "rollback": "Before cutover preserve the approved source baseline and selected data export. Abort an uncommitted candidate without losing unique work. After cutover use target-version recovery or an explicit governed inverse; no old-binary downgrade guarantee.",
+      "test_profile": "P01",
+      "profile_freeze": "P01 binds these family oracles to explicit per-task case IDs and adapter selectors. P00 uses existing baseline cases. No whole-family pass is implied at an early task.",
+      "allowed_modes": [
+        "coordinator"
+      ],
+      "provides": [],
+      "effects": "bootstrap",
+      "subject_ids": [
+        "contracts"
+      ],
+      "artifact_outputs": [
+        "case-bindings",
+        "result-evidence"
+      ],
+      "facets": [
+        "local"
+      ]
+    },
+    {
+      "id": "P02",
+      "title": "Implement local identity and access lifecycle",
+      "status": "planned",
+      "kind": "implementation",
+      "depends_on": [
+        "P01"
+      ],
+      "owned_paths": [
+        "workenv/identity.py",
+        "workenv/access.py",
+        "workenv/credentials/",
+        "gates/workenv/units/p02/"
+      ],
+      "shared_paths_policy": "integrator-only patch proposals; never concurrent writes",
+      "test_ids": [
+        "N02",
+        "N03"
+      ],
+      "contracts": [
+        "C01",
+        "C02"
+      ],
+      "requirements": [
+        "U01",
+        "U19"
+      ],
+      "wireframes": [],
+      "done_when": [
+        "Account-free local profile and explicit lock/signout/unlock have durable session-generation barriers",
+        "All access-owner entrypoints reject stale handles; secrets remain protected and valid offline reentry is explicit"
+      ],
+      "required_evidence": [
+        "run/node/attempt and fixed plan/node identities",
+        "accepted predecessor result digests",
+        "current tested-subject and frozen profile/case-binding fingerprints",
+        "complete required case outcomes and exact artifact inventory",
+        "observed mode/runner identity and prior qualification reference for unattended execution",
+        "explicit failed/pending/unsupported conditions; no status-only acceptance"
+      ],
+      "replan_on": [
+        "changed input/contract or overlapping owner",
+        "new authority/data-loss/delivery boundary",
+        "repeated root-cause failure not fixed by current unit"
+      ],
+      "rollback": "Before cutover preserve the approved source baseline and selected data export. Abort an uncommitted candidate without losing unique work. After cutover use target-version recovery or an explicit governed inverse; no old-binary downgrade guarantee.",
+      "test_profile": "P02",
+      "profile_freeze": "P01 binds these family oracles to explicit per-task case IDs and adapter selectors. P00 uses existing baseline cases. No whole-family pass is implied at an early task.",
+      "allowed_modes": [
+        "coordinator",
+        "unattended"
+      ],
+      "provides": [],
+      "effects": "source-build",
+      "subject_ids": [
+        "contracts",
+        "component:P02"
+      ],
+      "artifact_outputs": [
+        "result-evidence"
+      ],
+      "facets": [
+        "local"
+      ]
+    },
+    {
+      "id": "P03",
+      "title": "Implement immutable storage, scoped journal and trust primitives",
+      "status": "planned",
+      "kind": "implementation",
+      "depends_on": [
+        "P01"
+      ],
+      "owned_paths": [
+        "workenv/storage.py",
+        "workenv/journal.py",
+        "workenv/trust.py",
+        "gates/workenv/units/p03/",
+        "workenv/sources/"
+      ],
+      "shared_paths_policy": "integrator-only patch proposals; never concurrent writes",
+      "test_ids": [
+        "N01",
+        "N05",
+        "N27"
+      ],
+      "contracts": [
+        "C01",
+        "C03",
+        "C09"
+      ],
+      "requirements": [
+        "U04",
+        "U14",
+        "U15",
+        "U17",
+        "U20"
+      ],
+      "wireframes": [],
+      "done_when": [
+        "Exact portable objects and scoped mutable authority transactions have request-bound receipts",
+        "Kill/restart at durable boundaries, verify lineage/forks and distinguish local availability from shared acceptance",
+        "Implement versioned JSON/member bundles and SQLite local state with staged-file/DB publication barriers; namespace manifests have one authoring home and exact repository bindings",
+        "Create and restore a supported consistent local backup after loss of live state, retaining covered private drafts/outboxes/unknown-operation mappings and required objects; report post-backup gaps and keep restored authority passive"
+      ],
+      "required_evidence": [
+        "run/node/attempt and fixed plan/node identities",
+        "accepted predecessor result digests",
+        "current tested-subject and frozen profile/case-binding fingerprints",
+        "complete required case outcomes and exact artifact inventory",
+        "observed mode/runner identity and prior qualification reference for unattended execution",
+        "explicit failed/pending/unsupported conditions; no status-only acceptance"
+      ],
+      "replan_on": [
+        "changed input/contract or overlapping owner",
+        "new authority/data-loss/delivery boundary",
+        "repeated root-cause failure not fixed by current unit"
+      ],
+      "rollback": "Before cutover preserve the approved source baseline and selected data export. Abort an uncommitted candidate without losing unique work. After cutover use target-version recovery or an explicit governed inverse; no old-binary downgrade guarantee.",
+      "test_profile": "P03",
+      "profile_freeze": "P01 binds these family oracles to explicit per-task case IDs and adapter selectors. P00 uses existing baseline cases. No whole-family pass is implied at an early task.",
+      "allowed_modes": [
+        "coordinator",
+        "unattended"
+      ],
+      "provides": [
+        "local-backup-restore"
+      ],
+      "effects": "source-build",
+      "subject_ids": [
+        "contracts",
+        "component:P03"
+      ],
+      "artifact_outputs": [
+        "result-evidence"
+      ],
+      "facets": [
+        "local"
+      ]
+    },
+    {
+      "id": "P04",
+      "title": "Implement the knowledge provider and coherent support reader",
+      "status": "planned",
+      "kind": "implementation",
+      "depends_on": [
+        "P03"
+      ],
+      "owned_paths": [
+        "workenv/knowledge.py",
+        "gates/workenv/units/p04/"
+      ],
+      "shared_paths_policy": "integrator-only patch proposals; never concurrent writes",
+      "test_ids": [
+        "N06",
+        "N08",
+        "N27"
+      ],
+      "contracts": [
+        "C04",
+        "C06"
+      ],
+      "requirements": [
+        "U05",
+        "U06",
+        "U09",
+        "U20",
+        "U21"
+      ],
+      "wireframes": [],
+      "done_when": [
+        "Immutable scoped knowledge with applicability/evidence/companions supports map/support/evidence",
+        "Future and late corrections retain past references; bounded processing reports missing or uncertain requirements",
+        "Ship one real scoped reviewed knowledge package and add/import/extend paths; product-supplied provenance grants no automatic priority or Team adoption"
+      ],
+      "required_evidence": [
+        "run/node/attempt and fixed plan/node identities",
+        "accepted predecessor result digests",
+        "current tested-subject and frozen profile/case-binding fingerprints",
+        "complete required case outcomes and exact artifact inventory",
+        "observed mode/runner identity and prior qualification reference for unattended execution",
+        "explicit failed/pending/unsupported conditions; no status-only acceptance"
+      ],
+      "replan_on": [
+        "changed input/contract or overlapping owner",
+        "new authority/data-loss/delivery boundary",
+        "repeated root-cause failure not fixed by current unit"
+      ],
+      "rollback": "Before cutover preserve the approved source baseline and selected data export. Abort an uncommitted candidate without losing unique work. After cutover use target-version recovery or an explicit governed inverse; no old-binary downgrade guarantee.",
+      "test_profile": "P04",
+      "profile_freeze": "P01 binds these family oracles to explicit per-task case IDs and adapter selectors. P00 uses existing baseline cases. No whole-family pass is implied at an early task.",
+      "allowed_modes": [
+        "coordinator",
+        "unattended"
+      ],
+      "provides": [],
+      "effects": "source-build",
+      "subject_ids": [
+        "contracts",
+        "component:P04"
+      ],
+      "artifact_outputs": [
+        "result-evidence"
+      ],
+      "facets": [
+        "local"
+      ]
+    },
+    {
+      "id": "P05",
+      "title": "Implement decision/workstream/event state and history",
+      "status": "planned",
+      "kind": "implementation",
+      "depends_on": [
+        "P03"
+      ],
+      "owned_paths": [
+        "workenv/memory.py",
+        "gates/workenv/units/p05/"
+      ],
+      "shared_paths_policy": "integrator-only patch proposals; never concurrent writes",
+      "test_ids": [
+        "N07",
+        "N08",
+        "N27",
+        "N28"
+      ],
+      "contracts": [
+        "C05",
+        "C06"
+      ],
+      "requirements": [
+        "U07",
+        "U08",
+        "U09",
+        "U20"
+      ],
+      "wireframes": [],
+      "done_when": [
+        "Record actual choices/events and reduce qualified state across workstreams before ranking",
+        "Conflicting/missing lifecycle closure and restricted-state proof are handled without invented resolution",
+        "Repository ADR, Team ADR and personal records retain source authority, exact observed Markdown and qualified acceptance; no independent editable twin"
+      ],
+      "required_evidence": [
+        "run/node/attempt and fixed plan/node identities",
+        "accepted predecessor result digests",
+        "current tested-subject and frozen profile/case-binding fingerprints",
+        "complete required case outcomes and exact artifact inventory",
+        "observed mode/runner identity and prior qualification reference for unattended execution",
+        "explicit failed/pending/unsupported conditions; no status-only acceptance"
+      ],
+      "replan_on": [
+        "changed input/contract or overlapping owner",
+        "new authority/data-loss/delivery boundary",
+        "repeated root-cause failure not fixed by current unit"
+      ],
+      "rollback": "Before cutover preserve the approved source baseline and selected data export. Abort an uncommitted candidate without losing unique work. After cutover use target-version recovery or an explicit governed inverse; no old-binary downgrade guarantee.",
+      "test_profile": "P05",
+      "profile_freeze": "P01 binds these family oracles to explicit per-task case IDs and adapter selectors. P00 uses existing baseline cases. No whole-family pass is implied at an early task.",
+      "allowed_modes": [
+        "coordinator",
+        "unattended"
+      ],
+      "provides": [],
+      "effects": "source-build",
+      "subject_ids": [
+        "contracts",
+        "component:P05"
+      ],
+      "artifact_outputs": [
+        "result-evidence"
+      ],
+      "facets": [
+        "local"
+      ]
+    },
+    {
+      "id": "P06",
+      "title": "Implement personal preparation and role-specific Instructions projection",
+      "status": "planned",
+      "kind": "implementation",
+      "depends_on": [
+        "P02",
+        "P04",
+        "P05"
+      ],
+      "owned_paths": [
+        "workenv/preparation.py",
+        "workenv/reading.py",
+        "workenv/instructions_adapter.py",
+        "workenv/admission.py",
+        "gates/workenv/units/p06/"
+      ],
+      "shared_paths_policy": "integrator-only patch proposals; never concurrent writes",
+      "test_ids": [
+        "N04",
+        "N08",
+        "N09",
+        "N27",
+        "N28"
+      ],
+      "contracts": [
+        "C04",
+        "C05",
+        "C06",
+        "C07"
+      ],
+      "requirements": [
+        "U01",
+        "U03",
+        "U09",
+        "U11",
+        "U19",
+        "U20"
+      ],
+      "wireframes": [
+        "W01",
+        "W02"
+      ],
+      "done_when": [
+        "Prepare personal/projectless/brownfield/unadopted work without synthetic Team or host IDs",
+        "Keep knowledge/history separate from instruction authority; new protected namespaces cannot be exposed by any retained supported entrypoint, including repo/root overrides",
+        "Combine selected repo/Team/domain/personal sources without implicit hierarchy; explicit candidate use is unadopted and missing required sources remain gaps"
+      ],
+      "required_evidence": [
+        "run/node/attempt and fixed plan/node identities",
+        "accepted predecessor result digests",
+        "current tested-subject and frozen profile/case-binding fingerprints",
+        "complete required case outcomes and exact artifact inventory",
+        "observed mode/runner identity and prior qualification reference for unattended execution",
+        "explicit failed/pending/unsupported conditions; no status-only acceptance"
+      ],
+      "replan_on": [
+        "changed input/contract or overlapping owner",
+        "new authority/data-loss/delivery boundary",
+        "repeated root-cause failure not fixed by current unit"
+      ],
+      "rollback": "Before cutover preserve the approved source baseline and selected data export. Abort an uncommitted candidate without losing unique work. After cutover use target-version recovery or an explicit governed inverse; no old-binary downgrade guarantee.",
+      "test_profile": "P06",
+      "profile_freeze": "P01 binds these family oracles to explicit per-task case IDs and adapter selectors. P00 uses existing baseline cases. No whole-family pass is implied at an early task.",
+      "allowed_modes": [
+        "coordinator",
+        "unattended"
+      ],
+      "provides": [],
+      "effects": "source-build",
+      "subject_ids": [
+        "contracts",
+        "component:P06"
+      ],
+      "artifact_outputs": [
+        "result-evidence"
+      ],
+      "facets": [
+        "local"
+      ]
+    },
+    {
+      "id": "P07",
+      "title": "Implement manual Team governance and scoped finalization",
+      "status": "planned",
+      "kind": "implementation",
+      "depends_on": [
+        "P02",
+        "P03"
+      ],
+      "owned_paths": [
+        "workenv/authority.py",
+        "workenv/team.py",
+        "gates/workenv/units/p07/"
+      ],
+      "shared_paths_policy": "integrator-only patch proposals; never concurrent writes",
+      "test_ids": [
+        "N10",
+        "N11",
+        "N05"
+      ],
+      "contracts": [
+        "C02",
+        "C03",
+        "C08"
+      ],
+      "requirements": [
+        "U02",
+        "U12",
+        "U13",
+        "U19"
+      ],
+      "wireframes": [
+        "W05",
+        "W06",
+        "W07"
+      ],
+      "done_when": [
+        "Exact manual founding/join, membership/grants/group modes and independent-review eligibility work without SSO",
+        "Conditional finalization and request/cancellation recovery preserve source ceilings and actual outcomes"
+      ],
+      "required_evidence": [
+        "run/node/attempt and fixed plan/node identities",
+        "accepted predecessor result digests",
+        "current tested-subject and frozen profile/case-binding fingerprints",
+        "complete required case outcomes and exact artifact inventory",
+        "observed mode/runner identity and prior qualification reference for unattended execution",
+        "explicit failed/pending/unsupported conditions; no status-only acceptance"
+      ],
+      "replan_on": [
+        "changed input/contract or overlapping owner",
+        "new authority/data-loss/delivery boundary",
+        "repeated root-cause failure not fixed by current unit"
+      ],
+      "rollback": "Before cutover preserve the approved source baseline and selected data export. Abort an uncommitted candidate without losing unique work. After cutover use target-version recovery or an explicit governed inverse; no old-binary downgrade guarantee.",
+      "test_profile": "P07",
+      "profile_freeze": "P01 binds these family oracles to explicit per-task case IDs and adapter selectors. P00 uses existing baseline cases. No whole-family pass is implied at an early task.",
+      "allowed_modes": [
+        "coordinator",
+        "unattended"
+      ],
+      "provides": [],
+      "effects": "source-build",
+      "subject_ids": [
+        "contracts",
+        "component:P07"
+      ],
+      "artifact_outputs": [
+        "result-evidence"
+      ],
+      "facets": [
+        "team"
+      ]
+    },
+    {
+      "id": "P08",
+      "title": "Implement environment editions, publication/adoption and Team preparation",
+      "status": "planned",
+      "kind": "implementation",
+      "depends_on": [
+        "P06",
+        "P07"
+      ],
+      "owned_paths": [
+        "workenv/environments.py",
+        "gates/workenv/units/p08/"
+      ],
+      "shared_paths_policy": "integrator-only patch proposals; never concurrent writes",
+      "test_ids": [
+        "N12",
+        "N09",
+        "N11",
+        "N27"
+      ],
+      "contracts": [
+        "C07",
+        "C08"
+      ],
+      "requirements": [
+        "U01",
+        "U02",
+        "U10",
+        "U12",
+        "U20"
+      ],
+      "wireframes": [
+        "W01",
+        "W02",
+        "W05"
+      ],
+      "done_when": [
+        "Immutable flattened editions and permitted derivatives preserve exact static pins and memory policy",
+        "Team adoption, local readiness and active recipient remain separate; new Team follows continuous first-use identity"
+      ],
+      "required_evidence": [
+        "run/node/attempt and fixed plan/node identities",
+        "accepted predecessor result digests",
+        "current tested-subject and frozen profile/case-binding fingerprints",
+        "complete required case outcomes and exact artifact inventory",
+        "observed mode/runner identity and prior qualification reference for unattended execution",
+        "explicit failed/pending/unsupported conditions; no status-only acceptance"
+      ],
+      "replan_on": [
+        "changed input/contract or overlapping owner",
+        "new authority/data-loss/delivery boundary",
+        "repeated root-cause failure not fixed by current unit"
+      ],
+      "rollback": "Before cutover preserve the approved source baseline and selected data export. Abort an uncommitted candidate without losing unique work. After cutover use target-version recovery or an explicit governed inverse; no old-binary downgrade guarantee.",
+      "test_profile": "P08",
+      "profile_freeze": "P01 binds these family oracles to explicit per-task case IDs and adapter selectors. P00 uses existing baseline cases. No whole-family pass is implied at an early task.",
+      "allowed_modes": [
+        "coordinator",
+        "unattended"
+      ],
+      "provides": [],
+      "effects": "source-build",
+      "subject_ids": [
+        "contracts",
+        "component:P08"
+      ],
+      "artifact_outputs": [
+        "result-evidence"
+      ],
+      "facets": [
+        "team"
+      ]
+    },
+    {
+      "id": "P09",
+      "title": "Implement full P2P/package exchange and custody recovery",
+      "status": "planned",
+      "kind": "implementation",
+      "depends_on": [
+        "P03",
+        "P07",
+        "P08"
+      ],
+      "owned_paths": [
+        "workenv/exchange.py",
+        "workenv/custody.py",
+        "workenv/transports/package.py",
+        "workenv/transports/peer.py",
+        "gates/workenv/units/p09/"
+      ],
+      "shared_paths_policy": "integrator-only patch proposals; never concurrent writes",
+      "test_ids": [
+        "N13",
+        "N14",
+        "N22"
+      ],
+      "contracts": [
+        "C03",
+        "C09",
+        "C10"
+      ],
+      "requirements": [
+        "U14",
+        "U15",
+        "U17",
+        "U18"
+      ],
+      "wireframes": [
+        "W08"
+      ],
+      "done_when": [
+        "Real isolated peer stores exchange full/delta/return objects with control-first verification and durable outboxes",
+        "Missing baseline, duplicate/interrupted transfer, device loss and unavailable finalizer have truthful recovery"
+      ],
+      "required_evidence": [
+        "run/node/attempt and fixed plan/node identities",
+        "accepted predecessor result digests",
+        "current tested-subject and frozen profile/case-binding fingerprints",
+        "complete required case outcomes and exact artifact inventory",
+        "observed mode/runner identity and prior qualification reference for unattended execution",
+        "explicit failed/pending/unsupported conditions; no status-only acceptance"
+      ],
+      "replan_on": [
+        "changed input/contract or overlapping owner",
+        "new authority/data-loss/delivery boundary",
+        "repeated root-cause failure not fixed by current unit"
+      ],
+      "rollback": "Before cutover preserve the approved source baseline and selected data export. Abort an uncommitted candidate without losing unique work. After cutover use target-version recovery or an explicit governed inverse; no old-binary downgrade guarantee.",
+      "test_profile": "P09",
+      "profile_freeze": "P01 binds these family oracles to explicit per-task case IDs and adapter selectors. P00 uses existing baseline cases. No whole-family pass is implied at an early task.",
+      "allowed_modes": [
+        "coordinator",
+        "unattended"
+      ],
+      "provides": [],
+      "effects": "source-build",
+      "subject_ids": [
+        "contracts",
+        "component:P09"
+      ],
+      "artifact_outputs": [
+        "result-evidence"
+      ],
+      "facets": [
+        "team"
+      ]
+    },
+    {
+      "id": "P10",
+      "title": "Implement personal recipient delivery and reusable guarded host interface",
+      "status": "planned",
+      "kind": "implementation",
+      "depends_on": [
+        "P06"
+      ],
+      "owned_paths": [
+        "workenv/delivery.py",
+        "workenv/hosts/",
+        "gates/workenv/units/p10/"
+      ],
+      "shared_paths_policy": "integrator-only patch proposals; never concurrent writes",
+      "test_ids": [
+        "N04",
+        "N15",
+        "N23"
+      ],
+      "contracts": [
+        "C02",
+        "C07",
+        "C11"
+      ],
+      "requirements": [
+        "U01",
+        "U08",
+        "U09",
+        "U11"
+      ],
+      "wireframes": [
+        "W09"
+      ],
+      "done_when": [
+        "Deliver actual personal new/current/child/rehydrated role bodies with exact result evidence before any Team dependency",
+        "Define guarded host capability and access-generation handling; Team-specific runtime proof is the M2/P17 integration profile, not this task prerequisite"
+      ],
+      "required_evidence": [
+        "run/node/attempt and fixed plan/node identities",
+        "accepted predecessor result digests",
+        "current tested-subject and frozen profile/case-binding fingerprints",
+        "complete required case outcomes and exact artifact inventory",
+        "observed mode/runner identity and prior qualification reference for unattended execution",
+        "explicit failed/pending/unsupported conditions; no status-only acceptance"
+      ],
+      "replan_on": [
+        "changed input/contract or overlapping owner",
+        "new authority/data-loss/delivery boundary",
+        "repeated root-cause failure not fixed by current unit"
+      ],
+      "rollback": "Before cutover preserve the approved source baseline and selected data export. Abort an uncommitted candidate without losing unique work. After cutover use target-version recovery or an explicit governed inverse; no old-binary downgrade guarantee.",
+      "test_profile": "P10",
+      "profile_freeze": "P01 binds these family oracles to explicit per-task case IDs and adapter selectors. P00 uses existing baseline cases. No whole-family pass is implied at an early task.",
+      "allowed_modes": [
+        "coordinator",
+        "unattended"
+      ],
+      "provides": [],
+      "effects": "source-build",
+      "subject_ids": [
+        "contracts",
+        "component:P10"
+      ],
+      "artifact_outputs": [
+        "result-evidence"
+      ],
+      "facets": [
+        "local"
+      ]
+    },
+    {
+      "id": "P11",
+      "title": "Implement zero-base TUI entry and personal client flow over the shared operation shell",
+      "status": "planned",
+      "kind": "implementation",
+      "depends_on": [
+        "P06",
+        "P10"
+      ],
+      "owned_paths": [
+        "workenv/cli.py",
+        "workenv/studio/bridge.py",
+        "workenv/studio/assets/",
+        "workenv/tui.py",
+        "gates/workenv/units/p11/"
+      ],
+      "shared_paths_policy": "integrator-only patch proposals; never concurrent writes",
+      "test_ids": [
+        "N16",
+        "N03",
+        "N09",
+        "N15"
+      ],
+      "contracts": [
+        "C02",
+        "C07",
+        "C11",
+        "C12"
+      ],
+      "requirements": [
+        "U01",
+        "U04",
+        "U10",
+        "U11",
+        "U19"
+      ],
+      "wireframes": [
+        "W01",
+        "W02",
+        "W03",
+        "W04",
+        "W09"
+      ],
+      "done_when": [
+        "Account-free personal entry/source/preparation/actual recipient uses real local operations and survives lock/signout/reentry",
+        "Typed capability-driven client shell supports later Team/advanced views; absent operations are explicitly unsupported and not counted complete",
+        "Implement the S11 entry grammar across generic Studio, explicit host launcher and setup; separate work environment from tool/execution choices and focus/selection from observed use.",
+        "Pass mandatory N16 entry cases with different focused/selected/installed/delivered references, 80x24/locale and exact next-action effects; submit shared launcher/setup/localization edits through the integrator.",
+        "First entry shows observed location/checkpoints without a goal or inferred target; taskless environment/startup preparation is valid, task support stays unassessed and task-specific K/M calls wait for the actual host request."
+      ],
+      "required_evidence": [
+        "run/node/attempt and fixed plan/node identities",
+        "accepted predecessor result digests",
+        "current tested-subject and frozen profile/case-binding fingerprints",
+        "complete required case outcomes and exact artifact inventory",
+        "observed mode/runner identity and prior qualification reference for unattended execution",
+        "explicit failed/pending/unsupported conditions; no status-only acceptance"
+      ],
+      "replan_on": [
+        "changed input/contract or overlapping owner",
+        "new authority/data-loss/delivery boundary",
+        "repeated root-cause failure not fixed by current unit"
+      ],
+      "rollback": "Before cutover preserve the approved source baseline and selected data export. Abort an uncommitted candidate without losing unique work. After cutover use target-version recovery or an explicit governed inverse; no old-binary downgrade guarantee.",
+      "test_profile": "P11",
+      "profile_freeze": "P01 binds these family oracles to explicit per-task case IDs and adapter selectors. P00 uses existing baseline cases. No whole-family pass is implied at an early task.",
+      "allowed_modes": [
+        "coordinator",
+        "unattended"
+      ],
+      "provides": [],
+      "effects": "source-build",
+      "subject_ids": [
+        "contracts",
+        "component:P11"
+      ],
+      "artifact_outputs": [
+        "result-evidence"
+      ],
+      "facets": [
+        "local"
+      ]
+    },
+    {
+      "id": "P12",
+      "title": "Implement optional GitHub carrier and durable provisioning",
+      "status": "planned",
+      "kind": "implementation",
+      "depends_on": [
+        "P09"
+      ],
+      "owned_paths": [
+        "workenv/transports/github.py",
+        "gates/workenv/units/p12/"
+      ],
+      "shared_paths_policy": "integrator-only patch proposals; never concurrent writes",
+      "test_ids": [
+        "N17",
+        "N13",
+        "N14"
+      ],
+      "contracts": [
+        "C09",
+        "C10"
+      ],
+      "requirements": [
+        "U15",
+        "U16",
+        "U17",
+        "U18"
+      ],
+      "wireframes": [
+        "W06",
+        "W07",
+        "W08"
+      ],
+      "done_when": [
+        "Recommended option is explicit connection with permitted real shared state and verified repository identity",
+        "P2P works without credentials/GitHub; interrupted setup/disconnect has scoped durable outcomes"
+      ],
+      "required_evidence": [
+        "run/node/attempt and fixed plan/node identities",
+        "accepted predecessor result digests",
+        "current tested-subject and frozen profile/case-binding fingerprints",
+        "complete required case outcomes and exact artifact inventory",
+        "observed mode/runner identity and prior qualification reference for unattended execution",
+        "explicit failed/pending/unsupported conditions; no status-only acceptance"
+      ],
+      "replan_on": [
+        "changed input/contract or overlapping owner",
+        "new authority/data-loss/delivery boundary",
+        "repeated root-cause failure not fixed by current unit"
+      ],
+      "rollback": "Before cutover preserve the approved source baseline and selected data export. Abort an uncommitted candidate without losing unique work. After cutover use target-version recovery or an explicit governed inverse; no old-binary downgrade guarantee.",
+      "test_profile": "P12",
+      "profile_freeze": "P01 binds these family oracles to explicit per-task case IDs and adapter selectors. P00 uses existing baseline cases. No whole-family pass is implied at an early task.",
+      "allowed_modes": [
+        "coordinator",
+        "unattended"
+      ],
+      "provides": [],
+      "effects": "source-build",
+      "subject_ids": [
+        "contracts",
+        "component:P12"
+      ],
+      "artifact_outputs": [
+        "result-evidence"
+      ],
+      "facets": [
+        "external"
+      ]
+    },
+    {
+      "id": "P13",
+      "title": "Implement optional Google/Slack/OIDC authentication adapters",
+      "status": "planned",
+      "kind": "implementation",
+      "depends_on": [
+        "P02",
+        "P07"
+      ],
+      "owned_paths": [
+        "workenv/auth/",
+        "gates/workenv/units/p13/"
+      ],
+      "shared_paths_policy": "integrator-only patch proposals; never concurrent writes",
+      "test_ids": [
+        "N18",
+        "N03",
+        "N10",
+        "N23"
+      ],
+      "contracts": [
+        "C01",
+        "C02",
+        "C08",
+        "C12"
+      ],
+      "requirements": [
+        "U12",
+        "U13",
+        "U19"
+      ],
+      "wireframes": [
+        "W06",
+        "W07"
+      ],
+      "done_when": [
+        "Configured supported provider callbacks verify identity and guarded linking with protected confidential exchange",
+        "No auto-email merge/login-implies-grant, silent post-logout reentry or offline-provider requirement for independent permitted paths"
+      ],
+      "required_evidence": [
+        "run/node/attempt and fixed plan/node identities",
+        "accepted predecessor result digests",
+        "current tested-subject and frozen profile/case-binding fingerprints",
+        "complete required case outcomes and exact artifact inventory",
+        "observed mode/runner identity and prior qualification reference for unattended execution",
+        "explicit failed/pending/unsupported conditions; no status-only acceptance"
+      ],
+      "replan_on": [
+        "changed input/contract or overlapping owner",
+        "new authority/data-loss/delivery boundary",
+        "repeated root-cause failure not fixed by current unit"
+      ],
+      "rollback": "Before cutover preserve the approved source baseline and selected data export. Abort an uncommitted candidate without losing unique work. After cutover use target-version recovery or an explicit governed inverse; no old-binary downgrade guarantee.",
+      "test_profile": "P13",
+      "profile_freeze": "P01 binds these family oracles to explicit per-task case IDs and adapter selectors. P00 uses existing baseline cases. No whole-family pass is implied at an early task.",
+      "allowed_modes": [
+        "coordinator",
+        "unattended"
+      ],
+      "provides": [],
+      "effects": "source-build",
+      "subject_ids": [
+        "contracts",
+        "component:P13"
+      ],
+      "artifact_outputs": [
+        "result-evidence"
+      ],
+      "facets": [
+        "external"
+      ]
+    },
+    {
+      "id": "P14",
+      "title": "Complete Team/device/authority lifecycle operations",
+      "status": "planned",
+      "kind": "implementation",
+      "depends_on": [
+        "P08",
+        "P09",
+        "P10",
+        "P11"
+      ],
+      "owned_paths": [
+        "workenv/lifecycle.py",
+        "workenv/studio/team_views/",
+        "gates/workenv/units/p14/"
+      ],
+      "shared_paths_policy": "integrator-only patch proposals; never concurrent writes",
+      "test_ids": [
+        "N19",
+        "N14",
+        "N03"
+      ],
+      "contracts": [
+        "C02",
+        "C08",
+        "C09",
+        "C10"
+      ],
+      "requirements": [
+        "U02",
+        "U12",
+        "U13",
+        "U14",
+        "U18"
+      ],
+      "wireframes": [
+        "W06",
+        "W07",
+        "W08",
+        "W09"
+      ],
+      "done_when": [
+        "Typed full CRUD, copy, device/ownership transfer, archive continuation, leave/forget/close and evidence recovery operate with real prerequisites",
+        "Final closure follows required stewardship disposition; no lost outbox, bootstrap reuse or evidence-induced revival"
+      ],
+      "required_evidence": [
+        "run/node/attempt and fixed plan/node identities",
+        "accepted predecessor result digests",
+        "current tested-subject and frozen profile/case-binding fingerprints",
+        "complete required case outcomes and exact artifact inventory",
+        "observed mode/runner identity and prior qualification reference for unattended execution",
+        "explicit failed/pending/unsupported conditions; no status-only acceptance"
+      ],
+      "replan_on": [
+        "changed input/contract or overlapping owner",
+        "new authority/data-loss/delivery boundary",
+        "repeated root-cause failure not fixed by current unit"
+      ],
+      "rollback": "Before cutover preserve the approved source baseline and selected data export. Abort an uncommitted candidate without losing unique work. After cutover use target-version recovery or an explicit governed inverse; no old-binary downgrade guarantee.",
+      "test_profile": "P14",
+      "profile_freeze": "P01 binds these family oracles to explicit per-task case IDs and adapter selectors. P00 uses existing baseline cases. No whole-family pass is implied at an early task.",
+      "allowed_modes": [
+        "coordinator",
+        "unattended"
+      ],
+      "provides": [],
+      "effects": "source-build",
+      "subject_ids": [
+        "contracts",
+        "component:P14"
+      ],
+      "artifact_outputs": [
+        "result-evidence"
+      ],
+      "facets": [
+        "team"
+      ]
+    },
+    {
+      "id": "P15",
+      "title": "Complete role authoring, ontology/forms/questions and validation",
+      "status": "planned",
+      "kind": "implementation",
+      "depends_on": [
+        "P04",
+        "P05",
+        "P08",
+        "P11",
+        "P19"
+      ],
+      "owned_paths": [
+        "workenv/authoring/",
+        "workenv/studio/source_views/",
+        "workenv/validation/",
+        "gates/workenv/units/p15/"
+      ],
+      "shared_paths_policy": "integrator-only patch proposals; never concurrent writes",
+      "test_ids": [
+        "N20",
+        "N06",
+        "N07",
+        "N16",
+        "N23",
+        "N28"
+      ],
+      "contracts": [
+        "C04",
+        "C05",
+        "C06",
+        "C08",
+        "C12"
+      ],
+      "requirements": [
+        "U03",
+        "U05",
+        "U06",
+        "U07",
+        "U08",
+        "U10",
+        "U20",
+        "U21"
+      ],
+      "wireframes": [
+        "W02",
+        "W03",
+        "W04",
+        "W05"
+      ],
+      "done_when": [
+        "Complete Instructions source, knowledge table/model/form/question and memory event authoring with exact owned effects",
+        "Run pinned validation through a real supported adapter; partial/empty/unsupported results stay unverified; structured graph alternatives remain",
+        "Show canonical authoring home, owner, home/applicability scope and origin; candidate compare/edit/reject/promote uses actual destination receipts"
+      ],
+      "required_evidence": [
+        "run/node/attempt and fixed plan/node identities",
+        "accepted predecessor result digests",
+        "current tested-subject and frozen profile/case-binding fingerprints",
+        "complete required case outcomes and exact artifact inventory",
+        "observed mode/runner identity and prior qualification reference for unattended execution",
+        "explicit failed/pending/unsupported conditions; no status-only acceptance"
+      ],
+      "replan_on": [
+        "changed input/contract or overlapping owner",
+        "new authority/data-loss/delivery boundary",
+        "repeated root-cause failure not fixed by current unit"
+      ],
+      "rollback": "Before cutover preserve the approved source baseline and selected data export. Abort an uncommitted candidate without losing unique work. After cutover use target-version recovery or an explicit governed inverse; no old-binary downgrade guarantee.",
+      "test_profile": "P15",
+      "profile_freeze": "P01 binds these family oracles to explicit per-task case IDs and adapter selectors. P00 uses existing baseline cases. No whole-family pass is implied at an early task.",
+      "allowed_modes": [
+        "coordinator",
+        "unattended"
+      ],
+      "provides": [],
+      "effects": "source-build",
+      "subject_ids": [
+        "contracts",
+        "component:P15"
+      ],
+      "artifact_outputs": [
+        "result-evidence"
+      ],
+      "facets": [
+        "local"
+      ]
+    },
+    {
+      "id": "P16",
+      "title": "Complete scoped search, derivatives, bulk, retention and operations views",
+      "status": "planned",
+      "kind": "implementation",
+      "depends_on": [
+        "P09",
+        "P11",
+        "P14"
+      ],
+      "owned_paths": [
+        "workenv/operations.py",
+        "workenv/search.py",
+        "workenv/retention.py",
+        "workenv/studio/operation_views/",
+        "gates/workenv/units/p16/"
+      ],
+      "shared_paths_policy": "integrator-only patch proposals; never concurrent writes",
+      "test_ids": [
+        "N21",
+        "N13",
+        "N19",
+        "N16",
+        "N27",
+        "N28"
+      ],
+      "contracts": [
+        "C03",
+        "C04",
+        "C05",
+        "C06",
+        "C08",
+        "C09",
+        "C10",
+        "C12"
+      ],
+      "requirements": [
+        "U06",
+        "U09",
+        "U10",
+        "U14",
+        "U17",
+        "U18",
+        "U20",
+        "U21"
+      ],
+      "wireframes": [
+        "W08",
+        "W10"
+      ],
+      "done_when": [
+        "Current/history scoped search, source derivatives, mixed bulk/import/export and copy-specific cleanup produce exact outcomes",
+        "Dashboard signals preserve authorized partial coverage and route to the same failed/unknown work"
+      ],
+      "required_evidence": [
+        "run/node/attempt and fixed plan/node identities",
+        "accepted predecessor result digests",
+        "current tested-subject and frozen profile/case-binding fingerprints",
+        "complete required case outcomes and exact artifact inventory",
+        "observed mode/runner identity and prior qualification reference for unattended execution",
+        "explicit failed/pending/unsupported conditions; no status-only acceptance"
+      ],
+      "replan_on": [
+        "changed input/contract or overlapping owner",
+        "new authority/data-loss/delivery boundary",
+        "repeated root-cause failure not fixed by current unit"
+      ],
+      "rollback": "Before cutover preserve the approved source baseline and selected data export. Abort an uncommitted candidate without losing unique work. After cutover use target-version recovery or an explicit governed inverse; no old-binary downgrade guarantee.",
+      "test_profile": "P16",
+      "profile_freeze": "P01 binds these family oracles to explicit per-task case IDs and adapter selectors. P00 uses existing baseline cases. No whole-family pass is implied at an early task.",
+      "allowed_modes": [
+        "coordinator",
+        "unattended"
+      ],
+      "provides": [],
+      "effects": "source-build",
+      "subject_ids": [
+        "contracts",
+        "component:P16"
+      ],
+      "artifact_outputs": [
+        "result-evidence"
+      ],
+      "facets": [
+        "local"
+      ]
+    },
+    {
+      "id": "P17",
+      "title": "Run joined workflows, adversarial failures and actual adapter qualification",
+      "status": "planned",
+      "kind": "verification",
+      "depends_on": [
+        "M1",
+        "M2",
+        "M3",
+        "P18"
+      ],
+      "owned_paths": [],
+      "shared_paths_policy": "integrator-only patch proposals; never concurrent writes",
+      "test_ids": [
+        "N03",
+        "N04",
+        "N11",
+        "N14",
+        "N16",
+        "N18",
+        "N22",
+        "N23",
+        "N26",
+        "N27",
+        "N28",
+        "N15",
+        "N05"
+      ],
+      "contracts": [
+        "C01",
+        "C02",
+        "C03",
+        "C04",
+        "C05",
+        "C06",
+        "C07",
+        "C08",
+        "C09",
+        "C10",
+        "C11",
+        "C12"
+      ],
+      "requirements": [
+        "U01",
+        "U02",
+        "U03",
+        "U04",
+        "U05",
+        "U06",
+        "U07",
+        "U08",
+        "U09",
+        "U10",
+        "U11",
+        "U12",
+        "U13",
+        "U14",
+        "U15",
+        "U16",
+        "U17",
+        "U18",
+        "U19",
+        "U20",
+        "U21"
+      ],
+      "wireframes": [
+        "W01",
+        "W02",
+        "W03",
+        "W04",
+        "W05",
+        "W06",
+        "W07",
+        "W08",
+        "W09",
+        "W10"
+      ],
+      "done_when": [
+        "Verify the integrated candidate and current required M1/M2/M3 evidence, including actual Team delivery and recipient restrictions",
+        "Emit passed, failed or pending evidence without modifying product source. Any repair returns to an owning build node and invalidates affected fingerprints/results.",
+        "Include actual first-exposure options/selection/effect comprehension and Korean terminal observations on the integrated candidate; missing real observations remain pending."
+      ],
+      "required_evidence": [
+        "run/node/attempt and fixed plan/node identities",
+        "accepted predecessor result digests",
+        "current tested-subject and frozen profile/case-binding fingerprints",
+        "complete required case outcomes and exact artifact inventory",
+        "observed mode/runner identity and prior qualification reference for unattended execution",
+        "explicit failed/pending/unsupported conditions; no status-only acceptance"
+      ],
+      "replan_on": [
+        "changed input/contract or overlapping owner",
+        "new authority/data-loss/delivery boundary",
+        "repeated root-cause failure not fixed by current unit"
+      ],
+      "rollback": "Before cutover preserve the approved source baseline and selected data export. Abort an uncommitted candidate without losing unique work. After cutover use target-version recovery or an explicit governed inverse; no old-binary downgrade guarantee.",
+      "test_profile": "P17",
+      "profile_freeze": "P01 binds these family oracles to explicit per-task case IDs and adapter selectors. P00 uses existing baseline cases. No whole-family pass is implied at an early task.",
+      "allowed_modes": [
+        "coordinator",
+        "unattended"
+      ],
+      "provides": [
+        "integrated-target"
+      ],
+      "effects": "read-only-verification",
+      "subject_ids": [
+        "full-runtime",
+        "package"
+      ],
+      "artifact_outputs": [
+        "result-evidence"
+      ],
+      "facets": [
+        "local"
+      ]
+    },
+    {
+      "id": "P18",
+      "title": "Build immutable target package and cutover candidate",
+      "status": "planned",
+      "kind": "package",
+      "depends_on": [
+        "P12",
+        "P13",
+        "P14",
+        "P15",
+        "P16",
+        "P19"
+      ],
+      "owned_paths": [],
+      "shared_paths_policy": "integrator-only patch proposals; never concurrent writes",
+      "test_ids": [
+        "N24"
+      ],
+      "contracts": [
+        "C01",
+        "C02",
+        "C03",
+        "C07",
+        "C09",
+        "C11",
+        "C12"
+      ],
+      "requirements": [
+        "U01",
+        "U02",
+        "U03",
+        "U04",
+        "U05",
+        "U06",
+        "U07",
+        "U08",
+        "U09",
+        "U10",
+        "U11",
+        "U12",
+        "U13",
+        "U14",
+        "U15",
+        "U16",
+        "U17",
+        "U18",
+        "U19",
+        "U20",
+        "U21"
+      ],
+      "wireframes": [
+        "W01",
+        "W02",
+        "W03",
+        "W04",
+        "W05",
+        "W06",
+        "W07",
+        "W08",
+        "W09",
+        "W10"
+      ],
+      "done_when": [
+        "Produce an immutable candidate tarball, inventory, source-to-package mapping and isolated cutover plan from the accepted integrated source",
+        "Check candidate construction and required object closure; do not switch real user state or change tested source in this packaging node. Source repairs go back to their implementation owner."
+      ],
+      "required_evidence": [
+        "run/node/attempt and fixed plan/node identities",
+        "accepted predecessor result digests",
+        "current tested-subject and frozen profile/case-binding fingerprints",
+        "complete required case outcomes and exact artifact inventory",
+        "observed mode/runner identity and prior qualification reference for unattended execution",
+        "explicit failed/pending/unsupported conditions; no status-only acceptance"
+      ],
+      "replan_on": [
+        "changed input/contract or overlapping owner",
+        "new authority/data-loss/delivery boundary",
+        "repeated root-cause failure not fixed by current unit"
+      ],
+      "rollback": "Before cutover preserve the approved source baseline and selected data export. Abort an uncommitted candidate without losing unique work. After cutover use target-version recovery or an explicit governed inverse; no old-binary downgrade guarantee.",
+      "test_profile": "P18",
+      "profile_freeze": "P01 binds these family oracles to explicit per-task case IDs and adapter selectors. P00 uses existing baseline cases. No whole-family pass is implied at an early task.",
+      "allowed_modes": [
+        "coordinator",
+        "unattended"
+      ],
+      "provides": [],
+      "effects": "candidate-build",
+      "subject_ids": [
+        "full-runtime",
+        "package"
+      ],
+      "artifact_outputs": [
+        "package-candidate",
+        "result-evidence"
+      ],
+      "facets": [
+        "local"
+      ]
+    },
+    {
+      "id": "P19",
+      "title": "Implement bounded typed learning/distillation intake and local candidate lifecycle",
+      "status": "planned",
+      "kind": "implementation",
+      "depends_on": [
+        "P06"
+      ],
+      "owned_paths": [
+        "workenv/intake/",
+        "gates/workenv/units/p19/"
+      ],
+      "shared_paths_policy": "integrator-only patch proposals; never concurrent writes",
+      "test_ids": [
+        "N27",
+        "N28",
+        "N03",
+        "N08",
+        "N09"
+      ],
+      "contracts": [
+        "C01",
+        "C02",
+        "C03",
+        "C04",
+        "C05",
+        "C06",
+        "C07",
+        "C12"
+      ],
+      "requirements": [
+        "U05",
+        "U07",
+        "U09",
+        "U10",
+        "U20",
+        "U21"
+      ],
+      "wireframes": [
+        "W03",
+        "W04",
+        "W10"
+      ],
+      "done_when": [
+        "Capture explicitly permitted local/session/exported inputs into typed candidates with exact source/frontier and fixed intended destination; no Team/SSO/GitHub prerequisite",
+        "Provide learning and distillation producer adapters that preserve role-specific details, missing rationale, source privacy and same-request recovery; no old always-rule or broad author-history scanner fallback",
+        "Candidate use remains explicit unadopted research. Team promotion, live-provider quality and full candidate UI are later M3/P15/P17 profiles, not P19 prerequisites"
+      ],
+      "required_evidence": [
+        "run/node/attempt and fixed plan/node identities",
+        "accepted predecessor result digests",
+        "current tested-subject and frozen profile/case-binding fingerprints",
+        "complete required case outcomes and exact artifact inventory",
+        "observed mode/runner identity and prior qualification reference for unattended execution",
+        "explicit failed/pending/unsupported conditions; no status-only acceptance"
+      ],
+      "replan_on": [
+        "changed input/contract or overlapping owner",
+        "new authority/data-loss/delivery boundary",
+        "repeated root-cause failure not fixed by current unit"
+      ],
+      "rollback": "Before cutover preserve the approved source baseline and selected data export. Abort an uncommitted candidate without losing unique work. After cutover use target-version recovery or an explicit governed inverse; no old-binary downgrade guarantee.",
+      "test_profile": "P19",
+      "profile_freeze": "P01 binds these family oracles to explicit per-task case IDs and adapter selectors. P00 uses existing baseline cases. No whole-family pass is implied at an early task.",
+      "allowed_modes": [
+        "coordinator",
+        "unattended"
+      ],
+      "provides": [],
+      "effects": "source-build",
+      "subject_ids": [
+        "contracts",
+        "component:P19"
+      ],
+      "artifact_outputs": [
+        "result-evidence"
+      ],
+      "facets": [
+        "local"
+      ]
+    },
+    {
+      "id": "M1",
+      "title": "Actual personal first work and explicit reentry without Team, SSO or GitHub",
+      "status": "planned",
+      "kind": "verification",
+      "depends_on": [
+        "P02",
+        "P03",
+        "P04",
+        "P05",
+        "P06",
+        "P10",
+        "P11"
+      ],
+      "owned_paths": [],
+      "effects": "read-only-verification",
+      "allowed_modes": [
+        "coordinator",
+        "unattended"
+      ],
+      "test_profile": "M1",
+      "test_ids": [
+        "N02",
+        "N03",
+        "N04",
+        "N09",
+        "N15",
+        "N16"
+      ],
+      "provides": [
+        "personal-work"
+      ],
+      "subject_ids": [
+        "personal-runtime",
+        "contracts"
+      ],
+      "artifact_outputs": [
+        "result-evidence"
+      ],
+      "facets": [
+        "local"
+      ],
+      "done_when": [
+        "Run this required verification profile on its current declared subjects and retain exact observed evidence",
+        "Failure or missing evidence blocks dependent acceptance; this node does not repair product source"
+      ],
+      "required_evidence": [
+        "run/node/attempt and fixed plan/node identities",
+        "accepted predecessor result digests",
+        "current tested-subject and frozen profile/case-binding fingerprints",
+        "complete required case outcomes and exact artifact inventory",
+        "observed mode/runner identity and prior qualification reference for unattended execution",
+        "explicit failed/pending/unsupported conditions; no status-only acceptance"
+      ],
+      "requirements": [],
+      "wireframes": [],
+      "contracts": []
+    },
+    {
+      "id": "M2",
+      "title": "Actual manual-Team adoption, guarded host use and peer recovery without external SSO/GitHub",
+      "status": "planned",
+      "kind": "verification",
+      "depends_on": [
+        "P07",
+        "P08",
+        "P09",
+        "P10",
+        "P11"
+      ],
+      "owned_paths": [],
+      "effects": "read-only-verification",
+      "allowed_modes": [
+        "coordinator",
+        "unattended"
+      ],
+      "test_profile": "M2",
+      "test_ids": [
+        "N10",
+        "N11",
+        "N12",
+        "N13",
+        "N14",
+        "N15",
+        "N16",
+        "N27",
+        "N28"
+      ],
+      "provides": [
+        "team-work"
+      ],
+      "subject_ids": [
+        "team-runtime",
+        "contracts"
+      ],
+      "artifact_outputs": [
+        "result-evidence"
+      ],
+      "facets": [
+        "team"
+      ],
+      "done_when": [
+        "Run this required verification profile on its current declared subjects and retain exact observed evidence",
+        "Failure or missing evidence blocks dependent acceptance; this node does not repair product source"
+      ],
+      "required_evidence": [
+        "run/node/attempt and fixed plan/node identities",
+        "accepted predecessor result digests",
+        "current tested-subject and frozen profile/case-binding fingerprints",
+        "complete required case outcomes and exact artifact inventory",
+        "observed mode/runner identity and prior qualification reference for unattended execution",
+        "explicit failed/pending/unsupported conditions; no status-only acceptance"
+      ],
+      "requirements": [],
+      "wireframes": [],
+      "contracts": []
+    },
+    {
+      "id": "M3",
+      "title": "Full required operational clients and optional integrations including supplied/additional source and learning/distillation candidate workflows",
+      "status": "planned",
+      "kind": "verification",
+      "depends_on": [
+        "P11",
+        "P12",
+        "P13",
+        "P14",
+        "P15",
+        "P16",
+        "P19"
+      ],
+      "owned_paths": [],
+      "effects": "read-only-verification",
+      "allowed_modes": [
+        "coordinator",
+        "unattended"
+      ],
+      "test_profile": "M3",
+      "test_ids": [
+        "N16",
+        "N17",
+        "N18",
+        "N19",
+        "N20",
+        "N21",
+        "N23",
+        "N27",
+        "N28"
+      ],
+      "provides": [
+        "complete-operations"
+      ],
+      "subject_ids": [
+        "operations-runtime",
+        "contracts"
+      ],
+      "artifact_outputs": [
+        "result-evidence"
+      ],
+      "facets": [
+        "team"
+      ],
+      "done_when": [
+        "Run this required verification profile on its current declared subjects and retain exact observed evidence",
+        "Failure or missing evidence blocks dependent acceptance; this node does not repair product source"
+      ],
+      "required_evidence": [
+        "run/node/attempt and fixed plan/node identities",
+        "accepted predecessor result digests",
+        "current tested-subject and frozen profile/case-binding fingerprints",
+        "complete required case outcomes and exact artifact inventory",
+        "observed mode/runner identity and prior qualification reference for unattended execution",
+        "explicit failed/pending/unsupported conditions; no status-only acceptance"
+      ],
+      "requirements": [],
+      "wireframes": [],
+      "contracts": []
+    },
+    {
+      "id": "M4",
+      "title": "Qualified integrated target and controlled cutover readiness; not publication",
+      "status": "planned",
+      "kind": "verification",
+      "depends_on": [
+        "P17",
+        "P18"
+      ],
+      "owned_paths": [],
+      "effects": "read-only-verification",
+      "allowed_modes": [
+        "coordinator",
+        "unattended"
+      ],
+      "test_profile": "M4",
+      "test_ids": [
+        "N22",
+        "N23",
+        "N24",
+        "N26",
+        "N27",
+        "N28"
+      ],
+      "provides": [
+        "package-readiness"
+      ],
+      "subject_ids": [
+        "package",
+        "contracts"
+      ],
+      "artifact_outputs": [
+        "result-evidence"
+      ],
+      "facets": [
+        "team"
+      ],
+      "done_when": [
+        "Verify the exact immutable P18 candidate, installed-target behavior and controlled test cutover after all required upstream claims pass",
+        "All required cases including CAP-14 pass on current package evidence; real publishing/cutover is a separate action, not this verification"
+      ],
+      "required_evidence": [
+        "run/node/attempt and fixed plan/node identities",
+        "accepted predecessor result digests",
+        "current tested-subject and frozen profile/case-binding fingerprints",
+        "complete required case outcomes and exact artifact inventory",
+        "observed mode/runner identity and prior qualification reference for unattended execution",
+        "explicit failed/pending/unsupported conditions; no status-only acceptance"
+      ],
+      "requirements": [],
+      "wireframes": [],
+      "contracts": []
+    },
+    {
+      "id": "R0",
+      "title": "Qualify the selected runner before unattended dispatch",
+      "status": "planned",
+      "kind": "qualification",
+      "depends_on": [
+        "P01"
+      ],
+      "owned_paths": [],
+      "effects": "read-only-verification",
+      "allowed_modes": [
+        "coordinator"
+      ],
+      "test_profile": "R0",
+      "test_ids": [
+        "N25"
+      ],
+      "provides": [
+        "runner-qualified"
+      ],
+      "subject_ids": [
+        "runner"
+      ],
+      "artifact_outputs": [
+        "result-evidence"
+      ],
+      "facets": [
+        "local"
+      ],
+      "requirements": [],
+      "wireframes": [],
+      "contracts": [],
+      "done_when": [
+        "Under coordinator control, exercise a small synthetic development graph against the actual selected runner/configuration",
+        "Prove receipt/dependency/ownership/restart/interruption and mode barriers without requiring the future product; never self-qualify via an unattended run"
+      ],
+      "required_evidence": [
+        "run/node/attempt and fixed plan/node identities",
+        "accepted predecessor result digests",
+        "current tested-subject and frozen profile/case-binding fingerprints",
+        "complete required case outcomes and exact artifact inventory",
+        "observed mode/runner identity and prior qualification reference for unattended execution",
+        "explicit failed/pending/unsupported conditions; no status-only acceptance"
+      ]
+    }
+  ],
+  "terminal_node": "M4",
+  "execution": {
+    "default_mode": "coordinator",
+    "unattended_claim": "runner-qualified",
+    "qualification_node": "R0",
+    "bootstrap_nodes": [
+      "P00",
+      "P01",
+      "R0"
+    ],
+    "mode_note": "Coordinator-controlled is explicit dispatch/review in the active coordinating task; it does not require repeated human confirmation or claim unattended-runner assurance."
+  },
+  "subjects": {
+    "baseline": {
+      "meaning": "baseline",
+      "resolution": "Current independent coordinator/runner measurement of the declared source, config, fixture, adapter or artifact closure; not copied from a past receipt"
+    },
+    "contracts": {
+      "meaning": "contracts",
+      "resolution": "Current independent coordinator/runner measurement of the declared source, config, fixture, adapter or artifact closure; not copied from a past receipt"
+    },
+    "component:P02": {
+      "meaning": "component:P02",
+      "resolution": "Current independent coordinator/runner measurement of the declared source, config, fixture, adapter or artifact closure; not copied from a past receipt"
+    },
+    "component:P03": {
+      "meaning": "component:P03",
+      "resolution": "Current independent coordinator/runner measurement of the declared source, config, fixture, adapter or artifact closure; not copied from a past receipt"
+    },
+    "component:P04": {
+      "meaning": "component:P04",
+      "resolution": "Current independent coordinator/runner measurement of the declared source, config, fixture, adapter or artifact closure; not copied from a past receipt"
+    },
+    "component:P05": {
+      "meaning": "component:P05",
+      "resolution": "Current independent coordinator/runner measurement of the declared source, config, fixture, adapter or artifact closure; not copied from a past receipt"
+    },
+    "component:P06": {
+      "meaning": "component:P06",
+      "resolution": "Current independent coordinator/runner measurement of the declared source, config, fixture, adapter or artifact closure; not copied from a past receipt"
+    },
+    "component:P07": {
+      "meaning": "component:P07",
+      "resolution": "Current independent coordinator/runner measurement of the declared source, config, fixture, adapter or artifact closure; not copied from a past receipt"
+    },
+    "component:P08": {
+      "meaning": "component:P08",
+      "resolution": "Current independent coordinator/runner measurement of the declared source, config, fixture, adapter or artifact closure; not copied from a past receipt"
+    },
+    "component:P09": {
+      "meaning": "component:P09",
+      "resolution": "Current independent coordinator/runner measurement of the declared source, config, fixture, adapter or artifact closure; not copied from a past receipt"
+    },
+    "component:P10": {
+      "meaning": "component:P10",
+      "resolution": "Current independent coordinator/runner measurement of the declared source, config, fixture, adapter or artifact closure; not copied from a past receipt"
+    },
+    "component:P11": {
+      "meaning": "component:P11",
+      "resolution": "Current independent coordinator/runner measurement of the declared source, config, fixture, adapter or artifact closure; not copied from a past receipt"
+    },
+    "component:P12": {
+      "meaning": "component:P12",
+      "resolution": "Current independent coordinator/runner measurement of the declared source, config, fixture, adapter or artifact closure; not copied from a past receipt"
+    },
+    "component:P13": {
+      "meaning": "component:P13",
+      "resolution": "Current independent coordinator/runner measurement of the declared source, config, fixture, adapter or artifact closure; not copied from a past receipt"
+    },
+    "component:P14": {
+      "meaning": "component:P14",
+      "resolution": "Current independent coordinator/runner measurement of the declared source, config, fixture, adapter or artifact closure; not copied from a past receipt"
+    },
+    "component:P15": {
+      "meaning": "component:P15",
+      "resolution": "Current independent coordinator/runner measurement of the declared source, config, fixture, adapter or artifact closure; not copied from a past receipt"
+    },
+    "component:P16": {
+      "meaning": "component:P16",
+      "resolution": "Current independent coordinator/runner measurement of the declared source, config, fixture, adapter or artifact closure; not copied from a past receipt"
+    },
+    "full-runtime": {
+      "meaning": "full-runtime",
+      "resolution": "Current independent coordinator/runner measurement of the declared source, config, fixture, adapter or artifact closure; not copied from a past receipt"
+    },
+    "package": {
+      "meaning": "package",
+      "resolution": "Current independent coordinator/runner measurement of the declared source, config, fixture, adapter or artifact closure; not copied from a past receipt"
+    },
+    "component:P19": {
+      "meaning": "component:P19",
+      "resolution": "Current independent coordinator/runner measurement of the declared source, config, fixture, adapter or artifact closure; not copied from a past receipt"
+    },
+    "personal-runtime": {
+      "meaning": "personal-runtime",
+      "resolution": "Current independent coordinator/runner measurement of the declared source, config, fixture, adapter or artifact closure; not copied from a past receipt"
+    },
+    "team-runtime": {
+      "meaning": "team-runtime",
+      "resolution": "Current independent coordinator/runner measurement of the declared source, config, fixture, adapter or artifact closure; not copied from a past receipt"
+    },
+    "operations-runtime": {
+      "meaning": "operations-runtime",
+      "resolution": "Current independent coordinator/runner measurement of the declared source, config, fixture, adapter or artifact closure; not copied from a past receipt"
+    },
+    "runner": {
+      "meaning": "runner",
+      "resolution": "Current independent coordinator/runner measurement of the declared source, config, fixture, adapter or artifact closure; not copied from a past receipt"
+    }
+  },
+  "evidence_contract": {
+    "receipt_version": 1,
+    "states_that_satisfy": "Only a passed record with current run/plan/node/profile/binding/subject fingerprints, exact accepted inputs, required passed cases and verified evidence artifacts",
+    "invalidation": "Changed subject/profile/runner or predecessor receipt invalidates affected records and transitive consumers; unrelated scoped subjects remain valid",
+    "verification_effects": "Product-read-only; writes are isolated test/evidence outputs. Repairs create a successor owner build/plan, never mutate an already-tested product behind a passed verification.",
+    "subject_boundary": "The evaluator compares supplied current measurements; a qualified adapter must derive them from actual manifests/bytes/tool identities. It does not prove a dishonest operator ran a test."
+  },
+  "validator": "2026-09-14T2033--35c75ca--check-development-plan.py",
+  "regression_tests": "2026-09-14T2033--35c75ca--acceptance-tests.py",
+  "ui_projection": {
+    "entry_contract": "2026-09-14T2033--35c75ca--consolidated-design-ssot.md#s11-tui-entry",
+    "wireframes": "2026-09-14T2033--35c75ca--tui-entry-wireframes.md",
+    "prototype": "2026-09-14T2033--35c75ca--tui-entry-prototype.html",
+    "scope": "Illustrative first-screen projection; not a whole-Studio implementation or observed usability proof"
+  }
+}

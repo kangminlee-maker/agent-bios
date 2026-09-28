@@ -25,6 +25,11 @@ change introduced. The stages below are for work that outgrows that sentence.
 
 When the user asks to "설계" or design, stay in design mode. Focus on high-level design and implementation-process design, then present the plan, tradeoffs, review gates, and implementation trigger. Move to implementation after the user asks to implement or approves the plan.
 
+For operational user-interface flows, information layout, visual hierarchy or
+interaction design, use `${CLAUDE_CONFIG_DIR:-$HOME/.claude}/guides/ui-design.md`.
+Keep bounded corrections on the lightweight path; this pointer does not require
+a full UI redesign.
+
 ## When To Use
 
 - Use this workflow for architecture changes, new features, cross-module behavior changes, ontology changes, review-driven fixes, or work that affects user-visible behavior, authority, lifecycle, validation, failure handling, or roadmap commitments.
@@ -87,6 +92,18 @@ pinned control, true detection, real regression), and restore — that count is 
 blast radius. Re-mapping a level obliges enumerating every reader of that field, since one level
 commonly gates shipping, repair, retry, and display at once. A deferred defect is pinned as a
 strict expected failure, never a silent pass.
+
+**Choose the failure posture by what the next step reads.** Across these instructions, an
+unqualified instruction to fail loud or fail clearly means surface the problem and reject the bad
+local result; it does not by itself decide whether a whole production run stops. In development,
+tests, and gates, stop and name the problem, because a silent pass hides a defect. On a production
+runtime path, warn loudly and halt only when continuing would contaminate what the next step
+reads: an input is stale or marked not reusable (partial, failed, blocked); a contract-failing
+value is about to be recorded as valid; or an external write has an unknown outcome. Otherwise —
+an isolated item failure, a tripped breaker, an exhausted budget — warn and continue: work already
+done stays valid, work not done is recorded as not done, and the next run picks it up. This
+default assumes recoverable state kept in artifacts rather than only in the running process. The
+system's owner can redefine it. In no stage does a problem pass silently.
 
 ## Review Loop
 

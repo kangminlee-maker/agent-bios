@@ -113,7 +113,13 @@ accept하는 output의 집합이다. LLM이 규칙을 따르리라 기대하기 
   grounding check, provenance check, citation check, static check, E2E check,
   semantic quality gate.
 - Retry/fail policy: transient generation failure는 retry하고, route가 required
-  contract를 enforce할 수 없으면 fail clearly한다.
+  contract를 enforce할 수 없으면 fail clearly한다. Contract-failing item은
+  loudly reject하고 valid result로 기록하지 않으며, artifact state에 failed
+  또는 not-done status를 기록한다. Production path에서는 계속 진행하는 것이
+  다음 step이 읽을 것을 contaminate할 때만 — stale하거나 not-reusable한 input,
+  valid로 기록되려는 contract-failing value, outcome을 알 수 없는 external
+  write — 전체 run을 halt하고, 그 외에는 loudly warn하며 계속 진행해 다음
+  run이 not-done work를 이어받는다.
 - Observability: prompt packet snapshot, model/provider version, schema hash,
   source snapshot, validator decision, retry reason, artifact lineage.
 

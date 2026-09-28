@@ -16,6 +16,13 @@ SELF="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"   # resolved BEFORE the c
 cd "$(dirname "$0")/.."
 fail=0
 
+# The selected development contract is an author-side live subject. The gateway
+# checks its exact dated members and runs both validation and acceptance controls.
+python3 gates/check-development-plan.py \
+  || { echo "FAIL: current development evidence graph"; fail=1; }
+python3 gates/check-development-plan.py --self-test \
+  || { echo "FAIL: development gate negative controls"; fail=1; }
+
 # Project purpose reaches the repository entrypoints and public README coherently.
 if [ -f gates/check-product-purpose.py ]; then
   python3 gates/check-product-purpose.py --self-test \
@@ -449,7 +456,7 @@ fi
 # program this size eventually trips its quote scanner. The scan prints its own
 # failure, so there is nothing to capture.
 python3 - <<'REACH' || fail=1
-import pathlib, re, subprocess, sys
+import hashlib, importlib.util, json, pathlib, posixpath, re, subprocess, sys, tempfile
 
 HOOK = '.githooks/pre-commit'
 # \Z rather than $: inside $( ... ) the shell reads `$"` and `$'` as its own quoting forms,
@@ -1003,7 +1010,197 @@ for path, wiring in LIFECYCLE_GATED.items():
         print(f"FAIL: {path} is declared lifecycle-gated yet the pre-commit hook reaches "
               f"it live — a stale declaration hides the next unreached check"); sys.exit(1)
 
-orphans = [s for s in subjects if s not in reach and s not in LIFECYCLE_GATED]
+# This exact checker is pinned by a superseded plan, whose recorded command must
+# remain reproducible. It is historical evidence, not an uninvoked current gate.
+# Keep its bytes/path; a directory exclusion or renaming it would hide a different
+# checker or break that provenance. The old plan owns its digest, not this table.
+HISTORICAL_CHECKS = {
+    'design/knowledge-and-history/check-development-plan.py': {
+        'plan': 'design/knowledge-and-history/2026-09-14T1720--35c75ca--development-plan.json',
+        'entrypoint': 'design/knowledge-and-history/CURRENT.md',
+        'reason': 'The superseded 17:20 plan pins this checker; CURRENT selects its successor.',
+    },
+}
+
+
+# The entry point is read by the shared module, not by a second copy of its rules.
+# This inventory and gates/check-development-plan.py ask the same file the same
+# question, and the two copies had already drifted: one destination pattern admitted
+# an empty link target and the other did not, so they disagreed about whether a
+# pointer with no target is a bad name or no pointer at all.
+SELECTOR_READER = 'gates/current_selector.py'
+sys.dont_write_bytecode = True   # a gate leaves no bytecode in the checkout it judges
+if not pathlib.Path(SELECTOR_READER).is_file():
+    # spec_from_file_location happily describes a file that is not there, and the
+    # loader then fails several lines later with the wrong subject.
+    print(f"FAIL: {SELECTOR_READER} is missing, so the entry-point reader has no source")
+    sys.exit(1)
+_spec = importlib.util.spec_from_file_location('current_selector', SELECTOR_READER)
+_reader = importlib.util.module_from_spec(_spec)
+# Registered before execution: a module that runs unregistered cannot resolve its own
+# name, which is how a frozen dataclass in a shared module fails (gates/fixture_support.py).
+sys.modules['current_selector'] = _reader
+_spec.loader.exec_module(_reader)
+current_selector_prose = _reader.current_selector_prose
+CHECKER_SELECTOR = _reader.CHECKER_SELECTOR
+
+
+def historical_checks(declarations, root, live):
+    """Validate file-specific provenance before allowing any historical exclusion."""
+    def regular(relative):
+        rel = pathlib.PurePosixPath(relative)
+        if rel.is_absolute() or '..' in rel.parts or rel.as_posix() != relative:
+            raise ValueError(f"historical checker: invalid relative path {relative!r}")
+        path = root
+        for part in rel.parts:
+            path = path / part
+            if path.is_symlink():
+                raise ValueError(f"historical checker: symlink at {relative}")
+        if not path.is_file():
+            raise ValueError(f"historical checker: missing file {relative}")
+        return path
+
+    admitted = set()
+    for name, declaration in declarations.items():
+        if not isinstance(declaration.get('reason'), str) or not declaration['reason'].strip():
+            raise ValueError(f"historical checker: missing reason for {name}")
+        source = regular(name)
+        plan_path = regular(declaration['plan'])
+        plan = json.loads(plan_path.read_text())
+        bindings = [row for row in plan.get('document_bindings', [])
+                    if isinstance(row, dict) and isinstance(row.get('path'), str)
+                    and posixpath.normpath(str(pathlib.PurePosixPath(declaration['plan']).parent
+                                               / row['path'])) == name]
+        if len(bindings) != 1:
+            raise ValueError(f"historical checker: expected one frozen binding for {name}")
+        if bindings[0].get('sha256') != hashlib.sha256(source.read_bytes()).hexdigest():
+            raise ValueError(f"historical checker: frozen digest mismatch for {name}")
+        entry = current_selector_prose(regular(declaration['entrypoint']).read_text())
+        selected = re.findall(CHECKER_SELECTOR, entry)
+        # An empty destination matches the shared pattern and selects nothing, so it is
+        # refused here rather than resolved into the initiative directory itself.
+        if len(selected) != 1 or not selected[0]:
+            raise ValueError(f"historical checker: expected one current selector for {name}")
+        current = posixpath.normpath(str(pathlib.PurePosixPath(declaration['entrypoint']).parent
+                                        / selected[0]))
+        regular(current)
+        if current == name or name in live:
+            raise ValueError(f"historical checker: now current or live: {name}")
+        admitted.add(name)
+    return admitted
+
+
+def unreached(candidates, live, lifecycle, historical):
+    return sorted(s for s in candidates if s not in live and s not in lifecycle
+                  and s not in historical)
+
+
+# A publication need not contain every local design archive. Only a checker in
+# this index's subject set can receive an exclusion or require its pinned record.
+# When the checker is tracked, missing/changed history remains a hard failure.
+# Synthetic controls below run even when this selection is empty.
+tracked_historical = {name: entry for name, entry in HISTORICAL_CHECKS.items()
+                      if name in subjects}
+try:
+    historical = historical_checks(tracked_historical, pathlib.Path.cwd(), reach)
+except (KeyError, TypeError, ValueError, OSError) as exc:
+    print(f"FAIL: {exc}"); sys.exit(1)
+
+# These controls own synthetic subjects. Removing a live declaration cannot make
+# a negative control silently stop exercising historical classification.
+with tempfile.TemporaryDirectory(prefix='historical-check-controls-') as tmp:
+    root = pathlib.Path(tmp)
+    old, successor = 'history/check-old.py', 'history/current.py'
+    plan, entry = 'history/plan.json', 'history/CURRENT.md'
+    (root / 'history').mkdir()
+    content = b'preserved historical checker\n'
+    declaration = {old: {'plan': plan, 'entrypoint': entry, 'reason': 'Frozen test artifact.'}}
+    binding = {'document_bindings': [{'path': 'check-old.py',
+                                     'sha256': hashlib.sha256(content).hexdigest()}]}
+
+    def reset_history():
+        target = root / old
+        if target.is_symlink():
+            target.unlink()
+        target.write_bytes(content)
+        (root / successor).write_text('current checker\n')
+        (root / plan).write_text(json.dumps(binding))
+        (root / entry).write_text('[Static plan checker](current.py)\n')
+
+    def reject_history(label, mutation, expected, live=()):
+        reset_history()
+        mutation()
+        try:
+            historical_checks(declaration, root, set(live))
+        except (ValueError, OSError) as exc:
+            if expected in str(exc):
+                return
+            raise SystemExit(f"FAIL: historical control {label} failed for the wrong reason: {exc}")
+        raise SystemExit(f"FAIL: historical control missed {label}")
+
+    reset_history()
+    retained = historical_checks(declaration, root, set())
+    neighbor = 'history/check-new.py'
+    if historical_checks({}, root / 'archive-not-published', set()):
+        raise SystemExit('FAIL: absent unselected history creates an exclusion')
+    if retained != {old} or unreached({old, neighbor}, set(), {}, retained) != [neighbor]:
+        raise SystemExit('FAIL: historical exclusion is not exact or hides a neighboring gate')
+    if unreached({neighbor}, set(), {}, retained) != [neighbor]:
+        raise SystemExit('FAIL: an untracked historical artifact changes another gate subject')
+    reject_history('changed bytes', lambda: (root / old).write_bytes(content + b'x'), 'digest mismatch')
+    reject_history('missing source', lambda: (root / old).unlink(), 'missing file')
+    reject_history('missing plan', lambda: (root / plan).unlink(), 'missing file')
+    reject_history('missing binding', lambda: (root / plan).write_text('{"document_bindings": []}'), 'frozen binding')
+    reject_history('duplicate binding', lambda: (root / plan).write_text(json.dumps(
+        {'document_bindings': binding['document_bindings'] * 2})), 'frozen binding')
+    reject_history('missing current selector', lambda: (root / entry).write_text('No selector'), 'current selector')
+    reject_history('commented selector', lambda: (root / entry).write_text(
+        '<!-- [Static plan checker](current.py) -->'), 'current selector')
+    reject_history('fenced selector', lambda: (root / entry).write_text(
+        '```md\n[Static plan checker](current.py)\n```'), 'current selector')
+    reject_history('tilde-fenced selector', lambda: (root / entry).write_text(
+        '~~~md\n[Static plan checker](current.py)\n~~~'), 'current selector')
+    reject_history('inline-code selector', lambda: (root / entry).write_text(
+        '``[Static plan checker](current.py)``'), 'current selector')
+    reject_history('empty selector destination', lambda: (root / entry).write_text(
+        '[Static plan checker]()\n'), 'current selector')
+    reject_history('missing successor', lambda: (root / successor).unlink(), 'missing file')
+    reject_history('selected as current', lambda: (root / entry).write_text(
+        '[Static plan checker](check-old.py)'), 'now current or live')
+    reject_history('wired live', lambda: None, 'now current or live', {old})
+    reject_history('empty reason', lambda: declaration[old].update(reason=''), 'missing reason')
+    declaration[old]['reason'] = 'Frozen test artifact.'
+
+    def link_old():
+        (root / old).unlink()
+        (root / old).symlink_to(root / successor)
+
+    reject_history('symlink source', link_old, 'symlink')
+    reset_history()
+    (root / entry).write_text('[Static plan checker](current.py)\n'
+                             '<!-- [Static plan checker](check-old.py) -->\n'
+                             '```md\n[Static plan checker](check-old.py)\n```\n')
+    if historical_checks(declaration, root, set()) != {old}:
+        raise SystemExit('FAIL: a comment or example changes the actual current selector')
+
+    # The other direction, and the one that fails silently: prose the reader must NOT
+    # lose. A stray backtick paired with the next one anywhere in the file, a literal
+    # comment opener inside a fence ran to end of file, and a nested bullet was read as
+    # indented code -- each deleted the live selector and reported it as missing.
+    reset_history()
+    (root / entry).write_text('a ` stray backtick\n\n'
+                             '```\n<!-- an opener that is really code\n```\n\n'
+                             '- parent bullet\n\n    - [Static plan checker](current.py)\n\n'
+                             'a real `span` and one more ` stray\n')
+    try:
+        readable = historical_checks(declaration, root, set())
+    except ValueError as exc:
+        readable = f'unreadable: {exc}'
+    if readable != {old}:
+        raise SystemExit('FAIL: a stray backtick, a fenced comment opener or a nested '
+                         f'bullet hides the live selector from the entry-point reader ({readable})')
+
+orphans = unreached(subjects, reach, LIFECYCLE_GATED, historical)
 if orphans:
     print("FAIL: check(s) never reached from the pre-commit hook, so they gate nothing at "
           "commit time: " + " ".join(orphans)); sys.exit(1)
@@ -1167,6 +1364,8 @@ for text, want, why in probes:
         print(f"FAIL: reach edge extraction — {why}: {text!r} gave {sorted(got)}, "
               f"expected {sorted(want)}"); sys.exit(1)
 
+print(f"CHECK REACHABILITY OK: {len(subjects)} checker subjects; "
+      f"{len(set(subjects) & historical)} pinned historical artifact(s) excluded by exact path")
 REACH
 
 if [ -f compose/ui_runtime/manifest.json ]; then

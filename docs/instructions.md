@@ -104,6 +104,7 @@ instruction does not prove that a model read or followed it.
 | --- | --- |
 | `cli-multi-model-workflow` | multi-model CLI workflow: Default Frame, role slots/tiers, delegation mechanics, driving Codex CLI directly, cache economy, unattended-batch safety, halt/resume, handoff contract, Environment Binding |
 | `coding-staged-workflow` | staged development: design → process → implement, lightweight path, review loop, severity contract, stop conditions |
+| `ui-design` | operational task flows, evidence and authority, visual hierarchy, design tokens and layout; conditional visual-direction companion |
 | `verification-discipline` | verification depth and per-domain mix (owns the Verification Menus), case space, what a green result is worth |
 | `concept-economy` | concept-surface economy: reuse / extend / rename / split, split triggers, migration compatibility |
 | `documentation-hygiene` | where comments, history, and handoffs belong; how to phrase rules others follow |

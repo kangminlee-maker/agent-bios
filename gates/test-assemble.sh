@@ -88,7 +88,7 @@ chk "S1 env-personal excluded" "! grep -q 'Prefer concise Korean' $CD/central/bu
 chk "S1 unselected domain excluded" "! grep -q 'Use the LLM for semantic work' $CD/central/bundle.md"
 chk "S1 guide refs rewritten" "grep -q 'central/guides/coding-staged-workflow.md' $CD/central/bundle.md"
 chk "S1 guides count matches the manifest ($BB_GUIDES: builder-base + infra, less author-only)" \
-    "[ \$(ls $CD/central/guides | wc -l) -eq $BB_GUIDES ]"
+    "[ \$(find $CD/central/guides -maxdepth 1 -type f | wc -l) -eq $BB_GUIDES ]"
 # The audience declaration decides delivery, not the tier. Both guides below are
 # infra, so tier alone would deliver both — the contrast is what shows the filter
 # read the frontmatter rather than dropping a whole tier.
@@ -181,7 +181,7 @@ chk "S6 unknown domain exit 1" "[ \$(cat $T/rc) -eq 1 ]"
 T4="$T/narrow"; mkdir -p "$T4"
 ALLD=$(python3 -c "import json;print(','.join(sorted(json.load(open('compose/domains.json'))['domains'])))")
 asm S6b "$ALLD" "$T4/claude" "$T4/codex" "$T4/state"
-wide_g=$(ls "$T4/claude/central/guides" | wc -l); wide_a=$(ls "$T4/claude/central/agents" | wc -l)
+wide_g=$(find "$T4/claude/central/guides" -maxdepth 1 -type f | wc -l); wide_a=$(ls "$T4/claude/central/agents" | wc -l)
 chk "S6b every domain deploys more than builder-base alone" "[ $wide_g -gt $BB_GUIDES ] && [ $wide_a -gt 0 ]"
 # A file of theirs in the same directory. Ownership is the source tree, not the directory,
 # and without this the fix could pass by emptying the directory instead of reconciling it.

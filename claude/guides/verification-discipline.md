@@ -77,6 +77,7 @@ cheapest one to write.
 - A/B or on/off measurements: before accepting a null result, verify the arms actually received different treatment in the mechanism under test — a shared default or unconditional upstream step can silently apply the treatment to both arms.
 - Multi-stage pipelines with nondeterministic stages: a final-output diff cannot attribute an effect or a regression to a stage — it conflates the change with run-to-run variance. Persist every stage's output, tabulate what each creates, may edit, and only guards, restrict the suspects to the stages that edit the content in question, and find the first stage where the intended effect disappears or the defect appears. Fix there, preferring a structural recheck over another prompt-level instruction that already failed.
 - Before/after comparisons: pin the input to an immutable copy — a snapshot or versioned artifact — and run both arms against it, because a live artifact (a growing log, a regenerated upstream stage) drifts between runs and any diff over it, a matching one included, is evidence of nothing; when the arms are metered, restore the baseline's exact upstream inputs and re-run only the changed stage. This is input identity, not the separate unit-and-denominator basis rule.
+- Cost figures from provider usage records: before pricing, map every provider's token fields onto one schema — uncached input, cache read, cache write, output. Some providers report input as a total that already includes cached tokens: treating that total as uncached input and then adding the cache-read field again counts the cached portion twice, while charging the inclusive total once at the full rate misprices that portion instead. Other providers exclude cached tokens from the input field. When a provider reports or prices cache writes separately, keep them in their own field. Confirm each provider's field meaning against its own usage documentation or a known sample, never by analogy with another provider, and derive the cache hit rate from the normalized fields.
 - Model-behavior guardrails: verify by changed behavior, not recitation — a staged battery from named-trigger cases through disguised, deconfounded, category-wide, and single-variable framings; a clean pass means "no known defect", so re-run the battery when the model changes.
 - Branch/version test builds against real data: explicitly separate every state sink the app touches (files, DB, OS-level stores that ignore env overrides), confirm the launch path propagates the isolation to child processes, and back up live data before the first run — a mismatched schema that drops unknown fields on write is data loss, not a no-op.
 - Sandbox, replay, or re-adjudication runs on production-derived config: enumerate every outbound channel the stage can reach — publish, upload, notify, external write — and disable or redirect each one before the run, proving each disarm fires as you would prove a path guard; a guard on the input or target path alone leaves egress armed. Fingerprint every external destination before the run and diff it after, so an escaped write is caught by the run rather than by a recipient.
@@ -151,6 +152,11 @@ produce a green with no evidence behind it:
 - **The suspiciously fast or empty run.** When a check goes green unexpectedly quickly, or reports
   nothing at all, dump what it actually ran over before believing it. A harness that crashed early
   and one that found nothing produce the same exit code.
+- **The verdict that ran before its checks.** If a runner computes or prints its overall verdict
+  before all checks finish, later failures cannot change it. Accumulate one failure count across
+  every check, then compute the verdict and exit status once, after the last check. Read a
+  multi-check run from that final count and an exit status verified to derive from it — never from
+  `tail` or collapsed last lines, which hide failures printed earlier.
 - **The control that failed by crashing.** A negative control is evidence only when it fails
   through the assertion it names: a traceback and a caught violation share an exit code, and an
   early crash can pre-empt every control after it. Treat each traceback in a control run as a
@@ -173,7 +179,10 @@ produce a green with no evidence behind it:
 - **The mutant that never ran.** A mutation verdict counts only if the mutant is valid: it
   compiled, sits on a path the exercised test traverses, and changes the guarded behavior, not
   healed downstream or coinciding with a default. The runner must report build failure,
-  unreachable, and equivalent distinctly from KILLED and SURVIVED, and halt on a moved anchor.
+  unreachable, equivalent, and timed out distinctly from KILLED and SURVIVED, and halt on a moved
+  anchor. A timeout is not a kill: it moves with machine load, so set the limit well above the
+  unmutated suite's runtime and accept a verdict only when repeated runs agree on which mutants
+  timed out.
   More tests red than the mutation should touch indicts it; classify a survivor (rebuild,
   discard, genuine gap) before writing a test. **Equivalent is a verdict about the probe as
   much as the mutant**: a probe that is dead or returns a constant reports every mutant as

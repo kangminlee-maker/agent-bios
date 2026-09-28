@@ -53,6 +53,9 @@ SUBJECTS = [
     "learn/check-learning.py",
     "ontology/check-ontology.py",
     "claude/hooks/tooling-gotchas-hook.py",
+    # Its self-test runs on temporary fixtures with mocked subprocesses, so the whole
+    # audit costs about as much as one run of the umbrella's cheapest leg.
+    "gates/check-development-plan.py",
 ]
 # The not-audited disclosure is DERIVED, not typed. The first version typed two shell
 # gates here while the tracked tree held five shell checkers — the audit tool carrying

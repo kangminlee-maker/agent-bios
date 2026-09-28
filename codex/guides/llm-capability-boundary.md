@@ -110,7 +110,13 @@ Important levers:
   grounding checks, provenance checks, citation checks, static checks, E2E
   checks, and semantic quality gates.
 - Retry/fail policy: retry transient generation failures; fail clearly when the
-  available route cannot enforce the required contract.
+  available route cannot enforce the required contract. A contract-failing item
+  is rejected loudly and never recorded as a valid result; record its failed or
+  not-done status in artifact state. On a production path the whole run halts
+  only when continuing would contaminate what the next step reads — a stale or
+  not-reusable input, a contract-failing value about to be recorded as valid,
+  or an external write with an unknown outcome; otherwise it warns loudly and
+  continues, and the next run picks up the work not done.
 - Observability: prompt packet snapshot, model/provider version, schema hash,
   source snapshot, validator decision, retry reason, and artifact lineage.
 

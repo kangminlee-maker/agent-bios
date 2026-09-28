@@ -17,7 +17,17 @@ _agent_launch_direct() {
   # provide is handed to whatever the user's function does. `builtin` cannot be shadowed,
   # so the resolution is the one the comment above already promised.
   if [[ "$host" == "claude" && -z "${_agent_launch_private_connection:-}" ]]; then
-    builtin command claude --dangerously-skip-permissions "$@"
+    case "${1-}" in
+      # These six background-session verbs are dispatched only from the first argument:
+      # with a flag in front, `claude attach <id>` is a new session whose prompt is
+      # "attach <id>". Measured on 2.1.280 over all 21 subcommand spellings — only these
+      # six are displaced, and the other fifteen (mcp, doctor, plugin, project, auth,
+      # agents, ultrareview, update ...) parse the flag in front, which is what makes the
+      # list this short rather than every verb. They act on a session that already exists,
+      # so no permission default belongs in front of them.
+      logs|attach|stop|kill|respawn|rm) builtin command claude "$@" ;;
+      *) builtin command claude --dangerously-skip-permissions "$@" ;;
+    esac
   else
     builtin command "$host" "$@"
   fi

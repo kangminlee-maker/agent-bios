@@ -110,6 +110,13 @@ Solo creation is explicitly self-founded/self-reviewed; it does not fabricate
 an independent approval. The bootstrap exception cannot be used to escape a
 governance problem in an already established Team.
 
+An abandoned founding setup also needs a bounded cancellation route. The
+authenticated founder may cancel while no protected governance/environment
+operation has committed, invalidating the exact pending founding proposal and
+invitations. Record a terminal setup/identity marker so a delayed acceptance
+cannot reactivate it. This does not need approval from a reviewer who was never
+enrolled, and does not delete a connected or pre-existing remote repository.
+
 ### Invitation, joining and another device
 
 Creating an invitation artifact is separate from sending a message. An existing
@@ -231,7 +238,19 @@ create real repositories, enroll devices, delete files or claim real authority
 checks. Production acceptance requires the owning provider to enforce these
 rules across UI, CLI and MCP calls, including bypass and crash/retry tests.
 
-The lifecycle scenario companion enumerates successful and material failure
+The [lifecycle scenario companion](2026-09-14T0135--35c75ca--team-lifecycle-scenarios.md) enumerates successful and material failure
 cases. UI coverage does not prove runtime availability, identity independence,
 durable atomicity, deletion propagation or model compliance. Existing shipped
 Instructions Studio remains separate until actual integration is implemented.
+
+## Artifacts and review
+
+- [Interactive prototype source](2026-09-14T0132--35c75ca--team-crud-prototype.html)
+- [Prototype QA and coverage limits](2026-09-14T0202--35c75ca--team-crud-qa.md)
+- [Operation and scenario matrix](2026-09-14T0135--35c75ca--team-lifecycle-scenarios.md)
+
+A final independent delegated review found no critical contradiction between
+this design and the scenario matrix. Its reviewed boundaries included founding
+and cancellation, archive exceptions, source ownership, finalizer continuity,
+optional GitHub effects and delayed P2P closure propagation. This is design
+review, not evidence that the real providers enforce those contracts.

@@ -9,6 +9,10 @@ their roles within the standards and context of their team, industry, and organi
 
 A team is the basic unit for selecting, adopting, and sharing a work environment.
 
+The goal is efficient work and continuity. Shared environments provide reusable
+defaults that workers can adapt to their repository and personal working needs;
+they are not a mechanism for enforcing uniform working methods.
+
 Workers should be able to select an environment appropriate to their role and
 team, collaborate from shared standards and decision context, and continue
 the work when a worker, model, session, or device changes. Shared context does
@@ -27,6 +31,12 @@ This block is the canonical purpose text. `gates/check-product-purpose.py`
 import of this file; its self-test plants missing, empty, and divergent subjects.
 Purpose alignment and model attention remain **CONVENTION**, evaluated in review.
 Regenerate the README block with `python3 gates/check-product-purpose.py --emit`.
+
+For the broader Team work-environment design, start at
+[`design/knowledge-and-history/CURRENT.md`](design/knowledge-and-history/CURRENT.md).
+It resolves one dated design SSOT and its projections. Read that SSOT before
+changing this initiative; earlier design snapshots are rationale, not competing
+current rules. The target design does not establish implemented runtime behavior.
 
 **This repo's product is agent instructions. Do not confuse the product with your
 instructions.** `claude/CLAUDE.md`, `codex/AGENTS.md`, `claude/guides/`,

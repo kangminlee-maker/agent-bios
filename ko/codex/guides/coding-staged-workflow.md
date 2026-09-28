@@ -24,6 +24,11 @@ surgical edit을 한다 — 바뀐 모든 줄이 요청으로 추적되고, 인�
 
 사용자가 "설계"나 design을 요청하면 design 모드에 머문다. high-level 설계와 구현 프로세스 설계에 집중한 뒤 계획, tradeoff, review gate, 구현 트리거를 제시한다. 구현은 사용자가 구현을 요청하거나 계획을 승인한 뒤 진행한다.
 
+업무용 UI의 작업 흐름, 정보 배치, 시각적 계층이나 상호작용을 설계할 때는
+`${CODEX_HOME:-$HOME/.codex}/guides/ui-design.md`를 사용한다.
+범위가 정해진 작은 수정은 경량 경로로 처리한다. 이 연결이 전체 UI 재설계를
+요구하는 것은 아니다.
+
 ## When To Use
 
 - 이 워크플로는 architecture 변경, 신규 기능, cross-module 동작 변경, ontology 변경, review 기반 수정, 또는 사용자에게 보이는 동작·authority·lifecycle·validation·failure handling·roadmap 약속에 영향을 주는 작업에 쓴다.
@@ -83,6 +88,18 @@ class라는 뜻이다 — 값을 single-source로 만들고 class를 고친다. 
 읽는 모든 reader를 열거할 의무를 지운다. 하나의 level이 shipping, 수리, retry, 표시를 한꺼번에
 gate하는 일이 흔하기 때문이다. 미뤄 둔 결함은 조용한 통과가 아니라 strict expected failure로
 고정한다.
+
+**실패 태도는 다음 단계가 무엇을 읽는지로 정한다.** 이 instructions 전체에서, 한정 없이 fail
+loud하거나 fail clearly하라는 지시는 문제를 드러내고 나쁜 local 결과를 거부하라는 뜻이다 — 그 자체로
+production 실행 전체가 멈출지를 정하지는 않는다. development, test, gate에서는 멈추고 문제를
+지목한다 — 조용한 통과는 결함을 숨기기 때문이다. production runtime path에서는 warn
+loudly하고, 계속하는 것이 다음 단계가 읽을 것을 오염시킬 때만 halt한다: input이 stale하거나 재사용
+불가로 표시되어 있을 때(partial, failed, blocked), contract를 어긴 값이 valid로 기록되려
+할 때, 또는 external write의 결과를 알 수 없을 때다. 그 외에는 — 격리된 item 실패, 발동한
+breaker, 소진된 budget — warn하고 계속한다: 이미 끝난 작업은 valid 상태를 유지하고, 끝나지 않은
+작업은 끝나지 않은 것으로 기록되며, 다음 실행이 이어받는다. 이 기본값은 복구 가능한 상태가 실행 중인 process뿐
+아니라 artifact에 보존되어 있다고 전제한다. 이 기본값은 system의 소유자가 다시 정의할 수 있다. 어느
+단계에서도 문제가 조용히 통과되지 않는다.
 
 ## Review Loop
 
