@@ -37,7 +37,9 @@ not apply a kind whose instructions are blank, so an empty definition would hand
 environment.
 
 `submit` is how this process asks the owner: a request sealed for the actor, answered by the
-journal around the operation's entry (`answered`). The hook asks the same way.
+journal around the operation's entry (`answered`). The hook and the commands a person runs
+(`workenv.commands`) ask the same way; `ENTRIES` is every operation they ask for, and one the
+journal answers itself (a query) needs no entry.
 """
 from __future__ import annotations
 
@@ -48,7 +50,7 @@ import json
 import pathlib
 import secrets
 
-from workenv import delivery, hosts, journal, preparation, roles, storage
+from workenv import access, cli, delivery, hosts, journal, preparation, roles, storage
 from workenv.contracts import canonical
 from workenv.hosts import probes
 
@@ -58,7 +60,14 @@ COMPOSE = "preparation.compose"
 ENTRIES = {COMPOSE: preparation.preparation_compose,
            "session.routing.activate": roles.session_routing_activate,
            "recipient.link.open": delivery.recipient_link_open,
-           "recipient.delivery.attempt": delivery.recipient_delivery_attempt}
+           "recipient.delivery.attempt": delivery.recipient_delivery_attempt,
+           "delivery.observe": delivery.delivery_observe,
+           "capability.probe": hosts.capability_probe,
+           "route.offer": cli.route_offer, "route.select": cli.route_select,
+           "operation.history.read": journal.operation_history_read,
+           "access.profile.read": access.access_profile_read}
+# The operations the journal answers from what it holds, handing them to no entry.
+ADDRESSED = (journal.QUERY, journal.CANCEL)
 # Where each launch's files are kept, under the state root.
 LAUNCHES = "launches"
 TITLE = "# agent-bios work environment"
@@ -104,8 +113,11 @@ def submit(state: pathlib.Path, actor: dict, operation: str, target: str,
 
 def answered(state: pathlib.Path, request: dict, payload: dict | None) -> dict:
     """The owner's answer to a request already sealed, carrying its payload."""
+    operation = request["operation"]
+    if operation not in ENTRIES and operation not in ADDRESSED:
+        raise StartError(f"this installation does not ask the owner for {operation}")
     return journal.layer_journal(Call(request, [] if payload is None else [payload], state),
-                                 ENTRIES[request["operation"]])
+                                 ENTRIES.get(operation))
 
 
 def stage(answer: dict) -> str:

@@ -1775,6 +1775,12 @@ agent-bios — manage private instructions content for explicitly activated sess
                          stdin; this is what the learn! flow calls, and it
                          works from any directory, unlike a repo-relative path)
   agent-bios status      show what is installed and where
+  agent-bios start HOST  open the work environment's entry and start a session of HOST
+                         (claude-code or codex) in it
+  agent-bios profile     show this installation's work-environment profile
+  agent-bios sources     show what each position holds, in the order it composes
+  agent-bios prepare HOST   compose the start the entry suggests and show it; start nothing
+  agent-bios received    show what reached the latest session started here
   agent-bios cost        the session cost / context meter (session-cost.py), from any
                          directory: agent-bios cost [--context [--budget N]] <transcript>
   agent-bios update      git pull + reinstall (clone), or print the npm update line
@@ -1899,6 +1905,18 @@ if [ "$CMD" = "cost" ]; then
   [ -f "$meter" ] || { log "cost: meter missing at $meter"; exit 1; }
   exec python3 "$meter" "$@" <&3
 fi
+# The work environment's commands (workenv/commands.py): the entry that starts a host session,
+# and what the environment holds. Their arguments are the program's, so they bypass the flag
+# parser, and the entry reads the caller's terminal, so fd 3 goes back to stdin.
+case "$CMD" in
+  start|profile|sources|prepare|received)
+    if ! command -v python3 >/dev/null 2>&1 || ! python3 -c 'import sys; sys.exit(sys.version_info < (3, 11))' </dev/null; then
+      log "Python 3.11 or newer is required for the work environment."
+      exit 1
+    fi
+    exec python3 "$REPO/workenv/commands.py" "$CMD" "$@" <&3
+    ;;
+esac
 
 WITH=""
 DOMAINS_ARG=""

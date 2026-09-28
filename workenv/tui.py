@@ -3,8 +3,9 @@ frame per input, and the one owner request an input dispatches.
 
 The model is a function of the drive request, the `surface_script` and what the owner keeps. It
 writes nothing. A start or a check it dispatches goes to the dispatcher it was given. The
-terminal's dispatcher submits the request through the journal; `surface.drive`'s only records
-it, which is why a drive is a pure preview and never shows an answer.
+terminal's dispatcher has the request answered (`workenv.commands`) and hands the model the
+answer (`answered`); `surface.drive`'s only records it, which is why a drive is a pure preview
+and never shows an answer.
 
 What it reads, and what a frame's `calls` name:
 
@@ -42,11 +43,15 @@ The grammar (design records `2026-09-28T1601--4e305e5--v1-slice5-entry-grammar-d
     positions, and ← → change the tool or the permissions until a start is dispatched. The
     permissions are the host's own settings, suggested, until changed; they are an argument of
     the launch, not of the composition. Text and paste go into a focused field code point for
-    code point, and nowhere else, so no letter is a shortcut.
+    code point, and nowhere else, so no letter is a shortcut; Space in a focused field is a
+    space.
   - **Dispatch.** Enter on the start dispatches one `preparation.compose` for the basis, with the
     note as its rationale. While a start is unknown it dispatches nothing, and the start shows
     `blocked` and hands focus to the check. Enter on the check dispatches one `operation.query`
-    for the unknown request. A dispatched action stays `executing` and `pending`.
+    for the unknown request. A dispatched action stays `executing` and `pending` until its
+    answer is handed over. Then its result element shows it: the start's result, or the unknown
+    start the check was for. An unknown outcome stays `unknown`, and a refusal or a failure is
+    `unavailable`, labelled with the owner's reason.
   - **`shown`.** An element is one line of `columns - 2` cells (wide characters take two cells,
     combining marks and Hangul medial and final jamo none, and a control character two), and a
     field's value takes up to three more lines. An element wider is `clipped`, and one starting
@@ -82,6 +87,8 @@ TOOLS = {"claude-code": "Claude Code", "codex": "Codex CLI"}
 # confirmations skipped. A launch argument, not part of the composition (D-20260929-e1d487).
 PERMISSIONS = ("host_settings", "skip_confirmations")
 RATIONALE = 2000
+# What an answer handed to the entry is drawn as.
+ANSWERED = ("unknown", "unavailable")
 
 CATALOG = {
     "ko": {
@@ -112,6 +119,8 @@ CATALOG = {
         "blocker": "{layer} {action}: {tool}에서 확인 안 됨 · 이 호스트에서 확인 필요",
         "start": "{tool} 새 세션 시작",
         "started": "시작 요청을 보냈습니다 · 결과 확인 중",
+        "not_started": "시작하지 못함 · {reason}",
+        "not_checked": "확인하지 못함 · {reason}",
         "job.prepare": "새 세션 준비",
         "signal": "결과 모름 · 지난 시작",
         "key.tab": "Tab 이동", "key.arrows": "↑↓ 자료", "key.space": "Space 선택",
@@ -146,6 +155,8 @@ CATALOG = {
         "blocker": "{layer} {action}: not confirmed in {tool} · confirm on this host",
         "start": "Start a new {tool} session",
         "started": "Start sent · checking the result",
+        "not_started": "Not started · {reason}",
+        "not_checked": "Not checked · {reason}",
         "job.prepare": "Prepare a new session",
         "signal": "Result unknown · last start",
         "key.tab": "Tab move", "key.arrows": "↑↓ items", "key.space": "Space select",
@@ -179,6 +190,8 @@ CATALOG = {
         "blocker": "{layer}{action}: {tool} で未確認 · このホストで確認が必要",
         "start": "{tool} の新しいセッションを開始",
         "started": "開始リクエストを送信しました · 結果を確認中",
+        "not_started": "開始できませんでした · {reason}",
+        "not_checked": "確認できませんでした · {reason}",
         "job.prepare": "新しいセッションを準備",
         "signal": "結果不明 · 前回の開始",
         "key.tab": "Tab 移動", "key.arrows": "↑↓ 資料", "key.space": "Space 選択",
@@ -382,6 +395,8 @@ class Entry:
         base["focus"] = self.first_focus(base["view"])
         self.calls: list[dict] = []
         self.sent: list[str] = []
+        # The answers handed over, by request: the state drawn and the owner's reason.
+        self.answers: dict[str, tuple[str, str | None]] = {}
 
     # What the frame holds.
 
@@ -497,10 +512,13 @@ class Entry:
                                                  "digest": self.checkpoint["digest"]}))
         if self.draft:
             request = {"ref": "request", "request_id": self.draft["request_id"]}
+            checked = self.answers.get(self.checking) if self.checking else None
             found.append(self.element("result.draft", "result", self.text(
+                "not_checked", reason=checked[1]) if checked and checked[1] else self.text(
                 "draft", coverage=self.text(f"coverage.{self.draft['coverage']}")),
-                state=PENDING[self.draft["confirmed_stage"]], refers_to=request))
-            checking = self.checking is not None
+                state=checked[0] if checked else PENDING[self.draft["confirmed_stage"]],
+                refers_to=request))
+            checking = self.checking is not None and checked is None
             found.append(self.element("action.check", "action", self.text("check"),
                                       executing=checking,
                                       state="pending" if checking else None,
@@ -539,8 +557,9 @@ class Entry:
                 tool=route.tool or tool),
                 state="blocked", refers_to={"ref": "route",
                                             "route_id": route.route["route_id"]}))
+        answer = self.answers.get(self.started) if self.started else None
         if start:
-            executing = self.started is not None
+            executing = self.started is not None and answer is None
             found.append(self.element("action.start", "action",
                                       self.text("start", tool=start.tool),
                                       executing=executing,
@@ -551,9 +570,10 @@ class Entry:
                                       effects=["file_changes", "model_calls"]))
         found.append(self.help())
         if self.started:
-            found.append(self.element("result.start", "result", self.text("started"),
-                                      state="pending",
-                                      refers_to={"ref": "request", "request_id": self.started}))
+            found.append(self.element("result.start", "result", self.text(
+                "not_started", reason=answer[1]) if answer and answer[1] else self.text("started"),
+                state=answer[0] if answer else "pending",
+                refers_to={"ref": "request", "request_id": self.started}))
         return found
 
     def w02(self) -> list[dict]:
@@ -694,6 +714,9 @@ class Entry:
         self.arrow(-1)
 
     def key_space(self) -> None:
+        if self.here["focus"] == "field.note":
+            self.note += " "
+            return
         position = self.focused_position()
         if position is not None and position.toggles and self.started is None:
             position.chosen, position.included = True, not position.included
@@ -796,6 +819,14 @@ class Entry:
                            **({"rationale": self.note} if self.note else {}))
         self.send(sealed, basis, "bodies" if applied else "nothing")
         self.started = sealed["request_id"]
+
+    def answered(self, request_id: str, state: str, reason: str | None = None) -> None:
+        """Hand over the answer to a request this entry dispatched: `unknown`, or `unavailable`
+        with the owner's reason."""
+        if state not in ANSWERED or (state == "unavailable") != bool(reason) or \
+                request_id not in (self.started, self.checking):
+            raise ValueError(f"no answer {state!r} to {request_id} is drawn here")
+        self.answers[request_id] = (state, reason)
 
     def check(self) -> None:
         if self.checking is not None:

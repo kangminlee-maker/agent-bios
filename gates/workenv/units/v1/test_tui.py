@@ -47,7 +47,7 @@ class Catalog(unittest.TestCase):
     def test_a_label_that_carries_no_held_name_fits_one_line_of_80_columns(self):
         room = 80 - tui.GUTTER
         named = {"location.repository", "location.team", "checkpoint", "position",
-                 "position.more", "detail"}
+                 "position.more", "detail", "not_started", "not_checked"}
         for locale, table in tui.CATALOG.items():
             fill = {"layer": longest(table, "layer."), "role": longest(table, "role."),
                     "action": longest(table, "action."),
@@ -116,6 +116,20 @@ class Entering(Routing):
         trace = tui.drive(self.bench.store(), self.drive_request, script, LATER,
                           dispatch=lambda sealed, carried: self.sent.append((sealed, carried)))
         return trace["frames"]
+
+    def holding(self, *inputs) -> tui.Entry:
+        """An entry the terminal holds, after the inputs, whose dispatcher records."""
+        script = {"kind": "surface_script", "schema": 1,
+                  "entrance": {"name": "host_launcher", "root_origin": "owner"},
+                  "terminal": {"columns": 80, "rows": 24}, "locale": "ko", "inputs": []}
+        self.sent = []
+        entry = tui.Entry(self.bench.store(),
+                          bench.request(self.person, DRIVE, self.person.profile, script),
+                          script, dispatch=lambda sealed, carried: self.sent.append(
+                              (sealed, carried)))
+        for given in inputs:
+            entry.press({"input": "key", "key": given} if isinstance(given, str) else given)
+        return entry
 
     @staticmethod
     def ids(frame: dict) -> list[str]:
@@ -586,6 +600,45 @@ class Starting(Entering):
         self.assertEqual(len(self.sent), 1)
         self.assertEqual(self.sent[0][0]["rationale"], "a" * 2000)
 
+    def test_space_in_the_note_is_a_space_and_selects_nothing(self):
+        me = self.person.scope
+        self.launcher(scope=me)
+        self.authored(me, RULES)
+        frames = self.drive("tab", {"input": "text", "text": "a"}, "space",
+                            {"input": "text", "text": "b"})
+        self.assertEqual(self.element(frames[4], "field.note")["value"], "a b")
+        for frame in frames:
+            self.assertEqual(self.marks(frame, "positions.personal.instructions")[1],
+                             "suggested")
+
+    def test_an_answer_handed_over_is_drawn_in_the_start_s_result(self):
+        self.launcher()
+        entry = self.holding("tab", "tab", "tab", "enter")
+        entry.answered(entry.started, "unavailable", "activating was refused")
+        frame = entry.frame(5)
+        result = self.element(frame, "result.start")
+        self.assertEqual((result["state"], result["label"]),
+                         ("unavailable", "시작하지 못함 · activating was refused"))
+        begin = self.element(frame, "action.start")
+        self.assertEqual((begin["executing"], "state" in begin), (False, False))
+        entry = self.holding("tab", "tab", "tab", "enter")
+        entry.answered(entry.started, "unknown")
+        result = self.element(entry.frame(5), "result.start")
+        self.assertEqual((result["state"], result["label"]),
+                         ("unknown", tui.CATALOG["ko"]["started"]))
+
+    def test_an_answer_is_one_the_entry_draws_to_a_request_it_dispatched(self):
+        self.launcher()
+        entry = self.holding("tab", "tab", "tab", "enter")
+        for state, reason, request_id in (("refused", "no", entry.started),
+                                          ("refused", None, entry.started),
+                                          ("unavailable", None, entry.started),
+                                          ("unknown", "why", entry.started),
+                                          ("unknown", None, bench.ident("req"))):
+            with self.subTest(state=state, reason=reason), self.assertRaises(ValueError):
+                entry.answered(request_id, state, reason)
+        self.assertEqual(entry.answers, {})
+
     def test_text_and_paste_go_into_the_note_as_given_and_nowhere_else(self):
         self.launcher()
         frames = self.drive({"input": "text", "text": "q s"}, "tab",
@@ -656,6 +709,22 @@ class Unknown(Entering):
         self.assertEqual(self.focus(held), "action.check")
         self.assertEqual((held["dispatched"], held["calls"]), ([], []))
         self.assertNotIn("result.start", self.ids(held))
+
+    def test_the_check_s_answer_is_drawn_in_the_unknown_start_it_was_for(self):
+        self.unknown_start()
+        entry = self.holding("enter")
+        entry.answered(entry.checking, "unknown")
+        frame = entry.frame(2)
+        draft = self.element(frame, "result.draft")
+        self.assertEqual((draft["state"], draft["label"]),
+                         ("unknown", "지난 시작의 결과를 아직 모름 · 이 기기만 확인함"))
+        check = self.element(frame, "action.check")
+        self.assertEqual((check["executing"], "state" in check), (False, False))
+        entry = self.holding("enter")
+        entry.answered(entry.checking, "unavailable", "request_not_held")
+        draft = self.element(entry.frame(2), "result.draft")
+        self.assertEqual((draft["state"], draft["label"]),
+                         ("unavailable", "확인하지 못함 · request_not_held"))
 
     def test_the_history_read_is_cited_once_by_the_first_frame_that_shows_it(self):
         self.unknown_start()

@@ -254,6 +254,10 @@ class Start(Starting):
         self.assertEqual(self.composed(), [])
         self.assertFalse((self.bench.state / start.LAUNCHES).exists())
 
+    def test_an_operation_this_installation_does_not_ask_for_is_not_asked(self):
+        with self.assertRaisesRegex(start.StartError, "does not ask the owner for team.found"):
+            start.answered(self.bench.state, {"operation": "team.found"}, None)
+
     def test_a_body_that_is_not_the_one_its_unit_names_is_not_handed_over(self):
         unit = {"unit_id": "u", "source_id": "s", "body_digest": canonical.digest_of({})}
         with self.assertRaisesRegex(start.StartError, "not the one its unit names"):
