@@ -89,6 +89,18 @@ class라는 뜻이다 — 값을 single-source로 만들고 class를 고친다. 
 gate하는 일이 흔하기 때문이다. 미뤄 둔 결함은 조용한 통과가 아니라 strict expected failure로
 고정한다.
 
+**실패 태도는 다음 단계가 무엇을 읽는지로 정한다.** 이 instructions 전체에서, 한정 없이 fail
+loud하거나 fail clearly하라는 지시는 문제를 드러내고 나쁜 local 결과를 거부하라는 뜻이다 — 그 자체로
+production 실행 전체가 멈출지를 정하지는 않는다. development, test, gate에서는 멈추고 문제를
+지목한다 — 조용한 통과는 결함을 숨기기 때문이다. production runtime path에서는 warn
+loudly하고, 계속하는 것이 다음 단계가 읽을 것을 오염시킬 때만 halt한다: input이 stale하거나 재사용
+불가로 표시되어 있을 때(partial, failed, blocked), contract를 어긴 값이 valid로 기록되려
+할 때, 또는 external write의 결과를 알 수 없을 때다. 그 외에는 — 격리된 item 실패, 발동한
+breaker, 소진된 budget — warn하고 계속한다: 이미 끝난 작업은 valid 상태를 유지하고, 끝나지 않은
+작업은 끝나지 않은 것으로 기록되며, 다음 실행이 이어받는다. 이 기본값은 복구 가능한 상태가 실행 중인 process뿐
+아니라 artifact에 보존되어 있다고 전제한다. 이 기본값은 system의 소유자가 다시 정의할 수 있다. 어느
+단계에서도 문제가 조용히 통과되지 않는다.
+
 ## Review Loop
 
 - 각 단계에서 적절히 review loop을 돈다: self review, 가능하면 subagent review, 레포·도메인이 지원하면 structured multi-lens review(구체 tool은 아래 Environment Binding).

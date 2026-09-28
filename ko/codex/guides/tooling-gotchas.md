@@ -246,7 +246,24 @@ core_rules:
   deny 방향 모두를 그 log로 확인하고, front-side cache/CDN은 따로 확인한다.
   probe는 app이 credential 없이도 답하는, 보호 대상 unit 안의 sentinel을
   겨눈다: app이 어차피 내놓는 denial은 control이 꺼져 있어도 통과하고, 그리로
-  향하는 redirect는 bypass다.
+  향하는 redirect는 bypass다. IP 기반 rule이 비교하는 address는 그
+  enforcement point에서 선택된 것이며, configuration만으로는 어느 것인지
+  확정되지 않을 수 있다: proxy나 CDN 뒤에서는 configure된 forwarded-header
+  trust chain이 app에 건네는 client address일 수 있고, managed platform은
+  특정 destination을 원래 configure된 NAT path 바깥으로 라우팅할 수 있다 —
+  GCP에서는 `privateIpGoogleAccess: false`에도 불구하고 Google API 트래픽이
+  Cloud NAT address를 쓰지 않았다. allowlist나 perimeter rule을 작성하거나
+  편집하기 전에, 실제 workload와 destination에 대해 enforcement point에서의
+  address를 관찰하고, 다른 값을 보여야 하는 control path도 함께 둔다.
+- **Locating a credential must not print it**: secret의 위치를 찾거나 설정
+  여부를 확인하려는 command도, 그 값을 transcript로 emit하면 노출시킨다 —
+  env file을 `cat`하는 것, `printenv`, `echo $TOKEN`, `-w`를 쓴 keychain
+  read, match가 secret line인 grep이 그렇다. secret character를 하나도
+  emit하지 않고 존재 여부, length, shape를 확인한다(`[ -n "${X:-}" ]`,
+  `wc -c < file`, key 이름만 나열하기, nonprinting format check).
+  consumer가 실제로 필요로 할 때만 environment나 credential store에서
+  값을 직접 읽게 둔다. 부분 prefix조차 출력하지 않는다. transcript에
+  도달한 값은 노출된 것이다: rotate한다.
 - **노출을 조이는 것은 외부 client에게는 동작 변경이다**: ingress mode를
   바꾸거나 allowlist를 추가하거나 auth를 요구하는 일은, 호출자가 내 redeploy
   바깥에 살 때는 안전하지 않다. 어떤 client가 어떤 hostname으로 그 endpoint에
