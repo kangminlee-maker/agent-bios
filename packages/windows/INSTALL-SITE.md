@@ -41,7 +41,31 @@ version-specific, caller-verified command available on the release page for
 people who need that contract. Older release pages may require a separate hash
 comparison; the site does not rewrite their immutable assets or release notes.
 
-The preview flag remains explicit. Neither the site nor its command changes
-execution policy, evaluates downloaded strings, or treats a script's self-check
-as verification before its execution. Moving this address from preview to stable
-also changes the displayed command to omit the preview-only flag.
+The preview flag remains explicit. The Windows command relaxes the execution policy
+for the one process it starts and names the interpreter, so it runs on an
+unconfigured machine and from cmd.exe or the Run box; the machine's saved policy is
+not edited and a domain-imposed policy still refuses. Neither command evaluates a
+downloaded string, and neither treats a script's self-check as verification before
+its execution. Moving this address from preview to stable also changes the displayed
+command to omit the preview-only flag.
+
+## macOS and Linux
+
+The same address serves `install.sh`, which is `packages/posix/install.sh` byte for
+byte. It installs the published latest npm release and stops: deployment is
+`agent-bios install`, whose chooser needs a terminal that `curl | bash` does not
+provide. The bootstrap edits no shell profile and installs no package manager, and
+it reports the case npm leaves behind -- a successful global install whose command
+the caller's PATH does not carry.
+
+**This route pins nothing, and that is the difference between the two.** The Windows
+bootstrap carries the release assets' own digests, so which release it installs is
+part of what it verifies, and promotion is a deliberate step. This one carries no
+digests: npm resolves the version and checks the tarball. A version pinned here
+would add a promotion step to every publish whose omission serves an old release
+silently, so the script prints the version it installed instead -- which is also
+where a stale registry packument becomes visible.
+
+Publishing to npm therefore needs no action on this site. The workflow derives the
+expected bytes from the checkout, downloads the public script anonymously, compares
+the digest, parses it, and requires its refusal path to refuse.

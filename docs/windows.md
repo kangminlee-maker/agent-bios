@@ -32,12 +32,19 @@ script release workflow publishes it as a GitHub release whose page carries the
 one-line PowerShell command for that exact release.
 
 The repository's GitHub Pages installation page also provides a shorter command
-at a fixed address. It saves the script to a unique temporary path and executes
-it in the current PowerShell session. This convenience command trusts the HTTPS
+at a fixed address. It names `powershell` and relaxes that process's execution
+policy, so it runs from the Command Prompt and the Run box as well as from an open
+PowerShell, and on a machine whose policy nobody changed. It saves the script to a
+unique temporary path and executes it. This convenience command trusts the HTTPS
 site for the initial script; it does not check that script's hash before execution.
 Dependent downloads still undergo the installer's checks. The fixed address
 serves an explicitly promoted release, so publishing another release does not
 silently change it. Preview commands retain `-AcceptUnsignedPreview`.
+
+The same page carries a `curl` one-liner for macOS and Linux. That route is not
+this Windows distribution: it installs the published npm package, which needs
+Node.js and python3 already present, and then names the command that deploys the
+work environment rather than opening its chooser over a pipe.
 
 Releases come in two channels. A stable release is Authenticode-signed with the
 project's release signing identity. Copy the version-specific command from its
@@ -52,9 +59,11 @@ bootstrap refuses to run unless the caller adds `-AcceptUnsignedPreview`, and
 it prints a warning when accepted; the manifest and asset hashes pinned inside
 the script are still enforced. New preview release pages carry a tag-pinned command with that flag and a
 bootstrap digest check before execution. Older preview pages may require the user
-to compare the published bootstrap digest separately; their assets are not rewritten. Both channels require an execution policy
-that permits scripts, such as RemoteSigned; neither the bootstrap nor the
-installed commands change the policy.
+to compare the published bootstrap digest separately; their assets are not rewritten. Each published
+command relaxes the execution policy for the process it starts, because a machine
+nobody configured refuses scripts under the default Restricted policy. Neither
+that relaxation nor anything installed edits the machine's saved policy, and a
+policy imposed by a domain still refuses: the invocation's own error names it.
 
 After caller-side verification, the bootstrap verifies the pinned release manifest
 and dependent archives before running downloaded application or runtime code. It reuses an approved
@@ -66,8 +75,14 @@ work without reopening the terminal; other open terminals are unaffected.
 
 The installed commands are static signed wrappers, `agent-bios.ps1` and
 `agent-launch.ps1`, that read a local deployment binding and run the bundled
-application through the bound interpreter. `agent-bios uninstall` removes owned
-commands, shortcuts and the owned PATH entry; private instructions, session
+application through the bound interpreter. Beside each one the installer writes a
+generated `.cmd` shim, because Windows does not treat `.ps1` as executable: without
+the shim the PATH entry serves PowerShell alone and `agent-bios` is unavailable in
+the Command Prompt, the Run box, and to any program that spawns a command. The
+shim is generated rather than shipped since Authenticode cannot sign a `.cmd`; its
+bytes are fixed and recorded in the deployment's ownership inventory, so a modified
+shim is refused exactly like a modified command. `agent-bios uninstall` removes owned
+commands, shims, shortcuts and the owned PATH entry; private instructions, session
 records and any preexisting Python are retained.
 
 This route is qualified on the Windows workflow runner in PowerShell 5.1 and 7

@@ -29,12 +29,34 @@ except ImportError:
 OWNER = "agent-bios-windows-script"
 SCHEMA_VERSION = 1
 COMMANDS = ("agent-bios.ps1", "agent-launch.ps1")
+# A directory on PATH holding only .ps1 files is reachable from PowerShell alone:
+# Windows does not treat .ps1 as executable, so cmd.exe, Win+R and any program
+# that spawns a command see nothing. Each command therefore also gets a cmd shim.
+# The shim is generated at installation rather than shipped in the bundle because
+# Authenticode cannot sign a .cmd, and a signed bundle carrying an unsignable
+# member would say less than its signature appears to say. Its bytes are fixed --
+# %~dp0 resolves the directory at run time -- so its digest is a stable claim.
+SHIMS = {"agent-bios.cmd": "agent-bios.ps1", "agent-launch.cmd": "agent-launch.ps1"}
 ENTRY = "runtime_entry.py"
 PRIVATE_ENVIRONMENT = ("HOME", "AGENT_BIOS_STATE_DIR", "AGENT_BIOS_INSTRUCTIONS_DIR", "CLAUDE_CONFIG_DIR", "CODEX_HOME")
 
 
 class DeploymentError(RuntimeError):
     pass
+
+
+def _shim(target: str) -> bytes:
+    """A cmd.exe entry point for a PowerShell command in the same directory."""
+    if target not in COMMANDS:
+        raise DeploymentError(f"a shim may only target an owned command: {target}")
+    return ("@echo off\r\n"
+            "powershell.exe -NoProfile -ExecutionPolicy Bypass "
+            f'-File "%~dp0{target}" %*\r\n'
+            "exit /b %ERRORLEVEL%\r\n").encode("ascii")
+
+
+def _shim_inventory() -> dict[str, str]:
+    return {name: hashlib.sha256(_shim(target)).hexdigest() for name, target in SHIMS.items()}
 
 
 def _hash(path: Path) -> str:
@@ -419,8 +441,10 @@ class Deployment:
         managed = python.get("managed_root")
         if managed and (Path(managed).parent != self.root / "runtimes" or not _within(Path(python["path"]), Path(managed))):
             raise DeploymentError("invalid managed Python ownership")
-        if not isinstance(value.get("command_inventory"), dict) or set(value["command_inventory"]) != set(COMMANDS):
+        if not isinstance(value.get("command_inventory"), dict) or set(value["command_inventory"]) != set(COMMANDS) | set(SHIMS):
             raise DeploymentError("invalid command ownership inventory")
+        if {name: value["command_inventory"][name] for name in SHIMS} != _shim_inventory():
+            raise DeploymentError("invalid command shim ownership inventory")
         return value
 
     def _probe(self, binding: dict[str, Any]) -> None:
@@ -554,10 +578,12 @@ class Deployment:
                        "application_root": str(release / "package"), "dependencies_root": str(release / "dependencies"),
                        "commands_root": str(self.root / "bin"), "state_root": str(self.state_root),
                        "python": {"path": str(python), "sha256": _hash(python), "managed_root": str(managed_root) if managed_root else None},
-                       "inventory": inventory, "command_inventory": {name: _hash(release / "commands" / name) for name in COMMANDS}}
+                       "inventory": inventory,
+                       "command_inventory": {**{name: _hash(release / "commands" / name) for name in COMMANDS},
+                                             **_shim_inventory()}}
             self.probe(binding)
             old_commands = (prior or {}).get("command_inventory", {})
-            for name in COMMANDS:
+            for name in (*COMMANDS, *SHIMS):
                 destination = self.root / "bin" / name
                 reject_symlink_ancestors(destination)
                 if destination.exists() and _hash(destination) not in (old_commands.get(name), binding["command_inventory"][name]):
@@ -580,6 +606,8 @@ class Deployment:
                     _atomic(self.root / "operation.json", _canonical(operation))
             for name in COMMANDS:
                 _atomic(self.root / "bin" / name, (release / "commands" / name).read_bytes())
+            for name, target in SHIMS.items():
+                _atomic(self.root / "bin" / name, _shim(target))
             platform_path = self.root / "platform.json"
             prior_platform = _json(platform_path) if platform_path.exists() else {}
             if prior_platform and (prior_platform.get("owner") != OWNER or prior_platform.get("root") != str(self.root)):
@@ -621,7 +649,7 @@ class Deployment:
                 raise DeploymentError("invalid platform ownership receipt")
             if hasattr(self.integration, "_validate"):
                 self.integration._validate(self.root, platform)
-            for name in COMMANDS:
+            for name in (*COMMANDS, *SHIMS):
                 reject_symlink_ancestors(self.root / "bin" / name)
             with self._private_installer(binding) as installer:
                 if hasattr(installer, "_active_intents") and installer._active_intents():

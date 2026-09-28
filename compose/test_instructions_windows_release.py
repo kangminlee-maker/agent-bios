@@ -56,6 +56,16 @@ class WindowsReleaseCommandTests(unittest.TestCase):
         self.assertIn('Get-AuthenticodeSignature -LiteralPath "$d\\install.ps1" -ErrorAction Stop', command)
         self.assertNotIn("-AcceptUnsignedPreview", command)
 
+    def test_release_page_command_relaxes_only_this_process_before_it_invokes(self):
+        # Pasted into an open PowerShell, so it cannot name the interpreter; the
+        # policy is relaxed for the process and the machine is left as it was.
+        command = self.command()
+        relax = "Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force"
+        self.assertIn(relax, command)
+        self.assertLess(command.index(relax), command.index("curl.exe "))
+        for scope in ("-Scope CurrentUser", "-Scope LocalMachine", "-Scope MachinePolicy", "-Scope UserPolicy"):
+            self.assertNotIn(scope, command)
+
     def test_full_replacement_has_different_digest_from_caller_pin(self):
         # This verifies the emitted guard's input, not PowerShell execution. The
         # Windows workflow checks that the real command rejects a replacement
@@ -143,7 +153,50 @@ class WindowsInstallSiteTests(unittest.TestCase):
                 self.assertIn("[guid]::NewGuid()", command)
                 self.assertNotIn("Invoke-Expression", command)
                 self.assertEqual({p.name for p in output.iterdir()},
-                                 {"install.ps1", "bootstrap.json", "index.html", ".nojekyll"})
+                                 {"install.ps1", "install.sh", "bootstrap.json", "index.html", ".nojekyll"})
+
+    def test_fixed_address_command_starts_outside_powershell_under_the_default_policy(self):
+        # A machine nobody configured refuses `& $p` under Restricted, and cmd.exe
+        # or Win+R cannot enter a bare PowerShell program at all. Both are why the
+        # command names the interpreter and relaxes the policy for that process.
+        for channel in ("preview", "stable"):
+            with self.subTest(channel=channel):
+                command = site.install_command(self.site_url, channel)
+                prefix = 'powershell -NoProfile -ExecutionPolicy Bypass -Command "'
+                self.assertTrue(command.startswith(prefix), command)
+                self.assertTrue(command.endswith('"'), command)
+                # cmd.exe ends the argument at the first inner double quote, so the
+                # quoted program must carry none; the URL regex alone does not say so.
+                self.assertNotIn('"', command[len(prefix):-1])
+                self.assertEqual(len(command.splitlines()), 1)
+                # Relaxing this process is not editing the machine's policy.
+                self.assertNotIn("Set-ExecutionPolicy", command)
+
+    def test_posix_bootstrap_installs_the_published_latest_and_reports_what_it_got(self):
+        body = site.posix_bootstrap().decode("utf-8")
+        # A version pinned here would need re-promoting after every publish, and a
+        # forgotten promotion serves an old release with nothing to show for it.
+        self.assertIn("npm install --global agent-bios@latest", body)
+        self.assertNotIn("agent-bios@0.", body)
+        # Which release 'latest' resolved to is then the only thing that says so --
+        # a stale registry packument is visible exactly here and nowhere else.
+        self.assertIn("agent-bios --version", body)
+        self.assertEqual(body, site.POSIX_BOOTSTRAP.read_text(encoding="utf-8"),
+                         "the served script must be the authored one, byte for byte")
+
+    def test_posix_command_installs_and_stops_before_the_interactive_step(self):
+        command = site.posix_install_command(self.site_url)
+        self.assertEqual(command, "curl -fsSL " + self.site_url + "/install.sh | bash")
+        body = site.posix_bootstrap().decode("utf-8")
+        # `curl | bash` hands the shell a pipe, so the chooser cannot be opened here;
+        # saying which command opens it is what keeps the install from looking finished.
+        self.assertIn("agent-bios install", body)
+        self.assertNotIn("&& agent-bios install", body)
+        # npm exits 0 having written a command the caller's PATH may not carry.
+        self.assertIn("is not on PATH", body)
+        for url in ("http://example.test", "https://example.test/';exit", "https://u:p@example.test"):
+            with self.subTest(url=url), self.assertRaises(ValueError):
+                site.posix_install_command(url)
 
     def test_mutable_or_injected_source_and_install_urls_are_refused(self):
         for tag in ("latest", "windows-script-v1.2.3/../../main", "windows-script-v1.2.3';exit"):

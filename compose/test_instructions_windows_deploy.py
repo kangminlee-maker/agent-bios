@@ -135,6 +135,41 @@ class WindowsDeploymentTests(unittest.TestCase):
             self.assertEqual((self.root / "bin" / name).read_bytes(), (self.source / "commands" / name).read_bytes())
         self.assertEqual(self.subject.verify()["version"], "0.19.3")
 
+    def test_install_writes_a_cmd_shim_beside_each_command_for_callers_outside_powershell(self):
+        # PATH names bin/. Windows does not run .ps1 from PATH, so without these
+        # the commands exist only for PowerShell -- cmd.exe and Win+R see nothing.
+        self.install()
+        for shim, target in deploy.SHIMS.items():
+            path = self.root / "bin" / shim
+            self.assertTrue(path.is_file(), shim)
+            body = path.read_bytes().decode("ascii")
+            self.assertIn(f'-File "%~dp0{target}"', body)
+            # The machine's default Restricted policy would refuse the target.
+            self.assertIn("-ExecutionPolicy Bypass", body)
+            # Arguments and the command's verdict both have to survive the hop.
+            self.assertIn("%*", body)
+            self.assertIn("exit /b %ERRORLEVEL%", body)
+            self.assertEqual(self.binding()["command_inventory"][shim], deploy._hash(path))
+        self.assertEqual({entry.name for entry in (self.root / "bin").iterdir()},
+                         set(deploy.COMMANDS) | set(deploy.SHIMS))
+
+    def test_modified_shim_is_refused_like_a_modified_command(self):
+        self.install()
+        self.configured()
+        shim = self.root / "bin/agent-bios.cmd"
+        shim.write_bytes(b"@echo off\r\nstart other.exe\r\n")
+        self.bundle("0.19.4")
+        with self.assertRaisesRegex(deploy.DeploymentError, "modified or unowned command"):
+            self.install()
+        self.assertEqual(shim.read_bytes(), b"@echo off\r\nstart other.exe\r\n")
+        self.assertEqual(self.installer.installs, 0)
+
+    def test_verify_rejects_a_replaced_shim(self):
+        self.install()
+        (self.root / "bin/agent-launch.cmd").write_text("@echo off\r\n")
+        with self.assertRaises(deploy.DeploymentError):
+            self.subject.verify()
+
     def test_configured_update_calls_native_preserving_selection_and_runtime_identity(self):
         self.install()
         self.configured()
@@ -363,6 +398,9 @@ class WindowsDeploymentTests(unittest.TestCase):
         self.assertEqual(result["retained_runtime_paths"], [binding["python"]["managed_root"]])
         self.assertFalse((self.root / "deployment.json").exists())
         self.assertFalse((self.root / "bin/agent-bios.ps1").exists())
+        # An owned shim leaves with its command; a customized one is retained like any edit.
+        self.assertFalse((self.root / "bin/agent-bios.cmd").exists())
+        self.assertFalse((self.root / "bin/agent-launch.cmd").exists())
         self.assertTrue(Path(binding["python"]["path"]).exists())
 
     def test_external_python_survives_uninstall(self):

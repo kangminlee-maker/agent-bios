@@ -304,9 +304,13 @@ try {
     $commandsRoot = [IO.Path]::GetFullPath([string]$deployment.commands_root).TrimEnd('\')
     $present = @($env:Path -split ';' | Where-Object { $_.TrimEnd('\') -ieq $commandsRoot }).Count -gt 0
     if (-not $present) { $env:Path = $commandsRoot + ';' + $env:Path }
+    # The deployment also installs a cmd shim so callers outside PowerShell can reach
+    # the command. PATHEXT decides which of the two this session resolves first, and
+    # either is ours: the shim runs the same script. Only a third file is a shadow.
+    $ourCommands = @($commandPath, (Join-Path $commandsRoot 'agent-bios.cmd'))
     $resolved = Get-Command agent-bios -ErrorAction SilentlyContinue | Select-Object -First 1
-    if ($null -eq $resolved -or $resolved.CommandType -ne 'ExternalScript' -or
-        -not [string]::Equals($resolved.Source, $commandPath, [StringComparison]::OrdinalIgnoreCase)) {
+    if ($null -eq $resolved -or $resolved.CommandType -notin @('ExternalScript', 'Application') -or
+        -not @($ourCommands | Where-Object { [string]::Equals($_, $resolved.Source, [StringComparison]::OrdinalIgnoreCase) })) {
         Write-Warning "Another command shadows agent-bios. It was preserved. Use: & '$($commandPath.Replace("'", "''"))'"
     }
     Write-Host "Application deployed: $($deployment.root)"

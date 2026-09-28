@@ -1,4 +1,4 @@
-name: Windows installation address
+name: Installation address
 on:
   workflow_dispatch:
   push:
@@ -7,6 +7,7 @@ on:
       - '.github/workflows/install-site.yml'
       - 'packages/windows/build-install-site.py'
       - 'packages/windows/install-site.json'
+      - 'packages/posix/install.sh'
 permissions:
   contents: read
 concurrency:
@@ -67,3 +68,43 @@ jobs:
           [System.Management.Automation.Language.Parser]::ParseFile($path, [ref]$tokens, [ref]$errors) | Out-Null
           if ($errors.Count) { throw ($errors | Out-String) }
           Write-Host "Anonymous download and PowerShell 5.1 parsing passed: $url"
+  verify-posix:
+    needs: deploy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Verify the public macOS and Linux script
+        run: |
+          set -euo pipefail
+          # The expected bytes are derived from this checkout, so a published script
+          # that drifted from the promoted pin fails rather than being described.
+          python - <<'PY' > expected.env
+          import hashlib, json, importlib.util, pathlib
+          spec = importlib.util.spec_from_file_location("site", "packages/windows/build-install-site.py")
+          site = importlib.util.module_from_spec(spec); spec.loader.exec_module(site)
+          repository = json.loads(pathlib.Path("package.json").read_text())["repository"]["url"]
+          owner, name = repository.removeprefix("git+").removesuffix(".git").split("/")[-2:]
+          print("URL=https://%s.github.io/%s/install.sh" % (owner.lower(), name))
+          print("DIGEST=" + hashlib.sha256(site.posix_bootstrap()).hexdigest())
+          PY
+          . ./expected.env
+          for attempt in $(seq 1 12); do
+            if curl -fsSL --proto '=https' --proto-redir '=https' -o published.sh "$URL"; then
+              if [ "$(sha256sum published.sh | cut -d' ' -f1)" = "$DIGEST" ]; then matched=1; break; fi
+            fi
+            echo "Waiting for the public deployment (attempt $attempt)"
+            sleep 10
+          done
+          [ "${matched:-0}" = 1 ] || { echo 'Public POSIX bootstrap differs from this checkout.' >&2; exit 1; }
+          bash -n published.sh
+          # A refusal path must refuse. An empty PATH leaves npm unfindable, so the
+          # script has to stop before it installs anything.
+          set +e
+          out=$(PATH=/nonexistent bash published.sh 2>&1); code=$?
+          set -e
+          [ "$code" -ne 0 ] || { echo 'The bootstrap continued without npm.' >&2; exit 1; }
+          case "$out" in *npm*) ;; *) echo "Unexpected refusal: $out" >&2; exit 1 ;; esac
+          echo "Anonymous download, syntax and refusal path passed: $URL"

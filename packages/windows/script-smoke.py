@@ -114,6 +114,22 @@ class Driver:
                                   "stdout": result.stdout[-6000:], "stderr": result.stderr[-6000:]})
         return result
 
+    def cmd_shim(self, root: Path, env: dict[str, str]) -> None:
+        """cmd.exe is the caller a PATH directory of .ps1 files cannot serve at all.
+
+        It is also the one that proves the shim: Windows does not treat .ps1 as
+        executable, so before the shim existed this resolved to nothing. The shim
+        carries its own policy relaxation, so the machine's policy stays untouched.
+        """
+        comspec = Path(os.environ.get("ComSpec") or Path(os.environ["WINDIR"]) / "System32/cmd.exe")
+        scoped = dict(env, PATH=str(root / "bin") + ";" + env["PATH"])
+        result = subprocess.run([str(comspec), "/d", "/c", "agent-bios", "--version"], env=scoped,
+                                capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=240)
+        if result.returncode != 0 or result.stdout.strip() != self.release["version"]:
+            raise AssertionError({"comspec": str(comspec), "returncode": result.returncode,
+                                  "stdout": result.stdout[-6000:], "stderr": result.stderr[-6000:]})
+        self.checked("cmd.exe reaches the installed command through its shim")
+
     def ps_json(self, shell: Path, source: str, env: dict[str, str]) -> object:
         result = self.ps(shell, source, env)
         rows = [line[len(MARKER):] for line in result.stdout.splitlines() if line.startswith(MARKER)]
@@ -149,8 +165,14 @@ class Driver:
             source += ("if ((agent-bios) -cne 'user-alias-preserved' -or "
                        "(Get-Command agent-bios).CommandType -ne 'Alias') { throw 'user alias replaced' }; ")
         else:
+            # PATHEXT decides whether this session reaches the script or its cmd shim.
+            # Both are installed and both run the same wrapper, so either resolution is
+            # correct; a third file is not. Pinning one of them would fail on a machine
+            # whose PATHEXT orders the extensions the other way.
             source += ("$resolved = Get-Command agent-bios -ErrorAction Stop; "
-                       f"if ($resolved.Source -ine {quote(root / 'bin/agent-bios.ps1')}) {{ throw 'bare command did not resolve installed wrapper' }}; ")
+                       f"$ours = @({quote(root / 'bin/agent-bios.ps1')}, {quote(root / 'bin/agent-bios.cmd')}); "
+                       "if (-not @($ours | Where-Object { $_ -ieq $resolved.Source })) "
+                       "{ throw 'bare command did not resolve installed wrapper' }; ")
         source += self.emit("@{ path=$env:PATH; shell=$PSVersionTable.PSVersion.ToString() }")
         report = self.ps_json(shell, source, env)
         binding = json.loads((root / "deployment.json").read_text(encoding="utf-8"))
@@ -399,6 +421,7 @@ class Driver:
         with zipfile.ZipFile(self.assets / "runtime.zip") as archive:
             for pth in pth_files:
                 assert pth.read_bytes() == archive.read(pth.name), "Do not weaken upstream _pth isolation"
+        self.cmd_shim(root, env)
         evidence = self.product(shell, root, env, binding)
         fresh = {key: value for key, value in env.items() if key not in {
             "AGENT_BIOS_STATE_DIR", "AGENT_BIOS_INSTRUCTIONS_DIR", "AGENT_BIOS_CORPUS_DIR",

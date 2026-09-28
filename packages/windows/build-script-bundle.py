@@ -151,7 +151,12 @@ def one_line_command(base,unsigned,*,bootstrap_sha256,signer_thumbprints=()):
         raise ValueError('a signed command requires pinned signing identities')
     flag=' -AcceptUnsignedPreview' if unsigned else ''
     script=base.rstrip('/')+'/install.ps1'
-    command=("$d = Join-Path $env:TEMP ('agent-bios-' + [guid]::NewGuid().ToString('N')); "
+    # This command is pasted into an existing PowerShell, so the policy is relaxed
+    # for this process only and the machine's policy is left untouched. A domain
+    # policy may refuse even that; the attempt is not the verdict, invocation is,
+    # and its own error names the policy.
+    command=("Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force -ErrorAction SilentlyContinue; "
+            "$d = Join-Path $env:TEMP ('agent-bios-' + [guid]::NewGuid().ToString('N')); "
             "New-Item -ItemType Directory -Path $d | Out-Null; "
             "curl.exe -fsSL --proto '=https' --proto-redir '=https' -o \"$d\\install.ps1\" \""+script+"\"; "
             "if ($LASTEXITCODE -ne 0) { throw 'download failed' }; "
