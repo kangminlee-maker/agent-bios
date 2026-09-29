@@ -70,10 +70,6 @@
    "name": "drive_request"
   },
   {
-   "id": "req_57371e2d23d485c05aa0e15daab87017",
-   "name": "start_request"
-  },
-  {
    "id": "req_a5edf5ae77c88922d6897b58c663c8b2",
    "name": "select_request"
   },
@@ -104,6 +100,10 @@
   {
    "id": "req_32b1891222e830f173b6bf4309505a1f",
    "name": "activate_request"
+  },
+  {
+   "id": "req_ad7eb3be66c8f01931869366ada71c94",
+   "name": "link_offer_made"
   }
  ],
  "joins": [
@@ -498,67 +498,67 @@
    "record": "commit_know_result"
   },
   {
-   "digest_of": "read_probe",
+   "digest_of": "delivery_probe",
    "pointer": "/payload_digest",
    "record": "probe_request"
   },
   {
    "digest_of": "probe_request",
    "pointer": "/request_digest",
-   "record": "probe_host_read_receipt"
+   "record": "probe_host_delivery_receipt"
   },
   {
-   "minted": "probe_host_read_head",
+   "minted": "probe_host_delivery_head",
    "pointer": "/head_digest",
-   "record": "probe_host_read_receipt"
+   "record": "probe_host_delivery_receipt"
   },
   {
-   "minted": "probe_host_read_sequence",
+   "minted": "probe_host_delivery_sequence",
    "pointer": "/sequence",
-   "record": "probe_host_read_receipt"
+   "record": "probe_host_delivery_receipt"
   },
   {
-   "minted": "probe_host_read_committed_at",
+   "minted": "probe_host_delivery_committed_at",
    "pointer": "/committed_at",
-   "record": "probe_host_read_receipt"
+   "record": "probe_host_delivery_receipt"
   },
   {
    "minted": "probed_at",
    "pointer": "/at",
-   "record": "read_probe_stored"
+   "record": "delivery_probe_stored"
   },
   {
-   "minted": "read_probe",
+   "minted": "delivery_probe",
    "pointer": "/probe_id",
-   "record": "read_probe_stored"
+   "record": "delivery_probe_stored"
   },
   {
    "minted": "probe_measured_at",
    "pointer": "/measured_at",
-   "record": "read_probe_host_configuration"
+   "record": "delivery_probe_host_configuration"
   },
   {
-   "digest_of": "probe_host_read_receipt",
+   "digest_of": "probe_host_delivery_receipt",
    "pointer": "/outcome/receipt_digest",
-   "record": "probe_host_read_result"
+   "record": "probe_host_delivery_result"
   },
   {
    "digest_of": "probe_request",
    "pointer": "/request_digest",
-   "record": "probe_host_read_result"
+   "record": "probe_host_delivery_result"
   },
   {
-   "digest_of": "read_probe_stored",
+   "digest_of": "delivery_probe_stored",
    "pointer": "/outputs/0/digest",
-   "record": "probe_host_read_result"
+   "record": "probe_host_delivery_result"
   },
   {
-   "digest_of": "read_probe_host_configuration",
+   "digest_of": "delivery_probe_host_configuration",
    "pointer": "/outputs/1/digest",
-   "record": "probe_host_read_result"
+   "record": "probe_host_delivery_result"
   },
   {
-   "digest_of": "read_probe_stored",
+   "digest_of": "delivery_probe_stored",
    "pointer": "/offered/0/support/probe_digest",
    "record": "offer"
   },
@@ -588,7 +588,7 @@
    "record": "offer_routes_receipt"
   },
   {
-   "digest_of": "read_probe_stored",
+   "digest_of": "delivery_probe_stored",
    "pointer": "/offered/0/support/probe_digest",
    "record": "offer_stored"
   },
@@ -623,6 +623,21 @@
    "record": "script_trace"
   },
   {
+   "digest_of": "script",
+   "pointer": "/script_digest",
+   "record": "script_trace"
+  },
+  {
+   "minted": "start_request",
+   "pointer": "/frames/4/elements/13/refers_to/request_id",
+   "record": "script_trace"
+  },
+  {
+   "minted": "start_request",
+   "pointer": "/frames/4/dispatched/0",
+   "record": "script_trace"
+  },
+  {
    "digest_of": "instr_revision",
    "pointer": "/basis/source_pins/0/revision_digest",
    "record": "start_basis"
@@ -633,13 +648,13 @@
    "record": "start_compose"
   },
   {
-   "digest_of": "start_compose",
-   "pointer": "/frames/2/calls/0/request_digest",
-   "record": "script_trace"
+   "minted": "start_request",
+   "pointer": "/request_id",
+   "record": "start_compose"
   },
   {
-   "digest_of": "script",
-   "pointer": "/script_digest",
+   "digest_of": "start_compose",
+   "pointer": "/frames/4/calls/0/request_digest",
    "record": "script_trace"
   },
   {
@@ -651,6 +666,61 @@
    "digest_of": "script_trace",
    "pointer": "/outputs/0/digest",
    "record": "drive_entry_result"
+  },
+  {
+   "digest_of": "delivery_probe_stored",
+   "pointer": "/offered/0/support/probe_digest",
+   "record": "link_offer"
+  },
+  {
+   "digest_of": "link_offer",
+   "pointer": "/payload_digest",
+   "record": "link_offer_request"
+  },
+  {
+   "digest_of": "link_offer_request",
+   "pointer": "/request_digest",
+   "record": "offer_routes_to_the_link_receipt"
+  },
+  {
+   "minted": "offer_routes_to_the_link_head",
+   "pointer": "/head_digest",
+   "record": "offer_routes_to_the_link_receipt"
+  },
+  {
+   "minted": "offer_routes_to_the_link_sequence",
+   "pointer": "/sequence",
+   "record": "offer_routes_to_the_link_receipt"
+  },
+  {
+   "minted": "offer_routes_to_the_link_committed_at",
+   "pointer": "/committed_at",
+   "record": "offer_routes_to_the_link_receipt"
+  },
+  {
+   "digest_of": "delivery_probe_stored",
+   "pointer": "/offered/0/support/probe_digest",
+   "record": "link_offer_stored"
+  },
+  {
+   "minted": "link_offer_at",
+   "pointer": "/offered_at",
+   "record": "link_offer_stored"
+  },
+  {
+   "digest_of": "offer_routes_to_the_link_receipt",
+   "pointer": "/outcome/receipt_digest",
+   "record": "offer_routes_to_the_link_result"
+  },
+  {
+   "digest_of": "link_offer_request",
+   "pointer": "/request_digest",
+   "record": "offer_routes_to_the_link_result"
+  },
+  {
+   "digest_of": "link_offer_stored",
+   "pointer": "/outputs/0/digest",
+   "record": "offer_routes_to_the_link_result"
   },
   {
    "digest_of": "exact_link_script",
@@ -718,6 +788,11 @@
    "record": "start_preparation"
   },
   {
+   "minted": "start_request",
+   "pointer": "/request_id",
+   "record": "compose_start_result"
+  },
+  {
    "digest_of": "start_compose",
    "pointer": "/request_digest",
    "record": "compose_start_result"
@@ -730,6 +805,11 @@
   {
    "digest_of": "offer_stored",
    "pointer": "/offer_digest",
+   "record": "selection"
+  },
+  {
+   "minted": "start_request",
+   "pointer": "/request_id",
    "record": "selection"
   },
   {
@@ -760,6 +840,11 @@
   {
    "minted": "selection_at",
    "pointer": "/at",
+   "record": "selection_outcome"
+  },
+  {
+   "minted": "start_request",
+   "pointer": "/for_request_id",
    "record": "selection_outcome"
   },
   {
@@ -905,6 +990,11 @@
   {
    "digest_of": "offer_stored",
    "pointer": "/offer_digest",
+   "record": "focus_only"
+  },
+  {
+   "minted": "start_request",
+   "pointer": "/request_id",
    "record": "focus_only"
   },
   {
@@ -1058,34 +1148,34 @@
    "step": "commit_know"
   },
   {
-   "name": "probe_host_read_committed_at",
+   "name": "delivery_probe",
+   "shape": "prb",
+   "step": "probe_host_delivery"
+  },
+  {
+   "name": "probe_host_delivery_committed_at",
    "shape": "instant",
-   "step": "probe_host_read"
+   "step": "probe_host_delivery"
   },
   {
-   "name": "probe_host_read_head",
+   "name": "probe_host_delivery_head",
    "shape": "digest",
-   "step": "probe_host_read"
+   "step": "probe_host_delivery"
   },
   {
-   "name": "probe_host_read_sequence",
+   "name": "probe_host_delivery_sequence",
    "shape": "integer",
-   "step": "probe_host_read"
+   "step": "probe_host_delivery"
   },
   {
    "name": "probe_measured_at",
    "shape": "instant",
-   "step": "probe_host_read"
+   "step": "probe_host_delivery"
   },
   {
    "name": "probed_at",
    "shape": "instant",
-   "step": "probe_host_read"
-  },
-  {
-   "name": "read_probe",
-   "shape": "prb",
-   "step": "probe_host_read"
+   "step": "probe_host_delivery"
   },
   {
    "name": "offer_at",
@@ -1111,6 +1201,31 @@
    "name": "script_driven_at",
    "shape": "instant",
    "step": "drive_entry"
+  },
+  {
+   "name": "start_request",
+   "shape": "req",
+   "step": "drive_entry"
+  },
+  {
+   "name": "link_offer_at",
+   "shape": "instant",
+   "step": "offer_routes_to_the_link"
+  },
+  {
+   "name": "offer_routes_to_the_link_committed_at",
+   "shape": "instant",
+   "step": "offer_routes_to_the_link"
+  },
+  {
+   "name": "offer_routes_to_the_link_head",
+   "shape": "digest",
+   "step": "offer_routes_to_the_link"
+  },
+  {
+   "name": "offer_routes_to_the_link_sequence",
+   "shape": "integer",
+   "step": "offer_routes_to_the_link"
   },
   {
    "name": "exact_link_driven_at",
@@ -2129,24 +2244,24 @@
    }
   },
   {
-   "digest": "955b816683b68a2cd6d11f5c8cd7ae6be9ee701cf164d4621f93c1ae3ac5f835",
-   "name": "read_probe",
+   "digest": "2b2f3c55fcc0125deda4b984c12060a276093757c2db0fb6ed3ca24681f36578",
+   "name": "delivery_probe",
    "record": {
-    "capability": "read",
+    "capability": "new_delivery",
     "client": {
      "name": "claude-code",
-     "version": "2.1.278"
+     "version": "2.1.283"
     },
     "kind": "capability_probe",
     "schema": 1,
     "wire": {
-     "protocol": "model_context_protocol",
-     "version": "2025-11-25"
+     "protocol": "launch_instructions",
+     "version": "1"
     }
    }
   },
   {
-   "digest": "c8337b92890ea974b2c7ed8ad8d6cf71c0463c5c81e3f28897a6e7bba3786b52",
+   "digest": "c4eb9a75510ff55a22e45b9135fcdba3dc62a3638111ad641379109a115eb743",
    "name": "probe_request",
    "record": {
     "action": "local_profile",
@@ -2164,7 +2279,7 @@
      "layer": "personal",
      "principal_id": "prn_eecbbea79af4af8423345babb1947b92"
     },
-    "payload_digest": "955b816683b68a2cd6d11f5c8cd7ae6be9ee701cf164d4621f93c1ae3ac5f835",
+    "payload_digest": "2b2f3c55fcc0125deda4b984c12060a276093757c2db0fb6ed3ca24681f36578",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_e723262ea7e89578649fbef92783ab15",
@@ -2175,17 +2290,17 @@
    }
   },
   {
-   "digest": "808c2c3164730c2c7d6b95f10895c25ef23a0877f8cee173fb7151371746ad53",
-   "name": "probe_host_read_receipt",
+   "digest": "a4c154b3b271d435d4ec61b511bafcf1feb975a28ed56f1711189eb84dee5e15",
+   "name": "probe_host_delivery_receipt",
    "record": {
     "committed_at": "2000-01-01T00:00:00Z",
-    "head_digest": "9f5ed78f9c1fa59c66359f05e01427eda22a6a8d7844049ea5918a84e860075e",
+    "head_digest": "71c9ae1941bfe54092bde82aa8a4e9ce3563cd2b0459752e71ba95cdbcb7c5bb",
     "kind": "operation_receipt",
     "owner": {
      "layer": "personal",
      "principal_id": "prn_eecbbea79af4af8423345babb1947b92"
     },
-    "request_digest": "c8337b92890ea974b2c7ed8ad8d6cf71c0463c5c81e3f28897a6e7bba3786b52",
+    "request_digest": "c4eb9a75510ff55a22e45b9135fcdba3dc62a3638111ad641379109a115eb743",
     "request_id": "req_e723262ea7e89578649fbef92783ab15",
     "schema": 1,
     "sequence": 1,
@@ -2195,37 +2310,37 @@
    }
   },
   {
-   "digest": "cfc0d6a5db7c0bb96cc658a2e4cb80d37a43936ab89883049eba2420008b546e",
-   "name": "read_probe_stored",
+   "digest": "6d19df085b1336958c61bb0fe00013efa6044be204f2a5f89e597c59e271c9e2",
+   "name": "delivery_probe_stored",
    "record": {
     "at": "2000-01-01T00:00:00Z",
-    "capability": "read",
+    "capability": "new_delivery",
     "client": {
      "name": "claude-code",
-     "version": "2.1.278"
+     "version": "2.1.283"
     },
     "kind": "capability_probe",
     "mode": {
      "runs": "real"
     },
-    "observed": "The host session read the prepared material it was handed.",
+    "observed": "The new session gave the code the adapter handed it in the instructions its host was started with.",
     "offered": true,
     "outcome": "worked",
-    "probe_id": "prb_ab0469295287a98ee277c6dfd0a0cc56",
+    "probe_id": "prb_137bdc810336f3ef12ed81eca91f6e72",
     "schema": 1,
     "wire": {
-     "protocol": "model_context_protocol",
-     "version": "2025-11-25"
+     "protocol": "launch_instructions",
+     "version": "1"
     }
    }
   },
   {
-   "digest": "40782b10bc064b6e4302b3c64e5e0fb7bbae0c6d98b4921eb538454f04d2313a",
-   "name": "read_probe_host_configuration",
+   "digest": "380f42be425ac15081319dce973b5b36443655f6e80198f2522cf9515de4f7e2",
+   "name": "delivery_probe_host_configuration",
    "record": {
     "client": {
      "name": "claude-code",
-     "version": "2.1.278"
+     "version": "2.1.283"
     },
     "hooks": [],
     "kind": "host_configuration",
@@ -2237,35 +2352,35 @@
    }
   },
   {
-   "digest": "2172bb65a481651c8d95b34a90156191a38e9934cb41f354eb46291773cff629",
-   "name": "probe_host_read_result",
+   "digest": "fa45ba82fc9a4cdb8f0c35c9e4d3ae05b061dedb263408eee079f9ed82fc99d3",
+   "name": "probe_host_delivery_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "808c2c3164730c2c7d6b95f10895c25ef23a0877f8cee173fb7151371746ad53",
+     "receipt_digest": "a4c154b3b271d435d4ec61b511bafcf1feb975a28ed56f1711189eb84dee5e15",
      "stage": "committed"
     },
     "outputs": [
      {
-      "digest": "cfc0d6a5db7c0bb96cc658a2e4cb80d37a43936ab89883049eba2420008b546e",
+      "digest": "6d19df085b1336958c61bb0fe00013efa6044be204f2a5f89e597c59e271c9e2",
       "kind": "capability_probe"
      },
      {
-      "digest": "40782b10bc064b6e4302b3c64e5e0fb7bbae0c6d98b4921eb538454f04d2313a",
+      "digest": "380f42be425ac15081319dce973b5b36443655f6e80198f2522cf9515de4f7e2",
       "kind": "host_configuration"
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "c8337b92890ea974b2c7ed8ad8d6cf71c0463c5c81e3f28897a6e7bba3786b52",
+    "request_digest": "c4eb9a75510ff55a22e45b9135fcdba3dc62a3638111ad641379109a115eb743",
     "request_id": "req_e723262ea7e89578649fbef92783ab15",
     "schema": 1,
     "supported_recovery": []
    }
   },
   {
-   "digest": "bc6d7c4174a66872a2bb16b62ab2aaa488cb4627aa24f74fc3f49ffbb9975f0c",
+   "digest": "09f518f7c1790cc7e14599333178678d635dfaf9f2d70323284a999b970703d8",
    "name": "offer",
    "record": {
     "entrance": {
@@ -2285,7 +2400,7 @@
        "repository_id": "rep_75a3fe4d467f0d62486f0e6d9726009c"
       },
       "support": {
-       "probe_digest": "cfc0d6a5db7c0bb96cc658a2e4cb80d37a43936ab89883049eba2420008b546e",
+       "probe_digest": "6d19df085b1336958c61bb0fe00013efa6044be204f2a5f89e597c59e271c9e2",
        "qualified": "yes"
       },
       "supported_action": "use"
@@ -2310,7 +2425,7 @@
    }
   },
   {
-   "digest": "1ef91e136a2d4b0e6cc90993b65192c06a4ce0c042a2a845e75b8c502938fdaa",
+   "digest": "95d200e34f4620b592acf9e14d875801e6f39436342974919fd18cd4de60ad27",
    "name": "offer_request",
    "record": {
     "action": "read",
@@ -2328,7 +2443,7 @@
      "layer": "personal",
      "principal_id": "prn_eecbbea79af4af8423345babb1947b92"
     },
-    "payload_digest": "bc6d7c4174a66872a2bb16b62ab2aaa488cb4627aa24f74fc3f49ffbb9975f0c",
+    "payload_digest": "09f518f7c1790cc7e14599333178678d635dfaf9f2d70323284a999b970703d8",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_0189779b84385c7ff5615160c74534d6",
@@ -2339,7 +2454,7 @@
    }
   },
   {
-   "digest": "5c767dfc72559ea38546a3a264df94b35cff0e55dde5130938f183fa65ca42aa",
+   "digest": "a07f0106518180d43d7d861ba0a980bb32ac57242cf98a96dd16e39448750322",
    "name": "offer_routes_receipt",
    "record": {
     "committed_at": "2000-01-01T00:00:00Z",
@@ -2349,7 +2464,7 @@
      "layer": "personal",
      "principal_id": "prn_eecbbea79af4af8423345babb1947b92"
     },
-    "request_digest": "1ef91e136a2d4b0e6cc90993b65192c06a4ce0c042a2a845e75b8c502938fdaa",
+    "request_digest": "95d200e34f4620b592acf9e14d875801e6f39436342974919fd18cd4de60ad27",
     "request_id": "req_0189779b84385c7ff5615160c74534d6",
     "schema": 1,
     "sequence": 1,
@@ -2359,7 +2474,7 @@
    }
   },
   {
-   "digest": "01d13e91f4c58e9160c6d8da32753a2cfc069ce26d9150346666a505fbd69d98",
+   "digest": "bed8f257309f20e7761d68512c43389fcacb39d8ac956e7f910d510933d1d557",
    "name": "offer_stored",
    "record": {
     "entrance": {
@@ -2379,7 +2494,7 @@
        "repository_id": "rep_75a3fe4d467f0d62486f0e6d9726009c"
       },
       "support": {
-       "probe_digest": "cfc0d6a5db7c0bb96cc658a2e4cb80d37a43936ab89883049eba2420008b546e",
+       "probe_digest": "6d19df085b1336958c61bb0fe00013efa6044be204f2a5f89e597c59e271c9e2",
        "qualified": "yes"
       },
       "supported_action": "use"
@@ -2405,31 +2520,31 @@
    }
   },
   {
-   "digest": "b00390f89b3863a3873dbd55f31c9551f44b871bdd2ad07d672bb11f38ca5726",
+   "digest": "1294229cf7b280e27bbd06852db8f839f2d36bd7db35f0ca3bbfe3fce6446e2a",
    "name": "offer_routes_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "5c767dfc72559ea38546a3a264df94b35cff0e55dde5130938f183fa65ca42aa",
+     "receipt_digest": "a07f0106518180d43d7d861ba0a980bb32ac57242cf98a96dd16e39448750322",
      "stage": "committed"
     },
     "outputs": [
      {
-      "digest": "01d13e91f4c58e9160c6d8da32753a2cfc069ce26d9150346666a505fbd69d98",
+      "digest": "bed8f257309f20e7761d68512c43389fcacb39d8ac956e7f910d510933d1d557",
       "kind": "route_offer"
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "1ef91e136a2d4b0e6cc90993b65192c06a4ce0c042a2a845e75b8c502938fdaa",
+    "request_digest": "95d200e34f4620b592acf9e14d875801e6f39436342974919fd18cd4de60ad27",
     "request_id": "req_0189779b84385c7ff5615160c74534d6",
     "schema": 1,
     "supported_recovery": []
    }
   },
   {
-   "digest": "0ac15e46585b8d5bdff83e241af726c26892fa193024e495457466275445af9d",
+   "digest": "9caf972d1210e89edf11fdf17a736c7d2c3b1d808d170d781ffd2dc9aa648cb3",
    "name": "script",
    "record": {
     "entrance": {
@@ -2437,6 +2552,14 @@
      "root_origin": "owner"
     },
     "inputs": [
+     {
+      "input": "key",
+      "key": "tab"
+     },
+     {
+      "input": "key",
+      "key": "tab"
+     },
      {
       "input": "key",
       "key": "tab"
@@ -2456,7 +2579,7 @@
    }
   },
   {
-   "digest": "bceb894a49f705848d86cb4d3f4bf91e079e1673dc0ee05c3915426bccda1e3d",
+   "digest": "bc82760ebf2b731c0aecb707211918ab407d63b0037aad4d1ec79efdd85636f6",
    "name": "script_request",
    "record": {
     "action": "read",
@@ -2474,7 +2597,7 @@
      "layer": "personal",
      "principal_id": "prn_eecbbea79af4af8423345babb1947b92"
     },
-    "payload_digest": "0ac15e46585b8d5bdff83e241af726c26892fa193024e495457466275445af9d",
+    "payload_digest": "9caf972d1210e89edf11fdf17a736c7d2c3b1d808d170d781ffd2dc9aa648cb3",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_7427300b3a867a54cd76e2e3cb4b5ff6",
@@ -2516,7 +2639,7 @@
    }
   },
   {
-   "digest": "d6c89974bbdd3071fda4ab8dc71e5722ecaacf1baa2e8e0323a6bb6c93731ad9",
+   "digest": "2a8f82407786acb70c9a9882a5829b4884eb040dab47a09b5158c5268c885f67",
    "name": "start_compose",
    "record": {
     "action": "use",
@@ -2537,7 +2660,7 @@
     "payload_digest": "07abe2dbbf97924101c6acc90c6e0d370ec8c9cff779d7c6c972a7c2c9a45be4",
     "policy_digests": [],
     "proof_digests": [],
-    "request_id": "req_57371e2d23d485c05aa0e15daab87017",
+    "request_id": "req_9cd647c57ae558826635ead25da5303b",
     "schema": 1,
     "target": {
      "resource_id": "prn_eecbbea79af4af8423345babb1947b92"
@@ -2545,13 +2668,13 @@
    }
   },
   {
-   "digest": "49120b8305c26221e4fb0eaab703bc6d73a086b2fb370fa0199773b370c59c9e",
+   "digest": "c6a4b516e177527d4f6db1286991f6377b141e9a442055258ad1e30e447b5f3d",
    "name": "script_trace",
    "record": {
     "at": "2000-01-01T00:00:00Z",
     "client": {
-     "name": "agent-bios",
-     "version": "0.20.0"
+     "name": "agent-bios-entry",
+     "version": "1"
     },
     "frames": [
      {
@@ -2584,7 +2707,8 @@
         "label": "지침 · AGENTS.md",
         "marks": [
          "›",
-         "[x]"
+         "[x]",
+         "(제안)"
         ],
         "refers_to": {
          "position": {
@@ -2598,7 +2722,7 @@
          "view": "original"
         },
         "role": "selection",
-        "selection": "selected",
+        "selection": "suggested",
         "shown": "whole",
         "state": "installed"
        },
@@ -2627,6 +2751,117 @@
         "state": "not_checked"
        },
        {
+        "element_id": "positions.repository.memory",
+        "executing": false,
+        "focused": false,
+        "label": "레포 결정 기록 · 아직 없음",
+        "marks": [
+         "[-]",
+         "(선택 불가)"
+        ],
+        "refers_to": {
+         "position": {
+          "role": "memory",
+          "scope": {
+           "layer": "repository",
+           "repository_id": "rep_75a3fe4d467f0d62486f0e6d9726009c"
+          }
+         },
+         "ref": "position",
+         "view": "original"
+        },
+        "role": "selection",
+        "selection": "none",
+        "shown": "whole",
+        "state": "checked_empty"
+       },
+       {
+        "element_id": "positions.personal.instructions",
+        "executing": false,
+        "focused": false,
+        "label": "개인 지침 · 아직 없음",
+        "marks": [
+         "[-]",
+         "(선택 불가)"
+        ],
+        "refers_to": {
+         "position": {
+          "role": "instructions",
+          "scope": {
+           "layer": "personal",
+           "principal_id": "prn_eecbbea79af4af8423345babb1947b92"
+          }
+         },
+         "ref": "position",
+         "view": "original"
+        },
+        "role": "selection",
+        "selection": "none",
+        "shown": "whole",
+        "state": "checked_empty"
+       },
+       {
+        "element_id": "positions.personal.knowledge",
+        "executing": false,
+        "focused": false,
+        "label": "개인 지식 · 아직 없음",
+        "marks": [
+         "[-]",
+         "(선택 불가)"
+        ],
+        "refers_to": {
+         "position": {
+          "role": "knowledge",
+          "scope": {
+           "layer": "personal",
+           "principal_id": "prn_eecbbea79af4af8423345babb1947b92"
+          }
+         },
+         "ref": "position",
+         "view": "original"
+        },
+        "role": "selection",
+        "selection": "none",
+        "shown": "whole",
+        "state": "checked_empty"
+       },
+       {
+        "element_id": "positions.personal.memory",
+        "executing": false,
+        "focused": false,
+        "label": "개인 결정 기록 · 아직 없음",
+        "marks": [
+         "[-]",
+         "(선택 불가)"
+        ],
+        "refers_to": {
+         "position": {
+          "role": "memory",
+          "scope": {
+           "layer": "personal",
+           "principal_id": "prn_eecbbea79af4af8423345babb1947b92"
+          }
+         },
+         "ref": "position",
+         "view": "original"
+        },
+        "role": "selection",
+        "selection": "none",
+        "shown": "whole",
+        "state": "checked_empty"
+       },
+       {
+        "element_id": "field.note",
+        "executing": false,
+        "focused": false,
+        "label": "메모 · 시작 요청에 함께 기록",
+        "marks": [],
+        "role": "field",
+        "selection": "none",
+        "shown": "whole",
+        "value": ""
+       },
+       {
         "effects": [
          "model_calls"
         ],
@@ -2639,13 +2874,30 @@
         ],
         "role": "setting",
         "selection": "suggested",
-        "shown": "whole"
+        "shown": "whole",
+        "value": "Claude Code"
        },
        {
-        "element_id": "blocker.personal_decide",
+        "effects": [
+         "permission_request"
+        ],
+        "element_id": "execution.permissions",
         "executing": false,
         "focused": false,
-        "label": "개인 결정 기록: Claude Code에서 확인되지 않아 쓸 수 없음 · 이 호스트의 결정 기록 기능을 확인하면 쓸 수 있음",
+        "label": "권한 · 호스트 설정대로 확인",
+        "marks": [
+         "(제안)"
+        ],
+        "role": "setting",
+        "selection": "suggested",
+        "shown": "whole",
+        "value": "host_settings"
+       },
+       {
+        "element_id": "blocker.personal.decide",
+        "executing": false,
+        "focused": false,
+        "label": "확인되지 않은 경로 · 이 호스트에서 확인하면 쓸 수 있음",
         "marks": [],
         "refers_to": {
          "ref": "route",
@@ -2659,9 +2911,7 @@
        {
         "effects": [
          "file_changes",
-         "model_calls",
-         "permission_request",
-         "shared_change"
+         "model_calls"
         ],
         "element_id": "action.start",
         "executing": false,
@@ -2734,7 +2984,8 @@
         "focused": false,
         "label": "지침 · AGENTS.md",
         "marks": [
-         "[x]"
+         "[x]",
+         "(제안)"
         ],
         "refers_to": {
          "position": {
@@ -2748,7 +2999,7 @@
          "view": "original"
         },
         "role": "selection",
-        "selection": "selected",
+        "selection": "suggested",
         "shown": "whole",
         "state": "installed"
        },
@@ -2777,6 +3028,119 @@
         "state": "not_checked"
        },
        {
+        "element_id": "positions.repository.memory",
+        "executing": false,
+        "focused": false,
+        "label": "레포 결정 기록 · 아직 없음",
+        "marks": [
+         "[-]",
+         "(선택 불가)"
+        ],
+        "refers_to": {
+         "position": {
+          "role": "memory",
+          "scope": {
+           "layer": "repository",
+           "repository_id": "rep_75a3fe4d467f0d62486f0e6d9726009c"
+          }
+         },
+         "ref": "position",
+         "view": "original"
+        },
+        "role": "selection",
+        "selection": "none",
+        "shown": "whole",
+        "state": "checked_empty"
+       },
+       {
+        "element_id": "positions.personal.instructions",
+        "executing": false,
+        "focused": false,
+        "label": "개인 지침 · 아직 없음",
+        "marks": [
+         "[-]",
+         "(선택 불가)"
+        ],
+        "refers_to": {
+         "position": {
+          "role": "instructions",
+          "scope": {
+           "layer": "personal",
+           "principal_id": "prn_eecbbea79af4af8423345babb1947b92"
+          }
+         },
+         "ref": "position",
+         "view": "original"
+        },
+        "role": "selection",
+        "selection": "none",
+        "shown": "whole",
+        "state": "checked_empty"
+       },
+       {
+        "element_id": "positions.personal.knowledge",
+        "executing": false,
+        "focused": false,
+        "label": "개인 지식 · 아직 없음",
+        "marks": [
+         "[-]",
+         "(선택 불가)"
+        ],
+        "refers_to": {
+         "position": {
+          "role": "knowledge",
+          "scope": {
+           "layer": "personal",
+           "principal_id": "prn_eecbbea79af4af8423345babb1947b92"
+          }
+         },
+         "ref": "position",
+         "view": "original"
+        },
+        "role": "selection",
+        "selection": "none",
+        "shown": "whole",
+        "state": "checked_empty"
+       },
+       {
+        "element_id": "positions.personal.memory",
+        "executing": false,
+        "focused": false,
+        "label": "개인 결정 기록 · 아직 없음",
+        "marks": [
+         "[-]",
+         "(선택 불가)"
+        ],
+        "refers_to": {
+         "position": {
+          "role": "memory",
+          "scope": {
+           "layer": "personal",
+           "principal_id": "prn_eecbbea79af4af8423345babb1947b92"
+          }
+         },
+         "ref": "position",
+         "view": "original"
+        },
+        "role": "selection",
+        "selection": "none",
+        "shown": "whole",
+        "state": "checked_empty"
+       },
+       {
+        "element_id": "field.note",
+        "executing": false,
+        "focused": true,
+        "label": "메모 · 시작 요청에 함께 기록",
+        "marks": [
+         "›"
+        ],
+        "role": "field",
+        "selection": "none",
+        "shown": "whole",
+        "value": ""
+       },
+       {
         "effects": [
          "model_calls"
         ],
@@ -2789,13 +3153,30 @@
         ],
         "role": "setting",
         "selection": "suggested",
-        "shown": "whole"
+        "shown": "whole",
+        "value": "Claude Code"
        },
        {
-        "element_id": "blocker.personal_decide",
+        "effects": [
+         "permission_request"
+        ],
+        "element_id": "execution.permissions",
         "executing": false,
         "focused": false,
-        "label": "개인 결정 기록: Claude Code에서 확인되지 않아 쓸 수 없음 · 이 호스트의 결정 기록 기능을 확인하면 쓸 수 있음",
+        "label": "권한 · 호스트 설정대로 확인",
+        "marks": [
+         "(제안)"
+        ],
+        "role": "setting",
+        "selection": "suggested",
+        "shown": "whole",
+        "value": "host_settings"
+       },
+       {
+        "element_id": "blocker.personal.decide",
+        "executing": false,
+        "focused": false,
+        "label": "확인되지 않은 경로 · 이 호스트에서 확인하면 쓸 수 있음",
         "marks": [],
         "refers_to": {
          "ref": "route",
@@ -2809,9 +3190,562 @@
        {
         "effects": [
          "file_changes",
-         "model_calls",
-         "permission_request",
-         "shared_change"
+         "model_calls"
+        ],
+        "element_id": "action.start",
+        "executing": false,
+        "focused": false,
+        "label": "Claude Code 새 세션 시작",
+        "marks": [],
+        "refers_to": {
+         "ref": "route",
+         "route_id": "rte_024893a357668d202a29d0a8d657780d"
+        },
+        "role": "action",
+        "selection": "none",
+        "shown": "whole"
+       },
+       {
+        "element_id": "help.keys",
+        "executing": false,
+        "focused": false,
+        "label": "Tab 이동 · Enter 열기 · Space 선택 · Esc 뒤로",
+        "marks": [],
+        "role": "help",
+        "selection": "none",
+        "shown": "whole"
+       }
+      ],
+      "locale": "ko",
+      "terminal": {
+       "columns": 80,
+       "rows": 24
+      },
+      "view": {
+       "missing_bodies": [],
+       "origin": {
+        "name": "host_launcher",
+        "root_origin": "owner"
+       },
+       "selected_scope": {
+        "layer": "repository",
+        "repository_id": "rep_75a3fe4d467f0d62486f0e6d9726009c"
+       },
+       "view": "w01"
+      }
+     },
+     {
+      "access": "active",
+      "after": 2,
+      "calls": [],
+      "dispatched": [],
+      "elements": [
+       {
+        "element_id": "context.location",
+        "executing": false,
+        "focused": false,
+        "label": "payments · 로컬 레포 · main",
+        "marks": [],
+        "refers_to": {
+         "ref": "scope",
+         "scope": {
+          "layer": "repository",
+          "repository_id": "rep_75a3fe4d467f0d62486f0e6d9726009c"
+         }
+        },
+        "role": "context",
+        "selection": "none",
+        "shown": "whole"
+       },
+       {
+        "element_id": "positions.repository.instructions",
+        "executing": false,
+        "focused": false,
+        "label": "지침 · AGENTS.md",
+        "marks": [
+         "[x]",
+         "(제안)"
+        ],
+        "refers_to": {
+         "position": {
+          "role": "instructions",
+          "scope": {
+           "layer": "repository",
+           "repository_id": "rep_75a3fe4d467f0d62486f0e6d9726009c"
+          }
+         },
+         "ref": "position",
+         "view": "original"
+        },
+        "role": "selection",
+        "selection": "suggested",
+        "shown": "whole",
+        "state": "installed"
+       },
+       {
+        "element_id": "positions.repository.knowledge",
+        "executing": false,
+        "focused": false,
+        "label": "지식 · docs/retry.md",
+        "marks": [
+         "[ ]"
+        ],
+        "refers_to": {
+         "position": {
+          "role": "knowledge",
+          "scope": {
+           "layer": "repository",
+           "repository_id": "rep_75a3fe4d467f0d62486f0e6d9726009c"
+          }
+         },
+         "ref": "position",
+         "view": "original"
+        },
+        "role": "selection",
+        "selection": "none",
+        "shown": "whole",
+        "state": "not_checked"
+       },
+       {
+        "element_id": "positions.repository.memory",
+        "executing": false,
+        "focused": false,
+        "label": "레포 결정 기록 · 아직 없음",
+        "marks": [
+         "[-]",
+         "(선택 불가)"
+        ],
+        "refers_to": {
+         "position": {
+          "role": "memory",
+          "scope": {
+           "layer": "repository",
+           "repository_id": "rep_75a3fe4d467f0d62486f0e6d9726009c"
+          }
+         },
+         "ref": "position",
+         "view": "original"
+        },
+        "role": "selection",
+        "selection": "none",
+        "shown": "whole",
+        "state": "checked_empty"
+       },
+       {
+        "element_id": "positions.personal.instructions",
+        "executing": false,
+        "focused": false,
+        "label": "개인 지침 · 아직 없음",
+        "marks": [
+         "[-]",
+         "(선택 불가)"
+        ],
+        "refers_to": {
+         "position": {
+          "role": "instructions",
+          "scope": {
+           "layer": "personal",
+           "principal_id": "prn_eecbbea79af4af8423345babb1947b92"
+          }
+         },
+         "ref": "position",
+         "view": "original"
+        },
+        "role": "selection",
+        "selection": "none",
+        "shown": "whole",
+        "state": "checked_empty"
+       },
+       {
+        "element_id": "positions.personal.knowledge",
+        "executing": false,
+        "focused": false,
+        "label": "개인 지식 · 아직 없음",
+        "marks": [
+         "[-]",
+         "(선택 불가)"
+        ],
+        "refers_to": {
+         "position": {
+          "role": "knowledge",
+          "scope": {
+           "layer": "personal",
+           "principal_id": "prn_eecbbea79af4af8423345babb1947b92"
+          }
+         },
+         "ref": "position",
+         "view": "original"
+        },
+        "role": "selection",
+        "selection": "none",
+        "shown": "whole",
+        "state": "checked_empty"
+       },
+       {
+        "element_id": "positions.personal.memory",
+        "executing": false,
+        "focused": false,
+        "label": "개인 결정 기록 · 아직 없음",
+        "marks": [
+         "[-]",
+         "(선택 불가)"
+        ],
+        "refers_to": {
+         "position": {
+          "role": "memory",
+          "scope": {
+           "layer": "personal",
+           "principal_id": "prn_eecbbea79af4af8423345babb1947b92"
+          }
+         },
+         "ref": "position",
+         "view": "original"
+        },
+        "role": "selection",
+        "selection": "none",
+        "shown": "whole",
+        "state": "checked_empty"
+       },
+       {
+        "element_id": "field.note",
+        "executing": false,
+        "focused": false,
+        "label": "메모 · 시작 요청에 함께 기록",
+        "marks": [],
+        "role": "field",
+        "selection": "none",
+        "shown": "whole",
+        "value": ""
+       },
+       {
+        "effects": [
+         "model_calls"
+        ],
+        "element_id": "execution.tool",
+        "executing": false,
+        "focused": false,
+        "label": "도구 Claude Code 2.1.278 · 새 세션",
+        "marks": [
+         "(제안)"
+        ],
+        "role": "setting",
+        "selection": "suggested",
+        "shown": "whole",
+        "value": "Claude Code"
+       },
+       {
+        "effects": [
+         "permission_request"
+        ],
+        "element_id": "execution.permissions",
+        "executing": false,
+        "focused": true,
+        "label": "권한 · 호스트 설정대로 확인",
+        "marks": [
+         "›",
+         "(제안)"
+        ],
+        "role": "setting",
+        "selection": "suggested",
+        "shown": "whole",
+        "value": "host_settings"
+       },
+       {
+        "element_id": "blocker.personal.decide",
+        "executing": false,
+        "focused": false,
+        "label": "확인되지 않은 경로 · 이 호스트에서 확인하면 쓸 수 있음",
+        "marks": [],
+        "refers_to": {
+         "ref": "route",
+         "route_id": "rte_628161cb4483b23627a80b0e84d51d03"
+        },
+        "role": "blocker",
+        "selection": "none",
+        "shown": "whole",
+        "state": "blocked"
+       },
+       {
+        "effects": [
+         "file_changes",
+         "model_calls"
+        ],
+        "element_id": "action.start",
+        "executing": false,
+        "focused": false,
+        "label": "Claude Code 새 세션 시작",
+        "marks": [],
+        "refers_to": {
+         "ref": "route",
+         "route_id": "rte_024893a357668d202a29d0a8d657780d"
+        },
+        "role": "action",
+        "selection": "none",
+        "shown": "whole"
+       },
+       {
+        "element_id": "help.keys",
+        "executing": false,
+        "focused": false,
+        "label": "Tab 이동 · Enter 열기 · Space 선택 · Esc 뒤로",
+        "marks": [],
+        "role": "help",
+        "selection": "none",
+        "shown": "whole"
+       }
+      ],
+      "locale": "ko",
+      "terminal": {
+       "columns": 80,
+       "rows": 24
+      },
+      "view": {
+       "missing_bodies": [],
+       "origin": {
+        "name": "host_launcher",
+        "root_origin": "owner"
+       },
+       "selected_scope": {
+        "layer": "repository",
+        "repository_id": "rep_75a3fe4d467f0d62486f0e6d9726009c"
+       },
+       "view": "w01"
+      }
+     },
+     {
+      "access": "active",
+      "after": 3,
+      "calls": [],
+      "dispatched": [],
+      "elements": [
+       {
+        "element_id": "context.location",
+        "executing": false,
+        "focused": false,
+        "label": "payments · 로컬 레포 · main",
+        "marks": [],
+        "refers_to": {
+         "ref": "scope",
+         "scope": {
+          "layer": "repository",
+          "repository_id": "rep_75a3fe4d467f0d62486f0e6d9726009c"
+         }
+        },
+        "role": "context",
+        "selection": "none",
+        "shown": "whole"
+       },
+       {
+        "element_id": "positions.repository.instructions",
+        "executing": false,
+        "focused": false,
+        "label": "지침 · AGENTS.md",
+        "marks": [
+         "[x]",
+         "(제안)"
+        ],
+        "refers_to": {
+         "position": {
+          "role": "instructions",
+          "scope": {
+           "layer": "repository",
+           "repository_id": "rep_75a3fe4d467f0d62486f0e6d9726009c"
+          }
+         },
+         "ref": "position",
+         "view": "original"
+        },
+        "role": "selection",
+        "selection": "suggested",
+        "shown": "whole",
+        "state": "installed"
+       },
+       {
+        "element_id": "positions.repository.knowledge",
+        "executing": false,
+        "focused": false,
+        "label": "지식 · docs/retry.md",
+        "marks": [
+         "[ ]"
+        ],
+        "refers_to": {
+         "position": {
+          "role": "knowledge",
+          "scope": {
+           "layer": "repository",
+           "repository_id": "rep_75a3fe4d467f0d62486f0e6d9726009c"
+          }
+         },
+         "ref": "position",
+         "view": "original"
+        },
+        "role": "selection",
+        "selection": "none",
+        "shown": "whole",
+        "state": "not_checked"
+       },
+       {
+        "element_id": "positions.repository.memory",
+        "executing": false,
+        "focused": false,
+        "label": "레포 결정 기록 · 아직 없음",
+        "marks": [
+         "[-]",
+         "(선택 불가)"
+        ],
+        "refers_to": {
+         "position": {
+          "role": "memory",
+          "scope": {
+           "layer": "repository",
+           "repository_id": "rep_75a3fe4d467f0d62486f0e6d9726009c"
+          }
+         },
+         "ref": "position",
+         "view": "original"
+        },
+        "role": "selection",
+        "selection": "none",
+        "shown": "whole",
+        "state": "checked_empty"
+       },
+       {
+        "element_id": "positions.personal.instructions",
+        "executing": false,
+        "focused": false,
+        "label": "개인 지침 · 아직 없음",
+        "marks": [
+         "[-]",
+         "(선택 불가)"
+        ],
+        "refers_to": {
+         "position": {
+          "role": "instructions",
+          "scope": {
+           "layer": "personal",
+           "principal_id": "prn_eecbbea79af4af8423345babb1947b92"
+          }
+         },
+         "ref": "position",
+         "view": "original"
+        },
+        "role": "selection",
+        "selection": "none",
+        "shown": "whole",
+        "state": "checked_empty"
+       },
+       {
+        "element_id": "positions.personal.knowledge",
+        "executing": false,
+        "focused": false,
+        "label": "개인 지식 · 아직 없음",
+        "marks": [
+         "[-]",
+         "(선택 불가)"
+        ],
+        "refers_to": {
+         "position": {
+          "role": "knowledge",
+          "scope": {
+           "layer": "personal",
+           "principal_id": "prn_eecbbea79af4af8423345babb1947b92"
+          }
+         },
+         "ref": "position",
+         "view": "original"
+        },
+        "role": "selection",
+        "selection": "none",
+        "shown": "whole",
+        "state": "checked_empty"
+       },
+       {
+        "element_id": "positions.personal.memory",
+        "executing": false,
+        "focused": false,
+        "label": "개인 결정 기록 · 아직 없음",
+        "marks": [
+         "[-]",
+         "(선택 불가)"
+        ],
+        "refers_to": {
+         "position": {
+          "role": "memory",
+          "scope": {
+           "layer": "personal",
+           "principal_id": "prn_eecbbea79af4af8423345babb1947b92"
+          }
+         },
+         "ref": "position",
+         "view": "original"
+        },
+        "role": "selection",
+        "selection": "none",
+        "shown": "whole",
+        "state": "checked_empty"
+       },
+       {
+        "element_id": "field.note",
+        "executing": false,
+        "focused": false,
+        "label": "메모 · 시작 요청에 함께 기록",
+        "marks": [],
+        "role": "field",
+        "selection": "none",
+        "shown": "whole",
+        "value": ""
+       },
+       {
+        "effects": [
+         "model_calls"
+        ],
+        "element_id": "execution.tool",
+        "executing": false,
+        "focused": false,
+        "label": "도구 Claude Code 2.1.278 · 새 세션",
+        "marks": [
+         "(제안)"
+        ],
+        "role": "setting",
+        "selection": "suggested",
+        "shown": "whole",
+        "value": "Claude Code"
+       },
+       {
+        "effects": [
+         "permission_request"
+        ],
+        "element_id": "execution.permissions",
+        "executing": false,
+        "focused": false,
+        "label": "권한 · 호스트 설정대로 확인",
+        "marks": [
+         "(제안)"
+        ],
+        "role": "setting",
+        "selection": "suggested",
+        "shown": "whole",
+        "value": "host_settings"
+       },
+       {
+        "element_id": "blocker.personal.decide",
+        "executing": false,
+        "focused": false,
+        "label": "확인되지 않은 경로 · 이 호스트에서 확인하면 쓸 수 있음",
+        "marks": [],
+        "refers_to": {
+         "ref": "route",
+         "route_id": "rte_628161cb4483b23627a80b0e84d51d03"
+        },
+        "role": "blocker",
+        "selection": "none",
+        "shown": "whole",
+        "state": "blocked"
+       },
+       {
+        "effects": [
+         "file_changes",
+         "model_calls"
         ],
         "element_id": "action.start",
         "executing": false,
@@ -2859,16 +3793,16 @@
      },
      {
       "access": "active",
-      "after": 2,
+      "after": 4,
       "calls": [
        {
         "operation": "preparation.compose",
         "reads": "bodies",
-        "request_digest": "d6c89974bbdd3071fda4ab8dc71e5722ecaacf1baa2e8e0323a6bb6c93731ad9"
+        "request_digest": "2a8f82407786acb70c9a9882a5829b4884eb040dab47a09b5158c5268c885f67"
        }
       ],
       "dispatched": [
-       "req_57371e2d23d485c05aa0e15daab87017"
+       "req_9cd647c57ae558826635ead25da5303b"
       ],
       "elements": [
        {
@@ -2894,7 +3828,8 @@
         "focused": false,
         "label": "지침 · AGENTS.md",
         "marks": [
-         "[x]"
+         "[x]",
+         "(제안)"
         ],
         "refers_to": {
          "position": {
@@ -2908,7 +3843,7 @@
          "view": "original"
         },
         "role": "selection",
-        "selection": "selected",
+        "selection": "suggested",
         "shown": "whole",
         "state": "installed"
        },
@@ -2937,6 +3872,117 @@
         "state": "not_checked"
        },
        {
+        "element_id": "positions.repository.memory",
+        "executing": false,
+        "focused": false,
+        "label": "레포 결정 기록 · 아직 없음",
+        "marks": [
+         "[-]",
+         "(선택 불가)"
+        ],
+        "refers_to": {
+         "position": {
+          "role": "memory",
+          "scope": {
+           "layer": "repository",
+           "repository_id": "rep_75a3fe4d467f0d62486f0e6d9726009c"
+          }
+         },
+         "ref": "position",
+         "view": "original"
+        },
+        "role": "selection",
+        "selection": "none",
+        "shown": "whole",
+        "state": "checked_empty"
+       },
+       {
+        "element_id": "positions.personal.instructions",
+        "executing": false,
+        "focused": false,
+        "label": "개인 지침 · 아직 없음",
+        "marks": [
+         "[-]",
+         "(선택 불가)"
+        ],
+        "refers_to": {
+         "position": {
+          "role": "instructions",
+          "scope": {
+           "layer": "personal",
+           "principal_id": "prn_eecbbea79af4af8423345babb1947b92"
+          }
+         },
+         "ref": "position",
+         "view": "original"
+        },
+        "role": "selection",
+        "selection": "none",
+        "shown": "whole",
+        "state": "checked_empty"
+       },
+       {
+        "element_id": "positions.personal.knowledge",
+        "executing": false,
+        "focused": false,
+        "label": "개인 지식 · 아직 없음",
+        "marks": [
+         "[-]",
+         "(선택 불가)"
+        ],
+        "refers_to": {
+         "position": {
+          "role": "knowledge",
+          "scope": {
+           "layer": "personal",
+           "principal_id": "prn_eecbbea79af4af8423345babb1947b92"
+          }
+         },
+         "ref": "position",
+         "view": "original"
+        },
+        "role": "selection",
+        "selection": "none",
+        "shown": "whole",
+        "state": "checked_empty"
+       },
+       {
+        "element_id": "positions.personal.memory",
+        "executing": false,
+        "focused": false,
+        "label": "개인 결정 기록 · 아직 없음",
+        "marks": [
+         "[-]",
+         "(선택 불가)"
+        ],
+        "refers_to": {
+         "position": {
+          "role": "memory",
+          "scope": {
+           "layer": "personal",
+           "principal_id": "prn_eecbbea79af4af8423345babb1947b92"
+          }
+         },
+         "ref": "position",
+         "view": "original"
+        },
+        "role": "selection",
+        "selection": "none",
+        "shown": "whole",
+        "state": "checked_empty"
+       },
+       {
+        "element_id": "field.note",
+        "executing": false,
+        "focused": false,
+        "label": "메모 · 시작 요청에 함께 기록",
+        "marks": [],
+        "role": "field",
+        "selection": "none",
+        "shown": "whole",
+        "value": ""
+       },
+       {
         "effects": [
          "model_calls"
         ],
@@ -2949,13 +3995,30 @@
         ],
         "role": "setting",
         "selection": "suggested",
-        "shown": "whole"
+        "shown": "whole",
+        "value": "Claude Code"
        },
        {
-        "element_id": "blocker.personal_decide",
+        "effects": [
+         "permission_request"
+        ],
+        "element_id": "execution.permissions",
         "executing": false,
         "focused": false,
-        "label": "개인 결정 기록: Claude Code에서 확인되지 않아 쓸 수 없음 · 이 호스트의 결정 기록 기능을 확인하면 쓸 수 있음",
+        "label": "권한 · 호스트 설정대로 확인",
+        "marks": [
+         "(제안)"
+        ],
+        "role": "setting",
+        "selection": "suggested",
+        "shown": "whole",
+        "value": "host_settings"
+       },
+       {
+        "element_id": "blocker.personal.decide",
+        "executing": false,
+        "focused": false,
+        "label": "확인되지 않은 경로 · 이 호스트에서 확인하면 쓸 수 있음",
         "marks": [],
         "refers_to": {
          "ref": "route",
@@ -2969,9 +4032,7 @@
        {
         "effects": [
          "file_changes",
-         "model_calls",
-         "permission_request",
-         "shared_change"
+         "model_calls"
         ],
         "element_id": "action.start",
         "executing": true,
@@ -3007,7 +4068,7 @@
         "marks": [],
         "refers_to": {
          "ref": "request",
-         "request_id": "req_57371e2d23d485c05aa0e15daab87017"
+         "request_id": "req_9cd647c57ae558826635ead25da5303b"
         },
         "role": "result",
         "selection": "none",
@@ -3039,11 +4100,11 @@
      "runs": "real"
     },
     "schema": 1,
-    "script_digest": "0ac15e46585b8d5bdff83e241af726c26892fa193024e495457466275445af9d"
+    "script_digest": "9caf972d1210e89edf11fdf17a736c7d2c3b1d808d170d781ffd2dc9aa648cb3"
    }
   },
   {
-   "digest": "c0cd7b3fe6cd26e35abcd0faff3adf38f66fe42fed3a203231fce279ae64a49e",
+   "digest": "c99fd7c7fd5be46685773d941600449055760c894a06751d5ef261a4c4fd66ba",
    "name": "drive_entry_result",
    "record": {
     "kind": "operation_result",
@@ -3054,13 +4115,177 @@
     },
     "outputs": [
      {
-      "digest": "49120b8305c26221e4fb0eaab703bc6d73a086b2fb370fa0199773b370c59c9e",
+      "digest": "c6a4b516e177527d4f6db1286991f6377b141e9a442055258ad1e30e447b5f3d",
       "kind": "surface_trace"
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "bceb894a49f705848d86cb4d3f4bf91e079e1673dc0ee05c3915426bccda1e3d",
+    "request_digest": "bc82760ebf2b731c0aecb707211918ab407d63b0037aad4d1ec79efdd85636f6",
     "request_id": "req_7427300b3a867a54cd76e2e3cb4b5ff6",
+    "schema": 1,
+    "supported_recovery": []
+   }
+  },
+  {
+   "digest": "eb0387de6690395482a0022834ff7e5dd27361da9a5e19513f2180b70b894756",
+   "name": "link_offer",
+   "record": {
+    "entrance": {
+     "name": "work_link",
+     "root_origin": "owner"
+    },
+    "kind": "route_offer",
+    "offered": [
+     {
+      "recovery": [
+       "retry_same_request",
+       "query_same_request"
+      ],
+      "route_id": "rte_024893a357668d202a29d0a8d657780d",
+      "scope": {
+       "layer": "repository",
+       "repository_id": "rep_75a3fe4d467f0d62486f0e6d9726009c"
+      },
+      "support": {
+       "probe_digest": "6d19df085b1336958c61bb0fe00013efa6044be204f2a5f89e597c59e271c9e2",
+       "qualified": "yes"
+      },
+      "supported_action": "use"
+     },
+     {
+      "recovery": [
+       "new_governed_request"
+      ],
+      "route_id": "rte_628161cb4483b23627a80b0e84d51d03",
+      "scope": {
+       "layer": "personal",
+       "principal_id": "prn_eecbbea79af4af8423345babb1947b92"
+      },
+      "support": {
+       "because": "offered_but_unproven",
+       "qualified": "no"
+      },
+      "supported_action": "decide"
+     }
+    ],
+    "schema": 1
+   }
+  },
+  {
+   "digest": "0fb38bc0e64e3cb5df1e5da6eb7bb00c2436532f107c573e2935e93f92a5691f",
+   "name": "link_offer_request",
+   "record": {
+    "action": "read",
+    "actor": {
+     "device_id": "dev_38412629d43df2ecf936b0c330f28dba",
+     "principal_id": "prn_eecbbea79af4af8423345babb1947b92",
+     "profile_id": "prf_a685c9283e187989b60506b032b7665f"
+    },
+    "control_digests": [],
+    "effect_class": "owner_commit",
+    "kind": "operation_request",
+    "local_access_generation": 7,
+    "operation": "route.offer",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_eecbbea79af4af8423345babb1947b92"
+    },
+    "payload_digest": "eb0387de6690395482a0022834ff7e5dd27361da9a5e19513f2180b70b894756",
+    "policy_digests": [],
+    "proof_digests": [],
+    "request_id": "req_ad7eb3be66c8f01931869366ada71c94",
+    "schema": 1,
+    "target": {
+     "resource_id": "prf_a685c9283e187989b60506b032b7665f"
+    }
+   }
+  },
+  {
+   "digest": "8ce5e7ae49d39f1b4becf06ad87c55e7a4c277550f720d7c32c8c7a4d90a95a2",
+   "name": "offer_routes_to_the_link_receipt",
+   "record": {
+    "committed_at": "2000-01-01T00:00:00Z",
+    "head_digest": "919eecc33f6afeadd838be29cb13a3c148a23a27da28c7dda5fe0654f3851dd5",
+    "kind": "operation_receipt",
+    "owner": {
+     "layer": "personal",
+     "principal_id": "prn_eecbbea79af4af8423345babb1947b92"
+    },
+    "request_digest": "0fb38bc0e64e3cb5df1e5da6eb7bb00c2436532f107c573e2935e93f92a5691f",
+    "request_id": "req_ad7eb3be66c8f01931869366ada71c94",
+    "schema": 1,
+    "sequence": 1,
+    "target": {
+     "resource_id": "prf_a685c9283e187989b60506b032b7665f"
+    }
+   }
+  },
+  {
+   "digest": "be253f8f6542caba8760cf9531e02244940d0d52a837695f84bd7a5877fdba3f",
+   "name": "link_offer_stored",
+   "record": {
+    "entrance": {
+     "name": "work_link",
+     "root_origin": "owner"
+    },
+    "kind": "route_offer",
+    "offered": [
+     {
+      "recovery": [
+       "retry_same_request",
+       "query_same_request"
+      ],
+      "route_id": "rte_024893a357668d202a29d0a8d657780d",
+      "scope": {
+       "layer": "repository",
+       "repository_id": "rep_75a3fe4d467f0d62486f0e6d9726009c"
+      },
+      "support": {
+       "probe_digest": "6d19df085b1336958c61bb0fe00013efa6044be204f2a5f89e597c59e271c9e2",
+       "qualified": "yes"
+      },
+      "supported_action": "use"
+     },
+     {
+      "recovery": [
+       "new_governed_request"
+      ],
+      "route_id": "rte_628161cb4483b23627a80b0e84d51d03",
+      "scope": {
+       "layer": "personal",
+       "principal_id": "prn_eecbbea79af4af8423345babb1947b92"
+      },
+      "support": {
+       "because": "offered_but_unproven",
+       "qualified": "no"
+      },
+      "supported_action": "decide"
+     }
+    ],
+    "offered_at": "2000-01-01T00:00:00Z",
+    "schema": 1
+   }
+  },
+  {
+   "digest": "6b3cca3d5ab3c6eaa6bce527e9e4afae12edc6f5bc795bb0a496a3a150158787",
+   "name": "offer_routes_to_the_link_result",
+   "record": {
+    "kind": "operation_result",
+    "local_effect": "committed",
+    "outcome": {
+     "material_gaps": [],
+     "receipt_digest": "8ce5e7ae49d39f1b4becf06ad87c55e7a4c277550f720d7c32c8c7a4d90a95a2",
+     "stage": "committed"
+    },
+    "outputs": [
+     {
+      "digest": "be253f8f6542caba8760cf9531e02244940d0d52a837695f84bd7a5877fdba3f",
+      "kind": "route_offer"
+     }
+    ],
+    "provider_effect": "not_applicable",
+    "request_digest": "0fb38bc0e64e3cb5df1e5da6eb7bb00c2436532f107c573e2935e93f92a5691f",
+    "request_id": "req_ad7eb3be66c8f01931869366ada71c94",
     "schema": 1,
     "supported_recovery": []
    }
@@ -3125,13 +4350,13 @@
    }
   },
   {
-   "digest": "9c521fcddecd10325569677d83153b4a5915ab3d30a3c79be9fd8bc547c8a512",
+   "digest": "8ffc8c455be1977a6c1da8f7c2970f09cfacc9eba9394edf869a46a38813d257",
    "name": "exact_link_trace",
    "record": {
     "at": "2000-01-01T00:00:00Z",
     "client": {
-     "name": "agent-bios",
-     "version": "0.20.0"
+     "name": "agent-bios-entry",
+     "version": "1"
     },
     "frames": [
      {
@@ -3139,7 +4364,262 @@
       "after": 0,
       "calls": [],
       "dispatched": [],
-      "elements": [],
+      "elements": [
+       {
+        "element_id": "context.location",
+        "executing": false,
+        "focused": false,
+        "label": "work · 로컬 레포 · main",
+        "marks": [],
+        "refers_to": {
+         "ref": "scope",
+         "scope": {
+          "layer": "repository",
+          "repository_id": "rep_75a3fe4d467f0d62486f0e6d9726009c"
+         }
+        },
+        "role": "context",
+        "selection": "none",
+        "shown": "whole"
+       },
+       {
+        "element_id": "positions.repository.instructions",
+        "executing": false,
+        "focused": false,
+        "label": "레포 지침 · AGENTS.md",
+        "marks": [
+         "[x]",
+         "(제안)"
+        ],
+        "refers_to": {
+         "position": {
+          "role": "instructions",
+          "scope": {
+           "layer": "repository",
+           "repository_id": "rep_75a3fe4d467f0d62486f0e6d9726009c"
+          }
+         },
+         "ref": "position",
+         "view": "original"
+        },
+        "role": "selection",
+        "selection": "suggested",
+        "shown": "whole",
+        "state": "installed"
+       },
+       {
+        "element_id": "positions.repository.knowledge",
+        "executing": false,
+        "focused": false,
+        "label": "레포 지식 · docs/retry.md",
+        "marks": [
+         "[ ]"
+        ],
+        "refers_to": {
+         "position": {
+          "role": "knowledge",
+          "scope": {
+           "layer": "repository",
+           "repository_id": "rep_75a3fe4d467f0d62486f0e6d9726009c"
+          }
+         },
+         "ref": "position",
+         "view": "original"
+        },
+        "role": "selection",
+        "selection": "none",
+        "shown": "whole",
+        "state": "not_checked"
+       },
+       {
+        "element_id": "positions.repository.memory",
+        "executing": false,
+        "focused": false,
+        "label": "레포 결정 기록 · 아직 없음",
+        "marks": [
+         "[-]",
+         "(선택 불가)"
+        ],
+        "refers_to": {
+         "position": {
+          "role": "memory",
+          "scope": {
+           "layer": "repository",
+           "repository_id": "rep_75a3fe4d467f0d62486f0e6d9726009c"
+          }
+         },
+         "ref": "position",
+         "view": "original"
+        },
+        "role": "selection",
+        "selection": "none",
+        "shown": "whole",
+        "state": "checked_empty"
+       },
+       {
+        "element_id": "positions.personal.instructions",
+        "executing": false,
+        "focused": false,
+        "label": "개인 지침 · 아직 없음",
+        "marks": [
+         "[-]",
+         "(선택 불가)"
+        ],
+        "refers_to": {
+         "position": {
+          "role": "instructions",
+          "scope": {
+           "layer": "personal",
+           "principal_id": "prn_eecbbea79af4af8423345babb1947b92"
+          }
+         },
+         "ref": "position",
+         "view": "original"
+        },
+        "role": "selection",
+        "selection": "none",
+        "shown": "whole",
+        "state": "checked_empty"
+       },
+       {
+        "element_id": "positions.personal.knowledge",
+        "executing": false,
+        "focused": false,
+        "label": "개인 지식 · 아직 없음",
+        "marks": [
+         "[-]",
+         "(선택 불가)"
+        ],
+        "refers_to": {
+         "position": {
+          "role": "knowledge",
+          "scope": {
+           "layer": "personal",
+           "principal_id": "prn_eecbbea79af4af8423345babb1947b92"
+          }
+         },
+         "ref": "position",
+         "view": "original"
+        },
+        "role": "selection",
+        "selection": "none",
+        "shown": "whole",
+        "state": "checked_empty"
+       },
+       {
+        "element_id": "positions.personal.memory",
+        "executing": false,
+        "focused": false,
+        "label": "개인 결정 기록 · 아직 없음",
+        "marks": [
+         "[-]",
+         "(선택 불가)"
+        ],
+        "refers_to": {
+         "position": {
+          "role": "memory",
+          "scope": {
+           "layer": "personal",
+           "principal_id": "prn_eecbbea79af4af8423345babb1947b92"
+          }
+         },
+         "ref": "position",
+         "view": "original"
+        },
+        "role": "selection",
+        "selection": "none",
+        "shown": "whole",
+        "state": "checked_empty"
+       },
+       {
+        "element_id": "field.note",
+        "executing": false,
+        "focused": false,
+        "label": "메모 · 시작 요청에 함께 기록",
+        "marks": [],
+        "role": "field",
+        "selection": "none",
+        "shown": "whole",
+        "value": ""
+       },
+       {
+        "effects": [
+         "model_calls"
+        ],
+        "element_id": "execution.tool",
+        "executing": false,
+        "focused": false,
+        "label": "도구 Claude Code · 새 세션",
+        "marks": [
+         "(제안)"
+        ],
+        "role": "setting",
+        "selection": "suggested",
+        "shown": "whole",
+        "value": "Claude Code"
+       },
+       {
+        "effects": [
+         "permission_request"
+        ],
+        "element_id": "execution.permissions",
+        "executing": false,
+        "focused": false,
+        "label": "권한 · 호스트 설정대로 확인",
+        "marks": [
+         "(제안)"
+        ],
+        "role": "setting",
+        "selection": "suggested",
+        "shown": "whole",
+        "value": "host_settings"
+       },
+       {
+        "element_id": "blocker.personal.decide",
+        "executing": false,
+        "focused": false,
+        "label": "확인되지 않은 경로 · 이 호스트에서 확인하면 쓸 수 있음",
+        "marks": [],
+        "refers_to": {
+         "ref": "route",
+         "route_id": "rte_628161cb4483b23627a80b0e84d51d03"
+        },
+        "role": "blocker",
+        "selection": "none",
+        "shown": "whole",
+        "state": "blocked"
+       },
+       {
+        "effects": [
+         "file_changes",
+         "model_calls"
+        ],
+        "element_id": "action.start",
+        "executing": false,
+        "focused": true,
+        "label": "Claude Code 새 세션 시작",
+        "marks": [
+         "›"
+        ],
+        "refers_to": {
+         "ref": "route",
+         "route_id": "rte_024893a357668d202a29d0a8d657780d"
+        },
+        "role": "action",
+        "selection": "none",
+        "shown": "whole"
+       },
+       {
+        "element_id": "help.keys",
+        "executing": false,
+        "focused": false,
+        "label": "Tab 이동 · ↑↓ 자료 · ←→ 변경 · Enter 열기·시작 · Esc 뒤로",
+        "marks": [],
+        "role": "help",
+        "selection": "none",
+        "shown": "whole"
+       }
+      ],
       "locale": "ko",
       "terminal": {
        "columns": 80,
@@ -3168,7 +4648,262 @@
       "after": 1,
       "calls": [],
       "dispatched": [],
-      "elements": [],
+      "elements": [
+       {
+        "element_id": "context.location",
+        "executing": false,
+        "focused": false,
+        "label": "work · 로컬 레포 · main",
+        "marks": [],
+        "refers_to": {
+         "ref": "scope",
+         "scope": {
+          "layer": "repository",
+          "repository_id": "rep_75a3fe4d467f0d62486f0e6d9726009c"
+         }
+        },
+        "role": "context",
+        "selection": "none",
+        "shown": "whole"
+       },
+       {
+        "element_id": "positions.repository.instructions",
+        "executing": false,
+        "focused": false,
+        "label": "레포 지침 · AGENTS.md",
+        "marks": [
+         "[x]",
+         "(제안)"
+        ],
+        "refers_to": {
+         "position": {
+          "role": "instructions",
+          "scope": {
+           "layer": "repository",
+           "repository_id": "rep_75a3fe4d467f0d62486f0e6d9726009c"
+          }
+         },
+         "ref": "position",
+         "view": "original"
+        },
+        "role": "selection",
+        "selection": "suggested",
+        "shown": "whole",
+        "state": "installed"
+       },
+       {
+        "element_id": "positions.repository.knowledge",
+        "executing": false,
+        "focused": false,
+        "label": "레포 지식 · docs/retry.md",
+        "marks": [
+         "[ ]"
+        ],
+        "refers_to": {
+         "position": {
+          "role": "knowledge",
+          "scope": {
+           "layer": "repository",
+           "repository_id": "rep_75a3fe4d467f0d62486f0e6d9726009c"
+          }
+         },
+         "ref": "position",
+         "view": "original"
+        },
+        "role": "selection",
+        "selection": "none",
+        "shown": "whole",
+        "state": "not_checked"
+       },
+       {
+        "element_id": "positions.repository.memory",
+        "executing": false,
+        "focused": false,
+        "label": "레포 결정 기록 · 아직 없음",
+        "marks": [
+         "[-]",
+         "(선택 불가)"
+        ],
+        "refers_to": {
+         "position": {
+          "role": "memory",
+          "scope": {
+           "layer": "repository",
+           "repository_id": "rep_75a3fe4d467f0d62486f0e6d9726009c"
+          }
+         },
+         "ref": "position",
+         "view": "original"
+        },
+        "role": "selection",
+        "selection": "none",
+        "shown": "whole",
+        "state": "checked_empty"
+       },
+       {
+        "element_id": "positions.personal.instructions",
+        "executing": false,
+        "focused": false,
+        "label": "개인 지침 · 아직 없음",
+        "marks": [
+         "[-]",
+         "(선택 불가)"
+        ],
+        "refers_to": {
+         "position": {
+          "role": "instructions",
+          "scope": {
+           "layer": "personal",
+           "principal_id": "prn_eecbbea79af4af8423345babb1947b92"
+          }
+         },
+         "ref": "position",
+         "view": "original"
+        },
+        "role": "selection",
+        "selection": "none",
+        "shown": "whole",
+        "state": "checked_empty"
+       },
+       {
+        "element_id": "positions.personal.knowledge",
+        "executing": false,
+        "focused": false,
+        "label": "개인 지식 · 아직 없음",
+        "marks": [
+         "[-]",
+         "(선택 불가)"
+        ],
+        "refers_to": {
+         "position": {
+          "role": "knowledge",
+          "scope": {
+           "layer": "personal",
+           "principal_id": "prn_eecbbea79af4af8423345babb1947b92"
+          }
+         },
+         "ref": "position",
+         "view": "original"
+        },
+        "role": "selection",
+        "selection": "none",
+        "shown": "whole",
+        "state": "checked_empty"
+       },
+       {
+        "element_id": "positions.personal.memory",
+        "executing": false,
+        "focused": false,
+        "label": "개인 결정 기록 · 아직 없음",
+        "marks": [
+         "[-]",
+         "(선택 불가)"
+        ],
+        "refers_to": {
+         "position": {
+          "role": "memory",
+          "scope": {
+           "layer": "personal",
+           "principal_id": "prn_eecbbea79af4af8423345babb1947b92"
+          }
+         },
+         "ref": "position",
+         "view": "original"
+        },
+        "role": "selection",
+        "selection": "none",
+        "shown": "whole",
+        "state": "checked_empty"
+       },
+       {
+        "element_id": "field.note",
+        "executing": false,
+        "focused": false,
+        "label": "메모 · 시작 요청에 함께 기록",
+        "marks": [],
+        "role": "field",
+        "selection": "none",
+        "shown": "whole",
+        "value": ""
+       },
+       {
+        "effects": [
+         "model_calls"
+        ],
+        "element_id": "execution.tool",
+        "executing": false,
+        "focused": false,
+        "label": "도구 Claude Code · 새 세션",
+        "marks": [
+         "(제안)"
+        ],
+        "role": "setting",
+        "selection": "suggested",
+        "shown": "whole",
+        "value": "Claude Code"
+       },
+       {
+        "effects": [
+         "permission_request"
+        ],
+        "element_id": "execution.permissions",
+        "executing": false,
+        "focused": false,
+        "label": "권한 · 호스트 설정대로 확인",
+        "marks": [
+         "(제안)"
+        ],
+        "role": "setting",
+        "selection": "suggested",
+        "shown": "whole",
+        "value": "host_settings"
+       },
+       {
+        "element_id": "blocker.personal.decide",
+        "executing": false,
+        "focused": false,
+        "label": "확인되지 않은 경로 · 이 호스트에서 확인하면 쓸 수 있음",
+        "marks": [],
+        "refers_to": {
+         "ref": "route",
+         "route_id": "rte_628161cb4483b23627a80b0e84d51d03"
+        },
+        "role": "blocker",
+        "selection": "none",
+        "shown": "whole",
+        "state": "blocked"
+       },
+       {
+        "effects": [
+         "file_changes",
+         "model_calls"
+        ],
+        "element_id": "action.start",
+        "executing": false,
+        "focused": true,
+        "label": "Claude Code 새 세션 시작",
+        "marks": [
+         "›"
+        ],
+        "refers_to": {
+         "ref": "route",
+         "route_id": "rte_024893a357668d202a29d0a8d657780d"
+        },
+        "role": "action",
+        "selection": "none",
+        "shown": "whole"
+       },
+       {
+        "element_id": "help.keys",
+        "executing": false,
+        "focused": false,
+        "label": "Tab 이동 · ↑↓ 자료 · ←→ 변경 · Enter 열기·시작 · Esc 뒤로",
+        "marks": [],
+        "role": "help",
+        "selection": "none",
+        "shown": "whole"
+       }
+      ],
       "locale": "ko",
       "terminal": {
        "columns": 80,
@@ -3197,7 +4932,7 @@
    }
   },
   {
-   "digest": "a6f3eef84027c53e4e7093464afa315c4783fd5624dfc6eda3847fcf10adc447",
+   "digest": "589ebc493acefc43c08a2479d27831d8fd108ff6a80c6a0322d7aaa7b35e5e4f",
    "name": "drive_exact_link_result",
    "record": {
     "kind": "operation_result",
@@ -3208,7 +4943,7 @@
     },
     "outputs": [
      {
-      "digest": "9c521fcddecd10325569677d83153b4a5915ab3d30a3c79be9fd8bc547c8a512",
+      "digest": "8ffc8c455be1977a6c1da8f7c2970f09cfacc9eba9394edf869a46a38813d257",
       "kind": "surface_trace"
      }
     ],
@@ -3278,7 +5013,7 @@
    }
   },
   {
-   "digest": "4a4214578a4b0a2a90ff6f0d2c58c962f31555111a391cb47f5d75458b112613",
+   "digest": "bff34cc0ab27bcdffbaf39786391ecfd6a983f3fde0e530ca7a46f9609613096",
    "name": "compose_start_result",
    "record": {
     "kind": "operation_result",
@@ -3294,14 +5029,14 @@
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "d6c89974bbdd3071fda4ab8dc71e5722ecaacf1baa2e8e0323a6bb6c93731ad9",
-    "request_id": "req_57371e2d23d485c05aa0e15daab87017",
+    "request_digest": "2a8f82407786acb70c9a9882a5829b4884eb040dab47a09b5158c5268c885f67",
+    "request_id": "req_9cd647c57ae558826635ead25da5303b",
     "schema": 1,
     "supported_recovery": []
    }
   },
   {
-   "digest": "dea014367c9e851958e310ebd1c418bf8ddb1ff271f4d8d4125fc814219e922f",
+   "digest": "f6b499f50c80c348cb922ed1635a469b7775a31b6dd698a32b88cf494653c1a4",
    "name": "selection",
    "record": {
     "expected": {
@@ -3311,14 +5046,14 @@
     },
     "focused": "rte_024893a357668d202a29d0a8d657780d",
     "kind": "route_selection",
-    "offer_digest": "01d13e91f4c58e9160c6d8da32753a2cfc069ce26d9150346666a505fbd69d98",
-    "request_id": "req_57371e2d23d485c05aa0e15daab87017",
+    "offer_digest": "bed8f257309f20e7761d68512c43389fcacb39d8ac956e7f910d510933d1d557",
+    "request_id": "req_9cd647c57ae558826635ead25da5303b",
     "schema": 1,
     "selected": "rte_024893a357668d202a29d0a8d657780d"
    }
   },
   {
-   "digest": "8c12df038dabbed595fa85d53e7d636e27ed41561d3d795e12edebab8d76a362",
+   "digest": "3a94d982bcf836abe868bdf22342e8f8e5016da2d690de7d7724a451630d6e8e",
    "name": "selection_request",
    "record": {
     "action": "read",
@@ -3336,7 +5071,7 @@
      "layer": "personal",
      "principal_id": "prn_eecbbea79af4af8423345babb1947b92"
     },
-    "payload_digest": "dea014367c9e851958e310ebd1c418bf8ddb1ff271f4d8d4125fc814219e922f",
+    "payload_digest": "f6b499f50c80c348cb922ed1635a469b7775a31b6dd698a32b88cf494653c1a4",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_a5edf5ae77c88922d6897b58c663c8b2",
@@ -3347,7 +5082,7 @@
    }
   },
   {
-   "digest": "ade1df277ef6815b53e1218995ae73e2a44e8037c97c38a9292e5342e38b728c",
+   "digest": "7d55a8879784fa2b091f76a9b168c602acfc4f6d7ab978ddfd279807a5712b56",
    "name": "select_start_receipt",
    "record": {
     "committed_at": "2000-01-01T00:00:00Z",
@@ -3357,7 +5092,7 @@
      "layer": "personal",
      "principal_id": "prn_eecbbea79af4af8423345babb1947b92"
     },
-    "request_digest": "8c12df038dabbed595fa85d53e7d636e27ed41561d3d795e12edebab8d76a362",
+    "request_digest": "3a94d982bcf836abe868bdf22342e8f8e5016da2d690de7d7724a451630d6e8e",
     "request_id": "req_a5edf5ae77c88922d6897b58c663c8b2",
     "schema": 1,
     "sequence": 1,
@@ -3367,16 +5102,16 @@
    }
   },
   {
-   "digest": "52e81bde82464c23e047915e2910be38120c96daa29ac354b8d6e584e8d7f2d5",
+   "digest": "b477ddbd70604e8833bff0ff274371fe52d7dc0f232cfe7c53b8d0362ab4a144",
    "name": "selection_outcome",
    "record": {
     "at": "2000-01-01T00:00:00Z",
-    "capability": "read",
+    "capability": "new_delivery",
     "client": {
      "name": "claude-code",
-     "version": "2.1.278"
+     "version": "2.1.283"
     },
-    "for_request_id": "req_57371e2d23d485c05aa0e15daab87017",
+    "for_request_id": "req_9cd647c57ae558826635ead25da5303b",
     "kind": "route_outcome",
     "material_gaps": [],
     "mode": {
@@ -3390,24 +5125,24 @@
    }
   },
   {
-   "digest": "12169e6b85d158193bfed83be9cc5ae33815a6c47348f07a2e967c10e3aad2fa",
+   "digest": "c744c02728782eb7a53368f39bcc5ffe36168ae751c0aa2b97555e608c9576c2",
    "name": "select_start_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "ade1df277ef6815b53e1218995ae73e2a44e8037c97c38a9292e5342e38b728c",
+     "receipt_digest": "7d55a8879784fa2b091f76a9b168c602acfc4f6d7ab978ddfd279807a5712b56",
      "stage": "committed"
     },
     "outputs": [
      {
-      "digest": "52e81bde82464c23e047915e2910be38120c96daa29ac354b8d6e584e8d7f2d5",
+      "digest": "b477ddbd70604e8833bff0ff274371fe52d7dc0f232cfe7c53b8d0362ab4a144",
       "kind": "route_outcome"
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "8c12df038dabbed595fa85d53e7d636e27ed41561d3d795e12edebab8d76a362",
+    "request_digest": "3a94d982bcf836abe868bdf22342e8f8e5016da2d690de7d7724a451630d6e8e",
     "request_id": "req_a5edf5ae77c88922d6897b58c663c8b2",
     "schema": 1,
     "supported_recovery": []
@@ -3567,7 +5302,7 @@
    }
   },
   {
-   "digest": "357e979bd4b88ed6f82b5bdfd46762dcd6fbc1ce6fe0f90ba1dfe34621848067",
+   "digest": "f3e43c44837411aafc0970e526fc3d48d3688c0798b73a14161853d602adf5b0",
    "name": "decide_selection",
    "record": {
     "expected": {
@@ -3577,14 +5312,14 @@
     },
     "focused": "rte_628161cb4483b23627a80b0e84d51d03",
     "kind": "route_selection",
-    "offer_digest": "01d13e91f4c58e9160c6d8da32753a2cfc069ce26d9150346666a505fbd69d98",
+    "offer_digest": "bed8f257309f20e7761d68512c43389fcacb39d8ac956e7f910d510933d1d557",
     "request_id": "req_c3a2a6b3c322340cd00e982476c4f4c5",
     "schema": 1,
     "selected": "rte_628161cb4483b23627a80b0e84d51d03"
    }
   },
   {
-   "digest": "3952d302501be2cbd0afc50e3cd879baaf803ec3cf10966f3d6056b246097cd0",
+   "digest": "3b6098d04202da58d28a71b0f5f889e7f76d5ec126089f2e9c0ba669d67dcfe0",
    "name": "decide_selection_request",
    "record": {
     "action": "read",
@@ -3602,7 +5337,7 @@
      "layer": "personal",
      "principal_id": "prn_eecbbea79af4af8423345babb1947b92"
     },
-    "payload_digest": "357e979bd4b88ed6f82b5bdfd46762dcd6fbc1ce6fe0f90ba1dfe34621848067",
+    "payload_digest": "f3e43c44837411aafc0970e526fc3d48d3688c0798b73a14161853d602adf5b0",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_4811c5f9ccadaa3eff67db3cb98f67a1",
@@ -3613,14 +5348,14 @@
    }
   },
   {
-   "digest": "2710a5de28d32b185d6e53f2e473793ade37ebbe0801c348c393dfb759f30e1c",
+   "digest": "23339ab68dfbecef05ae58c05dc7cb6a0347c560342a7faa22d13ce22dd15c15",
    "name": "decide_outcome",
    "record": {
     "at": "2000-01-01T00:00:00Z",
     "capability": "question",
     "client": {
      "name": "claude-code",
-     "version": "2.1.278"
+     "version": "2.1.283"
     },
     "for_request_id": "req_c3a2a6b3c322340cd00e982476c4f4c5",
     "kind": "route_outcome",
@@ -3640,7 +5375,7 @@
    }
   },
   {
-   "digest": "66f030281a6e079f05cbce9f3a2c1e7ef1f90cca5794e433ea74ee65c36e8926",
+   "digest": "3bc1f3bb04bdf8c39ea4ee0a42c0e225274a72eb82550ff6be748c1139d4ecd3",
    "name": "select_unqualified_route_result",
    "record": {
     "kind": "operation_result",
@@ -3655,19 +5390,19 @@
     },
     "outputs": [
      {
-      "digest": "2710a5de28d32b185d6e53f2e473793ade37ebbe0801c348c393dfb759f30e1c",
+      "digest": "23339ab68dfbecef05ae58c05dc7cb6a0347c560342a7faa22d13ce22dd15c15",
       "kind": "route_outcome"
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "3952d302501be2cbd0afc50e3cd879baaf803ec3cf10966f3d6056b246097cd0",
+    "request_digest": "3b6098d04202da58d28a71b0f5f889e7f76d5ec126089f2e9c0ba669d67dcfe0",
     "request_id": "req_4811c5f9ccadaa3eff67db3cb98f67a1",
     "schema": 1,
     "supported_recovery": []
    }
   },
   {
-   "digest": "d39e30d25d8feec10ea02ec1df98a4285d7bb34fc3f6374922432cf91028ebbf",
+   "digest": "f13ce5e70e29fbe47480a087c7745de18918aaece3704bf09a7feb17bfc910e9",
    "name": "focus_only",
    "record": {
     "expected": {
@@ -3677,13 +5412,13 @@
     },
     "focused": "rte_024893a357668d202a29d0a8d657780d",
     "kind": "route_selection",
-    "offer_digest": "01d13e91f4c58e9160c6d8da32753a2cfc069ce26d9150346666a505fbd69d98",
-    "request_id": "req_57371e2d23d485c05aa0e15daab87017",
+    "offer_digest": "bed8f257309f20e7761d68512c43389fcacb39d8ac956e7f910d510933d1d557",
+    "request_id": "req_9cd647c57ae558826635ead25da5303b",
     "schema": 1
    }
   },
   {
-   "digest": "244107c187ab0fab7e77eccf21f8c50371aa7524682fbb188cd955dc476f2ee8",
+   "digest": "547da0368d989bb9afb76e3785a21e49fca8997d6476b2d2aeaa413220b30c2b",
    "name": "focus_only_request",
    "record": {
     "action": "read",
@@ -3701,7 +5436,7 @@
      "layer": "personal",
      "principal_id": "prn_eecbbea79af4af8423345babb1947b92"
     },
-    "payload_digest": "d39e30d25d8feec10ea02ec1df98a4285d7bb34fc3f6374922432cf91028ebbf",
+    "payload_digest": "f13ce5e70e29fbe47480a087c7745de18918aaece3704bf09a7feb17bfc910e9",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_3280e2c5eb346de629e8604131ff61cc",
@@ -3712,8 +5447,8 @@
    }
   }
  ],
- "says": "From the host launcher in a bound repository, the entry shows concrete names and values: the repository and branch, the selected instructions source AGENTS.md, the unselected knowledge source, the suggested tool 'Claude Code 2.1.278 · 새 세션' marked as a suggestion with its model-call effect, a blocker for the unqualified personal decision route that names why and how to fix it, and one start action whose file-change, model-call, permission and shared effects sit on the action itself. The person presses Tab and Enter (surface.drive): the single Enter dispatches exactly one request, with no preview, confirm or extra view between, and the call it makes is preparation.compose — the owner check — for a session start that declares session.routing.activate and carries no work_request, so no business intent is inferred from the launcher. route.select records the start route, selected in the launcher's own repository scope, and answers for that request with the preparation. Negative: selecting the unqualified decision route is answered by its owner as refused with capability_not_qualified and an unsupported route outcome, never run; a selection carrying only a focused route is refused at admission (missing_field /selected); and no frame shows a generic effect panel or confirmation view.",
- "spec_sha256": "9f25cdec816425d78fbdf490439be72d024a31429fb4dbb770533639ac853531",
+ "says": "From the host launcher in a bound repository, the entry shows concrete names and values: the repository and branch, the selected instructions source AGENTS.md, the unselected knowledge source, an optional note, the suggested tool 'Claude Code' marked as a suggestion with its model-call effect, the permissions, suggested as the host's own settings with their permission-request effect, a blocker for the unqualified personal decision route that names why and how to fix it, and one start action whose file-change and model-call effects sit on the action itself. The person presses Tab, Tab, Tab and Enter (surface.drive): the single Enter dispatches exactly one request, with no preview, confirm or extra view between, and the call it makes is preparation.compose — the owner check — for a session start that declares session.routing.activate and carries no work_request, so no business intent is inferred from the launcher. route.select records the start route, selected in the launcher's own repository scope, and answers for that request with the preparation. Negative: selecting the unqualified decision route is answered by its owner as refused with capability_not_qualified and an unsupported route outcome, never run; a selection carrying only a focused route is refused at admission (missing_field /selected); and no frame shows a generic effect panel or confirmation view.",
+ "spec_sha256": "ca12037b0fbeb7a432c77cfcf7c42f798c72577d58f98ea3e49d8ea6ca7e021a",
  "steps": [
   {
    "carries": [
@@ -3809,14 +5544,14 @@
   },
   {
    "carries": [
-    "read_probe"
+    "delivery_probe"
    ],
-   "name": "probe_host_read",
+   "name": "probe_host_delivery",
    "request": "probe_request",
-   "result": "probe_host_read_result",
+   "result": "probe_host_delivery_result",
    "returns": [
-    "read_probe_stored",
-    "read_probe_host_configuration"
+    "delivery_probe_stored",
+    "delivery_probe_host_configuration"
    ]
   },
   {
@@ -3839,6 +5574,17 @@
    "result": "drive_entry_result",
    "returns": [
     "script_trace"
+   ]
+  },
+  {
+   "carries": [
+    "link_offer"
+   ],
+   "name": "offer_routes_to_the_link",
+   "request": "link_offer_request",
+   "result": "offer_routes_to_the_link_result",
+   "returns": [
+    "link_offer_stored"
    ]
   },
   {

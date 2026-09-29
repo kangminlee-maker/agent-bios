@@ -1058,7 +1058,11 @@ class QualifiedRoutes(unittest.TestCase):
         self.assertIn("qualified_routes", cases.features_of(built))
         self.assertEqual(built_run(self, "n15-c11-pos", "qualified_routes").given_steps,
                          set(probes))
-        _, reads = scenario("tui-entry-options")
+        # An entrance's start route is qualified by a new session's delivery probe, and given.
+        _, entrance = scenario("tui-entry-options")
+        self.assertEqual(cases.delivery_probes(entrance), ["probe_host_delivery"])
+        # A probe of reading over MCP qualifies no delivery route, and is not given.
+        _, reads = scenario("n16-c12-pos")
         self.assertEqual(cases.delivery_probes(reads), [])
         self.assertNotIn("qualified_routes", cases.features_of(reads))
 

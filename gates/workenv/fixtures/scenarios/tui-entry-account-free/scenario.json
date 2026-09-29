@@ -34,10 +34,6 @@
    "name": "drive_request"
   },
   {
-   "id": "req_e57f6210104b2bcea960256ac22ac271",
-   "name": "start_request"
-  },
-  {
    "id": "req_a227db19189abe8cfd566b7feaeb41cb",
    "name": "select_request"
   },
@@ -123,67 +119,67 @@
    "record": "bind_device_key_result"
   },
   {
-   "digest_of": "read_probe",
+   "digest_of": "delivery_probe",
    "pointer": "/payload_digest",
    "record": "probe_request"
   },
   {
    "digest_of": "probe_request",
    "pointer": "/request_digest",
-   "record": "probe_host_read_receipt"
+   "record": "probe_host_delivery_receipt"
   },
   {
-   "minted": "probe_host_read_head",
+   "minted": "probe_host_delivery_head",
    "pointer": "/head_digest",
-   "record": "probe_host_read_receipt"
+   "record": "probe_host_delivery_receipt"
   },
   {
-   "minted": "probe_host_read_sequence",
+   "minted": "probe_host_delivery_sequence",
    "pointer": "/sequence",
-   "record": "probe_host_read_receipt"
+   "record": "probe_host_delivery_receipt"
   },
   {
-   "minted": "probe_host_read_committed_at",
+   "minted": "probe_host_delivery_committed_at",
    "pointer": "/committed_at",
-   "record": "probe_host_read_receipt"
+   "record": "probe_host_delivery_receipt"
   },
   {
    "minted": "probed_at",
    "pointer": "/at",
-   "record": "read_probe_stored"
+   "record": "delivery_probe_stored"
   },
   {
-   "minted": "read_probe",
+   "minted": "delivery_probe",
    "pointer": "/probe_id",
-   "record": "read_probe_stored"
+   "record": "delivery_probe_stored"
   },
   {
    "minted": "probe_measured_at",
    "pointer": "/measured_at",
-   "record": "read_probe_host_configuration"
+   "record": "delivery_probe_host_configuration"
   },
   {
-   "digest_of": "probe_host_read_receipt",
+   "digest_of": "probe_host_delivery_receipt",
    "pointer": "/outcome/receipt_digest",
-   "record": "probe_host_read_result"
+   "record": "probe_host_delivery_result"
   },
   {
    "digest_of": "probe_request",
    "pointer": "/request_digest",
-   "record": "probe_host_read_result"
+   "record": "probe_host_delivery_result"
   },
   {
-   "digest_of": "read_probe_stored",
+   "digest_of": "delivery_probe_stored",
    "pointer": "/outputs/0/digest",
-   "record": "probe_host_read_result"
+   "record": "probe_host_delivery_result"
   },
   {
-   "digest_of": "read_probe_host_configuration",
+   "digest_of": "delivery_probe_host_configuration",
    "pointer": "/outputs/1/digest",
-   "record": "probe_host_read_result"
+   "record": "probe_host_delivery_result"
   },
   {
-   "digest_of": "read_probe_stored",
+   "digest_of": "delivery_probe_stored",
    "pointer": "/offered/0/support/probe_digest",
    "record": "offer"
   },
@@ -213,7 +209,7 @@
    "record": "offer_routes_receipt"
   },
   {
-   "digest_of": "read_probe_stored",
+   "digest_of": "delivery_probe_stored",
    "pointer": "/offered/0/support/probe_digest",
    "record": "offer_stored"
   },
@@ -248,18 +244,33 @@
    "record": "script_trace"
   },
   {
+   "digest_of": "script",
+   "pointer": "/script_digest",
+   "record": "script_trace"
+  },
+  {
+   "minted": "start_request",
+   "pointer": "/frames/3/elements/9/refers_to/request_id",
+   "record": "script_trace"
+  },
+  {
+   "minted": "start_request",
+   "pointer": "/frames/3/dispatched/0",
+   "record": "script_trace"
+  },
+  {
    "digest_of": "start_basis",
    "pointer": "/payload_digest",
    "record": "start_compose"
   },
   {
-   "digest_of": "start_compose",
-   "pointer": "/frames/2/calls/0/request_digest",
-   "record": "script_trace"
+   "minted": "start_request",
+   "pointer": "/request_id",
+   "record": "start_compose"
   },
   {
-   "digest_of": "script",
-   "pointer": "/script_digest",
+   "digest_of": "start_compose",
+   "pointer": "/frames/3/calls/0/request_digest",
    "record": "script_trace"
   },
   {
@@ -288,6 +299,11 @@
    "record": "start_preparation"
   },
   {
+   "minted": "start_request",
+   "pointer": "/request_id",
+   "record": "compose_start_result"
+  },
+  {
    "digest_of": "start_compose",
    "pointer": "/request_digest",
    "record": "compose_start_result"
@@ -300,6 +316,11 @@
   {
    "digest_of": "offer_stored",
    "pointer": "/offer_digest",
+   "record": "selection"
+  },
+  {
+   "minted": "start_request",
+   "pointer": "/request_id",
    "record": "selection"
   },
   {
@@ -330,6 +351,11 @@
   {
    "minted": "selection_at",
    "pointer": "/at",
+   "record": "selection_outcome"
+  },
+  {
+   "minted": "start_request",
+   "pointer": "/for_request_id",
    "record": "selection_outcome"
   },
   {
@@ -385,34 +411,34 @@
    "step": "bind_device_key"
   },
   {
-   "name": "probe_host_read_committed_at",
+   "name": "delivery_probe",
+   "shape": "prb",
+   "step": "probe_host_delivery"
+  },
+  {
+   "name": "probe_host_delivery_committed_at",
    "shape": "instant",
-   "step": "probe_host_read"
+   "step": "probe_host_delivery"
   },
   {
-   "name": "probe_host_read_head",
+   "name": "probe_host_delivery_head",
    "shape": "digest",
-   "step": "probe_host_read"
+   "step": "probe_host_delivery"
   },
   {
-   "name": "probe_host_read_sequence",
+   "name": "probe_host_delivery_sequence",
    "shape": "integer",
-   "step": "probe_host_read"
+   "step": "probe_host_delivery"
   },
   {
    "name": "probe_measured_at",
    "shape": "instant",
-   "step": "probe_host_read"
+   "step": "probe_host_delivery"
   },
   {
    "name": "probed_at",
    "shape": "instant",
-   "step": "probe_host_read"
-  },
-  {
-   "name": "read_probe",
-   "shape": "prb",
-   "step": "probe_host_read"
+   "step": "probe_host_delivery"
   },
   {
    "name": "offer_at",
@@ -437,6 +463,11 @@
   {
    "name": "script_driven_at",
    "shape": "instant",
+   "step": "drive_entry"
+  },
+  {
+   "name": "start_request",
+   "shape": "req",
    "step": "drive_entry"
   },
   {
@@ -662,24 +693,24 @@
    }
   },
   {
-   "digest": "955b816683b68a2cd6d11f5c8cd7ae6be9ee701cf164d4621f93c1ae3ac5f835",
-   "name": "read_probe",
+   "digest": "2b2f3c55fcc0125deda4b984c12060a276093757c2db0fb6ed3ca24681f36578",
+   "name": "delivery_probe",
    "record": {
-    "capability": "read",
+    "capability": "new_delivery",
     "client": {
      "name": "claude-code",
-     "version": "2.1.278"
+     "version": "2.1.283"
     },
     "kind": "capability_probe",
     "schema": 1,
     "wire": {
-     "protocol": "model_context_protocol",
-     "version": "2025-11-25"
+     "protocol": "launch_instructions",
+     "version": "1"
     }
    }
   },
   {
-   "digest": "ed015d9617377a41c6657b49329d8ed6062ab0986cb6776341ad89a69fba122c",
+   "digest": "226088733e2ead4e80f05f6b93e3c74d6cbd8b5d7f4be5c676bef9f8d55c9593",
    "name": "probe_request",
    "record": {
     "action": "local_profile",
@@ -697,7 +728,7 @@
      "layer": "personal",
      "principal_id": "prn_167283cc086c1d8c68205b07349d92f2"
     },
-    "payload_digest": "955b816683b68a2cd6d11f5c8cd7ae6be9ee701cf164d4621f93c1ae3ac5f835",
+    "payload_digest": "2b2f3c55fcc0125deda4b984c12060a276093757c2db0fb6ed3ca24681f36578",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_018107e587be59ff611b734b677c5442",
@@ -708,17 +739,17 @@
    }
   },
   {
-   "digest": "318044d80c083b6bb299f19efa195b0f39d4a5aeddf2d3605af5c832d9913e6e",
-   "name": "probe_host_read_receipt",
+   "digest": "4408b0270a6bacf62fc29fed3c2f7d3b9e99271cdec5fcf8b4d3841d98ab359e",
+   "name": "probe_host_delivery_receipt",
    "record": {
     "committed_at": "2000-01-01T00:00:00Z",
-    "head_digest": "7b69b6fd31129ab8cc37e3babaccc8e57bf6c4f3b0ea5d1f18bb2cb34354c5a7",
+    "head_digest": "3c8545aeb6ff1b3de7f3c984472a0b26c35c27d8bae25973977f2095e57fd818",
     "kind": "operation_receipt",
     "owner": {
      "layer": "personal",
      "principal_id": "prn_167283cc086c1d8c68205b07349d92f2"
     },
-    "request_digest": "ed015d9617377a41c6657b49329d8ed6062ab0986cb6776341ad89a69fba122c",
+    "request_digest": "226088733e2ead4e80f05f6b93e3c74d6cbd8b5d7f4be5c676bef9f8d55c9593",
     "request_id": "req_018107e587be59ff611b734b677c5442",
     "schema": 1,
     "sequence": 1,
@@ -728,37 +759,37 @@
    }
   },
   {
-   "digest": "6535723a2e8aa40bb5716c6b1313b1044ea058255ab240680fd5894a42cf250b",
-   "name": "read_probe_stored",
+   "digest": "d1ce6c1f63233a91727f0de078f8ea7dfccfe5fa44fc9fb8e5fbe8c8c2bccae5",
+   "name": "delivery_probe_stored",
    "record": {
     "at": "2000-01-01T00:00:00Z",
-    "capability": "read",
+    "capability": "new_delivery",
     "client": {
      "name": "claude-code",
-     "version": "2.1.278"
+     "version": "2.1.283"
     },
     "kind": "capability_probe",
     "mode": {
      "runs": "real"
     },
-    "observed": "The host session read the prepared material it was handed.",
+    "observed": "The new session gave the code the adapter handed it in the instructions its host was started with.",
     "offered": true,
     "outcome": "worked",
-    "probe_id": "prb_e47adf163e2e53794a7d46b18967baf3",
+    "probe_id": "prb_752361f0ee8390d0a13937f217311274",
     "schema": 1,
     "wire": {
-     "protocol": "model_context_protocol",
-     "version": "2025-11-25"
+     "protocol": "launch_instructions",
+     "version": "1"
     }
    }
   },
   {
-   "digest": "40782b10bc064b6e4302b3c64e5e0fb7bbae0c6d98b4921eb538454f04d2313a",
-   "name": "read_probe_host_configuration",
+   "digest": "380f42be425ac15081319dce973b5b36443655f6e80198f2522cf9515de4f7e2",
+   "name": "delivery_probe_host_configuration",
    "record": {
     "client": {
      "name": "claude-code",
-     "version": "2.1.278"
+     "version": "2.1.283"
     },
     "hooks": [],
     "kind": "host_configuration",
@@ -770,35 +801,35 @@
    }
   },
   {
-   "digest": "36b265f53f0596083dbd38f8ba3da6e7bf1f43f6900f54a7cbd1f9c893bfc10a",
-   "name": "probe_host_read_result",
+   "digest": "cf781b5895069e814b26c14661d625108f76b2c4f55d53044d1b5a612fb3ce21",
+   "name": "probe_host_delivery_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "318044d80c083b6bb299f19efa195b0f39d4a5aeddf2d3605af5c832d9913e6e",
+     "receipt_digest": "4408b0270a6bacf62fc29fed3c2f7d3b9e99271cdec5fcf8b4d3841d98ab359e",
      "stage": "committed"
     },
     "outputs": [
      {
-      "digest": "6535723a2e8aa40bb5716c6b1313b1044ea058255ab240680fd5894a42cf250b",
+      "digest": "d1ce6c1f63233a91727f0de078f8ea7dfccfe5fa44fc9fb8e5fbe8c8c2bccae5",
       "kind": "capability_probe"
      },
      {
-      "digest": "40782b10bc064b6e4302b3c64e5e0fb7bbae0c6d98b4921eb538454f04d2313a",
+      "digest": "380f42be425ac15081319dce973b5b36443655f6e80198f2522cf9515de4f7e2",
       "kind": "host_configuration"
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "ed015d9617377a41c6657b49329d8ed6062ab0986cb6776341ad89a69fba122c",
+    "request_digest": "226088733e2ead4e80f05f6b93e3c74d6cbd8b5d7f4be5c676bef9f8d55c9593",
     "request_id": "req_018107e587be59ff611b734b677c5442",
     "schema": 1,
     "supported_recovery": []
    }
   },
   {
-   "digest": "305feb0cb4dacfda32f278a7417721200b3c13fe876af95831670e329e4c0922",
+   "digest": "b948a3153993196594145c91eeb398cf860d7ff2c08a276fc058d1aac270f94e",
    "name": "offer",
    "record": {
     "entrance": {
@@ -818,7 +849,7 @@
        "principal_id": "prn_167283cc086c1d8c68205b07349d92f2"
       },
       "support": {
-       "probe_digest": "6535723a2e8aa40bb5716c6b1313b1044ea058255ab240680fd5894a42cf250b",
+       "probe_digest": "d1ce6c1f63233a91727f0de078f8ea7dfccfe5fa44fc9fb8e5fbe8c8c2bccae5",
        "qualified": "yes"
       },
       "supported_action": "use"
@@ -828,7 +859,7 @@
    }
   },
   {
-   "digest": "e5ce9d8e87523b1c8ae37489d7c48fd5f6b57e6792c9bf373569196aa255938b",
+   "digest": "254a68513563704bdcb22aed284aa201997ff5f0468915195ed7d6152c22ccee",
    "name": "offer_request",
    "record": {
     "action": "read",
@@ -846,7 +877,7 @@
      "layer": "personal",
      "principal_id": "prn_167283cc086c1d8c68205b07349d92f2"
     },
-    "payload_digest": "305feb0cb4dacfda32f278a7417721200b3c13fe876af95831670e329e4c0922",
+    "payload_digest": "b948a3153993196594145c91eeb398cf860d7ff2c08a276fc058d1aac270f94e",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_f7f6841f576a0533496bdea8dee8213b",
@@ -857,7 +888,7 @@
    }
   },
   {
-   "digest": "e35b7a6dac1aa7e650ee2b77cfd80af26a6535ec245e0266c3241595431c0434",
+   "digest": "2ec102e97ba5bcb3730745897ca0ad7dd5f63b942818b6f36952165655c5a1d0",
    "name": "offer_routes_receipt",
    "record": {
     "committed_at": "2000-01-01T00:00:00Z",
@@ -867,7 +898,7 @@
      "layer": "personal",
      "principal_id": "prn_167283cc086c1d8c68205b07349d92f2"
     },
-    "request_digest": "e5ce9d8e87523b1c8ae37489d7c48fd5f6b57e6792c9bf373569196aa255938b",
+    "request_digest": "254a68513563704bdcb22aed284aa201997ff5f0468915195ed7d6152c22ccee",
     "request_id": "req_f7f6841f576a0533496bdea8dee8213b",
     "schema": 1,
     "sequence": 1,
@@ -877,7 +908,7 @@
    }
   },
   {
-   "digest": "ed7020574f732cd89d8124afe588c1ff8784b1a0badfa48a066023080014b5b1",
+   "digest": "20f95d93076d59c8fb5674a6bb38403338f783fd1f4dc4f1b1f0889e62594f88",
    "name": "offer_stored",
    "record": {
     "entrance": {
@@ -897,7 +928,7 @@
        "principal_id": "prn_167283cc086c1d8c68205b07349d92f2"
       },
       "support": {
-       "probe_digest": "6535723a2e8aa40bb5716c6b1313b1044ea058255ab240680fd5894a42cf250b",
+       "probe_digest": "d1ce6c1f63233a91727f0de078f8ea7dfccfe5fa44fc9fb8e5fbe8c8c2bccae5",
        "qualified": "yes"
       },
       "supported_action": "use"
@@ -908,31 +939,31 @@
    }
   },
   {
-   "digest": "73b78cd225744f038b364ff01dc1d42a5308ac3ea392c458c32ca7b120564268",
+   "digest": "b94d73c308c38caf82016c86b3be085565f55b14c6fe9c924d3cc66c366e31d4",
    "name": "offer_routes_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "e35b7a6dac1aa7e650ee2b77cfd80af26a6535ec245e0266c3241595431c0434",
+     "receipt_digest": "2ec102e97ba5bcb3730745897ca0ad7dd5f63b942818b6f36952165655c5a1d0",
      "stage": "committed"
     },
     "outputs": [
      {
-      "digest": "ed7020574f732cd89d8124afe588c1ff8784b1a0badfa48a066023080014b5b1",
+      "digest": "20f95d93076d59c8fb5674a6bb38403338f783fd1f4dc4f1b1f0889e62594f88",
       "kind": "route_offer"
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "e5ce9d8e87523b1c8ae37489d7c48fd5f6b57e6792c9bf373569196aa255938b",
+    "request_digest": "254a68513563704bdcb22aed284aa201997ff5f0468915195ed7d6152c22ccee",
     "request_id": "req_f7f6841f576a0533496bdea8dee8213b",
     "schema": 1,
     "supported_recovery": []
    }
   },
   {
-   "digest": "0ac15e46585b8d5bdff83e241af726c26892fa193024e495457466275445af9d",
+   "digest": "e9f778ffad3129a85d2813fe3b08ba0f34d2051f667b47b33b11cefb258d4f65",
    "name": "script",
    "record": {
     "entrance": {
@@ -940,6 +971,10 @@
      "root_origin": "owner"
     },
     "inputs": [
+     {
+      "input": "key",
+      "key": "tab"
+     },
      {
       "input": "key",
       "key": "tab"
@@ -959,7 +994,7 @@
    }
   },
   {
-   "digest": "a0adf895eabf091d088d1ce4df74dad3c58fa480ddfccf670ceed8a42e9355f6",
+   "digest": "268380a857af61dc1165c24932d8eb5bab3125c8c085ba02f5c56c7575143fbd",
    "name": "script_request",
    "record": {
     "action": "read",
@@ -977,7 +1012,7 @@
      "layer": "personal",
      "principal_id": "prn_167283cc086c1d8c68205b07349d92f2"
     },
-    "payload_digest": "0ac15e46585b8d5bdff83e241af726c26892fa193024e495457466275445af9d",
+    "payload_digest": "e9f778ffad3129a85d2813fe3b08ba0f34d2051f667b47b33b11cefb258d4f65",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_71b8fb05606d8867a6888f3c6cf15a3e",
@@ -1010,7 +1045,7 @@
    }
   },
   {
-   "digest": "8c10059931aa06893fa767795d95a1ddb4b880cd7ec4319418e3f94f9b8e6f64",
+   "digest": "e80b85a30c75aff35af2d15f015d9b6ad7880349d2da3737d9d79750bfdce2ba",
    "name": "start_compose",
    "record": {
     "action": "use",
@@ -1031,7 +1066,7 @@
     "payload_digest": "fb21c8dffc9fbfe4d70c391db14408c626d5d9720c3e42adafda8dafa94ee763",
     "policy_digests": [],
     "proof_digests": [],
-    "request_id": "req_e57f6210104b2bcea960256ac22ac271",
+    "request_id": "req_ec3a1be573245f1695e057285b768835",
     "schema": 1,
     "target": {
      "resource_id": "prn_167283cc086c1d8c68205b07349d92f2"
@@ -1039,13 +1074,13 @@
    }
   },
   {
-   "digest": "058a8c246c88e578415632b25bdf0da64faa36eeb7ba0a709f4ef98b3d563b60",
+   "digest": "6ab29a7095ed306f83668d561d2505f9f664fd62ca1eec105c79de02bc08d675",
    "name": "script_trace",
    "record": {
     "at": "2000-01-01T00:00:00Z",
     "client": {
-     "name": "agent-bios",
-     "version": "0.20.0"
+     "name": "agent-bios-entry",
+     "version": "1"
     },
     "frames": [
      {
@@ -1074,11 +1109,11 @@
        {
         "element_id": "positions.personal.instructions",
         "executing": false,
-        "focused": true,
+        "focused": false,
         "label": "개인 지침 · 아직 없음",
         "marks": [
-         "›",
-         "[ ]"
+         "[-]",
+         "(선택 불가)"
         ],
         "refers_to": {
          "position": {
@@ -1102,7 +1137,8 @@
         "focused": false,
         "label": "개인 지식 · 아직 없음",
         "marks": [
-         "[ ]"
+         "[-]",
+         "(선택 불가)"
         ],
         "refers_to": {
          "position": {
@@ -1126,7 +1162,8 @@
         "focused": false,
         "label": "개인 결정 기록 · 아직 없음",
         "marks": [
-         "[ ]"
+         "[-]",
+         "(선택 불가)"
         ],
         "refers_to": {
          "position": {
@@ -1145,6 +1182,19 @@
         "state": "checked_empty"
        },
        {
+        "element_id": "field.note",
+        "executing": false,
+        "focused": true,
+        "label": "메모 · 시작 요청에 함께 기록",
+        "marks": [
+         "›"
+        ],
+        "role": "field",
+        "selection": "none",
+        "shown": "whole",
+        "value": ""
+       },
+       {
         "effects": [
          "model_calls"
         ],
@@ -1157,7 +1207,24 @@
         ],
         "role": "setting",
         "selection": "suggested",
-        "shown": "whole"
+        "shown": "whole",
+        "value": "Claude Code"
+       },
+       {
+        "effects": [
+         "permission_request"
+        ],
+        "element_id": "execution.permissions",
+        "executing": false,
+        "focused": false,
+        "label": "권한 · 호스트 설정대로 확인",
+        "marks": [
+         "(제안)"
+        ],
+        "role": "setting",
+        "selection": "suggested",
+        "shown": "whole",
+        "value": "host_settings"
        },
        {
         "effects": [
@@ -1235,7 +1302,8 @@
         "focused": false,
         "label": "개인 지침 · 아직 없음",
         "marks": [
-         "[ ]"
+         "[-]",
+         "(선택 불가)"
         ],
         "refers_to": {
          "position": {
@@ -1259,7 +1327,8 @@
         "focused": false,
         "label": "개인 지식 · 아직 없음",
         "marks": [
-         "[ ]"
+         "[-]",
+         "(선택 불가)"
         ],
         "refers_to": {
          "position": {
@@ -1283,7 +1352,8 @@
         "focused": false,
         "label": "개인 결정 기록 · 아직 없음",
         "marks": [
-         "[ ]"
+         "[-]",
+         "(선택 불가)"
         ],
         "refers_to": {
          "position": {
@@ -1302,6 +1372,17 @@
         "state": "checked_empty"
        },
        {
+        "element_id": "field.note",
+        "executing": false,
+        "focused": false,
+        "label": "메모 · 시작 요청에 함께 기록",
+        "marks": [],
+        "role": "field",
+        "selection": "none",
+        "shown": "whole",
+        "value": ""
+       },
+       {
         "effects": [
          "model_calls"
         ],
@@ -1314,7 +1395,213 @@
         ],
         "role": "setting",
         "selection": "suggested",
+        "shown": "whole",
+        "value": "Claude Code"
+       },
+       {
+        "effects": [
+         "permission_request"
+        ],
+        "element_id": "execution.permissions",
+        "executing": false,
+        "focused": true,
+        "label": "권한 · 호스트 설정대로 확인",
+        "marks": [
+         "›",
+         "(제안)"
+        ],
+        "role": "setting",
+        "selection": "suggested",
+        "shown": "whole",
+        "value": "host_settings"
+       },
+       {
+        "effects": [
+         "file_changes",
+         "model_calls"
+        ],
+        "element_id": "action.start",
+        "executing": false,
+        "focused": false,
+        "label": "Claude Code 새 세션 시작",
+        "marks": [],
+        "refers_to": {
+         "ref": "route",
+         "route_id": "rte_4dc28444d700630fad5db3f647ef407c"
+        },
+        "role": "action",
+        "selection": "none",
         "shown": "whole"
+       },
+       {
+        "element_id": "help.keys",
+        "executing": false,
+        "focused": false,
+        "label": "Tab 이동 · Enter 열기 · Space 선택 · Esc 뒤로",
+        "marks": [],
+        "role": "help",
+        "selection": "none",
+        "shown": "whole"
+       }
+      ],
+      "locale": "ko",
+      "terminal": {
+       "columns": 80,
+       "rows": 24
+      },
+      "view": {
+       "missing_bodies": [],
+       "origin": {
+        "name": "host_launcher",
+        "root_origin": "owner"
+       },
+       "selected_scope": {
+        "layer": "personal",
+        "principal_id": "prn_167283cc086c1d8c68205b07349d92f2"
+       },
+       "view": "w01"
+      }
+     },
+     {
+      "access": "active",
+      "after": 2,
+      "calls": [],
+      "dispatched": [],
+      "elements": [
+       {
+        "element_id": "context.location",
+        "executing": false,
+        "focused": false,
+        "label": "개인 · 이 기기",
+        "marks": [],
+        "refers_to": {
+         "ref": "scope",
+         "scope": {
+          "layer": "personal",
+          "principal_id": "prn_167283cc086c1d8c68205b07349d92f2"
+         }
+        },
+        "role": "context",
+        "selection": "none",
+        "shown": "whole"
+       },
+       {
+        "element_id": "positions.personal.instructions",
+        "executing": false,
+        "focused": false,
+        "label": "개인 지침 · 아직 없음",
+        "marks": [
+         "[-]",
+         "(선택 불가)"
+        ],
+        "refers_to": {
+         "position": {
+          "role": "instructions",
+          "scope": {
+           "layer": "personal",
+           "principal_id": "prn_167283cc086c1d8c68205b07349d92f2"
+          }
+         },
+         "ref": "position",
+         "view": "original"
+        },
+        "role": "selection",
+        "selection": "none",
+        "shown": "whole",
+        "state": "checked_empty"
+       },
+       {
+        "element_id": "positions.personal.knowledge",
+        "executing": false,
+        "focused": false,
+        "label": "개인 지식 · 아직 없음",
+        "marks": [
+         "[-]",
+         "(선택 불가)"
+        ],
+        "refers_to": {
+         "position": {
+          "role": "knowledge",
+          "scope": {
+           "layer": "personal",
+           "principal_id": "prn_167283cc086c1d8c68205b07349d92f2"
+          }
+         },
+         "ref": "position",
+         "view": "original"
+        },
+        "role": "selection",
+        "selection": "none",
+        "shown": "whole",
+        "state": "checked_empty"
+       },
+       {
+        "element_id": "positions.personal.memory",
+        "executing": false,
+        "focused": false,
+        "label": "개인 결정 기록 · 아직 없음",
+        "marks": [
+         "[-]",
+         "(선택 불가)"
+        ],
+        "refers_to": {
+         "position": {
+          "role": "memory",
+          "scope": {
+           "layer": "personal",
+           "principal_id": "prn_167283cc086c1d8c68205b07349d92f2"
+          }
+         },
+         "ref": "position",
+         "view": "original"
+        },
+        "role": "selection",
+        "selection": "none",
+        "shown": "whole",
+        "state": "checked_empty"
+       },
+       {
+        "element_id": "field.note",
+        "executing": false,
+        "focused": false,
+        "label": "메모 · 시작 요청에 함께 기록",
+        "marks": [],
+        "role": "field",
+        "selection": "none",
+        "shown": "whole",
+        "value": ""
+       },
+       {
+        "effects": [
+         "model_calls"
+        ],
+        "element_id": "execution.tool",
+        "executing": false,
+        "focused": false,
+        "label": "도구 Claude Code 2.1.278 · 새 세션",
+        "marks": [
+         "(제안)"
+        ],
+        "role": "setting",
+        "selection": "suggested",
+        "shown": "whole",
+        "value": "Claude Code"
+       },
+       {
+        "effects": [
+         "permission_request"
+        ],
+        "element_id": "execution.permissions",
+        "executing": false,
+        "focused": false,
+        "label": "권한 · 호스트 설정대로 확인",
+        "marks": [
+         "(제안)"
+        ],
+        "role": "setting",
+        "selection": "suggested",
+        "shown": "whole",
+        "value": "host_settings"
        },
        {
         "effects": [
@@ -1367,16 +1654,16 @@
      },
      {
       "access": "active",
-      "after": 2,
+      "after": 3,
       "calls": [
        {
         "operation": "preparation.compose",
         "reads": "nothing",
-        "request_digest": "8c10059931aa06893fa767795d95a1ddb4b880cd7ec4319418e3f94f9b8e6f64"
+        "request_digest": "e80b85a30c75aff35af2d15f015d9b6ad7880349d2da3737d9d79750bfdce2ba"
        }
       ],
       "dispatched": [
-       "req_e57f6210104b2bcea960256ac22ac271"
+       "req_ec3a1be573245f1695e057285b768835"
       ],
       "elements": [
        {
@@ -1402,7 +1689,8 @@
         "focused": false,
         "label": "개인 지침 · 아직 없음",
         "marks": [
-         "[ ]"
+         "[-]",
+         "(선택 불가)"
         ],
         "refers_to": {
          "position": {
@@ -1426,7 +1714,8 @@
         "focused": false,
         "label": "개인 지식 · 아직 없음",
         "marks": [
-         "[ ]"
+         "[-]",
+         "(선택 불가)"
         ],
         "refers_to": {
          "position": {
@@ -1450,7 +1739,8 @@
         "focused": false,
         "label": "개인 결정 기록 · 아직 없음",
         "marks": [
-         "[ ]"
+         "[-]",
+         "(선택 불가)"
         ],
         "refers_to": {
          "position": {
@@ -1469,6 +1759,17 @@
         "state": "checked_empty"
        },
        {
+        "element_id": "field.note",
+        "executing": false,
+        "focused": false,
+        "label": "메모 · 시작 요청에 함께 기록",
+        "marks": [],
+        "role": "field",
+        "selection": "none",
+        "shown": "whole",
+        "value": ""
+       },
+       {
         "effects": [
          "model_calls"
         ],
@@ -1481,7 +1782,24 @@
         ],
         "role": "setting",
         "selection": "suggested",
-        "shown": "whole"
+        "shown": "whole",
+        "value": "Claude Code"
+       },
+       {
+        "effects": [
+         "permission_request"
+        ],
+        "element_id": "execution.permissions",
+        "executing": false,
+        "focused": false,
+        "label": "권한 · 호스트 설정대로 확인",
+        "marks": [
+         "(제안)"
+        ],
+        "role": "setting",
+        "selection": "suggested",
+        "shown": "whole",
+        "value": "host_settings"
        },
        {
         "effects": [
@@ -1522,7 +1840,7 @@
         "marks": [],
         "refers_to": {
          "ref": "request",
-         "request_id": "req_e57f6210104b2bcea960256ac22ac271"
+         "request_id": "req_ec3a1be573245f1695e057285b768835"
         },
         "role": "result",
         "selection": "none",
@@ -1554,11 +1872,11 @@
      "runs": "real"
     },
     "schema": 1,
-    "script_digest": "0ac15e46585b8d5bdff83e241af726c26892fa193024e495457466275445af9d"
+    "script_digest": "e9f778ffad3129a85d2813fe3b08ba0f34d2051f667b47b33b11cefb258d4f65"
    }
   },
   {
-   "digest": "ac8686c3f2b00c6f20ba733f8d9ee25dc801c078c333b903140cc189c87358fd",
+   "digest": "8fc6ed334109b0e5d651125dc9833577b20824ce196d111e682603f413a63453",
    "name": "drive_entry_result",
    "record": {
     "kind": "operation_result",
@@ -1569,12 +1887,12 @@
     },
     "outputs": [
      {
-      "digest": "058a8c246c88e578415632b25bdf0da64faa36eeb7ba0a709f4ef98b3d563b60",
+      "digest": "6ab29a7095ed306f83668d561d2505f9f664fd62ca1eec105c79de02bc08d675",
       "kind": "surface_trace"
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "a0adf895eabf091d088d1ce4df74dad3c58fa480ddfccf670ceed8a42e9355f6",
+    "request_digest": "268380a857af61dc1165c24932d8eb5bab3125c8c085ba02f5c56c7575143fbd",
     "request_id": "req_71b8fb05606d8867a6888f3c6cf15a3e",
     "schema": 1,
     "supported_recovery": []
@@ -1620,7 +1938,7 @@
    }
   },
   {
-   "digest": "7c2577482d5a5acc49ad8311c082aeaf7236a1b035ae516b93925191b73b4537",
+   "digest": "7bc2c9638659e8faa0661b0bf1a75801afe856af3c1b0bb7588d19c74d06c113",
    "name": "compose_start_result",
    "record": {
     "kind": "operation_result",
@@ -1636,14 +1954,14 @@
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "8c10059931aa06893fa767795d95a1ddb4b880cd7ec4319418e3f94f9b8e6f64",
-    "request_id": "req_e57f6210104b2bcea960256ac22ac271",
+    "request_digest": "e80b85a30c75aff35af2d15f015d9b6ad7880349d2da3737d9d79750bfdce2ba",
+    "request_id": "req_ec3a1be573245f1695e057285b768835",
     "schema": 1,
     "supported_recovery": []
    }
   },
   {
-   "digest": "21e69ab87abaf8f2d5d4bc56cfd2f9822852ddc575de4f7c149742a4cff1a49c",
+   "digest": "b8a9df9d1f5e88955e49a1d051ff904a4f63338a67cbd7b4e9a7fc3074c1c54e",
    "name": "selection",
    "record": {
     "expected": {
@@ -1653,14 +1971,14 @@
     },
     "focused": "rte_4dc28444d700630fad5db3f647ef407c",
     "kind": "route_selection",
-    "offer_digest": "ed7020574f732cd89d8124afe588c1ff8784b1a0badfa48a066023080014b5b1",
-    "request_id": "req_e57f6210104b2bcea960256ac22ac271",
+    "offer_digest": "20f95d93076d59c8fb5674a6bb38403338f783fd1f4dc4f1b1f0889e62594f88",
+    "request_id": "req_ec3a1be573245f1695e057285b768835",
     "schema": 1,
     "selected": "rte_4dc28444d700630fad5db3f647ef407c"
    }
   },
   {
-   "digest": "517eee961b4a8ee89c01ea788df3fbe7bfaaf37d7f1b9313185318f64ee5eeaa",
+   "digest": "1ed8bedf933d5b32f2c71b800d39d6e8b4cfd1f67cc763ae23de6a5e4455515e",
    "name": "selection_request",
    "record": {
     "action": "read",
@@ -1678,7 +1996,7 @@
      "layer": "personal",
      "principal_id": "prn_167283cc086c1d8c68205b07349d92f2"
     },
-    "payload_digest": "21e69ab87abaf8f2d5d4bc56cfd2f9822852ddc575de4f7c149742a4cff1a49c",
+    "payload_digest": "b8a9df9d1f5e88955e49a1d051ff904a4f63338a67cbd7b4e9a7fc3074c1c54e",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_a227db19189abe8cfd566b7feaeb41cb",
@@ -1689,7 +2007,7 @@
    }
   },
   {
-   "digest": "22e7e6bebf4e26bf8f4861fda4fb21e6cfc90de76b7a578488783cf71fafa935",
+   "digest": "f2240100891e663b9f55aac086a7dcda544f01b974231d129a8dd06379b7f0a0",
    "name": "select_start_receipt",
    "record": {
     "committed_at": "2000-01-01T00:00:00Z",
@@ -1699,7 +2017,7 @@
      "layer": "personal",
      "principal_id": "prn_167283cc086c1d8c68205b07349d92f2"
     },
-    "request_digest": "517eee961b4a8ee89c01ea788df3fbe7bfaaf37d7f1b9313185318f64ee5eeaa",
+    "request_digest": "1ed8bedf933d5b32f2c71b800d39d6e8b4cfd1f67cc763ae23de6a5e4455515e",
     "request_id": "req_a227db19189abe8cfd566b7feaeb41cb",
     "schema": 1,
     "sequence": 1,
@@ -1709,16 +2027,16 @@
    }
   },
   {
-   "digest": "259c244e140935413875d94d0848b0dc1e3c54aec5631409f46a17c3d08c72af",
+   "digest": "ec8058918db11bdd6c92a73cd18d804e1e494e31defc92a92932b3f7a98a7fed",
    "name": "selection_outcome",
    "record": {
     "at": "2000-01-01T00:00:00Z",
-    "capability": "read",
+    "capability": "new_delivery",
     "client": {
      "name": "claude-code",
-     "version": "2.1.278"
+     "version": "2.1.283"
     },
-    "for_request_id": "req_e57f6210104b2bcea960256ac22ac271",
+    "for_request_id": "req_ec3a1be573245f1695e057285b768835",
     "kind": "route_outcome",
     "material_gaps": [],
     "mode": {
@@ -1732,32 +2050,32 @@
    }
   },
   {
-   "digest": "64f1be9e8dadb9a582fe8bc271cd97ef133c8e2c72b5e802c3d24128e79b504c",
+   "digest": "6d0995466ef6212b8f119083c50d655f170a22229b05893708fe28f39afdef8b",
    "name": "select_start_result",
    "record": {
     "kind": "operation_result",
     "local_effect": "committed",
     "outcome": {
      "material_gaps": [],
-     "receipt_digest": "22e7e6bebf4e26bf8f4861fda4fb21e6cfc90de76b7a578488783cf71fafa935",
+     "receipt_digest": "f2240100891e663b9f55aac086a7dcda544f01b974231d129a8dd06379b7f0a0",
      "stage": "committed"
     },
     "outputs": [
      {
-      "digest": "259c244e140935413875d94d0848b0dc1e3c54aec5631409f46a17c3d08c72af",
+      "digest": "ec8058918db11bdd6c92a73cd18d804e1e494e31defc92a92932b3f7a98a7fed",
       "kind": "route_outcome"
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "517eee961b4a8ee89c01ea788df3fbe7bfaaf37d7f1b9313185318f64ee5eeaa",
+    "request_digest": "1ed8bedf933d5b32f2c71b800d39d6e8b4cfd1f67cc763ae23de6a5e4455515e",
     "request_id": "req_a227db19189abe8cfd566b7feaeb41cb",
     "schema": 1,
     "supported_recovery": []
    }
   }
  ],
- "says": "A first user with no Team, no account, no provider connection and no repository opens the launcher on a fresh installation: reading the local profile (access.profile.read) returns the profile the runtime wrote at this first use, active at generation 1 because of first use and naming nothing but the local principal, and every later request runs at that generation. The user then creates a local principal from a device key on this laptop (identity.binding.add, established by local creation, no evidence from any provider), and the host is probed for reading what a start hands it. The launcher offers one qualified personal start route. The entry (surface.drive) shows the three personal positions checked and empty, the tool as a suggestion marked '(제안)', and one start action; there is no goal or task field. Tab and Enter dispatch one preparation.compose request whose basis is the personal scope alone with no source pins and no work_request; the owner stores a preparation, as the requester's own record with no receipt, of nothing selected whose task support is not requested, observed at a plain local folder, and route.select answers for that request with it. Negative: no step signs in, founds or selects a Team, binds a repository or reaches a provider; no answer carries a gap or recovery that asks for sign-in, a Team or a repository; and the missing intent is neither an error nor a guessed work_request.",
- "spec_sha256": "b56bbd72105d420289f32e290daf4f8bf543b52acabfaef4f89242f34efcd9de",
+ "says": "A first user with no Team, no account, no provider connection and no repository opens the launcher on a fresh installation: reading the local profile (access.profile.read) returns the profile the runtime wrote at this first use, active at generation 1 because of first use and naming nothing but the local principal, and every later request runs at that generation. The user then creates a local principal from a device key on this laptop (identity.binding.add, established by local creation, no evidence from any provider), and the host is probed for taking what a start hands a new session at launch. The launcher offers one qualified personal start route. The entry (surface.drive) shows the three personal positions checked, empty and marked unavailable, an optional note, focused, the tool as a suggestion marked '(제안)', the permissions as the host's own settings, also suggested, and one start action; there is no goal or task field. Tab, Tab and Enter dispatch one preparation.compose request whose basis is the personal scope alone with no source pins and no work_request; the owner stores a preparation, as the requester's own record with no receipt, of nothing selected whose task support is not requested, observed at a plain local folder, and route.select answers for that request with it. Negative: no step signs in, founds or selects a Team, binds a repository or reaches a provider; no answer carries a gap or recovery that asks for sign-in, a Team or a repository; and the missing intent is neither an error nor a guessed work_request.",
+ "spec_sha256": "4c481eba7dacfc21fc63342d806c0811a5c81c9272e87cca168e6467300a1b4c",
  "steps": [
   {
    "carries": [],
@@ -1782,14 +2100,14 @@
   },
   {
    "carries": [
-    "read_probe"
+    "delivery_probe"
    ],
-   "name": "probe_host_read",
+   "name": "probe_host_delivery",
    "request": "probe_request",
-   "result": "probe_host_read_result",
+   "result": "probe_host_delivery_result",
    "returns": [
-    "read_probe_stored",
-    "read_probe_host_configuration"
+    "delivery_probe_stored",
+    "delivery_probe_host_configuration"
    ]
   },
   {

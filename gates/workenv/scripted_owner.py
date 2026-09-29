@@ -204,10 +204,11 @@ class Owner:
 
     def step_for(self, request: dict) -> dict:
         """The next step of the script sent under this request id; a step the driver gave
-        instead of sending is passed over."""
+        instead of sending is passed over. A request id the entry mints is the one this owner
+        minted where it answered first."""
         for index in range(self.next, len(self.steps)):
             step = self.steps[index]
-            if self.run.templates[step["request"]]["request_id"] == request["request_id"]:
+            if self.run.materialize(step["request"])["request_id"] == request["request_id"]:
                 self.next = index + 1
                 return step
         raise ValueError(f"the script sends no further request {request['request_id']}")

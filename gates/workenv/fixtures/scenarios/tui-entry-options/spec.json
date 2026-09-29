@@ -1,6 +1,6 @@
 {
  "case": "TUI-ENTRY-OPTIONS",
- "says": "From the host launcher in a bound repository, the entry shows concrete names and values: the repository and branch, the selected instructions source AGENTS.md, the unselected knowledge source, the suggested tool 'Claude Code 2.1.278 \u00b7 \uc0c8 \uc138\uc158' marked as a suggestion with its model-call effect, a blocker for the unqualified personal decision route that names why and how to fix it, and one start action whose file-change, model-call, permission and shared effects sit on the action itself. The person presses Tab and Enter (surface.drive): the single Enter dispatches exactly one request, with no preview, confirm or extra view between, and the call it makes is preparation.compose \u2014 the owner check \u2014 for a session start that declares session.routing.activate and carries no work_request, so no business intent is inferred from the launcher. route.select records the start route, selected in the launcher's own repository scope, and answers for that request with the preparation. Negative: selecting the unqualified decision route is answered by its owner as refused with capability_not_qualified and an unsupported route outcome, never run; a selection carrying only a focused route is refused at admission (missing_field /selected); and no frame shows a generic effect panel or confirmation view.",
+ "says": "From the host launcher in a bound repository, the entry shows concrete names and values: the repository and branch, the selected instructions source AGENTS.md, the unselected knowledge source, an optional note, the suggested tool 'Claude Code' marked as a suggestion with its model-call effect, the permissions, suggested as the host's own settings with their permission-request effect, a blocker for the unqualified personal decision route that names why and how to fix it, and one start action whose file-change and model-call effects sit on the action itself. The person presses Tab, Tab, Tab and Enter (surface.drive): the single Enter dispatches exactly one request, with no preview, confirm or extra view between, and the call it makes is preparation.compose \u2014 the owner check \u2014 for a session start that declares session.routing.activate and carries no work_request, so no business intent is inferred from the launcher. route.select records the start route, selected in the launcher's own repository scope, and answers for that request with the preparation. Negative: selecting the unqualified decision route is answered by its owner as refused with capability_not_qualified and an unsupported route outcome, never run; a selection carrying only a focused route is refused at admission (missing_field /selected); and no frame shows a generic effect panel or confirmation view.",
  "ids": [
   {
    "name": "me",
@@ -71,10 +71,6 @@
    "prefix": "req"
   },
   {
-   "name": "start_request",
-   "prefix": "req"
-  },
-  {
    "name": "select_request",
    "prefix": "req"
   },
@@ -104,6 +100,10 @@
   },
   {
    "name": "activate_request",
+   "prefix": "req"
+  },
+  {
+   "name": "link_offer_made",
    "prefix": "req"
   }
  ],
@@ -826,12 +826,28 @@
    ]
   },
   {
-   "name": "read_probe",
+   "name": "delivery_probe",
    "from": "c12/probe_as_submitted.json",
    "set": [
     {
      "pointer": "/capability",
-     "value": "read"
+     "value": "new_delivery"
+    },
+    {
+     "pointer": "/client/name",
+     "value": "claude-code"
+    },
+    {
+     "pointer": "/client/version",
+     "value": "2.1.283"
+    },
+    {
+     "pointer": "/wire/protocol",
+     "value": "launch_instructions"
+    },
+    {
+     "pointer": "/wire/version",
+     "value": "1"
     }
    ]
   },
@@ -861,7 +877,7 @@
     },
     {
      "pointer": "/payload_digest",
-     "value": "#read_probe"
+     "value": "#delivery_probe"
     },
     {
      "pointer": "/request_id",
@@ -874,7 +890,7 @@
    ]
   },
   {
-   "name": "read_probe_stored",
+   "name": "delivery_probe_stored",
    "from": "c12/a_probe_that_worked.json",
    "set": [
     {
@@ -883,25 +899,49 @@
     },
     {
      "pointer": "/capability",
-     "value": "read"
+     "value": "new_delivery"
     },
     {
      "pointer": "/observed",
-     "value": "The host session read the prepared material it was handed."
+     "value": "The new session gave the code the adapter handed it in the instructions its host was started with."
     },
     {
      "pointer": "/probe_id",
-     "value": "$prb:read_probe"
+     "value": "$prb:delivery_probe"
+    },
+    {
+     "pointer": "/client/name",
+     "value": "claude-code"
+    },
+    {
+     "pointer": "/client/version",
+     "value": "2.1.283"
+    },
+    {
+     "pointer": "/wire/protocol",
+     "value": "launch_instructions"
+    },
+    {
+     "pointer": "/wire/version",
+     "value": "1"
     }
    ]
   },
   {
-   "name": "read_probe_host_configuration",
+   "name": "delivery_probe_host_configuration",
    "from": "c12/host_configuration_is_never_submitted.json",
    "set": [
     {
      "pointer": "/measured_at",
      "value": "$instant:probe_measured_at"
+    },
+    {
+     "pointer": "/client/name",
+     "value": "claude-code"
+    },
+    {
+     "pointer": "/client/version",
+     "value": "2.1.283"
     }
    ]
   },
@@ -931,7 +971,7 @@
     },
     {
      "pointer": "/offered/0/support/probe_digest",
-     "value": "#read_probe_stored"
+     "value": "#delivery_probe_stored"
     },
     {
      "pointer": "/offered/1/route_id",
@@ -1064,9 +1104,8 @@
    "from": "c12/a_launcher_trace_where_focus_moved_and_one_selection_changed.json",
    "drop": [
     "/candidate_digest",
-    "/frames/4",
-    "/frames/3",
-    "/frames/2"
+    "/frames",
+    "/client"
    ],
    "set": [
     {
@@ -1082,16 +1121,20 @@
      "value": 0
     },
     {
-     "pointer": "/frames/0/elements",
-     "value": []
+     "pointer": "/frames/0/terminal/columns",
+     "value": 80
     },
     {
-     "pointer": "/frames/0/calls",
-     "value": []
+     "pointer": "/frames/0/terminal/rows",
+     "value": 24
     },
     {
-     "pointer": "/frames/0/dispatched",
-     "value": []
+     "pointer": "/frames/0/locale",
+     "value": "ko"
+    },
+    {
+     "pointer": "/frames/0/access",
+     "value": "active"
     },
     {
      "pointer": "/frames/0/view/view",
@@ -1106,16 +1149,16 @@
      "value": "owner"
     },
     {
-     "pointer": "/frames/0/view/missing_bodies",
-     "value": []
-    },
-    {
      "pointer": "/frames/0/view/selected_scope/layer",
      "value": "repository"
     },
     {
      "pointer": "/frames/0/view/selected_scope/repository_id",
      "value": "@repo"
+    },
+    {
+     "pointer": "/frames/0/view/missing_bodies",
+     "value": []
     },
     {
      "pointer": "/frames/0/view/target/ref",
@@ -1130,20 +1173,678 @@
      "value": "w01"
     },
     {
+     "pointer": "/frames/0/elements/0/element_id",
+     "value": "context.location"
+    },
+    {
+     "pointer": "/frames/0/elements/0/role",
+     "value": "context"
+    },
+    {
+     "pointer": "/frames/0/elements/0/label",
+     "value": "work \u00b7 \ub85c\uceec \ub808\ud3ec \u00b7 main"
+    },
+    {
+     "pointer": "/frames/0/elements/0/marks",
+     "value": []
+    },
+    {
+     "pointer": "/frames/0/elements/0/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/0/elements/0/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/0/elements/0/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/0/elements/0/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/0/elements/0/refers_to/ref",
+     "value": "scope"
+    },
+    {
+     "pointer": "/frames/0/elements/0/refers_to/scope/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/frames/0/elements/0/refers_to/scope/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/frames/0/elements/1/element_id",
+     "value": "positions.repository.instructions"
+    },
+    {
+     "pointer": "/frames/0/elements/1/role",
+     "value": "selection"
+    },
+    {
+     "pointer": "/frames/0/elements/1/label",
+     "value": "\ub808\ud3ec \uc9c0\uce68 \u00b7 AGENTS.md"
+    },
+    {
+     "pointer": "/frames/0/elements/1/marks",
+     "value": [
+      "[x]",
+      "(\uc81c\uc548)"
+     ]
+    },
+    {
+     "pointer": "/frames/0/elements/1/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/0/elements/1/selection",
+     "value": "suggested"
+    },
+    {
+     "pointer": "/frames/0/elements/1/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/0/elements/1/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/0/elements/1/state",
+     "value": "installed"
+    },
+    {
+     "pointer": "/frames/0/elements/1/refers_to/ref",
+     "value": "position"
+    },
+    {
+     "pointer": "/frames/0/elements/1/refers_to/position/scope/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/frames/0/elements/1/refers_to/position/scope/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/frames/0/elements/1/refers_to/position/role",
+     "value": "instructions"
+    },
+    {
+     "pointer": "/frames/0/elements/1/refers_to/view",
+     "value": "original"
+    },
+    {
+     "pointer": "/frames/0/elements/2/element_id",
+     "value": "positions.repository.knowledge"
+    },
+    {
+     "pointer": "/frames/0/elements/2/role",
+     "value": "selection"
+    },
+    {
+     "pointer": "/frames/0/elements/2/label",
+     "value": "\ub808\ud3ec \uc9c0\uc2dd \u00b7 docs/retry.md"
+    },
+    {
+     "pointer": "/frames/0/elements/2/marks",
+     "value": [
+      "[ ]"
+     ]
+    },
+    {
+     "pointer": "/frames/0/elements/2/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/0/elements/2/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/0/elements/2/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/0/elements/2/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/0/elements/2/state",
+     "value": "not_checked"
+    },
+    {
+     "pointer": "/frames/0/elements/2/refers_to/ref",
+     "value": "position"
+    },
+    {
+     "pointer": "/frames/0/elements/2/refers_to/position/scope/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/frames/0/elements/2/refers_to/position/scope/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/frames/0/elements/2/refers_to/position/role",
+     "value": "knowledge"
+    },
+    {
+     "pointer": "/frames/0/elements/2/refers_to/view",
+     "value": "original"
+    },
+    {
+     "pointer": "/frames/0/elements/3/element_id",
+     "value": "positions.repository.memory"
+    },
+    {
+     "pointer": "/frames/0/elements/3/role",
+     "value": "selection"
+    },
+    {
+     "pointer": "/frames/0/elements/3/label",
+     "value": "\ub808\ud3ec \uacb0\uc815 \uae30\ub85d \u00b7 \uc544\uc9c1 \uc5c6\uc74c"
+    },
+    {
+     "pointer": "/frames/0/elements/3/marks",
+     "value": [
+      "[-]",
+      "(\uc120\ud0dd \ubd88\uac00)"
+     ]
+    },
+    {
+     "pointer": "/frames/0/elements/3/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/0/elements/3/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/0/elements/3/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/0/elements/3/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/0/elements/3/state",
+     "value": "checked_empty"
+    },
+    {
+     "pointer": "/frames/0/elements/3/refers_to/ref",
+     "value": "position"
+    },
+    {
+     "pointer": "/frames/0/elements/3/refers_to/position/scope/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/frames/0/elements/3/refers_to/position/scope/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/frames/0/elements/3/refers_to/position/role",
+     "value": "memory"
+    },
+    {
+     "pointer": "/frames/0/elements/3/refers_to/view",
+     "value": "original"
+    },
+    {
+     "pointer": "/frames/0/elements/4/element_id",
+     "value": "positions.personal.instructions"
+    },
+    {
+     "pointer": "/frames/0/elements/4/role",
+     "value": "selection"
+    },
+    {
+     "pointer": "/frames/0/elements/4/label",
+     "value": "\uac1c\uc778 \uc9c0\uce68 \u00b7 \uc544\uc9c1 \uc5c6\uc74c"
+    },
+    {
+     "pointer": "/frames/0/elements/4/marks",
+     "value": [
+      "[-]",
+      "(\uc120\ud0dd \ubd88\uac00)"
+     ]
+    },
+    {
+     "pointer": "/frames/0/elements/4/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/0/elements/4/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/0/elements/4/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/0/elements/4/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/0/elements/4/state",
+     "value": "checked_empty"
+    },
+    {
+     "pointer": "/frames/0/elements/4/refers_to/ref",
+     "value": "position"
+    },
+    {
+     "pointer": "/frames/0/elements/4/refers_to/position/scope/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/frames/0/elements/4/refers_to/position/scope/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/frames/0/elements/4/refers_to/position/role",
+     "value": "instructions"
+    },
+    {
+     "pointer": "/frames/0/elements/4/refers_to/view",
+     "value": "original"
+    },
+    {
+     "pointer": "/frames/0/elements/5/element_id",
+     "value": "positions.personal.knowledge"
+    },
+    {
+     "pointer": "/frames/0/elements/5/role",
+     "value": "selection"
+    },
+    {
+     "pointer": "/frames/0/elements/5/label",
+     "value": "\uac1c\uc778 \uc9c0\uc2dd \u00b7 \uc544\uc9c1 \uc5c6\uc74c"
+    },
+    {
+     "pointer": "/frames/0/elements/5/marks",
+     "value": [
+      "[-]",
+      "(\uc120\ud0dd \ubd88\uac00)"
+     ]
+    },
+    {
+     "pointer": "/frames/0/elements/5/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/0/elements/5/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/0/elements/5/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/0/elements/5/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/0/elements/5/state",
+     "value": "checked_empty"
+    },
+    {
+     "pointer": "/frames/0/elements/5/refers_to/ref",
+     "value": "position"
+    },
+    {
+     "pointer": "/frames/0/elements/5/refers_to/position/scope/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/frames/0/elements/5/refers_to/position/scope/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/frames/0/elements/5/refers_to/position/role",
+     "value": "knowledge"
+    },
+    {
+     "pointer": "/frames/0/elements/5/refers_to/view",
+     "value": "original"
+    },
+    {
+     "pointer": "/frames/0/elements/6/element_id",
+     "value": "positions.personal.memory"
+    },
+    {
+     "pointer": "/frames/0/elements/6/role",
+     "value": "selection"
+    },
+    {
+     "pointer": "/frames/0/elements/6/label",
+     "value": "\uac1c\uc778 \uacb0\uc815 \uae30\ub85d \u00b7 \uc544\uc9c1 \uc5c6\uc74c"
+    },
+    {
+     "pointer": "/frames/0/elements/6/marks",
+     "value": [
+      "[-]",
+      "(\uc120\ud0dd \ubd88\uac00)"
+     ]
+    },
+    {
+     "pointer": "/frames/0/elements/6/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/0/elements/6/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/0/elements/6/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/0/elements/6/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/0/elements/6/state",
+     "value": "checked_empty"
+    },
+    {
+     "pointer": "/frames/0/elements/6/refers_to/ref",
+     "value": "position"
+    },
+    {
+     "pointer": "/frames/0/elements/6/refers_to/position/scope/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/frames/0/elements/6/refers_to/position/scope/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/frames/0/elements/6/refers_to/position/role",
+     "value": "memory"
+    },
+    {
+     "pointer": "/frames/0/elements/6/refers_to/view",
+     "value": "original"
+    },
+    {
+     "pointer": "/frames/0/elements/7/element_id",
+     "value": "field.note"
+    },
+    {
+     "pointer": "/frames/0/elements/7/role",
+     "value": "field"
+    },
+    {
+     "pointer": "/frames/0/elements/7/label",
+     "value": "\uba54\ubaa8 \u00b7 \uc2dc\uc791 \uc694\uccad\uc5d0 \ud568\uaed8 \uae30\ub85d"
+    },
+    {
+     "pointer": "/frames/0/elements/7/marks",
+     "value": []
+    },
+    {
+     "pointer": "/frames/0/elements/7/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/0/elements/7/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/0/elements/7/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/0/elements/7/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/0/elements/7/value",
+     "value": ""
+    },
+    {
+     "pointer": "/frames/0/elements/8/element_id",
+     "value": "execution.tool"
+    },
+    {
+     "pointer": "/frames/0/elements/8/role",
+     "value": "setting"
+    },
+    {
+     "pointer": "/frames/0/elements/8/label",
+     "value": "\ub3c4\uad6c Claude Code \u00b7 \uc0c8 \uc138\uc158"
+    },
+    {
+     "pointer": "/frames/0/elements/8/marks",
+     "value": [
+      "(\uc81c\uc548)"
+     ]
+    },
+    {
+     "pointer": "/frames/0/elements/8/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/0/elements/8/selection",
+     "value": "suggested"
+    },
+    {
+     "pointer": "/frames/0/elements/8/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/0/elements/8/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/0/elements/8/value",
+     "value": "Claude Code"
+    },
+    {
+     "pointer": "/frames/0/elements/8/effects",
+     "value": [
+      "model_calls"
+     ]
+    },
+    {
+     "pointer": "/frames/0/elements/9/element_id",
+     "value": "execution.permissions"
+    },
+    {
+     "pointer": "/frames/0/elements/9/role",
+     "value": "setting"
+    },
+    {
+     "pointer": "/frames/0/elements/9/label",
+     "value": "\uad8c\ud55c \u00b7 \ud638\uc2a4\ud2b8 \uc124\uc815\ub300\ub85c \ud655\uc778"
+    },
+    {
+     "pointer": "/frames/0/elements/9/marks",
+     "value": [
+      "(\uc81c\uc548)"
+     ]
+    },
+    {
+     "pointer": "/frames/0/elements/9/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/0/elements/9/selection",
+     "value": "suggested"
+    },
+    {
+     "pointer": "/frames/0/elements/9/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/0/elements/9/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/0/elements/9/value",
+     "value": "host_settings"
+    },
+    {
+     "pointer": "/frames/0/elements/9/effects",
+     "value": [
+      "permission_request"
+     ]
+    },
+    {
+     "pointer": "/frames/0/elements/10/element_id",
+     "value": "blocker.personal.decide"
+    },
+    {
+     "pointer": "/frames/0/elements/10/role",
+     "value": "blocker"
+    },
+    {
+     "pointer": "/frames/0/elements/10/label",
+     "value": "\ud655\uc778\ub418\uc9c0 \uc54a\uc740 \uacbd\ub85c \u00b7 \uc774 \ud638\uc2a4\ud2b8\uc5d0\uc11c \ud655\uc778\ud558\uba74 \uc4f8 \uc218 \uc788\uc74c"
+    },
+    {
+     "pointer": "/frames/0/elements/10/marks",
+     "value": []
+    },
+    {
+     "pointer": "/frames/0/elements/10/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/0/elements/10/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/0/elements/10/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/0/elements/10/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/0/elements/10/state",
+     "value": "blocked"
+    },
+    {
+     "pointer": "/frames/0/elements/10/refers_to/ref",
+     "value": "route"
+    },
+    {
+     "pointer": "/frames/0/elements/10/refers_to/route_id",
+     "value": "@route_decide"
+    },
+    {
+     "pointer": "/frames/0/elements/11/element_id",
+     "value": "action.start"
+    },
+    {
+     "pointer": "/frames/0/elements/11/role",
+     "value": "action"
+    },
+    {
+     "pointer": "/frames/0/elements/11/label",
+     "value": "Claude Code \uc0c8 \uc138\uc158 \uc2dc\uc791"
+    },
+    {
+     "pointer": "/frames/0/elements/11/marks",
+     "value": [
+      "\u203a"
+     ]
+    },
+    {
+     "pointer": "/frames/0/elements/11/focused",
+     "value": true
+    },
+    {
+     "pointer": "/frames/0/elements/11/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/0/elements/11/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/0/elements/11/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/0/elements/11/refers_to/ref",
+     "value": "route"
+    },
+    {
+     "pointer": "/frames/0/elements/11/refers_to/route_id",
+     "value": "@route_start"
+    },
+    {
+     "pointer": "/frames/0/elements/11/effects",
+     "value": [
+      "file_changes",
+      "model_calls"
+     ]
+    },
+    {
+     "pointer": "/frames/0/elements/12/element_id",
+     "value": "help.keys"
+    },
+    {
+     "pointer": "/frames/0/elements/12/role",
+     "value": "help"
+    },
+    {
+     "pointer": "/frames/0/elements/12/label",
+     "value": "Tab \uc774\ub3d9 \u00b7 \u2191\u2193 \uc790\ub8cc \u00b7 \u2190\u2192 \ubcc0\uacbd \u00b7 Enter \uc5f4\uae30\u00b7\uc2dc\uc791 \u00b7 Esc \ub4a4\ub85c"
+    },
+    {
+     "pointer": "/frames/0/elements/12/marks",
+     "value": []
+    },
+    {
+     "pointer": "/frames/0/elements/12/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/0/elements/12/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/0/elements/12/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/0/elements/12/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/0/dispatched",
+     "value": []
+    },
+    {
+     "pointer": "/frames/0/calls",
+     "value": []
+    },
+    {
      "pointer": "/frames/1/after",
      "value": 1
     },
     {
-     "pointer": "/frames/1/elements",
-     "value": []
+     "pointer": "/frames/1/terminal/columns",
+     "value": 80
     },
     {
-     "pointer": "/frames/1/calls",
-     "value": []
+     "pointer": "/frames/1/terminal/rows",
+     "value": 24
     },
     {
-     "pointer": "/frames/1/dispatched",
-     "value": []
+     "pointer": "/frames/1/locale",
+     "value": "ko"
+    },
+    {
+     "pointer": "/frames/1/access",
+     "value": "active"
     },
     {
      "pointer": "/frames/1/view/view",
@@ -1158,16 +1859,678 @@
      "value": "owner"
     },
     {
-     "pointer": "/frames/1/view/missing_bodies",
-     "value": []
-    },
-    {
      "pointer": "/frames/1/view/selected_scope/layer",
      "value": "repository"
     },
     {
      "pointer": "/frames/1/view/selected_scope/repository_id",
      "value": "@repo"
+    },
+    {
+     "pointer": "/frames/1/view/missing_bodies",
+     "value": []
+    },
+    {
+     "pointer": "/frames/1/elements/0/element_id",
+     "value": "context.location"
+    },
+    {
+     "pointer": "/frames/1/elements/0/role",
+     "value": "context"
+    },
+    {
+     "pointer": "/frames/1/elements/0/label",
+     "value": "work \u00b7 \ub85c\uceec \ub808\ud3ec \u00b7 main"
+    },
+    {
+     "pointer": "/frames/1/elements/0/marks",
+     "value": []
+    },
+    {
+     "pointer": "/frames/1/elements/0/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/1/elements/0/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/1/elements/0/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/1/elements/0/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/1/elements/0/refers_to/ref",
+     "value": "scope"
+    },
+    {
+     "pointer": "/frames/1/elements/0/refers_to/scope/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/frames/1/elements/0/refers_to/scope/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/frames/1/elements/1/element_id",
+     "value": "positions.repository.instructions"
+    },
+    {
+     "pointer": "/frames/1/elements/1/role",
+     "value": "selection"
+    },
+    {
+     "pointer": "/frames/1/elements/1/label",
+     "value": "\ub808\ud3ec \uc9c0\uce68 \u00b7 AGENTS.md"
+    },
+    {
+     "pointer": "/frames/1/elements/1/marks",
+     "value": [
+      "[x]",
+      "(\uc81c\uc548)"
+     ]
+    },
+    {
+     "pointer": "/frames/1/elements/1/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/1/elements/1/selection",
+     "value": "suggested"
+    },
+    {
+     "pointer": "/frames/1/elements/1/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/1/elements/1/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/1/elements/1/state",
+     "value": "installed"
+    },
+    {
+     "pointer": "/frames/1/elements/1/refers_to/ref",
+     "value": "position"
+    },
+    {
+     "pointer": "/frames/1/elements/1/refers_to/position/scope/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/frames/1/elements/1/refers_to/position/scope/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/frames/1/elements/1/refers_to/position/role",
+     "value": "instructions"
+    },
+    {
+     "pointer": "/frames/1/elements/1/refers_to/view",
+     "value": "original"
+    },
+    {
+     "pointer": "/frames/1/elements/2/element_id",
+     "value": "positions.repository.knowledge"
+    },
+    {
+     "pointer": "/frames/1/elements/2/role",
+     "value": "selection"
+    },
+    {
+     "pointer": "/frames/1/elements/2/label",
+     "value": "\ub808\ud3ec \uc9c0\uc2dd \u00b7 docs/retry.md"
+    },
+    {
+     "pointer": "/frames/1/elements/2/marks",
+     "value": [
+      "[ ]"
+     ]
+    },
+    {
+     "pointer": "/frames/1/elements/2/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/1/elements/2/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/1/elements/2/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/1/elements/2/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/1/elements/2/state",
+     "value": "not_checked"
+    },
+    {
+     "pointer": "/frames/1/elements/2/refers_to/ref",
+     "value": "position"
+    },
+    {
+     "pointer": "/frames/1/elements/2/refers_to/position/scope/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/frames/1/elements/2/refers_to/position/scope/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/frames/1/elements/2/refers_to/position/role",
+     "value": "knowledge"
+    },
+    {
+     "pointer": "/frames/1/elements/2/refers_to/view",
+     "value": "original"
+    },
+    {
+     "pointer": "/frames/1/elements/3/element_id",
+     "value": "positions.repository.memory"
+    },
+    {
+     "pointer": "/frames/1/elements/3/role",
+     "value": "selection"
+    },
+    {
+     "pointer": "/frames/1/elements/3/label",
+     "value": "\ub808\ud3ec \uacb0\uc815 \uae30\ub85d \u00b7 \uc544\uc9c1 \uc5c6\uc74c"
+    },
+    {
+     "pointer": "/frames/1/elements/3/marks",
+     "value": [
+      "[-]",
+      "(\uc120\ud0dd \ubd88\uac00)"
+     ]
+    },
+    {
+     "pointer": "/frames/1/elements/3/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/1/elements/3/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/1/elements/3/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/1/elements/3/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/1/elements/3/state",
+     "value": "checked_empty"
+    },
+    {
+     "pointer": "/frames/1/elements/3/refers_to/ref",
+     "value": "position"
+    },
+    {
+     "pointer": "/frames/1/elements/3/refers_to/position/scope/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/frames/1/elements/3/refers_to/position/scope/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/frames/1/elements/3/refers_to/position/role",
+     "value": "memory"
+    },
+    {
+     "pointer": "/frames/1/elements/3/refers_to/view",
+     "value": "original"
+    },
+    {
+     "pointer": "/frames/1/elements/4/element_id",
+     "value": "positions.personal.instructions"
+    },
+    {
+     "pointer": "/frames/1/elements/4/role",
+     "value": "selection"
+    },
+    {
+     "pointer": "/frames/1/elements/4/label",
+     "value": "\uac1c\uc778 \uc9c0\uce68 \u00b7 \uc544\uc9c1 \uc5c6\uc74c"
+    },
+    {
+     "pointer": "/frames/1/elements/4/marks",
+     "value": [
+      "[-]",
+      "(\uc120\ud0dd \ubd88\uac00)"
+     ]
+    },
+    {
+     "pointer": "/frames/1/elements/4/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/1/elements/4/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/1/elements/4/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/1/elements/4/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/1/elements/4/state",
+     "value": "checked_empty"
+    },
+    {
+     "pointer": "/frames/1/elements/4/refers_to/ref",
+     "value": "position"
+    },
+    {
+     "pointer": "/frames/1/elements/4/refers_to/position/scope/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/frames/1/elements/4/refers_to/position/scope/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/frames/1/elements/4/refers_to/position/role",
+     "value": "instructions"
+    },
+    {
+     "pointer": "/frames/1/elements/4/refers_to/view",
+     "value": "original"
+    },
+    {
+     "pointer": "/frames/1/elements/5/element_id",
+     "value": "positions.personal.knowledge"
+    },
+    {
+     "pointer": "/frames/1/elements/5/role",
+     "value": "selection"
+    },
+    {
+     "pointer": "/frames/1/elements/5/label",
+     "value": "\uac1c\uc778 \uc9c0\uc2dd \u00b7 \uc544\uc9c1 \uc5c6\uc74c"
+    },
+    {
+     "pointer": "/frames/1/elements/5/marks",
+     "value": [
+      "[-]",
+      "(\uc120\ud0dd \ubd88\uac00)"
+     ]
+    },
+    {
+     "pointer": "/frames/1/elements/5/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/1/elements/5/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/1/elements/5/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/1/elements/5/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/1/elements/5/state",
+     "value": "checked_empty"
+    },
+    {
+     "pointer": "/frames/1/elements/5/refers_to/ref",
+     "value": "position"
+    },
+    {
+     "pointer": "/frames/1/elements/5/refers_to/position/scope/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/frames/1/elements/5/refers_to/position/scope/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/frames/1/elements/5/refers_to/position/role",
+     "value": "knowledge"
+    },
+    {
+     "pointer": "/frames/1/elements/5/refers_to/view",
+     "value": "original"
+    },
+    {
+     "pointer": "/frames/1/elements/6/element_id",
+     "value": "positions.personal.memory"
+    },
+    {
+     "pointer": "/frames/1/elements/6/role",
+     "value": "selection"
+    },
+    {
+     "pointer": "/frames/1/elements/6/label",
+     "value": "\uac1c\uc778 \uacb0\uc815 \uae30\ub85d \u00b7 \uc544\uc9c1 \uc5c6\uc74c"
+    },
+    {
+     "pointer": "/frames/1/elements/6/marks",
+     "value": [
+      "[-]",
+      "(\uc120\ud0dd \ubd88\uac00)"
+     ]
+    },
+    {
+     "pointer": "/frames/1/elements/6/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/1/elements/6/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/1/elements/6/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/1/elements/6/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/1/elements/6/state",
+     "value": "checked_empty"
+    },
+    {
+     "pointer": "/frames/1/elements/6/refers_to/ref",
+     "value": "position"
+    },
+    {
+     "pointer": "/frames/1/elements/6/refers_to/position/scope/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/frames/1/elements/6/refers_to/position/scope/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/frames/1/elements/6/refers_to/position/role",
+     "value": "memory"
+    },
+    {
+     "pointer": "/frames/1/elements/6/refers_to/view",
+     "value": "original"
+    },
+    {
+     "pointer": "/frames/1/elements/7/element_id",
+     "value": "field.note"
+    },
+    {
+     "pointer": "/frames/1/elements/7/role",
+     "value": "field"
+    },
+    {
+     "pointer": "/frames/1/elements/7/label",
+     "value": "\uba54\ubaa8 \u00b7 \uc2dc\uc791 \uc694\uccad\uc5d0 \ud568\uaed8 \uae30\ub85d"
+    },
+    {
+     "pointer": "/frames/1/elements/7/marks",
+     "value": []
+    },
+    {
+     "pointer": "/frames/1/elements/7/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/1/elements/7/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/1/elements/7/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/1/elements/7/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/1/elements/7/value",
+     "value": ""
+    },
+    {
+     "pointer": "/frames/1/elements/8/element_id",
+     "value": "execution.tool"
+    },
+    {
+     "pointer": "/frames/1/elements/8/role",
+     "value": "setting"
+    },
+    {
+     "pointer": "/frames/1/elements/8/label",
+     "value": "\ub3c4\uad6c Claude Code \u00b7 \uc0c8 \uc138\uc158"
+    },
+    {
+     "pointer": "/frames/1/elements/8/marks",
+     "value": [
+      "(\uc81c\uc548)"
+     ]
+    },
+    {
+     "pointer": "/frames/1/elements/8/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/1/elements/8/selection",
+     "value": "suggested"
+    },
+    {
+     "pointer": "/frames/1/elements/8/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/1/elements/8/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/1/elements/8/value",
+     "value": "Claude Code"
+    },
+    {
+     "pointer": "/frames/1/elements/8/effects",
+     "value": [
+      "model_calls"
+     ]
+    },
+    {
+     "pointer": "/frames/1/elements/9/element_id",
+     "value": "execution.permissions"
+    },
+    {
+     "pointer": "/frames/1/elements/9/role",
+     "value": "setting"
+    },
+    {
+     "pointer": "/frames/1/elements/9/label",
+     "value": "\uad8c\ud55c \u00b7 \ud638\uc2a4\ud2b8 \uc124\uc815\ub300\ub85c \ud655\uc778"
+    },
+    {
+     "pointer": "/frames/1/elements/9/marks",
+     "value": [
+      "(\uc81c\uc548)"
+     ]
+    },
+    {
+     "pointer": "/frames/1/elements/9/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/1/elements/9/selection",
+     "value": "suggested"
+    },
+    {
+     "pointer": "/frames/1/elements/9/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/1/elements/9/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/1/elements/9/value",
+     "value": "host_settings"
+    },
+    {
+     "pointer": "/frames/1/elements/9/effects",
+     "value": [
+      "permission_request"
+     ]
+    },
+    {
+     "pointer": "/frames/1/elements/10/element_id",
+     "value": "blocker.personal.decide"
+    },
+    {
+     "pointer": "/frames/1/elements/10/role",
+     "value": "blocker"
+    },
+    {
+     "pointer": "/frames/1/elements/10/label",
+     "value": "\ud655\uc778\ub418\uc9c0 \uc54a\uc740 \uacbd\ub85c \u00b7 \uc774 \ud638\uc2a4\ud2b8\uc5d0\uc11c \ud655\uc778\ud558\uba74 \uc4f8 \uc218 \uc788\uc74c"
+    },
+    {
+     "pointer": "/frames/1/elements/10/marks",
+     "value": []
+    },
+    {
+     "pointer": "/frames/1/elements/10/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/1/elements/10/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/1/elements/10/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/1/elements/10/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/1/elements/10/state",
+     "value": "blocked"
+    },
+    {
+     "pointer": "/frames/1/elements/10/refers_to/ref",
+     "value": "route"
+    },
+    {
+     "pointer": "/frames/1/elements/10/refers_to/route_id",
+     "value": "@route_decide"
+    },
+    {
+     "pointer": "/frames/1/elements/11/element_id",
+     "value": "action.start"
+    },
+    {
+     "pointer": "/frames/1/elements/11/role",
+     "value": "action"
+    },
+    {
+     "pointer": "/frames/1/elements/11/label",
+     "value": "Claude Code \uc0c8 \uc138\uc158 \uc2dc\uc791"
+    },
+    {
+     "pointer": "/frames/1/elements/11/marks",
+     "value": [
+      "\u203a"
+     ]
+    },
+    {
+     "pointer": "/frames/1/elements/11/focused",
+     "value": true
+    },
+    {
+     "pointer": "/frames/1/elements/11/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/1/elements/11/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/1/elements/11/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/1/elements/11/refers_to/ref",
+     "value": "route"
+    },
+    {
+     "pointer": "/frames/1/elements/11/refers_to/route_id",
+     "value": "@route_start"
+    },
+    {
+     "pointer": "/frames/1/elements/11/effects",
+     "value": [
+      "file_changes",
+      "model_calls"
+     ]
+    },
+    {
+     "pointer": "/frames/1/elements/12/element_id",
+     "value": "help.keys"
+    },
+    {
+     "pointer": "/frames/1/elements/12/role",
+     "value": "help"
+    },
+    {
+     "pointer": "/frames/1/elements/12/label",
+     "value": "Tab \uc774\ub3d9 \u00b7 \u2191\u2193 \uc790\ub8cc \u00b7 \u2190\u2192 \ubcc0\uacbd \u00b7 Enter \uc5f4\uae30\u00b7\uc2dc\uc791 \u00b7 Esc \ub4a4\ub85c"
+    },
+    {
+     "pointer": "/frames/1/elements/12/marks",
+     "value": []
+    },
+    {
+     "pointer": "/frames/1/elements/12/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/1/elements/12/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/1/elements/12/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/1/elements/12/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/1/dispatched",
+     "value": []
+    },
+    {
+     "pointer": "/frames/1/calls",
+     "value": []
+    },
+    {
+     "pointer": "/client/name",
+     "value": "agent-bios-entry"
+    },
+    {
+     "pointer": "/client/version",
+     "value": "1"
     }
    ]
   },
@@ -1175,16 +2538,39 @@
    "name": "script",
    "from": "c12/a_launcher_driven_at_80_by_24.json",
    "drop": [
-    "/inputs/3",
-    "/inputs/2"
+    "/inputs"
    ],
    "set": [
+    {
+     "pointer": "/inputs/0/input",
+     "value": "key"
+    },
     {
      "pointer": "/inputs/0/key",
      "value": "tab"
     },
     {
+     "pointer": "/inputs/1/input",
+     "value": "key"
+    },
+    {
      "pointer": "/inputs/1/key",
+     "value": "tab"
+    },
+    {
+     "pointer": "/inputs/2/input",
+     "value": "key"
+    },
+    {
+     "pointer": "/inputs/2/key",
+     "value": "tab"
+    },
+    {
+     "pointer": "/inputs/3/input",
+     "value": "key"
+    },
+    {
+     "pointer": "/inputs/3/key",
      "value": "enter"
     }
    ]
@@ -1240,25 +2626,8 @@
    "from": "c12/a_launcher_trace_where_focus_moved_and_one_selection_changed.json",
    "drop": [
     "/candidate_digest",
-    "/frames/4",
-    "/frames/3",
-    "/frames/0/elements/7",
-    "/frames/0/elements/3/refers_to",
-    "/frames/0/elements/3/state",
-    "/frames/0/elements/4/refers_to/position",
-    "/frames/0/elements/4/refers_to/view",
-    "/frames/0/elements/6/effects",
-    "/frames/1/elements/7",
-    "/frames/1/elements/3/refers_to",
-    "/frames/1/elements/3/state",
-    "/frames/1/elements/4/refers_to/position",
-    "/frames/1/elements/4/refers_to/view",
-    "/frames/1/elements/6/effects",
-    "/frames/2/elements/3/refers_to",
-    "/frames/2/elements/3/state",
-    "/frames/2/elements/4/refers_to/position",
-    "/frames/2/elements/4/refers_to/view",
-    "/frames/2/elements/6/effects"
+    "/frames",
+    "/client"
    ],
    "set": [
     {
@@ -1266,8 +2635,92 @@
      "value": "$instant:script_driven_at"
     },
     {
+     "pointer": "/script_digest",
+     "value": "#script"
+    },
+    {
+     "pointer": "/frames/0/after",
+     "value": 0
+    },
+    {
+     "pointer": "/frames/0/terminal/columns",
+     "value": 80
+    },
+    {
+     "pointer": "/frames/0/terminal/rows",
+     "value": 24
+    },
+    {
+     "pointer": "/frames/0/locale",
+     "value": "ko"
+    },
+    {
+     "pointer": "/frames/0/access",
+     "value": "active"
+    },
+    {
+     "pointer": "/frames/0/view/view",
+     "value": "w01"
+    },
+    {
+     "pointer": "/frames/0/view/origin/name",
+     "value": "host_launcher"
+    },
+    {
+     "pointer": "/frames/0/view/origin/root_origin",
+     "value": "owner"
+    },
+    {
+     "pointer": "/frames/0/view/selected_scope/layer",
+     "value": "repository"
+    },
+    {
      "pointer": "/frames/0/view/selected_scope/repository_id",
      "value": "@repo"
+    },
+    {
+     "pointer": "/frames/0/view/missing_bodies",
+     "value": []
+    },
+    {
+     "pointer": "/frames/0/elements/0/element_id",
+     "value": "context.location"
+    },
+    {
+     "pointer": "/frames/0/elements/0/role",
+     "value": "context"
+    },
+    {
+     "pointer": "/frames/0/elements/0/label",
+     "value": "payments \u00b7 \ub85c\uceec \ub808\ud3ec \u00b7 main"
+    },
+    {
+     "pointer": "/frames/0/elements/0/marks",
+     "value": []
+    },
+    {
+     "pointer": "/frames/0/elements/0/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/0/elements/0/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/0/elements/0/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/0/elements/0/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/0/elements/0/refers_to/ref",
+     "value": "scope"
+    },
+    {
+     "pointer": "/frames/0/elements/0/refers_to/scope/layer",
+     "value": "repository"
     },
     {
      "pointer": "/frames/0/elements/0/refers_to/scope/repository_id",
@@ -1289,7 +2742,8 @@
      "pointer": "/frames/0/elements/1/marks",
      "value": [
       "\u203a",
-      "[x]"
+      "[x]",
+      "(\uc81c\uc548)"
      ]
     },
     {
@@ -1298,7 +2752,15 @@
     },
     {
      "pointer": "/frames/0/elements/1/selection",
-     "value": "selected"
+     "value": "suggested"
+    },
+    {
+     "pointer": "/frames/0/elements/1/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/0/elements/1/shown",
+     "value": "whole"
     },
     {
      "pointer": "/frames/0/elements/1/state",
@@ -1329,6 +2791,10 @@
      "value": "positions.repository.knowledge"
     },
     {
+     "pointer": "/frames/0/elements/2/role",
+     "value": "selection"
+    },
+    {
      "pointer": "/frames/0/elements/2/label",
      "value": "\uc9c0\uc2dd \u00b7 docs/retry.md"
     },
@@ -1347,8 +2813,24 @@
      "value": "none"
     },
     {
+     "pointer": "/frames/0/elements/2/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/0/elements/2/shown",
+     "value": "whole"
+    },
+    {
      "pointer": "/frames/0/elements/2/state",
      "value": "not_checked"
+    },
+    {
+     "pointer": "/frames/0/elements/2/refers_to/ref",
+     "value": "position"
+    },
+    {
+     "pointer": "/frames/0/elements/2/refers_to/position/scope/layer",
+     "value": "repository"
     },
     {
      "pointer": "/frames/0/elements/2/refers_to/position/scope/repository_id",
@@ -1359,117 +2841,583 @@
      "value": "knowledge"
     },
     {
+     "pointer": "/frames/0/elements/2/refers_to/view",
+     "value": "original"
+    },
+    {
      "pointer": "/frames/0/elements/3/element_id",
-     "value": "execution.tool"
+     "value": "positions.repository.memory"
     },
     {
      "pointer": "/frames/0/elements/3/role",
-     "value": "setting"
+     "value": "selection"
     },
     {
      "pointer": "/frames/0/elements/3/label",
-     "value": "\ub3c4\uad6c Claude Code 2.1.278 \u00b7 \uc0c8 \uc138\uc158"
+     "value": "\ub808\ud3ec \uacb0\uc815 \uae30\ub85d \u00b7 \uc544\uc9c1 \uc5c6\uc74c"
     },
     {
      "pointer": "/frames/0/elements/3/marks",
      "value": [
-      "(\uc81c\uc548)"
+      "[-]",
+      "(\uc120\ud0dd \ubd88\uac00)"
      ]
+    },
+    {
+     "pointer": "/frames/0/elements/3/focused",
+     "value": false
     },
     {
      "pointer": "/frames/0/elements/3/selection",
-     "value": "suggested"
+     "value": "none"
     },
     {
-     "pointer": "/frames/0/elements/3/effects",
-     "value": [
-      "model_calls"
-     ]
+     "pointer": "/frames/0/elements/3/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/0/elements/3/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/0/elements/3/state",
+     "value": "checked_empty"
+    },
+    {
+     "pointer": "/frames/0/elements/3/refers_to/ref",
+     "value": "position"
+    },
+    {
+     "pointer": "/frames/0/elements/3/refers_to/position/scope/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/frames/0/elements/3/refers_to/position/scope/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/frames/0/elements/3/refers_to/position/role",
+     "value": "memory"
+    },
+    {
+     "pointer": "/frames/0/elements/3/refers_to/view",
+     "value": "original"
     },
     {
      "pointer": "/frames/0/elements/4/element_id",
-     "value": "blocker.personal_decide"
+     "value": "positions.personal.instructions"
     },
     {
      "pointer": "/frames/0/elements/4/role",
-     "value": "blocker"
+     "value": "selection"
     },
     {
      "pointer": "/frames/0/elements/4/label",
-     "value": "\uac1c\uc778 \uacb0\uc815 \uae30\ub85d: Claude Code\uc5d0\uc11c \ud655\uc778\ub418\uc9c0 \uc54a\uc544 \uc4f8 \uc218 \uc5c6\uc74c \u00b7 \uc774 \ud638\uc2a4\ud2b8\uc758 \uacb0\uc815 \uae30\ub85d \uae30\ub2a5\uc744 \ud655\uc778\ud558\uba74 \uc4f8 \uc218 \uc788\uc74c"
+     "value": "\uac1c\uc778 \uc9c0\uce68 \u00b7 \uc544\uc9c1 \uc5c6\uc74c"
     },
     {
      "pointer": "/frames/0/elements/4/marks",
-     "value": []
+     "value": [
+      "[-]",
+      "(\uc120\ud0dd \ubd88\uac00)"
+     ]
+    },
+    {
+     "pointer": "/frames/0/elements/4/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/0/elements/4/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/0/elements/4/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/0/elements/4/shown",
+     "value": "whole"
     },
     {
      "pointer": "/frames/0/elements/4/state",
-     "value": "blocked"
+     "value": "checked_empty"
     },
     {
      "pointer": "/frames/0/elements/4/refers_to/ref",
-     "value": "route"
+     "value": "position"
     },
     {
-     "pointer": "/frames/0/elements/4/refers_to/route_id",
-     "value": "@route_decide"
+     "pointer": "/frames/0/elements/4/refers_to/position/scope/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/frames/0/elements/4/refers_to/position/scope/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/frames/0/elements/4/refers_to/position/role",
+     "value": "instructions"
+    },
+    {
+     "pointer": "/frames/0/elements/4/refers_to/view",
+     "value": "original"
     },
     {
      "pointer": "/frames/0/elements/5/element_id",
-     "value": "action.start"
+     "value": "positions.personal.knowledge"
     },
     {
      "pointer": "/frames/0/elements/5/role",
-     "value": "action"
+     "value": "selection"
     },
     {
      "pointer": "/frames/0/elements/5/label",
-     "value": "Claude Code \uc0c8 \uc138\uc158 \uc2dc\uc791"
+     "value": "\uac1c\uc778 \uc9c0\uc2dd \u00b7 \uc544\uc9c1 \uc5c6\uc74c"
     },
     {
      "pointer": "/frames/0/elements/5/marks",
-     "value": []
+     "value": [
+      "[-]",
+      "(\uc120\ud0dd \ubd88\uac00)"
+     ]
+    },
+    {
+     "pointer": "/frames/0/elements/5/focused",
+     "value": false
     },
     {
      "pointer": "/frames/0/elements/5/selection",
      "value": "none"
     },
     {
+     "pointer": "/frames/0/elements/5/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/0/elements/5/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/0/elements/5/state",
+     "value": "checked_empty"
+    },
+    {
      "pointer": "/frames/0/elements/5/refers_to/ref",
-     "value": "route"
+     "value": "position"
     },
     {
-     "pointer": "/frames/0/elements/5/refers_to/route_id",
-     "value": "@route_start"
+     "pointer": "/frames/0/elements/5/refers_to/position/scope/layer",
+     "value": "personal"
     },
     {
-     "pointer": "/frames/0/elements/5/effects",
-     "value": [
-      "file_changes",
-      "model_calls",
-      "permission_request",
-      "shared_change"
-     ]
+     "pointer": "/frames/0/elements/5/refers_to/position/scope/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/frames/0/elements/5/refers_to/position/role",
+     "value": "knowledge"
+    },
+    {
+     "pointer": "/frames/0/elements/5/refers_to/view",
+     "value": "original"
     },
     {
      "pointer": "/frames/0/elements/6/element_id",
-     "value": "help.keys"
+     "value": "positions.personal.memory"
     },
     {
      "pointer": "/frames/0/elements/6/role",
-     "value": "help"
+     "value": "selection"
     },
     {
      "pointer": "/frames/0/elements/6/label",
-     "value": "Tab \uc774\ub3d9 \u00b7 Enter \uc5f4\uae30 \u00b7 Space \uc120\ud0dd \u00b7 Esc \ub4a4\ub85c"
+     "value": "\uac1c\uc778 \uacb0\uc815 \uae30\ub85d \u00b7 \uc544\uc9c1 \uc5c6\uc74c"
     },
     {
      "pointer": "/frames/0/elements/6/marks",
+     "value": [
+      "[-]",
+      "(\uc120\ud0dd \ubd88\uac00)"
+     ]
+    },
+    {
+     "pointer": "/frames/0/elements/6/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/0/elements/6/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/0/elements/6/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/0/elements/6/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/0/elements/6/state",
+     "value": "checked_empty"
+    },
+    {
+     "pointer": "/frames/0/elements/6/refers_to/ref",
+     "value": "position"
+    },
+    {
+     "pointer": "/frames/0/elements/6/refers_to/position/scope/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/frames/0/elements/6/refers_to/position/scope/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/frames/0/elements/6/refers_to/position/role",
+     "value": "memory"
+    },
+    {
+     "pointer": "/frames/0/elements/6/refers_to/view",
+     "value": "original"
+    },
+    {
+     "pointer": "/frames/0/elements/7/element_id",
+     "value": "field.note"
+    },
+    {
+     "pointer": "/frames/0/elements/7/role",
+     "value": "field"
+    },
+    {
+     "pointer": "/frames/0/elements/7/label",
+     "value": "\uba54\ubaa8 \u00b7 \uc2dc\uc791 \uc694\uccad\uc5d0 \ud568\uaed8 \uae30\ub85d"
+    },
+    {
+     "pointer": "/frames/0/elements/7/marks",
      "value": []
+    },
+    {
+     "pointer": "/frames/0/elements/7/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/0/elements/7/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/0/elements/7/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/0/elements/7/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/0/elements/7/value",
+     "value": ""
+    },
+    {
+     "pointer": "/frames/0/elements/8/element_id",
+     "value": "execution.tool"
+    },
+    {
+     "pointer": "/frames/0/elements/8/role",
+     "value": "setting"
+    },
+    {
+     "pointer": "/frames/0/elements/8/label",
+     "value": "\ub3c4\uad6c Claude Code 2.1.278 \u00b7 \uc0c8 \uc138\uc158"
+    },
+    {
+     "pointer": "/frames/0/elements/8/marks",
+     "value": [
+      "(\uc81c\uc548)"
+     ]
+    },
+    {
+     "pointer": "/frames/0/elements/8/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/0/elements/8/selection",
+     "value": "suggested"
+    },
+    {
+     "pointer": "/frames/0/elements/8/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/0/elements/8/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/0/elements/8/value",
+     "value": "Claude Code"
+    },
+    {
+     "pointer": "/frames/0/elements/8/effects",
+     "value": [
+      "model_calls"
+     ]
+    },
+    {
+     "pointer": "/frames/0/elements/9/element_id",
+     "value": "execution.permissions"
+    },
+    {
+     "pointer": "/frames/0/elements/9/role",
+     "value": "setting"
+    },
+    {
+     "pointer": "/frames/0/elements/9/label",
+     "value": "\uad8c\ud55c \u00b7 \ud638\uc2a4\ud2b8 \uc124\uc815\ub300\ub85c \ud655\uc778"
+    },
+    {
+     "pointer": "/frames/0/elements/9/marks",
+     "value": [
+      "(\uc81c\uc548)"
+     ]
+    },
+    {
+     "pointer": "/frames/0/elements/9/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/0/elements/9/selection",
+     "value": "suggested"
+    },
+    {
+     "pointer": "/frames/0/elements/9/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/0/elements/9/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/0/elements/9/value",
+     "value": "host_settings"
+    },
+    {
+     "pointer": "/frames/0/elements/9/effects",
+     "value": [
+      "permission_request"
+     ]
+    },
+    {
+     "pointer": "/frames/0/elements/10/element_id",
+     "value": "blocker.personal.decide"
+    },
+    {
+     "pointer": "/frames/0/elements/10/role",
+     "value": "blocker"
+    },
+    {
+     "pointer": "/frames/0/elements/10/label",
+     "value": "\ud655\uc778\ub418\uc9c0 \uc54a\uc740 \uacbd\ub85c \u00b7 \uc774 \ud638\uc2a4\ud2b8\uc5d0\uc11c \ud655\uc778\ud558\uba74 \uc4f8 \uc218 \uc788\uc74c"
+    },
+    {
+     "pointer": "/frames/0/elements/10/marks",
+     "value": []
+    },
+    {
+     "pointer": "/frames/0/elements/10/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/0/elements/10/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/0/elements/10/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/0/elements/10/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/0/elements/10/state",
+     "value": "blocked"
+    },
+    {
+     "pointer": "/frames/0/elements/10/refers_to/ref",
+     "value": "route"
+    },
+    {
+     "pointer": "/frames/0/elements/10/refers_to/route_id",
+     "value": "@route_decide"
+    },
+    {
+     "pointer": "/frames/0/elements/11/element_id",
+     "value": "action.start"
+    },
+    {
+     "pointer": "/frames/0/elements/11/role",
+     "value": "action"
+    },
+    {
+     "pointer": "/frames/0/elements/11/label",
+     "value": "Claude Code \uc0c8 \uc138\uc158 \uc2dc\uc791"
+    },
+    {
+     "pointer": "/frames/0/elements/11/marks",
+     "value": []
+    },
+    {
+     "pointer": "/frames/0/elements/11/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/0/elements/11/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/0/elements/11/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/0/elements/11/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/0/elements/11/refers_to/ref",
+     "value": "route"
+    },
+    {
+     "pointer": "/frames/0/elements/11/refers_to/route_id",
+     "value": "@route_start"
+    },
+    {
+     "pointer": "/frames/0/elements/11/effects",
+     "value": [
+      "file_changes",
+      "model_calls"
+     ]
+    },
+    {
+     "pointer": "/frames/0/elements/12/element_id",
+     "value": "help.keys"
+    },
+    {
+     "pointer": "/frames/0/elements/12/role",
+     "value": "help"
+    },
+    {
+     "pointer": "/frames/0/elements/12/label",
+     "value": "Tab \uc774\ub3d9 \u00b7 Enter \uc5f4\uae30 \u00b7 Space \uc120\ud0dd \u00b7 Esc \ub4a4\ub85c"
+    },
+    {
+     "pointer": "/frames/0/elements/12/marks",
+     "value": []
+    },
+    {
+     "pointer": "/frames/0/elements/12/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/0/elements/12/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/0/elements/12/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/0/elements/12/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/0/dispatched",
+     "value": []
+    },
+    {
+     "pointer": "/frames/0/calls",
+     "value": []
+    },
+    {
+     "pointer": "/frames/1/after",
+     "value": 1
+    },
+    {
+     "pointer": "/frames/1/terminal/columns",
+     "value": 80
+    },
+    {
+     "pointer": "/frames/1/terminal/rows",
+     "value": 24
+    },
+    {
+     "pointer": "/frames/1/locale",
+     "value": "ko"
+    },
+    {
+     "pointer": "/frames/1/access",
+     "value": "active"
+    },
+    {
+     "pointer": "/frames/1/view/view",
+     "value": "w01"
+    },
+    {
+     "pointer": "/frames/1/view/origin/name",
+     "value": "host_launcher"
+    },
+    {
+     "pointer": "/frames/1/view/origin/root_origin",
+     "value": "owner"
+    },
+    {
+     "pointer": "/frames/1/view/selected_scope/layer",
+     "value": "repository"
     },
     {
      "pointer": "/frames/1/view/selected_scope/repository_id",
      "value": "@repo"
+    },
+    {
+     "pointer": "/frames/1/view/missing_bodies",
+     "value": []
+    },
+    {
+     "pointer": "/frames/1/elements/0/element_id",
+     "value": "context.location"
+    },
+    {
+     "pointer": "/frames/1/elements/0/role",
+     "value": "context"
+    },
+    {
+     "pointer": "/frames/1/elements/0/label",
+     "value": "payments \u00b7 \ub85c\uceec \ub808\ud3ec \u00b7 main"
+    },
+    {
+     "pointer": "/frames/1/elements/0/marks",
+     "value": []
+    },
+    {
+     "pointer": "/frames/1/elements/0/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/1/elements/0/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/1/elements/0/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/1/elements/0/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/1/elements/0/refers_to/ref",
+     "value": "scope"
+    },
+    {
+     "pointer": "/frames/1/elements/0/refers_to/scope/layer",
+     "value": "repository"
     },
     {
      "pointer": "/frames/1/elements/0/refers_to/scope/repository_id",
@@ -1490,12 +3438,25 @@
     {
      "pointer": "/frames/1/elements/1/marks",
      "value": [
-      "[x]"
+      "[x]",
+      "(\uc81c\uc548)"
      ]
     },
     {
+     "pointer": "/frames/1/elements/1/focused",
+     "value": false
+    },
+    {
      "pointer": "/frames/1/elements/1/selection",
-     "value": "selected"
+     "value": "suggested"
+    },
+    {
+     "pointer": "/frames/1/elements/1/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/1/elements/1/shown",
+     "value": "whole"
     },
     {
      "pointer": "/frames/1/elements/1/state",
@@ -1526,6 +3487,10 @@
      "value": "positions.repository.knowledge"
     },
     {
+     "pointer": "/frames/1/elements/2/role",
+     "value": "selection"
+    },
+    {
      "pointer": "/frames/1/elements/2/label",
      "value": "\uc9c0\uc2dd \u00b7 docs/retry.md"
     },
@@ -1536,12 +3501,32 @@
      ]
     },
     {
+     "pointer": "/frames/1/elements/2/focused",
+     "value": false
+    },
+    {
      "pointer": "/frames/1/elements/2/selection",
      "value": "none"
     },
     {
+     "pointer": "/frames/1/elements/2/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/1/elements/2/shown",
+     "value": "whole"
+    },
+    {
      "pointer": "/frames/1/elements/2/state",
      "value": "not_checked"
+    },
+    {
+     "pointer": "/frames/1/elements/2/refers_to/ref",
+     "value": "position"
+    },
+    {
+     "pointer": "/frames/1/elements/2/refers_to/position/scope/layer",
+     "value": "repository"
     },
     {
      "pointer": "/frames/1/elements/2/refers_to/position/scope/repository_id",
@@ -1552,21 +3537,26 @@
      "value": "knowledge"
     },
     {
+     "pointer": "/frames/1/elements/2/refers_to/view",
+     "value": "original"
+    },
+    {
      "pointer": "/frames/1/elements/3/element_id",
-     "value": "execution.tool"
+     "value": "positions.repository.memory"
     },
     {
      "pointer": "/frames/1/elements/3/role",
-     "value": "setting"
+     "value": "selection"
     },
     {
      "pointer": "/frames/1/elements/3/label",
-     "value": "\ub3c4\uad6c Claude Code 2.1.278 \u00b7 \uc0c8 \uc138\uc158"
+     "value": "\ub808\ud3ec \uacb0\uc815 \uae30\ub85d \u00b7 \uc544\uc9c1 \uc5c6\uc74c"
     },
     {
      "pointer": "/frames/1/elements/3/marks",
      "value": [
-      "(\uc81c\uc548)"
+      "[-]",
+      "(\uc120\ud0dd \ubd88\uac00)"
      ]
     },
     {
@@ -1575,104 +3565,557 @@
     },
     {
      "pointer": "/frames/1/elements/3/selection",
-     "value": "suggested"
+     "value": "none"
     },
     {
-     "pointer": "/frames/1/elements/3/effects",
-     "value": [
-      "model_calls"
-     ]
+     "pointer": "/frames/1/elements/3/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/1/elements/3/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/1/elements/3/state",
+     "value": "checked_empty"
+    },
+    {
+     "pointer": "/frames/1/elements/3/refers_to/ref",
+     "value": "position"
+    },
+    {
+     "pointer": "/frames/1/elements/3/refers_to/position/scope/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/frames/1/elements/3/refers_to/position/scope/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/frames/1/elements/3/refers_to/position/role",
+     "value": "memory"
+    },
+    {
+     "pointer": "/frames/1/elements/3/refers_to/view",
+     "value": "original"
     },
     {
      "pointer": "/frames/1/elements/4/element_id",
-     "value": "blocker.personal_decide"
+     "value": "positions.personal.instructions"
     },
     {
      "pointer": "/frames/1/elements/4/role",
-     "value": "blocker"
+     "value": "selection"
     },
     {
      "pointer": "/frames/1/elements/4/label",
-     "value": "\uac1c\uc778 \uacb0\uc815 \uae30\ub85d: Claude Code\uc5d0\uc11c \ud655\uc778\ub418\uc9c0 \uc54a\uc544 \uc4f8 \uc218 \uc5c6\uc74c \u00b7 \uc774 \ud638\uc2a4\ud2b8\uc758 \uacb0\uc815 \uae30\ub85d \uae30\ub2a5\uc744 \ud655\uc778\ud558\uba74 \uc4f8 \uc218 \uc788\uc74c"
+     "value": "\uac1c\uc778 \uc9c0\uce68 \u00b7 \uc544\uc9c1 \uc5c6\uc74c"
     },
     {
      "pointer": "/frames/1/elements/4/marks",
-     "value": []
+     "value": [
+      "[-]",
+      "(\uc120\ud0dd \ubd88\uac00)"
+     ]
+    },
+    {
+     "pointer": "/frames/1/elements/4/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/1/elements/4/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/1/elements/4/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/1/elements/4/shown",
+     "value": "whole"
     },
     {
      "pointer": "/frames/1/elements/4/state",
-     "value": "blocked"
+     "value": "checked_empty"
     },
     {
      "pointer": "/frames/1/elements/4/refers_to/ref",
-     "value": "route"
+     "value": "position"
     },
     {
-     "pointer": "/frames/1/elements/4/refers_to/route_id",
-     "value": "@route_decide"
+     "pointer": "/frames/1/elements/4/refers_to/position/scope/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/frames/1/elements/4/refers_to/position/scope/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/frames/1/elements/4/refers_to/position/role",
+     "value": "instructions"
+    },
+    {
+     "pointer": "/frames/1/elements/4/refers_to/view",
+     "value": "original"
     },
     {
      "pointer": "/frames/1/elements/5/element_id",
-     "value": "action.start"
+     "value": "positions.personal.knowledge"
     },
     {
      "pointer": "/frames/1/elements/5/role",
-     "value": "action"
+     "value": "selection"
     },
     {
      "pointer": "/frames/1/elements/5/label",
-     "value": "Claude Code \uc0c8 \uc138\uc158 \uc2dc\uc791"
+     "value": "\uac1c\uc778 \uc9c0\uc2dd \u00b7 \uc544\uc9c1 \uc5c6\uc74c"
     },
     {
      "pointer": "/frames/1/elements/5/marks",
      "value": [
-      "\u203a"
+      "[-]",
+      "(\uc120\ud0dd \ubd88\uac00)"
      ]
     },
     {
      "pointer": "/frames/1/elements/5/focused",
-     "value": true
+     "value": false
     },
     {
      "pointer": "/frames/1/elements/5/selection",
      "value": "none"
     },
     {
+     "pointer": "/frames/1/elements/5/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/1/elements/5/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/1/elements/5/state",
+     "value": "checked_empty"
+    },
+    {
      "pointer": "/frames/1/elements/5/refers_to/ref",
-     "value": "route"
+     "value": "position"
     },
     {
-     "pointer": "/frames/1/elements/5/refers_to/route_id",
-     "value": "@route_start"
+     "pointer": "/frames/1/elements/5/refers_to/position/scope/layer",
+     "value": "personal"
     },
     {
-     "pointer": "/frames/1/elements/5/effects",
-     "value": [
-      "file_changes",
-      "model_calls",
-      "permission_request",
-      "shared_change"
-     ]
+     "pointer": "/frames/1/elements/5/refers_to/position/scope/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/frames/1/elements/5/refers_to/position/role",
+     "value": "knowledge"
+    },
+    {
+     "pointer": "/frames/1/elements/5/refers_to/view",
+     "value": "original"
     },
     {
      "pointer": "/frames/1/elements/6/element_id",
-     "value": "help.keys"
+     "value": "positions.personal.memory"
     },
     {
      "pointer": "/frames/1/elements/6/role",
-     "value": "help"
+     "value": "selection"
     },
     {
      "pointer": "/frames/1/elements/6/label",
-     "value": "Tab \uc774\ub3d9 \u00b7 Enter \uc5f4\uae30 \u00b7 Space \uc120\ud0dd \u00b7 Esc \ub4a4\ub85c"
+     "value": "\uac1c\uc778 \uacb0\uc815 \uae30\ub85d \u00b7 \uc544\uc9c1 \uc5c6\uc74c"
     },
     {
      "pointer": "/frames/1/elements/6/marks",
+     "value": [
+      "[-]",
+      "(\uc120\ud0dd \ubd88\uac00)"
+     ]
+    },
+    {
+     "pointer": "/frames/1/elements/6/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/1/elements/6/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/1/elements/6/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/1/elements/6/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/1/elements/6/state",
+     "value": "checked_empty"
+    },
+    {
+     "pointer": "/frames/1/elements/6/refers_to/ref",
+     "value": "position"
+    },
+    {
+     "pointer": "/frames/1/elements/6/refers_to/position/scope/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/frames/1/elements/6/refers_to/position/scope/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/frames/1/elements/6/refers_to/position/role",
+     "value": "memory"
+    },
+    {
+     "pointer": "/frames/1/elements/6/refers_to/view",
+     "value": "original"
+    },
+    {
+     "pointer": "/frames/1/elements/7/element_id",
+     "value": "field.note"
+    },
+    {
+     "pointer": "/frames/1/elements/7/role",
+     "value": "field"
+    },
+    {
+     "pointer": "/frames/1/elements/7/label",
+     "value": "\uba54\ubaa8 \u00b7 \uc2dc\uc791 \uc694\uccad\uc5d0 \ud568\uaed8 \uae30\ub85d"
+    },
+    {
+     "pointer": "/frames/1/elements/7/marks",
+     "value": [
+      "\u203a"
+     ]
+    },
+    {
+     "pointer": "/frames/1/elements/7/focused",
+     "value": true
+    },
+    {
+     "pointer": "/frames/1/elements/7/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/1/elements/7/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/1/elements/7/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/1/elements/7/value",
+     "value": ""
+    },
+    {
+     "pointer": "/frames/1/elements/8/element_id",
+     "value": "execution.tool"
+    },
+    {
+     "pointer": "/frames/1/elements/8/role",
+     "value": "setting"
+    },
+    {
+     "pointer": "/frames/1/elements/8/label",
+     "value": "\ub3c4\uad6c Claude Code 2.1.278 \u00b7 \uc0c8 \uc138\uc158"
+    },
+    {
+     "pointer": "/frames/1/elements/8/marks",
+     "value": [
+      "(\uc81c\uc548)"
+     ]
+    },
+    {
+     "pointer": "/frames/1/elements/8/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/1/elements/8/selection",
+     "value": "suggested"
+    },
+    {
+     "pointer": "/frames/1/elements/8/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/1/elements/8/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/1/elements/8/value",
+     "value": "Claude Code"
+    },
+    {
+     "pointer": "/frames/1/elements/8/effects",
+     "value": [
+      "model_calls"
+     ]
+    },
+    {
+     "pointer": "/frames/1/elements/9/element_id",
+     "value": "execution.permissions"
+    },
+    {
+     "pointer": "/frames/1/elements/9/role",
+     "value": "setting"
+    },
+    {
+     "pointer": "/frames/1/elements/9/label",
+     "value": "\uad8c\ud55c \u00b7 \ud638\uc2a4\ud2b8 \uc124\uc815\ub300\ub85c \ud655\uc778"
+    },
+    {
+     "pointer": "/frames/1/elements/9/marks",
+     "value": [
+      "(\uc81c\uc548)"
+     ]
+    },
+    {
+     "pointer": "/frames/1/elements/9/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/1/elements/9/selection",
+     "value": "suggested"
+    },
+    {
+     "pointer": "/frames/1/elements/9/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/1/elements/9/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/1/elements/9/value",
+     "value": "host_settings"
+    },
+    {
+     "pointer": "/frames/1/elements/9/effects",
+     "value": [
+      "permission_request"
+     ]
+    },
+    {
+     "pointer": "/frames/1/elements/10/element_id",
+     "value": "blocker.personal.decide"
+    },
+    {
+     "pointer": "/frames/1/elements/10/role",
+     "value": "blocker"
+    },
+    {
+     "pointer": "/frames/1/elements/10/label",
+     "value": "\ud655\uc778\ub418\uc9c0 \uc54a\uc740 \uacbd\ub85c \u00b7 \uc774 \ud638\uc2a4\ud2b8\uc5d0\uc11c \ud655\uc778\ud558\uba74 \uc4f8 \uc218 \uc788\uc74c"
+    },
+    {
+     "pointer": "/frames/1/elements/10/marks",
      "value": []
+    },
+    {
+     "pointer": "/frames/1/elements/10/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/1/elements/10/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/1/elements/10/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/1/elements/10/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/1/elements/10/state",
+     "value": "blocked"
+    },
+    {
+     "pointer": "/frames/1/elements/10/refers_to/ref",
+     "value": "route"
+    },
+    {
+     "pointer": "/frames/1/elements/10/refers_to/route_id",
+     "value": "@route_decide"
+    },
+    {
+     "pointer": "/frames/1/elements/11/element_id",
+     "value": "action.start"
+    },
+    {
+     "pointer": "/frames/1/elements/11/role",
+     "value": "action"
+    },
+    {
+     "pointer": "/frames/1/elements/11/label",
+     "value": "Claude Code \uc0c8 \uc138\uc158 \uc2dc\uc791"
+    },
+    {
+     "pointer": "/frames/1/elements/11/marks",
+     "value": []
+    },
+    {
+     "pointer": "/frames/1/elements/11/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/1/elements/11/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/1/elements/11/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/1/elements/11/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/1/elements/11/refers_to/ref",
+     "value": "route"
+    },
+    {
+     "pointer": "/frames/1/elements/11/refers_to/route_id",
+     "value": "@route_start"
+    },
+    {
+     "pointer": "/frames/1/elements/11/effects",
+     "value": [
+      "file_changes",
+      "model_calls"
+     ]
+    },
+    {
+     "pointer": "/frames/1/elements/12/element_id",
+     "value": "help.keys"
+    },
+    {
+     "pointer": "/frames/1/elements/12/role",
+     "value": "help"
+    },
+    {
+     "pointer": "/frames/1/elements/12/label",
+     "value": "Tab \uc774\ub3d9 \u00b7 Enter \uc5f4\uae30 \u00b7 Space \uc120\ud0dd \u00b7 Esc \ub4a4\ub85c"
+    },
+    {
+     "pointer": "/frames/1/elements/12/marks",
+     "value": []
+    },
+    {
+     "pointer": "/frames/1/elements/12/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/1/elements/12/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/1/elements/12/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/1/elements/12/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/1/dispatched",
+     "value": []
+    },
+    {
+     "pointer": "/frames/1/calls",
+     "value": []
+    },
+    {
+     "pointer": "/frames/2/after",
+     "value": 2
+    },
+    {
+     "pointer": "/frames/2/terminal/columns",
+     "value": 80
+    },
+    {
+     "pointer": "/frames/2/terminal/rows",
+     "value": 24
+    },
+    {
+     "pointer": "/frames/2/locale",
+     "value": "ko"
+    },
+    {
+     "pointer": "/frames/2/access",
+     "value": "active"
+    },
+    {
+     "pointer": "/frames/2/view/view",
+     "value": "w01"
+    },
+    {
+     "pointer": "/frames/2/view/origin/name",
+     "value": "host_launcher"
+    },
+    {
+     "pointer": "/frames/2/view/origin/root_origin",
+     "value": "owner"
+    },
+    {
+     "pointer": "/frames/2/view/selected_scope/layer",
+     "value": "repository"
     },
     {
      "pointer": "/frames/2/view/selected_scope/repository_id",
      "value": "@repo"
+    },
+    {
+     "pointer": "/frames/2/view/missing_bodies",
+     "value": []
+    },
+    {
+     "pointer": "/frames/2/elements/0/element_id",
+     "value": "context.location"
+    },
+    {
+     "pointer": "/frames/2/elements/0/role",
+     "value": "context"
+    },
+    {
+     "pointer": "/frames/2/elements/0/label",
+     "value": "payments \u00b7 \ub85c\uceec \ub808\ud3ec \u00b7 main"
+    },
+    {
+     "pointer": "/frames/2/elements/0/marks",
+     "value": []
+    },
+    {
+     "pointer": "/frames/2/elements/0/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/2/elements/0/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/2/elements/0/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/2/elements/0/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/2/elements/0/refers_to/ref",
+     "value": "scope"
+    },
+    {
+     "pointer": "/frames/2/elements/0/refers_to/scope/layer",
+     "value": "repository"
     },
     {
      "pointer": "/frames/2/elements/0/refers_to/scope/repository_id",
@@ -1693,12 +4136,25 @@
     {
      "pointer": "/frames/2/elements/1/marks",
      "value": [
-      "[x]"
+      "[x]",
+      "(\uc81c\uc548)"
      ]
     },
     {
+     "pointer": "/frames/2/elements/1/focused",
+     "value": false
+    },
+    {
      "pointer": "/frames/2/elements/1/selection",
-     "value": "selected"
+     "value": "suggested"
+    },
+    {
+     "pointer": "/frames/2/elements/1/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/2/elements/1/shown",
+     "value": "whole"
     },
     {
      "pointer": "/frames/2/elements/1/state",
@@ -1729,6 +4185,10 @@
      "value": "positions.repository.knowledge"
     },
     {
+     "pointer": "/frames/2/elements/2/role",
+     "value": "selection"
+    },
+    {
      "pointer": "/frames/2/elements/2/label",
      "value": "\uc9c0\uc2dd \u00b7 docs/retry.md"
     },
@@ -1739,12 +4199,32 @@
      ]
     },
     {
+     "pointer": "/frames/2/elements/2/focused",
+     "value": false
+    },
+    {
      "pointer": "/frames/2/elements/2/selection",
      "value": "none"
     },
     {
+     "pointer": "/frames/2/elements/2/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/2/elements/2/shown",
+     "value": "whole"
+    },
+    {
      "pointer": "/frames/2/elements/2/state",
      "value": "not_checked"
+    },
+    {
+     "pointer": "/frames/2/elements/2/refers_to/ref",
+     "value": "position"
+    },
+    {
+     "pointer": "/frames/2/elements/2/refers_to/position/scope/layer",
+     "value": "repository"
     },
     {
      "pointer": "/frames/2/elements/2/refers_to/position/scope/repository_id",
@@ -1755,21 +4235,26 @@
      "value": "knowledge"
     },
     {
+     "pointer": "/frames/2/elements/2/refers_to/view",
+     "value": "original"
+    },
+    {
      "pointer": "/frames/2/elements/3/element_id",
-     "value": "execution.tool"
+     "value": "positions.repository.memory"
     },
     {
      "pointer": "/frames/2/elements/3/role",
-     "value": "setting"
+     "value": "selection"
     },
     {
      "pointer": "/frames/2/elements/3/label",
-     "value": "\ub3c4\uad6c Claude Code 2.1.278 \u00b7 \uc0c8 \uc138\uc158"
+     "value": "\ub808\ud3ec \uacb0\uc815 \uae30\ub85d \u00b7 \uc544\uc9c1 \uc5c6\uc74c"
     },
     {
      "pointer": "/frames/2/elements/3/marks",
      "value": [
-      "(\uc81c\uc548)"
+      "[-]",
+      "(\uc120\ud0dd \ubd88\uac00)"
      ]
     },
     {
@@ -1778,63 +4263,121 @@
     },
     {
      "pointer": "/frames/2/elements/3/selection",
-     "value": "suggested"
+     "value": "none"
     },
     {
-     "pointer": "/frames/2/elements/3/effects",
-     "value": [
-      "model_calls"
-     ]
+     "pointer": "/frames/2/elements/3/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/2/elements/3/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/2/elements/3/state",
+     "value": "checked_empty"
+    },
+    {
+     "pointer": "/frames/2/elements/3/refers_to/ref",
+     "value": "position"
+    },
+    {
+     "pointer": "/frames/2/elements/3/refers_to/position/scope/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/frames/2/elements/3/refers_to/position/scope/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/frames/2/elements/3/refers_to/position/role",
+     "value": "memory"
+    },
+    {
+     "pointer": "/frames/2/elements/3/refers_to/view",
+     "value": "original"
     },
     {
      "pointer": "/frames/2/elements/4/element_id",
-     "value": "blocker.personal_decide"
+     "value": "positions.personal.instructions"
     },
     {
      "pointer": "/frames/2/elements/4/role",
-     "value": "blocker"
+     "value": "selection"
     },
     {
      "pointer": "/frames/2/elements/4/label",
-     "value": "\uac1c\uc778 \uacb0\uc815 \uae30\ub85d: Claude Code\uc5d0\uc11c \ud655\uc778\ub418\uc9c0 \uc54a\uc544 \uc4f8 \uc218 \uc5c6\uc74c \u00b7 \uc774 \ud638\uc2a4\ud2b8\uc758 \uacb0\uc815 \uae30\ub85d \uae30\ub2a5\uc744 \ud655\uc778\ud558\uba74 \uc4f8 \uc218 \uc788\uc74c"
+     "value": "\uac1c\uc778 \uc9c0\uce68 \u00b7 \uc544\uc9c1 \uc5c6\uc74c"
     },
     {
      "pointer": "/frames/2/elements/4/marks",
-     "value": []
+     "value": [
+      "[-]",
+      "(\uc120\ud0dd \ubd88\uac00)"
+     ]
+    },
+    {
+     "pointer": "/frames/2/elements/4/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/2/elements/4/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/2/elements/4/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/2/elements/4/shown",
+     "value": "whole"
     },
     {
      "pointer": "/frames/2/elements/4/state",
-     "value": "blocked"
+     "value": "checked_empty"
     },
     {
      "pointer": "/frames/2/elements/4/refers_to/ref",
-     "value": "route"
+     "value": "position"
     },
     {
-     "pointer": "/frames/2/elements/4/refers_to/route_id",
-     "value": "@route_decide"
+     "pointer": "/frames/2/elements/4/refers_to/position/scope/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/frames/2/elements/4/refers_to/position/scope/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/frames/2/elements/4/refers_to/position/role",
+     "value": "instructions"
+    },
+    {
+     "pointer": "/frames/2/elements/4/refers_to/view",
+     "value": "original"
     },
     {
      "pointer": "/frames/2/elements/5/element_id",
-     "value": "action.start"
+     "value": "positions.personal.knowledge"
     },
     {
      "pointer": "/frames/2/elements/5/role",
-     "value": "action"
+     "value": "selection"
     },
     {
      "pointer": "/frames/2/elements/5/label",
-     "value": "Claude Code \uc0c8 \uc138\uc158 \uc2dc\uc791"
+     "value": "\uac1c\uc778 \uc9c0\uc2dd \u00b7 \uc544\uc9c1 \uc5c6\uc74c"
     },
     {
      "pointer": "/frames/2/elements/5/marks",
      "value": [
-      "\u203a"
+      "[-]",
+      "(\uc120\ud0dd \ubd88\uac00)"
      ]
     },
     {
      "pointer": "/frames/2/elements/5/focused",
-     "value": true
+     "value": false
     },
     {
      "pointer": "/frames/2/elements/5/selection",
@@ -1842,90 +4385,1812 @@
     },
     {
      "pointer": "/frames/2/elements/5/executing",
-     "value": true
+     "value": false
+    },
+    {
+     "pointer": "/frames/2/elements/5/shown",
+     "value": "whole"
     },
     {
      "pointer": "/frames/2/elements/5/state",
-     "value": "pending"
+     "value": "checked_empty"
     },
     {
      "pointer": "/frames/2/elements/5/refers_to/ref",
-     "value": "route"
+     "value": "position"
     },
     {
-     "pointer": "/frames/2/elements/5/refers_to/route_id",
-     "value": "@route_start"
+     "pointer": "/frames/2/elements/5/refers_to/position/scope/layer",
+     "value": "personal"
     },
     {
-     "pointer": "/frames/2/elements/5/effects",
-     "value": [
-      "file_changes",
-      "model_calls",
-      "permission_request",
-      "shared_change"
-     ]
+     "pointer": "/frames/2/elements/5/refers_to/position/scope/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/frames/2/elements/5/refers_to/position/role",
+     "value": "knowledge"
+    },
+    {
+     "pointer": "/frames/2/elements/5/refers_to/view",
+     "value": "original"
     },
     {
      "pointer": "/frames/2/elements/6/element_id",
-     "value": "help.keys"
+     "value": "positions.personal.memory"
     },
     {
      "pointer": "/frames/2/elements/6/role",
-     "value": "help"
+     "value": "selection"
     },
     {
      "pointer": "/frames/2/elements/6/label",
-     "value": "Tab \uc774\ub3d9 \u00b7 Enter \uc5f4\uae30 \u00b7 Space \uc120\ud0dd \u00b7 Esc \ub4a4\ub85c"
+     "value": "\uac1c\uc778 \uacb0\uc815 \uae30\ub85d \u00b7 \uc544\uc9c1 \uc5c6\uc74c"
     },
     {
      "pointer": "/frames/2/elements/6/marks",
-     "value": []
-    },
-    {
-     "pointer": "/frames/2/elements/7/element_id",
-     "value": "result.start"
-    },
-    {
-     "pointer": "/frames/2/elements/7/role",
-     "value": "result"
-    },
-    {
-     "pointer": "/frames/2/elements/7/label",
-     "value": "\uc2dc\uc791 \uc694\uccad\uc744 \ubcf4\ub0c8\uc2b5\ub2c8\ub2e4 \u00b7 \uacb0\uacfc \ud655\uc778 \uc911"
-    },
-    {
-     "pointer": "/frames/2/elements/7/state",
-     "value": "pending"
-    },
-    {
-     "pointer": "/frames/2/elements/7/refers_to/ref",
-     "value": "request"
-    },
-    {
-     "pointer": "/frames/2/elements/7/refers_to/request_id",
-     "value": "@start_request"
-    },
-    {
-     "pointer": "/frames/2/dispatched",
      "value": [
-      "@start_request"
+      "[-]",
+      "(\uc120\ud0dd \ubd88\uac00)"
      ]
     },
     {
-     "pointer": "/frames/2/calls/0/operation",
+     "pointer": "/frames/2/elements/6/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/2/elements/6/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/2/elements/6/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/2/elements/6/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/2/elements/6/state",
+     "value": "checked_empty"
+    },
+    {
+     "pointer": "/frames/2/elements/6/refers_to/ref",
+     "value": "position"
+    },
+    {
+     "pointer": "/frames/2/elements/6/refers_to/position/scope/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/frames/2/elements/6/refers_to/position/scope/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/frames/2/elements/6/refers_to/position/role",
+     "value": "memory"
+    },
+    {
+     "pointer": "/frames/2/elements/6/refers_to/view",
+     "value": "original"
+    },
+    {
+     "pointer": "/frames/2/elements/7/element_id",
+     "value": "field.note"
+    },
+    {
+     "pointer": "/frames/2/elements/7/role",
+     "value": "field"
+    },
+    {
+     "pointer": "/frames/2/elements/7/label",
+     "value": "\uba54\ubaa8 \u00b7 \uc2dc\uc791 \uc694\uccad\uc5d0 \ud568\uaed8 \uae30\ub85d"
+    },
+    {
+     "pointer": "/frames/2/elements/7/marks",
+     "value": []
+    },
+    {
+     "pointer": "/frames/2/elements/7/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/2/elements/7/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/2/elements/7/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/2/elements/7/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/2/elements/7/value",
+     "value": ""
+    },
+    {
+     "pointer": "/frames/2/elements/8/element_id",
+     "value": "execution.tool"
+    },
+    {
+     "pointer": "/frames/2/elements/8/role",
+     "value": "setting"
+    },
+    {
+     "pointer": "/frames/2/elements/8/label",
+     "value": "\ub3c4\uad6c Claude Code 2.1.278 \u00b7 \uc0c8 \uc138\uc158"
+    },
+    {
+     "pointer": "/frames/2/elements/8/marks",
+     "value": [
+      "(\uc81c\uc548)"
+     ]
+    },
+    {
+     "pointer": "/frames/2/elements/8/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/2/elements/8/selection",
+     "value": "suggested"
+    },
+    {
+     "pointer": "/frames/2/elements/8/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/2/elements/8/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/2/elements/8/value",
+     "value": "Claude Code"
+    },
+    {
+     "pointer": "/frames/2/elements/8/effects",
+     "value": [
+      "model_calls"
+     ]
+    },
+    {
+     "pointer": "/frames/2/elements/9/element_id",
+     "value": "execution.permissions"
+    },
+    {
+     "pointer": "/frames/2/elements/9/role",
+     "value": "setting"
+    },
+    {
+     "pointer": "/frames/2/elements/9/label",
+     "value": "\uad8c\ud55c \u00b7 \ud638\uc2a4\ud2b8 \uc124\uc815\ub300\ub85c \ud655\uc778"
+    },
+    {
+     "pointer": "/frames/2/elements/9/marks",
+     "value": [
+      "\u203a",
+      "(\uc81c\uc548)"
+     ]
+    },
+    {
+     "pointer": "/frames/2/elements/9/focused",
+     "value": true
+    },
+    {
+     "pointer": "/frames/2/elements/9/selection",
+     "value": "suggested"
+    },
+    {
+     "pointer": "/frames/2/elements/9/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/2/elements/9/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/2/elements/9/value",
+     "value": "host_settings"
+    },
+    {
+     "pointer": "/frames/2/elements/9/effects",
+     "value": [
+      "permission_request"
+     ]
+    },
+    {
+     "pointer": "/frames/2/elements/10/element_id",
+     "value": "blocker.personal.decide"
+    },
+    {
+     "pointer": "/frames/2/elements/10/role",
+     "value": "blocker"
+    },
+    {
+     "pointer": "/frames/2/elements/10/label",
+     "value": "\ud655\uc778\ub418\uc9c0 \uc54a\uc740 \uacbd\ub85c \u00b7 \uc774 \ud638\uc2a4\ud2b8\uc5d0\uc11c \ud655\uc778\ud558\uba74 \uc4f8 \uc218 \uc788\uc74c"
+    },
+    {
+     "pointer": "/frames/2/elements/10/marks",
+     "value": []
+    },
+    {
+     "pointer": "/frames/2/elements/10/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/2/elements/10/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/2/elements/10/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/2/elements/10/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/2/elements/10/state",
+     "value": "blocked"
+    },
+    {
+     "pointer": "/frames/2/elements/10/refers_to/ref",
+     "value": "route"
+    },
+    {
+     "pointer": "/frames/2/elements/10/refers_to/route_id",
+     "value": "@route_decide"
+    },
+    {
+     "pointer": "/frames/2/elements/11/element_id",
+     "value": "action.start"
+    },
+    {
+     "pointer": "/frames/2/elements/11/role",
+     "value": "action"
+    },
+    {
+     "pointer": "/frames/2/elements/11/label",
+     "value": "Claude Code \uc0c8 \uc138\uc158 \uc2dc\uc791"
+    },
+    {
+     "pointer": "/frames/2/elements/11/marks",
+     "value": []
+    },
+    {
+     "pointer": "/frames/2/elements/11/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/2/elements/11/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/2/elements/11/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/2/elements/11/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/2/elements/11/refers_to/ref",
+     "value": "route"
+    },
+    {
+     "pointer": "/frames/2/elements/11/refers_to/route_id",
+     "value": "@route_start"
+    },
+    {
+     "pointer": "/frames/2/elements/11/effects",
+     "value": [
+      "file_changes",
+      "model_calls"
+     ]
+    },
+    {
+     "pointer": "/frames/2/elements/12/element_id",
+     "value": "help.keys"
+    },
+    {
+     "pointer": "/frames/2/elements/12/role",
+     "value": "help"
+    },
+    {
+     "pointer": "/frames/2/elements/12/label",
+     "value": "Tab \uc774\ub3d9 \u00b7 Enter \uc5f4\uae30 \u00b7 Space \uc120\ud0dd \u00b7 Esc \ub4a4\ub85c"
+    },
+    {
+     "pointer": "/frames/2/elements/12/marks",
+     "value": []
+    },
+    {
+     "pointer": "/frames/2/elements/12/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/2/elements/12/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/2/elements/12/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/2/elements/12/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/2/dispatched",
+     "value": []
+    },
+    {
+     "pointer": "/frames/2/calls",
+     "value": []
+    },
+    {
+     "pointer": "/frames/3/after",
+     "value": 3
+    },
+    {
+     "pointer": "/frames/3/terminal/columns",
+     "value": 80
+    },
+    {
+     "pointer": "/frames/3/terminal/rows",
+     "value": 24
+    },
+    {
+     "pointer": "/frames/3/locale",
+     "value": "ko"
+    },
+    {
+     "pointer": "/frames/3/access",
+     "value": "active"
+    },
+    {
+     "pointer": "/frames/3/view/view",
+     "value": "w01"
+    },
+    {
+     "pointer": "/frames/3/view/origin/name",
+     "value": "host_launcher"
+    },
+    {
+     "pointer": "/frames/3/view/origin/root_origin",
+     "value": "owner"
+    },
+    {
+     "pointer": "/frames/3/view/selected_scope/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/frames/3/view/selected_scope/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/frames/3/view/missing_bodies",
+     "value": []
+    },
+    {
+     "pointer": "/frames/3/elements/0/element_id",
+     "value": "context.location"
+    },
+    {
+     "pointer": "/frames/3/elements/0/role",
+     "value": "context"
+    },
+    {
+     "pointer": "/frames/3/elements/0/label",
+     "value": "payments \u00b7 \ub85c\uceec \ub808\ud3ec \u00b7 main"
+    },
+    {
+     "pointer": "/frames/3/elements/0/marks",
+     "value": []
+    },
+    {
+     "pointer": "/frames/3/elements/0/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/3/elements/0/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/3/elements/0/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/3/elements/0/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/3/elements/0/refers_to/ref",
+     "value": "scope"
+    },
+    {
+     "pointer": "/frames/3/elements/0/refers_to/scope/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/frames/3/elements/0/refers_to/scope/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/frames/3/elements/1/element_id",
+     "value": "positions.repository.instructions"
+    },
+    {
+     "pointer": "/frames/3/elements/1/role",
+     "value": "selection"
+    },
+    {
+     "pointer": "/frames/3/elements/1/label",
+     "value": "\uc9c0\uce68 \u00b7 AGENTS.md"
+    },
+    {
+     "pointer": "/frames/3/elements/1/marks",
+     "value": [
+      "[x]",
+      "(\uc81c\uc548)"
+     ]
+    },
+    {
+     "pointer": "/frames/3/elements/1/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/3/elements/1/selection",
+     "value": "suggested"
+    },
+    {
+     "pointer": "/frames/3/elements/1/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/3/elements/1/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/3/elements/1/state",
+     "value": "installed"
+    },
+    {
+     "pointer": "/frames/3/elements/1/refers_to/ref",
+     "value": "position"
+    },
+    {
+     "pointer": "/frames/3/elements/1/refers_to/position/scope/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/frames/3/elements/1/refers_to/position/scope/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/frames/3/elements/1/refers_to/position/role",
+     "value": "instructions"
+    },
+    {
+     "pointer": "/frames/3/elements/1/refers_to/view",
+     "value": "original"
+    },
+    {
+     "pointer": "/frames/3/elements/2/element_id",
+     "value": "positions.repository.knowledge"
+    },
+    {
+     "pointer": "/frames/3/elements/2/role",
+     "value": "selection"
+    },
+    {
+     "pointer": "/frames/3/elements/2/label",
+     "value": "\uc9c0\uc2dd \u00b7 docs/retry.md"
+    },
+    {
+     "pointer": "/frames/3/elements/2/marks",
+     "value": [
+      "[ ]"
+     ]
+    },
+    {
+     "pointer": "/frames/3/elements/2/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/3/elements/2/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/3/elements/2/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/3/elements/2/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/3/elements/2/state",
+     "value": "not_checked"
+    },
+    {
+     "pointer": "/frames/3/elements/2/refers_to/ref",
+     "value": "position"
+    },
+    {
+     "pointer": "/frames/3/elements/2/refers_to/position/scope/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/frames/3/elements/2/refers_to/position/scope/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/frames/3/elements/2/refers_to/position/role",
+     "value": "knowledge"
+    },
+    {
+     "pointer": "/frames/3/elements/2/refers_to/view",
+     "value": "original"
+    },
+    {
+     "pointer": "/frames/3/elements/3/element_id",
+     "value": "positions.repository.memory"
+    },
+    {
+     "pointer": "/frames/3/elements/3/role",
+     "value": "selection"
+    },
+    {
+     "pointer": "/frames/3/elements/3/label",
+     "value": "\ub808\ud3ec \uacb0\uc815 \uae30\ub85d \u00b7 \uc544\uc9c1 \uc5c6\uc74c"
+    },
+    {
+     "pointer": "/frames/3/elements/3/marks",
+     "value": [
+      "[-]",
+      "(\uc120\ud0dd \ubd88\uac00)"
+     ]
+    },
+    {
+     "pointer": "/frames/3/elements/3/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/3/elements/3/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/3/elements/3/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/3/elements/3/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/3/elements/3/state",
+     "value": "checked_empty"
+    },
+    {
+     "pointer": "/frames/3/elements/3/refers_to/ref",
+     "value": "position"
+    },
+    {
+     "pointer": "/frames/3/elements/3/refers_to/position/scope/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/frames/3/elements/3/refers_to/position/scope/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/frames/3/elements/3/refers_to/position/role",
+     "value": "memory"
+    },
+    {
+     "pointer": "/frames/3/elements/3/refers_to/view",
+     "value": "original"
+    },
+    {
+     "pointer": "/frames/3/elements/4/element_id",
+     "value": "positions.personal.instructions"
+    },
+    {
+     "pointer": "/frames/3/elements/4/role",
+     "value": "selection"
+    },
+    {
+     "pointer": "/frames/3/elements/4/label",
+     "value": "\uac1c\uc778 \uc9c0\uce68 \u00b7 \uc544\uc9c1 \uc5c6\uc74c"
+    },
+    {
+     "pointer": "/frames/3/elements/4/marks",
+     "value": [
+      "[-]",
+      "(\uc120\ud0dd \ubd88\uac00)"
+     ]
+    },
+    {
+     "pointer": "/frames/3/elements/4/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/3/elements/4/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/3/elements/4/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/3/elements/4/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/3/elements/4/state",
+     "value": "checked_empty"
+    },
+    {
+     "pointer": "/frames/3/elements/4/refers_to/ref",
+     "value": "position"
+    },
+    {
+     "pointer": "/frames/3/elements/4/refers_to/position/scope/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/frames/3/elements/4/refers_to/position/scope/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/frames/3/elements/4/refers_to/position/role",
+     "value": "instructions"
+    },
+    {
+     "pointer": "/frames/3/elements/4/refers_to/view",
+     "value": "original"
+    },
+    {
+     "pointer": "/frames/3/elements/5/element_id",
+     "value": "positions.personal.knowledge"
+    },
+    {
+     "pointer": "/frames/3/elements/5/role",
+     "value": "selection"
+    },
+    {
+     "pointer": "/frames/3/elements/5/label",
+     "value": "\uac1c\uc778 \uc9c0\uc2dd \u00b7 \uc544\uc9c1 \uc5c6\uc74c"
+    },
+    {
+     "pointer": "/frames/3/elements/5/marks",
+     "value": [
+      "[-]",
+      "(\uc120\ud0dd \ubd88\uac00)"
+     ]
+    },
+    {
+     "pointer": "/frames/3/elements/5/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/3/elements/5/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/3/elements/5/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/3/elements/5/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/3/elements/5/state",
+     "value": "checked_empty"
+    },
+    {
+     "pointer": "/frames/3/elements/5/refers_to/ref",
+     "value": "position"
+    },
+    {
+     "pointer": "/frames/3/elements/5/refers_to/position/scope/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/frames/3/elements/5/refers_to/position/scope/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/frames/3/elements/5/refers_to/position/role",
+     "value": "knowledge"
+    },
+    {
+     "pointer": "/frames/3/elements/5/refers_to/view",
+     "value": "original"
+    },
+    {
+     "pointer": "/frames/3/elements/6/element_id",
+     "value": "positions.personal.memory"
+    },
+    {
+     "pointer": "/frames/3/elements/6/role",
+     "value": "selection"
+    },
+    {
+     "pointer": "/frames/3/elements/6/label",
+     "value": "\uac1c\uc778 \uacb0\uc815 \uae30\ub85d \u00b7 \uc544\uc9c1 \uc5c6\uc74c"
+    },
+    {
+     "pointer": "/frames/3/elements/6/marks",
+     "value": [
+      "[-]",
+      "(\uc120\ud0dd \ubd88\uac00)"
+     ]
+    },
+    {
+     "pointer": "/frames/3/elements/6/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/3/elements/6/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/3/elements/6/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/3/elements/6/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/3/elements/6/state",
+     "value": "checked_empty"
+    },
+    {
+     "pointer": "/frames/3/elements/6/refers_to/ref",
+     "value": "position"
+    },
+    {
+     "pointer": "/frames/3/elements/6/refers_to/position/scope/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/frames/3/elements/6/refers_to/position/scope/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/frames/3/elements/6/refers_to/position/role",
+     "value": "memory"
+    },
+    {
+     "pointer": "/frames/3/elements/6/refers_to/view",
+     "value": "original"
+    },
+    {
+     "pointer": "/frames/3/elements/7/element_id",
+     "value": "field.note"
+    },
+    {
+     "pointer": "/frames/3/elements/7/role",
+     "value": "field"
+    },
+    {
+     "pointer": "/frames/3/elements/7/label",
+     "value": "\uba54\ubaa8 \u00b7 \uc2dc\uc791 \uc694\uccad\uc5d0 \ud568\uaed8 \uae30\ub85d"
+    },
+    {
+     "pointer": "/frames/3/elements/7/marks",
+     "value": []
+    },
+    {
+     "pointer": "/frames/3/elements/7/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/3/elements/7/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/3/elements/7/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/3/elements/7/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/3/elements/7/value",
+     "value": ""
+    },
+    {
+     "pointer": "/frames/3/elements/8/element_id",
+     "value": "execution.tool"
+    },
+    {
+     "pointer": "/frames/3/elements/8/role",
+     "value": "setting"
+    },
+    {
+     "pointer": "/frames/3/elements/8/label",
+     "value": "\ub3c4\uad6c Claude Code 2.1.278 \u00b7 \uc0c8 \uc138\uc158"
+    },
+    {
+     "pointer": "/frames/3/elements/8/marks",
+     "value": [
+      "(\uc81c\uc548)"
+     ]
+    },
+    {
+     "pointer": "/frames/3/elements/8/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/3/elements/8/selection",
+     "value": "suggested"
+    },
+    {
+     "pointer": "/frames/3/elements/8/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/3/elements/8/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/3/elements/8/value",
+     "value": "Claude Code"
+    },
+    {
+     "pointer": "/frames/3/elements/8/effects",
+     "value": [
+      "model_calls"
+     ]
+    },
+    {
+     "pointer": "/frames/3/elements/9/element_id",
+     "value": "execution.permissions"
+    },
+    {
+     "pointer": "/frames/3/elements/9/role",
+     "value": "setting"
+    },
+    {
+     "pointer": "/frames/3/elements/9/label",
+     "value": "\uad8c\ud55c \u00b7 \ud638\uc2a4\ud2b8 \uc124\uc815\ub300\ub85c \ud655\uc778"
+    },
+    {
+     "pointer": "/frames/3/elements/9/marks",
+     "value": [
+      "(\uc81c\uc548)"
+     ]
+    },
+    {
+     "pointer": "/frames/3/elements/9/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/3/elements/9/selection",
+     "value": "suggested"
+    },
+    {
+     "pointer": "/frames/3/elements/9/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/3/elements/9/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/3/elements/9/value",
+     "value": "host_settings"
+    },
+    {
+     "pointer": "/frames/3/elements/9/effects",
+     "value": [
+      "permission_request"
+     ]
+    },
+    {
+     "pointer": "/frames/3/elements/10/element_id",
+     "value": "blocker.personal.decide"
+    },
+    {
+     "pointer": "/frames/3/elements/10/role",
+     "value": "blocker"
+    },
+    {
+     "pointer": "/frames/3/elements/10/label",
+     "value": "\ud655\uc778\ub418\uc9c0 \uc54a\uc740 \uacbd\ub85c \u00b7 \uc774 \ud638\uc2a4\ud2b8\uc5d0\uc11c \ud655\uc778\ud558\uba74 \uc4f8 \uc218 \uc788\uc74c"
+    },
+    {
+     "pointer": "/frames/3/elements/10/marks",
+     "value": []
+    },
+    {
+     "pointer": "/frames/3/elements/10/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/3/elements/10/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/3/elements/10/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/3/elements/10/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/3/elements/10/state",
+     "value": "blocked"
+    },
+    {
+     "pointer": "/frames/3/elements/10/refers_to/ref",
+     "value": "route"
+    },
+    {
+     "pointer": "/frames/3/elements/10/refers_to/route_id",
+     "value": "@route_decide"
+    },
+    {
+     "pointer": "/frames/3/elements/11/element_id",
+     "value": "action.start"
+    },
+    {
+     "pointer": "/frames/3/elements/11/role",
+     "value": "action"
+    },
+    {
+     "pointer": "/frames/3/elements/11/label",
+     "value": "Claude Code \uc0c8 \uc138\uc158 \uc2dc\uc791"
+    },
+    {
+     "pointer": "/frames/3/elements/11/marks",
+     "value": [
+      "\u203a"
+     ]
+    },
+    {
+     "pointer": "/frames/3/elements/11/focused",
+     "value": true
+    },
+    {
+     "pointer": "/frames/3/elements/11/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/3/elements/11/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/3/elements/11/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/3/elements/11/refers_to/ref",
+     "value": "route"
+    },
+    {
+     "pointer": "/frames/3/elements/11/refers_to/route_id",
+     "value": "@route_start"
+    },
+    {
+     "pointer": "/frames/3/elements/11/effects",
+     "value": [
+      "file_changes",
+      "model_calls"
+     ]
+    },
+    {
+     "pointer": "/frames/3/elements/12/element_id",
+     "value": "help.keys"
+    },
+    {
+     "pointer": "/frames/3/elements/12/role",
+     "value": "help"
+    },
+    {
+     "pointer": "/frames/3/elements/12/label",
+     "value": "Tab \uc774\ub3d9 \u00b7 Enter \uc5f4\uae30 \u00b7 Space \uc120\ud0dd \u00b7 Esc \ub4a4\ub85c"
+    },
+    {
+     "pointer": "/frames/3/elements/12/marks",
+     "value": []
+    },
+    {
+     "pointer": "/frames/3/elements/12/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/3/elements/12/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/3/elements/12/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/3/elements/12/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/3/dispatched",
+     "value": []
+    },
+    {
+     "pointer": "/frames/3/calls",
+     "value": []
+    },
+    {
+     "pointer": "/frames/4/after",
+     "value": 4
+    },
+    {
+     "pointer": "/frames/4/terminal/columns",
+     "value": 80
+    },
+    {
+     "pointer": "/frames/4/terminal/rows",
+     "value": 24
+    },
+    {
+     "pointer": "/frames/4/locale",
+     "value": "ko"
+    },
+    {
+     "pointer": "/frames/4/access",
+     "value": "active"
+    },
+    {
+     "pointer": "/frames/4/view/view",
+     "value": "w01"
+    },
+    {
+     "pointer": "/frames/4/view/origin/name",
+     "value": "host_launcher"
+    },
+    {
+     "pointer": "/frames/4/view/origin/root_origin",
+     "value": "owner"
+    },
+    {
+     "pointer": "/frames/4/view/selected_scope/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/frames/4/view/selected_scope/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/frames/4/view/missing_bodies",
+     "value": []
+    },
+    {
+     "pointer": "/frames/4/elements/0/element_id",
+     "value": "context.location"
+    },
+    {
+     "pointer": "/frames/4/elements/0/role",
+     "value": "context"
+    },
+    {
+     "pointer": "/frames/4/elements/0/label",
+     "value": "payments \u00b7 \ub85c\uceec \ub808\ud3ec \u00b7 main"
+    },
+    {
+     "pointer": "/frames/4/elements/0/marks",
+     "value": []
+    },
+    {
+     "pointer": "/frames/4/elements/0/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/4/elements/0/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/4/elements/0/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/4/elements/0/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/4/elements/0/refers_to/ref",
+     "value": "scope"
+    },
+    {
+     "pointer": "/frames/4/elements/0/refers_to/scope/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/frames/4/elements/0/refers_to/scope/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/frames/4/elements/1/element_id",
+     "value": "positions.repository.instructions"
+    },
+    {
+     "pointer": "/frames/4/elements/1/role",
+     "value": "selection"
+    },
+    {
+     "pointer": "/frames/4/elements/1/label",
+     "value": "\uc9c0\uce68 \u00b7 AGENTS.md"
+    },
+    {
+     "pointer": "/frames/4/elements/1/marks",
+     "value": [
+      "[x]",
+      "(\uc81c\uc548)"
+     ]
+    },
+    {
+     "pointer": "/frames/4/elements/1/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/4/elements/1/selection",
+     "value": "suggested"
+    },
+    {
+     "pointer": "/frames/4/elements/1/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/4/elements/1/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/4/elements/1/state",
+     "value": "installed"
+    },
+    {
+     "pointer": "/frames/4/elements/1/refers_to/ref",
+     "value": "position"
+    },
+    {
+     "pointer": "/frames/4/elements/1/refers_to/position/scope/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/frames/4/elements/1/refers_to/position/scope/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/frames/4/elements/1/refers_to/position/role",
+     "value": "instructions"
+    },
+    {
+     "pointer": "/frames/4/elements/1/refers_to/view",
+     "value": "original"
+    },
+    {
+     "pointer": "/frames/4/elements/2/element_id",
+     "value": "positions.repository.knowledge"
+    },
+    {
+     "pointer": "/frames/4/elements/2/role",
+     "value": "selection"
+    },
+    {
+     "pointer": "/frames/4/elements/2/label",
+     "value": "\uc9c0\uc2dd \u00b7 docs/retry.md"
+    },
+    {
+     "pointer": "/frames/4/elements/2/marks",
+     "value": [
+      "[ ]"
+     ]
+    },
+    {
+     "pointer": "/frames/4/elements/2/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/4/elements/2/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/4/elements/2/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/4/elements/2/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/4/elements/2/state",
+     "value": "not_checked"
+    },
+    {
+     "pointer": "/frames/4/elements/2/refers_to/ref",
+     "value": "position"
+    },
+    {
+     "pointer": "/frames/4/elements/2/refers_to/position/scope/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/frames/4/elements/2/refers_to/position/scope/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/frames/4/elements/2/refers_to/position/role",
+     "value": "knowledge"
+    },
+    {
+     "pointer": "/frames/4/elements/2/refers_to/view",
+     "value": "original"
+    },
+    {
+     "pointer": "/frames/4/elements/3/element_id",
+     "value": "positions.repository.memory"
+    },
+    {
+     "pointer": "/frames/4/elements/3/role",
+     "value": "selection"
+    },
+    {
+     "pointer": "/frames/4/elements/3/label",
+     "value": "\ub808\ud3ec \uacb0\uc815 \uae30\ub85d \u00b7 \uc544\uc9c1 \uc5c6\uc74c"
+    },
+    {
+     "pointer": "/frames/4/elements/3/marks",
+     "value": [
+      "[-]",
+      "(\uc120\ud0dd \ubd88\uac00)"
+     ]
+    },
+    {
+     "pointer": "/frames/4/elements/3/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/4/elements/3/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/4/elements/3/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/4/elements/3/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/4/elements/3/state",
+     "value": "checked_empty"
+    },
+    {
+     "pointer": "/frames/4/elements/3/refers_to/ref",
+     "value": "position"
+    },
+    {
+     "pointer": "/frames/4/elements/3/refers_to/position/scope/layer",
+     "value": "repository"
+    },
+    {
+     "pointer": "/frames/4/elements/3/refers_to/position/scope/repository_id",
+     "value": "@repo"
+    },
+    {
+     "pointer": "/frames/4/elements/3/refers_to/position/role",
+     "value": "memory"
+    },
+    {
+     "pointer": "/frames/4/elements/3/refers_to/view",
+     "value": "original"
+    },
+    {
+     "pointer": "/frames/4/elements/4/element_id",
+     "value": "positions.personal.instructions"
+    },
+    {
+     "pointer": "/frames/4/elements/4/role",
+     "value": "selection"
+    },
+    {
+     "pointer": "/frames/4/elements/4/label",
+     "value": "\uac1c\uc778 \uc9c0\uce68 \u00b7 \uc544\uc9c1 \uc5c6\uc74c"
+    },
+    {
+     "pointer": "/frames/4/elements/4/marks",
+     "value": [
+      "[-]",
+      "(\uc120\ud0dd \ubd88\uac00)"
+     ]
+    },
+    {
+     "pointer": "/frames/4/elements/4/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/4/elements/4/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/4/elements/4/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/4/elements/4/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/4/elements/4/state",
+     "value": "checked_empty"
+    },
+    {
+     "pointer": "/frames/4/elements/4/refers_to/ref",
+     "value": "position"
+    },
+    {
+     "pointer": "/frames/4/elements/4/refers_to/position/scope/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/frames/4/elements/4/refers_to/position/scope/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/frames/4/elements/4/refers_to/position/role",
+     "value": "instructions"
+    },
+    {
+     "pointer": "/frames/4/elements/4/refers_to/view",
+     "value": "original"
+    },
+    {
+     "pointer": "/frames/4/elements/5/element_id",
+     "value": "positions.personal.knowledge"
+    },
+    {
+     "pointer": "/frames/4/elements/5/role",
+     "value": "selection"
+    },
+    {
+     "pointer": "/frames/4/elements/5/label",
+     "value": "\uac1c\uc778 \uc9c0\uc2dd \u00b7 \uc544\uc9c1 \uc5c6\uc74c"
+    },
+    {
+     "pointer": "/frames/4/elements/5/marks",
+     "value": [
+      "[-]",
+      "(\uc120\ud0dd \ubd88\uac00)"
+     ]
+    },
+    {
+     "pointer": "/frames/4/elements/5/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/4/elements/5/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/4/elements/5/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/4/elements/5/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/4/elements/5/state",
+     "value": "checked_empty"
+    },
+    {
+     "pointer": "/frames/4/elements/5/refers_to/ref",
+     "value": "position"
+    },
+    {
+     "pointer": "/frames/4/elements/5/refers_to/position/scope/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/frames/4/elements/5/refers_to/position/scope/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/frames/4/elements/5/refers_to/position/role",
+     "value": "knowledge"
+    },
+    {
+     "pointer": "/frames/4/elements/5/refers_to/view",
+     "value": "original"
+    },
+    {
+     "pointer": "/frames/4/elements/6/element_id",
+     "value": "positions.personal.memory"
+    },
+    {
+     "pointer": "/frames/4/elements/6/role",
+     "value": "selection"
+    },
+    {
+     "pointer": "/frames/4/elements/6/label",
+     "value": "\uac1c\uc778 \uacb0\uc815 \uae30\ub85d \u00b7 \uc544\uc9c1 \uc5c6\uc74c"
+    },
+    {
+     "pointer": "/frames/4/elements/6/marks",
+     "value": [
+      "[-]",
+      "(\uc120\ud0dd \ubd88\uac00)"
+     ]
+    },
+    {
+     "pointer": "/frames/4/elements/6/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/4/elements/6/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/4/elements/6/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/4/elements/6/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/4/elements/6/state",
+     "value": "checked_empty"
+    },
+    {
+     "pointer": "/frames/4/elements/6/refers_to/ref",
+     "value": "position"
+    },
+    {
+     "pointer": "/frames/4/elements/6/refers_to/position/scope/layer",
+     "value": "personal"
+    },
+    {
+     "pointer": "/frames/4/elements/6/refers_to/position/scope/principal_id",
+     "value": "@me"
+    },
+    {
+     "pointer": "/frames/4/elements/6/refers_to/position/role",
+     "value": "memory"
+    },
+    {
+     "pointer": "/frames/4/elements/6/refers_to/view",
+     "value": "original"
+    },
+    {
+     "pointer": "/frames/4/elements/7/element_id",
+     "value": "field.note"
+    },
+    {
+     "pointer": "/frames/4/elements/7/role",
+     "value": "field"
+    },
+    {
+     "pointer": "/frames/4/elements/7/label",
+     "value": "\uba54\ubaa8 \u00b7 \uc2dc\uc791 \uc694\uccad\uc5d0 \ud568\uaed8 \uae30\ub85d"
+    },
+    {
+     "pointer": "/frames/4/elements/7/marks",
+     "value": []
+    },
+    {
+     "pointer": "/frames/4/elements/7/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/4/elements/7/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/4/elements/7/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/4/elements/7/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/4/elements/7/value",
+     "value": ""
+    },
+    {
+     "pointer": "/frames/4/elements/8/element_id",
+     "value": "execution.tool"
+    },
+    {
+     "pointer": "/frames/4/elements/8/role",
+     "value": "setting"
+    },
+    {
+     "pointer": "/frames/4/elements/8/label",
+     "value": "\ub3c4\uad6c Claude Code 2.1.278 \u00b7 \uc0c8 \uc138\uc158"
+    },
+    {
+     "pointer": "/frames/4/elements/8/marks",
+     "value": [
+      "(\uc81c\uc548)"
+     ]
+    },
+    {
+     "pointer": "/frames/4/elements/8/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/4/elements/8/selection",
+     "value": "suggested"
+    },
+    {
+     "pointer": "/frames/4/elements/8/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/4/elements/8/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/4/elements/8/value",
+     "value": "Claude Code"
+    },
+    {
+     "pointer": "/frames/4/elements/8/effects",
+     "value": [
+      "model_calls"
+     ]
+    },
+    {
+     "pointer": "/frames/4/elements/9/element_id",
+     "value": "execution.permissions"
+    },
+    {
+     "pointer": "/frames/4/elements/9/role",
+     "value": "setting"
+    },
+    {
+     "pointer": "/frames/4/elements/9/label",
+     "value": "\uad8c\ud55c \u00b7 \ud638\uc2a4\ud2b8 \uc124\uc815\ub300\ub85c \ud655\uc778"
+    },
+    {
+     "pointer": "/frames/4/elements/9/marks",
+     "value": [
+      "(\uc81c\uc548)"
+     ]
+    },
+    {
+     "pointer": "/frames/4/elements/9/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/4/elements/9/selection",
+     "value": "suggested"
+    },
+    {
+     "pointer": "/frames/4/elements/9/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/4/elements/9/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/4/elements/9/value",
+     "value": "host_settings"
+    },
+    {
+     "pointer": "/frames/4/elements/9/effects",
+     "value": [
+      "permission_request"
+     ]
+    },
+    {
+     "pointer": "/frames/4/elements/10/element_id",
+     "value": "blocker.personal.decide"
+    },
+    {
+     "pointer": "/frames/4/elements/10/role",
+     "value": "blocker"
+    },
+    {
+     "pointer": "/frames/4/elements/10/label",
+     "value": "\ud655\uc778\ub418\uc9c0 \uc54a\uc740 \uacbd\ub85c \u00b7 \uc774 \ud638\uc2a4\ud2b8\uc5d0\uc11c \ud655\uc778\ud558\uba74 \uc4f8 \uc218 \uc788\uc74c"
+    },
+    {
+     "pointer": "/frames/4/elements/10/marks",
+     "value": []
+    },
+    {
+     "pointer": "/frames/4/elements/10/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/4/elements/10/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/4/elements/10/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/4/elements/10/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/4/elements/10/state",
+     "value": "blocked"
+    },
+    {
+     "pointer": "/frames/4/elements/10/refers_to/ref",
+     "value": "route"
+    },
+    {
+     "pointer": "/frames/4/elements/10/refers_to/route_id",
+     "value": "@route_decide"
+    },
+    {
+     "pointer": "/frames/4/elements/11/element_id",
+     "value": "action.start"
+    },
+    {
+     "pointer": "/frames/4/elements/11/role",
+     "value": "action"
+    },
+    {
+     "pointer": "/frames/4/elements/11/label",
+     "value": "Claude Code \uc0c8 \uc138\uc158 \uc2dc\uc791"
+    },
+    {
+     "pointer": "/frames/4/elements/11/marks",
+     "value": [
+      "\u203a"
+     ]
+    },
+    {
+     "pointer": "/frames/4/elements/11/focused",
+     "value": true
+    },
+    {
+     "pointer": "/frames/4/elements/11/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/4/elements/11/executing",
+     "value": true
+    },
+    {
+     "pointer": "/frames/4/elements/11/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/4/elements/11/state",
+     "value": "pending"
+    },
+    {
+     "pointer": "/frames/4/elements/11/refers_to/ref",
+     "value": "route"
+    },
+    {
+     "pointer": "/frames/4/elements/11/refers_to/route_id",
+     "value": "@route_start"
+    },
+    {
+     "pointer": "/frames/4/elements/11/effects",
+     "value": [
+      "file_changes",
+      "model_calls"
+     ]
+    },
+    {
+     "pointer": "/frames/4/elements/12/element_id",
+     "value": "help.keys"
+    },
+    {
+     "pointer": "/frames/4/elements/12/role",
+     "value": "help"
+    },
+    {
+     "pointer": "/frames/4/elements/12/label",
+     "value": "Tab \uc774\ub3d9 \u00b7 Enter \uc5f4\uae30 \u00b7 Space \uc120\ud0dd \u00b7 Esc \ub4a4\ub85c"
+    },
+    {
+     "pointer": "/frames/4/elements/12/marks",
+     "value": []
+    },
+    {
+     "pointer": "/frames/4/elements/12/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/4/elements/12/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/4/elements/12/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/4/elements/12/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/4/elements/13/element_id",
+     "value": "result.start"
+    },
+    {
+     "pointer": "/frames/4/elements/13/role",
+     "value": "result"
+    },
+    {
+     "pointer": "/frames/4/elements/13/label",
+     "value": "\uc2dc\uc791 \uc694\uccad\uc744 \ubcf4\ub0c8\uc2b5\ub2c8\ub2e4 \u00b7 \uacb0\uacfc \ud655\uc778 \uc911"
+    },
+    {
+     "pointer": "/frames/4/elements/13/marks",
+     "value": []
+    },
+    {
+     "pointer": "/frames/4/elements/13/focused",
+     "value": false
+    },
+    {
+     "pointer": "/frames/4/elements/13/selection",
+     "value": "none"
+    },
+    {
+     "pointer": "/frames/4/elements/13/executing",
+     "value": false
+    },
+    {
+     "pointer": "/frames/4/elements/13/shown",
+     "value": "whole"
+    },
+    {
+     "pointer": "/frames/4/elements/13/state",
+     "value": "pending"
+    },
+    {
+     "pointer": "/frames/4/elements/13/refers_to/ref",
+     "value": "request"
+    },
+    {
+     "pointer": "/frames/4/elements/13/refers_to/request_id",
+     "value": "$req:start_request"
+    },
+    {
+     "pointer": "/frames/4/dispatched",
+     "value": [
+      "$req:start_request"
+     ]
+    },
+    {
+     "pointer": "/frames/4/calls/0/operation",
      "value": "preparation.compose"
     },
     {
-     "pointer": "/frames/2/calls/0/reads",
+     "pointer": "/frames/4/calls/0/reads",
      "value": "bodies"
     },
     {
-     "pointer": "/frames/2/calls/0/request_digest",
+     "pointer": "/frames/4/calls/0/request_digest",
      "value": "#start_compose"
     },
     {
-     "pointer": "/script_digest",
-     "value": "#script"
+     "pointer": "/client/name",
+     "value": "agent-bios-entry"
+    },
+    {
+     "pointer": "/client/version",
+     "value": "1"
     }
    ]
   },
@@ -1988,7 +6253,7 @@
     },
     {
      "pointer": "/request_id",
-     "value": "@start_request"
+     "value": "$req:start_request"
     },
     {
      "pointer": "/target/resource_id",
@@ -2225,7 +6490,7 @@
     },
     {
      "pointer": "/request_id",
-     "value": "@start_request"
+     "value": "$req:start_request"
     },
     {
      "pointer": "/selected",
@@ -2285,11 +6550,23 @@
     },
     {
      "pointer": "/for_request_id",
-     "value": "@start_request"
+     "value": "$req:start_request"
     },
     {
      "pointer": "/result/output_digest",
      "value": "#start_preparation"
+    },
+    {
+     "pointer": "/capability",
+     "value": "new_delivery"
+    },
+    {
+     "pointer": "/client/name",
+     "value": "claude-code"
+    },
+    {
+     "pointer": "/client/version",
+     "value": "2.1.283"
     }
    ]
   },
@@ -2372,6 +6649,14 @@
     {
      "pointer": "/for_request_id",
      "value": "@decide_request"
+    },
+    {
+     "pointer": "/client/name",
+     "value": "claude-code"
+    },
+    {
+     "pointer": "/client/version",
+     "value": "2.1.283"
     }
    ]
   },
@@ -2400,7 +6685,7 @@
     },
     {
      "pointer": "/request_id",
-     "value": "@start_request"
+     "value": "$req:start_request"
     }
    ]
   },
@@ -2443,6 +6728,40 @@
     {
      "pointer": "/target/resource_id",
      "value": "@profile"
+    }
+   ]
+  },
+  {
+   "name": "link_offer",
+   "from": "offer",
+   "set": [
+    {
+     "pointer": "/entrance/name",
+     "value": "work_link"
+    }
+   ]
+  },
+  {
+   "name": "link_offer_request",
+   "from": "offer_request",
+   "set": [
+    {
+     "pointer": "/request_id",
+     "value": "@link_offer_made"
+    },
+    {
+     "pointer": "/payload_digest",
+     "value": "#link_offer"
+    }
+   ]
+  },
+  {
+   "name": "link_offer_stored",
+   "from": "link_offer",
+   "set": [
+    {
+     "pointer": "/offered_at",
+     "value": "$instant:link_offer_at"
     }
    ]
   }
@@ -2595,10 +6914,10 @@
    }
   },
   {
-   "name": "probe_host_read",
+   "name": "probe_host_delivery",
    "request": "probe_request",
    "carries": [
-    "read_probe"
+    "delivery_probe"
    ],
    "answer": {
     "stage": "committed",
@@ -2607,8 +6926,8 @@
     "gaps": [],
     "recovery": [],
     "returns": [
-     "read_probe_stored",
-     "read_probe_host_configuration"
+     "delivery_probe_stored",
+     "delivery_probe_host_configuration"
     ]
    }
   },
@@ -2643,6 +6962,23 @@
     "recovery": [],
     "returns": [
      "script_trace"
+    ]
+   }
+  },
+  {
+   "name": "offer_routes_to_the_link",
+   "request": "link_offer_request",
+   "carries": [
+    "link_offer"
+   ],
+   "answer": {
+    "stage": "committed",
+    "local_effect": "committed",
+    "provider_effect": "not_applicable",
+    "gaps": [],
+    "recovery": [],
+    "returns": [
+     "link_offer_stored"
     ]
    }
   },
