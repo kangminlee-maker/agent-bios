@@ -63,8 +63,11 @@ were applied." and the test reports that the installer exited early.
 Observed once on 2026-09-20 inside the pre-commit umbrella (523 tests, 1 failure, the captured
 frame shows Cancel in reverse video) on a commit that staged only records; the same test then
 passed 6 of 6 in isolation under the same environment, and had passed in the two umbrella runs
-before it. One occurrence does not establish a rate. The cost is a refused commit about ten
-minutes in, for a reason unrelated to the change. Sibling tests share `press_next` and the
+before it. Observed again on 2026-09-29, inside the umbrella, on a commit staging only
+`workenv/`, its tests and records. The machine's 5-minute load average was 23.5, the output held
+"Setup cancelled", and the test then passed 3 of 3 alone. Two occurrences do not establish a
+rate either. The cost is a refused commit about ten minutes in, for a reason unrelated to the
+change. Sibling tests share `press_next` and the
 same burst pattern and have not been examined.
 
 1. **Wait for the focused control, not for page text.** Have the test read until the frame
@@ -101,3 +104,40 @@ Instructions. No real start has hit it yet.
    freeze, with the cases it moves.
 3. **Leave it.** Acceptable while every real start carries at least one Instructions body; the
    real use shows whether one does.
+
+## F-20 — the delivery record names a preparation other than the one whose text the session holds
+
+**How it happens.**
+
+- **At launch.** A start from the entry composes once, before the session exists, and hands that
+  preparation's text at launch. The text names each unit (`Unit unt_…`).
+- **When the session reports.** The hook composes the job's request again for the session's
+  link. Where the bodies are exactly the ones handed at launch, it records the delivery of that
+  second preparation.
+- **The result.** `received` names a preparation and unit ids the session never saw.
+
+**What still holds.**
+
+- C07 says a unit id names the unit in its preparation only, and that the source, the member and
+  the revision follow it across preparations.
+- The bodies are checked equal before the delivery is recorded, so the content cannot differ.
+- What fails is going from the session's text to the recorded delivery by id.
+
+**Where it was found.** In the owner's direct run on 2026-09-29, for the same source
+`src_a592bb31…` and body `74d227ef…`:
+
+- the session named `unt_9c739daa…`;
+- `received` named `unt_89c79d24…`.
+
+It shares its cause with the two activations per start (design record
+`2026-09-29T0739--9f2cfc0--v1-slice5-unconfirmed-start-record.md`).
+
+1. **Record the preparation the text came from.** The hook binds the start's own preparation to
+   the link and records its delivery, with no second composition. Risk: a preparation is
+   composed for a recipient (C07 `recipient`), and the start's has none yet, so this is a
+   contract question.
+2. **Name both in the record.** The delivery keeps the link-bound preparation and also names the
+   one handed at launch, so `received` can show both. Risk: a field added after P01's freeze.
+3. **Leave it.** The source, the member and the body digest join the two, and the session's text
+   names the member (design record `2026-09-29T1151--e2ae51c--v1-slice5-labelled-bodies-record.md`).
+   Acceptable while nobody follows a delivery by unit id.

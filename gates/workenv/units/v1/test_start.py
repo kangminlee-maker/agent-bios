@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import contextlib
 import dataclasses
+import hashlib
 import io
 import json
 import pathlib
@@ -143,7 +144,7 @@ class Start(Starting):
                 text = launch.text
                 self.assertTrue(text.startswith(start.TITLE))
                 for part in ("Decision memory is read", "memory-use.md", BODY.decode(),
-                             "Source src_"):
+                             "\n## Personal instructions: ", ", source src_", ", body sha256 "):
                     self.assertIn(part, text)
                 if host == "claude-code":
                     [path] = self.given(launch, "--append-system-prompt-file")
@@ -315,9 +316,25 @@ class Start(Starting):
         self.assertEqual([stage for _, stage in self.activations()], ["unknown"])
 
     def test_a_body_that_is_not_the_one_its_unit_names_is_not_handed_over(self):
-        unit = {"unit_id": "u", "source_id": "s", "body_digest": canonical.digest_of({})}
+        unit = {"unit_id": "u", "source_id": "s", "body_digest": canonical.digest_of({}),
+                "layer": "personal", "role": "instructions"}
         with self.assertRaisesRegex(start.StartError, "not the one its unit names"):
             start.bodies_text([unit], [b"other bytes"])
+
+    def test_each_body_is_headed_by_its_layer_its_role_and_the_member_it_is(self):
+        rules, notes = b"# Rules\n", b"# Notes\n"
+        units = [{"unit_id": "unt_a", "source_id": "src_a", "layer": "repository",
+                  "role": "instructions", "member": "AGENTS.md",
+                  "body_digest": hashlib.sha256(rules).hexdigest()},
+                 {"unit_id": "unt_b", "source_id": "src_b", "layer": "personal",
+                  "role": "knowledge", "body_digest": hashlib.sha256(notes).hexdigest()}]
+        self.assertEqual(start.bodies_text(units, [rules, notes]),
+                         "## Repository instructions: AGENTS.md\n\n"
+                         f"Unit unt_a, source src_a, body sha256 {units[0]['body_digest']}.\n\n"
+                         "# Rules\n\n"
+                         "## Personal knowledge\n\n"
+                         f"Unit unt_b, source src_b, body sha256 {units[1]['body_digest']}.\n\n"
+                         "# Notes\n")
 
 
 class Events(Starting):

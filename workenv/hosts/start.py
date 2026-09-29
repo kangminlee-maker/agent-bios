@@ -171,7 +171,9 @@ def body(state: pathlib.Path, unit: dict) -> bytes:
 
 
 def bodies_text(units: list[dict], data: list[bytes]) -> str:
-    """Each body under a header naming its unit, its source and its digest."""
+    """Each body under a header naming its layer, its role and the member it is, then a line
+    naming its unit, its source and its digest. A unit id names the unit in its preparation only;
+    the source, the member and the digest follow it across preparations (C07)."""
     parts = []
     for unit, held in zip(units, data, strict=True):
         if hashlib.sha256(held).hexdigest() != unit["body_digest"]:
@@ -180,8 +182,11 @@ def bodies_text(units: list[dict], data: list[bytes]) -> str:
             text = held.decode("utf-8")
         except UnicodeDecodeError as error:
             raise StartError(f"the body of {unit['unit_id']} is not text") from error
-        parts.append(f"## {unit['unit_id']}\n\nSource {unit['source_id']}, body sha256 "
-                     f"{unit['body_digest']}.\n\n{text.rstrip()}\n")
+        what = f"{unit['layer'].capitalize()} {unit['role']}"
+        if unit.get("member"):
+            what += f": {unit['member']}"
+        parts.append(f"## {what}\n\nUnit {unit['unit_id']}, source {unit['source_id']}, body "
+                     f"sha256 {unit['body_digest']}.\n\n{text.rstrip()}\n")
     return "\n".join(parts)
 
 
