@@ -49,6 +49,25 @@ class InstructionsInstallTests(unittest.TestCase):
     def installer(self) -> InstructionsInstaller:
         return InstructionsInstaller(self.repo, self.env)
 
+    def test_launcher_reachability_answers_whether_the_deployed_launcher_can_be_typed(self) -> None:
+        # install() writes the launcher into a directory the caller's PATH may not
+        # carry. Nothing in the installed tree records that, so the completion
+        # summary can only report it from here.
+        bin_root = self.home / ".local" / "bin"
+        absent = self.installer().launcher_reachability()
+        self.assertEqual(str(bin_root / "agent-launch"), absent["path"])
+        self.assertEqual(str(bin_root), absent["directory"])
+        self.assertFalse(absent["on_path"])
+        self.assertIs(False, absent["shell_connected"])
+        for path in (f"/usr/bin:{bin_root}", f"{bin_root}/", f"{bin_root}//"):
+            reachable = InstructionsInstaller(self.repo, {**self.env, "PATH": path}).launcher_reachability()
+            self.assertTrue(reachable["on_path"], path)
+        for path in ("", "/usr/bin", "~/.local/bin", str(bin_root) + "x"):
+            # A literal ~ is not expanded when a shell searches PATH, so it does
+            # not reach the launcher and must not be reported as if it did.
+            missed = InstructionsInstaller(self.repo, {**self.env, "PATH": path}).launcher_reachability()
+            self.assertFalse(missed["on_path"], path)
+
     def test_private_install_verify_and_uninstall_do_not_touch_native_homes(self) -> None:
         self.claude.mkdir(parents=True)
         self.codex.mkdir(parents=True)

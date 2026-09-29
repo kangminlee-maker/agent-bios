@@ -237,6 +237,25 @@ def format_setup_result(result: dict[str, Any], language: str = "en", *, interfa
     def recovery_hint() -> str:
         return t("Use the returned review_id with agent-bios setup status or agent-bios setup resume before continuing.")
 
+    def reachability_lines() -> list[str]:
+        """Name the two ways a finished install still cannot be reached.
+
+        install() leaves a launcher in a directory the caller's PATH may not
+        carry, and the shell connection that reaches it for bare host commands is
+        opt-in. Neither is visible in the installed tree, so a summary that omits
+        them reports a success the caller cannot use. Absent facts say nothing.
+        """
+        reach = result.get("launcher") or {}
+        lines: list[str] = []
+        if reach.get("on_path") is False:
+            lines.append(t("The launcher is installed at {path}, but {directory} is not on this shell's PATH.",
+                           path=str(reach.get("path")), directory=str(reach.get("directory"))))
+            lines.append(t("Add {directory} to the PATH in your shell startup file, or run the launcher by its full path.",
+                           directory=str(reach.get("directory"))))
+        if reach.get("shell_connected") is False:
+            lines.append(t("Typing claude or codex alone does not open the launcher: the optional shell connection is off. Turn it on with agent-bios shell restore."))
+        return lines
+
     if result.get("cancelled"):
         if result.get("cancelled_after_start"):
             lines = [t("Setup stopped after the current operation finished.")]
@@ -273,6 +292,7 @@ def format_setup_result(result: dict[str, Any], language: str = "en", *, interfa
             lines.append(t("The app command registration is retained; instruction capture did not complete."))
         if completed:
             lines.append(t("Dependencies installed: {dependencies}.", dependencies=", ".join(completed)))
+        lines.extend(reachability_lines())
         lines.append(recovery_hint() if interface == "conversation" else t("Open Instructions Studio: agent-bios instructions (terminal or Codex app terminal panel)."))
         return "\n".join(lines)
     if not result.get("applied"):
@@ -312,6 +332,7 @@ def format_setup_result(result: dict[str, Any], language: str = "en", *, interfa
             if request == f"Use $agent-bios to import capture {captured['capture_id']}":
                 request = t("Use $agent-bios to import capture {capture_id}", capture_id=captured["capture_id"])
             lines.append(t("In Codex: {request}", request=request))
+    lines.extend(reachability_lines())
     lines.append(t("Continue in the conversation using the returned verified entrypoint.") if interface == "conversation"
                  else t("Open Instructions Studio: agent-bios instructions (terminal or Codex app terminal panel)."))
     return "\n".join(lines)
@@ -527,6 +548,11 @@ class SetupController:
         except (OSError, RuntimeError, ValueError) as exc:
             result["installation_error"] = str(exc)
             return result
+        # Read once the installation is durable, so the extras failure path reports
+        # the same reachability as the clean one: both leave a launcher behind.
+        reachability = getattr(self.installer, "launcher_reachability", None)
+        if callable(reachability):
+            result["launcher"] = reachability()
         if cancelled():
             return result
         try:

@@ -112,6 +112,12 @@ your project:
 
 Use `codex` instead of `claude` for a Codex CLI session.
 
+The full path is deliberate: `agent-bios install` deploys the launcher to
+`~/.local/bin`, which your shell may not search. Add that directory to `PATH` to
+type `agent-launch` directly, and run `agent-bios shell restore` to make a bare
+`claude` or `codex` open the launcher (`agent-bios shell remove` undoes it).
+Installation reports both when they are not in place.
+
 1. Choose a Builder preset or **Custom**.
 2. Review the model, review setup, and permissions. **Some presets request
    permission bypass**; select settings appropriate for your project.

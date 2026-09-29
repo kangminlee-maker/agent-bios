@@ -596,6 +596,36 @@ class InstructionsInstaller:
         spec.loader.exec_module(module)
         return module.ShellIntegration(self.env, self.repo)
 
+    def launcher_reachability(self) -> dict[str, Any]:
+        """Report whether the launcher this install deposits can actually be typed.
+
+        Both answers are known here and invisible in the installed tree: install
+        writes the launcher into a directory the caller's PATH may not carry, and
+        the shell connection that reaches it for bare host commands is opt-in. A
+        completion summary that omits them reports a success the caller cannot use.
+        Read-only, and never raises: a summary is not worth failing an install
+        that succeeded, and reporting must not become a reason to write.
+        """
+        launcher = self.bin_root / ("agent-launch.cmd" if WINDOWS else "agent-launch")
+        connected: bool | None = None
+        if not WINDOWS:
+            # zsh is the only shell this connection speaks; elsewhere the question
+            # has no answer rather than a negative one.
+            try:
+                connected = bool(self._shell_manager().status().get("enabled"))
+            except (InstallError, OSError, RuntimeError, ValueError):
+                connected = False
+        try:
+            target = os.path.normcase(os.path.realpath(self.bin_root))
+            # No expanduser: a shell does not tilde-expand PATH entries when it
+            # searches, so a literal ~ there really does not find the command.
+            on_path = any(os.path.normcase(os.path.realpath(part)) == target
+                          for part in self.env.get("PATH", "").split(os.pathsep) if part)
+        except (OSError, ValueError):
+            on_path = True  # Undecidable; do not tell the caller PATH is wrong on a guess.
+        return {"path": str(launcher), "directory": str(self.bin_root),
+                "on_path": on_path, "shell_connected": connected}
+
     def setup_catalog(self) -> dict[str, Any]:
         return self._catalog(self.repo)
 

@@ -239,6 +239,34 @@ class SetupResultTests(unittest.TestCase):
         self.assertNotIn("installed_files", text)
         self.assertLess(len(text.splitlines()), 10)
 
+    def test_summary_names_both_ways_a_finished_install_stays_unreachable(self):
+        # A successful install still leaves the launcher untypable when its
+        # directory is off PATH, and leaves bare hosts unintercepted when the
+        # opt-in shell connection is off. Neither is visible in the tree.
+        base = {"applied": True, "plan": {"selection_mode": "none", "targets": []}}
+        launcher = {"path": "/h/.local/bin/agent-launch", "directory": "/h/.local/bin"}
+        text = format_setup_result({**base, "launcher": {**launcher, "on_path": False, "shell_connected": False}})
+        self.assertIn("/h/.local/bin/agent-launch", text)
+        self.assertIn("not on this shell's PATH", text)
+        self.assertIn("agent-bios shell restore", text)
+        quiet = format_setup_result({**base, "launcher": {**launcher, "on_path": True, "shell_connected": True}})
+        self.assertNotIn("PATH", quiet)
+        self.assertNotIn("shell restore", quiet)
+        # A result carrying no reachability must not be described as broken.
+        self.assertNotIn("PATH", format_setup_result(base))
+        # Where no zsh connection exists there is no negative answer to report.
+        windows = format_setup_result({**base, "launcher": {**launcher, "on_path": True, "shell_connected": None}})
+        self.assertNotIn("shell restore", windows)
+
+    def test_extras_failure_still_reports_the_installed_launcher(self):
+        text = format_setup_result({"applied": False, "installation_applied": True,
+                                    "extras_error": "skill path conflict",
+                                    "launcher": {"path": "/h/.local/bin/agent-launch",
+                                                 "directory": "/h/.local/bin",
+                                                 "on_path": False, "shell_connected": True}})
+        self.assertIn("not on this shell's PATH", text)
+        self.assertNotIn("shell restore", text)
+
     def test_none_and_preserve_choices_are_distinct(self):
         empty = format_setup_result({"applied": True, "plan": {"selection_mode": "none", "targets": []}})
         preserved = format_setup_result({"applied": True, "plan": {"selection_mode": None, "targets": None}})
@@ -358,6 +386,21 @@ class SetupControllerTests(unittest.TestCase):
         self.assertTrue(result["cancelled_after_start"])
         self.assertTrue(all(row["dry_run"] for row in self.installer.extras))
         self.assertIn("installation is retained", format_setup_result(result))
+
+    def test_apply_carries_launcher_reachability_and_tolerates_an_installer_without_it(self):
+        controller = self.controller()
+        plan = controller.default_plan()
+        # No such method on the stub: apply must still succeed and simply say nothing.
+        self.assertFalse(hasattr(self.installer, "launcher_reachability"))
+        silent = controller.apply(plan, controller.preview(plan))
+        self.assertTrue(silent["applied"])
+        self.assertNotIn("launcher", silent)
+        reported = {"path": "/h/.local/bin/agent-launch", "directory": "/h/.local/bin",
+                    "on_path": False, "shell_connected": False}
+        self.installer.launcher_reachability = lambda: dict(reported)
+        result = controller.apply(plan, controller.preview(plan))
+        self.assertEqual(reported, result["launcher"])
+        self.assertIn("not on this shell's PATH", format_setup_result(result))
 
     def test_source_change_during_dependency_execution_preserves_partial_outcome(self):
         def runner(argv, **kwargs):

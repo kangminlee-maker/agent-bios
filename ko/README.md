@@ -95,6 +95,13 @@ CLI 세션을 실행하려면 해당 호스트 CLI를 설치·인증한 뒤, 작
 
 Codex CLI 세션은 마지막 인자를 `codex`로 바꾸면 됩니다.
 
+전체 경로를 쓰는 데에는 이유가 있습니다. `agent-bios install`은 런처를
+`~/.local/bin`에 설치하는데, 셸이 그 디렉터리를 찾지 않을 수 있습니다. 해당
+디렉터리를 `PATH`에 추가하면 `agent-launch`를 그대로 입력할 수 있고,
+`agent-bios shell restore`를 실행하면 `claude`나 `codex`만 입력해도 런처가
+열립니다(`agent-bios shell remove`로 되돌립니다). 설치는 두 가지가 갖춰지지
+않았을 때 그 사실을 알려줍니다.
+
 1. Builder 프리셋이나 **Custom**을 선택합니다.
 2. 모델·리뷰·권한을 확인합니다. **일부 프리셋은 권한 우회를 요청**하므로 프로젝트에 맞게 선택하세요.
 3. 세션을 시작합니다. 호스트 기본 설정으로 시작하려면 **Software Engineer / Vanilla**를 선택합니다.
