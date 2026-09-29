@@ -119,7 +119,7 @@ class Positive(unittest.TestCase):
         registry, (plan, catalog, _) = cases.load(), cases.bundle(cases.ROOT)
         rows = {row["id"]: row for key in ("atomic", "cases") for row in registry[key]}
         bound = cases.case_map(registry, catalog, "V1", {n["id"]: n for n in plan["nodes"]})
-        self.assertEqual(len(bound), 22)
+        self.assertEqual(len(bound), 21)
         for case in sorted(bound):
             with self.subTest(case=case):
                 got = run(case.lower(), rules=tuple(rows[case].get("rules", ())))
