@@ -11,12 +11,12 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 
 import subjects  # noqa: E402
 
-# P00 recorded this input and this fingerprint in run team-env-20260920b. They are literals
-# because deriving the expectation from the rule under test would compare it to itself.
-P00_BASELINE_INPUT = {"tree": "795b49b9cbd16078abfab9388e419ebe0d202203",
-                      "manifest_sha256": "8dec8bf7d2f652afbedce9f55cdc3ca160f5a3ea68f24e5"
-                                         "6e340a77ba94fa02a"}
-P00_BASELINE_FINGERPRINT = "6f4029928e1170efa8ef19983ad2c323fc6d5e14adc2b6db7a87e3c4bcdb1104"
+# P00 recorded this input and this fingerprint in run team-env-20260923, at 53e2b2c. They are
+# literals because deriving the expectation from the rule under test would compare it to itself.
+P00_BASELINE_INPUT = {"tree": "7b58e51d7d26bb0ffa0204c073cb240ff73f7c70",
+                      "manifest_sha256": "d8edd92e2093620d8a15aee336fc7c2d72f7dbe5c9a9664"
+                                         "9bb5c300e901ca817"}
+P00_BASELINE_FINGERPRINT = "dbc0d68e50fdf5b40519d4520ffc8ebde797f690c61a248bd0629e00d06142b8"
 
 PLAN = {"subjects": {"one": {}, "two": {}},
         "nodes": [{"id": "N1", "depends_on": [], "owned_paths": ["src/one.py"]},
