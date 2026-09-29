@@ -535,7 +535,14 @@ def leg_urls(root):
     if not subjects:
         return problems + ["urls: no shipped subjects derived — "
                            "an empty set satisfies everything"], 0, 0
-    public_lines, public_problems = _load_hygiene().public_install_request_lines(root, subjects)
+    hygiene = _load_hygiene()
+    public_lines, public_problems = hygiene.public_install_request_lines(root, subjects)
+    # The installation page's commands carry its URL by construction. They are
+    # admitted on the same terms as the source request: derived from package.json
+    # there, derived from the site builder here, never stated in either gate.
+    command_lines, command_problems = hygiene.public_install_command_lines(root, subjects)
+    public_lines = public_lines | command_lines
+    public_problems = public_problems + command_problems
     problems.extend(f"urls: {name}: {message}" for name, message in public_problems)
     try:
         repo_url = json.loads((root / "package.json").read_text(
@@ -999,7 +1006,14 @@ def _copy_tree(dst):
     smaller tree than production. A filter added here (or a file that silently
     fails to copy) would shrink what every planted mutation is judged on."""
     subjects, _ = shipped_files(REPO)
-    files = list(subjects) + [DOC]
+    # The installation-command exemption is derived through check-hygiene from the
+    # site builder and its release pin. Both are author-side, so the shipped set
+    # alone cannot derive the admitted lines: the positive control would fail on an
+    # unmutated tree and every mutation below would prove nothing. Adding a file
+    # here is safe in a way removing one is not -- the subject set is only checked
+    # for what went missing.
+    files = list(subjects) + [DOC, "packages/windows/build-install-site.py",
+                              "packages/windows/install-site.json"]
     copied = []
     for rel in sorted(set(files)):
         src = REPO / rel

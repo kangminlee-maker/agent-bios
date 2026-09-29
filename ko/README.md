@@ -5,7 +5,7 @@
 지침을 직접 읽고 고치며, CLI 세션과 Codex 앱 작업마다 무엇을 사용할지 선택합니다.
 기존 전역 지침 파일은 보존합니다.
 
-[0.19.2 변경 내역](../docs/releases/0.19.2.md)
+[0.19.3 변경 내역](../docs/releases/0.19.3.md)
 
 ## 목적
 
@@ -60,11 +60,26 @@ agent-bios는 일하는 기준과 방법을 담은 규칙·가이드·절차, **
 
 ### 터미널에서
 
-**macOS 또는 Linux**, **Bash**, **Python 3.11 이상**과 패키지 설치를 위한
-**Node.js 18 이상·npm**이 필요합니다. 다음 명령을 실행하세요.
+운영체제마다 한 줄입니다. 두 명령 모두 프로젝트 설치 페이지에서 내려받으며,
+이 페이지는 최신판을 따라가지 않고 명시적으로 승격된 릴리즈를 제공합니다.
+
+**Windows** — PowerShell, 명령 프롬프트, 실행 창 어디서나 됩니다. 현재 릴리즈는
+서명되지 않은 미리보기이며, 끝의 플래그가 그것을 수락한다는 뜻입니다.
+
+```text
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$p = Join-Path $env:TEMP ([guid]::NewGuid().ToString('N') + '.ps1'); iwr 'https://kangminlee-maker.github.io/agent-bios/install.ps1' -UseBasicParsing -OutFile $p -ErrorAction Stop; & $p -AcceptUnsignedPreview"
+```
+
+**macOS 또는 Linux** — **Python 3.11 이상**과 **Node.js 18 이상·npm**이 이미
+설치되어 있어야 합니다.
+
+```text
+curl -fsSL https://kangminlee-maker.github.io/agent-bios/install.sh | bash
+```
+
+이어서 작업 환경을 배치합니다.
 
 ```bash
-npm install -g agent-bios@0.19.0
 agent-bios install
 ```
 

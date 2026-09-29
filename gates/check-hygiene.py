@@ -47,6 +47,7 @@ this gate and is left to the per-item human admission pass the roadmap names.
                 subjects and require the gate to fail BY NAME; positive control
                 first, so a failure is attributable to the mutation
 """
+import importlib.util
 import json
 import pathlib
 import re
@@ -103,6 +104,62 @@ PUBLIC_INSTALL_REQUESTS = {
     "ko/README.md": ("", " 설치해줘", "the Korean installation request names the same declared source"),
 
 }
+
+# The installation page's own one-line commands. They are not written here: the
+# site builder emits them, this reads them back from it, and a README line has to
+# match one verbatim. That keeps the gate from holding a third copy of a value the
+# builder owns, and makes a fork's package.json move the page and the README
+# together -- the account name in the URL is derived, never stated.
+PUBLIC_INSTALL_COMMANDS = {
+    "README.md": "the installation page's commands, verbatim, in the English README",
+    "ko/README.md": "the same commands in the Korean README; a command is not translated",
+}
+
+
+def _install_site_commands(root: pathlib.Path) -> tuple:
+    """The exact command lines the installation page publishes, from its builder."""
+    path = root / "packages/windows/build-install-site.py"
+    spec = importlib.util.spec_from_file_location("agent_bios_install_site_for_hygiene", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    raw = json.loads((root / "package.json").read_text(encoding="utf-8"))["repository"]["url"]
+    repository = raw.removeprefix("git+").removesuffix(".git")
+    owner, name = repository.split("/")[-2:]
+    site = f"https://{owner.lower()}.github.io/{name}"
+    config = json.loads((root / "packages/windows/install-site.json").read_text(encoding="utf-8"))
+    _, _, channel = module.release_identity(config, repository)
+    return module.install_command(site, channel), module.posix_install_command(site)
+
+
+def public_install_command_lines(root: pathlib.Path, subjects: list) -> tuple:
+    """Return exact admitted (path, line) pairs and named contract failures."""
+    declared = [name for name in PUBLIC_INSTALL_COMMANDS if name in subjects]
+    if not declared:
+        return set(), []
+    try:
+        commands = _install_site_commands(root)
+    except (AttributeError, ImportError, KeyError, OSError, TypeError, ValueError) as exc:
+        return set(), [("packages/windows/build-install-site.py",
+                        f"public installation commands cannot be derived: {exc}")]
+    admitted, problems = set(), []
+    for name in declared:
+        try:
+            lines = (root / name).read_text(encoding="utf-8").splitlines()
+        except (OSError, UnicodeError) as exc:
+            problems.append((name, f"public installation commands cannot be read: {exc}"))
+            continue
+        for command in commands:
+            # Fenced as text, so a reader copies the command and a renderer does
+            # not reflow the one line whose exactness is the whole contract.
+            matches = [index + 1 for index, line in enumerate(lines)
+                       if line == command and index > 0 and index + 1 < len(lines)
+                       and lines[index - 1] == "```text" and lines[index + 1] == "```"]
+            if len(matches) != 1:
+                problems.append((name, "each installation page command must appear exactly once, "
+                                 "verbatim, as the only line of a text code block"))
+            else:
+                admitted.add((name, matches[0]))
+    return admitted, problems
 
 
 def public_install_request_lines(root: pathlib.Path, subjects: list) -> tuple:
@@ -284,6 +341,9 @@ def scan(root: pathlib.Path, subjects: list) -> tuple:
     binary_subjects, findings = validated_binary_subjects(root, subjects)
     public_lines, public_problems = public_install_request_lines(root, subjects)
     findings.extend(("public install request", name, 0, message) for name, message in public_problems)
+    command_lines, command_problems = public_install_command_lines(root, subjects)
+    findings.extend(("public install command", name, 0, message) for name, message in command_problems)
+    public_lines = public_lines | command_lines
     exercised = set()
     for name in subjects:
         if name in binary_subjects:
@@ -356,6 +416,14 @@ def self_test() -> int:
             target = scratch / name
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(REPO / name, target)
+        # The installation-command check reads the site builder and its release pin.
+        # Both are author-side, so a copy of the shipped set alone cannot run that
+        # check at all -- and the clean control below would then be clean about a
+        # check that never fired.
+        for name in ("packages/windows/build-install-site.py", "packages/windows/install-site.json"):
+            target = scratch / name
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(REPO / name, target)
 
         def findings_now(subject_list=None):
             return scan(scratch, subject_list or subjects)[0]
@@ -382,6 +450,26 @@ def self_test() -> int:
 
         # Positive control FIRST: the copy of the real tree must be clean.
         expect_clean("the unmodified copy of the shipped set")
+
+        # The installation commands are admitted only while they match what the site
+        # builder emits. Drift is the failure this exists for: a README command that
+        # no longer starts the published installer reads as correct to everyone.
+        for name in PUBLIC_INSTALL_COMMANDS:
+            if name not in subjects:
+                fail(f"self-test: public install command subject {name} is absent")
+            readme = scratch / name
+            kept = readme.read_text(encoding="utf-8")
+            for label, damaged in (
+                    ("a dropped command flag", kept.replace(" -AcceptUnsignedPreview", "")),
+                    ("a redirected command host", kept.replace(".github.io/", ".github.io.example/")),
+                    ("an unfenced command", kept.replace("```text\npowershell ", "```\npowershell "))):
+                if damaged == kept:
+                    fail(f"self-test: {label} changed nothing in {name}")
+                readme.write_text(damaged, encoding="utf-8")
+                expect(f"{label} in {name}", "public install command", name)
+            readme.write_text(kept, encoding="utf-8")
+        expect_clean("the restored installation commands")
+
         repository = json.loads((scratch / "package.json").read_text(encoding="utf-8"))["repository"]["url"]
         uri = repository.removeprefix("git+").removesuffix(".git")
         base, owner, repo_name = uri.rsplit("/", 2)

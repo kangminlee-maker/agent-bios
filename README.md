@@ -5,7 +5,7 @@
 Build an instruction library you can inspect, edit, and reuse. Choose what each
 CLI session or Codex app task uses, while preserving your existing global instruction files.
 
-[0.19.2 release notes](docs/releases/0.19.2.md)
+[0.19.3 release notes](docs/releases/0.19.3.md)
 
 ## Purpose
 
@@ -65,7 +65,8 @@ workflow. It provides `agent-bios.exe` and `agent-launch.exe` without npm or WSL
 The same workflow also qualifies a script distribution that uses an approved or
 provisioned CPython 3.13 with signed PowerShell commands and no custom EXE.
 Each Windows script release page carries the one-line PowerShell command for
-that release. See [Windows installation and validation limits](docs/windows.md).
+that release, and the fixed address below serves an explicitly promoted one.
+See [Windows installation and validation limits](docs/windows.md).
 
 ## Quick start
 
@@ -75,11 +76,26 @@ See [setup and prerequisites](docs/setup.md).
 
 ### In a terminal
 
-You need **macOS or Linux**, **Bash**, **Python 3.11+**, and **Node.js 18+ with npm**
-for package installation. Run:
+One line per platform. Each downloads from the project's installation page, which
+serves an explicitly promoted release rather than a moving latest.
+
+On **Windows** — from PowerShell, the Command Prompt or the Run box. The current
+release is an unsigned preview, which is what the trailing flag accepts:
+
+```text
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$p = Join-Path $env:TEMP ([guid]::NewGuid().ToString('N') + '.ps1'); iwr 'https://kangminlee-maker.github.io/agent-bios/install.ps1' -UseBasicParsing -OutFile $p -ErrorAction Stop; & $p -AcceptUnsignedPreview"
+```
+
+On **macOS or Linux**, where **Python 3.11+** and **Node.js 18+ with npm** must
+already be present:
+
+```text
+curl -fsSL https://kangminlee-maker.github.io/agent-bios/install.sh | bash
+```
+
+Then deploy the work environment:
 
 ```bash
-npm install -g agent-bios@0.19.0
 agent-bios install
 ```
 
