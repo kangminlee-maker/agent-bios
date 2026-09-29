@@ -27,7 +27,7 @@ The grammar (design records `2026-09-28T1601--4e305e5--v1-slice5-entry-grammar-d
   - **Views.** The Studio hub opens `hub`, and every other entrance `w01`. A link opens `w01` at
     its target, with its draft and return view. `w02` is one position's detail. Enter opens a
     view over the current one and Esc returns to it; Esc on a `w01` nothing else lies under opens
-    the hub over it.
+    the hub over it. Nothing opens from a detail, so Enter there starts, from the `w01` under it.
   - **W01**, in order: where the work is; the last checkpoint; an unknown start with its check;
     the positions of the basis (the selected scope's, then the person's, each Instructions,
     knowledge, memory); the note; the tool; the permissions; a blocker for each route not
@@ -36,25 +36,30 @@ The grammar (design records `2026-09-28T1601--4e305e5--v1-slice5-entry-grammar-d
     no collection, an Instructions source with an accepted revision is `suggested` and included,
     while knowledge and memory are not included: their bodies are read only for a task. Space
     makes the choice the person's, `selected` or `none`. The start pins what this frame
-    includes and no collection already applies.
+    includes and no collection already applies. A position with nothing to choose (no source
+    there, none with an accepted revision, or a collection that includes nothing) is marked
+    `[-]` and unavailable in words, and focus never lands on it.
   - **Focus and keys.** Focus starts on the check of an unknown start, else a link's target,
-    else the first position, else the first Tab stop. Tab stops are the check, the note, the
-    tool (when it has alternatives), the permissions and the start. The arrows move through the
-    positions, and ← → change the tool or the permissions until a start is dispatched. The
+    else the first position there is something to choose at, else the first Tab stop. Tab stops
+    are the check, the note, the tool (when it has alternatives), the permissions and the start.
+    The arrows move through the positions there is something to choose at, and ← → change the
+    tool or the permissions until a start is dispatched. The
     permissions are the host's own settings, suggested, until changed; they are an argument of
     the launch, not of the composition. Text and paste go into a focused field code point for
     code point, and nowhere else, so no letter is a shortcut; Space in a focused field is a
     space.
-  - **Dispatch.** Enter on the start dispatches one `preparation.compose` for the basis, with the
-    note as its rationale. While a start is unknown it dispatches nothing, and the start shows
-    `blocked` and hands focus to the check. Enter on the check dispatches one `operation.query`
-    for the unknown request. A dispatched action stays `executing` and `pending` until its
-    answer is handed over. Then its result element shows it: the start's result, or the unknown
-    start the check was for. An unknown outcome stays `unknown`, and a refusal or a failure is
-    `unavailable`, labelled with the owner's reason. A check can also find its start settled,
-    no longer pending, at the stage it now stands at (`settled`): the start is drawn as settled
-    on the same screen, `delivered` where its session reported and `unavailable` otherwise, the
-    start is no longer held back by it, and the hub no longer signals it.
+  - **Dispatch.** Enter on the start, or on a position's detail, dispatches one
+    `preparation.compose` for the basis, with the note as its rationale. From a detail it first
+    returns to the `w01` under it, focused on the start. While a start is unknown it dispatches
+    nothing, and the start shows `blocked` and hands focus to the check. Enter on the check
+    dispatches one `operation.query` for the unknown request. A dispatched action stays
+    `executing` and `pending` until its answer is handed over. Then its result element shows it:
+    the start's result, or the unknown start the check was for. An unknown outcome stays
+    `unknown`, and a refusal or a failure is `unavailable`, labelled with the owner's reason. A
+    check can also find its start settled, no longer pending, at the stage it now stands at
+    (`settled`): the start is drawn as settled on the same screen, `delivered` where its session
+    reported and `unavailable` otherwise, the start is no longer held back by it, and the hub no
+    longer signals it.
   - **`shown`.** An element is one line of `columns - 2` cells (wide characters take two cells,
     combining marks and Hangul medial and final jamo none, and a control character two), and a
     field's value takes up to three more lines. An element wider is `clipped`, and one starting
@@ -94,10 +99,12 @@ RATIONALE = 2000
 ANSWERED = ("unknown", "unavailable", "settled")
 # The stages a settled start has its own words for; any other is named as it is.
 SETTLED = ("committed", "expired")
+# The states of a position with nothing to choose: nothing held there, or nothing accepted.
+UNAVAILABLE = ("checked_empty", "configured")
 
 CATALOG = {
     "ko": {
-        "suggested": "(제안)",
+        "suggested": "(제안)", "unavailable": "(선택 불가)",
         "layer.repository": "레포", "layer.personal": "개인", "layer.team": "팀",
         "role.instructions": "지침", "role.knowledge": "지식", "role.memory": "결정 기록",
         "action.use": "새 세션", "action.decide": "결정", "action.other": "{action}",
@@ -133,9 +140,10 @@ CATALOG = {
         "signal": "결과 모름 · 지난 시작",
         "key.tab": "Tab 이동", "key.arrows": "↑↓ 자료", "key.space": "Space 선택",
         "key.change": "←→ 변경", "key.enter": "Enter 열기·시작", "key.escape": "Esc 뒤로",
+        "key.start": "Enter 시작",
     },
     "en": {
-        "suggested": "(suggested)",
+        "suggested": "(suggested)", "unavailable": "(unavailable)",
         "layer.repository": "Repository", "layer.personal": "Personal", "layer.team": "Team",
         "role.instructions": "Instructions", "role.knowledge": "knowledge",
         "role.memory": "decision records",
@@ -173,9 +181,10 @@ CATALOG = {
         "signal": "Result unknown · last start",
         "key.tab": "Tab move", "key.arrows": "↑↓ items", "key.space": "Space select",
         "key.change": "←→ change", "key.enter": "Enter open·start", "key.escape": "Esc back",
+        "key.start": "Enter start",
     },
     "ja": {
-        "suggested": "(提案)",
+        "suggested": "(提案)", "unavailable": "(選択不可)",
         "layer.repository": "リポジトリ", "layer.personal": "個人", "layer.team": "チーム",
         "role.instructions": "指示", "role.knowledge": "知識", "role.memory": "決定記録",
         "action.use": "新しいセッション", "action.decide": "決定", "action.other": "{action}",
@@ -211,6 +220,7 @@ CATALOG = {
         "signal": "結果不明 · 前回の開始",
         "key.tab": "Tab 移動", "key.arrows": "↑↓ 資料", "key.space": "Space 選択",
         "key.change": "←→ 変更", "key.enter": "Enter 開く・開始", "key.escape": "Esc 戻る",
+        "key.start": "Enter 開始",
     },
 }
 
@@ -260,6 +270,10 @@ class Position:
     @property
     def element_id(self) -> str:
         return f"positions.{self.layer}.{self.role}"
+
+    @property
+    def available(self) -> bool:
+        return self.state not in UNAVAILABLE
 
     @property
     def toggles(self) -> bool:
@@ -502,8 +516,9 @@ class Entry:
         if target and target.get("ref") == "route" and self.start and \
                 target["route_id"] == self.start.route["route_id"]:
             return "action.start"
-        if self.positions:
-            return self.positions[0].element_id
+        choices = [position for position in self.positions if position.available]
+        if choices:
+            return choices[0].element_id
         stops = self.tab_stops()
         return stops[0] if stops else None
 
@@ -556,9 +571,12 @@ class Entry:
                                       refers_to=request))
         suggested = self.text("suggested")
         for position in self.positions:
-            marks = ["[x]" if position.included else "[ ]"]
-            if position.selection == "suggested":
-                marks.append(suggested)
+            if not position.available:
+                marks = ["[-]", self.text("unavailable")]
+            else:
+                marks = ["[x]" if position.included else "[ ]"]
+                if position.selection == "suggested":
+                    marks.append(suggested)
             found.append(self.element(position.element_id, "selection",
                                       self.position_label(position), marks,
                                       selection=position.selection, state=position.state,
@@ -636,13 +654,16 @@ class Entry:
         if view == W01:
             if len(self.tab_stops()) > 1:
                 keys.append("key.tab")
-            if self.positions:
+            if any(position.available for position in self.positions):
                 keys.append("key.arrows")
             if any(position.toggles for position in self.positions):
                 keys.append("key.space")
             if self.start:
                 keys.append("key.change")
-        keys.append("key.enter")
+        if view != W02:
+            keys.append("key.enter")
+        elif self.start:
+            keys.append("key.start")
         if view != HUB or len(self.nav) > 1 or self.link_return:
             keys.append("key.escape")
         return self.element("help.keys", "help", " · ".join(self.text(key) for key in keys))
@@ -728,9 +749,9 @@ class Entry:
         self.move(-1)
 
     def arrow(self, step: int) -> None:
-        if self.here["view"] != W01 or not self.positions:
+        ids = [position.element_id for position in self.positions if position.available]
+        if self.here["view"] != W01 or not ids:
             return
-        ids = [position.element_id for position in self.positions]
         focus = self.here["focus"]
         if focus in ids:
             index = min(max(ids.index(focus) + step, 0), len(ids) - 1)
@@ -800,6 +821,10 @@ class Entry:
                 self.begin()
             elif focus == "action.check":
                 self.check()
+        elif view == W02 and self.start:
+            self.nav.pop()
+            self.here["focus"] = "action.start"
+            self.begin()
 
     def leave_hub(self, focus: str | None) -> None:
         if focus not in ("job.prepare", "signal.draft"):

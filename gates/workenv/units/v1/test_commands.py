@@ -321,7 +321,7 @@ class Start(Commanding):
 
     def test_skipping_the_confirmations_on_the_entry_skips_them_in_the_host(self):
         self.qualified("claude-code")
-        screen = Screen(TAB, TAB, RIGHT, TAB, ENTER)
+        screen = Screen(TAB, RIGHT, TAB, ENTER)
         self.assertEqual(self.run_command("start", "claude-code", "--entrance",
                                           "host_launcher", "--locale", "en",
                                           screen=screen)[0], 0, self.err)
@@ -332,7 +332,7 @@ class Start(Commanding):
 
     def test_the_tool_the_person_turns_to_is_the_host_started(self):
         self.qualified("claude-code", "codex")
-        screen = Screen(TAB, TAB, RIGHT, TAB, TAB, ENTER)
+        screen = Screen(TAB, RIGHT, TAB, TAB, ENTER)
         self.assertEqual(self.run_command("start", "claude-code", screen=screen)[0], 0, self.err)
         [(launch, _)] = self.launched
         self.assertEqual(pathlib.Path(launch.executable).name, "codex")
@@ -358,7 +358,8 @@ class Start(Commanding):
         self.qualified("claude-code")
         for leave in (QUIT, b"\x04"):
             with self.subTest(leave=leave):
-                screen = Screen(TAB, TAB, TAB, leave, ENTER)
+                # Focus is on the start when the person leaves.
+                screen = Screen(TAB, TAB, leave, ENTER)
                 self.assertEqual(self.run_command("start", "claude-code", screen=screen)[0],
                                  commands.LEFT)
         self.assertEqual((self.launched, self.held_requests("preparation.compose"),
@@ -366,7 +367,7 @@ class Start(Commanding):
 
     def test_a_start_the_owner_refuses_is_drawn_and_launches_nothing(self):
         self.qualified("claude-code")
-        screen = Screen(TAB, TAB, TAB, ENTER, QUIT)
+        screen = Screen(TAB, TAB, ENTER, QUIT)
         with mock.patch.object(start, "start", side_effect=start.StartError("activating failed")):
             code, _ = self.run_command("start", "claude-code", "--locale", "ko", screen=screen)
         self.assertEqual(code, commands.LEFT)
