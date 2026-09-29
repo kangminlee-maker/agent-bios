@@ -68,6 +68,27 @@ jobs:
           [System.Management.Automation.Language.Parser]::ParseFile($path, [ref]$tokens, [ref]$errors) | Out-Null
           if ($errors.Count) { throw ($errors | Out-String) }
           Write-Host "Anonymous download and PowerShell 5.1 parsing passed: $url"
+      - name: Run the published command the way a user pastes it
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          # Parsing the downloaded script cannot see this failure, and neither can
+          # any check on the command string: pasted into PowerShell, the published
+          # command sits inside THAT shell's quotes and is expanded before the child
+          # starts. A reported install died here with `= Join-Path C:\...` after the
+          # pasting shell consumed a $p the command meant for the child. The only
+          # check that sees it is running the command from a PowerShell prompt.
+          $command = python packages/windows/publish-install-command.py
+          if ($LASTEXITCODE -ne 0) { throw 'could not derive the published command' }
+          Write-Host $command
+          $root = Join-Path $env:RUNNER_TEMP 'pasted-install'
+          # -NoLaunch keeps the installed CLI from opening its interactive chooser on
+          # a runner with no terminal; everything before it is the published command.
+          Invoke-Expression ($command + " -NoLaunch -InstallRoot '$root'")
+          if (-not (Test-Path -LiteralPath (Join-Path $root 'bin/agent-bios.cmd'))) {
+            throw 'the pasted command did not install the commands'
+          }
+          Write-Host 'The published command runs from a PowerShell prompt.'
   verify-posix:
     needs: deploy
     runs-on: ubuntu-latest

@@ -149,8 +149,11 @@ class WindowsInstallSiteTests(unittest.TestCase):
                 self.assertIn("/releases/download/" + config["tag"] + "/", metadata["asset_url"])
                 command = site.install_command(self.site_url, metadata["channel"])
                 self.assertEqual("-AcceptUnsignedPreview" in command, preview)
-                self.assertIn("-ErrorAction Stop; & $p", command)
-                self.assertIn("[guid]::NewGuid()", command)
+                # Saved to a file, then invoked from it: a transfer that failed
+                # halfway must not reach the invocation, and the file is what the
+                # bootstrap authenticates itself from.
+                self.assertIn("-ErrorAction Stop; & ", command)
+                self.assertIn("[IO.Path]::GetTempPath()", command)
                 self.assertNotIn("Invoke-Expression", command)
                 self.assertEqual({p.name for p in output.iterdir()},
                                  {"install.ps1", "install.sh", "bootstrap.json", "index.html", ".nojekyll"})
@@ -165,9 +168,22 @@ class WindowsInstallSiteTests(unittest.TestCase):
                 prefix = 'powershell -NoProfile -ExecutionPolicy Bypass -Command "'
                 self.assertTrue(command.startswith(prefix), command)
                 self.assertTrue(command.endswith('"'), command)
+                program = command[len(prefix):-1]
                 # cmd.exe ends the argument at the first inner double quote, so the
                 # quoted program must carry none; the URL regex alone does not say so.
-                self.assertNotIn('"', command[len(prefix):-1])
+                self.assertNotIn('"', program)
+                # Pasted into PowerShell -- the commonest case -- the program sits
+                # inside that shell's quotes and is expanded before the child starts.
+                # A reported failure showed `$p = Join-Path $env:TEMP ...` arriving
+                # as `= Join-Path C:\Users\...\Temp ...`: the variable was consumed
+                # by the pasting shell, and nothing downstream could see it.
+                self.assertNotIn("$", program)
+                # The bootstrap authenticates itself through $PSCommandPath, which a
+                # scriptblock built from downloaded text does not have, so the script
+                # is saved and invoked as a file rather than evaluated.
+                self.assertIn("-OutFile", program)
+                self.assertNotIn("iex", program)
+                self.assertNotIn("Invoke-Expression", program)
                 self.assertEqual(len(command.splitlines()), 1)
                 # Relaxing this process is not editing the machine's policy.
                 self.assertNotIn("Set-ExecutionPolicy", command)

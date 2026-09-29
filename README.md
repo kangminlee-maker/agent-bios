@@ -83,7 +83,7 @@ On **Windows** — from PowerShell, the Command Prompt or the Run box. The curre
 release is an unsigned preview, which is what the trailing flag accepts:
 
 ```text
-powershell -NoProfile -ExecutionPolicy Bypass -Command "$p = Join-Path $env:TEMP ([guid]::NewGuid().ToString('N') + '.ps1'); iwr 'https://kangminlee-maker.github.io/agent-bios/install.ps1' -UseBasicParsing -OutFile $p -ErrorAction Stop; & $p -AcceptUnsignedPreview"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "iwr 'https://kangminlee-maker.github.io/agent-bios/install.ps1' -UseBasicParsing -OutFile (Join-Path ([IO.Path]::GetTempPath()) 'agent-bios-install.ps1') -ErrorAction Stop; & (Join-Path ([IO.Path]::GetTempPath()) 'agent-bios-install.ps1') -AcceptUnsignedPreview"
 ```
 
 On **macOS or Linux**, where **Python 3.11+** and **Node.js 18+ with npm** must

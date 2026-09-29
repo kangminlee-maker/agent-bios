@@ -67,7 +67,7 @@ agent-bios는 일하는 기준과 방법을 담은 규칙·가이드·절차, **
 서명되지 않은 미리보기이며, 끝의 플래그가 그것을 수락한다는 뜻입니다.
 
 ```text
-powershell -NoProfile -ExecutionPolicy Bypass -Command "$p = Join-Path $env:TEMP ([guid]::NewGuid().ToString('N') + '.ps1'); iwr 'https://kangminlee-maker.github.io/agent-bios/install.ps1' -UseBasicParsing -OutFile $p -ErrorAction Stop; & $p -AcceptUnsignedPreview"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "iwr 'https://kangminlee-maker.github.io/agent-bios/install.ps1' -UseBasicParsing -OutFile (Join-Path ([IO.Path]::GetTempPath()) 'agent-bios-install.ps1') -ErrorAction Stop; & (Join-Path ([IO.Path]::GetTempPath()) 'agent-bios-install.ps1') -AcceptUnsignedPreview"
 ```
 
 **macOS 또는 Linux** — **Python 3.11 이상**과 **Node.js 18 이상·npm**이 이미

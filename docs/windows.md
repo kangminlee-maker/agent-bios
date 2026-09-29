@@ -35,7 +35,11 @@ The repository's GitHub Pages installation page also provides a shorter command
 at a fixed address. It names `powershell` and relaxes that process's execution
 policy, so it runs from the Command Prompt and the Run box as well as from an open
 PowerShell, and on a machine whose policy nobody changed. It saves the script to a
-unique temporary path and executes it. This convenience command trusts the HTTPS
+fixed name under the temporary directory and invokes that file, rather than
+evaluating the downloaded text: the bootstrap authenticates itself through its own
+file path, which text piped into the shell does not have. The command carries no
+PowerShell variable, because a command pasted into PowerShell is expanded by that
+shell before the child starts. This convenience command trusts the HTTPS
 site for the initial script; it does not check that script's hash before execution.
 Dependent downloads still undergo the installer's checks. The fixed address
 serves an explicitly promoted release, so publishing another release does not

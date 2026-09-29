@@ -38,17 +38,24 @@ def install_command(site_url: str, channel: str) -> str:
     if not re.fullmatch(r"https://[A-Za-z0-9.-]+(?:/[A-Za-z0-9._/-]+)?", site_url):
         raise ValueError("Expected an HTTPS site URL without query, credentials or fragments")
     suffix = " -AcceptUnsignedPreview" if channel == "preview" else ""
-    # The whole PowerShell program is one double-quoted argument, so the program
-    # itself must contain no double quote: cmd.exe would end the argument there.
-    program = ("$p = Join-Path $env:TEMP ([guid]::NewGuid().ToString('N') + '.ps1'); iwr "
-               + "'" + site_url.rstrip("/") + "/install.ps1'"
-               + " -UseBasicParsing -OutFile $p -ErrorAction Stop; & $p" + suffix)
-    if '"' in program:
-        raise ValueError("The quoted PowerShell program cannot contain a double quote")
+    # Pasted into PowerShell, this program sits inside that shell's double quotes
+    # and is expanded BEFORE the child starts: a `$p` becomes empty and a
+    # `$env:TEMP` becomes a path, leaving `= Join-Path C:\...` as the command. So
+    # the program carries no `$` at all and derives the temporary path twice from
+    # a .NET call instead. cmd.exe ends the argument at a double quote, so it
+    # carries none of those either.
+    saved = "(Join-Path ([IO.Path]::GetTempPath()) 'agent-bios-install.ps1')"
+    program = ("iwr '" + site_url.rstrip("/") + "/install.ps1'"
+               + " -UseBasicParsing -OutFile " + saved + " -ErrorAction Stop; & " + saved + suffix)
+    for forbidden, why in (('"', "cmd.exe would end the quoted argument there"),
+                           ("$", "a pasting PowerShell would expand it before the child runs")):
+        if forbidden in program:
+            raise ValueError(f"The quoted PowerShell program cannot contain {forbidden!r}: {why}")
     # -ExecutionPolicy Bypass applies to this process alone and leaves the machine's
-    # policy untouched; without it the default Restricted policy refuses `& $p`.
-    # Naming powershell.exe also lets the command start from cmd.exe or Win+R,
-    # not only from an existing PowerShell prompt.
+    # policy untouched; without it the default Restricted policy refuses the saved
+    # script. Naming powershell also lets the command start from cmd.exe or Win+R.
+    # The script is saved and invoked as a file because the bootstrap verifies its
+    # own signature through $PSCommandPath, which downloaded text does not have.
     return 'powershell -NoProfile -ExecutionPolicy Bypass -Command "' + program + '"'
 
 
