@@ -533,7 +533,8 @@ UPD="$T/home/.local/share/agent-bios/update-check.json"
 
 write_npm_stub() {   # $1: what `npm view <name> version` prints; empty = fail
   if [ -n "${1:-}" ]; then
-    printf '#!/bin/sh\n[ "$1" = view ] && { echo "%s"; exit 0; }\nexit 0\n' "$1" > "$STUB/npm"
+    # Like node, the stub cannot run in a working directory that no longer exists.
+    printf '#!/bin/sh\npwd -P >/dev/null 2>&1 || exit 1\n[ "$1" = view ] && { echo "%s"; exit 0; }\nexit 0\n' "$1" > "$STUB/npm"
   else
     printf '#!/bin/sh\nexit 1\n' > "$STUB/npm"
   fi
@@ -553,6 +554,13 @@ chk "I16 and records the version the registry gave" \
     "python3 -c \"import json,sys; sys.exit(0 if json.load(open('$UPD')).get('latest')=='9.9.9' else 1)\""
 chk "I16 and records what is installed, so the comparison has two sides" \
     "python3 -c \"import json,sys; sys.exit(0 if json.load(open('$UPD')).get('current') else 1)\""
+
+# A working directory deleted under the shell. npm cannot start there, and the check
+# used to report that as an unreachable registry it had never asked.
+GONE="$T/gone"; mkdir -p "$GONE"
+( cd "$GONE" && rmdir "$GONE" && run_update_check )
+chk "I16 a deleted working directory still reaches the registry" \
+    "python3 -c \"import json,sys; sys.exit(0 if json.load(open('$UPD')).get('latest')=='9.9.9' else 1)\""
 
 # The failing half. `latest` must be ABSENT rather than empty or stale: the launcher
 # reads absence as 'asked, no answer' and says nothing, where a stale value would

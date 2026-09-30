@@ -1702,6 +1702,12 @@ refresh_update_cache() {
   [ -n "$name" ] || return 1
   now="$(date +%s)"
   latest=""
+  # npm runs on node, which cannot start in a working directory deleted under the
+  # shell. The lookup does not depend on the directory, so a vanished one is left for
+  # $HOME rather than reported as an unreachable registry that was never asked.
+  if ! pwd -P >/dev/null 2>&1; then
+    cd "$HOME" 2>/dev/null || cd /
+  fi
   if command -v npm >/dev/null 2>&1; then
     # `|| latest=""` is not defensive noise: this file runs under `set -euo pipefail`,
     # so an npm that exits non-zero (offline, firewalled, private registry down) makes

@@ -3,8 +3,11 @@ from __future__ import annotations
 
 import hashlib
 import importlib.util
+import os
 from pathlib import Path
 import re
+import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -196,9 +199,32 @@ class WindowsInstallSiteTests(unittest.TestCase):
         self.assertNotIn("agent-bios@0.", body)
         # Which release 'latest' resolved to is then the only thing that says so --
         # a stale registry packument is visible exactly here and nowhere else.
-        self.assertIn("agent-bios --version", body)
+        self.assertIn('note "installed agent-bios ${version', body)
         self.assertEqual(body, site.POSIX_BOOTSTRAP.read_text(encoding="utf-8"),
                          "the served script must be the authored one, byte for byte")
+
+    @unittest.skipIf(os.name == "nt", "the POSIX bootstrap runs under bash")
+    def test_posix_bootstrap_reports_the_installed_version_in_one_line(self):
+        # A text check passed while the line was broken: agent-bios has no --version
+        # command, so asking it printed "unknown command" and the whole help text where
+        # the version belonged. Run the script against stubs and read what it says.
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "global/agent-bios").mkdir(parents=True)
+            (root / "global/agent-bios/package.json").write_text('{"name": "agent-bios", "version": "9.9.9"}')
+            stubs = root / "bin"
+            stubs.mkdir()
+            (stubs / "npm").write_text(f'#!/bin/sh\ncase "$1" in root) echo "{root}/global";; esac\nexit 0\n')
+            (stubs / "agent-bios").write_text('#!/bin/sh\necho "unknown command: $1"; echo "help text"; exit 2\n')
+            (stubs / "python3").write_text(f'#!/bin/sh\nexec "{sys.executable}" "$@"\n')
+            for stub in stubs.iterdir():
+                stub.chmod(0o755)
+            done = subprocess.run(["bash", str(site.POSIX_BOOTSTRAP)], capture_output=True, text=True, timeout=60,
+                                  env={**os.environ, "PATH": f"{stubs}{os.pathsep}{os.environ.get('PATH', '')}"})
+        self.assertEqual(0, done.returncode, done.stderr)
+        self.assertIn("agent-bios: installed agent-bios 9.9.9\n", done.stdout)
+        self.assertNotIn("unknown command", done.stdout)
+        self.assertNotIn("help text", done.stdout)
 
     def test_posix_command_installs_and_stops_before_the_interactive_step(self):
         command = site.posix_install_command(self.site_url)

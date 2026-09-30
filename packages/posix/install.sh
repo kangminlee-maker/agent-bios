@@ -37,5 +37,9 @@ if ! command -v agent-bios >/dev/null 2>&1; then
   fail "agent-bios was installed, but 'agent-bios' is not on PATH. Add npm's global bin directory ($(npm prefix --global 2>/dev/null || echo '<npm prefix>')/bin) to PATH, then run: agent-bios install"
 fi
 
-note "installed $(agent-bios --version 2>/dev/null || echo 'an unreported version')"
+# agent-bios has no --version command, and calling one printed its whole help text
+# here. Read the version npm just installed instead.
+version="$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))["version"])' \
+  "$(npm root --global 2>/dev/null)/agent-bios/package.json" 2>/dev/null)" || version=""
+note "installed agent-bios ${version:-(its version was not reported)}"
 note "next, deploy the work environment in a terminal:  agent-bios install"

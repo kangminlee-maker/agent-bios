@@ -391,7 +391,9 @@ Three more, each of which cost a real failed attempt:
 
 - `npm i -g agent-bios@latest` right after publish installs the **previous** version (stale
   packument, exit 0). Pin exact — `npm i -g agent-bios@X.Y.Z` — then verify the *deployed*
-  `version.json`, never the registry.
+  `version.json`, never the registry. The exact pin itself fails with `ETARGET` until npm's
+  metadata cache catches up (about five minutes for 0.19.3, 2026-09-30); add
+  `--prefer-online` rather than waiting.
 - `install.sh` parks caller input on fd 3 and restores it for interactive installation
   and payload-bearing commands; machine installation must use `--non-interactive`.
 - Never publish instructions that call a new CLI subcommand before the CLI carrying it ships.
