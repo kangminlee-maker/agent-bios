@@ -831,6 +831,24 @@ class Unknown(Entering):
         self.assertEqual((draft["state"], draft["label"]),
                          ("unavailable", "확인하지 못함 · request_not_held"))
 
+    def test_a_check_answered_without_settling_its_start_can_be_asked_again(self):
+        self.unknown_start()
+        for state, reason in (("unknown", None), ("unavailable", "request_not_held")):
+            with self.subTest(state=state):
+                entry = self.holding("enter")
+                first = entry.checking
+                entry.answered(first, state, reason)
+                entry.press({"input": "key", "key": "enter"})
+                self.assertEqual([sealed["operation"] for sealed, _ in self.sent],
+                                 ["operation.query", "operation.query"])
+                self.assertNotEqual(entry.checking, first)
+                check = self.element(entry.frame(2), "action.check")
+                self.assertEqual((check["executing"], check["state"]), (True, "pending"))
+        entry = self.holding("enter")
+        entry.answered(entry.checking, "settled", "expired")
+        entry.press({"input": "key", "key": "enter"})
+        self.assertEqual(len(self.sent), 1)
+
     def test_a_check_that_finds_its_start_settled_draws_it_so_and_lets_the_next_start_run(self):
         self.unknown_start()
         for stage, state, key in (("expired", "unavailable", "settled.expired"),

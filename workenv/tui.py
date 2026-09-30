@@ -54,7 +54,8 @@ The grammar (design records `2026-09-28T1601--4e305e5--v1-slice5-entry-grammar-d
     `preparation.compose` for the basis, with the note as its rationale. From a detail it first
     returns to the `w01` under it, focused on the start. While a start is unknown it dispatches
     nothing, and the start shows `blocked` and hands focus to the check. Enter on the check
-    dispatches one `operation.query` for the unknown request. A dispatched action stays
+    dispatches one `operation.query` for the unknown request, and asks again once that one is
+    answered with the start still not settled. A dispatched action stays
     `executing` and `pending` until its answer is handed over. Then its result element shows it:
     the start's result, or the unknown start the check was for. An unknown outcome stays
     `unknown`, and a refusal or a failure is `unavailable`, labelled with the owner's reason. A
@@ -916,7 +917,8 @@ class Entry:
             self.blocked = False
 
     def check(self) -> None:
-        if self.checking is not None:
+        if self.checking is not None and (self.checking not in self.answers or
+                                          self.settled() is not None):
             return
         asked = {"kind": "operation_query", "schema": 1,
                  "request_id": self.draft["request_id"]}

@@ -14,7 +14,9 @@ someone else — and does, in order:
      returned and its receipt, and nothing runs again — unless the request is still pending: one
      held in review, approved, executing, unknown or partial is handed on again, because asking
      again under the same id is how such a request moves or is settled, and its new answer
-     replaces the held one.
+     replaces the held one. This is asked again inside the unit of work, which holds the write
+     lock, so an identical submission answered in between is the answer: one request never runs
+     twice because two submissions of it overlapped.
   3. What the operation's row fixes: the payload must be a kind it takes (`payload_not_taken`),
      and the request must state its effect class (`effect_class_mismatch`).
   4. A request that repeats the operation, target and payload of one held with an unknown
@@ -99,9 +101,12 @@ class JournalError(Exception):
     """A defect of what the journal wraps, or a request it does not serve yet."""
 
 
-class _Refused(Exception):
+class _Unwritten(Exception):
+    """An answer the unit of work returns without writing: a refusal, or the answer the same
+    request was given while this one waited for the unit."""
+
     def __init__(self, answer: dict):
-        super().__init__("refused")
+        super().__init__("unwritten")
         self.answer = answer
 
 
@@ -356,6 +361,20 @@ def addressed(call, store: storage.Store) -> dict:
                     recovery=["new_governed_request"], provider_effect=provider_after(earlier))
 
 
+def repeated(call, store: storage.Store, digest: str) -> dict | None:
+    """What the request held under this id answers this one with (step 2): a conflict where its
+    bytes differ, its original answer where it was answered, or None where it is not held or is
+    pending."""
+    earlier = held(store, call.request["request_id"])
+    if earlier is not None and earlier["request_digest"] != digest:
+        return answered(call, "refused", gaps=[{"code": c03.REQUEST_ID_CONFLICT}],
+                        recovery=["query_same_request"],
+                        provider_effect=provider_after(earlier))
+    if earlier is not None and earlier["stage"] not in PENDING:
+        return earlier["answer"]
+    return None
+
+
 def layer_journal(call, inner):
     from workenv import access
 
@@ -365,13 +384,9 @@ def layer_journal(call, inner):
         return {"refused": refused}
     store = storage.of(call.state)
     digest = canonical.digest_of(request)
-    earlier = held(store, request["request_id"])
-    if earlier is not None and earlier["request_digest"] != digest:
-        return answered(call, "refused", gaps=[{"code": c03.REQUEST_ID_CONFLICT}],
-                        recovery=["query_same_request"],
-                        provider_effect=provider_after(earlier))
-    if earlier is not None and earlier["stage"] not in PENDING:
-        return earlier["answer"]
+    earlier = repeated(call, store, digest)
+    if earlier is not None:
+        return earlier
     answer = ruled(call, store)
     prepare = getattr(inner, "prepare", None)
     if answer is None and prepare is not None and request["operation"] not in (QUERY, CANCEL):
@@ -379,15 +394,18 @@ def layer_journal(call, inner):
         answer = call.prepared.get("answer")
     try:
         with store.unit(call):
+            earlier = repeated(call, store, digest)
+            if earlier is not None:
+                raise _Unwritten(earlier)
             access.first_use(store, request["actor"], now(call))
             if answer is None:
                 answer = (addressed(call, store) if request["operation"] in (QUERY, CANCEL)
                           else inner(call))
             if "refused" in answer:
-                raise _Refused(answer)
+                raise _Unwritten(answer)
             keep(store, request, digest, answer, now(call), works_in(store, call))
-    except _Refused as refusal:
-        return refusal.answer
+    except _Unwritten as unwritten:
+        return unwritten.answer
     call.point(COMMITTED, answer)
     return answer
 

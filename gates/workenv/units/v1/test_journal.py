@@ -143,6 +143,30 @@ class Held(Base):
                          "committed")
         self.assertEqual(entry.calls, 1)
 
+    def test_an_identical_request_answered_while_this_one_waited_is_its_answer(self):
+        # B, the same request, runs to its end between A's first look and A's unit of work.
+        sealed, payload = self.rename()
+        entry = Entry(commits)
+        real, looks, overlapped = journal.held, [], []
+
+        def held(store, request_id):
+            found = real(store, request_id)
+            looks.append(request_id)
+            if len(looks) == 1:
+                overlapped.append(self.bench.run(entry, sealed, [payload]))
+            return found
+        journal.held = held
+        try:
+            answer = self.bench.run(entry, sealed, [payload])
+        finally:
+            journal.held = real
+        self.assertEqual((answer, entry.calls), (overlapped[0], 1))
+        self.assertEqual(self.bench.store().read(
+            "SELECT COUNT(*) FROM receipts WHERE request_id = ?", (sealed["request_id"],)),
+            [(1,)])
+        self.assertEqual(self.query(sealed["request_id"])["returned"],
+                         [answer["result"], answer["receipt"]])
+
     def test_a_settled_refusal_is_not_run_again(self):
         sealed, payload = self.rename()
         refusing = Entry(lambda call: journal.answered(call, "refused", gaps=[
