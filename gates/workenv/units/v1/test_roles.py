@@ -290,6 +290,23 @@ class Moved(Activating):
                          [{"code": c07.WORKING_BYTES_MOVED}])
         self.assertEqual(self.count("deliveries"), 0)
 
+    def test_a_switched_off_repository_authored_unit_claims_nothing_and_activates(self):
+        _, digest = self.linked()
+        checkout = Checkout(self.scratch)
+        checkout.write("rules/review.md", REVIEW)
+        checkout.commit()
+        self.bind(checkout)
+        scope = {"layer": "repository", "repository_id": self.repository}
+        with contextlib.chdir(checkout.path):
+            source, revision = self.authored(scope, {"rules/review.md": REVIEW},
+                                             mode="repository_authored", held=False)
+        self.placed(self.collection(scope, "instructions",
+                                    [self.entry(source, revision, switch="off")]))
+        prepared = self.prepared(self.ask([scope]), where=checkout.path, recipient_digest=digest)
+        self.assertEqual([(u["standing"], "body_digest" in u) for u in prepared["units"]],
+                         [("disabled", False)])
+        self.activated(prepared, where=checkout.path)
+
     def test_a_document_is_drifted_only_where_its_authored_checkout_no_longer_reads_as_it(self):
         checkout = Checkout(self.scratch)
         prepared = self.authored_in(checkout)

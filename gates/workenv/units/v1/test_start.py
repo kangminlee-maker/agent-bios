@@ -12,7 +12,10 @@ import dataclasses
 import hashlib
 import io
 import json
+import os
 import pathlib
+import subprocess
+import sys
 import tomllib
 import unittest
 from unittest import mock
@@ -30,6 +33,13 @@ CODE = "5eed5eed5eed5eed"
 BODY = f"# Review\n\n{probes.handed(CODE)}\n".encode()
 OTHER = b"# Release\n\nTag after the review.\n"
 ASK = probes.ASK
+
+
+class Refusing(io.StringIO):
+    """A standard output its host closed: nothing written to it reaches the host."""
+
+    def write(self, text: str) -> int:
+        raise BrokenPipeError(32, "Broken pipe")
 
 
 def child(kind: str) -> str:
@@ -94,8 +104,10 @@ class Starting(Hosts, Delivering):
                 for part in self.given(launch, "-c")}
 
     def fired(self, launch: start.Launch, host: str, recipient: str, session: str = "s-1",
-              job: dict | None = None, **more) -> tuple[str, str]:
-        """What the hook printed, and said on standard error, for one event of the host."""
+              job: dict | None = None, out: io.StringIO | None = None,
+              **more) -> tuple[str, str]:
+        """What the hook printed, and said on standard error, for one event of the host, onto
+        the standard output given."""
         route = hosts.adapter_for(host).routes[recipient]
         event = {"hook_event_name": route.event, **more}
         if session is not None:
@@ -105,7 +117,7 @@ class Starting(Hosts, Delivering):
         path = pathlib.Path(launch.environ[probes.JOB])
         if job is not None:
             path.write_text(json.dumps(job))
-        out, err = io.StringIO(), io.StringIO()
+        out, err = out or io.StringIO(), io.StringIO()
         with contextlib.chdir(self.work), contextlib.redirect_stdout(out), \
                 contextlib.redirect_stderr(err):
             self.assertEqual(hook.main([host], io.StringIO(json.dumps(event)),
@@ -537,6 +549,51 @@ class Events(Starting):
         self.assertEqual(self.fired(launch, "claude-code", "current"), ("", ""))
         self.assertEqual(len(self.recorded()), 3)
 
+    def test_a_change_the_host_did_not_take_is_not_recorded_and_is_handed_again(self):
+        launch = self.launched("claude-code")
+        self.fired(launch, "claude-code", "new")
+        self.for_link(self.link_digest(), members={"rules/release.md": OTHER})
+        printed, said = self.fired(launch, "claude-code", "current", out=Refusing())
+        self.assertEqual(printed, "")
+        self.assertIn("nothing handed over (BrokenPipeError)", said)
+        self.assertEqual(self.recorded(), [("activated", "session"), ("delivered", "new")])
+        printed, _ = self.fired(launch, "claude-code", "current")
+        context = json.loads(printed)["hookSpecificOutput"]["additionalContext"]
+        self.assertIn(OTHER.decode().strip(), context)
+        self.assertEqual(self.recorded()[-1], ("delivered", "current"))
+
+    def test_a_change_written_to_a_pipe_its_host_closed_is_not_recorded(self):
+        launch = self.launched("claude-code")
+        self.fired(launch, "claude-code", "new")
+        self.for_link(self.link_digest(), members={"rules/release.md": OTHER})
+        route = hosts.adapter_for("claude-code").routes["current"]
+        event = {"hook_event_name": route.event, "session_id": "s-1"}
+        reader, writer = os.pipe()
+        os.close(reader)
+        try:
+            ran = subprocess.run([sys.executable, str(probes.HOOK), "claude-code"],
+                                 input=json.dumps(event).encode(), stdout=writer,
+                                 stderr=subprocess.PIPE, cwd=self.work,
+                                 env={**self.environ, hook.JOB: launch.environ[probes.JOB]},
+                                 timeout=120)
+        finally:
+            os.close(writer)
+        self.assertEqual(ran.returncode, 0, ran.stderr)
+        self.assertIn(b"nothing handed over (BrokenPipeError)", ran.stderr)
+        self.assertEqual(self.recorded(), [("activated", "session"), ("delivered", "new")])
+
+    def test_a_change_handed_over_and_then_not_recorded_is_said(self):
+        launch = self.launched("claude-code")
+        self.fired(launch, "claude-code", "new")
+        self.for_link(self.link_digest(), members={"rules/release.md": OTHER})
+        with mock.patch.object(hook.Session, "attempt",
+                               side_effect=hook.Unrecorded("the owner refused")):
+            printed, said = self.fired(launch, "claude-code", "current")
+        self.assertIn(OTHER.decode().strip(),
+                      json.loads(printed)["hookSpecificOutput"]["additionalContext"])
+        self.assertIn("handed over and not recorded: the owner refused", said)
+        self.assertEqual(len(self.recorded()), 2)
+
     def test_a_recomposition_with_the_bodies_the_session_has_is_neither_printed_nor_recorded(
             self):
         launch = self.launched("claude-code")
@@ -558,6 +615,22 @@ class Events(Starting):
                          hook.NOTICE)
         self.assertEqual(self.fired(launch, "codex", "current"), ("", ""))
         self.assertEqual(self.recorded(), [("activated", "session"), ("delivered", "new")])
+
+    def test_a_notice_the_host_did_not_take_is_given_again(self):
+        adapter = hosts.adapter_for("codex")
+        original = adapter.limit
+        object.__setattr__(adapter, "limit", (40, "bytes"))
+        self.addCleanup(object.__setattr__, adapter, "limit", original)
+        launch = self.launched("codex")
+        self.fired(launch, "codex", "new")
+        self.for_link(self.link_digest(), members={"rules/release.md": OTHER})
+        printed, said = self.fired(launch, "codex", "current", out=Refusing())
+        self.assertEqual(printed, "")
+        self.assertIn("nothing handed over (BrokenPipeError)", said)
+        printed, _ = self.fired(launch, "codex", "current")
+        self.assertEqual(json.loads(printed)["hookSpecificOutput"]["additionalContext"],
+                         hook.NOTICE)
+        self.assertEqual(self.fired(launch, "codex", "current"), ("", ""))
 
     def test_a_change_on_a_route_no_probe_qualified_is_neither_printed_nor_recorded(self):
         launch = self.launched("claude-code", recipients=["new", "child", "rehydrated"])

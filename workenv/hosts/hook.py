@@ -36,16 +36,23 @@ session, at the event where the host reports that it did:
     where no probe qualified the route, it prints and records nothing. A prompt with nothing new
     prints nothing.
 
-Only the last prints. It never fails its host: an event it cannot read, a job it cannot read or
-an owner that refuses leaves the session as it was, with the reason on standard error.
+Only the last prints, and what it prints is handed over before it is recorded: the delivery is
+recorded, or the notice kept as given, only once the output was written to the host. Output the
+host did not take records nothing, so a later prompt hands it again; output taken and then not
+recorded is said on standard error. It never fails its host: an event it cannot read, a job it
+cannot read or an owner that refuses leaves the session as it was, with the reason on standard
+error.
 """
 from __future__ import annotations
 
+import contextlib
 import hashlib
+import io
 import json
 import os
 import pathlib
 import sys
+from typing import Callable
 
 if __package__ in (None, ""):
     sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2]))
@@ -88,6 +95,8 @@ class Session:
         if self.id is None:
             raise Unrecorded("the host reported no session id")
         self.store = storage.of(self.state)
+        # What is recorded once the output is handed over (`main`), or nothing.
+        self.handed: Callable | None = None
 
     def asked(self, operation: str, target: str, payload: dict | None = None,
               expected: str = "committed", **fields) -> dict:
@@ -186,7 +195,7 @@ class Session:
                 start.bodies_text(units, [start.body(self.state, unit) for unit in units]))
         if not self.adapter.fits(text):
             return self.noticed(latest)
-        self.attempt(link, latest, "current")
+        self.handed = lambda: self.attempt(link, latest, "current")
         return self.adapter.output(self.event, text)
 
     def noticed(self, prepared: dict) -> str | None:
@@ -194,20 +203,24 @@ class Session:
         kept = self.directory / "noticed"
         if prepared["preparation_id"] in (kept.read_text().split() if kept.is_file() else []):
             return None
-        with kept.open("a", encoding="utf-8") as out:
-            out.write(prepared["preparation_id"] + "\n")
+
+        def given() -> None:
+            with kept.open("a", encoding="utf-8") as out:
+                out.write(prepared["preparation_id"] + "\n")
+        self.handed = given
         return self.adapter.output(self.event, NOTICE)
 
 
-def recorded(host_name: str, event: dict, job: dict, environ: dict) -> str | None:
+def recorded(host_name: str, event: dict, job: dict,
+             environ: dict) -> tuple[str | None, Callable | None]:
     """What the command prints for one event of a session's job, having recorded what reached
-    the session."""
+    the session by then, and what it records once that is handed over, or None."""
     adapter = hosts.adapter_for(host_name)
     if adapter is None:
         raise Unrecorded(f"no adapter here names {host_name}")
     recipient = adapter.recipient_of(event)
     if recipient is None:
-        return None
+        return None, None
     session = Session(adapter, event, job, environ)
     if recipient == "new":
         session.began()
@@ -216,24 +229,38 @@ def recorded(host_name: str, event: dict, job: dict, environ: dict) -> str | Non
     elif recipient == "child":
         session.child()
     elif recipient == "current":
-        return session.prompted()
-    return None
+        return session.prompted(), session.handed
+    return None, None
 
 
 def main(argv: list[str], stdin, environ) -> int:
     try:
         event = json.load(stdin)
         job = json.loads(pathlib.Path(environ[JOB]).read_text(encoding="utf-8"))
-        printed = recorded(argv[0], event, job, environ) if job.get("kind") == "session" \
-            else answer(argv[0], event, job)
+        printed, handed = recorded(argv[0], event, job, environ) \
+            if job.get("kind") == "session" else (answer(argv[0], event, job), None)
     except (IndexError, KeyError, OSError, ValueError, TypeError) as error:
         print(f"agent-bios hook: nothing handed over ({type(error).__name__})", file=sys.stderr)
         return 0
     except (Unrecorded, start.StartError) as error:
         print(f"agent-bios hook: nothing recorded: {error}", file=sys.stderr)
         return 0
-    if printed is not None:
-        print(printed)
+    if printed is None:
+        return 0
+    try:
+        print(printed, flush=True)
+    except OSError as error:
+        # The host did not take it: nothing is recorded, and a later prompt hands it again. What
+        # stays buffered goes nowhere, so the flush at exit does not fail the host's hook.
+        with contextlib.suppress(AttributeError, OSError, ValueError, io.UnsupportedOperation):
+            os.dup2(os.open(os.devnull, os.O_WRONLY), sys.stdout.fileno())
+        print(f"agent-bios hook: nothing handed over ({type(error).__name__})", file=sys.stderr)
+        return 0
+    if handed is not None:
+        try:
+            handed()
+        except (KeyError, OSError, ValueError, TypeError, Unrecorded, start.StartError) as error:
+            print(f"agent-bios hook: handed over and not recorded: {error}", file=sys.stderr)
     return 0
 
 

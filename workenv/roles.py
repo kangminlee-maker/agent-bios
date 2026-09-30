@@ -11,7 +11,9 @@ activates it. A refusal is recovered by a new request.
     bodies it names. Where the working bytes it claimed no longer read the same, or a
     repository-authored unit's document in the bound checkout is no longer the body the
     preparation names, what the preparation said is no longer true there, and activation is
-    refused `working_bytes_moved`. Composing again reads the checkout as it is now.
+    refused `working_bytes_moved`. A unit that names no body, such as one a switched-off entry
+    contributes `disabled`, claims nothing about its document. Composing again reads the
+    checkout as it is now.
   - **What it delivers.** The preparation's Instructions units, projected through this owner as
     one `role_projection` for the executor view entered at session start: every unit named with
     its layer and standing, shadowed and disabled ones included. The bytes of each winning or
@@ -83,19 +85,19 @@ def moved(store: storage.Store, prepared: dict) -> bool:
         now, _ = preparation.observed(store)
         if now.get("working_bytes_digest") != claimed:
             return True
-    return any(drifted(store, unit["source_id"], unit["member"], unit.get("body_digest"))
-               for unit in prepared["units"])
+    return any(drifted(store, unit["source_id"], unit["member"], unit["body_digest"])
+               for unit in prepared["units"] if "body_digest" in unit)
 
 
-def drifted(store: storage.Store, source_id: str, member: str, digest: str | None) -> bool:
+def drifted(store: storage.Store, source_id: str, member: str, digest: str) -> bool:
     """Whether a repository-authored source's document in its bound checkout no longer reads as
     the body `digest` names. It is what refuses an activation (`moved`), and what the entry and
     `sources` show before a start (D-20260930-bea6c5); any other source is never drifted."""
     source = homes.source_of(store, source_id)
     if source is None or source["home_mode"] != AUTHORED:
         return False
-    # An authored source was admitted from its bound checkout, whose snapshot holds every
-    # member: its units always name a body, and its repository always names a checkout.
+    # An authored source was admitted from its bound checkout, so its repository always names
+    # a checkout.
     where = source["home"]["home"] if source["home"] else source["scope"]
     checkout = pathlib.Path(store.read("SELECT checkout FROM repositories WHERE "
                                        "repository_id = ?", (where["repository_id"],))[0][0])
