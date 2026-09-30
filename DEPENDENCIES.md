@@ -211,10 +211,12 @@ Agent-bios does not install credentials or infer a model account from dependency
   `codex-helm.sh` and `claude-run.sh` from the selected package. Their command paths,
   binding, reach and fallback are declared in the launch contract. An unavailable or
   unauthenticated opposite-family route is reported, not credited as a completed review.
-- **MCP servers** — user-specific; only a selected capability declaring `mcp-stdio-v1`
-  is registered by the launcher. No shipped review method requires MCP. Codex app
-  context delivery adds no MCP server; Claude Desktop delivery ships its own local
-  stdio server (below), which no launch registers.
+<!-- mcp-inventory:start -->
+<!-- facts: {"bundlers": {"compose/app_desktop/server.py": ["compose/instructions_app.py"]}, "capabilities": [], "servers": ["compose/app_desktop/server.py"]} -->
+- **MCP servers** — derived from source by `gates/check-mcp-inventory.py`.
+  Shipped servers: `compose/app_desktop/server.py` (bundled by `compose/instructions_app.py`).
+  Launch capabilities offering `mcp-stdio-v1`: none, so no shipped review method requires MCP; the launcher registers a user-specific server only through a selected capability that declares it.
+<!-- mcp-inventory:end -->
 - **spreadsheet-processing** — an optional skill referenced by the spreadsheet rule
   when those instructions are selected. If unavailable, its inline plain-tools/code and real
   spreadsheet-engine validation fallback applies.

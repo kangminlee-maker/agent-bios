@@ -31,6 +31,15 @@ if [ -f gates/check-product-purpose.py ]; then
     || { echo "FAIL: product purpose projection or entrypoint"; fail=1; }
 fi
 
+# The MCP servers agent-bios ships are derived from code into DEPENDENCIES.md and its
+# Korean reference; a server added or removed without re-emitting fails here.
+if [ -f gates/check-mcp-inventory.py ]; then
+  python3 gates/check-mcp-inventory.py --self-test >/dev/null \
+    || { echo "FAIL: MCP inventory gate self-test missed a negative control"; fail=1; }
+  python3 gates/check-mcp-inventory.py >/dev/null \
+    || { echo "FAIL: MCP inventory projection is stale (run gates/check-mcp-inventory.py --emit)"; fail=1; }
+fi
+
 # Non-empty-subject guards: a parity check over missing inputs must fail, not pass vacuously.
 for p in claude/guides codex/guides ko/claude/guides ko/codex/guides; do
   [ -d "$p" ] || { echo "FAIL: required dir missing: $p"; exit 1; }

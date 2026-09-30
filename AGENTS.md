@@ -181,7 +181,9 @@ and redaction gates, the promotion-manifest staleness check, the decision-record
 self-test, the lexicon gate, the content-hygiene gate (the shipped distribution
 carries no org or personal binding outside `(private)`-marked lines or per-reason
 exemptions), the endpoint-contract gate (`ENDPOINTS.md`'s wire literals against the
-code, and the zero-egress default against the real transport resolver), and the
+code, and the zero-egress default against the real transport resolver), the MCP
+inventory projection (the servers the package ships, derived from code into
+`DEPENDENCIES.md` and its Korean reference), and the
 review-routing golden (which pins the
 rendered review contract byte-for-byte across every setup/host/family
 combination), each with its own `--self-test` negative control. Line numbers are

@@ -93,7 +93,7 @@ Claude의 선택적 전역 지침 제외는 `compose/instructions_session.py`가
 인증된 resume까지 검증되었다고 보지 않는다. SWEEP의 도구·effort 선택은
 현재 launch binding을 따른다.
 
-## Codex 앱과 지침 import
+## Codex 앱
 
 Codex 데스크톱 앱은 CLI와 별도 호스트다. 선택 bridge에는
 `~/.agents/skills/agent-bios` 검색, `compose/app_bridge/agents/openai.yaml`의 명시적
@@ -123,6 +123,29 @@ context를 관리한다. 별도의 Codex CLI subprocess, Textual, model SDK가 �
 명시적으로 사용해야 하며 hook·agent를 자동 활성화하지 않는다. Off는 이미 반환한
 본문을 회수하지 못한다. 앱 등록은 기본으로 꺼져 있고 자기 discovery link만
 소유하며 전역 지침과 다른 도구의 항목을 보존한다.
+
+## Claude Desktop
+
+Claude Desktop에는 대화를 시작할 launcher가 없고, installer가 미리 설치할 수 있는 skill
+root도 없다. 그래서 로컬 MCP 서버에서 요청할 때 가져오는 방식으로 연결한다.
+`agent-bios app desktop`은 private state root 아래에 `.mcpb` 번들을 만든다. 사용자는
+Desktop의 설치 창에서 이를 설치하며, agent-bios는 Desktop의 폴더나
+`claude_desktop_config.json`에 아무것도 쓰지 않는다. 번들의 서버
+(`compose/app_desktop/server.py`)는 표준 라이브러리만 쓰는 Python이며, stdio로
+MCP 2025-11-25를 사용하고 네트워크 서비스를 열지 않는다. Desktop은 `python3`라는
+이름을 사용자 login shell의 `PATH`에서 찾고 자체 Python을 제공하지 않는다. 그래서
+manifest에는 번들을 만든 Python의 절대 경로를 적는다. 그 Python은 계속 설치되어 있어야
+하며, 바뀌면 번들을 다시 만든다. 서버는 호출할 때마다 확인된 private release를 다시
+찾는다.
+
+Desktop은 tool 호출에 대화 식별 정보를 보내지 않으므로 `app session --host
+claude-desktop`이 preview나 use 때 식별자를 만든다. Desktop 2.16120.0(macOS,
+2026-09-30)에서 번들 설치 경로, Desktop의 두 MCP client, protocol 2025-11-25,
+140,666바이트 결과의 본문 전달을 측정했다. Windows, `local-agent-mode` client의 tool
+호출, `roots/list`는 확인하지 않았다. 로컬 테스트만으로 특정 Desktop 버전이 번들을
+불러온다고 보장하지 않는다.
+
+## 지침 import
 
 로컬 지침 import에는 model SDK나 별도 parser framework가 필요 없다.
 알려진 전역 경로와 명시한 프로젝트 root의 정해진 파일명을 확인하고,
@@ -160,8 +183,12 @@ context를 관리한다. 별도의 Codex CLI subprocess, Textual, model SDK가 �
 - **Cross-family adapter** — private 패키지의 `wrappers/codex-run.sh`,
   `codex-helm.sh`, `claude-run.sh`에서 찾는다. 실제 경로·binding·도달 범위·fallback은
   launch contract를 따른다. 사용 불가나 미인증을 완료된 review로 계산하지 않는다.
-- **MCP 서버** — 사용자가 선택한 `mcp-stdio-v1` capability에 한해 launcher가
-  등록한다. Shipped review method와 앱 context 전달은 MCP 서버를 추가로 요구하지 않는다.
+<!-- mcp-inventory:start -->
+<!-- facts: {"bundlers": {"compose/app_desktop/server.py": ["compose/instructions_app.py"]}, "capabilities": [], "servers": ["compose/app_desktop/server.py"]} -->
+- **MCP 서버** — `gates/check-mcp-inventory.py`가 소스에서 도출한 내용이다.
+  함께 배포되는 서버: `compose/app_desktop/server.py`(`compose/instructions_app.py`가 번들에 넣음).
+  `mcp-stdio-v1` 어댑터를 제공하는 launch capability: 없음. 따라서 기본 제공 review method는 MCP를 요구하지 않으며, launcher는 이 어댑터를 선언한 capability를 사용자가 선택했을 때만 사용자별 서버를 등록한다.
+<!-- mcp-inventory:end -->
 - **spreadsheet-processing** — 선택된 spreadsheet 규칙이 참조하는 선택 skill이다.
   없으면 일반 도구·코드와 실제 spreadsheet engine 검증이라는 inline fallback을 따른다.
 
@@ -184,6 +211,7 @@ PY
 bash install.sh verify
 bash install.sh instructions status --json
 bash install.sh app status --json
+bash install.sh app desktop --dry-run --json
 ```
 
 패키지 설치와 저작 gate는 위 검사와 분리한다. 패키지 CLI UI를 여는 데 아래
