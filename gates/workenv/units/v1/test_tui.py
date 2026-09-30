@@ -780,6 +780,49 @@ class Starting(Entering):
         with self.assertRaises(ValueError):
             entry.answered(entry.started, "unknown", codes=["working_bytes_moved"])
 
+    def test_a_refused_start_opens_the_choices_and_the_start_again(self):
+        me = self.person.scope
+        self.launcher(scope=me, hosts=("claude-code", "codex"))
+        rules, revision = self.authored(me, RULES)
+        entry = self.holding("tab", "tab", "tab", "tab", "enter")
+        first = entry.started
+        self.assertEqual(self.sent[0][1][0]["basis"]["source_pins"],
+                         [{"source_id": rules, "revision_digest": revision}])
+        entry.answered(first, "unavailable", "activating was refused", ["working_bytes_moved"])
+        for given in ("up", "space", "tab", "tab", "right", "tab", "tab"):
+            entry.press({"input": "key", "key": given})
+        frame = entry.frame(12)
+        self.assertEqual(self.marks(frame, "positions.personal.instructions")[1], "none")
+        self.assertEqual(self.element(frame, "execution.tool")["value"], "Codex CLI")
+        # The refused start stays the result drawn until another is sent.
+        self.assertEqual(self.element(frame, "result.start")["state"], "unavailable")
+        entry.press({"input": "key", "key": "enter"})
+        self.assertEqual(len(self.sent), 2)
+        self.assertNotEqual(entry.started, first)
+        self.assertEqual(self.sent[1][0]["request_id"], entry.started)
+        self.assertEqual(self.sent[1][1][0]["basis"]["source_pins"], [])
+        result = self.element(entry.frame(13), "result.start")
+        self.assertEqual((result["state"], result["refers_to"]["request_id"]),
+                         ("pending", entry.started))
+
+    def test_a_start_pending_or_unknown_holds_the_choices_and_sends_nothing_again(self):
+        me = self.person.scope
+        self.launcher(scope=me, hosts=("claude-code", "codex"))
+        self.authored(me, RULES)
+        for answer in (None, "unknown"):
+            with self.subTest(answer=answer):
+                entry = self.holding("tab", "tab", "tab", "tab", "enter")
+                first = entry.started
+                if answer:
+                    entry.answered(first, answer)
+                for given in ("up", "space", "tab", "tab", "right", "tab", "tab", "enter"):
+                    entry.press({"input": "key", "key": given})
+                frame = entry.frame(13)
+                self.assertEqual(self.marks(frame, "positions.personal.instructions")[1],
+                                 "suggested")
+                self.assertEqual(self.element(frame, "execution.tool")["value"], "Claude Code")
+                self.assertEqual((len(self.sent), entry.started), (1, first))
+
     def test_an_answer_handed_over_is_drawn_in_the_start_s_result(self):
         self.launcher()
         entry = self.holding("tab", "tab", "enter")

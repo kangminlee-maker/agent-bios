@@ -35,8 +35,9 @@ The grammar (design records `2026-09-28T1601--4e305e5--v1-slice5-entry-grammar-d
   - **Selection.** A position whose collection the owner holds shows that recorded choice. With
     no collection, an Instructions source with an accepted revision is `suggested` and included,
     while knowledge and memory are not included: their bodies are read only for a task. Space
-    makes the choice the person's, `selected` or `none`. The start pins what this frame
-    includes and no collection already applies. A position with nothing to choose (no source
+    makes the choice the person's, `selected` or `none`, until a start is dispatched, and again
+    once the owner refuses it, since a refused start started nothing. The start pins what this
+    frame includes and no collection already applies. A position with nothing to choose (no source
     there, none with an accepted revision, or a collection that includes nothing) is marked
     `[-]` and unavailable in words, and focus never lands on it. A source a collection switches
     on that does not resolve, read as composition reads it (`preparation.resolved`), is named on
@@ -48,7 +49,7 @@ The grammar (design records `2026-09-28T1601--4e305e5--v1-slice5-entry-grammar-d
     else the first position there is something to choose at, else the first Tab stop. Tab stops
     are the check, the note, the tool (when it has alternatives), the permissions and the start.
     The arrows move through the positions there is something to choose at, and ← → change the
-    tool or the permissions until a start is dispatched. The
+    tool or the permissions while the choices can change. The
     permissions are the host's own settings, suggested, until changed; they are an argument of
     the launch, not of the composition. Text and paste go into a focused field code point for
     code point, and nowhere else, so no letter is a shortcut; Space in a focused field is a
@@ -63,7 +64,9 @@ The grammar (design records `2026-09-28T1601--4e305e5--v1-slice5-entry-grammar-d
     the start's result, or the unknown start the check was for. An unknown outcome stays
     `unknown`, and a refusal or a failure is `unavailable`, labelled with the owner's reason;
     a start refused `working_bytes_moved` is labelled in the locale's words with its next steps,
-    leaving the repository's Instructions out or admitting the document again. A
+    leaving the repository's Instructions out, here, or admitting the document again. A
+    start pending or `unknown` holds the choices, and the start dispatches no second request for
+    it; a refused one leaves them open, and the start dispatches a new request. A
     check can also find its start settled, no longer pending, at the stage it now stands at
     (`settled`): the start is drawn as settled on the same screen, `delivered` where its session
     reported and `unavailable` otherwise, the start is no longer held back by it, and the hub no
@@ -601,6 +604,12 @@ class Entry:
         checked = self.answers.get(self.checking) if self.checking else None
         return checked[1] if checked and checked[0] == "settled" else None
 
+    def choosing(self) -> bool:
+        """Whether the choices can still change and start: no start was dispatched, or the owner
+        refused the last one, which started nothing. A start pending or unknown holds them."""
+        answer = self.answers.get(self.started) if self.started else None
+        return self.started is None or (answer is not None and answer[0] == "unavailable")
+
     def holds_back(self) -> bool:
         """Whether an unknown start holds the next one back: until a check finds it settled."""
         return self.draft is not None and self.settled() is None
@@ -872,11 +881,11 @@ class Entry:
             self.note += " "
             return
         position = self.focused_position()
-        if position is not None and position.toggles and self.started is None:
+        if position is not None and position.toggles and self.choosing():
             position.chosen, position.included = True, not position.included
 
     def turn(self, step: int) -> None:
-        if self.started is not None:
+        if not self.choosing():
             return
         if self.here["focus"] == "execution.tool" and len(self.starts) > 1:
             self.tool, self.tool_chosen = (self.tool + step) % len(self.starts), True
@@ -959,7 +968,7 @@ class Entry:
         self.sent.append(sealed["request_id"])
 
     def begin(self) -> None:
-        if self.started is not None:
+        if not self.choosing():
             return
         if self.holds_back() or len(self.note) > RATIONALE:
             self.blocked = True

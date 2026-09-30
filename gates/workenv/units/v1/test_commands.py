@@ -429,6 +429,26 @@ class Start(Commanding):
                          ("unavailable",
                           "시작하지 못함 · 레포 문서가 등록 뒤 바뀜 · Space로 빼거나 다시 등록"))
 
+    def test_after_a_refused_start_the_same_entry_starts_again(self):
+        self.qualified("claude-code")
+        screen = Screen(TAB, TAB, ENTER, ENTER)
+        real, sealed = start.start, []
+
+        def refusing_once(*given, **named):
+            sealed.append(named["sealed"]["request_id"])
+            if len(sealed) == 1:
+                raise start.StartError("activating the environment was refused with "
+                                       "working_bytes_moved", ["working_bytes_moved"])
+            return real(*given, **named)
+
+        with mock.patch.object(start, "start", side_effect=refusing_once):
+            code, _ = self.run_command("start", "claude-code", "--locale", "ko", screen=screen)
+        self.assertEqual(code, 0, self.err)
+        self.assertEqual((len(sealed), len(set(sealed)), len(self.launched)), (2, 2, 1))
+        refused, sent = screen.element("result.start", 4), screen.element("result.start", 5)
+        self.assertEqual((refused["state"], sent["state"]), ("unavailable", "pending"))
+        self.assertEqual(sent["refers_to"]["request_id"], sealed[1])
+
     def test_the_check_of_an_unknown_start_is_answered_in_the_entry(self):
         self.qualified("claude-code")
         prepared = self.prepared(self.ask([self.person.scope]), rationale="이전 메모")
