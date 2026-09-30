@@ -1764,6 +1764,7 @@ agent-bios — manage private instructions content for explicitly activated sess
   agent-bios app         register an explicit Codex app bridge or manage per-task instructions input
   agent-bios app session use   return selected instructions as context for this Codex app task
   agent-bios app session off   stop future delivery; earlier context requires a new task to exclude
+  agent-bios app desktop       write the Claude Desktop extension file; you install it in Desktop
   agent-bios understand  list instructions learning bundles; --help shows session/discovery commands
   agent-bios shell       show the optional zsh connection status
   agent-bios shell restore   make bare claude/codex open the launcher TUI
