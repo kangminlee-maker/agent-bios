@@ -139,6 +139,27 @@ class Routing(Activating):
         self.assertEqual((projection["material_gaps"], members),
                          ([{"code": c04.ROLE_BODY_UNAVAILABLE, "pointer": "/units/0"}], []))
 
+    def test_a_selected_instructions_source_that_does_not_resolve_is_carried_with_no_unit(self):
+        _, digest = self.linked()
+        self.placed(self.collection(self.person.scope, "instructions", [
+            self.entry(bench.ident("src"), "6" * 64)]))
+        prepared = self.prepared(self.ask([self.person.scope]), recipient_digest=digest)
+        unresolved = [{"code": c07.SELECTION_UNRESOLVED, "pointer": "/collections/0"}]
+        self.assertEqual((prepared["units"], prepared["material_gaps"]), ([], unresolved))
+        routing, projection = self.activated(prepared)["returned"]
+        self.assertEqual(routing["delivery"]["projections"], [canonical.digest_of(projection)])
+        self.assertEqual((projection["units"], projection["material_gaps"]), ([], unresolved))
+
+    def test_an_unresolved_selection_of_another_role_is_not_carried(self):
+        _, digest = self.linked()
+        self.placed(self.collection(self.person.scope, "knowledge", [
+            self.entry(bench.ident("src"), "6" * 64)]))
+        prepared = self.prepared(self.ask([self.person.scope]), recipient_digest=digest)
+        self.assertEqual(prepared["material_gaps"],
+                         [{"code": c07.SELECTION_UNRESOLVED, "pointer": "/collections/0"}])
+        (routing,) = self.activated(prepared)["returned"]
+        self.assertEqual(routing["delivery"]["projections"], [])
+
 
 class Refusals(Activating):
     def test_a_session_on_another_profile_is_a_mismatch(self):

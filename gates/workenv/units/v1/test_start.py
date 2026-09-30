@@ -17,6 +17,7 @@ import tomllib
 import unittest
 from unittest import mock
 
+import bench
 from test_delivery import Delivering
 from test_probes import VERSION, Hosts
 
@@ -144,7 +145,7 @@ class Start(Starting):
                 text = launch.text
                 self.assertTrue(text.startswith(start.TITLE))
                 for part in ("Decision memory is read", "memory-use.md", BODY.decode(),
-                             "\n## Personal instructions: ", ", source src_", ", body sha256 "):
+                             "\n## Personal instructions: ", "\nSource src_", ", body sha256 "):
                     self.assertIn(part, text)
                 if host == "claude-code":
                     [path] = self.given(launch, "--append-system-prompt-file")
@@ -158,6 +159,8 @@ class Start(Starting):
                                  ("session", {"name": host, "version": VERSION}, self.request,
                                   list(start.TIERS)))
                 self.assertEqual(len(job["bodies"]), 1)
+                self.assertEqual(job["environment"], hashlib.sha256(text.encode()).hexdigest())
+                self.assertNotIn("unt_", text)
                 self.assertEqual(launch.directory.stat().st_mode & 0o777, 0o700)
         self.assertEqual(self.recorded(), [])
 
@@ -330,11 +333,30 @@ class Start(Starting):
                   "role": "knowledge", "body_digest": hashlib.sha256(notes).hexdigest()}]
         self.assertEqual(start.bodies_text(units, [rules, notes]),
                          "## Repository instructions: AGENTS.md\n\n"
-                         f"Unit unt_a, source src_a, body sha256 {units[0]['body_digest']}.\n\n"
+                         f"Source src_a, body sha256 {units[0]['body_digest']}.\n\n"
                          "# Rules\n\n"
                          "## Personal knowledge\n\n"
-                         f"Unit unt_b, source src_b, body sha256 {units[1]['body_digest']}.\n\n"
+                         f"Source src_b, body sha256 {units[1]['body_digest']}.\n\n"
                          "# Notes\n")
+
+    def test_a_selected_source_that_does_not_resolve_still_starts_and_the_session_is_told(self):
+        self.placed(self.collection(self.person.scope, "instructions", [
+            self.entry(bench.ident("src"), "6" * 64)]))
+        launch = self.launched("claude-code")
+        self.assertTrue(launch.text.endswith(
+            "\n## Missing from this environment\n\nThis environment was asked to hold something "
+            "it does not:\n\n- The personal instructions collection: `selection_unresolved`, a "
+            "selected source that is unknown, denied or damaged; this is not absence, and no "
+            "lower layer silently satisfies it.\n"), launch.text)
+        self.assertIn(BODY.decode(), launch.text)
+        self.fired(launch, "claude-code", "new")
+        self.assertEqual(self.recorded(), [("activated", "session"), ("delivered", "new")])
+        store = self.bench.store()
+        [(record,)] = store.read("SELECT record FROM deliveries WHERE saw = ?",
+                                 (delivery.ACTIVATED,))
+        [projection] = store.get(record)["delivery"]["projections"]
+        self.assertEqual(store.get(projection)["material_gaps"],
+                         [{"code": c07.SELECTION_UNRESOLVED, "pointer": "/collections/0"}])
 
 
 class Events(Starting):
@@ -375,9 +397,26 @@ class Events(Starting):
         self.assertEqual((self.recorded(), self.activations()),
                          ([], [(launch.activation, "refused")]))
 
+    def test_the_delivery_recorded_names_a_preparation_that_renders_what_the_session_holds(self):
+        launch = self.launched("claude-code")
+        self.fired(launch, "claude-code", "new")
+        store = self.bench.store()
+        [(record,)] = store.read("SELECT record FROM deliveries WHERE saw = ?",
+                                 (delivery.DELIVERED,))
+        recorded = delivery.preparation_by_digest(
+            store, store.get(record)["requested"]["preparation_digest"])
+        [(first,), _] = store.read("SELECT digest FROM preparations ORDER BY rowid")
+        launched = store.get(first)
+        # Two compositions of one request, each with unit ids of its own (C07) ...
+        self.assertNotEqual([u["unit_id"] for u in launched["units"]],
+                            [u["unit_id"] for u in recorded["units"]])
+        # ... render one environment, which is the one the session was handed.
+        self.assertEqual(start.environment(self.bench.state, recorded), launch.text)
+        self.assertEqual(start.environment(self.bench.state, launched), launch.text)
+
     def test_a_checkout_that_moved_after_the_start_records_nothing(self):
         launch = self.launched("claude-code")
-        job = {**self.job(launch), "bodies": [canonical.digest_of({"moved": True})]}
+        job = {**self.job(launch), "environment": hashlib.sha256(b"another").hexdigest()}
         printed, said = self.fired(launch, "claude-code", "new", job=job)
         self.assertEqual(printed, "")
         self.assertIn("nothing recorded: the checkout moved", said)

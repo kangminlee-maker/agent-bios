@@ -9,14 +9,20 @@ itself hands it over too, and the person's choice to skip the host's confirmatio
   1. It composes the request's preparation for no link, through the owner. A sealed
      composition request is submitted unchanged, so the request the person's screen dispatched
      is the one composed.
-  2. It renders the environment from the preparation: the memory usage contract and its guide,
-     then each delivered body, read from its revision's bundle, under a header naming its unit,
-     its source and its digest.
+  2. It renders the environment from the preparation (`environment`): the memory usage contract
+     and its guide, then each delivered body, read from its revision's bundle, under a header
+     naming its layer, its role and its member and a line naming its source and its digest, then
+     the material gaps that concern its Instructions (`roles.material`), each named by where it
+     is and what it means. A selected source that did not resolve does not stop the start: the
+     session is told (`D-20260930-76d550`). Nothing in the environment is particular to one
+     preparation, a unit id least of all, so a composition of the same request renders the same
+     bytes.
   3. It writes the launch's files in a private directory of its own under the state root, named
      by the activation's request: the environment; each tier's definition for the session, the
      one the host would have loaded with the environment after its own instructions; where a
      child started with no kind takes the session's instructions, that kind, defined with the
-     person's own instructions alone; and the job the hook reads, which carries the activation.
+     person's own instructions alone; and the job the hook reads, which carries the activation
+     and the environment's digest.
      Its process locks the directory's `waiting` file (`WAITING`) for as long as it waits on the
      host.
   4. It hands the activation on (`roles.session_routing_dispatched`). A host session's id exists
@@ -65,7 +71,7 @@ import re
 import shutil
 
 from workenv import access, cli, delivery, hosts, journal, preparation, roles, storage
-from workenv.contracts import canonical
+from workenv.contracts import canonical, errors
 from workenv.hosts import probes
 
 # The kinds the tier rule dispatches, which start from the main session's environment.
@@ -172,8 +178,10 @@ def body(state: pathlib.Path, unit: dict) -> bytes:
 
 def bodies_text(units: list[dict], data: list[bytes]) -> str:
     """Each body under a header naming its layer, its role and the member it is, then a line
-    naming its unit, its source and its digest. A unit id names the unit in its preparation only;
-    the source, the member and the digest follow it across preparations (C07)."""
+    naming its source and its digest. A unit id names the unit in its preparation only (C07), so
+    the text names none: the source, the member and the digest follow a unit across
+    preparations, and the text the hook records reaching a session is the text the session
+    holds (F-20, `D-20260930-6c708c`)."""
     parts = []
     for unit, held in zip(units, data, strict=True):
         if hashlib.sha256(held).hexdigest() != unit["body_digest"]:
@@ -185,17 +193,48 @@ def bodies_text(units: list[dict], data: list[bytes]) -> str:
         what = f"{unit['layer'].capitalize()} {unit['role']}"
         if unit.get("member"):
             what += f": {unit['member']}"
-        parts.append(f"## {what}\n\nUnit {unit['unit_id']}, source {unit['source_id']}, body "
-                     f"sha256 {unit['body_digest']}.\n\n{text.rstrip()}\n")
+        parts.append(f"## {what}\n\nSource {unit['source_id']}, body sha256 "
+                     f"{unit['body_digest']}.\n\n{text.rstrip()}\n")
     return "\n".join(parts)
 
 
-def rendered(usage: dict, units: list[dict], data: list[bytes]) -> str:
-    """The environment a session starts in: the usage contract, its guide, then the bodies."""
+def gaps_text(store: storage.Store, prepared: dict, gaps: list[dict]) -> str:
+    """The material gaps that concern the Instructions, each named by where it is and what its
+    code means, or nothing where there are none."""
+    if not gaps:
+        return ""
+    meanings = errors.table()
+    lines = []
+    for gap in gaps:
+        parts = gap["pointer"].split("/")
+        if parts[1] == "units":
+            unit = prepared["units"][int(parts[2])]
+            where = f"The {unit['layer']} {unit['role']} member {unit['member']}"
+        else:
+            scope, role = store.read("SELECT scope, role FROM collections WHERE collection_id = ?",
+                                     (prepared["collections"][int(parts[2])]["collection_id"],))[0]
+            where = f"The {json.loads(scope)['layer']} {role} collection"
+        lines.append(f"- {where}: `{gap['code']}`, {meanings[gap['code']]['meaning']}.")
+    return ("## Missing from this environment\n\nThis environment was asked to hold something it "
+            "does not:\n\n" + "\n".join(lines) + "\n")
+
+
+def rendered(usage: dict, units: list[dict], data: list[bytes], gaps: str = "") -> str:
+    """The environment a session starts in: the usage contract, its guide, the bodies, then
+    what is missing from it."""
     guide = roles.GUIDES / pathlib.Path(usage["guide"]["path"]).name
     head = (f"{TITLE}\n\n{usage['text']}\n\nThe guide: {guide} (sha256 "
             f"{usage['guide']['digest']}).\n")
-    return head + ("\n" + bodies_text(units, data) if units else "")
+    return (head + ("\n" + bodies_text(units, data) if units else "")
+            + ("\n" + gaps if gaps else ""))
+
+
+def environment(state: pathlib.Path, prepared: dict) -> str:
+    """The environment one preparation renders: what a start hands a session at launch, and
+    what the hook renders again from its own composition before it records a delivery."""
+    store, units = storage.of(state), delivered(prepared)
+    gaps = gaps_text(store, prepared, roles.material(store, prepared))
+    return rendered(roles.usage_contract(), units, [body(state, unit) for unit in units], gaps)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -300,7 +339,7 @@ def start(state: pathlib.Path, actor: dict, host_name: str, request: dict,
         raise StartError(f"composing the environment was {reason(composed)}")
     prepared = composed["returned"][0]
     units = delivered(prepared)
-    text = rendered(roles.usage_contract(), units, [body(state, unit) for unit in units])
+    text = environment(state, prepared)
     quiet = {name: value for name, value in environ.items() if name not in adapter.nested}
     configured = adapter.configured(executable, workdir, quiet)
     tiers = [tier for tier in TIERS if tier in configured.kinds] \
@@ -326,6 +365,7 @@ def start(state: pathlib.Path, actor: dict, host_name: str, request: dict,
         job.write_text(json.dumps({
             "kind": "session", "state": str(state), "actor": actor, "host": host,
             "request": request, "bodies": [unit["body_digest"] for unit in units],
+            "environment": hashlib.sha256(text.encode("utf-8")).hexdigest(),
             "tiers": tiers, "activation": {"request": asked, "payload": activation}},
             ensure_ascii=False), encoding="utf-8")
         instructions = "\n\n".join(part for part in (configured.native, text) if part)

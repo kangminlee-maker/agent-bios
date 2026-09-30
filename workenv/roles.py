@@ -16,7 +16,12 @@ activates it. A refusal is recovered by a new request.
     one `role_projection` for the executor view entered at session start: every unit named with
     its layer and standing, shadowed and disabled ones included. The bytes of each winning or
     layered unit's body are returned beside it, as `source_member`, so the session receives the
-    text each `body_digest` names. A preparation with no Instructions unit projects nothing.
+    text each `body_digest` names. The projection also carries the preparation's material gaps
+    that concern its Instructions (`material`): a gap at one of its units, or at an Instructions
+    collection, such as a selected source that did not resolve (`selection_unresolved`). A
+    selection whose only source did not resolve still starts, and its gap is carried by a
+    projection with no unit. A preparation with neither an Instructions unit nor such a gap
+    projects nothing.
   - **The usage contract.** Every activated routing carries the short memory usage contract this
     runtime writes and a pointer to the guide behind it, by path and by the digest of the bytes
     this installation holds, whether or not anything else is delivered.
@@ -93,10 +98,33 @@ def moved(store: storage.Store, prepared: dict) -> bool:
     return False
 
 
+def material(store: storage.Store, prepared: dict) -> list[dict]:
+    """The preparation's material gaps that concern its Instructions: a gap at an Instructions
+    unit or at an Instructions collection. A gap at another role's unit or collection concerns
+    that role's delivery, and one at neither (the checkout moved) refuses the activation."""
+    kept = []
+    for gap in prepared["material_gaps"]:
+        parts = gap.get("pointer", "").split("/")
+        place, index = (parts[1], int(parts[2])) if len(parts) > 2 else (None, None)
+        if place == "units":
+            role = prepared["units"][index]["role"]
+        elif place == "collections":
+            found = store.read("SELECT role FROM collections WHERE collection_id = ?",
+                               (prepared["collections"][index]["collection_id"],))
+            role = found[0][0] if found else None
+        else:
+            continue
+        if role == INSTRUCTIONS:
+            kept.append(gap)
+    return kept
+
+
 def projection(call, prepared: dict) -> tuple[dict | None, list[bytes]]:
-    """The preparation's Instructions units as one projection, and the bytes it delivers."""
+    """The preparation's Instructions units and the gaps that concern them as one projection,
+    and the bytes it delivers."""
     units = [unit for unit in prepared["units"] if unit["role"] == INSTRUCTIONS]
-    if not units:
+    gaps = material(storage.of(call.state), prepared)
+    if not units and not gaps:
         return None, []
     plan = {"kind": "projection_plan", "schema": 1,
             "source_pins": [{"source_id": unit["source_id"],
@@ -112,9 +140,6 @@ def projection(call, prepared: dict) -> tuple[dict | None, list[bytes]]:
         if unit["standing"] in delivery.DELIVERED_STANDINGS and "body_digest" in unit:
             members.append((storage.bundle(call.state, unit["revision_digest"]) / storage.MEMBERS
                             / unit["member"]).read_bytes())
-    gaps = [gap for gap in prepared["material_gaps"]
-            if gap.get("pointer", "").startswith("/units/")
-            and prepared["units"][int(gap["pointer"].split("/")[2])] in units]
     return {"kind": "role_projection", "schema": 1, "projection_id": journal.mint("prj"),
             "plan_digest": canonical.digest_of(plan), "role": INSTRUCTIONS,
             "recipient_view": EXECUTOR, "units": projected, "material_gaps": gaps,

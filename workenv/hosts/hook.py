@@ -19,10 +19,11 @@ session, at the event where the host reports that it did:
   - `new` (the session began): it first asks the start's activation again under its own id, so
     one still unknown activates, and one already settled stays as it was: the session began
     either way. Then it opens the link for the session id the host reported, composes the job's
-    request for that link, and only where the composed bodies are exactly the ones handed at
-    launch activates the session with it and records that the new session received them. Where
-    they differ, the checkout moved between the start and the session, and it records nothing
-    more and says so.
+    request for that link, and only where that composition renders exactly the environment
+    handed at launch, byte for byte (the job's digest of it), activates the session with it and
+    records that the new session received it: the delivery it records names a preparation whose
+    text is the text the session holds (F-20). Where they differ, the checkout moved between the
+    start and the session, and it records nothing more and says so.
   - `rehydrated` (the session was compacted): it records that the session received again the
     bodies it was activated with, which the host kept.
   - `child` (a child began): for a tier, it records that the child, under a use id of its own,
@@ -40,6 +41,7 @@ an owner that refuses leaves the session as it was, with the reason on standard 
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import pathlib
@@ -146,7 +148,8 @@ class Session:
         prepared = self.asked("preparation.compose", principal, self.job["request"],
                               expected="previewed",
                               recipient_digest=canonical.digest_of(link))["returned"][0]
-        if [unit["body_digest"] for unit in start.delivered(prepared)] != self.job["bodies"]:
+        rendered = start.environment(self.state, prepared).encode("utf-8")
+        if hashlib.sha256(rendered).hexdigest() != self.job.get("environment"):
             raise Unrecorded("the checkout moved after the session was started: what composes "
                              "now is not what the session was handed")
         self.asked("session.routing.activate", self.actor["profile_id"], {
