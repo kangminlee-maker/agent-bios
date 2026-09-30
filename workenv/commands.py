@@ -227,10 +227,11 @@ def profile(owner: Owner, out) -> int:
 
 def held_at(store: storage.Store, scope: dict, role: str) -> tuple[str | None, list[tuple]]:
     """The collection held at a position, and its sources switched on; or, with none, the
-    sources held there: each with its revision, its member paths, the gap codes it states where
-    it does not resolve, read as composition reads it (`preparation.resolved`), the
-    Instructions members whose bodies are not held (`preparation.unheld`), and those whose
-    checkout document changed since they were admitted (`roles.drifted`)."""
+    sources held there: each with its revision, the member paths it selects
+    (`preparation.selected`), the gap codes it states where it does not resolve, read as
+    composition reads it (`preparation.resolved`), the Instructions members whose bodies are not
+    held (`preparation.unheld`), and those whose checkout document changed since they were
+    admitted (`roles.drifted`)."""
     collection_id = preparation.held_collection(store, scope, role)
     if collection_id is not None:
         collection = store.get(journal.head_of(store, collection_id))
@@ -251,10 +252,13 @@ def held_at(store: storage.Store, scope: dict, role: str) -> tuple[str | None, l
             return [], []
         gone = preparation.unheld(store.path.parent, revision, manifest, declared)
         digests = {member["path"]: member["digest"] for member in manifest["members"]}
-        paths = [unit["member"] for unit in declared] if declared else list(digests)
-        return gone, [path for path in paths if path in digests and path not in gone
-                      and roles.drifted(store, source, path, digests[path])]
-    return collection_id, [(source, revision, tui.revision_names(store, revision), codes,
+        return gone, [path for path in preparation.selected(manifest, declared)
+                      if path not in gone and roles.drifted(store, source, path, digests[path])]
+
+    def chosen(revision: str | None, declared) -> list[str]:
+        manifest = store.get(revision) if revision else None
+        return preparation.selected(manifest, declared) if isinstance(manifest, dict) else []
+    return collection_id, [(source, revision, chosen(revision, declared), codes,
                             *unusable(source, revision, codes, declared))
                            for source, revision, codes, declared in found]
 

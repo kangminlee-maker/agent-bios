@@ -531,6 +531,14 @@ class Bodies(Composing):
         self.assertEqual(preparation.unheld(root, bare, store.get(bare), [
             {"member": "b.md"}, {"member": "absent.md"}]), ["b.md"])
 
+    def test_selected_is_each_member_a_pin_declares_or_else_every_member(self):
+        _, revision = self.authored(self.person.scope, {"a.md": NOTE, "b.md": RELEASE})
+        manifest = self.bench.store().get(revision)
+        self.assertEqual(sorted(preparation.selected(manifest)), ["a.md", "b.md"])
+        self.assertEqual(sorted(preparation.selected(manifest, [])), ["a.md", "b.md"])
+        self.assertEqual(preparation.selected(manifest, [{"member": "b.md"},
+                                                         {"member": "absent.md"}]), ["b.md"])
+
     def winner(self, prepared: dict) -> dict:
         return next(u for u in prepared["units"] if u["standing"] == "winning")
 

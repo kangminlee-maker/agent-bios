@@ -39,7 +39,9 @@ The grammar (design records `2026-09-28T1601--4e305e5--v1-slice5-entry-grammar-d
     once the owner refuses it, since a refused start started nothing. The start pins what this
     frame includes and no collection already applies. A position with nothing to choose (no source
     there, none with an accepted revision, or a collection that includes nothing) is marked
-    `[-]` and unavailable in words, and focus never lands on it. A source a collection switches
+    `[-]` and unavailable in words, and focus never lands on it. A position names the members
+    its pins select (`preparation.selected`: a collection entry's declared units, else every
+    member of the revision), never one they leave out. A source a collection switches
     on that does not resolve, read as composition reads it (`preparation.resolved`), is named on
     its position, which is `partial`, or `missing` where nothing it switches on resolves. So is
     an Instructions member selected there whose body is not held (`preparation.unheld`), which
@@ -375,12 +377,6 @@ def routes_of(store: storage.Store, offer: dict | None) -> list[Route]:
     return found
 
 
-def revision_names(store: storage.Store, revision: str | None) -> list[str]:
-    manifest = store.get(revision) if revision else None
-    return [member["path"] for member in manifest["members"]] if isinstance(manifest, dict) \
-        else []
-
-
 def drawn(element: dict, locale: str) -> str:
     """One element's line as the terminal draws it: its marks and label, then each effect it
     states, in the locale's words, so the effect sits on the element it is an effect of."""
@@ -390,25 +386,25 @@ def drawn(element: dict, locale: str) -> str:
 
 def position_of(store: storage.Store, scope: dict, role: str) -> Position:
     def read(pinned: list[tuple[str, str | None, list[dict] | None]]) -> tuple[list, list, list]:
-        """The member names the pins hold usable bodies for, the members they lack bodies for,
-        and the members whose checkout document changed since they were admitted. Only
+        """Of the members the pins select, the names they hold usable bodies for, those they
+        lack bodies for, and those whose checkout document changed since admitted. Only
         Instructions bodies reach a session at its start; knowledge is read for a task."""
         names, lacking, changed = [], [], []
         for source_id, revision, declared in pinned:
             manifest = store.get(revision) if revision else None
-            if role != preparation.INSTRUCTIONS or not isinstance(manifest, dict):
-                names += revision_names(store, revision)
+            if not isinstance(manifest, dict):
+                continue
+            chosen = preparation.selected(manifest, declared)
+            if role != preparation.INSTRUCTIONS:
+                names += chosen
                 continue
             gone = preparation.unheld(store.path.parent, revision, manifest, declared)
             digests = {member["path"]: member["digest"] for member in manifest["members"]}
-            moved = [path for path in ([unit["member"] for unit in declared] if declared
-                                       else list(digests))
-                     if path in digests and path not in gone
+            moved = [path for path in chosen if path not in gone
                      and roles.drifted(store, source_id, path, digests[path])]
             lacking += gone
             changed += moved
-            names += [name for name in revision_names(store, revision)
-                      if name not in gone and name not in moved]
+            names += [name for name in chosen if name not in gone and name not in moved]
         return names, lacking, changed
 
     collection_id = preparation.held_collection(store, scope, role)

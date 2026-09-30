@@ -126,15 +126,22 @@ def resolved(store: storage.Store, entry: dict,
     return [c07.SELECTION_UNRESOLVED for unit in declared if unit["member"] not in members], found
 
 
+def selected(manifest: dict, declared: list[dict] | None = None) -> list[str]:
+    """The members a pin selects that its revision holds: each unit it declares, or else every
+    member of the revision, as composition reads an entry."""
+    members = [member["path"] for member in manifest["members"]]
+    return [unit["member"] for unit in declared if unit["member"] in members] if declared \
+        else members
+
+
 def unheld(state, revision: str, manifest: dict, declared: list[dict] | None = None) -> list[str]:
-    """The members a pin selects, each unit it declares or else every member of its revision,
-    whose bytes the revision's bundle does not hold as its manifest states them (`body_of`).
-    Composition gives such a unit no body, and it gates nothing unless it wins or a winner needs
-    it (C07), so the entry, `sources` and a session's environment name it instead."""
+    """The members a pin selects (`selected`) whose bytes the revision's bundle does not hold as
+    its manifest states them (`body_of`). Composition gives such a unit no body, and it gates
+    nothing unless it wins or a winner needs it (C07), so the entry, `sources` and a session's
+    environment name it instead."""
     members = {member["path"]: member for member in manifest["members"]}
-    paths = [unit["member"] for unit in declared] if declared else list(members)
-    return [path for path in paths
-            if path in members and body_of(state, revision, members[path])[0] is None]
+    return [path for path in selected(manifest, declared)
+            if body_of(state, revision, members[path])[0] is None]
 
 
 # Collections.

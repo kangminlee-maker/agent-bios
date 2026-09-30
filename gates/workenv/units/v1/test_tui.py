@@ -353,6 +353,43 @@ class Selecting(Entering):
                          "개인 지침 · AGENTS.md · 본문 없음 notes/bare.md · 원본 · "
                          "일부 원본을 쓸 수 없음")
 
+    def test_a_position_names_only_the_members_its_collection_selects(self):
+        me = self.person.scope
+        self.launcher(scope=me)
+        source, revision = self.authored(me, {"rules/not-selected.md": b"no\n",
+                                              "rules/selected.md": b"yes\n"})
+        self.placed(self.collection(me, "instructions", [self.entry(
+            source, revision, [unit("rules/selected.md")])]))
+        frame = self.drive()[0]
+        self.assertEqual(self.marks(frame, "positions.personal.instructions")[:2],
+                         ("installed", "selected"))
+        self.assertEqual(self.element(frame, "positions.personal.instructions")["label"],
+                         "개인 지침 · rules/selected.md")
+
+    def test_a_knowledge_position_names_only_the_members_its_collection_selects(self):
+        me = self.person.scope
+        self.launcher(scope=me)
+        source, revision = self.authored(me, {"notes/not-selected.md": b"no\n",
+                                              "notes/selected.md": b"yes\n"}, role="knowledge")
+        self.placed(self.collection(me, "knowledge", [self.entry(
+            source, revision, [unit("notes/selected.md")])]))
+        frame = self.drive()[0]
+        self.assertEqual(self.element(frame, "positions.personal.knowledge")["label"],
+                         "개인 지식 · notes/selected.md")
+
+    def test_a_collection_none_of_whose_selected_bodies_is_held_is_missing(self):
+        me = self.person.scope
+        self.launcher(scope=me)
+        source, revision = self.authored(me, {"rules/not-selected.md": b"no\n",
+                                              "rules/selected.md": b"yes\n"}, held=False)
+        self.placed(self.collection(me, "instructions", [self.entry(
+            source, revision, [unit("rules/selected.md")])]))
+        frame = self.drive()[0]
+        self.assertEqual(self.marks(frame, "positions.personal.instructions")[:2],
+                         ("missing", "selected"))
+        self.assertEqual(self.element(frame, "positions.personal.instructions")["label"],
+                         "개인 지침 · 본문 없음 rules/selected.md")
+
     def test_a_suggested_source_none_of_whose_bodies_is_held_is_missing(self):
         me = self.person.scope
         self.launcher(scope=me)

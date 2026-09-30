@@ -23,7 +23,7 @@ from test_probes import VERSION, Hosts
 from test_routes import Routing, unknown
 from test_sources import INSTANT, ORIGIN, Checkout, gaps
 
-from workenv import commands, hosts, local, sources, terminal, tui
+from workenv import commands, hosts, local, preparation, sources, terminal, tui
 from workenv.hosts import hook, probes, start
 
 BODY = b"# Review\n\nOne approval.\n"
@@ -173,6 +173,20 @@ class Sources(Commanding):
             "  personal instructions: nothing selected is usable here",
             f"    {bare} revision {revision[:12]}: rules/bare.md; body not held here: "
             "rules/bare.md"])
+
+    def test_a_source_lists_only_the_members_its_collection_selects(self):
+        me = self.person.scope
+        source, revision = self.authored(me, {"rules/not-selected.md": BODY,
+                                              "rules/selected.md": BODY + b"\n"}, held=False)
+        self.placed(self.collection(me, "instructions", [self.entry(
+            source, revision, [{"member": "rules/selected.md", "startup": "required"}])]))
+        said = self.run_command("sources")[1].splitlines()
+        self.assertEqual(said[1:3], [
+            "  personal instructions (collection "
+            f"{preparation.held_collection(self.bench.store(), me, 'instructions')}): "
+            "nothing selected is usable here",
+            f"    {source} revision {revision[:12]}: rules/selected.md; body not held here: "
+            "rules/selected.md"])
 
     def test_nothing_is_held_before_first_use_and_nothing_is_written(self):
         (local.home(self.env) / local.ACTOR).unlink()
