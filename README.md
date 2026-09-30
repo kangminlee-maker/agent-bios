@@ -167,6 +167,21 @@ To add instructions to a task, explicitly ask it to use your chosen instructions
 Installation and opening Instructions Studio do not activate task context.
 [App use, off, and personal instruction import →](docs/setup.md#use-instructions-in-a-codex-app-task)
 
+### In Claude Desktop
+
+Claude Desktop opens conversations without a launcher, so agent-bios reaches it as a
+local extension you install once. After installing agent-bios on the same Mac, run:
+
+```bash
+agent-bios app desktop
+```
+
+Open the `.mcpb` file it reports with Claude Desktop and confirm the installation.
+In a conversation, ask for your agent-bios instructions: the extension returns your
+saved selection as context for that conversation only. Nothing is added until you ask,
+and a conversation already in progress receives nothing on its own.
+[Desktop use, confirmation and limits →](docs/setup.md#use-instructions-in-claude-desktop)
+
 ## Your instruction library
 
 Open **Instructions Studio** in the launcher, or run `agent-bios instructions`.

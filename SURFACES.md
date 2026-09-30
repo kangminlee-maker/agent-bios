@@ -50,6 +50,7 @@ Ordered by when the cost is paid, because that is the axis that decides placemen
 | Activated startup instructions | one explicitly activated session, selection-dependent | that session | its main context; children only through a verified projection | behavior, some knowledge |
 | App discovery metadata | when the host discovers an explicitly registered bridge | tasks in that discovery scope | the host's skill selector | routing only |
 | App task context | after explicit use in one task | that task | its returned tool/context stream | knowledge, behavior |
+| Desktop task context | text after explicit use in one Claude Desktop conversation; the four-tool list in every Desktop conversation once the bundle is installed | that conversation; every Desktop conversation for the tool list | its returned tool-result stream | knowledge, behavior |
 | Instruction import evidence | when explicitly supplied for import review | the reviewing task | the reviewing model as source data | knowledge |
 | Legacy global projection | every native session until explicitly migrated; compatibility only | every session on that old installation | both hosts | behavior, some knowledge |
 | Personal learnings | one host's selected activated snapshot | that session | that user and host | knowledge |
@@ -236,6 +237,26 @@ installs global instructions nor enables native instructions hooks or agents.
   private package and saved roots for each call instead of inheriting prior shell exports.
   Its separate `setup` forwarding uses the same confirmed package and roots but never
   calls session use. Setup requires execution context, not a native task receipt.
+
+### Desktop task context
+
+- **Admits** — the selected immutable snapshot text returned by the bundle's `use` tool in
+  one Claude Desktop conversation, ending in an end-marker line, and a four-tool list
+  (status, preview, use, off) whose descriptions say to call only on the user's request.
+  Preview and use mint the conversation identity Desktop does not send; status and off
+  require it. Project-scoped imported items are excluded because Desktop names no project.
+- **Refuses** — pushing into a conversation (no route exists), writes into Desktop's own
+  directories or host configuration, install-time selection, network egress, and any claim
+  that text stayed inline.
+- **Fails as** — reading an unconfirmed delivery as having reached the model. Only an end
+  marker reported back through status confirms the text was read to its end, and it never
+  shows whether Desktop kept the text inline or saved it to a file. Every Desktop
+  conversation pays for the tool list whether or not it calls a tool.
+- **Authority** — `compose/instructions_app.py` `AppSessions` on host `claude-desktop` and
+  `DesktopBundle`, and the server in `compose/app_desktop/server.py`. The bundle is written
+  under the private state root, names the interpreter that generated it, and its server
+  resolves the confirmed private release on every call. The user installs it through
+  Desktop's own dialog; nothing checks which bundle Desktop currently has.
 
 ### Instruction import evidence
 
@@ -518,6 +539,9 @@ Checked by repository gates or deterministic runtime validators:
   boundaries, and explicit app registration/context receipts through
   `compose/test_instructions_import.py`, `compose/test_instructions_setup.py`, and
   `compose/test_instructions_app.py`; a returned-context receipt does not prove model reading
+- Desktop conversation identity, end-marker confirmation, repeat handling, bundle contents,
+  and the bundled server's protocol and per-call release resolution through
+  `compose/test_instructions_desktop.py`, which runs the server the way the manifest names it
 - UI bundle root-pin agreement, wheel metadata/hashes/licenses, offline isolated
   imports/rendering and cleanup through `gates/build-ui-runtime.py` `--check` and
   `--self-test`; the root pin is `TEXTUAL_PIN` in `launch/provision-venv.sh`
@@ -543,6 +567,8 @@ Not checked, and therefore a judgment every time:
   surfaces gate sees literal legacy deploy targets; it cannot infer that a new snapshot
   field reached a host. Loader, invocation, child, and resume claims need their own
   real-path evidence.
+- whether Claude Desktop loads a given bundle, and which bundle it has installed; the
+  route was measured on one Desktop version, not gated
 - whether an item admitted to a surface actually met that surface's bar
 - whether a router line names the situation well enough to be found
 - the relative cost claims — no surface's context cost has been measured with

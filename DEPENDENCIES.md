@@ -113,7 +113,7 @@ execution evidence have narrower scope:
   by the current `--version` reports. Authenticated instructions-agent execution and post-fix
   authenticated resume remain unverified.
 
-## Codex app and instruction import
+## Codex app
 
 The Codex desktop app is a separate host from the Codex CLI. Its optional bridge needs
 native skill discovery for `~/.agents/skills/agent-bios`, the explicit-invocation policy in
@@ -145,6 +145,28 @@ no direct model SDK. Instructions Studio needs a terminal; rich UI remains optio
 requires explicit selection, enables no native hooks or agents, and Off cannot retract
 previously returned text. Registration is off by default and owns only its discovery
 link, preserving global instruction files and foreign entries.
+
+## Claude Desktop
+
+Claude Desktop has no launch to project into and no skill root an installer can reach,
+so it pulls through a local MCP server. `agent-bios app desktop` writes a `.mcpb` bundle
+under the private state root; the user installs it through Desktop's own dialog, and
+agent-bios writes nothing into Desktop's directories or `claude_desktop_config.json`.
+The bundle's server (`compose/app_desktop/server.py`) is standard-library Python speaking
+MCP 2025-11-25 over stdio, with no network service. Desktop resolves a bare `python3`
+through the user's login-shell `PATH` and ships no Python of its own, so the manifest names
+the absolute interpreter that generated it; that interpreter must stay installed, and the
+bundle is regenerated after it changes. The server resolves the confirmed private release
+on every call.
+
+Desktop sends no conversation identity with a tool call, so `app session --host
+claude-desktop` mints one on preview or use. Measured on Desktop 2.16120.0 (macOS,
+2026-09-30): the bundle route, both of Desktop's MCP clients, protocol 2025-11-25, and a
+140,666-byte result delivered inline. Windows, the `local-agent-mode` client's tool calls
+and `roots/list` are unverified. Local tests do not establish that a given Desktop version
+loads the bundle.
+
+## Instruction import
 
 Local instruction import also needs no model SDK or parser framework. Standard-library
 code discovers fixed instruction filenames at known global and explicit project roots,
@@ -190,8 +212,9 @@ Agent-bios does not install credentials or infer a model account from dependency
   binding, reach and fallback are declared in the launch contract. An unavailable or
   unauthenticated opposite-family route is reported, not credited as a completed review.
 - **MCP servers** — user-specific; only a selected capability declaring `mcp-stdio-v1`
-  is registered by the launcher. No shipped review method requires MCP. App instructions
-  context delivery does not add an MCP server.
+  is registered by the launcher. No shipped review method requires MCP. Codex app
+  context delivery adds no MCP server; Claude Desktop delivery ships its own local
+  stdio server (below), which no launch registers.
 - **spreadsheet-processing** — an optional skill referenced by the spreadsheet rule
   when those instructions are selected. If unavailable, its inline plain-tools/code and real
   spreadsheet-engine validation fallback applies.
@@ -220,6 +243,7 @@ Inspect the installed private state using this checkout's runtime:
 bash install.sh verify
 bash install.sh instructions status --json
 bash install.sh app status --json
+bash install.sh app desktop --dry-run --json
 ```
 
 Provision packages only when explicitly requested for learning validation, compatibility

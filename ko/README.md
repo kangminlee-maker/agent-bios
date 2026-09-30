@@ -148,6 +148,20 @@ English·한국어·日本語 중 사용할 언어를 묻습니다. 설치할 �
 설치하거나 Studio를 여는 것만으로는 작업에 지침이 추가되지 않습니다.
 [앱에서 사용·끄기·개인 지침 가져오기 →](../docs/setup.md#use-instructions-in-a-codex-app-task)
 
+### Claude Desktop에서
+
+Claude Desktop은 런처 없이 대화를 열기 때문에, agent-bios는 한 번 설치하는 로컬 확장으로
+Desktop에 닿습니다. 같은 Mac에 agent-bios를 설치한 뒤 다음을 실행하세요.
+
+```bash
+agent-bios app desktop
+```
+
+알려 주는 `.mcpb` 파일을 Claude Desktop으로 열고 설치를 확인합니다. 대화에서 agent-bios
+지침을 요청하면, 확장이 저장된 선택을 그 대화에만 맥락으로 돌려줍니다. 요청하기 전에는
+아무것도 추가되지 않고, 이미 진행 중인 대화에 저절로 들어가지도 않습니다.
+[Desktop 사용·확인·한계 →](../docs/setup.md#use-instructions-in-claude-desktop)
+
 ## 내 지침 라이브러리
 
 런처의 **Instructions Studio**를 선택하거나 `agent-bios instructions`를 실행합니다.

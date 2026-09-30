@@ -223,7 +223,9 @@ semantic classification makes it part of the user's normal model context; it is
 not an `ingest-learning` or `ingest-session` operation. The import transaction
 preserves original files and records provenance for the new private items.
 
-`compose/instructions_app.py` registers no network service. Optional app registration
+`compose/instructions_app.py` registers no network service, and the Claude Desktop
+server it bundles (`compose/app_desktop/server.py`) speaks MCP over the stdio pipes
+Desktop opens, with no listening socket and no outbound connection. Optional app registration
 creates a local discovery link with implicit invocation disabled. Explicit per-task
 use returns selected instructions text through the app's tool/context path, governed by
 the host's normal data handling. Its local receipt states `returned-as-context`,

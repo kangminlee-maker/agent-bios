@@ -46,6 +46,14 @@ and returned text do not prove native app discovery or model reading. Off stops
 further managed use, but cannot retract earlier context; a new task is needed for
 clean exclusion. Management and instruction capture do not activate task context.
 
+## Claude Desktop conversations
+
+Desktop conversations pull through the [Desktop extension](setup.md#use-instructions-in-claude-desktop).
+Use returns the selected snapshot as a tool result and records a `returned-as-context`
+receipt under an identity agent-bios mints, because Desktop sends none. An end-marker line
+reported back confirms the text was read to its end, not that it stayed inline. Nothing
+reaches a conversation that did not ask, including one already in progress.
+
 ## Storage layout
 
 From a clone, `bash install.sh install` is the same default path. The release lives

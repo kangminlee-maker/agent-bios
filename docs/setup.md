@@ -140,6 +140,40 @@ it does not replay uncertain operations. The agent follows the full procedure in
 [START.md](../compose/setup/START.md), including exact review preservation and verified
 entrypoint handoff. Source and reviewed artifacts remain available for recovery.
 
+## Use instructions in Claude Desktop
+
+Claude Desktop has no launcher to start its conversations and no skill folder an
+installer can reach, so agent-bios reaches it through a local extension:
+
+```bash
+agent-bios app desktop --dry-run --json
+agent-bios app desktop
+```
+
+The command writes `agent-bios.mcpb` under the private state root and prints its path.
+Open that file with Claude Desktop and confirm the installation dialog; agent-bios never
+writes into Desktop's own folders or configuration. The extension runs Python at the
+absolute path the file names — the interpreter that ran the command, which must be 3.11
+or newer. Run the command again after changing that Python; an agent-bios update alone
+needs no new file, because the extension finds the current installation on every call.
+
+In a conversation, ask for your agent-bios instructions. The assistant calls `use`, which
+returns your saved installation selection, or a selection you name in the request.
+Desktop sends no conversation identity, so the first preview or use returns a
+`session_id` that later calls in the same conversation pass back. Desktop delivery has
+no project scope: imported instructions scoped to a project folder are not included.
+
+The returned text ends with a line beginning `agent-bios end`. When the assistant reports
+that line through `status`, the receipt records that the text was read to its end. It
+does not show whether Desktop kept the text in the message or saved it to a file, and a
+delivery never reported back stays unconfirmed. Off stops further use in that
+conversation but cannot remove text already returned; start a new conversation for clean
+exclusion.
+
+The extension adds four tools to every Desktop conversation. Remove it from Desktop's
+extension settings to stop that cost. This route was measured on Claude Desktop 2.16120.0
+for macOS; Windows is not supported yet.
+
 ## Use instructions in a Codex app task
 
 Choose **Connect to the Codex app** during setup, or explicitly run:
