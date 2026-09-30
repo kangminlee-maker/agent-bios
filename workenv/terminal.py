@@ -1,10 +1,11 @@
 """The terminal an entry is drawn in: the entry model's frames drawn as lines, and the bytes a
 person types read as the model's inputs (`workenv.tui`). It adds no rule of its own.
 
-Drawing. Each element is one line: the two-cell focus gutter, then its marks and its label,
-clipped at `columns - 2` cells. A field's value follows on up to three lines. An element the model
-places below the last row is not drawn. A control character is drawn as its caret notation (`^[`,
-`^J`), two cells, as the model counts it, so nothing typed or pasted acts on the terminal.
+Drawing. Each element is one line: the two-cell focus gutter, then its marks, its label and its
+effects as the model words them (`tui.drawn`), clipped at `columns - 2` cells. A field's value
+follows on up to three lines. An element the model places below the last row is not drawn. A
+control character is drawn as its caret notation (`^[`, `^J`), two cells, as the model counts it,
+so nothing typed or pasted acts on the terminal.
 
 Reading (`Decoder`):
 
@@ -169,7 +170,7 @@ def lines(frame: dict) -> list[str]:
     for element in frame["elements"]:
         if element["shown"] == "off_screen":
             continue
-        line = visible(" ".join(element["marks"] + [element["label"]]))
+        line = visible(tui.drawn(element, frame["locale"]))
         found.append(gutter + clipped(line, room))
         if element["role"] == "field":
             found += [gutter + part for part in

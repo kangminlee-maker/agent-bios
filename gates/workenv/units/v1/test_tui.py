@@ -49,6 +49,7 @@ class Catalog(unittest.TestCase):
         room = 80 - tui.GUTTER
         named = {"location.repository", "location.team", "checkpoint", "position",
                  "position.more", "position.unresolved", "unresolved", "unresolved.more",
+                 "unheld", "unheld.more",
                  "detail", "not_started", "not_checked"}
         for locale, table in tui.CATALOG.items():
             fill = {"layer": longest(table, "layer."), "role": longest(table, "role."),
@@ -335,6 +336,40 @@ class Selecting(Entering):
         english = self.drive(locale="en")[0]
         self.assertEqual(self.element(english, "positions.personal.instructions")["label"],
                          f"Personal Instructions · AGENTS.md · unresolved source {lost[:12]}")
+
+    def test_a_selected_member_whose_body_is_not_held_is_named_and_is_not_installed(self):
+        me = self.person.scope
+        self.launcher(scope=me)
+        source, revision = self.authored(me, RULES)
+        bare, bare_rev = self.authored(me, {"notes/bare.md": b"bare\n"}, held=False)
+        self.placed(self.collection(me, "instructions", [self.entry(source, revision),
+                                                          self.entry(bare, bare_rev)]))
+        frames = self.drive("enter")
+        self.assertEqual(self.marks(frames[0], "positions.personal.instructions")[:2],
+                         ("partial", "selected"))
+        self.assertEqual(self.element(frames[0], "positions.personal.instructions")["label"],
+                         "개인 지침 · AGENTS.md · 본문 없음 notes/bare.md")
+        self.assertEqual(self.element(frames[1], "detail.personal.instructions")["label"],
+                         "개인 지침 · AGENTS.md · 본문 없음 notes/bare.md · 원본 · "
+                         "일부 원본을 쓸 수 없음")
+
+    def test_a_suggested_source_none_of_whose_bodies_is_held_is_missing(self):
+        me = self.person.scope
+        self.launcher(scope=me)
+        self.authored(me, RULES, held=False)
+        frame = self.drive()[0]
+        self.assertEqual(self.marks(frame, "positions.personal.instructions")[:2],
+                         ("missing", "suggested"))
+        self.assertEqual(self.element(frame, "positions.personal.instructions")["label"],
+                         "개인 지침 · 본문 없음 AGENTS.md")
+
+    def test_each_effect_is_drawn_on_the_line_of_what_has_it(self):
+        self.launcher()
+        frame = self.drive()[0]
+        drawn = {element["element_id"]: tui.drawn(element, "ko") for element in frame["elements"]}
+        self.assertTrue(drawn["execution.tool"].endswith(" · 모델 호출"), drawn)
+        self.assertTrue(drawn["execution.permissions"].endswith(" · 권한 요청"), drawn)
+        self.assertTrue(drawn["action.start"].endswith(" · 파일 변경 · 모델 호출"), drawn)
 
     def test_a_collection_nothing_of_which_resolves_is_missing_and_names_it(self):
         # Read as composition reads an entry: a source or revision not held, a declared member

@@ -519,6 +519,18 @@ class Selections(Composing):
 
 
 class Bodies(Composing):
+    def test_unheld_names_the_members_a_pin_selects_whose_bytes_are_not_held(self):
+        me = self.person.scope
+        _, held = self.authored(me, {"a.md": NOTE})
+        _, bare = self.authored(me, {"a.md": NOTE, "b.md": RELEASE}, held=False)
+        store = self.bench.store()
+        root = store.path.parent
+        self.assertEqual(preparation.unheld(root, held, store.get(held)), [])
+        self.assertEqual(sorted(preparation.unheld(root, bare, store.get(bare))),
+                         ["a.md", "b.md"])
+        self.assertEqual(preparation.unheld(root, bare, store.get(bare), [
+            {"member": "b.md"}, {"member": "absent.md"}]), ["b.md"])
+
     def winner(self, prepared: dict) -> dict:
         return next(u for u in prepared["units"] if u["standing"] == "winning")
 

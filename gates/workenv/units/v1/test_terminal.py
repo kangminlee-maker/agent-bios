@@ -73,13 +73,21 @@ class Reading(unittest.TestCase):
         self.assertEqual(fed(b"\x01\x02\x05q"), [{"input": "text", "text": "q"}])
 
 
-def frame(*elements: dict, columns: int = 20, rows: int = 24) -> dict:
+def frame(*elements: dict, columns: int = 20, rows: int = 24, locale: str = "ko") -> dict:
     found = [{"marks": [], "shown": "whole", "role": "action", **element}
              for element in elements]
-    return {"terminal": {"columns": columns, "rows": rows}, "elements": found}
+    return {"terminal": {"columns": columns, "rows": rows}, "locale": locale,
+            "elements": found}
 
 
 class Drawing(unittest.TestCase):
+    def test_an_element_s_effects_are_drawn_on_its_line_in_the_frame_s_words(self):
+        start = {"label": "시작", "effects": ["file_changes", "model_calls"]}
+        self.assertEqual(terminal.lines(frame(start, columns=40)),
+                         ["  시작 · 파일 변경 · 모델 호출"])
+        self.assertEqual(terminal.lines(frame(start, columns=40, locale="en")),
+                         ["  시작 · file changes · model calls"])
+
     def test_each_element_is_one_line_after_the_gutter_with_its_marks(self):
         self.assertEqual(terminal.lines(frame({"label": "시작", "marks": ["›", "[x]"]})),
                          ["  › [x] 시작"])
@@ -108,12 +116,16 @@ class Drawing(unittest.TestCase):
         self.assertEqual(drawn, ["  a", "  c", "  " + "x" * 18])
 
     def test_what_the_model_measures_whole_is_drawn_whole_and_clipped_is_cut(self):
-        elements = [{"element_id": str(width), "role": "action", "label": "가" * width,
-                     "marks": ["›"]} for width in range(5, 12)]
-        tui.Entry.fit(types.SimpleNamespace(terminal={"columns": 20, "rows": 24}), elements)
+        # The model measures the line the terminal draws, effects included.
+        elements = [{"element_id": f"{width}{effects}", "role": "action", "label": "가" * width,
+                     "marks": ["›"], **({"effects": ["model_calls"]} if effects else {})}
+                    for width in range(1, 12) for effects in (False, True)]
+        tui.Entry.fit(types.SimpleNamespace(terminal={"columns": 20, "rows": 24}, locale="ko"),
+                      elements)
         for element, line in zip(elements, terminal.lines(
-                {"terminal": {"columns": 20, "rows": 24}, "elements": elements}), strict=True):
-            whole = "  › " + element["label"]
+                {"terminal": {"columns": 20, "rows": 40}, "locale": "ko", "elements": elements}),
+                strict=True):
+            whole = "  › " + element["label"] + (" · 모델 호출" if "effects" in element else "")
             with self.subTest(shown=element["shown"], width=len(element["label"])):
                 self.assertEqual(line == whole, element["shown"] == "whole")
                 self.assertTrue(whole.startswith(line))

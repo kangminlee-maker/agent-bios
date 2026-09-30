@@ -73,8 +73,8 @@ PRESETS = "agent-launch --presets HOST opens the preset menu instead."
 # What each state of a position means, for a person to read.
 STATES = {"installed": "installed", "not_checked": "held; its bodies are read for a task",
           "checked_empty": "none", "configured": "registered, with no accepted revision",
-          "partial": "some selected sources do not resolve",
-          "missing": "no selected source resolves"}
+          "partial": "some of what is selected is not usable here",
+          "missing": "nothing selected is usable here"}
 
 
 class CommandError(Exception):
@@ -226,21 +226,29 @@ def profile(owner: Owner, out) -> int:
 
 def held_at(store: storage.Store, scope: dict, role: str) -> tuple[str | None, list[tuple]]:
     """The collection held at a position, and its sources switched on; or, with none, the
-    sources held there: each with its revision, its member paths, and the gap codes it states
-    where it does not resolve, read as composition reads it (`preparation.resolved`)."""
+    sources held there: each with its revision, its member paths, the gap codes it states where
+    it does not resolve, read as composition reads it (`preparation.resolved`), and the
+    Instructions members whose bodies are not held (`preparation.unheld`)."""
     collection_id = preparation.held_collection(store, scope, role)
     if collection_id is not None:
         collection = store.get(journal.head_of(store, collection_id))
         entries = [entry for entry in collection["entries"] if entry["switch"] == "on"] \
             if collection["switch"] == "on" else []
         found = [(entry["source_id"], entry.get("pin", {}).get("revision_digest"),
-                  preparation.resolved(store, entry, role)[0]) for entry in entries]
+                  preparation.resolved(store, entry, role)[0], entry.get("units"))
+                 for entry in entries]
     else:
-        found = [(source, revision, []) for source, revision in store.read(
+        found = [(source, revision, [], None) for source, revision in store.read(
             "SELECT source_id, revision_digest FROM sources WHERE scope = ? AND role = ? "
             "ORDER BY rowid", (journal.scope_key(scope), role))]
-    return collection_id, [(source, revision, tui.revision_names(store, revision), codes)
-                           for source, revision, codes in found]
+
+    def lacking(revision: str | None, codes: list[str], declared) -> list[str]:
+        manifest = store.get(revision) if revision and not codes else None
+        return preparation.unheld(store.path.parent, revision, manifest, declared) \
+            if role == preparation.INSTRUCTIONS and isinstance(manifest, dict) else []
+    return collection_id, [(source, revision, tui.revision_names(store, revision), codes,
+                            lacking(revision, codes, declared))
+                           for source, revision, codes, declared in found]
 
 
 def sources(owner: Owner | None, out) -> int:
@@ -254,12 +262,14 @@ def sources(owner: Owner | None, out) -> int:
             collection_id, found = held_at(owner.store, scope, role)
             where = f" (collection {collection_id})" if collection_id else ""
             out(f"  {scope['layer']} {role}{where}: {STATES[position.state]}")
-            for source, revision, names, codes in found:
+            for source, revision, names, codes, lacking in found:
                 accepted = f"revision {revision[:12]}" if revision else "no accepted revision"
                 line = f"    {source} {accepted}" + (f": {', '.join(names)}" if names else "")
                 if codes:
                     line += ("; " if names else ": ") + \
                         f"does not resolve here ({', '.join(dict.fromkeys(codes))})"
+                if lacking:
+                    line += f"; body not held here: {', '.join(lacking)}"
                 out(line)
     return 0
 

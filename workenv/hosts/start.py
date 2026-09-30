@@ -13,8 +13,10 @@ itself hands it over too, and the person's choice to skip the host's confirmatio
      and its guide, then each delivered body, read from its revision's bundle, under a header
      naming its layer, its role and its member and a line naming its source and its digest, then
      the material gaps that concern its Instructions (`roles.material`), each named by where it
-     is, a collection's with the selected sources that do not resolve there, and what it means.
-     A selected source that did not resolve does not stop the start: the
+     is, a collection's with the selected sources that do not resolve there, and what it means,
+     and each Instructions unit it would deliver whose body is not held (`unheld`), which gates
+     nothing (C07) and is named so its absence does not read as nothing selected
+     (`D-20260930-38bbad`). A selected source that did not resolve does not stop the start: the
      session is told (`D-20260930-76d550`). Nothing in the environment is particular to one
      preparation, a unit id least of all, so a composition of the same request renders the same
      bytes.
@@ -171,6 +173,16 @@ def delivered(prepared: dict) -> list[dict]:
             and unit["standing"] in delivery.DELIVERED_STANDINGS]
 
 
+def unheld(prepared: dict) -> list[dict]:
+    """The preparation's Instructions units whose standing would deliver them but that name no
+    body and state no material gap: a layered unit whose body is not held, which gates nothing."""
+    gapped = {gap.get("pointer") for gap in prepared["material_gaps"]}
+    return [unit for index, unit in enumerate(prepared["units"])
+            if unit["role"] == roles.INSTRUCTIONS and "body_digest" not in unit
+            and unit["standing"] in delivery.DELIVERED_STANDINGS
+            and f"/units/{index}" not in gapped]
+
+
 def body(state: pathlib.Path, unit: dict) -> bytes:
     """A delivered unit's body, from the revision's bundle."""
     return (storage.bundle(state, unit["revision_digest"]) / storage.MEMBERS /
@@ -199,12 +211,14 @@ def bodies_text(units: list[dict], data: list[bytes]) -> str:
     return "\n".join(parts)
 
 
-def gaps_text(store: storage.Store, prepared: dict, gaps: list[dict]) -> str:
+def gaps_text(store: storage.Store, prepared: dict, gaps: list[dict],
+              lacking: list[dict] = ()) -> str:
     """The material gaps that concern the Instructions, each named by where it is and what its
-    code means, or nothing where there are none. A collection's is named with each source it
-    selects that states that code, read as composition reads it (`preparation.resolved`) from
-    the collection the preparation names, with the revision it pins; a line is written once."""
-    if not gaps:
+    code means, then the units whose bodies are not held (`unheld`), or nothing where there are
+    none. A collection's gap is named with each source it selects that states that code, read as
+    composition reads it (`preparation.resolved`) from the collection the preparation names,
+    with the revision it pins; a line is written once."""
+    if not gaps and not lacking:
         return ""
     meanings = errors.table()
     lines = []
@@ -227,6 +241,10 @@ def gaps_text(store: storage.Store, prepared: dict, gaps: list[dict]) -> str:
         line = f"- {where}: `{gap['code']}`, {meanings[gap['code']]['meaning']}."
         if line not in lines:
             lines.append(line)
+    for unit in lacking:
+        lines.append(f"- The {unit['layer']} {unit['role']} member {unit['member']}, source "
+                     f"{unit['source_id']} at revision {unit['revision_digest'][:12]}: its body "
+                     "is not held here, so this environment does not hold it.")
     return ("## Missing from this environment\n\nThis environment was asked to hold something it "
             "does not:\n\n" + "\n".join(lines) + "\n")
 
@@ -245,7 +263,7 @@ def environment(state: pathlib.Path, prepared: dict) -> str:
     """The environment one preparation renders: what a start hands a session at launch, and
     what the hook renders again from its own composition before it records a delivery."""
     store, units = storage.of(state), delivered(prepared)
-    gaps = gaps_text(store, prepared, roles.material(store, prepared))
+    gaps = gaps_text(store, prepared, roles.material(store, prepared), unheld(prepared))
     return rendered(roles.usage_contract(), units, [body(state, unit) for unit in units], gaps)
 
 

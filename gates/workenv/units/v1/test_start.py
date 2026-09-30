@@ -131,6 +131,39 @@ class Starting(Hosts, Delivering):
 
 
 class Start(Starting):
+    def test_a_unit_whose_body_is_not_held_is_named_missing_once(self):
+        # A layered unit's missing body is no gap (C07), so it is named on its own line; a
+        # winning unit's is `role_body_unavailable`, named by that gap and not twice.
+        me = self.person.scope
+        plain, plain_rev = self.authored(me, {"rules/plain.md": BODY}, held=False)
+        keyed, keyed_rev = self.authored(me, {"rules/review.md": BODY}, held=False)
+        self.placed(self.collection(me, "instructions", [
+            self.entry(plain, plain_rev),
+            self.entry(keyed, keyed_rev, [unit("rules/review.md", "review")])]))
+        store = self.bench.store()
+        prepared = self.prepared(self.ask([me]))
+        self.assertEqual([unit["member"] for unit in start.unheld(prepared)], ["rules/plain.md"])
+        text = start.gaps_text(store, prepared, roles.material(store, prepared),
+                               start.unheld(prepared))
+        meaning = errors.table()[c04.ROLE_BODY_UNAVAILABLE]["meaning"]
+        self.assertEqual(text.splitlines()[4:], [
+            f"- The personal instructions member rules/review.md: "
+            f"`{c04.ROLE_BODY_UNAVAILABLE}`, {meaning}.",
+            f"- The personal instructions member rules/plain.md, source {plain} at revision "
+            f"{plain_rev[:12]}: its body is not held here, so this environment does not hold it."])
+
+    def test_a_layered_unit_whose_body_is_not_held_still_starts_and_the_session_is_told(self):
+        me = self.person.scope
+        plain, plain_rev = self.authored(me, {"rules/plain.md": BODY}, held=False)
+        self.placed(self.collection(me, "instructions", [
+            self.entry(plain, plain_rev), self.entry(*self.authored(me, {"rules/k.md": BODY}))]))
+        launch = self.launched("claude-code")
+        self.assertTrue(launch.text.endswith(
+            "\n## Missing from this environment\n\nThis environment was asked to hold something "
+            f"it does not:\n\n- The personal instructions member rules/plain.md, source {plain} "
+            f"at revision {plain_rev[:12]}: its body is not held here, so this environment does "
+            "not hold it.\n"), launch.text)
+
     def test_a_host_no_probe_qualified_a_new_session_on_is_not_started_with_it(self):
         for host in ("claude-code", "codex"):
             with self.subTest(host=host):

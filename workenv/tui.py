@@ -40,7 +40,9 @@ The grammar (design records `2026-09-28T1601--4e305e5--v1-slice5-entry-grammar-d
     there, none with an accepted revision, or a collection that includes nothing) is marked
     `[-]` and unavailable in words, and focus never lands on it. A source a collection switches
     on that does not resolve, read as composition reads it (`preparation.resolved`), is named on
-    its position, which is `partial`, or `missing` where nothing it switches on resolves.
+    its position, which is `partial`, or `missing` where nothing it switches on resolves. So is
+    an Instructions member selected there whose body is not held (`preparation.unheld`), which
+    composition delivers no body for.
   - **Focus and keys.** Focus starts on the check of an unknown start, else a link's target,
     else the first position there is something to choose at, else the first Tab stop. Tab stops
     are the check, the note, the tool (when it has alternatives), the permissions and the start.
@@ -65,8 +67,9 @@ The grammar (design records `2026-09-28T1601--4e305e5--v1-slice5-entry-grammar-d
     longer signals it.
   - **`shown`.** An element is one line of `columns - 2` cells (wide characters take two cells,
     combining marks and Hangul medial and final jamo none, and a control character two), and a
-    field's value takes up to three more lines. An element wider is `clipped`, and one starting
-    below the last row is `off_screen`.
+    field's value takes up to three more lines. The line is its marks and label, then each effect
+    it states in the locale's words (`drawn`), so an effect sits on what has it. An element wider
+    is `clipped`, and one starting below the last row is `off_screen`.
 
 The wording lives in `CATALOG`, one table for `ko`, `en` and `ja`. The conformance runner does not
 compare labels (D-20260928-380689); the unit tests hold the catalog.
@@ -126,6 +129,9 @@ CATALOG = {
         "position.unresolved": "{position} · {missing}",
         "unresolved": "쓸 수 없는 원본 {source}",
         "unresolved.more": "쓸 수 없는 원본 {source} 외 {more}개",
+        "unheld": "본문 없음 {member}", "unheld.more": "본문 없음 {member} 외 {more}개",
+        "effect.model_calls": "모델 호출", "effect.file_changes": "파일 변경",
+        "effect.permission_request": "권한 요청",
         "detail": "{position} · 원본 · {state}",
         "state.installed": "설치됨", "state.not_checked": "본문은 아직 확인하지 않음",
         "state.checked_empty": "비어 있음", "state.configured": "확정된 판 없음",
@@ -170,6 +176,9 @@ CATALOG = {
         "position.unresolved": "{position} · {missing}",
         "unresolved": "unresolved source {source}",
         "unresolved.more": "unresolved source {source} and {more} more",
+        "unheld": "body not held {member}", "unheld.more": "body not held {member} and {more} more",
+        "effect.model_calls": "model calls", "effect.file_changes": "file changes",
+        "effect.permission_request": "permission requests",
         "detail": "{position} · original · {state}",
         "state.installed": "installed", "state.not_checked": "body not checked yet",
         "state.checked_empty": "empty", "state.configured": "no accepted revision",
@@ -214,6 +223,9 @@ CATALOG = {
         "position.unresolved": "{position} · {missing}",
         "unresolved": "使えない原本 {source}",
         "unresolved.more": "使えない原本 {source} ほか{more}件",
+        "unheld": "本文なし {member}", "unheld.more": "本文なし {member} ほか{more}件",
+        "effect.model_calls": "モデル呼び出し", "effect.file_changes": "ファイル変更",
+        "effect.permission_request": "権限の確認",
         "detail": "{position} · 原本 · {state}",
         "state.installed": "インストール済み", "state.not_checked": "本文は未確認",
         "state.checked_empty": "空", "state.configured": "確定した版なし",
@@ -279,6 +291,8 @@ class Position:
     chosen: bool = False
     # The sources a collection selects here that do not resolve, as composition reads them.
     unresolved: list[str] = dataclasses.field(default_factory=list)
+    # The Instructions members selected here whose bodies are not held (`preparation.unheld`).
+    unheld: list[str] = dataclasses.field(default_factory=list)
 
     @property
     def layer(self) -> str:
@@ -344,7 +358,26 @@ def revision_names(store: storage.Store, revision: str | None) -> list[str]:
         else []
 
 
+def drawn(element: dict, locale: str) -> str:
+    """One element's line as the terminal draws it: its marks and label, then each effect it
+    states, in the locale's words, so the effect sits on the element it is an effect of."""
+    words = [CATALOG[locale][f"effect.{effect}"] for effect in element.get("effects", [])]
+    return " · ".join([" ".join(element["marks"] + [element["label"]])] + words)
+
+
 def position_of(store: storage.Store, scope: dict, role: str) -> Position:
+    def read(pinned: list[tuple[str | None, list[dict] | None]]) -> tuple[list[str], list[str]]:
+        """The member names the pins hold bodies for, and the members they lack bodies for.
+        Only Instructions bodies reach a session at its start; knowledge is read for a task."""
+        names, lacking = [], []
+        for revision, declared in pinned:
+            manifest = store.get(revision) if revision else None
+            gone = preparation.unheld(store.path.parent, revision, manifest, declared) \
+                if role == preparation.INSTRUCTIONS and isinstance(manifest, dict) else []
+            lacking += gone
+            names += [name for name in revision_names(store, revision) if name not in gone]
+        return names, lacking
+
     collection_id = preparation.held_collection(store, scope, role)
     if collection_id is not None:
         collection = store.get(journal.head_of(store, collection_id))
@@ -352,25 +385,28 @@ def position_of(store: storage.Store, scope: dict, role: str) -> Position:
             if collection["switch"] == "on" else []
         unresolved = [entry for entry in entries if preparation.resolved(store, entry, role)[0]]
         resolving = [entry for entry in entries if entry not in unresolved]
-        names = [name for entry in resolving
-                 for name in revision_names(store, entry.get("pin", {}).get("revision_digest"))]
-        state = ("checked_empty" if not entries else "missing" if not resolving
-                 else "partial" if unresolved
+        names, lacking = read([(entry.get("pin", {}).get("revision_digest"), entry.get("units"))
+                               for entry in resolving])
+        state = ("checked_empty" if not entries
+                 else "missing" if not resolving or (lacking and not names)
+                 else "partial" if unresolved or lacking
                  else "installed" if role == preparation.INSTRUCTIONS else "not_checked")
-        return Position(scope, role, state, names or [entry["source_id"] for entry in resolving],
+        return Position(scope, role, state,
+                        names or ([] if lacking else [entry["source_id"] for entry in resolving]),
                         [], True, bool(entries),
-                        unresolved=[entry["source_id"] for entry in unresolved])
+                        unresolved=[entry["source_id"] for entry in unresolved], unheld=lacking)
     held = store.read("SELECT source_id, revision_digest FROM sources WHERE scope = ? AND "
                       "role = ? ORDER BY rowid", (journal.scope_key(scope), role))
     pins = [{"source_id": source, "revision_digest": revision}
             for source, revision in held if revision]
-    names = [name for pin in pins for name in revision_names(store, pin["revision_digest"])]
+    names, lacking = read([(pin["revision_digest"], None) for pin in pins])
     if pins:
-        state = "installed" if role == preparation.INSTRUCTIONS else "not_checked"
+        state = ("missing" if lacking and not names else "partial" if lacking
+                 else "installed" if role == preparation.INSTRUCTIONS else "not_checked")
     else:
         state = "configured" if held else "checked_empty"
     return Position(scope, role, state, names, pins, False,
-                    bool(pins) and role == preparation.INSTRUCTIONS)
+                    bool(pins) and role == preparation.INSTRUCTIONS, unheld=lacking)
 
 
 def history_of(store: storage.Store, scope: dict) -> tuple[dict, str] | None:
@@ -480,10 +516,13 @@ class Entry:
             return self.text("position.empty", **values)
         if position.state == "configured":
             return self.text("position.configured", **values)
-        unresolved = position.unresolved
-        missing = self.text("unresolved.more" if len(unresolved) > 1 else "unresolved",
-                            source=unresolved[0][:12], more=len(unresolved) - 1) \
-            if unresolved else None
+        unresolved, lacking = position.unresolved, position.unheld
+        missing = " · ".join(
+            ([self.text("unresolved.more" if len(unresolved) > 1 else "unresolved",
+                        source=unresolved[0][:12], more=len(unresolved) - 1)]
+             if unresolved else []) +
+            ([self.text("unheld.more" if len(lacking) > 1 else "unheld", member=lacking[0],
+                        more=len(lacking) - 1)] if lacking else [])) or None
         if not position.names:
             return self.text("position", name=missing or "-", **values)
         held = self.text("position.more", name=position.names[0],
@@ -728,7 +767,7 @@ class Entry:
         room = max(self.terminal["columns"] - GUTTER, 1)
         row = 0
         for element in elements:
-            line = " ".join(element["marks"] + [element["label"]])
+            line = drawn(element, self.locale)
             lines = 1
             clipped = cells(line) > room
             if element["role"] == "field":

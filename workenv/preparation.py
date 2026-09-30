@@ -126,6 +126,17 @@ def resolved(store: storage.Store, entry: dict,
     return [c07.SELECTION_UNRESOLVED for unit in declared if unit["member"] not in members], found
 
 
+def unheld(state, revision: str, manifest: dict, declared: list[dict] | None = None) -> list[str]:
+    """The members a pin selects, each unit it declares or else every member of its revision,
+    whose bytes the revision's bundle does not hold as its manifest states them (`body_of`).
+    Composition gives such a unit no body, and it gates nothing unless it wins or a winner needs
+    it (C07), so the entry, `sources` and a session's environment name it instead."""
+    members = {member["path"]: member for member in manifest["members"]}
+    paths = [unit["member"] for unit in declared] if declared else list(members)
+    return [path for path in paths
+            if path in members and body_of(state, revision, members[path])[0] is None]
+
+
 # Collections.
 
 def collection_change(call) -> dict:
@@ -186,9 +197,9 @@ def layer_rank(order: list[dict], layer: str) -> int:
     return [scope["layer"] for scope in order].index(layer)
 
 
-def body_of(call, revision: str, member: dict) -> tuple[str | None, str | None]:
+def body_of(state, revision: str, member: dict) -> tuple[str | None, str | None]:
     """(the member's digest, None) where the revision's bundle holds its bytes, else (None, why)."""
-    path = storage.bundle(call.state, revision) / storage.MEMBERS / member["path"]
+    path = storage.bundle(state, revision) / storage.MEMBERS / member["path"]
     if not path.is_file():
         return None, c04.ROLE_BODY_UNAVAILABLE
     data = path.read_bytes()
@@ -332,7 +343,7 @@ class Composition:
                 self.gaps.append({"code": c07.SAME_LAYER_UNORDERED, "pointer": f"/units/{index}"})
             if unit["standing"] == "disabled":
                 continue
-            digest, why = body_of(self.call, unit["revision_digest"], held["member"])
+            digest, why = body_of(self.call.state, unit["revision_digest"], held["member"])
             if digest is not None:
                 unit["body_digest"] = digest
             elif unit["standing"] == "winning" or "needed_by" in unit:

@@ -165,6 +165,15 @@ class Profile(Commanding):
 
 
 class Sources(Commanding):
+    def test_a_selected_member_whose_body_is_not_held_is_said_to_be(self):
+        me = self.person.scope
+        bare, revision = self.authored(me, {"rules/bare.md": BODY}, held=False)
+        said = self.run_command("sources")[1].splitlines()
+        self.assertEqual(said[1:3], [
+            "  personal instructions: nothing selected is usable here",
+            f"    {bare} revision {revision[:12]}: rules/bare.md; body not held here: "
+            "rules/bare.md"])
+
     def test_nothing_is_held_before_first_use_and_nothing_is_written(self):
         (local.home(self.env) / local.ACTOR).unlink()
         self.assertEqual(self.run_command("sources"),
@@ -216,15 +225,15 @@ class Sources(Commanding):
         self.placed(collection)
         said = self.run_command("sources")[1].splitlines()
         self.assertEqual(said[1:4], [
-            f"  personal instructions (collection {collection['collection_id']}): some selected "
-            "sources do not resolve",
+            f"  personal instructions (collection {collection['collection_id']}): some of what "
+            "is selected is not usable here",
             f"    {rules} revision {revision[:12]}: rules/review.md",
             f"    {lost} revision 666666666666: does not resolve here (selection_unresolved)"])
         knowledge = self.collection(me, "knowledge", [self.entry(bench.ident("src"), "7" * 64)])
         self.placed(knowledge)
         said = self.run_command("sources")[1].splitlines()
         self.assertEqual(said[4], f"  personal knowledge (collection "
-                                  f"{knowledge['collection_id']}): no selected source resolves")
+                                  f"{knowledge['collection_id']}): nothing selected is usable here")
 
 class Prepare(Commanding):
     def test_the_suggested_start_is_composed_shown_and_nothing_is_activated(self):
