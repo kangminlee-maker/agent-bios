@@ -746,7 +746,9 @@ class Starting(Entering):
             self.assertEqual(self.marks(frame, "positions.personal.instructions")[1],
                              "suggested")
 
-    def test_a_repository_document_changed_since_admitted_is_named_before_the_start(self):
+    def authored_in_checkout(self) -> tuple[Checkout, str, str]:
+        """The repository bound from a checkout whose AGENTS.md is admitted as its
+        repository-authored Instructions: the checkout, the source and its revision."""
         checkout = Checkout(self.scratch)
         checkout.write("AGENTS.md", b"# Rules\n")
         checkout.commit()
@@ -756,8 +758,12 @@ class Starting(Entering):
         with contextlib.chdir(checkout.path):
             self.run_with(sources.repository_bind, bench.request(
                 self.person, "repository.bind", where, payload), [payload], now=INSTANT)
-            self.authored(self.repository, {"AGENTS.md": b"# Rules\n"},
-                          mode="repository_authored", held=False)
+            source, revision = self.authored(self.repository, {"AGENTS.md": b"# Rules\n"},
+                                             mode="repository_authored", held=False)
+        return checkout, source, revision
+
+    def test_a_repository_document_changed_since_admitted_is_named_before_the_start(self):
+        checkout, _, _ = self.authored_in_checkout()
         self.launcher()
         self.assertEqual(self.element(self.drive()[0], "positions.repository.instructions")
                          ["label"], "레포 지침 · AGENTS.md")
@@ -770,7 +776,8 @@ class Starting(Entering):
 
     def test_a_start_refused_because_a_repository_document_moved_is_drawn_with_next_steps(self):
         self.launcher()
-        for codes, label in ((["working_bytes_moved"], tui.CATALOG["ko"]["not_started.moved"]),
+        for codes, label in ((["working_bytes_moved"],
+                              "시작하지 못함 · 레포 문서가 등록 뒤 바뀜 · 다시 등록"),
                              ([], "시작하지 못함 · activating was refused")):
             with self.subTest(codes=codes):
                 entry = self.holding("tab", "tab", "enter")
@@ -779,6 +786,34 @@ class Starting(Entering):
         entry = self.holding("tab", "tab", "enter")
         with self.assertRaises(ValueError):
             entry.answered(entry.started, "unknown", codes=["working_bytes_moved"])
+
+    def test_the_refusal_names_space_only_where_the_changed_position_can_be_left_out(self):
+        checkout, source, revision = self.authored_in_checkout()
+        self.launcher()
+        checkout.write("AGENTS.md", b"# Rules\nedited\n")
+        refused = self.refused_now()
+        self.assertEqual(refused, tui.CATALOG["ko"]["not_started.moved"])
+        self.assertEqual(refused,
+                         "시작하지 못함 · 레포 문서가 등록 뒤 바뀜 · Space로 빼거나 다시 등록")
+        # A collection's position is its recorded choice, which Space does not change.
+        self.placed(self.collection(self.repository, "instructions",
+                                    [self.entry(source, revision)]))
+        frames = self.drive("space")
+        for frame in frames:
+            self.assertEqual(self.element(frame, "positions.repository.instructions")["label"],
+                             "레포 지침 · 등록 뒤 바뀜 AGENTS.md")
+            self.assertEqual(self.marks(frame, "positions.repository.instructions")[1],
+                             "selected")
+        self.assertEqual(self.refused_now(), "시작하지 못함 · 레포 문서가 등록 뒤 바뀜 · 다시 등록")
+
+    def refused_now(self) -> str:
+        """The start's result on an entry opened now, after the owner refused its start
+        `working_bytes_moved`."""
+        entry = self.holding()
+        entry.begin()
+        entry.answered(entry.started, "unavailable", "activating was refused",
+                       ["working_bytes_moved"])
+        return self.element(entry.frame(1), "result.start")["label"]
 
     def test_a_refused_start_opens_the_choices_and_the_start_again(self):
         me = self.person.scope

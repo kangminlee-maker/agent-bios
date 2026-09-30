@@ -348,6 +348,18 @@ class Observations(Delivering):
         self.assertEqual([u["body_digest"] for u in found[0]["observed"]["inventory"]],
                          [sha(NOTE)])
 
+    def test_the_inventory_names_no_unit_a_delivery_does_not_carry(self):
+        link, digest = self.linked()
+        rules, rules_rev = self.authored(self.person.scope, {"rules/review.md": REVIEW})
+        notes, notes_rev = self.authored(self.person.scope, {"notes/review.md": REVIEW},
+                                         role="knowledge")
+        prepared = self.prepared(self.ask([self.person.scope],
+                                          pins=[(rules, rules_rev), (notes, notes_rev)]),
+                                 recipient_digest=digest)
+        self.received(link, prepared, bodies=[sha(REVIEW)])
+        found = self.observations(prepared["preparation_id"])["returned"]
+        self.assertEqual([u["source_id"] for u in found[0]["observed"]["inventory"]], [rules])
+
     def test_a_recipient_a_delivery_was_requested_of_and_nothing_reached_is_not_observed(self):
         self.without("codex", "child")
         link, digest = self.linked("codex")

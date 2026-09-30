@@ -64,7 +64,10 @@ The grammar (design records `2026-09-28T1601--4e305e5--v1-slice5-entry-grammar-d
     the start's result, or the unknown start the check was for. An unknown outcome stays
     `unknown`, and a refusal or a failure is `unavailable`, labelled with the owner's reason;
     a start refused `working_bytes_moved` is labelled in the locale's words with its next steps,
-    leaving the repository's Instructions out, here, or admitting the document again. A
+    leaving the repository's Instructions out, here, or admitting the document again. Leaving
+    out is named only where every position showing a changed document toggles: a collection's
+    position does not, and where none shows the change the entry cannot say which to leave out,
+    so then it names admitting it again alone. A
     start pending or `unknown` holds the choices, and the start dispatches no second request for
     it; a refused one leaves them open, and the start dispatches a new request. A
     check can also find its start settled, no longer pending, at the stage it now stands at
@@ -138,6 +141,7 @@ CATALOG = {
         "unheld": "본문 없음 {member}", "unheld.more": "본문 없음 {member} 외 {more}개",
         "changed": "등록 뒤 바뀜 {member}", "changed.more": "등록 뒤 바뀜 {member} 외 {more}개",
         "not_started.moved": "시작하지 못함 · 레포 문서가 등록 뒤 바뀜 · Space로 빼거나 다시 등록",
+        "not_started.moved.admit": "시작하지 못함 · 레포 문서가 등록 뒤 바뀜 · 다시 등록",
         "effect.model_calls": "모델 호출", "effect.file_changes": "파일 변경",
         "effect.permission_request": "권한 요청",
         "detail": "{position} · 원본 · {state}",
@@ -189,6 +193,7 @@ CATALOG = {
         "changed.more": "changed since admitted {member} and {more} more",
         "not_started.moved": "Not started · repository document changed · leave it out (Space) "
                              "or re-admit",
+        "not_started.moved.admit": "Not started · repository document changed · re-admit",
         "effect.model_calls": "model calls", "effect.file_changes": "file changes",
         "effect.permission_request": "permission requests",
         "detail": "{position} · original · {state}",
@@ -238,6 +243,7 @@ CATALOG = {
         "unheld": "本文なし {member}", "unheld.more": "本文なし {member} ほか{more}件",
         "changed": "登録後に変更 {member}", "changed.more": "登録後に変更 {member} ほか{more}件",
         "not_started.moved": "開始できません · リポジトリ文書が登録後に変更 · Spaceで外すか再登録",
+        "not_started.moved.admit": "開始できません · リポジトリ文書が登録後に変更 · 再登録",
         "effect.model_calls": "モデル呼び出し", "effect.file_changes": "ファイル変更",
         "effect.permission_request": "権限の確認",
         "detail": "{position} · 原本 · {state}",
@@ -729,8 +735,12 @@ class Entry:
         found.append(self.help())
         if self.started:
             moved = c07.WORKING_BYTES_MOVED in self.refusals.get(self.started, [])
+            # Space is named only where every position showing a change can be left out here.
+            changed = [position for position in self.positions if position.changed]
+            leave = bool(changed) and all(position.toggles for position in changed)
             found.append(self.element("result.start", "result", self.text(
-                "not_started.moved") if answer and moved else self.text(
+                "not_started.moved" if leave else "not_started.moved.admit")
+                if answer and moved else self.text(
                 "not_started", reason=answer[1]) if answer and answer[1] else self.text("started"),
                 state=answer[0] if answer else "pending",
                 refers_to={"ref": "request", "request_id": self.started}))

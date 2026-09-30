@@ -172,9 +172,7 @@ def reason(answer: dict) -> str:
 def delivered(prepared: dict) -> list[dict]:
     """The preparation's units whose bodies reach a session: its winning and layered
     Instructions units that name a body."""
-    return [unit for unit in prepared["units"]
-            if unit["role"] == roles.INSTRUCTIONS and "body_digest" in unit
-            and unit["standing"] in delivery.DELIVERED_STANDINGS]
+    return [unit for unit in prepared["units"] if delivery.carried(unit)]
 
 
 def unheld(prepared: dict) -> list[dict]:

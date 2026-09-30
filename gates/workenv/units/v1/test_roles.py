@@ -351,6 +351,38 @@ class Recorded(Activating):
         self.assertEqual([u["body_digest"] for u in found["observed"]["inventory"]],
                          [sha(REVIEW)])
 
+    def test_a_unit_no_delivery_carries_is_not_received_although_its_body_is_the_same(self):
+        _, digest = self.linked()
+        rules, rules_rev = self.authored(self.person.scope, {"rules/review.md": REVIEW})
+        notes, notes_rev = self.authored(self.person.scope, {"notes/review.md": REVIEW},
+                                         role="knowledge")
+        prepared = self.prepared(self.ask([self.person.scope],
+                                          pins=[(rules, rules_rev), (notes, notes_rev)]),
+                                 recipient_digest=digest)
+        self.assertEqual(sorted(u["role"] for u in prepared["units"]
+                                if u.get("body_digest") == sha(REVIEW)),
+                         ["instructions", "knowledge"])
+        self.activated(prepared)
+        (found,) = self.observations(prepared["preparation_id"])["returned"]
+        self.assertEqual([u["source_id"] for u in found["observed"]["inventory"]], [rules])
+
+    def test_a_shadowed_unit_is_not_received_although_its_body_is_the_winner_s(self):
+        _, digest = self.linked()
+        mine, mine_rev = self.authored(self.person.scope, {"rules/review.md": REVIEW})
+        team, team_rev = self.authored(self.team, {"rules/review.md": REVIEW})
+        self.placed(self.collection(self.person.scope, "instructions", [self.entry(
+            mine, mine_rev, [unit("rules/review.md", "review")])]))
+        self.placed(self.collection(self.team, "instructions", [self.entry(
+            team, team_rev, [unit("rules/review.md", "review")])]))
+        prepared = self.prepared(self.ask([self.person.scope, self.team]),
+                                 recipient_digest=digest)
+        shadowed = [u for u in prepared["units"] if u["source_id"] == team]
+        self.assertEqual([(u["standing"], u.get("body_digest")) for u in shadowed],
+                         [("shadowed", sha(REVIEW))])
+        self.activated(prepared)
+        (found,) = self.observations(prepared["preparation_id"])["returned"]
+        self.assertEqual([u["source_id"] for u in found["observed"]["inventory"]], [mine])
+
     def test_a_preparation_composed_for_no_link_is_activated_and_observed_for_nobody(self):
         prepared = self.for_link(None)
         self.assertEqual(self.activated(prepared)["returned"][-1], REVIEW)

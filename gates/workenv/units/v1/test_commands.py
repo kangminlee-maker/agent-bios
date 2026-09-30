@@ -426,8 +426,7 @@ class Start(Commanding):
             self.run_command("start", "claude-code", "--locale", "ko", screen=screen)
         result = self.element_of(screen, "result.start")
         self.assertEqual((result["state"], result["label"]),
-                         ("unavailable",
-                          "시작하지 못함 · 레포 문서가 등록 뒤 바뀜 · Space로 빼거나 다시 등록"))
+                         ("unavailable", "시작하지 못함 · 레포 문서가 등록 뒤 바뀜 · 다시 등록"))
 
     def test_after_a_refused_start_the_same_entry_starts_again(self):
         self.qualified("claude-code")

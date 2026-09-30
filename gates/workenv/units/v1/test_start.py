@@ -354,6 +354,16 @@ class Start(Starting):
         self.assertIsNone(start.settle(self.bench.state, launch.activation))
         self.assertEqual([stage for _, stage in self.activations()], ["unknown"])
 
+    def test_only_the_bodies_a_delivery_carries_are_handed_over(self):
+        me = self.person.scope
+        rules, revision = self.authored(me, {"rules/review.md": BODY})
+        notes, noted = self.authored(me, {"notes/release.md": OTHER}, role="knowledge")
+        self.request = self.ask([me], pins=[(rules, revision), (notes, noted)])
+        launch = self.launched("claude-code")
+        self.assertEqual(self.job(launch)["bodies"], [hashlib.sha256(BODY).hexdigest()])
+        self.assertIn(BODY.decode(), launch.text)
+        self.assertNotIn(OTHER.decode(), launch.text)
+
     def test_a_body_that_is_not_the_one_its_unit_names_is_not_handed_over(self):
         unit = {"unit_id": "u", "source_id": "s", "body_digest": canonical.digest_of({}),
                 "layer": "personal", "role": "instructions"}

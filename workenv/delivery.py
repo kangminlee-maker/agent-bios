@@ -46,7 +46,10 @@ a child.
 was requested of, in the order each was first requested. A recipient anything reached names
 what it saw (`delivered`, or `activated` where the session was activated with it), the evidence,
 and the inventory of the units whose bodies arrived, from those deliveries alone: an attempt
-refused later changes none of it. A recipient nothing reached is `not_observed` with
+refused later changes none of it. A unit arrived when a delivery carries it (`carried`: an
+Instructions unit of a delivered standing that names a body) and its body is among those handed
+over, so a unit a delivery never carries is not listed although another unit's body is the same
+bytes. A recipient nothing reached is `not_observed` with
 `delivery_unobserved`, and a child is named only by what reached it. It reads what the attempts
 and activations recorded and keeps each observation it answers, privately
 (`private_state_written`); observing again gives the same observation and writes nothing, and a
@@ -57,6 +60,7 @@ from __future__ import annotations
 
 from workenv import hosts, journal, storage
 from workenv.contracts import c01, c02, c03, c06, c07, c11, c12, canonical
+from workenv.preparation import INSTRUCTIONS
 
 HOST_SESSION, CHILD_SESSION = "host_session", "child_session"
 # What a recorded delivery saw: its bodies arrived, the session was activated with them, or it
@@ -65,6 +69,13 @@ DELIVERED, ACTIVATED, UNSEEN = "delivered", "activated", "unseen"
 KEPT = "private_state_written"
 # The standings whose bodies a projection delivers.
 DELIVERED_STANDINGS = ("winning", "layered")
+
+
+def carried(unit: dict) -> bool:
+    """Whether a delivery carries the prepared unit's body: an Instructions unit of a delivered
+    standing that names one. Any other unit's body is read only for a task."""
+    return unit["role"] == INSTRUCTIONS and \
+        unit["standing"] in DELIVERED_STANDINGS and "body_digest" in unit
 
 
 def refused(call, code: str, pointer: str | None = None) -> dict:
@@ -215,7 +226,8 @@ def observations(store: storage.Store, preparation: dict) -> list[dict]:
         inventory = [{"unit_id": unit["unit_id"], "source_id": unit["source_id"],
                       "revision_digest": unit["revision_digest"],
                       "body_digest": unit["body_digest"]}
-                     for unit in preparation["units"] if unit.get("body_digest") in received]
+                     for unit in preparation["units"]
+                     if carried(unit) and unit["body_digest"] in received]
         found.append({
             "kind": "delivery_observation", "schema": 1,
             "preparation_id": preparation["preparation_id"],
