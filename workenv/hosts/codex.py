@@ -30,6 +30,11 @@ cannot start a child. The hooks are per-run `-c hooks.<event>` values. Codex run
 that way only once the person has reviewed and trusted it in `/hooks`, by its place (event, group
 and handler) and a hash of it; the probe never trusts one for them, and the configuration it
 records says, for every hook Codex lists (the person's own included), whether Codex would run it.
+
+A turn Codex gives up on ends with an `error` notification it will not retry and a
+`turn/completed` whose turn `failed`, each carrying its message; where the provider refused, the
+message is the provider's JSON error (measured on 0.158.0 on 2026-09-30, a configured model the
+account is not offered). A probe whose turn said nothing keeps that reason in what it observed.
 """
 from __future__ import annotations
 
@@ -94,6 +99,20 @@ def role(path: pathlib.Path, description: str | None = None) -> Kind:
                 settings={key: item for key, item in fields.items() if key not in OWN})
 
 
+def reason(error) -> str:
+    """Codex's words for an error, or the provider's own where Codex passes on its JSON."""
+    said = error.get("message") if isinstance(error, dict) else None
+    if not isinstance(said, str):
+        return "no reason given"
+    try:
+        passed = json.loads(said)
+    except ValueError:
+        return said
+    inner = passed.get("error") if isinstance(passed, dict) else None
+    return inner["message"] if isinstance(inner, dict) and isinstance(inner.get("message"), str) \
+        else said
+
+
 class Server:
     """Codex's app server over standard input and output, for the length of one probe."""
 
@@ -106,6 +125,8 @@ class Server:
         self.messages: queue.Queue = queue.Queue()
         self.deadline = time.monotonic() + timeout
         self.asked, self.said = 0, []
+        # What Codex last said failed a turn, in its own words, where it gave up on it.
+        self.failed: str | None = None
         threading.Thread(target=self.read, daemon=True).start()
 
     def read(self) -> None:
@@ -125,8 +146,9 @@ class Server:
         return True
 
     def until(self, wanted) -> dict | None:
-        """The first message `wanted` accepts, keeping the agent's messages seen on the way, or
-        None where the server closed or the probe's time ran out."""
+        """The first message `wanted` accepts, keeping the agent's messages seen on the way and
+        the reason Codex gave for a turn it gave up on, or None where the server closed or the
+        probe's time ran out."""
         while (left := self.deadline - time.monotonic()) > 0:
             try:
                 message = self.messages.get(timeout=left)
@@ -139,9 +161,15 @@ class Server:
                 self.send({"id": message["id"], "error": {"code": -32601,
                                                           "message": "not granted"}})
                 continue
-            item = message.get("params", {}).get("item", {})
+            params = message.get("params", {})
+            item = params.get("item", {})
             if message.get("method") == "item/completed" and item.get("type") == "agentMessage":
                 self.said.append(item.get("text", ""))
+            if message.get("method") == "error" and not params.get("willRetry"):
+                self.failed = reason(params.get("error"))
+            if message.get("method") == "turn/completed" and \
+                    params.get("turn", {}).get("status") == "failed":
+                self.failed = reason(params["turn"].get("error"))
             if wanted(message):
                 return message
         return None
@@ -252,14 +280,19 @@ def drive(recipient: str, executable: str, command: str, given: list[str],
             return probes.Run(None, hooks, " ".join(filter(None, (
                 "Codex did not start a conversation.", note))))
         thread = opened["thread"]["id"]
+
+        def failed() -> str:
+            return f"Codex ended the turn with an error: {server.failed}" if server.failed else ""
         if recipient == "rehydrated" and (
                 server.turn(thread, "Reply OK.") is None or
                 server.call("thread/compact/start", {"threadId": thread}) is None or
                 server.until(lambda message: message.get("method") == "turn/completed") is None):
             return probes.Run(None, hooks, " ".join(filter(None, (
-                "Before the question: Codex did not compact the conversation.", note))))
+                "Before the question: Codex did not compact the conversation.", failed(),
+                note))))
         said = server.turn(thread, probes.ASK_CHILD if recipient == "child" else probes.ASK)
-        return probes.Run("\n".join(said) if said else None, hooks, note)
+        return probes.Run("\n".join(said) if said else None, hooks,
+                          " ".join(filter(None, ("" if said else failed(), note))))
     finally:
         server.close()
 

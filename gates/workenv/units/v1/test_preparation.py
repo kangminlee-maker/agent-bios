@@ -439,6 +439,28 @@ class Selections(Composing):
         self.assertEqual(self.standing(prepared),
                          [(other, "rules/other.md", "repository", "winning")])
 
+    def test_one_reading_says_what_an_entry_resolves_to_and_composition_follows_it(self):
+        held, held_rev = self.authored(self.person.scope, {"rules/review.md": REVIEW})
+        known, known_rev = self.authored(self.person.scope, {"k.md": NOTE}, "knowledge")
+        notes, _ = self.authored(self.person.scope, {"notes.jsonl": NOTE}, "memory")
+        unresolved, refused = [c07.SELECTION_UNRESOLVED], [c04.ROLE_PROMOTION_REFUSED]
+        rows = [
+            ("instructions", self.entry(held, held_rev), [], True),
+            ("instructions", self.entry(held, "2" * 64), unresolved, False),
+            ("instructions", self.entry(bench.ident("src"), held_rev), unresolved, False),
+            ("instructions", self.entry(held, held_rev, [unit("rules/absent.md")]), unresolved,
+             True),
+            ("instructions", self.entry(known, known_rev), refused, False),
+            ("knowledge", self.entry(held, held_rev), unresolved, False),
+            ("memory", self.entry(notes, None), [], False),
+            ("memory", self.entry(bench.ident("src"), None), unresolved, False),
+            ("memory", self.entry(bench.ident("src"), None, switch="off"), [], False)]
+        store = self.bench.store()
+        for role, entry, codes, found in rows:
+            with self.subTest(role=role, entry=entry):
+                said, manifest = preparation.resolved(store, entry, role)
+                self.assertEqual((said, manifest is not None), (codes, found))
+
     def test_an_entry_applies_in_its_positions_layer_whoever_owns_its_source(self):
         team, team_rev = self.authored(self.team, {"rules/review.md": REVIEW})
         self.placed(self.collection(self.repository_scope, "instructions", [self.entry(

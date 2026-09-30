@@ -192,6 +192,32 @@ class Probing(Hosts):
         found, _ = self.probe("codex", "new", FAKE_HOST_MODE="noend")
         self.assertEqual(found["outcome"], "no_response")
 
+    def test_a_codex_turn_given_up_keeps_codex_s_own_reason(self):
+        # As Codex 0.158.0 did on 2026-09-30 for a configured model the account is not offered:
+        # the provider's message, unwrapped from the JSON Codex passes on.
+        said = ("Codex ended the turn with an error: The 'gpt-6.1-sol' model is not supported "
+                "when using Codex with a ChatGPT account.")
+        for mode in ("refuse", "refusenoend", "refusequiet"):
+            for recipient in ("new", "rehydrated"):
+                with self.subTest(mode=mode, recipient=recipient):
+                    found, _ = self.probe("codex", recipient, FAKE_HOST_MODE=mode)
+                    self.assertEqual(found["outcome"], "no_response")
+                    self.assertIn(said, found["observed"])
+
+    def test_an_error_codex_retries_or_a_turn_it_answered_after_is_not_its_reason(self):
+        found, _ = self.probe("codex", "new", FAKE_HOST_MODE="retrysilent")
+        self.assertEqual(found["outcome"], "no_response")
+        self.assertNotIn("error", found["observed"])
+        # A rehydrated session's first turn given up, and the question after it answered.
+        found, _ = self.probe("codex", "rehydrated", FAKE_HOST_MODE="refusefirst")
+        self.assertEqual(found["outcome"], "worked")
+        self.assertNotIn("error", found["observed"])
+
+    def test_codex_s_reason_is_its_own_words_where_it_passes_on_no_provider_error(self):
+        self.assertEqual(codex.reason({"message": "stream disconnected"}), "stream disconnected")
+        self.assertEqual(codex.reason({"message": '{"detail": "x"}'}), '{"detail": "x"}')
+        self.assertEqual(codex.reason(None), "no reason given")
+
     def test_codex_starting_no_conversation_did_not_respond_and_asked_nothing(self):
         found, _ = self.probe("codex", "new", FAKE_HOST_MODE="nothread")
         self.assertEqual(found["outcome"], "no_response")

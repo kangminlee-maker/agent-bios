@@ -93,6 +93,39 @@ def held_collection(store: storage.Store, scope: dict, role: str) -> str | None:
     return found[0][0] if found else None
 
 
+def revision_of(store: storage.Store, source_id: str,
+                revision: str | None) -> tuple[dict, dict] | None:
+    """A source this installation holds and the manifest of its revision, or None."""
+    source = homes.source_of(store, source_id)
+    if source is None or revision is None or not store.read(
+            "SELECT 1 FROM revisions WHERE revision_digest = ? AND source_id = ?",
+            (revision, source_id)):
+        return None
+    return source, store.get(revision)
+
+
+def resolved(store: storage.Store, entry: dict,
+             role: str) -> tuple[list[str], tuple[dict, dict] | None]:
+    """What one collection entry resolves to here, the one reading of it: the gap codes it states
+    at its position, and the source and manifest of the revision it pins where one is held.
+    Composition composes from it, and the entry, `sources` and a session's environment show from
+    it which selected source does not resolve."""
+    held = homes.source_of(store, entry["source_id"])
+    if held is not None and held["role"] != role:
+        return [c04.ROLE_PROMOTION_REFUSED if role == INSTRUCTIONS
+                else c07.SELECTION_UNRESOLVED], None
+    if role == MEMORY:
+        if entry["switch"] == "on" and journal.head_of(store, entry["source_id"]) is None:
+            return [c07.SELECTION_UNRESOLVED], None
+        return [], None
+    found = revision_of(store, entry["source_id"], entry["pin"].get("revision_digest"))
+    if found is None:
+        return [c07.SELECTION_UNRESOLVED], None
+    members = {member["path"] for member in found[1]["members"]}
+    declared = entry.get("units") or [{"member": path} for path in members]
+    return [c07.SELECTION_UNRESOLVED for unit in declared if unit["member"] not in members], found
+
+
 # Collections.
 
 def collection_change(call) -> dict:
@@ -177,14 +210,6 @@ class Composition:
     def unresolved(self, where: str) -> None:
         self.gaps.append({"code": c07.SELECTION_UNRESOLVED, "pointer": where})
 
-    def revision_of(self, source_id: str, revision: str | None) -> tuple[dict, dict] | None:
-        source = homes.source_of(self.store, source_id)
-        if source is None or revision is None or not self.store.read(
-                "SELECT 1 FROM revisions WHERE revision_digest = ? AND source_id = ?",
-                (revision, source_id)):
-            return None
-        return source, self.store.get(revision)
-
     def frontier(self, source_id: str, where: str) -> None:
         head = journal.head_of(self.store, source_id)
         if head is None:
@@ -213,31 +238,19 @@ class Composition:
                            "needs": declared.get("needs", [])})
 
     def entry(self, entry: dict, scope: dict, role: str, where: str) -> None:
-        held = homes.source_of(self.store, entry["source_id"])
-        if held is not None and held["role"] != role:
-            code = c04.ROLE_PROMOTION_REFUSED if role == INSTRUCTIONS else \
-                c07.SELECTION_UNRESOLVED
-            self.gaps.append({"code": code, "pointer": where})
-            return
-        if role == MEMORY:
-            if entry["switch"] == "on":
-                self.frontier(entry["source_id"], where)
-            return
-        pin = entry["pin"]
-        found = self.revision_of(entry["source_id"], pin.get("revision_digest"))
+        codes, found = resolved(self.store, entry, role)
+        self.gaps += [{"code": code, "pointer": where} for code in codes]
+        if role == MEMORY and not codes and entry["switch"] == "on":
+            self.frontier(entry["source_id"], where)
         if found is None:
-            self.unresolved(where)
             return
         source, manifest = found
         members = {member["path"]: member for member in manifest["members"]}
-        declared = entry.get("units") or [{"member": path} for path in members]
-        for unit in declared:
-            if unit["member"] not in members:
-                self.unresolved(where)
-                continue
-            self.unit(source, pin["revision_digest"], members[unit["member"]],
-                      unit if "units" in entry else None, entry["switch"],
-                      entry.get("precedence"), scope["layer"])
+        for unit in entry.get("units") or [{"member": path} for path in members]:
+            if unit["member"] in members:
+                self.unit(source, entry["pin"]["revision_digest"], members[unit["member"]],
+                          unit if "units" in entry else None, entry["switch"],
+                          entry.get("precedence"), scope["layer"])
 
     def position(self, scope: dict, role: str) -> None:
         collection_id = held_collection(self.store, scope, role)
@@ -365,7 +378,7 @@ def preparation_compose(call) -> dict:
     composition = Composition(call, store, order)
     pins = []
     for index, pin in enumerate(basis["source_pins"]):
-        found = composition.revision_of(pin["source_id"], pin["revision_digest"])
+        found = revision_of(store, pin["source_id"], pin["revision_digest"])
         if found is None:
             return refused(call, c01.REF_UNAVAILABLE, f"/basis/source_pins/{index}")
         pins.append((pin, *found))

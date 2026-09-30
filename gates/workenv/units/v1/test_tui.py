@@ -8,6 +8,7 @@ import string
 import unittest
 
 import bench
+from test_preparation import unit
 from test_routes import HISTORY, LATER, Routing, commits
 from test_sources import INSTANT, ORIGIN, Checkout, gaps, home
 
@@ -47,7 +48,8 @@ class Catalog(unittest.TestCase):
     def test_a_label_that_carries_no_held_name_fits_one_line_of_80_columns(self):
         room = 80 - tui.GUTTER
         named = {"location.repository", "location.team", "checkpoint", "position",
-                 "position.more", "detail", "not_started", "not_checked"}
+                 "position.more", "position.unresolved", "unresolved", "unresolved.more",
+                 "detail", "not_started", "not_checked"}
         for locale, table in tui.CATALOG.items():
             fill = {"layer": longest(table, "layer."), "role": longest(table, "role."),
                     "action": longest(table, "action."),
@@ -314,6 +316,42 @@ class Selecting(Entering):
             self.assertEqual(self.focus(frame), "positions.personal.instructions")
         self.assertEqual(self.element(frames[0], "positions.personal.instructions")["marks"],
                          ["›", "[x]"])
+
+    def test_a_collection_names_what_it_selects_that_does_not_resolve(self):
+        me = self.person.scope
+        self.launcher(scope=me)
+        source, revision = self.authored(me, RULES)
+        lost = bench.ident("src")
+        self.placed(self.collection(me, "instructions", [self.entry(source, revision),
+                                                          self.entry(lost, "6" * 64)]))
+        frames = self.drive("enter")
+        state, selection, marks = self.marks(frames[0], "positions.personal.instructions")
+        self.assertEqual((state, selection, marks), ("partial", "selected", ["›", "[x]"]))
+        self.assertEqual(self.element(frames[0], "positions.personal.instructions")["label"],
+                         f"개인 지침 · AGENTS.md · 쓸 수 없는 원본 {lost[:12]}")
+        self.assertEqual(self.element(frames[1], "detail.personal.instructions")["label"],
+                         f"개인 지침 · AGENTS.md · 쓸 수 없는 원본 {lost[:12]} · 원본 · "
+                         "일부 원본을 쓸 수 없음")
+        english = self.drive(locale="en")[0]
+        self.assertEqual(self.element(english, "positions.personal.instructions")["label"],
+                         f"Personal Instructions · AGENTS.md · unresolved source {lost[:12]}")
+
+    def test_a_collection_nothing_of_which_resolves_is_missing_and_names_it(self):
+        # Read as composition reads an entry: a source or revision not held, a declared member
+        # its revision lacks, and a source of another role all fail to resolve.
+        me = self.person.scope
+        self.launcher(scope=me)
+        source, revision = self.authored(me, RULES)
+        notes, noted = self.authored(me, NOTES, role="knowledge")
+        lost = bench.ident("src")
+        self.placed(self.collection(me, "instructions", [
+            self.entry(lost, "6" * 64), self.entry(source, revision, [unit("absent.md")]),
+            self.entry(notes, noted)]))
+        frame = self.drive()[0]
+        self.assertEqual(self.marks(frame, "positions.personal.instructions"),
+                         ("missing", "selected", ["›", "[x]"]))
+        self.assertEqual(self.element(frame, "positions.personal.instructions")["label"],
+                         f"개인 지침 · 쓸 수 없는 원본 {lost[:12]} 외 2개")
 
     def test_a_source_registered_with_no_accepted_revision_is_configured(self):
         me = self.person.scope

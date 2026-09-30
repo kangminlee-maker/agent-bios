@@ -13,7 +13,8 @@ itself hands it over too, and the person's choice to skip the host's confirmatio
      and its guide, then each delivered body, read from its revision's bundle, under a header
      naming its layer, its role and its member and a line naming its source and its digest, then
      the material gaps that concern its Instructions (`roles.material`), each named by where it
-     is and what it means. A selected source that did not resolve does not stop the start: the
+     is, a collection's with the selected sources that do not resolve there, and what it means.
+     A selected source that did not resolve does not stop the start: the
      session is told (`D-20260930-76d550`). Nothing in the environment is particular to one
      preparation, a unit id least of all, so a composition of the same request renders the same
      bytes.
@@ -200,7 +201,9 @@ def bodies_text(units: list[dict], data: list[bytes]) -> str:
 
 def gaps_text(store: storage.Store, prepared: dict, gaps: list[dict]) -> str:
     """The material gaps that concern the Instructions, each named by where it is and what its
-    code means, or nothing where there are none."""
+    code means, or nothing where there are none. A collection's is named with each source it
+    selects that states that code, read as composition reads it (`preparation.resolved`) from
+    the collection the preparation names, with the revision it pins; a line is written once."""
     if not gaps:
         return ""
     meanings = errors.table()
@@ -211,10 +214,19 @@ def gaps_text(store: storage.Store, prepared: dict, gaps: list[dict]) -> str:
             unit = prepared["units"][int(parts[2])]
             where = f"The {unit['layer']} {unit['role']} member {unit['member']}"
         else:
+            held = prepared["collections"][int(parts[2])]
             scope, role = store.read("SELECT scope, role FROM collections WHERE collection_id = ?",
-                                     (prepared["collections"][int(parts[2])]["collection_id"],))[0]
-            where = f"The {json.loads(scope)['layer']} {role} collection"
-        lines.append(f"- {where}: `{gap['code']}`, {meanings[gap['code']]['meaning']}.")
+                                     (held["collection_id"],))[0]
+            named = [f"{entry['source_id']} at revision "
+                     f"{(entry.get('pin', {}).get('revision_digest') or '-')[:12]}"
+                     for entry in store.get(held["head_digest"])["entries"]
+                     if gap["code"] in preparation.resolved(store, entry, role)[0]]
+            where = f"The {json.loads(scope)['layer']} {role} collection" + (
+                f", selected source{'s' if len(named) > 1 else ''} {', '.join(named)}"
+                if named else "")
+        line = f"- {where}: `{gap['code']}`, {meanings[gap['code']]['meaning']}."
+        if line not in lines:
+            lines.append(line)
     return ("## Missing from this environment\n\nThis environment was asked to hold something it "
             "does not:\n\n" + "\n".join(lines) + "\n")
 

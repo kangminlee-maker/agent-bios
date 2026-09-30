@@ -207,6 +207,25 @@ class Sources(Commanding):
             f"    {rules} revision {revision[:12]}: rules/review.md"])
 
 
+    def test_a_selected_source_that_does_not_resolve_is_said_to_and_is_not_installed(self):
+        me = self.person.scope
+        rules, revision = self.authored(me, {"rules/review.md": BODY})
+        lost = bench.ident("src")
+        collection = self.collection(me, "instructions", [self.entry(rules, revision),
+                                                          self.entry(lost, "6" * 64)])
+        self.placed(collection)
+        said = self.run_command("sources")[1].splitlines()
+        self.assertEqual(said[1:4], [
+            f"  personal instructions (collection {collection['collection_id']}): some selected "
+            "sources do not resolve",
+            f"    {rules} revision {revision[:12]}: rules/review.md",
+            f"    {lost} revision 666666666666: does not resolve here (selection_unresolved)"])
+        knowledge = self.collection(me, "knowledge", [self.entry(bench.ident("src"), "7" * 64)])
+        self.placed(knowledge)
+        said = self.run_command("sources")[1].splitlines()
+        self.assertEqual(said[4], f"  personal knowledge (collection "
+                                  f"{knowledge['collection_id']}): no selected source resolves")
+
 class Prepare(Commanding):
     def test_the_suggested_start_is_composed_shown_and_nothing_is_activated(self):
         self.qualified("claude-code")

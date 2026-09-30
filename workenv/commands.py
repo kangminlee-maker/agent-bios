@@ -72,7 +72,9 @@ LEFT = 130
 PRESETS = "agent-launch --presets HOST opens the preset menu instead."
 # What each state of a position means, for a person to read.
 STATES = {"installed": "installed", "not_checked": "held; its bodies are read for a task",
-          "checked_empty": "none", "configured": "registered, with no accepted revision"}
+          "checked_empty": "none", "configured": "registered, with no accepted revision",
+          "partial": "some selected sources do not resolve",
+          "missing": "no selected source resolves"}
 
 
 class CommandError(Exception):
@@ -224,19 +226,21 @@ def profile(owner: Owner, out) -> int:
 
 def held_at(store: storage.Store, scope: dict, role: str) -> tuple[str | None, list[tuple]]:
     """The collection held at a position, and its sources switched on; or, with none, the
-    sources held there: each with its accepted revision and member paths."""
+    sources held there: each with its revision, its member paths, and the gap codes it states
+    where it does not resolve, read as composition reads it (`preparation.resolved`)."""
     collection_id = preparation.held_collection(store, scope, role)
     if collection_id is not None:
         collection = store.get(journal.head_of(store, collection_id))
         entries = [entry for entry in collection["entries"] if entry["switch"] == "on"] \
             if collection["switch"] == "on" else []
-        found = [(entry["source_id"], entry.get("pin", {}).get("revision_digest"))
-                 for entry in entries]
+        found = [(entry["source_id"], entry.get("pin", {}).get("revision_digest"),
+                  preparation.resolved(store, entry, role)[0]) for entry in entries]
     else:
-        found = store.read("SELECT source_id, revision_digest FROM sources WHERE scope = ? AND "
-                           "role = ? ORDER BY rowid", (journal.scope_key(scope), role))
-    return collection_id, [(source, revision, tui.revision_names(store, revision))
-                           for source, revision in found]
+        found = [(source, revision, []) for source, revision in store.read(
+            "SELECT source_id, revision_digest FROM sources WHERE scope = ? AND role = ? "
+            "ORDER BY rowid", (journal.scope_key(scope), role))]
+    return collection_id, [(source, revision, tui.revision_names(store, revision), codes)
+                           for source, revision, codes in found]
 
 
 def sources(owner: Owner | None, out) -> int:
@@ -250,9 +254,13 @@ def sources(owner: Owner | None, out) -> int:
             collection_id, found = held_at(owner.store, scope, role)
             where = f" (collection {collection_id})" if collection_id else ""
             out(f"  {scope['layer']} {role}{where}: {STATES[position.state]}")
-            for source, revision, names in found:
+            for source, revision, names, codes in found:
                 accepted = f"revision {revision[:12]}" if revision else "no accepted revision"
-                out(f"    {source} {accepted}" + (f": {', '.join(names)}" if names else ""))
+                line = f"    {source} {accepted}" + (f": {', '.join(names)}" if names else "")
+                if codes:
+                    line += ("; " if names else ": ") + \
+                        f"does not resolve here ({', '.join(dict.fromkeys(codes))})"
+                out(line)
     return 0
 
 

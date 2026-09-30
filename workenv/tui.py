@@ -38,7 +38,9 @@ The grammar (design records `2026-09-28T1601--4e305e5--v1-slice5-entry-grammar-d
     makes the choice the person's, `selected` or `none`. The start pins what this frame
     includes and no collection already applies. A position with nothing to choose (no source
     there, none with an accepted revision, or a collection that includes nothing) is marked
-    `[-]` and unavailable in words, and focus never lands on it.
+    `[-]` and unavailable in words, and focus never lands on it. A source a collection switches
+    on that does not resolve, read as composition reads it (`preparation.resolved`), is named on
+    its position, which is `partial`, or `missing` where nothing it switches on resolves.
   - **Focus and keys.** Focus starts on the check of an unknown start, else a link's target,
     else the first position there is something to choose at, else the first Tab stop. Tab stops
     are the check, the note, the tool (when it has alternatives), the permissions and the start.
@@ -120,9 +122,13 @@ CATALOG = {
         "position.more": "{layer} {role} · {name} 외 {more}개",
         "position.empty": "{layer} {role} · 아직 없음",
         "position.configured": "{layer} {role} · 확정된 판 없음",
+        "position.unresolved": "{position} · {missing}",
+        "unresolved": "쓸 수 없는 원본 {source}",
+        "unresolved.more": "쓸 수 없는 원본 {source} 외 {more}개",
         "detail": "{position} · 원본 · {state}",
         "state.installed": "설치됨", "state.not_checked": "본문은 아직 확인하지 않음",
         "state.checked_empty": "비어 있음", "state.configured": "확정된 판 없음",
+        "state.partial": "일부 원본을 쓸 수 없음", "state.missing": "원본을 쓸 수 없음",
         "note": "메모 · 시작 요청에 함께 기록",
         "tool": "도구 {tool} · 새 세션",
         "permissions": "권한 · {choice}",
@@ -160,9 +166,13 @@ CATALOG = {
         "position.more": "{layer} {role} · {name} and {more} more",
         "position.empty": "{layer} {role} · none yet",
         "position.configured": "{layer} {role} · no accepted revision",
+        "position.unresolved": "{position} · {missing}",
+        "unresolved": "unresolved source {source}",
+        "unresolved.more": "unresolved source {source} and {more} more",
         "detail": "{position} · original · {state}",
         "state.installed": "installed", "state.not_checked": "body not checked yet",
         "state.checked_empty": "empty", "state.configured": "no accepted revision",
+        "state.partial": "some sources unresolved", "state.missing": "sources unresolved",
         "note": "Note · recorded with the start",
         "tool": "Tool {tool} · new session",
         "permissions": "Permissions · {choice}",
@@ -200,9 +210,13 @@ CATALOG = {
         "position.more": "{layer}{role} · {name} ほか{more}件",
         "position.empty": "{layer}{role} · まだありません",
         "position.configured": "{layer}{role} · 確定した版なし",
+        "position.unresolved": "{position} · {missing}",
+        "unresolved": "使えない原本 {source}",
+        "unresolved.more": "使えない原本 {source} ほか{more}件",
         "detail": "{position} · 原本 · {state}",
         "state.installed": "インストール済み", "state.not_checked": "本文は未確認",
         "state.checked_empty": "空", "state.configured": "確定した版なし",
+        "state.partial": "一部の原本を使えない", "state.missing": "原本を使えない",
         "note": "メモ · 開始リクエストと一緒に記録",
         "tool": "ツール {tool} · 新しいセッション",
         "permissions": "権限 · {choice}",
@@ -262,6 +276,8 @@ class Position:
     collection: bool
     included: bool
     chosen: bool = False
+    # The sources a collection selects here that do not resolve, as composition reads them.
+    unresolved: list[str] = dataclasses.field(default_factory=list)
 
     @property
     def layer(self) -> str:
@@ -333,12 +349,16 @@ def position_of(store: storage.Store, scope: dict, role: str) -> Position:
         collection = store.get(journal.head_of(store, collection_id))
         entries = [entry for entry in collection["entries"] if entry["switch"] == "on"] \
             if collection["switch"] == "on" else []
-        names = [name for entry in entries
+        unresolved = [entry for entry in entries if preparation.resolved(store, entry, role)[0]]
+        resolving = [entry for entry in entries if entry not in unresolved]
+        names = [name for entry in resolving
                  for name in revision_names(store, entry.get("pin", {}).get("revision_digest"))]
-        state = ("checked_empty" if not entries
+        state = ("checked_empty" if not entries else "missing" if not resolving
+                 else "partial" if unresolved
                  else "installed" if role == preparation.INSTRUCTIONS else "not_checked")
-        return Position(scope, role, state, names or [entry["source_id"] for entry in entries],
-                        [], True, bool(entries))
+        return Position(scope, role, state, names or [entry["source_id"] for entry in resolving],
+                        [], True, bool(entries),
+                        unresolved=[entry["source_id"] for entry in unresolved])
     held = store.read("SELECT source_id, revision_digest FROM sources WHERE scope = ? AND "
                       "role = ? ORDER BY rowid", (journal.scope_key(scope), role))
     pins = [{"source_id": source, "revision_digest": revision}
@@ -459,11 +479,18 @@ class Entry:
             return self.text("position.empty", **values)
         if position.state == "configured":
             return self.text("position.configured", **values)
-        if len(position.names) > 1:
-            return self.text("position.more", name=position.names[0],
-                             more=len(position.names) - 1, **values)
-        return self.text("position", name=position.names[0] if position.names else "-",
-                         **values)
+        unresolved = position.unresolved
+        missing = self.text("unresolved.more" if len(unresolved) > 1 else "unresolved",
+                            source=unresolved[0][:12], more=len(unresolved) - 1) \
+            if unresolved else None
+        if not position.names:
+            return self.text("position", name=missing or "-", **values)
+        held = self.text("position.more", name=position.names[0],
+                         more=len(position.names) - 1, **values) \
+            if len(position.names) > 1 else self.text("position", name=position.names[0],
+                                                      **values)
+        return self.text("position.unresolved", position=held, missing=missing) if missing \
+            else held
 
     def blockers(self) -> list[tuple[str, Route]]:
         found, used = [], set()

@@ -19,10 +19,11 @@ from unittest import mock
 
 import bench
 from test_delivery import Delivering
+from test_preparation import unit
 from test_probes import VERSION, Hosts
 
 from workenv import delivery, hosts, journal, roles, storage
-from workenv.contracts import c07, canonical
+from workenv.contracts import c04, c07, canonical, errors
 from workenv.hosts import codex, hook, probes, start
 
 CODE = "5eed5eed5eed5eed"
@@ -340,14 +341,16 @@ class Start(Starting):
                          "# Notes\n")
 
     def test_a_selected_source_that_does_not_resolve_still_starts_and_the_session_is_told(self):
+        lost = bench.ident("src")
         self.placed(self.collection(self.person.scope, "instructions", [
-            self.entry(bench.ident("src"), "6" * 64)]))
+            self.entry(lost, "6" * 64)]))
         launch = self.launched("claude-code")
         self.assertTrue(launch.text.endswith(
             "\n## Missing from this environment\n\nThis environment was asked to hold something "
-            "it does not:\n\n- The personal instructions collection: `selection_unresolved`, a "
-            "selected source that is unknown, denied or damaged; this is not absence, and no "
-            "lower layer silently satisfies it.\n"), launch.text)
+            f"it does not:\n\n- The personal instructions collection, selected source {lost} at "
+            "revision 666666666666: `selection_unresolved`, a selected source that is unknown, "
+            "denied or damaged; this is not absence, and no lower layer silently satisfies "
+            "it.\n"), launch.text)
         self.assertIn(BODY.decode(), launch.text)
         self.fired(launch, "claude-code", "new")
         self.assertEqual(self.recorded(), [("activated", "session"), ("delivered", "new")])
@@ -358,6 +361,44 @@ class Start(Starting):
         self.assertEqual(store.get(projection)["material_gaps"],
                          [{"code": c07.SELECTION_UNRESOLVED, "pointer": "/collections/0"}])
 
+
+    def test_a_collection_s_gap_names_each_selected_source_that_states_it_once(self):
+        me = self.person.scope
+        rules, revision = self.authored(me, {"rules/review.md": BODY})
+        other, other_rev = self.authored(me, {"rules/other.md": BODY})
+        known, known_rev = self.authored(me, {"k.md": BODY}, "knowledge")
+        lost, gone = bench.ident("src"), bench.ident("src")
+        self.placed(self.collection(me, "instructions", [
+            self.entry(lost, "6" * 64), self.entry(rules, revision),
+            self.entry(other, other_rev, [unit("rules/absent.md")]),
+            self.entry(gone, "7" * 64), self.entry(known, known_rev)]))
+        store = self.bench.store()
+        prepared = self.prepared(self.ask([me]))
+        text = start.gaps_text(store, prepared, roles.material(store, prepared))
+        meaning = errors.table()
+        self.assertEqual(text.splitlines()[4:], [
+            f"- The personal instructions collection, selected sources {lost} at revision "
+            f"666666666666, {other} at revision {other_rev[:12]}, {gone} at revision "
+            f"777777777777: `{c07.SELECTION_UNRESOLVED}`, "
+            f"{meaning[c07.SELECTION_UNRESOLVED]['meaning']}.",
+            f"- The personal instructions collection, selected source {known} at revision "
+            f"{known_rev[:12]}: `{c04.ROLE_PROMOTION_REFUSED}`, "
+            f"{meaning[c04.ROLE_PROMOTION_REFUSED]['meaning']}."])
+
+    def test_a_gap_is_named_from_the_collection_its_preparation_read(self):
+        # The environment is the preparation's: a collection changed after it was composed
+        # does not change what that preparation renders (D-20260930-6c708c).
+        me = self.person.scope
+        lost = bench.ident("src")
+        value = self.collection(me, "instructions", [self.entry(lost, "6" * 64)])
+        head = self.placed(value)
+        prepared = self.prepared(self.ask([me]))
+        before = start.environment(self.bench.state, prepared)
+        self.assertIn(lost, before)
+        moved = self.change({**value, "entries": [self.entry(bench.ident("src"), "7" * 64)]},
+                            {"expects": "head", "head_digest": head})
+        self.assertEqual(moved["result"]["outcome"]["stage"], "committed")
+        self.assertEqual(start.environment(self.bench.state, prepared), before)
 
 class Events(Starting):
     def test_the_new_session_is_linked_activated_and_recorded_as_received(self):

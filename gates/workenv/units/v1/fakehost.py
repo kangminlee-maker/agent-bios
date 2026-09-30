@@ -19,8 +19,13 @@ nothing: runs no hook and reads neither launch instructions nor definitions), `n
 its hooks but reads neither), `forget` (drops its launch instructions on compaction), `silent`
 (fails with nothing printed), `error` (reports an error), `stale` (gives a code it made up),
 `nocompact` (fails to compact), `nolist` (Codex answers no hook listing), `nothread` (Codex
-starts no conversation), `noend` (Codex answers and closes before the turn ends). In `error`
-Codex leaves only a plan, no message. `FAKE_HOST_VERSION` is the version it reports, and
+starts no conversation), `noend` (Codex answers and closes before the turn ends), `refuse`
+(Codex gives the turn up as it did on 2026-09-30 for a model the account is not offered: an
+`error` it will not retry, then a `failed` turn carrying the same provider error), `refusenoend`
+(that `error`, then it closes), `refusequiet` (the `failed` turn alone), `refusefirst` (gives up
+a conversation's first turn as `refuse` does, then answers as `obey` does) and `retrysilent` (an
+`error` it retries, then a turn that completes saying nothing). In `error` Codex leaves only a
+plan, no message. `FAKE_HOST_VERSION` is the version it reports, and
 `FAKE_HOST_NATIVE` the developer instructions Codex is configured with, which its `config/read`
 answers and a session given none at launch starts with, and `FAKE_HOST_ROLES` the roles the person
 defined (JSON: name to description and config_file), which a run's own `-c agents.*` override. As
@@ -48,8 +53,13 @@ MODE = os.environ.get("FAKE_HOST_MODE", "obey")
 NESTED = ("CLAUDECODE", "CLAUDE_CODE_SESSION_ID", "CLAUDE_CODE_ENTRYPOINT", "CODEX_THREAD_ID")
 LOG = os.environ["FAKE_HOST_LOG"]
 # Whether the host runs its hooks, and whether it reads what it was given at launch.
-HOOKS = MODE in ("obey", "nocompact", "nolaunch", "forget")
-LAUNCH = MODE in ("obey", "nocompact", "forget")
+HOOKS = MODE in ("obey", "nocompact", "nolaunch", "forget", "refusefirst")
+LAUNCH = MODE in ("obey", "nocompact", "forget", "refusefirst")
+# What the provider said on 2026-09-30, as Codex passed it on in its error message.
+REFUSAL = json.dumps({"type": "error", "status": 400, "error": {
+    "type": "invalid_request_error",
+    "message": "The 'gpt-6.1-sol' model is not supported when using Codex with a ChatGPT "
+               "account."}}, separators=(",", ":"))
 
 
 def log(argv: list[str], groups: dict | None) -> None:
@@ -235,7 +245,7 @@ def codex(argv: list[str]) -> int:
                 say({"id": ident, "error": {"code": -32000, "message": "no conversation"}})
                 continue
             thread = f"thread-{len(threads)}"
-            threads[thread] = {"session": None, "compacted": False}
+            threads[thread] = {"session": None, "compacted": False, "turns": 0}
             say({"id": ident, "result": {"thread": {"id": thread}}})
         elif method == "turn/start":
             if MODE == "silent":
@@ -247,6 +257,22 @@ def codex(argv: list[str]) -> int:
             if state["compacted"]:
                 state["session"].compact()
                 state["compacted"] = False
+            failure = {"message": REFUSAL, "codexErrorInfo": "other", "additionalDetails": None}
+            state["turns"] += 1
+            refused = MODE in ("refuse", "refusenoend", "refusequiet") or (
+                MODE == "refusefirst" and state["turns"] == 1)
+            if (refused and MODE != "refusequiet") or MODE == "retrysilent":
+                say({"method": "error", "params": {"error": failure,
+                                                   "willRetry": MODE == "retrysilent",
+                                                   "threadId": params["threadId"],
+                                                   "turnId": "turn"}})
+            if MODE == "refusenoend":
+                return 0
+            if refused or MODE == "retrysilent":
+                say({"method": "turn/completed", "params": {"turn": {
+                    "id": "turn", "status": "failed" if refused else "completed",
+                    "error": failure if refused else None}}})
+                continue
             if MODE == "error":
                 say({"method": "item/completed",
                      "params": {"item": {"type": "plan", "text": "An error occurred."}}})
