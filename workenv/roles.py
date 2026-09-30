@@ -83,19 +83,24 @@ def moved(store: storage.Store, prepared: dict) -> bool:
         now, _ = preparation.observed(store)
         if now.get("working_bytes_digest") != claimed:
             return True
-    for unit in prepared["units"]:
-        # An authored source was admitted from its bound checkout, whose snapshot holds every
-        # member: its units always name a body, and its repository always names a checkout.
-        source = homes.source_of(store, unit["source_id"])
-        if source["home_mode"] != AUTHORED:
-            continue
-        where = source["home"]["home"] if source["home"] else source["scope"]
-        checkout = pathlib.Path(store.read("SELECT checkout FROM repositories WHERE "
-                                           "repository_id = ?", (where["repository_id"],))[0][0])
-        if not (checkout / unit["member"]).is_file() or hashlib.sha256(
-                checkouts.read(checkout, unit["member"])).hexdigest() != unit["body_digest"]:
-            return True
-    return False
+    return any(drifted(store, unit["source_id"], unit["member"], unit.get("body_digest"))
+               for unit in prepared["units"])
+
+
+def drifted(store: storage.Store, source_id: str, member: str, digest: str | None) -> bool:
+    """Whether a repository-authored source's document in its bound checkout no longer reads as
+    the body `digest` names. It is what refuses an activation (`moved`), and what the entry and
+    `sources` show before a start (D-20260930-bea6c5); any other source is never drifted."""
+    source = homes.source_of(store, source_id)
+    if source is None or source["home_mode"] != AUTHORED:
+        return False
+    # An authored source was admitted from its bound checkout, whose snapshot holds every
+    # member: its units always name a body, and its repository always names a checkout.
+    where = source["home"]["home"] if source["home"] else source["scope"]
+    checkout = pathlib.Path(store.read("SELECT checkout FROM repositories WHERE "
+                                       "repository_id = ?", (where["repository_id"],))[0][0])
+    return not (checkout / member).is_file() or \
+        hashlib.sha256(checkouts.read(checkout, member)).hexdigest() != digest
 
 
 def material(store: storage.Store, prepared: dict) -> list[dict]:

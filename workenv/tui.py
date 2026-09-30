@@ -42,7 +42,8 @@ The grammar (design records `2026-09-28T1601--4e305e5--v1-slice5-entry-grammar-d
     on that does not resolve, read as composition reads it (`preparation.resolved`), is named on
     its position, which is `partial`, or `missing` where nothing it switches on resolves. So is
     an Instructions member selected there whose body is not held (`preparation.unheld`), which
-    composition delivers no body for.
+    composition delivers no body for, and a repository-authored one whose checkout document
+    changed since it was admitted (`roles.drifted`), which a start refuses while it is included.
   - **Focus and keys.** Focus starts on the check of an unknown start, else a link's target,
     else the first position there is something to choose at, else the first Tab stop. Tab stops
     are the check, the note, the tool (when it has alternatives), the permissions and the start.
@@ -60,7 +61,9 @@ The grammar (design records `2026-09-28T1601--4e305e5--v1-slice5-entry-grammar-d
     answered with the start still not settled. A dispatched action stays
     `executing` and `pending` until its answer is handed over. Then its result element shows it:
     the start's result, or the unknown start the check was for. An unknown outcome stays
-    `unknown`, and a refusal or a failure is `unavailable`, labelled with the owner's reason. A
+    `unknown`, and a refusal or a failure is `unavailable`, labelled with the owner's reason;
+    a start refused `working_bytes_moved` is labelled in the locale's words with its next steps,
+    leaving the repository's Instructions out or admitting the document again. A
     check can also find its start settled, no longer pending, at the stage it now stands at
     (`settled`): the start is drawn as settled on the same screen, `delivered` where its session
     reported and `unavailable` otherwise, the start is no longer held back by it, and the hub no
@@ -80,8 +83,8 @@ import dataclasses
 import json
 import unicodedata
 
-from workenv import cli, journal, preparation, storage
-from workenv.contracts import canonical
+from workenv import cli, journal, preparation, roles, storage
+from workenv.contracts import c07, canonical
 
 # The client a trace names: this model, versioned by its grammar.
 CLIENT = {"name": "agent-bios-entry", "version": "1"}
@@ -130,6 +133,8 @@ CATALOG = {
         "unresolved": "쓸 수 없는 원본 {source}",
         "unresolved.more": "쓸 수 없는 원본 {source} 외 {more}개",
         "unheld": "본문 없음 {member}", "unheld.more": "본문 없음 {member} 외 {more}개",
+        "changed": "등록 뒤 바뀜 {member}", "changed.more": "등록 뒤 바뀜 {member} 외 {more}개",
+        "not_started.moved": "시작하지 못함 · 레포 문서가 등록 뒤 바뀜 · Space로 빼거나 다시 등록",
         "effect.model_calls": "모델 호출", "effect.file_changes": "파일 변경",
         "effect.permission_request": "권한 요청",
         "detail": "{position} · 원본 · {state}",
@@ -177,6 +182,10 @@ CATALOG = {
         "unresolved": "unresolved source {source}",
         "unresolved.more": "unresolved source {source} and {more} more",
         "unheld": "body not held {member}", "unheld.more": "body not held {member} and {more} more",
+        "changed": "changed since admitted {member}",
+        "changed.more": "changed since admitted {member} and {more} more",
+        "not_started.moved": "Not started · repository document changed · leave it out (Space) "
+                             "or re-admit",
         "effect.model_calls": "model calls", "effect.file_changes": "file changes",
         "effect.permission_request": "permission requests",
         "detail": "{position} · original · {state}",
@@ -224,6 +233,8 @@ CATALOG = {
         "unresolved": "使えない原本 {source}",
         "unresolved.more": "使えない原本 {source} ほか{more}件",
         "unheld": "本文なし {member}", "unheld.more": "本文なし {member} ほか{more}件",
+        "changed": "登録後に変更 {member}", "changed.more": "登録後に変更 {member} ほか{more}件",
+        "not_started.moved": "開始できません · リポジトリ文書が登録後に変更 · Spaceで外すか再登録",
         "effect.model_calls": "モデル呼び出し", "effect.file_changes": "ファイル変更",
         "effect.permission_request": "権限の確認",
         "detail": "{position} · 原本 · {state}",
@@ -293,6 +304,9 @@ class Position:
     unresolved: list[str] = dataclasses.field(default_factory=list)
     # The Instructions members selected here whose bodies are not held (`preparation.unheld`).
     unheld: list[str] = dataclasses.field(default_factory=list)
+    # The repository-authored members whose checkout document changed since admitted
+    # (`roles.drifted`): a start that includes them is refused.
+    changed: list[str] = dataclasses.field(default_factory=list)
 
     @property
     def layer(self) -> str:
@@ -366,17 +380,27 @@ def drawn(element: dict, locale: str) -> str:
 
 
 def position_of(store: storage.Store, scope: dict, role: str) -> Position:
-    def read(pinned: list[tuple[str | None, list[dict] | None]]) -> tuple[list[str], list[str]]:
-        """The member names the pins hold bodies for, and the members they lack bodies for.
-        Only Instructions bodies reach a session at its start; knowledge is read for a task."""
-        names, lacking = [], []
-        for revision, declared in pinned:
+    def read(pinned: list[tuple[str, str | None, list[dict] | None]]) -> tuple[list, list, list]:
+        """The member names the pins hold usable bodies for, the members they lack bodies for,
+        and the members whose checkout document changed since they were admitted. Only
+        Instructions bodies reach a session at its start; knowledge is read for a task."""
+        names, lacking, changed = [], [], []
+        for source_id, revision, declared in pinned:
             manifest = store.get(revision) if revision else None
-            gone = preparation.unheld(store.path.parent, revision, manifest, declared) \
-                if role == preparation.INSTRUCTIONS and isinstance(manifest, dict) else []
+            if role != preparation.INSTRUCTIONS or not isinstance(manifest, dict):
+                names += revision_names(store, revision)
+                continue
+            gone = preparation.unheld(store.path.parent, revision, manifest, declared)
+            digests = {member["path"]: member["digest"] for member in manifest["members"]}
+            moved = [path for path in ([unit["member"] for unit in declared] if declared
+                                       else list(digests))
+                     if path in digests and path not in gone
+                     and roles.drifted(store, source_id, path, digests[path])]
             lacking += gone
-            names += [name for name in revision_names(store, revision) if name not in gone]
-        return names, lacking
+            changed += moved
+            names += [name for name in revision_names(store, revision)
+                      if name not in gone and name not in moved]
+        return names, lacking, changed
 
     collection_id = preparation.held_collection(store, scope, role)
     if collection_id is not None:
@@ -385,28 +409,34 @@ def position_of(store: storage.Store, scope: dict, role: str) -> Position:
             if collection["switch"] == "on" else []
         unresolved = [entry for entry in entries if preparation.resolved(store, entry, role)[0]]
         resolving = [entry for entry in entries if entry not in unresolved]
-        names, lacking = read([(entry.get("pin", {}).get("revision_digest"), entry.get("units"))
-                               for entry in resolving])
+        names, lacking, changed = read([(entry["source_id"],
+                                         entry.get("pin", {}).get("revision_digest"),
+                                         entry.get("units")) for entry in resolving])
+        unusable = lacking + changed
         state = ("checked_empty" if not entries
-                 else "missing" if not resolving or (lacking and not names)
-                 else "partial" if unresolved or lacking
+                 else "missing" if not resolving or (unusable and not names)
+                 else "partial" if unresolved or unusable
                  else "installed" if role == preparation.INSTRUCTIONS else "not_checked")
         return Position(scope, role, state,
-                        names or ([] if lacking else [entry["source_id"] for entry in resolving]),
+                        names or ([] if unusable else [entry["source_id"] for entry in resolving]),
                         [], True, bool(entries),
-                        unresolved=[entry["source_id"] for entry in unresolved], unheld=lacking)
+                        unresolved=[entry["source_id"] for entry in unresolved], unheld=lacking,
+                        changed=changed)
     held = store.read("SELECT source_id, revision_digest FROM sources WHERE scope = ? AND "
                       "role = ? ORDER BY rowid", (journal.scope_key(scope), role))
     pins = [{"source_id": source, "revision_digest": revision}
             for source, revision in held if revision]
-    names, lacking = read([(pin["revision_digest"], None) for pin in pins])
+    names, lacking, changed = read([(pin["source_id"], pin["revision_digest"], None)
+                                    for pin in pins])
+    unusable = lacking + changed
     if pins:
-        state = ("missing" if lacking and not names else "partial" if lacking
+        state = ("missing" if unusable and not names else "partial" if unusable
                  else "installed" if role == preparation.INSTRUCTIONS else "not_checked")
     else:
         state = "configured" if held else "checked_empty"
     return Position(scope, role, state, names, pins, False,
-                    bool(pins) and role == preparation.INSTRUCTIONS, unheld=lacking)
+                    bool(pins) and role == preparation.INSTRUCTIONS, unheld=lacking,
+                    changed=changed)
 
 
 def history_of(store: storage.Store, scope: dict) -> tuple[dict, str] | None:
@@ -483,6 +513,7 @@ class Entry:
         self.sent: list[str] = []
         # The answers handed over, by request: the state drawn and the owner's reason.
         self.answers: dict[str, tuple[str, str | None]] = {}
+        self.refusals: dict[str, list[str]] = {}
 
     # What the frame holds.
 
@@ -516,13 +547,15 @@ class Entry:
             return self.text("position.empty", **values)
         if position.state == "configured":
             return self.text("position.configured", **values)
-        unresolved, lacking = position.unresolved, position.unheld
+        unresolved, lacking, changed = position.unresolved, position.unheld, position.changed
         missing = " · ".join(
             ([self.text("unresolved.more" if len(unresolved) > 1 else "unresolved",
                         source=unresolved[0][:12], more=len(unresolved) - 1)]
              if unresolved else []) +
             ([self.text("unheld.more" if len(lacking) > 1 else "unheld", member=lacking[0],
-                        more=len(lacking) - 1)] if lacking else [])) or None
+                        more=len(lacking) - 1)] if lacking else []) +
+            ([self.text("changed.more" if len(changed) > 1 else "changed", member=changed[0],
+                        more=len(changed) - 1)] if changed else [])) or None
         if not position.names:
             return self.text("position", name=missing or "-", **values)
         held = self.text("position.more", name=position.names[0],
@@ -686,7 +719,9 @@ class Entry:
                                       effects=["file_changes", "model_calls"]))
         found.append(self.help())
         if self.started:
+            moved = c07.WORKING_BYTES_MOVED in self.refusals.get(self.started, [])
             found.append(self.element("result.start", "result", self.text(
+                "not_started.moved") if answer and moved else self.text(
                 "not_started", reason=answer[1]) if answer and answer[1] else self.text("started"),
                 state=answer[0] if answer else "pending",
                 refers_to={"ref": "request", "request_id": self.started}))
@@ -943,15 +978,18 @@ class Entry:
         self.send(sealed, basis, "bodies" if applied else "nothing")
         self.started = sealed["request_id"]
 
-    def answered(self, request_id: str, state: str, reason: str | None = None) -> None:
+    def answered(self, request_id: str, state: str, reason: str | None = None,
+                 codes=()) -> None:
         """Hand over the answer to a request this entry dispatched: `unknown`; `unavailable` with
-        the owner's reason; or, for the check, `settled` with the stage its start now stands at,
-        which is no longer pending."""
+        the owner's reason and the gap codes it stated; or, for the check, `settled` with the
+        stage its start now stands at, which is no longer pending."""
         if state not in ANSWERED or (state == "unknown") == bool(reason) or request_id is None or \
                 request_id not in (self.started, self.checking) or \
-                (state == "settled" and (request_id != self.checking or reason in PENDING)):
+                (state == "settled" and (request_id != self.checking or reason in PENDING)) or \
+                (codes and state != "unavailable"):
             raise ValueError(f"no answer {state!r} to {request_id} is drawn here")
         self.answers[request_id] = (state, reason)
+        self.refusals[request_id] = list(codes)
         if state == "settled":
             self.blocked = False
 

@@ -103,7 +103,11 @@ PLAIN = "Carry out the task you are given."
 
 
 class StartError(Exception):
-    """A start this module refuses, named."""
+    """A start this module refuses, named, with the gap codes the owner's answer stated."""
+
+    def __init__(self, message: str, codes=()):
+        super().__init__(message)
+        self.codes = list(codes)
 
 
 class Call:
@@ -405,7 +409,9 @@ def start(state: pathlib.Path, actor: dict, host_name: str, request: dict,
         with contextlib.chdir(workdir):
             dispatched = answered(state, asked, activation, roles.session_routing_dispatched)
         if stage(dispatched) != journal.UNKNOWN:
-            raise StartError(f"activating the environment was {reason(dispatched)}")
+            codes = [] if "refused" in dispatched else [
+                gap["code"] for gap in dispatched["result"]["outcome"]["material_gaps"]]
+            raise StartError(f"activating the environment was {reason(dispatched)}", codes)
     except BaseException:
         os.close(held)
         found = journal.held(store, asked["request_id"])

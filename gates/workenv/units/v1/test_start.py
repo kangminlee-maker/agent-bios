@@ -321,8 +321,10 @@ class Start(Starting):
 
     def test_an_activation_refused_as_it_is_handed_on_launches_nothing(self):
         with mock.patch.object(roles, "moved", return_value=True), \
-                self.assertRaisesRegex(start.StartError, "refused with working_bytes_moved"):
+                self.assertRaisesRegex(start.StartError,
+                                       "refused with working_bytes_moved") as caught:
             self.launched("codex")
+        self.assertEqual(caught.exception.codes, [c07.WORKING_BYTES_MOVED])
         self.assertEqual(list((self.bench.state / start.LAUNCHES).iterdir()), [])
         self.assertEqual([stage for _, stage in self.activations()], ["refused"])
 

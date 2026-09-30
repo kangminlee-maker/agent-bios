@@ -205,6 +205,19 @@ class Sources(Commanding):
             "  personal knowledge: none", "  personal memory: none"])
         self.assertEqual(said[2], f"    {rules} revision {revision[:12]}: AGENTS.md")
 
+    def test_a_repository_document_changed_since_admitted_is_said_to_be(self):
+        checkout = self.bound()
+        (checkout / "AGENTS.md").write_bytes(BODY)
+        with contextlib.chdir(checkout):
+            rules, revision = self.authored(self.repository, {"AGENTS.md": BODY},
+                                            mode="repository_authored", held=False)
+        (checkout / "AGENTS.md").write_bytes(BODY + b"edited\n")
+        said = self.run_command("sources", workdir=checkout)[1].splitlines()
+        self.assertEqual(said[1:3], [
+            "  repository instructions: nothing selected is usable here",
+            f"    {rules} revision {revision[:12]}: AGENTS.md; changed in the checkout since "
+            "admitted: AGENTS.md"])
+
     def test_a_collection_names_itself_and_the_sources_it_switches_on(self):
         me = self.person.scope
         rules, revision = self.authored(me, {"rules/review.md": BODY})
@@ -403,6 +416,18 @@ class Start(Commanding):
         self.assertEqual((result["state"], result["label"]),
                          ("unavailable", "시작하지 못함 · activating failed"))
         self.assertEqual((self.launched, self.held_requests("route.select")), ([], []))
+
+    def test_a_start_refused_because_a_repository_document_moved_says_what_to_do(self):
+        self.qualified("claude-code")
+        screen = Screen(TAB, TAB, ENTER, QUIT)
+        refused = start.StartError("activating the environment was refused with "
+                                   "working_bytes_moved", ["working_bytes_moved"])
+        with mock.patch.object(start, "start", side_effect=refused):
+            self.run_command("start", "claude-code", "--locale", "ko", screen=screen)
+        result = self.element_of(screen, "result.start")
+        self.assertEqual((result["state"], result["label"]),
+                         ("unavailable",
+                          "시작하지 못함 · 레포 문서가 등록 뒤 바뀜 · Space로 빼거나 다시 등록"))
 
     def test_the_check_of_an_unknown_start_is_answered_in_the_entry(self):
         self.qualified("claude-code")

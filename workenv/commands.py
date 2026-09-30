@@ -54,7 +54,8 @@ import sys
 if __package__ in (None, ""):
     sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 
-from workenv import access, cli, delivery, hosts, journal, local, preparation, storage  # noqa: E402
+from workenv import access, cli, delivery, hosts, journal, local, preparation, roles  # noqa: E402
+from workenv import storage  # noqa: E402
 from workenv import terminal, tui  # noqa: E402
 from workenv.contracts import canonical  # noqa: E402
 from workenv.hosts import probes, start  # noqa: E402
@@ -227,8 +228,9 @@ def profile(owner: Owner, out) -> int:
 def held_at(store: storage.Store, scope: dict, role: str) -> tuple[str | None, list[tuple]]:
     """The collection held at a position, and its sources switched on; or, with none, the
     sources held there: each with its revision, its member paths, the gap codes it states where
-    it does not resolve, read as composition reads it (`preparation.resolved`), and the
-    Instructions members whose bodies are not held (`preparation.unheld`)."""
+    it does not resolve, read as composition reads it (`preparation.resolved`), the
+    Instructions members whose bodies are not held (`preparation.unheld`), and those whose
+    checkout document changed since they were admitted (`roles.drifted`)."""
     collection_id = preparation.held_collection(store, scope, role)
     if collection_id is not None:
         collection = store.get(journal.head_of(store, collection_id))
@@ -242,12 +244,18 @@ def held_at(store: storage.Store, scope: dict, role: str) -> tuple[str | None, l
             "SELECT source_id, revision_digest FROM sources WHERE scope = ? AND role = ? "
             "ORDER BY rowid", (journal.scope_key(scope), role))]
 
-    def lacking(revision: str | None, codes: list[str], declared) -> list[str]:
+    def unusable(source: str, revision: str | None, codes: list[str],
+                 declared) -> tuple[list[str], list[str]]:
         manifest = store.get(revision) if revision and not codes else None
-        return preparation.unheld(store.path.parent, revision, manifest, declared) \
-            if role == preparation.INSTRUCTIONS and isinstance(manifest, dict) else []
+        if role != preparation.INSTRUCTIONS or not isinstance(manifest, dict):
+            return [], []
+        gone = preparation.unheld(store.path.parent, revision, manifest, declared)
+        digests = {member["path"]: member["digest"] for member in manifest["members"]}
+        paths = [unit["member"] for unit in declared] if declared else list(digests)
+        return gone, [path for path in paths if path in digests and path not in gone
+                      and roles.drifted(store, source, path, digests[path])]
     return collection_id, [(source, revision, tui.revision_names(store, revision), codes,
-                            lacking(revision, codes, declared))
+                            *unusable(source, revision, codes, declared))
                            for source, revision, codes, declared in found]
 
 
@@ -262,7 +270,7 @@ def sources(owner: Owner | None, out) -> int:
             collection_id, found = held_at(owner.store, scope, role)
             where = f" (collection {collection_id})" if collection_id else ""
             out(f"  {scope['layer']} {role}{where}: {STATES[position.state]}")
-            for source, revision, names, codes, lacking in found:
+            for source, revision, names, codes, lacking, changed in found:
                 accepted = f"revision {revision[:12]}" if revision else "no accepted revision"
                 line = f"    {source} {accepted}" + (f": {', '.join(names)}" if names else "")
                 if codes:
@@ -270,6 +278,8 @@ def sources(owner: Owner | None, out) -> int:
                         f"does not resolve here ({', '.join(dict.fromkeys(codes))})"
                 if lacking:
                     line += f"; body not held here: {', '.join(lacking)}"
+                if changed:
+                    line += f"; changed in the checkout since admitted: {', '.join(changed)}"
                 out(line)
     return 0
 
@@ -340,7 +350,8 @@ def begin(owner: Owner, host_name: str, entrance: str, locale: str, screen, say,
                                      owner.workdir, owner.environ, sealed=sealed,
                                      skip=held_entry.permissions == SKIP)
             except start.StartError as error:
-                held_entry.answered(sealed["request_id"], "unavailable", str(error))
+                held_entry.answered(sealed["request_id"], "unavailable", str(error),
+                                    codes=error.codes)
                 after += 1
                 screen.draw(held_entry.frame(after))
                 continue

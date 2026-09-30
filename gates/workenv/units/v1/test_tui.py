@@ -49,7 +49,7 @@ class Catalog(unittest.TestCase):
         room = 80 - tui.GUTTER
         named = {"location.repository", "location.team", "checkpoint", "position",
                  "position.more", "position.unresolved", "unresolved", "unresolved.more",
-                 "unheld", "unheld.more",
+                 "unheld", "unheld.more", "changed", "changed.more",
                  "detail", "not_started", "not_checked"}
         for locale, table in tui.CATALOG.items():
             fill = {"layer": longest(table, "layer."), "role": longest(table, "role."),
@@ -745,6 +745,40 @@ class Starting(Entering):
         for frame in frames:
             self.assertEqual(self.marks(frame, "positions.personal.instructions")[1],
                              "suggested")
+
+    def test_a_repository_document_changed_since_admitted_is_named_before_the_start(self):
+        checkout = Checkout(self.scratch)
+        checkout.write("AGENTS.md", b"# Rules\n")
+        checkout.commit()
+        where = self.repository["repository_id"]
+        payload = {"kind": "repository_binding", "schema": 1, "repository_id": where,
+                   "relation": {"how": "clone"}}
+        with contextlib.chdir(checkout.path):
+            self.run_with(sources.repository_bind, bench.request(
+                self.person, "repository.bind", where, payload), [payload], now=INSTANT)
+            self.authored(self.repository, {"AGENTS.md": b"# Rules\n"},
+                          mode="repository_authored", held=False)
+        self.launcher()
+        self.assertEqual(self.element(self.drive()[0], "positions.repository.instructions")
+                         ["label"], "레포 지침 · AGENTS.md")
+        checkout.write("AGENTS.md", b"# Rules\nedited\n")
+        frame = self.drive()[0]
+        self.assertEqual(self.marks(frame, "positions.repository.instructions")[:2],
+                         ("missing", "suggested"))
+        self.assertEqual(self.element(frame, "positions.repository.instructions")["label"],
+                         "레포 지침 · 등록 뒤 바뀜 AGENTS.md")
+
+    def test_a_start_refused_because_a_repository_document_moved_is_drawn_with_next_steps(self):
+        self.launcher()
+        for codes, label in ((["working_bytes_moved"], tui.CATALOG["ko"]["not_started.moved"]),
+                             ([], "시작하지 못함 · activating was refused")):
+            with self.subTest(codes=codes):
+                entry = self.holding("tab", "tab", "enter")
+                entry.answered(entry.started, "unavailable", "activating was refused", codes)
+                self.assertEqual(self.element(entry.frame(5), "result.start")["label"], label)
+        entry = self.holding("tab", "tab", "enter")
+        with self.assertRaises(ValueError):
+            entry.answered(entry.started, "unknown", codes=["working_bytes_moved"])
 
     def test_an_answer_handed_over_is_drawn_in_the_start_s_result(self):
         self.launcher()

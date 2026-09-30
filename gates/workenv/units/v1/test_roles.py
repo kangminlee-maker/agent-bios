@@ -290,6 +290,21 @@ class Moved(Activating):
                          [{"code": c07.WORKING_BYTES_MOVED}])
         self.assertEqual(self.count("deliveries"), 0)
 
+    def test_a_document_is_drifted_only_where_its_authored_checkout_no_longer_reads_as_it(self):
+        checkout = Checkout(self.scratch)
+        prepared = self.authored_in(checkout)
+        [authored] = prepared["units"]
+        store = self.bench.store()
+        drifted = lambda: roles.drifted(store, authored["source_id"], "rules/review.md",  # noqa
+                                        authored["body_digest"])
+        self.assertFalse(drifted())
+        mine, revision = self.authored(self.person.scope, {"rules/review.md": NOTE})
+        self.assertFalse(roles.drifted(store, mine, "rules/review.md", sha(REVIEW)))
+        checkout.write("rules/review.md", REVIEW + b"edited\n")
+        self.assertTrue(drifted())
+        (checkout.path / "rules/review.md").unlink()
+        self.assertTrue(drifted())
+
     def test_working_bytes_the_preparation_claimed_that_moved_are_refused(self):
         _, digest = self.linked()
         checkout = Checkout(self.scratch)
