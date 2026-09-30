@@ -170,9 +170,11 @@ delivery never reported back stays unconfirmed. Off stops further use in that
 conversation but cannot remove text already returned; start a new conversation for clean
 exclusion.
 
-The extension adds four tools to every Desktop conversation. Remove it from Desktop's
-extension settings to stop that cost. This route was measured on Claude Desktop 2.16120.0
-for macOS; Windows is not supported yet.
+The extension adds four tools to every Desktop conversation, in chat and in the Code tab.
+Remove it from Desktop's extension settings to stop that cost. The Code tab also has a
+working folder, but the extension cannot see it, so project-scoped instructions stay
+excluded there as well. This route was measured on Claude Desktop 2.16120.0 for macOS;
+Windows is not supported yet.
 
 ## Use instructions in a Codex app task
 

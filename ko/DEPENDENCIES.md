@@ -140,10 +140,11 @@ manifest에는 번들을 만든 Python의 절대 경로를 적는다. 그 Python
 
 Desktop은 tool 호출에 대화 식별 정보를 보내지 않으므로 `app session --host
 claude-desktop`이 preview나 use 때 식별자를 만든다. Desktop 2.16120.0(macOS,
-2026-09-30)에서 번들 설치 경로, Desktop의 두 MCP client, protocol 2025-11-25,
-140,666바이트 결과의 본문 전달을 측정했다. Windows, `local-agent-mode` client의 tool
-호출, `roots/list`는 확인하지 않았다. 로컬 테스트만으로 특정 Desktop 버전이 번들을
-불러온다고 보장하지 않는다.
+2026-09-30)에서 번들 설치 경로, protocol 2025-11-25, 140,666바이트 결과의 본문 전달,
+그리고 채팅과 코드 탭 양쪽에서 전달과 끝 표시 줄 확인을 측정했다. 코드 탭은 사용자 자신의
+`~/.claude`로 Claude Code를 실행하지만, 확장 서버는 세션의 작업 폴더 밖에서 시작하므로
+그곳에서도 프로젝트 범위 지침은 제외된다. Windows와 `roots/list`는 확인하지 않았다.
+로컬 테스트만으로 특정 Desktop 버전이 번들을 불러온다고 보장하지 않는다.
 
 ## 지침 import
 

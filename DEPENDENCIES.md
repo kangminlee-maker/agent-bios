@@ -161,10 +161,12 @@ on every call.
 
 Desktop sends no conversation identity with a tool call, so `app session --host
 claude-desktop` mints one on preview or use. Measured on Desktop 2.16120.0 (macOS,
-2026-09-30): the bundle route, both of Desktop's MCP clients, protocol 2025-11-25, and a
-140,666-byte result delivered inline. Windows, the `local-agent-mode` client's tool calls
-and `roots/list` are unverified. Local tests do not establish that a given Desktop version
-loads the bundle.
+2026-09-30): the bundle route, protocol 2025-11-25, a 140,666-byte result delivered
+inline, and delivery with end-marker confirmation in both chat and the Code tab. The Code
+tab runs Claude Code on the user's own `~/.claude`, but its extension server still starts
+outside the session's working directory, so project scope stays excluded there too.
+Windows and `roots/list` are unverified. Local tests do not establish that a given Desktop
+version loads the bundle.
 
 ## Instruction import
 
