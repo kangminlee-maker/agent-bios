@@ -22,8 +22,13 @@ its hooks but reads neither), `forget` (drops its launch instructions on compact
 it: Codex an `error` and a `failed` compaction turn, Claude Code an error result),
 `compactquiet` (accepts the compaction and does not compact: Codex completes the turn reporting
 no compaction, Claude Code gives a result with no `compact_boundary`), `compactitemfails` (Codex
-reports a compaction item, does not compact, and fails the turn), `saidinterrupted` (Codex says
-its reply, then ends the turn `interrupted`), `nolist` (Codex answers
+reports a compaction item, does not compact, and fails the turn), `crosscompact` (Codex reports
+another conversation's compaction and completed turn, then fails this one's), `stalecompact`
+(Codex reports a compaction under an earlier turn, does not compact, and completes the turn),
+`saidinterrupted`
+(Codex says its reply, then ends the turn `interrupted`), `crossturn` and `staleturn` (asked the
+probe's question, Codex reports the reply in another conversation's completed turn, or in an
+earlier turn of this one, then completes this turn replying `NONE`), `nolist` (Codex answers
 no hook listing), `nothread` (Codex
 starts no conversation), `noend` (Codex answers and closes before the turn ends), `refuse`
 (Codex gives the turn up as it did on 2026-09-30 for a model the account is not offered: an
@@ -60,9 +65,11 @@ NESTED = ("CLAUDECODE", "CLAUDE_CODE_SESSION_ID", "CLAUDE_CODE_ENTRYPOINT", "COD
 LOG = os.environ["FAKE_HOST_LOG"]
 # Whether the host runs its hooks, and whether it reads what it was given at launch.
 HOOKS = MODE in ("obey", "nocompact", "compactfails", "compactquiet", "compactitemfails",
-                 "saidinterrupted", "nolaunch", "forget", "refusefirst")
+                 "crosscompact", "stalecompact", "saidinterrupted", "crossturn", "staleturn",
+                 "nolaunch", "forget", "refusefirst")
 LAUNCH = MODE in ("obey", "nocompact", "compactfails", "compactquiet", "compactitemfails",
-                  "saidinterrupted", "forget", "refusefirst")
+                  "crosscompact", "stalecompact", "saidinterrupted", "crossturn", "staleturn",
+                  "forget", "refusefirst")
 # What the provider said on 2026-09-30, as Codex passed it on in its error message.
 REFUSAL = json.dumps({"type": "error", "status": 400, "error": {
     "type": "invalid_request_error",
@@ -267,61 +274,91 @@ def codex(argv: list[str]) -> int:
         elif method == "turn/start":
             if MODE == "silent":
                 return 1
-            say({"id": ident, "result": {"turn": {"id": "turn"}}})
-            state, text = threads[params["threadId"]], params["input"][0]["text"]
+            thread = params["threadId"]
+            state, text = threads[thread], params["input"][0]["text"]
+            state["turns"] += 1
+            turn = f"{thread}-turn-{state['turns']}"
+            say({"id": ident, "result": {"turn": {"id": turn, "items": [],
+                                                  "status": "inProgress"}}})
             if state["session"] is None:
                 state["session"] = Session(active, launched, kinds, inherits=True)
             if state["compacted"]:
                 state["session"].compact()
                 state["compacted"] = False
             failure = {"message": REFUSAL, "codexErrorInfo": "other", "additionalDetails": None}
-            state["turns"] += 1
             refused = MODE in ("refuse", "refusenoend", "refusequiet") or (
                 MODE == "refusefirst" and state["turns"] == 1)
+            reply = None
+            # Every turn but a rehydrated probe's first, which only gives it something to compact.
+            if MODE in ("crossturn", "staleturn") and text != "Reply OK.":
+                # Another conversation's turn, or an earlier turn of this one, ends first saying
+                # what this one would; then this turn completes knowing nothing.
+                other, earlier = ("thread-other", "thread-other-turn-1") \
+                    if MODE == "crossturn" else (thread, f"{thread}-turn-0")
+                say({"method": "item/completed", "params": {
+                    "threadId": other, "turnId": earlier, "completedAtMs": 0,
+                    "item": {"type": "agentMessage", "text": state["session"].turn(text)}}})
+                say({"method": "turn/completed", "params": {
+                    "threadId": other, "turn": {"id": earlier, "status": "completed"}}})
+                reply = "NONE"
             if (refused and MODE != "refusequiet") or MODE == "retrysilent":
                 say({"method": "error", "params": {"error": failure,
                                                    "willRetry": MODE == "retrysilent",
-                                                   "threadId": params["threadId"],
-                                                   "turnId": "turn"}})
+                                                   "threadId": thread, "turnId": turn}})
             if MODE == "refusenoend":
                 return 0
             if refused or MODE == "retrysilent":
-                say({"method": "turn/completed", "params": {"turn": {
-                    "id": "turn", "status": "failed" if refused else "completed",
+                say({"method": "turn/completed", "params": {"threadId": thread, "turn": {
+                    "id": turn, "status": "failed" if refused else "completed",
                     "error": failure if refused else None}}})
                 continue
             if MODE == "error":
-                say({"method": "item/completed",
-                     "params": {"item": {"type": "plan", "text": "An error occurred."}}})
+                say({"method": "item/completed", "params": {
+                    "threadId": thread, "turnId": turn, "completedAtMs": 0,
+                    "item": {"type": "plan", "text": "An error occurred."}}})
             else:
-                say({"method": "item/completed",
-                     "params": {"item": {"type": "agentMessage",
-                                         "text": state["session"].turn(text)}}})
+                say({"method": "item/completed", "params": {
+                    "threadId": thread, "turnId": turn, "completedAtMs": 0,
+                    "item": {"type": "agentMessage",
+                             "text": reply or state["session"].turn(text)}}})
                 if MODE == "noend":
                     return 0
-            say({"method": "turn/completed", "params": {"turn": {
-                "id": "turn", "status": "interrupted" if MODE == "saidinterrupted"
+            say({"method": "turn/completed", "params": {"threadId": thread, "turn": {
+                "id": turn, "status": "interrupted" if MODE == "saidinterrupted"
                 else "completed"}}})
         elif method == "thread/compact/start":
             if MODE == "nocompact":
                 say({"id": ident, "error": {"code": -32000, "message": "cannot compact"}})
                 continue
+            thread = params["threadId"]
+            state = threads[thread]
+            state["turns"] += 1
+            turn = f"{thread}-turn-{state['turns']}"
             say({"id": ident, "result": {}})
-            if MODE == "compactfails":
+            if MODE == "crosscompact":
+                # Another conversation compacts and completes its turn first.
+                other = "thread-other"
+                say({"method": "item/completed", "params": {
+                    "threadId": other, "turnId": f"{other}-turn-1", "completedAtMs": 0,
+                    "item": {"type": "contextCompaction", "id": "other-compaction"}}})
+                say({"method": "turn/completed", "params": {
+                    "threadId": other, "turn": {"id": f"{other}-turn-1", "status": "completed"}}})
+            if MODE in ("compactfails", "crosscompact"):
                 failure = {"message": "compaction failed", "codexErrorInfo": "other",
                            "additionalDetails": None}
                 say({"method": "error", "params": {"error": failure, "willRetry": False,
-                                                   "threadId": params["threadId"],
-                                                   "turnId": "compaction"}})
-                say({"method": "turn/completed", "params": {"turn": {
-                    "id": "compaction", "status": "failed", "error": failure}}})
+                                                   "threadId": thread, "turnId": turn}})
+                say({"method": "turn/completed", "params": {"threadId": thread, "turn": {
+                    "id": turn, "status": "failed", "error": failure}}})
                 continue
             if MODE != "compactquiet":
-                threads[params["threadId"]]["compacted"] = MODE != "compactitemfails"
-                say({"method": "item/completed", "params": {"item": {
-                    "type": "contextCompaction", "id": "compaction-item"}}})
-            say({"method": "turn/completed", "params": {"turn": {
-                "id": "compaction", "status": "failed" if MODE == "compactitemfails"
+                state["compacted"] = MODE not in ("compactitemfails", "stalecompact")
+                say({"method": "item/completed", "params": {
+                    "threadId": thread, "completedAtMs": 0,
+                    "turnId": f"{thread}-turn-0" if MODE == "stalecompact" else turn,
+                    "item": {"type": "contextCompaction", "id": "compaction-item"}}})
+            say({"method": "turn/completed", "params": {"threadId": thread, "turn": {
+                "id": turn, "status": "failed" if MODE == "compactitemfails"
                 else "completed"}}})
     return 0
 

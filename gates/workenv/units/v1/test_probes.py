@@ -205,18 +205,30 @@ class Probing(Hosts):
         self.assertIn("compaction failed", found["observed"], "Codex's own reason is kept")
         found, _ = self.probe("claude-code", "rehydrated", FAKE_HOST_MODE="compactquiet")
         self.assertIn("did not compact the conversation", found["observed"])
-        # A compaction reported and then failed is no compaction either.
-        self.log.unlink(missing_ok=True)
-        found, _ = self.probe("codex", "rehydrated", FAKE_HOST_MODE="compactitemfails")
-        self.assertEqual(found["outcome"], "no_response")
-        self.assertIn("did not compact the conversation", found["observed"])
-        self.assertNotIn(probes.ASK, self.asked())
+        # A compaction reported and then failed is no compaction either, nor one Codex reported
+        # of another conversation before failing this one's (r10-0).
+        for mode in ("compactitemfails", "crosscompact", "stalecompact"):
+            with self.subTest(mode=mode):
+                self.log.unlink(missing_ok=True)
+                found, _ = self.probe("codex", "rehydrated", FAKE_HOST_MODE=mode)
+                self.assertEqual(found["outcome"], "no_response")
+                self.assertIn("did not compact the conversation", found["observed"])
+                self.assertNotIn(probes.ASK, self.asked())
 
     def test_a_turn_codex_ends_other_than_completed_gives_no_reply(self):
         for mode in ("refusequiet", "saidinterrupted"):
             with self.subTest(mode=mode):
                 found, _ = self.probe("codex", "new", FAKE_HOST_MODE=mode)
                 self.assertEqual(found["outcome"], "no_response")
+
+    def test_a_reply_in_another_conversation_or_turn_is_not_the_probe_s(self):
+        # Codex reports the code in a completed turn that is not the one the probe started, then
+        # the probe's own turn replies NONE: that reply is the probe's answer (r10-0).
+        for mode in ("crossturn", "staleturn"):
+            for recipient in ("new", "current"):
+                with self.subTest(mode=mode, recipient=recipient):
+                    found, _ = self.probe("codex", recipient, FAKE_HOST_MODE=mode)
+                    self.assertEqual(found["outcome"], "refused", found["observed"])
         for host in EVERY:
             with self.subTest(host=host):
                 found, _ = self.probe(host, "rehydrated")

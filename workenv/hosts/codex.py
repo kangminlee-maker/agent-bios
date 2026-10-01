@@ -44,7 +44,12 @@ accepted the request, reported the compaction (a `contextCompaction` item, or th
 `thread/compacted`) and completed that turn: a compaction Codex accepts and then fails ends its
 turn `failed`, and a session asked after it would answer from the uncompacted conversation, so
 the probe asks nothing then (r9-1, design record
-`2026-10-01T2134--3551ccb--v1-restructure-design.md`).
+`2026-10-01T2134--3551ccb--v1-restructure-design.md`). Every notification it reads is about its
+own conversation and turn: Codex names the thread each turn, item and error notification is
+about, and the turn each item is in, and another conversation, such as a subagent's, may be
+reported on the same server (r10-0). A turn ends where Codex completes the turn the probe started,
+an agent message is the probe's where it is in that turn, and a compaction counts where the turn
+Codex completes is the one it reported the compaction in.
 """
 from __future__ import annotations
 
@@ -143,6 +148,11 @@ class Server:
         self.asked, self.said = 0, []
         # What Codex last said failed a turn, in its own words, where it gave up on it.
         self.failed: str | None = None
+        # The conversation the probe acts on, and the turn it waits for. Every turn, item and
+        # error notification names its thread, and each item its turn (app-server schema v2), so
+        # a notification about another conversation or another turn is not the probe's.
+        self.thread: str | None = None
+        self.turn_id: str | None = None
         threading.Thread(target=self.read, daemon=True).start()
 
     def read(self) -> None:
@@ -178,8 +188,12 @@ class Server:
                                                           "message": "not granted"}})
                 continue
             params = message.get("params", {})
+            if "method" in message and self.thread is not None and \
+                    params.get("threadId") != self.thread:
+                continue
             item = params.get("item", {})
-            if message.get("method") == "item/completed" and item.get("type") == "agentMessage":
+            if message.get("method") == "item/completed" and item.get("type") == "agentMessage" \
+                    and params.get("turnId") == self.turn_id:
                 self.said.append(item.get("text", ""))
             if message.get("method") == "error" and not params.get("willRetry"):
                 self.failed = reason(params.get("error"))
@@ -201,13 +215,16 @@ class Server:
         return None if answer is None or "error" in answer else answer.get("result")
 
     def ended(self, thread: str, text: str) -> dict | None:
-        """The `turn/completed` that ended one turn, however it ended, or None where it did
-        not end."""
-        self.said = []
-        if self.call("turn/start", {"threadId": thread,
-                                    "input": [{"type": "text", "text": text}]}) is None:
+        """The `turn/completed` that ended the turn this starts in the conversation, however it
+        ended, or None where it did not end."""
+        self.said, self.thread, self.turn_id = [], thread, None
+        started = self.call("turn/start", {"threadId": thread,
+                                           "input": [{"type": "text", "text": text}]})
+        if started is None:
             return None
-        return self.until(lambda message: message.get("method") == "turn/completed")
+        self.turn_id = started.get("turn", {}).get("id")
+        return self.until(lambda message: message.get("method") == "turn/completed" and
+                          message["params"].get("turn", {}).get("id") == self.turn_id)
 
     def turn(self, thread: str, text: str) -> list[str] | None:
         """What the agent said in one turn Codex completed, or None where the turn did not end
@@ -216,19 +233,21 @@ class Server:
 
     def compacted(self, thread: str) -> bool:
         """Whether Codex compacted the conversation: it accepted the request, reported the
-        compaction, and completed that turn."""
+        compaction in this conversation, and completed the turn it reported it in."""
+        self.thread, self.turn_id = thread, None
         if self.call("thread/compact/start", {"threadId": thread}) is None:
             return False
-        reported = []
+        reported = set()
 
         def ends(message: dict) -> bool:
-            item = message.get("params", {}).get("item", {})
+            params = message.get("params", {})
             if message.get("method") == "thread/compacted" or (
                     message.get("method") == "item/completed" and
-                    item.get("type") == "contextCompaction"):
-                reported.append(message)
+                    params.get("item", {}).get("type") == "contextCompaction"):
+                reported.add(params.get("turnId"))
             return message.get("method") == "turn/completed"
-        return completed(self.until(ends)) and bool(reported)
+        ended = self.until(ends)
+        return completed(ended) and ended["params"]["turn"].get("id") in reported
 
     def close(self) -> None:
         self.process.kill()
