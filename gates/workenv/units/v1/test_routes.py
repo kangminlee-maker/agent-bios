@@ -86,13 +86,14 @@ class Routing(Delivering):
         """The answer to a start composed for the scopes."""
         return self.compose(self.ask(scopes or [self.repository, self.person.scope]), **changes)
 
-    def activate(self, prepared: dict, entry=unknown) -> dict:
+    def activate(self, prepared: dict, entry=unknown, request_id: str | None = None) -> dict:
         activation = {"kind": "session_activation", "schema": 1,
                       "preparation_digest": canonical.digest_of(prepared),
                       "session": {"host": {"name": "claude-code", "version": "1"},
                                   "profile_id": self.person.profile}}
         return self.run_with(entry, bench.request(self.person, ACTIVATE, self.person.profile,
-                                                  activation), [activation], now=LATER)
+                                                  activation, request_id=request_id),
+                             [activation], now=LATER)
 
     def history(self, scope: dict, limit: int = 10) -> dict:
         query = {"kind": "history_query", "schema": 1, "scope": scope, "limit": limit}

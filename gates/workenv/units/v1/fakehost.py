@@ -18,7 +18,13 @@ What it answers from, as the hosts were measured to on 2026-09-28:
 nothing: runs no hook and reads neither launch instructions nor definitions), `nolaunch` (runs
 its hooks but reads neither), `forget` (drops its launch instructions on compaction), `silent`
 (fails with nothing printed), `error` (reports an error), `stale` (gives a code it made up),
-`nocompact` (fails to compact), `nolist` (Codex answers no hook listing), `nothread` (Codex
+`nocompact` (refuses to compact at once), `compactfails` (accepts the compaction, then fails
+it: Codex an `error` and a `failed` compaction turn, Claude Code an error result),
+`compactquiet` (accepts the compaction and does not compact: Codex completes the turn reporting
+no compaction, Claude Code gives a result with no `compact_boundary`), `compactitemfails` (Codex
+reports a compaction item, does not compact, and fails the turn), `saidinterrupted` (Codex says
+its reply, then ends the turn `interrupted`), `nolist` (Codex answers
+no hook listing), `nothread` (Codex
 starts no conversation), `noend` (Codex answers and closes before the turn ends), `refuse`
 (Codex gives the turn up as it did on 2026-09-30 for a model the account is not offered: an
 `error` it will not retry, then a `failed` turn carrying the same provider error), `refusenoend`
@@ -53,8 +59,10 @@ MODE = os.environ.get("FAKE_HOST_MODE", "obey")
 NESTED = ("CLAUDECODE", "CLAUDE_CODE_SESSION_ID", "CLAUDE_CODE_ENTRYPOINT", "CODEX_THREAD_ID")
 LOG = os.environ["FAKE_HOST_LOG"]
 # Whether the host runs its hooks, and whether it reads what it was given at launch.
-HOOKS = MODE in ("obey", "nocompact", "nolaunch", "forget", "refusefirst")
-LAUNCH = MODE in ("obey", "nocompact", "forget", "refusefirst")
+HOOKS = MODE in ("obey", "nocompact", "compactfails", "compactquiet", "compactitemfails",
+                 "saidinterrupted", "nolaunch", "forget", "refusefirst")
+LAUNCH = MODE in ("obey", "nocompact", "compactfails", "compactquiet", "compactitemfails",
+                  "saidinterrupted", "forget", "refusefirst")
 # What the provider said on 2026-09-30, as Codex passed it on in its error message.
 REFUSAL = json.dumps({"type": "error", "status": 400, "error": {
     "type": "invalid_request_error",
@@ -161,7 +169,16 @@ def claude(argv: list[str]) -> int:
         if prompt == "/compact":
             if MODE == "nocompact":
                 return 1
-            session.compact()
+            if MODE == "compactfails":
+                print(json.dumps({"type": "result", "is_error": True,
+                                  "subtype": "error_during_execution",
+                                  "result": "Error during compaction"}), flush=True)
+                continue
+            if MODE != "compactquiet":
+                session.compact()
+                print(json.dumps({"type": "system", "subtype": "compact_boundary",
+                                  "compact_metadata": {"trigger": "manual", "pre_tokens": 1}}),
+                      flush=True)
             reply = ""
         else:
             reply = session.turn(prompt)
@@ -282,14 +299,30 @@ def codex(argv: list[str]) -> int:
                                          "text": state["session"].turn(text)}}})
                 if MODE == "noend":
                     return 0
-            say({"method": "turn/completed", "params": {"turn": {"id": "turn"}}})
+            say({"method": "turn/completed", "params": {"turn": {
+                "id": "turn", "status": "interrupted" if MODE == "saidinterrupted"
+                else "completed"}}})
         elif method == "thread/compact/start":
             if MODE == "nocompact":
                 say({"id": ident, "error": {"code": -32000, "message": "cannot compact"}})
                 continue
             say({"id": ident, "result": {}})
-            threads[params["threadId"]]["compacted"] = True
-            say({"method": "turn/completed", "params": {"turn": {"id": "compaction"}}})
+            if MODE == "compactfails":
+                failure = {"message": "compaction failed", "codexErrorInfo": "other",
+                           "additionalDetails": None}
+                say({"method": "error", "params": {"error": failure, "willRetry": False,
+                                                   "threadId": params["threadId"],
+                                                   "turnId": "compaction"}})
+                say({"method": "turn/completed", "params": {"turn": {
+                    "id": "compaction", "status": "failed", "error": failure}}})
+                continue
+            if MODE != "compactquiet":
+                threads[params["threadId"]]["compacted"] = MODE != "compactitemfails"
+                say({"method": "item/completed", "params": {"item": {
+                    "type": "contextCompaction", "id": "compaction-item"}}})
+            say({"method": "turn/completed", "params": {"turn": {
+                "id": "compaction", "status": "failed" if MODE == "compactitemfails"
+                else "completed"}}})
     return 0
 
 

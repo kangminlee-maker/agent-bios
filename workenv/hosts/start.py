@@ -24,8 +24,10 @@ itself hands it over too, and the person's choice to skip the host's confirmatio
      by the activation's request: the environment; each tier's definition for the session, the
      one the host would have loaded with the environment after its own instructions; where a
      child started with no kind takes the session's instructions, that kind, defined with the
-     person's own instructions alone; and the job the hook reads, which carries the activation
-     and the environment's digest.
+     person's own instructions alone; and the job the hook reads, which carries the activation,
+     the units the environment carries by source, member, revision and body, and the
+     environment's digest. All three come from one description of what the preparation hands a
+     session (`Handed`), which the hook builds again from its own composition to compare.
      Its process locks the directory's `waiting` file (`WAITING`) for as long as it waits on the
      host.
   4. It hands the activation on (`roles.session_routing_dispatched`). A host session's id exists
@@ -74,7 +76,7 @@ import re
 import shutil
 
 from workenv import access, cli, delivery, hosts, journal, preparation, roles, storage
-from workenv.contracts import canonical, errors
+from workenv.contracts import c04, canonical, errors
 from workenv.hosts import probes
 
 # The kinds the tier rule dispatches, which start from the main session's environment.
@@ -169,20 +171,10 @@ def reason(answer: dict) -> str:
     return f"{answer['result']['outcome']['stage']} with {', '.join(gaps) or 'no gap named'}"
 
 
-def delivered(prepared: dict) -> list[dict]:
-    """The preparation's units whose bodies reach a session: its winning and layered
-    Instructions units that name a body."""
-    return [unit for unit in prepared["units"] if delivery.carried(unit)]
-
-
 def unheld(prepared: dict) -> list[dict]:
-    """The preparation's Instructions units whose standing would deliver them but that name no
-    body and state no material gap: a layered unit whose body is not held, which gates nothing."""
-    gapped = {gap.get("pointer") for gap in prepared["material_gaps"]}
-    return [unit for index, unit in enumerate(prepared["units"])
-            if unit["role"] == roles.INSTRUCTIONS and "body_digest" not in unit
-            and unit["standing"] in delivery.DELIVERED_STANDINGS
-            and f"/units/{index}" not in gapped]
+    """The preparation's units a session would be handed whose bodies are not held and that
+    state no gap (`preparation.Reading.unheld`)."""
+    return preparation.reading(prepared).unheld()
 
 
 def body(state: pathlib.Path, unit: dict) -> bytes:
@@ -229,6 +221,12 @@ def gaps_text(store: storage.Store, prepared: dict, gaps: list[dict],
         if parts[1] == "units":
             unit = prepared["units"][int(parts[2])]
             where = f"The {unit['layer']} {unit['role']} member {unit['member']}"
+            if gap["code"] == c04.COMPANION_UNAVAILABLE:
+                needs = preparation.unanswered(
+                    prepared, preparation.declared_needs(store, prepared, unit))
+                where += ", which needs " + (", ".join(
+                    f"{need['member']} of source {need['source_id']}" for need in needs)
+                    or "a member no selection includes")
         else:
             held = prepared["collections"][int(parts[2])]
             scope, role = store.read("SELECT scope, role FROM collections WHERE collection_id = ?",
@@ -261,12 +259,53 @@ def rendered(usage: dict, units: list[dict], data: list[bytes], gaps: str = "") 
             + ("\n" + gaps if gaps else ""))
 
 
+@dataclasses.dataclass(frozen=True)
+class Handed:
+    """What one preparation hands a session, described once: the preparation, the units whose
+    bodies it carries in order (`preparation.Reading.carried`), their bytes, and the environment
+    rendered from them. The start writes the launch and the job from it; the hook compares its
+    own composition's with the job's before it records a new session's delivery, names its
+    bodies in every attempt, and hands a prompt the bodies that changed by it."""
+    prepared: dict
+    units: list[dict]
+    data: list[bytes]
+    text: str
+
+    @property
+    def digest(self) -> str:
+        return hashlib.sha256(self.text.encode("utf-8")).hexdigest()
+
+    @property
+    def bodies(self) -> list[str]:
+        """The carried bodies, each once, in order: two units may carry the same bytes, and an
+        attempt names each body it hands once (C11)."""
+        return list(dict.fromkeys(unit["body_digest"] for unit in self.units))
+
+    @property
+    def carried(self) -> list[dict]:
+        """The carried units as they are followed across preparations: by source, member,
+        revision and body (C07), never by a unit id, which names a unit in one preparation."""
+        return [{field: unit[field] for field in ("source_id", "member", "revision_digest",
+                                                  "body_digest")} for unit in self.units]
+
+    @property
+    def body_text(self) -> str:
+        """The carried bodies alone, as a session holds them (`bodies_text`)."""
+        return bodies_text(self.units, self.data)
+
+
+def handed(state: pathlib.Path, prepared: dict) -> Handed:
+    """The description of what one preparation hands a session (`Handed`)."""
+    store, read = storage.of(state), preparation.reading(prepared)
+    units = read.carried()
+    data = [body(state, unit) for unit in units]
+    gaps = gaps_text(store, prepared, roles.material(store, prepared), read.unheld())
+    return Handed(prepared, units, data, rendered(roles.usage_contract(), units, data, gaps))
+
+
 def environment(state: pathlib.Path, prepared: dict) -> str:
-    """The environment one preparation renders: what a start hands a session at launch, and
-    what the hook renders again from its own composition before it records a delivery."""
-    store, units = storage.of(state), delivered(prepared)
-    gaps = gaps_text(store, prepared, roles.material(store, prepared), unheld(prepared))
-    return rendered(roles.usage_contract(), units, [body(state, unit) for unit in units], gaps)
+    """The environment one preparation renders (`Handed.text`)."""
+    return handed(state, prepared).text
 
 
 @dataclasses.dataclass(frozen=True)
@@ -370,8 +409,8 @@ def start(state: pathlib.Path, actor: dict, host_name: str, request: dict,
     if stage(composed) != "previewed":
         raise StartError(f"composing the environment was {reason(composed)}")
     prepared = composed["returned"][0]
-    units = delivered(prepared)
-    text = environment(state, prepared)
+    given = handed(state, prepared)
+    text = given.text
     quiet = {name: value for name, value in environ.items() if name not in adapter.nested}
     configured = adapter.configured(executable, workdir, quiet)
     tiers = [tier for tier in TIERS if tier in configured.kinds] \
@@ -396,8 +435,8 @@ def start(state: pathlib.Path, actor: dict, host_name: str, request: dict,
         job = directory / "job.json"
         job.write_text(json.dumps({
             "kind": "session", "state": str(state), "actor": actor, "host": host,
-            "request": request, "bodies": [unit["body_digest"] for unit in units],
-            "environment": hashlib.sha256(text.encode("utf-8")).hexdigest(),
+            "request": request, "bodies": given.bodies, "carried": given.carried,
+            "environment": given.digest,
             "tiers": tiers, "activation": {"request": asked, "payload": activation}},
             ensure_ascii=False), encoding="utf-8")
         instructions = "\n\n".join(part for part in (configured.native, text) if part)

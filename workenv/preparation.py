@@ -43,7 +43,11 @@ is composed yet; an adopted environment's basis and a requested task's support a
     lowest against every other, the concern is `unresolved` for the query that needs it, each unit
     of that first layer states `same_layer_unordered`, and nothing else is held back. A unit with no
     concern is unkeyed prose, `layered` in its labelled layer. A winning unit's declared needs
-    name it in the needed unit's `needed_by`; a unit that does not win names nothing.
+    name it in the needed unit's `needed_by`; a unit that does not win names nothing. A need no
+    composed unit answers, by source and member, is `companion_unavailable` at the winning unit:
+    its bytes rely on bytes this composition does not hold, and leaving the companion out of
+    every selection does not make it any less needed (C07 `unit_binding`). Needs bind while the
+    unit wins, so a needed unit that does not win names no needs of its own.
   - **Bodies.** A unit's body is its member's bytes in the pinned revision's bundle, the
     immutable snapshot every revision is read from, whoever authors it: a repository-authored
     source's working tree is what the checkout records, never a body. A unit states its body's
@@ -66,9 +70,18 @@ is composed yet; an adopted environment's basis and a requested task's support a
   - **A session start.** A preparation declaring `session.routing.activate` for a named link also
     records that session as selected only: a `session_routing` with no projection and no usage
     contract, which leaves the always surface unchanged and native files preserved.
+
+What each composed unit means for a start is read in one place, `Reading`, and every consumer
+asks it: the activation, the projection, the start's environment, the hook, the observation, the
+entry and `sources`. The entry and `sources` read a composition they run in memory
+(`composed`), through the same `Composition` a preparation is composed with, so they show what a
+start would compose rather than rebuilding it (design record
+`2026-10-01T2134--3551ccb--v1-restructure-design.md`).
 """
 from __future__ import annotations
 
+import dataclasses
+import functools
 import hashlib
 import pathlib
 
@@ -82,6 +95,8 @@ DEFAULT_ORDER = ("repository", "personal", "team")
 SESSION_START = "session.routing.activate"
 # The one adapter this module composes for: the host session a preparation is handed to.
 ADAPTER = {"name": "session_adapter", "version": "0.1.0"}
+# The standings whose bodies a session is handed at its start.
+DELIVERED_STANDINGS = ("winning", "layered")
 
 
 def refused(call, code: str, pointer: str | None = None) -> dict:
@@ -136,14 +151,97 @@ def selected(manifest: dict, declared: list[dict] | None = None) -> list[str]:
         else members
 
 
-def unheld(state, revision: str, manifest: dict, declared: list[dict] | None = None) -> list[str]:
-    """The members a pin selects (`selected`) whose bytes the revision's bundle does not hold as
-    its manifest states them (`body_of`). Composition gives such a unit no body, and it gates
-    nothing unless it wins or a winner needs it (C07), so the entry, `sources` and a session's
-    environment name it instead."""
-    members = {member["path"]: member for member in manifest["members"]}
-    return [path for path in selected(manifest, declared)
-            if body_of(state, revision, members[path])[0] is None]
+def carries(unit: dict) -> bool:
+    """Whether a session is handed this unit's body at its start: an Instructions unit of a
+    delivered standing that names a body. It reads a prepared unit and a projected one alike, so
+    the bodies a start hands over, those an activation returns and those an observation lists as
+    arrived are one set."""
+    return unit.get("role", unit.get("source_role")) == INSTRUCTIONS and \
+        unit["standing"] in DELIVERED_STANDINGS and "body_digest" in unit
+
+
+@dataclasses.dataclass(frozen=True)
+class Reading:
+    """What each unit of one composition means for a start: the one reading the activation, the
+    projection, the start's environment, the hook, the observation, the entry and `sources` ask.
+
+    `missing` names, by unit index, the needs no composed unit answers; a composition in memory
+    knows them, and a stored preparation states only their gap (`companion_unavailable`)."""
+    units: list[dict]
+    gaps: list[dict]
+    missing: dict = dataclasses.field(default_factory=dict)
+
+    def at(self, index: int) -> list[dict]:
+        """The gaps stated at one unit."""
+        return [gap for gap in self.gaps if gap.get("pointer") == f"/units/{index}"]
+
+    def delivered(self, unit: dict) -> bool:
+        """An Instructions unit whose standing hands its body to a session, held or not."""
+        return unit["role"] == INSTRUCTIONS and unit["standing"] in DELIVERED_STANDINGS
+
+    @functools.cached_property
+    def winners(self) -> set[str]:
+        """The Instructions units that win with `startup: required`."""
+        return {unit["unit_id"] for unit in self.units
+                if unit["role"] == INSTRUCTIONS and unit["standing"] == "winning"
+                and unit.get("startup") == "required"}
+
+    def required(self, unit: dict) -> bool:
+        """Whether the unit must resolve before a session starts: an Instructions unit winning
+        with `startup: required`, or a unit such a unit needs, whatever its own standing (C07
+        `unit_binding`)."""
+        return unit["unit_id"] in self.winners or bool(self.winners &
+                                                       set(unit.get("needed_by", [])))
+
+    def claims(self, unit: dict) -> bool:
+        """Whether the unit names a body the start rests on: one it delivers, or one a winning
+        unit needs. Only such a unit is held to its document in the checkout."""
+        return "body_digest" in unit and (self.delivered(unit) or "needed_by" in unit)
+
+    def carried(self) -> list[dict]:
+        """The units whose bodies a session is handed at its start, in order (`carries`)."""
+        return [unit for unit in self.units if carries(unit)]
+
+    def unheld(self) -> list[dict]:
+        """The units a session would be handed whose bodies are not held and that state no gap:
+        a layered unit, which gates nothing, named so its absence does not read as nothing
+        selected (`D-20260930-38bbad`)."""
+        return [unit for index, unit in enumerate(self.units)
+                if self.delivered(unit) and "body_digest" not in unit and not self.at(index)]
+
+    def unmet(self) -> dict | None:
+        """The first gap stated at a unit that must resolve before a session starts, or None."""
+        for gap in self.gaps:
+            parts = gap.get("pointer", "").split("/")
+            if len(parts) == 3 and parts[1] == "units" and \
+                    self.required(self.units[int(parts[2])]):
+                return gap
+        return None
+
+
+def reading(prepared: dict) -> Reading:
+    """The reading of a stored preparation."""
+    return Reading(prepared["units"], prepared["material_gaps"])
+
+
+def declared_needs(store: storage.Store, prepared: dict, unit: dict) -> list[dict]:
+    """The needs the collection that contributed a unit declares for it, read from the
+    collections the preparation names at their heads; none for a unit no collection declares."""
+    found = []
+    for held in prepared["collections"]:
+        collection = store.get(held["head_digest"])
+        for entry in collection["entries"] if isinstance(collection, dict) else []:
+            for binding in entry.get("units") or []:
+                if entry["source_id"] == unit["source_id"] and \
+                        binding["member"] == unit["member"]:
+                    found += [need for need in binding.get("needs", []) if need not in found]
+    return found
+
+
+def unanswered(prepared: dict, needs: list[dict]) -> list[dict]:
+    """Of a unit's needs, those no unit of the preparation answers."""
+    held = {(unit["source_id"], unit.get("member")) for unit in prepared["units"]}
+    return [need for need in needs if (need["source_id"], need["member"]) not in held]
 
 
 # Collections.
@@ -218,14 +316,25 @@ def body_of(state, revision: str, member: dict) -> tuple[str | None, str | None]
 
 
 class Composition:
-    """One preparation being composed: what it read, in the order it read it."""
+    """One preparation being composed: what it read, in the order it read it. It reads and
+    writes no position; `preparation_compose` stores what it composed, and the entry and
+    `sources` read one composed in memory (`composed`)."""
 
-    def __init__(self, call, store: storage.Store, order: list[dict]):
-        self.call, self.store, self.order = call, store, order
+    def __init__(self, state, store: storage.Store, order: list[dict]):
+        self.state, self.store, self.order = pathlib.Path(state), store, order
         self.collections: list[dict] = []
         self.units: list[dict] = []
         self.frontiers: list[dict] = []
         self.gaps: list[dict] = []
+        # Each entry that states a gap at its collection: (the collection's pointer, its source,
+        # the codes), so what does not resolve is named where it was selected.
+        self.unresolved: list[tuple[str, str, list[str]]] = []
+
+    @property
+    def reading(self) -> Reading:
+        return Reading([held["unit"] for held in self.units], self.gaps,
+                       {index: held["missing"] for index, held in enumerate(self.units)
+                        if held.get("missing")})
 
     def unresolved(self, where: str) -> None:
         self.gaps.append({"code": c07.SELECTION_UNRESOLVED, "pointer": where})
@@ -260,6 +369,8 @@ class Composition:
     def entry(self, entry: dict, scope: dict, role: str, where: str) -> None:
         codes, found = resolved(self.store, entry, role)
         self.gaps += [{"code": code, "pointer": where} for code in codes]
+        if codes:
+            self.unresolved.append((where, entry["source_id"], codes))
         if role == MEMORY and not codes and entry["switch"] == "on":
             self.frontier(entry["source_id"], where)
         if found is None:
@@ -339,24 +450,41 @@ class Composition:
             if held["unit"]["standing"] != "winning":
                 continue
             for need in held["needs"]:
-                for other in self.units:
-                    if (other["unit"]["source_id"], other["unit"]["member"]) == \
-                            (need["source_id"], need["member"]):
-                        other["unit"].setdefault("needed_by", []).append(
-                            held["unit"]["unit_id"])
+                answering = [other for other in self.units
+                             if (other["unit"]["source_id"], other["unit"]["member"]) ==
+                             (need["source_id"], need["member"])]
+                for other in answering:
+                    other["unit"].setdefault("needed_by", []).append(held["unit"]["unit_id"])
+                if not answering:
+                    held.setdefault("missing", []).append(need)
 
     def bodies(self) -> None:
         for index, held in enumerate(self.units):
             unit = held["unit"]
             if held.get("unordered"):
                 self.gaps.append({"code": c07.SAME_LAYER_UNORDERED, "pointer": f"/units/{index}"})
-            if unit["standing"] == "disabled" and "needed_by" not in unit:
-                continue
-            digest, why = body_of(self.call.state, unit["revision_digest"], held["member"])
-            if digest is not None:
-                unit["body_digest"] = digest
-            elif unit["standing"] == "winning" or "needed_by" in unit:
-                self.gaps.append({"code": why, "pointer": f"/units/{index}"})
+            if unit["standing"] != "disabled" or "needed_by" in unit:
+                digest, why = body_of(self.state, unit["revision_digest"], held["member"])
+                if digest is not None:
+                    unit["body_digest"] = digest
+                elif unit["standing"] == "winning" or "needed_by" in unit:
+                    self.gaps.append({"code": why, "pointer": f"/units/{index}"})
+            if held.get("missing"):
+                self.gaps.append({"code": c04.COMPANION_UNAVAILABLE,
+                                  "pointer": f"/units/{index}"})
+
+
+def composed(state, store: storage.Store, scopes: list[dict],
+             pins: list[dict] = ()) -> Composition:
+    """A composition of these scopes in the default order with these pins, run in memory and
+    written nowhere: what a start of that basis would compose. A pin of a revision not held here
+    is left out, as the request that names it would be refused."""
+    order = sorted(scopes, key=lambda scope: DEFAULT_ORDER.index(scope["layer"]))
+    composition = Composition(state, store, order)
+    found = [(pin, *held) for pin in pins
+             if (held := revision_of(store, pin["source_id"], pin["revision_digest"]))]
+    composition.compose(found)
+    return composition
 
 
 def observed(store: storage.Store) -> tuple[dict, list[dict]]:
@@ -395,7 +523,7 @@ def preparation_compose(call) -> dict:
         link = store.get(request["recipient_digest"])
         if not isinstance(link, dict) or link.get("kind") != "recipient_link":
             return refused(call, c11.RECIPIENT_LINK_UNKNOWN, "/recipient_digest")
-    composition = Composition(call, store, order)
+    composition = Composition(call.state, store, order)
     pins = []
     for index, pin in enumerate(basis["source_pins"]):
         found = revision_of(store, pin["source_id"], pin["revision_digest"])

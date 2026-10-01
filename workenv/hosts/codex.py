@@ -35,6 +35,16 @@ A turn Codex gives up on ends with an `error` notification it will not retry and
 `turn/completed` whose turn `failed`, each carrying its message; where the provider refused, the
 message is the provider's JSON error (measured on 0.158.0 on 2026-09-30, a configured model the
 account is not offered). A probe whose turn said nothing keeps that reason in what it observed.
+
+A probe counts a turn only where Codex ends it `completed` (the `TurnStatus` of the app-server
+schema 0.159.2 generates: `completed`, `interrupted`, `failed`, `inProgress`); one it ends
+otherwise gave no reply. The first turn of a rehydrated probe only gives the conversation
+something to compact, so how it ended does not matter. It counts a compaction only where Codex
+accepted the request, reported the compaction (a `contextCompaction` item, or the older
+`thread/compacted`) and completed that turn: a compaction Codex accepts and then fails ends its
+turn `failed`, and a session asked after it would answer from the uncompacted conversation, so
+the probe asks nothing then (r9-1, design record
+`2026-10-01T2134--3551ccb--v1-restructure-design.md`).
 """
 from __future__ import annotations
 
@@ -113,6 +123,12 @@ def reason(error) -> str:
         else said
 
 
+def completed(ended: dict | None) -> bool:
+    """Whether a `turn/completed` notification says Codex completed the turn."""
+    return ended is not None and ended.get("params", {}).get("turn", {}).get("status") == \
+        "completed"
+
+
 class Server:
     """Codex's app server over standard input and output, for the length of one probe."""
 
@@ -184,14 +200,35 @@ class Server:
                             "method" not in message)
         return None if answer is None or "error" in answer else answer.get("result")
 
-    def turn(self, thread: str, text: str) -> list[str] | None:
-        """What the agent said in one turn, or None where the turn did not end."""
+    def ended(self, thread: str, text: str) -> dict | None:
+        """The `turn/completed` that ended one turn, however it ended, or None where it did
+        not end."""
         self.said = []
         if self.call("turn/start", {"threadId": thread,
                                     "input": [{"type": "text", "text": text}]}) is None:
             return None
-        ended = self.until(lambda message: message.get("method") == "turn/completed")
-        return None if ended is None else list(self.said)
+        return self.until(lambda message: message.get("method") == "turn/completed")
+
+    def turn(self, thread: str, text: str) -> list[str] | None:
+        """What the agent said in one turn Codex completed, or None where the turn did not end
+        or ended otherwise."""
+        return list(self.said) if completed(self.ended(thread, text)) else None
+
+    def compacted(self, thread: str) -> bool:
+        """Whether Codex compacted the conversation: it accepted the request, reported the
+        compaction, and completed that turn."""
+        if self.call("thread/compact/start", {"threadId": thread}) is None:
+            return False
+        reported = []
+
+        def ends(message: dict) -> bool:
+            item = message.get("params", {}).get("item", {})
+            if message.get("method") == "thread/compacted" or (
+                    message.get("method") == "item/completed" and
+                    item.get("type") == "contextCompaction"):
+                reported.append(message)
+            return message.get("method") == "turn/completed"
+        return completed(self.until(ends)) and bool(reported)
 
     def close(self) -> None:
         self.process.kill()
@@ -283,10 +320,10 @@ def drive(recipient: str, executable: str, command: str, given: list[str],
 
         def failed() -> str:
             return f"Codex ended the turn with an error: {server.failed}" if server.failed else ""
-        if recipient == "rehydrated" and (
-                server.turn(thread, "Reply OK.") is None or
-                server.call("thread/compact/start", {"threadId": thread}) is None or
-                server.until(lambda message: message.get("method") == "turn/completed") is None):
+        # The first turn only gives the conversation something to compact; how it ended does
+        # not matter, but the compaction must be one Codex confirmed.
+        if recipient == "rehydrated" and (server.ended(thread, "Reply OK.") is None or
+                                          not server.compacted(thread)):
             return probes.Run(None, hooks, " ".join(filter(None, (
                 "Before the question: Codex did not compact the conversation.", failed(),
                 note))))

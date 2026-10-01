@@ -326,6 +326,118 @@ class Prepared(Base):
         self.assertEqual(prepared, [sealed["request_id"]])
 
 
+class Decided(Base):
+    """What is asked before the unit of work forecasts; the unit asks it again and decides."""
+
+    def entry(self, admits=None, prepare=None) -> Entry:
+        entry = Entry(lambda call: journal.committed(call, [journal.payload(call)],
+                                                     head=call.prepared["head"]))
+        if admits is not None:
+            entry.admits = admits
+        entry.prepare = Entry(prepare or (lambda call: {"head": "a" * 64}))
+        return entry
+
+    def readings(self, *codes):
+        """An admission check answering its readings in turn by these, the last for good: a
+        refusal by the code, or None; and whether each reading was made in the unit."""
+        seen = []
+
+        def admits(call, store):
+            code = codes[min(len(seen), len(codes) - 1)]
+            seen.append(store.writing)
+            return None if code is None else journal.answered(
+                call, "refused", gaps=[{"code": code}])
+        return admits, seen
+
+    def settling(self, sealed: dict, payload: dict, entry) -> tuple[dict, list]:
+        """This request run while another of the same operation is held unknown, and settled
+        right after this one's first reading of the rules; the answer and its readings."""
+        unknown = {**sealed, "request_id": bench.ident("req")}
+        self.bench.run(Entry(lambda call: journal.answered(
+            call, "unknown", recovery=["query_same_request"], provider_effect="unknown")),
+            unknown, [payload])
+        real, looks = journal.ruled, []
+
+        def ruled(call, store):
+            found = real(call, store)
+            if call.request["request_id"] == sealed["request_id"]:
+                looks.append((store.writing, found is not None))
+                if len(looks) == 1:
+                    self.bench.run(Entry(commits), unknown, [payload])
+            return found
+        journal.ruled = ruled
+        try:
+            return self.bench.run(entry, sealed, [payload]), looks
+        finally:
+            journal.ruled = real
+
+    def test_a_check_that_admitted_before_the_unit_and_refuses_in_it_refuses(self):
+        admits, seen = self.readings(None, c03.STALE_BASE)
+        entry = self.entry(admits)
+        sealed, payload = self.rename()
+        answer = self.bench.run(entry, sealed, [payload])
+        self.assertEqual(answer["result"]["outcome"]["material_gaps"], [{"code": c03.STALE_BASE}])
+        self.assertEqual((seen, entry.prepare.calls, entry.calls), ([False, True], 1, 0))
+        self.assertEqual(self.query(sealed["request_id"])["returned"], [answer["result"]])
+
+    def test_a_check_that_refused_before_the_unit_and_admits_in_it_runs_again_from_the_start(self):
+        admits, seen = self.readings(c03.STALE_BASE, None)
+        entry = self.entry(admits)
+        sealed, payload = self.rename()
+        answer = self.bench.run(entry, sealed, [payload])
+        self.assertEqual(answer["result"]["outcome"]["stage"], "committed")
+        self.assertEqual((seen, entry.prepare.calls, entry.calls),
+                         ([False, True, False, True], 1, 1))
+
+    def test_a_request_whose_admission_keeps_moving_holds_nothing_after_three_passes(self):
+        admits, seen = self.readings(*[c03.STALE_BASE, None] * journal.ATTEMPTS)
+        entry = self.entry(admits)
+        sealed, payload = self.rename()
+        with self.assertRaises(journal.JournalError):
+            self.bench.run(entry, sealed, [payload])
+        self.assertEqual((len(seen), entry.prepare.calls, entry.calls, self.held_count()),
+                         (2 * journal.ATTEMPTS, 0, 0, 0))
+        self.assertEqual(self.bench.run(entry, sealed, [payload])["result"]["outcome"]["stage"],
+                         "committed")
+
+    def test_a_prepare_step_that_finds_its_admission_gone_runs_the_request_again(self):
+        def prepare(call):
+            if entry.prepare.calls == 1:
+                raise journal.Again(call.request["request_id"])
+            return {"head": "a" * 64}
+        admits, seen = self.readings(None)
+        entry = self.entry(admits, prepare)
+        sealed, payload = self.rename()
+        answer = self.bench.run(entry, sealed, [payload])
+        self.assertEqual(answer["receipt"]["head_digest"], "a" * 64)
+        self.assertEqual((seen, entry.prepare.calls, entry.calls), ([False, False, True], 2, 1))
+
+    def test_a_refusal_the_prepare_step_reads_from_the_bytes_stands_where_the_unit_admits(self):
+        admits, seen = self.readings(None)
+        entry = self.entry(admits, lambda call: {"answer": journal.answered(
+            call, "refused", gaps=[{"code": c03.OBJECT_DIGEST_MISMATCH}])})
+        sealed, payload = self.rename()
+        answer = self.bench.run(entry, sealed, [payload])
+        self.assertEqual(answer["result"]["outcome"]["material_gaps"],
+                         [{"code": c03.OBJECT_DIGEST_MISMATCH}])
+        self.assertEqual((seen, entry.prepare.calls, entry.calls), ([False, True], 1, 0))
+
+    def test_an_unknown_outcome_settled_before_the_unit_lets_the_request_run_in_it(self):
+        sealed, payload = self.rename()
+        entry = Entry(commits)
+        answer, looks = self.settling(sealed, payload, entry)
+        self.assertEqual(answer["result"]["outcome"]["stage"], "committed")
+        self.assertEqual((looks, entry.calls), ([(False, True), (True, False)], 1))
+
+    def test_an_unknown_outcome_settled_before_the_unit_prepares_on_the_run_again(self):
+        sealed, payload = self.rename()
+        entry = self.entry()
+        answer, looks = self.settling(sealed, payload, entry)
+        self.assertEqual(answer["result"]["outcome"]["stage"], "committed")
+        self.assertEqual((looks, entry.prepare.calls, entry.calls),
+                         ([(False, True), (True, False), (False, False), (True, False)], 1, 1))
+
+
 class Stale(Base):
     """On a source, the kind of target whose requests state the head they expect."""
 

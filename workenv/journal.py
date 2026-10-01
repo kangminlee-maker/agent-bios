@@ -21,7 +21,8 @@ someone else — and does, in order:
      and the request must state its effect class (`effect_class_mismatch`).
   4. A request that repeats the operation, target and payload of one held with an unknown
      outcome, under a new id, is `resubmitted_while_unknown`: the first is settled by asking
-     again under its own id.
+     again under its own id. Steps 3 and 4 are asked before the unit of work and again in it,
+     and the answer in it is the one that stands (step 6).
   5. An addressed operation is answered here: `operation.query` with the original result and
      its receipt, or `request_not_held`, from what the journal holds: a query does not settle a
      pending outcome yet. `operation.cancel` of a request the journal holds is `cancel_too_late`,
@@ -29,10 +30,19 @@ someone else — and does, in order:
      a cancel of one the journal does not hold is not served.
   6. Otherwise the request is handed on. An entry that publishes bytes before its commit
      carries a `prepare` step, which runs first, outside the unit, and hands the entry what it
-     staged as `call.prepared`, or answers the request itself. Then the entry runs in one unit of
-     work, and the answer is kept in the same unit, so a crash leaves the request either held
-     with its answer or not held at all. The first request from a profile writes that profile
-     (`workenv.access`), in the same unit.
+     staged as `call.prepared`, or answers the request itself. An entry whose admission reads
+     what the store holds names those checks as `admits`, asked before `prepare` and again in
+     the unit. Then the entry runs in one unit of work, and the answer is kept in the same unit,
+     so a crash leaves the request either held with its answer or not held at all. The first
+     request from a profile writes that profile (`workenv.access`), in the same unit.
+
+What is asked before the unit is a forecast, and the unit, which holds the write lock, decides:
+a refusal there stands, though everything before it admitted, and the bytes already published
+are an interrupted commit. A request refused before the unit and admitted in it was never
+prepared, so it runs again from step 2, and so does one whose admission no longer holds where
+its `prepare` step reads it again (`Again`); after three such passes running, nothing is held
+and the journal says so. A refusal read before the unit is never the answer once the unit
+admits: a held answer is what the id answers for good.
 
 After the unit commits and before the answer returns, the journal passes the fault point
 `after_commit_before_return` the answer it committed. A refusal by triples from anything it
@@ -97,12 +107,19 @@ READS = ("query_same_request",)
 STARTS = "use"
 # The most characters a checkpoint's note holds.
 NOTE = 500
+# How many times a request whose admission moved under it runs from the start.
+ATTEMPTS = 3
 
 _READER: dict = {}
 
 
 class JournalError(Exception):
     """A defect of what the journal wraps, or a request it does not serve yet."""
+
+
+class Again(Exception):
+    """A request refused before its unit of work and admitted in it, or one whose admission no
+    longer holds where its `prepare` step reads it: it runs again from the start."""
 
 
 class _Unwritten(Exception):
@@ -379,21 +396,22 @@ def repeated(call, store: storage.Store, digest: str) -> dict | None:
     return None
 
 
-def layer_journal(call, inner):
+def attempt(call, inner, store: storage.Store, digest: str) -> dict:
+    """One pass of steps 2 to 6: what is asked before the unit of work forecasts, and the unit
+    asks it again and decides."""
     from workenv import access
 
     request = call.request
-    refused = read(request, call.carried)
-    if refused:
-        return {"refused": refused}
-    store = storage.of(call.state)
-    digest = canonical.digest_of(request)
     earlier = repeated(call, store, digest)
     if earlier is not None:
         return earlier
-    answer = ruled(call, store)
-    prepare = getattr(inner, "prepare", None)
-    if answer is None and prepare is not None and request["operation"] not in (QUERY, CANCEL):
+    runs = request["operation"] not in (QUERY, CANCEL)
+    admits = getattr(inner, "admits", None) if runs else None
+    prepare = getattr(inner, "prepare", None) if runs else None
+    call.prepared = None
+    foreseen = ruled(call, store) or (admits(call, store) if admits is not None else None)
+    answer = foreseen
+    if answer is None and prepare is not None:
         call.prepared = prepare(call)
         answer = call.prepared.get("answer")
     try:
@@ -401,12 +419,16 @@ def layer_journal(call, inner):
             earlier = repeated(call, store, digest)
             if earlier is not None:
                 raise _Unwritten(earlier)
-            # Another request may have been held unknown since the first reading.
-            answer = ruled(call, store) or answer
+            # What was refused or admitted before the unit may have moved since: asked again
+            # here, where the write lock holds it still, its answer is the one that stands.
+            decided = ruled(call, store) or (admits(call, store) if admits is not None else None)
+            if decided is None and foreseen is not None and prepare is not None:
+                raise Again(request["request_id"])
+            if decided is not None or foreseen is not None:
+                answer = decided
             access.first_use(store, request["actor"], now(call))
             if answer is None:
-                answer = (addressed(call, store) if request["operation"] in (QUERY, CANCEL)
-                          else inner(call))
+                answer = addressed(call, store) if not runs else inner(call)
             if "refused" in answer:
                 raise _Unwritten(answer)
             keep(store, request, digest, answer, now(call), works_in(store, call))
@@ -414,6 +436,23 @@ def layer_journal(call, inner):
         return unwritten.answer
     call.point(COMMITTED, answer)
     return answer
+
+
+def layer_journal(call, inner):
+    request = call.request
+    refused = read(request, call.carried)
+    if refused:
+        return {"refused": refused}
+    store = storage.of(call.state)
+    digest = canonical.digest_of(request)
+    for _ in range(ATTEMPTS):
+        try:
+            return attempt(call, inner, store, digest)
+        except Again:
+            continue
+    raise JournalError(f"{request['request_id']} was refused before its unit of work and "
+                       f"admitted in it {ATTEMPTS} times running; nothing is held, and asking "
+                       "again under the same id runs it again")
 
 
 # History.
@@ -435,6 +474,35 @@ def noted(text: str) -> str:
     return text if len(text) <= NOTE else text[:NOTE - 1] + "\u2026"
 
 
+def acting_in(store: storage.Store, scope: dict) -> list[tuple]:
+    """Every request held that acts in the scope (the first rule), oldest first: its id, digest,
+    operation, stage, when it was answered, its note, and its result."""
+    key, ident = scope_key(scope), scope_id(scope)
+    return [(request_id, digest, operation, stage, at, rationale, store.get(result_digest))
+            for (request_id, digest, operation, stage, result_digest, at, rationale, owner, target,
+                 works) in store.read(
+                "SELECT request_id, request_digest, operation, stage, result_digest, answered_at, "
+                "rationale, owner, target, works_in FROM requests ORDER BY position")
+            if acts_in((owner, target, works), key, ident)]
+
+
+def starts_in(rows: list[tuple]) -> list[dict]:
+    """Of the requests that act in a scope, the starts (the second rule), each as a history lists
+    it: the last stage its request was answered at and when."""
+    return [{"request_id": request_id, "request_digest": digest, "operation": operation,
+             "confirmed_stage": stage, "confirmed_at": at, "coverage": COVERAGE,
+             "recovery": [way for way in result["supported_recovery"] if way in READS]}
+            for request_id, digest, operation, stage, at, _, result in rows
+            if OPERATIONS[operation]["action"] == STARTS]
+
+
+def pending_starts(store: storage.Store, scope: dict) -> list[dict]:
+    """The scope's starts still pending, oldest first, however many others it holds: what an
+    entry recovers from, whatever a history read of the scope lists."""
+    return [entry for entry in starts_in(acting_in(store, scope))
+            if entry["confirmed_stage"] in PENDING]
+
+
 def operation_history_read(call) -> dict:
     """C03 `operation.history.read`: one scope's recent starts, each with the last stage its
     request was answered at and when, and its dated checkpoints, as the module docstring states.
@@ -442,25 +510,13 @@ def operation_history_read(call) -> dict:
     store = storage.of(call.state)
     asked = payload(call)
     scope, limit = asked["scope"], asked["limit"]
-    key, ident = scope_key(scope), scope_id(scope)
-    entries, checkpoints = [], []
-    for (request_id, digest, operation, stage, result_digest, at, rationale, owner, target,
-         works) in store.read("SELECT request_id, request_digest, operation, stage, result_digest, "
-                              "answered_at, rationale, owner, target, works_in FROM requests "
-                              "ORDER BY position"):
-        if not acts_in((owner, target, works), key, ident):
-            continue
-        result = store.get(result_digest)
-        if OPERATIONS[operation]["action"] == STARTS:
-            entries.append({"request_id": request_id, "request_digest": digest,
-                            "operation": operation, "confirmed_stage": stage,
-                            "confirmed_at": at, "coverage": COVERAGE,
-                            "recovery": [way for way in result["supported_recovery"]
-                                         if way in READS]})
-        if rationale and result["outputs"]:
-            first = result["outputs"][0]
-            checkpoints.append({"digest": first["digest"], "kind": first["kind"],
-                                "recorded_at": at, "note": noted(rationale)})
+    rows = acting_in(store, scope)
+    entries = starts_in(rows)
+    checkpoints = [{"digest": result["outputs"][0]["digest"],
+                    "kind": result["outputs"][0]["kind"], "recorded_at": at,
+                    "note": noted(rationale)}
+                   for _, _, _, _, at, rationale, result in rows
+                   if rationale and result["outputs"]]
     pending = [entry for entry in entries if entry["confirmed_stage"] in PENDING][-limit:]
     others = [entry for entry in entries if entry not in pending]
     kept = pending + (others[-(limit - len(pending)):] if len(pending) < limit else [])

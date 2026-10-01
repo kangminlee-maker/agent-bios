@@ -188,6 +188,40 @@ class Probing(Hosts):
                 asked = self.asked()
                 self.assertNotIn(probes.ASK, asked)
 
+    def test_a_compaction_accepted_and_then_failed_or_not_done_qualifies_nothing(self):
+        # Asked after a compaction that did not happen, the session still holds its launch
+        # instructions and would give the code: only a compaction the host confirmed counts.
+        for host in EVERY:
+            for mode in ("compactfails", "compactquiet"):
+                with self.subTest(host=host, mode=mode):
+                    self.log.unlink(missing_ok=True)
+                    found, _ = self.probe(host, "rehydrated", FAKE_HOST_MODE=mode)
+                    self.assertEqual((found["offered"], found["outcome"]),
+                                     (True, "no_response"))
+                    self.assertIn("Before the question:", found["observed"])
+                    self.assertNotIn(probes.ASK, self.asked())
+        found, _ = self.probe("codex", "rehydrated", FAKE_HOST_MODE="compactfails")
+        self.assertIn("did not compact the conversation", found["observed"])
+        self.assertIn("compaction failed", found["observed"], "Codex's own reason is kept")
+        found, _ = self.probe("claude-code", "rehydrated", FAKE_HOST_MODE="compactquiet")
+        self.assertIn("did not compact the conversation", found["observed"])
+        # A compaction reported and then failed is no compaction either.
+        self.log.unlink(missing_ok=True)
+        found, _ = self.probe("codex", "rehydrated", FAKE_HOST_MODE="compactitemfails")
+        self.assertEqual(found["outcome"], "no_response")
+        self.assertIn("did not compact the conversation", found["observed"])
+        self.assertNotIn(probes.ASK, self.asked())
+
+    def test_a_turn_codex_ends_other_than_completed_gives_no_reply(self):
+        for mode in ("refusequiet", "saidinterrupted"):
+            with self.subTest(mode=mode):
+                found, _ = self.probe("codex", "new", FAKE_HOST_MODE=mode)
+                self.assertEqual(found["outcome"], "no_response")
+        for host in EVERY:
+            with self.subTest(host=host):
+                found, _ = self.probe(host, "rehydrated")
+                self.assertEqual(found["outcome"], "worked", found["observed"])
+
     def test_a_codex_turn_that_did_not_end_gave_no_reply(self):
         found, _ = self.probe("codex", "new", FAKE_HOST_MODE="noend")
         self.assertEqual(found["outcome"], "no_response")

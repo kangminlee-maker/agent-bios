@@ -21,7 +21,11 @@ neither read nor changed. A new, current or child session is one run that keeps 
 child is asked for through the session's subagent tool. A rehydrated session is one run given
 three prompts in turn as a stream (`--input-format stream-json`): a first prompt, `/compact`,
 and the question asked after it. It is one process because launch instructions are given to a
-process: a second run given them again would be handed them anew, not keep them.
+process: a second run given them again would be handed them anew, not keep them. `/compact`
+counts only where the stream carries a `system` message of subtype `compact_boundary` before its
+result, which Claude Code emits once a conversation was compacted (Agent SDK, "Message types");
+without it the session asked after would answer from the uncompacted conversation, so the probe
+asks nothing then (design record `2026-10-01T2134--3551ccb--v1-restructure-design.md`).
 """
 from __future__ import annotations
 
@@ -37,6 +41,8 @@ import uuid
 from workenv.hosts import Adapter, Configured, Kind, Route
 
 SHIPPED = pathlib.Path(__file__).resolve().parents[2] / "claude" / "agents"
+# The prompt that compacts a conversation, and the system message that says it was compacted.
+COMPACT, COMPACTED = "/compact", "compact_boundary"
 
 
 def reply(done) -> tuple[str | None, str]:
@@ -143,21 +149,26 @@ def conversed(argv: list[str], workdir: pathlib.Path, environ: dict,
     threading.Thread(target=read, daemon=True).start()
     deadline = time.monotonic() + probes.TIMEOUT
 
-    def result() -> dict | None:
+    def result() -> tuple[dict | None, set]:
+        """The result of the prompt given last, and the subtypes of the system messages before
+        it."""
+        seen: set = set()
         while (left := deadline - time.monotonic()) > 0:
             try:
                 line = lines.get(timeout=left)
             except queue.Empty:
-                return None
+                return None, seen
             if line is None:
-                return None
+                return None, seen
             try:
                 printed = json.loads(line)
             except ValueError:
                 continue
+            if isinstance(printed, dict) and printed.get("type") == "system":
+                seen.add(printed.get("subtype"))
             if isinstance(printed, dict) and printed.get("type") == "result":
-                return printed
-        return None
+                return printed, seen
+        return None, seen
     try:
         for step, prompt in enumerate(prompts, 1):
             before = "" if step == len(prompts) else "Before the question: "
@@ -167,11 +178,13 @@ def conversed(argv: list[str], workdir: pathlib.Path, environ: dict,
                 process.stdin.flush()
             except OSError:
                 return None, f"{before}Claude Code stopped taking prompts."
-            printed = result()
+            printed, seen = result()
             if printed is None:
                 return None, f"{before}Claude Code gave no result to {prompt!r}."
             if printed.get("is_error"):
                 return None, f"{before}Claude Code reported an error on {prompt!r}."
+            if prompt == COMPACT and COMPACTED not in seen:
+                return None, f"{before}Claude Code did not compact the conversation."
         answered = printed.get("result")
         return (answered, "") if isinstance(answered, str) else (
             None, "Claude Code's last result carried no reply.")
@@ -190,7 +203,7 @@ def drive(recipient: str, executable: str, command: str, given: list[str],
         answered, note = conversed(
             base + ["--input-format", "stream-json", "--output-format", "stream-json",
                     "--verbose", "--session-id", str(uuid.uuid4())],
-            workdir, environ, ["Reply OK.", "/compact", probes.ASK])
+            workdir, environ, ["Reply OK.", COMPACT, probes.ASK])
         return probes.Run(answered, hooks, note)
     ask = probes.ASK_CHILD if recipient == "child" else probes.ASK
     answered, note = reply(probes.ran(base + ["--output-format", "json",

@@ -50,7 +50,7 @@ class Catalog(unittest.TestCase):
         room = 80 - tui.GUTTER
         named = {"location.repository", "location.team", "checkpoint", "position",
                  "position.more", "position.unresolved", "unresolved", "unresolved.more",
-                 "unheld", "unheld.more", "changed", "changed.more",
+                 "unheld", "unheld.more", "changed", "changed.more", "needs", "needs.more",
                  "detail", "not_started", "not_checked"}
         for locale, table in tui.CATALOG.items():
             fill = {"layer": longest(table, "layer."), "role": longest(table, "role."),
@@ -1147,14 +1147,97 @@ class Unknown(Entering):
         self.assertEqual(self.focus(held), "action.check")
         self.assertEqual((held["dispatched"], self.sent), ([], []))
 
-    def test_the_history_of_another_scope_is_not_this_entry_s(self):
+    def test_the_history_of_another_scope_is_not_cited_though_the_start_is_the_draft(self):
         self.launcher()
         prepared = self.prepared(self.ask([self.repository, self.person.scope]), rationale="n")
-        self.activate(prepared)
+        activated = self.activate(prepared)
         self.history(self.person.scope)
         frame = self.drive()[0]
-        self.assertNotIn("result.draft", self.ids(frame))
+        self.assertEqual(frame["view"]["draft_request_id"], activated["result"]["request_id"])
+        self.assertEqual(self.focus(frame), "action.check")
+        self.assertNotIn("context.checkpoint", self.ids(frame))
         self.assertEqual(frame["calls"], [])
+
+    def test_a_start_no_history_read_lists_is_the_draft_and_holds_the_next_start_back(self):
+        self.launcher()
+        basis = self.ask([self.repository, self.person.scope])
+        self.prepared(basis, rationale="이전 메모")
+        self.history(self.repository)
+        activated = self.activate(self.prepared(basis))
+        frames = self.drive("tab", "tab", "tab", "enter")
+        draft = activated["result"]["request_id"]
+        self.assertEqual(frames[0]["view"]["draft_request_id"], draft)
+        self.assertEqual(self.element(frames[0], "result.draft")["state"], "unknown")
+        held = self.bench.store().read("SELECT request_digest FROM requests WHERE operation = ?",
+                                       (HISTORY,))
+        # Cited for the checkpoint it holds, not for the start, which it does not list.
+        self.assertEqual(frames[0]["calls"], [{"operation": HISTORY, "reads": "inventory",
+                                               "request_digest": held[0][0]}])
+        self.assertEqual(self.element(frames[4], "action.start")["state"], "blocked")
+        self.assertEqual(self.sent, [])
+
+    def test_a_history_listing_neither_the_start_nor_a_checkpoint_is_not_cited(self):
+        self.launcher()
+        self.history(self.repository)
+        activated = self.activate(self.prepared(self.ask([self.repository, self.person.scope])))
+        frames = self.drive("escape")
+        self.assertEqual(frames[0]["view"]["draft_request_id"], activated["result"]["request_id"])
+        self.assertNotIn("context.checkpoint", self.ids(frames[0]))
+        self.assertIn("signal.draft", self.ids(frames[1]))
+        self.assertEqual([frame["calls"] for frame in frames], [[], []])
+
+    def test_a_start_settled_after_the_history_read_is_no_draft(self):
+        prepared, activated, _ = self.unknown_start()
+        # Asked again under its own id, the start is settled; the history still lists it pending.
+        settled = self.activate(prepared, entry=commits,
+                                request_id=activated["result"]["request_id"])
+        self.assertEqual(settled["result"]["outcome"]["stage"], "committed")
+        frame = self.drive()[0]
+        self.assertNotIn("result.draft", self.ids(frame))
+        self.assertNotIn("draft_request_id", frame["view"])
+        self.assertIn("context.checkpoint", self.ids(frame))
+        self.assertEqual(len(frame["calls"]), 1)
+
+    def test_the_check_moves_through_its_states_and_only_settled_lets_the_start_run(self):
+        self.unknown_start()
+        entry = self.holding()
+        walked = [entry.check_state()]
+        for answer in (("unknown", None), ("unavailable", "request_not_held"),
+                       ("settled", "expired")):
+            entry.press({"input": "key", "key": "enter"})
+            walked.append(entry.check_state())
+            self.assertTrue(entry.holds_back())
+            entry.press({"input": "key", "key": "enter"})
+            entry.answered(entry.checking, *answer)
+            walked.append(entry.check_state())
+        self.assertEqual(walked, ["not_checked", "checking", "still_unknown", "checking",
+                                  "could_not_check", "checking", "settled"])
+        self.assertEqual([sealed["operation"] for sealed, _ in self.sent],
+                         ["operation.query"] * 3)
+        self.assertFalse(entry.holds_back())
+        entry.press({"input": "key", "key": "enter"})
+        self.assertEqual(len(self.sent), 3)
+
+    def test_the_start_moves_through_its_states_and_only_a_refusal_reopens_the_choices(self):
+        self.launcher()
+        entry = self.holding("tab", "tab")
+        walked = [entry.start_state()]
+        entry.press({"input": "key", "key": "enter"})
+        walked.append(entry.start_state())
+        self.assertFalse(entry.choosing())
+        entry.press({"input": "key", "key": "enter"})
+        entry.answered(entry.started, "unavailable", "why")
+        walked.append(entry.start_state())
+        self.assertTrue(entry.choosing())
+        entry.press({"input": "key", "key": "enter"})
+        walked.append(entry.start_state())
+        entry.answered(entry.started, "unknown")
+        walked.append(entry.start_state())
+        self.assertFalse(entry.choosing())
+        entry.press({"input": "key", "key": "enter"})
+        self.assertEqual(walked, ["not_sent", "sent", "refused", "sent", "unknown"])
+        self.assertEqual([sealed["operation"] for sealed, _ in self.sent],
+                         ["preparation.compose"] * 2)
 
     def test_a_start_the_owner_answered_is_no_draft(self):
         self.launcher()

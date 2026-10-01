@@ -322,12 +322,13 @@ class Revisions(Base):
 
         class Racing:
             """The entry, with another commit landing between its bundle and its unit."""
+            admits = staticmethod(sources.source_revision_commit.admits)
 
             def __call__(self, call):
                 return sources.source_revision_commit(call)
 
             def prepare(self, call):
-                staged = sources.revisions.prepare(call)
+                staged = sources.source_revision_commit.prepare(call)
                 test.committed({"concepts.md": CONCEPTS}, head)
                 return staged
         submitted = manifest(self.source, {"tables/rates.csv": RATES})
@@ -336,6 +337,33 @@ class Revisions(Base):
                                [submitted], members={sha(RATES): RATES}, now=INSTANT)
         self.assertEqual(answer["result"]["outcome"]["stage"], "stale")
         self.assertEqual(self.count("revisions"), 1)
+
+    def test_an_admission_gone_where_the_bundle_is_published_runs_the_commit_again(self):
+        _, head = self.registered()
+        readings = []
+
+        def reading(call, store):
+            """The commit's admission, read as stale once: where its bundle is published."""
+            readings.append(store.writing)
+            if len(readings) == 2:
+                return journal.stale(call, store) or journal.answered(
+                    call, "stale", gaps=[{"code": c03.STALE_BASE}],
+                    recovery=["reseal_on_current_head"]), None
+            return sources.revisions.committing(call, store)
+
+        class Moving:
+            """The entry, whose admission moves away and back around its bundle."""
+            admits = staticmethod(sources.revisions.admits(reading))
+            prepare = staticmethod(sources.revisions.preparing(reading))
+
+            def __call__(self, call):
+                return sources.source_revision_commit(call)
+        submitted = manifest(self.source, {"tables/rates.csv": RATES})
+        target = {"resource_id": self.source, "base": {"expects": "head", "head_digest": head}}
+        answer = self.run_with(Moving(), bench.request(self.person, COMMIT, target, submitted),
+                               [submitted], members={sha(RATES): RATES}, now=INSTANT)
+        self.assertEqual(answer["result"]["outcome"]["stage"], "committed", gaps(answer))
+        self.assertEqual(readings, [False, False, False, False, True])
 
     def test_a_package_published_source_takes_no_revision_here(self):
         _, head = self.registered(home={
@@ -533,6 +561,35 @@ class Admissions(Base):
         answer = self.admit(asked, submitted)
         bundle = storage.bundle(self.bench.state, answer["receipt"]["head_digest"])
         self.assertEqual((bundle / storage.MEMBERS / "rules/review.md").read_bytes(), CONCEPTS)
+
+    def test_a_binding_made_after_the_first_reading_refused_admits_on_the_run_again(self):
+        checkout = Checkout(self.scratch)
+        checkout.write("rules/review.md", CONCEPTS)
+        checkout.commit()
+        repository = {"layer": "repository", "repository_id": self.repository}
+        submitted = manifest(self.source, {"rules/review.md": CONCEPTS})
+        asked = self.asked(submitted, scope=repository, mode="repository_authored")
+        test, entry, readings = self, sources.source_revision_admit, []
+
+        class Binding:
+            """The entry, with its repository bound right after its first reading refused."""
+            prepare = staticmethod(entry.prepare)
+
+            def admits(self, call, store):
+                found = entry.admits(call, store)
+                readings.append(None if found is None else gaps(found))
+                if len(readings) == 1:
+                    test.bind(checkout)
+                return found
+
+            def __call__(self, call):
+                return entry(call)
+        target = {"resource_id": self.source, "base": {"expects": "absent"}}
+        answer = self.run_with(Binding(), bench.request(self.person, ADMIT, target, asked),
+                               [asked, submitted], now=INSTANT)
+        self.assertEqual(answer["result"]["outcome"]["stage"], "committed", gaps(answer))
+        self.assertEqual(readings, [[{"code": c01.BINDING_UNVERIFIED}], None, None, None])
+        self.assertEqual((self.count("revisions"), len(self.bundles())), (1, 1))
 
     def test_a_signature_among_its_proofs_is_held_to_what_a_commit_holds_it_to(self):
         submitted = manifest(self.source, {"rules/review.md": CONCEPTS})

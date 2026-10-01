@@ -20,17 +20,19 @@ session, at the event where the host reports that it did:
     one still unknown activates, and one already settled stays as it was: the session began
     either way. Then it opens the link for the session id the host reported, composes the job's
     request for that link, and only where that composition renders exactly the environment
-    handed at launch, byte for byte (the job's digest of it), activates the session with it and
-    records that the new session received it: the delivery it records names a preparation whose
-    text is the text the session holds (F-20). Where they differ, the checkout moved between the
-    start and the session, and it records nothing more and says so.
+    handed at launch, byte for byte (the job's digest of it), carrying the same units (the
+    job's `carried`, by source, member, revision and body: `start.Handed`), activates the
+    session with it and records that the new session received it: the delivery it records names
+    a preparation whose text is the text the session holds (F-20). Where they differ, the
+    checkout moved between the start and the session, and it records nothing more and says so.
   - `rehydrated` (the session was compacted): it records that the session received again the
     bodies it was activated with, which the host kept.
   - `child` (a child began): for a tier, it records that the child, under a use id of its own,
     received the bodies its definition carried. A child of any other kind received none.
   - `current` (a prompt): where the latest preparation composed for this session's link has not
-    reached it, and delivers other bodies than the session last received, the hook prints its
-    bodies and records that the session received them, once: the host runs this hook more than
+    reached it, and its carried bodies read otherwise than those the session last received (the
+    text a session holds, `start.Handed.body_text`), the hook prints its bodies and records that
+    the session received them, once: the host runs this hook more than
     once a turn. Where they are more than the host's hook carries whole, it prints a short
     notice that a new session receives them, once for that preparation, and records nothing;
     where no probe qualified the route, it prints and records nothing. A prompt with nothing new
@@ -46,7 +48,6 @@ error.
 from __future__ import annotations
 
 import contextlib
-import hashlib
 import io
 import json
 import os
@@ -136,7 +137,10 @@ class Session:
             "use_id": journal.mint("use"),
             "requested": {"what": "body", "recipient": recipient,
                           "preparation_digest": canonical.digest_of(prepared),
-                          "bodies": [unit["body_digest"] for unit in start.delivered(prepared)]}})
+                          "bodies": self.described(prepared).bodies}})
+
+    def described(self, prepared: dict) -> start.Handed:
+        return start.handed(self.state, prepared)
 
     def confirmed(self) -> None:
         """The start's activation, asked again under its own id now the session has begun."""
@@ -157,8 +161,9 @@ class Session:
         prepared = self.asked("preparation.compose", principal, self.job["request"],
                               expected="previewed",
                               recipient_digest=canonical.digest_of(link))["returned"][0]
-        rendered = start.environment(self.state, prepared).encode("utf-8")
-        if hashlib.sha256(rendered).hexdigest() != self.job.get("environment"):
+        mine = self.described(prepared)
+        if mine.digest != self.job.get("environment") or \
+                mine.carried != self.job.get("carried", mine.carried):
             raise Unrecorded("the checkout moved after the session was started: what composes "
                              "now is not what the session was handed")
         self.asked("session.routing.activate", self.actor["profile_id"], {
@@ -186,13 +191,13 @@ class Session:
         if not reached or not composed:
             return None
         latest = composed[-1]
-        units = start.delivered(latest)
-        if [unit["body_digest"] for unit in units] == \
-                [unit["body_digest"] for unit in start.delivered(reached[-1])] or \
+        given = self.described(latest)
+        # What the session holds is the bodies' text: a preparation that hands the same text
+        # brings nothing new, whatever else about it changed.
+        if given.body_text == self.described(reached[-1]).body_text or \
                 not hosts.supports(self.store, self.host, "current"):
             return None
-        text = (f"{start.TITLE}, as it changed during this session\n\n" +
-                start.bodies_text(units, [start.body(self.state, unit) for unit in units]))
+        text = f"{start.TITLE}, as it changed during this session\n\n" + given.body_text
         if not self.adapter.fits(text):
             return self.noticed(latest)
         self.handed = lambda: self.attempt(link, latest, "current")

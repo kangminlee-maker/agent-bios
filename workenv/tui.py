@@ -15,7 +15,10 @@ What it reads, and what a frame's `calls` name:
     holds there with their accepted revisions;
   - the binding of a selected repository;
   - the latest history answer the journal holds for the selected scope. The first frame that
-    shows its checkpoint or its unknown start cites that held request (`reads: inventory`).
+    shows its checkpoint, or the unknown start where it lists it, cites that held request
+    (`reads: inventory`);
+  - the selected scope's starts still pending (`journal.pending_starts`), by the rule the history
+    read lists them by. The last is the unknown start, whatever a history read lists.
 
 V1 has no owner operation that lists a scope's sources, so the kept records above are read
 directly. `calls` names the requests a frame rests on: that history read, and the request an
@@ -40,14 +43,16 @@ The grammar (design records `2026-09-28T1601--4e305e5--v1-slice5-entry-grammar-d
     once the owner refuses it, since a refused start started nothing. The start pins what this
     frame includes and no collection already applies. A position with nothing to choose (no source
     there, none with an accepted revision, or a collection that includes nothing) is marked
-    `[-]` and unavailable in words, and focus never lands on it. A position names the members
-    its pins select (`preparation.selected`: a collection entry's declared units, else every
-    member of the revision), never one they leave out. A source a collection switches
-    on that does not resolve, read as composition reads it (`preparation.resolved`), is named on
-    its position, which is `partial`, or `missing` where nothing it switches on resolves. So is
-    an Instructions member selected there whose body is not held (`preparation.unheld`), which
-    composition delivers no body for, and a repository-authored one whose checkout document
-    changed since it was admitted (`roles.drifted`), which a start refuses while it is included.
+    `[-]` and unavailable in words, and focus never lands on it. Every position is drawn from
+    what a start of the basis would compose, run in memory (`positions_of`,
+    `preparation.composed`) and read as the start reads it (`preparation.Reading`); Space
+    composes again. A position names the members composed there, never one its pins leave out.
+    A source a collection switches on that does not resolve is named on its position, which is
+    `partial`, or `missing` where nothing it switches on resolves. So is an Instructions member
+    composed there whose body is not held, a member a start rests on whose repository document
+    changed since it was admitted (`roles.drifted`), which a start refuses while it is included,
+    and a member a unit there needs that no composed unit answers, which refuses a start where
+    that unit must resolve. A position left out is drawn from a composition of it alone.
   - **Focus and keys.** Focus starts on the check of an unknown start, else a link's target,
     else the first position there is something to choose at, else the first Tab stop. Tab stops
     are the check, the note, the tool (when it has alternatives), the permissions and the start.
@@ -79,6 +84,12 @@ The grammar (design records `2026-09-28T1601--4e305e5--v1-slice5-entry-grammar-d
     (`settled`): the start is drawn as settled on the same screen, `delivered` where its session
     reported and `unavailable` otherwise, the start is no longer held back by it, and the hub no
     longer signals it.
+  - **Recovery.** The start is `not_sent`, `sent`, `unknown` or `refused`. The check of an
+    unknown start is `none`, where there is none, `not_checked`, `checking`, `still_unknown`,
+    `could_not_check` or `settled`. What the entry offers is derived from these two states and
+    nowhere else: the choices change and the start dispatches only while it is not sent or
+    refused; the check is asked only while it is not checked, still unknown or could not check;
+    the start is held back until the check is settled; and each result is worded by its state.
   - **`shown`.** An element is one line of `columns - 2` cells (wide characters take two cells,
     combining marks and Hangul medial and final jamo none, and a control character two), and a
     field's value takes up to three more lines. The line is its marks and label, then each effect
@@ -121,7 +132,7 @@ RATIONALE = 2000
 ANSWERED = ("unknown", "unavailable", "settled")
 # The gaps a start is refused with where a unit that must resolve at startup does not
 # (`roles.unmet`).
-UNMET = {c04.ROLE_BODY_UNAVAILABLE, c03.OBJECT_DIGEST_MISMATCH}
+UNMET = {c04.ROLE_BODY_UNAVAILABLE, c03.OBJECT_DIGEST_MISMATCH, c04.COMPANION_UNAVAILABLE}
 # The stages a settled start has its own words for; any other is named as it is.
 SETTLED = ("committed", "expired")
 # The states of a position with nothing to choose: nothing held there, or nothing accepted.
@@ -150,6 +161,8 @@ CATALOG = {
         "unresolved.more": "쓸 수 없는 원본 {source} 외 {more}개",
         "unheld": "본문 없음 {member}", "unheld.more": "본문 없음 {member} 외 {more}개",
         "changed": "등록 뒤 바뀜 {member}", "changed.more": "등록 뒤 바뀜 {member} 외 {more}개",
+        "needs": "필요한 항목이 선택에 없음 {member}",
+        "needs.more": "필요한 항목이 선택에 없음 {member} 외 {more}개",
         "not_started.moved": "시작하지 못함 · 레포 문서가 등록 뒤 바뀜 · Space로 빼거나 다시 등록",
         "not_started.moved.admit": "시작하지 못함 · 레포 문서가 등록 뒤 바뀜 · 다시 등록",
         "not_started.required": "시작하지 못함 · 필수 지침 본문을 쓸 수 없음 · "
@@ -203,6 +216,8 @@ CATALOG = {
         "unheld": "body not held {member}", "unheld.more": "body not held {member} and {more} more",
         "changed": "changed since admitted {member}",
         "changed.more": "changed since admitted {member} and {more} more",
+        "needs": "needed member not selected {member}",
+        "needs.more": "needed member not selected {member} and {more} more",
         "not_started.moved": "Not started · repository document changed · leave it out (Space) "
                              "or re-admit",
         "not_started.moved.admit": "Not started · repository document changed · re-admit",
@@ -256,6 +271,8 @@ CATALOG = {
         "unresolved.more": "使えない原本 {source} ほか{more}件",
         "unheld": "本文なし {member}", "unheld.more": "本文なし {member} ほか{more}件",
         "changed": "登録後に変更 {member}", "changed.more": "登録後に変更 {member} ほか{more}件",
+        "needs": "必要な項目が選択にない {member}",
+        "needs.more": "必要な項目が選択にない {member} ほか{more}件",
         "not_started.moved": "開始できません · リポジトリ文書が登録後に変更 · Spaceで外すか再登録",
         "not_started.moved.admit": "開始できません · リポジトリ文書が登録後に変更 · 再登録",
         "not_started.required": "開始できません · 必須の本文が使えません · "
@@ -327,11 +344,20 @@ class Position:
     chosen: bool = False
     # The sources a collection selects here that do not resolve, as composition reads them.
     unresolved: list[str] = dataclasses.field(default_factory=list)
-    # The Instructions members selected here whose bodies are not held (`preparation.unheld`).
+    # The Instructions members composed here whose bodies are not held.
     unheld: list[str] = dataclasses.field(default_factory=list)
-    # The repository-authored members whose checkout document changed since admitted
-    # (`roles.drifted`): a start that includes them is refused.
+    # The members a start rests on whose repository document changed since admitted
+    # (`preparation.Reading.claims`, `roles.drifted`): a start that includes them is refused.
     changed: list[str] = dataclasses.field(default_factory=list)
+    # The members a unit composed here needs that no composed unit answers
+    # (`companion_unavailable`).
+    needs: list[str] = dataclasses.field(default_factory=list)
+    # Each source selected here: its id, the revision it pins, the members it contributes, the
+    # gap codes it states where it does not resolve, of its members those whose bodies are not
+    # held and those whose document changed, and the needs of its units no unit answers.
+    # `sources` lists them.
+    rows: list[tuple] = dataclasses.field(default_factory=list)
+    collection_id: str | None = None
 
     @property
     def layer(self) -> str:
@@ -398,64 +424,126 @@ def drawn(element: dict, locale: str) -> str:
     return " · ".join([" ".join(element["marks"] + [element["label"]])] + words)
 
 
-def position_of(store: storage.Store, scope: dict, role: str) -> Position:
-    def read(pinned: list[tuple[str, str | None, list[dict] | None]]) -> tuple[list, list, list]:
-        """Of the members the pins select, the names they hold usable bodies for, those they
-        lack bodies for, and those whose checkout document changed since admitted. Only
-        Instructions bodies reach a session at its start; knowledge is read for a task."""
-        names, lacking, changed = [], [], []
-        for source_id, revision, declared in pinned:
-            manifest = store.get(revision) if revision else None
-            if not isinstance(manifest, dict):
-                continue
-            chosen = preparation.selected(manifest, declared)
-            if role != preparation.INSTRUCTIONS:
-                names += chosen
-                continue
-            gone = preparation.unheld(store.path.parent, revision, manifest, declared)
-            digests = {member["path"]: member["digest"] for member in manifest["members"]}
-            moved = [path for path in chosen if path not in gone
-                     and roles.drifted(store, source_id, path, digests[path])]
-            lacking += gone
-            changed += moved
-            names += [name for name in chosen if name not in gone and name not in moved]
-        return names, lacking, changed
+def positions_of(store: storage.Store, scopes: list[dict],
+                 chosen: dict[str, bool] | None = None) -> list[Position]:
+    """Every position of the basis, each scope's Instructions, knowledge and memory in turn,
+    drawn from what a start of that basis would compose (`preparation.composed`), read as the
+    start reads it (`preparation.Reading`).
 
-    collection_id = preparation.held_collection(store, scope, role)
+    A position a collection applies is drawn as composed. One no collection applies is included
+    as `chosen` says by its element id, else by default: an Instructions position holding an
+    accepted revision. Every included position is composed together, as the start would compose
+    them, so a member a start would deliver or refuse is shown so here. A position left out takes
+    no part in the start, and is drawn from a composition of that position alone."""
+    chosen = chosen or {}
+    state = store.path.parent
+    held: list[tuple[dict, str, str | None, list]] = []
+    for scope in scopes:
+        for role in ROLES:
+            collection_id = preparation.held_collection(store, scope, role)
+            rows = [] if collection_id is not None else store.read(
+                "SELECT source_id, revision_digest FROM sources WHERE scope = ? AND role = ? "
+                "ORDER BY rowid", (journal.scope_key(scope), role))
+            held.append((scope, role, collection_id, rows))
+
+    def pins(rows: list) -> list[dict]:
+        return [{"source_id": source, "revision_digest": revision}
+                for source, revision in rows if revision]
+
+    def included(scope: dict, role: str, rows: list) -> bool:
+        key = f"positions.{scope['layer']}.{role}"
+        return chosen[key] if key in chosen else \
+            bool(pins(rows)) and role == preparation.INSTRUCTIONS
+    together = preparation.composed(state, store, scopes, [
+        pin for scope, role, collection_id, rows in held
+        if collection_id is None and included(scope, role, rows) for pin in pins(rows)])
+    found = []
+    for scope, role, collection_id, rows in held:
+        if collection_id is not None:
+            found.append(drawn_from(together, store, scope, role, collection_id))
+            continue
+        alone = together if included(scope, role, rows) else \
+            preparation.composed(state, store, [scope], pins(rows))
+        position = drawn_from(alone, store, scope, role, None, rows)
+        position.included = included(scope, role, rows)
+        position.chosen = f"positions.{scope['layer']}.{role}" in chosen
+        found.append(position)
+    return found
+
+
+def drawn_from(composition: preparation.Composition, store: storage.Store, scope: dict,
+               role: str, collection_id: str | None, held: list = ()) -> Position:
+    """One position as a composition composed it: its members, those whose bodies are not held,
+    those a start rests on whose document changed, the needs no unit answers, and the sources
+    selected there that do not resolve. Only Instructions bodies reach a session at its start;
+    knowledge is read for a task, and memory is read at its frontier, so for those the position
+    names what it selects. A unit a winner needs is read at the start whatever its role, and a
+    unit switched off is no member here, but where a unit composed in the basis needs it, the
+    start reads it all the same: such a unit is named where its body is not held or its document
+    changed."""
+    read = composition.reading
+    mine = [(index, unit) for index, unit in enumerate(read.units)
+            if unit["layer"] == scope["layer"] and unit["role"] == role
+            and (unit["standing"] != "disabled" or unit.get("needed_by"))]
+    instructions = role == preparation.INSTRUCTIONS
+    lacking = [unit["member"] for _, unit in mine if "body_digest" not in unit
+               and (instructions or unit.get("needed_by"))]
+    changed = [unit["member"] for _, unit in mine if read.claims(unit)
+               and roles.drifted(store, unit["source_id"], unit["member"], unit["body_digest"])]
+    needs = [need["member"] for index, _ in mine for need in read.missing.get(index, [])]
+    names = [unit["member"] for _, unit in mine if unit["standing"] != "disabled"
+             and unit["member"] not in lacking and unit["member"] not in changed]
+
+    def contributed(source_id: str) -> list[dict]:
+        return [unit for _, unit in mine if unit["source_id"] == source_id]
+
+    def row(source_id: str, revision: str | None, codes: list[str]) -> tuple:
+        units = contributed(source_id)
+        members = [unit["member"] for unit in units]
+        if role == preparation.MEMORY and revision and isinstance(store.get(revision), dict):
+            members = preparation.selected(store.get(revision))
+        return (source_id, revision, members, codes,
+                [member for member in members if member in lacking],
+                [member for member in members if member in changed],
+                [need["member"] for index, unit in mine if unit["source_id"] == source_id
+                 for need in read.missing.get(index, [])])
     if collection_id is not None:
         collection = store.get(journal.head_of(store, collection_id))
         entries = [entry for entry in collection["entries"] if entry["switch"] == "on"] \
             if collection["switch"] == "on" else []
-        unresolved = [entry for entry in entries if preparation.resolved(store, entry, role)[0]]
-        resolving = [entry for entry in entries if entry not in unresolved]
-        names, lacking, changed = read([(entry["source_id"],
-                                         entry.get("pin", {}).get("revision_digest"),
-                                         entry.get("units")) for entry in resolving])
-        unusable = lacking + changed
-        state = ("checked_empty" if not entries
+        needed = {unit["source_id"] for _, unit in mine if unit["standing"] == "disabled"}
+        where = next((f"/collections/{index}" for index, held_at in
+                      enumerate(composition.collections)
+                      if held_at["collection_id"] == collection_id), None)
+        codes = {source: found for at, source, found in composition.unresolved if at == where}
+        rows = [row(entry["source_id"], entry.get("pin", {}).get("revision_digest"),
+                    codes.get(entry["source_id"], [])) for entry in collection["entries"]
+                if entry in entries or entry["source_id"] in needed]
+        resolving = [entry for entry in entries if entry["source_id"] not in codes]
+        if role == preparation.MEMORY:
+            names = [member for found in rows if not found[3] for member in found[2]]
+        unusable = lacking + changed + needs
+        state = ("checked_empty" if not entries and not unusable
                  else "missing" if not resolving or (unusable and not names)
-                 else "partial" if unresolved or unusable
-                 else "installed" if role == preparation.INSTRUCTIONS else "not_checked")
+                 else "partial" if codes or unusable
+                 else "installed" if instructions else "not_checked")
         return Position(scope, role, state,
                         names or ([] if unusable else [entry["source_id"] for entry in resolving]),
-                        [], True, bool(entries),
-                        unresolved=[entry["source_id"] for entry in unresolved], unheld=lacking,
-                        changed=changed)
-    held = store.read("SELECT source_id, revision_digest FROM sources WHERE scope = ? AND "
-                      "role = ? ORDER BY rowid", (journal.scope_key(scope), role))
-    pins = [{"source_id": source, "revision_digest": revision}
-            for source, revision in held if revision]
-    names, lacking, changed = read([(pin["source_id"], pin["revision_digest"], None)
-                                    for pin in pins])
-    unusable = lacking + changed
-    if pins:
+                        [], True, bool(entries), unresolved=list(codes), unheld=lacking,
+                        changed=changed, needs=needs, rows=rows, collection_id=collection_id)
+    pinned = [{"source_id": source, "revision_digest": revision}
+              for source, revision in held if revision]
+    rows = [row(source, revision, []) for source, revision in held]
+    if role == preparation.MEMORY:
+        names = [member for found in rows if found[1] for member in found[2]]
+    unusable = lacking + changed + needs
+    if pinned:
         state = ("missing" if unusable and not names else "partial" if unusable
-                 else "installed" if role == preparation.INSTRUCTIONS else "not_checked")
+                 else "installed" if instructions else "not_checked")
     else:
         state = "configured" if held else "checked_empty"
-    return Position(scope, role, state, names, pins, False,
-                    bool(pins) and role == preparation.INSTRUCTIONS, unheld=lacking,
-                    changed=changed)
+    return Position(scope, role, state, names, pinned, False, False, unheld=lacking,
+                    changed=changed, needs=needs, rows=rows)
 
 
 def history_of(store: storage.Store, scope: dict) -> tuple[dict, str] | None:
@@ -509,13 +597,16 @@ class Entry:
         self.permission, self.permission_chosen = 0, False
         self.scope = self.starts[0].route["scope"] if self.starts else self.person
         self.place = location_of(store, self.scope)
-        layers = [self.scope] + ([self.person] if self.scope != self.person else [])
-        self.positions = [position_of(store, scope, role) for scope in layers for role in ROLES]
+        self.layers = [self.scope] + ([self.person] if self.scope != self.person else [])
+        # The person's own choices of the positions no collection applies, by element id.
+        self.choices: dict[str, bool] = {}
+        self.positions = positions_of(store, self.layers)
         found = history_of(store, self.scope)
         self.history, self.history_digest = found if found else (None, None)
-        entries = [entry for entry in (self.history or {}).get("entries", [])
-                   if entry["confirmed_stage"] in PENDING]
-        self.draft = entries[-1] if entries else None
+        # The unknown start is read from the journal, which holds it however many others came
+        # after it; the history read is cited only where it lists it.
+        pending = journal.pending_starts(store, self.scope)
+        self.draft = pending[-1] if pending else None
         checkpoints = (self.history or {}).get("checkpoints", [])
         self.checkpoint = checkpoints[-1] if checkpoints else None
         self.cited = False
@@ -578,7 +669,10 @@ class Entry:
             ([self.text("unheld.more" if len(lacking) > 1 else "unheld", member=lacking[0],
                         more=len(lacking) - 1)] if lacking else []) +
             ([self.text("changed.more" if len(changed) > 1 else "changed", member=changed[0],
-                        more=len(changed) - 1)] if changed else [])) or None
+                        more=len(changed) - 1)] if changed else []) +
+            ([self.text("needs.more" if len(position.needs) > 1 else "needs",
+                        member=position.needs[0], more=len(position.needs) - 1)]
+             if position.needs else [])) or None
         if not position.names:
             return self.text("position", name=missing or "-", **values)
         held = self.text("position.more", name=position.names[0],
@@ -619,20 +713,45 @@ class Entry:
     def ids(self) -> list[str]:
         return [element["element_id"] for element in self.elements()]
 
+    # Where the start and the check stand, and what is derived from them and nowhere else.
+
+    def start_state(self) -> str:
+        """Where this entry's start stands: `not_sent`; `sent`, not answered yet; `unknown`; or
+        `refused`, where the owner started nothing."""
+        if self.started is None:
+            return "not_sent"
+        answer = self.answers.get(self.started)
+        return "sent" if answer is None else "unknown" if answer[0] == "unknown" else "refused"
+
+    def check_state(self) -> str:
+        """Where the check of the unknown start stands: `none`, where there is no unknown start;
+        `not_checked`; `checking`, not answered yet; `still_unknown`; `could_not_check`; or
+        `settled`."""
+        if self.draft is None:
+            return "none"
+        if self.checking is None:
+            return "not_checked"
+        answer = self.answers.get(self.checking)
+        return ("checking" if answer is None else "still_unknown" if answer[0] == "unknown"
+                else "settled" if answer[0] == "settled" else "could_not_check")
+
     def settled(self) -> str | None:
         """The stage the check found its unknown start settled at, or None."""
-        checked = self.answers.get(self.checking) if self.checking else None
-        return checked[1] if checked and checked[0] == "settled" else None
+        return self.answers[self.checking][1] if self.check_state() == "settled" else None
 
     def choosing(self) -> bool:
-        """Whether the choices can still change and start: no start was dispatched, or the owner
-        refused the last one, which started nothing. A start pending or unknown holds them."""
-        answer = self.answers.get(self.started) if self.started else None
-        return self.started is None or (answer is not None and answer[0] == "unavailable")
+        """Whether the choices can still change and start: no start was sent, or the owner
+        refused the last one, which started nothing. A start sent or unknown holds them."""
+        return self.start_state() in ("not_sent", "refused")
+
+    def may_check(self) -> bool:
+        """Whether the unknown start can be checked: it was not, or a check answered without
+        finding it settled. One check in flight is asked once."""
+        return self.check_state() in ("not_checked", "still_unknown", "could_not_check")
 
     def holds_back(self) -> bool:
         """Whether an unknown start holds the next one back: until a check finds it settled."""
-        return self.draft is not None and self.settled() is None
+        return self.check_state() not in ("none", "settled")
 
     def first_focus(self, view: str) -> str | None:
         if view == HUB:
@@ -660,9 +779,16 @@ class Entry:
         found.update({key: value for key, value in more.items() if value is not None})
         return found
 
-    def draws_history(self) -> bool:
-        return self.history is not None and (self.draft is not None or
-                                             self.checkpoint is not None)
+    def cites_history(self, elements: list[dict]) -> bool:
+        """Whether the frame shows what the history read holds: its checkpoint, or the unknown
+        start where the history lists it."""
+        if self.history is None:
+            return False
+        shown = {element["element_id"] for element in elements}
+        listed = self.draft is not None and any(
+            entry["request_id"] == self.draft["request_id"] for entry in self.history["entries"])
+        return "context.checkpoint" in shown or (listed and bool(
+            shown & {"result.draft", "signal.draft"}))
 
     def location(self) -> dict:
         parts = dict(self.place)
@@ -680,20 +806,22 @@ class Entry:
                                                  "digest": self.checkpoint["digest"]}))
         if self.draft:
             request = {"ref": "request", "request_id": self.draft["request_id"]}
-            checked = self.answers.get(self.checking) if self.checking else None
-            stage = self.settled()
-            if stage is not None:
+            check = self.check_state()
+            if check == "settled":
+                stage = self.settled()
                 label = self.text(f"settled.{stage}" if stage in SETTLED else "settled.other",
                                   stage=stage)
                 state = "delivered" if stage == "committed" else "unavailable"
-            elif checked and checked[1]:
-                label, state = self.text("not_checked", reason=checked[1]), checked[0]
+            elif check == "could_not_check":
+                label = self.text("not_checked", reason=self.answers[self.checking][1])
+                state = "unavailable"
             else:
                 label = self.text("draft", coverage=self.text(f"coverage.{self.draft['coverage']}"))
-                state = checked[0] if checked else PENDING[self.draft["confirmed_stage"]]
+                state = "unknown" if check == "still_unknown" else \
+                    PENDING[self.draft["confirmed_stage"]]
             found.append(self.element("result.draft", "result", label, state=state,
                                       refers_to=request))
-            checking = self.checking is not None and checked is None
+            checking = check == "checking"
             found.append(self.element("action.check", "action", self.text("check"),
                                       executing=checking,
                                       state="pending" if checking else None,
@@ -737,7 +865,7 @@ class Entry:
                                             "route_id": route.route["route_id"]}))
         answer = self.answers.get(self.started) if self.started else None
         if start:
-            executing = self.started is not None and answer is None
+            executing = self.start_state() == "sent"
             found.append(self.element("action.start", "action",
                                       self.text("start", tool=start.tool),
                                       executing=executing,
@@ -816,9 +944,7 @@ class Entry:
 
     def frame(self, after: int) -> dict:
         elements = self.elements()
-        if self.draws_history() and not self.cited and any(
-                element["element_id"] in ("context.checkpoint", "result.draft", "signal.draft")
-                for element in elements):
+        if not self.cited and self.cites_history(elements):
             self.cited = True
             self.calls.insert(0, {"operation": HISTORY, "reads": "inventory",
                                   "request_digest": self.history_digest})
@@ -913,7 +1039,9 @@ class Entry:
             return
         position = self.focused_position()
         if position is not None and position.toggles and self.choosing():
-            position.chosen, position.included = True, not position.included
+            # The basis changed, so what a start would compose is read again.
+            self.choices[position.element_id] = not position.included
+            self.positions = positions_of(self.store, self.layers, self.choices)
 
     def turn(self, step: int) -> None:
         if not self.choosing():
@@ -1009,9 +1137,8 @@ class Entry:
         # A position a collection applies carries no pins: the composition applies it.
         pins = [pin for position in self.positions if position.included for pin in position.pins]
         applied = any(position.included for position in self.positions)
-        scopes = [self.scope] + ([self.person] if self.scope != self.person else [])
         basis = {"kind": "preparation_request", "schema": 1,
-                 "basis": {"from": "ad_hoc", "scopes": scopes, "source_pins": pins},
+                 "basis": {"from": "ad_hoc", "scopes": list(self.layers), "source_pins": pins},
                  "declared_operation": {"action": START, "name": SESSION_START}}
         sealed = self.seal(COMPOSE, self.person["principal_id"], basis,
                            **({"rationale": self.note} if self.note else {}))
@@ -1034,8 +1161,7 @@ class Entry:
             self.blocked = False
 
     def check(self) -> None:
-        if self.checking is not None and (self.checking not in self.answers or
-                                          self.settled() is not None):
+        if not self.may_check():
             return
         asked = {"kind": "operation_query", "schema": 1,
                  "request_id": self.draft["request_id"]}

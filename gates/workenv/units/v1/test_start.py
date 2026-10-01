@@ -531,6 +531,17 @@ class Events(Starting):
         self.assertIn("nothing recorded: the checkout moved", said)
         self.assertEqual(self.recorded(), [])
 
+    def test_a_composition_carrying_other_units_than_the_start_s_records_nothing(self):
+        # The same text, other revisions: what composes now is not what the session was handed.
+        launch = self.launched("claude-code")
+        job = self.job(launch)
+        moved = [{**carried, "revision_digest": hashlib.sha256(b"another").hexdigest()}
+                 for carried in job["carried"]]
+        printed, said = self.fired(launch, "claude-code", "new", job={**job, "carried": moved})
+        self.assertEqual(printed, "")
+        self.assertIn("nothing recorded: the checkout moved", said)
+        self.assertEqual(self.recorded(), [])
+
     def test_a_compaction_records_the_bodies_the_session_kept(self):
         launch = self.launched("codex")
         self.fired(launch, "codex", "new")
@@ -612,6 +623,17 @@ class Events(Starting):
         self.prepared(self.request, recipient_digest=self.link_digest())
         self.assertEqual(self.fired(launch, "claude-code", "current"), ("", ""))
         self.assertEqual(len(self.recorded()), 2)
+
+    def test_the_same_bytes_handed_under_another_member_are_printed_again(self):
+        # The session holds its bodies under the names they came with; the same bytes named
+        # otherwise are other text.
+        launch = self.launched("claude-code")
+        self.fired(launch, "claude-code", "new")
+        self.for_link(self.link_digest(), members={"rules/renamed.md": BODY})
+        printed, _ = self.fired(launch, "claude-code", "current")
+        context = json.loads(printed)["hookSpecificOutput"]["additionalContext"]
+        self.assertIn("rules/renamed.md", context)
+        self.assertEqual(self.recorded()[-1], ("delivered", "current"))
 
     def test_a_change_larger_than_the_hook_carries_is_one_notice_and_no_record(self):
         adapter = hosts.adapter_for("codex")

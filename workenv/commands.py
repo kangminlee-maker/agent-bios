@@ -54,7 +54,7 @@ import sys
 if __package__ in (None, ""):
     sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 
-from workenv import access, cli, delivery, hosts, journal, local, preparation, roles  # noqa: E402
+from workenv import access, cli, delivery, hosts, journal, local  # noqa: E402
 from workenv import storage  # noqa: E402
 from workenv import terminal, tui  # noqa: E402
 from workenv.contracts import canonical  # noqa: E402
@@ -225,66 +225,28 @@ def profile(owner: Owner, out) -> int:
     return 0
 
 
-def held_at(store: storage.Store, scope: dict, role: str) -> tuple[str | None, list[tuple]]:
-    """The collection held at a position, and its sources switched on; or, with none, the
-    sources held there: each with its revision, the member paths it selects
-    (`preparation.selected`), the gap codes it states where it does not resolve, read as
-    composition reads it (`preparation.resolved`), the Instructions members whose bodies are not
-    held (`preparation.unheld`), and those whose checkout document changed since they were
-    admitted (`roles.drifted`)."""
-    collection_id = preparation.held_collection(store, scope, role)
-    if collection_id is not None:
-        collection = store.get(journal.head_of(store, collection_id))
-        entries = [entry for entry in collection["entries"] if entry["switch"] == "on"] \
-            if collection["switch"] == "on" else []
-        found = [(entry["source_id"], entry.get("pin", {}).get("revision_digest"),
-                  preparation.resolved(store, entry, role)[0], entry.get("units"))
-                 for entry in entries]
-    else:
-        found = [(source, revision, [], None) for source, revision in store.read(
-            "SELECT source_id, revision_digest FROM sources WHERE scope = ? AND role = ? "
-            "ORDER BY rowid", (journal.scope_key(scope), role))]
-
-    def unusable(source: str, revision: str | None, codes: list[str],
-                 declared) -> tuple[list[str], list[str]]:
-        manifest = store.get(revision) if revision and not codes else None
-        if role != preparation.INSTRUCTIONS or not isinstance(manifest, dict):
-            return [], []
-        gone = preparation.unheld(store.path.parent, revision, manifest, declared)
-        digests = {member["path"]: member["digest"] for member in manifest["members"]}
-        return gone, [path for path in preparation.selected(manifest, declared)
-                      if path not in gone and roles.drifted(store, source, path, digests[path])]
-
-    def chosen(revision: str | None, declared) -> list[str]:
-        manifest = store.get(revision) if revision else None
-        return preparation.selected(manifest, declared) if isinstance(manifest, dict) else []
-    return collection_id, [(source, revision, chosen(revision, declared), codes,
-                            *unusable(source, revision, codes, declared))
-                           for source, revision, codes, declared in found]
-
-
 def sources(owner: Owner | None, out) -> int:
     if owner is None:
         out("Nothing is held on this installation yet.")
         return 0
     out("Each position, in the order it composes:")
-    for scope in owner.layers():
-        for role in tui.ROLES:
-            position = tui.position_of(owner.store, scope, role)
-            collection_id, found = held_at(owner.store, scope, role)
-            where = f" (collection {collection_id})" if collection_id else ""
-            out(f"  {scope['layer']} {role}{where}: {STATES[position.state]}")
-            for source, revision, names, codes, lacking, changed in found:
-                accepted = f"revision {revision[:12]}" if revision else "no accepted revision"
-                line = f"    {source} {accepted}" + (f": {', '.join(names)}" if names else "")
-                if codes:
-                    line += ("; " if names else ": ") + \
-                        f"does not resolve here ({', '.join(dict.fromkeys(codes))})"
-                if lacking:
-                    line += f"; body not held here: {', '.join(lacking)}"
-                if changed:
-                    line += f"; changed in the checkout since admitted: {', '.join(changed)}"
-                out(line)
+    # Drawn as the entry draws them: from what a start of the suggested basis would compose.
+    for position in tui.positions_of(owner.store, owner.layers()):
+        where = f" (collection {position.collection_id})" if position.collection_id else ""
+        out(f"  {position.layer} {position.role}{where}: {STATES[position.state]}")
+        for source, revision, names, codes, lacking, changed, needs in position.rows:
+            accepted = f"revision {revision[:12]}" if revision else "no accepted revision"
+            line = f"    {source} {accepted}" + (f": {', '.join(names)}" if names else "")
+            if codes:
+                line += ("; " if names else ": ") + \
+                    f"does not resolve here ({', '.join(dict.fromkeys(codes))})"
+            if lacking:
+                line += f"; body not held here: {', '.join(lacking)}"
+            if changed:
+                line += f"; changed in the checkout since admitted: {', '.join(changed)}"
+            if needs:
+                line += f"; needs what no selection includes: {', '.join(needs)}"
+            out(line)
     return 0
 
 

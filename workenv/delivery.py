@@ -46,8 +46,8 @@ a child.
 was requested of, in the order each was first requested. A recipient anything reached names
 what it saw (`delivered`, or `activated` where the session was activated with it), the evidence,
 and the inventory of the units whose bodies arrived, from those deliveries alone: an attempt
-refused later changes none of it. A unit arrived when a delivery carries it (`carried`: an
-Instructions unit of a delivered standing that names a body) and its body is among those handed
+refused later changes none of it. A unit arrived when a delivery carries it (`preparation.carries`:
+an Instructions unit of a delivered standing that names a body) and its body is among those handed
 over, so a unit a delivery never carries is not listed although another unit's body is the same
 bytes. A recipient nothing reached is `not_observed` with
 `delivery_unobserved`, and a child is named only by what reached it. It reads what the attempts
@@ -58,24 +58,14 @@ answers none.
 """
 from __future__ import annotations
 
-from workenv import hosts, journal, storage
+from workenv import hosts, journal, preparation, storage
 from workenv.contracts import c01, c02, c03, c06, c07, c11, c12, canonical
-from workenv.preparation import INSTRUCTIONS
 
 HOST_SESSION, CHILD_SESSION = "host_session", "child_session"
 # What a recorded delivery saw: its bodies arrived, the session was activated with them, or it
 # was requested of the recipient and not seen.
 DELIVERED, ACTIVATED, UNSEEN = "delivered", "activated", "unseen"
 KEPT = "private_state_written"
-# The standings whose bodies a projection delivers.
-DELIVERED_STANDINGS = ("winning", "layered")
-
-
-def carried(unit: dict) -> bool:
-    """Whether a delivery carries the prepared unit's body: an Instructions unit of a delivered
-    standing that names one. Any other unit's body is read only for a task."""
-    return unit["role"] == INSTRUCTIONS and \
-        unit["standing"] in DELIVERED_STANDINGS and "body_digest" in unit
 
 
 def refused(call, code: str, pointer: str | None = None) -> dict:
@@ -138,11 +128,11 @@ def recipient_of(link_digest: str, attempt: dict) -> tuple[str, str]:
     return HOST_SESSION, link_digest
 
 
-def unseen(call, preparation: dict, link_digest: str, answer: dict) -> dict:
+def unseen(call, prepared: dict, link_digest: str, answer: dict) -> dict:
     """Keep a refused attempt on a held link as a delivery requested and not seen."""
     attempt = answer["returned"][0]
     kind, recipient = recipient_of(link_digest, attempt)
-    record(call, {"preparation": preparation["preparation_id"], "recipient": recipient,
+    record(call, {"preparation": prepared["preparation_id"], "recipient": recipient,
                   "recipient_kind": kind, "saw": UNSEEN,
                   "record": storage.of(call.state).put(attempt)})
     return answer
@@ -164,16 +154,16 @@ def recipient_delivery_attempt(call) -> dict:
         return journal.answered(call, "refused", [answered_attempt(
             attempt, True, {"saw": "no_channel"}, gaps, at)], gaps=gaps, local_effect=KEPT)
     link_digest, link = found
-    preparation = preparation_by_digest(store, requested["preparation_digest"])
-    if preparation is None:
+    prepared = preparation_by_digest(store, requested["preparation_digest"])
+    if prepared is None:
         return refused(call, c01.REF_UNAVAILABLE, "/requested/preparation_digest")
-    if preparation["recipient"].get("recipient_digest") != link_digest:
+    if prepared["recipient"].get("recipient_digest") != link_digest:
         return refused(call, c02.RECIPIENT_MISMATCH)
-    composed = {unit["body_digest"] for unit in preparation["units"] if "body_digest" in unit}
+    composed = {unit["body_digest"] for unit in prepared["units"] if "body_digest" in unit}
     if not set(requested["bodies"]) <= composed:
         if requested["recipient"] == "rehydrated":
             gaps = [{"code": c11.REHYDRATION_NEEDS_BODIES}]
-            return unseen(call, preparation, link_digest, journal.answered(
+            return unseen(call, prepared, link_digest, journal.answered(
                 call, "refused", [answered_attempt(attempt, True, {"saw": "lost"}, gaps, at)],
                 gaps=gaps, local_effect=KEPT))
         return refused(call, c03.REQUEST_MISMATCH, "/requested/bodies")
@@ -181,26 +171,26 @@ def recipient_delivery_attempt(call) -> dict:
         code = (c06.CHILD_ROUTE_UNSUPPORTED if requested["recipient"] == "child"
                 else c12.ROUTE_UNSUPPORTED)
         gaps = [{"code": code}]
-        return unseen(call, preparation, link_digest, journal.answered(
+        return unseen(call, prepared, link_digest, journal.answered(
             call, "refused", [answered_attempt(attempt, False, {"saw": "no_channel"}, gaps, at)],
             gaps=gaps, local_effect=KEPT))
     stored = answered_attempt(attempt, True, {
         "saw": "received", "received": requested["bodies"],
         "evidence_digest": canonical.digest_of(call.request)}, [], at)
     kind, recipient = recipient_of(link_digest, attempt)
-    record(call, {"preparation": preparation["preparation_id"], "recipient": recipient,
+    record(call, {"preparation": prepared["preparation_id"], "recipient": recipient,
                   "recipient_kind": kind, "saw": DELIVERED, "record": store.put(stored)})
     return journal.committed(call, [stored])
 
 
 # Observation.
 
-def observations(store: storage.Store, preparation: dict) -> list[dict]:
+def observations(store: storage.Store, prepared: dict) -> list[dict]:
     """What reached each recipient a delivery of one preparation was requested of, from what
     the owner recorded."""
     recorded = store.read("SELECT recipient, recipient_kind, saw, record, evidence, at FROM "
                           "deliveries WHERE preparation = ? ORDER BY position",
-                          (preparation["preparation_id"],))
+                          (prepared["preparation_id"],))
     grouped: dict[tuple[str, str], list[tuple]] = {}
     for recipient, kind, saw, kept, evidence, at in recorded:
         grouped.setdefault((kind, recipient), []).append((saw, kept, evidence, at))
@@ -212,7 +202,7 @@ def observations(store: storage.Store, preparation: dict) -> list[dict]:
             if kind == HOST_SESSION:
                 requested["recipient_digest"] = recipient
             found.append({"kind": "delivery_observation", "schema": 1,
-                          "preparation_id": preparation["preparation_id"],
+                          "preparation_id": prepared["preparation_id"],
                           "requested": requested, "observed": {"saw": "not_observed"},
                           "material_gaps": [{"code": c07.DELIVERY_UNOBSERVED}],
                           "recorded_at": rows[-1][3]})
@@ -226,11 +216,11 @@ def observations(store: storage.Store, preparation: dict) -> list[dict]:
         inventory = [{"unit_id": unit["unit_id"], "source_id": unit["source_id"],
                       "revision_digest": unit["revision_digest"],
                       "body_digest": unit["body_digest"]}
-                     for unit in preparation["units"]
-                     if carried(unit) and unit["body_digest"] in received]
+                     for unit in preparation.reading(prepared).carried()
+                     if unit["body_digest"] in received]
         found.append({
             "kind": "delivery_observation", "schema": 1,
-            "preparation_id": preparation["preparation_id"],
+            "preparation_id": prepared["preparation_id"],
             "requested": {"recipient_kind": kind, "recipient_digest": recipient},
             "observed": {"saw": ACTIVATED if any(row[0] == ACTIVATED for row in held)
                          else DELIVERED,
@@ -242,16 +232,17 @@ def observations(store: storage.Store, preparation: dict) -> list[dict]:
 
 
 def delivered_bodies(projection: dict) -> list[str]:
-    return [unit["body_digest"] for unit in projection["units"]
-            if unit["standing"] in DELIVERED_STANDINGS and "body_digest" in unit]
+    """The bodies an activation's projection handed over: its units a session is handed
+    (`preparation.carries`)."""
+    return [unit["body_digest"] for unit in projection["units"] if preparation.carries(unit)]
 
 
 def delivery_observe(call) -> dict:
     store = storage.of(call.state)
-    preparation = preparation_by_id(store, call.request["target"]["resource_id"])
-    if preparation is None:
+    prepared = preparation_by_id(store, call.request["target"]["resource_id"])
+    if prepared is None:
         return refused(call, c01.REF_UNAVAILABLE, "/target/resource_id")
-    found = observations(store, preparation)
+    found = observations(store, prepared)
     # The journal keeps what an answer returns, so an observation not kept yet is written now.
     fresh = any(store.get(canonical.digest_of(value)) is None for value in found)
     return journal.answered(call, "previewed", found, local_effect=KEPT if fresh else "none")

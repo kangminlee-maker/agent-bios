@@ -518,19 +518,124 @@ class Selections(Composing):
                          ([], [{"code": c07.SELECTION_UNRESOLVED, "pointer": "/collections/0"}]))
 
 
-class Bodies(Composing):
-    def test_unheld_names_the_members_a_pin_selects_whose_bytes_are_not_held(self):
-        me = self.person.scope
-        _, held = self.authored(me, {"a.md": NOTE})
-        _, bare = self.authored(me, {"a.md": NOTE, "b.md": RELEASE}, held=False)
-        store = self.bench.store()
-        root = store.path.parent
-        self.assertEqual(preparation.unheld(root, held, store.get(held)), [])
-        self.assertEqual(sorted(preparation.unheld(root, bare, store.get(bare))),
-                         ["a.md", "b.md"])
-        self.assertEqual(preparation.unheld(root, bare, store.get(bare), [
-            {"member": "b.md"}, {"member": "absent.md"}]), ["b.md"])
+class Reading(Composing):
+    """What each composed unit means for a start, read once (`preparation.Reading`)."""
 
+    def mixed(self) -> tuple[dict, preparation.Composition]:
+        """A preparation, and the same basis composed in memory: a required personal winner
+        that needs a Team companion, a layered personal member whose body is not held, a Team
+        unit it shadows, a layered Team member, and a knowledge unit."""
+        companion, companion_rev = self.authored(self.team, {"rules/base.md": NOTE})
+        team, team_rev = self.authored(self.team, {"rules/review.md": RELEASE,
+                                                   "rules/plain.md": NOTE})
+        self.placed(self.collection(self.team, "instructions", [
+            self.entry(companion, companion_rev, [unit("rules/base.md", "base",
+                                                       "not_required")]),
+            self.entry(team, team_rev, [unit("rules/review.md", "review"),
+                                        unit("rules/plain.md")])]))
+        mine, mine_rev = self.authored(self.person.scope, {"rules/review.md": REVIEW})
+        bare, bare_rev = self.authored(self.person.scope, {"loose.md": NOTE}, held=False)
+        notes, notes_rev = self.authored(self.person.scope, {"notes.md": NOTE},
+                                         role="knowledge")
+        self.placed(self.collection(self.person.scope, "instructions", [
+            self.entry(mine, mine_rev, [unit("rules/review.md", "review", needs=[
+                {"source_id": companion, "member": "rules/base.md"}])]),
+            self.entry(bare, bare_rev)]))
+        pins = [(notes, notes_rev)]
+        prepared = self.prepared(self.ask([self.person.scope, self.team], pins=pins))
+        store = self.bench.store()
+        before = store.read("SELECT COUNT(*) FROM preparations")
+        memory = preparation.composed(self.bench.state, store, [self.team, self.person.scope],
+                                      [{"source_id": s, "revision_digest": r} for s, r in pins])
+        self.assertEqual(store.read("SELECT COUNT(*) FROM preparations"), before,
+                         "a composition in memory writes nothing")
+        return prepared, memory
+
+    def test_a_composition_in_memory_composes_what_the_stored_one_did(self):
+        prepared, memory = self.mixed()
+
+        def plain(units: list[dict]) -> list[dict]:
+            return [{key: value for key, value in held.items()
+                     if key not in ("unit_id", "needed_by", "shadowed_by")} for held in units]
+        self.assertEqual(plain(memory.reading.units), plain(prepared["units"]))
+        self.assertEqual(memory.gaps, prepared["material_gaps"])
+
+    def test_each_unit_is_read_once_for_what_it_means_for_a_start(self):
+        prepared, _ = self.mixed()
+        read = preparation.reading(prepared)
+        by = {(held["layer"], held["member"]): held for held in read.units}
+        winner, base = by[("personal", "rules/review.md")], by[("team", "rules/base.md")]
+        loose, shadowed = by[("personal", "loose.md")], by[("team", "rules/review.md")]
+        notes = by[("personal", "notes.md")]
+        self.assertEqual((winner["standing"], base["needed_by"], shadowed["standing"]),
+                         ("winning", [winner["unit_id"]], "shadowed"))
+        every = (winner, base, loose, shadowed, notes)
+        self.assertEqual([read.required(held) for held in every],
+                         [True, True, False, False, False])
+        self.assertEqual([read.claims(held) for held in every],
+                         [True, True, False, False, False])
+        self.assertEqual([(held["layer"], held["member"]) for held in read.carried()],
+                         [("personal", "rules/review.md"), ("team", "rules/base.md"),
+                          ("team", "rules/plain.md")])
+        self.assertEqual((read.unheld(), read.unmet()), ([loose], None))
+
+    def test_a_need_no_unit_answers_is_a_gap_at_the_winner_and_its_start_must_wait(self):
+        missing = {"source_id": bench.ident("src"), "member": "rules/base.md"}
+        mine, mine_rev = self.authored(self.person.scope, {"rules/review.md": REVIEW})
+        self.placed(self.collection(self.person.scope, "instructions", [self.entry(
+            mine, mine_rev, [unit("rules/review.md", "review", needs=[missing])])]))
+        prepared = self.prepared(self.ask([self.person.scope]))
+        gap = {"code": c04.COMPANION_UNAVAILABLE, "pointer": "/units/0"}
+        self.assertEqual(prepared["material_gaps"], [gap])
+        self.assertEqual(preparation.reading(prepared).unmet(), gap)
+        store = self.bench.store()
+        needs = preparation.declared_needs(store, prepared, prepared["units"][0])
+        self.assertEqual((needs, preparation.unanswered(prepared, needs)), ([missing], [missing]))
+        memory = preparation.composed(self.bench.state, store, [self.person.scope])
+        self.assertEqual(memory.reading.missing, {0: [missing]})
+
+    def test_a_need_no_unit_answers_carries_its_gap_where_the_winner_is_not_required(self):
+        missing = {"source_id": bench.ident("src"), "member": "rules/base.md"}
+        mine, mine_rev = self.authored(self.person.scope, {"rules/review.md": REVIEW})
+        self.placed(self.collection(self.person.scope, "instructions", [self.entry(
+            mine, mine_rev, [unit("rules/review.md", "review", "not_required",
+                                  needs=[missing])])]))
+        prepared = self.prepared(self.ask([self.person.scope]))
+        self.assertEqual(prepared["material_gaps"], [{"code": c04.COMPANION_UNAVAILABLE,
+                                                      "pointer": "/units/0"}])
+        self.assertIsNone(preparation.reading(prepared).unmet())
+
+    def test_a_need_a_switched_off_unit_answers_is_no_gap(self):
+        companion, companion_rev = self.authored(self.person.scope, {"rules/base.md": NOTE})
+        mine, mine_rev = self.authored(self.person.scope, {"rules/review.md": REVIEW})
+        need = {"source_id": companion, "member": "rules/base.md"}
+        self.placed(self.collection(self.person.scope, "instructions", [
+            self.entry(mine, mine_rev, [unit("rules/review.md", "review", needs=[need])]),
+            self.entry(companion, companion_rev, switch="off")]))
+        prepared = self.prepared(self.ask([self.person.scope]))
+        self.assertEqual(prepared["material_gaps"], [])
+        self.assertEqual(preparation.unanswered(prepared, [need]), [])
+
+    def test_a_needed_unit_that_does_not_win_names_no_needs_of_its_own(self):
+        further = {"source_id": bench.ident("src"), "member": "rules/deep.md"}
+        companion, companion_rev = self.authored(self.team, {"rules/base.md": NOTE})
+        other, other_rev = self.authored(self.person.scope, {"rules/base.md": RELEASE})
+        self.placed(self.collection(self.team, "instructions", [self.entry(
+            companion, companion_rev, [unit("rules/base.md", "base", needs=[further])])]))
+        mine, mine_rev = self.authored(self.person.scope, {"rules/review.md": REVIEW})
+        self.placed(self.collection(self.person.scope, "instructions", [
+            self.entry(mine, mine_rev, [unit("rules/review.md", "review", needs=[
+                {"source_id": companion, "member": "rules/base.md"}])]),
+            self.entry(other, other_rev, [unit("rules/base.md", "base")])]))
+        prepared = self.prepared(self.ask([self.person.scope, self.team]))
+        companion_unit = next(held for held in prepared["units"]
+                              if held["source_id"] == companion)
+        self.assertEqual((companion_unit["standing"], prepared["material_gaps"]),
+                         ("shadowed", []),
+                         "the shadowed companion's own need binds only while it wins")
+
+
+class Bodies(Composing):
     def test_selected_is_each_member_a_pin_declares_or_else_every_member(self):
         _, revision = self.authored(self.person.scope, {"a.md": NOTE, "b.md": RELEASE})
         manifest = self.bench.store().get(revision)
