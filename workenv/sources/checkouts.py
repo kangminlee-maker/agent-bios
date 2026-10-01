@@ -162,12 +162,9 @@ def observed_in(store: storage.Store, repository_id: str, checkout: pathlib.Path
         observed["locator"] = git(checkout, "remote", "get-url", "origin").strip()
     except NotAGitCheckout:
         pass
-    try:
-        branch = git(checkout, "symbolic-ref", "-q", "--short", "HEAD").strip()
-        if branch:
-            observed["branch"] = branch
-    except NotAGitCheckout:
-        pass   # a detached HEAD is on no branch
+    branch = branch_now(checkout)
+    if branch:
+        observed["branch"] = branch
     try:
         observed["commit"] = git(checkout, "rev-parse", "--verify", "-q", "HEAD").strip()
     except NotAGitCheckout:
@@ -176,6 +173,17 @@ def observed_in(store: storage.Store, repository_id: str, checkout: pathlib.Path
     if selected is not None:
         observed["working_bytes_digest"] = selected
     return observed
+
+
+def branch_now(checkout: pathlib.Path) -> str | None:
+    """The branch the working tree is on now: its name, `""` on a detached HEAD, which is on no
+    branch, or None where git does not read the directory as a working tree."""
+    if top(checkout) is None:
+        return None
+    try:
+        return git(checkout, "symbolic-ref", "-q", "--short", "HEAD").strip()
+    except NotAGitCheckout:
+        return ""
 
 
 def bound_at(store: storage.Store, checkout: pathlib.Path) -> tuple[str, dict] | None:

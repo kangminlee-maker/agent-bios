@@ -28,7 +28,8 @@ The grammar (design records `2026-09-28T1601--4e305e5--v1-slice5-entry-grammar-d
     its target, with its draft and return view. `w02` is one position's detail. Enter opens a
     view over the current one and Esc returns to it; Esc on a `w01` nothing else lies under opens
     the hub over it. Nothing opens from a detail, so Enter there starts, from the `w01` under it.
-  - **W01**, in order: where the work is; the last checkpoint; an unknown start with its check;
+  - **W01**, in order: where the work is, the repository's branch read as the entry opens; the
+    last checkpoint; an unknown start with its check;
     the positions of the basis (the selected scope's, then the person's, each Instructions,
     knowledge, memory); the note; the tool; the permissions; a blocker for each route not
     qualified now; the start; the keys. After a start, its result.
@@ -69,7 +70,9 @@ The grammar (design records `2026-09-28T1601--4e305e5--v1-slice5-entry-grammar-d
     leaving the repository's Instructions out, here, or admitting the document again. Leaving
     out is named only where every position showing a changed document toggles: a collection's
     position does not, and where none shows the change the entry cannot say which to leave out,
-    so then it names admitting it again alone. A
+    so then it names admitting it again alone. A start refused because a unit that must resolve
+    at startup has no usable body (`roles.unmet`) is labelled in the locale's words with its next
+    steps, changing the selection or fetching the body. A
     start pending or `unknown` holds the choices, and the start dispatches no second request for
     it; a refused one leaves them open, and the start dispatches a new request. A
     check can also find its start settled, no longer pending, at the stage it now stands at
@@ -89,10 +92,12 @@ from __future__ import annotations
 
 import dataclasses
 import json
+import pathlib
 import unicodedata
 
 from workenv import cli, journal, preparation, roles, storage
-from workenv.contracts import c07, canonical
+from workenv.contracts import c03, c04, c07, canonical
+from workenv.sources import checkouts
 
 # The client a trace names: this model, versioned by its grammar.
 CLIENT = {"name": "agent-bios-entry", "version": "1"}
@@ -114,6 +119,9 @@ PERMISSIONS = ("host_settings", "skip_confirmations")
 RATIONALE = 2000
 # What an answer handed to the entry is drawn as.
 ANSWERED = ("unknown", "unavailable", "settled")
+# The gaps a start is refused with where a unit that must resolve at startup does not
+# (`roles.unmet`).
+UNMET = {c04.ROLE_BODY_UNAVAILABLE, c03.OBJECT_DIGEST_MISMATCH}
 # The stages a settled start has its own words for; any other is named as it is.
 SETTLED = ("committed", "expired")
 # The states of a position with nothing to choose: nothing held there, or nothing accepted.
@@ -144,6 +152,8 @@ CATALOG = {
         "changed": "등록 뒤 바뀜 {member}", "changed.more": "등록 뒤 바뀜 {member} 외 {more}개",
         "not_started.moved": "시작하지 못함 · 레포 문서가 등록 뒤 바뀜 · Space로 빼거나 다시 등록",
         "not_started.moved.admit": "시작하지 못함 · 레포 문서가 등록 뒤 바뀜 · 다시 등록",
+        "not_started.required": "시작하지 못함 · 필수 지침 본문을 쓸 수 없음 · "
+                                "선택을 바꾸거나 본문 받기",
         "effect.model_calls": "모델 호출", "effect.file_changes": "파일 변경",
         "effect.permission_request": "권한 요청",
         "detail": "{position} · 원본 · {state}",
@@ -196,6 +206,8 @@ CATALOG = {
         "not_started.moved": "Not started · repository document changed · leave it out (Space) "
                              "or re-admit",
         "not_started.moved.admit": "Not started · repository document changed · re-admit",
+        "not_started.required": "Not started · a required body is unusable · change the "
+                                "selection or fetch it",
         "effect.model_calls": "model calls", "effect.file_changes": "file changes",
         "effect.permission_request": "permission requests",
         "detail": "{position} · original · {state}",
@@ -246,6 +258,8 @@ CATALOG = {
         "changed": "登録後に変更 {member}", "changed.more": "登録後に変更 {member} ほか{more}件",
         "not_started.moved": "開始できません · リポジトリ文書が登録後に変更 · Spaceで外すか再登録",
         "not_started.moved.admit": "開始できません · リポジトリ文書が登録後に変更 · 再登録",
+        "not_started.required": "開始できません · 必須の本文が使えません · "
+                                "選択を変えるか本文を取得",
         "effect.model_calls": "モデル呼び出し", "effect.file_changes": "ファイル変更",
         "effect.permission_request": "権限の確認",
         "detail": "{position} · 原本 · {state}",
@@ -458,16 +472,19 @@ def history_of(store: storage.Store, scope: dict) -> tuple[dict, str] | None:
 
 
 def location_of(store: storage.Store, scope: dict) -> dict:
-    """What the location's label is made of."""
+    """What the location's label is made of: for a repository, its name and the branch its
+    bound checkout is on now, or the branch it was bound on where git does not read the checkout.
+    The entry reads it once, as it opens."""
     if scope["layer"] == "repository":
-        found = store.read("SELECT binding_digest FROM repositories WHERE repository_id = ?",
-                           (scope["repository_id"],))
+        found = store.read("SELECT binding_digest, checkout FROM repositories "
+                           "WHERE repository_id = ?", (scope["repository_id"],))
         binding = store.get(found[0][0]) if found else None
         observed = (binding or {}).get("observed", {})
         locator = observed.get("locator", scope["repository_id"]).rstrip("/")
         name = locator.rsplit("/", 1)[-1].rsplit(":", 1)[-1].removesuffix(".git")
+        branch = checkouts.branch_now(pathlib.Path(found[0][1])) if found else None
         return {"key": "location.repository", "name": name,
-                "branch": observed.get("branch", "")}
+                "branch": observed.get("branch", "") if branch is None else branch}
     if scope["layer"] == "team":
         return {"key": "location.team", "name": scope_id(scope)[4:12]}
     return {"key": "location.personal"}
@@ -491,6 +508,7 @@ class Entry:
         self.tool, self.tool_chosen = 0, False
         self.permission, self.permission_chosen = 0, False
         self.scope = self.starts[0].route["scope"] if self.starts else self.person
+        self.place = location_of(store, self.scope)
         layers = [self.scope] + ([self.person] if self.scope != self.person else [])
         self.positions = [position_of(store, scope, role) for scope in layers for role in ROLES]
         found = history_of(store, self.scope)
@@ -647,7 +665,7 @@ class Entry:
                                              self.checkpoint is not None)
 
     def location(self) -> dict:
-        parts = location_of(self.store, self.scope)
+        parts = dict(self.place)
         return self.element("context.location", "context",
                             self.text(parts.pop("key"), **parts),
                             refers_to={"ref": "scope", "scope": self.scope})
@@ -730,17 +748,24 @@ class Entry:
                                       effects=["file_changes", "model_calls"]))
         found.append(self.help())
         if self.started:
-            moved = c07.WORKING_BYTES_MOVED in self.refusals.get(self.started, [])
+            found.append(self.element("result.start", "result", self.result_label(answer),
+                                      state=answer[0] if answer else "pending",
+                                      refers_to={"ref": "request", "request_id": self.started}))
+        return found
+
+    def result_label(self, answer: tuple | None) -> str:
+        """The start's result in the locale's words: a refusal with a code it knows by its next
+        steps, any other by the owner's reason, and a start not answered yet as sent."""
+        codes = self.refusals.get(self.started, []) if answer else []
+        if c07.WORKING_BYTES_MOVED in codes:
             # Space is named only where every position showing a change can be left out here.
             changed = [position for position in self.positions if position.changed]
             leave = bool(changed) and all(position.toggles for position in changed)
-            found.append(self.element("result.start", "result", self.text(
-                "not_started.moved" if leave else "not_started.moved.admit")
-                if answer and moved else self.text(
-                "not_started", reason=answer[1]) if answer and answer[1] else self.text("started"),
-                state=answer[0] if answer else "pending",
-                refers_to={"ref": "request", "request_id": self.started}))
-        return found
+            return self.text("not_started.moved" if leave else "not_started.moved.admit")
+        if set(codes) & UNMET:
+            return self.text("not_started.required")
+        return self.text("not_started", reason=answer[1]) if answer and answer[1] \
+            else self.text("started")
 
     def w02(self) -> list[dict]:
         target = self.here["target"]["position"]

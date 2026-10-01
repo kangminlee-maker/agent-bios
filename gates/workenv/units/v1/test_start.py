@@ -376,6 +376,17 @@ class Start(Starting):
         self.assertIn(BODY.decode(), launch.text)
         self.assertNotIn(OTHER.decode(), launch.text)
 
+    def test_a_required_winner_with_no_body_launches_nothing_and_says_why(self):
+        me = self.person.scope
+        mine, revision = self.authored(me, {"rules/review.md": BODY}, held=False)
+        self.placed(self.collection(me, "instructions", [
+            self.entry(mine, revision, [unit("rules/review.md", "review")])]))
+        self.request = self.ask([me])
+        with self.assertRaises(start.StartError) as raised:
+            self.launched("claude-code")
+        self.assertEqual(raised.exception.codes, [c04.ROLE_BODY_UNAVAILABLE])
+        self.assertEqual(self.recorded(), [])
+
     def test_a_body_that_is_not_the_one_its_unit_names_is_not_handed_over(self):
         unit = {"unit_id": "u", "source_id": "s", "body_digest": canonical.digest_of({}),
                 "layer": "personal", "role": "instructions"}

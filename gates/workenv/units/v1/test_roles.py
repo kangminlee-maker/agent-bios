@@ -260,6 +260,52 @@ class Handed(Activating):
                          [{"code": c03.RESUBMITTED_WHILE_UNKNOWN, "pointer": "/request_id"}])
 
 
+class Required(Activating):
+    def winner(self, startup: str = "required", needs=None, held: bool = False) -> dict:
+        """A preparation whose winning Instructions unit declares `startup` and `needs`, its
+        body held or not."""
+        _, digest = self.linked()
+        mine, mine_rev = self.authored(self.person.scope, {"rules/review.md": REVIEW}, held=held)
+        declared = unit("rules/review.md", "review", startup, **({"needs": needs} if needs else {}))
+        self.placed(self.collection(self.person.scope, "instructions", [
+            self.entry(mine, mine_rev, [declared])]))
+        return self.prepared(self.ask([self.person.scope]), recipient_digest=digest)
+
+    def test_a_required_winner_whose_body_is_not_held_is_refused(self):
+        prepared = self.winner()
+        unavailable = [{"code": c04.ROLE_BODY_UNAVAILABLE, "pointer": "/units/0"}]
+        self.assertEqual(prepared["material_gaps"], unavailable)
+        for entry in (roles.session_routing_activate, roles.session_routing_dispatched):
+            with self.subTest(entry=entry.__name__):
+                answer = self.activate(prepared, entry=entry)
+                self.assertEqual(gaps(answer), unavailable)
+                self.assertEqual(answer["result"]["supported_recovery"], ["new_governed_request"])
+        self.assertEqual(self.count("deliveries"), 0)
+
+    def test_a_winner_not_required_at_startup_whose_body_is_not_held_starts(self):
+        prepared = self.winner("not_required")
+        projection = self.activated(prepared)["returned"][1]
+        self.assertEqual(projection["material_gaps"],
+                         [{"code": c04.ROLE_BODY_UNAVAILABLE, "pointer": "/units/0"}])
+
+    def test_a_unit_a_required_winner_needs_whose_body_is_not_held_is_refused(self):
+        # Not required by itself, and the only unit of its concern: only the need gates it.
+        needed, needed_rev = self.authored(self.team, {"rules/base.md": NOTE}, held=False)
+        self.placed(self.collection(self.team, "instructions", [
+            self.entry(needed, needed_rev, [unit("rules/base.md", "base", "not_required")])]))
+        _, digest = self.linked()
+        mine, mine_rev = self.authored(self.person.scope, {"rules/review.md": REVIEW})
+        self.placed(self.collection(self.person.scope, "instructions", [self.entry(
+            mine, mine_rev, [unit("rules/review.md", "review", needs=[
+                {"source_id": needed, "member": "rules/base.md"}])])]))
+        prepared = self.prepared(self.ask([self.person.scope, self.team]),
+                                 recipient_digest=digest)
+        [base] = [u for u in prepared["units"] if u["source_id"] == needed]
+        self.assertIn("needed_by", base)
+        self.assertEqual([gap["code"] for gap in gaps(self.activate(prepared))],
+                         [c04.ROLE_BODY_UNAVAILABLE])
+
+
 class Moved(Activating):
     def authored_in(self, checkout: Checkout) -> dict:
         """A preparation of a repository-authored source admitted from the checkout."""
@@ -306,6 +352,40 @@ class Moved(Activating):
         self.assertEqual([(u["standing"], "body_digest" in u) for u in prepared["units"]],
                          [("disabled", False)])
         self.activated(prepared, where=checkout.path)
+
+    def test_a_shadowed_document_no_winner_needs_blocks_nothing_and_a_needed_one_does(self):
+        checkout = Checkout(self.scratch)
+        checkout.write("rules/review.md", REVIEW)
+        checkout.commit()
+        self.bind(checkout)
+        scope = {"layer": "repository", "repository_id": self.repository}
+        with contextlib.chdir(checkout.path):
+            theirs, theirs_rev = self.authored(scope, {"rules/review.md": REVIEW},
+                                               mode="repository_authored", held=False)
+        mine, mine_rev = self.authored(scope, {"rules/mine.md": NOTE})
+        held, head = None, None
+        for needs in (None, [{"source_id": theirs, "member": "rules/review.md"}]):
+            with self.subTest(needs=needs):
+                _, digest = self.linked(session=f"session-{bool(needs)}")
+                declared = unit("rules/mine.md", "review",
+                                **({"needs": needs} if needs else {}))
+                held = {**(held or self.collection(scope, "instructions", [])), "entries": [
+                    self.entry(mine, mine_rev, [declared], precedence=1),
+                    self.entry(theirs, theirs_rev, [unit("rules/review.md", "review")],
+                               precedence=2)]}
+                answer = self.change(held, head and {"expects": "head", "head_digest": head})
+                head = answer["receipt"]["head_digest"]
+                checkout.write("rules/review.md", REVIEW)
+                prepared = self.prepared(self.ask([scope]), where=checkout.path,
+                                         recipient_digest=digest)
+                self.assertEqual([(u["source_id"], u["standing"]) for u in prepared["units"]],
+                                 [(mine, "winning"), (theirs, "shadowed")])
+                checkout.write("rules/review.md", REVIEW + b"edited\n")
+                answer = self.activate(prepared, where=checkout.path)
+                if needs:
+                    self.assertEqual(gaps(answer), [{"code": c07.WORKING_BYTES_MOVED}])
+                else:
+                    self.assertEqual(answer["result"]["outcome"]["stage"], "committed")
 
     def test_a_document_is_drifted_only_where_its_authored_checkout_no_longer_reads_as_it(self):
         checkout = Checkout(self.scratch)

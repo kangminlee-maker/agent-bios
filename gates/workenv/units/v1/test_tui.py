@@ -4,6 +4,7 @@ labels (D-20260928-380689), so the wording is held here, against the catalog."""
 from __future__ import annotations
 
 import contextlib
+import shutil
 import string
 import unittest
 
@@ -154,8 +155,8 @@ class Entering(Routing):
         found = self.element(frame, element_id)
         return found["state"], found["selection"], found["marks"]
 
-    def bound(self, branch: str) -> None:
-        """The repository bound from a checkout of ORIGIN on the branch."""
+    def bound(self, branch: str) -> Checkout:
+        """The repository bound from a checkout of ORIGIN on the branch: the checkout."""
         checkout = Checkout(self.scratch)
         checkout.git("remote", "add", "origin", ORIGIN)
         checkout.git("checkout", "-q", "-b", branch)
@@ -169,6 +170,7 @@ class Entering(Routing):
                                                  self.repository["repository_id"], payload),
                                    [payload], now=INSTANT)
         self.assertEqual(answer["result"]["outcome"]["stage"], "committed", gaps(answer))
+        return checkout
 
     @staticmethod
     def positions(*layers: str) -> list[str]:
@@ -243,6 +245,18 @@ class Drawing(Entering):
                          "work · 로컬 레포 · feature/retry")
         self.assertEqual(self.element(frames[1], "context.location")["label"],
                          "work · local repository · feature/retry")
+
+    def test_the_location_names_the_branch_the_checkout_is_on_as_the_entry_opens(self):
+        self.launcher()
+        checkout = self.bound("main")
+        checkout.git("checkout", "-q", "-b", "feature/retry")
+        label = lambda: self.element(self.drive()[0], "context.location")["label"]  # noqa: E731
+        self.assertEqual(label(), "work · 로컬 레포 · feature/retry")
+        checkout.git("checkout", "-q", "--detach")
+        self.assertEqual(label(), "work · 로컬 레포 · ")
+        # Where git does not read the checkout, the branch it was bound on.
+        shutil.rmtree(checkout.path)
+        self.assertEqual(label(), "work · 로컬 레포 · main")
 
     def test_a_route_is_qualified_by_its_host_s_latest_probe_now_not_by_the_offer(self):
         claude = self.route(probe=self.probe())
@@ -894,6 +908,16 @@ class Starting(Entering):
                                  "suggested")
                 self.assertEqual(self.element(frame, "execution.tool")["value"], "Claude Code")
                 self.assertEqual((len(self.sent), entry.started), (1, first))
+
+    def test_a_start_refused_for_a_required_body_is_drawn_with_next_steps(self):
+        self.launcher()
+        for code in ("role_body_unavailable", "object_digest_mismatch"):
+            with self.subTest(code=code):
+                entry = self.holding("tab", "tab", "enter")
+                entry.answered(entry.started, "unavailable", "activating was refused", [code])
+                self.assertEqual(self.element(entry.frame(5), "result.start")["label"],
+                                 "시작하지 못함 · 필수 지침 본문을 쓸 수 없음 · 선택을 바꾸거나 "
+                                 "본문 받기")
 
     def test_an_answer_handed_over_is_drawn_in_the_start_s_result(self):
         self.launcher()

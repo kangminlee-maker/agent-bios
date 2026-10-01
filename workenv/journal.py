@@ -397,6 +397,8 @@ def layer_journal(call, inner):
             earlier = repeated(call, store, digest)
             if earlier is not None:
                 raise _Unwritten(earlier)
+            # Another request may have been held unknown since the first reading.
+            answer = ruled(call, store) or answer
             access.first_use(store, request["actor"], now(call))
             if answer is None:
                 answer = (addressed(call, store) if request["operation"] in (QUERY, CANCEL)

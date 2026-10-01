@@ -11,9 +11,16 @@ activates it. A refusal is recovered by a new request.
     bodies it names. Where the working bytes it claimed no longer read the same, or a
     repository-authored unit's document in the bound checkout is no longer the body the
     preparation names, what the preparation said is no longer true there, and activation is
-    refused `working_bytes_moved`. A unit that names no body, such as one a switched-off entry
-    contributes `disabled`, claims nothing about its document. Composing again reads the
-    checkout as it is now.
+    refused `working_bytes_moved`. Only a unit a delivery carries, or one a winning unit needs,
+    is read so: a unit that names no body, such as one a switched-off entry contributes
+    `disabled`, claims nothing about its document, and a shadowed unit no winner needs blocks
+    nothing (C07 `unit_binding`). Composing again reads the checkout as it is now.
+  - **What must resolve.** An Instructions unit that wins with `startup: required`, and each unit
+    such a unit needs, must resolve before a session starts (C07 `unit_binding`). Where
+    composition stated a gap at one of them (`role_body_unavailable`, `object_digest_mismatch`),
+    activation is refused with that gap; the person changes the selection, or supplies the body,
+    and starts again. A gap at any other unit is carried, and starts: knowledge is read for a
+    task, not at the start.
   - **What it delivers.** The preparation's Instructions units, projected through this owner as
     one `role_projection` for the executor view entered at session start: every unit named with
     its layer and standing, shadowed and disabled ones included. The bytes of each winning or
@@ -86,7 +93,24 @@ def moved(store: storage.Store, prepared: dict) -> bool:
         if now.get("working_bytes_digest") != claimed:
             return True
     return any(drifted(store, unit["source_id"], unit["member"], unit["body_digest"])
-               for unit in prepared["units"] if "body_digest" in unit)
+               for unit in prepared["units"] if "body_digest" in unit and (
+                   unit["standing"] in delivery.DELIVERED_STANDINGS or "needed_by" in unit))
+
+
+def unmet(prepared: dict) -> dict | None:
+    """The first gap the preparation states at a unit that must resolve before a session
+    starts: an Instructions unit that wins with `startup: required`, or one such a unit needs;
+    or None."""
+    required = {unit["unit_id"] for unit in prepared["units"]
+                if unit["role"] == INSTRUCTIONS and unit["standing"] == "winning"
+                and unit.get("startup") == "required"}
+    for gap in prepared["material_gaps"]:
+        parts = gap.get("pointer", "").split("/")
+        if len(parts) == 3 and parts[1] == "units":
+            unit = prepared["units"][int(parts[2])]
+            if unit["unit_id"] in required or required & set(unit.get("needed_by", [])):
+                return gap
+    return None
 
 
 def drifted(store: storage.Store, source_id: str, member: str, digest: str) -> bool:
@@ -169,6 +193,9 @@ def activating(call) -> tuple[dict | None, dict | None]:
         return refused(call, c02.RECIPIENT_MISMATCH, "/session/host"), None
     if moved(store, prepared):
         return refused(call, c07.WORKING_BYTES_MOVED), None
+    gap = unmet(prepared)
+    if gap is not None:
+        return refused(call, gap["code"], gap["pointer"]), None
     return None, prepared
 
 

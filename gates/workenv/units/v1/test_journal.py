@@ -235,6 +235,31 @@ class Ruled(Base):
         self.assertEqual(answer["result"]["outcome"]["material_gaps"],
                          [{"code": c03.EFFECT_CLASS_MISMATCH}])
 
+    def test_one_held_unknown_while_this_one_waited_refuses_it(self):
+        # A, the same operation under another id, is held unknown after B's rules were first
+        # asked and before B's unit of work.
+        sealed, payload = self.rename()
+        unknown = Entry(lambda call: journal.answered(
+            call, "unknown", recovery=["query_same_request"], provider_effect="unknown"))
+        other = {**sealed, "request_id": bench.ident("req")}
+        real, looks, overlapped = journal.ruled, [], []
+
+        def ruled(call, store):
+            found = real(call, store)
+            looks.append(call.request["request_id"])
+            if len(looks) == 1:
+                overlapped.append(self.bench.run(unknown, other, [payload]))
+            return found
+        journal.ruled = ruled
+        try:
+            answer = self.bench.run(unknown, sealed, [payload])
+        finally:
+            journal.ruled = real
+        self.assertEqual(overlapped[0]["result"]["outcome"]["stage"], "unknown")
+        self.assertEqual(answer["result"]["outcome"]["material_gaps"],
+                         [{"code": c03.RESUBMITTED_WHILE_UNKNOWN, "pointer": "/request_id"}])
+        self.assertEqual(unknown.calls, 1)
+
     def test_the_same_operation_under_a_new_id_while_one_is_unknown_is_refused(self):
         sealed, payload = self.rename()
         unknown = Entry(lambda call: journal.answered(
