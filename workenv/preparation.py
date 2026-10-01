@@ -50,7 +50,9 @@ is composed yet; an adopted environment's basis and a requested task's support a
     digest only where the bundle holds the member's bytes. A winning unit, or a unit a winning
     unit needs, whose bytes the bundle does not hold is `role_body_unavailable`, and one whose
     bytes are other bytes is `object_digest_mismatch`, each at that unit; any other unit whose
-    body is not held states none and gates nothing, as nothing depends on its bytes.
+    body is not held states none and gates nothing, as nothing depends on its bytes. A unit
+    switched off is not read, unless a winning unit needs it: a need keeps it required even
+    switched off (C07 `unit_binding`).
   - **Memory.** A memory entry, or a pinned memory source, contributes no unit: it fixes the
     frontier of its source as this operation observes it, the source's head.
   - **The checkout.** The preparation records the checkout it was composed in as it is now: the
@@ -348,7 +350,7 @@ class Composition:
             unit = held["unit"]
             if held.get("unordered"):
                 self.gaps.append({"code": c07.SAME_LAYER_UNORDERED, "pointer": f"/units/{index}"})
-            if unit["standing"] == "disabled":
+            if unit["standing"] == "disabled" and "needed_by" not in unit:
                 continue
             digest, why = body_of(self.call.state, unit["revision_digest"], held["member"])
             if digest is not None:

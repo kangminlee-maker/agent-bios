@@ -306,6 +306,36 @@ class Required(Activating):
                          [c04.ROLE_BODY_UNAVAILABLE])
 
 
+    def needing_off(self, held: bool) -> tuple[dict, dict]:
+        """A preparation whose required winner needs a unit its collection switches off, that
+        unit's bytes held or not: the preparation and the needed unit."""
+        needed, needed_rev = self.authored(self.team, {"rules/base.md": NOTE}, held=held)
+        self.placed(self.collection(self.team, "instructions", [self.entry(
+            needed, needed_rev, [unit("rules/base.md", "base")], switch="off")]))
+        _, digest = self.linked()
+        mine, mine_rev = self.authored(self.person.scope, {"rules/review.md": REVIEW})
+        self.placed(self.collection(self.person.scope, "instructions", [self.entry(
+            mine, mine_rev, [unit("rules/review.md", "review", needs=[
+                {"source_id": needed, "member": "rules/base.md"}])])]))
+        prepared = self.prepared(self.ask([self.person.scope, self.team]),
+                                 recipient_digest=digest)
+        [base] = [u for u in prepared["units"] if u["source_id"] == needed]
+        self.assertEqual((base["standing"], "needed_by" in base), ("disabled", True))
+        return prepared, base
+
+    def test_a_switched_off_unit_a_required_winner_needs_gates_the_start(self):
+        prepared, base = self.needing_off(held=False)
+        self.assertNotIn("body_digest", base)
+        self.assertEqual(gaps(self.activate(prepared)), [{"code": c04.ROLE_BODY_UNAVAILABLE,
+                                                          "pointer": "/units/1"}])
+
+    def test_a_switched_off_unit_a_required_winner_needs_is_read_and_not_delivered(self):
+        prepared, base = self.needing_off(held=True)
+        self.assertEqual(base["body_digest"], sha(NOTE))
+        answer = self.activated(prepared)
+        self.assertEqual(answer["returned"][2:], [REVIEW])
+
+
 class Moved(Activating):
     def authored_in(self, checkout: Checkout) -> dict:
         """A preparation of a repository-authored source admitted from the checkout."""

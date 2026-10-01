@@ -980,6 +980,17 @@ class Unknown(Entering):
                                        "ORDER BY position DESC", (HISTORY,))
         return prepared, activated, held[0][0]
 
+    def test_an_unknown_start_stays_the_draft_however_many_starts_came_after_it(self):
+        _, activated, _ = self.unknown_start()
+        for _ in range(11):
+            self.prepared(self.ask([self.repository, self.person.scope]))
+        self.history(self.repository)
+        frame = self.drive("enter")[0]
+        self.assertEqual(frame["view"]["draft_request_id"], activated["result"]["request_id"])
+        self.assertEqual(self.focus(frame), "action.check")
+        self.assertFalse(any(sealed["operation"] == "preparation.compose"
+                             for sealed, _ in self.sent))
+
     def test_an_unknown_start_is_the_draft_and_its_check_is_focused(self):
         prepared, activated, history = self.unknown_start()
         draft = activated["result"]["request_id"]

@@ -297,6 +297,31 @@ class History(Routing):
         self.assertEqual((found["scope"], found["observed_at"], found["checkpoints"]),
                          (self.repository, LATEST, []))
 
+    def test_a_start_still_pending_stays_listed_however_many_came_after_it(self):
+        pending = self.activate(self.start()["returned"][0])
+        later = [self.start() for _ in range(4)]
+        found = self.history(self.repository, limit=3)
+        self.assertEqual([e["request_id"] for e in found["entries"]],
+                         [pending["result"]["request_id"]] +
+                         [s["result"]["request_id"] for s in later[-2:]])
+        self.assertEqual(found["entries"][0]["confirmed_stage"], "unknown")
+        self.assertEqual([e["request_id"] for e in self.history(self.repository,
+                                                                limit=1)["entries"]],
+                         [pending["result"]["request_id"]])
+        # The latest pending starts take their places first, and the list stays oldest first.
+        composed = self.start()
+        newer = self.activate(composed["returned"][0])
+        last = self.start()
+        ids = lambda found: [e["request_id"] for e in found["entries"]]  # noqa: E731
+        self.assertEqual(ids(self.history(self.repository, limit=3)),
+                         [pending["result"]["request_id"], newer["result"]["request_id"],
+                          last["result"]["request_id"]])
+        self.assertEqual(ids(self.history(self.repository, limit=1)),
+                         [newer["result"]["request_id"]])
+        self.assertEqual(ids(self.history(self.repository, limit=4)),
+                         [pending["result"]["request_id"], composed["result"]["request_id"],
+                          newer["result"]["request_id"], last["result"]["request_id"]])
+
     def test_a_request_acts_in_its_owner_its_target_and_the_scopes_its_work_names(self):
         other = {"layer": "repository", "repository_id": bench.ident("rep")}
         started = self.start([self.repository])

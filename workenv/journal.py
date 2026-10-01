@@ -58,6 +58,10 @@ belong to a scope, so this module says it, in three rules:
     person wrote a note with that request. The note is kept as written; one longer than a
     checkpoint holds is cut and ends in an ellipsis.
 
+A history read lists the latest `limit` starts, except that a start still pending stays listed
+however many came after it, so an entrance can return to it: pending starts first take their
+places, the latest of them, and the latest of the others fill the rest, oldest first.
+
 History is evidence, never intent: reading it resumes nothing, so an entry offers only the
 recovery that reads, querying the same request.
 """
@@ -434,7 +438,7 @@ def noted(text: str) -> str:
 def operation_history_read(call) -> dict:
     """C03 `operation.history.read`: one scope's recent starts, each with the last stage its
     request was answered at and when, and its dated checkpoints, as the module docstring states.
-    Each list holds the latest `limit`, oldest first."""
+    Each list holds at most `limit`, oldest first; a start still pending is kept."""
     store = storage.of(call.state)
     asked = payload(call)
     scope, limit = asked["scope"], asked["limit"]
@@ -457,6 +461,10 @@ def operation_history_read(call) -> dict:
             first = result["outputs"][0]
             checkpoints.append({"digest": first["digest"], "kind": first["kind"],
                                 "recorded_at": at, "note": noted(rationale)})
+    pending = [entry for entry in entries if entry["confirmed_stage"] in PENDING][-limit:]
+    others = [entry for entry in entries if entry not in pending]
+    kept = pending + (others[-(limit - len(pending)):] if len(pending) < limit else [])
     history = {"kind": "recent_history", "schema": 1, "scope": scope, "observed_at": now(call),
-               "entries": entries[-limit:], "checkpoints": checkpoints[-limit:]}
+               "entries": [entry for entry in entries if entry in kept],
+               "checkpoints": checkpoints[-limit:]}
     return answered(call, "previewed", [history])
