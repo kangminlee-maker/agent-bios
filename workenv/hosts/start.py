@@ -265,7 +265,9 @@ class Handed:
     bodies it carries in order (`preparation.Reading.carried`), their bytes, and the environment
     rendered from them. The start writes the launch and the job from it; the hook compares its
     own composition's with the job's before it records a new session's delivery, names its
-    bodies in every attempt, and hands a prompt the bodies that changed by it."""
+    bodies in every attempt, and hands a prompt all of its bodies where their text reads
+    otherwise than the session's (`body_text`), or a notice where they are more than the host's
+    hook carries."""
     prepared: dict
     units: list[dict]
     data: list[bytes]
