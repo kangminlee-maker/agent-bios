@@ -304,15 +304,23 @@ def layer_rank(order: list[dict], layer: str) -> int:
     return [scope["layer"] for scope in order].index(layer)
 
 
+def held(state, revision: str, path: str, digest: str) -> tuple[bytes | None, str | None]:
+    """(the bytes, None) where the revision's bundle holds the member at `path` as the bytes
+    `digest` names, else (None, why). Composing a unit and activating it read a body through
+    this, so what a preparation names and what an activation returns are the same bytes."""
+    found = storage.bundle(state, revision) / storage.MEMBERS / path
+    if not found.is_file():
+        return None, c04.ROLE_BODY_UNAVAILABLE
+    data = found.read_bytes()
+    if hashlib.sha256(data).hexdigest() != digest:
+        return None, c03.OBJECT_DIGEST_MISMATCH
+    return data, None
+
+
 def body_of(state, revision: str, member: dict) -> tuple[str | None, str | None]:
     """(the member's digest, None) where the revision's bundle holds its bytes, else (None, why)."""
-    path = storage.bundle(state, revision) / storage.MEMBERS / member["path"]
-    if not path.is_file():
-        return None, c04.ROLE_BODY_UNAVAILABLE
-    data = path.read_bytes()
-    if hashlib.sha256(data).hexdigest() != member["digest"]:
-        return None, c03.OBJECT_DIGEST_MISMATCH
-    return member["digest"], None
+    data, why = held(state, revision, member["path"], member["digest"])
+    return (None, why) if data is None else (member["digest"], None)
 
 
 class Composition:

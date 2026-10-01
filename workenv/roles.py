@@ -27,7 +27,11 @@ activates it. A refusal is recovered by a new request.
     one `role_projection` for the executor view entered at session start: every unit named with
     its layer and standing, shadowed and disabled ones included. The bytes of each winning or
     layered unit's body are returned beside it, as `source_member`, so the session receives the
-    text each `body_digest` names. The projection also carries the preparation's material gaps
+    text each `body_digest` names. They are read once, as composition read them
+    (`preparation.held`), before anything is committed: a body its revision's bundle no longer
+    holds, or holds as other bytes than its `body_digest` names, refuses the activation
+    (`role_body_unavailable`, `object_digest_mismatch`), and nothing is recorded as received
+    (r11-0). The projection also carries the preparation's material gaps
     that concern its Instructions (`material`): a gap at one of its units, or at an Instructions
     collection, such as a selected source that did not resolve (`selection_unresolved`). A
     selection whose only source did not resolve still starts, and its gap is carried by a
@@ -142,9 +146,23 @@ def material(store: storage.Store, prepared: dict) -> list[dict]:
     return kept
 
 
-def projection(call, prepared: dict) -> tuple[dict | None, list[bytes]]:
+def bodies(state, prepared: dict) -> tuple[list[bytes], str | None]:
+    """The bytes of each body the preparation's activation returns, in its units' order, read as
+    composition read them (`preparation.held`); or why one is not held as its unit names."""
+    data = []
+    for unit in prepared["units"]:
+        if preparation.carries(unit):
+            held, why = preparation.held(state, unit["revision_digest"], unit["member"],
+                                         unit["body_digest"])
+            if held is None:
+                return [], why
+            data.append(held)
+    return data, None
+
+
+def projection(call, prepared: dict, members: list[bytes]) -> tuple[dict | None, list[bytes]]:
     """The preparation's Instructions units and the gaps that concern them as one projection,
-    and the bytes it delivers."""
+    and the bytes it delivers (`bodies`)."""
     units = [unit for unit in prepared["units"] if unit["role"] == INSTRUCTIONS]
     gaps = material(storage.of(call.state), prepared)
     if not units and not gaps:
@@ -154,45 +172,46 @@ def projection(call, prepared: dict) -> tuple[dict | None, list[bytes]]:
                              "revision_digest": unit["revision_digest"]} for unit in units],
             "role": INSTRUCTIONS, "recipient_view": EXECUTOR, "entrance": ENTRANCE,
             "order": prepared["order"]}
-    projected, members = [], []
+    projected = []
     for unit in units:
         value = {field: unit[field] for field in ("unit_id", "source_id", "revision_digest",
                                                    "layer", "standing", "body_digest",
                                                    "shadowed_by", "concern") if field in unit}
         projected.append({**value, "source_role": INSTRUCTIONS})
-        if preparation.carries(unit):
-            members.append((storage.bundle(call.state, unit["revision_digest"]) / storage.MEMBERS
-                            / unit["member"]).read_bytes())
     return {"kind": "role_projection", "schema": 1, "projection_id": journal.mint("prj"),
             "plan_digest": canonical.digest_of(plan), "role": INSTRUCTIONS,
             "recipient_view": EXECUTOR, "units": projected, "material_gaps": gaps,
             "prepared_at": journal.now(call)}, members
 
 
-def activating(call) -> tuple[dict | None, dict | None]:
-    """The refusal of an activation, or None and the preparation it activates."""
+def activating(call) -> tuple[dict | None, dict | None, list[bytes]]:
+    """The refusal of an activation, or None, the preparation it activates and the bodies it
+    returns (`bodies`)."""
     store = storage.of(call.state)
     activation = journal.payload(call)
     profile = call.request["target"]["resource_id"]
     if profile != call.request["actor"]["profile_id"] or \
             activation["session"]["profile_id"] != profile:
-        return refused(call, c03.REQUEST_MISMATCH, "/target/resource_id"), None
+        return refused(call, c03.REQUEST_MISMATCH, "/target/resource_id"), None, []
     prepared = delivery.preparation_by_digest(store, activation["preparation_digest"])
     if prepared is None:
-        return refused(call, c01.REF_UNAVAILABLE, "/preparation_digest"), None
+        return refused(call, c01.REF_UNAVAILABLE, "/preparation_digest"), None, []
     recipient = prepared["recipient"].get("recipient_digest")
     if recipient is not None and store.get(recipient)["host"] != activation["session"]["host"]:
-        return refused(call, c02.RECIPIENT_MISMATCH, "/session/host"), None
+        return refused(call, c02.RECIPIENT_MISMATCH, "/session/host"), None, []
     if moved(store, prepared):
-        return refused(call, c07.WORKING_BYTES_MOVED), None
+        return refused(call, c07.WORKING_BYTES_MOVED), None, []
     gap = unmet(prepared)
     if gap is not None:
-        return refused(call, gap["code"], gap["pointer"]), None
-    return None, prepared
+        return refused(call, gap["code"], gap["pointer"]), None, []
+    members, why = bodies(call.state, prepared)
+    if why is not None:
+        return refused(call, why, "/preparation_digest"), None, []
+    return None, prepared, members
 
 
 def session_routing_dispatched(call) -> dict:
-    refusal, _ = activating(call)
+    refusal, _, _ = activating(call)
     if refusal is not None:
         return refusal
     return journal.answered(call, journal.UNKNOWN, gaps=[{"code": c03.OUTCOME_UNKNOWN}],
@@ -207,13 +226,13 @@ def session_routing_unreported(call) -> dict:
 
 
 def session_routing_activate(call) -> dict:
-    refusal, prepared = activating(call)
+    refusal, prepared, members = activating(call)
     if refusal is not None:
         return refusal
     store = storage.of(call.state)
     activation = journal.payload(call)
     recipient = prepared["recipient"].get("recipient_digest")
-    projected, members = projection(call, prepared)
+    projected, members = projection(call, prepared, members)
     projections = [] if projected is None else [projected]
     routing = {"kind": "session_routing", "schema": 1, "session": activation["session"],
                "delivery": {"state": "activated",

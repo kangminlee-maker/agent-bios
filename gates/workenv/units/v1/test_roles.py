@@ -10,7 +10,7 @@ from test_delivery import LATER, NOTE, REVIEW, Delivering
 from test_preparation import unit
 from test_sources import INSTANT, Checkout, gaps, sha
 
-from workenv import delivery, roles
+from workenv import delivery, roles, storage
 from workenv.contracts import c01, c02, c03, c04, c07, canonical
 
 ACTIVATE = "session.routing.activate"
@@ -134,10 +134,12 @@ class Routing(Activating):
         prepared["material_gaps"].append({"code": c07.WORKING_BYTES_MOVED})
         self.assertEqual(prepared["material_gaps"][0], {"code": c04.ROLE_BODY_UNAVAILABLE,
                                                         "pointer": "/units/0"})
-        projection, members = roles.projection(self.bench.call(
-            bench.request(self.person, ACTIVATE, self.person.profile), now=INSTANT), prepared)
-        self.assertEqual((projection["material_gaps"], members),
-                         ([{"code": c04.ROLE_BODY_UNAVAILABLE, "pointer": "/units/0"}], []))
+        call = self.bench.call(bench.request(self.person, ACTIVATE, self.person.profile),
+                               now=INSTANT)
+        held, why = roles.bodies(call.state, prepared)
+        projection, members = roles.projection(call, prepared, held)
+        self.assertEqual((projection["material_gaps"], members, why),
+                         ([{"code": c04.ROLE_BODY_UNAVAILABLE, "pointer": "/units/0"}], [], None))
 
     def test_a_selected_instructions_source_that_does_not_resolve_is_carried_with_no_unit(self):
         _, digest = self.linked()
@@ -188,6 +190,38 @@ class Refusals(Activating):
         prepared = {**self.for_link(digest), "preparation_id": bench.ident("prp")}
         self.assertEqual(gaps(self.activate(prepared)), [{"code": c01.REF_UNAVAILABLE,
                                                           "pointer": "/preparation_digest"}])
+
+    def test_a_body_no_longer_held_as_its_unit_names_refuses_and_records_nothing(self):
+        # The bundle a carried body was composed from holds other bytes, or none, by the time the
+        # activation reads it: the activation and the answer as it is handed on are refused, and
+        # no session is recorded as having received anything (r11-0).
+        for changed, code in ((b"Do not require review.\n", c03.OBJECT_DIGEST_MISMATCH),
+                              (None, c04.ROLE_BODY_UNAVAILABLE)):
+            with self.subTest(code=code):
+                _, digest = self.linked("codex")
+                prepared = self.for_link(digest)
+                only = prepared["units"][0]
+                held = storage.bundle(self.bench.state, only["revision_digest"]) / \
+                    storage.MEMBERS / only["member"]
+                original, before = held.read_bytes(), self.count("deliveries")
+                held.chmod(0o644)
+                if changed is None:
+                    held.unlink()
+                else:
+                    held.write_bytes(changed)
+                try:
+                    for entry in (roles.session_routing_dispatched,
+                                  roles.session_routing_activate):
+                        answer = self.activate(prepared, host="codex", entry=entry)
+                        self.assertEqual((answer["result"]["outcome"]["stage"], gaps(answer),
+                                          answer["returned"]),
+                                         ("refused", [{"code": code,
+                                                       "pointer": "/preparation_digest"}], []))
+                    self.assertEqual(self.count("deliveries"), before)
+                finally:
+                    held.write_bytes(original)
+                answer = self.activated(prepared, host="codex")
+                self.assertEqual(answer["returned"][-1], original)
 
 
 class Handed(Activating):
