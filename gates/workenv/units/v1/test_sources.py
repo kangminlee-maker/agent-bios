@@ -295,6 +295,44 @@ class Revisions(Base):
                                          "pointer": "/members/1"}])
         self.assertEqual((self.count("revisions"), self.bundles()), (0, []))
 
+    def record(self) -> dict:
+        """A C05 choice record, which is a record a request may carry and nothing more: for a
+        source of this role its bytes are not a member's, whatever digest a member states."""
+        return {"kind": "choice_record", "schema": 1, "home": self.person.scope,
+                "workstream_ids": [], "question": "Which journal mode?",
+                "choice": "WAL, with synchronous FULL.", "record_id": bench.ident("rec"),
+                "recorded_at": INSTANT, "applicability": {"states": "unstated"}}
+
+    def test_wrong_bytes_under_a_carried_records_digest_are_still_refused_at_their_member(self):
+        # A carried record is not a byte source for a source of any role but memory, so the
+        # bytes supplied with the request are the only ones at hand, and they are refused.
+        _, head = self.registered()
+        carried = self.record()
+        data = canonical.encode(carried)
+        submitted = manifest(self.source, {"records/journal.json": data})
+        target = {"resource_id": self.source,
+                  "base": {"expects": "head", "head_digest": head}}
+        answer = self.run_with(sources.source_revision_commit,
+                               bench.request(self.person, COMMIT, target, submitted),
+                               [submitted, carried],
+                               members={sha(data): data + b"x"}, now=INSTANT)
+        self.assertEqual(gaps(answer), [{"code": c03.OBJECT_DIGEST_MISMATCH,
+                                         "pointer": "/members/0"}])
+        self.assertEqual((self.count("revisions"), self.bundles()), (0, []))
+
+    def test_a_carried_record_alone_leaves_its_member_stored_by_its_hash_alone(self):
+        _, head = self.registered()
+        carried = self.record()
+        data = canonical.encode(carried)
+        submitted = manifest(self.source, {"records/journal.json": data})
+        target = {"resource_id": self.source,
+                  "base": {"expects": "head", "head_digest": head}}
+        answer = self.run_with(sources.source_revision_commit,
+                               bench.request(self.person, COMMIT, target, submitted),
+                               [submitted, carried], now=INSTANT)
+        bundle = storage.bundle(self.bench.state, answer["receipt"]["head_digest"])
+        self.assertFalse((bundle / storage.MEMBERS).exists())
+
     def test_a_source_this_installation_holds_no_home_for_is_unavailable(self):
         answer = self.commit(manifest(self.source, {"concepts.md": CONCEPTS}), sha(b"head"))
         self.assertEqual(gaps(answer), [{"code": c01.REF_UNAVAILABLE}])

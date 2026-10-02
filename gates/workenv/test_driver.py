@@ -144,19 +144,17 @@ class Resolution(unittest.TestCase):
     def test_nothing_is_passed_while_the_code_that_serves_it_is_unwritten(self):
         # The driver resolves and runs; the code the serving table names is what passes a case.
         # A driver that reported otherwise would report the rule satisfied by its own absence of
-        # work. Every N07 case publishes or resolves a memory record, which the memory module
-        # serves, so while that module is absent each case names it, or the driver feature it
-        # waits for.
-        module, family = "workenv/memory", "N07"
+        # work. Every N08 case reads a body or prepares a use, which the reading module serves,
+        # so while that module is absent no case of the family passes and the one it serves
+        # names it.
+        module, family = "workenv/reading", "N08"
         self.assertFalse(any((cases.ROOT / path).exists() for path in (module, f"{module}.py")),
                          f"{module} now exists, so this test no longer stands on its absence")
         report = driver.run(PROFILE, family)
         self.assertTrue(report["cases"])
-        for case, outcome in report["cases"].items():
-            self.assertEqual(outcome["outcome"], driver.BLOCKED, case)
-            self.assertTrue("module workenv.memory is not written yet" in outcome["why"]
-                            or "no feature module" in outcome["why"], outcome)
-        self.assertTrue(any("workenv.memory" in o["why"] for o in report["cases"].values()))
+        self.assertNotIn(driver.PASSED, {o["outcome"] for o in report["cases"].values()})
+        self.assertTrue(any("module workenv.reading is not written yet" in o["why"]
+                            for o in report["cases"].values()), report)
 
     def test_a_profile_the_catalog_does_not_define_is_refused(self):
         with self.assertRaises(driver.DriverError) as raised:
@@ -201,7 +199,7 @@ class Resolution(unittest.TestCase):
         # A family with a case waiting for unwritten code, and one whose cases the code in scope
         # serves in full.
         with contextlib.redirect_stdout(io.StringIO()) as printed:
-            self.assertEqual(driver.main(["--case-profile", PROFILE, "--family", "N07"]), 1)
+            self.assertEqual(driver.main(["--case-profile", PROFILE, "--family", "N08"]), 1)
         self.assertIn(driver.BLOCKED, printed.getvalue())
         with contextlib.redirect_stdout(io.StringIO()) as printed:
             self.assertEqual(driver.main(["--case-profile", PROFILE, "--family", "N01"]), 0)

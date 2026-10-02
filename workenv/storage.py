@@ -48,7 +48,7 @@ from workenv.contracts import b03, canonical
 DATABASE = "state.sqlite"
 # The layout this module writes, as PRAGMA user_version; a store with a later one was written
 # by a later runtime and is not opened.
-LAYOUT = 6
+LAYOUT = 7
 # What a member's bytes are kept as among records: they have no kind of their own.
 MEMBER = "source_member"
 IN_TXN = "in_txn_before_commit"
@@ -142,8 +142,21 @@ LAYOUT_6 = (
     "ALTER TABLE requests ADD COLUMN works_in TEXT",
 )
 
+LAYOUT_7 = (
+    # Each lane opened here, by id: the digest of the workstream record kept whole.
+    "CREATE TABLE workstreams (workstream_id TEXT PRIMARY KEY, digest TEXT NOT NULL)",
+    # Each choice record and lifecycle event published to a memory source here, in the order
+    # published: `entry_id` is the record's or the event's own id, `kind` which of the two it is,
+    # and `digest` the record kept whole.
+    """CREATE TABLE memory_entries (
+         position INTEGER PRIMARY KEY AUTOINCREMENT, entry_id TEXT NOT NULL,
+         source_id TEXT NOT NULL, kind TEXT NOT NULL, digest TEXT NOT NULL)""",
+    "CREATE INDEX memory_entries_by_source ON memory_entries (source_id, position)",
+)
+
 # What each layout adds to the one before it.
-LAYOUTS = {1: LAYOUT_1, 2: LAYOUT_2, 3: LAYOUT_3, 4: LAYOUT_4, 5: LAYOUT_5, 6: LAYOUT_6}
+LAYOUTS = {1: LAYOUT_1, 2: LAYOUT_2, 3: LAYOUT_3, 4: LAYOUT_4, 5: LAYOUT_5,
+           6: LAYOUT_6, 7: LAYOUT_7}
 
 
 class StorageError(Exception):

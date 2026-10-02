@@ -75,7 +75,8 @@ import pathlib
 import re
 import shutil
 
-from workenv import access, cli, delivery, hosts, journal, preparation, roles, storage
+from workenv import (access, cli, delivery, hosts, journal, memory, preparation, roles,
+                     storage)
 from workenv.contracts import c04, canonical, errors
 from workenv.hosts import probes
 
@@ -90,7 +91,11 @@ ENTRIES = {COMPOSE: preparation.preparation_compose,
            "capability.probe": hosts.capability_probe,
            "route.offer": cli.route_offer, "route.select": cli.route_select,
            "operation.history.read": journal.operation_history_read,
-           "access.profile.read": access.access_profile_read}
+           "access.profile.read": access.access_profile_read,
+           "workstream.open": memory.workstream_open,
+           "memory.record.publish": memory.memory_record_publish,
+           "memory.lifecycle.apply": memory.memory_lifecycle_apply,
+           "memory.state.resolve": memory.memory_state_resolve}
 # The operations the journal answers from what it holds, handing them to no entry.
 ADDRESSED = (journal.QUERY, journal.CANCEL)
 # Where each launch's files are kept, under the state root.

@@ -14,7 +14,10 @@ the revision, and the source's head moves to it. In order:
     names, is refused by the B01 code at `/proof_digests/<i>`, and so is one from a key that is
     not one of the actor's own standing bindings. A commit with no signature needs none.
   - The members' bytes are what the person supplies with the request, and for a source authored
-    in a repository, the files at the members' paths in the checkout bound to it. Bytes of
+    in a repository, the files at the members' paths in the checkout bound to it. For a source
+    whose role is `memory`, and only there, the bytes of a record the request carries are a
+    member's too, because such a source's members are records (C05): a record written in another
+    checkout arrives as the record it is, not as a file this installation already holds. Bytes of
     another size or digest than the member states are `object_digest_mismatch` at that member;
     a member whose bytes are not at hand is stored by its hash alone.
 
@@ -51,6 +54,9 @@ from workenv.sources import homes
 
 NAMESPACE = identity.NAMESPACE + "source_manifest"
 AUTHORED, PUBLISHED = "repository_authored", "package_published"
+# The one role whose members are records, so a record carried with the request is a member's
+# bytes (C05). For every other role the bytes at hand are the person's and the checkout's alone.
+MEMORY = "memory"
 
 
 def refused(call, code: str, pointer: str | None = None) -> dict:
@@ -88,18 +94,38 @@ def checkout_of(store: storage.Store, repository_id: str) -> pathlib.Path | None
     return pathlib.Path(found[0][0]) if found and found[0][0] else None
 
 
-def gathered(call, manifest: dict,
-             checkout: pathlib.Path | None) -> tuple[dict | None, dict[str, bytes]]:
+def theirs(data: bytes, member: dict) -> bool:
+    return len(data) == member["size"] and hashlib.sha256(data).hexdigest() == member["digest"]
+
+
+def of_a_record(call, member: dict) -> bytes | None:
+    """The bytes of a record the request carries that are the member's, or None. Only a memory
+    source's revision reads this: its members are records (C05), so a record written in another
+    checkout arrives as the record it is. For every other role the bytes at hand are what they
+    were, and this is never asked."""
+    for value in call.carried:
+        if isinstance(value, dict) and journal.digest_of(value) == member["digest"]:
+            data = canonical.encode(value)
+            if theirs(data, member):
+                return data
+    return None
+
+
+def gathered(call, manifest: dict, checkout: pathlib.Path | None,
+             records: bool = False) -> tuple[dict | None, dict[str, bytes]]:
     """The refusal of the first member whose bytes at hand differ, or None; and the members'
-    bytes at hand, by path."""
+    bytes at hand, by path. A member whose bytes are not at hand is stored by its hash alone.
+    `records` adds the bytes of a record the request carries, for a memory source alone."""
     found: dict[str, bytes] = {}
     for index, member in enumerate(manifest["members"]):
         data = call.members.get(member["digest"])
+        if data is None and records:
+            data = of_a_record(call, member)
         if data is None and checkout is not None and (checkout / member["path"]).is_file():
             data = (checkout / member["path"]).read_bytes()
         if data is None:
             continue
-        if len(data) != member["size"] or hashlib.sha256(data).hexdigest() != member["digest"]:
+        if not theirs(data, member):
             return refused(call, c03.OBJECT_DIGEST_MISMATCH, f"/members/{index}"), {}
         found[member["path"]] = data
     return None, found
@@ -108,7 +134,7 @@ def gathered(call, manifest: dict,
 def published(call, manifest: dict, source: dict, checkout: pathlib.Path | None) -> dict:
     """What the unit of work commits, once the bytes at hand are the manifest's and its bundle is
     published; or the answer refusing them."""
-    refusal, members = gathered(call, manifest, checkout)
+    refusal, members = gathered(call, manifest, checkout, source.get("role") == MEMORY)
     if refusal is not None:
         return {"answer": refusal}
     stored = {**manifest, "produced_at": journal.now(call)}
