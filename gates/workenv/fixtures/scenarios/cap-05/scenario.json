@@ -411,8 +411,13 @@
    "record": "first_choice"
   },
   {
-   "digest_of": "first_choice",
+   "minted": "records_bytes_first_revision",
    "pointer": "/members/0/digest",
+   "record": "first_revision"
+  },
+  {
+   "minted": "records_size_first_revision",
+   "pointer": "/members/0/size",
    "record": "first_revision"
   },
   {
@@ -526,13 +531,13 @@
    "record": "explanation_record"
   },
   {
-   "digest_of": "first_choice",
+   "minted": "records_bytes_second_revision",
    "pointer": "/members/0/digest",
    "record": "second_revision"
   },
   {
-   "digest_of": "explanation_record",
-   "pointer": "/members/1/digest",
+   "minted": "records_size_second_revision",
+   "pointer": "/members/0/size",
    "record": "second_revision"
   },
   {
@@ -753,6 +758,16 @@
    "step": "publish_choice"
   },
   {
+   "name": "records_bytes_first_revision",
+   "shape": "digest",
+   "step": "publish_choice"
+  },
+  {
+   "name": "records_size_first_revision",
+   "shape": "integer",
+   "step": "publish_choice"
+  },
+  {
    "name": "explanation",
    "shape": "rec",
    "step": "publish_later_explanation"
@@ -774,6 +789,16 @@
   },
   {
    "name": "publish_later_explanation_sequence",
+   "shape": "integer",
+   "step": "publish_later_explanation"
+  },
+  {
+   "name": "records_bytes_second_revision",
+   "shape": "digest",
+   "step": "publish_later_explanation"
+  },
+  {
+   "name": "records_size_second_revision",
    "shape": "integer",
    "step": "publish_later_explanation"
   },
@@ -1729,16 +1754,16 @@
    }
   },
   {
-   "digest": "c59d4725a76731e22d161784db164b17cbef9eff3fde03a975cd0a643548c2ac",
+   "digest": "5c28c260ae52380a9abb1c175a278cb312170e2bc3fd95d51130cdf84e0bc182",
    "name": "first_revision",
    "record": {
     "format_version": 1,
     "kind": "source_manifest",
     "members": [
      {
-      "digest": "3c6f84bacca06ce16dec9e9de6ff562401d66677a6c11048488fcab65a1e39f2",
-      "path": "decisions/0001.json",
-      "size": 770
+      "digest": "cb663b59cd11c21e684b7f2821ae7e45cb84f2b91e4b2ca8ad58d2fe14421c6f",
+      "path": "docs/adr/records.jsonl",
+      "size": 1
      }
     ],
     "produced_at": "2000-01-01T00:00:00Z",
@@ -1799,7 +1824,7 @@
    }
   },
   {
-   "digest": "b64bd092932be34d9cff234960c6ca2b1fcb6b449fd4c5e0c237625480d512eb",
+   "digest": "2002173e8b4462a1940f4521c8ded84743cd97b2030e4cda7032e82bf45898ce",
    "name": "publish_choice_result",
    "record": {
     "kind": "operation_result",
@@ -1815,7 +1840,7 @@
       "kind": "choice_record"
      },
      {
-      "digest": "c59d4725a76731e22d161784db164b17cbef9eff3fde03a975cd0a643548c2ac",
+      "digest": "5c28c260ae52380a9abb1c175a278cb312170e2bc3fd95d51130cdf84e0bc182",
       "kind": "source_manifest"
      },
      {
@@ -1967,21 +1992,16 @@
    }
   },
   {
-   "digest": "6e564df97ef6fe7d8d10dbc5d98c228cc66d3f890b20126935bbbd970deb14ec",
+   "digest": "8209f80667b46078392a538ea386eadf549f03eb2b12a6d6413ce8f5e86b963b",
    "name": "second_revision",
    "record": {
     "format_version": 1,
     "kind": "source_manifest",
     "members": [
      {
-      "digest": "3c6f84bacca06ce16dec9e9de6ff562401d66677a6c11048488fcab65a1e39f2",
-      "path": "decisions/0001.json",
-      "size": 770
-     },
-     {
-      "digest": "ed68173dcd21d1aa5d5f6c6a23d7634eba763a3c4ab25148a8633729c4149878",
-      "path": "decisions/0002.json",
-      "size": 966
+      "digest": "f0cacc4a81cd127f4b788029641c0fa165ad3e3df529dd790d419bbb86f75cc7",
+      "path": "docs/adr/records.jsonl",
+      "size": 1
      }
     ],
     "produced_at": "2000-01-01T00:00:00Z",
@@ -1990,7 +2010,7 @@
    }
   },
   {
-   "digest": "82006fe21cd775c9919927835f15a9705f4ea17501760818f89efb23a10c49a6",
+   "digest": "6275f75e17dc160068f5b87bf557a6c1a622a9dcf76e5dd2da76a28735fbe69a",
    "name": "publish_later_explanation_result",
    "record": {
     "kind": "operation_result",
@@ -2006,7 +2026,7 @@
       "kind": "choice_record"
      },
      {
-      "digest": "6e564df97ef6fe7d8d10dbc5d98c228cc66d3f890b20126935bbbd970deb14ec",
+      "digest": "8209f80667b46078392a538ea386eadf549f03eb2b12a6d6413ce8f5e86b963b",
       "kind": "source_manifest"
      }
     ],
@@ -2297,7 +2317,7 @@
   }
  ],
  "says": "A person binds this device's key and the checkout and registers the repository's memory source. The owner reads records 12 to 18 of a session transcript in which a journal mode was chosen and nobody said why or what else was considered; the packaged local adapter captures it, and the candidate extracted from the capture proposes the choice with its alternatives and reason named as unrecorded rather than filled in. Publishing it at the memory source, on the head its registration committed and stating that it promotes version 1 of that candidate, commits a choice record that still names alternatives and reason as unrecorded, a revision holding it, and the candidate's version 2 promoted with that commit's receipt, proposing exactly what was published. When the reason is explained later, the explanation is a second record published on the moved head: it relies on the first record by id and says it was written afterwards, and the first record is not changed. Nothing may be invented or backdated: a choice submitted with an approval field is refused at admission (a choice record has no field for one), a choice that states its own recorded time before the commit is refused at admission, a capture that states its own capture time is refused at admission, and a lifecycle event recording that choice as adopted, backdated to before the commit, is refused at admission the same way. None of those writes anything.",
- "spec_sha256": "f8c3b0721e8b889b065c066d2d7d810d94406ffed8eda3693d4048f181b181a1",
+ "spec_sha256": "9f84aa72250c0980d7abb63e3efee78755366b7d1d50dbee168c3a928a69f528",
  "steps": [
   {
    "carries": [

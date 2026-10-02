@@ -233,6 +233,16 @@
    "record": "stored_manifest"
   },
   {
+   "minted": "adr_records_bytes",
+   "pointer": "/members/1/digest",
+   "record": "stored_manifest"
+  },
+  {
+   "minted": "adr_records_size",
+   "pointer": "/members/1/size",
+   "record": "stored_manifest"
+  },
+  {
    "digest_of": "publish_adr_receipt",
    "pointer": "/outcome/receipt_digest",
    "record": "publish_adr_result"
@@ -342,6 +352,16 @@
   {
    "name": "adr_published",
    "shape": "digest",
+   "step": "publish_adr"
+  },
+  {
+   "name": "adr_records_bytes",
+   "shape": "digest",
+   "step": "publish_adr"
+  },
+  {
+   "name": "adr_records_size",
+   "shape": "integer",
    "step": "publish_adr"
   },
   {
@@ -861,7 +881,7 @@
    }
   },
   {
-   "digest": "4b9600f94d48642a66c72c658b2d535bf291c01788b3bcaf74e2cd6c33302509",
+   "digest": "7c26b5324ad0d1ff365abb6d97e189314ab37b1a68345edd5547d4b3d2e299e6",
    "name": "stored_manifest",
    "record": {
     "format_version": 1,
@@ -871,6 +891,11 @@
       "digest": "87cb1f768d6593dfce9edd20416f16cba3e9111de6667d7a13fc27b0f73c3030",
       "path": "docs/adr/0007-journal-mode.md",
       "size": 1830
+     },
+     {
+      "digest": "ac656fa5cae9a78ef9b72591933ce11f4b4c3055653adbf273e8ca23714b8611",
+      "path": "docs/adr/records.jsonl",
+      "size": 1
      }
     ],
     "produced_at": "2000-01-01T00:00:00Z",
@@ -879,7 +904,7 @@
    }
   },
   {
-   "digest": "140f5936d5d20fd80369a5f4f74bc158954b9f6cabc0e0a6f9bc5a41a089f5fc",
+   "digest": "8fc9e04a77006f1222299e64c8ce038955d89602d2f3bdbc4ab05733ad76f215",
    "name": "publish_adr_result",
    "record": {
     "kind": "operation_result",
@@ -895,7 +920,7 @@
       "kind": "choice_record"
      },
      {
-      "digest": "4b9600f94d48642a66c72c658b2d535bf291c01788b3bcaf74e2cd6c33302509",
+      "digest": "7c26b5324ad0d1ff365abb6d97e189314ab37b1a68345edd5547d4b3d2e299e6",
       "kind": "source_manifest"
      }
     ],
@@ -907,7 +932,7 @@
    }
   },
   {
-   "digest": "92457d29b5433c9bba5a7d4d15c0b39e76075a942c959b584ef98aa9a68261ea",
+   "digest": "98087337e644212036d932088c13eca49b617b9b8cc0ed2aa16a9719bb56a035",
    "name": "question",
    "record": {
     "concern": {
@@ -917,7 +942,7 @@
        "value": "this one"
       }
      ],
-     "question": "Which journal mode applies to this repository?"
+     "question": "ADR 0007: which journal mode does the local state database use?"
     },
     "include_superseded": false,
     "kind": "state_question",
@@ -931,7 +956,7 @@
    }
   },
   {
-   "digest": "35fb838ccd50dac1729fb4c3bacc83486ee600f113c2bf0342b6690cfe60309e",
+   "digest": "4979543bf8608679a5e10c9e4116ce013c34f081657838048adecd28db7b93a4",
    "name": "resolve",
    "record": {
     "action": "read",
@@ -949,7 +974,7 @@
      "layer": "repository",
      "repository_id": "rep_f1c61a92b90cc73cd1e866144139a1a1"
     },
-    "payload_digest": "92457d29b5433c9bba5a7d4d15c0b39e76075a942c959b584ef98aa9a68261ea",
+    "payload_digest": "98087337e644212036d932088c13eca49b617b9b8cc0ed2aa16a9719bb56a035",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_3edf2b6e090eee576ef2dd278c5b866c",
@@ -960,7 +985,7 @@
    }
   },
   {
-   "digest": "2d3433087a12e7a7bc084461bf5622768813c26640aa03b1fcb91dd404b7103a",
+   "digest": "81147c312944338506a52e70ea7f8bd1de10948d47623c91019c6732fd510048",
    "name": "state",
    "record": {
     "comparison": {
@@ -983,12 +1008,12 @@
     "kind": "qualified_state",
     "material_gaps": [],
     "prepared_at": "2000-01-01T00:00:00Z",
-    "question_digest": "92457d29b5433c9bba5a7d4d15c0b39e76075a942c959b584ef98aa9a68261ea",
+    "question_digest": "98087337e644212036d932088c13eca49b617b9b8cc0ed2aa16a9719bb56a035",
     "schema": 1
    }
   },
   {
-   "digest": "4c5c52efbfa178d6edbbdfd05dfc024df2c7021c1875d145ad6b58da6d161cd2",
+   "digest": "ab47557bf605eb863b3abb1304c8e22349fbc52ea95a955601fb919469ed7a18",
    "name": "resolve_state_result",
    "record": {
     "kind": "operation_result",
@@ -999,12 +1024,12 @@
     },
     "outputs": [
      {
-      "digest": "2d3433087a12e7a7bc084461bf5622768813c26640aa03b1fcb91dd404b7103a",
+      "digest": "81147c312944338506a52e70ea7f8bd1de10948d47623c91019c6732fd510048",
       "kind": "qualified_state"
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "35fb838ccd50dac1729fb4c3bacc83486ee600f113c2bf0342b6690cfe60309e",
+    "request_digest": "4979543bf8608679a5e10c9e4116ce013c34f081657838048adecd28db7b93a4",
     "request_id": "req_3edf2b6e090eee576ef2dd278c5b866c",
     "schema": 1,
     "supported_recovery": []
@@ -1012,7 +1037,7 @@
   }
  ],
  "says": "A person works in a repository whose docs/adr directory holds ADR 0007, a Markdown decision record. The owner reads exactly that file from the working tree (source.observe: one committed tree read, nothing written), binds the checkout to its repository id with the observation's digest (repository.bind), and registers the ADR directory as a repository-authored memory source whose binding evidence is that repository binding (source.home.register). The person then publishes the ADR's decision into that source (memory.record.publish): the owner commits a choice_record homed in the repository scope and a source_manifest of the ADR source whose one member is docs/adr/0007-journal-mode.md with the exact digest and size the observation read, so the manifest is the observed Markdown bytes and not a managed copy. Asked which journal mode applies (memory.state.resolve over the repository scope), the owner answers with a qualified_state whose one current entry is that record and names the ADR source, and whose frontier is that source at the head the publication moved it to. No Team, provider or second home is involved.",
- "spec_sha256": "6b3fde8be5f55278ce3736d028e62a44b0aa3f32153e63d8ebe76caee7cde44d",
+ "spec_sha256": "06d66fdc5d2354fa25224fafaa0c1fb09ed5c40e4002e2176f7478c8634b4db6",
  "steps": [
   {
    "carries": [

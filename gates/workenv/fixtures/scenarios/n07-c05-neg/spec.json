@@ -456,7 +456,7 @@
     },
     {
      "pointer": "/members/0/path",
-     "value": "memory/records.jsonl"
+     "value": "docs/decisions/records.jsonl"
     },
     {
      "pointer": "/members/0/digest",
@@ -720,7 +720,7 @@
     },
     {
      "pointer": "/members/0/path",
-     "value": "memory/records.jsonl"
+     "value": "docs/decisions/records.jsonl"
     },
     {
      "pointer": "/members/0/digest",
@@ -885,7 +885,7 @@
     },
     {
      "pointer": "/members/0/path",
-     "value": "memory/records.jsonl"
+     "value": "docs/decisions/records.jsonl"
     },
     {
      "pointer": "/members/0/digest",
@@ -1050,7 +1050,7 @@
     },
     {
      "pointer": "/members/0/path",
-     "value": "memory/records.jsonl"
+     "value": "docs/decisions/records.jsonl"
     },
     {
      "pointer": "/members/0/digest",
@@ -1353,7 +1353,7 @@
     },
     {
      "pointer": "/members/0/path",
-     "value": "memory/records.jsonl"
+     "value": "docs/decisions/records.jsonl"
     },
     {
      "pointer": "/members/0/digest",
@@ -1483,7 +1483,7 @@
     },
     {
      "pointer": "/members/0/path",
-     "value": "memory/records.jsonl"
+     "value": "docs/decisions/records.jsonl"
     },
     {
      "pointer": "/members/0/digest",
@@ -1617,7 +1617,7 @@
     },
     {
      "pointer": "/members/0/path",
-     "value": "memory/records.jsonl"
+     "value": "docs/decisions/records.jsonl"
     },
     {
      "pointer": "/members/0/digest",
@@ -1951,39 +1951,39 @@
     },
     {
      "pointer": "/members/0/path",
-     "value": "memory/records.jsonl"
-    },
-    {
-     "pointer": "/members/0/digest",
-     "value": "$digest:repo_memory_bytes_8"
-    },
-    {
-     "pointer": "/members/0/size",
-     "value": "$integer:repo_memory_size_8"
-    },
-    {
-     "pointer": "/members/1/path",
      "value": "docs/decisions/checkpoint-interval.json"
     },
     {
-     "pointer": "/members/1/digest",
+     "pointer": "/members/0/digest",
      "value": "#pulled_interval"
     },
     {
-     "pointer": "/members/1/size",
+     "pointer": "/members/0/size",
      "value": 764
     },
     {
-     "pointer": "/members/2/path",
+     "pointer": "/members/1/path",
      "value": "docs/decisions/checkpoint-trigger.json"
     },
     {
-     "pointer": "/members/2/digest",
+     "pointer": "/members/1/digest",
      "value": "#pulled_trigger"
     },
     {
-     "pointer": "/members/2/size",
+     "pointer": "/members/1/size",
      "value": 769
+    },
+    {
+     "pointer": "/members/2/path",
+     "value": "docs/decisions/records.jsonl"
+    },
+    {
+     "pointer": "/members/2/digest",
+     "value": "$digest:repo_memory_bytes_8"
+    },
+    {
+     "pointer": "/members/2/size",
+     "value": "$integer:repo_memory_size_8"
     }
    ]
   },
@@ -2251,7 +2251,7 @@
    "answer": {
     "stage": "previewed",
     "local_effect": "none",
-    "provider_effect": "none",
+    "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
     "returns": [
@@ -2325,7 +2325,7 @@
    "answer": {
     "stage": "previewed",
     "local_effect": "none",
-    "provider_effect": "none",
+    "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
     "returns": [
@@ -2399,7 +2399,7 @@
    "answer": {
     "stage": "previewed",
     "local_effect": "none",
-    "provider_effect": "none",
+    "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
     "returns": [
@@ -2436,7 +2436,7 @@
    "answer": {
     "stage": "previewed",
     "local_effect": "none",
-    "provider_effect": "none",
+    "provider_effect": "not_applicable",
     "gaps": [],
     "recovery": [],
     "returns": [
@@ -2444,5 +2444,21 @@
     ]
    }
   }
- ]
+ ],
+ "world": {
+  "events": [
+   {
+    "kind": "file_edit",
+    "before": "commit_the_pulled_records",
+    "path": "docs/decisions/checkpoint-interval.json",
+    "bytes": "{\"alternatives\":[{\"choice\":\"Checkpoint every 30 seconds\",\"reason\":\"Idle databases would checkpoint for nothing.\"}],\"applicability\":{\"conditions\":[{\"dimension\":\"repository\",\"value\":\"this one\"}],\"states\":\"stated\"},\"basis\":[{\"as_stated\":\"The checkpoint trigger decided in the other record.\",\"record_id\":\"rec_05a0e76e4e9e6ed015e508b09b9db237\",\"relies_on\":\"record\"}],\"choice\":\"Checkpoint every 1000 pages.\",\"home\":{\"layer\":\"repository\",\"repository_id\":\"rep_a278fd0c6f5497d2c7ab326e3239d1f4\"},\"kind\":\"choice_record\",\"question\":\"When does the WAL checkpoint run?\",\"reason\":\"The trigger choice fires on page count, so the interval is counted in pages.\",\"record_id\":\"rec_041460a733d0487691b605d043ed852a\",\"recorded_at\":\"2026-09-18T10:00:00Z\",\"schema\":1,\"workstream_ids\":[]}"
+   },
+   {
+    "kind": "file_edit",
+    "before": "commit_the_pulled_records",
+    "path": "docs/decisions/checkpoint-trigger.json",
+    "bytes": "{\"alternatives\":[{\"choice\":\"Trigger on a timer\",\"reason\":\"A timer ignores how much was written.\"}],\"applicability\":{\"conditions\":[{\"dimension\":\"repository\",\"value\":\"this one\"}],\"states\":\"stated\"},\"basis\":[{\"as_stated\":\"The checkpoint interval decided in the other record.\",\"record_id\":\"rec_041460a733d0487691b605d043ed852a\",\"relies_on\":\"record\"}],\"choice\":\"Trigger the checkpoint on page count, not on time.\",\"home\":{\"layer\":\"repository\",\"repository_id\":\"rep_a278fd0c6f5497d2c7ab326e3239d1f4\"},\"kind\":\"choice_record\",\"question\":\"When does the WAL checkpoint run?\",\"reason\":\"The interval choice is stated in pages, so the trigger has to count pages.\",\"record_id\":\"rec_05a0e76e4e9e6ed015e508b09b9db237\",\"recorded_at\":\"2026-09-18T10:00:00Z\",\"schema\":1,\"workstream_ids\":[]}"
+   }
+  ]
+ }
 }

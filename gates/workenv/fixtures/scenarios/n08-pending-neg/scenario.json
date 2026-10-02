@@ -516,13 +516,18 @@
    "record": "decisions_rev1_written"
   },
   {
-   "digest_of": "wal_stored",
-   "pointer": "/members/0/digest",
+   "minted": "decisions_rev1_at",
+   "pointer": "/produced_at",
    "record": "decisions_rev1"
   },
   {
-   "minted": "decisions_rev1_at",
-   "pointer": "/produced_at",
+   "minted": "records_size_decisions_rev1",
+   "pointer": "/members/0/size",
+   "record": "decisions_rev1"
+  },
+  {
+   "minted": "records_bytes_decisions_rev1",
+   "pointer": "/members/0/digest",
    "record": "decisions_rev1"
   },
   {
@@ -606,13 +611,18 @@
    "record": "mine_rev1_written"
   },
   {
-   "digest_of": "rollback_journal_stored",
-   "pointer": "/members/0/digest",
+   "minted": "mine_rev1_at",
+   "pointer": "/produced_at",
    "record": "mine_rev1"
   },
   {
-   "minted": "mine_rev1_at",
-   "pointer": "/produced_at",
+   "minted": "records_size_mine_rev1",
+   "pointer": "/members/0/size",
+   "record": "mine_rev1"
+  },
+  {
+   "minted": "records_bytes_mine_rev1",
+   "pointer": "/members/0/digest",
    "record": "mine_rev1"
   },
   {
@@ -1281,6 +1291,16 @@
    "step": "publish_wal"
   },
   {
+   "name": "records_bytes_decisions_rev1",
+   "shape": "digest",
+   "step": "publish_wal"
+  },
+  {
+   "name": "records_size_decisions_rev1",
+   "shape": "integer",
+   "step": "publish_wal"
+  },
+  {
    "name": "wal",
    "shape": "rec",
    "step": "publish_wal"
@@ -1307,6 +1327,16 @@
   },
   {
    "name": "publish_rollback_journal_sequence",
+   "shape": "integer",
+   "step": "publish_rollback_journal"
+  },
+  {
+   "name": "records_bytes_mine_rev1",
+   "shape": "digest",
+   "step": "publish_rollback_journal"
+  },
+  {
+   "name": "records_size_mine_rev1",
    "shape": "integer",
    "step": "publish_rollback_journal"
   },
@@ -2516,16 +2546,16 @@
    }
   },
   {
-   "digest": "e63f4b15adc2d86eabee72ee0d8bc8d4f975c19efb5e41c87caa9b822830cd1d",
+   "digest": "2da1509b9eced976acdb103027ef5a04e16efb57f03a9a7df144d07e2573ab13",
    "name": "decisions_rev1",
    "record": {
     "format_version": 1,
     "kind": "source_manifest",
     "members": [
      {
-      "digest": "3feb5cb70e88f9e9b401a154898f23a0272503dff8c9a0c119168b431c4c8efa",
-      "path": "choices/journal.json",
-      "size": 881
+      "digest": "9c6859b5596a407f16d85347329006adc15ef0e897f6360c79f358764ec7e15a",
+      "path": "docs/decisions/records.jsonl",
+      "size": 1
      }
     ],
     "produced_at": "2000-01-01T00:00:00Z",
@@ -2534,7 +2564,7 @@
    }
   },
   {
-   "digest": "873b9ff23d8f6e8158fedd05e98bceb465a9a1ccd6d73a75c57194655804a29a",
+   "digest": "f3b0da18ed023c025ef064b58c52c211d788818d2c822a84eafb65b1ec9238c3",
    "name": "publish_wal_result",
    "record": {
     "kind": "operation_result",
@@ -2550,7 +2580,7 @@
       "kind": "choice_record"
      },
      {
-      "digest": "e63f4b15adc2d86eabee72ee0d8bc8d4f975c19efb5e41c87caa9b822830cd1d",
+      "digest": "2da1509b9eced976acdb103027ef5a04e16efb57f03a9a7df144d07e2573ab13",
       "kind": "source_manifest"
      }
     ],
@@ -2716,16 +2746,16 @@
    }
   },
   {
-   "digest": "67377b1bde1e49538ac1b54bd33c65c58d85734b7c0e60601081d0dde8dfddbc",
+   "digest": "03bdf258fac7869c8fc3871134153856ded3ae23e1c1f755b753b9207f5bf376",
    "name": "mine_rev1",
    "record": {
     "format_version": 1,
     "kind": "source_manifest",
     "members": [
      {
-      "digest": "c0cab2c0bc838ce78c447fe5314613ad4bd5012d7326c3ff30ed40a232ed5d8f",
-      "path": "choices/journal.json",
-      "size": 881
+      "digest": "f3e4608fc221c08033726646f8b9c67b11a0cfac55f8b319a5e559fe4201822f",
+      "path": "memory/records.jsonl",
+      "size": 1
      }
     ],
     "produced_at": "2000-01-01T00:00:00Z",
@@ -2734,7 +2764,7 @@
    }
   },
   {
-   "digest": "d4cc3a3822c179a1c267b6cc23ab3bcf163f3b71757c1eee432bf07491d7af8a",
+   "digest": "651830472698030f42b577e48ef52dcbafbb1abc905718add3bbc21bce7d26d4",
    "name": "publish_rollback_journal_result",
    "record": {
     "kind": "operation_result",
@@ -2750,7 +2780,7 @@
       "kind": "choice_record"
      },
      {
-      "digest": "67377b1bde1e49538ac1b54bd33c65c58d85734b7c0e60601081d0dde8dfddbc",
+      "digest": "03bdf258fac7869c8fc3871134153856ded3ae23e1c1f755b753b9207f5bf376",
       "kind": "source_manifest"
      }
     ],
@@ -2987,7 +3017,7 @@
    }
   },
   {
-   "digest": "a4b501b8fcb2b3136a636fe534799dad15b9f6ce04aa2f8fc73d07157d390b25",
+   "digest": "ebda29c2095764d279dcf43dc58d7ac7eaaf095e0808da11b92419066fa46273",
    "name": "basis",
    "record": {
     "concern": {
@@ -3004,14 +3034,14 @@
       "applicable": true,
       "lifecycle": "accepted",
       "record_id": "rec_e947a7ce62dcb718ffa72c51eb423101",
-      "revision_digest": "e63f4b15adc2d86eabee72ee0d8bc8d4f975c19efb5e41c87caa9b822830cd1d",
+      "revision_digest": "2da1509b9eced976acdb103027ef5a04e16efb57f03a9a7df144d07e2573ab13",
       "source_id": "src_810c9060499c4fcab39bfc3e47c4d7cb"
      },
      {
       "applicable": true,
       "lifecycle": "accepted",
       "record_id": "rec_f24e553b27b9d813d04dd8a35295f7bc",
-      "revision_digest": "67377b1bde1e49538ac1b54bd33c65c58d85734b7c0e60601081d0dde8dfddbc",
+      "revision_digest": "03bdf258fac7869c8fc3871134153856ded3ae23e1c1f755b753b9207f5bf376",
       "source_id": "src_ce82de05ca7a30a3977280c99a181d6b"
      }
     ],
@@ -3030,7 +3060,7 @@
    }
   },
   {
-   "digest": "a97531cd364cd5f1d7df9d925d1df381de0df972a71daf8f575ae14627e95143",
+   "digest": "f2566fc684a200510a939bc7533e00e0ab061fbd9aba240112a7bb338a764f0c",
    "name": "question",
    "record": {
     "alternatives": [
@@ -3058,7 +3088,7 @@
      "qualified": false,
      "route": "conversation"
     },
-    "basis_digest": "a4b501b8fcb2b3136a636fe534799dad15b9f6ce04aa2f8fc73d07157d390b25",
+    "basis_digest": "ebda29c2095764d279dcf43dc58d7ac7eaaf095e0808da11b92419066fa46273",
     "concern": {
      "question": "Which journal mode does the local state database use?"
     },
@@ -3114,7 +3144,7 @@
    }
   },
   {
-   "digest": "119307cd42dec3bad9ce798f6a83ecacfab8212cf6525310b3dad0dfe2098fbf",
+   "digest": "c7ec3a2d0a6f70b519514f54f0f3ef1596157d2b44d3ff0d56fb9dda5823fb86",
    "name": "prepare_the_conflicting_use_result",
    "record": {
     "kind": "operation_result",
@@ -3133,11 +3163,11 @@
       "kind": "reader_result"
      },
      {
-      "digest": "a97531cd364cd5f1d7df9d925d1df381de0df972a71daf8f575ae14627e95143",
+      "digest": "f2566fc684a200510a939bc7533e00e0ab061fbd9aba240112a7bb338a764f0c",
       "kind": "pending_question"
      },
      {
-      "digest": "a4b501b8fcb2b3136a636fe534799dad15b9f6ce04aa2f8fc73d07157d390b25",
+      "digest": "ebda29c2095764d279dcf43dc58d7ac7eaaf095e0808da11b92419066fa46273",
       "kind": "comparison_basis"
      },
      {
@@ -3621,7 +3651,7 @@
   }
  ],
  "says": "The person binds their device key and checkout. A repository knowledge source, a workstream, a repository memory source and a personal memory source are set up, each registration moving its source's head and each first commit expecting it, and each memory source publishes a different journal-mode choice for the same question, so the two conflict. The person's conversation is linked as the recipient. memory.use.prepare for an actual use of that concern targets the concern, so the owner starts a new use, and returns a result waiting on the person (pending_user naming the stored question and the use), the sealed pending question offering both choices, the comparison basis it was sealed against and a qualified state holding both entries unresolved with choice_conflict_unresolved; no alternative is chosen. Delivering the question finds no channel this host qualifies (answer_origin_unverified). While the use waits, a read of the unrelated knowledge source completes and delivers its table. The host then reports that the person cancelled; the owner records that as a non-answer against the question, naming the host configuration it measured, and resuming the use with that evidence is blocked with answer_not_from_a_person and returns the same pending_user use: the waiting use is not resolved, no choice is taken from the cancellation and nothing is admitted.",
- "spec_sha256": "a5879a222044cee82d69b948afa67ea18ef348448adf480a5c594c1bbe9bcc21",
+ "spec_sha256": "068628eeb1f9910b6c1735cc498a2d70679454dfe9f0f5c781938c18493b2524",
  "steps": [
   {
    "carries": [

@@ -634,8 +634,13 @@
    "record": "stored_choice_k1"
   },
   {
-   "digest_of": "stored_choice_k1",
+   "minted": "records_bytes_first_revision",
    "pointer": "/members/0/digest",
+   "record": "first_revision"
+  },
+  {
+   "minted": "records_size_first_revision",
+   "pointer": "/members/0/size",
    "record": "first_revision"
   },
   {
@@ -1007,6 +1012,16 @@
   },
   {
    "name": "publish_first_candidate_sequence",
+   "shape": "integer",
+   "step": "publish_first_candidate"
+  },
+  {
+   "name": "records_bytes_first_revision",
+   "shape": "digest",
+   "step": "publish_first_candidate"
+  },
+  {
+   "name": "records_size_first_revision",
    "shape": "integer",
    "step": "publish_first_candidate"
   },
@@ -2656,16 +2671,16 @@
    }
   },
   {
-   "digest": "d70ff112053fa6faf81668e32a3d0d08d75fb199275021a86e38d8476b0487cb",
+   "digest": "6200df30e16fd4774e430f6f59541440fa521dae8a4dc91a8c4ac1177bfbec9b",
    "name": "first_revision",
    "record": {
     "format_version": 1,
     "kind": "source_manifest",
     "members": [
      {
-      "digest": "913c4afa949ffdafac120b08712664e2c29dcf49c88c85fe7884f7f406243c49",
-      "path": "decisions/0001.json",
-      "size": 922
+      "digest": "0e5c6a38fef91ad1aed646305ba5d42baf74d414a87d234d589427d955b65f26",
+      "path": "docs/adr/records.jsonl",
+      "size": 1
      }
     ],
     "produced_at": "2000-01-01T00:00:00Z",
@@ -2729,7 +2744,7 @@
    }
   },
   {
-   "digest": "d38170731655780ee9721088002b9b83d278bf9a593992a6d5a99025bd768a5c",
+   "digest": "7312e7f81112074e1874eea00fb1d4774bb19c75409c3384d1929206621c0be7",
    "name": "publish_first_candidate_result",
    "record": {
     "kind": "operation_result",
@@ -2745,7 +2760,7 @@
       "kind": "choice_record"
      },
      {
-      "digest": "d70ff112053fa6faf81668e32a3d0d08d75fb199275021a86e38d8476b0487cb",
+      "digest": "6200df30e16fd4774e430f6f59541440fa521dae8a4dc91a8c4ac1177bfbec9b",
       "kind": "source_manifest"
      },
      {
@@ -2799,7 +2814,7 @@
    }
   },
   {
-   "digest": "7bafd1a0e08780599c5ff9a1d41d5010018fae98c894eda5119a0f847897e888",
+   "digest": "efe105f1ba37999512a30bc9bd02a626c570d36cf77e7c52830db7fa9769db2b",
    "name": "settle_by_the_same_id_result",
    "record": {
     "kind": "operation_result",
@@ -2810,7 +2825,7 @@
     },
     "outputs": [
      {
-      "digest": "d38170731655780ee9721088002b9b83d278bf9a593992a6d5a99025bd768a5c",
+      "digest": "7312e7f81112074e1874eea00fb1d4774bb19c75409c3384d1929206621c0be7",
       "kind": "operation_result"
      },
      {
@@ -3238,7 +3253,7 @@
   }
  ],
  "says": "A person binds this device's key and the checkout and registers the repository's decisions source. They select records 12 to 18 of one session transcript, permitting processing by the packaged adapter or a named model provider, no prompt log, this repository only, and the owner reads the span. The packaged local adapter captures a memory entry from it (capture A, a draft with its extraction run); submitting the same request again returns the same result and writes nothing new, while the same request id with other bytes is refused with request_id_conflict. A named provider model extracts the same span again (capture B, dispatched to the provider, a draft naming the same span bytes as its evidence), and a later span, records 30 to 35, is observed and captured on its own (capture C, its own observation and evidence), so each source of evidence stays attributable to its own capture. A candidate from capture A is published at the decisions source, promoting it. While that publication is in flight and its outcome unknown, the same publication under a new request id is refused with resubmitted_while_unknown. The owner commits the first and is killed before answering; the person settles it by asking under the same id (operation.query), which returns the original result and receipt: one choice record, its revision and the candidate promoted. A candidate from capture B, the other model's extract of the same bytes, is then published on the moved head and refused with evidence_already_recorded at /promotes: its result returns the record that evidence already supports, nothing is committed, and reading that candidate back shows version 1 still open. The current state of the concern, resolved over the repository, has one entry, that first record, at the head its commit moved to: neither the replay, the new request id nor the second model's extract duplicated the decision.",
- "spec_sha256": "43ecacc2ee3ab85813f515fd1703a36d0d519b1c7b1e1b600274661b70a995e5",
+ "spec_sha256": "0cac8bd69c245774cde26e4eb380368aacb28d0d1ac02dabc0441f506efcc547",
  "steps": [
   {
    "carries": [

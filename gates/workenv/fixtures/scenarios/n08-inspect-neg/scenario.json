@@ -323,13 +323,18 @@
    "record": "decisions_rev1_written"
   },
   {
-   "digest_of": "rollback_choice_body",
-   "pointer": "/members/0/digest",
+   "minted": "decisions_rev1_at",
+   "pointer": "/produced_at",
    "record": "decisions_rev1"
   },
   {
-   "minted": "decisions_rev1_at",
-   "pointer": "/produced_at",
+   "minted": "records_size_decisions_rev1",
+   "pointer": "/members/0/size",
+   "record": "decisions_rev1"
+  },
+  {
+   "minted": "records_bytes_decisions_rev1",
+   "pointer": "/members/0/digest",
    "record": "decisions_rev1"
   },
   {
@@ -428,18 +433,18 @@
    "record": "decisions_rev2_written"
   },
   {
-   "digest_of": "rollback_choice_body",
-   "pointer": "/members/0/digest",
-   "record": "decisions_rev2"
-  },
-  {
-   "digest_of": "wal_choice_body",
-   "pointer": "/members/1/digest",
-   "record": "decisions_rev2"
-  },
-  {
    "minted": "decisions_rev2_at",
    "pointer": "/produced_at",
+   "record": "decisions_rev2"
+  },
+  {
+   "minted": "records_size_decisions_rev2",
+   "pointer": "/members/0/size",
+   "record": "decisions_rev2"
+  },
+  {
+   "minted": "records_bytes_decisions_rev2",
+   "pointer": "/members/0/digest",
    "record": "decisions_rev2"
   },
   {
@@ -689,6 +694,16 @@
    "step": "publish_rollback_journal"
   },
   {
+   "name": "records_bytes_decisions_rev1",
+   "shape": "digest",
+   "step": "publish_rollback_journal"
+  },
+  {
+   "name": "records_size_decisions_rev1",
+   "shape": "integer",
+   "step": "publish_rollback_journal"
+  },
+  {
    "name": "rollback_journal",
    "shape": "rec",
    "step": "publish_rollback_journal"
@@ -715,6 +730,16 @@
   },
   {
    "name": "publish_wal_sequence",
+   "shape": "integer",
+   "step": "publish_wal"
+  },
+  {
+   "name": "records_bytes_decisions_rev2",
+   "shape": "digest",
+   "step": "publish_wal"
+  },
+  {
+   "name": "records_size_decisions_rev2",
    "shape": "integer",
    "step": "publish_wal"
   },
@@ -1383,16 +1408,16 @@
    }
   },
   {
-   "digest": "1105916ef89e3fe901a9dc807794a1582cc8c040f0727816ba58c36e8d653180",
+   "digest": "cf5fd42b44dd4ddb8d07cd47fb07501b60ecf29b1f62b403234bea4813a74d48",
    "name": "decisions_rev1",
    "record": {
     "format_version": 1,
     "kind": "source_manifest",
     "members": [
      {
-      "digest": "10c46b8b99dbfc0d8ec196b71244275ce52ff801e8c9c77e79574a911a0ce0f4",
-      "path": "choices/journal-1.json",
-      "size": 884
+      "digest": "dd3dfe82e7afe61edfbd43adff2cabb3ed180fc3b19213347f1c212e425d6a46",
+      "path": "docs/decisions/records.jsonl",
+      "size": 1
      }
     ],
     "produced_at": "2000-01-01T00:00:00Z",
@@ -1401,7 +1426,7 @@
    }
   },
   {
-   "digest": "0ab55e7576de6f4fcb6c74441277970c2cf4066782da6926e53226f8b21d9f7b",
+   "digest": "a17e16d0a0fef5be26e5c373e0c2850bb3500ebea7703383e9b5816cb4b9dbee",
    "name": "publish_rollback_journal_result",
    "record": {
     "kind": "operation_result",
@@ -1417,7 +1442,7 @@
       "kind": "choice_record"
      },
      {
-      "digest": "1105916ef89e3fe901a9dc807794a1582cc8c040f0727816ba58c36e8d653180",
+      "digest": "cf5fd42b44dd4ddb8d07cd47fb07501b60ecf29b1f62b403234bea4813a74d48",
       "kind": "source_manifest"
      }
     ],
@@ -1596,21 +1621,16 @@
    }
   },
   {
-   "digest": "2ac508b378fb6db8705993f7f59f166f01fef819687348569f10cc9a7c52e756",
+   "digest": "05c28be84cf448afe014bd3c78d67f62d7d1c8cc8ec0d10b17d644e6171c18d7",
    "name": "decisions_rev2",
    "record": {
     "format_version": 1,
     "kind": "source_manifest",
     "members": [
      {
-      "digest": "10c46b8b99dbfc0d8ec196b71244275ce52ff801e8c9c77e79574a911a0ce0f4",
-      "path": "choices/journal-1.json",
-      "size": 884
-     },
-     {
-      "digest": "1ee550ddebe4af93b07942a733e26a7f36e5da6ea3d01418ef7b4d44aef267c8",
-      "path": "choices/journal-2.json",
-      "size": 962
+      "digest": "2979626a7461fc7fe644e31c4decd1a9b48a674de6676a80007c831ed3f2d77d",
+      "path": "docs/decisions/records.jsonl",
+      "size": 1
      }
     ],
     "produced_at": "2000-01-01T00:00:00Z",
@@ -1619,7 +1639,7 @@
    }
   },
   {
-   "digest": "c28d9d77902aa0473a5c3d40c824c080fed87dbfd88daa405cc004a5d36f076b",
+   "digest": "8177699075b83c6eb7bd3834f53e73d2715dd0aa1f2beb94f8f2f596dc5065b0",
    "name": "publish_wal_result",
    "record": {
     "kind": "operation_result",
@@ -1635,7 +1655,7 @@
       "kind": "choice_record"
      },
      {
-      "digest": "2ac508b378fb6db8705993f7f59f166f01fef819687348569f10cc9a7c52e756",
+      "digest": "05c28be84cf448afe014bd3c78d67f62d7d1c8cc8ec0d10b17d644e6171c18d7",
       "kind": "source_manifest"
      }
     ],
@@ -1710,7 +1730,7 @@
    }
   },
   {
-   "digest": "69fb12e47a762dbc9c498a337b6ea4f75d72caed0341cfbfa46029b9b5a28316",
+   "digest": "f537d981f2733256199a04a301cb9685f26a33f06af9ac3358498c31fa7f8e7c",
    "name": "inspection",
    "record": {
     "ended": true,
@@ -1736,7 +1756,7 @@
        "body_digest": "1ee550ddebe4af93b07942a733e26a7f36e5da6ea3d01418ef7b4d44aef267c8",
        "layer": "repository",
        "need": "required",
-       "revision_digest": "2ac508b378fb6db8705993f7f59f166f01fef819687348569f10cc9a7c52e756",
+       "revision_digest": "05c28be84cf448afe014bd3c78d67f62d7d1c8cc8ec0d10b17d644e6171c18d7",
        "role": "memory",
        "source_id": "src_2eaa2d66dfc96eef162d390467c4074a",
        "standing": "winning",
@@ -1746,7 +1766,7 @@
        "body_digest": "10c46b8b99dbfc0d8ec196b71244275ce52ff801e8c9c77e79574a911a0ce0f4",
        "layer": "repository",
        "need": "optional",
-       "revision_digest": "2ac508b378fb6db8705993f7f59f166f01fef819687348569f10cc9a7c52e756",
+       "revision_digest": "05c28be84cf448afe014bd3c78d67f62d7d1c8cc8ec0d10b17d644e6171c18d7",
        "role": "memory",
        "source_id": "src_2eaa2d66dfc96eef162d390467c4074a",
        "standing": "superseded",
@@ -1760,7 +1780,7 @@
    }
   },
   {
-   "digest": "1832a0737bfb9db52a607a97821b231c5d3958006f96d70d4839ca0a4bf2ca3f",
+   "digest": "efd4a6dd1485c5febed000bf932004dad7e022b74710dfc1f3c52cb8399bb969",
    "name": "inspect_the_history_result",
    "record": {
     "kind": "operation_result",
@@ -1771,7 +1791,7 @@
     },
     "outputs": [
      {
-      "digest": "69fb12e47a762dbc9c498a337b6ea4f75d72caed0341cfbfa46029b9b5a28316",
+      "digest": "f537d981f2733256199a04a301cb9685f26a33f06af9ac3358498c31fa7f8e7c",
       "kind": "reader_result"
      },
      {
@@ -1893,7 +1913,7 @@
   }
  ],
  "says": "The reader binds their device key and their checkout of the repository, opens a workstream and registers a repository memory source named by that checkout binding, and two choices on the local journal mode are published there: first a rollback journal, then WAL, which replaces the first whole. An inspection (reader.body.read, role memory, reviewer view, history included) returns the current WAL choice as the winning required unit and the replaced choice as an optional unit marked superseded, each body carrying the alternatives its choice weighed, and its result carries no use: reading it admitted nothing. The reader then offers what it inspected as a use by resuming a use id and question id no admission ever created (reader.use.resume, its answer evidence the inspected body). The owner refuses it with use_not_admitted: no pending question, qualified state or admitted use is returned, no use is started, and nothing is written.",
- "spec_sha256": "867b2c1ef76d924bd3f06a8d22a982480a6410e0273484fdad4276a3e8ba2df6",
+ "spec_sha256": "644de121606ec84775e404834f87a47dc45cf33393c070dac244af5528855150",
  "steps": [
   {
    "carries": [

@@ -16,21 +16,22 @@ repository-authored source whose repository is not bound here is `binding_unveri
 What the new revision names depends on where the source is authored, because this owner never
 rewrites bytes a person wrote:
 
-  - A repository-authored source whose document root this installation has observed is the bytes
-    it observed there: the manifest names the files the observation read, as the working tree
-    holds them now, and the typed record is kept beside them in this installation's store. No
-    Markdown is parsed, and no file the person wrote is modified.
-  - Any other memory source keeps its records in one managed member, `memory/records.jsonl`: the
-    bytes of the member the revision before it named, and one line after them — the canonical
-    bytes of the record just stored. The member is extended, never rebuilt, so a record another
-    checkout wrote into it stays in it. A previous member whose bytes this installation does not
-    hold cannot be extended, and the publication is `ref_unavailable` at that member rather than
-    a member with records missing from it.
+  - A repository-authored source is the folder its home names: the revision is every file the
+    working tree holds under that document root, each as its exact bytes and none of them
+    parsed, and one member `<document root>/records.jsonl` that holds the records this owner
+    published to it. A file outside that folder is no member of it, whatever an earlier revision
+    named, and existing Markdown beside the member is carried as the bytes it is.
+  - Any other memory source keeps its records in `memory/records.jsonl` and carries over every
+    member the revision before it named, with the bytes its bundle holds; a member whose bytes
+    are not at hand is carried by its hash alone.
 
-Either way every member the revision before it named is carried over, with the bytes its bundle
-holds; a member whose bytes are not at hand is carried by its hash alone.
+Either way the member holding the records is the bytes of the member the revision before it
+named and one line after them — the canonical bytes of the record just stored. It is extended,
+never rebuilt, so a record another checkout wrote into it stays in it. A previous member whose
+bytes this installation does not hold cannot be extended, and the publication is
+`ref_unavailable` at that member rather than a member with records missing from it.
 
-For a repository-authored source the managed member is also the person's file, so this owner
+For a repository-authored source that member is also the person's file, so this owner
 writes it into the checkout — a temporary file beside it, synced, then one rename, so no reader
 sees a half-written member — inside the unit of work and after the admission is decided there.
 It writes nothing through a symbolic link: a link anywhere on the member's path is
@@ -75,12 +76,12 @@ scope order and no instant is ever read as one:
 A superseded entry is clipped only when the question does not ask for it and its successor is
 among the entries; a withdrawal is an entry like any other, so no filter can drop it and leave the
 earlier choice reading as current. Resolving reads only this installation's own store and
-bundles, so no provider is reached.
+bundles, so no provider is reached, and its provider effect is the journal's own
+`not_applicable`.
 """
 from __future__ import annotations
 
 import hashlib
-import json
 import os
 import pathlib
 import secrets
@@ -92,12 +93,13 @@ from workenv.sources import checkouts, homes, reading
 
 # The role of the sources this module publishes to and reduces.
 ROLE = "memory"
-# The member a memory source keeps its own records in, and how one line of it reads.
+# The member a managed memory source keeps its own records in. A repository-authored one keeps
+# them in `records.jsonl` inside the folder its home names, beside the files already there.
 RECORDS_MEMBER = "memory/records.jsonl"
+RECORDS_FILE = "records.jsonl"
 MANIFEST = "source_manifest"
 CHOICE, EVENT = "choice_record", "lifecycle_event"
 AUTHORED, PUBLISHED = "repository_authored", "package_published"
-OBSERVE = "source.observe"
 # What a withdrawn entry states where the withdrawal wrote no note of its own.
 WITHDRAWN_QUALIFICATION = "Withdrawn; it does not become current again."
 # The standings an entry can be reduced to.
@@ -153,17 +155,31 @@ def publishing(call, store: storage.Store) -> tuple[dict | None, dict | None]:
         if checkout is None:
             return refused(call, c01.BINDING_UNVERIFIED), None
     kept, at_hand = carried_over(call, store, held)
+    member = records_member(held)
     admitted = {"source": held, "checkout": checkout, "kept": kept, "at_hand": at_hand,
-                "observed": observed_members(store, held, checkout), "previous": b""}
-    if admitted["observed"] is not None:
-        return None, admitted
-    named = [index for index, member in enumerate(kept) if member["path"] == RECORDS_MEMBER]
-    if named and RECORDS_MEMBER not in at_hand:
+                "member": member, "previous": b"", "under": []}
+    named = [index for index, held_member in enumerate(kept) if held_member["path"] == member]
+    if named and member not in at_hand:
         return refused(call, c01.REF_UNAVAILABLE, f"/members/{named[0]}"), None
-    admitted["previous"] = at_hand.get(RECORDS_MEMBER, b"")
+    admitted["previous"] = at_hand.get(member, b"")
     if checkout is not None:
-        return working(call, store, checkout, admitted["previous"]), admitted
+        admitted["under"] = document_root(held, checkout, member)
+        return working(call, store, checkout, admitted["previous"], member), admitted
     return None, admitted
+
+
+def document_root(source: dict, checkout: pathlib.Path, member: str) -> list[tuple[dict, bytes]]:
+    """The files the working tree holds under the source's document root, beside the member this
+    owner keeps its records in: each as its exact bytes, by path, as git reads the tree."""
+    root = source["home"]["home"]["document_root"]
+    found = []
+    for path in sorted(checkouts.states(checkout)):
+        if path == member or not checkouts.under(path, root):
+            continue
+        data = checkouts.read(checkout, path)
+        found.append(({"path": path, "digest": hashlib.sha256(data).hexdigest(),
+                       "size": len(data)}, data))
+    return found
 
 
 def inside(checkout: pathlib.Path, relative: str) -> pathlib.Path | None:
@@ -185,22 +201,22 @@ def interrupted(store: storage.Store, previous: bytes, data: bytes) -> bool:
     rest = data[len(previous):]
     if not rest.endswith(b"\n") or rest.count(b"\n") != 1:
         return False
-    found = parsed(rest, RECORDS_MEMBER)
+    found = parsed(rest, RECORDS_FILE)
     if len(found) != 1:
         return False
     identifier = found[0].get("record_id") or found[0].get("event_id")
     return not store.read("SELECT 1 FROM memory_entries WHERE entry_id = ?", (identifier,))
 
 
-def working(call, store: storage.Store, checkout: pathlib.Path,
-            previous: bytes) -> dict | None:
+def working(call, store: storage.Store, checkout: pathlib.Path, previous: bytes,
+            member: str) -> dict | None:
     """The refusal of a working file this owner cannot account for, or None. It accounts for the
     member it last published and for that member with one line of an interrupted publication
     after it; anything else is the person's, and is neither read nor written over."""
-    target = inside(checkout, RECORDS_MEMBER)
+    target = inside(checkout, member)
     if target is None:
-        return refused(call, c04.PROTECTED_ROOT_BYPASS, f"/{RECORDS_MEMBER}")
-    pointer = f"/{RECORDS_MEMBER}"
+        return refused(call, c04.PROTECTED_ROOT_BYPASS, f"/{member}")
+    pointer = f"/{member}"
     if not target.exists():
         return None if not previous else refused(call, c07.WORKING_BYTES_MOVED, pointer)
     if not target.is_file():
@@ -209,6 +225,13 @@ def working(call, store: storage.Store, checkout: pathlib.Path,
     if data == previous or interrupted(store, previous, data):
         return None
     return refused(call, c07.WORKING_BYTES_MOVED, pointer)
+
+
+def records_member(source: dict) -> str:
+    """Where a source keeps the records this owner publishes to it: inside the folder a
+    repository-authored home names, and `memory/records.jsonl` for any other."""
+    root = source["home"]["home"].get("document_root")
+    return f"{root.rstrip('/')}/{RECORDS_FILE}" if root else RECORDS_MEMBER
 
 
 def checkout_of(store: storage.Store, repository_id: str) -> pathlib.Path | None:
@@ -247,7 +270,7 @@ def prepare(call) -> dict:
     digest = canonical.digest_of(manifest)
     storage.publish(call, digest, canonical.encode(manifest), bytes_at_hand)
     return {"stored": stored, "manifest": manifest, "digest": digest, "source": source,
-            "checkout": admitted["checkout"], "records": records}
+            "checkout": admitted["checkout"], "member": admitted["member"], "records": records}
 
 
 def placed(kept: list[dict], member: dict) -> None:
@@ -259,35 +282,39 @@ def placed(kept: list[dict], member: dict) -> None:
     kept.append(member)
 
 
-def membership(admitted: dict, stored: dict) -> tuple[list[dict], dict[str, bytes],
-                                                      bytes | None]:
-    """The members the next revision names, the bytes at hand for them, and the member bytes a
-    working tree is to hold. Every member the revision before it named is carried over."""
-    kept = [dict(member) for member in admitted["kept"]]
-    at_hand = dict(admitted["at_hand"])
-    if admitted["observed"] is not None:
-        for member, data in admitted["observed"]:
-            at_hand[member["path"]] = data
-            placed(kept, member)
-        return kept, at_hand, None
+def membership(admitted: dict, stored: dict) -> tuple[list[dict], dict[str, bytes], bytes]:
+    """The members the next revision names, the bytes at hand for them, and the bytes the member
+    this owner keeps its records in is to hold.
+
+    A repository-authored source is the files under the folder its home names, as the working
+    tree holds them, and that member: a file outside that folder is no member of it, whatever an
+    earlier revision named. Any other source carries over every member the revision before it
+    named and keeps its records in `memory/records.jsonl`."""
+    path = admitted["member"]
     data = admitted["previous"] + canonical.encode(stored) + b"\n"
-    at_hand[RECORDS_MEMBER] = data
-    member = {"path": RECORDS_MEMBER, "digest": hashlib.sha256(data).hexdigest(),
-              "size": len(data)}
-    if not any(held["path"] == RECORDS_MEMBER for held in kept):
-        kept.insert(0, member)
+    member = {"path": path, "digest": hashlib.sha256(data).hexdigest(), "size": len(data)}
+    if admitted["checkout"] is not None:
+        kept = [dict(found) for found, _ in admitted["under"]]
+        at_hand = {found["path"]: bytes_at_hand
+                   for found, bytes_at_hand in admitted["under"]}
     else:
+        kept, at_hand = [dict(found) for found in admitted["kept"]], dict(admitted["at_hand"])
+    at_hand[path] = data
+    if any(found["path"] == path for found in kept):
         placed(kept, member)
+    else:
+        kept.append(member)
+        kept.sort(key=lambda found: found["path"])
     return kept, at_hand, data
 
 
-def write_working(checkout: pathlib.Path, data: bytes) -> None:
+def write_working(checkout: pathlib.Path, member: str, data: bytes) -> None:
     """The member written where its source is authored: a temporary file beside it, synced, then
     one rename, so no reader sees a half-written member and no link is written through."""
-    target = inside(checkout, RECORDS_MEMBER)
+    target = inside(checkout, member)
     if target is None:
-        raise journal.JournalError(f"{RECORDS_MEMBER} is reached through a symbolic link, which "
-                                   "the admission refuses")
+        raise journal.JournalError(f"{member} is reached through a symbolic link, which the "
+                                   "admission refuses")
     target.parent.mkdir(parents=True, exist_ok=True)
     staged = target.parent / f".{target.name}.{secrets.token_hex(8)}"
     descriptor = os.open(staged, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
@@ -316,40 +343,6 @@ def carried_over(call, store: storage.Store,
     return members, at_hand
 
 
-def observed_members(store: storage.Store, source: dict,
-                     checkout: pathlib.Path | None) -> list[tuple[dict, bytes]] | None:
-    """The files the last observation of this source's document root read, as the working tree
-    holds them now, or None where this installation observed none."""
-    root = source["home"]["home"].get("document_root")
-    if checkout is None or not root:
-        return None
-    for named, returned in store.read(
-            "SELECT payload_digest, returned FROM requests WHERE operation = ? AND "
-            "stage = 'previewed' ORDER BY position DESC", (OBSERVE,)):
-        selection = store.get(named) if named else None
-        held = json.loads(returned)
-        observation = store.get(held[0]) if held else None
-        if not isinstance(selection, dict) or not isinstance(observation, dict):
-            continue
-        if not all(place.get("from") == checkouts.WORKING_TREE
-                   and checkouts.same_place(place["checkout"], checkout)
-                   for place in (root["place"] for root in selection["roots"])):
-            continue
-        reads = [read for read in observation["read"] if read.get("read") == "tree"]
-        if not reads or not all(checkouts.under(read["path"], root) for read in reads):
-            continue
-        found = []
-        for read in reads:
-            target = checkout / read["path"]
-            if not target.is_file():
-                return None
-            data = target.read_bytes()
-            found.append(({"path": read["path"], "digest": hashlib.sha256(data).hexdigest(),
-                           "size": len(data)}, data))
-        return found
-    return None
-
-
 def settled(call) -> dict:
     """The unit of work of a publication the journal admitted in it: the record, the revision it
     made, and the head the source moves to."""
@@ -357,8 +350,8 @@ def settled(call) -> dict:
     prepared = call.prepared
     stored, manifest = prepared["stored"], prepared["manifest"]
     source, digest = prepared["source"], prepared["digest"]
-    if prepared["records"] is not None and prepared["checkout"] is not None:
-        write_working(prepared["checkout"], prepared["records"])
+    if prepared["checkout"] is not None:
+        write_working(prepared["checkout"], prepared["member"], prepared["records"])
     identifier = stored["record_id"] if stored["kind"] == CHOICE else stored["event_id"]
     store.write("INSERT INTO memory_entries (entry_id, source_id, kind, digest) "
                 "VALUES (?, ?, ?, ?)",
@@ -559,7 +552,7 @@ def memory_state_resolve(call) -> dict:
               "question_digest": canonical.digest_of(question), "frontiers": frontiers,
               "entries": state["entries"], "comparison": state["comparison"],
               "material_gaps": state["material_gaps"], "prepared_at": journal.now(call)}
-    return journal.answered(call, "previewed", [answer], provider_effect="none")
+    return journal.answered(call, "previewed", [answer])
 
 
 def reduced(matched: list[tuple[dict, str]], held: list[dict], where: dict[str, str],

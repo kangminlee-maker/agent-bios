@@ -333,6 +333,16 @@
    "record": "manifest_r"
   },
   {
+   "minted": "records_bytes_r",
+   "pointer": "/members/1/digest",
+   "record": "manifest_r"
+  },
+  {
+   "minted": "records_size_r",
+   "pointer": "/members/1/size",
+   "record": "manifest_r"
+  },
+  {
    "digest_of": "publish_adr_r_receipt",
    "pointer": "/outcome/receipt_digest",
    "record": "publish_adr_r_result"
@@ -405,6 +415,16 @@
   {
    "minted": "s_produced_at",
    "pointer": "/produced_at",
+   "record": "manifest_s"
+  },
+  {
+   "minted": "records_bytes_s",
+   "pointer": "/members/1/digest",
+   "record": "manifest_s"
+  },
+  {
+   "minted": "records_size_s",
+   "pointer": "/members/1/size",
    "record": "manifest_s"
   },
   {
@@ -868,12 +888,32 @@
    "step": "publish_adr_r"
   },
   {
+   "name": "records_bytes_r",
+   "shape": "digest",
+   "step": "publish_adr_r"
+  },
+  {
+   "name": "records_size_r",
+   "shape": "integer",
+   "step": "publish_adr_r"
+  },
+  {
    "name": "publish_adr_s_committed_at",
    "shape": "instant",
    "step": "publish_adr_s"
   },
   {
    "name": "publish_adr_s_sequence",
+   "shape": "integer",
+   "step": "publish_adr_s"
+  },
+  {
+   "name": "records_bytes_s",
+   "shape": "digest",
+   "step": "publish_adr_s"
+  },
+  {
+   "name": "records_size_s",
    "shape": "integer",
    "step": "publish_adr_s"
   },
@@ -1615,7 +1655,7 @@
    }
   },
   {
-   "digest": "8d1457c071513b985ad4c61a3c65a00aa6d975e1a93b1f066acec0ac20eb9d6c",
+   "digest": "67d06714ef9ea9c2e9e8cf459a9fef1236097fe4080329e5cbbc259c1afb303d",
    "name": "manifest_r",
    "record": {
     "format_version": 1,
@@ -1625,6 +1665,11 @@
       "digest": "7e2a92fddbfe25862c74332e4aa2bfe9d71c0e795f13039796dc41647c3737b0",
       "path": "docs/adr/0001-journal-mode.md",
       "size": 1830
+     },
+     {
+      "digest": "c2b8e0415c9ca649807b65277f90e09398f0ea6fbdb650c9482e4ba8267dcce0",
+      "path": "docs/adr/records.jsonl",
+      "size": 1
      }
     ],
     "produced_at": "2000-01-01T00:00:00Z",
@@ -1633,7 +1678,7 @@
    }
   },
   {
-   "digest": "24cbef35251f3da4c9c6aee686e2f5f09a0afdaf20d0629899aa62bfcdd63687",
+   "digest": "be98a221bcc1d5bb2120a2d66fa4b097505451dbf819ee9300f9140beff4338e",
    "name": "publish_adr_r_result",
    "record": {
     "kind": "operation_result",
@@ -1649,7 +1694,7 @@
       "kind": "choice_record"
      },
      {
-      "digest": "8d1457c071513b985ad4c61a3c65a00aa6d975e1a93b1f066acec0ac20eb9d6c",
+      "digest": "67d06714ef9ea9c2e9e8cf459a9fef1236097fe4080329e5cbbc259c1afb303d",
       "kind": "source_manifest"
      }
     ],
@@ -1799,7 +1844,7 @@
    }
   },
   {
-   "digest": "92ae5196b1f65ee1a120dfbd929593b7eca13bd0f041888e82e6c07d04da2ada",
+   "digest": "fc694fa6ade20a22d7aa1a80c0a35500b67333d01c072240f0ff7f8ce3ade00c",
    "name": "manifest_s",
    "record": {
     "format_version": 1,
@@ -1809,6 +1854,11 @@
       "digest": "7e2a92fddbfe25862c74332e4aa2bfe9d71c0e795f13039796dc41647c3737b0",
       "path": "docs/adr/0001-journal-mode.md",
       "size": 1830
+     },
+     {
+      "digest": "24efcedf0c517c962b2674cf388a7a3bc498f7dfe8df7e0cf3200b00804ecb39",
+      "path": "docs/adr/records.jsonl",
+      "size": 1
      }
     ],
     "produced_at": "2000-01-01T00:00:00Z",
@@ -1817,7 +1867,7 @@
    }
   },
   {
-   "digest": "aaac53a54ed8b1d299a9260fd9553a0f0b4dc0e05acfe3a13ba66d71739b76d8",
+   "digest": "8abdd2d1f0b5702fb726cde82cd384084cc0471c878dfe19a5e6f9d48bb74d6e",
    "name": "publish_adr_s_result",
    "record": {
     "kind": "operation_result",
@@ -1833,7 +1883,7 @@
       "kind": "choice_record"
      },
      {
-      "digest": "92ae5196b1f65ee1a120dfbd929593b7eca13bd0f041888e82e6c07d04da2ada",
+      "digest": "fc694fa6ade20a22d7aa1a80c0a35500b67333d01c072240f0ff7f8ce3ade00c",
       "kind": "source_manifest"
      }
     ],
@@ -2429,7 +2479,7 @@
    }
   },
   {
-   "digest": "a8c3085c6aff871626c2f19e947fcf07171d59710fdba4c1b52701e5720487e3",
+   "digest": "b23608267376b513a23936d8c12dc8f72a6559046804a1455ee260f7fad45442",
    "name": "ref_r",
    "record": {
     "kind": "source_ref",
@@ -2438,7 +2488,7 @@
      "path": "docs/adr/0001-journal-mode.md",
      "size": 1830
     },
-    "revision_digest": "8d1457c071513b985ad4c61a3c65a00aa6d975e1a93b1f066acec0ac20eb9d6c",
+    "revision_digest": "67d06714ef9ea9c2e9e8cf459a9fef1236097fe4080329e5cbbc259c1afb303d",
     "role": "memory",
     "schema": 1,
     "scope": {
@@ -2449,7 +2499,7 @@
    }
   },
   {
-   "digest": "37b2fb3eedd84f7b93bdf60004a86bc40e2f5d3b52fdf0e81f847fdcfdd220f3",
+   "digest": "ab4a4080b729152fd00c9de3155e83783f886fb9ad9f0893db042ad7fc9db24b",
    "name": "resolve_ref",
    "record": {
     "action": "read",
@@ -2467,7 +2517,7 @@
      "layer": "repository",
      "repository_id": "rep_377dafaefc8682fc7935ba5a4c4121c9"
     },
-    "payload_digest": "a8c3085c6aff871626c2f19e947fcf07171d59710fdba4c1b52701e5720487e3",
+    "payload_digest": "b23608267376b513a23936d8c12dc8f72a6559046804a1455ee260f7fad45442",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_7931e00450f8cc3ce0f35a2b6ea60cb0",
@@ -2482,7 +2532,7 @@
    }
   },
   {
-   "digest": "57fbfc9c75aebac2ed5f4f4443a3e7dde77090e240f4ddf4049097d9aa1ca295",
+   "digest": "59f704b1e353cc2fbae4cf0a91f988a1aa3b715a80980d9d51bea2a43d811856",
    "name": "resolve_r_unchanged_result",
    "record": {
     "kind": "operation_result",
@@ -2493,7 +2543,7 @@
     },
     "outputs": [
      {
-      "digest": "8d1457c071513b985ad4c61a3c65a00aa6d975e1a93b1f066acec0ac20eb9d6c",
+      "digest": "67d06714ef9ea9c2e9e8cf459a9fef1236097fe4080329e5cbbc259c1afb303d",
       "kind": "source_manifest"
      },
      {
@@ -2506,14 +2556,14 @@
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "37b2fb3eedd84f7b93bdf60004a86bc40e2f5d3b52fdf0e81f847fdcfdd220f3",
+    "request_digest": "ab4a4080b729152fd00c9de3155e83783f886fb9ad9f0893db042ad7fc9db24b",
     "request_id": "req_7931e00450f8cc3ce0f35a2b6ea60cb0",
     "schema": 1,
     "supported_recovery": []
    }
   },
   {
-   "digest": "30a255c1d7f3eba5b16d5890ee342d16240abffd5a70148eea139b8e3198958a",
+   "digest": "331dd65c54f3566cc24bfd714b2a205c608411a4b64e4d36356ce1963742b314",
    "name": "question",
    "record": {
     "concern": {
@@ -2523,7 +2573,7 @@
        "value": "this one"
       }
      ],
-     "question": "Which journal mode does the local state database use?"
+     "question": "ADR 0001: which journal mode does the local state database use?"
     },
     "include_superseded": false,
     "kind": "state_question",
@@ -2541,7 +2591,7 @@
    }
   },
   {
-   "digest": "71b0cb1a49407d802fed27496ca8312e6b3a18da8424a31628902ed2934f396e",
+   "digest": "3322bd652bda35e93bdf923990a350012f89a38a8c3e57b66ed1c222b48aa478",
    "name": "state_ask",
    "record": {
     "action": "read",
@@ -2559,7 +2609,7 @@
      "layer": "personal",
      "principal_id": "prn_ca867d1af920053db3063c9dc6711084"
     },
-    "payload_digest": "30a255c1d7f3eba5b16d5890ee342d16240abffd5a70148eea139b8e3198958a",
+    "payload_digest": "331dd65c54f3566cc24bfd714b2a205c608411a4b64e4d36356ce1963742b314",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_1842b6d0320ebe618c84d07088a40d7a",
@@ -2570,7 +2620,7 @@
    }
   },
   {
-   "digest": "add14a2aec72dc37044cb292ff58adca122b3a73d58943936689a328b442077f",
+   "digest": "2bd52411c2125899c2412b00e80d6c5ae313c8cd17e1d358b45e55c9b6c0ee96",
    "name": "state",
    "record": {
     "comparison": {
@@ -2602,12 +2652,12 @@
     "kind": "qualified_state",
     "material_gaps": [],
     "prepared_at": "2000-01-01T00:00:00Z",
-    "question_digest": "30a255c1d7f3eba5b16d5890ee342d16240abffd5a70148eea139b8e3198958a",
+    "question_digest": "331dd65c54f3566cc24bfd714b2a205c608411a4b64e4d36356ce1963742b314",
     "schema": 1
    }
   },
   {
-   "digest": "d18662883abb9bad6ab3f40b7d494194e60138d8ea1c24914c48aaa929279423",
+   "digest": "3f51ab267461168e64d3d5d3dbcfbd5fbe9497d5bd457e8fc49cfbd8e48858cf",
    "name": "resolve_two_records_result",
    "record": {
     "kind": "operation_result",
@@ -2618,12 +2668,12 @@
     },
     "outputs": [
      {
-      "digest": "add14a2aec72dc37044cb292ff58adca122b3a73d58943936689a328b442077f",
+      "digest": "2bd52411c2125899c2412b00e80d6c5ae313c8cd17e1d358b45e55c9b6c0ee96",
       "kind": "qualified_state"
      }
     ],
     "provider_effect": "not_applicable",
-    "request_digest": "71b0cb1a49407d802fed27496ca8312e6b3a18da8424a31628902ed2934f396e",
+    "request_digest": "3322bd652bda35e93bdf923990a350012f89a38a8c3e57b66ed1c222b48aa478",
     "request_id": "req_1842b6d0320ebe618c84d07088a40d7a",
     "schema": 1,
     "supported_recovery": []
@@ -2631,7 +2681,7 @@
   }
  ],
  "says": "Two repositories, R and S, each keep an ADR numbered 0001 at docs/adr/0001-journal-mode.md with the same title and the same Markdown bytes. Each checkout is bound to its own repository id, each ADR directory is registered as its own repository-authored memory source, and the decision is published into each (memory.record.publish): the owner commits two choice records with two record ids and two manifests, one per source, even though the member path, digest and question text are identical. A Team A is founded and references R's ADR source in its own Team memory position, one entry naming the one source record; Team A then edits its own wrapper by switching that entry off, which commits a new head of Team A's position only. Resolving R's exact revision afterwards (reference.resolve against the head R's publication left) returns R's manifest unchanged, with R's repository home, and asking which journal mode applies over both repositories (memory.state.resolve) returns two current entries, each naming its own record and its own source. Equal numbers, titles and bytes must not merge the two owners into one record, and Team A's edit must not rewrite, supersede or move anything of repository R.",
- "spec_sha256": "aef55ffc495dc04ea34944d646089dff56ab2797bcb98a5aa3116b7647120556",
+ "spec_sha256": "a55cb02704af10cfbfb8a94f3f52ce2dec103c1426d9cc86c461b5962b35102e",
  "steps": [
   {
    "carries": [

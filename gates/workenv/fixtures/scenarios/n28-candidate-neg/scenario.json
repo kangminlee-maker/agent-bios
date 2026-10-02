@@ -445,8 +445,13 @@
    "record": "stored_choice"
   },
   {
-   "digest_of": "stored_choice",
+   "minted": "records_bytes_decisions_revision",
    "pointer": "/members/0/digest",
+   "record": "decisions_revision"
+  },
+  {
+   "minted": "records_size_decisions_revision",
+   "pointer": "/members/0/size",
    "record": "decisions_revision"
   },
   {
@@ -634,6 +639,16 @@
   {
    "name": "published_at",
    "shape": "instant",
+   "step": "publish_choice"
+  },
+  {
+   "name": "records_bytes_decisions_revision",
+   "shape": "digest",
+   "step": "publish_choice"
+  },
+  {
+   "name": "records_size_decisions_revision",
+   "shape": "integer",
    "step": "publish_choice"
   },
   {
@@ -1753,16 +1768,16 @@
    }
   },
   {
-   "digest": "c3f038312707719d9c39e310aac7ae9025464cabcdb93eb1f77b56d43c8848ed",
+   "digest": "df362e5e2c9dbcec0df52515304eec2285b320cb0b63c85b5f5d9ad077f1342a",
    "name": "decisions_revision",
    "record": {
     "format_version": 1,
     "kind": "source_manifest",
     "members": [
      {
-      "digest": "b623d7240ec85c6d853720c5dbfca713152c84c566f4ffeac7c8c4e3a3a305c2",
-      "path": "decisions/0001.json",
-      "size": 924
+      "digest": "c5f4509b535ef988c8458d35dea23e0d7d9aa1803d1556bedaab149976161a04",
+      "path": "docs/adr/records.jsonl",
+      "size": 1
      }
     ],
     "produced_at": "2000-01-01T00:00:00Z",
@@ -1826,7 +1841,7 @@
    }
   },
   {
-   "digest": "1db43846f354676f2af8cef24ff6478443b4b4bb728eb4bca28675e6deb68b75",
+   "digest": "f92f9923d0d7c38e04c8c3a8420a3f4b4446ca547aeee3337453553e45ab3142",
    "name": "publish_choice_result",
    "record": {
     "kind": "operation_result",
@@ -1842,7 +1857,7 @@
       "kind": "choice_record"
      },
      {
-      "digest": "c3f038312707719d9c39e310aac7ae9025464cabcdb93eb1f77b56d43c8848ed",
+      "digest": "df362e5e2c9dbcec0df52515304eec2285b320cb0b63c85b5f5d9ad077f1342a",
       "kind": "source_manifest"
      },
      {
@@ -1859,7 +1874,7 @@
   }
  ],
  "says": "A person binds this device's key and the checkout, registers the repository's decisions source, captures the memory of one selected transcript span (source.observe, then source.capture.record) and stores a candidate choice extracted from that capture (memory.candidate.store), which the owner writes as version 1 naming the capture and the exact span bytes as its origin. The person then edits the proposal, changing the chosen synchronous mode, and submits it under the same candidate id; the owner writes version 2, and its origin is the origin of version 1, byte for byte. The destination then publishes that choice at the decisions source, on the head its registration committed, stating that it promotes version 2 of the candidate (memory.record.publish); the commit returns the choice record, the revision holding it, and version 3 standing promoted with the commit's receipt, whose proposal is exactly what the choice record states and whose origin is still that of version 2. Every memory_candidate the owner returns keeps the origin of the version it replaces, and the record promoting it names the version before the promoted one: none restates the captured candidate as written by hand, names another capture, proposes something other than what was published or follows another version than the one published, which are the breaking records of the rule fixtures candidate_keeps_its_origin and promotion_states_its_candidate. Neither the edit nor the promotion changes the capture or the observed span.",
- "spec_sha256": "08c964d385ebaa4879885006cddd9b42f9f9dd634c5660e9b407afb0d2c78c1c",
+ "spec_sha256": "c457fd095cec0e432842e88f104d256efe7852ab871bcafa33d68390d71ee990",
  "steps": [
   {
    "carries": [

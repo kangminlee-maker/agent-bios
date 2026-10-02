@@ -1688,6 +1688,10 @@
     {
      "pointer": "/source_id",
      "value": "@team_mem"
+    },
+    {
+     "pointer": "/role",
+     "value": "memory"
     }
    ]
   },
@@ -1911,6 +1915,28 @@
    ]
   },
   {
+   "name": "repo_mem_revision_2",
+   "from": "repo_mem_revision",
+   "set": [
+    {
+     "pointer": "/members/1/path",
+     "value": "decisions/records.jsonl"
+    },
+    {
+     "pointer": "/members/1/digest",
+     "value": "$digest:records_bytes_repo_mem_revision_2"
+    },
+    {
+     "pointer": "/members/1/size",
+     "value": "$integer:records_size_repo_mem_revision_2"
+    },
+    {
+     "pointer": "/produced_at",
+     "value": "$instant:repo_mem_produced_2"
+    }
+   ]
+  },
+  {
    "name": "team_mem_choice",
    "from": "c05/choice_as_submitted.json",
    "drop": [
@@ -2011,6 +2037,40 @@
     {
      "pointer": "/recorded_at",
      "value": "$instant:team_mem_recorded_at"
+    }
+   ]
+  },
+  {
+   "name": "team_mem_revision_2",
+   "from": "team_mem_revision",
+   "set": [
+    {
+     "pointer": "/members/0/path",
+     "value": "memory/records.jsonl"
+    },
+    {
+     "pointer": "/members/0/digest",
+     "value": "$digest:records_bytes_team_mem_revision_2"
+    },
+    {
+     "pointer": "/members/0/size",
+     "value": "$integer:records_size_team_mem_revision_2"
+    },
+    {
+     "pointer": "/members/1/path",
+     "value": "team/decisions.md"
+    },
+    {
+     "pointer": "/members/1/digest",
+     "value": "$digest:team_mem_bytes"
+    },
+    {
+     "pointer": "/members/1/size",
+     "value": 820
+    },
+    {
+     "pointer": "/produced_at",
+     "value": "$instant:team_mem_produced_2"
     }
    ]
   },
@@ -18308,7 +18368,8 @@
     "gaps": [],
     "recovery": [],
     "returns": [
-     "repo_mem_choice_stored"
+     "repo_mem_choice_stored",
+     "repo_mem_revision_2"
     ],
     "head": "repo_mem_published"
    }
@@ -18326,7 +18387,8 @@
     "gaps": [],
     "recovery": [],
     "returns": [
-     "team_mem_choice_stored"
+     "team_mem_choice_stored",
+     "team_mem_revision_2"
     ],
     "head": "team_mem_published"
    }

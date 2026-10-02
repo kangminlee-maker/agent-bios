@@ -691,13 +691,18 @@
    "record": "choice_record"
   },
   {
-   "digest_of": "choice_record",
+   "minted": "records_bytes_memory_revision",
    "pointer": "/members/0/digest",
    "record": "memory_revision"
   },
   {
    "minted": "memory_revision_at",
    "pointer": "/produced_at",
+   "record": "memory_revision"
+  },
+  {
+   "minted": "records_size_memory_revision",
+   "pointer": "/members/0/size",
    "record": "memory_revision"
   },
   {
@@ -974,6 +979,16 @@
   },
   {
    "name": "publish_choice_sequence",
+   "shape": "integer",
+   "step": "publish_choice"
+  },
+  {
+   "name": "records_bytes_memory_revision",
+   "shape": "digest",
+   "step": "publish_choice"
+  },
+  {
+   "name": "records_size_memory_revision",
    "shape": "integer",
    "step": "publish_choice"
   },
@@ -2709,16 +2724,16 @@
    }
   },
   {
-   "digest": "c5878c444e20f180f381137a80733b93a557d1b1d5a5b29a9e4b328a4fa364bc",
+   "digest": "6b43e977a44db64a8d59c81829bde7657b3ed1d3a4b3b35b98a7562cdd52b88f",
    "name": "memory_revision",
    "record": {
     "format_version": 1,
     "kind": "source_manifest",
     "members": [
      {
-      "digest": "d999742956d1bf9f18beace28e6a96ee42a43816c45126c10bc25820a5d0172a",
-      "path": "decisions/0001.json",
-      "size": 922
+      "digest": "3b895edc747aded7ea3b64eca57973240c52953a25e9481a9db48d80ed74367e",
+      "path": "docs/adr/records.jsonl",
+      "size": 1
      }
     ],
     "produced_at": "2000-01-01T00:00:00Z",
@@ -2782,7 +2797,7 @@
    }
   },
   {
-   "digest": "3d7c19bf6d7393f8c3daee376c3bc40aa8eb88835fd2c2a05abaa952c4c7a154",
+   "digest": "002c4d1b16bb1282547fbf999b19697e19f2cfb0d506f019c494cb38d26ca213",
    "name": "publish_choice_result",
    "record": {
     "kind": "operation_result",
@@ -2798,7 +2813,7 @@
       "kind": "choice_record"
      },
      {
-      "digest": "c5878c444e20f180f381137a80733b93a557d1b1d5a5b29a9e4b328a4fa364bc",
+      "digest": "6b43e977a44db64a8d59c81829bde7657b3ed1d3a4b3b35b98a7562cdd52b88f",
       "kind": "source_manifest"
      },
      {
@@ -2917,7 +2932,7 @@
   }
  ],
  "says": "A person binds this device's key and the checkout, registers the repository's memory source, publishes an environment edition for this repository whose memory policy names that source, and adopts it: the adoption names the edition as the environment's head it expects and leaves that head where it was. A preparation that names the environment without its adoption evidence is refused at admission; one resting on the adoption is composed as a private record with no receipt, reading the memory source at the head its registration committed. The owner then reads records 12 to 18 of a session transcript, a packaged local adapter captures a memory entry from them, and a candidate choice from that capture is stored. The capture and the candidate are drafts: neither names a receipt, neither moves the memory source's head, and the preparation composed again afterwards reads the same head and composes the same units. The person then uploads that same candidate as a personal transfer package (transfer.stage, owner personal, target themselves): staging writes an outbox stage record with no receipt and touches neither the memory source nor the environment, so the preparation composed once more afterwards still reads the identical head and the identical units - an upload no more publishes, adopts or disturbs active preparation than the candidate save did. A review-only publication of the choice, a publish request stating pure_preview, is refused with effect_class_mismatch and writes nothing. Only the destination's own commit of that exact choice at the memory source, stating the candidate version it promotes, names a receipt and moves the head; it returns the committed record, the revision holding it and the candidate promoted with that receipt. Adoption stays a separate act: the commit adopts nothing, and the preparation composed after it, under the adoption made before, is the first to observe the memory source at the committed head.",
- "spec_sha256": "e4951a721c55c96bbbc5ffd99bec0fbf103d36e4b1a7105bcb527da14293903e",
+ "spec_sha256": "4bf110fa9ebb72d29fc5d24dffc23ad9d9ddff466e7e4a07a964100d2b494766",
  "steps": [
   {
    "carries": [

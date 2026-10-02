@@ -4355,6 +4355,122 @@
      "value": "$instant:resume_journal_result_admitted_at"
     }
    ]
+  },
+  {
+   "name": "publish_the_repository_runner_choice_revision",
+   "from": "sources/revision_of_a_published_package.json",
+   "drop": [
+    "/members/1"
+   ],
+   "set": [
+    {
+     "pointer": "/source_id",
+     "value": "@repo_decisions"
+    },
+    {
+     "pointer": "/members/0/path",
+     "value": "memory/records.jsonl"
+    },
+    {
+     "pointer": "/members/0/digest",
+     "value": "$digest:publish_the_repository_runner_choice_bytes"
+    },
+    {
+     "pointer": "/members/0/size",
+     "value": "$integer:publish_the_repository_runner_choice_size"
+    },
+    {
+     "pointer": "/produced_at",
+     "value": "$instant:publish_the_repository_runner_choice_at"
+    }
+   ]
+  },
+  {
+   "name": "publish_the_personal_runner_choice_revision",
+   "from": "sources/revision_of_a_published_package.json",
+   "drop": [
+    "/members/1"
+   ],
+   "set": [
+    {
+     "pointer": "/source_id",
+     "value": "@my_decisions"
+    },
+    {
+     "pointer": "/members/0/path",
+     "value": "memory/records.jsonl"
+    },
+    {
+     "pointer": "/members/0/digest",
+     "value": "$digest:publish_the_personal_runner_choice_bytes"
+    },
+    {
+     "pointer": "/members/0/size",
+     "value": "$integer:publish_the_personal_runner_choice_size"
+    },
+    {
+     "pointer": "/produced_at",
+     "value": "$instant:publish_the_personal_runner_choice_at"
+    }
+   ]
+  },
+  {
+   "name": "publish_the_repository_journal_choice_revision",
+   "from": "sources/revision_of_a_published_package.json",
+   "drop": [
+    "/members/1"
+   ],
+   "set": [
+    {
+     "pointer": "/source_id",
+     "value": "@repo_decisions"
+    },
+    {
+     "pointer": "/members/0/path",
+     "value": "memory/records.jsonl"
+    },
+    {
+     "pointer": "/members/0/digest",
+     "value": "$digest:publish_the_repository_journal_choice_bytes"
+    },
+    {
+     "pointer": "/members/0/size",
+     "value": "$integer:publish_the_repository_journal_choice_size"
+    },
+    {
+     "pointer": "/produced_at",
+     "value": "$instant:publish_the_repository_journal_choice_at"
+    }
+   ]
+  },
+  {
+   "name": "publish_the_personal_journal_choice_revision",
+   "from": "sources/revision_of_a_published_package.json",
+   "drop": [
+    "/members/1"
+   ],
+   "set": [
+    {
+     "pointer": "/source_id",
+     "value": "@my_decisions"
+    },
+    {
+     "pointer": "/members/0/path",
+     "value": "memory/records.jsonl"
+    },
+    {
+     "pointer": "/members/0/digest",
+     "value": "$digest:publish_the_personal_journal_choice_bytes"
+    },
+    {
+     "pointer": "/members/0/size",
+     "value": "$integer:publish_the_personal_journal_choice_size"
+    },
+    {
+     "pointer": "/produced_at",
+     "value": "$instant:publish_the_personal_journal_choice_at"
+    }
+   ]
   }
  ],
  "members": [
@@ -4434,7 +4550,8 @@
     "gaps": [],
     "recovery": [],
     "returns": [
-     "stored_runner_repo_choice"
+     "stored_runner_repo_choice",
+     "publish_the_repository_runner_choice_revision"
     ],
     "head": "runner_repo_head"
    }
@@ -4452,7 +4569,8 @@
     "gaps": [],
     "recovery": [],
     "returns": [
-     "stored_runner_personal_choice"
+     "stored_runner_personal_choice",
+     "publish_the_personal_runner_choice_revision"
     ],
     "head": "runner_my_head"
    }
@@ -4470,7 +4588,8 @@
     "gaps": [],
     "recovery": [],
     "returns": [
-     "stored_journal_repo_choice"
+     "stored_journal_repo_choice",
+     "publish_the_repository_journal_choice_revision"
     ],
     "head": "journal_repo_head"
    }
@@ -4488,7 +4607,8 @@
     "gaps": [],
     "recovery": [],
     "returns": [
-     "stored_journal_personal_choice"
+     "stored_journal_personal_choice",
+     "publish_the_personal_journal_choice_revision"
     ],
     "head": "journal_my_head"
    }

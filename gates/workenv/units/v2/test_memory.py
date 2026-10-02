@@ -303,28 +303,32 @@ class Authored(Memory):
                   "binding_evidence_digest": sha(b"no binding")}))
         self.assertEqual(answer["result"]["outcome"]["stage"], "refused")
 
-    def test_the_records_of_an_authored_source_are_written_into_the_checkout(self):
+    def test_the_records_of_an_authored_source_are_written_inside_the_folder_its_home_names(self):
         source_id, head = self.authored()
         answer = self.publish(choice(self.scope, WAL), head=head, source=source_id)
         member = answer["returned"][1]["members"][0]
-        data = (self.checkout.path / memory.RECORDS_MEMBER).read_bytes()
+        data = (self.checkout.path / "docs/decisions/records.jsonl").read_bytes()
         self.assertEqual((member["path"], member["digest"], member["size"]),
-                         (memory.RECORDS_MEMBER, hashlib.sha256(data).hexdigest(), len(data)))
+                         ("docs/decisions/records.jsonl", hashlib.sha256(data).hexdigest(),
+                          len(data)))
         self.assertEqual(data, canonical.encode(answer["returned"][0]) + b"\n")
-
-    def test_an_observed_document_root_is_published_as_the_bytes_it_was_observed_as(self):
-        source_id, head = self.authored(root="docs/adr")
-        self.observe(self.selection(self.checkout, ("docs/adr", "required")))
-        answer = self.publish(choice(self.scope, WAL), head=head, source=source_id)
-        data = (self.checkout.path / "docs/adr/0007-journal-mode.md").read_bytes()
-        self.assertEqual(answer["returned"][1]["members"],
-                         [{"path": "docs/adr/0007-journal-mode.md",
-                           "digest": hashlib.sha256(data).hexdigest(), "size": len(data)}])
         self.assertFalse((self.checkout.path / memory.RECORDS_MEMBER).exists())
 
-    def test_the_record_published_beside_observed_bytes_is_still_the_current_state(self):
+    def test_the_revision_is_the_files_under_the_document_root_and_that_member(self):
         source_id, head = self.authored(root="docs/adr")
-        self.observe(self.selection(self.checkout, ("docs/adr", "required")))
+        answer = self.publish(choice(self.scope, WAL), head=head, source=source_id)
+        adr = (self.checkout.path / "docs/adr/0007-journal-mode.md").read_bytes()
+        records = (self.checkout.path / "docs/adr/records.jsonl").read_bytes()
+        self.assertEqual(answer["returned"][1]["members"], [
+            {"path": "docs/adr/0007-journal-mode.md",
+             "digest": hashlib.sha256(adr).hexdigest(), "size": len(adr)},
+            {"path": "docs/adr/records.jsonl",
+             "digest": hashlib.sha256(records).hexdigest(), "size": len(records)}])
+        self.assertEqual(self.member(answer["returned"][1],
+                                     "docs/adr/0007-journal-mode.md"), adr)
+
+    def test_existing_markdown_beside_the_member_is_carried_and_never_parsed(self):
+        source_id, head = self.authored(root="docs/adr")
         answer = self.publish(choice(self.scope, WAL), head=head, source=source_id)
         state = self.state(asked([self.scope]))
         self.assertEqual(standings(state),
@@ -332,11 +336,37 @@ class Authored(Memory):
         self.assertIn(source_id, [frontier["source_id"]
                                   for frontier in state["returned"][0]["frontiers"]])
 
-    def test_an_unobserved_document_root_keeps_its_records_in_the_managed_member(self):
+    def test_a_file_outside_the_document_root_is_no_member_of_the_source(self):
         source_id, head = self.authored(root="docs/adr")
+        data = b"period,rate\n2026,0.1\n"
+        self.checkout.write("tables/rates.csv", data)
+        payload = manifest(source_id, {"tables/rates.csv": data})
+        target = {"resource_id": source_id, "base": {"expects": "head", "head_digest": head}}
+        pulled = self.run_with(sources.source_revision_commit,
+                               bench.request(self.person, "source.revision.commit", target,
+                                             payload), [payload], now=INSTANT)
+        answer = self.publish(choice(self.scope, WAL), source=source_id,
+                              head=pulled["receipt"]["head_digest"])
+        self.assertEqual([member["path"] for member in answer["returned"][1]["members"]],
+                         ["docs/adr/0007-journal-mode.md", "docs/adr/records.jsonl"])
+
+    def test_a_file_the_person_adds_under_the_root_is_a_member_of_the_next_revision(self):
+        source_id, head = self.authored(root="docs/adr")
+        first = self.publish(choice(self.scope, WAL), head=head, source=source_id)
+        self.checkout.write("docs/adr/0008-backups.md", b"# ADR 0008\n\nNightly.\n")
+        second = self.publish(choice(self.scope, ROLLBACK), source=source_id,
+                              head=first["receipt"]["head_digest"])
+        self.assertEqual([member["path"] for member in second["returned"][1]["members"]],
+                         ["docs/adr/0007-journal-mode.md", "docs/adr/0008-backups.md",
+                          "docs/adr/records.jsonl"])
+
+    def test_the_members_are_ordered_by_their_path_wherever_the_member_falls(self):
+        source_id, head = self.authored(root="docs/adr")
+        self.checkout.write("docs/adr/z-notes.md", b"# Notes\n")
         answer = self.publish(choice(self.scope, WAL), head=head, source=source_id)
         self.assertEqual([member["path"] for member in answer["returned"][1]["members"]],
-                         [memory.RECORDS_MEMBER])
+                         ["docs/adr/0007-journal-mode.md", "docs/adr/records.jsonl",
+                          "docs/adr/z-notes.md"])
 
     def test_records_another_checkout_wrote_are_read_from_the_revision_committed_here(self):
         source_id, head = self.authored()
@@ -344,6 +374,7 @@ class Authored(Memory):
                   "recorded_at": "2026-09-18T10:00:00Z"}
         data = canonical.encode(theirs)
         self.checkout.write("docs/decisions/journal-mode.json", data)
+        self.checkout.commit()
         payload = manifest(source_id, {"docs/decisions/journal-mode.json": data})
         answer = self.commit_to(payload, head, [theirs])
         self.assertEqual(answer["result"]["outcome"]["stage"], "committed")
@@ -371,7 +402,7 @@ class Working(Authored):
                             source=self.memory_source, **options)
 
     def at(self) -> pathlib.Path:
-        return self.checkout.path / memory.RECORDS_MEMBER
+        return self.checkout.path / "docs/decisions/records.jsonl"
 
     def gaps(self, answer: dict) -> list[str]:
         return [gap["code"] for gap in answer["result"]["outcome"]["material_gaps"]]
@@ -431,7 +462,8 @@ class Working(Authored):
         self.assertFalse(self.at().exists())
 
     def test_a_working_file_where_no_member_was_published_is_not_written_over(self):
-        self.checkout.write(memory.RECORDS_MEMBER, b"the person's own notes\n")
+        self.checkout.write("docs/decisions/records.jsonl",
+                            b"the person's own notes\n")
         refused = self.to_source(choice(self.scope, WAL))
         self.assertEqual(self.gaps(refused), [c07.WORKING_BYTES_MOVED])
         self.assertEqual(self.at().read_bytes(), b"the person's own notes\n")
@@ -440,11 +472,12 @@ class Working(Authored):
         outside = self.scratch / "outside"
         outside.mkdir()
         (outside / "records.jsonl").write_bytes(b"not in the checkout\n")
-        for part in ("memory", memory.RECORDS_MEMBER):
+        for part in ("docs/decisions", "docs/decisions/records.jsonl"):
             with self.subTest(part=part):
                 link = self.checkout.path / part
                 link.parent.mkdir(parents=True, exist_ok=True)
-                link.symlink_to(outside if part == "memory" else outside / "records.jsonl")
+                link.symlink_to(outside if part.endswith("decisions")
+                                else outside / "records.jsonl")
                 refused = self.to_source(choice(self.scope, WAL))
                 self.assertEqual(self.gaps(refused), [c04.PROTECTED_ROOT_BYPASS])
                 self.assertEqual((outside / "records.jsonl").read_bytes(),
@@ -472,40 +505,8 @@ class Working(Authored):
         self.assertEqual(again["result"]["outcome"]["stage"], "committed")
         data = self.at().read_bytes()
         self.assertEqual(data, before + canonical.encode(again["returned"][0]) + b"\n")
-        self.assertEqual(self.member(again["returned"][1]), data)
-
-
-class Observed(Authored):
-    """A source whose document root this installation observed."""
-
-    def test_an_observed_publication_carries_over_every_member_before_it(self):
-        source_id, head = self.authored(root="docs/adr")
-        first = self.publish(choice(self.scope, WAL), head=head, source=source_id)
-        self.observe(self.selection(self.checkout, ("docs/adr", "required")))
-        second = self.publish(choice(self.scope, ROLLBACK),
-                              head=first["receipt"]["head_digest"], source=source_id)
-        adr = (self.checkout.path / "docs/adr/0007-journal-mode.md").read_bytes()
-        self.assertEqual([member["path"] for member in second["returned"][1]["members"]],
-                         [memory.RECORDS_MEMBER, "docs/adr/0007-journal-mode.md"])
-        self.assertEqual(self.member(second["returned"][1], "docs/adr/0007-journal-mode.md"), adr)
-        self.assertEqual(self.member(second["returned"][1]),
-                         self.member(first["returned"][1]))
-
-    def test_a_member_outside_the_document_root_is_carried_over_too(self):
-        source_id, head = self.authored(root="docs/adr")
-        data = b"period,rate\n2026,0.1\n"
-        self.checkout.write("tables/rates.csv", data)
-        payload = manifest(source_id, {"tables/rates.csv": data})
-        target = {"resource_id": source_id, "base": {"expects": "head", "head_digest": head}}
-        pulled = self.run_with(sources.source_revision_commit,
-                               bench.request(self.person, "source.revision.commit", target,
-                                             payload), [payload], now=INSTANT)
-        self.observe(self.selection(self.checkout, ("docs/adr", "required")))
-        answer = self.publish(choice(self.scope, WAL), source=source_id,
-                              head=pulled["receipt"]["head_digest"])
-        self.assertEqual([member["path"] for member in answer["returned"][1]["members"]],
-                         ["tables/rates.csv", "docs/adr/0007-journal-mode.md"])
-        self.assertEqual(self.member(answer["returned"][1], "tables/rates.csv"), data)
+        self.assertEqual(self.member(again["returned"][1], "docs/decisions/records.jsonl"),
+                         data)
 
 
 class Reducing(Memory):
@@ -820,5 +821,5 @@ class Reducing(Memory):
     def test_resolving_commits_nothing_and_reaches_no_provider(self):
         answer = self.state(asked([self.person.scope]))
         self.assertEqual((answer["result"]["local_effect"], answer["result"]["provider_effect"]),
-                         ("none", "none"))
+                         ("none", "not_applicable"))
         self.assertIsNone(answer["receipt"])
