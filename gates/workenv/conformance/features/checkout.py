@@ -116,15 +116,15 @@ def edits_of(run) -> dict[str, list[int]]:
 
 def places(run, name: str, record: dict) -> list[tuple[str, dict]]:
     """(pointer, entry) for each file a record states: an observation's tree reads, the members
-    of a repository-authored source's manifest, and those of a manifest an admission authors into
-    a repository."""
+    of a repository-authored source's manifest, and those of each manifest of a source an
+    admission authors into a repository."""
     if record.get("kind") == OBSERVATION:
         return [(f"/read/{i}", read) for i, read in enumerate(record.get("read", []))
                 if read.get("read") == "tree"]
     if record.get("kind") != MANIFEST:
         return []
     source = record.get("source_id")
-    if source in authored(run) or name in admitted(run):
+    if source in authored(run) or source in admitted_sources(run) or name in admitted(run):
         return [(f"/members/{i}", member) for i, member in enumerate(record.get("members", []))]
     if source not in homed(run):
         tree = tree_paths(run)
@@ -154,6 +154,12 @@ def authored(run) -> set:
 def admitted(run) -> set[str]:
     """The manifests an admission into a repository-authored destination carries."""
     return set().union(*cases.admitted_into_a_repository(run.built).values())
+
+
+def admitted_sources(run) -> set[str]:
+    """The sources an admission authors into a repository-authored destination: every revision
+    of one, a later publication's too, names files of the checkout."""
+    return set(cases.admitted_into_a_repository(run.built))
 
 
 def written(run) -> dict[str, dict[str, str]]:

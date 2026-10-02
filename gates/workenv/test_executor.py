@@ -897,6 +897,20 @@ class Checkout(unittest.TestCase):
                          (executor.FAILED, "publish_repo_dec", "/members/0"), got)
         self.assertIn("says the code wrote decisions/records.jsonl", got["why"])
 
+    def test_a_file_written_for_a_source_admitted_into_a_repository_is_the_file_at_its_path(self):
+        # N04-ROUTER-POS admits its repository memory through author_here, so it has no document
+        # root: its publication says it wrote memory/records.jsonl into the checkout, beside the
+        # decisions.jsonl the admission named.
+        _, built = scenario("n04-router-pos")
+        step = next(s for s in built["steps"] if s["name"] == "record_repo_choice")
+        index = step["returns"].index("record_repo_choice_revision")
+        self.assertEqual(run("n04-router-pos")["outcome"], executor.PASSED)
+        got = run("n04-router-pos", [{"step": "record_repo_choice", "path": f"returned/{index}",
+                                      "pointer": "/members/1/digest", "value": "e" * 64}])
+        self.assertEqual((got["outcome"], got["step"], got.get("pointer")),
+                         (executor.FAILED, "record_repo_choice", "/members/1"), got)
+        self.assertIn("says the code wrote memory/records.jsonl", got["why"])
+
     def test_a_reader_outside_the_selection_meets_the_file_it_must_not_read(self):
         # N27-SELECTION-NEG's checkout holds docs/adr-private/notes.md beside docs/adr; a
         # reader matching paths by prefix reads it, and the observation it returns fails.

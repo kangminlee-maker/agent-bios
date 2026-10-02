@@ -9,21 +9,25 @@ source the request targets, and each makes a new revision of that source: the st
 the manifest the revision is, in that order. A record is never edited, so what happened to one is
 a `lifecycle_event` of its own, published the same way. Both read the same admission, which the
 journal asks before the bundle is published and again in the unit of work: a source this
-installation holds no memory home for is `ref_unavailable`, a head other than the one the request
-expects is `stale_base`, a source a package published is `publisher_bytes_modified`, and a
+installation does not hold as a memory source is `ref_unavailable`, a head other than the one the
+request expects is `stale_base`, a source a package published is `publisher_bytes_modified`, and a
 repository-authored source whose repository is not bound here is `binding_unverified`.
 
 What the new revision names depends on where the source is authored, because this owner never
 rewrites bytes a person wrote:
 
-  - A repository-authored source is the folder its home names: the revision is every file the
-    working tree holds under that document root, each as its exact bytes and none of them
-    parsed, and one member `<document root>/records.jsonl` that holds the records this owner
-    published to it. A file outside that folder is no member of it, whatever an earlier revision
-    named, and existing Markdown beside the member is carried as the bytes it is.
+  - A source whose registered home names a document root — a repository-authored home always
+    does — is that folder: the revision is every file the working tree holds under it, each as
+    its exact bytes and none of them parsed, and one member `<document root>/records.jsonl` that
+    holds the records this owner published to it. A file outside that folder is no member of it,
+    whatever an earlier revision named, and existing Markdown beside the member is carried as the
+    bytes it is.
   - Any other memory source keeps its records in `memory/records.jsonl` and carries over every
     member the revision before it named, with the bytes its bundle holds; a member whose bytes
-    are not at hand is carried by its hash alone.
+    are not at hand is carried by its hash alone. That is a managed source, and a source admitted
+    through `author_here`, which has no home record and so no document root: the files it was
+    admitted with stay as they are, and a repository-authored one gains `memory/records.jsonl` in
+    its repository.
 
 Either way the member holding the records is the bytes of the member the revision before it
 named and one line after them — the canonical bytes of the record just stored. It is extended,
@@ -93,8 +97,8 @@ from workenv.sources import checkouts, homes, reading
 
 # The role of the sources this module publishes to and reduces.
 ROLE = "memory"
-# The member a managed memory source keeps its own records in. A repository-authored one keeps
-# them in `records.jsonl` inside the folder its home names, beside the files already there.
+# The member a memory source with no document root keeps its own records in. One whose home names
+# a document root keeps them in `records.jsonl` inside that folder, beside the files already there.
 RECORDS_MEMBER = "memory/records.jsonl"
 RECORDS_FILE = "records.jsonl"
 MANIFEST = "source_manifest"
@@ -137,41 +141,55 @@ def workstream_open(call) -> dict:
 def publishing(call, store: storage.Store) -> tuple[dict | None, dict | None]:
     """A publication's admission as the store and the working tree hold them now: the refusal,
     or the source it revises, the checkout its bytes are authored in, the members its current
-    revision names with the bytes its bundle holds for them, the files an observation read, and
-    the member bytes a new record is appended to."""
+    revision names with the bytes its bundle holds for them, the files under its document root
+    where its home names one, and the member bytes a new record is appended to."""
     source_id = call.request["target"]["resource_id"]
     held = homes.source_of(store, source_id)
-    if held is None or held["home"] is None or held["role"] != ROLE:
+    if held is None or held["home_mode"] is None or held["role"] != ROLE:
         return refused(call, c01.REF_UNAVAILABLE), None
     moved = journal.stale(call, store)
     if moved is not None:
         return moved, None
-    where = held["home"]["home"]
-    if where["mode"] == PUBLISHED:
+    if held["home_mode"] == PUBLISHED:
         return refused(call, c01.PUBLISHER_BYTES_MODIFIED), None
     checkout = None
-    if where["mode"] == AUTHORED:
-        checkout = checkout_of(store, where["repository_id"])
+    if held["home_mode"] == AUTHORED:
+        checkout = checkout_of(store, repository_of(held))
         if checkout is None:
             return refused(call, c01.BINDING_UNVERIFIED), None
     kept, at_hand = carried_over(call, store, held)
     member = records_member(held)
     admitted = {"source": held, "checkout": checkout, "kept": kept, "at_hand": at_hand,
-                "member": member, "previous": b"", "under": []}
+                "member": member, "previous": b"", "under": None}
     named = [index for index, held_member in enumerate(kept) if held_member["path"] == member]
     if named and member not in at_hand:
         return refused(call, c01.REF_UNAVAILABLE, f"/members/{named[0]}"), None
     admitted["previous"] = at_hand.get(member, b"")
+    root = document_root_of(held)
+    if checkout is not None and root is not None:
+        admitted["under"] = document_root(checkout, root, member)
     if checkout is not None:
-        admitted["under"] = document_root(held, checkout, member)
         return working(call, store, checkout, admitted["previous"], member), admitted
     return None, admitted
 
 
-def document_root(source: dict, checkout: pathlib.Path, member: str) -> list[tuple[dict, bytes]]:
-    """The files the working tree holds under the source's document root, beside the member this
-    owner keeps its records in: each as its exact bytes, by path, as git reads the tree."""
-    root = source["home"]["home"]["document_root"]
+def document_root_of(source: dict) -> str | None:
+    """The folder a source's registered home names, or None: a managed home names none, and a
+    source admitted through `author_here` has no home record at all."""
+    return ((source["home"] or {}).get("home") or {}).get("document_root")
+
+
+def repository_of(source: dict) -> str:
+    """The repository a repository-authored source is authored in: the one its home names, or,
+    for a source admitted through `author_here`, the one its scope names."""
+    if source["home"] is not None:
+        return source["home"]["home"]["repository_id"]
+    return source["scope"].get("repository_id", "")
+
+
+def document_root(checkout: pathlib.Path, root: str, member: str) -> list[tuple[dict, bytes]]:
+    """The files the working tree holds under a document root, beside the member this owner
+    keeps its records in: each as its exact bytes, by path, as git reads the tree."""
     found = []
     for path in sorted(checkouts.states(checkout)):
         if path == member or not checkouts.under(path, root):
@@ -228,9 +246,9 @@ def working(call, store: storage.Store, checkout: pathlib.Path, previous: bytes,
 
 
 def records_member(source: dict) -> str:
-    """Where a source keeps the records this owner publishes to it: inside the folder a
-    repository-authored home names, and `memory/records.jsonl` for any other."""
-    root = source["home"]["home"].get("document_root")
+    """Where a source keeps the records this owner publishes to it: inside the folder its home
+    names, and `memory/records.jsonl` for a source with no document root."""
+    root = document_root_of(source)
     return f"{root.rstrip('/')}/{RECORDS_FILE}" if root else RECORDS_MEMBER
 
 
@@ -286,14 +304,14 @@ def membership(admitted: dict, stored: dict) -> tuple[list[dict], dict[str, byte
     """The members the next revision names, the bytes at hand for them, and the bytes the member
     this owner keeps its records in is to hold.
 
-    A repository-authored source is the files under the folder its home names, as the working
+    A source whose home names a document root is the files under that folder, as the working
     tree holds them, and that member: a file outside that folder is no member of it, whatever an
     earlier revision named. Any other source carries over every member the revision before it
     named and keeps its records in `memory/records.jsonl`."""
     path = admitted["member"]
     data = admitted["previous"] + canonical.encode(stored) + b"\n"
     member = {"path": path, "digest": hashlib.sha256(data).hexdigest(), "size": len(data)}
-    if admitted["checkout"] is not None:
+    if admitted["under"] is not None:
         kept = [dict(found) for found, _ in admitted["under"]]
         at_hand = {found["path"]: bytes_at_hand
                    for found, bytes_at_hand in admitted["under"]}

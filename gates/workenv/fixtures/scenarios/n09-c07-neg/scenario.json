@@ -569,8 +569,13 @@
    "record": "record_unexplained_choice_record"
   },
   {
-   "minted": "record_unexplained_choice_member",
-   "pointer": "/members/0/digest",
+   "minted": "records_bytes_record_unexplained_choice_revision",
+   "pointer": "/members/1/digest",
+   "record": "record_unexplained_choice_revision"
+  },
+  {
+   "minted": "records_size_record_unexplained_choice_revision",
+   "pointer": "/members/1/size",
    "record": "record_unexplained_choice_revision"
   },
   {
@@ -816,17 +821,22 @@
    "step": "record_unexplained_choice"
   },
   {
-   "name": "record_unexplained_choice_member",
-   "shape": "digest",
-   "step": "record_unexplained_choice"
-  },
-  {
    "name": "record_unexplained_choice_record_id",
    "shape": "rec",
    "step": "record_unexplained_choice"
   },
   {
    "name": "record_unexplained_choice_sequence",
+   "shape": "integer",
+   "step": "record_unexplained_choice"
+  },
+  {
+   "name": "records_bytes_record_unexplained_choice_revision",
+   "shape": "digest",
+   "step": "record_unexplained_choice"
+  },
+  {
+   "name": "records_size_record_unexplained_choice_revision",
    "shape": "integer",
    "step": "record_unexplained_choice"
   }
@@ -2101,16 +2111,21 @@
    }
   },
   {
-   "digest": "c84c55d09a2b8745a59a374a4d822b5f4a7ad50a007567a65ad64a1f6abff15e",
+   "digest": "d2a4a5cca8db14c6ed5f2677db97fd009771f11895e3080dfd311d8c297d93bf",
    "name": "record_unexplained_choice_revision",
    "record": {
     "format_version": 1,
     "kind": "source_manifest",
     "members": [
      {
-      "digest": "14306bc402d8488b20d77284abcba89a11a2d0ffca1d929f20634d2311dc0fc9",
+      "digest": "7c1a9104698b3ed5be10fca6f0d79e980b79c77730a9afa63679e6417fd4900b",
       "path": "decisions.jsonl",
-      "size": 1024
+      "size": 512
+     },
+     {
+      "digest": "ed20f066e8964015f63dbace35cbe2cd031552124fef73fe93af538090cb41a8",
+      "path": "memory/records.jsonl",
+      "size": 1
      }
     ],
     "produced_at": "2000-01-01T00:00:00Z",
@@ -2119,7 +2134,7 @@
    }
   },
   {
-   "digest": "2000ea7d2c74f89849643b624afe2227b398ed9fed6bfbbccf7aead575fcba52",
+   "digest": "b7f133f96b455e1c3bf51da491a0420ac9c245e9bab63ec432fbe8aa99c0ea77",
    "name": "record_unexplained_choice_result",
    "record": {
     "kind": "operation_result",
@@ -2135,7 +2150,7 @@
       "kind": "choice_record"
      },
      {
-      "digest": "c84c55d09a2b8745a59a374a4d822b5f4a7ad50a007567a65ad64a1f6abff15e",
+      "digest": "d2a4a5cca8db14c6ed5f2677db97fd009771f11895e3080dfd311d8c297d93bf",
       "kind": "source_manifest"
      }
     ],
@@ -2294,7 +2309,7 @@
   }
  ],
  "says": "In a bound repository checkout, Alice composes a preparation from the repository's rules revision; it records the checkout's branch and commit as observed, and no working bytes, because nothing has observed the working tree yet. She then edits a tracked rules file and leaves a new untracked draft beside it, and observing the rules directory shows one file modified and one untracked. Activating her session with the earlier preparation is refused as working_bytes_moved - the claims it rested on are no longer true - and composing again records the working bytes of the observation that read the edit. A choice recorded to the repository's memory with no reason written down is stored with its reason and alternatives named as unrecorded; the owner does not infer or fill in a reason. Asking to project the repository's knowledge source, or its memory source, as behavioural Instructions is refused as role_promotion_refused and returns nothing.",
- "spec_sha256": "ebeeba95f4293270b3ac06279a09f95218e05ef4e61247efaa8a41fd5ab4ebba",
+ "spec_sha256": "7b777c31a43bc6d59ae79322d8436189c5db0ad444424cebf873004d1c7cd2af",
  "steps": [
   {
    "carries": [

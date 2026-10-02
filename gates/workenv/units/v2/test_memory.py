@@ -240,7 +240,7 @@ class Publishing(Memory):
                          ["lifecycle_event", "source_manifest"])
         self.assertEqual(revision["members"][0]["path"], memory.RECORDS_MEMBER)
 
-    def test_a_source_this_installation_holds_no_memory_home_for_is_unavailable(self):
+    def test_a_source_this_installation_does_not_hold_is_unavailable(self):
         answer = self.publish(choice(self.person.scope, WAL), head=sha(b"nothing"),
                               source=bench.ident("src"))
         self.assertEqual([gap["code"] for gap in answer["result"]["outcome"]["material_gaps"]],
@@ -269,6 +269,65 @@ class Publishing(Memory):
                                head=answer["receipt"]["head_digest"])
         self.assertEqual([gap["code"] for gap in refused["result"]["outcome"]["material_gaps"]],
                          [c01.PUBLISHER_BYTES_MODIFIED])
+
+
+class Admitted(Memory):
+    """A memory source authored here through `author_here`: it has no home record, so no
+    document root, and the files it was admitted with are the person's."""
+
+    # A file a person wrote, ending mid-line: a line appended to it would join that line.
+    HAND = b'{"note": "kept by hand"}\n{"half'
+
+    def admitted(self, members: dict[str, bytes], scope: dict | None = None,
+                 mode: str = "managed") -> tuple[str, str]:
+        source_id = bench.ident("src")
+        submitted = manifest(source_id, members)
+        request = {"kind": "source_request", "schema": 1, "role": "memory",
+                   "destination": {"scope": scope or self.person.scope, "home_mode": mode},
+                   "route": {"route": "author_here",
+                             "manifest_digest": canonical.digest_of(submitted)}}
+        target = {"resource_id": source_id, "base": {"expects": "absent"}}
+        answer = self.run_with(
+            sources.source_revision_admit,
+            bench.request(self.person, "source.revision.admit", target, request),
+            [request, submitted], now=INSTANT,
+            members=None if mode == "repository_authored" else {
+                sha(data): data for data in members.values()})
+        self.assertEqual(answer["result"]["outcome"]["stage"], "committed", answer["result"])
+        return source_id, answer["receipt"]["head_digest"]
+
+    def test_records_go_beside_the_files_it_was_admitted_with_which_stay_as_they_are(self):
+        source_id, head = self.admitted({"decisions.jsonl": self.HAND})
+        answer = self.publish(choice(self.person.scope, WAL), head=head, source=source_id)
+        revision = answer["returned"][1]
+        line = canonical.encode(answer["returned"][0]) + b"\n"
+        self.assertEqual(revision["members"], [
+            {"path": "decisions.jsonl", "digest": sha(self.HAND), "size": len(self.HAND)},
+            {"path": memory.RECORDS_MEMBER, "digest": sha(line), "size": len(line)}])
+        self.assertEqual((self.member(revision, "decisions.jsonl"), self.member(revision)),
+                         (self.HAND, line))
+
+    def test_a_repository_source_admitted_here_gains_its_records_member_in_the_checkout(self):
+        checkout = Checkout(self.scratch)
+        checkout.write("decisions.jsonl", self.HAND)
+        checkout.commit()
+        self.bind(checkout)
+        scope = {"layer": "repository", "repository_id": self.repository}
+        source_id, head = self.admitted({"decisions.jsonl": self.HAND}, scope=scope,
+                                        mode="repository_authored")
+        first = self.publish(choice(scope, WAL), head=head, source=source_id)
+        second = self.publish(choice(scope, WAL), head=first["receipt"]["head_digest"],
+                              source=source_id)
+        lines = b"".join(canonical.encode(answer["returned"][0]) + b"\n"
+                         for answer in (first, second))
+        self.assertEqual([member["path"] for member in second["returned"][1]["members"]],
+                         ["decisions.jsonl", memory.RECORDS_MEMBER])
+        self.assertEqual(((checkout.path / "decisions.jsonl").read_bytes(),
+                          (checkout.path / memory.RECORDS_MEMBER).read_bytes()),
+                         (self.HAND, lines))
+        self.assertEqual(standings(self.state(asked([scope]))),
+                         [(first["returned"][0]["record_id"], "current"),
+                          (second["returned"][0]["record_id"], "current")])
 
 
 class Authored(Memory):
