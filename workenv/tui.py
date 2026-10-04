@@ -103,7 +103,6 @@ from __future__ import annotations
 
 import dataclasses
 import json
-import pathlib
 import unicodedata
 
 from workenv import cli, journal, preparation, roles, storage
@@ -561,16 +560,15 @@ def history_of(store: storage.Store, scope: dict) -> tuple[dict, str] | None:
 
 def location_of(store: storage.Store, scope: dict) -> dict:
     """What the location's label is made of: for a repository, its name and the branch its
-    bound checkout is on now, or the branch it was bound on where git does not read the checkout.
-    The entry reads it once, as it opens."""
+    checkout bound most recently is on now, or the branch it was bound on where git does not read
+    the checkout. The entry reads it once, as it opens."""
     if scope["layer"] == "repository":
-        found = store.read("SELECT binding_digest, checkout FROM repositories "
-                           "WHERE repository_id = ?", (scope["repository_id"],))
+        found = checkouts.held(store, scope["repository_id"])
         binding = store.get(found[0][0]) if found else None
         observed = (binding or {}).get("observed", {})
         locator = observed.get("locator", scope["repository_id"]).rstrip("/")
         name = locator.rsplit("/", 1)[-1].rsplit(":", 1)[-1].removesuffix(".git")
-        branch = checkouts.branch_now(pathlib.Path(found[0][1])) if found else None
+        branch = checkouts.branch_now(found[0][1]) if found else None
         return {"key": "location.repository", "name": name,
                 "branch": observed.get("branch", "") if branch is None else branch}
     if scope["layer"] == "team":

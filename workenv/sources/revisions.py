@@ -50,7 +50,7 @@ import pathlib
 
 from workenv import identity, journal, storage
 from workenv.contracts import b01, c01, c03, canonical
-from workenv.sources import homes
+from workenv.sources import checkouts, homes
 
 NAMESPACE = identity.NAMESPACE + "source_manifest"
 AUTHORED, PUBLISHED = "repository_authored", "package_published"
@@ -87,11 +87,6 @@ def unsigned(call, store: storage.Store, manifest: dict) -> dict | None:
             return refused(call, code, pointer)
     return None
 
-
-def checkout_of(store: storage.Store, repository_id: str) -> pathlib.Path | None:
-    found = store.read("SELECT checkout FROM repositories WHERE repository_id = ?",
-                       (repository_id,))
-    return pathlib.Path(found[0][0]) if found and found[0][0] else None
 
 
 def theirs(data: bytes, member: dict) -> bool:
@@ -159,7 +154,7 @@ def committing(call, store: storage.Store) -> tuple[dict | None, tuple | None]:
     where = held["home"]["home"]
     if where["mode"] == PUBLISHED:
         return refused(call, c01.PUBLISHER_BYTES_MODIFIED), None
-    return None, (manifest, held, checkout_of(store, where["repository_id"])
+    return None, (manifest, held, homes.checkout_of(store, held)
                   if where["mode"] == AUTHORED else None)
 
 
@@ -192,7 +187,7 @@ def admitting(call, store: storage.Store) -> tuple[dict | None, tuple | None]:
         return refused(call, c01.PUBLISHER_BYTES_MODIFIED), None
     checkout = None
     if destination["home_mode"] == AUTHORED:
-        checkout = checkout_of(store, destination["scope"].get("repository_id", ""))
+        checkout = checkouts.checkout_for(store, destination["scope"].get("repository_id", ""))
         if checkout is None:
             return refused(call, c01.BINDING_UNVERIFIED), None
     return None, (manifest, source, checkout)

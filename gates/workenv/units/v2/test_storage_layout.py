@@ -1,5 +1,5 @@
-"""The store's layout 7: a store an earlier runtime wrote is brought up to it, and one a later
-runtime wrote is not opened. The rows already in it are what they were."""
+"""The store's layouts 7 and 8: a store an earlier runtime wrote is brought up to the latest, and
+one a later runtime wrote is not opened. The rows already in it are what they were."""
 from __future__ import annotations
 
 import pathlib
@@ -18,6 +18,7 @@ from workenv import storage  # noqa: E402
 
 EARLIER = 6
 BINDING = ("bnd_" + "a" * 32, "prn_" + "b" * 32, "device_key", "d" * 64, None)
+REPOSITORY = ("rep_" + "c" * 32, "e" * 64, "/home/ana/work")
 
 
 class Layout(unittest.TestCase):
@@ -84,6 +85,21 @@ class Layout(unittest.TestCase):
                              [(BINDING[0],)])
         finally:
             connection.close()
+
+    def test_a_repository_bound_before_layout_8_keeps_its_checkout_and_binding(self):
+        self.wrote(7)
+        connection = sqlite3.connect(self.path, isolation_level=None)
+        try:
+            connection.execute("INSERT INTO repositories (repository_id, binding_digest, "
+                               "checkout) VALUES (?, ?, ?)", REPOSITORY)
+        finally:
+            connection.close()
+        store = storage.of(self.root)
+        self.assertEqual(store.read("SELECT repository_id, binding_digest, checkout "
+                                    "FROM repositories"), [REPOSITORY])
+        self.assertEqual(store.read("SELECT binding_digest, repository_id, checkout "
+                                    "FROM binding_checkouts"),
+                         [(REPOSITORY[1], REPOSITORY[0], REPOSITORY[2])])
 
     def test_a_store_a_later_runtime_wrote_is_not_opened(self):
         self.wrote(storage.LAYOUT)

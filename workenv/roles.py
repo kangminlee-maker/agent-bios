@@ -116,12 +116,10 @@ def drifted(store: storage.Store, source_id: str, member: str, digest: str) -> b
     source = homes.source_of(store, source_id)
     if source is None or source["home_mode"] != AUTHORED:
         return False
-    # An authored source was admitted from its bound checkout, so its repository always names
-    # a checkout.
-    where = source["home"]["home"] if source["home"] else source["scope"]
-    checkout = pathlib.Path(store.read("SELECT checkout FROM repositories WHERE "
-                                       "repository_id = ?", (where["repository_id"],))[0][0])
-    return not (checkout / member).is_file() or \
+    # The checkout its home's binding was made from, or the one its repository was bound from
+    # last; a document no checkout holds cannot read as anything.
+    checkout = homes.checkout_of(store, source)
+    return checkout is None or not (checkout / member).is_file() or \
         hashlib.sha256(checkouts.read(checkout, member)).hexdigest() != digest
 
 

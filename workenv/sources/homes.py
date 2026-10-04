@@ -8,8 +8,9 @@ moves the head while every revision stays what it was. A registration that chang
 source is authored (its mode, repository and document root, or package), the scope, the role or
 the accepting authority, or a first registration of a source this installation already holds, is
 a second home: `source_home_conflict`, and the source stays what it was. A repository-authored
-home rests on the binding this installation holds for its repository; a home naming any other
-binding is `binding_unverified`.
+home rests on one binding this installation holds for its repository — a repository bound from a
+clone and a worktree holds two, one per checkout — and its bytes are read from the checkout that
+binding was made from; a home naming a binding not held is `binding_unverified`.
 
 A source's head is the digest of the record its last commit stored: the home a registration
 stored, or the manifest a revision commit or admission stored. How a source's home keeps it —
@@ -19,8 +20,11 @@ home too.
 """
 from __future__ import annotations
 
+import pathlib
+
 from workenv import journal, storage
 from workenv.contracts import c01, c03, canonical
+from workenv.sources import checkouts
 
 # Where a source is authored: registering its home again may change anything of it but these.
 WHERE = ("mode", "repository_id", "document_root", "package_id")
@@ -61,10 +65,20 @@ def conflict(call) -> dict:
 
 
 def bound(store: storage.Store, home: dict) -> bool:
-    """Whether a repository-authored home names the binding held for its repository."""
-    found = store.read("SELECT binding_digest FROM repositories WHERE repository_id = ?",
-                       (home["repository_id"],))
-    return bool(found) and found[0][0] == home["binding_evidence_digest"]
+    """Whether a repository-authored home names a binding held for its repository."""
+    return checkouts.holds(store, home["repository_id"], home["binding_evidence_digest"])
+
+
+def checkout_of(store: storage.Store, source: dict) -> pathlib.Path | None:
+    """The checkout a repository-authored source's bytes are read from, as `source_of` holds the
+    source: the one its home's binding was made from, or, for a source admitted with no home,
+    the one its repository was bound from most recently. None where the repository is bound
+    from no checkout here."""
+    if source["home"] is not None:
+        where = source["home"]["home"]
+        return checkouts.checkout_for(store, where["repository_id"],
+                                      where["binding_evidence_digest"])
+    return checkouts.checkout_for(store, source["scope"].get("repository_id", ""))
 
 
 def source_home_register(call) -> dict:

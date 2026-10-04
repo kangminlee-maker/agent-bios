@@ -1,9 +1,11 @@
 """The file edit: a change the person makes in their checkout between two steps.
 
-A `file_edit` event names the step it comes before and a path in the checkout: it writes the
-event's bytes there, or with `absent` removes the file or the whole directory. The checkout is the
-one the checkout feature built; an edit reaching outside it is `failed` by name, and a scenario
-with an edit but no checkout is `blocked`.
+A `file_edit` event names the step it comes before and a path in the checkout that step works in
+(the first checkout, for a step that works in none of its own): it writes the event's bytes there,
+or with `absent` removes the file or the whole directory. A commit the bytes state for a branch
+the person switches to is written as the commit the checkout feature made for it. The checkouts
+are the ones the checkout feature built; an edit reaching outside its checkout is `failed` by
+name, and a scenario with an edit but no checkout is `blocked`.
 """
 from __future__ import annotations
 
@@ -20,7 +22,7 @@ def install(run) -> None:
         for event in edits:
             if event["before"] != step["name"]:
                 continue
-            checkout = run.checkout
+            checkout = run.worked_in.get(step["name"], run.checkout)
             if checkout is None:
                 raise executor.Stop(executor.BLOCKED, f"a file edit of {event['path']} comes "
                                                       "before this step, and the run has no "
@@ -35,8 +37,11 @@ def install(run) -> None:
                 elif target.exists():
                     target.unlink()
                 continue
+            data = event["bytes"]
+            for stated, made in run.commits.items():
+                data = data.replace(stated, made)
             target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_bytes(event["bytes"].encode("utf-8"))
+            target.write_bytes(data.encode("utf-8"))
 
     # The person's edit lands before the step, and before anything the driver reads for it.
     run.before_hooks.insert(0, edit)

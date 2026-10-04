@@ -17,11 +17,12 @@ What the new revision names depends on where the source is authored, because thi
 rewrites bytes a person wrote:
 
   - A source whose registered home names a document root — a repository-authored home always
-    does — is that folder: the revision is every file the working tree holds under it, each as
-    its exact bytes and none of them parsed, and one member `<document root>/records.jsonl` that
-    holds the records this owner published to it. A file outside that folder is no member of it,
-    whatever an earlier revision named, and existing Markdown beside the member is carried as the
-    bytes it is.
+    does — is that folder: the revision is every file git tracks under it, committed or
+    modified, each as the working tree holds its bytes and none of them parsed, and one member
+    `<document root>/records.jsonl` that holds the records this owner published to it. An
+    untracked file is not yet the repository's and is no member, and neither is a file outside
+    that folder, whatever an earlier revision named; existing Markdown beside the member is
+    carried as the bytes it is.
   - Any other memory source keeps its records in `memory/records.jsonl` and carries over every
     member the revision before it named, with the bytes its bundle holds; a member whose bytes
     are not at hand is carried by its hash alone. That is a managed source, and a source admitted
@@ -154,7 +155,7 @@ def publishing(call, store: storage.Store) -> tuple[dict | None, dict | None]:
         return refused(call, c01.PUBLISHER_BYTES_MODIFIED), None
     checkout = None
     if held["home_mode"] == AUTHORED:
-        checkout = checkout_of(store, repository_of(held))
+        checkout = homes.checkout_of(store, held)
         if checkout is None:
             return refused(call, c01.BINDING_UNVERIFIED), None
     kept, at_hand = carried_over(call, store, held)
@@ -179,20 +180,14 @@ def document_root_of(source: dict) -> str | None:
     return ((source["home"] or {}).get("home") or {}).get("document_root")
 
 
-def repository_of(source: dict) -> str:
-    """The repository a repository-authored source is authored in: the one its home names, or,
-    for a source admitted through `author_here`, the one its scope names."""
-    if source["home"] is not None:
-        return source["home"]["home"]["repository_id"]
-    return source["scope"].get("repository_id", "")
-
-
 def document_root(checkout: pathlib.Path, root: str, member: str) -> list[tuple[dict, bytes]]:
-    """The files the working tree holds under a document root, beside the member this owner
-    keeps its records in: each as its exact bytes, by path, as git reads the tree."""
+    """The files git tracks under a document root, beside the member this owner keeps its
+    records in: each as the working tree holds its bytes, a modified file's edits included, by
+    path. A file git does not track is no member: an untracked draft is not yet the
+    repository's, and publishing would carry it into a source the person did not share."""
     found = []
-    for path in sorted(checkouts.states(checkout)):
-        if path == member or not checkouts.under(path, root):
+    for path, state in sorted(checkouts.states(checkout).items()):
+        if path == member or state == "untracked" or not checkouts.under(path, root):
             continue
         data = checkouts.read(checkout, path)
         found.append(({"path": path, "digest": hashlib.sha256(data).hexdigest(),
@@ -250,12 +245,6 @@ def records_member(source: dict) -> str:
     names, and `memory/records.jsonl` for a source with no document root."""
     root = document_root_of(source)
     return f"{root.rstrip('/')}/{RECORDS_FILE}" if root else RECORDS_MEMBER
-
-
-def checkout_of(store: storage.Store, repository_id: str) -> pathlib.Path | None:
-    found = store.read("SELECT checkout FROM repositories WHERE repository_id = ?",
-                       (repository_id,))
-    return pathlib.Path(found[0][0]) if found and found[0][0] else None
 
 
 def admits(call, store: storage.Store) -> dict | None:

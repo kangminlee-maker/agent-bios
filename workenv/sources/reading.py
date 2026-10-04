@@ -9,6 +9,12 @@ role other than the source's, a member the manifest does not list, or member byt
 not hold as the manifest states them, is `ref_unavailable`: nothing is read in their place, and
 no request can recover it, because asking again does not bring the bytes here.
 
+A request a repository makes for another repository's source, where the requesting repository is
+bound here as a fork of that one only to derive its own authority (`fork_derived_authority`),
+uses the fork as its original: it is `repository_binding_required`. Only a binding made to read
+the original through the fork (`fork_original_read`) allows that; being copied from the original
+gives the fork no reading of its sources.
+
 Resolving reads only this installation's own store and bundles, so no provider is reached and
 its provider effect is `not_applicable`.
 """
@@ -18,7 +24,9 @@ import hashlib
 
 from workenv import journal, storage
 from workenv.contracts import c01, c03
-from workenv.sources import homes
+from workenv.sources import checkouts, homes
+
+FORK_READ, FORK_DERIVED = "fork_original_read", "fork_derived_authority"
 
 
 def unavailable(call) -> dict:
@@ -37,12 +45,29 @@ def member_bytes(call, revision: str, member: dict) -> bytes | None:
     return data
 
 
+def through_a_fork(store: storage.Store, owner: dict, scope: dict) -> bool:
+    """Whether the requesting repository reads another repository's source as that repository's
+    fork with no binding made to read it: bound here to derive its own authority from it, and
+    never to read it."""
+    if owner.get("layer") != "repository" or scope.get("layer") != "repository" or \
+            owner.get("repository_id") == scope.get("repository_id"):
+        return False
+    relations = [store.get(binding)["relation"]
+                 for binding, _ in checkouts.held(store, owner["repository_id"])]
+    original = [relation["how"] for relation in relations
+                if relation.get("original_repository_id") == scope["repository_id"]]
+    return FORK_DERIVED in original and FORK_READ not in original
+
+
 def reference_resolve(call) -> dict:
     store = storage.of(call.state)
     ref = journal.payload(call)
     if ref["source_id"] != call.request["target"]["resource_id"]:
         return journal.answered(call, "refused", gaps=[{"code": c03.REQUEST_MISMATCH,
                                                         "pointer": "/target/resource_id"}],
+                                recovery=["new_governed_request"])
+    if through_a_fork(store, call.request["owner"], ref["scope"]):
+        return journal.answered(call, "refused", gaps=[{"code": c01.REPOSITORY_BINDING_REQUIRED}],
                                 recovery=["new_governed_request"])
     moved = journal.stale(call, store)
     if moved is not None:

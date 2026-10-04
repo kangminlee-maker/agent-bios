@@ -673,9 +673,11 @@ class Signing(unittest.TestCase):
 
 
 
-def built_run(test: unittest.TestCase, case: str, *features: str) -> executor.Run:
-    """A run of the case with these features installed and prepared, and no step taken."""
-    _, built = scenario(case)
+def built_run(test: unittest.TestCase, case: str, *features: str,
+              built: dict | None = None) -> executor.Run:
+    """A run of the case, or of the scenario given in its place, with these features installed
+    and prepared, and no step taken."""
+    built = scenario(case)[1] if built is None else built
     workdir = pathlib.Path(tempfile.mkdtemp())
     test.addCleanup(shutil.rmtree, workdir, True)
     run_ = executor.Run(copy.deepcopy(built), None, workdir, None)
@@ -698,9 +700,33 @@ def facts(*steps: tuple[str, str, list[str]], **records: dict) -> dict:
 
 
 def git_status(checkout: pathlib.Path) -> str:
+    return git_out(checkout, "status", "--porcelain")
+
+
+def git_out(checkout: pathlib.Path, *arguments: str) -> str:
     env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
-    return subprocess.run(["git", "status", "--porcelain"], cwd=checkout, env=env,
-                          capture_output=True, text=True).stdout
+    return subprocess.run(["git", *arguments], cwd=checkout, env=env, capture_output=True,
+                          text=True).stdout
+
+
+def record_of(built: dict, name: str) -> dict:
+    return next(row["record"] for row in built["records"] if row["name"] == name)
+
+
+class Host(unittest.TestCase):
+    def test_a_message_naming_a_directory_is_answered_there(self):
+        root = module_root(self, "import os\ndef answer(call):\n    return os.getcwd()\n")
+        base, start, other = (pathlib.Path(tempfile.mkdtemp()).resolve() for _ in range(3))
+        for made in (base, start, other):
+            self.addCleanup(shutil.rmtree, made, True)
+        host = hosts.Host(root, base, cwd=start)
+        self.addCleanup(host.close)
+        message = {"request": {}, "carried": [], "exchange": str(base), "entry": "planted:answer"}
+        self.assertEqual(host.call(message)["answer"], str(start))
+        self.assertEqual(host.call({**message, "cwd": str(other)})["answer"], str(other))
+        self.assertEqual(host.call(message)["answer"], str(start))
+        self.assertIn("cannot be entered",
+                      host.call({**message, "cwd": str(other / "absent")})["blocked"])
 
 
 class Clock(unittest.TestCase):
@@ -821,13 +847,119 @@ class Checkout(unittest.TestCase):
         self.assertTrue((run_.checkout / ".git").is_dir())
 
     def test_what_a_checkout_cannot_hold_is_blocked_by_name(self):
-        for case, said in (("src-10", "selections name 3 checkouts"),
-                           ("n27-c01-neg", "two contents for rules/review.md")):
-            with self.subTest(case=case):
+        _, src10 = scenario("src-10")
+
+        def changed(change) -> dict:
+            built = copy.deepcopy(src10)
+            change(built)
+            return built
+
+        def two_places(built):
+            record_of(built, "worktree_selection")["roots"][1]["place"]["checkout"] = \
+                "/home/ana/work"
+
+        def no_observation(built):
+            built["joins"] = [join for join in built["joins"]
+                              if (join["record"], join["pointer"]) != (
+                                  "stored_worktree_checkout", "/observed/working_bytes_digest")]
+
+        def one_commit(built):
+            record_of(built, "stored_fork_checkout")["observed"]["commit"] = \
+                record_of(built, "stored_clone_checkout")["observed"]["commit"]
+
+        def two_remotes(built):
+            record_of(built, "stored_clone_checkout_after_switch")["observed"]["locator"] = \
+                "git@github.com:example/elsewhere.git"
+
+        def no_switch(built):
+            built["world"]["events"] = []
+
+        for case, built, said in (
+                ("n27-c01-neg", None, "two contents for rules/review.md"),
+                ("src-10", changed(two_places), "the selection worktree_selection names 2"),
+                ("src-10", changed(no_observation), "the binding stored_worktree_checkout binds"),
+                ("src-10", changed(one_commit), "states the commit 0123456789abcdef"),
+                ("src-10", changed(two_remotes), "observe 2 remotes for /home/ana/work"),
+                ("src-10", changed(no_switch), "observe 2 branches for /home/ana/work before")):
+            with self.subTest(said=said):
                 with self.assertRaises(executor.Stop) as raised:
-                    built_run(self, case, "checkout")
+                    built_run(self, case, "checkout", built=built)
                 self.assertEqual(raised.exception.outcome, executor.BLOCKED)
                 self.assertIn(said, raised.exception.why)
+
+    def test_a_clone_a_worktree_and_a_fork_are_three_checkouts(self):
+        # SRC-10's selections name three checkouts; each holds its own files on its own branch
+        # and remote, the worktree is a git worktree of the clone, and each binding's commit is
+        # its own checkout's HEAD.
+        _, built = scenario("src-10")
+        run_ = built_run(self, "src-10", "checkout")
+        place = {name: pathlib.Path(run_.templates[f"{name}_selection"]["roots"][0]["place"]
+                                    ["checkout"]) for name in ("clone", "worktree", "fork")}
+        self.assertEqual(len(set(place.values())), 3)
+        self.assertEqual((run_.checkout, run_.cwd), (place["clone"], place["clone"]))
+        self.assertTrue((place["worktree"] / ".git").is_file())
+        common = git_out(place["worktree"], "rev-parse", "--path-format=absolute",
+                         "--git-common-dir").strip()
+        self.assertEqual(pathlib.Path(common), place["clone"] / ".git")
+        for name, branch, remote in (("clone", "main", "example/work.git"),
+                                     ("worktree", "feature-backups", "example/work.git"),
+                                     ("fork", "main", "someone/work-fork.git")):
+            with self.subTest(checkout=name):
+                here = place[name]
+                self.assertEqual(git_out(here, "symbolic-ref", "--short", "HEAD").strip(), branch)
+                self.assertEqual(git_out(here, "remote", "get-url", "origin").strip(),
+                                 f"git@github.com:{remote}")
+                self.assertEqual(run_.templates[f"stored_{name}_checkout"]["observed"]["commit"],
+                                 git_out(here, "rev-parse", "HEAD").strip())
+                for read in record_of(built, f"{name}_observation")["read"]:
+                    self.assertEqual(len((here / read["path"]).read_bytes()), read["size"])
+        readmes = {hashlib.sha256((here / "README.md").read_bytes()).hexdigest()
+                   for here in place.values()}
+        self.assertEqual(len(readmes), 3)
+        self.assertEqual({step: run_.worked_in.get(step) for step in
+                          ("bind_clone", "bind_worktree", "observe_fork", "bind_fork",
+                           "register_decisions")},
+                         {"bind_clone": place["clone"], "bind_worktree": place["worktree"],
+                          "observe_fork": place["fork"], "bind_fork": place["fork"],
+                          "register_decisions": None})
+        self.assertFalse((place["clone"] / "docs" / "adr" / "records.jsonl").exists())
+
+    def test_two_repositories_no_selection_reads_are_two_checkouts(self):
+        # SRC-11 binds R and S, which no selection reads, so each is a checkout of its own
+        # holding its own ADR, and binding S is answered in S's.
+        run_ = built_run(self, "src-11", "checkout")
+        r, s = run_.checkout, run_.worked_in["bind_repository_s"]
+        self.assertNotEqual(r, s)
+        self.assertEqual(run_.worked_in["bind_repository_r"], r)
+        for here, name, remote in ((r, "r", "reports"), (s, "s", "billing")):
+            with self.subTest(repository=name):
+                self.assertEqual(git_out(here, "remote", "get-url", "origin").strip(),
+                                 f"git@github.com:example/{remote}.git")
+                self.assertEqual(run_.templates[f"stored_binding_{name}"]["observed"]["commit"],
+                                 git_out(here, "rev-parse", "HEAD").strip())
+                self.assertEqual((here / "docs/adr/0001-journal-mode.md").read_bytes(),
+                                 run_.members["adr_body"])
+
+    def test_a_branch_switch_is_a_commit_the_driver_makes_on_the_branch_the_edit_names(self):
+        # SRC-10's clone switches to chore/prune-old-adrs by an edit of .git/HEAD and of the
+        # branch's ref, which states a commit only a real checkout has.
+        run_ = built_run(self, "src-10", "checkout", "event_file_edit")
+        clone, stated = run_.checkout, "fedcba9876543210fedcba9876543210fedcba98"
+        made = run_.commits[stated]
+        before = git_out(clone, "rev-parse", "HEAD").strip()
+        self.assertEqual(run_.templates["stored_clone_checkout_after_switch"]["observed"]
+                         ["commit"], made)
+        steps = {step["name"]: step for step in run_.built["steps"]}
+        for hook in run_.before_hooks:
+            hook(run_, steps["observe_after_the_branch_switch"])
+        self.assertEqual(git_out(clone, "symbolic-ref", "--short", "HEAD").strip(),
+                         "chore/prune-old-adrs")
+        self.assertEqual(git_out(clone, "rev-parse", "HEAD").strip(), made)
+        self.assertEqual(git_out(clone, "rev-parse", "HEAD^").strip(), before)
+        tree = git_out(clone, "ls-tree", "-r", "--name-only", "HEAD").split()
+        self.assertNotIn("docs/adr/0001-journal-mode.md", tree)
+        self.assertIn("README.md", tree)
+        self.assertFalse((clone / "docs/adr/0001-journal-mode.md").exists())
 
     def test_a_stand_in_is_replaced_only_where_a_field_of_its_kind_holds_it(self):
         feature = executor.feature_modules({"checkout"})[0]["checkout"]

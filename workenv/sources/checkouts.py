@@ -7,7 +7,9 @@ selected working bytes. Those are the digest of the last observation this instal
 for a selection of that repository reading this checkout with no required root missing, when
 reading the same selection now reads the same files with the same bytes; bytes that moved since,
 or a checkout never so observed, state none, because the whole project is never snapshotted in
-their place. Binding the same repository again binds it anew.
+their place. A repository is held once per checkout it is bound from, so a clone and a worktree of
+one repository each keep their own binding; binding it again from the same checkout binds that
+checkout anew and leaves the others as they were.
 
 `source.observe` reads what a selection names and changes nothing: it keeps only the selection
 it read, by digest beside the observation the journal holds, so a binding can read it again. A
@@ -186,6 +188,34 @@ def branch_now(checkout: pathlib.Path) -> str | None:
         return ""
 
 
+def held(store: storage.Store, repository_id: str) -> list[tuple[str, pathlib.Path]]:
+    """(binding digest, checkout) of each checkout a repository is bound from here, the one bound
+    most recently first."""
+    return [(binding, pathlib.Path(place)) for binding, place in store.read(
+        "SELECT binding_digest, checkout FROM repositories WHERE repository_id = ? "
+        "ORDER BY rowid DESC", (repository_id,)) if place]
+
+
+def holds(store: storage.Store, repository_id: str, binding_digest: str) -> bool:
+    """Whether the binding is the one held now for a checkout of the repository."""
+    return any(binding == binding_digest for binding, _ in held(store, repository_id))
+
+
+def checkout_for(store: storage.Store, repository_id: str,
+                 binding_digest: str | None = None) -> pathlib.Path | None:
+    """The checkout a repository is read from: the one the named binding was made from, even
+    after that checkout was bound again, or the one bound most recently. A binding this store
+    has no record of — one made before it kept them, and since replaced — reads the most recent
+    one too, as every binding did then. None where the repository is bound from no checkout."""
+    if binding_digest is not None:
+        found = store.read("SELECT checkout FROM binding_checkouts WHERE binding_digest = ? AND "
+                           "repository_id = ?", (binding_digest, repository_id))
+        if found:
+            return pathlib.Path(found[0][0])
+    newest = held(store, repository_id)
+    return newest[0][1] if newest else None
+
+
 def bound_at(store: storage.Store, checkout: pathlib.Path) -> tuple[str, dict] | None:
     """The repository last bound here from this checkout, with its binding, or None."""
     for repository_id, binding, place in store.read(
@@ -208,8 +238,11 @@ def repository_bind(call) -> dict:
         return journal.answered(call, "refused", gaps=[{"code": c01.REF_UNAVAILABLE}],
                                 recovery=["new_governed_request"])
     stored = {**binding, "observed": observed_in(store, binding["repository_id"], checkout)}
+    digest = store.put(stored)
     store.write("INSERT OR REPLACE INTO repositories (repository_id, binding_digest, checkout) "
-                "VALUES (?, ?, ?)", (binding["repository_id"], store.put(stored), str(checkout)))
+                "VALUES (?, ?, ?)", (binding["repository_id"], digest, str(checkout)))
+    store.write("INSERT OR REPLACE INTO binding_checkouts (binding_digest, repository_id, "
+                "checkout) VALUES (?, ?, ?)", (digest, binding["repository_id"], str(checkout)))
     return journal.committed(call, [stored])
 
 

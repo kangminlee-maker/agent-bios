@@ -313,11 +313,15 @@ class Run:
         self.processes: dict[str, hosts.Host] = {}
         self.exchange = workdir / "exchange"
         self.exchange.mkdir(parents=True, exist_ok=True)
-        # The directory the code under test runs in, and the checkout a feature built.
+        # The directory the code under test runs in, the first checkout a feature built, the
+        # checkout each step that works in another runs in, and each commit a scenario states
+        # for a branch it switches to, by the one made for it.
         self.cwd: pathlib.Path | None = None
         self.checkout: pathlib.Path | None = None
-        self.file_digests: dict[str, tuple[str, str]] = {}
-        self.written: dict[str, dict[str, str]] = {}
+        self.worked_in: dict[str, pathlib.Path] = {}
+        self.commits: dict[str, str] = {}
+        self.file_digests: dict[str, tuple[str, pathlib.Path, str]] = {}
+        self.written: dict[str, dict[str, tuple[pathlib.Path, str]]] = {}
         self.rules: tuple[str, ...] = ()
         self.applied: dict[str, int] = {}
         # The steps a feature has the driver give although code in scope serves their

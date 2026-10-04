@@ -409,19 +409,34 @@ class Authored(Memory):
         self.assertEqual([member["path"] for member in answer["returned"][1]["members"]],
                          ["docs/adr/0007-journal-mode.md", "docs/adr/records.jsonl"])
 
-    def test_a_file_the_person_adds_under_the_root_is_a_member_of_the_next_revision(self):
+    def test_a_file_the_person_adds_under_the_root_is_a_member_once_git_tracks_it(self):
         source_id, head = self.authored(root="docs/adr")
         first = self.publish(choice(self.scope, WAL), head=head, source=source_id)
         self.checkout.write("docs/adr/0008-backups.md", b"# ADR 0008\n\nNightly.\n")
-        second = self.publish(choice(self.scope, ROLLBACK), source=source_id,
-                              head=first["receipt"]["head_digest"])
-        self.assertEqual([member["path"] for member in second["returned"][1]["members"]],
+        untracked = self.publish(choice(self.scope, ROLLBACK), source=source_id,
+                                 head=first["receipt"]["head_digest"])
+        self.assertEqual([member["path"] for member in untracked["returned"][1]["members"]],
+                         ["docs/adr/0007-journal-mode.md", "docs/adr/records.jsonl"])
+        self.checkout.git("add", "docs/adr/0008-backups.md")
+        tracked = self.publish(choice(self.scope, ROLLBACK), source=source_id,
+                               head=untracked["receipt"]["head_digest"])
+        self.assertEqual([member["path"] for member in tracked["returned"][1]["members"]],
                          ["docs/adr/0007-journal-mode.md", "docs/adr/0008-backups.md",
                           "docs/adr/records.jsonl"])
+
+    def test_an_adr_being_edited_is_a_member_as_the_working_tree_holds_it(self):
+        source_id, head = self.authored(root="docs/adr")
+        edited = b"# ADR 0007\n\nWAL, with synchronous FULL.\n"
+        self.checkout.write("docs/adr/0007-journal-mode.md", edited)
+        answer = self.publish(choice(self.scope, WAL), head=head, source=source_id)
+        self.assertEqual(answer["returned"][1]["members"][0],
+                         {"path": "docs/adr/0007-journal-mode.md", "digest": sha(edited),
+                          "size": len(edited)})
 
     def test_the_members_are_ordered_by_their_path_wherever_the_member_falls(self):
         source_id, head = self.authored(root="docs/adr")
         self.checkout.write("docs/adr/z-notes.md", b"# Notes\n")
+        self.checkout.git("add", "docs/adr/z-notes.md")
         answer = self.publish(choice(self.scope, WAL), head=head, source=source_id)
         self.assertEqual([member["path"] for member in answer["returned"][1]["members"]],
                          ["docs/adr/0007-journal-mode.md", "docs/adr/records.jsonl",

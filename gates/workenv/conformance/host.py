@@ -8,7 +8,9 @@ under test runs its own assertions and cannot import the judge, though `<root>` 
 that holds it. Nor does any XDG_* or GIT_* variable, so a git the code under test runs never
 reaches the repository a caller's commit hook exported; HOME is a directory of the run's own, so
 nothing the code under test writes outside its state root lands in the person's home. It runs in
-the scenario's checkout when there is one, as a person runs the product inside their repository.
+the scenario's first checkout when there is one, as a person runs the product inside their
+repository, and answers a message naming another directory (`cwd`) in that one: a step the person
+takes in another checkout of theirs.
 
 The host reads one message per line on stdin and answers one per line on stdout. A message names
 what answers the step, outermost first: the layers in scope, each called `layer(call, inner)`;
@@ -264,8 +266,15 @@ def serve(root: str, state: str) -> None:
     sys.path.insert(0, root)
     sys.meta_path.insert(0, NoJudge())
     loaded: dict = {}
+    here = os.getcwd()
     for line in requests:
-        reply = answer(decode(json.loads(line)), pathlib.Path(state), loaded, replies)
+        message = decode(json.loads(line))
+        try:
+            os.chdir(message.get("cwd") or here)
+        except OSError as error:
+            reply = {"blocked": f"the step's directory cannot be entered: {error}"}
+        else:
+            reply = answer(message, pathlib.Path(state), loaded, replies)
         try:
             data = json.dumps(encode(reply)).encode("utf-8")
         except (TypeError, ValueError) as error:

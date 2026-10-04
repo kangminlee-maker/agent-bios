@@ -48,7 +48,7 @@ from workenv.contracts import b03, canonical
 DATABASE = "state.sqlite"
 # The layout this module writes, as PRAGMA user_version; a store with a later one was written
 # by a later runtime and is not opened.
-LAYOUT = 7
+LAYOUT = 8
 # What a member's bytes are kept as among records: they have no kind of their own.
 MEMBER = "source_member"
 IN_TXN = "in_txn_before_commit"
@@ -154,9 +154,29 @@ LAYOUT_7 = (
     "CREATE INDEX memory_entries_by_source ON memory_entries (source_id, position)",
 )
 
+LAYOUT_8 = (
+    # A repository is bound once per checkout it is bound from: a clone and a worktree of one
+    # repository are both held, each with its own binding, and binding again from the same
+    # checkout replaces that checkout's binding alone. Rows keep the order they were bound in.
+    """CREATE TABLE repository_checkouts (
+         repository_id TEXT NOT NULL, checkout TEXT NOT NULL, binding_digest TEXT NOT NULL,
+         PRIMARY KEY (repository_id, checkout))""",
+    """INSERT INTO repository_checkouts (repository_id, checkout, binding_digest)
+         SELECT repository_id, checkout, binding_digest FROM repositories ORDER BY rowid""",
+    "DROP TABLE repositories",
+    "ALTER TABLE repository_checkouts RENAME TO repositories",
+    # Every binding made here, by digest, with the checkout it was made from. A home names a
+    # binding, and the checkout it reads stays that binding's after the same checkout is bound
+    # again; a binding made before this layout is known only while it is still held.
+    """CREATE TABLE binding_checkouts (
+         binding_digest TEXT PRIMARY KEY, repository_id TEXT NOT NULL, checkout TEXT NOT NULL)""",
+    """INSERT INTO binding_checkouts (binding_digest, repository_id, checkout)
+         SELECT binding_digest, repository_id, checkout FROM repositories""",
+)
+
 # What each layout adds to the one before it.
 LAYOUTS = {1: LAYOUT_1, 2: LAYOUT_2, 3: LAYOUT_3, 4: LAYOUT_4, 5: LAYOUT_5,
-           6: LAYOUT_6, 7: LAYOUT_7}
+           6: LAYOUT_6, 7: LAYOUT_7, 8: LAYOUT_8}
 
 
 class StorageError(Exception):

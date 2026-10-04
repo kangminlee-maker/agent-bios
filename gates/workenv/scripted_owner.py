@@ -9,8 +9,11 @@ minted, carried it where the scenario joins it, and recomputed what depends on i
 
 It reads the world it runs in as a real owner does: where it runs in a git checkout, a file digest
 the scenario states is the digest of the file at that path, the checkout path is the directory it
-runs in and a stated commit is HEAD. The guide a routing's usage contract points at is the one
-its `workenv` package ships at that path, wherever it runs. It keeps what it has written under
+runs in and a stated commit is HEAD. A scenario with several checkouts is read one checkout at a
+time, where the first step working in it runs (the checkout feature says which records and steps
+speak of which), and a binding's commit is that checkout's HEAD when the step returning it runs.
+The guide a routing's usage contract points at is the one its `workenv` package ships at that
+path, wherever it runs. It keeps what it has written under
 the call's state root and passes every B03 fault point, committing before
 `after_commit_before_return` and handing that point the answer it committed, so a process killed
 at a point and started again answers as a restarted owner does: with what it committed, or
@@ -125,37 +128,60 @@ def substituted(value, found: dict):
 
 
 def world(run) -> dict[str, str]:
-    """What the stated checkout facts are where this owner runs: the digests of the files at
-    their paths, the directory itself, and HEAD; and the digest of the bytes the person holds for
-    each member of a revision they commit that the scenario states by digest alone, and of the
-    guide its package ships where a routing's usage contract points."""
+    """The digest of the bytes the person holds for each member of a revision they commit that
+    the scenario states by digest alone, and of the guide its package ships where a routing's
+    usage contract points."""
     found = stated_bytes(run)
     for name in cases.guide_pointers(run.built):
         guide = run.templates[name]["delivery"]["memory_usage"]["guide"]
         digest = shipped_guide.shipped(pathlib.Path(workenv.__file__).parent.parent, guide["path"])
         if digest is not None:
             found.setdefault(guide["digest"], digest)
-    here = pathlib.Path.cwd()
-    if not (here / ".git").exists():
-        return found
+    return found
+
+
+def checkout_facts(run, plan, key, here: pathlib.Path) -> dict[str, str]:
+    """What the stated facts of one checkout are where this owner runs in it: the digests of the
+    files the records speaking of it state at their paths, its directory, and its HEAD for each
+    commit a binding made in it states."""
     joined = {(j["record"], j["pointer"]) for j in run.built["joins"]}
     edited = {event.get("digest") for event in run.built.get("world", {}).get("events", [])
               if event["kind"] == "file_edit"}
+    found = {}
     for name, record in run.templates.items():
-        for pointer, stated in checkout.places(run, name, record):
-            target = here / stated["path"]
-            if (name, pointer + "/digest") not in joined and target.is_file() \
-                    and stated["digest"] not in edited:
-                found.setdefault(stated["digest"], hashlib.sha256(target.read_bytes()).hexdigest())
-        seen = record.get("observed") if record.get("kind") == "repository_binding" else None
-        if isinstance(seen, dict) and seen.get("commit") \
-                and (name, "/observed/commit") not in joined:
-            env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
-            found[seen["commit"]] = subprocess.run(["git", "rev-parse", "HEAD"], cwd=here, env=env,
-                                                   capture_output=True, text=True).stdout.strip()
-    found.update({path: str(here) for path in checkout.named_checkouts(run.templates)})
-    found.update({place: str(here) for place in checkout.worked_in(run.templates)})
+        stated = checkout.places(run, name, record)
+        if stated and checkout.place_key(run, plan, name, record) == key:
+            for pointer, entry in stated:
+                target = here / entry["path"]
+                if (name, pointer + "/digest") not in joined and target.is_file() \
+                        and entry["digest"] not in edited:
+                    found.setdefault(entry["digest"],
+                                     hashlib.sha256(target.read_bytes()).hexdigest())
+        commit = stated_commit(run, name)
+        if commit and plan.record_key(name, "the binding") == key:
+            found[commit] = head(here)
+    if key in plan.paths:
+        found[key] = str(here)
+    for place in checkout.worked_in(run.templates):
+        if place == key or (place not in plan.paths and key == plan.default()):
+            found[place] = str(here)
     return found
+
+
+def stated_commit(run, name: str) -> str | None:
+    """The commit a binding states it observed, where the scenario joins it to nothing."""
+    record = run.templates.get(name, {})
+    seen = record.get("observed") if record.get("kind") == "repository_binding" else None
+    if isinstance(seen, dict) and seen.get("commit") and not any(
+            join["pointer"] == "/observed/commit" for join in run.joins.get(name, [])):
+        return seen["commit"]
+    return None
+
+
+def head(here: pathlib.Path) -> str:
+    env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+    return subprocess.run(["git", "rev-parse", "HEAD"], cwd=here, env=env, capture_output=True,
+                          text=True).stdout.strip()
 
 
 def stated_bytes(run) -> dict[str, str]:
@@ -174,32 +200,34 @@ class Owner:
         self.saved = state / "owner.json"
         self.run = executor.Run(built, None, state / "owner", None)
         self.run.record_hooks.append(lambda run, name, value: substituted(value, self.found))
-        # The digests it mints for files it reads are those of the files where it runs, and a
-        # file a manifest it returns says it wrote is written there.
+        # The digests it mints for files it reads are those of the files in the checkout they
+        # are in, and a file a record it returns says it wrote is written there.
         here = (pathlib.Path.cwd() / ".git").exists()
-        self.files = checkout.file_digests(self.run) if here else {}
-        self.writes = {}
+        self.plan = checkout.Plan(self.run) if here else None
+        self.files, self.writes, self.dirs = {}, {}, {}
         if here:
+            written = checkout.written(self.run, self.plan)
+            self.files = checkout.file_digests(self.run, self.plan, written)
             minted = {(j["record"], j["pointer"]): j["minted"] for j in built["joins"]
                       if "minted" in j}
-            for record, members in checkout.written(self.run).items():
-                for pointer, path in members.items():
+            for record, members in written.items():
+                for pointer, (key, path) in members.items():
                     self.writes[minted[(record, pointer + "/digest")]] = (
-                        path, minted[(record, pointer + "/size")])
+                        key, path, minted[(record, pointer + "/size")])
         # Started again on a state root it wrote: the first request may be the one it was
         # answering when it was killed.
         self.restarted = self.saved.exists()
         if self.restarted:
             kept = hosts.decode(json.loads(self.saved.read_text()))
             self.next, self.answered, self.found = kept["next"], kept["answered"], kept["found"]
-            self.run.learned = kept["learned"]
+            self.run.learned, self.dirs = kept["learned"], kept["dirs"]
         else:
             self.next, self.answered, self.found = 0, {}, world(self.run)
 
     def save(self) -> None:
         """What this owner has committed, durably, under its state root."""
         kept = {"next": self.next, "answered": self.answered, "found": self.found,
-                "learned": self.run.learned}
+                "learned": self.run.learned, "dirs": self.dirs}
         self.saved.write_text(json.dumps(hosts.encode(kept)))
 
     def step_for(self, request: dict) -> dict:
@@ -221,6 +249,7 @@ class Owner:
             # The request it was killed answering, sent again: what it committed is the answer.
             return copy.deepcopy(self.answered[sent])
         step = self.step_for(call.request)
+        self.entered(step)
         if "replays" in step:
             if sent not in self.answered:
                 raise ValueError(f"{step['name']} replays a request this owner never answered")
@@ -259,6 +288,27 @@ class Owner:
             call.point(point)
         return found
 
+    def entered(self, step: dict) -> None:
+        """The checkout the step works in, read where this owner runs now the first time a step
+        works in it; and its HEAD read again for each binding the step returns."""
+        if self.plan is None:
+            return
+        here = pathlib.Path.cwd()
+        key = self.plan.step_key(step)
+        key = self.plan.default() if key is None else key
+        if key not in self.dirs:
+            self.dirs[key] = str(here)
+            for stated, value in checkout_facts(self.run, self.plan, key, here).items():
+                self.found.setdefault(stated, value)
+        for name in step.get("returns", []):
+            commit = stated_commit(self.run, name)
+            if commit:
+                self.found[commit] = head(here)
+
+    def place(self, key) -> pathlib.Path:
+        """The directory of a checkout this owner has worked in, else the one it runs in now."""
+        return pathlib.Path(self.dirs.get(key, pathlib.Path.cwd()))
+
     def written(self, step: dict, mint: bool = True) -> dict:
         """The stated answer under values of this owner's own, minted afresh unless the step
         replays one it answered. A planted record is written as planted, and every other record
@@ -266,19 +316,20 @@ class Owner:
         so a planted difference is consistent and shows where it was planted."""
         run = self.run
         if mint:
-            here = pathlib.Path.cwd()
             for minted in run.minted_at.get(step["name"], []):
                 read = self.files.get(minted)
-                if read is not None and (here / read[1]).is_file():
-                    run.learned[minted] = hashlib.sha256((here / read[1]).read_bytes()).hexdigest()
+                target = None if read is None else self.place(read[1]) / read[2]
+                if target is not None and target.is_file():
+                    run.learned[minted] = hashlib.sha256(target.read_bytes()).hexdigest()
                 else:
                     run.learned[minted] = fresh(run.shapes[minted])
             for minted in run.minted_at.get(step["name"], []):
                 if minted in self.writes:
-                    path, size = self.writes[minted]
+                    key, path, size = self.writes[minted]
                     data = f"{step['name']} {secrets.token_hex(8)}\n".encode()
-                    (here / path).parent.mkdir(parents=True, exist_ok=True)
-                    (here / path).write_bytes(data)
+                    target = self.place(key) / path
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    target.write_bytes(data)
                     run.learned[minted] = hashlib.sha256(data).hexdigest()
                     run.learned[size] = len(data)
         run.forget()
