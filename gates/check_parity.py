@@ -1831,8 +1831,12 @@ def codex_run():
         with tempfile.TemporaryDirectory() as raw_tmp:
             tmp = pathlib.Path(raw_tmp)
             fake, argv_log = tmp / "codex", tmp / "argv"
+            # The fake reads its prompt from stdin as `codex exec` does. One that left it unread
+            # failed codex-helm whenever the kernel handed out pipes smaller than the prompt:
+            # the wrapper's write then met a closed pipe (macOS, 2026-10-04, 512-byte pipes).
             fake.write_text(
                 "#!/usr/bin/env bash\n"
+                "cat >/dev/null\n"
                 "printf '%s\\n' \"$@\" > \"$FAKE_CODEX_ARGV\"\n"
                 "printf 'progress-err\\n' >&2\n"
                 "printf 'final-out\\n'\n"
