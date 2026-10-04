@@ -103,6 +103,7 @@ from __future__ import annotations
 
 import dataclasses
 import json
+import pathlib
 import unicodedata
 
 from workenv import cli, journal, preparation, roles, storage
@@ -558,12 +559,17 @@ def history_of(store: storage.Store, scope: dict) -> tuple[dict, str] | None:
     return None
 
 
-def location_of(store: storage.Store, scope: dict) -> dict:
-    """What the location's label is made of: for a repository, its name and the branch its
-    checkout bound most recently is on now, or the branch it was bound on where git does not read
-    the checkout. The entry reads it once, as it opens."""
+def location_of(store: storage.Store, scope: dict, here: pathlib.Path | None = None) -> dict:
+    """What the location's label is made of: for a repository, its name and the branch the
+    checkout the entry is opened in is on now, where that checkout is bound to the repository,
+    and else the branch of the checkout bound most recently; or the branch it was bound on where
+    git does not read the checkout. The entry reads it once, as it opens."""
     if scope["layer"] == "repository":
         found = checkouts.held(store, scope["repository_id"])
+        top = checkouts.top(here) if here is not None else None
+        mine = [held for held in found
+                if top is not None and checkouts.same_place(str(held[1]), top)]
+        found = mine or found
         binding = store.get(found[0][0]) if found else None
         observed = (binding or {}).get("observed", {})
         locator = observed.get("locator", scope["repository_id"]).rstrip("/")
@@ -579,7 +585,8 @@ def location_of(store: storage.Store, scope: dict) -> dict:
 # The model.
 
 class Entry:
-    def __init__(self, store: storage.Store, request: dict, script: dict, dispatch=None):
+    def __init__(self, store: storage.Store, request: dict, script: dict, dispatch=None,
+                 workdir: pathlib.Path | None = None):
         self.store, self.request, self.script = store, request, script
         self.dispatch = dispatch or (lambda sealed, carried: None)
         self.locale, self.terminal = script["locale"], dict(script["terminal"])
@@ -594,7 +601,8 @@ class Entry:
         self.tool, self.tool_chosen = 0, False
         self.permission, self.permission_chosen = 0, False
         self.scope = self.starts[0].route["scope"] if self.starts else self.person
-        self.place = location_of(store, self.scope)
+        self.place = location_of(store, self.scope,
+                                 pathlib.Path.cwd() if workdir is None else pathlib.Path(workdir))
         self.layers = [self.scope] + ([self.person] if self.scope != self.person else [])
         # The person's own choices of the positions no collection applies, by element id.
         self.choices: dict[str, bool] = {}

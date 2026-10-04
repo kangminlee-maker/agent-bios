@@ -193,7 +193,7 @@ def entry(owner: Owner, host_name: str, entrance: str, locale: str, size: tuple[
               "terminal": {"columns": size[0], "rows": size[1]}, "locale": locale,
               "inputs": []}
     request = {"actor": owner.actor, "local_access_generation": state["access_generation"]}
-    return tui.Entry(owner.store, request, script, dispatch), offered
+    return tui.Entry(owner.store, request, script, dispatch, owner.workdir), offered
 
 
 def checked(answer: dict) -> tuple[str, str | None]:

@@ -24,6 +24,7 @@ import cases  # noqa: E402
 import executor  # noqa: E402
 import host as hosts  # noqa: E402
 import rules as oracles  # noqa: E402
+import scenarios  # noqa: E402
 from workenv.contracts import canonical  # noqa: E402
 
 SCENARIOS = HERE / "fixtures" / "scenarios"
@@ -110,6 +111,29 @@ class Positive(unittest.TestCase):
         signed = [case for case in passed
                   if "signature_envelope" in (SCENARIOS / case / "scenario.json").read_text()]
         self.assertTrue(signed, "no scenario that signs was run")
+
+    def test_a_record_the_driver_sends_with_a_join_it_dropped_fails_against_the_double(self):
+        # The driver forgets that SRC-11's home of S names S's binding by digest and sends
+        # another digest there; the double holds what it carried to what it minted.
+        _, built = scenario("src-11")
+        features = executor.feature_modules(cases.features_of(built))[0]
+        installed = features["checkout"].install
+
+        def install(run_):
+            installed(run_)
+
+            def dropped(run_, step):
+                if step["name"] == "register_adr_s":
+                    run_.joins["home_s"] = [join for join in run_.joins["home_s"]
+                                            if join["pointer"] != "/home/binding_evidence_digest"]
+                    run_.templates["home_s"]["home"]["binding_evidence_digest"] = "e" * 64
+                    run_.forget()
+            run_.before_hooks.append(dropped)
+        got = run("src-11", features={**features, "checkout": types.SimpleNamespace(
+            install=install)})
+        self.assertEqual((got["outcome"], got["step"]), (executor.FAILED, "register_adr_s"), got)
+        # The request names the payload by digest, so the first value that differs is its own.
+        self.assertIn("register_s/payload_digest arrived as", got["why"])
 
     def test_an_answer_stated_receipt_of_an_earlier_step_passes_with_that_receipt(self):
         got = run("n13-c09-pos", features=self.one_process("n13-c09-pos"), shared=True)
@@ -725,8 +749,10 @@ class Host(unittest.TestCase):
         self.assertEqual(host.call(message)["answer"], str(start))
         self.assertEqual(host.call({**message, "cwd": str(other)})["answer"], str(other))
         self.assertEqual(host.call(message)["answer"], str(start))
+        # A checkout the driver built that is gone was removed by the run, which fails.
         self.assertIn("cannot be entered",
-                      host.call({**message, "cwd": str(other / "absent")})["blocked"])
+                      host.call({**message, "cwd": str(other / "absent")})["error"])
+        self.assertEqual(host.call(message)["answer"], str(start))
 
 
 class Clock(unittest.TestCase):
@@ -863,9 +889,31 @@ class Checkout(unittest.TestCase):
                               if (join["record"], join["pointer"]) != (
                                   "stored_worktree_checkout", "/observed/working_bytes_digest")]
 
-        def one_commit(built):
-            record_of(built, "stored_fork_checkout")["observed"]["commit"] = \
-                record_of(built, "stored_clone_checkout")["observed"]["commit"]
+        def other_size(built):
+            # The fork shares the clone's commit and states its committed ADR at another size.
+            record_of(built, "fork_observation")["read"][0]["size"] = 1000
+
+        def tracked_as_untracked(built):
+            record_of(built, "fork_observation")["read"][3]["state"] = "untracked"
+
+        def other_content(built):
+            # The fork pins its committed README by a digest of its own, at the clone's size.
+            built["joins"] = [join for join in built["joins"]
+                              if (join["record"], join["pointer"]) != ("fork_observation",
+                                                                       "/read/3/digest")]
+            record_of(built, "fork_observation")["read"][3]["digest"] = "ab" * 32
+
+        def two_commits(built):
+            # No edit switches the clone's branch, yet its two bindings state two commits.
+            built["world"]["events"] = []
+            record_of(built, "stored_clone_checkout_after_switch")["observed"]["branch"] = "main"
+
+        def worktree_shares_the_fork(built):
+            # The fork has a commit of its own, and the worktree, a worktree of the clone,
+            # states it.
+            commit = "2468ace02468ace02468ace02468ace02468ace0"
+            for name in ("stored_fork_checkout", "stored_worktree_checkout"):
+                record_of(built, name)["observed"]["commit"] = commit
 
         def two_remotes(built):
             record_of(built, "stored_clone_checkout_after_switch")["observed"]["locator"] = \
@@ -878,7 +926,16 @@ class Checkout(unittest.TestCase):
                 ("n27-c01-neg", None, "two contents for rules/review.md"),
                 ("src-10", changed(two_places), "the selection worktree_selection names 2"),
                 ("src-10", changed(no_observation), "the binding stored_worktree_checkout binds"),
-                ("src-10", changed(one_commit), "states the commit 0123456789abcdef"),
+                ("src-10", changed(other_size), "shares a commit that holds 1830 other bytes at "
+                                                "docs/adr/0001-journal-mode.md"),
+                ("src-10", changed(tracked_as_untracked), "shares a commit that holds README.md, "
+                                                          "where its records state the file "
+                                                          "untracked"),
+                ("src-10", changed(other_content), "shares a commit that holds 3120 other bytes "
+                                                   "at README.md"),
+                ("src-10", changed(two_commits), "observe 2 commits for /home/ana/work before"),
+                ("src-10", changed(worktree_shares_the_fork), "states the commit of a checkout "
+                                                              "other than its repository's first"),
                 ("src-10", changed(two_remotes), "observe 2 remotes for /home/ana/work"),
                 ("src-10", changed(no_switch), "observe 2 branches for /home/ana/work before")):
             with self.subTest(said=said):
@@ -889,8 +946,9 @@ class Checkout(unittest.TestCase):
 
     def test_a_clone_a_worktree_and_a_fork_are_three_checkouts(self):
         # SRC-10's selections name three checkouts; each holds its own files on its own branch
-        # and remote, the worktree is a git worktree of the clone, and each binding's commit is
-        # its own checkout's HEAD.
+        # and remote, the worktree is a git worktree of the clone, each binding's commit is its
+        # own checkout's HEAD, and the fork, whose binding states the clone's commit, is a clone
+        # of it holding its committed files and its own changed ones.
         _, built = scenario("src-10")
         run_ = built_run(self, "src-10", "checkout")
         place = {name: pathlib.Path(run_.templates[f"{name}_selection"]["roots"][0]["place"]
@@ -913,15 +971,25 @@ class Checkout(unittest.TestCase):
                                  git_out(here, "rev-parse", "HEAD").strip())
                 for read in record_of(built, f"{name}_observation")["read"]:
                     self.assertEqual(len((here / read["path"]).read_bytes()), read["size"])
-        readmes = {hashlib.sha256((here / "README.md").read_bytes()).hexdigest()
-                   for here in place.values()}
-        self.assertEqual(len(readmes), 3)
+        def held(name: str, path: str) -> bytes:
+            return (place[name] / path).read_bytes()
+        self.assertEqual(git_out(place["fork"], "rev-parse", "HEAD"),
+                         git_out(place["clone"], "rev-parse", "HEAD"))
+        self.assertEqual(held("fork", "README.md"), held("clone", "README.md"))
+        self.assertNotEqual(held("worktree", "README.md"), held("clone", "README.md"))
+        self.assertNotEqual(held("fork", "docs/adr/0002-backups.md"),
+                            held("clone", "docs/adr/0002-backups.md"))
+        self.assertEqual(git_status(place["fork"]),
+                         " M docs/adr/0002-backups.md\n?? docs/adr/0003-draft.md\n")
         self.assertEqual({step: run_.worked_in.get(step) for step in
                           ("bind_clone", "bind_worktree", "observe_fork", "bind_fork",
-                           "register_decisions")},
+                           "register_decisions", "refuse_the_fork_read_as_its_original",
+                           "refuse_a_second_writer_in_the_fork")},
                          {"bind_clone": place["clone"], "bind_worktree": place["worktree"],
                           "observe_fork": place["fork"], "bind_fork": place["fork"],
-                          "register_decisions": None})
+                          "register_decisions": place["clone"],
+                          "refuse_the_fork_read_as_its_original": place["fork"],
+                          "refuse_a_second_writer_in_the_fork": place["fork"]})
         self.assertFalse((place["clone"] / "docs" / "adr" / "records.jsonl").exists())
 
     def test_two_repositories_no_selection_reads_are_two_checkouts(self):
@@ -930,7 +998,13 @@ class Checkout(unittest.TestCase):
         run_ = built_run(self, "src-11", "checkout")
         r, s = run_.checkout, run_.worked_in["bind_repository_s"]
         self.assertNotEqual(r, s)
-        self.assertEqual(run_.worked_in["bind_repository_r"], r)
+        # A home speaks of the checkout its binding was made in, and a manifest of its home's.
+        plan = executor.feature_modules({"checkout"})[0]["checkout"].Plan(run_)
+        for name in ("home_s", "stored_home_s", "manifest_s"):
+            self.assertEqual(plan.of.get(name), plan.of["stored_binding_s"], name)
+        for step, here in (("bind_repository_r", r), ("register_adr_r", r), ("publish_adr_r", r),
+                           ("register_adr_s", s), ("publish_adr_s", s)):
+            self.assertEqual(run_.worked_in[step], here, step)
         for here, name, remote in ((r, "r", "reports"), (s, "s", "billing")):
             with self.subTest(repository=name):
                 self.assertEqual(git_out(here, "remote", "get-url", "origin").strip(),
@@ -939,6 +1013,32 @@ class Checkout(unittest.TestCase):
                                  git_out(here, "rev-parse", "HEAD").strip())
                 self.assertEqual((here / "docs/adr/0001-journal-mode.md").read_bytes(),
                                  run_.members["adr_body"])
+
+    def test_a_step_works_in_the_checkout_of_the_repository_it_works_for(self):
+        # DC-KEEP's second repository is a checkout of its own: registering and publishing its
+        # memory, which it owns, and the link and use whose records work in it, run there.
+        run_ = built_run(self, "dc-keep", "checkout")
+        second = run_.worked_in["bind_alice_checkout2"]
+        self.assertNotEqual(second, run_.checkout)
+        for step in ("register_repo2_memory", "publish_wal2", "open_alice_link_3",
+                     "changed_context_use"):
+            self.assertEqual(run_.worked_in.get(step), second, step)
+        for step in ("register_repo_memory", "publish_wal", "open_alice_link", "first_use"):
+            self.assertEqual(run_.worked_in.get(step, run_.checkout), run_.checkout, step)
+
+    def test_a_read_whose_size_is_minted_reads_a_file_the_checkout_holds_unless_written(self):
+        # An observation minting the size of a file it reads, where no published member has
+        # that size, reads a file the checkout holds from the start, and nothing writes it.
+        spec = json.loads((SCENARIOS / "n27-selection-neg" / "spec.json").read_bytes())
+        observation = next(record for record in spec["records"]
+                           if record["name"] == "observe_the_selection_observation")
+        observation["set"] += [{"pointer": "/read/2/digest", "value": "$digest:draft_bytes"},
+                               {"pointer": "/read/2/size", "value": "$integer:draft_size"}]
+        built = scenarios.generate(json.dumps(spec).encode())
+        run_ = built_run(self, "n27-selection-neg", "checkout", built=built)
+        read = run_.templates["observe_the_selection_observation"]["read"][2]
+        self.assertTrue((run_.checkout / read["path"]).is_file(), read)
+        self.assertEqual(run_.written, {})
 
     def test_a_branch_switch_is_a_commit_the_driver_makes_on_the_branch_the_edit_names(self):
         # SRC-10's clone switches to chore/prune-old-adrs by an edit of .git/HEAD and of the
@@ -960,6 +1060,10 @@ class Checkout(unittest.TestCase):
         self.assertNotIn("docs/adr/0001-journal-mode.md", tree)
         self.assertIn("README.md", tree)
         self.assertFalse((clone / "docs/adr/0001-journal-mode.md").exists())
+        # The index is the new branch's, as a switch leaves it.
+        self.assertEqual(git_out(clone, "ls-files", "docs/adr").split(),
+                         ["docs/adr/0002-backups.md"])
+        self.assertEqual(git_out(clone, "diff", "--cached", "--name-only"), "")
 
     def test_a_stand_in_is_replaced_only_where_a_field_of_its_kind_holds_it(self):
         feature = executor.feature_modules({"checkout"})[0]["checkout"]

@@ -5,7 +5,9 @@ names, in the order the scenario states them, but mints every value of its own: 
 digest, instant or count of each stand-in's shape. It takes the public keys and signatures the
 driver made from the records it is sent, and it computes every digest over the bytes it received
 or wrote, as a real owner does. So a case passes against it only if the executor learned what it
-minted, carried it where the scenario joins it, and recomputed what depends on it.
+minted, carried it where the scenario joins it, and recomputed what depends on it: it holds each
+request and record it is sent to the values it minted and the digests it can compute wherever the
+scenario joins one, and raises on another.
 
 It reads the world it runs in as a real owner does: where it runs in a git checkout, a file digest
 the scenario states is the digest of the file at that path, the checkout path is the directory it
@@ -262,6 +264,7 @@ class Owner:
         for name, record in zip([step["request"], *step["carries"]],
                                 [call.request, *call.carried], strict=True):
             substitutions(run.templates[name], record, self.found)
+        self.carried_as_joined(step, [call.request, *call.carried])
         run.current = {step["request"]: call.request,
                        **dict(zip(step["carries"], call.carried, strict=True))}
         run.forget()
@@ -287,6 +290,42 @@ class Owner:
         for point in b03.FAULT_POINTS[b03.FAULT_POINTS.index(COMMIT_POINT) + 1:]:
             call.point(point)
         return found
+
+    def known(self, name: str, seen: set | None = None) -> bool:
+        """Whether this owner holds every value a record rests on: each value minted into it was
+        minted here, and each record it names by digest is known in turn."""
+        seen = set() if seen is None else seen
+        if name in seen or name in self.run.members:
+            return True
+        seen.add(name)
+        for join in self.run.joins.get(name, []):
+            if "minted" in join:
+                if join["minted"] not in self.run.learned:
+                    return False
+            elif not self.known(join["digest_of"], seen):
+                return False
+        return True
+
+    def carried_as_joined(self, step: dict, received: list) -> None:
+        """What the driver sent holds, wherever the scenario joins one, each value this owner
+        minted and the digest of each record whose values it all holds; another value there is
+        the driver carrying the wrong one, which an owner answering as stated would not see."""
+        run = self.run
+        run.forget()
+        for name, value in zip([step["request"], *step["carries"]], received, strict=True):
+            for join in run.joins.get(name, []):
+                if "minted" in join:
+                    if join["minted"] not in run.learned:
+                        continue
+                    expected = run.learned[join["minted"]]
+                elif self.known(join["digest_of"]):
+                    expected = run.digest(join["digest_of"])
+                else:
+                    continue
+                held = executor.at(value, join["pointer"])[1]
+                if held != expected:
+                    raise ValueError(f"{name}{join['pointer']} arrived as {held!r}, where this "
+                                     f"owner holds {expected!r}")
 
     def entered(self, step: dict) -> None:
         """The checkout the step works in, read where this owner runs now the first time a step

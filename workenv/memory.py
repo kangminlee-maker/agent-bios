@@ -11,7 +11,9 @@ a `lifecycle_event` of its own, published the same way. Both read the same admis
 journal asks before the bundle is published and again in the unit of work: a source this
 installation does not hold as a memory source is `ref_unavailable`, a head other than the one the
 request expects is `stale_base`, a source a package published is `publisher_bytes_modified`, and a
-repository-authored source whose repository is not bound here is `binding_unverified`.
+repository-authored source whose repository is not bound here is `binding_unverified`. A request
+from a fork of the source's repository writes nothing there: `repository_binding_required`
+(`workenv.sources.homes`).
 
 What the new revision names depends on where the source is authored, because this owner never
 rewrites bytes a person wrote:
@@ -22,7 +24,10 @@ rewrites bytes a person wrote:
     `<document root>/records.jsonl` that holds the records this owner published to it. An
     untracked file is not yet the repository's and is no member, and neither is a file outside
     that folder, whatever an earlier revision named; existing Markdown beside the member is
-    carried as the bytes it is.
+    carried as the bytes it is. A tracked file whose path no manifest member can state (C01
+    allows ASCII letters, digits, `_`, `-` and `.` in each part) cannot be listed, so the
+    publication is `manifest_member_unlisted` at that path rather than a revision without it; the
+    person renames the file.
   - Any other memory source keeps its records in `memory/records.jsonl` and carries over every
     member the revision before it named, with the bytes its bundle holds; a member whose bytes
     are not at hand is carried by its hash alone. That is a managed source, and a source admitted
@@ -30,11 +35,13 @@ rewrites bytes a person wrote:
     admitted with stay as they are, and a repository-authored one gains `memory/records.jsonl` in
     its repository.
 
-Either way the member holding the records is the bytes of the member the revision before it
-named and one line after them — the canonical bytes of the record just stored. It is extended,
-never rebuilt, so a record another checkout wrote into it stays in it. A previous member whose
-bytes this installation does not hold cannot be extended, and the publication is
-`ref_unavailable` at that member rather than a member with records missing from it.
+Either way the member holding the records is the bytes of the member the revision before it named
+and one line after them — the canonical bytes of the record just stored. It is extended, never
+rebuilt, so a record another checkout wrote into it stays in it. Where no revision held here names
+that member yet, a repository-authored source extends it as git has it committed, so the records
+another installation published and the person committed stay in it too. A previous member whose
+bytes this installation does not hold cannot be extended, and the publication is `ref_unavailable`
+at that member rather than a member with records missing from it.
 
 For a repository-authored source that member is also the person's file, so this owner
 writes it into the checkout — a temporary file beside it, synced, then one rename, so no reader
@@ -50,9 +57,10 @@ refused rather than the file overwritten. One extra line a person wrote by hand 
 indistinguishable from an interrupted publication, and is treated as one.
 
 `memory.state.resolve` answers a `state_question` with the current state of the records its scopes
-hold, reduced before anything is ranked. The order is fixed: the lifecycle events are applied,
-applicability is read, and only then is anything compared. Nothing here picks a winner, and no
-scope order and no instant is ever read as one:
+hold, reduced before anything is ranked. A question a fork asks over its original's scope, where
+the fork is bound only to derive its own authority, is `repository_binding_required`. The order is
+fixed: the lifecycle events are applied, applicability is read, and only then is anything compared.
+Nothing here picks a winner, and no scope order and no instant is ever read as one:
 
   - The records are those this owner published to a source in scope and those the source's own
     revision holds in its bytes: a `.jsonl` member one record per line, any other member one
@@ -148,6 +156,8 @@ def publishing(call, store: storage.Store) -> tuple[dict | None, dict | None]:
     held = homes.source_of(store, source_id)
     if held is None or held["home_mode"] is None or held["role"] != ROLE:
         return refused(call, c01.REF_UNAVAILABLE), None
+    if homes.as_fork(store, call.request["owner"], held["scope"]):
+        return homes.fork_refused(call), None
     moved = journal.stale(call, store)
     if moved is not None:
         return moved, None
@@ -166,9 +176,14 @@ def publishing(call, store: storage.Store) -> tuple[dict | None, dict | None]:
     if named and member not in at_hand:
         return refused(call, c01.REF_UNAVAILABLE, f"/members/{named[0]}"), None
     admitted["previous"] = at_hand.get(member, b"")
+    if checkout is not None and not named:
+        admitted["previous"] = checkouts.committed_bytes(checkout, member) or b""
     root = document_root_of(held)
     if checkout is not None and root is not None:
         admitted["under"] = document_root(checkout, root, member)
+        unfit = unlistable(call, source_id, admitted["under"])
+        if unfit is not None:
+            return refused(call, c01.MANIFEST_MEMBER_UNLISTED, f"/{unfit}"), None
     if checkout is not None:
         return working(call, store, checkout, admitted["previous"], member), admitted
     return None, admitted
@@ -193,6 +208,18 @@ def document_root(checkout: pathlib.Path, root: str, member: str) -> list[tuple[
         found.append(({"path": path, "digest": hashlib.sha256(data).hexdigest(),
                        "size": len(data)}, data))
     return found
+
+
+def unlistable(call, source_id: str, under: list[tuple[dict, bytes]]) -> str | None:
+    """The first file under the document root whose path a manifest member cannot state, as
+    C01's manifest schema reads it, or None."""
+    probe = {"kind": MANIFEST, "schema": 1, "format_version": 1, "source_id": source_id,
+             "members": [member for member, _ in under], "produced_at": journal.now(call)}
+    for found in journal.refusals(probe, "stored", MANIFEST):
+        parts = found["pointer"].split("/")
+        if len(parts) == 4 and parts[1] == "members" and parts[3] == "path":
+            return under[int(parts[2])][0]["path"]
+    return None
 
 
 def inside(checkout: pathlib.Path, relative: str) -> pathlib.Path | None:
@@ -540,6 +567,9 @@ def memory_state_resolve(call) -> dict:
     reduced as the module docstring states."""
     store = storage.of(call.state)
     question = journal.payload(call)
+    if any(homes.as_fork(store, call.request["owner"], scope, reads=True)
+           for scope in question["scopes"]):
+        return homes.fork_refused(call)
     asked = [source_id for scope in question["scopes"]
              for source_id in memory_sources(store, scope)]
     read = {source_id: holdings(call, store, source_id)

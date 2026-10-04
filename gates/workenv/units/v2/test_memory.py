@@ -19,7 +19,7 @@ import bench  # noqa: E402
 from bench import Killed  # noqa: E402
 from test_sources import INSTANT, Base, Checkout, home, manifest, sha  # noqa: E402
 
-from workenv import journal, memory, sources  # noqa: E402
+from workenv import journal, memory, roles, sources  # noqa: E402
 from workenv.contracts import c01, c03, c04, c05, c07, canonical  # noqa: E402
 
 OPEN, PUBLISH, APPLY, RESOLVE = ("workstream.open", "memory.record.publish",
@@ -462,6 +462,74 @@ class Authored(Memory):
         return self.run_with(sources.source_revision_commit,
                              bench.request(self.person, "source.revision.commit", target,
                                            payload), [payload, *carried], now=INSTANT)
+
+
+class AsGitHoldsThem(Authored):
+    """The files of a repository-authored source read as git holds them: by the paths a manifest
+    can state, a symbolic link as the path it holds, nothing through a linked directory, and the
+    records file as git has it committed before this installation published to it."""
+
+    def test_a_tracked_file_whose_path_no_member_can_state_is_refused_by_that_path(self):
+        source_id, head = self.authored(root="docs/adr")
+        for name in ("결정.md", "with space.md", "a:b.md"):
+            with self.subTest(name=name):
+                self.checkout.write(f"docs/adr/{name}", b"# ADR\n")
+                self.checkout.git("add", f"docs/adr/{name}")
+                answer = self.publish(choice(self.scope, WAL), head=head, source=source_id)
+                self.assertEqual(answer["result"]["outcome"]["material_gaps"],
+                                 [{"code": c01.MANIFEST_MEMBER_UNLISTED,
+                                   "pointer": f"/docs/adr/{name}"}])
+                self.assertFalse((self.checkout.path / "docs/adr/records.jsonl").exists())
+                self.checkout.git("rm", "-q", "-f", f"docs/adr/{name}")
+
+    def test_records_committed_before_this_installation_published_stay_in_the_member(self):
+        theirs = {**choice(self.scope, ROLLBACK), "record_id": bench.ident("rec"),
+                  "recorded_at": "2026-09-18T10:00:00Z"}
+        committed = canonical.encode(theirs) + b"\n"
+        self.checkout.write("docs/adr/records.jsonl", committed)
+        self.checkout.commit()
+        source_id, head = self.authored(root="docs/adr")
+        answer = self.publish(choice(self.scope, WAL), head=head, source=source_id)
+        self.assertEqual(answer["result"]["outcome"]["stage"], "committed", answer["result"])
+        written = (self.checkout.path / "docs/adr/records.jsonl").read_bytes()
+        self.assertEqual(written, committed + canonical.encode(answer["returned"][0]) + b"\n")
+        self.assertEqual(self.member(answer["returned"][1], "docs/adr/records.jsonl"), written)
+
+    def test_a_symbolic_link_is_published_and_checked_as_the_path_it_holds(self):
+        (self.checkout.path / "docs/adr/dangling.md").symlink_to("missing.md")
+        self.checkout.git("add", "docs/adr/dangling.md")
+        source_id, head = self.authored(root="docs/adr")
+        answer = self.publish(choice(self.scope, WAL), head=head, source=source_id)
+        self.assertEqual(self.member(answer["returned"][1], "docs/adr/dangling.md"), b"missing.md")
+        self.assertFalse(roles.drifted(self.bench.store(), source_id, "docs/adr/dangling.md",
+                                       sha(b"missing.md")))
+
+    def test_a_revision_states_a_link_as_the_path_it_holds_and_never_what_it_leads_to(self):
+        outside = self.scratch / "outside.md"
+        outside.write_bytes(b"OUTSIDE\n")
+        (self.checkout.path / "docs/adr/link.md").symlink_to(outside)
+        self.checkout.git("add", "docs/adr/link.md")
+        source_id, head = self.authored(root="docs/adr")
+        led_to = self.commit_to(manifest(source_id, {"docs/adr/link.md": b"OUTSIDE\n"}), head, [])
+        self.assertEqual(led_to["result"]["outcome"]["material_gaps"],
+                         [{"code": c03.OBJECT_DIGEST_MISMATCH, "pointer": "/members/0"}])
+        held = self.commit_to(manifest(source_id, {"docs/adr/link.md": str(outside).encode()}),
+                              head, [])
+        self.assertEqual(held["result"]["outcome"]["stage"], "committed", held["result"])
+
+    def test_nothing_below_a_directory_that_is_a_link_is_a_member(self):
+        self.checkout.write("docs/adr/sub/file.md", b"public\n")
+        self.checkout.commit()
+        outside = self.scratch / "outside"
+        outside.mkdir()
+        (outside / "file.md").write_bytes(b"PRIVATE\n")
+        (self.checkout.path / "docs/adr/sub/file.md").unlink()
+        (self.checkout.path / "docs/adr/sub").rmdir()
+        (self.checkout.path / "docs/adr/sub").symlink_to(outside, target_is_directory=True)
+        source_id, head = self.authored(root="docs/adr")
+        answer = self.publish(choice(self.scope, WAL), head=head, source=source_id)
+        self.assertEqual([member["path"] for member in answer["returned"][1]["members"]],
+                         ["docs/adr/0007-journal-mode.md", "docs/adr/records.jsonl"])
 
 
 class Working(Authored):

@@ -95,10 +95,12 @@ class Commanding(Hosts, Routing):
         for name in names:
             self.probed(name, "new", version=VERSION)
 
-    def bound(self) -> pathlib.Path:
-        """A checkout of ORIGIN, bound as the repository."""
-        checkout = Checkout(self.scratch, "repo")
+    def bound(self, name: str = "repo", branch: str | None = None) -> pathlib.Path:
+        """A checkout of ORIGIN, bound as the repository, on the branch named or `main`."""
+        checkout = Checkout(self.scratch, name)
         checkout.git("remote", "add", "origin", ORIGIN)
+        if branch is not None:
+            checkout.git("checkout", "-q", "-b", branch)
         checkout.commit()
         payload = {"kind": "repository_binding", "schema": 1,
                    "repository_id": self.repository["repository_id"],
@@ -408,6 +410,17 @@ class Start(Commanding):
         offer = tui.latest_offer(self.bench.store(), "setup")
         self.assertEqual(len(offer["offered"]), 1)
         self.assertEqual(screen.element("execution.tool", 0)["value"], "Claude Code")
+
+    def test_the_entry_names_the_branch_of_the_checkout_it_is_opened_in(self):
+        # Another checkout of the repository, on another branch, was bound after this one. The
+        # entry opened here names this one's branch, wherever the program itself runs.
+        self.qualified("claude-code")
+        checkout = self.bound()
+        self.bound("other", branch="feature-backups")
+        screen = Screen(QUIT)
+        self.run_command("start", "claude-code", screen=screen, workdir=checkout)
+        self.assertEqual(screen.element("context.location", 0)["label"].rsplit(" · ", 1)[1],
+                         "main")
 
     def test_leaving_the_entry_sends_nothing_and_launches_nothing(self):
         self.qualified("claude-code")

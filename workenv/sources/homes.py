@@ -12,6 +12,14 @@ home rests on one binding this installation holds for its repository — a repos
 clone and a worktree holds two, one per checkout — and its bytes are read from the checkout that
 binding was made from; a home naming a binding not held is `binding_unverified`.
 
+A fork does not gain a second writer under the source ids it copied (SSOT S04): a request whose
+owner is a repository bound here as a fork of another repository writes none of that original's
+sources, and reads them only where the fork is bound to read the original through it
+(`fork_original_read`) rather than only to derive its own authority (`fork_derived_authority`).
+Each operation that reads or writes a source asks `as_fork`, after its own checks of the request,
+and answers `repository_binding_required`; a registration that would be a second home stays
+`source_home_conflict`, which it is whoever asks.
+
 A source's head is the digest of the record its last commit stored: the home a registration
 stored, or the manifest a revision commit or admission stored. How a source's home keeps it —
 managed, repository-authored or package-published — is held for every source, whether its home
@@ -28,6 +36,7 @@ from workenv.sources import checkouts
 
 # Where a source is authored: registering its home again may change anything of it but these.
 WHERE = ("mode", "repository_id", "document_root", "package_id")
+FORK_READ, FORK_DERIVED = "fork_original_read", "fork_derived_authority"
 
 
 def source_of(store: storage.Store, source_id: str) -> dict | None:
@@ -69,6 +78,25 @@ def bound(store: storage.Store, home: dict) -> bool:
     return checkouts.holds(store, home["repository_id"], home["binding_evidence_digest"])
 
 
+def as_fork(store: storage.Store, owner: dict, scope: dict, reads: bool = False) -> bool:
+    """Whether a request the owner makes would use a fork as the original the scope is: the
+    owner is a repository bound here as a fork of the scope's repository, and the request writes
+    there, or reads there with no binding made to read the original through the fork."""
+    if owner.get("layer") != "repository" or scope.get("layer") != "repository" or \
+            owner.get("repository_id") == scope.get("repository_id"):
+        return False
+    relations = [store.get(binding)["relation"]
+                 for binding, _ in checkouts.held(store, owner["repository_id"])]
+    hows = {relation["how"] for relation in relations
+            if relation.get("original_repository_id") == scope["repository_id"]}
+    return bool(hows) and (not reads or FORK_READ not in hows)
+
+
+def fork_refused(call) -> dict:
+    return journal.answered(call, "refused", gaps=[{"code": c01.REPOSITORY_BINDING_REQUIRED}],
+                            recovery=["new_governed_request"])
+
+
 def checkout_of(store: storage.Store, source: dict) -> pathlib.Path | None:
     """The checkout a repository-authored source's bytes are read from, as `source_of` holds the
     source: the one its home's binding was made from, or, for a source admitted with no home,
@@ -92,6 +120,8 @@ def source_home_register(call) -> dict:
     held = source_of(store, source_id)
     if held is not None and call.request["target"]["base"]["expects"] == "absent":
         return conflict(call)
+    if as_fork(store, call.request["owner"], home["scope"]):
+        return fork_refused(call)
     moved = journal.stale(call, store)
     if moved is not None:
         return moved

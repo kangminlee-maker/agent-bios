@@ -2305,13 +2305,13 @@
    }
   },
   {
-   "digest": "2c69326c8be0720355dc304677b2c5e7bd71593d1f9de829d49136cfe3ff3b3c",
+   "digest": "2f28579487fbbf988e319217f1661a8cf749dbde51cee5357cb46128f1c934d6",
    "name": "stored_fork_checkout",
    "record": {
     "kind": "repository_binding",
     "observed": {
      "branch": "main",
-     "commit": "13579bdf13579bdf13579bdf13579bdf13579bdf",
+     "commit": "0123456789abcdef0123456789abcdef01234567",
      "locator": "git@github.com:someone/work-fork.git",
      "working_bytes_digest": "b24dc320f1ba3bef549d2704b59af57ff53633528783fdc1a9f12ff3cb1393c5"
     },
@@ -2325,7 +2325,7 @@
    }
   },
   {
-   "digest": "40c3ea307adfdc800ad452254bd74f91134d470a1aa034a737a21569cb01b6e9",
+   "digest": "72cf1956dc7e3dd2fb1078d2f25e005c87d4b8d3f07dd120cec7be3e6afb7561",
    "name": "bind_fork_result",
    "record": {
     "kind": "operation_result",
@@ -2337,7 +2337,7 @@
     },
     "outputs": [
      {
-      "digest": "2c69326c8be0720355dc304677b2c5e7bd71593d1f9de829d49136cfe3ff3b3c",
+      "digest": "2f28579487fbbf988e319217f1661a8cf749dbde51cee5357cb46128f1c934d6",
       "kind": "repository_binding"
      }
     ],
@@ -2426,7 +2426,7 @@
    }
   },
   {
-   "digest": "53d7c96ab417ddeb74a2e7db8a80b40f25dcda34326244c880295c2c4aff0902",
+   "digest": "28f41f14c421f772e4d41add21874d196f642f4b228d37f018f191a62326b2f5",
    "name": "fork_home",
    "record": {
     "acceptance_authority": {
@@ -2439,7 +2439,7 @@
     "disclosure": "private",
     "format_version": 1,
     "home": {
-     "binding_evidence_digest": "2c69326c8be0720355dc304677b2c5e7bd71593d1f9de829d49136cfe3ff3b3c",
+     "binding_evidence_digest": "2f28579487fbbf988e319217f1661a8cf749dbde51cee5357cb46128f1c934d6",
      "document_root": "docs/adr",
      "mode": "repository_authored",
      "repository_id": "rep_69dd45cfb2f1c5670cccbcd9d3a799c3"
@@ -2459,7 +2459,7 @@
    }
   },
   {
-   "digest": "978355ed72bfcef1084bfffb9166add7f7ffcbdecbec0b9838bcbadce9524302",
+   "digest": "3e32ea90337fd970e7be3118ccb5359be7b8f0cffa6d8da8b54184c702bd9b15",
    "name": "register_in_fork",
    "record": {
     "action": "contribute",
@@ -2477,7 +2477,7 @@
      "layer": "repository",
      "repository_id": "rep_69dd45cfb2f1c5670cccbcd9d3a799c3"
     },
-    "payload_digest": "53d7c96ab417ddeb74a2e7db8a80b40f25dcda34326244c880295c2c4aff0902",
+    "payload_digest": "28f41f14c421f772e4d41add21874d196f642f4b228d37f018f191a62326b2f5",
     "policy_digests": [],
     "proof_digests": [],
     "request_id": "req_dcd93df3c2d968caa019e615525d32ae",
@@ -2491,7 +2491,7 @@
    }
   },
   {
-   "digest": "fc56729b9083c1efcb743b26e716c0e836a68611d8258c191e7bbac175c58962",
+   "digest": "d47e12ded6351e8e757fac4e0fe27e4635fa407170c14259b95a7ab9fb519dbe",
    "name": "refuse_a_second_writer_in_the_fork_result",
    "record": {
     "kind": "operation_result",
@@ -2506,7 +2506,7 @@
     },
     "outputs": [],
     "provider_effect": "not_applicable",
-    "request_digest": "978355ed72bfcef1084bfffb9166add7f7ffcbdecbec0b9838bcbadce9524302",
+    "request_digest": "3e32ea90337fd970e7be3118ccb5359be7b8f0cffa6d8da8b54184c702bd9b15",
     "request_id": "req_dcd93df3c2d968caa019e615525d32ae",
     "schema": 1,
     "supported_recovery": [
@@ -2825,7 +2825,7 @@
   }
  ],
  "says": "One person has two checkouts of repository W on their laptop: a clone on main at /home/ana/work and a worktree on a feature branch at /home/ana/work-feature-backups; each observation's selection names its own checkout. Each is observed and bound with repository.bind; both bindings name the same repository id W, each with the working_bytes_digest of its own observation. The ADR directory of W is registered as a memory source, a workstream is opened, and memory.record.publish records the journal-mode choice from 0001-journal-mode.md as that source's first revision. A fork of W is observed and bound with its own repository id, naming W as the ancestor it derives new authority from and the clone's binding as its authority evidence, not as an explicit binding to read W through it. Resolving the ADR source from the fork as if it were W is refused with repository_binding_required, and registering a second home for the same source in the fork (a copied manifest taking over as another writer) is refused with source_home_conflict; neither writes anything. Then the clone switches to a branch where 0001-journal-mode.md is absent; a new observation no longer lists it, and rebinding the same repository id now observes branch chore/prune-old-adrs in place of main, still sharing W's identity and this later observation's working_bytes_digest. memory.state.resolve for the workstream still reports the choice as current from the ADR source at the head it was published at: a file missing from a checkout or a branch switch is not a withdrawal.",
- "spec_sha256": "300c3c90f7aaa58906a824cda3f0d9e475b8191034c869c75bba80213513bbc4",
+ "spec_sha256": "d1ed58294ca4d3a13d71f8ed551ca0966982481a888ac1bd54f13c71bf003d5e",
  "steps": [
   {
    "carries": [

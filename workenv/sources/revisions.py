@@ -5,8 +5,9 @@ targets and stores it with the `produced_at` the runtime owns; the stored manife
 the revision, and the source's head moves to it. In order:
 
   - A manifest naming another source than the target is `request_mismatch`; a source this
-    installation holds no home for is `ref_unavailable`; a head other than the one the request
-    expects is `stale_base`.
+    installation holds no home for is `ref_unavailable`; a request from a fork of the source's
+    repository is `repository_binding_required` (`workenv.sources.homes`); a head other than the
+    one the request expects is `stale_base`.
   - A source published by a package is the publisher's bytes: a revision of it here is
     `publisher_bytes_modified`, and an addition is a derived source with a home of its own.
   - Each signature envelope among the request's proofs must be over the payload's bytes: an
@@ -19,7 +20,9 @@ the revision, and the source's head moves to it. In order:
     member's too, because such a source's members are records (C05): a record written in another
     checkout arrives as the record it is, not as a file this installation already holds. Bytes of
     another size or digest than the member states are `object_digest_mismatch` at that member;
-    a member whose bytes are not at hand is stored by its hash alone.
+    a member whose bytes are not at hand is stored by its hash alone. A file in the checkout is
+    read as git keeps it: a symbolic link is the path it holds, and a path below a directory that
+    is a symbolic link holds nothing, so no bytes outside the checkout become a member.
 
 `source.revision.admit` admits a revision through the route its `source_request` payload names.
 Only a revision authored here (`author_here`) is admitted yet; adding a published package or
@@ -28,10 +31,13 @@ importing an external one is not. The request carries the manifest the route nam
 `/route/manifest_digest`. The first admission of a source expects no head and creates it in the
 destination's scope, with the payload's role, kept the destination's way; a later one names the
 head it expects and must name the same scope, role and way, or it is a second home:
-`source_home_conflict`. A destination kept by a package is the publisher's:
+`source_home_conflict`. A request from a fork of the destination's repository is
+`repository_binding_required`. A destination kept by a package is the publisher's:
 `publisher_bytes_modified`. A repository-authored destination rests on a binding of its
 repository held here, or it is `binding_unverified`, and its members' bytes come from that
-checkout. From there an admission is a commit: the same signatures, bytes, bundle and head.
+checkout: for a source already held, the checkout its home's binding was made from
+(`homes.checkout_of`), as a commit reads it. From there an admission is a commit: the same
+signatures, bytes, bundle and head.
 
 The manifest and the bytes at hand are published as the bundle `objects/<revision>/` before the
 unit of work begins, in the storage binding's order (`workenv.storage.publish`), so a revision the
@@ -116,8 +122,8 @@ def gathered(call, manifest: dict, checkout: pathlib.Path | None,
         data = call.members.get(member["digest"])
         if data is None and records:
             data = of_a_record(call, member)
-        if data is None and checkout is not None and (checkout / member["path"]).is_file():
-            data = (checkout / member["path"]).read_bytes()
+        if data is None and checkout is not None:
+            data = checkouts.held_bytes(checkout, member["path"])
         if data is None:
             continue
         if not theirs(data, member):
@@ -148,6 +154,8 @@ def committing(call, store: storage.Store) -> tuple[dict | None, tuple | None]:
     held = homes.source_of(store, source_id)
     if held is None or held["home"] is None:
         return refused(call, c01.REF_UNAVAILABLE), None
+    if homes.as_fork(store, call.request["owner"], held["scope"]):
+        return homes.fork_refused(call), None
     moved = journal.stale(call, store)
     if moved is not None:
         return moved, None
@@ -183,11 +191,14 @@ def admitting(call, store: storage.Store) -> tuple[dict | None, tuple | None]:
     if held is not None and any(held[field] != source[field]
                                 for field in ("scope", "role", "home_mode")):
         return homes.conflict(call), None
+    if homes.as_fork(store, call.request["owner"], destination["scope"]):
+        return homes.fork_refused(call), None
     if destination["home_mode"] == PUBLISHED:
         return refused(call, c01.PUBLISHER_BYTES_MODIFIED), None
     checkout = None
     if destination["home_mode"] == AUTHORED:
-        checkout = checkouts.checkout_for(store, destination["scope"].get("repository_id", ""))
+        checkout = homes.checkout_of(store, held) if held is not None else \
+            checkouts.checkout_for(store, destination["scope"].get("repository_id", ""))
         if checkout is None:
             return refused(call, c01.BINDING_UNVERIFIED), None
     return None, (manifest, source, checkout)

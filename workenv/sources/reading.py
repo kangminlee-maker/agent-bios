@@ -24,9 +24,7 @@ import hashlib
 
 from workenv import journal, storage
 from workenv.contracts import c01, c03
-from workenv.sources import checkouts, homes
-
-FORK_READ, FORK_DERIVED = "fork_original_read", "fork_derived_authority"
+from workenv.sources import homes
 
 
 def unavailable(call) -> dict:
@@ -45,20 +43,6 @@ def member_bytes(call, revision: str, member: dict) -> bytes | None:
     return data
 
 
-def through_a_fork(store: storage.Store, owner: dict, scope: dict) -> bool:
-    """Whether the requesting repository reads another repository's source as that repository's
-    fork with no binding made to read it: bound here to derive its own authority from it, and
-    never to read it."""
-    if owner.get("layer") != "repository" or scope.get("layer") != "repository" or \
-            owner.get("repository_id") == scope.get("repository_id"):
-        return False
-    relations = [store.get(binding)["relation"]
-                 for binding, _ in checkouts.held(store, owner["repository_id"])]
-    original = [relation["how"] for relation in relations
-                if relation.get("original_repository_id") == scope["repository_id"]]
-    return FORK_DERIVED in original and FORK_READ not in original
-
-
 def reference_resolve(call) -> dict:
     store = storage.of(call.state)
     ref = journal.payload(call)
@@ -66,9 +50,8 @@ def reference_resolve(call) -> dict:
         return journal.answered(call, "refused", gaps=[{"code": c03.REQUEST_MISMATCH,
                                                         "pointer": "/target/resource_id"}],
                                 recovery=["new_governed_request"])
-    if through_a_fork(store, call.request["owner"], ref["scope"]):
-        return journal.answered(call, "refused", gaps=[{"code": c01.REPOSITORY_BINDING_REQUIRED}],
-                                recovery=["new_governed_request"])
+    if homes.as_fork(store, call.request["owner"], ref["scope"], reads=True):
+        return homes.fork_refused(call)
     moved = journal.stale(call, store)
     if moved is not None:
         return moved

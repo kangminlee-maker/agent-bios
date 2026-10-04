@@ -117,10 +117,11 @@ def drifted(store: storage.Store, source_id: str, member: str, digest: str) -> b
     if source is None or source["home_mode"] != AUTHORED:
         return False
     # The checkout its home's binding was made from, or the one its repository was bound from
-    # last; a document no checkout holds cannot read as anything.
+    # last; a document no checkout holds cannot read as anything. A symbolic link reads as the
+    # path it holds, as it was published.
     checkout = homes.checkout_of(store, source)
-    return checkout is None or not (checkout / member).is_file() or \
-        hashlib.sha256(checkouts.read(checkout, member)).hexdigest() != digest
+    data = None if checkout is None else checkouts.held_bytes(checkout, member)
+    return data is None or hashlib.sha256(data).hexdigest() != digest
 
 
 def material(store: storage.Store, prepared: dict) -> list[dict]:

@@ -9,17 +9,20 @@ reading the same selection now reads the same files with the same bytes; bytes t
 or a checkout never so observed, state none, because the whole project is never snapshotted in
 their place. A repository is held once per checkout it is bound from, so a clone and a worktree of
 one repository each keep their own binding; binding it again from the same checkout binds that
-checkout anew and leaves the others as they were.
+checkout anew and leaves the others as they were. Two checkouts that show the same remote,
+branch, HEAD and working bytes make the same binding, so a binding is kept as made in the first
+checkout that made it.
 
-`source.observe` reads what a selection names and changes nothing: it keeps only the selection
-it read, by digest beside the observation the journal holds, so a binding can read it again. A
+`source.observe` reads what a selection names and changes nothing: it keeps only the selection it
+read, by digest beside the observation the journal holds, so a binding can read it again. A
 working-tree root reads the file or every file under the directory it names, in the checkout it
 names, as the working tree holds it now: committed, modified since HEAD, or untracked, by git's
 reading, and never a file git ignores. A symbolic link is read as the path it holds, as git keeps
-it, so nothing outside a root is read through one. Reads are ordered as git lists them: by root,
-then the files git tracks before those it does not, each by path. A root with no file is missing,
-and a missing root the selection requires is `ref_unavailable` at that root; a missing optional
-root is not reported. Places other than a working tree are not read here yet.
+it, and a path below a directory that is a symbolic link is not in the working tree at all, as git
+reads it, so nothing outside a root is read through one. Reads are ordered as git lists them: by
+root, then the files git tracks before those it does not, each by path. A root with no file is
+missing, and a missing root the selection requires is `ref_unavailable` at that root; a missing
+optional root is not reported. Places other than a working tree are not read here yet.
 
 Git is asked about the checkout a call names and no other: the variables that point git at
 another repository, index or object store (`GIT_DIR`, `GIT_INDEX_FILE` and the rest of
@@ -86,18 +89,49 @@ def states(checkout: pathlib.Path) -> dict[str, str]:
             index += 1   # the path it was renamed or copied from
     found = {}
     for path in listed:
-        target = checkout / path
-        if target.is_symlink() or target.is_file():   # not a deleted file, nor a submodule
+        if held_bytes(checkout, path) is not None:   # not a deleted file, nor a submodule
             found[path] = changed.get(path, "committed")
     return found
 
 
-def read(checkout: pathlib.Path, path: str) -> bytes:
-    """A working-tree file's bytes as git keeps them: a symbolic link is the path it holds."""
+def beneath_a_link(checkout: pathlib.Path, path: str) -> bool:
+    """Whether a directory on the path below the checkout is a symbolic link, so the path is not
+    in the working tree as git reads it."""
+    here = checkout
+    for part in pathlib.PurePosixPath(path).parts[:-1]:
+        here = here / part
+        if here.is_symlink():
+            return True
+    return False
+
+
+def held_bytes(checkout: pathlib.Path, path: str) -> bytes | None:
+    """A working-tree file's bytes as git keeps them — a symbolic link is the path it holds —
+    or None where the working tree holds no file there: nothing, a directory, or a path below a
+    directory that is a symbolic link."""
     target = checkout / path
+    if beneath_a_link(checkout, path):
+        return None
     if target.is_symlink():
         return os.fsencode(os.readlink(target))
-    return target.read_bytes()
+    return target.read_bytes() if target.is_file() else None
+
+
+def committed_bytes(checkout: pathlib.Path, path: str) -> bytes | None:
+    """The bytes git has committed at the path in the checkout's HEAD, or None where HEAD holds
+    no file there."""
+    try:
+        return git(checkout, "cat-file", "blob", f"HEAD:{path}").encode("utf-8", "surrogateescape")
+    except NotAGitCheckout:
+        return None
+
+
+def read(checkout: pathlib.Path, path: str) -> bytes:
+    """A working-tree file's bytes as git keeps them (`held_bytes`), for a path `states` lists."""
+    data = held_bytes(checkout, path)
+    if data is None:
+        raise FileNotFoundError(f"the working tree holds no file at {path}")
+    return data
 
 
 def under(path: str, root: str) -> bool:
@@ -203,15 +237,23 @@ def holds(store: storage.Store, repository_id: str, binding_digest: str) -> bool
 
 def checkout_for(store: storage.Store, repository_id: str,
                  binding_digest: str | None = None) -> pathlib.Path | None:
-    """The checkout a repository is read from: the one the named binding was made from, even
-    after that checkout was bound again, or the one bound most recently. A binding this store
-    has no record of — one made before it kept them, and since replaced — reads the most recent
-    one too, as every binding did then. None where the repository is bound from no checkout."""
+    """The checkout a repository is read from: for a named binding, the checkout that first made
+    it while that checkout still holds it, else another checkout that holds it now, the one
+    bound first, else the one that first made it, even after that checkout was bound again;
+    with no binding named, the one bound most recently. A binding this store has no record of —
+    one made before it kept them, and since replaced — reads the most recent one too, as every
+    binding did then. None where the repository is bound from no checkout."""
     if binding_digest is not None:
-        found = store.read("SELECT checkout FROM binding_checkouts WHERE binding_digest = ? AND "
-                           "repository_id = ?", (binding_digest, repository_id))
-        if found:
-            return pathlib.Path(found[0][0])
+        made = store.read("SELECT checkout FROM binding_checkouts WHERE binding_digest = ? AND "
+                          "repository_id = ?", (binding_digest, repository_id))
+        holding = [pathlib.Path(place) for (place,) in store.read(
+            "SELECT checkout FROM repositories WHERE repository_id = ? AND binding_digest = ? "
+            "ORDER BY rowid", (repository_id, binding_digest)) if place]
+        first = pathlib.Path(made[0][0]) if made else None
+        if first is not None and (first in holding or not holding):
+            return first
+        if holding:
+            return holding[0]
     newest = held(store, repository_id)
     return newest[0][1] if newest else None
 
@@ -241,7 +283,7 @@ def repository_bind(call) -> dict:
     digest = store.put(stored)
     store.write("INSERT OR REPLACE INTO repositories (repository_id, binding_digest, checkout) "
                 "VALUES (?, ?, ?)", (binding["repository_id"], digest, str(checkout)))
-    store.write("INSERT OR REPLACE INTO binding_checkouts (binding_digest, repository_id, "
+    store.write("INSERT OR IGNORE INTO binding_checkouts (binding_digest, repository_id, "
                 "checkout) VALUES (?, ?, ?)", (digest, binding["repository_id"], str(checkout)))
     return journal.committed(call, [stored])
 

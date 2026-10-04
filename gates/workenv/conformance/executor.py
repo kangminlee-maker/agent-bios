@@ -320,6 +320,8 @@ class Run:
         self.checkout: pathlib.Path | None = None
         self.worked_in: dict[str, pathlib.Path] = {}
         self.commits: dict[str, str] = {}
+        # The checkouts whose branch the edits before a step switch, by step.
+        self.switched: dict[str, list[tuple[pathlib.Path, pathlib.Path]]] = {}
         self.file_digests: dict[str, tuple[str, pathlib.Path, str]] = {}
         self.written: dict[str, dict[str, tuple[pathlib.Path, str]]] = {}
         self.rules: tuple[str, ...] = ()
