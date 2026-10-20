@@ -1,0 +1,99 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$comment": "design §4.1; posture: design/session-distill/2026-10-21T0318--2d4fbd4--plan-addendum-wp01.md",
+  "title": "Run declaration",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["question", "kind", "posture", "window", "sources", "checks", "budget", "seats",
+               "actor_seats", "config_manifest_B", "starting_hashes", "account", "hosts",
+               "declaration_seq", "host_allowance", "destinations"],
+  "$defs": {
+    "text": {"type": "string", "minLength": 1},
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "count": {"type": "integer", "minimum": 0},
+    "root": {"type": "string", "pattern": "^/"}
+  },
+  "properties": {
+    "question": {"$ref": "#/$defs/text"},
+    "kind": {"type": "string", "enum": ["periodic", "targeted"]},
+    "posture": {"type": "string", "enum": ["production", "rehearsal", "development"]},
+    "window": {
+      "type": "object", "additionalProperties": false, "required": ["start", "end", "tz"],
+      "properties": {"start": {"$ref": "#/$defs/text"}, "end": {"$ref": "#/$defs/text"}, "tz": {"$ref": "#/$defs/text"}}
+    },
+    "sources": {
+      "type": "array", "minItems": 1,
+      "items": {"type": "object", "additionalProperties": false, "required": ["name", "path"],
+                "properties": {"name": {"$ref": "#/$defs/text"}, "path": {"$ref": "#/$defs/root"}}}
+    },
+    "checks": {
+      "type": "object", "additionalProperties": false, "minProperties": 1,
+      "patternProperties": {"^[a-z][a-z0-9_]*$": {"type": "number"}}
+    },
+    "budget": {
+      "type": "object", "additionalProperties": false, "required": ["per_stage", "per_episode", "reserve"],
+      "properties": {
+        "per_stage": {"type": "object", "additionalProperties": false, "minProperties": 1,
+                      "patternProperties": {"^S[0-9]+b?$": {"$ref": "#/$defs/count"}}},
+        "per_episode": {"type": "object", "additionalProperties": false,
+                        "required": ["tokens", "compactions", "max_budget_usd", "max_turns"],
+                        "properties": {"tokens": {"$ref": "#/$defs/count"}, "compactions": {"$ref": "#/$defs/count"},
+                                       "max_budget_usd": {"type": "number", "minimum": 0},
+                                       "max_turns": {"$ref": "#/$defs/count"}}},
+        "reserve": {"type": "number", "minimum": 0}
+      }
+    },
+    "seats": {
+      "type": "object", "additionalProperties": false, "required": ["S3"],
+      "patternProperties": {"^S[0-9]+b?(\\.[A-Za-z0-9_-]+)?$": {"$ref": "#/$defs/text"}}
+    },
+    "actor_seats": {
+      "type": "array", "minItems": 4, "maxItems": 4,
+      "items": {"type": "object", "additionalProperties": false, "required": ["stratum", "seat", "provenance"],
+                "properties": {
+                  "stratum": {"type": "string", "enum": ["claude-main", "claude-subagent", "codex-main", "codex-subagent"]},
+                  "seat": {"$ref": "#/$defs/text"},
+                  "provenance": {"type": "string", "enum": ["observed", "fallback"]}}}
+    },
+    "config_manifest_B": {
+      "type": "object", "additionalProperties": false, "minProperties": 1,
+      "patternProperties": {"^.+$": {"$ref": "#/$defs/sha256"}}
+    },
+    "starting_hashes": {
+      "type": "object", "additionalProperties": false, "required": ["ledger", "coverage", "layers"],
+      "properties": {
+        "ledger": {"$ref": "#/$defs/sha256"}, "coverage": {"$ref": "#/$defs/sha256"},
+        "layers": {"type": "object", "additionalProperties": false, "minProperties": 1,
+                   "patternProperties": {"^.+$": {"$ref": "#/$defs/sha256"}}}
+      }
+    },
+    "account": {
+      "type": "object", "additionalProperties": false, "required": ["extra_usage", "declared_on"],
+      "properties": {"extra_usage": {"type": "string", "enum": ["off", "on-accepted"]},
+                     "declared_on": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"}}
+    },
+    "hosts": {
+      "type": "object", "additionalProperties": false, "required": ["claude", "codex"],
+      "properties": {"claude": {"$ref": "#/$defs/text"}, "codex": {"$ref": "#/$defs/text"}}
+    },
+    "declaration_seq": {"$ref": "#/$defs/count"},
+    "host_allowance": {
+      "type": "object", "additionalProperties": false,
+      "patternProperties": {"^.+$": {"type": "object", "additionalProperties": false,
+                                     "required": ["allowance_tokens", "host_version", "flag_set_sha256"],
+                                     "properties": {"allowance_tokens": {"$ref": "#/$defs/count"},
+                                                    "host_version": {"$ref": "#/$defs/text"},
+                                                    "flag_set_sha256": {"$ref": "#/$defs/sha256"}}}}
+    },
+    "destinations": {
+      "type": "object", "additionalProperties": false,
+      "required": ["checkout", "install_roots", "personal_layers", "launcher_shell_integration",
+                   "runtime_state", "nudge", "recovery"],
+      "properties": {"checkout": {"$ref": "#/$defs/root"}, "install_roots": {"$ref": "#/$defs/root"},
+                     "personal_layers": {"$ref": "#/$defs/root"},
+                     "launcher_shell_integration": {"$ref": "#/$defs/root"},
+                     "runtime_state": {"$ref": "#/$defs/root"}, "nudge": {"$ref": "#/$defs/root"},
+                     "recovery": {"$ref": "#/$defs/root"}}
+    }
+  }
+}

@@ -54,6 +54,14 @@ SUBJECTS = [
     "learn/check-learning.py",
     "ontology/check-ontology.py",
     "claude/hooks/tooling-gotchas-hook.py",
+    # The session-distill driver. The audit's automatic inventory recognises only checker-named
+    # files, so each module with a --self-test is registered by name or it is not graded.
+    "session-distill/distill.py",
+    "session-distill/runlib/declare.py",
+    "session-distill/runlib/records.py",
+    "session-distill/runlib/claims.py",
+    "session-distill/runlib/validate.py",
+    "session-distill/runlib/stagelock.py",
 ]
 # The not-audited disclosure is DERIVED, not typed. The first version typed two shell
 # gates here while the tracked tree held five shell checkers — the audit tool carrying

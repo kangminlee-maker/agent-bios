@@ -247,6 +247,36 @@ if [ -f learn/learning.schema.json ]; then
     || { echo "FAIL: collect-learning upload-drain self-test"; fail=1; }
 fi
 
+# Session distill driver (session-distill/distill.py): the run declaration and its amendments,
+# stage records that pin the declaration they read, and the claim/evidence/expected-observation
+# record schemas. Each module's --self-test runs positive controls first and negative controls
+# that fail by name; the driver's own runs declare -> stage -> amend -> stage on real files.
+# Every module is also registered in gates/control-audit.py SUBJECTS. They run under the same
+# python3 as learn/check-learning.py; runlib/validate.py refuses by name a jsonschema other than
+# JSONSCHEMA_PIN in launch/provision-venv.sh, so a different interpreter fails here, not silently.
+if [ -f session-distill/distill.py ]; then
+  python3 session-distill/distill.py --self-test >/dev/null \
+    || { echo "FAIL: session-distill driver self-test (declare -> stage -> amend -> stage)"; fail=1; }
+  python3 session-distill/distill.py declare --self-test >/dev/null \
+    || { echo "FAIL: session-distill run declaration self-test (session-distill/distill.py declare)"; fail=1; }
+fi
+if [ -f session-distill/runlib/records.py ]; then
+  python3 session-distill/runlib/records.py --self-test >/dev/null \
+    || { echo "FAIL: session-distill stage record self-test (session-distill/runlib/records.py)"; fail=1; }
+fi
+if [ -f session-distill/runlib/claims.py ]; then
+  python3 session-distill/runlib/claims.py --self-test >/dev/null \
+    || { echo "FAIL: session-distill record schema self-test (session-distill/runlib/claims.py)"; fail=1; }
+fi
+if [ -f session-distill/runlib/validate.py ]; then
+  python3 session-distill/runlib/validate.py --self-test >/dev/null \
+    || { echo "FAIL: session-distill schema-policy self-test (session-distill/runlib/validate.py)"; fail=1; }
+fi
+if [ -f session-distill/runlib/stagelock.py ]; then
+  python3 session-distill/runlib/stagelock.py --self-test >/dev/null \
+    || { echo "FAIL: session-distill stage lock self-test (session-distill/runlib/stagelock.py)"; fail=1; }
+fi
+
 # Instructions rollback (compose/instructions-state.py) — a destructive path with no other
 # coverage: every version registered today is UNAVAILABLE (it predates the assembled
 # layout), so the write loop is unreachable from `list` and nothing else exercises it.
