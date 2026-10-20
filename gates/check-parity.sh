@@ -33,6 +33,21 @@ if [ -f gates/check-mcp-inventory.py ]; then
     || { echo "FAIL: MCP inventory projection is stale (run gates/check-mcp-inventory.py --emit)"; fail=1; }
 fi
 
+# The always-loaded global file only shrinks (AGENTS.md section 8). The gate reads the INDEX
+# against HEAD — under the pre-commit hook the exported GIT_INDEX_FILE is the hook's snapshot —
+# so what it judges is what the commit carries. Growth is the only verdict (exit 1); a side on
+# which the file is absent, a staged deletion included, measures as empty and passes. A side git
+# cannot read — an unresolvable base revision, a failing or unmerged index — leaves no
+# measurement, so the gate names it and exits 2, which fails the leg: a gate that judged nothing
+# has not passed. The new lines and the Korean file's size are disclosures, so its output is left
+# visible here rather than sent to /dev/null: the committer is who reads them.
+if [ -f gates/check-global-file.py ]; then
+  python3 gates/check-global-file.py --self-test >/dev/null \
+    || { echo "FAIL: global-file gate self-test missed a negative control"; fail=1; }
+  python3 gates/check-global-file.py \
+    || { echo "FAIL: claude/CLAUDE.md grew against HEAD, or the gate could not judge (run gates/check-global-file.py)"; fail=1; }
+fi
+
 # Non-empty-subject guards: a parity check over missing inputs must fail, not pass vacuously.
 for p in claude/guides codex/guides ko/claude/guides ko/codex/guides; do
   [ -d "$p" ] || { echo "FAIL: required dir missing: $p"; exit 1; }

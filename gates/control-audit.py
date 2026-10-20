@@ -50,6 +50,7 @@ SUBJECTS = [
     "gates/check-model-currency.py",
     "gates/check-surfaces.py",
     "gates/check-receipt-chain.py",
+    "gates/check-global-file.py",
     "compose/check-domains.py",
     "learn/check-learning.py",
     "ontology/check-ontology.py",

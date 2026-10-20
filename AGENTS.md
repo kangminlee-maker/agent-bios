@@ -343,7 +343,7 @@ fetching in the umbrella would fail in a tunnel and teach people to route around
 
 Run `--online` when a model binding changes and before trusting either guide.
 
-## 8. The canonical always surface is a per-activated-session token budget — CONVENTION
+## 8. The canonical always surface is a per-activated-session token budget — CONVENTION, with one rule ENFORCED
 
 Selected rules from `claude/CLAUDE.md` reach explicitly activated sessions through
 `compose/instructions_catalog.py`, `compose/instructions_store.py`, and
@@ -362,7 +362,9 @@ Numbers live in the owning guide's `Evidence Base`; measure with
 **The canonical always surface is frozen to reductions.** Edits that delete, merge, or move a
 rule out are open; additions are not. A rule that would have been added goes to a guide, a
 skill, or session-level injection instead, and if none of those can hold it, that is the
-case to bring — not a bullet.
+case to bring — not a bullet. `gates/check-global-file.py` **ENFORCES** this: it blocks a
+commit whose staged `claude/CLAUDE.md` has more lines or more bytes than `HEAD`, and only
+discloses the lines `HEAD` lacks, because whether one is a faithful merge is a judgement.
 
 `SURFACES.md` owns the current delivery choices and their admission bars.
 
