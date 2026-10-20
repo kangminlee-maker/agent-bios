@@ -66,7 +66,7 @@ ids is what keeps the graph joinable to real code without a translation table.
 `compose/domains.json` classification → `compose/instructions_catalog.py` inventory →
 `compose/instructions_store.py` immutable snapshot → `compose/instructions_session.py` delivery.
 Native global instruction files are preserved by private installation. The canonical
-always surface permits reductions only; placement additions use another surface.
+always surface is capped at 20 KiB; a placement that does not fit uses another surface.
 *Missed when:* an unclassified rule is absent from the catalog, or a selected rule
 points at a guide excluded from the same snapshot.
 

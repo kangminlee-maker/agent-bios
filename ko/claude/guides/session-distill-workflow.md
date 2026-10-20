@@ -13,7 +13,7 @@ core_rules:
   - ledger가 상태의 SSOT다; pipeline을 건드리기 전에 먼저 읽는다
   - placement는 PLACEMENT-FRAMEWORK.md를 따른다, ad-hoc 판단은 쓰지 않는다
   - 모든 promotion은 명시적 사용자 승인 gate를 통과한다
-  - canonical always surface는 축소만 허용한다; 추가 내용은 guide, skill 또는 세션 주입에 둔다
+  - canonical always surface는 20 KiB까지만 허용한다; distill은 여기서 삭제와 병합만 제안하며, 추가할 내용은 guide, skill 또는 세션 주입에 둔다
   - window를 닫을 때 mirror, parity, 배포, nudge baseline을 갱신한다
 ---
 
@@ -78,7 +78,7 @@ session-distill 실행을 위한 runbook: 최근 main-context 세션을 mining�
 
 1. `design/session-distill/ledger.json` — initiative의 상태. 모든 item이 status(placed / incubating / incubating-G / absorbed / adopted-no-text)와 strength, provenance를 들고 있으므로 무엇이 열려 있고 무엇이 promote됐고 무엇이 아직 incubating인지는 전부 이 파일에 대한 query다. 상태는 여기서만 읽는다: 산문에 적힌 수치나 상태는 적은 날에만 맞고 그 뒤로는 조용히 틀린다.
 2. `design/session-distill/versions.json` — 닫힌 mining window와 해당 commit을 연결하는 저작 provenance. Private rollback은 instructions plan에서 설치된 `baseline_ref`를 선택하며, 이 registry가 그 선택의 기준은 아니다.
-3. `design/session-distill/PLACEMENT-FRAMEWORK.md` — placement framework(typology A–G, layer, admission bar, lifecycle). 위치를 고를 때는 현재 `AGENTS.md`의 축소 전용 규칙과 `SURFACES.md`의 전달 계약을 적용한다. 이 framework가 global 증가를 허용하지는 않는다.
+3. `design/session-distill/PLACEMENT-FRAMEWORK.md` — placement framework(typology A–G, layer, admission bar, lifecycle). 위치를 고를 때는 현재 `AGENTS.md`의 canonical always surface 상한과 `SURFACES.md`의 전달 계약을 적용한다. 이 framework가 global 파일에 내용을 추가하도록 허용하지는 않는다.
 
 ## Stage 1 — Mine (pipeline in `session-distill/`)
 

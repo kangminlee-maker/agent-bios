@@ -13,7 +13,7 @@ core_rules:
   - the ledger is the SSOT for state; read it before touching the pipeline
   - placement follows PLACEMENT-FRAMEWORK.md, never ad-hoc judgment
   - every promotion passes an explicit user-approval gate
-  - the canonical always surface is frozen to reductions; route additions to guides, skills, or session-level injection
+  - the canonical always surface is capped at 20 KiB and distill proposes only deletions and merges there; route additions to guides, skills, or session-level injection
   - close the window by updating mirrors, parity, deployment, and the nudge baseline
 ---
 
@@ -90,8 +90,8 @@ Everything durable lives in the agent-bios repo.
    `baseline_ref` through the instructions plan; this registry is not that authority.
 3. `design/session-distill/PLACEMENT-FRAMEWORK.md` — the placement framework
    (typology A–G, layers, admission bars, lifecycle). Apply the current
-   `AGENTS.md` reductions-only rule and `SURFACES.md` delivery contract when
-   choosing a destination; the framework does not authorize global growth.
+   `AGENTS.md` cap on the canonical always surface and `SURFACES.md` delivery contract when
+   choosing a destination; the framework does not authorize additions to the global file.
 
 ## Stage 1 — Mine (pipeline in `session-distill/`)
 

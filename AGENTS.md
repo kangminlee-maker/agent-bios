@@ -343,7 +343,7 @@ fetching in the umbrella would fail in a tunnel and teach people to route around
 
 Run `--online` when a model binding changes and before trusting either guide.
 
-## 8. The canonical always surface is a per-activated-session token budget — CONVENTION, with one rule ENFORCED
+## 8. The canonical always surface is a per-activated-session token budget — CONVENTION, with its 20 KiB cap ENFORCED
 
 Selected rules from `claude/CLAUDE.md` reach explicitly activated sessions through
 `compose/instructions_catalog.py`, `compose/instructions_store.py`, and
@@ -359,12 +359,14 @@ guide pointer; moving the procedure must preserve that reachable trigger.
 Numbers live in the owning guide's `Evidence Base`; measure with
 `session-cost.py`. Do not scatter measured values into rule bodies.
 
-**The canonical always surface is frozen to reductions.** Edits that delete, merge, or move a
-rule out are open; additions are not. A rule that would have been added goes to a guide, a
-skill, or session-level injection instead, and if none of those can hold it, that is the
-case to bring — not a bullet. `gates/check-global-file.py` **ENFORCES** this: it blocks a
-commit whose staged `claude/CLAUDE.md` has more lines or more bytes than `HEAD`, and only
-discloses the lines `HEAD` lacks, because whether one is a faithful merge is a judgement.
+**The canonical always surface is capped.** `claude/CLAUDE.md` may not exceed `CEILING_BYTES` in
+`gates/check-global-file.py` — 20,480 bytes of UTF-8, counted on the staged file; the decision
+and its evidence are in
+`design/session-distill/2026-10-21T0634--9b42df2--global-file-ceiling.md`. Within the cap an
+edit is open, and room freed by deleting or merging a rule can be reused. A rule that does not
+fit goes to a guide, a skill, or session-level injection instead, and if none of those can hold
+it, that is the case to bring — not a bullet. The gate **ENFORCES** the cap, and only discloses
+the lines `HEAD` lacks, because whether a new line earns its place is a judgement.
 
 `SURFACES.md` owns the current delivery choices and their admission bars.
 

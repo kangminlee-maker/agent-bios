@@ -43,7 +43,7 @@ Alternatives:
    and surfaces without that authority. Each change needs its own negative control.
 4. **Evaluate another current delivery surface.** Compare guide, requested procedure,
    or session-specific delivery against startup placement using `SURFACES.md`.
-   Keep the canonical always surface reductions-only and test main/child reach
+   Stay within the canonical always surface's 20 KiB ceiling and test main/child reach
    separately before adopting a placement.
 
 These alternatives remain open; enforcement and prose placement can be combined

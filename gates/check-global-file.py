@@ -1,19 +1,19 @@
 #!/usr/bin/env python3
-"""Gate: the always-loaded global file only shrinks (AGENTS.md section 8, design 13.1).
+"""Gate: the always-loaded global file stays under its ceiling (AGENTS.md section 8).
 
-Compares `claude/CLAUDE.md` in the INDEX with a base revision (HEAD by default) and BLOCKS
-when its line count or its byte count grows (exit 1). Growth is the only block. Whether a
-line is a faithful merge of removed ones is a judgement, so every line the index holds whose
-text the base does not is DISCLOSED, never blocked: a deletion plus a shorter unrelated line
-passes the count check and still appears there. `ko/claude/CLAUDE.md` is disclosed by size
-alone and never changes the exit code.
+BLOCKS (exit 1) when `claude/CLAUDE.md` in the INDEX is larger than CEILING_BYTES, counted
+as UTF-8 bytes. That is the only verdict; the decision and its evidence are in
+design/session-distill/2026-10-21T0634--9b42df2--global-file-ceiling.md. Below the ceiling any
+edit passes, so room freed by deleting or merging a rule can be reused, and the line count is
+not limited. Whether a new line earns its place is a judgement, so every line the index holds
+whose text the base (HEAD by default) does not is DISCLOSED, never blocked, and so is the
+before/after size of `ko/claude/CLAUDE.md`. The base is read for those disclosures only: if it
+cannot be read, the gate says so and the verdict stands.
 
-Measurement comes before the verdict. A side on which the file is ABSENT — a staged deletion,
-a base revision that lacks it, a commit with it on neither side — measures as empty and is
-judged by the growth predicate, disclosed as absent. A side git cannot READ — an unresolvable
-base revision, a failing or unmerged index — leaves no measurement: the gate names that side
-(`CANNOT JUDGE`) and exits 2, because a gate that judged nothing has not passed. That is not a
-third verdict (design/session-distill/2026-10-21T0455--9410a1d--plan-addendum-wp14.md).
+Measurement comes before the verdict. A staged file that is ABSENT measures as empty and
+passes, disclosed as absent. A staged file git cannot READ — a failing or unmerged index —
+leaves no measurement: the gate names it (`CANNOT JUDGE`) and exits 2, because a gate that
+judged nothing has not passed (design/session-distill/2026-10-21T0455--9410a1d--plan-addendum-wp14.md).
 
 The index is read through git, not from disk, because git commits the index — a gate that
 read the checkout would judge something else. Under the pre-commit hook the inherited
@@ -22,10 +22,11 @@ GIT_DIR / GIT_INDEX_FILE point at the hook's snapshot, which is what git reads h
 
   --self-test   scratch repos built with every GIT_* variable scrubbed: the hook exports
                 them, and a fixture built under them re-initialises the REAL repository.
-                The positive case runs first; each blocking code, each disclosure and the
-                index-versus-disk distinction has a case that fails by name without it, the
-                branch set the code can emit is held against design 13.1, and the real
-                pre-commit hook is driven in a scratch clone with only its callees stubbed.
+                The positive case runs first; the boundary on both sides of the ceiling, each
+                disclosure and the index-versus-disk distinction have a case that fails by
+                name without it, the branch sets the code can emit are held against the
+                records, and the real pre-commit hook is driven in a scratch clone with only
+                its callees stubbed.
 """
 import argparse
 import ast
@@ -38,6 +39,8 @@ import tempfile
 from unittest import mock
 
 REPO = pathlib.Path(__file__).resolve().parent.parent
+# The ceiling (20 KiB) of design/session-distill/2026-10-21T0634--9b42df2--global-file-ceiling.md.
+CEILING_BYTES = 20480
 GLOBAL = "claude/CLAUDE.md"
 KO = "ko/claude/CLAUDE.md"
 
@@ -121,30 +124,31 @@ def ko_note(repo, worktree, base):
 
 
 def judge(repo, worktree, base):
-    """Contract: design 13.1 — blocks when the line count or the byte count grows; discloses
-    every line the base lacks. Returns (failures, errors, new lines, KO note, absent sides).
-    `failures` are growth verdicts. `errors` are not verdicts — git could not read a side, so
-    nothing was compared and the new-lines value is None; an ABSENT side is no error, it
-    measures as empty (design/session-distill/2026-10-21T0455--9410a1d--plan-addendum-wp14.md)."""
-    failures, errors, found, sides = [], [], None, []
+    """Contract: the ceiling record — the one verdict is the staged file above CEILING_BYTES;
+    every line the base lacks is disclosed. Returns (failures, errors, new lines, KO note,
+    notes, staged size). `failures` is the verdict. `errors` are not verdicts — git could not
+    read the staged file, so nothing was measured. An ABSENT side is no error, it measures as
+    empty, and an unreadable base only silences the disclosures (`notes` says so); the staged
+    side's rules are the WP-14 addendum's (design/session-distill/2026-10-21T0455--9410a1d--plan-addendum-wp14.md)."""
+    failures, errors, found, notes = [], [], None, []
     old, old_absent = base_blob(repo, base, GLOBAL)
     new, new_absent = current_blob(repo, GLOBAL, worktree)
-    if old is None:
-        errors.append(f"GLOBAL_BASE_UNREADABLE {base}:{GLOBAL}")
-    elif new is None:
+    where = "the worktree" if worktree else "the index"
+    if new is None:
         errors.append(f"GLOBAL_FILE_UNREADABLE {GLOBAL} ({'worktree' if worktree else 'index'})")
-    else:
-        (a_lines, a_bytes), (b_lines, b_bytes) = counts(old), counts(new)
-        if b_lines > a_lines:
-            failures.append(f"GLOBAL_LINES_GREW {a_lines}→{b_lines}")
-        if b_bytes > a_bytes:
-            failures.append(f"GLOBAL_BYTES_GREW {a_bytes}→{b_bytes}")
+    elif len(new) > CEILING_BYTES:
+        failures.append(f"GLOBAL_BYTES_OVER_CEILING {len(new)}>{CEILING_BYTES}")
+    if new is not None and new_absent:
+        notes += [f"ABSENT: {GLOBAL} is not in {where}; measured as empty"]
+    if old is None:
+        notes += [f"BASE UNREADABLE: {base}:{GLOBAL} could not be read, so NEW LINES and KO SIZE "
+                  f"are not disclosed; the verdict stands"]
+    elif new is not None:
+        if old_absent:
+            notes += [f"ABSENT: {GLOBAL} is not in {base}; measured as empty"]
         found = new_lines(lines_of(old), lines_of(new))
-        sides = ([base] if old_absent else []) + (
-            [("the worktree" if worktree else "the index")] if new_absent else [])
-    # No base, no comparison: against an unreadable base a size note would only be noise.
     ko = None if old is None else ko_note(repo, worktree, base)
-    return failures, errors, found, ko, sides
+    return failures, errors, found, ko, notes, (None if new is None else len(new))
 
 
 def scratch_env():
@@ -182,8 +186,32 @@ def change(rel, fn, stage=True):
     return prep
 
 
-def grown_in_index_only(repo):
-    change(GLOBAL, lambda t: t + "- Rule four.\n")(repo)
+def sized(n):
+    """ASCII text of exactly n bytes in distinct lines: 1000-byte lines, then one shorter one."""
+    full, rest = divmod(n, 1000)
+    return "".join(f"{i:03d}" + "x" * 996 + "\n" for i in range(full)) \
+        + (("y" * (rest - 1) + "\n") if rest else "")
+
+
+def fresh(text, base):
+    """The lines of `text` whose text `base` does not hold — what NEW LINES must list."""
+    known = set(base.split("\n"))
+    return [line for line in text.split("\n")[:-1] if line not in known]
+
+
+def put(text, stage=True, commit=False):
+    def prep(repo):
+        (repo / GLOBAL).parent.mkdir(parents=True, exist_ok=True)
+        (repo / GLOBAL).write_text(text, encoding="utf-8")
+        if stage:
+            git(repo, "add", GLOBAL)
+        if commit:
+            git(repo, "commit", "-qm", "new base")
+    return prep
+
+
+def over_in_index_only(repo):
+    put(sized(CEILING_BYTES + 1))(repo)
     (repo / GLOBAL).write_text(BASE, encoding="utf-8")
 
 
@@ -206,16 +234,17 @@ def emitted_branches():
 def self_test():
     problems = []
     two = "- Rule two is longer than the others.\n"
+    near, at, over = sized(20000), sized(CEILING_BYTES), sized(CEILING_BYTES + 1)
     ko_grown = KO_BASE + f"- R{HAN * 3}.\n"
-    both = {"GLOBAL_LINES_GREW", "GLOBAL_BYTES_GREW"}
+    ko_big = sized(25000)
+    wide = sized(20400) + f"- {HAN * 50}\n"  # fewer characters than the ceiling, more bytes
+    base_lines = BASE.split("\n")[:-1]
+    block = {"GLOBAL_BYTES_OVER_CEILING"}
 
     def case(label, prep, code=0, codes=(), new=(), ko=None, flags=(), notes=()):
         return dict(label=label, prep=prep, code=code, codes=set(codes),
                     new=None if new is None else list(new), ko=ko, flags=list(flags),
                     notes=list(notes))
-
-    four = change(GLOBAL, lambda t: t + "- Rule four.\n")
-    four_disk = change(GLOBAL, lambda t: t + "- Rule four.\n", stage=False)
 
     def drop_global_from_head(repo):
         git(repo, "rm", "-q", GLOBAL)
@@ -223,79 +252,95 @@ def self_test():
 
     def base_lacks_file_index_has_it(repo):
         drop_global_from_head(repo)
-        (repo / GLOBAL).parent.mkdir(parents=True, exist_ok=True)  # git rm removed the empty dir
-        (repo / GLOBAL).write_text(BASE, encoding="utf-8")
-        git(repo, "add", GLOBAL)
+        put(BASE)(repo)
 
     def corrupt_index(repo):
         (repo / ".git" / "index").write_bytes(b"not an index")
 
+    def at_head_then(staged_text, base_text):
+        def prep(repo):
+            put(base_text, commit=True)(repo)
+            put(staged_text)(repo)
+        return prep
+
+    at_plus_one = at.replace("x", "xx", 1)
     cases = [
         case("unchanged (positive control)", lambda repo: None),
-        case("added line", four, 1, both, ["- Rule four."]),
-        case("added line, bytes shrunk elsewhere",
-             change(GLOBAL, lambda t: t.replace(two, "- Rule two.\n- R.\n")), 1,
-             {"GLOBAL_LINES_GREW"}, ["- Rule two.", "- R."]),
-        case("added word", change(GLOBAL, lambda t: t.replace("Rule one.", "Rule one now.")), 1,
-             {"GLOBAL_BYTES_GREW"}, ["- Rule one now."]),
-        case("same character count, more bytes",
-             change(GLOBAL, lambda t: t.replace("Rule one.", f"Rule on{HAN}.")), 1,
-             {"GLOBAL_BYTES_GREW"}, [f"- Rule on{HAN}."]),
-        case("deleted line", change(GLOBAL, lambda t: t.replace(two, ""))),
-        case("deletion plus a shorter unrelated line",
+        case("exactly at the ceiling passes", put(at), new=fresh(at, BASE)),
+        case("one byte over the ceiling blocks", put(over), 1, block, fresh(over, BASE)),
+        case("growth below the ceiling passes and is disclosed (freed room reused)",
+             at_head_then(near + "- Rule four.\n", near), new=["- Rule four."]),
+        case("a shrinking commit passes", at_head_then("".join(near.splitlines(True)[:-1]), near)),
+        case("HEAD at the ceiling, one byte added, blocks",
+             at_head_then(at_plus_one, at), 1, block, fresh(at_plus_one, at)),
+        case("still over the ceiling after shrinking blocks (the size is the verdict)",
+             at_head_then(sized(24000), sized(25000)), 1, block, []),
+        case("bytes are counted, not characters", put(wide), 1, block, fresh(wide, BASE)),
+        case("deletion plus a shorter unrelated line discloses the new line",
              change(GLOBAL, lambda t: t.replace(two, "") + "- Short.\n"), new=["- Short."]),
         case("reduction whose new line is whitespace-only",
              change(GLOBAL, lambda t: t.replace(two, " \n")), new=[" "]),
         case("Korean file grew, English unchanged", change(KO, lambda t: ko_grown),
              ko=f"lines 3→4, bytes {len(KO_BASE.encode())}→{len(ko_grown.encode())}"),
-        case("grown in the index, restored on disk (default reads the index)",
-             grown_in_index_only, 1, both, ["- Rule four."]),
-        case("grown in the index, restored on disk (--worktree reads the disk)",
-             grown_in_index_only, flags=["--worktree"]),
-        case("grown on disk only (default reads the index)", four_disk),
-        case("grown on disk only (--worktree reads the disk)", four_disk, 1, both,
-             ["- Rule four."], flags=["--worktree"]),
+        case("Korean file above the ceiling does not block",
+             change(KO, lambda t: ko_big),
+             ko=f"lines 3→{len(lines_of(ko_big.encode()))}, bytes {len(KO_BASE.encode())}→{len(ko_big)}"),
+        case("over the ceiling in the index, restored on disk (default reads the index)",
+             over_in_index_only, 1, block, fresh(over, BASE)),
+        case("over the ceiling in the index, restored on disk (--worktree reads the disk)",
+             over_in_index_only, flags=["--worktree"]),
+        case("over the ceiling on disk only (default reads the index)", put(over, stage=False)),
+        case("over the ceiling on disk only (--worktree reads the disk)",
+             put(over, stage=False), 1, block, fresh(over, BASE), flags=["--worktree"]),
         case("global file deleted in the index (measured as empty)",
              lambda repo: git(repo, "rm", "-q", "--cached", GLOBAL),
              notes=[f"ABSENT: {GLOBAL} is not in the index"]),
         case("global file deleted on disk (--worktree measures it as empty)",
              lambda repo: (repo / GLOBAL).unlink(), flags=["--worktree"],
              notes=[f"ABSENT: {GLOBAL} is not in the worktree"]),
-        case("base revision unreadable", lambda repo: None, 2, {"GLOBAL_BASE_UNREADABLE"}, None,
-             flags=["--base", "no-such-rev"]),
+        case("base revision unreadable: disclosed, the verdict stands", lambda repo: None,
+             new=None, flags=["--base", "no-such-rev"],
+             notes=[f"BASE UNREADABLE: no-such-rev:{GLOBAL} could not be read"]),
+        case("base revision unreadable and the staged file over the ceiling blocks", put(over),
+             1, block, None, flags=["--base", "no-such-rev"],
+             notes=[f"BASE UNREADABLE: no-such-rev:{GLOBAL} could not be read"]),
         case("file on neither side (the base lacks it and the index lacks it)",
              drop_global_from_head,
              notes=[f"ABSENT: {GLOBAL} is not in HEAD", f"ABSENT: {GLOBAL} is not in the index"]),
-        case("base revision lacks the file, the index holds it (empty to non-empty is growth)",
-             base_lacks_file_index_has_it, 1, both, BASE.splitlines(),
+        case("base revision lacks the file, the index holds it",
+             base_lacks_file_index_has_it, new=base_lines,
              notes=[f"ABSENT: {GLOBAL} is not in HEAD"]),
         case("index unreadable", corrupt_index, 2, {"GLOBAL_FILE_UNREADABLE"}, None),
     ]
-    # Two contract assertions, each against a set copied once, here, and neither absorbing the
-    # other. design 13.1: the gate "blocks when the line count or byte count grows" — that is
-    # the whole growth predicate. The cannot-read codes are not a third verdict but the rule
-    # that a gate which measured nothing must not report clean, and are cited to
-    # design/session-distill/2026-10-21T0455--9410a1d--plan-addendum-wp14.md.
-    growth_13_1 = {"GLOBAL_LINES_GREW", "GLOBAL_BYTES_GREW"}
-    cannot_read_addendum = {"GLOBAL_BASE_UNREADABLE", "GLOBAL_FILE_UNREADABLE"}
+    # Contract assertions, each against a value or set copied once, here, and none absorbing
+    # another. The ceiling record (design/session-distill/2026-10-21T0634--9b42df2--global-file-ceiling.md):
+    # "may not exceed 20,480 bytes" and "blocks only a staged file above the ceiling" — one
+    # verdict branch. The cannot-read code is not a verdict but the rule that a gate which
+    # measured nothing must not report clean, kept for the staged side by the record and cited
+    # to design/session-distill/2026-10-21T0455--9410a1d--plan-addendum-wp14.md.
+    ceiling_record = 20480
+    verdict_record = {"GLOBAL_BYTES_OVER_CEILING"}
+    cannot_read_addendum = {"GLOBAL_FILE_UNREADABLE"}
+    if CEILING_BYTES != ceiling_record:
+        problems.append(f"CEILING_BYTES {CEILING_BYTES} differs from the record's {ceiling_record}")
     by_sink = {}
     for sink, code in emitted_branches():
         by_sink.setdefault(sink, set()).add(code)
-    if by_sink.get("failures") != growth_13_1:
-        problems.append(f"growth branches {sorted(by_sink.get('failures', ()))} differ from "
-                        f"design 13.1's {sorted(growth_13_1)}")
+    if by_sink.get("failures") != verdict_record:
+        problems.append(f"verdict branches {sorted(by_sink.get('failures', ()))} differ from "
+                        f"the record's {sorted(verdict_record)}")
     if by_sink.get("errors") != cannot_read_addendum:
         problems.append(f"cannot-read branches {sorted(by_sink.get('errors', ()))} differ from the "
                         f"addendum's {sorted(cannot_read_addendum)}")
-    if set(by_sink) != {"failures", "errors"} or growth_13_1 & cannot_read_addendum:
+    if set(by_sink) != {"failures", "errors"} or verdict_record & cannot_read_addendum:
         problems.append(f"the two sets must stay apart and be the only sinks: {sorted(by_sink)}")
     emitted_re = re.compile(r"^check-global-file: (?:FAIL|CANNOT JUDGE) (GLOBAL_[A-Z_]+)", re.M)
 
     def hook_control(root):
-        """design 13.1's commit gate through the REAL hook, without recursion: the scratch clone
-        carries .githooks/pre-commit byte for byte and only what it calls (the two umbrella
-        scripts) is replaced by stubs that run this gate alone, so the hook's own snapshot export
-        of GIT_INDEX_FILE and GIT_DIR is what the gate reads."""
+        """The commit gate through the REAL hook, without recursion: the scratch clone carries
+        .githooks/pre-commit byte for byte and only what it calls (the two umbrella scripts)
+        is replaced by stubs that run this gate alone, so the hook's own snapshot export of
+        GIT_INDEX_FILE and GIT_DIR is what the gate reads."""
         real = REPO / ".githooks" / "pre-commit"
         if not real.is_file():
             problems.append("hook: .githooks/pre-commit is missing, so the commit path is untested")
@@ -329,16 +374,19 @@ def self_test():
         # positive first: a reduction commits, and the gate demonstrably ran inside the hook
         change(GLOBAL, lambda t: t.replace("- Rule two is longer than the others.\n", ""))(repo)
         attempt("a reduction", True, "check-global-file: OK")
-        # staged growth is refused
+        # growth below the ceiling commits: the hook no longer ratchets
         change(GLOBAL, lambda t: t + "- Rule four.\n")(repo)
-        attempt("staged growth", False, "GLOBAL_LINES_GREW")
-        # the disk file goes back to HEAD while the index keeps the growth: still refused
+        attempt("growth below the ceiling", True, "check-global-file: OK")
+        # a staged file over the ceiling is refused
+        put(over)(repo)
+        attempt("staged over the ceiling", False, "GLOBAL_BYTES_OVER_CEILING")
+        # the disk file goes back to HEAD while the index keeps the excess: still refused
         head_text = git(repo, "show", f"HEAD:{GLOBAL}").stdout
         (repo / GLOBAL).write_text(head_text, encoding="utf-8")
         if git(repo, "diff", "--quiet", "HEAD", "--", GLOBAL, check=False).returncode != 0 \
                 or git(repo, "diff", "--cached", "--quiet", "--", GLOBAL, check=False).returncode != 1:
             problems.append("hook: fixture error — the disk file must equal HEAD while the index differs")
-        attempt("staged growth, disk restored to HEAD", False, "GLOBAL_LINES_GREW")
+        attempt("staged over the ceiling, disk restored to HEAD", False, "GLOBAL_BYTES_OVER_CEILING")
 
     with tempfile.TemporaryDirectory(prefix="check-global-file-") as root:
         # Control for the scrub, run first and under the hook's environment whether or not
@@ -357,7 +405,6 @@ def self_test():
         if before != after or inner is None or not (inner / ".git" / "HEAD").is_file():
             problems.append("scrub: a fixture built under GIT_DIR touched the outer repository")
 
-        passing_with_new = []
         for c in cases:
             repo = fixture(root)
             c["prep"](repo)
@@ -369,54 +416,50 @@ def self_test():
                        if line.startswith("  ") and line[2:3].isdigit()]
             got_ko = next((line[len("KO SIZE: "):] for line in out.splitlines()
                            if line.startswith("KO SIZE: ")), None)
+            shown = [line for line in out.splitlines() if line.startswith(("ABSENT:", "BASE UNREADABLE:"))]
             if done.returncode != c["code"]:
-                problems.append(f"{label}: exit {done.returncode}, wanted {c['code']}: {out}{done.stderr}")
+                problems.append(f"{label}: exit {done.returncode}, wanted {c['code']}: {out[:600]}{done.stderr}")
             if set(emitted_re.findall(out)) != c["codes"]:
-                problems.append(f"{label}: emitted codes differ from {sorted(c['codes'])}: {out}")
+                problems.append(f"{label}: emitted codes differ from {sorted(c['codes'])}: {out[:600]}")
             if c["new"] is not None and got_new != c["new"]:
-                problems.append(f"{label}: NEW LINES {got_new}, wanted {c['new']}")
+                problems.append(f"{label}: NEW LINES {len(got_new)} lines, wanted {len(c['new'])}: "
+                                f"{[t[:20] for t in got_new][:4]} vs {[t[:20] for t in c['new']][:4]}")
             if (c["new"] is None) != ("NEW LINES:" not in out):
                 problems.append(f"{label}: the NEW LINES block must be absent exactly when "
-                                f"nothing was compared: {out}")
+                                f"nothing was compared: {out[:600]}")
             if got_ko != c["ko"]:
                 problems.append(f"{label}: KO SIZE {got_ko!r}, wanted {c['ko']!r}")
-            if out.count("ABSENT:") != len(c["notes"]) or any(n not in out for n in c["notes"]):
-                problems.append(f"{label}: the ABSENT notes differ from {c['notes']!r}: {out}")
-            if c["code"] == 0 and got_new:
-                passing_with_new.append(label)
-        # Control of the control: among the cases that pass, the disclosure is non-empty
-        # exactly where a line absent from the base survives the count check.
-        wanted = ["deletion plus a shorter unrelated line",
-                  "reduction whose new line is whitespace-only"]
-        if passing_with_new != wanted:
-            problems.append(f"disclosure non-empty in {passing_with_new}, wanted {wanted}")
+            if len(shown) != len(c["notes"]) or any(not any(line.startswith(n) for line in shown)
+                                                    for n in c["notes"]):
+                problems.append(f"{label}: the notes {shown} differ from {c['notes']!r}")
         hook_control(root)
     for problem in problems:
         print(f"check-global-file --self-test: FAIL {problem}")
     if not problems:
         print(f"check-global-file --self-test: OK (positive first, {len(cases) - 1} planted, "
-              f"branch set, scrub, real hook)")
+              f"branch sets, scrub, real hook)")
     return 1 if problems else 0
 
 
 def main(argv):
-    ap = argparse.ArgumentParser(description="claude/CLAUDE.md may not grow against its base.")
+    ap = argparse.ArgumentParser(description="claude/CLAUDE.md may not exceed its byte ceiling.")
     mode = ap.add_mutually_exclusive_group()
     mode.add_argument("--index", action="store_true", help="read the staged file (default)")
     mode.add_argument("--worktree", action="store_true", help="read the file on disk instead")
-    ap.add_argument("--base", default="HEAD", help="revision to compare against (default HEAD)")
+    ap.add_argument("--base", default="HEAD",
+                    help="revision the NEW LINES and KO SIZE disclosures compare against (default HEAD)")
     ap.add_argument("--repo", type=pathlib.Path, default=REPO)
     ap.add_argument("--self-test", action="store_true")
     args = ap.parse_args(argv)
     if args.self_test:
         return self_test()
-    failures, errors, found, ko, sides = judge(args.repo, args.worktree, args.base)
+    failures, errors, found, ko, notes, size = judge(args.repo, args.worktree, args.base)
     if found is not None:
         print(f"NEW LINES: {len(found)}")
         for number, text in found:
             print(f"  {number}: {text}")
-    for side in sides:
-        print(f"ABSENT: {GLOBAL} is not in {side}; measured as empty")
+    for note in notes:
+        print(note)
     if ko:
         print(f"KO SIZE: {ko}")
     for failure in failures:
@@ -427,7 +470,7 @@ def main(argv):
         return 2
     if failures:
         return 1
-    print(f"check-global-file: OK ({GLOBAL} did not grow against {args.base})")
+    print(f"check-global-file: OK ({GLOBAL} is {size} of {CEILING_BYTES} bytes)")
     return 0
 
 
