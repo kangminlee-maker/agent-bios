@@ -1923,6 +1923,53 @@ def codex_run():
                     pair=("--sandbox", "read-only"),
                 )
 
+            # Hermetic means the reviewer loads nothing of the owner's: Codex reads project
+            # AGENTS.md from the git root down to --cd, and user skills from HOME, so a fresh
+            # CODEX_HOME alone left both in. The fixture home and repo stand in for the real ones,
+            # so the gate never copies a real credential.
+            owner_home = tmp / "owner-codex-home"
+            owner_home.mkdir()
+            (owner_home / "auth.json").write_text("{}\n")
+            (owner_home / "AGENTS.md").write_text("owner global\n")
+            project = tmp / "project"
+            (project / ".git").mkdir(parents=True)
+            (project / "AGENTS.md").write_text("project rules\n")
+            seen = tmp / "seen"
+            hermetic_env = dict(env, CODEX_HOME=str(owner_home), FAKE_CODEX_SEEN=str(seen))
+            fake.write_text(
+                fake.read_text().replace(
+                    "printf 'progress-err\\n' >&2\n",
+                    "if [ -n \"${FAKE_CODEX_SEEN:-}\" ]; then\n"
+                    "  { printf 'HOME=%s\\n' \"$HOME\"; printf 'home-entry=%s\\n' $(ls -A \"$HOME\");\n"
+                    "    printf 'codex-home-entry=%s\\n' $(ls -A \"$CODEX_HOME\"); } > \"$FAKE_CODEX_SEEN\"\n"
+                    "fi\n"
+                    "printf 'progress-err\\n' >&2\n",
+                )
+            )
+            for label, extra in (("hermetic", []), ("hermetic --cd into a repository", ["--cd", str(project)])):
+                result = invoke(["bash", str(run), "--profile", "hermetic", "--model", "gpt-5.6-sol", *extra, "-"],
+                                input_text="probe\n", env=hermetic_env)
+                received = argv_log.read_text().splitlines()
+                observed = seen.read_text().splitlines() if seen.exists() else []
+                if result.returncode != 0:
+                    mark_fail(f"codex-run {label} fake runtime failed: {result.stderr.strip()}")
+                expect_args(f"codex-run {label}", received, ("--ignore-user-config", "--ephemeral", "project_doc_max_bytes=0"))
+                child_home = next((line[len("HOME="):] for line in observed if line.startswith("HOME=")), "")
+                home_entries = [line[len("home-entry="):] for line in observed
+                                if line.startswith("home-entry=") and line != "home-entry="]
+                if not child_home or child_home == env.get("HOME") or "codex-run-" not in child_home:
+                    mark_fail(f"codex-run {label} runs Codex with the caller's HOME ({child_home or 'unseen'}), "
+                              "so user skills under HOME reach the reviewer")
+                elif home_entries:
+                    mark_fail(f"codex-run {label} gives Codex a HOME holding {len(home_entries)} entries "
+                              f"(first: {home_entries[:3]})")
+                codex_home_entries = sorted(line for line in observed if line.startswith("codex-home-entry="))
+                if codex_home_entries != ["codex-home-entry=auth.json"]:
+                    mark_fail(f"codex-run {label} CODEX_HOME holds {codex_home_entries}, not auth.json alone")
+                seen.unlink(missing_ok=True)
+            result, received = fake_call(["bash", str(run), "--profile", "inherit", "--model", "gpt-5.6-sol", "-"])
+            expect_args("codex-run inherit", received, absent=("project_doc_max_bytes=0",))
+
             env["FAKE_CODEX_STATUS"] = "7"
             failed, _ = fake_call(["bash", str(run), "--profile", "inherit", "--bypass-sandbox"])
             if failed.returncode != 7:

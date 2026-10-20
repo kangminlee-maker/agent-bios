@@ -14,8 +14,10 @@
 # Profiles (instruction/config reach):
 #   inherit  (default)  real CODEX_HOME → global + project AGENTS.md + full config.toml
 #   hermetic            fresh temp CODEX_HOME (auth copied only) + --ignore-user-config,
-#                       cwd defaults to an empty temp workspace → NO AGENTS.md, NO user
-#                       config: an independent, uncontaminated lens
+#                       an empty temp HOME, project_doc_max_bytes=0, cwd defaulting to an
+#                       empty temp workspace → NO AGENTS.md (global or project, even with
+#                       --cd inside a repository), NO user skills, NO user config: an
+#                       independent, uncontaminated lens
 #   custom  --home DIR  CODEX_HOME=DIR → exactly the AGENTS.md/config you place in DIR
 #
 # The prompt is read from stdin. `codex exec` writes the final message to stdout
@@ -41,7 +43,8 @@ Usage: codex-run.sh [--profile inherit|hermetic|custom] [--home DIR]
                     [-c key=value ...] [-]  < prompt
   --profile   instruction/config reach (default: inherit)
                 inherit  real CODEX_HOME  -> global+project AGENTS.md + full config.toml
-                hermetic temp CODEX_HOME  -> NO AGENTS.md, NO user config (auth only)
+                hermetic temp CODEX_HOME + empty HOME -> NO AGENTS.md, NO user
+                         skills, NO user config (auth only), even with --cd
                 custom   CODEX_HOME=--home -> exactly what you place in that dir
   --home DIR  CODEX_HOME for --profile custom (required for custom)
   --model M   -m: model to use
@@ -128,6 +131,7 @@ fi
 
 real_home="${CODEX_HOME:-$HOME/.codex}"
 run_home="$real_home"
+run_env=()
 cleanup_paths=()
 cleanup_all() {
   if [ "${#cleanup_paths[@]}" -gt 0 ]; then
@@ -144,7 +148,12 @@ if [ "$profile" = "hermetic" ]; then
   # Auth still resolves from CODEX_HOME even with --ignore-user-config, so carry
   # only auth.json across; leave AGENTS.md and config.toml behind.
   cp "$real_home/auth.json" "$run_home/auth.json" 2>/dev/null || true
-  # Default cwd to an empty workspace so no project AGENTS.md is picked up.
+  # Codex also reads user skills from HOME, so the child gets an empty one. Only the
+  # child: receipts below still resolve the launcher from the caller's HOME.
+  mkdir -p "$root/user-home"
+  run_env+=(HOME="$root/user-home")
+  # Default cwd to an empty workspace; project_doc_max_bytes=0 (added below) keeps a
+  # caller's --cd inside a repository from loading its AGENTS.md files.
   if [ -z "$cd_dir" ]; then
     cd_dir="$root/workspace"
     mkdir -p "$cd_dir"
@@ -161,7 +170,7 @@ if [ "$bypass_sandbox" -eq 1 ]; then
 else
   args+=(--sandbox "$sandbox")
 fi
-if [ "$profile" = "hermetic" ]; then args+=(--ignore-user-config --ephemeral); fi
+if [ "$profile" = "hermetic" ]; then args+=(--ignore-user-config --ephemeral -c project_doc_max_bytes=0); fi
 if [ -n "$model" ];  then args+=(--model "$model"); fi
 if [ -n "$cd_dir" ]; then args+=(--cd "$cd_dir"); fi
 if [ -n "$schema" ]; then args+=(--output-schema "$schema"); fi
@@ -236,14 +245,14 @@ if [ -n "${REVIEW_RECEIPT_DIR:-}" ]; then
   cleanup_paths+=("$work")
   cat > "$work/packet"
   set +e
-  CODEX_HOME="$run_home" codex "${args[@]}" < "$work/packet" | tee "$work/result"
+  env ${run_env[@]+"${run_env[@]}"} CODEX_HOME="$run_home" codex "${args[@]}" < "$work/packet" | tee "$work/result"
   status=${PIPESTATUS[0]}
   set -e
   emit_receipt "$status" "$work/packet" "$work/result"
 else
   # stdin, stdout, and stderr already match this adapter's channel contract.
   set +e
-  CODEX_HOME="$run_home" codex "${args[@]}"
+  env ${run_env[@]+"${run_env[@]}"} CODEX_HOME="$run_home" codex "${args[@]}"
   status=$?
   set -e
 fi

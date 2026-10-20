@@ -80,7 +80,7 @@ Instruction/config reach는 invocation마다 정한다. AGENTS.md 규칙은 herm
 | Profile | Reach | Use |
 |---|---|---|
 | inherit | real `CODEX_HOME`, project cwd | global/project AGENTS.md와 user config 전체 |
-| hermetic | temp home, auth only, user config 제외 | prompt-owned criteria의 independent lens |
+| hermetic | temp `CODEX_HOME`와 빈 `HOME`, auth only; user config, user skills, global·project AGENTS.md 제외(`--cd`로 저장소를 지정해도) | prompt-owned criteria의 independent lens |
 | custom | caller-populated home | 선택한 instruction/config만 적용 |
 
 - Instruction home, cwd, config override, task prompt, output schema를 독립적으로 제어한다. Repo wrapper가 setup/teardown을 소유한다.

@@ -80,7 +80,7 @@ Instruction/config reach is per invocation. A rule in AGENTS.md cannot bind a he
 | Profile | Reach | Use |
 |---|---|---|
 | inherit | real `CODEX_HOME`, project cwd | full global/project AGENTS.md and user config |
-| hermetic | temporary home, auth only, user config ignored | independent lens with prompt-owned criteria |
+| hermetic | temporary `CODEX_HOME` and empty `HOME`, auth only; user config, user skills, and global or project AGENTS.md excluded, even with `--cd` into a repository | independent lens with prompt-owned criteria |
 | custom | caller-populated home | exact curated instructions/config |
 
 - Control instruction home, working directory, config overrides, task prompt, and output schema independently. The repo wrapper owns setup and teardown.
