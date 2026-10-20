@@ -1,0 +1,105 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$comment": "design §5.1; WP-05 interface (plan: Artifacts and interfaces)",
+  "title": "Census",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["kind", "window", "originator_table_sha256", "sources", "originators", "provenance", "pins",
+               "independence", "pending_events", "transcripts"],
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "count": {"type": "integer", "minimum": 0},
+    "text": {"type": "string", "minLength": 1},
+    "ranges": {"type": "array", "items": {"type": "array", "minItems": 2, "maxItems": 2, "items": {"type": "integer", "minimum": 0}}},
+    "source": {
+      "type": "object", "additionalProperties": false,
+      "required": ["state", "path", "discovered", "unrecognized", "totals", "detail"],
+      "properties": {
+        "state": {"type": "string", "enum": ["present", "missing", "undeclared", "unreadable"]},
+        "path": {"type": ["string", "null"]},
+        "discovered": {"type": ["integer", "null"], "minimum": 0},
+        "unrecognized": {"$ref": "#/$defs/count"},
+        "totals": {"type": ["object", "null"], "additionalProperties": false,
+                   "patternProperties": {"^[a-z_]+$": {"$ref": "#/$defs/count"}}},
+        "detail": {"type": ["string", "null"]}
+      }
+    },
+    "edge": {
+      "type": "object", "additionalProperties": false, "required": ["from", "to", "via"],
+      "properties": {"from": {"$ref": "#/$defs/text"}, "to": {"$ref": "#/$defs/text"},
+                     "via": {"type": "array", "items": {"type": "string", "minLength": 1}}}
+    },
+    "transcript": {
+      "type": "object", "additionalProperties": false,
+      "required": ["host", "id", "source", "path", "sha256", "status", "reason", "parent", "originator", "entrypoint",
+                   "source_class", "lineage", "provenance", "counted", "window_overlap", "pin", "versions",
+                   "owned", "work", "alt_paths"],
+      "properties": {
+        "host": {"enum": ["claude", "codex"]},
+        "id": {"$ref": "#/$defs/text"},
+        "source": {"$ref": "#/$defs/text"},
+        "path": {"type": ["string", "null"]},
+        "sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+        "status": {"type": "string", "enum": ["excluded", "child_of", "unknown_provenance", "unreadable", "known_absent",
+                                              "eligible", "read_complete", "read_partial", "failed", "deferred", "nothing_new"]},
+        "reason": {"type": ["string", "null"]},
+        "parent": {"type": ["string", "null"]},
+        "originator": {"type": ["string", "null"]},
+        "entrypoint": {"type": ["string", "null"]},
+        "source_class": {"enum": ["claude-cli", "claude-desktop", "codex-cli", "codex-desktop", null]},
+        "lineage": {
+          "type": "object", "additionalProperties": false,
+          "required": ["component", "root", "unique_root", "affirmed", "measurement_pending"],
+          "properties": {"component": {"type": ["string", "null"]}, "root": {"type": ["string", "null"]},
+                         "unique_root": {"type": "boolean"}, "measurement_pending": {"type": "boolean"},
+                         "affirmed": {"type": "array", "items": {"$ref": "#/$defs/edge"}}}
+        },
+        "provenance": {"enum": ["indexed", "not_indexed", "index_missing", null]},
+        "counted": {"type": "boolean"},
+        "window_overlap": {"enum": ["inside", "straddles_start", "straddles_end", "context_only", null]},
+        "pin": {"type": "object", "additionalProperties": false, "required": ["content_ref"],
+                "properties": {"content_ref": {"type": ["string", "null"]}}},
+        "versions": {"type": "array", "items": {
+          "type": "object", "additionalProperties": false, "required": ["sha", "record_count", "prefix_sha"],
+          "properties": {"sha": {"$ref": "#/$defs/sha256"}, "record_count": {"$ref": "#/$defs/count"},
+                         "prefix_sha": {"$ref": "#/$defs/sha256"}}}},
+        "owned": {"$ref": "#/$defs/ranges"},
+        "work": {
+          "type": "object", "additionalProperties": false, "required": ["version", "in_window", "backlog"],
+          "properties": {"version": {"type": ["integer", "null"], "minimum": 0}, "in_window": {"$ref": "#/$defs/ranges"},
+                         "backlog": {"type": "array", "items": {
+                           "type": "object", "additionalProperties": false, "required": ["window", "version", "unread"],
+                           "properties": {"window": {"$ref": "#/$defs/text"}, "version": {"$ref": "#/$defs/count"},
+                                          "unread": {"$ref": "#/$defs/ranges"}}}}}
+        },
+        "alt_paths": {"type": "array", "items": {"type": "string", "minLength": 1}}
+      }
+    }
+  },
+  "properties": {
+    "kind": {"type": "string", "enum": ["periodic", "targeted"]},
+    "window": {"$ref": "#/$defs/text"},
+    "originator_table_sha256": {"$ref": "#/$defs/sha256"},
+    "sources": {"type": "object", "additionalProperties": false, "patternProperties": {"^[a-z_]+$": {"$ref": "#/$defs/source"}}},
+    "originators": {"type": "object", "additionalProperties": false, "patternProperties": {"^.+$": {
+      "type": "object", "additionalProperties": false, "required": ["count", "class"],
+      "properties": {"count": {"$ref": "#/$defs/count"}, "class": {"$ref": "#/$defs/text"}}}}},
+    "provenance": {"type": "object", "additionalProperties": false, "patternProperties": {"^.+$": {
+      "type": "object", "additionalProperties": false, "required": ["indexed", "not_indexed", "index_missing"],
+      "properties": {"indexed": {"$ref": "#/$defs/count"}, "not_indexed": {"$ref": "#/$defs/count"},
+                     "index_missing": {"$ref": "#/$defs/count"}}}}},
+    "pins": {"type": "object", "additionalProperties": false, "patternProperties": {"^[a-z_]+$": {
+      "type": "object", "additionalProperties": false, "required": ["eligible", "pinned"],
+      "properties": {"eligible": {"$ref": "#/$defs/count"}, "pinned": {"$ref": "#/$defs/count"}}}}},
+    "independence": {
+      "type": "object", "additionalProperties": false, "required": ["components", "unknown_components", "sessions", "unknown_sessions"],
+      "properties": {"components": {"$ref": "#/$defs/count"}, "unknown_components": {"$ref": "#/$defs/count"},
+                     "sessions": {"$ref": "#/$defs/count"}, "unknown_sessions": {"$ref": "#/$defs/count"}}
+    },
+    "pending_events": {"type": "array", "items": {
+      "type": "object", "additionalProperties": false, "required": ["id", "transcript", "version", "window", "first_record"],
+      "properties": {"id": {"$ref": "#/$defs/text"}, "transcript": {"$ref": "#/$defs/text"}, "version": {"$ref": "#/$defs/count"},
+                     "window": {"$ref": "#/$defs/text"}, "first_record": {"$ref": "#/$defs/count"}}}},
+    "transcripts": {"type": "array", "items": {"$ref": "#/$defs/transcript"}}
+  }
+}

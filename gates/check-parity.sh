@@ -291,6 +291,26 @@ if [ -f session-distill/runlib/stagelock.py ]; then
   python3 session-distill/runlib/stagelock.py --self-test >/dev/null \
     || { echo "FAIL: session-distill stage lock self-test (session-distill/runlib/stagelock.py)"; fail=1; }
 fi
+# The census (S1): readers of the transcripts and the host indexes, lineage and the counting rule, the
+# coverage state of design §5.2, and the census itself over a synthetic corpus (one fixture per O1 plant).
+# The legacy session-distill/census.py is untouched until the cutover; the census self-test also runs the
+# documented census -> digest handoff on a fixture home.
+if [ -f session-distill/runlib/sources.py ]; then
+  python3 session-distill/runlib/sources.py --self-test >/dev/null \
+    || { echo "FAIL: session-distill source readers self-test (session-distill/runlib/sources.py)"; fail=1; }
+fi
+if [ -f session-distill/runlib/lineage.py ]; then
+  python3 session-distill/runlib/lineage.py --self-test >/dev/null \
+    || { echo "FAIL: session-distill lineage self-test (session-distill/runlib/lineage.py)"; fail=1; }
+fi
+if [ -f session-distill/runlib/coverage.py ]; then
+  python3 session-distill/runlib/coverage.py --self-test >/dev/null \
+    || { echo "FAIL: session-distill coverage state self-test (session-distill/runlib/coverage.py)"; fail=1; }
+fi
+if [ -f session-distill/runlib/census.py ]; then
+  python3 session-distill/runlib/census.py --self-test >/dev/null \
+    || { echo "FAIL: session-distill census self-test (session-distill/runlib/census.py)"; fail=1; }
+fi
 
 # Instructions rollback (compose/instructions-state.py) — a destructive path with no other
 # coverage: every version registered today is UNAVAILABLE (it predates the assembled

@@ -7,14 +7,17 @@
                                                            [--invalidates S1]
   distill.py declare --self-test                           the declaration's controls
   distill.py --self-test                                   declare -> stage -> amend -> stage, on real files
-  distill.py <stage command> --run-id ID                   S1-S12: named, and refused until implemented
+  distill.py census --run-id ID [--coverage PATH]          S1: census.json and coverage.json into the run directory
+  distill.py census --run-id ID --reconcile RESULTS.json   S3's results folded back into the statuses and the coverage
+  distill.py <stage command> --run-id ID                   S2-S12: named, and refused until implemented
 
 A run lives in `session-distill/out/<run-id>/` (`--out` names another root): `run.json`,
 `amendments.jsonl`, `stages/<stage>/record.json`, and per-call directories. The declaration,
 its amendments and the stage records are `runlib/declare.py` and `runlib/records.py`; the
 record schemas every stage keeps (claim, evidence, expected observation) are
 `schemas/*.schema.json`, loaded through `runlib/claims.py`; the declaration's own structure is
-`schemas/run.schema.json`. Design: §3, §4, §4.1.
+`schemas/run.schema.json`. The census (S1) is `runlib/census.py`, over the readers of `runlib/sources.py`,
+`runlib/lineage.py` and the coverage state of `runlib/coverage.py`. Design: §3, §4, §4.1, §5.1-§5.3.
 """
 import argparse
 import contextlib
@@ -27,7 +30,7 @@ import sys
 import tempfile
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
-from runlib import declare, records, stagelock
+from runlib import census, coverage, declare, records, stagelock
 from runlib.records import Refused
 
 OUT = pathlib.Path(__file__).resolve().parent / "out"
@@ -90,6 +93,23 @@ def cmd_declare(args):
     return 0
 
 
+def cmd_census(args):
+    run_dir = run_dir_of(args)
+    if args.reconcile:
+        before = json.loads((run_dir / "census.json").read_text(encoding="utf-8"))
+        state = coverage.load(run_dir / "coverage.json")[0]
+        results = json.loads(pathlib.Path(args.reconcile).read_text(encoding="utf-8"))
+        done, after, flags = census.reconcile(before, state, results, before["kind"])
+        records.write_text(run_dir, run_dir / "census.reconciled.json", census.dump(done))
+        records.write_json(run_dir, run_dir / "coverage.reconciled.json", after)
+        counts = census.window_counts(done["transcripts"])
+        print(f"reconciled {run_dir}: accounted {flags['accounted']} ({counts['accounted']}/{counts['eligible']} sessions), "
+              f"fully read {flags['fully_read']} ({counts['fully_read']}/{counts['eligible']})")
+        return 0
+    print("\n".join(census.report_lines(census.run(run_dir, args.coverage, args.originators, args.jobs))))
+    return 0
+
+
 def cmd_stage(args):
     stage = STAGE_COMMANDS[args.command]
     if args.command == "close" and args.recovery:
@@ -120,11 +140,16 @@ def build_parser():
     sub.add_argument("--self-test", action="store_true", help="the declaration's controls")
     sub.set_defaults(handler=cmd_declare)
     for name, stage in STAGE_COMMANDS.items():
-        sub = commands.add_parser(name, help=f"{stage}: not implemented yet")
+        sub = commands.add_parser(name, help=f"{stage}: the census" if name == "census" else f"{stage}: not implemented yet")
         common(sub)
         if name == "close":
             sub.add_argument("--recovery", action="store_true", help="the recovery close (reserved)")
-        sub.set_defaults(handler=cmd_stage)
+        if name == "census":
+            sub.add_argument("--coverage", help="the coverage state the declaration pinned (default: session-distill/coverage.json)")
+            sub.add_argument("--originators", help="the originator table; refused unless it is the one the declaration names (source 'originators')")
+            sub.add_argument("--jobs", type=int, default=8, help="parallel transcript reads")
+            sub.add_argument("--reconcile", help="S3's results (a JSON list): fold them back instead of counting")
+        sub.set_defaults(handler=cmd_census if name == "census" else cmd_stage)
     return parser
 
 
@@ -317,9 +342,38 @@ def self_test():
             os.chdir(here)
 
         for command, stage_id in STAGE_COMMANDS.items():
+            if command == "census":
+                continue  # implemented: its own controls follow
             code, err = cli(command, "--run-id", "r1")
             control(f"{command} ({stage_id}) is named and refused",
                     code == 2 and f"STAGE_NOT_IMPLEMENTED {command} ({stage_id})" in err, err)
+        # the census (S1) through the driver: a declared run over sources that are not there is unknown coverage, not zero
+        coverage_file = scratch / "coverage.json"
+        coverage_file.write_text(records.json_text(coverage.new_state()), encoding="utf-8")
+        table = {"name": census.ORIGINATORS_SOURCE, "path": str(census.ORIGINATORS_PATH), "sha256": census.load_originators()[1]}
+        pinned = {**declare.fixture(), "starting_hashes": {**declare.fixture()["starting_hashes"], "coverage": coverage.load(coverage_file)[1]}}
+        pinned["sources"] = [*pinned["sources"], table]
+        (out / "pinned.json").write_text(json.dumps(pinned), encoding="utf-8")
+        cli("declare", "--run-id", "rc", "--from", str(out / "pinned.json"))
+        code, err = cli("census", "--run-id", "rc", "--coverage", str(coverage_file))
+        document = json.loads((out / "rc" / "census.json").read_text(encoding="utf-8")) if (out / "rc" / "census.json").is_file() else {}
+        control("census over sources that are not there succeeds and reports them unknown",
+                code == 0 and {n: s["totals"] for n, s in document.get("sources", {}).items() if s["state"] == "missing"}
+                == {"claude_projects": None, "codex_sessions": None} and document["transcripts"] == [], err)
+        control("census recorded its stage", records.read_json(records.record_path(out / "rc", "S1"))["status"] == "complete")
+        pinned_stale = {**pinned, "starting_hashes": {**pinned["starting_hashes"], "coverage": "1" * 64}}
+        (out / "stale.json").write_text(json.dumps(pinned_stale), encoding="utf-8")
+        cli("declare", "--run-id", "rs", "--from", str(out / "stale.json"))
+        code, err = cli("census", "--run-id", "rs", "--coverage", str(coverage_file))
+        control("census over a coverage state the declaration did not pin is refused", code == 1 and "COVERAGE_BASE_STALE" in err, err)
+        code, err = cli("census", "--run-id", "nobody", "--coverage", str(coverage_file))
+        control("census of a run that was never declared is refused", code == 1 and "RUN_UNDECLARED" in err, err)
+        results = scratch / "results.json"
+        results.write_text("[]", encoding="utf-8")
+        code, err = cli("census", "--run-id", "rc", "--reconcile", str(results))
+        reconciled = (out / "rc" / "census.reconciled.json").is_file() and (out / "rc" / "coverage.reconciled.json").is_file()
+        control("census --reconcile folds S3's (empty) results back into new files beside S1's own", code == 0 and reconciled, err)
+
         code, err = cli("close", "--run-id", "r1", "--recovery")
         control("close --recovery is reserved", code == 2 and "RECOVERY_RESERVED" in err, err)
         code, err = cli("declare", "--run-id", "r1")
