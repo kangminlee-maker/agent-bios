@@ -1,11 +1,8 @@
 #!/usr/bin/env python3
-"""Read a dated-bundle pointer the way CommonMark reads it, once, for both readers.
+"""Read a dated-bundle pointer the way CommonMark reads it.
 
-`gates/check-development-plan.py` and the checker inventory inside
-`gates/check-parity.sh` both decide which dated file is current by reading one
-markdown entry point, so the reading lives here instead of in two copies that
-had already drifted: one destination pattern admitted an empty link target and
-the other did not, and one of them matched a target carrying a newline.
+The checker inventory inside `gates/check-parity.sh` decides which dated checker
+a markdown entry point selects as current by reading that entry point here.
 
 Block structure is resolved first and line by line -- fenced code, then HTML
 comment blocks, then indented code -- and inline structure only afterwards,
@@ -23,11 +20,7 @@ import re
 # parentheses and admits an empty target, so an empty destination reaches the
 # caller's own name rule and is reported as a bad name rather than as no pointer.
 DESTINATION = r"([^)\n]*)"
-PLAN_SELECTOR = r"\*\*Implementation task graph:\*\*[ \t]*\[[^\]\n]+\]\(" + DESTINATION + r"\)"
-SSOT_SELECTOR = r"\*\*Design SSOT:\*\*[ \t]*\[[^\]\n]+\]\(" + DESTINATION + r"\)"
 CHECKER_SELECTOR = r"\[Static plan checker\]\(" + DESTINATION + r"\)"
-CATALOG_SELECTOR = r"\[Test families and phase scopes\]\(" + DESTINATION + r"\)"
-REGRESSION_SELECTOR = r"\[bound acceptance regressions\]\(" + DESTINATION + r"\)"
 
 _FENCE = re.compile(r"^ {0,3}(`{3,}|~{3,})(.*)$")
 _INDENTED = re.compile(r"^(?: {4}|\t)")

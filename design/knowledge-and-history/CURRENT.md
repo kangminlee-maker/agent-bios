@@ -1,5 +1,11 @@
 # Team work-environment design — current entry
 
+**Stopped 2026-10-20 (D-20261020-05c243).** The Team work-environment initiative
+is not pursued on `main`, and the product purpose in root `AGENTS.md` no longer
+includes it. This file and the dated records it links are history. The
+implementation built after them is preserved on branch `feat/team-env-p01`
+(`c9edc30`), which `main` does not merge.
+
 Updated 2026-09-16. This file is a navigation pointer, not another specification.
 
 - **Latest handoff:** [2026-09-16 17:47 KST](2026-09-16T1747--494f996--handoff.md). Read it first when resuming: the successor validator and regression bundle, why the P00 record is now stale, and what the owner must do before P01. The [2026-09-15 16:29 handoff](2026-09-15T1629--bb7b212--handoff.md) holds the commit scope and the P00 evidence chain.
@@ -17,7 +23,6 @@ Updated 2026-09-16. This file is a navigation pointer, not another specification
 - **Traceability:** [Design source inventory](2026-09-15T1026--35c75ca--ssot-sources.json) · [Selected brownfield code evidence](2026-09-15T1026--35c75ca--brownfield-evidence.json)
 - **Prior engineering repair:** [Root-cause repair of XR01–XR03](2026-09-14T1933--35c75ca--repair-review.md). Planning/evidence-model fixes are verified; product backup and the actual R0 runner qualification remain scheduled work.
 - **Bootstrap execution (P00):** [Baseline capture and present-state classification](2026-09-15T1343--35c75ca--p00-baseline-record.md). Isolated worktree on a264457 plus main's uncommitted residual (tree 7f3c1c29), captured without touching main's index; B01–B05 passed under coordinator control, and the 10:26 evaluator accepted the run evidence for P00 only. In that record's words, no node is dispatch-ready until P01 freezes case bindings; R0 then qualifies a runner before any unattended claim. No product node is implemented. The 17:47 successor plan has a new plan digest, so its evaluator reports the P00 record as `stale plan/node` and lists P00 itself as the only coordinator-eligible node. The owner re-runs P00, or re-issues its record against the new digest, before P01.
-- **Live author gate:** [Current bundle gateway](../../gates/check-development-plan.py) runs the selected validator and [bound acceptance regressions](2026-09-16T1747--494f996--acceptance-tests.py) in default mode through the parity umbrella.
 - **Historical finding record:** [18:19 cross-review](2026-09-14T1819--35c75ca--cross-document-review.md) · [original counterexamples](2026-09-14T1819--35c75ca--cross-review-evidence.json). The old reviewed bundle is preserved.
 - **Prior-revision Korean map (15:04):** [Interactive map](2026-09-14T1504--35c75ca--design-map.html) · [fragment](2026-09-14T1504--35c75ca--design-map.fragment.html) · [original QA](2026-09-14T1504--35c75ca--ssot-consolidation-qa.md). This historical map is not a complete projection of current identity, storage, scope or intake rules.
 
@@ -34,8 +39,3 @@ The unversioned `check-development-plan.py` is retained only for the superseded
 artifact; use the dated static checker linked above for the current plan. The
 commit-time checker inventory validates this exact historical binding separately
 from live gate reachability.
-
-On a design change, publish a dated successor of the complete SSOT and update
-this pointer and its projections together. Do not add competing current rules
-in supplements. The product purpose stays canonical in root AGENTS.md; actual
-runtime behavior and terminology remain owned by code and the operated lexicon.

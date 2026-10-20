@@ -3,25 +3,25 @@
 ## Product purpose — read before every task
 
 <!-- product-purpose:start -->
-agent-bios exists to let workers compose, share, and inherit team work environments
-from Instructions, Domain knowledge, and Decision memory, so they can perform
-their roles within the standards and context of their team, industry, and organization.
+agent-bios exists to let a worker keep one library of Instructions — rules,
+guides, and procedures for LLM agents — and choose what each Claude Code or
+Codex session uses, so the work follows the standards and context the worker
+has chosen.
 
-A team is the basic unit for selecting, adopting, and sharing a work environment.
+The goal is efficient work and continuity. Instructions are reusable defaults
+that the worker adapts to each repository and personal working need; they are
+not a mechanism for enforcing uniform working methods.
 
-The goal is efficient work and continuity. Shared environments provide reusable
-defaults that workers can adapt to their repository and personal working needs;
-they are not a mechanism for enforcing uniform working methods.
-
-Workers should be able to select an environment appropriate to their role and
-team, collaborate from shared standards and decision context, and continue
-the work when a worker, model, session, or device changes. Shared context does
-not require identical outputs or erase personal, team, and organizational boundaries.
+The worker should be able to read and edit what each instruction says, adopt
+instructions others publish as packages, and continue the work when the model,
+session, or host changes. Adopted instructions do not require identical outputs
+or erase personal and organizational boundaries.
 <!-- product-purpose:end -->
 
 Before designing, implementing, reviewing, or documenting a change, identify how
 it advances or preserves this purpose. Judge a proposed simplification by whether
-it preserves environment selection, sharing, continuity, and authority boundaries.
+it preserves instruction selection, package adoption, continuity, and authority
+boundaries.
 Record material exclusions with their reasons and revisit conditions in the
 decision ledger. The purpose is the decision criterion; future capabilities must
 not be described as already implemented.
@@ -31,12 +31,6 @@ This block is the canonical purpose text. `gates/check-product-purpose.py`
 import of this file; its self-test plants missing, empty, and divergent subjects.
 Purpose alignment and model attention remain **CONVENTION**, evaluated in review.
 Regenerate the README block with `python3 gates/check-product-purpose.py --emit`.
-
-For the broader Team work-environment design, start at
-[`design/knowledge-and-history/CURRENT.md`](design/knowledge-and-history/CURRENT.md).
-It resolves one dated design SSOT and its projections. Read that SSOT before
-changing this initiative; earlier design snapshots are rationale, not competing
-current rules. The target design does not establish implemented runtime behavior.
 
 **This repo's product is agent instructions. Do not confuse the product with your
 instructions.** `claude/CLAUDE.md`, `codex/AGENTS.md`, `claude/guides/`,

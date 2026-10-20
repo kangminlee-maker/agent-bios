@@ -1,8 +1,9 @@
 # SURFACES.md — where knowledge and tools reach a model, and what each place admits
 
-These surfaces serve the product purpose stated in `AGENTS.md`: workers select,
-share, and inherit team work environments. They determine what selected material
-reaches a model, when it reaches it, and under which delivery contract.
+These surfaces serve the product purpose stated in `AGENTS.md`: a worker keeps one
+library of Instructions and chooses what each session uses. They determine what
+selected material reaches a model, when it reaches it, and under which delivery
+contract.
 
 Efficient consumption preserves the information needed for the current judgment
 while limiting context and retrieval cost. Content, timing, and delivery surface
