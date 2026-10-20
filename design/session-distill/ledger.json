@@ -1,7 +1,7 @@
 {
  "schema": 1,
  "framework": "design/session-distill/PLACEMENT-FRAMEWORK.md",
- "window": "census ending 2026-08-25 (previous: census 21d ending 2026-07-18)",
+ "window": "census ending 2026-09-22 (previous: census ending 2026-09-09 (previous: census ending 2026-08-25 (previous: census 21d ending 2026-07-18)))",
  "entries": [
   {
    "id": "S4-01",
@@ -199,7 +199,8 @@
    ],
    "supporting_sessions": [
     "claude:7cde4039#20",
-    "codex:019f4181#75"
+    "codex:019f4181#75",
+    "claude:a37d5da2"
    ],
    "classification": {
     "type": "C",
@@ -224,7 +225,21 @@
    "classified": "2026-07-18",
    "decision1": "user-approved-default 2026-07-19",
    "placed": "2026-07-19",
-   "domain": "builder-base"
+   "domain": "builder-base",
+   "recurrence": [
+    {
+     "window": "2026-09-22",
+     "sessions": [
+      "claude:a37d5da2"
+     ],
+     "strength": 2,
+     "verdict": "novel",
+     "lesson_as_seen": "Providers report cached tokens differently: some include them in the input total, others report them separately, and cache writes have their own price. Normalize each provider's accounting before applying prices, or both the cost and the cache hit rate come out wrong.",
+     "principle": "When computing or comparing LLM cost from provider usage records, especially across providers, first map each provider's token fields onto one common schema: uncached input, cache read, cache write, and output. Only then apply prices. Some providers count cached tokens inside the input total, and those tokens must be subtracted before the input is priced at full rate. Others report cached tokens as a separate field. Cache-write tokens must be recorded as their own field, because they carry their own price. Check each provider's field semantics against its own usage documentation or a known sample, not by analogy with another provider. Report the cache hit rate from the normalized fields. Scope: any cost figure, cost comparison or cache-efficiency metric built from usage records of more than one provider or API. For a single provider whose fields are already priced consistently, this reduces to confirming that the fields mean what the pricing assumes.",
+     "reason": "Same trigger and behavior: before comparing costs, normalize them to a common billing basis. Mapping provider cache-token fields onto one schema narrows that rule.",
+     "placement": "2026-09-22 extended: claude/guides/verification-discipline.md §Verification Menus — new \"Cost figures from provider usage records\" bullet; mirrored to codex/ and ko/claude/ (translated) and ko/codex/ by gates/emit-mirrors.py"
+    }
+   ]
   },
   {
    "id": "S4-07",
@@ -473,7 +488,7 @@
   {
    "id": "S3-06",
    "lesson": "Verify the active cloud CLI project/context matches intent (and pin it) before environment-affecting commands",
-   "strength": 3,
+   "strength": 4,
    "verdict": "novel",
    "criteria": [
     "rare_high_cost",
@@ -481,7 +496,9 @@
    ],
    "supporting_sessions": [
     "claude:66a90f0b",
-    "claude:01abd65f"
+    "claude:01abd65f",
+    "claude:3c37a5f3",
+    "claude:b033d806"
    ],
    "classification": {
     "type": "B",
@@ -515,6 +532,18 @@
      "lesson_as_seen": "Confirm which repository a forge CLI resolved before reading state through it",
      "principle": "A forge CLI (gh/glab-style) chooses its target repository from the checkout's git remotes, and when more than one remote exists (origin plus upstream, fork plus canonical) that choice is silent and may not be the repository being worked on. Before reading workflow runs, PR state, checks, or settings through it — and before any conclusion about what merging or pushing will trigger — print which repository it resolved to, and pin the repository explicitly (`--repo`/equivalent) on every call whose answer feeds a decision. Does not apply to a single-remote checkout, but a fresh fork or an added upstream remote re-triggers it.",
      "reason": "Verify and pin which target a CLI resolved before acting; same lesson extended from cloud CLI context to forge CLI repo."
+    },
+    {
+     "window": "2026-09-09",
+     "sessions": [
+      "claude:3c37a5f3",
+      "claude:b033d806"
+     ],
+     "strength": 4,
+     "verdict": "partial",
+     "lesson_as_seen": "Which identity or resource instance you are acting on is unstated ambient state — resolve it from the live runtime before creating or diagnosing, and evidence obtained under the wrong one is withdrawn, not weak.",
+     "principle": "When a console, CLI, or API multiplexes several identities or several near-identical instances of one resource behind a single surface — an account index in a URL, a profile or tenant switcher, two documents, buckets, projects, or datasets sharing a name — the acting identity and the target instance are unpinned ambient bindings that no artifact declares. Resolve both from the live runtime before creating anything and before diagnosing missing, stale, or unexpected data: read back which identity the surface is acting as, and read which instance the production consumer binds to from the running deployment's own configuration (its environment, binding, or connection string), never from a name, a bookmark, a link in a document, or memory. Re-check the binding before quoting a verification: a green result obtained under the wrong identity or instance is withdrawn evidence, not weak evidence, and the artifacts created under it are orphans. Rule out the wrong-identity and wrong-instance explanations before declaring an incident or writing a repair — both \"our data was deleted\" and \"another agent's write vanished\" resolve there more often than to a real incident. A resource with one identity and one instance under your sole control needs none of this.",
+     "reason": "Same lesson, widened: S3-06 is 'verify the active cloud CLI project/context matches intent (and pin it) before environment-affecting commands'. The survivor keeps that trigger (an unpinned ambient identity/context binding behind one surface) and that behavior (read it back from the live runtime before acting), extending it to near-identical resource instances and to withdrawing evidence obtained under the wrong binding."
     }
    ],
    "decision2": "PROPOSED resolved 2026-08-25: 소폭 확장 — 기존 불릿 확장",
@@ -2223,7 +2252,7 @@
   {
    "id": "S2-16",
    "lesson": "Isolate reviewer/subagent work from the live mutable working tree; re-verify shared state and forbid its destructive git ops",
-   "strength": 2,
+   "strength": 3,
    "verdict": "partial",
    "criteria": [
     "rollback",
@@ -2231,7 +2260,8 @@
     "quality_lever"
    ],
    "supporting_sessions": [
-    "claude:864e0186"
+    "claude:864e0186",
+    "claude:72a9240d"
    ],
    "classification": {
     "type": "D",
@@ -2251,7 +2281,20 @@
    "classified": "2026-07-18",
    "decision1": "user-approved-default 2026-07-19",
    "placed": "2026-07-19",
-   "domain": "multi-agent-orchestration"
+   "domain": "multi-agent-orchestration",
+   "recurrence": [
+    {
+     "window": "2026-09-09",
+     "sessions": [
+      "claude:72a9240d"
+     ],
+     "strength": 3,
+     "verdict": "partial",
+     "lesson_as_seen": "A dispatch scoped by working directory sends the whole tree — untracked credentials and in-flight mutations included; materialize a frozen, scrubbed copy at the revision under review and never mutate a tree an external reader holds.",
+     "principle": "A dispatch scoped by a working directory sends everything in that directory to the reader, not the change you meant to share: untracked credential files, scratch data, and whatever another process is writing at that instant. Before dispatching outside your own process, materialize a frozen copy at the revision under review, scan it for credential-shaped files and remove them, and pin the packet to that copy — then treat that copy as read-only, running no edits, fault injection, or mutation batteries against a tree an external reader holds, since a planted defect read as production code yields findings about work that does not exist and the contamination is invisible in the verdict. A dispatch whose payload is an explicit diff or an enumerated file list needs only the freeze, not the scrub.",
+     "reason": "S2-16 is 'isolate reviewer/subagent work from the live mutable working tree; re-verify shared state and forbid its destructive git ops' — the same trigger (dispatching an external reader against a working directory) and the same core behavior (freeze it, never mutate a tree the reader holds). The credential scrub of the frozen copy extends the same entry."
+    }
+   ]
   },
   {
    "id": "S2-17",
@@ -3597,7 +3640,8 @@
    ],
    "supporting_sessions": [
     "claude:105319ce",
-    "claude:e9468069"
+    "claude:e9468069",
+    "claude:c9ec1a78"
    ],
    "principle": "When you narrow or widen a lexical deny guard (a grep/regex policy check over source or docs), a passing suite is not proof the edited rule still fires: sibling rules may have caught the planted cases, and a bare-identifier pattern may self-match its own prohibition comment or miss the same capability reached through a sibling API or an aliased import. Falsify the rule on its own, in both directions — with sibling rules disabled, the clean tree (including comments that name the forbidden call) must pass, and planted violations in every shape that grants the capability (direct, sibling API, alias/receiver form) must each go red — then plant one violation into the real guarded path and watch the real check fail, not only the unit test of the pattern. Match the invocation shape rather than the bare word, and scope the scan to the tree future files will land in. Applies to any hand-written pattern that enforces a prohibition; a semantic or judgment check is not a lexical guard and is out of scope.",
    "baseline_ref": "guides/verification-discipline.md §When a green means nothing and §Deriving the case space — covers negative controls, planting a violation to prove a control fires (and the restore trap), revert-and-watch-fail, and the empty-subject vacuous pass. Omits: isolating the edited rule from sibling rules that mask it, the clean-tree-must-pass direction (self-match on a prohibition comment), sibling-API/alias bypass coverage, and planting into the real guarded path after unit-testing the pattern.",
@@ -3609,7 +3653,20 @@
    "window": "2026-08-25",
    "surfaced": "2026-08-25",
    "decision1": "user-approved-default 2026-08-25",
-   "decision2": "PROPOSED resolved 2026-08-25: 동일 — 인큐베이터"
+   "decision2": "PROPOSED resolved 2026-08-25: 동일 — 인큐베이터",
+   "recurrence": [
+    {
+     "window": "2026-09-09",
+     "sessions": [
+      "claude:c9ec1a78"
+     ],
+     "strength": 2,
+     "verdict": "partial",
+     "lesson_as_seen": "A red run does not prove your new check fired — read which assertion produced the failure and construct the plant so only the check under test can reject it.",
+     "principle": "A planted violation that turns a run red proves only that something rejected it. Before crediting a new check with its negative control, read which assertion produced the failure: a pre-existing or upstream guard that rejects the plant first leaves the new check unexercised and unproven. Construct the plant so that only the check under test can reject it — one that satisfies every gate already in the path — or move the assertion onto the value the new check owns; where no such input exists, disable the earlier guards for the control run and record that the control ran under that condition. This applies wherever a check is added into a path that already carries guards; a check that is the only assertion on its input needs nothing beyond the ordinary failed-by-name reading.",
+     "reason": "S3-51 is 'prove deny guards fire with planted violations and pass on the clean tree' — same trigger (crediting a new check via a planted violation). The survivor refines the same behavior: read which assertion produced the red, and construct the plant so only the check under test can reject it, since an upstream guard catching it first leaves the new check unexercised."
+    }
+   ]
   },
   {
    "id": "S3-52",
@@ -5139,7 +5196,8 @@
     "quality_lever"
    ],
    "supporting_sessions": [
-    "claude:09ca2e76"
+    "claude:09ca2e76",
+    "claude:cb10169f"
    ],
    "principle": "When a batch of changes arrives under a descriptive label (a \"formatting\", \"line-break\", \"typo\", or \"rename-only\" revision, commit, or handed-over diff), treat the label as a claim about the batch, not a description of it: classify the diff by kind before applying, apply what the label covers, and disclose every hunk of a kind the label does not name so the user confirms it was intended. The unlabeled class is where unreviewed content changes hide. This applies to edits you did not author that you are asked to apply or merge; a diff you produced yourself is covered by stating your own scope instead.",
    "baseline_ref": "Global CLAUDE.md §Decision Framing — \"Treat user suggestions, inherited premises, handoff and design claims ... as hypotheses, not facts; re-derive each load-bearing claim from real code or data before building on it\" — partially covers (a label is an inherited claim), but names no concrete behavior for an incoming batch of edits; guides/coding-staged-workflow.md §Making the change covers only the agent's own diff scope (\"State the assumption\", \"Surgical means legible\"), not a diff received under someone else's label.",
@@ -5150,7 +5208,20 @@
    "status": "incubating",
    "window": "2026-08-25",
    "surfaced": "2026-08-25",
-   "decision1": "below-bar-default 2026-08-25"
+   "decision1": "below-bar-default 2026-08-25",
+   "recurrence": [
+    {
+     "window": "2026-09-09",
+     "sessions": [
+      "claude:cb10169f"
+     ],
+     "strength": 2,
+     "verdict": "partial",
+     "lesson_as_seen": "A hand-edited copy the user returns is a new version — preserve yours, diff, and report what the edit improved and dropped before adopting it, recording confirmed deliberate deviations.",
+     "principle": "When the user hands back a hand-edited copy of an artifact you are maintaining — a rewritten draft, a file taken out of the workspace and returned, a pasted revision — treat it as a new version rather than as the current state: preserve the version you held under its own name before the copy displaces it, diff the two, and report what the edit improved and what it dropped (checks that now fail, constraints removed, content that disappeared) before adopting it. Record any deviation the user confirms as deliberate in the artifact's own source of record, so a later pass does not re-flag it as a defect. This governs the out-of-workspace round trip; an edit made in place where the prior version is already recoverable from version control needs only the diff and the report.",
+     "reason": "S2-27 is 'classify an externally labeled batch of edits by kind and disclose label mismatches before applying' — same trigger (externally supplied edits arriving over your artifact) and same behavior (diff and disclose what they actually change before adoption). The survivor refines it for the out-of-workspace round trip: preserve your version first, report what the edit dropped, and record confirmed deliberate deviations."
+    }
+   ]
   },
   {
    "id": "S2-28",
@@ -5468,7 +5539,20 @@
    "status": "incubating",
    "window": "2026-08-25",
    "surfaced": "2026-08-25",
-   "decision1": "below-bar-default 2026-08-25"
+   "decision1": "below-bar-default 2026-08-25",
+   "recurrence": [
+    {
+     "window": "2026-09-09",
+     "sessions": [
+      "claude:5ad09543"
+     ],
+     "strength": 2,
+     "verdict": "partial",
+     "lesson_as_seen": "A figure copied from a lossy capture (transcription, OCR, scrape, hand-typed note) is checked against the other quantities in the same passage before it enters a deliverable — an arithmetic contradiction identifies a mis-captured digit far more cheaply than any downstream review.",
+     "principle": "A quantity taken from a lossy capture — speech transcription, OCR, a scraped page, a hand-typed note — carries that capture's errors and reads as a fact once quoted. Before such a figure enters a deliverable or a downstream calculation, reconcile it against the other quantities in the same passage: the differences, totals, ratios, and dates that should agree with it. A contradiction inside one passage localizes a mis-captured digit at the point of capture; where it cannot be resolved from the source, carry the figure with its inconsistency stated rather than silently choosing a reading. This applies to figures whose origin is a lossy channel and whose passage carries reconcilable neighbours — a value read from a machine-readable authoritative record, or one with nothing to reconcile against, needs only its ordinary provenance check.",
+     "reason": "S2-41 is 'reconcile transcribed figures against the arithmetic in the same passage before recording them' — identical trigger and behavior. The survivor widens the capture channel to OCR/scrape/hand-typed notes and adds carrying an unresolvable figure with its inconsistency stated, which refines the same entry."
+    }
+   ]
   },
   {
    "id": "S2-42",
@@ -6150,7 +6234,20 @@
    "status": "incubating",
    "window": "2026-08-25",
    "surfaced": "2026-08-25",
-   "decision1": "below-bar-default 2026-08-25"
+   "decision1": "below-bar-default 2026-08-25",
+   "recurrence": [
+    {
+     "window": "2026-09-09",
+     "sessions": [
+      "claude:94bc8568"
+     ],
+     "strength": 2,
+     "verdict": "partial",
+     "lesson_as_seen": "A criterion a model must judge at runtime has to rest on signals observable from where the judgment happens — replace an unobservable quantity with a correlated proxy, or move the judgment to the layer that can measure it.",
+     "principle": "When authoring a rule, threshold, or admission bar that a model — not a tool — will evaluate at runtime, check that every signal it names is observable from the context where the judgment happens. A criterion resting on a quantity the judge cannot read (its own token or cost accounting, another process's internals, anything only the host records) does not fail loudly; it degrades into a guess carrying a confident label. Either replace the unobservable quantity with a proxy the judge can see and that correlates with it — the seat or tier in use, elapsed wall-clock, the count of tool results in view — or move the judgment to the layer that can measure the quantity and have that layer emit the verdict the model then consumes. This binds criteria evaluated by model judgment; a criterion a tool or gate evaluates is bound by what that code can read instead, and a criterion whose signals are already in the judge's context needs nothing.",
+     "reason": "S2-71 is 'cost signals an agent can observe: model tier and elapsed LLM time, never self-counted tokens'. Same trigger (a criterion a model must evaluate from its own context) and same behavior (swap the unobservable quantity for an observable proxy), with the survivor generalizing beyond cost and adding the alternative of moving the judgment to the layer that can measure it."
+    }
+   ]
   },
   {
    "id": "S2-72",
@@ -6200,13 +6297,14 @@
   {
    "id": "S2-74",
    "lesson": "Before creating a home for shared data, find where existing items live and whether the human already did it",
-   "strength": 2,
+   "strength": 3,
    "verdict": "partial",
    "criteria": [
     "rollback"
    ],
    "supporting_sessions": [
-    "claude:b033d806"
+    "claude:b033d806",
+    "claude:989f0fa4"
    ],
    "principle": "Before creating a new container (folder, sheet, project, bucket) for items of a kind that already exist in a shared workspace, locate where the current items of that kind actually live and adopt that location, ownership, and naming convention instead of inventing one; and when a person is working on the same data in parallel, re-read the live state immediately before each write so you do not duplicate work already done. Applies to shared external stores where a human can act between your read and your write; it does not apply to scratch or tool-owned locations you alone write.",
    "baseline_ref": "guides/concept-economy.md §The Four Paths / Finding the nearest concept (reuse existing concept by default) and guides/documentation-hygiene.md §Where change history belongs (\"prefer the established homes over inventing one per change\") — both cover names and documents, not the physical home/convention of shared artifacts nor checking for parallel human changes before writing. Global §Tooling and Operational Safety covers ambient-state drift and diagnosing state before irreversible ops but not this trigger. Partially covers.",
@@ -6217,7 +6315,21 @@
    "status": "incubating",
    "window": "2026-08-25",
    "surfaced": "2026-08-25",
-   "decision1": "below-bar-default 2026-08-25"
+   "decision1": "below-bar-default 2026-08-25",
+   "recurrence": [
+    {
+     "window": "2026-09-09",
+     "sessions": [
+      "claude:989f0fa4",
+      "claude:b033d806"
+     ],
+     "strength": 3,
+     "verdict": "partial",
+     "lesson_as_seen": "Before creating in a space other actors share, look for what already exists — peers define the destination, and a parallel session may already have produced the deliverable; duplicates surface only after both are complete.",
+     "principle": "Before creating a container, destination, or deliverable in a space other actors can write — a shared drive or document store, a shared repository, or a workspace other sessions and agents act in — search for an existing instance of the same artifact class first: find where instances of that class already live and who owns them, and check the declared output paths, the published or deployed outputs, and recent activity for a realization someone else already produced. Follow the placement the existing peers establish rather than the convention you would have chosen, and re-read the target's current contents immediately before writing. A destination derived from an assumed convention becomes an orphan nobody references, and a duplicate deliverable is not caught by merge — it occupies a different name and surfaces only once both copies are complete, at which point the cost is spent and the owner inherits a canonical-choice decision they never asked for. A space only you write needs none of this.",
+     "reason": "S2-74 is 'before creating a home for shared data, find where existing items live and whether the human already did it' — the same trigger (creating in a space others write) and the same behavior (search for existing instances, follow their placement). The survivor extends it to peer agent sessions having already produced the deliverable, which is a refinement of the same entry."
+    }
+   ]
   },
   {
    "id": "S2-75",
@@ -6651,7 +6763,1055 @@
     "claude/CLAUDE.md § (extend)",
     "benchmarks/scenarios.toml scenario legible-decision-ask"
    ],
-   "placed": "2026-08-25"
+   "placed": "2026-08-25",
+   "recurrence": [
+    {
+     "window": "2026-09-22",
+     "kind": "under-application after placement",
+     "evidence": "15 plain-explanation asks in 8 sessions over 2026-09-09..09-22 (1,268 in-window user turns scanned by session-distill/out/2026-09-22/plain_asks.py with a positive control); 11 of 15 were reports or explanations, which the placed Decision Framing text does not cover; 4 were decision asks it covers",
+     "decision": "2026-09-22 user chose a personal-settings line plus measurement (review decision 1)",
+     "placement": "2026-09-22: one line in the user-owned personal settings (~/.claude/CLAUDE.md and ~/.codex/AGENTS.md, ## Personal — outside the repo). Fresh-session probes on both hosts quoted it; a nonexistent-line control returned NOT_PRESENT.",
+     "measure": "field frequency, compared next window with session-distill/plain-asks.py over the same census shape. Baseline 2026-09-09..09-22 KST: instrument count 17 ask turns in 10 of 40 readable claude sessions (1,253 user turns; one transcript gone since the census); after manual review 15 turns in 8 sessions (24de9d2c and 5afb9d6b matched the pattern without asking for a plainer explanation). Compare instrument count to instrument count."
+    }
+   ]
+  },
+  {
+   "id": "S4-22",
+   "lesson": "Driving a GUI: the automation surface is not the product — interact at the deepest deterministic layer available, and confirm every effect from state the application or server derives, never from the control you touched.",
+   "strength": 4,
+   "verdict": "novel",
+   "criteria": [
+    "recurrent_error",
+    "re_exploration",
+    "quality_lever",
+    "high_token"
+   ],
+   "supporting_sessions": [
+    "claude:76e6022d",
+    "claude:ac0afbf6",
+    "claude:b033d806",
+    "claude:c6be89f3"
+   ],
+   "principle": "When a task must be carried out by driving a graphical interface — a web console, a hosted editor, a desktop app — because no scripted route exists for it, treat the automation surface as an instrument rather than as the product. Interact at the deepest deterministic layer available: an API or CLI first, then structural DOM or accessibility interaction, and coordinate- or screenshot-derived clicks last, whose targets silently fall outside the capture mapping. Anchor on structural state (roles, stable ids, checked state) rather than visible text, which a localized or re-rendered interface can change mid-session. Assume the surface misreports in both directions: a programmatic event is not a user gesture, so a failure observed only through automation is a claim about the instrument until it is reproduced on the real input path; and a value written into a control, a batched interaction reported as sent, or an editor's in-memory content is not a committed effect until a surface the application or server derives — a model-rendered counter, a re-read from the store, a fresh load — shows it. Move long or non-Latin content through a transfer channel instead of retyping it, and treat that channel as shared with the human by hashing what actually arrived. Expect focus, rendering schedule, and the first interaction after a page load to be outside your control: a backgrounded view is throttled and stalls, a late dialog appears only once a repaint-forcing action is issued, and re-asserting an action costs less than concluding it failed. Confirm each repetition's persisted state before starting the next, hold one untouched item as a negative control, and write the sequence that worked into a runbook. Where a scripted API or CLI path exists, take it instead; test-suite selector and wait discipline is covered separately.",
+   "baseline_ref": "Omits. `tooling-gotchas.md` has no browser/GUI section at all — verified section list: Ambient state drifts, Shell execution traps, Tool output is a rendering, Git operations, Config/secrets/managed services, Own what you spawn. Closest partial: `verification-discipline.md` §Keeping E2E honest (\"resilient selectors, explicit waits rather than sleeps\") covers only the selector/wait sliver and is scoped to test-suite flakiness, not to an agent operating a live GUI; global CLAUDE.md §Tooling and Operational Safety (\"treat a coarse runtime signal as a hypothesis, confirm the cause against the authoritative low-level evidence the mechanism emits\") is the parent principle with no GUI instance; global §LLM And Capability Boundary (\"confirm the effect on the live path, not just the value's presence\") is the same shape in a different domain.",
+   "placement_proposed": "guides/tooling-gotchas.md §Driving a GUI — a new section placed after \"Tool output is a rendering, not the bytes\" (same family: the surface you read is not the thing), with a matching `use_when` entry added to that guide's frontmatter (\"driving a browser, console, or hosted editor to do real work\"). Not the global: it is a concrete tool-level trap set behind an existing global rule, and the global is frozen to reductions.",
+   "rationale": "Recurrence is the strongest part: four independent sessions converge on the same axis (c6be89f3 site audit, ac0afbf6 24-item authoring run, b033d806 console/editor install, 76e6022d eight-repetition wizard), and two of those members internally cite a fifth and sixth session (ad-authoring, expense-entry) hitting the same class — so this is 4-6 independent session-events, well above the 2-session bar, and they arrive from different directions (false failure, false success, layer choice, persistence). Materiality is real though not catastrophic: one session was one sentence away from shipping a fix for a defect that did not exist (verification-corrupting), one wrote content that the editor accepted and the server had not stored, one lost a 24-item run's throughput to focus throttling and locale-flipped selectors, and one re-derived the same working sequence attempt-by-attempt across eight repetitions (re_exploration + high_token). No irreversible or security dimension, and none of the members carry rollback/rare_high_cost, which is what holds this at 4 rather than 5. Generality is clean — nothing in the principle is host-, site-, or repo-specific, and the automation-surface-is-not-the-product frame is the same shape the corpus already applies to process signals and produced fields, so it lands as a new instance of an established parent rather than a new concept. The four members are genuinely one lesson, not a bundle: layer choice, anchor choice, and confirmation surface are the three faces of \"do not read the effect off the control you touched\", and splitting them would produce three bullets that each fail to fire without the others.",
+   "classification": null,
+   "review_note": null,
+   "status": "incubating",
+   "window": "2026-09-09",
+   "surfaced": "2026-09-22",
+   "decision1": "incubating 2026-09-22 (review decision 4; not batch-promoted per D-20260910-e0b906)"
+  },
+  {
+   "id": "S4-23",
+   "lesson": "A command whose purpose is merely to locate or show a credential exfiltrates it into the transcript — use existence-and-shape reads only.",
+   "strength": 4,
+   "verdict": "partial",
+   "criteria": [
+    "recurrent_error",
+    "rare_high_cost"
+   ],
+   "supporting_sessions": [
+    "claude:3f026e3a"
+   ],
+   "principle": "Treat any command that can print a stored credential as an exfiltration into the transcript, including the ones whose only purpose is to locate or confirm one: a secret store's show/reveal flag prints the value by design, and a broad text search over a directory sweeps credential-bearing files in with everything else. When locating or checking a credential, use reads that return only existence, path, length, prefix, or a hash, and exclude credential-bearing paths from search sweeps explicitly rather than trusting the pattern to miss them. If a value has already been printed, report the exposure in the same turn, name what was exposed without repeating it, and advise rotation. Stores holding only fixtures or expired test values need none of this.",
+   "baseline_ref": "Partially covered. Global CLAUDE.md §Tooling and Operational Safety: \"Never accept secrets through transcript- or history-logged channels\" and \"verify its presence and format without echoing it, and advise rotating anything already pasted; assume a resource-creating call may echo the secret back in its success output — suppress or discard the response body, and treat an echoed secret as pasted (rotate)\". Those cover the supply direction and the create-and-echo direction, and the existence/shape read is already the stated behavior for a secret being supplied. tooling-gotchas.md §Config, secrets, and managed services covers \"Production probes expose data\" (raw payloads out of production stores) and the build-context credential-file negative control. Omitted: the read/inspection direction — a lookup or search command aimed at finding an existing credential — which is a different trigger from all of the above.",
+   "placement_proposed": "guides/tooling-gotchas.md §Config, secrets, and managed services — a new bullet beside \"Production probes expose data\" (the global is frozen to reductions, so this cannot land as a global bullet; the existing global secrets bullets already carry the recognition-independent half).",
+   "rationale": "Only one candidate tag backs the cluster, but its evidence describes two distinct incidents with different mechanisms (a dotenv file caught in a grep sweep printing two provider keys; a keychain lookup run with the print-value flag dumping an OAuth token plus two third-party tokens), each ending in an operator-facing rotation advisory — so the trigger recurs across mechanisms even if independent-session count is thin. Materiality is high and of the rare-high-cost kind: a printed live credential is irreversible (the transcript is written, rotation is the only remedy) and touches security posture, which the corpus already treats as a raised bar. The baseline's near-miss is real — \"verify its presence and format without echoing it\" states exactly the desired behavior — so this is an extension of a covered principle to an uncovered trigger, not a new principle: partial, strength 4 rather than 5.",
+   "classification": null,
+   "review_note": "2026-09-22: delivered through the session-start injection path rather than a guide — the 2026-09-10 comparison showed the guide copy did not change behavior while task-start exposure did, and the global is frozen to reductions. | 2026-09-22 placed; mirrored to codex/ and ko/claude/ (translated) and ko/codex/ by gates/emit-mirrors.py; wording reviewed cross-family before landing: gpt-5.6-sol/ultra, read-only hermetic, session 01a0c793-b66a-7583-87bc-a0ef32caa64d, packet sha256 23c5fdd7…; 10 findings, all adopted. | 2026-09-22 correction: the first clause above predates D-20260922-fb29e4, which routed this item to guide + command-time hook instead of session-start injection. Delivery check the same day: the hook reaches only sessions launched with --corpus-native (the session snapshot lists hook-tooling-gotchas-hook as unavailable: native event consumption disabled), so ordinary sessions receive the guide text alone. Owner chose to build a persistent native-on preference as separate work (D-20260922-496180).",
+   "status": "placed",
+   "window": "2026-09-09",
+   "surfaced": "2026-09-22",
+   "decision1": "selected 2026-09-22 (review decision 3; individually approved; placed when text lands)",
+   "selected": "2026-09-22",
+   "placed": "2026-09-22",
+   "implementation": [
+    "claude/guides/tooling-gotchas.md §Config, secrets, and managed services — new \"Locating a credential must not print it\"",
+    "claude/hooks/tooling-gotchas-hook.py rule credential-print (command-time reminder; 12 firing + 12 quiet self-test cases)"
+   ]
+  },
+  {
+   "id": "S4-24",
+   "lesson": "A violation count is a claim about the criterion as much as about the artifact — read a sample of the hits and run the same threshold over the reference population before opening a defect queue.",
+   "strength": 4,
+   "verdict": "partial",
+   "criteria": [
+    "quality_lever",
+    "rollback",
+    "high_token"
+   ],
+   "supporting_sessions": [
+    "claude:9f4f6a0f",
+    "claude:e28511b7"
+   ],
+   "principle": "A violation count is a claim about the criterion as much as about the artifact, so validate the criterion before the count opens a defect queue, a work track, or a redesign premise. Read a sample of the fired hits — all of a rare shape, a slice of a common one — and confirm each is a true instance: a rule derived on one population and applied to another (another language, locale, tenant, file type, or vintage) measures the mismatch as readily as the phenomenon, and the arm firing alone while its siblings sit at zero is the one to sample first. Then run the same threshold over the reference population that defines acceptable output — the human-produced gold, the last accepted release, the incumbent artifact: a threshold the reference itself fails at a material rate is a mis-specified criterion rather than a defect queue, and repairing toward it degrades output toward an unattainable target. Only when the sampled hits are true instances and the reference passes is the count evidence of scale. A spot check that changes no plan, and a criterion whose reference agreement is already established, need neither step.",
+   "baseline_ref": "guides/verification-discipline.md §\"Deriving the case space\" — \"Make the criterion falsifiable before you make it green\" (partially covers: an unfalsifiable criterion, not a mis-specified/unattainable one). §\"When a green means nothing\" omits it entirely — all eleven shapes address the under-firing/false-green direction, never a populated fired set. guides/review-defect-criteria.md §\"The criterion schema\" (stop-condition reachability) and its plateau evidence carry the same frame but scoped to human review findings, and ask the author to argue reachability rather than measure it against a reference corpus. Global §Verification Discipline's common-basis bullet governs comparing two measurements, not validating a threshold against the population that defines acceptable output.",
+   "placement_proposed": "guides/verification-discipline.md §\"Deriving the case space\" — as a bullet immediately after \"Make the criterion falsifiable before you make it green\", since it is a precondition on the criterion rather than on the check. Not the global: the deployed global is frozen to reductions, and this rule's trigger (a violation count in hand, about to become work) announces itself, so it belongs behind the existing pointer.",
+   "rationale": "Two independent sessions, different domains and different failure shapes, converging on one rule: one sampled a lone-firing detector arm and found 181/181 misfires from a rule applied outside its derivation population, re-scoping a planned redesign; the other measured the human-edited gold corpus against its own duration limit, found the reference violates it 24.1% of the time, and closed an entire planned \"compression\" work track as mis-specified. Materiality is high in the rollback sense — both retracted a premise and cancelled or re-scoped committed work, and the second also carries high_token (a whole track's worth of avoided effort). Not 5: recurrence is 2 sessions rather than many, and neither case is security-grade or irreversible, so it does not clear the rare_high_cost bar. Held to partial rather than novel because review-defect-criteria already teaches \"the count can be the criterion's fault\" for review findings; what is genuinely absent is the two empirical pre-checks (sample the fired set, run the threshold over the reference), and that absence is confirmed against the real guide text rather than the members' self-reported novelty.",
+   "classification": null,
+   "review_note": null,
+   "status": "incubating",
+   "window": "2026-09-09",
+   "surfaced": "2026-09-22",
+   "decision1": "incubating 2026-09-22 (review decision 4; not batch-promoted per D-20260910-e0b906)"
+  },
+  {
+   "id": "S4-25",
+   "lesson": "Redirecting or replacing a tool's configuration root moves everything that root owns (credentials, sandbox, permissions) — never emulate a selective instruction overlay with a broader root swap; find the tool's own narrow channel and prove it with a value-free probe.",
+   "strength": 4,
+   "verdict": "partial",
+   "criteria": [
+    "rollback",
+    "re_exploration",
+    "rare_high_cost"
+   ],
+   "supporting_sessions": [
+    "claude:c05f834e",
+    "codex:01a07add"
+   ],
+   "principle": "A tool's configuration root is a bundle, not a dial: redirecting or replacing it (a config-home or config-file environment variable, a substitute profile directory) also moves credential resolution, sandbox and permission defaults, and every other layer that root owns, so a variant root starts unauthenticated and with unrelated authority silently changed. When the goal is to change one scope — which instructions load, which context is inherited — do not emulate it with a root swap. Use the tool's own narrow channel for exactly that scope (a selective-exclusion flag, or a token/credential variable the binary itself registers), prove it works with a value-free probe that asserts presence and effect without printing or persisting the secret, and confirm the behavior separately for each tool and host rather than generalizing from the one that worked. Where no narrow channel exists, disclose the option as unsupported instead of substituting the broader swap. A throwaway root you populate yourself for a deliberately hermetic run is the intended use of the mechanism, not this trap.",
+   "baseline_ref": "Partial. cli-multi-model-workflow.md §\"When To Spawn\" already carries the host-level fact (\"Excluding the standing instructions is a process-level act — `claude --setting-sources ''`, or `CODEX_HOME` pointed at a directory holding only `auth.json` … An emptied `CODEX_HOME` without `auth.json` fails 401; skills still load\"), which covers credentials-follow-the-root for one host and the over-removal of the corpus. Global §Tooling and Operational Safety covers pinning ambient state and confirming a capability \"against the live or installed artifact (a minimal probe, the binary's registered options)\", and §Tooling secrets bullets cover verifying a secret \"without echoing it\". None of them state the general rule that the root also carries sandbox/permission authority, that a narrow-scope need must not be met with a root swap, or that the answer differs per tool and must be re-confirmed per host.",
+   "placement_proposed": "guides/tooling-gotchas.md §\"Ambient state drifts — pin it\" (new instance: a config root is a bundle, not a dial); the host-specific mechanics extend the existing corpus-suppression bullet in guides/cli-multi-model-workflow.md §\"When To Spawn\" rather than being restated.",
+   "rationale": "Two independent sessions across two providers hit the same mechanism from opposite ends: one found a config-home override carried credential resolution with it (variant home reported \"not logged in\" while the machine was logged in, resolved only by a four-variant contrast and then by a token env channel discovered from the binary's registered variables, probed value-free); the other rejected a root-replacement workaround because it excluded instructions but also broke sandbox behavior. Materiality is high on two axes — a silently disabled sandbox is an authority-posture change nobody labelled, and the credential half burned a re-exploration loop plus a near-miss into an interactive login/credential-copy path. The class generalizes well beyond the observed tools (any config-home, profile, or config-file variable that also anchors auth and permissions), so it is not host trivia. Held at 4 rather than 5 because both sessions arose in the same problem family (instruction-scope overlays) and the credential half is already stated for one host in the baseline, making this an extension rather than a wholly new rule. Global placement is unavailable — the deployed global is frozen to reductions — and the rule fails the \"must work even when the agent does not recognize the situation\" bar, so it belongs behind the existing tooling pointer.",
+   "classification": null,
+   "review_note": null,
+   "status": "incubating",
+   "window": "2026-09-09",
+   "surfaced": "2026-09-22",
+   "decision1": "incubating 2026-09-22 (review decision 4; not batch-promoted per D-20260910-e0b906)"
+  },
+  {
+   "id": "S3-107",
+   "lesson": "Before reshaping work or code around a run's duration, attribute the duration to the harness — self-re-entry, attached instrumentation, and contention dominate, and an isolated or documented timing is not the real one.",
+   "strength": 3,
+   "verdict": "partial",
+   "criteria": [
+    "high_token",
+    "rollback",
+    "recurrent_error",
+    "re_exploration"
+   ],
+   "supporting_sessions": [
+    "claude:61236c1b",
+    "claude:62097bd1"
+   ],
+   "principle": "When a run exceeds a time budget, or takes far longer than its documented figure, attribute the duration before reshaping the code or the plan. Re-measure the wall clock yourself — a documented runtime is a dated claim about a tree that has since moved. Then check the execution conditions before the code: whether a leg of the run re-invokes the whole harness from inside it (self re-entry, fixed by making the nested invocation skip under a run marker), and every diagnostic instrument attached to the run (sanitizer, coverage, tracer, race or leak detector) — an instrument whose target property cannot exist in the code under it still pays full freight, and scoping it out is cheaper than restructuring. Time any speed fix under the same contention as the real run, never in isolation: adding intra-unit parallelism inside a harness that already saturates the machine converts no wall clock and adds total work, so an isolated speedup is not evidence the budget is met. Where a run legitimately costs tens of minutes, treat it as a scheduling constraint rather than a defect — land every pending edit before starting it so it runs once, launch it detached, and wait on a completion signal instead of polling. A run whose measured duration matches its stated figure and sits well inside its budget needs none of this.",
+   "baseline_ref": "verification-discipline.md — partially covers. §\"Proportion the depth before you spend\" reasons about verification cost and information yield but never about attributing an observed duration; §Verification Menus \"Before/after comparisons\" pins *input* identity and explicitly says \"This is input identity, not the separate unit-and-denominator basis rule\" — execution conditions are unaddressed; §\"Deriving the case space\" has \"Attribute a fault by a controlled contrast before choosing a remedy\" (generic fault attribution, does not name harness/instrumentation/contention or require the contrast run under real load); §\"When a green means nothing\" covers \"The suspiciously fast or empty run\" — the fast direction only. Global CLAUDE.md §Tooling covers a quiet ~0% CPU call being I/O wait rather than a hang (do not abort healthy long work), not duration attribution. documentation-hygiene covers dated numbers generally. The specific mechanisms — self re-entry, structurally-inert instrumentation, saturated-harness contention — are absent.",
+   "placement_proposed": "guides/verification-discipline.md §Verification Menus — a new bullet, \"Runtime-budget or timing measurements\", placed immediately after the existing \"Before/after comparisons\" bullet whose disclaimer already marks execution conditions as out of its scope; the scheduling consequence (batch edits, detach, wait on completion) rides as the bullet's closing clause rather than a second entry. No global addition — the deployed global is frozen to reductions and this rule's failure mode is not recognition failure.",
+   "rationale": "Two independent sessions, different repos and different mechanisms, reaching the same rule from opposite ends: one had a commit gate documented at 10–15 min run 44 min and traced it to a leg re-invoking the whole umbrella (planning and token cost, re-exploration); the other blew a 600s CI budget, profiled in isolation, parallelized, and made the full suite *worse* (201s→58.5s isolated but 607s in the suite) because a race detector was attached to a package containing no concurrency primitives at all and the harness already saturated cores — the parallelization was reverted and scoping the instrument fixed it in one step. That is a real rollback of committed optimization work plus a recurrent mis-diagnosis pattern, so materiality is moderate-high but not irreversible/security-class; recurrence is exactly 2, meeting the bar without exceeding it. Verdict is partial rather than novel because the adjacent baseline rules (depth proportioning, before/after input identity, controlled-contrast fault attribution) frame the neighborhood correctly and only omit the execution-condition axis — this extends them rather than opening new ground. Strength 3, not higher: no rare_high_cost, single-provider evidence, and the anecdote behind one member is already recorded as a repo-local trap, so only its generalization is new.",
+   "classification": null,
+   "review_note": null,
+   "status": "incubating",
+   "window": "2026-09-09",
+   "surfaced": "2026-09-22",
+   "recurrence": [
+    {
+     "window": "2026-09-22",
+     "sessions": [
+      "claude:61236c1b"
+     ],
+     "strength": 2,
+     "verdict": "partial",
+     "lesson_as_seen": "A performance fix measured in isolation (one package, idle cores) proved nothing about the failing run: the full instrumented suite already shared the cores across sibling processes, so the parallelism added no wall-clock speedup and the instrumentation roughly doubled CPU. The fix was reverted. The real cause was instrumentation overhead on code that the instrumentation could find nothing in.",
+     "principle": "When a fix is meant to bring a slow or timing-out run under a limit, count it only after measuring it under the failing run's own invocation: the same command, the same concurrent sibling processes, the same instrumentation flags. A number from an isolated run on idle resources is a different measurement surface and does not carry over. Parallelizing inside a run whose siblings already use every core buys no wall-clock time, and it can multiply instrumentation cost. When the slowdown appears only under an instrumented mode (race detector, coverage, sanitizer), first check whether that instrumentation can detect anything in the code at all. Excluding that code from the instrumentation, or cutting the instrumented work, is often the real fix. Boundary: this applies to fixes judged against a wall-clock or resource limit that some specific run exceeded. It does not apply to micro-benchmarks whose declared scope is the isolated unit.",
+     "reason": "Same lesson. Instrumentation and contention drive a run's duration, and a timing taken in isolation is not the real run's timing. Attribute the duration before reshaping work around it.",
+     "correction": "2026-09-22 correction: not an independent recurrence — the same session (claude:61236c1b) and the same 2026-09-04 events already counted in window 2026-09-09; the session spans both windows and digest.py re-read its opening turns. Evidence timestamps: design/session-distill/2026-09-22T1310--695ee72--review-ko.md."
+    }
+   ],
+   "decision1": "incubating 2026-09-22 (review decision 4; not batch-promoted per D-20260910-e0b906)"
+  },
+  {
+   "id": "S3-108",
+   "lesson": "Coverage is defined by its complement — enumerate what the suite never asserts and what no reviewer ever saw, and close that set explicitly before claiming readiness or merging.",
+   "strength": 3,
+   "verdict": "partial",
+   "criteria": [
+    "quality_lever",
+    "rare_high_cost"
+   ],
+   "supporting_sessions": [
+    "claude:b3eeabe0",
+    "claude:c6be89f3"
+   ],
+   "principle": "A passing suite and a completed review round each bound only what they actually examined — the properties the checks assert, and the revision range and file set each reviewer was shown — so the complement of that set is unexamined, not clean. When the open question is readiness or a merge rather than a specific regression, enumerate the complement before the claim: the surfaces no check asserts (rendered output, alternate output paths such as print or export, navigation and history, paths that leave the product, third-party bindings) and the commits or files no reviewer has ever seen. Close that set by inspecting or dispatching against it, or state on the record that it ships unexamined; report findings from it as the region nothing was watching, not as suite failures. Coverage is a property of the asserted set and the reviewed range, not of the number of checks passed or rounds run. A narrow change whose subject the suite and the reviewed range demonstrably contain needs no separate enumeration.",
+   "baseline_ref": "Partially covered in two places. verification-discipline.md §\"When a green means nothing\" enumerates only defective greens (empty subject, fixture missing the guard, permissive fallback, suspiciously fast run, control that crashed, \"the population that shrank\", invalid mutant) and §\"The static floor\" states the floor proves well-formedness \"never that it behaves\" — the scope-bounding of a *valid* green, and the complement-as-search-space move, are absent. review-request.md §\"Say what the target is, and what absence means\" pins the target revision and maps stale findings back to it but never names the post-pin range as an unreviewed set; §\"Read participation before believing a verdict\" carries the nearest rule — compare the reviewed-file list against a `git status --porcelain` listing, \"an unexplained gap demotes the verdict to incomplete\" — which covers subject completeness within one dispatch, not divergence between the pin and a moving branch across rounds.",
+   "placement_proposed": "guides/verification-discipline.md §\"When a green means nothing\" — as the closing positive counterpart to the false-green shapes; with the review-range instance as one sentence in guides/review-request.md §\"Say what the target is, and what absence means\", where the pin is already defined. Not the global: it is procedural, and the global is frozen to reductions.",
+   "rationale": "Two independent sessions, reached from different directions: one turned a 47/47 green suite into 26 confirmed findings by explicitly searching only unasserted surfaces; the other tracked which revisions each review round covered but not the complement, and would have merged eight commits no reviewer had ever seen — caught only because the user asked, which is the rare_high_cost, hard-to-detect class (a silent unreviewed merge leaves no failing signal). Materiality is therefore real but the two instances are different mechanisms joined conceptually rather than one recurring error, and neither baseline gap is total: the false-green catalogue and the participation/subject-gap rule each cover a neighbouring case. That caps it at extend-an-existing-rule rather than a new concept, and below the multi-session-recurrence-of-one-mechanism bar for 4-5.",
+   "classification": null,
+   "review_note": null,
+   "status": "incubating",
+   "window": "2026-09-09",
+   "surfaced": "2026-09-22",
+   "decision1": "incubating 2026-09-22 (review decision 4; not batch-promoted per D-20260910-e0b906)"
+  },
+  {
+   "id": "S3-109",
+   "lesson": "A change is reversible only if the revert channel does not run through the component being changed — obtain an out-of-band recovery route and a durable copy of prior state before applying.",
+   "strength": 3,
+   "verdict": "novel",
+   "criteria": [
+    "rollback",
+    "rare_high_cost"
+   ],
+   "supporting_sessions": [
+    "claude:f21b8c17"
+   ],
+   "principle": "Before applying a change to a component that the recovery path itself runs through — a proxy, gateway, load balancer, firewall or access-control layer, auth provider, remote-access daemon, or a management console hosted behind any of them — ask whether the revert can still be executed once the change fails. Where the rollback route traverses the changed component, the change is not reversible in practice however trivial its diff: first obtain an out-of-band recovery route (direct host access, an independent control plane, a pre-staged restore command or timed auto-revert) and write the exact prior state to a durable location outside that path, then apply. A change whose revert channel is independent of the component — a versioned local file, a separate control plane, a redeploy that does not pass through the changed hop — needs only the ordinary revert check.",
+   "baseline_ref": "tooling-gotchas.md §\"Config, secrets, and managed services\" — \"A traffic rollback is not a config rollback\" is the nearest neighbour, but it covers rollback *completeness* (spec vs traffic split), not whether the revert can be executed at all; §\"Own what you spawn\" says to read the rollback path's retention and snapshot before a risky run, scoped to output sinks. Globally, Coding Guidelines' default-off/reversible bullet and Tooling and Operational Safety's \"snapshot the last good state before any in-place resume or overwrite\" both presuppose an executable revert. \"Tightening exposure is a behavior change for external clients\" covers cutting off *callers*, never cutting off yourself. Omits the revert-channel-dependency check.",
+   "placement_proposed": "guides/tooling-gotchas.md §\"Config, secrets, and managed services\" — as a new bullet immediately before \"A traffic rollback is not a config rollback\", so the two read as a pair: can the revert run, and is it complete. (Global placement is unavailable: the deployed global is frozen to reductions, and this rule's failure mode is not recognition failure — the moment announces itself as \"am I about to change shared infrastructure\".)",
+   "rationale": "Materiality is high and the criteria are the heavy ones (rollback + rare_high_cost): a self-locking config change on a shared reverse proxy fronting ~30 services is an outage with no in-band remedy, and the cost is asymmetric — cheap to prevent, expensive and manual to recover. The general form is textbook-clean and transfers well beyond the observed instance (firewall/sshd/auth/VPN/management-plane changes are the same class). What caps it at 3 rather than 4-5 is recurrence: exactly ONE independent session supports it (claude:f21b8c17), and the sibling candidate from that same session is not corroboration. It is also a near-miss rather than a paid error — the agent caught the dependency itself after the user asked about rollback, so the evidence is of correct behavior under prompting, not of a recurring failure. Not too_specific (the transcript's proxy is one instance of a named general class) and not weak (the reasoning chain and the stop-and-get-SSH-first action are concrete and load-bearing). Novel rather than partial: every adjacent baseline bullet assumes the revert is executable, which is precisely the assumption this rule refuses.",
+   "classification": null,
+   "review_note": null,
+   "status": "incubating",
+   "window": "2026-09-09",
+   "surfaced": "2026-09-22",
+   "decision1": "incubating 2026-09-22 (review decision 4; not batch-promoted per D-20260910-e0b906)"
+  },
+  {
+   "id": "S3-110",
+   "lesson": "Behind a proxy or CDN, an IP/geo/rate control compares whatever source address the forwarded-header trust chain hands the enforcing code — establish that address before editing the list.",
+   "strength": 3,
+   "verdict": "partial",
+   "criteria": [
+    "high_token",
+    "recurrent_error"
+   ],
+   "supporting_sessions": [
+    "claude:f21b8c17"
+   ],
+   "principle": "When a source-address-based control (IP allowlist/denylist, geo rule, per-client rate limit) behind a proxy, CDN, or load balancer rejects or admits the wrong requests, establish which address the enforcing code actually compares before editing the list: read every hop's forwarded-header trust configuration (whether forwarded headers are accepted, and from which upstreams) and make the enforcement point echo the address it saw. While an untrusted hop is rewriting the source, no list entry can match and each added entry looks like a formatting problem instead of a trust-chain problem; the mirror failure is a hop trusted too broadly, which makes the control satisfiable by a client-supplied header. An enforcement point with no intermediary compares the peer address directly and needs none of this.",
+   "baseline_ref": "guides/tooling-gotchas.md §\"Config, secrets, and managed services\" — \"Perimeter controls need the enforcement point's own logs\" (partially covers: probe vantage, cache/CDN, verify allow AND deny from enforcement-point logs) and \"Tightening exposure is a behavior change for external clients\" (omits). Neither names the forwarded-header trust chain that decides which address the enforcing code compares. Global §Tooling and Operational Safety's ambient-state and coarse-signal bullets are the parent principles only.",
+   "placement_proposed": "guides/tooling-gotchas.md §\"Config, secrets, and managed services\" — as an extension of the existing \"Perimeter controls need the enforcement point's own logs\" bullet (add the trust-chain diagnostic to it rather than opening a second perimeter family)",
+   "rationale": "One independent session (claude:f21b8c17), so recurrence is 1 and the ceiling is mid-band. Materiality is what carries it: roughly twenty turns were spent verifying the token, the API toggle, the public IPv4, CIDR containment, the matching code, cache semantics and middleware order — all downstream of the real cause, with the agent twice reversing its own claim — and the cause was only found when the operator pasted the proxy config. The lesson is a decidable pre-check (read the hop's trust config; make the enforcement point echo the address it saw) that would have short-circuited the whole cascade, and it generalizes past the observed instance to geo and rate controls and to the security-relevant mirror case (a hop trusted too broadly makes the control satisfiable by a spoofed header). Verdict is partial rather than novel because the same section already tells you to make the enforcement point speak; what is absent is the diagnosis, so this extends an existing bullet instead of adding a family. Guide placement is also forced by the global's reductions-only freeze.",
+   "classification": null,
+   "review_note": "2026-09-22: merged with S2-98 (same lesson: the address an IP-based control compares is established by observation at the enforcement point, never inferred from NAT, subnet or forwarding config). Review decision 3 promoted the pair; decision 4 counted S3-110 in its \"remaining 20\" in error — the item-specific decision 3 governs. | 2026-09-22 placed; mirrored to codex/ and ko/claude/ (translated) and ko/codex/ by gates/emit-mirrors.py; wording reviewed cross-family before landing: gpt-5.6-sol/ultra, read-only hermetic, session 01a0c793-b66a-7583-87bc-a0ef32caa64d, packet sha256 23c5fdd7…; 10 findings, all adopted.",
+   "status": "placed",
+   "window": "2026-09-09",
+   "surfaced": "2026-09-22",
+   "decision1": "selected 2026-09-22 (review decision 3; individually approved; placed when text lands)",
+   "selected": "2026-09-22",
+   "placed": "2026-09-22",
+   "implementation": [
+    "claude/guides/tooling-gotchas.md §Config, secrets, and managed services — \"Perimeter controls need the enforcement point's own logs\" (extend, merged with S2-98)"
+   ]
+  },
+  {
+   "id": "S3-111",
+   "lesson": "Runtime instruction lines that entered with eval or benchmark work are overfitting shipped to every request — trace line provenance, and never let a test assert the literal phrasing that locks it in.",
+   "strength": 3,
+   "verdict": "partial",
+   "criteria": [
+    "quality_lever",
+    "rollback"
+   ],
+   "supporting_sessions": [
+    "claude:900b7297"
+   ],
+   "principle": "When a runtime instruction or prompt block that is sent on every request has grown, or when a line is about to be added to it so an eval or benchmark passes, trace each line to the change that introduced it. A line whose only source is eval or benchmark work — untraceable to a contract, a review finding, a user requirement, or a measured behavior change — is eval overfitting shipped to every production request: remove it, and where the behavior must hold, reach for a constraint on the capability surface rather than more prose. Never let a test assert the literal phrasing of an instruction; assert the rule against the string that actually reaches the model, or the suite pins the wording, makes the block unremovable, and its green says nothing about behavior. A line that traces to a contract, a requirement, or a demonstrated behavior difference earns its place regardless of which change introduced it.",
+   "baseline_ref": "Partial. `guides/gpt-prompting.md` §GPT-5.6 \"Simplify first\" covers pruning (\"remove one group of repeated instructions, examples, or irrelevant tools at a time and re-run the same evals; keep a process instruction when it changes behavior\") and `guides/claude-prompting.md` covers comparing/deleting inherited scaffolding; `guides/llm-capability-boundary.md` §Core Model covers the prose-to-structure direction (\"enforce constraints through the capability surface... instead of repeating prohibitions\"). None of them names line-level provenance as the diagnostic that identifies which lines to cut, none names eval/benchmark commits as the accretion source, and nothing anywhere in the corpus — including `verification-discipline.md` §\"When a green means nothing\" and `review-defect-criteria.md`'s vacuous-test golden — covers a test that asserts literal instruction phrasing and thereby holds the overfit in place.",
+   "placement_proposed": "guides/llm-capability-boundary.md — a new short subsection \"Instruction provenance\" after §Core Model (where the instructions-vs-capability-surface split is stated), plus one line in that guide's §Verification Checklist (\"no test asserts the literal phrasing of a runtime instruction\"). Not the global: the deployed global is frozen to reductions, and this rule's trigger (a growing runtime instruction block) is recognizable, so it belongs behind the existing pointer.",
+   "rationale": "One independent session (claude:900b7297), so it fails the ≥2-session recurrence route and rests on the single-event materiality route — which it clears: the suite of 779 tests was green while asserting the overfit phrases verbatim, i.e. the verification itself was holding the defect in place, which is the verification-corrupting class the admission bar admits on one occurrence. Materiality is concrete and general: a 46-line / 8,396-char block on every request reduced to 8 lines / 489 chars with the suite still green, and lines that named the benchmark's own answer categories were steering every production request. The mechanism (accretion under eval pressure, then tests pinning the wording) is not repo- or model-specific and applies to any system shipping a standing instruction block alongside an eval harness. Held to 3 rather than 4 because the recurrence evidence is a single session and the removal-side half is already partially served by gpt-prompting's \"Simplify first\"; held above 2 because the two novel halves — line provenance as the diagnostic, and phrasing-pinned tests as the lock-in — are absent from the baseline and each is independently actionable.",
+   "classification": null,
+   "review_note": null,
+   "status": "absorbed",
+   "window": "2026-09-09",
+   "surfaced": "2026-09-22",
+   "decision1": "absorbed 2026-09-22 (review decision 4; existing rule suffices — see 2026-09-09 review ②)"
+  },
+  {
+   "id": "S3-112",
+   "lesson": "A risk argument that rests on an assumed downstream catcher — a later human review, a monitor, an alert, a retry — is invalid until that catcher is confirmed to exist and to actually inspect the class of item in question; and for any filter or gate, the cost that must be priced is what happens to the items it passes, not only the ones it flags.",
+   "strength": 3,
+   "verdict": "partial",
+   "criteria": [
+    "rollback",
+    "quality_lever"
+   ],
+   "supporting_sessions": [
+    "claude:af08828e"
+   ],
+   "principle": "When a design, option comparison, or risk acceptance depends on something downstream catching what this step misses — a later human review, a monitor, an alert, a retry, a second gate — treat that backstop as an unverified premise: name it explicitly, and confirm from the real workflow that it exists, is staffed or running, and inspects the class of item in question. Until it is confirmed, the recommendation resting on it is withdrawn rather than merely qualified. For any filter, gate, or classifier in the design, state what happens to the items it passes as well as the ones it flags: where nothing inspects the passed set, that set ships unexamined and is the risk to price. This applies wherever the argument for accepting a risk lives outside the component being designed; a step whose own output is the final artifact needs no such check.",
+   "baseline_ref": "Partial. Global CLAUDE.md §Decision Framing — \"Treat user suggestions, inherited premises, prior diagnoses, handoff and design claims... and your own earlier conclusions as hypotheses, not facts; re-derive each load-bearing claim from real code or data before building on it\" — covers the generic re-derivation duty but never names the assumed downstream net as the premise class, and gives no trigger at the moment an option is recommended. guides/coding-staged-workflow.md §Stages/§Making the change carries adjacent enumerate-the-downstream rules (\"Supplying a missing shared dependency wakes every consumer... say what each starts doing\") but scoped to a repair's onset, not to a safety net a recommendation leans on. guides/review-defect-criteria.md's per-criterion \"Misclassification cost\" cell weighs false negatives, but only for review classification, not for a designed filter's passed set. The \"price the passed set\" half is absent from the baseline entirely.",
+   "placement_proposed": "guides/coding-staged-workflow.md §Stages — stage 1 (high-level design), where scope, tradeoffs, and completion criteria are framed; stated as a precondition on any option whose risk argument points outside the change. (Guide placement is required regardless: the deployed global is frozen to reductions.)",
+   "rationale": "One independent session supports it, but the shape fired twice within that session (the recommendation's end-of-pipeline human reviewer, then the rule-based belt whose passed items nobody sees) and the failure was material and user-caught: the agent had recommended the cheapest option on an argument it had to withdraw outright, and the exposed failure mode is unreviewed output shipping. The general form is clean and trigger-bearing (a risk argument pointing at a downstream catcher), and the baseline's nearest rule is a broad premise-hypothesis instruction whose failure mode is exactly recognition — which is why it belongs behind a guide pointer with a named trigger rather than being assumed covered. Single-session recurrence caps it below 4.",
+   "classification": null,
+   "review_note": null,
+   "status": "incubating",
+   "window": "2026-09-09",
+   "surfaced": "2026-09-22",
+   "decision1": "incubating 2026-09-22 (review decision 4; not batch-promoted per D-20260910-e0b906)"
+  },
+  {
+   "id": "S3-113",
+   "lesson": "An apparent defect established only from a reading of an artifact — a visual render, or the uniform absence of a value across stored records — is a hypothesis about the observation, not a property of the artifact. Two independent sessions paid for treating it as fact: one opened an investigation into a missing quality field across 409 judgments in 26 stored artifacts, which turned out to be vintage (the commit introducing the field postdated the newest artifact by under four hours), and one made three successive layout fixes to a PDF judged cropped by eye before measuring and finding the content bounds (567.6pt) comfortably inside the page (595.9pt) all along. The corrective move is artifact-side and cheap: measure the geometry, or date the records against the change that would have produced the value, before the first fix and unconditionally before the second.",
+   "strength": 3,
+   "verdict": "partial",
+   "criteria": [
+    "high_token",
+    "rollback",
+    "quality_lever"
+   ],
+   "supporting_sessions": [
+    "claude:900b7297",
+    "claude:bb4165cd"
+   ],
+   "principle": "A defect observed only through a reading — a rendered view, a visual impression, or a value uniformly absent from stored records — is a claim about the observation, not a property of the artifact, and attributing or repairing it comes second to establishing it. Before the first fix, and unconditionally before a second attempt at one, re-establish the symptom on the artifact itself: measure its own content bounds or element geometry against its container, and date the records against the change that would have produced the missing value — a uniform absence across a whole archive is more often a vintage boundary than a bug, and that distinction decides whether the remedy is code, a re-run, or nothing. Read two targeted fixes that appear to fail as evidence that the symptom is unverified rather than that the fixes were wrong. A symptom already reproduced against the artifact, or one the artifact itself reports, needs none of this.",
+   "baseline_ref": "Partially covered in three places, none reaching this case: global CLAUDE.md §Tooling and Operational Safety (\"treat a coarse runtime signal … as a hypothesis, and confirm the cause against the authoritative low-level evidence\") carries the hypothesis framing but is scoped to runtime signals and to cause attribution; guides/verification-discipline.md §Deriving the case space (\"Attribute a fault by a controlled contrast before choosing a remedy … read a countable difference (element dimensions, …)\") is the nearest rule and even names element dimensions, but presumes the fault exists and governs which cause, not whether; guides/coding-staged-workflow.md §Making the change (\"For a bug, reproduce before you fix … the only version that can tell you the fix was unnecessary\") is closest on the fix side but is framed as test-authoring for code and gives no second-attempt trigger. §Before blaming code for a metric change covers temporal localization only for live metrics against deploy logs, not artifact vintage. Global §Problem Solving's \"if the same loopback happens twice, stop and ask\" fires on the same trigger but prescribes escalation, not re-establishing the symptom.",
+   "placement_proposed": "guides/verification-discipline.md §Deriving the case space — immediately before the existing \"Attribute a fault by a controlled contrast before choosing a remedy\" bullet, as its missing precondition (establish the fault, then attribute it). Not the global: its trigger (a fix that failed, a value absent everywhere) announces itself, so a pointer-reachable guide bullet suffices, and the global is frozen to reductions.",
+   "rationale": "Two genuinely independent sessions with different artifact kinds (a stored judgment archive; a generated PDF) converge on one invariant: the symptom was never established against the artifact before work began. Materiality is real but bounded — wasted fix rounds and one investigation opened on a non-existent bug, all recoverable, none irreversible or security-bearing; the rare-high-cost weight does not apply, and rollback fires here as premise-withdrawal rather than a destructive undo. Held to 3 rather than higher because the baseline already carries the hypothesis framing for runtime signals, reproduce-before-fix for code bugs, and a contrast rule that names element dimensions — what is genuinely absent is the existence-before-attribution ordering, the artifact-vintage first move, and the two-failed-fixes trigger. That is an extension of one bullet's neighborhood, not a new concept, which is why the verdict is partial rather than novel.",
+   "classification": null,
+   "review_note": null,
+   "status": "incubating",
+   "window": "2026-09-09",
+   "surfaced": "2026-09-22",
+   "decision1": "incubating 2026-09-22 (review decision 4; not batch-promoted per D-20260910-e0b906)"
+  },
+  {
+   "id": "S3-114",
+   "lesson": "An interpreter's sigil and name-boundary rules can make a construct expand or match nothing while the command still succeeds — brace and quote defensively, and assert the post-condition rather than the exit status.",
+   "strength": 3,
+   "verdict": "partial",
+   "criteria": [
+    "recurrent_error",
+    "rare_high_cost"
+   ],
+   "supporting_sessions": [
+    "claude:c97cb457",
+    "claude:e66e0d0a",
+    "claude:084b6b0a"
+   ],
+   "principle": "Every interpreter in a command chain applies its own sigil and name-boundary rules — the shell first, then any engine the shell hands a pattern to — and both failure directions are silent: a `$`, `@`, or `%` inside a search or replacement pattern is interpolated by the substituting engine as well as by the shell, and a variable immediately abutting text, including non-ASCII suffixes, is absorbed into the variable name on older default shells. The construct then expands to nothing, matches nothing, and the command exits 0. Brace any variable followed by adjacent text inside a quoted string, keep patterns as data the engine reads rather than as a string it evaluates, and verify any bulk or in-place rewrite by post-condition — assert the old value is absent and that the number of changed sites equals the number enumerated — never by exit status. A single interactive command whose full output is read directly needs none of this.",
+   "baseline_ref": "guides/tooling-gotchas.md §\"Shell execution traps\" → \"Metacharacter-bearing values\" (partially covers: shell-level expansion of `$`/backticks/quotes/globs in values inlined as CLI arguments, prescribing stdin/heredoc/temp-file); §\"Ambient state drifts — pin it\" → \"Interpreter\" (partially covers: unquoted-variable word splitting, pinning the interpreter). Both omit the second-interpreter interpolation of a pattern, the variable-name boundary requiring braces, and the post-condition-over-exit-status rule for zero-match rewrites. guides/verification-discipline.md §\"When a green means nothing\" covers vacuous and crashed checks, not a successful mutating command that changed nothing.",
+   "placement_proposed": "guides/tooling-gotchas.md §\"Shell execution traps\" — one new bullet (\"Sigils and name boundaries in patterns\") placed beside the existing \"Metacharacter-bearing values\" bullet, whose scope it extends from values-as-arguments to patterns-as-evaluated-strings; the post-condition clause rides in the same bullet rather than in verification-discipline, since it is the command-level assertion that makes the trap visible.",
+   "rationale": "Two independent sessions with genuinely distinct mechanisms converge on one invariant, which is what lifts it above an anecdote: claude:e66e0d0a hit second-interpreter sigil interpolation in a replacement pattern (seven pinned sites silently unchanged, exit 0, caught only by a residual scan and then redone in another language with each site re-counted), and claude:c97cb457 hit variable-name absorption of an adjacent non-ASCII suffix on an older default shell (empty expansion in a third-party update script, confirmed present upstream and absent from sibling scripts). Both members independently classed it recurrent_error + rare_high_cost. Materiality is real but bounded: the damage is a silent no-op edit that reads green and can ship a stale pin, yet a cheap residual scan detects it and both sessions recovered in-session — no rollback of landed work, no irreversible action. Held to 3 rather than 4 because the closest baseline bullet already occupies the slot (this extends rather than opens a concept), the member confidences sit in the lower half of the batch (0.62 and 0.50), and the second mechanism is environment-conditioned — it appears only on a machine carrying the older interpreter, so it is invisible where the script was authored.",
+   "classification": null,
+   "review_note": "2026-09-22 placed; mirrored to codex/ and ko/claude/ (translated) and ko/codex/ by gates/emit-mirrors.py; wording reviewed cross-family before landing: gpt-5.6-sol/ultra, read-only hermetic, session 01a0c793-b66a-7583-87bc-a0ef32caa64d, packet sha256 23c5fdd7…; 10 findings, all adopted.",
+   "status": "placed",
+   "window": "2026-09-09",
+   "surfaced": "2026-09-22",
+   "recurrence": [
+    {
+     "window": "2026-09-22",
+     "sessions": [
+      "claude:084b6b0a"
+     ],
+     "strength": 3,
+     "verdict": "partial",
+     "lesson_as_seen": "An unquoted heredoc delimiter still runs command substitution (backticks, $(...)) and parameter expansion on the body. Content holding those characters is silently altered or dropped, with no error. The baseline itself recommends heredoc as the safe route for such content and never says to quote the delimiter.",
+     "principle": "When a heredoc carries content that may contain backticks, `$`, or backslashes (diffs, code, prompts, generated text), quote the delimiter (`<<'EOF'`). An unquoted heredoc still does command and parameter substitution, and it drops or rewrites content without any error. For nested heredocs or large payloads, write the file from a script instead of a shell heredoc. After building a payload that will be sent elsewhere, check that its size and a known substring match what you expect before using it. Leave the delimiter unquoted only when you actually want interpolation, and only for content you control.",
+     "reason": "Same lesson. Shell expansion silently alters content while the command still succeeds, so quote defensively and assert the post-condition. An unquoted heredoc is one instance of this."
+    }
+   ],
+   "decision1": "selected 2026-09-22 (review decision 3; individually approved; placed when text lands)",
+   "selected": "2026-09-22",
+   "placed": "2026-09-22",
+   "implementation": [
+    "claude/guides/tooling-gotchas.md §Shell execution traps — \"Metacharacter-bearing values\" (extend: quoted heredoc)"
+   ]
+  },
+  {
+   "id": "S3-115",
+   "lesson": "An absolute expiry inside a signed or pinned artifact, validated only at process start, is a latent outage that lands at the next unrelated restart — renew the window in the same change and prefer a derived one.",
+   "strength": 3,
+   "verdict": "novel",
+   "criteria": [
+    "rare_high_cost"
+   ],
+   "supporting_sessions": [
+    "claude:61236c1b"
+   ],
+   "principle": "When a change touches a signed, pinned, or attested artifact — a config bundle, certificate, license, token, or manifest — read its validity window and establish when validation actually runs. An absolute expiry date copied forward across releases is a latent outage, and where validation happens only at process start the failure does not land at the expiry instant: it lands at the next unrelated restart or deploy, so it presents as that change having broken things. Renew the window in the same change that re-signs or re-pins the artifact, and prefer a window derived at signing time over an absolute date a later author will inherit unread. An artifact whose validity is re-checked per request, or one whose renewal is already owned by an automated rotation with its own alarm, needs only that its schedule be confirmed.",
+   "baseline_ref": "tooling-gotchas.md §\"Config, secrets, and managed services\" — nearest entries are \"Smoke limits outlive the smoke test\" (a stale value copied forward silently narrowing a later run), \"A traffic rollback is not a config rollback\" (state left behind that the next deploy re-enables), and \"Derive a new revision from the live one, not from a template\"; §\"Ambient state drifts\" carries \"Producer newer than consumer\" (signed config/manifest validated by a deployed binary, but about build-commit skew) and \"Installed is not running\" (restart makes new state live). All omit validity windows and validation timing. Global Coding Guidelines names \"session/token lifetime\" only as a protective value not to lower without consent — the opposite direction. Omits.",
+   "placement_proposed": "guides/tooling-gotchas.md §\"Config, secrets, and managed services\" — as a new bullet beside \"Producer newer than consumer\" in spirit and \"Smoke limits outlive the smoke test\" in shape",
+   "rationale": "Recurrence is one independent session, so it clears the promotion bar only on the single-event high-materiality branch — and it does: an unrenewed 21-day absolute expiry in a live signed config, verified at boot only, is a whole-service outage whose blast radius is external and whose timing guarantees misattribution to the next author's unrelated change. Generality is strong: the class (certificates, licences, tokens, signed manifests, attestation bundles) recurs across every deployed system, and the mechanism — validation timing decoupling the failure from the expiry instant — is what makes it non-obvious rather than folklore. Held to 3 rather than higher because the evidence is a single near-miss caught pre-emptively, not a realized outage or a repeated error, and no second session corroborates it; a further sighting should raise it. Placement in the guide rather than the global is forced by the global's reduction-only freeze and correct on its own terms — the failure mode is recognition-independent only once you are already handling such an artifact, which is a pointer situation.",
+   "classification": null,
+   "review_note": null,
+   "status": "incubating",
+   "window": "2026-09-09",
+   "surfaced": "2026-09-22",
+   "recurrence": [
+    {
+     "window": "2026-09-22",
+     "sessions": [
+      "claude:61236c1b"
+     ],
+     "strength": 2,
+     "verdict": "novel",
+     "lesson_as_seen": "When re-issuing a signed or time-bounded artifact, read its validity window and where it is enforced; a fixed expiry carried forward unchanged across releases becomes a latent outage the moment validation runs at boot or reload.",
+     "principle": "**Expiry carried forward is a scheduled outage**: when you re-issue, re-sign, or redeploy a time-bounded artifact (a signed config or manifest, certificate, token, license, or lease), read its validity window as part of the change and find where it is enforced. If validation runs at boot, reload, or restart, an absolute expiry copied forward unchanged from earlier releases will stop the service at the next restart after that date, even though nothing fails today. Renew the window in the same release, or treat it as a release blocker, and record the next deadline where someone will see it. This applies to artifacts whose validity is time-bounded and checked by a consumer. It does not cover short-lived credentials that the runtime already refreshes automatically.",
+     "reason": "Same lesson. An absolute expiry carried forward in a signed artifact and validated at restart is a latent outage, so renew it in the same change.",
+     "correction": "2026-09-22 correction: not an independent recurrence — the same session (claude:61236c1b) and the same 2026-09-04 events already counted in window 2026-09-09; the session spans both windows and digest.py re-read its opening turns. Evidence timestamps: design/session-distill/2026-09-22T1310--695ee72--review-ko.md."
+    }
+   ],
+   "decision1": "incubating 2026-09-22 (review decision 4; not batch-promoted per D-20260910-e0b906)"
+  },
+  {
+   "id": "S3-116",
+   "lesson": "Raw percent-agreement between two judgments (repeat runs of one judge, two reviewers, a model against a reference label) is inflated by the majority-class base rate and is not comparable across populations whose label distributions differ; a chance-corrected statistic — or at minimum the majority-class share published alongside — must be reported before the figure enters a threshold, gate, or decision.",
+   "strength": 3,
+   "verdict": "partial",
+   "criteria": [
+    "quality_lever"
+   ],
+   "supporting_sessions": [
+    "claude:04d26700"
+   ],
+   "principle": "An agreement figure between two judgments — repeat runs of the same judge, two reviewers, or a model against a reference label — has a floor set by the most frequent label's share, so a raw agreement percentage measures the base rate as much as the agreement and is not comparable across populations with different label distributions. Before such a figure enters a threshold, a gate, a stop condition, or a premise a redesign rests on, report a chance-corrected agreement statistic, or state the majority-class share beside the raw figure so the floor it sits on is visible. Where the labels are near-uniform, or the figure is descriptive only and nothing downstream branches on it, the raw percentage is enough.",
+   "baseline_ref": "guides/verification-discipline.md §\"Proportion the depth before you spend\", the rate-shaped-property bullet (\"establish the noise floor from runs on hand, then sample enough to bound the rate against a no-treatment control ... A floor larger than the effect breaks the premise\") — partially covers: it mandates a floor and a control for rate-shaped properties, but never says an agreement statistic's own floor is the majority-class base rate, nor that it must be chance-corrected. Global CLAUDE.md §Verification Discipline \"fix a common basis — units, denominators, population, measurement surface\" is adjacent on cross-population comparability but is about the measurement basis, not chance correction. Omitted in both.",
+   "placement_proposed": "guides/verification-discipline.md §\"Proportion the depth before you spend\" — appended to the existing rate-shaped-property / noise-floor bullet as the agreement-statistic case",
+   "rationale": "Single independent session (claude:04d26700) with a single criterion (quality_lever) — no rollback, recurrent-error, or rare-high-cost weight — so recurrence is thin and caps this below 4. Materiality is real rather than nominal: the chance-corrected floor overturned the premise a planned redesign rested on, which is the corpus's high-value \"a false pass survives because it agrees with you\" class (cf. the personal learning about testing an agreeing instrument). Generality is high — inter-judge agreement recurs across LLM-judge reproducibility, review convergence, and label-vs-reference measurement, none of it repo- or tool-specific — and the extension is cheap because the guide already owns a noise-floor rule at exactly that spot, so it costs a clause rather than a new concept. Not too_specific (a stated statistical invariant with a clean boundary), not weak (the evidence is a pre-analysis design decision plus a recorded premise break, not post-hoc rationalization), not already_covered (the existing rule is about sampling a rate, not correcting an agreement figure for chance). Partial rather than novel because the owning bullet exists and should absorb it instead of minting a new rule; the deployed global is frozen to reductions, so the guide is the only admissible home.",
+   "classification": null,
+   "review_note": null,
+   "status": "incubating",
+   "window": "2026-09-09",
+   "surfaced": "2026-09-22",
+   "decision1": "incubating 2026-09-22 (review decision 4; not batch-promoted per D-20260910-e0b906)"
+  },
+  {
+   "id": "S3-117",
+   "lesson": "Resource-exhaustion defects survive every correctness round — declare the resource bound as contract and give one review or test pass an explicit resource lens driven by pathological input shapes (many small parts, maximum aggregate size, deep nesting), not larger versions of the realistic case.",
+   "strength": 3,
+   "verdict": "partial",
+   "criteria": [
+    "rare_high_cost",
+    "quality_lever"
+   ],
+   "supporting_sessions": [
+    "claude:0106116b"
+   ],
+   "principle": "Correctness fixtures use representative inputs, so resource-exhaustion defects survive every round that asks only whether the output is right: memory proportional to total input rather than to the declared budget, and superlinear copying under nesting or repetition. For any component that parses, joins, buffers, or projects input whose size or shape a caller controls, state its resource bound — peak memory, aggregate input size, nesting depth — as part of the contract, and give one review round or test pass an explicit resource lens whose case space is pathological shapes: many small parts, maximum aggregate size, maximum nesting, budget exceeded early. Scaling the realistic fixture up is not that lens. A component whose input size is bounded by construction and produced by the same trust domain needs only the ordinary correctness mix.",
+   "baseline_ref": "Partial. review-defect-criteria.md §The catalog (Web service / API surface) lists \"resource caps\" as one item inside the contract-compliance defect definition — a bare mention that presumes a cap already exists in the contract, with no golden and no hunting instruction. verification-discipline.md §Deriving the case space enumerates cases from the artifact that defines them (config entries, schema fields, routes) and names no resource or adversarial-shape axis; §Verification Menus (Code) is unit/integration/E2E only, with no load, memory, or resource entry. review-request.md §Choose perspectives that can bite states the general lens-fit rule (\"when no perspective owns the real risk, a reviewer files a governance gap\") without naming this lens. The global CLAUDE.md Verification Discipline section is silent on resource bounds.",
+   "placement_proposed": "guides/verification-discipline.md §Deriving the case space — as a new bullet establishing the resource axis (with the contract-side half of the rule stated there too); one clause added to guides/review-request.md §Choose perspectives that can bite naming the resource lens as one a lens set commonly lacks. The deployed global is frozen to reductions, so no global bullet.",
+   "rationale": "One independent session (claude:0106116b), so no cross-session recurrence — that caps strength. But it is internally replicated in a way that is unusually probative: seven blind review rounds on the same module produced only correctness and encoding findings, and rounds 8 and 9 — the ones carrying a resource lens — each found a distinct real defect (1.5 GiB RSS from 400 parts x 100 KiB because the joiner decodes past the budget and allocates a boundary slice per byte; quadratic copying at 5,000 nesting levels), both confirmed against real code and fixed. That is a seven-round negative control on the lens's absence, which is stronger evidence than a single anecdote. Materiality is rare-high-cost: memory exhaustion on caller-sized input is a denial-of-service class, and the shapes are ones no realistic fixture reaches, so the defect class is systematically invisible to the existing case-space rules. Generality is clean — it binds any parser/joiner/projector of externally sized input and carries a real boundary. Verdict is partial rather than novel because the nearest baseline (an enumerated \"resource caps\" in one system type's criterion, plus the general lens-fit rule) exists and should be extended and cross-referenced rather than duplicated; the case-space axis and the pathological-shape enumeration are the genuinely absent parts.",
+   "classification": null,
+   "review_note": null,
+   "status": "incubating",
+   "window": "2026-09-09",
+   "surfaced": "2026-09-22",
+   "decision1": "incubating 2026-09-22 (review decision 4; not batch-promoted per D-20260910-e0b906)"
+  },
+  {
+   "id": "S3-118",
+   "lesson": "Facts set by a versioned external authority are valid only within a window and under a per-item assignment rule: separate invariant rule text from a dated parameter table, never bound a window with \"current\", and read the transitional/override provisions that can defeat a correct read of the body.",
+   "strength": 3,
+   "verdict": "partial",
+   "criteria": [
+    "rollback",
+    "rare_high_cost",
+    "quality_lever",
+    "high_token"
+   ],
+   "supporting_sessions": [
+    "claude:370ec9bf"
+   ],
+   "principle": "When authoring active content whose facts are set by a versioned external authority and change on that authority's schedule — rates, thresholds, limits, deadlines, quotas, quoted contract or pricing terms — keep the durable part and the perishable part at different addresses: rule text names the condition and the threshold rather than quoting its value, and every changing value sits in one parameter table whose rows each carry the value, the citation that establishes it, and the window it is valid for. Never bound a window with \"current\" or leave it open-ended: an unbounded window is a claim that expires silently while reading as verified. Two questions about such a fact are separate and both must be answered per item rather than once for the set — what the version in force says, and which rule assigns a given case to a version, since the assigning event is often neither the publication nor the effective date and is rarely uniform across items. Read the transitional, supplementary, or override sections as well as the body: a correct reading of the governing text can still be overridden there, and that is the failure mode that survives a careful check of the main text. When a stated value merely looks outdated, check whether the structure is wrong instead — a value presented as derived from another quantity by a rule nobody verified is a different defect from a stale number, and it recurs at every site that restated it. This governs facts the content does not own; values the system itself owns and can re-derive belong with the command that re-derives them.",
+   "baseline_ref": "guides/documentation-hygiene.md §\"History has its own address\" — \"It carries its own point in time… a timestamp in the filename cannot rot\" and \"any continuously overwritten 'the state of things' document claims to be now and is no particular time; where the underlying facts are derivable, give the reader the command that re-derives them\". Partially covers: it establishes currency-decay and dating, but only at document granularity and only for facts the repository owns. Omits the invariant-rule / dated-parameter split, per-value validity windows inside active reference prose, the ban on an open \"current\" bound, the separation of \"what the in-force version says\" from \"which version governs this case\", and override/transitional sections defeating a correct body read. Global §Tooling (\"confirm empirically against the live or installed artifact\") and §Decision Framing (\"treat inherited premises as hypotheses\") cover re-checking a fact, not which version binds a given case.",
+   "placement_proposed": "guides/documentation-hygiene.md — new subsection \"Values that expire\" placed after §\"History has its own address\", with a use_when line added for authoring reference content whose values are set by an outside authority. Guide, not the global (the deployed global is frozen to reductions, and the failure mode here is recognized at authoring time, so a pointer-reachable rule suffices).",
+   "rationale": "One independent session (claude:370ec9bf) supplies both members, so recurrence is 1 — that caps strength at mid-range regardless of quality. Materiality is genuinely high and multiply instantiated within that session rather than resting on a single anecdote: a window row the agent itself authored as \"…~ current\" was proven wrong once an amendment surfaced; a parallel investigator falsified the same table by showing four distinct assignment events collapsed into one row; a correct read of the in-force body still produced a wrong answer because a transitional provision overrode it; two widely quoted values were already superseded; and an inherited sibling artifact restated a derived quantity wrongly at four sites. Criteria include rare_high_cost and rollback (published values in a regulated subject, correction cost paid across every restating site) plus high_token (~671K output / ~105M input on the run). Generality is clean — the trigger \"a fact owned by a versioned external authority\" covers standards, API contracts, pricing schedules, and policy documents, not just the originating domain — so it is not too_specific. Verdict is partial rather than novel because documentation-hygiene already owns the adjacent principle at document granularity; this extends it to values inside active content and adds the version-assignment and override dimensions, which are absent everywhere in the baseline.",
+   "classification": null,
+   "review_note": null,
+   "status": "incubating",
+   "window": "2026-09-09",
+   "surfaced": "2026-09-22",
+   "decision1": "incubating 2026-09-22 (review decision 4; not batch-promoted per D-20260910-e0b906)"
+  },
+  {
+   "id": "S3-119",
+   "lesson": "Claiming a name in a shared mutable namespace is not owning it — whoever registers last wins silently, so assert the binding just before use and ship a check reporting which implementation is bound.",
+   "strength": 3,
+   "verdict": "partial",
+   "criteria": [
+    "rare_high_cost",
+    "quality_lever"
+   ],
+   "supporting_sessions": [
+    "claude:434c27f0"
+   ],
+   "principle": "When software you author works by claiming a name in a namespace other installers can also write — a shell function or alias, a PATH or bin entry, a hook or plugin registration, a settings key, a service or unit name — registration is not ownership: a later writer replaces yours with no error on either side, so the failure appears as the feature simply not happening. Design such an integration to re-assert its binding at the latest point before use rather than once at setup, and ship a one-command check that reports which implementation is actually bound, so a shadowing install is diagnosable instead of requiring process archaeology. Namespaces you exclusively own — a private directory, a versioned package export, a name no other installer writes — need only ordinary installation.",
+   "baseline_ref": "guides/tooling-gotchas.md §\"Ambient state drifts — pin it\" → the \"Command resolution\" bullet (\"a command name is not a fixed binary … confirm the resolved target (`type -a`, absolute path)\"), plus the global CLAUDE.md §Tooling and Operational Safety ambient-state bullet (\"command-name resolution … pin it explicitly\"). Both partially cover it: they state the consumer-side detection duty (verify what a name resolves to before trusting a result). Neither states the producer-side design rule for an integration you own — that install-time registration confers no ownership, that the binding must be re-asserted at use time, and that a binding-report diagnostic must ship with it.",
+   "placement_proposed": "guides/tooling-gotchas.md §\"Ambient state drifts — pin it\" — a new bullet immediately after \"Command resolution\", extending that entry from detection to the design rule for integrations you author",
+   "rationale": "Recurrence is thin-but-real: one distilled session in this batch (claude:434c27f0), where the symptom was a silent no-trigger with a working sibling host and the cause was a newly installed tool redefining the same shell function later in startup; the same failure mode is recorded independently in project memory as an earlier incident on the same class (a terminal multiplexer redefining the entrypoint name after rc, resolved by moving interception to just-before-execution plus a shadow log), so the pattern has cost a real fix at least twice. Materiality is high and of the rare_high_cost kind: zero error signal on either side, the artifact-side check (the installer ran, the file is present) passes, and diagnosis costs an extended archaeology session. Generality is clear — the same mechanism covers PATH/bin entries, hooks, plugin and settings-key registration, and service names, so it is not shell-specific. Held at 3 rather than higher because the supporting evidence is one session in this window plus a memory record from the same product line rather than several independent sessions, and the candidate's own confidence is mid (0.55); it extends an existing bullet rather than opening a new area, which is also why the verdict is partial rather than novel. Guide placement, not the global, since the deployed global is frozen to reductions and this rule's trigger (you are designing an integration that claims a shared name) is recognizable at the moment it matters.",
+   "classification": null,
+   "review_note": null,
+   "status": "absorbed",
+   "window": "2026-09-09",
+   "surfaced": "2026-09-22",
+   "decision1": "absorbed 2026-09-22 (review decision 4; existing rule suffices — see 2026-09-09 review ②)"
+  },
+  {
+   "id": "S3-120",
+   "lesson": "Every exclusion or bypass in a guard carries the guard's full authority — enumerate what the pin omits or the branch skips, run each skipped guard's own refusal case, and verify by execution rather than by hashing.",
+   "strength": 3,
+   "verdict": "partial",
+   "criteria": [
+    "rollback",
+    "recurrent_error",
+    "rare_high_cost"
+   ],
+   "supporting_sessions": [
+    "claude:54287ab4"
+   ],
+   "principle": "A guard's authority is defined by what it does not look at: an exclusion from a coverage set and a branch that returns before the guard are the same act, and both are silent. When you exclude a path from an integrity, pin, or scan set because it is derived or noisy, prove nothing in that path can be loaded or executed and prevent its creation rather than ignoring it — a cached or compiled artifact changes behavior while the digest over the source is unchanged, and a check that resolves its own root through a link or a self-locating variable verifies whatever it was pointed at, so pin the identity of the tree as well as its contents. When you add an early return, skip flag, or exception to satisfy one finding, it acquires authority over every check downstream of its insertion point regardless of what the flag is named for: enumerate the guards it now bypasses and run each of their own refusal cases through the new path — the branch is verified by what it still refuses, not by the case it was added for. Verify both by execution, reading what the run reports it loaded or rejected, never by comparing hashes or by inspecting the branch. Where the same guard or closure exists in more than one copy, a finding against one is a finding against the class: remove the duplication instead of adding a second control. A guard with no exclusions and no bypass branch needs none of this.",
+   "baseline_ref": "Closest baselines partially cover it. coding-staged-workflow.md §\"Making the change\" — \"Fix the cause at its authority, not the symptom where it shows\" (covers upstream-vs-downstream and instances-as-a-class, omits that a bypass branch inherits downstream guard authority). verification-discipline.md §\"When a green means nothing\" — \"The probe that measured the original\" (self-locating root scans the original tree; covers the symlink/root-identity instance for probes, not for integrity pins), \"The population that shrank\" (coverage erosion by migration, not by deliberate exclusion), \"The fixture that misses the guard\" (inputs routing past a guard, not a branch skipping it). Global Coding Guidelines' default-off/opt-in bullet and the security-weakening bullet assume a user-requested loosening, not a skip flag added to satisfy a review finding. The exclusion-as-behavior-channel rule and the run-each-bypassed-guard's-refusal-case obligation are absent.",
+   "placement_proposed": "guides/coding-staged-workflow.md §Making the change (beside \"Fix the cause at its authority, not the symptom where it shows\"), since the trigger is the moment an exclusion or skip is authored; the verify-by-execution half is the same rule read from the check side and needs no second home.",
+   "rationale": "Materiality is high and the criteria are the heavy ones (rare_high_cost + rollback + recurrent_error): the bypass instance was a regression the agent's own previous-round fix introduced, and both instances were reproduced by execution (\"UNVALIDATED CORE EXECUTED\", \"FROM PLANTED BYTECODE\") after a cross-family reviewer claimed the pin was bypassable — i.e. self-verification had passed over both. Within the source session the shape recurred four times independently (bytecode exclusion, symlink-resolved root, self-test flag returning before the upload gate, the exception added to close a prior finding), plus a duplicated-closure variant, which is why the two members unify cleanly. But recurrence is INDEPENDENT-session-thin: both members carry the same session id, so this is one session, not two — that caps it below 4. The generalization is clean (integrity pins, scan sets, skip flags, self-test branches) and it extends existing sections rather than introducing a new concept, so partial rather than novel.",
+   "classification": null,
+   "review_note": null,
+   "status": "incubating",
+   "window": "2026-09-09",
+   "surfaced": "2026-09-22",
+   "decision1": "incubating 2026-09-22 (review decision 4; not batch-promoted per D-20260910-e0b906)"
+  },
+  {
+   "id": "S3-121",
+   "lesson": "Test fixtures and the checking tools themselves are versioned artifacts: after any dependency, CLI, or gate upgrade, fixtures and the instrument's registered components must be rebased against the installed contract, or a green suite is evidence about the version that is gone.",
+   "strength": 3,
+   "verdict": "partial",
+   "criteria": [
+    "quality_lever",
+    "rare_high_cost",
+    "rollback"
+   ],
+   "supporting_sessions": [
+    "claude:c97cb457",
+    "codex:01a067a2"
+   ],
+   "principle": "When the artifact under test or the tool doing the checking changes version — a dependency or CLI upgrade, a gate or linter you did not write, a plugin-based checker — treat both its fixtures and the instrument as stale until re-derived: regenerate or mechanically compare compatibility fixtures, error/variant enumerations, and contract collectors against the installed artifact, and re-verify the instrument by its registered components (checks, plugins, links, axes it actually loaded) rather than by its reported version, since a version string advances while the components that do the checking stay unregistered or unlinked. Probe such a tool once with an input that breaks exactly the property it claims to check while holding the correlated properties constant, and keep that input as a permanent fixture. A green suite whose fixtures describe the prior version is evidence for that snapshot only. Suites whose inputs are enumerated from the installed contract at run time, and tools whose components are re-resolved per invocation, need none of this.",
+   "baseline_ref": "guides/verification-discipline.md §\"When a green means nothing\" — \"The fixture the producer never emits\" (fixture provenance: captured through the real producer) and \"The fixture that misses the guard\" (copied fixture no longer satisfying a changed branch guard); plus global CLAUDE.md §Tooling and Operational Safety — \"confirm it empirically against the live or installed artifact ... rather than docs, memory, or a version string\". Together these partially cover fixture provenance and capability confirmation, but none states the version-upgrade trigger, the obligation to rebase fixtures/collectors onto the installed contract before believing an upgrade-time green, or the re-registration check on an upgraded instrument's own components.",
+   "placement_proposed": "guides/verification-discipline.md §\"When a green means nothing\" — a new shape (\"the fixture that describes the old version / the instrument that was upgraded\") alongside the two existing fixture shapes; the global stays untouched (additions frozen).",
+   "rationale": "Two genuinely independent sessions, and cross-provider (claude:c97cb457 and codex:01a067a2), reaching the same rule from opposite directions: one found a relied-upon quality gate several releases behind with no components registered, whose known-bad probe passed; the other found 220 green static tests whose failure fixtures still encoded a pre-upgrade CLI and omitted new error variants, plus a collector miscounting a nested enum. Materiality is real but bounded — the failure mode is a false green that misroutes work (a defect queue believed clean, an upgrade audit believed verified), not an irreversible loss — and the baseline already carries two adjacent fixture-staleness shapes, so this extends a family rather than opening one. Held to partial, and to 3, because neither session shows a repeated in-session recurrence and the general form is one bullet in an existing list.",
+   "classification": null,
+   "review_note": null,
+   "status": "absorbed",
+   "window": "2026-09-09",
+   "surfaced": "2026-09-22",
+   "decision1": "absorbed 2026-09-22 (review decision 4; existing rule suffices — see 2026-09-09 review ②)"
+  },
+  {
+   "id": "S2-88",
+   "lesson": "External systems freeze some attributes at creation — sequence every prerequisite that feeds a frozen attribute before the first creation, create one instance as a probe, and confirm the frozen attribute on the read-back result rather than the request sent.",
+   "strength": 2,
+   "verdict": "partial",
+   "criteria": [
+    "rare_high_cost",
+    "rollback",
+    "quality_lever"
+   ],
+   "supporting_sessions": [
+    "claude:6bc659d9"
+   ],
+   "principle": "Before creating anything in an external system you do not control, identify which of its attributes that system fixes at creation — owner or publisher identity, account/project/tenant binding, region, generated ids — because for those the only correction is destruction and re-creation, not an edit. Complete every prerequisite that feeds a frozen attribute before the first creation, then create exactly one instance and confirm the frozen attribute by reading back the created object as the system renders it, never from the request you sent or the creation call's success. Only then create the rest. Where every attribute is mutable and re-creation is cheap, this ordering buys nothing and ordinary creation applies.",
+   "baseline_ref": "Partially covered, across three surfaces, none of which names creation-time immutability: verification-discipline.md §Proportion the depth before you spend (\"Census the population before a costed or irreversible batch\", \"Probe at N=1 with the inputs precondition-checked\") and §Verification Menus (\"Irreversible capture switches: … prove the downstream consumption path against existing samples before enabling\"); cli-multi-model-workflow.md §Unattended Batch Safety (\"Before releasing a metered batch past its first item, use that item to probe the batch machinery … confirm every value the later analysis depends on reached the persisted record through the expected channel\"); global CLAUDE.md §Tooling and Operational Safety (\"gate irreversible identity-tied actions (revoke, delete, grant, consent, account-bound creation) on a live identity check\"). Together these cover probe-one-first and read-back-the-live-artifact; none states that an external system may freeze an attribute at creation, nor the resulting obligation to order prerequisites ahead of creation.",
+   "placement_proposed": "guides/coding-staged-workflow.md §Making the change (beside \"Measure a flip before you design its activation\" and \"Supplying a missing shared dependency wakes every consumer\") — the sequencing rule for work whose blast radius is external; the read-back clause cross-reads with verification-discipline.md §Proportion the depth before you spend. Guide placement, not the global, which is frozen to reductions.",
+   "rationale": "Recurrence: one independent session only (claude:6bc659d9); no sibling candidate in this window carries the same shape, and the closest neighbours (index 2 wrong-account verification, index 27 wrong-instance diagnosis) are identity/instance-resolution lessons, not creation-time immutability, so they do not add recurrence. Materiality: real but bounded and largely counterfactual — the session recognized the freeze and avoided the rebuild, so the demonstrated cost is one wasted render plus a deferred asset batch, not a realized incident; it clears the single-event bar only on the irreversibility limb (correction requires destroy-and-recreate). Generality is good: the class covers cloud region/project bindings, tenant-scoped resources, account-bound publishing identities, and generated ids, so it is not too_specific. Verdict is partial rather than novel because the operational half (one probe first, confirm the value reached the persisted record) is already stated in two guides; what this adds is the frozen-attribute trigger and the prerequisite-ordering consequence, which is an extension of existing text rather than a new rule.",
+   "classification": null,
+   "review_note": null,
+   "status": "incubating",
+   "window": "2026-09-09",
+   "surfaced": "2026-09-22",
+   "decision1": "incubating 2026-09-22 (review decision 4; not batch-promoted per D-20260910-e0b906)"
+  },
+  {
+   "id": "S2-89",
+   "lesson": "A fail-fast run measures only a prefix — later stages stay unknown, and a newly visible failure must be dated against the unchanged baseline before it is attributed to your change.",
+   "strength": 2,
+   "verdict": "partial",
+   "criteria": [
+    "recurrent_error",
+    "quality_lever"
+   ],
+   "supporting_sessions": [
+    "claude:e66e0d0a"
+   ],
+   "principle": "A run that aborts at its first failure has measured only a prefix: every stage after the failing one is unmeasured, so \"only this check fails\" is a lower bound rather than a scope estimate — expect further, unrelated failures to surface as earlier ones are cleared, and budget the fix loop for them instead of reporting a remaining-work count the run cannot support. Before attributing a newly visible failure to your own change, date it: reproduce it on the unchanged baseline, or show its cause predates you (a missing dependency, an environment gap, an older defect the earlier failure was hiding). First-seen is not newly-caused. A suite that runs every stage regardless of failure, and reports per-stage results, needs only the ordinary read.",
+   "baseline_ref": "Partially covered, split across three places and never in this surface. (1) guides/verification-discipline.md §\"When a green means nothing\" → \"The control that failed by crashing\" already states \"an early crash can pre-empt every control after it\" — the same prefix-masking mechanic, but scoped to negative-control runs, and the whole section is framed around false greens, not the reading of a red run. (2) guides/verification-discipline.md §\"Before blaming code for a metric change\" owns the date-it-before-blaming-your-change move (\"localize the change in time before diagnosing the feature ... a step in a window with no deploys is an input-population shift\"), but scoped to live metrics, not to a failing gate/CI stage. (3) guides/review-request.md §\"Stop the loop on provenance, not on count\" carries the caused / surfaced / pre-existing split and the reproduce-on-an-untouched-path test, scoped to review findings across rounds. Also note §\"The static floor\" positively instructs fail-fast ordering (\"let them fail before anything slower starts\") without naming its cost, so the baseline creates the situation and never tells you how to read the result.",
+   "placement_proposed": "guides/verification-discipline.md §\"Before blaming code for a metric change\" — extend that section (which already owns \"localize in time before blaming the change\") to cover a failure newly visible in a staged run, and add one clause to §\"When a green means nothing\" noting the mirror case: a red run bounds nothing after the failing stage. Extension, not a new section; no global CLAUDE.md bullet (the global is frozen to reductions, and this rule's failure mode is recognition-independent only after you are already verifying).",
+   "rationale": "Recurrence is thin: ONE independent session backs it (the same session also produced the sibling bulk-rewrite candidate), with a within-session repeat when a second scanner finding surfaced after the first cleared. Within-session repetition is not independent recurrence. Materiality is moderate at best and arguably self-limiting: the session shows the agent applying the lesson correctly and exonerating its own change, so the transcript records a success, not a paid failure — no rollback, no irreversible cost, no rare_high_cost claim. It survives as partial rather than weak because the general form is clean and trigger-invariant (any staged gate, CI job, or build chain that aborts at first failure), and the two half-rules that exist today sit in surfaces an agent reading a red gate suite would not reach — the greens section and the review-loop guide. Best handled as a sentence-level extension to an owning section rather than a promoted rule; if it does not re-occur in a later window it should stay incubating.",
+   "classification": null,
+   "review_note": null,
+   "status": "incubating",
+   "window": "2026-09-09",
+   "surfaced": "2026-09-22",
+   "decision1": "incubating 2026-09-22 (review decision 4; not batch-promoted per D-20260910-e0b906)"
+  },
+  {
+   "id": "S2-90",
+   "lesson": "An item dropped for uncertainty, sensitivity, or space is a decision the reader cannot see — list what was omitted and why alongside the deliverable.",
+   "strength": 2,
+   "verdict": "partial",
+   "criteria": [
+    "rollback",
+    "quality_lever"
+   ],
+   "supporting_sessions": [
+    "claude:5ad09543"
+   ],
+   "principle": "When a deliverable is a reduction of a larger source — a summary, extract, record, digest, or report — an item withheld for uncertainty, sensitivity, or length is a decision, and an absence leaves the reader nothing to question: silence about what was dropped reads as the source having contained nothing there. Deliver the omission list beside the artifact — what was withheld and why — or keep the item in place with its uncertainty marked, so a reader who knows the domain can restore it; the material most likely to be judged uncertain is the material carrying names, relationships, and figures, which is the material most worth restoring. This does not apply where the selection rule is stated up front and the reader can predict what falls outside it, nor where the dropped material is recoverable from the source at no cost.",
+   "baseline_ref": "Partially covered, in three sibling scopes but never for a source-derived prose deliverable. Closest: verification-discipline §Reporting — \"state the checks that ran, their results, and any risk left unverified. 'Unverified' is a legitimate outcome and a useful one; silence about it is not\" — identical shape (disclose the negative space of your own work), scoped to verification risk rather than dropped content. Also review-request §\"Read participation before believing a verdict\" — \"a review deliverable names the findings it rejected as well as the ones it kept\" (scoped to review findings); coding-staged-workflow §Stages — \"reducing captured information is riskier and needs explicit confirmation — 'no current consumer' is not evidence of no future value\" (scoped to pipeline fields); llm-capability-boundary-patterns §Deterministic Projection — \"Projection can also hide important evidence. Track coverage, omitted evidence, and fallback triggers\" (scoped to machine projections); mock-realization-boundary — \"enumerate the beyond-cell elements so none are silently dropped\" (scoped to connected documents). The candidate's proposed home, documentation-hygiene, contains nothing on this: its subject is the placement of past-vs-present prose and how to phrase a rule, not what a deliverable owes about its own gaps.",
+   "placement_proposed": "guides/verification-discipline.md §Reporting — extend the existing unverified-risk sentence to cover withheld content, so one rule owns \"silence about what you did not deliver\". Do NOT add a fourth scoped restatement (documentation-hygiene as proposed would become one); the global is frozen to reductions, and per concept economy this is an Extend, not an Add.",
+   "rationale": "Recurrence is one independent session (claude:5ad09543), one incident: names and a shareholder relationship silently stripped from a meeting record, noticed by the user in the same exchange and restored. Materiality is moderate, not high — recoverable, non-irreversible, not verification-corrupting, not security — so it fails the corpus's own single-event admission bar (≥2 independent sessions OR irreversible/verification-corrupting/security). The self-reported novelty overstates: the underlying rule already exists four times over in adjacent scopes, so what is genuinely absent is only the source-derived-prose direction. It survives as partial rather than weak on two grounds: the failure is silent by construction (an absence emits no signal, so it is not self-correcting the way a wrong figure is — the user caught this one by chance), and the corpus's four independent scoped instances are themselves evidence that the general form is real. That same fact is why the right action is to widen the nearest existing rule rather than mint a fifth statement of one principle. Given a one-session basis and a home that only needs a clause added, this ranks below the batch's multi-session and rare-high-cost clusters.",
+   "classification": null,
+   "review_note": null,
+   "status": "incubating",
+   "window": "2026-09-09",
+   "surfaced": "2026-09-22",
+   "decision1": "incubating 2026-09-22 (review decision 4; not batch-promoted per D-20260910-e0b906)"
+  },
+  {
+   "id": "S2-91",
+   "lesson": "Restarting a service discards in-flight work and shows the requester a frozen progress indicator rather than an error — drain and check for in-flight work first, and read a never-returning request as a lifecycle event.",
+   "strength": 2,
+   "verdict": "partial",
+   "criteria": [
+    "rare_high_cost",
+    "re_exploration"
+   ],
+   "supporting_sessions": [
+    "claude:caa3746b"
+   ],
+   "principle": "Stopping or restarting a process that serves other people's or other sessions' requests discards whatever it holds in flight, and the requester sees a stalled progress indicator rather than an error — the loss is silent on both sides. Before any restart, reload, or replacement, check for in-flight work through the service's own evidence (unhandled inbound events, live child processes, an open job record), drain or wait for it, and name what was still running if you must stop anyway. Read the signature in reverse too: a request that never returns while its status stays frozen points at a lifecycle event on the serving side before it points at the request's own logic. A process whose only caller is you, or whose requests are replayable on restart, needs none of this.",
+   "baseline_ref": "guides/tooling-gotchas.md §\"Own what you spawn\" — \"A handle issued to a human is a commitment\" partially covers this: it forbids restarting/re-porting a listener while a person may still act, but only for an already-handed-out consent URL, and says nothing about checking for in-flight work generally. §\"Own what you spawn\" — \"A stop is confirmed at the sink, not in the process list\" covers the opposite failure (an incomplete kill lets a stage publish). §\"Ambient state drifts\" — \"Installed is not running\" pushes toward restarting to make new code live and is silent on what the restart destroys. The global Coding Guidelines lifecycle bullet (\"own the full lifecycle of what you create — spawned processes and handles through teardown\") is the parent. The requester-side diagnostic (a frozen indicator = a lifecycle event, not request logic) is absent; the nearest global text runs the other way (\"a multi-minute call at ~0% CPU is I/O wait, not a hang\").",
+   "placement_proposed": "guides/tooling-gotchas.md §\"Own what you spawn\" — as a sibling bullet immediately after \"A handle issued to a human is a commitment\", generalizing that bullet from a handed-out consent URL to any process holding another party's in-flight request, and carrying the frozen-indicator diagnostic clause.",
+   "rationale": "One independent session only (claude:caa3746b). The candidate's self-declared \"recurrent_error\" is intra-session repetition — the agent adopted the drain check for subsequent restarts in the same run — not recurrence across independent sessions, so it does not clear the recurrence half of the promotion bar. Materiality is moderate rather than high: a discarded user query is recoverable by re-asking, with no data corruption, irreversibility, or security consequence, so it does not clear the single-event high-materiality half either. What keeps it above \"weak\" is that the baseline genuinely does not state the general form — the existing \"handle issued to a human is a commitment\" bullet already encodes the same insight for a narrower case, which makes this a cheap one-bullet generalization of an adjacent rule rather than a new concept, and the reverse-diagnostic clause (a frozen requester-side status implicating a serving-process lifecycle event) is real, absent, and prevents a wrong-layer debugging hunt. Recommend it as an extension of the existing bullet, not a standalone addition; it must not go to the global, which is frozen to reductions.",
+   "classification": null,
+   "review_note": null,
+   "status": "incubating",
+   "window": "2026-09-09",
+   "surfaced": "2026-09-22",
+   "decision1": "incubating 2026-09-22 (review decision 4; not batch-promoted per D-20260910-e0b906)"
+  },
+  {
+   "id": "S2-92",
+   "lesson": "A success status is a claim about the call, not its items — read the body's per-item error and skipped collections, and name the specific failure the negative control must produce.",
+   "strength": 2,
+   "verdict": "partial",
+   "criteria": [
+    "rare_high_cost",
+    "quality_lever"
+   ],
+   "supporting_sessions": [
+    "claude:bd3df016"
+   ],
+   "principle": "When a check's verdict rests on the status of a call whose response can carry per-item outcomes — batch, multi-resource, partial-permission, or partial-write responses — treat the status as a claim about the call, not about its items: parse the body's error, skipped, and not-processed collections, fail the check on any non-empty one, and assert the processed set against the set requested. An integration check that stops at the status code scores a partially denied response as a pass. A call whose contract admits exactly one indivisible outcome needs only its status.",
+   "baseline_ref": "verification-discipline.md §\"When a green means nothing\" — omits this shape (its list runs empty subject, guard-missing fixture, producer-never-emitted fixture, permissive fallback, fast/empty run, crashing control, quiet control, silent log, shrunken population, invalid mutant, probe measuring the original). Partially covered elsewhere: tooling-gotchas §Config/managed services \"Dispatch status is not execution\" (dispatcher's view ≠ target state, async only) and \"Uniform failure is structural — read the persisted reason\" (all-fail batches); mock-realization-boundary's closing bullet \"report external load states … distinctly instead of collapsing them into one success/failure\" (scoped to connected cloud documents, and about reporting rather than assertion); cli-multi-model-workflow §Unattended Batch Safety \"collected count asserted against the source's own reported total\". The lesson's second half — naming the specific failure the negative control must produce — is ALREADY COVERED verbatim in intent by verification-discipline §\"When a green means nothing\" → \"The control that failed by crashing\": a control is evidence only when it fails through the assertion it names, one named failure per planted violation. Only the success-envelope half should be added.",
+   "placement_proposed": "guides/verification-discipline.md §\"When a green means nothing\" — as one new false-green shape (\"the status that outranked the body\"), not in Verification Menus: the failure is a green with no evidence behind it, which is that section's subject, and placing it there lets it inherit the existing negative-control rule instead of restating it. Global CLAUDE.md is excluded (frozen to reductions, and this is a recognizable-situation rule that belongs behind the existing pointer).",
+   "rationale": "Recurrence is thin: one session (claude:bd3df016), surfaced as a reviewer finding rather than a lived rollback, self-rated 0.5 confidence, with no independent second session in this batch reproducing it. Materiality is real but bounded — an E2E scoring a partially denied response as a pass is a durable false green on an integration boundary, and the shape generalizes cleanly to any batch/multi-resource/partial-permission API, which is why it survives rather than being dropped as too_specific. Discounted to partial and to strength 2 because half the stated lesson (the negative control must name its expected failure) is already in the target section, and the surviving half is a new instance of a family the corpus already teaches in two adjacent places (dispatch status ≠ execution; enumeration count vs reported total). It earns a one-line addition to an existing list, not a new rule of its own.",
+   "classification": null,
+   "review_note": null,
+   "status": "incubating",
+   "window": "2026-09-09",
+   "surfaced": "2026-09-22",
+   "decision1": "incubating 2026-09-22 (review decision 4; not batch-promoted per D-20260910-e0b906)"
+  },
+  {
+   "id": "S2-93",
+   "lesson": "Labels a program matches are a parser contract, not presentation — check the consumer's matcher before authoring, since an unmatched label yields an empty value that a downstream stage forwards looking complete.",
+   "strength": 2,
+   "verdict": "partial",
+   "criteria": [
+    "re_exploration",
+    "quality_lever"
+   ],
+   "supporting_sessions": [
+    "claude:370ec9bf"
+   ],
+   "principle": "When authoring content that a program consumes by matching labels, headings, or keys, treat that vocabulary as a contract with the consumer's matcher rather than as presentation: read the matcher before writing, especially when authoring in a language, locale, or house style other than the one the matcher was written against. A non-match normally yields an empty value rather than an error, and any stage that forwards an empty value delivers it onward looking complete — so assert a non-empty parse at the point the value is produced, not at the point it is consumed. Before introducing a new convention for such content, survey what the existing instances actually use: the convention you were about to introduce is often already the majority, making the real task repairing the deviants. Content no program parses is outside this rule.",
+   "baseline_ref": "Partial. concept-economy.md §\"Reuse The Vocabulary Before Adding To It\" and §\"Finding the nearest concept\" own shared vocabulary and the survey-before-adding move, but only for concepts in code, never for parser-facing labels in authored content. llm-capability-boundary-patterns.md §\"Security And Side Effects\" carries the nearest mechanism (\"a mis-formatted entry can pass every deploy check while silently denying its whole route class\"), scoped to authorization/allowlist entries. tooling-gotchas.md core rule \"treat surprising empty output as a tool artifact hypothesis\" is the read side, not the authoring side. The global \"a produced field is inert until a consumer reads it\" is the opposite direction (unread field, not unmatched field). verification-discipline.md's \"empty subject\" is about a gate judging nothing, not an authored field parsing to nothing and then being consumed.",
+   "placement_proposed": "guides/concept-economy.md §\"Reuse The Vocabulary Before Adding To It\" — extend that section from enum values and failure kinds to parser-facing label vocabulary in authored content, with the empty-not-error consequence stated inline.",
+   "rationale": "One independent session only (claude:370ec9bf, which also produced two sibling candidates — same session, so no cross-session corroboration), and the member's own confidence is the low end of the batch at 0.45. Materiality is real but bounded: the failure degraded an authoring prompt's grounding rather than causing an irreversible, security, or verification-corrupting loss, so it does not clear the single-event-high-materiality bar on its own. It survives as partial rather than being dropped because the general form is sound and the specific gap is verifiable against the baseline: nothing in the corpus states that authored labels are a matcher contract, that mismatch fails soft to empty, or that a forwarded empty is worse than a missing input. Recommend landing it as one added clause inside the existing concept-economy vocabulary section rather than as a new rule, since it is an extension of a surface the corpus already owns and does not meet the bar for its own bullet.",
+   "classification": null,
+   "review_note": null,
+   "status": "incubating",
+   "window": "2026-09-09",
+   "surfaced": "2026-09-22",
+   "decision1": "incubating 2026-09-22 (review decision 4; not batch-promoted per D-20260910-e0b906)"
+  },
+  {
+   "id": "S2-94",
+   "lesson": "Land the deliverable in a place both sides can read before messaging a peer session — an inter-session channel can be approval-gated and expire unanswered, so a handoff living only in the message is lost with no failure signal.",
+   "strength": 2,
+   "verdict": "partial",
+   "criteria": [
+    "rare_high_cost"
+   ],
+   "supporting_sessions": [
+    "claude:434c27f0",
+    "claude:00e549c5"
+   ],
+   "principle": "When handing work to another live agent session or peer agent, land the deliverable in a location both sides can read and have the message carry only its path: the message is a pointer, never the delivery. An inter-session channel can be gated on the receiving operator's approval and can expire unanswered, and it reports neither — a handoff that exists only in the message is lost with no failure signal, while an already-landed artifact reduces an undelivered message to one line of instruction to the operator. Where no shared readable location exists, say so and hand the operator the content directly rather than trusting the channel.",
+   "baseline_ref": "guides/cli-multi-model-workflow.md §Delegation Mechanics And Teammate Persistence — \"Idle/progress notifications are hypotheses… Cross-reset state belongs in files, not task boards or transcripts\", plus §When To Spawn's \"artifact paths instead of pasted context\" and §Handoff Contract's store-handoffs-in-a-dated-docs-path rule. These already establish files-over-messages for cross-session state; what is absent is that a peer-session message channel itself can be approval-gated and expire silently, so non-delivery produces no signal.",
+   "placement_proposed": "guides/cli-multi-model-workflow.md §Delegation Mechanics And Teammate Persistence — appended to the existing idle/notification + \"cross-reset state belongs in files\" bullet, not as a new bullet",
+   "rationale": "One session only (claude:434c27f0), and the session did the right thing rather than paying for the error — the message expired but zero work was lost, so materiality is a near-miss, not a realized cost. The core behavior (durable artifact over transcript/message for cross-session state) is already stated in the same guide in two places, so the surviving delta is narrow: the channel's silent, approval-gated expiry. That is a real and non-obvious increment worth one clause on the existing bullet, but it does not earn its own rule, and the deployed global is frozen to reductions in any case. Self-reported confidence 0.45 is consistent with this reading.",
+   "classification": null,
+   "review_note": null,
+   "status": "absorbed",
+   "window": "2026-09-09",
+   "surfaced": "2026-09-22",
+   "recurrence": [
+    {
+     "window": "2026-09-22",
+     "sessions": [
+      "claude:00e549c5"
+     ],
+     "strength": 2,
+     "verdict": "partial",
+     "lesson_as_seen": "When work forks to a parallel live session, the scope split and handoff state have to be fixed at fork time. Messages sent between sessions later can be held for the recipient user's approval or denied, so the two sessions can repeat each other's work or wait on each other.",
+     "principle": "When you fork work to a parallel live session, or hand part of it to one, put the partition in the fork prompt or in a shared file at fork time: who owns which subtask, what state is already settled, and what each side must not repeat. Do not count on later cross-session messages for coordination. Delivery between sessions is not guaranteed and can be held for the recipient user's approval or denied. If a coordination message is held, tell the user which session needs their approval and what duplicate or stalled work that risks, then continue your own share. Do not block on it. This applies to concurrent live sessions only. Sequential handoffs across a clear or reset are covered by the Handoff Contract, and spawned subagents return their results through the spawning channel.",
+     "reason": "Same trigger: inter-session messages can be held for approval or expire unanswered. Same behavior: put the handoff state in a place both sides can read instead of relying on the message. Setting the partition at fork time extends this."
+    }
+   ],
+   "decision1": "absorbed 2026-09-22 (review decision 4; existing rule suffices — see 2026-09-09 review ②)"
+  },
+  {
+   "id": "S3-122",
+   "lesson": "Subagent reports delivered inline, through a result message or an idle notification, can be cut off with no marker, and asking for an inline resend truncates the same way. Having the subagent write the full report to a named file and return only the path plus a summary fixes this, and it also keeps the report readable after the turn or session ends.",
+   "strength": 3,
+   "verdict": "partial",
+   "criteria": [
+    "recurrent_error",
+    "re_exploration",
+    "quality_lever"
+   ],
+   "supporting_sessions": [
+    "claude:0496ed86",
+    "claude:084b6b0a"
+   ],
+   "principle": "When a spawned worker's report is long or must outlive the turn, name an output file in the brief. The worker writes the full report there and returns only the path, a completion marker, and a short summary. Inline delivery channels (result messages, idle/completion notifications, teammate messages) can truncate with no marker, and an inline resend truncates the same way. A report that ends mid-item, or has no completion marker, is incomplete. Switch to the file handoff instead of asking for it again inline. Boundary: a short, bounded report that fits the contract and is used only in the current turn can stay inline.",
+   "baseline_ref": "cli-multi-model-workflow.md. §When To Spawn (\"Every spawn gets a bounded report contract, artifact paths instead of pasted context\") covers artifact paths for the worker's inputs only, not its output. §Delegation Mechanics And Teammate Persistence (\"idle-without-report is not done — request the report explicitly\"; \"Cross-reset state belongs in files\") covers a report that never arrived, not a delivered but silently truncated one. It also does not say that re-requesting inline fails the same way. The global memory-index truncation bullet is a different surface. Partial.",
+   "placement_proposed": "guides/cli-multi-model-workflow.md §Delegation Mechanics And Teammate Persistence (extend the idle-without-report bullet; optionally add \"output path\" to the §When To Spawn report-contract bullet)",
+   "rationale": "Two independent sessions directly support this (0496ed86, 084b6b0a), and 0496ed86 cites a third (61236c1b) with the same inline truncation that took several resends to recover. The inline resend failed and a file handoff worked, which is a recurrent error with an observed fix. The cost is rework and lost findings, not an irreversible failure. A truncated report can also be mistaken for a complete one, which raises its quality leverage. The baseline has the adjacent idle-without-report rule but not the truncation mode or the output-file remedy, so this extends that rule rather than being novel. The rule is general across hosts, not a one-off.",
+   "classification": null,
+   "review_note": "2026-09-22 placed; mirrored to codex/ and ko/claude/ (translated) and ko/codex/ by gates/emit-mirrors.py; wording reviewed cross-family before landing: gpt-5.6-sol/ultra, read-only hermetic, session 01a0c793-b66a-7583-87bc-a0ef32caa64d, packet sha256 23c5fdd7…; 10 findings, all adopted.",
+   "status": "placed",
+   "window": "2026-09-22",
+   "surfaced": "2026-09-22",
+   "decision1": "selected 2026-09-22 (review decision 3; individually approved; placed when text lands)",
+   "selected": "2026-09-22",
+   "placed": "2026-09-22",
+   "implementation": [
+    "claude/guides/cli-multi-model-workflow.md §Delegation Mechanics And Teammate Persistence (extend the idle-without-report bullet)"
+   ]
+  },
+  {
+   "id": "S3-123",
+   "lesson": "An absence claim returned by a search tool or API (model hub, mailbox, docs, code search), especially one relayed by a delegated agent, is unverified until the same query shape has been shown to hit a known-present item and an alternate query (exact identifier, different token boundaries, broader term) also comes back empty.",
+   "strength": 3,
+   "verdict": "partial",
+   "criteria": [
+    "rollback",
+    "quality_lever"
+   ],
+   "supporting_sessions": [
+    "claude:745a8685"
+   ],
+   "principle": "**The search that could not have matched.** A \"none found\" from a keyword search or search API (package or model hubs, mail, docs, code or issue search) means only that the query missed, not that the thing is absent. Before an absence claim feeds a decision, run two checks. First, the same query shape against the same source returns an item you know is there. Second, a re-query with the exact identifier, different token boundaries (joined or split CamelCase, hyphens, prefixes) or a broader term still returns nothing. This goes double for an absence reported by a delegated agent, because you cannot see how that agent built its query. It does not apply to exhaustive enumerations whose coverage is already proven, such as a full listing or a grep over a set you have confirmed is non-empty.",
+   "baseline_ref": "Partly covered in three places, and none of them names this fix. (1) verification-discipline.md §When a green means nothing, 'The silent log' bullet: it asks for a demonstrated \"this use would have been logged\" before quiet logs count as non-use. That is the same positive-control idea, but it is limited to log fields and retiring identities, keys or endpoints. The 'suspiciously empty run' bullet covers harness crashes, not query misses. (2) review-request.md §Trust an empty result only when it cites what it checked: it is limited to review-lens nulls and asks for a rationale, not a known-hit control or a re-query. (3) tooling-gotchas.md, the 'grep binary heuristic' bullet: false no-matches from grep only. Nothing in the baseline covers search-API absences caused by tokenization or matching, or relayed by a delegated agent.",
+   "placement_proposed": "guides/verification-discipline.md §When a green means nothing (new bullet next to 'The silent log')",
+   "rationale": "There are two concrete instances. In one, a delegated agent's false \"0 models\" came from whole-word matching, and the item turned out to have 373k monthly downloads. In the other, an empty mail search was validated against an address known to have mail. The evidence cites two different session ids, but the cluster has only one candidate, so recurrence is modest. The error is material: a false absence silently drives a wrong decision (here, dismissing an available model), and the fix costs one or two queries. The principle is general across search surfaces and belongs next to the existing 'silent log' positive-control bullet, which it generalizes. It adds something that bullet lacks: re-querying with other token boundaries or the exact identifier. It does not belong in the review-request section the candidate proposed, because that section is about review-lens nulls. The global is frozen to reductions, so a guide is the right home.",
+   "classification": null,
+   "review_note": null,
+   "status": "absorbed",
+   "window": "2026-09-22",
+   "surfaced": "2026-09-22",
+   "decision1": "absorbed 2026-09-22: absorbed into the session-injected local learning \"a measurement that agrees with your expectation is the moment to test the instrument\" (known-opposite control); the session already behaved correctly (745a8685:941-946)"
+  },
+  {
+   "id": "S2-95",
+   "lesson": "A package-manager install run where no project manifest exists can resolve upward to the nearest ancestor manifest (up to the home directory) and silently modify that tree's installed dependencies, even with no-save flags. Pin the install target and check afterwards which directory actually changed.",
+   "strength": 2,
+   "verdict": "partial",
+   "criteria": [
+    "rare_high_cost",
+    "rollback"
+   ],
+   "supporting_sessions": [
+    "claude:0496ed86"
+   ],
+   "principle": "**Install target resolution**: some package managers do not install into the working directory. When the directory has no manifest of its own, they walk up to the nearest ancestor manifest, which can be the home directory, and install, upgrade or downgrade packages there without saying so. A no-save flag does not stop this. Before an install meant for one project, confirm the project's manifest is in the working directory, or pin the target explicitly with a prefix, target or project flag. If the target cannot be pinned, snapshot the resolved install root first. Afterwards, check from the manager's own output and the resolved root which directory changed, and restore any tree you did not intend to touch. This does not apply to deliberate global installs, or to installs inside a directory that already holds its own manifest.",
+   "baseline_ref": "Partially covered. The global rule \"Ambient state ... drifts silently; where an outcome depends on it, pin it explicitly\" (global CLAUDE.md, tooling section) and tooling-gotchas.md §\"Ambient state drifts — pin it\" list instances for the interpreter, command resolution, cloud CLI context, installed-vs-running, and dev-labelled datastore. None of them covers how an install target is resolved. The baseline never mentions a package manager walking upward to an ancestor manifest or mutating the home directory. The general principle is there; this concrete instance, with its recognition signature, is missing.",
+   "placement_proposed": "guides/tooling-gotchas.md §Ambient state drifts — pin it (new bullet next to \"Command resolution\" and \"Cloud CLI context\")",
+   "rationale": "One independent session supports this. The evidence is concrete: an install with no-save changed packages in the home directory's dependency tree, and restoring them needed a snapshot and a rollback the user approved. That makes it material and rare_high_cost, since it silently mutated state outside the repo and required a rollback. It is general rather than too_specific, because upward manifest resolution is standard behavior in several package managers, not a quirk of one repo. The global ambient-state rule already covers the principle, so this belongs as a guide instance, not a global bullet. That fits the frozen-global convention. Strength stays at 2 because nothing has recurred yet.",
+   "classification": null,
+   "review_note": null,
+   "status": "incubating",
+   "window": "2026-09-22",
+   "surfaced": "2026-09-22",
+   "decision1": "incubating 2026-09-22 (below the promotion bar; review \"보류 권고\")"
+  },
+  {
+   "id": "S2-96",
+   "lesson": "Fail-loud is a development/gate posture, not a universal one. On production runtime paths the right posture is to warn loudly and fail safe: surface the anomaly prominently, and degrade without losing or corrupting user work.",
+   "strength": 2,
+   "verdict": "partial",
+   "criteria": [
+    "quality_lever"
+   ],
+   "supporting_sessions": [
+    "claude:c5866d5f"
+   ],
+   "principle": "Choose the failure posture by execution stage, and say which stage it is. In development, tests, and gates, fail loud: stop and name the problem, because halting costs nothing and a silent pass hides a defect. On production runtime paths that hold user work or state, warn loud and fail safe: report every anomaly prominently and to a place that gets read, then degrade to a state that keeps the data (keep the input, skip or quarantine the bad item, fall back to the last good value). Never halt in a way that drops or corrupts work, and never degrade silently. A fail-loud rule written for a validator, schema, or contract must name the stage it applies to. Boundary: this does not relax refusal where continuing would itself cause harm (a denied permission, an unenforceable safety contract, an irreversible side effect). Those still fail closed in production, loudly and without loss.",
+   "baseline_ref": "llm-capability-boundary.md states fail-loud without conditions (\"Unknown fields fail loudly\", \"invalid values must be impossible or fail-loud\", step 9 \"Add fail-loud checks\"). It also has step 12, \"Decide retry/fail policy by failure kind and side-effect class\", and \"fail clearly when the available route cannot enforce the required contract\". verification-discipline.md says \"Checker code must ... fail loud\". The global line 33 prefers \"a warning plus a recovery path over a prohibition\", but only for sizing controls. Partial: failure policy by failure kind and side-effect class is covered. Nothing covers splitting it by stage (dev/gate vs production runtime), and \"fail-safe\", \"warn-loud\" and \"without data loss\" appear nowhere.",
+   "placement_proposed": "guides/llm-capability-boundary.md §Implementation steps, as an extension of step 12 \"Decide retry/fail policy by failure kind and side-effect class\" (add execution stage as a third axis), with a one-line cross-reference from guides/coding-staged-workflow.md §Making the change. Not the global, which is frozen to reductions.",
+   "rationale": "One independent session. It is a direct user correction to a standing principle made mid-design, so the signal is high quality but has not recurred. It matters as a quality lever: applied without conditions, the corpus's many fail-loud rules push production code toward halting and losing data. It is general, since it applies to any system with a dev/prod split, and the baseline's failure-policy axis leaves a real gap here. That makes it partial rather than novel or too specific. With no recurrence and no rollback or rare-high-cost evidence, strength stays at 2.",
+   "classification": {
+    "type": "G",
+    "basis": "user-stated principle (c5866d5f:553) with the definition the user named as authoritative: the haltrule README \"The rule\" (halt only when continuing would contaminate what the next step reads — stale input, an invalid value about to be recorded, half-written external state; warn on everything else)"
+   },
+   "review_note": "2026-09-22 placed; mirrored to codex/ and ko/claude/ (translated) and ko/codex/ by gates/emit-mirrors.py; wording reviewed cross-family before landing: gpt-5.6-sol/ultra, read-only hermetic, session 01a0c793-b66a-7583-87bc-a0ef32caa64d, packet sha256 23c5fdd7…; 10 findings, all adopted.",
+   "status": "placed",
+   "window": "2026-09-22",
+   "surfaced": "2026-09-22",
+   "decision1": "user-adopted 2026-09-22 as corpus-wide (review decision 2), with the haltrule definition as its basis",
+   "selected": "2026-09-22",
+   "placed": "2026-09-22",
+   "implementation": [
+    "claude/guides/coding-staged-workflow.md §Making the change — new \"Choose the failure posture by what the next step reads\"",
+    "claude/guides/llm-capability-boundary.md §Capability Surface — Retry/fail policy (extend)"
+   ]
+  },
+  {
+   "id": "S2-97",
+   "lesson": "Before an item goes into a question or request to the user or an outside party, check whether the project's decision records, memory or existing tools already settle or derive it. An item that is already decided or derivable should not become an ask.",
+   "strength": 2,
+   "verdict": "partial",
+   "criteria": [
+    "rollback"
+   ],
+   "supporting_sessions": [
+    "claude:0b5a8018"
+   ],
+   "principle": "When you draft a question or request for a value, to the user or to any outside party, first search the project's decision records, memory and existing derivation tools for that value. Drop any item that is already decided or can be mechanically derived. Ask only about what stays open after that search. An outbound ask for a settled value spends the recipient's attention, and it can reopen or contradict a standing decision. This applies to asks for facts, values or policy. It does not cover consent or approval, which only the person can give. Use it when you draft a new ask and when you inherit one drafted in an earlier session.",
+   "baseline_ref": "Partially covered. Global §Problem Solving says \"Resolve ambiguity from context when safe; ask only when ambiguity blocks progress\". §LLM And Capability Boundary says \"Keep deterministic values out of LLM authority when tools/code or the environment can derive them\". The distill guide has \"three gates BEFORE asking the user\", but only for its own pipeline. None of these extends to requests sent to external parties. None names decision ledgers or memory as places to search before asking. None covers re-checking an inherited, already-drafted request.",
+   "placement_proposed": "verification-discipline.md §(inherited claims / re-derive before building). It goes next to the rule that inherited premises and handoff claims are hypotheses. The global is frozen to reductions.",
+   "rationale": "Only one independent session supports it (claude:0b5a8018), and the candidate's self-reported confidence is low (0.45). Materiality is moderate. The error was caught and rolled back before the request went out, so no external harm happened, but an outbound ask that contradicted a recorded decision would have cost goodwill with another business unit. The general form holds up: search before asking, now also covering third-party asks and inherited drafts. It is only partly covered, because the existing global rules deal with in-session ambiguity and LLM authority over derivable values, not with outbound requests or decision records. It survives as partial, but low recurrence keeps strength at 2. It should be promoted only if a second independent session shows the same failure.",
+   "classification": null,
+   "review_note": "2026-09-22: evidence (claude:0b5a8018:252-313) is dated 2026-09-02, before this window; the session spans both windows. New lesson, pre-window evidence.",
+   "status": "incubating",
+   "window": "2026-09-22",
+   "surfaced": "2026-09-22",
+   "decision1": "incubating 2026-09-22 (below the promotion bar; review \"보류 권고\")"
+  },
+  {
+   "id": "S2-98",
+   "lesson": "The source IP an external party sees is a property of the actual route, not of subnet or NAT configuration flags. On GCP specifically, Cloud NAT does not carry traffic to Google APIs whatever the subnet's Private Google Access flag says. Settle egress-IP claims with a probe that reports its observed public IP, run next to a control that skips the NAT path.",
+   "strength": 2,
+   "verdict": "partial",
+   "criteria": [
+    "rollback"
+   ],
+   "supporting_sessions": [
+    "claude:fa69761d"
+   ],
+   "principle": "**Egress IP is observed, not inferred from config**: before asserting which source IP a destination will see (to allowlist a fixed NAT/static IP, or to gate access by perimeter), do not derive it from subnet, NAT, or routing flags. Managed platforms special-case some destinations. On GCP, for example, traffic to Google APIs never uses the Cloud NAT IP, whether or not Private Google Access is on for the subnet, so a NAT IP cannot allowlist or perimeter-gate Google API access. Settle the claim with a probe from the real workload's runtime that reports the public IP it was seen from, and run a paired control without the NAT/VPC path so the difference can be attributed. Egress that does not depend on a fixed source IP needs no probe.",
+   "baseline_ref": "Partially covered, from two directions. The global Verification Discipline bullet (\"confirm ... runtime constraint empirically against the live artifact ... rather than docs, memory\") states the general stance but never names egress/source-IP routing. tooling-gotchas §Config, secrets, and managed services \"Perimeter controls need the enforcement point's own logs\" says an agent-side fetch's egress IP is opaque and asks for enforcement-point logs on inbound controls. Neither bullet covers predicting your own workload's outbound IP from config flags, the NAT/Google-API exemption, or the observed-IP probe with a no-NAT control.",
+   "placement_proposed": "guides/tooling-gotchas.md §Config, secrets, and managed services (next to \"Perimeter controls need the enforcement point's own logs\")",
+   "rationale": "One independent session (claude:fa69761d), with a real rollback: the agent answered no, then yes, then the docs reversed it again. The evidence is concrete, and it was settled by a probe plus a control job. The error class matters: allowlisting on a wrong assumed IP fails silently or opens a perimeter hole. It generalizes beyond GCP as \"egress IP is a route property; observe it\". The general verify-empirically stance and the opaque-egress remark already exist in the baseline, so only the specific recognition item and the probe-with-control shape are new. That makes it partial, not novel. There is no recurrence, and the member's self-reported confidence is low (0.45), so strength stays at 2.",
+   "classification": null,
+   "review_note": "2026-09-22: merged with S3-110 (see there); the pair is promoted as one guide extension. | 2026-09-22 placed; mirrored to codex/ and ko/claude/ (translated) and ko/codex/ by gates/emit-mirrors.py; wording reviewed cross-family before landing: gpt-5.6-sol/ultra, read-only hermetic, session 01a0c793-b66a-7583-87bc-a0ef32caa64d, packet sha256 23c5fdd7…; 10 findings, all adopted.",
+   "status": "placed",
+   "window": "2026-09-22",
+   "surfaced": "2026-09-22",
+   "decision1": "selected 2026-09-22 (review decision 3; individually approved; placed when text lands)",
+   "selected": "2026-09-22",
+   "placed": "2026-09-22",
+   "implementation": [
+    "claude/guides/tooling-gotchas.md §Config, secrets, and managed services — \"Perimeter controls need the enforcement point's own logs\" (extend, merged with S3-110)"
+   ]
+  },
+  {
+   "id": "S2-99",
+   "lesson": "In a hand-written check script, a verdict line placed before later checks cannot see their failures, and reading only the tail of a check log misses failures printed earlier. Compute the verdict and exit code once, after the last check, from a running failure count, and judge the run by that count or exit status.",
+   "strength": 2,
+   "verdict": "partial",
+   "criteria": [
+    "recurrent_error"
+   ],
+   "supporting_sessions": [
+    "claude:5afb9d6b"
+   ],
+   "principle": "**The verdict that ran before its checks.** When a script, harness, or ad-hoc runner checks several things and prints one overall result, keep a running failure count and compute the pass/fail line and exit status once, after the last check. A verdict placed earlier in the file never sees checks appended below it, so it reports green over failures it never counted. Judge the run by its explicit failure count or its exit status. Do not judge it from the last lines of its output, because a truncated view (tail, a head limit, a collapsed log) hides failures printed earlier. When you must read the log itself, grep it whole for the failure marker and check that the count matches the number of checks that ran. This covers multi-check runners whose result feeds a pass/fail decision. It does not cover a single command whose exit status already is the verdict.",
+   "baseline_ref": "verification-discipline.md §When a green means nothing covers these related shapes: the empty subject, the suspiciously fast or empty run, a control whose early crash pre-empts every control after it, and the permissive fallback. tooling-gotchas.md §Shell execution traps covers pipe exit masking, where a `tail` stage hides an upstream exit code. The global Verification Discipline section says PASS must be concrete assertions and that a harness must be confirmed to have run. Two things are absent from all of these. (a) A verdict statement placed before later checks, so appended checks fall outside the aggregate. (b) Judging a multi-check run by reading a truncated slice of its output rather than a failure count or exit status. So this is partial coverage: next to the existing rules but not stated by them.",
+   "placement_proposed": "guides/verification-discipline.md §When a green means nothing (new bullet next to \"The control that failed by crashing\")",
+   "rationale": "One independent session supports this. The failure happened twice inside that session, in two related forms: a tail read missed 2 failures, and a mid-file verdict line missed checks appended after it. That makes it a within-session recurrent error, not multi-session recurrence. The self-reported confidence is low (0.4). It matters because the result is a false green, the costliest kind of wrong signal in the review-defect criteria. The form is general to any multi-check runner and not tied to this repo, and it fits as one bullet in an existing list, so it is not too_specific. It is kept as partial with low strength until another session shows it again.",
+   "classification": null,
+   "review_note": "2026-09-22 placed; mirrored to codex/ and ko/claude/ (translated) and ko/codex/ by gates/emit-mirrors.py; wording reviewed cross-family before landing: gpt-5.6-sol/ultra, read-only hermetic, session 01a0c793-b66a-7583-87bc-a0ef32caa64d, packet sha256 23c5fdd7…; 10 findings, all adopted.",
+   "status": "placed",
+   "window": "2026-09-22",
+   "surfaced": "2026-09-22",
+   "decision1": "selected 2026-09-22 (review decision 3; individually approved; placed when text lands)",
+   "selected": "2026-09-22",
+   "placed": "2026-09-22",
+   "implementation": [
+    "claude/guides/verification-discipline.md §When a green means nothing — new \"The verdict that ran before its checks\""
+   ]
+  },
+  {
+   "id": "S2-100",
+   "lesson": "In mutation testing a timed-out mutant is not a killed mutant. A timeout is a separate, load-dependent outcome, and many of them mean the harness is wrong, not that the tests are strong.",
+   "strength": 2,
+   "verdict": "partial",
+   "criteria": [
+    "rollback",
+    "quality_lever"
+   ],
+   "supporting_sessions": [
+    "claude:6fbcb43e"
+   ],
+   "principle": "When a mutation runner reports timeouts, count a timed-out mutant as its own unresolved outcome, separate from KILLED and SURVIVED. Never credit it as caught. Timeouts move with machine load, so set the limit well above the unmutated suite's normal runtime. Accept a mutation verdict or gate only after two consecutive runs agree on which mutants timed out. A large or unstable timeout set indicts the harness, not the suite's strength. Boundary: this applies to any mutation or fault-injection run with a per-mutant time limit. A mutant that provably loops forever may be classified as killed only when the timeout set is stable and each such mutant is inspected.",
+   "baseline_ref": "verification-discipline.md §When a green means nothing, bullet 'The mutant that never ran'. It covers part of this: it requires the runner to report build failure, unreachable and equivalent separately from KILLED and SURVIVED. Timeout is missing from that list. Nothing says timeouts depend on load, that the limit needs headroom, or that the timeout set must be stable across runs. tooling-gotchas has a stale-cache note for mutation loops, which is unrelated.",
+   "placement_proposed": "guides/verification-discipline.md §When a green means nothing: extend the 'The mutant that never ran' bullet by adding 'timed out' to its list of distinct outcomes, plus one sentence on load dependence and the two-run stability requirement. Do not add a new bullet.",
+   "rationale": "One session backs this (claude:6fbcb43e), so there is no independent recurrence. It matters, though: 242 timeouts counted as kills left a gate 'nearly meaningless', and the fix took reworking the limit plus a stability requirement. It is also general, because several mainstream mutation tools count timeouts as detected by default, so the trap is not specific to one tool. It slots in as a small extension of an existing outcome list rather than a new rule, which is cheap. With only one session the strength stays low.",
+   "classification": null,
+   "review_note": "2026-09-22 placed; mirrored to codex/ and ko/claude/ (translated) and ko/codex/ by gates/emit-mirrors.py; wording reviewed cross-family before landing: gpt-5.6-sol/ultra, read-only hermetic, session 01a0c793-b66a-7583-87bc-a0ef32caa64d, packet sha256 23c5fdd7…; 10 findings, all adopted.",
+   "status": "placed",
+   "window": "2026-09-22",
+   "surfaced": "2026-09-22",
+   "decision1": "selected 2026-09-22 (review decision 3; individually approved; placed when text lands)",
+   "selected": "2026-09-22",
+   "placed": "2026-09-22",
+   "implementation": [
+    "claude/guides/verification-discipline.md §When a green means nothing — \"The mutant that never ran\" (extend: timed out)"
+   ]
+  },
+  {
+   "id": "S2-101",
+   "lesson": "The agent's own background work (polling loops, monitors, parallel shells) adds machine load that can fail timing-sensitive tests or gates. A timing failure should be reproduced alone, with the agent's own processes stopped, before the change is blamed.",
+   "strength": 2,
+   "verdict": "partial",
+   "criteria": [
+    "rollback",
+    "rare_high_cost"
+   ],
+   "supporting_sessions": [
+    "claude:50d3a44d"
+   ],
+   "principle": "When a timing-sensitive test, timeout-bounded check or long gate fails, treat your own concurrent processes on the same machine as a suspect before the change. Background polling loops, monitors, parallel shells and heavy jobs you started all compete for the same CPU. Rerun only the failing test alone with those processes stopped. Blame the change only if it still fails in isolation. While such a suite runs, wait on the harness's completion notification or a low-rate check of its artifact rather than a busy-poll, and start no other heavy work. Scope: failures that depend on timing or load, such as timeouts, latency assertions, interactive or pty tests and races. A deterministic assertion failure does not get this exemption.",
+   "baseline_ref": "Partial. The global line 'Treat a coarse runtime signal ... as a hypothesis' makes attribution hypothesis-first but is about reading low-level evidence, not load. verification-discipline.md §Keeping E2E honest says flakiness must not be dismissed as environment noise, which leans the other way and never names the agent as the source of the noise. tooling-gotchas.md §Own what you spawn ('Detach what must outlive the call', 'Name-substring lookup is not a liveness check') covers the lifecycle of spawned processes but not their load on timing-sensitive runs. No baseline text names the agent's own background loops as a cause of test failures.",
+   "placement_proposed": "guides/tooling-gotchas.md §Own what you spawn (sibling bullet after 'Detach what must outlive the call')",
+   "rationale": "One direct session supports it (claude:50d3a44d). A gated commit of about 11 minutes was refused. The failing test passed alone in 1.8s once the agent's own polling loop was killed. That is a clear rollback and a rare, high-cost failure, because it wastes a full gate run and invites a false diagnosis of the change. The only corroboration is indirect: in claude:6fbcb43e, mutation timeouts shifted with machine load. That session was a separate lesson (candidate 11) and did not name the agent's own processes as the load. claude:61236c1b concerns measuring under realistic load, the opposite direction, so it adds no support. The lesson is general and cheap to state, and the recovery move (rerun alone) is concrete. But one independent session is not recurrence, so strength stays low. It belongs in a guide, since the global is frozen to reductions and this is a recognition-triggered rule.",
+   "classification": null,
+   "review_note": null,
+   "status": "incubating",
+   "window": "2026-09-22",
+   "surfaced": "2026-09-22",
+   "decision1": "incubating 2026-09-22 (below the promotion bar; review \"보류 권고\")"
+  },
+  {
+   "id": "S2-102",
+   "lesson": "A web-fetch result is a model-written summary of a page, not the page. A contradiction, absence, or claim seen only in that summary may not be in the source. Get the verbatim sentence before recording or relaying what a source says.",
+   "strength": 2,
+   "verdict": "partial",
+   "criteria": [
+    "rollback"
+   ],
+   "supporting_sessions": [
+    "claude:6fc74615"
+   ],
+   "principle": "**A fetch summary is a rendering of the page, and a lossy one.** A web-fetch tool that returns a model's digest of a page is not the page. Before a durable record, a decision, or a message to others states that a source says X, contradicts itself, or never mentions Y, get the exact sentence: fetch the raw page, read the source file, or run a targeted fetch that asks for verbatim quotes. Cite that sentence. A contradiction or absence found only in a summary is a hypothesis, not a finding. Applies to claims about what an external document states. It does not apply to your own reading of a file you opened directly.",
+   "baseline_ref": "Partial coverage. The global Tooling section says to confirm a model id, flag, or capability against the live artifact \"rather than docs\". That covers capability facts, not what a document states. The research bullet in the GPT prompting guide says \"cite only retrieved sources\", but it treats a retrieved summary as retrieved. The LLM-boundary grounding rule (\"quoted source text exists in the cited file\") is about gating pipelines, not the agent's own fetches. tooling-gotchas §\"Tool output is a rendering, not the bytes\" makes the same point for grep, file viewers, and caches, but no rule says a web-fetch result is a model-written summary. The candidate's extra clause (re-check that a defect reproduces before notifying others, and claim no more than was reproduced) is already covered by the verification-discipline and review \"overclaim beyond your evidence\" rules, so the principle leaves it out.",
+   "placement_proposed": "guides/tooling-gotchas.md §Tool output is a rendering, not the bytes",
+   "rationale": "Only one independent session supports it (one member). A committed document recorded a false vendor-docs contradiction and had to be corrected, which is a real but moderate rollback. The failure is general and repeatable, because any agent using a summarizing fetch tool can hit it. It is also absent as stated from the baseline and fits cleanly as one bullet in an existing tooling-gotchas section. Thin recurrence keeps strength low. It stays out of the global, which is frozen to reductions, and belongs in the guide.",
+   "classification": null,
+   "review_note": null,
+   "status": "incubating",
+   "window": "2026-09-22",
+   "surfaced": "2026-09-22",
+   "decision1": "incubating 2026-09-22 (below the promotion bar; review \"보류 권고\")"
+  },
+  {
+   "id": "S2-103",
+   "lesson": "A watch on a long unattended job that fires only on completion or failure can expire silently while the job is stuck in a pathological per-item loop. The watch also needs a no-progress (stall) condition, sized to the expected time per unit.",
+   "strength": 2,
+   "verdict": "novel",
+   "criteria": [
+    "quality_lever",
+    "re_exploration"
+   ],
+   "supporting_sessions": [
+    "claude:745a8685"
+   ],
+   "principle": "When you arm a watch on a long-running background job or batch, give it a stall condition as well as completion and failure. The stall condition fires when no new progress unit (an item finished, output grew, the progress file advanced) has appeared within a window of a few times the expected time per unit. A watch that expires with no events is not evidence of health. When a stall fires, inspect the per-item evidence (raw output, logs, current item) before you decide anything. Runaway generation up to a cap, retry loops and a stuck item are the usual causes. Killing the job is not the first response, because a single long quiet call at low CPU can be normal I/O wait. This does not apply to short foreground calls, or to jobs that emit no countable progress unit; give those a progress file first.",
+   "baseline_ref": "Two baseline rules sit nearby but neither covers this. Tooling Gotchas 'Detach what must outlive the call' covers detaching and writing progress to durable files, but not what the watch should fire on. Global Tooling and Operational Safety (coarse runtime signal / I/O-wait-is-not-a-hang) covers the opposite mistake: aborting healthy quiet work. CLI Multi-Model Workflow §Unattended Batch Safety covers circuit breakers and per-item failures, not detecting progress stalls. No baseline rule makes lack of progress a watch trigger. It is absent.",
+   "placement_proposed": "guides/tooling-gotchas.md §Tooling Gotchas, directly after 'Detach what must outlive the call'",
+   "rationale": "One session supports it (claude:745a8685). In that session a completion-only watch expired twice, about 30 minutes each time, while chapters were generating to the token cap. The stall was found only by inspecting by hand, and the re-armed stall watch then caught it. It is a real gap and has a clear general form, since it applies to any long batch watched with an until-loop or monitor. It fits a guide, not the global, because it is a recognition-triggered procedure. The strength stays low because there is no independent recurrence, and the cost was lost wall-clock time, not a rollback or a rare high-cost failure. The principle is written so it does not contradict the baseline rule against aborting healthy quiet calls: a stall means inspect, not kill.",
+   "classification": null,
+   "review_note": null,
+   "status": "incubating",
+   "window": "2026-09-22",
+   "surfaced": "2026-09-22",
+   "decision1": "incubating 2026-09-22 (below the promotion bar; review \"보류 권고\")"
+  },
+  {
+   "id": "S2-104",
+   "lesson": "Closing reports on multi-stage work should say what the work was for and where it sits in the overall plan, in plain language someone new to the project can follow, not only lead with the outcome.",
+   "strength": 2,
+   "verdict": "partial",
+   "criteria": [
+    "quality_lever",
+    "recurrent_error"
+   ],
+   "supporting_sessions": [
+    "claude:084b6b0a"
+   ],
+   "principle": "When a final report closes one step of multi-stage work, write it for a reader who did not watch the work. Say what was done, what it was for (the goal it serves), and where it sits in the overall plan: which stage just finished and what comes next. Use plain words and define any term you need; do not lean on analogies or internal shorthand. Lead with the outcome. This does not apply to single-step answers or quick replies inside an ongoing exchange, where purpose and stage are already clear from the conversation.",
+   "baseline_ref": "Partial coverage. The claude-prompting guide §Working rules says \"the final message is the reader's first look at work they did not watch. Lead with the outcome; drop the working shorthand.\" That covers readability and shorthand but not purpose or position in the plan. The coding-staged-workflow guide §Stop Conditions requires reporting \"the current stage, review results, remaining material issues...\" before calling the work done. That covers the stage, but only inside the coding workflow, and it says nothing about purpose, what comes next, or newcomer readability. Global §Decision Framing (\"Translate technical terms into plain consequences\", \"situation in one plain sentence\") covers plain language only for decision requests, not closing reports. No rule mentions analogies.",
+   "placement_proposed": "guides/coding-staged-workflow.md §Stop Conditions (extend the existing \"Before calling the work done, report the current stage...\" bullet with purpose, next stage, and plain-language newcomer readability). The \"no analogies / middle-schooler level\" framing is the user's own taste and belongs in global CLAUDE.md §Personal if the user wants it. The global rule body is frozen to reductions, so this must not become a new global bullet.",
+   "rationale": "Only one independent session is a direct member (claude:084b6b0a). The evidence also cites another session (6fbcb43e) where the user asked for simpler explanations, but that session is not in this cluster and only backs the plain-language part, not the purpose/stage part. The baseline already has most of the pieces (lead with outcome, drop shorthand, report the current stage, plain terms for decisions). What is new is small: state the purpose, place the step in the overall plan including what comes next, write for a newcomer, avoid analogies. It matters for quality (the user asked for it as a standing rule), but the cost of missing it is low and the user corrects it easily. The no-analogies and reading-level parts look like personal preference, not a general principle. Worth extending an existing bullet; not strong enough for global placement.",
+   "classification": null,
+   "review_note": null,
+   "status": "absorbed",
+   "window": "2026-09-22",
+   "surfaced": "2026-09-22",
+   "decision1": "absorbed 2026-09-22: absorbed into G-12 as under-application evidence (review decision 1): the user-stated report rule at 084b6b0a:2204 is one of 15 plain-explanation asks in 8 sessions"
+  },
+  {
+   "id": "S2-105",
+   "lesson": "In multi-step work, a step that needs another party's permission or action (a resource they own, an access grant, an approval, a quota) was found only at the end, after everything that depended on it had been built. The external party's lead time then became the critical path. Finding such steps at the start, checking access to them, and sending their requests first lets that lead time run alongside your own work.",
+   "strength": 2,
+   "verdict": "partial",
+   "criteria": [
+    "quality_lever",
+    "rollback"
+   ],
+   "supporting_sessions": [
+    "claude:70c6ca0e"
+   ],
+   "principle": "When planning multi-step work where some step needs a party outside your control to grant access, approve, or act (for example a resource another team owns, a permission grant, a quota, or a sign-off), do three things before building anything that depends on that step. First, list every such step. Second, check whether you already have the access. Third, where you do not, write the concrete request and hand it to the user at the start, so the other party's lead time runs while you work. Keep reporting the external step as the open blocker until it is resolved. Do not let it surface as the last failure. Scope: only steps whose completion depends on another party. Work fully within your own authority needs no reordering. Do not add approval steps on hypothetical grounds.",
+   "baseline_ref": "coding-staged-workflow.md §Stages, stage 2 (\"turn the design into an ordered work plan with dependencies, verification points, review gates\") covers dependency ordering in general. It does not single out steps gated on an external party, their lead time, or probing access before building the pieces that depend on them. gpt-prompting.md §GPT-6 Astra (\"continue independent authorized work while waiting; if approval is required for a later step, prepare the concrete, reviewable result first\") covers work done while waiting, but it is model-specific prompting advice. It does not cover finding externally-gated steps early or sending their requests up front. The global §Problem Solving has nothing on this. Partially covered.",
+   "placement_proposed": "guides/coding-staged-workflow.md §Stages (stage 2, implementation-process design). The global is frozen to reductions, and this rule fails only when the agent does not recognize the situation, so it belongs behind a pointer.",
+   "rationale": "One independent session supports it (claude:70c6ca0e). The evidence is concrete: an infrastructure rollout was built end-to-end, then the DNS record failed because another team owns the zone. The dependent certificate step was still blocked when the session ended, and the user's first request afterwards was to draft that access request first. The cost is real (idle lead time on the critical path, and work left unfinished), but it is not rare-high-cost, and the rollback is mild. The rule has a clear general form beyond DNS (access grants, approvals, quotas, owner sign-offs), so it is not too specific. The existing guide's generic \"ordered plan with dependencies\" misses the externally-gated case, so the verdict is partial rather than already_covered. Strength stays low because there is no recurrence and the candidate's own confidence was moderate (0.5).",
+   "classification": null,
+   "review_note": null,
+   "status": "incubating",
+   "window": "2026-09-22",
+   "surfaced": "2026-09-22",
+   "decision1": "incubating 2026-09-22 (below the promotion bar; review \"보류 권고\")"
+  },
+  {
+   "id": "S2-106",
+   "lesson": "An intermittent failure that crosses several layers (connectivity here) gets pinned on whichever overlay component is most visible, and the claim has to be taken back once the failure shows up without that component. The fix has two parts. First, capture evidence at every layer at the moment of failure. Second, run an absence or one-variable control before blaming any component.",
+   "strength": 2,
+   "verdict": "partial",
+   "criteria": [
+    "high_token",
+    "rollback",
+    "re_exploration"
+   ],
+   "supporting_sessions": [
+    "codex:01a0c21f"
+   ],
+   "principle": "When a failure is intermittent and its path crosses several layers (link, local gateway, name resolution, external reach, route ownership, plus any overlay such as a VPN/tunnel, container runtime or traffic filter), capture evidence from every layer at the same time, during an actual failure. Do not reconstruct it afterwards or reproduce one layer at a time: the failing layer is the first one whose evidence breaks in that capture. An overlay component on the path stays a suspect, not the cause, until an absence control shows the failure stops without it, or a one-variable contrast isolates it. If the failure also happens while the component is off or idle, it is ruled out. This applies to failures you cannot reproduce on demand. For a deterministic failure, the ordinary reproduce-then-contrast rule is enough.",
+   "baseline_ref": "Partly covered. guides/verification-discipline.md §Deriving the case space already has \"Attribute a fault by a controlled contrast before choosing a remedy\" (hold everything else constant, vary only the candidate). Global CLAUDE.md has two related rules: treat prior diagnoses and your own earlier conclusions as hypotheses, and treat a coarse runtime signal as a hypothesis until low-level evidence confirms it. Together these cover the attribution half, meaning no blame without a contrast. Nothing in the baseline covers the other half: for an intermittent failure, capture evidence from all layers at the same time during the failure itself, and treat \"the failure happens with the suspect absent\" as exoneration.",
+   "placement_proposed": "guides/verification-discipline.md §Deriving the case space. Extend the existing \"Attribute a fault by a controlled contrast\" bullet with one clause for intermittent failures. Do not add a new global bullet: the global file is frozen to reductions.",
+   "rationale": "One independent session supports this (a single Codex transcript). Materiality is real but moderate. The diagnosis used a large context and a named culprit (the tunnel client) had to be retracted, so the rollback and re-exploration criteria are met. It was not rare-high-cost and the error did not recur across sessions. About half of it restates the existing controlled-contrast rule. What is new is capturing all layers at once during the failure and treating the suspect's absence as exoneration. That part generalizes beyond networking to any intermittent multi-layer fault, so the lesson is not too specific. But the evidence is thin, so it is best merged as a clause into the existing bullet rather than added as a new rule.",
+   "classification": null,
+   "review_note": null,
+   "status": "incubating",
+   "window": "2026-09-22",
+   "surfaced": "2026-09-22",
+   "decision1": "incubating 2026-09-22 (below the promotion bar; review \"보류 권고\")"
   }
  ]
 }
