@@ -213,14 +213,14 @@ Narrative가 아니라 다음 agent와 re-verification을 위해 쓴다. 필수 
 
 Concrete model/tool의 human-readable projection은 이 표가, machine launch authority는 `launch/agent-launch.toml`이 소유하며 parity check가 둘을 정렬한다. Binding이 약 8주보다 오래됐거나 observable model/tool surface가 바뀌면 재확인한다. 배포 기본값은 원본 repo에서 편집하고, 개인 launch binding은 사용자 소유 launcher 설정에 둔다. Private 설치는 immutable release를 저장하고 개인 상태를 보존한다. 새 configured session에서 binding을 선택하며 기존 session pin은 유지한다.
 
-Binding (2026-09-08):
+Binding (2026-10-21):
 
 | Slot | Binding | Notes |
 |---|---|---|
 | FRONTIER | Claude Fable 5.1 · GPT-6 Astra (read-only; max default, task-fit effort including Ultra) | bounded hardest decision/verdict |
-| HELM | Claude Opus 5 (xhigh) · GPT-5.6 Sol (xhigh main; main Ultra는 명시 선택 필요; bounded FRONTIER Ultra allowed) | standing main; Codex 기본 bypass, explicit sandbox로 축소 |
-| WORKHORSE | Claude Sonnet 5 (xhigh) · GPT-5.6 Terra (xhigh) | implementation/per-item judgment |
-| SWEEP | Claude Haiku 4.5 (effort 생략) · GPT-5.6 Luna (max) | 읽기 전용; 항목마다 명시적 규칙 하나 적용; 리바인드 후보 아님 |
+| HELM | Claude Opus 5.5 (high) · GPT-6.1 Sol (xhigh) — main Ultra는 명시 선택 필요; bounded FRONTIER Ultra allowed | standing main; Codex 기본 bypass, explicit sandbox로 축소 |
+| WORKHORSE | Claude Sonnet 5.5 (high) · GPT-6.1 Sol (high) | implementation/per-item judgment; Codex seat은 HELM과 같은 model이므로 effort만으로 구분되고 cross-model perspective를 사지 않는다 |
+| SWEEP | Claude Haiku 5.5 (medium) · GPT-6 Luna (max) | 읽기 전용; 항목마다 명시적 규칙 하나 적용; 리바인드 후보 아님 |
 | VERIFIER-A | plain `codex exec` deep pass — GPT-5.6 Sol, ultra effort, packet은 stdin(`-c service_tier="fast"`는 명시적 fast opt-in) | 가장 강한 single reader; Claude main에서 cross-family |
 | VERIFIER-B | Claude Code ultracode workflow (keyword로 열리는 many-agent) | code/execution kind; fan-out 대응물 |
 | INDEPENDENT-PR-REVIEWER | Codex CLI | adversarial `gh pr diff` review |

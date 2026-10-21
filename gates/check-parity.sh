@@ -350,6 +350,21 @@ if [ -f gates/check-prompting-sources.py ]; then
     || { echo "FAIL: prompting-source self-test (gates/check-prompting-sources.py --self-test)"; fail=1; }
 fi
 
+# Tier bindings against the model catalogues the host CLIs already cache. The STRUCTURE half
+# blocks — ids without a [models] row, rows nothing names, an acknowledgement pointing nowhere,
+# and the native claude/agents/*.md files disagreeing with the profile the CLI is supposed to
+# share with them. The CURRENCY half only prints: the catalogue is one account's view of one
+# vendor, so failing a commit on it would pass or fail the same tree depending on whose laptop
+# ran it, and that is the kind of gate people route around. Its stdout is deliberately NOT sent
+# to /dev/null — the report IS the leg, and a leg nobody reads changes nothing. The refusal
+# lives at publish time instead (gates/check-publish.sh --guard).
+if [ -f gates/check-model-currency.py ]; then
+  python3 gates/check-model-currency.py \
+    || { echo "FAIL: model binding structure (run gates/check-model-currency.py)"; fail=1; }
+  python3 gates/check-model-currency.py --self-test >/dev/null \
+    || { echo "FAIL: model-currency self-test (gates/check-model-currency.py --self-test)"; fail=1; }
+fi
+
 if [ -f gates/check-endpoints.py ]; then
   python3 gates/check-endpoints.py >/dev/null \
     || { echo "FAIL: endpoint contract gate (run gates/check-endpoints.py)"; fail=1; }

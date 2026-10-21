@@ -161,7 +161,7 @@ or a review binding resolves to no validatable seat.
 `[hosts.<host>.tiers.<tier>]` in `launch/agent-launch.toml`. Prompting guide
 `targets:` coverage is checked by `launch/check-prompting-targets.sh`.
 `gates/check_parity.py` derives guide display names through the profile's
-`model_display` map; role-policy assertions remain separate from those names.
+`[models]` rows; role-policy assertions remain separate from those names.
 Launcher templates and wrapper role output have their own projection checks.
 Model capability restrictions are a separate constraint from tier selection.
 

@@ -376,7 +376,7 @@ def tier_binding_sites() -> dict:
         "delegated_comparisons": [
             {"site": "claude/guides/cli-multi-model-workflow.md",
              "owner": "gates/check_parity.py environment_bindings",
-             "why": "compares rendered bindings using the launch profile model_display map"},
+             "why": "compares rendered bindings using the launch profile [models] rows"},
         ],
         "disagreements": disagreements,
         "undeclared_on_one_side": undeclared,

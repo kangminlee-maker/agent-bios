@@ -58,8 +58,30 @@ COMPOSABLE_PRESET = "golden-composable"
 # scenario names one path through the schema. `outcome` is asserted by a control, so a
 # branch that silently stops failing is caught rather than re-baselined.
 #
-# Grade scenarios pin host=claude, whose main seat here is helm = claude-opus-5/xhigh;
+# Grade scenarios pin host=claude, whose main seat here is helm = claude-opus-5-5/high;
 # stating the grade only makes sense against a known main.
+#
+# Those literals MEAN "the main's own seat", so a rebind changes what they test without
+# changing a character: `grade-same-seat` quietly becomes a model-difference case and the
+# golden re-baselines around it. The assertion below turns that into a loud failure naming
+# this file. It is a stopgap for the copy, not a replacement for removing it.
+_HELM_SEAT = ("claude-opus-5-5", "high")
+
+
+def _assert_helm_seat() -> None:
+    profile = tomllib.loads(
+        (pathlib.Path(__file__).resolve().parent.parent
+         / "launch" / "agent-launch.toml").read_text(encoding="utf-8"))
+    bound = profile["hosts"]["claude"]["tiers"]["helm"]
+    actual = (bound.get("model"), bound.get("effort"))
+    if actual != _HELM_SEAT:
+        raise SystemExit(
+            f"capture-review-goldens: the grade scenarios are written against "
+            f"helm = {'/'.join(_HELM_SEAT)}, but launch/agent-launch.toml binds "
+            f"{'/'.join(str(x) for x in actual)}. Update the scenario literals and "
+            f"_HELM_SEAT together, then regenerate the goldens.")
+
+
 COMPOSABLE_SCENARIOS = (
     # -- shapes, both hosts -------------------------------------------------
     {"id": "base-only", "outcome": "ok", "review": """
@@ -247,37 +269,37 @@ tier = "frontier"
 [presets.PRESET.review]
 hosts = {}
 """},
-    # -- grades, claude only (main seat = helm = claude-opus-5/xhigh) --------
+    # -- grades, claude only (main seat = helm = claude-opus-5-5/high) -------
     {"id": "grade-same-seat", "outcome": "ok", "hosts": ("claude",), "review": """
 [presets.PRESET.review.base]
 provider = "anthropic"
-model = "claude-opus-5"
-effort = "xhigh"
+model = "claude-opus-5-5"
+effort = "high"
 """},
     {"id": "grade-model-difference", "outcome": "ok", "hosts": ("claude",), "review": """
 [presets.PRESET.review.base]
 provider = "anthropic"
-model = "claude-fable-5"
-effort = "xhigh"
+model = "claude-fable-5-1"
+effort = "high"
 """},
     {"id": "grade-higher-effort", "outcome": "ok", "hosts": ("claude",), "review": """
 [presets.PRESET.review.base]
 provider = "anthropic"
-model = "claude-opus-5"
+model = "claude-opus-5-5"
 effort = "max"
 """},
     # Different is not better: a lower effort must earn no credit and land on the floor.
     {"id": "grade-lower-effort", "outcome": "ok", "hosts": ("claude",), "review": """
 [presets.PRESET.review.base]
 provider = "anthropic"
-model = "claude-opus-5"
-effort = "high"
+model = "claude-opus-5-5"
+effort = "medium"
 """},
     {"id": "advisory-service-tier", "outcome": "ok", "hosts": ("claude",), "review": """
 [presets.PRESET.review.base]
 provider = "anthropic"
-model = "claude-opus-5"
-effort = "xhigh"
+model = "claude-opus-5-5"
+effort = "high"
 service_tier = "fast"
 """},
     # -- failure branches, claude only (host-independent unless stated) ------
@@ -1255,6 +1277,10 @@ def main() -> int:
         help="prove controls with golden mutations and isolated private-mode projections",
     )
     args = parser.parse_args()
+
+    # Before anything is captured or compared: the grade scenarios are written against a
+    # known main seat, and a rebind silently changes what they mean.
+    _assert_helm_seat()
 
     if args.self_test:
         return self_test()

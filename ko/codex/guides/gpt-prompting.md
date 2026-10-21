@@ -15,16 +15,18 @@ core_rules:
   - 포괄적인 ALWAYS/NEVER 대신 각 선택이 적용되는 조건을 명시한 결정 규칙을 쓴다
   - effort를 올리기 전에 prompt를 고친다 — 출력이 약한 것은 대개 성공 기준, 의존 규칙, tool 라우팅 규칙, 또는 검증 루프가 빠진 탓이다
   - 구세대 gpt model에서 가져온 prompting 습관은 token을 쓰고 정확도까지 해칠 수 있다
-derived_at: 2026-09-07
+derived_at: 2026-10-21
 source_pins:
   - doc: prompt-guidance-gpt-5p6
     sha256: 46181efec9fd1160ef537b0379282a14c1ba32380f2f8149a805128253c1115a
-    pinned_at: 2026-09-07
+    pinned_at: 2026-10-21
   - doc: model-guidance-gpt-6-astra
-    sha256: 2a59b26078e001a4e4e3da10693e80ad5ee1c02cbe472afa6b682308f27b8b22
-    pinned_at: 2026-09-07
+    sha256: ad1aeb3d87e2e61a91233447f7c54b7b18ebfecc4315eeefab15bf5861b3a5c7
+    pinned_at: 2026-10-21
 targets:
   - gpt-6-astra
+  - gpt-6.1-sol
+  - gpt-6-luna
   - gpt-5.6-sol
   - gpt-5.6-terra
   - gpt-5.6-luna
@@ -50,6 +52,7 @@ permission policy 안에서 prompt를 조정할 뿐, tool permission이나 appro
 | --- | --- | --- |
 | `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna` | GPT-5.6 | `prompt-guidance-gpt-5p6` |
 | `gpt-6-astra` | GPT-6 Astra | `model-guidance-gpt-6-astra` |
+| `gpt-6.1-sol`, `gpt-6-luna` | 아직 없음 | 공유 recipe만 적용한다. 이 model들에 대해 도출된 section이 없다 — GPT-6 Astra 조정을 빌리는 대신(그 문서는 Astra만 다룬다) vendor의 현재 model guidance를 읽는다 |
 
 ## GPT-5.6
 
@@ -105,7 +108,28 @@ permission policy 안에서 prompt를 조정할 뿐, tool permission이나 appro
   prompt를 옮길 때는 `low`로 시작해 결과를 비교한다. 그 밖에는 현재 유효 effort를
   보존한다. 계열 전체의 effort ladder를 재사용하지 말고 활성 model과 host에서 지원하는
   설정을 확인한다. effort를 높이기 전에 빠진 성공 기준, 의존 규칙, 또는 검증 루프를
-  고친다.
+  고친다. 대화 중간에 effort를 바꿀 때는 request 수준 설정을 고치지 말고 configuration
+  update를 보낸다. request 수준을 고치면 prompt cache가 무효가 된다.
+- **출력 효율.** Astra는 GPT-5.6 Sol보다 긴 작업에서 일관성을 더 오래 유지했고, 공급사의
+  여러 평가에서 output token을 더 적게 썼다. 5.6용으로 쓴 간결성 압박은 그대로 옮기기 전에
+  다시 재어 본다. 일부는 이제 값을 치르고 얻는 것이 없다.
+- **`ultra`는 host 표면의 level이지 다음 칸이 아니다.** 공급사 API 문서는 `low`, `medium`,
+  `high`, `xhigh`, `max`만 싣고 `ultra`를 아예 언급하지 않는다. Codex CLI catalogue는
+  `gpt-6-astra`, `gpt-6.1-sol`, `gpt-5.6-sol`에 대해 `ultra`를 보고하며, 설명은 **자동 작업
+  위임을 동반한** 최대 추론이다 — 한 칸 위가 아니라 다른 mode다. `gpt-6-luna`는 보고하지
+  않으며 거부한다. 좌석을 설정할 때는 host catalogue를 읽는다.
+
+## GPT-6.1 Sol과 GPT-6 Luna
+
+두 model에는 자체 prompting document가 없다. 공급사 model hub는 GPT-6.1 Sol의 기본
+reasoning effort가 `medium`이라는 것만 밝히고 두 model에 고유한 내용을 더 말하지 않는다.
+따라서 이 section의 어떤 내용도 model별 출처에서 파생하지 않았다:
+
+- GPT-6 Astra section을 가장 가까운 참고로 삼되, 그대로 이어진다고 가정하지 말고 눈앞의
+  model에서 각 주장을 확인한다.
+- 지원 effort level은 계열 ladder가 아니라 host 자체 catalogue에서 가져온다. 위 `ultra`
+  항목이 보여주듯 둘은 어긋난다.
+- 두 model 중 하나라도 자체 page가 생기면 즉시 이 section을 다시 도출한다.
 
 ## Shared prompt recipe
 
@@ -209,7 +233,9 @@ Astra 측정치나 다른 workload에서 보장되는 이득이 아니다.
 ## Sources
 
 GPT-5.6 section은 `prompt-guidance-gpt-5p6`에서, GPT-6 Astra section은
-`model-guidance-gpt-6-astra`에서 파생했다. 공유 recipe는 GPT-5.6 guidance와
+`model-guidance-gpt-6-astra`에서 파생했다. GPT-6.1 Sol과 GPT-6 Luna section에는 model별
+출처가 없고 그 사실을 본문에 적어 두었다. 그 effort 주장은 pinned document가 아니라 살아
+있는 표면인 host catalogue에서 왔다. 공유 recipe는 GPT-5.6 guidance와
 instructions에서 온 task, evidence, tool, validation 관행을 유지하며, model behavior 주장은
 오직 각 model에 맞는 section에만 둔다. `source_pins`는 이 도출에 쓴 정확한 byte를
 기록하므로 이후 공급사 편집을 감지할 수 있다.

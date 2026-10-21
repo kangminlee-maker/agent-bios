@@ -1,7 +1,8 @@
 ---
 name: sweep
 description: SWEEP tier — read-only checks applying one explicit rule to each item. Ambiguity returns as an exception, never resolved.
-model: claude-haiku-4-5
+model: claude-haiku-5-5
+effort: medium
 tools: [Read, Glob, Grep]
 disallowedTools: [Edit, Write, NotebookEdit]
 ---

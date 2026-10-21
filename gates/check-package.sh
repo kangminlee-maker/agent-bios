@@ -724,8 +724,15 @@ if "provenance.json" not in files:
 for hk, want_cmd, consequence in (
     ("prepack", "bash gates/check-publish.sh --stamp",
      "nothing writes provenance.json at pack time"),
-    ("prepublishOnly", "bash gates/check-publish.sh --guard",
-     "directory-form publishes lose the clean-tree and live-origin checks"),
+    # A two-command chain, demanded in full. `&&` cannot swallow either exit code, while
+    # `;` and `|| true` can — and only exact equality tells those apart, which is why the
+    # chain is spelled out rather than allowed by pattern. The currency guard runs FIRST
+    # because it needs no network and refuses in milliseconds.
+    ("prepublishOnly",
+     "python3 gates/check-model-currency.py --publish-guard "
+     "&& bash gates/check-publish.sh --guard",
+     "directory-form publishes lose the clean-tree and live-origin checks, or ship tier "
+     "bindings the host catalogues have already moved past"),
     ("postpack", "rm -f provenance.json",
      "a stale stamp left by a normal pack rides a later --ignore-scripts pack "
      "and binds the tarball to the WRONG commit"),

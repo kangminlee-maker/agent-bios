@@ -104,7 +104,7 @@ method projects with no code change.
 positions must agree across all of them.
 *Breaks:* the change lands on one surface and the others ship stale guidance
 while every check stays green.
-*Verification:* `launch/agent-launch.toml` owns tier defaults and `model_display`.
+*Verification:* `launch/agent-launch.toml` owns tier defaults and the `[models]` rows.
 `gates/check_parity.py` derives the expected guide model names from those fields,
 checks native templates, and compares wrapper role output with its owners.
 `launch/check-prompting-targets.sh` checks declared model coverage; source-pin

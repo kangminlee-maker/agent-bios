@@ -15,16 +15,18 @@ core_rules:
   - replace blanket ALWAYS/NEVER with decision rules naming the condition each choice applies under
   - fix the prompt before raising effort — weak output usually means a missing success criterion, dependency rule, tool-routing rule, or verification loop
   - prompting habits carried from older gpt models cost tokens and can cost accuracy
-derived_at: 2026-09-07
+derived_at: 2026-10-21
 source_pins:
   - doc: prompt-guidance-gpt-5p6
     sha256: 46181efec9fd1160ef537b0379282a14c1ba32380f2f8149a805128253c1115a
-    pinned_at: 2026-09-07
+    pinned_at: 2026-10-21
   - doc: model-guidance-gpt-6-astra
-    sha256: 2a59b26078e001a4e4e3da10693e80ad5ee1c02cbe472afa6b682308f27b8b22
-    pinned_at: 2026-09-07
+    sha256: ad1aeb3d87e2e61a91233447f7c54b7b18ebfecc4315eeefab15bf5861b3a5c7
+    pinned_at: 2026-10-21
 targets:
   - gpt-6-astra
+  - gpt-6.1-sol
+  - gpt-6-luna
   - gpt-5.6-sol
   - gpt-5.6-terra
   - gpt-5.6-luna
@@ -51,6 +53,7 @@ permission policy; they do not change tool permissions or approval requirements.
 | --- | --- | --- |
 | `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna` | GPT-5.6 | `prompt-guidance-gpt-5p6` |
 | `gpt-6-astra` | GPT-6 Astra | `model-guidance-gpt-6-astra` |
+| `gpt-6.1-sol`, `gpt-6-luna` | none yet | Shared recipe only. No section is derived for these — read the vendor's current model guidance rather than borrowing the GPT-6 Astra tuning, whose document covers Astra alone |
 
 ## GPT-5.6
 
@@ -112,7 +115,32 @@ permission policy; they do not change tool permissions or approval requirements.
   `none` or `minimal`, begin with `low` and compare results; otherwise preserve the
   current effective effort. Check the active model and host for supported settings
   instead of reusing a family-wide effort ladder. Fix a missing success criterion,
-  dependency rule, or verification loop before increasing effort.
+  dependency rule, or verification loop before increasing effort. To change effort
+  partway through a conversation, send a configuration update rather than editing the
+  request-level setting, which invalidates the prompt cache.
+- **Output efficiency.** Astra holds together over longer tasks than GPT-5.6 Sol and
+  spent fewer output tokens across several of the vendor's evaluations. Re-measure
+  brevity pressure written for 5.6 before carrying it over; some of it now pays for
+  nothing.
+- **`ultra` is a host-surface level, not the next rung.** The vendor's API
+  documentation lists `low`, `medium`, `high`, `xhigh`, and `max` and does not mention
+  `ultra` at all. The Codex CLI catalogue does report it for `gpt-6-astra`,
+  `gpt-6.1-sol`, and `gpt-5.6-sol`, described as maximum reasoning **with automatic
+  task delegation** — a different mode, not one step up. `gpt-6-luna` does not report
+  it and refuses it. Read the host catalogue for the seat you are configuring.
+
+## GPT-6.1 Sol and GPT-6 Luna
+
+Neither model has a prompting document of its own. The vendor's model hub states that
+GPT-6.1 Sol defaults to `medium` reasoning effort, and says nothing further that is
+specific to either model, so nothing in this section is derived from a model-specific
+source:
+
+- Treat the GPT-6 Astra section as the nearest reference, and verify each claim
+  against the model in front of you rather than assuming it carries over.
+- Take supported effort levels from the host's own catalogue rather than the family
+  ladder — the two disagree, as the `ultra` bullet above shows.
+- Re-derive this section as soon as either model gets its own page.
 
 ## Shared prompt recipe
 
@@ -224,10 +252,13 @@ that sample, not Astra measurements or promised gains on another workload.
 ## Sources
 
 The GPT-5.6 section is derived from `prompt-guidance-gpt-5p6`; the GPT-6 Astra
-section from `model-guidance-gpt-6-astra`. The shared recipe retains task, evidence,
-tool, and validation practices from the GPT-5.6 guidance and the instructions; model
-behavior claims belong only to their matching section. `source_pins` records the
-exact bytes used for this derivation so later vendor edits can be detected.
+section from `model-guidance-gpt-6-astra`. The GPT-6.1 Sol and GPT-6 Luna section has
+no model-specific source and says so in its own text; its effort claims come from the
+host catalogue, which is a live surface rather than a pinned document. The shared
+recipe retains task, evidence, tool, and validation practices from the GPT-5.6
+guidance and the instructions; model behavior claims belong only to their matching
+section. `source_pins` records the exact bytes used for this derivation so later
+vendor edits can be detected.
 
 When a `targets` model changes, re-derive its section from the matching current
 document, check the shared rules for contradictions, and re-run representative

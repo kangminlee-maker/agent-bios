@@ -33,16 +33,32 @@ class UsageError(RuntimeError):
 
 
 # ---------------------------------------------------------------------------
-# Rates — the design's table, $/MTok, official 2026-09-03. A seat not here is not
-# priced, and pricing it raises rather than guessing.
+# Rates — the design's table, $/MTok, re-read against both vendor pricing pages
+# 2026-10-21 (previously 2026-09-03). A seat not here is not priced, and pricing it
+# raises rather than guessing. Codex `cache_write` is the 30-minute column.
+#
+# This table and `session-cost.py` PRICES are independent and neither generates the
+# other. The 2026-10-21 pass found `claude-sonnet-5` correct HERE and wrong THERE, which
+# is what a second hand-maintained copy buys: the error shows up in one of them.
 # ---------------------------------------------------------------------------
 RATES = {
+    "claude-opus-5-5":  {"uncached": 4.0, "cache_write_5m": 5.0, "cache_write_1h": 8.0,
+                         "cache_read": 0.2, "output": 20.0},
     "claude-opus-5":    {"uncached": 5.0, "cache_write_5m": 6.25, "cache_write_1h": 10.0,
                          "cache_read": 0.5, "output": 25.0},
+    "claude-sonnet-5-5": {"uncached": 2.0, "cache_write_5m": 2.5, "cache_write_1h": 4.0,
+                          "cache_read": 0.1, "output": 10.0},
     "claude-sonnet-5":  {"uncached": 2.0, "cache_write_5m": 2.5, "cache_write_1h": 4.0,
                          "cache_read": 0.2, "output": 10.0},
+    # Short-prompt rate. Haiku 5.5 bills 5x on prompts over 100k tokens, which this
+    # table cannot express — a benchmark cell with long prompts is priced LOW here.
+    "claude-haiku-5-5": {"uncached": 0.1, "cache_write_5m": 0.125, "cache_write_1h": 0.2,
+                         "cache_read": 0.01, "output": 0.5},
     "claude-haiku-4-5": {"uncached": 1.0, "cache_write_5m": 1.25, "cache_write_1h": 2.0,
                          "cache_read": 0.1, "output": 5.0},
+    "gpt-6-astra":      {"uncached": 10.0, "cache_write": 12.5, "cache_read": 1.0, "output": 50.0},
+    "gpt-6.1-sol":      {"uncached": 2.0, "cache_write": 2.5, "cache_read": 0.1, "output": 10.0},
+    "gpt-6-luna":       {"uncached": 0.1, "cache_write": 0.125, "cache_read": 0.01, "output": 0.5},
     "gpt-5.6-sol":      {"uncached": 4.0, "cache_write": 5.0, "cache_read": 0.4, "output": 20.0},
     "gpt-5.6-terra":    {"uncached": 2.0, "cache_write": 2.5, "cache_read": 0.2, "output": 12.0},
     "gpt-5.6-luna":     {"uncached": 0.2, "cache_write": 0.25, "cache_read": 0.02, "output": 1.2},

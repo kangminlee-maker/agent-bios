@@ -49,7 +49,16 @@ def expect_error(call, fragment: str) -> None:
         raise AssertionError(f"expected LaunchError containing {fragment!r}")
 
 
-def saved_preset(source: dict, name: str, main_tier: str, *, workhorse_haiku: bool) -> dict:
+def saved_preset(source: dict, name: str, main_tier: str, *,
+                 haiku_tiers: tuple[str, ...] = ()) -> dict:
+    """A synthetic preset, optionally pinning named tiers to an effort-ABSENT model.
+
+    `haiku_tiers` names which tiers get Claude Haiku 4.5 — the one supported model with no
+    effort vocabulary at all. It is a tuple rather than the old `workhorse_haiku` flag
+    because the sweep tier stopped being effort-absent when it rebound to Haiku 5.5, and
+    the cases that exercise the effort-absent path have to say which seat they mean
+    instead of relying on whatever a tier happens to bind today.
+    """
     preset = copy.deepcopy(source["presets"]["balanced"])
     preset.update({
         "label": name,
@@ -59,9 +68,9 @@ def saved_preset(source: dict, name: str, main_tier: str, *, workhorse_haiku: bo
         "review_setup": "none",
     })
     preset.pop("review", None)
-    if workhorse_haiku:
+    if haiku_tiers:
         preset["tier_overrides"] = {
-            "claude": {"workhorse": {"model": "claude-haiku-4-5"}}
+            "claude": {tier: {"model": "claude-haiku-4-5"} for tier in haiku_tiers}
         }
     source["presets"][name] = preset
     return launch.build_plan(source, "claude", name)
@@ -108,15 +117,15 @@ def run_checks() -> int:
     expected = {
         "claude": {
             "frontier": ("claude-fable-5-1", "max"),
-            "helm": ("claude-opus-5", "xhigh"),
-            "workhorse": ("claude-sonnet-5", "xhigh"),
-            "sweep": ("claude-haiku-4-5", None),
+            "helm": ("claude-opus-5-5", "high"),
+            "workhorse": ("claude-sonnet-5-5", "high"),
+            "sweep": ("claude-haiku-5-5", "medium"),
         },
         "codex": {
             "frontier": ("gpt-6-astra", "max"),
-            "helm": ("gpt-5.6-sol", "xhigh"),
-            "workhorse": ("gpt-5.6-terra", "xhigh"),
-            "sweep": ("gpt-5.6-luna", "max"),
+            "helm": ("gpt-6.1-sol", "xhigh"),
+            "workhorse": ("gpt-6.1-sol", "high"),
+            "sweep": ("gpt-6-luna", "max"),
         },
     }
     for host, matrix in expected.items():
@@ -149,7 +158,11 @@ def run_checks() -> int:
         assert "SWEEP restricted" in summary.getvalue()
         assert "restricted" in "\n".join(launch.setup_summary_lines(plan))
         if host == "claude":
-            assert "--effort" not in args
+            # The sweep seat used to be Claude Haiku 4.5, which has no effort vocabulary at
+            # all, so this asserted the flag's ABSENCE. Haiku 5.5 takes low..max and the
+            # profile states `high`, so the flag must now be present and carry it — the
+            # absence assertion would have passed on a seat that silently lost its effort.
+            assert find_option(args, "--effort") == "medium"
             assert "--agents" not in args
             assert "--restricted" in args
             assert find_option(args, "--tools") == "Read,Glob,Grep"
@@ -207,8 +220,11 @@ def run_checks() -> int:
     assert "--restricted" not in claude_args
     agents = json.loads(find_option(claude_args, "--agents"))
     sweep = agents["sweep"]
-    assert sweep["model"] == "claude-haiku-4-5"
-    assert "effort" not in sweep
+    # Derived from the LIVE profile, so it moves with a rebind. The synthetic cases further
+    # down keep using Haiku 4.5 on purpose: that model has no effort vocabulary, and they
+    # exercise the effort-absent path itself rather than whatever the sweep tier binds today.
+    assert sweep["model"] == "claude-haiku-5-5"
+    assert sweep["effort"] == "medium"
     assert sweep["tools"] == ["Read", "Glob", "Grep"]
     assert "one explicit read-only rule per item" in sweep["prompt"]
     assert "semantic judgments" in sweep["prompt"]
@@ -232,8 +248,12 @@ def run_checks() -> int:
     # Exercise the numbered fallback rather than only its helper: this is the
     # Astra reproduction (FRONTIER → Haiku → Fable 5.1 → Enter). The final
     # `5`, `10` reopen the model menu; the synthetic `q` merely ends the probe.
+    # The numbers index the live `available_models` list, so they move with a rebind:
+    # today `4` is the Haiku seat and `1` is Fable 5.1. What is being reproduced is the
+    # SEQUENCE (pick a non-default model, come back, pick another, keep the effort), so
+    # a rebind re-derives the indices rather than weakening the assertion.
     picker_plan = launch.build_plan(config, "claude", "solo")
-    picker_answers = iter(["5", "5", "5", "2", "", "5", "10"])
+    picker_answers = iter(["5", "4", "5", "5", "1", "", "5", "10"])
     picker_prompts: list[str] = []
     original_read_input = launch.read_input
     original_private = os.environ.get("AGENT_BIOS_PRIVATE_INSTRUCTIONS")
@@ -264,7 +284,7 @@ def run_checks() -> int:
 
     haiku_main_config = copy.deepcopy(config)
     haiku_main = saved_preset(
-        haiku_main_config, "haiku-main-source", "sweep", workhorse_haiku=False
+        haiku_main_config, "haiku-main-source", "sweep", haiku_tiers=("sweep",)
     )
     haiku_main_args = launch.project_args(haiku_main, materialize_agents=False)
     assert "--effort" not in haiku_main_args
@@ -276,7 +296,7 @@ def run_checks() -> int:
 
     override_config = copy.deepcopy(config)
     override_plan = saved_preset(
-        override_config, "haiku-workhorse-source", "workhorse", workhorse_haiku=True
+        override_config, "haiku-workhorse-source", "workhorse", haiku_tiers=("workhorse",)
     )
     assert override_plan["tiers"]["workhorse"] == {"model": "claude-haiku-4-5"}
     assert launch.tier_effort(override_plan, "workhorse") is None
@@ -309,7 +329,12 @@ def run_checks() -> int:
     )
 
     malformed = copy.deepcopy(config)
-    malformed["hosts"]["claude"]["tiers"]["sweep"]["effort"] = "low"
+    # Pin the effort-ABSENT model here rather than relying on whatever sweep binds: the
+    # assertion is that a model with no effort vocabulary refuses an effort key, and sweep
+    # itself now binds one that accepts five of them.
+    malformed["hosts"]["claude"]["tiers"]["sweep"] = {
+        "model": "claude-haiku-4-5", "effort": "low"
+    }
     expect_error(
         lambda: launch.validate_host_tiers("claude", malformed["hosts"]["claude"]["tiers"]),
         "does not accept an effort",
@@ -348,8 +373,18 @@ def run_checks() -> int:
             "unsupported effort",
         )
 
-    haiku_binding = launch.parse_review_binding(
+    # A tier whose binding carries an effort passes it through to the review seat...
+    sweep_binding = launch.parse_review_binding(
         {"provider": "anthropic", "tier": "sweep"}, config, "test.review"
+    )
+    assert sweep_binding is not None and sweep_binding.effort == "medium"
+    # ...while a tier bound to the effort-ABSENT model still yields None. That is the path
+    # that must never reach a contract or summary as the literal string "None", and it
+    # stopped being reachable through the live sweep tier when it rebound to Haiku 5.5.
+    effortless = copy.deepcopy(config)
+    effortless["hosts"]["claude"]["tiers"]["sweep"] = {"model": "claude-haiku-4-5"}
+    haiku_binding = launch.parse_review_binding(
+        {"provider": "anthropic", "tier": "sweep"}, effortless, "test.review"
     )
     assert haiku_binding is not None and haiku_binding.effort is None
     review_methods = launch.load_review_methods(config)
@@ -382,12 +417,12 @@ def run_checks() -> int:
         temporary_config = launch.load_config(config_path)
 
         main_plan = saved_preset(
-            temporary_config, "haiku-main-source", "sweep", workhorse_haiku=False
+            temporary_config, "haiku-main-source", "sweep", haiku_tiers=("sweep",)
         )
         launch.save_preset(main_plan, temporary_config, config_path, "haiku-main")
 
         workhorse_plan = saved_preset(
-            temporary_config, "haiku-workhorse-source", "workhorse", workhorse_haiku=True
+            temporary_config, "haiku-workhorse-source", "workhorse", haiku_tiers=("workhorse",)
         )
         launch.save_preset(workhorse_plan, temporary_config, config_path, "haiku-workhorse")
         saved = tomllib.loads((temporary / launch.USER_PRESETS_NAME).read_text(encoding="utf-8"))

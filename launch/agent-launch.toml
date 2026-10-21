@@ -141,22 +141,27 @@ severity_map = { blocker = "blocker", high = "high", medium = "medium", low = "l
 # The model family this host speaks for. A review binding names a provider, and
 # the reverse map must be unique so it resolves to exactly one validatable seat.
 provider = "openai"
-models = ["gpt-6-astra", "gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna"]
+models = ["gpt-6-astra", "gpt-6.1-sol", "gpt-6-luna"]
 
 [hosts.codex.tiers.frontier]
 model = "gpt-6-astra"
 effort = "max"
 
 [hosts.codex.tiers.helm]
-model = "gpt-5.6-sol"
+model = "gpt-6.1-sol"
 effort = "xhigh"
 
+# Same model as HELM, one effort step down. The catalogue retired `terra` without a
+# same-role successor, so the tiers can no longer be three distinct models; effort is
+# what separates this seat from HELM, and a seat sharing HELM's model buys no
+# cross-model perspective — a review dispatched here is a lower-effort echo, not a
+# second reader.
 [hosts.codex.tiers.workhorse]
-model = "gpt-5.6-terra"
-effort = "xhigh"
+model = "gpt-6.1-sol"
+effort = "high"
 
 [hosts.codex.tiers.sweep]
-model = "gpt-5.6-luna"
+model = "gpt-6-luna"
 effort = "max"
 
 [hosts.codex.agent_templates]
@@ -164,41 +169,61 @@ frontier = "${CODEX_HOME}/agents/frontier.toml"
 workhorse = "${CODEX_HOME}/agents/workhorse.toml"
 sweep = "${CODEX_HOME}/agents/sweep.toml"
 
-# Model id -> the name the human-readable guides write. The guides' Environment Binding tables
+# Every model this profile names, and what the surfaces naming it need to know.
+#
+# `display` is the name the human-readable guides write. The guides' Environment Binding tables
 # restate these bindings in prose that also carries policy the profile does not hold ("main Ultra
 # requires explicit selection"), so those tables are not generatable — but the MODEL IDENTITY in
 # them is this file's, and until this map existed the parity gate compared each table to display
 # names written inside the gate. That made the gate a third author of the binding. With the map
 # here, the gate compares two real surfaces and holds no copy of its own.
-[model_display]
-"claude-fable-5" = "Claude Fable 5"
-"claude-fable-5-1" = "Claude Fable 5.1"
-"claude-opus-5" = "Claude Opus 5"
-"claude-sonnet-5" = "Claude Sonnet 5"
-"claude-haiku-4-5" = "Claude Haiku 4.5"
-"gpt-6-astra" = "GPT-6 Astra"
-"gpt-5.6-sol" = "GPT-5.6 Sol"
-"gpt-5.6-terra" = "GPT-5.6 Terra"
-"gpt-5.6-luna" = "GPT-5.6 Luna"
+#
+# `superseded_by` is OPTIONAL and means: the host's own model catalogue has moved past this model,
+# and the binding is being KEPT anyway, deliberately, for now. It is not a deprecation marker and
+# it changes no dispatch — `gates/check-model-currency.py` accepts it at publish time in place of
+# a rebind, and git carries the date the decision was made. Naming a successor that is ITSELF
+# superseded does not satisfy the guard, so one acknowledgement cannot cover two generations.
+# Rebinding is the other legal answer; the acknowledgement exists so that "not yet" is a recorded
+# decision rather than a warning nobody read.
+#
+# Every id named anywhere in this file must have a row here, and every row must be named
+# somewhere — both directions are gated, so this table cannot quietly outlive its bindings.
+[models]
+"claude-fable-5-1" = { display = "Claude Fable 5.1" }
+"claude-opus-5-5" = { display = "Claude Opus 5.5" }
+"claude-sonnet-5-5" = { display = "Claude Sonnet 5.5" }
+"claude-haiku-5-5" = { display = "Claude Haiku 5.5" }
+"gpt-6-astra" = { display = "GPT-6 Astra" }
+"gpt-6.1-sol" = { display = "GPT-6.1 Sol" }
+"gpt-6-luna" = { display = "GPT-6 Luna" }
 
 [hosts.claude]
 provider = "anthropic"
-models = ["claude-fable-5", "claude-fable-5-1", "claude-opus-5", "claude-sonnet-5", "claude-haiku-4-5"]
+models = ["claude-fable-5-1", "claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5"]
 
 [hosts.claude.tiers.frontier]
 model = "claude-fable-5-1"
 effort = "max"
 
+# One step below the seats the 5.x generation used. The vendor's Opus 5.5 guidance
+# states the model thinks MORE per turn at a given level than Opus 5 did, defaults to
+# `medium`, and asks that `xhigh`/`max` be reserved for work with a measured gain — so
+# carrying the old `xhigh` forward would have bought longer turns rather than more depth.
 [hosts.claude.tiers.helm]
-model = "claude-opus-5"
-effort = "xhigh"
+model = "claude-opus-5-5"
+effort = "high"
 
 [hosts.claude.tiers.workhorse]
-model = "claude-sonnet-5"
-effort = "xhigh"
+model = "claude-sonnet-5-5"
+effort = "high"
 
+# Haiku 4.5 had no effort vocabulary at all, so this row carried no `effort` key and the
+# launcher special-cased the model. Haiku 5.5 takes low..max, so the seat is stated
+# rather than defaulted — a sweep that silently followed the vendor default would change
+# cost and depth whenever that default moved.
 [hosts.claude.tiers.sweep]
-model = "claude-haiku-4-5"
+model = "claude-haiku-5-5"
+effort = "medium"
 
 [presets.balanced]
 label = "Balanced"
@@ -285,7 +310,7 @@ tier = "frontier"
 
 [presets.deep-review.review.hosts.claude.methods."codex-exec"]
 provider = "openai"
-model = "gpt-5.6-sol"
+model = "gpt-6.1-sol"
 effort = "ultra"
 
 [presets.deep-review.review.hosts.codex.base]
@@ -310,7 +335,7 @@ tier = "frontier"
 
 [presets.session-distill.review.hosts.claude.methods."codex-exec"]
 provider = "openai"
-model = "gpt-5.6-sol"
+model = "gpt-6.1-sol"
 effort = "ultra"
 
 [presets.session-distill.review.hosts.codex.base]

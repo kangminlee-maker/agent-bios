@@ -9,26 +9,39 @@ use_when:
   - 구세대 claude model용으로 쓴 prompt를 이식할 때
   - claude 작업의 reasoning effort 수준을 정할 때
 core_rules:
-  - 실제 대상 model에 맞는 guidance를 고른다 — Fable 5.1과 Opus 5에는 서로 다른 진행, 위임, 검증 조정이 필요하다
+  - 실제 대상 model에 맞는 guidance를 고른다 — bind된 tier마다 vendor document가 따로 있고, effort와 주도성과 검증에서 서로 어긋난다
+  - effort level 이름은 model 사이에서 이어지지 않는다. rebind 후에는 이전 model의 설정을 그대로 쓰지 말고 level을 다시 쓸어본다
   - 목표, 제약, 요청의 이유를 밝히고 경로는 model이 고르게 둔다
   - 물려받은 process scaffolding은 유지하거나 제거하기 전에 대상 model에서 비교한다
   - 장기 과제는 여러 turn에 걸쳐 드러내지 말고 첫 turn에 전체 과제 명세를 준다
   - tool 설명은 무엇을 하는지만이 아니라 언제 호출할지를 규정한다
   - 진행 보고는 같은 session의 tool 결과에 대조해 검증하도록 요구한다
   - 경계를 명시한다 — 묻지 않고 할 일과 멈춰서 물어야 할 일
-derived_at: 2026-09-07
+derived_at: 2026-10-21
 source_pins:
   - doc: prompting-claude-opus-5
-    sha256: 65be3e0b437cbe23cc41bb4f9b7a5031c5a71cd49ab91ec4d19c62738762b086
-    pinned_at: 2026-09-07
+    sha256: e73cd26863642596486a43f90ff9c04d13f8e4b6cd00ae83546d4d3cd93c5143
+    pinned_at: 2026-10-21
   - doc: claude-prompting-best-practices
-    sha256: f98aa130a7974b2edf98f8c3babe806ab140d5cdd3933a506f5211335b431c5f
-    pinned_at: 2026-09-07
+    sha256: e9bd30b6abd49cc42549387cfa7a4cd9946d79d0eb7ed2a1c12f4cf431ee04f4
+    pinned_at: 2026-10-21
   - doc: prompting-claude-fable-5-1
-    sha256: 4aa645dd26fe9efebdaaff7462563bfac1f27782ce2d71dd5afffeaf02a80c62
-    pinned_at: 2026-09-07
+    sha256: b921ea4d827411b3f4401fd5c92021eb7166c6c5642688321a3780297d8b5497
+    pinned_at: 2026-10-21
+  - doc: prompting-claude-opus-5-5
+    sha256: 3432e66ac97f77b45e1ecba014c9d6d0001be7ab47b55ebe8c70f5aa55883a14
+    pinned_at: 2026-10-21
+  - doc: prompting-claude-sonnet-5-5
+    sha256: 6886cdd2625b73be5bd74420e31c3a050c1c52b8073b9bebe15f4dcf33e44f91
+    pinned_at: 2026-10-21
+  - doc: prompting-claude-haiku-5-5
+    sha256: e871a37701e88998c5bed2e15c586048c86d3d8ab5c333a67c60ad717e0131fd
+    pinned_at: 2026-10-21
 targets:
   - claude-fable-5-1
+  - claude-opus-5-5
+  - claude-sonnet-5-5
+  - claude-haiku-5-5
   - claude-fable-5
   - claude-opus-5
   - claude-sonnet-5
@@ -53,6 +66,9 @@ main과 다른 model을 쓰는 subagent일 때도 prompt를 받는 model의 sect
 | Target | Apply |
 | --- | --- |
 | `claude-fable-5-1` | 공유 recipe와 Claude Fable 5.1 |
+| `claude-opus-5-5` | 공유 recipe와 Claude Opus 5.5 |
+| `claude-sonnet-5-5` | 공유 recipe와 Claude Sonnet 5.5 |
+| `claude-haiku-5-5` | 공유 recipe와 Claude Haiku 5.5 |
 | `claude-opus-5` | 공유 recipe와 Claude Opus 5 |
 | `claude-fable-5`, `claude-sonnet-5`, `claude-haiku-4-5` | 공유 recipe. 다른 model의 조정을 빌리기 전에 대상 model 자체의 guidance를 확인한다 |
 
@@ -88,12 +104,74 @@ main과 다른 model을 쓰는 subagent일 때도 prompt를 받는 model의 sect
   `high`와 비교한다.
 - 조밀한 이미지 작업에는 crop과 zoom tool을 준다.
 
+- `medium`은 더 낮은 비용으로 Claude Fable 5와 비슷한 결과를 내고, `low`는 작업당
+  비용에서 더 작은 model들을 자주 앞선다. 더 작은 model을 높은 level로 돌릴 자리라면
+  `low`도 함께 비교한다.
+
 이는 configured seat의 effort나 permission을 바꾸는 것이 아니라 prompt와 harness의
-조정 선택이다. 아래 Opus 전용 조언은 이 model에 적용하지 않는다.
+조정 선택이다. 다른 model section의 조언은 이 model로 옮겨오지 않는다.
+
+## Claude Opus 5.5
+
+- 기본값은 `medium`이고, Claude Opus 5는 `high`였다. **같은** level에서 이 model이 turn당
+  더 많이 생각하므로, Opus 5의 level을 그대로 가져오면 깊이가 아니라 더 긴 turn과 더 많은
+  output token을 산다. `xhigh`와 `max`는 품질 이득을 측정한 작업에만 쓴다.
+- thinking은 항상 켜져 있고 `thinking: disabled`는 거부된다. thinking을 대신하던 지시와
+  "생각하지 말라"는 규칙은 지운다.
+- tool call 사이의 진행 메모는 progress-update thinking block으로 오고, 기본 display에서는
+  그 text가 비어 있다. text만 render하는 client는 긴 turn 내내 조용해 보인다.
+- 무인 loop에서 text만 있는 turn 종료는 보고일 뿐 완료의 증거가 아니다. 항목을 checklist로
+  들고 남은 것만 다시 지시하되, 자동 재개는 두세 번에서 멈춘다.
+- 안전 classifier는 `stop_reason: "refusal"`과 분류 이름으로 거절한다. Opus 5에서 올라온다면
+  생물학 관련 안전장치가 새로 생긴 부분이다.
+- 도표와 스크린샷을 보조 도구 없이도 훨씬 정확히 읽는다. 이전 model용으로 만든 시각
+  scaffolding은 유지하기 전에 다시 시험한다.
+- multi-agent harness에서는 예산 대비 경과 시간을 한 줄 주면 팀이 더 빨리 끝낸다. 그
+  예산은 권고일 뿐이므로 자체 timeout은 그대로 둔다.
+- 사용자가 붙여넣은 text는 tag block으로 표시하고 system prompt에 그렇게 적는다.
+- frontend 작업에서는 피할 기본 양식을 구체적으로 지목한다. "흔한 모양을 피하라"는 지시는
+  기본값을 다른 기본값으로 바꿀 뿐이다.
+
+## Claude Sonnet 5.5
+
+- level이 Claude Sonnet 5 기준으로 다시 보정되었으므로 level을 옮겨오지 말고 다시 쓸어본다.
+  사양이 분명한 agentic 작업은 `medium`에서, 더 어렵거나 긴 작업은 `high`에서 시작한다.
+- `low`에서는 검사를 돌리지 않고 변경을 완료로 보고할 수 있고, `low`/`medium`에서는 긴 작업을
+  끝내기 전에 되묻는다. 먼저 effort를 올리고, 그래도 필요하면 끝까지 진행과 범위 경계를
+  system prompt에 적는다.
+- `xhigh`와 `max`에서는 스스로 review round를 시작하고 reviewer subagent를 띄우기도 한다.
+  요청한 작업의 검사가 통과하면 멈추라고 지시하자 vendor 시험에서 품질 변화 없이 session
+  비용이 약 3분의 1 줄었다.
+- 요청하지 않은 test, 문서, 보조 file을 모든 level에서, 높은 effort일수록 더 많이 추가한다.
+  요청한 범위로 한정하려면 그렇게 명시한다.
+- 여러 단계를 거쳐야 하는 추론 작업의 JSON 답에는 먼저 문제를 끝까지 생각하라는 줄을
+  더하거나 `xhigh`를 쓴다. `stop_reason: "max_tokens"`는 text가 parse되더라도 실패로 다룬다.
+- 때때로 tool을 대소문자가 다른 이름이나 비슷한 parameter 이름으로 호출한다. 모호하지 않으면
+  받아주거나, 정확한 기대 이름을 담은 error를 돌려준다.
+- 사용자 text를 tool result 안에 넣지 않는다. turn 중간 입력은 user turn으로 전달하고,
+  harness 공지는 별도 message로 분리한다.
+
+## Claude Haiku 5.5
+
+- effort level을 갖춘 첫 Haiku이고 thinking budget을 대체하므로 이어받을 이전 설정이 없다.
+  기본값은 `medium`이다.
+- `low`는 가장 싸지만 검색을 건너뛰거나 일찍 멈추거나 검사를 거를 가능성이 더 크다. 지시를
+  엄격히 따라야 하면 `high`를 쓴다. `xhigh`나 `max`에 비용을 치르기 전에 Claude Sonnet 5.5와
+  품질·비용·속도를 비교한다.
+- 검색 tool에는 오늘 날짜를 함께 준다. system prompt가 길거나 effort가 `low`면 바뀌었을 수
+  있는 것을 검색하라고 명시한다. "항상 검색하라"는 포괄 지시는 필요 없는 검색만 늘리고 답을
+  개선하지 않는다.
+- 긴 agent prompt의 `low`에서는 일찍 멈추고 작업을 되돌려준다. 끝까지 진행하라는 지시를
+  더하거나 effort를 올린다.
+- `low`와 `medium`에서는 변경을 실제로 검사하지 않고 완료로 보고할 수 있다. 진짜 검사를
+  요구하고 무엇이 검사로 인정되는지 적는다.
+- 안전 classifier는 Haiku 4.5에서 올라오면 새로 생긴 것이고, 이 model에는 server-side
+  fallback이 없으므로 거절은 client에서 처리한다.
 
 ## Claude Opus 5
 
-다음 동작 주장과 조정 권고는 `claude-opus-5`에 적용한다.
+다음 동작 주장과 조정 권고는 `claude-opus-5`에 적용한다. 오늘 이 model을 bind하는 tier는
+없지만, 여전히 선택할 수 있으므로 남겨 둔다.
 
 ### When to add blocks
 
@@ -199,11 +277,12 @@ switch보다 낮은 effort를 먼저 택한다.
 
 ## Sources
 
-공유 recipe는 `claude-prompting-best-practices`에서, Fable 5.1 section은
-`prompting-claude-fable-5-1`에서, Opus 5 section은 `prompting-claude-opus-5`에서
-파생했다. `source_pins`는 이 도출에 쓴 정확한 byte를 기록한다. Fable 5.1에는 자체
-prompting document가 있다. `targets`의 model 이름이 Opus 전용 동작 주장을 다른
-model로 확장하지는 않는다.
+공유 recipe는 `claude-prompting-best-practices`에서, 각 model section은 그 model 자체의
+document — `prompting-claude-fable-5-1`, `prompting-claude-opus-5-5`,
+`prompting-claude-sonnet-5-5`, `prompting-claude-haiku-5-5`, `prompting-claude-opus-5` —
+에서 파생했다. `source_pins`는 이 도출에 쓴 정확한 byte를 기록한다. `targets`의 model
+이름이 한 model의 동작 주장을 다른 model로 확장하지는 않는다. vendor의 page들 자체가
+effort 기본값과 기대할 주도성의 정도에서 서로 어긋나므로 section을 일부러 따로 둔다.
 
 `targets` model이 바뀌면 해당 model의 자체 current document에서 조언을 다시 도출하고
 공유 recipe와의 모순을 확인한다.

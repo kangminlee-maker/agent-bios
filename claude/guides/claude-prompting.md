@@ -9,26 +9,39 @@ use_when:
   - porting a prompt written for an older claude model
   - deciding a reasoning-effort level for claude work
 core_rules:
-  - choose guidance by the actual target model — Fable 5.1 and Opus 5 need different progress, delegation, and verification tuning
+  - choose guidance by the actual target model — each bound tier has its own vendor document and they disagree on effort, initiative, and verification
+  - effort level names do not carry across models; after a rebind, sweep levels again instead of keeping the previous model's setting
   - state the goal, the constraints, and the reason behind the request; let the model choose the route
   - compare inherited process scaffolding on the target model before keeping or removing it
   - put the full task specification in the first turn for long-horizon work rather than revealing it across turns
   - make tool descriptions prescriptive about when to call, not only what the tool does
   - require progress claims to be audited against a tool result from the same session
   - name the boundary explicitly — what to do without asking, and what to stop and ask about
-derived_at: 2026-09-07
+derived_at: 2026-10-21
 source_pins:
   - doc: prompting-claude-opus-5
-    sha256: 65be3e0b437cbe23cc41bb4f9b7a5031c5a71cd49ab91ec4d19c62738762b086
-    pinned_at: 2026-09-07
+    sha256: e73cd26863642596486a43f90ff9c04d13f8e4b6cd00ae83546d4d3cd93c5143
+    pinned_at: 2026-10-21
   - doc: claude-prompting-best-practices
-    sha256: f98aa130a7974b2edf98f8c3babe806ab140d5cdd3933a506f5211335b431c5f
-    pinned_at: 2026-09-07
+    sha256: e9bd30b6abd49cc42549387cfa7a4cd9946d79d0eb7ed2a1c12f4cf431ee04f4
+    pinned_at: 2026-10-21
   - doc: prompting-claude-fable-5-1
-    sha256: 4aa645dd26fe9efebdaaff7462563bfac1f27782ce2d71dd5afffeaf02a80c62
-    pinned_at: 2026-09-07
+    sha256: b921ea4d827411b3f4401fd5c92021eb7166c6c5642688321a3780297d8b5497
+    pinned_at: 2026-10-21
+  - doc: prompting-claude-opus-5-5
+    sha256: 3432e66ac97f77b45e1ecba014c9d6d0001be7ab47b55ebe8c70f5aa55883a14
+    pinned_at: 2026-10-21
+  - doc: prompting-claude-sonnet-5-5
+    sha256: 6886cdd2625b73be5bd74420e31c3a050c1c52b8073b9bebe15f4dcf33e44f91
+    pinned_at: 2026-10-21
+  - doc: prompting-claude-haiku-5-5
+    sha256: e871a37701e88998c5bed2e15c586048c86d3d8ab5c333a67c60ad717e0131fd
+    pinned_at: 2026-10-21
 targets:
   - claude-fable-5-1
+  - claude-opus-5-5
+  - claude-sonnet-5-5
+  - claude-haiku-5-5
   - claude-fable-5
   - claude-opus-5
   - claude-sonnet-5
@@ -54,6 +67,9 @@ tuning preserves the instructions' permission boundaries and required verificati
 | Target | Apply |
 | --- | --- |
 | `claude-fable-5-1` | Shared recipe and Claude Fable 5.1 |
+| `claude-opus-5-5` | Shared recipe and Claude Opus 5.5 |
+| `claude-sonnet-5-5` | Shared recipe and Claude Sonnet 5.5 |
+| `claude-haiku-5-5` | Shared recipe and Claude Haiku 5.5 |
 | `claude-opus-5` | Shared recipe and Claude Opus 5 |
 | `claude-fable-5`, `claude-sonnet-5`, `claude-haiku-4-5` | Shared recipe; consult the target's own guidance before borrowing another model's tuning |
 
@@ -89,12 +105,79 @@ tuning preserves the instructions' permission boundaries and required verificati
   long outputs.
 - Give dense-image work crop and zoom tools.
 
+- `medium` roughly matches Claude Fable 5 at lower cost, and `low` often beats the
+  smaller models on cost per task — include it wherever you would otherwise run a
+  smaller model at a higher level.
+
 These are prompt and harness tuning choices, not changes to the configured seat's
-effort or permissions. The Opus-specific advice below does not apply to this model.
+effort or permissions. Advice in the other model sections does not transfer to this one.
+
+## Claude Opus 5.5
+
+- The default is `medium`, where Claude Opus 5 defaulted to `high`. At a GIVEN level
+  this model thinks more per turn, so carrying an Opus 5 level forward buys longer
+  turns and more output tokens rather than more depth. Reserve `xhigh` and `max` for
+  work with a measured gain.
+- Thinking is always on and `thinking: disabled` is rejected. Remove instructions that
+  stood in for thinking, and remove any rule telling the model not to think.
+- Progress notes between tool calls arrive as progress-update thinking blocks whose
+  text is empty at the default display, so a client that renders only text looks silent
+  through a long turn.
+- In unattended loops a text-only end of turn is a report, not proof of completion.
+  Keep the parts in a checklist, re-prompt the open items, and stop after two or three
+  automatic continuations rather than looping.
+- Safety classifiers decline with `stop_reason: "refusal"` and a named category; the
+  biology safeguards are new if you are coming from Opus 5.
+- It reads charts, diagrams and screenshots markedly better unaided — re-test visual
+  scaffolding built for earlier models before keeping it.
+- In multi-agent harnesses, an elapsed-time line against a budget makes teams finish
+  sooner; the budget is advisory, so keep your own timeout.
+- Mark text the user pasted in tagged blocks and say so in the system prompt.
+- For frontend work, name the specific defaults to avoid; a general "avoid a generic
+  look" swaps one default for another.
+
+## Claude Sonnet 5.5
+
+- Levels are recalibrated against Claude Sonnet 5, so sweep again rather than carrying
+  a level over. Start at `medium` for well-specified agentic work and `high` for harder
+  or longer tasks.
+- At `low` it can report a change done without running a check, and at `low`/`medium`
+  it checks in before finishing a long task. Raise effort first; otherwise state
+  carry-through and the scope boundary in the system prompt.
+- At `xhigh` and `max` it starts its own review rounds and may launch reviewer
+  subagents. Telling it to stop once the requested work passes its checks cut session
+  cost by about a third in vendor testing with no quality change.
+- It adds tests, docs and supporting files that were not requested, at every level and
+  more at higher effort. Say so explicitly if you want changes limited to the request.
+- For a JSON answer to a multi-step reasoning task, add a line asking it to think the
+  problem through first, or run `xhigh`. Treat `stop_reason: "max_tokens"` as failed
+  even when the text parses.
+- It occasionally calls a tool with the wrong letter case or a near-miss parameter
+  name: accept an unambiguous match, or return an error naming the exact expected name.
+- Never put user text inside a tool result; deliver mid-turn input as a user turn, and
+  keep harness notices in a separate message.
+
+## Claude Haiku 5.5
+
+- The first Haiku with effort levels, replacing the thinking budget, so there is no
+  previous setting to carry over. The default is `medium`.
+- `low` is cheapest but likelier to skip a search, stop early, or skip a check. Use
+  `high` where strict instruction following matters. Before paying for `xhigh` or
+  `max`, compare Claude Sonnet 5.5 on quality, cost and speed.
+- Give a search tool today's date. Add an explicit instruction to search what may have
+  changed when the system prompt is long or effort is `low`; avoid blanket "always
+  search" wording, which searches when nothing needs it without improving answers.
+- In long agent prompts at `low` it stops early and hands the task back. Add a
+  carry-through instruction, raise effort, or both.
+- At `low` and `medium` it can report a code change done without a check that exercises
+  it; require a real check and name what counts as one.
+- Safety classifiers are new coming from Haiku 4.5, and this model has no server-side
+  fallback — handle a refusal in your own client.
 
 ## Claude Opus 5
 
-The following behavior claims and tuning recommendations apply to `claude-opus-5`.
+The following behavior claims and tuning recommendations apply to `claude-opus-5`,
+which no tier binds today; they remain here because the model stays selectable.
 
 ### When to add blocks
 
@@ -212,11 +295,14 @@ delete it: that instruction increases tag leakage rather than suppressing it.
 
 ## Sources
 
-The shared recipe is derived from `claude-prompting-best-practices`; the Fable 5.1
-section from `prompting-claude-fable-5-1`; and the Opus 5 section from
-`prompting-claude-opus-5`. `source_pins` records the exact bytes used for this
-derivation. Fable 5.1 has its own prompting document; model names in `targets` do
-not extend the Opus-specific behavior claims to other models.
+The shared recipe is derived from `claude-prompting-best-practices`; each model
+section from that model's own document — `prompting-claude-fable-5-1`,
+`prompting-claude-opus-5-5`, `prompting-claude-sonnet-5-5`,
+`prompting-claude-haiku-5-5`, `prompting-claude-opus-5`. `source_pins` records the
+exact bytes used for this derivation. A model name in `targets` never extends one
+model's behavior claims to another; the sections are deliberately separate because
+the vendor's own pages disagree on effort defaults and on how much initiative to
+expect.
 
 When a `targets` model changes, re-derive its advice from its own current document
 and check the shared recipe for conflicts.

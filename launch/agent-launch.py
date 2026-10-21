@@ -51,6 +51,21 @@ HOST_EFFORTS = {
     "claude": {"low", "medium", "high", "xhigh", "max"},
 }
 
+# Efforts a CONCRETE model rejects although its host accepts them. A property of the
+# model rather than of the host, so it cannot live in HOST_EFFORTS — and it is a dict
+# rather than two inline comparisons because the inline form was written for
+# `gpt-5.6-luna` alone and silently stopped covering anything when the sweep tier moved
+# to `gpt-6-luna`, which rejects `ultra` just the same. Every entry must name a model the
+# profile can actually select; a rebind that drops a model takes its row with it.
+MODEL_EFFORT_EXCEPTIONS: dict[tuple[str, str], tuple[str, ...]] = {
+    ("codex", "gpt-5.6-luna"): ("ultra",),
+    ("codex", "gpt-6-luna"): ("ultra",),
+}
+
+
+def model_rejects_effort(host: str, model: str, effort: str) -> bool:
+    return effort in MODEL_EFFORT_EXCEPTIONS.get((host, model), ())
+
 # These read the catalog, so they are built per render rather than at import:
 # a module-level dict would freeze whatever English existed before
 # load_catalogs() installed the selected language. Every key is a single-line
@@ -4574,8 +4589,8 @@ def validate_effort(host: str, model: str, effort: Any, context: str) -> str | N
         return None
     if not isinstance(effort, str) or effort not in HOST_EFFORTS[host]:
         raise LaunchError(f"unsupported effort for {context}: {effort!r}")
-    if host == "codex" and model == "gpt-5.6-luna" and effort == "ultra":
-        raise LaunchError(f"unsupported effort for {context}: gpt-5.6-luna/ultra")
+    if model_rejects_effort(host, model, effort):
+        raise LaunchError(f"unsupported effort for {context}: {model}/{effort}")
     return effort
 
 
@@ -7016,9 +7031,9 @@ def effort_options(host: str, model: str) -> list[MenuOption]:
     for effort in EFFORT_ORDER:
         enabled = effort in HOST_EFFORTS[host]
         reason = t("effort.unsupported.host").format(host=host) if not enabled else ""
-        if enabled and host == "codex" and model == "gpt-5.6-luna" and effort == "ultra":
+        if enabled and model_rejects_effort(host, model, effort):
             enabled = False
-            reason = t("effort.unsupported.model").format(model="gpt-5.6-luna")
+            reason = t("effort.unsupported.model").format(model=model)
         options.append(
             MenuOption(effort, effort, descriptions[effort], enabled, reason)
         )

@@ -18,30 +18,60 @@ the bill: measured over two real sessions here, cache read + cache write were
 92-94% of cost and output 6-8%, so context size is the cost, and the only lever
 on it is how long a session is allowed to grow before it is reset.
 """
-import json, sys, glob, os, itertools, tempfile, subprocess
+import json, sys, glob, os, itertools, re, tempfile, subprocess
 from datetime import datetime, timezone
 
 # $/MTok: input, output, cache_read, cache_write_5m, cache_write_1h
+# Whole table re-read against the vendor pricing page on 2026-10-21. That pass added the
+# 5.5 generation and corrected `claude-sonnet-5`, which carried Sonnet 4.6's rates — it
+# had been overcharging every Sonnet 5 session by half since it was written.
 PRICES = {
     "claude-fable-5":  (10.0, 50.0, 1.00, 12.50, 20.0),
-    # Fable 5.1 model overview, verified 2026-09-08.
     "claude-fable-5-1": (10.0, 50.0, 0.25, 12.50, 20.0),
     "claude-mythos-5": (10.0, 50.0, 1.00, 12.50, 20.0),
+    "claude-opus-5-5": (4.0, 20.0, 0.20, 5.0, 8.0),
     "claude-opus-5":   (5.0, 25.0, 0.50, 6.25, 10.0),
     "claude-opus-4-8": (5.0, 25.0, 0.50, 6.25, 10.0),
     "claude-opus-4-7": (5.0, 25.0, 0.50, 6.25, 10.0),
     "claude-opus-4-6": (5.0, 25.0, 0.50, 6.25, 10.0),
-    "claude-sonnet-5": (3.0, 15.0, 0.30, 3.75, 6.0),
+    "claude-sonnet-5-5": (2.0, 10.0, 0.10, 2.50, 4.0),
+    "claude-sonnet-5": (2.0, 10.0, 0.20, 2.50, 4.0),
     "claude-sonnet-4-6": (3.0, 15.0, 0.30, 3.75, 6.0),
+    # Haiku 5.5 is the short-prompt rate; see TIERED below.
+    "claude-haiku-5-5": (0.10, 0.50, 0.01, 0.125, 0.20),
     "claude-haiku-4-5": (1.0, 5.0, 0.10, 1.25, 2.0),
 }
 
-def price_for(model):
-    # Version-specific rates take precedence over their family prefix.
-    for k, v in sorted(PRICES.items(), key=lambda item: len(item[0]), reverse=True):
-        if model.startswith(k):
-            return v
+# Models the vendor bills at two rates by PROMPT length. A session total cannot say which
+# of its requests crossed the threshold — the per-request sizes are gone by the time the
+# transcript is aggregated — so the table holds the lower rate and the report says, by
+# name, that the figure is a floor. Silently picking either rate would print a plausible
+# number that is wrong in a direction nobody could see.
+TIERED = {
+    "claude-haiku-5-5": "prompts over 100k tokens bill at 5x — this figure is a floor",
+}
+
+def price_key(model):
+    """The PRICES key this model bills under, or None. See price_for for the rule."""
+    if model in PRICES:
+        return model
+    for k in PRICES:
+        if model.startswith(k) and re.fullmatch(r"-\d{8}", model[len(k):]):
+            return k
     return None
+
+
+def price_for(model):
+    """An exact id, or that same id carrying a release-date suffix. Nothing else.
+
+    This matched any prefix until 2026-10-21, which was wrong in the one direction that
+    cannot be noticed: a generation's id is a PREFIX of the next one, so `claude-opus-5-5`
+    priced itself at `claude-opus-5` rates and printed a plausible number. An unknown
+    model now returns None, which the report prints as `?` and collects under `unpriced`
+    — visibly missing beats quietly wrong. The accepted tail is the vendor's dated
+    spelling (`claude-haiku-4-5-20251001`), which is the same model at the same price."""
+    key = price_key(model)
+    return PRICES[key] if key else None
 
 def moment(ts):
     """A transcript timestamp as an aware datetime, or None if it is not one.
@@ -141,7 +171,7 @@ def report(session_path):
     sources += [(os.path.basename(f)[:-6], f)
                 for f in sorted(glob.glob(os.path.join(base, "subagents", "*.jsonl")))]
     print(f"\n=== {os.path.basename(session_path)} ===")
-    grand, unpriced = 0.0, []
+    grand, unpriced, tiered_seen = 0.0, [], set()
     hdr = (f"{'source':<38}{'model':<22}{'turns':>6}{'input':>9}{'output':>9}"
            f"{'cache_rd':>10}{'cache_wr':>10}{'cost$':>9}")
     print(hdr); print("-" * len(hdr))
@@ -160,6 +190,8 @@ def report(session_path):
                 name = "main"
             c = cost(model, a)
             cs = f"{c:9.2f}" if c is not None else "        ?"
+            if c is not None and price_key(model) in TIERED:
+                tiered_seen.add(price_key(model))
             if c is None:
                 unpriced.append(model)
             else:
@@ -173,6 +205,8 @@ def report(session_path):
         print(f"\nwall clock: no usable timestamps   |   modeled total cost: ${grand:,.2f}")
     if unpriced:
         print(f"WARN unpriced models: {set(unpriced)}")
+    for key in sorted(tiered_seen):
+        print(f"NOTE {key}: {TIERED[key]}")
     return 0
 
 # ── context budget ────────────────────────────────────────────────────────────
@@ -387,6 +421,24 @@ def _self_test():
         print(f"  {'ok  ' if ok else 'FAIL'} {name}" + ("" if ok else f"  got {got!r} want {want!r}"))
         if not ok:
             failures.append(name)
+
+    # Price lookup, which had no control at all while it silently priced one generation
+    # at the previous one's rates. The first case is the defect; the rest fence the rule.
+    # Two halves of the same rule. Once a generation HAS a row the first case can only
+    # ask that the rows differ; the second keeps the original defect reachable by naming
+    # a generation the table does not carry, where the old prefix rule billed a neighbour.
+    check("a generation bills at its own rate, not the previous generation's",
+          price_for("claude-opus-5-5") != price_for("claude-opus-5"), True)
+    check("a generation the table does not carry is unpriced, not billed at a neighbour",
+          price_for("claude-opus-5-9"), None)
+    check("an exact id is priced", price_for("claude-opus-5"), PRICES["claude-opus-5"])
+    check("a dated spelling is the same model at the same price",
+          price_for("claude-haiku-4-5-20251001"), PRICES["claude-haiku-4-5"])
+    check("a longer number is not a dated suffix", price_for("claude-opus-50"), None)
+    check("an unknown family is unpriced rather than guessed",
+          price_for("gpt-6.1-sol"), None)
+    check("the price table is not empty, so the cases above judge something",
+          len(PRICES) > 0, True)
 
     def write(dirpath, name, records):
         p = os.path.join(dirpath, name)

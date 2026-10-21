@@ -235,14 +235,14 @@ Write for the next agent and re-verification, not narrative. Required content:
 
 This is the human-readable projection of concrete models/tools; `launch/agent-launch.toml` is the machine launch authority and parity checks keep them aligned. Re-probe when the binding is older than ~8 weeks or a newer observable model/tool changes the surface. Edit shipped defaults in the source repository; keep personal launch bindings in user-owned launcher configuration. Private installation stores an immutable release and preserves personal state. A new configured session resolves its bindings; existing session pins retain theirs.
 
-Binding (2026-09-08):
+Binding (2026-10-21):
 
 | Slot | Binding | Notes |
 |---|---|---|
 | FRONTIER | Claude Fable 5.1 · GPT-6 Astra (read-only; max default; launcher may explicitly select Ultra) | bounded hardest decisions and verdicts |
-| HELM | Claude Opus 5 (xhigh) · GPT-5.6 Sol (xhigh main; main Ultra requires explicit selection; bounded FRONTIER Ultra allowed) | standing main; Codex defaults bypass, explicit sandbox narrows |
-| WORKHORSE | Claude Sonnet 5 (xhigh) · GPT-5.6 Terra (xhigh) | implementation and per-item judgment |
-| SWEEP | Claude Haiku 4.5 (effort omitted) · GPT-5.6 Luna (max) | read-only; one explicit rule per item; not a rebind candidate |
+| HELM | Claude Opus 5.5 (high) · GPT-6.1 Sol (xhigh) — main Ultra requires explicit selection; bounded FRONTIER Ultra allowed | standing main; Codex defaults bypass, explicit sandbox narrows |
+| WORKHORSE | Claude Sonnet 5.5 (high) · GPT-6.1 Sol (high) | implementation and per-item judgment; the Codex seat shares HELM's model, so it differs by effort alone and buys no cross-model perspective |
+| SWEEP | Claude Haiku 5.5 (medium) · GPT-6 Luna (max) | read-only; one explicit rule per item; not a rebind candidate |
 | VERIFIER-A | plain `codex exec` deep pass — GPT-5.6 Sol at ultra effort, packet on stdin (`-c service_tier="fast"` as explicit fast opt-in) | strongest single reader; cross-family from a Claude main |
 | VERIFIER-B | Claude Code ultracode workflow (keyword-opened, many-agent) | code/execution kind; fan-out counterpart |
 | INDEPENDENT-PR-REVIEWER | Codex CLI | adversarial `gh pr diff` review |

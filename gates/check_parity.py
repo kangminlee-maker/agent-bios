@@ -164,15 +164,15 @@ helm = pathlib.Path("wrappers/codex-helm.sh")
 
 expected_launch_tiers = {
     "frontier": ("gpt-6-astra", "max"),
-    "helm": ("gpt-5.6-sol", "xhigh"),
-    "workhorse": ("gpt-5.6-terra", "xhigh"),
-    "sweep": ("gpt-5.6-luna", "max"),
+    "helm": ("gpt-6.1-sol", "xhigh"),
+    "workhorse": ("gpt-6.1-sol", "high"),
+    "sweep": ("gpt-6-luna", "max"),
 }
 expected_claude_tiers = {
     "frontier": ("claude-fable-5-1", "max"),
-    "helm": ("claude-opus-5", "xhigh"),
-    "workhorse": ("claude-sonnet-5", "xhigh"),
-    "sweep": ("claude-haiku-4-5", None),
+    "helm": ("claude-opus-5-5", "high"),
+    "workhorse": ("claude-sonnet-5-5", "high"),
+    "sweep": ("claude-haiku-5-5", "medium"),
 }
 
 
@@ -364,9 +364,9 @@ def launch_profile_tiers():
 def codex_agent_templates():
     expected_agents = {
         "frontier.toml": ("frontier", "gpt-6-astra", "max"),
-        "workhorse.toml": ("workhorse", "gpt-5.6-terra", "xhigh"),
-        "sweep.toml": ("sweep", "gpt-5.6-luna", "max"),
-        "reviewer.toml": ("reviewer", "gpt-5.6-terra", "xhigh"),
+        "workhorse.toml": ("workhorse", "gpt-6.1-sol", "high"),
+        "sweep.toml": ("sweep", "gpt-6-luna", "max"),
+        "reviewer.toml": ("reviewer", "gpt-6.1-sol", "high"),
     }
 
     missing_agents = sorted(set(expected_agents) - {path.name for path in agent_dir.glob("*.toml")}) if agent_dir.is_dir() else sorted(expected_agents)
@@ -442,15 +442,15 @@ def environment_bindings():
         for slot, row in rows.items():
             if row is None or len(row) < 2:
                 mark_fail(f"{guide} missing Environment Binding row for {slot}")
-        # The model each slot binds comes from the launch profile through the declared display
-        # map — the gate holds no copy of its own, so a rebind cannot leave the gate enforcing
+        # The model each slot binds comes from the launch profile through the declared [models]
+        # rows — the gate holds no copy of its own, so a rebind cannot leave the gate enforcing
         # yesterday's model. What stays as literals below is POLICY the profile does not carry
         # (when Ultra is allowed, that a main Ultra needs explicit selection): those are not
         # restatements of profile data, so asserting them here is not a second authorship.
         profile = tomllib.loads(launch_profile_path.read_text())
-        display = profile.get("model_display", {})
-        if not display:
-            mark_fail("launch profile declares no [model_display] map — the binding tables would "
+        models = profile.get("models", {})
+        if not models:
+            mark_fail("launch profile declares no [models] table — the binding tables would "
                       "have to be compared against names written inside this gate")
         for slot in ("FRONTIER", "HELM", "WORKHORSE", "SWEEP"):
             if not rows[slot]:
@@ -458,10 +458,10 @@ def environment_bindings():
             for host in ("claude", "codex"):
                 tier = (profile["hosts"][host]["tiers"].get(slot.lower()) or {})
                 model_id = tier.get("model")
-                want = display.get(model_id)
+                want = (models.get(model_id) or {}).get("display")
                 if not want:
-                    mark_fail(f"{model_id!r} has no [model_display] entry; {guide} {slot} cannot "
-                              f"be checked against the profile")
+                    mark_fail(f"{model_id!r} has no [models] row carrying a display name; "
+                              f"{guide} {slot} cannot be checked against the profile")
                 elif not has_exact_model(rows[slot][1], want):
                     mark_fail(f"{guide} {slot} must bind {want} for host {host} — the launch "
                               f"profile says {model_id!r}")
@@ -469,18 +469,21 @@ def environment_bindings():
             "max" not in rows["FRONTIER"][1] or "Ultra" not in rows["FRONTIER"][1]
         ):
             mark_fail(f"{guide} FRONTIER must bind at max with Ultra allowed")
+        # The POLICY only — the effort itself is checked from the profile with every
+        # other slot below. It used to demand the literal "xhigh" here, which made this
+        # gate a second author of the HELM seat and would have had to be edited by hand
+        # the moment a host's helm tier moved off it.
         if rows["HELM"] and (
-            "xhigh" not in rows["HELM"][1]
-            or "bounded FRONTIER Ultra" not in rows["HELM"][1]
+            "bounded FRONTIER Ultra" not in rows["HELM"][1]
             or not any(token in rows["HELM"][1] for token in ("explicit selection", "명시 선택"))
         ):
-            mark_fail(f"{guide} HELM must keep the main at xhigh, require explicit main Ultra selection, and allow bounded FRONTIER Ultra dispatch")
-        for slot in ("WORKHORSE", "SWEEP"):
+            mark_fail(f"{guide} HELM must require explicit main Ultra selection and allow bounded FRONTIER Ultra dispatch")
+        for slot in ("HELM", "WORKHORSE", "SWEEP"):
             if not rows[slot]:
                 continue
             for host in ("claude", "codex"):
                 binding = profile["hosts"][host]["tiers"][slot.lower()]
-                model = display[binding["model"]]
+                model = models[binding["model"]]["display"]
                 expected = binding.get("effort")
                 labels = ("effort omitted", "effort 생략") if expected is None else (expected,)
                 if not any(f"{model} ({label})" in rows[slot][1] for label in labels):
@@ -607,7 +610,7 @@ def codex_helm():
             ):
                 continue
             match = re.search(rf"^mode={mode} reach=hermetic model=(\S+) effort=(\S+) sandbox=(\S+) ", result.stdout, re.MULTILINE)
-            if not match or match.groups() != ("gpt-5.6-sol", "xhigh", "dangerously-bypass-approvals-and-sandbox"):
+            if not match or match.groups() != ("gpt-6.1-sol", "xhigh", "dangerously-bypass-approvals-and-sandbox"):
                 mark_fail(f"codex-helm {mode} defaults are missing or incorrect")
             has_adapter = "Internal FRONTIER command base" in result.stdout
             if has_adapter != (mode != "single"):
@@ -13875,8 +13878,13 @@ def cross_family(fx):
     # exec flags are the mechanism and the fast tier stays an explicit opt-in; on a
     # codex main it is the Claude workflow, opened by the keyword.
     cross_cfg = tomllib.loads(profile_text)
+    # The seat comes from the preset it is testing, not from a literal here: this check
+    # held `gpt-5.6-sol` until 2026-10-21 and would have kept asserting a retired model.
+    deep_seat = (cross_cfg["presets"]["deep-review"]["review"]["hosts"]["claude"]
+                 ["methods"]["codex-exec"])
     for main_host, needle in (
-        ("claude", 'exec -s read-only -m gpt-5.6-sol -c model_reasoning_effort="ultra"'),
+        ("claude", f'exec -s read-only -m {deep_seat["model"]} '
+                   f'-c model_reasoning_effort="{deep_seat["effort"]}"'),
         ("codex", "prompt carries the keyword ultracode"),
     ):
         cross_plan = launcher_module.build_plan(cross_cfg, main_host, "deep-review")

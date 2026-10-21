@@ -24,7 +24,7 @@ Reach:
   --reach custom    CODEX_HOME from --home
 
 Options:
-  --model MODEL       Main model (default gpt-5.6-sol)
+  --model MODEL       Main model (default gpt-6.1-sol)
   --effort EFFORT     Reasoning effort override (default xhigh; ultra explicitly opts in)
   --sandbox MODE      Disable default bypass; use read-only | workspace-write | danger-full-access
   --cd DIR            Working root for Codex (default current directory; hermetic defaults empty)
@@ -119,22 +119,22 @@ esac
 
 case "$mode" in
   auto|implement)
-    : "${model:=gpt-5.6-sol}"
+    : "${model:=gpt-6.1-sol}"
     : "${effort:=xhigh}"
     : "${sandbox:=workspace-write}"
     ;;
   review)
-    : "${model:=gpt-5.6-sol}"
+    : "${model:=gpt-6.1-sol}"
     : "${effort:=xhigh}"
     : "${sandbox:=read-only}"
     ;;
   scout)
-    : "${model:=gpt-5.6-sol}"
+    : "${model:=gpt-6.1-sol}"
     : "${effort:=xhigh}"
     : "${sandbox:=read-only}"
     ;;
   single)
-    : "${model:=gpt-5.6-sol}"
+    : "${model:=gpt-6.1-sol}"
     : "${effort:=xhigh}"
     : "${sandbox:=workspace-write}"
     fanout=0
@@ -233,7 +233,7 @@ EOF
   if [ "$fanout" -eq 1 ]; then
     cat <<EOF
 - Fan-out is authorized when delegation gates fire; do de-minimis work directly. Native multi-agent is off unless the main is explicit Ultra.
-- Internal roles via codex-run --profile inherit and bounded stdin packet: WORKHORSE=gpt-5.6-terra/xhigh/read-only-or-workspace-write; SWEEP=gpt-5.6-luna/max/read-only; REVIEWER=gpt-5.6-terra/xhigh/read-only.
+- Internal roles via codex-run --profile inherit and bounded stdin packet: WORKHORSE=gpt-6.1-sol/high/read-only-or-workspace-write; SWEEP=gpt-6-luna/max/read-only; REVIEWER=gpt-6.1-sol/high/read-only.
 - Native spawn cannot pin role/effort. Do not use native spawn_agent for FRONTIER. Use codex-run with gpt-6-astra/read-only and task-fit effort: max default, Ultra for divisible work, lower when cost/latency dominates.
 - Internal FRONTIER command base: $codex_run --profile inherit --model gpt-6-astra --effort <effort> --multi-agent auto --sandbox read-only --cd "\$PWD" -c agents.max_threads=$max_threads -c agents.max_depth=$max_depth. The adapter enables native multi-agent only for ultra. Send a self-contained packet on stdin; never full-history resume.
 - Run independent units in parallel; respect depth/thread limits; wait and synthesize bounded reports.

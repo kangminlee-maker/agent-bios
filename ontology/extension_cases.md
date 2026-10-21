@@ -60,7 +60,7 @@ P1/P4/P5/P6) — anchored at `launch/agent-launch.toml [hosts.*.tiers.*]`.
 
 | Counterpart | Kind / direction | Enforcement | Why |
 | --- | --- | --- | --- |
-| Host | lockstep_with ← | partial | Launch profile bindings and agent templates are compared as site sets; the parity gate derives displayed binding rows from the profile model_display map |
+| Host | lockstep_with ← | partial | Launch profile bindings and agent templates are compared as site sets; the parity gate derives displayed binding rows from the profile [models] rows |
 | Guide | lockstep_with → | partial | The prompting guide's targets: is gated; its Environment Binding table is not |
 | PresetMode | requires ← | gated | a preset carries host-scoped tier overrides, so it resolves against the binding |
 

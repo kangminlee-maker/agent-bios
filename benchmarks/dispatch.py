@@ -242,12 +242,23 @@ def canary_verdicts(text: str, variant: dict) -> dict:
 AUXILIARY_MODELS = {"claude": ("claude-haiku-4-5",), "codex": ()}
 
 
-def model_matches(want: str, got: str) -> bool:
-    """Exact host-reported id, or the same id with a version suffix.
+# A release-date tail, optionally carrying a provider's revision suffix
+# (`-20250805`, `-20250805-v1`, `-20250805-v1:0`). A GENERATION tail such as `-5` is
+# deliberately absent: see model_matches.
+_DATED_TAIL = re.compile(r"-\d{8}(?:-v\d+)?(?::\d+)?")
 
-    Substring containment accepted `claude-opus-50` for `claude-opus-5`, which is a
-    seat check that cannot tell a different model from the declared one."""
-    return got == want or got.startswith(f"{want}-") or got.startswith(f"{want}@")
+
+def model_matches(want: str, got: str) -> bool:
+    """Exact host-reported id, or the same id carrying a RELEASE-DATE suffix. Nothing else.
+
+    `got.startswith(want + "-")` was written for the dated spelling
+    (`claude-haiku-4-5-20251001`), but the vendor spells a GENERATION as a suffix too, so
+    it accepted `claude-opus-5-5` for a `claude-opus-5` seat — a receipt from the NEXT
+    model vouching for the one that was pinned, which is exactly what a seat check exists
+    to catch. Substring containment, the earlier defect, also accepted `claude-opus-50`."""
+    if got == want or got.startswith(f"{want}@"):
+        return True
+    return got.startswith(want) and bool(_DATED_TAIL.fullmatch(got[len(want):]))
 
 
 def seat_problem(host: str, want: str, reported: list) -> str | None:

@@ -371,6 +371,13 @@ def seat_controls() -> None:
             dispatch.model_matches("claude-opus-5", "claude-opus-5-20260101"))
     control("seat", "claude-opus-50 is not claude-opus-5",
             not dispatch.model_matches("claude-opus-5", "claude-opus-50"))
+    # The vendor spells a GENERATION as a suffix, so the dated-tail rule has to tell one
+    # apart from a release date: a receipt from the next model must not vouch for a seat
+    # pinned to the previous one.
+    control("seat", "claude-opus-5-5 is a different model from claude-opus-5",
+            not dispatch.model_matches("claude-opus-5", "claude-opus-5-5"))
+    control("seat", "a dated revision of the pinned model still counts",
+            dispatch.model_matches("claude-opus-4-1", "claude-opus-4-1-20250805-v1"))
     control("seat", "the pinned seat missing from the reported set is a problem",
             dispatch.seat_problem("codex", "gpt-5.6-sol", ["gpt-4o"]) is not None)
     control("seat", "a declared auxiliary model does not fail the seat",

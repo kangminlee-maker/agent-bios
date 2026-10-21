@@ -93,7 +93,7 @@
   "scripts": {
     "postinstall": "printf '\\n> agent-bios installed. Deploy into this environment with:  agent-bios install\\n> Then: agent-bios verify | status | uninstall\\n\\n'",
     "prepack": "bash gates/check-publish.sh --stamp",
-    "prepublishOnly": "bash gates/check-publish.sh --guard",
+    "prepublishOnly": "python3 gates/check-model-currency.py --publish-guard && bash gates/check-publish.sh --guard",
     "postpack": "rm -f provenance.json"
   },
   "publishConfig": {

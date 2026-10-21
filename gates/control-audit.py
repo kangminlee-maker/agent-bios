@@ -47,6 +47,7 @@ SUBJECTS = [
     # which is what made this line affordable rather than aspirational.
     "gates/check-endpoints.py",
     "gates/check-lexicon.py",
+    "gates/check-model-currency.py",
     "gates/check-surfaces.py",
     "gates/check-receipt-chain.py",
     "compose/check-domains.py",
@@ -109,6 +110,11 @@ DATA_SINKS = {
     "gates/check-surfaces.py": {"out": "deploy-path builder; returned as data, never printed"},
     "gates/check-receipt-chain.py": {"planless": "disclosure list; reaches the summary, "
                                                  "not the failure report"},
+    "gates/check-model-currency.py": {
+        "lines": "the currency report; printed and exits 0, since a per-account catalogue "
+                 "must never decide a build",
+        "out": "the --resolve/--propose suggestion rows; printed for a human to paste",
+    },
 }
 
 
