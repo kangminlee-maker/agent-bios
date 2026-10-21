@@ -510,8 +510,9 @@ class Monitor:
     """Feeds one call's ledger and evaluates both caps at every event and record; at a cap it
     calls `on_trip(reason)` once."""
 
-    def __init__(self, host, caps, on_trip=None, on_signal=None):
+    def __init__(self, host, caps, on_trip=None, on_signal=None, output_cap=None):
         self.host, self.caps, self.on_trip, self.on_signal = host, caps, on_trip, on_signal
+        self.output_cap = output_cap  # the call's declared output-token cap: an overrun of it is no provider signal
         self.ledger, self.lock, self.trip, self.closed = Ledger(), threading.Lock(), None, False
         self.feed = ClaudeFeed(self.ledger) if host == "claude" else CodexFeed(self.ledger)
         self._read = 0  # how many events (Claude) or records (Codex) the signal check has seen
@@ -551,7 +552,7 @@ class Monitor:
         """The structured provider signals among what was read since the last line, at once."""
         held = self.ledger.events if self.host == "claude" else self.feed.records
         fresh, self._read = held[self._read:], len(held)
-        found = breakers.claude_signals(fresh) if self.host == "claude" else breakers.codex_signals(fresh)
+        found = breakers.claude_signals(fresh, self.output_cap) if self.host == "claude" else breakers.codex_signals(fresh)
         stopping = [sig for sig in found if sig["kind"] in ("limit", "unrecognised")]
         if stopping and self.on_signal is not None:
             self.on_signal(stopping)

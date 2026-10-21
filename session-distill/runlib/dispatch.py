@@ -545,7 +545,8 @@ class Supervisor:
                 self.release(stage, call_id, "refused")
             raise
 
-        exit_status, stdout, stderr, mon, stopped, wall_ms = self._follow(host, proc, began, packet, capture, cell, caps)
+        exit_status, stdout, stderr, mon, stopped, wall_ms = self._follow(host, proc, began, packet, capture, cell, caps,
+                                                                          max_output_tokens)
         (call_dir / "result.json").write_bytes(stdout)
         # the runner's stderr is kept only as the refusal it names: its trace carries prompt and
         # output bodies, and the capture keeps none (design §3.2)
@@ -566,7 +567,7 @@ class Supervisor:
             events = list(mon.ledger.events)
             if isinstance(result, dict) and result.get("type") == "result" and mon.ledger.result is None:
                 events.append(result)
-            signals = breakers.claude_signals(events)
+            signals = breakers.claude_signals(events, max_output_tokens)
         else:
             signals = breakers.codex_signals(mon.feed.records, gate.Call(call_dir).events)
         if self.breaker.observe(host, signals, self.clock()) is not None:
@@ -664,10 +665,11 @@ class Supervisor:
             raise Refused(f"WINDOW_OVER_BOUND {call_id}: the driver's part is {driver} bytes, past {INPUT_BOUND} minus the "
                           f"host allowance {slot['allowance_tokens']}; the window is split before dispatch")
 
-    def _follow(self, host, proc, began, packet, capture, cell, caps):
+    def _follow(self, host, proc, began, packet, capture, cell, caps, output_cap=None):
         """Follow a launched runner to its end: the monitor, the stop at either cap, the drain."""
         tripped = threading.Event()
-        mon = self.monitor(host, caps, on_trip=lambda _why: tripped.set(), on_signal=lambda sigs: self._signal(host, sigs))
+        mon = self.monitor(host, caps, on_trip=lambda _why: tripped.set(), on_signal=lambda sigs: self._signal(host, sigs),
+                           output_cap=output_cap)
         sampler = stop.TreeSampler(proc.pid, interval=0.05)
         sampler.start()
         out, err = [], []
@@ -1346,6 +1348,16 @@ if host == "claude":
     base = {"type": "result", "session_id": sid, "safety_stops": 0, "stop_reason": "end_turn", "result": "",
             "modelUsage": {model: {"inputTokens": 2, "outputTokens": 61, "cacheReadInputTokens": 2800,
                                    "cacheCreationInputTokens": 350}}}
+    if mode == "cap-overrun":  # Claude Code 2.1.304 past --max-output-tokens (WP-03v dw5, cap16)
+        cap = spec.get("overrun_at", spec["max_output_tokens"])
+        result = {**base, "subtype": "success", "is_error": True, "api_error": "max_output_tokens", "api_error_status": None,
+                  "terminal_reason": "api_error", "stop_reason": "stop_sequence",
+                  "result": f"API Error: Claude's response exceeded the {cap} output token maximum. To configure this "
+                            f"behavior, set the CLAUDE_CODE_MAX_OUTPUT_TOKENS environment variable."}
+        emit(result)
+        record({"session_id": sid, "requests": [], "assistant": [], "structured_calls": []})
+        print(json.dumps(result))
+        sys.exit(1)
     if mode in ("usage-limit", "text-limit", "api-error-limit"):
         if mode in ("usage-limit", "api-error-limit"):
             if mode == "usage-limit":
@@ -1676,6 +1688,29 @@ def self_test(scratch=None):
              ("codex-error-frame", luna, "ws-limit", "error frame", False),
              ("codex-otel-429", luna, "http-limit", "otel codex.api_request", False),
              ("codex-rate-limits", luna, "rate-limits-frame", "codex.rate_limits", False))
+    # a Claude call past its own declared cap fails alone: the breaker stays closed and the next
+    # call is admitted; the same sentence at a number the call did not declare stops the provider
+    dc = run_dir("run-cap-overrun", {"S6": 400_000})
+    sc = counted(supervisor(dc))
+    sc.seed_from(calibrated)
+    sc.mode, sc.extra = "cap-overrun", {}
+    over = sc.item("S6", "over", judge, *schema_for(judge)[::-1], case_type="judge", caps=caps, view_window=False)
+    sc.mode, sc.extra = "clean", {}
+    after_over = sc.item("S6", "after", judge, *schema_for(judge)[::-1], case_type="judge", caps=caps, view_window=False)
+    control("claude-cap-overrun-fails-the-call-and-leaves-the-breaker-closed",
+            over["outcome"] == "failed" and over["attempts"] and all(
+                any(line.startswith("COMPLETION_INCOMPLETE max_output_tokens: the response passed the call's declared cap of 4096")
+                    for line in gate.accept(d)["failures"]) for d in over["attempts"])
+            and not sc.breaker.is_open("claude", clock[0]) and sc.breaker.state()["claude"]["deferred_items"] == []
+            and after_over["outcome"] == "accepted", f"{over} {after_over} {sc.breaker.state()['claude']}")
+    dc2 = run_dir("run-cap-overrun-elsewhere", {"S6": 400_000})
+    sc2 = counted(supervisor(dc2))
+    sc2.seed_from(calibrated)
+    sc2.mode, sc2.extra = "cap-overrun", {"overrun_at": 16}
+    other_cap = sc2.item("S6", "over", judge, *schema_for(judge)[::-1], case_type="judge", caps=caps, view_window=False)
+    control("claude-cap-overrun-at-an-undeclared-number-stops-the-provider",
+            other_cap["outcome"] == "deferred" and sc2.breaker.is_open("claude", clock[0])
+            and "PROVIDER_ERROR_UNRECOGNISED claude result.api_error" in other_cap["why"], f"{other_cap}")
     for name, seat, mode, source, resets in kinds:
         dk = run_dir(f"run-{name}", {"S6": 400_000})
         sk = counted(supervisor(dk))

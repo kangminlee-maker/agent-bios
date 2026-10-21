@@ -53,6 +53,7 @@ import sys
 
 if __package__ in (None, ""):  # run as a script: put session-distill/ on the import path
     sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
+from runlib import breaker as breakers
 from runlib import packet as packets
 from runlib import receipts, records, usage as usages, validate
 from runlib.records import Refused
@@ -387,6 +388,10 @@ def claude_completion(c, errors):
         return
     if r.get("is_error") is not False:
         errors.append(f"COMPLETION_INCOMPLETE is_error={r.get('is_error')!r} (subtype {r.get('subtype')!r} is not read)")
+    overrun = breakers.cap_overrun(r, c.call.get("max_output_tokens"))
+    if overrun is not None:
+        errors.append(f"COMPLETION_INCOMPLETE max_output_tokens: the response passed the call's declared cap of {overrun} "
+                      f"output tokens, and the host ended the call")
     if r.get("terminal_reason") != "completed":
         errors.append(f"COMPLETION_INCOMPLETE terminal_reason={r.get('terminal_reason')!r}, not 'completed'")
     stops = r.get("safety_stops")
@@ -1016,6 +1021,21 @@ def self_test():
     # --- completion -------------------------------------------------------------------------
     control("claude-real-truncation-max-tokens", claude_case("ctl-truncation-001"),
             "COMPLETION_INCOMPLETE stop_reason 'max_tokens'", "COMPLETION_INCOMPLETE is_error=True", realization="replay")
+    # the host's cap overrun (WP-03v dw5, the recorded cap16 result): named at the cap the call declared, never elsewhere
+    overrun = fixture("claude-runner", "cap16-overrun", "result.json")
+
+    def overran(cap):
+        def edit(files):
+            files["result.json"] = overrun
+            jedit(files, "call.json", lambda o: o.update(max_output_tokens=cap))
+        return edit
+    control("claude-cap-overrun-is-named-at-the-declared-cap", variant(claude, overran(16)),
+            "COMPLETION_INCOMPLETE max_output_tokens: the response passed the call's declared cap of 16 output tokens",
+            "COMPLETION_INCOMPLETE is_error=True", "COMPLETION_INCOMPLETE terminal_reason='api_error'")
+    elsewhere = control("claude-cap-overrun-sentence-at-another-cap-is-not-named", variant(claude, overran(4096)),
+                        "COMPLETION_INCOMPLETE is_error=True")
+    if any("max_output_tokens:" in line for line in elsewhere["failures"]):
+        failures.append(f"claude-cap-overrun-sentence-at-another-cap-is-not-named: {elsewhere['failures']}")
     control("claude-real-killed-midstream", claude_case("ctl-killed-001"), "COMPLETION_INCOMPLETE exit: the runner exited 143",
             "COMPLETION_INCOMPLETE result: the host wrote no result object",
             "MODEL_UNATTESTED no main response carries an observed model", realization="replay")
@@ -1769,6 +1789,8 @@ def self_test():
         "no refusal (Claude)": ("claude-refusal-shape-replayed", "COMPLETION_INCOMPLETE"),
         "no refusal (Codex frames)": ("codex-planted-refusal-frame", "COMPLETION_INCOMPLETE"),
         "no truncation (Claude max_tokens)": ("claude-real-truncation-max-tokens", "COMPLETION_INCOMPLETE"),
+        # lead ruling on WP-03v dw5 (cap16): the host ends a call past its declared cap with an api_error, named here
+        "Claude cap overrun named at the declared cap": ("claude-cap-overrun-is-named-at-the-declared-cap", "COMPLETION_INCOMPLETE"),
         "Claude completion read from is_error, not subtype": ("claude-is-error-while-subtype-reads-success", "COMPLETION_INCOMPLETE"),
         "Claude terminal_reason completed": ("claude-terminal-reason-present-not-completed", "COMPLETION_INCOMPLETE"),
         "Claude every assistant stop_reason in end_turn/stop_sequence/tool_use": ("claude-real-truncation-max-tokens", "COMPLETION_INCOMPLETE"),
@@ -1950,6 +1972,8 @@ def self_test():
         ("claude_completion", "COMPLETION_INCOMPLETE result: the host wrote no result object"): ("result object",),
         ("claude_completion", "COMPLETION_INCOMPLETE safety_stops: the result does not report it"): ("Claude safety_stops present",),
         ("claude_completion", "COMPLETION_INCOMPLETE safety_stops={}"): ("Claude safety_stops zero",),
+        ("claude_completion", "COMPLETION_INCOMPLETE max_output_tokens: the response passed the call's declared cap of {} "
+                              "output tokens, and the host ended the call"): ("Claude cap overrun named at the declared cap",),
         ("claude_completion", "COMPLETION_INCOMPLETE stop_reason {} on request {}"): (
             "Claude every assistant stop_reason in end_turn/stop_sequence/tool_use", "no truncation (Claude max_tokens)"),
         ("claude_completion", "COMPLETION_INCOMPLETE structured_output: none, although a schema was given"): (

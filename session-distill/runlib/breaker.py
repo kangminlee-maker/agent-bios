@@ -9,7 +9,8 @@ never on message text:
   Claude  result.api_error == "usage_limit_reached" with api_error_status 429 and
           terminal_reason "api_error"; a rate_limit_event whose status is "rejected"
           (its resetsAt and rateLimitType); a result with is_error and no api_error field is
-          unrecognised, unless its subtype is one of the secondary bounds (CLAUDE_BOUND_STOPS)
+          unrecognised, unless its subtype is one of the secondary bounds (CLAUDE_BOUND_STOPS);
+          a cap overrun (cap_overrun) is the call's own outcome and no signal
   Codex   an error frame with status 429 and code "usage_limit_reached"; an otel
           codex.api_request to /responses with HTTP status 429 (other endpoints such as
           /models are excluded, design §3.2); a codex.rate_limits frame with limit_reached true
@@ -17,9 +18,16 @@ never on message text:
 Both hosts retry other failures themselves, so a final 5xx (or 529) is a known transient
 failure: the call failed, the provider stays open for dispatch. An error the breaker recognises
 as neither — any other status, an error frame without one, or a host-reported failure that
-carries no structured field at all (its text may say "usage limit"; text is not read) — also
+carries no structured field at all (its text may say "usage limit"; text is not read to find a
+limit) — also
 stops dispatch to that provider and is reported; it stays stopped until the operator resets it,
 since nothing says when it ends.
+
+One sentence is read: Claude Code 2.1.304 ends a call whose response passes its declared
+--max-output-tokens with api_error "max_output_tokens" and the sentence CAP_OVERRUN, instead of
+stopping at max_tokens (WP-03v dw5, cap16). Only its number is read, and only to bind the
+overrun to this call's own cap: when it equals the cap the call declared, the call failed by
+itself and nothing stops; any other number, or any other api_error, stays unrecognised.
 
 State: `<run-dir>/supervisor/breaker.state.json`, per provider `{open, since, signal, resets_at,
 deferred_items[]}` (plan WP-02), written under the `breaker` lock and confined to the run
@@ -39,6 +47,7 @@ refused PROVIDER_DEFERRED.
 import ast
 import contextlib
 import pathlib
+import re
 import sys
 
 if __package__ in (None, ""):  # run as a script: put session-distill/ on the import path
@@ -64,8 +73,25 @@ def status_of(value):
         return None
 
 
-def claude_signals(events):
-    """Signals in a Claude stream: its events, including the closing `result`."""
+CAP_OVERRUN = re.compile(r"API Error: Claude's response exceeded the (\d+) output token maximum\. To configure this "
+                         r"behavior, set the CLAUDE_CODE_MAX_OUTPUT_TOKENS environment variable\.")
+
+
+def cap_overrun(result, cap):
+    """The declared cap a Claude result says its response passed, or None: every structured
+    field of the host's cap overrun, and CAP_OVERRUN's number equal to `cap`, the positive cap
+    this call declared."""
+    if not isinstance(result, dict) or type(cap) is not int or cap <= 0 or not isinstance(result.get("result"), str):
+        return None
+    said = CAP_OVERRUN.fullmatch(result["result"])
+    return cap if (result.get("type") == "result" and result.get("is_error") is True
+                   and result.get("terminal_reason") == "api_error" and result.get("api_error") == "max_output_tokens"
+                   and result.get("api_error_status") is None and said is not None and int(said.group(1)) == cap) else None
+
+
+def claude_signals(events, cap=None):
+    """Signals in a Claude stream: its events, including the closing `result`; `cap` is the
+    output-token cap the call declared, against which a cap overrun is the call's own."""
     out = []
     for e in events:
         if e.get("type") == "rate_limit_event":
@@ -76,6 +102,8 @@ def claude_signals(events):
             elif info.get("status") not in KNOWN_RATE_STATUS:
                 out.append({"kind": "unrecognised", "source": "rate_limit_event", "resets_at": None,
                             "detail": f"status {info.get('status')!r}"})
+        elif e.get("type") == "result" and cap_overrun(e, cap) is not None:
+            continue  # the call passed its own declared cap: a call-level outcome the gate names, not a provider's
         elif e.get("type") == "result" and (e.get("api_error") is not None or e.get("api_error_status") is not None):
             status = status_of(e.get("api_error_status"))
             if e.get("api_error") == "usage_limit_reached" and status == 429 and e.get("terminal_reason") == "api_error":
@@ -306,6 +334,19 @@ def self_test():
                                                                            "result": "You've hit your usage limit.",
                                                                            "api_error": None, "api_error_status": None}])),
             [("unrecognised", "result")])
+    # the host's cap overrun (WP-03v dw5, the recorded cap16 result): the call's own outcome at its
+    # declared cap; the same sentence at another number, or another api_error, stops the provider
+    overrun = json.loads((replay / "claude-runner" / "cap16-overrun" / "result.json").read_text(encoding="utf-8"))
+    control("claude-cap-overrun-at-the-declared-cap-is-the-calls-own", (cap_overrun(overrun, 16), claude_signals([overrun], cap=16)), (16, []))
+    control("claude-cap-overrun-at-another-cap-stops-the-provider", kinds(claude_signals([overrun], cap=4096)),
+            [("unrecognised", "result.api_error")])
+    control("claude-cap-overrun-without-a-declared-cap-stops-the-provider", kinds(claude_signals([overrun])),
+            [("unrecognised", "result.api_error")])
+    control("claude-cap-overrun-sentence-on-another-api-error-stops-the-provider",
+            kinds(claude_signals([dict(overrun, api_error="invalid_request")], cap=16)), [("unrecognised", "result.api_error")])
+    control("claude-unrelated-api-error-stops-the-provider",
+            kinds(claude_signals([dict(overrun, result="API Error: something else went wrong.")], cap=16)),
+            [("unrecognised", "result.api_error")])
     control("claude-turn-bound-is-not-a-provider-error",
             claude_signals([{"type": "result", "is_error": True, "subtype": "error_max_turns", "api_error": None}]), [])
 
@@ -330,6 +371,9 @@ def self_test():
         control("closed-at-start", (b.is_open("claude", 0), b.is_open("codex", 0)), (False, False))
         b.observe("claude", claude_signals(normal), 10)
         control("normal-signals-open-nothing", b.is_open("claude", 10), False)
+        b.observe("claude", claude_signals([overrun], cap=16), 20)
+        control("a-cap-overrun-at-the-declared-cap-leaves-the-breaker-closed",
+                (b.is_open("claude", 20), b.state()["claude"]["signal"], b.state()["claude"]["deferred_items"]), (False, None, []))
         b.observe("claude", claude_limit, 100)
         b.defer("claude", "S6:c1")
         b.defer("claude", "S6:c2")
