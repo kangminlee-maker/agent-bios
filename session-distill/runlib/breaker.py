@@ -86,7 +86,7 @@ def cap_overrun(result, cap):
     said = CAP_OVERRUN.fullmatch(result["result"])
     return cap if (result.get("type") == "result" and result.get("is_error") is True
                    and result.get("terminal_reason") == "api_error" and result.get("api_error") == "max_output_tokens"
-                   and result.get("api_error_status") is None and said is not None and int(said.group(1)) == cap) else None
+                   and "api_error_status" in result and result["api_error_status"] is None and said is not None and int(said.group(1)) == cap) else None
 
 
 def claude_signals(events, cap=None):
@@ -341,6 +341,9 @@ def self_test():
     control("claude-cap-overrun-at-another-cap-stops-the-provider", kinds(claude_signals([overrun], cap=4096)),
             [("unrecognised", "result.api_error")])
     control("claude-cap-overrun-without-a-declared-cap-stops-the-provider", kinds(claude_signals([overrun])),
+            [("unrecognised", "result.api_error")])
+    control("claude-cap-overrun-without-its-status-field-stops-the-provider",
+            kinds(claude_signals([{k: v for k, v in overrun.items() if k != "api_error_status"}], cap=16)),
             [("unrecognised", "result.api_error")])
     control("claude-cap-overrun-sentence-on-another-api-error-stops-the-provider",
             kinds(claude_signals([dict(overrun, api_error="invalid_request")], cap=16)), [("unrecognised", "result.api_error")])

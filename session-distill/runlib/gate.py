@@ -269,8 +269,11 @@ def frame_owner():
 
 
 def codex_responses(c):
-    """The owner's responses, each with the seat key its role is judged against."""
-    return [dict(r, seat="child_seat" if r["role"] == "child" else "seat") for r in frame_owner().responses(c.frames)]
+    """The owner's responses, each with the seat it is judged against: the child seat for any
+    request a sub-agent sent — its turn, warm-up or compaction alike —, else the main seat."""
+    def child(send):
+        return bool(send and (send.get("parent_thread_id") or (send.get("agent_name") or "/root") != "/root"))
+    return [dict(r, seat="child_seat" if child(r["send"]) else "seat") for r in frame_owner().responses(c.frames)]
 
 
 def codex_completions(c):
@@ -1271,7 +1274,7 @@ def self_test():
     root = "01a15879-8cf7-7922-b112-264744011239"
     kid = "01a15879-0000-7000-8000-00000000c41d"
 
-    def with_child(model_in_frame, otel=True, effort="low", seat_effort="low"):
+    def with_child(model_in_frame, otel=True, effort="low", seat_effort="low", kind="turn"):
         def edit(files):
             created = {"dir": "recv", "type": "response.created", "ts": "2026-10-20T08:42:03.6Z",
                        "response": {"id": "resp_kid_0", "model": model_in_frame, "status": "in_progress", "generate": None,
@@ -1281,7 +1284,7 @@ def self_test():
                           "conversation.id": kid, "model": "fake-kid"})
             usage = {"input_tokens": 700, "cached_tokens": 0, "cache_write_tokens": 0, "output_tokens": 9, "reasoning_tokens": 0, "total_tokens": 709}
             for rec in ({"dir": "send", "type": "response.create", "ts": "2026-10-20T08:42:03.59Z", "thread_id": kid,
-                         "agent_name": "/root/kid", "request_kind": "turn", "parent_thread_id": root, "previous_response_id": None,
+                         "agent_name": "/root/kid", "request_kind": kind, "parent_thread_id": root, "previous_response_id": None,
                          "prompt_cache_key": root, "model": "fake-kid", "reasoning_effort": None},
                         created, {**created, "type": "response.completed", "response": {**created["response"], "status": "completed", "usage": usage}}):
                 frame(files, rec)
@@ -1289,7 +1292,8 @@ def self_test():
                 frame(files, {"dir": "otel", "ts": "2026-10-20T08:42:03.61Z", "event.name": "codex.sse_event", "event.kind": "response.completed",
                               "input_token_count": "700", "output_token_count": "9", "cached_token_count": "0", "conversation.id": kid, "model": "fake-kid"})
             jedit(files, "call.json", lambda o: o.update(child_seat=f"codex:fake-kid/{seat_effort}"))
-            jedit(files, "usage.json", lambda o: o["requests"].append({"id": "resp_kid_0", "role": "child", "state": "measured", "input": 700,
+            role = {"prewarm": "warmup", "compaction": "compaction"}.get(kind, "child")
+            jedit(files, "usage.json", lambda o: o["requests"].append({"id": "resp_kid_0", "role": role, "state": "measured", "input": 700,
                                                                        "output": 9, "cache_read": 0, "cache_creation": 0, "estimate": None}))
         return edit
     control("codex-child-on-its-declared-seat", variant(codex, with_child("fake-kid")))
@@ -1299,6 +1303,18 @@ def self_test():
         failures.append(f"an unattested child's usage was not still recorded: {unattested_child['usage']}")
     control("codex-child-on-the-main-seat", variant(codex, with_child("fake-model")),
             "MODEL_UNATTESTED resp_kid_0 (child) came from 'fake-model', the seat is 'fake-kid'")
+    # a sub-agent's warm-up and compaction are the child seat's, whatever their request kind
+    for kind, role in (("prewarm", "warmup"), ("compaction", "compaction")):
+        control(f"codex-child-{role}-on-the-child-seat", variant(codex, with_child("fake-kid", kind=kind)))
+        control(f"codex-child-{role}-on-the-main-model", variant(codex, with_child("fake-model", kind=kind)),
+                f"MODEL_UNATTESTED resp_kid_0 ({role}) came from 'fake-model', the seat is 'fake-kid'")
+        for name, effort, seat_effort, want in (("its-own-effort", "medium", "medium", "host-reported"),
+                                                ("the-main-effort", "low", "medium", "unverified")):
+            ran.append(f"effort-child-{role}-echoes-{name}")
+            got = accept(materialize(variant(codex, with_child("fake-kid", effort=effort, seat_effort=seat_effort, kind=kind))))
+            if got["effort_provenance"] != want or not got["ok"]:
+                failures.append(f"effort-child-{role}-echoes-{name}: provenance {got['effort_provenance']}, expected {want}; "
+                                f"{got['failures']}")
     control("codex-child-without-a-declared-seat", variant(codex, with_child("fake-kid"),
                                                            lambda f: jedit(f, "call.json", lambda o: o.update(child_seat=None))),
             "MODEL_UNATTESTED resp_kid_0 (child): no seat is declared for the role")

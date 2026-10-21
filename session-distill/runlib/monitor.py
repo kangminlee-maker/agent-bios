@@ -1106,6 +1106,18 @@ def self_test():
     control("allowed-rate-limit-signals-nothing", seen == [], f"{seen}")
     m.line(json.dumps({"type": "rate_limit_event", "rate_limit_info": {"status": "rejected", "resetsAt": 5}}), 1.0)
     control("claude-limit-signalled-as-read", [[s["source"] for s in batch] for batch in seen] == [["rate_limit_event"]], f"{seen}")
+    # the host's cap overrun read in flight (WP-03v dw5, the recorded cap16 result): no signal at the
+    # call's own declared cap; without its api_error_status field, or with no cap passed, a provider stop
+    overrun = json.loads((pathlib.Path(__file__).resolve().parents[1] / "fixtures" / "replay" / "claude-runner"
+                          / "cap16-overrun" / "result.json").read_text(encoding="utf-8"))
+    for name, result, cap, want in (("cap-overrun-at-the-declared-cap-signals-nothing-in-flight", overrun, 16, []),
+                                    ("cap-overrun-without-its-status-field-signals-in-flight",
+                                     {k: v for k, v in overrun.items() if k != "api_error_status"}, 16, [["result.api_error"]]),
+                                    ("cap-overrun-without-a-passed-cap-signals-in-flight", overrun, None, [["result.api_error"]])):
+        seen = []
+        m = Monitor("claude", {"tokens": 10 ** 9, "compactions": 9}, on_signal=seen.append, output_cap=cap)
+        m.line(json.dumps(result), 1.0)
+        control(name, [[s["source"] for s in batch] for batch in seen] == want, f"{seen}")
     seen = []
     m = Monitor("codex", {"tokens": 10 ** 9, "compactions": 9}, on_signal=seen.append)
     m.line('2026-10-21T00:00:01.000000Z TRACE tungstenite::protocol: Received message '
