@@ -814,6 +814,8 @@ cmd_install() {
   done
   codex_config_additions merge || exit 1
   deploy_file "$REPO/wrappers/codex-run.sh"  "$CODEX_DIR/bin/codex-run"  "+x"
+  # codex-run resolves its capture helper beside itself, so the helper lands in the same bin.
+  deploy_file "$REPO/wrappers/codex_frame_filter.py" "$CODEX_DIR/bin/codex_frame_filter.py"
   deploy_file "$REPO/wrappers/codex-helm.sh" "$CODEX_DIR/bin/codex-helm" "+x"
   # The claude-side adapter lands under CLAUDE_DIR for the same reason its codex twin
   # lands under CODEX_DIR: each is that host's, and a single shared bin would make the
@@ -1113,6 +1115,7 @@ PY
   # itself when the deploy failed is not checked at all.
   verify_present "$CLAUDE_DIR/bin/claude-run" || fail=1
   verify_present "$CLAUDE_DIR/bin/claude_hermetic_evidence.py" || fail=1
+  verify_present "$CODEX_DIR/bin/codex_frame_filter.py" || fail=1
   # Then WHICH version landed, because this file is on the panel's dispatch path now and
   # an older copy would dispatch reviews that quietly emit nothing. The earlier check
   # here asserted that an unpinned dispatch is refused; that guard was deliberately

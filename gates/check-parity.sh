@@ -269,6 +269,12 @@ fi
 # Every module is also registered in gates/control-audit.py SUBJECTS. They run under the same
 # python3 as learn/check-learning.py; runlib/validate.py refuses by name a jsonschema other than
 # JSONSCHEMA_PIN in launch/provision-venv.sh, so a different interpreter fails here, not silently.
+# The Codex adapter's capture helper: its frame allow-list, the completion-ledger join, attempts and
+# coverage, and the events whitelist (golden); the adapter's capture runs in check_parity.py codex_run.
+if [ -f wrappers/codex_frame_filter.py ]; then
+  python3 wrappers/codex_frame_filter.py --self-test >/dev/null \
+    || { echo "FAIL: codex capture helper self-test (wrappers/codex_frame_filter.py)"; fail=1; }
+fi
 if [ -f session-distill/distill.py ]; then
   python3 session-distill/distill.py --self-test >/dev/null \
     || { echo "FAIL: session-distill driver self-test (declare -> stage -> amend -> stage)"; fail=1; }

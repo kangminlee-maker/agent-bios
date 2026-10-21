@@ -80,6 +80,8 @@ SUBJECTS = [
     "session-distill/runlib/monitor.py",
     "session-distill/runlib/stop.py",
     "session-distill/runlib/breaker.py",
+    # The Codex adapter's capture helper (shipped), registered by name for the same reason.
+    "wrappers/codex_frame_filter.py",
 ]
 # The not-audited disclosure is DERIVED, not typed. The first version typed two shell
 # gates here while the tracked tree held five shell checkers — the audit tool carrying

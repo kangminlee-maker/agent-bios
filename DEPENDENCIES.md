@@ -214,6 +214,12 @@ Agent-bios does not install credentials or infer a model account from dependency
   `codex-helm.sh` and `claude-run.sh` from the selected package. Their command paths,
   binding, reach and fallback are declared in the launch contract. An unavailable or
   unauthenticated opposite-family route is reported, not credited as a completed review.
+- **Codex capture** — `codex-run --capture DIR` records one call's evidence through
+  `wrappers/codex_frame_filter.py` (standard-library Python 3), resolved beside the adapter.
+  It reads codex-cli 0.163.0's trace frames, which appear only under the caller's
+  `RUST_LOG=tungstenite::protocol=trace,codex_otel.log_only=info,codex_core::responses_retry=warn`;
+  the channel is unsupported and version-bound, so a capture without it attests no model. A
+  capture refuses a codex whose version is not `CODEX_RUN_VERSION` (`HOST_VERSION_MISMATCH`).
 <!-- mcp-inventory:start -->
 <!-- facts: {"bundlers": {"compose/app_desktop/server.py": ["compose/instructions_app.py"]}, "capabilities": [], "servers": ["compose/app_desktop/server.py"]} -->
 - **MCP servers** — derived from source by `gates/check-mcp-inventory.py`.
@@ -282,6 +288,7 @@ for path in paths:
 PY
 bash -n install.sh launch/provision-venv.sh wrappers/codex-run.sh wrappers/codex-helm.sh wrappers/claude-run.sh
 python3 wrappers/claude_hermetic_evidence.py --self-test
+python3 wrappers/codex_frame_filter.py --self-test
 zsh -n launch/agent-launch.zsh
 ./gates/check-parity.sh
 ```

@@ -1,0 +1,19 @@
+realization: replay (probe 9, codex-cli 0.163.0 against the probe's local fault injector)
+source: distill-probes-20261020/codex-accounting (outside the repository)
+SHA256SUMS: codex-accounting/SHA256SUMS (sha256 e1779a27b0d07ee0d1bda33792b195f75f8fe256d3071bb2151b34c18e5039a5)
+read (sha256 as listed in SHA256SUMS and verified at copy time):
+  raw/f-http-500-once/frames.jsonl  21401bc6992719f8442eb90622de0c08087cfd6ec83c4885789aafa853a3fe64
+  raw/f-http-500-once/events.jsonl  dda2e31a35a70c82b68780e9b1d38dd998acbca55d03969c7f3eb9e597f1dc50
+projection:
+  frames.jsonl: a channels record naming the channels whose records the probe's reduction kept (frames, otel;
+    the probe's RUST_LOG also opened codex_core, but its reduction kept no warning line), then each record of
+    the recording reduced to wrappers/codex_frame_filter.py's allow-list: the root thread; client
+    response.create turn metadata; server frames carrying a response (RESP_KEYS, reasoning effort, token
+    counts), rate-limit, error and refusal frames; otel request, websocket and codex.sse_event
+    created/completed rows (OTEL_KEYS); every other record dropped
+  events.jsonl: each --json event passed through wrappers/codex_frame_filter.py reduce_event(): the
+    thread.started thread id, turn.started, turn.completed's integer usage counts, and the type alone
+    of turn.failed and top-level error events (no message); item events dropped
+golden variant: the codex_run leg adds the retry channel and one planted responses_retry
+  warning to show how a warning accounts for a post; the recording itself carries none, and probe 9
+  saw none for this retry (codex-accounting RESULTS.md section 2.5)

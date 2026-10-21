@@ -2440,24 +2440,19 @@ def self_test(scratch=None):
     found, _at = plant("session-distill/screen-codex.py", "import subprocess\nsubprocess.run(['codex', 'exec'])")
     control("a-mention-outside-the-closure-is-not-a-failure", not found, f"{found}")
 
-    # the adapters' own sources, as they will ship (the tree's file once it states the final
-    # interface, else the lane's branch until integration): what their bind check and refusal
-    # inventory are judged against, never a copy made here
-    def adapter_source(rel, marker, ref):
+    # the adapters' own sources, as they ship (the tree's file, and only once it states the final
+    # interface): what their bind check and refusal inventory are judged against, never a copy
+    # made here
+    def adapter_source(rel, marker):
         path = REPO / rel
         if path.is_file() and marker in path.read_text(encoding="utf-8", errors="replace"):
             return path.read_text(encoding="utf-8", errors="replace")
-        # transitional: this branch fallback is removed in the WP-04 integration commit, once the tree carries both adapters
-        for name in (ref, f"origin/{ref}"):  # a clone names the lane's branch under its remote
-            shown = subprocess.run(["git", "-C", str(REPO), "show", f"{name}:{rel}"], capture_output=True, text=True)
-            if shown.returncode == 0 and marker in shown.stdout:
-                return shown.stdout
         return None
     claude_marker = "A dispatcher calls one hermetic Claude call as"
-    sources = {"claude": [adapter_source("wrappers/claude-run.sh", claude_marker, "wp/03-claude-hermetic"),
-                          adapter_source("wrappers/claude_hermetic_evidence.py", "def bind_problems", "wp/03-claude-hermetic")],
-               "codex": [adapter_source("wrappers/codex-run.sh", "CODEX_RUN_VERSION", "wp/04-codex-capture"),
-                         adapter_source("wrappers/codex_frame_filter.py", "CONTEXT_EVIDENCE_MISSING", "wp/04-codex-capture")]}
+    sources = {"claude": [adapter_source("wrappers/claude-run.sh", claude_marker),
+                          adapter_source("wrappers/claude_hermetic_evidence.py", "def bind_problems")],
+               "codex": [adapter_source("wrappers/codex-run.sh", "CODEX_RUN_VERSION"),
+                         adapter_source("wrappers/codex_frame_filter.py", "CONTEXT_EVIDENCE_MISSING")]}
     control("adapter-sources-are-readable", all(all(texts) for texts in sources.values()),
             f"ADAPTER_SOURCE_ABSENT {[(h, [t is not None for t in texts]) for h, texts in sources.items()]}")
 

@@ -174,7 +174,8 @@ installs global instructions nor enables native instructions hooks or agents.
 - **Authority** — `RECEIPT_KEYS` and `verify_review_receipts` in
   `launch/agent-launch.py`; the producers are the adapters in `wrappers/`. The chain is
   exercised end to end by `gates/check-receipt-chain.py`, over a space derived from the
-  config rather than a list of scenarios.
+  config rather than a list of scenarios. A Codex capture's evidence (the call's frames, usage and
+  effective context, reduced to an allow-list) is produced by `wrappers/codex_frame_filter.py`.
 
 ### Capability withholding
 

@@ -1,0 +1,16 @@
+realization: replay (probe 9, codex-cli 0.163.0 against the probe's local fault injector)
+source: distill-probes-20261020/codex-accounting (outside the repository)
+SHA256SUMS: codex-accounting/SHA256SUMS (sha256 e1779a27b0d07ee0d1bda33792b195f75f8fe256d3071bb2151b34c18e5039a5)
+read (sha256 as listed in SHA256SUMS and verified at copy time):
+  raw/f-ws-refuse-always-fallback/frames.jsonl  8f3099ef60ea531cb0c5e53bbb6760a690489358d23314dd21bd904dc35a7237
+  raw/f-ws-refuse-always-fallback/events.jsonl  a23cefee450c0dab99d6c8dc6611af4bc4457888f3eda5c3b21c25a2fa222a6d
+projection:
+  frames.jsonl: a channels record naming the channels whose records the probe's reduction kept (frames, otel;
+    the probe's RUST_LOG also opened codex_core, but its reduction kept no warning line), then each record of
+    the recording reduced to wrappers/codex_frame_filter.py's allow-list: the root thread; client
+    response.create turn metadata; server frames carrying a response (RESP_KEYS, reasoning effort, token
+    counts), rate-limit, error and refusal frames; otel request, websocket and codex.sse_event
+    created/completed rows (OTEL_KEYS); every other record dropped
+  events.jsonl: each --json event passed through wrappers/codex_frame_filter.py reduce_event(): the
+    thread.started thread id, turn.started, turn.completed's integer usage counts, and the type alone
+    of turn.failed and top-level error events (no message); item events dropped

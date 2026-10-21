@@ -1974,6 +1974,435 @@ def codex_run():
             failed, _ = fake_call(["bash", str(run), "--profile", "inherit", "--bypass-sandbox"])
             if failed.returncode != 7:
                 mark_fail(f"codex-run returns {failed.returncode} instead of Codex exit status 7")
+            codex_run_capture(tmp, run)
+
+
+# The capture mode's fake host: it answers `--version`, renders `debug prompt-input` and
+# `app-server` thread/start the way codex-cli 0.163.0 does for the homes and overrides it is
+# given (built-in skills under CODEX_HOME/skills/.system, user skills under HOME/.agents/skills,
+# AGENTS.md from the git root down to the cwd unless project_doc_max_bytes=0), and for `exec
+# --json` emits canned events and, under the RUST_LOG channels a capture reads, a warm-up and a
+# turn as trace frames and otel rows. The sent frames carry the packet and the received ones an
+# output canary, so a capture that kept a body is caught.
+FAKE_CODEX_CAPTURE = r'''#!/usr/bin/env python3
+import json, os, pathlib, sys, tomllib, zlib
+argv = sys.argv[1:]
+home, codex_home = pathlib.Path(os.environ["HOME"]), pathlib.Path(os.environ["CODEX_HOME"])
+config = dict(argv[i + 1].split("=", 1) for i, a in enumerate(argv[:-1]) if a == "-c")
+BUILTIN = ("imagegen", "openai-docs", "skill-creator", "skill-installer")
+
+def instruction_files(cwd):
+    if config.get("project_doc_max_bytes") == "0":
+        return []
+    chain, at = [], pathlib.Path(cwd)
+    while True:
+        chain.insert(0, at)
+        if (at / ".git").exists() or at.parent == at:
+            break
+        at = at.parent
+    if not (chain[0] / ".git").exists():
+        chain = [pathlib.Path(cwd)]
+    return [d / "AGENTS.md" for d in chain if (d / "AGENTS.md").is_file()]
+
+def rendering(cwd, prompt):
+    system = codex_home / "skills" / ".system"
+    for name in BUILTIN:
+        (system / name).mkdir(parents=True, exist_ok=True)
+        (system / name / "SKILL.md").write_text(name + "\n")
+    roots, skills = [str(system)], [f"- {n}: built in. (file: r0/{n}/SKILL.md)" for n in BUILTIN]
+    user = home / ".agents" / "skills"
+    if user.is_dir():
+        roots.append(str(user))
+        skills += [f"- {d.name}: a user skill. (file: r1/{d.name}/SKILL.md)" for d in sorted(user.iterdir())]
+    text = ("<skills_instructions>\n### Skill roots\n" + "".join(f"- `r{n}` = `{r}`\n" for n, r in enumerate(roots))
+            + "### Skills\n" + "\n".join(skills) + "\n</skills_instructions>")
+    out = [{"type": "message", "role": "developer", "content": [{"type": "input_text", "text": text}]}]
+    if "developer_instructions" in config:
+        out.append({"type": "message", "role": "developer", "content": [{"type": "input_text",
+                    "text": tomllib.loads("v = " + config["developer_instructions"])["v"]}]})
+    files = instruction_files(cwd)
+    if files:
+        body = "".join(f.read_text() for f in files)
+        out.append({"type": "message", "role": "user", "content": [{"type": "input_text",
+                    "text": f"# AGENTS.md instructions for {cwd}\n\n<INSTRUCTIONS>\n{body}</INSTRUCTIONS>"}]})
+    out.append({"type": "message", "role": "user", "content": [{"type": "input_text", "text": f"<environment_context><cwd>{cwd}</cwd></environment_context>"}]})
+    out.append({"type": "message", "role": "user", "content": [{"type": "input_text", "text": prompt}]})
+    return out
+
+if argv[:1] == ["--version"]:
+    print("codex-cli 0.163.0")
+elif argv[:2] == ["debug", "prompt-input"]:
+    print(json.dumps(rendering(os.getcwd(), argv[-1])))
+elif argv[:1] == ["app-server"]:
+    for line in sys.stdin:
+        msg = json.loads(line)
+        received = (msg.get("params") or {}).get("config") or {}
+        if received and os.environ.get("FAKE_APPSERVER_CONFIG"):
+            pathlib.Path(os.environ["FAKE_APPSERVER_CONFIG"]).write_text(json.dumps(received))
+        config.update({k: str(v) for k, v in received.items()})
+        if msg.get("id") == 1:
+            print(json.dumps({"id": 1, "result": {}}), flush=True)
+        elif msg.get("id") == 2 and os.environ.get("FAKE_CODEX_APPSERVER") == "fail":
+            print(json.dumps({"id": 2, "error": {"code": -32603, "message": "thread/start failed"}}), flush=True)
+        elif msg.get("id") == 2:
+            print(json.dumps({"id": 2, "result": {"instructionSources": [str(f) for f in instruction_files(os.getcwd())],
+                                                  "model": "gpt-6-luna", "cwd": os.getcwd()}}), flush=True)
+elif argv[:1] == ["exec"]:
+    if os.environ.get("FAKE_CODEX_ARGV"):
+        pathlib.Path(os.environ["FAKE_CODEX_ARGV"]).write_text("\n".join(argv) + "\n")
+    packet = sys.stdin.read()
+    model = argv[argv.index("--model") + 1] if "--model" in argv else "gpt-6-luna"
+    effort = next((a.split("=", 1)[1].strip('"') for a in argv if a.startswith("model_reasoning_effort=")), "low")
+    thread = "01a15879-0000-7000-8000-00000000c0de"
+    log = os.environ.get("RUST_LOG", "")
+    frames, otel = "tungstenite::protocol=trace" in log, "codex_otel.log_only=info" in log
+    t = "2026-10-21T00:00:0"
+    err = sys.stderr
+    err.write(f'{t}0.000000Z  INFO codex.exec{{thread.id="{thread}"}}: started\n')
+    err.write("progress-err\n")
+    deflate, prev = zlib.compressobj(wbits=-15), None
+    for n, kind, usage in ((1, "prewarm", (11814, 0)), (2, "turn", (13595, 15))):
+        rid = f"resp_fake_{n}"
+        if otel:
+            err.write(f'{t}{n}.000000Z  INFO session_loop{{thread_id={thread}}}: codex_otel.log_only: '
+                      f'event.name="codex.websocket_request" conversation.id={thread} model={model}\n')
+        create = {"type": "response.create", "model": model, "previous_response_id": prev, "prompt_cache_key": thread,
+                  "reasoning": {"effort": effort}, "input": [{"type": "message", "content": [{"text": packet}]}],
+                  "client_metadata": {"x-codex-turn-metadata": json.dumps({"thread_id": thread, "agent_name": "/root",
+                                                                           "request_kind": kind})}}
+        data = (deflate.compress(json.dumps(create).encode()) + deflate.flush(zlib.Z_SYNC_FLUSH))[:-4]
+        resp = {"id": rid, "model": model, "status": "in_progress", "previous_response_id": prev, "prompt_cache_key": thread,
+                "reasoning": {"effort": effort}, "generate": False if kind == "prewarm" else None}
+        done = dict(resp, status="completed", output=[{"type": "message", "content": [{"text": "OUTPUT-BODY-CANARY"}]}],
+                    usage={"input_tokens": usage[0], "output_tokens": usage[1], "total_tokens": sum(usage),
+                           "input_tokens_details": {"cached_tokens": 0, "cache_write_tokens": 0}})
+        if frames:
+            err.write(f"{t}{n}.100000Z TRACE tungstenite::protocol::frame: writing frame\nopcode: TEXT\n"
+                      f"reserved: true false false\npayload: 0x{data.hex()}\n")
+            err.write(f"{t}{n}.200000Z TRACE tungstenite::protocol: Received message "
+                      + json.dumps({"type": "response.created", "response": resp}) + "\n")
+            err.write(f"{t}{n}.250000Z TRACE tungstenite::protocol: Received message "
+                      + json.dumps({"type": "response.output_text.delta", "delta": "OUTPUT-BODY-CANARY"}) + "\n")
+            err.write(f"{t}{n}.300000Z TRACE tungstenite::protocol: Received message "
+                      + json.dumps({"type": "response.completed", "response": done}) + "\n")
+        if otel:
+            err.write(f'{t}{n}.300000Z  INFO session_loop{{thread_id={thread}}}: codex_otel.log_only: '
+                      f'event.name="codex.sse_event" event.kind=response.completed conversation.id={thread} '
+                      f'input_token_count={usage[0]} output_token_count={usage[1]} cached_token_count=0 '
+                      f'cache_write_token_count=0 model={model}\n')
+        prev = rid
+    if os.environ.get("FAKE_CODEX_EXTRA") and frames:
+        err.write(f"{t}3.000000Z TRACE tungstenite::protocol: Received message "
+                  + json.dumps({"type": "response.refusal.done", "refusal": "OUTPUT-BODY-CANARY"}) + "\n")
+        err.write(f'{t}3.100000Z  WARN session_loop{{thread_id={thread}}}:turn{{otel.name="session_task.turn"}}: '
+                  f'codex_core::responses_retry: stream disconnected - retrying sampling request (1/5)\n')
+    if "--json" in argv:
+        for event in ({"type": "thread.started", "thread_id": thread}, {"type": "turn.started"},
+                      {"type": "item.completed", "item": {"type": "agent_message", "text": "OUTPUT-BODY-CANARY"}},
+                      {"type": "turn.completed", "usage": {"input_tokens": 13595, "output_tokens": 15}}):
+            print(json.dumps(event))
+        pathlib.Path(argv[argv.index("-o") + 1]).write_text("final-out")
+    else:
+        print("final-out")
+    sys.exit(int(os.environ.get("FAKE_CODEX_STATUS", "0")))
+'''
+
+# The receipt evidence a capture must carry: design §3.2 step 1's list with the plan's
+# payload_sha256, as WP-02's session-distill/runlib/receipts.py EVIDENCE_KEYS names it.
+CAPTURE_EVIDENCE_KEYS = ("call_id", "schema_sha256", "payload_sha256", "seat_observed", "profile", "profile_flags_sha256",
+                         "cwd", "manifest_sha256", "context_observed_sha256", "usage_state", "usage_totals",
+                         "capture_sha256", "session_id")
+# frames.jsonl is the combined frame and otel artifact the plan lists as frames.jsonl and otel.jsonl
+# (addendum 2026-10-21T1752); no rollout exists under the hermetic --ephemeral profile.
+CAPTURE_FILES = ("frames.jsonl", "events.jsonl", "host.json", "usage.json", "prompt-input.txt", "instruction-sources.json")
+CAPTURE_TRACE = "tungstenite::protocol=trace,codex_otel.log_only=info,codex_core::responses_retry=warn"
+HERMETIC_FLAGS = ["--ignore-user-config", "--ephemeral", "-c", "project_doc_max_bytes=0"]
+
+
+def capture_digest(capture):
+    """The digest over a capture's files (relative path and sha256), as the adapter and the gate compute it."""
+    listed = sorted([str(p.relative_to(capture)), hashlib.sha256(p.read_bytes()).hexdigest()]
+                    for p in capture.rglob("*") if p.is_file())
+    return hashlib.sha256(json.dumps(listed, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+
+
+def receipt_key_problems(receipt_dir, call_id):
+    """RECEIPT_KEY_MISSING (and binding) problems of the one receipt a capture run wrote."""
+    receipts = sorted(receipt_dir.glob("*.json")) if receipt_dir.is_dir() else []
+    if len(receipts) != 1:
+        return [f"RECEIPT_MISSING {len(receipts)} receipts in {receipt_dir.name}, expected one"]
+    evidence = json.loads(receipts[0].read_text()).get("evidence") or {}
+    problems = [f"RECEIPT_KEY_MISSING evidence.{key}" for key in CAPTURE_EVIDENCE_KEYS if key not in evidence]
+    if evidence.get("call_id", call_id) != call_id:
+        problems.append(f"RECEIPT_STALE evidence.call_id {evidence.get('call_id')!r}")
+    return problems
+
+
+def codex_run_capture(tmp, run):
+    """Capture mode (WP-04): whitelisted capture files, the evidence keys, the effective-context
+    rendering, the inherit argv unchanged, the helper resolved beside the adapter, and the
+    replayed probe recordings through the helper's usage and attestation summary."""
+    helper_src = run.parent / "codex_frame_filter.py"
+    if not helper_src.is_file():
+        mark_fail("required file missing: wrappers/codex_frame_filter.py")
+        return
+    bin_dir = tmp / "capture-bin"
+    bin_dir.mkdir()
+    (bin_dir / "codex").write_text(FAKE_CODEX_CAPTURE)
+    (bin_dir / "codex").chmod(0o755)
+    (bin_dir / "agent-launch").write_text(f'#!/bin/sh\nexec python3 {pathlib.Path("launch/agent-launch.py").resolve()} "$@"\n')
+    (bin_dir / "agent-launch").chmod(0o755)
+    owner_home = tmp / "capture-owner-codex-home"
+    owner_home.mkdir()
+    (owner_home / "auth.json").write_text("{}\n")
+    repo = tmp / "capture-repo"
+    (repo / ".git").mkdir(parents=True)
+    (repo / "AGENTS.md").write_text("project rules CANARY-AGENTS\n")
+    base = dict(os.environ, PATH=f"{bin_dir}{os.pathsep}{os.environ.get('PATH', '')}", CODEX_HOME=str(owner_home),
+                AGENT_LAUNCH_BIN=str(bin_dir / "agent-launch"), RUST_LOG=CAPTURE_TRACE,
+                CODEX_RUN_BIN=str(bin_dir / "codex"), CODEX_RUN_VERSION="0.163.0")
+    for key in ("REVIEW_CAPTURE_DIR", "REVIEW_CALL_ID", "DISTILL_CALL_ID", "REVIEW_RECEIPT_DIR", "REVIEW_CONTEXT_MANIFEST",
+                "FAKE_CODEX_APPSERVER", "FAKE_CODEX_EXTRA"):
+        base.pop(key, None)
+    packet = "CALL-ID: wp04-golden\n=== PAYLOAD ===\nPROMPT-BODY-CANARY review this\n"
+    runs = [0]
+
+    def capture(adapter, profile, *extra, env_update=None, unset=()):
+        runs[0] += 1
+        cap, receipts, argv_log = (tmp / f"capture-{runs[0]}", tmp / f"capture-{runs[0]}-receipts",
+                                   tmp / f"capture-{runs[0]}-argv")
+        env = dict(base, REVIEW_CALL_ID=f"wp04-golden-{runs[0]}", REVIEW_RECEIPT_DIR=str(receipts),
+                   FAKE_CODEX_ARGV=str(argv_log), **(env_update or {}))
+        for key in unset:
+            env.pop(key, None)
+        result = invoke(["bash", str(adapter), "--profile", profile, "--model", "gpt-6-luna", "--effort", "low",
+                         "--cd", str(repo), "--capture", str(cap), *extra, "-"], input_text=packet, env=env)
+        return result, cap, receipts, env["REVIEW_CALL_ID"], argv_log
+
+    def jload(path):
+        return json.loads(path.read_text())
+
+    result, cap, receipts, call_id, _ = capture(run, "hermetic")
+    if result.returncode != 0 or result.stdout != "final-out\n":
+        mark_fail(f"codex-run capture did not deliver the final message ({result.returncode}): {result.stderr.strip()[-300:]}")
+        return
+    missing = [name for name in CAPTURE_FILES if not (cap / name).is_file()]
+    if missing:
+        mark_fail(f"codex-run capture lacks {missing}")
+        return
+    # the fake put the packet in its sent frames and a canary in its received ones; both reached
+    # stderr (the channel), neither may reach a capture file
+    if "PROMPT-BODY-CANARY" in result.stderr or "OUTPUT-BODY-CANARY" not in result.stderr or "progress-err" not in result.stderr:
+        mark_fail("codex-run capture changed codex's stderr channel, so the body control proves nothing")
+    for name in sorted(p.name for p in cap.rglob("*") if p.is_file()):
+        text = (cap / name).read_text(errors="replace")
+        for canary in ("PROMPT-BODY-CANARY", "OUTPUT-BODY-CANARY"):
+            if canary in text:
+                mark_fail(f"codex-run capture keeps a body: {canary} in {name}")
+    frames = [json.loads(line) for line in (cap / "frames.jsonl").read_text().splitlines()]
+    kinds = [r.get("request_kind") for r in frames if r.get("dir") == "send"]
+    models = {(r.get("response") or {}).get("model") for r in frames if r.get("dir") == "recv"}
+    if kinds != ["prewarm", "turn"] or models != {"gpt-6-luna"}:
+        mark_fail(f"codex-run capture lost the turn metadata or the served model: kinds {kinds}, models {models}")
+    usage, host = jload(cap / "usage.json"), jload(cap / "host.json")
+    if usage.get("unattested") or not usage.get("reconciled") \
+            or {(f["model"], f["effort"]) for f in usage.get("threads", {}).get("01a15879-0000-7000-8000-00000000c0de", [])} \
+            != {("gpt-6-luna", "low")} \
+            or sorted(r["role"] for r in usage.get("requests", [])) != ["main", "warmup"]:
+        mark_fail(f"codex-run clean capture is not attested and reconciled: {usage.get('unattested')} {usage.get('requests')}")
+    flags_sha = hashlib.sha256(json.dumps(HERMETIC_FLAGS, separators=(",", ":")).encode()).hexdigest()
+    if host.get("profile") != "hermetic" or host.get("profile_flags_sha256") != flags_sha or host.get("call_id") != call_id \
+            or host.get("session_id") != "01a15879-0000-7000-8000-00000000c0de" or host.get("cwd") != str(repo):
+        mark_fail(f"codex-run host.json does not record the call: {host.get('profile')}, {host.get('profile_flags_sha256')}")
+    for problem in receipt_key_problems(receipts, call_id):
+        mark_fail(f"codex-run capture receipt: {problem}")
+    receipt = jload(next(receipts.glob("*.json")))
+    if receipt.get("evidence", {}).get("capture_sha256") != capture_digest(cap):
+        mark_fail("codex-run receipt capture_sha256 is not the digest of the capture it names")
+    # done-when 2: hermetic at --cd inside a repository renders no AGENTS.md message and only built-in skills
+    rendered = (cap / "prompt-input.txt").read_text()
+    if "# AGENTS.md instructions" in rendered or host["context"]["instructions"] \
+            or host["rendering"]["skill_roots"] != ["@CODEX_HOME/skills/.system"] \
+            or host["context"]["skills"] != ["imagegen", "openai-docs", "skill-creator", "skill-installer"]:
+        mark_fail(f"codex-run hermetic rendering at --cd {repo.name} is not isolated: {host['context']} {host['rendering']}")
+    # the rendering keeps what reaches the model, under the call's roots normalised, never the packet
+    if str(repo) in rendered or os.path.realpath(repo) in rendered or "@CWD" not in rendered:
+        mark_fail("codex-run prompt-input.txt keeps the call's own paths instead of @CWD")
+    # an inline instruction override reaches the context contract as an appended prompt with the
+    # hash of its text (the baseline above holds none), and an instruction file override is refused
+    if host["context"]["appended_prompts"] != []:
+        mark_fail(f"codex-run hermetic baseline records appended prompts: {host['context']['appended_prompts']}")
+    baseline_context = receipt.get("evidence", {}).get("context_observed_sha256")
+    result, cap, receipts_dir, _, _ = capture(run, "hermetic", "-c", 'developer_instructions="INJECTED-RULE"')
+    injected = jload(cap / "host.json")["context"]["appended_prompts"] if (cap / "host.json").is_file() else []
+    observed = jload(next(receipts_dir.glob("*.json"))).get("evidence", {}).get("context_observed_sha256") \
+        if receipts_dir.is_dir() and any(receipts_dir.glob("*.json")) else None
+    if injected != [{"name": "developer_instructions", "sha256": hashlib.sha256(b"INJECTED-RULE").hexdigest()}] \
+            or observed in (None, baseline_context):
+        mark_fail(f"codex-run inline developer instructions do not reach the context contract: {injected}")
+    result, _, _, _, argv_log = capture(run, "hermetic", "-c", 'model_instructions_file="/tmp/rules.md"')
+    if result.returncode != 3 or "CODEX_INSTRUCTION_OVERRIDE_UNSUPPORTED" not in result.stderr or argv_log.exists():
+        mark_fail(f"codex-run capture with an instruction file override was not refused by name: {result.stderr.strip()[-200:]}")
+    # one decoding: the text the app-server is configured with is the text that was hashed; a
+    # TOML literal string, which JSON cannot read, is the case that tells two decoders apart, and a
+    # multi-line string must keep its line break in every reader: the rendered text, the app-server
+    # value and the recorded digest are all of the one decoded text
+    for label, spelled, text in (("literal", r"'rules at C:\path\rule'", r"rules at C:\path\rule"),
+                                 ("multi-line", "'''first rule\nsecond rule'''", "first rule\nsecond rule")):
+        seen_config = tmp / f"capture-appserver-config-{label}.json"
+        result, cap, _, _, _ = capture(run, "hermetic", "-c", f"developer_instructions={spelled}",
+                                       env_update={"FAKE_APPSERVER_CONFIG": str(seen_config)})
+        sent = json.loads(seen_config.read_text()).get("developer_instructions") if seen_config.is_file() else None
+        hashed = jload(cap / "host.json")["context"]["appended_prompts"] if (cap / "host.json").is_file() else []
+        rendered_messages = json.loads((cap / "prompt-input.txt").read_text()) if (cap / "prompt-input.txt").is_file() else []
+        shown = [part.get("text") for m in rendered_messages if m.get("role") == "developer"
+                 for part in m.get("content") or [] if part.get("text") == text]
+        if result.returncode != 0 or sent != text or shown != [text] \
+                or hashed != [{"name": "developer_instructions", "sha256": hashlib.sha256(text.encode()).hexdigest()}]:
+            mark_fail(f"codex-run {label} instruction: app-server got {sent!r}, rendered {shown}, hashed {hashed}")
+    # which of two settings of one instruction key codex keeps is its precedence; a capture refuses the pair
+    result, _, _, _, argv_log = capture(run, "hermetic", "-c", 'developer_instructions="A"', "-c", "developer_instructions='B'")
+    if result.returncode != 3 or "CODEX_INSTRUCTION_OVERRIDE_REPEATED" not in result.stderr or argv_log.exists():
+        mark_fail(f"codex-run capture with a repeated instruction override was not refused by name: {result.stderr.strip()[-200:]}")
+    # its control: the inherit profile at the same --cd renders the AGENTS.md message, so the rendering can see one
+    result, cap, _, _, _ = capture(run, "inherit")
+    seen = jload(cap / "host.json")["context"]["instructions"] if (cap / "host.json").is_file() else []
+    if result.returncode != 0 or "# AGENTS.md instructions" not in (cap / "prompt-input.txt").read_text() \
+            or [i.get("kind") for i in seen] != ["AGENTS.md"]:
+        mark_fail(f"codex-run inherit rendering at the same --cd shows no AGENTS.md, so isolation is unproven: {seen}")
+
+    # the inherit profile's argv is P1's, byte for byte; capture only appends its own two channels
+    _, _, _, _, argv_log = capture(run, "inherit")
+    without = invoke(["bash", str(run), "--profile", "inherit", "--model", "gpt-6-luna", "--effort", "low", "--cd", str(repo), "-"],
+                     input_text=packet, env=dict(base, FAKE_CODEX_ARGV=str(tmp / "plain-argv")))
+    plain = (tmp / "plain-argv").read_text().splitlines()
+    expected = ["exec", "--skip-git-repo-check", "--sandbox", "read-only", "--model", "gpt-6-luna", "--cd", str(repo),
+                "-c", 'model_reasoning_effort="low"']
+    captured = argv_log.read_text().splitlines()
+    if without.returncode != 0 or plain != expected:
+        mark_fail(f"codex-run inherit argv changed: {plain}")
+    if captured[:-3] != expected or captured[-3:-1] != ["--json", "-o"]:
+        mark_fail(f"codex-run capture changes the inherit argv beyond --json -o: {captured}")
+
+    # the reduction the helper stores is the one any reader gets: a refusal frame and a retry
+    # warning printed inside the turn's spans both survive into the capture
+    result, cap, _, _, _ = capture(run, "hermetic", env_update={"FAKE_CODEX_EXTRA": "1"})
+    kept = [json.loads(line) for line in (cap / "frames.jsonl").read_text().splitlines()] if (cap / "frames.jsonl").is_file() else []
+    if not any(r.get("type") == "response.refusal.done" for r in kept) or not any(r.get("dir") == "warn" for r in kept):
+        mark_fail(f"codex-run capture lost a refusal frame or a span-prefixed retry warning: {[r.get('type') for r in kept]}")
+
+    # a named Codex profile cannot be rendered, so a capture refuses it before anything runs
+    for extra in (["-p", "fakeprof"], ["-c", "profile=fakeprof"]):
+        result, cap, _, _, argv_log = capture(run, "hermetic", *extra)
+        if result.returncode != 2 or "CODEX_PROFILE_UNSUPPORTED" not in result.stderr or argv_log.exists():
+            mark_fail(f"codex-run capture with {' '.join(extra)} was not refused by name: {result.stderr.strip()[-200:]}")
+
+    # the pinned host: a version other than the pin is refused before anything runs
+    result, cap, _, _, argv_log = capture(run, "hermetic", env_update={"CODEX_RUN_VERSION": "0.162.0"})
+    if result.returncode != 3 or "HOST_VERSION_MISMATCH" not in result.stderr or argv_log.exists():
+        mark_fail(f"codex-run capture at another codex version was not refused by name: {result.stderr.strip()[-200:]}")
+    # the host record of instruction sources is required: a failed thread/start refuses the call
+    result, cap, _, _, argv_log = capture(run, "hermetic", env_update={"FAKE_CODEX_APPSERVER": "fail"})
+    if result.returncode != 3 or "CONTEXT_EVIDENCE_MISSING app-server" not in result.stderr or argv_log.exists():
+        mark_fail(f"codex-run dispatched without the host's instruction sources: {result.stderr.strip()[-200:]}")
+
+    # RUST_LOG unset: the frames are silent and the capture says so (the live control is WP-04v's)
+    result, cap, _, _, _ = capture(run, "hermetic", unset=("RUST_LOG",))
+    silent = jload(cap / "usage.json") if (cap / "usage.json").is_file() else {}
+    if silent.get("frames_seen") != 0 or not any("MODEL_UNATTESTED frames silent" in u for u in silent.get("unattested", [])) \
+            or "does not open tungstenite::protocol=trace" not in result.stderr:
+        mark_fail(f"codex-run capture without RUST_LOG is not fail-closed: {silent.get('unattested')}")
+
+    # the helper is resolved beside the adapter, never from the checkout
+    alone = tmp / "capture-alone"
+    alone.mkdir()
+    shutil.copy(run, alone / "codex-run.sh")
+    result, cap, _, _, _ = capture(alone / "codex-run.sh", "hermetic")
+    if result.returncode != 3 or "capture helper missing beside the adapter" not in result.stderr \
+            or any(cap.rglob("*") if cap.exists() else []):
+        mark_fail(f"codex-run without its helper did not refuse by name ({result.returncode}): {result.stderr.strip()[-200:]}")
+
+    # control: a helper that drops one evidence key yields RECEIPT_KEY_MISSING naming it
+    planted = tmp / "capture-planted"
+    planted.mkdir()
+    shutil.copy(run, planted / "codex-run.sh")
+    source = helper_src.read_text()
+    marker = '"capture_sha256", "session_id")'
+    if marker not in source:
+        mark_fail("codex-run evidence-key control could not be planted: the helper's EVIDENCE_KEYS changed shape")
+    else:
+        (planted / "codex_frame_filter.py").write_text(source.replace(marker, '"capture_sha256")', 1))
+        _, _, receipts, call_id, _ = capture(planted / "codex-run.sh", "hermetic")
+        if receipt_key_problems(receipts, call_id) != ["RECEIPT_KEY_MISSING evidence.session_id"]:
+            mark_fail(f"codex-run evidence-key control did not fire by name: {receipt_key_problems(receipts, call_id)}")
+
+    # done-when 4: probe 9's retained recordings, replayed through the helper's summary
+    spec = importlib.util.spec_from_file_location("codex_frame_filter", helper_src)
+    helper = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(helper)
+    fixtures = pathlib.Path("gates/fixtures/codex-capture")
+    cases = sorted(p.name for p in fixtures.iterdir()) if fixtures.is_dir() else []
+    if cases != ["f-http-500-once", "f-http-sse-drop", "f-normal-ws", "f-ws-refuse-always-fallback"]:
+        mark_fail(f"codex-run replay fixtures are not the four retained recordings: {cases}")
+        return
+
+    def replay(case, edit=None):
+        recs = helper.read_jsonl(str(fixtures / case / "frames.jsonl"))
+        return helper.summarize(edit(recs) if edit else recs)
+
+    def per_thread(summary):
+        return [(a["completed"], a["interrupted"], a["failed_posts"], a["coverage"]) for a in summary["attempts"].values()]
+
+    def has(summary, *needles):
+        return all(any(needle in line for line in summary["unattested"]) for needle in needles)
+    # every committed event row is exactly what the helper's events whitelist keeps
+    for case in cases:
+        for line in (fixtures / case / "events.jsonl").read_text().splitlines():
+            row = json.loads(line)
+            if helper.reduce_event(row) != row:
+                mark_fail(f"codex-run replay {case}/events.jsonl holds a row the events whitelist would not keep: {row}")
+    clean = replay("f-normal-ws")
+    if clean["unattested"] or not clean["reconciled"] or per_thread(clean) != [(2, 0, 0, "complete")]:
+        mark_fail(f"codex-run replay f-normal-ws is not accepted clean: {clean['unattested']}")
+    blind = replay("f-ws-refuse-always-fallback")
+    if not has(blind, "frames_blind", "MODEL_UNATTESTED completion at") or blind["reconciled"] \
+            or [(r["role"], r["state"], r["input"]) for r in blind["requests"]] != [("unknown", "measured", 1000)]:
+        mark_fail(f"codex-run replay transport fallback is not frames_blind with otel usage: {blind['requests']}")
+    dropped = replay("f-http-sse-drop")
+    # the dropped stream is an attempt; its usage is unresolved, never estimated from the later
+    # completion (lead ruling on review C#3: the capture keeps no content for design §13.3's estimate)
+    if [(r["state"], r["estimate"]) for r in dropped["requests"] if r["state"] != "measured"] != [("unresolved", None)] \
+            or per_thread(dropped) != [(1, 1, 0, "unknown")]:
+        mark_fail(f"codex-run replay HTTP drop is not an interrupted attempt of unresolved usage: {dropped['requests']}")
+    retried = replay("f-http-500-once")
+    if per_thread(retried) != [(1, 0, 0, "unknown")] or not has(retried, "HTTPS streams: the HTTP transport keeps no record"):
+        mark_fail(f"codex-run replay HTTP retry claims coverage the recording cannot give: {retried['attempts']}")
+
+    # lead decision (addendum 2026-10-21T1752): an HTTP call without a warning is never complete, even
+    # with the retry channel captured, because a 500 retried before streaming leaves no warning
+    silent = replay("f-http-500-once", lambda recs: [dict(r, channels=["frames", "otel", "responses_retry"])
+                                                     if r.get("type") == "channels" else r for r in recs])
+    if per_thread(silent) != [(1, 0, 0, "unknown")] or not has(silent, "HTTPS streams: the HTTP transport keeps no record"):
+        mark_fail(f"codex-run HTTP call without a retry warning reads complete: {silent['attempts']}")
+
+    def with_warning(recs):
+        recs = [dict(r, channels=["frames", "otel", "responses_retry"]) if r.get("type") == "channels" else r for r in recs]
+        return recs + [{"dir": "warn", "type": "responses_retry", "ts": "2026-10-20T08:42:18.200000Z"}]
+    # golden: the recording carries no warning and probe 9 saw none for this retry. A warning is
+    # counted as the failed post it names (two posts, one stream), and still the thread stays
+    # unknown: a further post could have failed silently beside it (lead ruling, review F#1)
+    warned = replay("f-http-500-once", with_warning)
+    if per_thread(warned) != [(1, 1, 1, "unknown")] or not has(warned, "USAGE_ATTRIBUTION_UNKNOWN"):
+        mark_fail(f"codex-run HTTP retry warning is not counted, or made the thread complete: {warned['attempts']}")
+    other = "01a15879-0000-7000-8000-0000000004f7"
+
+    def mixed(recs):  # golden (no retained mixed-coverage recording exists; addendum 2026-10-21T1752)
+        return recs + [dict(r, **{"conversation.id": other}) for r in recs if r.get("dir") == "otel"
+                       and r.get("event.kind") == "response.completed"][:1]
+    mixed_summary = replay("f-normal-ws", mixed)
+    if not has(mixed_summary, f"frames_blind {other}") or any(f"frames_blind {clean_thread}" in line for line in
+                                                                mixed_summary["unattested"] for clean_thread in clean["attempts"]):
+        mark_fail(f"codex-run mixed coverage does not single out the unframed thread: {mixed_summary['unattested']}")
 
 
 @check
