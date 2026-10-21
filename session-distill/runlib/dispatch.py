@@ -2455,6 +2455,9 @@ def self_test(scratch=None):
     planted("script-entry-the-site-never-runs", "session-distill/runlib/claims.py", "",
             "INVENTORY_STALE script run session-distill/runlib/claims.py -> session-distill/census.py: the site runs no such script",
             scripts=SCRIPT_RUNS + ({"site": "session-distill/runlib/claims.py", "path": "session-distill/census.py", "reason": "x"},))
+    planted("script-entry-naming-no-file", "session-distill/runlib/claims.py", "",
+            "INVENTORY_STALE script run session-distill/runlib/claims.py -> session-distill/gone.py: no such file",
+            scripts=SCRIPT_RUNS + ({"site": "session-distill/runlib/claims.py", "path": "session-distill/gone.py", "reason": "x"},))
     planted("an-undeclared-load-beside-a-declared-one", "session-distill/runlib/ledger.py",
             "import importlib.util\nX = importlib.util.spec_from_file_location('x', HERE / 'other.py')",
             "DYNAMIC_LOAD_UNDECLARED {at}: loads '<?>/other.py', declared nowhere", 1)
