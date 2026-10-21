@@ -236,6 +236,7 @@ Codex direct-drive(0.144.1, 2026-07-12 확인):
 - 이는 security boundary가 아니라 instruction-backed, live-E2E-verified default다. Main bypass와 임의 expert `-c`는 의도적으로 남는다. `frontier.toml`은 direct native FRONTIER의 기본 effort를 max로 고정하고, launcher projection은 선택한 tier 값으로 덮어쓴다.
 - `codex-run`은 reach, stdin, schema, profile, expert `-c`, channel, exit status를 소유하는 internal adapter다.
 - `claude-run`은 그 Claude 쪽 쌍이며, composable review 계약이 그 host의 panel dispatch에 지목하는 명령이다. 형태가 같다: prompt는 stdin, 최종 메시지는 stdout, exit status 그대로, `--model`/`--effort`로 seat을 pin하고, 인식하지 못하는 인자는 전부 `claude`로 forward한다. 기본으로 mutating tool을 거부하지만 이는 `codex-run`이 받는 OS 수준 sandbox가 아니다 — 두 기본값을 동등한 보장으로 읽지 않는다. 맨 CLI가 아니라 **계약이 지목한 명령**을 dispatch한다: dispatch가 실제로 무엇을 했는지 보고할 수 있는 것은 adapter뿐이고, receipt 없는 review는 PROPOSED로 남는다.
+- `claude-run --profile hermetic`은 격리된 Claude 경로다: 호출마다 `HOME` 밖의 새 cell(`HOME`, `CLAUDE_CONFIG_DIR`, 작업 디렉터리), subscription token만 넣어 새로 만든 환경, `--safe-mode --setting-sources "" --strict-mcp-config --disable-slash-commands --tools ""`. 사용자와 작업 디렉터리(및 그 상위 디렉터리)의 `CLAUDE.md`, skill, memory, MCP server, hook, settings를 막는다. 선언한 지시는 sha256과 함께 `--append-system-prompt-file`로만 들어가고, `REVIEW_CAPTURE_DIR`에는 host가 실제로 불러온 것의 기록이 남는다. `--use producing`은 `--manifest` 안의 `Read`만 허용한다.
 
 Dispatch packet:
 

@@ -185,7 +185,9 @@ installs global instructions nor enables native instructions hooks or agents.
 - **Fails as** — a reviewer that inherited the instructions agrees with it; a Vanilla path
   that still sees a legacy marker is not instructions-free merely because the launch argv is
   empty.
-- **Authority** — `--profile hermetic` in `wrappers/codex-run.sh`; the structural
+- **Authority** — `--profile hermetic` in `wrappers/codex-run.sh` and in
+  `wrappers/claude-run.sh`, whose evidence of what the call loaded is rendered by
+  `wrappers/claude_hermetic_evidence.py`; the structural
   Software Engineer short-circuit in `launch/agent-launch.py`; private-at-rest default
   and explicit legacy cleanup in `compose/instructions_install.py`.
 

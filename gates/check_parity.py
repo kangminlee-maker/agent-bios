@@ -2254,6 +2254,763 @@ def claude_run():
         if failed.returncode != 7:
             mark_fail(f"claude-run returns {failed.returncode} instead of Claude exit status 7")
 
+    claude_run_hermetic(run)
+
+
+# A golden Claude host for the hermetic leg: it starts no model. It records what it was given
+# (argv, environment, working directory, what HOME held) into the cell — the one file the
+# token is allowed to reach, deliberately — and then behaves as Claude Code 2.1.304 does
+# for the sources the claude-runner probe measured (RESULTS.md §2.2): a CLAUDE.md in the
+# working directory or an ancestor loads as Project, one in the configuration home as User,
+# an auto-memory file as AutoMem, a skill under the configuration home is listed; --safe-mode
+# removes every one, --setting-sources "" all but auto-memory, --disable-slash-commands the
+# skills. It writes the transcript records the evidence helper reads and the stream-json the
+# adapter forwards. A packet line `EXIT n` sets its exit status; `READ|GREP|GLOB|BASH arg`
+# requests a tool, granted only as --tools and the `Read(//dir/**)` allow rule say; `LEAK`
+# makes a refused read carry the file anyway. `--version` alone answers the baked VERSION. A
+# working-directory .mcp.json's servers connect unless --strict-mcp-config or --safe-mode, and
+# the configuration home's settings.json hooks run (each by its event) unless --safe-mode.
+FAKE_CLAUDE_HOST = r'''
+import hashlib, json, os, pathlib, re, sys, uuid
+argv = sys.argv[1:]
+if argv == ["--version"]:
+    print(f"{VERSION} (Claude Code)")
+    sys.exit(0)
+packet = sys.stdin.read()
+cwd, home, config = os.getcwd(), os.environ.get("HOME", ""), os.environ.get("CLAUDE_CONFIG_DIR", "")
+def last(flag, default=None):
+    found = default
+    for i, a in enumerate(argv):
+        if a == flag and i + 1 < len(argv):
+            found = argv[i + 1]
+        elif a.startswith(flag + "="):
+            found = a.split("=", 1)[1]
+    return found
+dump = {"argv": argv, "env": dict(os.environ), "cwd": cwd,
+        "home_entries": sorted(os.listdir(home)) if os.path.isdir(home) else None}
+cell = pathlib.Path(config).parent
+if (cell / "cwd").is_dir() and (cell / "home").is_dir():
+    (cell / "fake-dump.json").write_text(json.dumps(dump))
+pathlib.Path(OUT).write_text(json.dumps({k: v for k, v in dump.items() if k != "env"}
+                                        | {"env_names": sorted(dump["env"]),
+                                           "max_output": os.environ.get("CLAUDE_CODE_MAX_OUTPUT_TOKENS")}))
+safe = "--safe-mode" in argv
+sources = last("--setting-sources")
+def loads(kind):
+    if safe:
+        return False
+    if kind == "AutoMem" or sources is None:
+        return True
+    return {"User": "user", "Project": "project"}[kind] in sources.split(",")
+slug = re.sub(r"[^A-Za-z0-9]", "-", cwd)
+files = []
+if loads("Project"):
+    for d in [pathlib.Path(cwd), *pathlib.Path(cwd).parents]:
+        if (d / "CLAUDE.md").is_file():
+            files.append((str(d / "CLAUDE.md"), "Project", (d / "CLAUDE.md").read_text()))
+if config and loads("User") and (pathlib.Path(config) / "CLAUDE.md").is_file():
+    files.append((str(pathlib.Path(config) / "CLAUDE.md"), "User", (pathlib.Path(config) / "CLAUDE.md").read_text()))
+memory = pathlib.Path(config) / "projects" / slug / "memory" / "MEMORY.md"
+if config and loads("AutoMem") and memory.is_file():
+    files.append((str(memory), "AutoMem", memory.read_text()))
+skills = [] if safe or "--disable-slash-commands" in argv else sorted(
+    p.parent.name for p in (pathlib.Path(config) / "skills").glob("*/SKILL.md"))
+appended = [pathlib.Path(argv[i + 1]).read_text().strip() for i, a in enumerate(argv)
+            if a == "--append-system-prompt-file" and i + 1 < len(argv)]
+if last("--append-system-prompt") is not None:
+    appended.append(last("--append-system-prompt"))
+schema = json.loads(last("--json-schema")) if last("--json-schema") else None
+session = last("--session-id") or str(uuid.uuid4())
+model, granted = last("--model", "claude-default"), [t for t in re.split(r"[ ,]", last("--tools", "default") or "") if t]
+rule = re.fullmatch(r"Read\(/(/.*)/\*\*\)", last("--allowedTools", "") or "")
+def canonical(o):
+    return json.dumps(o, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+records, blocks = [], []
+if files:
+    blocks.append({"type": "text", "text": "<system-reminder>\nCodebase and user instructions are shown below:\n\n"
+                   + "\n\n".join(f"Contents of {p} ({k}):\n\n{c}" for p, k, c in files)})
+    records.append({"type": "attachment", "attachment": {"type": "instructions",
+                    "files": [{"path": p, "type": k, "content": c} for p, k, c in files]}})
+if skills:
+    records.append({"type": "attachment", "attachment": {"type": "skill_listing", "names": skills}})
+mcp = [] if safe or "--strict-mcp-config" in argv or not (pathlib.Path(cwd) / ".mcp.json").is_file() else sorted(
+    json.loads((pathlib.Path(cwd) / ".mcp.json").read_text()).get("mcpServers", {}))
+if mcp:
+    records.append({"type": "attachment", "attachment": {"type": "deferred_tools_delta", "pendingMcpServers": mcp}})
+settings = pathlib.Path(config) / "settings.json"
+hooks = [] if safe or not settings.is_file() or (sources is not None and "user" not in sources.split(",")) else sorted(
+    json.loads(settings.read_text()).get("hooks", {}))
+for event in hooks:
+    records.append({"type": "attachment", "attachment": {"type": "hook_success", "hookName": event, "hookEvent": event}})
+blocks.append({"type": "text", "text": packet})
+records.append({"type": "attachment", "attachment": {"type": "environment", "snapshot": {"workingDirectory": cwd}}})
+records.append({"type": "user", "sessionId": session, "cwd": cwd, "message": {"role": "user", "content": blocks}})
+tools = ([{"name": "StructuredOutput", "input_schema": schema}] if schema else []) + [{"name": t} for t in granted]
+records.append({"type": "api-request-shape", "shapeHash": "s1", "shape": {
+    "system": [{"text": "You are Claude Code."}, {"text": "# Environment"}] + [{"text": t} for t in appended],
+    "tools": tools}})
+first = {"role": "user", "content": blocks}
+max_tokens = int(os.environ.get("CLAUDE_CODE_MAX_OUTPUT_TOKENS") or 32000)
+records.append({"type": "api-request", "id": "req-1", "shapeHash": "s1",
+                "tail": [hashlib.sha256(canonical(first).encode()).hexdigest()],
+                "params": {"model": model, "max_tokens": max_tokens, "output_config": {"effort": last("--effort")}}})
+content, results = [], []
+for n, line in enumerate(l for l in packet.splitlines() if re.match(r"(READ|GREP|GLOB|BASH) ", l)):
+    verb, arg = line.split(" ", 1)
+    tool = verb.title() if verb != "READ" else "Read"
+    content.append({"type": "tool_use", "id": f"tu{n}", "name": tool, "input": {"file_path": arg}})
+    if tool not in granted:
+        results.append((f"tu{n}", True, f"No such tool available: {tool}"))
+    elif rule is None or not os.path.realpath(arg).startswith(os.path.realpath(rule.group(1)) + os.sep):
+        # LEAK: a host that refuses the read and still returns the bytes (the scan's own control)
+        leaked = pathlib.Path(arg).read_text() if "LEAK" in packet.splitlines() else ""
+        results.append((f"tu{n}", True, "Permission to use Read has been denied." + leaked))
+    else:
+        results.append((f"tu{n}", False, pathlib.Path(arg).read_text()))
+answer = {"answer": "OK"}
+stop = "max_tokens" if max_tokens < 20 else "tool_use"
+if schema and stop == "tool_use":
+    content.append({"type": "tool_use", "id": "so", "name": "StructuredOutput", "input": answer})
+records.append({"type": "assistant", "requestRef": "req-1", "message": {
+    "id": "msg-1", "role": "assistant", "model": model, "stop_reason": stop, "content": content}})
+for tid, err, body in results:
+    records.append({"type": "user", "message": {"role": "user", "content": [
+        {"type": "tool_result", "tool_use_id": tid, "is_error": err, "content": body}]}})
+folder = pathlib.Path(config) / "projects" / slug
+folder.mkdir(parents=True, exist_ok=True)
+with open(folder / f"{session}.jsonl", "a") as log:
+    log.write("".join(json.dumps(r) + "\n" for r in records))
+usage = {"input_tokens": 3, "output_tokens": 7, "cache_read_input_tokens": 0, "cache_creation_input_tokens": 0}
+result = {"type": "result", "subtype": "success", "is_error": stop != "tool_use",
+          "terminal_reason": "completed" if stop == "tool_use" else "api_error", "safety_stops": 0,
+          "stop_reason": stop, "session_id": session, "result": "", "usage": usage,
+          "modelUsage": {model: {"inputTokens": 3, "outputTokens": 7, "cacheReadInputTokens": 0,
+                                 "cacheCreationInputTokens": 0}}}
+if schema and stop == "tool_use":
+    result["structured_output"] = answer
+print(json.dumps({"type": "system", "subtype": "init", "session_id": session,
+                  "mcp_servers": [{"name": n, "status": "pending"} for n in mcp]}))
+print(json.dumps({"type": "stream_event", "event": {"type": "message_start", "message": {"model": model, "usage": usage}}}))
+print(json.dumps(result))
+status = re.search(r"^EXIT (\d+)$", packet, re.M)
+sys.exit(int(status.group(1)) if status else 0)
+'''
+
+
+# The model-call gate, run in its own process by the claude_run leg: request on stdin
+# ({session_distill, calls: [[label, call directory]]}), {context_sets, verdicts} on stdout. It
+# seals each call's receipt with the evidence the gate itself derives, then judges the directory.
+GATE_JUDGE = r'''
+import hashlib, json, pathlib, sys
+request = json.load(sys.stdin)
+sys.path.insert(0, request["session_distill"])
+from runlib import gate, receipts
+verdicts = {}
+for label, d in request["calls"]:
+    d = pathlib.Path(d)
+    call = json.loads((d / "call.json").read_text())
+    provider, _, rest = call["seat"].partition(":")
+    model, _, effort = rest.rpartition("/")
+    (d / "receipt.json").write_text(json.dumps({
+        "schema": "ReviewReceipt/v1", "method_id": receipts.method_id(call["stage"], call["call_id"]),
+        "dispatch_id": hashlib.sha256(call["call_id"].encode()).hexdigest()[:32],
+        "packet_sha256": hashlib.sha256((d / "packet.md").read_bytes()).hexdigest(),
+        "result_sha256": hashlib.sha256((d / "result.json").read_bytes()).hexdigest(), "provider": provider,
+        "model": model, "effort": effort, "exit_status": call["exit_status"], "evidence": gate.receipt_evidence(d)}))
+    v = gate.accept(d)
+    verdicts[label] = {"ok": v["ok"], "codes": v["codes"], "failures": v["failures"]}
+print(json.dumps({"context_sets": list(gate.CONTEXT_SETS), "verdicts": verdicts}))
+'''
+
+# The effective-context inventory of design §8.1, empty: what a clean hermetic call renders.
+CLEAN_CONTEXT = {"instructions": [], "appended_prompts": [], "skills": [], "agents": [], "hooks": [], "mcp_servers": []}
+
+
+def claude_run_hermetic(run):
+    """`claude-run --profile hermetic`, golden: the cell, the child environment, the flag set
+    seats.json pins, the token's reach, the evidence the gate reads, and what the adapter
+    refuses. Every source and every refusal carries the counterpart that separates it: an
+    isolation check passes vacuously when nothing was planted, and a detector that reads the
+    profile instead of the loaded set passes the isolation half while seeing nothing."""
+    helper = pathlib.Path("wrappers/claude_hermetic_evidence.py")
+    seats_path = pathlib.Path("session-distill/seats.json")
+    for required in (helper, seats_path):
+        if not required.is_file():
+            mark_fail(f"required file missing: {required}")
+            return
+    seats = json.loads(seats_path.read_text(encoding="utf-8"))["hosts"]["claude"]
+    if seats.get("version") != "2.1.304" or "versions/2.1.304" not in seats.get("path", ""):
+        mark_fail(f"seats.json pins claude {seats.get('version')!r} at {seats.get('path')!r}, not the "
+                  f"versioned 2.1.304 binary the hermetic flag set was measured on")
+
+    def pinned(profile):
+        flags = seats.get("profiles", {}).get(profile)
+        return flags, hashlib.sha256(json.dumps(flags, sort_keys=True, separators=(",", ":"),
+                                                ensure_ascii=False).encode()).hexdigest()
+
+    # The model-call gate judges the captures once it is on this tree; until then the evidence it
+    # reads is asserted directly below. It runs in its own process under the interpreter every
+    # session-distill leg uses (its validator needs jsonschema, which this file's UI venv lacks).
+    gate = pathlib.Path("session-distill/runlib/gate.py")
+    gate = gate if gate.is_file() else None
+
+    with tempfile.TemporaryDirectory() as raw_tmp:
+        tmp = pathlib.Path(raw_tmp).resolve()
+        bin_dir, cells, log_home = tmp / "bin", tmp / "cells", tmp / "caller-config"
+        for d in (bin_dir, cells, log_home):
+            d.mkdir()
+        cells.chmod(0o700)
+        seen = tmp / "seen.json"
+        for name, version in (("claude", "2.1.304"), ("claude-2.1.303", "2.1.303")):
+            (bin_dir / name).write_text(f"#!{sys.executable}\nOUT = {str(seen)!r}\nVERSION = {version!r}\n" + FAKE_CLAUDE_HOST)
+        (bin_dir / "agent-launch").write_text("#!/usr/bin/env bash\nprintf '%s\\n' \"$@\" > \"$FAKE_RECEIPT\"\n")
+        for name in ("claude", "claude-2.1.303", "agent-launch"):
+            (bin_dir / name).chmod(0o755)
+        (bin_dir / "claude-current").symlink_to(bin_dir / "claude")
+        pinned_host = ["--claude-bin", str(bin_dir / "claude"), "--host-version", "2.1.304"]
+        # The documented token shape, never a real one: the prefix the subscription token
+        # carries and a random body, so a hit in any file is this run's and no one else's.
+        token = "sk-ant-oat01-" + secrets.token_urlsafe(70)
+        token_file = tmp / "claude-oauth.env"
+        token_file.write_text(f"CLAUDE_CODE_OAUTH_TOKEN={token}\n")
+        token_file.chmod(0o600)
+        receipt_log = tmp / "receipt-argv"
+        schema = tmp / "schema.json"
+        schema.write_text(json.dumps({"type": "object", "properties": {"answer": {"type": "string"}},
+                                      "required": ["answer"], "additionalProperties": False}))
+        base_env = {k: v for k, v in os.environ.items() if not k.startswith(("CLAUDE_", "REVIEW_", "DISTILL_"))}
+        base_env.update(PATH=f"{bin_dir}{os.pathsep}{base_env.get('PATH', '')}", CLAUDE_CONFIG_DIR=str(log_home),
+                        CLAUDE_RUN_TOKEN_FILE=str(token_file), AGENT_LAUNCH_BIN=str(bin_dir / "agent-launch"),
+                        FAKE_RECEIPT=str(receipt_log), REVIEW_METHOD_ID="parity-hermetic",
+                        PARITY_CALLER_ONLY="the caller's environment, which the child must not see")
+        pinned_args = ["--model", "claude-sonnet-5-5", "--effort", "medium"]
+        counter = iter(range(1000))
+
+        def new_cell():
+            cell = cells / f"cell-{next(counter)}"
+            for part in ("home", "config", "cwd"):
+                (cell / part).mkdir(parents=True)
+            return cell
+
+        def hermetic(*extra, cell=None, packet="CALL-ID: c\nReturn OK.\n", adapter=run, env_extra=None,
+                     profile="hermetic", capture=True, pin=True):
+            """One dispatch; returns (result, seen-by-the-fake, capture dir, host.json, receipt argv)."""
+            for stale in (seen, receipt_log):
+                stale.unlink(missing_ok=True)
+            cap = tmp / f"capture-{next(counter)}"
+            env = dict(base_env, REVIEW_RECEIPT_DIR=str(tmp / "receipts"), **(env_extra or {}))
+            if capture:
+                env["REVIEW_CAPTURE_DIR"] = str(cap)
+            if cell is not None:
+                env.update(DISTILL_CELL=str(cell), DISTILL_CALL_ID=cell.name)
+            host_args = pinned_host if pin and profile == "hermetic" and "--claude-bin" not in extra else []
+            result = invoke(["bash", str(adapter), "--profile", profile, *host_args, *extra], input_text=packet, env=env)
+            got = json.loads(seen.read_text()) if seen.exists() else None
+            if got is not None and cell is not None and (cell / "fake-dump.json").exists():
+                got["env"] = json.loads((cell / "fake-dump.json").read_text())["env"]
+            host = json.loads((cap / "host.json").read_text()) if (cap / "host.json").exists() else None
+            receipt = receipt_log.read_text().splitlines() if receipt_log.exists() else []
+            return result, got, cap, host, receipt
+
+        def files_holding(text, *roots):
+            hits = []
+            for root in roots:
+                for path in pathlib.Path(root).rglob("*") if pathlib.Path(root).exists() else []:
+                    # a symlink is the fixture's own pointer, not a copy of what it points at
+                    if path.is_file() and not path.is_symlink() and text.encode() in path.read_bytes():
+                        hits.append(path)
+            return sorted(hits)
+
+        def contiguous(needle, hay):
+            return any(hay[i:i + len(needle)] == needle for i in range(len(hay) - len(needle) + 1))
+
+        # --- done-when 1: the cell, the environment, the flag set, the token, the receipt ---
+        cell = new_cell()
+        result, got, cap, host, receipt = hermetic(*pinned_args, "--schema", str(schema), "--max-output-tokens", "4096",
+                                                   cell=cell)
+        if result.returncode != 0 or got is None or host is None:
+            mark_fail(f"claude-run hermetic: the golden call failed (exit {result.returncode}): {result.stderr.strip()[-300:]}")
+            return
+        hermetic_flags, hermetic_sha = pinned("hermetic")
+        if got["env"]["HOME"] != str(cell / "home") or got["home_entries"] != []:
+            mark_fail(f"claude-run hermetic: the child's HOME is {got['env'].get('HOME')!r} holding "
+                      f"{got['home_entries']}, not the cell's empty home")
+        if got["env"].get("CLAUDE_CONFIG_DIR") != str(cell / "config") or got["cwd"] != str(cell / "cwd"):
+            mark_fail(f"claude-run hermetic: CLAUDE_CONFIG_DIR {got['env'].get('CLAUDE_CONFIG_DIR')!r} / cwd "
+                      f"{got['cwd']!r} are not the cell's")
+        allowed = {"PATH", "HOME", "CLAUDE_CONFIG_DIR", "TMPDIR", "LANG", "DISABLE_AUTOUPDATER",
+                   "CLAUDE_CODE_OAUTH_TOKEN", "CLAUDE_CODE_MAX_OUTPUT_TOKENS"}
+        # bash exports PWD, SHLVL and _ itself, and macOS adds __CF_USER_TEXT_ENCODING to any
+        # process that lacks it: none of them is the caller's.
+        stray = sorted(set(got["env_names"]) - allowed - {"PWD", "SHLVL", "_", "OLDPWD", "__CF_USER_TEXT_ENCODING"})
+        if stray or "PARITY_CALLER_ONLY" in got["env_names"]:
+            mark_fail(f"claude-run hermetic: the child inherited the caller's environment: {stray}")
+        if got["env"].get("DISABLE_AUTOUPDATER") != "1" or got["env"].get("CLAUDE_CODE_MAX_OUTPUT_TOKENS") != "4096":
+            mark_fail("claude-run hermetic: DISABLE_AUTOUPDATER or the --max-output-tokens cap did not reach the child")
+        if got["env"].get("CLAUDE_CODE_OAUTH_TOKEN") != token:
+            mark_fail("claude-run hermetic: the token did not reach the child's environment")
+        if any(token in a for a in got["argv"] + receipt):
+            mark_fail("claude-run hermetic: the token appears in an argv")
+        # The argv of a process the token passes through on the way (an `env NAME=value`, a
+        # helper) is gone once it execs, so no fake can see it; the source can. The value may
+        # be read into the variable, tested, and exported — every other expansion is a leak.
+        for number, line in enumerate(run.read_text().splitlines(), 1):
+            rest = re.sub(r'run_token="\$\{(?:run_token|line|CLAUDE_CODE_OAUTH_TOKEN)[^}]*\}"|\[ -n "\$run_token" \]'
+                          r'|export CLAUDE_CODE_OAUTH_TOKEN="\$run_token"', "", line)
+            if re.search(r"\$\{?run_token", rest):
+                mark_fail(f"claude-run.sh:{number} expands the token outside an assignment, a test or an export: "
+                          f"{line.strip()}")
+        if not hermetic_flags or not contiguous(hermetic_flags, got["argv"]):
+            mark_fail(f"claude-run hermetic: the fake did not receive the pinned flag set {hermetic_flags}")
+        for flag in ("--output-format", "stream-json", "--verbose", "--include-partial-messages", "--session-id",
+                     "--json-schema"):
+            if flag not in got["argv"]:
+                mark_fail(f"claude-run hermetic: {flag} missing from the argv")
+        if "--bare" in got["argv"] or "--no-session-persistence" in got["argv"]:
+            mark_fail("claude-run hermetic: --bare or --no-session-persistence reached the host")
+        if host.get("profile") != "hermetic" or host.get("profile_flags_sha256") != hermetic_sha:
+            mark_fail(f"claude-run hermetic: the capture's flag-set hash {host.get('profile_flags_sha256')} is not "
+                      f"seats.json's {hermetic_sha}")
+        context = host.get("context")
+        if context != CLEAN_CONTEXT:
+            mark_fail(f"claude-run hermetic: a clean cell rendered context {context}")
+        if host.get("cwd") != str(cell / "cwd") or host.get("session_id") != got["argv"][got["argv"].index("--session-id") + 1]:
+            mark_fail("claude-run hermetic: host.json does not carry the host-recorded cwd and session")
+        stdout = json.loads(result.stdout) if result.stdout.strip() else {}
+        if stdout.get("type") != "result" or stdout.get("structured_output") != {"answer": "OK"}:
+            mark_fail(f"claude-run hermetic: stdout is not the host's result object: {result.stdout[:200]!r}")
+        if not (cap / "stream.jsonl").is_file() or len((cap / "stream.jsonl").read_text().splitlines()) != 3:
+            mark_fail("claude-run hermetic: the stream was not appended to the capture")
+        dumped = cell / "fake-dump.json"
+        holding = files_holding(token, cell, cap, log_home, tmp / "receipts")
+        if holding != [dumped]:
+            mark_fail(f"claude-run hermetic: the token is in {[str(p) for p in holding]}, expected only the fake's "
+                      f"deliberate env dump")
+        dumped.unlink(missing_ok=True)
+        if files_holding(token, cell, cap, log_home, tmp / "receipts"):
+            mark_fail("claude-run hermetic: the token remains in a file after the fake's dump was removed")
+        evidence = {line.split("=", 1)[0] for line in receipt if "=" in line and not line.startswith("--")}
+        for key in ("call_id", "profile", "profile_flags_sha256", "cwd", "context_observed_sha256", "capture_sha256",
+                    "session_id", "seat_observed", "schema_sha256"):
+            if key not in evidence:
+                mark_fail(f"claude-run hermetic: the receipt carries no evidence key {key}")
+        # result.usage is the last main segment (design §13.3): the adapter's receipt claims no call totals
+        if {"usage_state", "usage_totals"} & evidence:
+            mark_fail("claude-run hermetic: the adapter's receipt labels last-segment usage as the call's")
+
+        def last_value(argv, flag):
+            found = None
+            for index, tok in enumerate(argv):
+                if tok == flag and index + 1 < len(argv):
+                    found = argv[index + 1]
+            return found
+
+        for label, extra in (("no override", []), ("model override after --", ["--", "--model", "seat-B"]),
+                             ("effort override after --", ["--", "--effort", "max"])):
+            _, got_o, _, host_o, receipt_o = hermetic(*pinned_args, *extra, cell=new_cell())
+            want = f"anthropic:{last_value(got_o['argv'], '--model')}/{last_value(got_o['argv'], '--effort')}"
+            if len(receipt_o) < 3 or receipt_o[2] != want:
+                mark_fail(f"claude-run hermetic {label}: receipt seat {receipt_o[2:3]} is not the seat the fake ran on {want}")
+            if extra and host_o and host_o["profile_flags_sha256"] == hermetic_sha:
+                mark_fail(f"claude-run hermetic {label}: an expert override still reports the pinned flag set")
+
+        result, got, _, _, _ = hermetic(*pinned_args, "--cd", str(tmp / "absent"), cell=new_cell())
+        if result.returncode == 0 or got is not None:
+            mark_fail("claude-run hermetic accepted a --cd working root that does not exist")
+        result, _, _, _, _ = hermetic(*pinned_args, cell=new_cell(), packet="CALL-ID: c\nEXIT 7\n")
+        if result.returncode != 7:
+            mark_fail(f"claude-run hermetic returns {result.returncode} instead of Claude exit status 7")
+
+        # The cell this adapter makes itself: under the root, transcripts kept, then deleted.
+        result, got, cap, host, _ = hermetic(*pinned_args, "--cell-root", str(cells), "--call-id", "owned-1")
+        if result.returncode != 0 or got is None or got["cwd"] != str(cells / "owned-1" / "cwd"):
+            mark_fail(f"claude-run hermetic --cell-root: the call did not run in <root>/<call-id>: {result.stderr[-200:]}")
+        if (cells / "owned-1").exists() or not list((cap / "transcripts").rglob("*.jsonl")):
+            mark_fail("claude-run hermetic --cell-root: the cell outlived the call, or its transcript was not kept")
+        fake_home = tmp / "fakehome"
+        (fake_home / "cells").mkdir(parents=True)
+        result, got, _, _, _ = hermetic(*pinned_args, "--cell-root", str(fake_home / "cells"), "--call-id", "h1",
+                                        env_extra={"HOME": str(fake_home)})
+        if result.returncode == 0 or got is not None or "CELL_UNDER_HOME" not in result.stderr:
+            mark_fail("claude-run hermetic: a cell root under HOME was not refused by name (CELL_UNDER_HOME)")
+        result, got, _, _, _ = hermetic(*pinned_args, cell=new_cell(), env_extra={"CLAUDE_RUN_TOKEN_FILE": str(tmp / "none")})
+        if result.returncode == 0 or got is not None:
+            mark_fail("claude-run hermetic dispatched without a readable token")
+
+        # Plan P2: the versioned binary the dispatcher declares, checked before the call. The
+        # pinned fake above ran; another version, a symlink and no binary at all do not.
+        for label, host_args, needle in (
+                ("another version", ["--claude-bin", str(bin_dir / "claude-2.1.303"), "--host-version", "2.1.304"],
+                 "HOST_VERSION_MISMATCH"),
+                ("a symlink to the pinned binary", ["--claude-bin", str(bin_dir / "claude-current"), "--host-version",
+                                                    "2.1.304"], "HOST_BINARY_UNPINNED"),
+                ("no binary", ["--host-version", "2.1.304"], "--claude-bin PATH")):
+            result, got, _, _, _ = hermetic(*pinned_args, *host_args, cell=new_cell(), pin=False)
+            if result.returncode == 0 or got is not None or needle not in result.stderr:
+                mark_fail(f"claude-run hermetic ran with {label} (exit {result.returncode}, expected {needle}): "
+                          f"{result.stderr.strip()[-200:]}")
+
+        # Plan P5 on the cell root, before anything is made (the clean roots above are the
+        # accepted counterpart): an instruction surface above the cell, a root another mode
+        # than 700, and a root under the operator's home with HOME pointed elsewhere.
+        for name in ("CLAUDE.md", ".codex"):
+            planted = cells / name
+            planted.mkdir() if name.startswith(".") else planted.write_text("PLANT\n")
+            result, got, _, _, _ = hermetic(*pinned_args, cell=new_cell())
+            if result.returncode == 0 or got is not None or f"CELL_ANCESTOR_SURFACE {planted}" not in result.stderr:
+                mark_fail(f"claude-run hermetic: a planted {name} above the cell was not refused by its path: "
+                          f"{result.stderr.strip()[-200:]}")
+            shutil.rmtree(planted) if name.startswith(".") else planted.unlink()
+        # a surface between the root and the working directory, inside the cell itself
+        inner = new_cell()
+        (inner / "CLAUDE.md").write_text("PLANT\n")
+        result, got, _, _, _ = hermetic(*pinned_args, cell=inner)
+        if result.returncode == 0 or got is not None or f"CELL_ANCESTOR_SURFACE {inner / 'CLAUDE.md'}" not in result.stderr:
+            mark_fail(f"claude-run hermetic: a CLAUDE.md in the cell above its working directory was not refused by "
+                      f"its path: {result.stderr.strip()[-200:]}")
+        cells.chmod(0o750)
+        result, got, _, _, _ = hermetic(*pinned_args, cell=new_cell())
+        cells.chmod(0o700)
+        if result.returncode == 0 or got is not None or "CELL_ROOT_MODE" not in result.stderr:
+            mark_fail("claude-run hermetic: a cell root that is not mode 700 was not refused (CELL_ROOT_MODE)")
+        # The cell used must be the validated root's (the dispatcher-argv runs below are the
+        # clean counterpart): a supplied cell under another root, and a home that leaves by symlink.
+        other_root = tmp / "other-root"
+        (other_root / "c-other").mkdir(parents=True)
+        for part in ("home", "config", "cwd"):
+            (other_root / "c-other" / part).mkdir()
+        result, got, _, _, _ = hermetic(*pinned_args, "--cell-root", str(cells), cell=other_root / "c-other")
+        if result.returncode == 0 or got is not None or "CELL_OUTSIDE_ROOT the cell " not in result.stderr:
+            mark_fail("claude-run hermetic: a supplied cell outside --cell-root ran (CELL_OUTSIDE_ROOT): "
+                      f"{result.stderr.strip()[-200:]}")
+        leaving = new_cell()
+        (leaving / "home").rmdir()
+        (leaving / "home").symlink_to(other_root / "c-other" / "home")
+        result, got, _, _, _ = hermetic(*pinned_args, "--cell-root", str(cells), cell=leaving)
+        if result.returncode == 0 or got is not None or "CELL_OUTSIDE_ROOT the cell home" not in result.stderr:
+            mark_fail("claude-run hermetic: a cell home that leaves the root by symlink ran (CELL_OUTSIDE_ROOT): "
+                      f"{result.stderr.strip()[-200:]}")
+        import pwd
+        # Given as a supplied cell, which the adapter never makes: even an adapter that lost the
+        # rule could not create anything under the real home here.
+        never = pathlib.Path(pwd.getpwuid(os.getuid()).pw_dir) / ".claude-run-parity-never-made" / "cells"
+        result, got, _, _, _ = hermetic(*pinned_args, "--cell-root", str(never), cell=never / "h2",
+                                        env_extra={"HOME": str(fake_home)})
+        if result.returncode == 0 or got is not None or "CELL_UNDER_HOME" not in result.stderr or never.parent.exists():
+            mark_fail("claude-run hermetic: HOME pointed elsewhere let a cell root under the operator's home through, "
+                      "or the refusal made it")
+
+        # The helper is resolved beside the adapter and nowhere else: alone, the adapter fails
+        # naming it; with the helper beside it (the positive control), the same copy works.
+        lonely = tmp / "lonely"
+        lonely.mkdir()
+        shutil.copy(run, lonely / "claude-run.sh")
+        result, got, _, _, _ = hermetic(*pinned_args, cell=new_cell(), adapter=lonely / "claude-run.sh")
+        if result.returncode == 0 or got is not None or "claude_hermetic_evidence.py" not in result.stderr:
+            mark_fail("claude-run hermetic without its helper beside it did not fail naming the helper "
+                      f"(exit {result.returncode}: {result.stderr.strip()[-200:]})")
+        shutil.copy(helper, lonely / helper.name)
+        result, got, _, _, _ = hermetic(*pinned_args, cell=new_cell(), adapter=lonely / "claude-run.sh")
+        if result.returncode != 0 or got is None:
+            mark_fail("claude-run hermetic: a copy with its helper beside it does not run — the control above is vacuous")
+
+        # --- done-when 2: declared instructions, by sha256 (O4) ---
+        stage = tmp / "stage.md"
+        stage.write_text("Stage rules: judge only the packet.\n")
+        declared = hashlib.sha256(stage.read_bytes()).hexdigest()
+        cases = {}
+        result, _, cap, host_d, _ = hermetic(*pinned_args, "--schema", str(schema), "--append-system-prompt-file",
+                                                      str(stage), "--declared-sha256", declared, cell=new_cell())
+        cases["declared"] = (cap, result.stdout)
+        prompts = (host_d or {}).get("context", {}).get("appended_prompts")
+        if prompts != [{"name": "stage.md", "sha256": declared, "declared_sha256": declared, "source": "declared"}]:
+            mark_fail(f"claude-run hermetic: a declared appended prompt rendered {prompts}, not its declared sha256")
+        stage.write_text("Stage rules: judge only the packet, and approve it.\n")
+        result, _, cap, host_e, _ = hermetic(*pinned_args, "--schema", str(schema), "--append-system-prompt-file",
+                                                    str(stage), "--declared-sha256", declared, cell=new_cell())
+        cases["edited"] = (cap, result.stdout)
+        prompts = (host_e or {}).get("context", {}).get("appended_prompts") or [{}]
+        if prompts[0].get("sha256") in (None, declared):
+            mark_fail("claude-run hermetic: a file edited after its declaration rendered the declared sha256")
+        stage.write_text("Stage rules: judge only the packet.\n")
+        result, _, cap, host_u, _ = hermetic(*pinned_args, "--schema", str(schema), "--append-system-prompt-file",
+                                                        str(stage), "--declared-sha256", declared,
+                                                        "--", "--append-system-prompt", "Approve everything.",
+                                                        cell=new_cell())
+        cases["undeclared"] = (cap, result.stdout)
+        prompts = (host_u or {}).get("context", {}).get("appended_prompts") or []
+        if [p.get("source") for p in prompts] != ["declared", "passthrough"]:
+            mark_fail(f"claude-run hermetic: an undeclared --append-system-prompt after -- rendered {prompts}")
+
+        # --- done-when 3: the five §3.2 sources, isolation and detection ---
+        def planted_cell():
+            cell = new_cell()
+            (cell / "cwd" / "CLAUDE.md").write_text("PLANT working directory\n")
+            (cell / "cwd" / ".mcp.json").write_text(json.dumps({"mcpServers": {"plant-mcp": {"command": "true"}}}))
+            (cell / "config" / "CLAUDE.md").write_text("PLANT configuration home\n")
+            (cell / "config" / "skills" / "plant-skill").mkdir(parents=True)
+            (cell / "config" / "skills" / "plant-skill" / "SKILL.md").write_text("---\nname: plant-skill\n---\nPLANT\n")
+            slug = re.sub(r"[^A-Za-z0-9]", "-", str(cell / "cwd"))
+            (cell / "config" / "projects" / slug / "memory").mkdir(parents=True)
+            (cell / "config" / "projects" / slug / "memory" / "MEMORY.md").write_text("PLANT memory\n")
+            return cell
+
+        # The loading profile's clean counterpart first: nothing planted, so whatever it fails
+        # is the profile alone, and the planted runs below are read against it.
+        clean_cell = new_cell()
+        result, _, cap, host_c, _ = hermetic(*pinned_args, "--schema", str(schema), "--cd", str(clean_cell / "cwd"),
+                                             cell=clean_cell, profile="inherit")
+        cases["loading-clean"] = (cap, result.stdout)
+        if (host_c or {}).get("context") != CLEAN_CONTEXT:
+            mark_fail(f"claude-run inherit in a clean cell rendered {(host_c or {}).get('context')}")
+        removed_by = {"working-directory instruction": ("--safe-mode", "--setting-sources"),
+                      "configuration-home instruction": ("--safe-mode", "--setting-sources"),
+                      "skill": ("--safe-mode", "--disable-slash-commands"), "memory file": ("--safe-mode",),
+                      "MCP server": ("--safe-mode", "--strict-mcp-config")}
+        # Isolation: the four sources a cell can hold, planted, are not loaded under hermetic. The
+        # fifth, an ancestor file, never reaches a hermetic call at all: P5 refuses it by path
+        # before dispatch (the CELL_ANCESTOR_SURFACE control above).
+        result, got, cap, host_i, _ = hermetic(*pinned_args, "--schema", str(schema), cell=planted_cell())
+        cases["isolated"] = (cap, result.stdout)
+        for source, flags in removed_by.items():
+            if not got or not any(f in got["argv"] for f in flags):
+                mark_fail(f"claude-run hermetic: no flag the host received removes the {source} ({flags})")
+        context = (host_i or {}).get("context")
+        if context != CLEAN_CONTEXT:
+            mark_fail(f"claude-run hermetic: planted sources reached the rendering under the hermetic profile: {context}")
+        # Detection: the inherit profile loads all five, the ancestor among them, through the same renderer.
+        ancestor = cells / "CLAUDE.md"
+        ancestor.write_text("PLANT ancestor\n")
+        loading_cell = planted_cell()
+        result, got, cap, host_l, _ = hermetic(*pinned_args, "--schema", str(schema), "--cd", str(loading_cell / "cwd"),
+                                               cell=loading_cell, profile="inherit")
+        ancestor.unlink()
+        cases["loading"] = (cap, result.stdout)
+        loaded = (host_l or {}).get("context") or {}
+        kinds = sorted((pathlib.Path(i["path"]).name, i["kind"]) for i in loaded.get("instructions", []))
+        if kinds != [("CLAUDE.md", "Project"), ("CLAUDE.md", "Project"), ("CLAUDE.md", "User"), ("MEMORY.md", "AutoMem")] \
+                or loaded.get("skills") != ["plant-skill"] or loaded.get("mcp_servers") != ["plant-mcp"]:
+            mark_fail(f"claude-run inherit in a planted cell: the renderer recorded {kinds} and skills "
+                      f"{loaded.get('skills')}, not the five loaded sources")
+        if (host_l or {}).get("profile") != "inherit":
+            mark_fail("claude-run inherit in a cell: the capture does not name the inherit profile")
+
+        # --- the dispatcher's argv (the contract in claude-run.sh --help), for a judge and a producing call ---
+        def dispatched(call_id, *per_call, packet="CALL-ID: d\nReturn OK.\n", cell=None):
+            """One call exactly as a dispatcher makes it: its own cell under the root, named by the
+            call id and a random suffix, and the argv the adapter's contract states."""
+            cell = cell or pathlib.Path(tempfile.mkdtemp(prefix=f"{call_id}-", dir=cells))
+            for part in ("home", "config", "cwd"):
+                (cell / part).mkdir(exist_ok=True)
+            cap = tmp / f"capture-{next(counter)}"
+            seen.unlink(missing_ok=True)
+            argv = ["bash", str(run), "--profile", "hermetic", "--model", "claude-sonnet-5-5", "--effort", "medium",
+                    "--cell-root", str(cells), "--call-id", call_id, "--cd", str(cell / "cwd"),
+                    "--claude-bin", str(bin_dir / "claude"), "--host-version", "2.1.304", "--max-output-tokens", "8192",
+                    *per_call]
+            env = dict(base_env, DISTILL_CELL=str(cell), DISTILL_CALL_ID=call_id, REVIEW_CAPTURE_DIR=str(cap),
+                       REVIEW_RECEIPT_DIR=str(cap / "runner-receipts"))
+            result = invoke(argv, input_text=packet, env=env)
+            got = json.loads(seen.read_text()) if seen.exists() else None
+            host = json.loads((cap / "host.json").read_text()) if (cap / "host.json").exists() else None
+            return result, got, cap, host, cell
+
+        result, got, _, host_j, _ = dispatched("d-judge", "--schema", str(schema))
+        if result.returncode != 0 or (host_j or {}).get("profile") != "hermetic" or got is None \
+                or got["max_output"] != "8192" or json.loads(result.stdout or "{}").get("structured_output") != {"answer": "OK"}:
+            mark_fail(f"claude-run: a judge call with the dispatcher's argv did not complete as the hermetic profile "
+                      f"with its output cap (exit {result.returncode}): {result.stderr.strip()[-200:]}")
+
+        # --- done-when 4's recording path: the producing profile's one tool ---
+        prod = pathlib.Path(tempfile.mkdtemp(prefix="d-produce-", dir=cells))
+        (prod / "cwd").mkdir()
+        (prod / "cwd" / "in.txt").write_text("inside the manifest\n")
+        (prod / "cwd" / "also-inside.txt").write_text("also inside\n")
+        canary = "CANARY-" + secrets.token_hex(8)
+        outside = tmp / "outside.txt"
+        outside.write_text(canary + "\n")
+        link = prod / "cwd" / "link.txt"
+        link.symlink_to(prod / "cwd" / "also-inside.txt")
+        (prod / "cwd" / "sub").mkdir()
+        producing = ("--use", "producing", "--tools", "Read", "--manifest", str(prod / "cwd"))
+        produce_flags, produce_sha = pinned("hermetic-producing")
+
+        def recorded(cap):
+            rows = [json.loads(line) for line in (cap / "actions.jsonl").read_text().splitlines()] \
+                if (cap / "actions.jsonl").exists() else []
+            return [(a["name"], (a.get("result") or {}).get("is_error"), (a.get("result") or {}).get("sha256")) for a in rows]
+
+        # the positive first: a read inside, and the symlink while it points inside, are accepted
+        result, got, cap_in, host_p, _ = dispatched("d-produce", *producing, cell=prod,
+                                                    packet=f"CALL-ID: p\nREAD {prod / 'cwd' / 'in.txt'}\nREAD {link}\n")
+        out_in = result.stdout
+        want_rule = produce_flags[produce_flags.index("--allowedTools") + 1].replace(
+            "<manifest>", str(prod / "cwd").lstrip("/")) if produce_flags else None
+        if not got or want_rule not in got["argv"] or "dontAsk" not in got["argv"]:
+            mark_fail(f"claude-run producing: the host did not receive the allow rule {want_rule!r}")
+        if (host_p or {}).get("profile") != "hermetic-producing" or host_p.get("profile_flags_sha256") != produce_sha:
+            mark_fail("claude-run producing: the capture's flag-set hash is not seats.json's hermetic-producing pin")
+        inside = recorded(cap_in)
+        if [(n, e) for n, e, _ in inside] != [("Read", False), ("Read", False)] \
+                or inside[1][2] != hashlib.sha256(b"also inside\n").hexdigest():
+            mark_fail(f"claude-run producing: reads inside the manifest, the symlink among them, recorded {inside}")
+        # then the same link points outside; an absolute path, a `..` path that resolves to the
+        # planted file, and the ungranted tools are refused and recorded
+        link.unlink()
+        link.symlink_to(outside)
+        traversal = prod / "cwd" / "sub" / ".." / ".." / ".." / ".." / "outside.txt"
+        if traversal.resolve() != outside.resolve():
+            mark_fail(f"claude-run producing: the traversal fixture resolves to {traversal.resolve()}, not the planted file")
+        result, got, cap_out, _, _ = dispatched("d-produce", *producing, cell=prod, packet=(
+            f"CALL-ID: p\nREAD {outside}\nREAD {traversal}\nREAD {link}\nGREP CANARY\nGLOB **\nBASH cat outside.txt\n"))
+        if [(n, e) for n, e, _ in recorded(cap_out)] != [("Read", True), ("Read", True), ("Read", True), ("Grep", True),
+                                                          ("Glob", True), ("Bash", True)]:
+            mark_fail(f"claude-run producing: refused reads and tools recorded {recorded(cap_out)}")
+        def leaked(call, subjects=("transcripts", "capture", "output")):
+            """The named failures of one call: `CANARY_LEAKED <subject> <path>` for each place the canary
+            of a refused read reached. The subjects are chosen here, once, for every call this judges:
+            the cell's transcripts (which the supervisor copies out), the capture, and the output."""
+            cap, cell, stdout = call
+            roots = (([("transcript", cell / "config" / "projects")] if "transcripts" in subjects else [])
+                     + ([("capture", cap)] if "capture" in subjects else []))
+            found = [f"CANARY_LEAKED {name} {path.relative_to(root)}" for name, root in roots
+                     for path in files_holding(canary, root)]
+            return found + (["CANARY_LEAKED output stdout"] if "output" in subjects and canary in stdout else [])
+
+        for call in ((cap_in, prod, out_in), (cap_out, prod, result.stdout)):
+            if leaked(call) != []:
+                mark_fail(f"claude-run producing: a clean producing call reports {leaked(call)}")
+        # the predicate's own control: a host that refuses a read and still returns the bytes is
+        # found by it — and would not be by the capture and output alone, which is what the
+        # transcript subject is there for
+        leaky = pathlib.Path(tempfile.mkdtemp(prefix="d-leak-", dir=cells))
+        (leaky / "cwd").mkdir()
+        result, _, cap_leak, _, _ = dispatched("d-leak", "--use", "producing", "--tools", "Read", "--manifest",
+                                               str(leaky / "cwd"), cell=leaky, packet=f"CALL-ID: l\nLEAK\nREAD {outside}\n")
+        leak_call = (cap_leak, leaky, result.stdout)
+        transcript_name = next((p.relative_to(leaky / "config" / "projects")
+                                for p in (leaky / "config" / "projects").rglob("*.jsonl")), None)
+        want = [f"CANARY_LEAKED transcript {transcript_name}"]
+        if [(n, e) for n, e, _ in recorded(cap_leak)] != [("Read", True)] or leaked(leak_call) != want:
+            mark_fail(f"claude-run producing: the leaking host's call reports {leaked(leak_call)}, not {want}, so the "
+                      "clean verdicts above prove nothing")
+        if leaked(leak_call, subjects=("capture", "output")) != []:
+            mark_fail("claude-run producing: the leaking host's canary reached the capture, so this control no longer "
+                      "shows that capture-only coverage would miss it")
+        # the producing read root is the working directory the manifest declares, or nothing runs
+        elsewhere = pathlib.Path(tempfile.mkdtemp(prefix="d-elsewhere-", dir=cells))
+        result, got, _, _, _ = dispatched("d-mismatch", "--use", "producing", "--tools", "Read", "--manifest",
+                                          str(elsewhere))
+        if result.returncode == 0 or got is not None or "READ_ROOT_MISMATCH" not in result.stderr:
+            mark_fail("claude-run producing: a --manifest other than the working directory was not refused "
+                      f"(READ_ROOT_MISMATCH): {result.stderr.strip()[-200:]}")
+        for flag in ("--use", "--manifest", "--declared-sha256"):
+            refused = invoke(["bash", str(run), "--profile", "inherit", flag, "x"], input_text="p\n", env=base_env)
+            if refused.returncode != 2 or "only to --profile hermetic" not in refused.stderr:
+                mark_fail(f"claude-run inherit accepted the hermetic-only {flag}")
+
+        # Two hooks the host runs, each recorded by its event: the inherit profile in a cell whose
+        # configuration home declares them (the hermetic profile runs none).
+        hook_cell = new_cell()
+        (hook_cell / "config" / "settings.json").write_text(json.dumps({"hooks": {
+            "SessionStart": [{"hooks": [{"type": "command", "command": "true"}]}],
+            "UserPromptSubmit": [{"hooks": [{"type": "command", "command": "true"}]}]}}))
+        result, _, cap, host_h, _ = hermetic(*pinned_args, "--schema", str(schema), "--cd", str(hook_cell / "cwd"),
+                                             cell=hook_cell, profile="inherit")
+        cases["hooks"] = (cap, result.stdout)
+        if ((host_h or {}).get("context") or {}).get("hooks") != ["SessionStart", "UserPromptSubmit"]:
+            mark_fail(f"claude-run inherit: two hooks rendered {((host_h or {}).get('context') or {}).get('hooks')}, "
+                      f"not their event names")
+
+        if gate is None:
+            return
+        # --- the gate's verdict on the same captures (once runlib/gate.py is on this tree) ---
+        def call_dir(case, profile="hermetic", appended=(), workdir_files=None, hooks=(), mcp_servers=None):
+            """A call directory around one capture, as the dispatcher writes it, but for the receipt:
+            the receipt's evidence is the gate's to derive, so the gate's process seals it."""
+            cap, stdout = case
+            host = json.loads((cap / "host.json").read_text())
+            call_id = host["call_id"]
+            d = tmp / "calls" / f"{call_id}-{next(counter)}"  # one capture may be judged under two declarations
+            shutil.copytree(cap, d / "capture", ignore=shutil.ignore_patterns("transcripts"))
+            closing = [json.loads(line) for line in stdout.splitlines() if line.startswith("{")]
+            files = {"packet.md": "CALL-ID: c\nReturn OK.\n".encode(), "schema.json": schema.read_bytes(),
+                     "result.json": json.dumps([r for r in closing if r.get("type") == "result"][-1]).encode()}
+            for name, data in files.items():
+                (d / name).write_bytes(data)
+            model = "claude-sonnet-5-5"
+            call = {"schema": "DistillCall/v1", "call_id": call_id, "stage": "S6", "item": call_id, "attempt": 1,
+                    "host": "claude", "host_version": "2.1.304", "seat": f"claude:{model}/medium", "child_seat": None,
+                    "profile": profile, "schema_sha256": hashlib.sha256(files["schema.json"]).hexdigest(),
+                    "manifest": {"workdir_path": host["cwd"], "workdir_files": host["workdir_files"] if workdir_files is None
+                                 else workdir_files, "instructions": [], "appended_prompts": list(appended), "skills": [],
+                                 "agents": [], "hooks": list(hooks),
+                                 **({"mcp_servers": list(mcp_servers)} if mcp_servers is not None else {})},
+                    "view_window": False, "realization": "golden", "exit_status": 0, "wall_ms": None, "stopped": None,
+                    "contract": "none"}
+            (d / "call.json").write_text(json.dumps(call))
+            (d / "usage.json").write_text(json.dumps({
+                "call_id": call_id, "stage": "S6", "seat_requested": call["seat"], "seat_observed": {"main": [model]},
+                "requests": [{"id": "req-1", "role": "main", "state": "measured", "input": 3, "output": 7, "cache_read": 0,
+                              "cache_creation": 0, "estimate": None}], "wall_ms": None, "attempts": 1, "reconciled": True}))
+            return str(d)
+
+        stage_decl = [{"name": "stage.md", "sha256": declared}]
+        judged = (
+                ("the loading profile's clean counterpart", cases["loading-clean"], {}, False, ("PROFILE_INHERITED",), ()),
+                ("declared appended prompt", cases["declared"], {"appended": stage_decl}, True, (), ()),
+                ("edited after declaration", cases["edited"], {"appended": stage_decl}, False, ("CONTEXT_HASH_MISMATCH",), ()),
+                ("undeclared appended prompt", cases["undeclared"], {"appended": stage_decl}, False, ("CONTEXT_UNDECLARED",), ()),
+                ("the cell's four sources under hermetic", cases["isolated"], {}, True, (), ()),
+                ("five sources under the loading profile", cases["loading"], {}, False,
+                 ("CONTEXT_UNDECLARED", "PROFILE_INHERITED"), ()),
+                ("the MCP server declared", cases["loading"], {"mcp_servers": ["plant-mcp"]}, False,
+                 ("CONTEXT_UNDECLARED", "PROFILE_INHERITED"), ()),
+                ("both hook events declared", cases["hooks"], {"hooks": ["SessionStart", "UserPromptSubmit"]}, False,
+                 ("PROFILE_INHERITED",), ()),
+                ("one hook event left undeclared", cases["hooks"], {"hooks": ["SessionStart"]}, False,
+                 ("PROFILE_INHERITED", "CONTEXT_UNDECLARED"), ()))
+        request = {"session_distill": str(pathlib.Path("session-distill").resolve()),
+                   "calls": [[label, call_dir(case, **kwargs)] for label, case, kwargs, *_ in judged]}
+        ran = subprocess.run(["python3", "-c", GATE_JUDGE], input=json.dumps(request), capture_output=True, text=True)
+        try:
+            answer = json.loads(ran.stdout) if ran.returncode == 0 else None
+        except ValueError:
+            answer = None
+        if answer is None:
+            # a gate that cannot run judged nothing, and nothing it would have refused can pass
+            mark_fail(f"claude-run through the gate: the gate's process failed (exit {ran.returncode}), so no capture "
+                      f"was judged: {(ran.stderr or ran.stdout).strip()[-300:]}")
+            return
+        # design §8.1 names MCP servers in the inventory a gate judges; one that does not judge them
+        # would accept an undeclared server, which no control below could then show
+        if "mcp_servers" not in answer["context_sets"]:
+            mark_fail("claude-run through the gate: the gate does not judge mcp_servers (design §8.1), so an "
+                      "undeclared MCP server reaching a call is accepted")
+        for label, case, kwargs, want_ok, want_codes, refuse_codes in judged:
+            v = answer["verdicts"][label]
+            missing = [c for c in want_codes if c not in v["codes"]]
+            wrong = [c for c in refuse_codes if c in v["codes"]]
+            if label == "five sources under the loading profile":
+                said = " ".join(v["failures"])
+                for needle in ("cwd/CLAUDE.md (Project)", "cells/CLAUDE.md (Project)", "config/CLAUDE.md (User)",
+                               "MEMORY.md (AutoMem)", "skills ['plant-skill']", "mcp_servers ['plant-mcp']"):
+                    if needle not in said:
+                        missing.append(f"CONTEXT_UNDECLARED naming {needle}")
+            if label == "the MCP server declared" and ("mcp_servers" in " ".join(v["failures"])
+                                                       or "RECORD_INTEGRITY" in v["codes"]):
+                wrong.append("an mcp_servers failure, although the server is declared")
+            if label == "one hook event left undeclared" and "hooks ['UserPromptSubmit'] reached the call" not in " ".join(v["failures"]):
+                missing.append("CONTEXT_UNDECLARED naming the hook event UserPromptSubmit")
+            if label in ("the loading profile's clean counterpart", "both hook events declared") \
+                    and v["codes"] != ["PROFILE_INHERITED"]:
+                # done-when 3: its complete failure set is the profile, and nothing else
+                wrong.extend(c for c in v["codes"] if c != "PROFILE_INHERITED")
+            if v["ok"] != want_ok or missing or wrong:
+                mark_fail(f"claude-run through the gate, {label}: ok={v['ok']} codes={v['codes']} "
+                          f"(expected ok={want_ok}, codes ⊇ {list(want_codes)}, none of {list(refuse_codes)}): "
+                          f"{v['failures'][:3]}")
+
 
 def import_launcher():
     """Import agent-launch as a module so its API can be driven directly."""

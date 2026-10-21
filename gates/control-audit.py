@@ -55,6 +55,8 @@ SUBJECTS = [
     "learn/check-learning.py",
     "ontology/check-ontology.py",
     "claude/hooks/tooling-gotchas-hook.py",
+    # Shipped beside wrappers/claude-run.sh: the hermetic profile's evidence renderer.
+    "wrappers/claude_hermetic_evidence.py",
     # The session-distill driver. The audit's automatic inventory recognises only checker-named
     # files, so each module with a --self-test is registered by name or it is not graded.
     "session-distill/distill.py",
