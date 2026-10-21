@@ -67,6 +67,9 @@ SUBJECTS = [
     "session-distill/runlib/lineage.py",
     "session-distill/runlib/coverage.py",
     "session-distill/runlib/census.py",
+    "session-distill/runlib/ledger.py",
+    "session-distill/runlib/ledger_compat.py",
+    "session-distill/migrate-ledger.py",
 ]
 # The not-audited disclosure is DERIVED, not typed. The first version typed two shell
 # gates here while the tracked tree held five shell checkers — the audit tool carrying

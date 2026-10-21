@@ -33,6 +33,12 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "compose"))
 import pkgid  # noqa: E402  (package-identity primitive owned by compose/)
 import assemble  # noqa: E402  (the tier vocabulary's owner — asked, never restated here)
 
+# The ledger's placement fields moved in schema 2 (design §12.2); this file reads them through the
+# projection that serves both schema versions. This file is author-side, so importing the
+# author-side projection keeps the direction: the payload never depends on session-distill/.
+sys.path.append(str(pathlib.Path(__file__).resolve().parents[1] / "session-distill"))
+from runlib import ledger_compat  # noqa: E402
+
 REPO = pathlib.Path(__file__).resolve().parent.parent
 LEDGER = REPO / "design" / "session-distill" / "ledger.json"
 DOMAINS = REPO / "compose" / "domains.json"
@@ -66,11 +72,9 @@ def build_manifest(ledger, domains_manifest):
     unresolvable placed_anchor) — the F3 silent-loss guard. Sorted by
     learning_id for a stable, deterministic artifact."""
     promotions = []
-    for e in ledger.get("entries", []):
-        if not isinstance(e, dict):
-            continue
+    for e in ledger_compat.placed_entries(ledger):
         lid = e.get("learning_id")
-        if e.get("status") != "placed" or not (isinstance(lid, str) and lid):
+        if not (isinstance(lid, str) and lid):
             continue
         anchor = e.get("placed_anchor")
         if not anchor:

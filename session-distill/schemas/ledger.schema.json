@@ -1,0 +1,310 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$comment": "design §12.1 (entry fields, decisions[] elements), §12.2 (kept fields and legacy elements), §12.4 (windows[]); expected_observation mirrors schemas/expected_observation.schema.json (design §7.3) plus resolutions[] (design §11)",
+  "title": "Session distill ledger, schema 2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "framework", "windows", "entries"],
+  "properties": {
+    "schema": {"const": 2},
+    "framework": {"type": "string", "minLength": 1},
+    "windows": {"type": "array", "items": {"$ref": "#/$defs/window"}},
+    "entries": {"type": "array", "items": {"$ref": "#/$defs/entry"}}
+  },
+  "$defs": {
+    "date": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"},
+    "moment": {"type": ["string", "null"], "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}(T.+)?$"},
+    "entry_kind": {
+      "$comment": "design §7.2: the closed vocabulary of an entry's kind",
+      "enum": ["misfire", "gap", "not delivered", "confirmed", "obsolete", "already resolved", "unclassified"]
+    },
+    "entry_diagnosis": {
+      "$comment": "design §7.2: the closed vocabulary of an entry's diagnosis",
+      "enum": ["covered", "wrong or insufficient", "trigger problem", "gap", "redundant", "unknown"]
+    },
+    "disposition": {
+      "$comment": "design §7.2: the closed vocabulary of an entry and of every decision a run makes",
+      "enum": ["place", "correct", "re-deliver", "keep", "reduce", "incubate", "drop", "none"]
+    },
+    "legacy_disposition": {
+      "$comment": "design §7.2 plus the two values design §12.2 gives the elements it migrates; runlib/ledger.py rejects them on any decision that is not a legacy element (DISPOSITION_NOT_CURRENT)",
+      "enum": ["place", "correct", "re-deliver", "keep", "reduce", "incubate", "drop", "none", "unknown", "revival"]
+    },
+    "window": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["start", "end", "run_id", "kind", "commit", "accounted", "fully_read"],
+      "properties": {
+        "start": {"type": ["string", "null"], "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"},
+        "end": {"$ref": "#/$defs/date"},
+        "run_id": {"type": "string", "minLength": 1},
+        "kind": {"enum": ["periodic", "targeted", "legacy"]},
+        "commit": {"type": ["string", "null"]},
+        "accounted": {"type": ["boolean", "null"]},
+        "fully_read": {"type": ["boolean", "null"]}
+      }
+    },
+    "layer_split": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["layer", "mechanism"],
+      "properties": {"layer": {"type": "string"}, "mechanism": {"type": "string"}}
+    },
+    "classification": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["type"],
+      "properties": {
+        "type": {"enum": ["A", "B", "C", "D", "E", "F", "G"]},
+        "layer": {"type": ["string", "null"]},
+        "mechanism": {"type": "string"},
+        "meets_promotion_bar": {"type": "boolean"},
+        "proposed": {"type": "boolean"},
+        "proposed_text": {"type": ["string", "null"]},
+        "underlying_value": {"type": "string"},
+        "reformulation": {"type": ["string", "null"]},
+        "token_est": {"type": "integer"},
+        "consumer_note": {"type": ["string", "null"]},
+        "split": {"type": ["array", "null"], "items": {"$ref": "#/$defs/layer_split"}},
+        "verification": {"type": "string"},
+        "basis": {"type": "string"},
+        "closest_corpus_text": {"type": "string"},
+        "forbids": {"type": "string"},
+        "gap_kind": {"type": "string"},
+        "surface": {"type": "string"}
+      }
+    },
+    "recurrence_record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["window"],
+      "properties": {
+        "window": {"$ref": "#/$defs/date"},
+        "sessions": {"type": "array", "items": {"type": "string"}},
+        "strength": {"type": "integer"},
+        "verdict": {"type": "string"},
+        "lesson_as_seen": {"type": "string"},
+        "principle": {"type": "string"},
+        "reason": {"type": "string"},
+        "note": {"type": "string"},
+        "correction": {"type": "string"},
+        "decision": {"type": "string"},
+        "evidence": {"type": "string"},
+        "kind": {"type": "string"},
+        "measure": {"type": "string"},
+        "placement": {"type": "string"}
+      }
+    },
+    "destination": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["implementation", "anchor", "package_id"],
+      "properties": {
+        "implementation": {"type": ["string", "array", "null"], "items": {"type": "string"}},
+        "anchor": {"type": ["string", "null"]},
+        "package_id": {"type": ["string", "null"]}
+      }
+    },
+    "evidence_item": {
+      "$comment": "design §12.1, evidence[]: a claim id with its evidence id, or the explicit unavailable form design §12.2 gives a legacy supporting session; runlib/ledger.py requires exactly one of the two forms (EVIDENCE_FORM)",
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 2,
+      "dependentRequired": {"claim_id": ["evidence_id"], "evidence_id": ["claim_id"], "locator": ["session"], "session": ["locator"]},
+      "properties": {
+        "claim_id": {"type": "string", "minLength": 1},
+        "evidence_id": {"type": "string", "minLength": 1},
+        "locator": {"const": "unavailable"},
+        "session": {"type": "string", "minLength": 1}
+      }
+    },
+    "consequence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kinds"],
+      "properties": {"kinds": {"type": "array", "items": {"type": "string", "minLength": 1}}}
+    },
+    "coverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["basis"],
+      "properties": {"basis": {"enum": ["source", "view", "unavailable"]}}
+    },
+    "keep_record": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["units"],
+      "properties": {"units": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}}}
+    },
+    "relations": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {"instance_of": {"type": "string", "minLength": 1}}
+    },
+    "operation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["operation_id", "type", "target"],
+      "properties": {
+        "operation_id": {"type": "string", "minLength": 1},
+        "type": {"enum": ["create", "edit", "delete", "merge", "route"]},
+        "target": {"type": "string", "minLength": 1}
+      }
+    },
+    "applied": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["commit", "paths", "operations", "delivery"],
+      "properties": {
+        "commit": {"type": ["string", "null"]},
+        "paths": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "operations": {"type": "array", "items": {"$ref": "#/$defs/operation"}},
+        "delivery": {"enum": ["verified", "failed", "unverified", "not_applicable"]},
+        "before": {"$ref": "#/$defs/before_row"}
+      }
+    },
+    "before_row": {
+      "$comment": "the owner's decision of 2026-10-21 (design/session-distill/2026-10-21T1545--b324de5--writer-holds-the-transaction.md): for every row field this application changed, the value the row held immediately before it. `fields` carries the values, `absent` names the fields the row had none of, and runlib/ledger.py restores exactly this when the owner reverts the application. A decision design §12.2 migrated carries none",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["fields", "absent"],
+      "properties": {
+        "fields": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "lesson": {"type": "string", "minLength": 1},
+            "principle": {"type": "string"},
+            "rationale": {"type": "string"},
+            "note": {"type": "string"},
+            "domain": {"type": "string"},
+            "absorbed_by": {"type": "string", "minLength": 1},
+            "retired": {"$ref": "#/$defs/date"},
+            "retire_reason": {"type": "string"},
+            "destination": {"$ref": "#/$defs/destination"},
+            "keep": {"$ref": "#/$defs/keep_record"},
+            "classification": {"$ref": "#/$defs/classification"},
+            "relations": {"$ref": "#/$defs/relations"},
+            "kind": {"$ref": "#/$defs/entry_kind"},
+            "diagnosis": {"$ref": "#/$defs/entry_diagnosis"}
+          }
+        },
+        "absent": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"enum": ["lesson", "principle", "rationale", "note", "domain", "absorbed_by", "retired", "retire_reason",
+                             "destination", "keep", "classification", "relations", "kind", "diagnosis"]}
+        }
+      }
+    },
+    "tests": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["results_sha", "summary", "attribution"],
+      "properties": {
+        "results_sha": {"type": "string", "minLength": 1},
+        "summary": {"type": "string"},
+        "attribution": {"type": "string"}
+      }
+    },
+    "counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["eligible", "observed", "not_observed", "exposure_unknown"],
+      "properties": {
+        "eligible": {"type": "integer", "minimum": 0},
+        "observed": {"type": "integer", "minimum": 0},
+        "not_observed": {"type": "integer", "minimum": 0},
+        "exposure_unknown": {"type": "integer", "minimum": 0}
+      }
+    },
+    "resolution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["run", "window", "resolution", "basis", "counts", "occasions"],
+      "properties": {
+        "run": {"type": "string", "minLength": 1},
+        "window": {"$ref": "#/$defs/date"},
+        "resolution": {"enum": ["observed", "not_observed", "no_occasion", "pending"]},
+        "basis": {"enum": ["source", "view", "incomplete"]},
+        "counts": {"$ref": "#/$defs/counts"},
+        "occasions": {"type": "array", "items": {"type": "string", "minLength": 1}}
+      }
+    },
+    "expected_observation": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["occasion_criteria", "exposure_rule", "expected_behavior", "retrieval_terms", "expiry", "resolutions"],
+      "dependentRequired": {"counter": ["threshold"], "threshold": ["counter"]},
+      "properties": {
+        "occasion_criteria": {"type": "string", "minLength": 1},
+        "exposure_rule": {"type": "string", "minLength": 1},
+        "expected_behavior": {"type": "string", "minLength": 1},
+        "retrieval_terms": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "expiry": {"type": "string", "minLength": 1},
+        "counter": {"type": "string", "minLength": 1},
+        "threshold": {"type": "number"},
+        "resolutions": {"type": "array", "items": {"$ref": "#/$defs/resolution"}}
+      }
+    },
+    "decision": {
+      "$comment": "design §12.1: the eight required keys. Everything optional below is contracted, with its reader and its reason, by design/session-distill/2026-10-21T0820--9b42df2--plan-addendum-wp13.md: at, field, legacy_text, legacy_placed, legacy_status, status_note and the three legacy kinds are design §12.2's metadata of a migrated element; reason is the reason design §7.3 and §12.3 ask of a keep, a drop and an awaiting-R record; kind revert marks the decision design §12.3 appends when the owner reverts an application",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["run", "disposition", "approval_id", "adjudication_id", "confirmation", "applied", "tests", "expected_observation"],
+      "properties": {
+        "run": {"type": "string", "minLength": 1},
+        "disposition": {"$ref": "#/$defs/legacy_disposition"},
+        "approval_id": {"type": "string", "minLength": 1},
+        "adjudication_id": {"type": ["string", "null"]},
+        "confirmation": {"type": ["string", "null"]},
+        "applied": {"$ref": "#/$defs/applied"},
+        "tests": {"$ref": "#/$defs/tests"},
+        "expected_observation": {"$ref": "#/$defs/expected_observation"},
+        "at": {"$comment": "design §12.2, a migrated element only", "$ref": "#/$defs/moment"},
+        "field": {"$comment": "design §12.2, a migrated element only", "type": "string", "minLength": 1},
+        "legacy_text": {"$comment": "design §12.2, a migrated element only", "type": "string"},
+        "legacy_placed": {"$comment": "design §12.2, a migrated element only", "$ref": "#/$defs/date"},
+        "legacy_status": {"$comment": "design §12.2, a migrated element only", "enum": ["incubating", "placed", "adopted-no-text", "absorbed", "retired"]},
+        "kind": {"$comment": "the three legacy kinds mark a migrated element; revert marks a decision a run made (design §12.3)", "enum": ["legacy_application", "legacy_retirement", "legacy_migration", "revert"]},
+        "status_note": {"$comment": "design §12.2, a migrated element only", "type": "string"},
+        "reason": {"$comment": "design §7.3 and §12.3: a keep, a drop and an awaiting-R record carry theirs", "type": "string", "minLength": 1}
+      }
+    },
+    "entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "lesson", "status", "classification", "window", "kind", "diagnosis", "disposition", "destination", "evidence", "independent_lineages", "consequence", "coverage", "keep", "relations", "decisions"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^[A-Z]+[0-9]*-[0-9]+$"},
+        "lesson": {"type": "string", "minLength": 1},
+        "principle": {"type": "string"},
+        "rationale": {"type": "string"},
+        "status": {"enum": ["incubating", "placed", "adopted-no-text", "absorbed", "retired"]},
+        "surfaced": {"$ref": "#/$defs/date"},
+        "domain": {"type": "string"},
+        "source": {"type": "string"},
+        "note": {"type": "string"},
+        "learning_id": {"type": "string", "minLength": 1},
+        "baseline_ref": {"type": "string"},
+        "window": {"type": "string", "pattern": "^([0-9]{4}-[0-9]{2}-[0-9]{2}|unknown)$"},
+        "classification": {"$ref": "#/$defs/classification"},
+        "recurrence": {"type": "array", "items": {"$ref": "#/$defs/recurrence_record"}},
+        "absorbed_by": {"type": "string", "minLength": 1},
+        "retired": {"$ref": "#/$defs/date"},
+        "retire_reason": {"type": "string"},
+        "kind": {"$ref": "#/$defs/entry_kind"},
+        "diagnosis": {"$ref": "#/$defs/entry_diagnosis"},
+        "disposition": {"$ref": "#/$defs/disposition"},
+        "destination": {"$ref": "#/$defs/destination"},
+        "evidence": {"type": "array", "items": {"$ref": "#/$defs/evidence_item"}},
+        "independent_lineages": {"type": ["integer", "string"], "minimum": 0, "pattern": "^unavailable$"},
+        "consequence": {"$ref": "#/$defs/consequence"},
+        "coverage": {"$ref": "#/$defs/coverage"},
+        "keep": {"$ref": "#/$defs/keep_record"},
+        "relations": {"$ref": "#/$defs/relations"},
+        "decisions": {"type": "array", "items": {"$ref": "#/$defs/decision"}}
+      }
+    }
+  }
+}

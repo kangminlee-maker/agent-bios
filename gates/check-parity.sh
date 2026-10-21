@@ -312,6 +312,34 @@ if [ -f session-distill/runlib/census.py ]; then
     || { echo "FAIL: session-distill census self-test (session-distill/runlib/census.py)"; fail=1; }
 fi
 
+# Session distill ledger (design §12): schema 2, the transition table, the migration of the schema 1
+# ledger, the projection the old readers keep, and the id-set check. `ledger.py --check` compares the
+# ledger in the index with HEAD (no id lost, new ids exactly the allocated, every changed row matching
+# a validated decision); `migrate-ledger.py --check` migrates the ledger dry against design §12.2's
+# expected records and holds the reader inventory against a text, AST and argument discovery. The nudge writer's
+# self-test runs the launcher's reader against the state it writes. The committed ledger is data and
+# moves only at the cutover; these legs read it and never change it.
+if [ -f session-distill/runlib/ledger.py ]; then
+  python3 session-distill/runlib/ledger.py --self-test >/dev/null \
+    || { echo "FAIL: session-distill ledger self-test (session-distill/runlib/ledger.py)"; fail=1; }
+  python3 session-distill/runlib/ledger.py --check >/dev/null \
+    || { echo "FAIL: the ledger lost an id, allocated a wrong one, or changed a row with no decision (session-distill/runlib/ledger.py --check)"; fail=1; }
+fi
+if [ -f session-distill/migrate-ledger.py ]; then
+  python3 session-distill/migrate-ledger.py --self-test >/dev/null \
+    || { echo "FAIL: session-distill ledger migration self-test (session-distill/migrate-ledger.py)"; fail=1; }
+  python3 session-distill/migrate-ledger.py --check >/dev/null \
+    || { echo "FAIL: the ledger does not migrate to design 12.2's expected records, or the reader inventory is stale (session-distill/migrate-ledger.py --check)"; fail=1; }
+fi
+if [ -f session-distill/runlib/ledger_compat.py ]; then
+  python3 session-distill/runlib/ledger_compat.py --self-test >/dev/null \
+    || { echo "FAIL: session-distill ledger projection self-test (session-distill/runlib/ledger_compat.py)"; fail=1; }
+fi
+if [ -f session-distill/update-state.py ]; then
+  python3 session-distill/update-state.py --self-test >/dev/null \
+    || { echo "FAIL: session-distill nudge state self-test (session-distill/update-state.py)"; fail=1; }
+fi
+
 # Instructions rollback (compose/instructions-state.py) — a destructive path with no other
 # coverage: every version registered today is UNAVAILABLE (it predates the assembled
 # layout), so the write loop is unreachable from `list` and nothing else exercises it.

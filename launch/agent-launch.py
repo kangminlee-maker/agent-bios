@@ -10711,26 +10711,79 @@ def _line_count(path: pathlib.Path) -> int:
         return 0
 
 
-def session_distill_nudge(config: dict[str, Any]) -> str | None:
-    """Nudge when enough sessions accumulated since the last mining window.
+def _transcript_file_count(home: pathlib.Path) -> int:
+    """Transcript files under the two hosts' roots: a directory listing, no parsing.
 
-    The baseline is written by session-distill/update-state.py at
-    window close; provider history line counts are a cheap proxy for new
-    sessions. No state file means no nudge.
-    """
+    Claude keeps one file per session directly inside each project directory; Codex keeps
+    rollouts, plain or compressed in place, anywhere below `sessions/` and `archived_sessions/`.
+    The window-close writer (session-distill/update-state.py) counts them the same way, and its
+    self-test holds the two counts to one answer."""
+    total = 0
+    try:
+        with os.scandir(home / ".claude" / "projects") as projects:
+            for project in projects:
+                if project.is_dir(follow_symlinks=False):
+                    with os.scandir(project.path) as files:
+                        total += sum(1 for f in files if f.name.endswith(".jsonl") and f.is_file(follow_symlinks=False))
+    except OSError:
+        pass
+    pending = [home / ".codex" / "sessions", home / ".codex" / "archived_sessions"]
+    while pending:
+        try:
+            with os.scandir(pending.pop()) as entries:
+                for entry in entries:
+                    if entry.is_dir(follow_symlinks=False):
+                        pending.append(pathlib.Path(entry.path))
+                    elif entry.name.endswith((".jsonl", ".jsonl.zst")) and entry.is_file(follow_symlinks=False):
+                        total += 1
+        except OSError:
+            continue
+    return total
+
+
+def _nudge_setting(settings: Any, key: str, default: int) -> int:
+    """A positive integer setting of `[session_distill]`, or `default`.
+
+    A hand-edited "250" made the comparison a TypeError before the launcher drew anything — a
+    nudge is a hint, so an unusable value falls back to the default rather than taking the
+    launch down with it. `bool` is excluded because `True` is an int that means nothing here."""
+    value = settings.get(key, default) if isinstance(settings, dict) else default
+    return default if isinstance(value, bool) or not isinstance(value, int) or value < 1 else value
+
+
+def session_distill_nudge(config: dict[str, Any]) -> str | None:
+    """Nudge when a mining window is due.
+
+    The baseline is written by session-distill/update-state.py at window close. A state file that
+    carries `transcript_files_total` nudges when `cadence_days` have passed since its `window_end`
+    or the transcript files under the hosts' roots grew by `transcript_growth`; one without it
+    keeps the original rule, provider history line counts as a cheap proxy for new sessions. No
+    state file means no nudge. The launcher reads this file and the hosts' directories, nothing
+    in a checkout."""
     try:
         state = json.loads(SESSION_DISTILL_STATE.read_text(encoding="utf-8"))
         baseline = int(state["history_lines_total"])
     except (OSError, ValueError, KeyError, TypeError):
         return None
     settings = config.get("session_distill", {})
-    threshold = settings.get("nudge_after", 250) if isinstance(settings, dict) else 250
-    # `nudge_after` is compared against a line count, and a hand-edited "250" made that
-    # comparison a TypeError before the launcher drew anything — a nudge is a hint, so
-    # an unusable threshold falls back to the default rather than taking the launch
-    # down with it. `bool` is excluded because `True` is an int that means nothing here.
-    if isinstance(threshold, bool) or not isinstance(threshold, int) or threshold < 1:
-        threshold = 250
+    files_then = state.get("transcript_files_total")
+    if isinstance(files_then, int) and not isinstance(files_then, bool):
+        cadence = _nudge_setting(settings, "cadence_days", 14)
+        growth = _nudge_setting(settings, "transcript_growth", 250)
+        reasons = []
+        try:
+            days = (datetime.date.today() - datetime.date.fromisoformat(state["window_end"])).days
+        except (KeyError, TypeError, ValueError):
+            days = None
+        if days is not None and days >= cadence:
+            reasons.append(f"{days} days since {state['window_end']} (cadence {cadence})")
+        grown = _transcript_file_count(pathlib.Path.home()) - files_then
+        if grown >= growth:
+            reasons.append(f"~{grown} new transcript files since {state.get('window_end', '?')} (threshold {growth})")
+        if not reasons:
+            return None
+        return "session-distill due: " + "; ".join(reasons) + " — launch the Session distill preset to run the next mining window"
+    threshold = _nudge_setting(settings, "nudge_after", 250)
     current = _line_count(pathlib.Path.home() / ".claude/history.jsonl") + _line_count(
         pathlib.Path.home() / ".codex/history.jsonl"
     )

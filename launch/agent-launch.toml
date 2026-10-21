@@ -347,6 +347,11 @@ provider = "anthropic"
 tier = "frontier"
 
 # Nudge baseline lives in ~/.local/share/agent-bios/session-distill-state.json,
-# written by session-distill/update-state.py at window close.
+# written by session-distill/update-state.py at window close. A state file that records
+# transcript_files_total nudges when cadence_days have passed since its window end or the
+# transcript files grew by transcript_growth; one without it nudges after nudge_after new
+# history lines.
 [session_distill]
 nudge_after = 250
+cadence_days = 14
+transcript_growth = 250
