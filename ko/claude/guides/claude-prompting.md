@@ -10,37 +10,38 @@ use_when:
   - claude 작업의 reasoning effort 수준을 정할 때
 core_rules:
   - 실제 대상 model에 맞는 guidance를 고른다 — effort 기본값, thinking 제어, 주도성 조정이 model마다 다르며, 한 model에서 측정한 기법은 다른 model에 적용하기 전에 다시 확인한다
+  - effort 수준 이름은 model 사이에 이어지지 않는다. model을 다시 묶으면 이전 model의 설정을 유지하지 말고 수준을 다시 훑는다
   - 목표, 그 이유, 완료의 의미를 밝히고 경로는 model이 고르게 둔다
   - tool 설명은 무엇을 하는지만이 아니라 언제 호출할지를 규정한다 — 강제 tool 선택이 거부되는 model에서는 prompt가 유일한 지렛대다
   - 물려받은 process scaffolding은 유지하거나 제거하기 전에 대상 model에서 비교한다
   - 경계를 명시한다 — 묻지 않고 할 일과 멈춰서 물어야 할 일
   - 대화 history는 append-only로 유지하고, 추론을 응답에 써 내라고 요구하지 않는다
-derived_at: 2026-10-20
+derived_at: 2026-10-21
 source_pins:
   - doc: claude-prompting-best-practices
     sha256: e9bd30b6abd49cc42549387cfa7a4cd9946d79d0eb7ed2a1c12f4cf431ee04f4
-    pinned_at: 2026-10-20
+    pinned_at: 2026-10-21
   - doc: prompting-claude-fable-5-1
     sha256: b921ea4d827411b3f4401fd5c92021eb7166c6c5642688321a3780297d8b5497
-    pinned_at: 2026-10-20
+    pinned_at: 2026-10-21
   - doc: prompting-claude-opus-5-5
     sha256: 3432e66ac97f77b45e1ecba014c9d6d0001be7ab47b55ebe8c70f5aa55883a14
-    pinned_at: 2026-10-20
+    pinned_at: 2026-10-21
   - doc: prompting-claude-sonnet-5-5
     sha256: 6886cdd2625b73be5bd74420e31c3a050c1c52b8073b9bebe15f4dcf33e44f91
-    pinned_at: 2026-10-20
+    pinned_at: 2026-10-21
   - doc: prompting-claude-haiku-5-5
     sha256: e871a37701e88998c5bed2e15c586048c86d3d8ab5c333a67c60ad717e0131fd
-    pinned_at: 2026-10-20
+    pinned_at: 2026-10-21
   - doc: prompting-claude-opus-5
     sha256: e73cd26863642596486a43f90ff9c04d13f8e4b6cd00ae83546d4d3cd93c5143
-    pinned_at: 2026-10-20
+    pinned_at: 2026-10-21
   - doc: thinking
     sha256: 8bbc8ed20cffa039e5c2c371c64610c7e4019d2dabf1a01392a87dc0018d9375
-    pinned_at: 2026-10-20
+    pinned_at: 2026-10-21
   - doc: effort
     sha256: 38cf202f17d28efe5a42f1df1de7f7af5924f76ce05abb7b5989db919ae892e5
-    pinned_at: 2026-10-20
+    pinned_at: 2026-10-21
 targets:
   - claude-fable-5-1
   - claude-opus-5-5
@@ -137,7 +138,8 @@ dispatch가 제약에 의존하기 전에 live surface에서 그 제약을 확�
 
 - Effort: 기본값 `high`에서 시작해 나머지 수준을 자체 eval에서 시험한다. 수준 이름이
   model마다 같은 양의 thinking을 뜻하지 않는다. `medium`은 더 낮은 비용으로 Fable 5와
-  대략 같고, `low`는 과제당 비용에서 Opus와 Sonnet model과 경쟁할 만한 경우가 많다.
+  대략 같고, `low`는 과제당 비용에서 Opus와 Sonnet model과 경쟁할 만하면서 점수는 더 높은
+  경우가 많다 — 더 작은 model을 더 높은 수준으로 돌리려던 곳이면 비교에 넣는다.
 - 진행 text: 긴 tool 호출 turn에서 사용자에게 보이는 업데이트를 더 적게 쓰며, effort가
   높을수록 더 그렇다. 먼저 client가 progress-update `thinking` block(`display: "updates"`,
   beta)을 표시하는지 확인하고, 다음으로 서술을 억제하는 줄을 지우고, 그다음에 한 줄 시작,
@@ -209,6 +211,8 @@ Opus 5 prompt는 그대로 쓸 수 있고, Opus 5 section은 여전히 합리적
 - 붙여넣은 text: 하나의 무작위 id를 단 `<pasted_content id="…">` tag로 감싸고, 그 안의 지시는
   사용자가 요청한 곳에서만 따르라고 system prompt에 적는다. tag는 흉내 낼 수 있으므로 여러
   방어책 중 하나일 뿐이다.
+- 안전 classifier가 생물학, 사이버보안, 추론 추출을 다룬다. 생물학 safeguard는 Fable 5.1과
+  같으며 Opus 5에서 넘어오면 새로 생긴 것이다.
 - 조밀한 이미지: tool 없이도 chart, diagram, screenshot을 더 정확히 읽으므로 이전 model용
   scaffolding은 다시 시험한다. 가장 조밀한 입력에는 고해상도와 crop·측정 tool이 여전히
   도움이 되며(effort가 높을수록 더), effort만 올리면 기술 도면에는 도움이 되지만 chart에는
@@ -258,6 +262,9 @@ Sonnet 5 prompt는 그대로 쓸 수 있다. 가장 어려운 장기 작업에�
   구문만 확인하거나 시작에 실패한 명령은 인정하지 않고, 선언된 의존성이 빠진 것뿐이면
   project 자체의 package manager와 lockfile로 설치하되(sudo나 시스템 package manager로는
   하지 않는다), 건너뛴 확인은 완료로 보고하는 대신 그 이유와 함께 이름 댄다.
+- tool 이름: 선언된 tool을 대소문자가 틀린 이름으로 부르거나, 알려진 parameter를 조금 다른
+  이름으로 넘기는 때가 있다. 대응이 모호하지 않으면 받아들이거나, 정확한 기대 이름을 적은
+  `is_error` 결과를 돌려준다. 보통 다음 turn에 호출을 고친다.
 - chat과 knowledge work: 검색하면 바뀐 세부를 잡을 수 있는데도 학습 지식으로 답하는 때가
   있다. "tool 호출을 최소화하라"는 표현을 지우고, 바뀌었을 수 있는 세부(허용·요구·요금)는
   검색하라고 말한다.
@@ -297,6 +304,9 @@ thinking budget을 대체한다. system prompt text 추가는 새 대화에서�
   `medium`으로 바꾼다.
 
 ## Claude Opus 5
+
+지금 `claude-opus-5`를 묶는 tier는 없다. 이 section은 아직 그 model로 보내는 prompt를
+위해 남긴다.
 
 - Effort: 기본값 `high`에서 시작해 다시 훑는다. `low`와 `medium`은 token의 일부만으로
   강한 품질을 유지하고, `xhigh`는 까다로운 coding과 agentic 작업용이다. 전체 명세를 먼저

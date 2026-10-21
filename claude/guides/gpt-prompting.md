@@ -15,50 +15,50 @@ core_rules:
   - replace blanket ALWAYS/NEVER with decision rules naming the condition each choice applies under
   - fix the prompt before raising effort — first check for a missing success criterion, dependency rule, tool-routing rule, or verification loop
   - prompting habits carried from older gpt models cost tokens and can cost accuracy
-derived_at: 2026-10-20
+derived_at: 2026-10-21
 source_pins:
   - doc: prompt-guidance-gpt-5p6
     sha256: 46181efec9fd1160ef537b0379282a14c1ba32380f2f8149a805128253c1115a
-    pinned_at: 2026-10-20
+    pinned_at: 2026-10-21
   - doc: model-guidance-gpt-5p6
     sha256: bcbc002991e3ff6491ba5c4d38d8f5c497fa785c0b11ea27d92c9d34676ab460
-    pinned_at: 2026-10-20
+    pinned_at: 2026-10-21
   - doc: upgrading-to-gpt-5p6-sol
     sha256: d4d2494240bc124bde81d96a9a389f3ed7122deabc4b508c18d26a3ebd20c74f
-    pinned_at: 2026-10-20
+    pinned_at: 2026-10-21
   - doc: model-guidance-gpt-6-astra
     sha256: ad1aeb3d87e2e61a91233447f7c54b7b18ebfecc4315eeefab15bf5861b3a5c7
-    pinned_at: 2026-10-20
+    pinned_at: 2026-10-21
   - doc: model-gpt-6-astra
     sha256: b7c19b3bb89e87a392a0f3f8b732c5e7c9f0bf558cbe3022c491575a947fcef8
-    pinned_at: 2026-10-20
+    pinned_at: 2026-10-21
   - doc: model-gpt-6p1-sol
     sha256: acfe91d19882aaf7bb52877898684614035a947de02f2955c9de905a7efb1362
-    pinned_at: 2026-10-20
+    pinned_at: 2026-10-21
   - doc: model-gpt-6-sol
     sha256: 3dcb62c16386c40e52438e7fa7fb46b979d13cbfc324d0807246e24ce43345bb
-    pinned_at: 2026-10-20
+    pinned_at: 2026-10-21
   - doc: model-gpt-6-luna
     sha256: 2e4861582095740f5ea84b14bb18fa476a49c426b397b779b964bc144397b451
-    pinned_at: 2026-10-20
+    pinned_at: 2026-10-21
   - doc: reasoning
-    sha256: a561487dd41db8828b5b9920d77275bdced3c3c07ba1fb9f3c3230c5aaeb925b
-    pinned_at: 2026-10-20
+    sha256: 18edc294a66c8eb442c5d0049b9e9d31af2b8e830ca6e41d6bf8798c902f4e14
+    pinned_at: 2026-10-21
   - doc: codex-models
     sha256: 77779d7adf13e05df5bf7fa82088ebbaa647d16682a91cea5cd3cad043474f8e
-    pinned_at: 2026-10-20
+    pinned_at: 2026-10-21
   - doc: prompt-caching
-    sha256: 74dc45350d5de0e7eef80b0b09d67b733a73170275f1bacb0760e066a4254480
-    pinned_at: 2026-10-20
+    sha256: 715eacd5f0fe6bd7b238b74b770a6eb5b9a5260f464b5d54066b0bf580d3e995
+    pinned_at: 2026-10-21
   - doc: responses-multi-agent
     sha256: b16d53b38bc957a790d39d2a736531addfed88a2c806e2be11aac190ea817a3e
-    pinned_at: 2026-10-20
+    pinned_at: 2026-10-21
   - doc: structured-outputs
     sha256: 09aa3814251cf168070294ace79d677091de04b330055048392548d604aa7104
-    pinned_at: 2026-10-20
+    pinned_at: 2026-10-21
   - doc: tools-programmatic-tool-calling
     sha256: fc459e1947d9fd4506c54c2a4f3e202d483a3a12a3488f06b974dbf98c787630
-    pinned_at: 2026-10-20
+    pinned_at: 2026-10-21
 targets:
   - gpt-6-astra
   - gpt-6.1-sol
@@ -155,7 +155,9 @@ per model is the API facts in the table above, taken from each model page.
   For plain prose, request concise paragraphs, familiar words, active verbs, and the
   main point first, with lists only for parallel, sequential, or comparable content.
   Retain the technical detail needed to assess the result; name unwanted stock
-  phrases and contrastive framing when they recur.
+  phrases and contrastive framing when they recur. In several vendor evaluations Astra
+  reached stronger results with substantially fewer output tokens, so re-measure
+  brevity pressure written for GPT-5.6 before carrying it over.
 - **Subagent delegation.** Astra may delegate less often than a workflow needs and
   responds well to prompting for how and when to delegate. State when independent
   work is delegated, the intended parallelism, each subagent's scope, and when to keep
@@ -182,9 +184,13 @@ per model is the API facts in the table above, taken from each model page.
   `configuration_update` before the next user message. Fix a missing success
   criterion, dependency rule, or verification loop before raising effort: effort is a
   tuning knob, not the primary way to recover quality.
-- **Under Codex.** `ultra` is a Codex effort, not an API value: it runs the task with
-  subagents and suits work that divides into meaningful parts; GPT-6 Luna goes up to
-  Max and has no Ultra, and most tasks need neither. Efforts do not map exactly between
+- **Under Codex.** `ultra` is a Codex effort, not an API value — the API's effort list
+  ends at `max`. It is a different mode, not the next rung: the client catalog
+  describes it as maximum reasoning with automatic task delegation, it runs the task
+  with subagents, and it suits work that divides into meaningful parts. The catalog
+  offers it for `gpt-6-astra`, `gpt-6.1-sol`, `gpt-6-sol`, `gpt-5.6-sol`, and
+  `gpt-5.6-terra`; GPT-6 Luna goes up to Max and refuses Ultra, and most tasks need
+  neither. Efforts do not map exactly between
   model generations, so try a familiar task one setting lower and adjust. A run that
   omits effort inherits the client's default, which can differ from the API default
   (the client catalog sets `gpt-6.1-sol` to `low`; the API default is `medium`) — pin
@@ -192,7 +198,7 @@ per model is the API facts in the table above, taken from each model page.
   instructions under your prompt: Astra, 6.1 Sol, and 6 Sol carry the testing
   calibration above, while GPT-6 Luna is told not to add or run tests unless asked, so
   a Luna run that must verify needs its checks named in the prompt (Codex client
-  catalog, codex-cli 0.163.0, read 2026-10-20; not a published document).
+  catalog, codex-cli 0.163.0, read 2026-10-21; not a published document).
 
 ## Shared prompt recipe
 

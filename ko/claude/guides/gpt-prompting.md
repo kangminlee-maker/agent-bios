@@ -15,50 +15,50 @@ core_rules:
   - 포괄적인 ALWAYS/NEVER 대신 각 선택이 적용되는 조건을 명시한 결정 규칙을 쓴다
   - effort를 올리기 전에 prompt를 고친다 — 먼저 성공 기준, 의존 규칙, tool 라우팅 규칙, 또는 검증 루프가 빠졌는지 확인한다
   - 구세대 gpt model에서 가져온 prompting 습관은 token을 쓰고 정확도까지 해칠 수 있다
-derived_at: 2026-10-20
+derived_at: 2026-10-21
 source_pins:
   - doc: prompt-guidance-gpt-5p6
     sha256: 46181efec9fd1160ef537b0379282a14c1ba32380f2f8149a805128253c1115a
-    pinned_at: 2026-10-20
+    pinned_at: 2026-10-21
   - doc: model-guidance-gpt-5p6
     sha256: bcbc002991e3ff6491ba5c4d38d8f5c497fa785c0b11ea27d92c9d34676ab460
-    pinned_at: 2026-10-20
+    pinned_at: 2026-10-21
   - doc: upgrading-to-gpt-5p6-sol
     sha256: d4d2494240bc124bde81d96a9a389f3ed7122deabc4b508c18d26a3ebd20c74f
-    pinned_at: 2026-10-20
+    pinned_at: 2026-10-21
   - doc: model-guidance-gpt-6-astra
     sha256: ad1aeb3d87e2e61a91233447f7c54b7b18ebfecc4315eeefab15bf5861b3a5c7
-    pinned_at: 2026-10-20
+    pinned_at: 2026-10-21
   - doc: model-gpt-6-astra
     sha256: b7c19b3bb89e87a392a0f3f8b732c5e7c9f0bf558cbe3022c491575a947fcef8
-    pinned_at: 2026-10-20
+    pinned_at: 2026-10-21
   - doc: model-gpt-6p1-sol
     sha256: acfe91d19882aaf7bb52877898684614035a947de02f2955c9de905a7efb1362
-    pinned_at: 2026-10-20
+    pinned_at: 2026-10-21
   - doc: model-gpt-6-sol
     sha256: 3dcb62c16386c40e52438e7fa7fb46b979d13cbfc324d0807246e24ce43345bb
-    pinned_at: 2026-10-20
+    pinned_at: 2026-10-21
   - doc: model-gpt-6-luna
     sha256: 2e4861582095740f5ea84b14bb18fa476a49c426b397b779b964bc144397b451
-    pinned_at: 2026-10-20
+    pinned_at: 2026-10-21
   - doc: reasoning
-    sha256: a561487dd41db8828b5b9920d77275bdced3c3c07ba1fb9f3c3230c5aaeb925b
-    pinned_at: 2026-10-20
+    sha256: 18edc294a66c8eb442c5d0049b9e9d31af2b8e830ca6e41d6bf8798c902f4e14
+    pinned_at: 2026-10-21
   - doc: codex-models
     sha256: 77779d7adf13e05df5bf7fa82088ebbaa647d16682a91cea5cd3cad043474f8e
-    pinned_at: 2026-10-20
+    pinned_at: 2026-10-21
   - doc: prompt-caching
-    sha256: 74dc45350d5de0e7eef80b0b09d67b733a73170275f1bacb0760e066a4254480
-    pinned_at: 2026-10-20
+    sha256: 715eacd5f0fe6bd7b238b74b770a6eb5b9a5260f464b5d54066b0bf580d3e995
+    pinned_at: 2026-10-21
   - doc: responses-multi-agent
     sha256: b16d53b38bc957a790d39d2a736531addfed88a2c806e2be11aac190ea817a3e
-    pinned_at: 2026-10-20
+    pinned_at: 2026-10-21
   - doc: structured-outputs
     sha256: 09aa3814251cf168070294ace79d677091de04b330055048392548d604aa7104
-    pinned_at: 2026-10-20
+    pinned_at: 2026-10-21
   - doc: tools-programmatic-tool-calling
     sha256: fc459e1947d9fd4506c54c2a4f3e202d483a3a12a3488f06b974dbf98c787630
-    pinned_at: 2026-10-20
+    pinned_at: 2026-10-21
 targets:
   - gpt-6-astra
   - gpt-6.1-sol
@@ -148,7 +148,9 @@ workload에서 평가하라고 되어 있다. 따라서 아래 다섯 동작 항
   표현으로 기우는 경향이 있다. 독자에 맞춘 길이와 구조를 지정한다. 평문에는 간결한
   문단, 익숙한 단어, 능동적인 동사, 핵심부터 제시하도록 요청하고, 목록은 내용이
   병렬이거나 순차적이거나 비교하기 쉬울 때만 쓴다. 결과를 평가하는 데 필요한 기술
-  세부는 남기고, 원치 않는 정형 표현과 대조 틀이 반복되면 이를 명시한다.
+  세부는 남기고, 원치 않는 정형 표현과 대조 틀이 반복되면 이를 명시한다. vendor의 여러
+  평가에서 Astra는 훨씬 적은 output token으로 더 나은 결과를 냈으므로, GPT-5.6용으로 쓴
+  간결성 압박은 넘겨 쓰기 전에 다시 측정한다.
 - **Subagent delegation.** Astra는 workflow가 요구하는 것보다 delegation을 덜 할 수
   있고, 언제 어떻게 delegate할지에 대한 prompting에 잘 반응한다. 독립 작업을 언제
   delegate할지, 의도한 병렬성의 정도, 각 subagent의 범위, 작업을 local에 둘 때를 기존
@@ -174,16 +176,19 @@ workload에서 평가하라고 되어 있다. 따라서 아래 다섯 동작 항
   `configuration_update`를 추가한다. effort를 높이기 전에
   빠진 성공 기준, 의존 규칙, 또는 검증 루프를 고친다. effort는 조정 손잡이이지 품질을
   되찾는 주된 수단이 아니다.
-- **Codex에서.** `ultra`는 API 값이 아니라 Codex의 effort다. 과제를 subagent로 나눠
-  실행하므로 의미 있는 부분으로 나뉘는 작업에 맞는다. GPT-6 Luna는 Max까지 지원하고
-  Ultra는 없으며, 대부분의 과제에는 둘 다 필요 없다. effort는 model 세대 사이에 정확히
+- **Codex에서.** `ultra`는 API 값이 아니라 Codex의 effort다 — API의 effort 목록은
+  `max`에서 끝난다. 다음 단계가 아니라 다른 mode다. client catalog는 이를 자동 과제
+  위임을 곁들인 최대 추론으로 설명하며, 과제를 subagent로 나눠 실행하므로 의미 있는
+  부분으로 나뉘는 작업에 맞는다. catalog는 `gpt-6-astra`, `gpt-6.1-sol`, `gpt-6-sol`,
+  `gpt-5.6-sol`, `gpt-5.6-terra`에 이를 제공한다. GPT-6 Luna는 Max까지 지원하고 Ultra는
+  거부하며, 대부분의 과제에는 둘 다 필요 없다. effort는 model 세대 사이에 정확히
   대응하지 않으므로, 익숙한 과제를 한 단계 낮은 설정으로 돌려 보고 조정한다. effort를
   생략한 실행은 client의 기본값을 물려받는데, 이는 API 기본값과 다를 수 있으므로(client
   catalog는 `gpt-6.1-sol`을 `low`로 두고, API 기본값은 `medium`이다) launch config에
   고정한다. client의 model catalog는 model별 base instruction도 prompt 아래에 깔아
   둔다. Astra, 6.1 Sol, 6 Sol은 위 testing 조정을 담고 있고, GPT-6 Luna는 요청받지
   않으면 test를 추가하거나 실행하지 말라고 지시받으므로, 검증이 필요한 Luna 실행은
-  prompt에 check를 명시해야 한다(Codex client catalog, codex-cli 0.163.0, 2026-10-20에
+  prompt에 check를 명시해야 한다(Codex client catalog, codex-cli 0.163.0, 2026-10-21에
   읽음; 공개 document가 아니다).
 
 ## Shared prompt recipe

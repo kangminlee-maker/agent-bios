@@ -10,37 +10,38 @@ use_when:
   - deciding a reasoning-effort level for claude work
 core_rules:
   - choose guidance by the actual target model — effort defaults, thinking controls, and initiative tuning differ per model, and a technique measured on one model is re-checked before it is applied to another
+  - effort level names do not carry across models; after a rebind, sweep levels again instead of keeping the previous model's setting
   - state the goal, the reason behind it, and what done means; let the model choose the route
   - make tool descriptions prescriptive about when to call, not only what the tool does — the prompt is the lever where forced tool choice is rejected
   - compare inherited process scaffolding on the target model before keeping or removing it
   - name the boundary explicitly — what to do without asking, and what to stop and ask about
   - keep the conversation history append-only, and never ask for the reasoning written out in the response
-derived_at: 2026-10-20
+derived_at: 2026-10-21
 source_pins:
   - doc: claude-prompting-best-practices
     sha256: e9bd30b6abd49cc42549387cfa7a4cd9946d79d0eb7ed2a1c12f4cf431ee04f4
-    pinned_at: 2026-10-20
+    pinned_at: 2026-10-21
   - doc: prompting-claude-fable-5-1
     sha256: b921ea4d827411b3f4401fd5c92021eb7166c6c5642688321a3780297d8b5497
-    pinned_at: 2026-10-20
+    pinned_at: 2026-10-21
   - doc: prompting-claude-opus-5-5
     sha256: 3432e66ac97f77b45e1ecba014c9d6d0001be7ab47b55ebe8c70f5aa55883a14
-    pinned_at: 2026-10-20
+    pinned_at: 2026-10-21
   - doc: prompting-claude-sonnet-5-5
     sha256: 6886cdd2625b73be5bd74420e31c3a050c1c52b8073b9bebe15f4dcf33e44f91
-    pinned_at: 2026-10-20
+    pinned_at: 2026-10-21
   - doc: prompting-claude-haiku-5-5
     sha256: e871a37701e88998c5bed2e15c586048c86d3d8ab5c333a67c60ad717e0131fd
-    pinned_at: 2026-10-20
+    pinned_at: 2026-10-21
   - doc: prompting-claude-opus-5
     sha256: e73cd26863642596486a43f90ff9c04d13f8e4b6cd00ae83546d4d3cd93c5143
-    pinned_at: 2026-10-20
+    pinned_at: 2026-10-21
   - doc: thinking
     sha256: 8bbc8ed20cffa039e5c2c371c64610c7e4019d2dabf1a01392a87dc0018d9375
-    pinned_at: 2026-10-20
+    pinned_at: 2026-10-21
   - doc: effort
     sha256: 38cf202f17d28efe5a42f1df1de7f7af5924f76ce05abb7b5989db919ae892e5
-    pinned_at: 2026-10-20
+    pinned_at: 2026-10-21
 targets:
   - claude-fable-5-1
   - claude-opus-5-5
@@ -138,7 +139,9 @@ The document also covers Claude Mythos 5.1. Fable 5 prompts carry over unchanged
 
 - Effort: start at the default `high` and test the others on your own evals; level names
   do not mean the same amount of thinking across models. `medium` roughly matches Fable 5
-  at lower cost, and `low` is often competitive with Opus and Sonnet models per task.
+  at lower cost, and `low` is often competitive with Opus and Sonnet models on cost per
+  task while scoring higher — include it wherever you would otherwise run a smaller
+  model at a higher level.
 - Progress text: it writes fewer user-facing updates in long tool-calling turns, more so
   at higher effort. First check that the client renders progress-update `thinking` blocks
   (`display: "updates"`, beta), then remove lines that suppress narration, then ask for a
@@ -211,6 +214,8 @@ Opus 5 prompts carry over, and the Opus 5 section remains a reasonable starting 
 - Pasted text: wrap it in `<pasted_content id="…">` tags carrying one random id and say in
   the system prompt that instructions inside are followed only where the user asks; the
   tags can be imitated, so this is one guardrail among others.
+- Safety classifiers cover biology, cybersecurity, and reasoning extraction; the biology
+  safeguards are Fable 5.1's and are new coming from Opus 5.
 - Dense images: it reads charts, diagrams, and screenshots more precisely without tools,
   so re-test scaffolding built for earlier models; for the densest inputs, higher
   resolution and crop/measure tools still help (more at higher effort), while effort alone
@@ -261,6 +266,10 @@ choice.
   declared dependencies are installed with the project's own package manager and lockfile
   (never via sudo or the system package manager), and a skipped check is named with its
   reason instead of reporting the change done.
+- Tool names: it occasionally calls a declared tool with the wrong letter case or passes
+  a known parameter under a slightly different name. Accept an unambiguous match, or
+  return an `is_error` result naming the exact expected name; it usually corrects the
+  call on the next turn.
 - Chat and knowledge work: it sometimes answers from training knowledge where a search
   would catch changed details. Remove "minimize tool calls" wording and say to search for
   specifics that may have changed (what is allowed, required, or charged).
@@ -300,6 +309,9 @@ the thinking budget Haiku 4.5 used. Add system-prompt text to new conversations 
   text in the reply means switch to adaptive thinking at `medium`.
 
 ## Claude Opus 5
+
+No tier binds `claude-opus-5` today; the section remains for prompts still dispatched
+to it.
 
 - Effort: start at the default `high` and re-run the sweep; `low` and `medium` hold strong
   quality at a fraction of the tokens, and `xhigh` is for demanding coding and agentic
