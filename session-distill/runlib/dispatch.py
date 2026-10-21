@@ -145,6 +145,10 @@ OUT_OF_SCOPE = (
 DYNAMIC_LOADS = (
     {"site": "session-distill/runlib/receipts.py", "path": "launch/agent-launch.py", "trace": False,
      "reason": "the receipt grammar (_raw_receipt_reason) has one owner, the launcher"},
+    {"site": "session-distill/runlib/gate.py", "path": "wrappers/codex_frame_filter.py", "trace": False,
+     "reason": "the Codex capture's one owner, loaded by its literal repo path (FRAME_OWNER) for its pure readers "
+               "(gate.FRAME_READERS: responses, completions, join, attempts), held by the gate's self-test; read, not "
+               "traced: its context command starts codex (app-server, debug prompt-input), which the gate never calls"},
     {"site": "session-distill/runlib/ledger.py", "path": "session-distill/migrate-ledger.py", "trace": True,
      "reason": "the schema-1 migrator, loaded by its literal path beside the module (MIGRATOR) to compare a schema-1 "
                "base with a schema-2 head; its one executor is git ls-files"},

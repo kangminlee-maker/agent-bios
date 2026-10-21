@@ -45,6 +45,7 @@ USAGE_ATTRIBUTION_UNKNOWN (a Codex call whose attempts cannot all be accounted f
 """
 import ast
 import hashlib
+import importlib.util
 import itertools
 import json
 import pathlib
@@ -248,158 +249,42 @@ class Call:
         return self.result_bytes.decode("utf-8") if self.result_bytes is not None else None
 
 
-# Integration seam (plan WP-04): wrappers/codex_frame_filter.py, the capture's one owner, computes
-# responses, completions, join and attempts over the same frames; at integration the readings below
-# import it (author-side may import shipped, never the reverse) instead of keeping a second copy.
+# wrappers/codex_frame_filter.py is the capture's one owner: responses, completions, join and
+# attempts over a capture's frames are its functions, read here (author-side imports shipped, never
+# the reverse); what the gate adds is policy against the declared seats.
+FRAME_OWNER = pathlib.Path(__file__).resolve().parents[2] / "wrappers" / "codex_frame_filter.py"
+FRAME_READERS = ("responses", "completions", "join", "attempts")  # the owner's only functions the gate calls
+_frame_owner = None
+
+
+def frame_owner():
+    global _frame_owner
+    if _frame_owner is None:
+        spec = importlib.util.spec_from_file_location("codex_frame_filter", FRAME_OWNER)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        _frame_owner = module
+    return _frame_owner
+
+
 def codex_responses(c):
-    """Every server response of a Codex capture, joined to the client frame that asked for it
-    (same prompt cache key and previous response id, first unbound), with its role and seat."""
-    sends, out, by_id = [], [], {}
-    for rec in c.frames:
-        if rec.get("dir") == "send" and rec.get("type") == "response.create":
-            sends.append(dict(rec, bound=False))
-            continue
-        resp = rec.get("response") if rec.get("dir") == "recv" else None
-        if not isinstance(resp, dict) or not resp.get("id"):
-            continue
-        entry = by_id.get(resp["id"])
-        if entry is None:
-            # only a client frame sent before the response can have asked for it, and only one may match
-            candidates = [s for s in sends if not s["bound"] and s.get("prompt_cache_key") == resp.get("prompt_cache_key")
-                          and s.get("previous_response_id") == resp.get("previous_response_id")]
-            send = candidates[0] if len(candidates) == 1 else None
-            if send is not None:
-                send["bound"] = True
-            child = bool(send and (send.get("parent_thread_id") or (send.get("agent_name") or "/root") != "/root"))
-            kind = (send or {}).get("request_kind")
-            role = None if send is None else {"prewarm": "warmup", "compaction": "compaction"}.get(kind, "child" if child else "main")
-            entry = {"id": resp["id"], "send": send, "ambiguous": len(candidates) > 1, "role": role,
-                     "seat": "child_seat" if child else "seat",
-                     "thread": (send or {}).get("thread_id") or resp.get("prompt_cache_key"), "model": None,
-                     "effort": None, "terminal": None, "incomplete": None, "usage": None, "joined": False}
-            by_id[resp["id"]] = entry
-            out.append(entry)
-        entry["model"] = resp.get("model") or entry["model"]
-        entry["effort"] = resp.get("reasoning_effort") or entry["effort"]
-        if rec.get("type") in ("response.completed", "response.incomplete", "response.failed"):
-            entry["terminal"] = rec["type"].split(".", 1)[1]
-            entry["incomplete"] = resp.get("incomplete_details")
-            entry["usage"] = resp.get("usage")
-    return out
+    """The owner's responses, each with the seat key its role is judged against."""
+    return [dict(r, seat="child_seat" if r["role"] == "child" else "seat") for r in frame_owner().responses(c.frames)]
 
 
 def codex_completions(c):
-    """The completion ledger (design §3.2): otel's usage-bearing response.completed rows; the
-    usage-less lifecycle row of the same name is not a completion."""
-    return [r for r in c.frames if r.get("dir") == "otel" and r.get("event.name") == "codex.sse_event"
-            and r.get("event.kind") == "response.completed" and r.get("input_token_count") is not None]
-
-
-same_usage = usages.same_usage
+    return frame_owner().completions(c.frames)
 
 
 def join_completions(c, responses):
-    """Each completion joined to exactly one frame response by thread, order and full usage
-    (design §3.2): per thread, the next completion joins the next completed frame response,
-    and only when every token count agrees. Returns (completions no frame response answers,
-    completions whose in-order response disagrees while another matches — an ambiguous
-    association —, completed frame responses no completion joined)."""
-    unjoined, ambiguous = [], []
-    queues = {}
-    for r in responses:
-        if r["terminal"] == "completed" and isinstance(r["usage"], dict):
-            queues.setdefault(r["thread"], []).append(r)
-    for comp in codex_completions(c):
-        queue = [r for r in queues.get(comp.get("conversation.id"), []) if not r["joined"]]
-        if queue and same_usage(comp, queue[0]["usage"]):
-            queue[0]["joined"] = True
-        elif any(same_usage(comp, r["usage"]) for r in queues.get(comp.get("conversation.id"), [])):
-            ambiguous.append(comp)
-        else:
-            unjoined.append(comp)
-    leftover = [r for rs in queues.values() for r in rs if not r["joined"]]
-    return unjoined, ambiguous, leftover
+    """(completions no frame response answers, ambiguous ones, completed responses no completion
+    joined), the owner's join; it marks each joined response in `responses`."""
+    return frame_owner().join(c.frames, responses)
 
 
 def codex_attempts(c):
-    """design §3.2 step 2's attempt coverage, per thread (conversation.id), from the otel rows in
-    order: a websocket attempt starts at codex.websocket_request, an HTTPS one at its stream's
-    response.created (HTTPS has no start event); a usage-bearing response.completed completes the
-    oldest open attempt; a usage-less one is an HTTPS stream's lifecycle row, or ends a websocket
-    attempt as interrupted; an HTTPS stream followed by the next stream's start, or any attempt
-    open at the end, without its usage-bearing row, is interrupted (probe 9's f-http-sse-drop,
-    f-ws-drop-after-created). codex.api_request rows are not attempt evidence here (the breaker
-    reads them, /responses only).
-    A codex_core::responses_retry warning names no thread or request, and no timing or snapshot
-    is read as naming one: in a call that had exactly one thread for its whole life, each warning
-    is one failed post of unknown usage on that thread (f-http-500-once: two posts, one stream),
-    an attempt of its own; in any other call no warning is attributed, and every thread's
-    coverage is unknown.
-    Coverage: a thread is complete when every completion had its start and, where it streamed
-    over HTTPS, the retry channel was captured and its warnings are at least its interrupted
-    HTTPS streams; else unknown (attempt_coverage fails the call on it)."""
-    channels = next((r.get("channels") or [] for r in c.frames if r.get("dir") == "info" and r.get("type") == "channels"), [])
-    root = next((r.get("thread") for r in c.frames if r.get("dir") == "info" and r.get("type") == "root_thread"), None)
-    warnings = sum(1 for r in c.frames if r.get("dir") == "warn" and r.get("type") == "responses_retry")
-    threads = {}
-    for rec in c.frames:
-        if rec.get("dir") != "otel" or rec.get("conversation.id") is None:
-            continue
-        name, kind = rec.get("event.name"), rec.get("event.kind")
-        th = threads.setdefault(rec["conversation.id"], {"attempts": [], "unstarted": 0})
-        live = [a for a in th["attempts"] if a["state"] == "open"]
-        if name == "codex.websocket_request":
-            th["attempts"].append({"transport": "websocket", "state": "open", "ts": rec.get("ts"), "post": False})
-        elif name == "codex.sse_event" and kind == "response.created":
-            for a in live:
-                if a["transport"] == "https":
-                    a["state"] = "interrupted"
-            th["attempts"].append({"transport": "https", "state": "open", "ts": rec.get("ts"), "post": False})
-        elif name == "codex.sse_event" and kind == "response.completed":
-            target = live[0] if live else None
-            if rec.get("input_token_count") is not None:
-                if target is None:
-                    th["unstarted"] += 1
-                else:
-                    target["state"] = "completed"
-            elif target is not None and target["transport"] == "websocket":
-                target["state"] = "interrupted"
-    # the call's threads, from every record that names one: otel rows, the root marker, each sent
-    # frame's own, cache-key and parent thread, and each response's cache key; a send naming none,
-    # or a sub-agent's, is a thread no name establishes
-    lifetime, unnamed = set(threads) | ({root} if root else set()), 0
-    for rec in c.frames:
-        if rec.get("dir") == "send" and rec.get("type") == "response.create":
-            named = {rec.get(k) for k in ("thread_id", "prompt_cache_key", "parent_thread_id")} - {None}
-            lifetime |= named
-            unnamed += not named or (rec.get("agent_name") or "/root") != "/root"
-        elif rec.get("dir") == "recv" and isinstance(rec.get("response"), dict) and rec["response"].get("prompt_cache_key"):
-            lifetime.add(rec["response"]["prompt_cache_key"])
-    single = len(lifetime) == 1 and not unnamed
-    if warnings and single:
-        threads.setdefault(next(iter(lifetime)), {"attempts": [], "unstarted": 0})["attempts"] += [
-            {"transport": "https", "state": "interrupted", "ts": None, "post": True} for _ in range(warnings)]
-    elif warnings:  # every thread the evidence names is unknown, even one no otel row reached
-        for name in lifetime or {"(no thread named)"}:
-            threads.setdefault(name, {"attempts": [], "unstarted": 0})
-    out = {}
-    for thread, th in threads.items():
-        for a in th["attempts"]:
-            if a["state"] == "open":
-                a["state"] = "interrupted"
-        transports = {a["transport"] for a in th["attempts"] if not a["post"]}
-        interrupted = [a for a in th["attempts"] if a["state"] == "interrupted"]
-        dropped = sum(1 for a in interrupted if a["transport"] == "https" and not a["post"])
-        why = ("a completion without its start" if th["unstarted"] else
-               f"{warnings} retry warnings name no thread, and the evidence does not establish one thread ({len(lifetime)} named, "
-               f"{unnamed} sends of no established thread)" if warnings and not single else
-               "HTTPS streams without the retry channel" if "https" in transports and "responses_retry" not in channels else
-               "more HTTPS streams interrupted than retry warnings" if "https" in transports and dropped > warnings else None)
-        out[thread] = {"transports": sorted(transports), "completed": sum(1 for a in th["attempts"] if a["state"] == "completed"),
-                       "interrupted": len(interrupted), "interrupted_at": [a["ts"] for a in interrupted if a["ts"]],
-                       "failed_posts": sum(1 for a in th["attempts"] if a["post"]), "unstarted_completions": th["unstarted"],
-                       "coverage": "unknown" if why else "complete", "unknown_because": why}
-    return out
+    """The owner's attempt coverage per thread; attempt_coverage fails a call on any unknown."""
+    return frame_owner().attempts(c.frames)
 
 
 def observed_seats(c):
@@ -1106,6 +991,11 @@ def self_test():
 
     claude = claude_case("acc-clean-001")
     codex = codex_case("codex-accounting", "f-normal-ws")
+    # the capture's owner is read through its pure readers only (its context command starts codex)
+    used = {n.attr for n in ast.walk(ast.parse(pathlib.Path(__file__).read_text(encoding="utf-8")))
+            if isinstance(n, ast.Attribute) and isinstance(n.value, ast.Call) and getattr(n.value.func, "id", None) == "frame_owner"}
+    if not used or used - set(FRAME_READERS):
+        failures.append(f"the gate reads {sorted(used)} of {FRAME_OWNER.name}, its readers are {list(FRAME_READERS)}")
 
     # positive controls, first: a real hermetic Claude capture and a real Codex frame stream, each accepted
     control("claude-replay-clean", claude, realization="replay")
@@ -1418,7 +1308,6 @@ def self_test():
     # The brace-extraction path is taken from benchmarks/absence.py's own source — its parse_verdict
     # and the labels it reads — without importing the module, whose imports reach a host dispatcher
     # (benchmarks/dispatch.py) that the driver's closure may not load (dispatch.py --self-test).
-    import ast
     tree = ast.parse((REPO_ROOT / "benchmarks" / "absence.py").read_text(encoding="utf-8"))
     kept = [n for n in tree.body if (isinstance(n, ast.FunctionDef) and n.name == "parse_verdict")
             or (isinstance(n, ast.Assign) and {x.id for t in n.targets for x in ast.walk(t) if isinstance(x, ast.Name)}
@@ -1588,14 +1477,37 @@ def self_test():
     retried = codex_case("codex-accounting", "f-http-500-once")
     attempts_control("codex-http-retry-before-streaming-leaves-coverage-unknown", retried, {thread_of(retried): (1, 0, "unknown")},
                      "frames_blind")
+    # the three readings impl-wp04 measured model-free on the capture's owner, held here as the
+    # gate's: a clean websocket call is complete and accepted; an HTTP call with a retry warning
+    # (WP-04 ruling F#1: HTTP attempt coverage is always unknown) and a websocket call beside a
+    # codex.api_request row (ruling K#1: those rows are attempt evidence) are unknown, and unknown
+    # coverage fails the call by USAGE_ATTRIBUTION_UNKNOWN
+    https_unknown = "attempt coverage is unknown (HTTPS streams: the HTTP transport keeps no record of its posts"
+    measured = (
+        ("codex-measured-websocket-clean-is-complete", codex, {root: (2, 0, "complete")}, ()),
+        ("codex-measured-http-with-a-retry-warning-is-unknown", variant(retried, retry_channel("2026-10-20T08:42:18.200000Z")),
+         {thread_of(retried): (1, 1, "unknown")}, (f"USAGE_ATTRIBUTION_UNKNOWN {thread_of(retried)}: {https_unknown}",)),
+        ("codex-measured-websocket-beside-an-api-request-is-unknown",
+         variant(codex, lambda f: frame(f, {"dir": "otel", "event.name": "codex.api_request", "conversation.id": root,
+                                            "endpoint": "/responses", "ts": "2026-10-20T08:42:03.500000Z"})),
+         {root: (2, 0, "unknown")}, (f"USAGE_ATTRIBUTION_UNKNOWN {root}: {https_unknown}",)))
+    for name, files, want, needles in measured:
+        v = attempts_control(name, files, want, *needles, realization="golden" if needles else "replay")
+        consequence = "USAGE_ATTRIBUTION_UNKNOWN" in v["codes"]
+        if v["ok"] is bool(needles) or consequence is not bool(needles):
+            failures.append(f"{name}: accepted {v['ok']}, codes {v['codes']}: unknown coverage must fail by "
+                            f"USAGE_ATTRIBUTION_UNKNOWN and complete coverage must not")
     # a retry warning names no thread: in a call of one thread it is one failed post of unknown
     # usage there (f-http-500-once's first post; beside f-http-sse-drop's dropped stream, a post of
-    # its own), and coverage holds once the warnings are at least the interrupted streams
-    attempts_control("codex-https-coverage-complete-when-the-warnings-reconcile", variant(sse, retry_channel("2026-10-20T08:42:19.900000Z")),
-                     {thread_of(sse): (1, 2, "complete")}, "frames_blind", realization="golden")
+    # its own), counted, but no count of warnings shows an HTTP call's every post (ruling F#1)
+    attempts_control("codex-https-coverage-unknown-even-when-the-warnings-reconcile",
+                     variant(sse, retry_channel("2026-10-20T08:42:19.900000Z")),
+                     {thread_of(sse): (1, 2, "unknown")}, "frames_blind", f"USAGE_ATTRIBUTION_UNKNOWN {thread_of(sse)}: {https_unknown}",
+                     realization="golden")
     posted = attempts_control("codex-https-retry-warning-accounts-for-the-unstreamed-post",
                               variant(retried, retry_channel("2026-10-20T08:42:18.200000Z")),
-                              {thread_of(retried): (1, 1, "complete")}, "frames_blind", realization="golden")
+                              {thread_of(retried): (1, 1, "unknown")}, "frames_blind",
+                              f"USAGE_ATTRIBUTION_UNKNOWN {thread_of(retried)}: {https_unknown}", realization="golden")
     if (posted["usage"] or {}).get("unresolved") != 1 or (posted["usage"] or {}).get("measured") != 1002 or \
             (posted["attempts"] or {}).get(thread_of(retried), {}).get("failed_posts") != 1:
         failures.append(f"both posts of f-http-500-once are not accounted for: {posted['usage']} {posted['attempts']}")
@@ -1658,7 +1570,7 @@ def self_test():
     attempts_control("codex-warning-beside-a-send-naming-no-thread-is-attributed-to-neither",
                      variant(codex, with_send(), retry_channel("2026-10-20T08:42:03.500000Z")), {root: (2, 0, "unknown")},
                      f"USAGE_ATTRIBUTION_UNKNOWN {root}: attempt coverage is unknown (1 retry warnings name no thread, and the "
-                     f"evidence does not establish one thread (1 named, 1 sends", realization="golden")
+                     f"call has more than one)", realization="golden")
     attempts_control("codex-warning-beside-a-second-thread-only-a-response-names-is-attributed-to-neither",
                      variant(codex, lambda f: frame(f, {"dir": "recv", "type": "response.created", "ts": "2026-10-20T08:42:03.6Z",
                                                         "response": {"id": "resp_second_0", "model": "gpt-6-astra", "status": "in_progress",
@@ -1929,7 +1841,9 @@ def self_test():
         "interrupted attempts are recorded in usage": ("codex-usage-missing-an-interrupted-attempt", "RECORD_INTEGRITY"),
         "websocket starts reconcile": ("codex-websocket-retry-reconciles-its-starts", "COMPLETION_INCOMPLETE"),
         "HTTPS coverage unknown without the retry warnings": ("codex-http-retry-before-streaming-leaves-coverage-unknown", "frames_blind"),
-        "HTTPS coverage complete when the warnings reconcile": ("codex-https-coverage-complete-when-the-warnings-reconcile", "frames_blind"),
+        # plan addendum WP-04 (2026-10-21T1752) closes "complete when the warnings reconcile" (ruling F#1)
+        "HTTPS coverage unknown even when the warnings reconcile": ("codex-https-coverage-unknown-even-when-the-warnings-reconcile",
+                                                                    "USAGE_ATTRIBUTION_UNKNOWN"),
         "unknown attempt coverage fails the call (review round 5)": (
             "codex-completions-without-their-starts-fail-attribution", "USAGE_ATTRIBUTION_UNKNOWN"),
         "HTTPS failed post before streaming is an attempt (two posts, one stream)": (
@@ -1999,7 +1913,7 @@ def self_test():
         "working directory holds the manifest": "design §3.1: an empty directory or exactly the manifest's files",
     }
     projections = {"usage-less row without its usage-bearing row is an interrupted attempt", "websocket starts reconcile",
-                   "HTTPS coverage unknown without the retry warnings", "HTTPS coverage complete when the warnings reconcile",
+                   "HTTPS coverage unknown without the retry warnings", "HTTPS coverage unknown even when the warnings reconcile",
                    "mixed coverage", "fallback usage measured from otel"}
     receipt_value = "RECORD_INTEGRITY receipt {}: {{}} is not {{}}, recomputed from the call directory"
     implemented = {
