@@ -9,9 +9,11 @@ use_when:
   - porting a prompt written for an older claude model
   - deciding a reasoning-effort level for claude work
 core_rules:
-  - choose guidance by the actual target model — effort defaults, thinking controls, and initiative tuning differ per model, and a technique measured on one model is re-checked before it is applied to another
+  - choose guidance by the actual target model — effort defaults, thinking controls, initiative, and how much verification to ask for differ per model, and a technique measured on one model is re-checked before it is applied to another
   - effort level names do not carry across models; after a rebind, sweep levels again instead of keeping the previous model's setting
   - state the goal, the reason behind it, and what done means; let the model choose the route
+  - for long-horizon work, put the full task specification and the completion condition in the first turn rather than revealing them across turns
+  - hold progress and completion claims to a check run in the same session, and have work that was not checked named as such
   - make tool descriptions prescriptive about when to call, not only what the tool does — the prompt is the lever where forced tool choice is rejected
   - compare inherited process scaffolding on the target model before keeping or removing it
   - name the boundary explicitly — what to do without asking, and what to stop and ask about
@@ -92,6 +94,13 @@ permission boundaries and required verification.
   to avoid; where words describe a format poorly, give an example in `<example>` tags.
 - `Long inputs` — documents and other long material at the top, the request at the end,
   and a request to quote the relevant parts before acting on them.
+- `Long runs` — if the harness compacts context or lets the model save state to files,
+  say so: otherwise it may wrap up early as the context limit nears. For work across
+  context windows, give it a place for state (structured status such as a `tests.json`,
+  free-form progress notes, git) and say to read that place when a fresh window starts.
+
+A bounded review packet runs as one self-contained run by default — repository practice,
+not a vendor claim.
 
 ## Constraints by model
 
@@ -160,8 +169,14 @@ The document also covers Claude Mythos 5.1. Fable 5 prompts carry over unchanged
   assessment, not a fix; a state-changing command needs evidence for that exact action —
   and check whether it asks less about ambiguous requests.
 - Extras: it may fix nearby code or commit more tests than the change warrants; a
-  leave-it-out instruction drops both with no measurable change in task success. It
-  rewrites whole files more readily than Fable 5; ask for surgical edits.
+  leave-it-out instruction drops both with no measurable change in task success, and asks
+  for a pre-existing bug or unmentioned behavior it finds to be reported as a follow-up
+  rather than fixed. It rewrites whole files more readily than Fable 5; ask for surgical
+  edits.
+- Compaction: with server-side compaction, let it trim. If you compact on the client,
+  tell the summary what to preserve — problems and how they were handled, options raised
+  or set aside, what was decided or ruled out (stated exactly), where things stand, what is
+  still open or promised, and hard-to-reconstruct details kept exactly.
 - Prose: denser than Fable 5's, and it formats less — replace anti-formatting rules with
   when formatting helps; "Please remove all mannered prose." works. Summaries may reproduce
   source passages unmarked; add one complete example of a correct response and why.
@@ -183,7 +198,8 @@ Opus 5 prompts carry over, and the Opus 5 section remains a reasonable starting 
 - Effort: the default is `medium` (Opus 5: `high`). Set it explicitly and sweep rather
   than carrying the Opus 5 value over: `medium` matches or exceeds Opus 5 at `high` on
   coding and knowledge-work evals, and `low` comes close on several coding evals. At a
-  given level it thinks more per turn than Opus 5, most at `xhigh`/`max`, so leave room in
+  given level it thinks more per turn than Opus 5, most at `xhigh`/`max` — keeping the
+  Opus 5 value means longer turns and more output tokens — so leave room in
   `max_tokens` (128,000 has worked for long agentic coding turns), reserve `xhigh`/`max`
   for measured gains, and lower effort before prompting for less thinking.
 - Thinking is always on. For a prompt that ran on Opus 5 with thinking off: start at `low`
@@ -222,6 +238,12 @@ Opus 5 prompts carry over, and the Opus 5 section remains a reasonable starting 
   helps technical drawings, not charts. Frontend: "avoid a generic look" only swaps one
   default for another — name the patterns to avoid, inspect, and extend the list.
 
+> **Carried from the 2026-10-21 model-currency derivation (3e62fbd); the currently pinned
+> `prompting-claude-opus-5-5` does not state this. Re-derive or remove at the next
+> re-derivation.**
+>
+> - Carrying an Opus 5 effort level forward buys longer turns rather than more depth.
+
 ## Claude Sonnet 5.5
 
 Sonnet 5 prompts carry over. For the hardest long-horizon work an Opus model is the better
@@ -233,13 +255,16 @@ choice.
   keeps thinking short and can skip verifying a change; at `low` and `medium` it is more
   likely to check in before a long task is done. For agentic coding set `max_tokens` to
   128,000 and stream. Asking in the prompt for less thinking does not reliably work.
-- Initiative: to carry work through at `low`/`medium`, say to keep working until
-  everything asked for is done and to stop only when blocked on the user or before a risky
-  step. It adds tests, docs, and supporting files at every effort, more at higher ones;
+- Initiative: to carry work through at `low`/`medium`, try a higher effort first; to keep
+  the effort, say to keep working until everything asked for is done and to stop only when
+  blocked on the user or before a risky step. It adds tests, docs, and supporting files at every effort, more at higher ones;
   "when the work is done and checked, stop and report; mention extras instead of doing
   them" limits that. At `xhigh`/`max` it starts its own review rounds and reviewer
-  subagents: saying not to unless the user asked cut session cost by about a third at
-  `max` with no change in quality. For ideas or a plan, say to stop there.
+  subagents, so run routine work at `high` or below. One paragraph — when the work is done
+  and its checks pass, stop and report; start no extra review rounds and launch no reviewer
+  subagents unless the user asked — stopped the reviewer subagents and cut session cost by
+  about a third at `max` with no change in quality; self-started review rounds became
+  rarer, not gone. For ideas or a plan, say to stop there.
 - `between_tools` is the lowest thinking setting, accepted at `high` or below; with it,
   per-message effort returns a 400, and any instruction not to think must go because it
   leaks internal XML tags. In a request without tools it means no thinking at all.
@@ -285,7 +310,7 @@ the thinking budget Haiku 4.5 used. Add system-prompt text to new conversations 
   prompts it then skips searches, stops early, and skips checks more often); `medium`, the
   default, for most work including agentic coding; `high` for knowledge work, longer
   agent tasks, and strict instruction following; at `xhigh`/`max` also run the evals on
-  Sonnet 5.5 and compare. Telling it to answer directly did not stop it from thinking —
+  Sonnet 5.5 and compare performance, cost, and speed. Telling it to answer directly did not stop it from thinking —
   lower the effort. At `xhigh` in multi-turn chat it sometimes answers entirely in
   thinking and ends with no visible text; check for empty replies.
 - Search: give today's date, rendered once and sent unchanged on later requests; on a
@@ -302,6 +327,8 @@ the thinking budget Haiku 4.5 used. Add system-prompt text to new conversations 
   from `low` to `medium` roughly halved early stops and more than doubled output tokens.
   At `low`/`medium` it may also report a change done without a check; the same real-check
   paragraph as for Sonnet 5.5 made it check more often, with better results at more tokens.
+- Refusals: safety classifiers decline with `stop_reason: "refusal"`; coming from Haiku 4.5
+  these refusals are new, and with no server-side fallback the client handles them.
 - Mid-turn input and chatbots: never put user text in a `tool_result`; append it after the
   last `tool_result` and keep notices in a separate system message. For a chatbot, say the
   system prompt's rules hold for the whole conversation despite arguing, sympathetic
@@ -317,32 +344,66 @@ to it.
   quality at a fraction of the tokens, and `xhigh` is for demanding coding and agentic
   work. It performs best given the complete specification up front and left to run.
 - Review: it finds real bugs at a high rate with few false positives, and accuracy holds
-  at lower effort. "Only report high-severity issues" is followed literally and depresses
-  what is reported; ask for everything and filter in a separate pass.
+  at lower effort. State the evidence bar and the verdict shape. "Only report high-severity
+  issues" is followed literally and depresses what is reported; ask for everything and
+  filter in a separate pass.
 - Verification: it verifies its own work unasked. Remove scaffolding that only tells it to
   verify — a self-check step for every task, a verifier subagent, "double-check" rules —
   which cuts tokens with no loss in quality; a repository's required checks and the user's
-  explicit asks are not such scaffolding. Constrain scope explicitly for narrow tasks,
-  since it can widen a task on its own judgment.
-- Delegation: it delegates readily, which multiplies cost on small tasks. Say which work
+  explicit asks are not such scaffolding. This inverts the general self-check advice, so
+  carve it out of a prompt library that applies that advice to every model. Constrain
+  scope explicitly for narrow tasks, since it can widen a task on its own judgment.
+- Delegation: it delegates readily, which multiplies cost and time on small tasks. Say which work
   warrants a subagent and which does not, and prefer deterministic caps —
   `CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH`, `CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS`, and the
   SDK's `max_budget_usd` (Claude Code 2.1.217 or later). Claude Code adds its own
   delegation instruction only with the `claude_code` preset.
 - Length: responses and written files run longer than earlier Opus models', and lowering
-  effort does not reliably shorten the visible response. Prompt for conciseness and
-  document length explicitly; in a long system prompt, repeat it briefly near the end.
+  effort does not reliably shorten the visible response. Prompt for conciseness, and
+  calibrate written documents' length separately from the conversation's.
+- Long context: instruction following, tool calling, and reasoning stay consistent across
+  its 1M-token window, so rules in general need no restating near the end. The one
+  documented exception is the conciseness instruction: in a long system prompt, pair it
+  with a short reminder near the end.
 - Narration: it announces what it is about to do. Describe the cadence you want (one line
   before the first call, updates on a finding or direction change, outcome first at the
   end); positive examples beat lists of what not to do. Limit correction narration to
   errors that would change the reader's code or decisions.
-- Dense images: re-validate workarounds tuned for prior models; tools to crop and visually
-  verify are a more cost-effective lever than thinking alone.
+- Dense images: it is strong on charts, documents, diagrams, and UI replication; re-validate
+  workarounds tuned for prior models, which may now cost quality. Tools to crop and
+  visually verify are a more cost-effective lever than thinking alone.
 - Thinking off is accepted at `high` or below and is usually the wrong lever: thinking on
-  at `low` beats it at similar cost. Off, it can write a tool call as text or leak
-  internal XML tags; one instruction mitigates both (you may say a brief sentence before a
+  at `low` beats it at similar cost. Off, it can write a tool call as text — the call never
+  runs and the text stays in history, affecting later turns, most often on tool-heavy work
+  such as search — or leak internal XML tags; one instruction mitigates both (you may say a brief sentence before a
   tool call; say so when no tool fits; no internal XML tags), the general form beats
   naming the tags, and any "do not think" rule must go.
+
+> **Carried from the 2026-09-07 derivation against an earlier version of
+> `prompting-claude-opus-5` (65be3e…); the currently pinned text does not state these.
+> Re-derive or remove at the next re-derivation.**
+>
+> - Review: ask for every finding with confidence and severity attached, then filter.
+> - Delegation: every spawn rebuilds context, reports back, and is then re-read, which is
+>   why unbounded delegation multiplies cost and latency; a deterministic cap is a limit
+>   the model cannot talk itself past. Prefer asynchronous subagents over spawn-and-block:
+>   long-lived agents keep their context instead of rebuilding it per subtask, and the
+>   orchestrator is not pinned to the slowest one.
+> - File-based memory and custom tools need an explicit when-to-use trigger. Give it
+>   somewhere to write learnings, tell it to consult that place later, and give the file a
+>   format; it performs notably better with a memory surface.
+> - Autonomous runs with no human watching: say so, or it asks permission it does not need
+>   and blocks. Grant autonomy on minor choices (naming, defaults, equivalent approaches)
+>   while keeping the ask for scope changes and destructive actions.
+> - Expect long turns: one request on a hard task at high effort can run for minutes; plan
+>   timeouts, streaming, and progress UX around that rather than treating a quiet call as
+>   a hang.
+> - Do not add "summarize every N tool calls" scaffolding; it narrates on its own. For a
+>   coding agent that narrates too much, set a silence default: text only on a finding, a
+>   direction change, or a blocker.
+> - In the final message, drop the working shorthand.
+> - Do not show a remaining-context countdown: it can start conserving and suggest a fresh
+>   session instead of finishing.
 
 ## Prompt assembly checklist
 
@@ -350,8 +411,9 @@ to it.
 2. Name the boundaries — what to do freely, what to stop and ask about.
 3. Give each tool a when-to-call description, and check that the target accepts the tool
    and output settings the dispatch relies on.
-4. Say what the final message must contain and how completion is checked, and decide how
-   the harness treats a turn that ends in text with work still open.
+4. Say what the final message must contain, how progress and completion claims are
+   grounded, and how the deliverable should read; decide how the harness treats a turn
+   that ends in text with work still open.
 5. Apply the target model's section and check for contradictions. Compare changes on the
    same tasks; remove inherited scaffolding only when the target benefits, keeping
    required repository checks and permission boundaries intact.
@@ -362,11 +424,15 @@ The shared recipe and the append-only and reasoning rules come from
 `claude-prompting-best-practices`; the constraints from `thinking`, `effort`, and the
 model documents; each model section from its own document (`prompting-claude-fable-5-1`,
 `prompting-claude-opus-5-5`, `prompting-claude-sonnet-5-5`, `prompting-claude-haiku-5-5`,
-`prompting-claude-opus-5`). `source_pins` records the exact bytes used, and a model name in
-`targets` does not extend another model's claims to it.
+`prompting-claude-opus-5`). The core rules on a first-turn specification and on checked
+claims generalize what the Opus 5, Opus 5.5, Sonnet 5.5, and Haiku 5.5 documents each say
+for their model. `source_pins` records the exact bytes used, and a model name in
+`targets` does not extend another model's claims to it: the vendor's pages disagree on
+effort defaults and on how much initiative to expect.
 
-When a `targets` model changes, re-derive its advice from its own current document and
-check the shared recipe for conflicts. `launch/check-prompting-targets.sh` fails when the
+When a `targets` model changes, or a target without a section here gets its own prompting
+document, re-derive its advice from that document and check the shared recipe for
+conflicts. `launch/check-prompting-targets.sh` fails when the
 launch config binds a model this guide does not list; that check is about **naming**, and a
 model added to `targets:` satisfies it forever. Whether the guidance was actually
 re-derived is not decidable and is gated nowhere.

@@ -243,7 +243,7 @@ Binding (2026-10-21):
 | HELM | Claude Opus 5.5 (high) · GPT-6.1 Sol (xhigh) — main Ultra requires explicit selection; bounded FRONTIER Ultra allowed | standing main; Codex defaults bypass, explicit sandbox narrows |
 | WORKHORSE | Claude Sonnet 5.5 (high) · GPT-6.1 Sol (high) | implementation and per-item judgment; the Codex seat shares HELM's model, so it differs by effort alone and buys no cross-model perspective |
 | SWEEP | Claude Haiku 5.5 (medium) · GPT-6 Luna (max) | read-only; one explicit rule per item; not a rebind candidate |
-| VERIFIER-A | plain `codex exec` deep pass — GPT-5.6 Sol at ultra effort, packet on stdin (`-c service_tier="fast"` as explicit fast opt-in) | strongest single reader; cross-family from a Claude main |
+| VERIFIER-A | plain `codex exec` deep pass — GPT-6.1 Sol at ultra effort, packet on stdin (`-c service_tier="fast"` as explicit fast opt-in) | strongest single reader; cross-family from a Claude main |
 | VERIFIER-B | Claude Code ultracode workflow (keyword-opened, many-agent) | code/execution kind; fan-out counterpart |
 | INDEPENDENT-PR-REVIEWER | Codex CLI | adversarial `gh pr diff` review |
 | Claude relocation | EnterWorktree, `/cd`, `--worktree`; resume is directory-scoped | verified 2.1.207 |

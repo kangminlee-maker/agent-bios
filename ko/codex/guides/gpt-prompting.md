@@ -130,6 +130,7 @@ Astra에서 관찰된 동작을 다루고, 계열 전체의 출발점으로 제�
 workload에서 평가하라고 되어 있다. 따라서 아래 다섯 동작 항목은 Astra 관찰이다.
 `gpt-6.1-sol`, `gpt-6-sol`, `gpt-6-luna`에 대해 공급사는 model별 prompting 동작을
 밝히지 않는다. model마다 다른 것은 위 표의 API 사실이며, 각 model page에서 가져왔다.
+Astra가 아닌 GPT-6 model이 자체 prompting document를 갖게 되면 이 section을 다시 도출한다.
 
 - **주도성과 끝까지 수행하기.** Astra는 입력이 결과를 크게 바꿀 수 있을 때 질문할
   가능성이 더 높고, 작업 중에도 진행을 막지 않는 질문을 던진다. 행동 요청에는 context에서
@@ -137,13 +138,15 @@ workload에서 평가하라고 되어 있다. 따라서 아래 다섯 동작 항
   계획이나 계속하겠다는 제안은 행동 요청을 완료하지 않는다. 빠진 정보가 결과를 바꿀 때
   질문하고, 기다리는 동안 독립적인 승인된 작업은 계속한다. 이후 단계에 approval이
   필요하면 먼저 구체적이고 검토 가능한 결과를 준비한다. 기존 permission 경계를 지키고,
-  가정적 위험만을 근거로 approval 단계를 추가하지 않는다.
+  가정적 위험만을 근거로 approval 단계를 추가하지 않는다. Astra는 GPT-5.6 Sol과 이전
+  model보다 긴 과제에서 일관성을 더 잘 유지한다.
 - **지시와 skill 민감성.** Astra는 긴 지시를 더 잘 따르고 context에 더 민감하다. skill
   file의 불명확하거나 충돌하는 지침은 Astra를 멈추게 하고 작업을 일찍 막을 수 있다.
   로드된 skill과 instruction file을 점검한다. 더 높은 우선순위 지시와 permission 제약
   안에서 명시적 사용자 지시가 skill workflow 선호보다 우선하게 한다. skill이 멈춤,
   approval 요청, 또는 미완료 작업을 초래하면 정확한 skill file을 식별해 링크하고, 해당
-  규칙을 인용하고, 그 규칙이 명시적인지 해석인지 말하게 한다.
+  규칙을 인용하고, 그 규칙이 명시적인지 해석인지 말하게 한다. 선택적 지침을 해석한 것은
+  요구사항이 아니다.
 - **Writing style.** Astra는 상세한 응답, 목록, 표, 그리고 session을 넘어 반복되는
   표현으로 기우는 경향이 있다. 독자에 맞춘 길이와 구조를 지정한다. 평문에는 간결한
   문단, 익숙한 단어, 능동적인 동사, 핵심부터 제시하도록 요청하고, 목록은 내용이
@@ -181,7 +184,8 @@ workload에서 평가하라고 되어 있다. 따라서 아래 다섯 동작 항
   위임을 곁들인 최대 추론으로 설명하며, 과제를 subagent로 나눠 실행하므로 의미 있는
   부분으로 나뉘는 작업에 맞는다. catalog는 `gpt-6-astra`, `gpt-6.1-sol`, `gpt-6-sol`,
   `gpt-5.6-sol`, `gpt-5.6-terra`에 이를 제공한다. GPT-6 Luna는 Max까지 지원하고 Ultra는
-  거부하며, 대부분의 과제에는 둘 다 필요 없다. effort는 model 세대 사이에 정확히
+  거부하며, 대부분의 과제에는 둘 다 필요 없다. seat가 지원하는 수준은 API 단계표가 아니라
+  host의 catalog에서 가져온다. 둘은 서로 다르다. effort는 model 세대 사이에 정확히
   대응하지 않으므로, 익숙한 과제를 한 단계 낮은 설정으로 돌려 보고 조정한다. effort를
   생략한 실행은 client의 기본값을 물려받는데, 이는 API 기본값과 다를 수 있으므로(client
   catalog는 `gpt-6.1-sol`을 `low`로 두고, API 기본값은 `medium`이다) launch config에
@@ -226,8 +230,16 @@ workload에서 평가하라고 되어 있다. 따라서 아래 다섯 동작 항
 - Implementation plans: 요구사항, 명명된 resource, 상태 전이, validation check, 실패
   동작, privacy/security, 미해결 질문.
 
+> **2026-09-07 도출에서 이어 온 내용이다. pin한 `prompt-guidance-gpt-5p6`(그때와 지금 같은
+> byte)는 이를 말하지 않는다. 다음 재도출 때 다시 도출하거나 지운다.**
+>
+> - 성공 기준 block이 들인 token에 비해 가장 값어치 있는 block이다.
+> - 기준을 밝히지 않은 reviewer는 그럴듯해 보이는 발견으로 기운다.
+
 ## How to choose prompt shape
 
+- 범위가 정해진 review packet은 기본적으로 상속된 지시 없이 하나의 자기완결적 실행 —
+  hermetic profile — 으로 돌린다(repository 관행).
 - 각 단계가 바로 앞 단계에 의존하거나, 과제가 짧은 한 번의 실행으로 끝나거나, agent들이
   같은 가변 상태를 두고 경합할 때는 단일 실행. 작업이 독립적이고 경계가 분명한 과제로
   나뉘거나, 분리된 context가 집중에 도움이 되거나, 병렬 탐색이 경과 시간을 줄일 때는
@@ -241,8 +253,11 @@ workload에서 평가하라고 되어 있다. 따라서 아래 다섯 동작 항
   prefix를 자주 바꾸지 않는다. 순서만으로는 아무것도 cache되지 않는다. prefix가 최소
   cache 길이에 이르고 breakpoint에서 끝나야 하며, implicit caching은 바뀌는 뒷부분까지
   함께 기록하므로, GPT-5.6 이후 model에서는 implicit breakpoint가 안정 경계를 놓칠 때
-  명시적 breakpoint로 그 경계를 표시한다. 여러 turn에 걸친 작업에서는 이전 message와
-  tool 결과를 유지해 이후 turn이 전체 prefix를 재사용하게 한다.
+  명시적 breakpoint로 그 경계를 표시한다. 추가 전후로 보고된 `cached_tokens`와 비용을
+  확인하고, 그것이 나아지는 곳에만 breakpoint를 남긴다. 여러 turn에 걸친 과제를 이어갈
+  때는 이전 message와 tool 결과를 유지해 이후 turn이 전체 prefix를 재사용하게 한다. 범위가
+  정해진 새 과제를 시작할 때는 그 과제에 필요 없는 context를 담은 긴 history를 이어가지
+  말고 자기완결적 packet을 보낸다.
 
 ## Programmatic tool calling
 
@@ -283,6 +298,8 @@ workload에서 평가하라고 되어 있다. 따라서 아래 다섯 동작 항
   매 turn이 아니라 milestone에서 compact하고 compacted item은 불투명한 것으로 취급한다.
 - 명시적인 사용자 값을 보존한다. 올바른 값이 암시적일 때는 보편적 기본값이나 keyword
   map을 설치하지 말고 결정 기준을 주어 model이 context나 schema에서 추론하게 한다.
+- 시각적 산출물은 마무리 전에 render하고, layout, 잘림, 간격, 빠진 내용, 시각적 일관성을
+  살펴 render가 요구사항을 충족할 때까지 고친다.
 - 각 tool 결과 뒤에 성공 기준 — 요구된 행동과 validation 포함 — 이 유용한 근거와 함께
   충족되었는지 묻는다. 그렇다면 답한다. loop 최소화가 정확성, 요구된 근거, 계산, 요구된
   citation보다 우선하는 일은 없다.
@@ -309,9 +326,10 @@ GPT-5.6 section은 `prompt-guidance-gpt-5p6`에서 파생했고, 그 사실 행�
 `model-guidance-gpt-5p6`과 `upgrading-to-gpt-5p6-sol`에서 가져왔다. GPT-6 family
 section은 `model-guidance-gpt-6-astra` — 유일한 GPT-6 prompting document "Using
 GPT-6"로, Astra URL이 제공한다 — 에서 파생했고, model별 사실은 `model-gpt-6-astra`,
-`model-gpt-6p1-sol`, `model-gpt-6-sol`, `model-gpt-6-luna`에서, effort 의미와
-`configuration_update` 제한은 `reasoning`에서, Codex 전용 effort 값은 `codex-models`에서
-가져왔다. base instruction에 관한 설명은 Codex client의 local model catalog에서 왔으며,
+`model-gpt-6p1-sol`, `model-gpt-6-sol`, `model-gpt-6-luna`에서 가져왔다 — 그 document는
+자신의 prompt를 GPT-6 계열 전체의 출발점이라고 부르므로 이 section은 Astra에 한정되지
+않는다. effort 의미와 `configuration_update` 제한은 `reasoning`에서, Codex 전용 effort
+값은 `codex-models`에서 가져왔다. base instruction에 관한 설명은 Codex client의 local model catalog에서 왔으며,
 이 catalog는 어떤 URL도 제공하지 않고 어떤 pin도 추적하지 않는다. 공유 recipe는 GPT-5.6
 guidance의 task, evidence, tool, validation 관행을 유지하고 이를 GPT-6 대상에도
 적용하는데, 이는 이 저장소의 선택이다. prompt 배치는 `prompt-caching`, 실행 형태는

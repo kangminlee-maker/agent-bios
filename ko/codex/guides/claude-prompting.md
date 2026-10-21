@@ -9,9 +9,11 @@ use_when:
   - 구세대 claude model용으로 쓴 prompt를 이식할 때
   - claude 작업의 reasoning effort 수준을 정할 때
 core_rules:
-  - 실제 대상 model에 맞는 guidance를 고른다 — effort 기본값, thinking 제어, 주도성 조정이 model마다 다르며, 한 model에서 측정한 기법은 다른 model에 적용하기 전에 다시 확인한다
+  - 실제 대상 model에 맞는 guidance를 고른다 — effort 기본값, thinking 제어, 주도성, 요구할 검증의 정도가 model마다 다르며, 한 model에서 측정한 기법은 다른 model에 적용하기 전에 다시 확인한다
   - effort 수준 이름은 model 사이에 이어지지 않는다. model을 다시 묶으면 이전 model의 설정을 유지하지 말고 수준을 다시 훑는다
   - 목표, 그 이유, 완료의 의미를 밝히고 경로는 model이 고르게 둔다
+  - 장기 작업은 전체 과제 명세와 완료 조건을 여러 turn에 나눠 밝히지 말고 첫 turn에 담는다
+  - 진행과 완료 주장은 같은 session에서 실행한 확인에 묶고, 확인하지 않은 작업은 그렇다고 밝히게 한다
   - tool 설명은 무엇을 하는지만이 아니라 언제 호출할지를 규정한다 — 강제 tool 선택이 거부되는 model에서는 prompt가 유일한 지렛대다
   - 물려받은 process scaffolding은 유지하거나 제거하기 전에 대상 model에서 비교한다
   - 경계를 명시한다 — 묻지 않고 할 일과 멈춰서 물어야 할 일
@@ -91,6 +93,13 @@ model별 조정은 instructions의 permission 경계와 필수 verification을 �
   어려운 형식은 `<example>` tag 안에 예시를 준다.
 - `Long inputs` — 문서 등 긴 자료는 맨 위에, 요청은 맨 끝에 두고, 행동하기 전에 관련
   부분을 먼저 인용하게 한다.
+- `Long runs` — harness가 context를 compact하거나 model이 상태를 파일에 저장할 수 있으면
+  그렇다고 말한다. 그러지 않으면 context 한도가 다가올 때 일찍 마무리하려 할 수 있다.
+  여러 context window에 걸친 작업에는 상태를 둘 곳(`tests.json` 같은 구조화된 상태, 자유
+  형식 진행 메모, git)을 주고, 새 window가 시작되면 그곳부터 읽으라고 말한다.
+
+범위가 정해진 review packet은 기본적으로 하나의 자기완결적 실행으로 돌린다 — vendor의
+주장이 아니라 repository 관행이다.
 
 ## Constraints by model
 
@@ -157,8 +166,12 @@ dispatch가 제약에 의존하기 전에 live surface에서 그 제약을 확�
   수정이 아니라 판단을 내놓는다; 시스템 상태를 바꾸는 명령은 바로 그 행동을 뒷받침하는
   증거가 있어야 한다. 그리고 모호한 요청에서 덜 묻게 되는지 확인한다.
 - 요청 밖의 추가 작업: 주변 code를 고치거나 변경에 비해 많은 test를 commit할 수 있다.
-  빼야 할 것을 명시한 지시를 주면 과제 성공률의 측정 가능한 변화 없이 둘 다 줄어든다.
+  빼야 할 것을 명시한 지시를 주면 과제 성공률의 측정 가능한 변화 없이 둘 다 줄어들고,
+  작업 중 발견한 기존 버그나 언급되지 않은 동작은 고치지 말고 후속 과제로 보고하게 한다.
   Fable 5보다 파일 전체를 더 쉽게 다시 쓰므로 부분 편집을 요청한다.
+- Compaction: server-side compaction이면 맡겨 둔다. client에서 compact한다면 요약이 보존할
+  것을 말한다 — 생긴 문제와 처리 방식, 제기되거나 보류된 선택지, 결정되거나 배제된 것(정확히
+  그대로), 현재 위치, 아직 열려 있거나 약속된 것, 다시 만들기 어려운 세부(정확히 그대로).
 - 문체: Fable 5보다 조밀하고 formatting을 덜 쓴다 — formatting 금지 규칙은 언제 formatting이
   도움이 되는지로 바꾼다. "Please remove all mannered prose."가 통한다. 요약에서 출처
   구절을 인용 표시 없이 옮길 수 있으므로, 올바른 응답과 그 이유를 담은 완전한 예시 하나를
@@ -181,7 +194,8 @@ Opus 5 prompt는 그대로 쓸 수 있고, Opus 5 section은 여전히 합리적
 - Effort: 기본값은 `medium`이다(Opus 5는 `high`). Opus 5 값을 넘겨 쓰지 말고 명시적으로
   설정해 훑는다. coding과 knowledge-work eval에서 `medium`이 Opus 5의 `high`와 같거나
   그보다 낫고, 여러 coding eval에서는 `low`도 그에 근접한다. 같은 수준에서 Opus 5보다
-  turn당 thinking이 많으며 `xhigh`/`max`에서 가장 그렇다. 따라서 `max_tokens`에 여유를
+  turn당 thinking이 많으며 `xhigh`/`max`에서 가장 그렇다 — Opus 5 값을 그대로 두면 turn이
+  길어지고 출력 token이 는다. 따라서 `max_tokens`에 여유를
   두고(긴 agentic coding turn에는 128,000이 잘 맞았다), `xhigh`/`max`는 품질 향상을 측정한
   곳에만 쓰며, thinking을 줄이려면 prompt보다 effort를 먼저 낮춘다.
 - Thinking은 항상 켜져 있다. Opus 5에서 thinking을 끄고 돌리던 prompt라면 `low`에서
@@ -219,6 +233,11 @@ Opus 5 prompt는 그대로 쓸 수 있고, Opus 5 section은 여전히 합리적
   아니다. Frontend: "generic한 느낌을 피하라"는 기본값 하나를 다른 기본값으로 바꿀 뿐이다
   — 피할 pattern을 이름 대고, 결과를 살핀 뒤 목록을 늘린다.
 
+> **2026-10-21 model-currency 도출(3e62fbd)에서 이어 온 내용이다. 현재 pin한
+> `prompting-claude-opus-5-5`는 이를 말하지 않는다. 다음 재도출 때 다시 도출하거나 지운다.**
+>
+> - Opus 5의 effort 수준을 그대로 가져가면 더 깊어지는 것이 아니라 turn만 길어진다.
+
 ## Claude Sonnet 5.5
 
 Sonnet 5 prompt는 그대로 쓸 수 있다. 가장 어려운 장기 작업에는 Opus model이 더 나은
@@ -230,12 +249,15 @@ Sonnet 5 prompt는 그대로 쓸 수 있다. 가장 어려운 장기 작업에�
   건너뛸 수 있으며, `low`와 `medium`에서는 긴 과제를 끝내기 전에 확인하러 멈출 가능성이
   더 크다. agentic coding에는 `max_tokens`를 128,000으로 두고 stream한다. prompt로 thinking을
   줄여 달라는 요청은 안정적으로 듣지 않는다.
-- 주도성: `low`/`medium`에서 작업을 끝까지 끌고 가려면, 요청된 것이 모두 끝날 때까지
-  계속하고 사용자 없이는 진행할 수 없거나 위험한 단계 앞에서만 멈추라고 말한다. 모든
-  effort에서 test, 문서, 보조 파일을 덧붙이며 높을수록 더하다. "요청한 작업이 끝나고
+- 주도성: `low`/`medium`에서 작업을 끝까지 끌고 가려면 먼저 더 높은 effort를 시험한다.
+  effort를 유지하려면, 요청된 것이 모두 끝날 때까지 계속하고 사용자 없이는 진행할 수
+  없거나 위험한 단계 앞에서만 멈추라고 말한다. 모든 effort에서 test, 문서, 보조 파일을 덧붙이며 높을수록 더하다. "요청한 작업이 끝나고
   확인되면 멈춰 보고하고, 추가 작업은 하지 말고 언급만 하라"가 이를 제한한다.
-  `xhigh`/`max`에서는 스스로 review 회차와 reviewer subagent를 시작한다. 사용자가 요청하지
-  않으면 하지 말라고 하자 `max`에서 session 비용이 약 3분의 1 줄었고 품질 변화는 없었다.
+  `xhigh`/`max`에서는 스스로 review 회차와 reviewer subagent를 시작하므로 일상 작업은
+  `high` 이하에서 돌린다. 한 문단 — 요청한 작업이 끝나고 그 check가 통과하면 멈춰 보고하고,
+  사용자가 요청하지 않았으면 추가 review 회차를 시작하거나 reviewer subagent를 띄우지 마라 —
+  을 넣자 `max`에서 reviewer subagent가 멈췄고 session 비용이 약 3분의 1 줄었으며 품질
+  변화는 없었다. 스스로 시작하는 review 회차는 줄었지만 사라지지는 않았다.
   아이디어나 계획을 원하면 거기서 멈추라고 말한다.
 - `between_tools`는 가장 낮은 thinking 설정이며 `high` 이하에서 허용된다. 이 설정에서는
   message 단위 effort가 400을 반환하고, 생각하지 말라는 지시는 내부 XML tag를 새어 나오게
@@ -280,7 +302,7 @@ thinking budget을 대체한다. system prompt text 추가는 새 대화에서�
 - Effort: `low`는 chat, 짧은 tool 과제, 대량 요청용(긴 agent prompt에서는 검색 건너뛰기,
   조기 중단, 확인 생략이 더 잦아진다). 기본값 `medium`은 agentic coding을 포함한 대부분의
   작업용. `high`는 knowledge work, 더 긴 agent 과제, 엄격한 instruction following용.
-  `xhigh`/`max`에서는 Sonnet 5.5에서도 eval을 돌려 비교한다. 바로 답하라고 해도 thinking을
+  `xhigh`/`max`에서는 Sonnet 5.5에서도 eval을 돌려 성능, 비용, 속도를 비교한다. 바로 답하라고 해도 thinking을
   멈추지 않았으므로 effort를 낮춘다. 다중 turn chat의 `xhigh`에서는 답 전체를 thinking에
   쓰고 보이는 text 없이 turn을 끝내는 일이 있으므로 빈 답을 확인한다.
 - 검색: 오늘 날짜를 준다. 한 번 렌더링해 이후 요청에서도 바꾸지 않고 보내고, 날이 바뀐
@@ -297,6 +319,8 @@ thinking budget을 대체한다. system prompt text 추가는 새 대화에서�
   올리면 조기 중단이 대략 절반으로 줄고 출력 token은 두 배 넘게 는다. `low`/`medium`에서는
   확인 없이 변경을 완료로 보고할 수도 있다. Sonnet 5.5와 같은 실제 확인 문단을 넣자 더
   자주 확인했고, token이 늘면서 결과도 좋아졌다.
+- 거절: 안전 classifier가 `stop_reason: "refusal"`로 거절한다. Haiku 4.5에서 넘어오면 이런
+  거절은 새로 생긴 것이며, server-side fallback이 없으므로 client가 처리한다.
 - turn 도중 입력과 chatbot: 사용자 text를 `tool_result` 안에 넣지 않는다. 마지막
   `tool_result` 뒤에 덧붙이고 알림은 별도 system message에 둔다. chatbot이라면 system
   prompt의 규칙이 반박, 동정을 구하는 이유, 반복 요청에도 대화 내내 유지된다고 말하고,
@@ -312,30 +336,59 @@ thinking budget을 대체한다. system prompt text 추가는 새 대화에서�
   강한 품질을 유지하고, `xhigh`는 까다로운 coding과 agentic 작업용이다. 전체 명세를 먼저
   주고 맡겨 두었을 때 가장 잘한다.
 - Review: 실제 버그를 높은 비율로 찾고 오탐이 적으며, 정확도는 낮은 effort에서도 유지된다.
-  "high-severity만 보고"는 문자 그대로 따라 보고를 줄이므로, 모두 보고하게 하고 별도
+  증거 기준과 판정 형식을 밝힌다. "high-severity만 보고"는 문자 그대로 따라 보고를 줄이므로, 모두 보고하게 하고 별도
   단계에서 filtering한다.
 - 검증: 시키지 않아도 자기 작업을 검증한다. 검증하라고만 말하는 scaffolding — 모든 과제의
   자기 점검 단계, verifier subagent, "다시 확인" 규칙 — 은 지운다. 지워도 품질 손실 없이
   token이 줄어든다. repository의 필수 check와 사용자의 명시적 요청은 그런 scaffolding이
-  아니다. 스스로 판단해 과제를 넓힐 수 있으므로 좁은 과제는 범위를 명시해 제한한다.
-- 위임: 쉽게 위임하며, 작은 과제에서는 비용이 곱절로 는다. 어떤 작업이 subagent에
+  아니다. 이는 일반적인 자기 점검 조언과 반대이므로, 그 조언을 모든 model에 적용하는 prompt
+  library에서는 이 model을 예외로 둔다. 스스로 판단해 과제를 넓힐 수 있으므로 좁은 과제는
+  범위를 명시해 제한한다.
+- 위임: 쉽게 위임하며, 작은 과제에서는 비용과 시간이 곱절로 는다. 어떤 작업이 subagent에
   적합하고 어떤 작업이 아닌지 말하고, 결정적인 cap을 선호한다 —
   `CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH`, `CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS`, SDK의
   `max_budget_usd`(Claude Code 2.1.217 이상). Claude Code는 `claude_code` preset을 쓸 때만
   자체 위임 지시를 추가한다.
 - 길이: 응답과 파일이 이전 Opus model보다 길고, effort를 낮춰도 보이는 응답이 안정적으로
-  짧아지지 않는다. 간결함과 문서 길이를 명시적으로 요청하고, 긴 system prompt에서는
-  끝부분에 짧게 되풀이한다.
+  짧아지지 않는다. 간결함을 명시적으로 요청하고, 작성 문서의 길이는 대화의 길이와 따로
+  조정한다.
+- 긴 context: instruction following, tool 호출, 추론이 1M token window 전체에서 일관되므로
+  일반적인 규칙은 끝부분에 다시 말할 필요가 없다. 문서화된 예외는 간결함 지시 하나다. 긴
+  system prompt에서는 그 지시에 끝부분의 짧은 reminder를 짝지어 둔다.
 - 서술: 하려는 일을 예고한다. 원하는 cadence를 설명한다(첫 호출 전 한 줄, 발견이나 방향
   전환 때 업데이트, 마지막에는 결과부터). 긍정적인 예시가 하지 말 것의 목록보다 낫다.
   정정 서술은 독자의 code나 결정을 바꿀 오류로 한정한다.
-- 조밀한 이미지: 이전 model용 workaround를 다시 검증한다. crop하고 시각적으로 확인하는
-  tool이 thinking만 하는 것보다 비용 대비 효과가 크다.
+- 조밀한 이미지: chart, 문서, diagram 이해와 UI 재현에 강하다. 이전 model용 workaround는
+  이제 오히려 품질을 깎을 수 있으므로 다시 검증한다. crop하고 시각적으로 확인하는 tool이
+  thinking만 하는 것보다 비용 대비 효과가 크다.
 - Thinking 끄기는 `high` 이하에서 허용되지만 보통 잘못된 지렛대다. 비슷한 비용에서는
-  `low`에 thinking을 켠 편이 낫다. 끄면 tool 호출을 text로 쓰거나 내부 XML tag를 새어
-  나오게 할 수 있다. 한 지시가 둘 다 완화하고(tool 호출 전에 짧은 문장을 말해도 된다;
+  `low`에 thinking을 켠 편이 낫다. 끄면 tool 호출을 text로 쓸 수 있고 — 그 호출은 실행되지
+  않으며 text가 history에 남아 이후 turn에도 영향을 주고, 검색처럼 tool을 많이 쓰는 작업에서
+  가장 잦다 — 내부 XML tag를 새어 나오게 할 수도 있다. 한 지시가 둘 다 완화하고(tool 호출 전에 짧은 문장을 말해도 된다;
   맞는 tool이 없으면 그렇게 말한다; 내부 XML tag는 넣지 않는다), 일반형이 tag 이름을
   대는 것보다 낫고, "생각하지 말라"는 규칙은 지워야 한다.
+
+> **2026-09-07 도출에서 `prompting-claude-opus-5`의 이전 판(65be3e…)을 근거로 이어 온
+> 내용이다. 현재 pin한 문서는 이를 말하지 않는다. 다음 재도출 때 다시 도출하거나 지운다.**
+>
+> - Review: 모든 발견에 confidence와 severity를 붙여 보고하게 한 뒤 filtering한다.
+> - 위임: spawn할 때마다 context를 다시 쌓고, 보고하고, 그 보고를 다시 읽으므로 제한 없는
+>   위임은 비용과 지연을 곱절로 늘린다. 결정적인 cap은 model이 말로 넘어설 수 없는 한도다.
+>   spawn하고 기다리는 방식보다 비동기 subagent를 선호한다. 오래 사는 agent는 하위 과제마다
+>   context를 다시 쌓지 않고, orchestrator가 가장 느린 agent에 묶이지 않는다.
+> - 파일 기반 memory와 custom tool에는 언제 쓸지에 대한 명시적 trigger가 필요하다. 배운 것을
+>   적을 곳을 주고, 나중에 그곳을 참고하라고 말하고, 파일 형식을 정해 준다. memory surface가
+>   있으면 눈에 띄게 더 잘한다.
+> - 지켜보는 사람이 없는 자율 실행: 그렇다고 말한다. 그러지 않으면 필요 없는 허락을 구하며
+>   멈춘다. 사소한 선택(이름, 기본값, 동등한 접근)에는 자율을 주고, 범위 변경과 파괴적 행동은
+>   계속 묻게 한다.
+> - 긴 turn을 예상한다. 어려운 과제의 요청 하나가 높은 effort에서 몇 분씩 걸릴 수 있으므로,
+>   조용한 호출을 멈춤으로 보지 말고 timeout, streaming, 진행 표시를 그에 맞춘다.
+> - "N번 tool 호출마다 요약하라"는 scaffolding을 넣지 않는다. 스스로 서술한다. coding agent가
+>   너무 많이 서술하면 침묵을 기본으로 둔다. 발견, 방향 전환, 막힘이 있을 때만 text를 쓴다.
+> - 마지막 message에서는 작업 중에 쓰던 약칭을 뺀다.
+> - 남은 context countdown을 보여 주지 않는다. 아끼기 시작하고 끝내는 대신 새 session을
+>   제안할 수 있다.
 
 ## Prompt assembly checklist
 
@@ -343,8 +396,9 @@ thinking budget을 대체한다. system prompt text 추가는 새 대화에서�
 2. 경계를 명시한다 — 자유롭게 할 일과 멈춰 물을 일.
 3. 각 tool에 언제 호출할지가 담긴 설명을 주고, dispatch가 의존하는 tool과 출력 설정을
    대상 model이 받아들이는지 확인한다.
-4. 마지막 message에 무엇이 담겨야 하고 완료를 어떻게 확인하는지 말하고, 작업이 남은
-   채 text로 끝난 turn을 harness가 어떻게 다룰지 정한다.
+4. 마지막 message에 무엇이 담겨야 하는지, 진행과 완료 주장을 무엇에 근거시키는지, 산출물이
+   어떻게 읽혀야 하는지 말하고, 작업이 남은 채 text로 끝난 turn을 harness가 어떻게 다룰지
+   정한다.
 5. 대상 model의 section을 적용하고 모순을 확인한다. 같은 과제에서 변경을 비교하고, 대상
    model이 이득을 볼 때만 물려받은 scaffolding을 제거하며, 필수 repository check와
    permission 경계는 그대로 둔다.
@@ -354,11 +408,14 @@ thinking budget을 대체한다. system prompt text 추가는 새 대화에서�
 공유 recipe와 append-only·추론 규칙은 `claude-prompting-best-practices`에서, 제약은
 `thinking`, `effort`, model 문서에서, 각 model section은 자체 문서(`prompting-claude-fable-5-1`,
 `prompting-claude-opus-5-5`, `prompting-claude-sonnet-5-5`, `prompting-claude-haiku-5-5`,
-`prompting-claude-opus-5`)에서 파생했다. `source_pins`는 이 도출에 쓴 정확한 byte를
-기록하며, `targets`의 model 이름이 다른 model의 주장을 그 model로 확장하지는 않는다.
+`prompting-claude-opus-5`)에서 파생했다. 첫 turn 명세와 확인된 주장에 관한 핵심 규칙은
+Opus 5, Opus 5.5, Sonnet 5.5, Haiku 5.5 문서가 각자 자기 model에 대해 하는 말을 일반화한
+것이다. `source_pins`는 이 도출에 쓴 정확한 byte를 기록하며, `targets`의 model 이름이 다른
+model의 주장을 그 model로 확장하지는 않는다. vendor의 문서들이 effort 기본값과 기대할
+주도성의 정도에서 서로 다르기 때문이다.
 
-`targets` model이 바뀌면 해당 model의 자체 current document에서 조언을 다시 도출하고 공유
-recipe와의 모순을 확인한다. `launch/check-prompting-targets.sh`는 launch config가 이 guide에
+`targets` model이 바뀌거나, 여기 section이 없는 대상이 자체 prompting 문서를 갖게 되면, 그
+문서에서 조언을 다시 도출하고 공유 recipe와의 모순을 확인한다. `launch/check-prompting-targets.sh`는 launch config가 이 guide에
 없는 model을 bind하면 실패한다. 이 check는 **naming**에 관한 것이며 `targets:`에 model을
 추가하면 영구히 만족한다. guidance가 실제로 다시 도출되었는지는 결정할 수 없고
 어디에서도 gate하지 않는다.

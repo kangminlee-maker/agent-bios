@@ -221,7 +221,7 @@ Binding (2026-10-21):
 | HELM | Claude Opus 5.5 (high) · GPT-6.1 Sol (xhigh) — main Ultra는 명시 선택 필요; bounded FRONTIER Ultra allowed | standing main; Codex 기본 bypass, explicit sandbox로 축소 |
 | WORKHORSE | Claude Sonnet 5.5 (high) · GPT-6.1 Sol (high) | implementation/per-item judgment; Codex seat은 HELM과 같은 model이므로 effort만으로 구분되고 cross-model perspective를 사지 않는다 |
 | SWEEP | Claude Haiku 5.5 (medium) · GPT-6 Luna (max) | 읽기 전용; 항목마다 명시적 규칙 하나 적용; 리바인드 후보 아님 |
-| VERIFIER-A | plain `codex exec` deep pass — GPT-5.6 Sol, ultra effort, packet은 stdin(`-c service_tier="fast"`는 명시적 fast opt-in) | 가장 강한 single reader; Claude main에서 cross-family |
+| VERIFIER-A | plain `codex exec` deep pass — GPT-6.1 Sol, ultra effort, packet은 stdin(`-c service_tier="fast"`는 명시적 fast opt-in) | 가장 강한 single reader; Claude main에서 cross-family |
 | VERIFIER-B | Claude Code ultracode workflow (keyword로 열리는 many-agent) | code/execution kind; fan-out 대응물 |
 | INDEPENDENT-PR-REVIEWER | Codex CLI | adversarial `gh pr diff` review |
 | Claude relocation | EnterWorktree, `/cd`, `--worktree`; resume는 directory-scoped | verified 2.1.207 |

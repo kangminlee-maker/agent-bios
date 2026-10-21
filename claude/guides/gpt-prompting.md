@@ -133,7 +133,8 @@ behavior observed with GPT-6 Astra and are offered as a starting point across th
 family, to be evaluated with the chosen model and workload. The five behavior bullets
 below are therefore Astra observations; for `gpt-6.1-sol`, `gpt-6-sol`, and
 `gpt-6-luna` the vendor states no model-specific prompting behavior, and what differs
-per model is the API facts in the table above, taken from each model page.
+per model is the API facts in the table above, taken from each model page. Re-derive
+this section when a GPT-6 model other than Astra gets a prompting document of its own.
 
 - **Initiative and follow-through.** Astra is more likely to ask when input could
   materially change the result, and asks non-blocking questions while working. For
@@ -142,14 +143,16 @@ per model is the API facts in the table above, taken from each model page.
   continue does not complete an action request. Ask when missing information changes
   the outcome and continue independent authorized work while waiting. If a later step
   needs approval, prepare the concrete, reviewable result first. Keep existing
-  permission boundaries; add no approval steps on hypothetical risk alone.
+  permission boundaries; add no approval steps on hypothetical risk alone. Astra stays
+  coherent over long tasks better than GPT-5.6 Sol and earlier models.
 - **Instruction and skill sensitivity.** Astra follows longer instructions better and
   is more sensitive to context: unclear or conflicting guidance in a skill file can
   make it pause and block work early. Audit the loaded skills and instruction files,
   and make explicit user instructions outrank skill workflow preferences within
   higher-priority instructions and permission constraints. When a skill causes a
   pause, an approval request, or unfinished work, require it to name and link the
-  exact skill file, quote the rule, and say whether that rule is explicit or inferred.
+  exact skill file, quote the rule, and say whether that rule is explicit or inferred;
+  an inferred reading of an optional guideline is not a requirement.
 - **Writing style.** Astra tends toward detailed responses, lists, tables, and
   recurring phrases across sessions. Specify length and structure for the audience.
   For plain prose, request concise paragraphs, familiar words, active verbs, and the
@@ -190,11 +193,11 @@ per model is the API facts in the table above, taken from each model page.
   with subagents, and it suits work that divides into meaningful parts. The catalog
   offers it for `gpt-6-astra`, `gpt-6.1-sol`, `gpt-6-sol`, `gpt-5.6-sol`, and
   `gpt-5.6-terra`; GPT-6 Luna goes up to Max and refuses Ultra, and most tasks need
-  neither. Efforts do not map exactly between
-  model generations, so try a familiar task one setting lower and adjust. A run that
-  omits effort inherits the client's default, which can differ from the API default
-  (the client catalog sets `gpt-6.1-sol` to `low`; the API default is `medium`) — pin
-  it in the launch config. The client's model catalog also places per-model base
+  neither. Take the supported levels for a seat from the host's catalog, not from the
+  API ladder: the two disagree. Efforts do not map exactly between model generations,
+  so try a familiar task one setting lower and adjust. A run that omits effort inherits
+  the client's default, which can differ from the API default (the client catalog sets
+  `gpt-6.1-sol` to `low`; the API default is `medium`) — pin it in the launch config. The client's model catalog also places per-model base
   instructions under your prompt: Astra, 6.1 Sol, and 6 Sol carry the testing
   calibration above, while GPT-6 Luna is told not to add or run tests unless asked, so
   a Luna run that must verify needs its checks named in the prompt (Codex client
@@ -238,8 +241,17 @@ checklist below); omit any block that would not change the artifact.
 - Implementation plans: requirements, named resources, state transitions,
   validation checks, failure behavior, privacy/security, open questions.
 
+> **Carried from the 2026-09-07 derivation; the pinned `prompt-guidance-gpt-5p6` (the same
+> bytes then and now) does not state these. Re-derive or remove at the next
+> re-derivation.**
+>
+> - The success-criteria block is the one most worth its tokens.
+> - A reviewer with no stated bar defaults to plausible-sounding findings.
+
 ## How to choose prompt shape
 
+- A bounded review packet runs as one self-contained run with no inherited
+  instructions — the hermetic profile — by default (repository practice).
 - One run when each step depends on the previous one, the task finishes in one short
   run, or agents would contend over the same mutable state. Fan out when the work
   splits into independent bounded tasks, separate context improves focus, or parallel
@@ -253,8 +265,12 @@ checklist below); omit any block that would not change the artifact.
   content last, and keep that prefix free of churn. Ordering alone caches nothing: the
   prefix must reach the minimum cacheable length and end at a breakpoint, and implicit
   caching writes through a changing suffix, so on GPT-5.6 and later mark the stable
-  boundary with an explicit breakpoint where the implicit one misses it. In multi-turn
-  work keep earlier messages and tool results so later turns reuse the full prefix.
+  boundary with an explicit breakpoint where the implicit one misses it; check the
+  reported `cached_tokens` and the cost before and after, and keep the breakpoint only
+  where it improves them. Continuing a multi-turn task, keep earlier messages and tool
+  results so later turns reuse the full prefix. Starting a new bounded task, send a
+  self-contained packet rather than resuming a long history that holds context the task
+  does not need.
 
 ## Programmatic tool calling
 
@@ -300,6 +316,9 @@ or dependent calls alone do not justify it.
 - Preserve explicit user values. Where the right value is implicit, give decision
   criteria and let the model reason from context or schema rather than installing
   universal defaults or keyword maps.
+- Render any visual artifact before finalizing, inspect its layout, clipping, spacing,
+  missing content, and visual consistency, and revise until the render meets the
+  requirements.
 - After each tool result, ask whether the success criteria — required actions and
   validation included — are now met with useful evidence; if yes, answer. Loop
   minimization never outranks correctness, required evidence, calculations, or
@@ -327,7 +346,9 @@ The GPT-5.6 section is derived from `prompt-guidance-gpt-5p6`, its facts row fro
 `model-guidance-gpt-5p6` and `upgrading-to-gpt-5p6-sol`. The GPT-6 family section is
 derived from `model-guidance-gpt-6-astra` — the one GPT-6 prompting document, "Using
 GPT-6", which the Astra URL serves — with per-model facts from `model-gpt-6-astra`,
-`model-gpt-6p1-sol`, `model-gpt-6-sol`, and `model-gpt-6-luna`, effort semantics and
+`model-gpt-6p1-sol`, `model-gpt-6-sol`, and `model-gpt-6-luna` — the document calls its
+prompts a starting point across the GPT-6 family, so the section is not limited to
+Astra — effort semantics and
 `configuration_update` limits from `reasoning`, and Codex-only effort values from
 `codex-models`; the base-instruction note comes from the Codex client's local model
 catalog, which no URL serves and no pin tracks. The shared recipe keeps the GPT-5.6
