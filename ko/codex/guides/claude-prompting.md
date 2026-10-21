@@ -170,8 +170,8 @@ dispatch가 제약에 의존하기 전에 live surface에서 그 제약을 확�
   작업 중 발견한 기존 버그나 언급되지 않은 동작은 고치지 말고 후속 과제로 보고하게 한다.
   Fable 5보다 파일 전체를 더 쉽게 다시 쓰므로 부분 편집을 요청한다.
 - Compaction: server-side compaction이면 맡겨 둔다. client에서 compact한다면 요약이 보존할
-  것을 말한다 — 생긴 문제와 처리 방식, 제기되거나 보류된 선택지, 결정되거나 배제된 것(정확히
-  그대로), 현재 위치, 아직 열려 있거나 약속된 것, 다시 만들기 어려운 세부(정확히 그대로).
+  것을 말한다 — 생긴 문제와 처리 방식, 제기되거나 보류된 선택지, 요청·결정·합의·배제된 것과 정해진
+  모든 선호·제약·경계(정확히 그대로), 현재 위치, 아직 열려 있거나 약속된 것, 다시 만들기 어려운 세부(정확히 그대로).
 - 문체: Fable 5보다 조밀하고 formatting을 덜 쓴다 — formatting 금지 규칙은 언제 formatting이
   도움이 되는지로 바꾼다. "Please remove all mannered prose."가 통한다. 요약에서 출처
   구절을 인용 표시 없이 옮길 수 있으므로, 올바른 응답과 그 이유를 담은 완전한 예시 하나를
@@ -358,8 +358,8 @@ thinking budget을 대체한다. system prompt text 추가는 새 대화에서�
 - 서술: 하려는 일을 예고한다. 원하는 cadence를 설명한다(첫 호출 전 한 줄, 발견이나 방향
   전환 때 업데이트, 마지막에는 결과부터). 긍정적인 예시가 하지 말 것의 목록보다 낫다.
   정정 서술은 독자의 code나 결정을 바꿀 오류로 한정한다.
-- 조밀한 이미지: chart, 문서, diagram 이해와 UI 재현에 강하다. 이전 model용 workaround는
-  이제 오히려 품질을 깎을 수 있으므로 다시 검증한다. crop하고 시각적으로 확인하는 tool이
+- 조밀한 이미지: chart, 문서, diagram 이해와 UI 재현에 강하다. 이전 model용으로 맞춘 prompt
+  쪽 workaround는 더는 필요 없을 수 있으므로 다시 검증한다. crop하고 시각적으로 확인하는 tool이
   thinking만 하는 것보다 비용 대비 효과가 크다.
 - Thinking 끄기는 `high` 이하에서 허용되지만 보통 잘못된 지렛대다. 비슷한 비용에서는
   `low`에 thinking을 켠 편이 낫다. 끄면 tool 호출을 text로 쓸 수 있고 — 그 호출은 실행되지
@@ -389,6 +389,7 @@ thinking budget을 대체한다. system prompt text 추가는 새 대화에서�
 > - 마지막 message에서는 작업 중에 쓰던 약칭을 뺀다.
 > - 남은 context countdown을 보여 주지 않는다. 아끼기 시작하고 끝내는 대신 새 session을
 >   제안할 수 있다.
+> - 이전 model에서 가져온 vision workaround가 이제는 오히려 품질을 깎는 원인일 수 있다.
 
 ## Prompt assembly checklist
 

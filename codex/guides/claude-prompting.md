@@ -175,8 +175,9 @@ The document also covers Claude Mythos 5.1. Fable 5 prompts carry over unchanged
   edits.
 - Compaction: with server-side compaction, let it trim. If you compact on the client,
   tell the summary what to preserve — problems and how they were handled, options raised
-  or set aside, what was decided or ruled out (stated exactly), where things stand, what is
-  still open or promised, and hard-to-reconstruct details kept exactly.
+  or set aside, what was asked for, decided, agreed, or ruled out and every preference,
+  constraint, or boundary set (stated exactly), where things stand, what is still open or
+  promised, and hard-to-reconstruct details kept exactly.
 - Prose: denser than Fable 5's, and it formats less — replace anti-formatting rules with
   when formatting helps; "Please remove all mannered prose." works. Summaries may reproduce
   source passages unmarked; add one complete example of a correct response and why.
@@ -370,8 +371,8 @@ to it.
   end); positive examples beat lists of what not to do. Limit correction narration to
   errors that would change the reader's code or decisions.
 - Dense images: it is strong on charts, documents, diagrams, and UI replication; re-validate
-  workarounds tuned for prior models, which may now cost quality. Tools to crop and
-  visually verify are a more cost-effective lever than thinking alone.
+  prompt-side workarounds tuned for prior models, which may no longer be needed. Tools to
+  crop and visually verify are a more cost-effective lever than thinking alone.
 - Thinking off is accepted at `high` or below and is usually the wrong lever: thinking on
   at `low` beats it at similar cost. Off, it can write a tool call as text — the call never
   runs and the text stays in history, affecting later turns, most often on tool-heavy work
@@ -404,6 +405,7 @@ to it.
 > - In the final message, drop the working shorthand.
 > - Do not show a remaining-context countdown: it can start conserving and suggest a fresh
 >   session instead of finishing.
+> - A vision workaround carried from an older model may now be the thing costing quality.
 
 ## Prompt assembly checklist
 

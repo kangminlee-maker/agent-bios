@@ -235,6 +235,7 @@ Astra가 아닌 GPT-6 model이 자체 prompting document를 갖게 되면 이 se
 >
 > - 성공 기준 block이 들인 token에 비해 가장 값어치 있는 block이다.
 > - 기준을 밝히지 않은 reviewer는 그럴듯해 보이는 발견으로 기운다.
+> - 출력이 약하면 대개 성공 기준, 의존 규칙, tool-routing 규칙, 또는 검증 루프가 빠진 것이다.
 
 ## How to choose prompt shape
 

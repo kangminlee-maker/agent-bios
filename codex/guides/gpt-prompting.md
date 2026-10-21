@@ -247,6 +247,8 @@ checklist below); omit any block that would not change the artifact.
 >
 > - The success-criteria block is the one most worth its tokens.
 > - A reviewer with no stated bar defaults to plausible-sounding findings.
+> - Weak output usually means a missing success criterion, dependency rule, tool-routing
+>   rule, or verification loop.
 
 ## How to choose prompt shape
 
