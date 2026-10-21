@@ -87,7 +87,9 @@ def read_lines(path, zstd, limit=None):
     try:
         # close_fds=False lets the interpreter spawn without forking itself (descriptors are non-inheritable
         # by default); a census starts tens of thousands of these, and a fork of a large heap each time dominates it
-        proc = subprocess.Popen([zstd or "", "-dcq", path], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, close_fds=False)
+        if not zstd or not os.path.isabs(zstd) or os.path.basename(os.path.realpath(zstd)) != "zstd":
+            raise ValueError("the declared zstd is not an absolute path to a file named zstd")  # never another program
+        proc = subprocess.Popen([zstd, "-dcq", path], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, close_fds=False)
     except (OSError, ValueError) as exc:
         raise Unreadable(f"ZSTD_UNAVAILABLE {zstd}: {path}: {getattr(exc, 'strerror', None) or exc}") from exc
     done = False
@@ -327,6 +329,7 @@ def self_test():
         # negative controls: each unreadable cause is named, and the file with it
         raises("zstd path that does not exist", lambda: list(read_lines(packed, "/nonexistent/zstd")), f"ZSTD_UNAVAILABLE /nonexistent/zstd: {packed}")
         raises("no zstd declared", lambda: list(read_lines(packed, None)), "ZSTD_UNAVAILABLE")
+        raises("a declared zstd that is another program", lambda: list(read_lines(packed, "/bin/cat")), "ZSTD_UNAVAILABLE /bin/cat")
         (root / "cut.jsonl.zst").write_bytes(packed.read_bytes()[:-12])
         raises("truncated stream", lambda: list(read_lines(root / "cut.jsonl.zst", zstd)), "ZSTD_FAILED")
         (root / "junk.jsonl.zst").write_bytes(b"not zstd at all")

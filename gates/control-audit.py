@@ -70,6 +70,14 @@ SUBJECTS = [
     "session-distill/runlib/ledger.py",
     "session-distill/runlib/ledger_compat.py",
     "session-distill/migrate-ledger.py",
+    "session-distill/runlib/gate.py",
+    "session-distill/runlib/receipts.py",
+    "session-distill/runlib/packet.py",
+    "session-distill/runlib/usage.py",
+    "session-distill/runlib/dispatch.py",
+    "session-distill/runlib/monitor.py",
+    "session-distill/runlib/stop.py",
+    "session-distill/runlib/breaker.py",
 ]
 # The not-audited disclosure is DERIVED, not typed. The first version typed two shell
 # gates here while the tracked tree held five shell checkers — the audit tool carrying
@@ -128,6 +136,11 @@ DATA_SINKS = {
                  "must never decide a build",
         "out": "the --resolve/--propose suggestion rows; printed for a human to paste",
     },
+    "session-distill/runlib/monitor.py": {"uncertain": "requests whose sending no host record "
+                                                       "establishes; disclosed beside the boundary "
+                                                       "verdict, never a failure"},
+    "session-distill/runlib/dispatch.py": {"deferred": "the items an opened breaker defers, written "
+                                                       "to its state for resumption, never a failure"},
 }
 
 

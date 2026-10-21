@@ -25,6 +25,10 @@ import fcntl
 import os
 import pathlib
 import sys
+import time
+
+
+RETRY_S = 0.005  # between attempts of a waiting writer
 
 
 class Locked(Exception):
@@ -56,15 +60,22 @@ def confine(run_dir, destination):
 
 
 @contextlib.contextmanager
-def hold(run_dir, name):
+def hold(run_dir, name, wait_s=0):
+    """Hold the lock `name`; a held lock is refused at once, or after `wait_s` seconds of
+    retrying (the dispatch supervisor's reservations and breaker wait their turn)."""
     path = confine(run_dir, pathlib.Path(run_dir) / "locks" / f"{name}.lock")
     path.parent.mkdir(parents=True, exist_ok=True)
     fd = os.open(path, os.O_CREAT | os.O_RDWR, 0o600)
     try:
-        try:
-            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except BlockingIOError:
-            raise Locked(f"STAGE_LOCKED {name}: another writer holds {path}") from None
+        for _attempt in range(int(wait_s / RETRY_S) + 1):
+            try:
+                fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                break
+            except BlockingIOError:
+                if wait_s:
+                    time.sleep(RETRY_S)
+        else:
+            raise Locked(f"STAGE_LOCKED {name}: another writer holds {path}")
         yield
     finally:
         os.close(fd)  # closing the descriptor releases the lock
@@ -99,6 +110,30 @@ def self_test():
             pass
         if not (pathlib.Path(td) / "locks" / "declaration.lock").is_file():
             failures.append("lock file is not kept under <run-dir>/locks/")
+        # a waiting writer takes the lock once the holder releases it, and gives up by name at its deadline
+        import threading
+        held, release = threading.Event(), threading.Event()
+
+        def holder():
+            with hold(td, "supervisor"):
+                held.set()
+                release.wait(5)
+        thread = threading.Thread(target=holder)
+        thread.start()
+        held.wait(5)
+        try:
+            with hold(td, "supervisor", wait_s=0.05):
+                failures.append("a waiting writer took a held lock before its holder released it")
+        except Locked as exc:
+            if "STAGE_LOCKED supervisor" not in str(exc):
+                failures.append(f"a timed-out wait was refused unnamed: {exc}")
+        threading.Timer(0.1, release.set).start()
+        try:
+            with hold(td, "supervisor", wait_s=5):
+                pass
+        except Locked:
+            failures.append("a waiting writer did not take the lock its holder released")
+        thread.join(5)
 
     # confinement: a clean destination first, then each way a symlink can lead out of the run directory
     with tempfile.TemporaryDirectory() as td:
@@ -184,7 +219,8 @@ def self_test():
     if failures:
         return 1
     print("stagelock --self-test: OK (free lock taken, held lock refused by name, other names "
-          "independent, released after an exception; confinement: clean and inside-symlink destinations "
+          "independent, released after an exception, a waiting writer served after release and refused at its "
+          "deadline; confinement: clean and inside-symlink destinations "
           "allowed, dangling link, linked file, linked parent, traversal and absolute escapes refused by name; "
           "a relative run directory is one place with its absolute spelling)")
     return 0

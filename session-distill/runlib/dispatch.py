@@ -1,0 +1,2707 @@
+#!/usr/bin/env python3
+"""The dispatch supervisor (design §13.2, §13.3; plan WP-02): the one code path every live model
+call takes, and the only module in the driver's import closure that starts a runner or a host
+binary.
+
+Every agent-backed dispatch is an episode (design §13.2). Before it starts, `reserve` takes the
+call's calibrated cost from the stage's remaining budget in one critical section under the
+supervisor's lock, so two requests can never both be admitted against one balance: the 95th
+percentile of the measured cost of its class (stage, seat, case type), or — for a class with
+fewer than CALIBRATION_MIN_SAMPLES measured calls — the nearest probe measurement (SEEDS) times
+usage.SAFETY_FACTOR, marked `calibration: provisional` and admitted only in a calibration
+tranche at concurrency one (S-15). The budget is the one run.json declares now, read through
+records.declaration_state, so an amendment is recorded before anything is spent against it and a
+hand edit is refused. A reservation that does not fit records the item `not_done`.
+
+`call` then refuses, before anything is written, a call without its reservation or without both
+caps, a call to a provider whose breaker is open or a reservation deferred when it opened (the
+item recorded `deferred`), a call in a stopped run, a packet the linter rejects, a seat or
+window outside its declaration, and a runner its realization does not admit: a fake or custom
+runner runs only under realization `golden`, the pinned runner only under `live`. Admission is
+decided under the breaker's lock and the supervisor's, held through the launch, so a provider
+signal or a run stop recorded by any running call either precedes it (refused) or follows the
+launch. It runs the runner with the packet on stdin and follows the call with the live monitor
+(both caps at every stream event and transcript record; a structured provider signal opens the
+breaker the moment it is read, and the provider's reserved work that has not started is
+recorded deferred). At either cap it stops the call (stop.stop_tree: freeze until a fresh
+listing shows the whole tree stopped, kill, verify; recorded `budget_stopped`); every reader of
+the runner's pipes is drained to its end — never cut short by a per-reader timeout — before the stop is
+recorded or anything is accounted, so a cap the monitor trips late still stops what is left of
+the tree, and the outgoing-request boundary is checked against the verified freeze on the
+drained ledger, its verdict one value on the stopped record (monitor.boundary_verdict). Once the
+root has exited, a pipe still open past drain_deadline_s (DRAIN_DEADLINE_S) stops the remaining
+tree as a cap would, and the drain waits at most another drain_deadline_s: the call is recorded
+`drain_unfinished`, its usage unreconciled and its boundary STOP_BOUNDARY_UNVERIFIED, whoever held
+the pipe, whether or not a cap tripped (the cap's evidence is kept as the record's `cap`) and
+whatever violation was observed (kept in its problems). The runner is killed after every stop and
+reaped only once every stop of the call is done, so its group id stays provably its own for each;
+no wait on it or its pipes is unbounded. usage.json is written before the call's cell (its temporary homes) is deleted; the
+receipt is written through the launcher's --emit-receipt with the evidence the gate recomputes;
+the reservation is settled. A view-window call (S3 reading and its expansion windows, and only
+those) whose observed input passes INPUT_BOUND stops the run (INPUT_BOUND_EXCEEDED; amendment
+record 2026-10-21T0026--cc0498f--input-bound-amendment.md). `item` adds the gate and design
+§3.2's one corrective retry, never after a provider signal: the item that met the signal is
+recorded deferred with its attempts, as `<stage>:<item>`.
+
+The runner contract (what WP-03's `claude-run --profile hermetic` and WP-04's `codex-run`
+honour): the packet on stdin; the final result on stdout; REVIEW_CAPTURE_DIR is the call's
+capture/ directory, where the runner writes host.json at exit (profile, flag-set hash, working
+directory and its pre-call listing, session or thread id, effective context, and for Claude the
+recorded requests and responses) and, for Claude, appends the stream-json events to
+stream.jsonl as they arrive; DISTILL_CELL is the call's cell, `{home,config,cwd}`, which the
+supervisor creates and deletes, so a runner never deletes it; codex-run's capture writes the
+call's events.jsonl, frames.jsonl, host.json and usage.json through its helper (WP-04), which the
+dispatcher never replaces, and passes the trace (RUST_LOG=CODEX_TRACE) on stderr, which the monitor
+reads live for the caps and the boundary and reduces into capture/frames.jsonl only where the runner
+wrote none. REVIEW_CALL_ID (and DISTILL_CALL_ID) name the call; the versioned host binary
+seats.json pins reaches claude-run as --claude-bin with --host-version, and codex-run as
+CODEX_RUN_BIN with CODEX_RUN_VERSION; claude-run's token comes from CLAUDE_RUN_TOKEN_FILE in the
+caller's environment, a path never read here. Nothing of the runner's stderr is stored but an
+adapter's named refusal on a nonzero exit (ADAPTER_CODES), recorded as the call's
+`runner_refused` and the item's outcome. The dispatcher writes the call's receipt; a receipt the runner writes
+for itself (REVIEW_RECEIPT_DIR points into capture/runner-receipts/) is evidence in the capture,
+never the call's receipt (plan addendum 2026-10-21T0630--0e0d27e--plan-addendum-wp02.md).
+
+Refused by name: RESERVATION_MISSING, CAP_MISSING, PROVIDER_DEFERRED, PACKET_REFUSED (with the
+linter's codes), CALIBRATION_PROVISIONAL, CALIBRATION_SERIAL, BUDGET_UNDECLARED, BUDGET_EXHAUSTED
+(the item recorded not_done), INPUT_BOUND_EXCEEDED and RUN_STOPPED, CALL_EXISTS,
+USAGE_UNCAPTURED, RECEIPT_MISSING, SEAT_UNPINNED, ALLOWANCE_UNMEASURED, ALLOWANCE_MISMATCH,
+WINDOW_OVER_BOUND, RUNNER_REALIZATION_MISMATCH, USE_REFUSED, CAP_UNDECLARED. CONTRACT names the sections; the self-test
+derives this set from the source and holds it, and this list, against its own cited copy. The
+closure check (`closure_violations`) names DISPATCH_OUTSIDE_SUPERVISOR, DISPATCH_UNRESOLVED,
+CLOSURE_IMPORTS_OUT_OF_SCOPE, DYNAMIC_LOAD_UNDECLARED and INVENTORY_STALE.
+
+  dispatch.py --self-test
+"""
+import ast
+import contextlib
+import json
+import math
+import os
+import pathlib
+import re
+import shlex
+import shutil
+import subprocess
+import sys
+import tempfile
+import threading
+import time
+
+if __package__ in (None, ""):  # run as a script: put session-distill/ on the import path
+    sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
+from runlib import breaker as breakers
+from runlib import gate, packet as packets, receipts, records, stagelock, stop
+from runlib import monitor as monitors
+from runlib import usage as usages
+from runlib.records import Refused
+
+REPO = pathlib.Path(__file__).resolve().parents[2]
+RUNNERS = {"claude": REPO / "wrappers" / "claude-run.sh", "codex": REPO / "wrappers" / "codex-run.sh"}
+USES = ("judge", "producing", "authoring")  # claude-run's call profiles (plan WP-03); producing is Claude's alone
+# the refusals each adapter names on a nonzero exit: before anything is sent (codex-run's capture
+# and its overrides; claude-run's pinned host, its cell and its read root), and claude-run's unreadable
+# transcript (exit 70). The self-test derives each set from the adapter's own source and holds this to it.
+ADAPTER_CODES = {"codex": ("HOST_VERSION_MISMATCH", "CONTEXT_EVIDENCE_MISSING", "CODEX_PROFILE_UNSUPPORTED",
+                           "CODEX_INSTRUCTION_OVERRIDE_UNSUPPORTED", "CODEX_INSTRUCTION_OVERRIDE_REPEATED"),
+                 "claude": ("HOST_VERSION_MISMATCH", "HOST_BINARY_UNPINNED", "CELL_UNDER_HOME", "CELL_OUTSIDE_ROOT",
+                            "CELL_ROOT_OWNER", "CELL_ROOT_MODE", "CELL_ANCESTOR_SURFACE", "CELL_CWD_MISSING",
+                            "READ_ROOT_MISMATCH", "TRANSCRIPT_UNREADABLE")}
+ADAPTER_REFUSAL = {host: re.compile(rb"^" + host.encode() + rb"-run: (" + "|".join(codes).encode() + rb")\b[^\n]{0,400}")
+                   for host, codes in ADAPTER_CODES.items()}
+# the channels monitor.CodexFeed reads; the retry warnings are what HTTPS attempt coverage reconciles (design §3.2)
+CODEX_TRACE = "tungstenite::protocol=trace,codex_otel.log_only=info,codex_core::responses_retry=warn"
+CODEX_CHANNELS = ("frames", "otel", "responses_retry")
+INPUT_BOUND = 120_000  # view-window calls only (the input-bound amendment record)
+REALIZATIONS = ("live", "golden")  # what a supervisor may declare; a replay is the gate's, never a dispatch
+CONTRACT = {"$comment": "design §13.2 (reservation, both caps, the breaker, the stop, not done) and §13.3 (usage), "
+                        "plan WP-02 (dispatch.call's refusals, S-15), the amendment record "
+                        "2026-10-21T0026--cc0498f--input-bound-amendment.md (the window bound): the Supervisor's "
+                        "refusals and item outcomes", "predicate": "Supervisor"}
+LOCK_WAIT_S = 30
+DRAIN_POLL_S = 0.05  # how often a drain still waiting on a reader looks for a cap the monitor tripped meanwhile
+# How long readers may stay open once the runner's root has exited: a process holding its pipes past
+# this escaped the tree, outside the stop guarantee (design §13.2) — recorded, never waited on.
+DRAIN_DEADLINE_S = 30.0
+CALIBRATION_MIN_SAMPLES = 5  # a reading: below five measured calls a 95th percentile is the maximum of too few
+# The nearest probe measurement of one single-turn hermetic call per host (S-15); a provisional
+# reservation is this times usage.SAFETY_FACTOR.
+SEEDS = {
+    "claude": {"tokens": 3216, "source": "distill-probes-20261020/claude-runner/captures/acc-clean-001 "
+                                         "(replay fixture claude-runner/acc-clean-001/usage.json, all four token kinds)"},
+    "codex": {"tokens": 25424, "source": "distill-probes-20261020/codex-runner/captures/acc-clean-002/capture.json "
+                                        "usage.measured_totals.total_tokens"},
+}
+# Executors outside the redesign: the closure may import none of them (plan WP-02 done-when 6).
+OUT_OF_SCOPE = (
+    {"path": "session-distill/screen-codex.py", "reason": "the legacy screening pass, which starts codex-run itself",
+     "retires": "deleted at the WP-22 cutover"},
+    {"path": "benchmarks/tier/live.py", "reason": "tier experiments, outside the redesign",
+     "retires": "when tier experiments move under this supervisor or are deleted"},
+)
+# Dynamic loads the closure may make, each with its reason; `trace` says whether the loaded file
+# joins the closure. The launcher is shipped code whose host launches are its CLI's, and the only
+# CLI use in the closure is dispatch.py's --emit-receipt (and receipts.py's self-test of it).
+DYNAMIC_LOADS = (
+    {"site": "session-distill/runlib/receipts.py", "path": "launch/agent-launch.py", "trace": False,
+     "reason": "the receipt grammar (_raw_receipt_reason) has one owner, the launcher"},
+    {"site": "session-distill/runlib/ledger.py", "path": "session-distill/migrate-ledger.py", "trace": True,
+     "reason": "the schema-1 migrator, loaded by its literal path beside the module (MIGRATOR) to compare a schema-1 "
+               "base with a schema-2 head; its one executor is git ls-files"},
+    {"site": "session-distill/runlib/ledger.py", "path": "gates/check-global-file.py", "trace": False,
+     "reason": "design §13.1's author-side gate, loaded by its literal repo path (GATE_READERS) for its git readers, "
+               "one implementation of reading a commit side; read, not traced: its executors are git (:50-:159, :396) "
+               "and, in its own self-test, itself (:411), which the trace cannot name by __file__"},
+    {"site": "session-distill/migrate-ledger.py", "path": "learn/build-promotions.py", "trace": True,
+     "reason": "loaded by the migrator's self-test (build_promotions) by its literal repo path; it runs nothing"},
+    {"site": "session-distill/migrate-ledger.py", "path": "compose/instructions-state.py", "trace": False,
+     "reason": "loaded by the migrator's self-test (instructions_state) by its literal repo path for ledger_summary; "
+               "read, not traced: its executors are git, compose/assemble.py (the installer's assembler) and itself "
+               "(:81-:959), none of them a host"},
+)
+# Python scripts a closure site runs, each with its reason; a declared script joins the closure,
+# so its own sites are judged like any module's.
+SCRIPT_RUNS = (
+    {"site": "session-distill/runlib/census.py", "path": "session-distill/census.py",
+     "reason": "the self-test runs the legacy census on a fixture HOME (the runbook's census-to-digest handoff, "
+               "retired at the WP-22 cutover); it reads history and transcript files"},
+    {"site": "session-distill/runlib/census.py", "path": "session-distill/digest.py",
+     "reason": "the same handoff's second step, run by the same self-test: it digests the census's sessions"},
+    {"site": "session-distill/migrate-ledger.py", "path": "session-distill/merge-ledger.py",
+     "reason": "the migrator's self-test runs the documented merge-ledger.py --window-end invocation on a fixture ledger"},
+)
+# Sites whose program the trace cannot name, each admitted only while its guard — a literal line
+# of the site's file that confines the program to one by name — is still there.
+GUARDED_PROGRAMS = (
+    {"site": "session-distill/runlib/sources.py",
+     "guard": 'os.path.basename(os.path.realpath(zstd)) != "zstd"',
+     "reason": "read_lines decompresses with the zstd run.json declares (declare.py requires the source); the guard "
+               "refuses any declared path whose resolved file is not named zstd, so the program is zstd by name, "
+               "the standard the trace holds every named program to"},
+)
+# interpreter options that take no value: they change how python runs, never what it runs
+PY_FLAGS = ("-I", "-E", "-s", "-S", "-B", "-u", "-O", "-OO", "-q", "-b", "-bb", "-R")
+CLOSURE_ROOTS = ("session-distill/distill.py", "session-distill/runlib")
+IMPORT_DIRS = ("session-distill", "benchmarks")
+HOST_NAMES = ("claude", "codex", "claude-run", "codex-run")
+SHELLS = ("sh", "bash", "zsh", "dash", "env")
+EXEC_CALLS = {f"subprocess.{n}" for n in ("run", "Popen", "call", "check_call", "check_output", "getoutput",
+                                          "getstatusoutput")} | \
+             {f"os.{n}" for n in ("system", "popen", "execv", "execve", "execvp", "execvpe", "execl", "execle", "execlp",
+                                  "execlpe", "spawnv", "spawnve", "spawnvp", "spawnvpe", "spawnl", "spawnle", "spawnlp",
+                                  "spawnlpe", "posix_spawn", "posix_spawnp")}
+# os executors by argv shape: (index of the program, index of its argv list, or None, and the
+# index where its loose arguments start — argv[0] included — and how many trail as the environment)
+OS_ARGV = {**{f"os.{n}": (0, 1, None, 0) for n in ("execv", "execve", "execvp", "execvpe", "posix_spawn", "posix_spawnp")},
+           **{f"os.{n}": (0, None, 1, 0) for n in ("execl", "execlp")}, **{f"os.{n}": (0, None, 1, 1) for n in ("execle", "execlpe")},
+           **{f"os.{n}": (1, 2, None, 0) for n in ("spawnv", "spawnve", "spawnvp", "spawnvpe")},
+           **{f"os.{n}": (1, None, 2, 0) for n in ("spawnl", "spawnlp")}, **{f"os.{n}": (1, None, 2, 1) for n in ("spawnle", "spawnlpe")}}
+LOAD_CALLS = {"importlib.import_module": 0, "__import__": 0, "runpy.run_module": 0, "runpy.run_path": 0,
+              "importlib.util.spec_from_file_location": 1, "importlib.machinery.SourceFileLoader": 1}
+UNKNOWN, PYTHON = "<?>", "<python>"
+UNREAD = ast.Name(id="<an argv the trace cannot read>", ctx=ast.Load())  # resolves to UNKNOWN wherever it is judged
+
+
+class Exhausted(Refused):
+    """The stage's remaining budget cannot fit the reservation; the item is recorded not_done."""
+
+
+def class_key(stage, seat, case_type):
+    return f"{stage}|{seat}|{case_type}"
+
+
+def p95(samples):
+    """The nearest-rank 95th percentile."""
+    ordered = sorted(samples)
+    return ordered[math.ceil(0.95 * len(ordered)) - 1]
+
+
+def plain_tree(root):
+    """True when `root` is a directory of regular files and directories only: what a producing call
+    reads is copied into its cell, and a symlink could carry the read outside it."""
+    root = pathlib.Path(root)
+    return root.is_dir() and not root.is_symlink() and all(
+        not p.is_symlink() and (p.is_file() or p.is_dir()) for p in root.rglob("*"))
+
+
+def listing(cwd):
+    """The working directory's files by relative path and sha256, as claude-run lists it before a call."""
+    root = pathlib.Path(cwd)
+    return [{"path": str(p.relative_to(root)), "sha256": packets.sha256_bytes(p.read_bytes())}
+            for p in sorted(root.rglob("*")) if p.is_file()]
+
+
+def runner_argv(host, spec):
+    """The runner's argv for one call, in the adapters' interfaces: claude-run's as its --help states
+    it ("A dispatcher calls one hermetic Claude call as", plan WP-03), the pinned host binary and
+    version among the arguments; codex-run's (plan WP-04), whose host comes from CODEX_RUN_BIN and
+    CODEX_RUN_VERSION in the environment. The use, the readable manifest directory and the
+    output-token cap reach claude-run only: codex-run has no producing profile and no output cap
+    (Codex has none, design §3.2), so a cap declared for a Codex call is recorded and not passed."""
+    argv = [str(RUNNERS[host]), "--profile", spec["profile"], "--model", spec["model"], "--effort", spec["effort"]]
+    if host == "codex":
+        return argv + ["--cd", spec["workdir"]] + (["--schema", spec["schema_path"]] if spec.get("schema_path") else []) + ["-"]
+    argv += ["--cell-root", str(pathlib.Path(spec["cell"]).parent), "--call-id", spec["call_id"], "--cd", spec["workdir"],
+             "--claude-bin", spec["host_bin"], "--host-version", spec["host_version"],
+             "--max-output-tokens", str(spec["max_output_tokens"])]
+    if spec.get("schema_path"):
+        argv += ["--schema", spec["schema_path"]]
+    if spec["use"] == "producing":
+        argv += ["--use", "producing", "--tools", "Read", "--manifest", spec["read_root"]]
+    elif spec["use"] != "judge":
+        argv += ["--use", spec["use"]]
+    return argv
+
+
+def reconcile_codex(call_dir, ledger, clock=time.time):
+    """A Codex call's live ledger against the gate's strict join over its final capture (design
+    §3.2, §13.3): what the live ledger measured from otel alone gives way — a row otel opened is
+    dropped, a sent request otel measured before its frame arrived returns to what it was —; a
+    completion no frame response joins is spent (frames_blind: unknown kind, usage from otel);
+    every interrupted attempt, a failed post the retry warnings show among them, keeps a row.
+    Returns whether everything reconciled — never while any thread's attempt coverage is unknown."""
+    c = gate.Call(call_dir)
+    unjoined, ambiguous, _leftover = gate.join_completions(c, gate.codex_responses(c))
+    kept = []
+    for r in ledger.requests:
+        if r.get("otel_only"):
+            continue
+        if r.get("pre_otel") is not None and r.get("frame_usage") is None:
+            r.update(r.pop("pre_otel"))
+            r.pop("otel_usage", None)
+        kept.append(r)
+    ledger.requests[:] = kept
+    for comp in unjoined + ambiguous:
+        row = ledger.open(f"otel-{comp.get('ts')}", "unknown", comp.get("conversation.id"), clock())
+        ledger.measure(row, monitors.codex_tokens(monitors.otel_usage(comp)))
+    attempts = gate.codex_attempts(c)
+    interrupted = sum(t["interrupted"] for t in attempts.values())
+    unmeasured = sum(1 for r in ledger.requests if r["state"] != "measured")
+    for n in range(max(0, interrupted - unmeasured)):
+        ledger.open(f"interrupted-{n + 1}", "unknown", None, clock())
+    return bool(ledger.requests) and all(r["state"] == "measured" for r in ledger.requests) \
+        and not unjoined and not ambiguous and interrupted == 0 and all(t["coverage"] == "complete" for t in attempts.values())
+
+
+class Supervisor:
+    def __init__(self, run_dir, *, clock=time.time, runner=None, cell_root=None, env=None, realization="live",
+                 seats_path=None, monitor=None):
+        self.run_dir = pathlib.Path(run_dir)
+        self.run_id = self.run_dir.resolve().name
+        self.clock, self.runner, self.realization = clock, runner or runner_argv, realization
+        self.monitor = monitor or monitors.Monitor  # the self-test's delayed-reader controls give a slower one
+        self.drain_deadline_s = DRAIN_DEADLINE_S  # the self-test's held-pipe control gives a shorter one
+        self.cell_root = pathlib.Path(cell_root) if cell_root else None
+        self.env = dict(os.environ if env is None else env)
+        self.breaker = breakers.Breaker(self.run_dir)
+        self.seats_path = pathlib.Path(seats_path) if seats_path else gate.SEATS
+
+    # --- the ledger and the calibration ------------------------------------------------------
+
+    def _path(self, name):
+        return self.run_dir / "supervisor" / name
+
+    def ledger(self):
+        path = self._path("ledger.json")
+        held = records.read_json(path) if path.is_file() else {}
+        return {"stages": held.get("stages", {}), "stopped": held.get("stopped")}
+
+    @staticmethod
+    def _stage(ledger, stage):
+        return ledger["stages"].setdefault(stage, {"reservations": {}, "spent": {"measured": 0, "provisional": 0},
+                                                   "not_done": [], "overshoot": []})
+
+    def _write(self, ledger):
+        records.write_json(self.run_dir, self._path("ledger.json"), ledger)
+
+    def _lock(self):
+        return stagelock.hold(self.run_dir, "supervisor", wait_s=LOCK_WAIT_S)
+
+    def calibration(self):
+        path = self._path("calibration.json")
+        return records.read_json(path) if path.is_file() else {}
+
+    def seed_from(self, samples):
+        """The rehearsal's measured costs, {class: [tokens, ...]}, as this run's starting samples."""
+        with self._lock():
+            held = self.calibration()
+            for klass, values in samples.items():
+                held.setdefault(klass, {"samples": []})["samples"].extend(int(v) for v in values)
+            records.write_json(self.run_dir, self._path("calibration.json"), held)
+
+    def estimate(self, klass, host):
+        samples = self.calibration().get(klass, {}).get("samples", [])
+        if len(samples) >= CALIBRATION_MIN_SAMPLES:
+            return p95(samples), "measured"
+        return usages.SAFETY_FACTOR * max([SEEDS[host]["tokens"], *samples]), "provisional"
+
+    def remaining(self, stage):
+        run, _digest, _amendments = records.declaration_state(self.run_dir, who="dispatch")
+        entry = self._stage(self.ledger(), stage)
+        return run["budget"]["per_stage"].get(stage, 0) - self._committed(entry)
+
+    @staticmethod
+    def _committed(entry):
+        held = sum(r["amount"] for r in entry["reservations"].values() if r["open"])
+        return held + entry["spent"]["measured"] + entry["spent"]["provisional"]
+
+    def reserve(self, stage, item, seat, case_type, *, tranche="broad", attempt=1, _between=None, _locked=True):
+        """Check and reserve in one critical section. `_between` and `_locked` exist for the
+        self-test's race control only: the unlocked variant is the check-then-reserve race."""
+        host, klass = seat.partition(":")[0], class_key(stage, seat, case_type)
+        with self._lock() if _locked else contextlib.nullcontext():
+            ledger = self.ledger()
+            if ledger["stopped"]:
+                raise Refused(f"RUN_STOPPED {ledger['stopped']['code']} at {ledger['stopped']['call_id']}: "
+                              f"nothing more is dispatched in this run")
+            run, _digest, _amendments = records.declaration_state(self.run_dir, who="dispatch")
+            budget = run["budget"]["per_stage"].get(stage)
+            if budget is None:
+                raise Refused(f"BUDGET_UNDECLARED {stage}: run.json declares no budget for the stage")
+            amount, calibration = self.estimate(klass, host)
+            if calibration == "provisional" and tranche != "calibration":
+                raise Refused(f"CALIBRATION_PROVISIONAL {klass}: fewer than {CALIBRATION_MIN_SAMPLES} measured calls; "
+                              f"only a calibration tranche dispatches it (S-15)")
+            entry = self._stage(ledger, stage)
+            if tranche == "calibration" and any(r["open"] and r["class"] == klass and r["tranche"] == "calibration"
+                                                for r in entry["reservations"].values()):
+                raise Refused(f"CALIBRATION_SERIAL {klass}: a calibration tranche runs at concurrency one")
+            left = budget - self._committed(entry)
+            if _between is not None:
+                _between()
+            if amount > left:
+                entry["not_done"].append({"item": item, "class": klass, "at": self.clock(), "remaining": left,
+                                          "reservation": amount})
+                self._write(ledger)
+                raise Exhausted(f"BUDGET_EXHAUSTED {stage}: the remaining {left} cannot fit the reservation {amount} "
+                                f"of {klass}; {item} is recorded not_done")
+            while f"{self.run_id}-{stage}-{item}-a{attempt}" in entry["reservations"]:
+                attempt += 1  # a deferred or refused attempt keeps its id; the next one takes the next
+            call_id = f"{self.run_id}-{stage}-{item}-a{attempt}"
+            reservation = {"call_id": call_id, "stage": stage, "item": item, "seat": seat, "class": klass,
+                           "amount": amount, "calibration": calibration, "tranche": tranche,
+                           "declaration_seq": run["declaration_seq"], "at": self.clock(), "open": True, "outcome": None}
+            entry["reservations"][call_id] = reservation
+            self._write(ledger)
+        return dict(reservation)
+
+    def release(self, stage, call_id, outcome):
+        """Close a reservation nothing was spent against (deferred, refused before dispatch)."""
+        with self._lock():
+            ledger = self.ledger()
+            held = self._stage(ledger, stage)["reservations"][call_id]
+            held.update(open=False, outcome=outcome)
+            self._write(ledger)
+
+    def charge(self, stage, call_id, totals, outcome, caps=None):
+        """Settle a reservation with the call's spend in its three states; spend past the
+        reservation or the cap is recorded as overshoot; a complete, unstopped call is a sample."""
+        with self._lock():
+            ledger = self.ledger()
+            entry = self._stage(ledger, stage)
+            held = entry["reservations"][call_id]
+            held.update(open=False, outcome=outcome, spent=totals)
+            entry["spent"]["measured"] += totals["measured"]
+            entry["spent"]["provisional"] += totals["provisional"]
+            spent = totals["measured"] + totals["provisional"]
+            for bound, limit in (("reservation", held["amount"]), ("cap", (caps or {}).get("tokens"))):
+                if limit is not None and spent > limit:
+                    entry["overshoot"].append({"call_id": call_id, "past": bound, "limit": limit, "spent": spent,
+                                               "state": "measured" if totals["complete"] else "estimated"})
+            self._write(ledger)
+            if totals["complete"] and outcome == "completed":
+                cal = self.calibration()
+                cal.setdefault(held["class"], {"samples": []})["samples"].append(totals["measured"])
+                records.write_json(self.run_dir, self._path("calibration.json"), cal)
+
+    def _stop_run(self, code, call_id, detail):
+        with self._lock():
+            ledger = self.ledger()
+            ledger["stopped"] = {"code": code, "call_id": call_id, "detail": detail, "at": self.clock()}
+            self._write(ledger)
+
+    # --- one call ----------------------------------------------------------------------------
+
+    def call(self, stage, seat, packet, schema, *, reservation, caps, view_window, host_version=None, manifest=None,
+             child_seat=None, profile="hermetic", contract=None, use="judge", read_root=None, max_output_tokens=None):
+        """Dispatch one model call and return its call directory (calls/<call_id>/). `use` is the
+        call's profile of use (USES): a producing call is Claude's, reading only `read_root`, and
+        its profile is recorded as `<profile>-producing` (the flag set it runs under, seats.json);
+        `max_output_tokens` is the stage's output-token cap."""
+        if not isinstance(reservation, dict) or not reservation.get("call_id"):
+            raise Refused(f"RESERVATION_MISSING {stage}: no model call is dispatched without a reservation (design §13.2)")
+        call_id, host = reservation["call_id"], seat.partition(":")[0]
+        held = self._stage(self.ledger(), stage)["reservations"].get(call_id)
+        if held and held["outcome"] == "deferred" and held["seat"] == seat:
+            raise breakers.Deferred(f"PROVIDER_DEFERRED {host}: {call_id} was deferred when the breaker opened; "
+                                    f"{stage}:{held['item']} waits for the provider")
+        if not held or not held["open"] or held["amount"] != reservation.get("amount") or held["seat"] != seat:
+            raise Refused(f"RESERVATION_MISSING {call_id}: no open reservation in the supervisor's ledger is this one")
+        missing = [cap for cap in ("tokens", "compactions")
+                   if not isinstance((caps or {}).get(cap), int) or isinstance((caps or {}).get(cap), bool)]
+        if missing:
+            self.release(stage, call_id, "refused")
+            raise Refused(f"CAP_MISSING {call_id}: {', '.join(missing)}; no agent-backed dispatch starts without "
+                          f"both caps (design §13.2)")
+        if (max_output_tokens is not None or host == "claude") and not (
+                isinstance(max_output_tokens, int) and not isinstance(max_output_tokens, bool) and max_output_tokens > 0):
+            self.release(stage, call_id, "refused")
+            raise Refused(f"CAP_UNDECLARED {call_id}: output-token cap {max_output_tokens!r}; a Claude call declares its "
+                          f"stage's output-token cap as a positive integer, apart from the episode's token and compaction caps")
+        if use not in USES or (use == "producing") != (read_root is not None) or (use == "producing" and host != "claude") \
+                or (use == "producing" and not plain_tree(read_root)):
+            self.release(stage, call_id, "refused")
+            raise Refused(f"USE_REFUSED {call_id}: use {use!r} on {host} with read root {read_root!r}; a producing call is "
+                          f"Claude's and reads one declared directory of plain files, any other reads none (plan WP-03)")
+        try:
+            self.breaker.require_closed(host, self.clock())
+        except breakers.Deferred:
+            self._defer(stage, call_id, held["item"], host)
+            raise
+        schema_bytes = packets.schema_bytes(schema) if schema is not None else None
+        runner_profile, profile = profile, f"{profile}-producing" if use == "producing" else profile
+        problems = packets.check(packet, call_id, schema_bytes)
+        host_version = host_version or gate.seats(self.seats_path)["hosts"][host]["version"]
+        try:
+            self._stopped(call_id)
+            if problems:
+                raise Refused(f"PACKET_REFUSED {call_id}: " + "; ".join(problems))
+            self._admit_seat(stage, seat, call_id, host, host_version, profile, view_window, packet, schema_bytes)
+            self._admit_runner(call_id, host)
+        except Refused:
+            self.release(stage, call_id, "refused")
+            raise
+
+        provider_model, _, effort = seat.partition(":")[2].rpartition("/")
+        try:
+            # admission, held through the launch: a breaker transition or a run stop recorded by any
+            # running call either precedes this (refused) or follows the launch (design §13.2)
+            with self.breaker.admitting(host, self.clock()), self._lock():
+                ledger = self.ledger()
+                held = self._stage(ledger, stage)["reservations"][call_id]
+                self._stopped(call_id, ledger)
+                if held["outcome"] == "deferred":
+                    raise breakers.Deferred(f"PROVIDER_DEFERRED {host}: {call_id} was deferred when the breaker opened")
+                call_dir = stagelock.confine(self.run_dir, self.run_dir / "calls" / call_id)
+                if call_dir.exists():
+                    raise Refused(f"CALL_EXISTS {call_dir}")
+                held["dispatched_at"] = self.clock()
+                self._write(ledger)
+                capture = call_dir / "capture"
+                capture.mkdir(parents=True)
+                cell = pathlib.Path(tempfile.mkdtemp(prefix=f"{call_id}-", dir=self.cell_root))
+                for part in ("home", "config", "cwd"):
+                    (cell / part).mkdir()
+                pinned = gate.seats(self.seats_path)["hosts"][host]
+                # what the host loads by itself under the profile, declared per host version (seats.json `context`)
+                builtin = (pinned.get("context") or {}).get(profile, {}) if pinned.get("version") == host_version else {}
+                manifest = {"workdir_path": str(cell / "cwd"), "workdir_files": [], "instructions": [],
+                            "appended_prompts": [], "skills": [], "agents": [], "hooks": [], "mcp_servers": [], **builtin,
+                            **(manifest or {})}
+                if use == "producing":  # the read root is the cell's working directory, holding the declared files (claude-run bind)
+                    shutil.copytree(read_root, cell / "cwd", dirs_exist_ok=True)
+                    manifest.update(workdir_path=str(cell / "cwd"), workdir_files=listing(cell / "cwd"))
+                (call_dir / "packet.md").write_bytes(packet)
+                if schema_bytes is not None:
+                    (call_dir / "schema.json").write_bytes(schema_bytes)
+                if contract is not None:
+                    records.write_json(self.run_dir, call_dir / "contract.json", contract)
+                call = {"schema": "DistillCall/v1", "call_id": call_id, "stage": stage, "item": held["item"],
+                        "attempt": int(call_id.rpartition("-a")[2]), "host": host, "host_version": host_version,
+                        "seat": seat, "child_seat": child_seat, "profile": profile, "manifest": manifest,
+                        "schema_sha256": packets.sha256_bytes(schema_bytes) if schema_bytes is not None else None,
+                        "view_window": bool(view_window), "realization": self.realization, "exit_status": None,
+                        "wall_ms": None, "stopped": None, "contract": "required" if contract is not None else "none",
+                        "provider_signals": [], "caps": caps, "use": use, "max_output_tokens": max_output_tokens,
+                        "runner_refused": None,
+                        "reservation": {k: held[k] for k in ("amount", "calibration", "tranche", "declaration_seq")}}
+                records.write_json(self.run_dir, call_dir / "call.json", call)
+                spec = {"call_id": call_id, "stage": stage, "seat": seat, "model": provider_model, "effort": effort,
+                        "host_version": host_version, "profile": runner_profile, "call_profile": profile,
+                        "host_bin": os.path.expanduser(pinned["path"]), "workdir": manifest["workdir_path"],
+                        "schema_path": str(call_dir / "schema.json") if schema_bytes is not None else None,
+                        "cell": str(cell), "capture": str(capture), "caps": caps, "use": use,
+                        "read_root": manifest["workdir_path"] if use == "producing" else None, "max_output_tokens": max_output_tokens,
+                        "flags_sha256": gate.pinned_flags_sha256(host, host_version, profile)}
+                env = {k: v for k, v in self.env.items() if k != "REVIEW_CRITERION_SCHEMA"}
+                # a receipt the runner writes for itself is capture evidence, never the call's receipt (addendum)
+                # REVIEW_CALL_ID is the adapters' name for the call (plan); claude-run reads DISTILL_CALL_ID
+                env.update(REVIEW_CAPTURE_DIR=str(capture), DISTILL_CELL=str(cell), DISTILL_CALL_ID=call_id,
+                           REVIEW_CALL_ID=call_id, REVIEW_RECEIPT_DIR=str(capture / "runner-receipts"))
+                if host == "codex":  # claude-run takes its host as arguments
+                    env.update(RUST_LOG=CODEX_TRACE, CODEX_RUN_BIN=spec["host_bin"], CODEX_RUN_VERSION=host_version)
+                began = time.monotonic()
+                proc = subprocess.Popen(self.runner(host, spec), stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                        stderr=subprocess.PIPE, env=env, start_new_session=True)
+        except breakers.Deferred:
+            self._defer(stage, call_id, held["item"], host)
+            raise
+        except Refused as exc:
+            if not str(exc).startswith("CALL_EXISTS"):
+                self.release(stage, call_id, "refused")
+            raise
+
+        exit_status, stdout, stderr, mon, stopped, wall_ms = self._follow(host, proc, began, packet, capture, cell, caps)
+        (call_dir / "result.json").write_bytes(stdout)
+        # the runner's stderr is kept only as the refusal it names: its trace carries prompt and
+        # output bodies, and the capture keeps none (design §3.2)
+        refused = ADAPTER_REFUSAL[host].search(stderr) if exit_status not in (0, None) else None
+        if host == "codex" and not (capture / "frames.jsonl").exists():  # codex-run's capture wrote its own: never replaced
+            channels = {"dir": "info", "type": "channels", "channels": list(CODEX_CHANNELS)}
+            (capture / "frames.jsonl").write_text("".join(json.dumps(r, sort_keys=True) + "\n"
+                                                          for r in [channels, *mon.feed.records]), encoding="utf-8")
+        projects = cell / "config" / "projects"
+        if projects.is_dir():
+            shutil.copytree(projects, capture / "transcripts")
+        result = gate.Call(call_dir).result
+        usage = self._usage(call_dir, call, mon, result if isinstance(result, dict) else {}, stopped, exit_status, wall_ms)
+        records.write_json(self.run_dir, call_dir / "usage.json", usage)
+        self._delete_cell(cell, call_dir)  # only now: usage is captured before any temporary home goes (§13.3)
+
+        if host == "claude":
+            events = list(mon.ledger.events)
+            if isinstance(result, dict) and result.get("type") == "result" and mon.ledger.result is None:
+                events.append(result)
+            signals = breakers.claude_signals(events)
+        else:
+            signals = breakers.codex_signals(mon.feed.records, gate.Call(call_dir).events)
+        if self.breaker.observe(host, signals, self.clock()) is not None:
+            self._defer_outstanding(host)
+        stopping = [sig for sig in signals if sig["kind"] in ("limit", "unrecognised")]
+        if stopping:
+            self.breaker.defer(host, f"{stage}:{held['item']}")  # the item that met the signal waits too
+        call.update(exit_status=exit_status, wall_ms=wall_ms, stopped=stopped, provider_signals=breakers.report(host, signals),
+                    runner_refused=refused.group(0).decode("utf-8", "replace").split(": ", 1)[1] if refused else None)
+        bound = None
+        if view_window:
+            observed = max([sum(r.get(k) or 0 for k in ("input", "cache_read", "cache_creation"))
+                            for r in usage["requests"] if r["state"] == "measured"] or [0])
+            call["input_observed"] = observed
+            if observed > INPUT_BOUND:
+                bound = (f"INPUT_BOUND_EXCEEDED {call_id}: a view-window call read {observed} input tokens, past the "
+                         f"{INPUT_BOUND} bound; the host changed, so the run stops")
+        records.write_json(self.run_dir, call_dir / "call.json", call)
+        if exit_status is not None:  # a runner that never exited has no receipt (the gate refuses the call for it)
+            self._receipt(call_dir, stage, call_id, seat, exit_status)
+        outcome = "deferred" if stopping else stopped["outcome"] if stopped else "completed" if exit_status == 0 else "failed"
+        self.charge(stage, call_id, usages.totals(usage), outcome, caps)
+        if bound:
+            self._stop_run("INPUT_BOUND_EXCEEDED", call_id, bound)
+            raise Refused(bound)
+        return call_dir
+
+    def _stopped(self, call_id, ledger=None):
+        stopped = (ledger or self.ledger())["stopped"]
+        if stopped:
+            raise Refused(f"RUN_STOPPED {stopped['code']} at {stopped['call_id']}: nothing more is dispatched in this run, "
+                          f"{call_id} included")
+
+    def _defer(self, stage, call_id, item, host):
+        """A call refused at an open breaker: its reservation closes unspent, its item waits."""
+        self.release(stage, call_id, "deferred")
+        self.breaker.defer(host, f"{stage}:{item}")
+
+    def _signal(self, host, signals):
+        """A structured provider signal read while a call runs (design §13.2): the breaker opens
+        at once, before the call returns, and the provider's reserved work is recorded deferred."""
+        if self.breaker.observe(host, signals, self.clock()) is not None:
+            self._defer_outstanding(host)
+
+    def _defer_outstanding(self, host):
+        """Every open reservation for `host` that has not started: closed unspent, its item deferred."""
+        deferred = []
+        with self._lock():
+            ledger = self.ledger()
+            for stage, entry in ledger["stages"].items():
+                for held in entry["reservations"].values():
+                    if held["open"] and held["seat"].partition(":")[0] == host and held.get("dispatched_at") is None:
+                        held.update(open=False, outcome="deferred")
+                        deferred.append(f"{stage}:{held['item']}")
+            self._write(ledger)
+        for item in deferred:
+            self.breaker.defer(host, item)
+
+    def _admit_runner(self, call_id, host):
+        """The realization boundary (plan conventions): the pinned runner runs only a call declared
+        live, and any other runner, a fake host above all, only a call declared golden."""
+        pinned = self.runner is runner_argv
+        if self.realization not in REALIZATIONS or (self.realization == "live") != pinned:
+            raise Refused(f"RUNNER_REALIZATION_MISMATCH {call_id}: realization {self.realization!r} with "
+                          f"{'the pinned runner ' + str(RUNNERS[host]) if pinned else 'a runner that is not the pinned one'}; "
+                          f"a live call runs only the pinned runner, any other runner only under golden")
+
+    def _admit_seat(self, stage, seat, call_id, host, host_version, profile, view_window, packet, schema_bytes):
+        """The seat must be one the run declares for the stage, or one seats.json pins for it
+        (design §4). A view-window call also needs its host allowance: measured for this host
+        version and profile in seats.json, declared for the seat in run.json with the same value,
+        host version and flag set, and leaving room for the driver's part — the UTF-8 bytes of
+        the packet and the schema, each token covering at least one byte — under INPUT_BOUND (the
+        input-bound amendment record)."""
+        run, _digest, _amendments = records.declaration_state(self.run_dir, who="dispatch")
+        held = gate.seats(self.seats_path)
+        declared = {v for k, v in run["seats"].items() if k == stage or k.startswith(f"{stage}.")}
+        if seat not in declared | set(held.get("stage_seats", {}).get(stage, [])):
+            raise Refused(f"SEAT_UNPINNED {call_id}: {seat} is neither declared in run.json nor pinned in seats.json for {stage}")
+        if not view_window:
+            return
+        slot = (((held["hosts"].get(host) or {}).get("host_allowance") or {}).get(profile)
+                if (held["hosts"].get(host) or {}).get("version") == host_version else None)
+        if not slot or slot.get("measured") is not True or not isinstance(slot.get("allowance_tokens"), int):
+            raise Refused(f"ALLOWANCE_UNMEASURED {call_id}: seats.json has no measured host allowance for {host} "
+                          f"{host_version} {profile}; preflight (WP-23) measures it, and no view-window call runs without it")
+        declared_allowance = (run.get("host_allowance") or {}).get(seat) or {}
+        want = {"allowance_tokens": slot["allowance_tokens"], "host_version": host_version,
+                "flag_set_sha256": gate.pinned_flags_sha256(host, host_version, profile, path=self.seats_path)}
+        if {k: declared_allowance.get(k) for k in want} != want:
+            raise Refused(f"ALLOWANCE_MISMATCH {call_id}: run.json declares {declared_allowance or 'nothing'} for {seat}, "
+                          f"the measured allowance is {want}")
+        driver = len(packet) + len(schema_bytes or b"")
+        if driver > INPUT_BOUND - slot["allowance_tokens"]:
+            raise Refused(f"WINDOW_OVER_BOUND {call_id}: the driver's part is {driver} bytes, past {INPUT_BOUND} minus the "
+                          f"host allowance {slot['allowance_tokens']}; the window is split before dispatch")
+
+    def _follow(self, host, proc, began, packet, capture, cell, caps):
+        """Follow a launched runner to its end: the monitor, the stop at either cap, the drain."""
+        tripped = threading.Event()
+        mon = self.monitor(host, caps, on_trip=lambda _why: tripped.set(), on_signal=lambda sigs: self._signal(host, sigs))
+        sampler = stop.TreeSampler(proc.pid, interval=0.05)
+        sampler.start()
+        out, err = [], []
+
+        def feed():
+            try:
+                proc.stdin.write(packet)
+                proc.stdin.close()
+            except OSError:
+                pass
+
+        def read_out():
+            out.append(proc.stdout.read())
+
+        def read_err():  # nothing is kept but an adapter's named refusal
+            for raw in iter(proc.stderr.readline, b""):
+                if host == "codex":
+                    mon.line(raw.decode("utf-8", "replace"))
+                if ADAPTER_REFUSAL[host].match(raw):
+                    err.append(raw)
+
+        pipes = [threading.Thread(target=fn, daemon=True) for fn in (feed, read_out, read_err)]
+        tails = [monitors.StreamTail(capture / "stream.jsonl", mon), monitors.TranscriptTail(cell / "config", mon)] \
+            if host == "claude" else []
+        for thread in pipes + tails:
+            thread.start()
+        # the runner is watched without being reaped until every stop of the call is done: while it
+        # is unreaped, its pid and the id of the group it leads are provably its own (stop.anchored)
+        while not stop.exited(proc) and not tripped.wait(0.01):
+            pass
+        record = stop.stop_tree(proc, sampler) if tripped.is_set() and not stop.exited(proc) else None
+        until = time.monotonic() + self.drain_deadline_s  # one that outlives its stop is the record's survivor, never awaited
+        while not stop.exited(proc) and time.monotonic() < until:
+            time.sleep(0.01)
+        # the readers are drained to their end: a line still in a pipe can trip a cap or carry a send
+        # after the freeze, and both belong to this call's accounting and its boundary; meanwhile a
+        # cap the monitor trips still stops whatever is left of the tree. The root has exited, so a
+        # pipe still open past drain_deadline_s stops the remaining tree as a cap would, and the
+        # drain then waits at most another drain_deadline_s: whoever still holds a pipe is outside
+        # the stop guarantee (design §13.2), so the call is drain_unfinished, its usage incomplete
+        # and its boundary unverified, without naming the holder
+        deadline, expired = time.monotonic() + self.drain_deadline_s, False
+        while any(thread.is_alive() for thread in pipes):
+            for thread in pipes:
+                thread.join(DRAIN_POLL_S)
+            if record is None and mon.trip is not None:
+                record = stop.stop_tree(proc, sampler)
+                deadline = time.monotonic() + self.drain_deadline_s
+            if time.monotonic() > deadline and any(thread.is_alive() for thread in pipes):
+                expired = True
+                if record is not None:
+                    break
+                record = stop.stop_tree(proc, sampler)
+                deadline = time.monotonic() + self.drain_deadline_s
+        for tail in tails:
+            tail.halt.set()
+            tail.join()
+            tail.poll()
+        mon.finish()
+        # the monitor is drained: a cap it tripped after the root exited still stops what is left
+        # of the tree, and the boundary is judged on every record the monitor read
+        if record is None and mon.trip is not None:
+            record = stop.stop_tree(proc, sampler)
+        stopped = None
+        if record is None:
+            sampler.halt.set()
+        else:
+            problems, uncertain = monitors.boundary(mon.ledger, record["freeze_at"], record["kill_at"])
+            unfinished = (f"DRAIN_UNFINISHED the runner's pipes were still open past the {self.drain_deadline_s} s drain "
+                          f"deadline: the tree was stopped, and what still held a pipe is outside the stop guarantee")
+            if expired:
+                uncertain.append(unfinished)
+            # an expired drain decides the outcome over any cap: what held the pipe is outside the stop
+            # guarantee whatever tripped first; the cap's evidence stays beside it
+            outcome, why = ("drain_unfinished", unfinished) if expired or mon.trip is None else ("budget_stopped", mon.trip["why"])
+            stopped = {"outcome": outcome, "why": why,
+                       "cap": {"why": mon.trip["why"], "at": mon.trip.get("at")} if mon.trip is not None else None,
+                       "decided_at": record["decided_at"], "freeze_at": record["freeze_at"], "kill_at": record["kill_at"],
+                       "tree": record["tree"], "survivors": record["survivors"],
+                       "problems": record["problems"] + problems, "uncertain": uncertain,
+                       # an expired drain is unverified by rule, whatever was observed: a violation stays in problems
+                       "boundary": "STOP_BOUNDARY_UNVERIFIED" if expired
+                       else monitors.boundary_verdict(record["problems"] + problems, uncertain)}
+        proc.poll()  # every stop is done: the runner is reaped only now, if it has exited
+        return proc.returncode, b"".join(out), b"".join(err), mon, stopped, int((time.monotonic() - began) * 1000)
+
+    def _usage(self, call_dir, call, mon, result, stopped, exit_status, wall_ms):
+        """usage.json from the monitor's ledger and the closing aggregates (design §13.3).
+
+        Claude: the residual of result.modelUsage over every measured request is attributed to
+        the call's one compaction only once every other request and attempt has reconciled — each
+        measured and bound to its own transcript api-request record, the host's one record per
+        HTTP attempt (design §13.3), so a response with no attempt record, or an attempt record no
+        response answers, leaves the accounting incomplete; in any other case it stays unexplained
+        — carried as a provisional `aggregate-residual` row for whatever the provisional estimates
+        do not already cover — because aggregate agreement alone does not show completeness, and
+        no request is made measured by it. Codex: reconcile_codex. `reconciled` holds only when
+        every request is measured and nothing is left unexplained."""
+        ledger = mon.ledger
+        ended = not stopped and exit_status == 0
+        if call["host"] == "claude":
+            reconciled = False
+            if ended and result.get("modelUsage"):
+                keys = {"input": "inputTokens", "output": "outputTokens", "cache_read": "cacheReadInputTokens",
+                        "cache_creation": "cacheCreationInputTokens"}
+                aggregate = {k: sum((u or {}).get(v) or 0 for u in (result.get("modelUsage") or {}).values())
+                             for k, v in keys.items()}
+                measured = {k: sum(r[k] or 0 for r in ledger.requests if r["state"] == "measured") for k in keys}
+                residual = {k: aggregate[k] - measured[k] for k in keys}
+                attempts = [r for r in ledger.requests if r["role"] != "compaction"]
+                settled = bool(attempts) and all(r["state"] == "measured" and r.get("send_seen") for r in attempts)
+                compactions = [r for r in ledger.requests if r["role"] == "compaction" and r["state"] != "measured"]
+                if all(v >= 0 for v in residual.values()) and any(residual.values()):
+                    if settled and len(compactions) == 1:
+                        ledger.measure(compactions[0], residual)  # aggregate-measured, design §13.3's table
+                    else:
+                        covered = sum(r["estimate"] or 0 for r in ledger.requests if r["state"] == "provisional")
+                        if sum(residual.values()) > covered:
+                            ledger.open("aggregate-residual", "unknown", None, self.clock(),
+                                        estimate=sum(residual.values()) - covered)
+                reconciled = settled and all(v >= 0 for v in residual.values()) \
+                    and all(r["state"] == "measured" for r in ledger.requests)
+        else:
+            reconciled = reconcile_codex(call_dir, ledger, self.clock) and ended
+        observed = gate.observed_seats(gate.Call(call_dir))
+        return ledger.record(call["call_id"], call["stage"], call["seat"], observed, wall_ms, reconciled)
+
+    @staticmethod
+    def _delete_cell(cell, call_dir):
+        if not (pathlib.Path(call_dir) / "usage.json").is_file():
+            raise Refused(f"USAGE_UNCAPTURED {call_dir}: the cell is kept until usage.json is written (design §13.3)")
+        shutil.rmtree(cell, ignore_errors=True)
+
+    def _receipt(self, call_dir, stage, call_id, seat, exit_status):
+        """The call's ReviewReceipt/v1, written once after the runner exited and its capture was
+        copied, through the launcher's own writer, so the receipt format keeps one owner (plan
+        addendum 2026-10-21T0630--0e0d27e--plan-addendum-wp02.md). The gate recomputes every value."""
+        evidence = gate.receipt_evidence(call_dir)
+        argv = [sys.executable, str(receipts.LAUNCHER), "--emit-receipt", receipts.method_id(stage, call_id), seat,
+                str(exit_status), str(call_dir / "packet.md"), str(call_dir / "result.json")]
+        for key, value in evidence.items():
+            argv += ["--evidence", f"{key}={'' if value is None else value}"]
+        scratch = call_dir / "receipts"
+        env = {k: v for k, v in self.env.items() if k != "REVIEW_CRITERION_SCHEMA"}
+        env["REVIEW_RECEIPT_DIR"] = str(scratch)
+        done = subprocess.run(argv, env=env, capture_output=True, text=True)
+        written = sorted(scratch.glob("*.json"))
+        if done.returncode != 0 or len(written) != 1:
+            raise Refused(f"RECEIPT_MISSING {call_id}: the launcher wrote no receipt (rc {done.returncode}: "
+                          f"{done.stderr.strip()[:300]})")
+        written[0].replace(call_dir / "receipt.json")
+        scratch.rmdir()
+
+    # --- one item: the gate and the one corrective retry ---------------------------------------
+
+    def item(self, stage, item, seat, payload, schema, *, case_type, caps, view_window, tranche="broad", **kwargs):
+        """An item's attempts through reservation, dispatch and the gate (design §3.2): a failing
+        output is retried once with the validation message; a provider signal or a stop is never
+        retried here; every attempt is kept. Outcomes: accepted, failed, not_done, deferred,
+        budget_stopped."""
+        schema_bytes = packets.schema_bytes(schema) if schema is not None else None
+        dirs, text, settled = [], payload, None
+        for attempt in (1, 2):
+            try:
+                reservation = self.reserve(stage, item, seat, case_type, tranche=tranche, attempt=attempt)
+            except Exhausted as exc:
+                return {"item": item, "outcome": "not_done", "why": str(exc), "attempts": [str(d) for d in dirs]}
+            packet = packets.build(reservation["call_id"], stage, seat, text, schema_bytes)
+            try:
+                call_dir = self.call(stage, seat, packet, schema, reservation=reservation, caps=caps,
+                                     view_window=view_window, **kwargs)
+            except breakers.Deferred as exc:
+                return {"item": item, "outcome": "deferred", "why": str(exc), "attempts": [str(d) for d in dirs]}
+            dirs.append(call_dir)
+            call = records.read_json(call_dir / "call.json")
+            if call["runner_refused"]:  # the adapter refused before sending: a retry meets the same host
+                return {"item": item, "outcome": "failed", "why": call["runner_refused"],
+                        "codes": [call["runner_refused"].split()[0]], "attempts": [str(d) for d in dirs]}
+            if call["provider_signals"]:  # recorded deferred by call(), never retried here; a stop's boundary travels too
+                return {"item": item, "outcome": "deferred", "why": "; ".join(call["provider_signals"]),
+                        "boundary": (call["stopped"] or {}).get("boundary"), "attempts": [str(d) for d in dirs]}
+            if call["stopped"]:  # the boundary verdict travels with the outcome (design §8.7's re-run reads it, WP-18)
+                return {"item": item, "outcome": "budget_stopped" if call["stopped"]["outcome"] == "budget_stopped" else "failed",
+                        "why": call["stopped"]["why"], "boundary": call["stopped"]["boundary"],
+                        "attempts": [str(d) for d in dirs]}
+            settled = gate.settle(dirs)
+            if settled["ok"] or not settled["retry"]:
+                break
+            text = payload + "\n" + gate.correction(settled["attempts"][-1])
+        return {"item": item, "outcome": "accepted" if settled["ok"] else "failed", "accepted": settled["accepted"],
+                "codes": sorted(set(settled["codes"]) | {c for a in settled["attempts"] for c in a["codes"]}),
+                "attempts": [str(d) for d in dirs]}
+
+
+# --- dispatch edges: the import closure and its executor sites ----------------------------------
+
+class _Module:
+    """One parsed module: its aliases, its parents and the assignments a Name may resolve to."""
+
+    def __init__(self, path, rel, source=None):
+        self.path, self.rel = path, rel
+        self.tree = ast.parse(source if source is not None else path.read_text(encoding="utf-8"), str(rel))
+        self.parent, self.aliases = {}, {}
+        for node in ast.walk(self.tree):
+            for kid in ast.iter_child_nodes(node):
+                self.parent[kid] = node
+            if isinstance(node, ast.Import):
+                for a in node.names:
+                    self.aliases[(a.asname or a.name).split(".")[0]] = a.name if a.asname else a.name.split(".")[0]
+            elif isinstance(node, ast.ImportFrom) and node.module:
+                for a in node.names:
+                    self.aliases[a.asname or a.name] = f"{node.module}.{a.name}"
+
+    def dotted(self, node):
+        if isinstance(node, ast.Name):
+            return self.aliases.get(node.id, node.id)
+        if isinstance(node, ast.Attribute):
+            base = self.dotted(node.value)
+            return f"{base}.{node.attr}" if base else None
+        return None
+
+    def assigned(self, name):
+        """The values bound to `name` in its enclosing functions, then at module level."""
+        scopes, node = [], name
+        while node in self.parent:
+            node = self.parent[node]
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                scopes.append(node)
+        found = []
+        for scope in scopes:
+            found += [n.value for n in ast.walk(scope) if isinstance(n, ast.Assign)
+                      and any(isinstance(t, ast.Name) and t.id == name.id for t in n.targets)]
+            if found:
+                return found
+        return [n.value for n in self.tree.body if isinstance(n, ast.Assign)
+                and any(isinstance(t, ast.Name) and t.id == name.id for t in n.targets)]
+
+    def values(self, node, depth=0):
+        """The strings an expression can be, with UNKNOWN for what the trace cannot resolve."""
+        if depth > 8:
+            return [UNKNOWN]
+        if isinstance(node, ast.Constant) and isinstance(node.value, str):
+            return [node.value]
+        if isinstance(node, ast.JoinedStr):
+            return ["".join(v.value if isinstance(v, ast.Constant) else UNKNOWN for v in node.values)]
+        name = self.dotted(node)
+        if name == "sys.executable":
+            return [PYTHON]
+        if isinstance(node, ast.Name):
+            found = self.assigned(node)
+            return [v for f in found for v in self.values(f, depth + 1)] or [UNKNOWN]
+        if isinstance(node, ast.BinOp) and isinstance(node.op, (ast.Div, ast.Add)):
+            sep = "/" if isinstance(node.op, ast.Div) else ""
+            return [a + sep + b for a in self.values(node.left, depth + 1) for b in self.values(node.right, depth + 1)]
+        if isinstance(node, ast.Call):
+            func = self.dotted(node.func)
+            if func in ("str", "os.fspath", "pathlib.Path", "Path", "os.path.expanduser", "os.path.abspath",
+                        "os.path.realpath") and node.args:
+                return self.values(node.args[0], depth + 1)
+            if func == "os.path.join" and node.args:
+                parts = [self.values(a, depth + 1) for a in node.args]
+                joined = [""]
+                for options in parts:
+                    joined = [f"{j}/{o}" if j else o for j in joined for o in options]
+                return joined
+            if isinstance(node.func, ast.Attribute) and node.func.attr in ("resolve", "expanduser", "absolute"):
+                return self.values(node.func.value, depth + 1)
+        return [UNKNOWN]
+
+    def heads(self, node, depth=0):
+        """[(argv[0] candidates, the remaining argument nodes)] of an argv expression; a string
+        is a shell command line."""
+        if depth > 8:
+            return [([UNKNOWN], [])]
+        if isinstance(node, ast.Name):
+            found = self.assigned(node)
+            return [h for f in found for h in self.heads(f, depth + 1)] or [([UNKNOWN], [])]
+        if self._stringy(node):
+            return [(["<shell>"], [node])]
+        return [([UNKNOWN], []) if not argv or argv[0] is UNREAD else (self.values(argv[0]), argv[1:])
+                for argv in self.argvs(node, depth)]
+
+    def argvs(self, node, depth=0):
+        """The argument lists an argv expression can be, each a list of element nodes: a list or
+        tuple, a starred list inside it, a concatenation — both sides kept, in order — or a name
+        bound to one of these; a part the trace cannot read is UNREAD, kept in its place."""
+        if depth > 8:
+            return [[UNREAD]]
+        if isinstance(node, (ast.List, ast.Tuple)):
+            out = [[]]
+            for elt in node.elts:
+                parts = self.argvs(elt.value, depth + 1) if isinstance(elt, ast.Starred) else [[elt]]
+                out = [done + part for done in out for part in parts]
+            return out
+        if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add) and not self._stringy(node):
+            return [left + right for left in self.argvs(node.left, depth + 1) for right in self.argvs(node.right, depth + 1)]
+        if isinstance(node, ast.Name):
+            found = self.assigned(node)
+            return [a for f in found for a in self.argvs(f, depth + 1)] or [[UNREAD]]
+        return [[UNREAD]]
+
+    def _stringy(self, node):
+        return isinstance(node, (ast.Constant, ast.JoinedStr)) and not (isinstance(node, ast.Constant)
+                                                                         and not isinstance(node.value, str)) \
+            or (isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add)
+                and any(self._stringy(side) for side in (node.left, node.right)))
+
+
+def _pinned(root):
+    """The host binary paths seats.json pins, as written and expanded."""
+    held = json.loads((root / "session-distill" / "seats.json").read_text(encoding="utf-8"))
+    paths = {h["path"] for h in held["hosts"].values() if h.get("path")}
+    return paths | {os.path.expanduser(p) for p in paths}
+
+
+def _names(path, text):
+    """True when a value the trace read can only name `path`: it is that path, or its unread head
+    is followed by a known tail of whole path segments that `path` ends with."""
+    if text.endswith(path):
+        return True
+    tail = text.rsplit(UNKNOWN, 1)[1] if UNKNOWN in text else ""
+    return tail.startswith("/") and bool(tail.strip("/")) and path.endswith(tail)
+
+
+def _resolved_code(code):
+    """python -c code with each part the trace could not read made a string constant, or None
+    unless every such part is a call's argument or an element of one — data handed to a call the
+    code names, and judged as unread where it is an argv's program — so
+    nothing the code executes is hidden from the judgement (a callee, an object, a statement, a
+    part inside a string never are)."""
+    if UNKNOWN not in code:
+        return code
+    text = code.replace(UNKNOWN, repr(UNKNOWN))
+    try:
+        tree = ast.parse(text)
+    except SyntaxError:
+        return None
+    holes = [n for n in ast.walk(tree) if isinstance(n, ast.Constant) and n.value == UNKNOWN]
+    if len(holes) != code.count(UNKNOWN):
+        return None
+    parents = {child: node for node in ast.walk(tree) for child in ast.iter_child_nodes(node)}
+    for hole in holes:
+        node, parent = hole, parents.get(hole)
+        while isinstance(parent, (ast.List, ast.Tuple, ast.Starred)):  # an element of an argv: judged as '<?>' there
+            node, parent = parent, parents.get(parent)
+        if not (isinstance(parent, ast.Call) and node in parent.args or isinstance(parent, ast.keyword)):
+            return None
+    return text
+
+
+def _judge_program(mod, program, rest, line, pinned, problems, depth=0, runs=(), follow=None):
+    """Append to `problems` the violations of one site whose program is `program`; a declared
+    script it runs (`runs`, SCRIPT_RUNS) is appended to `follow`, to join the closure."""
+    where = f"{mod.rel}:{line}"
+    base = os.path.basename(program)
+    base = base[:-3] if base.endswith(".sh") else base
+    if program == "<shell>":
+        for text in [v for node in rest[:1] for v in mod.values(node)]:
+            if UNKNOWN in text:
+                problems.append(f"DISPATCH_UNRESOLVED {where}: a shell command line the trace cannot resolve")
+                continue
+            try:
+                words = shlex.split(text)
+            except ValueError:
+                words = text.split()
+            _judge_words(mod, words, line, pinned, problems)
+    elif base in HOST_NAMES or program in pinned:
+        problems.append(f"DISPATCH_OUTSIDE_SUPERVISOR {where}: starts {program!r}, which only dispatch.py may start")
+    elif UNKNOWN in program and not any(e["site"] == str(mod.rel) and e["guard"] in mod.path.read_text(encoding="utf-8")
+                                        for e in GUARDED_PROGRAMS):
+        problems.append(f"DISPATCH_UNRESOLVED {where}: a program the trace cannot resolve ({program!r})")
+    elif UNKNOWN in program:
+        pass  # a guarded program (GUARDED_PROGRAMS)
+    elif program == PYTHON:
+        words = [mod.values(node) for node in rest]
+        while words and len(words[0]) == 1 and words[0][0] in PY_FLAGS:
+            words.pop(0)
+        flag = words[0] if words else [UNKNOWN]
+        nxt = words[1] if len(words) > 1 else [UNKNOWN]
+        declared = [[e for e in runs if e["site"] == str(mod.rel) and _names(e["path"], s)] for s in flag]
+        if flag == ["-c"]:
+            for code in nxt:
+                code = _resolved_code(code)
+                if code is None:
+                    problems.append(f"DISPATCH_UNRESOLVED {where}: python -c with code the trace cannot resolve")
+                else:
+                    for violation in _sites(_Module(mod.path, mod.rel, source=code), pinned, depth + 1, runs, follow):
+                        problems.append(f"{violation.split()[0]} {where}: inside python -c: {violation.split(': ', 1)[-1]}")
+        elif any(s.endswith("launch/agent-launch.py") for s in flag):
+            if nxt != ["--emit-receipt"]:  # the receipt emitter dispatches nothing; the rest of the launcher does
+                problems.append(f"DISPATCH_OUTSIDE_SUPERVISOR {where}: runs the launcher ({nxt!r}), which starts hosts")
+        elif any(any(s.endswith(e["path"]) for e in OUT_OF_SCOPE) for s in flag):
+            problems.append(f"CLOSURE_IMPORTS_OUT_OF_SCOPE {where}: runs {flag[0]!r}, an out-of-scope executor")
+        elif follow is not None and declared and all(len(d) == 1 for d in declared):
+            follow.extend(d[0] for d in declared)
+        else:
+            problems.append(f"DISPATCH_UNRESOLVED {where}: python runs {flag!r}, a script the trace does not follow")
+    elif base in SHELLS:
+        words = [v for node in rest for v in mod.values(node)]
+        if any(UNKNOWN in w for w in words):
+            problems.append(f"DISPATCH_UNRESOLVED {where}: {base} with arguments the trace cannot resolve")
+        else:
+            _judge_words(mod, [w for word in words for w in (shlex.split(word) if " " in word else [word])], line, pinned, problems)
+
+
+def _judge_words(mod, words, line, pinned, problems):
+    for word in words:
+        base = os.path.basename(word)
+        base = base[:-3] if base.endswith(".sh") else base
+        if base in HOST_NAMES or word in pinned or os.path.expanduser(word) in pinned:
+            problems.append(f"DISPATCH_OUTSIDE_SUPERVISOR {mod.rel}:{line}: a command line starts {word!r}, which only "
+                       f"dispatch.py may start")
+            return
+
+
+def _sites(mod, pinned, depth=0, runs=(), follow=None):
+    problems = []
+    for node in ast.walk(mod.tree):
+        if not isinstance(node, ast.Call):
+            continue
+        name = mod.dotted(node.func)
+        if name not in EXEC_CALLS:
+            continue
+        args = list(node.args) + [k.value for k in node.keywords if k.arg in ("args", "path", "file", "cmd")]
+        if not args or (name in OS_ARGV and len(args) <= OS_ARGV[name][0]):
+            problems.append(f"DISPATCH_UNRESOLVED {mod.rel}:{node.lineno}: {name} with no command the trace can read")
+            continue
+        shell = any(k.arg == "shell" and not (isinstance(k.value, ast.Constant) and k.value.value is False)
+                    for k in node.keywords) or name in ("os.system", "os.popen", "subprocess.getoutput",
+                                                       "subprocess.getstatusoutput")
+        executable = next((k.value for k in node.keywords if k.arg == "executable"), None)
+        if name in OS_ARGV:
+            # the program is its own argument; argv[0] is only a name, and the rest are the program's words
+            at, listed, loose, trailing = OS_ARGV[name]
+            if listed is not None:
+                rest = [words if words or UNKNOWN not in argv0 else [UNREAD]
+                        for argv0, words in mod.heads(args[listed])] if len(args) > listed else [[UNREAD]]
+            else:
+                rest = [args[loose + 1:len(args) - trailing]]
+            heads = [(mod.values(args[at]), r) for r in rest]
+        elif shell:
+            heads = [(["<shell>"], [args[0]])]
+            if executable is not None:  # the shell itself is overridden: judge what runs the line, too
+                heads.append((mod.values(executable), []))
+        elif executable is not None:
+            # executable= replaces the program argv[0] names; the argv's other words are its arguments
+            heads = [(mod.values(executable), words if words or UNKNOWN not in argv0 else [UNREAD])
+                     for argv0, words in mod.heads(args[0])]
+        else:
+            heads = mod.heads(args[0])
+        for programs, rest in heads:
+            for program in programs:
+                _judge_program(mod, program, rest, node.lineno, pinned, problems, depth, runs, follow)
+    return problems
+
+
+def _module_file(root, name, here=None, level=0):
+    parts = name.split(".") if name else []
+    bases = [here] if level else [root / d for d in IMPORT_DIRS]
+    for base in bases:
+        if base is None:
+            continue
+        if level > 1:
+            base = base.parents[level - 2]
+        candidate = base.joinpath(*parts) if parts else base
+        for path in (candidate.with_suffix(".py") if parts else None, candidate / "__init__.py"):
+            if path is not None and path.is_file():
+                return path
+    return None
+
+
+def closure_violations(root=REPO, out_of_scope=OUT_OF_SCOPE, dynamic=DYNAMIC_LOADS, scripts=SCRIPT_RUNS):
+    """(problems, closure, sites inspected): the driver's import closure — its roots, every
+    module they import from session-distill/ and benchmarks/, and the declared dynamic loads that
+    join it — and every executor call site in it, judged by AST. dispatch.py's own sites are the
+    supervisor's and are not judged; a textual mention outside the closure is not a site."""
+    root = pathlib.Path(root)
+    problems = []
+    for entry in out_of_scope:
+        if not (root / entry["path"]).is_file():
+            problems.append(f"INVENTORY_STALE out-of-scope {entry['path']}: no such file")
+    for entry in dynamic:
+        if not (root / entry["site"]).is_file() or not (root / entry["path"]).is_file():
+            problems.append(f"INVENTORY_STALE dynamic load {entry['site']} -> {entry['path']}: no such file")
+    for entry in scripts:
+        if not (root / entry["site"]).is_file() or not (root / entry["path"]).is_file():
+            problems.append(f"INVENTORY_STALE script run {entry['site']} -> {entry['path']}: no such file")
+    for entry in GUARDED_PROGRAMS:
+        if not (root / entry["site"]).is_file() or entry["guard"] not in (root / entry["site"]).read_text(encoding="utf-8"):
+            problems.append(f"INVENTORY_STALE guarded program {entry['site']}: its guard {entry['guard']!r} is gone")
+    excluded = {(root / e["path"]).resolve() for e in out_of_scope}
+    queue = [root / CLOSURE_ROOTS[0]] + sorted((root / CLOSURE_ROOTS[1]).glob("*.py"))
+    closure, seen, sites, used, ran = [], set(), 0, set(), set()
+    pinned = _pinned(root)
+    while queue:
+        path = queue.pop(0).resolve()
+        if path in seen:
+            continue
+        seen.add(path)
+        rel = path.relative_to(root.resolve())
+        mod = _Module(path, rel)
+        closure.append(str(rel))
+        for node in ast.walk(mod.tree):
+            targets = []
+            if isinstance(node, ast.Import):
+                targets = [(a.name, 0) for a in node.names]
+            elif isinstance(node, ast.ImportFrom):
+                targets = [(f"{node.module}.{a.name}" if node.module else a.name, node.level) for a in node.names] + \
+                          [(node.module, node.level)]
+            for name, level in targets:
+                found = _module_file(root, name, path.parent, level) if name or level else None
+                if found is None:
+                    continue
+                if found.resolve() in excluded:
+                    problems.append(f"CLOSURE_IMPORTS_OUT_OF_SCOPE {rel}:{node.lineno}: imports {found.relative_to(root)}")
+                else:
+                    queue.append(found)
+            if isinstance(node, ast.Call) and mod.dotted(node.func) in LOAD_CALLS:
+                at = LOAD_CALLS[mod.dotted(node.func)]
+                arg = node.args[at] if len(node.args) > at else None
+                candidates = mod.values(arg) if arg is not None else [UNKNOWN]
+                for text in candidates:
+                    as_path = text if text.endswith(".py") else text.replace(".", "/") + ".py"
+                    hit = [e for e in out_of_scope if as_path.endswith(e["path"]) or as_path.endswith(
+                        e["path"].split("/", 1)[1]) or text == pathlib.Path(e["path"]).stem]
+                    declared = [e for e in dynamic if str(rel) == e["site"] and _names(e["path"], as_path)]
+                    if hit:
+                        problems.append(f"CLOSURE_IMPORTS_OUT_OF_SCOPE {rel}:{node.lineno}: loads {hit[0]['path']}")
+                    elif declared:
+                        used.add((declared[0]["site"], declared[0]["path"]))
+                        if declared[0]["trace"]:
+                            queue.append(root / declared[0]["path"])
+                    elif UNKNOWN in text and not text.replace(UNKNOWN, "").strip("/."):
+                        problems.append(f"DYNAMIC_LOAD_UNDECLARED {rel}:{node.lineno}: a load the trace cannot resolve")
+                    else:
+                        problems.append(f"DYNAMIC_LOAD_UNDECLARED {rel}:{node.lineno}: loads {text!r}, declared "
+                                          f"nowhere in DYNAMIC_LOADS")
+        if str(rel) != "session-distill/runlib/dispatch.py":
+            follow = []
+            found = _sites(mod, pinned, runs=scripts, follow=follow)
+            for entry in follow:
+                ran.add((entry["site"], entry["path"]))
+                queue.append(root / entry["path"])
+            sites += sum(1 for n in ast.walk(mod.tree) if isinstance(n, ast.Call) and mod.dotted(n.func) in EXEC_CALLS)
+            problems.extend(found)
+    for entry in dynamic:
+        if (entry["site"], entry["path"]) not in used and (root / entry["site"]).is_file():
+            problems.append(f"INVENTORY_STALE dynamic load {entry['site']} -> {entry['path']}: the site makes no such load")
+    for entry in scripts:
+        if (entry["site"], entry["path"]) not in ran and (root / entry["site"]).is_file():
+            problems.append(f"INVENTORY_STALE script run {entry['site']} -> {entry['path']}: the site runs no such script")
+    return problems, closure, sites
+
+
+def contract_branches(source):
+    """({refusal code}, {item outcome}) the Supervisor implements, read from its source: the
+    leading word of every message it raises as Refused, Exhausted or Deferred (a message bound
+    to a name first is followed to that binding), and every outcome `item` returns."""
+    cls = next(n for n in ast.parse(source).body if isinstance(n, ast.ClassDef) and n.name == CONTRACT["predicate"])
+    bound = {t.id: n.value for n in ast.walk(cls) if isinstance(n, ast.Assign) for t in n.targets if isinstance(t, ast.Name)}
+
+    def head(node):
+        while isinstance(node, ast.BinOp):
+            node = node.left
+        if isinstance(node, ast.Name) and node.id in bound:
+            return head(bound[node.id])
+        if isinstance(node, ast.JoinedStr) and node.values:
+            node = node.values[0]
+        return node.value.split()[0] if isinstance(node, ast.Constant) and isinstance(node.value, str) and node.value.split() else None
+    codes, outcomes = set(), set()
+    for node in ast.walk(cls):
+        if isinstance(node, ast.Raise) and isinstance(node.exc, ast.Call) and node.exc.args and \
+                ast.unparse(node.exc.func) in ("Refused", "Exhausted", "breakers.Deferred") and head(node.exc.args[0]):
+            codes.add(head(node.exc.args[0]))
+        if isinstance(node, ast.FunctionDef) and node.name == "item":
+            for d in ast.walk(node):
+                if isinstance(d, ast.Dict):
+                    for k, v in zip(d.keys, d.values):
+                        if isinstance(k, ast.Constant) and k.value == "outcome":
+                            for x in (v.body, v.orelse) if isinstance(v, ast.IfExp) else (v,):
+                                if isinstance(x, ast.Constant) and isinstance(x.value, str):
+                                    outcomes.add(x.value)
+    return codes, outcomes
+
+
+# --- self-test ----------------------------------------------------------------------------------
+
+FAKE_HOST = r'''
+"""A golden host for dispatch.py --self-test: it plays a runner by the runner contract and
+starts no model. argv: host mode spec-json."""
+import hashlib, json, os, pathlib, sys, time, uuid, zlib
+host, mode, spec = sys.argv[1], sys.argv[2], json.loads(sys.argv[3])
+packet = sys.stdin.buffer.read().decode("utf-8")
+call_id = packet.splitlines()[0].split(": ", 1)[1]
+capture, cell = pathlib.Path(os.environ["REVIEW_CAPTURE_DIR"]), pathlib.Path(os.environ["DISTILL_CELL"])
+schema = json.loads(pathlib.Path(spec["schema_path"]).read_text()) if spec.get("schema_path") else None
+model, effort = spec["model"], spec["effort"]
+# codex-cli 0.163.0 loads its four built-in skills under any profile, and its capture names them
+context = {"instructions": [], "appended_prompts": [], "agents": [], "hooks": [],
+           "skills": ["imagegen", "openai-docs", "skill-creator", "skill-installer"] if host == "codex" else []}
+if spec.get("env_seen"):  # the adapter calling convention, as the runner received it
+    pathlib.Path(spec["env_seen"]).write_text(json.dumps({k: os.environ.get(k) for k in (
+        "REVIEW_CALL_ID", "DISTILL_CALL_ID", "CODEX_RUN_BIN", "CODEX_RUN_VERSION")}))
+def iso(t):
+    return time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime(t)) + ".%06dZ" % int(t % 1 * 1e6)
+def record(extra):
+    (capture / "host.json").write_text(json.dumps({"host": host, "call_id": call_id, "profile": spec["call_profile"],
+        "profile_flags_sha256": spec["flags_sha256"], "cwd": spec["workdir"], "context": context, "workdir_files": [
+            {"path": str(p.relative_to(spec["workdir"])), "sha256": hashlib.sha256(p.read_bytes()).hexdigest()}
+            for p in sorted(pathlib.Path(spec["workdir"]).rglob("*")) if p.is_file()], **extra}))
+if os.environ.get("REVIEW_RECEIPT_DIR"):  # a runner's own receipt: evidence in the capture, not the call's
+    own = pathlib.Path(os.environ["REVIEW_RECEIPT_DIR"])
+    own.mkdir(parents=True, exist_ok=True)
+    (own / "runner.json").write_text(json.dumps({"schema": "ReviewReceipt/v1", "method_id": "runner/" + call_id}))
+if mode == "adapter-refuses":  # an adapter's named refusal on a nonzero exit
+    sys.stderr.write("trace before the refusal: BODY-CANARY-refusal\n" + spec["refusal"] + "\n")
+    sys.exit(spec["exit"])
+if mode == "stderr-canary":  # a body on the runner's stderr, as a host's trace carries one
+    sys.stderr.write("BODY-CANARY-stderr the prompt and the answer\n")
+    sys.stderr.flush()
+def wait_for(path, limit=30.0):
+    end = time.time() + limit
+    while not pathlib.Path(path).exists() and time.time() < end:
+        time.sleep(0.01)
+if mode in ("late-cap", "late-send"):  # an orphan of the host's group, its stdio closed: the stop must still reach it
+    import subprocess
+    kid = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(300)"], stdin=subprocess.DEVNULL,
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    start = subprocess.run(["/bin/ps", "-o", "lstart=", "-p", str(kid.pid)], capture_output=True, text=True).stdout
+    pathlib.Path(spec["orphan"]).write_text(json.dumps({"pid": kid.pid, "start": " ".join(start.split())}))
+if mode == "surviving-child":  # an ordinary child of the tree, holding the runner's stderr past the root's exit
+    import subprocess
+    kid = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(20)"], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+    start = subprocess.run(["/bin/ps", "-o", "lstart=", "-p", str(kid.pid)], capture_output=True, text=True).stdout
+    pathlib.Path(spec["orphan"]).write_text(json.dumps({"pid": kid.pid, "start": " ".join(start.split())}))
+    time.sleep(0.3)  # long enough for the supervisor's tree sampler to see it
+if mode in ("escaped-holder", "capped-escaped-holder", "held-late-send"):  # the runner's stderr handed to a process that was never in the tree
+    import socket
+    with socket.socket(socket.AF_UNIX) as sock:
+        sock.connect(spec["holder_socket"])
+        socket.send_fds(sock, [b"fd"], [2])
+        sock.recv(1)
+if host == "claude":
+    sid = str(uuid.uuid4())
+    stream = open(capture / "stream.jsonl", "a", buffering=1)
+    log_path = cell / "config" / "projects" / "cell" / (sid + ".jsonl")
+    log_path.parent.mkdir(parents=True)
+    log = open(log_path, "a", buffering=1)
+    emit = lambda obj: stream.write(json.dumps(obj) + "\n")
+    usage = {"input_tokens": 2, "cache_read_input_tokens": 90000 if mode in ("big-first-request", "capped-escaped-holder") else 2800,
+             "cache_creation_input_tokens": 350}
+    emit({"type": "system", "subtype": "status", "status": "requesting"})
+    log.write(json.dumps({"type": "api-request", "timestamp": iso(time.time())}) + "\n")
+    rid = "req_" + uuid.uuid4().hex[:12]
+    if mode == "late-cap":  # the cap-crossing start, and the host gone before a slow reader reads it
+        emit({"type": "stream_event", "event": {"type": "message_start", "message": {"id": "msg_1", "model": model,
+                                                                                      "usage": {**usage, "cache_read_input_tokens": 90000}}}})
+        sys.exit(0)
+    if mode == "limit-then-hang":  # a rejected limit read live, the call kept alive while another dispatch is tried
+        emit({"type": "rate_limit_event", "rate_limit_info": {"status": "rejected", "resetsAt": spec["resets_at"],
+                                                              "rateLimitType": "five_hour"}})
+        wait_for(spec["release"])
+        mode = "api-error-limit"
+    if mode == "rate-limit-rejected":
+        emit({"type": "rate_limit_event", "rate_limit_info": {"status": "rejected", "resetsAt": spec["resets_at"],
+                                                              "rateLimitType": "five_hour"}})
+    emit({"type": "stream_event", "event": {"type": "message_start", "message": {"id": "msg_1", "model": model, "usage": usage}}})
+    if mode in ("big-first-request", "capped-escaped-holder"):
+        time.sleep(60)
+    emit({"type": "stream_event", "event": {"type": "message_delta", "usage": {"output_tokens": 61}}})
+    if mode == "compactions":
+        for _ in range(3):
+            emit({"type": "system", "subtype": "compact_boundary", "compact_metadata": {"trigger": "auto"}})
+            time.sleep(0.05)
+        time.sleep(60)
+    base = {"type": "result", "session_id": sid, "safety_stops": 0, "stop_reason": "end_turn", "result": "",
+            "modelUsage": {model: {"inputTokens": 2, "outputTokens": 61, "cacheReadInputTokens": 2800,
+                                   "cacheCreationInputTokens": 350}}}
+    if mode in ("usage-limit", "text-limit", "api-error-limit"):
+        if mode in ("usage-limit", "api-error-limit"):
+            if mode == "usage-limit":
+                emit({"type": "rate_limit_event", "rate_limit_info": {"status": "rejected", "resetsAt": spec["resets_at"],
+                                                                      "rateLimitType": "five_hour"}})
+            result = {**base, "subtype": "success", "is_error": True, "api_error": "usage_limit_reached",
+                      "api_error_status": 429, "terminal_reason": "api_error"}
+        else:
+            result = {**base, "subtype": "success", "is_error": True, "api_error": None, "api_error_status": None,
+                      "terminal_reason": "completed", "result": "You've hit your usage limit. Try again later."}
+        emit(result)
+        record({"session_id": sid, "requests": [], "assistant": [], "structured_calls": []})
+        print(json.dumps(result))
+        sys.exit(1)
+    answer = {"verdict": "ABSENT", "why": "no section names it"}
+    if mode == "invalid" or (mode == "invalid-then-valid" and "rejected by validation" not in packet):
+        answer = {"verdict": "MAYBE"}
+    structured = answer if schema is not None else None
+    result = {**base, "subtype": "success", "is_error": False, "terminal_reason": "completed", "api_error": None,
+              "api_error_status": None, "structured_output": structured}
+    emit(result)
+    record({"session_id": sid,
+            "requests": [{"id": rid, "model": model, "role": "main", "packet_text": packet, "structured_output_schema": schema}],
+            "assistant": [{"model": model, "request_id": rid, "role": "main", "stop_reason": "end_turn", "synthetic": False}],
+            "structured_calls": [structured] if structured is not None else []})
+    print(json.dumps(result))
+else:
+    root = str(uuid.uuid4())
+    replay = json.loads(pathlib.Path(spec["replay"]).read_text())["requests"] if spec.get("replay") else [
+        {"generate": False, "input_tokens": 11814, "cached_tokens": 1000, "output_tokens": 0},
+        {"generate": None, "input_tokens": 13595, "cached_tokens": 1000, "output_tokens": 15}]
+    def line(text):
+        sys.stderr.write(text + "\n")
+        sys.stderr.flush()
+    def otel(fields):
+        line(iso(time.time()) + "  INFO session_loop: codex_otel.log_only: " + fields)
+    def received(obj):
+        line(iso(time.time()) + " TRACE tungstenite::protocol: Received message " + json.dumps(obj))
+    events = open(capture / "events.jsonl", "a", buffering=1)
+    events.write(json.dumps({"type": "thread.started", "thread_id": root}) + "\n")
+    line(iso(time.time()) + '  INFO codex.exec{thread.id="' + root + '"}: started')
+    if mode == "stderr-canary":
+        received({"type": "response.output_text.delta", "delta": "BODY-CANARY-delta"})
+    if mode == "refusal-frame":  # the server refused, on the raw trace
+        received({"type": "response.refusal.done", "refusal": "BODY-CANARY-refusal-text"})
+    if mode == "helper-capture":  # codex-run's capture helper wrote the frames: a refusal and a warning stderr never showed
+        (capture / "frames.jsonl").write_text("".join(json.dumps(r) + "\n" for r in (
+            {"dir": "info", "type": "channels", "channels": ["frames", "otel", "responses_retry"]},
+            {"dir": "info", "type": "root_thread", "thread": root},
+            {"dir": "warn", "type": "responses_retry", "ts": iso(time.time())},
+            {"dir": "recv", "type": "response.refusal.done", "ts": iso(time.time())})))
+    deflate, prev = zlib.compressobj(wbits=-15), None
+    def failed():
+        events.write(json.dumps({"type": "turn.failed", "error": {"message": "usage limit"}}) + "\n")
+        record({"session_id": root})
+        sys.exit(1)
+    if mode == "http-limit":  # an otel codex.api_request to /responses with status 429, nothing else
+        otel('event.name="codex.api_request" http.response.status_code=429 attempt=0 endpoint=/responses')
+        failed()
+    if mode == "rate-limits-frame":  # a codex.rate_limits frame with limit_reached, nothing else
+        received({"type": "codex.rate_limits", "rate_limits": {"allowed": False, "limit_reached": True}})
+        failed()
+    if mode in ("late-cap", "late-send", "late-truncated", "limit-late-send", "held-late-send"):
+        replay = [{"generate": None, "input_tokens": 90000, "cached_tokens": 1000, "output_tokens": 15}]
+    if mode == "https-fallback":  # probe 9's fallback shape: no frames; one stream dropped, then each request over HTTPS
+        sse = 'event.name="codex.sse_event" event.kind=%s conversation.id=' + root
+        otel(sse % "response.created")
+        otel(sse % "response.completed")
+        for r in replay:
+            otel(sse % "response.created")
+            otel(sse % "response.completed")
+            otel('event.name="codex.sse_event" event.kind=response.completed input_token_count=%d output_token_count=%d '
+                 "cached_token_count=%d cache_write_token_count=0 conversation.id=%s model=%s"
+                 % (r["input_tokens"], r["output_tokens"], r.get("cached_tokens") or 0, root, model))
+        replay = []
+    for n, r in enumerate(replay):
+        kind = "prewarm" if r.get("generate") is False else "turn"
+        if mode == "mixed-fallback" and n > 0:  # the transport falls back to HTTPS after the first request
+            sse = 'event.name="codex.sse_event" event.kind=%s conversation.id=' + root
+            otel(sse % "response.created")
+            otel(sse % "response.completed")
+            otel('event.name="codex.sse_event" event.kind=response.completed input_token_count=%d output_token_count=%d '
+                 "cached_token_count=%d cache_write_token_count=0 conversation.id=%s model=%s"
+                 % (r["input_tokens"], r["output_tokens"], r.get("cached_tokens") or 0, root, model))
+            continue
+        meta = {"thread_id": root, "agent_name": "/root", "request_kind": kind, "parent_thread_id": None}
+        create = {"type": "response.create", "model": model, "previous_response_id": prev, "prompt_cache_key": root,
+                  "reasoning": {"effort": effort}, "client_metadata": {"x-codex-turn-metadata": json.dumps(meta)}}
+        data = (deflate.compress(json.dumps(create).encode()) + deflate.flush(zlib.Z_SYNC_FLUSH))[:-4]
+        otel('event.name="codex.websocket_request" conversation.id=%s model=%s' % (root, model))
+        for text in (iso(time.time()) + " TRACE tungstenite::protocol::frame: writing frame", "opcode: TEXT",
+                     "reserved: true false false", "payload: 0x" + data.hex()):
+            line(text)
+        if mode == "ws-limit" and kind == "turn":
+            received({"type": "error", "status": 429, "error": {"type": "usage_limit_reached", "code": "usage_limit_reached"}})
+            failed()
+        resp = {"id": "resp_%d" % n, "model": model, "previous_response_id": prev, "prompt_cache_key": root,
+                "reasoning": {"effort": effort}, "usage": None}
+        received({"type": "response.created", "response": {**resp, "status": "in_progress"}})
+        usage = {"input_tokens": r["input_tokens"], "input_tokens_details": {"cached_tokens": r.get("cached_tokens") or 0},
+                 "output_tokens": r["output_tokens"], "total_tokens": r["input_tokens"] + r["output_tokens"]}
+        received({"type": "response.completed", "response": {**resp, "status": "completed", "usage": usage}})
+        line(iso(time.time()) + '  INFO session_loop: codex_otel.log_only: event.name="codex.sse_event" '
+             "event.kind=response.completed input_token_count=%d output_token_count=%d cached_token_count=%d "
+             "cache_write_token_count=0 conversation.id=%s model=%s"
+             % (r["input_tokens"], r["output_tokens"], r.get("cached_tokens") or 0, root, model))
+        prev = resp["id"]
+        if mode == "late-truncated":  # a frame header stamped after any freeze whose payload never comes
+            line(iso(time.time() + 30) + " TRACE tungstenite::protocol::frame: writing frame")
+            line("opcode: TEXT")
+            time.sleep(60)
+        if mode == "limit-late-send":  # a usage limit read, and then the same late send
+            received({"type": "error", "status": 429, "error": {"type": "usage_limit_reached", "code": "usage_limit_reached"}})
+        if mode in ("late-send", "limit-late-send", "held-late-send"):  # a fault-injected send stamped after any freeze, then the host waits to be stopped
+            later = (deflate.compress(json.dumps({**create, "previous_response_id": prev}).encode()) + deflate.flush(zlib.Z_SYNC_FLUSH))[:-4]
+            for text in (iso(time.time() + 30) + " TRACE tungstenite::protocol::frame: writing frame", "opcode: TEXT",
+                         "reserved: true false false", "payload: 0x" + later.hex()):
+                line(text)
+            time.sleep(60)
+    if mode == "two-threads-retry":  # a retry warning in a call that also started a second thread
+        line(iso(time.time()) + "  WARN codex_core::responses_retry: stream disconnected - retrying sampling request")
+        otel('event.name="codex.websocket_request" conversation.id=%s model=%s' % (str(uuid.uuid4()), model))
+    if mode == "second-send-retry":  # a retry warning, and a second thread's send that no otel row or response follows
+        line(iso(time.time()) + "  WARN codex_core::responses_retry: stream disconnected - retrying sampling request")
+        kid = str(uuid.uuid4())
+        meta = {"thread_id": kid, "agent_name": "/root/kid", "request_kind": "turn", "parent_thread_id": root}
+        create = {"type": "response.create", "model": model, "previous_response_id": None, "prompt_cache_key": kid,
+                  "reasoning": {"effort": effort}, "client_metadata": {"x-codex-turn-metadata": json.dumps(meta)}}
+        data = (deflate.compress(json.dumps(create).encode()) + deflate.flush(zlib.Z_SYNC_FLUSH))[:-4]
+        for text in (iso(time.time()) + " TRACE tungstenite::protocol::frame: writing frame", "opcode: TEXT",
+                     "reserved: true false false", "payload: 0x" + data.hex()):
+            line(text)
+    events.write(json.dumps({"type": "turn.completed", "usage": {"input_tokens": 0, "output_tokens": 0}}) + "\n")
+    record({"session_id": root})
+    sys.stdout.write("OK")
+'''
+
+
+def self_test(scratch=None):
+    if scratch is None:
+        scratch = pathlib.Path(tempfile.mkdtemp(prefix="dispatch-self-test-"))
+        try:
+            return self_test(scratch)
+        finally:
+            shutil.rmtree(scratch, ignore_errors=True)
+    from runlib import declare
+    failures, ran = [], []
+    fake = scratch / "fake_host.py"
+    fake.write_text(FAKE_HOST, encoding="utf-8")
+    verdict_schema = {"type": "object", "additionalProperties": False, "required": ["verdict", "why"],
+                      "properties": {"verdict": {"enum": ["PRESENT", "ABSENT", "UNCLEAR"]}, "why": {"type": "string"}}}
+    judge, luna = "claude:claude-haiku-5-5/low", "codex:gpt-6-luna/low"
+    caps = {"tokens": 50_000, "compactions": 2}
+
+    def control(name, condition, detail):
+        ran.append(name)
+        if not condition:
+            failures.append(f"{name}: {detail}")
+
+    def refusal(fn, *args, **kwargs):
+        try:
+            fn(*args, **kwargs)
+        except (Refused, breakers.Deferred) as exc:
+            return str(exc)
+        return None
+
+    astra = "codex:gpt-6-astra/xhigh"
+    codex_flags = gate.pinned_flags_sha256("codex", "0.163.0", "hermetic")
+
+    def run_dir(name, per_stage, allowance=None):
+        directory = scratch / name
+        directory.mkdir()
+        run = declare.fixture()
+        run["budget"]["per_stage"] = per_stage
+        # the self-test's seats, declared as a run declares its seats (design §4 pins the others)
+        run["seats"].update({"S6.judge": judge, "S6.luna": luna, "S7": judge, "S8": judge, "S9": judge})
+        if allowance is not None:
+            run["host_allowance"][astra] = {"allowance_tokens": allowance, "host_version": "0.163.0", "flag_set_sha256": codex_flags}
+        declare.create(directory, run)
+        return directory
+
+    clock = [1_800_000_000.0]
+    measured_seats = scratch / "seats-measured.json"
+    held = json.loads(gate.SEATS.read_text(encoding="utf-8"))
+    held["hosts"]["codex"]["host_allowance"]["hermetic"].update(allowance_tokens=4000, measured=True)
+    measured_seats.write_text(json.dumps(held), encoding="utf-8")
+
+    def supervisor(directory, mode="clean", seats_path=None, **spec_extra):
+        """A golden supervisor; its Claude calls declare an output-token cap unless a call names one
+        (the omitted-cap refusal is judged on the unwrapped method, Supervisor.call)."""
+        sup = Supervisor(directory, clock=lambda: clock[0], cell_root=scratch, realization="golden", seats_path=seats_path)
+        sup.runner = lambda host, spec: [sys.executable, str(fake), host, sup.mode, json.dumps({**spec, **sup.extra})]
+        sup.mode, sup.extra = mode, spec_extra
+        bound = sup.call
+        sup.call = lambda stage, seat, *args, **kwargs: bound(stage, seat, *args, **(
+            {"max_output_tokens": 4096, **kwargs} if seat.startswith("claude:") else kwargs))
+        return sup
+
+    calibrated = {class_key(s, judge, "judge"): [3000, 3100, 3213, 3300, 3400] for s in ("S6", "S7", "S8", "S9", "S10")}
+    calibrated.update({class_key("S6", luna, "judge"): [24000, 25000, 25424, 25500, 26000]})
+
+    # positive control first: a judge call reserved, dispatched, monitored, captured, receipted, accepted
+    d = run_dir("run-a", {"S6": 200_000, "S7": 5100, "S8": 1000, "S9": 100_000})
+    sup = supervisor(d)
+    sup.seed_from(calibrated)
+    r = sup.reserve("S6", "c1", judge, "judge")
+    control("reservation-is-the-p95-of-the-class", (r["amount"], r["calibration"], r["call_id"]) == (3400, "measured", "run-a-S6-c1-a1"),
+            f"{r}")
+    packet = packets.build(r["call_id"], "S6", judge, "Is the rule present?\n", packets.schema_bytes(verdict_schema))
+    call_dir = sup.call("S6", judge, packet, verdict_schema, reservation=r, caps=caps, view_window=False)
+    verdict = gate.accept(call_dir)
+    control("golden-judge-call-accepted-by-the-gate", verdict["ok"], f"{verdict['failures']}")
+    usage = records.read_json(call_dir / "usage.json")
+    control("usage-measured-and-reconciled", usages.call_state(usage) == "measured" and usages.totals(usage)["measured"] == 3213,
+            f"{usage}")
+    call = records.read_json(call_dir / "call.json")
+    control("cell-deleted-after-usage-was-written", not pathlib.Path(call["manifest"]["workdir_path"]).exists()
+            and (call_dir / "capture" / "transcripts").is_dir(), f"{call['manifest']['workdir_path']}")
+    control("receipt-written-by-the-launcher", receipts.read(call_dir)[0] is not None
+            and receipts.read(call_dir)[0]["method_id"] == "distill/S6/run-a-S6-c1-a1", f"{receipts.read(call_dir)}")
+    left = sup.ledger()["stages"]["S6"]
+    control("reservation-settled-with-the-spend", left["reservations"][r["call_id"]]["open"] is False
+            and left["spent"] == {"measured": 3213, "provisional": 0}, f"{left}")
+    control("usage-guard-keeps-a-cell-without-usage", (refusal(Supervisor._delete_cell, scratch, scratch / "nowhere") or "")
+            .startswith("USAGE_UNCAPTURED"), "a cell was deleted before its usage was written")
+    own = sorted((call_dir / "capture" / "runner-receipts").glob("*.json"))
+    control("runner-receipt-kept-in-the-capture-never-the-calls", bool(own) and json.loads(own[0].read_text())["method_id"]
+            .startswith("runner/") and receipts.read(call_dir)[0]["method_id"] == "distill/S6/run-a-S6-c1-a1", f"{own}")
+
+    # the realization boundary (plan conventions): the identical fake runner is refused unless golden
+    for label in ("live", "replay"):
+        sx = Supervisor(d, clock=lambda: clock[0], cell_root=scratch, realization=label)
+        sx.runner = sup.runner
+        rx = sx.reserve("S6", f"realization-{label}", judge, "judge")
+        got = refusal(sx.call, "S6", judge, packets.build(rx["call_id"], "S6", judge, "x\n", packets.schema_bytes(verdict_schema)),
+                      verdict_schema, reservation=rx, caps=caps, view_window=False, max_output_tokens=4096)
+        control(f"fake-runner-declared-{label}-refused", (got or "").startswith(f"RUNNER_REALIZATION_MISMATCH {rx['call_id']}")
+                and not (d / "calls" / rx["call_id"]).exists(), f"{got}")
+    pinned_golden = Supervisor(d, clock=lambda: clock[0], cell_root=scratch, realization="golden")  # judged, never launched
+    control("pinned-runner-declared-golden-refused", (refusal(pinned_golden._admit_runner, "x", "claude") or "")
+            .startswith("RUNNER_REALIZATION_MISMATCH x"), "the pinned runner was admitted under golden")
+    control("pinned-runner-declared-live-admitted", refusal(Supervisor(d, realization="live")._admit_runner, "x", "claude") is None,
+            "the pinned runner was refused under live")
+
+    # refusals before anything starts, on a judge call (a non-actor call)
+    r2 = sup.reserve("S6", "c2", judge, "judge")
+    p2 = packets.build(r2["call_id"], "S6", judge, "x\n", packets.schema_bytes(verdict_schema))
+    calls_before = sorted((d / "calls").iterdir())
+    control("judge-call-without-a-reservation-refused", (refusal(sup.call, "S6", judge, p2, verdict_schema, reservation=None,
+                                                                 caps=caps, view_window=False) or "").startswith("RESERVATION_MISSING S6"), "admitted")
+    forged = {**r2, "amount": 1}
+    control("forged-reservation-refused", (refusal(sup.call, "S6", judge, p2, verdict_schema, reservation=forged, caps=caps,
+                                                   view_window=False) or "").startswith("RESERVATION_MISSING run-a-S6-c2-a1"), "admitted")
+    for n, (missing, given) in enumerate((("compactions", {"tokens": 1000}), ("tokens", {"compactions": 2}),
+                                          ("tokens, compactions", None))):
+        r3 = sup.reserve("S6", f"cap-{n}", judge, "judge")
+        p3 = packets.build(r3["call_id"], "S6", judge, "x\n", packets.schema_bytes(verdict_schema))
+        got = refusal(sup.call, "S6", judge, p3, verdict_schema, reservation=r3, caps=given, view_window=False) or ""
+        control(f"judge-call-without-the-{missing.replace(', ', '-and-')}-cap-refused", got.startswith(f"CAP_MISSING {r3['call_id']}: {missing}"), got)
+    bare = p2.replace(packets.principles_block().encode(), b"")
+    control("packet-without-the-principles-refused", "PRINCIPLES_MISSING" in (refusal(
+        sup.call, "S6", judge, bare, verdict_schema, reservation=r2, caps=caps, view_window=False) or ""), "dispatched")
+    r4 = sup.reserve("S6", "c4", judge, "judge")
+    p4 = packets.build(r4["call_id"], "S6", judge, "x\n", None)
+    control("packet-without-the-schema-reference-refused", "SCHEMA_REFERENCE_MISSING" in (refusal(
+        sup.call, "S6", judge, p4, verdict_schema, reservation=r4, caps=caps, view_window=False) or ""), "dispatched")
+    control("refused-calls-start-nothing", sorted((d / "calls").iterdir()) == calls_before, "a refused call left a call directory")
+    r5 = sup.reserve("S6", "c5", judge, "judge")
+    (d / "calls" / r5["call_id"]).mkdir()
+    p5 = packets.build(r5["call_id"], "S6", judge, "x\n", packets.schema_bytes(verdict_schema))
+    control("existing-call-directory-never-overwritten", (refusal(sup.call, "S6", judge, p5, verdict_schema, reservation=r5,
+                                                                  caps=caps, view_window=False) or "").startswith("CALL_EXISTS"), "overwritten")
+    copied = scratch / "receipt-copy"
+    shutil.copytree(call_dir, copied)
+    (copied / "receipt.json").unlink()
+    control("receipt-the-launcher-refuses-is-named", (refusal(sup._receipt, copied, "S6", "run-a-S6-c1-a1", "not-a-seat", 0) or "")
+            .startswith("RECEIPT_MISSING run-a-S6-c1-a1"), "a receipt was written for a malformed seat")
+
+    # the corrective retry (design §3.2), through the gate
+    sup.mode = "invalid-then-valid"
+    out = sup.item("S6", "retry-ok", judge, "Is the rule present?\n", verdict_schema, case_type="judge", caps=caps, view_window=False)
+    first = gate.accept(out["attempts"][0]) if out["attempts"] else {"codes": []}
+    control("invalid-then-valid-accepted-with-both-attempts-kept", out["outcome"] == "accepted" and len(out["attempts"]) == 2
+            and "SCHEMA_INVALID" in first["codes"] and out["accepted"] == out["attempts"][1], f"{out}")
+    sup.mode = "invalid"
+    out = sup.item("S6", "retry-no", judge, "Is the rule present?\n", verdict_schema, case_type="judge", caps=caps, view_window=False)
+    control("two-invalid-attempts-retry-exhausted", out["outcome"] == "failed" and "RETRY_EXHAUSTED" in out["codes"]
+            and len(out["attempts"]) == 2, f"{out}")
+
+    # both caps stop a judge call mid-stream; the tree is killed and verified; usage stays provisional
+    sup.mode = "big-first-request"
+    began = time.monotonic()
+    out = sup.item("S6", "capped", judge, "x\n", verdict_schema, case_type="judge", caps={"tokens": 50_000, "compactions": 2},
+                   view_window=False)
+    stopped_dir = pathlib.Path(out["attempts"][0]) if out["attempts"] else scratch
+    stopped = (records.read_json(stopped_dir / "call.json") if (stopped_dir / "call.json").is_file() else {}).get("stopped") or {}
+    control("token-cap-stops-the-call-mid-stream", out["outcome"] == "budget_stopped" and time.monotonic() - began < 20
+            and stopped.get("why", "").startswith("token cap: measured and provisional 90352"), f"{out} {stopped.get('why')}")
+    control("stopped-tree-verified-by-pid-and-start-time", stopped.get("freeze_at") is not None and not stopped.get("survivors")
+            and not stopped.get("problems") and len(stopped.get("tree") or []) >= 1, f"{stopped}")
+    stopped_usage = records.read_json(stopped_dir / "usage.json") if (stopped_dir / "usage.json").is_file() else {"requests": []}
+    control("stopped-call-usage-provisional", usages.call_state(stopped_usage) == "provisional"
+            and usages.totals(stopped_usage)["provisional"] == 90352, f"{stopped_usage}")
+    control("stopped-call-refused-by-the-gate", "COMPLETION_INCOMPLETE" in gate.accept(stopped_dir)["codes"]
+            and any("budget_stopped" in f for f in gate.accept(stopped_dir)["failures"]), f"{gate.accept(stopped_dir)['failures']}")
+    sup.mode = "compactions"
+    out = sup.item("S6", "compacting", judge, "x\n", verdict_schema, case_type="judge", caps={"tokens": 10 ** 9, "compactions": 2},
+                   view_window=False)
+    why = records.read_json(pathlib.Path(out["attempts"][0]) / "call.json")["stopped"]["why"] if out["attempts"] else None
+    control("compaction-cap-stops-the-call", out["outcome"] == "budget_stopped" and why == "compaction cap: 3 compactions > 2", f"{out} {why}")
+
+    # the breaker (design §13.2), once per signal kind, each from its own golden host and its own
+    # run: a clean counterpart first; then the signal opens its provider, the item that met it and
+    # the provider's reserved work are deferred as <stage>:<item>, nothing is retried, the next
+    # item is refused before anything starts, the other provider keeps dispatching, and the work
+    # resumes after resets_at — or, for a signal that names no reset, only at the operator's reset
+    launches = []
+
+    def counted(sup):
+        inner = sup.runner
+        sup.runner = lambda host, spec: launches.append(spec["call_id"]) or inner(host, spec)
+        return sup
+
+    def schema_for(seat):
+        return (verdict_schema, "x\n") if seat == judge else (None, "Reply OK.\n")
+    kinds = (("claude-result-api-error", judge, "api-error-limit", "result.api_error", False),
+             ("claude-rate-limit-event", judge, "rate-limit-rejected", "rate_limit_event", True),
+             ("codex-error-frame", luna, "ws-limit", "error frame", False),
+             ("codex-otel-429", luna, "http-limit", "otel codex.api_request", False),
+             ("codex-rate-limits", luna, "rate-limits-frame", "codex.rate_limits", False))
+    for name, seat, mode, source, resets in kinds:
+        dk = run_dir(f"run-{name}", {"S6": 400_000})
+        sk = counted(supervisor(dk))
+        sk.seed_from(calibrated)
+        host, other = seat.partition(":")[0], luna if seat == judge else judge
+        schema, payload = schema_for(seat)
+        out = sk.item("S6", "clean", seat, payload, schema, case_type="judge", caps=caps, view_window=False)
+        control(f"{name}-clean-counterpart-accepted", out["outcome"] == "accepted" and not sk.breaker.is_open(host, clock[0]), f"{out}")
+        parked = sk.reserve("S6", "reserved", seat, "judge")
+        sk.mode, sk.extra = mode, {"resets_at": clock[0] + 3600}
+        out = sk.item("S6", "hit", seat, payload, schema, case_type="judge", caps=caps, view_window=False)
+        state = sk.breaker.state()[host]
+        control(f"{name}-opens-its-provider-without-retry", out["outcome"] == "deferred" and len(out["attempts"]) == 1
+                and sk.breaker.is_open(host, clock[0]) and (state["signal"] or {}).get("source") == source
+                and f"PROVIDER_LIMIT {host} {source}" in out["why"], f"{out} {state}")
+        sk.mode, before = "clean", list(launches)
+        got = refusal(sk.call, "S6", seat, packets.build(parked["call_id"], "S6", seat, payload,
+                                                         packets.schema_bytes(schema) if schema else None),
+                      schema, reservation=parked, caps=caps, view_window=False)
+        out = sk.item("S6", "next", seat, payload, schema, case_type="judge", caps=caps, view_window=False)
+        control(f"{name}-reserved-and-next-work-refused-before-anything-starts", (got or "").startswith(f"PROVIDER_DEFERRED {host}")
+                and out["outcome"] == "deferred" and out["why"].startswith(f"PROVIDER_DEFERRED {host}") and launches == before
+                and not (dk / "calls" / parked["call_id"]).exists(), f"{got} {out} {launches[len(before):]}")
+        control(f"{name}-deferred-items-are-stage-qualified", sorted(sk.breaker.state()[host]["deferred_items"])
+                == ["S6:hit", "S6:next", "S6:reserved"], f"{sk.breaker.state()[host]}")
+        other_schema, other_payload = schema_for(other)
+        out = sk.item("S6", "other", other, other_payload, other_schema, case_type="judge", caps=caps, view_window=False)
+        control(f"{name}-other-provider-keeps-dispatching", out["outcome"] == "accepted", f"{out}")
+        if resets:
+            early, items = sk.breaker.resume(host, clock[0] + 10), sk.breaker.resume(host, clock[0] + 3600)
+        else:
+            early, items = sk.breaker.resume(host, 10 ** 12), sk.breaker.reset(host)
+        control(f"{name}-resumes-every-deferred-item", early == [] and sorted(items) == ["S6:hit", "S6:next", "S6:reserved"]
+                and not sk.breaker.is_open(host, clock[0] + 3600), f"{early} {items}")
+        out = sk.item("S6", "hit", seat, payload, schema, case_type="judge", caps=caps, view_window=False)
+        control(f"{name}-resumed-item-dispatches-its-next-attempt", out["outcome"] == "accepted"
+                and out["attempts"][0].endswith("-S6-hit-a2"), f"{out}")
+    d2 = run_dir("run-b", {"S6": 200_000})
+    sup2 = supervisor(d2, "text-limit")
+    sup2.seed_from(calibrated)
+    out = sup2.item("S6", "texty", judge, "x\n", verdict_schema, case_type="judge", caps=caps, view_window=False)
+    control("usage-limit-text-without-a-field-is-unrecognised", out["outcome"] == "deferred"
+            and "PROVIDER_ERROR_UNRECOGNISED claude result" in out["why"] and sup2.breaker.is_open("claude", 10 ** 12)
+            and sup2.breaker.resume("claude", 10 ** 12) == [] and sup2.breaker.reset("claude") == ["S6:texty"], f"{out}")
+
+    # a signal read mid-call closes admission at once: the limited call is still alive while a
+    # second dispatch to the provider is tried, refused before it starts, and the other provider runs
+    dl = run_dir("run-live-limit", {"S6": 400_000})
+    hanging = counted(supervisor(dl, "limit-then-hang", resets_at=clock[0] + 3600, release=str(scratch / "release")))
+    hanging.seed_from(calibrated)
+    beside = counted(supervisor(dl))
+    waiting = beside.reserve("S6", "reserved-earlier", judge, "judge")
+    outcome = {}
+    worker = threading.Thread(target=lambda: outcome.update(hanging.item("S6", "hanging", judge, "x\n", verdict_schema,
+                                                                         case_type="judge", caps=caps, view_window=False)))
+    worker.start()
+    for _ in range(1000):
+        if hanging.breaker.is_open("claude", clock[0]):
+            break
+        time.sleep(0.01)
+    before = list(launches)
+    out = beside.item("S6", "second", judge, "x\n", verdict_schema, case_type="judge", caps=caps, view_window=False)
+    parked_live = beside.ledger()["stages"]["S6"]["reservations"][waiting["call_id"]]["outcome"]
+    alive = worker.is_alive()
+    other = beside.item("S6", "codex-meanwhile", luna, "Reply OK.\n", None, case_type="judge", caps=caps, view_window=False)
+    (scratch / "release").write_text("")
+    worker.join(30)
+    control("limit-read-mid-call-closes-admission-at-once", alive and out["outcome"] == "deferred" and launches[len(before):]
+            == [c for c in launches[len(before):] if "-codex-meanwhile-" in c] and other["outcome"] == "accepted", f"{alive} {out} {other}")
+    control("work-reserved-before-the-signal-is-deferred-while-the-call-runs", alive and parked_live == "deferred"
+            and outcome.get("outcome") == "deferred" and sorted(beside.breaker.state()["claude"]["deferred_items"])
+            == ["S6:hanging", "S6:reserved-earlier", "S6:second"], f"{outcome} {beside.breaker.state()['claude']}")
+
+    # admission is synchronized with the breaker: a transition in progress when a call passed its
+    # early check (the lock held, the state written before release) still refuses that call
+    dt = run_dir("run-transition", {"S6": 400_000})
+    st = counted(supervisor(dt))
+    st.seed_from(calibrated)
+    rt = st.reserve("S6", "mid-transition", judge, "judge")
+    held_lock, result = threading.Event(), {}
+
+    def transition():
+        with stagelock.hold(dt, "breaker"):
+            held_lock.set()
+            time.sleep(0.3)
+            state = st.breaker.state()
+            state["claude"].update(open=True, since=clock[0], resets_at=clock[0] + 3600,
+                                   signal={"kind": "limit", "source": "rate_limit_event", "resets_at": clock[0] + 3600, "detail": "x"})
+            st.breaker._write(state)
+    opener = threading.Thread(target=transition)
+    opener.start()
+    held_lock.wait(5)
+    before = list(launches)
+    result["got"] = refusal(st.call, "S6", judge, packets.build(rt["call_id"], "S6", judge, "x\n", packets.schema_bytes(verdict_schema)),
+                            verdict_schema, reservation=rt, caps=caps, view_window=False)
+    opener.join(10)
+    control("admission-waits-for-a-breaker-transition-in-progress", (result["got"] or "").startswith("PROVIDER_DEFERRED claude")
+            and launches == before and not (dt / "calls" / rt["call_id"]).exists(), f"{result} {launches[len(before):]}")
+
+    # late monitor input (a delayed reader): a cap read after the root exited still stops what is
+    # left of the tree, and a send read after the stop still reaches the boundary verdict
+    class SlowMonitor(monitors.Monitor):
+        """Every line reaches the ledger `delay` seconds after it was read, `after` once a cap tripped."""
+        delay, after = 0.3, 0.3
+
+        def line(self, text, at=None):
+            time.sleep(self.after if self.trip is not None else self.delay)
+            super().line(text, at)
+
+    def orphan_of(path):
+        held = json.loads(pathlib.Path(path).read_text()) if pathlib.Path(path).is_file() else {}
+        return held, bool(held) and stop.same(stop.ps_table(), held["pid"], held["start"])
+
+    for host_seat, mode, delay, name in ((judge, "late-cap", (0.3, 0.3), "claude"), (luna, "late-send", (0.0, 0.5), "codex")):
+        dlate = run_dir(f"run-late-{name}", {"S6": 400_000})
+        sl = supervisor(dlate, mode, orphan=str(scratch / f"orphan-{name}"))
+        sl.monitor = type("Slow", (SlowMonitor,), {"delay": delay[0], "after": delay[1]})
+        sl.seed_from(calibrated)
+        rl = sl.reserve("S6", "late", host_seat, "judge")
+        schema, payload = schema_for(host_seat)
+        late_dir = sl.call("S6", host_seat, packets.build(rl["call_id"], "S6", host_seat, payload,
+                                                          packets.schema_bytes(schema) if schema else None),
+                           schema, reservation=rl, caps={"tokens": 50_000, "compactions": 2}, view_window=False)
+        late = records.read_json(late_dir / "call.json")["stopped"] or {}
+        orphan, alive = orphan_of(scratch / f"orphan-{name}")
+        if name == "claude":
+            control("cap-read-after-the-root-exited-still-stops-the-tree", late.get("why", "").startswith("token cap")
+                    and late.get("freeze_at") is not None and not late.get("survivors") and orphan
+                    and orphan["pid"] in {m["pid"] for m in late.get("tree", [])} and not alive, f"{late} orphan {orphan} alive {alive}")
+        else:
+            control("send-read-after-the-stop-reaches-the-boundary", late.get("why", "").startswith("token cap")
+                    and any(p.startswith("STOP_BOUNDARY_VIOLATED send#2") for p in late.get("problems", [])) and not alive
+                    and late.get("boundary") == "STOP_BOUNDARY_VIOLATED", f"{late.get('problems')} {late.get('why')} {late.get('boundary')}")
+        if alive:
+            stop._signal(stop.ps_table(), {orphan["pid"]: orphan}, stop.signal.SIGKILL)
+
+    # a reader still busy after the runner exited is drained to its end before anything is final:
+    # every line it holds waits until the supervisor's final accounting begins, or 11 s — past the
+    # 10 s a timed join once gave each reader —, so a drain that gives up on a reader accounts
+    # before the cap its lines trip, and stops nothing
+    class HeldMonitor(monitors.Monitor):
+        release = None
+
+        def line(self, text, at=None):
+            self.release.wait(30)
+            super().line(text, at)
+    dh = run_dir("run-held-reader", {"S6": 400_000})
+    sh = supervisor(dh)
+    sh.seed_from(calibrated)
+    release = threading.Event()
+    sh.monitor = type("Held", (HeldMonitor,), {"release": release})
+    accounting = sh._usage
+    sh._usage = lambda *args: (release.set(), accounting(*args))[1]
+    timer = threading.Timer(11.0, release.set)
+    timer.start()
+    rh = sh.reserve("S6", "held", luna, "judge")
+    held_dir = sh.call("S6", luna, packets.build(rh["call_id"], "S6", luna, "Reply OK.\n", None), None, reservation=rh,
+                       caps={"tokens": 20_000, "compactions": 2}, view_window=False)
+    timer.cancel()
+    held_stop = records.read_json(held_dir / "call.json")["stopped"] or {}
+    held_rows = [(r["role"], r["state"]) for r in records.read_json(held_dir / "usage.json")["requests"]]
+    control("reader-outliving-the-runner-is-drained-before-final-accounting", held_stop.get("why", "")
+            .startswith("token cap: measured and provisional 23628 >= 20000") and held_stop.get("freeze_at") is not None
+            and held_rows == [("warmup", "measured"), ("main", "measured")], f"{held_stop} {held_rows}")
+
+    control("held-reader-call-boundary-is-clean", held_stop.get("boundary") == "clean" and not held_stop.get("uncertain")
+, f"{held_stop}")
+    # an uncertain boundary is never read as clean: a frame header stamped after the freeze whose
+    # payload never comes (the host killed first) leaves the stored record and the item UNVERIFIED
+    du = run_dir("run-uncertain-boundary", {"S6": 400_000})
+    su = supervisor(du, "late-truncated")
+    su.seed_from(calibrated)
+    item_out = su.item("S6", "uncertain", luna, "Reply OK.\n", None, case_type="judge", caps=caps, view_window=False)
+    uncertain_stop = records.read_json(pathlib.Path(item_out["attempts"][0]) / "call.json")["stopped"] or {} if item_out["attempts"] else {}
+    control("uncertain-boundary-is-unverified-on-the-record-and-the-item", item_out["outcome"] == "budget_stopped"
+            and uncertain_stop.get("boundary") == "STOP_BOUNDARY_UNVERIFIED" and item_out.get("boundary") == "STOP_BOUNDARY_UNVERIFIED"
+            and any(u.startswith("truncated#1:") for u in uncertain_stop.get("uncertain", [])) and not uncertain_stop.get("problems"),
+            f"{item_out} {uncertain_stop}")
+
+    # a pipe still open after the root exited: the tree is stopped, swept and verified as at a cap,
+    # which kills an ordinary child holding it; the drain then waits at most one more deadline, so a
+    # holder that was never in the tree (handed the pipe) cannot hold the call. Either way the call
+    # is drain_unfinished, usage incomplete, boundary unverified — no holder is identified. The
+    # positive counterpart is the held reader above, drained in full under the default deadline.
+    def drain_expired(name, mode, **spec):
+        directory = run_dir(f"run-drain-{name}", {"S6": 400_000})
+        sx = supervisor(directory, mode, **spec)
+        sx.seed_from(calibrated)
+        sx.drain_deadline_s = 1.0
+        reserved = sx.reserve("S6", name, luna, "judge")
+        began = time.monotonic()
+        held_dir = sx.call("S6", luna, packets.build(reserved["call_id"], "S6", luna, "Reply OK.\n", None), None,
+                           reservation=reserved, caps=caps, view_window=False)
+        record = records.read_json(held_dir / "call.json")["stopped"] or {}
+        return time.monotonic() - began, record, held_dir
+
+    def unfinished(record, held_dir):
+        return record.get("outcome") == "drain_unfinished" and record.get("boundary") == "STOP_BOUNDARY_UNVERIFIED" \
+            and record.get("why", "").startswith("DRAIN_UNFINISHED") and "holders" not in record \
+            and records.read_json(held_dir / "usage.json")["reconciled"] is False and "COMPLETION_INCOMPLETE" in gate.accept(held_dir)["codes"]
+    took, child_stop, child_dir = drain_expired("child", "surviving-child", orphan=str(scratch / "orphan-child"))
+    kid, kid_alive = orphan_of(scratch / "orphan-child")
+    control("surviving-child-holding-a-pipe-is-stopped-and-killed", took < 1.0 + 6.0 and bool(kid) and not kid_alive
+            and kid["pid"] in {m["pid"] for m in child_stop.get("tree", [])} and not child_stop.get("survivors")
+            and unfinished(child_stop, child_dir), f"took {took:.1f} s, {child_stop}, alive {kid_alive}")
+    if kid_alive:
+        stop._signal(stop.ps_table(), {kid["pid"]: kid}, stop.signal.SIGKILL)
+    socket_path = str(scratch / "hs")
+    holder_proc = subprocess.Popen([sys.executable, "-c", "import socket, sys, time\ns = socket.socket(socket.AF_UNIX)\n"
+                                    "s.bind(sys.argv[1])\ns.listen(8)\nheld = []\nwhile True:\n    c, _ = s.accept()\n"
+                                    "    held.append((c, socket.recv_fds(c, 16, 4)))\n    c.send(b'k')", socket_path],
+                                   start_new_session=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    try:
+        for _ in range(500):
+            if pathlib.Path(socket_path).exists():
+                break
+            time.sleep(0.01)
+        took, escaped_stop, escaped_dir = drain_expired("escaped", "escaped-holder", holder_socket=socket_path)
+        control("escaped-holder-of-a-pipe-returns-unfinished-in-bounded-time", took < 2 * 1.0 + 6.0 and holder_proc.poll() is None
+                and unfinished(escaped_stop, escaped_dir), f"took {took:.1f} s, {escaped_stop}")
+    finally:  # the holder outlives no failure of the control above
+        holder_proc.kill()
+        holder_proc.wait()
+
+    # a retry warning in a call of two threads is attributed to neither: the gate fails the call
+    # USAGE_ATTRIBUTION_UNKNOWN, its usage stays unreconciled, and the item's outcome names it
+    dw = run_dir("run-two-threads-retry", {"S6": 400_000})
+    sw = supervisor(dw, "two-threads-retry")
+    sw.seed_from(calibrated)
+    out = sw.item("S6", "two-threads", luna, "Reply OK.\n", None, case_type="judge", caps=caps, view_window=False)
+    first_usage = records.read_json(pathlib.Path(out["attempts"][0]) / "usage.json") if out["attempts"] else {}
+    control("warning-over-two-threads-fails-attribution-in-the-gate-and-the-item", out["outcome"] == "failed"
+            and "USAGE_ATTRIBUTION_UNKNOWN" in out.get("codes", []) and first_usage.get("reconciled") is False
+            and "USAGE_ATTRIBUTION_UNKNOWN" in gate.accept(out["attempts"][0])["codes"], f"{out} {first_usage.get('reconciled')}")
+    control("warning-over-two-threads-keeps-the-corrective-retry", len(out["attempts"]) == 2, f"{out}")
+    # a retry warning beside a second thread's send that nothing answers: only the sent frame names
+    # that thread, and it is enough — attribution unknown in the gate and the item, usage
+    # unreconciled, the corrective retry kept
+    ds = run_dir("run-second-send-retry", {"S6": 400_000})
+    ss = supervisor(ds, "second-send-retry")
+    ss.seed_from(calibrated)
+    out = ss.item("S6", "second-send", luna, "Reply OK.\n", None, case_type="judge", caps=caps, view_window=False)
+    first_usage = records.read_json(pathlib.Path(out["attempts"][0]) / "usage.json") if out["attempts"] else {}
+    control("warning-beside-a-second-thread-only-a-send-names-fails-attribution-and-retries", out["outcome"] == "failed"
+            and "USAGE_ATTRIBUTION_UNKNOWN" in out.get("codes", []) and first_usage.get("reconciled") is False
+            and len(out["attempts"]) == 2 and "USAGE_ATTRIBUTION_UNKNOWN" in gate.accept(out["attempts"][0])["codes"],
+            f"{out} {first_usage.get('reconciled')}")
+
+    # a cap that trips while a holder outside the tree keeps a pipe open: the drain expiry decides,
+    # so the call is drain_unfinished with the cap kept beside it, usage incomplete, boundary
+    # unverified, refused by the gate, and the item failed (the escaped holder above is the
+    # uncapped counterpart, the token cap the unheld one)
+    socket_path = str(scratch / "hc")
+    holder_proc = subprocess.Popen([sys.executable, "-c", "import socket, sys, time\ns = socket.socket(socket.AF_UNIX)\n"
+                                    "s.bind(sys.argv[1])\ns.listen(8)\nheld = []\nwhile True:\n    c, _ = s.accept()\n"
+                                    "    held.append((c, socket.recv_fds(c, 16, 4)))\n    c.send(b'k')", socket_path],
+                                   start_new_session=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    try:
+        for _ in range(500):
+            if pathlib.Path(socket_path).exists():
+                break
+            time.sleep(0.01)
+        dc = run_dir("run-capped-and-held", {"S6": 400_000})
+        sc = supervisor(dc, "capped-escaped-holder", holder_socket=socket_path)
+        sc.seed_from(calibrated)
+        sc.drain_deadline_s = 1.0
+        out = sc.item("S6", "capped-held", judge, "x\n", verdict_schema, case_type="judge", caps=caps, view_window=False)
+        held_dir = pathlib.Path(out["attempts"][0]) if out["attempts"] else scratch
+        record = (records.read_json(held_dir / "call.json") if (held_dir / "call.json").is_file() else {}).get("stopped") or {}
+        control("drain-expiry-decides-over-a-cap", unfinished(record, held_dir) and out["outcome"] == "failed"
+                and out.get("boundary") == "STOP_BOUNDARY_UNVERIFIED" and len(out["attempts"]) == 1
+                and (record.get("cap") or {}).get("why", "").startswith("token cap: measured and provisional 90352")
+                and not any(f.startswith("RECORD_INTEGRITY call.json") for f in gate.accept(held_dir)["failures"]),
+                f"{out} {record} {gate.accept(held_dir)['failures']}")
+    finally:
+        holder_proc.kill()
+        holder_proc.wait()
+
+    # a stop after the root exited still finds the runner unreaped, so its group id is provably its
+    # own; the surviving child above is that path (the ordinary call's stop is the positive one)
+    anchors, real_stop = [], stop.stop_tree
+
+    def stop_watched(proc, sampler, **kwargs):
+        anchors.append((stop.exited(proc), stop.anchored(proc)))
+        return real_stop(proc, sampler, **kwargs)
+    stop.stop_tree = stop_watched
+    try:
+        took, late_stop, late_dir = drain_expired("late-anchor", "surviving-child", orphan=str(scratch / "orphan-late"))
+    finally:
+        stop.stop_tree = real_stop
+    kid, kid_alive = orphan_of(scratch / "orphan-late")
+    control("stop-after-the-root-exited-finds-the-runner-unreaped", anchors == [(True, True)] and not kid_alive
+            and not any("was reaped before the stop" in p for p in late_stop.get("problems", [])), f"{anchors} {late_stop}")
+    if kid_alive:
+        stop._signal(stop.ps_table(), {kid["pid"]: kid}, stop.signal.SIGKILL)
+
+    # an expired drain is unverified by rule even where a send after the freeze was observed: the
+    # violation stays in the problems, the verdict on the call and the item is UNVERIFIED, usage
+    # incomplete, the gate refuses it (the late send alone, above, is VIOLATED)
+    socket_path = str(scratch / "hv")
+    holder_proc = subprocess.Popen([sys.executable, "-c", "import socket, sys, time\ns = socket.socket(socket.AF_UNIX)\n"
+                                    "s.bind(sys.argv[1])\ns.listen(8)\nheld = []\nwhile True:\n    c, _ = s.accept()\n"
+                                    "    held.append((c, socket.recv_fds(c, 16, 4)))\n    c.send(b'k')", socket_path],
+                                   start_new_session=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    try:
+        for _ in range(500):
+            if pathlib.Path(socket_path).exists():
+                break
+            time.sleep(0.01)
+        dv = run_dir("run-held-late-send", {"S6": 400_000})
+        sv = supervisor(dv, "held-late-send", holder_socket=socket_path)
+        sv.seed_from(calibrated)
+        sv.drain_deadline_s = 1.0
+        out = sv.item("S6", "held-late-send", luna, "Reply OK.\n", None, case_type="judge", caps=caps, view_window=False)
+        held_dir = pathlib.Path(out["attempts"][0]) if out["attempts"] else scratch
+        record = (records.read_json(held_dir / "call.json") if (held_dir / "call.json").is_file() else {}).get("stopped") or {}
+        control("drain-expiry-is-unverified-over-an-observed-violation", unfinished(record, held_dir) and out["outcome"] == "failed"
+                and out.get("boundary") == "STOP_BOUNDARY_UNVERIFIED"
+                and monitors.boundary_verdict(record.get("problems", []), []) == "STOP_BOUNDARY_VIOLATED",
+                f"{out} {record}")
+    finally:
+        holder_proc.kill()
+        holder_proc.wait()
+
+    # the first stop-time listing fails and the later ones recover: the runner dies through its
+    # handle, the call returns in bounded time, and its stop is named unverified (the token cap
+    # above is the positive counterpart, every listing sound)
+    def bounded(fn, limit=30.0):
+        got = []
+        worker = threading.Thread(target=lambda: got.append(fn()), daemon=True)
+        worker.start()
+        worker.join(limit)
+        return (got[0] if got else None), worker.is_alive()
+    listed, real_stop, armed = stop.ps_table, stop.stop_tree, []
+
+    def stop_armed(*args, **kwargs):
+        armed.append(True)
+        return real_stop(*args, **kwargs)
+
+    def fails_once():
+        if armed == [True] and not isinstance(threading.current_thread(), stop.TreeSampler):
+            armed.append(False)
+            raise stop.ListingFailed("planted: the first stop-time listing")
+        return listed()
+    dr = run_dir("run-listing-recovers", {"S6": 400_000})
+    sr = supervisor(dr, "big-first-request")
+    sr.seed_from(calibrated)
+    sr.drain_deadline_s = 1.0
+    stop.stop_tree, stop.ps_table = stop_armed, fails_once
+    try:
+        out, hung = bounded(lambda: sr.item("S6", "recovers", judge, "x\n", verdict_schema, case_type="judge",
+                                            caps=caps, view_window=False))
+    finally:
+        stop.stop_tree, stop.ps_table = real_stop, listed
+    record = records.read_json(pathlib.Path(out["attempts"][0]) / "call.json")["stopped"] or {} if out and out["attempts"] else {}
+    rows = stop.ps_table()
+    left = [m["pid"] for m in record.get("tree", []) if stop.same(rows, m["pid"], m["start"])]
+    control("first-stop-listing-failing-then-recovering-returns-unverified-with-the-runner-dead", not hung
+            and out["outcome"] == "budget_stopped" and record.get("boundary") == "STOP_BOUNDARY_UNVERIFIED"
+            and any(p.startswith("STOP_FREEZE_UNVERIFIED the process listing failed (planted") for p in record.get("problems", []))
+            and record.get("tree") and not left and not record.get("survivors"), f"hung {hung}, {out}, {record}, left {left}")
+    stop._signal(rows, {m["pid"]: m for m in record.get("tree", [])}, stop.signal.SIGKILL)
+
+    # a runner that outlives its stop is never awaited without bound: the stop named it, and the
+    # call still returns
+    survived = []
+
+    def stop_nothing(proc, sampler, **kwargs):
+        sampler.halt.set()
+        survived.append(proc)
+        now = time.time()
+        return {"decided_at": now, "freeze_at": None, "kill_at": now, "tree": [], "survivors": [proc.pid],
+                "problems": [f"STOP_SURVIVORS pids [{proc.pid}] outlived the kill (planted)"]}
+    dn = run_dir("run-runner-survives", {"S6": 400_000})
+    sn = supervisor(dn, "big-first-request")
+    sn.seed_from(calibrated)
+    sn.drain_deadline_s = 1.0
+    stop.stop_tree = stop_nothing
+    try:
+        out, hung = bounded(lambda: sn.item("S6", "survives", judge, "x\n", verdict_schema, case_type="judge",
+                                            caps=caps, view_window=False))
+    finally:
+        stop.stop_tree = real_stop
+        for proc in survived:
+            proc.kill()
+    control("runner-outliving-its-stop-is-not-awaited-without-bound", not hung and out is not None
+            and out["outcome"] == "failed" and out.get("boundary") == "STOP_BOUNDARY_UNVERIFIED" and out["attempts"]
+            and not (pathlib.Path(out["attempts"][0]) / "receipt.json").exists()
+            and "COMPLETION_INCOMPLETE" in gate.accept(out["attempts"][0])["codes"], f"hung {hung}, {out}")
+
+    # a provider signal and a stop together: the item is deferred, and the stop's boundary verdict
+    # travels with it beside the signal
+    dl2 = run_dir("run-limit-and-stop", {"S6": 400_000})
+    sl2 = supervisor(dl2, "limit-late-send")
+    sl2.seed_from(calibrated)
+    out = sl2.item("S6", "limit-and-stop", luna, "Reply OK.\n", None, case_type="judge", caps=caps, view_window=False)
+    both = records.read_json(pathlib.Path(out["attempts"][0]) / "call.json") if out["attempts"] else {}
+    control("provider-deferral-and-stop-boundary-travel-together", out["outcome"] == "deferred"
+            and "PROVIDER_LIMIT codex" in out["why"] and out.get("boundary") == "STOP_BOUNDARY_VIOLATED"
+            and (both.get("stopped") or {}).get("boundary") == "STOP_BOUNDARY_VIOLATED"
+            and "COMPLETION_INCOMPLETE" in gate.accept(out["attempts"][0])["codes"], f"{out} {both.get('stopped')}")
+
+    # a frames-blind (HTTPS fallback) call: its usage comes from the otel ledger, its dropped stream is an attempt
+    df = run_dir("run-f", {"S6": 200_000})
+    sf = supervisor(df, "https-fallback")
+    sf.seed_from(calibrated)
+    rf = sf.reserve("S6", "fallback", luna, "judge")
+    blind_dir = sf.call("S6", luna, packets.build(rf["call_id"], "S6", luna, "Reply OK.\n", None), None, reservation=rf,
+                        caps=caps, view_window=False)
+    blind = gate.accept(blind_dir)
+    control("frames-blind-call-usage-from-otel-and-its-interrupted-attempt",
+            "frames_blind" in blind["codes"] and blind["usage"] == {"measured": 25424, "provisional": 0, "unresolved": 1,
+                                                                    "complete": False}
+            and [t["interrupted"] for t in (blind["attempts"] or {}).values()] == [1], f"{blind['usage']} {blind['attempts']}")
+
+    # mixed coverage (golden): one request over websocket, the next over HTTPS; the otel-only
+    # request is charged, and the live monitor counts it toward the token cap
+    dm = run_dir("run-mixed", {"S6": 400_000})
+    sm = supervisor(dm, "mixed-fallback")
+    sm.seed_from(calibrated)
+    rm = sm.reserve("S6", "mixed", luna, "judge")
+    mixed_dir = sm.call("S6", luna, packets.build(rm["call_id"], "S6", luna, "Reply OK.\n", None), None, reservation=rm,
+                        caps=caps, view_window=False)
+    mixed = gate.accept(mixed_dir)
+    control("mixed-coverage-call-charges-its-otel-only-request", "frames_blind" in mixed["codes"]
+            and (mixed["usage"] or {}).get("measured") == 25424
+            and sm.ledger()["stages"]["S6"]["reservations"][rm["call_id"]]["spent"]["measured"] == 25424, f"{mixed['usage']}")
+    rm = sm.reserve("S6", "mixed-capped", luna, "judge")
+    capped_dir = sm.call("S6", luna, packets.build(rm["call_id"], "S6", luna, "Reply OK.\n", None), None, reservation=rm,
+                         caps={"tokens": 25424, "compactions": 2}, view_window=False)
+    capped = records.read_json(capped_dir / "call.json")["stopped"] or {}
+    control("otel-only-usage-reaches-the-token-cap-through-the-supervisor", capped.get("why", "")
+            .startswith("token cap: measured and provisional 25424"), f"{capped.get('why')}")
+
+    # the closing reconciliation of a Claude call (design §13.3): the residual of result.modelUsage
+    # is the one compaction's only when every other request reconciled — measured, and bound to its
+    # own transcript api-request record (one per HTTP attempt) —; otherwise it stays unexplained.
+    # Each case is fed through the monitor as the host emits it: the stream's requesting status,
+    # message_start and message_delta, the transcript's api-request record, the compaction marker.
+    main_tokens = {"input": 2, "output": 61, "cache_read": 2800, "cache_creation": 350}
+    fed = {"status": ("line", {"type": "system", "subtype": "status", "status": "requesting"}),
+           "attempt": ("transcript", {"type": "api-request", "timestamp": "2026-10-21T00:00:01.000Z"}),
+           "start": ("line", {"type": "stream_event", "event": {"type": "message_start", "message": {
+               "id": "msg_1", "model": "claude-haiku-5-5", "usage": {"input_tokens": 2, "cache_read_input_tokens": 2800,
+                                                                     "cache_creation_input_tokens": 350}}}}),
+           "delta": ("line", {"type": "stream_event", "event": {"type": "message_delta", "usage": {"output_tokens": 61}}}),
+           "compaction": ("line", {"type": "system", "subtype": "compact_boundary", "compact_metadata": {"trigger": "auto"}})}
+    request = ("status", "attempt", "start", "delta")
+
+    def residual_case(steps, extra):
+        m = monitors.Monitor("claude", {"tokens": 10 ** 9, "compactions": 9})
+        for step in steps:
+            how, obj = fed[step]
+            m.line(json.dumps(obj), 1.0) if how == "line" else m.transcript("main", "main", obj, 1.0)
+        total = {k: main_tokens[k] + extra.get(k, 0) for k in main_tokens}
+        model_usage = {"claude-haiku-5-5": {"inputTokens": total["input"], "outputTokens": total["output"],
+                                            "cacheReadInputTokens": total["cache_read"], "cacheCreationInputTokens": total["cache_creation"]}}
+        rec = sup._usage(call_dir, {"host": "claude", "call_id": "x", "stage": "S6", "seat": judge}, m, {"modelUsage": model_usage},
+                         None, 0, 10)
+        return rec, [(r["id"], r["state"], r["estimate"], usages.request_total(r) if r["state"] == "measured" else None)
+                     for r in rec["requests"]], usages.check(rec)
+    extra = {"output": 1000, "cache_read": 9000}
+    rec, rows, problems = residual_case(request + ("compaction",), extra)
+    control("residual-is-the-one-compaction-once-every-other-request-reconciled", rows == [
+        ("main#1", "measured", None, 3213), ("compaction#1", "measured", None, 10000)] and rec["reconciled"] and not problems,
+        f"{rows} {rec['reconciled']}")
+    rec, rows, problems = residual_case(tuple(s for s in request if s != "attempt") + ("compaction",), extra)
+    control("residual-beside-a-response-without-its-attempt-record-stays-unexplained", rows == [
+        ("main#1", "measured", None, 3213), ("compaction#1", "provisional", 6426, None), ("aggregate-residual", "provisional", 3574, None)]
+            and not rec["reconciled"] and not problems, f"{rows} {rec['reconciled']}")
+    rec, rows, problems = residual_case(request + ("attempt",), {"cache_read": 5000})
+    control("residual-beside-an-attempt-record-no-response-answers-stays-unexplained", rows == [
+        ("main#1", "measured", None, 3213), ("main#2", "provisional", 3213, None), ("aggregate-residual", "provisional", 1787, None)]
+            and not rec["reconciled"] and not problems, f"{rows} {rec['reconciled']}")
+    rec, rows, problems = residual_case(request, {"cache_read": 400})
+    control("residual-without-a-compaction-is-not-made-measured", rows == [
+        ("main#1", "measured", None, 3213), ("aggregate-residual", "provisional", 400, None)] and not rec["reconciled"]
+            and not problems, f"{rows} {rec['reconciled']}")
+    rec, rows, problems = residual_case(request + ("compaction", "compaction"), {"cache_read": 9000})
+    control("residual-over-two-compactions-stays-at-their-estimates", rows == [
+        ("main#1", "measured", None, 3213), ("compaction#1", "provisional", 6426, None), ("compaction#2", "provisional", 6426, None)]
+            and not rec["reconciled"] and not problems, f"{rows} {rec['reconciled']}")
+    rec, rows, problems = residual_case(request, {})
+    control("a-call-whose-every-request-reconciled-and-no-residual-is-reconciled", rows == [("main#1", "measured", None, 3213)]
+            and rec["reconciled"] and not problems, f"{rows} {rec['reconciled']}")
+
+    # reservations: atomic against a race, not_done below one reservation, amendment before spend
+    def race(locked):
+        directory = run_dir(f"race-{'locked' if locked else 'unlocked'}", {"S7": 5100})
+        racer = supervisor(directory)
+        racer.seed_from(calibrated)
+        barrier, results = threading.Barrier(2, timeout=1.0), []
+
+        def between():
+            with contextlib.suppress(threading.BrokenBarrierError):
+                barrier.wait()
+
+        def one(n):
+            try:
+                results.append(racer.reserve("S7", f"r{n}", judge, "judge", _between=between, _locked=locked)["call_id"])
+            except Exhausted as exc:
+                results.append(str(exc).split(":")[0])
+        threads = [threading.Thread(target=one, args=(n,)) for n in (1, 2)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join(10)
+        return sorted(results), racer.remaining("S7")
+    got, remaining = race(True)
+    control("reservation-race-admits-exactly-one", len(got) == 2 and got.count("BUDGET_EXHAUSTED S7") == 1 and remaining == 5100 - 3400,
+            f"{got} remaining {remaining}")
+    got, _remaining = race(False)
+    control("check-then-reserve-variant-admits-both", len(got) == 2 and "BUDGET_EXHAUSTED S7" not in got, f"{got}")
+    nothing = sorted((d / "calls").iterdir())
+    out = sup.item("S8", "starved", judge, "x\n", verdict_schema, case_type="judge", caps=caps, view_window=False)
+    control("budget-below-one-reservation-not-done", out["outcome"] == "not_done" and sorted((d / "calls").iterdir()) == nothing
+            and sup.ledger()["stages"]["S8"]["not_done"][0]["item"] == "starved", f"{out}")
+    declare.amend(d, [("budget.per_stage.S8", 10_000)], "fund the S8 item", scope=["S8"])
+    r8 = sup.reserve("S8", "starved", judge, "judge")
+    control("budget-amendment-recorded-before-spend", r8["declaration_seq"] == 1 and sup.remaining("S8") == 10_000 - 3400, f"{r8}")
+    run_json = records.run_json_path(d)
+    edited = json.loads(run_json.read_text(encoding="utf-8"))
+    edited["budget"]["per_stage"]["S9"] = 10 ** 9
+    run_json.write_text(json.dumps(edited), encoding="utf-8")
+    control("hand-edited-budget-refused", (refusal(sup.reserve, "S9", "x", judge, "judge") or "").startswith("DECLARATION_DRIFT"),
+            "spent against an unrecorded budget")
+
+    # the calibration tranche (S-15)
+    d3 = run_dir("run-c", {"S6": 200_000, "S7": 10})
+    sup3 = supervisor(d3)
+    control("provisional-class-refused-broad-dispatch", (refusal(sup3.reserve, "S6", "b1", judge, "judge") or "")
+            .startswith("CALIBRATION_PROVISIONAL S6|claude:claude-haiku-5-5/low|judge"), "dispatched broadly")
+    rc = sup3.reserve("S6", "k1", judge, "judge", tranche="calibration")
+    control("calibration-reserves-the-seed-times-the-factor", (rc["amount"], rc["calibration"]) == (2 * SEEDS["claude"]["tokens"], "provisional"),
+            f"{rc}")
+    control("calibration-runs-at-concurrency-one", (refusal(sup3.reserve, "S6", "k2", judge, "judge", tranche="calibration") or "")
+            .startswith("CALIBRATION_SERIAL"), "a second calibration call was admitted")
+    control("undeclared-stage-budget-refused", (refusal(sup3.reserve, "S9", "x", judge, "judge", tranche="calibration") or "")
+            .startswith("BUDGET_UNDECLARED S9"), "reserved")
+    sup3.release("S6", rc["call_id"], "refused")
+    for n in range(CALIBRATION_MIN_SAMPLES):
+        rk = sup3.reserve("S6", f"k{n + 10}", judge, "judge", tranche="calibration")
+        sup3.charge("S6", rk["call_id"], {"measured": 3000 + n, "provisional": 0, "unresolved": 0, "complete": True}, "completed")
+    control("measured-class-admitted-broadly", sup3.reserve("S6", "b1", judge, "judge")["calibration"] == "measured", "still provisional")
+    seed = usages.totals(json.loads((gate.FIXTURES / "claude-runner" / "acc-clean-001" / "usage.json").read_text()))["measured"]
+    control("claude-seed-is-the-replayed-probe-call", seed == SEEDS["claude"]["tokens"], f"{seed}")
+
+    # window scope: probe 7's R-authoring call (about 136k input) replayed through the dispatcher
+    replay = str(gate.FIXTURES / "reconstruction" / "author-full-astra" / "requests.json")
+    authoring = {class_key("S7b", astra, "authoring"): [170_000, 175_000, 178_134, 180_000, 182_000]}
+    for view, name in ((False, "run-r"), (True, "run-s3")):
+        dv = run_dir(name, {"S7b": 2_000_000}, allowance=4000)
+        sv = counted(supervisor(dv, "clean", seats_path=measured_seats, replay=replay))
+        sv.seed_from(authoring)
+        later = sv.reserve("S7b", "reserved-before", astra, "authoring")  # reserved before the run stops
+        rv = sv.reserve("S7b", "author", astra, "authoring")
+        pv = packets.build(rv["call_id"], "S7b", astra, "Author the record.\n", None)
+        got = refusal(sv.call, "S7b", astra, pv, None, reservation=rv, caps={"tokens": 400_000, "compactions": 2}, view_window=view)
+        if not view:
+            verdict = gate.accept(dv / "calls" / rv["call_id"])
+            control("authoring-call-without-a-view-window-accepted", got is None and verdict["ok"], f"{got} {verdict['failures']}")
+        else:
+            control("view-window-call-past-the-bound-stops-the-run", (got or "").startswith(f"INPUT_BOUND_EXCEEDED {rv['call_id']}: "
+                    "a view-window call read 135796"), f"{got}")
+            control("stopped-run-dispatches-nothing", (refusal(sv.reserve, "S7b", "next", astra, "authoring") or "")
+                    .startswith("RUN_STOPPED INPUT_BOUND_EXCEEDED"), "dispatched after the run stopped")
+            before = list(launches)
+            got = refusal(sv.call, "S7b", astra, packets.build(later["call_id"], "S7b", astra, "Author the record.\n", None), None,
+                          reservation=later, caps={"tokens": 400_000, "compactions": 2}, view_window=False)
+            control("call-reserved-before-the-run-stopped-dispatches-nothing", (got or "").startswith("RUN_STOPPED INPUT_BOUND_EXCEEDED")
+                    and launches == before and not (dv / "calls" / later["call_id"]).exists(), f"{got} {launches[len(before):]}")
+
+    # seats are pinned per stage (design §4 in seats.json, or run.json); a view-window call needs its measured allowance
+    design_4 = {  # design §4's stage table, "Seat (default)" column, copied by hand
+        "S3": ["claude:claude-sonnet-5-5/xhigh"], "S4": ["claude:claude-opus-5-5/high"],
+        "S6": ["claude:claude-opus-5-5/high", "codex:gpt-6-astra/xhigh", "claude:claude-sonnet-5-5/medium", "codex:gpt-6-luna/medium"],
+        "S7": ["claude:claude-opus-5-5/high"], "S7b": ["codex:gpt-6-astra/xhigh"], "S9b": ["codex:gpt-6-astra/high"]}
+    pinned = {k: v for k, v in gate.seats().get("stage_seats", {}).items() if not k.startswith("$")}
+    control("stage-seats-are-design-section-4", pinned == design_4, f"{pinned}")
+    control("host-allowance-unmeasured-until-preflight", all(
+        slot.get("measured") is False and slot.get("allowance_tokens") is None
+        for entry in gate.seats()["hosts"].values() for slot in entry["host_allowance"].values()), "a slot claims a measurement")
+    da = run_dir("run-seats", {"S6": 400_000, "S3": 400_000, "S7b": 2_000_000}, allowance=4000)
+
+    def admitted(sup, stage, seat, view_window, size=None):
+        r = sup.reserve(stage, f"seat-{len(ran)}", seat, "judge", tranche="calibration")
+        before = sorted((da / "calls").iterdir()) if (da / "calls").is_dir() else []
+        payload = "v" * (size - len(packets.build(r["call_id"], stage, seat, "", None))) if size else "x\n"
+        got = refusal(sup.call, stage, seat, packets.build(r["call_id"], stage, seat, payload, None), None, reservation=r,
+                      caps=caps, view_window=view_window)
+        after = sorted((da / "calls").iterdir()) if (da / "calls").is_dir() else []
+        return got, after == before
+    plain, measured = supervisor(da), supervisor(da, seats_path=measured_seats)
+    got, untouched = admitted(plain, "S6", "claude:claude-opus-5-5/max", False)
+    control("seat-neither-declared-nor-pinned-refused", (got or "").startswith("SEAT_UNPINNED") and untouched, f"{got}")
+    got, _untouched = admitted(plain, "S6", "codex:gpt-6-luna/medium", False)
+    control("seat-pinned-by-design-section-4-admitted", got is None, f"{got}")
+    got, untouched = admitted(plain, "S7b", astra, True)
+    control("view-window-call-without-a-measured-allowance-refused", (got or "").startswith("ALLOWANCE_UNMEASURED") and untouched,
+            f"{got}")
+    unmeasured_seats = scratch / "seats-numbered-unmeasured.json"
+    held["hosts"]["codex"]["host_allowance"]["hermetic"].update(allowance_tokens=4000, measured=False)
+    unmeasured_seats.write_text(json.dumps(held), encoding="utf-8")
+    got, untouched = admitted(supervisor(da, seats_path=unmeasured_seats), "S7b", astra, True)
+    control("allowance-with-a-number-but-not-measured-refused", (got or "").startswith("ALLOWANCE_UNMEASURED") and untouched,
+            f"{got}")
+    mismatched = run_dir("run-allowance-mismatch", {"S7b": 2_000_000}, allowance=3999)
+    sm = supervisor(mismatched, seats_path=measured_seats)
+    rm = sm.reserve("S7b", "w", astra, "judge", tranche="calibration")
+    got = refusal(sm.call, "S7b", astra, packets.build(rm["call_id"], "S7b", astra, "x\n", None), None, reservation=rm,
+                  caps=caps, view_window=True)
+    control("declared-allowance-not-the-measured-one-refused", (got or "").startswith("ALLOWANCE_MISMATCH"), f"{got}")
+    got, _untouched = admitted(measured, "S7b", astra, True, size=INPUT_BOUND - 4000)
+    control("window-at-the-bound-less-the-allowance-admitted", got is None, f"{got}")
+    got, untouched = admitted(measured, "S7b", astra, True, size=INPUT_BOUND - 4000 + 1)
+    control("window-past-the-bound-less-the-allowance-refused", (got or "").startswith("WINDOW_OVER_BOUND") and untouched, f"{got}")
+    got, _untouched = admitted(measured, "S7b", astra, True)
+    control("window-inside-the-bound-with-a-measured-allowance-admitted", got is None, f"{got}")
+
+    # dispatch edges (N#5): the real closure is clean, and each planted edge is named by file and line
+    violations, closure, sites = closure_violations()
+    control("closure-clean-over-real-subjects", not violations and "session-distill/distill.py" in closure
+            and {f"session-distill/runlib/{p.name}" for p in (REPO / "session-distill" / "runlib").glob("*.py")} <= set(closure)
+            and sites >= 3, f"{violations} closure {closure} sites {sites}")
+    control("closure-imports-no-out-of-scope-executor", not set(closure) & {e["path"] for e in OUT_OF_SCOPE}, f"{closure}")
+    tree = scratch / "tree"
+    for rel in ["session-distill/distill.py", "session-distill/seats.json", "session-distill/screen-codex.py", "launch/agent-launch.py"] \
+            + [str(p.relative_to(REPO)) for p in (REPO / "session-distill" / "runlib").glob("*.py")] \
+            + [str(p.relative_to(REPO)) for p in (REPO / "benchmarks").rglob("*.py")] \
+            + sorted({e[k] for e in DYNAMIC_LOADS + SCRIPT_RUNS for k in ("site", "path")}):
+        (tree / rel).parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(REPO / rel, tree / rel)
+
+    def plant(rel, code, **kwargs):
+        """The closure check's violations over the copied tree with `code` appended to `rel`,
+        and the line the appended code starts on."""
+        path = tree / rel
+        original = path.read_text(encoding="utf-8")
+        path.write_text(original + "\n" + code + "\n", encoding="utf-8")
+        try:
+            return closure_violations(tree, **kwargs)[0], original.count("\n") + 2
+        finally:
+            path.write_text(original, encoding="utf-8")
+
+    def planted(name, rel, code, needle, offset=0, **kwargs):
+        found, at = plant(rel, code, **kwargs)
+        want = needle.format(at=f"{rel}:{at + offset}")
+        control(f"planted-{name}", any(v.startswith(want) for v in found), f"expected {want!r} in {found}")
+
+    control("copied-tree-is-clean", not closure_violations(tree)[0], f"{closure_violations(tree)[0]}")
+    planted("direct-dispatch-in-a-closure-module", "session-distill/runlib/records.py",
+            "import subprocess\ndef _planted():\n    subprocess.run(['codex', 'exec', '-'])", "DISPATCH_OUTSIDE_SUPERVISOR {at}:", 2)
+    planted("screen-codex-loaded-by-the-driver", "session-distill/distill.py",
+            "import importlib.util\nSC = importlib.util.spec_from_file_location('sc', REPO / 'session-distill' / 'screen-codex.py')",
+            "CLOSURE_IMPORTS_OUT_OF_SCOPE {at}: loads session-distill/screen-codex.py", 1)
+    planted("shell-command-line", "session-distill/runlib/claims.py", "import os\nos.system('claude -p hello')",
+            "DISPATCH_OUTSIDE_SUPERVISOR {at}: a command line starts 'claude'", 1)
+    planted("pinned-binary-path", "session-distill/runlib/validate.py",
+            "import os, subprocess\nsubprocess.Popen([os.path.expanduser('~/.local/share/claude/versions/2.1.304'), '-p'])",
+            "DISPATCH_OUTSIDE_SUPERVISOR {at}: starts '~/.local/share/claude/versions/2.1.304'", 1)
+    planted("unresolved-program", "session-distill/runlib/stagelock.py", "def _run(binary):\n    subprocess.run([binary, '-p'])",
+            "DISPATCH_UNRESOLVED {at}: a program the trace cannot resolve", 1)
+    planted("dispatch-inside-python-c", "session-distill/runlib/usage.py",
+            "import subprocess\nsubprocess.run([sys.executable, '-c', \"import subprocess; subprocess.run(['claude', '-p'])\"])",
+            "DISPATCH_OUTSIDE_SUPERVISOR {at}: inside python -c", 1)
+    planted("launcher-run-beyond-its-receipt-emitter", "session-distill/runlib/receipts.py",
+            "import subprocess\nsubprocess.run([sys.executable, str(LAUNCHER), 'claude', '--model', 'x'])",
+            "DISPATCH_OUTSIDE_SUPERVISOR {at}: runs the launcher", 1)
+    found, _at = plant("session-distill/distill.py", "sys.path.insert(0, str(REPO / 'benchmarks'))\nimport dispatch")
+    control("planted-benchmarks-module-imported-by-the-driver-is-traced",
+            any(v.startswith("DISPATCH_UNRESOLVED benchmarks/dispatch.py:") for v in found), f"{found}")
+    planted("tier-experiments-imported", "session-distill/runlib/claims.py", "from tier import live",
+            "CLOSURE_IMPORTS_OUT_OF_SCOPE {at}: imports benchmarks/tier/live.py")
+    planted("unresolved-dynamic-load", "session-distill/runlib/claims.py", "import importlib\nM = importlib.import_module(NAME)",
+            "DYNAMIC_LOAD_UNDECLARED {at}: a load the trace cannot resolve", 1)
+    planted("stale-out-of-scope-entry", "session-distill/runlib/claims.py", "",
+            "INVENTORY_STALE out-of-scope session-distill/retired.py",
+            out_of_scope=OUT_OF_SCOPE + ({"path": "session-distill/retired.py", "reason": "x", "retires": "x"},))
+    planted("declared-load-with-no-site", "session-distill/runlib/claims.py", "",
+            "INVENTORY_STALE dynamic load session-distill/runlib/claims.py -> launch/agent-launch.py: the site makes no such load",
+            dynamic=DYNAMIC_LOADS + ({"site": "session-distill/runlib/claims.py", "path": "launch/agent-launch.py",
+                                      "trace": False, "reason": "x"},))
+    planted("load-declared-nowhere", "session-distill/runlib/claims.py", "import importlib\nM = importlib.import_module('json')",
+            "DYNAMIC_LOAD_UNDECLARED {at}: loads 'json', declared nowhere", 1)
+    planted("dynamic-load-entry-naming-no-file", "session-distill/runlib/claims.py", "",
+            "INVENTORY_STALE dynamic load session-distill/runlib/claims.py -> launch/gone.py: no such file",
+            dynamic=DYNAMIC_LOADS + ({"site": "session-distill/runlib/claims.py", "path": "launch/gone.py",
+                                      "trace": False, "reason": "x"},))
+    planted("unresolved-shell-line", "session-distill/runlib/claims.py", "import os\nos.system(f'{CMD} -p')",
+            "DISPATCH_UNRESOLVED {at}: a shell command line the trace cannot resolve", 1)
+    planted("unresolved-python-c", "session-distill/runlib/claims.py", "import subprocess\nsubprocess.run([sys.executable, '-c', CODE])",
+            "DISPATCH_UNRESOLVED {at}: python -c with code the trace cannot resolve", 1)
+    planted("python-runs-an-out-of-scope-executor", "session-distill/runlib/claims.py",
+            "import subprocess\nsubprocess.run([sys.executable, 'session-distill/screen-codex.py'])",
+            "CLOSURE_IMPORTS_OUT_OF_SCOPE {at}: runs 'session-distill/screen-codex.py'", 1)
+    planted("python-runs-a-script-not-followed", "session-distill/runlib/claims.py",
+            "import subprocess\nsubprocess.run([sys.executable, 'tool.py'])", "DISPATCH_UNRESOLVED {at}: python runs ['tool.py']", 1)
+    planted("shell-starts-a-host", "session-distill/runlib/claims.py", "import subprocess\nsubprocess.run(['bash', '-c', 'codex exec -'])",
+            "DISPATCH_OUTSIDE_SUPERVISOR {at}: a command line starts 'codex'", 1)
+    planted("shell-with-unresolved-arguments", "session-distill/runlib/claims.py", "import subprocess\nsubprocess.run(['sh', '-c', CMD])",
+            "DISPATCH_UNRESOLVED {at}: sh with arguments the trace cannot resolve", 1)
+    planted("executor-without-a-command", "session-distill/runlib/claims.py", "import subprocess\nsubprocess.run()",
+            "DISPATCH_UNRESOLVED {at}: subprocess.run with no command", 1)
+    # every executor form keeps its own argv semantics, and executable= overrides the program
+    for form, code, needle in (
+            ("shell-through-execv", "os.execv('/bin/sh', ['sh', '-c', 'codex exec -'])", "a command line starts 'codex'"),
+            ("shell-through-execve", "os.execve('/bin/sh', ['sh', '-c', 'codex exec -'], {})", "a command line starts 'codex'"),
+            ("shell-through-execl", "os.execl('/bin/sh', 'sh', '-c', 'claude -p hi')", "a command line starts 'claude'"),
+            ("shell-through-execle", "os.execle('/bin/sh', 'sh', '-c', 'claude -p hi', {})", "a command line starts 'claude'"),
+            ("shell-through-spawnv", "os.spawnv(os.P_WAIT, '/bin/bash', ['bash', '-c', 'codex exec -'])", "a command line starts 'codex'"),
+            ("shell-through-spawnl", "os.spawnl(os.P_WAIT, '/bin/sh', 'sh', '-c', 'codex exec -')", "a command line starts 'codex'"),
+            ("shell-through-posix-spawn", "os.posix_spawn('/bin/sh', ['sh', '-c', 'codex exec -'], {})", "a command line starts 'codex'"),
+            ("host-through-execvp", "os.execvp('codex', ['codex', 'exec'])", "starts 'codex'"),
+            ("shell-through-execv-with-an-unread-argv", "os.execv('/bin/sh', ARGV)", "sh with arguments the trace cannot resolve"),
+            ("executable-override-names-a-host", "subprocess.run(['harmless'], executable='codex')", "starts 'codex'"),
+            ("executable-override-runs-a-shell", "subprocess.run(['x', '-c', 'claude -p'], executable='/bin/sh')",
+             "a command line starts 'claude'"),
+            # a concatenated argv keeps both sides, and a side the trace cannot read is refused, not dropped
+            ("argv-concatenation-through-subprocess", "subprocess.run(['/bin/sh'] + ['-c', 'codex exec -'])",
+             "a command line starts 'codex'"),
+            ("argv-concatenation-through-execv", "os.execv('/bin/sh', ['sh'] + ['-c', 'codex exec -'])", "a command line starts 'codex'"),
+            ("argv-starred-list-through-subprocess", "subprocess.run([*['/bin/sh', '-c'], 'claude -p hi'])",
+             "a command line starts 'claude'"),
+            ("argv-concatenation-with-an-unread-side", "subprocess.run(['sh'] + ARGS)", "sh with arguments the trace cannot resolve"),
+            ("argv-concatenation-with-an-unread-side-through-execv", "os.execv('/bin/sh', ['sh'] + ARGS)",
+             "sh with arguments the trace cannot resolve")):
+        code_at = "DISPATCH_UNRESOLVED {at}: " if "cannot resolve" in needle else "DISPATCH_OUTSIDE_SUPERVISOR {at}: "
+        planted(form, "session-distill/runlib/claims.py", f"import os, subprocess\n{code}", code_at + needle, 1)
+    planted("argv-concatenation-through-a-bound-name", "session-distill/runlib/claims.py",
+            "import subprocess\nTAIL = ['-c', 'claude -p hi']\nsubprocess.run(['bash'] + TAIL)",
+            "DISPATCH_OUTSIDE_SUPERVISOR {at}: a command line starts 'claude'", 2)
+    # what the declarations admit stays bound to its site, its path and its guard: an undeclared
+    # site of each kind still fails, a declared script is traced, and a stale entry is named
+    planted("python-flags-then-an-undeclared-script", "session-distill/runlib/census.py",
+            "import subprocess\nsubprocess.run([sys.executable, '-I', str(HERE / 'other.py')])",
+            "DISPATCH_UNRESOLVED {at}: python runs ['<?>/other.py']", 1)
+    planted("a-declared-script-run-from-another-site", "session-distill/runlib/claims.py",
+            "import subprocess\nsubprocess.run([sys.executable, '-I', str(HERE / 'census.py')])",
+            "DISPATCH_UNRESOLVED {at}: python runs ['<?>/census.py']", 1)
+    planted("a-declared-script-is-traced", "session-distill/digest.py",
+            "import subprocess\nsubprocess.run(['claude', '-p'])", "DISPATCH_OUTSIDE_SUPERVISOR {at}: starts 'claude'", 1)
+    planted("script-entry-the-site-never-runs", "session-distill/runlib/claims.py", "",
+            "INVENTORY_STALE script run session-distill/runlib/claims.py -> session-distill/census.py: the site runs no such script",
+            scripts=SCRIPT_RUNS + ({"site": "session-distill/runlib/claims.py", "path": "session-distill/census.py", "reason": "x"},))
+    planted("an-undeclared-load-beside-a-declared-one", "session-distill/runlib/ledger.py",
+            "import importlib.util\nX = importlib.util.spec_from_file_location('x', HERE / 'other.py')",
+            "DYNAMIC_LOAD_UNDECLARED {at}: loads '<?>/other.py', declared nowhere", 1)
+    planted("python-c-with-an-unread-callee", "session-distill/runlib/claims.py",
+            "import subprocess\nsubprocess.run([sys.executable, '-c', f'{MOD}.run([1])'])",
+            "DISPATCH_UNRESOLVED {at}: python -c with code the trace cannot resolve", 1)
+    planted("python-c-with-unread-data-is-still-judged", "session-distill/runlib/claims.py",
+            "import subprocess\nsubprocess.run([sys.executable, '-c', f\"import subprocess; subprocess.run(['claude', {ARG!r}])\"])",
+            "DISPATCH_OUTSIDE_SUPERVISOR {at}: inside python -c", 1)
+    guarded = tree / GUARDED_PROGRAMS[0]["site"]
+    kept = guarded.read_text(encoding="utf-8")
+    guarded.write_text(kept.replace(GUARDED_PROGRAMS[0]["guard"], "False"), encoding="utf-8")
+    try:
+        unguarded = closure_violations(tree)[0]
+    finally:
+        guarded.write_text(kept, encoding="utf-8")
+    control("a-guarded-program-without-its-guard-is-unresolved-and-stale",
+            any(v.startswith(f"DISPATCH_UNRESOLVED {GUARDED_PROGRAMS[0]['site']}:") for v in unguarded)
+            and any(v.startswith(f"INVENTORY_STALE guarded program {GUARDED_PROGRAMS[0]['site']}") for v in unguarded), f"{unguarded}")
+    found, _at = plant("session-distill/runlib/dispatch.py", "import subprocess\nsubprocess.run(['claude', '-p'])")
+    control("supervisor-own-sites-are-not-failures", not found, f"{found}")
+    found, _at = plant("session-distill/screen-codex.py", "import subprocess\nsubprocess.run(['codex', 'exec'])")
+    control("a-mention-outside-the-closure-is-not-a-failure", not found, f"{found}")
+
+    # the adapters' own sources, as they will ship (the tree's file once it states the final
+    # interface, else the lane's branch until integration): what their bind check and refusal
+    # inventory are judged against, never a copy made here
+    def adapter_source(rel, marker, ref):
+        path = REPO / rel
+        if path.is_file() and marker in path.read_text(encoding="utf-8", errors="replace"):
+            return path.read_text(encoding="utf-8", errors="replace")
+        # transitional: this branch fallback is removed in the WP-04 integration commit, once the tree carries both adapters
+        for name in (ref, f"origin/{ref}"):  # a clone names the lane's branch under its remote
+            shown = subprocess.run(["git", "-C", str(REPO), "show", f"{name}:{rel}"], capture_output=True, text=True)
+            if shown.returncode == 0 and marker in shown.stdout:
+                return shown.stdout
+        return None
+    claude_marker = "A dispatcher calls one hermetic Claude call as"
+    sources = {"claude": [adapter_source("wrappers/claude-run.sh", claude_marker, "wp/03-claude-hermetic"),
+                          adapter_source("wrappers/claude_hermetic_evidence.py", "def bind_problems", "wp/03-claude-hermetic")],
+               "codex": [adapter_source("wrappers/codex-run.sh", "CODEX_RUN_VERSION", "wp/04-codex-capture"),
+                         adapter_source("wrappers/codex_frame_filter.py", "CONTEXT_EVIDENCE_MISSING", "wp/04-codex-capture")]}
+    control("adapter-sources-are-readable", all(all(texts) for texts in sources.values()),
+            f"ADAPTER_SOURCE_ABSENT {[(h, [t is not None for t in texts]) for h, texts in sources.items()]}")
+
+    def adapter_codes(host):
+        """The codes an adapter names: its `<host>-run: CODE` lines and its helper's problem codes
+        outside the helper's self-test, less environment names and the gate's own evidence codes."""
+        text = "".join((t or "").split("\ndef self_test", 1)[0] for t in sources[host])
+        found = set(re.findall(host + r"-run: ([A-Z][A-Z0-9]*_[A-Z0-9_]*[A-Z0-9])\b", text)) \
+            | set(re.findall(r'f"([A-Z][A-Z0-9]*_[A-Z0-9_]*[A-Z0-9]) ', text))
+        return found - set(re.findall(r"\$\{?([A-Z][A-Z0-9_]+)", text)) - set(gate.CODES)
+    derived = {host: adapter_codes(host) for host in sources}
+    control("adapter-refusal-inventory-is-the-adapters-own", all(derived[h] == set(ADAPTER_CODES[h]) for h in derived),
+            f"{ {h: sorted(derived[h] ^ set(ADAPTER_CODES[h])) for h in derived} }")
+
+    # the runner's argv in the adapters' interfaces (claude-run's --help, plan WP-03; codex-run, WP-04),
+    # golden: a judge call with the stage's output-token cap, a producing call whose read root is its
+    # working directory, and a Codex call, which takes neither (no producing profile, no output cap)
+    # and whose host is named in the environment
+    base = {"profile": "hermetic", "model": "claude-haiku-5-5", "effort": "low", "cell": "/cells/c1", "call_id": "c1",
+            "workdir": "/cells/c1/cwd", "schema_path": "/calls/c1/schema.json", "use": "judge", "read_root": None,
+            "max_output_tokens": 16, "host_bin": "/hosts/claude/2.1.304", "host_version": "2.1.304"}
+    claude_head = [str(RUNNERS["claude"]), "--profile", "hermetic", "--model", "claude-haiku-5-5", "--effort", "low",
+                   "--cell-root", "/cells", "--call-id", "c1", "--cd", "/cells/c1/cwd",
+                   "--claude-bin", "/hosts/claude/2.1.304", "--host-version", "2.1.304", "--max-output-tokens", "16"]
+    control("runner-argv-of-a-judge-call", runner_argv("claude", base) == claude_head + ["--schema", "/calls/c1/schema.json"],
+            f"{runner_argv('claude', base)}")
+    producing = dict(base, use="producing", read_root="/cells/c1/cwd")
+    control("runner-argv-of-a-producing-call", runner_argv("claude", producing) == claude_head + [
+        "--schema", "/calls/c1/schema.json", "--use", "producing", "--tools", "Read", "--manifest", "/cells/c1/cwd"],
+        f"{runner_argv('claude', producing)}")
+    control("runner-argv-of-a-codex-call", runner_argv("codex", dict(base, model="gpt-6-luna")) == [
+        str(RUNNERS["codex"]), "--profile", "hermetic", "--model", "gpt-6-luna", "--effort", "low", "--cd", "/cells/c1/cwd",
+        "--schema", "/calls/c1/schema.json", "-"], f"{runner_argv('codex', dict(base, model='gpt-6-luna'))}")
+    # through the supervisor: the argv recorded for each call, the real adapter's bind check over the
+    # paths that argv names, the calling convention the runner received, and the producing call
+    # recorded under its profile with the declared files in its working directory
+    helper = scratch / "claude_hermetic_evidence.py"
+    helper.write_text(sources["claude"][1] or "", encoding="utf-8")
+    da = run_dir("run-argv", {"S6": 400_000})
+    sa = supervisor(da)
+    sa.seed_from(calibrated)
+    recorded, binds, fake_runner = [], [], sa.runner
+
+    def bind(spec, manifest):
+        done = subprocess.run([sys.executable, "-I", str(helper), "bind", "--root", str(pathlib.Path(spec["cell"]).parent),
+                               "--cell", spec["cell"], "--cwd", spec["workdir"]] + (["--manifest", manifest] if manifest else []),
+                              capture_output=True, text=True)
+        return done.returncode, done.stderr.strip()
+
+    def recording(host, spec):
+        recorded.append(runner_argv(host, spec))
+        if host == "claude":
+            binds.append((bind(spec, spec["read_root"]), bind(spec, str(readable)) if spec["read_root"] else None))
+        return fake_runner(host, spec)
+    sa.runner = recording
+    readable = scratch / "manifest-dir"
+    (readable / "notes").mkdir(parents=True)
+    (readable / "a.md").write_text("declared file\n")
+    (readable / "notes" / "b.md").write_text("another\n")
+    pinned = gate.seats()["hosts"]
+    seen, argv_dirs = {}, {}
+    for name, seat, kwargs in (("judge", judge, {"max_output_tokens": 16}), ("producing", judge, {"use": "producing",
+                               "read_root": readable, "max_output_tokens": 16}), ("codex", luna, {"max_output_tokens": 16})):
+        sa.extra = {"env_seen": str(scratch / f"env-{name}.json")}
+        r = sa.reserve("S6", f"argv-{name}", seat, "judge")
+        argv_dirs[name] = sa.call("S6", seat, packets.build(r["call_id"], "S6", seat, "Reply OK.\n", None), None, reservation=r,
+                                  caps=caps, view_window=False, **kwargs)
+        seen[name] = (json.loads((scratch / f"env-{name}.json").read_text()), r["call_id"])
+    claude_pin = ["--claude-bin", os.path.expanduser(pinned["claude"]["path"]), "--host-version", pinned["claude"]["version"],
+                  "--max-output-tokens", "16"]
+    producing_argv = recorded[1] if len(recorded) > 1 else []
+    cd = producing_argv[producing_argv.index("--cd") + 1] if "--cd" in producing_argv else None
+    control("supervisor-passes-host-use-manifest-and-cap-to-claude-only",
+            len(recorded) == 3 and recorded[0][-6:] == claude_pin
+            and producing_argv[-12:] == claude_pin + ["--use", "producing", "--tools", "Read", "--manifest", cd]
+            and not {"--max-output-tokens", "--use", "--claude-bin"} & set(recorded[2]), f"{recorded}")
+    control("the-real-adapter-binds-the-producing-paths", len(binds) == 2 and binds[0][0] == (0, "") and binds[1][0] == (0, ""),
+            f"{binds}")
+    control("the-real-adapter-refuses-a-read-root-that-is-not-the-working-directory",
+            len(binds) == 2 and binds[1][1] is not None and binds[1][1][0] == 3 and "READ_ROOT_MISMATCH" in binds[1][1][1],
+            f"{binds}")
+    producing_call = records.read_json(argv_dirs["producing"] / "call.json")
+    control("producing-call-recorded-under-its-profile-and-accepted", producing_call["profile"] == "hermetic-producing"
+            and producing_call["use"] == "producing" and gate.accept(argv_dirs["producing"])["ok"]
+            and [f["path"] for f in producing_call["manifest"]["workdir_files"]] == ["a.md", "notes/b.md"],
+            f"{producing_call['profile']} {producing_call['manifest']['workdir_files']} {gate.accept(argv_dirs['producing'])['failures']}")
+    control("runner-environment-names-the-call-and-the-codex-host",
+            all(env["REVIEW_CALL_ID"] == env["DISTILL_CALL_ID"] == cid for env, cid in seen.values())
+            and seen["judge"][0]["CODEX_RUN_BIN"] is None
+            and seen["codex"][0]["CODEX_RUN_BIN"] == os.path.expanduser(pinned["codex"]["path"])
+            and seen["codex"][0]["CODEX_RUN_VERSION"] == pinned["codex"]["version"], f"{seen}")
+    # the stage's output-token cap: a capped Claude call runs (above); an omitted, zero or non-integer
+    # cap is refused before anything starts, and so is a malformed cap on a Codex call
+    caps_refused = []
+    for n, (seat, cap) in enumerate(((judge, None), (judge, 0), (judge, "16"), (judge, True), (luna, -1))):
+        r = sa.reserve("S6", f"output-cap-{n}", seat, "judge")
+        caps_refused.append(refusal(Supervisor.call, sa, "S6", seat, packets.build(r["call_id"], "S6", seat, "x\n", None), None,
+                                    reservation=r, caps=caps, view_window=False, max_output_tokens=cap) or "")
+        caps_refused[-1] = (caps_refused[-1], (da / "calls" / r["call_id"]).exists())
+    control("an-undeclared-output-token-cap-is-refused-before-launch",
+            all(text.startswith("CAP_UNDECLARED") and not started for text, started in caps_refused), f"{caps_refused}")
+    # a producing read root with a symlink is refused: its target could lie outside the cell
+    linked, outside = scratch / "linked-dir", scratch / "outside-the-cell"
+    linked.mkdir()
+    outside.mkdir()
+    (outside / "secret.md").write_text("not declared\n")
+    (linked / "out").symlink_to(outside)
+    r = sa.reserve("S6", "use-linked", judge, "judge")
+    linked_refusal = refusal(sa.call, "S6", judge, packets.build(r["call_id"], "S6", judge, "x\n", None), None, reservation=r,
+                             caps=caps, view_window=False, use="producing", read_root=linked) or ""
+    control("a-read-root-holding-a-symlink-is-refused", linked_refusal.startswith("USE_REFUSED"), linked_refusal)
+    # plan P2: a pinned host binary is the versioned file, never a symlink an update moves (judged where it exists)
+    control("pinned-host-binaries-are-not-symlinks", not [h["path"] for h in pinned.values()
+                                                           if os.path.islink(os.path.expanduser(h["path"]))], f"{pinned}")
+    # a use the adapters cannot serve is refused before anything starts
+    refusals = []
+    for seat, use, root in ((luna, "producing", readable), (judge, "producing", None), (judge, "judge", readable),
+                            (judge, "browsing", None)):
+        r = sa.reserve("S6", f"use-{len(refusals)}", seat, "judge")
+        refusals.append(refusal(sa.call, "S6", seat, packets.build(r["call_id"], "S6", seat, "x\n", None), None,
+                                reservation=r, caps=caps, view_window=False, use=use, read_root=root) or "")
+    control("a-use-the-adapters-cannot-serve-is-refused", all(x.startswith("USE_REFUSED") for x in refusals), f"{refusals}")
+
+    # an adapter's named refusal on a nonzero exit is the call's runner_refused and the item's
+    # outcome, never retried; nothing else the runner printed is kept (a clean call is the positive).
+    # Every code the adapters' own sources name is driven, READ_ROOT_MISMATCH among them.
+    refusing = [(judge if host == "claude" else luna, 70 if code == "TRANSCRIPT_UNREADABLE" else 3 if host == "codex" else 2,
+                 f"{host}-run: {code} named by the adapter") for host in sorted(derived) for code in sorted(derived[host])]
+    wrong = []
+    for n, (seat, status, line) in enumerate(refusing):
+        code = line.split(": ", 1)[1].split()[0]
+        dr_ = run_dir(f"run-adapter-{n}", {"S6": 400_000})
+        sr_ = supervisor(dr_, "adapter-refuses", refusal=line, exit=status)
+        sr_.seed_from(calibrated)
+        out = sr_.item("S6", "refused", seat, "Reply OK.\n", None, case_type="judge", caps=caps, view_window=False)
+        refused_call = records.read_json(pathlib.Path(out["attempts"][0]) / "call.json") if out["attempts"] else {}
+        if not (out["outcome"] == "failed" and out.get("codes") == [code] and out.get("why") == line.split(": ", 1)[1]
+                and len(out["attempts"]) == 1 and refused_call.get("runner_refused") == line.split(": ", 1)[1]):
+            wrong.append((code, out, refused_call.get("runner_refused")))
+    control("every-adapter-refusal-is-the-item-outcome", refusing and not wrong
+            and "claude-run: READ_ROOT_MISMATCH named by the adapter" in [line for _, _, line in refusing], f"{wrong}")
+    # the same named line from the other adapter, or on a zero exit, is no refusal
+    dr_ = run_dir("run-adapter-not-ours", {"S6": 400_000})
+    sr_ = supervisor(dr_, "adapter-refuses", refusal="claude-run: CONTEXT_EVIDENCE_MISSING x", exit=3)
+    sr_.seed_from(calibrated)
+    out = sr_.item("S6", "not-ours", luna, "Reply OK.\n", None, case_type="judge", caps=caps, view_window=False)
+    control("another-adapters-code-is-no-refusal", "CONTEXT_EVIDENCE_MISSING" not in out.get("codes", [])
+            and records.read_json(pathlib.Path(out["attempts"][0]) / "call.json")["runner_refused"] is None, f"{out}")
+
+    # a refusal frame read from the raw trace reaches the gate through the dispatcher's own capture:
+    # the clean call is accepted, the refusing one rejected by its completion code and retried once
+    dg_ = run_dir("run-refusal-frame", {"S6": 400_000})
+    sg_ = supervisor(dg_)
+    sg_.seed_from(calibrated)
+    clean = sg_.item("S6", "clean", luna, "Reply OK.\n", None, case_type="judge", caps=caps, view_window=False)
+    sg_.mode = "refusal-frame"
+    refused_item = sg_.item("S6", "refused", luna, "Reply OK.\n", None, case_type="judge", caps=caps, view_window=False)
+    first = gate.accept(refused_item["attempts"][0]) if refused_item["attempts"] else {"failures": []}
+    control("refusal-frame-from-the-trace-is-rejected-through-the-dispatcher", clean["outcome"] == "accepted"
+            and refused_item["outcome"] == "failed" and len(refused_item["attempts"]) == 2
+            and "RETRY_EXHAUSTED" in refused_item["codes"]
+            and any(f.startswith("COMPLETION_INCOMPLETE response.refusal.done frame") for f in first["failures"]),
+            f"{clean['outcome']} {refused_item} {first['failures']}")
+
+    # no body the runner prints reaches the call directory: a canary on each host's stderr (and on a
+    # Codex output frame) is in no file under it, while the call itself is accepted
+    for host_seat in (judge, luna):
+        dc_ = run_dir(f"run-canary-{host_seat.partition(':')[0]}", {"S6": 400_000})
+        sc_ = supervisor(dc_, "stderr-canary")
+        sc_.seed_from(calibrated)
+        r = sc_.reserve("S6", "canary", host_seat, "judge")
+        canary_dir = sc_.call("S6", host_seat, packets.build(r["call_id"], "S6", host_seat, "Reply OK.\n", None), None,
+                              reservation=r, caps=caps, view_window=False)
+        leaked = [str(f.relative_to(canary_dir)) for f in canary_dir.rglob("*") if f.is_file() and b"BODY-CANARY" in f.read_bytes()]
+        control(f"no-runner-body-reaches-the-call-directory-{host_seat.partition(':')[0]}", not leaked
+                and gate.accept(canary_dir)["ok"], f"leaked into {leaked}, {gate.accept(canary_dir)['failures']}")
+
+    # codex-run's capture is never replaced: the frames its helper wrote — here a refusal frame and a
+    # retry warning stderr never showed — reach the gate intact
+    dh_ = run_dir("run-helper-capture", {"S6": 400_000})
+    sh_ = supervisor(dh_, "helper-capture")
+    sh_.seed_from(calibrated)
+    r = sh_.reserve("S6", "helper", luna, "judge")
+    helper_dir = sh_.call("S6", luna, packets.build(r["call_id"], "S6", luna, "Reply OK.\n", None), None, reservation=r,
+                          caps=caps, view_window=False)
+    kept = gate.Call(helper_dir).frames
+    control("codex-run-capture-reaches-the-gate-intact", any(f.get("type") == "response.refusal.done" for f in kept)
+            and any(f.get("type") == "responses_retry" for f in kept)
+            and any("response.refusal.done frame" in f for f in gate.accept(helper_dir)["failures"]), f"{kept}")
+
+    # the host's own built-in skills are declared from seats.json per host version: a Codex call whose
+    # manifest declares none of them fails the gate by name (every clean Codex call above is the positive)
+    db_ = run_dir("run-builtin-skills", {"S6": 400_000})
+    sb_ = supervisor(db_)
+    sb_.seed_from(calibrated)
+    r = sb_.reserve("S6", "builtin", luna, "judge")
+    bare_dir = sb_.call("S6", luna, packets.build(r["call_id"], "S6", luna, "Reply OK.\n", None), None, reservation=r,
+                        caps=caps, view_window=False, manifest={"skills": []})
+    control("codex-built-in-skills-undeclared-fail-the-gate", any(f.startswith("CONTEXT_UNDECLARED skills ['imagegen'")
+                                                                    for f in gate.accept(bare_dir)["failures"]),
+            f"{gate.accept(bare_dir)['failures']}")
+
+    # contract fidelity: the Supervisor's refusals and item outcomes, read from the source, equal
+    # this copy, made once and cited; the module docstring's list is held to the same set
+    design = {
+        # plan WP-02, dispatch.call's interface
+        "RESERVATION_MISSING", "CAP_MISSING", "PROVIDER_DEFERRED", "PACKET_REFUSED",
+        # design §13.2: a reservation that cannot fit records the remaining work not done; plan WP-02, S-15
+        "BUDGET_EXHAUSTED", "CALIBRATION_PROVISIONAL",
+        # the amendment record 2026-10-21T0026--cc0498f--input-bound-amendment.md: the window bound, the run stop
+        "INPUT_BOUND_EXCEEDED", "RUN_STOPPED", "ALLOWANCE_UNMEASURED", "ALLOWANCE_MISMATCH", "WINDOW_OVER_BOUND",
+        # the implementation's own, each closing a gap the contract leaves open: S-15's concurrency one, a stage
+        # with no declared budget, a call directory never overwritten, usage before the cell goes (§13.3), the
+        # receipt (§3.2), the seat table (§4), the realization boundary (plan conventions)
+        "CALIBRATION_SERIAL", "BUDGET_UNDECLARED", "CALL_EXISTS", "USAGE_UNCAPTURED", "RECEIPT_MISSING", "SEAT_UNPINNED",
+        "RUNNER_REALIZATION_MISMATCH",
+        # plan WP-03's adapter interface: the producing profile is Claude's and reads one declared directory;
+        # every Claude call carries its stage's output-token cap (lead decision, WP-02 review round 9)
+        "USE_REFUSED", "CAP_UNDECLARED"}
+    # design §3.2 (accepted, failed with every attempt kept) and §13.2 (deferred, not done, budget_stopped)
+    outcomes = {"accepted", "failed", "deferred", "not_done", "budget_stopped"}
+    source = pathlib.Path(__file__).read_text(encoding="utf-8")
+    listed = set(re.findall(r"\b[A-Z][A-Z_]{4,}\b", __doc__.split("Refused by name:", 1)[1].split("CONTRACT names", 1)[0]))
+    control("contract-cites-its-sections", CONTRACT["$comment"].startswith("design §13.2"), CONTRACT["$comment"])
+    control("supervisor-refusals-are-the-cited-set", contract_branches(source)[0] == design, f"{contract_branches(source)[0] ^ design}")
+    control("module-docstring-lists-the-same-refusals", listed == design, f"{listed ^ design}")
+    control("item-outcomes-are-the-cited-set", contract_branches(source)[1] == outcomes, f"{contract_branches(source)[1]}")
+    anchor = '                    raise Refused(f"CALL_EXISTS {call_dir}")\n'
+    added = source.replace(anchor, anchor + '                    raise Refused(f"PLANTED_REFUSAL {call_dir}")\n', 1)
+    removed = source.replace('raise Refused(f"CAP_MISSING', 'raise ValueError(f"CAP_MISSING', 1)
+    control("an-added-refusal-is-detected", added != source and contract_branches(added)[0] - design == {"PLANTED_REFUSAL"},
+            f"{contract_branches(added)[0] - design}")
+    control("a-removed-refusal-is-detected", removed != source and design - contract_branches(removed)[0] == {"CAP_MISSING"},
+            f"{design - contract_branches(removed)[0]}")
+
+    for failure in failures:
+        print(f"dispatch --self-test [FAIL] {failure}")
+    if failures:
+        return 1
+    print(f"dispatch --self-test: OK ({len(ran)} controls: " + ", ".join(ran) + ")")
+    return 0
+
+
+if __name__ == "__main__":
+    if "--self-test" not in sys.argv[1:]:
+        sys.exit("usage: dispatch.py --self-test")
+    sys.exit(self_test())

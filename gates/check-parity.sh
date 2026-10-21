@@ -340,6 +340,47 @@ if [ -f session-distill/update-state.py ]; then
     || { echo "FAIL: session-distill nudge state self-test (session-distill/update-state.py)"; fail=1; }
 fi
 
+# The model-call gate (design §3.2) and what it reads: the receipt, the packet and its linter,
+# the per-call usage states (design §13.3). The gate's controls replay probe captures from
+# session-distill/fixtures/replay/ (each with its PROVENANCE) and mutate them one field at a time.
+if [ -f session-distill/runlib/gate.py ]; then
+  python3 session-distill/runlib/gate.py --self-test >/dev/null \
+    || { echo "FAIL: session-distill model-call gate self-test (session-distill/runlib/gate.py)"; fail=1; }
+fi
+if [ -f session-distill/runlib/receipts.py ]; then
+  python3 session-distill/runlib/receipts.py --self-test >/dev/null \
+    || { echo "FAIL: session-distill call receipt self-test (session-distill/runlib/receipts.py)"; fail=1; }
+fi
+if [ -f session-distill/runlib/packet.py ]; then
+  python3 session-distill/runlib/packet.py --self-test >/dev/null \
+    || { echo "FAIL: session-distill packet linter self-test (session-distill/runlib/packet.py)"; fail=1; }
+fi
+if [ -f session-distill/runlib/usage.py ]; then
+  python3 session-distill/runlib/usage.py --self-test >/dev/null \
+    || { echo "FAIL: session-distill call usage self-test (session-distill/runlib/usage.py)"; fail=1; }
+fi
+# The dispatch supervisor (design §13.2): reservations, both caps, the live monitor, the stop of a
+# process tree, and the provider breaker. dispatch.py's self-test runs golden fake hosts (no model
+# is called) through the real launcher's --emit-receipt, and traces the driver's import closure for
+# executor sites by AST; stop.py's self-test signals only processes it spawned itself, by pid and
+# start time.
+if [ -f session-distill/runlib/dispatch.py ]; then
+  python3 session-distill/runlib/dispatch.py --self-test >/dev/null \
+    || { echo "FAIL: session-distill dispatch supervisor self-test (session-distill/runlib/dispatch.py)"; fail=1; }
+fi
+if [ -f session-distill/runlib/monitor.py ]; then
+  python3 session-distill/runlib/monitor.py --self-test >/dev/null \
+    || { echo "FAIL: session-distill live monitor self-test (session-distill/runlib/monitor.py)"; fail=1; }
+fi
+if [ -f session-distill/runlib/stop.py ]; then
+  python3 session-distill/runlib/stop.py --self-test >/dev/null \
+    || { echo "FAIL: session-distill process-tree stop self-test (session-distill/runlib/stop.py)"; fail=1; }
+fi
+if [ -f session-distill/runlib/breaker.py ]; then
+  python3 session-distill/runlib/breaker.py --self-test >/dev/null \
+    || { echo "FAIL: session-distill provider breaker self-test (session-distill/runlib/breaker.py)"; fail=1; }
+fi
+
 # Instructions rollback (compose/instructions-state.py) — a destructive path with no other
 # coverage: every version registered today is UNAVAILABLE (it predates the assembled
 # layout), so the write loop is unreachable from `list` and nothing else exercises it.

@@ -1,0 +1,11 @@
+source: /Users/kangmin/.local/share/agent-bios-workbench/distill-probes-20261020/codex-accounting
+SHA256SUMS: /Users/kangmin/.local/share/agent-bios-workbench/distill-probes-20261020/codex-accounting/SHA256SUMS (sha256 e1779a27b0d07ee0d1bda33792b195f75f8fe256d3071bb2151b34c18e5039a5)
+read (path relative to the source, sha256 as listed in SHA256SUMS and verified at copy time):
+  raw/f-http-500-once/frames.jsonl  21401bc6992719f8442eb90622de0c08087cfd6ec83c4885789aafa853a3fe64
+  raw/f-http-500-once/events.jsonl  dda2e31a35a70c82b68780e9b1d38dd998acbca55d03969c7f3eb9e597f1dc50
+  raw/f-http-500-once/cmd.json  eb9a75c397ab1d546c3a2690e9abbe6627b77e0aead7ad4754d31fed8c57b2c7
+  raw/f-http-500-once/summary.json  aa843f28a80e55def2c0f6802cd92d42d1095589a7c39d6db9153b5747425755
+projection:
+  frames.jsonl: the reduced records of codex-accounting/proto/acct.py, kept: info root_thread; client response.create frames (thread, agent, request kind, parent, previous response, prompt cache key, model, effort); received response.created/completed/incomplete/failed, error and codex.rate_limits frames (response reduced to id, model, status, generate, previous_response_id, prompt_cache_key, reasoning_effort, incomplete_details, error, usage, usage to its token counts); refusal frames; otel codex.sse_event response.created and response.completed (usage-bearing and usage-less), codex.api_request and codex.websocket_* rows (token counts, conversation id, model, status, attempt, endpoint); every other frame dropped
+  events.jsonl: the `--json` thread.started, turn.started, turn.completed, turn.failed and top-level error events; item events dropped
+  facts.json: model, working directory and exit status from cmd.json and summary.json

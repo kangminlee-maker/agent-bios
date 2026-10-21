@@ -1,0 +1,102 @@
+{
+  "$comment": "The hosts distill dispatches to, pinned per host version: the versioned binary (plan P2: the file itself, never a symlink an update moves), the flag set of each runner profile (its sha256 is what a receipt and a capture must carry), and `context`, what the host loads by itself under a profile, which dispatch.py declares in every call's manifest (codex-cli 0.163.0's four built-in skills, as codex-run's capture records them by name: wrappers/codex_frame_filter.py, WP-04), and the auxiliary roles a host runs beside the declared seat (design §3.2 step 2, plan S-7). Read by runlib/gate.py (flag-set hash, auxiliary roles) and runlib/dispatch.py (pinned paths). An auxiliary role is accepted only in a call's closing aggregate, never as a main or child response, and for a live call only once `measured` is true (gate.auxiliary_models); a provisional entry serves replayed and golden captures. The request kind an auxiliary role serves is added by preflight (WP-23) together with the check that reads it. `stage_seats` pins each model stage's seats from design §4's stage table (the defaults a run may use without declaring them; run.json seats add to them), read by dispatch.py, which refuses a seat neither names for the call's stage. `host_allowance` is the host's own share of a view-window request, per host version and runner profile (input-bound amendment record 2026-10-21T0026--cc0498f--input-bound-amendment.md): preflight (WP-23) measures it, and until then every slot is unmeasured and dispatch.py refuses every view-window call.",
+  "schema": "DistillSeats/v1",
+  "hosts": {
+    "claude": {
+      "version": "2.1.304",
+      "path": "~/.local/share/claude/versions/2.1.304",
+      "profiles": {
+        "hermetic": [
+          "--safe-mode",
+          "--setting-sources",
+          "",
+          "--strict-mcp-config",
+          "--disable-slash-commands",
+          "--tools",
+          ""
+        ],
+        "hermetic-producing": [
+          "--safe-mode",
+          "--setting-sources",
+          "",
+          "--strict-mcp-config",
+          "--disable-slash-commands",
+          "--tools",
+          "Read",
+          "--allowedTools",
+          "Read(//<manifest>/**)",
+          "--permission-mode",
+          "dontAsk"
+        ]
+      },
+      "auxiliary": [
+        {
+          "model": "claude-haiku-4-5",
+          "measured": false,
+          "basis": "benchmarks/dispatch.py AUXILIARY_MODELS, which WP-17 retires in favour of this entry; preflight (WP-23) measures the roles per host version and replaces it"
+        }
+      ],
+      "host_allowance": {
+        "hermetic": {
+          "allowance_tokens": null,
+          "measured": false,
+          "basis": "unmeasured: preflight (WP-23) measures it per host version and flag set"
+        }
+      }
+    },
+    "codex": {
+      "version": "0.163.0",
+      "path": "/opt/homebrew/Caskroom/codex/0.163.0/bin/codex",
+      "profiles": {
+        "hermetic": [
+          "--ignore-user-config",
+          "--ephemeral",
+          "-c",
+          "project_doc_max_bytes=0"
+        ]
+      },
+      "auxiliary": [],
+      "host_allowance": {
+        "hermetic": {
+          "allowance_tokens": null,
+          "measured": false,
+          "basis": "unmeasured: preflight (WP-23) measures it per host version and flag set"
+        }
+      },
+      "context": {
+        "hermetic": {
+          "skills": [
+            "imagegen",
+            "openai-docs",
+            "skill-creator",
+            "skill-installer"
+          ]
+        }
+      }
+    }
+  },
+  "stage_seats": {
+    "$comment": "design §4: S3 claude-sonnet-5-5/xhigh; S4 claude-opus-5-5/high; S6 A claude-opus-5-5/high, B gpt-6-astra/xhigh, sweeps claude-sonnet-5-5/medium and gpt-6-luna/medium; S7 claude-opus-5-5/high; S7b gpt-6-astra/xhigh; S9b gpt-6-astra/high. S8 and S10b seat their actors from run.json actor_seats (design §8.4).",
+    "S3": [
+      "claude:claude-sonnet-5-5/xhigh"
+    ],
+    "S4": [
+      "claude:claude-opus-5-5/high"
+    ],
+    "S6": [
+      "claude:claude-opus-5-5/high",
+      "codex:gpt-6-astra/xhigh",
+      "claude:claude-sonnet-5-5/medium",
+      "codex:gpt-6-luna/medium"
+    ],
+    "S7": [
+      "claude:claude-opus-5-5/high"
+    ],
+    "S7b": [
+      "codex:gpt-6-astra/xhigh"
+    ],
+    "S9b": [
+      "codex:gpt-6-astra/high"
+    ]
+  }
+}
