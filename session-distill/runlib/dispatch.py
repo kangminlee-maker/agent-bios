@@ -2290,9 +2290,29 @@ def self_test(scratch=None):
         "S7": ["claude:claude-opus-5-5/high"], "S7b": ["codex:gpt-6-astra/xhigh"], "S9b": ["codex:gpt-6-astra/high"]}
     pinned = {k: v for k, v in gate.seats().get("stage_seats", {}).items() if not k.startswith("$")}
     control("stage-seats-are-design-section-4", pinned == design_4, f"{pinned}")
-    control("host-allowance-unmeasured-until-preflight", all(
-        slot.get("measured") is False and slot.get("allowance_tokens") is None
-        for entry in gate.seats()["hosts"].values() for slot in entry["host_allowance"].values()), "a slot claims a measurement")
+    # a slot is unmeasured (no number) or measured (a positive count and the measurement it came from);
+    # the negative rows build their own slots, so the control keeps testing when every live slot is measured
+    def allowance_slot_problem(slot):
+        if slot.get("measured") is False:
+            return None if slot.get("allowance_tokens") is None else "ALLOWANCE_SLOT_SHAPE unmeasured slot carries a number"
+        if slot.get("measured") is not True:
+            return "ALLOWANCE_SLOT_SHAPE measured is neither true nor false"
+        tokens = slot.get("allowance_tokens")
+        if not isinstance(tokens, int) or isinstance(tokens, bool) or tokens <= 0:
+            return "ALLOWANCE_SLOT_SHAPE measured slot without a positive token count"
+        if not str(slot.get("basis") or "").strip():
+            return "ALLOWANCE_SLOT_SHAPE measured slot without its basis"
+        return None
+    live_slots = {f"{h}.{p}": allowance_slot_problem(slot) for h, entry in gate.seats()["hosts"].items()
+                  for p, slot in entry["host_allowance"].items()}
+    control("host-allowance-slots-are-unmeasured-or-measured-with-basis", live_slots and not any(live_slots.values()),
+            f"{live_slots}")
+    for row, slot in (("measured-with-null-tokens", {"allowance_tokens": None, "measured": True, "basis": "b"}),
+                      ("unmeasured-with-a-number", {"allowance_tokens": 4000, "measured": False, "basis": "b"}),
+                      ("measured-with-zero", {"allowance_tokens": 0, "measured": True, "basis": "b"}),
+                      ("measured-with-empty-basis", {"allowance_tokens": 4000, "measured": True, "basis": " "})):
+        problem = allowance_slot_problem(slot)
+        control(f"allowance-slot-{row}-refused", (problem or "").startswith("ALLOWANCE_SLOT_SHAPE"), f"{problem}")
     da = run_dir("run-seats", {"S6": 400_000, "S3": 400_000, "S7b": 2_000_000}, allowance=4000)
 
     def admitted(sup, stage, seat, view_window, size=None):
