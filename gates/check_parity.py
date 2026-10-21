@@ -1843,7 +1843,12 @@ def codex_run():
             )
             fake.chmod(0o755)
             env = os.environ.copy()
-            env.update(PATH=f"{tmp}{os.pathsep}{env.get('PATH', '')}", FAKE_CODEX_ARGV=str(argv_log))
+            # The adapter sweeps stale temp homes under TMPDIR at every start, so the gate gives
+            # it a TMPDIR of its own: the owner's real one is never swept from here.
+            sweep_tmp = tmp / "tmpdir"
+            sweep_tmp.mkdir()
+            env.update(PATH=f"{tmp}{os.pathsep}{env.get('PATH', '')}", FAKE_CODEX_ARGV=str(argv_log),
+                       TMPDIR=str(sweep_tmp))
 
             def fake_call(argv):
                 result = invoke(argv, input_text="probe\n", env=env)
@@ -1975,6 +1980,51 @@ def codex_run():
             if failed.returncode != 7:
                 mark_fail(f"codex-run returns {failed.returncode} instead of Codex exit status 7")
             codex_run_capture(tmp, run)
+            env.pop("FAKE_CODEX_STATUS")
+            codex_run_sweep(sweep_tmp, run, env)
+
+
+# A SIGKILLed hermetic call leaves its temp home, auth.json copy included, because the EXIT
+# trap never runs; the next start removes it. Each row is planted here rather than read from a
+# live list, so a control cannot go quiet when some other list empties.
+def codex_run_sweep(sweep_tmp, run, env):
+    dead = subprocess.Popen(["true"])
+    dead.wait()
+    old = time.time() - 2 * 86400
+    target = sweep_tmp.parent / "symlink-target"
+    target.mkdir()
+    (target / "auth.json").write_text("{}\n")
+    os.utime(target, (old, old))  # an old target, so only the symlink test keeps the sweep out of it
+    rows = {
+        "stale": (sweep_tmp / f"codex-run-home.{dead.pid}.aaaaaa", True, False),
+        "live owner": (sweep_tmp / f"codex-run-home.{os.getpid()}.bbbbbb", False, False),
+        "young": (sweep_tmp / f"codex-run-home.{dead.pid}.cccccc", False, False),
+        "other prefix": (sweep_tmp / f"codex-run-capture-{dead.pid}.dddddd", False, False),
+        "symlink": (sweep_tmp / f"codex-run-home.{dead.pid}.eeeeee", False, True),
+    }
+    for label, (path, _, link) in rows.items():
+        if link:
+            path.symlink_to(target, target_is_directory=True)
+        else:
+            path.mkdir()
+            (path / "home").mkdir()
+            (path / "home" / "auth.json").write_text("{}\n")
+        if label != "young":
+            os.utime(path, (old, old), follow_symlinks=False)
+    result = invoke(["bash", str(run), "--profile", "inherit", "-"], input_text="probe\n", env=env)
+    if result.returncode != 0:
+        mark_fail(f"codex-run sweep run failed: {result.stderr.strip()[-200:]}")
+    for label, (path, removed, link) in rows.items():
+        exists = path.is_symlink() if link else path.exists()
+        if exists == removed:
+            mark_fail(f"codex-run sweep {'kept' if exists else 'removed'} the {label} temp home {path.name}")
+        named = str(path) in result.stderr
+        if named != removed:
+            mark_fail(f"codex-run sweep {'named' if named else 'did not name'} the {label} temp home on stderr")
+    if not (target / "auth.json").is_file():
+        mark_fail("codex-run sweep followed a symlinked temp home into its target")
+    if "{}" in result.stderr:
+        mark_fail("codex-run sweep reported a temp home's content, not its path")
 
 
 # The capture mode's fake host: it answers `--version`, renders `debug prompt-input` and

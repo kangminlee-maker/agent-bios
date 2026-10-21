@@ -163,8 +163,29 @@ cleanup_all() {
 }
 trap cleanup_all EXIT
 
+# A hermetic call's temp home holds an auth.json copy, and the EXIT trap cannot run when the
+# wrapper is SIGKILLed. Each temp home therefore names its owner's PID, and every start removes
+# the ones left behind: only this user's real directories (find -type d never follows a
+# symlink) whose owner PID no longer exists and which are older than stale_after_min. The
+# wrapper sets no call timeout of its own, so the age is a fixed bound well past any call
+# and the PID test is what keeps a live call in another session untouched. ps, not kill -0,
+# because kill -0 also fails on another user's live process.
+stale_after_min=1440
+sweep_stale_homes() {
+  local tmp="${TMPDIR:-/tmp}" dir pid
+  [ -d "$tmp" ] || return 0
+  while IFS= read -r dir; do
+    pid="${dir##*/codex-run-home.}"
+    pid="${pid%%.*}"
+    case "$pid" in ''|*[!0-9]*) continue ;; esac
+    if ps -p "$pid" >/dev/null 2>&1; then continue; fi
+    rm -rf "$dir" && echo "codex-run: removed stale temp home $dir (owner pid $pid gone)" >&2
+  done < <(find "${tmp%/}/" -maxdepth 1 -type d -name 'codex-run-home.*.*' -user "$(id -u)" -mmin "+$stale_after_min" 2>/dev/null)
+}
+sweep_stale_homes
+
 if [ "$profile" = "hermetic" ]; then
-  root="$(mktemp -d "${TMPDIR:-/tmp}/codex-run-XXXXXX")"
+  root="$(mktemp -d "${TMPDIR:-/tmp}/codex-run-home.$$.XXXXXX")"
   cleanup_paths+=("$root")
   run_home="$root/home"
   mkdir -p "$run_home"
