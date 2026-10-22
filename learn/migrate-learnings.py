@@ -75,16 +75,16 @@ def _load(name, filename):
     return module
 
 
-def load_jsonl_read():
-    """wrappers/jsonl_lines.py's reader, in this package root: JSONL records end at "\n" only,
-    read from the file's bytes (single source)."""
+def load_jsonl():
+    """wrappers/jsonl_lines.py, in this package root: a JSONL record ends at "\n" or "\r\n"
+    only, read from the file's bytes (single source)."""
     path = REPO / "wrappers" / "jsonl_lines.py"
     if not path.is_file():
         die(f"the JSONL splitter is missing: {path}")
     spec = importlib.util.spec_from_file_location("jsonl_lines", path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
-    return module.read
+    return module
 
 
 def load_collect():
@@ -224,7 +224,7 @@ def prune_jsonl(jsonl, remove_ids, dry):
     if not jsonl.is_file():
         return 0
     kept, removed = [], 0
-    for line in load_jsonl_read()(jsonl):
+    for line, terminator in load_jsonl().read_terminated(jsonl):
         s = line.strip()
         if s:
             try:
@@ -234,9 +234,10 @@ def prune_jsonl(jsonl, remove_ids, dry):
                     continue
             except json.JSONDecodeError:
                 pass  # keep malformed lines untouched
-        kept.append(line)
+        kept.append(line + terminator)
     if removed and not dry:
-        atomic_write(jsonl, "\n".join(kept) + ("\n" if kept else ""))
+        # bytes, so no newline translation (Windows text mode) touches a kept line's own terminator
+        atomic_write(jsonl, "".join(kept).encode("utf-8"))
     return removed
 
 
@@ -339,7 +340,7 @@ def migrate(home, host, promotions, in_bundle, collect, dry=False, instructions_
     jsonl = home / "personal" / "learnings.jsonl"
     local_ids = set()
     if jsonl.is_file():
-        for line in load_jsonl_read()(jsonl):
+        for line in load_jsonl().read(jsonl):
             s = line.strip()
             if not s:
                 continue
@@ -726,6 +727,22 @@ def _self_test():
     pruned = prune_jsonl(sep_dir / "learnings.jsonl", {L["core"]}, dry=False)
     checks.append(("jsonl-bare-cr-whitespace-and-crlf-read-whole (prune_jsonl): the kept record is byte for byte",
                    pruned == 1 and (sep_dir / "learnings.jsonl").read_bytes() == (cr_line + "\r\n").encode("utf-8")))
+    # the rewrite keeps each line's own terminator under Windows text-mode writing too, which
+    # turns every "\n" written as text into "\r\n"
+    from unittest import mock
+    real_write_text = pathlib.Path.write_text
+
+    def windows_write_text(self, data, encoding=None, errors=None, newline=None):
+        return real_write_text(self, data.replace("\n", "\r\n") if newline is None else data,
+                               encoding=encoding, errors=errors, newline=newline)
+    lf_line = json.dumps(rec(L["bb"], "builder-base"))
+    (sep_dir / "learnings.jsonl").write_bytes((cr_line + "\r\n" + lf_line + "\n" + json.dumps(rec(L["core"], "core")) + "\n")
+                                              .encode("utf-8"))
+    with mock.patch.object(pathlib.Path, "write_text", windows_write_text):
+        pruned = prune_jsonl(sep_dir / "learnings.jsonl", {L["core"]}, dry=False)
+    checks.append(("jsonl-rewrite-keeps-each-terminator-under-windows-newline-translation (prune_jsonl)",
+                   pruned == 1 and (sep_dir / "learnings.jsonl").read_bytes()
+                   == (cr_line + "\r\n" + lf_line + "\n").encode("utf-8")))
     home = seed_claude()
     jsonl = home / "personal" / "learnings.jsonl"
     jsonl.write_text("".join(json.dumps(dict(json.loads(line), lesson=sep), ensure_ascii=False) + "\n"

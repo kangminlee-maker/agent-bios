@@ -26,7 +26,8 @@ class InstructionsInstallTests(unittest.TestCase):
         for name in ("claude",):
             shutil.copytree(SOURCE / name, self.repo / name)
         for relative in ("compose/assemble.py", "compose/instructions_catalog.py", "compose/instructions_store.py", "compose/instructions_transaction.py", "compose/pkgid.py",
-                         "compose/domains.json", "learn/learning.schema.json", "launch/agent-launch.py", "launch/agent-launch.toml"):
+                         "compose/domains.json", "learn/learning.schema.json", "launch/agent-launch.py", "launch/agent-launch.toml",
+                         "wrappers/jsonl_lines.py"):
             target = self.repo / relative
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(SOURCE / relative, target)
@@ -35,7 +36,7 @@ class InstructionsInstallTests(unittest.TestCase):
         (self.repo / "package.json").write_text(json.dumps({"files": [
             "claude/", "compose/assemble.py", "compose/instructions_catalog.py", "compose/instructions_store.py", "compose/instructions_transaction.py", "compose/pkgid.py",
             "compose/domains.json", "compose/bootstrap/", "learn/learning.schema.json",
-            "launch/agent-launch.py", "launch/agent-launch.toml", "launch/i18n",
+            "launch/agent-launch.py", "launch/agent-launch.toml", "launch/i18n", "wrappers/jsonl_lines.py",
         ]}), encoding="utf-8")
         self.claude = self.home / ".claude"
         self.codex = self.home / ".codex"

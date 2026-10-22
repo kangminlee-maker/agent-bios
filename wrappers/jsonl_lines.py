@@ -17,24 +17,39 @@ package root: compose/host_platform.py and learn/migrate-learnings.py as
 ../wrappers/jsonl_lines.py, author-side session-distill/runlib through runlib/records.py.
 Shipped code may not import author-side code, so the owner is shipped.
 
-A reader takes the file's bytes and decodes them itself (`read`): text-mode reading
-turns a bare "\r", which JSON allows as whitespace between tokens, into a line break
-before any splitter sees it.
+A record ends at a terminator, "\n" or "\r\n", and the two are the same terminator:
+lines compare equal whichever ended them. A "\r" anywhere else in a line stays — JSON
+allows it as whitespace between tokens. A reader takes the file's bytes and decodes them
+itself (`read`), because text-mode reading turns that bare "\r" into a line break before
+any splitter sees it. A writer that rewrites a file keeps each line's own terminator
+(`split_terminated`) and writes bytes, so no newline translation touches it.
 
 This module has no side effects on import and is safe to load by path.
 """
 
 
+def split_terminated(text):
+    """[(line, terminator)] of `text` (str or bytes): cut at each "\n" only, the
+    terminator "\n" or "\r\n" taken off the line, "" for a last line with none.
+    Joining every line with its terminator gives `text` back. Blank lines are kept,
+    so a reader's line numbers are the file's."""
+    nl, cr = (b"\n", b"\r") if isinstance(text, bytes) else ("\n", "\r")
+    parts = text.split(nl)
+    out = []
+    for index, part in enumerate(parts):
+        last = index == len(parts) - 1
+        if last and not part:
+            break
+        if not last and part.endswith(cr):
+            out.append((part[:-1], cr + nl))
+        else:
+            out.append((part, text[:0] if last else nl))
+    return out
+
+
 def split(text):
-    """`text` (str or bytes) cut at each "\\n" only, the newline dropped, as
-    str.splitlines() would cut a text whose only line break is "\\n": no empty
-    last line after a final newline, and blank lines kept, so a reader's line
-    numbers are the file's. A "\\r" before a "\\n" stays, which json.loads reads
-    as whitespace."""
-    parts = text.split(b"\n" if isinstance(text, bytes) else "\n")
-    if parts and not parts[-1]:
-        parts.pop()
-    return parts
+    """The lines of `text`, each without its terminator ("\n" or "\r\n")."""
+    return [line for line, _terminator in split_terminated(text)]
 
 
 def read(path, errors="strict"):
@@ -42,3 +57,9 @@ def read(path, errors="strict"):
     bytes.decode takes it), then `split`."""
     with open(path, "rb") as handle:
         return split(handle.read().decode("utf-8", errors))
+
+
+def read_terminated(path, errors="strict"):
+    """`read`, each line with its own terminator, for a writer that keeps it."""
+    with open(path, "rb") as handle:
+        return split_terminated(handle.read().decode("utf-8", errors))

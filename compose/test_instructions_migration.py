@@ -534,7 +534,43 @@ class InstructionsMigrationTests(unittest.TestCase):
         needs = []
         events, _ = instance._legacy_events('codex', needs)
         self.assertEqual([], needs)
-        self.assertEqual([first, second + '\r'], [event['raw'] for event in events])
+        self.assertEqual([first, second], [event['raw'] for event in events])
+
+    # A line terminator is "\n" or "\r\n", and a record's identity does not depend on which ended
+    # it; a CR anywhere else in the line stays part of it.
+    def test_jsonl_legacy_duplicate_across_lf_and_crlf_is_one_record(self):
+        instance, _ = self.legacy()
+        source = self.codex / 'personal/learnings.jsonl'
+        source.parent.mkdir()
+        raw = self.separated_event('44444444-4444-4444-8444-444444444443', 'plain')
+        source.write_bytes((raw + '\n' + raw + '\r\n').encode('utf-8'))
+        needs = []
+        events, _ = instance._legacy_events('codex', needs)
+        self.assertEqual([], needs)
+        self.assertEqual([raw], [event['raw'] for event in events])
+
+    def test_jsonl_destination_comparison_ignores_lf_or_crlf(self):
+        instance, _ = self.legacy()
+        source = self.codex / 'personal/learnings.jsonl'
+        source.parent.mkdir()
+        raw = self.separated_event('55555555-5555-4555-8555-555555555553', 'plain')
+        source.write_bytes((raw + '\r\n').encode('utf-8'))
+        target = self.user / 'learnings/codex/events.jsonl'
+        target.parent.mkdir(parents=True)
+        target.write_bytes((raw + '\n').encode('utf-8'))
+        needs = []
+        events, _ = instance._legacy_events('codex', needs)
+        instance._event_destination_conflicts('codex', events, needs)
+        self.assertEqual([], needs)
+
+    def test_jsonl_transfer_verification_ignores_lf_or_crlf(self):
+        instance, _ = self.legacy()
+        target = self.user / 'learnings/codex/events.jsonl'
+        target.parent.mkdir(parents=True)
+        raw = self.separated_event('66666666-6666-4666-8666-666666666663', 'plain')
+        target.write_bytes((raw + '\r\n').encode('utf-8'))
+        instance._verify_transferred_events({'events': {'codex': [
+            {'learning_id': '66666666-6666-4666-8666-666666666663', 'raw': raw}]}})
 
     def test_jsonl_private_destination_reads_line_separators_and_bare_cr(self):
         instance, _ = self.legacy()

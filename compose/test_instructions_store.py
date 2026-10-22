@@ -349,6 +349,33 @@ class InstructionsStoreTest(unittest.TestCase):
             self.assertIn(f"@local/learnings-codex:{captured['learning_id']}", refs)
         self.assertEqual(lesson, self.store.show(f"@local/learnings-codex:{first['learning_id']}")["item"]["body"])
 
+    def test_a_release_store_reads_with_its_own_roots_splitter(self) -> None:
+        # A private release's store is loaded by path while another root's host_platform is
+        # already imported (the installer's); it must still read with its own root's splitter,
+        # and fail naming that path when its own root lacks one.
+        import re
+        import shutil
+        import sys
+        import host_platform  # noqa: F401 - the checkout's module, cached as the installer leaves it
+        self.assertIn("host_platform", sys.modules)
+        with tempfile.TemporaryDirectory() as td:
+            base = Path(td).resolve()
+            release = base / "release"
+            (release / "compose").mkdir(parents=True)
+            shutil.copy2(Path(__file__).resolve().parent / "instructions_store.py", release / "compose" / "instructions_store.py")
+            spec = importlib.util.spec_from_file_location("test_release_instructions_store", release / "compose" / "instructions_store.py")
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            store = module.InstructionsStore(release, base / "state", base / "user")
+            events = base / "user" / "learnings" / "codex" / "events.jsonl"
+            events.parent.mkdir(parents=True)
+            events.write_text('{"a": 1}\n', encoding="utf-8")
+            with self.assertRaisesRegex(FileNotFoundError, re.escape(str(release / "wrappers" / "jsonl_lines.py"))):
+                store._learning_events("codex")
+            (release / "wrappers").mkdir()
+            shutil.copy2(Path(__file__).resolve().parents[1] / "wrappers" / "jsonl_lines.py", release / "wrappers" / "jsonl_lines.py")
+            self.assertEqual([{"a": 1}], store._learning_events("codex"))
+
     def test_learning_sources_are_listed_and_support_show_edit_remove_recover(self) -> None:
         self.store.install()
         captured = self.store.capture_learning("codex", self._learning("first lesson", 1))

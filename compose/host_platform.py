@@ -37,34 +37,27 @@ else:
                 os.lseek(fd, position, os.SEEK_SET)
 
 
-# wrappers/jsonl_lines.py, the package's one JSONL splitter, found inside this package root only
-JSONL_LINES = Path(__file__).resolve().parents[1] / "wrappers" / "jsonl_lines.py"
-_jsonl_lines = None
+_jsonl_lines = {}
 
 
-def _jsonl():
-    global _jsonl_lines
-    if _jsonl_lines is None:
-        if not JSONL_LINES.is_file():
-            raise FileNotFoundError(f"the package's JSONL splitter is missing: {JSONL_LINES}")
+def jsonl_lines_for(anchor) -> object:
+    """The JSONL splitter of the package root that holds `anchor`, a consuming module's own
+    `__file__`: <root>/wrappers/jsonl_lines.py, loaded by path under a name of its own and kept
+    out of sys.modules. A private release's module that imported this file from another root
+    still reads with its own root's splitter, and fails naming its path when that is missing."""
+    path = Path(anchor).resolve().parents[1] / "wrappers" / "jsonl_lines.py"
+    module = _jsonl_lines.get(path)
+    if module is None:
+        if not path.is_file():
+            raise FileNotFoundError(f"the package's JSONL splitter is missing: {path}")
+        import hashlib
         import importlib.util
-        spec = importlib.util.spec_from_file_location("agent_bios_jsonl_lines", JSONL_LINES)
+        spec = importlib.util.spec_from_file_location(
+            "agent_bios_jsonl_lines_" + hashlib.sha256(str(path).encode()).hexdigest()[:12], path)
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
-        _jsonl_lines = module
-    return _jsonl_lines
-
-
-def jsonl_read(path: Path) -> list[str]:
-    """The lines of the JSONL file at `path` as wrappers/jsonl_lines.py reads them: its bytes decoded
-    as UTF-8, cut at "\n" only. A record may hold U+2028 or U+2029 raw inside a string, and a bare
-    CR is whitespace; neither ends it."""
-    return _jsonl().read(path)
-
-
-def jsonl_split(text: str) -> list[str]:
-    """`text` cut at "\n" only, by the same splitter as jsonl_read."""
-    return _jsonl().split(text)
+        _jsonl_lines[path] = module
+    return module
 
 
 def cli_argv(root: Path, *args: str) -> list[str]:

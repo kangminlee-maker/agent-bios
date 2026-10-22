@@ -7,9 +7,9 @@ host; that is the launch adapter's job.
 """
 from __future__ import annotations
 try:
-    from host_platform import sync_directory, cli_argv, jsonl_read
+    from host_platform import sync_directory, cli_argv, jsonl_lines_for
 except ImportError:
-    from .host_platform import sync_directory, cli_argv, jsonl_read
+    from .host_platform import sync_directory, cli_argv, jsonl_lines_for
 
 import copy
 import contextlib
@@ -438,7 +438,7 @@ class InstructionsStore:
         if not path.is_file():
             return []
         events: list[dict[str, Any]] = []
-        for line_no, raw in enumerate(jsonl_read(path), 1):
+        for line_no, raw in enumerate(jsonl_lines_for(__file__).read(path), 1):
             if not raw.strip():
                 continue
             try:

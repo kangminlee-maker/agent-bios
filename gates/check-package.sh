@@ -90,6 +90,16 @@ p.write_text(json.dumps(d, indent=2) + "\n", encoding="utf-8")
 PY
   }
 
+  case_ok() {   # name: the planted text is no violation, so the gate still passes
+    local name="$1" out rc
+    ran=$((ran + 1))
+    set +e; out=$("$W/gates/check-package.sh" 2>&1); rc=$?; set -e
+    if [ "$rc" -ne 0 ]; then
+      echo "check-package --self-test: FAIL: $name — the gate failed on text that is no violation" >&2
+      printf '%s\n' "$out" | sed 's/^/    got: /' >&2
+      bad=1
+    fi
+  }
   case_is() {   # name, expected substring in the failure output
     local name="$1" want="$2" out rc
     ran=$((ran + 1))
@@ -145,15 +155,30 @@ PY
   # a shipped module loaded by path, which no import statement names
   fresh; dropline package.json '"wrappers/jsonl_lines.py"'
   case_is "a module loaded by path that files[] does not ship" "wrappers/jsonl_lines.py"
-  # ...and a module loaded from beside its loader is found by that load alone: with the two
-  # ../wrappers chains renamed away and the installer's deploy line dropped, the helper's
-  # sibling load still names it
+  # Each by-path discovery finds its load alone: the installer's reference and every other
+  # loader of the module are taken away, so only that one mechanism can name it.
+  fresh; dropline package.json '"wrappers/jsonl_lines.py"'
+  dropline install.sh 'wrappers/jsonl_lines.py'
+  sub wrappers/claude_hermetic_evidence.py '.parent / "jsonl_lines.py"' '.parent / "jsonl_lines_gone.py"'
+  sub learn/migrate-learnings.py '"wrappers" / "jsonl_lines.py"' '"wrappers" / "jsonl_lines_gone.py"'
+  case_is "a module loaded by a path chain that files[] does not ship" \
+          "wrappers/jsonl_lines.py   (referenced by compose/host_platform.py)"
   fresh; dropline package.json '"wrappers/jsonl_lines.py"'
   dropline install.sh 'wrappers/jsonl_lines.py'
   sub compose/host_platform.py '"wrappers" / "jsonl_lines.py"' '"wrappers" / "jsonl_lines_gone.py"'
   sub learn/migrate-learnings.py '"wrappers" / "jsonl_lines.py"' '"wrappers" / "jsonl_lines_gone.py"'
   case_is "a module loaded from beside its loader that files[] does not ship" \
           "wrappers/jsonl_lines.py   (referenced by wrappers/claude_hermetic_evidence.py)"
+  # ...and a comment or a docstring that shows a path is not a load
+  fresh
+  cat >> "$W/compose/host_platform.py" <<'EOF_PROBE'
+
+
+# documentation example: scratch / "gates" / "check-lexicon.py"
+def _documented_example():
+    """An example only: scratch / "gates" / "check-lexicon.py" names a path in prose."""
+EOF_PROBE
+  case_ok "a path shown in a comment or a docstring is no runtime reference"
 
   fresh; printf '\ncat "$REPO/decisions/record-decision.py" >/dev/null\n' >> "$W/install.sh"
   case_is "an unguarded runtime reference to an author-side path" "no proven guard"
@@ -272,7 +297,7 @@ PY
 fi
 
 python3 - "$@" <<'PY'
-import json, pathlib, posixpath, re, sys, tomllib
+import ast, json, pathlib, posixpath, re, sys, tomllib
 
 # Reject anything not implemented, loudly. A gate that accepts --self-test by
 # ignoring it and then prints OK tells the caller a control ran when none did.
@@ -410,15 +435,41 @@ if not MODULE_DIRS:
              "import walk below has nothing to resolve against and would pass vacuously")
 
 IMPORT = re.compile(r'^\s*(?:import\s+([a-z_][a-z0-9_]*)|from\s+([a-z_][a-z0-9_]*)\s+import)', re.M)
-# A module loaded by path (importlib's spec_from_file_location) is named by a chain of
-# string segments joined with `/` — `REPO / "learn" / "redact.py"`,
-# `Path(__file__).resolve().parents[1] / "wrappers" / "jsonl_lines.py"` — and neither the
-# `$REPO/` scan nor the import walk sees it. Every such chain in a walked file that names
-# a python file of this repo is a runtime path too, walked like an import. A file loaded
-# from beside its loader — `pathlib.Path(__file__).resolve().parent / "jsonl_lines.py"` —
-# names one segment after `.parent`, resolved in the loader's own directory.
-CHAIN = re.compile(r'((?:"[A-Za-z0-9_.-]+"\s*/\s*)+"[A-Za-z0-9_.-]+\.py")')
-SIBLING = re.compile(r'\.parent\s*/\s*"([A-Za-z0-9_.-]+\.py)"')
+# A module loaded by path (importlib's spec_from_file_location) is named by an executable
+# `/` expression whose right-hand operands are string segments, and neither the `$REPO/`
+# scan nor the import walk sees it. Two shapes, each a runtime path walked like an import:
+# CHAIN, two or more segments naming a python file from the repo root —
+# `REPO / "learn" / "redact.py"`, `Path(__file__).resolve().parents[1] / "wrappers" /
+# "jsonl_lines.py"`; SIBLING, one segment after `.parent`, resolved in the loader's own
+# directory — `pathlib.Path(__file__).resolve().parent / "jsonl_lines.py"`. They are read
+# from the parsed module, so a comment or a docstring that shows such a path is not one.
+def path_loads(text):
+    """(chains, siblings): the segment paths of every outermost `/` expression ending in a
+    string naming a .py file; siblings are those of one segment whose base is `.parent`."""
+    try:
+        tree = ast.parse(text)
+    except SyntaxError:
+        return [], []
+    inner = {id(n.left) for n in ast.walk(tree) if isinstance(n, ast.BinOp) and isinstance(n.op, ast.Div)}
+    chains, siblings = [], []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.BinOp) or not isinstance(node.op, ast.Div) or id(node) in inner:
+            continue
+        segments, base = [], node
+        while (isinstance(base, ast.BinOp) and isinstance(base.op, ast.Div)
+               and isinstance(base.right, ast.Constant) and isinstance(base.right.value, str)):
+            segments.insert(0, base.right.value)
+            base = base.left
+        if not segments or not segments[-1].endswith(".py"):
+            continue
+        if len(segments) > 1:
+            chains.append("/".join(segments))
+        elif isinstance(base, ast.Attribute) and base.attr == "parent":
+            siblings.append(segments[0])
+    return chains, siblings
+
+
+TOP = {p.name for p in REPO.iterdir() if p.is_dir()}
 queue = [s for s in SOURCES if s.endswith(".py")] + [r for r in found if r.endswith(".py")]
 seen = set()
 while queue:
@@ -426,16 +477,13 @@ while queue:
     if rel in seen or not (REPO / rel).exists():
         continue
     seen.add(rel)
-    for m in CHAIN.finditer((REPO / rel).read_text(encoding="utf-8")):
-        named = rel_key("/".join(re.findall(r'"([^"]+)"', m.group(1))))
-        if named.split("/", 1)[0] in {p.name for p in REPO.iterdir() if p.is_dir()} and (REPO / named).is_file():
-            found.setdefault(named, set()).add(rel)
-            queue.append(named)
-    for m in SIBLING.finditer((REPO / rel).read_text(encoding="utf-8")):
-        named = rel_key(posixpath.join(posixpath.dirname(rel), m.group(1)))
-        if (REPO / named).is_file():
-            found.setdefault(named, set()).add(rel)
-            queue.append(named)
+    chains, siblings = path_loads((REPO / rel).read_text(encoding="utf-8")) if rel.endswith(".py") else ([], [])
+    named = [rel_key(c) for c in chains if c.split("/", 1)[0] in TOP] + \
+            [rel_key(posixpath.join(posixpath.dirname(rel), s)) for s in siblings]
+    for path in named:
+        if (REPO / path).is_file():
+            found.setdefault(path, set()).add(rel)
+            queue.append(path)
     for m in IMPORT.finditer((REPO / rel).read_text(encoding="utf-8")):
         mod = m.group(1) or m.group(2)
         for d in MODULE_DIRS:
