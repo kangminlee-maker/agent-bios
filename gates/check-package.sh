@@ -169,6 +169,11 @@ PY
   sub learn/migrate-learnings.py '"wrappers" / "jsonl_lines.py"' '"wrappers" / "jsonl_lines_gone.py"'
   case_is "a module loaded from beside its loader that files[] does not ship" \
           "wrappers/jsonl_lines.py   (referenced by wrappers/claude_hermetic_evidence.py)"
+  # one constant root-relative path, `release / "compose/app_desktop/server.py"`, is a load too;
+  # nothing else references the Desktop server, so only that recognition can name it
+  fresh; dropline package.json '"compose/app_desktop/"'
+  case_is "a module loaded by one root-relative path string that files[] does not ship" \
+          "compose/app_desktop/server.py   (referenced by compose/instructions_app.py)"
   # ...and a comment or a docstring that shows a path is not a load
   fresh
   cat >> "$W/compose/host_platform.py" <<'EOF_PROBE'
@@ -438,9 +443,10 @@ IMPORT = re.compile(r'^\s*(?:import\s+([a-z_][a-z0-9_]*)|from\s+([a-z_][a-z0-9_]
 # A module loaded by path (importlib's spec_from_file_location) is named by an executable
 # `/` expression whose right-hand operands are string segments, and neither the `$REPO/`
 # scan nor the import walk sees it. Two shapes, each a runtime path walked like an import:
-# CHAIN, two or more segments naming a python file from the repo root —
-# `REPO / "learn" / "redact.py"`, `Path(__file__).resolve().parents[1] / "wrappers" /
-# "jsonl_lines.py"`; SIBLING, one segment after `.parent`, resolved in the loader's own
+# CHAIN, two or more segments, or one segment holding `/`-separated components, naming a
+# python file from the repo root — `REPO / "learn" / "redact.py"`,
+# `Path(__file__).resolve().parents[1] / "wrappers" / "jsonl_lines.py"`,
+# `release / "compose/app_desktop/server.py"`; SIBLING, one segment after `.parent`, resolved in the loader's own
 # directory — `pathlib.Path(__file__).resolve().parent / "jsonl_lines.py"`. They are read
 # from the parsed module, so a comment or a docstring that shows such a path is not one.
 def path_loads(text):
@@ -462,7 +468,7 @@ def path_loads(text):
             base = base.left
         if not segments or not segments[-1].endswith(".py"):
             continue
-        if len(segments) > 1:
+        if len(segments) > 1 or "/" in segments[0]:  # also one constant root-relative path: release / "a/b.py"
             chains.append("/".join(segments))
         elif isinstance(base, ast.Attribute) and base.attr == "parent":
             siblings.append(segments[0])
