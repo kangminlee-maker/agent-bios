@@ -145,6 +145,15 @@ PY
   # a shipped module loaded by path, which no import statement names
   fresh; dropline package.json '"wrappers/jsonl_lines.py"'
   case_is "a module loaded by path that files[] does not ship" "wrappers/jsonl_lines.py"
+  # ...and a module loaded from beside its loader is found by that load alone: with the two
+  # ../wrappers chains renamed away and the installer's deploy line dropped, the helper's
+  # sibling load still names it
+  fresh; dropline package.json '"wrappers/jsonl_lines.py"'
+  dropline install.sh 'wrappers/jsonl_lines.py'
+  sub compose/host_platform.py '"wrappers" / "jsonl_lines.py"' '"wrappers" / "jsonl_lines_gone.py"'
+  sub learn/migrate-learnings.py '"wrappers" / "jsonl_lines.py"' '"wrappers" / "jsonl_lines_gone.py"'
+  case_is "a module loaded from beside its loader that files[] does not ship" \
+          "wrappers/jsonl_lines.py   (referenced by wrappers/claude_hermetic_evidence.py)"
 
   fresh; printf '\ncat "$REPO/decisions/record-decision.py" >/dev/null\n' >> "$W/install.sh"
   case_is "an unguarded runtime reference to an author-side path" "no proven guard"
@@ -405,8 +414,11 @@ IMPORT = re.compile(r'^\s*(?:import\s+([a-z_][a-z0-9_]*)|from\s+([a-z_][a-z0-9_]
 # string segments joined with `/` — `REPO / "learn" / "redact.py"`,
 # `Path(__file__).resolve().parents[1] / "wrappers" / "jsonl_lines.py"` — and neither the
 # `$REPO/` scan nor the import walk sees it. Every such chain in a walked file that names
-# a python file of this repo is a runtime path too, walked like an import.
+# a python file of this repo is a runtime path too, walked like an import. A file loaded
+# from beside its loader — `pathlib.Path(__file__).resolve().parent / "jsonl_lines.py"` —
+# names one segment after `.parent`, resolved in the loader's own directory.
 CHAIN = re.compile(r'((?:"[A-Za-z0-9_.-]+"\s*/\s*)+"[A-Za-z0-9_.-]+\.py")')
+SIBLING = re.compile(r'\.parent\s*/\s*"([A-Za-z0-9_.-]+\.py)"')
 queue = [s for s in SOURCES if s.endswith(".py")] + [r for r in found if r.endswith(".py")]
 seen = set()
 while queue:
@@ -417,6 +429,11 @@ while queue:
     for m in CHAIN.finditer((REPO / rel).read_text(encoding="utf-8")):
         named = rel_key("/".join(re.findall(r'"([^"]+)"', m.group(1))))
         if named.split("/", 1)[0] in {p.name for p in REPO.iterdir() if p.is_dir()} and (REPO / named).is_file():
+            found.setdefault(named, set()).add(rel)
+            queue.append(named)
+    for m in SIBLING.finditer((REPO / rel).read_text(encoding="utf-8")):
+        named = rel_key(posixpath.join(posixpath.dirname(rel), m.group(1)))
+        if (REPO / named).is_file():
             found.setdefault(named, set()).add(rel)
             queue.append(named)
     for m in IMPORT.finditer((REPO / rel).read_text(encoding="utf-8")):
