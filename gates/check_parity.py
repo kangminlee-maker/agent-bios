@@ -3189,9 +3189,16 @@ def claude_run_hermetic(run):
             mark_fail("claude-run hermetic without its helper beside it did not fail naming the helper "
                       f"(exit {result.returncode}: {result.stderr.strip()[-200:]})")
         shutil.copy(helper, lonely / helper.name)
+        # the helper in turn resolves the JSONL splitter beside itself: without it, it fails naming it
+        result, got, _, _, _ = hermetic(*pinned_args, cell=new_cell(), adapter=lonely / "claude-run.sh")
+        if result.returncode == 0 or "jsonl_lines.py" not in result.stderr:
+            mark_fail("claude-run hermetic with its helper but not the JSONL splitter beside it did not fail naming "
+                      f"jsonl_lines.py (exit {result.returncode}: {result.stderr.strip()[-200:]})")
+        shutil.copy(helper.parent / "jsonl_lines.py", lonely / "jsonl_lines.py")
         result, got, _, _, _ = hermetic(*pinned_args, cell=new_cell(), adapter=lonely / "claude-run.sh")
         if result.returncode != 0 or got is None:
-            mark_fail("claude-run hermetic: a copy with its helper beside it does not run — the control above is vacuous")
+            mark_fail("claude-run hermetic: a copy with its helper and splitter beside it does not run — the controls "
+                      "above are vacuous")
 
         # --- done-when 2: declared instructions, by sha256 (O4) ---
         stage = tmp / "stage.md"

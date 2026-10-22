@@ -1889,9 +1889,8 @@ class Unswept(Exception):
 
 def documents_in(path):
     """Every JSON document in one file: a `.json` file holds one, a `.jsonl` file one per line."""
-    text = path.read_text(encoding="utf-8", errors="replace")
     if path.suffix == ".jsonl":
-        for number, raw in enumerate(records.jsonl_lines(text), 1):
+        for number, raw in enumerate(records.jsonl_read(path, errors="replace"), 1):
             if not raw.strip():
                 continue
             try:
@@ -1900,7 +1899,7 @@ def documents_in(path):
                 raise Unswept(f"UNSWEPT_RECORD {path}:{number}: {exc}") from exc
         return
     try:
-        yield json.loads(text)
+        yield json.loads(path.read_text(encoding="utf-8", errors="replace"))
     except ValueError as exc:
         raise Unswept(f"UNSWEPT_DOCUMENT {path}: {exc}") from exc
 
@@ -1974,6 +1973,15 @@ def self_test():
             got = str(exc)
         if got != [held]:
             failures.append(f"jsonl-line-separators-inside-a-string-read-whole (documents_in): {got!r}")
+        # a bare CR is JSON whitespace, which text-mode reading would turn into a line break; CRLF still ends a record
+        later = {"text": "after a bare CR"}
+        swept.write_bytes(("{\r" + json.dumps(held)[1:] + "\r\n" + json.dumps(later) + "\n").encode("utf-8"))
+        try:
+            got = list(documents_in(swept))
+        except Unswept as exc:
+            got = str(exc)
+        if got != [held, later]:
+            failures.append(f"jsonl-bare-cr-whitespace-and-crlf-read-whole (documents_in): {got!r}")
     # the home every control states, rather than the account this process happens to run under: the owner's own
     # home is masked wherever it stands, so a fixture that named a real one would answer differently per machine
     owner = "/Users/fixture-owner"

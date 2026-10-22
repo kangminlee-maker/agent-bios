@@ -823,6 +823,8 @@ cmd_install() {
   deploy_file "$REPO/wrappers/claude-run.sh" "$CLAUDE_DIR/bin/claude-run" "+x"
   # Its hermetic profile resolves this helper beside itself and nowhere else.
   deploy_file "$REPO/wrappers/claude_hermetic_evidence.py" "$CLAUDE_DIR/bin/claude_hermetic_evidence.py"
+  # ...and that helper resolves the one JSONL splitter beside itself and nowhere else.
+  deploy_file "$REPO/wrappers/jsonl_lines.py" "$CLAUDE_DIR/bin/jsonl_lines.py"
   migrate_user_presets || exit 1   # must precede the deploy below, which overwrites profiles.toml
   deploy_file "$REPO/launch/agent-launch.toml" "$LAUNCH_DIR/profiles.toml"
   deploy_file "$REPO/launch/agent-launch.zsh"   "$LAUNCH_DIR/shell.zsh"
@@ -1115,6 +1117,7 @@ PY
   # itself when the deploy failed is not checked at all.
   verify_present "$CLAUDE_DIR/bin/claude-run" || fail=1
   verify_present "$CLAUDE_DIR/bin/claude_hermetic_evidence.py" || fail=1
+  verify_present "$CLAUDE_DIR/bin/jsonl_lines.py" || fail=1
   verify_present "$CODEX_DIR/bin/codex_frame_filter.py" || fail=1
   # Then WHICH version landed, because this file is on the panel's dispatch path now and
   # an older copy would dispatch reviews that quietly emit nothing. The earlier check
@@ -1254,7 +1257,7 @@ cmd_uninstall() {
     # BACKUP_DIR is set only on the manifest path above.
     local p
     for p in "$CODEX_DIR/bin/codex-run" "$CODEX_DIR/bin/codex-helm" \
-             "$CLAUDE_DIR/bin/claude-run" "$CLAUDE_DIR/bin/claude_hermetic_evidence.py" \
+             "$CLAUDE_DIR/bin/claude-run" "$CLAUDE_DIR/bin/claude_hermetic_evidence.py" "$CLAUDE_DIR/bin/jsonl_lines.py" \
              "$LAUNCH_DIR/profiles.toml" "$LAUNCH_DIR/shell.zsh" "$BIN_DIR/agent-launch"; do
       [ -f "$p" ] && { run rm -f "$p"; [ "$DRY_RUN" = 1 ] || info "removed  $p"; }
     done

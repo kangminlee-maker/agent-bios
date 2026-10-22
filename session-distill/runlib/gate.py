@@ -1116,6 +1116,14 @@ def self_test():
         if read.frames != [held] or "capture/frames.jsonl" in read.unreadable:
             failures.append(f"jsonl-line-separators-inside-a-string-read-whole (Call._jsonl): frames {read.frames!r}, "
                             f"unreadable {read.unreadable}")
+        # a bare CR is JSON whitespace, which text-mode reading would turn into a line break; CRLF still ends a row
+        later = {"dir": "recv", "type": "response.completed"}
+        (pathlib.Path(td) / "capture" / "frames.jsonl").write_bytes(
+            ("{\r" + json.dumps(held)[1:] + "\r\n" + json.dumps(later) + "\n").encode("utf-8"))
+        read = Call(td)
+        if read.frames != [held, later] or "capture/frames.jsonl" in read.unreadable:
+            failures.append(f"jsonl-bare-cr-whitespace-and-crlf-read-whole (Call._jsonl): frames {read.frames!r}, "
+                            f"unreadable {read.unreadable}")
     # the capture's owner is read through its pure readers only (its context command starts codex)
     used = {n.attr for n in ast.walk(ast.parse(pathlib.Path(__file__).read_text(encoding="utf-8")))
             if isinstance(n, ast.Attribute) and isinstance(n.value, ast.Call) and getattr(n.value.func, "id", None) == "frame_owner"}

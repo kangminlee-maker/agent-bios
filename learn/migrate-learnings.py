@@ -75,9 +75,16 @@ def _load(name, filename):
     return module
 
 
-def load_jsonl_lines():
-    """learn/jsonl_lines.py's splitter: JSONL records end at "\n" only (single source)."""
-    return _load("jsonl_lines", "jsonl_lines.py").split
+def load_jsonl_read():
+    """wrappers/jsonl_lines.py's reader, in this package root: JSONL records end at "\n" only,
+    read from the file's bytes (single source)."""
+    path = REPO / "wrappers" / "jsonl_lines.py"
+    if not path.is_file():
+        die(f"the JSONL splitter is missing: {path}")
+    spec = importlib.util.spec_from_file_location("jsonl_lines", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.read
 
 
 def load_collect():
@@ -217,7 +224,7 @@ def prune_jsonl(jsonl, remove_ids, dry):
     if not jsonl.is_file():
         return 0
     kept, removed = [], 0
-    for line in load_jsonl_lines()(jsonl.read_text(encoding="utf-8")):
+    for line in load_jsonl_read()(jsonl):
         s = line.strip()
         if s:
             try:
@@ -332,7 +339,7 @@ def migrate(home, host, promotions, in_bundle, collect, dry=False, instructions_
     jsonl = home / "personal" / "learnings.jsonl"
     local_ids = set()
     if jsonl.is_file():
-        for line in load_jsonl_lines()(jsonl.read_text(encoding="utf-8")):
+        for line in load_jsonl_read()(jsonl):
             s = line.strip()
             if not s:
                 continue
@@ -713,12 +720,25 @@ def _self_test():
     pruned = prune_jsonl(sep_dir / "learnings.jsonl", {L["core"]}, dry=False)
     checks.append(("jsonl-line-separators-inside-a-string-read-whole (prune_jsonl): the kept record is byte for byte",
                    pruned == 1 and (sep_dir / "learnings.jsonl").read_text(encoding="utf-8") == kept_line + "\n"))
+    # a bare CR is JSON whitespace, which text-mode reading would turn into a line break; a CRLF record stays CRLF
+    cr_line = "{\r" + json.dumps(rec(L["off"], "office-work"))[1:]
+    (sep_dir / "learnings.jsonl").write_bytes((cr_line + "\r\n" + json.dumps(rec(L["core"], "core")) + "\n").encode("utf-8"))
+    pruned = prune_jsonl(sep_dir / "learnings.jsonl", {L["core"]}, dry=False)
+    checks.append(("jsonl-bare-cr-whitespace-and-crlf-read-whole (prune_jsonl): the kept record is byte for byte",
+                   pruned == 1 and (sep_dir / "learnings.jsonl").read_bytes() == (cr_line + "\r\n").encode("utf-8")))
     home = seed_claude()
     jsonl = home / "personal" / "learnings.jsonl"
     jsonl.write_text("".join(json.dumps(dict(json.loads(line), lesson=sep), ensure_ascii=False) + "\n"
                              for line in jsonl.read_text(encoding="utf-8").split("\n") if line), encoding="utf-8")
     s = migrate(home, "claude", promos, make_in_bundle(["builder-base"]), collect)
     checks.append(("jsonl-line-separators-inside-a-string-read-whole (migrate): every record's id is held locally",
+                   s["removed"] == 2 and s["kept_not_in_bundle"] == 1))
+    home = seed_claude()
+    jsonl = home / "personal" / "learnings.jsonl"
+    jsonl.write_bytes("".join("{\r" + json.dumps(json.loads(line))[1:] + "\r\n"
+                              for line in jsonl.read_text(encoding="utf-8").split("\n") if line).encode("utf-8"))
+    s = migrate(home, "claude", promos, make_in_bundle(["builder-base"]), collect)
+    checks.append(("jsonl-bare-cr-whitespace-and-crlf-read-whole (migrate): every record's id is held locally",
                    s["removed"] == 2 and s["kept_not_in_bundle"] == 1))
 
     failed = [n for n, ok in checks if not ok]

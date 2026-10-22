@@ -426,14 +426,35 @@ def appended_prompts(requests, appended, passthrough):
     return out
 
 
+# The one JSONL splitter, beside this file and nowhere else, as this file is beside its adapter
+JSONL_LINES = pathlib.Path(__file__).resolve().parent / "jsonl_lines.py"
+_jsonl_lines = None
+
+
+def jsonl_split(text):
+    """`text` cut at "\n" only: a stream row may hold U+2028 or U+2029 raw inside a string, and a
+    bare CR is whitespace; neither ends it. A reader passes text decoded from the file's bytes,
+    since text-mode reading turns a bare CR into a line break first."""
+    global _jsonl_lines
+    if _jsonl_lines is None:
+        if not JSONL_LINES.is_file():
+            raise FileNotFoundError(f"the JSONL splitter is not beside this helper: {JSONL_LINES}")
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("agent_bios_jsonl_lines", JSONL_LINES)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        _jsonl_lines = module
+    return _jsonl_lines.split(text)
+
+
 def stream_mcp_servers(stream):
     """The MCP servers the host's stream `system/init` event names."""
     names = []
     try:
-        lines = pathlib.Path(stream).read_text(encoding="utf-8", errors="replace").splitlines()
+        text = pathlib.Path(stream).read_bytes().decode("utf-8", "replace")
     except OSError:
         return names
-    for line in lines:
+    for line in jsonl_split(text):
         try:
             obj = json.loads(line)
         except ValueError:
@@ -447,7 +468,7 @@ def result_object(stream):
     """The host's closing result object: the last `result` line of the stream, or the whole
     output when it is one JSON object (the json output format); None when there is none."""
     try:
-        text = pathlib.Path(stream).read_text(encoding="utf-8", errors="replace")
+        text = pathlib.Path(stream).read_bytes().decode("utf-8", "replace")
     except OSError:
         return None
     try:
@@ -457,7 +478,7 @@ def result_object(stream):
     if isinstance(whole, dict) and whole.get("type") == "result":
         return whole
     found = None
-    for line in text.splitlines():
+    for line in jsonl_split(text):
         try:
             obj = json.loads(line)
         except ValueError:
@@ -805,6 +826,22 @@ def self_test():
         control("listing-names-the-working-directory-files", listing(cwd) == [{"path": "note.txt", "sha256": sha256("n")}])
         stream.write_text("not json\n", encoding="utf-8")
         control("no-result-line-is-none", result_object(stream) is None)
+        # a stream row ends at "\n" only: the host writes U+2028 and U+2029 raw inside a string, and
+        # a bare CR between tokens is JSON whitespace; neither ends the row
+        sep = "before\u2028between\u2029after"
+        init = {"type": "system", "subtype": "init", "cwd": sep, "mcp_servers": [{"name": "fixture-server"}]}
+        closing = {"type": "result", "subtype": "success", "result": sep}
+        stream.write_bytes((json.dumps(init, ensure_ascii=False) + "\n" + json.dumps(closing, ensure_ascii=False) + "\n")
+                           .encode("utf-8"))
+        control("jsonl-line-separators-inside-a-string-read-whole (stream_mcp_servers)",
+                stream_mcp_servers(stream) == ["fixture-server"], str(stream_mcp_servers(stream)))
+        control("jsonl-line-separators-inside-a-string-read-whole (result_object)", result_object(stream) == closing,
+                str(result_object(stream)))
+        stream.write_bytes(("{\r" + json.dumps(init)[1:] + "\r\n" + "{\r" + json.dumps(closing)[1:] + "\n").encode("utf-8"))
+        control("jsonl-bare-cr-whitespace-and-crlf-read-whole (stream_mcp_servers)",
+                stream_mcp_servers(stream) == ["fixture-server"], str(stream_mcp_servers(stream)))
+        control("jsonl-bare-cr-whitespace-and-crlf-read-whole (result_object)", result_object(stream) == closing,
+                str(result_object(stream)))
 
         # a request chain the transcript cannot resolve, and a transcript that is not JSON lines:
         # each is recorded by name and leaves no context to be read as clean

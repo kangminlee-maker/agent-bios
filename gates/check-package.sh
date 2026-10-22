@@ -142,6 +142,10 @@ PY
   printf '\ncat "$REPO/compose/probe-selftest.py" >/dev/null\n' >> "$W/install.sh"
   case_is "a runtime path missing from files[]" "not in package.json files"
 
+  # a shipped module loaded by path, which no import statement names
+  fresh; dropline package.json '"wrappers/jsonl_lines.py"'
+  case_is "a module loaded by path that files[] does not ship" "wrappers/jsonl_lines.py"
+
   fresh; printf '\ncat "$REPO/decisions/record-decision.py" >/dev/null\n' >> "$W/install.sh"
   case_is "an unguarded runtime reference to an author-side path" "no proven guard"
 
@@ -397,6 +401,12 @@ if not MODULE_DIRS:
              "import walk below has nothing to resolve against and would pass vacuously")
 
 IMPORT = re.compile(r'^\s*(?:import\s+([a-z_][a-z0-9_]*)|from\s+([a-z_][a-z0-9_]*)\s+import)', re.M)
+# A module loaded by path (importlib's spec_from_file_location) is named by a chain of
+# string segments joined with `/` — `REPO / "learn" / "redact.py"`,
+# `Path(__file__).resolve().parents[1] / "wrappers" / "jsonl_lines.py"` — and neither the
+# `$REPO/` scan nor the import walk sees it. Every such chain in a walked file that names
+# a python file of this repo is a runtime path too, walked like an import.
+CHAIN = re.compile(r'((?:"[A-Za-z0-9_.-]+"\s*/\s*)+"[A-Za-z0-9_.-]+\.py")')
 queue = [s for s in SOURCES if s.endswith(".py")] + [r for r in found if r.endswith(".py")]
 seen = set()
 while queue:
@@ -404,6 +414,11 @@ while queue:
     if rel in seen or not (REPO / rel).exists():
         continue
     seen.add(rel)
+    for m in CHAIN.finditer((REPO / rel).read_text(encoding="utf-8")):
+        named = rel_key("/".join(re.findall(r'"([^"]+)"', m.group(1))))
+        if named.split("/", 1)[0] in {p.name for p in REPO.iterdir() if p.is_dir()} and (REPO / named).is_file():
+            found.setdefault(named, set()).add(rel)
+            queue.append(named)
     for m in IMPORT.finditer((REPO / rel).read_text(encoding="utf-8")):
         mod = m.group(1) or m.group(2)
         for d in MODULE_DIRS:

@@ -9,9 +9,17 @@ becomes two halves that do not parse — read as unreadable, or dropped, or, in 
 reader that keeps what it cannot parse, rejoined with "\\n" in place of the
 character it lost.
 
-It lives in learn/ because shipped code reads JSONL too (learn/migrate-learnings.py)
-and shipped code may not import author-side code; session-distill/runlib reaches it
-through runlib/records.py, which loads it by path.
+It lives in wrappers/ because a reader of it is copied out of the package on its own:
+the compatibility install puts wrappers/claude_hermetic_evidence.py in the host's bin,
+and that helper finds this file beside itself and nowhere else, so the install puts
+this file beside it there too. Every other consumer loads it by path inside its own
+package root: compose/host_platform.py and learn/migrate-learnings.py as
+../wrappers/jsonl_lines.py, author-side session-distill/runlib through runlib/records.py.
+Shipped code may not import author-side code, so the owner is shipped.
+
+A reader takes the file's bytes and decodes them itself (`read`): text-mode reading
+turns a bare "\r", which JSON allows as whitespace between tokens, into a line break
+before any splitter sees it.
 
 This module has no side effects on import and is safe to load by path.
 """
@@ -27,3 +35,10 @@ def split(text):
     if parts and not parts[-1]:
         parts.pop()
     return parts
+
+
+def read(path, errors="strict"):
+    """The lines of the JSONL file at `path`: its bytes decoded as UTF-8 (`errors` as
+    bytes.decode takes it), then `split`."""
+    with open(path, "rb") as handle:
+        return split(handle.read().decode("utf-8", errors))

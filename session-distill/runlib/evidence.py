@@ -236,7 +236,7 @@ def load(run_dir, name, current=None):
     path = pathlib.Path(run_dir) / "evidence" / f"{name}.jsonl"
     if not path.is_file():
         return []
-    records_read = [json.loads(line) for line in records.jsonl_lines(path.read_text(encoding="utf-8")) if line.strip()]
+    records_read = [json.loads(line) for line in records.jsonl_read(path) if line.strip()]
     if current is False:
         return records_read
     want = projection.CURRENT if current is None else current
@@ -280,10 +280,20 @@ def self_test():
             got = load(run_dir, "f21", current=False)
         except ValueError as exc:
             got = str(exc)
-        finally:
-            (pathlib.Path(run_dir) / "evidence" / "f21.jsonl").unlink()  # the store the controls below read is the golden run's
         if got != [held]:
             failures.append(f"jsonl-line-separators-inside-a-string-read-whole (load): {got!r}")
+        # a bare CR is JSON whitespace, which text-mode reading would turn into a line break; CRLF still ends a record
+        later = {"evidence_id": "f21b", "redacted_text": "after a bare CR"}
+        (pathlib.Path(run_dir) / "evidence" / "f21.jsonl").write_bytes(
+            ("{\r" + json.dumps(held)[1:] + "\r\n" + json.dumps(later) + "\n").encode("utf-8"))
+        try:
+            got = load(run_dir, "f21", current=False)
+        except ValueError as exc:
+            got = str(exc)
+        finally:
+            (pathlib.Path(run_dir) / "evidence" / "f21.jsonl").unlink()  # the store the controls below read is the golden run's
+        if got != [held, later]:
+            failures.append(f"jsonl-bare-cr-whitespace-and-crlf-read-whole (load): {got!r}")
 
         # positive controls: a quote read out of a window verifies, stores, resolves, and opens at its source
         record = from_view(run_dir, sha, human, quote)

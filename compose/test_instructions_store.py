@@ -333,6 +333,22 @@ class InstructionsStoreTest(unittest.TestCase):
         self.assertIn("new learning", emitted)
         self.assertNotIn("old learning", emitted)
 
+    def test_learning_events_hold_line_separators_and_bare_cr_whitespace(self) -> None:
+        # a learning event ends at "\n" only: the writer keeps U+2028 and U+2029 raw inside the
+        # lesson, and a bare CR between tokens is JSON whitespace; neither ends the event
+        self.store.install()
+        lesson = "before\u2028between\u2029after"
+        first = self.store.capture_learning("codex", self._learning(lesson, 1))
+        second = self.store.capture_learning("codex", self._learning("second lesson", 2))
+        source = self.store.user_root / "learnings" / "codex" / "events.jsonl"
+        lines = source.read_bytes().split(b"\n")
+        self.assertEqual(3, len(lines))
+        source.write_bytes(lines[0] + b"\n" + b"{\r" + lines[1][1:] + b"\r\n")
+        refs = {row["ref"] for row in self.store.list_items()}
+        for captured in (first, second):
+            self.assertIn(f"@local/learnings-codex:{captured['learning_id']}", refs)
+        self.assertEqual(lesson, self.store.show(f"@local/learnings-codex:{first['learning_id']}")["item"]["body"])
+
     def test_learning_sources_are_listed_and_support_show_edit_remove_recover(self) -> None:
         self.store.install()
         captured = self.store.capture_learning("codex", self._learning("first lesson", 1))

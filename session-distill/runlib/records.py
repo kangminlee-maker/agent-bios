@@ -39,17 +39,23 @@ if __package__ in (None, ""):  # run as a script: put session-distill/ on the im
 from runlib import stagelock
 
 
+JSONL_LINES = pathlib.Path(__file__).resolve().parents[2] / "wrappers" / "jsonl_lines.py"
+
+
 def _load_jsonl_lines():
-    """learn/jsonl_lines.py, loaded by path: the one JSONL splitter, shipped (learn/migrate-learnings.py
-    reads JSONL too) and imported here, never copied; runlib's readers reach it as records.jsonl_lines."""
-    spec = importlib.util.spec_from_file_location("agent_bios_jsonl_lines",
-                                                  pathlib.Path(__file__).resolve().parents[2] / "learn" / "jsonl_lines.py")
+    """wrappers/jsonl_lines.py, loaded by path from this checkout: the one JSONL splitter, shipped
+    (shipped readers use it too) and imported here, never copied; runlib's readers reach it as
+    records.jsonl_lines (a text) and records.jsonl_read (a file, its bytes decoded here)."""
+    if not JSONL_LINES.is_file():
+        raise FileNotFoundError(f"JSONL_SPLITTER_MISSING {JSONL_LINES}: the one JSONL splitter is not there")
+    spec = importlib.util.spec_from_file_location("agent_bios_jsonl_lines", JSONL_LINES)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
-    return module.split
+    return module
 
 
-jsonl_lines = _load_jsonl_lines()
+_jsonl = _load_jsonl_lines()
+jsonl_lines, jsonl_read = _jsonl.split, _jsonl.read
 
 # S0 is the declaration itself (run.json); these are the stages that read it and leave a record.
 STAGES = ("S1", "S2", "S3", "S4", "S5", "S6", "S7", "S7b", "S8", "S9", "S9b", "S10", "S10b", "S11", "S12")
@@ -135,7 +141,7 @@ def read_log(run_dir):
     if not path.is_file():
         return []
     try:
-        return [json.loads(line) for line in jsonl_lines(path.read_text(encoding="utf-8")) if line.strip()]
+        return [json.loads(line) for line in jsonl_read(path) if line.strip()]
     except ValueError as exc:
         raise Refused(f"RECORD_UNREADABLE {path}: {exc}") from exc
 
@@ -524,6 +530,15 @@ def self_test():
             got = str(exc)
         if got != [held]:
             failures.append(f"jsonl-line-separators-inside-a-string-read-whole (read_log): {got!r}")
+        # a bare CR is JSON whitespace, which text-mode reading would turn into a line break; CRLF still ends a record
+        later = {"seq": 1, "reason": "after a bare CR"}
+        amendments_path(td).write_bytes(("{\r" + json.dumps(held)[1:] + "\r\n" + json.dumps(later) + "\n").encode("utf-8"))
+        try:
+            got = read_log(td)
+        except Refused as exc:
+            got = str(exc)
+        if got != [held, later]:
+            failures.append(f"jsonl-bare-cr-whitespace-and-crlf-read-whole (read_log): {got!r}")
 
     # stage records on real files under a scratch run directory
     with tempfile.TemporaryDirectory() as td:

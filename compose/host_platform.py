@@ -37,6 +37,36 @@ else:
                 os.lseek(fd, position, os.SEEK_SET)
 
 
+# wrappers/jsonl_lines.py, the package's one JSONL splitter, found inside this package root only
+JSONL_LINES = Path(__file__).resolve().parents[1] / "wrappers" / "jsonl_lines.py"
+_jsonl_lines = None
+
+
+def _jsonl():
+    global _jsonl_lines
+    if _jsonl_lines is None:
+        if not JSONL_LINES.is_file():
+            raise FileNotFoundError(f"the package's JSONL splitter is missing: {JSONL_LINES}")
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("agent_bios_jsonl_lines", JSONL_LINES)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        _jsonl_lines = module
+    return _jsonl_lines
+
+
+def jsonl_read(path: Path) -> list[str]:
+    """The lines of the JSONL file at `path` as wrappers/jsonl_lines.py reads them: its bytes decoded
+    as UTF-8, cut at "\n" only. A record may hold U+2028 or U+2029 raw inside a string, and a bare
+    CR is whitespace; neither ends it."""
+    return _jsonl().read(path)
+
+
+def jsonl_split(text: str) -> list[str]:
+    """`text` cut at "\n" only, by the same splitter as jsonl_read."""
+    return _jsonl().split(text)
+
+
 def cli_argv(root: Path, *args: str) -> list[str]:
     if WINDOWS:
         return python_argv(root / 'compose/native_cli.py', *args)

@@ -7,9 +7,9 @@ activation creates the per-session snapshot and pin.
 """
 from __future__ import annotations
 try:
-    from host_platform import WINDOWS, runtime_environment
+    from host_platform import WINDOWS, jsonl_read, jsonl_split, runtime_environment
 except ImportError:
-    from .host_platform import WINDOWS, runtime_environment
+    from .host_platform import WINDOWS, jsonl_read, jsonl_split, runtime_environment
 
 import argparse
 import base64
@@ -1347,7 +1347,7 @@ class InstructionsInstaller:
         events: list[dict[str, str]] = []
         seen: dict[str, str] = {}
         body = content.decode("utf-8")
-        for number, line in enumerate(body.splitlines(), 1):
+        for number, line in enumerate(jsonl_split(body), 1):
             if not line.strip():
                 continue
             try:
@@ -1380,7 +1380,7 @@ class InstructionsInstaller:
             needs_action.append(f"unsafe private {host} learning event symlink: {target}")
             return
         existing: dict[str, str] = {}
-        for number, line in enumerate(target.read_text(encoding="utf-8").splitlines(), 1):
+        for number, line in enumerate(jsonl_read(target), 1):
             if not line.strip():
                 continue
             try:
@@ -1648,7 +1648,7 @@ class InstructionsInstaller:
             self._event_destination_conflicts(host, events, conflicts)
             if conflicts:
                 raise InstallError("legacy learning transfer changed: " + "; ".join(conflicts))
-            lines = set(target.read_text(encoding="utf-8").splitlines())
+            lines = set(jsonl_read(target))
             missing = [event["learning_id"] for event in events if event["raw"] not in lines]
             if missing:
                 raise InstallError(f"legacy learning transfer changed: {target}: " + ", ".join(missing))
@@ -1720,7 +1720,7 @@ class InstructionsInstaller:
                             raise InstallError("; ".join(conflicts))
                         target = self.user_root / "learnings" / host / "events.jsonl"
                         self._safe_owned_path(target, self.user_root)
-                        prior = target.read_text(encoding="utf-8").splitlines() if target.is_file() else []
+                        prior = jsonl_read(target) if target.is_file() else []
                         known = {json.loads(line)["learning_id"] for line in prior if line.strip()}
                         additions = [event["raw"] for event in events if event["learning_id"] not in known]
                         if additions:
