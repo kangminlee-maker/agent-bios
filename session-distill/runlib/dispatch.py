@@ -65,7 +65,8 @@ never the call's receipt (plan addendum 2026-10-21T0630--0e0d27e--plan-addendum-
 Refused by name: RESERVATION_MISSING, CAP_MISSING, PROVIDER_DEFERRED, PACKET_REFUSED (with the
 linter's codes), CALIBRATION_PROVISIONAL, CALIBRATION_SERIAL, BUDGET_UNDECLARED, BUDGET_EXHAUSTED
 (the item recorded not_done), INPUT_BOUND_EXCEEDED and RUN_STOPPED, DRIVER_PART_UNCOUNTED,
-USAGE_INCOMPLETE, CAPACITY_UNDECLARED, CALL_EXISTS,
+DRIVER_PART_LENGTH_CONFLICT, APPENDED_PROMPT_PATH_FORM, APPENDED_PROMPT_UNDELIVERABLE,
+CAP_UNDELIVERABLE, USAGE_INCOMPLETE, CAPACITY_UNDECLARED, CALL_EXISTS,
 USAGE_UNCAPTURED, RECEIPT_MISSING, SEAT_UNPINNED, ALLOWANCE_UNMEASURED, ALLOWANCE_MISMATCH,
 WINDOW_OVER_BOUND, RUNNER_REALIZATION_MISMATCH, USE_REFUSED, CAP_UNDECLARED. CONTRACT names the sections; the self-test
 derives this set from the source and holds it, and this list, against its own cited copy. The
@@ -76,6 +77,7 @@ CLOSURE_IMPORTS_OUT_OF_SCOPE, DYNAMIC_LOAD_UNDECLARED and INVENTORY_STALE.
 """
 import ast
 import contextlib
+import inspect
 import json
 import math
 import os
@@ -242,6 +244,25 @@ def listing(cwd):
             for p in sorted(root.rglob("*")) if p.is_file()]
 
 
+# What each adapter can actually DELIVER to its host, read off the runner interfaces in `wrappers/`:
+# claude-run.sh takes `--max-output-tokens`, and under `--profile hermetic` an
+# `--append-system-prompt-file` with the `--declared-sha256` it was declared at; codex-run.sh takes
+# neither - Codex has no output cap (design §3.2) and no appending flag. A call that declares what its
+# adapter cannot carry is refused rather than recorded: a reservation the host is never told is not a
+# reservation, and a prompt that is recorded and not sent fails the gate's effective-context leg after
+# the call is paid for (BB#2, BB#4). Each entry names the flag that carries it and the runner profile it
+# needs, which is what the self-test holds against the wrapper scripts themselves.
+ADAPTER_CONVEYS = {"claude": {"output_cap": ("--max-output-tokens", None),
+                              "appended_prompts": ("--append-system-prompt-file", "hermetic")},
+                   "codex": {}}
+
+
+def adapter_conveys(host, runner_profile):
+    """What `host`'s adapter can deliver for a call launched under `runner_profile`."""
+    return {name for name, (_flag, needs) in (ADAPTER_CONVEYS.get(host) or {}).items()
+            if needs is None or needs == runner_profile}
+
+
 def runner_argv(host, spec):
     """The runner's argv for one call, in the adapters' interfaces: claude-run's as its --help states
     it ("A dispatcher calls one hermetic Claude call as", plan WP-03), the pinned host binary and
@@ -250,11 +271,25 @@ def runner_argv(host, spec):
     output-token cap reach claude-run only: codex-run has no producing profile and no output cap
     (Codex has none, design §3.2), so a cap declared for a Codex call is recorded and not passed."""
     argv = [str(RUNNERS[host]), "--profile", spec["profile"], "--model", spec["model"], "--effort", spec["effort"]]
+    conveys = adapter_conveys(host, spec["profile"])
+    # the admission boundary has already refused such a call; this is the second place the same fact is kept,
+    # so a spec that reached here with an undeliverable declaration cannot be launched without it. A cap on a
+    # call that carries no view window is recorded and not passed, as it always was - the reservation of
+    # check (d) is the only thing the host must be told.
+    for code, name, declared in (("APPENDED_PROMPT_UNDELIVERABLE", "appended_prompts", bool(spec.get("appended_prompts"))),
+                                 ("CAP_UNDELIVERABLE", "output_cap", bool(spec.get("view_window")))):
+        if declared and name not in conveys:
+            raise Refused(f"{code} {spec['call_id']}: {host}'s adapter under profile {spec['profile']!r} carries no "
+                          f"{ADAPTER_CONVEYS.get(host, {}).get(name, ('flag for it',))[0]}")
     if host == "codex":
         return argv + ["--cd", spec["workdir"]] + (["--schema", spec["schema_path"]] if spec.get("schema_path") else []) + ["-"]
     argv += ["--cell-root", str(pathlib.Path(spec["cell"]).parent), "--call-id", spec["call_id"], "--cd", spec["workdir"],
              "--claude-bin", spec["host_bin"], "--host-version", spec["host_version"],
              "--max-output-tokens", str(spec["max_output_tokens"])]
+    for prompt in spec.get("appended_prompts") or []:
+        # the file holds the exact bytes admission counted, and the hash is the one the call record carries,
+        # so the adapter's own check compares the delivered bytes with the declaration (BB#2)
+        argv += ["--append-system-prompt-file", prompt["path"], "--declared-sha256", prompt["sha256"]]
     if spec.get("schema_path"):
         argv += ["--schema", spec["schema_path"]]
     if spec["use"] == "producing":
@@ -433,19 +468,32 @@ class Supervisor:
         declaration has reached at this moment, because that is what the recovery rule compares against.
         There is no second file beside this:
         the stop is written here and read in `_stopped`, so the record a run recovers from is the record it
-        stopped on (the seam record of 2026-10-22)."""
-        with self._lock():
-            ledger = self.ledger()
-            if entry.get("code") == bound.STOP_CODE:
-                # BA#0: the sequence recovery is measured from is the latest the declaration has reached
-                # HERE, with the stop - not the one the call was reserved under. An amendment that landed
-                # while the call was still running was recorded before anybody knew the host had changed.
-                run, _digest, amendments = records.declaration_state(self.run_dir, who="dispatch")
-                entry = bound.committed(entry, max([run["declaration_seq"]]
-                                                   + [a["seq"] for a in amendments if isinstance(a.get("seq"), int)]))
-            ledger["stopped"] = {"at": self.clock(), **entry}
-            self._write(ledger)
-            return ledger["stopped"]
+        stopped on (the seam record of 2026-10-22).
+
+        **The lock order in this module is the declaration lock, then the supervisor's**, and a bound stop is
+        the one place that takes both. It has to: the sequence the stop is stamped with must be the latest the
+        declaration has reached, and that cannot be read from outside the lock `declare --amend` commits
+        under. Read from outside it, an amendment that committed a moment earlier would stamp the stop with a
+        sequence its own amendment then lifts, and an amendment caught between its log line and its run.json
+        would make the read fail DECLARATION_DRIFT instead of waiting (BB#0). Every other site here only
+        READS the declaration, under the supervisor's lock alone, and a read that lands mid-commit is refused
+        by name rather than believed - so no site takes the two in the other order, and this one cannot
+        deadlock against them."""
+        bound_stop = entry.get("code") == bound.STOP_CODE
+        with (stagelock.hold(self.run_dir, "declaration", wait_s=LOCK_WAIT_S) if bound_stop
+              else contextlib.nullcontext()):
+            with self._lock():
+                ledger = self.ledger()
+                if bound_stop:
+                    # BA#0: the sequence recovery is measured from is the latest the declaration has reached
+                    # HERE, with the stop - not the one the call was reserved under. An amendment that landed
+                    # while the call was still running was recorded before anybody knew the host had changed.
+                    run, _digest, amendments = records.declaration_state(self.run_dir, who="dispatch")
+                    entry = bound.committed(entry, max([run["declaration_seq"]]
+                                                       + [a["seq"] for a in amendments if isinstance(a.get("seq"), int)]))
+                ledger["stopped"] = {"at": self.clock(), **entry}
+                self._write(ledger)
+                return ledger["stopped"]
 
     # --- one call ----------------------------------------------------------------------------
 
@@ -497,7 +545,7 @@ class Supervisor:
             if problems:
                 raise Refused(f"PACKET_REFUSED {call_id}: " + "; ".join(problems))
             admitted = self._admit_seat(stage, seat, call_id, host, host_version, profile, view_window, packet,
-                                        schema_bytes, manifest, max_output_tokens)
+                                        schema_bytes, manifest, max_output_tokens, runner_profile)
             self._admit_runner(call_id, host)
         except Refused:
             self.release(stage, call_id, "refused")
@@ -533,6 +581,17 @@ class Supervisor:
                     shutil.copytree(read_root, cell / "cwd", dirs_exist_ok=True)
                     manifest.update(workdir_path=str(cell / "cwd"), workdir_files=listing(cell / "cwd"))
                 (call_dir / "packet.md").write_bytes(packet)
+                # the declared appended prompts, delivered: the bytes admission counted are written out of
+                # the snapshot and handed to the adapter with the sha256 they were declared at, so what the
+                # host receives, what the record carries and what was counted are the same bytes (BB#2)
+                delivered = []
+                for n, snapshot in enumerate(admitted["snapshots"].get("appended_prompts") or [], 1):
+                    name = re.sub(r"[^A-Za-z0-9._-]", "_", snapshot.get("name") or f"prompt-{n}")
+                    path = stagelock.confine(self.run_dir, call_dir / "appended" / f"{n:02d}-{name}")
+                    path.parent.mkdir(exist_ok=True)
+                    path.write_bytes(snapshot["body"])
+                    delivered.append({"name": snapshot.get("name") or f"prompt-{n}", "path": str(path),
+                                      "sha256": snapshot["sha256"], "bytes": snapshot["bytes"]})
                 if schema_bytes is not None:
                     (call_dir / "schema.json").write_bytes(schema_bytes)
                 if contract is not None:
@@ -559,6 +618,7 @@ class Supervisor:
                         "schema_path": str(call_dir / "schema.json") if schema_bytes is not None else None,
                         "cell": str(cell), "capture": str(capture), "caps": caps, "use": use,
                         "read_root": manifest["workdir_path"] if use == "producing" else None, "max_output_tokens": max_output_tokens,
+                        "view_window": bool(view_window), "appended_prompts": delivered,
                         "flags_sha256": gate.pinned_flags_sha256(host, host_version, profile)}
                 env = {k: v for k, v in self.env.items() if k != "REVIEW_CRITERION_SCHEMA"}
                 # a receipt the runner writes for itself is capture evidence, never the call's receipt (addendum)
@@ -682,14 +742,18 @@ class Supervisor:
                           f"a live call runs only the pinned runner, any other runner only under golden")
 
     def _admit_seat(self, stage, seat, call_id, host, host_version, profile, view_window, packet,
-                    schema_bytes, manifest=None, max_output_tokens=None):
+                    schema_bytes, manifest=None, max_output_tokens=None, runner_profile=None):
         """The seat must be one the run declares for the stage, or one seats.json pins for it
         (design §4). A view-window call also needs its host allowance: measured for this host
         version and profile in seats.json, declared for the seat in run.json with the same value,
         host version and flag set, and leaving room for the driver's part — the UTF-8 bytes of
         the packet, the schema and whatever the call's manifest declares it carries, each token
         covering at least one byte — under the bound `runlib/bound.py` owns (the input-bound
-        amendment record, and the seam record of 2026-10-22)."""
+        amendment record, and the seam record of 2026-10-22).
+
+        Every declared part is read once here, and what this call declares must be something its adapter
+        can carry: an appended prompt the host cannot be sent, or an output cap it cannot be told, is
+        refused by name rather than recorded (BB#1, BB#2, BB#4)."""
         run, _digest, _amendments = records.declaration_state(self.run_dir, who="dispatch")
         held = gate.seats(self.seats_path)
         declared = {v for k, v in run["seats"].items() if k == stage or k.startswith(f"{stage}.")}
@@ -700,13 +764,29 @@ class Supervisor:
         # the call's own manifest declares it carries. The host's builtin context is not here - that is the
         # measured allowance, and counting it twice would charge the same tokens to both sides. Counted for
         # every call, window or not, because the record keeps it either way.
-        driver, uncounted = bound.driver_bytes(packet, schema_bytes, manifest)
-        evidence, uncounted_evidence = bound.declared_evidence(manifest)
-        if uncounted or uncounted_evidence:
-            raise Refused(f"DRIVER_PART_UNCOUNTED {call_id}: " + "; ".join(uncounted or uncounted_evidence))
-        admitted = {"driver_bytes": driver, "declared": evidence}
+        # ... read ONCE: the count, the evidence the record carries and the bytes the adapter delivers are
+        # three views of one snapshot, not three reads of a file that can move between them (BB#1)
+        driver, evidence, snapshots, problems = bound.admitted_parts(packet, schema_bytes, manifest)
+        if problems:
+            raise Refused(f"{problems[0].split()[0]} {call_id}: " + "; ".join(problems))
+        admitted = {"driver_bytes": driver, "declared": evidence, "snapshots": snapshots}
+        # what this call declares must be something its adapter can carry. A declaration the host never
+        # receives is not a declaration: it is a record of an intention, and the gate judges the call
+        # against it afterwards (BB#2, BB#4).
+        conveys = adapter_conveys(host, runner_profile)
+        if snapshots.get("appended_prompts") and "appended_prompts" not in conveys:
+            raise Refused(f"APPENDED_PROMPT_UNDELIVERABLE {call_id}: {len(snapshots['appended_prompts'])} appended "
+                          f"system prompt(s) are declared, and {host}'s adapter under profile {runner_profile!r} has "
+                          f"no way to send them; a prompt that is recorded and not sent fails the call's own "
+                          f"effective-context check")
         if not view_window:
             return admitted
+        # (d) reserves output tokens on the seat's context, so the host has to be TOLD the cap. An adapter
+        # that cannot convey it leaves the reservation on the driver's side alone, which reserves nothing.
+        if "output_cap" not in conveys:
+            raise Refused(f"CAP_UNDELIVERABLE {call_id}: {host}'s adapter under profile {runner_profile!r} cannot "
+                          f"convey an output-token cap, so the {max_output_tokens} tokens check (d) reserves would "
+                          f"never be reserved at the host; no view-window call runs on it")
         slot = (((held["hosts"].get(host) or {}).get("host_allowance") or {}).get(profile)
                 if (held["hosts"].get(host) or {}).get("version") == host_version else None)
         if not slot or slot.get("measured") is not True or not isinstance(slot.get("allowance_tokens"), int):
@@ -1343,6 +1423,12 @@ model, effort = spec["model"], spec["effort"]
 # codex-cli 0.163.0 loads its four built-in skills under any profile, and its capture names them
 context = {"instructions": [], "appended_prompts": [], "agents": [], "hooks": [],
            "skills": ["imagegen", "openai-docs", "skill-creator", "skill-installer"] if host == "codex" else []}
+# the appended system prompts the adapter was handed: reported by the sha256 of the bytes THIS process
+# read from the delivered file, which is what makes the gate's effective-context leg a delivery check
+for n, prompt in enumerate(spec.get("appended_prompts") or [], 1):
+    body = pathlib.Path(prompt["path"]).read_bytes()
+    context["appended_prompts"].append({"name": prompt["name"], "sha256": hashlib.sha256(body).hexdigest(),
+                                        "declared_sha256": prompt["sha256"], "source": "declared"})
 if spec.get("env_seen"):  # the adapter calling convention, as the runner received it
     pathlib.Path(spec["env_seen"]).write_text(json.dumps({k: os.environ.get(k) for k in (
         "REVIEW_CALL_ID", "DISTILL_CALL_ID", "CODEX_RUN_BIN", "CODEX_RUN_VERSION")}))
@@ -1394,6 +1480,10 @@ if host == "claude":
     emit = lambda obj: stream.write(json.dumps(obj) + "\n")
     usage = {"input_tokens": 2, "cache_read_input_tokens": 90000 if mode in ("big-first-request", "capped-escaped-holder") else 2800,
              "cache_creation_input_tokens": 350}
+    if spec.get("replay"):  # a retained call's observed input, replayed: the number is evidence, not a choice
+        row = json.loads(pathlib.Path(spec["replay"]).read_text())["requests"][-1]
+        usage = {"input_tokens": row["input_tokens"] - row["cached_tokens"],
+                 "cache_read_input_tokens": row["cached_tokens"], "cache_creation_input_tokens": 0}
     emit({"type": "system", "subtype": "status", "status": "requesting"})
     log.write(json.dumps({"type": "api-request", "timestamp": iso(time.time())}) + "\n")
     rid = "req_" + uuid.uuid4().hex[:12]
@@ -1419,8 +1509,9 @@ if host == "claude":
             time.sleep(0.05)
         time.sleep(60)
     base = {"type": "result", "session_id": sid, "safety_stops": 0, "stop_reason": "end_turn", "result": "",
-            "modelUsage": {model: {"inputTokens": 2, "outputTokens": 61, "cacheReadInputTokens": 2800,
-                                   "cacheCreationInputTokens": 350}}}
+            "modelUsage": {model: {"inputTokens": usage["input_tokens"], "outputTokens": 61,
+                                   "cacheReadInputTokens": usage["cache_read_input_tokens"],
+                                   "cacheCreationInputTokens": usage["cache_creation_input_tokens"]}}}
     if mode == "cap-overrun":  # Claude Code 2.1.304 past --max-output-tokens (WP-03v dw5, cap16)
         cap = spec.get("overrun_at", spec["max_output_tokens"])
         result = {**base, "subtype": "success", "is_error": True, "api_error": "max_output_tokens", "api_error_status": None,
@@ -1599,8 +1690,15 @@ def self_test(scratch=None):
 
     astra = "codex:gpt-6-astra/xhigh"
     codex_flags = gate.pinned_flags_sha256("codex", "0.163.0", "hermetic")
+    # Every view-window control below runs on a CLAUDE seat, because a view-window call is admitted only on
+    # a host whose adapter can convey the cap check (d) reserves, and codex-run conveys none (BB#4). S3's
+    # seat is the one seats.json declares a host-reported capacity for; its allowance is read from the same
+    # file the admission reads, never copied, so re-measuring preflight cannot leave this test behind.
+    vseat, vstage = "claude:claude-sonnet-5-5/xhigh", "S3"
+    claude_flags = gate.pinned_flags_sha256("claude", "2.1.304", "hermetic")
+    claude_allowance = gate.seats()["hosts"]["claude"]["host_allowance"]["hermetic"]["allowance_tokens"]
 
-    def run_dir(name, per_stage, allowance=None):
+    def run_dir(name, per_stage, allowance=None, window_allowance=None):
         directory = scratch / name
         directory.mkdir()
         run = declare.fixture()
@@ -1609,6 +1707,8 @@ def self_test(scratch=None):
         run["seats"].update({"S6.judge": judge, "S6.luna": luna, "S7": judge, "S8": judge, "S9": judge})
         if allowance is not None:
             run["host_allowance"][astra] = {"allowance_tokens": allowance, "host_version": "0.163.0", "flag_set_sha256": codex_flags}
+        run["host_allowance"][vseat] = {"allowance_tokens": claude_allowance if window_allowance is None else window_allowance,
+                                        "host_version": "2.1.304", "flag_set_sha256": claude_flags}
         declare.create(directory, run)
         return directory
 
@@ -2337,28 +2437,32 @@ def self_test(scratch=None):
     seed = usages.totals(json.loads((gate.FIXTURES / "claude-runner" / "acc-clean-001" / "usage.json").read_text()))["measured"]
     control("claude-seed-is-the-replayed-probe-call", seed == SEEDS["claude"]["tokens"], f"{seed}")
 
-    # window scope: probe 7's R-authoring call (about 136k input) replayed through the dispatcher
+    # window scope: probe 7's R-authoring call (about 136k input) replayed through the dispatcher. The
+    # non-window half stays on the Codex seat it was captured from; the window half runs on the Claude seat,
+    # the only kind a view-window call is admitted on, with the same retained observation replayed.
     replay = str(gate.FIXTURES / "reconstruction" / "author-full-astra" / "requests.json")
-    authoring = {class_key("S7b", astra, "authoring"): [170_000, 175_000, 178_134, 180_000, 182_000]}
+    authoring = {class_key("S7b", astra, "authoring"): [170_000, 175_000, 178_134, 180_000, 182_000],
+                 class_key(vstage, vseat, "authoring"): [170_000, 175_000, 178_134, 180_000, 182_000]}
     for view, name in ((False, "run-r"), (True, "run-s3")):
-        dv = run_dir(name, {"S7b": 2_000_000}, allowance=4000)
+        stage, seat = (vstage, vseat) if view else ("S7b", astra)
+        dv = run_dir(name, {stage: 2_000_000}, allowance=4000)
         sv = counted(supervisor(dv, "clean", seats_path=measured_seats, replay=replay))
         sv.seed_from(authoring)
-        later = sv.reserve("S7b", "reserved-before", astra, "authoring")  # reserved before the run stops
-        rv = sv.reserve("S7b", "author", astra, "authoring")
-        pv = packets.build(rv["call_id"], "S7b", astra, "Author the record.\n", None)
-        got = refusal(sv.call, "S7b", astra, pv, None, reservation=rv, caps={"tokens": 400_000, "compactions": 2},
-                      view_window=view, **({"max_output_tokens": 32_000} if view else {}))
+        later = sv.reserve(stage, "reserved-before", seat, "authoring")  # reserved before the run stops
+        rv = sv.reserve(stage, "author", seat, "authoring")
+        pv = packets.build(rv["call_id"], stage, seat, "Author the record.\n", None)
+        got = refusal(sv.call, stage, seat, pv, None, reservation=rv, caps={"tokens": 400_000, "compactions": 2},
+                      view_window=view, max_output_tokens=32_000)
         if not view:
             verdict = gate.accept(dv / "calls" / rv["call_id"])
             control("authoring-call-without-a-view-window-accepted", got is None and verdict["ok"], f"{got} {verdict['failures']}")
         else:
             control("view-window-call-past-the-bound-stops-the-run", (got or "").startswith(f"INPUT_BOUND_EXCEEDED {rv['call_id']}: "
                     "a view-window call read 135796"), f"{got}")
-            control("stopped-run-dispatches-nothing", (refusal(sv.reserve, "S7b", "next", astra, "authoring") or "")
+            control("stopped-run-dispatches-nothing", (refusal(sv.reserve, stage, "next", seat, "authoring") or "")
                     .startswith("RUN_STOPPED INPUT_BOUND_EXCEEDED"), "dispatched after the run stopped")
             before = list(launches)
-            got = refusal(sv.call, "S7b", astra, packets.build(later["call_id"], "S7b", astra, "Author the record.\n", None), None,
+            got = refusal(sv.call, stage, seat, packets.build(later["call_id"], stage, seat, "Author the record.\n", None), None,
                           reservation=later, caps={"tokens": 400_000, "compactions": 2}, view_window=False)
             control("call-reserved-before-the-run-stopped-dispatches-nothing", (got or "").startswith("RUN_STOPPED INPUT_BOUND_EXCEEDED")
                     and launches == before and not (dv / "calls" / later["call_id"]).exists(), f"{got} {launches[len(before):]}")
@@ -2393,7 +2497,15 @@ def self_test(scratch=None):
                       ("measured-with-empty-basis", {"allowance_tokens": 4000, "measured": True, "basis": " "})):
         problem = allowance_slot_problem(slot)
         control(f"allowance-slot-{row}-refused", (problem or "").startswith("ALLOWANCE_SLOT_SHAPE"), f"{problem}")
-    da = run_dir("run-seats", {"S6": 400_000, "S3": 400_000, "S7b": 2_000_000}, allowance=4000)
+    da = run_dir("run-seats", {"S6": 400_000, "S3": 2_000_000, "S7b": 2_000_000}, allowance=4000)
+    # the Claude host's allowance, unmeasured and measured-with-a-number, as seats fixtures: the checkout's
+    # file carries a measured one, so the two refusals need declarations of their own
+    claude_unmeasured, claude_numbered = scratch / "seats-claude-unmeasured.json", scratch / "seats-claude-numbered.json"
+    for path, slot in ((claude_unmeasured, {"allowance_tokens": None, "measured": False, "basis": "unmeasured"}),
+                       (claude_numbered, {"allowance_tokens": claude_allowance, "measured": False, "basis": "a number nobody measured"})):
+        fixture_seats = json.loads(gate.SEATS.read_text(encoding="utf-8"))
+        fixture_seats["hosts"]["claude"]["host_allowance"]["hermetic"] = slot
+        path.write_text(json.dumps(fixture_seats), encoding="utf-8")
 
     def admitted(sup, stage, seat, view_window, size=None):
         r = sup.reserve(stage, f"seat-{len(ran)}", seat, "judge", tranche="calibration")
@@ -2409,26 +2521,31 @@ def self_test(scratch=None):
     control("seat-neither-declared-nor-pinned-refused", (got or "").startswith("SEAT_UNPINNED") and untouched, f"{got}")
     got, _untouched = admitted(plain, "S6", "codex:gpt-6-luna/medium", False)
     control("seat-pinned-by-design-section-4-admitted", got is None, f"{got}")
-    got, untouched = admitted(plain, "S7b", astra, True)
+    got, untouched = admitted(supervisor(da, seats_path=claude_unmeasured), vstage, vseat, True)
     control("view-window-call-without-a-measured-allowance-refused", (got or "").startswith("ALLOWANCE_UNMEASURED") and untouched,
             f"{got}")
-    unmeasured_seats = scratch / "seats-numbered-unmeasured.json"
-    held["hosts"]["codex"]["host_allowance"]["hermetic"].update(allowance_tokens=4000, measured=False)
-    unmeasured_seats.write_text(json.dumps(held), encoding="utf-8")
-    got, untouched = admitted(supervisor(da, seats_path=unmeasured_seats), "S7b", astra, True)
+    got, untouched = admitted(supervisor(da, seats_path=claude_numbered), vstage, vseat, True)
     control("allowance-with-a-number-but-not-measured-refused", (got or "").startswith("ALLOWANCE_UNMEASURED") and untouched,
             f"{got}")
-    mismatched = run_dir("run-allowance-mismatch", {"S7b": 2_000_000}, allowance=3999)
-    sm = supervisor(mismatched, seats_path=measured_seats)
-    rm = sm.reserve("S7b", "w", astra, "judge", tranche="calibration")
-    got = refusal(sm.call, "S7b", astra, packets.build(rm["call_id"], "S7b", astra, "x\n", None), None, reservation=rm,
+    mismatched = run_dir("run-allowance-mismatch", {vstage: 2_000_000}, window_allowance=claude_allowance - 1)
+    sm = supervisor(mismatched)
+    rm = sm.reserve(vstage, "w", vseat, "judge", tranche="calibration")
+    got = refusal(sm.call, vstage, vseat, packets.build(rm["call_id"], vstage, vseat, "x\n", None), None, reservation=rm,
                   caps=caps, view_window=True, max_output_tokens=32_000)
     control("declared-allowance-not-the-measured-one-refused", (got or "").startswith("ALLOWANCE_MISMATCH"), f"{got}")
-    got, _untouched = admitted(measured, "S7b", astra, True, size=bound.INPUT_BOUND - 4000)
+    got, _untouched = admitted(plain, vstage, vseat, True, size=bound.INPUT_BOUND - claude_allowance)
     control("window-at-the-bound-less-the-allowance-admitted", got is None, f"{got}")
-    got, untouched = admitted(measured, "S7b", astra, True, size=bound.INPUT_BOUND - 4000 + 1)
+    got, untouched = admitted(plain, vstage, vseat, True, size=bound.INPUT_BOUND - claude_allowance + 1)
     control("window-past-the-bound-less-the-allowance-refused", (got or "").startswith("WINDOW_OVER_BOUND") and untouched, f"{got}")
-    got, _untouched = admitted(measured, "S7b", astra, True)
+    # BB#4: and the same call on a host whose adapter cannot convey the cap is refused for that, whatever
+    # else is declared - the check sits before the allowance and the capacity, because a reservation the
+    # host is never told is not a reservation at all
+    got, untouched = admitted(measured, "S7b", astra, True)
+    control("a-view-window-call-on-a-host-whose-adapter-cannot-convey-the-cap-is-refused",
+            (got or "").startswith("CAP_UNDELIVERABLE") and "codex-run" not in (got or "") and untouched, f"{got}")
+    got, _untouched = admitted(measured, "S7b", astra, False)
+    control("a-non-window-call-on-the-same-host-is-still-admitted", got is None, f"{got}")
+    got, _untouched = admitted(plain, vstage, vseat, True)
     control("window-inside-the-bound-with-a-measured-allowance-admitted", got is None, f"{got}")
 
     # dispatch edges (N#5): the real closure is clean, and each planted edge is named by file and line
@@ -2820,19 +2937,19 @@ def self_test(scratch=None):
 
 
     # ---- BA#1: the seat's capacity is declared, not invented -------------------------------------
-    plain_capacity = run_dir("run-seam-no-capacity", {"S7b": 2_000_000}, allowance=4000)
+    plain_capacity = run_dir("run-seam-no-capacity", {vstage: 2_000_000})
     only_allowance = scratch / "seats-allowance-no-capacity.json"
     allow_held = json.loads(measured_seats.read_text(encoding="utf-8"))
     allow_held.pop("seat_capacity")
     only_allowance.write_text(json.dumps(allow_held), encoding="utf-8")
     sc = supervisor(plain_capacity, seats_path=only_allowance)
-    rc = sc.reserve("S7b", "no-capacity", astra, "judge", tranche="calibration")
-    got = refusal(sc.call, "S7b", astra, packets.build(rc["call_id"], "S7b", astra, "x\n", None), None,
+    rc = sc.reserve(vstage, "no-capacity", vseat, "judge", tranche="calibration")
+    got = refusal(sc.call, vstage, vseat, packets.build(rc["call_id"], vstage, vseat, "x\n", None), None,
                   reservation=rc, caps=caps, view_window=True, max_output_tokens=32_000)
     control("a-view-window-call-on-a-seat-with-no-declared-capacity-is-refused",
             (got or "").startswith("CAPACITY_UNDECLARED") and not (plain_capacity / "calls").exists(), f"{got}")
-    rc2 = sc.reserve("S7b", "no-capacity-non-window", astra, "judge", tranche="calibration")
-    got = refusal(sc.call, "S7b", astra, packets.build(rc2["call_id"], "S7b", astra, "x\n", None), None,
+    rc2 = sc.reserve(vstage, "no-capacity-non-window", vseat, "judge", tranche="calibration")
+    got = refusal(sc.call, vstage, vseat, packets.build(rc2["call_id"], vstage, vseat, "x\n", None), None,
                   reservation=rc2, caps=caps, view_window=False)
     control("a-non-window-call-on-the-same-seat-needs-no-capacity", got is None, f"{got}")
     for row, entry, why in (
@@ -2871,25 +2988,85 @@ def self_test(scratch=None):
             [{"name": "stage.md", "sha256": packets.sha256_bytes(prompt_text.encode("utf-8")),
               "bytes": len(prompt_text.encode("utf-8"))}],
             f"{recorded['manifest']['appended_prompts']}")
+    # BB#2: the prompt is DELIVERED, not only recorded. The bytes admission counted are written out of the
+    # snapshot, handed to the adapter with their declared sha256, read back by the host, and the gate's
+    # effective-context leg is what compares the two - so a prompt that never arrived cannot pass.
+    delivered_files = sorted((pd / "appended").glob("*"))
+    control("BB#2-the-counted-snapshot-is-what-the-adapter-is-handed",
+            [f.read_bytes() for f in delivered_files] == [prompt_text.encode("utf-8")]
+            and [packets.sha256_bytes(f.read_bytes()) for f in delivered_files]
+            == [r["sha256"] for r in recorded["manifest"]["appended_prompts"]],
+            f"{[f.name for f in delivered_files]}")
+    observed_prompts = json.loads((pd / "capture" / "host.json").read_text(encoding="utf-8"))["context"]["appended_prompts"]
+    control("BB#2-the-host-reports-the-delivered-bytes-under-the-declared-hash",
+            [o["sha256"] for o in observed_prompts] == [r["sha256"] for r in recorded["manifest"]["appended_prompts"]]
+            and [o["declared_sha256"] for o in observed_prompts] == [o["sha256"] for o in observed_prompts],
+            f"{observed_prompts}")
+    argv = runner_argv("claude", {"profile": "hermetic", "model": "m", "effort": "high", "cell": str(pd / "cell"),
+                                  "call_id": recorded["call_id"], "workdir": str(pd), "host_bin": "/bin/true",
+                                  "host_version": "2.1.304", "max_output_tokens": 4096, "use": "judge",
+                                  "view_window": False,
+                                  "appended_prompts": [{"name": "stage.md", "path": str(delivered_files[0]),
+                                                        "sha256": recorded["manifest"]["appended_prompts"][0]["sha256"]}]})
+    control("BB#2-the-pinned-adapter-argv-carries-the-file-and-the-hash-it-was-declared-at",
+            ["--append-system-prompt-file", str(delivered_files[0]), "--declared-sha256",
+             recorded["manifest"]["appended_prompts"][0]["sha256"]]
+            == argv[argv.index("--append-system-prompt-file"):argv.index("--append-system-prompt-file") + 4]
+            if "--append-system-prompt-file" in argv else False, f"{argv}")
+    for name, (flag, needs) in sorted(ADAPTER_CONVEYS["claude"].items()):
+        # the declaration is held against the adapter it describes: a flag claude-run.sh stops taking makes
+        # this fail here rather than at a launch
+        script = (RUNNERS["claude"]).read_text(encoding="utf-8") if RUNNERS["claude"].is_file() else ""
+        control(f"the-claude-adapter-really-takes-{flag}", flag in script, f"{RUNNERS['claude']}")
+        if needs:
+            control(f"the-claude-adapter-takes-{flag}-only-under-{needs}",
+                    f"applies only to --profile {needs}" in script or f"--profile {needs}" in script, f"{RUNNERS['claude']}")
+    codex_script = RUNNERS["codex"].read_text(encoding="utf-8") if RUNNERS["codex"].is_file() else ""
+    control("the-codex-adapter-takes-neither-the-cap-nor-an-appending-flag",
+            "--max-output-tokens" not in codex_script and "--append-system-prompt" not in codex_script,
+            f"{RUNNERS['codex']}")
     control("the-recorded-length-is-inside-the-counted-driver-payload",
             recorded["bound"]["driver_bytes"] >= len(prompt_text.encode("utf-8")) + len(
                 packets.build(rp["call_id"], "S6", judge, "Reply OK.\n", None)),
             f"{recorded['bound']['driver_bytes']}")
-    # the gate's context leg wants the prompt OBSERVED in the host's record too, and the golden fake host
-    # appends nothing - that pair is controlled in gate.py (`appended-prompt-declared-and-matching`). What
-    # this one holds is that the recorded shape itself passes every other leg.
-    control("a-call-carrying-an-appended-prompt-passes-every-gate-leg-but-the-unobserved-context",
-            [f for f in gate.accept(pd)["failures"] if "appended system prompt" not in f] == []
-            and any("appended system prompt" in f for f in gate.accept(pd)["failures"]),
-            f"{gate.accept(pd)['failures']}")
-    so = supervisor(run_dir("run-seam-prompt-oversized", {"S7b": 2_000_000}, allowance=4000),
-                    seats_path=measured_seats)
-    ro = so.reserve("S7b", "oversized", astra, "judge", tranche="calibration")
-    got = refusal(so.call, "S7b", astra, packets.build(ro["call_id"], "S7b", astra, "x\n", None), None,
+    # ... and the whole call passes the gate, context leg included: BA#2 could only show that the record's
+    # shape passed every OTHER leg, because nothing delivered the prompt and the context leg failed by design
+    control("BB#2-a-call-carrying-a-delivered-appended-prompt-is-accepted-by-the-gate",
+            gate.accept(pd)["ok"], f"{gate.accept(pd)['failures']}")
+    so = supervisor(run_dir("run-seam-prompt-oversized", {vstage: 2_000_000}))
+    ro = so.reserve(vstage, "oversized", vseat, "judge", tranche="calibration")
+    got = refusal(so.call, vstage, vseat, packets.build(ro["call_id"], vstage, vseat, "x\n", None), None,
                   reservation=ro, caps=caps, view_window=True, max_output_tokens=32_000,
-                  manifest={"appended_prompts": [{"name": "huge.md", "text": "P" * (bound.INPUT_BOUND - 4000)}]})
+                  manifest={"appended_prompts": [{"name": "huge.md", "text": "P" * (bound.INPUT_BOUND - claude_allowance)}]})
     control("an-oversized-appended-prompt-is-refused-before-dispatch",
             (got or "").startswith("WINDOW_OVER_BOUND") and "WINDOW_BOUND_EXCEEDED (a)" in (got or ""), f"{got}")
+    # BB#1: a prompt whose asserted length contradicts its content is refused by name, so no call is
+    # admitted on one length and recorded with another
+    rl = so.reserve(vstage, "conflicting-length", vseat, "judge", tranche="calibration")
+    got = refusal(so.call, vstage, vseat, packets.build(rl["call_id"], vstage, vseat, "x\n", None), None,
+                  reservation=rl, caps=caps, view_window=True, max_output_tokens=32_000,
+                  manifest={"appended_prompts": [{"name": "lying.md", "text": "P" * 130_000, "bytes": 1}]})
+    control("a-prompt-asserting-a-length-its-content-contradicts-is-refused",
+            (got or "").startswith("DRIVER_PART_LENGTH_CONFLICT") and "130000" in (got or ""), f"{got}")
+    # BB#3: and the path form is gone - an appended prompt is declared by content
+    rpp = so.reserve(vstage, "path-form", vseat, "judge", tranche="calibration")
+    (scratch / "path-form-prompt.md").write_text("declared by a path", encoding="utf-8")
+    got = refusal(so.call, vstage, vseat, packets.build(rpp["call_id"], vstage, vseat, "x\n", None), None,
+                  reservation=rpp, caps=caps, view_window=True, max_output_tokens=32_000,
+                  manifest={"appended_prompts": [{"name": "stage.md", "path": str(scratch / "path-form-prompt.md")}]})
+    control("an-appended-prompt-declared-by-path-is-refused-at-declaration",
+            (got or "").startswith("APPENDED_PROMPT_PATH_FORM"), f"{got}")
+    # BB#2: a host whose adapter cannot send it refuses by name rather than recording it
+    sq = supervisor(run_dir("run-seam-prompt-undeliverable", {"S7b": 2_000_000}, allowance=4000),
+                    seats_path=measured_seats)
+    rq = sq.reserve("S7b", "undeliverable", astra, "judge", tranche="calibration")
+    got = refusal(sq.call, "S7b", astra, packets.build(rq["call_id"], "S7b", astra, "x\n", None), None,
+                  reservation=rq, caps=caps, view_window=False,
+                  manifest={"appended_prompts": [{"name": "stage.md", "text": prompt_text}]})
+    control("an-appended-prompt-on-a-host-whose-adapter-cannot-send-it-is-refused",
+            (got or "").startswith("APPENDED_PROMPT_UNDELIVERABLE"), f"{got}")
+    control("the-undeliverable-prompt-left-no-call-record-to-judge-later",
+            not (sq.run_dir / "calls" / rq["call_id"]).exists(), "a call record was written for a prompt nobody sent")
 
     # ---- BA#5: the producer's guarantee, asserted on calls it just made --------------------------
     for label, call_dir, window in (("non-window", pd, False),):
@@ -2902,18 +3079,17 @@ def self_test(scratch=None):
                 and rec["bound"]["context_capacity"] is None and rec["bound"]["output_reservation"] is None
                 and rec["bound"]["stop_standing"] is False,
                 f"{rec.get('bound')}")
-    sw = counted(supervisor(run_dir("run-seam-window-record", {"S7b": 2_000_000}, allowance=4000),
-                            "clean", seats_path=measured_seats, replay=str(
-                                gate.FIXTURES / "codex-runner" / "acc-clean-001" / "requests.json")))
-    rw = sw.reserve("S7b", "window-record", astra, "judge", tranche="calibration")
-    wd = sw.call("S7b", astra, packets.build(rw["call_id"], "S7b", astra, "x\n", None), None, reservation=rw,
+    sw = counted(supervisor(run_dir("run-seam-window-record", {vstage: 2_000_000}), "clean"))
+    rw = sw.reserve(vstage, "window-record", vseat, "judge", tranche="calibration")
+    wd = sw.call(vstage, vseat, packets.build(rw["call_id"], vstage, vseat, "x\n", None), None, reservation=rw,
                  caps=caps, view_window=True, max_output_tokens=32_000)
     wrec = json.loads((wd / "call.json").read_text(encoding="utf-8"))
     control("a-new-window-call-records-the-complete-bound-block",
             sorted(wrec.get("bound") or {}) == ["context_capacity", "driver_bytes", "limit",
                                                 "output_reservation", "stop_standing"]
-            and wrec["bound"]["context_capacity"] == 200_000 and wrec["bound"]["output_reservation"] == 32_000
-            and wrec["bound"]["driver_bytes"] == len(packets.build(rw["call_id"], "S7b", astra, "x\n", None)),
+            and wrec["bound"]["context_capacity"] == gate.seat_capacity(vseat, "2.1.304")[0]
+            and wrec["bound"]["output_reservation"] == 32_000
+            and wrec["bound"]["driver_bytes"] == len(packets.build(rw["call_id"], vstage, vseat, "x\n", None)),
             f"{wrec.get('bound')}")
     control("a-call-record-with-the-bound-block-omitted-fails-the-producer-control",
             sorted({k: v for k, v in (wrec.get("bound") or {}).items() if k != "driver_bytes"})
@@ -2932,18 +3108,18 @@ def self_test(scratch=None):
     # allowance is re-measured and declared later than the excess recorded. The run below really overruns -
     # probe 7's R-authoring capture (about 136k observed input) replayed as a VIEW-WINDOW call - so the
     # record under test is one the dispatcher wrote, not one a control built.
-    rec = run_dir("run-seam-recovery", {"S7b": 2_000_000}, allowance=4000)
-    sr = counted(supervisor(rec, "clean", seats_path=measured_seats, replay=replay))
+    rec = run_dir("run-seam-recovery", {vstage: 2_000_000})
+    sr = counted(supervisor(rec, "clean", replay=replay))
     sr.seed_from(authoring)
     # an EARLIER host_allowance amendment: recorded before the excess, so it is not the way back (M4 v)
-    declare.amend(rec, [(f"host_allowance.{astra}.allowance_tokens", 4000)],
-                  "the allowance is re-declared before anything overruns", scope=("S7b",))
-    before = sr.reserve("S7b", "reserved-before", astra, "authoring")
-    rr = sr.reserve("S7b", "overrun", astra, "authoring")
+    declare.amend(rec, [(f"host_allowance.{vseat}.allowance_tokens", claude_allowance)],
+                  "the allowance is re-declared before anything overruns", scope=(vstage,))
+    before = sr.reserve(vstage, "reserved-before", vseat, "authoring")
+    rr = sr.reserve(vstage, "overrun", vseat, "authoring")
     # ... and one that lands between this call's reservation and its stop (BA#0)
-    declare.amend(rec, [(f"host_allowance.{astra}.allowance_tokens", 4000)],
-                  "the allowance is re-declared while the call is in flight", scope=("S7b",))
-    over = refusal(sr.call, "S7b", astra, packets.build(rr["call_id"], "S7b", astra, "Author the record.\n", None), None,
+    declare.amend(rec, [(f"host_allowance.{vseat}.allowance_tokens", claude_allowance)],
+                  "the allowance is re-declared while the call is in flight", scope=(vstage,))
+    over = refusal(sr.call, vstage, vseat, packets.build(rr["call_id"], vstage, vseat, "Author the record.\n", None), None,
                    reservation=rr, caps={"tokens": 400_000, "compactions": 2}, view_window=True,
                    max_output_tokens=32_000)
     control("the-replayed-overrun-stops-the-run-at-the-real-boundary",
@@ -2960,23 +3136,23 @@ def self_test(scratch=None):
             "a second record of the excess was written")
     # M4, the five steps. (i) a window call, (ii) a non-window call - both refused while the stop stands
     def seam_dispatch(label, view_window=True, reservation=None):
-        held_r = reservation or sr.reserve("S7b", f"after-{label}", astra, "authoring")
+        held_r = reservation or sr.reserve(vstage, f"after-{label}", vseat, "authoring")
         if isinstance(held_r, str):
             return held_r
-        return refusal(sr.call, "S7b", astra,
-                       packets.build(held_r["call_id"], "S7b", astra, "Author the record.\n", None), None,
+        return refusal(sr.call, vstage, vseat,
+                       packets.build(held_r["call_id"], vstage, vseat, "Author the record.\n", None), None,
                        reservation=held_r, caps={"tokens": 400_000, "compactions": 2}, view_window=view_window)
 
     control("M4-i-a-window-call-is-refused-while-the-stop-stands",
-            (refusal(sr.reserve, "S7b", "after-window", astra, "authoring") or "")
+            (refusal(sr.reserve, vstage, "after-window", vseat, "authoring") or "")
             .startswith(f"RUN_STOPPED {bound.STOP_CODE}"), "a window call was reserved after the stop")
     control("M4-ii-a-non-window-call-reserved-before-the-stop-is-refused-too",
             (seam_dispatch("non-window", view_window=False, reservation=before) or "")
             .startswith(f"RUN_STOPPED {bound.STOP_CODE}"), "a non-window call dispatched after the stop")
     # (iii) an amendment of another key is not the way back
-    declare.amend(rec, [("budget.per_stage.S7b", 2_100_000)], "an unrelated amendment", scope=("S7b",))
+    declare.amend(rec, [(f"budget.per_stage.{vstage}", 2_100_000)], "an unrelated amendment", scope=(vstage,))
     control("M4-iii-an-amendment-of-another-key-does-not-lift-the-stop",
-            (refusal(sr.reserve, "S7b", "after-unrelated", astra, "authoring") or "")
+            (refusal(sr.reserve, vstage, "after-unrelated", vseat, "authoring") or "")
             .startswith(f"RUN_STOPPED {bound.STOP_CODE}"), "an unrelated amendment lifted the stop")
     # (v) ... and neither does the host_allowance amendment that was recorded BEFORE the excess: it is
     # still in the log, and the rule compares sequences, not spellings
@@ -2989,26 +3165,26 @@ def self_test(scratch=None):
             any(a["seq"] > rr["declaration_seq"] and a["seq"] <= stopped["declaration_seq"]
                 and any(str(k).startswith("host_allowance") for k in a.get("diff") or {})
                 for a in records.declaration_state(rec, who="dispatch")[2])
-            and (refusal(sr.reserve, "S7b", "after-between", astra, "authoring") or "")
+            and (refusal(sr.reserve, vstage, "after-between", vseat, "authoring") or "")
             .startswith(f"RUN_STOPPED {bound.STOP_CODE}"),
             "no host_allowance amendment landed between the reservation and the stop, or it lifted the stop")
     control("M4-v-the-host_allowance-amendment-recorded-before-the-excess-does-not-lift-it",
             any(a["seq"] <= stopped["declaration_seq"] and any(str(k).startswith("host_allowance")
                                                                for k in a.get("diff") or {})
                 for a in records.declaration_state(rec, who="dispatch")[2])
-            and (refusal(sr.reserve, "S7b", "after-earlier", astra, "authoring") or "")
+            and (refusal(sr.reserve, vstage, "after-earlier", vseat, "authoring") or "")
             .startswith(f"RUN_STOPPED {bound.STOP_CODE}"),
             "the earlier host_allowance amendment is missing, or it lifted the stop")
     # (iv) the way back: the allowance re-measured and declared after the excess
-    declare.amend(rec, [(f"host_allowance.{astra}.allowance_tokens", 6_000)],
-                  "the host allowance was re-measured after the excess", scope=("S7b",))
-    after = sr.reserve("S7b", "after-amendment", astra, "authoring")
+    declare.amend(rec, [(f"host_allowance.{vseat}.allowance_tokens", 6_000)],
+                  "the host allowance was re-measured after the excess", scope=(vstage,))
+    after = sr.reserve(vstage, "after-amendment", vseat, "authoring")
     control("M4-iv-a-later-host_allowance-amendment-lets-the-run-go-on",
             isinstance(after, dict) and after.get("call_id"), f"{after}")
     # ... and the recovered call really runs: the same retained capture, as the NON-window call design §8.6
     # says an R-authoring call is, launched through the fake runner and accepted by the gate
     launched_before = list(launches)
-    recovered = sr.call("S7b", astra, packets.build(after["call_id"], "S7b", astra, "Author the record.\n", None),
+    recovered = sr.call(vstage, vseat, packets.build(after["call_id"], vstage, vseat, "Author the record.\n", None),
                         None, reservation=after, caps={"tokens": 400_000, "compactions": 2}, view_window=False)
     verdict = gate.accept(recovered)
     control("BA#4-the-recovered-call-is-launched-and-accepted",
@@ -3020,6 +3196,69 @@ def self_test(scratch=None):
     control("M4-recovery-does-not-forget-the-excess",
             json.loads((rec / "supervisor" / "ledger.json").read_text(encoding="utf-8"))["stopped"] == stopped,
             "the excess record was cleared instead of being left where it happened")
+
+    # ---- BB#0: the stop and the amendments are serialized by one lock, in one order ---------------
+    #
+    # The stop is stamped with the latest sequence the declaration has reached, and BA#0 read that from
+    # outside the lock `declare --amend` commits under. The control below is the interleaving that reading
+    # could not survive: an amendment that starts BEFORE the stop and is caught between its log line and
+    # its run.json. With the declaration lock held across the stop, the stop waits for that commit and is
+    # stamped with it, so the amendment cannot lift the stop it preceded; an amendment committed after the
+    # stop still can.
+    bb0 = run_dir("run-bb0-lock-order", {vstage: 2_000_000})
+    sb = supervisor(bb0)
+    committed_at, failed_in_thread = [], []
+
+    def amend_mid_commit():
+        try:
+            with stagelock.hold(bb0, "declaration"):
+                run, _digest, _amendments = records.declaration_state(bb0, who="declare")
+                seq = run["declaration_seq"] + 1
+                allowance = {**run["host_allowance"][vseat], "allowance_tokens": claude_allowance}
+                new_run = {**run, "declaration_seq": seq, "host_allowance": {**run["host_allowance"], vseat: allowance}}
+                records.append_amendment(bb0, {"seq": seq, "at": records.now(), "scope": [vstage], "invalidates": [],
+                                               "reason": "the allowance is re-measured while a call is in flight",
+                                               "diff": {f"host_allowance.{vseat}.allowance_tokens": claude_allowance},
+                                               "run_json_sha256": records.bound_digest(new_run)})
+                mid_commit.set()                      # the log line is written, run.json is not
+                time.sleep(0.4)
+                records.write_json(bb0, records.run_json_path(bb0), new_run)
+                committed_at.append(time.monotonic())
+        except Exception as exc:                      # noqa: BLE001 - reported as this control's failure
+            failed_in_thread.append(repr(exc))
+
+    mid_commit = threading.Event()
+    amender = threading.Thread(target=amend_mid_commit, daemon=True)
+    amender.start()
+    control("BB#0-the-amendment-reached-its-mid-commit-state", mid_commit.wait(10), "the amendment never started")
+    stop_failed = None
+    try:
+        stopped_bb0 = sb._stop_run(bound.excess("run-bb0-S3-x-a1", 135_796, clock[0]))
+    except Exception as exc:                          # noqa: BLE001 - this control's own failure, by name
+        stopped_bb0, stop_failed = {}, repr(exc)
+    returned_at = time.monotonic()
+    amender.join(30)
+    control("BB#0-the-mid-commit-amendment-committed-without-error", not failed_in_thread, f"{failed_in_thread}")
+    # reading the sequence outside the declaration lock does not see a tidy earlier state: it sees the log
+    # line without the run.json that answers it, and that is what DECLARATION_DRIFT names
+    control("BB#0-the-stop-is-committed-across-the-amendment-rather-than-between-its-two-writes",
+            stop_failed is None, f"{stop_failed}")
+    control("BB#0-the-stop-waited-for-the-amendment-s-commit-instead-of-reading-across-it",
+            bool(committed_at) and returned_at >= committed_at[0], f"{committed_at} {returned_at}")
+    log_bb0 = records.declaration_state(bb0, who="dispatch")[2]
+    control("BB#0-the-stop-is-stamped-with-the-sequence-that-amendment-reached",
+            stopped_bb0.get("declaration_seq") == max(a["seq"] for a in log_bb0), f"{stopped_bb0} {log_bb0}")
+    control("BB#0-an-amendment-started-before-the-stop-cannot-lift-it",
+            (sb._blocked() or "").startswith(f"RUN_STOPPED {bound.STOP_CODE}"), f"{sb._blocked()}")
+    declare.amend(bb0, [(f"host_allowance.{vseat}.allowance_tokens", claude_allowance)],
+                  "the allowance is re-measured after the excess", scope=(vstage,))
+    control("BB#0-an-amendment-committed-after-the-stop-lifts-it", sb._blocked() is None, f"{sb._blocked()}")
+    stop_source = inspect.getsource(Supervisor._stop_run)
+    control("BB#0-the-stop-takes-the-declaration-lock-first-and-the-supervisor-s-inside-it",
+            '"declaration"' in stop_source
+            and stop_source.index('"declaration"') < stop_source.index("with self._lock():")
+            and stop_source.index("with self._lock():") < stop_source.index('ledger["stopped"]'),
+            "the stop does not hold the declaration lock around the supervisor's")
 
     # ---- the seam: the bound has ONE owner, and the dispatcher is its boundary (seam record 2026-10-22)
     #
@@ -3038,8 +3277,7 @@ def self_test(scratch=None):
                 if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
                 and isinstance(node.func.value, ast.Name) and node.func.value.id == "bound"}
 
-    owed = {"check_bound", "driver_bytes", "declared_evidence", "check_observed", "excess", "committed", "blocked",
-            "limits"}
+    owed = {"check_bound", "admitted_parts", "check_observed", "excess", "committed", "blocked", "limits"}
     control("the-bound-helpers-have-a-caller-in-the-supervisor", delegated(seam_source) >= owed,
             f"the Supervisor delegates none of {sorted(owed - delegated(seam_source))} to the rule's owner")
     for gone in sorted(owed):
@@ -3076,17 +3314,17 @@ def self_test(scratch=None):
             bound.driver_bytes(seam_packet, seam_schema,
                                {k: v for k, v in seam_manifest.items() if k in ("skills", "workdir_files")})[0]
             == seam_plain, "a builtin part was counted on the driver's side")
-    sd = run_dir("run-seam-count", {"S7b": 2_000_000}, allowance=4000)
-    ss = supervisor(sd, seats_path=measured_seats)
-    rs = ss.reserve("S7b", "count", astra, "judge", tranche="calibration")
+    sd = run_dir("run-seam-count", {vstage: 2_000_000})
+    ss = supervisor(sd)
+    rs = ss.reserve(vstage, "count", vseat, "judge", tranche="calibration")
     fat = {"instructions": [{"path": str(scratch / "fat-instruction.md")}]}
-    (scratch / "fat-instruction.md").write_text("F" * (bound.INPUT_BOUND - 4000), encoding="utf-8")
-    small = packets.build(rs["call_id"], "S7b", astra, "x\n", None)
-    got = refusal(ss.call, "S7b", astra, small, None, reservation=rs, caps=caps, view_window=True, max_output_tokens=32_000, manifest=fat)
+    (scratch / "fat-instruction.md").write_text("F" * (bound.INPUT_BOUND - claude_allowance), encoding="utf-8")
+    small = packets.build(rs["call_id"], vstage, vseat, "x\n", None)
+    got = refusal(ss.call, vstage, vseat, small, None, reservation=rs, caps=caps, view_window=True, max_output_tokens=32_000, manifest=fat)
     control("a-window-inside-the-bound-whose-declared-instructions-pass-it-is-refused",
             (got or "").startswith("WINDOW_OVER_BOUND") and "WINDOW_BOUND_EXCEEDED (a)" in (got or ""), f"{got}")
-    rs2 = ss.reserve("S7b", "uncounted", astra, "judge", tranche="calibration")
-    got = refusal(ss.call, "S7b", astra, packets.build(rs2["call_id"], "S7b", astra, "x\n", None), None, reservation=rs2,
+    rs2 = ss.reserve(vstage, "uncounted", vseat, "judge", tranche="calibration")
+    got = refusal(ss.call, vstage, vseat, packets.build(rs2["call_id"], vstage, vseat, "x\n", None), None, reservation=rs2,
                   caps=caps, view_window=True, max_output_tokens=32_000,
                   manifest={"appended_prompts": [{"name": "no bytes, no text, no path"}]})
     control("a-declared-driver-part-that-cannot-be-counted-is-refused-not-read-as-zero",
@@ -3096,18 +3334,18 @@ def self_test(scratch=None):
     # answer was dispatched. The clean case is the same call one byte under the capacity.
     narrow_seats = scratch / "seats-narrow-capacity.json"
     narrow_held = json.loads(measured_seats.read_text(encoding="utf-8"))
-    narrow_held["seat_capacity"][astra]["context_capacity"] = 60_000
+    narrow_held["seat_capacity"][vseat] = {**narrow_held["seat_capacity"][vseat], "context_capacity": 60_000}
     narrow_seats.write_text(json.dumps(narrow_held), encoding="utf-8")
-    narrow = run_dir("run-seam-capacity", {"S7b": 2_000_000}, allowance=4000)
+    narrow = run_dir("run-seam-capacity", {vstage: 2_000_000, "S7b": 2_000_000}, allowance=4000)
     sn = supervisor(narrow, seats_path=narrow_seats)
     # (d) with a narrow declared capacity, and with the cap this call reserved. The window is the same in
     # both rows and the capacity is the same; the only thing that moves is the cap - which is the point of
     # the ruling of 2026-10-22: the reservation is what the call declared, not a constant.
     for cap, want in ((20_000, None), (40_000, "WINDOW_CAPACITY_EXCEEDED (d)")):
-        rn = sn.reserve("S7b", f"cap-{cap}", astra, "judge", tranche="calibration")
-        base = len(packets.build(rn["call_id"], "S7b", astra, "", None))
-        got = refusal(sn.call, "S7b", astra,
-                      packets.build(rn["call_id"], "S7b", astra, "d" * max(20_000 - base, 1), None), None,
+        rn = sn.reserve(vstage, f"cap-{cap}", vseat, "judge", tranche="calibration")
+        base = len(packets.build(rn["call_id"], vstage, vseat, "", None))
+        got = refusal(sn.call, vstage, vseat,
+                      packets.build(rn["call_id"], vstage, vseat, "d" * max(20_000 - base, 1), None), None,
                       reservation=rn, caps=caps, view_window=True, max_output_tokens=cap)
         if want is None:
             control("a-window-with-a-cap-that-leaves-room-for-the-answer-is-admitted", got is None, f"{got}")
@@ -3126,6 +3364,9 @@ def self_test(scratch=None):
     design = {
         # plan WP-02, dispatch.call's interface
         "RESERVATION_MISSING", "CAP_MISSING", "PROVIDER_DEFERRED", "PACKET_REFUSED",
+        # BB#1-BB#4: what a declared part may not be, and what an adapter cannot carry
+        "DRIVER_PART_LENGTH_CONFLICT", "APPENDED_PROMPT_PATH_FORM", "APPENDED_PROMPT_UNDELIVERABLE",
+        "CAP_UNDELIVERABLE",
         # design §13.2: a reservation that cannot fit records the remaining work not done; plan WP-02, S-15
         "BUDGET_EXHAUSTED", "CALIBRATION_PROVISIONAL",
         # the amendment record 2026-10-21T0026--cc0498f--input-bound-amendment.md: the window bound, the run stop
@@ -3150,9 +3391,13 @@ def self_test(scratch=None):
     # the token is assembled rather than written, so this control's own source does not contain the thing it
     # looks for - a scan that matches itself can never go quiet
     raise_site = "Refused(excess[" + '"detail"])'
+    # the same for a declared part's refusal: the dispatcher computes the code from the problem the rule
+    # reports, so the inventory reads the rule's own PART_CODES and loses them when that raise goes
+    parts_site = 'Refused(f"{problems[0].' + 'split()[0]} {call_id}: "'
 
     def raised_codes(src):
-        return contract_branches(src)[0] | ({bound.STOP_CODE} if raise_site in src else set())
+        return (contract_branches(src)[0] | ({bound.STOP_CODE} if raise_site in src else set())
+                | (set(bound.PART_CODES) if parts_site in src else set()))
 
     control("supervisor-refusals-are-the-cited-set", raised_codes(source) == design, f"{raised_codes(source) ^ design}")
     control("the-bound-stop-is-raised-where-the-rule-says-it-is",
@@ -3170,6 +3415,10 @@ def self_test(scratch=None):
             "the scan still reports the bound stop after its raise is gone")
     control("a-removed-refusal-is-detected", removed != source and design - raised_codes(removed) == {"CAP_MISSING"},
             f"{design - raised_codes(removed)}")
+    unparted = source.replace("raise " + parts_site, "pass  #", 1)
+    control("a-removed-driver-part-refusal-is-detected",
+            unparted != source and not (set(bound.PART_CODES) & raised_codes(unparted)),
+            "the scan still reports the part refusals after their raise is gone")
 
     for failure in failures:
         print(f"dispatch --self-test [FAIL] {failure}")

@@ -79,80 +79,152 @@ def check_bound(driver_bytes, limits):
 
 # ---- what the driver sends ------------------------------------------------------------------
 
-def part_bytes(part):
-    """`(bytes, problem)` for one declared driver part.
+BY_CONTENT = "appended_prompts"   # the one declared kind with no path form - see `part_body`
 
-    A part is text, or bytes, or a record naming what it carries: an explicit `bytes`, or a `path`
-    this process can read. A part that is none of those is **not counted as zero** - it is reported,
-    because an uncountable part makes the driver's share unknown, and understating that share is the
-    one failure the bound exists to prevent."""
+# What a declared part can be refused for. The dispatcher raises these under the call id, computing the
+# code from the problem rather than writing it, so its refusal inventory reads this tuple instead of a
+# literal; the self-test below plants a part of each shape and requires every member to fire.
+PART_CODES = ("DRIVER_PART_UNCOUNTED", "DRIVER_PART_LENGTH_CONFLICT", "APPENDED_PROMPT_PATH_FORM")
+
+
+def part_body(part, kind=None):
+    """`(body, problem)` - the EXACT bytes of one declared driver part, read or encoded ONCE.
+
+    Everything else about the part derives from these bytes and from nothing else: the length admission
+    counts, the sha256 and the length the call record carries, and what the adapter delivers. Deriving
+    them from separate reads is how a record came to hash a whole prompt while admitting the length of
+    something else (BB#1), so there is one read here and no second one anywhere.
+
+    A part is text, or bytes, or a record carrying `text`, an already-read `body`, or a `path` this
+    process can read. A part that is none of those is **not counted as zero** - it is reported, because
+    an uncountable part makes the driver's share unknown, and understating that share is the one failure
+    the bound exists to prevent.
+
+    `kind` is the manifest key the part was declared under, because one of them admits no path: an
+    appended system prompt is declared by its content (BB#3) - the path form produced a record the call
+    schema rejects and nothing ever read it back - while an instruction file IS a path on the host and
+    keeps it."""
     if isinstance(part, bytes):
-        return len(part), None
+        return part, None
     if isinstance(part, str):
-        return len(part.encode("utf-8")), None
-    if isinstance(part, dict):
-        if isinstance(part.get("bytes"), int) and part["bytes"] >= 0:
-            return part["bytes"], None
-        if isinstance(part.get("text"), str):
-            return len(part["text"].encode("utf-8")), None
-        if isinstance(part.get("path"), str):
-            try:
-                return len(pathlib.Path(part["path"]).read_bytes()), None
-            except OSError as exc:
-                return 0, (f"DRIVER_PART_UNCOUNTED {part['path']}: {exc.strerror or exc}; a declared part this process "
-                           f"cannot read leaves the driver's share unknown")
-        return 0, (f"DRIVER_PART_UNCOUNTED {sorted(part)}: a declared part carries neither bytes, text nor a readable "
-                   f"path, so the driver's share cannot be counted")
-    return 0, f"DRIVER_PART_UNCOUNTED {type(part).__name__}: a declared part that is not text, bytes or a record"
+        return part.encode("utf-8"), None
+    if not isinstance(part, dict):
+        return None, f"DRIVER_PART_UNCOUNTED {type(part).__name__}: a declared part that is not text, bytes or a record"
+    if isinstance(part.get("body"), bytes):          # a snapshot: these bytes were read once already
+        return part["body"], None
+    if isinstance(part.get("text"), str):
+        return part["text"].encode("utf-8"), None
+    if isinstance(part.get("path"), str):
+        if kind == BY_CONTENT:
+            return None, (f"APPENDED_PROMPT_PATH_FORM {part['path']}: an appended system prompt is declared by its "
+                          f"content; the path form is the instruction file's, and this kind has none")
+        try:
+            return pathlib.Path(part["path"]).read_bytes(), None
+        except OSError as exc:
+            return None, (f"DRIVER_PART_UNCOUNTED {part['path']}: {exc.strerror or exc}; a declared part this process "
+                          f"cannot read leaves the driver's share unknown")
+    return None, (f"DRIVER_PART_UNCOUNTED {sorted(part)}: a declared part carries neither content nor a readable "
+                  f"path, so the driver's share cannot be counted")
+
+
+def part_bytes(part, kind=None):
+    """`(bytes, problem)` for one declared driver part: the length of its own bytes.
+
+    A caller may also ASSERT a length, and the only thing an assertion can do here is disagree: it is
+    checked against the content and refused by name when it differs (BB#1). Believing it instead let a
+    part hash 130 KB of prompt and be admitted as one byte."""
+    body, problem = part_body(part, kind)
+    if problem:
+        return 0, problem
+    asserted = part.get("bytes") if isinstance(part, dict) else None
+    if asserted is not None and (not isinstance(asserted, int) or isinstance(asserted, bool)
+                                 or asserted != len(body)):
+        return 0, (f"DRIVER_PART_LENGTH_CONFLICT {part.get('name') or part.get('path') or sorted(part)}: the part "
+                   f"asserts {asserted!r} bytes and its content is {len(body)}; the length admission counts, the "
+                   f"length the record carries and the bytes the host receives are one snapshot, so a number that "
+                   f"disagrees with them is refused rather than believed")
+    return len(body), None
+
+
+def part_snapshot(part, kind=None):
+    """`(snapshot, problem)` - one declared part read once: its bytes, their sha256 and their length.
+
+    A snapshot is itself a part (its `body`), so the counter takes it without reading anything again,
+    the record keeps `evidence_of` it, and the adapter is handed the same bytes admission counted."""
+    body, problem = part_body(part, kind)
+    if problem:
+        return None, problem
+    size, problem = part_bytes(part, kind)
+    if problem:
+        return None, problem
+    snapshot = {"body": body, "sha256": hashlib.sha256(body).hexdigest(), "bytes": size}
+    for key in ("name", "path"):
+        if isinstance(part, dict) and isinstance(part.get(key), str):
+            snapshot[key] = part[key]
+    return snapshot, None
+
+
+def evidence_of(snapshot):
+    """What a snapshot is RECORDED as: everything about it but the bytes themselves."""
+    return {key: value for key, value in snapshot.items() if key != "body"}
+
+
+DECLARED_PARTS = ("instructions", BY_CONTENT)
 
 
 def driver_parts(packet, schema_bytes=None, manifest=None):
-    """The parts of one call that the DRIVER supplies, in the order they are counted.
+    """`(part, kind)` for every part of one call that the DRIVER supplies, in the order counted.
 
     The packet (its template, the principles block and the window payload are one object by the time
     it is built), the schema, and what the call's own manifest declares it carries: instruction files
-    and appended system prompts.
+    and appended system prompts. The packet and the schema are bytes of no declared kind, so their
+    `kind` is None.
 
     What the **host** loads by itself under the profile is not here. That is the measured allowance,
     and counting it again on the driver's side would charge the same tokens twice - which is why this
     takes the call's own manifest and never the merged one that carries `seats.json`'s builtin
     context. Files merely readable in the working directory are not sent, so they are not counted
     either: a read shows up in the observed input, and settlement is what catches it."""
-    parts = [packet]
+    parts = [(packet, None)]
     if schema_bytes is not None:
-        parts.append(schema_bytes)
+        parts.append((schema_bytes, None))
     declared = manifest or {}
-    for key in ("instructions", "appended_prompts"):
+    for key in DECLARED_PARTS:
         for item in declared.get(key) or []:
-            parts.append(item)
+            parts.append((item, key))
     return parts
 
 
-def part_evidence(part):
-    """`(record, problem)` - what a declared driver part is RECORDED as, once its bytes are counted.
+def part_evidence(part, kind=None):
+    """`(record, problem)` - what a declared driver part is RECORDED as, from the bytes just read.
 
     One representation for both readers: the payload count needs the content, and the call record needs
-    evidence of it that a schema can close over. So a caller declares a part by its content - `text`, or a
-    `path` to read - and what the record keeps is its name, its sha256 and its length. A part that only
-    asserts a number is not evidence of anything, and a record of text nobody counted is not either
-    (BA#2)."""
-    size, problem = part_bytes(part)
-    if problem:
-        return None, problem
-    if isinstance(part, dict) and isinstance(part.get("text"), str):
-        body = part["text"].encode("utf-8")
-    elif isinstance(part, dict) and isinstance(part.get("path"), str):
-        body = pathlib.Path(part["path"]).read_bytes()
-    elif isinstance(part, (str, bytes)):
-        body = part.encode("utf-8") if isinstance(part, str) else part
-    else:
-        return None, (f"DRIVER_PART_UNCOUNTED {sorted(part) if isinstance(part, dict) else type(part).__name__}: a "
-                      f"declared part is recorded by its content, and this one carries none")
-    record = {"sha256": hashlib.sha256(body).hexdigest(), "bytes": size}
-    for key in ("name", "path"):
-        if isinstance(part, dict) and isinstance(part.get(key), str):
-            record[key] = part[key]
-    return record, None
+    evidence of it that a schema can close over. So a caller declares a part by its content - `text`, or
+    an instruction file's `path` to read - and what the record keeps is its name, its sha256 and its
+    length. A part that only asserts a number is not evidence of anything, and a record of text nobody
+    counted is not either (BA#2)."""
+    snapshot, problem = part_snapshot(part, kind)
+    return (None, problem) if problem else (evidence_of(snapshot), None)
+
+
+def declared_snapshots(manifest):
+    """`(snapshots, problems)` - the call's declared parts, each read once, by manifest key.
+
+    This is the single read. `declared_evidence` records these snapshots, `driver_bytes` counts them,
+    and the dispatcher delivers their bytes, so the three readers cannot disagree (BB#1)."""
+    snapshots, problems = {}, []
+    for key in DECLARED_PARTS:
+        if not (manifest or {}).get(key):
+            continue
+        rows = []
+        for part in manifest[key]:
+            snapshot, problem = part_snapshot(part, key)
+            if problem:
+                problems.append(problem)
+            else:
+                rows.append(snapshot)
+        snapshots[key] = rows
+    return snapshots, problems
 
 
 def declared_evidence(manifest):
@@ -160,18 +232,10 @@ def declared_evidence(manifest):
 
     The dispatcher writes this into the call record, so what the gate reads is the sha256 and length of
     the bytes the payload count actually counted."""
-    out, problems = dict(manifest or {}), []
-    for key in ("instructions", "appended_prompts"):
-        if not (manifest or {}).get(key):
-            continue
-        rows = []
-        for part in manifest[key]:
-            record, problem = part_evidence(part)
-            if problem:
-                problems.append(problem)
-            else:
-                rows.append(record)
-        out[key] = rows
+    snapshots, problems = declared_snapshots(manifest)
+    out = dict(manifest or {})
+    for key, rows in snapshots.items():
+        out[key] = [evidence_of(row) for row in rows]
     return out, problems
 
 
@@ -181,12 +245,26 @@ def driver_bytes(packet, schema_bytes=None, manifest=None):
     Counting the window alone understates the driver's part by exactly the overhead the bound exists
     to include, which is why this is the only counter and both sides call it."""
     total, problems = 0, []
-    for part in driver_parts(packet, schema_bytes, manifest):
-        size, problem = part_bytes(part)
+    for part, kind in driver_parts(packet, schema_bytes, manifest):
+        size, problem = part_bytes(part, kind)
         total += size
         if problem:
             problems.append(problem)
     return total, problems
+
+
+def admitted_parts(packet, schema_bytes=None, manifest=None):
+    """`(driver_bytes, evidence, snapshots, problems)` for one call, from ONE read of each part.
+
+    The dispatcher's entry point, and the reason the three answers agree by construction: the parts are
+    read here, the count is taken over those snapshots, the evidence is those snapshots without their
+    bytes, and the snapshots themselves are what the adapter is handed to deliver (BB#1, BB#2)."""
+    snapshots, problems = declared_snapshots(manifest)
+    evidence = dict(manifest or {})
+    for key, rows in snapshots.items():
+        evidence[key] = [evidence_of(row) for row in rows]
+    total, counting = driver_bytes(packet, schema_bytes, {**(manifest or {}), **snapshots})
+    return total, evidence, snapshots, problems + [p for p in counting if p not in problems]
 
 
 # ---- what the call really read ---------------------------------------------------------------
@@ -343,7 +421,8 @@ def self_test():
     window = "a window of blocks\n" * 40
     packet = ("CALL-ID: r1/S3/t1/0a\nSTAGE: S3\n\nthe principles block\n=== PAYLOAD ===\n" + window).encode("utf-8")
     schema = b'{"type":"object"}'
-    instruction = {"path": None, "bytes": 2048}
+    own_bytes = len(pathlib.Path(__file__).read_bytes())
+    instruction = {"path": str(pathlib.Path(__file__)), "kind": "project"}
     prompt = {"text": "an appended system prompt"}
     plain, plain_problems = driver_bytes(packet, schema)
     expect("done-when 3(a): the gate counts the packet and the schema",
@@ -354,9 +433,9 @@ def self_test():
                                              {"instructions": [instruction], "appended_prompts": [prompt]})
     expect("done-when 3(a): the COMPLETE driver payload counts the declared instructions and appended prompts",
            (carried - plain, carried_problems),
-           (2048 + len(prompt["text"].encode("utf-8")), []))
+           (own_bytes + len(prompt["text"].encode("utf-8")), []))
     expect("done-when 3(a): ... and the planted parts are not zero, so the equality above is not a 0-byte one",
-           2048 + len(prompt["text"].encode("utf-8")) > 0, True)
+           own_bytes + len(prompt["text"].encode("utf-8")) > 0, True)
     # the host's own context is NOT the driver's part: the allowance already covers it
     expect("the builtin context a host loads by itself is not counted on the driver's side",
            driver_bytes(packet, schema, {"skills": [{"bytes": 9999}], "agents": [{"bytes": 9999}],
@@ -365,14 +444,73 @@ def self_test():
     named("control, done-when 3(a): a declared part this process cannot count is reported, never read as zero",
           driver_bytes(packet, schema, {"instructions": [{"kind": "project"}]})[1], "DRIVER_PART_UNCOUNTED")
     named("control, done-when 3(a): a declared part whose path cannot be read is reported",
-          driver_bytes(packet, schema, {"appended_prompts": [{"path": "/nonexistent/prompt.md"}]})[1],
+          driver_bytes(packet, schema, {"instructions": [{"path": "/nonexistent/instruction.md"}]})[1],
           "DRIVER_PART_UNCOUNTED")
+
+    # BB#1: one read per part. The count, the record and the bytes the host receives come from one
+    # snapshot, so an asserted length is only ever something that can disagree with them.
+    conflicting = {"name": "stage.md", "text": "P" * 130_000, "bytes": 1}
+    named("control, BB#1: a part asserting a length its content contradicts is refused by name",
+          driver_bytes(packet, schema, {"appended_prompts": [conflicting]})[1], "DRIVER_PART_LENGTH_CONFLICT")
+    named("control, BB#1: ... and it is refused on the recording side too, so neither reader believes it",
+          declared_evidence({"appended_prompts": [conflicting]})[1], "DRIVER_PART_LENGTH_CONFLICT")
+    expect("control, BB#1: ... and the hash of the full content is not recorded beside the asserted length",
+           declared_evidence({"appended_prompts": [conflicting]})[0]["appended_prompts"], [])
+    expect("BB#1: an asserted length equal to the content is the content's length",
+           part_bytes({"text": "abc", "bytes": 3}), (3, None))
+    named("control, BB#1: a length asserted as something other than a whole number is refused",
+          [part_bytes({"text": "abc", "bytes": "3"})[1] or ""], "DRIVER_PART_LENGTH_CONFLICT")
+    moving = pathlib.Path(__file__).parent / "__bound_selftest_part.md"
+    try:
+        moving.write_bytes(b"the bytes that were counted")
+        snapshot, snapshot_problem = part_snapshot({"name": "moving.md", "path": str(moving)})
+        moving.write_bytes(b"other bytes entirely, written after the snapshot")
+        expect("BB#1: a file edited after its snapshot changes neither the count nor the record",
+               (snapshot_problem, part_bytes(snapshot)[0], evidence_of(snapshot)["bytes"],
+                evidence_of(snapshot)["sha256"]),
+               (None, len(b"the bytes that were counted"), len(b"the bytes that were counted"),
+                hashlib.sha256(b"the bytes that were counted").hexdigest()))
+        expect("BB#1: ... and the snapshot still carries those exact bytes, which is what is delivered",
+               snapshot["body"], b"the bytes that were counted")
+    finally:
+        moving.unlink(missing_ok=True)
+    total, evidence_once, snapshots_once, once_problems = admitted_parts(
+        packet, schema, {"instructions": [instruction], "appended_prompts": [prompt]})
+    expect("BB#1: the dispatcher's one entry point gives the count, the evidence and the snapshots of one read",
+           (once_problems, total, [evidence_of(s) for s in snapshots_once["appended_prompts"]],
+            evidence_once["appended_prompts"], snapshots_once["appended_prompts"][0]["body"]),
+           ([], carried, evidence_once["appended_prompts"],
+            [{"sha256": hashlib.sha256(prompt["text"].encode("utf-8")).hexdigest(),
+              "bytes": len(prompt["text"].encode("utf-8"))}], prompt["text"].encode("utf-8")))
+    named("control, BB#1: a conflicting length refuses the whole entry point, not one of its three answers",
+          admitted_parts(packet, schema, {"appended_prompts": [conflicting]})[3], "DRIVER_PART_LENGTH_CONFLICT")
+
+    # BB#3: an appended system prompt is declared by content; the path form is the instruction file's
+    named("control, BB#3: an appended prompt declared by path is refused at declaration",
+          declared_evidence({"appended_prompts": [{"name": "stage.md", "path": str(pathlib.Path(__file__))}]})[1],
+          "APPENDED_PROMPT_PATH_FORM")
+    named("control, BB#3: ... on the counting side as well",
+          driver_bytes(packet, schema, {"appended_prompts": [{"path": str(pathlib.Path(__file__))}]})[1],
+          "APPENDED_PROMPT_PATH_FORM")
+    expect("BB#3: ... while an instruction file's path is read as before",
+           declared_evidence({"instructions": [instruction]})[1], [])
+
+    # every code the dispatcher's part refusal can carry, each fired by a part of that shape: the inventory
+    # on the other side reads PART_CODES, so a code that no shape produces, or a shape whose code is not
+    # named here, is caught on this side
+    planted = {"DRIVER_PART_UNCOUNTED": {"instructions": [{"kind": "project"}]},
+               "DRIVER_PART_LENGTH_CONFLICT": {"appended_prompts": [conflicting]},
+               "APPENDED_PROMPT_PATH_FORM": {"appended_prompts": [{"path": str(pathlib.Path(__file__))}]}}
+    expect("PART_CODES names exactly the refusals a declared part is planted for", sorted(planted), sorted(PART_CODES))
+    for code, planted_manifest in planted.items():
+        problems = declared_snapshots(planted_manifest)[1]
+        named(f"control, PART_CODES: {code} is the leading word of the problem its shape produces",
+              [p.split()[0] for p in problems], code)
 
     # BA#2: one representation - counted from the content, recorded as its hash and length
     evidence, evidence_problems = declared_evidence(
         {"instructions": [{"path": str(pathlib.Path(__file__)), "kind": "project"}],
          "appended_prompts": [{"name": "stage.md", "text": "an appended system prompt"}]})
-    own_bytes = len(pathlib.Path(__file__).read_bytes())
     expect("BA#2: an appended prompt is counted from its text and recorded as its hash and length",
            (evidence_problems, evidence["appended_prompts"]),
            ([], [{"sha256": hashlib.sha256("an appended system prompt".encode("utf-8")).hexdigest(),
@@ -467,13 +605,13 @@ def self_test():
     if failures:
         return 1
     print("bound --self-test: OK (the bound's two pre-dispatch checks, the complete driver payload with its "
-          "uncountable-part refusals, observed-input settlement in both artifact spellings, the single excess "
-          "record, and the recovery rule's five cases)")
+          "uncountable-part refusals, one read per declared part with its conflicting-length and path-form "
+          "refusals, observed-input settlement in both artifact spellings, the single excess record, and the "
+          "recovery rule's five cases)")
     return 0
 
 
 if __name__ == "__main__":
     sys.exit(self_test() if "--self-test" in sys.argv else
-             (print(json.dumps({"INPUT_BOUND": INPUT_BOUND, "CONTEXT_CAPACITY": CONTEXT_CAPACITY,
-                                "OUTPUT_RESERVATION": OUTPUT_RESERVATION, "PACKET_OVERHEAD": PACKET_OVERHEAD},
-                               indent=2)) or 0))
+             (print(json.dumps({"INPUT_BOUND": INPUT_BOUND, "PACKET_OVERHEAD": PACKET_OVERHEAD,
+                                "STOP_CODE": STOP_CODE, "AMENDED_KEY": AMENDED_KEY}, indent=2)) or 0))

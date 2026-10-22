@@ -89,11 +89,16 @@ ROLE_BACKLOG = re.compile(r"^backlog\(.+\)$")
 
 # ---- the bound -------------------------------------------------------------------------------
 
-def limits_of(run, capacity=None, reservation=None, overhead=bound.PACKET_OVERHEAD):
+def limits_of(run, reservation=None, overhead=bound.PACKET_OVERHEAD, seats_path=None):
     """The bound a view-window call keeps, from the declaration: the S3 seat's declared allowance.
 
     Where the allowance comes from is this module's business; what the bound then IS belongs to
-    `runlib/bound.py`, which both this side and the dispatcher import (the seam record of 2026-10-22)."""
+    `runlib/bound.py`, which both this side and the dispatcher import (the seam record of 2026-10-22).
+
+    There is no capacity argument. It was one, and a caller could then cut a window against a number no
+    declaration carried; the capacity now comes from the shared reader on every path, and a test that needs
+    another one declares it in a `seats.json` fixture and names it with `seats_path` - the reader is the
+    same, and so is what it requires of a declaration (BB#5)."""
     seat = (run.get("seats") or {}).get("S3")
     entry = (run.get("host_allowance") or {}).get(seat)
     if not seat or not entry:
@@ -102,12 +107,12 @@ def limits_of(run, capacity=None, reservation=None, overhead=bound.PACKET_OVERHE
     # BA#1: the seat's context size is host-reported evidence seats.json declares, and cutting a window
     # reads the SAME declaration the dispatcher admits against. There is no default: a window cut against
     # an invented capacity is a window cut against nothing.
+    capacity, basis = gate.seat_capacity(seat, (run.get("host_versions") or {}).get(seat.partition(":")[0])
+                                         or (entry.get("host_version")),
+                                         **({"path": seats_path} if seats_path else {}))
     if capacity is None:
-        capacity, basis = gate.seat_capacity(seat, (run.get("host_versions") or {}).get(seat.partition(":")[0])
-                                             or (entry.get("host_version")))
-        if capacity is None:
-            raise Refused(f"CAPACITY_UNDECLARED seats.S3: {basis}; no window is cut against a capacity nobody "
-                          "measured (the seat's context window is host-reported)")
+        raise Refused(f"CAPACITY_UNDECLARED seats.S3: {basis}; no window is cut against a capacity nobody "
+                      "measured (the seat's context window is host-reported)")
     # The output reservation is the cap the S3 call will declare for its answer - the same number the
     # dispatcher admits that call against, supplied by the stage that makes it. There is no constant: a
     # window cut against a reservation nobody chose reserves nothing (the ruling of 2026-10-22).
@@ -1161,11 +1166,11 @@ def view_transcript(run_dir, entry, state, ctx):
             "source_bytes": (run_dir / copy_rel).stat().st_size}
 
 
-def run(run_dir, capacity=None, reservation=None, overhead=bound.PACKET_OVERHEAD):
+def run(run_dir, reservation=None, overhead=bound.PACKET_OVERHEAD, seats_path=None):
     """`distill.py views`: S2 over the census and the coverage state S1 left in the run directory."""
     run_dir = pathlib.Path(run_dir)
     declaration = records.read_json(records.run_json_path(run_dir))
-    limits = limits_of(declaration, capacity, reservation, overhead)
+    limits = limits_of(declaration, reservation, overhead, seats_path)
     document = json.loads((run_dir / "census.json").read_text(encoding="utf-8")) if (run_dir / "census.json").is_file() else None
     if document is None:
         raise Refused(f"INPUT_INVALID S1: {run_dir}/census.json is absent; run the census first")
@@ -1514,7 +1519,22 @@ def fx_census(window_id, entries):
             "pending_events": [], "transcripts": entries}
 
 
-def golden(root, name="g", overhead=bound.PACKET_OVERHEAD, capacity=200_000, reservation=32_000,
+def fx_seats(root, capacity, seat=None, host_version="2.1.304", name=None):
+    """A `seats.json` fixture that differs from the checkout's in one declared context capacity.
+
+    The capacity is read through `gate.seat_capacity` like every other, so a control that needs a narrower
+    seat declares one instead of handing the window builder a number (BB#5)."""
+    seat = seat or declare.fixture()["seats"][declare.VIEW_WINDOW_STAGE]
+    held = json.loads(gate.SEATS.read_text(encoding="utf-8"))
+    held["seat_capacity"] = {**(held.get("seat_capacity") or {}),
+                             seat: {"context_capacity": capacity, "host_version": host_version,
+                                    "basis": "a fixture's own declaration, not a measurement"}}
+    path = pathlib.Path(root) / (name or f"seats-capacity-{capacity}.json")
+    path.write_text(json.dumps(held), encoding="utf-8")
+    return path
+
+
+def golden(root, name="g", overhead=bound.PACKET_OVERHEAD, capacity=None, reservation=32_000,
            allowance=3200, census_sha=None, compressed=False, main_records=None, owned=None):
     """A run directory S2 can be run over, and the result of running it (realization: golden).
 
@@ -1583,7 +1603,9 @@ def golden(root, name="g", overhead=bound.PACKET_OVERHEAD, capacity=200_000, res
         stage.output("census.json")
         stage.output("coverage.json")
 
-    manifest = run(run_dir, capacity, reservation, overhead)
+    # a narrower capacity than the checkout declares is a seats fixture, read by the shared reader (BB#5)
+    manifest = run(run_dir, reservation, overhead,
+                   fx_seats(root, capacity) if capacity is not None else None)
     by_name = {t["name"]: t for t in manifest["transcripts"]}
     main = by_name.get(safe_name(main_tid))  # absent when the run quarantined it, which `census_sha` plants
     # through the checked reader like every other window read, so the fixture cannot be the one place a
@@ -2577,6 +2599,26 @@ def self_test():
                               "allowance_tokens": 3886, "host_version": "2.1.304"}}},
                          reservation=32_000)["capacity"],
                gate.seat_capacity("claude:claude-sonnet-5-5/xhigh", "2.1.304")[0])
+        # BB#5: there is no way to hand the window builder a capacity. Both entry points resolve it through
+        # the shared declaration reader, and a control that needs another one declares it in a seats fixture -
+        # so no production path, and no test, can cut a window against a number no declaration carries.
+        import inspect
+        for entry in (limits_of, run):
+            expect(f"BB#5: {entry.__name__} takes no capacity of its own",
+                   "capacity" in inspect.signature(entry).parameters, False)
+        narrower = fx_seats(root, 150_000)
+        expect("BB#5: a capacity a seats fixture declares is read by the same reader production reads",
+               limits_of({"seats": {"S3": "claude:claude-sonnet-5-5/xhigh"},
+                          "host_allowance": {"claude:claude-sonnet-5-5/xhigh": {
+                              "allowance_tokens": 3886, "host_version": "2.1.304"}}},
+                         reservation=32_000, seats_path=narrower)["capacity"],
+               gate.seat_capacity("claude:claude-sonnet-5-5/xhigh", "2.1.304", path=narrower)[0])
+        refused("control, BB#5: a fixture that declares no capacity for the seat cuts no window either",
+                lambda: limits_of({"seats": {"S3": "claude:claude-sonnet-5-5/xhigh"},
+                                   "host_allowance": {"claude:claude-sonnet-5-5/xhigh": {
+                                       "allowance_tokens": 3886, "host_version": "9.9.9"}}},
+                                  reservation=32_000, seats_path=narrower),
+                "CAPACITY_UNDECLARED")
         refused("control, allowance: a declaration with no measured host allowance for the S3 seat cuts no window",
                 lambda: limits_of({"seats": {"S3": "claude:x/high"}, "host_allowance": {}}), "ALLOWANCE_UNDECLARED")
         no_allowance = {**golden_run["run"], "host_allowance": {}}
