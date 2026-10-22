@@ -38,7 +38,7 @@ reaped only once every stop of the call is done, so its group id stays provably 
 no wait on it or its pipes is unbounded. usage.json is written before the call's cell (its temporary homes) is deleted; the
 receipt is written through the launcher's --emit-receipt with the evidence the gate recomputes;
 the reservation is settled. A view-window call (S3 reading and its expansion windows, and only
-those) whose observed input passes INPUT_BOUND stops the run (INPUT_BOUND_EXCEEDED; amendment
+those) whose observed input passes the bound stops the run (INPUT_BOUND_EXCEEDED; amendment
 record 2026-10-21T0026--cc0498f--input-bound-amendment.md). `item` adds the gate and design
 §3.2's one corrective retry, never after a provider signal: the item that met the signal is
 recorded deferred with its attempts, as `<stage>:<item>`.
@@ -64,7 +64,8 @@ never the call's receipt (plan addendum 2026-10-21T0630--0e0d27e--plan-addendum-
 
 Refused by name: RESERVATION_MISSING, CAP_MISSING, PROVIDER_DEFERRED, PACKET_REFUSED (with the
 linter's codes), CALIBRATION_PROVISIONAL, CALIBRATION_SERIAL, BUDGET_UNDECLARED, BUDGET_EXHAUSTED
-(the item recorded not_done), INPUT_BOUND_EXCEEDED and RUN_STOPPED, CALL_EXISTS,
+(the item recorded not_done), INPUT_BOUND_EXCEEDED and RUN_STOPPED, DRIVER_PART_UNCOUNTED,
+USAGE_INCOMPLETE, CALL_EXISTS,
 USAGE_UNCAPTURED, RECEIPT_MISSING, SEAT_UNPINNED, ALLOWANCE_UNMEASURED, ALLOWANCE_MISMATCH,
 WINDOW_OVER_BOUND, RUNNER_REALIZATION_MISMATCH, USE_REFUSED, CAP_UNDECLARED. CONTRACT names the sections; the self-test
 derives this set from the source and holds it, and this list, against its own cited copy. The
@@ -91,7 +92,7 @@ import time
 if __package__ in (None, ""):  # run as a script: put session-distill/ on the import path
     sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 from runlib import breaker as breakers
-from runlib import gate, packet as packets, receipts, records, stagelock, stop
+from runlib import bound, gate, packet as packets, receipts, records, stagelock, stop
 from runlib import monitor as monitors
 from runlib import usage as usages
 from runlib.records import Refused
@@ -112,7 +113,6 @@ ADAPTER_REFUSAL = {host: re.compile(rb"^" + host.encode() + rb"-run: (" + "|".jo
 # the channels monitor.CodexFeed reads; the retry warnings are what HTTPS attempt coverage reconciles (design §3.2)
 CODEX_TRACE = "tungstenite::protocol=trace,codex_otel.log_only=info,codex_core::responses_retry=warn"
 CODEX_CHANNELS = ("frames", "otel", "responses_retry")
-INPUT_BOUND = 120_000  # view-window calls only (the input-bound amendment record)
 REALIZATIONS = ("live", "golden")  # what a supervisor may declare; a replay is the gate's, never a dispatch
 CONTRACT = {"$comment": "design §13.2 (reservation, both caps, the breaker, the stop, not done) and §13.3 (usage), "
                         "plan WP-02 (dispatch.call's refusals, S-15), the amendment record "
@@ -362,7 +362,7 @@ class Supervisor:
         host, klass = seat.partition(":")[0], class_key(stage, seat, case_type)
         with self._lock() if _locked else contextlib.nullcontext():
             ledger = self.ledger()
-            if ledger["stopped"]:
+            if self._blocked(ledger):
                 raise Refused(f"RUN_STOPPED {ledger['stopped']['code']} at {ledger['stopped']['call_id']}: "
                               f"nothing more is dispatched in this run")
             run, _digest, _amendments = records.declaration_state(self.run_dir, who="dispatch")
@@ -415,9 +415,9 @@ class Supervisor:
             entry["spent"]["measured"] += totals["measured"]
             entry["spent"]["provisional"] += totals["provisional"]
             spent = totals["measured"] + totals["provisional"]
-            for bound, limit in (("reservation", held["amount"]), ("cap", (caps or {}).get("tokens"))):
+            for past, limit in (("reservation", held["amount"]), ("cap", (caps or {}).get("tokens"))):
                 if limit is not None and spent > limit:
-                    entry["overshoot"].append({"call_id": call_id, "past": bound, "limit": limit, "spent": spent,
+                    entry["overshoot"].append({"call_id": call_id, "past": past, "limit": limit, "spent": spent,
                                                "state": "measured" if totals["complete"] else "estimated"})
             self._write(ledger)
             if totals["complete"] and outcome == "completed":
@@ -425,10 +425,16 @@ class Supervisor:
                 cal.setdefault(held["class"], {"samples": []})["samples"].append(totals["measured"])
                 records.write_json(self.run_dir, self._path("calibration.json"), cal)
 
-    def _stop_run(self, code, call_id, detail):
+    def _stop_run(self, entry):
+        """Stop the run, with the entry that records WHY - the one record of it.
+
+        A bound excess is `bound.excess(...)`, which carries the observation and the declaration it ran
+        under, because that is what the recovery rule compares against. There is no second file beside this:
+        the stop is written here and read in `_stopped`, so the record a run recovers from is the record it
+        stopped on (the seam record of 2026-10-22)."""
         with self._lock():
             ledger = self.ledger()
-            ledger["stopped"] = {"code": code, "call_id": call_id, "detail": detail, "at": self.clock()}
+            ledger["stopped"] = {"at": self.clock(), **entry}
             self._write(ledger)
 
     # --- one call ----------------------------------------------------------------------------
@@ -477,7 +483,8 @@ class Supervisor:
             self._stopped(call_id)
             if problems:
                 raise Refused(f"PACKET_REFUSED {call_id}: " + "; ".join(problems))
-            self._admit_seat(stage, seat, call_id, host, host_version, profile, view_window, packet, schema_bytes)
+            self._admit_seat(stage, seat, call_id, host, host_version, profile, view_window, packet,
+                             schema_bytes, manifest)
             self._admit_runner(call_id, host)
         except Refused:
             self.release(stage, call_id, "refused")
@@ -522,6 +529,11 @@ class Supervisor:
                         "seat": seat, "child_seat": child_seat, "profile": profile, "manifest": manifest,
                         "schema_sha256": packets.sha256_bytes(schema_bytes) if schema_bytes is not None else None,
                         "view_window": bool(view_window), "realization": self.realization, "exit_status": None,
+                        # what the boundary decided for this call, so the gate judges the bound from the
+                        # call directory alone rather than reaching for the run (the seam record 2026-10-22)
+                        "bound": {"limit": bound.INPUT_BOUND,
+                                  "driver_bytes": getattr(self, "_admitted_driver_bytes", None) if view_window else None,
+                                  "stop_standing": bool(self._blocked(ledger))},
                         "wall_ms": None, "stopped": None, "contract": "required" if contract is not None else "none",
                         "provider_signals": [], "caps": caps, "use": use, "max_output_tokens": max_output_tokens,
                         "runner_refused": None,
@@ -584,29 +596,42 @@ class Supervisor:
             self.breaker.defer(host, f"{stage}:{held['item']}")  # the item that met the signal waits too
         call.update(exit_status=exit_status, wall_ms=wall_ms, stopped=stopped, provider_signals=breakers.report(host, signals),
                     runner_refused=refused.group(0).decode("utf-8", "replace").split(": ", 1)[1] if refused else None)
-        bound = None
+        excess = None
         if view_window:
-            observed = max([sum(r.get(k) or 0 for k in ("input", "cache_read", "cache_creation"))
-                            for r in usage["requests"] if r["state"] == "measured"] or [0])
+            observed, missing = bound.observed_input(usage["requests"])
             call["input_observed"] = observed
-            if observed > INPUT_BOUND:
-                bound = (f"INPUT_BOUND_EXCEEDED {call_id}: a view-window call read {observed} input tokens, past the "
-                         f"{INPUT_BOUND} bound; the host changed, so the run stops")
+            if missing:  # a usage record missing a component is not a smaller number (bound.observed_of)
+                raise Refused(f"USAGE_INCOMPLETE {call_id}: {', '.join(missing)}; the observed input of a call is "
+                              "input + cache creation + cache read, and a missing component is not a zero")
+            if bound.check_observed(observed, view_window):
+                excess = bound.excess(call_id, observed, held["declaration_seq"], self.clock())
         records.write_json(self.run_dir, call_dir / "call.json", call)
         if exit_status is not None:  # a runner that never exited has no receipt (the gate refuses the call for it)
             self._receipt(call_dir, stage, call_id, seat, exit_status)
         outcome = "deferred" if stopping else stopped["outcome"] if stopped else "completed" if exit_status == 0 else "failed"
         self.charge(stage, call_id, usages.totals(usage), outcome, caps)
-        if bound:
-            self._stop_run("INPUT_BOUND_EXCEEDED", call_id, bound)
-            raise Refused(bound)
+        if excess:
+            self._stop_run(excess)
+            raise Refused(excess["detail"])
         return call_dir
 
     def _stopped(self, call_id, ledger=None):
+        """Refuse `call_id` while the run is stopped - unless the rule says the stop has lifted.
+
+        A bound excess is the one stop a run can come back from, and only one way: the host allowance is
+        re-measured and declared through `declare --amend` at a later sequence than the excess recorded
+        (`bound.lifted`). Every other stop code stays as it was."""
+        blocked = self._blocked(ledger)
+        if blocked:
+            raise Refused(f"{blocked}, {call_id} included")
+
+    def _blocked(self, ledger=None):
+        """The run's standing stop as the rule reads it, or None when dispatch may go on."""
         stopped = (ledger or self.ledger())["stopped"]
-        if stopped:
-            raise Refused(f"RUN_STOPPED {stopped['code']} at {stopped['call_id']}: nothing more is dispatched in this run, "
-                          f"{call_id} included")
+        if not stopped:
+            return None
+        _run, _digest, amendments = records.declaration_state(self.run_dir, who="dispatch")
+        return bound.blocked(stopped, amendments)
 
     def _defer(self, stage, call_id, item, host):
         """A call refused at an open breaker: its reservation closes unspent, its item waits."""
@@ -642,13 +667,15 @@ class Supervisor:
                           f"{'the pinned runner ' + str(RUNNERS[host]) if pinned else 'a runner that is not the pinned one'}; "
                           f"a live call runs only the pinned runner, any other runner only under golden")
 
-    def _admit_seat(self, stage, seat, call_id, host, host_version, profile, view_window, packet, schema_bytes):
+    def _admit_seat(self, stage, seat, call_id, host, host_version, profile, view_window, packet,
+                    schema_bytes, manifest=None):
         """The seat must be one the run declares for the stage, or one seats.json pins for it
         (design §4). A view-window call also needs its host allowance: measured for this host
         version and profile in seats.json, declared for the seat in run.json with the same value,
         host version and flag set, and leaving room for the driver's part — the UTF-8 bytes of
-        the packet and the schema, each token covering at least one byte — under INPUT_BOUND (the
-        input-bound amendment record)."""
+        the packet, the schema and whatever the call's manifest declares it carries, each token
+        covering at least one byte — under the bound `runlib/bound.py` owns (the input-bound
+        amendment record, and the seam record of 2026-10-22)."""
         run, _digest, _amendments = records.declaration_state(self.run_dir, who="dispatch")
         held = gate.seats(self.seats_path)
         declared = {v for k, v in run["seats"].items() if k == stage or k.startswith(f"{stage}.")}
@@ -667,10 +694,24 @@ class Supervisor:
         if {k: declared_allowance.get(k) for k in want} != want:
             raise Refused(f"ALLOWANCE_MISMATCH {call_id}: run.json declares {declared_allowance or 'nothing'} for {seat}, "
                           f"the measured allowance is {want}")
-        driver = len(packet) + len(schema_bytes or b"")
-        if driver > INPUT_BOUND - slot["allowance_tokens"]:
-            raise Refused(f"WINDOW_OVER_BOUND {call_id}: the driver's part is {driver} bytes, past {INPUT_BOUND} minus the "
-                          f"host allowance {slot['allowance_tokens']}; the window is split before dispatch")
+        # The driver's part, counted by the rule's owner over everything this call SENDS: the packet (its
+        # template, principles block and window payload are one object by now), the schema, and what the
+        # call's own manifest declares it carries. The host's builtin context is not here - that is the
+        # measured allowance, and counting it twice would charge the same tokens to both sides.
+        driver, uncounted = bound.driver_bytes(packet, schema_bytes, manifest)
+        self._admitted_driver_bytes = driver
+        if uncounted:
+            raise Refused(f"DRIVER_PART_UNCOUNTED {call_id}: " + "; ".join(uncounted))
+        # (d) is about the seat's context, so its size is seats.json's to declare beside the measured
+        # allowance; the default is the S3 seat's until every slot carries one
+        errors = bound.check_bound(driver, bound.limits(
+            slot["allowance_tokens"], seat=seat,
+            capacity=slot.get("context_capacity") or bound.CONTEXT_CAPACITY))
+        if errors:
+            # one code at the boundary, quoting which of the rule's two checks failed: (a) the bound less
+            # the allowance, (d) the seat's capacity less the allowance and the reserved output
+            raise Refused(f"WINDOW_OVER_BOUND {call_id}: " + "; ".join(errors)
+                          + "; the window is split before dispatch")
 
     def _follow(self, host, proc, began, packet, capture, cell, caps, output_cap=None):
         """Follow a launched runner to its end: the monitor, the stop at either cap, the drain."""
@@ -2352,9 +2393,9 @@ def self_test(scratch=None):
     got = refusal(sm.call, "S7b", astra, packets.build(rm["call_id"], "S7b", astra, "x\n", None), None, reservation=rm,
                   caps=caps, view_window=True)
     control("declared-allowance-not-the-measured-one-refused", (got or "").startswith("ALLOWANCE_MISMATCH"), f"{got}")
-    got, _untouched = admitted(measured, "S7b", astra, True, size=INPUT_BOUND - 4000)
+    got, _untouched = admitted(measured, "S7b", astra, True, size=bound.INPUT_BOUND - 4000)
     control("window-at-the-bound-less-the-allowance-admitted", got is None, f"{got}")
-    got, untouched = admitted(measured, "S7b", astra, True, size=INPUT_BOUND - 4000 + 1)
+    got, untouched = admitted(measured, "S7b", astra, True, size=bound.INPUT_BOUND - 4000 + 1)
     control("window-past-the-bound-less-the-allowance-refused", (got or "").startswith("WINDOW_OVER_BOUND") and untouched, f"{got}")
     got, _untouched = admitted(measured, "S7b", astra, True)
     control("window-inside-the-bound-with-a-measured-allowance-admitted", got is None, f"{got}")
@@ -2744,6 +2785,151 @@ def self_test(scratch=None):
                                                                     for f in gate.accept(bare_dir)["failures"]),
             f"{gate.accept(bare_dir)['failures']}")
 
+
+
+    # ---- M3 and M4: one excess record, and the one way back --------------------------------------
+    #
+    # The stop a bound excess leaves is the ONLY stop a run can recover from, and only one way: the host
+    # allowance is re-measured and declared later than the excess recorded. The run below really overruns -
+    # probe 7's R-authoring capture (about 136k observed input) replayed as a VIEW-WINDOW call - so the
+    # record under test is one the dispatcher wrote, not one a control built.
+    rec = run_dir("run-seam-recovery", {"S7b": 2_000_000}, allowance=4000)
+    sr = counted(supervisor(rec, "clean", seats_path=measured_seats, replay=replay))
+    sr.seed_from(authoring)
+    # an EARLIER host_allowance amendment: recorded before the excess, so it is not the way back (M4 v)
+    declare.amend(rec, [(f"host_allowance.{astra}.allowance_tokens", 4000)],
+                  "the allowance is re-declared before anything overruns", scope=("S7b",))
+    before = sr.reserve("S7b", "reserved-before", astra, "authoring")
+    rr = sr.reserve("S7b", "overrun", astra, "authoring")
+    over = refusal(sr.call, "S7b", astra, packets.build(rr["call_id"], "S7b", astra, "Author the record.\n", None), None,
+                   reservation=rr, caps={"tokens": 400_000, "compactions": 2}, view_window=True)
+    control("the-replayed-overrun-stops-the-run-at-the-real-boundary",
+            (over or "").startswith(f"INPUT_BOUND_EXCEEDED {rr['call_id']}"), f"{over}")
+    stopped = json.loads((rec / "supervisor" / "ledger.json").read_text(encoding="utf-8"))["stopped"]
+    control("the-excess-record-is-the-run-s-stop-entry",
+            (stopped or {}).get("code") == bound.STOP_CODE and stopped.get("call_id") == rr["call_id"],
+            f"{stopped}")
+    control("the-excess-record-carries-the-observation-and-the-declaration-it-ran-under",
+            isinstance(stopped.get("observed"), int) and stopped["observed"] > bound.INPUT_BOUND
+            and stopped.get("declaration_seq") == rr["declaration_seq"], f"{stopped}")
+    control("there-is-no-second-excess-file-beside-the-stop-entry",
+            not (rec / "input_bound.jsonl").exists() and not list(rec.glob("**/input_bound*")),
+            "a second record of the excess was written")
+    # M4, the five steps. (i) a window call, (ii) a non-window call - both refused while the stop stands
+    def seam_dispatch(label, view_window=True, reservation=None):
+        held_r = reservation or sr.reserve("S7b", f"after-{label}", astra, "authoring")
+        if isinstance(held_r, str):
+            return held_r
+        return refusal(sr.call, "S7b", astra,
+                       packets.build(held_r["call_id"], "S7b", astra, "Author the record.\n", None), None,
+                       reservation=held_r, caps={"tokens": 400_000, "compactions": 2}, view_window=view_window)
+
+    control("M4-i-a-window-call-is-refused-while-the-stop-stands",
+            (refusal(sr.reserve, "S7b", "after-window", astra, "authoring") or "")
+            .startswith(f"RUN_STOPPED {bound.STOP_CODE}"), "a window call was reserved after the stop")
+    control("M4-ii-a-non-window-call-reserved-before-the-stop-is-refused-too",
+            (seam_dispatch("non-window", view_window=False, reservation=before) or "")
+            .startswith(f"RUN_STOPPED {bound.STOP_CODE}"), "a non-window call dispatched after the stop")
+    # (iii) an amendment of another key is not the way back
+    declare.amend(rec, [("budget.per_stage.S7b", 2_100_000)], "an unrelated amendment", scope=("S7b",))
+    control("M4-iii-an-amendment-of-another-key-does-not-lift-the-stop",
+            (refusal(sr.reserve, "S7b", "after-unrelated", astra, "authoring") or "")
+            .startswith(f"RUN_STOPPED {bound.STOP_CODE}"), "an unrelated amendment lifted the stop")
+    # (v) ... and neither does the host_allowance amendment that was recorded BEFORE the excess: it is
+    # still in the log, and the rule compares sequences, not spellings
+    control("M4-v-the-host_allowance-amendment-recorded-before-the-excess-does-not-lift-it",
+            any(a["seq"] <= stopped["declaration_seq"] and any(str(k).startswith("host_allowance")
+                                                               for k in a.get("diff") or {})
+                for a in records.declaration_state(rec, who="dispatch")[2])
+            and (refusal(sr.reserve, "S7b", "after-earlier", astra, "authoring") or "")
+            .startswith(f"RUN_STOPPED {bound.STOP_CODE}"),
+            "the earlier host_allowance amendment is missing, or it lifted the stop")
+    # (iv) the way back: the allowance re-measured and declared after the excess
+    declare.amend(rec, [(f"host_allowance.{astra}.allowance_tokens", 6_000)],
+                  "the host allowance was re-measured after the excess", scope=("S7b",))
+    after = sr.reserve("S7b", "after-amendment", astra, "authoring")
+    control("M4-iv-a-later-host_allowance-amendment-lets-the-run-go-on",
+            isinstance(after, dict) and after.get("call_id"), f"{after}")
+    control("M4-recovery-does-not-forget-the-excess",
+            json.loads((rec / "supervisor" / "ledger.json").read_text(encoding="utf-8"))["stopped"] == stopped,
+            "the excess record was cleared instead of being left where it happened")
+
+    # ---- the seam: the bound has ONE owner, and the dispatcher is its boundary (seam record 2026-10-22)
+    #
+    # M1. The rule used to exist twice - this module admitted against its own copy while views.py cut
+    # windows against another. These two controls are what keeps that from coming back: the module must
+    # reach the owner, and the owner's answer must be the one the boundary gives.
+    seam_source = pathlib.Path(__file__).read_text(encoding="utf-8")
+    control("the-bound-helpers-have-a-caller",
+            all(call in seam_source for call in ("bound.check_bound(", "bound.driver_bytes(", "bound.check_observed(",
+                                                 "bound.excess(", "bound.blocked(")),
+            "the dispatcher does not reach the rule's owner for one of admission, counting, settlement, the "
+            "excess record or the block")
+    control("the-bound-is-not-spelled-twice-here",
+            not re.search(r"^\s*INPUT_BOUND\s*=", seam_source, re.M)
+            and f"{bound.INPUT_BOUND:_}" not in seam_source.replace("bound.INPUT_BOUND:_", ""),
+            "this module carries a second copy of the bound")
+    seam_limits = bound.limits(4000, seat=astra)
+    seam_rows = [(bound.INPUT_BOUND - 4000 - 1, False), (bound.INPUT_BOUND - 4000, False),
+                 (bound.INPUT_BOUND - 4000 + 1, True)]
+    control("the-boundary-and-the-rule-agree-at-the-exact-bound",
+            [(n, bool(bound.check_bound(n, seam_limits))) for n, _ in seam_rows] == seam_rows,
+            f"{[(n, bool(bound.check_bound(n, seam_limits))) for n, _ in seam_rows]}")
+
+    # M5. The driver's part is what the call SENDS. The planted parts are non-zero on purpose: an equality
+    # between two empty counts proves nothing, and today's hermetic profile declares no instructions at all.
+    seam_packet = packets.build("r1/S3/t1/0a", "S3", astra, "a window of blocks\n" * 20, None)
+    seam_schema = b'{"type":"object"}'
+    seam_manifest = {"instructions": [{"path": str(scratch / "planted-instruction.md")}],
+                     "appended_prompts": [{"text": "an appended system prompt"}],
+                     "skills": [{"bytes": 50_000}], "workdir_files": [{"bytes": 50_000}]}
+    (scratch / "planted-instruction.md").write_text("I" * 3000, encoding="utf-8")
+    seam_plain = bound.driver_bytes(seam_packet, seam_schema)[0]
+    seam_carried, seam_uncounted = bound.driver_bytes(seam_packet, seam_schema, seam_manifest)
+    control("the-driver-payload-counts-the-instructions-and-prompts-the-call-carries",
+            (seam_carried - seam_plain, seam_uncounted) == (3000 + len("an appended system prompt"), []),
+            f"{seam_carried - seam_plain} {seam_uncounted}")
+    control("the-planted-driver-parts-are-not-zero-bytes", 3000 + len("an appended system prompt") > 0, "planted nothing")
+    control("the-host-s-own-context-is-not-charged-to-the-driver",
+            bound.driver_bytes(seam_packet, seam_schema,
+                               {k: v for k, v in seam_manifest.items() if k in ("skills", "workdir_files")})[0]
+            == seam_plain, "a builtin part was counted on the driver's side")
+    sd = run_dir("run-seam-count", {"S7b": 2_000_000}, allowance=4000)
+    ss = supervisor(sd, seats_path=measured_seats)
+    rs = ss.reserve("S7b", "count", astra, "judge", tranche="calibration")
+    fat = {"instructions": [{"path": str(scratch / "fat-instruction.md")}]}
+    (scratch / "fat-instruction.md").write_text("F" * (bound.INPUT_BOUND - 4000), encoding="utf-8")
+    small = packets.build(rs["call_id"], "S7b", astra, "x\n", None)
+    got = refusal(ss.call, "S7b", astra, small, None, reservation=rs, caps=caps, view_window=True, manifest=fat)
+    control("a-window-inside-the-bound-whose-declared-instructions-pass-it-is-refused",
+            (got or "").startswith("WINDOW_OVER_BOUND") and "WINDOW_BOUND_EXCEEDED (a)" in (got or ""), f"{got}")
+    rs2 = ss.reserve("S7b", "uncounted", astra, "judge", tranche="calibration")
+    got = refusal(ss.call, "S7b", astra, packets.build(rs2["call_id"], "S7b", astra, "x\n", None), None, reservation=rs2,
+                  caps=caps, view_window=True, manifest={"appended_prompts": [{"name": "no bytes, no text, no path"}]})
+    control("a-declared-driver-part-that-cannot-be-counted-is-refused-not-read-as-zero",
+            (got or "").startswith("DRIVER_PART_UNCOUNTED"), f"{got}")
+
+    # M2. Check (d) existed on the view side alone, so a window that fits (a) and leaves no room for the
+    # answer was dispatched. The clean case is the same call one byte under the capacity.
+    narrow_seats = scratch / "seats-narrow-capacity.json"
+    held["hosts"]["codex"]["host_allowance"]["hermetic"].update(allowance_tokens=4000, measured=True,
+                                                                context_capacity=60_000)
+    narrow_seats.write_text(json.dumps(held), encoding="utf-8")
+    held["hosts"]["codex"]["host_allowance"]["hermetic"].pop("context_capacity")
+    narrow = run_dir("run-seam-capacity", {"S7b": 2_000_000}, allowance=4000)
+    sn = supervisor(narrow, seats_path=narrow_seats)
+    for label, size, want in (("inside", 20_000, None), ("outside", 25_000, "WINDOW_CAPACITY_EXCEEDED (d)")):
+        rn = sn.reserve("S7b", f"cap-{label}", astra, "judge", tranche="calibration")
+        base = len(packets.build(rn["call_id"], "S7b", astra, "", None))
+        got = refusal(sn.call, "S7b", astra,
+                      packets.build(rn["call_id"], "S7b", astra, "d" * max(size - base, 1), None), None,
+                      reservation=rn, caps=caps, view_window=True)
+        if want is None:
+            control("a-window-leaving-room-for-the-answer-is-admitted", got is None, f"{got}")
+        else:
+            control("a-window-passing-(a)-but-leaving-no-room-for-the-answer-is-refused",
+                    (got or "").startswith("WINDOW_OVER_BOUND") and want in (got or ""), f"{got}")
+
     # contract fidelity: the Supervisor's refusals and item outcomes, read from the source, equal
     # this copy, made once and cited; the module docstring's list is held to the same set
     design = {
@@ -2753,6 +2939,7 @@ def self_test(scratch=None):
         "BUDGET_EXHAUSTED", "CALIBRATION_PROVISIONAL",
         # the amendment record 2026-10-21T0026--cc0498f--input-bound-amendment.md: the window bound, the run stop
         "INPUT_BOUND_EXCEEDED", "RUN_STOPPED", "ALLOWANCE_UNMEASURED", "ALLOWANCE_MISMATCH", "WINDOW_OVER_BOUND",
+        "DRIVER_PART_UNCOUNTED", "USAGE_INCOMPLETE",
         # the implementation's own, each closing a gap the contract leaves open: S-15's concurrency one, a stage
         # with no declared budget, a call directory never overwritten, usage before the cell goes (§13.3), the
         # receipt (§3.2), the seat table (§4), the realization boundary (plan conventions)
@@ -2766,16 +2953,31 @@ def self_test(scratch=None):
     source = pathlib.Path(__file__).read_text(encoding="utf-8")
     listed = set(re.findall(r"\b[A-Z][A-Z_]{4,}\b", __doc__.split("Refused by name:", 1)[1].split("CONTRACT names", 1)[0]))
     control("contract-cites-its-sections", CONTRACT["$comment"].startswith("design §13.2"), CONTRACT["$comment"])
-    control("supervisor-refusals-are-the-cited-set", contract_branches(source)[0] == design, f"{contract_branches(source)[0] ^ design}")
-    control("module-docstring-lists-the-same-refusals", listed == design, f"{listed ^ design}")
+    # The bound's stop is raised through the record its owner writes (`bound.excess`), so the leading word
+    # of that message is not a literal here and `contract_branches` cannot see it - it reads literals. The
+    # scan is told where the code comes from, and told to lose it the moment that raise goes.
+    # the token is assembled rather than written, so this control's own source does not contain the thing it
+    # looks for - a scan that matches itself can never go quiet
+    raise_site = "Refused(excess[" + '"detail"])'
+
+    def raised_codes(src):
+        return contract_branches(src)[0] | ({bound.STOP_CODE} if raise_site in src else set())
+
+    control("supervisor-refusals-are-the-cited-set", raised_codes(source) == design, f"{raised_codes(source) ^ design}")
+    control("the-bound-stop-is-raised-where-the-rule-says-it-is",
+            "self._stop_run(excess)" in source and raise_site in source,
+            "the dispatcher does not stop the run on the rule's own excess record")
     control("item-outcomes-are-the-cited-set", contract_branches(source)[1] == outcomes, f"{contract_branches(source)[1]}")
     anchor = '                    raise Refused(f"CALL_EXISTS {call_dir}")\n'
     added = source.replace(anchor, anchor + '                    raise Refused(f"PLANTED_REFUSAL {call_dir}")\n', 1)
     removed = source.replace('raise Refused(f"CAP_MISSING', 'raise ValueError(f"CAP_MISSING', 1)
-    control("an-added-refusal-is-detected", added != source and contract_branches(added)[0] - design == {"PLANTED_REFUSAL"},
+    control("an-added-refusal-is-detected", added != source and raised_codes(added) - design == {"PLANTED_REFUSAL"},
             f"{contract_branches(added)[0] - design}")
-    control("a-removed-refusal-is-detected", removed != source and design - contract_branches(removed)[0] == {"CAP_MISSING"},
-            f"{design - contract_branches(removed)[0]}")
+    dropped = source.replace("raise " + raise_site, "pass", 1)
+    control("a-removed-bound-stop-is-detected", dropped != source and bound.STOP_CODE not in raised_codes(dropped),
+            "the scan still reports the bound stop after its raise is gone")
+    control("a-removed-refusal-is-detected", removed != source and design - raised_codes(removed) == {"CAP_MISSING"},
+            f"{design - raised_codes(removed)}")
 
     for failure in failures:
         print(f"dispatch --self-test [FAIL] {failure}")

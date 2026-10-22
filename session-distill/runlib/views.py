@@ -30,10 +30,10 @@ two viewed runs that have unviewed records between them.
 
 **The bound** (design §5.4 as amended, view-window calls only). The driver's part of a call - the window as
 `render_window` writes it, plus the packet template, schema and instructions (`overhead`) - is at most
-`INPUT_LIMIT` minus the seat's declared host allowance, in bytes (a token covers at least one byte), and, with the
+`bound.INPUT_BOUND` minus the seat's declared host allowance, in bytes (a token covers at least one byte), and, with the
 allowance and the output reservation, within the seat's context capacity. A window failing either is cut smaller.
-`check_observed_input` compares what a call really consumed with `INPUT_LIMIT`; above it is a host change
-(`INPUT_BOUND_EXCEEDED`) and `dispatch_blocked` refuses every dispatch until an amendment of `host_allowance` follows.
+`bound.check_observed` compares what a call really consumed with `bound.INPUT_BOUND`; above it is a host change
+(`INPUT_BOUND_EXCEEDED`) and the dispatcher refuses every dispatch until an amendment of `host_allowance` follows.
 No guarantee about the complete request is claimed.
 
 **Expansion** (`expand`, `record_decision`): a clipped record is expanded into windows under the same bound and the
@@ -68,13 +68,9 @@ import tempfile
 
 if __package__ in (None, ""):  # run as a script: put session-distill/ on the import path
     sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
-from runlib import census, claims, coverage, declare, lineage, projection, records, search, sources, stagelock, validate
+from runlib import bound, census, claims, coverage, declare, lineage, projection, records, search, sources, stagelock, validate
 from runlib.records import Refused
 
-INPUT_LIMIT = 120_000        # design §5.4 as amended: the driver's bytes plus the host allowance stay within this
-CONTEXT_CAPACITY = 200_000   # the S3 seat's context, in tokens; seats.json (WP-02) will own it
-OUTPUT_RESERVATION = 32_000  # tokens kept for the answer; seats.json (WP-02) will own it
-PACKET_OVERHEAD = 12_288     # bytes of template, schema and instructions the packet adds to a window (WP-08 measures it)
 OVERLAP_TURNS = 5
 OVERLAP_ITEM_BYTES = 700
 OVERLAP_SLACK = 260          # header and cut marker of an overlap entry, beyond its text
@@ -93,74 +89,31 @@ ROLE_BACKLOG = re.compile(r"^backlog\(.+\)$")
 
 # ---- the bound -------------------------------------------------------------------------------
 
-def limits_of(run, capacity=CONTEXT_CAPACITY, reservation=OUTPUT_RESERVATION, overhead=PACKET_OVERHEAD):
-    """The bound a view-window call keeps, from the declaration: the S3 seat's declared allowance."""
+def limits_of(run, capacity=bound.CONTEXT_CAPACITY, reservation=bound.OUTPUT_RESERVATION,
+              overhead=bound.PACKET_OVERHEAD):
+    """The bound a view-window call keeps, from the declaration: the S3 seat's declared allowance.
+
+    Where the allowance comes from is this module's business; what the bound then IS belongs to
+    `runlib/bound.py`, which both this side and the dispatcher import (the seam record of 2026-10-22)."""
     seat = (run.get("seats") or {}).get("S3")
     entry = (run.get("host_allowance") or {}).get(seat)
     if not seat or not entry:
         raise Refused(f"ALLOWANCE_UNDECLARED seats.S3: {seat!r} has no host_allowance entry, so no view window can be cut "
                       "against a bound (measure it in preflight and declare it)")
-    return {"seat": seat, "allowance": entry["allowance_tokens"], "capacity": capacity, "reservation": reservation,
-            "overhead": overhead}
-
-
-def driver_budget(limits):
-    """Bytes the driver may supply in one view-window call: (a) INPUT_LIMIT minus the allowance, and (d) the context
-    capacity minus the allowance and the output reservation; the tighter of the two."""
-    return min(INPUT_LIMIT - limits["allowance"], limits["capacity"] - limits["reservation"] - limits["allowance"])
-
-
-def check_bound(driver_bytes, limits):
-    """Violations of the two pre-dispatch checks for a view-window call; empty when both hold."""
-    errors = []
-    if driver_bytes > INPUT_LIMIT - limits["allowance"]:
-        errors.append(f"WINDOW_BOUND_EXCEEDED (a): {driver_bytes} driver bytes exceed {INPUT_LIMIT} - the declared allowance "
-                      f"{limits['allowance']} = {INPUT_LIMIT - limits['allowance']}")
-    if driver_bytes + limits["allowance"] + limits["reservation"] > limits["capacity"]:
-        errors.append(f"WINDOW_CAPACITY_EXCEEDED (d): {driver_bytes} driver bytes + allowance {limits['allowance']} + output "
-                      f"reservation {limits['reservation']} exceed the seat's context capacity {limits['capacity']}")
-    return errors
-
-
-def check_observed_input(observed_tokens, view_window):
-    """After a call: a view-window call whose observed input (input + cache creation + cache read) is above
-    INPUT_LIMIT is a host change. A call that carries no view window keeps its own section's contract."""
-    if view_window and observed_tokens > INPUT_LIMIT:
-        return [f"INPUT_BOUND_EXCEEDED: observed input {observed_tokens} tokens exceeds {INPUT_LIMIT} on a view-window call; "
-                "the host added more than the declared allowance - re-measure it and amend the declaration"]
-    return []
-
-
-def record_input_bound_exceeded(run_dir, call_id, observed_tokens):
-    """Record the host change against the call, at the declaration the call ran under."""
-    run, _, _ = records.declaration_state(run_dir, "views")
-    path = stagelock.confine(run_dir, pathlib.Path(run_dir) / "input_bound.jsonl")
-    with open(path, "a", encoding="utf-8") as handle:
-        handle.write(json.dumps({"call_id": call_id, "observed": observed_tokens, "declaration_seq": run["declaration_seq"],
-                                 "at": records.now()}, sort_keys=True) + "\n")
-
-
-USAGE_KEYS = ("input_tokens", "cache_creation_input_tokens", "cache_read_input_tokens")
-
-
-def driver_payload_bytes(parts):
-    """The UTF-8 byte count of **everything the driver supplies** for one call - the window, the packet
-    template, the schema, any declared instructions - which is what the amendment's (a) bounds. Counting the
-    window alone understates the driver's part by exactly the overhead the bound exists to include."""
-    return sum(len(part.encode("utf-8")) for part in parts)
+    return bound.limits(entry["allowance_tokens"], seat=seat, capacity=capacity, reservation=reservation,
+                        overhead=overhead)
 
 
 def observed_input_of(capture):
-    """A capture's observed input: input + cache creation + cache read, as the amendment defines it.
+    """A retained capture's observed input, as `bound` defines it.
 
-    A capture missing any of the three is refused rather than read as a smaller number: a missing cache
-    field would make every overrun look like a call within the bound."""
-    usage = (capture or {}).get("usage") or {}
-    missing = [key for key in USAGE_KEYS if not isinstance(usage.get(key), int)]
+    A capture missing any of the three components is refused rather than read as a smaller number: a
+    missing cache field would make every overrun look like a call within the bound."""
+    observed, missing = bound.observed_of((capture or {}).get("usage") or {})
     if missing:
         raise Refused(f"CAPTURE_USAGE_MISSING {capture.get('call_id')}: {', '.join(missing)}; the observed input of a "
                       "call is input + cache creation + cache read, and a missing field is not a zero")
-    return sum(usage[key] for key in USAGE_KEYS)
+    return observed
 
 
 CAPTURES = pathlib.Path(__file__).resolve().parent.parent / "fixtures" / "captures"
@@ -196,53 +149,6 @@ def retained_capture(name, root=None):
         raise Refused(f"CAPTURE_HASH_MISMATCH {path}: the file is sha256:{digest[:12]} and the pin says "
                       f"{pins[name][:12]}; a capture whose bytes moved is not the capture a control was written against")
     return json.loads(raw.decode("utf-8"))
-
-
-def gate_dispatch(run_dir, parts, limits, view_window=True):
-    """The pre-dispatch gate every dispatcher calls: the stop a recorded excess leaves, then the driver's own
-    bytes against (a) and (d). Returns the driver bytes it counted.
-
-    S2 cuts windows and dispatches nothing, so the dispatcher that calls this lives in S3 (WP-08). The gate
-    is here because the bound is: the three bound helpers had no caller at all, and a check nothing calls is
-    a check that cannot fire."""
-    blocked = dispatch_blocked(run_dir)
-    if blocked:
-        raise Refused(blocked)
-    driver_bytes = driver_payload_bytes(parts)
-    if view_window:
-        errors = check_bound(driver_bytes, limits)
-        if errors:
-            raise Refused("\n".join(errors))
-    return driver_bytes
-
-
-def settle_dispatch(run_dir, call_id, capture, view_window=True):
-    """The post-dispatch gate: the observed input against the bound. An excess on a view-window call is
-    recorded against the call and raised, which is what stops every further dispatch until an amendment."""
-    observed = observed_input_of(capture)
-    errors = check_observed_input(observed, view_window)
-    if errors:
-        record_input_bound_exceeded(run_dir, call_id, observed)
-        raise Refused("\n".join(errors))
-    return observed
-
-
-def dispatch_blocked(run_dir):
-    """None when dispatch may go on; else the named stop. A recorded excess blocks every dispatch until an amendment
-    of `host_allowance` follows it (the re-measured allowance, declared through `declare --amend`)."""
-    path = pathlib.Path(run_dir) / "input_bound.jsonl"
-    if not path.is_file():
-        return None
-    events = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
-    if not events:
-        return None
-    last = max(events, key=lambda e: e["declaration_seq"])
-    amended = [a for a in records.read_amendments(run_dir)
-               if a["seq"] > last["declaration_seq"] and any(key.split(".")[0] == "host_allowance" for key in a["diff"])]
-    if amended:
-        return None
-    return (f"INPUT_BOUND_EXCEEDED {last['call_id']}: observed {last['observed']} tokens; every dispatch stays refused until "
-            "host_allowance is re-measured and declared through `declare --amend`")
 
 
 # ---- blocks, clipping, entries ---------------------------------------------------------------
@@ -713,7 +619,7 @@ def make_window(base, number, seq, i, j, limits, overlap=True):
               "span_map": span_map_of(owned), "omission_manifest": manifest_of(owned), "host_allowance": limits["allowance"]}
     window["omission_manifest"] = window["omission_manifest"] + overlap_manifest(window, seq)
     window["driver_bytes"] = limits["overhead"] + len(render_window(window).encode("utf-8"))
-    window["bound_ok"] = not check_bound(window["driver_bytes"], limits)
+    window["bound_ok"] = not bound.check_bound(window["driver_bytes"], limits)
     return window
 
 
@@ -722,7 +628,7 @@ def cut_windows(base, seq, limits, overlap=True):
 
     Each owned entry lands in exactly one window; one too large to fit is split into spans first. A window ends
     where the next entry would push its driver bytes past the bound, and never spans a context entry."""
-    budget = driver_budget(limits) - limits["overhead"]
+    budget = bound.driver_budget(limits) - limits["overhead"]
     ceiling = budget - HEADER_SLACK - (2 * OVERLAP_TURNS * (OVERLAP_ITEM_BYTES + OVERLAP_SLACK) if overlap else 0)
     if ceiling < MIN_ENTRY_BYTES:
         raise Refused(f"WINDOW_UNBOUNDED: {budget} bytes remain for a window after the packet's {limits['overhead']} and the "
@@ -751,7 +657,7 @@ def cut_windows(base, seq, limits, overlap=True):
             window = make_window(base, len(windows) + 1, cutting, i, j, limits, overlap)
         if not window["bound_ok"]:
             raise Refused(f"WINDOW_UNBOUNDED: one entry ({eid(cutting[i])}) cannot be placed in a window within the bound: "
-                          + "; ".join(check_bound(window["driver_bytes"], limits)))
+                          + "; ".join(bound.check_bound(window["driver_bytes"], limits)))
         windows.append(window)
         i = j
     return windows, [{"id": eid(e), "owned": e["owned"], "line": e["line"], "kind": e["kind"]} for e in cutting]
@@ -1241,7 +1147,7 @@ def view_transcript(run_dir, entry, state, ctx):
             "source_bytes": (run_dir / copy_rel).stat().st_size}
 
 
-def run(run_dir, capacity=CONTEXT_CAPACITY, reservation=OUTPUT_RESERVATION, overhead=PACKET_OVERHEAD):
+def run(run_dir, capacity=bound.CONTEXT_CAPACITY, reservation=bound.OUTPUT_RESERVATION, overhead=bound.PACKET_OVERHEAD):
     """`distill.py views`: S2 over the census and the coverage state S1 left in the run directory."""
     run_dir = pathlib.Path(run_dir)
     declaration = records.read_json(records.run_json_path(run_dir))
@@ -1307,7 +1213,7 @@ def report_lines(manifest):
     mean = t["driver_bytes"] / t["windows"] if t["windows"] else 0
     return [f"views window {manifest['window']}: {t['sessions']} sessions and {t['children']} children, {t['windows']} windows "
             f"(per transcript: min {per[0] if per else 0}, median {per[len(per) // 2] if per else 0}, max {per[-1] if per else 0})",
-            f"  driver bytes: total {t['driver_bytes']}, mean {mean:.0f}, max {t['max_driver_bytes']} of {driver_budget(limits)} "
+            f"  driver bytes: total {t['driver_bytes']}, mean {mean:.0f}, max {t['max_driver_bytes']} of {bound.driver_budget(limits)} "
             f"(allowance {limits['allowance']}, overhead {limits['overhead']})",
             f"  estimated tokens at 3.5 bytes each (a packing diagnostic, not a bound): {t['driver_bytes'] / 3.5:.0f}",
             f"  source bytes {t['source_bytes']}, {t['records']} records, {t['items']} blocks, {t['viewed_items']} viewed, "
@@ -1594,7 +1500,7 @@ def fx_census(window_id, entries):
             "pending_events": [], "transcripts": entries}
 
 
-def golden(root, name="g", overhead=PACKET_OVERHEAD, capacity=CONTEXT_CAPACITY, reservation=OUTPUT_RESERVATION,
+def golden(root, name="g", overhead=bound.PACKET_OVERHEAD, capacity=bound.CONTEXT_CAPACITY, reservation=bound.OUTPUT_RESERVATION,
            allowance=3200, census_sha=None, compressed=False, main_records=None, owned=None):
     """A run directory S2 can be run over, and the result of running it (realization: golden).
 
@@ -2616,21 +2522,21 @@ def self_test():
 
         # ---- done-when 3: the bound as the owner's amendment of §5.4 states it --------------------
         limits = golden_run["limits"]
-        named("bound (a) and (d): a window inside both checks passes", check_bound(1000, limits))
+        named("bound (a) and (d): a window inside both checks passes", bound.check_bound(1000, limits))
         named("control, bound (a): driver bytes above 120k minus the declared allowance are named",
-              check_bound(INPUT_LIMIT - limits["allowance"] + 1, limits), "WINDOW_BOUND_EXCEEDED")
+              bound.check_bound(bound.INPUT_BOUND - limits["allowance"] + 1, limits), "WINDOW_BOUND_EXCEEDED")
         named("control, bound (d): driver bytes that pass (a) but leave no room for the output reservation are named",
-              check_bound(50_000, {**limits, "capacity": 60_000}), "WINDOW_CAPACITY_EXCEEDED")
+              bound.check_bound(50_000, {**limits, "capacity": 60_000}), "WINDOW_CAPACITY_EXCEEDED")
         tighter = golden(root, "capped", overhead=100_000, capacity=150_000)
         expect("a run whose (d) check is the tighter bound cuts the same corpus into more windows: a window failing "
-               "(d) is split", (driver_budget(tighter["limits"]) < driver_budget(limits),
+               "(d) is split", (bound.driver_budget(tighter["limits"]) < bound.driver_budget(limits),
                                 tighter["manifest"]["totals"]["windows"] > manifest["totals"]["windows"]), (True, True))
         one = make_entry({"pointer": "/message/content", "kind": "human", "text": "x" * 100}, 1, "in_window", 0)
         refused("control, unbounded: a packet that leaves no room for an entry is refused, never cut away",
                 lambda: cut_windows({"transcript": "t", "version": 0, "version_sha": "ab" * 32, "redaction_version": projection.CURRENT},
-                                    [one], {**limits, "overhead": INPUT_LIMIT - 10_000}), "WINDOW_UNBOUNDED")
+                                    [one], {**limits, "overhead": bound.INPUT_BOUND - 10_000}), "WINDOW_UNBOUNDED")
         named("control, unbounded: under the production posture the transcript whose windows cannot be bounded is "
-              "quarantined by name", [q["reason"] for q in golden(root, "nobound", overhead=INPUT_LIMIT - 10_000)["manifest"]["quarantined"]],
+              "quarantined by name", [q["reason"] for q in golden(root, "nobound", overhead=bound.INPUT_BOUND - 10_000)["manifest"]["quarantined"]],
               "WINDOW_UNBOUNDED")
         refused("control, allowance: a declaration with no measured host allowance for the S3 seat cuts no window",
                 lambda: limits_of({"seats": {"S3": "claude:x/high"}, "host_allowance": {}}), "ALLOWANCE_UNDECLARED")
@@ -2644,27 +2550,15 @@ def self_test():
         expect("control, allowance: the superseded S0 spelling is in no refusal of either stage",
                [line for line in declare.check_declaration(no_allowance) + limits_refusal(golden_run)
                 if "HOST_ALLOWANCE_MISSING" in line], [])
-        named("observed input: a view-window call within 120k is accepted", check_observed_input(INPUT_LIMIT, True))
+        named("observed input: a view-window call within 120k is accepted", bound.check_observed(bound.INPUT_BOUND, True))
         named("control, observed input: a view-window call above 120k is a host change",
-              check_observed_input(INPUT_LIMIT + 1, True), "INPUT_BOUND_EXCEEDED")
+              bound.check_observed(bound.INPUT_BOUND + 1, True), "INPUT_BOUND_EXCEEDED")
         named("observed input: the same observation on a call that carries no view window is accepted, so the R "
-              "authoring of §8.6 keeps its own section's contract", check_observed_input(136_000, False))
-        expect("dispatch is open before any excess is recorded", dispatch_blocked(run_dir), None)
-        # M#9: the helpers at the boundary a dispatcher calls, driven by replayed captures rather than by
-        # integers. The gate is in this module because the bound is; the dispatcher that calls it is S3's.
-        window_text = render_window(windows[0])
-        template, schema, instructions = "PACKET " * 200, '{"schema": 1}' * 50, "INSTRUCTIONS " * 100
-        parts = [window_text, template, schema, instructions]
-        expect("done-when 3(a): the gate counts the COMPLETE driver payload - the window, the template, the "
-               "schema and the declared instructions - not the window alone",
-               gate_dispatch(run_dir, parts, limits),
-               sum(len(part.encode("utf-8")) for part in parts))
-        expect("done-when 3(a): ... which is more than the window on its own, so the overhead the bound exists "
-               "to include is inside it",
-               gate_dispatch(run_dir, parts, limits) > len(window_text.encode("utf-8")), True)
-        refused("control, bound (a) at the gate: a driver payload above 120k minus the allowance is refused before "
-                "any dispatch", lambda: gate_dispatch(run_dir, ["x" * (INPUT_LIMIT - limits["allowance"] + 1)], limits),
-                "WINDOW_BOUND_EXCEEDED")
+              "authoring of §8.6 keeps its own section's contract", bound.check_observed(136_000, False))
+        # The boundary itself is the DISPATCHER's: `runlib/bound.py` owns the rule and `dispatch.py`
+        # admits, settles, stops and recovers against it (the seam record of 2026-10-22). What stays here
+        # is what this module owns - the retained captures and what the rule says about them.
+        #
         # P#4: the captures these controls settle are FILES, each pinned by sha256 in
         # `fixtures/captures.json`, and `retained_capture` refuses one whose bytes moved. A dictionary
         # written at the point of use carries whatever counts the control wanted, so it can be adjusted until
@@ -2680,8 +2574,8 @@ def self_test():
         usage = within["usage"]
         expect("done-when 3(b): the retained view-window capture within 120k settles, and its observed input is "
                "input + cache creation + cache read as the capture itself records them",
-               settle_dispatch(run_dir, within["call_id"], within),
-               usage["input_tokens"] + usage["cache_creation_input_tokens"] + usage["cache_read_input_tokens"])
+               (observed_input_of(within), bound.check_observed(observed_input_of(within), True)),
+               (usage["input_tokens"] + usage["cache_creation_input_tokens"] + usage["cache_read_input_tokens"], []))
         refused("control, P#4: a capture name no pin covers is refused rather than read",
                 lambda: retained_capture("not-pinned"), "CAPTURE_UNPINNED")
         # R#6: the mismatch is planted in a COPY of the fixture tree, under this run's own directory, so the
@@ -2697,19 +2591,18 @@ def self_test():
         expect("control, R#6: ... and the fixture in the checkout is untouched by that plant",
                retained_capture("within-bound")["call_id"], within["call_id"])
         refused("control, done-when 3(b): a capture missing a cache field is refused, never read as a smaller number",
-                lambda: settle_dispatch(run_dir, "r1/S3/t1/0b", {"call_id": "r1/S3/t1/0b", "usage": {"input_tokens": 1}}),
+                lambda: observed_input_of({"call_id": "r1/S3/t1/0b", "usage": {"input_tokens": 1}}),
                 "CAPTURE_USAGE_MISSING")
-        expect("done-when 3: a retained R-authoring capture above 120k through the same gate as a NON-window call "
-               "is accepted, and the window rule is untouched",
-               (settle_dispatch(run_dir, authoring["call_id"], authoring, view_window=authoring["view_window"]),
-                dispatch_blocked(run_dir)), (observed_input_of(authoring), None))
+        expect("done-when 3: a retained R-authoring capture above 120k read as a NON-window call is accepted, and "
+               "the window rule is untouched",
+               bound.check_observed(observed_input_of(authoring), authoring["view_window"]), [])
         expect("control, P#4: the two retained captures name the source file they were copied from, its "
                "sha256 and the extraction rule, so a reader can go back to the evidence",
                [cap["call_id"] for cap in (within, authoring)
                 if not all(mark in cap["origin"] for mark in ("sanitised", "sha256", "Extraction rule"))], [])
         expect("control, P#4: the R-authoring capture's observed input really is above the view-window bound, "
                "which is what makes it the case the non-window contract is for",
-               observed_input_of(authoring) > INPUT_LIMIT, True)
+               observed_input_of(authoring) > bound.INPUT_BOUND, True)
         expect("control, P#4: every capture fixture carries usage counts and nothing else - no prompt, no "
                "completion, no identifier",
                sorted({key for cap in (within, overrun, authoring) for key in cap
@@ -2720,20 +2613,15 @@ def self_test():
                 for text in [path.read_text(encoding="utf-8")]
                 if "sk-ant-" + "oat" in text or FX_HOME in text
                 or any(owner in text for owner in ("/Users/kangmin", "/home/", "/Users/Shared"))], [])
-        # ... and a retained view-window capture above 120k records the excess and stops every further dispatch
-        refused("control, done-when 3(c): a view-window capture above 120k is INPUT_BOUND_EXCEEDED (this one is "
-                "the synthetic fixture: no retained capture of that case exists)",
-                lambda: settle_dispatch(run_dir, overrun["call_id"], overrun), "INPUT_BOUND_EXCEEDED")
-        named("control, observed input: a recorded excess refuses every further dispatch by name",
-              [dispatch_blocked(run_dir) or ""], "INPUT_BOUND_EXCEEDED")
-        refused("control, done-when 3(c): the SUBSEQUENT dispatch is the one that must stop, and the gate is where "
-                "it stops", lambda: gate_dispatch(run_dir, parts, limits), "INPUT_BOUND_EXCEEDED")
-        declare.amend(run_dir, [(f"host_allowance.{golden_run['seat']}.allowance_tokens", 6_000)],
-                      "the host allowance was re-measured after the excess", scope=("S3",))
-        expect("dispatch resumes only once host_allowance is re-measured and declared through an amendment",
-               dispatch_blocked(run_dir), None)
-        expect("done-when 3(c): ... and the gate lets the next call through once it has",
-               gate_dispatch(run_dir, parts, limits) > 0, True)
+        named("control, done-when 3(c): a view-window capture above 120k is INPUT_BOUND_EXCEEDED (this one is "
+              "the synthetic fixture: no retained capture of that case exists)",
+              bound.check_observed(observed_input_of(overrun), True), "INPUT_BOUND_EXCEEDED")
+        expect("control, done-when 3(c): the excess record the dispatcher writes carries that observation and the "
+               "declaration it ran under, which is what the recovery rule reads",
+               {key: bound.excess(overrun["call_id"], observed_input_of(overrun), 2, records.now())[key]
+                for key in ("code", "call_id", "observed", "declaration_seq")},
+               {"code": "INPUT_BOUND_EXCEEDED", "call_id": overrun["call_id"],
+                "observed": observed_input_of(overrun), "declaration_seq": 2})
 
         def owned_omission(record):
             """The omission id of a record's own clip - the row whose origin is `owned`. A record can also
@@ -3302,7 +3190,7 @@ def self_test():
     # both labels still read "overlap". These pin the design's own constants and the complete branch set of
     # each predicate here, independently of any label - and each branch is exercised with its own row.
     checks.expect("design §5.4: the constants this stage is built on are the design's own",
-                  {"overlap turns": OVERLAP_TURNS, "input bound": INPUT_LIMIT, "turn kinds": TURN_KINDS},
+                  {"overlap turns": OVERLAP_TURNS, "input bound": bound.INPUT_BOUND, "turn kinds": TURN_KINDS},
                   {"overlap turns": 5, "input bound": 120_000, "turn kinds": ("human", "assistant")})
     # every status §5.4 forbids a basis to rest on, each in a scope of its own
     prohibited = ("unreadable", "known_absent", "unknown_provenance", "read_partial", "failed", "deferred")

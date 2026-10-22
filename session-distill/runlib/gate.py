@@ -53,6 +53,7 @@ import sys
 
 if __package__ in (None, ""):  # run as a script: put session-distill/ on the import path
     sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
+from runlib import bound as bounds
 from runlib import breaker as breakers
 from runlib import packet as packets
 from runlib import receipts, records, usage as usages, validate
@@ -83,6 +84,8 @@ CALL_SCHEMA = _closed(
     view_window={"type": "boolean"}, realization={"enum": ["live", "replay", "golden"]},
     exit_status={"type": ["integer", "null"]}, wall_ms={"type": ["integer", "null"]},
     contract={"enum": ["required", "none"]}, provider_signals=_strings, input_observed=_int,
+    bound=_closed(("limit", "driver_bytes", "stop_standing"), limit=_int,
+                  driver_bytes={"type": ["integer", "null"]}, stop_standing={"type": "boolean"}),
     use={"enum": ["judge", "producing", "authoring"]}, max_output_tokens={"type": ["integer", "null"]},
     runner_refused=_str_or_null,
     caps=_closed(("tokens", "compactions"), tokens=_int, compactions=_int),
@@ -340,6 +343,29 @@ def check(step):
 
 
 # --- step 1: completion and binding ---------------------------------------------------------
+
+@check("completion_binding")
+def window_bound(c, errors):
+    """The bound, judged from the call directory (the seam record of 2026-10-22).
+
+    The dispatcher admits, settles and stops against `runlib/bound.py`; this is the second reader, so an
+    accepted call directory is evidence that the bound held rather than only that nothing raised. Both
+    facts are in the record the driver wrote: what the call observed, and whether a stop stood when it was
+    admitted. The second is impossible by construction - the dispatcher refuses such a call - which is
+    exactly why a gate should say so if it ever appears."""
+    call = c.call or {}
+    declared = call.get("bound") or {}
+    observed = call.get("input_observed")
+    if call.get("view_window") and isinstance(observed, int):
+        for line in bounds.check_observed(observed, True):
+            errors.append(f"{line} (call.json input_observed)")
+    if declared.get("stop_standing"):
+        errors.append(f"DISPATCHED_WHILE_STOPPED {call.get('call_id')}: the run's bound stop stood when this call was "
+                      "admitted, and a stopped run dispatches nothing")
+    if declared and declared.get("limit") != bounds.INPUT_BOUND:
+        errors.append(f"RECORD_INTEGRITY call.json bound.limit: {declared.get('limit')} is not the bound the rule owns "
+                      f"({bounds.INPUT_BOUND})")
+
 
 @check("completion_binding")
 def call_record(c, errors):
@@ -1180,6 +1206,29 @@ def self_test():
             failures.append(f"{case}: the contaminated answer was not schema-valid, so it is not the canary-free control")
     control("codex-real-contaminated-agents-md", codex_case("codex-runner", "ctl-agents-workdir-001"),
             "CONTEXT_UNDECLARED instruction", "/AGENTS.md (AGENTS.md)", realization="replay")
+    # the window bound, judged here as well as at the boundary (the seam record of 2026-10-22). The clean
+    # case first: the same call directory with the bound block and an observation inside it is accepted.
+    control("a-view-window-call-within-the-bound-is-accepted", variant(
+        claude, lambda f: jedit(f, "call.json", lambda o: o.update(
+            view_window=True, input_observed=bounds.INPUT_BOUND,
+            bound={"limit": bounds.INPUT_BOUND, "driver_bytes": 4096, "stop_standing": False}))))
+    control("a-view-window-call-past-the-bound-fails-the-gate", variant(
+        claude, lambda f: jedit(f, "call.json", lambda o: o.update(
+            view_window=True, input_observed=bounds.INPUT_BOUND + 1,
+            bound={"limit": bounds.INPUT_BOUND, "driver_bytes": 4096, "stop_standing": False}))),
+        "INPUT_BOUND_EXCEEDED")
+    control("the-same-observation-on-a-non-window-call-is-accepted", variant(
+        claude, lambda f: jedit(f, "call.json", lambda o: o.update(
+            view_window=False, input_observed=bounds.INPUT_BOUND + 1,
+            bound={"limit": bounds.INPUT_BOUND, "driver_bytes": None, "stop_standing": False}))))
+    control("a-call-admitted-while-the-run-was-stopped-fails-the-gate", variant(
+        claude, lambda f: jedit(f, "call.json", lambda o: o.update(
+            bound={"limit": bounds.INPUT_BOUND, "driver_bytes": 4096, "stop_standing": True}))),
+        "DISPATCHED_WHILE_STOPPED")
+    control("a-call-recording-a-bound-that-is-not-the-rule-s-fails-the-gate", variant(
+        claude, lambda f: jedit(f, "call.json", lambda o: o.update(
+            bound={"limit": 999_999, "driver_bytes": 4096, "stop_standing": False}))),
+        "RECORD_INTEGRITY call.json bound.limit")
     appended = {"sha256": "a" * 64}
     control("appended-prompt-undeclared", variant(claude, lambda f: jedit(f, "capture/host.json", lambda o: o["context"].update(appended_prompts=[appended]))),
             "CONTEXT_UNDECLARED appended system prompt 1")
@@ -1949,6 +1998,9 @@ def self_test():
         "schema policy": "plan WP-01: a schema the validator's policy refuses judges nothing",
         "working directory listed": "design §3.1: the working directory is listed before the call",
         "working directory holds the manifest": "design §3.1: an empty directory or exactly the manifest's files",
+        "the window bound": "the input-bound amendment record 2026-10-21T0026--cc0498f and the seam record of "
+                            "2026-10-22: the bound `runlib/bound.py` owns is judged a second time here, from "
+                            "the call directory, so an accepted call is evidence that it held",
     }
     projections = {"usage-less row without its usage-bearing row is an interrupted attempt", "websocket starts reconcile",
                    "HTTPS coverage unknown without the retry warnings", "HTTPS coverage unknown even when the warnings reconcile",
@@ -1957,6 +2009,13 @@ def self_test():
     implemented = {
         ("accounting", "{} (design §3.2 item 5)"): ("every input id accounted", "no extra output id", "ids unique",
                                                    "merged with explicit membership", "rejected with a reason"),
+        # the window bound, judged a second time here (the amendment record of 2026-10-21 and the seam
+        # record of 2026-10-22): the rule is `runlib/bound.py`'s and this is its second reader
+        ("window_bound", "{} (call.json input_observed)"): ("the window bound",),
+        ("window_bound", "DISPATCHED_WHILE_STOPPED {}: the run's bound stop stood when this call was admitted, and a "
+                         "stopped run dispatches nothing"): ("the window bound",),
+        ("window_bound", "RECORD_INTEGRITY call.json bound.limit: {} is not the bound the rule owns ({})"): (
+            "the window bound",),
         ("call_record", "RECORD_INTEGRITY call.json {}"): ("call record",),
         ("call_record", "RECORD_INTEGRITY call.json: absent, unreadable, or without call_id and host"): ("call record",),
         ("call_record", "RECORD_INTEGRITY capture/host.json {}"): ("malformed record is a named verdict",),
