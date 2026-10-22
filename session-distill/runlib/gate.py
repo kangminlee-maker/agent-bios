@@ -101,6 +101,13 @@ CALL_SCHEMA = _closed(
                        boundary={"enum": ["clean", "STOP_BOUNDARY_UNVERIFIED", "STOP_BOUNDARY_VIOLATED"]},
                        tree={"type": "array", "items": _closed(("pid", "start"), pid=_int, start=_text)}),
              "type": ["object", "null"]},
+    # the stop THIS call offered the run, written by dispatch.py the moment its excess was observed and
+    # before any other settlement work (F-19): its stamp and reason when it could not be stamped, and
+    # whether the run kept it or an earlier, stronger stop stands. Optional, like `bound`: a record
+    # written before this existed carries none (F-20).
+    stop={**_closed(("code", "call_id", "kept"), code=_text, call_id=_text, observed=_int, at=_number_or_null,
+                    detail=_text, declaration_seq=_int, stamp=_text, kept={"type": "boolean"}),
+          "type": ["object", "null"]},
     manifest=_closed(("workdir_path", "workdir_files", "instructions", "appended_prompts", "skills", "agents", "hooks"),
                      workdir_path=_text, skills=_strings, agents=_strings, hooks=_strings, mcp_servers=_strings,
                      workdir_files={"type": "array", "items": _closed(("path",), path=_text, sha256=_str_or_null)},

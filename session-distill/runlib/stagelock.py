@@ -59,6 +59,14 @@ def confine(run_dir, destination):
     return resolved
 
 
+# Set to a callable by a test only, and called with the lock's name the first time an acquisition finds
+# that lock held - the real contention, inside the real attempt. A control that needs to act at that
+# instant (dispatch's stop against an amendment holding the declaration) has no other way to know the
+# attempt has happened rather than being about to: a signal from the caller leaves a schedule in which
+# the holder finishes first. None in production, where nothing reads it.
+CONTENDED = None
+
+
 @contextlib.contextmanager
 def hold(run_dir, name, wait_s=0):
     """Hold the lock `name`; a held lock is refused at once, or after `wait_s` seconds of
@@ -66,12 +74,17 @@ def hold(run_dir, name, wait_s=0):
     path = confine(run_dir, pathlib.Path(run_dir) / "locks" / f"{name}.lock")
     path.parent.mkdir(parents=True, exist_ok=True)
     fd = os.open(path, os.O_CREAT | os.O_RDWR, 0o600)
+    contended = False
     try:
         for _attempt in range(int(wait_s / RETRY_S) + 1):
             try:
                 fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
                 break
             except BlockingIOError:
+                if not contended:
+                    contended = True
+                    if CONTENDED is not None:
+                        CONTENDED(name)
                 if wait_s:
                     time.sleep(RETRY_S)
         else:
@@ -90,6 +103,28 @@ def self_test():
             pass
         with hold(td, "declaration"):
             pass
+        # the contention hook fires inside the real attempt, with the lock's name, and only when the lock
+        # was actually held by someone else (a test's only way to act at that instant)
+        seen = []
+        globals()["CONTENDED"] = seen.append
+        try:
+            with hold(td, "declaration"):
+                try:
+                    with hold(td, "declaration"):
+                        failures.append("a held lock was taken twice")
+                except Locked:
+                    pass
+                if seen != ["declaration"]:
+                    failures.append(f"the contention hook did not fire once with the lock's name: {seen}")
+                with hold(td, "other-name"):          # a free lock is no contention
+                    pass
+                if seen != ["declaration"]:
+                    failures.append(f"the contention hook fired for a free lock: {seen}")
+        finally:
+            globals()["CONTENDED"] = None
+        if CONTENDED is not None:
+            failures.append("the contention hook is left set, so production would call it")
+
         # a held lock refuses a second writer by name, and only that name
         with hold(td, "declaration"):
             try:

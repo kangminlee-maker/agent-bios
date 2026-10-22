@@ -124,10 +124,6 @@ LOCK_WAIT_S = 30
 # the stop's own wait on the declaration lock, read from the module at each stop so a control can
 # shorten it; production never changes it (BC#0)
 STOP_LOCK_WAIT_S = LOCK_WAIT_S
-# Set to a threading.Event by the self-test only: the stop signals it where it really asks for the
-# declaration lock, so a control can hold an amendment open until that attempt has happened instead of
-# guessing at the schedule (BD#2). None in production, and nothing reads it there.
-STOP_ACQUIRING = None
 DRAIN_POLL_S = 0.05  # how often a drain still waiting on a reader looks for a cap the monitor tripped meanwhile
 # How long readers may stay open once the runner's root has exited: a process holding its pipes past
 # this escaped the tree, outside the stop guarantee (design §13.2) — recorded, never waited on.
@@ -312,6 +308,16 @@ def runner_argv(host, spec):
     elif spec["use"] != "judge":
         argv += ["--use", spec["use"]]
     return argv
+
+
+def stop_detail(offered):
+    """What a call reports when its own excess stopped it.
+
+    The rule's own detail, plus the two things only this call knows: the stamp it could not avoid, and
+    whether the run kept this stop or an earlier, stronger one stands. A stop that lost still says why it
+    was made, which is how a stamping defect stays visible (BE#2)."""
+    return (offered["detail"] + (f"; {offered['stamp']}" if offered.get("stamp") else "")
+            + ("" if offered.get("kept", True) else "; an earlier stop stands in the run ledger"))
 
 
 def reconcile_codex(call_dir, ledger, clock=time.time):
@@ -514,33 +520,48 @@ class Supervisor:
         with contextlib.ExitStack() as locks:
             unstamped = None
             if bound_stop:
-                if STOP_ACQUIRING is not None:   # the self-test watches the REAL acquisition attempt (BD#2)
-                    STOP_ACQUIRING.set()
                 try:
                     locks.enter_context(stagelock.hold(self.run_dir, "declaration", wait_s=STOP_LOCK_WAIT_S))
                 except stagelock.Locked as exc:
                     unstamped = f"lock-timeout: {exc}"
+                except Exception as exc:         # noqa: BLE001 - ANY failure to TAKE the lock (BE#0): the
+                    # lock file unreadable, linked out of the run, its directory gone. The ledger is still
+                    # writable, so the overrun is recorded unstamped rather than lost with the exception.
+                    unstamped = f"lock-unavailable: {exc!r}"
             with self._lock():
                 ledger = self.ledger()
                 if bound_stop and unstamped is None:
                     # BA#0: the sequence recovery is measured from is the latest the declaration has reached
                     # HERE, with the stop - not the one the call was reserved under. An amendment that landed
                     # while the call was still running was recorded before anybody knew the host had changed.
+                    #
+                    # The two steps are caught separately, because they fail for different reasons and a
+                    # stop has to say which (BE#2): READING the declaration can fail on an unreadable file,
+                    # a confinement violation, a decode error or the reader's own named refusal of a drifted
+                    # declaration - all `declaration-unreadable`; STAMPING is this code's own arithmetic, so
+                    # anything thrown there is a defect here and says so, under its own reason, rather than
+                    # being reported as a filesystem problem.
                     try:
                         run, _digest, amendments = records.declaration_state(self.run_dir, who="dispatch")
-                        entry = bound.committed(entry, max([run["declaration_seq"]]
-                                                           + [a["seq"] for a in amendments if isinstance(a.get("seq"), int)]))
-                    except Exception as exc:      # noqa: BLE001 - ANY failure to read the declaration here
-                        # is an unstamped stop, not a discarded excess (BD#1): the reader refuses a drifted
-                        # declaration by name, but an unreadable file, a confinement violation or a decode
-                        # error arrive as something else entirely, and the overrun has still been observed.
+                    except Exception as exc:     # noqa: BLE001 - see above
                         unstamped = f"declaration-unreadable: {exc!r}"
+                    else:
+                        try:
+                            entry = bound.committed(entry, max([run["declaration_seq"]]
+                                                               + [a["seq"] for a in amendments
+                                                                  if isinstance(a.get("seq"), int)]))
+                        except Exception as exc:  # noqa: BLE001 - see above
+                            unstamped = f"stop-internal-error: {exc!r}"
                 if unstamped is not None:
                     entry = {**entry, "stamp": unstamped}
                 offered = {"at": self.clock(), **entry}
-                ledger["stopped"] = bound.strongest(ledger.get("stopped"), offered)
+                kept = bound.strongest(ledger.get("stopped"), offered)
+                ledger["stopped"] = kept
                 self._write(ledger)
-                return offered
+                # what this returns is THIS call's own stop, whether or not the run kept it: the call
+                # records it and names it in its refusal, so a stop that lost to an earlier terminal one
+                # still leaves its reason somewhere a reader can find (BE#2)
+                return {**offered, "kept": kept is offered}
 
     # --- one call ----------------------------------------------------------------------------
 
@@ -719,15 +740,21 @@ class Supervisor:
                 raise Refused(f"USAGE_INCOMPLETE {call_id}: {', '.join(missing)}; the observed input of a call is "
                               "input + cache creation + cache read, and a missing component is not a zero")
             if bound.check_observed(observed, view_window):
-                excess = bound.excess(call_id, observed, self.clock())
+                # PERSIST FIRST (F-19/BE#1). The excess is observed here, and everything after this line
+                # can fail: the call record, the receipt the launcher writes, the charge's calibration
+                # read. Each of those used to end the call before the stop was written, leaving a run
+                # whose host had changed open to the next dispatch. The stop goes to the ledger now,
+                # under the supervisor's lock; the rest of the settlement still runs below, and if it
+                # fails it fails as it always did - with the stop already recorded.
+                excess = self._stop_run(bound.excess(call_id, observed, self.clock()))
+                call["stop"] = excess
         records.write_json(self.run_dir, call_dir / "call.json", call)
         if exit_status is not None:  # a runner that never exited has no receipt (the gate refuses the call for it)
             self._receipt(call_dir, stage, call_id, seat, exit_status)
         outcome = "deferred" if stopping else stopped["outcome"] if stopped else "completed" if exit_status == 0 else "failed"
         self.charge(stage, call_id, usages.totals(usage), outcome, caps)
         if excess:
-            excess = self._stop_run(excess)
-            raise Refused(excess["detail"])
+            raise Refused(stop_detail(excess))
         return call_dir
 
     def _stopped(self, call_id, ledger=None):
@@ -1775,6 +1802,7 @@ def self_test(scratch=None):
 
     astra = "codex:gpt-6-astra/xhigh"
     codex_flags = gate.pinned_flags_sha256("codex", "0.163.0", "hermetic")
+    pinned_launcher = receipts.LAUNCHER        # one control points the receipt writer at a failing script
     # Every view-window control below runs on a CLAUDE seat, because a view-window call is admitted only on
     # a host whose adapter can convey the cap check (d) reserves, and codex-run conveys none (BB#4). S3's
     # seat is the one seats.json declares a host-reported capacity for; its allowance is read from the same
@@ -3433,11 +3461,11 @@ def self_test(scratch=None):
                                                         "run_json_sha256": records.bound_digest(new_run)})
                 mid_commit.set()                      # the log line is written, run.json is not
                 if wait_for_stop:
-                    # BD#2: not "the stop is about to be called" - the stop sets this where it really asks
-                    # for THIS lock (dispatch.STOP_ACQUIRING), and the lock is released only after the
-                    # write below, so the stop cannot avoid finding the declaration mid-commit. Setting it
-                    # from the caller left the amendment free to finish both writes first, and then a
-                    # regression that reads outside the lock passed on that schedule.
+                    # BE#3: this waits for the stop's acquisition to find THIS lock held - the hook fires
+                    # inside `stagelock.hold`, after the real flock attempt failed - and the lock is
+                    # released only by the write below. Signalling before the attempt (BD#2's first shape)
+                    # left a schedule in which the amendment finished first and a regression that reads
+                    # outside the lock still passed.
                     stop_attempted.wait(30)
                 records.write_json(run_dir_path, records.run_json_path(run_dir_path), new_run)
                 committed_at.append(time.monotonic())
@@ -3447,18 +3475,23 @@ def self_test(scratch=None):
     amender = threading.Thread(target=amend_mid_commit, args=(bb0,), daemon=True)
     amender.start()
     control("BB#0-the-amendment-reached-its-mid-commit-state", mid_commit.wait(30), "the amendment never started")
-    stop_failed = None
-    globals()["STOP_ACQUIRING"] = stop_attempted
+    stop_failed, contended = None, []
+
+    def on_contention(name):
+        contended.append(name)
+        stop_attempted.set()
+
+    stagelock.CONTENDED = on_contention
     try:
         stopped_bb0 = sb._stop_run(bound.excess("run-bb0-S3-x-a1", 135_796, clock[0]))
     except Exception as exc:                          # noqa: BLE001 - this control's own failure, by name
         stopped_bb0, stop_failed = {}, repr(exc)
     finally:
-        globals()["STOP_ACQUIRING"] = None
+        stagelock.CONTENDED = None
     returned_at = time.monotonic()
     amender.join(60)
-    control("BD#2-the-amendment-waited-for-the-stop-s-own-acquisition-attempt",
-            stop_attempted.is_set() and bool(committed_at), f"{stop_attempted.is_set()} {committed_at}")
+    control("BE#3-the-amendment-was-released-by-real-contention-on-the-declaration-lock",
+            contended[:1] == ["declaration"] and bool(committed_at), f"{contended} {committed_at}")
     control("BB#0-the-mid-commit-amendment-committed-without-error", not failed_in_thread, f"{failed_in_thread}")
     # reading the sequence outside the declaration lock does not see a tidy earlier state: it sees the log
     # line without the run.json that answers it, and that is what DECLARATION_DRIFT names
@@ -3613,6 +3646,151 @@ def self_test(scratch=None):
         control(f"BD#1-and-no-amendment-lifts-that-stop-({label.replace(' ', '-')})",
                 (s1._blocked() or "").startswith(f"RUN_STOPPED {bound.STOP_CODE}"), f"{s1._blocked()}")
 
+    # ---- F-19: the stop is persisted FIRST, and no later failure can discard it -------------------
+    #
+    # Round 5 found two ways an observed excess ended with no stop in the ledger: a declaration-lock
+    # acquisition that failed as anything other than Locked, and a failure anywhere in the settlement that
+    # used to run before the stop was written - the call record, the receipt the launcher writes, the
+    # charge's calibration read. Each case below breaks exactly one of those through the real code, with
+    # the supervisor ledger left writable, and asks the same three questions: is the overrun recorded, is
+    # the next dispatch refused, and did the call itself report the failure.
+    def overrun_under(label, arrange=None, restore=None):
+        """One replayed 136k view-window call, with `arrange` having broken one thing first."""
+        directory = run_dir(f"run-f19-{label}", {vstage: 2_000_000})
+        sup_f = counted(supervisor(directory, "clean", replay=replay))
+        sup_f.seed_from(authoring)
+        held_r = sup_f.reserve(vstage, label, vseat, "authoring")
+        if arrange:
+            arrange(directory)
+        reported = None
+        try:
+            sup_f.call(vstage, vseat, packets.build(held_r["call_id"], vstage, vseat, "Author the record.\n", None),
+                       None, reservation=held_r, caps={"tokens": 400_000, "compactions": 2}, view_window=True,
+                       max_output_tokens=32_000)
+        except Exception as exc:                      # noqa: BLE001 - the failure IS what each case reads
+            reported = f"{type(exc).__name__}: {exc}"
+        finally:
+            if restore:
+                restore(directory)
+        return directory, sup_f, held_r, reported
+
+    def lock_path(directory):
+        path = pathlib.Path(directory) / "locks" / "declaration.lock"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        return path
+
+    def break_lock_mode(directory):
+        path = lock_path(directory)
+        path.touch()
+        path.chmod(0o000)
+
+    def break_lock_link(directory):
+        path = lock_path(directory)
+        path.unlink(missing_ok=True)
+        (scratch / "outside.lock").touch()
+        path.symlink_to(scratch / "outside.lock")
+
+    def mend_lock(directory):
+        path = lock_path(directory)
+        if path.is_symlink():
+            path.unlink()
+        else:
+            path.chmod(0o600)
+
+    def break_calibration(directory, text=None):
+        path = pathlib.Path(directory) / "supervisor" / "calibration.json"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        if text is None:                              # unreadable: charge reads it after its ledger write
+            path.write_text("{}", encoding="utf-8")
+            path.chmod(0o000)
+        else:                                         # or readable and not JSON at all
+            path.write_text(text, encoding="utf-8")
+
+    def mend_calibration(directory):
+        path = pathlib.Path(directory) / "supervisor" / "calibration.json"
+        if path.exists():
+            path.chmod(0o600)
+
+    def break_launcher(_directory):
+        failing = scratch / "no-launcher.py"
+        failing.write_text("import sys\nsys.exit(3)\n", encoding="utf-8")
+        receipts.LAUNCHER = failing
+
+    for label, arrange, restore, wanted, stamped in (
+            ("lock-mode-000", break_lock_mode, mend_lock, "INPUT_BOUND_EXCEEDED", "lock-unavailable"),
+            ("lock-linked-out", break_lock_link, mend_lock, "INPUT_BOUND_EXCEEDED", "lock-unavailable"),
+            ("receipt-missing", break_launcher, lambda _d: setattr(receipts, "LAUNCHER", pinned_launcher),
+             "RECEIPT_MISSING", None),
+            ("calibration-unreadable", break_calibration, mend_calibration, "RECORD_UNREADABLE", None),
+            ("calibration-malformed", lambda d: break_calibration(d, "not json at all"), mend_calibration,
+             "RECORD_UNREADABLE", None)):
+        f19, sup_f, rf, reported = overrun_under(label, arrange, restore)
+        kept_f19 = ledger_stop(f19)
+        control(f"F-19-{label}-the-observed-excess-is-in-the-ledger",
+                kept_f19.get("code") == bound.STOP_CODE and kept_f19.get("observed") == 135_796
+                and kept_f19.get("call_id") == rf["call_id"], f"{kept_f19}")
+        control(f"F-19-{label}-the-next-dispatch-is-refused",
+                (refusal(sup_f.reserve, vstage, f"after-{label}", vseat, "authoring") or "")
+                .startswith(f"RUN_STOPPED {bound.STOP_CODE}"), f"a call was reserved after {label}")
+        control(f"F-19-{label}-the-call-itself-reported-the-failure",
+                wanted in (reported or ""), f"{reported}")
+        if stamped:
+            control(f"F-19-{label}-that-stop-is-unstamped-and-names-the-lock-failure",
+                    "declaration_seq" not in kept_f19 and stamped in (kept_f19.get("stamp") or ""),
+                    f"{kept_f19}")
+            control(f"F-19-{label}-and-no-amendment-lifts-it",
+                    bool(declare.amend(f19, [(f"host_allowance.{vseat}.allowance_tokens", claude_allowance + 4)],
+                                       "the allowance is re-measured", scope=(vstage,)))
+                    and (sup_f._blocked() or "").startswith(f"RUN_STOPPED {bound.STOP_CODE}"),
+                    f"{sup_f._blocked()}")
+        else:
+            control(f"F-19-{label}-the-stop-is-stamped-because-the-declaration-was-readable",
+                    isinstance(kept_f19.get("declaration_seq"), int) and "stamp" not in kept_f19, f"{kept_f19}")
+
+    # F-20: and each call records its own stop, whether or not the run kept it. A stamping defect - this
+    # code's own arithmetic, not the filesystem's - says so under its own reason, and says it even when an
+    # earlier terminal stop is the one the ledger keeps.
+    f20, sup_20, r20, reported_20 = overrun_under("records-its-own-stop")
+    recorded_20 = json.loads((f20 / "calls" / r20["call_id"] / "call.json").read_text(encoding="utf-8"))
+    control("F-20-the-call-record-carries-this-call-s-own-stop",
+            (recorded_20.get("stop") or {}).get("call_id") == r20["call_id"]
+            and (recorded_20["stop"]).get("observed") == 135_796 and recorded_20["stop"].get("kept") is True
+            and isinstance(recorded_20["stop"].get("declaration_seq"), int), f"{recorded_20.get('stop')}")
+    control("F-20-the-call-record-with-a-stop-is-still-schema-valid",
+            not gate.validate.validate_instance(gate.CALL_VALIDATOR, recorded_20),
+            f"{gate.validate.validate_instance(gate.CALL_VALIDATOR, recorded_20)[:1]}")
+    # a stamping defect, with an earlier terminal stop already standing: the ledger keeps the earlier one
+    # and the defect is still reported - in this call's own stop and in its refusal
+    f20b = run_dir("run-f20-stamping-defect", {vstage: 2_000_000})
+    sup_20b = supervisor(f20b)
+    break_lock_mode(f20b)                             # the earlier stop is unstamped, and so terminal
+    try:                                              # guard the subject: a stop that ESCAPES is named by
+        first_terminal = sup_20b._stop_run(           # this control rather than aborting the suite (BD#4)
+            bound.excess("run-f20-S3-earlier-a1", 136_000, clock[0]))
+    except Exception as exc:                          # noqa: BLE001 - the escape IS the finding
+        first_terminal = {"stamp": f"escaped: {exc!r}"}
+    finally:
+        mend_lock(f20b)
+    control("F-20-the-planted-earlier-stop-is-terminal",
+            bound.terminal(first_terminal) and "lock-unavailable" in (first_terminal.get("stamp") or ""),
+            f"{first_terminal}")
+    held_committed, bound.committed = bound.committed, None     # not callable: a defect in this code
+    try:
+        defective = sup_20b._stop_run(bound.excess("run-f20-S3-defective-a1", 136_001, clock[0]))
+    except Exception as exc:                          # noqa: BLE001 - an escaped defect is a failure here
+        defective = {"stamp": f"escaped: {exc!r}"}
+    finally:
+        bound.committed = held_committed
+    control("F-20-a-stamping-defect-is-named-as-such-not-as-an-unreadable-declaration",
+            "stop-internal-error" in (defective.get("stamp") or "")
+            and "declaration-unreadable" not in (defective.get("stamp") or ""), f"{defective.get('stamp')}")
+    control("F-20-a-stamping-defect-carries-the-exception-it-came-from",
+            "TypeError" in (defective.get("stamp") or ""), f"{defective.get('stamp')}")
+    control("F-20-the-earlier-terminal-stop-is-still-the-one-the-run-keeps",
+            ledger_stop(f20b).get("call_id") == first_terminal.get("call_id") is not None
+            and defective.get("kept") is False,
+            f"{ledger_stop(f20b)} {defective.get('kept')}")
+
     # ---- the seam: the bound has ONE owner, and the dispatcher is its boundary (seam record 2026-10-22)
     #
     # M1. The rule used to exist twice - this module admitted against its own copy while views.py cut
@@ -3744,7 +3922,7 @@ def self_test(scratch=None):
     # scan is told where the code comes from, and told to lose it the moment that raise goes.
     # the token is assembled rather than written, so this control's own source does not contain the thing it
     # looks for - a scan that matches itself can never go quiet
-    raise_site = "Refused(excess[" + '"detail"])'
+    raise_site = "Refused(stop_detail" + "(excess))"
     # the same for a declared part's refusal: the dispatcher computes the code from the problem the rule
     # reports, so the inventory reads the rule's own PART_CODES and loses them when that raise goes
     parts_site = 'Refused(f"{problems[0].' + 'split()[0]} {call_id}: "'
@@ -3755,8 +3933,22 @@ def self_test(scratch=None):
 
     control("supervisor-refusals-are-the-cited-set", raised_codes(source) == design, f"{raised_codes(source) ^ design}")
     control("the-bound-stop-is-raised-where-the-rule-says-it-is",
-            "self._stop_run(excess)" in source and raise_site in source,
+            "self._stop_run(bound.excess(" in source and raise_site in source,
             "the dispatcher does not stop the run on the rule's own excess record")
+    # the call record is written twice - once inside the launch, once in settlement - so this reads the
+    # settlement tail alone, from where the excess is established to the end of `call`
+    settlement = source[source.index("        excess = None\n        if view_window:"):]
+    settlement = settlement[:settlement.index("    def _stopped(")]
+    # `find`, not `index`: a mutation that MOVES the stop out of this slice has to fail this control by
+    # name, not abort the suite on a substring that is no longer there
+    persisted = settlement.find("self._stop_run(bound.excess(")
+    later = [settlement.find(site) for site in (
+        'records.write_json(self.run_dir, call_dir / "call.json", call)',
+        "self._receipt(call_dir, stage, call_id, seat, exit_status)",
+        "self.charge(stage, call_id, usages.totals(usage), outcome, caps)")]
+    control("the-stop-is-persisted-before-the-call-record-the-receipt-and-the-charge",
+            persisted >= 0 and all(site >= 0 for site in later) and persisted < min(later),
+            f"settlement work that can fail runs before the stop is written (F-19): {persisted} {later}")
     control("module-docstring-lists-the-same-refusals", listed == design, f"{listed ^ design}")
     control("item-outcomes-are-the-cited-set", contract_branches(source)[1] == outcomes, f"{contract_branches(source)[1]}")
     anchor = '                    raise Refused(f"CALL_EXISTS {call_dir}")\n'
