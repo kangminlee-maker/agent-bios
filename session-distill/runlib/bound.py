@@ -28,14 +28,20 @@ A call that carries no view window is bound by none of this: its own section's c
 an R-authoring call is a non-window call by definition (design §8.6).
 """
 
+import hashlib
 import json
 import pathlib
+import re
 import sys
 
 INPUT_BOUND = 120_000        # tokens; the driver's bytes plus the host allowance stay within this
-CONTEXT_CAPACITY = 200_000   # the S3 seat's context, in tokens; seats.json (WP-02) will own it
-OUTPUT_RESERVATION = 32_000  # tokens kept for the answer; seats.json (WP-02) will own it
 PACKET_OVERHEAD = 12_288     # bytes of template, schema and instructions a packet adds to a window
+
+# There is no constant for the seat's context capacity, and none for the output reservation. Both were
+# invented numbers, and one of them was false: the capacity is host-reported evidence `seats.json`
+# declares per seat (BA#1), and the reservation is THIS CALL's declared output cap - what the call
+# reserved for its answer, not what the host would allow it (the lead's ruling of 2026-10-22). `limits`
+# therefore requires both, so neither reader can fall back on a number nobody chose.
 
 STOP_CODE = "INPUT_BOUND_EXCEEDED"
 AMENDED_KEY = "host_allowance"   # the only declaration key whose amendment lifts this stop
@@ -43,9 +49,11 @@ AMENDED_KEY = "host_allowance"   # the only declaration key whose amendment lift
 
 # ---- the limits one call keeps ---------------------------------------------------------------
 
-def limits(allowance, seat=None, capacity=CONTEXT_CAPACITY, reservation=OUTPUT_RESERVATION,
-           overhead=PACKET_OVERHEAD):
-    """The bound a view-window call keeps, around one declared `allowance`."""
+def limits(allowance, *, capacity, reservation, seat=None, overhead=PACKET_OVERHEAD):
+    """The bound a view-window call keeps: a declared `allowance`, the seat's declared `capacity`, and
+    the call's own declared output `reservation`.
+
+    `capacity` and `reservation` are keyword-only and have no defaults on purpose - see above."""
     return {"seat": seat, "allowance": allowance, "capacity": capacity, "reservation": reservation,
             "overhead": overhead}
 
@@ -120,6 +128,53 @@ def driver_parts(packet, schema_bytes=None, manifest=None):
     return parts
 
 
+def part_evidence(part):
+    """`(record, problem)` - what a declared driver part is RECORDED as, once its bytes are counted.
+
+    One representation for both readers: the payload count needs the content, and the call record needs
+    evidence of it that a schema can close over. So a caller declares a part by its content - `text`, or a
+    `path` to read - and what the record keeps is its name, its sha256 and its length. A part that only
+    asserts a number is not evidence of anything, and a record of text nobody counted is not either
+    (BA#2)."""
+    size, problem = part_bytes(part)
+    if problem:
+        return None, problem
+    if isinstance(part, dict) and isinstance(part.get("text"), str):
+        body = part["text"].encode("utf-8")
+    elif isinstance(part, dict) and isinstance(part.get("path"), str):
+        body = pathlib.Path(part["path"]).read_bytes()
+    elif isinstance(part, (str, bytes)):
+        body = part.encode("utf-8") if isinstance(part, str) else part
+    else:
+        return None, (f"DRIVER_PART_UNCOUNTED {sorted(part) if isinstance(part, dict) else type(part).__name__}: a "
+                      f"declared part is recorded by its content, and this one carries none")
+    record = {"sha256": hashlib.sha256(body).hexdigest(), "bytes": size}
+    for key in ("name", "path"):
+        if isinstance(part, dict) and isinstance(part.get(key), str):
+            record[key] = part[key]
+    return record, None
+
+
+def declared_evidence(manifest):
+    """`(manifest, problems)` - the call's manifest with every declared driver part recorded as evidence.
+
+    The dispatcher writes this into the call record, so what the gate reads is the sha256 and length of
+    the bytes the payload count actually counted."""
+    out, problems = dict(manifest or {}), []
+    for key in ("instructions", "appended_prompts"):
+        if not (manifest or {}).get(key):
+            continue
+        rows = []
+        for part in manifest[key]:
+            record, problem = part_evidence(part)
+            if problem:
+                problems.append(problem)
+            else:
+                rows.append(record)
+        out[key] = rows
+    return out, problems
+
+
 def driver_bytes(packet, schema_bytes=None, manifest=None):
     """`(bytes, problems)` - the UTF-8 size of everything the driver sends for one call.
 
@@ -181,16 +236,27 @@ def check_observed(observed, view_window):
 
 # ---- the one excess record, and the one way back ---------------------------------------------
 
-def excess(call_id, observed, declaration_seq, at):
-    """The run's stop entry for a bound excess - the single record of it.
+def excess(call_id, observed, at):
+    """The run's stop entry for a bound excess - the single record of it, before it is committed.
 
-    One record, written where the stop is written, read where the stop is read. It carries the
-    declaration it ran under because that is what the recovery rule compares against; a second file
-    beside it would be a second thing to keep true."""
-    return {"code": STOP_CODE, "call_id": call_id, "observed": observed,
-            "declaration_seq": declaration_seq, "at": at,
+    One record, written where the stop is written, read where the stop is read; a second file beside it
+    would be a second thing to keep true. The sequence it is compared against is NOT in it yet: see
+    `committed`."""
+    return {"code": STOP_CODE, "call_id": call_id, "observed": observed, "at": at,
             "detail": f"{STOP_CODE} {call_id}: a view-window call read {observed} input tokens, past the "
                       f"{INPUT_BOUND} bound; the host changed, so the run stops"}
+
+
+def committed(entry, declaration_seq):
+    """The excess record as it is COMMITTED, stamped with the sequence recovery is measured from.
+
+    That sequence is the latest the declaration had reached when the stop was written - not the one the
+    call was reserved under. A call can be reserved at seq 2, an amendment of `host_allowance` can land at
+    seq 3 while the call is still running, and the call can then overrun: stamping the call's own sequence
+    would let that amendment - which was recorded BEFORE anybody knew the host had changed - lift the stop
+    it could not have anticipated. Recovery means a measurement taken after the overrun, so the sequence
+    must be read where the stop is committed, under the same lock."""
+    return {**entry, "declaration_seq": declaration_seq}
 
 
 def lifted(stopped, amendments):
@@ -230,6 +296,11 @@ def blocked(stopped, amendments):
 
 # ---- self-test ------------------------------------------------------------------------------
 
+def source_text():
+    """This module's own source, for the controls that hold it to its shape."""
+    return pathlib.Path(__file__).read_text(encoding="utf-8")
+
+
 def self_test():
     """The rule, over the shapes its two callers really hand it.
 
@@ -251,7 +322,9 @@ def self_test():
         if got != want:
             failures.append(f"{label}: got {got!r}, expected {want!r}")
 
-    held = limits(4000, seat="claude:claude-sonnet-5-5/xhigh")
+    # the self-test's own numbers, and it says so: a capacity and a reservation are declared per seat and
+    # per call in production, and nothing here stands in for either
+    held = limits(4000, seat="claude:claude-sonnet-5-5/xhigh", capacity=200_000, reservation=32_000)
 
     # (a) and (d), the pair that was split across two modules
     named("bound (a) and (d): a window inside both checks passes", check_bound(1000, held))
@@ -261,7 +334,7 @@ def self_test():
           check_bound(50_000, {**held, "capacity": 60_000}), "WINDOW_CAPACITY_EXCEEDED")
     expect("bound (a) at its exact value is inside the bound",
            check_bound(INPUT_BOUND - held["allowance"], held), [])
-    tighter = limits(4000, capacity=100_000)
+    tighter = limits(4000, capacity=100_000, reservation=32_000)
     expect("a run whose (d) check is the tighter bound has the smaller driver budget",
            (driver_budget(tighter) < driver_budget(held), driver_budget(held)),
            (True, INPUT_BOUND - held["allowance"]))
@@ -295,6 +368,28 @@ def self_test():
           driver_bytes(packet, schema, {"appended_prompts": [{"path": "/nonexistent/prompt.md"}]})[1],
           "DRIVER_PART_UNCOUNTED")
 
+    # BA#2: one representation - counted from the content, recorded as its hash and length
+    evidence, evidence_problems = declared_evidence(
+        {"instructions": [{"path": str(pathlib.Path(__file__)), "kind": "project"}],
+         "appended_prompts": [{"name": "stage.md", "text": "an appended system prompt"}]})
+    own_bytes = len(pathlib.Path(__file__).read_bytes())
+    expect("BA#2: an appended prompt is counted from its text and recorded as its hash and length",
+           (evidence_problems, evidence["appended_prompts"]),
+           ([], [{"sha256": hashlib.sha256("an appended system prompt".encode("utf-8")).hexdigest(),
+                  "bytes": len("an appended system prompt"), "name": "stage.md"}]))
+    expect("BA#2: an instruction file is counted from its bytes and recorded with its path",
+           (evidence["instructions"][0]["bytes"], evidence["instructions"][0]["path"]),
+           (own_bytes, str(pathlib.Path(__file__))))
+    expect("BA#2: the recorded length is the length the payload count counted",
+           driver_bytes(b"", None, {"appended_prompts": [{"text": "an appended system prompt"}]})[0],
+           evidence["appended_prompts"][0]["bytes"])
+    named("control, BA#2: a part that asserts a number instead of content is not evidence",
+          declared_evidence({"appended_prompts": [{"name": "x", "bytes": 10}]})[1], "DRIVER_PART_UNCOUNTED")
+    named("control, BA#2: a part whose path cannot be read is reported here too",
+          declared_evidence({"instructions": [{"path": "/nonexistent/i.md"}]})[1], "DRIVER_PART_UNCOUNTED")
+    expect("a manifest with no declared parts is returned unchanged",
+           declared_evidence({"skills": [{"bytes": 1}]}), ({"skills": [{"bytes": 1}]}, []))
+
     # settlement, in both artifact spellings, with the missing-field refusal
     capture = {"input_tokens": 100_000, "cache_creation_input_tokens": 10_000, "cache_read_input_tokens": 5_000}
     rows = [{"state": "measured", "input": 100_000, "cache_creation": 10_000, "cache_read": 5_000}]
@@ -315,8 +410,8 @@ def self_test():
           "authoring of §8.6 keeps its own section's contract", check_observed(136_000, False))
 
     # the one record, and the one way back
-    stop = excess("r1/S3/t1/0a", 135_796, 2, "2026-10-22T09:00:00+09:00")
-    expect("the excess record carries the declaration it ran under",
+    stop = committed(excess("r1/S3/t1/0a", 135_796, "2026-10-22T09:00:00+09:00"), 2)
+    expect("the committed excess record carries the sequence recovery is measured from",
            (stop["code"], stop["declaration_seq"], stop["observed"]), (STOP_CODE, 2, 135_796))
     named("the excess record's detail names the call and the bound", [stop["detail"]], "r1/S3/t1/0a")
     expect("dispatch is open before any excess is recorded", blocked(None, []), None)
@@ -340,9 +435,29 @@ def self_test():
     named("... and it still blocks dispatch under its own code", [blocked(other, later) or ""], "RUN_STOPPED")
     expect("a bound stop with no declaration sequence is not lifted by anything",
            lifted({"code": STOP_CODE, "call_id": "x"}, later), False)
+    expect("control, BA#0: an uncommitted excess record carries no sequence, so nothing lifts it",
+           ("declaration_seq" in excess("x", 1, "now"),
+            lifted(excess("x", 1, "now"), later)), (False, False))
+    expect("control, BA#0: the sequence a stop is stamped with is the one the COMMIT read, not the call's",
+           (committed(excess("x", 1, "now"), 7)["declaration_seq"],
+            lifted(committed(excess("x", 1, "now"), 7), [{"seq": 5, "diff": {"host_allowance.a": 1}}]),
+            lifted(committed(excess("x", 1, "now"), 7), [{"seq": 8, "diff": {"host_allowance.a": 1}}])),
+           (7, False, True))
+
+    # ... and neither invented number may come back
+    import inspect
+    signature = inspect.signature(limits)
+    for name in ("capacity", "reservation"):
+        if signature.parameters[name].default is not inspect.Parameter.empty:
+            failures.append(f"limits() has a default for {name}, so a caller can fall back on a number nobody chose")
+    # a module-level constant is an assignment at column 0, which is what this looks for - the names
+    # appear in this file's own prose, and a text search would match itself
+    back = re.search(r"^(OUTPUT_RESERVATION|CONTEXT_CAPACITY)\s*=", source_text(), re.M)
+    if back:
+        failures.append(f"a module-level {back.group(1)} constant is back, so a caller can fall back on it")
 
     # the module is pure: a second opinion about where the run's state lives is what it exists to prevent
-    source = pathlib.Path(__file__).read_text(encoding="utf-8")
+    source = source_text()
     for forbidden in ("from runlib", "import runlib", "open(", "subprocess"):
         if forbidden in source.split('"""The window bound', 1)[-1].split("def self_test", 1)[0]:
             failures.append(f"bound.py reaches for {forbidden!r} outside its self-test, so the rule has state of its own")

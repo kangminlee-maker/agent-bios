@@ -115,7 +115,7 @@ def cmd_census(args):
 
 
 def cmd_views(args):
-    print("\n".join(views.report_lines(views.run(run_dir_of(args)))))
+    print("\n".join(views.report_lines(views.run(run_dir_of(args), reservation=args.output_cap))))
     return 0
 
 
@@ -154,6 +154,12 @@ def build_parser():
         common(sub)
         if name == "close":
             sub.add_argument("--recovery", action="store_true", help="the recovery close (reserved)")
+        if name == "views":
+            # the cap the S3 call will declare for its answer: check (d) reserves exactly that, and there
+            # is no constant standing in for it (the ruling of 2026-10-22). The dispatcher reads the same
+            # number from the stage that makes the call.
+            sub.add_argument("--output-cap", type=int, required=True,
+                             help="S3's output-token cap, which the window's (d) check reserves")
         if name == "census":
             sub.add_argument("--coverage", help="the coverage state the declaration pinned (default: session-distill/coverage.json)")
             sub.add_argument("--originators", help="the originator table; refused unless it is the one the declaration names (source 'originators')")
@@ -199,6 +205,8 @@ def self_test():
             with contextlib.redirect_stderr(err), contextlib.redirect_stdout(io.StringIO()):
                 try:
                     code = main([*argv, "--out", str(out)])
+                except SystemExit as exc:  # argparse's own exit: a named control failure, not a dead suite
+                    code, _ = (exc.code if isinstance(exc.code, int) else 2), err.write(f"EXITED {exc.code!r}")
                 except Exception as exc:  # a reverted check fails its control by name, not by a traceback
                     code, _ = 99, err.write(f"RAISED {exc!r}")
             return code, err.getvalue()
@@ -358,9 +366,14 @@ def self_test():
             code, err = cli(command, "--run-id", "r1")
             control(f"{command} ({stage_id}) is named and refused",
                     code == 2 and f"STAGE_NOT_IMPLEMENTED {command} ({stage_id})" in err, err)
-        code, err = cli("views", "--run-id", "r1")
+        code, err = cli("views", "--run-id", "r1", "--output-cap", "32000")
         control("views (S2) refuses by name when the census it reads is not in the run",
                 code == 1 and "INPUT_INVALID S1" in err, err)
+        # the ruling of 2026-10-22: (d) reserves the cap the S3 call declares, so the stage cannot be run
+        # without one - argparse refuses it, and the refusal names the flag
+        code, err = cli("views", "--run-id", "r1")
+        control("views (S2) cannot run without the output cap its (d) check reserves",
+                code == 2 and "--output-cap" in err, f"{code} {err}")
         # the census (S1) through the driver: a declared run over sources that are not there is unknown coverage, not zero
         coverage_file = scratch / "coverage.json"
         coverage_file.write_text(records.json_text(coverage.new_state()), encoding="utf-8")

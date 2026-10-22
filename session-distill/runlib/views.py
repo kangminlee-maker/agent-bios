@@ -68,7 +68,7 @@ import tempfile
 
 if __package__ in (None, ""):  # run as a script: put session-distill/ on the import path
     sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
-from runlib import bound, census, claims, coverage, declare, lineage, projection, records, search, sources, stagelock, validate
+from runlib import bound, census, claims, coverage, declare, gate, lineage, projection, records, search, sources, stagelock, validate
 from runlib.records import Refused
 
 OVERLAP_TURNS = 5
@@ -89,8 +89,7 @@ ROLE_BACKLOG = re.compile(r"^backlog\(.+\)$")
 
 # ---- the bound -------------------------------------------------------------------------------
 
-def limits_of(run, capacity=bound.CONTEXT_CAPACITY, reservation=bound.OUTPUT_RESERVATION,
-              overhead=bound.PACKET_OVERHEAD):
+def limits_of(run, capacity=None, reservation=None, overhead=bound.PACKET_OVERHEAD):
     """The bound a view-window call keeps, from the declaration: the S3 seat's declared allowance.
 
     Where the allowance comes from is this module's business; what the bound then IS belongs to
@@ -100,6 +99,21 @@ def limits_of(run, capacity=bound.CONTEXT_CAPACITY, reservation=bound.OUTPUT_RES
     if not seat or not entry:
         raise Refused(f"ALLOWANCE_UNDECLARED seats.S3: {seat!r} has no host_allowance entry, so no view window can be cut "
                       "against a bound (measure it in preflight and declare it)")
+    # BA#1: the seat's context size is host-reported evidence seats.json declares, and cutting a window
+    # reads the SAME declaration the dispatcher admits against. There is no default: a window cut against
+    # an invented capacity is a window cut against nothing.
+    if capacity is None:
+        capacity, basis = gate.seat_capacity(seat, (run.get("host_versions") or {}).get(seat.partition(":")[0])
+                                             or (entry.get("host_version")))
+        if capacity is None:
+            raise Refused(f"CAPACITY_UNDECLARED seats.S3: {basis}; no window is cut against a capacity nobody "
+                          "measured (the seat's context window is host-reported)")
+    # The output reservation is the cap the S3 call will declare for its answer - the same number the
+    # dispatcher admits that call against, supplied by the stage that makes it. There is no constant: a
+    # window cut against a reservation nobody chose reserves nothing (the ruling of 2026-10-22).
+    if not (isinstance(reservation, int) and not isinstance(reservation, bool) and reservation > 0):
+        raise Refused(f"CAP_UNDECLARED seats.S3: output-token cap {reservation!r}; a window is cut against the cap the "
+                      "call will declare for its answer, as a positive integer")
     return bound.limits(entry["allowance_tokens"], seat=seat, capacity=capacity, reservation=reservation,
                         overhead=overhead)
 
@@ -1084,7 +1098,7 @@ def limits_refusal(golden_run):
     """The refusal `limits_of` gives for a declaration with no allowance, as a list of lines - so a control
     can read both stages' words for one stop side by side."""
     try:
-        limits_of({"seats": {"S3": golden_run["seat"]}, "host_allowance": {}})
+        limits_of({"seats": {"S3": golden_run["seat"]}, "host_allowance": {}}, reservation=32_000)
     except Refused as exc:
         return str(exc).splitlines()
     return []
@@ -1147,7 +1161,7 @@ def view_transcript(run_dir, entry, state, ctx):
             "source_bytes": (run_dir / copy_rel).stat().st_size}
 
 
-def run(run_dir, capacity=bound.CONTEXT_CAPACITY, reservation=bound.OUTPUT_RESERVATION, overhead=bound.PACKET_OVERHEAD):
+def run(run_dir, capacity=None, reservation=None, overhead=bound.PACKET_OVERHEAD):
     """`distill.py views`: S2 over the census and the coverage state S1 left in the run directory."""
     run_dir = pathlib.Path(run_dir)
     declaration = records.read_json(records.run_json_path(run_dir))
@@ -1500,7 +1514,7 @@ def fx_census(window_id, entries):
             "pending_events": [], "transcripts": entries}
 
 
-def golden(root, name="g", overhead=bound.PACKET_OVERHEAD, capacity=bound.CONTEXT_CAPACITY, reservation=bound.OUTPUT_RESERVATION,
+def golden(root, name="g", overhead=bound.PACKET_OVERHEAD, capacity=200_000, reservation=32_000,
            allowance=3200, census_sha=None, compressed=False, main_records=None, owned=None):
     """A run directory S2 can be run over, and the result of running it (realization: golden).
 
@@ -2538,6 +2552,31 @@ def self_test():
         named("control, unbounded: under the production posture the transcript whose windows cannot be bounded is "
               "quarantined by name", [q["reason"] for q in golden(root, "nobound", overhead=bound.INPUT_BOUND - 10_000)["manifest"]["quarantined"]],
               "WINDOW_UNBOUNDED")
+        # BA#1: cutting a window reads the SAME declaration the dispatcher admits against, and there is no
+        # default - a window cut against an invented capacity is cut against nothing.
+        refused("control, BA#1: a seat seats.json declares no context capacity for cuts no window",
+                lambda: limits_of({"seats": {"S3": "claude:no-such-model/high"},
+                                   "host_allowance": {"claude:no-such-model/high": {
+                                       "allowance_tokens": 4000, "host_version": "2.1.304"}}},
+                                  reservation=32_000),
+                "CAPACITY_UNDECLARED")
+        # ... and the cap itself: a window is cut against the cap the call will declare, never a constant
+        refused("control, the ruling of 2026-10-22: a window cut with no declared output cap is refused",
+                lambda: limits_of({"seats": {"S3": "claude:claude-sonnet-5-5/xhigh"},
+                                   "host_allowance": {"claude:claude-sonnet-5-5/xhigh": {
+                                       "allowance_tokens": 3886, "host_version": "2.1.304"}}}),
+                "CAP_UNDECLARED")
+        expect("the ruling of 2026-10-22: the reservation in the window's limits IS the declared cap",
+               limits_of({"seats": {"S3": "claude:claude-sonnet-5-5/xhigh"},
+                          "host_allowance": {"claude:claude-sonnet-5-5/xhigh": {
+                              "allowance_tokens": 3886, "host_version": "2.1.304"}}},
+                         reservation=48_000)["reservation"], 48_000)
+        expect("BA#1: the S3 seat's capacity is the host-reported one seats.json declares, not a constant",
+               limits_of({"seats": {"S3": "claude:claude-sonnet-5-5/xhigh"},
+                          "host_allowance": {"claude:claude-sonnet-5-5/xhigh": {
+                              "allowance_tokens": 3886, "host_version": "2.1.304"}}},
+                         reservation=32_000)["capacity"],
+               gate.seat_capacity("claude:claude-sonnet-5-5/xhigh", "2.1.304")[0])
         refused("control, allowance: a declaration with no measured host allowance for the S3 seat cuts no window",
                 lambda: limits_of({"seats": {"S3": "claude:x/high"}, "host_allowance": {}}), "ALLOWANCE_UNDECLARED")
         no_allowance = {**golden_run["run"], "host_allowance": {}}
@@ -2618,7 +2657,8 @@ def self_test():
               bound.check_observed(observed_input_of(overrun), True), "INPUT_BOUND_EXCEEDED")
         expect("control, done-when 3(c): the excess record the dispatcher writes carries that observation and the "
                "declaration it ran under, which is what the recovery rule reads",
-               {key: bound.excess(overrun["call_id"], observed_input_of(overrun), 2, records.now())[key]
+               {key: bound.committed(bound.excess(overrun["call_id"], observed_input_of(overrun),
+                                                   records.now()), 2)[key]
                 for key in ("code", "call_id", "observed", "declaration_seq")},
                {"code": "INPUT_BOUND_EXCEEDED", "call_id": overrun["call_id"],
                 "observed": observed_input_of(overrun), "declaration_seq": 2})
@@ -3167,17 +3207,17 @@ def self_test():
                ("window_role" in schema["required"], schema["$comment"]),
                (True, "design §5.5, plus window_role from design §5.2"))
         refused("control: two transcripts that would be written to one view directory are refused",
-                lambda: run(fx_prepared_run(root, "collide")), "VIEW_NAME_COLLISION")
+                lambda: run(fx_prepared_run(root, "collide"), reservation=32_000), "VIEW_NAME_COLLISION")
         bare = root / "bare"
         bare.mkdir()
         declare.create(bare, {**golden_run["run"], "declaration_seq": 0})
         refused("control: S2 over a run whose census S1 never wrote is refused by name, never over an empty set",
-                lambda: run(bare), "INPUT_INVALID S1")
+                lambda: run(bare, reservation=32_000), "INPUT_INVALID S1")
         reporting = records.run_items
         records.run_items = lambda posture, items, work: {"done": [], "quarantined": []}
         try:  # a stage runner that reports neither a view nor a quarantine for an eligible session
             refused("control: an eligible session that ends with neither a view nor a quarantine is named",
-                    lambda: run(fx_prepared_run(root, "silent", COLLIDING[:1])), "SET_MISMATCH S2")
+                    lambda: run(fx_prepared_run(root, "silent", COLLIDING[:1]), reservation=32_000), "SET_MISMATCH S2")
         finally:
             records.run_items = reporting
 

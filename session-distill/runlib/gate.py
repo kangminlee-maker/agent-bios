@@ -85,7 +85,9 @@ CALL_SCHEMA = _closed(
     exit_status={"type": ["integer", "null"]}, wall_ms={"type": ["integer", "null"]},
     contract={"enum": ["required", "none"]}, provider_signals=_strings, input_observed=_int,
     bound=_closed(("limit", "driver_bytes", "stop_standing"), limit=_int,
-                  driver_bytes={"type": ["integer", "null"]}, stop_standing={"type": "boolean"}),
+                  driver_bytes={"type": ["integer", "null"]}, stop_standing={"type": "boolean"},
+                  context_capacity={"type": ["integer", "null"]},
+                  output_reservation={"type": ["integer", "null"]}),
     use={"enum": ["judge", "producing", "authoring"]}, max_output_tokens={"type": ["integer", "null"]},
     runner_refused=_str_or_null,
     caps=_closed(("tokens", "compactions"), tokens=_int, compactions=_int),
@@ -102,8 +104,15 @@ CALL_SCHEMA = _closed(
     manifest=_closed(("workdir_path", "workdir_files", "instructions", "appended_prompts", "skills", "agents", "hooks"),
                      workdir_path=_text, skills=_strings, agents=_strings, hooks=_strings, mcp_servers=_strings,
                      workdir_files={"type": "array", "items": _closed(("path",), path=_text, sha256=_str_or_null)},
-                     instructions={"type": "array", "items": _closed(("path", "sha256"), path=_text, sha256=_str_or_null)},
-                     appended_prompts={"type": "array", "items": _closed(("sha256",), name=_text, sha256=_text)}),
+                     instructions={"type": "array", "items": _closed(("path", "sha256"), path=_text,
+                                                                     sha256=_str_or_null, bytes=_int)},
+                     # `bytes` is the length the payload count counted, and it is OPTIONAL in the shape
+                     # for the same reason the `bound` block is: a call record captured before the seam
+                     # carries none, and requiring it would re-judge evidence already frozen. That every
+                     # record dispatch writes TODAY carries it is held where it is produced, by
+                     # dispatch.py's `an-appended-prompt-is-recorded-as-its-hash-and-the-length-counted`.
+                     appended_prompts={"type": "array", "items": _closed(("sha256",), name=_text,
+                                                                         sha256=_text, bytes=_int)}),
 )
 CALL_SCHEMA["$comment"] = "DistillCall/v1, written by dispatch.py: what the driver sent and declared, and what it observed"
 CALL_VALIDATOR = validate.compile_schema(CALL_SCHEMA)
@@ -150,6 +159,26 @@ def seats(path=SEATS):
     if path not in _seats:
         _seats[path] = json.loads(path.read_text(encoding="utf-8"))
     return _seats[path]
+
+
+def seat_capacity(seat, host_version, path=SEATS):
+    """`(context_capacity, basis)` seats.json declares for `seat` at `host_version`, or `(None, reason)`.
+
+    The seat's context window is host-reported evidence, not a constant: every live Claude result of
+    WP-03v records `modelUsage[...].contextWindow` and that is what this carries. A seat with no entry has
+    no capacity, and check (d) is about the context - so a view-window call on it is refused rather than
+    judged against a number nobody measured (BA#1)."""
+    entry = (seats(path).get("seat_capacity") or {}).get(seat)
+    if not isinstance(entry, dict):
+        return None, f"seats.json declares no context capacity for {seat}"
+    if entry.get("host_version") != host_version:
+        return None, (f"seats.json declares the context capacity of {seat} at host version "
+                      f"{entry.get('host_version')!r}, not {host_version!r}")
+    if not isinstance(entry.get("context_capacity"), int) or entry["context_capacity"] <= 0:
+        return None, f"seats.json declares a context capacity for {seat} that is not a positive integer"
+    if not isinstance(entry.get("basis"), str) or not entry["basis"].strip():
+        return None, f"seats.json declares a context capacity for {seat} with no basis"
+    return entry["context_capacity"], entry["basis"]
 
 
 def pinned_flags_sha256(host, version, profile, path=SEATS):
@@ -362,6 +391,16 @@ def window_bound(c, errors):
     if declared.get("stop_standing"):
         errors.append(f"DISPATCHED_WHILE_STOPPED {call.get('call_id')}: the run's bound stop stood when this call was "
                       "admitted, and a stopped run dispatches nothing")
+    # BA#1: drift, caught per call. The capacity the boundary admitted against is in the record; the host
+    # reports its own in every Claude result, and the two must agree or the declaration is stale.
+    usage = c.result.get("modelUsage") if isinstance(c.result, dict) else None
+    if isinstance(declared.get("context_capacity"), int) and isinstance(usage, dict):
+        reported = {model: u.get("contextWindow") for model, u in usage.items()
+                    if isinstance(u, dict) and isinstance(u.get("contextWindow"), int)}
+        for model, window in sorted(reported.items()):
+            if window != declared["context_capacity"]:
+                errors.append(f"CAPACITY_DRIFT {model}: the host reports a context window of {window} and the call "
+                              f"was admitted against {declared['context_capacity']}; the declaration is stale")
     if declared and declared.get("limit") != bounds.INPUT_BOUND:
         errors.append(f"RECORD_INTEGRITY call.json bound.limit: {declared.get('limit')} is not the bound the rule owns "
                       f"({bounds.INPUT_BOUND})")
@@ -1225,16 +1264,42 @@ def self_test():
         claude, lambda f: jedit(f, "call.json", lambda o: o.update(
             bound={"limit": bounds.INPUT_BOUND, "driver_bytes": 4096, "stop_standing": True}))),
         "DISPATCHED_WHILE_STOPPED")
+    # BA#1: the declaration against the host's own report, per call. The window is planted on BOTH sides,
+    # because what is under test is the comparison - this replayed capture is older than the field, and a
+    # control that depended on its number would be testing the fixture. Clean case first.
+    def reports(window):
+        return lambda f: jedit(f, "result.json", lambda o: o.update(
+            modelUsage={model: {**u, "contextWindow": window}
+                        for model, u in (o.get("modelUsage") or {}).items()}))
+
+    def admitted_against(capacity):
+        return lambda f: jedit(f, "call.json", lambda o: o.update(
+            bound={"limit": bounds.INPUT_BOUND, "driver_bytes": 4096, "context_capacity": capacity,
+                   "stop_standing": False}))
+
+    control("a-call-admitted-against-the-capacity-the-host-reports-is-accepted",
+            variant(claude, reports(1_000_000), admitted_against(1_000_000)))
+    control("a-call-admitted-against-a-capacity-the-host-contradicts-fails-the-gate",
+            variant(claude, reports(1_000_000), admitted_against(200_000)), "CAPACITY_DRIFT")
+    control("a-host-that-reports-no-context-window-is-no-drift",
+            variant(claude, admitted_against(1_000_000)))
     control("a-call-recording-a-bound-that-is-not-the-rule-s-fails-the-gate", variant(
         claude, lambda f: jedit(f, "call.json", lambda o: o.update(
             bound={"limit": 999_999, "driver_bytes": 4096, "stop_standing": False}))),
         "RECORD_INTEGRITY call.json bound.limit")
-    appended = {"sha256": "a" * 64}
+    appended = {"sha256": "a" * 64, "bytes": 48}
     control("appended-prompt-undeclared", variant(claude, lambda f: jedit(f, "capture/host.json", lambda o: o["context"].update(appended_prompts=[appended]))),
             "CONTEXT_UNDECLARED appended system prompt 1")
     control("appended-prompt-declared-and-matching", variant(
         claude, lambda f: jedit(f, "capture/host.json", lambda o: o["context"].update(appended_prompts=[appended])),
         lambda f: jedit(f, "call.json", lambda o: o["manifest"].update(appended_prompts=[{"name": "stage.md", **appended}]))))
+    # BA#2: the declared prompt carries the length that was counted as well as its hash, and the gate
+    # accepts that shape - one representation for the payload count and for the record
+    control("appended-prompt-declared-with-its-counted-length", variant(
+        claude, lambda f: jedit(f, "capture/host.json", lambda o: o["context"].update(
+            appended_prompts=[{"sha256": appended["sha256"]}])),
+        lambda f: jedit(f, "call.json", lambda o: o["manifest"].update(
+            appended_prompts=[{"name": "stage.md", "sha256": appended["sha256"], "bytes": 48}]))))
     control("appended-prompt-declared-hash-differs", variant(
         claude, lambda f: jedit(f, "capture/host.json", lambda o: o["context"].update(appended_prompts=[appended])),
         lambda f: jedit(f, "call.json", lambda o: o["manifest"].update(appended_prompts=[{"name": "stage.md", "sha256": "b" * 64}]))),
@@ -2016,6 +2081,8 @@ def self_test():
                          "stopped run dispatches nothing"): ("the window bound",),
         ("window_bound", "RECORD_INTEGRITY call.json bound.limit: {} is not the bound the rule owns ({})"): (
             "the window bound",),
+        ("window_bound", "CAPACITY_DRIFT {}: the host reports a context window of {} and the call was admitted "
+                         "against {}; the declaration is stale"): ("the window bound",),
         ("call_record", "RECORD_INTEGRITY call.json {}"): ("call record",),
         ("call_record", "RECORD_INTEGRITY call.json: absent, unreadable, or without call_id and host"): ("call record",),
         ("call_record", "RECORD_INTEGRITY capture/host.json {}"): ("malformed record is a named verdict",),
