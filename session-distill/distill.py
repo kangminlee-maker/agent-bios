@@ -9,7 +9,9 @@
   distill.py --self-test                                   declare -> stage -> amend -> stage, on real files
   distill.py census --run-id ID [--coverage PATH]          S1: census.json and coverage.json into the run directory
   distill.py census --run-id ID --reconcile RESULTS.json   S3's results folded back into the statuses and the coverage
-  distill.py <stage command> --run-id ID                   S2-S12: named, and refused until implemented
+  distill.py views --run-id ID                             S2: the immutable copies, the redaction projection, the
+                                                           windows, the search index and the evidence store
+  distill.py <stage command> --run-id ID                   S3-S12: named, and refused until implemented
 
 A run lives in `session-distill/out/<run-id>/` (`--out` names another root): `run.json`,
 `amendments.jsonl`, `stages/<stage>/record.json`, and per-call directories. The declaration,
@@ -17,7 +19,9 @@ its amendments and the stage records are `runlib/declare.py` and `runlib/records
 record schemas every stage keeps (claim, evidence, expected observation) are
 `schemas/*.schema.json`, loaded through `runlib/claims.py`; the declaration's own structure is
 `schemas/run.schema.json`. The census (S1) is `runlib/census.py`, over the readers of `runlib/sources.py`,
-`runlib/lineage.py` and the coverage state of `runlib/coverage.py`. Design: §3, §4, §4.1, §5.1-§5.3.
+`runlib/lineage.py` and the coverage state of `runlib/coverage.py`. The views (S2) are `runlib/views.py`,
+over `runlib/redaction.py`, `runlib/search.py` and the evidence store of `runlib/evidence.py`.
+Design: §3, §4, §4.1, §5.1-§5.5.
 """
 import argparse
 import contextlib
@@ -30,7 +34,7 @@ import sys
 import tempfile
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
-from runlib import census, coverage, declare, records, stagelock
+from runlib import census, coverage, declare, records, stagelock, views
 from runlib.records import Refused
 
 OUT = pathlib.Path(__file__).resolve().parent / "out"
@@ -110,6 +114,11 @@ def cmd_census(args):
     return 0
 
 
+def cmd_views(args):
+    print("\n".join(views.report_lines(views.run(run_dir_of(args)))))
+    return 0
+
+
 def cmd_stage(args):
     stage = STAGE_COMMANDS[args.command]
     if args.command == "close" and args.recovery:
@@ -140,7 +149,8 @@ def build_parser():
     sub.add_argument("--self-test", action="store_true", help="the declaration's controls")
     sub.set_defaults(handler=cmd_declare)
     for name, stage in STAGE_COMMANDS.items():
-        sub = commands.add_parser(name, help=f"{stage}: the census" if name == "census" else f"{stage}: not implemented yet")
+        helps = {"census": f"{stage}: the census", "views": f"{stage}: the reading views, the search index and the evidence store"}
+        sub = commands.add_parser(name, help=helps.get(name, f"{stage}: not implemented yet"))
         common(sub)
         if name == "close":
             sub.add_argument("--recovery", action="store_true", help="the recovery close (reserved)")
@@ -149,7 +159,7 @@ def build_parser():
             sub.add_argument("--originators", help="the originator table; refused unless it is the one the declaration names (source 'originators')")
             sub.add_argument("--jobs", type=int, default=8, help="parallel transcript reads")
             sub.add_argument("--reconcile", help="S3's results (a JSON list): fold them back instead of counting")
-        sub.set_defaults(handler=cmd_census if name == "census" else cmd_stage)
+        sub.set_defaults(handler={"census": cmd_census, "views": cmd_views}.get(name, cmd_stage))
     return parser
 
 
@@ -341,12 +351,16 @@ def self_test():
         finally:
             os.chdir(here)
 
+        implemented = ("census", "views")  # each has its own controls below; the rest are named and refused
         for command, stage_id in STAGE_COMMANDS.items():
-            if command == "census":
-                continue  # implemented: its own controls follow
+            if command in implemented:
+                continue
             code, err = cli(command, "--run-id", "r1")
             control(f"{command} ({stage_id}) is named and refused",
                     code == 2 and f"STAGE_NOT_IMPLEMENTED {command} ({stage_id})" in err, err)
+        code, err = cli("views", "--run-id", "r1")
+        control("views (S2) refuses by name when the census it reads is not in the run",
+                code == 1 and "INPUT_INVALID S1" in err, err)
         # the census (S1) through the driver: a declared run over sources that are not there is unknown coverage, not zero
         coverage_file = scratch / "coverage.json"
         coverage_file.write_text(records.json_text(coverage.new_state()), encoding="utf-8")

@@ -4,7 +4,7 @@
 They are `session-distill/schemas/<kind>.schema.json`, loaded through `validate.compile_schema`
 (`check_schema`, then the schema-policy lint). Each carries `$comment: "design §X"` and its
 `required` set is the field list of that design section: §3.3 (claim records), §5.5 (evidence
-locators), §7.3 (proposal content, the expected observation). The `--self-test` holds the
+locators, plus `window_role` from §5.2), §7.3 (proposal content, the expected observation). The `--self-test` holds the
 three lists, copied once and cited, and fails naming the schema and the section when a
 schema's field set differs; it also names the consumer of every field, so a field no later
 stage reads cannot enter a schema unnoticed.
@@ -71,8 +71,9 @@ def self_test():
     # compares these three against the design text.
     contract = {
         "claim": ("§3.3", ("claim_id", "fact", "interpretation", "uncertainty", "evidence_ids", "call_id"), ()),
+        # §5.5's list, and `window_role` from §5.2 ("every evidence record carries window_role"; plan WP-06 done-when 7)
         "evidence": ("§5.5", ("evidence_id", "source_copy", "version_sha", "line", "json_pointer",
-                              "char_span", "redaction_version", "redacted_text"), ()),
+                              "char_span", "redaction_version", "redacted_text", "window_role"), ()),
         "expected_observation": ("§7.3", ("occasion_criteria", "exposure_rule", "expected_behavior",
                                           "retrieval_terms", "expiry"), ("counter", "threshold")),
     }
@@ -96,6 +97,7 @@ def self_test():
             "char_span": "WP-06 done-when 1: the span of the block the quote covers",
             "redaction_version": "WP-06 done-when 1: REDACTION_VERSION_MISMATCH",
             "redacted_text": "WP-08 done-when 1: QUOTE_MISMATCH when a model retypes the quote",
+            "window_role": "WP-08 done-when 5 and WP-10: only in_window evidence counts toward occasions and recurrence (design §5.2)",
         },
         "expected_observation": {
             "occasion_criteria": "WP-08 done-when 5: reading finds the occasions where it holds",
@@ -114,7 +116,8 @@ def self_test():
                   "call_id": "r1/S3/t1/1"},
         "evidence": {"evidence_id": "e-1", "source_copy": "sources/" + "ab" * 32 + ".jsonl",
                      "version_sha": "ab" * 32, "line": 12, "json_pointer": "/message/content/0/text",
-                     "char_span": [0, 40], "redaction_version": "r1", "redacted_text": "show me the plain version"},
+                     "char_span": [0, 40], "redaction_version": "r1", "redacted_text": "show me the plain version",
+                     "window_role": "in_window"},
         "expected_observation": {"occasion_criteria": "the owner asks for an explanation",
                                  "exposure_rule": "the unit was delivered before the ask",
                                  "expected_behavior": "no second request for the plain version",
@@ -137,6 +140,8 @@ def self_test():
         ("evidence", "line as a string", put("line", "12"), "line:"),
         ("evidence", "line below 1", put("line", 0), "line:"),
         ("evidence", "char_span of three numbers", put("char_span", [0, 1, 2]), "char_span:"),
+        ("evidence", "window_role outside the three", put("window_role", "elsewhere"), "window_role:"),
+        ("evidence", "backlog without its window", put("window_role", "backlog()"), "window_role:"),
         ("evidence", "json_pointer without a leading slash", put("json_pointer", "message/content"), "json_pointer:"),
         ("expected_observation", "retrieval_terms empty", put("retrieval_terms", []), "retrieval_terms:"),
         ("expected_observation", "counter without threshold", put("counter", "plain-explanation asks"), "'threshold' is a dependency of"),

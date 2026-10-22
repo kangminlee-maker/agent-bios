@@ -67,6 +67,14 @@ def state_of(path, want_dir):
     return "present" if (p.is_dir() if want_dir else p.is_file()) else "missing"
 
 
+def checked_zstd(zstd):
+    """`zstd` when it is an absolute path whose resolved file is named zstd, else ValueError: every
+    caller that runs the declared zstd runs it through here, so never another program."""
+    if not zstd or not os.path.isabs(zstd) or os.path.basename(os.path.realpath(zstd)) != "zstd":
+        raise ValueError("the declared zstd is not an absolute path to a file named zstd")
+    return zstd
+
+
 def read_lines(path, zstd, limit=None):
     """The raw lines (bytes, newline kept) of a transcript, at most `limit` of them.
 
@@ -87,9 +95,7 @@ def read_lines(path, zstd, limit=None):
     try:
         # close_fds=False lets the interpreter spawn without forking itself (descriptors are non-inheritable
         # by default); a census starts tens of thousands of these, and a fork of a large heap each time dominates it
-        if not zstd or not os.path.isabs(zstd) or os.path.basename(os.path.realpath(zstd)) != "zstd":
-            raise ValueError("the declared zstd is not an absolute path to a file named zstd")  # never another program
-        proc = subprocess.Popen([zstd, "-dcq", path], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, close_fds=False)
+        proc = subprocess.Popen([checked_zstd(zstd), "-dcq", path], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, close_fds=False)
     except (OSError, ValueError) as exc:
         raise Unreadable(f"ZSTD_UNAVAILABLE {zstd}: {path}: {getattr(exc, 'strerror', None) or exc}") from exc
     done = False

@@ -149,6 +149,9 @@ DYNAMIC_LOADS = (
      "reason": "the Codex capture's one owner, loaded by its literal repo path (FRAME_OWNER) for its pure readers "
                "(gate.FRAME_READERS: responses, completions, join, attempts), held by the gate's self-test; read, not "
                "traced: its context command starts codex (app-server, debug prompt-input), which the gate never calls"},
+    {"site": "session-distill/runlib/projection.py", "path": "learn/redact.py", "trace": True,
+     "reason": "the secret floor's owner, loaded by its literal repo path (_load_floor) so its patterns are imported, "
+               "never copied; it imports re and sys only and runs nothing"},
     {"site": "session-distill/runlib/ledger.py", "path": "session-distill/migrate-ledger.py", "trace": True,
      "reason": "the schema-1 migrator, loaded by its literal path beside the module (MIGRATOR) to compare a schema-1 "
                "base with a schema-2 head; its one executor is git ls-files"},
@@ -178,10 +181,14 @@ SCRIPT_RUNS = (
 # of the site's file that confines the program to one by name — is still there.
 GUARDED_PROGRAMS = (
     {"site": "session-distill/runlib/sources.py",
-     "guard": 'os.path.basename(os.path.realpath(zstd)) != "zstd"',
-     "reason": "read_lines decompresses with the zstd run.json declares (declare.py requires the source); the guard "
-               "refuses any declared path whose resolved file is not named zstd, so the program is zstd by name, "
-               "the standard the trace holds every named program to"},
+     "guards": ('os.path.basename(os.path.realpath(zstd)) != "zstd"', '[checked_zstd(zstd), "-dcq", path]'),
+     "reason": "read_lines decompresses with the zstd run.json declares (declare.py requires the source), through "
+               "checked_zstd, the guard's one owner: it refuses any declared path whose resolved file is not named "
+               "zstd, so the program is zstd by name, the standard the trace holds every named program to"},
+    {"site": "session-distill/runlib/views.py",
+     "guards": ('[sources.checked_zstd(zstd), "-q", "-f"',),
+     "reason": "golden() compresses its fixture with the zstd the fixture run declares, through sources.checked_zstd "
+               "(whose check the sources.py entry holds)"},
 )
 # interpreter options that take no value: they change how python runs, never what it runs
 PY_FLAGS = ("-I", "-E", "-s", "-S", "-B", "-u", "-O", "-OO", "-q", "-b", "-bb", "-R")
@@ -1038,8 +1045,8 @@ def _judge_program(mod, program, rest, line, pinned, problems, depth=0, runs=(),
             _judge_words(mod, words, line, pinned, problems)
     elif base in HOST_NAMES or program in pinned:
         problems.append(f"DISPATCH_OUTSIDE_SUPERVISOR {where}: starts {program!r}, which only dispatch.py may start")
-    elif UNKNOWN in program and not any(e["site"] == str(mod.rel) and e["guard"] in mod.path.read_text(encoding="utf-8")
-                                        for e in GUARDED_PROGRAMS):
+    elif UNKNOWN in program and not any(e["site"] == str(mod.rel) and all(g in mod.path.read_text(encoding="utf-8")
+                                                                          for g in e["guards"]) for e in GUARDED_PROGRAMS):
         problems.append(f"DISPATCH_UNRESOLVED {where}: a program the trace cannot resolve ({program!r})")
     elif UNKNOWN in program:
         pass  # a guarded program (GUARDED_PROGRAMS)
@@ -1158,8 +1165,10 @@ def closure_violations(root=REPO, out_of_scope=OUT_OF_SCOPE, dynamic=DYNAMIC_LOA
         if not (root / entry["site"]).is_file() or not (root / entry["path"]).is_file():
             problems.append(f"INVENTORY_STALE script run {entry['site']} -> {entry['path']}: no such file")
     for entry in GUARDED_PROGRAMS:
-        if not (root / entry["site"]).is_file() or entry["guard"] not in (root / entry["site"]).read_text(encoding="utf-8"):
-            problems.append(f"INVENTORY_STALE guarded program {entry['site']}: its guard {entry['guard']!r} is gone")
+        held = (root / entry["site"]).read_text(encoding="utf-8") if (root / entry["site"]).is_file() else ""
+        for guard in entry["guards"]:
+            if guard not in held:
+                problems.append(f"INVENTORY_STALE guarded program {entry['site']}: its guard {guard!r} is gone")
     excluded = {(root / e["path"]).resolve() for e in out_of_scope}
     queue = [root / CLOSURE_ROOTS[0]] + sorted((root / CLOSURE_ROOTS[1]).glob("*.py"))
     closure, seen, sites, used, ran = [], set(), 0, set(), set()
@@ -2487,16 +2496,34 @@ def self_test(scratch=None):
     planted("python-c-with-unread-data-is-still-judged", "session-distill/runlib/claims.py",
             "import subprocess\nsubprocess.run([sys.executable, '-c', f\"import subprocess; subprocess.run(['claude', {ARG!r}])\"])",
             "DISPATCH_OUTSIDE_SUPERVISOR {at}: inside python -c", 1)
-    guarded = tree / GUARDED_PROGRAMS[0]["site"]
-    kept = guarded.read_text(encoding="utf-8")
-    guarded.write_text(kept.replace(GUARDED_PROGRAMS[0]["guard"], "False"), encoding="utf-8")
-    try:
-        unguarded = closure_violations(tree)[0]
-    finally:
-        guarded.write_text(kept, encoding="utf-8")
-    control("a-guarded-program-without-its-guard-is-unresolved-and-stale",
-            any(v.startswith(f"DISPATCH_UNRESOLVED {GUARDED_PROGRAMS[0]['site']}:") for v in unguarded)
-            and any(v.startswith(f"INVENTORY_STALE guarded program {GUARDED_PROGRAMS[0]['site']}") for v in unguarded), f"{unguarded}")
+    def without(rel, old, new):
+        """The closure check's violations over the copied tree with `old` replaced by `new` in `rel`."""
+        path = tree / rel
+        kept = path.read_text(encoding="utf-8")
+        path.write_text(kept.replace(old, new), encoding="utf-8")
+        try:
+            return closure_violations(tree)[0]
+        finally:
+            path.write_text(kept, encoding="utf-8")
+
+    def unguarded_and_stale(found, site):
+        return any(v.startswith(f"DISPATCH_UNRESOLVED {site}:") for v in found) \
+            and any(v.startswith(f"INVENTORY_STALE guarded program {site}") for v in found)
+    by_site = {e["site"]: e for e in GUARDED_PROGRAMS}
+    sources_entry = by_site.get("session-distill/runlib/sources.py", {"site": "session-distill/runlib/sources.py", "guards": ("?",)})
+    unguarded = without(sources_entry["site"], sources_entry["guards"][0], "False")
+    control("a-guarded-program-without-its-guard-is-unresolved-and-stale", unguarded_and_stale(unguarded, sources_entry["site"]),
+            f"{unguarded}")
+    # the guard has one owner: a site that runs the declared zstd without calling it fails by name
+    for site in ("session-distill/runlib/sources.py", "session-distill/runlib/views.py"):
+        control(f"guarded-program-declared-{pathlib.Path(site).stem}", site in by_site, f"{sorted(by_site)}")
+        if site not in by_site:
+            continue
+        entry = by_site[site]
+        unchecked = without(entry["site"], entry["guards"][-1], entry["guards"][-1].replace("sources.checked_zstd(zstd)", "zstd")
+                            .replace("checked_zstd(zstd)", "zstd"))
+        control(f"a-guarded-program-without-its-checked-call-is-unresolved-and-stale-{pathlib.Path(entry['site']).stem}",
+                unguarded_and_stale(unchecked, entry["site"]), f"{unchecked}")
     found, _at = plant("session-distill/runlib/dispatch.py", "import subprocess\nsubprocess.run(['claude', '-p'])")
     control("supervisor-own-sites-are-not-failures", not found, f"{found}")
     found, _at = plant("session-distill/screen-codex.py", "import subprocess\nsubprocess.run(['codex', 'exec'])")

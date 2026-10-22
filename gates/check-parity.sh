@@ -317,6 +317,22 @@ if [ -f session-distill/runlib/census.py ]; then
   python3 session-distill/runlib/census.py --self-test >/dev/null \
     || { echo "FAIL: session-distill census self-test (session-distill/runlib/census.py)"; fail=1; }
 fi
+if [ -f session-distill/runlib/projection.py ]; then
+  python3 session-distill/runlib/projection.py --self-test >/dev/null \
+    || { echo "FAIL: session-distill redaction projection self-test (session-distill/runlib/projection.py)"; fail=1; }
+fi
+if [ -f session-distill/runlib/search.py ]; then
+  python3 session-distill/runlib/search.py --self-test >/dev/null \
+    || { echo "FAIL: session-distill full-source search self-test (session-distill/runlib/search.py)"; fail=1; }
+fi
+if [ -f session-distill/runlib/views.py ]; then
+  python3 session-distill/runlib/views.py --self-test >/dev/null \
+    || { echo "FAIL: session-distill views self-test (session-distill/runlib/views.py)"; fail=1; }
+fi
+if [ -f session-distill/runlib/evidence.py ]; then
+  python3 session-distill/runlib/evidence.py --self-test >/dev/null \
+    || { echo "FAIL: session-distill evidence store self-test (session-distill/runlib/evidence.py)"; fail=1; }
+fi
 
 # Session distill ledger (design §12): schema 2, the transition table, the migration of the schema 1
 # ledger, the projection the old readers keep, and the id-set check. `ledger.py --check` compares the

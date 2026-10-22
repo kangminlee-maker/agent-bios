@@ -82,6 +82,10 @@ SUBJECTS = [
     "session-distill/runlib/breaker.py",
     # The Codex adapter's capture helper (shipped), registered by name for the same reason.
     "wrappers/codex_frame_filter.py",
+    "session-distill/runlib/projection.py",
+    "session-distill/runlib/search.py",
+    "session-distill/runlib/views.py",
+    "session-distill/runlib/evidence.py",
 ]
 # The not-audited disclosure is DERIVED, not typed. The first version typed two shell
 # gates here while the tracked tree held five shell checkers — the audit tool carrying
@@ -145,6 +149,8 @@ DATA_SINKS = {
                                                        "verdict, never a failure"},
     "session-distill/runlib/dispatch.py": {"deferred": "the items an opened breaker defers, written "
                                                        "to its state for resumption, never a failure"},
+    "session-distill/runlib/projection.py": {"out": "the projected text being assembled; it is the "
+                                                   "function's return value, not a report"},
 }
 
 

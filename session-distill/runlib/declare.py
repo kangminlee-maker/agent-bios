@@ -15,7 +15,7 @@ parse and name stages, the four strata are each seated once, and every host allo
 measured on the host version the declaration names. Then seat coverage.
 
 Failures are named by their first word: ACCOUNT_UNDECLARED, SEAT_UNCOVERED, AMEND_REQUIRED,
-HOST_ALLOWANCE_MISSING, HOST_ALLOWANCE_STALE, RUN_EXISTS, DECLARATION_INVALID,
+ALLOWANCE_UNDECLARED, HOST_ALLOWANCE_STALE, RUN_EXISTS, DECLARATION_INVALID,
 SEAT_COVERAGE_UNREADABLE.
 
 Every seat of the declaration (stage seats and the four actor strata) must be named in the
@@ -141,7 +141,7 @@ def semantic_errors(run):
                           f"the declaration names {run['hosts'].get(parse_seat(seat)[0])}")
     view_seat = run["seats"][VIEW_WINDOW_STAGE]
     if view_seat not in run["host_allowance"]:
-        errors.append(f"HOST_ALLOWANCE_MISSING seats.{VIEW_WINDOW_STAGE}: {view_seat} reads view windows and "
+        errors.append(f"ALLOWANCE_UNDECLARED seats.{VIEW_WINDOW_STAGE}: {view_seat} reads view windows and "
                       f"has no host_allowance entry")
     return errors
 
@@ -452,10 +452,10 @@ def self_test():
     # the amendment to design §5.4: a declared allowance for the view-window seat, measured on the declared host
     sonnet = fixture()["seats"]["S3"]
     control("host-allowance-missing-for-the-view-window-seat", mutated(lambda run: run["host_allowance"].clear()),
-            f"HOST_ALLOWANCE_MISSING seats.S3: {sonnet}")
+            f"ALLOWANCE_UNDECLARED seats.S3: {sonnet}")
     control("host-allowance-only-for-another-seat",
             mutated(lambda run: run.update(host_allowance={run["seats"]["S4"]: run["host_allowance"].popitem()[1]})),
-            "HOST_ALLOWANCE_MISSING seats.S3")
+            "ALLOWANCE_UNDECLARED seats.S3")
     control("host-allowance-measured-on-another-host-version",
             mutated(lambda run: run["hosts"].update(claude="2.1.305")),
             f"HOST_ALLOWANCE_STALE host_allowance.{sonnet}: measured on host 2.1.304, the declaration names 2.1.305")

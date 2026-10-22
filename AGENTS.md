@@ -669,6 +669,7 @@ repo. Only repo-specific working rules belong in this file.
   run is in flight shifts bash's offset into the middle of a line and the run dies with a
   syntax error that is not in the file. Copying it elsewhere does not help — it `cd`s to its
   own parent for `REPO`.
+- **A restored module can still run as its mutant**: Python's bytecode cache records the source mtime to the second, so a file copied back and re-imported within the same second keeps running the cached mutant, and `python3 -B` does not help (it stops writes, not reads). Delete `__pycache__` before and after every revert experiment; a file run as `__main__` is not cached.
 
 ## Commits
 
