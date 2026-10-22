@@ -8,6 +8,7 @@
   distill.py declare --self-test                           the declaration's controls
   distill.py --self-test                                   declare -> stage -> amend -> stage, on real files
   distill.py census --run-id ID [--coverage PATH]          S1: census.json and coverage.json into the run directory
+  distill.py inventory --run-id ID [--pin HOST:SESSION]   S2: inventory/<reference>.json, the units per layer
   distill.py census --run-id ID --reconcile RESULTS.json   S3's results folded back into the statuses and the coverage
   distill.py views --run-id ID                             S2: the immutable copies, the redaction projection, the
                                                            windows, the search index and the evidence store
@@ -30,11 +31,12 @@ import json
 import os
 import pathlib
 import re
+import subprocess
 import sys
 import tempfile
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
-from runlib import census, coverage, declare, records, stagelock, views
+from runlib import census, coverage, declare, inventory, records, stagelock, views
 from runlib.records import Refused
 
 OUT = pathlib.Path(__file__).resolve().parent / "out"
@@ -114,6 +116,37 @@ def cmd_census(args):
     return 0
 
 
+def cmd_inventory(args):
+    """S2's inventory: `inventory/<reference>.json` for every reference point of design §6.1."""
+    out_dir = run_dir_of(args) if args.run_id else pathlib.Path(args.to or "")
+    if not args.run_id and not args.to:
+        raise Refused("INPUT_INVALID inventory: give --run-id, or --to DIR to write outside a run")
+    repo = pathlib.Path(__file__).resolve().parents[1]
+    state_root = None if args.no_state else (args.state_root or os.environ.get(
+        "AGENT_BIOS_STATE_DIR", str(pathlib.Path.home() / ".local/share/agent-bios")))
+    user_root = None if args.no_state else (args.user_root or os.environ.get(
+        "AGENT_BIOS_INSTRUCTIONS_DIR", str(pathlib.Path.home() / ".config/agent-bios/corpus")))
+    native = {}
+    if args.native_live:
+        native["hosts"] = {host: pathlib.Path(spec["home"]).expanduser() for host, spec in inventory.NATIVE.items()
+                           if pathlib.Path(spec["home"]).expanduser().is_dir()}
+    for item in args.native_root or []:
+        host, equals, path = item.partition("=")
+        if not equals:
+            raise Refused(f"INPUT_INVALID --native-root {item!r}: expected HOST=PATH")
+        native.setdefault("hosts", {})[host] = pathlib.Path(path).expanduser()
+    native["projects"] = {pathlib.Path(root).name or "repo": pathlib.Path(root).expanduser()
+                          for root in (args.project or [str(repo)])}
+    ledger_path = pathlib.Path(args.ledger or (repo / inventory.LEDGER_REL))
+    ledger = records.read_json(ledger_path) if ledger_path.is_file() else None
+    head = subprocess.run(["git", "-C", str(repo), "rev-parse", "--short", "HEAD"],
+                          capture_output=True, text=True)
+    manifest = inventory.run(repo, state_root, user_root, out_dir, pin=args.pin, native_roots=native,
+                             ledger=ledger, commit=(head.stdout.strip() or None))
+    print("\n".join(inventory.report_lines(manifest)))
+    return 0
+
+
 def cmd_views(args):
     print("\n".join(views.report_lines(views.run(run_dir_of(args), reservation=args.output_cap))))
     return 0
@@ -160,12 +193,23 @@ def build_parser():
             # number from the stage that makes the call.
             sub.add_argument("--output-cap", type=int, required=True,
                              help="S3's output-token cap, which the window's (d) check reserves")
+        if name == "inventory":
+            sub.add_argument("--to", help="write inventory/<reference>.json here instead of into a run directory")
+            sub.add_argument("--pin", help="HOST:SESSION_ID, the activation pin whose selection and release to read")
+            sub.add_argument("--state-root", help="the owner's state root (default: the installed one)")
+            sub.add_argument("--user-root", help="the owner's authoring root (default: the installed one)")
+            sub.add_argument("--no-state", action="store_true", help="read no state root at all")
+            sub.add_argument("--native-live", action="store_true",
+                             help="read the native layers from the host homes now, there being no S0 capture yet")
+            sub.add_argument("--native-root", action="append", help="HOST=PATH, a captured host home; repeatable")
+            sub.add_argument("--project", action="append", help="a project root whose instruction files to read; repeatable")
+            sub.add_argument("--ledger", help="the ledger to read the incubating and keep layers from")
         if name == "census":
             sub.add_argument("--coverage", help="the coverage state the declaration pinned (default: session-distill/coverage.json)")
             sub.add_argument("--originators", help="the originator table; refused unless it is the one the declaration names (source 'originators')")
             sub.add_argument("--jobs", type=int, default=8, help="parallel transcript reads")
             sub.add_argument("--reconcile", help="S3's results (a JSON list): fold them back instead of counting")
-        sub.set_defaults(handler={"census": cmd_census, "views": cmd_views}.get(name, cmd_stage))
+        sub.set_defaults(handler={"census": cmd_census, "views": cmd_views, "inventory": cmd_inventory}.get(name, cmd_stage))
     return parser
 
 
@@ -359,13 +403,22 @@ def self_test():
         finally:
             os.chdir(here)
 
-        implemented = ("census", "views")  # each has its own controls below; the rest are named and refused
+        implemented = ("census", "views", "inventory")  # each has its own controls below; the rest are named and refused
         for command, stage_id in STAGE_COMMANDS.items():
             if command in implemented:
                 continue
             code, err = cli(command, "--run-id", "r1")
             control(f"{command} ({stage_id}) is named and refused",
                     code == 2 and f"STAGE_NOT_IMPLEMENTED {command} ({stage_id})" in err, err)
+        # inventory (S2) reads no stage of this run, so it refuses on what it cannot resolve rather
+        # than on a missing input: with neither a run directory nor an output directory it has nowhere
+        # to write, and that is the refusal the driver owns
+        code, err = cli("inventory")
+        control("inventory (S2) refuses by name with no run and no output directory",
+                code == 1 and "INPUT_INVALID inventory" in err, f"{code} {err}")
+        code, err = cli("inventory", "--to", str(scratch / "inv"), "--no-state", "--native-root", "claude")
+        control("inventory (S2) refuses a native root that names no host",
+                code == 1 and "INPUT_INVALID --native-root" in err, f"{code} {err}")
         code, err = cli("views", "--run-id", "r1", "--output-cap", "32000")
         control("views (S2) refuses by name when the census it reads is not in the run",
                 code == 1 and "INPUT_INVALID S1" in err, err)

@@ -61,6 +61,7 @@ SUBJECTS = [
     # files, so each module with a --self-test is registered by name or it is not graded.
     "session-distill/distill.py",
     "session-distill/runlib/declare.py",
+    "session-distill/runlib/inventory.py",
     "session-distill/runlib/records.py",
     "session-distill/runlib/claims.py",
     "session-distill/runlib/validate.py",
@@ -144,6 +145,8 @@ DATA_SINKS = {
                  "must never decide a build",
         "out": "the --resolve/--propose suggestion rows; printed for a human to paste",
     },
+    "session-distill/runlib/inventory.py": {"lines": "the per-reference-point report; printed for a "
+                                                     "person, while a refusal is raised by name"},
     "session-distill/runlib/monitor.py": {"uncertain": "requests whose sending no host record "
                                                        "establishes; disclosed beside the boundary "
                                                        "verdict, never a failure"},

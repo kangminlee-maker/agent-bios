@@ -162,6 +162,18 @@ DYNAMIC_LOADS = (
     {"site": "session-distill/runlib/records.py", "path": "wrappers/jsonl_lines.py", "trace": True,
      "reason": "the one JSONL splitter, shipped, loaded by its literal repo path (_load_jsonl_lines) so runlib's "
                "readers use it, never a copy; it imports nothing and runs nothing"},
+    {"site": "session-distill/runlib/inventory.py", "path": "compose/instructions_catalog.py", "trace": False,
+     "reason": "the catalog's one owner, loaded by the path of the checkout being inventoried (catalog_carriers) so "
+               "S2 splits the items the compiler would compile, never a second reading of them; read, not traced: "
+               "the loader itself runs nothing, and the one module it imports (assemble.guide_members, a pure "
+               "reader) keeps its executors in the installer's main() \u2014 the domain gate it runs as a script at "
+               "compose/assemble.py:823 \u2014 which load_catalog never reaches"},
+    {"site": "session-distill/runlib/inventory.py", "path": "compose/instructions_store.py", "trace": False,
+     "reason": "the overlay resolver's one owner, loaded by the checkout's path (store_module) for the four readers "
+               "the inventory calls over frozen copies of the owner's state (_runtime_state, _user_state, "
+               "_effective_items, verify_snapshot), none of which locks, recovers or writes; read, not traced: the "
+               "store runs no executor at all, and its plan, apply and install paths resolve an importer by a module "
+               "name no trace can read, which the inventory never reaches"},
     {"site": "session-distill/runlib/projection.py", "path": "learn/redact.py", "trace": True,
      "reason": "the secret floor's owner, loaded by its literal repo path (_load_floor) so its patterns are imported, "
                "never copied; it imports re and sys only and runs nothing"},
