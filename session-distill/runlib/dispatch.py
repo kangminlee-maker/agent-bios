@@ -124,6 +124,10 @@ LOCK_WAIT_S = 30
 # the stop's own wait on the declaration lock, read from the module at each stop so a control can
 # shorten it; production never changes it (BC#0)
 STOP_LOCK_WAIT_S = LOCK_WAIT_S
+# Set to a threading.Event by the self-test only: the stop signals it where it really asks for the
+# declaration lock, so a control can hold an amendment open until that attempt has happened instead of
+# guessing at the schedule (BD#2). None in production, and nothing reads it there.
+STOP_ACQUIRING = None
 DRAIN_POLL_S = 0.05  # how often a drain still waiting on a reader looks for a cap the monitor tripped meanwhile
 # How long readers may stay open once the runner's root has exited: a process holding its pipes past
 # this escaped the tree, outside the stop guarantee (design §13.2) — recorded, never waited on.
@@ -494,11 +498,21 @@ class Supervisor:
         guards cannot be read, the stop is still written - under the ledger lock alone, with no
         `declaration_seq` and with `stamp` naming why. By the recovery rule an UNSTAMPED stop lifts for
         nothing (`bound.lifted` requires an integer sequence), so every later dispatch stays refused and
-        recovery is a new run, not an amendment. The call itself fails by name either way (BC#0)."""
+        recovery is a new run, not an amendment. The call itself fails by name either way (BC#0).
+
+        **A stop never weakens.** The ledger holds one `stopped` entry and more than one call can settle an
+        excess, so the entry kept is the stronger of the kept and the offered one (`bound.strongest`): an
+        unstamped stop is terminal and nothing replaces it, and between stamped stops the higher sequence
+        stays. Writing the newer entry over the older let a stamped stop from a call that was already
+        running replace the unstamped stop of a lock timeout, and a `host_allowance` amendment then lifted
+        a run that should have ended (BD#0). What this returns is this call's own record of the stop; what
+        the ledger keeps is the stronger one."""
         bound_stop = entry.get("code") == bound.STOP_CODE
         with contextlib.ExitStack() as locks:
             unstamped = None
             if bound_stop:
+                if STOP_ACQUIRING is not None:   # the self-test watches the REAL acquisition attempt (BD#2)
+                    STOP_ACQUIRING.set()
                 try:
                     locks.enter_context(stagelock.hold(self.run_dir, "declaration", wait_s=STOP_LOCK_WAIT_S))
                 except stagelock.Locked as exc:
@@ -513,13 +527,17 @@ class Supervisor:
                         run, _digest, amendments = records.declaration_state(self.run_dir, who="dispatch")
                         entry = bound.committed(entry, max([run["declaration_seq"]]
                                                            + [a["seq"] for a in amendments if isinstance(a.get("seq"), int)]))
-                    except Refused as exc:
-                        unstamped = f"declaration-unreadable: {exc}"
+                    except Exception as exc:      # noqa: BLE001 - ANY failure to read the declaration here
+                        # is an unstamped stop, not a discarded excess (BD#1): the reader refuses a drifted
+                        # declaration by name, but an unreadable file, a confinement violation or a decode
+                        # error arrive as something else entirely, and the overrun has still been observed.
+                        unstamped = f"declaration-unreadable: {exc!r}"
                 if unstamped is not None:
                     entry = {**entry, "stamp": unstamped}
-                ledger["stopped"] = {"at": self.clock(), **entry}
+                offered = {"at": self.clock(), **entry}
+                ledger["stopped"] = bound.strongest(ledger.get("stopped"), offered)
                 self._write(ledger)
-                return ledger["stopped"]
+                return offered
 
     # --- one call ----------------------------------------------------------------------------
 
@@ -646,13 +664,7 @@ class Supervisor:
                         "read_root": manifest["workdir_path"] if use == "producing" else None, "max_output_tokens": max_output_tokens,
                         "view_window": bool(view_window), "appended_prompts": delivered,
                         "flags_sha256": gate.pinned_flags_sha256(host, host_version, profile)}
-                env = {k: v for k, v in self.env.items() if k != "REVIEW_CRITERION_SCHEMA"}
-                # a receipt the runner writes for itself is capture evidence, never the call's receipt (addendum)
-                # REVIEW_CALL_ID is the adapters' name for the call (plan); claude-run reads DISTILL_CALL_ID
-                env.update(REVIEW_CAPTURE_DIR=str(capture), DISTILL_CELL=str(cell), DISTILL_CALL_ID=call_id,
-                           REVIEW_CALL_ID=call_id, REVIEW_RECEIPT_DIR=str(capture / "runner-receipts"))
-                if host == "codex":  # claude-run takes its host as arguments
-                    env.update(RUST_LOG=CODEX_TRACE, CODEX_RUN_BIN=spec["host_bin"], CODEX_RUN_VERSION=host_version)
+                env = self.runner_env(call_id, cell, capture, host, host_version, spec["host_bin"])
                 began = time.monotonic()
                 proc = subprocess.Popen(self.runner(host, spec), stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                         stderr=subprocess.PIPE, env=env, start_new_session=True)
@@ -847,6 +859,20 @@ class Supervisor:
             raise Refused(f"WINDOW_OVER_BOUND {call_id}: " + "; ".join(errors)
                           + "; the window is split before dispatch")
         return admitted
+
+    def runner_env(self, call_id, cell, capture, host, host_version, host_bin):
+        """The environment one launched runner receives - the only place it is assembled.
+
+        A receipt the runner writes for itself is capture evidence, never the call's receipt (plan
+        addendum); REVIEW_CALL_ID is the adapters' name for the call, and claude-run reads
+        DISTILL_CALL_ID. Codex takes its host through the environment where Claude takes it as
+        arguments."""
+        env = {k: v for k, v in self.env.items() if k != "REVIEW_CRITERION_SCHEMA"}
+        env.update(REVIEW_CAPTURE_DIR=str(capture), DISTILL_CELL=str(cell), DISTILL_CALL_ID=call_id,
+                   REVIEW_CALL_ID=call_id, REVIEW_RECEIPT_DIR=str(pathlib.Path(capture) / "runner-receipts"))
+        if host == "codex":
+            env.update(RUST_LOG=CODEX_TRACE, CODEX_RUN_BIN=host_bin, CODEX_RUN_VERSION=host_version)
+        return env
 
     def _follow(self, host, proc, began, packet, capture, cell, caps, output_cap=None):
         """Follow a launched runner to its end: the monitor, the stop at either cap, the drain."""
@@ -1450,11 +1476,14 @@ this writes beside itself, which is the scratch directory the control made for i
 import hashlib, json, os, pathlib, sys
 here = pathlib.Path(__file__).resolve().parent
 if "--version" in sys.argv[1:]:
-    print("9.9.9 (Claude Code)")
+    print((here / "version.txt").read_text().strip() + " (Claude Code)")
     sys.exit(0)
 appended = [sys.argv[i + 1] for i, a in enumerate(sys.argv) if a == "--append-system-prompt-file"]
 (here / "received.json").write_text(json.dumps({
+    # the hermetic child's environment is scrubbed to an allowlist, so the cell and the call id are NOT
+    # readable here: what names the call on this side is the packet the adapter puts on stdin
     "argv": sys.argv[1:], "cap": os.environ.get("CLAUDE_CODE_MAX_OUTPUT_TOKENS"),
+    "cwd": os.path.realpath(os.getcwd()), "packet_head": sys.stdin.readline().strip(),
     "appended": appended,
     "appended_bodies": [pathlib.Path(f).read_text() for f in appended],
     "appended_sha256": [hashlib.sha256(pathlib.Path(f).read_bytes()).hexdigest() for f in appended]}))
@@ -3070,61 +3099,93 @@ def self_test(scratch=None):
     # The wrapper is run for real against a fake host binary that starts no model and records what it
     # received; then the two forwarding behaviours are removed from a copy of the wrapper, one at a time,
     # and the same run must lose exactly that. A grep for the flag passed with the parser deleted.
-    def adapter_run(adapter, label, cap="4096", prompt=True):
-        """Run `adapter` with a fake Claude host and return what the host received, or the refusal."""
+    def adapter_dispatch(label):
+        """Dispatch one real `claude-run.sh` call and return what the host received.
+
+        BD#3: the invocation is the production one. The argv is `runner_argv` over the spec the Supervisor
+        builds, the environment is `runner_env` for that call, and the cell, the working directory and the
+        delivered prompt file are the ones the dispatcher made - the fixtures are the host binary, which
+        starts no model and records what it was given, and the homes, which are inside the scratch
+        directory so the adapter's own dispatch log is written there and nowhere near the owner's."""
+        # the cell root may not lie under HOME - claude-run refuses one that does, because such a cell's
+        # ancestry holds the owner's instruction files - so the fake HOME is a directory of its own here
         home = scratch / f"adapter-{label}"
-        home.mkdir(parents=True, exist_ok=True)
+        (home / "config").mkdir(parents=True, exist_ok=True)
+        (home / "home").mkdir(parents=True, exist_ok=True)
         cells, host_bin = home / "cells", home / "fake-claude"
         cells.mkdir(exist_ok=True)
-        cells.chmod(0o700)
+        cells.chmod(0o700)                            # claude-run refuses a cell root any other mode
         host_bin.write_text(FAKE_CLAUDE_BIN, encoding="utf-8")
         host_bin.chmod(0o700)
+        (home / "version.txt").write_text(gate.seats()["hosts"]["claude"]["version"], encoding="utf-8")
         (home / "token").write_text("CLAUDE_CODE_OAUTH_TOKEN=a-fixture-not-a-token\n", encoding="utf-8")
-        (home / "stage.md").write_text("Follow these rules.\n", encoding="utf-8")
-        argv = [str(adapter), "--profile", "hermetic", "--model", "m", "--effort", "high",
-                "--cell-root", str(cells), "--call-id", f"adapter-{label}",
-                "--claude-bin", str(host_bin), "--host-version", "9.9.9"]
-        if cap is not None:
-            argv += ["--max-output-tokens", cap]
-        if prompt:
-            argv += ["--append-system-prompt-file", str(home / "stage.md"), "--declared-sha256",
-                     packets.sha256_bytes((home / "stage.md").read_bytes())]
-        # the packet is fed and stdin then CLOSED: the adapter reads it from stdin, and an inherited
-        # stdin that never reaches EOF hangs the run instead of failing it
-        proc = subprocess.run(["bash"] + argv, capture_output=True, text=True, timeout=120,
-                              input=f"CALL-ID: adapter-{label}\nSTAGE: S6\n\na packet\n",
-                              cwd=str(home), env={**os.environ, "CLAUDE_RUN_TOKEN_FILE": str(home / "token"),
-                                                  "REVIEW_CAPTURE_DIR": str(home / "capture"),
-                                                  "DISTILL_CELL": "", "CLAUDE_CODE_OAUTH_TOKEN": ""})
+        adapter_run_dir = run_dir(f"run-adapter-{label}", {"S6": 400_000})
+        sup_a = Supervisor(adapter_run_dir, clock=lambda: clock[0], cell_root=cells, realization="golden",
+                           env={**os.environ, "HOME": str(home / "home"),
+                                "CLAUDE_CONFIG_DIR": str(home / "config"),
+                                "CLAUDE_RUN_TOKEN_FILE": str(home / "token")})
+        # the production builder, with the pinned host binary replaced by the fixture
+        sup_a.runner = lambda host, spec: runner_argv(host, {**spec, "host_bin": str(host_bin)})
+        ra = sup_a.reserve("S6", f"adapter-{label}", judge, "judge", tranche="calibration")
+        try:
+            sup_a.call("S6", judge, packets.build(ra["call_id"], "S6", judge, "Reply OK.\n", None), None,
+                       reservation=ra, caps=caps, view_window=False, max_output_tokens=4096,
+                       manifest={"appended_prompts": [{"name": "stage.md", "text": "Follow these rules.\n"}]})
+        except Exception:                             # noqa: BLE001 - the fake host returns no usable
+            pass                                      # capture; what this control reads is what it received
         received = home / "received.json"
-        return (json.loads(received.read_text(encoding="utf-8")) if received.is_file() else None), proc
-    # the positive control first: the adapter the dispatcher really launches
-    got_real, proc_real = adapter_run(RUNNERS["claude"], "real")
+        call_record = adapter_run_dir / "calls" / ra["call_id"] / "call.json"
+        return ((json.loads(received.read_text(encoding="utf-8")) if received.is_file() else None),
+                ra["call_id"], json.loads(call_record.read_text(encoding="utf-8")) if call_record.is_file() else {})
+    # the positive control first: the adapter the dispatcher really launches, launched the way it does
+    got_real, real_call_id, real_record = adapter_dispatch("real")
     control("BC#6-the-claude-adapter-passes-the-declared-output-cap-to-the-host",
-            (got_real or {}).get("cap") == "4096", f"{(got_real or {}).get('cap')} / {proc_real.stderr[-200:]}")
+            (got_real or {}).get("cap") == "4096", f"{got_real}")
     control("BC#6-the-claude-adapter-appends-the-declared-prompt-with-its-bytes",
             len((got_real or {}).get("appended") or []) == 1
             and (got_real or {}).get("appended_bodies") == ["Follow these rules.\n"],
-            f"{(got_real or {}).get('appended')} / {proc_real.stderr[-200:]}")
-    # ... and one mutation per forwarding behaviour, on a copy that keeps its own helper beside it
+            f"{got_real}")
+    # the production invocation, as the host saw it: the adapter ENTERS the cell's working directory
+    # rather than passing it on, the prompt it appends is the copy inside the cell, and the call id the
+    # dispatcher assigned is the one the runner was given
+    declared_cell = str(pathlib.Path(((real_record.get("manifest") or {}).get("workdir_path") or "/nowhere")).parent)
+    control("BD#3-the-host-was-started-in-the-working-directory-of-the-cell-the-dispatcher-made",
+            (got_real or {}).get("cwd") == os.path.realpath((real_record.get("manifest") or {})
+                                                            .get("workdir_path") or "/nowhere"),
+            f"{(got_real or {}).get('cwd')} / {(real_record.get('manifest') or {}).get('workdir_path')}")
+    control("BD#3-the-appended-prompt-the-host-read-is-the-copy-inside-that-cell",
+            bool((got_real or {}).get("appended"))
+            and all(os.path.realpath(a).startswith(os.path.realpath(declared_cell)) and "/declared/" in a
+                    and a.endswith("01-stage.md") for a in (got_real or {}).get("appended") or []),
+            f"{(got_real or {}).get('appended')} under {declared_cell}")
+    control("BD#3-the-packet-the-host-received-names-the-call-the-dispatcher-reserved",
+            (got_real or {}).get("packet_head") == f"CALL-ID: {real_call_id}",
+            f"{(got_real or {}).get('packet_head')} / {real_call_id}")
+    # ... and one mutation per forwarding behaviour, on a copy of the adapter the launcher is pointed at
     adapter_copy = scratch / "adapter-mutations"
     adapter_copy.mkdir(exist_ok=True)
     shutil.copy(RUNNERS["claude"].parent / "claude_hermetic_evidence.py", adapter_copy)
+    pinned_adapter = RUNNERS["claude"]
     for label, (old_text, new_text), lost in (
             ("no-cap-export", ('export CLAUDE_CODE_MAX_OUTPUT_TOKENS="$max_output"', 'true'), "cap"),
             ("no-append-arg", ('args+=(--append-system-prompt-file "$snap")', 'true'), "appended")):
         mutated = adapter_copy / f"claude-run-{label}.sh"
-        mutated.write_text(RUNNERS["claude"].read_text(encoding="utf-8").replace(old_text, new_text),
-                           encoding="utf-8")
+        mutated.write_text(pinned_adapter.read_text(encoding="utf-8").replace(old_text, new_text), encoding="utf-8")
+        mutated.chmod(0o700)                          # the launcher execs the script path it is given
         control(f"BC#6-the-{label}-mutation-really-changed-the-adapter",
-                mutated.read_text(encoding="utf-8") != RUNNERS["claude"].read_text(encoding="utf-8"),
+                mutated.read_text(encoding="utf-8") != pinned_adapter.read_text(encoding="utf-8"),
                 f"{old_text} is not in the adapter any more")
-        got_mutated, proc_mutated = adapter_run(mutated, label)
+        RUNNERS["claude"] = mutated                   # the launcher builds the same argv for the copy
+        try:
+            got_mutated = adapter_dispatch(label)[0]
+        finally:
+            RUNNERS["claude"] = pinned_adapter
         # the mutated adapter must still REACH the host - otherwise this control would pass on any
         # breakage, and prove nothing about the forwarding it names
         control(f"BC#6-control-removing-{lost}-forwarding-is-detected",
-                got_mutated is not None and not (got_mutated.get(lost) or None),
-                f"{got_mutated} / {proc_mutated.stderr[-200:]}")
+                got_mutated is not None and not (got_mutated.get(lost) or None), f"{got_mutated}")
+    control("BC#6-the-pinned-adapter-is-back-after-the-mutations", RUNNERS["claude"] == pinned_adapter,
+            f"{RUNNERS['claude']}")
     codex_script = RUNNERS["codex"].read_text(encoding="utf-8") if RUNNERS["codex"].is_file() else ""
     control("the-codex-adapter-takes-neither-the-cap-nor-an-appending-flag",
             "--max-output-tokens" not in codex_script and "--append-system-prompt" not in codex_script,
@@ -3147,13 +3208,19 @@ def self_test(scratch=None):
                   caps=caps, view_window=False, max_output_tokens=4096,
                   manifest={"instructions": [{"path": str(scratch / "declared-instruction.md")}]})
     instructed = json.loads((pid / "call.json").read_text(encoding="utf-8"))["manifest"]["instructions"]
+    # the subject's presence and keys are checked FIRST (BD#4): without that, a record missing
+    # `observer_sha256` made the next control raise a KeyError, and the suite died before printing the
+    # named failure it had already recorded
+    control("BC#2-a-declared-instruction-is-recorded-with-both-hashes-and-its-length",
+            len(instructed) == 1 and sorted(instructed[0]) == ["bytes", "observer_sha256", "path", "sha256"],
+            f"{instructed}")
     control("BC#2-a-declared-instruction-is-recorded-raw-and-in-the-observer-s-form",
             instructed == [{"path": str(scratch / "declared-instruction.md"),
                             "sha256": packets.sha256_bytes(instruction_body), "bytes": len(instruction_body),
                             "observer_sha256": gate.observer_sha256("claude", instruction_body)}],
             f"{instructed}")
     control("BC#2-the-two-forms-of-that-instruction-really-differ",
-            instructed[0]["sha256"] != instructed[0]["observer_sha256"],
+            instructed[0].get("sha256") != instructed[0].get("observer_sha256"),
             "the fixture renders to its own bytes, so the control above tests no translation")
     so = supervisor(run_dir("run-seam-prompt-oversized", {vstage: 2_000_000}))
     ro = so.reserve(vstage, "oversized", vseat, "judge", tranche="calibration")
@@ -3336,6 +3403,12 @@ def self_test(scratch=None):
     # reading could not survive: an amendment that starts BEFORE the stop and is caught between its log
     # line and its run.json. Nothing here sleeps for a window - the amendment and the stop hand each other
     # the turn through events, so the control does not depend on how the machine schedules them.
+    def ledger_stop(directory):
+        """The run's one `stopped` entry, or `{}`: read as a file, because a reverted stop writes none and
+        a control must then report its own name rather than die on a missing ledger."""
+        path = pathlib.Path(directory) / "supervisor" / "ledger.json"
+        return (json.loads(path.read_text(encoding="utf-8")).get("stopped") or {}) if path.is_file() else {}
+
     bb0 = run_dir("run-bb0-lock-order", {vstage: 2_000_000})
     sb = supervisor(bb0)
     mid_commit, stop_attempted = threading.Event(), threading.Event()
@@ -3357,7 +3430,12 @@ def self_test(scratch=None):
                                                         "run_json_sha256": records.bound_digest(new_run)})
                 mid_commit.set()                      # the log line is written, run.json is not
                 if wait_for_stop:
-                    stop_attempted.wait(30)           # the stop is about to ask for this lock
+                    # BD#2: not "the stop is about to be called" - the stop sets this where it really asks
+                    # for THIS lock (dispatch.STOP_ACQUIRING), and the lock is released only after the
+                    # write below, so the stop cannot avoid finding the declaration mid-commit. Setting it
+                    # from the caller left the amendment free to finish both writes first, and then a
+                    # regression that reads outside the lock passed on that schedule.
+                    stop_attempted.wait(30)
                 records.write_json(run_dir_path, records.run_json_path(run_dir_path), new_run)
                 committed_at.append(time.monotonic())
         except Exception as exc:                      # noqa: BLE001 - reported as this control's failure
@@ -3367,13 +3445,17 @@ def self_test(scratch=None):
     amender.start()
     control("BB#0-the-amendment-reached-its-mid-commit-state", mid_commit.wait(30), "the amendment never started")
     stop_failed = None
-    stop_attempted.set()
+    globals()["STOP_ACQUIRING"] = stop_attempted
     try:
         stopped_bb0 = sb._stop_run(bound.excess("run-bb0-S3-x-a1", 135_796, clock[0]))
     except Exception as exc:                          # noqa: BLE001 - this control's own failure, by name
         stopped_bb0, stop_failed = {}, repr(exc)
+    finally:
+        globals()["STOP_ACQUIRING"] = None
     returned_at = time.monotonic()
     amender.join(60)
+    control("BD#2-the-amendment-waited-for-the-stop-s-own-acquisition-attempt",
+            stop_attempted.is_set() and bool(committed_at), f"{stop_attempted.is_set()} {committed_at}")
     control("BB#0-the-mid-commit-amendment-committed-without-error", not failed_in_thread, f"{failed_in_thread}")
     # reading the sequence outside the declaration lock does not see a tidy earlier state: it sees the log
     # line without the run.json that answers it, and that is what DECLARATION_DRIFT names
@@ -3435,7 +3517,7 @@ def self_test(scratch=None):
     control("BC#0-a-lock-timeout-does-not-escape-the-call-unhandled", timeout_error is None, f"{timeout_error}")
     control("BC#0-the-call-whose-stop-could-not-be-stamped-still-fails-by-name",
             (over or "").startswith(f"{bound.STOP_CODE} {rt['call_id']}"), f"{over}")
-    timed_out = json.loads((bc0 / "supervisor" / "ledger.json").read_text(encoding="utf-8"))["stopped"] or {}
+    timed_out = ledger_stop(bc0)
     control("BC#0-the-excess-is-recorded-even-though-the-declaration-lock-timed-out",
             (timed_out or {}).get("code") == bound.STOP_CODE and timed_out.get("observed") == 135_796
             and timed_out.get("call_id") == rt["call_id"], f"{timed_out}")
@@ -3451,6 +3533,82 @@ def self_test(scratch=None):
             (refusal(st.reserve, vstage, "after-amendment", vseat, "authoring") or "")
             .startswith(f"RUN_STOPPED {bound.STOP_CODE}"), "an amendment lifted an unstamped stop")
     control("BC#0-the-holder-thread-raised-nothing", not failed_in_thread, f"{failed_in_thread}")
+
+    # BD#0: ... and a stop never weakens. A call that was ALREADY RUNNING when that timeout happened
+    # settles its own excess afterwards, with the lock free, so it stamps a sequence - and writing that
+    # entry over the unstamped one handed the run a sequence a later amendment could pass. The ledger keeps
+    # the stronger entry; the settling call still reports its own stop in its own record.
+    settled_later = st._stop_run(bound.excess("run-bc0-S3-already-running-a1", 136_002, clock[0]))
+    kept_bd0 = ledger_stop(bc0)
+    control("BD#0-the-already-running-call-stamps-its-own-stop",
+            isinstance(settled_later.get("declaration_seq"), int)
+            and settled_later.get("call_id") == "run-bc0-S3-already-running-a1", f"{settled_later}")
+    control("BD#0-a-later-stamped-stop-does-not-replace-the-unstamped-one",
+            kept_bd0.get("call_id") == timed_out.get("call_id") and "declaration_seq" not in kept_bd0
+            and "lock-timeout" in (kept_bd0.get("stamp") or ""), f"{kept_bd0}")
+    declare.amend(bc0, [(f"host_allowance.{vseat}.allowance_tokens", claude_allowance + 2)],
+                  "the allowance is re-measured after the second stop", scope=(vstage,))
+    control("BD#0-an-amendment-later-than-that-stamped-stop-still-does-not-lift-the-run",
+            (st._blocked() or "").startswith(f"RUN_STOPPED {bound.STOP_CODE}"), f"{st._blocked()}")
+    # ... and between two STAMPED stops the higher sequence is the one kept, so recovery must pass the
+    # latest excess rather than an earlier one
+    bd0 = run_dir("run-bd0-two-stamped", {vstage: 2_000_000})
+    sd0 = supervisor(bd0)
+    first_stop = sd0._stop_run(bound.excess("run-bd0-S3-first-a1", 130_001, clock[0]))
+    for n in (1, 2):
+        declare.amend(bd0, [(f"host_allowance.{vseat}.allowance_tokens", claude_allowance + n)],
+                      f"the allowance is re-measured, amendment {n}", scope=(vstage,))
+    second_stop = sd0._stop_run(bound.excess("run-bd0-S3-second-a1", 130_002, clock[0]))
+    kept_two = ledger_stop(bd0)
+    control("BD#0-between-two-stamped-stops-the-higher-sequence-is-kept",
+            kept_two.get("declaration_seq") == second_stop["declaration_seq"] > first_stop["declaration_seq"],
+            f"{kept_two} {first_stop.get('declaration_seq')} {second_stop.get('declaration_seq')}")
+    control("BD#0-an-amendment-between-the-two-sequences-does-not-lift-the-run",
+            any(first_stop["declaration_seq"] < a["seq"] <= second_stop["declaration_seq"]
+                and any(str(k).startswith("host_allowance") for k in a.get("diff") or {})
+                for a in records.declaration_state(bd0, who="dispatch")[2])
+            and (sd0._blocked() or "").startswith(f"RUN_STOPPED {bound.STOP_CODE}"),
+            f"{sd0._blocked()}")
+
+    # BD#1: an unreadable declaration is an unstamped stop too, not a discarded excess. The reader refuses
+    # a DRIFTED declaration by name, and that was the only failure handled here; a file this process cannot
+    # read, or one linked out of the run, arrives as PermissionError or Escaped and used to escape the stop
+    # entirely - leaving the ledger with no stop at all and admission open once the file was readable again.
+    for label, break_it, mend_it, needle in (
+            ("unreadable", lambda path: path.chmod(0o000), lambda path: path.chmod(0o600), "PermissionError"),
+            ("linked out of the run", lambda path: (path.unlink(), path.symlink_to(scratch / "outside-log.jsonl")),
+             lambda path: (path.unlink(), path.write_text("", encoding="utf-8")), "Escaped")):
+        bd1 = run_dir(f"run-bd1-{label.replace(' ', '-')}", {vstage: 2_000_000})
+        s1 = supervisor(bd1)
+        log_path = records.amendments_path(bd1)
+        kept_log = log_path.read_text(encoding="utf-8")
+        (scratch / "outside-log.jsonl").write_text("", encoding="utf-8")
+        stop_error = None
+        break_it(log_path)
+        try:
+            unreadable_stop = s1._stop_run(bound.excess(f"run-bd1-S3-{label[:4]}-a1", 136_003, clock[0]))
+        except Exception as exc:                      # noqa: BLE001 - escaping IS the defect this closes
+            unreadable_stop, stop_error = {}, repr(exc)
+        finally:
+            mend_it(log_path)
+            log_path.write_text(kept_log, encoding="utf-8")
+        control(f"BD#1-a-declaration-{label.replace(' ', '-')}-does-not-escape-the-stop",
+                stop_error is None, f"{stop_error}")
+        kept_bd1 = ledger_stop(bd1)
+        control(f"BD#1-the-excess-is-recorded-unstamped-when-the-declaration-is-{label.replace(' ', '-')}",
+                kept_bd1.get("code") == bound.STOP_CODE and "declaration_seq" not in kept_bd1
+                and "declaration-unreadable" in (kept_bd1.get("stamp") or ""), f"{kept_bd1}")
+        control(f"BD#1-the-stamp-names-what-went-wrong-({label.replace(' ', '-')})",
+                needle in (kept_bd1.get("stamp") or ""), f"{kept_bd1.get('stamp')}")
+        # the declaration is readable again here, and that does not reopen the run
+        control(f"BD#1-restoring-the-declaration-does-not-reopen-admission-({label.replace(' ', '-')})",
+                (s1._blocked() or "").startswith(f"RUN_STOPPED {bound.STOP_CODE}")
+                and (refusal(s1.reserve, vstage, "after-unreadable", vseat, "judge", tranche="calibration") or "")
+                .startswith(f"RUN_STOPPED {bound.STOP_CODE}"), f"{s1._blocked()}")
+        declare.amend(bd1, [(f"host_allowance.{vseat}.allowance_tokens", claude_allowance + 3)],
+                      "the allowance is re-measured after an unreadable declaration", scope=(vstage,))
+        control(f"BD#1-and-no-amendment-lifts-that-stop-({label.replace(' ', '-')})",
+                (s1._blocked() or "").startswith(f"RUN_STOPPED {bound.STOP_CODE}"), f"{s1._blocked()}")
 
     # ---- the seam: the bound has ONE owner, and the dispatcher is its boundary (seam record 2026-10-22)
     #
@@ -3469,7 +3627,8 @@ def self_test(scratch=None):
                 if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
                 and isinstance(node.func.value, ast.Name) and node.func.value.id == "bound"}
 
-    owed = {"check_bound", "admitted_parts", "check_observed", "excess", "committed", "blocked", "limits"}
+    owed = {"check_bound", "admitted_parts", "check_observed", "excess", "committed", "blocked", "limits",
+            "strongest"}
     control("the-bound-helpers-have-a-caller-in-the-supervisor", delegated(seam_source) >= owed,
             f"the Supervisor delegates none of {sorted(owed - delegated(seam_source))} to the rule's owner")
     for gone in sorted(owed):

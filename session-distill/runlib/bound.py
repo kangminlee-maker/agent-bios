@@ -370,6 +370,43 @@ def lifted(stopped, amendments):
     return False
 
 
+def terminal(stopped):
+    """Whether a stop can never be lifted: nothing this rule knows will reopen the run.
+
+    Two shapes are terminal. A stop code this rule does not own is not its to lift, and a bound stop with
+    no `declaration_seq` has nothing for an amendment to be later than - which is what makes the unstamped
+    stop of a lock timeout the end of the run."""
+    if not stopped:
+        return False
+    return stopped.get("code") != STOP_CODE or not isinstance(stopped.get("declaration_seq"), int)
+
+
+def strongest(kept, offered):
+    """Which of two stop records a run keeps: **a stop never weakens** (BD#0).
+
+    The ledger holds one `stopped` entry, and more than one call can settle an excess - one timing out on
+    the declaration lock and recording an unstamped stop, another, already running, settling later with a
+    stamped one. Writing the newer entry over the older made the run recoverable by amendment: the stamped
+    sequence gave a later `host_allowance` amendment something to pass, while the reason the first stop was
+    unstamped had not gone away. So the entry kept is the stronger of the two:
+
+    * nothing kept yet - the offered stop;
+    * a terminal stop already kept - that one, unchanged;
+    * the offered stop terminal - the offered one;
+    * otherwise both are stamped bound stops, and the higher `declaration_seq` is kept, so recovery must
+      pass the LATEST excess rather than an earlier one; an equal sequence keeps what is already recorded.
+
+    Each call still reports its own refusal in its own call record; this decides only what the run's one
+    stop entry says."""
+    if not kept:
+        return offered
+    if not offered or terminal(kept):
+        return kept
+    if terminal(offered):
+        return offered
+    return offered if offered["declaration_seq"] > kept["declaration_seq"] else kept
+
+
 def blocked(stopped, amendments):
     """None when dispatch may go on; else the named stop, lifted or not by the rule above."""
     if not stopped:
@@ -631,6 +668,35 @@ def self_test():
     expect("M4: a host_allowance amendment recorded after the excess lifts the stop", blocked(stop, later), None)
     expect("M4: ... and the excess record is still there, so recovery does not forget it",
            (stop["call_id"], stop["observed"]), ("r1/S3/t1/0a", 135_796))
+    # BD#0: a stop never weakens. Two calls can settle an excess in one run, and the entry kept is the
+    # stronger - which is what keeps an unstamped stop from being replaced by a stamped one an amendment
+    # can then pass.
+    unstamped = {**excess("r1/S3/t1/0a", 135_796, "now"), "stamp": "lock-timeout: declaration"}
+    stamped_low = committed(excess("r1/S3/t1/0b", 130_001, "now"), 2)
+    stamped_high = committed(excess("r1/S3/t1/0c", 130_002, "now"), 5)
+    expect("BD#0: the first stop of a run is kept", strongest(None, unstamped), unstamped)
+    expect("BD#0: an unstamped stop is terminal, so no later stamped stop replaces it",
+           strongest(unstamped, stamped_high), unstamped)
+    expect("control, BD#0: ... and the run is still blocked after an amendment later than that stamp",
+           blocked(strongest(unstamped, stamped_high), [{"seq": 9, "diff": {"host_allowance.a": 1}}]) is not None,
+           True)
+    expect("BD#0: between two stamped stops the higher sequence is kept",
+           (strongest(stamped_low, stamped_high), strongest(stamped_high, stamped_low)),
+           (stamped_high, stamped_high))
+    expect("control, BD#0: ... so an amendment between the two sequences does not lift the run",
+           blocked(strongest(stamped_low, stamped_high), [{"seq": 3, "diff": {"host_allowance.a": 1}}]) is not None,
+           True)
+    expect("BD#0: an equal sequence keeps what is already recorded",
+           strongest(stamped_low, committed(excess("x", 1, "now"), 2)), stamped_low)
+    expect("BD#0: a stop this rule does not own is terminal and is not replaced",
+           strongest({"code": "PROVIDER_DEFERRED", "call_id": "x"}, stamped_high)["code"], "PROVIDER_DEFERRED")
+    expect("BD#0: an unstamped stop offered against a stamped one is the stronger",
+           strongest(stamped_low, unstamped), unstamped)
+    expect("BD#0: terminal is the shape nothing lifts, in both of its forms",
+           (terminal(None), terminal(unstamped), terminal(stamped_low),
+            terminal({"code": "PROVIDER_DEFERRED", "declaration_seq": 2})),
+           (False, True, False, True))
+
     other = {"code": "PROVIDER_DEFERRED", "call_id": "r1/S3/t1/0b", "declaration_seq": 2}
     expect("a stop this rule does not own is not lifted by a host_allowance amendment",
            lifted(other, later), False)
