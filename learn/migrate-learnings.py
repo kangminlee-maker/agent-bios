@@ -75,6 +75,11 @@ def _load(name, filename):
     return module
 
 
+def load_jsonl_lines():
+    """learn/jsonl_lines.py's splitter: JSONL records end at "\n" only (single source)."""
+    return _load("jsonl_lines", "jsonl_lines.py").split
+
+
 def load_collect():
     """Reuse collect-learning.py's host/home/marker constants (single source)."""
     return _load("collect_learning", "collect-learning.py")
@@ -212,7 +217,7 @@ def prune_jsonl(jsonl, remove_ids, dry):
     if not jsonl.is_file():
         return 0
     kept, removed = [], 0
-    for line in jsonl.read_text(encoding="utf-8").splitlines():
+    for line in load_jsonl_lines()(jsonl.read_text(encoding="utf-8")):
         s = line.strip()
         if s:
             try:
@@ -327,7 +332,7 @@ def migrate(home, host, promotions, in_bundle, collect, dry=False, instructions_
     jsonl = home / "personal" / "learnings.jsonl"
     local_ids = set()
     if jsonl.is_file():
-        for line in jsonl.read_text(encoding="utf-8").splitlines():
+        for line in load_jsonl_lines()(jsonl.read_text(encoding="utf-8")):
             s = line.strip()
             if not s:
                 continue
@@ -698,6 +703,23 @@ def _self_test():
     valid = empty_dir / "valid.json"
     valid.write_text('{"version": 2, "promotions": [{"learning_id": "x"}]}', encoding="utf-8")
     checks.append(("a real manifest still loads", len(load_manifest(valid)) == 1))
+
+    # a learnings.jsonl record ends at "\n" only; collect-learning writes U+2028 and U+2029 raw
+    # (ensure_ascii=False), and str.splitlines() would cut the record there
+    sep = "before\u2028between\u2029after"
+    sep_dir = pathlib.Path(tempfile.mkdtemp(prefix="migrate-jsonl-"))
+    kept_line = json.dumps(dict(rec(L["off"], "office-work"), lesson=sep), ensure_ascii=False)
+    (sep_dir / "learnings.jsonl").write_text(kept_line + "\n" + json.dumps(rec(L["core"], "core")) + "\n", encoding="utf-8")
+    pruned = prune_jsonl(sep_dir / "learnings.jsonl", {L["core"]}, dry=False)
+    checks.append(("jsonl-line-separators-inside-a-string-read-whole (prune_jsonl): the kept record is byte for byte",
+                   pruned == 1 and (sep_dir / "learnings.jsonl").read_text(encoding="utf-8") == kept_line + "\n"))
+    home = seed_claude()
+    jsonl = home / "personal" / "learnings.jsonl"
+    jsonl.write_text("".join(json.dumps(dict(json.loads(line), lesson=sep), ensure_ascii=False) + "\n"
+                             for line in jsonl.read_text(encoding="utf-8").split("\n") if line), encoding="utf-8")
+    s = migrate(home, "claude", promos, make_in_bundle(["builder-base"]), collect)
+    checks.append(("jsonl-line-separators-inside-a-string-read-whole (migrate): every record's id is held locally",
+                   s["removed"] == 2 and s["kept_not_in_bundle"] == 1))
 
     failed = [n for n, ok in checks if not ok]
     if failed:

@@ -133,21 +133,3 @@ Alternatives:
    from an instrumented acquisition after observed contention; supersede T1840.
 2. **Report only.** Carry the diagnostic in the refusal detail and accept that the ledger keeps only the
    strongest stop. Risk: a stamping bug stays invisible once a terminal stop exists.
-
----
-
-## F-21 — JSONL readers split a record on characters JSON allows inside strings
-
-Found by the WP-06 real-data view build (2026-10-22, run on 05e409a). `projection.py --sweep` refused a
-valid record (`UNSWEPT_RECORD`) because `documents_in` uses `str.splitlines()`, which also splits on
-U+2028/U+2029 (and \x0b, \x0c, \x1c–\x1e, \x85); Claude Code writes U+2028/U+2029 raw inside strings and
-`json.dumps(..., ensure_ascii=False)` keeps them raw. The same reader shape is in `evidence.py` (its
-writer uses `ensure_ascii=False`), `gate.py` `_jsonl` (host-written capture rows) and `records.py`
-(the amendments log). With a `\n`-only split that run's sweep reported 7 residual members in shapes the
-owner judged no-secret on 2026-10-22.
-
-Alternatives:
-
-1. **One `\n`-only JSONL reader** used by every site, with a U+2028/U+2029 control per site.
-2. **Escape at every writer.** Ruled out for host-written captures and transcripts, which are not ours to
-   write; it would cover only our own files.

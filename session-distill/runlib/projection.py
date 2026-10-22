@@ -86,6 +86,10 @@ import re
 import sys
 import tempfile
 
+if __package__ in (None, ""):  # run as a script: put session-distill/ on the import path
+    sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
+from runlib import records
+
 REPO = pathlib.Path(__file__).resolve().parents[2]
 # The version is the masking's identity, so it advances whenever the masking changes - not when the module
 # does. `r22` is ONE monotone pass in the original text's own coordinates, VERIFIED on the way out: every source of masking - the
@@ -1887,7 +1891,7 @@ def documents_in(path):
     """Every JSON document in one file: a `.json` file holds one, a `.jsonl` file one per line."""
     text = path.read_text(encoding="utf-8", errors="replace")
     if path.suffix == ".jsonl":
-        for number, raw in enumerate(text.splitlines(), 1):
+        for number, raw in enumerate(records.jsonl_lines(text), 1):
             if not raw.strip():
                 continue
             try:
@@ -1959,6 +1963,17 @@ def report_sweep(run_dir):
 
 def self_test():
     failures = []
+    # a .jsonl record ends at "\n" only; JSON allows U+2028 and U+2029 raw inside a string
+    with tempfile.TemporaryDirectory() as td:
+        held = {"text": "before\u2028between\u2029after"}
+        swept = pathlib.Path(td) / "r.jsonl"
+        swept.write_text(json.dumps(held, ensure_ascii=False) + "\n", encoding="utf-8")
+        try:
+            got = list(documents_in(swept))
+        except Unswept as exc:
+            got = str(exc)
+        if got != [held]:
+            failures.append(f"jsonl-line-separators-inside-a-string-read-whole (documents_in): {got!r}")
     # the home every control states, rather than the account this process happens to run under: the owner's own
     # home is masked wherever it stands, so a fixture that named a real one would answer differently per machine
     owner = "/Users/fixture-owner"

@@ -256,7 +256,7 @@ class Call:
     def _jsonl(self, name):
         data = self._bytes(name)
         try:
-            rows = [json.loads(line) for line in data.decode("utf-8").splitlines() if line.strip()] if data else []
+            rows = [json.loads(line) for line in records.jsonl_lines(data.decode("utf-8")) if line.strip()] if data else []
         except ValueError:
             self.unreadable.append(name)
             return []
@@ -1106,6 +1106,16 @@ def self_test():
 
     claude = claude_case("acc-clean-001")
     codex = codex_case("codex-accounting", "f-normal-ws")
+    # a capture row ends at "\n" only; hosts write U+2028 and U+2029 raw inside a JSON string
+    ran.append("jsonl-line-separators-inside-a-string-read-whole")
+    with tempfile.TemporaryDirectory() as td:
+        held = {"dir": "recv", "type": "response.output_text.delta", "delta": "before\u2028between\u2029after"}
+        (pathlib.Path(td) / "capture").mkdir()
+        (pathlib.Path(td) / "capture" / "frames.jsonl").write_text(json.dumps(held, ensure_ascii=False) + "\n", encoding="utf-8")
+        read = Call(td)
+        if read.frames != [held] or "capture/frames.jsonl" in read.unreadable:
+            failures.append(f"jsonl-line-separators-inside-a-string-read-whole (Call._jsonl): frames {read.frames!r}, "
+                            f"unreadable {read.unreadable}")
     # the capture's owner is read through its pure readers only (its context command starts codex)
     used = {n.attr for n in ast.walk(ast.parse(pathlib.Path(__file__).read_text(encoding="utf-8")))
             if isinstance(n, ast.Attribute) and isinstance(n.value, ast.Call) and getattr(n.value.func, "id", None) == "frame_owner"}

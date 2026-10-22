@@ -27,6 +27,7 @@ violations as a list; the ones that guard starting a stage or running its items 
 import contextlib
 import datetime
 import hashlib
+import importlib.util
 import json
 import os
 import pathlib
@@ -36,6 +37,19 @@ import tempfile
 if __package__ in (None, ""):  # run as a script: put session-distill/ on the import path
     sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 from runlib import stagelock
+
+
+def _load_jsonl_lines():
+    """learn/jsonl_lines.py, loaded by path: the one JSONL splitter, shipped (learn/migrate-learnings.py
+    reads JSONL too) and imported here, never copied; runlib's readers reach it as records.jsonl_lines."""
+    spec = importlib.util.spec_from_file_location("agent_bios_jsonl_lines",
+                                                  pathlib.Path(__file__).resolve().parents[2] / "learn" / "jsonl_lines.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.split
+
+
+jsonl_lines = _load_jsonl_lines()
 
 # S0 is the declaration itself (run.json); these are the stages that read it and leave a record.
 STAGES = ("S1", "S2", "S3", "S4", "S5", "S6", "S7", "S7b", "S8", "S9", "S9b", "S10", "S10b", "S11", "S12")
@@ -121,7 +135,7 @@ def read_log(run_dir):
     if not path.is_file():
         return []
     try:
-        return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+        return [json.loads(line) for line in jsonl_lines(path.read_text(encoding="utf-8")) if line.strip()]
     except ValueError as exc:
         raise Refused(f"RECORD_UNREADABLE {path}: {exc}") from exc
 
@@ -498,6 +512,18 @@ def self_test():
         failures.append("an interrupt was quarantined as an item failure")
     except KeyboardInterrupt:
         pass
+
+    # a record ends at "\n" only; JSON allows U+2028 and U+2029 raw inside a string, and
+    # str.splitlines() would cut there
+    with tempfile.TemporaryDirectory() as td:
+        held = {"seq": 0, "reason": "before\u2028between\u2029after"}
+        amendments_path(td).write_text(json.dumps(held, ensure_ascii=False) + "\n", encoding="utf-8")
+        try:
+            got = read_log(td)
+        except Refused as exc:
+            got = str(exc)
+        if got != [held]:
+            failures.append(f"jsonl-line-separators-inside-a-string-read-whole (read_log): {got!r}")
 
     # stage records on real files under a scratch run directory
     with tempfile.TemporaryDirectory() as td:

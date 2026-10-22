@@ -163,6 +163,9 @@ DYNAMIC_LOADS = (
                "function the declared-instruction hash is computed with (gate.OBSERVER_READERS: norm_sha256), so the "
                "rendering rule is imported and never copied (BC#2); read, not traced: the rest of that file renders a "
                "capture and runs no host"},
+    {"site": "session-distill/runlib/records.py", "path": "learn/jsonl_lines.py", "trace": True,
+     "reason": "the one JSONL splitter, shipped, loaded by its literal repo path (_load_jsonl_lines) so runlib's "
+               "readers use it, never a copy; it imports nothing and runs nothing"},
     {"site": "session-distill/runlib/projection.py", "path": "learn/redact.py", "trace": True,
      "reason": "the secret floor's owner, loaded by its literal repo path (_load_floor) so its patterns are imported, "
                "never copied; it imports re and sys only and runs nothing"},
