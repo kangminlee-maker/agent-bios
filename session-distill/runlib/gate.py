@@ -104,8 +104,12 @@ CALL_SCHEMA = _closed(
     manifest=_closed(("workdir_path", "workdir_files", "instructions", "appended_prompts", "skills", "agents", "hooks"),
                      workdir_path=_text, skills=_strings, agents=_strings, hooks=_strings, mcp_servers=_strings,
                      workdir_files={"type": "array", "items": _closed(("path",), path=_text, sha256=_str_or_null)},
+                     # `observer_sha256` is the same bytes in the form the host's observer reports
+                     # (gate.observer_sha256, BC#2); optional for the same reason `bytes` is - a record
+                     # written before it existed carries neither and is judged on what it has
                      instructions={"type": "array", "items": _closed(("path", "sha256"), path=_text,
-                                                                     sha256=_str_or_null, bytes=_int)},
+                                                                     sha256=_str_or_null, bytes=_int,
+                                                                     observer_sha256=_str_or_null)},
                      # `bytes` is the length the payload count counted, and it is OPTIONAL in the shape
                      # for the same reason the `bound` block is: a call record captured before the seam
                      # carries none, and requiring it would re-judge evidence already frozen. That every
@@ -298,6 +302,44 @@ def frame_owner():
         spec.loader.exec_module(module)
         _frame_owner = module
     return _frame_owner
+
+
+# wrappers/claude_hermetic_evidence.py is the Claude observer: the FORM an instruction file is
+# compared on is its `norm_sha256` (the host renders the file before use - trailing newline trimmed,
+# HTML comments removed, whitespace collapsed), so a declared instruction's hash is computed by
+# calling that function rather than by copying the rule (BC#2). Author-side imports shipped, never
+# the reverse.
+OBSERVER_OWNER = pathlib.Path(__file__).resolve().parents[2] / "wrappers" / "claude_hermetic_evidence.py"
+OBSERVER_READERS = ("norm_sha256",)  # the observer's only function read here
+_observer_owner = None
+
+
+def observer_owner():
+    global _observer_owner
+    if _observer_owner is None:
+        spec = importlib.util.spec_from_file_location("claude_hermetic_evidence", OBSERVER_OWNER)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        _observer_owner = module
+    return _observer_owner
+
+
+def observer_sha256(host, body):
+    """The sha256 of `body` in the representation `host`'s own observer records, or None.
+
+    Only Claude renders instruction files before use, and only its observer normalizes them; a Codex
+    capture records what it loaded verbatim, so there is nothing to translate."""
+    return observer_owner().norm_sha256(body) if host == "claude" else None
+
+
+def declared_instruction_hash(row):
+    """The hash of a declared instruction to compare with the observed one.
+
+    The record keeps both: `sha256` of the exact bytes, which is what the payload count counted, and
+    `observer_sha256`, the same bytes in the form the host's observer reports. The comparison takes the
+    observer's form, because that is what the capture carries; a record written before this existed
+    carries only `sha256` and is compared on it, as it was then."""
+    return row.get("observer_sha256") or row.get("sha256")
 
 
 def codex_responses(c):
@@ -609,7 +651,7 @@ def effective_context(c, errors):
     if not isinstance(observed, dict):
         errors.append("CONTEXT_UNDECLARED capture: no effective-context evidence for this call")
         return
-    want = {i["path"]: i.get("sha256") for i in declared.get("instructions") or []}
+    want = {i["path"]: declared_instruction_hash(i) for i in declared.get("instructions") or []}
     got = {i["path"]: i for i in observed.get("instructions") or []}
     for path in sorted(set(got) - set(want)):
         errors.append(f"CONTEXT_UNDECLARED instruction {path} ({got[path].get('kind')}) loaded, not declared")
@@ -1314,6 +1356,30 @@ def self_test():
     control("instruction-declared-other-bytes", variant(
         claude, lambda f: jedit(f, "capture/host.json", lambda o: o["context"].update(instructions=[dict(declared_file, sha256="d" * 64)])),
         lambda f: jedit(f, "call.json", lambda o: o["manifest"].update(instructions=[declared_file]))),
+        "CONTEXT_HASH_MISMATCH instruction /Users/Shared/x/work/CLAUDE.md: loaded bytes differ")
+    # BC#2: the two sides in their REAL forms. The declaration carries the raw sha256 of the bytes the
+    # payload count counted and the observer form beside it; the capture carries what the Claude observer
+    # records, which is that file rendered - so a synthetic pair of equal hashes would have proved nothing
+    # about the comparison this leg actually makes.
+    ordinary = b"# Rules\n\n<!-- a comment the host strips -->\nFollow these rules.\nAnd these.\n"
+    produced = {"path": "/Users/Shared/x/work/CLAUDE.md", "sha256": packets.sha256_bytes(ordinary),
+                "bytes": len(ordinary), "observer_sha256": observer_sha256("claude", ordinary)}
+    control("instruction-declared-raw-and-observed-through-the-real-normalisation", variant(
+        claude, lambda f: jedit(f, "capture/host.json", lambda o: o["context"].update(
+            instructions=[{"path": produced["path"], "kind": "Project",
+                           "sha256": observer_owner().norm_sha256(ordinary.decode())}])),
+        lambda f: jedit(f, "call.json", lambda o: o["manifest"].update(instructions=[produced]))))
+    ran.append("instruction-declared-raw-hash-alone-is-not-the-observed-form")
+    if produced["sha256"] == produced["observer_sha256"]:
+        # without this the control above would pass whether or not the comparison translates
+        failures.append("instruction-declared-raw-hash-alone-is-not-the-observed-form: the raw and the "
+                        "rendered hash of the fixture are equal, so it tests no translation")
+    edited = ordinary.replace(b"And these.", b"And those.")
+    control("instruction-whose-content-changed-fails-on-the-observed-form", variant(
+        claude, lambda f: jedit(f, "capture/host.json", lambda o: o["context"].update(
+            instructions=[{"path": produced["path"], "kind": "Project",
+                           "sha256": observer_owner().norm_sha256(edited.decode())}])),
+        lambda f: jedit(f, "call.json", lambda o: o["manifest"].update(instructions=[produced]))),
         "CONTEXT_HASH_MISMATCH instruction /Users/Shared/x/work/CLAUDE.md: loaded bytes differ")
     control("instruction-declared-not-loaded", variant(
         claude, lambda f: jedit(f, "call.json", lambda o: o["manifest"].update(instructions=[declared_file]))),

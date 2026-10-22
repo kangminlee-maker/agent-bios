@@ -325,6 +325,14 @@ if [ -f session-distill/runlib/search.py ]; then
   python3 session-distill/runlib/search.py --self-test >/dev/null \
     || { echo "FAIL: session-distill full-source search self-test (session-distill/runlib/search.py)"; fail=1; }
 fi
+# The window bound has one owner (session-distill/runlib/bound.py) and its controls live with it: the
+# two pre-dispatch checks, the single read of every declared part, the refusals a part can carry and
+# the recovery rule. They used to sit in the view side's suite, where this umbrella ran them; moving
+# the rule moved them out of every gate until this leg (BC#5).
+if [ -f session-distill/runlib/bound.py ]; then
+  python3 session-distill/runlib/bound.py --self-test >/dev/null \
+    || { echo "FAIL: session-distill window bound self-test (session-distill/runlib/bound.py)"; fail=1; }
+fi
 if [ -f session-distill/runlib/views.py ]; then
   python3 session-distill/runlib/views.py --self-test >/dev/null \
     || { echo "FAIL: session-distill views self-test (session-distill/runlib/views.py)"; fail=1; }

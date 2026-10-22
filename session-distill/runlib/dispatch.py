@@ -121,6 +121,9 @@ CONTRACT = {"$comment": "design §13.2 (reservation, both caps, the breaker, the
                         "2026-10-21T0026--cc0498f--input-bound-amendment.md (the window bound): the Supervisor's "
                         "refusals and item outcomes", "predicate": "Supervisor"}
 LOCK_WAIT_S = 30
+# the stop's own wait on the declaration lock, read from the module at each stop so a control can
+# shorten it; production never changes it (BC#0)
+STOP_LOCK_WAIT_S = LOCK_WAIT_S
 DRAIN_POLL_S = 0.05  # how often a drain still waiting on a reader looks for a cap the monitor tripped meanwhile
 # How long readers may stay open once the runner's root has exited: a process holding its pipes past
 # this escaped the tree, outside the stop guarantee (design §13.2) — recorded, never waited on.
@@ -151,6 +154,11 @@ DYNAMIC_LOADS = (
      "reason": "the Codex capture's one owner, loaded by its literal repo path (FRAME_OWNER) for its pure readers "
                "(gate.FRAME_READERS: responses, completions, join, attempts), held by the gate's self-test; read, not "
                "traced: its context command starts codex (app-server, debug prompt-input), which the gate never calls"},
+    {"site": "session-distill/runlib/gate.py", "path": "wrappers/claude_hermetic_evidence.py", "trace": False,
+     "reason": "the Claude observer's one owner, loaded by its literal repo path (OBSERVER_OWNER) for the one pure "
+               "function the declared-instruction hash is computed with (gate.OBSERVER_READERS: norm_sha256), so the "
+               "rendering rule is imported and never copied (BC#2); read, not traced: the rest of that file renders a "
+               "capture and runs no host"},
     {"site": "session-distill/runlib/projection.py", "path": "learn/redact.py", "trace": True,
      "reason": "the secret floor's owner, loaded by its literal repo path (_load_floor) so its patterns are imported, "
                "never copied; it imports re and sys only and runs nothing"},
@@ -478,19 +486,37 @@ class Supervisor:
         would make the read fail DECLARATION_DRIFT instead of waiting (BB#0). Every other site here only
         READS the declaration, under the supervisor's lock alone, and a read that lands mid-commit is refused
         by name rather than believed - so no site takes the two in the other order, and this one cannot
-        deadlock against them."""
+        deadlock against them.
+
+        **An observed excess is never discarded.** The wait on the declaration lock is bounded, and the
+        bound is the point: an unbounded wait would hang the dispatcher behind any holder, which is a
+        worse failure than an unstamped stop. So when the lock cannot be taken, or the declaration it
+        guards cannot be read, the stop is still written - under the ledger lock alone, with no
+        `declaration_seq` and with `stamp` naming why. By the recovery rule an UNSTAMPED stop lifts for
+        nothing (`bound.lifted` requires an integer sequence), so every later dispatch stays refused and
+        recovery is a new run, not an amendment. The call itself fails by name either way (BC#0)."""
         bound_stop = entry.get("code") == bound.STOP_CODE
-        with (stagelock.hold(self.run_dir, "declaration", wait_s=LOCK_WAIT_S) if bound_stop
-              else contextlib.nullcontext()):
+        with contextlib.ExitStack() as locks:
+            unstamped = None
+            if bound_stop:
+                try:
+                    locks.enter_context(stagelock.hold(self.run_dir, "declaration", wait_s=STOP_LOCK_WAIT_S))
+                except stagelock.Locked as exc:
+                    unstamped = f"lock-timeout: {exc}"
             with self._lock():
                 ledger = self.ledger()
-                if bound_stop:
+                if bound_stop and unstamped is None:
                     # BA#0: the sequence recovery is measured from is the latest the declaration has reached
                     # HERE, with the stop - not the one the call was reserved under. An amendment that landed
                     # while the call was still running was recorded before anybody knew the host had changed.
-                    run, _digest, amendments = records.declaration_state(self.run_dir, who="dispatch")
-                    entry = bound.committed(entry, max([run["declaration_seq"]]
-                                                       + [a["seq"] for a in amendments if isinstance(a.get("seq"), int)]))
+                    try:
+                        run, _digest, amendments = records.declaration_state(self.run_dir, who="dispatch")
+                        entry = bound.committed(entry, max([run["declaration_seq"]]
+                                                           + [a["seq"] for a in amendments if isinstance(a.get("seq"), int)]))
+                    except Refused as exc:
+                        unstamped = f"declaration-unreadable: {exc}"
+                if unstamped is not None:
+                    entry = {**entry, "stamp": unstamped}
                 ledger["stopped"] = {"at": self.clock(), **entry}
                 self._write(ledger)
                 return ledger["stopped"]
@@ -769,6 +795,12 @@ class Supervisor:
         driver, evidence, snapshots, problems = bound.admitted_parts(packet, schema_bytes, manifest)
         if problems:
             raise Refused(f"{problems[0].split()[0]} {call_id}: " + "; ".join(problems))
+        # BC#2: a declared instruction is compared with what the host REPORTS loading, and the Claude
+        # observer reports its rendered form. The record keeps the raw sha256 and length the payload
+        # count counted, and beside them the same bytes in the observer's form, computed by the
+        # observer's own function (gate.observer_sha256) rather than by a copy of its rule here.
+        for row, snapshot in zip(evidence.get("instructions") or [], snapshots.get("instructions") or []):
+            row["observer_sha256"] = gate.observer_sha256(host, snapshot["body"])
         admitted = {"driver_bytes": driver, "declared": evidence, "snapshots": snapshots}
         # what this call declares must be something its adapter can carry. A declaration the host never
         # receives is not a declaration: it is a record of an intention, and the gate judges the call
@@ -1409,6 +1441,27 @@ def contract_branches(source):
 
 
 # --- self-test ----------------------------------------------------------------------------------
+
+FAKE_CLAUDE_BIN = r'''#!/usr/bin/env python3
+"""A fake Claude host for the adapter controls (BC#6): it starts no model and records what it got.
+
+The hermetic child's environment is scrubbed by the adapter, so there is nowhere to pass a path in:
+this writes beside itself, which is the scratch directory the control made for it."""
+import hashlib, json, os, pathlib, sys
+here = pathlib.Path(__file__).resolve().parent
+if "--version" in sys.argv[1:]:
+    print("9.9.9 (Claude Code)")
+    sys.exit(0)
+appended = [sys.argv[i + 1] for i, a in enumerate(sys.argv) if a == "--append-system-prompt-file"]
+(here / "received.json").write_text(json.dumps({
+    "argv": sys.argv[1:], "cap": os.environ.get("CLAUDE_CODE_MAX_OUTPUT_TOKENS"),
+    "appended": appended,
+    "appended_bodies": [pathlib.Path(f).read_text() for f in appended],
+    "appended_sha256": [hashlib.sha256(pathlib.Path(f).read_bytes()).hexdigest() for f in appended]}))
+print(json.dumps({"type": "result", "subtype": "success", "is_error": False, "session_id": "fake",
+                  "result": "", "stop_reason": "end_turn", "safety_stops": 0,
+                  "terminal_reason": "completed", "modelUsage": {}}))
+'''
 
 FAKE_HOST = r'''
 """A golden host for dispatch.py --self-test: it plays a runner by the runner contract and
@@ -3013,14 +3066,65 @@ def self_test(scratch=None):
              recorded["manifest"]["appended_prompts"][0]["sha256"]]
             == argv[argv.index("--append-system-prompt-file"):argv.index("--append-system-prompt-file") + 4]
             if "--append-system-prompt-file" in argv else False, f"{argv}")
-    for name, (flag, needs) in sorted(ADAPTER_CONVEYS["claude"].items()):
-        # the declaration is held against the adapter it describes: a flag claude-run.sh stops taking makes
-        # this fail here rather than at a launch
-        script = (RUNNERS["claude"]).read_text(encoding="utf-8") if RUNNERS["claude"].is_file() else ""
-        control(f"the-claude-adapter-really-takes-{flag}", flag in script, f"{RUNNERS['claude']}")
-        if needs:
-            control(f"the-claude-adapter-takes-{flag}-only-under-{needs}",
-                    f"applies only to --profile {needs}" in script or f"--profile {needs}" in script, f"{RUNNERS['claude']}")
+    # BC#6: the declaration is held against what the adapter DOES, not against what its text mentions.
+    # The wrapper is run for real against a fake host binary that starts no model and records what it
+    # received; then the two forwarding behaviours are removed from a copy of the wrapper, one at a time,
+    # and the same run must lose exactly that. A grep for the flag passed with the parser deleted.
+    def adapter_run(adapter, label, cap="4096", prompt=True):
+        """Run `adapter` with a fake Claude host and return what the host received, or the refusal."""
+        home = scratch / f"adapter-{label}"
+        home.mkdir(parents=True, exist_ok=True)
+        cells, host_bin = home / "cells", home / "fake-claude"
+        cells.mkdir(exist_ok=True)
+        cells.chmod(0o700)
+        host_bin.write_text(FAKE_CLAUDE_BIN, encoding="utf-8")
+        host_bin.chmod(0o700)
+        (home / "token").write_text("CLAUDE_CODE_OAUTH_TOKEN=a-fixture-not-a-token\n", encoding="utf-8")
+        (home / "stage.md").write_text("Follow these rules.\n", encoding="utf-8")
+        argv = [str(adapter), "--profile", "hermetic", "--model", "m", "--effort", "high",
+                "--cell-root", str(cells), "--call-id", f"adapter-{label}",
+                "--claude-bin", str(host_bin), "--host-version", "9.9.9"]
+        if cap is not None:
+            argv += ["--max-output-tokens", cap]
+        if prompt:
+            argv += ["--append-system-prompt-file", str(home / "stage.md"), "--declared-sha256",
+                     packets.sha256_bytes((home / "stage.md").read_bytes())]
+        # the packet is fed and stdin then CLOSED: the adapter reads it from stdin, and an inherited
+        # stdin that never reaches EOF hangs the run instead of failing it
+        proc = subprocess.run(["bash"] + argv, capture_output=True, text=True, timeout=120,
+                              input=f"CALL-ID: adapter-{label}\nSTAGE: S6\n\na packet\n",
+                              cwd=str(home), env={**os.environ, "CLAUDE_RUN_TOKEN_FILE": str(home / "token"),
+                                                  "REVIEW_CAPTURE_DIR": str(home / "capture"),
+                                                  "DISTILL_CELL": "", "CLAUDE_CODE_OAUTH_TOKEN": ""})
+        received = home / "received.json"
+        return (json.loads(received.read_text(encoding="utf-8")) if received.is_file() else None), proc
+    # the positive control first: the adapter the dispatcher really launches
+    got_real, proc_real = adapter_run(RUNNERS["claude"], "real")
+    control("BC#6-the-claude-adapter-passes-the-declared-output-cap-to-the-host",
+            (got_real or {}).get("cap") == "4096", f"{(got_real or {}).get('cap')} / {proc_real.stderr[-200:]}")
+    control("BC#6-the-claude-adapter-appends-the-declared-prompt-with-its-bytes",
+            len((got_real or {}).get("appended") or []) == 1
+            and (got_real or {}).get("appended_bodies") == ["Follow these rules.\n"],
+            f"{(got_real or {}).get('appended')} / {proc_real.stderr[-200:]}")
+    # ... and one mutation per forwarding behaviour, on a copy that keeps its own helper beside it
+    adapter_copy = scratch / "adapter-mutations"
+    adapter_copy.mkdir(exist_ok=True)
+    shutil.copy(RUNNERS["claude"].parent / "claude_hermetic_evidence.py", adapter_copy)
+    for label, (old_text, new_text), lost in (
+            ("no-cap-export", ('export CLAUDE_CODE_MAX_OUTPUT_TOKENS="$max_output"', 'true'), "cap"),
+            ("no-append-arg", ('args+=(--append-system-prompt-file "$snap")', 'true'), "appended")):
+        mutated = adapter_copy / f"claude-run-{label}.sh"
+        mutated.write_text(RUNNERS["claude"].read_text(encoding="utf-8").replace(old_text, new_text),
+                           encoding="utf-8")
+        control(f"BC#6-the-{label}-mutation-really-changed-the-adapter",
+                mutated.read_text(encoding="utf-8") != RUNNERS["claude"].read_text(encoding="utf-8"),
+                f"{old_text} is not in the adapter any more")
+        got_mutated, proc_mutated = adapter_run(mutated, label)
+        # the mutated adapter must still REACH the host - otherwise this control would pass on any
+        # breakage, and prove nothing about the forwarding it names
+        control(f"BC#6-control-removing-{lost}-forwarding-is-detected",
+                got_mutated is not None and not (got_mutated.get(lost) or None),
+                f"{got_mutated} / {proc_mutated.stderr[-200:]}")
     codex_script = RUNNERS["codex"].read_text(encoding="utf-8") if RUNNERS["codex"].is_file() else ""
     control("the-codex-adapter-takes-neither-the-cap-nor-an-appending-flag",
             "--max-output-tokens" not in codex_script and "--append-system-prompt" not in codex_script,
@@ -3033,6 +3137,24 @@ def self_test(scratch=None):
     # shape passed every OTHER leg, because nothing delivered the prompt and the context leg failed by design
     control("BB#2-a-call-carrying-a-delivered-appended-prompt-is-accepted-by-the-gate",
             gate.accept(pd)["ok"], f"{gate.accept(pd)['failures']}")
+    # BC#2: ... and a declared INSTRUCTION is recorded in both forms - the raw sha256 and length the
+    # payload count counted, and the same bytes in the form the host's observer reports, which is the one
+    # the gate compares. The gate's own leg runs the real normalisation; this holds the producer to it.
+    instruction_body = b"# Rules\n\n<!-- a comment the host strips -->\nFollow these rules.\n"
+    (scratch / "declared-instruction.md").write_bytes(instruction_body)
+    ri = sp.reserve("S6", "instructed", judge, "judge", tranche="calibration")
+    pid = sp.call("S6", judge, packets.build(ri["call_id"], "S6", judge, "Reply OK.\n", None), None, reservation=ri,
+                  caps=caps, view_window=False, max_output_tokens=4096,
+                  manifest={"instructions": [{"path": str(scratch / "declared-instruction.md")}]})
+    instructed = json.loads((pid / "call.json").read_text(encoding="utf-8"))["manifest"]["instructions"]
+    control("BC#2-a-declared-instruction-is-recorded-raw-and-in-the-observer-s-form",
+            instructed == [{"path": str(scratch / "declared-instruction.md"),
+                            "sha256": packets.sha256_bytes(instruction_body), "bytes": len(instruction_body),
+                            "observer_sha256": gate.observer_sha256("claude", instruction_body)}],
+            f"{instructed}")
+    control("BC#2-the-two-forms-of-that-instruction-really-differ",
+            instructed[0]["sha256"] != instructed[0]["observer_sha256"],
+            "the fixture renders to its own bytes, so the control above tests no translation")
     so = supervisor(run_dir("run-seam-prompt-oversized", {vstage: 2_000_000}))
     ro = so.reserve(vstage, "oversized", vseat, "judge", tranche="calibration")
     got = refusal(so.call, vstage, vseat, packets.build(ro["call_id"], vstage, vseat, "x\n", None), None,
@@ -3095,12 +3217,22 @@ def self_test(scratch=None):
             sorted({k: v for k, v in (wrec.get("bound") or {}).items() if k != "driver_bytes"})
             != ["context_capacity", "driver_bytes", "limit", "output_reservation", "stop_standing"],
             "omitting a field still satisfies the producer control")
-    legacy = json.loads((gate.FIXTURES / "codex-runner" / "acc-clean-001" / "call.json").read_text(encoding="utf-8")) \
-        if (gate.FIXTURES / "codex-runner" / "acc-clean-001" / "call.json").is_file() else {}
+    # BC#4: the legacy envelope is BUILT, from the record the dispatcher just wrote over a retained
+    # capture, by removing what the seam added. The old control read a fixture file that does not exist
+    # and then judged `{}` under `if legacy else True`, so it passed without validating anything; this one
+    # fails if its subject is missing, and the mandatory-bound variant below shows it can fail at all.
+    legacy = {k: v for k, v in wrec.items() if k != "bound"}
+    legacy_problems = gate.validate.validate_instance(gate.CALL_VALIDATOR, legacy)
     control("a-legacy-call-record-without-a-bound-block-is-still-schema-valid",
-            "bound" not in legacy and not validate.validate_instance(gate.CALL_VALIDATOR, legacy)
-            if legacy else True,
-            f"{validate.validate_instance(gate.CALL_VALIDATOR, legacy)[:1] if legacy else ''}")
+            "bound" in wrec and "bound" not in legacy and not legacy_problems,
+            f"subject bound={('bound' in wrec)!r}, problems {legacy_problems[:1]}")
+    required_bound = gate.validate.compile_schema(
+        {**gate.CALL_SCHEMA, "required": sorted(set(gate.CALL_SCHEMA["required"]) | {"bound"})})
+    control("the-legacy-control-fails-the-moment-the-bound-block-is-made-mandatory",
+            bool(gate.validate.validate_instance(required_bound, legacy))
+            and not gate.validate.validate_instance(required_bound, wrec),
+            f"{gate.validate.validate_instance(required_bound, legacy)[:1]} / "
+            f"{gate.validate.validate_instance(required_bound, wrec)[:1]}")
 
     # ---- M3 and M4: one excess record, and the one way back --------------------------------------
     #
@@ -3197,47 +3329,51 @@ def self_test(scratch=None):
             json.loads((rec / "supervisor" / "ledger.json").read_text(encoding="utf-8"))["stopped"] == stopped,
             "the excess record was cleared instead of being left where it happened")
 
-    # ---- BB#0: the stop and the amendments are serialized by one lock, in one order ---------------
+    # ---- BB#0 and BC#0: the stop and the amendments are serialized by one lock, in one order ------
     #
     # The stop is stamped with the latest sequence the declaration has reached, and BA#0 read that from
-    # outside the lock `declare --amend` commits under. The control below is the interleaving that reading
-    # could not survive: an amendment that starts BEFORE the stop and is caught between its log line and
-    # its run.json. With the declaration lock held across the stop, the stop waits for that commit and is
-    # stamped with it, so the amendment cannot lift the stop it preceded; an amendment committed after the
-    # stop still can.
+    # outside the lock `declare --amend` commits under. The first control below is the interleaving that
+    # reading could not survive: an amendment that starts BEFORE the stop and is caught between its log
+    # line and its run.json. Nothing here sleeps for a window - the amendment and the stop hand each other
+    # the turn through events, so the control does not depend on how the machine schedules them.
     bb0 = run_dir("run-bb0-lock-order", {vstage: 2_000_000})
     sb = supervisor(bb0)
+    mid_commit, stop_attempted = threading.Event(), threading.Event()
     committed_at, failed_in_thread = [], []
 
-    def amend_mid_commit():
+    def amend_mid_commit(run_dir_path, wait_for_stop=True):
+        """An amendment paused between its two writes, as `declare --amend` would be if it were
+        interrupted there: the log line is on disk and run.json still answers the previous sequence."""
         try:
-            with stagelock.hold(bb0, "declaration"):
-                run, _digest, _amendments = records.declaration_state(bb0, who="declare")
+            with stagelock.hold(run_dir_path, "declaration"):
+                run, _digest, _amendments = records.declaration_state(run_dir_path, who="declare")
                 seq = run["declaration_seq"] + 1
                 allowance = {**run["host_allowance"][vseat], "allowance_tokens": claude_allowance}
                 new_run = {**run, "declaration_seq": seq, "host_allowance": {**run["host_allowance"], vseat: allowance}}
-                records.append_amendment(bb0, {"seq": seq, "at": records.now(), "scope": [vstage], "invalidates": [],
-                                               "reason": "the allowance is re-measured while a call is in flight",
-                                               "diff": {f"host_allowance.{vseat}.allowance_tokens": claude_allowance},
-                                               "run_json_sha256": records.bound_digest(new_run)})
+                records.append_amendment(run_dir_path, {"seq": seq, "at": records.now(), "scope": [vstage],
+                                                        "invalidates": [],
+                                                        "reason": "the allowance is re-measured while a call is in flight",
+                                                        "diff": {f"host_allowance.{vseat}.allowance_tokens": claude_allowance},
+                                                        "run_json_sha256": records.bound_digest(new_run)})
                 mid_commit.set()                      # the log line is written, run.json is not
-                time.sleep(0.4)
-                records.write_json(bb0, records.run_json_path(bb0), new_run)
+                if wait_for_stop:
+                    stop_attempted.wait(30)           # the stop is about to ask for this lock
+                records.write_json(run_dir_path, records.run_json_path(run_dir_path), new_run)
                 committed_at.append(time.monotonic())
         except Exception as exc:                      # noqa: BLE001 - reported as this control's failure
             failed_in_thread.append(repr(exc))
 
-    mid_commit = threading.Event()
-    amender = threading.Thread(target=amend_mid_commit, daemon=True)
+    amender = threading.Thread(target=amend_mid_commit, args=(bb0,), daemon=True)
     amender.start()
-    control("BB#0-the-amendment-reached-its-mid-commit-state", mid_commit.wait(10), "the amendment never started")
+    control("BB#0-the-amendment-reached-its-mid-commit-state", mid_commit.wait(30), "the amendment never started")
     stop_failed = None
+    stop_attempted.set()
     try:
         stopped_bb0 = sb._stop_run(bound.excess("run-bb0-S3-x-a1", 135_796, clock[0]))
     except Exception as exc:                          # noqa: BLE001 - this control's own failure, by name
         stopped_bb0, stop_failed = {}, repr(exc)
     returned_at = time.monotonic()
-    amender.join(30)
+    amender.join(60)
     control("BB#0-the-mid-commit-amendment-committed-without-error", not failed_in_thread, f"{failed_in_thread}")
     # reading the sequence outside the declaration lock does not see a tidy earlier state: it sees the log
     # line without the run.json that answers it, and that is what DECLARATION_DRIFT names
@@ -3259,6 +3395,62 @@ def self_test(scratch=None):
             and stop_source.index('"declaration"') < stop_source.index("with self._lock():")
             and stop_source.index("with self._lock():") < stop_source.index('ledger["stopped"]'),
             "the stop does not hold the declaration lock around the supervisor's")
+
+    # BC#0: ... and when that lock cannot be taken at all, the excess is still recorded. The wait is
+    # bounded on purpose - an unbounded one would hang the dispatcher behind whoever holds the lock - so
+    # the failure mode this closes is the one that discards an observed overrun: the stop is written
+    # unstamped, nothing lifts it, and the run is over.
+    bc0 = run_dir("run-bc0-lock-timeout", {vstage: 2_000_000})
+    st = counted(supervisor(bc0, "clean", replay=replay))
+    st.seed_from(authoring)
+    mid_commit, stop_attempted = threading.Event(), threading.Event()
+    committed_at, failed_in_thread = [], []
+    holder_release = threading.Event()
+
+    def hold_declaration_past_the_timeout():
+        try:
+            with stagelock.hold(bc0, "declaration"):
+                mid_commit.set()
+                holder_release.wait(60)
+        except Exception as exc:                      # noqa: BLE001
+            failed_in_thread.append(repr(exc))
+
+    holder = threading.Thread(target=hold_declaration_past_the_timeout, daemon=True)
+    holder.start()
+    control("BC#0-the-declaration-lock-is-held-by-another-writer", mid_commit.wait(30), "the holder never started")
+    held_wait, globals()["STOP_LOCK_WAIT_S"] = STOP_LOCK_WAIT_S, 0.2
+    over, rt, timeout_error = None, {"call_id": "unreserved"}, None
+    try:
+        rt = st.reserve(vstage, "overrun-while-locked", vseat, "authoring")
+        over = refusal(st.call, vstage, vseat,
+                       packets.build(rt["call_id"], vstage, vseat, "Author the record.\n", None), None,
+                       reservation=rt, caps={"tokens": 400_000, "compactions": 2}, view_window=True,
+                       max_output_tokens=32_000)
+    except Exception as exc:                          # noqa: BLE001 - a lock error that escapes IS the defect
+        timeout_error = repr(exc)
+    finally:
+        globals()["STOP_LOCK_WAIT_S"] = held_wait
+        holder_release.set()
+        holder.join(60)
+    control("BC#0-a-lock-timeout-does-not-escape-the-call-unhandled", timeout_error is None, f"{timeout_error}")
+    control("BC#0-the-call-whose-stop-could-not-be-stamped-still-fails-by-name",
+            (over or "").startswith(f"{bound.STOP_CODE} {rt['call_id']}"), f"{over}")
+    timed_out = json.loads((bc0 / "supervisor" / "ledger.json").read_text(encoding="utf-8"))["stopped"] or {}
+    control("BC#0-the-excess-is-recorded-even-though-the-declaration-lock-timed-out",
+            (timed_out or {}).get("code") == bound.STOP_CODE and timed_out.get("observed") == 135_796
+            and timed_out.get("call_id") == rt["call_id"], f"{timed_out}")
+    control("BC#0-that-stop-is-unstamped-and-says-why",
+            bool(timed_out) and "declaration_seq" not in timed_out
+            and "lock-timeout" in (timed_out.get("stamp") or ""), f"{timed_out}")
+    control("BC#0-dispatch-stays-refused-after-an-unstamped-stop",
+            (refusal(st.reserve, vstage, "after-timeout", vseat, "authoring") or "")
+            .startswith(f"RUN_STOPPED {bound.STOP_CODE}"), "a call was reserved after an unstamped stop")
+    declare.amend(bc0, [(f"host_allowance.{vseat}.allowance_tokens", claude_allowance + 1)],
+                  "the allowance is re-measured after an unstamped stop", scope=(vstage,))
+    control("BC#0-and-no-later-amendment-lifts-it-so-recovery-is-a-new-run",
+            (refusal(st.reserve, vstage, "after-amendment", vseat, "authoring") or "")
+            .startswith(f"RUN_STOPPED {bound.STOP_CODE}"), "an amendment lifted an unstamped stop")
+    control("BC#0-the-holder-thread-raised-nothing", not failed_in_thread, f"{failed_in_thread}")
 
     # ---- the seam: the bound has ONE owner, and the dispatcher is its boundary (seam record 2026-10-22)
     #

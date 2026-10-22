@@ -110,14 +110,18 @@ def part_body(part, kind=None):
         return part.encode("utf-8"), None
     if not isinstance(part, dict):
         return None, f"DRIVER_PART_UNCOUNTED {type(part).__name__}: a declared part that is not text, bytes or a record"
+    if kind == BY_CONTENT and "path" in part:
+        # BEFORE any content is chosen (BC#3). A prompt carrying both content and a path used to pass
+        # here on its content and be recorded with the path beside it, which CALL_SCHEMA then rejects -
+        # after the call was launched. The field's presence is the refusal, not which branch wins.
+        return None, (f"APPENDED_PROMPT_PATH_FORM {part.get('path')!r}: an appended system prompt is declared by its "
+                      f"content, and this declaration carries a path; the path form is the instruction file's, and "
+                      f"this kind has none")
     if isinstance(part.get("body"), bytes):          # a snapshot: these bytes were read once already
         return part["body"], None
     if isinstance(part.get("text"), str):
         return part["text"].encode("utf-8"), None
     if isinstance(part.get("path"), str):
-        if kind == BY_CONTENT:
-            return None, (f"APPENDED_PROMPT_PATH_FORM {part['path']}: an appended system prompt is declared by its "
-                          f"content; the path form is the instruction file's, and this kind has none")
         try:
             return pathlib.Path(part["path"]).read_bytes(), None
         except OSError as exc:
@@ -127,37 +131,46 @@ def part_body(part, kind=None):
                   f"path, so the driver's share cannot be counted")
 
 
-def part_bytes(part, kind=None):
-    """`(bytes, problem)` for one declared driver part: the length of its own bytes.
+def asserted_length_problem(part, body):
+    """The problem when a caller's asserted length disagrees with the bytes ALREADY READ, else None.
 
-    A caller may also ASSERT a length, and the only thing an assertion can do here is disagree: it is
-    checked against the content and refused by name when it differs (BB#1). Believing it instead let a
-    part hash 130 KB of prompt and be admitted as one byte."""
+    It takes the body rather than the part, so the check cannot be the reason a file is read a second
+    time (BC#1): one read, and the assertion is judged against exactly those bytes. The only thing an
+    assertion can do here is disagree - believing it instead let a part hash 130 KB of prompt and be
+    admitted as one byte (BB#1)."""
+    asserted = part.get("bytes") if isinstance(part, dict) else None
+    if asserted is None or (isinstance(asserted, int) and not isinstance(asserted, bool)
+                            and asserted == len(body)):
+        return None
+    return (f"DRIVER_PART_LENGTH_CONFLICT {part.get('name') or part.get('path') or sorted(part)}: the part "
+            f"asserts {asserted!r} bytes and its content is {len(body)}; the length admission counts, the "
+            f"length the record carries and the bytes the host receives are one snapshot, so a number that "
+            f"disagrees with them is refused rather than believed")
+
+
+def part_bytes(part, kind=None):
+    """`(bytes, problem)` for one declared driver part: the length of its own bytes."""
     body, problem = part_body(part, kind)
     if problem:
         return 0, problem
-    asserted = part.get("bytes") if isinstance(part, dict) else None
-    if asserted is not None and (not isinstance(asserted, int) or isinstance(asserted, bool)
-                                 or asserted != len(body)):
-        return 0, (f"DRIVER_PART_LENGTH_CONFLICT {part.get('name') or part.get('path') or sorted(part)}: the part "
-                   f"asserts {asserted!r} bytes and its content is {len(body)}; the length admission counts, the "
-                   f"length the record carries and the bytes the host receives are one snapshot, so a number that "
-                   f"disagrees with them is refused rather than believed")
-    return len(body), None
+    problem = asserted_length_problem(part, body)
+    return (0, problem) if problem else (len(body), None)
 
 
 def part_snapshot(part, kind=None):
-    """`(snapshot, problem)` - one declared part read once: its bytes, their sha256 and their length.
+    """`(snapshot, problem)` - one declared part read ONCE: its bytes, their sha256 and their length.
 
-    A snapshot is itself a part (its `body`), so the counter takes it without reading anything again,
-    the record keeps `evidence_of` it, and the adapter is handed the same bytes admission counted."""
+    One `part_body` call and nothing else reads: the length, the hash and the bytes the adapter is
+    handed all come off this body, and an asserted length is judged against it rather than against a
+    second read of the same path (BC#1). A snapshot is itself a part (its `body`), so the counter takes
+    it without reading anything again and the record keeps `evidence_of` it."""
     body, problem = part_body(part, kind)
     if problem:
         return None, problem
-    size, problem = part_bytes(part, kind)
+    problem = asserted_length_problem(part, body)
     if problem:
         return None, problem
-    snapshot = {"body": body, "sha256": hashlib.sha256(body).hexdigest(), "bytes": size}
+    snapshot = {"body": body, "sha256": hashlib.sha256(body).hexdigest(), "bytes": len(body)}
     for key in ("name", "path"):
         if isinstance(part, dict) and isinstance(part.get(key), str):
             snapshot[key] = part[key]
@@ -485,6 +498,44 @@ def self_test():
     named("control, BB#1: a conflicting length refuses the whole entry point, not one of its three answers",
           admitted_parts(packet, schema, {"appended_prompts": [conflicting]})[3], "DRIVER_PART_LENGTH_CONFLICT")
 
+    # BC#1: exactly one read per path-backed part. The count, the hash and the delivered bytes come off
+    # one body, and the asserted length is judged against THAT body - not against a second read, which is
+    # what `part_bytes` used to do inside `part_snapshot`.
+    counted_path = pathlib.Path(__file__).parent / "__bound_selftest_counted.md"
+    real_read_bytes = pathlib.Path.read_bytes
+    try:
+        counted_path.write_bytes(b"ten bytes!")
+        reads = []
+
+        def counting_read(self):
+            reads.append(str(self))
+            return real_read_bytes(self)
+
+        pathlib.Path.read_bytes = counting_read
+        snapshot, snapshot_problem = part_snapshot({"name": "i.md", "path": str(counted_path), "bytes": 10})
+        pathlib.Path.read_bytes = real_read_bytes
+        expect("BC#1: a path-backed part is read exactly once, asserted length and all",
+               (snapshot_problem, reads.count(str(counted_path)),
+                (snapshot or {}).get("bytes"), (snapshot or {}).get("body")),
+               (None, 1, 10, b"ten bytes!"))
+        # ... and a source whose answer CHANGES between reads shows the same thing from the other side:
+        # a second read would be judged against the first body's assertion and refuse
+        bodies = [b"ten bytes!", b"1"]
+
+        def changing_read(self):
+            return bodies.pop(0) if str(self) == str(counted_path) else real_read_bytes(self)
+
+        pathlib.Path.read_bytes = changing_read
+        changed, changed_problem = part_snapshot({"name": "i.md", "path": str(counted_path), "bytes": 10})
+        pathlib.Path.read_bytes = real_read_bytes
+        expect("BC#1: a changing read source is read once, so the snapshot is self-consistent",
+               (changed_problem, (changed or {}).get("bytes"), (changed or {}).get("sha256"),
+                (changed or {}).get("body"), len(bodies)),
+               (None, 10, hashlib.sha256(b"ten bytes!").hexdigest(), b"ten bytes!", 1))
+    finally:
+        pathlib.Path.read_bytes = real_read_bytes
+        counted_path.unlink(missing_ok=True)
+
     # BB#3: an appended system prompt is declared by content; the path form is the instruction file's
     named("control, BB#3: an appended prompt declared by path is refused at declaration",
           declared_evidence({"appended_prompts": [{"name": "stage.md", "path": str(pathlib.Path(__file__))}]})[1],
@@ -494,6 +545,19 @@ def self_test():
           "APPENDED_PROMPT_PATH_FORM")
     expect("BB#3: ... while an instruction file's path is read as before",
            declared_evidence({"instructions": [instruction]})[1], [])
+    # BC#3: and a declaration carrying BOTH content and a path is refused for the path, before either
+    # content branch is taken - that mixture used to pass on its content and be recorded with a `path`
+    # the call schema rejects, which is a deterministic failure discovered after the launch
+    for label, mixed in (("text and a path", {"name": "stage.md", "text": "hello", "path": "metadata.md"}),
+                         ("body and a path", {"name": "stage.md", "body": b"hello", "path": "metadata.md"}),
+                         ("a path of None", {"name": "stage.md", "text": "hello", "path": None})):
+        named(f"control, BC#3: an appended prompt declared with {label} is refused",
+              declared_snapshots({"appended_prompts": [mixed]})[1], "APPENDED_PROMPT_PATH_FORM")
+        named(f"control, BC#3: ... and counted nowhere ({label})",
+              driver_bytes(b"", None, {"appended_prompts": [mixed]})[1], "APPENDED_PROMPT_PATH_FORM")
+    expect("BC#3: ... and no record is produced for it, so nothing reaches the call schema",
+           declared_evidence({"appended_prompts": [{"name": "stage.md", "text": "hello",
+                                                    "path": "metadata.md"}]})[0]["appended_prompts"], [])
 
     # every code the dispatcher's part refusal can carry, each fired by a part of that shape: the inventory
     # on the other side reads PART_CODES, so a code that no shape produces, or a shape whose code is not
