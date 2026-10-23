@@ -283,6 +283,9 @@ def admitted_parts(packet, schema_bytes=None, manifest=None):
 # ---- what the call really read ---------------------------------------------------------------
 
 # the three components of observed input, in the two spellings the artifacts use: a capture's
+# what `observed_rows` reports for a row it could not read at all
+ROW_UNREADABLE = "row-unreadable"
+
 # Anthropic-shaped usage, and a usage record's own request rows
 INPUT_PARTS = (("input_tokens", "input"),
                ("cache_creation_input_tokens", "cache_creation"),
@@ -314,6 +317,31 @@ def observed_input(requests, state="measured"):
         total, gaps = observed_of(row)
         totals.append(total)
         missing += [gap for gap in gaps if gap not in missing]
+    return (max(totals) if totals else 0), missing
+
+
+def observed_rows(rows, state="measured"):
+    """`(observed, missing)` over the HOST's own request rows, by an extraction that cannot raise.
+
+    The stop decision is the first thing settlement does, before any reconciliation, projection or
+    file write (HB#0), so this reads the rows in whatever shape the monitor left them. A row that is
+    not a mapping, or whose input components are not whole numbers, is reported in `missing` and
+    contributes nothing to the maximum - it is never read as a smaller number, and it never hides
+    another row's complete excess. `observed_input` stays the reader of a written usage record."""
+    totals, missing = [], []
+    for row in list(rows or []):
+        try:
+            if row.get("state", state) != state:
+                continue
+            total, gaps = observed_of(row)
+        except Exception:                      # noqa: BLE001 - this extraction decides a stop: it cannot raise
+            if ROW_UNREADABLE not in missing:
+                missing.append(ROW_UNREADABLE)
+            continue
+        if gaps:
+            missing += [gap for gap in gaps if gap not in missing]
+            continue
+        totals.append(total)
     return (max(totals) if totals else 0), missing
 
 
@@ -642,6 +670,22 @@ def self_test():
            observed_input([{"state": "unmeasured", "input": 999_999, "cache_creation": 0, "cache_read": 0}])[0], 0)
     named("control, done-when 3(b): a usage mapping missing a cache field is reported, never read as a smaller number",
           observed_of({"input_tokens": 1})[1], "cache_creation_input_tokens")
+    # HB#0: the live reading the stop decision rests on, which runs before anything has been written and
+    # must therefore survive every row shape the monitor can be left in
+    over_row = {"state": "measured", "input": 135_796, "cache_creation": 0, "cache_read": 0}
+    expect("HB#0: a complete row establishes its excess beside a row that cannot be read at all",
+           observed_rows([None, over_row]), (135_796, [ROW_UNREADABLE]))
+    expect("HB#0: ... and beside a row missing a component, which is listed rather than read as a zero",
+           observed_rows([{"state": "measured", "input": 1}, over_row]),
+           (135_796, ["cache_creation_input_tokens", "cache_read_input_tokens"]))
+    expect("HB#0: a partial row on its own is no observation at all",
+           observed_rows([{"state": "measured", "input": 1, "cache_read": 2}])[0], 0)
+    expect("HB#0: an unmeasured row is not a live observation either",
+           observed_rows([{"state": "sent", "input": 999_999, "cache_creation": 0, "cache_read": 0}])[0], 0)
+    expect("HB#0: the reading raises on no shape it can be given",
+           [observed_rows(rows_in)[0] for rows_in in
+            (None, [], [None], ["not a row"], [{"state": "measured", "input": "x"}], [over_row])],
+           [0, 0, 0, 0, 0, 135_796])
     named("observed input: a view-window call within 120k is accepted", check_observed(INPUT_BOUND, True))
     named("control, observed input: a view-window call above 120k is a host change",
           check_observed(INPUT_BOUND + 1, True), STOP_CODE)
