@@ -1835,6 +1835,94 @@ def project(value, version=CURRENT, home=None):
 # `index/` is not scanned, and that is safe rather than convenient: a BM25 index's keys are the vocabulary
 # of already-projected text and its values are document numbers, so a posting named `token` means the word
 # occurred. Scanning it reported 2,794 members that were words. The sweep asserts that shape instead.
+# ---------------------------------------------------------------- a decoded document
+
+DOCUMENT_SAFE_NAME = re.compile(r"^[A-Za-z][A-Za-z0-9_.-]{0,39}$")
+
+
+def document_members(document):
+    """`[(key, value)]` of one decoded object, or None when the value is not one.
+
+    Two representations reach this module from outside: a plain `json.loads` result, whose objects are
+    `dict`, and this module's own `Members`, which keeps duplicates and order. Both are objects, and a
+    caller should not have to know which helper reads which."""
+    if isinstance(document, Members):
+        return [(key, item) for key, item in document]
+    if isinstance(document, dict):
+        return list(document.items())
+    return None
+
+
+def as_members(value):
+    """A decoded value in the representation this module's own walk uses: every object as `Members`.
+
+    `all_mask` reads an object as `Members` (that is how the structure walk hands it one) and answers
+    "not the mask" for a plain `dict` whatever it holds. The conversion lives here, with the helper
+    that needs it, rather than in every caller."""
+    members = document_members(value)
+    if members is not None:
+        return Members([(key, as_members(item)) for key, item in members])
+    if isinstance(value, (list, tuple)):
+        return [as_members(item) for item in value]
+    return value
+
+
+def document_location(parent, key, n, home=None):
+    """Where a member sits, named by a schema-safe key or by its ordinal.
+
+    A key is untrusted text — a document can carry a credential AS a key — so the name is used only
+    when it reads like a schema name and this floor has nothing to say about it."""
+    if isinstance(key, str) and DOCUMENT_SAFE_NAME.match(key) and discloses(key, home) is None:
+        return f"{parent}.{key}"
+    return f"{parent}[key #{n}]"
+
+
+def document_disclosures(document, home=None, at="$", depth=0):
+    """Every place in a DECODED document that this floor objects to, as `location: what was found`.
+
+    This is the one entry point for "does this document disclose anything". It takes the document in
+    either representation (plain `json.loads` output or `Members`) and converts internally, because
+    the helpers underneath read different shapes: `all_mask` reads `Members`, `holds_secret` reads
+    plain objects, and `discloses` reads a string. A caller that picked a helper per value had to
+    know all three, and got one wrong in each direction — a masked nested member read as disclosed,
+    and a credential-named member inside a plain object read as clean.
+
+    Three rules, every one of them this module's own:
+
+    * a credential-named member whose value is not the mask, for every member of every object at any
+      depth, duplicates included;
+    * a key that itself discloses something;
+    * a string — value or key — that `discloses` still objects to, which covers a structure embedded
+      in that string in any spelling it can reach.
+
+    A row names where it sits and which rule found it, never the value, never a path and never a
+    hash of either."""
+    problems = []
+    if depth > MAX_DEPTH:
+        return [f"{at}: the document is nested deeper than this floor reads"]
+    members = document_members(document)
+    if members is not None:
+        for n, (key, item) in enumerate(members):
+            where = document_location(at, key, n, home)
+            if isinstance(key, str) and secret_key(key) and not all_mask(as_members(item)):
+                problems.append(f"{where}: a credential-named member carries a value that is not the mask")
+            if isinstance(key, str):
+                found = discloses(key, home)
+                if found is not None:
+                    problems.append(f"{where}: a key discloses a {found}")
+            problems += document_disclosures(item, home, where, depth + 1)
+        return problems
+    if isinstance(document, (list, tuple)):
+        for n, item in enumerate(document):
+            problems += document_disclosures(item, home, f"{at}[{n}]", depth + 1)
+        return problems
+    if isinstance(document, str):
+        found = discloses(document, home)
+        if found is not None:
+            problems.append(f"{at}: the string discloses a {found}")
+    return problems
+
+
 SWEPT = ("redacted", "views", "evidence", "inventory")
 
 
@@ -3569,11 +3657,59 @@ def self_test():
             refused = report_sweep(empty)
         if refused == 0:
             failures.append("the sweep reported success over no subject at all")
+    # ---- document_disclosures: one entry point, over every representation a caller can hand it.
+    # The helpers underneath read different shapes (`all_mask` an object as Members, `holds_secret` a
+    # plain object, `discloses` a string), and a caller choosing per value got one wrong in each
+    # direction. The table is the contract: the same document discloses the same thing whichever
+    # representation it arrives in.
+    doc_token = "sk-ant-oat01-" + "Ab1_" * 12
+    document_shapes = [
+        ("a plain mapping with a credential-named member", {"api_key": "shortpass"}, True),
+        ("the same mapping in this module's own representation", Members([("api_key", "shortpass")]), True),
+        ("a duplicate credential-named member behind a masked one",
+         Members([("api_key", FLOOR.PLACEHOLDER), ("api_key", "shortpass")]), True),
+        ("a list of mappings", [{"api_key": "shortpass"}], True),
+        ("a mapping nested three deep", {"a": {"b": {"api_key": "shortpass"}}}, True),
+        ("a secret string inside a list inside a mapping", {"a": [{"note": f"use {doc_token} now"}]}, True),
+        ("a credential-named member carrying a number", {"api_key": 12345678901234567890}, True),
+        ("a credential-named member carrying a structure", {"token": {"value": "shortpass"}}, True),
+        ("a structure masked through and through", {"token": {"value": FLOOR.PLACEHOLDER}}, False),
+        ("a credential-named member with nothing in it", {"api_key": None}, False),
+        ("the owner's home path in a value", {"path": f"{owner}/Documents/x"}, True),
+        ("a credential as a key", {f"api_key {doc_token}": "x"}, True),
+        ("ordinary prose", {"note": "the dispatch path is verified"}, False),
+        ("a mapping of masked members", Members([("api_key", FLOOR.PLACEHOLDER), ("note", "plain")]), False),
+    ]
+    for label, document, expected in document_shapes:
+        found = document_disclosures(document, owner)
+        if bool(found) != expected:
+            failures.append(f"document_disclosures on {label}: expected "
+                            f"{'a disclosure' if expected else 'none'}, got {found}")
+        for row in found:
+            if doc_token in row or owner in row or "shortpass" in row:
+                failures.append(f"document_disclosures on {label} repeated what it objected to: {row}")
+    both_ways = (document_disclosures({"a": {"api_key": "shortpass"}}, owner),
+                 document_disclosures(as_members({"a": {"api_key": "shortpass"}}), owner))
+    if not both_ways[0] or both_ways[0] != both_ways[1]:
+        failures.append(f"the two representations of one document disclosed differently: {both_ways}")
+    if document_members({"a": 1}) is None or document_members(Members([("a", 1)])) is None \
+            or document_members([1]) is not None:
+        failures.append("document_members does not read both object representations, and only those")
+    if all_mask(as_members({"value": FLOOR.PLACEHOLDER})) is not True \
+            or all_mask({"value": FLOOR.PLACEHOLDER}) is not False:
+        failures.append("as_members no longer hands all_mask the representation it reads")
+    deep = {"a": "x"}
+    for _ in range(MAX_DEPTH + 2):
+        deep = {"a": deep}
+    if not any("nested deeper" in row for row in document_disclosures(deep, owner)):
+        failures.append("a document nested past this floor's reach was judged rather than named")
+
     for failure in failures:
         print(f"projection --self-test [FAIL] {failure}")
     if failures:
         return 1
-    print(f"projection --self-test: OK ({len(secrets)} secret shapes and {len(paths)} home-path shapes masked and "
+    print(f"projection --self-test: OK ({len(document_shapes)} decoded-document shapes judged through the one "
+          f"entry point in both representations, {len(secrets)} secret shapes and {len(paths)} home-path shapes masked and "
           f"idempotent, {len(structured)} structured and JSON-keyed shapes masked (keyed secrets, nested, in a list, "
           f"a non-string value, a Windows path through a tool argument and through escaped text), "
           f"{len(kept) + len(structured_kept)} look-alikes untouched, three escape sequences read as boundaries, the "

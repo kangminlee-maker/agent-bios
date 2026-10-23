@@ -35,6 +35,10 @@ import subprocess
 import sys
 import tempfile
 
+# Before the command's module graph is imported, not inside the functions that load modules by
+# path: `runlib.projection` loads `learn/redact.py` at import, and a cache write lands beside the
+# file it caches — in the checkout, or in a frozen copy this run is about to hash (GB#7).
+sys.dont_write_bytecode = True
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 from runlib import census, coverage, declare, inventory, records, stagelock, views
 from runlib.records import Refused
@@ -126,24 +130,47 @@ def cmd_inventory(args):
         "AGENT_BIOS_STATE_DIR", str(pathlib.Path.home() / ".local/share/agent-bios")))
     user_root = None if args.no_state else (args.user_root or os.environ.get(
         "AGENT_BIOS_INSTRUCTIONS_DIR", str(pathlib.Path.home() / ".config/agent-bios/corpus")))
-    native = {}
-    if args.native_live:
-        native["hosts"] = {host: pathlib.Path(spec["home"]).expanduser() for host, spec in inventory.NATIVE.items()
-                           if pathlib.Path(spec["home"]).expanduser().is_dir()}
-    for item in args.native_root or []:
-        host, equals, path = item.partition("=")
-        if not equals:
-            raise Refused(f"INPUT_INVALID --native-root {item!r}: expected HOST=PATH")
-        native.setdefault("hosts", {})[host] = pathlib.Path(path).expanduser()
-    native["projects"] = {pathlib.Path(root).name or "repo": pathlib.Path(root).expanduser()
-                          for root in (args.project or [str(repo)])}
+    # A project is its canonical path. Keyed by basename, two checkouts both called `source` were
+    # one project, and one's memory entries were read as the other's (GA#4). A project root is a
+    # protected WRITE target: no native file is read, here or anywhere (the 1548 amendment §5).
+    projects = inventory.project_identities(args.project or [str(repo)])
+    native = {"projects": {identity["path"]: pathlib.Path(identity["path"]) for identity in projects.values()}}
+    # The destination is judged before anything is locked, captured or recorded: a stage record is
+    # a write, and a write under a protected root must be refused before it happens (GB#0).
+    overlap = inventory.overlap_problems(
+        [out_dir], inventory.protected_roots(state_root, user_root, native,
+                                             host_homes=[spec["home"] for spec in inventory.NATIVE.values()]),
+        home=str(pathlib.Path.home()))
+    if overlap:
+        raise Refused("; ".join(overlap))
     ledger_path = pathlib.Path(args.ledger or (repo / inventory.LEDGER_REL))
     ledger = records.read_json(ledger_path) if ledger_path.is_file() else None
     head = subprocess.run(["git", "-C", str(repo), "rev-parse", "--short", "HEAD"],
                           capture_output=True, text=True)
-    manifest = inventory.run(repo, state_root, user_root, out_dir, pin=args.pin, native_roots=native,
-                             ledger=ledger, commit=(head.stdout.strip() or None))
-    print("\n".join(inventory.report_lines(manifest)))
+    # The transcripts come from the run's own census (S1), through its readers and bound to its
+    # record. Outside a run there is no census, and every native layer is `unknown` with that reason.
+    run_dir = out_dir if args.run_id else None
+
+    def produce():
+        return inventory.run(repo, state_root, user_root, out_dir, pin=args.pin, native_roots=native,
+                             ledger=ledger, commit=(head.stdout.strip() or None), run_dir=run_dir)
+
+    if args.run_id:
+        # S2 holds two producers; this is the inventory part, and views owns the other
+        # (records.STAGE_PARTS).
+        with records.run_stage(out_dir, "S2", part="inventory") as stage:
+            manifest = produce()
+            for reference in inventory.REFERENCES:
+                stage.output(f"inventory/{reference}.json")
+            stage.output("inventory/manifest.json")
+        # The stage record is a document this run wrote, so it answers the same question every
+        # other written document answers.
+        disclosed = inventory.stage_record_problems(out_dir, "S2", str(pathlib.Path.home()))
+        if disclosed:
+            raise Refused("; ".join(disclosed[:4]))
+    else:
+        manifest = produce()
+    print("\n".join(inventory.report_lines(manifest, str(pathlib.Path.home()))))
     return 0
 
 
@@ -199,10 +226,9 @@ def build_parser():
             sub.add_argument("--state-root", help="the owner's state root (default: the installed one)")
             sub.add_argument("--user-root", help="the owner's authoring root (default: the installed one)")
             sub.add_argument("--no-state", action="store_true", help="read no state root at all")
-            sub.add_argument("--native-live", action="store_true",
-                             help="read the native layers from the host homes now, there being no S0 capture yet")
-            sub.add_argument("--native-root", action="append", help="HOST=PATH, a captured host home; repeatable")
-            sub.add_argument("--project", action="append", help="a project root whose instruction files to read; repeatable")
+            sub.add_argument("--project", action="append",
+                             help="a project root: a protected write target, and the scope a recorded "
+                                  "injection is attributed to; repeatable")
             sub.add_argument("--ledger", help="the ledger to read the incubating and keep layers from")
         if name == "census":
             sub.add_argument("--coverage", help="the coverage state the declaration pinned (default: session-distill/coverage.json)")
@@ -256,9 +282,13 @@ def self_test():
             return code, err.getvalue()
 
         def stage(name, inputs=(), at=None):
-            """A stub stage: it consumes `inputs`, writes one output, and finishes complete."""
+            """A stub stage: it consumes `inputs`, writes one output, and finishes complete.
+
+            A stage with parts (`records.STAGE_PARTS`) is written as one of them: these controls are
+            about declarations and inputs, and a part-less write there is refused by name."""
             where = at or run_dir
-            with records.run_stage(where, name, inputs) as run:
+            part = "views" if name in records.STAGE_PARTS else None
+            with records.run_stage(where, name, inputs, part=part) as run:
                 (pathlib.Path(where) / f"{name}.out").write_text(f"{name}\n", encoding="utf-8")
                 run.output(f"{name}.out")
 
@@ -295,8 +325,10 @@ def self_test():
         stage("S2", need("S1"))  # amended, S2 licensed, S1 not invalidated
         stage("S3", need("S2"))
         control("a stage consuming across a licensed amendment pins both sequences",
-                records.read_json(records.record_path(run_dir, "S2"))["inputs"][0]["producer_seq"] == 0
-                and records.read_json(records.record_path(run_dir, "S2"))["declaration_seq"] == 1)
+                records.producing_part(records.read_json(records.record_path(run_dir, "S2")),
+                                       "S2.out")[1]["inputs"][0]["producer_seq"] == 0
+                and records.producing_part(records.read_json(records.record_path(run_dir, "S2")),
+                                           "S2.out")[1]["declaration_seq"] == 1)
         code, err = cli("declare", "--run-id", "r1", "--set", "checks.view_complete_share_min=0.95")
         control("declare --set of checks{} after S3 recorded is refused naming S3 and changes nothing",
                 code == 1 and "AMEND_REQUIRED" in err and "S3" in err
@@ -315,8 +347,13 @@ def self_test():
 
         # check_declaration_order on the real files: every recorded input, then the log with an amendment removed
         def recorded_pairs():
+            # A stage with parts keeps one entry per producer, so the pairs come from the entries
+            # rather than from the record's top level (records.STAGE_PARTS).
+            entries = []
+            for record in records.stage_records(run_dir).values():
+                entries += list((record.get("parts") or {}).values()) or [record]
             return [(r["stage"], r["declaration_seq"], i["producer_stage"], i["producer_seq"])
-                    for r in records.stage_records(run_dir).values() for i in r["inputs"]]
+                    for r in entries for i in r.get("inputs", [])]
 
         pairs, log = recorded_pairs(), records.amendments_path(run_dir).read_text(encoding="utf-8")
         control("recorded stages pass the declaration order", len(pairs) == 3 and not any(
@@ -416,9 +453,48 @@ def self_test():
         code, err = cli("inventory")
         control("inventory (S2) refuses by name with no run and no output directory",
                 code == 1 and "INPUT_INVALID inventory" in err, f"{code} {err}")
-        code, err = cli("inventory", "--to", str(scratch / "inv"), "--no-state", "--native-root", "claude")
-        control("inventory (S2) refuses a native root that names no host",
-                code == 1 and "INPUT_INVALID --native-root" in err, f"{code} {err}")
+        # No mode reads a host home any more, so there is no inspection to label and no native root
+        # to validate: a run outside a run directory has no census, and every native layer is
+        # `unknown` with that reason (the 1548 amendment §5, §8).
+        bare_to = scratch / "inv-bare"
+        code, err = cli("inventory", "--to", str(bare_to), "--no-state")
+        document = json.loads((bare_to / "inventory" / "current.json").read_text(encoding="utf-8")) if code == 0 else {}
+        statuses = {row["layer"]: row["status"] for row in document.get("layers", [])}
+        reasons = "; ".join(document.get("reference", {}).get("incomplete_reasons", []))
+        control("inventory (S2) outside a run reports every native layer unknown, with the reason",
+                code == 0 and all(statuses.get(layer) == "unknown" for layer in inventory.NATIVE_LAYERS)
+                and "census" in reasons, f"{code} {err} {statuses}")
+        control("and it names no mode that reads a host home",
+                "mode" not in document.get("produced_by", {}) and "--native-live" not in err,
+                f"{sorted(document.get('produced_by', {}))}")
+        # The destination is judged before anything is written, locked or recorded: the run
+        # directory itself is a write, so a destination under the state root must be refused by the
+        # CLI and must leave nothing behind (GB#0).
+        guarded_state = scratch / "guarded-state"
+        (guarded_state / "runtime").mkdir(parents=True)
+        inside = guarded_state / "out"
+        code, err = cli("inventory", "--to", str(inside), "--state-root", str(guarded_state),
+                        "--user-root", str(scratch / "guarded-user"))
+        control("inventory (S2) refuses a destination inside the owner's state root",
+                code == 1 and "PROTECTED_OVERLAP" in err, f"{code} {err}")
+        control("and writes nothing there", not inside.exists(), f"{sorted(p.name for p in inside.rglob('*'))}"
+                if inside.exists() else "")
+        # The same destination as a RUN: the stage record is the first write, so the refusal has to
+        # come before the stage is entered at all.
+        # `cli` appends its own --out, so the guarded run lives under it and the state root is that
+        # same directory: the run directory is then inside a root this inventory reads.
+        declared_run = out / "r-guarded"
+        declared_run.mkdir(parents=True)
+        for name in ("run.json", "amendments.jsonl"):  # a declared run, so the refusal is about the destination
+            (declared_run / name).write_text((out / "r1" / name).read_text(encoding="utf-8"), encoding="utf-8")
+        code, err = cli("inventory", "--run-id", "r-guarded",
+                        "--state-root", str(out), "--user-root", str(scratch / "guarded-user"))
+        control("inventory (S2) refuses a run directory inside the owner's state root",
+                code == 1 and "PROTECTED_OVERLAP" in err, f"{code} {err}")
+        control("and enters no stage, so no stage record is written",
+                not (declared_run / "stages").exists(),
+                f"{sorted(p.name for p in (declared_run / 'stages').rglob('*'))}"
+                if (declared_run / "stages").exists() else "")
         code, err = cli("views", "--run-id", "r1", "--output-cap", "32000")
         control("views (S2) refuses by name when the census it reads is not in the run",
                 code == 1 and "INPUT_INVALID S1" in err, err)

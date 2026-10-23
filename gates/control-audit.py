@@ -145,8 +145,15 @@ DATA_SINKS = {
                  "must never decide a build",
         "out": "the --resolve/--propose suggestion rows; printed for a human to paste",
     },
-    "session-distill/runlib/inventory.py": {"lines": "the per-reference-point report; printed for a "
-                                                     "person, while a refusal is raised by name"},
+    "session-distill/runlib/inventory.py": {
+        "lines": "the per-reference-point report; printed for a person, while a refusal is raised by name",
+        "reached": "what a unit's text names, including `unknown:<what>` for a reference this "
+                   "reference point could not resolve; it is the requirement set carried on every "
+                   "unit record, and an unresolved entry is an answer rather than a failure",
+        "missing": "what a frozen copy left out — an absent source, a symlink, an unreadable file; "
+                   "it is reported as the run's input manifest, and the refusal for a state that "
+                   "CHANGED while being read is raised by name instead",
+    },
     "session-distill/runlib/monitor.py": {"uncertain": "requests whose sending no host record "
                                                        "establishes; disclosed beside the boundary "
                                                        "verdict, never a failure"},

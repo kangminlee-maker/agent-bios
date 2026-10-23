@@ -519,7 +519,10 @@ def self_test():
             raise Abort from exc
 
     def stage_once(directory, name, output=None):
-        with records.run_stage(directory, name) as stage_run:
+        # S2 has parts (`records.STAGE_PARTS`), and a writer there names the part it produces; these
+        # controls are about the declaration a stage binds, not about parts.
+        part = "views" if name in records.STAGE_PARTS else None
+        with records.run_stage(directory, name, part=part) as stage_run:
             if output:
                 (directory / output).write_text("{}\n", encoding="utf-8")
                 stage_run.output(output)
