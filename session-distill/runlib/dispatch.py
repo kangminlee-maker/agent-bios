@@ -315,7 +315,7 @@ def stop_detail(offered):
 
     The rule's own detail, plus the two things only this call knows: the stamp it could not avoid, and
     whether the run kept this stop or an earlier, stronger one stands. A stop that lost still says why it
-    was made, which is how a stamping defect stays visible (BE#2)."""
+    was made, which is how a stamping defect stays visible (BE#3)."""
     return (offered["detail"] + (f"; {offered['stamp']}" if offered.get("stamp") else "")
             + ("" if offered.get("kept", True) else "; an earlier stop stands in the run ledger"))
 
@@ -536,7 +536,7 @@ class Supervisor:
                     # while the call was still running was recorded before anybody knew the host had changed.
                     #
                     # The two steps are caught separately, because they fail for different reasons and a
-                    # stop has to say which (BE#2): READING the declaration can fail on an unreadable file,
+                    # stop has to say which (BE#3): READING the declaration can fail on an unreadable file,
                     # a confinement violation, a decode error or the reader's own named refusal of a drifted
                     # declaration - all `declaration-unreadable`; STAMPING is this code's own arithmetic, so
                     # anything thrown there is a defect here and says so, under its own reason, rather than
@@ -560,7 +560,7 @@ class Supervisor:
                 self._write(ledger)
                 # what this returns is THIS call's own stop, whether or not the run kept it: the call
                 # records it and names it in its refusal, so a stop that lost to an earlier terminal one
-                # still leaves its reason somewhere a reader can find (BE#2)
+                # still leaves its reason somewhere a reader can find (BE#3)
                 return {**offered, "kept": kept is offered}
 
     # --- one call ----------------------------------------------------------------------------
@@ -736,9 +736,6 @@ class Supervisor:
         if view_window:
             observed, missing = bound.observed_input(usage["requests"])
             call["input_observed"] = observed
-            if missing:  # a usage record missing a component is not a smaller number (bound.observed_of)
-                raise Refused(f"USAGE_INCOMPLETE {call_id}: {', '.join(missing)}; the observed input of a call is "
-                              "input + cache creation + cache read, and a missing component is not a zero")
             if bound.check_observed(observed, view_window):
                 # PERSIST FIRST (F-19/BE#1). The excess is observed here, and everything after this line
                 # can fail: the call record, the receipt the launcher writes, the charge's calibration
@@ -748,6 +745,13 @@ class Supervisor:
                 # fails it fails as it always did - with the stop already recorded.
                 excess = self._stop_run(bound.excess(call_id, observed, self.clock()))
                 call["stop"] = excess
+            if missing:  # a usage record missing a component is not a smaller number (bound.observed_of)
+                # HA#0: and it is not a reason to forget an excess the COMPLETE rows already establish.
+                # `observed_input` answers both questions independently, so the stop above is written
+                # first and the call record carries it; this refusal is still what the call fails with.
+                records.write_json(self.run_dir, call_dir / "call.json", call)
+                raise Refused(f"USAGE_INCOMPLETE {call_id}: {', '.join(missing)}; the observed input of a call is "
+                              "input + cache creation + cache read, and a missing component is not a zero")
         records.write_json(self.run_dir, call_dir / "call.json", call)
         if exit_status is not None:  # a runner that never exited has no receipt (the gate refuses the call for it)
             self._receipt(call_dir, stage, call_id, seat, exit_status)
@@ -3461,7 +3465,7 @@ def self_test(scratch=None):
                                                         "run_json_sha256": records.bound_digest(new_run)})
                 mid_commit.set()                      # the log line is written, run.json is not
                 if wait_for_stop:
-                    # BE#3: this waits for the stop's acquisition to find THIS lock held - the hook fires
+                    # BE#2: this waits for the stop's acquisition to find THIS lock held - the hook fires
                     # inside `stagelock.hold`, after the real flock attempt failed - and the lock is
                     # released only by the write below. Signalling before the attempt (BD#2's first shape)
                     # left a schedule in which the amendment finished first and a regression that reads
@@ -3490,7 +3494,7 @@ def self_test(scratch=None):
         stagelock.CONTENDED = None
     returned_at = time.monotonic()
     amender.join(60)
-    control("BE#3-the-amendment-was-released-by-real-contention-on-the-declaration-lock",
+    control("BE#2-the-amendment-was-released-by-real-contention-on-the-declaration-lock",
             contended[:1] == ["declaration"] and bool(committed_at), f"{contended} {committed_at}")
     control("BB#0-the-mid-commit-amendment-committed-without-error", not failed_in_thread, f"{failed_in_thread}")
     # reading the sequence outside the declaration lock does not see a tidy earlier state: it sees the log
@@ -3654,11 +3658,16 @@ def self_test(scratch=None):
     # charge's calibration read. Each case below breaks exactly one of those through the real code, with
     # the supervisor ledger left writable, and asks the same three questions: is the overrun recorded, is
     # the next dispatch refused, and did the call itself report the failure.
-    def overrun_under(label, arrange=None, restore=None):
-        """One replayed 136k view-window call, with `arrange` having broken one thing first."""
+    def overrun_under(label, arrange=None, restore=None, adjust=None):
+        """One replayed 136k view-window call, with `arrange` having broken one thing first.
+
+        `adjust` gets the supervisor before the call, for the one case whose fixture is the
+        measurement itself rather than the filesystem (HA#0)."""
         directory = run_dir(f"run-f19-{label}", {vstage: 2_000_000})
         sup_f = counted(supervisor(directory, "clean", replay=replay))
         sup_f.seed_from(authoring)
+        if adjust:
+            adjust(sup_f)
         held_r = sup_f.reserve(vstage, label, vseat, "authoring")
         if arrange:
             arrange(directory)
@@ -3747,6 +3756,38 @@ def self_test(scratch=None):
             control(f"F-19-{label}-the-stop-is-stamped-because-the-declaration-was-readable",
                     isinstance(kept_f19.get("declaration_seq"), int) and "stamp" not in kept_f19, f"{kept_f19}")
 
+    # HA#0: an incomplete usage row does not discard an excess the COMPLETE rows already establish.
+    # `bound.observed_input` answers the two questions independently, and the refusal for the second used
+    # to be raised before the stop for the first was written. The fixture here is the measurement itself -
+    # one real replayed 136k request, plus a measured row whose input is a float, which `bound.observed_of`
+    # reads as a missing component - and everything after it is the production settlement.
+    def add_an_incomplete_row(sup):
+        inner = sup._usage
+
+        def measured(*args, **kwargs):
+            usage = inner(*args, **kwargs)
+            complete = usage["requests"][0]
+            usage["requests"] = list(usage["requests"]) + [
+                {**complete, "input_tokens": 1.0, "input": 1.0}]       # both spellings: neither is an int
+            return usage
+
+        sup._usage = measured
+
+    f19u, sup_u, ru, reported_u = overrun_under("usage-incomplete", adjust=add_an_incomplete_row)
+    kept_u = ledger_stop(f19u)
+    recorded_u = json.loads((f19u / "calls" / ru["call_id"] / "call.json").read_text(encoding="utf-8"))
+    control("HA#0-the-excess-the-complete-rows-establish-is-in-the-ledger",
+            kept_u.get("code") == bound.STOP_CODE and kept_u.get("observed") == 135_796
+            and kept_u.get("call_id") == ru["call_id"], f"{kept_u}")
+    control("HA#0-the-next-dispatch-is-refused-although-the-usage-was-incomplete",
+            (refusal(sup_u.reserve, vstage, "after-usage-incomplete", vseat, "authoring") or "")
+            .startswith(f"RUN_STOPPED {bound.STOP_CODE}"), "a call was reserved after an incomplete usage record")
+    control("HA#0-the-call-still-fails-with-the-incomplete-usage-refusal",
+            "USAGE_INCOMPLETE" in (reported_u or "") and "input_tokens" in (reported_u or ""), f"{reported_u}")
+    control("HA#0-and-that-call-s-record-carries-the-stop-it-offered",
+            (recorded_u.get("stop") or {}).get("call_id") == ru["call_id"]
+            and (recorded_u.get("stop") or {}).get("observed") == 135_796, f"{recorded_u.get('stop')}")
+
     # F-20: and each call records its own stop, whether or not the run kept it. A stamping defect - this
     # code's own arithmetic, not the filesystem's - says so under its own reason, and says it even when an
     # earlier terminal stop is the one the ledger keeps.
@@ -3790,6 +3831,46 @@ def self_test(scratch=None):
             ledger_stop(f20b).get("call_id") == first_terminal.get("call_id") is not None
             and defective.get("kept") is False,
             f"{ledger_stop(f20b)} {defective.get('kept')}")
+
+    # HA#1: and the losing stop says so through the REAL settlement, not only in the helper's return
+    # value. The earlier terminal stop lands while this call is in flight - so the call was admitted and
+    # is already running - and this call's own stamping is broken, so the stop it offers loses. Its
+    # reason has to survive in its own call record and in the refusal the call fails with.
+    planted_earlier = []
+    held_stamping = bound.committed
+
+    def plant_a_terminal_stop_and_break_stamping(sup):
+        """The plant runs where settlement measures the call - the host has answered, the call is still
+        in flight, and no lock of this supervisor's is held."""
+        inner = sup._usage
+
+        def measured(*args, **kwargs):
+            usage = inner(*args, **kwargs)
+            break_lock_mode(sup.run_dir)              # the planted stop is unstamped, and so terminal
+            try:
+                planted_earlier.append(sup._stop_run(
+                    bound.excess("run-f19-defect-behind-a-stop-S3-earlier-a1", 136_000, clock[0])))
+            finally:
+                mend_lock(sup.run_dir)
+            bound.committed = None                    # not callable: a defect in THIS call's stamping
+            return usage
+
+        sup._usage = measured
+
+    f19d, sup_d, rd, reported_d = overrun_under(
+        "defect-behind-a-stop", adjust=plant_a_terminal_stop_and_break_stamping,
+        restore=lambda _directory: setattr(bound, "committed", held_stamping))
+    recorded_d = json.loads((f19d / "calls" / rd["call_id"] / "call.json").read_text(encoding="utf-8"))
+    earlier_id = (planted_earlier[0] if planted_earlier else {}).get("call_id")
+    control("HA#1-the-losing-call-s-record-carries-its-own-stamping-defect",
+            "stop-internal-error" in ((recorded_d.get("stop") or {}).get("stamp") or "")
+            and (recorded_d.get("stop") or {}).get("kept") is False, f"{recorded_d.get('stop')}")
+    control("HA#1-the-earlier-terminal-stop-is-still-the-one-the-ledger-keeps",
+            earlier_id is not None and ledger_stop(f19d).get("call_id") == earlier_id
+            and earlier_id != rd["call_id"], f"{ledger_stop(f19d)} {earlier_id}")
+    control("HA#1-and-the-refusal-carries-that-defect-beside-the-earlier-stop",
+            "stop-internal-error" in (reported_d or "")
+            and "an earlier stop stands in the run ledger" in (reported_d or ""), f"{reported_d}")
 
     # ---- the seam: the bound has ONE owner, and the dispatcher is its boundary (seam record 2026-10-22)
     #
