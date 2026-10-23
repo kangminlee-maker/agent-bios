@@ -1077,6 +1077,22 @@ def self_test():
                start_in(fresh_dir, "S2", []), "STAGE_PART_REQUIRED S2")
         if record_path(fresh_dir, "S2").is_file():
             failures.append("a refused part-less write still left an S2 record")
+        # The second half of the same rule, and the one `STAGE_PARTS` does not reach: a stage this
+        # version declares NO parts for, whose record on disk nevertheless holds some — an older
+        # run's, or a later version's. A part-less write there would replace every part's entry at
+        # once, so it is refused by what the record HOLDS rather than by the table. This was a
+        # control-audit survivor: removing the refusal left every suite green.
+        held_dir = pathlib.Path(td) / "parts-held-by-record"
+        declare_fixture(held_dir, base)
+        held_record = {"stage": "S3", "status": "complete", "declaration_seq": 1,
+                       "parts": {"a-producer": {"stage": "S3", "status": "complete", "outputs": []}}}
+        write_json(held_dir, record_path(held_dir, "S3"), held_record)
+        expect("a part-less writer to a stage whose record already holds parts",
+               start_in(held_dir, "S3", []), "STAGE_PART_REQUIRED S3", "already holds the parts")
+        if read_json(record_path(held_dir, "S3")) != held_record:
+            failures.append("the refused part-less write replaced the parts the record held")
+        if "S3" in STAGE_PARTS:
+            failures.append("S3 has declared parts, so this control is the table's refusal again")
         # a legacy record whose outputs identify no part: refused, not silently replaced
         ambiguous_dir = pathlib.Path(td) / "ambiguous-legacy"
         declare_fixture(ambiguous_dir, base)

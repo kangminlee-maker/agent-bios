@@ -109,28 +109,78 @@ MEMBER_BASE = {"guide": "claude/guides", "hook": "claude/hooks", "agent": "claud
 # probe, and the one shape that caches the driver: the probe produced the single
 # `session-distill/__pycache__/distill.*.pyc` ever seen here and then called it a finding (GC#10).
 #
-# `checkout` is the copy of the checkout this run is confined to looking at. Every attempted write
-# under it is reported, and the bytecode ones separately: the claim is about THAT tree, which is
-# also the tree the caller inspects on disk afterwards.
+# `checkout` is the copy of the checkout this run is confined to looking at. Every attempted
+# MUTATION under it is reported, and the bytecode ones separately: the claim is about THAT tree,
+# which is also the tree the caller compares before and after.
+#
+# A write-mode `open` is one way to change a tree and not the only one. The first version returned
+# immediately for every event that was not `open`, so a fixture `os.mkdir`, `os.remove` and
+# `os.rename` under the copy were each observed as nothing while the claim read "no write at all
+# anywhere under the checkout" (R1#4). The operations are a DATA list: a kind this does not name
+# cannot be excused by prose, and the after-run comparison of the whole tree is the backstop for one
+# that is missing — a directory created or a file renamed changes the tree whether or not an event
+# for it was recognised.
+#
+# Audit hooks fire BEFORE the operation, so an attempt that then fails is still observed. That is
+# what makes "attempted write" the right question: a run that tried and was refused by the operating
+# system has still tried.
+#
+# Paths are resolved AT EVENT TIME. Resolving later answers about a tree that has moved on, and the
+# process's working directory is the copy's neighbour, so a relative argument has to be resolved
+# while it still means what it meant.
 BYTECODE_PROBE = """
 import json, os, runpy, sys
-writes = []
+
+# event name -> which positional arguments are paths. Every entry is one filesystem mutation the
+# interpreter audits; `open` is handled separately because only some modes mutate.
+MUTATIONS = {
+    'os.mkdir': (0,), 'os.rmdir': (0,), 'os.remove': (0,), 'os.unlink': (0,),
+    'os.rename': (0, 1), 'os.replace': (0, 1), 'os.link': (0, 1), 'os.symlink': (0, 1),
+    'os.truncate': (0,), 'os.chmod': (0,), 'os.chown': (0,), 'os.utime': (0,),
+    'os.makedirs': (0,), 'os.removedirs': (0,), 'os.mknod': (0,), 'os.mkfifo': (0,),
+    'os.setxattr': (0,), 'os.removexattr': (0,),
+    'shutil.copyfile': (0, 1), 'shutil.copymode': (0, 1), 'shutil.copystat': (0, 1),
+    'shutil.copytree': (0, 1), 'shutil.move': (0, 1), 'shutil.rmtree': (0,),
+    'shutil.unpack_archive': (0, 1), 'shutil.make_archive': (0,),
+    'pathlib.Path.mkdir': (0,), 'pathlib.Path.rename': (0, 1), 'pathlib.Path.replace': (0, 1),
+    'pathlib.Path.unlink': (0,), 'pathlib.Path.rmdir': (0,), 'pathlib.Path.touch': (0,),
+    'pathlib.Path.symlink_to': (0, 1), 'pathlib.Path.hardlink_to': (0, 1),
+    'pathlib.Path.chmod': (0,), 'tempfile.mkstemp': (0,), 'tempfile.mkdtemp': (0,),
+}
+seen = []   # (event, resolved path)
+
+
+def record(event, value):
+    try:
+        resolved = os.path.realpath(os.fspath(value))
+    except (TypeError, ValueError, OSError):
+        return
+    seen.append((event, resolved))
 
 
 def hook(event, args):
-    if event != 'open' or len(args) < 2:
+    if event == 'open':
+        if len(args) < 2:
+            return
+        mode = args[1]
+        flags = args[2] if len(args) > 2 and isinstance(args[2], int) else 0
+        # A .pyc is written through os.open, whose audit args carry no mode string at all: a
+        # mode-only test observed nothing and called it proof.
+        writing = (isinstance(mode, str) and any(f in mode for f in 'wax+')) or (
+            mode is None and bool(flags & (os.O_WRONLY | os.O_RDWR | os.O_CREAT | os.O_APPEND)))
+        if writing:
+            record('open(write)', args[0])
         return
-    mode = args[1]
-    flags = args[2] if len(args) > 2 and isinstance(args[2], int) else 0
-    # A .pyc is written through os.open, whose audit args carry no mode string at all: a mode-only
-    # test observed nothing and called it proof.
-    writing = (isinstance(mode, str) and any(f in mode for f in 'wax+')) or (
-        mode is None and bool(flags & (os.O_WRONLY | os.O_RDWR | os.O_CREAT | os.O_APPEND)))
-    if writing:
-        writes.append(str(args[0]))
+    positions = MUTATIONS.get(event)
+    if positions is None:
+        return
+    for index in positions:
+        if index < len(args):
+            record(event, args[index])
 
 
 checkout, destination, which, driver = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
+root = os.path.realpath(checkout)
 sys.addaudithook(hook)
 code = 0
 if which == 'unguarded':
@@ -139,15 +189,37 @@ if which == 'unguarded':
     spec = importlib.util.spec_from_file_location('probe_floor', driver)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
+elif which == 'mutations':
+    # The positive controls for the kinds that are not an open: a directory created, a file
+    # deleted, a file renamed, and one attempt that FAILS. Each is under the copy.
+    probe_dir = os.path.join(root, 'session-distill', 'probe-mutations')
+    os.mkdir(probe_dir)
+    made = os.path.join(probe_dir, 'made.txt')
+    with open(made, 'w') as handle:
+        handle.write('x')
+    os.rename(made, os.path.join(probe_dir, 'renamed.txt'))
+    os.remove(os.path.join(probe_dir, 'renamed.txt'))
+    try:
+        os.mkdir(os.path.join(root, 'session-distill', 'probe-mutations'))   # already there: fails
+    except OSError:
+        pass
+    try:
+        os.remove(os.path.join(root, 'no-such-file-at-all'))                 # absent: fails
+    except OSError:
+        pass
+    os.rmdir(probe_dir)
 else:
     sys.argv = [driver, 'inventory', '--to', destination, '--no-state']
     try:
         runpy.run_path(driver, run_name='__main__')
     except SystemExit as exit:
         code = exit.code if isinstance(exit.code, int) else 1
-under = sorted({w for w in writes if os.path.realpath(w).startswith(os.path.realpath(checkout))})
+under = sorted({f'{event} {path}' for event, path in seen if path.startswith(root)})
+kinds = sorted({event for event, path in seen if path.startswith(root)})
 print(json.dumps({'code': code, 'under_checkout': under[:8], 'under_checkout_total': len(under),
-                  'bytecode': sorted({w for w in under if w.endswith('.pyc') or '__pycache__' in w})[:8]}))
+                  'kinds': kinds,
+                  'bytecode': sorted({row for row in under
+                                      if row.endswith('.pyc') or '__pycache__' in row})[:8]}))
 """
 
 
@@ -638,22 +710,23 @@ def operative_context(units):
     return units
 
 
-def _projected_span(unit, home=None, extents=None):
+def _projected_span(unit, home=None, decision=None):
     """A unit's text through the floor, judged with its carrier INTACT.
 
     The floor reads a credential-named key and the value that follows it as one relationship, and
     the splitter can put the two in different blocks — so projecting a block alone emitted the value
     with nothing to mark it (GC#4). The span is projected through `projection.project_span`, which
-    computes the masked extents over the whole carrier and clips them to the span: the structural
-    context is the carrier's own, not a window of it. `extents` is the carrier's extents when the
-    caller has already computed them for its other spans.
+    takes the floor's decision about the WHOLE carrier — its masked extents, clipped to the span,
+    and its refusal to return the carrier at all, which withholds every span of it. The structural
+    context is the carrier's own, not a window of it. `decision` is that decision when the caller has
+    already taken it for this carrier's other spans.
 
     A unit that carries no carrier of its own — a caller that built the record by hand — is
     projected as the block it is, which is the same answer as a carrier holding only that block."""
     carrier_text, span = unit.get("carrier_text"), unit.get("span")
     if not carrier_text or not span:
         return projected(unit["text"], home)
-    out = projection.project_span(carrier_text, span[0], span[1], home, extents)
+    out = projection.project_span(carrier_text, span[0], span[1], home, decision)
     disclosed = projection.discloses(out, home)
     if disclosed is not None:
         raise Refused(f"DISCLOSED_IN_UNIT: the projection left {disclosed} in a unit's text; no artifact is written")
@@ -666,12 +739,13 @@ def shed(units, home=None):
 
     This is the boundary the raw text does not cross. `sha` and `version_sha256` are the raw
     fragment's and the raw carrier's, taken in `units_of`; `text` is what `projected` returns."""
-    records_out, extents = [], {}
+    records_out, decisions = [], {}
     for unit in units:
         carrier_text = unit.get("carrier_text")
-        if carrier_text is not None and unit["carrier_id"] not in extents:
-            # Once per carrier, not once per span: the extents are a property of the carrier.
-            extents[unit["carrier_id"]] = projection.carrier_extents(carrier_text, home)
+        if carrier_text is not None and unit["carrier_id"] not in decisions:
+            # Once per carrier, not once per span: the decision is a property of the carrier, and it
+            # carries the floor's whole-carrier WITHHOLDING as well as its extents.
+            decisions[unit["carrier_id"]] = projection.carrier_decision(carrier_text, home)
         emitted = {**{field: unit[field] for field in UNIT_FIELDS},
                    "block": unit["block"], "carrier_id": unit["carrier_id"],
                    # The display metadata of the carrier the opaque id stands for. An item reference
@@ -680,7 +754,7 @@ def shed(units, home=None):
                    "item_ref": projected(unit["item_ref"], home) if unit["item_ref"] else unit["item_ref"],
                    "package_id": projected(unit["package_id"], home) if unit["package_id"] else unit["package_id"],
                    "provenance": unit["provenance"]}
-        emitted["text"] = _projected_span(unit, home, extents.get(unit["carrier_id"]))
+        emitted["text"] = _projected_span(unit, home, decisions.get(unit["carrier_id"]))
         # `heading` and `path` are carrier text too — a heading line holds whatever its author wrote
         # there, and a package's `origin.source_path` can be an absolute path on the owner's disk.
         emitted["heading"] = projected(unit["heading"], home) if unit["heading"] else unit["heading"]
@@ -822,24 +896,58 @@ def walk_source(root, boundary=None):
 
 
 def hash_tree(root):
-    """`({relative path: sha256}, omissions)` over `walk_source`'s readable set.
+    """`({relative path: sha256}, omissions)` over `walk_source`'s readable set, each file admitted
+    through `source_selection` before its bytes are read.
 
-    The omissions are part of the answer, not a silence: a symlink is skipped by policy and an
-    unreadable file is skipped by failure, and a before/after comparison over a set that quietly
-    dropped either would say "unchanged" about files it never looked at (GA#3)."""
+    The omissions are part of the answer, not a silence: a symlink is skipped by policy, a path the
+    selection does not admit is skipped by that decision, an unreadable file is skipped by failure,
+    and a before/after comparison over a set that quietly dropped any of them would say "unchanged"
+    about files it never looked at (GA#3)."""
     readable, omissions = walk_source(root)
     digests = {}
     for relative, path in readable:
         try:
-            digests[relative] = hashlib.sha256(path.read_bytes()).hexdigest()
+            # Admitted through the one entry point, like every other read of the owner's state: the
+            # walker decided WHICH files, and this decides whether these bytes may be read at all.
+            # Reading them directly made `source_selection` a claim rather than a gate — denying it
+            # outright still hashed eight files (R1#6).
+            digests[relative] = hashlib.sha256(source_selection(path, root).read_bytes()).hexdigest()
+        except Refused as exc:
+            omissions.append({"path": relative, "reason": f"not admitted: {exc}"})
         except OSError as exc:
             omissions.append({"path": relative, "reason": f"unreadable: {projected_message(exc)}"})
     return digests, omissions
 
 
+STATE_DIR_VAR, CORPUS_DIR_VAR = "AGENT_BIOS_STATE_DIR", "AGENT_BIOS_INSTRUCTIONS_DIR"
+STATE_DIR_DEFAULT, CORPUS_DIR_DEFAULT = ".local/share/agent-bios", ".config/agent-bios/corpus"
+
+
+def configured_roots(state_root=None, user_root=None, environ=None, home=None):
+    """The owner's state and authoring roots AS CONFIGURED — whether or not this run reads them.
+
+    Protection and reading are two questions, and they were one value. `--no-state` set both roots to
+    None before the protected set was built, so the flag that says "read nothing" also said "write
+    anywhere": `--state-root <s> --to <s>/out --no-state` exited 0 and wrote four artifacts under the
+    owner's state root, while the same command without the flag refused by name. A root is protected
+    because it is the owner's, not because this run happens to open it.
+
+    Resolution is the driver's own order — the flag, the environment, then the installed default — so
+    a caller that names neither still gets the owner's real roots. That is the safe direction:
+    protection never depends on being told."""
+    environ = os.environ if environ is None else environ
+    home = pathlib.Path.home() if home is None else pathlib.Path(home)
+    state = state_root or environ.get(STATE_DIR_VAR) or str(home / STATE_DIR_DEFAULT)
+    user = user_root or environ.get(CORPUS_DIR_VAR) or str(home / CORPUS_DIR_DEFAULT)
+    return pathlib.Path(state).expanduser(), pathlib.Path(user).expanduser()
+
+
 def protected_roots(state_root, user_root, native_roots, host_homes=(), checkout=None):
     """Every root this inventory must not write into: the owner's state, the authoring root, the
     host homes, the checkout and the project roots.
+
+    `state_root` and `user_root` here are the CONFIGURED roots (`configured_roots`), not the ones
+    this run reads: `--no-state` makes the second pair None and must not make the first pair None.
 
     The host homes are protected whether or not this run reads them. A run reads the native layers
     from its own capture, so the homes are not among its inputs — but `~/.claude` is still never a
@@ -875,9 +983,11 @@ def overlap_problems(destinations, roots, enclosing=True, home=None):
             inside = destination == root or destination.is_relative_to(root)
             holds = enclosing and root.is_relative_to(destination)
             if inside or holds:
+                # "which this inventory reads" was the old wording, and it is not what protection
+                # means: a root is protected because it is the owner's, read on this run or not.
                 problems.append(f"PROTECTED_OVERLAP {masked(destination, home)}: it "
                                 f"{'holds' if holds and not inside else 'is inside'} {masked(root, home)}, "
-                                f"which this inventory reads; nothing is written")
+                                f"which this inventory must not write into; nothing is written")
     return problems
 
 
@@ -938,13 +1048,20 @@ def no_bytecode():
         sys.dont_write_bytecode = kept
 
 
-# What no checkout tracks, and what therefore may not enter the walk's answer. A bytecode cache is
-# generated beside its source and is in every `.gitignore` there is, so `git ls-files` can never name
-# one — and the walk must not either, or the two branches below answer differently about the same
-# tree. This is not a convenience: `checkout_copy` exists to produce an UNCACHED tree, and a walk
-# that copies a `.pyc` makes the copy the one thing it was built not to be.
-UNTRACKABLE_PARTS = ("__pycache__",)
-UNTRACKABLE_SUFFIXES = (".pyc", ".pyo")
+# Bytecode caches, which a copy of a checkout must not carry. Git CAN track a `.pyc` — nothing stops
+# anyone committing one — so this is not a claim about what is trackable; it is this repository's
+# arrangement (every `.gitignore` here excludes them) plus the one property `checkout_copy` exists
+# for: the copy is UNCACHED, and a copy that carries a `.pyc` is the one thing it was built not to be.
+# Excluded in BOTH branches of `tracked_paths`, so the copy is uncached by construction either way
+# rather than because `git ls-files` happens not to name one here.
+BYTECODE_CACHE_PARTS = ("__pycache__",)
+BYTECODE_CACHE_SUFFIXES = (".pyc", ".pyo")
+
+
+def is_bytecode_cache(relative):
+    """Whether a path relative to a tree root is a bytecode cache or sits in one."""
+    parts = pathlib.PurePosixPath(relative).parts
+    return bool(set(parts) & set(BYTECODE_CACHE_PARTS)) or relative.endswith(BYTECODE_CACHE_SUFFIXES)
 
 
 def tracked_paths(source=REPO):
@@ -961,19 +1078,22 @@ def tracked_paths(source=REPO):
     `PYTHONDONTWRITEBYTECODE`, and the legs before this one import Python in that same tree — so by
     the time this is asked, the snapshot carries `__pycache__/*.pyc` in several directories. The walk
     returned them, `checkout_copy` copied them, and the copy's own "it is uncached" control failed
-    inside the hook and nowhere else. The walk therefore excludes what git cannot track there, which
-    is also what makes the two branches agree about one tree."""
+    inside the hook and nowhere else.
+
+    Bytecode caches are therefore excluded from BOTH branches (`is_bytecode_cache`). Not because git
+    cannot track one — it can — but because the one property a copy of a checkout is taken for is
+    that it is uncached, and that must not depend on which branch answered."""
     source = pathlib.Path(source)
     if (source / ".git").exists():
         listing = subprocess.run(["git", "-C", str(source), "ls-files", "-z"],
                                  capture_output=True, text=True, check=True)
-        return [name for name in listing.stdout.split("\0") if name]
+        return [name for name in listing.stdout.split("\0") if name and not is_bytecode_cache(name)]
     names = []
     for path in sorted(source.rglob("*")):
-        parts = path.relative_to(source).parts
-        if ".git" in parts or set(parts) & set(UNTRACKABLE_PARTS) or path.suffix in UNTRACKABLE_SUFFIXES:
+        relative = path.relative_to(source).as_posix()
+        if ".git" in path.relative_to(source).parts or is_bytecode_cache(relative):
             continue
-        names.append(path.relative_to(source).as_posix())
+        names.append(relative)
     return names
 
 
@@ -1040,15 +1160,25 @@ def freeze(sources, destination, boundary=None):
             readable, omitted = walk_source(source, boundary)
             for inner, path in readable:
                 inner_target = confined(target, inner)
+                try:
+                    admitted = source_selection(path, boundary or source)
+                except Refused as exc:
+                    missing.append(f"{relative}/{inner}: not admitted: {exc}")
+                    continue
                 inner_target.parent.mkdir(parents=True, exist_ok=True)
                 try:
-                    inner_target.write_bytes(path.read_bytes())
+                    inner_target.write_bytes(admitted.read_bytes())
                 except OSError as exc:
                     missing.append(f"{relative}/{inner}: {projected_message(exc)}")
             missing += [f"{relative}/{row['path']}: {row['reason']}" for row in omitted]
         elif source.is_file():
+            try:
+                admitted = source_selection(source, boundary)
+            except Refused as exc:
+                missing.append(f"{relative}: not admitted: {exc}")
+                continue
             target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_bytes(source.read_bytes())
+            target.write_bytes(admitted.read_bytes())
         else:
             missing.append(relative)
     return missing
@@ -1246,24 +1376,42 @@ def safe_label(kind, value):
 def confined(base, relative):
     """`base / relative`, or a refusal: a copy label is relative, has no traversal, and lands inside
     the destination. The label comes from the owner's state, so it is input, not a constant."""
-    base = pathlib.Path(base)
+    base = pathlib.Path(os.path.normpath(str(base)))
     label = str(relative)
     parts = pathlib.PurePosixPath(label).parts
     if label.startswith("/") or ".." in parts or any(part.startswith("/") for part in parts):
         raise Refused(f"DESTINATION_ESCAPES {label!r}: a copy label is relative and holds no traversal")
     target = pathlib.Path(os.path.normpath(str(base / label)))
+    # The second line is **unguarded-accepted** (ruled 2026-10-24): for any label the first line
+    # admits, `normpath(base / label)` cannot leave `base`, so no fixture reaches it without
+    # weakening the first. It stays as the second layer, for the case where that string test is ever
+    # narrowed. `base` is normalised above for the same reason the comparison exists: `pathlib` does
+    # not normalise, so a base carrying `..` would make this refuse a perfectly valid label. Every
+    # caller passes an mkdtemp-derived base today, so that correction needs no control either.
     if target != base and not target.is_relative_to(base):
         raise Refused(f"DESTINATION_ESCAPES {label!r}: it resolves outside the frozen destination")
     return target
 
 
-def temp_home(guarded, home=None):
+# The platform's fixed fallbacks, after the environment's three names. Data, so a control can say
+# what it means (`temp_home(candidates=...)`).
+TEMP_CANDIDATES = ("/tmp", "/var/tmp")
+
+
+def temp_home(guarded, home=None, environ=None, candidates=TEMP_CANDIDATES):
     """The directory the frozen copies are made under, chosen and judged before anything writes.
 
     `tempfile.gettempdir()` PROBES its candidates by creating a file in one, so calling it to decide
     whether a destination is allowed is itself the write the decision exists to prevent (GC#1). This
-    reads the environment and the platform's fixed candidates and judges them as paths."""
-    for candidate in [os.environ.get(name) for name in ("TMPDIR", "TEMP", "TMP")] + ["/tmp", "/var/tmp"]:
+    reads the environment and the platform's fixed candidates and judges them as paths.
+
+    `environ` is the environment to read, so a control can state the one it means instead of mutating
+    this process's own. `candidates` is the platform's fixed list for the same reason: a control can
+    state one whose members are absent, which is the only way to reach the exhaustion refusal below
+    — on this platform `/var/tmp` always exists, so that refusal had no control at all. Production
+    callers pass neither."""
+    environ = os.environ if environ is None else environ
+    for candidate in [environ.get(name) for name in ("TMPDIR", "TEMP", "TMP")] + list(candidates):
         if not candidate:
             continue
         path = pathlib.Path(candidate).expanduser()
@@ -1274,6 +1422,24 @@ def temp_home(guarded, home=None):
             raise Refused("; ".join(problems))
         return path
     raise Refused("TEMP_UNAVAILABLE: no temporary directory outside the protected roots to freeze inputs under")
+
+
+def scratch_parent(environ=None, home=None, state_root=None, user_root=None, checkout=None):
+    """Where a SELF-TEST may create its fixtures, judged by the same path-only rule production uses.
+
+    A self-test writes a great deal: fixture state roots, a copy of the checkout, run directories.
+    Both self-tests asked `tempfile` for a parent, which resolves `TMPDIR` by PROBING it — and an
+    ordinary `TMPDIR` inside the checkout's own `.tmp`, or inside the owner's state root, then put
+    every one of those writes inside a protected root before production's preflight could refuse
+    anything (R1#5). The judgement is `temp_home`'s, over the same protected set: the real checkout,
+    the configured state and corpus roots, and the host homes.
+
+    It is the SELECTION that is tested, not the suite: a control calls this with a fixture
+    environment and reads the refusal, which costs one call rather than a recursive run."""
+    state, user = configured_roots(state_root, user_root, environ, home)
+    guarded = protected_roots(state, user, {}, host_homes=[spec["home"] for spec in NATIVE.values()],
+                              checkout=REPO if checkout is None else checkout)
+    return temp_home(guarded, home or str(pathlib.Path.home()), environ)
 
 
 def census_entries(run_dir):
@@ -1974,7 +2140,7 @@ def verify_unchanged(watched, before, native_before, failing=None, home=None):
 
 
 def run(repo, state_root, user_root, out_dir, pin=None, native_roots=None, ledger=None, commit=None,
-        run_dir=None, zstd=None):
+        run_dir=None, zstd=None, declared_state=None, declared_user=None):
     """Write `inventory/<reference>.json` for every reference point, and return the manifest.
 
     The owner's state is hashed before and after, and the two hashes are compared here rather than
@@ -1988,7 +2154,13 @@ def run(repo, state_root, user_root, out_dir, pin=None, native_roots=None, ledge
     out_dir = pathlib.Path(out_dir)
     state_root = pathlib.Path(state_root).expanduser() if state_root else None
     user_path = pathlib.Path(user_root).expanduser() if user_root else None
-    guarded = protected_roots(state_root, user_path, native_roots,
+    # Protection is resolved independently of READING: `--no-state` passes None for both roots, and
+    # the owner's state is protected all the same. `declared_state`/`declared_user` are what the
+    # caller was configured with; a caller that names neither still gets the owner's real roots,
+    # because `configured_roots` falls back to the environment and the installed default (R1#1).
+    protect_state, protect_user = configured_roots(state_root or declared_state,
+                                                   user_root or declared_user)
+    guarded = protected_roots(protect_state, protect_user, native_roots,
                               host_homes=[spec["home"] for spec in NATIVE.values()], checkout=repo)
     home = str(pathlib.Path.home())
     temp_root = temp_home(guarded, home)   # chosen and judged before any write, GC#1
@@ -2730,7 +2902,11 @@ def self_test():
             [f"{row.get('from_layer')}->{row.get('to_layer')} moved={row.get('moved')}" for row in layer_renames],
             "catalog->overlays", "moved=['layer']")
 
-    with tempfile.TemporaryDirectory(prefix="wp07-self-test-") as td:
+    # The scratch parent is CHOSEN AND JUDGED, not probed: this suite writes fixture state roots, a
+    # copy of the checkout and run directories, and `tempfile`'s own resolution of `TMPDIR` would put
+    # all of it inside a protected root when that is where `TMPDIR` points (R1#5).
+    chosen_parent = scratch_parent()
+    with tempfile.TemporaryDirectory(prefix="wp07-self-test-", dir=str(chosen_parent)) as td:
         scratch = pathlib.Path(td)
 
         # ---- done-when 1: the release mapping, against the baseline file's own item list
@@ -3106,6 +3282,61 @@ def self_test():
         check("the refused destination was never written",
               hash_tree(state)[0] == guarded_before and not (state / "out").exists(),
               "a refused run still touched the protected root")
+
+        # ---- R1#1: protection does not depend on READING. This is the shape `--no-state` produces
+        # — no state root and no authoring root to read — and the roots the caller was CONFIGURED
+        # with are protected all the same. The flag that says "read nothing" used to say "write
+        # anywhere": the same destination returned 0 and wrote four artifacts under the state root.
+        unread_out = state / "out-while-reading-nothing"
+        control("a destination inside the owner's state root when the run reads no state at all",
+                [str(_raised(lambda: run(REPO, None, None, unread_out, ledger=ledger,
+                                         declared_state=state, declared_user=user, **captured())))],
+                "PROTECTED_OVERLAP")
+        check("and the attempted write under the unread state root did not happen",
+              not unread_out.exists() and hash_tree(state)[0] == guarded_before,
+              f"exists={unread_out.exists()} "
+              f"changed={sorted(set(hash_tree(state)[0]) - set(guarded_before))}")
+        check("the same destination with nothing declared either is still refused, because the "
+              "configured roots come from the environment and the installed default",
+              "PROTECTED_OVERLAP" in str(_raised(lambda: run(
+                  REPO, None, None, configured_roots()[0] / "out-unconfigured",
+                  ledger=ledger, **captured()))),
+              "a run that named no roots at all left the owner's real state root writable")
+
+        # ---- R1#6: one admission point, and denying it stops every category of state-byte read.
+        # `hash_tree` and `freeze` read their selected paths directly, so `source_selection` was a
+        # claim about where reads pass rather than the gate they pass: denied outright, a fixture
+        # still hashed eight files and copied one.
+        admit_root = scratch / "admission"
+        (admit_root / "runtime").mkdir(parents=True)
+        (admit_root / "runtime" / "state.json").write_text("{}", encoding="utf-8")
+        (admit_root / "runtime" / "second.json").write_text("{}", encoding="utf-8")
+        open_digests, open_omissions = hash_tree(admit_root)
+        check("the fixture has bytes to read, so the denial judges something",
+              len(open_digests) == 2 and not open_omissions, f"{open_digests} {open_omissions}")
+        kept_selection = globals()["source_selection"]
+        denied_copy = scratch / "admission-denied-copy"
+        try:
+            def deny(path, boundary=None, home=None):
+                raise Refused("SOURCE_DENIED: the fixture admits nothing")
+
+            globals()["source_selection"] = deny
+            denied_digests, denied_omissions = hash_tree(admit_root)
+            denied_missing = freeze([(admit_root / "runtime", "runtime"),
+                                     (admit_root / "runtime" / "state.json", "one.json")], denied_copy)
+        finally:
+            globals()["source_selection"] = kept_selection
+        control("a hash over a tree the selection admits nothing of",
+                [f"hashed={sorted(denied_digests)} "] + [row["reason"] for row in denied_omissions],
+                "hashed=[]", "not admitted", "SOURCE_DENIED")
+        control("a frozen copy of inputs the selection admits nothing of",
+                [f"copied={sorted(path.name for path in denied_copy.rglob('*')) if denied_copy.exists() else []} "]
+                + denied_missing,
+                "copied=[]", "not admitted", "SOURCE_DENIED")
+        check("every file of the fixture is accounted for as an omission rather than dropped",
+              len(denied_omissions) == len(open_digests)
+              and len([row for row in denied_missing if "not admitted" in row]) == len(open_digests) + 1,
+              f"{denied_omissions} / {denied_missing}")
 
         was = sys.dont_write_bytecode
         sys.dont_write_bytecode = False  # the state the guard is supposed to change
@@ -3566,19 +3797,58 @@ def self_test():
         guarded_tmp = scratch / "guarded-tmp"
         inner_tmp = guarded_tmp / "tmp"
         inner_tmp.mkdir(parents=True)
+        # The environment under test is stated as an argument rather than installed in this process:
+        # the old control updated `os.environ` and then POPPED `TMPDIR`, so every later `tempfile`
+        # call in this suite resolved somewhere else than the parent the suite was given.
         control("a temporary location inside a protected root",
-                [str(_raised(lambda: temp_home([guarded_tmp], str(pathlib.Path.home()))
-                             if os.environ.update({"TMPDIR": str(inner_tmp)}) is None else None))],
+                [str(_raised(lambda: temp_home([guarded_tmp], str(pathlib.Path.home()),
+                                               {"TMPDIR": str(inner_tmp)})))],
                 "PROTECTED_OVERLAP")
         check("and the refused location was never written to",
               not any(inner_tmp.iterdir()), f"{sorted(path.name for path in inner_tmp.iterdir())}")
-        os.environ.pop("TMPDIR", None)
         chosen = temp_home([guarded_tmp], str(pathlib.Path.home()))
         check("the chosen temporary location is a directory outside every protected root",
               chosen.is_dir() and not chosen.is_relative_to(guarded_tmp), f"{masked(chosen)}")
         control("no temporary location outside the protected roots at all",
                 [str(_raised(lambda: temp_home([pathlib.Path("/")], str(pathlib.Path.home()))))],
                 "PROTECTED_OVERLAP")
+
+        # ---- R1#5: the SELF-TEST's own scratch parent is chosen by the same path-only rule. Both
+        # suites asked `tempfile` for one, and `tempfile` resolves `TMPDIR` by PROBING it — so an
+        # ordinary `TMPDIR` inside a checkout's `.tmp`, or inside the owner's state root, put every
+        # fixture, the checkout copy and the cleanup inside a protected root before production's
+        # preflight could refuse anything. It is the SELECTION under test: one call with a fixture
+        # environment, not a recursive run of the suite.
+        fixture_checkout = scratch / "scratch-parent-checkout"
+        (fixture_checkout / ".tmp").mkdir(parents=True)
+        fixture_state = scratch / "scratch-parent-state"
+        (fixture_state / "tmp").mkdir(parents=True)
+        for where, parent, roots in (
+                ("the checkout's own .tmp", fixture_checkout / ".tmp", {"checkout": fixture_checkout}),
+                ("the owner's state root", fixture_state / "tmp", {"state_root": fixture_state,
+                                                                   "checkout": fixture_checkout}),
+                ("the owner's authoring root", fixture_state / "tmp", {"user_root": fixture_state,
+                                                                       "checkout": fixture_checkout})):
+            control(f"a self-test scratch parent inside {where}",
+                    [str(_raised(lambda parent=parent, roots=roots: scratch_parent(
+                        {"TMPDIR": str(parent)}, str(pathlib.Path.home()), **roots)))],
+                    "PROTECTED_OVERLAP")
+        check("and neither refused location was written to",
+              not any((fixture_checkout / ".tmp").iterdir()) and not any((fixture_state / "tmp").iterdir()),
+              f"{sorted(path.name for path in (fixture_checkout / '.tmp').iterdir())} "
+              f"{sorted(path.name for path in (fixture_state / 'tmp').iterdir())}")
+        outside = scratch / "scratch-parent-outside"
+        outside.mkdir()
+        check("a scratch parent outside every protected root is accepted as given",
+              scratch_parent({"TMPDIR": str(outside)}, str(pathlib.Path.home()),
+                             state_root=fixture_state, checkout=fixture_checkout) == outside,
+              f"{masked(scratch_parent({'TMPDIR': str(outside)}, str(pathlib.Path.home())))}")
+        # The reader of the rule is this suite itself: everything it has written lives under the
+        # parent that call returned. (`scratch_parent()` is not called again here — a control above
+        # has since taken `TMPDIR` out of this process's environment.)
+        check("this suite's own fixtures really are under a parent this rule chose",
+              pathlib.Path(td).parent == chosen_parent and scratch.is_relative_to(chosen_parent),
+              f"{masked(pathlib.Path(td).parent)} vs {masked(chosen_parent)}")
 
         # The rule lives in `run`, so this control runs one: the temporary location is where the
         # frozen copies of the owner's state are made, and gettempdir() picks one by writing to it.
@@ -3661,6 +3931,80 @@ def self_test():
         check("no line of the multi-line value reaches an emitted span",
               not any("shortpass" in row["text"] or "bravo" in row["text"] for row in multi_emitted),
               f"{[row['text'] for row in multi_emitted]}")
+        # The whole way out, for the fixture that reached publication: split, shed, and the REAL
+        # writer, to a file this control then reads back. The floor WITHHOLDS this carrier — the
+        # escape in it makes the carrier undecodable — and span projection published a later block
+        # of it regardless; the write boundary accepted that document, so the end of the path is
+        # where this is asked (R1#0).
+        # The escaped key: the same value under `api\\_key`, which the floor cannot decode, so it
+        # WITHHOLDS the whole carrier rather than masking parts of it. That decision is not an
+        # extent, and the span path used to apply it only to the detached span — `project` returned
+        # the mask for the carrier while a later block of it was published with `shortpass` in it.
+        escaped = carrier("catalog", "claude/guides/escaped.md",
+                          '## Keys\n\napi\\_key: "alpha\nbravo\n\nshortpass"\n')
+        escaped_emitted = shed(units_of([escaped]), str(pathlib.Path.home()))
+        check("the floor withholds this carrier whole, which is the decision extents cannot carry",
+              projection.carrier_decision(escaped["text"], str(pathlib.Path.home()))[1],
+              "the floor returns this carrier, so the fixture is not the escaped one")
+        escaped_out = scratch / "escaped-key-out"
+        write_document(escaped_out, escaped_out / "inventory" / "current.json",
+                       {"units": escaped_emitted}, str(pathlib.Path.home()))
+        escaped_text = (escaped_out / "inventory" / "current.json").read_text(encoding="utf-8")
+        control("the escaped-key carrier through splitting, shedding and the real writer",
+                [f"published={escaped_text}"], projection.blank_for(escaped["text"]))
+        check("and the published file carries no byte of a carrier the floor withheld",
+              all(part not in escaped_text for part in ("shortpass", "bravo", "alpha", "api")),
+              f"{escaped_text}")
+        check("every span of a withheld carrier is blanked, not only the one that cannot decode",
+              {row["text"] for row in escaped_emitted} == {projection.blank_for(escaped["text"])},
+              f"{[row['text'] for row in escaped_emitted]}")
+
+        # ---- R1#0, the differential: for EVERY carrier fixture in this suite, nothing the floor
+        # removes from the INTACT carrier appears in any emitted span of it. The first control above
+        # names three fixtures; this one names the property, so the next variant of the same mistake
+        # — another escape, another splitter cut — is caught without a control being written for it.
+        fixtures = {"key in the previous block": pair["text"], "key four lines above": far["text"],
+                    "multi-line value": multi["text"], "escaped key, withheld whole": escaped["text"],
+                    "credential in a heading": heading_secret + "\n- a rule under it\n",
+                    **{f"planted {layer}": raw_text for layer, raw_text in planted_in.items()}}
+
+        def withheld_lines(text, emit):
+            """`(lines the intact carrier does not keep, those of them an emitted span keeps anyway)`.
+
+            The comparison is per nonblank line: the floor's answer for the whole carrier is the
+            reference, and any line of the raw text it does not return is a line no span of that
+            carrier may carry. A withheld carrier keeps nothing, so every line of it is in the
+            first list — which is the case span projection used to get wrong."""
+            intact = projection.project(text, projection.CURRENT, str(pathlib.Path.home()))
+            emitted_text = "\n".join(emit(text))
+            removed = [line.strip() for line in text.splitlines()
+                       if len(line.strip()) >= 6 and line.strip() not in intact]
+            return removed, [line for line in removed if line in emitted_text]
+
+        def through_shed(text):
+            return [row["text"] for row in shed(units_of([carrier("catalog", "claude/guides/diff.md", text)]),
+                                                str(pathlib.Path.home()))]
+
+        differential = {name: withheld_lines(text, through_shed) for name, text in fixtures.items()}
+        control("every carrier fixture, differentially: what the intact carrier withholds, withheld in every span",
+                [f"fixtures={len(differential)} "
+                 f"withheld_lines={sum(len(rows[0]) for rows in differential.values())} "
+                 f"leaks={ {name: rows[1] for name, rows in differential.items() if rows[1]} }"],
+                "leaks={}")
+        check("every fixture had withheld lines to look for, so the differential judges each one",
+              all(rows[0] for rows in differential.values()),
+              f"{[name for name, rows in differential.items() if not rows[0]]}")
+        # And the differential can see a leak: projecting each block DETACHED from its carrier is
+        # exactly what this fix replaced, and that is the shape it must report.
+        kept_span = globals()["_projected_span"]
+        try:
+            globals()["_projected_span"] = lambda unit, home=None, decision=None: projected(unit["text"], home)
+            detached = {name: withheld_lines(text, through_shed)[1] for name, text in fixtures.items()}
+        finally:
+            globals()["_projected_span"] = kept_span
+        control("the same fixtures with every span projected detached from its carrier",
+                [f"leaking={sorted(name for name, leaks in detached.items() if leaks)}"],
+                "escaped key, withheld whole", "multi-line value")
 
         # ---- GC#8: the closure expands the starting unit's own requirements
         conditioned = ("---\nuse_when:\n  - the fixture asks\n---\n\n## Rule\n\n- do the thing\n\n"
@@ -3930,25 +4274,69 @@ def self_test():
               bool(unguarded_seen.get("bytecode")) and bool(on_disk),
               f"the positive control observed none: {unguarded_run.stdout[-200:]} "
               f"{unguarded_run.stderr[-200:]} {[path.name for path in on_disk]}")
+        # A write-mode open is one way to change a tree. The observer is shown to see the others —
+        # a directory created, a file renamed, a file deleted, and two attempts that FAIL (an audit
+        # hook fires before the operation, so a refused attempt has still been attempted). Without
+        # this, "no write at all" rested on an observer that returned immediately for every event
+        # that was not `open` (R1#4).
+        mutation_run, mutation_seen = bytecode_probe(
+            "mutations", copied_checkout / "learn" / "redact.py", probe / "out-mutations")
+        observed_kinds = set(mutation_seen.get("kinds") or [])
+        for kind in ("os.mkdir", "os.rename", "os.remove", "os.rmdir"):
+            control(f"the observation sees {kind} under the checkout",
+                    [f"kinds={sorted(observed_kinds)}"], kind)
+        check("and it saw the attempts that failed as well as the ones that succeeded",
+              len([row for row in (mutation_seen.get("under_checkout") or []) if "mkdir" in row]) >= 1
+              and mutation_seen.get("under_checkout_total", 0) >= 6,
+              f"{mutation_seen.get('under_checkout_total')} {mutation_seen.get('under_checkout')} "
+              f"{mutation_run.stderr[-200:]}")
+        check("the mutation probe left the copy as it found it",
+              not (copied_checkout / "session-distill" / "probe-mutations").exists(),
+              "the mutation probe's own directory is still there")
         for cache in list(copied_checkout.rglob("__pycache__")):
             shutil.rmtree(cache, ignore_errors=True)
         check("the copy is uncached again before the real invocation runs",
               not any(copied_checkout.rglob("*.pyc")),
               f"{sorted(str(path.relative_to(copied_checkout)) for path in copied_checkout.rglob('*.pyc'))}")
+
+        def tree_state(root):
+            """Every file under `root`, by relative path and content digest: the whole tree, not a
+            suffix of it. A missed event kind still shows up here as a difference — which is why the
+            after-run check is a comparison and not a scan for `*.pyc` (R1#4)."""
+            root = pathlib.Path(root)
+            state_of = {}
+            for path in sorted(root.rglob("*")):
+                relative = path.relative_to(root).as_posix()
+                if path.is_symlink():
+                    state_of[relative] = f"link:{os.readlink(path)}"
+                elif path.is_dir():
+                    state_of[relative] = "dir"
+                else:
+                    try:
+                        state_of[relative] = hashlib.sha256(path.read_bytes()).hexdigest()
+                    except OSError as exc:
+                        state_of[relative] = f"unreadable:{type(exc).__name__}"
+            return state_of
+
+        before_tree = tree_state(copied_checkout)
         guarded_run, guarded_seen = bytecode_probe("guarded", driver_copy, probe / "out")
+        after_tree = tree_state(copied_checkout)
         check("the real invocation ran the driver as __main__ and produced the inventory",
               guarded_seen.get("code") == 0 and (probe / "out" / "inventory" / "manifest.json").is_file(),
               f"{guarded_run.returncode} {guarded_run.stdout[-300:]} {guarded_run.stderr[-400:]}")
-        # Every attempted write under the copy, not only the bytecode ones: the read-only claim is
+        # Every attempted mutation under the copy, not only the bytecode ones: the read-only claim is
         # the wider one, and the observation that answers it is the same observation.
         control("the real invocation attempts no write at all anywhere under the checkout",
                 [f"observed={guarded_seen.get('bytecode')} "
                  f"writes_under_checkout={guarded_seen.get('under_checkout_total')} "
                  f"first={guarded_seen.get('under_checkout')}"],
                 "observed=[]", "writes_under_checkout=0")
-        control("and no bytecode is on that same checkout's disk afterwards",
-                [f"on_disk={sorted(str(path.relative_to(copied_checkout)) for path in copied_checkout.rglob('*.pyc'))}"],
-                "on_disk=[]")
+        differences = sorted(set(before_tree) ^ set(after_tree)) + sorted(
+            name for name in set(before_tree) & set(after_tree) if before_tree[name] != after_tree[name])
+        control("and that same checkout's whole tree is byte for byte what it was",
+                [f"files={len(before_tree)} differences={differences[:6]}"], "differences=[]")
+        check("the comparison had a tree to compare", len(before_tree) > 200,
+              f"{len(before_tree)} entries")
 
         # ---- the pinned session's own transcript answers the selection reference point
         selection_doc = json.loads((planted_out / "inventory" / "selection.json").read_text(encoding="utf-8"))
@@ -3970,13 +4358,118 @@ def self_test():
                  for row in unpinned_doc["layers"] if row["layer"] == "ledger_keep"],
                 "ledger_keep=unknown", "no per-session history")
 
+        # ---- the refusals `gates/control-audit.py` found no control for (352d35f). Each one is
+        # asked of the real function DIRECTLY, with rows this block builds: in the end-to-end path
+        # an earlier check answers first, which is exactly why removing these left every suite
+        # green. One of the fifteen it named is accepted unguarded, with its reason in `confined`.
+        credential_line = f'apiKeyHelper: {"sk-ant-api03-" + "Ab3" * 14}\n'
+        check("the floor does call that line a disclosure, so the control below judges something",
+              projection.discloses(credential_line, str(pathlib.Path.home())) is not None,
+              f"{credential_line!r} is not a disclosure to this floor")
+        kept_project_span = projection.project_span
+        try:
+            # The guard in `_projected_span` sits behind `project_span`, which masks the credential
+            # itself — so the only way to ask whether the guard is there is to hand it a span the
+            # floor returned with a credential still in it.
+            projection.project_span = lambda carrier, start, end, home=None, decision=None: credential_line
+            control("a span the floor returned with a credential still in it",
+                    [str(_raised(lambda: _projected_span(
+                        {"text": "- a rule\n", "carrier_text": "## Rule\n\n- a rule\n", "span": (9, 18)},
+                        str(pathlib.Path.home()))))],
+                    "DISCLOSED_IN_UNIT")
+        finally:
+            projection.project_span = kept_project_span
+
+        # The two native-read shapes, as source text rather than as this module's own body: the
+        # scan's subject is a module, and its own body must have neither.
+        control("a module that reads a host layer's file names from the native table",
+                native_read_problems('names = NATIVE["claude"]["global"]\n'),
+                "NATIVE_FILE_READ", "a host layer's file names are read")
+        control("a module that globs a host home",
+                native_read_problems('found = list(pathlib.Path(NATIVE["claude"]["home"]).rglob("*.md"))\n'),
+                "NATIVE_FILE_READ", "a host home is globbed")
+        clean("this module itself, by the same scan", native_read_problems())
+
+        # A traversal that normalises back INSIDE the destination: refused by the label rule, and
+        # invisible to the resolution check, which is what made the two shadow each other.
+        control("a copy label whose traversal normalises back inside the destination",
+                [str(_raised(lambda: confined(scratch / "frozen", "a/../b")))],
+                "DESTINATION_ESCAPES", "holds no traversal")
+        check("and that label really does resolve inside, so it is the label rule that refused it",
+              pathlib.Path(os.path.normpath(str(scratch / "frozen" / "a/../b"))).is_relative_to(scratch / "frozen"),
+              "the fixture resolves outside after all")
+
+        # No temporary location at all: the environment names none and the platform's candidates are
+        # not there. `/var/tmp` always exists here, so this refusal is unreachable without saying
+        # which candidates are meant.
+        control("no temporary location in the environment or among the platform's candidates",
+                [str(_raised(lambda: temp_home([], str(pathlib.Path.home()), {},
+                                               candidates=(str(scratch / "no-such-tmp"),))))],
+                "TEMP_UNAVAILABLE")
+        check("the candidate list this control replaces is the one production uses",
+              TEMP_CANDIDATES == ("/tmp", "/var/tmp"), f"{TEMP_CANDIDATES}")
+
+        # A native source whose bytes changed between the before-hash and the after-hash. The
+        # library half of this is covered end to end; the native half had no control, and it is the
+        # graver one, because it is reported ahead of the failure already in flight.
+        native_witness = scratch / "a-native-source.md"
+        native_witness.write_text("- a rule as delivered\n", encoding="utf-8")
+        control("a native source whose bytes changed while the layers were read",
+                [str(_raised(lambda: verify_unchanged([], {}, {str(native_witness): "0" * 64},
+                                                      home=str(pathlib.Path.home()))))],
+                "STATE_WRITTEN", "reading the native layers changed")
+
+        # The schema contract's own failure paths. The schema is a file, so "there is no schema" is
+        # one of its answers, and every reader of it must say so rather than compare against None.
+        kept_schema_reader = globals()["inventory_schema"]
+        try:
+            def unreadable_schema(path=SCHEMA_PATH):
+                raise Refused(f"JSONSCHEMA_PIN_UNREADABLE {masked(path)}: the fixture withholds it")
+
+            globals()["inventory_schema"] = unreadable_schema
+            control("a layer table judged against a schema that cannot be read",
+                    layer_problems(), "SCHEMA_UNREADABLE", "JSONSCHEMA_PIN_UNREADABLE")
+            control("a unit contract judged against a schema that cannot be read",
+                    contract_problems(), "SCHEMA_UNREADABLE", "JSONSCHEMA_PIN_UNREADABLE")
+            control("a produced document judged against a schema that cannot be read",
+                    document_contract_problems({"units": [], "layers": []}),
+                    "SCHEMA_UNREADABLE", "JSONSCHEMA_PIN_UNREADABLE")
+        finally:
+            globals()["inventory_schema"] = kept_schema_reader
+        reordered = json.loads(json.dumps(inventory_schema()))
+        reordered["$defs"]["layer_name"]["enum"] = list(reversed(reordered["$defs"]["layer_name"]["enum"]))
+        control("a schema that names the same layers in another order",
+                layer_problems(reordered), "LAYER_ORDER")
+        kept_unit_fields = globals()["UNIT_FIELDS"]
+        try:
+            # The record and the schema agree with each other and both omit a field the PLAN
+            # requires: the first comparison passes, and what the plan asked for is gone. Only this
+            # branch sees that, which is why it needs its own rows.
+            trimmed = tuple(field for field in kept_unit_fields if field != PLAN_FIELDS[0])
+            globals()["UNIT_FIELDS"] = trimmed
+            agreeing = json.loads(json.dumps(inventory_schema()))
+            agreeing["$defs"]["unit"]["required"] = list(trimmed)
+            control("a record and a schema that agree with each other and drop a field the plan requires",
+                    contract_problems(agreeing), "CONTRACT_MISMATCH", PLAN_FIELDS[0])
+        finally:
+            globals()["UNIT_FIELDS"] = kept_unit_fields
+        control("a schema this project's own schema policy refuses",
+                document_contract_problems({"units": [], "layers": []},
+                                           {"type": "object", "additionalProperties": False,
+                                            "properties": {"units": {}}}),
+                "SCHEMA_INVALID")
+
     print(f"inventory --self-test: {'OK' if not failures else 'FAILED'} ({len(ran)} controls: the splitter's "
           f"reproduction over the real guides, the unit record and the layer set against the schema the code owns "
           f"(no control reads a dated design record), a produced document validated against that schema, a span "
-          f"projected with its carrier intact — a credential's key four nonblank lines above its value, and a "
-          f"multi-line credential the splitter cut in two — an opaque carrier identity that lets an absolute native "
+          f"projected with its carrier intact — a credential's key four nonblank lines above its value, a "
+          f"multi-line credential the splitter cut in two, and an escaped key whose whole carrier the floor "
+          f"withholds, published through the real writer — with every carrier fixture differentially checked for "
+          f"what the intact carrier does not keep, an opaque carrier identity that lets an absolute native "
           f"path be published, one source selection before every read of the owner's state with a leaf and an "
-          f"ancestor link refused for each read kind, the checkout protected whatever `--project` declares, a "
+          f"ancestor link refused for each read kind, and denying that selection stopping every category of read, "
+          f"the owner's roots protected whether or not this run reads them, a self-test scratch parent chosen by "
+          f"the same rule, the checkout protected whatever `--project` declares, a "
           f"standalone destination that is a run or already holds an inventory refused, the real invocation run as "
           f"`__main__` against an uncached copy of the checkout with every attempted write observed, a context that "
           f"spans two guides "

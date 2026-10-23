@@ -1738,35 +1738,56 @@ def project_text(text, home=None, depth=0, masked=None):
     return emit(text, mask_spans(text, mask_extents(text, home, depth)), home, masked)
 
 
-def carrier_extents(carrier, home=None):
-    """Every extent this floor would mask in a WHOLE carrier, in the carrier's own coordinates.
+def carrier_decision(carrier, home=None):
+    """What this floor decides about a WHOLE carrier, for every span of it to inherit:
+    `(extents, withheld)`.
 
-    Computed once per carrier and handed to `project_span` for each of its spans: a credential's key
-    and its value are one relationship, and a splitter that puts the two in different blocks breaks
-    that relationship for anything that reads a block on its own."""
+    `extents` are what it would mask, in the carrier's own coordinates — a credential's key and its
+    value are one relationship, and a splitter that puts the two in different blocks breaks that
+    relationship for anything reading a block alone.
+
+    `withheld` is the decision extents cannot express: the floor sometimes declines to return the
+    carrier AT ALL — undecodable escaped text, an output that still discloses, a masking that broke
+    the syntax. That decision is taken in `emit`, about the whole, and it is asked here by projecting
+    the whole carrier THROUGH THAT ONE EXIT rather than by re-deriving its conditions, which would be
+    a second authority on the same question.
+
+    Extents alone were the leak: for the Markdown carrier `api\\_key: "alpha\\nbravo\\n\\nshortpass"`
+    `project` returns the mask, while the span path applied the undecodable decision only to the
+    detached span and emitted `shortpass` from a later one."""
+    whole = project(carrier, CURRENT, home)
+    if whole == blank_for(carrier):
+        return [], True
+    return mask_extents(carrier, home, 0), False
+
+
+def carrier_extents(carrier, home=None):
+    """The masked extents of a whole carrier. A caller wants `carrier_decision`: this omits the
+    whole-carrier withholding decision, which is not expressible as an extent."""
     return mask_extents(carrier, home, 0)
 
 
-def project_span(carrier, start, end, home=None, extents=None):
+def project_span(carrier, start, end, home=None, decision=None):
     """The projection of `carrier[start:end]`, judged with the carrier INTACT.
 
-    The extents are those of the whole carrier, clipped to the span, UNION the span's own — so the
-    key three lines above the value still masks it, a credential that straddles the span's start is
-    masked for the part that falls inside it, and nothing the span discloses on its own is lost
-    because the carrier's context happened to suppress a match. Masks only grow, which is what makes
-    taking the union the safe direction.
+    Two things carry over from the whole carrier. A decision to WITHHOLD it withholds every span of
+    it: a span of a carrier the floor refused to return is refused too, never projected on its own.
+    Otherwise the carrier's extents are clipped to the span, UNION the span's own — the key three
+    lines above the value still masks it, a credential straddling the span's start is masked for the
+    part inside it, and nothing the span discloses alone is lost because the carrier's context
+    suppressed a match. Masks only grow, which is what makes the union the safe direction.
 
     This replaces a fixed window of preceding lines. Two nonblank lines do not preserve a carrier's
     structural context: for `api_key: [\\n "alpha",\\n\\n "bravo",\\n\\n "shortpass"\\n]` the key had
     fallen outside the window by the time the last element's block was projected, and the value was
     emitted with nothing to mark it."""
     span = carrier[start:end]
-    if undecodable_claim(span, 0):
-        STATS["undecodable_claim"] += 1
+    extents, withheld = carrier_decision(carrier, home) if decision is None else decision
+    if withheld or undecodable_claim(span, 0):
+        STATS["carrier_withheld" if withheld else "undecodable_claim"] += 1
         return emit(span, blank_for(span), home)
-    whole = carrier_extents(carrier, home) if extents is None else extents
     clipped = []
-    for extent_start, extent_end, replacement, rank in whole:
+    for extent_start, extent_end, replacement, rank in extents:
         low, high = max(extent_start, start), min(extent_end, end)
         if low < high:
             clipped.append((low - start, high - start, replacement, rank))

@@ -202,6 +202,38 @@ SCRIPT_RUNS = (
     {"site": "session-distill/migrate-ledger.py", "path": "session-distill/merge-ledger.py",
      "reason": "the migrator's self-test runs the documented merge-ledger.py --window-end invocation on a fixture ledger"},
 )
+# Sites that run a closure file FROM A COPY of this checkout. The program is computed, so the trace
+# cannot name it; what admits it is that the copy is this tree's own, made by
+# `inventory.checkout_copy`, so the program is the file the trace already follows. Both halves are
+# required of every entry: each value of the program must name the declared closure path, and the
+# site must still carry the guards that make the copy this checkout's. A copy-run of any other
+# script is refused like any undeclared one.
+# A value the trace cannot read at all is admitted only by the guards, which is the standard
+# `GUARDED_PROGRAMS` already holds an unnameable program to: the child's program arrives through its
+# own argv, so what confines it is the literal construction in the site. A value the trace CAN read
+# must name the declared path.
+COPY_RUNS = (
+    {"site": "session-distill/distill.py", "paths": ("session-distill/distill.py",),
+     "guards": ("inventory.checkout_copy(",),
+     "reason": "the self-test's startup and checkout-protection controls run the COPY's own driver as a real "
+               "process. Neither question can be asked of this checkout: the destination a protection rule is "
+               "about has to be inside the checkout the rule protects, and an unreadable schema pin has to be "
+               "unreadable in the tree that reads it. `checkout_copy` copies this checkout's tracked files, so "
+               "the program is this driver (R1#2, R1#3)"},
+    {"site": "session-distill/runlib/inventory.py",
+     "paths": ("session-distill/distill.py", "learn/redact.py"),
+     "guards": ('copied = checkout_copy(copied_checkout)',
+                'driver_copy = copied_checkout / "session-distill" / "distill.py"',
+                'copied_checkout / "learn" / "redact.py"'),
+     "reason": "the bytecode control's child runs the COPY's driver as production does — "
+               "`runpy.run_path(..., run_name=\'__main__\')` — to ask whether a real invocation writes "
+               "anything under the checkout it ran from. The path arrives through the child's argv, so "
+               "the guards are the construction: the copy is this checkout's, and the program is its "
+               "driver. The same control's POSITIVE leg loads the copy's own redaction floor by path with "
+               "the no-bytecode guard off, which is what proves both instruments can see such a write; "
+               "`learn/redact.py` is in the closure (DYNAMIC_LOADS), and the third guard pins it to the copy"},
+)
+
 # Sites whose program the trace cannot name, each admitted only while its guard — a literal line
 # of the site's file that confines the program to one by name — is still there.
 GUARDED_PROGRAMS = (
@@ -1366,6 +1398,53 @@ def _names(path, text):
     return tail.startswith("/") and bool(tail.strip("/")) and path.endswith(tail)
 
 
+def _copy_run(mod, flag, copies=None):
+    """The `COPY_RUNS` entry that admits this site's program, or None.
+
+    Asked of the program's VALUES, not of its shape: every one of them must name the declared
+    closure path, and the site must still hold the guards. A site that copies the checkout and then
+    runs something else from it is not admitted by this entry."""
+    copies = COPY_RUNS if copies is None else copies
+    held = mod.path.read_text(encoding="utf-8") if mod.path.is_file() else ""
+    for entry in copies:
+        if entry["site"] != str(mod.rel) or not all(guard in held for guard in entry["guards"]):
+            continue
+        if flag and all(any(_names(path, value) for path in entry["paths"]) or _unread(value)
+                        for value in flag):
+            return entry
+    return None
+
+
+def _unread(text):
+    """Whether the trace read nothing of this value: it is the hole and the separators around it."""
+    return bool(text) and UNKNOWN in text and not text.replace(UNKNOWN, "").strip("/.")
+
+
+def _loads(mod, copies=None, follow=None):
+    """Violations of the load rules inside code the trace read out of a `python -c` program.
+
+    The closure walk judges LOAD_CALLS in the files it visits. A `-c` program is not one of those
+    files, and the recursion into it judged EXEC_CALLS only — so a load there was judged by nothing
+    at all. That is how the bytecode control's child, which runs the driver from a copy of this
+    checkout through `runpy.run_path`, passed this gate without being declared: not because the
+    shape was admitted, but because nobody looked. The rule is `COPY_RUNS`'s, the same one a
+    copy-run as a PROGRAM is held to."""
+    problems = []
+    for node in ast.walk(mod.tree):
+        if not (isinstance(node, ast.Call) and mod.dotted(node.func) in LOAD_CALLS):
+            continue
+        at = LOAD_CALLS[mod.dotted(node.func)]
+        arg = node.args[at] if len(node.args) > at else None
+        for text in (mod.values(arg) if arg is not None else [UNKNOWN]):
+            admitted = _copy_run(mod, [text], copies)
+            if admitted is None:
+                problems.append(f"DISPATCH_UNRESOLVED {mod.rel}:{node.lineno}: loads {text!r}, declared "
+                                f"nowhere in COPY_RUNS")
+            elif follow is not None:   # the entry is what records that the site made this load
+                follow.extend({"site": admitted["site"], "path": path} for path in admitted["paths"])
+    return problems
+
+
 def _resolved_code(code):
     """python -c code with each part the trace could not read made a string constant, or None
     unless every such part is a call's argument or an element of one — data handed to a call the
@@ -1428,7 +1507,9 @@ def _judge_program(mod, program, rest, line, pinned, problems, depth=0, runs=(),
                 if code is None:
                     problems.append(f"DISPATCH_UNRESOLVED {where}: python -c with code the trace cannot resolve")
                 else:
-                    for violation in _sites(_Module(mod.path, mod.rel, source=code), pinned, depth + 1, runs, follow):
+                    inline = _Module(mod.path, mod.rel, source=code)
+                    for violation in (_sites(inline, pinned, depth + 1, runs, follow)
+                                      + _loads(inline, follow=follow)):
                         problems.append(f"{violation.split()[0]} {where}: inside python -c: {violation.split(': ', 1)[-1]}")
         elif any(s.endswith("launch/agent-launch.py") for s in flag):
             if nxt != ["--emit-receipt"]:  # the receipt emitter dispatches nothing; the rest of the launcher does
@@ -1437,6 +1518,10 @@ def _judge_program(mod, program, rest, line, pinned, problems, depth=0, runs=(),
             problems.append(f"CLOSURE_IMPORTS_OUT_OF_SCOPE {where}: runs {flag[0]!r}, an out-of-scope executor")
         elif follow is not None and declared and all(len(d) == 1 for d in declared):
             follow.extend(d[0] for d in declared)
+        elif _copy_run(mod, flag) is not None:
+            if follow is not None:   # already in the closure; the entry is what records it ran
+                follow.extend({"site": entry["site"], "path": path}
+                              for entry in [_copy_run(mod, flag)] for path in entry["paths"])
         else:
             problems.append(f"DISPATCH_UNRESOLVED {where}: python runs {flag!r}, a script the trace does not follow")
     elif base in SHELLS:
@@ -1534,6 +1619,15 @@ def closure_violations(root=REPO, out_of_scope=OUT_OF_SCOPE, dynamic=DYNAMIC_LOA
         for guard in entry["guards"]:
             if guard not in held:
                 problems.append(f"INVENTORY_STALE guarded program {entry['site']}: its guard {guard!r} is gone")
+    for entry in COPY_RUNS:
+        missing = [p for p in entry["paths"] if not (root / p).is_file()]
+        if not (root / entry["site"]).is_file() or missing:
+            problems.append(f"INVENTORY_STALE copy run {entry['site']} -> {missing or entry['paths']}: no such file")
+            continue
+        held = (root / entry["site"]).read_text(encoding="utf-8")
+        for guard in entry["guards"]:
+            if guard not in held:
+                problems.append(f"INVENTORY_STALE copy run {entry['site']}: its guard {guard!r} is gone")
     excluded = {(root / e["path"]).resolve() for e in out_of_scope}
     queue = [root / CLOSURE_ROOTS[0]] + sorted((root / CLOSURE_ROOTS[1]).glob("*.py"))
     closure, seen, sites, used, ran = [], set(), 0, set(), set()
@@ -1595,6 +1689,10 @@ def closure_violations(root=REPO, out_of_scope=OUT_OF_SCOPE, dynamic=DYNAMIC_LOA
     for entry in scripts:
         if (entry["site"], entry["path"]) not in ran and (root / entry["site"]).is_file():
             problems.append(f"INVENTORY_STALE script run {entry['site']} -> {entry['path']}: the site runs no such script")
+    for entry in COPY_RUNS:
+        for path in entry["paths"]:
+            if (entry["site"], path) not in ran and (root / entry["site"]).is_file():
+                problems.append(f"INVENTORY_STALE copy run {entry['site']} -> {path}: the site runs no such copy")
     return problems, closure, sites
 
 
@@ -2919,6 +3017,12 @@ def self_test(scratch=None):
             "DISPATCH_UNRESOLVED {at}: python runs ['<?>/census.py']", 1)
     planted("a-declared-script-is-traced", "session-distill/digest.py",
             "import subprocess\nsubprocess.run(['claude', '-p'])", "DISPATCH_OUTSIDE_SUPERVISOR {at}: starts 'claude'", 1)
+    # a copy-run is bound to its path and its guard like every other declaration: the driver run
+    # from a copy of this checkout is admitted, anything else from that same copy is not, and the
+    # entry goes stale the moment the site stops making the copy
+    planted("a-copy-run-of-a-script-that-is-not-the-driver", "session-distill/distill.py",
+            "import subprocess\nsubprocess.run([sys.executable, str(COPY / 'session-distill' / 'digest.py')])",
+            "DISPATCH_UNRESOLVED {at}: python runs ['<?>/session-distill/digest.py']", 1)
     planted("script-entry-the-site-never-runs", "session-distill/runlib/claims.py", "",
             "INVENTORY_STALE script run session-distill/runlib/claims.py -> session-distill/census.py: the site runs no such script",
             scripts=SCRIPT_RUNS + ({"site": "session-distill/runlib/claims.py", "path": "session-distill/census.py", "reason": "x"},))
@@ -2962,6 +3066,31 @@ def self_test(scratch=None):
                             .replace("checked_zstd(zstd)", "zstd"))
         control(f"a-guarded-program-without-its-checked-call-is-unresolved-and-stale-{pathlib.Path(entry['site']).stem}",
                 unguarded_and_stale(unchecked, entry["site"]), f"{unchecked}")
+    # a load inside a `-c` program is judged by the same declaration: an undeclared one is named,
+    # and the bytecode control's own site is refused the moment its construction guard is gone
+    planted("a-load-inside-python-c-is-judged", "session-distill/runlib/claims.py",
+            "import subprocess\nsubprocess.run([sys.executable, '-c', \"import runpy; runpy.run_path('other.py')\"])",
+            "DISPATCH_UNRESOLVED {at}: inside python -c: loads 'other.py', declared nowhere in COPY_RUNS", 1)
+    probe_entry = [e for e in COPY_RUNS if e["site"] == "session-distill/runlib/inventory.py"]
+    control("copy-run-declared-for-the-bytecode-probe",
+            {p for e in probe_entry for p in e["paths"]} == {"session-distill/distill.py", "learn/redact.py"},
+            f"{[e['paths'] for e in probe_entry]}")
+    if probe_entry:
+        unguarded_probe = without(probe_entry[0]["site"], probe_entry[0]["guards"][0],
+                                  "copied = a_copy_of(copied_checkout)")
+        control("the-bytecode-probes-load-without-its-construction-guard-is-unresolved-and-stale",
+                any(v.startswith("DISPATCH_UNRESOLVED session-distill/runlib/inventory.py:") for v in unguarded_probe)
+                and any(v.startswith("INVENTORY_STALE copy run session-distill/runlib/inventory.py") for v in unguarded_probe),
+                f"{unguarded_probe}")
+    copy_entry = {e["site"]: e for e in COPY_RUNS}.get(
+        "session-distill/distill.py", {"site": "session-distill/distill.py", "guards": ("?",)})
+    unguarded_copy = without(copy_entry["site"], copy_entry["guards"][0], "inventory.a_copy_of(")
+    control("a-copy-run-without-its-guard-is-unresolved-and-stale",
+            any(v.startswith(f"DISPATCH_UNRESOLVED {copy_entry['site']}:") for v in unguarded_copy)
+            and any(v.startswith(f"INVENTORY_STALE copy run {copy_entry['site']}") for v in unguarded_copy),
+            f"{unguarded_copy}")
+    control("copy-run-declared-for-the-driver", copy_entry.get("paths") == ("session-distill/distill.py",),
+            f"{COPY_RUNS}")
     found, _at = plant("session-distill/runlib/dispatch.py", "import subprocess\nsubprocess.run(['claude', '-p'])")
     control("supervisor-own-sites-are-not-failures", not found, f"{found}")
     found, _at = plant("session-distill/screen-codex.py", "import subprocess\nsubprocess.run(['codex', 'exec'])")

@@ -41,12 +41,39 @@ import tempfile
 # file it caches — in the checkout, or in a frozen copy this run is about to hash (GB#7).
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
-from runlib import census, coverage, declare, inventory, projection, records, stagelock, views
-from runlib.records import Refused
+
+HOME = str(pathlib.Path.home())
+# The one line printed when the module graph cannot be imported AND the floor is not there to
+# project a message. Fixed text with a constant code and no path in it: at that point nothing can be
+# said safely about the file that failed, and a traceback says the most (R1#3).
+STARTUP_WITHHELD = ("STARTUP_FAILED: the command's modules could not be imported, and the redaction "
+                    "floor is not available to describe why; nothing about the failure is printed")
+
+
+def _startup_failure(exc):
+    """What to print when the import of the command's own modules fails, and the exit code.
+
+    The imports used to stand OUTSIDE every boundary this command has: `runlib.validate` exits during
+    import when its jsonschema pin is unreadable, interpolating the absolute pin path, and that path
+    reached stderr unprojected (R1#3). The floor is asked for a projection if it loaded; if the floor
+    itself is what failed, the fixed line above stands instead."""
+    try:
+        from runlib import projection as floor
+        return f"STARTUP_FAILED: {floor.diagnostic(f'{type(exc).__name__}: {exc}', HOME)}", 2
+    except BaseException:       # the floor is the thing that failed, or it cannot load either
+        return STARTUP_WITHHELD, 2
+
+
+try:
+    from runlib import census, coverage, declare, inventory, projection, records, stagelock, views
+    from runlib.records import Refused
+except BaseException as _startup_exc:   # SystemExit included: `validate` exits at import time
+    _message, _code = _startup_failure(_startup_exc)
+    print(_message, file=sys.stderr)
+    sys.exit(_code)
 
 OUT = pathlib.Path(__file__).resolve().parent / "out"
 RUN_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}")
-HOME = str(pathlib.Path.home())
 
 
 def say(text, stream=None):
@@ -151,10 +178,12 @@ def cmd_inventory(args):
     if not args.run_id and not args.to:
         raise Refused("INPUT_INVALID inventory: give --run-id, or --to DIR to write outside a run")
     repo = pathlib.Path(__file__).resolve().parents[1]
-    state_root = None if args.no_state else (args.state_root or os.environ.get(
-        "AGENT_BIOS_STATE_DIR", str(pathlib.Path.home() / ".local/share/agent-bios")))
-    user_root = None if args.no_state else (args.user_root or os.environ.get(
-        "AGENT_BIOS_INSTRUCTIONS_DIR", str(pathlib.Path.home() / ".config/agent-bios/corpus")))
+    # Two questions, not one value. The roots are resolved for PROTECTION whatever this run reads,
+    # and `--no-state` decides only the reading pair. Setting both to None before the protected set
+    # was built made the flag that says "read nothing" also say "write anywhere" (R1#1).
+    declared_state, declared_user = inventory.configured_roots(args.state_root, args.user_root)
+    state_root = None if args.no_state else str(declared_state)
+    user_root = None if args.no_state else str(declared_user)
     # A project is its canonical path. Keyed by basename, two checkouts both called `source` were
     # one project, and one's memory entries were read as the other's (GA#4). A project root is a
     # protected WRITE target: no native file is read, here or anywhere (the 1548 amendment §5).
@@ -168,7 +197,7 @@ def cmd_inventory(args):
     # The destination is judged before anything is locked, captured or recorded: a stage record is
     # a write, and a write under a protected root must be refused before it happens (GB#0).
     overlap = inventory.overlap_problems(
-        [out_dir], inventory.protected_roots(state_root, user_root, native,
+        [out_dir], inventory.protected_roots(declared_state, declared_user, native,
                                              host_homes=[spec["home"] for spec in inventory.NATIVE.values()],
                                              checkout=repo),
         home=HOME)
@@ -190,7 +219,8 @@ def cmd_inventory(args):
 
     def produce():
         return inventory.run(repo, state_root, user_root, out_dir, pin=args.pin, native_roots=native,
-                             ledger=ledger, commit=(head.stdout.strip() or None), run_dir=run_dir)
+                             ledger=ledger, commit=(head.stdout.strip() or None), run_dir=run_dir,
+                             declared_state=str(declared_state), declared_user=str(declared_user))
 
     if args.run_id:
         # S2 holds two producers; this is the inventory part, and views owns the other
@@ -306,7 +336,10 @@ def self_test():
         if not ok:
             failures.append(f"{name}: {detail}")
 
-    with tempfile.TemporaryDirectory() as td:
+    # Chosen and judged by the same rule production uses, never probed: this suite writes run
+    # directories, fixture state roots and a copy of the checkout (R1#5).
+    with tempfile.TemporaryDirectory(prefix="wp07-driver-self-test-",
+                                     dir=str(inventory.scratch_parent())) as td:
         scratch = pathlib.Path(td)
         out = scratch / "out"
         out.mkdir()
@@ -512,25 +545,103 @@ def self_test():
                 f"{sorted(document.get('produced_by', {}))}")
         # ---- GC#0 through `--project`: the checkout is a protected root whatever is declared, and
         # the refusal is observed as an attempted write that did not happen.
-        checkout = pathlib.Path(__file__).resolve().parents[1]
-        in_checkout = checkout / "session-distill" / "out" / "a-destination-no-run-owns"
+        #
+        # The destination has to be inside "the checkout", which is the one root this rule is about —
+        # so the checkout under test is a DISPOSABLE COPY and the driver run is that copy's own. The
+        # first version used the review checkout and then removed the destination unconditionally: a
+        # failing control appended its failure and execution carried on to the `rmtree`, so a
+        # leftover from an interrupted revert — or anything else that happened to be at that path —
+        # was deleted inside the reviewer's tree (R1#2). Nothing here deletes anything: the copy
+        # lives under the judged scratch parent and goes with it.
+        protect_copy = scratch / "protection-checkout"
+        inventory.checkout_copy(protect_copy)
         other_project = scratch / "another-project"
         other_project.mkdir()
-        before_write = in_checkout.exists()
-        code, err = cli("inventory", "--to", str(in_checkout), "--no-state",
-                        "--project", str(other_project))
-        control("inventory (S2) refuses a destination inside the checkout when another project is declared",
-                code == 1 and "PROTECTED_OVERLAP" in err, f"{code} {err}")
-        control("and the attempted write did not happen",
-                not before_write and not in_checkout.exists(),
-                f"{in_checkout} exists after a refused run")
-        # This fixture destination is inside the checkout, which is the whole point of it. When the
-        # rule under test is taken out — a revert, which is how this control is proven to fire — the
-        # write really does land here, and a leftover would make the NEXT run answer about the
-        # destination instead of about the rule: it refuses with INVENTORY_PRESENT, a second reason,
-        # and `before_write` is already true. So the control removes exactly the path it named,
-        # after judging it, and never anything else.
-        shutil.rmtree(in_checkout, ignore_errors=True)
+
+        def copy_cli(*argv):
+            """The COPY's own driver, as a real process: `repo` is resolved from `__file__`, so only
+            the copy's driver treats the copy as the checkout."""
+            ran = subprocess.run([sys.executable, str(protect_copy / "session-distill" / "distill.py"),
+                                  *argv], capture_output=True, text=True)
+            return ran.returncode, ran.stdout + ran.stderr
+
+        @contextlib.contextmanager
+        def owning(name):
+            """A control's own fixtures. A crash inside is a failure of THIS name, not a dead suite:
+            under a revert the write these controls expect to be refused actually lands, and a
+            `mkdir` in the next control then raised `FileExistsError` out of the whole run — which
+            is also why no two of them share a destination any more."""
+            ran.append(name)
+            try:
+                yield
+            except Exception as exc:
+                failures.append(f"{name}: RAISED {exc!r}")
+
+        with owning("the checkout-protection controls' own fixtures"):
+            # Each control owns its destination, and no other control names it.
+            in_checkout = protect_copy / "session-distill" / "out" / "a-destination-no-run-owns"
+            code, err = copy_cli("inventory", "--to", str(in_checkout), "--no-state",
+                                 "--project", str(other_project))
+            control("inventory (S2) refuses a destination inside the checkout when another project is declared",
+                    code == 1 and "PROTECTED_OVERLAP" in err, f"{code} {err}")
+            control("and the attempted write did not happen", not in_checkout.exists(),
+                    f"{in_checkout} exists after a refused run")
+            # The shape the old cleanup would have destroyed: a destination that already exists,
+            # holding something this test does not own. It is still refused, and the sentinel is
+            # still there afterwards — nothing here removes anything.
+            existing = protect_copy / "session-distill" / "out" / "a-destination-that-already-exists"
+            sentinel = existing / "sentinel.txt"
+            existing.mkdir(parents=True, exist_ok=True)
+            sentinel.write_text("left here by something that is not this test\n", encoding="utf-8")
+            code, err = copy_cli("inventory", "--to", str(existing), "--no-state",
+                                 "--project", str(other_project))
+            control("a pre-existing destination inside the checkout is refused and nothing of it is removed",
+                    code == 1 and "PROTECTED_OVERLAP" in err and sentinel.is_file()
+                    and sentinel.read_text(encoding="utf-8").startswith("left here"),
+                    f"{code} {sentinel.exists()} {err[:200]}")
+
+        def cli_refused_before_run(*argv):
+            """`(code, err, reached)`: the CLI's answer with `inventory.run` replaced by a recorder.
+
+            Protection is enforced in two layers — the driver judges the destination, and
+            `inventory.run` judges it again over its own protected set. With both in place a
+            refusal cannot be attributed to either, so reverting one layer left the other refusing
+            and the control stayed green (R1#1, and the same shape at #17). Here the producer is
+            not there to refuse anything: what is observed is that THIS layer refused, and that the
+            producer was never reached."""
+            reached = []
+            kept = inventory.run
+            try:
+                inventory.run = lambda *args, **kwargs: (reached.append(argv) or
+                                                         {"references": {}, "state_root_unchanged": True})
+                return (*cli(*argv), reached)
+            finally:
+                inventory.run = kept
+
+        # The CLI layer alone, for each of the two destinations it must refuse: inside the checkout
+        # when another project is declared, and inside the owner's state root under `--no-state`.
+        # The first destination is inside THIS checkout, because that is the root the rule names and
+        # the in-process driver's own `repo`. Nothing writes there in either direction: the producer
+        # is the recorder, and the driver creates no destination of its own — the control asserts it
+        # afterwards rather than trusting that.
+        unwritten = pathlib.Path(__file__).resolve().parents[1] / "out" / "a-cli-layer-destination"
+        cli_checkout = scratch / "cli-layer-reachable-destination"
+        guarded_state_cli = scratch / "cli-layer-state"
+        (guarded_state_cli / "runtime").mkdir(parents=True)
+        code, err, reached = cli_refused_before_run(
+            "inventory", "--to", str(unwritten), "--no-state", "--project", str(other_project))
+        control("the driver itself refuses a destination inside the checkout, before the producer is called",
+                code == 1 and "PROTECTED_OVERLAP" in err and not reached, f"{code} {reached} {err}")
+        control("and that destination inside this checkout was never created",
+                not unwritten.exists(), f"{unwritten} exists after the control ran")
+        code, err, reached = cli_refused_before_run(
+            "inventory", "--to", str(guarded_state_cli / "out"), "--state-root", str(guarded_state_cli),
+            "--user-root", str(scratch / "cli-layer-user"), "--no-state")
+        control("the driver itself refuses a destination inside the unread state root, before the producer is called",
+                code == 1 and "PROTECTED_OVERLAP" in err and not reached, f"{code} {reached} {err}")
+        control("and the producer is reachable at all when the destination is not protected",
+                cli_refused_before_run("inventory", "--to", str(cli_checkout), "--no-state")[2],
+                "the recorder was never called, so the two controls above judge nothing")
         # ---- GC#3 by another route: a standalone `--to` is not a way into a run's artifacts. The
         # run's own bytes and its stage record are the subject: both must be exactly as they were.
         standalone_run = out / "r-standalone"
@@ -586,6 +697,24 @@ def self_test():
                 code == 1 and "PROTECTED_OVERLAP" in err, f"{code} {err}")
         control("and writes nothing there", not inside.exists(), f"{sorted(p.name for p in inside.rglob('*'))}"
                 if inside.exists() else "")
+        # The same destination with `--no-state`, which says "read no state root at all". Protection
+        # and reading were one value here: the flag set both roots to None before the protected set
+        # was built, so this exact command exited 0 and wrote current.json, release.json,
+        # selection.json and manifest.json under the owner's own state root (R1#1).
+        code, err = cli("inventory", "--to", str(inside), "--state-root", str(guarded_state),
+                        "--user-root", str(scratch / "guarded-user"), "--no-state")
+        control("inventory (S2) refuses that destination with --no-state as well",
+                code == 1 and "PROTECTED_OVERLAP" in err, f"{code} {err}")
+        control("and the attempted write under the unread state root did not happen",
+                not inside.exists() and sorted(p.name for p in guarded_state.rglob("*")) == ["runtime"],
+                f"{sorted(str(p.relative_to(guarded_state)) for p in guarded_state.rglob('*'))}")
+        guarded_user = scratch / "guarded-user-root"
+        guarded_user.mkdir()
+        code, err = cli("inventory", "--to", str(guarded_user / "out"), "--state-root", str(guarded_state),
+                        "--user-root", str(guarded_user), "--no-state")
+        control("and the authoring root it does not read is protected under the same flag",
+                code == 1 and "PROTECTED_OVERLAP" in err and not (guarded_user / "out").exists(),
+                f"{code} {err}")
         # The same destination as a RUN: the stage record is the first write, so the refusal has to
         # come before the stage is entered at all.
         # `cli` appends its own --out, so the guarded run lives under it and the state root is that
@@ -650,13 +779,68 @@ def self_test():
         code, err = cli("declare", "--run-id", "r1", "--from", str(out / "declaration.json"))
         control("a declaration is never replaced", code == 1 and "RUN_EXISTS" in err, err)
 
+        # ---- R1#3: startup and this suite's own output cross the same boundary.
+        #
+        # A startup failure is a real process: the imports run before anything this file controls, so
+        # the only way to observe them is to start the driver with the failure in place. The fixture
+        # is `runlib/validate.py`'s own refusal — it exits during import when the jsonschema pin is
+        # unreadable, interpolating the absolute pin path — reproduced in a COPY of the checkout, so
+        # nothing in this one is touched and `validate.py`'s exits are left exactly as they are (other
+        # modules and gates import it).
+        startup_copy = scratch / "startup-checkout"
+        inventory.checkout_copy(startup_copy)
+        pin_file = startup_copy / "launch" / "provision-venv.sh"
+        pin_file.write_text("JSONSCHEMA_PIN is not where this reads it from\n", encoding="utf-8")
+        # The child's HOME is the fixture's, so "the owner's home" is a path this control owns and
+        # the floor has something to mask. Without it the fixture sits under the system temp
+        # directory, which is nobody's home, and the control would pass on a message that happened
+        # to carry no home path rather than on one the floor projected.
+        startup_env = {**os.environ, "HOME": str(scratch)}
+        startup = subprocess.run([sys.executable, str(startup_copy / "session-distill" / "distill.py"),
+                                  "inventory", "--to", str(scratch / "startup-out"), "--no-state"],
+                                 capture_output=True, text=True, env=startup_env)
+        control("an unreadable pin at startup is a projected diagnostic, not an unprojected path",
+                startup.returncode != 0 and "JSONSCHEMA_PIN_UNREADABLE" in startup.stderr
+                and str(startup_copy) not in startup.stderr and "<HOME>" in startup.stderr,
+                f"{startup.returncode} {startup.stdout[-200:]} {startup.stderr[-400:]}")
+        control("and it wrote no artifact", not (scratch / "startup-out").exists(),
+                "a refused startup still wrote its output directory")
+        # The other half: when the FLOOR is what failed, there is nothing that can project a message,
+        # so a fixed path-free line with a constant code stands instead of an exception text.
+        (startup_copy / "learn" / "redact.py").write_text(
+            "raise RuntimeError('the floor is broken')\n", encoding="utf-8")
+        floorless = subprocess.run([sys.executable, str(startup_copy / "session-distill" / "distill.py"),
+                                    "inventory", "--to", str(scratch / "floorless-out"), "--no-state"],
+                                   capture_output=True, text=True, env=startup_env)
+        control("a startup whose floor cannot load prints the fixed path-free line",
+                floorless.returncode != 0 and floorless.stderr.strip() == STARTUP_WITHHELD,
+                f"{floorless.returncode} {floorless.stderr[-300:]}")
+        # This suite's own failure lines leave through `say`, so a planted path in one is masked. The
+        # printer is called directly with rows this control builds, which is the only way to observe
+        # a FAILING self-test without failing this one.
+        planted_failure = io.StringIO()
+        with contextlib.redirect_stderr(planted_failure):
+            code = report([f"a fixture control read {HOME}/Documents/x"], [], "fixture --self-test")
+        printed = planted_failure.getvalue()
+        control("a self-test failure line carrying the owner's home path is projected",
+                code == 1 and HOME not in printed and "<HOME>" in printed, f"{code} {printed!r}")
+
+    return report(failures, ran)
+
+
+def report(failures, ran, label="distill --self-test"):
+    """A self-test's own diagnostics, through the SAME printer every other line leaves by.
+
+    A failure line carries whatever the control put in it — a path, a fixture's planted text — and it
+    was printed directly, so a self-test could publish what every other route is checked for (R1#3).
+    It goes to stderr because it is a diagnostic; the per-control listing stays on stdout."""
     for failure in failures:
-        print(f"distill --self-test [FAIL] {failure}")
+        say(f"{label} [FAIL] {failure}", sys.stderr)
     if failures:
         return 1
     for name in ran:
-        print(f"  control {name}")
-    print(f"distill --self-test: OK ({len(ran)} controls)")
+        say(f"  control {name}")
+    say(f"{label}: OK ({len(ran)} controls)")
     return 0
 
 
