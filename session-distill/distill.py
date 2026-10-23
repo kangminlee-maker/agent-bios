@@ -26,6 +26,7 @@ Design: §3, §4, §4.1, §5.1-§5.5.
 """
 import argparse
 import contextlib
+import ast
 import io
 import json
 import os
@@ -43,34 +44,21 @@ sys.dont_write_bytecode = True
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 
 HOME = str(pathlib.Path.home())
-# The one line printed when the module graph cannot be imported AND the floor is not there to
-# project a message. Fixed text with a constant code and no path in it: at that point nothing can be
-# said safely about the file that failed, and a traceback says the most (R1#3).
-STARTUP_WITHHELD = ("STARTUP_FAILED: the command's modules could not be imported, and the redaction "
-                    "floor is not available to describe why; nothing about the failure is printed")
-
-
-def _startup_failure(exc):
-    """What to print when the import of the command's own modules fails, and the exit code.
-
-    The imports used to stand OUTSIDE every boundary this command has: `runlib.validate` exits during
-    import when its jsonschema pin is unreadable, interpolating the absolute pin path, and that path
-    reached stderr unprojected (R1#3). The floor is asked for a projection if it loaded; if the floor
-    itself is what failed, the fixed line above stands instead."""
-    try:
-        from runlib import projection as floor
-        return f"STARTUP_FAILED: {floor.diagnostic(f'{type(exc).__name__}: {exc}', HOME)}", 2
-    except BaseException:       # the floor is the thing that failed, or it cannot load either
-        return STARTUP_WITHHELD, 2
-
+# The boundary every entry point of this command runs inside, and the one owner of the fixed line
+# printed when even the floor cannot load. It imports nothing but the standard library and reaches
+# the floor lazily, so importing it cannot be the failure it is there to describe (R2#2, R2#3).
+from runlib import entry                                                     # noqa: E402
+STARTUP_WITHHELD = entry.WITHHELD
 
 try:
     from runlib import census, coverage, declare, inventory, projection, records, stagelock, views
     from runlib.records import Refused
 except BaseException as _startup_exc:   # SystemExit included: `validate` exits at import time
-    _message, _code = _startup_failure(_startup_exc)
-    print(_message, file=sys.stderr)
-    sys.exit(_code)
+    # The imports used to stand OUTSIDE every boundary this command has: `runlib.validate` exits
+    # during import when its jsonschema pin is unreadable, interpolating the absolute pin path, and
+    # that path reached stderr unprojected (R1#3). The floor is asked for a projection if it loaded;
+    # if the floor itself is what failed, the fixed line stands instead.
+    sys.exit(entry.failed(_startup_exc, HOME, label="STARTUP_FAILED", code=2))
 
 OUT = pathlib.Path(__file__).resolve().parent / "out"
 RUN_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}")
@@ -84,8 +72,11 @@ def say(text, stream=None):
     this driver prints — a report, a refusal, a stage that is not implemented, an argument the parser
     did not understand — leaves through here. `--bad api_key=shortpass` and
     `--run-id api_key=shortpass` each repeated the secret on stderr before a line of the command ran,
-    because `parse_args` and `print(str(exc))` stood outside every boundary this run has."""
-    print(projection.diagnostic(text, HOME), file=stream or sys.stdout)
+    because `parse_args` and `print(str(exc))` stood outside every boundary this run has.
+
+    `runlib.entry` holds the line and the floor behind it, so the driver and `runlib/inventory.py`'s
+    own entry point publish through the same code rather than through two copies of it."""
+    entry.say(text, stream if stream is not None else sys.stdout, HOME)
 
 
 class Parser(argparse.ArgumentParser):
@@ -198,8 +189,7 @@ def cmd_inventory(args):
     # a write, and a write under a protected root must be refused before it happens (GB#0).
     overlap = inventory.overlap_problems(
         [out_dir], inventory.protected_roots(declared_state, declared_user, native,
-                                             host_homes=[spec["home"] for spec in inventory.NATIVE.values()],
-                                             checkout=repo),
+                                             checkout=repo, repo=repo),
         home=HOME)
     if overlap:
         raise Refused("; ".join(overlap))
@@ -307,12 +297,15 @@ def build_parser():
 
 def main(argv=None):
     args = build_parser().parse_args(argv)
-    if args.command is None:
-        if args.self_test:
-            return self_test()
-        build_parser().print_help()
-        return 2
     try:
+        if args.command is None:
+            # The self-test is INSIDE this boundary. It was invoked above it, so an ordinary file
+            # failure in a fixture — a scratch directory that cannot be made, a fixture read that is
+            # refused — left an unprojected traceback carrying whatever path it named (R2#2).
+            if args.self_test:
+                return self_test()
+            build_parser().print_help()
+            return 2
         return args.handler(args)
     except (Refused, stagelock.Locked, stagelock.Escaped) as exc:
         say(str(exc), sys.stderr)
@@ -322,7 +315,7 @@ def main(argv=None):
         # likely to carry a path: an OSError's message IS a path, and a traceback printed by the
         # interpreter crosses no boundary at all. The type is named so the failure is still
         # diagnosable, and the message passes the floor (GC#6).
-        say(f"COMMAND_FAILED {args.command}: {type(exc).__name__}: {exc}", sys.stderr)
+        say(f"COMMAND_FAILED {args.command or '--self-test'}: {type(exc).__name__}: {exc}", sys.stderr)
         return 1
 
 
@@ -341,6 +334,13 @@ def self_test():
     with tempfile.TemporaryDirectory(prefix="wp07-driver-self-test-",
                                      dir=str(inventory.scratch_parent())) as td:
         scratch = pathlib.Path(td)
+        # N1's other half: with the `dir=` wiring gone, `tempfile` resolves `TMPDIR` — inside a
+        # protected root — and REMOVES the directory on the way out, so the control watching that
+        # location found it empty afterwards and passed. What it cannot see from outside is where
+        # this suite actually put its fixtures, so a marked run SAYS it, through the floor (the
+        # child's home is the fixture's, so a protected location reads as `<HOME>/...`).
+        if entry.nested():
+            entry.say(f"SELF_TEST_SCRATCH {td}", home=HOME)
         out = scratch / "out"
         out.mkdir()
         run_dir = out / "r1"
@@ -561,8 +561,14 @@ def self_test():
         def copy_cli(*argv):
             """The COPY's own driver, as a real process: `repo` is resolved from `__file__`, so only
             the copy's driver treats the copy as the checkout."""
-            ran = subprocess.run([sys.executable, str(protect_copy / "session-distill" / "distill.py"),
-                                  *argv], capture_output=True, text=True)
+            # The program is produced by `inventory.copied_member`, the owner of "a closure member
+            # inside a tree this process copied": that call is what the closure gate admits, so the
+            # admission is bound to this call and not to text elsewhere in this file (R2#5).
+            ran = entry.bounded(lambda: subprocess.Popen(
+                [sys.executable,
+                 str(inventory.copied_member(protect_copy, "session-distill/distill.py")),
+                 *argv], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+                start_new_session=True), what="the copy's own driver")
             return ran.returncode, ran.stdout + ran.stderr
 
         @contextlib.contextmanager
@@ -796,9 +802,12 @@ def self_test():
         # directory, which is nobody's home, and the control would pass on a message that happened
         # to carry no home path rather than on one the floor projected.
         startup_env = {**os.environ, "HOME": str(scratch)}
-        startup = subprocess.run([sys.executable, str(startup_copy / "session-distill" / "distill.py"),
-                                  "inventory", "--to", str(scratch / "startup-out"), "--no-state"],
-                                 capture_output=True, text=True, env=startup_env)
+        startup = entry.bounded(lambda: subprocess.Popen(
+            [sys.executable,
+             str(inventory.copied_member(startup_copy, "session-distill/distill.py")),
+             "inventory", "--to", str(scratch / "startup-out"), "--no-state"],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=startup_env,
+            start_new_session=True), what="the copy's driver at startup")
         control("an unreadable pin at startup is a projected diagnostic, not an unprojected path",
                 startup.returncode != 0 and "JSONSCHEMA_PIN_UNREADABLE" in startup.stderr
                 and str(startup_copy) not in startup.stderr and "<HOME>" in startup.stderr,
@@ -809,9 +818,12 @@ def self_test():
         # so a fixed path-free line with a constant code stands instead of an exception text.
         (startup_copy / "learn" / "redact.py").write_text(
             "raise RuntimeError('the floor is broken')\n", encoding="utf-8")
-        floorless = subprocess.run([sys.executable, str(startup_copy / "session-distill" / "distill.py"),
-                                    "inventory", "--to", str(scratch / "floorless-out"), "--no-state"],
-                                   capture_output=True, text=True, env=startup_env)
+        floorless = entry.bounded(lambda: subprocess.Popen(
+            [sys.executable,
+             str(inventory.copied_member(startup_copy, "session-distill/distill.py")),
+             "inventory", "--to", str(scratch / "floorless-out"), "--no-state"],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=startup_env,
+            start_new_session=True), what="the copy's driver with no floor")
         control("a startup whose floor cannot load prints the fixed path-free line",
                 floorless.returncode != 0 and floorless.stderr.strip() == STARTUP_WITHHELD,
                 f"{floorless.returncode} {floorless.stderr[-300:]}")
@@ -824,6 +836,177 @@ def self_test():
         printed = planted_failure.getvalue()
         control("a self-test failure line carrying the owner's home path is projected",
                 code == 1 and HOME not in printed and "<HOME>" in printed, f"{code} {printed!r}")
+
+        # ---- N3: `main`'s OWN boundary, observed alone and in this process. A real child cannot
+        # tell the two layers apart: `main`'s handler and the `entry.guarded` around `__main__` both
+        # print a COMMAND_FAILED line, so moving the self-test back outside `main`'s `try` left every
+        # control green — the outer layer caught the same failure and said the same thing. Here the
+        # suite is replaced by one that raises a file error carrying a path, `main` is called
+        # directly, and the failure has to be caught, named with the command, and projected without
+        # the exception leaving `main` at all. The inner layer names the command; the outer does not.
+        held_suite = globals()["self_test"]
+        inner_stream, inner_code = io.StringIO(), "RAISED nothing"
+        try:
+            def _raising_suite():
+                raise OSError(f"cannot read {HOME}/Documents/fixture.json")
+            globals()["self_test"] = _raising_suite
+            with contextlib.redirect_stderr(inner_stream):
+                inner_code = main(["--self-test"])
+        except BaseException as escaped:
+            inner_code = f"RAISED {type(escaped).__name__}"
+        finally:
+            globals()["self_test"] = held_suite
+        inner_text = inner_stream.getvalue()
+        control("a file failure inside the self-test is caught by main's own boundary, not the one outside it",
+                inner_code == 1 and "COMMAND_FAILED --self-test:" in inner_text
+                and HOME not in inner_text and "<HOME>" in inner_text,
+                f"{inner_code} {inner_text!r}")
+
+        # The layer OUTSIDE `main` needs its own control, and the two layers are behaviourally
+        # indistinguishable from a child process: everything `main` catches it also names, and what
+        # only the outer layer catches — a `BaseException` that is not an `Exception`, a `SystemExit`
+        # carrying a message — cannot be provoked through the CLI from outside. So the layer is
+        # asked in two parts: what it does, in this process, and that `__main__` is wired to it.
+        exit_stream = io.StringIO()
+        exit_code = entry.guarded(lambda: (_ for _ in ()).throw(SystemExit(f"{HOME}/Documents/x")),
+                                  home=HOME, stream=exit_stream)
+        exit_text = exit_stream.getvalue()
+        control("the layer outside main projects an exit message main never sees",
+                exit_code == 2 and HOME not in exit_text and "<HOME>" in exit_text,
+                f"{exit_code} {exit_text!r}")
+        entry_calls = [node for node in ast.walk(ast.parse(pathlib.Path(__file__).read_text(encoding="utf-8")))
+                       if isinstance(node, ast.If) and ast.unparse(node.test) == "__name__ == '__main__'"
+                       for node in ast.walk(node) if isinstance(node, ast.Call)
+                       and ast.unparse(node.func) == "entry.guarded"]
+        control("and this entry point is wired to that layer rather than calling main itself",
+                len(entry_calls) == 1 and "main" in ast.unparse(entry_calls[0]),
+                f"{[ast.unparse(call) for call in entry_calls]}")
+
+        # ---- N1's OWN control. The depth guard cannot be observed by reverting it: the recursion
+        # it prevents IS the incident — 594 processes, 40GB of fixtures, a full disk and no verdict
+        # — so the live files are never the subject here, and no revert case names it either. What
+        # is decidable without running anything is the SHAPE: which calls run their own file as a
+        # `--self-test` child, that each stands inside the guard, and that each marks the child's
+        # environment. Violations are planted in a THROWAWAY COPY of the source text.
+        self_running_expected = {"distill.py": 2, "runlib/inventory.py": 2}
+
+        def self_running(sources):
+            """`{file: [(inside the guard, marks the child)]}` for every self-running call."""
+            found = {}
+            for name, source in sources.items():
+                parsed = ast.parse(source)
+                guarded_nodes = {id(node) for branch in ast.walk(parsed)
+                                 if isinstance(branch, ast.If)
+                                 and ast.unparse(branch.test) in ("not nested_run()", "not entry.nested()")
+                                 for node in ast.walk(branch)}
+                for node in ast.walk(parsed):
+                    if not isinstance(node, ast.Call):
+                        continue
+                    spelled = ast.unparse(node)
+                    if not (spelled.startswith(("subprocess.run(", "subprocess.Popen("))
+                            and "'--self-test'" in spelled and "__file__" in spelled):
+                        continue
+                    marks = any(word.arg == "env" and ast.unparse(word.value).startswith(
+                        ("nest_child(", "entry.nest(")) for word in node.keywords)
+                    found.setdefault(name, []).append((id(node) in guarded_nodes, marks))
+            return found
+
+        here = pathlib.Path(__file__).resolve().parent
+        sources = {str(path.relative_to(here)): path.read_text(encoding="utf-8")
+                   for path in sorted(here.rglob("*.py")) if "__pycache__" not in str(path)}
+        live_sites = self_running(sources)
+        control("every call that runs its own file as a self-test child is in the depth guard and marks the child",
+                live_sites and {name: len(rows) for name, rows in live_sites.items()} == self_running_expected
+                and all(guard and marks for rows in live_sites.values() for guard, marks in rows),
+                f"{live_sites}")
+        # The three ways the shape can break, each planted in a copy and each required to be seen.
+        unguarded_source = sources["distill.py"] + (
+            "\n\ndef _planted_outside_the_guard():\n"
+            "    subprocess.run([sys.executable, str(pathlib.Path(__file__).resolve()), '--self-test'],\n"
+            "                   env=entry.nest({}))\n")
+        # Planted in the OTHER file's source on purpose: a plant that searches this file's own
+        # text finds the search string itself — the first version replaced the literal in this
+        # very control and changed nothing.
+        unmarked_source = sources["runlib/inventory.py"].replace(
+            "env=nest_child(child_env)", "env=dict(child_env)", 1)
+        planted_sites = {
+            "a site outside the depth guard":
+                self_running({**sources, "distill.py": unguarded_source}),
+            "a child whose environment is not marked":
+                self_running({**sources, "runlib/inventory.py": unmarked_source}),
+            "a self-running site in a file that had none":
+                self_running({**sources, "runlib/planted.py":
+                              "import pathlib, subprocess, sys\n"
+                              "from runlib import entry\n"
+                              "def _planted():\n"
+                              "    if not entry.nested():\n"
+                              "        subprocess.run([sys.executable, str(pathlib.Path(__file__).resolve()),\n"
+                              "                        '--self-test'], env=entry.nest({}))\n"}),
+        }
+        for what, seen in planted_sites.items():
+            same_set = {name: len(rows) for name, rows in seen.items()} == self_running_expected
+            all_held = all(guard and marks for rows in seen.values() for guard, marks in rows)
+            control(f"planted: {what} is seen", not (same_set and all_held),
+                    f"{ {name: rows for name, rows in seen.items() if name not in self_running_expected or rows != live_sites.get(name)} }")
+
+        # ---- N1: a suite that runs ITSELF runs at depth 1. Both sections below spawn this
+        # file's own suite, and what used to stop the child from spawning another was the very
+        # wiring they revert — with `dir=` gone the child survived its intended failure, reached
+        # these two controls and spawned its own, 594 deep, 40GB of fixtures, a full disk. The
+        # child is marked (`entry.nest`) and a marked run skips them, whatever any protection does.
+        if not entry.nested():
+            # ---- R2#2: `main(['--self-test'])` runs inside the boundary. The suite was invoked above
+            # it, so an ordinary file failure — a scratch parent that cannot be written in — escaped as
+            # a traceback carrying the path it named. Asked of a real process, because the failure has
+            # to happen where this suite creates its own fixtures.
+            fixture_home = scratch / "entry-fixture-home"
+            unwritable = fixture_home / "no-write"
+            unwritable.mkdir(parents=True)
+            unwritable.chmod(0o500)
+            child_env = {"HOME": str(fixture_home), "TMPDIR": str(unwritable),
+                         "PATH": os.environ.get("PATH", "/usr/bin:/bin")}
+            try:
+                failing_entry = entry.bounded(lambda: subprocess.Popen(
+                    [sys.executable, str(pathlib.Path(__file__).resolve()), "--self-test"],
+                    stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+                    env=entry.nest(child_env), start_new_session=True),
+                    what="this suite's own child")
+            finally:
+                unwritable.chmod(0o700)
+            entry_output = failing_entry.stdout + failing_entry.stderr
+            control("a file failure inside the driver's own self-test is a projected diagnostic",
+                    failing_entry.returncode != 0 and "COMMAND_FAILED" in entry_output
+                    and "<HOME>" in entry_output, f"{failing_entry.returncode} {entry_output[-400:]}")
+            control("and the interpreter printed no traceback and no raw fixture path",
+                    "Traceback" not in entry_output and str(fixture_home) not in entry_output,
+                    f"{entry_output[-400:]}")
+
+            # ---- R2#7: the wiring itself, observed at this entry point. The scratch-parent controls
+            # call `inventory.scratch_parent` directly, so removing the `dir=` this suite passes to
+            # `TemporaryDirectory` left them all green while `tempfile` quietly resolved `TMPDIR` —
+            # inside a protected root, which is the whole point of judging it. With `TMPDIR` pointing
+            # into a host home, the judged parent REFUSES and nothing is created; without the wiring,
+            # the fixtures land there.
+            guarded_tmp = fixture_home / ".claude" / "tmp"
+            guarded_tmp.mkdir(parents=True)
+            wired = entry.bounded(lambda: subprocess.Popen(
+                [sys.executable, str(pathlib.Path(__file__).resolve()), "--self-test"],
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, start_new_session=True,
+                env=entry.nest({**child_env, "TMPDIR": str(guarded_tmp)})),
+                what="this suite's own child with TMPDIR in a host home")
+            wired_output = wired.stdout + wired.stderr
+            control("the driver's self-test passes the judged parent to TemporaryDirectory",
+                    wired.returncode != 0 and "PROTECTED_OVERLAP" in wired_output,
+                    f"{wired.returncode} {wired_output[-400:]}")
+            control("and nothing was created in the location the judgement refused",
+                    not any(guarded_tmp.iterdir()),
+                    f"{sorted(path.name for path in guarded_tmp.iterdir())}")
+            # The location is empty either way once the child exits — `tempfile` removes what it
+            # made — so emptiness alone is no evidence. The child says where its fixtures went, and
+            # with the wiring in place it never gets that far: the judged parent refuses first.
+            control("and the child placed no fixtures of its own inside a protected root",
+                    "SELF_TEST_SCRATCH" not in wired_output,
+                    f"{[line for line in wired_output.splitlines() if 'SELF_TEST_SCRATCH' in line]}")
 
     return report(failures, ran)
 
@@ -845,4 +1028,7 @@ def report(failures, ran, label="distill --self-test"):
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    # Outside `main` there is still a boundary: an exception from `build_parser().parse_args` itself,
+    # or a `BaseException` no handler above names, is described through the floor rather than by the
+    # interpreter.
+    sys.exit(entry.guarded(main, sys.argv[1:], HOME))

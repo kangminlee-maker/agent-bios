@@ -174,6 +174,12 @@ DYNAMIC_LOADS = (
                "_effective_items, verify_snapshot), none of which locks, recovers or writes; read, not traced: the "
                "store runs no executor at all, and its plan, apply and install paths resolve an importer by a module "
                "name no trace can read, which the inventory never reaches"},
+    {"site": "session-distill/runlib/inventory.py", "path": "compose/instructions_install.py", "trace": False,
+     "reason": "the host configuration homes have one owner and it ships: `host_homes` loads the installer by the "
+               "checkout's path (install_module) and reads `claude_root` and `codex_root` off a constructed "
+               "`InstructionsInstaller`, so `CLAUDE_CONFIG_DIR` and `CODEX_HOME` are resolved by the code that owns "
+               "that rule rather than by a second copy of it here (R2#1); read, not traced: constructing the "
+               "installer resolves paths and nothing else, and the inventory calls no other member of it"},
     {"site": "session-distill/runlib/projection.py", "path": "learn/redact.py", "trace": True,
      "reason": "the secret floor's owner, loaded by its literal repo path (_load_floor) so its patterns are imported, "
                "never copied; it imports re and sys only and runs nothing"},
@@ -208,30 +214,31 @@ SCRIPT_RUNS = (
 # required of every entry: each value of the program must name the declared closure path, and the
 # site must still carry the guards that make the copy this checkout's. A copy-run of any other
 # script is refused like any undeclared one.
-# A value the trace cannot read at all is admitted only by the guards, which is the standard
-# `GUARDED_PROGRAMS` already holds an unnameable program to: the child's program arrives through its
-# own argv, so what confines it is the literal construction in the site. A value the trace CAN read
-# must name the declared path.
+# Sites that run or load a closure file FROM A COPY of this checkout. The program is computed, so
+# the trace cannot name it — and a file-wide guard string was not an answer: with the legitimate
+# guard present, a `subprocess.run([sys.executable, os.environ['OTHER_SCRIPT']])` added to the same
+# file was admitted, and so was an inline `runpy.run_path(sys.argv[1])` handed an unrelated script
+# (R2#5).
+#
+# Admission is bound to THE CALL. Each entry names the one OWNER function that may produce such a
+# path — `inventory.copied_member`, which returns a declared closure member inside a tree
+# `checkout_copy` made in this process and refuses anything else — and a copy-run is admitted only
+# where the program expression at that call site IS a call of it. For a `python -c` program, the
+# argv element the inline load reads must be that same call, matched by index.
 COPY_RUNS = (
-    {"site": "session-distill/distill.py", "paths": ("session-distill/distill.py",),
-     "guards": ("inventory.checkout_copy(",),
+    {"site": "session-distill/distill.py", "owner": "runlib.inventory.copied_member",
+     "paths": ("session-distill/distill.py",),
      "reason": "the self-test's startup and checkout-protection controls run the COPY's own driver as a real "
                "process. Neither question can be asked of this checkout: the destination a protection rule is "
                "about has to be inside the checkout the rule protects, and an unreadable schema pin has to be "
-               "unreadable in the tree that reads it. `checkout_copy` copies this checkout's tracked files, so "
-               "the program is this driver (R1#2, R1#3)"},
-    {"site": "session-distill/runlib/inventory.py",
+               "unreadable in the tree that reads it (R1#2, R1#3)"},
+    {"site": "session-distill/runlib/inventory.py", "owner": "copied_member",
      "paths": ("session-distill/distill.py", "learn/redact.py"),
-     "guards": ('copied = checkout_copy(copied_checkout)',
-                'driver_copy = copied_checkout / "session-distill" / "distill.py"',
-                'copied_checkout / "learn" / "redact.py"'),
      "reason": "the bytecode control's child runs the COPY's driver as production does — "
                "`runpy.run_path(..., run_name=\'__main__\')` — to ask whether a real invocation writes "
-               "anything under the checkout it ran from. The path arrives through the child's argv, so "
-               "the guards are the construction: the copy is this checkout's, and the program is its "
-               "driver. The same control's POSITIVE leg loads the copy's own redaction floor by path with "
-               "the no-bytecode guard off, which is what proves both instruments can see such a write; "
-               "`learn/redact.py` is in the closure (DYNAMIC_LOADS), and the third guard pins it to the copy"},
+               "anything under the checkout it ran from, and its positive leg loads the copy's own "
+               "redaction floor by path with the no-bytecode guard off, which is what proves both "
+               "instruments can see such a write"},
 )
 
 # Sites whose program the trace cannot name, each admitted only while its guard — a literal line
@@ -1398,20 +1405,80 @@ def _names(path, text):
     return tail.startswith("/") and bool(tail.strip("/")) and path.endswith(tail)
 
 
-def _copy_run(mod, flag, copies=None):
-    """The `COPY_RUNS` entry that admits this site's program, or None.
+def _own_file(mod, node):
+    """Whether this expression is the file the SITE IS IN: `__file__`, or `pathlib.Path(__file__)`
+    with the readers that leave a path THE SAME path.
 
-    Asked of the program's VALUES, not of its shape: every one of them must name the declared
-    closure path, and the site must still hold the guards. A site that copies the checkout and then
-    runs something else from it is not admitted by this entry."""
+    `.parent` is not one of them, and peeling it was a hole: `[sys.executable, str(pathlib.Path(
+    __file__).parent)]` runs a DIRECTORY, which python executes as that directory's `__main__.py` —
+    a different program entirely, admitted as "its own file". `.resolve()`, `.absolute()`, `str`,
+    `os.fspath`, `os.path.realpath` and `os.path.abspath` name the same file; a parent does not.
+    No site in this closure runs a parent: every real one is `str(pathlib.Path(__file__).resolve())`.
+
+    A closure module running its own file runs a closure file — there is nothing to declare and
+    nothing a declaration could add, because the identity is the expression. The driver's and the
+    inventory's self-tests both run their own entry point as a real process (R2#2, R2#3, R2#7), and
+    the value is computed, so the trace cannot name it."""
+    # One loop, applying whichever rule fits, because the readers nest in any order:
+    # `str(pathlib.Path(__file__).resolve())` is a call of `str` around a method call around a call
+    # of `pathlib.Path`. Peeling in a fixed order stopped at the first shape it did not expect.
+    while True:
+        if isinstance(node, ast.Call) and node.args and mod.dotted(node.func) in (
+                "str", "os.fspath", "pathlib.Path", "os.path.realpath", "os.path.abspath"):
+            node = node.args[0]
+        elif isinstance(node, ast.Call) and not node.args and isinstance(node.func, ast.Attribute) \
+                and node.func.attr in ("resolve", "absolute"):
+            node = node.func.value
+        else:
+            break
+    return isinstance(node, ast.Name) and node.id == "__file__"
+
+
+def _owner_call(mod, node, owner):
+    """Whether this expression IS a call of `owner`. `str(...)`, `os.fspath(...)` and `pathlib.Path(...)`
+    around it are transparent; nothing else is, and a bare name or a subscript is not."""
+    while isinstance(node, ast.Call) and mod.dotted(node.func) in ("str", "os.fspath", "pathlib.Path") \
+            and node.args:
+        node = node.args[0]
+    return isinstance(node, ast.Call) and mod.dotted(node.func) == owner
+
+
+def _copy_run(mod, node, copies=None):
+    """The `COPY_RUNS` entry that admits this program, or None.
+
+    The admission is the EXPRESSION: it must be a call of the entry's owner. That is the whole test,
+    and deliberately so — a value test beside it would judge nothing, because the value of a call is
+    never one the trace can read, and admitting an unreadable value was what let a program the
+    environment selected through (R2#5). WHICH members such a call may produce is the owner's own
+    rule (`copied_member` refuses any other) and the declaration's `paths` say which ones that is,
+    which `closure_violations` holds against the tree."""
     copies = COPY_RUNS if copies is None else copies
-    held = mod.path.read_text(encoding="utf-8") if mod.path.is_file() else ""
     for entry in copies:
-        if entry["site"] != str(mod.rel) or not all(guard in held for guard in entry["guards"]):
-            continue
-        if flag and all(any(_names(path, value) for path in entry["paths"]) or _unread(value)
-                        for value in flag):
+        if entry["site"] == str(mod.rel) and _owner_call(mod, node, entry["owner"]):
             return entry
+    return None
+
+
+def _argv_index(inline, name):
+    """Which element of the child's argv a name in an inline program reads, or None.
+
+    One assignment deep, tuple unpacking included (`a, b = sys.argv[1], sys.argv[2]`), which is the
+    shape a `python -c` program uses to name its arguments. None means the trace could not follow it,
+    and that is refused rather than assumed harmless."""
+    for node in ast.walk(inline.tree):
+        if not isinstance(node, ast.Assign) or not node.targets:
+            continue
+        target = node.targets[0]
+        if isinstance(target, (ast.Tuple, ast.List)) and isinstance(node.value, (ast.Tuple, ast.List)):
+            pairs = list(zip(target.elts, node.value.elts))
+        else:
+            pairs = [(target, node.value)]
+        for bound, value in pairs:
+            if getattr(bound, "id", None) != name:
+                continue
+            if (isinstance(value, ast.Subscript) and inline.dotted(value.value) == "sys.argv"
+                    and isinstance(value.slice, ast.Constant) and isinstance(value.slice.value, int)):
+                return value.slice.value
     return None
 
 
@@ -1420,27 +1487,47 @@ def _unread(text):
     return bool(text) and UNKNOWN in text and not text.replace(UNKNOWN, "").strip("/.")
 
 
-def _loads(mod, copies=None, follow=None):
+def _loads(mod, copies=None, follow=None, argv_nodes=None, site=None):
     """Violations of the load rules inside code the trace read out of a `python -c` program.
 
     The closure walk judges LOAD_CALLS in the files it visits. A `-c` program is not one of those
     files, and the recursion into it judged EXEC_CALLS only — so a load there was judged by nothing
-    at all. That is how the bytecode control's child, which runs the driver from a copy of this
-    checkout through `runpy.run_path`, passed this gate without being declared: not because the
-    shape was admitted, but because nobody looked. The rule is `COPY_RUNS`'s, the same one a
-    copy-run as a PROGRAM is held to."""
+    at all. That is how the bytecode control's child, which runs the driver from a checkout copy
+    through `runpy.run_path`, passed this gate: not because the shape was admitted, but because
+    nobody looked.
+
+    A load the trace can read is held to `COPY_RUNS`'s declared members. A load that reads the
+    child's argv is held to the EXPRESSION the site passed at that index: it must be a call of the
+    entry's owner. `runpy.run_path(sys.argv[1])` handed an unrelated script was admitted while the
+    rule was about the file rather than about the call (R2#5)."""
+    copies = COPY_RUNS if copies is None else copies
     problems = []
     for node in ast.walk(mod.tree):
         if not (isinstance(node, ast.Call) and mod.dotted(node.func) in LOAD_CALLS):
             continue
         at = LOAD_CALLS[mod.dotted(node.func)]
         arg = node.args[at] if len(node.args) > at else None
+        where = f"{mod.rel}:{node.lineno}"
         for text in (mod.values(arg) if arg is not None else [UNKNOWN]):
-            admitted = _copy_run(mod, [text], copies)
+            if _unread(text) or UNKNOWN in text:
+                # The value came from somewhere this program was handed. Which argument it reads
+                # decides which expression at the site has to answer for it.
+                index = _argv_index(mod, arg.id) if isinstance(arg, ast.Name) else None
+                passed = (argv_nodes[index] if argv_nodes is not None and index is not None
+                          and 0 <= index < len(argv_nodes) else None)
+                entry = _copy_run(site or mod, passed, copies) if passed is not None else None
+                if entry is None:
+                    problems.append(f"DISPATCH_UNRESOLVED {where}: loads an argument this program was "
+                                    f"handed ({'argv[%d]' % index if index is not None else 'unread'}), "
+                                    f"which the site does not produce through a declared owner")
+                elif follow is not None:
+                    follow.extend({"site": entry["site"], "path": path} for path in entry["paths"])
+                continue
+            admitted = _copy_run(site or mod, arg, copies)
             if admitted is None:
-                problems.append(f"DISPATCH_UNRESOLVED {mod.rel}:{node.lineno}: loads {text!r}, declared "
+                problems.append(f"DISPATCH_UNRESOLVED {where}: loads {text!r}, declared "
                                 f"nowhere in COPY_RUNS")
-            elif follow is not None:   # the entry is what records that the site made this load
+            elif follow is not None:
                 follow.extend({"site": admitted["site"], "path": path} for path in admitted["paths"])
     return problems
 
@@ -1495,10 +1582,15 @@ def _judge_program(mod, program, rest, line, pinned, problems, depth=0, runs=(),
     elif UNKNOWN in program:
         pass  # a guarded program (GUARDED_PROGRAMS)
     elif program == PYTHON:
-        words = [mod.values(node) for node in rest]
+        # The NODES travel beside the words: what admits a copy-run is the expression at this call,
+        # so the words alone are not enough to judge it (R2#5).
+        nodes = list(rest)
+        words = [mod.values(node) for node in nodes]
         while words and len(words[0]) == 1 and words[0][0] in PY_FLAGS:
             words.pop(0)
+            nodes.pop(0)
         flag = words[0] if words else [UNKNOWN]
+        flag_node = nodes[0] if nodes else None
         nxt = words[1] if len(words) > 1 else [UNKNOWN]
         declared = [[e for e in runs if e["site"] == str(mod.rel) and _names(e["path"], s)] for s in flag]
         if flag == ["-c"]:
@@ -1508,8 +1600,11 @@ def _judge_program(mod, program, rest, line, pinned, problems, depth=0, runs=(),
                     problems.append(f"DISPATCH_UNRESOLVED {where}: python -c with code the trace cannot resolve")
                 else:
                     inline = _Module(mod.path, mod.rel, source=code)
+                    # `nodes[1:]` is the child's own argv: `nodes[1]` is the code (its `sys.argv[0]`),
+                    # and `nodes[1 + k]` is its `sys.argv[k]`. A load inside the program is judged
+                    # against the expression the site passed at that index.
                     for violation in (_sites(inline, pinned, depth + 1, runs, follow)
-                                      + _loads(inline, follow=follow)):
+                                      + _loads(inline, follow=follow, argv_nodes=nodes[1:], site=mod)):
                         problems.append(f"{violation.split()[0]} {where}: inside python -c: {violation.split(': ', 1)[-1]}")
         elif any(s.endswith("launch/agent-launch.py") for s in flag):
             if nxt != ["--emit-receipt"]:  # the receipt emitter dispatches nothing; the rest of the launcher does
@@ -1518,10 +1613,13 @@ def _judge_program(mod, program, rest, line, pinned, problems, depth=0, runs=(),
             problems.append(f"CLOSURE_IMPORTS_OUT_OF_SCOPE {where}: runs {flag[0]!r}, an out-of-scope executor")
         elif follow is not None and declared and all(len(d) == 1 for d in declared):
             follow.extend(d[0] for d in declared)
-        elif _copy_run(mod, flag) is not None:
+        elif _own_file(mod, flag_node):
+            if follow is not None:   # it is this file: already in the closure, and recorded as run
+                follow.append({"site": str(mod.rel), "path": str(mod.rel)})
+        elif _copy_run(mod, flag_node) is not None:
             if follow is not None:   # already in the closure; the entry is what records it ran
                 follow.extend({"site": entry["site"], "path": path}
-                              for entry in [_copy_run(mod, flag)] for path in entry["paths"])
+                              for entry in [_copy_run(mod, flag_node)] for path in entry["paths"])
         else:
             problems.append(f"DISPATCH_UNRESOLVED {where}: python runs {flag!r}, a script the trace does not follow")
     elif base in SHELLS:
@@ -1620,14 +1718,15 @@ def closure_violations(root=REPO, out_of_scope=OUT_OF_SCOPE, dynamic=DYNAMIC_LOA
             if guard not in held:
                 problems.append(f"INVENTORY_STALE guarded program {entry['site']}: its guard {guard!r} is gone")
     for entry in COPY_RUNS:
-        missing = [p for p in entry["paths"] if not (root / p).is_file()]
+        missing = [name for name in entry["paths"] if not (root / name).is_file()]
         if not (root / entry["site"]).is_file() or missing:
             problems.append(f"INVENTORY_STALE copy run {entry['site']} -> {missing or entry['paths']}: no such file")
             continue
+        # The owner is the admission, so the owner has to be there: an entry naming a function the
+        # site cannot call admits nothing and must say so rather than sit quietly.
         held = (root / entry["site"]).read_text(encoding="utf-8")
-        for guard in entry["guards"]:
-            if guard not in held:
-                problems.append(f"INVENTORY_STALE copy run {entry['site']}: its guard {guard!r} is gone")
+        if f"{entry['owner'].split('.')[-1]}(" not in held:
+            problems.append(f"INVENTORY_STALE copy run {entry['site']}: it calls no {entry['owner']}")
     excluded = {(root / e["path"]).resolve() for e in out_of_scope}
     queue = [root / CLOSURE_ROOTS[0]] + sorted((root / CLOSURE_ROOTS[1]).glob("*.py"))
     closure, seen, sites, used, ran = [], set(), 0, set(), set()
@@ -1680,7 +1779,10 @@ def closure_violations(root=REPO, out_of_scope=OUT_OF_SCOPE, dynamic=DYNAMIC_LOA
             found = _sites(mod, pinned, runs=scripts, follow=follow)
             for entry in follow:
                 ran.add((entry["site"], entry["path"]))
-                queue.append(root / entry["path"])
+                # A declaration naming a file that is not there is reported by the staleness leg
+                # above; the walk must not die on it, or that report never gets printed.
+                if (root / entry["path"]).is_file():
+                    queue.append(root / entry["path"])
             sites += sum(1 for n in ast.walk(mod.tree) if isinstance(n, ast.Call) and mod.dotted(n.func) in EXEC_CALLS)
             problems.extend(found)
     for entry in dynamic:
@@ -3017,12 +3119,51 @@ def self_test(scratch=None):
             "DISPATCH_UNRESOLVED {at}: python runs ['<?>/census.py']", 1)
     planted("a-declared-script-is-traced", "session-distill/digest.py",
             "import subprocess\nsubprocess.run(['claude', '-p'])", "DISPATCH_OUTSIDE_SUPERVISOR {at}: starts 'claude'", 1)
-    # a copy-run is bound to its path and its guard like every other declaration: the driver run
-    # from a copy of this checkout is admitted, anything else from that same copy is not, and the
-    # entry goes stale the moment the site stops making the copy
-    planted("a-copy-run-of-a-script-that-is-not-the-driver", "session-distill/distill.py",
-            "import subprocess\nsubprocess.run([sys.executable, str(COPY / 'session-distill' / 'digest.py')])",
-            "DISPATCH_UNRESOLVED {at}: python runs ['<?>/session-distill/digest.py']", 1)
+    # A copy-run is admitted by THE CALL: the program expression has to be a call of the entry's
+    # owner, which is a function that refuses every root this process did not copy and every member
+    # the declaration does not name. Each row below is a program at a DECLARED site, with the
+    # legitimate calls still in that file, and each one is refused because it is not that call
+    # (R2#5 — every one of these was admitted while the rule was about guard text in the file).
+    for name, code, needle in (
+            ("a-copy-run-of-a-script-that-is-not-the-driver",
+             "subprocess.run([sys.executable, str(COPY / 'session-distill' / 'digest.py')])",
+             "python runs ['<?>/session-distill/digest.py']"),
+            ("a-program-the-environment-selects",
+             "subprocess.run([sys.executable, os.environ['OTHER_SCRIPT']])",
+             "python runs ['<?>']"),
+            ("a-path-into-a-copy-that-no-owner-produced",
+             "subprocess.run([sys.executable, str(COPY / 'session-distill' / 'distill.py')])",
+             "python runs ['<?>/session-distill/distill.py']"),
+            ("a-foreign-absolute-path-that-ends-in-the-drivers-name",
+             "subprocess.run([sys.executable, '/elsewhere/session-distill/distill.py'])",
+             "python runs ['/elsewhere/session-distill/distill.py']")):
+        planted(name, "session-distill/distill.py", f"import os, subprocess\n{code}",
+                "DISPATCH_UNRESOLVED {at}: " + needle, 1)
+    # A bare name is not this file either. The identity is the EXPRESSION, and `__file__` is the only
+    # name that is this file; a name the trace cannot read is a program the trace cannot resolve, and
+    # nothing in the `_own_file` admission had a control standing on that half of it.
+    planted("a-bare-name-is-not-this-file", "session-distill/distill.py",
+            "import os, subprocess\nPROGRAM = os.environ['OTHER_SCRIPT']\n"
+            "subprocess.run([sys.executable, PROGRAM])",
+            "DISPATCH_UNRESOLVED {at}: python runs ['<?>']", 2)
+    # And a PARENT of this file is not this file: python runs a directory as that directory's
+    # `__main__.py`, which is another program. The peel used to follow `.parent`, so both of these
+    # were admitted as the site running itself.
+    planted("the-parent-of-this-file-is-not-this-file", "session-distill/distill.py",
+            "import pathlib, subprocess\nsubprocess.run([sys.executable, str(pathlib.Path(__file__).parent)])",
+            "DISPATCH_UNRESOLVED {at}: python runs ['<?>']", 1)
+    planted("a-grandparent-of-this-file-is-not-this-file", "session-distill/distill.py",
+            "import pathlib, subprocess\n"
+            "subprocess.run([sys.executable, str(pathlib.Path(__file__).parent.parent)])",
+            "DISPATCH_UNRESOLVED {at}: python runs ['<?>']", 1)
+    # The same for a load inside a `python -c` program: what answers for it is the expression the
+    # site passed at the argv index the program reads. `runpy.run_path(sys.argv[1])` with an
+    # unrelated script in argv was admitted and recorded as following the driver.
+    planted("an-inline-load-of-an-argv-the-site-does-not-produce", "session-distill/distill.py",
+            "import subprocess\nsubprocess.run([sys.executable, '-c', "
+            "'import runpy, sys\\nscript = sys.argv[1]\\nrunpy.run_path(script)', OTHER])",
+            "DISPATCH_UNRESOLVED {at}: inside python -c: loads an argument this program was handed "
+            "(argv[1]), which the site does not produce through a declared owner", 1)
     planted("script-entry-the-site-never-runs", "session-distill/runlib/claims.py", "",
             "INVENTORY_STALE script run session-distill/runlib/claims.py -> session-distill/census.py: the site runs no such script",
             scripts=SCRIPT_RUNS + ({"site": "session-distill/runlib/claims.py", "path": "session-distill/census.py", "reason": "x"},))
@@ -3071,24 +3212,43 @@ def self_test(scratch=None):
     planted("a-load-inside-python-c-is-judged", "session-distill/runlib/claims.py",
             "import subprocess\nsubprocess.run([sys.executable, '-c', \"import runpy; runpy.run_path('other.py')\"])",
             "DISPATCH_UNRESOLVED {at}: inside python -c: loads 'other.py', declared nowhere in COPY_RUNS", 1)
+    # The driver and the inventory each run their OWN file as a real process (their self-tests do),
+    # which is closure-equivalent by construction — and nothing else is: a sibling named by the same
+    # kind of expression is still refused.
+    planted("a-sibling-of-this-file-is-not-this-file", "session-distill/runlib/claims.py",
+            "import pathlib, subprocess\n"
+            "subprocess.run([sys.executable, str(pathlib.Path(__file__).parent / 'other.py')])",
+            "DISPATCH_UNRESOLVED {at}: python runs ['<?>/other.py']", 1)
     probe_entry = [e for e in COPY_RUNS if e["site"] == "session-distill/runlib/inventory.py"]
     control("copy-run-declared-for-the-bytecode-probe",
             {p for e in probe_entry for p in e["paths"]} == {"session-distill/distill.py", "learn/redact.py"},
             f"{[e['paths'] for e in probe_entry]}")
     if probe_entry:
-        unguarded_probe = without(probe_entry[0]["site"], probe_entry[0]["guards"][0],
-                                  "copied = a_copy_of(copied_checkout)")
-        control("the-bytecode-probes-load-without-its-construction-guard-is-unresolved-and-stale",
-                any(v.startswith("DISPATCH_UNRESOLVED session-distill/runlib/inventory.py:") for v in unguarded_probe)
-                and any(v.startswith("INVENTORY_STALE copy run session-distill/runlib/inventory.py") for v in unguarded_probe),
-                f"{unguarded_probe}")
+        unowned_probe = without(probe_entry[0]["site"], "copied_member(", "a_copy_of(")
+        control("the-bytecode-probes-load-without-its-owner-is-unresolved-and-stale",
+                any(v.startswith("DISPATCH_UNRESOLVED session-distill/runlib/inventory.py:") for v in unowned_probe)
+                and any(v.startswith("INVENTORY_STALE copy run session-distill/runlib/inventory.py") for v in unowned_probe),
+                f"{unowned_probe}")
+    # What the owner may produce is declared as `paths`, and the declaration is held against the
+    # tree: an entry naming a file that is not there admits a member nobody can check.
+    held_copies = globals()["COPY_RUNS"]
+    try:
+        globals()["COPY_RUNS"] = (dict(held_copies[0], paths=("session-distill/gone.py",)),)
+        stale_paths = closure_violations(tree)[0]
+    finally:
+        globals()["COPY_RUNS"] = held_copies
+    control("copy-run-entry-naming-no-file",
+            any("INVENTORY_STALE copy run" in row and "no such file" in row for row in stale_paths),
+            f"{stale_paths}")
     copy_entry = {e["site"]: e for e in COPY_RUNS}.get(
-        "session-distill/distill.py", {"site": "session-distill/distill.py", "guards": ("?",)})
-    unguarded_copy = without(copy_entry["site"], copy_entry["guards"][0], "inventory.a_copy_of(")
-    control("a-copy-run-without-its-guard-is-unresolved-and-stale",
-            any(v.startswith(f"DISPATCH_UNRESOLVED {copy_entry['site']}:") for v in unguarded_copy)
-            and any(v.startswith(f"INVENTORY_STALE copy run {copy_entry['site']}") for v in unguarded_copy),
-            f"{unguarded_copy}")
+        "session-distill/distill.py", {"site": "session-distill/distill.py", "owner": "?"})
+    # The owner is the admission, so a site that stops calling it loses every copy-run it had, and
+    # the entry is reported stale in the same run rather than sitting there admitting nothing.
+    unowned = without(copy_entry["site"], f"{copy_entry['owner'].split('.')[-1]}(", "a_copy_of(")
+    control("a-copy-run-whose-site-no-longer-calls-its-owner-is-unresolved-and-stale",
+            any(v.startswith(f"DISPATCH_UNRESOLVED {copy_entry['site']}:") for v in unowned)
+            and any(v.startswith(f"INVENTORY_STALE copy run {copy_entry['site']}") for v in unowned),
+            f"{unowned}")
     control("copy-run-declared-for-the-driver", copy_entry.get("paths") == ("session-distill/distill.py",),
             f"{COPY_RUNS}")
     found, _at = plant("session-distill/runlib/dispatch.py", "import subprocess\nsubprocess.run(['claude', '-p'])")

@@ -45,6 +45,7 @@ import datetime
 import contextlib
 import hashlib
 import importlib.util
+import io
 import json
 import os
 import pathlib
@@ -61,8 +62,31 @@ except ModuleNotFoundError:  # pragma: no cover - the pinned interpreter has it
 if __package__ in (None, ""):  # run as a script: put session-distill/ on the import path
     sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 
-from runlib import projection, records, sources, validate
-from runlib.records import Refused
+# The boundary first, and the rest of the graph inside it. This module is an entry point of its
+# own (`python3 runlib/inventory.py --self-test`), and `runlib.validate` exits during import when
+# its schema pin is unreadable — so the import that can fail must sit inside the thing that
+# describes the failure. `runlib.entry` imports nothing but the standard library and reaches the
+# floor lazily, which is what makes it safe to import first (R2#3).
+from runlib import entry
+
+try:
+    from runlib import projection, records, sources, validate
+    from runlib.records import Refused
+except BaseException as _startup_exc:   # SystemExit included: `validate` exits at import time
+    if __name__ == "__main__":
+        sys.exit(entry.failed(_startup_exc, str(pathlib.Path.home()), label="STARTUP_FAILED", code=2))
+    raise
+
+# Every line this module's own entry point publishes — its self-test's report most of all, because
+# a failure line is exactly where a planted credential or a fixture path would leave — goes through
+# the one boundary. Bound here rather than inside the suite: `entry` is an ordinary local name in
+# there (a census entry, a declaration entry), and the alias has to be the module (R2#3).
+report = entry.say
+# Same reason, for the three the self-running controls need: the depth mark and the child
+# bound. `entry` is a local name inside the suite, so the module is aliased out here.
+nested_run = entry.nested
+nest_child = entry.nest
+bounded_child = entry.bounded
 
 HERE = pathlib.Path(__file__).resolve().parents[1]  # session-distill/
 REPO = HERE.parent
@@ -79,6 +103,12 @@ STATUSES = ("complete", "incomplete", "unsupported", "unknown")
 UNIT_FIELDS = ("unit_id", "layer", "path", "heading", "n", "text", "sha", "class",
                "operative_context", "version_sha256", "redaction_version")
 PLAN_FIELDS = ("operative_context", "version_sha256")
+# The emitted strings that are SPANS of the carrier, and the ones that are metadata about it. The
+# first kind goes through `_carrier_span` (the whole-carrier decision and the carrier's credential
+# context); the second passes the floor on its own. `shed` is the only reader, and no control reads
+# either tuple — the differential enumerates what the row actually carries (R2#0).
+SPAN_FIELDS = ("text", "heading")
+METADATA_TEXT_FIELDS = ("path", "item_ref", "package_id")
 # What the emission adds to §6.1's record, and why: `text` is the projection of the fragment, not the
 # fragment, so the version of the floor that made it has to travel with it (design §5.4).
 EMISSION_FIELDS = ("redaction_version",)
@@ -131,52 +161,108 @@ MEMBER_BASE = {"guide": "claude/guides", "hook": "claude/hooks", "agent": "claud
 BYTECODE_PROBE = """
 import json, os, runpy, sys
 
-# event name -> which positional arguments are paths. Every entry is one filesystem mutation the
-# interpreter audits; `open` is handled separately because only some modes mutate.
+# event name -> (which positional arguments are paths, which argument holds the dir_fd for each).
+# Every entry is one filesystem mutation the interpreter audits. `open` is handled separately,
+# because only some modes and flags mutate. A `-1` means that path has no dir_fd argument.
+#
+# The layouts are CPython's audit-event arguments. An event this table does not know, or an argument
+# missing from one it does, is UNVERIFIED rather than ignored: the claim this probe exists for is
+# "no attempted write under the copy", and an event nobody could attribute is not evidence of that.
 MUTATIONS = {
-    'os.mkdir': (0,), 'os.rmdir': (0,), 'os.remove': (0,), 'os.unlink': (0,),
-    'os.rename': (0, 1), 'os.replace': (0, 1), 'os.link': (0, 1), 'os.symlink': (0, 1),
-    'os.truncate': (0,), 'os.chmod': (0,), 'os.chown': (0,), 'os.utime': (0,),
-    'os.makedirs': (0,), 'os.removedirs': (0,), 'os.mknod': (0,), 'os.mkfifo': (0,),
-    'os.setxattr': (0,), 'os.removexattr': (0,),
-    'shutil.copyfile': (0, 1), 'shutil.copymode': (0, 1), 'shutil.copystat': (0, 1),
-    'shutil.copytree': (0, 1), 'shutil.move': (0, 1), 'shutil.rmtree': (0,),
-    'shutil.unpack_archive': (0, 1), 'shutil.make_archive': (0,),
-    'pathlib.Path.mkdir': (0,), 'pathlib.Path.rename': (0, 1), 'pathlib.Path.replace': (0, 1),
-    'pathlib.Path.unlink': (0,), 'pathlib.Path.rmdir': (0,), 'pathlib.Path.touch': (0,),
-    'pathlib.Path.symlink_to': (0, 1), 'pathlib.Path.hardlink_to': (0, 1),
-    'pathlib.Path.chmod': (0,), 'tempfile.mkstemp': (0,), 'tempfile.mkdtemp': (0,),
+    'os.mkdir': ((0,), (2,)), 'os.rmdir': ((0,), (1,)), 'os.remove': ((0,), (1,)),
+    'os.unlink': ((0,), (1,)),
+    'os.rename': ((0, 1), (2, 3)), 'os.replace': ((0, 1), (2, 3)), 'os.link': ((0, 1), (2, 3)),
+    'os.symlink': ((0, 1), (-1, 2)),
+    'os.truncate': ((0,), (-1,)), 'os.chmod': ((0,), (2,)), 'os.chown': ((0,), (3,)),
+    'os.utime': ((0,), (3,)),
+    'os.makedirs': ((0,), (-1,)), 'os.removedirs': ((0,), (-1,)), 'os.mknod': ((0,), (2,)),
+    'os.mkfifo': ((0,), (2,)),
+    'os.setxattr': ((0,), (-1,)), 'os.removexattr': ((0,), (-1,)),
+    'shutil.copyfile': ((0, 1), (-1, -1)), 'shutil.copymode': ((0, 1), (-1, -1)),
+    'shutil.copystat': ((0, 1), (-1, -1)), 'shutil.copytree': ((0, 1), (-1, -1)),
+    'shutil.move': ((0, 1), (-1, -1)), 'shutil.rmtree': ((0,), (1,)),
+    'shutil.unpack_archive': ((0, 1), (-1, -1)), 'shutil.make_archive': ((0,), (-1,)),
+    'pathlib.Path.mkdir': ((0,), (-1,)), 'pathlib.Path.rename': ((0, 1), (-1, -1)),
+    'pathlib.Path.replace': ((0, 1), (-1, -1)),
+    'pathlib.Path.unlink': ((0,), (-1,)), 'pathlib.Path.rmdir': ((0,), (-1,)),
+    'pathlib.Path.touch': ((0,), (-1,)),
+    'pathlib.Path.symlink_to': ((0, 1), (-1, -1)), 'pathlib.Path.hardlink_to': ((0, 1), (-1, -1)),
+    'pathlib.Path.chmod': ((0,), (-1,)), 'tempfile.mkstemp': ((0,), (-1,)),
+    'tempfile.mkdtemp': ((0,), (-1,)),
 }
-seen = []   # (event, resolved path)
+F_GETPATH = 50          # darwin; elsewhere /proc/self/fd answers
+seen = []               # (event, resolved path)
+unverified = []         # (event, why) — a mutation nobody could attribute to a tree
 
 
-def record(event, value):
+def fd_path(fd):
+    '''The path a descriptor is open on: F_GETPATH where the platform has it, /proc/self/fd where it
+    does not. `fcntl.fcntl` RETURNS the result buffer rather than filling the one it is given.'''
     try:
-        resolved = os.path.realpath(os.fspath(value))
-    except (TypeError, ValueError, OSError):
+        import fcntl
+        answer = fcntl.fcntl(fd, F_GETPATH, b'\\0' * 1024)
+        return os.fsdecode(bytes(answer).split(b'\\0', 1)[0]) or None
+    except Exception:
+        try:
+            return os.readlink('/proc/self/fd/%d' % fd)
+        except OSError:
+            return None
+
+
+def resolve(value, dir_fd=None):
+    \'\'\'(resolved path, why it could not be resolved). Fail closed: a descriptor-only operation and a
+    descriptor-relative one are resolved through the descriptor, and anything left over is named.\'\'\'
+    if isinstance(value, int):
+        base = fd_path(value)
+        return (os.path.realpath(base), None) if base else (None, 'descriptor-only')
+    try:
+        text = os.fsdecode(value)
+    except (TypeError, ValueError):
+        return None, 'not-a-path'
+    if dir_fd is not None and not isinstance(dir_fd, int):
+        dir_fd = None
+    if dir_fd is not None and dir_fd >= 0 and not os.path.isabs(text):
+        base = fd_path(dir_fd)
+        if base is None:
+            return None, 'descriptor-relative'
+        return os.path.realpath(os.path.join(base, text)), None
+    return os.path.realpath(text), None
+
+
+def record(event, value, dir_fd=None):
+    resolved, why = resolve(value, dir_fd)
+    if resolved is None:
+        unverified.append((event, why))
         return
     seen.append((event, resolved))
 
 
 def hook(event, args):
     if event == 'open':
-        if len(args) < 2:
+        if not args:
+            unverified.append((event, 'no-arguments'))
             return
-        mode = args[1]
+        mode = args[1] if len(args) > 1 else None
         flags = args[2] if len(args) > 2 and isinstance(args[2], int) else 0
         # A .pyc is written through os.open, whose audit args carry no mode string at all: a
-        # mode-only test observed nothing and called it proof.
-        writing = (isinstance(mode, str) and any(f in mode for f in 'wax+')) or (
-            mode is None and bool(flags & (os.O_WRONLY | os.O_RDWR | os.O_CREAT | os.O_APPEND)))
+        # mode-only test observed nothing and called it proof. O_TRUNC truncates a file that the
+        # process may have opened read-write without O_CREAT, so it counts too.
+        writes = os.O_WRONLY | os.O_RDWR | os.O_CREAT | os.O_APPEND | os.O_TRUNC
+        writing = (isinstance(mode, str) and any(f in mode for f in 'wax+')) or bool(flags & writes)
         if writing:
             record('open(write)', args[0])
         return
-    positions = MUTATIONS.get(event)
-    if positions is None:
+    layout = MUTATIONS.get(event)
+    if layout is None:
         return
-    for index in positions:
-        if index < len(args):
-            record(event, args[index])
+    positions, fds = layout
+    for index, position in enumerate(positions):
+        if position >= len(args):
+            unverified.append((event, 'argument-%d-absent' % position))
+            continue
+        at = fds[index] if index < len(fds) else -1
+        dir_fd = args[at] if 0 <= at < len(args) else None
+        record(event, args[position], dir_fd)
 
 
 checkout, destination, which, driver = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
@@ -190,23 +276,50 @@ if which == 'unguarded':
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
 elif which == 'mutations':
-    # The positive controls for the kinds that are not an open: a directory created, a file
-    # deleted, a file renamed, and one attempt that FAILS. Each is under the copy.
+    # The positive controls for the kinds that are not an open. Each one is under the copy, and the
+    # three that FAIL are given paths nothing else here touches, so the control can assert them by
+    # (event, path) identity rather than by a count that successful events already satisfy.
     probe_dir = os.path.join(root, 'session-distill', 'probe-mutations')
     os.mkdir(probe_dir)
     made = os.path.join(probe_dir, 'made.txt')
     with open(made, 'w') as handle:
         handle.write('x')
-    os.rename(made, os.path.join(probe_dir, 'renamed.txt'))
-    os.remove(os.path.join(probe_dir, 'renamed.txt'))
+    renamed = os.path.join(probe_dir, 'renamed.txt')
+    os.rename(made, renamed)
+    # A descriptor-relative creation and a descriptor-only truncation: the shapes the old observer
+    # resolved against the working directory, or discarded as a non-path.
+    folder = os.open(probe_dir, os.O_RDONLY)
     try:
-        os.mkdir(os.path.join(root, 'session-distill', 'probe-mutations'))   # already there: fails
+        os.mkdir('relative-to-a-descriptor', dir_fd=folder)
+        os.rmdir('relative-to-a-descriptor', dir_fd=folder)
+    finally:
+        os.close(folder)
+    handle = os.open(renamed, os.O_RDWR)
+    try:
+        os.truncate(handle, 0)
+    finally:
+        os.close(handle)
+    # An open whose ONLY write flag is O_TRUNC: it carries no mode string and no O_WRONLY, and it
+    # destroys the file's contents. The file is put there by a rename so that this open is the only
+    # event about it, and the row it produces is the one the O_TRUNC classification answers for.
+    truncated = os.path.join(probe_dir, 'truncated.txt')
+    os.rename(renamed, truncated)
+    try:
+        os.close(os.open(truncated, os.O_RDONLY | os.O_TRUNC))
     except OSError:
         pass
-    try:
-        os.remove(os.path.join(root, 'no-such-file-at-all'))                 # absent: fails
-    except OSError:
-        pass
+    os.remove(truncated)
+    for attempt in ('mkdir', 'remove', 'rename'):
+        try:
+            if attempt == 'mkdir':
+                os.mkdir(probe_dir)                                   # already there: fails
+            elif attempt == 'remove':
+                os.remove(os.path.join(root, 'a-file-that-is-not-here'))   # absent: fails
+            else:
+                os.rename(os.path.join(root, 'also-not-here'),
+                          os.path.join(probe_dir, 'nowhere.txt'))     # source absent: fails
+        except OSError:
+            pass
     os.rmdir(probe_dir)
 else:
     sys.argv = [driver, 'inventory', '--to', destination, '--no-state']
@@ -214,12 +327,15 @@ else:
         runpy.run_path(driver, run_name='__main__')
     except SystemExit as exit:
         code = exit.code if isinstance(exit.code, int) else 1
-under = sorted({f'{event} {path}' for event, path in seen if path.startswith(root)})
+under = sorted({'%s %s' % (event, path) for event, path in seen if path.startswith(root)})
 kinds = sorted({event for event, path in seen if path.startswith(root)})
-print(json.dumps({'code': code, 'under_checkout': under[:8], 'under_checkout_total': len(under),
+print(json.dumps({'code': code, 'under_checkout': under[:16], 'under_checkout_total': len(under),
                   'kinds': kinds,
+                  'unverified': sorted({'%s %s' % row for row in unverified})[:8],
+                  'unverified_total': len(unverified),
                   'bytecode': sorted({row for row in under
                                       if row.endswith('.pyc') or '__pycache__' in row})[:8]}))
+
 """
 
 
@@ -540,12 +656,18 @@ def units_of(carriers):
     repeated inside a carrier carries its occurrence."""
     units, seen = [], collections.Counter()
     for item in carriers:
-        heading_path, enclosing, before = [], [], ""
+        heading_path, heading_spans, enclosing, before = [], [], [], ""
         carrier_text = item["text"]
         for n, (kind, text) in enumerate(blocks_of(item["path"], item["text"], item.get("form")), 1):
             if kind == "heading":
                 level = len(text) - len(text.lstrip("#"))
                 heading_path = heading_path[:level - 1] + [text.strip().lstrip("#").strip()]
+                # Where that heading block sits in the carrier. A heading is carrier text like any
+                # other span, and projecting the detached string lost both the carrier's whole-carrier
+                # decision and its credential context: for `api\_key: "alpha\n\n## shortpass\n"` the
+                # floor withholds the carrier, while `heading` carried `shortpass` into two emitted
+                # rows whose `text` was redacted (R2#0).
+                heading_spans = heading_spans[:level - 1] + [(len(before), len(before) + len(text))]
                 enclosing = enclosing[:level - 1]
             key = sha256_text(f"{item.get('carrier_id') or carrier_identity(item['layer'], item['path'], item.get('item_ref'), item.get('package_id'))}\0{text}")[:16]
             seen[key] += 1
@@ -566,7 +688,8 @@ def units_of(carriers):
                     # preserve that: two nonblank lines left the key outside the window as soon as the
                     # value was a list with blank lines in it (GC#4). Neither field is emitted —
                     # `shed` carries §6.1's record and the carrier metadata, and nothing else.
-                    "carrier_text": carrier_text, "span": (len(before), len(before) + len(text))}
+                    "carrier_text": carrier_text, "span": (len(before), len(before) + len(text)),
+                    "heading_spans": list(heading_spans)}
             if kind == "heading":
                 enclosing = enclosing + [unit_id]
             before += text
@@ -710,27 +833,50 @@ def operative_context(units):
     return units
 
 
-def _projected_span(unit, home=None, decision=None):
-    """A unit's text through the floor, judged with its carrier INTACT.
+def _carrier_span(carrier_text, start, end, home=None, decision=None):
+    """One span of a carrier, through the floor, judged with the carrier INTACT.
 
     The floor reads a credential-named key and the value that follows it as one relationship, and
     the splitter can put the two in different blocks — so projecting a block alone emitted the value
-    with nothing to mark it (GC#4). The span is projected through `projection.project_span`, which
-    takes the floor's decision about the WHOLE carrier — its masked extents, clipped to the span,
-    and its refusal to return the carrier at all, which withholds every span of it. The structural
-    context is the carrier's own, not a window of it. `decision` is that decision when the caller has
-    already taken it for this carrier's other spans.
+    with nothing to mark it (GC#4). `projection.project_span` takes the floor's decision about the
+    WHOLE carrier: its masked extents, clipped to this span, and its refusal to return the carrier at
+    all, which withholds every span of it. `decision` is that decision when the caller has already
+    taken it for this carrier's other spans.
+
+    Every carrier-derived field of an emitted unit goes through HERE. `text` did and `heading` did
+    not, and the detached heading published `shortpass` from a carrier the floor withheld (R2#0)."""
+    out = projection.project_span(carrier_text, start, end, home, decision)
+    disclosed = projection.discloses(out, home)
+    if disclosed is not None:
+        raise Refused(f"DISCLOSED_IN_UNIT: the projection left {disclosed} in a unit's text; no artifact is written")
+    return out
+
+
+def _projected_span(unit, home=None, decision=None):
+    """The unit's own block, through `_carrier_span`.
 
     A unit that carries no carrier of its own — a caller that built the record by hand — is
     projected as the block it is, which is the same answer as a carrier holding only that block."""
     carrier_text, span = unit.get("carrier_text"), unit.get("span")
     if not carrier_text or not span:
         return projected(unit["text"], home)
-    out = projection.project_span(carrier_text, span[0], span[1], home, decision)
-    disclosed = projection.discloses(out, home)
-    if disclosed is not None:
-        raise Refused(f"DISCLOSED_IN_UNIT: the projection left {disclosed} in a unit's text; no artifact is written")
-    return out
+    return _carrier_span(carrier_text, span[0], span[1], home, decision)
+
+
+def _projected_heading(unit, home=None, decision=None):
+    """The unit's heading path, each component projected as the span of the carrier it IS.
+
+    The components are joined after projection, never before: joining first would hand the floor a
+    string that stands nowhere in the carrier, and the heading of a withheld carrier has to come back
+    blank component by component."""
+    carrier_text, spans = unit.get("carrier_text"), unit.get("heading_spans")
+    if not unit["heading"]:
+        return unit["heading"]
+    if not carrier_text or spans is None:
+        return projected(unit["heading"], home)
+    parts = [_carrier_span(carrier_text, start, end, home, decision).strip().lstrip("#").strip()
+             for start, end in spans]
+    return " > ".join(part for part in parts if part)
 
 
 def shed(units, home=None):
@@ -738,7 +884,20 @@ def shed(units, home=None):
     the carrier metadata the later stages read back (`block`, `item_ref`, `package_id`).
 
     This is the boundary the raw text does not cross. `sha` and `version_sha256` are the raw
-    fragment's and the raw carrier's, taken in `units_of`; `text` is what `projected` returns."""
+    fragment's and the raw carrier's, taken in `units_of`.
+
+    Two kinds of string reach an emitted unit, and each has ONE path out:
+
+    * a **span of the carrier** — `text`, and every component of `heading` — goes through
+      `_carrier_span`, which applies the floor's whole-carrier decision and the carrier's own
+      credential context;
+    * **metadata about** the carrier — the delivered `path`, an adopted package's `item_ref` and
+      `package_id`, the provenance strings a host supplied — is not the carrier's bytes and passes
+      the floor on its own.
+
+    `SPAN_FIELDS` and `METADATA_TEXT_FIELDS` name the two sides. **No control reads those tuples**:
+    the differential enumerates every string the emitted row carries and every string field the
+    schema declares, so a field put on the wrong side is caught rather than trusted (R2#0)."""
     records_out, decisions = [], {}
     for unit in units:
         carrier_text = unit.get("carrier_text")
@@ -746,19 +905,14 @@ def shed(units, home=None):
             # Once per carrier, not once per span: the decision is a property of the carrier, and it
             # carries the floor's whole-carrier WITHHOLDING as well as its extents.
             decisions[unit["carrier_id"]] = projection.carrier_decision(carrier_text, home)
+        decision = decisions.get(unit["carrier_id"])
         emitted = {**{field: unit[field] for field in UNIT_FIELDS},
                    "block": unit["block"], "carrier_id": unit["carrier_id"],
-                   # The display metadata of the carrier the opaque id stands for. An item reference
-                   # and a package id are text an adopted package supplied, so they pass the floor
-                   # like the path does rather than being trusted for their shape.
-                   "item_ref": projected(unit["item_ref"], home) if unit["item_ref"] else unit["item_ref"],
-                   "package_id": projected(unit["package_id"], home) if unit["package_id"] else unit["package_id"],
                    "provenance": unit["provenance"]}
-        emitted["text"] = _projected_span(unit, home, decisions.get(unit["carrier_id"]))
-        # `heading` and `path` are carrier text too — a heading line holds whatever its author wrote
-        # there, and a package's `origin.source_path` can be an absolute path on the owner's disk.
-        emitted["heading"] = projected(unit["heading"], home) if unit["heading"] else unit["heading"]
-        emitted["path"] = projected(unit["path"], home)
+        emitted["text"] = _projected_span(unit, home, decision)
+        emitted["heading"] = _projected_heading(unit, home, decision)
+        for field in METADATA_TEXT_FIELDS:
+            emitted[field] = projected(unit[field], home) if unit[field] else unit[field]
         emitted["provenance"] = {key: projected(item, home) if isinstance(item, str) else item
                                  for key, item in (unit["provenance"] or {}).items()}
         emitted["redaction_version"] = projection.CURRENT
@@ -936,13 +1090,50 @@ def configured_roots(state_root=None, user_root=None, environ=None, home=None):
     a caller that names neither still gets the owner's real roots. That is the safe direction:
     protection never depends on being told."""
     environ = os.environ if environ is None else environ
-    home = pathlib.Path.home() if home is None else pathlib.Path(home)
+    # The home is the one THIS ENVIRONMENT names, which is the rule the shipped installer follows
+    # (`compose/instructions_install.py`: `env.get("HOME", str(Path.home()))`). Reading the process's
+    # own home instead meant the installed defaults did not move with `HOME`, so a fixture
+    # environment resolved the real owner's state root — and a control that reverted the protection
+    # being tested then wrote inventory artifacts into it (R2#6).
+    home = pathlib.Path(environ.get("HOME") or pathlib.Path.home()) if home is None else pathlib.Path(home)
     state = state_root or environ.get(STATE_DIR_VAR) or str(home / STATE_DIR_DEFAULT)
     user = user_root or environ.get(CORPUS_DIR_VAR) or str(home / CORPUS_DIR_DEFAULT)
     return pathlib.Path(state).expanduser(), pathlib.Path(user).expanduser()
 
 
-def protected_roots(state_root, user_root, native_roots, host_homes=(), checkout=None):
+def install_module(repo=REPO):
+    """The shipped `compose/instructions_install.py`, loaded by path — the same way this module
+    already loads the store, so a checkout under test is the one that answers."""
+    path = pathlib.Path(repo) / "compose" / "instructions_install.py"
+    if not path.is_file():
+        raise Refused(f"PRODUCER_UNAVAILABLE {masked(path)}: the host homes are the installer's rule")
+    spec = importlib.util.spec_from_file_location("instructions_install_frozen", path)
+    module = importlib.util.module_from_spec(spec)
+    sys.path.insert(0, str(pathlib.Path(repo) / "compose"))
+    with no_bytecode():
+        spec.loader.exec_module(module)
+    return module
+
+
+def host_homes(environ=None, repo=REPO):
+    """The host configuration homes AS CONFIGURED, by paths alone: `CLAUDE_CONFIG_DIR`, `CODEX_HOME`,
+    and the installed defaults when neither is set.
+
+    `NATIVE`'s `home` fields are the DEFAULTS, and the protected sets read only those — so a host
+    home moved by either variable was a writable destination and an admissible scratch parent for
+    both hosts (R2#1). The rule is not restated here: `compose/instructions_install.py` owns it
+    (`claude_root`, `codex_root`), it ships, and it is loaded by path like the store. Constructing the
+    installer resolves paths and touches no disk.
+
+    A checkout without that file refuses rather than returning a shorter list: protection that cannot
+    be resolved must not quietly become protection of less."""
+    module = install_module(repo)
+    installer = module.InstructionsInstaller(repo, dict(os.environ if environ is None else environ))
+    return [installer.claude_root, installer.codex_root]
+
+
+def protected_roots(state_root, user_root, native_roots, host_homes=None, checkout=None,
+                    environ=None, repo=REPO):
     """Every root this inventory must not write into: the owner's state, the authoring root, the
     host homes, the checkout and the project roots.
 
@@ -961,7 +1152,10 @@ def protected_roots(state_root, user_root, native_roots, host_homes=(), checkout
     roots = [root for root in (state_root, user_root, checkout) if root]
     for group in (native_roots or {}).values():
         roots += list(group.values()) if isinstance(group, dict) else []
-    roots += list(host_homes)
+    # `host_homes=None` means "the homes as configured", resolved through the one helper. Every
+    # production caller leaves it unset: passing a list was how three call sites each carried
+    # `NATIVE`'s defaults and none of them saw `CODEX_HOME` or `CLAUDE_CONFIG_DIR` (R2#1).
+    roots += list(globals()["host_homes"](environ, repo) if host_homes is None else host_homes)
     # Deduplicated: the checkout is also a project root of every default run, and one root named
     # twice reported the same overlap twice.
     return list(dict.fromkeys(pathlib.Path(root).expanduser() for root in roots))
@@ -1116,7 +1310,36 @@ def checkout_copy(destination, source=REPO):
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(member.read_bytes())
         copied.append(name)
+    _COPIES.add(str(destination.resolve()))
     return copied
+
+
+# The copy roots THIS PROCESS made with `checkout_copy`. `copied_member` admits no other root, so
+# "a closure file inside a copy of this checkout" is a fact about what ran, not a claim about a
+# path's shape (R2#5).
+_COPIES = set()
+# The members a control may run or load from such a copy, and nothing else: the driver, as
+# production runs it, and the redaction floor, which the bytecode control's positive leg loads by
+# path with the no-bytecode guard off.
+COPIED_MEMBERS = ("session-distill/distill.py", "learn/redact.py")
+
+
+def copied_member(copy_root, member):
+    """The path of one closure member inside a tree `checkout_copy` produced — or a refusal.
+
+    This is the OWNER of "the program is a closure file in a copy of this checkout", and
+    `runlib/dispatch.py` admits a copy-run only where the program expression IS a call of this
+    function. The admission used to rest on guard text somewhere in the same file, so a run of
+    `os.environ['OTHER_SCRIPT']` added to that file would have been admitted too (R2#5).
+
+    Three refusals, each of which something had to be able to get wrong: a member this is not for, a
+    root this process did not copy, and a member name that would leave the copy (`confined`)."""
+    if member not in COPIED_MEMBERS:
+        raise Refused(f"COPY_MEMBER_UNKNOWN {member!r}: a copy-run names one of {list(COPIED_MEMBERS)}")
+    root = pathlib.Path(copy_root)
+    if str(root.resolve()) not in _COPIES:
+        raise Refused(f"COPY_UNVERIFIED {masked(root)}: this process did not make that copy")
+    return confined(root, member)
 
 
 def loads_outside_the_guard(source):
@@ -1437,8 +1660,8 @@ def scratch_parent(environ=None, home=None, state_root=None, user_root=None, che
     It is the SELECTION that is tested, not the suite: a control calls this with a fixture
     environment and reads the refusal, which costs one call rather than a recursive run."""
     state, user = configured_roots(state_root, user_root, environ, home)
-    guarded = protected_roots(state, user, {}, host_homes=[spec["home"] for spec in NATIVE.values()],
-                              checkout=REPO if checkout is None else checkout)
+    guarded = protected_roots(state, user, {}, checkout=REPO if checkout is None else checkout,
+                              environ=environ)
     return temp_home(guarded, home or str(pathlib.Path.home()), environ)
 
 
@@ -2140,7 +2363,7 @@ def verify_unchanged(watched, before, native_before, failing=None, home=None):
 
 
 def run(repo, state_root, user_root, out_dir, pin=None, native_roots=None, ledger=None, commit=None,
-        run_dir=None, zstd=None, declared_state=None, declared_user=None):
+        run_dir=None, zstd=None, declared_state=None, declared_user=None, environ=None):
     """Write `inventory/<reference>.json` for every reference point, and return the manifest.
 
     The owner's state is hashed before and after, and the two hashes are compared here rather than
@@ -2159,11 +2382,11 @@ def run(repo, state_root, user_root, out_dir, pin=None, native_roots=None, ledge
     # caller was configured with; a caller that names neither still gets the owner's real roots,
     # because `configured_roots` falls back to the environment and the installed default (R1#1).
     protect_state, protect_user = configured_roots(state_root or declared_state,
-                                                   user_root or declared_user)
-    guarded = protected_roots(protect_state, protect_user, native_roots,
-                              host_homes=[spec["home"] for spec in NATIVE.values()], checkout=repo)
+                                                   user_root or declared_user, environ)
+    guarded = protected_roots(protect_state, protect_user, native_roots, checkout=repo, repo=repo,
+                              environ=environ)
     home = str(pathlib.Path.home())
-    temp_root = temp_home(guarded, home)   # chosen and judged before any write, GC#1
+    temp_root = temp_home(guarded, home, environ)   # chosen and judged before any write, GC#1
     overlaps = overlap_problems([out_dir], guarded, home=home)
     if overlaps:
         raise Refused("; ".join(overlaps))
@@ -2908,6 +3131,13 @@ def self_test():
     chosen_parent = scratch_parent()
     with tempfile.TemporaryDirectory(prefix="wp07-self-test-", dir=str(chosen_parent)) as td:
         scratch = pathlib.Path(td)
+        # N1's other half: with the `dir=` wiring gone, `tempfile` resolves `TMPDIR` — inside a
+        # protected root — and REMOVES the directory on the way out, so the control watching that
+        # location found it empty afterwards and passed. What it cannot see from outside is where
+        # this suite actually put its fixtures, so a marked run SAYS it, through the floor (the
+        # child's home is the fixture's, so a protected location reads as `<HOME>/...`).
+        if nested_run():
+            report(f"SELF_TEST_SCRATCH {td}", home=str(pathlib.Path.home()))
 
         # ---- done-when 1: the release mapping, against the baseline file's own item list
         baseline = {"schema_version": 1, "packages": [{"package_id": "@fixture/core"}], "items": [
@@ -3274,10 +3504,13 @@ def self_test():
                 [str(_raised(lambda: run(REPO, state, user, scratch / "project" / "out",
                                          ledger=ledger, **captured())))],
                 "PROTECTED_OVERLAP")
-        control("an output destination inside a host home the native table declares",
-                overlap_problems([pathlib.Path(NATIVE["claude"]["home"]).expanduser() / "out"],
-                                 protected_roots(None, None, {},
-                                                 host_homes=[spec["home"] for spec in NATIVE.values()])),
+        # A host home at its installed default, under a FIXTURE home: no control of this suite names
+        # a path under the real one, so no revert of the rule under test can put a write there
+        # (R2#6). The variables are unset here, which is what makes this the default's case.
+        default_home = scratch / "default-host-home"
+        control("an output destination inside a host home at its installed default",
+                overlap_problems([default_home / ".claude" / "out"],
+                                 protected_roots(None, None, {}, environ={"HOME": str(default_home)})),
                 "PROTECTED_OVERLAP")
         check("the refused destination was never written",
               hash_tree(state)[0] == guarded_before and not (state / "out").exists(),
@@ -3296,12 +3529,81 @@ def self_test():
               not unread_out.exists() and hash_tree(state)[0] == guarded_before,
               f"exists={unread_out.exists()} "
               f"changed={sorted(set(hash_tree(state)[0]) - set(guarded_before))}")
-        check("the same destination with nothing declared either is still refused, because the "
-              "configured roots come from the environment and the installed default",
-              "PROTECTED_OVERLAP" in str(_raised(lambda: run(
-                  REPO, None, None, configured_roots()[0] / "out-unconfigured",
-                  ledger=ledger, **captured()))),
-              "a run that named no roots at all left the owner's real state root writable")
+        # A run that names NO roots resolves them from the environment and the installed default —
+        # asked under a fixture environment and a fixture home, so the destination this control
+        # reaches is inside disposable scratch. It used to be `configured_roots()[0]`, the owner's
+        # REAL state root: with the refusal reverted, the writer would have created inventory
+        # artifacts there (R2#6).
+        unconfigured_home = scratch / "unconfigured-owner"
+        unconfigured_env = {"HOME": str(unconfigured_home)}
+        resolved_state = configured_roots(environ=unconfigured_env)[0]
+        check("the fixture's own installed default is where this control writes, if it writes at all",
+              resolved_state.is_relative_to(scratch), f"{masked(resolved_state)}")
+        control("a run that names no roots at all, judged against what the environment resolves to",
+                [str(_raised(lambda: run(REPO, None, None, resolved_state / "out-unconfigured",
+                                         ledger=ledger, environ=unconfigured_env, **captured())))],
+                "PROTECTED_OVERLAP")
+        check("and nothing was created under the fixture's resolved state root",
+              not (resolved_state / "out-unconfigured").exists(),
+              f"{masked(resolved_state / 'out-unconfigured')} exists after a refused run")
+
+        # ---- R2#1: a host home is where its variable says, not where the default says. The
+        # protected sets read `NATIVE`'s literal defaults, so a home moved by `CODEX_HOME` or
+        # `CLAUDE_CONFIG_DIR` was a writable destination and an admissible scratch parent for both
+        # hosts. The rule has one owner — the shipped installer — and one reader here (`host_homes`),
+        # used by all three sets. Both questions are asked with a fixture environment, so nothing
+        # here depends on, or changes, this process's own.
+        moved = scratch / "moved-host-homes"
+        moved_env = {"HOME": str(moved / "home"), "CLAUDE_CONFIG_DIR": str(moved / "elsewhere/claude"),
+                     "CODEX_HOME": str(moved / "elsewhere/codex")}
+        for host in ("claude", "codex"):
+            (moved / "elsewhere" / host).mkdir(parents=True)
+        check("the configured homes are the ones the variables name, not the defaults",
+              [str(root) for root in host_homes(moved_env)]
+              == [moved_env["CLAUDE_CONFIG_DIR"], moved_env["CODEX_HOME"]],
+              f"{[str(root) for root in host_homes(moved_env)]}")
+        # The rule has one owner. Nothing this module EXECUTES may name either variable — a string
+        # literal is how a second copy of the rule would read. Prose that explains the rule is not a
+        # copy of it, so docstrings are excluded by construction rather than by a text search, and
+        # the fixture environment above names them because that is this control saying what it means.
+        def named_variables(source):
+            tree = ast.parse(source)
+            docstrings = {id(node.body[0].value) for node in ast.walk(tree)
+                          if isinstance(node, (ast.Module, ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
+                          and node.body and isinstance(node.body[0], ast.Expr)
+                          and isinstance(node.body[0].value, ast.Constant)
+                          and isinstance(node.body[0].value.value, str)}
+            return sorted({node.value for node in ast.walk(tree)
+                           if isinstance(node, ast.Constant) and isinstance(node.value, str)
+                           and id(node) not in docstrings
+                           and node.value in ("CLAUDE_CONFIG_DIR", "CODEX_HOME")})
+        module_code = pathlib.Path(__file__).read_text(encoding="utf-8").split("\ndef self_test(", 1)[0]
+        check("and the owner of that rule is the shipped installer, not a copy of it here",
+              not named_variables(module_code + "\n"),
+              f"{named_variables(module_code)} named by this module's own code")
+        control("this module reading a host-home variable for itself",
+                named_variables('x = environ.get("CODEX_HOME")\n'), "CODEX_HOME")
+        for host, variable in (("claude", "CLAUDE_CONFIG_DIR"), ("codex", "CODEX_HOME")):
+            destination = pathlib.Path(moved_env[variable]) / "out"
+            control(f"a production destination inside the configured {host} home",
+                    [str(_raised(lambda destination=destination: run(
+                        REPO, None, None, destination, ledger=ledger, environ=moved_env, **captured())))],
+                    "PROTECTED_OVERLAP")
+            check(f"and the attempted write under the configured {host} home did not happen",
+                  not destination.exists(), f"{destination} exists after a refused run")
+            inner_tmp = pathlib.Path(moved_env[variable]) / "tmp"
+            inner_tmp.mkdir()
+            control(f"a scratch parent inside the configured {host} home",
+                    [str(_raised(lambda inner_tmp=inner_tmp: scratch_parent(
+                        {**moved_env, "TMPDIR": str(inner_tmp)}, moved_env["HOME"])))],
+                    "PROTECTED_OVERLAP")
+            check(f"and that location under the configured {host} home was never written to",
+                  not any(inner_tmp.iterdir()), f"{sorted(path.name for path in inner_tmp.iterdir())}")
+        check("the same destinations are admissible when no variable moves the home, so the "
+              "controls above are about the variables and not about the paths",
+              not overlap_problems([pathlib.Path(moved_env["CODEX_HOME"]) / "out"],
+                                   protected_roots(None, None, {}, environ={"HOME": str(moved / "home")})),
+              "the destination overlaps a protected root even with the variables unset")
 
         # ---- R1#6: one admission point, and denying it stops every category of state-byte read.
         # `hash_tree` and `freeze` read their selected paths directly, so `source_selection` was a
@@ -3958,35 +4260,170 @@ def self_test():
         check("every span of a withheld carrier is blanked, not only the one that cannot decode",
               {row["text"] for row in escaped_emitted} == {projection.blank_for(escaped["text"])},
               f"{[row['text'] for row in escaped_emitted]}")
+        # The same carrier with the value in a HEADING — the reviewer's fixture. `text` was redacted
+        # on every row while `heading` carried `shortpass` on two of them, and the real writer
+        # accepted that document: a heading is a span of the carrier, and the detached projection it
+        # went through knew neither the withholding nor the key three lines above (R2#0).
+        heading_value = carrier("catalog", "claude/guides/heading-value.md",
+                                'api\\_key: "alpha\n\n## shortpass\n"\n')
+        heading_emitted = shed(units_of([heading_value]), str(pathlib.Path.home()))
+        heading_out = scratch / "heading-value-out"
+        write_document(heading_out, heading_out / "inventory" / "current.json",
+                       {"units": heading_emitted}, str(pathlib.Path.home()))
+        heading_published = (heading_out / "inventory" / "current.json").read_text(encoding="utf-8")
+        control("a withheld carrier whose credential value is a heading, through the real writer",
+                [f"published={heading_published}"], projection.blank_for(heading_value["text"]))
+        check("the floor withholds that carrier whole, so the rows are answering about that",
+              projection.carrier_decision(heading_value["text"], str(pathlib.Path.home()))[1],
+              "the floor returns this carrier, so the fixture is not the reviewer's")
+        check("and no field of any row — heading included — carries a byte of it",
+              "shortpass" not in heading_published and "alpha" not in heading_published
+              and all(row["heading"] in ("", projection.blank_for(heading_value["text"]))
+                      for row in heading_emitted),
+              f"{[(row['text'], row['heading']) for row in heading_emitted]}")
 
-        # ---- R1#0, the differential: for EVERY carrier fixture in this suite, nothing the floor
-        # removes from the INTACT carrier appears in any emitted span of it. The first control above
-        # names three fixtures; this one names the property, so the next variant of the same mistake
-        # — another escape, another splitter cut — is caught without a control being written for it.
-        fixtures = {"key in the previous block": pair["text"], "key four lines above": far["text"],
-                    "multi-line value": multi["text"], "escaped key, withheld whole": escaped["text"],
-                    "credential in a heading": heading_secret + "\n- a rule under it\n",
-                    **{f"planted {layer}": raw_text for layer, raw_text in planted_in.items()}}
+        # ---- R2#3: this module is an entry point, and everything it publishes passes the floor.
+        # Its self-test printed its report with `print`, so a failure line carried a planted
+        # credential and a fixture path out verbatim; and `main` ran the suite with no boundary at
+        # all, so an ordinary file failure left a traceback. Both are asked of the real statements.
+        captured_report = io.StringIO()
+        with contextlib.redirect_stdout(captured_report):
+            report(f"inventory --self-test [FAIL] a fixture read failed: {pathlib.Path.home()}/x "
+                   f"with apiKeyHelper: {secret}", home=str(pathlib.Path.home()))
+        published = captured_report.getvalue()
+        control("a report line carrying a credential and the owner's home path",
+                [f"published={published.strip()}"], "REDACTED", "<HOME>")
+        check("and neither the credential nor the home path is in it",
+              secret not in published and str(pathlib.Path.home()) not in published, f"{published}")
+        # ---- N1: this suite runs ITSELF below, and at depth 1 only. The child used to be kept
+        # from spawning its own child by the very `dir=` wiring these controls revert; with it gone
+        # the recursion went 594 deep and filled the disk. The child is marked (`entry.nest`) and a
+        # marked run skips this section, whatever any protection does. The controls here still run
+        # in the parent, and still fail by their own names when the wiring is gone.
+        if not nested_run():
+            # The entry point itself, as a real process, with a scratch parent it cannot write in: the
+            # suite fails where it creates its fixtures, which is the shape that used to escape.
+            unwritable = scratch / "fixture-home" / "no-write"
+            unwritable.mkdir(parents=True)
+            unwritable.chmod(0o500)
+            child_env = {"HOME": str(scratch / "fixture-home"), "TMPDIR": str(unwritable),
+                         "PATH": os.environ.get("PATH", "/usr/bin:/bin")}
+            try:
+                entry_run = bounded_child(lambda: subprocess.Popen(
+                    [sys.executable, str(pathlib.Path(__file__).resolve()), "--self-test"],
+                    stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+                    env=nest_child(child_env), start_new_session=True),
+                    what="this suite's own child")
+            finally:
+                unwritable.chmod(0o700)
+            entry_output = entry_run.stdout + entry_run.stderr
+            control("this entry point's own uncaught file failure, as a real process",
+                    [f"code={entry_run.returncode} output={entry_output.strip()[-400:]}"],
+                    "COMMAND_FAILED", "<HOME>")
+            check("and the interpreter printed no traceback and no raw fixture path",
+                  "Traceback" not in entry_output and child_env["HOME"] not in entry_output
+                  and entry_run.returncode != 0,
+                  f"{entry_run.returncode} {entry_output[-400:]}")
+            # ---- R2#7 for this entry point: the `dir=` wiring, observed here rather than in the helper.
+            # With `TMPDIR` inside a host home the judged parent refuses and nothing is created; without
+            # the wiring `tempfile` resolves `TMPDIR` itself and this suite's fixtures land in a
+            # protected root.
+            guarded_tmp = pathlib.Path(child_env["HOME"]) / ".claude" / "tmp"
+            guarded_tmp.mkdir(parents=True)
+            wired = bounded_child(lambda: subprocess.Popen(
+                [sys.executable, str(pathlib.Path(__file__).resolve()), "--self-test"],
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, start_new_session=True,
+                env=nest_child({**child_env, "TMPDIR": str(guarded_tmp)})),
+                what="this suite's own child with TMPDIR in a host home")
+            wired_output = wired.stdout + wired.stderr
+            control("this suite passes the judged parent to TemporaryDirectory",
+                    [f"code={wired.returncode} output={wired_output.strip()[-300:]}"], "PROTECTED_OVERLAP")
+            check("and nothing was created in the location the judgement refused",
+                  not any(guarded_tmp.iterdir()),
+                  f"{sorted(path.name for path in guarded_tmp.iterdir())}")
+            # Emptiness afterwards is no evidence: `tempfile` removes what it made. The child says
+            # where its fixtures went, and with the wiring in place it never gets that far.
+            check("and the child placed no fixtures of its own inside a protected root",
+                  "SELF_TEST_SCRATCH" not in wired_output,
+                  f"{[line for line in wired_output.splitlines() if 'SELF_TEST_SCRATCH' in line]}")
 
-        def withheld_lines(text, emit):
-            """`(lines the intact carrier does not keep, those of them an emitted span keeps anyway)`.
+        # ---- R1#0/R2#0, the differential: for EVERY carrier fixture in this suite, nothing the
+        # floor removes from the INTACT carrier appears in ANY string the emitted row carries. The
+        # controls above name particular fixtures and particular fields; this one names the property.
+        #
+        # Two things it does not do, each because the first version did and was wrong (R2#0): it does
+        # not rebuild the fixtures as Markdown guides — every fixture keeps its own layer, path and
+        # form, because a Python or JSON carrier splits differently and the differential would be
+        # judging a shape the inventory never emits — and it does not read a list of fields. It walks
+        # every string in the row and holds that walk against the STRING FIELDS THE SCHEMA DECLARES,
+        # so a field added later is covered by this control on the day it is added.
+        session_text = (snapshot_dir / "output.json").read_text(encoding="utf-8")
+        fixtures = {"key in the previous block": pair, "key four lines above": far,
+                    "multi-line value": multi, "escaped key, withheld whole": escaped,
+                    "a credential inside a heading line": carrier(
+                        "catalog", "claude/guides/headed.md", heading_secret + "\n- a rule under it\n"),
+                    "a heading that IS the credential's value": heading_value,
+                    "a hook carrier (python)": carrier(
+                        "catalog", "claude/hooks/planted.py",
+                        f'API = "{secret}"\n\n\ndef run():\n    return API\n'),
+                    # An adopted package's carrier, so `item_ref` and `package_id` are strings on at
+                    # least one fixture rather than null: a field that is null everywhere is a field
+                    # the walk cannot visit, and the schema check below says so.
+                    "an adopted package's carrier": carrier(
+                        "adopted_packages", "guides/adopted.md",
+                        f"## Keys\n\n- the helper reads apiKeyHelper: {secret}\n",
+                        item_ref="@vendor/pkg:adopted", package_id="@vendor/pkg"),
+                    "planted native_global": carrier(
+                        "native_global", f"{pathlib.Path.home()}/.claude/CLAUDE.md", planted_in["native_global"]),
+                    "planted native_project": carrier(
+                        "native_project", f"{project_scope}/CLAUDE.md", planted_in["native_project"]),
+                    "planted native_memory": carrier(
+                        "native_memory", f"{pathlib.Path.home()}/.claude/projects/p/memory/one.md",
+                        planted_in["native_memory"]),
+                    "the session's compiled text": carrier(
+                        "session_injection", str(snapshot_dir / "output.json"), injected, form="markdown")}
 
-            The comparison is per nonblank line: the floor's answer for the whole carrier is the
-            reference, and any line of the raw text it does not return is a line no span of that
-            carrier may carry. A withheld carrier keeps nothing, so every line of it is in the
-            first list — which is the case span projection used to get wrong."""
-            intact = projection.project(text, projection.CURRENT, str(pathlib.Path.home()))
-            emitted_text = "\n".join(emit(text))
-            removed = [line.strip() for line in text.splitlines()
-                       if len(line.strip()) >= 6 and line.strip() not in intact]
-            return removed, [line for line in removed if line in emitted_text]
+        def strings_in(value, at="$"):
+            """Every string the emitted row carries, with where it sits. Not a list of fields: a
+            field added to a unit record is in this walk the moment it exists."""
+            if isinstance(value, str):
+                return [(at, value)]
+            if isinstance(value, dict):
+                return [row for key, item in value.items() for row in strings_in(item, f"{at}.{key}")]
+            if isinstance(value, (list, tuple)):
+                return [row for n, item in enumerate(value) for row in strings_in(item, f"{at}[{n}]")]
+            return []
 
-        def through_shed(text):
-            return [row["text"] for row in shed(units_of([carrier("catalog", "claude/guides/diff.md", text)]),
-                                                str(pathlib.Path.home()))]
+        def emitted_strings(item):
+            rows = shed(units_of([item]), str(pathlib.Path.home()))
+            return [(f"{item['layer']}[{n}]{where}", text)
+                    for n, row in enumerate(rows) for where, text in strings_in(row)]
 
-        differential = {name: withheld_lines(text, through_shed) for name, text in fixtures.items()}
-        control("every carrier fixture, differentially: what the intact carrier withholds, withheld in every span",
+        def withheld_lines(item, emit=None):
+            """`(lines the intact carrier does not keep, where any of them reached the row anyway)`.
+
+            The comparison is per nonblank line: the floor's answer for the WHOLE carrier is the
+            reference, and any line of the raw text it does not return is a line no string of that
+            carrier's rows may carry. A withheld carrier keeps nothing, so every line of it is in the
+            first list — which is the case the span path, and then the heading path, got wrong."""
+            intact = projection.project(item["text"], projection.CURRENT, str(pathlib.Path.home()))
+            removed = []
+            for line in item["text"].splitlines():
+                bare = line.strip()
+                if len(bare) >= 6 and bare not in intact:
+                    # The line, AND the line with its heading marks taken off, because that strip is
+                    # the one transformation the emission path applies to a span: `## shortpass`
+                    # leaves the carrier as the heading `shortpass`, and a whole-line comparison
+                    # looked straight past it.
+                    removed.append(bare)
+                    stripped = bare.lstrip("#").strip()
+                    if stripped != bare and len(stripped) >= 6:
+                        removed.append(stripped)
+            carried = (emit or emitted_strings)(item)
+            return removed, sorted({where for line in removed for where, text in carried if line in text})
+
+        differential = {name: withheld_lines(item) for name, item in fixtures.items()}
+        control("every carrier fixture, differentially: what the intact carrier withholds, withheld in every emitted string",
                 [f"fixtures={len(differential)} "
                  f"withheld_lines={sum(len(rows[0]) for rows in differential.values())} "
                  f"leaks={ {name: rows[1] for name, rows in differential.items() if rows[1]} }"],
@@ -3994,17 +4431,47 @@ def self_test():
         check("every fixture had withheld lines to look for, so the differential judges each one",
               all(rows[0] for rows in differential.values()),
               f"{[name for name, rows in differential.items() if not rows[0]]}")
-        # And the differential can see a leak: projecting each block DETACHED from its carrier is
-        # exactly what this fix replaced, and that is the shape it must report.
-        kept_span = globals()["_projected_span"]
+        check("every fixture kept its own carrier kind, so the splitter the differential ran is the real one",
+              {item["form"] for item in fixtures.values()} >= {"markdown", "python"}
+              and all(item["form"] == form_of(item["path"]) or item["form"] == "markdown"
+                      for item in fixtures.values()),
+              f"{sorted({item['form'] for item in fixtures.values()})}")
+        # The walk is held against the schema the code owns: every string field a unit declares must
+        # be one the walk visited. A field the walk cannot see is a field this control is blind to.
+        declared_strings = sorted(
+            name for name, spec in (inventory_schema()["$defs"]["unit"]["properties"]).items()
+            if spec.get("type") == "string" or (isinstance(spec.get("type"), list) and "string" in spec["type"]))
+        walked = {where.split("$.", 1)[-1].split(".")[0].split("[")[0]
+                  for _name, item in fixtures.items() for where, _text in emitted_strings(item)}
+        control("a string field the schema declares that the differential never looks at",
+                [f"declared={declared_strings} walked={sorted(walked)} "
+                 f"unwalked={[name for name in declared_strings if name not in walked]}"],
+                "unwalked=[]")
+        check("the schema declared string fields to cover at all", len(declared_strings) >= 8,
+              f"{declared_strings}")
+        # And the differential can see a leak: projecting each field DETACHED from its carrier is
+        # exactly what this fix replaced — for the block, and then for the heading — so both shapes
+        # must be reported.
+        kept_span, kept_heading = globals()["_projected_span"], globals()["_projected_heading"]
         try:
             globals()["_projected_span"] = lambda unit, home=None, decision=None: projected(unit["text"], home)
-            detached = {name: withheld_lines(text, through_shed)[1] for name, text in fixtures.items()}
+            globals()["_projected_heading"] = lambda unit, home=None, decision=None: (
+                projected(unit["heading"], home) if unit["heading"] else unit["heading"])
+            detached = {name: withheld_lines(item)[1] for name, item in fixtures.items()}
         finally:
-            globals()["_projected_span"] = kept_span
-        control("the same fixtures with every span projected detached from its carrier",
+            globals()["_projected_span"], globals()["_projected_heading"] = kept_span, kept_heading
+        control("the same fixtures with every field projected detached from its carrier",
                 [f"leaking={sorted(name for name, leaks in detached.items() if leaks)}"],
-                "escaped key, withheld whole", "multi-line value")
+                "escaped key, withheld whole", "multi-line value", "a heading that IS the credential's value")
+        try:
+            globals()["_projected_heading"] = lambda unit, home=None, decision=None: (
+                projected(unit["heading"], home) if unit["heading"] else unit["heading"])
+            heading_only = {name: withheld_lines(item)[1] for name, item in fixtures.items()}
+        finally:
+            globals()["_projected_heading"] = kept_heading
+        control("and with only the heading detached, which is the shape that published a withheld carrier",
+                [f"leaking={sorted(name for name, leaks in heading_only.items() if leaks)}"],
+                "a heading that IS the credential's value")
 
         # ---- GC#8: the closure expands the starting unit's own requirements
         conditioned = ("---\nuse_when:\n  - the fixture asks\n---\n\n## Rule\n\n- do the thing\n\n"
@@ -4253,11 +4720,39 @@ def self_test():
         probe_env.pop("PYTHONPYCACHEPREFIX", None)
         probe_env.pop("PYTHONDONTWRITEBYTECODE", None)
 
-        def bytecode_probe(which, driver, destination):
-            """The child, and what it reported: one real process per question."""
-            ran = subprocess.run([sys.executable, "-I", "-c", BYTECODE_PROBE, str(copied_checkout),
-                                  str(destination), which, str(driver)],
-                                 capture_output=True, text=True, env=probe_env, cwd=str(probe))
+        # ---- R2#5: the owner of "a closure member inside a copy of this checkout". The closure
+        # gate admits a copy-run only where the program expression is a call of this function, so
+        # what this function refuses is what the gate's admission rests on.
+        control("a member a copy-run may not name",
+                [str(_raised(lambda: copied_member(copied_checkout, "gates/check-package.sh")))],
+                "COPY_MEMBER_UNKNOWN")
+        control("a root this process did not copy",
+                [str(_raised(lambda: copied_member(scratch / "not-a-copy", "session-distill/distill.py")))],
+                "COPY_UNVERIFIED")
+        check("even when that root holds a tree of the same shape, because the question is what ran",
+              ("COPY_UNVERIFIED" in str(_raised(lambda: copied_member(REPO, "session-distill/distill.py")))),
+              "a root nobody copied was admitted")
+        check("and the member of a copy this process made resolves inside it",
+              copied_member(copied_checkout, "session-distill/distill.py") == driver_copy,
+              f"{masked(copied_member(copied_checkout, 'session-distill/distill.py'))}")
+        control("a member name that would climb out of the copy",
+                [str(_raised(lambda: copied_member(copied_checkout, "../elsewhere.py")))],
+                "COPY_MEMBER_UNKNOWN")
+        check("every member a copy-run may name is a file of this checkout",
+              all((REPO / member).is_file() for member in COPIED_MEMBERS), f"{COPIED_MEMBERS}")
+
+        def bytecode_probe(which, member, destination):
+            """The child, and what it reported: one real process per question.
+
+            The program the child loads is produced HERE, by `copied_member`, and that call is what
+            `runlib/dispatch.py` admits: the path is a closure member inside a tree this process
+            copied, or this raises. Passing a path the caller had built left the admission resting on
+            text elsewhere in the file (R2#5)."""
+            ran = bounded_child(lambda: subprocess.Popen(
+                [sys.executable, "-I", "-c", BYTECODE_PROBE, str(copied_checkout),
+                 str(destination), which, str(copied_member(copied_checkout, member))],
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=probe_env,
+                cwd=str(probe), start_new_session=True), what="the bytecode observer's own child")
             try:
                 return ran, json.loads(ran.stdout.strip().splitlines()[-1])
             except (ValueError, IndexError):
@@ -4268,7 +4763,7 @@ def self_test():
         # of the copy — are shown to see it. Then the cache it made is removed from the copy (never
         # from the review checkout) and the copy is asserted uncached again.
         unguarded_run, unguarded_seen = bytecode_probe(
-            "unguarded", copied_checkout / "learn" / "redact.py", probe / "out-positive")
+            "unguarded", "learn/redact.py", probe / "out-positive")
         on_disk = sorted(copied_checkout.rglob("*.pyc"))
         check("the same observation sees a by-path load write bytecode when the guard is off",
               bool(unguarded_seen.get("bytecode")) and bool(on_disk),
@@ -4280,16 +4775,44 @@ def self_test():
         # this, "no write at all" rested on an observer that returned immediately for every event
         # that was not `open` (R1#4).
         mutation_run, mutation_seen = bytecode_probe(
-            "mutations", copied_checkout / "learn" / "redact.py", probe / "out-mutations")
+            "mutations", "learn/redact.py", probe / "out-mutations")
         observed_kinds = set(mutation_seen.get("kinds") or [])
         for kind in ("os.mkdir", "os.rename", "os.remove", "os.rmdir"):
             control(f"the observation sees {kind} under the checkout",
                     [f"kinds={sorted(observed_kinds)}"], kind)
-        check("and it saw the attempts that failed as well as the ones that succeeded",
-              len([row for row in (mutation_seen.get("under_checkout") or []) if "mkdir" in row]) >= 1
-              and mutation_seen.get("under_checkout_total", 0) >= 6,
-              f"{mutation_seen.get('under_checkout_total')} {mutation_seen.get('under_checkout')} "
-              f"{mutation_run.stderr[-200:]}")
+        observed_rows = set(mutation_seen.get("under_checkout") or [])
+        # The probe reports resolved paths, so the rows this control expects are resolved too: on
+        # this platform the scratch parent is reached through a symlink, and comparing the two forms
+        # was comparing a path with another name for it.
+        real_copy = pathlib.Path(os.path.realpath(copied_checkout))
+        probe_dir = real_copy / "session-distill" / "probe-mutations"
+        # Each deliberately FAILED attempt, by its own (event, path) identity. A count was not an
+        # assertion about them at all: mkdir, the write-open, rename's two paths, remove and rmdir
+        # already supply six rows, so the old threshold passed with no failed attempt observed (R2#4).
+        for what, row in (("a mkdir of a directory that is already there", f"os.mkdir {probe_dir}"),
+                          ("a remove of a file that is not there",
+                           f"os.remove {real_copy / 'a-file-that-is-not-here'}"),
+                          ("a rename whose source is not there",
+                           f"os.rename {real_copy / 'also-not-here'}")):
+            # The rows themselves are the problems list, so the needle is looked for in ALL of them:
+            # rendering a truncated list and searching that text was a control reporting "not seen"
+            # about a row it had.
+            control(f"the observation sees {what}, which failed", sorted(observed_rows), row)
+        # A descriptor-relative creation and a descriptor-only truncation: the shapes `record`
+        # resolved against the working directory, or discarded because `os.fspath` cannot take an
+        # integer. Either the descriptor resolves them under the copy, or they are UNVERIFIED — and
+        # unverified is a failure of the claim, never a pass.
+        for what, row in (("a mkdir made relative to a directory descriptor",
+                           f"os.mkdir {probe_dir / 'relative-to-a-descriptor'}"),
+                          ("a truncation given only a file descriptor",
+                           f"os.truncate {probe_dir / 'renamed.txt'}"),
+                          ("an open whose only write flag is O_TRUNC",
+                           f"open(write) {probe_dir / 'truncated.txt'}")):
+            control(f"the observation sees {what}",
+                    sorted(observed_rows) + [f"unverified={mutation_seen.get('unverified')}"], row)
+        check("the mutation probe attributed every event it saw, so none of it rests on 'unverified'",
+              mutation_seen.get("unverified_total") == 0,
+              f"{mutation_seen.get('unverified')} {mutation_run.stderr[-200:]}")
         check("the mutation probe left the copy as it found it",
               not (copied_checkout / "session-distill" / "probe-mutations").exists(),
               "the mutation probe's own directory is still there")
@@ -4300,41 +4823,58 @@ def self_test():
               f"{sorted(str(path.relative_to(copied_checkout)) for path in copied_checkout.rglob('*.pyc'))}")
 
         def tree_state(root):
-            """Every file under `root`, by relative path and content digest: the whole tree, not a
-            suffix of it. A missed event kind still shows up here as a difference — which is why the
-            after-run check is a comparison and not a scan for `*.pyc` (R1#4)."""
+            """Every entry under `root`: its name, its contents, and its METADATA — mode, size and
+            mtime in nanoseconds.
+
+            A content-only comparison cannot see a chmod, a utime or a truncation that restored the
+            same bytes, so it was no backstop for the event kinds the observer might miss (R2#4).
+            It still cannot see an attempt that FAILED — nothing changes on disk — which is why the
+            failed attempts are asserted from the events, by identity, and not from here."""
             root = pathlib.Path(root)
             state_of = {}
             for path in sorted(root.rglob("*")):
                 relative = path.relative_to(root).as_posix()
+                try:
+                    stat = path.lstat()
+                    metadata = f"mode={stat.st_mode:o} size={stat.st_size} mtime_ns={stat.st_mtime_ns}"
+                except OSError as exc:
+                    state_of[relative] = f"unstattable:{type(exc).__name__}"
+                    continue
                 if path.is_symlink():
-                    state_of[relative] = f"link:{os.readlink(path)}"
+                    state_of[relative] = f"link:{os.readlink(path)} {metadata}"
                 elif path.is_dir():
-                    state_of[relative] = "dir"
+                    state_of[relative] = f"dir {metadata}"
                 else:
                     try:
-                        state_of[relative] = hashlib.sha256(path.read_bytes()).hexdigest()
+                        state_of[relative] = f"{hashlib.sha256(path.read_bytes()).hexdigest()} {metadata}"
                     except OSError as exc:
-                        state_of[relative] = f"unreadable:{type(exc).__name__}"
+                        state_of[relative] = f"unreadable:{type(exc).__name__} {metadata}"
             return state_of
 
         before_tree = tree_state(copied_checkout)
-        guarded_run, guarded_seen = bytecode_probe("guarded", driver_copy, probe / "out")
+        guarded_run, guarded_seen = bytecode_probe("guarded", "session-distill/distill.py", probe / "out")
         after_tree = tree_state(copied_checkout)
         check("the real invocation ran the driver as __main__ and produced the inventory",
               guarded_seen.get("code") == 0 and (probe / "out" / "inventory" / "manifest.json").is_file(),
               f"{guarded_run.returncode} {guarded_run.stdout[-300:]} {guarded_run.stderr[-400:]}")
         # Every attempted mutation under the copy, not only the bytecode ones: the read-only claim is
         # the wider one, and the observation that answers it is the same observation.
+        # Fail closed. "No attempted write" is `writes_under_checkout=0` AND `unverified=0`: an
+        # event the observer could not attribute to a tree is not evidence that nothing was written,
+        # and reading it as one is how a descriptor-relative removal would have passed (R2#4).
         control("the real invocation attempts no write at all anywhere under the checkout",
                 [f"observed={guarded_seen.get('bytecode')} "
                  f"writes_under_checkout={guarded_seen.get('under_checkout_total')} "
-                 f"first={guarded_seen.get('under_checkout')}"],
-                "observed=[]", "writes_under_checkout=0")
+                 f"unverified={guarded_seen.get('unverified_total')} "
+                 f"first={guarded_seen.get('under_checkout')} {guarded_seen.get('unverified')}"],
+                "observed=[]", "writes_under_checkout=0", "unverified=0")
         differences = sorted(set(before_tree) ^ set(after_tree)) + sorted(
             name for name in set(before_tree) & set(after_tree) if before_tree[name] != after_tree[name])
-        control("and that same checkout's whole tree is byte for byte what it was",
-                [f"files={len(before_tree)} differences={differences[:6]}"], "differences=[]")
+        control("and that same checkout's whole tree — contents, names and metadata — is what it was",
+                [f"entries={len(before_tree)} differences={differences[:6]}"], "differences=[]")
+        check("the comparison carried metadata as well as contents, so a chmod or a utime would show",
+              all("mode=" in value and "mtime_ns=" in value for value in before_tree.values()),
+              f"{sorted(before_tree.items())[:2]}")
         check("the comparison had a tree to compare", len(before_tree) > 200,
               f"{len(before_tree)} entries")
 
@@ -4459,13 +4999,17 @@ def self_test():
                                             "properties": {"units": {}}}),
                 "SCHEMA_INVALID")
 
-    print(f"inventory --self-test: {'OK' if not failures else 'FAILED'} ({len(ran)} controls: the splitter's "
+    report(f"inventory --self-test: {'OK' if not failures else 'FAILED'} ({len(ran)} controls: the splitter's "
           f"reproduction over the real guides, the unit record and the layer set against the schema the code owns "
           f"(no control reads a dated design record), a produced document validated against that schema, a span "
           f"projected with its carrier intact — a credential's key four nonblank lines above its value, a "
           f"multi-line credential the splitter cut in two, and an escaped key whose whole carrier the floor "
-          f"withholds, published through the real writer — with every carrier fixture differentially checked for "
-          f"what the intact carrier does not keep, an opaque carrier identity that lets an absolute native "
+          f"withholds, published through the real writer — every carrier-derived field out through one path and "
+          f"every carrier fixture differentially checked, over every string an emitted row carries and every "
+          f"string field the schema declares, for what the intact carrier does not keep, this entry point's own "
+          f"report and uncaught failures through the one diagnostic boundary, the host homes as configured rather "
+          f"than as defaulted, a copy-run bound to the owner that produces it, an opaque carrier identity that "
+          f"lets an absolute native "
           f"path be published, one source selection before every read of the owner's state with a leaf and an "
           f"ancestor link refused for each read kind, and denying that selection stopping every category of read, "
           f"the owner's roots protected whether or not this run reads them, a self-test scratch parent chosen by "
@@ -4479,9 +5023,9 @@ def self_test():
           f"overlapping a protected root refused before any write, a planted credential and home path in every "
           f"personal carrier kind masked in every artifact while the hashes still bind to the raw carrier, a "
           f"malformed settings file reported incomplete rather than unsupported, and a failed acquisition that "
-          f"still leaves a layer-status artifact)")
+          f"still leaves a layer-status artifact)", home=str(pathlib.Path.home()))
     for failure in failures:
-        print(f"inventory --self-test [FAIL] {failure}")
+        report(f"inventory --self-test [FAIL] {failure}", home=str(pathlib.Path.home()))
     return 1 if failures else 0
 
 
@@ -4498,9 +5042,12 @@ def main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
     if argv == ["--self-test"]:
         return self_test()
-    print(__doc__.strip().split("\n\n")[0])
+    entry.say(__doc__.strip().split("\n\n")[0], home=str(pathlib.Path.home()))
     return 2
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    # The same boundary the driver runs inside: an uncaught failure of this entry point — a fixture
+    # read that is refused, a scratch directory that cannot be made — is described through the floor
+    # instead of by the interpreter, and its report lines pass the floor too (R2#3).
+    sys.exit(entry.guarded(main, sys.argv[1:], str(pathlib.Path.home())))
