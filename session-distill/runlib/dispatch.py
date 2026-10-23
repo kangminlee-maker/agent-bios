@@ -481,7 +481,7 @@ class Supervisor:
                 cal.setdefault(held["class"], {"samples": []})["samples"].append(totals["measured"])
                 records.write_json(self.run_dir, self._path("calibration.json"), cal)
 
-    def _stop_run(self, entry):  # noqa: C901 - one critical section
+    def _stop_run(self, entry, into=None):  # noqa: C901 - one critical section
 
         """Stop the run, with the entry that records WHY - the one record of it.
 
@@ -554,14 +554,102 @@ class Supervisor:
                             unstamped = f"stop-internal-error: {exc!r}"
                 if unstamped is not None:
                     entry = {**entry, "stamp": unstamped}
-                offered = {"at": self.clock(), **entry}
+                offered = dict(entry)             # the entry already carries its own `at` (HC#0)
                 kept = bound.strongest(ledger.get("stopped"), offered)
                 ledger["stopped"] = kept
                 self._write(ledger)
                 # what this returns is THIS call's own stop, whether or not the run kept it: the call
                 # records it and names it in its refusal, so a stop that lost to an earlier terminal one
                 # still leaves its reason somewhere a reader can find (BE#3)
-                return {**offered, "kept": kept is offered}
+                result = {**offered, "kept": kept is offered}
+                if into is not None:
+                    # HD#0: retained HERE, with the ledger written and the locks not yet released -
+                    # releasing them can fail, and a failure after the write used to leave the caller
+                    # without its own stop, so the failure path offered the same stop a second time
+                    into["stop"] = result
+                return result
+
+    def _now(self):
+        """`(at, note)` - the clock, with a fallback.
+
+        A clock that raises must not block a stop that has already been decided (HC#0), so the
+        fallback is taken and the entry says the timestamp did not come from the run's own clock."""
+        try:
+            return self.clock(), None
+        except Exception as exc:                  # noqa: BLE001 - a timestamp decides nothing
+            try:
+                return time.time(), f"clock-unavailable: {exc!r}"
+            except Exception as inner:            # noqa: BLE001
+                return None, f"clock-unavailable: {inner!r}"
+
+    @staticmethod
+    def _rows_snapshot(mon):
+        """The monitor's request rows, copied for the stop decision, raising on nothing.
+
+        Taken under the monitor's own lock with a BOUNDED wait and copied either way: this runs on
+        the failure path too, where the exception may have come from inside that lock in this very
+        thread, and a stop must not deadlock waiting for a lock the failure still holds (HC#3)."""
+        try:
+            taken = mon.lock.acquire(timeout=STOP_LOCK_WAIT_S)
+            try:
+                return list(mon.ledger.requests)
+            finally:
+                if taken:
+                    mon.lock.release()
+        except Exception:                         # noqa: BLE001 - no monitor, no rows, no decision
+            return []
+
+    def _offer_stop(self, call, call_dir, rows, view_window):
+        """THE stop decision, wherever settlement reaches it, and the only place it is made (HC#2).
+
+        Three call sites: the moment `_follow` returns, the moment reconciliation has measured rows
+        that were pending, and the way out of a failure. The first offer wins - the call's own record
+        of it is the guard - so the later sites add nothing when the first already stopped the run.
+
+        **Nothing here raises before the stop is persisted.** The reading, the rule's check, the entry
+        and its timestamp are all total: a failure preparing any of them would be a failure with the
+        excess already observed, which is the whole class this closes (HC#0). The call record is
+        written with the offered stop where that is possible, and a record that cannot be written
+        does not take the stop down with it - the ledger already has it."""
+        if not view_window:
+            return None
+        if call.get("stop"):
+            # already offered, possibly by a site that could not finish writing the record (HD#0):
+            # complete the diagnostic, and never offer the same call's stop twice
+            self._record_stop(call, call_dir)
+            return call["stop"]
+        try:
+            observed, _unreadable = bound.observed_rows(rows)
+            if not bound.check_observed(observed, view_window):
+                return None
+            at, note = self._now()
+            entry = bound.excess(call["call_id"], observed, at)
+            if note:
+                entry = {**entry, "clock": note}
+            try:
+                json.dumps(entry)                 # a count past the interpreter's digit limit (HC#0) is
+            except Exception as exc:              # still a count: the stop is written without it, saying so
+                entry = {**{k: v for k, v in entry.items() if k != "observed"},
+                         "stamp": f"observed-unrenderable: {exc!r}"}
+        except Exception as exc:                  # noqa: BLE001 - a defect in the preparation stops the
+            # run as a failed lock does (BE#0): fail closed, and say which half of this code failed
+            entry = {"code": bound.STOP_CODE, "call_id": call.get("call_id"), "observed": 0, "at": None,
+                     "detail": f"{bound.STOP_CODE} {call.get('call_id')}: the stop decision failed in this code",
+                     "stamp": f"offer-internal-error: {exc!r}"}
+        offered = self._stop_run(entry, into=call)
+        call["stop"] = offered
+        self._record_stop(call, call_dir)
+        return offered
+
+    def _record_stop(self, call, call_dir):
+        """The call's own record of its stop, written wherever that is possible.
+
+        A record that cannot be written does not take the stop down with it: the ledger already has
+        it, and this is the diagnostic, not the decision."""
+        try:
+            records.write_json(self.run_dir, call_dir / "call.json", call)
+        except Exception:                         # noqa: BLE001 - the stop is in the ledger already
+            pass
 
     # --- one call ----------------------------------------------------------------------------
 
@@ -700,83 +788,86 @@ class Supervisor:
                 self.release(stage, call_id, "refused")
             raise
 
-        exit_status, stdout, stderr, mon, stopped, wall_ms = self._follow(host, proc, began, packet, capture, cell, caps,
-                                                                          max_output_tokens)
-        # HB#0: THE STOP DECISION IS THE FIRST THING SETTLEMENT DOES. Three review rounds each found
-        # another statement between the process ending and the stop that could fail and discard an
-        # observed excess - the receipt, the charge's calibration, the incomplete-usage refusal, and
-        # then the result write, the reconciliation, the seat projection and the usage write below.
-        # The class is closed here rather than one instance at a time: nothing above this block but
-        # `_follow` itself, and the input is the host's own per-request components read straight off
-        # the monitor's rows by `bound.observed_rows`, which cannot raise. The call record is written
-        # with the offered stop at once, so the diagnostic survives wherever that write is possible;
-        # if THAT fails, the stop is already in the ledger and the failure propagates as any other.
-        excess = None
-        if view_window:
-            observed_live, _unreadable = bound.observed_rows(mon.ledger.requests)
-            if bound.check_observed(observed_live, view_window):
-                excess = self._stop_run(bound.excess(call_id, observed_live, self.clock()))
-                call["stop"] = excess
-                records.write_json(self.run_dir, call_dir / "call.json", call)
-        (call_dir / "result.json").write_bytes(stdout)
-        # the runner's stderr is kept only as the refusal it names: its trace carries prompt and
-        # output bodies, and the capture keeps none (design §3.2)
-        refused = ADAPTER_REFUSAL[host].search(stderr) if exit_status not in (0, None) else None
-        if host == "codex" and not (capture / "frames.jsonl").exists():  # codex-run's capture wrote its own: never replaced
-            channels = {"dir": "info", "type": "channels", "channels": list(CODEX_CHANNELS)}
-            (capture / "frames.jsonl").write_text("".join(json.dumps(r, sort_keys=True) + "\n"
-                                                          for r in [channels, *mon.feed.records]), encoding="utf-8")
-        projects = cell / "config" / "projects"
-        if projects.is_dir():
-            shutil.copytree(projects, capture / "transcripts")
-        result = gate.Call(call_dir).result
-        usage = self._usage(call_dir, call, mon, result if isinstance(result, dict) else {}, stopped, exit_status, wall_ms)
-        records.write_json(self.run_dir, call_dir / "usage.json", usage)
-        self._delete_cell(cell, call_dir)  # only now: usage is captured before any temporary home goes (§13.3)
+        # HB#0/HC#2: THE STOP DECISION IS THE FIRST THING SETTLEMENT DOES, and `_offer_stop` is the one
+        # place it is made. Three review rounds each found another statement between the process ending
+        # and the stop that could fail and discard an observed excess; the fourth found two more places
+        # the decision has to be reachable from - after reconciliation measures a row that was pending,
+        # and on the way out of a failure. All three call sites are the same method, the first offer
+        # wins, and nothing in it raises.
+        monitor_held = {}
+        try:
+            exit_status, stdout, stderr, mon, stopped, wall_ms = self._follow(host, proc, began, packet, capture,
+                                                                              cell, caps, max_output_tokens,
+                                                                              monitor=monitor_held)
+            excess = self._offer_stop(call, call_dir, self._rows_snapshot(mon), view_window)
+            (call_dir / "result.json").write_bytes(stdout)
+            # the runner's stderr is kept only as the refusal it names: its trace carries prompt and
+            # output bodies, and the capture keeps none (design §3.2)
+            refused = ADAPTER_REFUSAL[host].search(stderr) if exit_status not in (0, None) else None
+            if host == "codex" and not (capture / "frames.jsonl").exists():  # codex-run's capture wrote its own: never replaced
+                channels = {"dir": "info", "type": "channels", "channels": list(CODEX_CHANNELS)}
+                (capture / "frames.jsonl").write_text("".join(json.dumps(r, sort_keys=True) + "\n"
+                                                              for r in [channels, *mon.feed.records]), encoding="utf-8")
+            projects = cell / "config" / "projects"
+            if projects.is_dir():
+                shutil.copytree(projects, capture / "transcripts")
+            result = gate.Call(call_dir).result
+            reconciled = self._reconcile(call_dir, call, mon, result if isinstance(result, dict) else {},
+                                         stopped, exit_status)
+            # HC#2: reconciliation can MEASURE a row that was still pending when the rows were first read -
+            # a compaction measured from the aggregate - so the excess may exist only now. The offer is made
+            # here, before the seat projection, the usage record and everything after them.
+            excess = self._offer_stop(call, call_dir, self._rows_snapshot(mon), view_window) or excess
+            usage = self._usage(call_dir, call, mon, reconciled, wall_ms)
+            records.write_json(self.run_dir, call_dir / "usage.json", usage)
+            self._delete_cell(cell, call_dir)  # only now: usage is captured before any temporary home goes (§13.3)
 
-        if host == "claude":
-            events = list(mon.ledger.events)
-            if isinstance(result, dict) and result.get("type") == "result" and mon.ledger.result is None:
-                events.append(result)
-            signals = breakers.claude_signals(events, max_output_tokens)
-        else:
-            signals = breakers.codex_signals(mon.feed.records, gate.Call(call_dir).events)
-        if self.breaker.observe(host, signals, self.clock()) is not None:
-            self._defer_outstanding(host)
-        stopping = [sig for sig in signals if sig["kind"] in ("limit", "unrecognised")]
-        if stopping:
-            self.breaker.defer(host, f"{stage}:{held['item']}")  # the item that met the signal waits too
-        call.update(exit_status=exit_status, wall_ms=wall_ms, stopped=stopped, provider_signals=breakers.report(host, signals),
-                    runner_refused=refused.group(0).decode("utf-8", "replace").split(": ", 1)[1] if refused else None)
-        if view_window:
-            observed, missing = bound.observed_input(usage["requests"])
-            call["input_observed"] = observed
-            # the written record is read again, because reconciliation can make a row measured that
-            # was not measured when the rows were read above; the stop above already stands if it did
-            if excess is None and bound.check_observed(observed, view_window):
-                # PERSIST FIRST (F-19/BE#1). The excess is observed here, and everything after this line
-                # can fail: the call record, the receipt the launcher writes, the charge's calibration
-                # read. Each of those used to end the call before the stop was written, leaving a run
-                # whose host had changed open to the next dispatch. The stop goes to the ledger now,
-                # under the supervisor's lock; the rest of the settlement still runs below, and if it
-                # fails it fails as it always did - with the stop already recorded.
-                excess = self._stop_run(bound.excess(call_id, observed, self.clock()))
-                call["stop"] = excess
-            if missing:  # a usage record missing a component is not a smaller number (bound.observed_of)
-                # HA#0: and it is not a reason to forget an excess the COMPLETE rows already establish.
-                # `observed_input` answers both questions independently, so the stop above is written
-                # first and the call record carries it; this refusal is still what the call fails with.
-                records.write_json(self.run_dir, call_dir / "call.json", call)
-                raise Refused(f"USAGE_INCOMPLETE {call_id}: {', '.join(missing)}; the observed input of a call is "
-                              "input + cache creation + cache read, and a missing component is not a zero")
-        records.write_json(self.run_dir, call_dir / "call.json", call)
-        if exit_status is not None:  # a runner that never exited has no receipt (the gate refuses the call for it)
-            self._receipt(call_dir, stage, call_id, seat, exit_status)
-        outcome = "deferred" if stopping else stopped["outcome"] if stopped else "completed" if exit_status == 0 else "failed"
-        self.charge(stage, call_id, usages.totals(usage), outcome, caps)
-        if excess:
-            raise Refused(stop_detail(excess))
-        return call_dir
+            if host == "claude":
+                events = list(mon.ledger.events)
+                if isinstance(result, dict) and result.get("type") == "result" and mon.ledger.result is None:
+                    events.append(result)
+                signals = breakers.claude_signals(events, max_output_tokens)
+            else:
+                signals = breakers.codex_signals(mon.feed.records, gate.Call(call_dir).events)
+            if self.breaker.observe(host, signals, self.clock()) is not None:
+                self._defer_outstanding(host)
+            stopping = [sig for sig in signals if sig["kind"] in ("limit", "unrecognised")]
+            if stopping:
+                self.breaker.defer(host, f"{stage}:{held['item']}")  # the item that met the signal waits too
+            call.update(exit_status=exit_status, wall_ms=wall_ms, stopped=stopped, provider_signals=breakers.report(host, signals),
+                        runner_refused=refused.group(0).decode("utf-8", "replace").split(": ", 1)[1] if refused else None)
+            if view_window:
+                observed, missing = bound.observed_input(usage["requests"])
+                call["input_observed"] = observed
+                # there is no fourth decision here: the written record holds the same rows under the same
+                # policy (HC#1), so a decision over it is the one made above, only later. A site no control
+                # can tell apart from its absence is not a site.
+                if missing:  # a usage record missing a component is not a smaller number (bound.observed_of)
+                    # HA#0: and it is not a reason to forget an excess the COMPLETE rows already establish.
+                    # `observed_input` answers both questions independently, so the stop above is written
+                    # first and the call record carries it; this refusal is still what the call fails with.
+                    records.write_json(self.run_dir, call_dir / "call.json", call)
+                    raise Refused(f"USAGE_INCOMPLETE {call_id}: {', '.join(missing)}; the observed input of a call is "
+                                  "input + cache creation + cache read, and a missing component is not a zero")
+            records.write_json(self.run_dir, call_dir / "call.json", call)
+            if exit_status is not None:  # a runner that never exited has no receipt (the gate refuses the call for it)
+                self._receipt(call_dir, stage, call_id, seat, exit_status)
+            outcome = "deferred" if stopping else stopped["outcome"] if stopped else "completed" if exit_status == 0 else "failed"
+            self.charge(stage, call_id, usages.totals(usage), outcome, caps)
+            if excess:
+                raise Refused(stop_detail(excess))
+            return call_dir
+        except BaseException:
+            # HC#3: an exception anywhere above, including out of `_follow` itself, leaves the monitor's
+            # rows as evidence already in hand. The offer is made from them and the ORIGINAL failure is
+            # what the caller gets - a stop that could not be offered never replaces it.
+            held_monitor = monitor_held.get("mon")
+            if held_monitor is not None:
+                try:
+                    self._offer_stop(call, call_dir, self._rows_snapshot(held_monitor), view_window)
+                except Exception:                 # noqa: BLE001 - the original failure is the one that matters
+                    pass
+            raise
 
     def _stopped(self, call_id, ledger=None):
         """Refuse `call_id` while the run is stopped - unless the rule says the stop has lifted.
@@ -925,11 +1016,13 @@ class Supervisor:
             env.update(RUST_LOG=CODEX_TRACE, CODEX_RUN_BIN=host_bin, CODEX_RUN_VERSION=host_version)
         return env
 
-    def _follow(self, host, proc, began, packet, capture, cell, caps, output_cap=None):
+    def _follow(self, host, proc, began, packet, capture, cell, caps, output_cap=None, monitor=None):
         """Follow a launched runner to its end: the monitor, the stop at either cap, the drain."""
         tripped = threading.Event()
         mon = self.monitor(host, caps, on_trip=lambda _why: tripped.set(), on_signal=lambda sigs: self._signal(host, sigs),
                            output_cap=output_cap)
+        if monitor is not None:
+            monitor["mon"] = mon                  # HC#3: the rows stay reachable if this never returns
         sampler = stop.TreeSampler(proc.pid, interval=0.05)
         sampler.start()
         out, err = [], []
@@ -1016,8 +1109,11 @@ class Supervisor:
         proc.poll()  # every stop is done: the runner is reaped only now, if it has exited
         return proc.returncode, b"".join(out), b"".join(err), mon, stopped, int((time.monotonic() - began) * 1000)
 
-    def _usage(self, call_dir, call, mon, result, stopped, exit_status, wall_ms):
-        """usage.json from the monitor's ledger and the closing aggregates (design §13.3).
+    def _reconcile(self, call_dir, call, mon, result, stopped, exit_status):
+        """The monitor's rows against the closing aggregates (design §13.3), and nothing else.
+
+        Split from the usage record (HC#2) so the stop decision can be made the moment reconciliation
+        has measured a row that was pending - before the seat projection, the record and the writes.
 
         Claude: the residual of result.modelUsage over every measured request is attributed to
         the call's one compaction only once every other request and attempt has reconciled — each
@@ -1054,8 +1150,12 @@ class Supervisor:
                     and all(r["state"] == "measured" for r in ledger.requests)
         else:
             reconciled = reconcile_codex(call_dir, ledger, self.clock) and ended
+        return reconciled
+
+    def _usage(self, call_dir, call, mon, reconciled, wall_ms):
+        """usage.json: the seat projection over the capture, and the monitor's own record of the call."""
         observed = gate.observed_seats(gate.Call(call_dir))
-        return ledger.record(call["call_id"], call["stage"], call["seat"], observed, wall_ms, reconciled)
+        return mon.ledger.record(call["call_id"], call["stage"], call["seat"], observed, wall_ms, reconciled)
 
     @staticmethod
     def _delete_cell(cell, call_dir):
@@ -2481,8 +2581,11 @@ def self_test(scratch=None):
         total = {k: main_tokens[k] + extra.get(k, 0) for k in main_tokens}
         model_usage = {"claude-haiku-5-5": {"inputTokens": total["input"], "outputTokens": total["output"],
                                             "cacheReadInputTokens": total["cache_read"], "cacheCreationInputTokens": total["cache_creation"]}}
-        rec = sup._usage(call_dir, {"host": "claude", "call_id": "x", "stage": "S6", "seat": judge}, m, {"modelUsage": model_usage},
-                         None, 0, 10)
+        subject = {"host": "claude", "call_id": "x", "stage": "S6", "seat": judge}
+        # the two halves are called in the order settlement calls them, with the stop decision between
+        # them in production (HC#2): reconciliation first, then the record the projection completes
+        reconciled = sup._reconcile(call_dir, subject, m, {"modelUsage": model_usage}, None, 0)
+        rec = sup._usage(call_dir, subject, m, reconciled, 10)
         return rec, [(r["id"], r["state"], r["estimate"], usages.request_total(r) if r["state"] == "measured" else None)
                      for r in rec["requests"]], usages.check(rec)
     extra = {"output": 1000, "cache_read": 9000}
@@ -3683,9 +3786,9 @@ def self_test(scratch=None):
         directory = run_dir(f"run-f19-{label}", {vstage: 2_000_000})
         sup_f = counted(supervisor(directory, "clean", replay=replay))
         sup_f.seed_from(authoring)
-        if adjust:
-            adjust(sup_f)
         held_r = sup_f.reserve(vstage, label, vseat, "authoring")
+        if adjust:                                # after the reservation: a case may break the clock
+            adjust(sup_f)                         # or the measurement the call itself runs on
         if arrange:
             arrange(directory)
         reported = None
@@ -3986,6 +4089,213 @@ def self_test(scratch=None):
                     (saved.get("stop") or {}).get("call_id") == rhb["call_id"]
                     and (saved.get("stop") or {}).get("observed") == 135_796, f"{saved.get('stop')}")
 
+    # HC#0: nothing in the preparation can fail with an excess already observed - not the container the
+    # rows arrive in, not a count too large for the interpreter to render, not the clock.
+    def replace_rows(sup, make_rows, aggregate=None):
+        inner = sup._follow
+
+        def follow(*args, **kwargs):
+            status, stdout, stderr, mon, stopped, wall = inner(*args, **kwargs)
+            mon.ledger.requests[:] = make_rows(list(mon.ledger.requests))
+            if aggregate is not None:
+                payload = json.loads(stdout.decode("utf-8"))
+                payload["modelUsage"] = aggregate
+                stdout = json.dumps(payload).encode("utf-8")
+            return status, stdout, stderr, mon, stopped, wall
+
+        sup._follow = follow
+
+    def unrenderable_count(sup):
+        replace_rows(sup, lambda rows: [{**rows[0], "state": "measured", "input": 10 ** 4400,
+                                         "cache_creation": 0, "cache_read": 0}])
+
+    def break_the_clock(sup):
+        """The clock fails the moment the host has answered - the call was launched on a working one,
+        and the stop decision is the first thing that needs it afterwards."""
+        inner = sup._follow
+
+        def raising():
+            raise RuntimeError("the run clock failed")
+
+        def follow(*args, **kwargs):
+            outcome = inner(*args, **kwargs)
+            sup.clock = raising
+            return outcome
+
+        sup._follow = follow
+
+    def restore_clock(_directory):
+        pass                                          # the clock lives on the case's own supervisor
+
+    f_big, sup_big, r_big, reported_big = overrun_under("hc0-unrenderable-count", adjust=unrenderable_count)
+    kept_big = ledger_stop(f_big)
+    control("HC#0-a-count-too-large-to-render-still-stops-the-run",
+            kept_big.get("code") == bound.STOP_CODE and kept_big.get("call_id") == r_big["call_id"]
+            and "observed-unrenderable" in (kept_big.get("stamp") or ""), f"{kept_big}")
+    control("HC#0-and-the-next-dispatch-is-refused-after-it",
+            (refusal(sup_big.reserve, vstage, "after-unrenderable", vseat, "authoring") or "")
+            .startswith(f"RUN_STOPPED {bound.STOP_CODE}"), "a call was reserved after an unrenderable count")
+
+    f_clk, sup_clk, r_clk, reported_clk = overrun_under("hc0-clock-unavailable", adjust=break_the_clock,
+                                                        restore=restore_clock)
+    kept_clk = ledger_stop(f_clk)
+    control("HC#0-a-clock-that-raises-does-not-block-the-stop",
+            kept_clk.get("code") == bound.STOP_CODE and kept_clk.get("observed") == 135_796
+            and "clock-unavailable" in (kept_clk.get("clock") or ""), f"{kept_clk}")
+    control("HC#0-and-the-next-dispatch-is-refused-after-a-failed-clock",
+            (refusal(sup_clk.reserve, vstage, "after-clock", vseat, "authoring") or "")
+            .startswith(f"RUN_STOPPED {bound.STOP_CODE}"), "a call was reserved after a failed clock")
+
+    def rows_are_not_a_container(sup):
+        inner = sup._follow
+
+        def follow(*args, **kwargs):
+            status, stdout, stderr, mon, stopped, wall = inner(*args, **kwargs)
+            mon.ledger.requests = 7                   # not a sequence at all
+            return status, stdout, stderr, mon, stopped, wall
+
+        sup._follow = follow
+
+    f_box, _sup_box, _r_box, reported_box = overrun_under("hc0-rows-not-a-container", adjust=rows_are_not_a_container)
+    control("HC#0-a-rows-container-that-cannot-be-walked-is-reported-not-raised",
+            bool(reported_box) and "observed_rows" not in (reported_box or "")
+            and ledger_stop(f_box) == {}, f"{reported_box}")
+
+    # HC#2: an excess that exists only AFTER reconciliation - one measured request of a token, one
+    # pending compaction, and an aggregate that makes that compaction 135796 - is stopped at the second
+    # call site, before the seat projection and before the usage record is written.
+    def reconciled_into_an_excess(sup):
+        def rows(existing):
+            first = existing[0]
+            return [{**first, "state": "measured", "role": "turn", "send_seen": True,
+                     "input": 1, "output": 1, "cache_read": 0, "cache_creation": 0, "estimate": None},
+                    {**first, "state": "provisional", "role": "compaction", "send_seen": True, "estimate": 1,
+                     "input": None, "output": None, "cache_read": None, "cache_creation": None}]
+
+        replace_rows(sup, rows, aggregate={"m": {"inputTokens": 135_797, "outputTokens": 2,
+                                                 "cacheReadInputTokens": 0, "cacheCreationInputTokens": 0}})
+
+    def reconciled_then_projection_fails(sup):
+        reconciled_into_an_excess(sup)
+        break_the_seat_projection(sup)
+
+    def reconciled_then_usage_unwritable(sup):
+        reconciled_into_an_excess(sup)
+        break_the_usage_write(sup)
+
+    # the first of these is the one that ISOLATES the second decision site: settlement after it succeeds
+    # from end to end, so no exception path can stand in for it, and with the site gone the call returns
+    # the overrun unreported. The other two show the same stop standing when a later step does fail.
+    for label, adjust, restore_case in (
+            ("settles-cleanly", reconciled_into_an_excess, None),
+            ("projection-failed", reconciled_then_projection_fails,
+             lambda _d: setattr(gate, "observed_seats", held_observed_seats)),
+            ("usage-unwritable", reconciled_then_usage_unwritable, unseal)):
+        fr, sup_r, rr, reported_r = overrun_under(f"hc2-reconciled-{label}", adjust=adjust, restore=restore_case)
+        kept_r = ledger_stop(fr)
+        control(f"HC#2-an-excess-only-reconciliation-establishes-is-in-the-ledger-({label})",
+                kept_r.get("code") == bound.STOP_CODE and kept_r.get("observed") == 135_796
+                and kept_r.get("call_id") == rr["call_id"], f"{kept_r}")
+        control(f"HC#2-the-next-dispatch-is-refused-({label})",
+                (refusal(sup_r.reserve, vstage, f"after-reconciled-{label}", vseat, "authoring") or "")
+                .startswith(f"RUN_STOPPED {bound.STOP_CODE}"), f"a call was reserved after reconciled-{label}")
+        control(f"HC#2-the-call-itself-reported-the-failure-({label})", bool(reported_r), f"{reported_r}")
+        if label == "settles-cleanly":            # nothing else failed, so nothing else could have stopped it
+            control("HC#2-a-clean-settlement-still-fails-by-name-on-the-reconciled-excess",
+                    f"{bound.STOP_CODE} {rr['call_id']}" in (reported_r or ""), f"{reported_r}")
+            saved_r = json.loads((fr / "calls" / rr["call_id"] / "call.json").read_text(encoding="utf-8"))
+            control("HC#2-and-that-call-s-record-carries-the-stop-it-offered",
+                    (saved_r.get("stop") or {}).get("observed") == 135_796
+                    and (saved_r.get("stop") or {}).get("kept") is True, f"{saved_r.get('stop')}")
+
+    # HC#3: and an exception out of `_follow` itself, with the rows already in the monitor, stops the
+    # run on the way out - and the caller still gets the original failure.
+    def fail_out_of_follow(sup):
+        inner = sup._follow
+
+        def follow(*args, **kwargs):
+            inner(*args, **kwargs)                    # the monitor exists, its rows hold the overrun
+            raise RuntimeError("the monitor could not be finished")
+
+        sup._follow = follow
+
+    f_exc, sup_exc, r_exc, reported_exc = overrun_under("hc3-follow-raised", adjust=fail_out_of_follow)
+    kept_exc = ledger_stop(f_exc)
+    control("HC#3-an-exception-out-of-the-follow-still-stops-the-run",
+            kept_exc.get("code") == bound.STOP_CODE and kept_exc.get("observed") == 135_796
+            and kept_exc.get("call_id") == r_exc["call_id"], f"{kept_exc}")
+    control("HC#3-and-the-caller-gets-the-original-failure-unchanged",
+            "RuntimeError" in (reported_exc or "") and "could not be finished" in (reported_exc or ""),
+            f"{reported_exc}")
+    control("HC#3-and-the-next-dispatch-is-refused",
+            (refusal(sup_exc.reserve, vstage, "after-follow-raised", vseat, "authoring") or "")
+            .startswith(f"RUN_STOPPED {bound.STOP_CODE}"), "a call was reserved after the follow raised")
+
+    # HD#0: the ledger write succeeds and RELEASING the locks then fails. The call's own stop is
+    # retained before that release, so the failure path finishes the diagnostic instead of offering
+    # the same stop a second time.
+    offers = []
+    held_hold = stagelock.hold
+
+    def break_lock_cleanup(sup):
+        inner = sup._stop_run
+
+        def counted_stop(entry, into=None):
+            offers.append(entry.get("call_id"))
+            return inner(entry, into=into)
+
+        sup._stop_run = counted_stop
+
+        @contextlib.contextmanager
+        def failing(run_dir_path, name, *args, **kwargs):
+            with held_hold(run_dir_path, name, *args, **kwargs):
+                yield
+            if name == "declaration":             # the descriptor is gone by the time it is closed
+                raise OSError(9, "bad file descriptor on release")
+
+        stagelock.hold = failing
+
+    f_cln, sup_cln, r_cln, reported_cln = overrun_under(
+        "hd0-lock-cleanup-failed", adjust=break_lock_cleanup,
+        restore=lambda _d: setattr(stagelock, "hold", held_hold))
+    kept_cln = ledger_stop(f_cln)
+    control("HD#0-a-lock-cleanup-failure-after-the-write-leaves-the-excess-in-the-ledger",
+            kept_cln.get("code") == bound.STOP_CODE and kept_cln.get("observed") == 135_796
+            and kept_cln.get("call_id") == r_cln["call_id"], f"{kept_cln}")
+    control("HD#0-and-the-stop-is-offered-once-not-once-per-failure",
+            offers == [r_cln["call_id"]], f"{offers}")
+    control("HD#0-and-the-call-record-still-carries-the-diagnostic",
+            (json.loads((f_cln / "calls" / r_cln["call_id"] / "call.json").read_text(encoding="utf-8"))
+             .get("stop") or {}).get("observed") == 135_796,
+            f"{json.loads((f_cln / 'calls' / r_cln['call_id'] / 'call.json').read_text(encoding='utf-8')).get('stop')}")
+
+    # HD#1: and the snapshot the decision reads from is judged directly, not through a case whose
+    # failure another guard would also explain
+    class _Rows:                                  # a monitor shape the snapshot must survive
+        class _Ledger:
+            def __init__(self, requests):
+                self.requests = requests
+
+        def __init__(self, requests):
+            self.lock, self.ledger = threading.Lock(), self._Ledger(requests)
+
+    def snapshot(rows_held):
+        """What the snapshot answered, or what it RAISED - a helper that must not raise is judged by a
+        control that can say it did, rather than ending the suite with it (BD#4)."""
+        try:
+            return globals()[CONTRACT["predicate"]]._rows_snapshot(rows_held)
+        except Exception as exc:                  # noqa: BLE001 - the raise IS the finding
+            return f"raised: {exc!r}"
+
+    control("HD#1-the-rows-snapshot-answers-a-list-whatever-the-monitor-holds",
+            (snapshot(_Rows(7)), snapshot(_Rows(None)), snapshot(None),
+             snapshot(_Rows([{"state": "measured"}]))) == ([], [], [], [{"state": "measured"}]),
+            f"{(snapshot(_Rows(7)), snapshot(_Rows(None)), snapshot(None))}")
+    held_rows = [{"state": "measured"}]
+    control("HD#1-and-it-copies-the-rows-rather-than-handing-the-monitor-s-own-list",
+            snapshot(_Rows(held_rows)) == held_rows and snapshot(_Rows(held_rows)) is not held_rows,
+            "the snapshot is the live list, or is not the rows at all")
+
     # and the reading the decision rests on cannot raise, whatever shape the rows are in
     complete_row = {"state": "measured", "input": 135_796, "cache_creation": 0, "cache_read": 0}
     control("HB#0-a-complete-row-establishes-its-excess-beside-rows-that-cannot-be-read",
@@ -3993,9 +4303,10 @@ def self_test(scratch=None):
             == (135_796, [bound.ROW_UNREADABLE, "input_tokens", "cache_creation_input_tokens",
                           "cache_read_input_tokens"]),
             f"{bound.observed_rows([None, 'not a row', {'state': 'measured'}, complete_row])}")
-    control("HB#0-a-partial-row-is-not-read-as-a-smaller-number",
-            bound.observed_rows([{"state": "measured", "input": 1, "cache_read": 2}])[0] == 0,
-            f"{bound.observed_rows([{'state': 'measured', 'input': 1, 'cache_read': 2}])}")
+    control("HC#1-a-partial-row-s-valid-components-are-the-lower-bound-the-boundary-decides-on",
+            bound.observed_rows([{"state": "measured", "input": 135_796, "cache_read": 0}])
+            == (135_796, ["cache_creation_input_tokens"]),
+            f"{bound.observed_rows([{'state': 'measured', 'input': 135_796, 'cache_read': 0}])}")
     control("HB#0-the-extraction-raises-on-nothing-it-is-given",
             all(bound.observed_rows(rows) is not None
                 for rows in (None, [], [None], [{"state": "sent"}], [{"state": "measured", "input": "x"}])),
@@ -4147,19 +4458,45 @@ def self_test(scratch=None):
             "the dispatcher does not stop the run on the rule's own excess record")
     # the call record is written twice - once inside the launch, once in settlement - so this reads the
     # settlement tail alone, from where the excess is established to the end of `call`
-    # the slice is taken with `find` at BOTH ends (BD#4): a mutation that removes the block this control
-    # is about must fail it by name, not abort the suite on a substring that is no longer there
-    settlement_from = source.find("        exit_status, stdout, stderr, mon, stopped, wall_ms = self._follow(")
+    # HC#5: the boundary is STRUCTURAL, not a list of strings somebody remembered to add. Between the
+    # `_follow` call and the first offer, in the AST of `call`, there may be nothing at all - which is
+    # the only form of the property that survives the next statement somebody writes there.
+    def boundary_gap(src):
+        """The statements between the follow call and the first stop offer, or None if unreadable."""
+        try:
+            tree = ast.parse(src)
+            cls = next(n for n in ast.walk(tree) if isinstance(n, ast.ClassDef) and n.name == CONTRACT["predicate"])
+            fn = next(n for n in cls.body if isinstance(n, ast.FunctionDef) and n.name == "call")
+        except Exception:                             # noqa: BLE001 - an unreadable subject fails by name
+            return None
+        for parent in ast.walk(fn):
+            body = getattr(parent, "body", None)
+            if not isinstance(body, list):
+                continue
+            follows = [i for i, st in enumerate(body) if "self._follow(" in ast.unparse(st)]
+            offers = [i for i, st in enumerate(body) if "self._offer_stop(" in ast.unparse(st)]
+            if follows and offers and offers[0] > follows[0]:
+                return [ast.unparse(st).splitlines()[0] for st in body[follows[0] + 1:offers[0]]]
+        return None
+    control("nothing-stands-between-the-end-of-the-process-and-the-stop-decision",
+            boundary_gap(source) == [], f"{boundary_gap(source)}")
+    planted_before = source.replace("            excess = self._offer_stop(call, call_dir, self._rows_snapshot(mon)",
+                                    "            self.clock()\n            excess = self._offer_stop(call, call_dir, "
+                                    "self._rows_snapshot(mon)", 1)
+    control("control-an-unrelated-statement-before-the-stop-decision-is-detected",
+            planted_before != source and boundary_gap(planted_before) == ["self.clock()"],
+            f"{boundary_gap(planted_before)}")
+    control("control-the-boundary-is-unreadable-when-the-subject-is-gone",
+            boundary_gap(source.replace("def call(", "def renamed_call(", 1)) is None, "the boundary read a subject that is not there")
+    # and the old-order regression: the offer must still precede every statement settlement makes
+    settlement_from = source.find("        monitor_held = {}")
     settlement_to = source.find("    def _stopped(")
     settlement = source[settlement_from:settlement_to] if 0 <= settlement_from < settlement_to else ""
-    # `find`, not `index`: a mutation that MOVES the stop out of this slice has to fail this control by
-    # name, not abort the suite on a substring that is no longer there. The list is every statement
-    # settlement makes after the process ends (HB#0), not the three the earlier rounds happened to find.
-    persisted = settlement.find("self._stop_run(bound.excess(")
+    persisted = settlement.find("self._offer_stop(")
     later = [settlement.find(site) for site in (
         '(call_dir / "result.json").write_bytes(stdout)',
         "result = gate.Call(call_dir).result",
-        "usage = self._usage(call_dir, call, mon,",
+        "reconciled = self._reconcile(",
         'records.write_json(self.run_dir, call_dir / "usage.json", usage)',
         "self._delete_cell(cell, call_dir)",
         "self.breaker.observe(host, signals, self.clock())",

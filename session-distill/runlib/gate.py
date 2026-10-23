@@ -105,8 +105,10 @@ CALL_SCHEMA = _closed(
     # before any other settlement work (F-19): its stamp and reason when it could not be stamped, and
     # whether the run kept it or an earlier, stronger stop stands. Optional, like `bound`: a record
     # written before this existed carries none (F-20).
+    # `clock` appears when the run's own clock could not be read and the timestamp came from a
+    # fallback instead (HC#0) - a stop is never blocked by its own timestamp
     stop={**_closed(("code", "call_id", "kept"), code=_text, call_id=_text, observed=_int, at=_number_or_null,
-                    detail=_text, declaration_seq=_int, stamp=_text, kept={"type": "boolean"}),
+                    detail=_text, declaration_seq=_int, stamp=_text, clock=_text, kept={"type": "boolean"}),
           "type": ["object", "null"]},
     manifest=_closed(("workdir_path", "workdir_files", "instructions", "appended_prompts", "skills", "agents", "hooks"),
                      workdir_path=_text, skills=_strings, agents=_strings, hooks=_strings, mcp_servers=_strings,

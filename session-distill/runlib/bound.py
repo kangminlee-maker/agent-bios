@@ -292,14 +292,37 @@ INPUT_PARTS = (("input_tokens", "input"),
                ("cache_read_input_tokens", "cache_read"))
 
 
+def countable(value):
+    """A host-reported token count: a whole number, not negative, and not a bool.
+
+    `isinstance(x, int)` admits `True` and `-20000`, and both were counted (HC#4): a negative cache
+    field cancelled an otherwise conclusive excess, and a bool was read as one token. Neither is a
+    count, so both are reported as missing instead."""
+    return isinstance(value, int) and not isinstance(value, bool) and value >= 0
+
+
+def render_count(value):
+    """A count rendered for a diagnostic, never raising.
+
+    Python refuses to format an integer past its digit limit, so a stop could fail on its own
+    message with the excess already observed (HC#0). A number this reader cannot render is still a
+    number the rule has decided about."""
+    try:
+        return f"{value}"
+    except Exception:                          # noqa: BLE001 - a diagnostic never decides anything
+        return "a count too large to render"
+
+
 def observed_of(usage):
     """`(observed, missing)` for one usage mapping, in either spelling.
 
-    A mapping missing any of the three is reported rather than read as a smaller number: a missing
-    cache field would make every overrun look like a call within the bound."""
+    The valid components are a LOWER BOUND on what that request put in front of the model, and they
+    are returned as one: a request whose input alone is past the bound is past the bound whatever its
+    cache fields failed to say (HC#1). A component that is missing or is not a count is reported
+    instead, independently, and never read as a zero."""
     total, missing = 0, []
     for spellings in INPUT_PARTS:
-        found = [usage.get(name) for name in spellings if isinstance(usage.get(name), int)]
+        found = [usage.get(name) for name in spellings if countable(usage.get(name))]
         if not found:
             missing.append(spellings[0])
             continue
@@ -307,49 +330,50 @@ def observed_of(usage):
     return total, missing
 
 
-def observed_input(requests, state="measured"):
-    """`(observed, missing)` - the largest observed input over the `state` rows of a usage record.
+def row_observation(row, state="measured"):
+    """`(observed, missing)` for ONE request row, or `(None, missing)` when it is not in `state`.
 
-    The maximum, not the sum: the bound is what one request put in front of the model."""
-    rows = [row for row in requests or [] if row.get("state", state) == state]
+    The one per-row policy both readers share, so the live rows and the written record cannot
+    disagree about the same row (HC#1). It raises on nothing it is given."""
+    try:
+        if row.get("state", state) != state:
+            return None, []
+        total, missing = observed_of(row)
+    except Exception:                          # noqa: BLE001 - this reading decides a stop: it cannot raise
+        return None, [ROW_UNREADABLE]
+    return total, missing
+
+
+def observed_rows(rows, state="measured"):
+    """`(observed, missing)` - the largest observation over the `state` rows, by a reading that
+    cannot raise.
+
+    The maximum, not the sum: the bound is what one request put in front of the model. A row that
+    cannot be read at all, or a container that cannot be walked, is reported in `missing` and never
+    hides another row's excess. `observed_input` is this same reading over a written usage record."""
     totals, missing = [], []
-    for row in rows:
-        total, gaps = observed_of(row)
-        totals.append(total)
+    try:
+        candidates = list(rows or [])
+    except Exception:                          # noqa: BLE001 - not even a sequence (HC#0)
+        return 0, [ROW_UNREADABLE]
+    for row in candidates:
+        total, gaps = row_observation(row, state)
+        if total is not None:
+            totals.append(total)
         missing += [gap for gap in gaps if gap not in missing]
     return (max(totals) if totals else 0), missing
 
 
-def observed_rows(rows, state="measured"):
-    """`(observed, missing)` over the HOST's own request rows, by an extraction that cannot raise.
-
-    The stop decision is the first thing settlement does, before any reconciliation, projection or
-    file write (HB#0), so this reads the rows in whatever shape the monitor left them. A row that is
-    not a mapping, or whose input components are not whole numbers, is reported in `missing` and
-    contributes nothing to the maximum - it is never read as a smaller number, and it never hides
-    another row's complete excess. `observed_input` stays the reader of a written usage record."""
-    totals, missing = [], []
-    for row in list(rows or []):
-        try:
-            if row.get("state", state) != state:
-                continue
-            total, gaps = observed_of(row)
-        except Exception:                      # noqa: BLE001 - this extraction decides a stop: it cannot raise
-            if ROW_UNREADABLE not in missing:
-                missing.append(ROW_UNREADABLE)
-            continue
-        if gaps:
-            missing += [gap for gap in gaps if gap not in missing]
-            continue
-        totals.append(total)
-    return (max(totals) if totals else 0), missing
+def observed_input(requests, state="measured"):
+    """The same reading over a usage record's own request rows - one policy, two callers."""
+    return observed_rows(requests, state)
 
 
 def check_observed(observed, view_window):
     """After a call: a view-window call whose observed input is above the bound is a host change."""
     if view_window and observed > INPUT_BOUND:
-        return [f"{STOP_CODE}: observed input {observed} tokens exceeds {INPUT_BOUND} on a view-window call; the host "
-                "added more than the declared allowance - re-measure it and amend the declaration"]
+        return [f"{STOP_CODE}: observed input {render_count(observed)} tokens exceeds {INPUT_BOUND} on a view-window "
+                "call; the host added more than the declared allowance - re-measure it and amend the declaration"]
     return []
 
 
@@ -362,8 +386,8 @@ def excess(call_id, observed, at):
     would be a second thing to keep true. The sequence it is compared against is NOT in it yet: see
     `committed`."""
     return {"code": STOP_CODE, "call_id": call_id, "observed": observed, "at": at,
-            "detail": f"{STOP_CODE} {call_id}: a view-window call read {observed} input tokens, past the "
-                      f"{INPUT_BOUND} bound; the host changed, so the run stops"}
+            "detail": f"{STOP_CODE} {call_id}: a view-window call read {render_count(observed)} input tokens, past "
+                      f"the {INPUT_BOUND} bound; the host changed, so the run stops"}
 
 
 def committed(entry, declaration_seq):
@@ -678,8 +702,44 @@ def self_test():
     expect("HB#0: ... and beside a row missing a component, which is listed rather than read as a zero",
            observed_rows([{"state": "measured", "input": 1}, over_row]),
            (135_796, ["cache_creation_input_tokens", "cache_read_input_tokens"]))
-    expect("HB#0: a partial row on its own is no observation at all",
-           observed_rows([{"state": "measured", "input": 1, "cache_read": 2}])[0], 0)
+    # HC#1: the valid components of a row are a LOWER BOUND, and a lower bound past the bound is an
+    # excess - the components that are missing are reported beside it, never instead of it
+    expect("HC#1: a partial row's valid components are what that request is known to have put in",
+           observed_rows([{"state": "measured", "input": 1, "cache_read": 2}]),
+           (3, ["cache_creation_input_tokens"]))
+    expect("HC#1: a row whose input alone is past the bound is an excess with a cache field missing",
+           (observed_rows([{"state": "measured", "input": 135_796, "cache_read": 0}])[0] > INPUT_BOUND,
+            observed_rows([{"state": "measured", "input": 135_796, "cache_read": 0}])[1]),
+           (True, ["cache_creation_input_tokens"]))
+    expect("HC#4: a negative component is not a count, so it cannot cancel an excess",
+           observed_rows([{"state": "measured", "input": 135_796, "cache_creation": 0, "cache_read": -20_000}]),
+           (135_796, ["cache_read_input_tokens"]))
+    expect("HC#4: a bool component is not a count either",
+           observed_rows([{"state": "measured", "input": 135_796, "cache_creation": True, "cache_read": 0}]),
+           (135_796, ["cache_creation_input_tokens"]))
+    def guarded(fn, *args):
+        """What `fn` answered, or what it raised - a reading that must not raise is judged by a control
+        that can SAY it raised, rather than dying with it (BD#4)."""
+        try:
+            return fn(*args)
+        except Exception as exc:                   # noqa: BLE001 - the raise IS the finding
+            return f"raised: {exc!r}"
+
+    expect("HC#0: a container that cannot even be walked is reported, not raised",
+           guarded(observed_rows, 7), (0, [ROW_UNREADABLE]))
+    # HC#1: and the two readers cannot disagree, because they are one reading
+    shapes = ([], [None], 7, [{"state": "measured", "input": 135_796, "cache_read": 0}],
+              [{"state": "measured", "input": 1, "cache_creation": 0, "cache_read": 2}],
+              [{"state": "measured", "input": -1, "cache_creation": 0, "cache_read": 0}],
+              [{"state": "measured", "input": True, "cache_creation": 0, "cache_read": 0}],
+              [{"state": "sent", "input": 999_999, "cache_creation": 0, "cache_read": 0}],
+              [{"state": "measured", "input": 2, "cache_creation": 0, "cache_read": 0},
+               {"state": "measured", "input": 135_796, "cache_creation": 0, "cache_read": 0}])
+    expect("HC#1: the live rows and the written record are read by one policy",
+           [guarded(observed_rows, shape) for shape in shapes],
+           [guarded(observed_input, shape) for shape in shapes])
+    expect("control, HC#1: and that table is not empty, nor all one answer",
+           (len(shapes) >= 9, len({str(guarded(observed_rows, shape)) for shape in shapes}) > 1), (True, True))
     expect("HB#0: an unmeasured row is not a live observation either",
            observed_rows([{"state": "sent", "input": 999_999, "cache_creation": 0, "cache_read": 0}])[0], 0)
     expect("HB#0: the reading raises on no shape it can be given",
