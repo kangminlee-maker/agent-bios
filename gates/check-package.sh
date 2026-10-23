@@ -107,7 +107,9 @@ PY
     if [ "$rc" -eq 0 ]; then
       echo "check-package --self-test: FAIL: $name — the planted violation passed" >&2
       bad=1
-    elif ! printf '%s' "$out" | grep -qF -- "$want"; then
+    # a here-string, not a pipe: under pipefail a match that stops grep early SIGPIPEs the
+    # printf of a long failure report, and the planted case would read as "not by name"
+    elif ! grep -qF -- "$want" <<<"$out"; then
       echo "check-package --self-test: FAIL: $name — failed, but not by name" >&2
       echo "    wanted: $want" >&2
       printf '%s\n' "$out" | sed 's/^/    got: /' >&2
@@ -151,6 +153,13 @@ PY
   echo 'print("probe")' > "$W/compose/probe-selftest.py"
   printf '\ncat "$REPO/compose/probe-selftest.py" >/dev/null\n' >> "$W/install.sh"
   case_is "a runtime path missing from files[]" "not in package.json files"
+
+  # a quiet grep fed by a pipe, in a shipped script that sets pipefail
+  fresh; printf '\nprintf x | grep -q x\n' >> "$W/wrappers/codex-run.sh"
+  case_is "a piped grep -q in a shipped pipefail script" "wrappers/codex-run.sh:"
+  # ...the same match through a here-string is no violation
+  fresh; printf '\ngrep -q x <<<"x"\n' >> "$W/wrappers/codex-run.sh"
+  case_ok "a grep -q reading a here-string in a pipefail script"
 
   # a shipped module loaded by path, which no import statement names
   fresh; dropline package.json '"wrappers/jsonl_lines.py"'
@@ -832,8 +841,42 @@ leg("publication provenance",
     ["files[] carries it", "prepack writes it", "prepublishOnly guards it",
      "postpack cleans it"])
 
+# A shipped shell script that sets pipefail may not pipe into `grep -q`. grep exits at its
+# first match, the writer takes SIGPIPE on the rest of its output, and pipefail reports that
+# exit as the pipeline's: a match reads as a miss, more often the later the match sits. The
+# compatibility verify's `claude-run --help | grep -q` failed that way on every run once the
+# help outgrew the pipe's first read. Capture the output, then match a here-string or `case`.
+SHELL_SUFFIXES = (".sh", ".zsh", ".bash")
+PIPEFAIL = re.compile(r"\bset\b[^#\n]*\bpipefail\b")
+PIPED_QUIET_GREP = re.compile(r"\|\s*grep\s+(?:-[A-Za-z]*q[A-Za-z]*|--quiet|--silent)\b")
+def shipped_scripts():
+    for entry in files:
+        base = REPO / rel_key(entry)
+        for p in ([base] if base.is_file() else sorted(base.rglob("*")) if base.is_dir() else []):
+            if not p.is_file():
+                continue
+            if p.suffix in SHELL_SUFFIXES:
+                yield p
+                continue
+            try:
+                first = p.open("rb").readline()
+            except OSError:
+                continue
+            if first.startswith(b"#!") and re.search(rb"\b(ba|z|da)?sh\b", first):
+                yield p
+pipefail_scripts, piped_grep = [], []
+for p in shipped_scripts():
+    code = [(n, line) for n, line in enumerate(p.read_text(encoding="utf-8", errors="replace").splitlines(), 1)
+            if not line.lstrip().startswith("#")]
+    if not any(PIPEFAIL.search(line) for _, line in code):
+        continue
+    rel = p.relative_to(REPO).as_posix()
+    pipefail_scripts.append(rel)
+    piped_grep += [(rel, n, line.strip()) for n, line in code if PIPED_QUIET_GREP.search(line)]
+leg("pipefail scripts without a piped grep -q", pipefail_scripts)
+
 checked = sum(1 for r in found if r not in EXEMPT and not author_side(r) and (REPO / r).exists())
-if missing or leaked or prose_bad or unguarded or prov_bad:
+if missing or leaked or prose_bad or unguarded or prov_bad or piped_grep:
     if missing:
         print(f"check-package: FAILED — {len(missing)} runtime path(s) not in package.json files[]:")
         for rel, srcs in missing:
@@ -848,6 +891,12 @@ if missing or leaked or prose_bad or unguarded or prov_bad:
         print(f"check-package: FAILED — author-side path in files[]: {entry}")
     for msg in prov_bad:
         print(f"check-package: FAILED — {msg}")
+    if piped_grep:
+        print(f"check-package: FAILED — {len(piped_grep)} `| grep -q` in a shipped script that sets "
+              f"pipefail; grep's early exit SIGPIPEs the writer and pipefail turns a match into a miss "
+              f"(capture the output, then match a here-string or case):")
+        for rel, n, line in piped_grep:
+            print(f"  {rel}:{n}: {line}")
     if prose_bad:
         print(f"check-package: FAILED — {len(prose_bad)} shipped-prose reference(s) "
               f"to a path the user will not have:")

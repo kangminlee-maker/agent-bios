@@ -629,11 +629,15 @@ install_capability() {
 
 handle_capabilities() {
   local requested="$1" name command line
+  # One requested name per line, split on commas and spaces as the loop below splits them,
+  # so `grep -qx` reads a here-string rather than a pipe (see the claude-run check in verify).
+  local nl=$'\n' requested_lines
+  requested_lines="${requested//[, ]/$nl}"
   # Fail on a typo rather than silently installing nothing.
   local known; known=$(capability_table | cut -f1)
   local want
   for want in ${requested//,/ }; do
-    printf '%s\n' "$known" | grep -qx "$want" || {
+    grep -qx "$want" <<<"$known" || {
       log "unknown --with capability: $want (known: $(printf '%s' "$known" | tr '\n' ' '))"; return 1; }
   done
   while IFS=$'\t' read -r name command line; do
@@ -644,7 +648,7 @@ handle_capabilities() {
       # the rename `--with ultracode` names the claude-backed reviewer — which needs no
       # install — while the tool the user probably meant stays missing and is only hinted
       # at further down. The request silently no-opped and install still exited 0.
-      if [ -z "$line" ] && printf '%s\n' "${requested//,/ }" | tr ' ' '\n' | grep -qx "$name"; then
+      if [ -z "$line" ] && grep -qx "$name" <<<"$requested_lines"; then
         log "note: $name needs no install (it is the host CLI); nothing was installed for it"
         local installable
         installable=$(capability_table | awk -F'\t' -v me="$name" '$1 != me && $3 != "" { print $1 }' | tr '\n' ' ')
@@ -652,7 +656,7 @@ handle_capabilities() {
       fi
       continue
     fi
-    if printf '%s\n' "${requested//,/ }" | tr ' ' '\n' | grep -qx "$name"; then
+    if grep -qx "$name" <<<"$requested_lines"; then
       [ -n "$line" ] && install_capability "$name" "$line" \
         || log "note: $name has no configured install line"
     elif [ -n "$line" ] && [ -t 0 ] && [ "$DRY_RUN" != 1 ]; then
@@ -1126,12 +1130,16 @@ PY
   # "the review did not run" — so asserting it would now fail against correct behaviour.
   # `--help` is the only probe that reaches no network: an unpinned run warns and then
   # dispatches for real.
+  # The help is captured before it is matched. Piped straight into `grep -q`, the match ends
+  # grep early, claude-run takes SIGPIPE writing the rest of its help, and under pipefail
+  # that exit reads as "no match" (gates/check-package.sh fails on the piped shape).
   if [ -x "$CLAUDE_DIR/bin/claude-run" ]; then
-    if "$CLAUDE_DIR/bin/claude-run" --help 2>/dev/null | grep -q 'REVIEW_RECEIPT_DIR'; then
-      info "claude-run is receipt-aware"
-    else
-      log "claude-run predates the receipt contract — reviews through it emit nothing"; fail=1
-    fi
+    local run_help
+    run_help="$("$CLAUDE_DIR/bin/claude-run" --help 2>/dev/null)" || true
+    case "$run_help" in
+      *REVIEW_RECEIPT_DIR*) info "claude-run is receipt-aware" ;;
+      *) log "claude-run predates the receipt contract — reviews through it emit nothing"; fail=1 ;;
+    esac
   fi
   local vpy="${AGENT_LAUNCH_VENV:-$HOME/.local/share/agent-launch/venv}/bin/python"
   if [ -x "$vpy" ] && "$vpy" -c 'import textual' 2>/dev/null; then
@@ -1655,7 +1663,7 @@ cmd_status() {
   zsh_found="$(zsh_hook_locations)"
   if [ -z "$zsh_found" ]; then
     info "zsh hook absent"
-  elif printf '%s\n' "$zsh_found" | grep -qxF "$ZSHRC"; then
+  elif grep -qxF "$ZSHRC" <<<"$zsh_found"; then
     info "zsh hook present  $(printf '%s' "$zsh_found" | tr '\n' ' ')"
   else
     # Present and working, but somewhere this installer will neither update nor remove.
