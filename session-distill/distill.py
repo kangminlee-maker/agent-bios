@@ -31,6 +31,7 @@ import json
 import os
 import pathlib
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -40,11 +41,35 @@ import tempfile
 # file it caches — in the checkout, or in a frozen copy this run is about to hash (GB#7).
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
-from runlib import census, coverage, declare, inventory, records, stagelock, views
+from runlib import census, coverage, declare, inventory, projection, records, stagelock, views
 from runlib.records import Refused
 
 OUT = pathlib.Path(__file__).resolve().parent / "out"
 RUN_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}")
+HOME = str(pathlib.Path.home())
+
+
+def say(text, stream=None):
+    """One line this command publishes, through the floor's own entry point (GC#6).
+
+    A diagnostic is an artifact: a person reads it and whatever captured the terminal keeps it, so
+    printing a line the write boundary would refuse is the same leak by another route. Everything
+    this driver prints — a report, a refusal, a stage that is not implemented, an argument the parser
+    did not understand — leaves through here. `--bad api_key=shortpass` and
+    `--run-id api_key=shortpass` each repeated the secret on stderr before a line of the command ran,
+    because `parse_args` and `print(str(exc))` stood outside every boundary this run has."""
+    print(projection.diagnostic(text, HOME), file=stream or sys.stdout)
+
+
+class Parser(argparse.ArgumentParser):
+    """`argparse`, with every message it prints passing the floor first.
+
+    `error()` echoes the argument it did not understand and `print_usage`/`print_help` echo the
+    metavars; all three go through `_print_message`, which is the one place to put the boundary."""
+
+    def _print_message(self, message, file=None):
+        if message:
+            super()._print_message(projection.diagnostic(message, HOME), file)
 
 # Subcommand -> the stage it runs (design §4). `declare` is S0 and has no stage record.
 STAGE_COMMANDS = {
@@ -91,13 +116,13 @@ def cmd_declare(args):
     if args.amend:
         amendment = declare.amend(run_dir, assignments_of(args), args.reason or "", split_csv(args.scope),
                                   split_csv(args.invalidates))
-        print(f"amended {run_dir}: declaration_seq {amendment['seq']}, invalidates {amendment['invalidates']}")
+        say(f"amended {run_dir}: declaration_seq {amendment['seq']}, invalidates {amendment['invalidates']}")
     elif args.from_file:
         run = declare.create(run_dir, json.loads(pathlib.Path(args.from_file).read_text(encoding="utf-8")))
-        print(f"declared {run_dir}: declaration_seq {run['declaration_seq']}")
+        say(f"declared {run_dir}: declaration_seq {run['declaration_seq']}")
     elif args.set:
         declare.set_fields(run_dir, assignments_of(args))
-        print(f"set {len(args.set)} field(s) in {run_dir}/run.json")
+        say(f"set {len(args.set)} field(s) in {run_dir}/run.json")
     else:
         raise Refused("DECLARATION_INVALID declare: give --from, --set, --amend or --self-test")
     return 0
@@ -113,10 +138,10 @@ def cmd_census(args):
         records.write_text(run_dir, run_dir / "census.reconciled.json", census.dump(done))
         records.write_json(run_dir, run_dir / "coverage.reconciled.json", after)
         counts = census.window_counts(done["transcripts"])
-        print(f"reconciled {run_dir}: accounted {flags['accounted']} ({counts['accounted']}/{counts['eligible']} sessions), "
-              f"fully read {flags['fully_read']} ({counts['fully_read']}/{counts['eligible']})")
+        say(f"reconciled {run_dir}: accounted {flags['accounted']} ({counts['accounted']}/{counts['eligible']} sessions), "
+            f"fully read {flags['fully_read']} ({counts['fully_read']}/{counts['eligible']})")
         return 0
-    print("\n".join(census.report_lines(census.run(run_dir, args.coverage, args.originators, args.jobs))))
+    say("\n".join(census.report_lines(census.run(run_dir, args.coverage, args.originators, args.jobs))))
     return 0
 
 
@@ -133,16 +158,28 @@ def cmd_inventory(args):
     # A project is its canonical path. Keyed by basename, two checkouts both called `source` were
     # one project, and one's memory entries were read as the other's (GA#4). A project root is a
     # protected WRITE target: no native file is read, here or anywhere (the 1548 amendment §5).
-    projects = inventory.project_identities(args.project or [str(repo)])
+    #
+    # The checkout is ALWAYS one of them: `--project` adds roots to it and never replaces it. It
+    # arrived here as the default value of `--project`, so naming any project at all took the
+    # checkout out of the protected set and a destination inside it became writable (GC#0 through
+    # `--project`). `protected_roots` carries the same rule for every other caller.
+    projects = inventory.project_identities([str(repo), *(args.project or [])])
     native = {"projects": {identity["path"]: pathlib.Path(identity["path"]) for identity in projects.values()}}
     # The destination is judged before anything is locked, captured or recorded: a stage record is
     # a write, and a write under a protected root must be refused before it happens (GB#0).
     overlap = inventory.overlap_problems(
         [out_dir], inventory.protected_roots(state_root, user_root, native,
-                                             host_homes=[spec["home"] for spec in inventory.NATIVE.values()]),
-        home=str(pathlib.Path.home()))
+                                             host_homes=[spec["home"] for spec in inventory.NATIVE.values()],
+                                             checkout=repo),
+        home=HOME)
     if overlap:
         raise Refused("; ".join(overlap))
+    # A standalone `--to` enters no stage and reads no declaration, so a run's artifacts are not
+    # its to replace (GC#3 by another route).
+    if not args.run_id:
+        standalone = inventory.standalone_problems(out_dir, HOME)
+        if standalone:
+            raise Refused("; ".join(standalone))
     ledger_path = pathlib.Path(args.ledger or (repo / inventory.LEDGER_REL))
     ledger = records.read_json(ledger_path) if ledger_path.is_file() else None
     head = subprocess.run(["git", "-C", str(repo), "rev-parse", "--short", "HEAD"],
@@ -170,27 +207,26 @@ def cmd_inventory(args):
             raise Refused("; ".join(disclosed[:4]))
     else:
         manifest = produce()
-    print("\n".join(inventory.report_lines(manifest, str(pathlib.Path.home()))))
+    say("\n".join(inventory.report_lines(manifest, HOME)))
     return 0
 
 
 def cmd_views(args):
-    print("\n".join(views.report_lines(views.run(run_dir_of(args), reservation=args.output_cap))))
+    say("\n".join(views.report_lines(views.run(run_dir_of(args), reservation=args.output_cap))))
     return 0
 
 
 def cmd_stage(args):
     stage = STAGE_COMMANDS[args.command]
     if args.command == "close" and args.recovery:
-        print("RECOVERY_RESERVED close --recovery: the recovery close is reserved and not implemented",
-              file=sys.stderr)
+        say("RECOVERY_RESERVED close --recovery: the recovery close is reserved and not implemented", sys.stderr)
         return 2
-    print(f"STAGE_NOT_IMPLEMENTED {args.command} ({stage}): no stage logic has landed for it", file=sys.stderr)
+    say(f"STAGE_NOT_IMPLEMENTED {args.command} ({stage}): no stage logic has landed for it", sys.stderr)
     return 2
 
 
 def build_parser():
-    parser = argparse.ArgumentParser(prog="distill.py", description=__doc__.split("\n")[0])
+    parser = Parser(prog="distill.py", description=__doc__.split("\n")[0])
     parser.add_argument("--self-test", action="store_true", help="declare -> stage -> amend -> stage on real files")
     commands = parser.add_subparsers(dest="command")
 
@@ -249,7 +285,14 @@ def main(argv=None):
     try:
         return args.handler(args)
     except (Refused, stagelock.Locked, stagelock.Escaped) as exc:
-        print(str(exc), file=sys.stderr)
+        say(str(exc), sys.stderr)
+        return 1
+    except Exception as exc:
+        # An unexpected failure is a diagnostic like any other, and an unexpected one is the one most
+        # likely to carry a path: an OSError's message IS a path, and a traceback printed by the
+        # interpreter crosses no boundary at all. The type is named so the failure is still
+        # diagnosable, and the message passes the floor (GC#6).
+        say(f"COMMAND_FAILED {args.command}: {type(exc).__name__}: {exc}", sys.stderr)
         return 1
 
 
@@ -467,6 +510,70 @@ def self_test():
         control("and it names no mode that reads a host home",
                 "mode" not in document.get("produced_by", {}) and "--native-live" not in err,
                 f"{sorted(document.get('produced_by', {}))}")
+        # ---- GC#0 through `--project`: the checkout is a protected root whatever is declared, and
+        # the refusal is observed as an attempted write that did not happen.
+        checkout = pathlib.Path(__file__).resolve().parents[1]
+        in_checkout = checkout / "session-distill" / "out" / "a-destination-no-run-owns"
+        other_project = scratch / "another-project"
+        other_project.mkdir()
+        before_write = in_checkout.exists()
+        code, err = cli("inventory", "--to", str(in_checkout), "--no-state",
+                        "--project", str(other_project))
+        control("inventory (S2) refuses a destination inside the checkout when another project is declared",
+                code == 1 and "PROTECTED_OVERLAP" in err, f"{code} {err}")
+        control("and the attempted write did not happen",
+                not before_write and not in_checkout.exists(),
+                f"{in_checkout} exists after a refused run")
+        # This fixture destination is inside the checkout, which is the whole point of it. When the
+        # rule under test is taken out — a revert, which is how this control is proven to fire — the
+        # write really does land here, and a leftover would make the NEXT run answer about the
+        # destination instead of about the rule: it refuses with INVENTORY_PRESENT, a second reason,
+        # and `before_write` is already true. So the control removes exactly the path it named,
+        # after judging it, and never anything else.
+        shutil.rmtree(in_checkout, ignore_errors=True)
+        # ---- GC#3 by another route: a standalone `--to` is not a way into a run's artifacts. The
+        # run's own bytes and its stage record are the subject: both must be exactly as they were.
+        standalone_run = out / "r-standalone"
+        standalone_run.mkdir(parents=True)
+        for name in ("run.json", "amendments.jsonl"):
+            (standalone_run / name).write_text((out / "r1" / name).read_text(encoding="utf-8"), encoding="utf-8")
+        (standalone_run / "inventory").mkdir()
+        (standalone_run / "inventory" / "current.json").write_text(
+            '{"units": ["the bytes a census-backed run produced"]}\n', encoding="utf-8")
+        with records.run_stage(standalone_run, "S2", part="inventory") as held:
+            held  # a recorded S2, so the refusal is about the destination and not about the run
+        kept_bytes = (standalone_run / "inventory" / "current.json").read_bytes()
+        kept_record = records.record_path(standalone_run, "S2").read_bytes()
+        code, err = cli("inventory", "--to", str(standalone_run), "--no-state")
+        control("inventory (S2) refuses a standalone --to that names a declared run",
+                code == 1 and "RUN_DESTINATION" in err, f"{code} {err}")
+        code, err = cli("inventory", "--to", str(standalone_run / "inventory"), "--no-state")
+        control("and one inside that run directory",
+                code == 1 and "RUN_DESTINATION" in err, f"{code} {err}")
+        control("the run's inventory bytes and its stage record are unchanged",
+                kept_bytes == (standalone_run / "inventory" / "current.json").read_bytes()
+                and kept_record == records.record_path(standalone_run, "S2").read_bytes(),
+                "a refused standalone attempt changed the run")
+        held_elsewhere = scratch / "inv-held"
+        (held_elsewhere / "inventory").mkdir(parents=True)
+        (held_elsewhere / "inventory" / "current.json").write_text("{}\n", encoding="utf-8")
+        code, err = cli("inventory", "--to", str(held_elsewhere), "--no-state")
+        control("and a destination that already holds an inventory",
+                code == 1 and "INVENTORY_PRESENT" in err, f"{code} {err}")
+        # ---- GC#6: what the CLI prints crosses the disclosure boundary. `parse_args` and the
+        # refusal printer both stood outside every boundary this run has.
+        secret_argument = "api_key=shortpass"
+        code, err = cli("--bad", secret_argument)
+        control("an argument the parser did not understand is not echoed unprojected",
+                "shortpass" not in err and "REDACTED" in err, f"{code} {err}")
+        code, err = cli("inventory", "--run-id", secret_argument)
+        control("a refusal naming the argument it refused is not printed unprojected",
+                code == 1 and "shortpass" not in err and "RUN_ID_INVALID" in err, f"{code} {err}")
+        missing_under_home = f"{HOME}/a-file-no-run-of-this-suite-creates.json"
+        code, err = cli("declare", "--run-id", "r-file-error", "--from", missing_under_home)
+        control("an unexpected file error is a projected diagnostic, not a raw traceback",
+                code == 1 and HOME not in err and "<HOME>" in err and "COMMAND_FAILED" in err,
+                f"{code} {err}")
         # The destination is judged before anything is written, locked or recorded: the run
         # directory itself is a write, so a destination under the state root must be refused by the
         # CLI and must leave nothing behind (GB#0).

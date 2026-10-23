@@ -1738,6 +1738,41 @@ def project_text(text, home=None, depth=0, masked=None):
     return emit(text, mask_spans(text, mask_extents(text, home, depth)), home, masked)
 
 
+def carrier_extents(carrier, home=None):
+    """Every extent this floor would mask in a WHOLE carrier, in the carrier's own coordinates.
+
+    Computed once per carrier and handed to `project_span` for each of its spans: a credential's key
+    and its value are one relationship, and a splitter that puts the two in different blocks breaks
+    that relationship for anything that reads a block on its own."""
+    return mask_extents(carrier, home, 0)
+
+
+def project_span(carrier, start, end, home=None, extents=None):
+    """The projection of `carrier[start:end]`, judged with the carrier INTACT.
+
+    The extents are those of the whole carrier, clipped to the span, UNION the span's own — so the
+    key three lines above the value still masks it, a credential that straddles the span's start is
+    masked for the part that falls inside it, and nothing the span discloses on its own is lost
+    because the carrier's context happened to suppress a match. Masks only grow, which is what makes
+    taking the union the safe direction.
+
+    This replaces a fixed window of preceding lines. Two nonblank lines do not preserve a carrier's
+    structural context: for `api_key: [\\n "alpha",\\n\\n "bravo",\\n\\n "shortpass"\\n]` the key had
+    fallen outside the window by the time the last element's block was projected, and the value was
+    emitted with nothing to mark it."""
+    span = carrier[start:end]
+    if undecodable_claim(span, 0):
+        STATS["undecodable_claim"] += 1
+        return emit(span, blank_for(span), home)
+    whole = carrier_extents(carrier, home) if extents is None else extents
+    clipped = []
+    for extent_start, extent_end, replacement, rank in whole:
+        low, high = max(extent_start, start), min(extent_end, end)
+        if low < high:
+            clipped.append((low - start, high - start, replacement, rank))
+    return emit(span, mask_spans(span, clipped + mask_extents(span, home, 0)), home)
+
+
 def note_change(before, after, what, masked):
     """`after`, recording that `what` changed the text when it did."""
     if masked is not None and after != before:
@@ -1867,17 +1902,24 @@ def as_members(value):
     return value
 
 
-def document_location(parent, key, n, home=None):
-    """Where a member sits, named by a schema-safe key or by its ordinal.
+def document_location(parent, key, n, schema=()):
+    """Where a member sits, named by a key the document's own schema declares or by its ordinal.
 
-    A key is untrusted text — a document can carry a credential AS a key — so the name is used only
-    when it reads like a schema name and this floor has nothing to say about it."""
-    if isinstance(key, str) and DOCUMENT_SAFE_NAME.match(key) and discloses(key, home) is None:
+    A key is untrusted text — a document can carry a credential AS a key, and `shortpass` is a
+    perfectly ordinary word to find there. Syntax is not authority: the previous rule named any key
+    that matched `DOCUMENT_SAFE_NAME` and that this floor had nothing to say about, which named the
+    arbitrary nested key of `{"api_key": {"shortpass": {"token": "x"}}}` and repeated the secret in
+    the refusal. So the name is used only when the code that owns the document declares it as a
+    member name (`schema`), which is a set this floor is handed rather than one it infers.
+
+    A name missing from `schema` costs a readable location and nothing else — the member is reported
+    by its ordinal — so the failure direction is toward saying less."""
+    if isinstance(key, str) and key in schema and DOCUMENT_SAFE_NAME.match(key):
         return f"{parent}.{key}"
     return f"{parent}[key #{n}]"
 
 
-def document_disclosures(document, home=None, at="$", depth=0):
+def document_disclosures(document, home=None, at="$", depth=0, schema=()):
     """Every place in a DECODED document that this floor objects to, as `location: what was found`.
 
     This is the one entry point for "does this document disclose anything". It takes the document in
@@ -1896,31 +1938,50 @@ def document_disclosures(document, home=None, at="$", depth=0):
       in that string in any spelling it can reach.
 
     A row names where it sits and which rule found it, never the value, never a path and never a
-    hash of either."""
+    hash of either. `schema` is the set of member names the code that owns the document declares;
+    `document_location` names a key only when it is one of them, and reports every other key by its
+    ordinal."""
     problems = []
     if depth > MAX_DEPTH:
         return [f"{at}: the document is nested deeper than this floor reads"]
     members = document_members(document)
     if members is not None:
         for n, (key, item) in enumerate(members):
-            where = document_location(at, key, n, home)
+            where = document_location(at, key, n, schema)
             if isinstance(key, str) and secret_key(key) and not all_mask(as_members(item)):
                 problems.append(f"{where}: a credential-named member carries a value that is not the mask")
             if isinstance(key, str):
                 found = discloses(key, home)
                 if found is not None:
                     problems.append(f"{where}: a key discloses a {found}")
-            problems += document_disclosures(item, home, where, depth + 1)
+            problems += document_disclosures(item, home, where, depth + 1, schema)
         return problems
     if isinstance(document, (list, tuple)):
         for n, item in enumerate(document):
-            problems += document_disclosures(item, home, f"{at}[{n}]", depth + 1)
+            problems += document_disclosures(item, home, f"{at}[{n}]", depth + 1, schema)
         return problems
     if isinstance(document, str):
         found = discloses(document, home)
         if found is not None:
             problems.append(f"{at}: the string discloses a {found}")
     return problems
+
+
+WITHHELD = ("DIAGNOSTIC_WITHHELD: the message still disclosed something after projection, "
+            "so it is not printed")
+
+
+def diagnostic(text, home=None, schema=()):
+    """One line a command prints, as the floor permits it to be printed.
+
+    A diagnostic is an artifact: a person reads it and whatever captured the terminal stores it, so
+    printing a line the write boundary would refuse is the same leak by another route. The line is
+    projected and then asked the same question every written document is asked, through the same one
+    entry point; a line that still discloses is replaced by the refusal rather than raised, because
+    this runs ON the error path and a diagnostic that raises loses the diagnosis as well as the
+    secret."""
+    projected = project(str(text), CURRENT, home)
+    return WITHHELD if document_disclosures(projected, home, schema=schema) else projected
 
 
 SWEPT = ("redacted", "views", "evidence", "inventory")
@@ -3703,6 +3764,46 @@ def self_test():
         deep = {"a": deep}
     if not any("nested deeper" in row for row in document_disclosures(deep, owner)):
         failures.append("a document nested past this floor's reach was judged rather than named")
+    # ---- a location names a key only from the owning code's schema; every other key is an ordinal.
+    # `shortpass` is an ordinary short secret and a perfectly ordinary word to find as a key, and
+    # naming it because it matched a name-shaped regex repeated it in the refusal.
+    nested_key = document_disclosures({"api_key": {"shortpass": {"token": "x"}}}, owner)
+    if not nested_key or any("shortpass" in row for row in nested_key):
+        failures.append(f"an ordinary short secret as a nested key was repeated in its location: {nested_key}")
+    if not all("[key #" in row for row in nested_key):
+        failures.append(f"a key no schema declares was named rather than numbered: {nested_key}")
+    declared = document_disclosures({"api_key": "shortpass"}, owner, schema=frozenset({"api_key"}))
+    if not declared or not all(row.startswith("$.api_key") for row in declared):
+        failures.append(f"a member name the owning code declares was not used as the location: {declared}")
+    # The "a key discloses" rule needs a control of its own: the credential-named-member rule fires on
+    # the same fixture for a secret-shaped key, so removing this rule went unnoticed. A home path as a
+    # key discloses without being credential-named, and this is the only rule that reports it.
+    key_only = document_disclosures({f"{owner}/Documents/x": "plain"}, owner)
+    if [row.partition(": ")[2] for row in key_only] != ["a key discloses a home path"]:
+        failures.append(f"a key that discloses without being credential-named was not reported: {key_only}")
+    if any(owner in row for row in key_only):
+        failures.append(f"the refusal repeated the home path it objected to: {key_only}")
+    # ---- a span is projected with the intact carrier's structural context (GC#4)
+    span_carrier = 'api_key: [\n  "alpha",\n\n  "bravo",\n\n  "shortpass"\n]\n'
+    last = span_carrier.index('  "shortpass"')
+    far = project_span(span_carrier, last, len(span_carrier), owner)
+    if "shortpass" in far:
+        failures.append(f"a credential whose key sits more than two nonblank lines above the value "
+                        f"was emitted unmasked: {far!r}")
+    multiline = 'password: "alpha\nbravo\nshortpass"\n'
+    fragment = project_span(multiline, multiline.index("bravo"), len(multiline), owner)
+    if "shortpass" in fragment or "bravo" in fragment:
+        failures.append(f"a span inside a multi-line credential was emitted unmasked: {fragment!r}")
+    plain = "the dispatch path is verified\n"
+    if project_span(plain, 0, len(plain), owner) != project(plain, CURRENT, owner):
+        failures.append("a span of a carrier that discloses nothing is not the carrier's own projection")
+    if project_span(span_carrier, 0, len(span_carrier), owner) != project(span_carrier, CURRENT, owner):
+        failures.append("a span that IS the whole carrier differs from projecting the carrier")
+    # ---- a printed line passes the same floor, and a line that still discloses is withheld
+    if owner in diagnostic(f"cannot read {owner}/Documents/x", owner):
+        failures.append("a diagnostic printed the owner's home path")
+    if diagnostic("STAGE_NOT_IMPLEMENTED read (S3)", owner) != "STAGE_NOT_IMPLEMENTED read (S3)":
+        failures.append("a diagnostic with nothing to mask was not printed as it stands")
 
     for failure in failures:
         print(f"projection --self-test [FAIL] {failure}")

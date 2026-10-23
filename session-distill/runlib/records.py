@@ -112,6 +112,62 @@ def write_json(run_dir, path, obj):
     write_text(run_dir, path, json_text(obj))
 
 
+# The member names a stage record carries, which is what a refusal about one may name. A key outside
+# this set is reported by its ordinal, so a name missing here costs a readable location and nothing
+# more (`projection.document_location`).
+RECORD_KEYS = frozenset((
+    "stage", "parts", "status", "run_json_sha256", "declaration_seq", "started", "ended",
+    "inputs", "outputs", "calls", "quarantined", "usage", "artifact", "sha256", "producer_stage",
+    "producer_seq", "id", "reason", "because", "unit", "route", "test_config",
+    "measured", "provisional", "unresolved", "complete",
+))
+
+
+def _floor():
+    """`runlib.projection`, imported on use.
+
+    `projection` imports this module for `jsonl_read`, so the two cannot both import at module
+    level; the dependency that matters is this direction, because the floor is where a record is
+    judged before it is published."""
+    from runlib import projection
+    return projection
+
+
+def record_disclosures(document):
+    """What a stage record would disclose, through the floor's one entry point.
+
+    A stage record is a document this run writes, so it answers the question every written document
+    answers — and it answers it BEFORE the bytes land, not after the stage completed. The earlier
+    code checked only after `cmd_inventory` finished successfully, which left the `running` document
+    and every failure record unchecked; an item's quarantine reason is an exception message, and an
+    exception message is a path more often than not (GC#6)."""
+    return _floor().document_disclosures(document, str(pathlib.Path.home()), schema=RECORD_KEYS)
+
+
+def publish_record(run_dir, stage, document, failing=None):
+    """THE publication of a stage record: judged by the floor, then written.
+
+    Every write of `stages/<stage>/record.json` goes through here — the `running` document, the
+    final one, the failure one, and the one carrying another part's preserved entry — so a control
+    observes the real writer rather than a helper beside it.
+
+    `failing` is the exception already on its way out, when there is one: the final publication runs
+    in a `finally`, and a refusal there replaces what was in flight. The disclosure is the graver
+    fact, so it is the one raised, but the failure it ran beside is carried in the message rather
+    than swallowed."""
+    problems = record_disclosures(document)
+    if problems:
+        floor = _floor()
+        beside = ""
+        if failing is not None:
+            beside = (f" (raised while {type(failing).__name__}: "
+                      f"{floor.diagnostic(failing, str(pathlib.Path.home()))} was in flight)")
+        raise Refused(f"RECORD_DISCLOSES {stage}: {'; '.join(problems[:4])}"
+                      + (f" (+{len(problems) - 4} more)" if len(problems) > 4 else "")
+                      + f"; the stage record is not written{beside}")
+    write_json(run_dir, record_path(run_dir, stage), document)
+
+
 def read_json(path):
     try:
         return json.loads(pathlib.Path(path).read_text(encoding="utf-8"))
@@ -254,7 +310,11 @@ def run_items(posture, items, work):
         try:
             work(item)
         except Exception as exc:
-            reason = f"{type(exc).__name__}: {exc}"
+            # The reason is published in the stage record, and an exception's message is a path
+            # often enough — an OSError's message IS one. It passes the floor here, where the text
+            # is made, rather than at the seam that would then have to refuse the whole record.
+            floor = _floor()
+            reason = f"{type(exc).__name__}: {floor.project(str(exc), floor.CURRENT, str(pathlib.Path.home()))}"
             if posture != "production":
                 raise Refused(f"ITEM_FAILED {item['id']} ({posture}): {reason}") from exc
             quarantined[item["id"]] = {"id": item["id"], "reason": reason, "because": None}
@@ -262,8 +322,9 @@ def run_items(posture, items, work):
                 shared = [key for key in SHARED_KEYS
                           if item.get(key) is not None and item.get(key) == other.get(key)]
                 if other["id"] != item["id"] and shared and other["id"] not in quarantined:
+                    shared_value = floor.project(repr(item[shared[0]]), floor.CURRENT, str(pathlib.Path.home()))
                     quarantined[other["id"]] = {"id": other["id"], "because": item["id"],
-                                                "reason": f"shares {shared[0]} {item[shared[0]]!r} with {item['id']}, which failed"}
+                                                "reason": f"shares {shared[0]} {shared_value} with {item['id']}, which failed"}
             done = [i for i in done if i not in quarantined]
         else:
             done.append(item["id"])
@@ -430,7 +491,7 @@ def run_stage(run_dir, stage, inputs=(), part=None):
                 raise Refused(f"STAGE_PART_REQUIRED {stage}: its record already holds the parts "
                               f"{sorted(existing['parts'])}, and a writer that names no part would "
                               f"replace all of them")
-            write_json(run_dir, record_path(run_dir, stage), document)
+            publish_record(run_dir, stage, document)
         try:
             yield StageRun(run_dir, record, run.get("posture"))
         except BaseException:
@@ -443,7 +504,7 @@ def run_stage(run_dir, stage, inputs=(), part=None):
             record["ended"] = now()
             if part is not None:
                 document["status"] = derived_status(document)
-            write_json(run_dir, record_path(run_dir, stage), document)
+            publish_record(run_dir, stage, document, sys.exc_info()[1])
 
 
 def expect_set(ids):
@@ -1072,6 +1133,81 @@ def self_test():
             label, entry = f"RAISED {exc!r}", None
         if label != "S1" or entry is not legacy:
             failures.append(f"a record written before parts existed no longer answers for its own output: {label}")
+
+        # ---- GC#6: every stage-record publication crosses the disclosure boundary FIRST, and the
+        # controls observe the real writer — `run_stage`'s own two writes — rather than a helper.
+        home = str(pathlib.Path.home())
+        secret_path = f"{home}/Documents/not-a-real-file"
+
+        def published(directory, stage, body, part=None):
+            """What `run_stage` left on disk, and what it raised: the writer itself, not a filter."""
+            try:
+                with run_stage(directory, stage, part=part) as stage_run:
+                    body(stage_run)
+                raised = ""
+            except Refused as exc:
+                raised = str(exc)
+            except Exception as exc:
+                raised = f"RAISED {exc!r}"
+            path = record_path(directory, stage)
+            return raised, (path.read_text(encoding="utf-8") if path.is_file() else "")
+
+        # (1) a failure record: an item's quarantine reason is an exception message, and an OSError's
+        # message IS a path. The record is published, and what it publishes is the projection.
+        failing_dir = pathlib.Path(td) / "disclose-items"
+        declare_fixture(failing_dir, base)
+
+        def fail_with_path(item):
+            if item["id"] == "B":
+                raise OSError(f"cannot read {secret_path}")
+        raised, text = published(failing_dir, "S3", lambda st: st.run_items(batch, fail_with_path))
+        if secret_path in text or home in text:
+            failures.append(f"a quarantine reason published the owner's home path: {raised} {text[:200]}")
+        if "<HOME>" not in text or '"quarantined"' not in text:
+            failures.append(f"the failure record was not published with the reason projected: {raised} {text[:200]}")
+
+        # (2) a preserved part: the record already on disk is carried into `parts` by the FIRST
+        # (running) publication, so the boundary has to be crossed there and not after the stage.
+        kept_dir = pathlib.Path(td) / "disclose-preserved"
+        declare_fixture(kept_dir, base)
+        (kept_dir / "views.json").write_text("the legacy views output\n", encoding="utf-8")
+        planted = {"stage": "S2", "run_json_sha256": sha256_file(kept_dir / "run.json"),
+                   "declaration_seq": read_json(kept_dir / "run.json")["declaration_seq"],
+                   "started": now(), "ended": now(), "status": "complete", "inputs": [],
+                   "outputs": [{"artifact": "views.json", "sha256": sha256_file(kept_dir / "views.json")}],
+                   "calls": [{"api_key": "shortpass"}], "quarantined": [],
+                   "usage": {"measured": 0, "provisional": 0, "unresolved": 0, "complete": True}}
+        write_json(kept_dir, record_path(kept_dir, "S2"), planted)
+        before = record_path(kept_dir, "S2").read_text(encoding="utf-8")
+        raised, text = published(kept_dir, "S2", lambda st: None, part="inventory")
+        expect("a preserved part carrying a credential is refused before the record is published",
+               [raised], "RECORD_DISCLOSES S2", "a credential-named member")
+        if text != before:
+            failures.append("the refused publication replaced the record anyway")
+        if "shortpass" in raised:
+            failures.append(f"the refusal repeated the credential it objected to: {raised}")
+
+        # (3) the final publication: a stage that puts a raw path in its own record is refused there,
+        # and the refusal carries the stage's own failure when one was already in flight.
+        late_dir = pathlib.Path(td) / "disclose-final"
+        declare_fixture(late_dir, base)
+
+        def leak_late(stage_run):
+            stage_run.record["calls"].append({"note": secret_path})
+        raised, text = published(late_dir, "S3", leak_late)
+        expect("a stage record that would publish a raw path is refused at its final publication",
+               [raised], "RECORD_DISCLOSES S3", "the string discloses a home path")
+        if secret_path in text:
+            failures.append(f"the refused final publication wrote the path anyway: {text[:200]}")
+
+        def leak_and_fail(stage_run):
+            stage_run.record["calls"].append({"note": secret_path})
+            raise ValueError("the stage itself failed")
+        both_dir = pathlib.Path(td) / "disclose-final-failing"
+        declare_fixture(both_dir, base)
+        raised, _text = published(both_dir, "S3", leak_and_fail)
+        expect("a refusal in the finally names the failure that was already in flight",
+               [raised], "RECORD_DISCLOSES S3", "ValueError", "was in flight")
 
     for failure in failures:
         print(f"records --self-test [FAIL] {failure}")

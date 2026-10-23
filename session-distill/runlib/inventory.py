@@ -61,19 +61,21 @@ except ModuleNotFoundError:  # pragma: no cover - the pinned interpreter has it
 if __package__ in (None, ""):  # run as a script: put session-distill/ on the import path
     sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 
-from runlib import projection, records, sources
+from runlib import projection, records, sources, validate
 from runlib.records import Refused
 
 HERE = pathlib.Path(__file__).resolve().parents[1]  # session-distill/
 REPO = HERE.parent
+# Provenance only: it is recorded in `produced_by` so a reader can find the design this was derived
+# from. Nothing executable reads it — the contract lives in `SCHEMA_REL`, which is a file the code
+# owns and does not expire (the 1548 amendment §10).
 DESIGN = "design/session-distill/2026-10-20T1942--9684f05--mechanism-design.md"
 LEDGER_REL = "design/session-distill/ledger.json"
 REFERENCES = ("current", "release", "selection")
 STATUSES = ("complete", "incomplete", "unsupported", "unknown")
 
-# §6.1's unit record, with the two fields the plan adds. `class` carries §6.1's `operative|reference`;
-# `contract_problems` holds this tuple against the design's own sentence.
-DESIGN_CLASS_FIELD = "operative|reference"
+# §6.1's unit record, with the two fields the plan adds and the one the emission adds. `class`
+# carries §6.1's `operative|reference`; `contract_problems` holds this tuple against the schema.
 UNIT_FIELDS = ("unit_id", "layer", "path", "heading", "n", "text", "sha", "class",
                "operative_context", "version_sha256", "redaction_version")
 PLAN_FIELDS = ("operative_context", "version_sha256")
@@ -101,8 +103,17 @@ MEMBER_BASE = {"guide": "claude/guides", "hook": "claude/hooks", "agent": "claud
 # The child this module's self-test runs to answer, behaviourally, whether the command's own module
 # graph writes a `.pyc` (GB#7, GC#10). It is passed to `python -c`: a question only a real process
 # answers, and a script file would be a program the dispatch trace cannot follow.
+#
+# It runs the driver the way production does — as `__main__`, through `runpy.run_path` — because
+# that is the only shape a real invocation has. Importing it as a module was the control's own
+# probe, and the one shape that caches the driver: the probe produced the single
+# `session-distill/__pycache__/distill.*.pyc` ever seen here and then called it a finding (GC#10).
+#
+# `checkout` is the copy of the checkout this run is confined to looking at. Every attempted write
+# under it is reported, and the bytecode ones separately: the claim is about THAT tree, which is
+# also the tree the caller inspects on disk afterwards.
 BYTECODE_PROBE = """
-import json, os, sys, pathlib
+import json, os, runpy, sys
 writes = []
 
 
@@ -119,20 +130,24 @@ def hook(event, args):
         writes.append(str(args[0]))
 
 
+checkout, destination, which, driver = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
 sys.addaudithook(hook)
-if len(sys.argv) > 4 and sys.argv[3] == 'unguarded':
+code = 0
+if which == 'unguarded':
     import importlib.util
     sys.dont_write_bytecode = False
-    spec = importlib.util.spec_from_file_location('probe_floor', sys.argv[4])
+    spec = importlib.util.spec_from_file_location('probe_floor', driver)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
-    code = 0
 else:
-    sys.path.insert(0, sys.argv[1])
-    import distill
-    code = distill.main(['inventory', '--to', sys.argv[2], '--no-state'])
-print(json.dumps({'code': code,
-                  'bytecode': sorted({w for w in writes if w.endswith('.pyc') or '__pycache__' in w})[:4]}))
+    sys.argv = [driver, 'inventory', '--to', destination, '--no-state']
+    try:
+        runpy.run_path(driver, run_name='__main__')
+    except SystemExit as exit:
+        code = exit.code if isinstance(exit.code, int) else 1
+under = sorted({w for w in writes if os.path.realpath(w).startswith(os.path.realpath(checkout))})
+print(json.dumps({'code': code, 'under_checkout': under[:8], 'under_checkout_total': len(under),
+                  'bytecode': sorted({w for w in under if w.endswith('.pyc') or '__pycache__' in w})[:8]}))
 """
 
 
@@ -164,9 +179,13 @@ def disclosure_problems(document, home=None, at="$"):
     representation, and converts internally. Choosing a floor helper per value is what this used to
     do, and it got one wrong in each direction — `all_mask` reads an object as `Members` and calls a
     plain `dict` unmasked whatever it holds, while `holds_secret` reads plain objects and misses a
-    credential-named member inside `Members`. The code here is the refusal, not the rule."""
+    credential-named member inside `Members`. The code here is the refusal, not the rule.
+
+    `DOCUMENT_KEYS` is what this module contributes: the member names its own documents carry, so a
+    refusal names a member of a schema this code owns and reports every other key — a key a document
+    happens to hold — by its ordinal (GC#5)."""
     return [f"DISCLOSED_IN_ARTIFACT {row}" for row in
-            projection.document_disclosures(document, home, at)]
+            projection.document_disclosures(document, home, at, schema=DOCUMENT_KEYS)]
 
 
 def write_document(out_dir, path, document, home=None):
@@ -413,15 +432,23 @@ def form_of(path):
 
 
 def carrier_identity(layer, path, item_ref, package_id):
-    """The canonical identity of a carrier: its package, the item that supplied it, and the path it
-    is delivered at.
+    """The canonical identity of a carrier — its package, the item that supplied it and the path it
+    is delivered at — as a stable OPAQUE id.
 
     The path alone is not an identity. `item_carriers` rewrites every package's member into the
     tree position it is delivered at, so two packages' `guides/review.md` both become
     `claude/guides/review.md`; keying a unit on the path alone made one package's fragment the
     other's, and made an occurrence number depend on which items the run happened to enumerate
-    (GA#2)."""
-    return f"{layer}\0{package_id or '-'}\0{item_ref or '-'}\0{path}"
+    (GA#2).
+
+    The id is a digest of that tuple rather than the tuple spelled out, because a delivered path is
+    an ordinary absolute path on the owner's disk often enough: `shed` projects the path it emits and
+    copied the identity unchanged, so one transcript member under a host home made the whole
+    inventory refuse its own artifact (GC#12). A digest is what the later stages actually use it for
+    — one fragment in one carrier keeps its id across reference points, and two carriers at one path
+    stay two. What a reader needs to SEE is the layer, the package, the item and the projected path,
+    and the record carries all four beside it."""
+    return "c-" + sha256_text(f"{layer}\0{package_id or '-'}\0{item_ref or '-'}\0{path}")[:24]
 
 
 def carrier(layer, path, text, item_ref=None, package_id=None, form=None, provenance=None):
@@ -442,6 +469,7 @@ def units_of(carriers):
     units, seen = [], collections.Counter()
     for item in carriers:
         heading_path, enclosing, before = [], [], ""
+        carrier_text = item["text"]
         for n, (kind, text) in enumerate(blocks_of(item["path"], item["text"], item.get("form")), 1):
             if kind == "heading":
                 level = len(text) - len(text.lstrip("#"))
@@ -459,10 +487,14 @@ def units_of(carriers):
                         item["layer"], item["path"], item.get("item_ref"), item.get("package_id")),
                     "provenance": item.get("provenance") or {},
                     "enclosing": list(enclosing),
-                    # The last lines of the carrier BEFORE this block, so the projection sees a
-                    # credential's key even when the splitter put the key and its value in two
-                    # blocks: projecting a span on its own lost that relationship (GC#4).
-                    "context_prefix": "\n".join([line for line in before.split("\n") if line.strip()][-2:])}
+                    # The carrier this block is a span OF, and where in it the span sits. The floor
+                    # is asked about the span with the carrier intact (`projection.project_span`),
+                    # because a credential's key and its value are one relationship and the splitter
+                    # can put the two in different blocks. A fixed window of preceding lines does not
+                    # preserve that: two nonblank lines left the key outside the window as soon as the
+                    # value was a list with blank lines in it (GC#4). Neither field is emitted —
+                    # `shed` carries §6.1's record and the carrier metadata, and nothing else.
+                    "carrier_text": carrier_text, "span": (len(before), len(before) + len(text))}
             if kind == "heading":
                 enclosing = enclosing + [unit_id]
             before += text
@@ -606,24 +638,25 @@ def operative_context(units):
     return units
 
 
-def _projected_span(prefix, text, home=None):
-    """A unit's text through the floor, projected together with the carrier lines that precede it.
+def _projected_span(unit, home=None, extents=None):
+    """A unit's text through the floor, judged with its carrier INTACT.
 
     The floor reads a credential-named key and the value that follows it as one relationship, and
     the splitter can put the two in different blocks — so projecting a block alone emitted the value
-    with nothing to mark it (GC#4). The prefix is projected with the text and then removed again;
-    a mask never introduces a line, so when the line count does not come back as expected the
-    plain projection stands rather than a guess."""
-    if not prefix:
-        return projected(text, home)
-    drop = prefix.count("\n") + 1
-    out = projected(f"{prefix}\n{text}", home)
-    lines = out.split("\n")
-    if len(lines) >= drop + text.count("\n") + 1:
-        return "\n".join(lines[drop:])
-    # The context made the floor mask ACROSS the block boundary, and one mask standing for the key
-    # and its value cannot be cut back into two. The span is emitted as that mask: cutting the
-    # context off and projecting the span alone is exactly what let the value through (GC#4).
+    with nothing to mark it (GC#4). The span is projected through `projection.project_span`, which
+    computes the masked extents over the whole carrier and clips them to the span: the structural
+    context is the carrier's own, not a window of it. `extents` is the carrier's extents when the
+    caller has already computed them for its other spans.
+
+    A unit that carries no carrier of its own — a caller that built the record by hand — is
+    projected as the block it is, which is the same answer as a carrier holding only that block."""
+    carrier_text, span = unit.get("carrier_text"), unit.get("span")
+    if not carrier_text or not span:
+        return projected(unit["text"], home)
+    out = projection.project_span(carrier_text, span[0], span[1], home, extents)
+    disclosed = projection.discloses(out, home)
+    if disclosed is not None:
+        raise Refused(f"DISCLOSED_IN_UNIT: the projection left {disclosed} in a unit's text; no artifact is written")
     return out
 
 
@@ -633,12 +666,21 @@ def shed(units, home=None):
 
     This is the boundary the raw text does not cross. `sha` and `version_sha256` are the raw
     fragment's and the raw carrier's, taken in `units_of`; `text` is what `projected` returns."""
-    records_out = []
+    records_out, extents = [], {}
     for unit in units:
+        carrier_text = unit.get("carrier_text")
+        if carrier_text is not None and unit["carrier_id"] not in extents:
+            # Once per carrier, not once per span: the extents are a property of the carrier.
+            extents[unit["carrier_id"]] = projection.carrier_extents(carrier_text, home)
         emitted = {**{field: unit[field] for field in UNIT_FIELDS},
-                   "block": unit["block"], "item_ref": unit["item_ref"], "package_id": unit["package_id"],
-                   "carrier_id": unit["carrier_id"], "provenance": unit["provenance"]}
-        emitted["text"] = _projected_span(unit.get("context_prefix") or "", unit["text"], home)
+                   "block": unit["block"], "carrier_id": unit["carrier_id"],
+                   # The display metadata of the carrier the opaque id stands for. An item reference
+                   # and a package id are text an adopted package supplied, so they pass the floor
+                   # like the path does rather than being trusted for their shape.
+                   "item_ref": projected(unit["item_ref"], home) if unit["item_ref"] else unit["item_ref"],
+                   "package_id": projected(unit["package_id"], home) if unit["package_id"] else unit["package_id"],
+                   "provenance": unit["provenance"]}
+        emitted["text"] = _projected_span(unit, home, extents.get(unit["carrier_id"]))
         # `heading` and `path` are carrier text too — a heading line holds whatever its author wrote
         # there, and a package's `origin.source_path` can be an absolute path on the owner's disk.
         emitted["heading"] = projected(unit["heading"], home) if unit["heading"] else unit["heading"]
@@ -650,8 +692,11 @@ def shed(units, home=None):
     return records_out
 
 
-def renames_against(units, base_units):
+def renames_against(units, base_units, home=None):
     """Units whose fragment carried over from the base reference point in another carrier.
+
+    A row names the carriers by the same opaque ids the unit records carry (GC#12), and the two
+    paths it reports pass the floor, because a delivered path is the owner's disk often enough.
 
     A fragment is evidence of a rename only when it is a requirement and it belongs to ONE carrier
     on each side. Uniqueness is per carrier identity, not per path: two packages delivering one path
@@ -689,7 +734,7 @@ def renames_against(units, base_units):
         source = first[was[sha]][sha]
         rows.append({"unit_id": unit["unit_id"], "from_unit_id": source["unit_id"],
                      "from_carrier_id": was[sha], "to_carrier_id": now[sha],
-                     "from_path": source["path"], "to_path": unit["path"],
+                     "from_path": projected(source["path"], home), "to_path": projected(unit["path"], home),
                      "from_layer": source["layer"], "to_layer": unit["layer"],
                      "moved": [kind for kind, moved in (("path", source["path"] != unit["path"]),
                                                         ("layer", source["layer"] != unit["layer"]),
@@ -705,17 +750,60 @@ SYMLINK_POLICY = ("a symlink is never read and never hashed: it names a file out
                   "instruction path for the same reason (compose/instructions_session.py)")
 
 
-def walk_source(root):
+def linked_above(path, boundary=None):
+    """The first symlink on `path`'s own chain, or None: the leaf, and every component between it and
+    the declared root it was named under.
+
+    This is the one question "may these bytes be read" is asked through, and it is asked BEFORE any
+    byte is read. `walk_source` asked it of the walker's root and of what the walk found under it,
+    which left every read that does not go through the walker — the runtime state, a pin, a
+    snapshot, a baseline, a single-file copy input — reading first and judging afterwards, and left
+    a root whose own ancestors inside the declared root were links (GC#7).
+
+    `boundary` is the root the caller declared. Components ABOVE it are not judged: the owner named
+    that root, and where they keep it is not this inventory's question (on macOS `/tmp` is itself a
+    link). Components at and below it are, because a link there redirects bytes out of the root the
+    input manifest says were read."""
+    path = pathlib.Path(path).expanduser()
+    chain = [path]
+    if boundary is not None:
+        boundary = pathlib.Path(boundary).expanduser()
+        for parent in path.parents:
+            chain.append(parent)
+            if parent == boundary or not parent.is_relative_to(boundary):
+                break
+    return next((item for item in chain if item.is_symlink()), None)
+
+
+def source_selection(path, boundary=None, home=None):
+    """`path`, admitted for reading — or a refusal, before a byte of it is read.
+
+    Every read of the owner's state passes through here: the runtime state, a pin, a snapshot, a
+    baseline's own item list, and each input of a frozen copy."""
+    linked = linked_above(path, boundary)
+    if linked is not None:
+        raise Refused(f"SOURCE_LINKED {masked(linked, home)}: {SYMLINK_POLICY}; "
+                      f"{masked(path, home)} is not read")
+    return pathlib.Path(path).expanduser()
+
+
+def read_source(path, boundary=None, home=None):
+    """The text of one file of the owner's state, after `source_selection` admitted it."""
+    return source_selection(path, boundary, home).read_text(encoding="utf-8")
+
+
+def walk_source(root, boundary=None):
     """`(readable, omitted)` under `root`: the files this inventory may read, and the ones it may
     not, each with the reason.
 
     One walker decides what is read, what is hashed and what is copied. Two decisions used to
     disagree: the hash reported a symlink as omitted while the copier followed it, so bytes from
     outside the declared root reached a frozen copy that the input manifest said had never been
-    read (GB#8). A link is rejected before it is read, leaf and ancestor alike."""
+    read (GB#8). A link is rejected before it is read, leaf and ancestor alike — the root's own
+    chain through `linked_above`, and everything under it here."""
     root = pathlib.Path(root).expanduser()
     readable, omitted = [], []
-    if root.is_symlink():
+    if linked_above(root, boundary) is not None:
         return readable, [{"path": ".", "reason": "symlink"}]
     if not root.is_dir():
         return readable, [{"path": masked(root), "reason": "the root is not a directory"}]
@@ -749,19 +837,26 @@ def hash_tree(root):
     return digests, omissions
 
 
-def protected_roots(state_root, user_root, native_roots, host_homes=()):
+def protected_roots(state_root, user_root, native_roots, host_homes=(), checkout=None):
     """Every root this inventory must not write into: the owner's state, the authoring root, the
-    host homes and the project roots.
+    host homes, the checkout and the project roots.
 
     The host homes are protected whether or not this run reads them. A run reads the native layers
     from its own capture, so the homes are not among its inputs — but `~/.claude` is still never a
     place for a run directory, and deriving the protected set from the inputs alone quietly stopped
-    protecting them the moment the capture replaced them (GA#4)."""
-    roots = [root for root in (state_root, user_root) if root]
+    protecting them the moment the capture replaced them (GA#4).
+
+    The checkout is protected unconditionally, here rather than by the caller. It used to arrive only
+    as the default value of `--project`, so naming any project root at all replaced it and a
+    destination inside this checkout became writable — the one root every run of this command has
+    (GC#0 through `--project`). `--project` adds roots; it never takes this one away."""
+    roots = [root for root in (state_root, user_root, checkout) if root]
     for group in (native_roots or {}).values():
         roots += list(group.values()) if isinstance(group, dict) else []
     roots += list(host_homes)
-    return [pathlib.Path(root).expanduser() for root in roots]
+    # Deduplicated: the checkout is also a project root of every default run, and one root named
+    # twice reported the same overlap twice.
+    return list(dict.fromkeys(pathlib.Path(root).expanduser() for root in roots))
 
 
 def overlap_problems(destinations, roots, enclosing=True, home=None):
@@ -786,6 +881,51 @@ def overlap_problems(destinations, roots, enclosing=True, home=None):
     return problems
 
 
+RUN_MARKERS = ("run.json", "amendments.jsonl")
+
+
+def declared_run_at(path):
+    """Whether `path` is the directory of a declared run: `run.json` and the log that authorizes it.
+
+    Both files, not either: a directory holding only one of them is not a run this command may
+    assume anything about, and `records.declaration_state` is the authority on what a declared run
+    is — this asks only whether one is THERE, which is a destination question."""
+    path = pathlib.Path(path)
+    return all((path / name).is_file() for name in RUN_MARKERS)
+
+
+def standalone_problems(out_dir, home=None):
+    """Why a standalone `--to` destination may not be written, before anything is written.
+
+    `--to` writes `inventory/<reference>.json` and enters no stage: no lock, no stage record, no
+    declaration is read. Pointed at a declared run it replaced that run's artifacts through
+    `os.replace` while the run's own S2 record went on describing the bytes it had just overwritten —
+    census-backed native content replaced by unknowns, with nothing in the run saying so (GC#3 by
+    another route). A run's inventory is written through the run-aware path, which records the stage,
+    or not at all.
+
+    A destination that already holds an inventory is refused for the same reason one level down: the
+    documents there were produced by some other call whose record this one neither reads nor
+    replaces."""
+    out_dir = pathlib.Path(out_dir).expanduser().resolve()
+    advice = "write a run's inventory with --run-id, which enters the stage and records it"
+    problems = []
+    if declared_run_at(out_dir):
+        problems.append(f"RUN_DESTINATION {masked(out_dir, home)}: it is a declared run directory; {advice}")
+    else:
+        for parent in out_dir.parents:
+            if declared_run_at(parent):
+                problems.append(f"RUN_DESTINATION {masked(out_dir, home)}: it is inside the declared run "
+                                f"directory {masked(parent, home)}; {advice}")
+                break
+    present = sorted((out_dir / "inventory").glob("*.json")) if (out_dir / "inventory").is_dir() else []
+    if present:
+        problems.append(f"INVENTORY_PRESENT {masked(out_dir, home)}: it already holds {len(present)} "
+                        f"inventory document(s), which this call would replace without reading or "
+                        f"recording what produced them; name a destination that holds none")
+    return problems
+
+
 @contextlib.contextmanager
 def no_bytecode():
     """No `.pyc` for the modules loaded by path: a cache write lands beside the file it caches, and
@@ -796,6 +936,67 @@ def no_bytecode():
         yield
     finally:
         sys.dont_write_bytecode = kept
+
+
+# What no checkout tracks, and what therefore may not enter the walk's answer. A bytecode cache is
+# generated beside its source and is in every `.gitignore` there is, so `git ls-files` can never name
+# one — and the walk must not either, or the two branches below answer differently about the same
+# tree. This is not a convenience: `checkout_copy` exists to produce an UNCACHED tree, and a walk
+# that copies a `.pyc` makes the copy the one thing it was built not to be.
+UNTRACKABLE_PARTS = ("__pycache__",)
+UNTRACKABLE_SUFFIXES = (".pyc", ".pyo")
+
+
+def tracked_paths(source=REPO):
+    """The files of `source`, whether it is a checkout or a tree materialised from one — by the same
+    rule the payload gate keeps (`gates/check-package.sh` `tracked_files`), plus one exclusion.
+
+    A checkout lists what git tracks. A materialised tree has no `.git`, so it is walked. What decides
+    is the presence of `.git`, not whether `git` can be run: the commit hook runs the gates in such a
+    snapshot with `GIT_DIR` exported, so `git ls-files` there answers about the REAL index and would
+    name files that are not in the tree under judgement.
+
+    **A materialised tree holds nothing else only until something runs in it, and the hook runs
+    every gate there.** Neither `.githooks/pre-commit` nor `gates/check-parity.sh` sets
+    `PYTHONDONTWRITEBYTECODE`, and the legs before this one import Python in that same tree — so by
+    the time this is asked, the snapshot carries `__pycache__/*.pyc` in several directories. The walk
+    returned them, `checkout_copy` copied them, and the copy's own "it is uncached" control failed
+    inside the hook and nowhere else. The walk therefore excludes what git cannot track there, which
+    is also what makes the two branches agree about one tree."""
+    source = pathlib.Path(source)
+    if (source / ".git").exists():
+        listing = subprocess.run(["git", "-C", str(source), "ls-files", "-z"],
+                                 capture_output=True, text=True, check=True)
+        return [name for name in listing.stdout.split("\0") if name]
+    names = []
+    for path in sorted(source.rglob("*")):
+        parts = path.relative_to(source).parts
+        if ".git" in parts or set(parts) & set(UNTRACKABLE_PARTS) or path.suffix in UNTRACKABLE_SUFFIXES:
+            continue
+        names.append(path.relative_to(source).as_posix())
+    return names
+
+
+def checkout_copy(destination, source=REPO):
+    """An uncached COPY of a checkout under `destination`: the files it tracks, and nothing else.
+
+    The bytecode question is about a tree nobody has imported from yet, and it has to be asked of a
+    tree this test owns. Asking it of the review checkout meant deleting that checkout's caches to
+    make the question meaningful — a write into the very tree the run is supposed not to write to,
+    and one that only cleared two of the directories the command loads from (GC#10). A bytecode cache
+    is never a tracked file and `tracked_paths` never returns one, so the copy is uncached by
+    construction whatever state the source is in; the caller asserts that before it runs anything."""
+    destination, source = pathlib.Path(destination), pathlib.Path(source)
+    copied = []
+    for name in tracked_paths(source):
+        member = source / name
+        if member.is_symlink() or not member.is_file():
+            continue
+        target = confined(destination, name)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(member.read_bytes())
+        copied.append(name)
+    return copied
 
 
 def loads_outside_the_guard(source):
@@ -818,23 +1019,25 @@ def loads_outside_the_guard(source):
     return problems
 
 
-def freeze(sources, destination):
+def freeze(sources, destination, boundary=None):
     """Copy each existing `(source, relative)` into `destination` and say what was left out.
 
     The copies are what the producers read: the store's public methods lock the state root and
     recover pending transactions, and a read of the owner's library may not write to it. Every
-    directory is copied through `walk_source`, so the bytes that land here are exactly the bytes
-    the input manifest says were read — a link is omitted by name rather than followed (GB#8)."""
+    input passes `linked_above` first and every directory is copied through `walk_source`, so the
+    bytes that land here are exactly the bytes the input manifest says were read — a link is omitted
+    by name rather than followed, at the input's own path and at every component of it below the
+    declared root `boundary` (GB#8, GC#7)."""
     destination = pathlib.Path(destination)
     missing = []
     for source, relative in sources:
         source = pathlib.Path(source).expanduser()
         target = confined(destination, relative)
-        if source.is_symlink():
+        if linked_above(source, boundary) is not None:
             missing.append(f"{relative}: symlink")
             continue
         if source.is_dir():
-            readable, omitted = walk_source(source)
+            readable, omitted = walk_source(source, boundary)
             for inner, path in readable:
                 inner_target = confined(target, inner)
                 inner_target.parent.mkdir(parents=True, exist_ok=True)
@@ -1363,7 +1566,7 @@ def baseline_items(state_root, ref):
     path = pathlib.Path(state_root).expanduser() / "runtime" / "baselines" / ref / "inventory.json"
     if not path.is_file():
         raise Refused(f"BASELINE_ABSENT {masked(path)}: the release reference point has no baseline inventory")
-    document = json.loads(path.read_text(encoding="utf-8"))
+    document = json.loads(read_source(path, state_root))
     items = document.get("items")
     if not isinstance(items, list) or not items:
         raise Refused(f"BASELINE_EMPTY {masked(path)}: a baseline inventory with no items judges nothing")
@@ -1375,7 +1578,7 @@ def read_pin(state_root, host, session_id):
     pin_path = pathlib.Path(state_root).expanduser() / "sessions" / "pins" / host / f"{session_id}.json"
     if not pin_path.is_file():
         raise Refused(f"PIN_ABSENT {masked(pin_path)}: the selection reference point needs the session's pin")
-    pin = json.loads(pin_path.read_text(encoding="utf-8"))
+    pin = json.loads(read_source(pin_path, state_root))
     if not isinstance(pin.get("content_ref"), str):
         raise Refused(f"PIN_UNREADABLE {masked(pin_path)}: the pin names no content_ref")
     return pin
@@ -1383,8 +1586,11 @@ def read_pin(state_root, host, session_id):
 
 def snapshot_of(repo, frozen_state, content_ref):
     """A pin's snapshot over the frozen copy, through the store's own `verify_snapshot` — a
-    module-level reader that takes no lock and writes nothing, unlike `snapshot_inventory`."""
-    root = pathlib.Path(frozen_state) / "sessions" / "snapshots" / content_ref
+    module-level reader that takes no lock and writes nothing, unlike `snapshot_inventory`.
+
+    The store reads the snapshot's files itself, so the selection is taken here, before it is
+    handed the root: nothing the store reads is admitted by a decision made after the read."""
+    root = source_selection(pathlib.Path(frozen_state) / "sessions" / "snapshots" / content_ref, frozen_state)
     return store_module(repo).verify_snapshot(root, content_ref)
 
 
@@ -1671,6 +1877,38 @@ LAYERS = (
                      "selection": ("no producer: the ledger records the present", _ledger_history)}),
 )
 
+# The member names this module's own documents carry. A refusal may NAME a member only when it is one
+# of these; every other key is reported by its ordinal, because a key is untrusted text and a
+# document can carry a credential as one (`projection.document_location`). Syntax is not authority:
+# naming any key that looked like a name repeated the arbitrary nested key of
+# `{"api_key": {"shortpass": ...}}` in the refusal (GC#5).
+#
+# A name missing from here costs a readable location and nothing else, so the list failing behind the
+# documents is safe rather than silent. What is NOT safe is a credential name reaching it, and
+# `self_test` asks the floor about every entry.
+DOCUMENT_MEMBERS = (
+    # the reference-point document and its layer rows
+    "reference", "complete", "incomplete_reasons", "layers", "units", "renames", "produced_by",
+    "module", "design", "commit", "kind", "ref", "state", "layer", "producer", "status", "carriers",
+    "reasons", "empty", "notes", "overlay_hosts", "sessions", "events", "unknown", "content_ref",
+    "ledger_keep_held_back",
+    # the manifest
+    "references", "state_root_unchanged", "out_dir", "inputs", "operative", "layer_units",
+    "layer_empty", "symlink_policy", "protected_roots", "roots", "roots_absent", "transcripts",
+    "read_through", "native_files_read", "watched_roots", "watched_native_files", "files",
+    "omissions", "baseline_unmapped", "baseline_items_expected", "state_root", "user_root",
+    "frozen_missing", "baselines", "installed", "pinned", "differ", "release", "selection",
+    "current", "catalog", "host", "pin", "pin_unknown", "unknown_total", "current_scopes",
+    "native_events", "delivery_confirmed", "session", "scope", "at", "acquisition_error",
+    # a rename row
+    "from_unit_id", "from_carrier_id", "to_carrier_id", "from_path", "to_path", "from_layer",
+    "to_layer", "moved", "ambiguous", "from_carriers", "to_carriers", "reason",
+)
+DOCUMENT_KEYS = frozenset(DOCUMENT_MEMBERS + UNIT_FIELDS + PLAN_FIELDS + EMISSION_FIELDS
+                          + PROVENANCE_FIELDS + ("block", "item_ref", "package_id", "carrier_id")
+                          + tuple(layer for layer, _producers in LAYERS)
+                          + tuple(REFERENCES) + tuple(STATUSES))
+
 
 def reference_of(reference, ctx):
     """One reference point: its layers, its units, its completeness and the reasons against it."""
@@ -1751,7 +1989,7 @@ def run(repo, state_root, user_root, out_dir, pin=None, native_roots=None, ledge
     state_root = pathlib.Path(state_root).expanduser() if state_root else None
     user_path = pathlib.Path(user_root).expanduser() if user_root else None
     guarded = protected_roots(state_root, user_path, native_roots,
-                              host_homes=[spec["home"] for spec in NATIVE.values()])
+                              host_homes=[spec["home"] for spec in NATIVE.values()], checkout=repo)
     home = str(pathlib.Path.home())
     temp_root = temp_home(guarded, home)   # chosen and judged before any write, GC#1
     overlaps = overlap_problems([out_dir], guarded, home=home)
@@ -1788,7 +2026,7 @@ def run(repo, state_root, user_root, out_dir, pin=None, native_roots=None, ledge
                 produced[reference] = reference_of(reference, ctx)
             base = produced["release"][1]
             for reference in ("current", "selection"):
-                produced[reference][0]["renames"] = renames_against(produced[reference][1], base)
+                produced[reference][0]["renames"] = renames_against(produced[reference][1], base, home)
             if ctx.get("release_ref"):
                 problems = mapping_problems({item["ref"] for item in ctx["expected_release_items"]}, produced["release"][1])
                 document = produced["release"][0]
@@ -1863,8 +2101,11 @@ def freeze_inputs(frozen, repo, state_root, user_root, pin, ctx):
         ctx["notes"]["state"] = "no state root: the overlay, release and selection producers have no record"
         ctx["release_ref"], ctx["expected_release_items"] = None, []
         return
+    # Every read below goes through the one source selection, before any byte of it is read: the
+    # runtime state here, the pin in `read_pin`, the snapshot in `snapshot_of`, the baseline's item
+    # list in `baseline_items`, and each copy input in `freeze` (GC#7).
     runtime_path = state_root / "runtime" / "state.json"
-    runtime = json.loads(runtime_path.read_text(encoding="utf-8")) if runtime_path.is_file() else {}
+    runtime = json.loads(read_source(runtime_path, state_root)) if runtime_path.is_file() else {}
     state_sources = [(runtime_path, "runtime/state.json")]
     release_ref = None
     if pin:
@@ -1897,7 +2138,8 @@ def freeze_inputs(frozen, repo, state_root, user_root, pin, ctx):
     if user_root:
         user_root = pathlib.Path(user_root).expanduser()
         user_sources = [(user_root / "state.json", "state.json"), (user_root / "learnings", "learnings")]
-    ctx["notes"]["frozen_missing"] = freeze(state_sources, state) + [f"user/{name}" for name in freeze(user_sources, user)]
+    ctx["notes"]["frozen_missing"] = (freeze(state_sources, state, state_root)
+                                      + [f"user/{name}" for name in freeze(user_sources, user, user_root)])
     if pin:
         verified = snapshot_of(repo, state, ctx["pin_record"]["content_ref"])
         release_ref = (verified["inputs"] or {}).get("baseline_ref")
@@ -1906,7 +2148,8 @@ def freeze_inputs(frozen, repo, state_root, user_root, pin, ctx):
                                "state": ctx["pin_record"].get("state")}
         if release_ref:
             safe_label("baseline ref", release_ref)
-            freeze([(state_root / "runtime" / "baselines" / release_ref, f"runtime/baselines/{release_ref}")], state)
+            freeze([(state_root / "runtime" / "baselines" / release_ref, f"runtime/baselines/{release_ref}")],
+                   state, state_root)
             ctx["notes"]["release"] = "from the pin's snapshot inputs.baseline_ref"
             ctx["notes"]["baselines"] = {"installed": installed_ref, "pinned": release_ref,
                                          "differ": installed_ref != release_ref}
@@ -1948,57 +2191,141 @@ def report_lines(manifest, home=None):
 
 # ---------------------------------------------------------------- the contract
 
-# §6.1's own enumeration of the layers, each with the words the design names it by. This is the
-# INDEPENDENT statement of the layer set: `LAYERS` is the table the code walks, and a layer deleted
-# from it has to fail against something that is not itself (GA#11).
-DESIGN_LAYERS = (
-    ("catalog", "catalog content"), ("adopted_packages", "adopted"),
-    ("overlays", "overlays"), ("native_global", "native global instruction files"),
-    ("native_project", "project instruction files"), ("native_settings", "settings"),
-    ("native_memory", "memory"), ("session_injection", "session-level injection"),
-    ("ledger_incubating", "incubating ledger principles"), ("ledger_keep", "active `keep` records"))
+# The contract this module is held against is a schema the code owns, not a dated design record.
+#
+# `layer_problems` and `contract_problems` used to read
+# `design/session-distill/2026-10-20T1942--9684f05--mechanism-design.md` by path and parse §6.1 out
+# of its prose. That made a dated record part of executable acceptance: a record is a claim about a
+# past tree, being superseded is its normal fate, and superseding one changed what this suite
+# accepts (GC#12, the 1548 amendment §10). The schema below is the same statement with an owner that
+# does not expire; the design section it was derived from is cited in the schema's `$comment` as
+# provenance, and nothing executable reads that citation.
+#
+# It is still an INDEPENDENT statement, which is what GA#11 asked for: `LAYERS` and `UNIT_FIELDS` are
+# the tables the code walks, the schema is a separate file, and a layer or a field deleted from
+# either has to fail against something that is not itself. The schema is load-bearing beyond this
+# comparison — `self_test` validates the real documents' units and layer rows against it.
+SCHEMA_REL = "session-distill/schemas/inventory.schema.json"
+SCHEMA_PATH = HERE / "schemas" / "inventory.schema.json"
 
 
-def layer_problems(design_text=None, rel=DESIGN):
-    """The layer table against §6.1: the same layers, and each one named in the design's own text."""
-    if design_text is None:
-        path = REPO / rel
-        if not path.is_file():
-            return [f"DESIGN_MISSING {rel}: the layer set has no contract to hold"]
-        design_text = path.read_text(encoding="utf-8")
-    section = design_text.split("### 6.1 Inventory")[-1].split("### 6.2")[0] if "### 6.1 Inventory" in design_text else ""
-    if not section.strip():
-        return [f"DESIGN_UNREADABLE {rel}: §6.1 is not in this design"]
-    problems = []
-    declared = [slug for slug, _phrase in DESIGN_LAYERS]
+def inventory_schema(path=SCHEMA_PATH):
+    """The schema this module's documents are held against, read from the file the code owns."""
+    path = pathlib.Path(path)
+    if not path.is_file():
+        raise Refused(f"SCHEMA_MISSING {SCHEMA_REL}: the inventory has no contract to hold")
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _schema_or_problem(schema):
+    """`(schema, problems)`: the schema to judge against, or why there is none."""
+    if schema is not None:
+        return schema, []
+    try:
+        return inventory_schema(), []
+    except (Refused, ValueError) as exc:
+        return None, [f"SCHEMA_UNREADABLE {SCHEMA_REL}: {type(exc).__name__}: {exc}"]
+
+
+def layer_problems(schema=None):
+    """The layer table against the schema's own enumeration of the layers."""
+    schema, problems = _schema_or_problem(schema)
+    if problems:
+        return problems
+    declared = (((schema.get("$defs") or {}).get("layer_name") or {}).get("enum"))
+    if not declared:
+        return [f"SCHEMA_UNREADABLE {SCHEMA_REL}: $defs/layer_name declares no layer enum"]
     walked = [layer for layer, _producers in LAYERS]
     for missing in sorted(set(declared) - set(walked)):
-        problems.append(f"LAYER_MISSING {missing}: §6.1 names this layer and the table does not walk it")
+        problems.append(f"LAYER_MISSING {missing}: the schema names this layer and the table does not walk it")
     for extra in sorted(set(walked) - set(declared)):
-        problems.append(f"LAYER_UNDECLARED {extra}: the table walks a layer §6.1 does not name")
-    for slug, phrase in DESIGN_LAYERS:
-        if phrase.lower() not in section.lower():
-            problems.append(f"LAYER_UNNAMED {slug}: §6.1 no longer carries the words {phrase!r}")
+        problems.append(f"LAYER_UNDECLARED {extra}: the table walks a layer the schema does not name")
+    if list(declared) != walked and not problems:
+        problems.append(f"LAYER_ORDER: the table walks {walked} and the schema declares {list(declared)}")
     return problems
 
 
-def contract_problems(design_text=None, rel=DESIGN):
-    """Done-when 6: the unit record's required set is §6.1's own list plus the plan's two fields.
-    The design's sentence is the authority, parsed from it rather than copied here."""
-    if design_text is None:
-        path = REPO / rel
-        if not path.is_file():
-            return [f"DESIGN_MISSING {rel}: the unit record has no contract to hold"]
-        design_text = path.read_text(encoding="utf-8")
-    match = re.search(r"numbered units\s+`\{(.*?)\}`", design_text, re.S)
-    if not match:
-        return [f"DESIGN_UNREADABLE {rel}: §6.1's unit record is not in the form `{{...}}`"]
-    declared = [field.strip() for field in match.group(1).replace("\n", " ").split(",") if field.strip()]
-    expected = tuple(("class" if field == DESIGN_CLASS_FIELD else field) for field in declared) + PLAN_FIELDS + EMISSION_FIELDS
-    if tuple(UNIT_FIELDS) != expected:
-        return [f"CONTRACT_MISMATCH unit (§6.1 + the plan): the record carries {list(UNIT_FIELDS)}, "
-                f"the design and the plan ask for {list(expected)}"]
+def contract_problems(schema=None):
+    """Done-when 6: the unit record carries exactly the fields the schema requires of one, in order.
+
+    `UNIT_FIELDS` is §6.1's list plus the plan's two fields and the emission's one; the schema is
+    where that set is declared, and this holds the tuple against it."""
+    schema, problems = _schema_or_problem(schema)
+    if problems:
+        return problems
+    required = (((schema.get("$defs") or {}).get("unit") or {}).get("required"))
+    if not required:
+        return [f"SCHEMA_UNREADABLE {SCHEMA_REL}: $defs/unit requires no fields, so it is no contract"]
+    if tuple(UNIT_FIELDS) != tuple(required):
+        return [f"CONTRACT_MISMATCH unit ({SCHEMA_REL}): the record carries {list(UNIT_FIELDS)}, "
+                f"the schema requires {list(required)}"]
+    missing = [field for field in PLAN_FIELDS + EMISSION_FIELDS if field not in required]
+    if missing:
+        return [f"CONTRACT_MISMATCH unit ({SCHEMA_REL}): the plan's and the emission's fields "
+                f"{missing} are not required of a unit"]
     return []
+
+
+def document_contract_problems(document, schema=None):
+    """The units and layer rows of one produced document against the schema.
+
+    This is what makes the schema a contract rather than a second list: the real artifact is
+    validated against it, so a document that drifts from the declaration fails here and not only
+    where a tuple is compared with one."""
+    schema, problems = _schema_or_problem(schema)
+    if problems:
+        return problems
+    subject = {"units": document.get("units") or [], "layers": document.get("layers") or []}
+    try:
+        validator = validate.compile_schema(schema)
+    except Exception as exc:  # a schema this policy refuses is a named failure, not a traceback
+        return [f"SCHEMA_INVALID {SCHEMA_REL}: {type(exc).__name__}: {exc}"]
+    return [f"DOCUMENT_INVALID {row}" for row in validate.validate_instance(validator, subject)]
+
+
+DATED_RECORD = re.compile(r"design/[^\s\"']*/\d{4}-\d{2}-\d{2}T\d{4}--")
+
+
+def dated_record_problems(source=None):
+    """Every place this module resolves a dated design record into a path it reads.
+
+    A dated record may be NAMED — `DESIGN` is recorded in `produced_by` so a reader can find the
+    design this was derived from — but it may not be READ, because then superseding it changes what
+    this suite accepts, and being superseded is the normal fate of these files (GC#12, the 1548
+    amendment §10). The contract belongs in `SCHEMA_REL`, which the code owns.
+
+    What is decided here is the shape that was actually there: `path = REPO / rel`, where `rel` is a
+    parameter whose default is the dated constant. So a parameter defaulting to one counts as the
+    record itself, and a check that only looked at literals beside the `/` would have passed over
+    the very code it exists to forbid."""
+    source = pathlib.Path(__file__).read_text(encoding="utf-8") if source is None else source
+    tree = ast.parse(source)
+
+    def is_dated(node, names):
+        if isinstance(node, ast.Constant) and isinstance(node.value, str):
+            return bool(DATED_RECORD.search(node.value))
+        return isinstance(node, ast.Name) and node.id in names
+
+    dated = set()
+    for node in ast.walk(tree):     # module constants holding one
+        if isinstance(node, ast.Assign) and len(node.targets) == 1 \
+                and isinstance(node.targets[0], ast.Name) and is_dated(node.value, set()):
+            dated.add(node.targets[0].id)
+    for node in ast.walk(tree):     # parameters defaulting to one
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            positional = node.args.posonlyargs + node.args.args
+            for arg, default in zip(positional[len(positional) - len(node.args.defaults):], node.args.defaults):
+                if is_dated(default, dated):
+                    dated.add(arg.arg)
+            for arg, default in zip(node.args.kwonlyargs, node.args.kw_defaults):
+                if default is not None and is_dated(default, dated):
+                    dated.add(arg.arg)
+    problems = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Div) and is_dated(node.right, dated):
+            problems.append(f"DATED_RECORD_READ line {node.lineno}: a dated design record is resolved "
+                            f"into a path this module reads; the contract belongs in {SCHEMA_REL}")
+    return problems
 
 
 def reason_problems(source=None):
@@ -2080,28 +2407,64 @@ def self_test():
     control("a carrier the split would lose bytes of", [str(exc) for exc in [_raised(lambda: blocks_of("blank.py", "\n\n"))]],
             "blank.py", "does not reproduce")
 
-    # ---- done-when 6: the unit record is §6.1's list plus the plan's two fields
-    clean("the unit record against design §6.1 and the plan", contract_problems())
-    control("a design that names another field", contract_problems(
-        "numbered units `{unit_id, layer, path, heading, n, text, operative|reference}`:"), "CONTRACT_MISMATCH unit")
-    control("a design whose §6.1 sentence is gone", contract_problems("units are not written here"), "DESIGN_UNREADABLE")
-    control("a design document that is not there at all",
-            contract_problems(rel="design/session-distill/no-such-design.md"), "DESIGN_MISSING")
-    # ---- GA#11: the layer set, judged against §6.1 rather than against the table that walks it
-    clean("the layer table against §6.1's own enumeration", layer_problems())
+    # ---- done-when 6: the unit record is the schema's required set, and no dated record is read.
+    # Every mutation below is an in-memory schema, so nothing here depends on a design document
+    # existing, being at a path, or still carrying a sentence (GC#12, the 1548 amendment §10).
+    own_schema = inventory_schema()
+    clean("the unit record against the schema the code owns", contract_problems())
+    control("a schema that requires another field of a unit", contract_problems(
+        {**own_schema, "$defs": {**own_schema["$defs"],
+                                 "unit": {**own_schema["$defs"]["unit"],
+                                          "required": list(UNIT_FIELDS)[:-1] + ["something_else"]}}}),
+        "CONTRACT_MISMATCH unit")
+    control("a schema whose unit requires nothing at all", contract_problems(
+        {**own_schema, "$defs": {**own_schema["$defs"], "unit": {"type": "object"}}}), "SCHEMA_UNREADABLE")
+    control("a schema file that is not there at all",
+            [str(_raised(lambda: inventory_schema(HERE / "schemas" / "no-such-schema.json")))],
+            "SCHEMA_MISSING")
+    # ---- GA#11: the layer set, judged against the schema's enumeration rather than against the
+    # table that walks it
+    clean("the layer table against the schema's own enumeration", layer_problems())
     saved_layers = globals()["LAYERS"]
     try:
         globals()["LAYERS"] = tuple(row for row in saved_layers if row[0] != "native_memory")
         control("a layer deleted from the table the inventory walks", layer_problems(), "LAYER_MISSING native_memory")
         globals()["LAYERS"] = saved_layers + (("a_layer_nobody_declared", {}),)
-        control("a layer the table walks and §6.1 does not name", layer_problems(),
+        control("a layer the table walks and the schema does not name", layer_problems(),
                 "LAYER_UNDECLARED a_layer_nobody_declared")
     finally:
         globals()["LAYERS"] = saved_layers
-    control("a §6.1 that no longer names one of its layers",
-            layer_problems((REPO / DESIGN).read_text(encoding="utf-8").replace("session-level injection", "it")
-                           if (REPO / DESIGN).is_file() else ""),
-            "LAYER_UNNAMED session_injection")
+    control("a schema that no longer names one of its layers", layer_problems(
+        {**own_schema, "$defs": {**own_schema["$defs"],
+                                 "layer_name": {"type": "string",
+                                                "enum": [name for name in own_schema["$defs"]["layer_name"]["enum"]
+                                                         if name != "session_injection"]}}}),
+        "LAYER_UNDECLARED session_injection")
+    control("a schema whose layer enum is empty", layer_problems(
+        {**own_schema, "$defs": {**own_schema["$defs"], "layer_name": {"type": "string", "enum": []}}}),
+        "SCHEMA_UNREADABLE")
+    # A schema the project's own policy refuses is not a contract anything can be held against: it
+    # must be valid JSON Schema and closed, like every other schema here (`runlib/validate.py`).
+    control("the schema compiles under this project's schema policy",
+            [f"compiled={_raised(lambda: validate.compile_schema(own_schema)) is None}"], "compiled=True")
+    # ---- the 1548 amendment §10: no control here reads a dated design record
+    clean("no dated design record is resolved into a path this module reads", dated_record_problems())
+    control("the shape this module used to carry: a parameter defaulting to the dated record",
+            dated_record_problems(
+                'DESIGN = "design/session-distill/2026-10-20T1942--9684f05--mechanism-design.md"\n'
+                "\n\ndef layer_problems(design_text=None, rel=DESIGN):\n"
+                "    path = REPO / rel\n    return [path.read_text()]\n"),
+            "DATED_RECORD_READ")
+    control("and the plainer shape: the record named where it is read",
+            dated_record_problems('def f():\n    return (REPO / "design/session-distill/'
+                                  '2026-10-20T1942--9684f05--mechanism-design.md").read_text()\n'),
+            "DATED_RECORD_READ")
+    clean("a record NAMED as provenance and never read",
+          dated_record_problems('DESIGN = "design/session-distill/2026-10-20T1942--9684f05--x.md"\n'
+                                '\n\ndef produced_by():\n    return {"design": DESIGN}\n'))
+    clean("and the ledger, which is read at runtime and carries no date in its name",
+          dated_record_problems('LEDGER_REL = "design/session-distill/ledger.json"\n'
+                                "\n\ndef f():\n    return (REPO / LEDGER_REL).read_text()\n"))
 
     # ---- GC#12: the reason table is the contract, and it is the code's own
     clean("every unknown this module reports names a reason the table owns", reason_problems())
@@ -2298,10 +2661,17 @@ def self_test():
     delivered = {unit["path"] for unit in shared_path}
     check("the two packages really do deliver one path", delivered == {"claude/guides/review.md"},
           f"{sorted(delivered)}")
+    per_package = {unit["package_id"]: unit["carrier_id"] for unit in shared_path}
     check("a package's fragment is never another package's unit",
           len({unit["unit_id"] for unit in shared_path}) == len(shared_path)
-          and all(unit["package_id"] in unit["carrier_id"] for unit in shared_path),
-          "two packages' units aliased at one delivered path")
+          and len(set(per_package.values())) == len(per_package) > 1,
+          f"two packages' units aliased at one delivered path: {per_package}")
+    # The id is what distinguishes them, and it is opaque: it answers about identity and carries
+    # neither the delivered path nor the package it was built from (GC#12).
+    check("a carrier id spells out nothing it was built from",
+          all(unit["carrier_id"].startswith("c-") and unit["package_id"] not in unit["carrier_id"]
+              and "claude/guides" not in unit["carrier_id"] for unit in shared_path),
+          f"{sorted(per_package.values())}")
     by_package = collections.defaultdict(set)
     for unit in shared_path:
         by_package[unit["package_id"]].add(unit["text"])
@@ -2945,9 +3315,11 @@ def self_test():
                                     str(pathlib.Path.home())),
                 "DISCLOSED_IN_ARTIFACT", "$.layers[0].reasons[0]", "home path")
         # ---- GB#6: a credential relationship, and a refusal that repeats nothing
+        # `api_key` is not a member name this module's documents carry, so the location is its
+        # ordinal rather than its spelling: a key is untrusted text wherever it stands (GC#5).
         control("a short value under a credential-named key",
                 disclosure_problems({"api_key": "shortpass"}, str(pathlib.Path.home())),
-                "DISCLOSED_IN_ARTIFACT $.api_key", "credential-named member")
+                "DISCLOSED_IN_ARTIFACT $[key #0]", "credential-named member")
         clean("the same member carrying the mask instead",
               disclosure_problems({"api_key": "<REDACTED>"}, str(pathlib.Path.home())))
         # One control here, because the rules and every representation they must read are the
@@ -2956,10 +3328,22 @@ def self_test():
         control("a credential nested inside a plain structure reaching the write boundary",
                 disclosure_problems({"layers": [{"notes": {"api_key": "shortpass"}}]},
                                     str(pathlib.Path.home())),
-                "DISCLOSED_IN_ARTIFACT $.layers[0].notes.api_key", "credential-named member")
+                "DISCLOSED_IN_ARTIFACT $.layers[0].notes[key #0]", "credential-named member")
         clean("the same structure masked through and through",
               disclosure_problems({"layers": [{"notes": {"api_key": "<REDACTED>"}}]},
                                   str(pathlib.Path.home())))
+        # The location names a member of a schema this code owns, and nothing else. An ordinary short
+        # secret as a nested key is an ordinary word to find there, and naming it repeated it.
+        nested = disclosure_problems({"api_key": {"shortpass": {"token": "x"}}}, str(pathlib.Path.home()))
+        control("an ordinary short secret as a nested key", [f"rows={len(nested)} "
+                + " ".join(nested)], "[key #0]")
+        check("and the refusal repeats none of it",
+              bool(nested) and not any("shortpass" in row for row in nested), f"{nested}")
+        # A schema that declared a credential name would license naming one, so the floor is asked
+        # about every entry rather than trusted to have none.
+        leaky = sorted(name for name in DOCUMENT_KEYS if projection.secret_key(name))
+        check("no member name this module declares is a name the floor calls a credential",
+              not leaky and len(DOCUMENT_KEYS) > 40, f"{leaky} of {len(DOCUMENT_KEYS)}")
         keyed = disclosure_problems({f"apiKeyHelper {secret}": str(pathlib.Path.home())},
                                     str(pathlib.Path.home()))
         control("a document carrying a credential as a key", keyed, "DISCLOSED_IN_ARTIFACT")
@@ -3125,6 +3509,20 @@ def self_test():
         frozen_both = [row for row in notes.get("frozen_missing", []) if "baselines" in row]
         check("both baselines were frozen, so neither resolver is left without its tuple", not frozen_both,
               f"{frozen_both}")
+        # The schema is a contract, not a second list: the real document's units and layer rows are
+        # validated against it, so a record that drifts fails here too (the 1548 amendment §10).
+        clean("a produced document's units and layer rows against the schema the code owns",
+              document_contract_problems(current_doc))
+        check("that document really has units to judge", len(current_doc["units"]) > 100,
+              f"{len(current_doc['units'])} unit(s)")
+        control("a unit whose carrier id is not the opaque identity the schema declares",
+                document_contract_problems({**current_doc, "units": [
+                    {**current_doc["units"][0], "carrier_id": f"catalog\0claude/guides/x.md"}]}),
+                "DOCUMENT_INVALID")
+        control("a layer row naming a layer the schema does not declare",
+                document_contract_problems({**current_doc, "layers": [
+                    {**current_doc["layers"][0], "layer": "a_layer_nobody_declared"}]}),
+                "DOCUMENT_INVALID")
         overlay_row = next(row for row in current_doc["layers"] if row["layer"] == "overlays")
         check("the overlay layer resolved rather than failing on a missing baseline",
               overlay_row["status"] == "complete", f"{overlay_row['status']}: {overlay_row['reasons']}")
@@ -3236,6 +3634,33 @@ def self_test():
               "the floor masks the value on its own, so this control judges nothing")
         check("the emitted unit still hashes to the raw fragment",
               emitted_pair["sha"] == sha256_text(value_unit["text"]), "the context changed the hash")
+        # The context is the carrier's own, not a window of it. Two preceding nonblank lines do not
+        # preserve a credential's structural context: the key falls outside as soon as the value is a
+        # list with blank lines in it, and the last element was emitted with nothing to mark it.
+        far = carrier("catalog", "claude/guides/far.md",
+                      '## Keys\n\napi_key: [\n  "alpha",\n\n  "bravo",\n\n  "shortpass"\n]\n')
+        far_units = units_of([far])
+        far_value = next(unit for unit in far_units if "shortpass" in unit["text"])
+        far_emitted = shed(far_units, str(pathlib.Path.home()))
+        control("a credential whose key sits more than two nonblank lines above the value",
+                [f"emitted={next(row['text'] for row in far_emitted if row['unit_id'] == far_value['unit_id']).strip()}"],
+                "REDACTED")
+        check("that value really does survive the floor on its own, so the control judges something",
+              "shortpass" in projected(far_value["text"], str(pathlib.Path.home())),
+              "the floor masks the block on its own")
+        check("and nothing the carrier holds reaches any emitted span",
+              not any("shortpass" in row["text"] or "alpha" in row["text"] for row in far_emitted),
+              f"{[row['text'] for row in far_emitted]}")
+        # A credential whose VALUE spans lines, cut by the splitter in the middle of itself: the
+        # fragment is part of one value, and a fragment of a credential is a credential.
+        multi = carrier("catalog", "claude/guides/multi.md",
+                        '## Keys\n\napi_key: "alpha\nbravo\n\nshortpass"\n')
+        multi_emitted = shed(units_of([multi]), str(pathlib.Path.home()))
+        control("a multi-line credential fragment the splitter cut in two",
+                [f"emitted={[row['text'] for row in multi_emitted]}"], "REDACTED")
+        check("no line of the multi-line value reaches an emitted span",
+              not any("shortpass" in row["text"] or "bravo" in row["text"] for row in multi_emitted),
+              f"{[row['text'] for row in multi_emitted]}")
 
         # ---- GC#8: the closure expands the starting unit's own requirements
         conditioned = ("---\nuse_when:\n  - the fixture asks\n---\n\n## Rule\n\n- do the thing\n\n"
@@ -3273,46 +3698,257 @@ def self_test():
                 [f"paths_per_fragment={sorted({len(paths) for paths in by_path.values()})}"],
                 "paths_per_fragment=[1]")
 
-        # ---- GC#10: the command itself writes no bytecode, observed as attempted writes
+        # ---- GC#12: an ordinary absolute native path does not make publication fail, and does not
+        # appear unprojected. A transcript records what a host home delivered, so the carrier's
+        # delivered path IS an absolute path under someone's home — the identity embedded it, `shed`
+        # projected the path and copied the identity, and the whole inventory refused its own
+        # artifact at `$.units[0].carrier_id`.
+        native_home = str(pathlib.Path.home())
+        native_path = f"{native_home}/.claude/CLAUDE.md"
+        native_carrier = carrier("native_global", native_path, "## Rule\n\n- a rule as delivered\n",
+                                 item_ref=f"{native_path}#1", package_id=native_path,
+                                 provenance={"session": "claude:session-1", "scope": native_path})
+        native_units = units_of([native_carrier])
+        native_rows = shed(native_units, native_home)
+        native_doc = {"units": native_rows, "renames": renames_against(native_units, [], native_home)}
+        clean("an artifact whose carrier is delivered at an absolute native path",
+              disclosure_problems(native_doc, native_home))
+        check("and the home path is nowhere in it, in any field",
+              native_home not in json.dumps(native_doc) and "<HOME>" in json.dumps(native_doc),
+              f"{native_rows}")
+        check("the carrier id is opaque and still distinguishes this carrier",
+              native_rows[0]["carrier_id"].startswith("c-") and native_home not in native_rows[0]["carrier_id"]
+              and native_rows[0]["carrier_id"] != shed(units_of([carrier(
+                  "native_project", native_path, "## Rule\n\n- a rule as delivered\n")]), native_home)[0]["carrier_id"],
+              f"{native_rows[0]['carrier_id']}")
+        # A rename record names carriers by the same ids, so it carries nothing the unit records do
+        # not — the same path through a rename row was the other half of this.
+        moved_native = units_of([carrier("native_project", f"{native_home}/project/CLAUDE.md",
+                                         "## Rule\n\n- a rule as delivered\n")])
+        rename_rows = renames_against(moved_native, native_units, native_home)
+        control("a rename between two carriers delivered at absolute native paths",
+                [f"rows={len(rename_rows)} ids={[row.get('from_carrier_id') for row in rename_rows]} "
+                 f"paths={[row.get('from_path') for row in rename_rows]}"], "c-", "<HOME>")
+        clean("and the rename rows cross the write boundary",
+              disclosure_problems({"renames": rename_rows}, native_home))
+
+        # ---- GC#7: one source selection decides every read of the owner's state, before a byte of
+        # it is read, and it rejects a link at the leaf and at any component below the declared root.
+        link_target = scratch / "link-target"
+        (link_target / "runtime" / "baselines" / "ref1").mkdir(parents=True, exist_ok=True)
+        (link_target / "runtime" / "baselines" / "ref1" / "inventory.json").write_text(
+            json.dumps({"items": [{"ref": "@elsewhere/pkg:item"}]}), encoding="utf-8")
+        (link_target / "elsewhere.json").write_text(json.dumps({"content_ref": "from-outside"}), encoding="utf-8")
+        # The target mirrors the state's own layout, so a link standing in for a COMPONENT leads to a
+        # file that is really there: a target without it makes the read never happen and the control
+        # passes on a missing file rather than on the rejection it is about.
+        (link_target / "runtime" / "state.json").write_text(
+            json.dumps({"schema_version": 1, "selected_baseline_ref": "from-outside"}), encoding="utf-8")
+        (link_target / "claude").mkdir(parents=True, exist_ok=True)
+        (link_target / "claude" / "session-1.json").write_text(
+            json.dumps({"schema_version": 1, "content_ref": "from-outside"}), encoding="utf-8")
+
+        @contextlib.contextmanager
+        def instead_a_link(path, target):
+            """`path` replaced by a link to `target` for the duration, and put back afterwards."""
+            path = pathlib.Path(path)
+            aside = path.with_name(path.name + ".kept")
+            path.rename(aside)
+            path.symlink_to(target)
+            try:
+                yield
+            finally:
+                path.unlink()
+                aside.rename(path)
+
+        frozen_seq = [0]
+
+        def acquisition(pin="claude:session-1"):
+            """`freeze_inputs` over the fixture state — the real site of the runtime, pin, snapshot
+            and baseline reads, and of every copy input."""
+            frozen_seq[0] += 1
+            ctx = {"native_roots": {}, "notes": {}}
+            try:
+                freeze_inputs(scratch / f"frozen-link-{frozen_seq[0]}", REPO, state, user, pin, ctx)
+            except Exception as exc:
+                return [f"{type(exc).__name__}: {exc}"]
+            return [f"accepted: frozen_missing={ctx['notes'].get('frozen_missing')}"]
+
+        clean("the fixture state is acquired when nothing on its paths is a link", [
+            row for row in acquisition() if "SOURCE_LINKED" in row])
+        for label, path, target in (
+                ("the runtime state itself", state / "runtime" / "state.json", link_target / "elsewhere.json"),
+                ("a component above the runtime state", state / "runtime", link_target / "runtime"),
+                ("the pin itself", state / "sessions" / "pins" / "claude" / "session-1.json",
+                 link_target / "elsewhere.json"),
+                ("a component above the pin", state / "sessions" / "pins", link_target)):
+            with instead_a_link(path, target):
+                control(f"a read of the owner's state through a link: {label}", acquisition(), "SOURCE_LINKED")
+        for label, path, target in (
+                ("the baseline's item list itself", state / "runtime" / "baselines" / "ref1" / "inventory.json",
+                 link_target / "runtime" / "baselines" / "ref1" / "inventory.json"),
+                ("a component above the baseline", state / "runtime" / "baselines" / "ref1",
+                 link_target / "runtime" / "baselines" / "ref1")):
+            with instead_a_link(path, target):
+                control(f"a read of the owner's state through a link: {label}",
+                        [str(_raised(lambda: baseline_items(state, "ref1")))], "SOURCE_LINKED")
+                check(f"and the bytes behind the link are not what was returned: {label}",
+                      "@elsewhere/pkg:item" not in str(_raised(lambda: baseline_items(state, "ref1"))),
+                      "the link's target was read after all")
+        frozen_fake = scratch / "frozen-fake"
+        (frozen_fake / "sessions" / "snapshots").mkdir(parents=True)
+        (frozen_fake / "sessions" / "snapshots" / "linked-ref").symlink_to(link_target)
+        control("a read of the owner's state through a link: the snapshot itself",
+                [str(_raised(lambda: snapshot_of(REPO, frozen_fake, "linked-ref")))], "SOURCE_LINKED")
+        frozen_above = scratch / "frozen-above"
+        (frozen_above / "sessions").mkdir(parents=True)
+        (frozen_above / "sessions" / "snapshots").symlink_to(link_target)
+        control("a read of the owner's state through a link: a component above the snapshot",
+                [str(_raised(lambda: snapshot_of(REPO, frozen_above, "any-ref")))], "SOURCE_LINKED")
+        with instead_a_link(state / "runtime" / "baselines", link_target / "runtime" / "baselines"):
+            copy_probe = scratch / "frozen-copy-above"
+            left = freeze([(state / "runtime" / "baselines" / "ref1", "baseline")], copy_probe, state)
+            control("a copy input reached through a link above the declared root",
+                    left, "baseline: symlink")
+            check("and nothing from behind that link was copied",
+                  not any(path.is_file() for path in copy_probe.rglob("*")),
+                  f"{sorted(str(path) for path in copy_probe.rglob('*'))}")
+
+        # ---- GC#0 through `--project`: the checkout is protected whatever the caller declares
+        elsewhere_project = scratch / "another-project"
+        elsewhere_project.mkdir()
+        declared_only = protected_roots(None, None, {"projects": {str(elsewhere_project): elsewhere_project}},
+                                        checkout=REPO)
+        check("the checkout is a protected root even when another project is the declared one",
+              REPO in declared_only and elsewhere_project in declared_only,
+              f"{[str(root) for root in declared_only]}")
+        control("a destination inside the checkout, with another project declared",
+                overlap_problems([REPO / "session-distill" / "out" / "probe"], declared_only, home=native_home),
+                "PROTECTED_OVERLAP")
+        check("and the checkout is named once, not twice",
+              len(declared_only) == len(set(declared_only)), f"{[str(root) for root in declared_only]}")
+
+        # ---- GC#3 by another route: a standalone `--to` is not a way into a run's artifacts
+        declared_elsewhere = scratch / "a-declared-run"
+        declared_elsewhere.mkdir()
+        for name in RUN_MARKERS:
+            (declared_elsewhere / name).write_text("{}\n", encoding="utf-8")
+        control("a standalone destination that is a declared run directory",
+                standalone_problems(declared_elsewhere, native_home), "RUN_DESTINATION", "--run-id")
+        inside_run = declared_elsewhere / "inventory"
+        inside_run.mkdir()
+        control("a standalone destination inside a declared run directory",
+                standalone_problems(inside_run, native_home), "RUN_DESTINATION")
+        held = scratch / "already-holds"
+        (held / "inventory").mkdir(parents=True)
+        (held / "inventory" / "current.json").write_text("{}\n", encoding="utf-8")
+        control("a standalone destination that already holds an inventory",
+                standalone_problems(held, native_home), "INVENTORY_PRESENT")
+        clean("an empty standalone destination outside every run",
+              standalone_problems(scratch / "a-fresh-destination", native_home))
+
+        # ---- GC#10: the real invocation writes no bytecode, observed as attempted writes into an
+        # uncached COPY of the checkout and then read off that same copy's disk.
+        #
+        # Three things this control used to get wrong, each of which made it answer about something
+        # else: it imported the driver as a module (the one shape production never takes, and the
+        # only shape that caches the driver), it cleared `__pycache__` inside the REVIEW checkout to
+        # make its question meaningful (a write into the tree under test, and only two of the
+        # directories the command loads from), and it then scanned a scratch directory rather than
+        # the tree it had asked about. The copy fixes all three: it is a tree this test owns, it has
+        # no caches to begin with, and it is both the observation's filter and the disk inspected.
         probe = scratch / "bytecode-probe"
+        copied_checkout = probe / "checkout"
         probe.mkdir()
-        # The caches this question is about are cleared first: a run that found a valid `.pyc`
-        # already there writes none, and a control that passes for that reason judges nothing.
-        for cache in list((REPO / "learn").rglob("__pycache__")) + list((REPO / "compose").rglob("__pycache__")):
-            shutil.rmtree(cache, ignore_errors=True)
+        copied = checkout_copy(copied_checkout)
+        driver_copy = copied_checkout / "session-distill" / "distill.py"
+        check("the checkout copy is a real checkout and holds the driver",
+              len(copied) > 200 and driver_copy.is_file()
+              and (copied_checkout / "learn" / "redact.py").is_file()
+              and (copied_checkout / "compose" / "instructions_catalog.py").is_file(),
+              f"{len(copied)} file(s) copied")
+        # The file list has two readers: a checkout, and a tree materialised from one — which is
+        # what the commit hook runs the gates in, with no `.git` and `GIT_DIR` pointing elsewhere.
+        # Both paths are exercised here, because a control that only ever ran in a checkout would
+        # answer about a different tree under the hook (`gates/check-package.sh` `tracked_files`).
+        walked = checkout_copy(probe / "walked", copied_checkout)
+        check("the copy's own file list comes from a tree walk, there being no .git in it",
+              not (copied_checkout / ".git").exists() and bool(walked), "the copy carries a .git")
+        check("and a checkout and a materialised tree yield the same files",
+              sorted(walked) == sorted(copied),
+              f"{len(walked)} walked vs {len(copied)} listed: "
+              f"{sorted(set(walked) ^ set(copied))[:6]}")
+        shutil.rmtree(probe / "walked", ignore_errors=True)
+        # A materialised tree holds only what was materialised UNTIL SOMETHING RUNS IN IT, and the
+        # commit hook runs every gate inside one: by the time this leg is reached the snapshot
+        # carries `__pycache__/*.pyc` from the legs before it. The walk used to return those and the
+        # copy then held them, which failed the "it is uncached" check inside the hook and nowhere
+        # else. This control builds its own rows — a planted cache in a source with no `.git` — so it
+        # does not depend on the state the suite happens to run in.
+        cached_source = probe / "cached-source"
+        (cached_source / "session-distill" / "runlib" / "__pycache__").mkdir(parents=True)
+        (cached_source / "session-distill" / "runlib" / "__pycache__" / "records.cpython-314.pyc"
+         ).write_bytes(b"a bytecode cache an earlier leg left here")
+        (cached_source / "session-distill" / "runlib" / "records.py").write_text("x = 1\n", encoding="utf-8")
+        (cached_source / "stray.pyc").write_bytes(b"and one beside no package at all")
+        from_cached = checkout_copy(probe / "from-cached", cached_source)
+        check("a copy of a materialised tree that something has already run in holds no cache",
+              not any((probe / "from-cached").rglob("*.pyc"))
+              and not any((probe / "from-cached").rglob("__pycache__"))
+              and from_cached == ["session-distill/runlib/records.py"],
+              f"copied {from_cached}")
+        check("and the planted cache is still in the source, so nothing was deleted to achieve that",
+              (cached_source / "session-distill" / "runlib" / "__pycache__"
+               / "records.cpython-314.pyc").is_file() and (cached_source / "stray.pyc").is_file(),
+              "the copier removed the source's cache instead of declining to copy it")
+        shutil.rmtree(probe / "from-cached", ignore_errors=True)
+        check("and it is uncached, so a run that writes nothing cannot be a run that found a cache",
+              not any(copied_checkout.rglob("*.pyc")) and not any(copied_checkout.rglob("__pycache__")),
+              f"{sorted(str(path.relative_to(copied_checkout)) for path in copied_checkout.rglob('*.pyc'))}")
         probe_env = dict(os.environ)
         probe_env.pop("PYTHONPYCACHEPREFIX", None)
         probe_env.pop("PYTHONDONTWRITEBYTECODE", None)
-        guarded_run = subprocess.run([sys.executable, "-I", "-c", BYTECODE_PROBE, str(HERE), str(probe / "out")],
-                                     capture_output=True, text=True, env=probe_env, cwd=str(probe))
-        guarded_seen = json.loads(guarded_run.stdout.strip().splitlines()[-1]) if guarded_run.stdout.strip() else {}
-        check("the bytecode probe reached the inventory command",
-              guarded_seen.get("code") == 0 and (probe / "out" / "inventory" / "manifest.json").is_file(),
-              f"{guarded_run.returncode} {guarded_run.stdout[-200:]} {guarded_run.stderr[-300:]}")
-        # The modules this module loads BY PATH are the guard's subject: `learn/redact.py` under the
-        # floor, and `compose/` under the catalog and the store. A module the import machinery loads
-        # normally is compiled and cached BEFORE any line of the command runs, which is the
-        # interpreter's own doing and is what `-B` is for, not something this guard can reach.
-        by_path = [name for name in (guarded_seen.get("bytecode") or [])
-                   if "/learn/" in name or "/compose/" in name]
-        control("the modules the command loads by path write no bytecode beside their source",
-                [f"by_path_bytecode={by_path}"], "by_path_bytecode=[]")
-        # The positive control loads the same module the floor loads by path, with the guard off and
-        # on a COPY — a .pyc lands beside the file it caches, and the repo is not a fixture.
-        floor_copy = probe / "floor" / "redact.py"
-        floor_copy.parent.mkdir(parents=True, exist_ok=True)
-        floor_copy.write_bytes((REPO / "learn" / "redact.py").read_bytes())
-        unguarded_run = subprocess.run([sys.executable, "-I", "-c", BYTECODE_PROBE, str(HERE), str(probe / "out2"),
-                                        "unguarded", str(floor_copy)],
-                                       capture_output=True, text=True, env=probe_env, cwd=str(probe))
-        unguarded_seen = json.loads(unguarded_run.stdout.strip().splitlines()[-1]) if unguarded_run.stdout.strip() else {}
+
+        def bytecode_probe(which, driver, destination):
+            """The child, and what it reported: one real process per question."""
+            ran = subprocess.run([sys.executable, "-I", "-c", BYTECODE_PROBE, str(copied_checkout),
+                                  str(destination), which, str(driver)],
+                                 capture_output=True, text=True, env=probe_env, cwd=str(probe))
+            try:
+                return ran, json.loads(ran.stdout.strip().splitlines()[-1])
+            except (ValueError, IndexError):
+                return ran, {}
+
+        # The positive control first, on this same copy: a by-path load with the guard off writes a
+        # `.pyc` beside the file it caches, and BOTH instruments — the audit hook and the disk scan
+        # of the copy — are shown to see it. Then the cache it made is removed from the copy (never
+        # from the review checkout) and the copy is asserted uncached again.
+        unguarded_run, unguarded_seen = bytecode_probe(
+            "unguarded", copied_checkout / "learn" / "redact.py", probe / "out-positive")
+        on_disk = sorted(copied_checkout.rglob("*.pyc"))
         check("the same observation sees a by-path load write bytecode when the guard is off",
-              bool(unguarded_seen.get("bytecode")) and any(floor_copy.parent.rglob("*.pyc")),
+              bool(unguarded_seen.get("bytecode")) and bool(on_disk),
               f"the positive control observed none: {unguarded_run.stdout[-200:]} "
-              f"{sorted(path.name for path in floor_copy.parent.rglob('*'))}")
-        check("no bytecode landed anywhere the guarded run could reach",
-              not any(probe.rglob("*.pyc")) or all("floor" in str(path) for path in probe.rglob("*.pyc")),
-              f"{sorted(masked(path) for path in probe.rglob('*.pyc'))}")
+              f"{unguarded_run.stderr[-200:]} {[path.name for path in on_disk]}")
+        for cache in list(copied_checkout.rglob("__pycache__")):
+            shutil.rmtree(cache, ignore_errors=True)
+        check("the copy is uncached again before the real invocation runs",
+              not any(copied_checkout.rglob("*.pyc")),
+              f"{sorted(str(path.relative_to(copied_checkout)) for path in copied_checkout.rglob('*.pyc'))}")
+        guarded_run, guarded_seen = bytecode_probe("guarded", driver_copy, probe / "out")
+        check("the real invocation ran the driver as __main__ and produced the inventory",
+              guarded_seen.get("code") == 0 and (probe / "out" / "inventory" / "manifest.json").is_file(),
+              f"{guarded_run.returncode} {guarded_run.stdout[-300:]} {guarded_run.stderr[-400:]}")
+        # Every attempted write under the copy, not only the bytecode ones: the read-only claim is
+        # the wider one, and the observation that answers it is the same observation.
+        control("the real invocation attempts no write at all anywhere under the checkout",
+                [f"observed={guarded_seen.get('bytecode')} "
+                 f"writes_under_checkout={guarded_seen.get('under_checkout_total')} "
+                 f"first={guarded_seen.get('under_checkout')}"],
+                "observed=[]", "writes_under_checkout=0")
+        control("and no bytecode is on that same checkout's disk afterwards",
+                [f"on_disk={sorted(str(path.relative_to(copied_checkout)) for path in copied_checkout.rglob('*.pyc'))}"],
+                "on_disk=[]")
 
         # ---- the pinned session's own transcript answers the selection reference point
         selection_doc = json.loads((planted_out / "inventory" / "selection.json").read_text(encoding="utf-8"))
@@ -3335,7 +3971,15 @@ def self_test():
                 "ledger_keep=unknown", "no per-session history")
 
     print(f"inventory --self-test: {'OK' if not failures else 'FAILED'} ({len(ran)} controls: the splitter's "
-          f"reproduction over the real guides, the unit record against design §6.1, a context that spans two guides "
+          f"reproduction over the real guides, the unit record and the layer set against the schema the code owns "
+          f"(no control reads a dated design record), a produced document validated against that schema, a span "
+          f"projected with its carrier intact — a credential's key four nonblank lines above its value, and a "
+          f"multi-line credential the splitter cut in two — an opaque carrier identity that lets an absolute native "
+          f"path be published, one source selection before every read of the owner's state with a leaf and an "
+          f"ancestor link refused for each read kind, the checkout protected whatever `--project` declares, a "
+          f"standalone destination that is a run or already holds an inventory refused, the real invocation run as "
+          f"`__main__` against an uncached copy of the checkout with every attempted write observed, a context that "
+          f"spans two guides "
           f"and shrinks without its cross-reference, one fragment across two versions with two contexts, the release "
           f"mapping against the baseline file's own item list, every layer status the table can report, the owner's "
           f"state unchanged by a whole inventory beside the write its own entry point makes, an output destination "

@@ -1,0 +1,99 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$comment": "design §6.1: the unit record a reference point's inventory carries, and the layers it answers for. This file is the authority the code is held against; the design section it was derived from is provenance, not an executable contract, because a dated record is a claim about a past tree and is superseded as a matter of course.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["units", "layers"],
+  "properties": {
+    "units": {"type": "array", "items": {"$ref": "#/$defs/unit"}},
+    "layers": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/layer_row"}}
+  },
+  "$defs": {
+    "layer_name": {
+      "type": "string",
+      "enum": [
+        "catalog",
+        "adopted_packages",
+        "overlays",
+        "native_global",
+        "native_project",
+        "native_settings",
+        "native_memory",
+        "session_injection",
+        "ledger_incubating",
+        "ledger_keep"
+      ]
+    },
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "unit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "unit_id",
+        "layer",
+        "path",
+        "heading",
+        "n",
+        "text",
+        "sha",
+        "class",
+        "operative_context",
+        "version_sha256",
+        "redaction_version"
+      ],
+      "properties": {
+        "unit_id": {"type": "string", "pattern": "^u-[0-9a-f]{16}(-[0-9]+)?$"},
+        "layer": {"$ref": "#/$defs/layer_name"},
+        "path": {"type": "string", "minLength": 1},
+        "heading": {"type": "string"},
+        "n": {"type": "integer", "minimum": 1},
+        "text": {"type": "string"},
+        "sha": {"$ref": "#/$defs/sha256"},
+        "class": {"type": "string", "enum": ["operative", "reference"]},
+        "operative_context": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "version_sha256": {"$ref": "#/$defs/sha256"},
+        "redaction_version": {"type": "string", "pattern": "^r[0-9]+$"},
+        "block": {"type": "string", "minLength": 1},
+        "item_ref": {"type": ["string", "null"]},
+        "package_id": {"type": ["string", "null"]},
+        "carrier_id": {
+          "$comment": "opaque: an identity, not a spelling of what it was built from",
+          "type": "string",
+          "pattern": "^c-[0-9a-f]{24}$"
+        },
+        "provenance": {"$ref": "#/$defs/provenance"}
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "as_of": {"type": ["string", "null"]},
+        "session": {"type": ["string", "null"]},
+        "transcript": {"type": ["string", "null"]},
+        "where": {"type": ["string", "null"]},
+        "scope": {"type": ["string", "null"]},
+        "reference": {"type": ["string", "null"]},
+        "record": {"type": ["integer", "null"]},
+        "identity": {"type": ["string", "null"]},
+        "status": {"type": ["string", "null"]},
+        "keep_units": {"type": "array", "items": {"type": "string"}},
+        "keep_reason": {"type": ["string", "null"]},
+        "hosts": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "layer_row": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["layer", "producer", "status", "reasons", "units", "empty"],
+      "properties": {
+        "layer": {"$ref": "#/$defs/layer_name"},
+        "producer": {"type": ["string", "null"]},
+        "status": {"type": "string", "enum": ["complete", "incomplete", "unsupported", "unknown"]},
+        "reasons": {"type": "array", "items": {"type": "string"}},
+        "units": {"type": "integer", "minimum": 0},
+        "empty": {"type": "boolean"}
+      }
+    }
+  }
+}
