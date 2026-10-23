@@ -34,7 +34,7 @@ Ports `reconstruction/scripts/inventory.py` (the 1,938 units / 1,553 operative m
 """
 import ast
 import collections
-import fnmatch
+import contextlib
 import hashlib
 import importlib.util
 import json
@@ -45,10 +45,15 @@ import shutil
 import sys
 import tempfile
 
+try:
+    import tomllib  # the settings reader for a Codex config.toml (3.11+)
+except ModuleNotFoundError:  # pragma: no cover - the pinned interpreter has it
+    tomllib = None
+
 if __package__ in (None, ""):  # run as a script: put session-distill/ on the import path
     sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 
-from runlib import records
+from runlib import projection, records
 from runlib.records import Refused
 
 HERE = pathlib.Path(__file__).resolve().parents[1]  # session-distill/
@@ -63,8 +68,11 @@ STATUSES = ("complete", "incomplete", "unsupported", "unknown")
 # `contract_problems` holds this tuple against the design's own sentence.
 DESIGN_CLASS_FIELD = "operative|reference"
 UNIT_FIELDS = ("unit_id", "layer", "path", "heading", "n", "text", "sha", "class",
-               "operative_context", "version_sha256")
+               "operative_context", "version_sha256", "redaction_version")
 PLAN_FIELDS = ("operative_context", "version_sha256")
+# What the emission adds to §6.1's record, and why: `text` is the projection of the fragment, not the
+# fragment, so the version of the floor that made it has to travel with it (RECORD, design §5.4).
+EMISSION_FIELDS = ("redaction_version",)
 
 # What a heading marks as not itself a requirement (the port's list).
 REFERENCE_HEADING = re.compile(
@@ -82,6 +90,22 @@ MEMBER_BASE = {"guide": "claude/guides", "hook": "claude/hooks", "agent": "claud
 
 def sha256_text(text):
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def projected(text, home=None):
+    """The characters of a fragment as every model-facing artifact carries them: the one floor of
+    `runlib/projection.py` over `learn/redact.py`, versioned like the views' own projection.
+
+    A unit's hashes are taken over the RAW fragment and its raw carrier, before this runs, so a
+    returned fragment still binds to its source version (§6.3); the raw bytes themselves stay in the
+    run's frozen copy, which is discarded, and never reach an artifact. A settings file is covered by
+    the same floor rather than by a rule of its own: the floor reads a credential-named member of a
+    structure wherever it stands, which is what keeps keys and structure and drops the value."""
+    out = projection.project(text, projection.CURRENT, home)
+    disclosed = projection.discloses(out, home)
+    if disclosed is not None:
+        raise Refused(f"DISCLOSED_IN_UNIT: the projection left {disclosed} in a unit's text; no artifact is written")
+    return out
 
 
 # ---------------------------------------------------------------- the splitter (ported)
@@ -210,18 +234,46 @@ def plain_blocks(text):
 
 
 class Unsupported(Exception):
-    """A carrier whose structure the splitter cannot divide (the layer is `unsupported`)."""
+    """A carrier whose structure this producer cannot divide at all: the layer is `unsupported`,
+    and what is missing is a splitter, not a correct file."""
 
 
-def blocks_of(path, text):
-    """The blocks of one carrier, by its suffix. The concatenation has to reproduce the carrier
-    byte for byte, or the structure is one this producer does not support."""
+class Malformed(Exception):
+    """A carrier of a structure the producer does support, which this one instance of is broken: the
+    layer is `incomplete` and the reason names the carrier. The two are not the same answer — one
+    says the inventory cannot read this kind of file, the other that this file is wrong."""
+
+
+def structured(path, text, form):
+    """A supported structured carrier, parsed to prove it is well formed. A settings file is the
+    carrier kind whose breakage the splitter cannot see: `plain_blocks` divides any text at all, so
+    a settings file with a missing brace split clean and the layer reported complete (GA#5)."""
+    if form == "json":
+        try:
+            json.loads(text)
+        except ValueError as exc:
+            raise Malformed(f"{path}: not valid JSON: {exc}") from exc
+    elif form == "toml":
+        if tomllib is None:
+            raise Unsupported(f"{path}: this interpreter has no TOML reader, so a settings file of this kind "
+                              f"cannot be proved well formed")
+        try:
+            tomllib.loads(text)
+        except Exception as exc:  # tomllib raises its own decode error type
+            raise Malformed(f"{path}: not valid TOML: {exc}") from exc
+
+
+def blocks_of(path, text, form=None):
+    """The blocks of one carrier, by its declared form. The concatenation has to reproduce the
+    carrier byte for byte, or the structure is one this producer does not support."""
     if not text:
         return []
+    form = form or form_of(path)
+    structured(path, text, form)
     try:
-        if path.endswith(".md"):
+        if form == "markdown":
             blocks = md_blocks(text)
-        elif path.endswith(".py"):
+        elif form == "python":
             blocks = py_blocks(text)
         else:
             blocks = plain_blocks(text)
@@ -243,9 +295,21 @@ def classify(kind, heading_path):
 
 # ---------------------------------------------------------------- carriers and units
 
-def carrier(layer, path, text, item_ref=None, package_id=None):
+def form_of(path):
+    """The structure of a carrier, from its path: `markdown`, `python`, `json`, `toml` or `plain`."""
+    for suffix, form in ((".md", "markdown"), (".py", "python"), (".json", "json"), (".toml", "toml")):
+        if path.endswith(suffix):
+            return form
+    return "plain"
+
+
+def carrier(layer, path, text, item_ref=None, package_id=None, form=None):
+    """One carrier. `form` is declared when the text is a member of the file the path names rather
+    than the file itself — the session's compiled instruction text is markdown that lives inside an
+    `output.json`, and reading its structure off the path's suffix made it a malformed settings
+    file (GA#5)."""
     return {"layer": layer, "path": path, "item_ref": item_ref, "package_id": package_id,
-            "text": text, "version_sha256": sha256_text(text)}
+            "text": text, "version_sha256": sha256_text(text), "form": form or form_of(path)}
 
 
 def units_of(carriers):
@@ -255,7 +319,7 @@ def units_of(carriers):
     units, seen = [], collections.Counter()
     for item in carriers:
         heading_path, enclosing = [], []
-        for n, (kind, text) in enumerate(blocks_of(item["path"], item["text"]), 1):
+        for n, (kind, text) in enumerate(blocks_of(item["path"], item["text"], item.get("form")), 1):
             if kind == "heading":
                 level = len(text) - len(text.lstrip("#"))
                 heading_path = heading_path[:level - 1] + [text.strip().lstrip("#").strip()]
@@ -266,7 +330,7 @@ def units_of(carriers):
             unit = {"unit_id": unit_id, "layer": item["layer"], "path": item["path"],
                     "heading": " > ".join(heading_path), "n": n, "text": text, "sha": sha256_text(text),
                     "class": classify(kind, heading_path), "operative_context": [],
-                    "version_sha256": item["version_sha256"],
+                    "version_sha256": item["version_sha256"], "redaction_version": projection.CURRENT,
                     "block": kind, "item_ref": item["item_ref"], "package_id": item["package_id"],
                     "enclosing": list(enclosing)}
             if kind == "heading":
@@ -313,12 +377,20 @@ def operative_context(units):
     return units
 
 
-def shed(units):
-    """The unit records the artifact carries: §6.1's fields, the plan's two, and the carrier
-    metadata the later stages read back (`block`, `item_ref`, `package_id`)."""
-    return [{**{field: unit[field] for field in UNIT_FIELDS},
-             "block": unit["block"], "item_ref": unit["item_ref"], "package_id": unit["package_id"]}
-            for unit in units]
+def shed(units, home=None):
+    """The unit records the artifact carries: §6.1's fields, the plan's two, the floor's version, and
+    the carrier metadata the later stages read back (`block`, `item_ref`, `package_id`).
+
+    This is the boundary the raw text does not cross. `sha` and `version_sha256` are the raw
+    fragment's and the raw carrier's, taken in `units_of`; `text` is what `projected` returns."""
+    records_out = []
+    for unit in units:
+        emitted = {**{field: unit[field] for field in UNIT_FIELDS},
+                   "block": unit["block"], "item_ref": unit["item_ref"], "package_id": unit["package_id"]}
+        emitted["text"] = projected(unit["text"], home)
+        emitted["redaction_version"] = projection.CURRENT
+        records_out.append(emitted)
+    return records_out
 
 
 def renames_against(units, base_units):
@@ -350,14 +422,95 @@ def renames_against(units, base_units):
 
 # ---------------------------------------------------------------- frozen copies of the owner's state
 
+SYMLINK_POLICY = ("a symlink is never read and never hashed: it names a file outside the root whose "
+                  "ownership this inventory cannot state, and the host adapters refuse one in an "
+                  "instruction path for the same reason (compose/instructions_session.py)")
+
+
 def hash_tree(root):
-    """`{relative path: sha256}` for every file under `root` — the before and after of done-when 5."""
+    """`({relative path: sha256}, omissions)` for every file under `root`.
+
+    The omissions are part of the answer, not a silence: a symlink is skipped by policy and an
+    unreadable file is skipped by failure, and a before/after comparison over a set that quietly
+    dropped either would say "unchanged" about files it never looked at (GA#3)."""
     root = pathlib.Path(root).expanduser()
-    digests = {}
+    digests, omissions = {}, []
+    if not root.is_dir():
+        return digests, [{"path": str(root), "reason": "the root is not a directory"}]
     for path in sorted(root.rglob("*")):
-        if path.is_file() and not path.is_symlink():
-            digests[path.relative_to(root).as_posix()] = hashlib.sha256(path.read_bytes()).hexdigest()
-    return digests
+        relative = path.relative_to(root).as_posix()
+        if path.is_symlink():
+            omissions.append({"path": relative, "reason": "symlink"})
+            continue
+        if not path.is_file():
+            continue
+        try:
+            digests[relative] = hashlib.sha256(path.read_bytes()).hexdigest()
+        except OSError as exc:
+            omissions.append({"path": relative, "reason": f"unreadable: {exc}"})
+    return digests, omissions
+
+
+def protected_roots(state_root, user_root, native_roots):
+    """Every root this inventory reads and must not write into: the owner's state, the authoring
+    root, the configured host homes and the project roots."""
+    roots = [root for root in (state_root, user_root) if root]
+    for group in (native_roots or {}).values():
+        roots += list(group.values()) if isinstance(group, dict) else []
+    return [pathlib.Path(root).expanduser() for root in roots]
+
+
+def overlap_problems(destinations, roots, enclosing=True):
+    """A destination inside — or, with `enclosing`, holding — a protected root, before a byte is
+    written. A run directory under the owner's home is fine; one under the state root or a host home
+    is not, and the old code found that out after three writes had landed (GA#3).
+
+    `enclosing=False` is for the system temp directory, which the frozen copy is made under: a
+    fixture state placed in the same temp directory is not a reason to refuse, while a temp
+    directory that sits *inside* the owner's state root still is."""
+    problems = []
+    for destination in destinations:
+        destination = pathlib.Path(destination).expanduser().resolve()
+        for root in roots:
+            root = root.resolve()
+            inside = destination == root or destination.is_relative_to(root)
+            holds = enclosing and root.is_relative_to(destination)
+            if inside or holds:
+                problems.append(f"PROTECTED_OVERLAP {destination}: it {'holds' if holds and not inside else 'is inside'} "
+                                f"{root}, which this inventory reads; nothing is written")
+    return problems
+
+
+@contextlib.contextmanager
+def no_bytecode():
+    """No `.pyc` for the modules loaded by path: a cache write lands beside the file it caches, and
+    the catalog and the store are read out of the checkout and out of frozen copies (GA#3)."""
+    kept = sys.dont_write_bytecode
+    sys.dont_write_bytecode = True
+    try:
+        yield
+    finally:
+        sys.dont_write_bytecode = kept
+
+
+def loads_outside_the_guard(source):
+    """Every `exec_module` in this module's own source that is not lexically inside a
+    `with no_bytecode():` block. A flag that is set in one place and the loads that must sit under
+    it are two facts, and only the second one is what keeps a `.pyc` out of a frozen copy (GA#3)."""
+    tree = ast.parse(source)
+    guarded = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.With) and any(
+                isinstance(item.context_expr, ast.Call) and getattr(item.context_expr.func, "id", None) == "no_bytecode"
+                for item in node.items):
+            guarded.append((node.body[0].lineno, node.end_lineno))
+    problems = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call) and getattr(node.func, "attr", None) == "exec_module":
+            if not any(start <= node.lineno <= end for start, end in guarded):
+                problems.append(f"LOAD_UNGUARDED line {node.lineno}: a module is loaded by path outside "
+                                f"`with no_bytecode():`, so the load may write a .pyc beside its source")
+    return problems
 
 
 def freeze(sources, destination):
@@ -391,7 +544,8 @@ def store_module(repo):
     spec = importlib.util.spec_from_file_location("instructions_store_frozen", path)
     module = importlib.util.module_from_spec(spec)
     sys.path.insert(0, str(pathlib.Path(repo) / "compose"))
-    spec.loader.exec_module(module)
+    with no_bytecode():
+        spec.loader.exec_module(module)
     return module
 
 
@@ -413,8 +567,9 @@ def catalog_carriers(tree, layer="catalog", adopted=False):
     spec = importlib.util.spec_from_file_location("instructions_catalog_frozen", path)
     module = importlib.util.module_from_spec(spec)
     sys.path.insert(0, str(tree / "compose"))
-    spec.loader.exec_module(module)
-    catalog = module.load_catalog(tree)
+    with no_bytecode():
+        spec.loader.exec_module(module)
+        catalog = module.load_catalog(tree)
     core = core_package_id(tree, catalog)
     rows = []
     for item in catalog["items"]:
@@ -592,11 +747,19 @@ def layer_rows(reference, context):
             rows.append({"layer": layer, "producer": None, "status": "unknown", "carriers": [],
                          "reasons": [f"{layer} has no record at the {reference} reference point"]})
             continue
+        if context.get("acquisition_error"):
+            rows.append({"layer": layer, "producer": producer[0], "status": "unknown", "carriers": [],
+                         "reasons": [f"{layer}: {context['acquisition_error']}"]})
+            continue
         name, call = producer
         try:
             carriers = call(context)
         except Unsupported as exc:
             rows.append({"layer": layer, "producer": name, "status": "unsupported", "carriers": [],
+                         "reasons": [f"{layer}: {exc}"]})
+            continue
+        except Malformed as exc:
+            rows.append({"layer": layer, "producer": name, "status": "incomplete", "carriers": [],
                          "reasons": [f"{layer}: {exc}"]})
             continue
         except Exception as exc:  # a producer that cannot read its input leaves a status, not a traceback
@@ -627,6 +790,9 @@ def produce(rows):
             produced = units_of(row["carriers"])
         except Unsupported as exc:
             row.update(status="unsupported", units=0, reasons=row["reasons"] + [f"{row['layer']}: {exc}"])
+            continue
+        except Malformed as exc:
+            row.update(status="incomplete", units=0, reasons=row["reasons"] + [f"{row['layer']}: {exc}"])
             continue
         row["units"] = len(produced)
         if not produced:
@@ -707,7 +873,8 @@ def _selection_injection(ctx):
     if snapshot is None:
         return None
     text = snapshot["output"].get("instruction_text") or ""
-    return [carrier("session_injection", f"snapshot:{snapshot['content_ref']}/output.json", text)] if text else []
+    return [carrier("session_injection", f"snapshot:{snapshot['content_ref']}/output.json#instruction_text",
+                    text, form="markdown")] if text else []
 
 
 def _selection_overlays(ctx):
@@ -747,6 +914,8 @@ def reference_of(reference, ctx):
     rows = layer_rows(reference, ctx)
     units = operative_context(produce(rows))
     reasons = [reason for row in rows for reason in row["reasons"]]
+    if ctx.get("acquisition_error"):
+        reasons = [ctx["acquisition_error"]] + reasons
     kind = {"current": {"kind": "current", "commit": ctx.get("commit")},
             "release": {"kind": "release", "ref": ctx.get("release_ref")},
             "selection": {"kind": "selection", "content_ref": (ctx.get("snapshot") or {}).get("content_ref")}}[reference]
@@ -757,7 +926,7 @@ def reference_of(reference, ctx):
                         "notes": ctx["notes"]},
         "layers": [{"layer": row["layer"], "producer": row["producer"], "status": row["status"],
                     "units": row["units"], "empty": row["empty"], "reasons": row["reasons"]} for row in rows],
-        "units": shed(units),
+        "units": shed(units, ctx.get("home")),
         "renames": [],
     }
     return document, units
@@ -771,6 +940,36 @@ def mapping_problems(expected, units):
             for ref in sorted(expected) if ref not in produced]
 
 
+def verify_unchanged(watched, before, native_before, failing=None):
+    """Re-hash every watched root and native source and refuse by name on a difference.
+
+    `failing` is the exception already on its way out, if any. A write into the owner's state is the
+    graver fact, so it is reported — but the error that was in flight is carried in the message
+    rather than swallowed, because a verifier that hides the failure it ran beside is a worse
+    instrument than no verifier (GA#3)."""
+    after, result = {}, {}
+    for root in watched:
+        after[str(root)], _ = hash_tree(root)
+    native_after = {name: hashlib.sha256(pathlib.Path(name).read_bytes()).hexdigest()
+                    for name in native_before if pathlib.Path(name).is_file()}
+    result["state_root_unchanged"] = before == after and native_before == native_after
+    result["watched_roots"] = {str(root): len(before[str(root)]) for root in watched}
+    result["watched_native_files"] = len(native_before)
+    beside = f" (raised while {type(failing).__name__}: {failing} was in flight)" if failing else ""
+    if native_before != native_after:
+        touched = (sorted(set(native_before) ^ set(native_after))
+                   or [name for name in native_before if native_before[name] != native_after.get(name)])
+        raise Refused(f"STATE_WRITTEN: reading the native layers changed {touched}{beside}")
+    if before != after:
+        changed = sorted({f"{root}/{name}" for root in before
+                          for name in set(before[root]) ^ set(after.get(root, {}))}
+                         | {f"{root}/{name}" for root in before for name in set(before[root]) & set(after.get(root, {}))
+                            if before[root][name] != after[root][name]})
+        raise Refused(f"STATE_WRITTEN: reading the library changed {changed[:4]} ({len(changed)} file(s)); "
+                      f"the frozen-copy route is not being taken{beside}")
+    return result
+
+
 def run(repo, state_root, user_root, out_dir, pin=None, native_roots=None, ledger=None, commit=None):
     """Write `inventory/<reference>.json` for every reference point, and return the manifest.
 
@@ -779,55 +978,65 @@ def run(repo, state_root, user_root, out_dir, pin=None, native_roots=None, ledge
     whole inventory by name (done-when 5)."""
     out_dir = pathlib.Path(out_dir)
     state_root = pathlib.Path(state_root).expanduser() if state_root else None
-    watched = [root for root in (state_root, pathlib.Path(user_root).expanduser() if user_root else None)
-               if root is not None and root.is_dir()]
-    before = {str(root): hash_tree(root) for root in watched}
-    produced, manifest = {}, {"references": {}, "state_root_unchanged": None, "out_dir": str(out_dir)}
-    with tempfile.TemporaryDirectory(prefix="distill-inventory-") as frozen_dir:
-        ctx = context_of(repo, state_root, user_root, native_roots or {}, pin, ledger)
-        ctx["commit"] = commit
-        freeze_inputs(pathlib.Path(frozen_dir), repo, state_root, user_root, pin, ctx)
-        native_before = {str(path): hashlib.sha256(path.read_bytes()).hexdigest()
-                         for path in ctx.get("native_sources", []) if path.is_file()}
-        for reference in REFERENCES:
-            produced[reference] = reference_of(reference, ctx)
-        base = produced["release"][1]
-        for reference in ("current", "selection"):
-            produced[reference][0]["renames"] = renames_against(produced[reference][1], base)
-        if ctx.get("release_ref"):
-            problems = mapping_problems({item["ref"] for item in ctx["expected_release_items"]}, produced["release"][1])
-            document = produced["release"][0]
-            document["reference"]["incomplete_reasons"] += problems
-            document["reference"]["complete"] = not document["reference"]["incomplete_reasons"]
-            manifest["baseline_unmapped"] = problems
-            manifest["baseline_items_expected"] = len(ctx["expected_release_items"])
-    for reference, (document, units) in produced.items():
-        records.write_json(out_dir, out_dir / "inventory" / f"{reference}.json", document)
-        manifest["references"][reference] = {
-            "complete": document["reference"]["complete"], "units": len(units),
-            "operative": sum(1 for unit in units if unit["class"] == "operative"),
-            "layers": {row["layer"]: row["status"] for row in document["layers"]},
-            "layer_units": {row["layer"]: row["units"] for row in document["layers"]},
-            "layer_empty": sorted(row["layer"] for row in document["layers"] if row["empty"]),
-            "incomplete_reasons": document["reference"]["incomplete_reasons"],
-            "renames": len(document["renames"]),
-        }
-    after = {str(root): hash_tree(root) for root in watched}
-    native_after = {name: hashlib.sha256(pathlib.Path(name).read_bytes()).hexdigest()
-                    for name in native_before if pathlib.Path(name).is_file()}
-    manifest["state_root_unchanged"] = before == after and native_before == native_after
-    manifest["watched_roots"] = {str(root): len(before[str(root)]) for root in watched}
-    manifest["watched_native_files"] = len(native_before)
-    if native_before != native_after:
-        raise Refused(f"STATE_WRITTEN: reading the native layers changed "
-                      f"{sorted(set(native_before) ^ set(native_after)) or [n for n in native_before if native_before[n] != native_after.get(n)]}")
-    if before != after:
-        changed = sorted({f"{root}/{name}" for root in before
-                          for name in set(before[root]) ^ set(after.get(root, {}))}
-                         | {f"{root}/{name}" for root in before for name in set(before[root]) & set(after.get(root, {}))
-                            if before[root][name] != after[root][name]})
-        raise Refused(f"STATE_WRITTEN: reading the library changed {changed[:4]} ({len(changed)} file(s)); "
-                      f"the frozen-copy route is not being taken")
+    user_path = pathlib.Path(user_root).expanduser() if user_root else None
+    guarded = protected_roots(state_root, user_path, native_roots)
+    overlaps = (overlap_problems([out_dir], guarded)
+                + overlap_problems([tempfile.gettempdir()], guarded, enclosing=False))
+    if overlaps:
+        raise Refused("; ".join(overlaps))
+    watched = [root for root in (state_root, user_path) if root is not None and root.is_dir()]
+    before, omitted = {}, {}
+    for root in watched:
+        before[str(root)], omitted[str(root)] = hash_tree(root)
+    inputs = {"symlink_policy": SYMLINK_POLICY, "protected_roots": [str(root) for root in guarded],
+              "roots": {str(root): {"files": len(before[str(root)]), "omissions": omitted[str(root)]}
+                        for root in watched},
+              "roots_absent": [str(root) for root in (state_root, user_path)
+                               if root is not None and not root.is_dir()]}
+    produced, manifest = {}, {"references": {}, "state_root_unchanged": None, "out_dir": str(out_dir),
+                              "inputs": inputs}
+    native_before = {}
+    try:
+        with no_bytecode(), tempfile.TemporaryDirectory(prefix="distill-inventory-") as frozen_dir:
+            ctx = context_of(repo, state_root, user_root, native_roots or {}, pin, ledger)
+            ctx["commit"] = commit
+            try:
+                freeze_inputs(pathlib.Path(frozen_dir), repo, state_root, user_root, pin, ctx)
+            except Exception as exc:  # acquisition is an input, and a missing input is a status
+                ctx["acquisition_error"] = (f"INPUT_UNACQUIRED: freezing the inputs failed "
+                                            f"({type(exc).__name__}: {exc}), so every layer read from the "
+                                            f"owner's state has no record here")
+                ctx.setdefault("release_ref", None)
+                ctx.setdefault("expected_release_items", [])
+            native_before.update({str(path): hashlib.sha256(path.read_bytes()).hexdigest()
+                                  for path in ctx.get("native_sources", []) if path.is_file()})
+            for reference in REFERENCES:
+                produced[reference] = reference_of(reference, ctx)
+            base = produced["release"][1]
+            for reference in ("current", "selection"):
+                produced[reference][0]["renames"] = renames_against(produced[reference][1], base)
+            if ctx.get("release_ref"):
+                problems = mapping_problems({item["ref"] for item in ctx["expected_release_items"]}, produced["release"][1])
+                document = produced["release"][0]
+                document["reference"]["incomplete_reasons"] += problems
+                document["reference"]["complete"] = not document["reference"]["incomplete_reasons"]
+                manifest["baseline_unmapped"] = problems
+                manifest["baseline_items_expected"] = len(ctx["expected_release_items"])
+        for reference, (document, units) in produced.items():
+            records.write_json(out_dir, out_dir / "inventory" / f"{reference}.json", document)
+            manifest["references"][reference] = {
+                "complete": document["reference"]["complete"], "units": len(units),
+                "operative": sum(1 for unit in units if unit["class"] == "operative"),
+                "layers": {row["layer"]: row["status"] for row in document["layers"]},
+                "layer_units": {row["layer"]: row["units"] for row in document["layers"]},
+                "layer_empty": sorted(row["layer"] for row in document["layers"] if row["empty"]),
+                "incomplete_reasons": document["reference"]["incomplete_reasons"],
+                "renames": len(document["renames"]),
+            }
+    finally:
+        # The read-only guarantee is verified on the error paths too: a producer that wrote into
+        # the owner's state and then raised would otherwise leave the write unreported (GA#3).
+        manifest.update(verify_unchanged(watched, before, native_before, sys.exc_info()[1]))
     records.write_json(out_dir, out_dir / "inventory" / "manifest.json", manifest)
     return manifest
 
@@ -899,6 +1108,13 @@ def report_lines(manifest):
         for reason in row["incomplete_reasons"][:6]:
             lines.append(f"  - {reason}")
     lines.append(f"state root unchanged: {manifest['state_root_unchanged']}")
+    inputs = manifest.get("inputs", {})
+    for root, row in inputs.get("roots", {}).items():
+        lines.append(f"read {row['files']} file(s) under {root}"
+                     + (f", {len(row['omissions'])} omitted (symlink or unreadable)" if row["omissions"] else ""))
+    for root in inputs.get("roots_absent", []):
+        lines.append(f"declared input root absent: {root}")
+    lines.append(f"redaction: every unit's text through {projection.CURRENT}; hashes over the raw carrier")
     return lines
 
 
@@ -916,7 +1132,7 @@ def contract_problems(design_text=None, rel=DESIGN):
     if not match:
         return [f"DESIGN_UNREADABLE {rel}: §6.1's unit record is not in the form `{{...}}`"]
     declared = [field.strip() for field in match.group(1).replace("\n", " ").split(",") if field.strip()]
-    expected = tuple(("class" if field == DESIGN_CLASS_FIELD else field) for field in declared) + PLAN_FIELDS
+    expected = tuple(("class" if field == DESIGN_CLASS_FIELD else field) for field in declared) + PLAN_FIELDS + EMISSION_FIELDS
     if tuple(UNIT_FIELDS) != expected:
         return [f"CONTRACT_MISMATCH unit (§6.1 + the plan): the record carries {list(UNIT_FIELDS)}, "
                 f"the design and the plan ask for {list(expected)}"]
@@ -1138,10 +1354,10 @@ def self_test():
         (user / "state.json").write_text(json.dumps({"schema_version": 1, "items": {}, "overrides": {}, "tombstones": {},
                                                      "selection": None,
                                                      "learning_suppressions": {"claude": [], "codex": []}}), encoding="utf-8")
-        before = hash_tree(state)
+        before, _ = hash_tree(state)
         manifest = run(REPO, state, user, scratch / "out", native_roots={"hosts": native, "projects": {"project": scratch / "project"}},
                        ledger=ledger, commit="fixture")
-        check("the frozen route left the owner's state untouched", manifest["state_root_unchanged"] and hash_tree(state) == before,
+        check("the frozen route left the owner's state untouched", manifest["state_root_unchanged"] and hash_tree(state)[0] == before,
               "the state root changed while the inventory read it")
         check("the inventory wrote a file per reference point",
               all((scratch / "out" / "inventory" / f"{reference}.json").is_file() for reference in REFERENCES),
@@ -1185,7 +1401,7 @@ def self_test():
             store.status()
         except Exception:
             pass
-        after = hash_tree(state)
+        after, _ = hash_tree(state)
         control("the store's own entry point writes to the state the frozen route leaves alone",
                 [f"STATE_WRITTEN fixture: {sorted(set(after) - set(before))}"] if after != before else [],
                 "STATE_WRITTEN")
@@ -1193,11 +1409,215 @@ def self_test():
               sorted(set(after) - set(before)) or [name for name in after if after[name] != before.get(name)],
               "the recovering entry point changed nothing, so the control shows nothing")
 
+        # ---- GA#3: no write can reach a protected root, and the guarantee is checked on error paths
+        guarded_before, _ = hash_tree(state)
+        for name, destination in (("inside the owner's state root", state / "out"),
+                                  ("holding the owner's state root", state.parent),
+                                  ("inside a configured host home", fixture_home / "out")):
+            control(f"an output destination {name} is refused before any write",
+                    [str(_raised(lambda destination=destination: run(
+                        REPO, state, user, destination,
+                        native_roots={"hosts": native, "projects": {"project": scratch / "project"}},
+                        ledger=ledger)))],
+                    "PROTECTED_OVERLAP")
+        check("the refused destination was never written",
+              hash_tree(state)[0] == guarded_before and not (state / "out").exists(),
+              "a refused run still touched the protected root")
+
+        with no_bytecode():
+            inside = sys.dont_write_bytecode
+        check("the guard that keeps a path import from caching bytecode is on inside it", inside,
+              "dont_write_bytecode was not set inside no_bytecode()")
+        check("the guard leaves the interpreter as it found it",
+              sys.dont_write_bytecode is False, "dont_write_bytecode stayed on after the guard")
+        check("the interpreter would otherwise write bytecode, so the guard has a subject",
+              not sys.flags.dont_write_bytecode, "this interpreter never writes bytecode, so the guard proves nothing")
+        guarded_loads = loads_outside_the_guard(pathlib.Path(__file__).read_text(encoding="utf-8"))
+        control("a module loaded by path outside the no-bytecode guard",
+                loads_outside_the_guard(pathlib.Path(__file__).read_text(encoding="utf-8").replace(
+                    "with no_bytecode():\n        spec.loader.exec_module(module)",
+                    "if True:\n        spec.loader.exec_module(module)", 1)),
+                "LOAD_UNGUARDED")
+        clean("every module this reads by path is loaded under the guard", guarded_loads)
+
+        saved = globals()["LAYERS"]
+
+        # A producer's own failure is absorbed into its layer status by design, so the error path
+        # here is the artifact write: the destination is an existing file, which fails after the
+        # planted write has landed.
+        failing_out = scratch / "failed"
+        failing_out.write_text("not a directory", encoding="utf-8")
+
+        try:
+            globals()["LAYERS"] = (("catalog", {"current": ("a producer that writes", writing_producer)}),)
+            control("a write is reported even when the inventory failed afterwards",
+                    [str(_raised(lambda: run(REPO, state, user, failing_out, ledger=ledger)))],
+                    "STATE_WRITTEN", "in flight")
+        finally:
+            globals()["LAYERS"] = saved
+            planted_write.unlink(missing_ok=True)
+
+        link = state / "runtime" / "a-link-out.json"
+        link.symlink_to(scratch / "project" / "CLAUDE.md")
+        try:
+            manifest = run(REPO, state, user, scratch / "manifest-out", ledger=ledger)
+        finally:
+            link.unlink()
+        inputs = manifest["inputs"]
+        check("the input manifest declares the symlink policy and names the symlink it left out",
+              SYMLINK_POLICY in inputs["symlink_policy"]
+              and any(entry["reason"] == "symlink" and entry["path"] == "runtime/a-link-out.json"
+                      for entry in inputs["roots"][str(state)]["omissions"]),
+              f"{inputs['roots'][str(state)]['omissions']}")
+        check("the input manifest names every root it read and every protected root",
+              set(inputs["roots"]) == {str(state), str(user)} and str(state) in inputs["protected_roots"],
+              f"{sorted(inputs['roots'])} / {inputs['protected_roots']}")
+
+        # ---- GA#0: a credential or a home path planted in every personal carrier kind, and in the
+        # session's compiled text, reaches no artifact — while the hashes still bind to the raw carrier
+        secret = "sk-ant-api03-" + "Ab3" * 14
+        private = str(pathlib.Path.home() / "Documents" / "a-directory-of-the-owner-s")
+        memory_entry = fixture_home / "projects" / memory_slug(scratch / "project") / "memory" / "one.md"
+        planted_in = {
+            "native_global": fixture_home / "CLAUDE.md",
+            "native_memory": memory_entry,
+            "native_project": scratch / "project" / "CLAUDE.md",
+        }
+        for path in planted_in.values():
+            path.write_text(path.read_text(encoding="utf-8")
+                            + f"\n- a rule naming {private}, with apiKeyHelper: {secret}\n", encoding="utf-8")
+        settings = fixture_home / "settings.json"
+        settings.write_text(json.dumps({"hooks": {}, "apiKeyHelper": secret, "projectDir": private}, indent=1) + "\n",
+                            encoding="utf-8")
+        planted_in["native_settings"] = settings
+        store = store_module(REPO)
+        injected = f"# Session\n\n- a compiled rule naming {private}, with apiKeyHelper: {secret}\n"
+        snapshot_inputs = {"baseline_ref": "ref1", "host": "claude", "selection": ["@fixture/core:item-1"]}
+        content_ref = store._digest(snapshot_inputs)
+        snapshot_dir = state / "sessions" / "snapshots" / content_ref
+        snapshot_dir.mkdir(parents=True)
+        (snapshot_dir / "CLAUDE.md").write_text(injected, encoding="utf-8")
+        output = {"instruction_text": injected, "files": ["CLAUDE.md"], "assets": {},
+                  "item_refs": ["@fixture/core:item-1"], "unavailable": []}
+        (snapshot_dir / "output.json").write_text(json.dumps(output), encoding="utf-8")
+        (snapshot_dir / "inventory.json").write_text(json.dumps({
+            "inputs": snapshot_inputs, "items": [{"ref": "@fixture/core:item-1"}],
+            "file_digests": {name: store._digest((snapshot_dir / name).read_bytes())
+                             for name in ("CLAUDE.md", "output.json")}}), encoding="utf-8")
+        (state / "sessions" / "pins" / "claude" / "session-1.json").write_text(
+            json.dumps({"schema_version": 1, "content_ref": content_ref}), encoding="utf-8")
+        planted_out = scratch / "planted-out"
+        manifest = run(REPO, state, user, planted_out, pin="claude:session-1",
+                       native_roots={"hosts": native, "projects": {"project": scratch / "project"}},
+                       ledger=ledger, commit="fixture")
+        artifacts = sorted(path for path in planted_out.rglob("*") if path.is_file())
+        check("the planted run wrote artifacts to scan", len(artifacts) >= len(REFERENCES),
+              f"{len(artifacts)} artifact(s)")
+        leaking = sorted(path.name for path in artifacts
+                         if secret in path.read_text(encoding="utf-8") or private in path.read_text(encoding="utf-8"))
+        check("no artifact carries the planted credential or the owner's home path", not leaking,
+              f"{leaking}")
+        emitted = {}
+        for reference in REFERENCES:
+            for unit in json.loads((planted_out / "inventory" / f"{reference}.json").read_text(encoding="utf-8"))["units"]:
+                emitted.setdefault(unit["path"], []).append(unit)
+        for layer, path in planted_in.items():
+            carried = [unit for units_for in emitted.values() for unit in units_for
+                       if unit["layer"] == layer and unit["version_sha256"] == sha256_text(path.read_text(encoding="utf-8"))]
+            check(f"the {layer} carrier's units still hash to the raw carrier", bool(carried),
+                  f"no unit of {layer} carries the raw carrier's sha256")
+            check(f"the {layer} carrier's text is masked in the artifact",
+                  all(secret not in unit["text"] and private not in unit["text"] for unit in carried)
+                  and any("<REDACTED>" in unit["text"] or "<HOME>" in unit["text"] for unit in carried),
+                  f"{layer} produced no masked unit")
+            check(f"the {layer} carrier still names the floor that masked it",
+                  all(unit.get("redaction_version") == projection.CURRENT for unit in carried), "no redaction_version")
+        session_units = [unit for units_for in emitted.values() for unit in units_for
+                         if unit["layer"] == "session_injection"]
+        check("the session's compiled text was read at all", bool(session_units),
+              f"the pin produced no session_injection unit: "
+              f"{[(r, m['layers'].get('session_injection')) for r, m in manifest['references'].items()]}")
+        check("the session's compiled text is masked too",
+              all(secret not in unit["text"] and private not in unit["text"] for unit in session_units)
+              and any("<REDACTED>" in unit["text"] or "<HOME>" in unit["text"] for unit in session_units),
+              "the session's units carry the planted credential or home path")
+        kept_project = projection.project
+        try:  # a floor that masks nothing: the guard beyond it is what the control reads
+            projection.project = lambda text, version=None, home=None: text
+            control("a unit the floor left a credential in is never emitted",
+                    [str(_raised(lambda: projected(f"apiKeyHelper: {secret}\n", None)))], "DISCLOSED_IN_UNIT")
+        finally:
+            projection.project = kept_project
+        check("the floor itself does mask that unit, so the guard is a second line, not the first",
+              secret not in projected(f"apiKeyHelper: {secret}\n", None), "the floor passed the credential through")
+
+        # ---- GA#5: a malformed supported carrier is incomplete, not unsupported, and says which
+        control("a settings file with a missing brace",
+                [str(_raised(lambda: units_of([carrier("native_settings", "settings.json", '{"hooks": {}\n')])))],
+                "not valid JSON")
+        control("a Codex settings file that is not TOML",
+                [str(_raised(lambda: units_of([carrier("native_settings", "config.toml", "model = \n")])))],
+                "not valid TOML" if tomllib is not None else "no TOML reader")
+        kept_toml = globals()["tomllib"]
+        try:  # an interpreter without a TOML reader cannot prove the carrier well formed, so it says so
+            globals()["tomllib"] = None
+            control("a TOML settings file on an interpreter with no TOML reader",
+                    [str(_raised(lambda: units_of([carrier("native_settings", "config.toml", "model = 'x'\n")])))],
+                    "no TOML reader")
+        finally:
+            globals()["tomllib"] = kept_toml
+        check("this interpreter does have a TOML reader, so that branch is a fallback and not the rule",
+              tomllib is not None, "no tomllib here: the malformed-TOML control above judges nothing")
+        broken_rows = [{"layer": "native_settings", "producer": "a settings file with a missing brace",
+                        "status": "complete", "reasons": [],
+                        "carriers": [carrier("native_settings", "settings.json", '{"hooks": {}\n')]}]
+        produce(broken_rows)
+        control("the layer a malformed settings file belongs to",
+                [f"{broken_rows[0]['status']}: {'; '.join(broken_rows[0]['reasons'])}"],
+                "incomplete", "not valid JSON")
+        check("a malformed supported carrier is not reported as unsupported",
+              broken_rows[0]["status"] == "incomplete", f"{broken_rows[0]['status']}")
+        markdown_in_json = units_of([carrier("session_injection", "snapshot:x/output.json#instruction_text",
+                                             "# A heading\n\n- a rule\n", form="markdown")])
+        check("a declared form reads a markdown member of a JSON file as markdown",
+              [unit["block"] for unit in markdown_in_json][:1] == ["heading"],
+              f"{[unit['block'] for unit in markdown_in_json][:2]}")
+
+        # ---- GA#5: a failure acquiring the inputs still leaves a layer-status artifact naming it
+        brittle = scratch / "brittle-state"
+        (brittle / "runtime").mkdir(parents=True)
+        (brittle / "runtime" / "state.json").write_text('{"schema_version": 1,\n', encoding="utf-8")
+        brittle_out = scratch / "brittle-out"
+        brittle_manifest, brittle_failure = {"references": {}}, None
+        try:  # the subject is guarded: a run that raises makes this control fail, not the suite abort
+            brittle_manifest = run(REPO, brittle, user, brittle_out, ledger=ledger)
+        except Exception as exc:
+            brittle_failure = exc
+        control("a run whose input freezing failed",
+                ([f"the run raised instead of reporting it: {type(brittle_failure).__name__}: {brittle_failure}"]
+                 if brittle_failure is not None else
+                 [reason for entry in brittle_manifest["references"].values() for reason in entry["incomplete_reasons"]]),
+                "INPUT_UNACQUIRED")
+        check("the failed acquisition still wrote a layer-status artifact per reference point",
+              all((brittle_out / "inventory" / f"{reference}.json").is_file() for reference in REFERENCES),
+              "a reference point lost its artifact to the acquisition failure")
+        brittle_current = brittle_out / "inventory" / "current.json"
+        brittle_layers = (json.loads(brittle_current.read_text(encoding="utf-8"))["layers"]
+                          if brittle_current.is_file() else [])
+        check("every layer of that artifact carries a status and the cause",
+              len(brittle_layers) == len(LAYERS)
+              and all(row["status"] == "unknown" and row["reasons"] for row in brittle_layers),
+              f"{[row['status'] for row in brittle_layers]}")
+
     print(f"inventory --self-test: {'OK' if not failures else 'FAILED'} ({len(ran)} controls: the splitter's "
           f"reproduction over the real guides, the unit record against design §6.1, a context that spans two guides "
           f"and shrinks without its cross-reference, one fragment across two versions with two contexts, the release "
-          f"mapping against the baseline file's own item list, every layer status the table can report, and the "
-          f"owner's state unchanged by a whole inventory beside the write its own entry point makes)")
+          f"mapping against the baseline file's own item list, every layer status the table can report, the owner's "
+          f"state unchanged by a whole inventory beside the write its own entry point makes, an output destination "
+          f"overlapping a protected root refused before any write, a planted credential and home path in every "
+          f"personal carrier kind masked in every artifact while the hashes still bind to the raw carrier, a "
+          f"malformed settings file reported incomplete rather than unsupported, and a failed acquisition that "
+          f"still leaves a layer-status artifact)")
     for failure in failures:
         print(f"inventory --self-test [FAIL] {failure}")
     return 1 if failures else 0

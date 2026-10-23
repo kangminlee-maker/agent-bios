@@ -1828,10 +1828,14 @@ def project(value, version=CURRENT, home=None):
 # 24 members where the decoded strings held 63, the thirteen worst of them scalars no structure story
 # explains. A verification that reads a different text than the thing it verifies cannot be its evidence.
 #
+# `inventory/` is swept for the same reason as the rest: S2's unit records carry the projection of every
+# carrier's fragments, the native layers among them, so the text a judge or the reconstruction author reads
+# is this layer and the sweep has to judge the same text (WP-07's record of 2026-10-22).
+#
 # `index/` is not scanned, and that is safe rather than convenient: a BM25 index's keys are the vocabulary
 # of already-projected text and its values are document numbers, so a posting named `token` means the word
 # occurred. Scanning it reported 2,794 members that were words. The sweep asserts that shape instead.
-SWEPT = ("redacted", "views", "evidence")
+SWEPT = ("redacted", "views", "evidence", "inventory")
 
 
 _KEY_TAIL = re.compile(r'[\w.-]+\Z')
