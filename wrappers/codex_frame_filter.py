@@ -1094,12 +1094,24 @@ def self_test():
 
     # the events whitelist and the filter process: every stderr line passes through, the records are kept apart
     scratch = tempfile.mkdtemp(prefix="codex-frame-filter-")
+
+    def run_child(argv, text_in, name):
+        """A child's stdin, stdout and stderr are files, never pipes: a child fed and drained through pipes
+        deadlocked here under the commit hook (parent blocked writing stdin, child blocked writing stderr)."""
+        paths = {stream: os.path.join(scratch, f"{name}.{stream}") for stream in ("in", "out", "err")}
+        with open(paths["in"], "w") as handle:
+            handle.write(text_in)
+        with open(paths["in"]) as stdin, open(paths["out"], "w") as stdout, open(paths["err"], "w") as stderr:
+            code = subprocess.run(argv, stdin=stdin, stdout=stdout, stderr=stderr).returncode
+        with open(paths["out"]) as out, open(paths["err"]) as err:
+            return code, out.read(), err.read()
+
     try:
         frames_path = os.path.join(scratch, "frames.jsonl")
-        proc = subprocess.run([sys.executable, os.path.abspath(__file__), "filter", "--frames", frames_path, "--rust-log",
-                               "tungstenite::protocol=trace,codex_otel.log_only=info"],
-                              input="\n".join(trace()) + "\n", capture_output=True, text=True)
-        control("filter-passes-stderr-through", [] if proc.stdout == "" and proc.stderr == "\n".join(trace()) + "\n"
+        _, out, err = run_child([sys.executable, os.path.abspath(__file__), "filter", "--frames", frames_path, "--rust-log",
+                                 "tungstenite::protocol=trace,codex_otel.log_only=info"],
+                                "\n".join(trace()) + "\n", "filter")
+        control("filter-passes-stderr-through", [] if out == "" and err == "\n".join(trace()) + "\n"
                 else ["the stderr channel was changed"])
         stored = read_jsonl(frames_path)
         control("filter-stores-the-reduction", [] if stored == [json.loads(json.dumps(r, sort_keys=True)) for r in reduce(
@@ -1110,14 +1122,20 @@ def self_test():
                        {"type": "error", "message": "Reconnecting PROMPT-BODY-CANARY"},
                        {"type": "turn.failed", "error": {"message": "sk-CANARY"}},
                        {"type": "turn.completed", "usage": {"input_tokens": 1002, "output_tokens": 7}}]
-        subprocess.run([sys.executable, os.path.abspath(__file__), "events", "--out", events_path],
-                       input="".join(json.dumps(e) + "\n" for e in json_events), capture_output=True, text=True)
+        run_child([sys.executable, os.path.abspath(__file__), "events", "--out", events_path],
+                  "".join(json.dumps(e) + "\n" for e in json_events), "events")
         kept = read_jsonl(events_path)
         control("events-keep-turns-and-drop-items", [] if kept == [
             {"type": "thread.started", "thread_id": root}, {"type": "turn.started"}, {"type": "error"}, {"type": "turn.failed"},
             {"type": "turn.completed", "usage": {"input_tokens": 1002, "output_tokens": 7}}] else [f"{kept}"])
     finally:
         shutil.rmtree(scratch, ignore_errors=True)
+    # structural: no child the self-test starts is handed a pipe (the words are assembled so this
+    # control does not match its own text)
+    import inspect
+    body = inspect.getsource(self_test)
+    piped = [w for w in ("capture" + "_output", "input" + "=", "subprocess." + "PIPE") if w in body]
+    control("self-test-hands-no-child-a-pipe", [f"self_test uses {piped}"] if piped else [])
     # copied once from design §3.2 step 1's evidence list with plan WP-02's payload_sha256
     # (session-distill/runlib/receipts.py EVIDENCE_KEYS on wp/02-gate-supervisor)
     control("evidence-keys-are-the-gates", [] if EVIDENCE_KEYS == (
