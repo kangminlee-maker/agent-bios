@@ -154,9 +154,12 @@ PY
   printf '\ncat "$REPO/compose/probe-selftest.py" >/dev/null\n' >> "$W/install.sh"
   case_is "a runtime path missing from files[]" "not in package.json files"
 
-  # a quiet grep fed by a pipe, in a shipped script that sets pipefail
-  fresh; printf '\nprintf x | grep -q x\n' >> "$W/wrappers/codex-run.sh"
+  # a quiet grep fed by a pipe, in a shipped and in an author-side script that sets pipefail
+  # (the planted text is assembled, so this file does not carry the shape it plants)
+  fresh; printf '\nprintf x | grep -%s x\n' q >> "$W/wrappers/codex-run.sh"
   case_is "a piped grep -q in a shipped pipefail script" "wrappers/codex-run.sh:"
+  fresh; printf '\nprintf x | grep -%s x\n' q >> "$W/gates/check-package.sh"
+  case_is "a piped grep -q in an author-side pipefail script" "gates/check-package.sh:"
   # ...the same match through a here-string is no violation
   fresh; printf '\ngrep -q x <<<"x"\n' >> "$W/wrappers/codex-run.sh"
   case_ok "a grep -q reading a here-string in a pipefail script"
@@ -311,7 +314,7 @@ PY
 fi
 
 python3 - "$@" <<'PY'
-import ast, json, pathlib, posixpath, re, sys, tomllib
+import ast, json, pathlib, posixpath, re, subprocess, sys, tomllib
 
 # Reject anything not implemented, loudly. A gate that accepts --self-test by
 # ignoring it and then prints OK tells the caller a control ran when none did.
@@ -841,31 +844,38 @@ leg("publication provenance",
     ["files[] carries it", "prepack writes it", "prepublishOnly guards it",
      "postpack cleans it"])
 
-# A shipped shell script that sets pipefail may not pipe into `grep -q`. grep exits at its
+# A tracked shell script that sets pipefail may not pipe into `grep -q`. grep exits at its
 # first match, the writer takes SIGPIPE on the rest of its output, and pipefail reports that
 # exit as the pipeline's: a match reads as a miss, more often the later the match sits. The
 # compatibility verify's `claude-run --help | grep -q` failed that way on every run once the
-# help outgrew the pipe's first read. Capture the output, then match a here-string or `case`.
+# help outgrew the pipe's first read, and this gate's own self-test lost cases the same way.
+# Capture the output, then match a here-string or `case`. Author-side scripts are judged too:
+# they break the same way, they only break somewhere else.
 SHELL_SUFFIXES = (".sh", ".zsh", ".bash")
 PIPEFAIL = re.compile(r"\bset\b[^#\n]*\bpipefail\b")
 PIPED_QUIET_GREP = re.compile(r"\|\s*grep\s+(?:-[A-Za-z]*q[A-Za-z]*|--quiet|--silent)\b")
-def shipped_scripts():
-    for entry in files:
-        base = REPO / rel_key(entry)
-        for p in ([base] if base.is_file() else sorted(base.rglob("*")) if base.is_dir() else []):
-            if not p.is_file():
-                continue
-            if p.suffix in SHELL_SUFFIXES:
-                yield p
-                continue
-            try:
-                first = p.open("rb").readline()
-            except OSError:
-                continue
-            if first.startswith(b"#!") and re.search(rb"\b(ba|z|da)?sh\b", first):
-                yield p
+def tracked_files():
+    # a checkout lists what git tracks; a copy of the tracked tree (this gate's self-test, the
+    # commit hook's materialised index) holds nothing else, so it is walked whole
+    if (REPO / ".git").exists():
+        listed = subprocess.run(["git", "-C", str(REPO), "ls-files", "-z"], capture_output=True, check=True)
+        return [REPO / r for r in listed.stdout.decode().split("\0") if r]
+    return [p for p in sorted(REPO.rglob("*")) if ".git" not in p.relative_to(REPO).parts]
+def shell_scripts():
+    for p in tracked_files():
+        if not p.is_file():
+            continue
+        if p.suffix in SHELL_SUFFIXES:
+            yield p
+            continue
+        try:
+            first = p.open("rb").readline()
+        except OSError:
+            continue
+        if first.startswith(b"#!") and re.search(rb"\b(ba|z|da)?sh\b", first):
+            yield p
 pipefail_scripts, piped_grep = [], []
-for p in shipped_scripts():
+for p in shell_scripts():
     code = [(n, line) for n, line in enumerate(p.read_text(encoding="utf-8", errors="replace").splitlines(), 1)
             if not line.lstrip().startswith("#")]
     if not any(PIPEFAIL.search(line) for _, line in code):
@@ -873,7 +883,7 @@ for p in shipped_scripts():
     rel = p.relative_to(REPO).as_posix()
     pipefail_scripts.append(rel)
     piped_grep += [(rel, n, line.strip()) for n, line in code if PIPED_QUIET_GREP.search(line)]
-leg("pipefail scripts without a piped grep -q", pipefail_scripts)
+leg("pipefail scripts without a piped quiet grep", pipefail_scripts)
 
 checked = sum(1 for r in found if r not in EXEMPT and not author_side(r) and (REPO / r).exists())
 if missing or leaked or prose_bad or unguarded or prov_bad or piped_grep:
@@ -892,7 +902,7 @@ if missing or leaked or prose_bad or unguarded or prov_bad or piped_grep:
     for msg in prov_bad:
         print(f"check-package: FAILED — {msg}")
     if piped_grep:
-        print(f"check-package: FAILED — {len(piped_grep)} `| grep -q` in a shipped script that sets "
+        print(f"check-package: FAILED — {len(piped_grep)} piped quiet grep(s) in a tracked script that sets "
               f"pipefail; grep's early exit SIGPIPEs the writer and pipefail turns a match into a miss "
               f"(capture the output, then match a here-string or case):")
         for rel, n, line in piped_grep:
