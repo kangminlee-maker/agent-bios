@@ -1834,9 +1834,16 @@ def codex_run():
         with tempfile.TemporaryDirectory() as raw_tmp:
             tmp = pathlib.Path(raw_tmp)
             fake, argv_log = tmp / "codex", tmp / "argv"
+            # The fake drains stdin as `codex exec` does (its --help: with no prompt or `-` the
+            # instructions are read from stdin, and a piped stdin is appended to a given one).
+            # A fake that exits unread made codex-helm's prompt write depend on pipe capacity,
+            # which POSIX does not promise beyond PIPE_BUF (512 bytes on macOS): when another
+            # program exhausted the machine's pipe memory, every new pipe stayed at 512 bytes
+            # and the 1.5 KB prompt died of SIGPIPE in five helm cases (2026-10-25).
             fake.write_text(
                 "#!/usr/bin/env bash\n"
                 "printf '%s\\n' \"$@\" > \"$FAKE_CODEX_ARGV\"\n"
+                "cat >/dev/null\n"
                 "printf 'progress-err\\n' >&2\n"
                 "printf 'final-out\\n'\n"
                 "exit \"${FAKE_CODEX_STATUS:-0}\"\n"
