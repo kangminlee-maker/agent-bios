@@ -545,6 +545,28 @@ pass is the only independence the loop has. Re-measuring from inside the same co
 wrong repeatedly. Same-provider agreement is high-confidence but blind-spot-sharing: a shared
 "clean" from one reviewer kind is an absence of objection, not verification.
 
+## 12. A failure is ours when our code relied on what no contract promises — CONVENTION
+
+Before fixing or dismissing a failure, name the contract the failing code relied on. The
+contract sources are fixed in advance, so the answer is a lookup rather than a judgement made
+after the fact: for the operating system, POSIX and the macOS headers and man pages; for
+Python's wrappers, the standard library documentation; for a host CLI, its official
+documentation and its `--help`; for this repo's own code, its design record.
+
+- **Ours** — the code relied on behaviour no contract states, or broke one. Fix the code.
+- **The environment's** — the code stayed inside its contracts and the environment did not
+  deliver what they promise, or ran out of a resource (disk, pipe memory, network). Do not route
+  around it in code. What remains ours is that the code neither hangs nor corrupts state on it,
+  and that the failure names its cause.
+- **Both** — an environment fault exposed a defect of ours. Fix ours; record the environment's.
+- **No contract exists** — a host's transcript format, an undocumented cache. Relying on it is
+  itself outside contract, so validating that input and refusing a drift by name is ours.
+
+"It reproduces on a clean branch" shows only that the change under review did not cause the
+failure; it does not make the failure the environment's. Working at the OS level is not the risk
+this rule names: POSIX interfaces are the most standard ones available, and process boundaries
+are what give the code isolation and control. Leaning on what they do not promise is.
+
 ## Before you believe a green gate
 
 A green gate means "it ran", not "it checked your change".
@@ -670,6 +692,15 @@ repo. Only repo-specific working rules belong in this file.
   syntax error that is not in the file. Copying it elsewhere does not help — it `cd`s to its
   own parent for `REPO`.
 - **A restored module can still run as its mutant**: Python's bytecode cache records the source mtime to the second, so a file copied back and re-imported within the same second keeps running the cached mutant, and `python3 -B` does not help (it stops writes, not reads). Delete `__pycache__` before and after every revert experiment; a file run as `__main__` is not cached.
+- **Machine-wide pipe memory runs out, and the failure names a test line**: XNU caps all pipe
+  buffers together at 16 MiB (`PIPE_KVAMAX`, a compile-time constant); every new pipe starts at
+  512 bytes and grows on write only below the cap. On 2026-10-25 a desktop app's long-lived child
+  processes held about 12 MiB, and five `codex_run` cases failed with `printf: write error: Broken
+  pipe` on every branch, because the gate's fake `codex` exited without reading a 1.5 KB prompt
+  (§12: ours, exposed by the environment's). When a hook fails with a broken pipe or a wait on a
+  child's output hangs, measure the headroom first — open up to 20 pipes non-blocking, write
+  64 KiB into each and count how many grow past 512 bytes — and never stress the cap: every
+  session on the machine shares it.
 
 ## Commits
 
