@@ -91,9 +91,17 @@ outside `session-distill/` and is its own entry point, judged by nothing here. A
 covered by adding it to `ENTRY_FILES`, and until it is there, the judge says nothing about it —
 which is why the judge refuses an empty set rather than passing over one.
 
-## 5. What else in 0757 and 0308 stands
+## 5. What else in 0757 and 0308 is superseded, and by what
 
-0757 §1's depth bound and the structural checker it described are themselves superseded by this
-round's S4: no self-test child runs a suite any more, so the recursion that needed a bound cannot
-occur. The rest of both records — 0308 §2 on the startup handler, §3's findings, §4's and §5's
-limits, 0757 §2 onward — stands as written, read as statements about the tree at `2018a38`.
+0757 §1's depth bound and the structural checker it described are superseded by this round's S4
+(`1cd7705`): no self-test child runs a suite any more, so the recursion that needed a bound cannot
+occur, and 0757's residuals about that checker and about unbounded production `git` calls moved with
+it. 0308 §2's account of the startup handler is superseded by S2 (`9d234fc`): each entry file now
+bootstraps its own fixed, path-free failure line around the import of the boundary module itself,
+which is not the handler 0308 described.
+
+The rest of 0308 and 0757 is **not** restated here, and this record does not claim it holds. Those
+two records describe the tree at `2018a38`; this one describes `b65371c` and the commit it belongs
+to. The record that restates, for this tree, whatever of them is still true is written after S7, at
+the end of the round. Until that record exists, read any statement of 0308 or 0757 that is not named
+above as a claim about `2018a38`, and re-derive it from the code before relying on it.

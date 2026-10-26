@@ -4247,6 +4247,30 @@ def self_test():
         check("and the admission comes from the interpreter's own list, not from a prefix of ours",
               "os" in sys.stdlib_module_names and "runlib" not in sys.stdlib_module_names,
               "sys.stdlib_module_names does not answer this question here")
+
+        # ---- audit 1109: the refusal behind the host homes. `install_module` loads the SHIPPED
+        # installer by path, because the rule for where each host's home is belongs to it and is not
+        # restated here. A checkout without that file must refuse BY NAME: removing the refusal
+        # leaves the load failing anyway, through the outer boundary as an ordinary file error, so
+        # every suite stayed green while nothing watched the refusal itself.
+        empty_repo = scratch / "a-checkout-without-the-installer"
+        (empty_repo / "compose").mkdir(parents=True)
+        control("a checkout that does not ship the installer the host homes come from",
+                [str(_raised(lambda: install_module(empty_repo)))],
+                "PRODUCER_UNAVAILABLE", "the installer's rule")
+        check("and the refusal names no absolute path of the owner's",
+              str(pathlib.Path.home()) not in str(_raised(lambda: install_module(empty_repo))),
+              "the refusal carried the owner's home")
+        control("and the protected set refuses rather than protecting less",
+                [str(_raised(lambda: host_homes({}, empty_repo)))],
+                "PRODUCER_UNAVAILABLE")
+        check("the fixture checkout really is one the loader would otherwise accept, bar that file",
+              (empty_repo / "compose").is_dir()
+              and not (empty_repo / "compose" / "instructions_install.py").exists(),
+              f"{masked(empty_repo)} is not the fixture this control describes")
+        check("and the real checkout does ship it, so the control above is about an absence",
+              (REPO / "compose" / "instructions_install.py").is_file(),
+              "this checkout has no installer either, so nothing distinguishes the fixture")
         check("the interpreter would otherwise write bytecode, so the guard has a subject",
               not sys.flags.dont_write_bytecode, "this interpreter never writes bytecode, so the guard proves nothing")
         guarded_loads = loads_outside_the_guard(pathlib.Path(__file__).read_text(encoding="utf-8"))

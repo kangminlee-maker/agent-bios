@@ -684,6 +684,76 @@ def self_test():
         control("and the producer is reachable at all when the destination is not protected",
                 cli_refused_before_run("inventory", "--to", str(cli_checkout), "--no-state")[2],
                 "the recorder was never called, so the two controls above judge nothing")
+
+        # ---- r3 #7: the driver's own preflight over a CONFIGURED host home. The host homes are
+        # protected whether or not a run reads them, and which directory each one IS comes from
+        # `CLAUDE_CONFIG_DIR` and `CODEX_HOME` (R2#1). The controls above never set either, so
+        # restoring `NATIVE`'s defaults at this call site alone was unobserved by all of them.
+        #
+        # Asked of THIS layer: the producer is a recorder, so nothing downstream can refuse on the
+        # driver's behalf, and the destination is named with `--run-id` so that a stage record —
+        # itself a write — would be entered before `inventory.run` could be reached at all.
+        def cli_with_environment(environment, *argv):
+            """`(code, err, reached)` for one invocation under `environment`, producer recorded.
+
+            The driver reads the environment where it resolves roots, not where it starts, so the
+            variables are placed for the duration of the call and taken away afterwards."""
+            reached, kept_run, kept_environ = [], inventory.run, dict(os.environ)
+            try:
+                inventory.run = lambda *a, **k: (reached.append(argv) or
+                                                 {"references": {}, "state_root_unchanged": True})
+                os.environ.update(environment)
+                err = io.StringIO()
+                with contextlib.redirect_stderr(err), contextlib.redirect_stdout(io.StringIO()):
+                    try:
+                        code = main(list(argv))
+                    except SystemExit as exc:
+                        code, _ = (exc.code if isinstance(exc.code, int) else 2), err.write(f"EXITED {exc.code!r}")
+                    except Exception as exc:
+                        code, _ = 99, err.write(f"RAISED {exc!r}")
+                return code, err.getvalue(), reached
+            finally:
+                inventory.run = kept_run
+                os.environ.clear()
+                os.environ.update(kept_environ)
+
+        host_home_fixture = scratch / "configured-host-homes"
+        (host_home_fixture / "home").mkdir(parents=True)
+        fixture_environment = {"HOME": str(host_home_fixture / "home"),
+                               "CLAUDE_CONFIG_DIR": str(host_home_fixture / "elsewhere" / "claude"),
+                               "CODEX_HOME": str(host_home_fixture / "elsewhere" / "codex")}
+        moved_homes = [str(home) for home in inventory.host_homes(fixture_environment)]
+        control("the two variables really move the homes this driver protects",
+                moved_homes == [fixture_environment["CLAUDE_CONFIG_DIR"],
+                                fixture_environment["CODEX_HOME"]], f"{moved_homes}")
+        for variable in ("CLAUDE_CONFIG_DIR", "CODEX_HOME"):
+            configured = pathlib.Path(fixture_environment[variable])
+            # A run directory under the configured home, named through `--out` and `--run-id`, so
+            # the refusal has to come before `records.run_stage` is entered.
+            code, err, reached = cli_with_environment(
+                fixture_environment, "inventory", "--run-id", "r-host-home",
+                "--out", str(configured / "runs"), "--no-state",
+                "--state-root", str(host_home_fixture / "state"),
+                "--user-root", str(host_home_fixture / "user"))
+            control(f"the driver itself refuses a run destination inside the home {variable} names",
+                    code == 1 and "PROTECTED_OVERLAP" in err and not reached,
+                    f"{code} {reached} {err.strip()[:300]}")
+            written = sorted(str(path.relative_to(host_home_fixture))
+                             for path in host_home_fixture.rglob("record.json"))
+            control(f"and nothing of that run exists afterwards, so no stage was entered ({variable})",
+                    not configured.exists() and not written,
+                    f"{configured} exists={configured.exists()} records={written}")
+        # The same environment with a destination OUTSIDE those homes: the recorder is reached, so
+        # the two refusals above are the configured homes' doing and not this environment refusing
+        # every destination. It is a standalone `--to`, because a run id would need a declaration
+        # and `RUN_UNDECLARED` is a different refusal that would satisfy the same control.
+        reachable_out = scratch / "configured-host-homes-reachable"
+        code, err, reached = cli_with_environment(
+            fixture_environment, "inventory", "--to", str(reachable_out), "--no-state",
+            "--state-root", str(host_home_fixture / "state"),
+            "--user-root", str(host_home_fixture / "user"))
+        control("and the same run outside those homes reaches the producer", len(reached) == 1,
+                f"the recorder was called {len(reached)} time(s): {code} {err.strip()[:300]}")
         # ---- GC#3 by another route: a standalone `--to` is not a way into a run's artifacts. The
         # run's own bytes and its stage record are the subject: both must be exactly as they were.
         standalone_run = out / "r-standalone"
