@@ -150,211 +150,34 @@ PROJECT_FILES = ("CLAUDE.md", "AGENTS.md")
 MEMBER_BASE = {"guide": "claude/guides", "hook": "claude/hooks", "agent": "claude/agents", "skill": "claude/skills"}
 
 
-# The child this module's self-test runs to answer, behaviourally, whether the command's own module
-# graph writes a `.pyc` (GB#7, GC#10). It is passed to `python -c`: a question only a real process
-# answers, and a script file would be a program the dispatch trace cannot follow.
+# The child this module's self-test runs to answer, behaviourally, whether a real invocation writes
+# anything into the tree it ran from (GB#7, GC#10). It is passed to `python -c`: a question only a
+# real process answers, and a script file would be a program the dispatch trace cannot follow.
 #
 # It runs the driver the way production does — as `__main__`, through `runpy.run_path` — because
 # that is the only shape a real invocation has. Importing it as a module was the control's own
 # probe, and the one shape that caches the driver: the probe produced the single
 # `session-distill/__pycache__/distill.*.pyc` ever seen here and then called it a finding (GC#10).
 #
-# `checkout` is the copy of the checkout this run is confined to looking at. Every attempted
-# MUTATION under it is reported, and the bytecode ones separately: the claim is about THAT tree,
-# which is also the tree the caller compares before and after.
-#
-# A write-mode `open` is one way to change a tree and not the only one. The first version returned
-# immediately for every event that was not `open`, so a fixture `os.mkdir`, `os.remove` and
-# `os.rename` under the copy were each observed as nothing while the claim read "no write at all
-# anywhere under the checkout" (R1#4). The operations are a DATA list: a kind this does not name
-# cannot be excused by prose, and the after-run comparison of the whole tree is the backstop for one
-# that is missing — a directory created or a file renamed changes the tree whether or not an event
-# for it was recognised.
-#
-# Audit hooks fire BEFORE the operation, so an attempt that then fails is still observed. That is
-# what makes "attempted write" the right question: a run that tried and was refused by the operating
-# system has still tried.
-#
-# Paths are resolved AT EVENT TIME. Resolving later answers about a tree that has moved on, and the
-# process's working directory is the copy's neighbour, so a relative argument has to be resolved
-# while it still means what it meant.
+# It OBSERVES NOTHING. It used to carry an audit hook, a table of 37 mutating events and an
+# accounting of the ones it could not attribute, and the claim rested on that instrument — which was
+# wrong twice (R1#4: every event that was not an `open` returned immediately; R2#4: a
+# descriptor-relative path was resolved against the working directory), and both times the instrument
+# reported a clean run. What answers now is the tree itself, compared before and after by the caller,
+# and a positive control with the cause removed shows that comparison can fail. The claim is
+# narrower for it: this says nothing about a write that was ATTEMPTED and refused, because nothing
+# on disk records one (owner's narrowing, 2026-10-25).
 BYTECODE_PROBE = """
-import json, os, runpy, sys
+import json, runpy, sys
 
-# event name -> (which positional arguments are paths, which argument holds the dir_fd for each).
-# Every entry is one filesystem mutation the interpreter audits. `open` is handled separately,
-# because only some modes and flags mutate. A `-1` means that path has no dir_fd argument.
-#
-# The layouts are CPython's audit-event arguments. An event this table does not know, or an argument
-# missing from one it does, is UNVERIFIED rather than ignored: the claim this probe exists for is
-# "no attempted write under the copy", and an event nobody could attribute is not evidence of that.
-MUTATIONS = {
-    'os.mkdir': ((0,), (2,)), 'os.rmdir': ((0,), (1,)), 'os.remove': ((0,), (1,)),
-    'os.unlink': ((0,), (1,)),
-    'os.rename': ((0, 1), (2, 3)), 'os.replace': ((0, 1), (2, 3)), 'os.link': ((0, 1), (2, 3)),
-    'os.symlink': ((0, 1), (-1, 2)),
-    'os.truncate': ((0,), (-1,)), 'os.chmod': ((0,), (2,)), 'os.chown': ((0,), (3,)),
-    'os.utime': ((0,), (3,)),
-    'os.makedirs': ((0,), (-1,)), 'os.removedirs': ((0,), (-1,)), 'os.mknod': ((0,), (2,)),
-    'os.mkfifo': ((0,), (2,)),
-    'os.setxattr': ((0,), (-1,)), 'os.removexattr': ((0,), (-1,)),
-    'shutil.copyfile': ((0, 1), (-1, -1)), 'shutil.copymode': ((0, 1), (-1, -1)),
-    'shutil.copystat': ((0, 1), (-1, -1)), 'shutil.copytree': ((0, 1), (-1, -1)),
-    'shutil.move': ((0, 1), (-1, -1)), 'shutil.rmtree': ((0,), (1,)),
-    'shutil.unpack_archive': ((0, 1), (-1, -1)), 'shutil.make_archive': ((0,), (-1,)),
-    'pathlib.Path.mkdir': ((0,), (-1,)), 'pathlib.Path.rename': ((0, 1), (-1, -1)),
-    'pathlib.Path.replace': ((0, 1), (-1, -1)),
-    'pathlib.Path.unlink': ((0,), (-1,)), 'pathlib.Path.rmdir': ((0,), (-1,)),
-    'pathlib.Path.touch': ((0,), (-1,)),
-    'pathlib.Path.symlink_to': ((0, 1), (-1, -1)), 'pathlib.Path.hardlink_to': ((0, 1), (-1, -1)),
-    'pathlib.Path.chmod': ((0,), (-1,)), 'tempfile.mkstemp': ((0,), (-1,)),
-    'tempfile.mkdtemp': ((0,), (-1,)),
-}
-F_GETPATH = 50          # darwin; elsewhere /proc/self/fd answers
-seen = []               # (event, resolved path)
-unverified = []         # (event, why) — a mutation nobody could attribute to a tree
-
-
-def fd_path(fd):
-    '''The path a descriptor is open on: F_GETPATH where the platform has it, /proc/self/fd where it
-    does not. `fcntl.fcntl` RETURNS the result buffer rather than filling the one it is given.'''
-    try:
-        import fcntl
-        answer = fcntl.fcntl(fd, F_GETPATH, b'\\0' * 1024)
-        return os.fsdecode(bytes(answer).split(b'\\0', 1)[0]) or None
-    except Exception:
-        try:
-            return os.readlink('/proc/self/fd/%d' % fd)
-        except OSError:
-            return None
-
-
-def resolve(value, dir_fd=None):
-    \'\'\'(resolved path, why it could not be resolved). Fail closed: a descriptor-only operation and a
-    descriptor-relative one are resolved through the descriptor, and anything left over is named.\'\'\'
-    if isinstance(value, int):
-        base = fd_path(value)
-        return (os.path.realpath(base), None) if base else (None, 'descriptor-only')
-    try:
-        text = os.fsdecode(value)
-    except (TypeError, ValueError):
-        return None, 'not-a-path'
-    if dir_fd is not None and not isinstance(dir_fd, int):
-        dir_fd = None
-    if dir_fd is not None and dir_fd >= 0 and not os.path.isabs(text):
-        base = fd_path(dir_fd)
-        if base is None:
-            return None, 'descriptor-relative'
-        return os.path.realpath(os.path.join(base, text)), None
-    return os.path.realpath(text), None
-
-
-def record(event, value, dir_fd=None):
-    resolved, why = resolve(value, dir_fd)
-    if resolved is None:
-        unverified.append((event, why))
-        return
-    seen.append((event, resolved))
-
-
-def hook(event, args):
-    if event == 'open':
-        if not args:
-            unverified.append((event, 'no-arguments'))
-            return
-        mode = args[1] if len(args) > 1 else None
-        flags = args[2] if len(args) > 2 and isinstance(args[2], int) else 0
-        # A .pyc is written through os.open, whose audit args carry no mode string at all: a
-        # mode-only test observed nothing and called it proof. O_TRUNC truncates a file that the
-        # process may have opened read-write without O_CREAT, so it counts too.
-        writes = os.O_WRONLY | os.O_RDWR | os.O_CREAT | os.O_APPEND | os.O_TRUNC
-        writing = (isinstance(mode, str) and any(f in mode for f in 'wax+')) or bool(flags & writes)
-        if writing:
-            record('open(write)', args[0])
-        return
-    layout = MUTATIONS.get(event)
-    if layout is None:
-        return
-    positions, fds = layout
-    for index, position in enumerate(positions):
-        if position >= len(args):
-            unverified.append((event, 'argument-%d-absent' % position))
-            continue
-        at = fds[index] if index < len(fds) else -1
-        dir_fd = args[at] if 0 <= at < len(args) else None
-        record(event, args[position], dir_fd)
-
-
-checkout, destination, which, driver = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
-root = os.path.realpath(checkout)
-sys.addaudithook(hook)
+destination, driver = sys.argv[1], sys.argv[2]
+sys.argv = [driver, 'inventory', '--to', destination, '--no-state']
 code = 0
-if which == 'unguarded':
-    import importlib.util
-    sys.dont_write_bytecode = False
-    spec = importlib.util.spec_from_file_location('probe_floor', driver)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-elif which == 'mutations':
-    # The positive controls for the kinds that are not an open. Each one is under the copy, and the
-    # three that FAIL are given paths nothing else here touches, so the control can assert them by
-    # (event, path) identity rather than by a count that successful events already satisfy.
-    probe_dir = os.path.join(root, 'session-distill', 'probe-mutations')
-    os.mkdir(probe_dir)
-    made = os.path.join(probe_dir, 'made.txt')
-    with open(made, 'w') as handle:
-        handle.write('x')
-    renamed = os.path.join(probe_dir, 'renamed.txt')
-    os.rename(made, renamed)
-    # A descriptor-relative creation and a descriptor-only truncation: the shapes the old observer
-    # resolved against the working directory, or discarded as a non-path.
-    folder = os.open(probe_dir, os.O_RDONLY)
-    try:
-        os.mkdir('relative-to-a-descriptor', dir_fd=folder)
-        os.rmdir('relative-to-a-descriptor', dir_fd=folder)
-    finally:
-        os.close(folder)
-    handle = os.open(renamed, os.O_RDWR)
-    try:
-        os.truncate(handle, 0)
-    finally:
-        os.close(handle)
-    # An open whose ONLY write flag is O_TRUNC: it carries no mode string and no O_WRONLY, and it
-    # destroys the file's contents. The file is put there by a rename so that this open is the only
-    # event about it, and the row it produces is the one the O_TRUNC classification answers for.
-    truncated = os.path.join(probe_dir, 'truncated.txt')
-    os.rename(renamed, truncated)
-    try:
-        os.close(os.open(truncated, os.O_RDONLY | os.O_TRUNC))
-    except OSError:
-        pass
-    os.remove(truncated)
-    for attempt in ('mkdir', 'remove', 'rename'):
-        try:
-            if attempt == 'mkdir':
-                os.mkdir(probe_dir)                                   # already there: fails
-            elif attempt == 'remove':
-                os.remove(os.path.join(root, 'a-file-that-is-not-here'))   # absent: fails
-            else:
-                os.rename(os.path.join(root, 'also-not-here'),
-                          os.path.join(probe_dir, 'nowhere.txt'))     # source absent: fails
-        except OSError:
-            pass
-    os.rmdir(probe_dir)
-else:
-    sys.argv = [driver, 'inventory', '--to', destination, '--no-state']
-    try:
-        runpy.run_path(driver, run_name='__main__')
-    except SystemExit as exit:
-        code = exit.code if isinstance(exit.code, int) else 1
-under = sorted({'%s %s' % (event, path) for event, path in seen if path.startswith(root)})
-kinds = sorted({event for event, path in seen if path.startswith(root)})
-print(json.dumps({'code': code, 'under_checkout': under[:16], 'under_checkout_total': len(under),
-                  'kinds': kinds,
-                  'unverified': sorted({'%s %s' % row for row in unverified})[:8],
-                  'unverified_total': len(unverified),
-                  'bytecode': sorted({row for row in under
-                                      if row.endswith('.pyc') or '__pycache__' in row})[:8]}))
+try:
+    runpy.run_path(driver, run_name='__main__')
+except SystemExit as leaving:
+    code = leaving.code if isinstance(leaving.code, int) else 1
+print(json.dumps({'code': code}))
 
 """
 
@@ -1874,11 +1697,11 @@ def checkout_copy(destination, source=REPO):
 # path's shape (R2#5).
 _COPIES = set()
 # The members a control may run or load from such a copy, and nothing else: the driver, as
-# production runs it; the redaction floor, which the bytecode control's positive leg loads by path
-# with the no-bytecode guard off; and this module, whose own entry point the boundary-bootstrap
-# control runs as a production command from a copy with `runlib/entry.py` broken (r3 #2).
-COPIED_MEMBERS = ("session-distill/distill.py", "learn/redact.py",
-                  "session-distill/runlib/inventory.py")
+# production runs it, and this module, whose own entry point the boundary-bootstrap control runs as
+# a production command from a copy with `runlib/entry.py` broken (r3 #2). `learn/redact.py` was here
+# while the bytecode control loaded the floor by path to make its own observer fire; the observer is
+# gone and so is the member.
+COPIED_MEMBERS = ("session-distill/distill.py", "session-distill/runlib/inventory.py")
 
 
 def copied_member(copy_root, member):
@@ -1897,6 +1720,87 @@ def copied_member(copy_root, member):
     if str(root.resolve()) not in _COPIES:
         raise Refused(f"COPY_UNVERIFIED {masked(root)}: this process did not make that copy")
     return confined(root, member)
+
+
+# The entry files whose own source carries the cause: each sets `sys.dont_write_bytecode` before it
+# imports anything that is not the standard library. Declared, so the judge below cannot be green
+# about an empty set.
+ENTRY_FILES = ("session-distill/distill.py", "session-distill/runlib/inventory.py")
+
+
+def _stdlib_only(node):
+    """Whether this import names nothing but standard-library modules.
+
+    The test is `sys.stdlib_module_names`, a frozenset the interpreter publishes, so the contract
+    behind "this import cannot be one of ours" is Python's own. Naming this repository's own
+    directories instead would be an enumeration of prefixes — the shape that keeps being the hole."""
+    if isinstance(node, ast.ImportFrom):
+        return node.level == 0 and bool(node.module) and \
+            node.module.split(".")[0] in sys.stdlib_module_names
+    return all(alias.name.split(".")[0] in sys.stdlib_module_names for alias in node.names)
+
+
+def guard_before_imports(source):
+    """Violations, in one entry file's own source, of the rule that bytecode writing is turned off
+    BEFORE anything of this repository is imported.
+
+    `runlib.projection` loads `learn/redact.py` by path at import time, and a cache write lands
+    beside the file it caches — in the checkout, or in a frozen copy a run is about to hash (GB#7).
+    Setting the flag is therefore not enough: it has to come first, and "first" is a fact about the
+    order of statements, which only the source can answer. A control that reads the flag at runtime
+    sees it set and learns nothing about the order.
+
+    Default-deny. Before the guard, a module-level statement may be the module docstring, a
+    `__future__` import, or an import of the standard library — nothing else. A repository import, a
+    dynamic `importlib.import_module(...)`, an assignment and a bare call are each refused, because
+    any of them can be what loads and caches a module.
+
+    The guard must be the literal module-level `sys.dont_write_bytecode = True`. Nested inside `if`,
+    `try` or `with` it is not a statement this judge can order at all, so it does not count as the
+    guard: a guard under a condition is a guard that may not run."""
+    body = list(ast.parse(source).body)
+    at = next((n for n, node in enumerate(body) if _is_the_guard(node)), None)
+    if at is None:
+        nested = [node.lineno for node in ast.walk(ast.parse(source)) if _is_the_guard(node)]
+        return [f"BYTECODE_GUARD_ABSENT: no module-level `sys.dont_write_bytecode = True`"
+                + (f"; one is nested at line {nested[0]}, where it may not run" if nested else "")]
+    problems = []
+    for node in body[:at]:
+        if isinstance(node, ast.Expr) and isinstance(node.value, ast.Constant) \
+                and isinstance(node.value.value, str):
+            continue                                              # the module's own docstring
+        if isinstance(node, ast.ImportFrom) and node.module == "__future__":
+            continue
+        if isinstance(node, (ast.Import, ast.ImportFrom)) and _stdlib_only(node):
+            continue
+        problems.append(f"BYTECODE_GUARD_LATE line {node.lineno}: a "
+                        f"{type(node).__name__} stands before the guard, so a module may be loaded "
+                        f"and cached before bytecode writing is turned off")
+    return problems
+
+
+def _is_the_guard(node):
+    """Whether this statement IS `sys.dont_write_bytecode = True`."""
+    return (isinstance(node, ast.Assign) and len(node.targets) == 1
+            and isinstance(node.targets[0], ast.Attribute)
+            and node.targets[0].attr == "dont_write_bytecode"
+            and isinstance(node.targets[0].value, ast.Name) and node.targets[0].value.id == "sys"
+            and isinstance(node.value, ast.Constant) and node.value.value is True)
+
+
+def guard_problems(root=REPO, entries=ENTRY_FILES):
+    """`guard_before_imports` over every declared entry file, each named with its own violations."""
+    problems = []
+    for relative in entries:
+        path = pathlib.Path(root) / relative
+        if not path.is_file():
+            problems.append(f"BYTECODE_GUARD_ABSENT {relative}: no such file")
+            continue
+        problems += [f"{row.split(':', 1)[0]} {relative}:{row.split(':', 1)[1]}"
+                     for row in guard_before_imports(path.read_text(encoding="utf-8"))]
+    if not entries:
+        problems.append("BYTECODE_GUARD_ABSENT: no entry file was judged, so this says nothing")
+    return problems
 
 
 def loads_outside_the_guard(source):
@@ -4293,8 +4197,56 @@ def self_test():
               "dont_write_bytecode was not set inside no_bytecode()")
         check("the guard leaves the interpreter as it found it", restored is False,
               "dont_write_bytecode stayed on after the guard")
-        check("the command itself turns bytecode writing off before its own imports",
+        check("the command itself has bytecode writing off by the time its graph is imported",
               was is True, "the entry point did not set dont_write_bytecode before importing its graph")
+        # And the ORDER, which the runtime reading above cannot see: by the time anything can read
+        # that flag, every import has already happened. The order is a fact about the entry files'
+        # own source, so it is judged there, over the real files and not a double.
+        clean("both entry files turn bytecode writing off before any import of their own",
+              guard_problems())
+        control("no entry file to judge at all", guard_problems(entries=()),
+                "BYTECODE_GUARD_ABSENT", "says nothing")
+        control("an entry file that names a file that is not there",
+                guard_problems(entries=("session-distill/not-an-entry.py",)),
+                "BYTECODE_GUARD_ABSENT", "no such file")
+        # Four source-only plants, each built from the REAL entry file's text so the subject is the
+        # file that ships. The repo import the first two move the guard behind is the bootstrap's
+        # own `from runlib import entry`, which is the earliest one either file has.
+        for name, relative, mutate, needle in (
+                ("the guard taken out",
+                 "session-distill/runlib/inventory.py",
+                 lambda text: text.replace("sys.dont_write_bytecode = True\n", "", 1),
+                 "BYTECODE_GUARD_ABSENT"),
+                ("the guard moved below the first repository import",
+                 "session-distill/runlib/inventory.py",
+                 lambda text: text.replace("sys.dont_write_bytecode = True\n", "", 1).replace(
+                     "try:\n    from runlib import entry\n",
+                     "try:\n    from runlib import entry\n    sys.dont_write_bytecode = True\n", 1),
+                 "BYTECODE_GUARD_ABSENT"),
+                ("a dynamic import before the guard",
+                 "session-distill/distill.py",
+                 lambda text: text.replace(
+                     "sys.dont_write_bytecode = True\n",
+                     "import importlib\nimportlib.import_module('runlib.entry')\n"
+                     "sys.dont_write_bytecode = True\n", 1),
+                 "BYTECODE_GUARD_LATE"),
+                ("the guard nested under a condition",
+                 "session-distill/distill.py",
+                 lambda text: text.replace("sys.dont_write_bytecode = True\n",
+                                           "if True:\n    sys.dont_write_bytecode = True\n", 1),
+                 "BYTECODE_GUARD_ABSENT"),
+        ):
+            live = (REPO / relative).read_text(encoding="utf-8")
+            planted_text = mutate(live)
+            check(f"the plant for {name} really changed the source", planted_text != live,
+                  "the mutation did not apply, so the control below judges the real file")
+            control(f"an entry file with {name}", guard_before_imports(planted_text), needle)
+        check("a standard-library import before the guard is admitted, so the rule is not 'no imports'",
+              not guard_before_imports("import os\nimport sys\nsys.dont_write_bytecode = True\n"),
+              "a stdlib import before the guard was refused")
+        check("and the admission comes from the interpreter's own list, not from a prefix of ours",
+              "os" in sys.stdlib_module_names and "runlib" not in sys.stdlib_module_names,
+              "sys.stdlib_module_names does not answer this question here")
         check("the interpreter would otherwise write bytecode, so the guard has a subject",
               not sys.flags.dont_write_bytecode, "this interpreter never writes bytecode, so the guard proves nothing")
         guarded_loads = loads_outside_the_guard(pathlib.Path(__file__).read_text(encoding="utf-8"))
@@ -5478,8 +5430,9 @@ def self_test():
         clean("an empty standalone destination outside every run",
               standalone_problems(scratch / "a-fresh-destination", native_home))
 
-        # ---- GC#10: the real invocation writes no bytecode, observed as attempted writes into an
-        # uncached COPY of the checkout and then read off that same copy's disk.
+        # ---- GC#10: a real invocation leaves the tree it ran from unchanged — asked of an uncached
+        # COPY of the checkout, by comparing that copy before and after, with the cause asserted
+        # separately and a positive control that removes the cause.
         #
         # Three things this control used to get wrong, each of which made it answer about something
         # else: it imported the driver as a module (the one shape production never takes, and the
@@ -5568,96 +5521,29 @@ def self_test():
             except (ValueError, IndexError):
                 return ran, {}
 
-        # One helper per member, and each names its member as a LITERAL at the call that starts the
-        # child. The program the child loads is produced HERE, by `copied_member`, and that call is
-        # what `runlib/dispatch.py` admits: a closure member inside a tree this process copied, by a
-        # name this site declares. A member the CALLER passed in left the admission resting on text
-        # elsewhere in the file, which the judge can no longer read (R2#5, r3 #4).
-        def probe_with_floor(which, destination):
+        # The program the child loads is produced HERE, by `copied_member`, and that call is what
+        # `runlib/dispatch.py` admits: a closure member inside a tree this process copied, by a name
+        # this site declares as a literal (R2#5, r3 #4). One starter, because the floor is no longer
+        # loaded by path by anything: the observer that did that is gone.
+        def run_the_driver(from_copy, destination, what):
             return probe_report(bounded_child(lambda: subprocess.Popen(
-                [sys.executable, "-I", "-c", BYTECODE_PROBE, str(copied_checkout),
-                 str(destination), which, str(copied_member(copied_checkout, "learn/redact.py"))],
+                [sys.executable, "-I", "-c", BYTECODE_PROBE, str(destination),
+                 str(copied_member(from_copy, "session-distill/distill.py"))],
                 stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=probe_env,
-                cwd=str(probe), start_new_session=True), what="the bytecode observer's own child"))
-
-        def probe_with_driver(which, destination):
-            return probe_report(bounded_child(lambda: subprocess.Popen(
-                [sys.executable, "-I", "-c", BYTECODE_PROBE, str(copied_checkout),
-                 str(destination), which,
-                 str(copied_member(copied_checkout, "session-distill/distill.py"))],
-                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=probe_env,
-                cwd=str(probe), start_new_session=True), what="the bytecode observer's own child"))
-
-        # The positive control first, on this same copy: a by-path load with the guard off writes a
-        # `.pyc` beside the file it caches, and BOTH instruments — the audit hook and the disk scan
-        # of the copy — are shown to see it. Then the cache it made is removed from the copy (never
-        # from the review checkout) and the copy is asserted uncached again.
-        unguarded_run, unguarded_seen = probe_with_floor("unguarded", probe / "out-positive")
-        on_disk = sorted(copied_checkout.rglob("*.pyc"))
-        check("the same observation sees a by-path load write bytecode when the guard is off",
-              bool(unguarded_seen.get("bytecode")) and bool(on_disk),
-              f"the positive control observed none: {unguarded_run.stdout[-200:]} "
-              f"{unguarded_run.stderr[-200:]} {[path.name for path in on_disk]}")
-        # A write-mode open is one way to change a tree. The observer is shown to see the others —
-        # a directory created, a file renamed, a file deleted, and two attempts that FAIL (an audit
-        # hook fires before the operation, so a refused attempt has still been attempted). Without
-        # this, "no write at all" rested on an observer that returned immediately for every event
-        # that was not `open` (R1#4).
-        mutation_run, mutation_seen = probe_with_floor("mutations", probe / "out-mutations")
-        observed_kinds = set(mutation_seen.get("kinds") or [])
-        for kind in ("os.mkdir", "os.rename", "os.remove", "os.rmdir"):
-            control(f"the observation sees {kind} under the checkout",
-                    [f"kinds={sorted(observed_kinds)}"], kind)
-        observed_rows = set(mutation_seen.get("under_checkout") or [])
-        # The probe reports resolved paths, so the rows this control expects are resolved too: on
-        # this platform the scratch parent is reached through a symlink, and comparing the two forms
-        # was comparing a path with another name for it.
-        real_copy = pathlib.Path(os.path.realpath(copied_checkout))
-        probe_dir = real_copy / "session-distill" / "probe-mutations"
-        # Each deliberately FAILED attempt, by its own (event, path) identity. A count was not an
-        # assertion about them at all: mkdir, the write-open, rename's two paths, remove and rmdir
-        # already supply six rows, so the old threshold passed with no failed attempt observed (R2#4).
-        for what, row in (("a mkdir of a directory that is already there", f"os.mkdir {probe_dir}"),
-                          ("a remove of a file that is not there",
-                           f"os.remove {real_copy / 'a-file-that-is-not-here'}"),
-                          ("a rename whose source is not there",
-                           f"os.rename {real_copy / 'also-not-here'}")):
-            # The rows themselves are the problems list, so the needle is looked for in ALL of them:
-            # rendering a truncated list and searching that text was a control reporting "not seen"
-            # about a row it had.
-            control(f"the observation sees {what}, which failed", sorted(observed_rows), row)
-        # A descriptor-relative creation and a descriptor-only truncation: the shapes `record`
-        # resolved against the working directory, or discarded because `os.fspath` cannot take an
-        # integer. Either the descriptor resolves them under the copy, or they are UNVERIFIED — and
-        # unverified is a failure of the claim, never a pass.
-        for what, row in (("a mkdir made relative to a directory descriptor",
-                           f"os.mkdir {probe_dir / 'relative-to-a-descriptor'}"),
-                          ("a truncation given only a file descriptor",
-                           f"os.truncate {probe_dir / 'renamed.txt'}"),
-                          ("an open whose only write flag is O_TRUNC",
-                           f"open(write) {probe_dir / 'truncated.txt'}")):
-            control(f"the observation sees {what}",
-                    sorted(observed_rows) + [f"unverified={mutation_seen.get('unverified')}"], row)
-        check("the mutation probe attributed every event it saw, so none of it rests on 'unverified'",
-              mutation_seen.get("unverified_total") == 0,
-              f"{mutation_seen.get('unverified')} {mutation_run.stderr[-200:]}")
-        check("the mutation probe left the copy as it found it",
-              not (copied_checkout / "session-distill" / "probe-mutations").exists(),
-              "the mutation probe's own directory is still there")
-        for cache in list(copied_checkout.rglob("__pycache__")):
-            shutil.rmtree(cache, ignore_errors=True)
-        check("the copy is uncached again before the real invocation runs",
-              not any(copied_checkout.rglob("*.pyc")),
-              f"{sorted(str(path.relative_to(copied_checkout)) for path in copied_checkout.rglob('*.pyc'))}")
+                cwd=str(probe), start_new_session=True), what=what))
 
         def tree_state(root):
             """Every entry under `root`: its name, its contents, and its METADATA — mode, size and
             mtime in nanoseconds.
 
             A content-only comparison cannot see a chmod, a utime or a truncation that restored the
-            same bytes, so it was no backstop for the event kinds the observer might miss (R2#4).
-            It still cannot see an attempt that FAILED — nothing changes on disk — which is why the
-            failed attempts are asserted from the events, by identity, and not from here."""
+            same bytes. Directories are entries of their own, so a `__pycache__/` that holds nothing
+            still shows, and `lstat` is what is read, so a link is reported as a link rather than
+            followed to whatever it points at.
+
+            It cannot see an attempt that FAILED — nothing changes on disk. That is the claim this
+            control gave up when the audit-hook observer was removed, stated here rather than left
+            for a reader to notice (owner's narrowing, 2026-10-25)."""
             root = pathlib.Path(root)
             state_of = {}
             for path in sorted(root.rglob("*")):
@@ -5680,29 +5566,66 @@ def self_test():
             return state_of
 
         before_tree = tree_state(copied_checkout)
-        guarded_run, guarded_seen = probe_with_driver("guarded", probe / "out")
+
+        def differences_between(was, now):
+            """Entries created or removed, and entries whose bytes or metadata changed."""
+            return sorted(set(was) ^ set(now)) + sorted(
+                name for name in set(was) & set(now) if was[name] != now[name])
+
+        # THE POSITIVE CONTROL COMES FIRST, on a copy of its own: the same run, from a copy whose
+        # driver has the one line `sys.dont_write_bytecode = True` taken out, must leave a cache
+        # behind — and the comparison below must be what reports it. Without this leg, "the tree is
+        # unchanged" is a sentence about an instrument nobody has seen fail. The copy is thrown away
+        # afterwards, and the review checkout is never touched.
+        unguarded_copy = probe / "unguarded-checkout"
+        checkout_copy(unguarded_copy)
+        unguarded_driver = unguarded_copy / "session-distill" / "distill.py"
+        held_driver = unguarded_driver.read_text(encoding="utf-8")
+        unguarded_driver.write_text(held_driver.replace("sys.dont_write_bytecode = True\n", "", 1),
+                                    encoding="utf-8")
+        check("the positive control really removed the cause, and only it",
+              "sys.dont_write_bytecode = True" not in unguarded_driver.read_text(encoding="utf-8")
+              and len(held_driver) - len(unguarded_driver.read_text(encoding="utf-8")) == len(
+                  "sys.dont_write_bytecode = True\n"),
+              "the copy's driver still sets the flag, or more than that line changed")
+        before_unguarded = tree_state(unguarded_copy)
+        unguarded_run, unguarded_seen = run_the_driver(
+            unguarded_copy, probe / "out-positive", "the driver with the no-bytecode line removed")
+        unguarded_differences = differences_between(before_unguarded, tree_state(unguarded_copy))
+        control("the same run with the cause removed leaves a bytecode cache the comparison reports",
+                [f"code={unguarded_seen.get('code')} differences={unguarded_differences[:8]} "
+                 f"stderr={unguarded_run.stderr[-200:]}"], "__pycache__")
+        check("and the comparison reports the cache DIRECTORY as an entry of its own, not only the file",
+              "__pycache__" in [name.rsplit("/", 1)[-1] for name in unguarded_differences],
+              f"{unguarded_differences[:8]}")
+        check("every difference the positive control saw is inside that copy",
+              all(not name.startswith("/") for name in unguarded_differences)
+              and bool(unguarded_differences), f"{unguarded_differences[:8]}")
+        shutil.rmtree(unguarded_copy, ignore_errors=True)
+
+        guarded_run, guarded_seen = run_the_driver(copied_checkout, probe / "out",
+                                                   "the real invocation from an uncached copy")
         after_tree = tree_state(copied_checkout)
         check("the real invocation ran the driver as __main__ and produced the inventory",
               guarded_seen.get("code") == 0 and (probe / "out" / "inventory" / "manifest.json").is_file(),
               f"{guarded_run.returncode} {guarded_run.stdout[-300:]} {guarded_run.stderr[-400:]}")
-        # Every attempted mutation under the copy, not only the bytecode ones: the read-only claim is
-        # the wider one, and the observation that answers it is the same observation.
-        # Fail closed. "No attempted write" is `writes_under_checkout=0` AND `unverified=0`: an
-        # event the observer could not attribute to a tree is not evidence that nothing was written,
-        # and reading it as one is how a descriptor-relative removal would have passed (R2#4).
-        control("the real invocation attempts no write at all anywhere under the checkout",
-                [f"observed={guarded_seen.get('bytecode')} "
-                 f"writes_under_checkout={guarded_seen.get('under_checkout_total')} "
-                 f"unverified={guarded_seen.get('unverified_total')} "
-                 f"first={guarded_seen.get('under_checkout')} {guarded_seen.get('unverified')}"],
-                "observed=[]", "writes_under_checkout=0", "unverified=0")
-        differences = sorted(set(before_tree) ^ set(after_tree)) + sorted(
-            name for name in set(before_tree) & set(after_tree) if before_tree[name] != after_tree[name])
-        control("and that same checkout's whole tree — contents, names and metadata — is what it was",
+        # What is claimed here, and nothing beyond it: the tree this invocation ran from is what it
+        # was. A write that was ATTEMPTED and refused leaves nothing on disk, so this does not speak
+        # about one — the audit-hook observer that did was wrong twice in the same direction, and
+        # both times it reported a clean run (owner's narrowing, 2026-10-25).
+        differences = differences_between(before_tree, after_tree)
+        control("the real invocation leaves the checkout it ran from exactly as it was",
                 [f"entries={len(before_tree)} differences={differences[:6]}"], "differences=[]")
         check("the comparison carried metadata as well as contents, so a chmod or a utime would show",
               all("mode=" in value and "mtime_ns=" in value for value in before_tree.values()),
               f"{sorted(before_tree.items())[:2]}")
+        check("and it carries directories as entries of their own, so an empty one would show",
+              any(value.startswith("dir ") for value in before_tree.values()),
+              "no directory is an entry of this comparison")
+        check("and it reads links without following them", all(
+            value.startswith("link:") for name, value in before_tree.items()
+            if (copied_checkout / name).is_symlink()) and len(before_tree) > 200,
+              "a link was followed, or the tree was too small to judge")
         check("the comparison had a tree to compare", len(before_tree) > 200,
               f"{len(before_tree)} entries")
 
@@ -6022,7 +5945,8 @@ def self_test():
           f"line from both entry points, with `runlib/entry.py` missing and unreadable, as real "
           f"children of a checkout copy — the checkout protected whatever `--project` declares, a "
           f"standalone destination that is a run or already holds an inventory refused, the real invocation run as "
-          f"`__main__` against an uncached copy of the checkout with every attempted write observed, a context that "
+          f"`__main__` against an uncached copy of the checkout leaving that copy unchanged, the cause "
+          f"judged in the entry files' own source with a positive control that removes it, a context that "
           f"spans two guides "
           f"and shrinks without its cross-reference, one fragment across two versions with two contexts, the release "
           f"mapping against the baseline file's own item list, every layer status the table can report, the owner's "

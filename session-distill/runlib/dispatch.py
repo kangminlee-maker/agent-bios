@@ -234,16 +234,17 @@ COPY_RUNS = (
                "about has to be inside the checkout the rule protects, and an unreadable schema pin has to be "
                "unreadable in the tree that reads it (R1#2, R1#3)"},
     {"site": "session-distill/runlib/inventory.py", "owner": "copied_member",
-     "paths": ("session-distill/distill.py", "learn/redact.py",
-               "session-distill/runlib/inventory.py"),
+     "paths": ("session-distill/distill.py", "session-distill/runlib/inventory.py"),
      "reason": "the bytecode control's child runs the COPY's driver as production does — "
-               "`runpy.run_path(..., run_name=\'__main__\')` — to ask whether a real invocation writes "
-               "anything under the checkout it ran from, and its positive leg loads the copy's own "
-               "redaction floor by path with the no-bytecode guard off, which is what proves both "
-               "instruments can see such a write. The copy's own `runlib/inventory.py` is run the "
-               "same way by the boundary-bootstrap control, whose question — what this entry point "
-               "prints when `runlib/entry.py` itself cannot be imported — can only be asked of a "
-               "tree where that file is broken, never of this one (r3 #2)"},
+               "`runpy.run_path(..., run_name=\'__main__\')` — to ask whether a real invocation leaves "
+               "the tree it ran from unchanged, and its positive leg runs the same driver from a "
+               "copy with the no-bytecode line taken out, which is what shows the comparison can "
+               "fail. `learn/redact.py` was a member of this site while the control loaded the "
+               "floor by path to make its own observer fire; the observer is gone, and so is that "
+               "member. The copy's own `runlib/inventory.py` is run the same way by the "
+               "boundary-bootstrap control, whose question — what this entry point prints when "
+               "`runlib/entry.py` itself cannot be imported — can only be asked of a tree where "
+               "that file is broken, never of this one (r3 #2)"},
 )
 
 # The ONE spelling each form-bearing file writes the admitted program forms with. A file that
@@ -274,9 +275,11 @@ FORM_SPELLINGS = (
 # program is refused until the row is updated.
 INLINE_PROGRAMS = (
     {"site": "session-distill/runlib/inventory.py", "name": "BYTECODE_PROBE",
-     "sha256": "3674966f6ce937384b11a1af291b2a73291381be927bbc90831087b292d4c37f", "loads": 7,
-     "reason": "the bytecode control's observer: it audits every attempted write under the copy and "
-               "runs the copy's own program at argv[7] as `__main__`, which is how production runs it"},
+     "sha256": "15107827053e49d63f6ee778cc97ed4cc02a258a99282ba7276d62a5f49951ae", "loads": 5,
+     "reason": "the bytecode control's child: it runs the copy's own program at argv[5] as "
+               "`__main__`, which is how production runs it, and reports that run's exit code. It "
+               "observes nothing — the audit hook and its table of mutating events were removed "
+               "with the claim that rested on them, and the tree comparison answers instead"},
     {"site": "session-distill/distill.py", "name": "IGNORES_TERM",
      "sha256": "cfdf391fcc3aa2f392a80a79202ae2710f5f8c473a69bb1db568132e2276e693", "loads": None,
      "reason": "a TERM-ignoring descendant of a leader that exits on TERM, so the child bound is "
@@ -3686,7 +3689,7 @@ def self_test(scratch=None):
             "DISPATCH_UNRESOLVED {at}: python runs ['<?>/other.py']", 1)
     probe_entry = [e for e in COPY_RUNS if e["site"] == "session-distill/runlib/inventory.py"]
     control("copy-run-declared-for-the-bytecode-probe",
-            {p for e in probe_entry for p in e["paths"]} == {"session-distill/distill.py", "learn/redact.py",
+            {p for e in probe_entry for p in e["paths"]} == {"session-distill/distill.py",
                                                               "session-distill/runlib/inventory.py"},
             f"{[e['paths'] for e in probe_entry]}")
     if probe_entry:
@@ -3776,9 +3779,13 @@ def self_test(scratch=None):
     changed_probe = tree / inventory_rel
     held_probe_text = changed_probe.read_text(encoding="utf-8")
     try:
-        changed_probe.write_text(held_probe_text.replace(
-            "BYTECODE_PROBE = \"\"\"\nimport json, os, runpy, sys\n",
-            "BYTECODE_PROBE = \"\"\"\nimport json, os, runpy, sys, time\n", 1), encoding="utf-8")
+        edited = held_probe_text.replace("print(json.dumps({'code': code}))",
+                                         "print(json.dumps({'code': code, 'changed': True}))", 1)
+        # The edit has to land, or this control judges an unchanged file and passes for the wrong
+        # reason — which is what a needle copied from an older version of the probe did.
+        control("the text-change control really changed the declared program",
+                [f"changed={edited != held_probe_text}"], "changed=True")
+        changed_probe.write_text(edited, encoding="utf-8")
         changed_rows = closure_violations(tree)[0]
     finally:
         changed_probe.write_text(held_probe_text, encoding="utf-8")
