@@ -334,7 +334,15 @@ FORKING_ROOT = ("import subprocess, sys, time\n"
 
 
 def self_test():
+    # Imported HERE rather than at module scope: this file is the stop-at-a-cap machinery and
+    # production loads it with the standard library alone, which a control in `runlib/inventory.py`'s
+    # suite asserts. The suite is the only reader of the collected-failure boundary, so the import
+    # lives on the suite's path — and so does the path entry it needs: run as a FILE, this module's
+    # own directory is `sys.path[0]` and the package above it is not importable.
+    sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
+    from runlib import entry
     failures, ran, spawned = [], [], []
+    entry.SELF_TEST_COLLECTED.append(("stop --self-test", failures))
 
     def launch(away=False):
         """The tree; with `away`, also a child in a session of its own, whose pid is returned in place of the kid's."""
@@ -669,6 +677,7 @@ def self_test():
             p.wait(timeout=5)
         except subprocess.TimeoutExpired:
             pass
+    entry.SELF_TEST_COLLECTED.remove(("stop --self-test", failures))
     for failure in failures:
         print(f"stop --self-test [FAIL] {failure}")
     if failures:
@@ -680,4 +689,11 @@ def self_test():
 if __name__ == "__main__":
     if "--self-test" not in sys.argv[1:]:
         sys.exit("usage: stop.py --self-test")
-    sys.exit(self_test())
+    sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
+    from runlib import entry          # the suite's path only; see `self_test`
+    try:
+        sys.exit(self_test())
+    except BaseException:
+        # What the suite had collected, before the abort leaves with its own non-zero exit.
+        entry.publish_collected(print)
+        raise

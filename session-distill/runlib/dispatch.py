@@ -96,6 +96,9 @@ if __package__ in (None, ""):  # run as a script: put session-distill/ on the im
     sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 from runlib import breaker as breakers
 from runlib import bound, gate, packet as packets, receipts, records, stagelock, stop
+# Under a name of its own: `entry` is a LOCAL name in this file — the judge's own site rows — and the
+# boundary is only read for the collected-failure publication an abort would otherwise swallow.
+from runlib import entry as boundary
 from runlib import monitor as monitors
 from runlib import usage as usages
 from runlib.records import Refused
@@ -2493,6 +2496,8 @@ else:
 
 
 def self_test(scratch=None):
+    """Registers its failure list with `boundary.SELF_TEST_COLLECTED` so an abort publishes what it
+    had already collected; the report below removes it."""
     if scratch is None:
         scratch = pathlib.Path(tempfile.mkdtemp(prefix="dispatch-self-test-"))
         try:
@@ -2501,6 +2506,7 @@ def self_test(scratch=None):
             shutil.rmtree(scratch, ignore_errors=True)
     from runlib import declare
     failures, ran = [], []
+    boundary.SELF_TEST_COLLECTED.append(("dispatch --self-test", failures))
     fake = scratch / "fake_host.py"
     fake.write_text(FAKE_HOST, encoding="utf-8")
     verdict_schema = {"type": "object", "additionalProperties": False, "required": ["verdict", "why"],
@@ -5482,6 +5488,7 @@ def self_test(scratch=None):
             unparted != source and not (set(bound.PART_CODES) & raised_codes(unparted)),
             "the scan still reports the part refusals after their raise is gone")
 
+    boundary.SELF_TEST_COLLECTED.remove(("dispatch --self-test", failures))
     for failure in failures:
         print(f"dispatch --self-test [FAIL] {failure}")
     if failures:
@@ -5493,4 +5500,9 @@ def self_test(scratch=None):
 if __name__ == "__main__":
     if "--self-test" not in sys.argv[1:]:
         sys.exit("usage: dispatch.py --self-test")
-    sys.exit(self_test())
+    try:
+        sys.exit(self_test())
+    except BaseException:
+        # What the suite had collected, before the abort leaves with its own non-zero exit.
+        boundary.publish_collected(print)
+        raise

@@ -3324,6 +3324,11 @@ def reason_problems(source=None):
 def self_test():
     """Done-when 1-6, each with the control that fails by name when the rule is taken out."""
     failures, ran = [], []
+    # Registered while this suite runs: an abort publishes what is here instead of taking it away.
+    # Removed where this suite reports, below. The boundary is reached as `boundary` because `entry`
+    # is a LOCAL name in this suite — a census row, and an omission row — which shadows the module.
+    from runlib import entry as boundary
+    boundary.SELF_TEST_COLLECTED.append(("inventory --self-test", failures))
 
     def control(name, problems, *needles):
         # The mirror of the boolean guard below: this helper judges a LIST of problem strings, and a
@@ -6070,6 +6075,61 @@ def self_test():
           f"personal carrier kind masked in every artifact while the hashes still bind to the raw carrier, a "
           f"malformed settings file reported incomplete rather than unsupported, and a failed acquisition that "
           f"still leaves a layer-status artifact)", home=str(pathlib.Path.home()))
+    # ---- S8b item 6b: a suite collects its failures and prints them at the end, so an exception
+    # leaving it took every line with it — which is how r7 recorded D3 and R12 as SILENT when the
+    # cause was an abort rather than a silent rule. `entry.publish_collected` is what every abort
+    # path now calls; asked here with a planted list, and with this suite's own registration left
+    # standing, because that registration is what makes an abort of THIS suite publishable.
+    planted = ("a planted suite --self-test", ["a failure an abort must not swallow"])
+    boundary.SELF_TEST_COLLECTED.append(planted)
+    published = []
+    try:
+        returned = boundary.publish_collected(published.append)
+    finally:
+        boundary.SELF_TEST_COLLECTED.remove(planted)
+    check("an abort publishes the failures a suite had already collected",
+          "a planted suite --self-test [FAIL] a failure an abort must not swallow" in published
+          and published == returned,
+          f"{published}")
+    check("and this suite's own failures are registered while it runs, so its own abort publishes them",
+          ("inventory --self-test", failures) in boundary.SELF_TEST_COLLECTED,
+          f"{[label for label, _ in boundary.SELF_TEST_COLLECTED]}")
+    # The stop-at-a-cap machinery is loaded by production with the standard library alone, which is
+    # why its suite imports `entry` lazily rather than at module scope (6b). The property is watched
+    # here instead of only kept: a module-level import of anything else fails this.
+    stop_body = ast.parse((REPO / "session-distill" / "runlib" / "stop.py").read_text(encoding="utf-8")).body
+    stop_imports = sorted({(alias.name if isinstance(node, ast.Import) else (node.module or "")).split(".")[0]
+                           for node in stop_body if isinstance(node, (ast.Import, ast.ImportFrom))
+                           for alias in node.names})
+    check("the stop machinery's module-level imports are the standard library alone",
+          bool(stop_imports) and all(name in sys.stdlib_module_names for name in stop_imports),
+          f"{[name for name in stop_imports if name not in sys.stdlib_module_names]} of {stop_imports}")
+    # X1 proves the publication prints. This proves the four runners REACH it when they abort, which
+    # is a different claim: the handler's own subtree must carry the call. Read as a tree rather than
+    # grepped, because a mention in a comment or a docstring is not a call. `inventory.py` has no
+    # handler of its own — its abort goes `main` -> `entry.guarded` -> `entry.failed` — so the site
+    # asked of it is `failed` itself, which is where that route publishes.
+    def _reaches_publication(node):
+        return any(isinstance(inner, ast.Call)
+                   and ((isinstance(inner.func, ast.Attribute) and inner.func.attr == "publish_collected")
+                        or (isinstance(inner.func, ast.Name) and inner.func.id == "publish_collected"))
+                   for inner in ast.walk(node))
+
+    unwired = []
+    for rel, site in (("session-distill/distill.py", "an except handler"),
+                      ("session-distill/runlib/dispatch.py", "an except handler"),
+                      ("session-distill/runlib/stop.py", "an except handler"),
+                      ("session-distill/runlib/entry.py", "`failed`")):
+        parsed = ast.parse((REPO / rel).read_text(encoding="utf-8"))
+        sites = ([node for node in ast.walk(parsed) if isinstance(node, ast.ExceptHandler)]
+                 if site == "an except handler" else
+                 [node for node in ast.walk(parsed)
+                  if isinstance(node, ast.FunctionDef) and node.name == "failed"])
+        if not sites or not any(_reaches_publication(node) for node in sites):
+            unwired.append(f"{rel}: no {site} of it reaches publish_collected ({len(sites)} site(s))")
+    check("every abort path of this package publishes what the suite collected", not unwired,
+          f"{unwired}")
+    boundary.SELF_TEST_COLLECTED.remove(("inventory --self-test", failures))
     for failure in failures:
         report(f"inventory --self-test [FAIL] {failure}", home=str(pathlib.Path.home()))
     return 1 if failures else 0

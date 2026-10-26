@@ -187,8 +187,31 @@ def failed(exc, home=None, label="COMMAND_FAILED", code=1, stream=None):
     An unexpected failure is the one most likely to carry a path — an `OSError`'s message IS a path —
     and a traceback printed by the interpreter crosses no boundary at all. The type is named so the
     failure stays diagnosable; the message passes the floor."""
+    # Before the failure is described: whatever a suite had collected, which the abort is about to
+    # take with it. Nothing on an ordinary failure path, where no suite is running.
+    publish_collected(lambda line: say(line, stream if stream is not None else sys.stderr, home))
     say(f"{label}: {type(exc).__name__}: {exc}", stream if stream is not None else sys.stderr, home)
     return code
+
+
+# A self-test COLLECTS its failures and prints them at the end, so an exception leaving the suite
+# used to take every line with it: r7 recorded three reverted rules as "no [FAIL] line at all" when
+# the cause was an abort rather than a silent rule. A suite registers `(label, failures)` here while
+# it runs and removes it when it reports, so what is left is exactly what an abort would have
+# swallowed. A nested suite pushes a list of its own; nothing is shared between runs.
+SELF_TEST_COLLECTED = []
+
+
+def publish_collected(publish):
+    """The failure lines the suites running in this process had already collected, published as the
+    suite itself publishes them, and returned so a control can read them.
+
+    Empty on every normal path: a suite that reaches its own report removes its list first."""
+    lines = [f"{label} [FAIL] {failure}"
+             for label, failures in SELF_TEST_COLLECTED for failure in failures]
+    for line in lines:
+        publish(line)
+    return lines
 
 
 def guarded(entry, argv=None, home=None, stream=None, label="COMMAND_FAILED"):

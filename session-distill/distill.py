@@ -33,6 +33,7 @@ import os
 import pathlib
 import re
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
@@ -360,6 +361,9 @@ def main(argv=None):
         # the judge admits the suite argv only where a suite is entered in this process, and buying
         # an exception for a diagnostic label would widen a rule that exists to keep a child from
         # being handed a suite (G3).
+        # This handler, not `entry.failed`, is what an abort inside the suite reaches, so the
+        # collected report is published here too — before the failure is described.
+        entry.publish_collected(lambda line: say(line, sys.stderr))
         say(f"COMMAND_FAILED {args.command or 'self-test'}: {type(exc).__name__}: {exc}", sys.stderr)
         return 1
 
@@ -368,6 +372,9 @@ def self_test():
     """The golden end to end: declare, run a stub stage, amend, run another, and judge the
     declaration order of the recorded stages from the files on disk."""
     failures, ran = [], []
+    # Registered while this suite runs; removed by `report`, which is where this suite reports. An
+    # abort between the two publishes what was collected rather than taking it away.
+    entry.SELF_TEST_COLLECTED.append(("distill --self-test", failures))
 
     def control(name, ok, detail=""):
         # A boolean-style helper given a problem LIST passed on whatever its needle said, because a
@@ -1085,6 +1092,66 @@ def self_test():
         control("and the descendant that outlived its leader is gone afterwards",
                 len(descendant) == 1 and not entry.group_alive(descendant[0]),
                 f"{descendant} {held_group.stdout!r}")
+        # ---- the group-end ROUND, which S4 added and no control read: with `for _ in range(rounds)`
+        # emptied, every suite of this package stayed green (S8b's probe). Driven IN THIS PROCESS with
+        # a counting probe in place of `entry.group_alive` and a counting `os.killpg`, so no process
+        # and no waiting on one is involved. What the round says is that the group is SIGNALLED once
+        # per round until it is empty — "it returns False" is not the rule: a group that never empties
+        # gives False with no rounds at all, which is exactly what the emptied loop does.
+        class _NeverAnswers:
+            """A child that never answers, and is not a process. `bounded`'s timeout path reads only
+            these members; `poll` reports an exited leader so `end_group` waits on nothing."""
+            args, returncode, pid = ("a child that never answers",), None, 4321
+
+            def communicate(self, timeout=None):
+                raise subprocess.TimeoutExpired(self.args, timeout)
+
+            def kill(self):
+                pass
+
+            def poll(self):
+                return 0
+
+        held_alive, held_killpg, held_getpgid = entry.group_alive, os.killpg, os.getpgid
+        held_finish, asked, signalled = entry.finish_group, [], []
+        try:
+            entry.group_alive = lambda pgid: (asked.append(pgid), True)[1]
+            os.killpg = lambda pgid, sig: signalled.append((pgid, sig))
+            standing = entry.finish_group(4321, rounds=2)
+            standing_kills, standing_asked = list(signalled), list(asked)
+            asked.clear()
+            signalled.clear()
+            answers = [True, False]
+            entry.group_alive = lambda pgid: (asked.append(pgid),
+                                              answers.pop(0) if answers else False)[1]
+            cleared, cleared_asked = entry.finish_group(4321, rounds=5), None
+            cleared_asked = list(asked)
+            # The NAME the round's failure carries belongs to `bounded`, which is the round's only
+            # caller. Reached with the same probe and a two-round bound, so this leg waits on nothing
+            # either; the round logic itself is the real one.
+            entry.group_alive = lambda pgid: (asked.append(pgid), True)[1]
+            entry.finish_group = lambda pgid, rounds=2: held_finish(pgid, rounds=rounds)
+            os.getpgid = lambda _pid: 4321
+            never = entry.bounded(_NeverAnswers, timeout=0.01, what="a child that never answers")
+        finally:
+            entry.group_alive, os.killpg, os.getpgid = held_alive, held_killpg, held_getpgid
+            entry.finish_group = held_finish
+        control("the group-end round signals the group once per round until it is empty",
+                standing is False and len(standing_kills) == 2
+                and all(sig == signal.SIGKILL for _pgid, sig in standing_kills)
+                and cleared is True and len(cleared_asked) >= 2,
+                f"standing={standing} kills={standing_kills} asked={standing_asked}/{cleared_asked} "
+                f"cleared={cleared}")
+        control("and every swap this control made is back, so no later control runs against a fake",
+                (entry.group_alive, os.killpg, os.getpgid, entry.finish_group)
+                == (held_alive, held_killpg, held_getpgid, held_finish),
+                f"{entry.group_alive} {os.killpg} {os.getpgid} {entry.finish_group}")
+        control("and a group that never empties is named, not waited on",
+                never.returncode == entry.TIMED_OUT
+                and "CHILD_CLEANUP_UNFINISHED" in never.stderr
+                and "still holds a process after" in never.stderr,
+                f"{never.returncode} {never.stderr!r}")
+
         # Ownership not established is child-only. `os.getpgid` refusing used to fall back to the
         # child's pid as the group id, which points `killpg` at whatever group the child is in — this
         # process's own, when the child was started without a session (G1).
@@ -1138,6 +1205,8 @@ def report(failures, ran, label="distill --self-test"):
     A failure line carries whatever the control put in it — a path, a fixture's planted text — and it
     was printed directly, so a self-test could publish what every other route is checked for (R1#3).
     It goes to stderr because it is a diagnostic; the per-control listing stays on stdout."""
+    if (label, failures) in entry.SELF_TEST_COLLECTED:
+        entry.SELF_TEST_COLLECTED.remove((label, failures))
     for failure in failures:
         say(f"{label} [FAIL] {failure}", sys.stderr)
     if failures:
