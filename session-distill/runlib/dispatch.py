@@ -1876,11 +1876,16 @@ def _judge_program(mod, program, rest, line, pinned, problems, depth=0, runs=(),
             # recursion that used to read them judged shapes, and a shape rule over a program that
             # can rewrite its own `sys.argv` before the load can always be worked around (r3 #5).
             row = _inline_row(mod, nodes[1] if len(nodes) > 1 else None)
+            elements = list(getattr(argv_node, "elts", None) or [])
             if row is None:
                 problems.append(f"DISPATCH_INLINE_UNDECLARED {where}: python -c with a program that is not "
                                 f"a module-level constant of this file declared in INLINE_PROGRAMS")
+            # The elements are read ONCE, defensively, because this rule is also what makes the
+            # indexing below safe: with the refusal taken out, a non-literal argv made the judge die
+            # with an AttributeError instead of admitting anything, so the rule could not be
+            # reverted and nothing could watch it (r7 D6).
             elif not (isinstance(argv_node, ast.List)
-                      and not any(isinstance(e, ast.Starred) for e in argv_node.elts)):
+                      and not any(isinstance(e, ast.Starred) for e in elements)):
                 problems.append(f"DISPATCH_PROGRAM_FORM {where}: an inline program's argv must be a list "
                                 f"literal at the call, or the element its declaration names is not this one")
             else:
@@ -1892,7 +1897,7 @@ def _judge_program(mod, program, rest, line, pinned, problems, depth=0, runs=(),
                                     f"not the declared {row['sha256']}")
                 elif row["loads"] is not None:
                     at = row["loads"]
-                    carried = argv_node.elts[at] if 0 <= at < len(argv_node.elts) else None
+                    carried = elements[at] if 0 <= at < len(elements) else None
                     entry, member = _copy_member(mod, carried) if carried is not None else (None, None)
                     if _own_file(mod, carried) if carried is not None else False:
                         pass            # the file this site is in: already in the closure
@@ -3748,6 +3753,19 @@ def self_test(scratch=None):
              "import subprocess, sys\n"
              "subprocess.run([sys.executable, str(inventory.copied_member(startup_copy, member))])",
              "DISPATCH_COPY_MEMBER_UNDECLARED {at}: a copy-run naming 'not a string literal'", 1),
+            # r7 found the ARITY clause of `_exact_call` unguarded: the plant above has no
+            # `.resolve()`, so `_own_file` already refuses it at that clause and removing the arity
+            # test changed nothing any control could see. These two are the arity test's own
+            # subjects — the form is otherwise exactly the admitted one.
+            ("an-extra-argument-inside-the-own-file-form",
+             "import pathlib, subprocess, sys\n"
+             "subprocess.run([sys.executable, str(pathlib.Path(__file__, '/fixture/other.py').resolve())])",
+             "DISPATCH_PROGRAM_FORM {at}: reaches for its own file", 1),
+            ("a-third-argument-to-the-member-owner",
+             "import subprocess, sys\n"
+             "subprocess.run([sys.executable, str(inventory.copied_member("
+             "startup_copy, 'session-distill/distill.py', 'extra'))])",
+             "DISPATCH_PROGRAM_FORM {at}: reaches for a copied member", 1),
     ):
         planted(name, driver_rel, source, needle, offset)
     # The three inline shapes the review found — a reassignment, a tuple reassignment and a binding
@@ -3784,7 +3802,7 @@ def self_test(scratch=None):
         # The edit has to land, or this control judges an unchanged file and passes for the wrong
         # reason — which is what a needle copied from an older version of the probe did.
         control("the text-change control really changed the declared program",
-                [f"changed={edited != held_probe_text}"], "changed=True")
+                edited != held_probe_text, f"changed={edited != held_probe_text}")
         changed_probe.write_text(edited, encoding="utf-8")
         changed_rows = closure_violations(tree)[0]
     finally:
@@ -3793,6 +3811,30 @@ def self_test(scratch=None):
             any(row.startswith(f"DISPATCH_INLINE_CHANGED {inventory_rel}:") for row in changed_rows),
             f"{changed_rows}")
     control("and-the-copied-tree-is-clean-again-after-that-edit", not closure_violations(tree)[0],
+            f"{closure_violations(tree)[0]}")
+    # r7 found this requirement unguarded. The declared index names an element of the argv AT THE
+    # CALL, so an argv that is not a list literal there means the declaration points at nothing
+    # decidable — and no control saw it removed.
+    argv_probe = tree / inventory_rel
+    held_argv_text = argv_probe.read_text(encoding="utf-8")
+    spliced = held_argv_text.replace(
+        '                [sys.executable, "-I", "-c", BYTECODE_PROBE, str(destination),\n'
+        '                 str(copied_member(from_copy, "session-distill/distill.py"))],',
+        '                [sys.executable, "-I", "-c", BYTECODE_PROBE] + [str(destination),\n'
+        '                 str(copied_member(from_copy, "session-distill/distill.py"))],', 1)
+    control("the argv-literal control really changed the declared site",
+            spliced != held_argv_text, f"changed={spliced != held_argv_text}")
+    try:
+        argv_probe.write_text(spliced, encoding="utf-8")
+        spliced_rows = closure_violations(tree)[0]
+    finally:
+        argv_probe.write_text(held_argv_text, encoding="utf-8")
+    control("an inline program whose argv is not a list literal at the call",
+            any(row.startswith(f"DISPATCH_PROGRAM_FORM {inventory_rel}:")
+                and "an inline program's argv must be a list literal at the call" in row
+                for row in spliced_rows),
+            f"{spliced_rows}")
+    control("and-the-copied-tree-is-clean-again-after-the-argv-edit", not closure_violations(tree)[0],
             f"{closure_violations(tree)[0]}")
 
     # ---- r3 S3: the names the forms are WRITTEN with. An exact shape means nothing in a file that

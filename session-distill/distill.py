@@ -685,6 +685,29 @@ def self_test():
                 cli_refused_before_run("inventory", "--to", str(cli_checkout), "--no-state")[2],
                 "the recorder was never called, so the two controls above judge nothing")
 
+        # ---- r7 R17b: "the checkout is ALWAYS a project" was watched only through a REFUSAL, and
+        # `inventory.run` refuses the same destination over its own protected set. With the checkout
+        # dropped from this set the driver admitted the destination and the producer refused it, so
+        # the control stayed green while the rule was gone. What is read here is the set itself, as
+        # the driver hands it over, at a destination nothing refuses.
+        handed = {}
+        kept_producer = inventory.run
+        try:
+            inventory.run = lambda *a, **k: (handed.update(k) or
+                                             {"references": {}, "state_root_unchanged": True})
+            with contextlib.redirect_stderr(io.StringIO()), contextlib.redirect_stdout(io.StringIO()):
+                main(["inventory", "--to", str(scratch / "project-set-reader"), "--no-state",
+                      "--project", str(other_project)])
+        finally:
+            inventory.run = kept_producer
+        handed_projects = sorted((handed.get("native_roots") or {}).get("projects") or {})
+        control("and that project set was read from a call that really happened",
+                len(handed_projects) == 2, f"{handed_projects} — the producer was never reached")
+        control("the project set the driver hands over names the other project AND this checkout",
+                str(pathlib.Path(__file__).resolve().parents[1]) in handed_projects
+                and str(pathlib.Path(other_project).resolve()) in handed_projects,
+                f"{handed_projects}")
+
         # ---- r3 #7: the driver's own preflight over a CONFIGURED host home. The host homes are
         # protected whether or not a run reads them, and which directory each one IS comes from
         # `CLAUDE_CONFIG_DIR` and `CODEX_HOME` (R2#1). The controls above never set either, so

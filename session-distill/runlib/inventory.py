@@ -51,6 +51,7 @@ import os
 import pathlib
 import re
 import shutil
+import stat
 import subprocess
 import tempfile
 
@@ -4235,6 +4236,16 @@ def self_test():
                  lambda text: text.replace("sys.dont_write_bytecode = True\n",
                                            "if True:\n    sys.dont_write_bytecode = True\n", 1),
                  "BYTECODE_GUARD_ABSENT"),
+                # r7 G1: `_stdlib_only` is what separates an admitted import from a refused one, and
+                # none of the plants above reach it — the two GUARD_ABSENT ones take the guard away
+                # and the dynamic one is a call, refused whatever that helper answers. A plain
+                # repository import before the guard is the one shape only this helper decides.
+                ("a repository import before the guard",
+                 "session-distill/distill.py",
+                 lambda text: text.replace("sys.dont_write_bytecode = True\n",
+                                           "from runlib import entry\n"
+                                           "sys.dont_write_bytecode = True\n", 1),
+                 "BYTECODE_GUARD_LATE"),
         ):
             live = (REPO / relative).read_text(encoding="utf-8")
             planted_text = mutate(live)
@@ -5573,8 +5584,8 @@ def self_test():
             for path in sorted(root.rglob("*")):
                 relative = path.relative_to(root).as_posix()
                 try:
-                    stat = path.lstat()
-                    metadata = f"mode={stat.st_mode:o} size={stat.st_size} mtime_ns={stat.st_mtime_ns}"
+                    info = path.lstat()
+                    metadata = f"mode={info.st_mode:o} size={info.st_size} mtime_ns={info.st_mtime_ns}"
                 except OSError as exc:
                     state_of[relative] = f"unstattable:{type(exc).__name__}"
                     continue
@@ -5588,6 +5599,13 @@ def self_test():
                     except OSError as exc:
                         state_of[relative] = f"unreadable:{type(exc).__name__} {metadata}"
             return state_of
+
+        # r7 G4: the link leg below ran over NOTHING. The repository tracks no symlink and
+        # `checkout_copy` skips any it meets, so `all(... if is_symlink())` was an empty `all()` —
+        # true about no subject, and a revert of the `lstat`/`readlink` branch could not move it.
+        # The control makes its own link, before the state is taken, so the subject exists.
+        planted_link = copied_checkout / "a-link-only-this-control-makes"
+        planted_link.symlink_to("session-distill/distill.py")
 
         before_tree = tree_state(copied_checkout)
 
@@ -5646,10 +5664,15 @@ def self_test():
         check("and it carries directories as entries of their own, so an empty one would show",
               any(value.startswith("dir ") for value in before_tree.values()),
               "no directory is an entry of this comparison")
-        check("and it reads links without following them", all(
-            value.startswith("link:") for name, value in before_tree.items()
-            if (copied_checkout / name).is_symlink()) and len(before_tree) > 200,
-              "a link was followed, or the tree was too small to judge")
+        linked = {name: value for name, value in before_tree.items()
+                  if stat.S_ISLNK((copied_checkout / name).lstat().st_mode)}
+        check("there is a link in the copy for that leg to judge", len(linked) == 1
+              and "a-link-only-this-control-makes" in linked,
+              f"{sorted(linked)} — the planted link is the subject, and it is the only one")
+        check("and it reads links without following them",
+              all(value.startswith("link:session-distill/distill.py ") for value in linked.values())
+              and len(before_tree) > 200,
+              f"{sorted(linked.items())} — a link was followed, or the tree was too small to judge")
         check("the comparison had a tree to compare", len(before_tree) > 200,
               f"{len(before_tree)} entries")
 
