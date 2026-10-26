@@ -28,31 +28,8 @@ import time
 WITHHELD = ("STARTUP_FAILED: the command's modules could not be imported, and the redaction "
             "floor is not available to describe why; nothing about the failure is printed")
 
-NESTED = "AGENT_BIOS_SELF_TEST_NESTED"
 TIMEOUT = 300
 TIMED_OUT = 99
-
-
-def nested():
-    """Whether this process IS a self-test's own child.
-
-    Two controls in each entry point run that entry point's whole suite as a real process, because
-    the failure they observe has to happen where the suite creates its fixtures. Nothing stopped the
-    child from doing the same but the very protection those controls revert: with the `dir=` wiring
-    removed, `tempfile` resolved `TMPDIR` on its own, the child got past the failure it was supposed
-    to die on, reached the same two controls and spawned its own child. One revert recursed 594 deep
-    and filled the disk with 40GB of fixtures.
-
-    So the depth is bound HERE instead, by a mark on the child's environment, and it holds whatever
-    any protection does: a marked run skips the controls that would run it again. The parent's
-    controls still run, and still fail by their own names when the wiring is gone — what they lose is
-    only the ability to recurse."""
-    return bool(os.environ.get(NESTED))
-
-
-def nest(environ):
-    """`environ` for a self-test's own child, marked so the child runs no self-running control."""
-    return {**environ, NESTED: "1"}
 
 
 def _text(stream):
@@ -62,30 +39,74 @@ def _text(stream):
     return stream if isinstance(stream, str) else stream.decode("utf-8", "replace")
 
 
-def end_group(proc):
-    """End the process TREE `proc` leads, and nothing else.
+GROUP_DRAIN = 10        # seconds allowed for a killed group's pipes to drain
+GROUP_ROUNDS = 20       # SIGKILL rounds, 0.25s apart, after the leader has been reaped
 
-    A timed-out child's descendants outlive it: `subprocess`'s own timeout ends the one process it
-    started, and the suite that spawned 594 copies of itself kept filling the disk after each of
-    them was killed. The group is the unit, and it is only ever this call's own group — the check
-    that the child LEADS its group is what makes that true, because a child started without a
-    session of its own shares this process's group and signalling that would end this process."""
+
+def group_alive(pgid):
+    """Whether any process still stands in this group."""
     try:
-        if os.getpgid(proc.pid) != proc.pid:
-            proc.kill()
-            return
-    except (ProcessLookupError, OSError):
+        os.killpg(pgid, 0)
+        return True
+    except ProcessLookupError:
+        return False
+    except PermissionError:          # it exists and is not ours to signal
+        return True
+    except OSError:
+        return False
+
+
+def end_group(proc, pgid):
+    """Signal the process group `proc` leads: SIGTERM, then SIGKILL, unconditionally.
+
+    `pgid` is taken at spawn and never re-derived, because the leader's own group id is unreadable
+    once it has been reaped. `None` means OWNERSHIP WAS NEVER ESTABLISHED — `os.getpgid` refused at
+    spawn — and then no group is signalled at all: assuming the child leads its own group when the
+    question could not be answered points `killpg` at whatever group it happens to be in, which may
+    be this process's own. Ownership not established is child-only, and the note says so.
+
+    The leader check is the same rule read the other way: a child started WITHOUT a session sits in
+    this process's group, so only the child is ended.
+
+    SIGKILL is not conditional on the leader surviving SIGTERM. Returning as soon as the leader
+    exited left every descendant running — a leader that exits politely while its children do not is
+    the ordinary shape, not an edge case (r3 #1)."""
+    if pgid is None:
         proc.kill()
-        return
+        return ("the child's group could not be established, so no group was signalled and only the "
+                "child was ended")
+    if pgid != proc.pid:
+        proc.kill()
+        return "the child led no group of its own, so only the child was ended"
+    notes = []
     for sig in (signal.SIGTERM, signal.SIGKILL):
         try:
-            os.killpg(proc.pid, sig)
-        except (ProcessLookupError, PermissionError, OSError):
-            return
-        for _ in range(20):
+            os.killpg(pgid, sig)
+        except (ProcessLookupError, PermissionError, OSError) as exc:
+            notes.append(f"{sig.name} on {pgid}: {type(exc).__name__}")
+            break
+        for _ in range(8):
             if proc.poll() is not None:
-                return
-            time.sleep(0.5)
+                break
+            time.sleep(0.25)
+    return "; ".join(notes)
+
+
+def finish_group(pgid, rounds=GROUP_ROUNDS):
+    """Keep SIGKILLing the group until nothing stands in it. `True` when the group is gone.
+
+    Called AFTER the leader has been reaped: while the leader is an unreaped zombie it still stands
+    in its own group, so "the group is empty" is unaskable until then — which is why this is a
+    second pass rather than part of `end_group`."""
+    for _ in range(rounds):
+        if not group_alive(pgid):
+            return True
+        try:
+            os.killpg(pgid, signal.SIGKILL)
+        except (ProcessLookupError, PermissionError, OSError):
+            return not group_alive(pgid)
+        time.sleep(0.25)
+    return not group_alive(pgid)
 
 
 def bounded(spawn, timeout=TIMEOUT, what="a child process"):
@@ -101,17 +122,39 @@ def bounded(spawn, timeout=TIMEOUT, what="a child process"):
     the run never reaches a verdict and has to be killed from outside — which leaves whatever the
     run was testing on disk and no result at all. A bound makes that a named failure instead: the
     returned `CompletedProcess` carries a nonzero code and a line saying what did not finish, so the
-    control reading it fails by its own name and the diagnostic leaves through the floor."""
+    control reading it fails by its own name and the diagnostic leaves through the floor.
+
+    Every step after the bound is itself bounded: the drain that reaps the leader, and the rounds
+    that end what outlived it. What does not finish is NAMED (`CHILD_CLEANUP_UNFINISHED`) rather
+    than waited for, because an unbounded cleanup is the same defect one level down."""
     proc = spawn()
+    try:
+        pgid = os.getpgid(proc.pid)
+    except OSError:                   # ownership unestablished: see `end_group`
+        pgid = None
     try:
         out, err = proc.communicate(timeout=timeout)
         return subprocess.CompletedProcess(proc.args, proc.returncode, _text(out), _text(err))
     except subprocess.TimeoutExpired:
-        end_group(proc)
-        out, err = proc.communicate()
-        return subprocess.CompletedProcess(
-            proc.args, TIMED_OUT, _text(out),
-            f"{_text(err)}\nCHILD_TIMEOUT {what}: no verdict within {timeout}s")
+        ended, unfinished = end_group(proc, pgid), []
+        try:
+            out, err = proc.communicate(timeout=GROUP_DRAIN)
+        except subprocess.TimeoutExpired:
+            out, err = "", ""
+            unfinished.append(f"the pipes did not drain within {GROUP_DRAIN}s")
+        if pgid == proc.pid and not finish_group(pgid):
+            unfinished.append(f"the group {pgid} still holds a process after {GROUP_ROUNDS} rounds")
+        if unfinished and not out and not err:
+            try:                      # the group is gone now, so one short drain may still answer
+                out, err = proc.communicate(timeout=1)
+            except subprocess.TimeoutExpired:
+                pass
+        lines = [_text(err), f"CHILD_TIMEOUT {what}: no verdict within {timeout}s"]
+        if ended:
+            lines.append(f"CHILD_GROUP_ENDED: {ended}")
+        if unfinished:
+            lines.append(f"CHILD_CLEANUP_UNFINISHED: {'; '.join(unfinished)}")
+        return subprocess.CompletedProcess(proc.args, TIMED_OUT, _text(out), "\n".join(lines))
 
 
 def floor():

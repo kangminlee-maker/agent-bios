@@ -277,6 +277,222 @@ UNKNOWN, PYTHON = "<?>", "<python>"
 UNREAD = ast.Name(id="<an argv the trace cannot read>", ctx=ast.Load())  # resolves to UNKNOWN wherever it is judged
 
 
+# ---- the suites' only scratch, and the three ways a call hides from this judge ----------------
+# A suite that asked `tempfile` for a parent of its own put every fixture it wrote inside whatever
+# `TMPDIR` named, a protected root included (R1#5) — and observing that from outside took a child
+# running the whole suite, which is what made the recursion of S7 possible. Every rule below is
+# DEFAULT-DENY: it declares what is admitted, as data with reasons, and refuses the rest. A list of
+# forbidden forms was the recurring defect (r3 #6) — `import subprocess as sp`, `make =
+# tempfile.mkdtemp`, `cmd = [..., "--self-test"]` and `(spawn or subprocess.Popen)(...)` each passed
+# a check that enumerated the shapes it knew.
+TEMPFILE_SCOPE = ("session-distill/distill.py", "session-distill/runlib/inventory.py")
+TEMPFILE_SITES = (
+    {"file": "session-distill/runlib/inventory.py", "function": "self_test_scratch",
+     "reason": "both suites' ONE scratch directory, created under the parent `scratch_parent` judged; "
+               "the driver's suite calls this function rather than tempfile"},
+    {"file": "session-distill/runlib/inventory.py", "function": "run",
+     "reason": "production's frozen copies of the owner's state, made under `temp_root`, which the "
+               "preflight has already judged against the protected set"},
+)
+# Modules whose names this judge reads: derived from EXEC_CALLS **and LOAD_CALLS**, so the set has one
+# owner and a new executor or loader cannot be covered by the matcher and missed here. The loaders
+# belong for the same reason as the executors: `from runpy import run_path` leaves a load this judge
+# never recognises.
+EXEC_MODULES = frozenset(name.split(".")[0] for name in set(EXEC_CALLS) | set(LOAD_CALLS))
+# Modules that can start a process and that EXEC_CALLS does NOT describe. Importing one is refused
+# unless it is declared here with the reason it is harmless where it stands.
+PROCESS_MODULES = ("multiprocessing", "pty", "asyncio", "concurrent", "concurrent.futures",
+                   "socketserver", "xmlrpc.server")
+PROCESS_IMPORTS_DECLARED = (
+    {"module": "concurrent.futures", "file": "session-distill/runlib/census.py",
+     "reason": "ThreadPoolExecutor over already-listed transcript files (census.py:309); threads, "
+               "not processes, and no program name reaches it"},
+)
+# Names that may be taken OUT of an executor's or loader's module, each because it starts and loads
+# nothing. EMPTY on purpose: this tree holds no `as` or `from` import of any such module — every one
+# is a plain `import M` — so there is nothing to excuse, and an exception goes in with its reason
+# when a real one appears rather than ahead of it.
+EXEC_IMPORT_NAMES_DECLARED = ()
+# Where the suite argv may be spelled. Everything else is refused: a constant in a list the trace
+# cannot follow to its call is exactly how `cmd = [sys.executable, f, "--self-test"]` passed.
+SUITE_ARGV = "--self-test"
+SUITE_ARGV_CONTEXTS = (
+    {"context": "add_argument", "reason": "the parser declaring the flag"},
+    {"context": "comparison", "reason": "`argv == [\"--self-test\"]` and `in` tests: a read, not a run"},
+    {"context": "in-process entry", "reason": "the suites are entered in this process, through main "
+                                              "or the one boundary, never through a child"},
+    {"context": "this judge's own declaration", "reason": "the constant this rule is about"},
+)
+IN_PROCESS_ENTRIES = ("main", "guarded_entry", "self_test")
+
+
+def _parents(parsed):
+    """`{id(child): parent}` for one tree: a context rule needs the node above, not only the node."""
+    seen = {}
+    for node in ast.walk(parsed):
+        for child in ast.iter_child_nodes(node):
+            seen[id(child)] = node
+    return seen
+
+
+def _enclosing(parsed, lineno):
+    """The name of the function a line stands in, or None at module scope."""
+    best = None
+    for node in ast.walk(parsed):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            if node.lineno <= lineno <= (node.end_lineno or node.lineno) and (
+                    best is None or node.lineno > best.lineno):
+                best = node
+    return best.name if best else None
+
+
+def _suite_argv_admitted(node, parents):
+    """Whether this `--self-test` constant stands in one of the declared contexts."""
+    parent = parents.get(id(node))
+    if isinstance(parent, ast.Call) and ast.unparse(parent.func).split(".")[-1] == "add_argument" \
+            and parent.args and parent.args[0] is node:
+        return True
+    if isinstance(parent, ast.Compare):
+        return True
+    if isinstance(parent, ast.Assign) and len(parent.targets) == 1 \
+            and ast.unparse(parent.targets[0]) == "SUITE_ARGV":
+        return True
+    # an element of a list/tuple: admitted only when that display IS the argument of a declared
+    # in-process entry, or the right-hand side of a comparison
+    if isinstance(parent, (ast.List, ast.Tuple)):
+        above = parents.get(id(parent))
+        if isinstance(above, ast.Compare):
+            return True
+        if isinstance(above, ast.Call) and ast.unparse(above.func).split(".")[-1] in IN_PROCESS_ENTRIES:
+            return True
+        return False
+    if isinstance(parent, ast.Call) and ast.unparse(parent.func).split(".")[-1] in IN_PROCESS_ENTRIES:
+        return True
+    return False
+
+
+def shape_violations(root=REPO, sites=TEMPFILE_SITES, scope=TEMPFILE_SCOPE, sources=None):
+    """Default-deny judgements over the SOURCE of session-distill/: the scratch allow-list, the
+    import forms a call can hide behind, an executor referenced as a value, and where the suite argv
+    may be spelled.
+
+    `sources` maps a relative path to source text, so a planted violation is judged in a copy of the
+    text and never on disk — the recursion this guards against is exactly what must not be run."""
+    root = pathlib.Path(root)
+    held = dict(sources or {})
+
+    def text_of(rel):
+        if rel in held:
+            return held[rel]
+        path = root / rel
+        return path.read_text(encoding="utf-8") if path.is_file() else None
+
+    problems, counted = [], {}
+    declared = {(entry["file"], entry["function"]) for entry in sites}
+    # ---- the scratch allow-list: any REFERENCE to tempfile, not only a call of a listed name
+    for rel in scope:
+        source = text_of(rel)
+        if source is None:
+            problems.append(f"TEMPFILE_SCOPE_STALE {rel}: no such file")
+            continue
+        try:
+            parsed = ast.parse(source)
+        except SyntaxError as exc:
+            problems.append(f"TEMPFILE_UNREADABLE {rel}: {exc}")
+            continue
+        for node in ast.walk(parsed):
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    if alias.name == "tempfile" and alias.asname:
+                        problems.append(f"TEMPFILE_IMPORT_FORM {rel}:{node.lineno}: `import tempfile as "
+                                        f"{alias.asname}` renames the module out of this judge's sight")
+            if isinstance(node, ast.ImportFrom) and node.module == "tempfile":
+                problems.append(f"TEMPFILE_IMPORT_FORM {rel}:{node.lineno}: `from tempfile import ...` "
+                                f"leaves a reference this judge cannot recognise")
+            if not (isinstance(node, ast.Attribute) and ast.unparse(node.value) == "tempfile"):
+                continue
+            where = _enclosing(parsed, node.lineno)
+            if (rel, where) not in declared:
+                problems.append(f"TEMPFILE_UNDECLARED {rel}:{node.lineno}: tempfile.{node.attr} in "
+                                f"{where or '<module scope>'}, which no scratch site declares")
+                continue
+            counted[(rel, where)] = counted.get((rel, where), 0) + 1
+    for entry in sites:
+        made = counted.get((entry["file"], entry["function"]), 0)
+        if made == 0:
+            problems.append(f"INVENTORY_STALE tempfile site {entry['file']}:{entry['function']}: "
+                            f"it refers to tempfile nowhere")
+        elif made > 1:
+            problems.append(f"TEMPFILE_SECOND_CALL {entry['file']}:{entry['function']}: {made} tempfile "
+                            f"references where a declared site makes one")
+    # ---- import forms, executors as values, and the suite argv, over every source of session-distill/
+    names_declared = {(entry["module"], entry["name"]) for entry in EXEC_IMPORT_NAMES_DECLARED}
+    process_declared = {(entry["module"], entry["file"]) for entry in PROCESS_IMPORTS_DECLARED}
+    files = sorted(str(path.relative_to(root)) for path in (root / "session-distill").rglob("*.py")
+                   if "__pycache__" not in str(path)) if (root / "session-distill").is_dir() else []
+    for rel in sorted(set(files) | set(held)):
+        source = text_of(rel)
+        if source is None or not rel.startswith("session-distill/"):
+            continue
+        try:
+            parsed = ast.parse(source)
+        except SyntaxError:
+            continue
+        parents = _parents(parsed)
+        for node in ast.walk(parsed):
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    head = alias.name.split(".")[0]
+                    if alias.name in EXEC_MODULES or head in EXEC_MODULES:
+                        if alias.asname:
+                            problems.append(f"DISPATCH_IMPORT_FORM {rel}:{node.lineno}: `import "
+                                            f"{alias.name} as {alias.asname}` renames an executor's "
+                                            f"module out of this judge's sight")
+                    elif alias.name in PROCESS_MODULES or head in PROCESS_MODULES:
+                        if (alias.name, rel) not in process_declared or alias.asname:
+                            problems.append(f"DISPATCH_PROCESS_MODULE {rel}:{node.lineno}: `import "
+                                            f"{alias.name}{' as ' + alias.asname if alias.asname else ''}` "
+                                            f"can start a process and no declaration admits it here")
+            if isinstance(node, ast.ImportFrom):
+                module = node.module or ""
+                head = module.split(".")[0]
+                for alias in node.names:
+                    if module in EXEC_MODULES or head in EXEC_MODULES:
+                        if (module, alias.name) not in names_declared:
+                            problems.append(f"DISPATCH_IMPORT_FORM {rel}:{node.lineno}: `from {module} "
+                                            f"import {alias.name}` takes a name out of an executor's "
+                                            f"module; spell the call module-qualified")
+                    elif module in PROCESS_MODULES or head in PROCESS_MODULES:
+                        if (module, rel) not in process_declared:
+                            problems.append(f"DISPATCH_PROCESS_MODULE {rel}:{node.lineno}: `from "
+                                            f"{module} import {alias.name}` can start a process and no "
+                                            f"declaration admits it here")
+            # an executor may be the direct callee of a Call and nothing else: passed as a value,
+            # stored, returned or inside a BoolOp/IfExp it is a program this judge never sees
+            if isinstance(node, ast.Attribute):
+                spelled = ast.unparse(node)
+                if spelled in EXEC_CALLS:
+                    parent = parents.get(id(node))
+                    if not (isinstance(parent, ast.Call) and parent.func is node):
+                        problems.append(f"DISPATCH_EXEC_AS_VALUE {rel}:{node.lineno}: {spelled} is "
+                                        f"referenced without being called, so the program it would "
+                                        f"start is judged nowhere")
+            if isinstance(node, ast.Constant) and node.value == SUITE_ARGV:
+                if not _suite_argv_admitted(node, parents):
+                    problems.append(f"DISPATCH_SELF_TEST_ARGV {rel}:{node.lineno}: {SUITE_ARGV!r} "
+                                    f"stands in no declared context; a suite is entered in this "
+                                    f"process, never handed to a child")
+            if isinstance(node, (ast.JoinedStr, ast.BinOp)):
+                parts = [part.value for part in ast.walk(node)
+                         if isinstance(part, ast.Constant) and isinstance(part.value, str)]
+                if "".join(parts) == SUITE_ARGV or SUITE_ARGV in parts:
+                    problems.append(f"DISPATCH_SELF_TEST_ARGV {rel}:{node.lineno}: the suite argv is "
+                                    f"spelled by composition, which no declared context admits")
+    return problems
+
+
+
+
 class Exhausted(Refused):
     """The stage's remaining budget cannot fit the reservation; the item is recorded not_done."""
 
@@ -3028,6 +3244,87 @@ def self_test(scratch=None):
         control(f"planted-{name}", any(v.startswith(want) for v in found), f"expected {want!r} in {found}")
 
     control("copied-tree-is-clean", not closure_violations(tree)[0], f"{closure_violations(tree)[0]}")
+    # ---- the source-shape judgements, and the six ways they are broken. Each plant is judged in a
+    # COPY OF THE TEXT: the violation these guard against is a suite running a suite, and running one
+    # to prove the check is the incident itself (S4).
+    control("source-shape-clean-over-the-real-tree", not shape_violations(), f"{shape_violations()}")
+    inventory_rel, driver_rel = "session-distill/runlib/inventory.py", "session-distill/distill.py"
+    live_inventory = (REPO / inventory_rel).read_text(encoding="utf-8")
+    live_driver = (REPO / driver_rel).read_text(encoding="utf-8")
+    for name, planted_sources, needle in (
+            ("a-second-scratch-inside-a-suite",
+             {driver_rel: live_driver + "\n\ndef _planted_scratch():\n"
+                                        "    return tempfile.TemporaryDirectory()\n"},
+             f"TEMPFILE_UNDECLARED {driver_rel}:"),
+            ("a-scratch-import-form",
+             {driver_rel: live_driver.replace("import tempfile", "from tempfile import mkdtemp", 1)},
+             f"TEMPFILE_IMPORT_FORM {driver_rel}:"),
+            ("a-scratch-module-alias",
+             {driver_rel: live_driver.replace("import tempfile", "import tempfile as tf", 1)},
+             f"TEMPFILE_IMPORT_FORM {driver_rel}:"),
+            ("a-second-call-at-a-declared-scratch-site",
+             {inventory_rel: live_inventory.replace(
+                 "    parent = scratch_parent(environ)",
+                 "    tempfile.gettempdir()\n    parent = scratch_parent(environ)", 1)},
+             f"TEMPFILE_SECOND_CALL {inventory_rel}:self_test_scratch"),
+            ("an-exec-import-form",
+             {driver_rel: live_driver.replace("import subprocess", "from subprocess import run", 1)},
+             f"DISPATCH_IMPORT_FORM {driver_rel}:"),
+            ("a-child-handed-the-suite",
+             {driver_rel: live_driver + "\n\ndef _planted_child():\n"
+                                        "    subprocess.run([sys.executable, __file__, '--self-test'])\n"},
+             f"DISPATCH_SELF_TEST_ARGV {driver_rel}:"),
+            # G3: the constant in a list the trace cannot follow to its call, in a tuple built
+            # elsewhere, and spelled by composition — each ordinary code, none of them adversarial.
+            ("a-suite-argv-through-a-variable",
+             {driver_rel: live_driver + "\n\ndef _planted_variable():\n"
+                                        "    cmd = [sys.executable, __file__, '--self-test']\n"
+                                        "    subprocess.run(cmd)\n"},
+             f"DISPATCH_SELF_TEST_ARGV {driver_rel}:"),
+            ("a-suite-argv-in-a-tuple-built-elsewhere",
+             {driver_rel: live_driver + "\n\nPLANTED_ARGV = (sys.executable, '--self-test')\n"},
+             f"DISPATCH_SELF_TEST_ARGV {driver_rel}:"),
+            ("a-suite-argv-spelled-by-composition",
+             {driver_rel: live_driver + "\n\ndef _planted_join():\n"
+                                        "    flag = '--self' + '-test'\n"
+                                        "    return flag\n"},
+             f"DISPATCH_SELF_TEST_ARGV {driver_rel}:"),
+            # G2: an executor's module renamed, a name taken out of it, and a process module nobody
+            # declared. The first two hid every call behind an alias this judge does not read.
+            ("an-executor-module-renamed",
+             {driver_rel: live_driver.replace("import subprocess", "import subprocess as sp", 1)},
+             f"DISPATCH_IMPORT_FORM {driver_rel}:"),
+            ("an-os-module-renamed",
+             {driver_rel: live_driver.replace("import os\n", "import os as o\n", 1)},
+             f"DISPATCH_IMPORT_FORM {driver_rel}:"),
+            ("a-loader-name-taken-out-of-its-module",
+             {driver_rel: live_driver + "\n\nfrom runpy import run_path\n"},
+             f"DISPATCH_IMPORT_FORM {driver_rel}:"),
+            ("an-undeclared-process-module",
+             {driver_rel: live_driver + "\n\nimport multiprocessing\n"},
+             f"DISPATCH_PROCESS_MODULE {driver_rel}:"),
+            # G4: a tempfile reference that is not a call of a name any list knows.
+            ("a-scratch-function-taken-as-a-value",
+             {driver_rel: live_driver + "\n\ndef _planted_alias():\n"
+                                        "    make = tempfile.mkdtemp\n"
+                                        "    return make()\n"},
+             f"TEMPFILE_UNDECLARED {driver_rel}:"),
+            # G5: the executor passed as a value, which is the shape I introduced myself.
+            ("an-executor-referenced-as-a-value",
+             {driver_rel: live_driver + "\n\ndef _planted_value(spawn=None):\n"
+                                        "    return (spawn or subprocess.Popen)(['git'])\n"},
+             f"DISPATCH_EXEC_AS_VALUE {driver_rel}:")):
+        seen = shape_violations(sources=planted_sources)
+        control(f"planted-{name}", any(row.startswith(needle) for row in seen),
+                f"expected {needle!r} in {seen}")
+    # A declared site that stops making its call admits nothing and must say so rather than sit there.
+    stale = shape_violations(sources={inventory_rel: live_inventory.replace(
+        "        with tempfile.TemporaryDirectory(prefix=prefix, dir=str(parent)) as td:\n"
+        "            yield pathlib.Path(td)",
+        "        yield pathlib.Path(parent)", 1)})
+    control("planted-a-declared-scratch-site-that-makes-no-call",
+            any(row.startswith(f"INVENTORY_STALE tempfile site {inventory_rel}:self_test_scratch")
+                for row in stale), f"{stale}")
     planted("direct-dispatch-in-a-closure-module", "session-distill/runlib/records.py",
             "import subprocess\ndef _planted():\n    subprocess.run(['codex', 'exec', '-'])", "DISPATCH_OUTSIDE_SUPERVISOR {at}:", 2)
     planted("screen-codex-loaded-by-the-driver", "session-distill/distill.py",

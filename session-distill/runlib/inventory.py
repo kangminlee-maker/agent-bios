@@ -82,10 +82,9 @@ except BaseException as _startup_exc:   # SystemExit included: `validate` exits 
 # the one boundary. Bound here rather than inside the suite: `entry` is an ordinary local name in
 # there (a census entry, a declaration entry), and the alias has to be the module (R2#3).
 report = entry.say
-# Same reason, for the three the self-running controls need: the depth mark and the child
-# bound. `entry` is a local name inside the suite, so the module is aliased out here.
-nested_run = entry.nested
-nest_child = entry.nest
+# Same reason for the boundary and the child bound: `entry` is an ordinary local name inside the
+# suite (a census entry, a declaration entry), so the module is aliased out here.
+guarded_entry = entry.guarded
 bounded_child = entry.bounded
 
 HERE = pathlib.Path(__file__).resolve().parents[1]  # session-distill/
@@ -1258,7 +1257,7 @@ def is_bytecode_cache(relative):
     return bool(set(parts) & set(BYTECODE_CACHE_PARTS)) or relative.endswith(BYTECODE_CACHE_SUFFIXES)
 
 
-def tracked_paths(source=REPO):
+def tracked_paths(source=REPO, git_env=None, git_timeout=entry.TIMEOUT):
     """The files of `source`, whether it is a checkout or a tree materialised from one — by the same
     rule the payload gate keeps (`gates/check-package.sh` `tracked_files`), plus one exclusion.
 
@@ -1279,8 +1278,26 @@ def tracked_paths(source=REPO):
     that it is uncached, and that must not depend on which branch answered."""
     source = pathlib.Path(source)
     if (source / ".git").exists():
-        listing = subprocess.run(["git", "-C", str(source), "ls-files", "-z"],
-                                 capture_output=True, text=True, check=True)
+        # The one child this function starts, bounded like every other: a `git` that never returns
+        # hung the walk with nothing to read, and `check=True` turns a failure into an exception but
+        # says nothing about a child that simply does not finish (r3 #8). `spawn` is injectable so a
+        # control hands it a PATH whose `git` sleeps. The executor is spelled as the direct
+        # callee: passed as a value — `(spawn or subprocess.Popen)(...)` — it is a program the
+        # closure judge never sees, which is a shape that judge is for (G5).
+        listing = bounded_child(lambda: subprocess.Popen(
+            ["git", "-C", str(source), "ls-files", "-z"], stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE, text=True, start_new_session=True,
+            env=git_env if git_env is not None else dict(os.environ)),
+            timeout=git_timeout, what="git ls-files over the tree being copied")
+        if listing.returncode != 0:
+            # The timeout is NAMED here rather than left to be read out of the child's stderr: the
+            # window is the last 200 characters, and the cleanup lines after it can push the fact
+            # out of view. A control that reads a window is a control about the window.
+            why = ("CHILD_TIMEOUT: it never answered" if listing.returncode == entry.TIMED_OUT
+                   else f"code={listing.returncode}")
+            raise Refused(f"TREE_UNLISTABLE: git could not list {masked(source)} ({why}); no copy is "
+                          f"made from a listing this run does not have: "
+                          f"{projected(listing.stderr.strip()[-200:], None)}")
         return [name for name in listing.stdout.split("\0") if name and not is_bytecode_cache(name)]
     names = []
     for path in sorted(source.rglob("*")):
@@ -1663,6 +1680,46 @@ def scratch_parent(environ=None, home=None, state_root=None, user_root=None, che
     guarded = protected_roots(state, user, {}, checkout=REPO if checkout is None else checkout,
                               environ=environ)
     return temp_home(guarded, home or str(pathlib.Path.home()), environ)
+
+
+# The suites' in-process depth, counted here rather than in the environment: an environment mark
+# travels to children, and after S4 no child runs a suite at all — what can still nest is a control
+# that calls `main(["--self-test"])` in this process. Depth 1 is the suite; depth 2 is that control's
+# own inner run and must stay allowed; depth 3 means the inner suite reached this control again,
+# which is the recursion that filled the disk, and it is refused by name.
+SELF_TEST_DEPTH = [0]
+SELF_TEST_DEPTH_LIMIT = 2
+# The parent the current scratch was created under, for the control that asks where this suite's own
+# fixtures went. Read rather than re-derived: a control above it takes `TMPDIR` out of the process's
+# environment, so calling the rule again would answer about a different environment.
+SELF_TEST_SCRATCH_PARENT = [None]
+
+
+@contextlib.contextmanager
+def self_test_scratch(prefix="wp07-self-test-", environ=None):
+    """The ONE place either suite creates anything: its scratch directory, under the judged parent.
+
+    Both suites asked `tempfile` for a parent of their own, and `tempfile` resolves `TMPDIR` by
+    PROBING it, so an ordinary `TMPDIR` inside the checkout or the owner's state root put every
+    fixture this suite writes inside a protected root (R1#5). Observing that from outside took a
+    child process running the whole suite, which is what made recursion possible (S7). One function
+    answers both questions in this process instead: it refuses when the judged parent refuses, and
+    the directory it returns has that parent.
+
+    Nothing else in either suite may call `tempfile` — `gates`-side the dispatch judge holds that as
+    a two-site allow-list, so a second scratch cannot appear without being declared."""
+    if SELF_TEST_DEPTH[0] >= SELF_TEST_DEPTH_LIMIT:
+        raise Refused(f"SELF_TEST_TOO_DEEP: a suite is already running at depth {SELF_TEST_DEPTH[0]} "
+                      f"inside this process and the limit is {SELF_TEST_DEPTH_LIMIT}; the suite that "
+                      f"runs a suite is the recursion this bound exists for")
+    parent = scratch_parent(environ)
+    SELF_TEST_SCRATCH_PARENT[0] = parent
+    SELF_TEST_DEPTH[0] += 1
+    try:
+        with tempfile.TemporaryDirectory(prefix=prefix, dir=str(parent)) as td:
+            yield pathlib.Path(td)
+    finally:
+        SELF_TEST_DEPTH[0] -= 1
 
 
 def census_entries(run_dir):
@@ -3128,17 +3185,7 @@ def self_test():
     # The scratch parent is CHOSEN AND JUDGED, not probed: this suite writes fixture state roots, a
     # copy of the checkout and run directories, and `tempfile`'s own resolution of `TMPDIR` would put
     # all of it inside a protected root when that is where `TMPDIR` points (R1#5).
-    chosen_parent = scratch_parent()
-    with tempfile.TemporaryDirectory(prefix="wp07-self-test-", dir=str(chosen_parent)) as td:
-        scratch = pathlib.Path(td)
-        # N1's other half: with the `dir=` wiring gone, `tempfile` resolves `TMPDIR` — inside a
-        # protected root — and REMOVES the directory on the way out, so the control watching that
-        # location found it empty afterwards and passed. What it cannot see from outside is where
-        # this suite actually put its fixtures, so a marked run SAYS it, through the floor (the
-        # child's home is the fixture's, so a protected location reads as `<HOME>/...`).
-        if nested_run():
-            report(f"SELF_TEST_SCRATCH {td}", home=str(pathlib.Path.home()))
-
+    with self_test_scratch() as scratch:
         # ---- done-when 1: the release mapping, against the baseline file's own item list
         baseline = {"schema_version": 1, "packages": [{"package_id": "@fixture/core"}], "items": [
             {"ref": f"@fixture/core:item-{n}", "item_id": f"item-{n}", "kind": "guide", "package_id": "@fixture/core",
@@ -4149,8 +4196,9 @@ def self_test():
         # parent that call returned. (`scratch_parent()` is not called again here — a control above
         # has since taken `TMPDIR` out of this process's environment.)
         check("this suite's own fixtures really are under a parent this rule chose",
-              pathlib.Path(td).parent == chosen_parent and scratch.is_relative_to(chosen_parent),
-              f"{masked(pathlib.Path(td).parent)} vs {masked(chosen_parent)}")
+              scratch.parent == SELF_TEST_SCRATCH_PARENT[0]
+              and scratch.is_relative_to(SELF_TEST_SCRATCH_PARENT[0]),
+              f"{masked(scratch.parent)} vs {masked(SELF_TEST_SCRATCH_PARENT[0])}")
 
         # The rule lives in `run`, so this control runs one: the temporary location is where the
         # frozen copies of the owner's state are made, and gettempdir() picks one by writing to it.
@@ -4300,52 +4348,90 @@ def self_test():
         # the recursion went 594 deep and filled the disk. The child is marked (`entry.nest`) and a
         # marked run skips this section, whatever any protection does. The controls here still run
         # in the parent, and still fail by their own names when the wiring is gone.
-        if not nested_run():
-            # The entry point itself, as a real process, with a scratch parent it cannot write in: the
-            # suite fails where it creates its fixtures, which is the shape that used to escape.
-            unwritable = scratch / "fixture-home" / "no-write"
-            unwritable.mkdir(parents=True)
-            unwritable.chmod(0o500)
-            child_env = {"HOME": str(scratch / "fixture-home"), "TMPDIR": str(unwritable),
-                         "PATH": os.environ.get("PATH", "/usr/bin:/bin")}
-            try:
-                entry_run = bounded_child(lambda: subprocess.Popen(
-                    [sys.executable, str(pathlib.Path(__file__).resolve()), "--self-test"],
-                    stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
-                    env=nest_child(child_env), start_new_session=True),
-                    what="this suite's own child")
-            finally:
-                unwritable.chmod(0o700)
-            entry_output = entry_run.stdout + entry_run.stderr
-            control("this entry point's own uncaught file failure, as a real process",
-                    [f"code={entry_run.returncode} output={entry_output.strip()[-400:]}"],
-                    "COMMAND_FAILED", "<HOME>")
-            check("and the interpreter printed no traceback and no raw fixture path",
-                  "Traceback" not in entry_output and child_env["HOME"] not in entry_output
-                  and entry_run.returncode != 0,
-                  f"{entry_run.returncode} {entry_output[-400:]}")
-            # ---- R2#7 for this entry point: the `dir=` wiring, observed here rather than in the helper.
-            # With `TMPDIR` inside a host home the judged parent refuses and nothing is created; without
-            # the wiring `tempfile` resolves `TMPDIR` itself and this suite's fixtures land in a
-            # protected root.
-            guarded_tmp = pathlib.Path(child_env["HOME"]) / ".claude" / "tmp"
-            guarded_tmp.mkdir(parents=True)
-            wired = bounded_child(lambda: subprocess.Popen(
-                [sys.executable, str(pathlib.Path(__file__).resolve()), "--self-test"],
-                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, start_new_session=True,
-                env=nest_child({**child_env, "TMPDIR": str(guarded_tmp)})),
-                what="this suite's own child with TMPDIR in a host home")
-            wired_output = wired.stdout + wired.stderr
-            control("this suite passes the judged parent to TemporaryDirectory",
-                    [f"code={wired.returncode} output={wired_output.strip()[-300:]}"], "PROTECTED_OVERLAP")
-            check("and nothing was created in the location the judgement refused",
-                  not any(guarded_tmp.iterdir()),
-                  f"{sorted(path.name for path in guarded_tmp.iterdir())}")
-            # Emptiness afterwards is no evidence: `tempfile` removes what it made. The child says
-            # where its fixtures went, and with the wiring in place it never gets that far.
-            check("and the child placed no fixtures of its own inside a protected root",
-                  "SELF_TEST_SCRATCH" not in wired_output,
-                  f"{[line for line in wired_output.splitlines() if 'SELF_TEST_SCRATCH' in line]}")
+        # ---- r3 #8: the one child `tracked_paths` starts is bounded, and a `git` that does not
+        # finish is a REFUSAL rather than an empty listing. An empty listing would make a copy of
+        # nothing and every control over that copy would pass over nothing.
+        slow_bin = scratch / "slow-git-bin"
+        slow_bin.mkdir()
+        slow_marker = scratch / "slow-git-ran"
+        # `: > file` is a shell builtin and `/bin/sleep` is absolute, so this script needs nothing
+        # from PATH — the first version used bare `sleep`, which PATH did not hold, so the fixture
+        # git died at once with code 127 and the control passed on the wrong failure (r3 #8 rework).
+        (slow_bin / "git").write_text(f"#!/bin/sh\n: > {slow_marker}\n/bin/sleep 3\n", encoding="utf-8")
+        (slow_bin / "git").chmod(0o755)
+        # The SOURCE is a fixture of this control's own, never this checkout: `tracked_paths` takes
+        # the git branch only when `source/.git` exists, and the commit hook materialises the index
+        # into a tree that has none — there the call fell to the rglob branch, git never ran, and
+        # this control failed inside the hook and nowhere else (S4 rework).
+        slow_tree = scratch / "slow-git-tree"
+        (slow_tree / "inner").mkdir(parents=True)
+        (slow_tree / ".git").write_text("gitdir: a fixture, not a repository\n", encoding="utf-8")
+        (slow_tree / "inner" / "held.txt").write_text("held\n", encoding="utf-8")
+        slow_git = ""
+        try:
+            tracked_paths(slow_tree, git_env={"PATH": f"{slow_bin}:/usr/bin:/bin"}, git_timeout=0.5)
+            slow_git = "a listing came back from a git that never answered"
+        except Exception as exc:
+            slow_git = f"{type(exc).__name__}: {exc}"
+        control("a git listing that does not finish is refused by name, never read as an empty tree",
+                [slow_git[:300]], "TREE_UNLISTABLE", "CHILD_TIMEOUT")
+        check("and the fixture git really was the program that did not answer",
+              slow_marker.is_file(), f"{masked(slow_marker)} was never created")
+
+        # ---- R2#3 and R2#7 for this entry point, in this process. Both used to be asked of a
+        # child running this whole suite with `--self-test` in its argv, which is what made the
+        # recursion of S7 possible; neither needs a child. This module's `main` has no handler of its
+        # own — `__main__` hands it to `entry.guarded`, and that is the one boundary — so the failure
+        # is raised where the suite creates its fixtures and the real entry is called through it.
+        held_scratch = globals()["self_test_scratch"]
+        guarded_stream, guarded_code = io.StringIO(), "RAISED nothing"
+        fixture_scratch = f"{pathlib.Path.home()}/Documents/fixture-scratch"
+        try:
+            def _unwritable_scratch(*_args, **_kwargs):
+                raise PermissionError(13, "Permission denied", fixture_scratch)
+            globals()["self_test_scratch"] = _unwritable_scratch
+            guarded_code = guarded_entry(main, ["--self-test"], str(pathlib.Path.home()),
+                                         stream=guarded_stream)
+        except BaseException as left_the_boundary:   # `escaped` is a carrier fixture in this suite
+            guarded_code = f"RAISED {type(left_the_boundary).__name__}"
+        finally:
+            globals()["self_test_scratch"] = held_scratch
+        guarded_text = guarded_stream.getvalue()
+        control("this entry point's own uncaught file failure, through the one boundary",
+                [f"code={guarded_code} output={guarded_text.strip()[-400:]}"],
+                "COMMAND_FAILED", "<HOME>")
+        check("and the interpreter printed no traceback and no raw fixture path",
+              "Traceback" not in guarded_text and fixture_scratch not in guarded_text
+              and guarded_code == 1,
+              f"{guarded_code} {guarded_text[-400:]}")
+        # And `__main__` is wired to that layer rather than calling `main` itself: the two are
+        # indistinguishable from outside, so the wiring is read here.
+        boundary_calls = [node for node in ast.walk(ast.parse(
+                              pathlib.Path(__file__).read_text(encoding="utf-8")))
+                          if isinstance(node, ast.If)
+                          and ast.unparse(node.test) == "__name__ == '__main__'"
+                          for node in ast.walk(node) if isinstance(node, ast.Call)
+                          and ast.unparse(node.func) == "entry.guarded"]
+        check("and this entry point is wired to that layer rather than calling main itself",
+              len(boundary_calls) == 1 and "main" in ast.unparse(boundary_calls[0]),
+              f"{[ast.unparse(call) for call in boundary_calls]}")
+        # R2#7: the judged parent refuses a location inside a fixture host home and creates nothing.
+        guarded_home = scratch / "boundary-fixture-home"
+        guarded_tmp = guarded_home / ".claude" / "tmp"
+        guarded_tmp.mkdir(parents=True)
+        guarded_env = {"HOME": str(guarded_home), "CLAUDE_CONFIG_DIR": str(guarded_home / ".claude"),
+                       "TMPDIR": str(guarded_tmp), "PATH": os.environ.get("PATH", "/usr/bin:/bin")}
+        refused_scratch = ""
+        try:
+            with self_test_scratch("wp07-refused-", environ=guarded_env):
+                refused_scratch = "the judged parent accepted a location inside a host home"
+        except Exception as exc:
+            refused_scratch = f"{type(exc).__name__}: {exc}"
+        control("this suite passes the judged parent to TemporaryDirectory",
+                [refused_scratch[:300]], "PROTECTED_OVERLAP")
+        check("and nothing was created in the location the judgement refused",
+              not any(guarded_tmp.iterdir()),
+              f"{sorted(path.name for path in guarded_tmp.iterdir())}")
 
         # ---- R1#0/R2#0, the differential: for EVERY carrier fixture in this suite, nothing the
         # floor removes from the INTACT carrier appears in ANY string the emitted row carries. The
