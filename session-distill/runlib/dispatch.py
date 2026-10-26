@@ -2509,9 +2509,29 @@ def self_test(scratch=None):
     caps = {"tokens": 50_000, "compactions": 2}
 
     def control(name, condition, detail):
+        # A boolean-style helper given a problem LIST passed on whatever its needle said, because a
+        # non-empty list is truthy: three controls in this package read correctly and asked nothing
+        # until S8a found them. The signature is enforced here rather than remembered.
+        if not isinstance(condition, bool):
+            raise TypeError(f"CONTROL_CONDITION_NOT_BOOL {name}: this file's `control` judges a "
+                            f"boolean condition and was given {type(condition).__name__}")
         ran.append(name)
         if not condition:
             failures.append(f"{name}: {detail}")
+
+    def type_refusal(call):
+        """The message a self-test helper raises when it is given the wrong KIND of argument. The
+        control below catches it here, so asking the guard does not fail the suite."""
+        try:
+            call()
+        except TypeError as exc:
+            return str(exc)
+        return ""
+
+    control("a boolean-style control given a problem list is refused by name",
+            "CONTROL_CONDITION_NOT_BOOL" in type_refusal(
+                lambda: control("a planted non-boolean", ["a problem"], "")),
+            "the guard admitted a non-boolean condition, so a control in the other file's style would pass on a truthy list")
 
     def refusal(fn, *args, **kwargs):
         try:
@@ -4474,7 +4494,7 @@ def self_test(scratch=None):
                   "the host allowance was re-measured after the excess", scope=(vstage,))
     after = sr.reserve(vstage, "after-amendment", vseat, "authoring")
     control("M4-iv-a-later-host_allowance-amendment-lets-the-run-go-on",
-            isinstance(after, dict) and after.get("call_id"), f"{after}")
+            isinstance(after, dict) and bool(after.get("call_id")), f"{after}")
     # ... and the recovered call really runs: the same retained capture, as the NON-window call design §8.6
     # says an R-authoring call is, launched through the fake runner and accepted by the gate
     launched_before = list(launches)

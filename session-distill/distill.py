@@ -370,9 +370,28 @@ def self_test():
     failures, ran = [], []
 
     def control(name, ok, detail=""):
+        # A boolean-style helper given a problem LIST passed on whatever its needle said, because a
+        # non-empty list is truthy: three controls in this package read correctly and asked nothing
+        # until S8a found them. The signature is enforced here rather than remembered.
+        if not isinstance(ok, bool):
+            raise TypeError(f"CONTROL_CONDITION_NOT_BOOL {name}: this file's `control` judges a "
+                            f"boolean condition and was given {type(ok).__name__}")
         ran.append(name)
         if not ok:
             failures.append(f"{name}: {detail}")
+
+    def type_refusal(call):
+        """The message a self-test helper raises when it is given the wrong KIND of argument. The
+        control below catches it here, so asking the guard does not fail the suite."""
+        try:
+            call()
+        except TypeError as exc:
+            return str(exc)
+        return ""
+
+    control("a boolean-style control given a problem list is refused by name",
+            "CONTROL_CONDITION_NOT_BOOL" in type_refusal(lambda: control("a planted non-boolean", ["a problem"])),
+            "the guard admitted a non-boolean condition, so a control in the other file's style would pass on a truthy list")
 
     # Chosen and judged by the same rule production uses, never probed: this suite writes run
     # directories, fixture state roots and a copy of the checkout (R1#5).
@@ -682,7 +701,7 @@ def self_test():
         control("the driver itself refuses a destination inside the unread state root, before the producer is called",
                 code == 1 and "PROTECTED_OVERLAP" in err and not reached, f"{code} {reached} {err}")
         control("and the producer is reachable at all when the destination is not protected",
-                cli_refused_before_run("inventory", "--to", str(cli_checkout), "--no-state")[2],
+                bool(cli_refused_before_run("inventory", "--to", str(cli_checkout), "--no-state")[2]),
                 "the recorder was never called, so the two controls above judge nothing")
 
         # ---- r7 R17b: "the checkout is ALWAYS a project" was watched only through a REFUSAL, and

@@ -2916,7 +2916,7 @@ MANIFEST_TABLE = table_of({
 
 
 def run(repo, state_root, user_root, out_dir, pin=None, native_roots=None, ledger=None, commit=None,
-        run_dir=None, zstd=None, declared_state=None, declared_user=None, environ=None):
+        run_dir=None, zstd=None, declared_state=None, declared_user=None, environ=None, home=None):
     """Write `inventory/<reference>.json` for every reference point, and return the manifest.
 
     The owner's state is hashed before and after, and the two hashes are compared here rather than
@@ -2938,7 +2938,12 @@ def run(repo, state_root, user_root, out_dir, pin=None, native_roots=None, ledge
                                                    user_root or declared_user, environ)
     guarded = protected_roots(protect_state, protect_user, native_roots, checkout=repo, repo=repo,
                               environ=environ)
-    home = str(pathlib.Path.home())
+    # The home every path in the manifest and every refusal message is projected against. A
+    # production caller passes none and gets this process's own home, exactly as before; the home is
+    # a SPELLING, not a decision — `temp_home` and `overlap_problems` judge paths and use it only to
+    # write them down. A caller whose roots live under a home of its own passes that home, so the
+    # projection is taken against the home the roots actually belong to (this suite's fixture does).
+    home = str(pathlib.Path.home()) if home is None else str(home)
     temp_root = temp_home(guarded, home, environ)   # chosen and judged before any write, GC#1
     overlaps = overlap_problems([out_dir], guarded, home=home)
     if overlaps:
@@ -3321,6 +3326,11 @@ def self_test():
     failures, ran = [], []
 
     def control(name, problems, *needles):
+        # The mirror of the boolean guard below: this helper judges a LIST of problem strings, and a
+        # bare string or a bool here would be read character by character or silently admitted.
+        if not isinstance(problems, list):
+            raise TypeError(f"CONTROL_PROBLEMS_NOT_LIST {name}: this file's `control` judges a list "
+                            f"of problems and was given {type(problems).__name__}")
         ran.append(name)
         text = "; ".join(problems)
         if not problems:
@@ -3336,9 +3346,31 @@ def self_test():
             failures.append(f"{name}: expected no violation, got {problems}")
 
     def check(name, ok, detail=""):
+        # A boolean-style helper given a problem LIST passed on whatever its needle said, because a
+        # non-empty list is truthy: three controls in this package read correctly and asked nothing
+        # until S8a found them. The signature is enforced here rather than remembered.
+        if not isinstance(ok, bool):
+            raise TypeError(f"CONTROL_CONDITION_NOT_BOOL {name}: this file's `check` judges a "
+                            f"boolean condition and was given {type(ok).__name__}")
         ran.append(name)
         if not ok:
             failures.append(f"{name}: {detail}")
+
+    def type_refusal(call):
+        """The message a self-test helper raises when it is given the wrong KIND of argument. The
+        controls below catch it here, so asking the guards does not fail the suite."""
+        try:
+            call()
+        except TypeError as exc:
+            return str(exc)
+        return ""
+
+    check("a boolean-style check given a problem list is refused by name",
+          "CONTROL_CONDITION_NOT_BOOL" in type_refusal(lambda: check("a planted non-boolean", ["a problem"])),
+          "the guard admitted a non-boolean condition, so a control in the other style would pass on a truthy list")
+    check("a problem-list control given something that is not a list is refused by name",
+          "CONTROL_PROBLEMS_NOT_LIST" in type_refusal(lambda: control("a planted non-list", "a problem")),
+          "the guard admitted a non-list, so a bare string would be read character by character")
 
     # ---- the splitter reproduces its carriers, over the real guides (the measured property)
     guides = sorted((REPO / "claude" / "guides").glob("*.md"))[:6] + sorted((REPO / "claude" / "hooks").glob("*.py"))[:2]
@@ -3691,7 +3723,16 @@ def self_test():
              "title": f"Item {n}", "surface": "relevant", "tier": "env-team", "domains": ["personal"],
              "primary_member": f"guides/item-{n}.md", "members": {f"guides/item-{n}.md": f"## Item {n}\n\n- a rule\n"},
              "origin": {"source_path": f"claude/guides/item-{n}.md"}, "body": "- a rule\n"} for n in (1, 2, 3)]}
-        state = scratch / "state"
+        # The fixture's roots live under a FIXTURE HOME, and every `run` below is told that home.
+        # The manifest projects each root through `masked(root, home)`, so a root under the home the
+        # run was given appears as `<HOME>/…` — which is the product property. Two controls used to
+        # read the manifest back with RAW paths, so they only worked while the roots happened to sit
+        # outside the home `run` read from the process: with `TMPDIR` under the owner's real home,
+        # scratch was under it too, the keys were masked, and the suite died with a `KeyError` on
+        # the root's raw path before any control ran. Giving the fixture its own home answers that
+        # at its cause, and leaves the suite indifferent to where `TMPDIR` points.
+        fixture_home = scratch / "home"
+        state = fixture_home / "state"
         (state / "runtime" / "baselines" / "ref1").mkdir(parents=True)
         (state / "runtime" / "baselines" / "ref1" / "inventory.json").write_text(json.dumps(baseline), encoding="utf-8")
         (state / "runtime" / "baselines" / "ref1" / "defaults.json").write_text(
@@ -3974,13 +4015,13 @@ def self_test():
             """The argument set every run in this self-test uses: the project root as a protected
             write target, and the fixture run whose census binds the transcripts."""
             return {"native_roots": {"projects": {"project": scratch / "project"}},
-                    "run_dir": run_fixture, **extra}
+                    "run_dir": run_fixture, "home": fixture_home, **extra}
 
         # ---- done-when 5: the owner's state is read through frozen copies
         pending = state / "runtime" / "transactions" / "tx-1"
         pending.mkdir(parents=True)
         (pending / "transaction.json").write_text(json.dumps({"state": "NEEDS_RECOVERY", "owner": "installer"}), encoding="utf-8")
-        user = scratch / "user"
+        user = fixture_home / "user"
         user.mkdir()
         (user / "state.json").write_text(json.dumps({"schema_version": 1, "items": {}, "overrides": {}, "tombstones": {},
                                                      "selection": None,
@@ -4019,7 +4060,8 @@ def self_test():
         try:
             globals()["LAYERS"] = (("catalog", {"current": ("a producer that writes", writing_producer)}),)
             control("a producer that writes into the owner's state", [str(_raised(
-                lambda: run(REPO, state, user, scratch / "written", ledger=ledger)))], "STATE_WRITTEN")
+                lambda: run(REPO, state, user, scratch / "written", ledger=ledger,
+                                   home=fixture_home)))], "STATE_WRITTEN")
         finally:
             globals()["LAYERS"] = saved
             planted_write.unlink(missing_ok=True)
@@ -4035,7 +4077,8 @@ def self_test():
                 [f"STATE_WRITTEN fixture: {sorted(set(after) - set(before))}"] if after != before else [],
                 "STATE_WRITTEN")
         check("the write the frozen route avoids is in the state root, not the copy",
-              sorted(set(after) - set(before)) or [name for name in after if after[name] != before.get(name)],
+              bool(sorted(set(after) - set(before))
+                   or [name for name in after if after[name] != before.get(name)]),
               "the recovering entry point changed nothing, so the control shows nothing")
 
         # ---- GA#3: no write can reach a protected root, and the guarantee is checked on error paths
@@ -4303,7 +4346,8 @@ def self_test():
         try:
             globals()["LAYERS"] = (("catalog", {"current": ("a producer that writes", writing_producer)}),)
             control("a write is reported even when the inventory failed afterwards",
-                    [str(_raised(lambda: run(REPO, state, user, failing_out, ledger=ledger)))],
+                    [str(_raised(lambda: run(REPO, state, user, failing_out, ledger=ledger,
+                                                      home=fixture_home)))],
                     "STATE_WRITTEN", "in flight")
         finally:
             globals()["LAYERS"] = saved
@@ -4312,15 +4356,26 @@ def self_test():
         link = state / "runtime" / "a-link-out.json"
         link.symlink_to(scratch / "project" / "CLAUDE.md")
         try:
-            manifest = run(REPO, state, user, scratch / "manifest-out", ledger=ledger)
+            manifest = run(REPO, state, user, scratch / "manifest-out", ledger=ledger,
+                           home=fixture_home)
         finally:
             link.unlink()
         inputs = manifest["inputs"]
+        # Asked BEFORE the lookups below, because they index the manifest by the projected key: with
+        # the projection gone they raise rather than report, and a reader of this suite needs the
+        # spelling stated where it can fail as a control instead of as an abort.
+        check("the manifest spells the roots it read as the projection does, never as raw paths",
+              all(key.startswith("<HOME>/") for key in inputs["roots"]) and str(state) not in inputs["roots"],
+              f"{sorted(inputs['roots'])}")
+        # Read by the PROJECTED key, and read so that a key that is not there REPORTS rather than
+        # raises: an indexing lookup aborted this suite with a `KeyError` before any control ran,
+        # which is a control asking nothing (S8a's lesson, in the other direction).
+        state_row = inputs["roots"].get(masked(state, str(fixture_home))) or {}
         check("the input manifest declares the symlink policy and names the symlink it left out",
               SYMLINK_POLICY in inputs["symlink_policy"]
               and any(entry["reason"] == "symlink" and entry["path"] == "runtime/a-link-out.json"
-                      for entry in inputs["roots"][str(state)]["omissions"]),
-              f"{inputs['roots'][str(state)]['omissions']}")
+                      for entry in state_row.get("omissions") or []),
+              f"{state_row.get('omissions')} of {sorted(inputs['roots'])}")
         # ---- GB#8: a link inside a tree a run really copies is omitted, never followed
         outside = scratch / "outside-the-root"
         outside.write_text("bytes from outside the declared root\n", encoding="utf-8")
@@ -4346,8 +4401,20 @@ def self_test():
             link.unlink()
 
         check("the input manifest names every root it read and every protected root",
-              set(inputs["roots"]) == {str(state), str(user)} and str(state) in inputs["protected_roots"],
+              set(inputs["roots"]) == {masked(state, str(fixture_home)), masked(user, str(fixture_home))}
+              and masked(state, str(fixture_home)) in inputs["protected_roots"],
               f"{sorted(inputs['roots'])} / {inputs['protected_roots']}")
+        # The `home` argument must not change what a production caller gets. A run given nothing and
+        # a run given this process's own home produce the same manifest for the same inputs — which
+        # is what "the default is the process's own home" means, stated where a change would fail.
+        default_out, named_out = scratch / "home-default-out", scratch / "home-named-out"
+        by_default = run(REPO, state, user, default_out, ledger=ledger)
+        by_process_home = run(REPO, state, user, named_out, ledger=ledger, home=str(pathlib.Path.home()))
+        check("a run given no home projects exactly as a run given this process's own home",
+              by_default["inputs"] == by_process_home["inputs"]
+              and by_default["out_dir"] == masked(default_out, str(pathlib.Path.home()))
+              and by_process_home["out_dir"] == masked(named_out, str(pathlib.Path.home())),
+              f"{by_default['inputs']} / {by_process_home['inputs']}")
 
         # ---- GA#0: a credential or a home path planted in every personal carrier kind, and in the
         # session's compiled text, reaches no artifact — while the hashes still bind to the raw carrier
@@ -4391,7 +4458,7 @@ def self_test():
         planted_out = scratch / "planted-out"
         manifest = run(REPO, state, user, planted_out, pin="claude:session-1",
                        native_roots={"projects": {"project": scratch / "project"}},
-                       run_dir=run_planted, ledger=ledger, commit="fixture")
+                       run_dir=run_planted, ledger=ledger, commit="fixture", home=fixture_home)
         artifacts = sorted(path for path in planted_out.rglob("*") if path.is_file())
         check("the planted run wrote artifacts to scan", len(artifacts) >= len(REFERENCES),
               f"{len(artifacts)} artifact(s)")
@@ -4561,7 +4628,7 @@ def self_test():
               f"{sorted(split_doc['produced_by'])}")
         # A run with no census at all: every native layer unknown, with the census reason.
         blind_out = scratch / "blind-out"
-        blind = run(REPO, state, user, blind_out, ledger=ledger,
+        blind = run(REPO, state, user, blind_out, ledger=ledger, home=fixture_home,
                     native_roots={"projects": {"project": scratch / "project"}})
         blind_rows = {row["layer"]: row for row in json.loads(
             (blind_out / "inventory" / "current.json").read_text(encoding="utf-8"))["layers"]}
@@ -4605,13 +4672,14 @@ def self_test():
               f"{[unit['block'] for unit in markdown_in_json][:2]}")
 
         # ---- GA#5: a failure acquiring the inputs still leaves a layer-status artifact naming it
-        brittle = scratch / "brittle-state"
+        brittle = fixture_home / "brittle-state"
         (brittle / "runtime").mkdir(parents=True)
         (brittle / "runtime" / "state.json").write_text('{"schema_version": 1,\n', encoding="utf-8")
         brittle_out = scratch / "brittle-out"
         brittle_manifest, brittle_failure = {"references": {}}, None
         try:  # the subject is guarded: a run that raises makes this control fail, not the suite abort
-            brittle_manifest = run(REPO, brittle, user, brittle_out, ledger=ledger)
+            brittle_manifest = run(REPO, brittle, user, brittle_out, ledger=ledger,
+                                   home=fixture_home)
         except Exception as exc:
             brittle_failure = exc
         control("a run whose input freezing failed",
