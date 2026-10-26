@@ -777,9 +777,29 @@ def operative_context(units):
         direct[unit["unit_id"]] = list(dict.fromkeys(context))
 
     def mentioned(unit_id):
-        """What this unit's text names: resolved unit ids, and `unknown:` for what it does not."""
+        """What this unit's text names: resolved unit ids, and `unknown:` for what it does not.
+
+        An `unknown:` entry is kept as the string the closure walks, AND its position in the carrier
+        is recorded in `origins`. The string is raw carrier text, so the emission builds the entry
+        from those offsets through the floor instead of carrying it (r3 #0). Resolution reads the raw
+        text as before: only what is emitted changes."""
         unit = by_id[unit_id]
         reached = []
+        base = (unit.get("span") or (0, 0))[0] if unit.get("carrier_text") else None
+
+        def origin(entry, kind, match):
+            """Where in the carrier this entry was read, so the emission can project it."""
+            if base is None:
+                return
+            named_at = (base + match.start("path"), base + match.end("path"))
+            heading_at = None
+            if match.group("heading") is not None and match.start("heading") >= 0:
+                heading_at = (base + match.start("heading"), base + match.end("heading"))
+            row = (unit["carrier_id"], unit["carrier_text"], named_at,
+                   heading_at if kind == "heading" else None, kind)
+            if row not in origins.setdefault(entry, []):
+                origins[entry].append(row)
+
         for match in MENTION.finditer(unit["text"]):
             named, heading = match.group("path"), (match.group("heading") or "").strip()
             paths = [named] if named in carriers_at_path else basenames.get(named.rsplit("/", 1)[-1], [])
@@ -787,12 +807,14 @@ def operative_context(units):
             if not targets:
                 if named != unit["path"] and named != unit["path"].rsplit("/", 1)[-1]:
                     reached.append(f"{UNRESOLVED}{named}")
+                    origin(f"{UNRESOLVED}{named}", "plain", match)
                 continue
             if len(targets) > 1:
                 # Several packages deliver this path. Every candidate's requirements are in the set
                 # AND the ambiguity is stated: choosing the first match is how a context silently
                 # became another package's (GB#10).
                 reached.append(f"{UNRESOLVED}ambiguous:{named}")
+                origin(f"{UNRESOLVED}ambiguous:{named}", "ambiguous", match)
             for carrier_id in targets:
                 if heading:
                     rows = [u["unit_id"] for u in by_carrier[carrier_id]
@@ -801,11 +823,17 @@ def operative_context(units):
                         reached += rows
                     else:
                         reached.append(f"{UNRESOLVED}{named}#{heading}")
+                        origin(f"{UNRESOLVED}{named}#{heading}", "heading", match)
                 else:
                     reached += whole_carrier(carrier_id)
         return [row for row in dict.fromkeys(reached) if row != unit_id]
 
+    origins = {}
     reached = {unit["unit_id"]: mentioned(unit["unit_id"]) for unit in units}
+    # One map for every unit: an entry a unit reached through the closure was READ in another
+    # carrier, and it is that carrier's offsets and that carrier's floor decision the emission needs.
+    for unit in units:
+        unit["context_origins"] = origins
 
     for unit in units:
         context, seen = list(direct[unit["unit_id"]]), {unit["unit_id"]}
@@ -878,44 +906,528 @@ def _projected_heading(unit, home=None, decision=None):
     return " > ".join(part for part in parts if part)
 
 
+# ---------------------------------------------------------------- emission: one declared rule per field
+# A row used to be built as `{**{field: unit[field] for field in UNIT_FIELDS}, ...}` — a RAW COPY of
+# every field, with the ones this module knew about overwritten afterwards. A field on no list stayed
+# raw, and three rounds found three of them: the span (R1#0), the heading (R2#0), and
+# `operative_context`, whose `unknown:` entries are built out of raw carrier text (r3 #0). The list
+# was default-ALLOW, so the next unlisted field was only a matter of time.
+#
+# Every emitted row is now built from a DECLARED TABLE and nothing else: one rule per field, applied
+# by one function, and a field on the source record or declared by the schema that no rule covers is
+# refused by name. The rules are data, so a control reads them and a refusal says which one answered.
+#
+# Nine rules. Five are leaves — `as_scalar`, `as_constant`, `as_enum`, `as_metadata`, `as_opaque` —
+# one is the carrier's own text (`as_span`), and three compose: `list_of`, `map_of`, `table_of`.
+# `one_of` is the ninth: a per-item union, which `operative_context` needs because its items are of
+# two kinds. Composition is defined ONCE here rather than spelled per field, so there is no
+# `span-list` rule to forget to keep in step with `span`.
+SCALAR, CONSTANT, ENUM, METADATA, OPAQUE, SPAN = "scalar", "constant", "enum", "metadata", "opaque", "span"
+LIST, MAP, OBJECT, UNION = "list", "map", "object", "union"
+CONTEXT, TREE = "context", "tree"
+# The shapes an opaque id has. An opaque field may carry nothing but its own form: it is emitted
+# without passing the floor, so a value that is not the form could carry text this row never
+# projected (`carrier_id` was once the raw delivered path, GC#12).
+OPAQUE_FORMS = {"unit_id": re.compile(r"^u-[0-9a-f]{16}(-[0-9]+)?$"),
+                "carrier_id": re.compile(r"^c-[0-9a-f]{24}$"),
+                "sha256": re.compile(r"^[0-9a-f]{64}$")}
+
+
+def as_scalar(nullable=False):
+    """A number or a boolean, by exact type. Not a string, not a float, and `None` only when the
+    table says so: a count that arrives as text is a string nobody projected."""
+    return {"rule": SCALAR, "nullable": nullable}
+
+
+def as_constant(value):
+    """Exactly one literal."""
+    return {"rule": CONSTANT, "value": value}
+
+
+def as_enum(values, nullable=False):
+    """A member of a declared set, which is the field's whole vocabulary.
+
+    `values` may be a callable, so the vocabulary can be read from its OWNER — the schema declares
+    the layer names and the unit classes, and restating them here would be a second copy to drift."""
+    return {"rule": ENUM, "values": values, "nullable": nullable}
+
+
+def _enum_values(spec):
+    """The set this enum admits. A callable is asked EVERY time, never cached: the vocabulary's owner
+    is a table in force, and a control that stands a fixture table in its place must be judged
+    against that one."""
+    if callable(spec["values"]):
+        return frozenset(spec["values"]())
+    if not isinstance(spec["values"], frozenset):
+        spec["values"] = frozenset(spec["values"])
+    return spec["values"]
+
+
+def schema_enum(name):
+    """The vocabulary the SCHEMA declares for one of its shapes."""
+    return frozenset(((inventory_schema().get("$defs") or {}).get(name) or {}).get("enum") or ())
+
+
+def layer_names():
+    """The whole vocabulary of `layer`, from its two code-owned sources: the names the SCHEMA
+    declares for an artifact, and the names the producer table in force carries.
+
+    Both, because both are real and neither is owner data. The schema is the artifact's contract, so
+    a unit carrying a layer it does not name is a unit no reader can validate; the table in force is
+    what a control stands a fixture producer in — a suite that declares a `no-units` layer to test
+    the layer table is testing this module, not publishing a layer. What matters for the floor is
+    that a layer name is never read out of a file, and under both sources it never is."""
+    return frozenset(schema_enum("layer_name")) | {name for name, _ in LAYERS}
+
+
+def as_context():
+    """One entry of `operative_context` that this reference point could not resolve.
+
+    The entry is BUILT from the carrier offsets of the mention it came from, through the same floor
+    decision as any other span of that carrier — never from the stored string, which is raw carrier
+    text and is what leaked (r3 #0). Internal resolution still reads the raw text; only what is
+    emitted changes."""
+    return {"rule": CONTEXT}
+
+
+def as_metadata(nullable=False):
+    """A string ABOUT the carrier rather than of it — a delivered path, a host's own value, a
+    diagnostic this module composed — through the floor on its own."""
+    return {"rule": METADATA, "nullable": nullable}
+
+
+def as_opaque(form, nullable=False):
+    """An id whose form is its guarantee, checked against `OPAQUE_FORMS`."""
+    return {"rule": OPAQUE, "form": form, "nullable": nullable}
+
+
+def as_span(offsets, join=None, marks=False):
+    """The carrier's own text, through `_carrier_span` with that carrier's whole-carrier decision.
+
+    `offsets` names the field of the SOURCE record holding the span (or spans) in carrier
+    coordinates, never the stored string: the string is what the leaks were made of. `join` makes a
+    breadcrumb of several spans, and `marks` strips a heading's `#` marks after projection."""
+    return {"rule": SPAN, "offsets": offsets, "join": join, "marks": marks}
+
+
+def list_of(item):
+    """A list, with `item`'s rule applied to each element, in order."""
+    return {"rule": LIST, "item": item}
+
+
+def map_of(key, value):
+    """An object used as a map: `key`'s rule over every key, `value`'s over every value."""
+    return {"rule": MAP, "key": key, "value": value}
+
+
+def table_of(fields, optional=(), schema=None):
+    """A nested object with its own table. Its key set must equal the table's, minus `optional`.
+
+    `schema` names the shape the schema declares for it, when it declares one, so a field the schema
+    requires and this table has no rule for is refused rather than quietly dropped."""
+    return {"rule": OBJECT, "fields": fields, "optional": frozenset(optional), "schema": schema}
+
+
+def one_of(*choices):
+    """A value of several declared kinds, tried in order. An item matching none is refused."""
+    return {"rule": UNION, "choices": choices}
+
+
+_SCHEMA_NAMES = {}
+
+
+def schema_row_fields(kind):
+    """The field names the schema declares for one row kind, or an empty set when it declares none.
+
+    Read from the schema rather than restated here: a field the schema requires and the table has no
+    rule for is the defect this emission is about, and a second copy of the schema's field list could
+    drift out of step with it."""
+    if kind not in _SCHEMA_NAMES:
+        try:
+            defs = inventory_schema().get("$defs") or {}
+            _SCHEMA_NAMES[kind] = frozenset((defs.get(kind) or {}).get("properties") or {})
+        except Exception:                      # an unreadable schema is its own refusal elsewhere
+            _SCHEMA_NAMES[kind] = frozenset()
+    return _SCHEMA_NAMES[kind]
+
+
+def schema_field_names():
+    """Every field name the schema declares anywhere: these are schema text and may be printed."""
+    if "*" not in _SCHEMA_NAMES:
+        names = set()
+        try:
+            for shape in (inventory_schema().get("$defs") or {}).values():
+                names |= set((shape or {}).get("properties") or {})
+            names |= set(inventory_schema().get("properties") or {})
+        except Exception:
+            names = set()
+        _SCHEMA_NAMES["*"] = frozenset(names)
+    return _SCHEMA_NAMES["*"]
+
+
+def as_tree():
+    """A producer's own note, of a shape this module does not fix: every string leaf and every key
+    through the floor, numbers and booleans as they are, and nothing else admitted.
+
+    This is NOT a way around the tables. It is used where the shape belongs to a producer rather
+    than to the record — `produced_by.notes` holds whatever the layer producers recorded — and what
+    it guarantees is the one thing that matters there: no string leaves unprojected. The KEY SET is
+    still declared by the table above it, so a new note is declared before it can be published."""
+    return {"rule": TREE}
+
+
+def _emit_tree(value, place, where):
+    """One producer note through the floor, recursively."""
+    if value is None or type(value) in (int, bool):
+        return value
+    if isinstance(value, str):
+        return projected(value, place["home"]) if value else value
+    if isinstance(value, (list, tuple)):
+        return [_emit_tree(item, place, f"{where}[{n}]") for n, item in enumerate(value)]
+    if isinstance(value, dict):
+        emitted = {}
+        for key, item in value.items():
+            if not isinstance(key, str):
+                raise Refused(f"EMISSION_NOT_DECLARED_VALUE {where}: a {type(key).__name__} key, "
+                              f"where a note's keys are strings")
+            at = projected(key, place["home"]) if key else key
+            if at in emitted:
+                raise Refused(f"EMISSION_KEY_COLLISION {where}: two note keys project to one string; "
+                              f"a note is refused rather than merged")
+            emitted[at] = _emit_tree(item, place, f"{where}[{at}]")
+        return emitted
+    raise Refused(f"EMISSION_NOT_DECLARED_VALUE {where}: a {type(value).__name__}, which no rule of "
+                  f"this emission admits")
+
+
+def _named_field(where, key, spec):
+    """How a refusal may name a key. A field name the SCHEMA or the table declares is schema text
+    and may be printed; a key that arrived as DATA is named by its length and a short digest, so a
+    refusal about an undeclared key cannot be the thing that publishes it."""
+    if spec is not None or key in schema_field_names():
+        return f"{where}.{key}"
+    return f"{where}.<undeclared key: {len(str(key))} characters, {sha256_text(str(key))[:12]}>"
+
+
+def _emit_span(spec, place, where):
+    """One carrier-derived field, from its OFFSETS, through the floor's whole-carrier decision."""
+    unit = place["unit"]
+    carrier_text, offsets = unit.get("carrier_text"), unit.get(spec["offsets"])
+    if spec["join"] is None:
+        if not carrier_text or not offsets:
+            # A record built by hand carries no carrier of its own: the block IS the carrier, which
+            # is the same answer as a carrier holding only that block.
+            return projected(unit.get("text") or "", place["home"])
+        _span_agrees(unit, place, where)
+        return _carrier_span(carrier_text, offsets[0], offsets[1], place["home"], place["decision"])
+    if not carrier_text or not offsets:
+        return projected(unit.get("heading") or "", place["home"])
+    _span_agrees(unit, place, where)
+    parts = [_carrier_span(carrier_text, start, end, place["home"], place["decision"])
+             for start, end in offsets]
+    if spec["marks"]:
+        parts = [part.strip().lstrip("#").strip() for part in parts]
+    return spec["join"].join(parts)
+
+
+def _span_agrees(unit, place, where):
+    """The record's own text must BE the carrier's bytes at the span it declares.
+
+    Every offset this emission computes — a span, a heading, a mention's position — is in the
+    carrier's coordinates, and that arithmetic is only sound while the record and the carrier agree.
+    It is checked rather than assumed: a record whose `text` is not `carrier_text[start:end]` is a
+    record whose offsets name something else."""
+    carrier_text, span = unit.get("carrier_text"), unit.get("span")
+    if not carrier_text or not span:
+        return
+    if unit.get("text") != carrier_text[span[0]:span[1]]:
+        raise Refused(f"EMISSION_SPAN_MISMATCH {where}: the record's text is not the carrier's bytes "
+                      f"at the span it declares, so no offset of this row can be trusted")
+
+
+def _decision_for(place, carrier_id, carrier_text):
+    """The floor's whole-carrier decision for one carrier, taken once per carrier."""
+    decisions = place.setdefault("decisions", {})
+    if carrier_id not in decisions:
+        decisions[carrier_id] = projection.carrier_decision(carrier_text, place["home"])
+    return decisions[carrier_id]
+
+
+def _render_context(origin, place):
+    """One unresolved context entry, assembled from projected spans of the carrier it was found in."""
+    carrier_id, carrier_text, named, heading, kind = origin
+    decision = _decision_for(place, carrier_id, carrier_text)
+    out = UNRESOLVED + ("ambiguous:" if kind == "ambiguous" else "")
+    out += _carrier_span(carrier_text, named[0], named[1], place["home"], decision)
+    if heading is not None:
+        out += "#" + _carrier_span(carrier_text, heading[0], heading[1], place["home"], decision).strip()
+    return out
+
+
+def _emit_context(value, place, where):
+    """An unresolved entry, from its ORIGINS. An entry with none is refused: the stored string is
+    raw carrier text and is never what is emitted.
+
+    Several carriers can name the same thing, and their floor decisions can differ — one withholds
+    its carrier whole and another does not. When the renderings disagree the WITHHELD one stands,
+    because a context entry says what a reader would have to read and the safe answer is the one
+    that carries nothing."""
+    unit = place["unit"]
+    origins = (unit.get("context_origins") or {}).get(value)
+    if not origins:
+        if not unit.get("carrier_text"):
+            # A record built by hand carries no carrier of its own, so this entry takes exactly the
+            # path that record's `text` takes.
+            return projected(value, place["home"])
+        raise Refused(f"EMISSION_UNDECLARED {where}: an unresolved context entry with no carrier "
+                      f"offsets behind it; the stored string is never what is emitted")
+    rendered = sorted({_render_context(origin, place) for origin in origins})
+    withheld = [row for row in rendered if projection.blank_for("x") in row]
+    return (withheld or rendered)[0]
+
+
+def _emit_value(spec, value, place, where):
+    """One value through its ONE declared rule."""
+    kind = spec["rule"]
+    if kind == SPAN:
+        return _emit_span(spec, place, where)
+    if value is None:
+        if spec.get("nullable"):
+            return None
+        raise Refused(f"EMISSION_NOT_DECLARED_VALUE {where}: None, where the table declares {kind}")
+    if kind == SCALAR:
+        if type(value) not in (int, bool):
+            raise Refused(f"EMISSION_NOT_DECLARED_VALUE {where}: a {type(value).__name__} where the "
+                          f"table declares a number or a boolean")
+        return value
+    if kind == CONSTANT:
+        if value != spec["value"]:
+            raise Refused(f"EMISSION_NOT_DECLARED_VALUE {where}: not the one value this field carries")
+        return value
+    if kind == ENUM:
+        if value not in _enum_values(spec):
+            raise Refused(f"EMISSION_NOT_DECLARED_VALUE {where}: a value no declared set holds")
+        return value
+    if kind == METADATA:
+        if not isinstance(value, str):
+            raise Refused(f"EMISSION_NOT_DECLARED_VALUE {where}: a {type(value).__name__} where the "
+                          f"table declares metadata text")
+        return projected(value, place["home"]) if value else value
+    if kind == OPAQUE:
+        if not (isinstance(value, str) and OPAQUE_FORMS[spec["form"]].match(value)):
+            raise Refused(f"EMISSION_NOT_OPAQUE {where}: not the {spec['form']} form, so it may carry "
+                          f"text this row never projected")
+        return value
+    if kind == LIST:
+        if not isinstance(value, list):
+            raise Refused(f"EMISSION_NOT_DECLARED_VALUE {where}: a {type(value).__name__} where the "
+                          f"table declares a list")
+        return [_emit_value(spec["item"], item, place, f"{where}[{n}]")
+                for n, item in enumerate(value)]
+    if kind == MAP:
+        if not isinstance(value, dict):
+            raise Refused(f"EMISSION_NOT_DECLARED_VALUE {where}: a {type(value).__name__} where the "
+                          f"table declares a map")
+        emitted = {}
+        for key, item in value.items():
+            at = _emit_value(spec["key"], key, place, f"{where}<key>")
+            if at in emitted:
+                # Two keys that project to one string are TWO facts. Merging them would drop one
+                # silently and the surviving value would answer for both.
+                raise Refused(f"EMISSION_KEY_COLLISION {where}: two keys project to one string; a map "
+                              f"is refused rather than merged")
+            emitted[at] = _emit_value(spec["value"], item, place, f"{where}[{at}]")
+        return emitted
+    if kind == CONTEXT:
+        return _emit_context(value, place, where)
+    if kind == TREE:
+        return _emit_tree(value, place, where)
+    if kind == OBJECT:
+        return emit_row(where, spec, value, place)
+    if kind == UNION:
+        for choice in spec["choices"]:
+            try:
+                return _emit_value(choice, value, place, where)
+            except Refused:
+                continue
+        raise Refused(f"EMISSION_UNION_UNMATCHED {where}: no declared kind of this field admits it")
+    raise Refused(f"EMISSION_UNDECLARED {where}: the table names a rule this emission does not have")
+
+
+def emit_row(kind, table, source, place):
+    """`source` as the artifact carries it: every field through its declared rule, and nothing else.
+
+    A field of the source record, or declared by the schema for this row, that the table has no rule
+    for is refused BY NAME. That is the whole point: the previous shape copied every field and
+    overwrote the ones it knew, so an unlisted field left raw was invisible until a reviewer read the
+    bytes."""
+    fields, optional = table["fields"], table["optional"]
+    for key in source:
+        if key not in fields and key not in EMISSION_INTERNAL:
+            raise Refused(f"EMISSION_UNDECLARED {_named_field(kind, key, fields.get(key))}: the record "
+                          f"carries this field and no rule says how it is emitted")
+    for key in schema_row_fields(table.get("schema") or ""):
+        if key not in fields:
+            raise Refused(f"EMISSION_UNDECLARED {kind}.{key}: the schema declares this field for this "
+                          f"row and no rule says how it is emitted")
+    emitted = {}
+    for key, spec in fields.items():
+        if key not in source and key in optional:
+            continue
+        if key not in source and spec["rule"] != SPAN:
+            raise Refused(f"EMISSION_UNDECLARED {kind}.{key}: the table declares this field and the "
+                          f"record does not carry it")
+        emitted[key] = _emit_value(spec, source.get(key), place, f"{kind}.{key}")
+    held = set(emitted) | {key for key in fields if key in optional and key not in source}
+    if held != set(fields):
+        raise Refused(f"EMISSION_UNDECLARED {kind}: the emitted row's fields are not the table's "
+                      f"({sorted(set(fields) ^ held)})")
+    return emitted
+
+
+# The vocabulary of `block`, derived rather than enumerated: the splitter's own kinds, plus the
+# names python gives its statements, which `py_blocks` uses for anything it does not name itself. A
+# kind outside this set is refused, so a new splitter kind is declared here instead of travelling
+# into an artifact unread.
+BLOCK_KINDS = frozenset((
+    # md_blocks
+    "heading", "paragraph", "list-item", "table-head", "table-row", "blank", "code", "frontmatter",
+    # py_blocks, for the shapes it names itself
+    "docstring", "assign-open", "assign-close", "list-element", "value",
+    # plain_blocks, for a carrier whose structure the splitter does not read
+    "code-block")) | frozenset(
+    name for name in dir(ast)
+    if isinstance(getattr(ast, name), type) and issubclass(getattr(ast, name), ast.stmt))
+# Fields a unit record carries that are NOT emitted, each because the emission has its own path to
+# what they hold: the carrier and the offsets are what `as_span` reads, and `enclosing` is the
+# closure's own bookkeeping. Declared here so a field left off the table is refused rather than
+# silently dropped.
+EMISSION_INTERNAL = frozenset(("carrier_text", "span", "heading_spans", "enclosing",
+                               "context_origins"))
+# The hosts a provenance row may name. This one IS a vocabulary of this code: the host of a session
+# injection is named by the producer, never read out of a file.
+PROVENANCE_HOSTS = frozenset(("claude", "codex"))
+
+PROVENANCE_TABLE = table_of({
+    "as_of": as_metadata(nullable=True), "session": as_metadata(nullable=True),
+    "transcript": as_metadata(nullable=True), "where": as_metadata(nullable=True),
+    "scope": as_metadata(nullable=True), "reference": as_metadata(nullable=True),
+    "record": as_scalar(nullable=True), "identity": as_metadata(nullable=True),
+    # `status` and `keep_units` come from the owner's LEDGER, not from this code: the status is
+    # whatever that file says (`str(entry.get("status", ""))`) and the kept ids are the ledger's own.
+    # Neither is a vocabulary this module owns, so both pass the floor as metadata rather than
+    # pretending to be an enum or an id of a form nothing guarantees.
+    "status": as_metadata(nullable=True),
+    "keep_units": list_of(as_metadata()), "keep_reason": as_metadata(nullable=True),
+    "hosts": list_of(as_enum(PROVENANCE_HOSTS)),
+}, optional=("as_of", "session", "transcript", "where", "scope", "reference", "record", "identity",
+             "status", "keep_units", "keep_reason", "hosts"), schema="provenance")
+
+# §6.1's unit record as the artifact carries it. `operative_context` is ONE list with a per-item
+# union: a resolved entry is an opaque unit id, and an unresolved one is built from the carrier
+# offsets of the mention it came from — never from the stored string, which is what leaked (r3 #0).
+UNIT_TABLE = table_of({
+    "unit_id": as_opaque("unit_id"),
+    "layer": as_enum(layer_names),
+    "path": as_metadata(),
+    "heading": as_span("heading_spans", join=" > ", marks=True),
+    "n": as_scalar(),
+    "text": as_span("span"),
+    "sha": as_opaque("sha256"),
+    "class": as_enum(lambda: schema_enum("unit_class") or ("operative", "reference")),
+    "operative_context": list_of(one_of(as_opaque("unit_id"), as_context())),
+    "version_sha256": as_opaque("sha256"),
+    "redaction_version": as_constant(projection.CURRENT),
+    "block": as_enum(BLOCK_KINDS),
+    "item_ref": as_metadata(nullable=True),
+    "package_id": as_metadata(nullable=True),
+    "carrier_id": as_opaque("carrier_id"),
+    "provenance": PROVENANCE_TABLE,
+}, schema="unit")
+
+
+# The note keys the layer producers write. The key set is declared so a new note is declared here
+# before it can be published; what each note HOLDS is a producer's own shape (`as_tree`).
+NOTE_KEYS = frozenset((
+    "adopted_packages", "baselines", "frozen_missing", "hosts_in_scope", "installed_baseline_ref",
+    "ledger_keep_held_back", "overlay_counts", "overlay_hosts", "pin", "release", "selection",
+    "state", "transcripts"))
+
+# R1: the reference point's own block. Which of `commit`, `ref` and `content_ref` it carries depends
+# on the reference point, so each is optional and the kind decides.
+REFERENCE_TABLE = table_of({
+    "kind": as_enum(REFERENCES),
+    "complete": as_scalar(),
+    "incomplete_reasons": list_of(as_metadata()),
+    "commit": as_metadata(nullable=True),
+    "ref": as_metadata(nullable=True),
+    "content_ref": as_metadata(nullable=True),
+}, optional=("commit", "ref", "content_ref"))
+
+# R2: who produced it. `notes` is the producers' own, through the floor leaf by leaf.
+PRODUCED_BY_TABLE = table_of({
+    "module": as_constant("session-distill/runlib/inventory.py"),
+    "design": as_constant(DESIGN),
+    "state_root": as_metadata(nullable=True),
+    "notes": map_of(as_enum(NOTE_KEYS), as_tree()),
+})
+
+# R3: the layer/producer table. `reasons` are diagnostics this module composed, exception messages
+# among them, and an exception message is a path often enough — so every one passes the floor. Two
+# of the sites that build them did not (found during S1, `layer_rows`'s `units_of` handlers).
+LAYER_ROW_TABLE = table_of({
+    "layer": as_enum(layer_names),
+    "producer": as_metadata(nullable=True),
+    "status": as_enum(STATUSES),
+    "units": as_scalar(),
+    "empty": as_scalar(),
+    "reasons": list_of(as_metadata()),
+}, optional=("empty",), schema="layer_row")
+
+# R5: a rename, in its two shapes. A row names carriers by their opaque ids and projects the two
+# paths it reports, because a delivered path is the owner's disk often enough.
+RENAME_AMBIGUOUS_TABLE = table_of({
+    "unit_id": as_opaque("unit_id"),
+    "ambiguous": as_scalar(),
+    "from_carriers": list_of(as_opaque("carrier_id")),
+    "to_carriers": list_of(as_opaque("carrier_id")),
+    "reason": as_metadata(),
+})
+RENAME_TABLE = table_of({
+    "unit_id": as_opaque("unit_id"),
+    "from_unit_id": as_opaque("unit_id"),
+    "from_carrier_id": as_opaque("carrier_id"),
+    "to_carrier_id": as_opaque("carrier_id"),
+    "from_path": as_metadata(),
+    "to_path": as_metadata(),
+    "from_layer": as_enum(layer_names),
+    "to_layer": as_enum(layer_names),
+    "moved": list_of(as_enum(("path", "layer", "package", "carrier"))),
+})
+
 def shed(units, home=None):
-    """The unit records the artifact carries: §6.1's fields, the plan's two, the floor's version, and
-    the carrier metadata the later stages read back (`block`, `item_ref`, `package_id`).
+    """The unit records the artifact carries: every field through `UNIT_TABLE`, and nothing else.
 
     This is the boundary the raw text does not cross. `sha` and `version_sha256` are the raw
-    fragment's and the raw carrier's, taken in `units_of`.
+    fragment's and the raw carrier's, taken in `units_of` before any projection, so a returned
+    fragment still binds to its source version.
 
-    Two kinds of string reach an emitted unit, and each has ONE path out:
-
-    * a **span of the carrier** — `text`, and every component of `heading` — goes through
-      `_carrier_span`, which applies the floor's whole-carrier decision and the carrier's own
-      credential context;
-    * **metadata about** the carrier — the delivered `path`, an adopted package's `item_ref` and
-      `package_id`, the provenance strings a host supplied — is not the carrier's bytes and passes
-      the floor on its own.
-
-    `SPAN_FIELDS` and `METADATA_TEXT_FIELDS` name the two sides. **No control reads those tuples**:
-    the differential enumerates every string the emitted row carries and every string field the
-    schema declares, so a field put on the wrong side is caught rather than trusted (R2#0)."""
-    records_out, decisions = [], {}
+    There is no raw copy here any more. The previous shape copied every field of the record and
+    overwrote the ones it knew, which is how three rounds each found one more field left raw — the
+    span, the heading, and `operative_context`. A field the record carries or the schema declares
+    with no rule in the table is refused by name (`EMISSION_UNDECLARED`), so the next unlisted field
+    stops the run instead of travelling into an artifact."""
+    place = {"home": home, "decisions": {}}
+    records_out = []
     for unit in units:
         carrier_text = unit.get("carrier_text")
-        if carrier_text is not None and unit["carrier_id"] not in decisions:
+        if carrier_text is not None:
             # Once per carrier, not once per span: the decision is a property of the carrier, and it
             # carries the floor's whole-carrier WITHHOLDING as well as its extents.
-            decisions[unit["carrier_id"]] = projection.carrier_decision(carrier_text, home)
-        decision = decisions.get(unit["carrier_id"])
-        emitted = {**{field: unit[field] for field in UNIT_FIELDS},
-                   "block": unit["block"], "carrier_id": unit["carrier_id"],
-                   "provenance": unit["provenance"]}
-        emitted["text"] = _projected_span(unit, home, decision)
-        emitted["heading"] = _projected_heading(unit, home, decision)
-        for field in METADATA_TEXT_FIELDS:
-            emitted[field] = projected(unit[field], home) if unit[field] else unit[field]
-        emitted["provenance"] = {key: projected(item, home) if isinstance(item, str) else item
-                                 for key, item in (unit["provenance"] or {}).items()}
-        emitted["redaction_version"] = projection.CURRENT
-        records_out.append(emitted)
+            _decision_for(place, unit["carrier_id"], carrier_text)
+        place["unit"] = unit
+        place["decision"] = place["decisions"].get(unit["carrier_id"])
+        records_out.append(emit_row("unit", UNIT_TABLE, unit, place))
     return records_out
 
 
@@ -936,6 +1448,7 @@ def renames_against(units, base_units, home=None):
                 carriers[unit["sha"]].add(unit["carrier_id"])
         return carriers
 
+    place = {"home": home, "decisions": {}}
     was_all, now_all = unique_carrier(base_units), unique_carrier(units)
     was = {sha: next(iter(ids)) for sha, ids in was_all.items() if len(ids) == 1}
     now = {sha: next(iter(ids)) for sha, ids in now_all.items() if len(ids) == 1}
@@ -949,24 +1462,28 @@ def renames_against(units, base_units, home=None):
         if sha not in was_all or sha not in now_all:  # both sides hold it, and only requirements are in either
             continue
         if sha not in was or sha not in now:
-            rows.append({"unit_id": unit["unit_id"], "ambiguous": True,
-                         "from_carriers": sorted(was_all[sha]), "to_carriers": sorted(now_all[sha]),
-                         "reason": "the fragment belongs to more than one carrier on one side, "
-                                   "so which carrier it moved from is not decided here"})
+            rows.append(emit_row("rename_ambiguous", RENAME_AMBIGUOUS_TABLE, {
+                "unit_id": unit["unit_id"], "ambiguous": True,
+                "from_carriers": sorted(was_all[sha]), "to_carriers": sorted(now_all[sha]),
+                "reason": "the fragment belongs to more than one carrier on one side, "
+                          "so which carrier it moved from is not decided here"}, place))
             continue
         if was[sha] == now[sha]:
             continue
         # `was[sha]` is a carrier of `base_units` and `first` is built from the same units, so the
         # fragment's source is there by construction.
         source = first[was[sha]][sha]
-        rows.append({"unit_id": unit["unit_id"], "from_unit_id": source["unit_id"],
-                     "from_carrier_id": was[sha], "to_carrier_id": now[sha],
-                     "from_path": projected(source["path"], home), "to_path": projected(unit["path"], home),
-                     "from_layer": source["layer"], "to_layer": unit["layer"],
-                     "moved": [kind for kind, moved in (("path", source["path"] != unit["path"]),
-                                                        ("layer", source["layer"] != unit["layer"]),
-                                                        ("package", source["package_id"] != unit["package_id"]))
-                               if moved] or ["carrier"]})
+        rows.append(emit_row("rename", RENAME_TABLE, {
+            "unit_id": unit["unit_id"], "from_unit_id": source["unit_id"],
+            "from_carrier_id": was[sha], "to_carrier_id": now[sha],
+            # The two paths go in RAW: `as_metadata` is the one thing that projects them, so a field
+            # added here cannot reach the artifact by a route the table never declared.
+            "from_path": source["path"], "to_path": unit["path"],
+            "from_layer": source["layer"], "to_layer": unit["layer"],
+            "moved": [kind for kind, moved in (("path", source["path"] != unit["path"]),
+                                               ("layer", source["layer"] != unit["layer"]),
+                                               ("package", source["package_id"] != unit["package_id"]))
+                      if moved] or ["carrier"]}, place))
     return rows
 
 
@@ -2061,20 +2578,23 @@ def layer_rows(reference, context):
             rows.append({"layer": layer, "producer": producer[0], "status": "unknown", "carriers": [],
                          "reasons": [f"{layer}: {context['acquisition_error']}"]})
             continue
+        # A reason goes in RAW. `LAYER_ROW_TABLE`'s `list_of(as_metadata())` is the one thing that
+        # projects it, so a reason added here cannot reach the artifact unprojected, and no site
+        # holds a second copy of the projection rule (found during S1).
         name, call = producer
         try:
             carriers = call(context)
         except Unacquired as exc:
             rows.append({"layer": layer, "producer": name, "status": "unknown", "carriers": [],
-                         "reasons": [f"{layer}: {projection.project(str(exc), projection.CURRENT, context.get('home'))}"]})
+                         "reasons": [f"{layer}: {exc}"]})
             continue
         except Unsupported as exc:
             rows.append({"layer": layer, "producer": name, "status": "unsupported", "carriers": [],
-                         "reasons": [f"{layer}: {projection.project(str(exc), projection.CURRENT, context.get('home'))}"]})
+                         "reasons": [f"{layer}: {exc}"]})
             continue
         except Malformed as exc:
             rows.append({"layer": layer, "producer": name, "status": "incomplete", "carriers": [],
-                         "reasons": [f"{layer}: {projection.project(str(exc), projection.CURRENT, context.get('home'))}"]})
+                         "reasons": [f"{layer}: {exc}"]})
             continue
         except Exception as exc:  # a producer that cannot read its input leaves a status, not a traceback
             rows.append({"layer": layer, "producer": name, "status": "incomplete", "carriers": [],
@@ -2356,10 +2876,14 @@ DOCUMENT_KEYS = frozenset(DOCUMENT_MEMBERS + UNIT_FIELDS + PLAN_FIELDS + EMISSIO
                           + tuple(REFERENCES) + tuple(STATUSES))
 
 
-def reference_of(reference, ctx):
-    """One reference point: its layers, its units, its completeness and the reasons against it."""
-    rows = layer_rows(reference, ctx)
+def emitted_document(reference, rows, ctx):
+    """The document one reference point publishes, from its layer rows.
+
+    THE production path, called by `reference_of` and by the differential control alike. It was
+    composed inline inside `reference_of`, so a control could only approximate it — and a control
+    that approximates the path it judges is judging a different path (r3 #0)."""
     units = operative_context(produce(rows))
+    place = {"home": ctx.get("home"), "decisions": {}}
     reasons = [reason for row in rows for reason in row["reasons"]]
     if ctx.get("acquisition_error"):
         reasons = [ctx["acquisition_error"]] + reasons
@@ -2367,16 +2891,25 @@ def reference_of(reference, ctx):
             "release": {"kind": "release", "ref": ctx.get("release_ref")},
             "selection": {"kind": "selection", "content_ref": (ctx.get("snapshot") or {}).get("content_ref")}}[reference]
     document = {
-        "reference": {**kind, "complete": not reasons, "incomplete_reasons": reasons},
-        "produced_by": {"module": "session-distill/runlib/inventory.py", "design": DESIGN,
-                        "state_root": masked(ctx["state_root"], ctx.get("home")) if ctx["state_root"] else None,
-                        "notes": ctx["notes"]},
-        "layers": [{"layer": row["layer"], "producer": row["producer"], "status": row["status"],
-                    "units": row["units"], "empty": row["empty"], "reasons": row["reasons"]} for row in rows],
+        "reference": emit_row("reference", REFERENCE_TABLE,
+                              {**kind, "complete": not reasons, "incomplete_reasons": reasons}, place),
+        "produced_by": emit_row("produced_by", PRODUCED_BY_TABLE, {
+            "module": "session-distill/runlib/inventory.py", "design": DESIGN,
+            "state_root": str(ctx["state_root"]) if ctx["state_root"] else None,
+            "notes": ctx["notes"]}, place),
+        "layers": [emit_row("layer_row", LAYER_ROW_TABLE,
+                            {key: row[key] for key in ("layer", "producer", "status", "units",
+                                                       "empty", "reasons")}, place)
+                   for row in rows],
         "units": shed(units, ctx.get("home")),
         "renames": [],
     }
     return document, units
+
+
+def reference_of(reference, ctx):
+    """One reference point: its layers, its units, its completeness and the reasons against it."""
+    return emitted_document(reference, layer_rows(reference, ctx), ctx)
 
 
 def mapping_problems(expected, units):
@@ -2417,6 +2950,41 @@ def verify_unchanged(watched, before, native_before, failing=None, home=None):
                       f"{[masked(name, home) for name in changed[:4]]} ({len(changed)} file(s)); "
                       f"the frozen-copy route is not being taken{beside}")
     return result
+
+
+# R6: the manifest. Every count is a number by type, every root is a projected path, and every
+# reason passes the floor like the reasons in the document.
+MANIFEST_REFERENCE_TABLE = table_of({
+    "complete": as_scalar(),
+    "units": as_scalar(),
+    "operative": as_scalar(),
+    "layers": map_of(as_enum(layer_names), as_enum(STATUSES)),
+    "layer_units": map_of(as_enum(layer_names), as_scalar()),
+    "layer_empty": list_of(as_enum(layer_names)),
+    "incomplete_reasons": list_of(as_metadata()),
+    "renames": as_scalar(),
+})
+INPUTS_TABLE = table_of({
+    "symlink_policy": as_constant(SYMLINK_POLICY),
+    "protected_roots": list_of(as_metadata()),
+    "roots": map_of(as_metadata(), table_of({"files": as_scalar(),
+                                             "omissions": as_tree()})),
+    "roots_absent": list_of(as_metadata()),
+    "transcripts": as_tree(),
+})
+MANIFEST_TABLE = table_of({
+    "references": map_of(as_enum(REFERENCES), MANIFEST_REFERENCE_TABLE),
+    "state_root_unchanged": as_scalar(nullable=True),
+    "out_dir": as_metadata(),
+    "inputs": INPUTS_TABLE,
+    "watched_roots": map_of(as_metadata(), as_scalar()),
+    "watched_native_files": as_scalar(),
+    "baseline_unmapped": list_of(as_metadata()),
+    "baseline_items_expected": as_scalar(),
+    "state_written": list_of(as_metadata()),
+    "native_changed": list_of(as_metadata()),
+}, optional=("baseline_unmapped", "baseline_items_expected", "state_written", "native_changed",
+             "watched_roots", "watched_native_files", "state_root_unchanged"))
 
 
 def run(repo, state_root, user_root, out_dir, pin=None, native_roots=None, ledger=None, commit=None,
@@ -2501,6 +3069,9 @@ def run(repo, state_root, user_root, out_dir, pin=None, native_roots=None, ledge
         # The read-only guarantee is verified on the error paths too: a producer that wrote into
         # the owner's state and then raised would otherwise leave the write unreported (GA#3).
         manifest.update(verify_unchanged(watched, before, {}, sys.exc_info()[1], home))
+    # R6 out through its table, nested references and inputs with it: the manifest is published, so
+    # it is emitted by the same default-deny rule as every document row (r3 S1).
+    manifest = emit_row("manifest", MANIFEST_TABLE, manifest, {"home": home, "decisions": {}})
     write_document(out_dir, out_dir / "inventory" / "manifest.json", manifest, home)
     return manifest
 
@@ -4538,26 +5109,166 @@ def self_test():
         # And the differential can see a leak: projecting each field DETACHED from its carrier is
         # exactly what this fix replaced — for the block, and then for the heading — so both shapes
         # must be reported.
-        kept_span, kept_heading = globals()["_projected_span"], globals()["_projected_heading"]
+        # The seam is `_emit_span`, which is where every carrier-derived field now leaves: patching
+        # it to project the STORED STRING instead of the carrier's offsets reproduces exactly the
+        # shape this fix replaced.
+        kept_emit = globals()["_emit_span"]
+
+        def detached_span(spec, place, where):
+            unit = place["unit"]
+            if spec["join"] is None:
+                return projected(unit.get("text") or "", place["home"])
+            return projected(unit.get("heading") or "", place["home"]) if unit.get("heading") else unit.get("heading")
+
+        def detached_heading(spec, place, where):
+            if spec["join"] is None:
+                return kept_emit(spec, place, where)
+            return detached_span(spec, place, where)
+
         try:
-            globals()["_projected_span"] = lambda unit, home=None, decision=None: projected(unit["text"], home)
-            globals()["_projected_heading"] = lambda unit, home=None, decision=None: (
-                projected(unit["heading"], home) if unit["heading"] else unit["heading"])
+            globals()["_emit_span"] = detached_span
             detached = {name: withheld_lines(item)[1] for name, item in fixtures.items()}
         finally:
-            globals()["_projected_span"], globals()["_projected_heading"] = kept_span, kept_heading
+            globals()["_emit_span"] = kept_emit
         control("the same fixtures with every field projected detached from its carrier",
                 [f"leaking={sorted(name for name, leaks in detached.items() if leaks)}"],
                 "escaped key, withheld whole", "multi-line value", "a heading that IS the credential's value")
         try:
-            globals()["_projected_heading"] = lambda unit, home=None, decision=None: (
-                projected(unit["heading"], home) if unit["heading"] else unit["heading"])
+            globals()["_emit_span"] = detached_heading
             heading_only = {name: withheld_lines(item)[1] for name, item in fixtures.items()}
         finally:
-            globals()["_projected_heading"] = kept_heading
+            globals()["_emit_span"] = kept_emit
         control("and with only the heading detached, which is the shape that published a withheld carrier",
                 [f"leaking={sorted(name for name, leaks in heading_only.items() if leaks)}"],
                 "a heading that IS the credential's value")
+
+        # ---- r3 S1, the differential over the CONTEXT path: a mention is a string this module
+        # built, and the entry it is stored under is RAW carrier text. `shed` alone never fills
+        # `operative_context`, so the walk above cannot reach it; this leg produces the same
+        # fixtures the way a reference point does, through `operative_context`, so the entry rule is
+        # held to the same property as every span.
+        def context_strings(item):
+            units = operative_context(produce([{"layer": item["layer"], "producer": "a fixture producer",
+                                                "status": "complete", "carriers": [item],
+                                                "reasons": []}]))
+            rows = shed(units, str(pathlib.Path.home()))
+            return [(f"{item['layer']}[{n}]{where}", text)
+                    for n, row in enumerate(rows) for where, text in strings_in(row)]
+
+        # Withheld whole (the escape the floor cannot decode), and the mention names a guide no
+        # fixture delivers, so the entry stays unresolved and the stored string is the raw text the
+        # mention sat in.
+        # Every carrier KIND the splitter handles, each withheld whole and each holding a
+        # mention-shaped secret: a JSON or TOML carrier splits differently from a guide, and a
+        # markdown-only differential would be judging a shape the inventory never emits.
+        mention_token = "claude/guides/shortpass-in-a-mention.md"
+        mention_fixtures = {
+            "a withheld carrier whose mention is a credential": carrier(
+                "catalog", "claude/guides/withheld-mention.md",
+                '---\nuse_when:\n  - the fixture asks\n---\n\n## Keys\n\n'
+                'api\\_key: "alpha\n\n'
+                # The mention is the WHOLE line, so the line the intact carrier withholds is also a
+                # substring of the entry a detached emitter would store: without that, the
+                # per-line comparison cannot see this leak at all.
+                'claude/guides/shortpass-in-a-mention.md\n'),
+            "a withheld carrier whose mention names a heading": carrier(
+                "catalog", "claude/guides/withheld-heading.md",
+                '## Keys\n\napi\\_key: "alpha\n\n'
+                '- see claude/guides/absent.md#shortpass before applying this\n'),
+            # A TOML value the splitter cuts in two, which is the shape the floor withholds whole.
+            "a withheld toml carrier whose value spans lines": carrier(
+                "catalog", "claude/guides/withheld.toml",
+                'api_key = """alpha\nbravo\n\nshortpass"""\nsee = "' + mention_token + '"\n'),
+            "a withheld python carrier with a mention in a comment": carrier(
+                "catalog", "claude/hooks/withheld.py",
+                'API_KEY = "alpha\\_bravo"\n# ' + mention_token + '\n'),
+            "a withheld carrier of a form the splitter does not read": carrier(
+                "catalog", "claude/guides/withheld.txt",
+                'api\\_key: "alpha"\n' + mention_token + '\n'),
+        }
+        # JSON is the one kind with no whole-withheld fixture: the floor withholds a carrier whose
+        # escape it cannot decode or whose masking breaks the syntax, and neither is reachable while
+        # the carrier stays valid JSON — an undecodable escape makes it `Malformed` before any unit
+        # exists. So JSON is covered by the shape the review named instead: the SECRET is itself
+        # mention-shaped, so a detached emitter would store the credential as the entry.
+        masked_mentions = {
+            "a json carrier whose credential is mention-shaped": carrier(
+                "catalog", "claude/guides/masked.json",
+                '{"api_key": "shortpass.md",\n "see": "claude/guides/absent-json.md"}\n'),
+        }
+        check("the mention fixtures cover every carrier kind the splitter handles",
+              {form_of(item["path"])
+               for item in list(mention_fixtures.values()) + list(masked_mentions.values())}
+              == {"markdown", "json", "toml", "python", "plain"},
+              f"{sorted({form_of(item['path']) for item in list(mention_fixtures.values()) + list(masked_mentions.values())})}")
+        for name, item in masked_mentions.items():
+            entries = [text for where, text in context_strings(item)
+                       if "operative_context" in where and text.startswith(UNRESOLVED)]
+            check(f"{name} publishes no part of the credential its mention was made of",
+                  entries and not any("shortpass" in entry for entry in entries), f"{entries}")
+            # The whole way out for that fixture: produce, shed, and the REAL writer into a sink in
+            # scratch, read back as bytes. The entry rule is asked where the document ends up,
+            # because that is where the leak this round found was visible.
+            produced_units = operative_context(produce([{"layer": item["layer"],
+                                                         "producer": "a fixture producer",
+                                                         "status": "complete", "carriers": [item],
+                                                         "reasons": []}]))
+            json_out = scratch / "mention-shaped-out"
+            write_document(json_out, json_out / "inventory" / "current.json",
+                           {"units": shed(produced_units, str(pathlib.Path.home()))},
+                           str(pathlib.Path.home()))
+            published = (json_out / "inventory" / "current.json").read_text(encoding="utf-8")
+            control(f"{name} through splitting, the context rule, shedding and the real writer",
+                    [f"published={published}"], "REDACTED")
+            check("and no string of that published document carries the credential",
+                  "shortpass" not in published, "the published document carries the credential")
+        for name, item in mention_fixtures.items():
+            check(f"the floor withholds {name} whole, so every line of it is a withheld line",
+                  projection.carrier_decision(item["text"], str(pathlib.Path.home()))[1],
+                  "the floor returns this carrier, so the fixture is not a withheld one")
+            check(f"{name} really does produce an unresolved context entry",
+                  any(entry.startswith(UNRESOLVED)
+                      for row in operative_context(produce([{"layer": item["layer"],
+                                                             "producer": "a fixture producer",
+                                                             "status": "complete", "carriers": [item],
+                                                             "reasons": []}]))
+                      for entry in row["operative_context"]),
+                  "no entry went unresolved, so the entry rule is not exercised")
+        # Per fixture, the entry itself: a whole-withheld carrier's unresolved entry carries the
+        # floor's fixed withheld form and never the mention it was built from. The per-line
+        # differential below cannot see this on its own, because an entry is not a whole line.
+        for name, item in mention_fixtures.items():
+            entries = [text for where, text in context_strings(item)
+                       if "operative_context" in where and text.startswith(UNRESOLVED)]
+            check(f"{name} emits its unresolved entry from the carrier, withheld",
+                  entries and all(projection.blank_for(item["text"]) in entry for entry in entries),
+                  f"{entries}")
+            check(f"{name} publishes no part of the mention it was built from",
+                  not any("shortpass" in entry for entry in entries), f"{entries}")
+        context_differential = {name: withheld_lines(item, context_strings)
+                                for name, item in {**fixtures, **mention_fixtures,
+                                                   **masked_mentions}.items()}
+        control("every fixture through the context path: what the intact carrier withholds, withheld in every emitted string",
+                [f"fixtures={len(context_differential)} "
+                 f"leaks={ {name: rows[1] for name, rows in context_differential.items() if rows[1]} }"],
+                "leaks={}")
+        check("and the context walk reached an unresolved entry, so it judged the entry rule",
+              any(where.endswith("]") and "operative_context" in where
+                  for name in mention_fixtures
+                  for where, _text in context_strings(mention_fixtures[name])),
+              "no emitted string sat in operative_context")
+        # And it can see the leak: emitting the entry from its STORED STRING is the shape r3 #0
+        # found, and for a carrier the floor withholds whole it publishes raw carrier text.
+        kept_context = globals()["_emit_context"]
+        try:
+            globals()["_emit_context"] = lambda value, place, where: projected(value, place["home"])
+            stored = {name: withheld_lines(item, context_strings)[1]
+                      for name, item in mention_fixtures.items()}
+        finally:
+            globals()["_emit_context"] = kept_context
+        control("the same mentions emitted from the stored string instead of their carrier offsets",
+                [f"leaking={sorted(name for name, leaks in stored.items() if leaks)}"],
+                "a withheld carrier whose mention is a credential")
 
         # ---- GC#8: the closure expands the starting unit's own requirements
         conditioned = ("---\nuse_when:\n  - the fixture asks\n---\n\n## Rule\n\n- do the thing\n\n"
@@ -5085,6 +5796,125 @@ def self_test():
                                             "properties": {"units": {}}}),
                 "SCHEMA_INVALID")
 
+        # ---- r3 S1: every refusal the emission can state, asked of `emit_row` DIRECTLY with rows
+        # this block builds. The tables in force are default-deny, so in the production path a
+        # declared field never reaches most of these branches — a control that went through
+        # `reference_of` would be testing the fixtures rather than the rules.
+        secret_text = "sk-ant-api03-" + "Ab3" * 14
+        home_here = str(pathlib.Path.home())
+        emit_place = {"home": home_here, "decisions": {}}
+        probe_table = table_of({"kind": as_enum(("a", "b")), "count": as_scalar(),
+                                "label": as_metadata(), "pinned": as_constant("one"),
+                                "unit_id": as_opaque("unit_id"), "note": as_tree(),
+                                "either": one_of(as_scalar(), as_enum(("yes",)))})
+
+        def emitted(**fields):
+            row = {"kind": "a", "count": 1, "label": "a label", "pinned": "one",
+                   "unit_id": "u-" + "0" * 16, "note": {"a note": "a value"}, "either": 2}
+            row.update(fields)
+            return [str(_raised(lambda: emit_row("probe", probe_table, row, dict(emit_place))))]
+
+        clean("the probe row this block builds is emitted as the tables declare it",
+              [problem for problem in emitted() if problem != "None"])
+        control("a record field no rule of its table names",
+                emitted(surprise="x"), "EMISSION_UNDECLARED")
+        check("and the undeclared key is named by its length and digest, never printed",
+              "surprise" not in emitted(surprise="x")[0],
+              f"the refusal printed the key: {emitted(surprise='x')[0]}")
+        control("a table naming a rule this emission does not have",
+                [str(_raised(lambda: emit_row("probe", table_of({"kind": {"rule": "no-such-rule"}}),
+                                              {"kind": "a"}, dict(emit_place))))],
+                "EMISSION_UNDECLARED", "a rule this emission does not have")
+        control("a value outside the declared set", emitted(kind="c"),
+                "EMISSION_NOT_DECLARED_VALUE", "no declared set holds")
+        control("text where the table declares a number", emitted(count="1"),
+                "EMISSION_NOT_DECLARED_VALUE", "a number or a boolean")
+        control("None where the table declares no null", emitted(label=None),
+                "EMISSION_NOT_DECLARED_VALUE", "None, where the table declares")
+        control("not the one value a constant field carries", emitted(pinned="two"),
+                "EMISSION_NOT_DECLARED_VALUE", "not the one value")
+        control("a number where the table declares metadata text", emitted(label=7),
+                "EMISSION_NOT_DECLARED_VALUE", "declares metadata text")
+        control("an owner's path in a field whose form is its guarantee",
+                emitted(unit_id=f"{pathlib.Path.home()}/.claude/CLAUDE.md"),
+                "EMISSION_NOT_OPAQUE", "unit_id form")
+        check("and the refusal about that field does not carry the path it refused",
+              home_here not in emitted(unit_id=f"{pathlib.Path.home()}/.claude/CLAUDE.md")[0],
+              "the opaque refusal printed the path")
+        control("a value no declared kind of a union field admits", emitted(either="no"),
+                "EMISSION_UNION_UNMATCHED")
+        control("a note whose key is not a string", emitted(note={1: "x"}),
+                "EMISSION_NOT_DECLARED_VALUE", "key, where a note's keys are strings")
+        control("a note holding a value no rule of this emission admits",
+                emitted(note={"a note": {1, 2}}), "EMISSION_NOT_DECLARED_VALUE", "no rule of")
+        # Two DIFFERENT credentials, which the floor masks to one string: the keys are two facts and
+        # the emitted map would answer for both with whichever came last.
+        other_secret = "sk-ant-api03-" + "Cd4" * 14
+        check("the two collision fixtures really are two strings the floor masks to one",
+              secret_text != other_secret
+              and projected(f"apiKeyHelper: {secret_text}", home_here)
+              == projected(f"apiKeyHelper: {other_secret}", home_here),
+              "the fixtures do not collide after projection")
+        control("two note keys that project to one string",
+                emitted(note={f"apiKeyHelper: {secret_text}": 1, f"apiKeyHelper: {other_secret}": 2}),
+                "EMISSION_KEY_COLLISION", "two note keys")
+        collide_table = table_of({"paths": map_of(as_metadata(), as_scalar())})
+        control("two map keys that project to one string",
+                [str(_raised(lambda: emit_row("probe", collide_table,
+                                              {"paths": {f"apiKeyHelper: {secret_text}": 1,
+                                                         f"apiKeyHelper: {other_secret}": 2}},
+                                              dict(emit_place))))],
+                "EMISSION_KEY_COLLISION", "refused rather than merged")
+        def span_place(record):
+            """`shed`'s own place for one record: the carrier's decision, taken once, and the unit."""
+            where = {"home": home_here, "decisions": {}}
+            _decision_for(where, "c-" + "0" * 24, record.get("carrier_text"))
+            where.update(unit=record, decision=where["decisions"]["c-" + "0" * 24])
+            return where
+
+        span_table = table_of({"text": as_span("span")})
+        disagreeing = {"text": "- another rule\n", "carrier_text": "## Rule\n\n- a rule\n",
+                       "span": (9, 18)}
+        control("a record whose text is not the carrier's bytes at the span it declares",
+                [str(_raised(lambda: emit_row("probe", span_table, disagreeing,
+                                              span_place(disagreeing))))],
+                "EMISSION_SPAN_MISMATCH", "no offset of this row can be trusted")
+        agreeing_span = {"text": "- a rule\n", "carrier_text": "## Rule\n\n- a rule\n",
+                         "span": (9, 18)}
+        check("and the same table emits the record whose text IS those bytes",
+              emit_row("probe", span_table, agreeing_span,
+                       span_place(agreeing_span))["text"] == "- a rule\n",
+              "the agreeing fixture did not come back as its carrier's bytes")
+        context_table = table_of({"needs": list_of(as_context())})
+        originless = {"needs": [secret_text], "carrier_text": "## Rule\n\n- a rule\n",
+                      "span": (9, 18), "context_origins": {}}
+        control("an unresolved context entry with no carrier offsets behind it",
+                [str(_raised(lambda: emit_row("probe", context_table, originless,
+                                              span_place(originless))))],
+                "EMISSION_UNDECLARED", "the stored string is never what is emitted")
+        check("and that refusal does not carry the stored string it refused",
+              secret_text not in str(_raised(lambda: emit_row("probe", context_table, originless,
+                                                              span_place(originless)))),
+              "the refusal published the entry it would not emit")
+
+        # The hole this round's S1 found: a `units_of` failure's message carries the carrier's path,
+        # and the path can hold the owner's home or a credential. The reasons now go in RAW and
+        # `LAYER_ROW_TABLE` projects them, so this asks the emitted row, not the raised message.
+        leaky_name = f"{pathlib.Path.home()}/.claude/{secret_text}.toml"
+        leaky = _raised(lambda: units_of([carrier("overlays", leaky_name, "key = \n", "leak")]))
+        check("a malformed carrier's own message does carry its path, so the control below judges something",
+              leaky is not None and secret_text in str(leaky), f"{leaky!r}")
+        leaky_row = emit_row("layer_row", LAYER_ROW_TABLE,
+                             {"layer": "overlays", "producer": "a fixture producer",
+                              "status": "incomplete", "units": 0, "empty": False,
+                              "reasons": [f"overlays: {leaky}"]}, dict(emit_place))
+        check("and the emitted layer row carries neither the credential nor the owner's home",
+              secret_text not in json.dumps(leaky_row) and home_here not in json.dumps(leaky_row),
+              f"{leaky_row}")
+        check("while the reason is still there to read",
+              "overlays" in leaky_row["reasons"][0] and len(leaky_row["reasons"]) == 1,
+              f"{leaky_row['reasons']}")
+
     report(f"inventory --self-test: {'OK' if not failures else 'FAILED'} ({len(ran)} controls: the splitter's "
           f"reproduction over the real guides, the unit record and the layer set against the schema the code owns "
           f"(no control reads a dated design record), a produced document validated against that schema, a span "
@@ -5092,7 +5922,9 @@ def self_test():
           f"multi-line credential the splitter cut in two, and an escaped key whose whole carrier the floor "
           f"withholds, published through the real writer — every carrier-derived field out through one path and "
           f"every carrier fixture differentially checked, over every string an emitted row carries and every "
-          f"string field the schema declares, for what the intact carrier does not keep, this entry point's own "
+          f"string field the schema declares, for what the intact carrier does not keep, every refusal the "
+          f"emission tables can state asked of `emit_row` with rows the controls build, the unresolved context "
+          f"entry held to the same property through every carrier kind the splitter handles, this entry point's own "
           f"report and uncaught failures through the one diagnostic boundary, the host homes as configured rather "
           f"than as defaulted, a copy-run bound to the owner that produces it, an opaque carrier identity that "
           f"lets an absolute native "
