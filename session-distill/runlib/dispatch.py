@@ -77,6 +77,7 @@ CLOSURE_IMPORTS_OUT_OF_SCOPE, DYNAMIC_LOAD_UNDECLARED and INVENTORY_STALE.
 """
 import ast
 import contextlib
+import hashlib
 import inspect
 import json
 import math
@@ -243,6 +244,79 @@ COPY_RUNS = (
                "same way by the boundary-bootstrap control, whose question — what this entry point "
                "prints when `runlib/entry.py` itself cannot be imported — can only be asked of a "
                "tree where that file is broken, never of this one (r3 #2)"},
+)
+
+# The ONE spelling each form-bearing file writes the admitted program forms with. A file that
+# imports `pathlib` writes `pathlib.Path`; one that does `from pathlib import Path` writes `Path`.
+# Exactly one spelling per file, declared here: admitting both would admit a spelling the file does
+# not even have, and the point of an exact form is that there is nothing else to match (r3 #4).
+FORM_SPELLINGS = (
+    # The spellings are as the trace RESOLVES them: `mod.dotted` follows the file's own imports, so
+    # the driver's `inventory.copied_member` reads as `runlib.inventory.copied_member`. Declaring
+    # the resolved name is what makes one spelling per file decidable.
+    {"site": "session-distill/distill.py", "str": "str", "path": "pathlib.Path",
+     "member": "runlib.inventory.copied_member",
+     "imports": {"pathlib": "pathlib", "inventory": "runlib"},
+     "reason": "the driver imports pathlib as a module and inventory out of runlib"},
+    {"site": "session-distill/runlib/inventory.py", "str": "str", "path": "pathlib.Path",
+     "member": "copied_member", "imports": {"pathlib": "pathlib"}, "defines": ("copied_member",),
+     "reason": "the inventory's sites call its own module-level `copied_member` by bare name, so "
+               "the one binding of that name admitted here is the `def` that owns it"},
+)
+
+# The inline `python -c` programs the closure may run, as DATA. This judge does NOT read their
+# insides. It asks three decidable things: the `-c` argument is this constant BY NAME, the
+# constant's text still hashes to `sha256`, and the outer argv element at `loads` is an admitted
+# program form. Judging the insides by shape was the hole: a direct `sys.argv[N]` rule still leaves
+# `sys.argv` mutation before the load (`pop`, slice assignment, `setattr`, rebinding `sys`), and
+# closing that means enumerating forms again, which is the defect being removed (r3 #5). The hash is
+# what makes the reason below a review of the text that actually runs: change a character and the
+# program is refused until the row is updated.
+INLINE_PROGRAMS = (
+    {"site": "session-distill/runlib/inventory.py", "name": "BYTECODE_PROBE",
+     "sha256": "3674966f6ce937384b11a1af291b2a73291381be927bbc90831087b292d4c37f", "loads": 7,
+     "reason": "the bytecode control's observer: it audits every attempted write under the copy and "
+               "runs the copy's own program at argv[7] as `__main__`, which is how production runs it"},
+    {"site": "session-distill/distill.py", "name": "IGNORES_TERM",
+     "sha256": "cfdf391fcc3aa2f392a80a79202ae2710f5f8c473a69bb1db568132e2276e693", "loads": None,
+     "reason": "a TERM-ignoring descendant of a leader that exits on TERM, so the child bound is "
+               "shown to end a tree rather than one process. It loads nothing and ends on its own"},
+    {"site": "session-distill/distill.py", "name": "SLEEPS_BRIEFLY",
+     "sha256": "60fa9b25b673777b30dd8b9ac67da767456dc61c9108978724e70b4d4f27317e", "loads": None,
+     "reason": "a child that outlives its bound and does nothing else, for the control that asks "
+               "what is signalled when its group cannot be established"},
+    {"site": "session-distill/distill.py", "name": "LEADER_FIRST",
+     "sha256": "6b0ac11a084dec4d37120418d5c887b9b97a62eef3ecc2122cf47962d214777e", "loads": None,
+     "reason": "the ordinary shape, where the leader exits before its descendant: the bound must "
+               "not fire and the leader's own result must come back"},
+    # `runlib/stop.py`'s own fixtures: process trees the stop machinery is asked about. None of them
+    # loads anything, and each ends on its own.
+    {"site": "session-distill/runlib/stop.py", "name": "TREE",
+     "sha256": "d0ae23fc14f7aa1bf9683d52d6fadd49cf22f81bcb697c81a8eba28283d06582", "loads": None,
+     "reason": "a tree in its own session: a foreground child and an orphan that keeps the group, "
+               "which is the shape only the group sweep can find"},
+    {"site": "session-distill/runlib/stop.py", "name": "TREE_AWAY",
+     "sha256": "5f29e9d79aa90d747810eb0050ebe43a7ca05c63c3ea62c5848ea501243635fc", "loads": None,
+     "reason": "the same tree plus a child in a session of its own, so a member outside the group "
+               "is shown to be left alone"},
+    {"site": "session-distill/runlib/stop.py", "name": "TREE_EXITS",
+     "sha256": "68b8667e5c4e1d288c1d3b215193a3f1010f1265aaca1f37dd87a722ceed1c5b", "loads": None,
+     "reason": "a root that exits before the stop, for the control about a group id whose leader "
+               "has already been reaped"},
+    {"site": "session-distill/runlib/stop.py", "name": "SLEEPS_LONG",
+     "sha256": "d9d34ec4f72b4a695978db51fbdd6fab3d048d36efad4c8260c8ef462e22b3b2", "loads": None,
+     "reason": "one child outside the tree, for the two identity controls: it must be neither "
+               "signalled nor counted"},
+    {"site": "session-distill/runlib/stop.py", "name": "FORKING_ROOT",
+     "sha256": "1d6df56c247670f3f2a5a8beac8f61f9de05c8a889098df7ff5fda8344d3a02c", "loads": None,
+     "reason": "a root that forks a member between the listing that found it and its stop signal; "
+               "the file it writes the new pid to arrives as its own argv"},
+    # `runlib/ledger.py`'s hard-kill fixture: a writer killed before the rename.
+    {"site": "session-distill/runlib/ledger.py", "name": "HARD_KILL",
+     "sha256": "df7401e14372cf5eebd5e12ce0eee242d858ae9d1288d2c3a5d0ff6deaec75fc", "loads": None,
+     "reason": "a real process that proposes a successor and dies before the rename, so bytes that "
+               "are still the base afterwards say the rename had not happened (X#1). Its four "
+               "values arrive as argv, since a declaration pins text and an f-string has none"},
 )
 
 # Sites whose program the trace cannot name, each admitted only while its guard — a literal line
@@ -1625,80 +1699,131 @@ def _names(path, text):
     return tail.startswith("/") and bool(tail.strip("/")) and path.endswith(tail)
 
 
-def _own_file(mod, node):
-    """Whether this expression is the file the SITE IS IN: `__file__`, or `pathlib.Path(__file__)`
-    with the readers that leave a path THE SAME path.
+def _spelling(mod, spellings=None):
+    """The one spelling of the admitted forms this file declares, or None when it declares none.
 
-    `.parent` is not one of them, and peeling it was a hole: `[sys.executable, str(pathlib.Path(
-    __file__).parent)]` runs a DIRECTORY, which python executes as that directory's `__main__.py` —
-    a different program entirely, admitted as "its own file". `.resolve()`, `.absolute()`, `str`,
-    `os.fspath`, `os.path.realpath` and `os.path.abspath` name the same file; a parent does not.
-    No site in this closure runs a parent: every real one is `str(pathlib.Path(__file__).resolve())`.
-
-    A closure module running its own file runs a closure file — there is nothing to declare and
-    nothing a declaration could add, because the identity is the expression. The driver's and the
-    inventory's self-tests both run their own entry point as a real process (R2#2, R2#3, R2#7), and
-    the value is computed, so the trace cannot name it."""
-    # One loop, applying whichever rule fits, because the readers nest in any order:
-    # `str(pathlib.Path(__file__).resolve())` is a call of `str` around a method call around a call
-    # of `pathlib.Path`. Peeling in a fixed order stopped at the first shape it did not expect.
-    while True:
-        if isinstance(node, ast.Call) and node.args and mod.dotted(node.func) in (
-                "str", "os.fspath", "pathlib.Path", "os.path.realpath", "os.path.abspath"):
-            node = node.args[0]
-        elif isinstance(node, ast.Call) and not node.args and isinstance(node.func, ast.Attribute) \
-                and node.func.attr in ("resolve", "absolute"):
-            node = node.func.value
-        else:
-            break
-    return isinstance(node, ast.Name) and node.id == "__file__"
-
-
-def _owner_call(mod, node, owner):
-    """Whether this expression IS a call of `owner`. `str(...)`, `os.fspath(...)` and `pathlib.Path(...)`
-    around it are transparent; nothing else is, and a bare name or a subscript is not."""
-    while isinstance(node, ast.Call) and mod.dotted(node.func) in ("str", "os.fspath", "pathlib.Path") \
-            and node.args:
-        node = node.args[0]
-    return isinstance(node, ast.Call) and mod.dotted(node.func) == owner
-
-
-def _copy_run(mod, node, copies=None):
-    """The `COPY_RUNS` entry that admits this program, or None.
-
-    The admission is the EXPRESSION: it must be a call of the entry's owner. That is the whole test,
-    and deliberately so — a value test beside it would judge nothing, because the value of a call is
-    never one the trace can read, and admitting an unreadable value was what let a program the
-    environment selected through (R2#5). WHICH members such a call may produce is the owner's own
-    rule (`copied_member` refuses any other) and the declaration's `paths` say which ones that is,
-    which `closure_violations` holds against the tree."""
-    copies = COPY_RUNS if copies is None else copies
-    for entry in copies:
-        if entry["site"] == str(mod.rel) and _owner_call(mod, node, entry["owner"]):
-            return entry
+    No declaration means no admitted form, which is the default-deny direction: a new file with a
+    dispatch site is refused until its spelling is written down, rather than admitted because the
+    judge happened to recognise a shape in it."""
+    for row in (FORM_SPELLINGS if spellings is None else spellings):
+        if row["site"] == str(mod.rel):
+            return row
     return None
 
 
-def _argv_index(inline, name):
-    """Which element of the child's argv a name in an inline program reads, or None.
+def _exact_call(mod, node, dotted, arity):
+    """`node` is EXACTLY a call of `dotted` with `arity` positional arguments, no keywords and no
+    starred argument.
 
-    One assignment deep, tuple unpacking included (`a, b = sys.argv[1], sys.argv[2]`), which is the
-    shape a `python -c` program uses to name its arguments. None means the trace could not follow it,
-    and that is refused rather than assumed harmless."""
-    for node in ast.walk(inline.tree):
-        if not isinstance(node, ast.Assign) or not node.targets:
-            continue
-        target = node.targets[0]
-        if isinstance(target, (ast.Tuple, ast.List)) and isinstance(node.value, (ast.Tuple, ast.List)):
-            pairs = list(zip(target.elts, node.value.elts))
-        else:
-            pairs = [(target, node.value)]
-        for bound, value in pairs:
-            if getattr(bound, "id", None) != name:
-                continue
-            if (isinstance(value, ast.Subscript) and inline.dotted(value.value) == "sys.argv"
-                    and isinstance(value.slice, ast.Constant) and isinstance(value.slice.value, int)):
-                return value.slice.value
+    The arity is the whole point. The judge used to peel the first argument of whatever wrapper it
+    recognised, so `pathlib.Path(__file__, "/fixture/other.py")` was admitted as "its own file"
+    while the value it produces is the second argument (r3 #4)."""
+    return (isinstance(node, ast.Call) and mod.dotted(node.func) == dotted
+            and len(node.args) == arity and not node.keywords
+            and not any(isinstance(arg, ast.Starred) for arg in node.args))
+
+
+def _own_file(mod, node, spellings=None):
+    """Whether this expression is EXACTLY `str(pathlib.Path(__file__).resolve())`, in this file's
+    declared spelling: `str` of one argument, `.resolve()` of none, `pathlib.Path` of exactly one
+    positional argument, and that argument the name `__file__`.
+
+    A closure module running its own file runs a closure file — there is nothing to declare and
+    nothing a declaration could add, because the identity IS the expression. The driver's and the
+    inventory's self-tests both run their own entry point as a real process (R2#2, R2#3, R2#7), and
+    the value is computed, so the trace cannot name it.
+
+    Nothing else is admitted: not another wrapper, not an extra argument, not a keyword, not a
+    join (`/`, `joinpath`), and not `.parent` — which names a DIRECTORY, and python runs a directory
+    as its `__main__.py`, a different program entirely."""
+    row = _spelling(mod, spellings)
+    if row is None or not _exact_call(mod, node, row["str"], 1):
+        return False
+    resolved = node.args[0]
+    if not (isinstance(resolved, ast.Call) and not resolved.args and not resolved.keywords
+            and isinstance(resolved.func, ast.Attribute) and resolved.func.attr == "resolve"):
+        return False
+    path = resolved.func.value
+    return (_exact_call(mod, path, row["path"], 1)
+            and isinstance(path.args[0], ast.Name) and path.args[0].id == "__file__")
+
+
+def _copy_member(mod, node, copies=None, spellings=None):
+    """`(entry, member)` when this expression is EXACTLY
+    `str(inventory.copied_member(<root>, "<literal>"))` and the literal is a member THIS SITE
+    declares in `COPY_RUNS`; `(None, what was seen)` otherwise, and `(None, None)` when the
+    expression is not of that shape at all.
+
+    Two things the old admission did not ask. The arity: the owner's call was peeled out of any
+    wrapper, so a join around it selected a different file. And WHICH member: every call of the
+    owner was admitted as though it produced the one the site declared, so the driver-only site
+    admitted `copied_member(copy, "learn/redact.py")` as well (r3 #4). The member is required to be
+    a literal because an expression's value is not something this judge can read, and the admission
+    has to be decidable here rather than at runtime.
+
+    The `<root>` expression is deliberately unconstrained: which trees this process actually copied
+    is a runtime fact, and `inventory.copied_member` refuses a root this process did not copy by
+    name (`COPY_UNVERIFIED`), which is where that question belongs."""
+    copies = COPY_RUNS if copies is None else copies
+    row = _spelling(mod, spellings)
+    if row is None or not _exact_call(mod, node, row["str"], 1):
+        return None, None
+    call = node.args[0]
+    if not _exact_call(mod, call, row["member"], 2):
+        # Anything composed around the owner's call is a FORM problem — `_reaches_for_a_form` names
+        # it — because which member the site names is only readable once the form is the exact one.
+        return None, None
+    member = call.args[1]
+    if not (isinstance(member, ast.Constant) and isinstance(member.value, str)):
+        return None, "not a string literal"
+    for entry in copies:
+        if entry["site"] == str(mod.rel) and member.value in entry["paths"]:
+            return entry, member.value
+    return None, member.value
+
+
+def _copy_run(mod, node, copies=None, spellings=None):
+    """The `COPY_RUNS` entry that admits this program, or None."""
+    return _copy_member(mod, node, copies, spellings)[0]
+
+
+def _reaches_for_a_form(mod, node, spellings=None):
+    """Which admitted form this expression reaches for without being it, or None.
+
+    Only an expression that reaches for a form gets the form refusal; a program the trace simply
+    could not read keeps the refusal it has always had, so this narrowing adds a name instead of
+    renaming an existing failure."""
+    row = _spelling(mod, spellings)
+    if row is None or node is None:
+        return None
+    for inner in ast.walk(node):
+        if isinstance(inner, ast.Name) and inner.id == "__file__":
+            return "its own file"
+        if isinstance(inner, ast.Call) and mod.dotted(inner.func) == row["member"]:
+            return "a copied member"
+    return None
+
+
+def _inline_constant(mod, name):
+    """The text of a module-level string constant of this file, or None.
+
+    Module level, because that is what a declaration can name and a hash can pin. Adjacent string
+    literals are one constant by the time this reads them; anything computed is not a constant."""
+    for node in mod.tree.body:
+        if (isinstance(node, ast.Assign) and len(node.targets) == 1
+                and isinstance(node.targets[0], ast.Name) and node.targets[0].id == name
+                and isinstance(node.value, ast.Constant) and isinstance(node.value.value, str)):
+            return node.value.value
+    return None
+
+
+def _inline_row(mod, node, inlines=None):
+    """The `INLINE_PROGRAMS` row this `-c` argument names, or None."""
+    if not isinstance(node, ast.Name):
+        return None
+    for row in (INLINE_PROGRAMS if inlines is None else inlines):
+        if row["site"] == str(mod.rel) and row["name"] == node.id:
+            return row
     return None
 
 
@@ -1707,78 +1832,8 @@ def _unread(text):
     return bool(text) and UNKNOWN in text and not text.replace(UNKNOWN, "").strip("/.")
 
 
-def _loads(mod, copies=None, follow=None, argv_nodes=None, site=None):
-    """Violations of the load rules inside code the trace read out of a `python -c` program.
-
-    The closure walk judges LOAD_CALLS in the files it visits. A `-c` program is not one of those
-    files, and the recursion into it judged EXEC_CALLS only — so a load there was judged by nothing
-    at all. That is how the bytecode control's child, which runs the driver from a checkout copy
-    through `runpy.run_path`, passed this gate: not because the shape was admitted, but because
-    nobody looked.
-
-    A load the trace can read is held to `COPY_RUNS`'s declared members. A load that reads the
-    child's argv is held to the EXPRESSION the site passed at that index: it must be a call of the
-    entry's owner. `runpy.run_path(sys.argv[1])` handed an unrelated script was admitted while the
-    rule was about the file rather than about the call (R2#5)."""
-    copies = COPY_RUNS if copies is None else copies
-    problems = []
-    for node in ast.walk(mod.tree):
-        if not (isinstance(node, ast.Call) and mod.dotted(node.func) in LOAD_CALLS):
-            continue
-        at = LOAD_CALLS[mod.dotted(node.func)]
-        arg = node.args[at] if len(node.args) > at else None
-        where = f"{mod.rel}:{node.lineno}"
-        for text in (mod.values(arg) if arg is not None else [UNKNOWN]):
-            if _unread(text) or UNKNOWN in text:
-                # The value came from somewhere this program was handed. Which argument it reads
-                # decides which expression at the site has to answer for it.
-                index = _argv_index(mod, arg.id) if isinstance(arg, ast.Name) else None
-                passed = (argv_nodes[index] if argv_nodes is not None and index is not None
-                          and 0 <= index < len(argv_nodes) else None)
-                entry = _copy_run(site or mod, passed, copies) if passed is not None else None
-                if entry is None:
-                    problems.append(f"DISPATCH_UNRESOLVED {where}: loads an argument this program was "
-                                    f"handed ({'argv[%d]' % index if index is not None else 'unread'}), "
-                                    f"which the site does not produce through a declared owner")
-                elif follow is not None:
-                    follow.extend({"site": entry["site"], "path": path} for path in entry["paths"])
-                continue
-            admitted = _copy_run(site or mod, arg, copies)
-            if admitted is None:
-                problems.append(f"DISPATCH_UNRESOLVED {where}: loads {text!r}, declared "
-                                f"nowhere in COPY_RUNS")
-            elif follow is not None:
-                follow.extend({"site": admitted["site"], "path": path} for path in admitted["paths"])
-    return problems
-
-
-def _resolved_code(code):
-    """python -c code with each part the trace could not read made a string constant, or None
-    unless every such part is a call's argument or an element of one — data handed to a call the
-    code names, and judged as unread where it is an argv's program — so
-    nothing the code executes is hidden from the judgement (a callee, an object, a statement, a
-    part inside a string never are)."""
-    if UNKNOWN not in code:
-        return code
-    text = code.replace(UNKNOWN, repr(UNKNOWN))
-    try:
-        tree = ast.parse(text)
-    except SyntaxError:
-        return None
-    holes = [n for n in ast.walk(tree) if isinstance(n, ast.Constant) and n.value == UNKNOWN]
-    if len(holes) != code.count(UNKNOWN):
-        return None
-    parents = {child: node for node in ast.walk(tree) for child in ast.iter_child_nodes(node)}
-    for hole in holes:
-        node, parent = hole, parents.get(hole)
-        while isinstance(parent, (ast.List, ast.Tuple, ast.Starred)):  # an element of an argv: judged as '<?>' there
-            node, parent = parent, parents.get(parent)
-        if not (isinstance(parent, ast.Call) and node in parent.args or isinstance(parent, ast.keyword)):
-            return None
-    return text
-
-
-def _judge_program(mod, program, rest, line, pinned, problems, depth=0, runs=(), follow=None):
+def _judge_program(mod, program, rest, line, pinned, problems, depth=0, runs=(), follow=None,
+                   argv_node=None):
     """Append to `problems` the violations of one site whose program is `program`; a declared
     script it runs (`runs`, SCRIPT_RUNS) is appended to `follow`, to join the closure."""
     where = f"{mod.rel}:{line}"
@@ -1814,18 +1869,37 @@ def _judge_program(mod, program, rest, line, pinned, problems, depth=0, runs=(),
         nxt = words[1] if len(words) > 1 else [UNKNOWN]
         declared = [[e for e in runs if e["site"] == str(mod.rel) and _names(e["path"], s)] for s in flag]
         if flag == ["-c"]:
-            for code in nxt:
-                code = _resolved_code(code)
-                if code is None:
-                    problems.append(f"DISPATCH_UNRESOLVED {where}: python -c with code the trace cannot resolve")
-                else:
-                    inline = _Module(mod.path, mod.rel, source=code)
-                    # `nodes[1:]` is the child's own argv: `nodes[1]` is the code (its `sys.argv[0]`),
-                    # and `nodes[1 + k]` is its `sys.argv[k]`. A load inside the program is judged
-                    # against the expression the site passed at that index.
-                    for violation in (_sites(inline, pinned, depth + 1, runs, follow)
-                                      + _loads(inline, follow=follow, argv_nodes=nodes[1:], site=mod)):
-                        problems.append(f"{violation.split()[0]} {where}: inside python -c: {violation.split(': ', 1)[-1]}")
+            # The program is admitted as DATA, by declaration, and its insides are not read. The
+            # recursion that used to read them judged shapes, and a shape rule over a program that
+            # can rewrite its own `sys.argv` before the load can always be worked around (r3 #5).
+            row = _inline_row(mod, nodes[1] if len(nodes) > 1 else None)
+            if row is None:
+                problems.append(f"DISPATCH_INLINE_UNDECLARED {where}: python -c with a program that is not "
+                                f"a module-level constant of this file declared in INLINE_PROGRAMS")
+            elif not (isinstance(argv_node, ast.List)
+                      and not any(isinstance(e, ast.Starred) for e in argv_node.elts)):
+                problems.append(f"DISPATCH_PROGRAM_FORM {where}: an inline program's argv must be a list "
+                                f"literal at the call, or the element its declaration names is not this one")
+            else:
+                text = _inline_constant(mod, row["name"])
+                digest = hashlib.sha256((text or "").encode("utf-8")).hexdigest()
+                if text is None or digest != row["sha256"]:
+                    problems.append(f"DISPATCH_INLINE_CHANGED {where}: {row['name']}'s text is "
+                                    f"{digest if text is not None else 'not a module-level constant'}, "
+                                    f"not the declared {row['sha256']}")
+                elif row["loads"] is not None:
+                    at = row["loads"]
+                    carried = argv_node.elts[at] if 0 <= at < len(argv_node.elts) else None
+                    entry, member = _copy_member(mod, carried) if carried is not None else (None, None)
+                    if _own_file(mod, carried) if carried is not None else False:
+                        pass            # the file this site is in: already in the closure
+                    elif entry is not None:
+                        if follow is not None:
+                            follow.extend({"site": entry["site"], "path": path} for path in entry["paths"])
+                    else:
+                        problems.append(f"DISPATCH_INLINE_UNDECLARED {where}: {row['name']} loads argv[{at}], "
+                                        f"which this site does not produce as an admitted program form "
+                                        f"({member or 'another expression'})")
         elif any(s.endswith("launch/agent-launch.py") for s in flag):
             if nxt != ["--emit-receipt"]:  # the receipt emitter dispatches nothing; the rest of the launcher does
                 problems.append(f"DISPATCH_OUTSIDE_SUPERVISOR {where}: runs the launcher ({nxt!r}), which starts hosts")
@@ -1836,10 +1910,17 @@ def _judge_program(mod, program, rest, line, pinned, problems, depth=0, runs=(),
         elif _own_file(mod, flag_node):
             if follow is not None:   # it is this file: already in the closure, and recorded as run
                 follow.append({"site": str(mod.rel), "path": str(mod.rel)})
-        elif _copy_run(mod, flag_node) is not None:
+        elif _copy_member(mod, flag_node)[0] is not None:
             if follow is not None:   # already in the closure; the entry is what records it ran
                 follow.extend({"site": entry["site"], "path": path}
                               for entry in [_copy_run(mod, flag_node)] for path in entry["paths"])
+        elif _copy_member(mod, flag_node)[1] is not None:
+            problems.append(f"DISPATCH_COPY_MEMBER_UNDECLARED {where}: a copy-run naming "
+                            f"{_copy_member(mod, flag_node)[1]!r}, which is not a member this site "
+                            f"declares in COPY_RUNS as an exact literal")
+        elif _reaches_for_a_form(mod, flag_node) is not None:
+            problems.append(f"DISPATCH_PROGRAM_FORM {where}: reaches for {_reaches_for_a_form(mod, flag_node)} "
+                            f"without being the one admitted form for it")
         else:
             problems.append(f"DISPATCH_UNRESOLVED {where}: python runs {flag!r}, a script the trace does not follow")
     elif base in SHELLS:
@@ -1897,7 +1978,8 @@ def _sites(mod, pinned, depth=0, runs=(), follow=None):
             heads = mod.heads(args[0])
         for programs, rest in heads:
             for program in programs:
-                _judge_program(mod, program, rest, node.lineno, pinned, problems, depth, runs, follow)
+                _judge_program(mod, program, rest, node.lineno, pinned, problems, depth, runs, follow,
+                               argv_node=args[0] if args else None)
     return problems
 
 
@@ -1916,12 +1998,88 @@ def _module_file(root, name, here=None, level=0):
     return None
 
 
-def closure_violations(root=REPO, out_of_scope=OUT_OF_SCOPE, dynamic=DYNAMIC_LOADS, scripts=SCRIPT_RUNS):
+def name_rebindings(root=REPO, spellings=None):
+    """Bindings of the names the admitted program forms are written with, other than the import
+    that introduces each one.
+
+    The forms are exact, so their MEANING rests on four names: `str`, `pathlib`, `__file__` and the
+    module the member owner is reached through. A file that rebinds one of them writes the admitted
+    form and runs something else, and no amount of exactness in the shape sees that.
+
+    Default-deny, over every binding form Python's own grammar has rather than the ones that came to
+    mind: a `Name` in `Store` or `Del` context (assignment, augmented assignment, `for`, `with ...
+    as`, walrus, comprehension target), an import alias, a `def`/`class` name, any parameter name,
+    an `except ... as` name, a `match` capture, and a `global`/`nonlocal` declaration. The declared
+    import of the module names is the one binding admitted; `str` is a builtin and `__file__` is the
+    interpreter's, so for those nothing is."""
+    problems, scanned = [], 0
+    for row in (FORM_SPELLINGS if spellings is None else spellings):
+        path = pathlib.Path(root) / row["site"]
+        if not path.is_file():
+            problems.append(f"INVENTORY_STALE form spelling {row['site']}: no such file")
+            continue
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        scanned += 1
+        # The module names come from the spellings themselves, so a new form is covered by the name
+        # it is written with rather than by a list someone has to remember to extend.
+        watched = {"__file__", row["str"].split(".")[0], row["path"].split(".")[0],
+                   row["member"].split(".")[0]}
+        for node in ast.walk(tree):
+            bound = []
+            if isinstance(node, ast.Name) and isinstance(node.ctx, (ast.Store, ast.Del)):
+                bound = [node.id]
+            elif isinstance(node, (ast.Import, ast.ImportFrom)):
+                allowed = row.get("imports") or {}
+                for alias in node.names:
+                    name = alias.asname or alias.name.split(".")[0]
+                    if name in watched and allowed.get(name) != (
+                            node.module if isinstance(node, ast.ImportFrom) else alias.name):
+                        problems.append(f"DISPATCH_NAME_REBOUND {row['site']}:{node.lineno}: {name!r} is "
+                                        f"imported in a way the spelling does not declare")
+                continue
+            elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                args = getattr(node, "args", None)
+                bound = [node.name] + ([a.arg for a in (args.posonlyargs + args.args + args.kwonlyargs
+                                                        + [a for a in (args.vararg, args.kwarg) if a])]
+                                       if args is not None else [])
+                # A bare-name member spelling names a function this file OWNS, so the `def` that
+                # owns it is a binding the declaration admits — at module level, once, and nowhere
+                # else. Any other binding of the same name is still refused below.
+                if node.name in (row.get("defines") or ()) and node in tree.body:
+                    bound = [name for name in bound if name != node.name]
+            elif isinstance(node, ast.Lambda):
+                bound = [a.arg for a in (node.args.posonlyargs + node.args.args + node.args.kwonlyargs
+                                         + [a for a in (node.args.vararg, node.args.kwarg) if a])]
+            elif isinstance(node, ast.ExceptHandler) and node.name:
+                bound = [node.name]
+            elif isinstance(node, ast.MatchAs) and node.name:
+                bound = [node.name]
+            elif isinstance(node, ast.MatchStar) and node.name:
+                bound = [node.name]
+            elif isinstance(node, ast.MatchMapping) and node.rest:
+                bound = [node.rest]
+            elif isinstance(node, (ast.Global, ast.Nonlocal)):
+                bound = list(node.names)
+            for name in bound:
+                if name in watched:
+                    problems.append(f"DISPATCH_NAME_REBOUND {row['site']}:{node.lineno}: {name!r} is bound "
+                                    f"here, so an admitted form in this file may not mean what it says")
+    # A scan of nothing satisfies "no rebinding" and says nothing at all.
+    if not scanned:
+        problems.append("INVENTORY_STALE form spellings: no file was scanned, so this judges nothing")
+    return problems
+
+
+def closure_violations(root=REPO, out_of_scope=OUT_OF_SCOPE, dynamic=DYNAMIC_LOADS, scripts=SCRIPT_RUNS,
+                       copies=None):
     """(problems, closure, sites inspected): the driver's import closure — its roots, every
     module they import from session-distill/ and benchmarks/, and the declared dynamic loads that
     join it — and every executor call site in it, judged by AST. dispatch.py's own sites are the
     supervisor's and are not judged; a textual mention outside the closure is not a site."""
     root = pathlib.Path(root)
+    # `copies` is a SEAM for the controls: the default is resolved here rather than bound at import,
+    # so the live tuple stays the production authority and a control can hand in rows of its own.
+    copies = COPY_RUNS if copies is None else copies
     problems = []
     for entry in out_of_scope:
         if not (root / entry["path"]).is_file():
@@ -1937,7 +2095,8 @@ def closure_violations(root=REPO, out_of_scope=OUT_OF_SCOPE, dynamic=DYNAMIC_LOA
         for guard in entry["guards"]:
             if guard not in held:
                 problems.append(f"INVENTORY_STALE guarded program {entry['site']}: its guard {guard!r} is gone")
-    for entry in COPY_RUNS:
+    problems += name_rebindings(root)
+    for entry in copies:
         missing = [name for name in entry["paths"] if not (root / name).is_file()]
         if not (root / entry["site"]).is_file() or missing:
             problems.append(f"INVENTORY_STALE copy run {entry['site']} -> {missing or entry['paths']}: no such file")
@@ -2011,7 +2170,7 @@ def closure_violations(root=REPO, out_of_scope=OUT_OF_SCOPE, dynamic=DYNAMIC_LOA
     for entry in scripts:
         if (entry["site"], entry["path"]) not in ran and (root / entry["site"]).is_file():
             problems.append(f"INVENTORY_STALE script run {entry['site']} -> {entry['path']}: the site runs no such script")
-    for entry in COPY_RUNS:
+    for entry in copies:
         for path in entry["paths"]:
             if (entry["site"], path) not in ran and (root / entry["site"]).is_file():
                 problems.append(f"INVENTORY_STALE copy run {entry['site']} -> {path}: the site runs no such copy")
@@ -3247,6 +3406,10 @@ def self_test(scratch=None):
         want = needle.format(at=f"{rel}:{at + offset}")
         control(f"planted-{name}", any(v.startswith(want) for v in found), f"expected {want!r} in {found}")
 
+    # The one refusal every undeclared inline program gets, spelled once: six controls below name it,
+    # and a needle copied six times drifts.
+    UNDECLARED_INLINE = ("DISPATCH_INLINE_UNDECLARED {at}: python -c with a program that is not a "
+                         "module-level constant of this file declared in INLINE_PROGRAMS")
     control("copied-tree-is-clean", not closure_violations(tree)[0], f"{closure_violations(tree)[0]}")
     # ---- the source-shape judgements, and the six ways they are broken. Each plant is judged in a
     # COPY OF THE TEXT: the violation these guard against is a suite running a suite, and running one
@@ -3341,9 +3504,11 @@ def self_test(scratch=None):
             "DISPATCH_OUTSIDE_SUPERVISOR {at}: starts '~/.local/share/claude/versions/2.1.304'", 1)
     planted("unresolved-program", "session-distill/runlib/stagelock.py", "def _run(binary):\n    subprocess.run([binary, '-p'])",
             "DISPATCH_UNRESOLVED {at}: a program the trace cannot resolve", 1)
+    # An inline program that starts a host: refused because it is not declared, which is the
+    # answer before anything reads it. The declaration's hash is what holds its text afterwards.
     planted("dispatch-inside-python-c", "session-distill/runlib/usage.py",
             "import subprocess\nsubprocess.run([sys.executable, '-c', \"import subprocess; subprocess.run(['claude', '-p'])\"])",
-            "DISPATCH_OUTSIDE_SUPERVISOR {at}: inside python -c", 1)
+            UNDECLARED_INLINE, 1)
     planted("launcher-run-beyond-its-receipt-emitter", "session-distill/runlib/receipts.py",
             "import subprocess\nsubprocess.run([sys.executable, str(LAUNCHER), 'claude', '--model', 'x'])",
             "DISPATCH_OUTSIDE_SUPERVISOR {at}: runs the launcher", 1)
@@ -3370,7 +3535,7 @@ def self_test(scratch=None):
     planted("unresolved-shell-line", "session-distill/runlib/claims.py", "import os\nos.system(f'{CMD} -p')",
             "DISPATCH_UNRESOLVED {at}: a shell command line the trace cannot resolve", 1)
     planted("unresolved-python-c", "session-distill/runlib/claims.py", "import subprocess\nsubprocess.run([sys.executable, '-c', CODE])",
-            "DISPATCH_UNRESOLVED {at}: python -c with code the trace cannot resolve", 1)
+            UNDECLARED_INLINE, 1)
     planted("python-runs-an-out-of-scope-executor", "session-distill/runlib/claims.py",
             "import subprocess\nsubprocess.run([sys.executable, 'session-distill/screen-codex.py'])",
             "CLOSURE_IMPORTS_OUT_OF_SCOPE {at}: runs 'session-distill/screen-codex.py'", 1)
@@ -3452,19 +3617,18 @@ def self_test(scratch=None):
     # were admitted as the site running itself.
     planted("the-parent-of-this-file-is-not-this-file", "session-distill/distill.py",
             "import pathlib, subprocess\nsubprocess.run([sys.executable, str(pathlib.Path(__file__).parent)])",
-            "DISPATCH_UNRESOLVED {at}: python runs ['<?>']", 1)
+            "DISPATCH_PROGRAM_FORM {at}: reaches for its own file", 1)
     planted("a-grandparent-of-this-file-is-not-this-file", "session-distill/distill.py",
             "import pathlib, subprocess\n"
             "subprocess.run([sys.executable, str(pathlib.Path(__file__).parent.parent)])",
-            "DISPATCH_UNRESOLVED {at}: python runs ['<?>']", 1)
+            "DISPATCH_PROGRAM_FORM {at}: reaches for its own file", 1)
     # The same for a load inside a `python -c` program: what answers for it is the expression the
     # site passed at the argv index the program reads. `runpy.run_path(sys.argv[1])` with an
     # unrelated script in argv was admitted and recorded as following the driver.
     planted("an-inline-load-of-an-argv-the-site-does-not-produce", "session-distill/distill.py",
             "import subprocess\nsubprocess.run([sys.executable, '-c', "
             "'import runpy, sys\\nscript = sys.argv[1]\\nrunpy.run_path(script)', OTHER])",
-            "DISPATCH_UNRESOLVED {at}: inside python -c: loads an argument this program was handed "
-            "(argv[1]), which the site does not produce through a declared owner", 1)
+            UNDECLARED_INLINE, 1)
     planted("script-entry-the-site-never-runs", "session-distill/runlib/claims.py", "",
             "INVENTORY_STALE script run session-distill/runlib/claims.py -> session-distill/census.py: the site runs no such script",
             scripts=SCRIPT_RUNS + ({"site": "session-distill/runlib/claims.py", "path": "session-distill/census.py", "reason": "x"},))
@@ -3476,10 +3640,10 @@ def self_test(scratch=None):
             "DYNAMIC_LOAD_UNDECLARED {at}: loads '<?>/other.py', declared nowhere", 1)
     planted("python-c-with-an-unread-callee", "session-distill/runlib/claims.py",
             "import subprocess\nsubprocess.run([sys.executable, '-c', f'{MOD}.run([1])'])",
-            "DISPATCH_UNRESOLVED {at}: python -c with code the trace cannot resolve", 1)
+            UNDECLARED_INLINE, 1)
     planted("python-c-with-unread-data-is-still-judged", "session-distill/runlib/claims.py",
             "import subprocess\nsubprocess.run([sys.executable, '-c', f\"import subprocess; subprocess.run(['claude', {ARG!r}])\"])",
-            "DISPATCH_OUTSIDE_SUPERVISOR {at}: inside python -c", 1)
+            UNDECLARED_INLINE, 1)
     def without(rel, old, new):
         """The closure check's violations over the copied tree with `old` replaced by `new` in `rel`."""
         path = tree / rel
@@ -3512,7 +3676,7 @@ def self_test(scratch=None):
     # and the bytecode control's own site is refused the moment its construction guard is gone
     planted("a-load-inside-python-c-is-judged", "session-distill/runlib/claims.py",
             "import subprocess\nsubprocess.run([sys.executable, '-c', \"import runpy; runpy.run_path('other.py')\"])",
-            "DISPATCH_UNRESOLVED {at}: inside python -c: loads 'other.py', declared nowhere in COPY_RUNS", 1)
+            UNDECLARED_INLINE, 1)
     # The driver and the inventory each run their OWN file as a real process (their self-tests do),
     # which is closure-equivalent by construction — and nothing else is: a sibling named by the same
     # kind of expression is still refused.
@@ -3553,6 +3717,130 @@ def self_test(scratch=None):
             f"{unowned}")
     control("copy-run-declared-for-the-driver", copy_entry.get("paths") == ("session-distill/distill.py",),
             f"{COPY_RUNS}")
+    # ---- r3 S3: the admitted program forms are EXACT, and an expression that reaches for one
+    # without being it is refused by its own name. Every plant is source-only, in the copied tree.
+    for name, source, needle, offset in (
+            ("a-path-join-around-its-own-file",
+             "import pathlib, subprocess, sys\n"
+             "subprocess.run([sys.executable, str(pathlib.Path(__file__, '/fixture/other.py'))])",
+             "DISPATCH_PROGRAM_FORM {at}: reaches for its own file", 1),
+            ("a-path-join-around-a-copied-member",
+             "import pathlib, subprocess, sys\n"
+             "subprocess.run([sys.executable, str(pathlib.Path(inventory.copied_member("
+             "startup_copy, 'session-distill/distill.py'), '/fixture/other.py'))])",
+             "DISPATCH_PROGRAM_FORM {at}: reaches for a copied member", 1),
+            ("the-parent-of-its-own-file-joined",
+             "import pathlib, subprocess, sys\n"
+             "subprocess.run([sys.executable, str(pathlib.Path(__file__).parent / 'other.py')])",
+             "DISPATCH_PROGRAM_FORM {at}: reaches for its own file", 1),
+            ("a-keyword-in-the-own-file-form",
+             "import pathlib, subprocess, sys\n"
+             "subprocess.run([sys.executable, str(pathlib.Path(__file__, strict=False).resolve())])",
+             "DISPATCH_PROGRAM_FORM {at}: reaches for its own file", 1),
+            ("a-member-this-site-does-not-declare",
+             "import subprocess, sys\n"
+             "subprocess.run([sys.executable, str(inventory.copied_member(startup_copy, 'learn/redact.py'))])",
+             "DISPATCH_COPY_MEMBER_UNDECLARED {at}: a copy-run naming 'learn/redact.py'", 1),
+            ("a-member-that-is-not-a-literal",
+             "import subprocess, sys\n"
+             "subprocess.run([sys.executable, str(inventory.copied_member(startup_copy, member))])",
+             "DISPATCH_COPY_MEMBER_UNDECLARED {at}: a copy-run naming 'not a string literal'", 1),
+    ):
+        planted(name, driver_rel, source, needle, offset)
+    # The three inline shapes the review found — a reassignment, a tuple reassignment and a binding
+    # inside `if` — now share ONE refusal, and that is the point: the judge no longer reads a `-c`
+    # program's insides, so there is no shape left for a rebinding to get past. Each is still
+    # planted, because what must be shown is that each of the three is refused, not that the judge
+    # has a branch for it.
+    for name, inline_source in (
+            ("an-inline-program-that-reassigns-its-argv",
+             "p = sys.argv[1]\np = sys.argv[2]\nimport runpy; runpy.run_path(p)"),
+            ("an-inline-program-that-reassigns-a-tuple",
+             "p, q = sys.argv[1], sys.argv[2]\np, q = sys.argv[2], sys.argv[1]\nimport runpy; runpy.run_path(p)"),
+            ("an-inline-program-bound-inside-an-if",
+             "import sys, runpy\nif len(sys.argv) > 2:\n    p = sys.argv[2]\nelse:\n    p = sys.argv[1]\nrunpy.run_path(p)"),
+    ):
+        planted(name, driver_rel,
+                "import subprocess, sys\nsubprocess.run([sys.executable, '-c', " + repr(inline_source)
+                + ", str(inventory.copied_member(startup_copy, 'session-distill/distill.py'))])",
+                "DISPATCH_INLINE_UNDECLARED {at}: python -c with a program that is not a module-level "
+                "constant of this file declared in INLINE_PROGRAMS", 1)
+    planted("an-inline-constant-nobody-declared", driver_rel,
+            "PLANTED_PROGRAM = 'import time; time.sleep(1)\\n'\n"
+            "import subprocess, sys\nsubprocess.run([sys.executable, '-c', PLANTED_PROGRAM])",
+            "DISPATCH_INLINE_UNDECLARED {at}: python -c with a program that is not a module-level "
+            "constant of this file declared in INLINE_PROGRAMS", 2)
+    # A declared constant whose TEXT changed: the declaration's hash is what makes its reason a
+    # review of the program that actually runs, so a changed character is refused until the row
+    # moves with it. The edit is made in the copy, never in this checkout.
+    changed_probe = tree / inventory_rel
+    held_probe_text = changed_probe.read_text(encoding="utf-8")
+    try:
+        changed_probe.write_text(held_probe_text.replace(
+            "BYTECODE_PROBE = \"\"\"\nimport json, os, runpy, sys\n",
+            "BYTECODE_PROBE = \"\"\"\nimport json, os, runpy, sys, time\n", 1), encoding="utf-8")
+        changed_rows = closure_violations(tree)[0]
+    finally:
+        changed_probe.write_text(held_probe_text, encoding="utf-8")
+    control("a-declared-inline-program-whose-text-changed",
+            any(row.startswith(f"DISPATCH_INLINE_CHANGED {inventory_rel}:") for row in changed_rows),
+            f"{changed_rows}")
+    control("and-the-copied-tree-is-clean-again-after-that-edit", not closure_violations(tree)[0],
+            f"{closure_violations(tree)[0]}")
+
+    # ---- r3 S3: the names the forms are WRITTEN with. An exact shape means nothing in a file that
+    # rebinds `str`, `pathlib` or `__file__`, so one row per name, each planted on its own.
+    for name, source in (("__file__", "__file__ = '/fixture/other.py'\n"),
+                       ("str", "def str(x):\n    return '/fixture/other.py'\n"),
+                       ("pathlib", "for pathlib in ():\n    pass\n")):
+        found, at = plant(driver_rel, source)
+        control(f"planted-a-rebinding-of-{name}",
+                any(row.startswith("DISPATCH_NAME_REBOUND") and repr(name) in row for row in found),
+                f"expected a rebinding of {name!r} in {found}")
+    control("name-rebindings-judges-at-least-one-file", bool(FORM_SPELLINGS), "no spelling is declared")
+    control("name-rebindings-over-no-file-refuses-rather-than-passing",
+            any(row.startswith("INVENTORY_STALE form spellings") for row in name_rebindings(spellings=())),
+            f"{name_rebindings(spellings=())}")
+
+    # ---- audit 1797: the copy-run staleness leg, over rows this control BUILDS. Indexing the live
+    # tuple would make the control stop testing the day that tuple changes, which is the trap this
+    # repo has already paid for once.
+    own_rows = ({"site": "session-distill/distill.py", "owner": "runlib.inventory.copied_member",
+                 "paths": ("session-distill/runlib/census.py",),
+                 "reason": "a control's own row: an existing site and an existing file the site never "
+                           "runs as a copy"},)
+    unrun = closure_violations(tree, copies=own_rows)[0]
+    control("a-declared-copy-run-the-site-never-runs",
+            any(row.startswith("INVENTORY_STALE copy run session-distill/distill.py -> "
+                               "session-distill/runlib/census.py") and "runs no such copy" in row
+                for row in unrun), f"{unrun}")
+    control("and-that-rows-site-and-file-both-exist-so-it-is-the-run-that-is-missing",
+            (REPO / own_rows[0]["site"]).is_file() and (REPO / own_rows[0]["paths"][0]).is_file(),
+            f"{own_rows}")
+
+    # ---- audit 344: `runner_argv`'s own refusals, asked of the function DIRECTLY. The admission
+    # boundary refuses such a call first, which is why removing either of these left every suite
+    # green: this is the second place the same fact is kept.
+    for refusal_code, host, spec in (
+            ("APPENDED_PROMPT_UNDELIVERABLE", "codex",
+             {"call_id": "c-appended", "profile": "hermetic", "model": "m", "effort": "medium",
+              "workdir": "/fixture/work", "use": "judging",
+              "appended_prompts": [{"path": "/fixture/p.md", "sha256": "0" * 64}]}),
+            ("CAP_UNDELIVERABLE", "codex",
+             {"call_id": "c-capped", "profile": "hermetic", "model": "m", "effort": "medium",
+              "workdir": "/fixture/work", "use": "judging", "view_window": {"lines": 10},
+              "output_cap": 1000}),
+    ):
+        runner_refusal = ""
+        try:
+            runner_argv(host, spec)
+        except Exception as exc:
+            runner_refusal = f"{type(exc).__name__}: {exc}"
+        control(f"runner-argv-refuses-{refusal_code.lower().replace('_', '-')}",
+                refusal_code in runner_refusal, f"{runner_refusal!r}")
+    control("and-the-adapter-that-refused-really-conveys-neither",
+            not adapter_conveys("codex", "hermetic"), f"{adapter_conveys('codex', 'hermetic')}")
+
     found, _at = plant("session-distill/runlib/dispatch.py", "import subprocess\nsubprocess.run(['claude', '-p'])")
     control("supervisor-own-sites-are-not-failures", not found, f"{found}")
     found, _at = plant("session-distill/screen-codex.py", "import subprocess\nsubprocess.run(['codex', 'exec'])")

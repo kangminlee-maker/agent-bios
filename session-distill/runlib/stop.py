@@ -296,32 +296,52 @@ def problem_codes(source, function=CONTRACT["predicate"], sink="problems"):
     return codes
 
 
+# The inline programs this module's self-test runs, as module-level constants: an inline `python -c`
+# program is admitted by DECLARATION (`runlib/dispatch.py` `INLINE_PROGRAMS`, which pins each one's
+# sha256), and a local's text is only visible where it is built, so a local cannot be declared or
+# pinned (r3 S3). These are test fixtures; nothing in this module's own behaviour reads them.
+#
+# A tree of the self-test's own, in its own session: a foreground child, and an orphan whose parent
+# exits at once, so it hangs off init but keeps the tree's process group — only the group sweep can
+# find it, as a tool shell's background job after the shell is gone.
+TREE = ("import subprocess, sys, time\n"
+        "kid = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(300)'])\n"
+        "subprocess.Popen([sys.executable, '-c', 'import os, time\\nif os.fork() == 0:\\n    time.sleep(300)\\nos._exit(0)']).wait()\n"
+        "print(kid.pid, flush=True)\n"
+        "time.sleep(300)\n")
+TREE_AWAY = ("import subprocess, sys, time\n"
+             "subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(300)'])\n"
+             "subprocess.Popen([sys.executable, '-c', 'import os, time\\nif os.fork() == 0:\\n    time.sleep(300)\\nos._exit(0)']).wait()\n"
+             "away = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(300)'], start_new_session=True)\n"
+             "print(away.pid, flush=True)\n"
+             "time.sleep(300)\n")
+TREE_EXITS = ("import subprocess, sys\n"
+              "subprocess.Popen([sys.executable, '-c', 'import os, time\\nif os.fork() == 0:\\n    time.sleep(300)\\nos._exit(0)']).wait()\n"
+              "print('ready', flush=True)\n")
+# One child that outlives the stop and nothing else: the outsider and the stranger of the identity
+# controls.
+SLEEPS_LONG = "import time; time.sleep(300)\n"
+# A root that forks a member BETWEEN the listing that found it and its stop signal. The four values
+# it needs arrive as its own argv; its text is fixed.
+FORKING_ROOT = ("import subprocess, sys, time\n"
+                "FORKER = 'import os, signal, sys, time\\ndef fork(*_):\\n    pid = os.fork()\\n    if pid == 0:\\n"
+                "        time.sleep(300)\\n        os._exit(0)\\n    open(sys.argv[1], \\'w\\').write(str(pid))\\n"
+                "signal.signal(signal.SIGUSR1, fork)\\nwhile True:\\n    time.sleep(1)\\n'\n"
+                "sys.stdin.readline()\n"
+                "f = subprocess.Popen([sys.executable, '-c', FORKER, sys.argv[1]])\n"
+                "print(f.pid, flush=True)\n"
+                "time.sleep(300)\n")
+
+
 def self_test():
     failures, ran, spawned = [], [], []
-    # A tree of the self-test's own, in its own session: a foreground child, and an orphan whose
-    # parent exits at once, so it hangs off init but keeps the tree's process group — only the
-    # group sweep can find it, as a tool shell's background job after the shell is gone.
-    tree = ("import subprocess, sys, time\n"
-            "kid = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(300)'])\n"
-            "subprocess.Popen([sys.executable, '-c', 'import os, time\\nif os.fork() == 0:\\n    time.sleep(300)\\nos._exit(0)']).wait()\n"
-            "print(kid.pid, flush=True)\n"
-            "time.sleep(300)\n")
-    tree_away = ("import subprocess, sys, time\n"
-                 "subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(300)'])\n"
-                 "subprocess.Popen([sys.executable, '-c', 'import os, time\\nif os.fork() == 0:\\n    time.sleep(300)\\nos._exit(0)']).wait()\n"
-                 "away = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(300)'], start_new_session=True)\n"
-                 "print(away.pid, flush=True)\n"
-                 "time.sleep(300)\n")
-    tree_exits = ("import subprocess, sys\n"
-                  "subprocess.Popen([sys.executable, '-c', 'import os, time\\nif os.fork() == 0:\\n    time.sleep(300)\\nos._exit(0)']).wait()\n"
-                  "print('ready', flush=True)\n")
 
     def launch(away=False):
         """The tree; with `away`, also a child in a session of its own, whose pid is returned in place of the kid's."""
         if away:
-            proc = subprocess.Popen([sys.executable, "-c", tree_away], stdout=subprocess.PIPE, text=True, start_new_session=True)
+            proc = subprocess.Popen([sys.executable, "-c", TREE_AWAY], stdout=subprocess.PIPE, text=True, start_new_session=True)
         else:
-            proc = subprocess.Popen([sys.executable, "-c", tree], stdout=subprocess.PIPE, text=True, start_new_session=True)
+            proc = subprocess.Popen([sys.executable, "-c", TREE], stdout=subprocess.PIPE, text=True, start_new_session=True)
         spawned.append(proc)
         kid = int(proc.stdout.readline())
         time.sleep(0.2)
@@ -355,7 +375,7 @@ def self_test():
     # positive control first: freeze, verify, kill, verify — nothing of the tree survives
     proc, kid, sampler = launch()
     orphans = [pid for pid, row in group(proc.pid).items() if row["ppid"] == 1]
-    outsider = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(300)"], start_new_session=True)
+    outsider = subprocess.Popen([sys.executable, "-c", SLEEPS_LONG], start_new_session=True)
     spawned.append(outsider)
     outsider_start = ps_table()[outsider.pid]["start"]
     record = stop_and_reap(proc, sampler)
@@ -385,7 +405,7 @@ def self_test():
 
     # identity: a pid recorded with a start time that is not its own is never signalled, nor counted
     proc, kid, sampler = launch()
-    stranger = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(300)"], start_new_session=True)
+    stranger = subprocess.Popen([sys.executable, "-c", SLEEPS_LONG], start_new_session=True)
     spawned.append(stranger)
     stranger_start = ps_table()[stranger.pid]["start"]
     sampler.known[stranger.pid] = {**ps_table()[stranger.pid], "start": "Mon Jan  1 00:00:00 1990"}
@@ -421,16 +441,8 @@ def self_test():
     import tempfile
     with tempfile.TemporaryDirectory() as td:
         told = pathlib.Path(td) / "forked"
-        root = ("import subprocess, sys, time\n"
-                "FORKER = 'import os, signal, sys, time\\ndef fork(*_):\\n    pid = os.fork()\\n    if pid == 0:\\n"
-                "        time.sleep(300)\\n        os._exit(0)\\n    open(sys.argv[1], \\'w\\').write(str(pid))\\n"
-                "signal.signal(signal.SIGUSR1, fork)\\nwhile True:\\n    time.sleep(1)\\n'\n"
-                "sys.stdin.readline()\n"
-                "f = subprocess.Popen([sys.executable, '-c', FORKER, sys.argv[1]])\n"
-                "print(f.pid, flush=True)\n"
-                "time.sleep(300)\n")
-        proc = subprocess.Popen([sys.executable, "-c", root, str(told)], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                                text=True, start_new_session=True)
+        proc = subprocess.Popen([sys.executable, "-c", FORKING_ROOT, str(told)], stdin=subprocess.PIPE,
+                                stdout=subprocess.PIPE, text=True, start_new_session=True)
         spawned.append(proc)
         sampler = TreeSampler(proc.pid)  # it knows the root only: the forker starts after it sampled
         proc.stdin.write("go\n")
@@ -515,7 +527,7 @@ def self_test():
     # its id, the orphan is untouched and named nowhere, and the stop is unverified by name — with
     # the listing failed and with it sound.
     def launch_exiting():
-        proc = subprocess.Popen([sys.executable, "-c", tree_exits], stdout=subprocess.PIPE, text=True, start_new_session=True)
+        proc = subprocess.Popen([sys.executable, "-c", TREE_EXITS], stdout=subprocess.PIPE, text=True, start_new_session=True)
         spawned.append(proc)
         proc.stdout.readline()
         for _ in range(500):

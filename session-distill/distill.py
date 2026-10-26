@@ -82,6 +82,26 @@ except BaseException as _startup_exc:   # SystemExit included: `validate` exits 
     sys.exit(entry.failed(_startup_exc, HOME, label="STARTUP_FAILED", code=2))
 
 OUT = pathlib.Path(__file__).resolve().parent / "out"
+
+# The inline programs this file's own suite runs, as module-level constants rather than locals: a
+# `python -c` program is admitted by DECLARATION (`runlib/dispatch.py` `INLINE_PROGRAMS`, which pins
+# each one's sha256), and a local's text is only visible where it is built, so a local cannot be
+# declared or pinned at all (r3 S3).
+#
+# A TERM-ignoring descendant of a child that exits on TERM: the bound must end the TREE, and a
+# descendant holding the pipe is what kept a runaway filling the disk (r3 #1). Finite on its own.
+IGNORES_TERM = ("import signal, subprocess, sys, time\n"
+                "g = subprocess.Popen([sys.executable, '-c', 'import signal, time; "
+                "signal.signal(signal.SIGTERM, signal.SIG_IGN); time.sleep(3)'])\n"
+                "print('DESCENDANT', g.pid, flush=True)\n"
+                "signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))\n"
+                "time.sleep(3)\n")
+# A child that outlives its bound and nothing else, for the group-ownership control.
+SLEEPS_BRIEFLY = "import time; time.sleep(3)\n"
+# The ordinary shape: the leader exits first while a descendant holds the pipe for a moment.
+LEADER_FIRST = ("import subprocess, sys\n"
+                "subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(1)'])\n"
+                "print('LEADER DONE', flush=True)\n")
 RUN_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}")
 
 
@@ -942,14 +962,8 @@ def self_test():
         # left every descendant running, and a descendant holding the pipe is what kept a runaway
         # filling the disk after each kill (r3 #1). Both fixtures are FINITE — three seconds and
         # gone — so a cleanup defect here ends on its own instead of leaving a process behind.
-        ignores_term = ("import signal, subprocess, sys, time\n"
-                        "g = subprocess.Popen([sys.executable, '-c', 'import signal, time; "
-                        "signal.signal(signal.SIGTERM, signal.SIG_IGN); time.sleep(3)'])\n"
-                        "print('DESCENDANT', g.pid, flush=True)\n"
-                        "signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))\n"
-                        "time.sleep(3)\n")
         held_group = entry.bounded(lambda: subprocess.Popen(
-            [sys.executable, "-c", ignores_term], stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            [sys.executable, "-c", IGNORES_TERM], stdout=subprocess.PIPE, stderr=subprocess.PIPE,
             text=True, start_new_session=True), timeout=0.5, what="a TERM-ignoring descendant")
         descendant = [int(line.split()[1]) for line in held_group.stdout.splitlines()
                       if line.startswith("DESCENDANT")]
@@ -967,7 +981,7 @@ def self_test():
             os.getpgid = lambda _pid: (_ for _ in ()).throw(OSError(3, "No such process"))
             os.killpg = lambda pgid, sig: signalled.append((pgid, sig))
             unowned = entry.bounded(lambda: subprocess.Popen(
-                [sys.executable, "-c", "import time; time.sleep(3)"], stdout=subprocess.PIPE,
+                [sys.executable, "-c", SLEEPS_BRIEFLY], stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE, text=True, start_new_session=True),
                 timeout=0.5, what="a child whose group cannot be established")
         finally:
@@ -979,11 +993,8 @@ def self_test():
 
         # The ordinary shape: the leader exits first and a descendant holds the pipe for a moment.
         # The bound must not fire, and the leader's own code must come back.
-        leader_first = ("import subprocess, sys\n"
-                        "subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(1)'])\n"
-                        "print('LEADER DONE', flush=True)\n")
         early = entry.bounded(lambda: subprocess.Popen(
-            [sys.executable, "-c", leader_first], stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            [sys.executable, "-c", LEADER_FIRST], stdout=subprocess.PIPE, stderr=subprocess.PIPE,
             text=True, start_new_session=True), timeout=20, what="a leader that exits first")
         control("a leader that exits before its descendant still returns its own result",
                 early.returncode == 0 and "LEADER DONE" in early.stdout

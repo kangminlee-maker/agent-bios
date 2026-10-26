@@ -5561,29 +5561,38 @@ def self_test():
         check("every member a copy-run may name is a file of this checkout",
               all((REPO / member).is_file() for member in COPIED_MEMBERS), f"{COPIED_MEMBERS}")
 
-        def bytecode_probe(which, member, destination):
-            """The child, and what it reported: one real process per question.
-
-            The program the child loads is produced HERE, by `copied_member`, and that call is what
-            `runlib/dispatch.py` admits: the path is a closure member inside a tree this process
-            copied, or this raises. Passing a path the caller had built left the admission resting on
-            text elsewhere in the file (R2#5)."""
-            ran = bounded_child(lambda: subprocess.Popen(
-                [sys.executable, "-I", "-c", BYTECODE_PROBE, str(copied_checkout),
-                 str(destination), which, str(copied_member(copied_checkout, member))],
-                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=probe_env,
-                cwd=str(probe), start_new_session=True), what="the bytecode observer's own child")
+        def probe_report(ran):
+            """The child, and what it reported."""
             try:
                 return ran, json.loads(ran.stdout.strip().splitlines()[-1])
             except (ValueError, IndexError):
                 return ran, {}
 
+        # One helper per member, and each names its member as a LITERAL at the call that starts the
+        # child. The program the child loads is produced HERE, by `copied_member`, and that call is
+        # what `runlib/dispatch.py` admits: a closure member inside a tree this process copied, by a
+        # name this site declares. A member the CALLER passed in left the admission resting on text
+        # elsewhere in the file, which the judge can no longer read (R2#5, r3 #4).
+        def probe_with_floor(which, destination):
+            return probe_report(bounded_child(lambda: subprocess.Popen(
+                [sys.executable, "-I", "-c", BYTECODE_PROBE, str(copied_checkout),
+                 str(destination), which, str(copied_member(copied_checkout, "learn/redact.py"))],
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=probe_env,
+                cwd=str(probe), start_new_session=True), what="the bytecode observer's own child"))
+
+        def probe_with_driver(which, destination):
+            return probe_report(bounded_child(lambda: subprocess.Popen(
+                [sys.executable, "-I", "-c", BYTECODE_PROBE, str(copied_checkout),
+                 str(destination), which,
+                 str(copied_member(copied_checkout, "session-distill/distill.py"))],
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=probe_env,
+                cwd=str(probe), start_new_session=True), what="the bytecode observer's own child"))
+
         # The positive control first, on this same copy: a by-path load with the guard off writes a
         # `.pyc` beside the file it caches, and BOTH instruments — the audit hook and the disk scan
         # of the copy — are shown to see it. Then the cache it made is removed from the copy (never
         # from the review checkout) and the copy is asserted uncached again.
-        unguarded_run, unguarded_seen = bytecode_probe(
-            "unguarded", "learn/redact.py", probe / "out-positive")
+        unguarded_run, unguarded_seen = probe_with_floor("unguarded", probe / "out-positive")
         on_disk = sorted(copied_checkout.rglob("*.pyc"))
         check("the same observation sees a by-path load write bytecode when the guard is off",
               bool(unguarded_seen.get("bytecode")) and bool(on_disk),
@@ -5594,8 +5603,7 @@ def self_test():
         # hook fires before the operation, so a refused attempt has still been attempted). Without
         # this, "no write at all" rested on an observer that returned immediately for every event
         # that was not `open` (R1#4).
-        mutation_run, mutation_seen = bytecode_probe(
-            "mutations", "learn/redact.py", probe / "out-mutations")
+        mutation_run, mutation_seen = probe_with_floor("mutations", probe / "out-mutations")
         observed_kinds = set(mutation_seen.get("kinds") or [])
         for kind in ("os.mkdir", "os.rename", "os.remove", "os.rmdir"):
             control(f"the observation sees {kind} under the checkout",
@@ -5672,7 +5680,7 @@ def self_test():
             return state_of
 
         before_tree = tree_state(copied_checkout)
-        guarded_run, guarded_seen = bytecode_probe("guarded", "session-distill/distill.py", probe / "out")
+        guarded_run, guarded_seen = probe_with_driver("guarded", probe / "out")
         after_tree = tree_state(copied_checkout)
         check("the real invocation ran the driver as __main__ and produced the inventory",
               guarded_seen.get("code") == 0 and (probe / "out" / "inventory" / "manifest.json").is_file(),
@@ -5831,10 +5839,22 @@ def self_test():
               boundary_entry.is_file(), f"{masked(boundary_entry)} is not in the copy")
         boundary_env = {**os.environ, "HOME": str(scratch)}
 
-        def without_the_boundary(member, argv, what):
-            """One production command (never `--self-test`) from the copy, with `entry.py` gone."""
+        # One starter per entry point, each naming its member as a LITERAL and passing a list
+        # literal as the child's argv: the member a caller hands in is text the judge cannot read
+        # back to a declaration (r3 #4).
+        def this_module_with_no_boundary(what):
+            """This module's own entry point, which prints its first paragraph and exits 2."""
             return bounded_child(lambda: subprocess.Popen(
-                [sys.executable, str(copied_member(boundary_copy, member))] + argv,
+                [sys.executable,
+                 str(copied_member(boundary_copy, "session-distill/runlib/inventory.py"))],
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=boundary_env,
+                cwd=str(boundary_copy / "session-distill"), start_new_session=True), what=what)
+
+        def driver_with_no_boundary(destination, what):
+            """The driver, running the one production command this control uses."""
+            return bounded_child(lambda: subprocess.Popen(
+                [sys.executable, str(copied_member(boundary_copy, "session-distill/distill.py")),
+                 "inventory", "--to", str(destination), "--no-state"],
                 stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=boundary_env,
                 cwd=str(boundary_copy / "session-distill"), start_new_session=True), what=what)
 
@@ -5843,12 +5863,14 @@ def self_test():
             boundary_entry.write_text("x = 1\n", encoding="utf-8")
             boundary_entry.chmod(0o644)
             break_it()
-            for label, member, argv in (
-                    ("this module's entry point", "session-distill/runlib/inventory.py", []),
-                    ("the driver", "session-distill/distill.py",
-                     ["inventory", "--to", str(scratch / f"boundary-out-{how}"), "--no-state"])):
+            for label, start in (
+                    ("this module's entry point",
+                     lambda how=how: this_module_with_no_boundary(f"the inventory with no boundary ({how})")),
+                    ("the driver",
+                     lambda how=how: driver_with_no_boundary(scratch / f"boundary-out-{how}",
+                                                             f"the driver with no boundary ({how})"))):
                 # `ran` is this suite's own control register, so the child is NOT bound to it.
-                child = without_the_boundary(member, argv, f"{label} with no boundary ({how})")
+                child = start()
                 control(f"{label}, with the boundary module {how}: the fixed line and nothing else",
                         [f"code={child.returncode} stderr={child.stderr.strip()} "
                          f"stdout={child.stdout.strip()}"],
