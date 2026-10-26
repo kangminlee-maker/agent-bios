@@ -44,10 +44,31 @@ sys.dont_write_bytecode = True
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 
 HOME = str(pathlib.Path.home())
+# The bootstrap, and the only thing in this file that runs before the boundary exists. It is
+# stdlib only and its line carries NO path, because what failed is the very code that would have
+# projected one: `from runlib import entry` stood outside every boundary this command has, so an
+# `entry` that cannot import left a traceback on stderr with the importer's absolute paths in it
+# (r3 #2). `BaseException`, because a module can exit during import; a `SystemExit` already carries
+# the code its raiser chose, so it is re-raised rather than relabelled.
+STARTUP_UNAVAILABLE = ("COMMAND_FAILED startup: session distill could not load the boundary that "
+                       "describes its own failures, so it says nothing further about this one")
+STARTUP_UNAVAILABLE_CODE = 3
+
 # The boundary every entry point of this command runs inside, and the one owner of the fixed line
 # printed when even the floor cannot load. It imports nothing but the standard library and reaches
-# the floor lazily, so importing it cannot be the failure it is there to describe (R2#2, R2#3).
-from runlib import entry                                                     # noqa: E402
+# the floor lazily, so importing it is unlikely to be the failure it is there to describe — and the
+# bootstrap above answers for the case where it is anyway (R2#2, R2#3, r3 #2).
+try:
+    from runlib import entry
+except SystemExit:
+    raise
+except BaseException:
+    # Imported as a module, the caller owns the failure and gets the exception. Run as a command,
+    # there is nothing left to describe it with, so the fixed line stands in for the whole floor.
+    if __name__ != "__main__":
+        raise
+    sys.stderr.write(STARTUP_UNAVAILABLE + "\n")
+    raise SystemExit(STARTUP_UNAVAILABLE_CODE)
 STARTUP_WITHHELD = entry.WITHHELD
 
 try:

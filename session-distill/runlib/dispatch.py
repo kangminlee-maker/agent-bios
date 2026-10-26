@@ -233,12 +233,16 @@ COPY_RUNS = (
                "about has to be inside the checkout the rule protects, and an unreadable schema pin has to be "
                "unreadable in the tree that reads it (R1#2, R1#3)"},
     {"site": "session-distill/runlib/inventory.py", "owner": "copied_member",
-     "paths": ("session-distill/distill.py", "learn/redact.py"),
+     "paths": ("session-distill/distill.py", "learn/redact.py",
+               "session-distill/runlib/inventory.py"),
      "reason": "the bytecode control's child runs the COPY's driver as production does — "
                "`runpy.run_path(..., run_name=\'__main__\')` — to ask whether a real invocation writes "
                "anything under the checkout it ran from, and its positive leg loads the copy's own "
                "redaction floor by path with the no-bytecode guard off, which is what proves both "
-               "instruments can see such a write"},
+               "instruments can see such a write. The copy's own `runlib/inventory.py` is run the "
+               "same way by the boundary-bootstrap control, whose question — what this entry point "
+               "prints when `runlib/entry.py` itself cannot be imported — can only be asked of a "
+               "tree where that file is broken, never of this one (r3 #2)"},
 )
 
 # Sites whose program the trace cannot name, each admitted only while its guard — a literal line
@@ -3518,7 +3522,8 @@ def self_test(scratch=None):
             "DISPATCH_UNRESOLVED {at}: python runs ['<?>/other.py']", 1)
     probe_entry = [e for e in COPY_RUNS if e["site"] == "session-distill/runlib/inventory.py"]
     control("copy-run-declared-for-the-bytecode-probe",
-            {p for e in probe_entry for p in e["paths"]} == {"session-distill/distill.py", "learn/redact.py"},
+            {p for e in probe_entry for p in e["paths"]} == {"session-distill/distill.py", "learn/redact.py",
+                                                              "session-distill/runlib/inventory.py"},
             f"{[e['paths'] for e in probe_entry]}")
     if probe_entry:
         unowned_probe = without(probe_entry[0]["site"], "copied_member(", "a_copy_of(")

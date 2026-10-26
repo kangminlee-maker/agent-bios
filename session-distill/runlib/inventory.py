@@ -62,12 +62,33 @@ except ModuleNotFoundError:  # pragma: no cover - the pinned interpreter has it
 if __package__ in (None, ""):  # run as a script: put session-distill/ on the import path
     sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 
+# The bootstrap, and the only thing in this file that runs before the boundary exists. It is
+# stdlib only and its line carries NO path, because what failed is the very code that would have
+# projected one: `from runlib import entry` stood outside every boundary this command has, so an
+# `entry` that cannot import left a traceback on stderr with the importer's absolute paths in it
+# (r3 #2). `BaseException`, because a module can exit during import; a `SystemExit` already carries
+# the code its raiser chose, so it is re-raised rather than relabelled.
+STARTUP_UNAVAILABLE = ("COMMAND_FAILED startup: session distill could not load the boundary that "
+                       "describes its own failures, so it says nothing further about this one")
+STARTUP_UNAVAILABLE_CODE = 3
+
 # The boundary first, and the rest of the graph inside it. This module is an entry point of its
 # own (`python3 runlib/inventory.py --self-test`), and `runlib.validate` exits during import when
 # its schema pin is unreadable — so the import that can fail must sit inside the thing that
 # describes the failure. `runlib.entry` imports nothing but the standard library and reaches the
-# floor lazily, which is what makes it safe to import first (R2#3).
-from runlib import entry
+# floor lazily, which is what makes it safe to import first (R2#3); the bootstrap above is what
+# answers when that import fails regardless (r3 #2).
+try:
+    from runlib import entry
+except SystemExit:
+    raise
+except BaseException:
+    # Imported as a module, the caller owns the failure and gets the exception. Run as a command,
+    # there is nothing left to describe it with, so the fixed line stands in for the whole floor.
+    if __name__ != "__main__":
+        raise
+    sys.stderr.write(STARTUP_UNAVAILABLE + "\n")
+    raise SystemExit(STARTUP_UNAVAILABLE_CODE)
 
 try:
     from runlib import projection, records, sources, validate
@@ -1853,9 +1874,11 @@ def checkout_copy(destination, source=REPO):
 # path's shape (R2#5).
 _COPIES = set()
 # The members a control may run or load from such a copy, and nothing else: the driver, as
-# production runs it, and the redaction floor, which the bytecode control's positive leg loads by
-# path with the no-bytecode guard off.
-COPIED_MEMBERS = ("session-distill/distill.py", "learn/redact.py")
+# production runs it; the redaction floor, which the bytecode control's positive leg loads by path
+# with the no-bytecode guard off; and this module, whose own entry point the boundary-bootstrap
+# control runs as a production command from a copy with `runlib/entry.py` broken (r3 #2).
+COPIED_MEMBERS = ("session-distill/distill.py", "learn/redact.py",
+                  "session-distill/runlib/inventory.py")
 
 
 def copied_member(copy_root, member):
@@ -5796,6 +5819,48 @@ def self_test():
                                             "properties": {"units": {}}}),
                 "SCHEMA_INVALID")
 
+        # ---- r3 #2: the boundary module's OWN import is inside a boundary. Everything else this
+        # file describes a failure with is `runlib.entry`, so an `entry` that cannot be imported
+        # used to leave the interpreter's traceback — with the importer's absolute paths in it — on
+        # stderr before a line of this command ran. Two real children, because an import runs before
+        # anything this suite can patch, each from a COPY of the checkout so this one is untouched.
+        boundary_copy = scratch / "boundary-checkout"
+        checkout_copy(boundary_copy)
+        boundary_entry = boundary_copy / "session-distill" / "runlib" / "entry.py"
+        check("the copy holds the boundary module this control removes",
+              boundary_entry.is_file(), f"{masked(boundary_entry)} is not in the copy")
+        boundary_env = {**os.environ, "HOME": str(scratch)}
+
+        def without_the_boundary(member, argv, what):
+            """One production command (never `--self-test`) from the copy, with `entry.py` gone."""
+            return bounded_child(lambda: subprocess.Popen(
+                [sys.executable, str(copied_member(boundary_copy, member))] + argv,
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=boundary_env,
+                cwd=str(boundary_copy / "session-distill"), start_new_session=True), what=what)
+
+        for how, break_it in (("missing", lambda: boundary_entry.unlink()),
+                              ("unreadable", lambda: boundary_entry.chmod(0o000))):
+            boundary_entry.write_text("x = 1\n", encoding="utf-8")
+            boundary_entry.chmod(0o644)
+            break_it()
+            for label, member, argv in (
+                    ("this module's entry point", "session-distill/runlib/inventory.py", []),
+                    ("the driver", "session-distill/distill.py",
+                     ["inventory", "--to", str(scratch / f"boundary-out-{how}"), "--no-state"])):
+                # `ran` is this suite's own control register, so the child is NOT bound to it.
+                child = without_the_boundary(member, argv, f"{label} with no boundary ({how})")
+                control(f"{label}, with the boundary module {how}: the fixed line and nothing else",
+                        [f"code={child.returncode} stderr={child.stderr.strip()} "
+                         f"stdout={child.stdout.strip()}"],
+                        STARTUP_UNAVAILABLE)
+                check(f"{label} ({how}) exits with the fixed code and prints no traceback or path",
+                      child.returncode == STARTUP_UNAVAILABLE_CODE
+                      and child.stderr.strip() == STARTUP_UNAVAILABLE and not child.stdout.strip()
+                      and "Traceback" not in child.stderr and str(boundary_copy) not in child.stderr
+                      and str(scratch) not in child.stderr,
+                      f"code={child.returncode} stderr={child.stderr[-300:]}")
+        boundary_entry.chmod(0o644)
+
         # ---- r3 S1: every refusal the emission can state, asked of `emit_row` DIRECTLY with rows
         # this block builds. The tables in force are default-deny, so in the production path a
         # declared field never reaches most of these branches — a control that went through
@@ -5931,7 +5996,9 @@ def self_test():
           f"path be published, one source selection before every read of the owner's state with a leaf and an "
           f"ancestor link refused for each read kind, and denying that selection stopping every category of read, "
           f"the owner's roots protected whether or not this run reads them, a self-test scratch parent chosen by "
-          f"the same rule, the checkout protected whatever `--project` declares, a "
+          f"the same rule, the boundary module's own import inside a boundary — the fixed path-free "
+          f"line from both entry points, with `runlib/entry.py` missing and unreadable, as real "
+          f"children of a checkout copy — the checkout protected whatever `--project` declares, a "
           f"standalone destination that is a run or already holds an inventory refused, the real invocation run as "
           f"`__main__` against an uncached copy of the checkout with every attempted write observed, a context that "
           f"spans two guides "
