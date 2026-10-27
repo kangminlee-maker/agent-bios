@@ -684,6 +684,32 @@ def self_test():
             p.wait(timeout=5)
         except subprocess.TimeoutExpired:
             pass
+
+    # ---- r4 R1: this runner's own `__main__` boundary, DRIVEN rather than read out of the source.
+    # It was a `try` inside the `if __name__` block that no control could enter.
+    boundary_published = []
+    planted_row = ("a planted suite --self-test", ["a failure an abort must not swallow"])
+    entry.SELF_TEST_COLLECTED.append(planted_row)
+    aborted_with = ""
+    try:
+        main_boundary(run=lambda: (_ for _ in ()).throw(RuntimeError("a planted abort")),
+                      publish=boundary_published.append)
+    except RuntimeError as exc:
+        aborted_with = str(exc)
+    finally:
+        entry.SELF_TEST_COLLECTED.remove(planted_row)
+    control("the main boundary publishes what the suite collected before an abort leaves",
+            "a planted suite --self-test [FAIL] a failure an abort must not swallow" in boundary_published
+            and aborted_with == "a planted abort",
+            f"{boundary_published} raised={aborted_with!r}")
+    clean_published = []
+    entry.SELF_TEST_COLLECTED.append(planted_row)
+    try:
+        returned_code = main_boundary(run=lambda: 0, publish=clean_published.append)
+    finally:
+        entry.SELF_TEST_COLLECTED.remove(planted_row)
+    control("and a run that returns normally through it publishes nothing and keeps its code",
+            clean_published == [] and returned_code == 0, f"{clean_published} code={returned_code}")
     reporting.append("the report begins here")
     entry.SELF_TEST_COLLECTED.remove(("stop --self-test", failures))
     for failure in failures:
@@ -694,14 +720,22 @@ def self_test():
     return 0
 
 
-if __name__ == "__main__":
-    if "--self-test" not in sys.argv[1:]:
-        sys.exit("usage: stop.py --self-test")
+def main_boundary(run=None, publish=print):
+    """This module's `__main__` boundary, as a FUNCTION so a control can drive it (r4 R1).
+
+    The import stays the suite's path only, as `self_test` explains: this module's production use
+    imports nothing of `runlib` beyond the standard library."""
     sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
     from runlib import entry          # the suite's path only; see `self_test`
     try:
-        sys.exit(self_test())
+        return (run or self_test)()
     except BaseException:
         # What the suite had collected, before the abort leaves with its own non-zero exit.
-        entry.publish_collected(print)
+        entry.publish_collected(publish)
         raise
+
+
+if __name__ == "__main__":
+    if "--self-test" not in sys.argv[1:]:
+        sys.exit("usage: stop.py --self-test")
+    sys.exit(main_boundary())

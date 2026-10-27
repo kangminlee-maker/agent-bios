@@ -91,12 +91,16 @@ OUT = pathlib.Path(__file__).resolve().parent / "out"
 #
 # A TERM-ignoring descendant of a child that exits on TERM: the bound must end the TREE, and a
 # descendant holding the pipe is what kept a runaway filling the disk (r3 #1). Finite on its own.
+# Both sleeps outlast the whole bound — the timeout, `GROUP_DRAIN` and the SIGKILL rounds — so
+# within the control's window only the kill can end either process. A natural lifetime shorter than
+# that bound made the control pass over a removed kill: the descendant was gone because its three
+# seconds were up (r4 R2). Finite all the same, so a cleanup defect ends on its own.
 IGNORES_TERM = ("import signal, subprocess, sys, time\n"
                 "g = subprocess.Popen([sys.executable, '-c', 'import signal, time; "
-                "signal.signal(signal.SIGTERM, signal.SIG_IGN); time.sleep(3)'])\n"
+                "signal.signal(signal.SIGTERM, signal.SIG_IGN); time.sleep(90)'])\n"
                 "print('DESCENDANT', g.pid, flush=True)\n"
                 "signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))\n"
-                "time.sleep(3)\n")
+                "time.sleep(90)\n")
 # A child that outlives its bound and nothing else, for the group-ownership control.
 SLEEPS_BRIEFLY = "import time; time.sleep(3)\n"
 # The ordinary shape: the leader exits first while a descendant holds the pipe for a moment.
@@ -350,6 +354,10 @@ def main(argv=None):
             return 2
         return args.handler(args)
     except (Refused, stagelock.Locked, stagelock.Escaped) as exc:
+        # A HANDLED refusal is an abort too: the suite runs inside this boundary, and a refusal
+        # raised from inside it used to leave with every collected failure line unpublished, because
+        # only the unexpected-failure handler below published (r4 R1). Empty on every normal path.
+        entry.publish_collected(lambda line: entry.emit(line, sys.stderr), through_floor=True)
         say(str(exc), sys.stderr)
         return 1
     except Exception as exc:
@@ -363,7 +371,7 @@ def main(argv=None):
         # being handed a suite (G3).
         # This handler, not `entry.failed`, is what an abort inside the suite reaches, so the
         # collected report is published here too — before the failure is described.
-        entry.publish_collected(lambda line: say(line, sys.stderr))
+        entry.publish_collected(lambda line: entry.emit(line, sys.stderr), through_floor=True)
         say(f"COMMAND_FAILED {args.command or 'self-test'}: {type(exc).__name__}: {exc}", sys.stderr)
         return 1
 
@@ -392,7 +400,7 @@ def self_test():
                             f"boolean condition and was given {type(ok).__name__}")
         ran.append(name)
         if not ok:
-            failures.append(f"{name}: {detail}")
+            failures.append((name, detail))
 
     def type_refusal(call):
         """The message a self-test helper raises when it is given the wrong KIND of argument. The
@@ -650,7 +658,7 @@ def self_test():
             try:
                 yield
             except Exception as exc:
-                failures.append(f"{name}: RAISED {exc!r}")
+                failures.append((name, f"RAISED {exc!r}"))
 
         with owning("the checkout-protection controls' own fixtures"):
             # Each control owns its destination, and no other control names it.
@@ -997,7 +1005,7 @@ def self_test():
         # a FAILING self-test without failing this one.
         planted_failure = io.StringIO()
         with contextlib.redirect_stderr(planted_failure):
-            code = report([f"a fixture control read {HOME}/Documents/x"], [], "fixture --self-test")
+            code = report([("a fixture control", f"read {HOME}/Documents/x")], [], "fixture --self-test")
         printed = planted_failure.getvalue()
         control("a self-test failure line carrying the owner's home path is projected",
                 code == 1 and HOME not in printed and "<HOME>" in printed, f"{code} {printed!r}")
@@ -1099,9 +1107,71 @@ def self_test():
         control("a bound reached with a descendant holding the pipe is a named failure, not a wait",
                 held_group.returncode == entry.TIMED_OUT
                 and "CHILD_TIMEOUT" in held_group.stderr, f"{held_group.returncode} {held_group.stderr!r}")
+        def process_alive(pid):
+            """Whether THIS PROCESS still stands. The descendant leads no group of its own, so
+            `group_alive` asked `killpg` about a group that never existed and read the
+            `ProcessLookupError` as "gone" whether the descendant lived or not — the control passed
+            over a removed kill (r4 R2). It is reparented and reaped by init when its leader dies, so
+            a pid that is gone raises here rather than lingering as a zombie."""
+            try:
+                os.kill(pid, 0)
+                return True
+            except ProcessLookupError:
+                return False
+            except PermissionError:      # it exists and is not ours to signal
+                return True
+
         control("and the descendant that outlived its leader is gone afterwards",
-                len(descendant) == 1 and not entry.group_alive(descendant[0]),
-                f"{descendant} {held_group.stdout!r}")
+                len(descendant) == 1 and not process_alive(descendant[0]),
+                f"{descendant} alive={[process_alive(pid) for pid in descendant]} {held_group.stdout!r}")
+        control("and that pid was really a process this control could have seen alive",
+                len(descendant) == 1 and descendant[0] > 1, f"{descendant}")
+        # ---- r4 R2: that SIGTERM and that SIGKILL, asked of `end_group` ALONE. No process, no
+        # fixture and no `finish_group`: the leader reports itself exited the moment the SIGTERM is
+        # recorded, which is the shape the unconditional SIGKILL exists for — returning as soon as
+        # the leader exited left every descendant running (r3 #1). A control that reads a fixture's
+        # aftermath cannot tell a kill that fired from a lifetime that ran out.
+        class _ExitsOnTerm:
+            """A leader that is not a process: it reports running until the group is signalled, and
+            exited after. `end_group` reads only `poll`, `pid` and `kill`."""
+            args, returncode, pid = ("a leader that exits on SIGTERM",), None, 4322
+
+            def poll(self):
+                return 0 if group_signals else None
+
+            def kill(self):
+                group_signals.append((self.pid, "kill()"))
+
+        held_killpg, group_signals = os.killpg, []
+        try:
+            os.killpg = lambda pgid, sig: group_signals.append((pgid, sig))
+            end_note = entry.end_group(_ExitsOnTerm(), 4322)
+        finally:
+            os.killpg = held_killpg
+        control("end_group signals SIGTERM and then SIGKILL even though the leader exited after the SIGTERM",
+                group_signals == [(4322, signal.SIGTERM), (4322, signal.SIGKILL)] and end_note == "",
+                f"{group_signals} note={end_note!r}")
+        control("and os.killpg is the real one again after that control",
+                os.killpg is held_killpg, f"{os.killpg}")
+        # The same, for a leader that never exits: the second signal still goes, and nothing waits on
+        # the group emptying — that is `finish_group`'s question, not this one's.
+        held_killpg, standing_signals = os.killpg, []
+
+        class _NeverExits(_ExitsOnTerm):
+            def poll(self):
+                return None
+
+        try:
+            os.killpg = lambda pgid, sig: standing_signals.append((pgid, sig))
+            # It waits out its own eight quarter-second rounds per signal, which is the real
+            # behaviour and costs four seconds; nothing here is a process, so nothing is left behind.
+            standing_note = entry.end_group(_NeverExits(), 4322)
+        finally:
+            os.killpg = held_killpg
+        control("and a leader that never exits is sent both signals too, without waiting for the group to empty",
+                standing_signals == [(4322, signal.SIGTERM), (4322, signal.SIGKILL)] and standing_note == "",
+                f"{standing_signals} note={standing_note!r}")
+
         # ---- the group-end ROUND, which S4 added and no control read: with `for _ in range(rounds)`
         # emptied, every suite of this package stayed green (S8b's probe). Driven IN THIS PROCESS with
         # a counting probe in place of `entry.group_alive` and a counting `os.killpg`, so no process
@@ -1230,6 +1300,52 @@ def self_test():
         control("a suite starting inside a suite at the depth limit is refused by name",
                 "SELF_TEST_TOO_DEEP" in too_deep, too_deep[:200])
 
+        # ---- r4 R1: THIS runner's own abort handlers, driven. `main`'s handled-refusal handler said
+        # the refusal and returned, so a refusal raised inside the suite took every collected failure
+        # line with it; only the unexpected-failure handler published. The claim was read out of the
+        # source in inventory's suite, where any handler of a file reaching the call satisfied it.
+        # The handler is exercised here instead, through `main` with a planted command handler.
+        held_handler = globals()["cmd_census"]
+        for kind, planted_exc in (("a refusal", Refused("a planted refusal")),
+                                  ("a stage lock held elsewhere", stagelock.Locked("a planted lock")),
+                                  ("an escaped path", stagelock.Escaped("a planted escape")),
+                                  ("an unexpected failure", RuntimeError("a planted failure"))):
+            planted_row = ("a planted suite --self-test", ["a failure an abort must not swallow"])
+            entry.SELF_TEST_COLLECTED.append(planted_row)
+            buffer = io.StringIO()
+            try:
+                def raising_handler(_args, _exc=planted_exc):
+                    raise _exc
+
+                globals()["cmd_census"] = raising_handler
+                held_stderr, sys.stderr = sys.stderr, buffer
+                try:
+                    code = main(["census"])
+                finally:
+                    sys.stderr = held_stderr
+            finally:
+                globals()["cmd_census"] = held_handler
+                entry.SELF_TEST_COLLECTED.remove(planted_row)
+            control(f"main publishes the failures the suite collected when the command raises {kind}",
+                    "a failure an abort must not swallow" in buffer.getvalue() and code == 1,
+                    f"code={code} out={buffer.getvalue()[:300]!r}")
+        control("and the real census handler is back, so no later control runs a raiser",
+                globals()["cmd_census"] is held_handler, f"{globals()['cmd_census']}")
+        clean_buffer = io.StringIO()
+        held_stderr, sys.stderr = sys.stderr, clean_buffer
+        try:
+            entry.SELF_TEST_COLLECTED.append(("a planted suite --self-test", ["a failure nothing aborted"]))
+            try:
+                main(["--help"])
+            except SystemExit:
+                pass
+        finally:
+            sys.stderr = held_stderr
+            entry.SELF_TEST_COLLECTED.pop()
+        control("and a command that does not abort publishes nothing of what a suite collected",
+                "a failure nothing aborted" not in clean_buffer.getvalue(),
+                f"{clean_buffer.getvalue()[:200]!r}")
+
     reporting.append("the report begins here")
     return report(failures, ran)
 
@@ -1242,8 +1358,10 @@ def report(failures, ran, label="distill --self-test"):
     It goes to stderr because it is a diagnostic; the per-control listing stays on stdout."""
     if (label, failures) in entry.SELF_TEST_COLLECTED:
         entry.SELF_TEST_COLLECTED.remove((label, failures))
-    for failure in failures:
-        say(f"{label} [FAIL] {failure}", sys.stderr)
+    for name, detail in failures:
+        # Name and detail projected separately when the joined line would be withheld whole, so a
+        # failing control cannot lose its own name (r4 R8).
+        entry.emit(entry.failure_text(label, name, detail), sys.stderr)
     if failures:
         return 1
     for name in ran:

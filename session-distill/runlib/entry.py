@@ -221,7 +221,8 @@ def failed(exc, home=None, label="COMMAND_FAILED", code=1, stream=None):
     failure stays diagnosable; the message passes the floor."""
     # Before the failure is described: whatever a suite had collected, which the abort is about to
     # take with it. Nothing on an ordinary failure path, where no suite is running.
-    publish_collected(lambda line: say(line, stream if stream is not None else sys.stderr, home))
+    publish_collected(lambda line: emit(line, stream if stream is not None else sys.stderr),
+                      home=home, through_floor=True)
     say(f"{label}: {type(exc).__name__}: {exc}", stream if stream is not None else sys.stderr, home)
     return code
 
@@ -234,13 +235,71 @@ def failed(exc, home=None, label="COMMAND_FAILED", code=1, stream=None):
 SELF_TEST_COLLECTED = []
 
 
-def publish_collected(publish):
+FAIL_TAG = "[FAIL]"
+
+
+def failure_text(label, name, detail, home=None):
+    """One `[FAIL]` line, projected so the control's NAME is never what gets withheld.
+
+    The WHOLE line is projected first, because a whole-line judgement is the strongest one the floor
+    makes and it is what every other diagnostic gets. When that judgement withholds the line
+    entirely, what is published is the label, the tag and the name, with the DETAIL REPLACED BY THE
+    PLACEHOLDER — never the detail in any form. The floor withheld the line precisely because the
+    name and the detail read as a credential key and its value TOGETHER, and a detail re-judged
+    alone loses that context: projecting it again would publish the value the whole-line judgement
+    had just refused (r4 R8 correction). The same reasoning is why the label and the name are
+    published only as the floor returns them — unchanged, or as the placeholder, with the line
+    saying which part it is, so a reader can tell a withheld detail from a withheld name.
+
+    What this preserves is the tag and the name, which is what a harness reads: r4's R0 revert
+    published nothing but the placeholder — no name, no tag, no suite label — so a named failure
+    read as an unnamed one. The name is never split out of a formatted string, because a control
+    name may itself hold `": "`."""
+    whole = projected(f"{label} {FAIL_TAG} {name}: {detail}", home)
+    layer = floor()
+    withheld = (layer.blank_for("x") if layer is not None else WITHHELD).strip()
+    if whole.strip() != withheld:
+        return whole
+    shown_label = label if projected(label, home) == label else withheld
+    shown_name = name if projected(name, home) == name else withheld
+    which = ("the detail" if shown_name == name
+             else "the name and the detail" if shown_label == label else "the whole line")
+    return f"{shown_label} {FAIL_TAG} {shown_name}: {withheld} ({which} withheld)"
+
+
+def emit(text, stream=None):
+    """Publish a line THIS MODULE has already projected piece by piece (`failure_text`).
+
+    The one printer here that does not project what it is given: projecting again would hand the
+    floor the joined line it has already withheld, and take the name back out. Its only callers are
+    in this module and the two suites' report functions, each passing `failure_text`'s result."""
+    print(text, file=stream if stream is not None else sys.stderr)
+
+
+def _failure_parts(failure):
+    """A collected failure as `(name, detail)`. A suite that collects plain strings has no
+    structural name, and its line is published whole, as before."""
+    return failure if isinstance(failure, tuple) else (None, failure)
+
+
+def publish_collected(publish, home=None, through_floor=False):
     """The failure lines the suites running in this process had already collected, published as the
     suite itself publishes them, and returned so a control can read them.
 
+    `through_floor` builds each line through `failure_text`, for the callers that publish into a
+    floor-bearing stream; without it the line is joined as the suite would print it.
+
     Empty on every normal path: a suite that reaches its own report removes its list first."""
-    lines = [f"{label} [FAIL] {failure}"
-             for label, failures in SELF_TEST_COLLECTED for failure in failures]
+    lines = []
+    for label, failures in SELF_TEST_COLLECTED:
+        for failure in failures:
+            name, detail = _failure_parts(failure)
+            if name is None:
+                lines.append(projected(f"{label} {FAIL_TAG} {detail}", home) if through_floor
+                             else f"{label} {FAIL_TAG} {detail}")
+            else:
+                lines.append(failure_text(label, name, detail, home) if through_floor
+                             else f"{label} {FAIL_TAG} {name}: {detail}")
     for line in lines:
         publish(line)
     return lines
@@ -254,6 +313,12 @@ def guarded(entry, argv=None, home=None, stream=None, label="COMMAND_FAILED"):
     try:
         return entry() if argv is None else entry(argv)
     except SystemExit as exc:
+        # `SystemExit` is an abort like any other for a suite running inside this boundary: a
+        # `sys.exit` from a fixture, or argparse's own, took every collected failure line with it
+        # while only the `BaseException` branch below published (r4 R1). Empty on every normal path,
+        # which is why it sits before the code is decided rather than in one branch of it.
+        publish_collected(lambda line: emit(line, stream if stream is not None else sys.stderr),
+                          home=home, through_floor=True)
         if exc.code is None:
             return 0
         if isinstance(exc.code, int):

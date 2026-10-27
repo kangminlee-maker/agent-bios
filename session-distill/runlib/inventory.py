@@ -548,11 +548,24 @@ CONDITION_HEADING = re.compile(
 UNRESOLVED = "unknown:"  # a mention this reference point could not resolve, kept as a requirement
 
 
+def _carrier_key(unit):
+    """A carrier's identity AND its version — what the context structures group by.
+
+    `carrier_identity` holds no content, and one reference point can carry two VERSIONS of one
+    identity (`event_carriers` makes a carrier per `(layer, scope)`). Grouped by the identity alone,
+    the two versions' units became one carrier: a mention of that path reached both versions' units
+    at once, and `carriers_at_path` deduplicated them to a single carrier, so the one thing the
+    design says to do about two carriers at one path — state the ambiguity instead of resolving it —
+    did not happen. The floor decision keyed the same way is r4 R0; this is the same defect in the
+    structures beside it."""
+    return unit["carrier_id"], unit.get("version_sha256")
+
+
 def _section_spans(units):
-    """Per carrier identity, the units under each heading path — the span a heading opens."""
+    """Per carrier version, the units under each heading path — the span a heading opens."""
     spans = collections.defaultdict(list)
     for unit in units:
-        spans[(unit["carrier_id"], tuple(h for h in unit["heading"].split(" > ") if h))].append(unit["unit_id"])
+        spans[(_carrier_key(unit), tuple(h for h in unit["heading"].split(" > ") if h))].append(unit["unit_id"])
     return spans
 
 
@@ -582,40 +595,40 @@ def operative_context(units):
     answer depending on which package the run enumerated first (GB#10)."""
     by_carrier = collections.defaultdict(list)
     for unit in units:
-        by_carrier[unit["carrier_id"]].append(unit)
+        by_carrier[_carrier_key(unit)].append(unit)
     carriers_at_path = collections.defaultdict(list)
     for unit in units:
-        if unit["carrier_id"] not in carriers_at_path[unit["path"]]:
-            carriers_at_path[unit["path"]].append(unit["carrier_id"])
+        if _carrier_key(unit) not in carriers_at_path[unit["path"]]:
+            carriers_at_path[unit["path"]].append(_carrier_key(unit))
     basenames = collections.defaultdict(list)
     for path in carriers_at_path:
         basenames[path.rsplit("/", 1)[-1]].append(path)
-    frontmatter = {carrier_id: next((u["unit_id"] for u in rows if u["block"] == "frontmatter"), None)
-                   for carrier_id, rows in by_carrier.items()}
+    frontmatter = {key: next((u["unit_id"] for u in rows if u["block"] == "frontmatter"), None)
+                   for key, rows in by_carrier.items()}
     spans = _section_spans(units)
     by_id = {unit["unit_id"]: unit for unit in units}
 
     def conditions(unit):
         chain = tuple(h for h in unit["heading"].split(" > ") if h)
         found = []
-        for (carrier_id, heading_path), members in spans.items():
-            if carrier_id != unit["carrier_id"] or not heading_path:
+        for (key, heading_path), members in spans.items():
+            if key != _carrier_key(unit) or not heading_path:
                 continue
             above = heading_path[:-1]
             if above == chain[:len(above)] and CONDITION_HEADING.search(heading_path[-1]):
                 found += members
         return found
 
-    def whole_carrier(carrier_id):
-        """What a reader following a bare reference to this carrier would have to read."""
-        rows = [u["unit_id"] for u in by_carrier[carrier_id]
+    def whole_carrier(key):
+        """What a reader following a bare reference to this carrier version would have to read."""
+        rows = [u["unit_id"] for u in by_carrier[key]
                 if u["class"] == "operative" or u["block"] == "frontmatter"]
-        return rows or [u["unit_id"] for u in by_carrier[carrier_id]]
+        return rows or [u["unit_id"] for u in by_carrier[key]]
 
     direct = {}
     for unit in units:
         context = [unit["unit_id"]]
-        own = frontmatter.get(unit["carrier_id"])
+        own = frontmatter.get(_carrier_key(unit))
         if own and own != unit["unit_id"]:
             context.append(own)
         context += unit["enclosing"]
@@ -649,7 +662,7 @@ def operative_context(units):
         for match in MENTION.finditer(unit["text"]):
             named, heading = match.group("path"), (match.group("heading") or "").strip()
             paths = [named] if named in carriers_at_path else basenames.get(named.rsplit("/", 1)[-1], [])
-            targets = [carrier_id for path in paths for carrier_id in carriers_at_path[path]]
+            targets = [key for path in paths for key in carriers_at_path[path]]
             if not targets:
                 if named != unit["path"] and named != unit["path"].rsplit("/", 1)[-1]:
                     reached.append(f"{UNRESOLVED}{named}")
@@ -661,9 +674,9 @@ def operative_context(units):
                 # became another package's (GB#10).
                 reached.append(f"{UNRESOLVED}ambiguous:{named}")
                 origin(f"{UNRESOLVED}ambiguous:{named}", "ambiguous", match)
-            for carrier_id in targets:
+            for key in targets:
                 if heading:
-                    rows = [u["unit_id"] for u in by_carrier[carrier_id]
+                    rows = [u["unit_id"] for u in by_carrier[key]
                             if u["heading"] and heading.lower().startswith(u["heading"].rsplit(" > ", 1)[-1].lower())]
                     if rows:
                         reached += rows
@@ -671,7 +684,7 @@ def operative_context(units):
                         reached.append(f"{UNRESOLVED}{named}#{heading}")
                         origin(f"{UNRESOLVED}{named}#{heading}", "heading", match)
                 else:
-                    reached += whole_carrier(carrier_id)
+                    reached += whole_carrier(key)
         return [row for row in dict.fromkeys(reached) if row != unit_id]
 
     origins = {}
@@ -991,12 +1004,29 @@ def _span_agrees(unit, place, where):
                       f"at the span it declares, so no offset of this row can be trusted")
 
 
+def _decision_key(carrier_id, carrier_text):
+    """The key a floor decision is cached under: the carrier's identity AND its VERSION.
+
+    `carrier_identity` is the package, the item and the delivered path, with no content in it, and
+    one reference point can hold two versions of one identity — `event_carriers` makes a carrier per
+    `(layer, scope)`, so a user-level instruction file loaded in two scopes at two versions is two
+    carriers with one id. Keyed on the id alone, whichever version was decided first answered for
+    both, and the version whose carrier the floor withholds WHOLE was emitted through the other
+    version's extents: the lead reproduced a withheld secret reaching `shed` that way (r4 R0).
+
+    The digest is taken from the carrier text itself rather than read from a record's
+    `version_sha256`, because a cache key that can disagree with the bytes it answers for is the
+    same defect one level further in."""
+    return carrier_id, hashlib.sha256((carrier_text or "").encode("utf-8")).hexdigest()
+
+
 def _decision_for(place, carrier_id, carrier_text):
-    """The floor's whole-carrier decision for one carrier, taken once per carrier."""
+    """The floor's whole-carrier decision for one carrier version, taken once per version."""
     decisions = place.setdefault("decisions", {})
-    if carrier_id not in decisions:
-        decisions[carrier_id] = projection.carrier_decision(carrier_text, place["home"])
-    return decisions[carrier_id]
+    key = _decision_key(carrier_id, carrier_text)
+    if key not in decisions:
+        decisions[key] = projection.carrier_decision(carrier_text, place["home"])
+    return decisions[key]
 
 
 def _render_context(origin, place):
@@ -1267,12 +1297,15 @@ def shed(units, home=None):
     records_out = []
     for unit in units:
         carrier_text = unit.get("carrier_text")
+        decision = None
         if carrier_text is not None:
-            # Once per carrier, not once per span: the decision is a property of the carrier, and it
-            # carries the floor's whole-carrier WITHHOLDING as well as its extents.
-            _decision_for(place, unit["carrier_id"], carrier_text)
+            # Once per carrier VERSION, not once per span: the decision is a property of the carrier's
+            # bytes, and it carries the floor's whole-carrier WITHHOLDING as well as its extents. The
+            # decision this row is emitted with is the one `_decision_for` just answered for THESE
+            # bytes; a second lookup by the id alone is what crossed two versions (r4 R0).
+            decision = _decision_for(place, unit["carrier_id"], carrier_text)
         place["unit"] = unit
-        place["decision"] = place["decisions"].get(unit["carrier_id"])
+        place["decision"] = decision
         records_out.append(emit_row("unit", UNIT_TABLE, unit, place))
     return records_out
 
@@ -2805,7 +2838,7 @@ DOCUMENT_KEYS = frozenset(DOCUMENT_MEMBERS + UNIT_FIELDS + PLAN_FIELDS + EMISSIO
                           + tuple(REFERENCES) + tuple(STATUSES))
 
 
-def emitted_document(reference, rows, ctx):
+def emitted_document(reference, rows, ctx, more_reasons=None):
     """The document one reference point publishes, from its layer rows.
 
     THE production path, called by `reference_of` and by the differential control alike. It was
@@ -2816,6 +2849,12 @@ def emitted_document(reference, rows, ctx):
     reasons = [reason for row in rows for reason in row["reasons"]]
     if ctx.get("acquisition_error"):
         reasons = [ctx["acquisition_error"]] + reasons
+    if more_reasons is not None:
+        # A reason that can only be computed from the UNITS — the baseline mapping — belongs here,
+        # before the row is emitted. Appended to `document["reference"]["incomplete_reasons"]` after
+        # `reference_of` returned, those strings never passed `REFERENCE_TABLE`'s rule, and a
+        # mapping problem names a baseline item ref, which is a path often enough (r4 R4).
+        reasons = reasons + list(more_reasons(units))
     kind = {"current": {"kind": "current", "commit": ctx.get("commit")},
             "release": {"kind": "release", "ref": ctx.get("release_ref")},
             "selection": {"kind": "selection", "content_ref": (ctx.get("snapshot") or {}).get("content_ref")}}[reference]
@@ -2836,9 +2875,12 @@ def emitted_document(reference, rows, ctx):
     return document, units
 
 
-def reference_of(reference, ctx):
-    """One reference point: its layers, its units, its completeness and the reasons against it."""
-    return emitted_document(reference, layer_rows(reference, ctx), ctx)
+def reference_of(reference, ctx, more_reasons=None):
+    """One reference point: its layers, its units, its completeness and the reasons against it.
+
+    `more_reasons(units)` is a reason this reference point can only state once its units exist; it
+    reaches the row through the table like every other reason."""
+    return emitted_document(reference, layer_rows(reference, ctx), ctx, more_reasons)
 
 
 def mapping_problems(expected, units):
@@ -2976,16 +3018,20 @@ def run(repo, state_root, user_root, out_dir, pin=None, native_roots=None, ledge
                 ctx.setdefault("expected_release_items", [])
             bind_transcripts(ctx, run_dir, zstd)
             inputs["transcripts"].update(ctx["notes"]["transcripts"])
+            expected_refs = {item["ref"] for item in ctx["expected_release_items"]} \
+                if ctx.get("release_ref") else None
             for reference in REFERENCES:
-                produced[reference] = reference_of(reference, ctx)
+                produced[reference] = reference_of(
+                    reference, ctx,
+                    more_reasons=(lambda units: mapping_problems(expected_refs, units))
+                    if expected_refs is not None and reference == "release" else None)
             base = produced["release"][1]
             for reference in ("current", "selection"):
                 produced[reference][0]["renames"] = renames_against(produced[reference][1], base, home)
             if ctx.get("release_ref"):
-                problems = mapping_problems({item["ref"] for item in ctx["expected_release_items"]}, produced["release"][1])
-                document = produced["release"][0]
-                document["reference"]["incomplete_reasons"] += problems
-                document["reference"]["complete"] = not document["reference"]["incomplete_reasons"]
+                # The reference row already carries these, emitted through the table with every
+                # other reason. The manifest keeps its own copy, which its own table projects.
+                problems = mapping_problems(expected_refs, produced["release"][1])
                 manifest["baseline_unmapped"] = problems
                 manifest["baseline_items_expected"] = len(ctx["expected_release_items"])
         for reference, (document, units) in produced.items():
@@ -3347,11 +3393,11 @@ def self_test():
         ran.append(name)
         text = "; ".join(problems)
         if not problems:
-            failures.append(f"{name}: expected a failure naming {needles or ('anything',)}, got none")
+            failures.append((name, f"expected a failure naming {needles or ('anything',)}, got none"))
         else:
             missing = [needle for needle in needles if needle not in text]
             if missing:
-                failures.append(f"{name}: expected {missing} among {problems}")
+                failures.append((name, f"expected {missing} among {problems}"))
 
     def clean(name, problems):
         if reporting:
@@ -3359,7 +3405,7 @@ def self_test():
                                f"report, so `clean` is not in the count it published")
         ran.append(name)
         if problems:
-            failures.append(f"{name}: expected no violation, got {problems}")
+            failures.append((name, f"expected no violation, got {problems}"))
 
     def check(name, ok, detail=""):
         if reporting:
@@ -3373,7 +3419,7 @@ def self_test():
                             f"boolean condition and was given {type(ok).__name__}")
         ran.append(name)
         if not ok:
-            failures.append(f"{name}: {detail}")
+            failures.append((name, detail))
 
     def misuse_refusal(call):
         """The message a self-test helper raises when it is MISUSED — the wrong kind of argument, or
@@ -3781,6 +3827,28 @@ def self_test():
               "the baseline file changed with the mapping, so the control judges nothing")
         control("a baseline item with no unit", mapping_problems(expected_after, dropped),
                 "BASELINE_UNMAPPED @fixture/core:item-2")
+        # r4 R4: and such a reason reaches the WRITTEN document through the reference table's rule.
+        # It used to be appended to the emitted row afterwards, so it passed no rule at all — and an
+        # item ref is a path often enough. The reason this control plants carries a home path, so
+        # the published string either shows the projection or shows that it did not happen.
+        home_ref = f"@fixture/core:{pathlib.Path.home()}/.claude/an-item-under-the-owners-home"
+        late_document, _late_units = emitted_document(
+            "release", [{"layer": "catalog", "producer": "a fixture producer", "status": "complete",
+                         "reasons": [], "carriers": [guide("mapped.md", "## Rule\n\n- a rule\n")]}],
+            {"home": str(pathlib.Path.home()), "state_root": None, "notes": {}, "release_ref": "ref1"},
+            more_reasons=lambda units: mapping_problems({home_ref}, units))
+        late_out = scratch / "late-reason-out"
+        write_document(late_out, late_out / "inventory" / "release.json", late_document,
+                       str(pathlib.Path.home()))
+        late_published = (late_out / "inventory" / "release.json").read_text(encoding="utf-8")
+        control("a mapping reason carrying a home path is projected in the written document",
+                [f"published={late_published}"], "BASELINE_UNMAPPED", "<HOME>")
+        check("and that reason named the planted ref while the home path itself is not published",
+              "an-item-under-the-owners-home" in late_published
+              and str(pathlib.Path.home()) not in late_published,
+              f"{late_published[:400]}")
+        check("and the reference point says it is incomplete because of it",
+              late_document["reference"]["complete"] is False, f"{late_document['reference']}")
         control("a baseline with no items at all",
                 [str(_raised(lambda: baseline_items(scratch / "empty", "ref1")))], "BASELINE_ABSENT")
 
@@ -5024,6 +5092,55 @@ def self_test():
                 [f"published={published.strip()}"], "REDACTED", "<HOME>")
         check("and neither the credential nor the home path is in it",
               secret not in published and str(pathlib.Path.home()) not in published, f"{published}")
+        # ---- r4 R8: a failing control keeps its NAME. A name and its detail can read as a
+        # credential key and its value TOGETHER while each passes the floor alone, and the floor then
+        # withheld the whole line — tag, suite label and name with it — so a harness looking for
+        # `[FAIL] <name>` read a named failure as an unnamed one. That is what r4's R0 revert did,
+        # and the pair below is the one it did it with.
+        #
+        # Every detail HERE is booleans only. A control for this defect must report through a line
+        # the defect itself cannot eat: with the fix reverted, a detail quoting the planted text or
+        # the published line makes this control's own failure line the withheld one, and the row
+        # proving the fix reads as unnamed (r4 R8, second round).
+        home_here_str = str(pathlib.Path.home())
+        eaten_name = "the withheld version's secret in no published string"
+        eaten_detail = "carrying=['document$.units[4].text']"
+        eaten_line = f"inventory --self-test [FAIL] {eaten_name}: {eaten_detail}"
+        check("the planted name and the planted detail each pass the floor alone",
+              projection.diagnostic(eaten_name, home_here_str) == eaten_name
+              and projection.diagnostic(eaten_detail, home_here_str) == eaten_detail,
+              f"name_unchanged={projection.diagnostic(eaten_name, home_here_str) == eaten_name} "
+              f"detail_unchanged={projection.diagnostic(eaten_detail, home_here_str) == eaten_detail}")
+        check("and the two of them together are withheld as one line",
+              projection.diagnostic(eaten_line, home_here_str).strip() == projection.blank_for("x"),
+              f"withheld={projection.diagnostic(eaten_line, home_here_str).strip() == projection.blank_for('x')}")
+        kept = boundary.failure_text("inventory --self-test", eaten_name, eaten_detail, home_here_str)
+        control("a failure whose name and detail trip the floor together still publishes its name",
+                [f"has_tag={'[FAIL]' in kept} has_name={eaten_name in kept} "
+                 f"has_label={'inventory --self-test' in kept}"],
+                "has_tag=True", "has_name=True", "has_label=True")
+        # The correction: the fallback may not publish the DETAIL in any form. The floor withheld the
+        # line because of the pair, and a detail re-judged alone loses exactly the context it was
+        # refused for — so projecting it again publishes what the whole-line judgement had refused.
+        marked_name = "the planted secret"
+        marked_detail = '"alpha-bravo-charlie"'
+        marked_line = f"inventory --self-test [FAIL] {marked_name}: {marked_detail}"
+        check("the planted value passes the floor on its own, so only the pair is the problem",
+              projection.diagnostic(marked_detail, home_here_str) == marked_detail
+              and projection.diagnostic(marked_line, home_here_str).strip() == projection.blank_for("x"),
+              f"detail_unchanged={projection.diagnostic(marked_detail, home_here_str) == marked_detail} "
+              f"pair_withheld={projection.diagnostic(marked_line, home_here_str).strip() == projection.blank_for('x')}")
+        marked = boundary.failure_text("inventory --self-test", marked_name, marked_detail, home_here_str)
+        control("a detail the floor admits alone is still not published when the pair is withheld",
+                [f"has_tag={'[FAIL]' in marked} has_name={marked_name in marked} "
+                 f"carries_value={'alpha-bravo-charlie' in marked}"],
+                "has_tag=True", "has_name=True", "carries_value=False")
+        # Every name this suite has registered so far, held against the floor: a name the floor
+        # changes is a name that can be the thing withheld, whatever line it sits in.
+        unprojected_names = [name for name in ran if projection.diagnostic(name, home_here_str) != name]
+        check("every control name this suite registered passes the floor unchanged",
+              not unprojected_names and len(ran) > 100,
+              f"unchanged={len(ran) - len(unprojected_names)} of {len(ran)}")
         # ---- N1: this suite runs ITSELF below, and at depth 1 only. The child used to be kept
         # from spawning its own child by the very `dir=` wiring these controls revert; with it gone
         # the recursion went 594 deep and filled the disk. The child is marked (`entry.nest`) and a
@@ -5045,9 +5162,20 @@ def self_test():
         # margin is now wide in both directions — 3s to be seen, 30s before the child would end on
         # its own — so what is read is the refusal and not the scheduler. The marker carries the two
         # pids, because a 30s sleep that outlived the bound would outlive this suite.
-        (slow_bin / "git").write_text(f"#!/bin/sh\n/bin/sleep 30 &\n"
-                                      f"printf '%s\\n%s\\n' \"$!\" \"$$\" > {slow_marker}\nwait\n",
-                                      encoding="utf-8")
+        def slow_git_script(marker):
+            """`(the fixture git's text, the environment it reads its marker path from)`.
+
+            The path reaches the script through the ENVIRONMENT and the expansion is QUOTED.
+            Interpolated bare after `>`, a scratch parent holding a space made the shell redirect to
+            the path's first word — a file outside scratch, truncated by a fixture (r4 R3). A suite's
+            own shell text is shell, and a path is not a word. One function, so the control below
+            runs the same text this fixture does."""
+            return ("#!/bin/sh\n/bin/sleep 30 &\n"
+                    "printf '%s\\n%s\\n' \"$!\" \"$$\" > \"$SLOW_GIT_MARKER\"\nwait\n",
+                    {"SLOW_GIT_MARKER": str(marker)})
+
+        slow_script, slow_script_env = slow_git_script(slow_marker)
+        (slow_bin / "git").write_text(slow_script, encoding="utf-8")
         (slow_bin / "git").chmod(0o755)
         # The SOURCE is a fixture of this control's own, never this checkout: `tracked_paths` takes
         # the git branch only when `source/.git` exists, and the commit hook materialises the index
@@ -5059,7 +5187,8 @@ def self_test():
         (slow_tree / "inner" / "held.txt").write_text("held\n", encoding="utf-8")
         slow_git = ""
         try:
-            tracked_paths(slow_tree, git_env={"PATH": f"{slow_bin}:/usr/bin:/bin"}, git_timeout=3)
+            tracked_paths(slow_tree, git_env={"PATH": f"{slow_bin}:/usr/bin:/bin", **slow_script_env},
+                          git_timeout=3)
             slow_git = "a listing came back from a git that never answered"
         except Exception as exc:
             slow_git = f"{type(exc).__name__}: {exc}"
@@ -5091,6 +5220,40 @@ def self_test():
             time.sleep(0.05)
         check("and neither the fixture git nor the sleep it started outlived the bound",
               not standing, f"{standing} still standing two seconds after the refusal")
+
+        # ---- r4 R3: the same fixture under a parent whose NAME is shell. Unquoted after `>`, the
+        # redirect took the path's first word, so the fixture truncated a file outside scratch. Both
+        # the parent and the file the unquoted redirect would have hit are this control's own, inside
+        # the suite's disposable scratch: a control for this defect may not name a real path.
+        hostile_parent = scratch / "a dir with a space, a ' and a $dollar"
+        hostile_parent.mkdir()
+        sentinel = scratch / "a"          # the first word of that path, where an unquoted `>` lands
+        sentinel.write_text("a sentinel this fixture must leave alone\n", encoding="utf-8")
+        hostile_marker = hostile_parent / "slow-git-ran"
+        hostile_script, hostile_env = slow_git_script(hostile_marker)
+        hostile_bin = scratch / "hostile-git-bin"
+        hostile_bin.mkdir()
+        (hostile_bin / "git").write_text(hostile_script, encoding="utf-8")
+        (hostile_bin / "git").chmod(0o755)
+        hostile_tree = scratch / "hostile-git-tree"
+        hostile_tree.mkdir()
+        (hostile_tree / ".git").write_text("gitdir: a fixture, not a repository\n", encoding="utf-8")
+        # Through `tracked_paths`, the same caller the fixture git has above: it bounds the child and
+        # ends its group, so the backgrounded sleep is not left standing — and this control adds no
+        # dispatch site of its own, which a direct `/bin/sh <scratch path>` would (the trace cannot
+        # resolve a scratch path, and an unresolvable program is a refusal by design).
+        try:
+            tracked_paths(hostile_tree, git_env={"PATH": f"{hostile_bin}:/usr/bin:/bin", **hostile_env},
+                          git_timeout=3)
+        except Exception:
+            pass          # the refusal is the one the control above already names
+        check("the fixture git writes its marker inside scratch when its parent's name is shell",
+              hostile_marker.is_file() and len(hostile_marker.read_text(encoding="utf-8").split()) == 2,
+              f"{masked(hostile_marker)}: exists={hostile_marker.is_file()} "
+              f"{sorted(path.name for path in hostile_parent.iterdir())}")
+        check("and the file an unquoted redirect would have truncated is untouched",
+              sentinel.read_text(encoding="utf-8") == "a sentinel this fixture must leave alone\n",
+              f"{masked(sentinel)}: {sentinel.read_text(encoding='utf-8')!r}")
 
         # ---- R2#3 and R2#7 for this entry point, in this process. Both used to be asked of a
         # child running this whole suite with `--self-test` in its argv, which is what made the
@@ -5173,8 +5336,27 @@ def self_test():
                         "adopted_packages", "guides/adopted.md",
                         f"## Keys\n\n- the helper reads apiKeyHelper: {secret}\n",
                         item_ref="@vendor/pkg:adopted", package_id="@vendor/pkg"),
+                    # With the provenance `event_carriers` builds, because `transcript` is an
+                    # absolute path under the owner's home and `provenance` was a string field the
+                    # schema declares that no fixture carried — so the walk could not visit it and
+                    # the control was blind to it (r4 R4).
                     "planted native_global": carrier(
-                        "native_global", f"{pathlib.Path.home()}/.claude/CLAUDE.md", planted_in["native_global"]),
+                        "native_global", f"{pathlib.Path.home()}/.claude/CLAUDE.md", planted_in["native_global"],
+                        provenance={"as_of": "2026-10-28T00:00:00+09:00", "session": "s-a-planted-session",
+                                    "transcript": f"{pathlib.Path.home()}/.claude/projects/p/planted.jsonl",
+                                    "where": "User", "scope": "user", "reference": "current",
+                                    "record": 7, "identity": UNKNOWN_REASONS["codex_identity"]}),
+                    # The ledger's own provenance shape (`_ledger`), and the `hosts` list the
+                    # deduplication appends: every leaf the schema declares under `provenance` is
+                    # filled by some fixture, because the walk is judged LEAF BY LEAF and a
+                    # sub-field no fixture carries would pass it unseen (r4 R4 addendum).
+                    "a ledger carrier with its own provenance": carrier(
+                        "ledger_incubating", f"{LEDGER_REL}#planted-entry",
+                        f"## Keys\n\n- the entry reads apiKeyHelper: {secret}\n",
+                        item_ref="planted-entry",
+                        provenance={"status": "incubating", "keep_units": ["u-0000000000000000"],
+                                    "keep_reason": "a planted hold-back reason",
+                                    "hosts": ["claude", "codex"]}),
                     "planted native_project": carrier(
                         "native_project", f"{project_scope}/CLAUDE.md", planted_in["native_project"]),
                     "planted native_memory": carrier(
@@ -5198,6 +5380,41 @@ def self_test():
             rows = shed(units_of([item]), str(pathlib.Path.home()))
             return [(f"{item['layer']}[{n}]{where}", text)
                     for n, row in enumerate(rows) for where, text in strings_in(row)]
+
+        document_count = [0]
+
+        def document_strings(items, reference="current"):
+            """Every string in the document THE PRODUCTION PATH publishes for these carriers.
+
+            `emitted_document` is what `reference_of` publishes, and its docstring claimed the
+            differential drove it while nothing but `reference_of` did (r4 R4): a control that
+            reaches `units_of` + `shed` itself skips `operative_context`, the reference, layer and
+            produced-by rows, and the disclosure judgement `write_document` makes before an artifact
+            exists. This drives all of it, and then WRITES the document into this suite's scratch
+            the way `write_document` would publish it, so the strings judged are the published ones.
+
+            A refusal from `write_document` is returned as a string rather than raised: its message
+            is itself a published string, and a differential must be able to see a line that reached
+            an artifact's refusal as well as one that reached the artifact."""
+            layers, rows = dict.fromkeys(item["layer"] for item in items), []
+            for layer in layers:
+                rows.append({"layer": layer, "producer": "this suite's fixture producer",
+                             "status": "complete", "reasons": [],
+                             "carriers": [item for item in items if item["layer"] == layer]})
+            ctx = {"home": str(pathlib.Path.home()), "state_root": None, "notes": {},
+                   "commit": None, "release_ref": None, "snapshot": {}}
+            document, _units = emitted_document(reference, rows, ctx)
+            out = scratch / "r4-published-documents"
+            out.mkdir(exist_ok=True)
+            document_count[0] += 1
+            name = out / "inventory" / f"document-{document_count[0]}.json"
+            try:
+                write_document(out, name, document, ctx["home"])
+                published = json.loads(name.read_text(encoding="utf-8"))
+            except Refused as exc:
+                published = {"write_document_refused": str(exc)}
+            return ([(f"document{where}", text) for where, text in strings_in(document)]
+                    + [(f"published{where}", text) for where, text in strings_in(published)])
 
         def withheld_lines(item, emit=None):
             """`(lines the intact carrier does not keep, where any of them reached the row anyway)`.
@@ -5223,6 +5440,87 @@ def self_test():
             return removed, sorted({where for line in removed for where, text in carried if line in text})
 
         differential = {name: withheld_lines(item) for name, item in fixtures.items()}
+        # r4 R4(a): the same property over the PUBLISHED document, one fixture at a time and then
+        # all of them in one document, because a document holding several carriers is what a
+        # reference point actually publishes and the one-at-a-time shape never exercises the
+        # context, reference and layer rows beside each other.
+        published_differential = {name: withheld_lines(item, lambda it: document_strings([it]))
+                                  for name, item in fixtures.items()}
+        control("every carrier fixture, differentially, through the document the production path publishes",
+                [f"fixtures={len(published_differential)} "
+                 f"withheld_lines={sum(len(rows[0]) for rows in published_differential.values())} "
+                 f"leaks={ {name: rows[1] for name, rows in published_differential.items() if rows[1]} }"],
+                "leaks={}")
+        together = document_strings(list(fixtures.values()))
+        # One document holds every fixture, so a line is only evidence of a leak while it belongs to
+        # ONE of them: a carrier the floor withholds WHOLE withholds its `## Rules` heading too, and
+        # another fixture publishes that heading by right. The lines compared here are the ones no
+        # other fixture's intact carrier keeps, which is what the per-fixture pass above judges.
+        intacts = {name: projection.project(item["text"], projection.CURRENT, str(pathlib.Path.home()))
+                   for name, item in fixtures.items()}
+        exclusive = sorted({line for name, rows in published_differential.items() for line in rows[0]
+                            if not any(line in text for other, text in intacts.items() if other != name)})
+        control("and the same for one document carrying every fixture at once",
+                [f"carriers={len(fixtures)} strings={len(together)} exclusive_lines={len(exclusive)} "
+                 f"leaks={sorted({where for line in exclusive for where, text in together if line in text})}"],
+                "leaks=[]")
+        check("that one document really carried every fixture's strings", len(together) > len(fixtures),
+              f"strings={len(together)} carriers={len(fixtures)}")
+        check("and the lines it looked for include every fixture's own planted credential",
+              all(any(secret in line for line in exclusive) for secret in (secret, heading_secret.strip())),
+              f"exclusive={len(exclusive)}")
+
+        # ---- r4 R0 (blocking): two VERSIONS of one carrier identity in one reference point. The
+        # identity is `(layer, package_id, item_ref, path)` with no content in it, and
+        # `event_carriers` makes one carrier per `(layer, scope)`, so one instruction file recorded
+        # in two scopes at two versions is two carriers under one id. The floor's whole-carrier
+        # decision was cached by that id alone, so whichever version was decided first answered for
+        # both and the withheld version's text was emitted through the other version's extents.
+        # BOTH orders, because the defect only showed in one of them.
+        r0_secret = "shortpass-r4-r0-control"
+        r0_path = f"{pathlib.Path.home()}/.claude/CLAUDE.md"
+        r0_harmless = carrier("native_global", r0_path, "## Rules\n\nkeep the tests green\n")
+        r0_withheld = carrier("native_global", r0_path,
+                              f'## Rules\n\napi\\_key: "alpha\n\n{r0_secret}\n')
+        check("the two versions really are one carrier identity",
+              r0_harmless["carrier_id"] == r0_withheld["carrier_id"],
+              f"{r0_harmless['carrier_id']} {r0_withheld['carrier_id']}")
+        check("and the withheld version alone is withheld whole",
+              r0_secret not in str(document_strings([r0_withheld])),
+              "the withheld version's secret reached the document on its own")
+        for order, pair_of_versions in (("harmless first", [r0_harmless, r0_withheld]),
+                                        ("withheld first", [r0_withheld, r0_harmless])):
+            r0_strings = document_strings(pair_of_versions)
+            control(f"two versions of one carrier identity, {order}: the withheld version's secret in no published string",
+                    [f"carrying={[where for where, text in r0_strings if r0_secret in text]}"],
+                    "carrying=[]")
+            control(f"and the harmless version's own text is still published, {order}",
+                    [f"kept={any('keep the tests green' in text for where, text in r0_strings)}"],
+                    "kept=True")
+        # r4 R0, the audit beside the decision: every other structure keyed by the carrier id alone.
+        # `by_carrier`, `carriers_at_path`, `frontmatter`, the section spans and `whole_carrier` made
+        # two versions ONE carrier, so a mention of that path reached both versions' units at once
+        # and the ambiguity the design states for two carriers at one path was deduplicated away.
+        # The emitted string this changes is the context list itself.
+        r0_v1 = carrier("catalog", "claude/guides/two-versions.md", "## Rules\n\n- a rule only v1 carries\n")
+        r0_v2 = carrier("catalog", "claude/guides/two-versions.md", "## Rules\n\n- a rule only v2 carries\n")
+        r0_ref = carrier("catalog", "claude/guides/mentions-it.md",
+                         "## Ref\n\n- read claude/guides/two-versions.md before answering\n")
+
+        def mentioning_context(items):
+            found = [unit["operative_context"] for unit in operative_context(units_of(items))
+                     if unit["path"].endswith("mentions-it.md") and len(unit["operative_context"]) > 1]
+            return found[0] if found else []
+
+        one_version = mentioning_context([r0_v1, r0_ref])
+        two_versions = mentioning_context([r0_v1, r0_v2, r0_ref])
+        control("two versions of one identity are two carriers at one path, so the context states the ambiguity",
+                [f"one_version_ambiguous={any('ambiguous' in row for row in one_version)} "
+                 f"two_versions_ambiguous={any('ambiguous' in row for row in two_versions)}"],
+                "one_version_ambiguous=False two_versions_ambiguous=True")
+        check("and both contexts were really resolved, so neither is empty",
+              len(one_version) >= 2 and len(two_versions) > len(one_version),
+              f"one={len(one_version)} two={len(two_versions)}")
         control("every carrier fixture, differentially: what the intact carrier withholds, withheld in every emitted string",
                 [f"fixtures={len(differential)} "
                  f"withheld_lines={sum(len(rows[0]) for rows in differential.values())} "
@@ -5238,11 +5536,68 @@ def self_test():
               f"{sorted({item['form'] for item in fixtures.values()})}")
         # The walk is held against the schema the code owns: every string field a unit declares must
         # be one the walk visited. A field the walk cannot see is a field this control is blind to.
-        declared_strings = sorted(
-            name for name, spec in (inventory_schema()["$defs"]["unit"]["properties"]).items()
-            if spec.get("type") == "string" or (isinstance(spec.get("type"), list) and "string" in spec["type"]))
-        walked = {where.split("$.", 1)[-1].split(".")[0].split("[")[0]
+        #
+        # Resolved RECURSIVELY (r4 R4): the first version took only properties whose own `type` is
+        # string, so `operative_context` — an array of strings, and the one field a context leak
+        # would travel in — was not in the set, and neither was a string leaf under a `$ref` or a
+        # nested object. Each leaf is named by the top-level field it sits under, which is what the
+        # walk's own locations report.
+        schema_here = inventory_schema()
+
+        def string_leaves(spec, seen=()):
+            """Every string LEAF under this schema node, each as its path from the node.
+
+            Judged per leaf rather than per top-level field (r4 R4 addendum): "has a string
+            somewhere under it" counts `provenance` as covered the moment any one of its five
+            strings is walked, so a sub-field no fixture fills — or one added later — passes unseen.
+            An array index is normalized to `[]`, which is how the walk's own locations are read
+            below, and a `$ref` carries its parent's path."""
+            if not isinstance(spec, dict):
+                return []
+            ref = spec.get("$ref")
+            if ref:
+                name = ref.rsplit("/", 1)[-1]
+                if name in seen:                 # a recursive definition is not a second answer
+                    return []
+                return string_leaves(schema_here["$defs"].get(name, {}), seen + (name,))
+            declared = spec.get("type")
+            if declared == "string" or (isinstance(declared, list) and "string" in declared):
+                return [""]
+            found = []
+            for key in ("items", "contains"):
+                found += [f"[]{leaf}" for leaf in string_leaves(spec.get(key), seen)]
+            for key in ("additionalProperties", "propertyNames"):
+                found += [f".{{}}{leaf}" for leaf in string_leaves(spec.get(key), seen)]
+            for branch in ("anyOf", "oneOf", "allOf"):
+                for member in spec.get(branch) or ():
+                    found += string_leaves(member, seen)
+            for key, member in (spec.get("properties") or {}).items():
+                found += [f".{key}{leaf}" for leaf in string_leaves(member, seen)]
+            return found
+
+        declared_strings = sorted({f"{name}{leaf}"
+                                   for name, spec in schema_here["$defs"]["unit"]["properties"].items()
+                                   for leaf in string_leaves(spec)})
+        check("the recursive resolution finds the string leaves a flat one missed",
+              {"operative_context[]", "provenance.transcript", "provenance.session", "layer", "sha"}
+              <= set(declared_strings), f"{declared_strings}")
+
+        def leaf_of(where):
+            """The leaf name a walked location reports, from the unit down, with every array index
+            normalized to `[]` — the same spelling `string_leaves` returns."""
+            after = where.split(".units[", 1)[-1]
+            after = after.split("].", 1)[1] if "]." in after else where.split("$.", 1)[-1]
+            return re.sub(r"\[\d+\]", "[]", after)
+
+        walked = {leaf_of(where)
                   for _name, item in fixtures.items() for where, _text in emitted_strings(item)}
+        # `units_of` + `shed` fills no `operative_context` and no `provenance`: those exist on the
+        # PRODUCTION path, which is the second reason the differential had to drive the document
+        # builder (r4 R4). The document's own locations name the unit field after `units[n]`.
+        for _name, item in fixtures.items():
+            for where, _text in document_strings([item]):
+                if ".units[" in where:
+                    walked.add(leaf_of(where))
         control("a string field the schema declares that the differential never looks at",
                 [f"declared={declared_strings} walked={sorted(walked)} "
                  f"unwalked={[name for name in declared_strings if name not in walked]}"],
@@ -5322,18 +5677,27 @@ def self_test():
             "a withheld toml carrier whose value spans lines": carrier(
                 "catalog", "claude/guides/withheld.toml",
                 'api_key = """alpha\nbravo\n\nshortpass"""\nsee = "' + mention_token + '"\n'),
+            # The escape is written as a RAW string in the fixture's own source, so parsing this
+            # carrier as Python emits no SyntaxWarning while the text still carries the escape the
+            # floor cannot decode — four such warnings came out of this one fixture, on this tree and
+            # on every tree since it was written (r4 R8's aside).
             "a withheld python carrier with a mention in a comment": carrier(
                 "catalog", "claude/hooks/withheld.py",
-                'API_KEY = "alpha\\_bravo"\n# ' + mention_token + '\n'),
+                'API_KEY = r"alpha\\_bravo"\n# ' + mention_token + '\n'),
             "a withheld carrier of a form the splitter does not read": carrier(
                 "catalog", "claude/guides/withheld.txt",
                 'api\\_key: "alpha"\n' + mention_token + '\n'),
+            # A VALID JSON carrier the floor withholds whole. The comment here used to say no valid
+            # JSON carrier can be: `projection.carrier_decision` returns the whole-carrier
+            # withholding for this text — the same `([], True)` the escaped markdown fixture gets —
+            # and `units_of` splits it into a unit, so the claim was false and the one carrier kind
+            # with no whole-withheld fixture was JSON (r4 R4).
+            "a withheld json carrier whose escaped key spans lines": carrier(
+                "catalog", "claude/guides/withheld-whole.json",
+                '{"keys": "api\\\\_key: \\"alpha\\n\\n' + mention_token + '"}\n'),
         }
-        # JSON is the one kind with no whole-withheld fixture: the floor withholds a carrier whose
-        # escape it cannot decode or whose masking breaks the syntax, and neither is reachable while
-        # the carrier stays valid JSON — an undecodable escape makes it `Malformed` before any unit
-        # exists. So JSON is covered by the shape the review named instead: the SECRET is itself
-        # mention-shaped, so a detached emitter would store the credential as the entry.
+        # The mention-shaped SECRET, which is a different shape from the fixtures above: a detached
+        # emitter would store the credential itself as the entry.
         masked_mentions = {
             "a json carrier whose credential is mention-shaped": carrier(
                 "catalog", "claude/guides/masked.json",
@@ -5383,8 +5747,13 @@ def self_test():
         for name, item in mention_fixtures.items():
             entries = [text for where, text in context_strings(item)
                        if "operative_context" in where and text.startswith(UNRESOLVED)]
+            # The floor's fixed withheld form is the PLACEHOLDER, which is what an entry carries: it
+            # is a span of the carrier, not the carrier. `blank_for(the whole text)` quotes the mask
+            # when the carrier is valid JSON, and an entry of the JSON fixture this round added is
+            # `unknown:<REDACTED>` rather than `unknown:"<REDACTED>"` (r4 R4). Identical to the
+            # previous spelling for every other fixture here.
             check(f"{name} emits its unresolved entry from the carrier, withheld",
-                  entries and all(projection.blank_for(item["text"]) in entry for entry in entries),
+                  entries and all(projection.blank_for("x") in entry for entry in entries),
                   f"{entries}")
             check(f"{name} publishes no part of the mention it was built from",
                   not any("shortpass" in entry for entry in entries), f"{entries}")
@@ -6116,8 +6485,8 @@ def self_test():
         def span_place(record):
             """`shed`'s own place for one record: the carrier's decision, taken once, and the unit."""
             where = {"home": home_here, "decisions": {}}
-            _decision_for(where, "c-" + "0" * 24, record.get("carrier_text"))
-            where.update(unit=record, decision=where["decisions"]["c-" + "0" * 24])
+            decided = _decision_for(where, "c-" + "0" * 24, record.get("carrier_text"))
+            where.update(unit=record, decision=decided)
             return where
 
         span_table = table_of({"text": as_span("span")})
@@ -6192,31 +6561,38 @@ def self_test():
     check("the stop machinery's module-level imports are the standard library alone",
           bool(stop_imports) and all(name in sys.stdlib_module_names for name in stop_imports),
           f"{[name for name in stop_imports if name not in sys.stdlib_module_names]} of {stop_imports}")
-    # X1 proves the publication prints. This proves the four runners REACH it when they abort, which
-    # is a different claim: the handler's own subtree must carry the call. Read as a tree rather than
-    # grepped, because a mention in a comment or a docstring is not a call. `inventory.py` has no
-    # handler of its own — its abort goes `main` -> `entry.guarded` -> `entry.failed` — so the site
-    # asked of it is `failed` itself, which is where that route publishes.
-    def _reaches_publication(node):
-        return any(isinstance(inner, ast.Call)
-                   and ((isinstance(inner.func, ast.Attribute) and inner.func.attr == "publish_collected")
-                        or (isinstance(inner.func, ast.Name) and inner.func.id == "publish_collected"))
-                   for inner in ast.walk(node))
+    # r4 R1: this claim used to be read out of the SOURCE — any `except` handler anywhere in a file
+    # reaching `publish_collected` satisfied it — so the two handlers that did NOT publish were
+    # invisible to it: `distill.main`'s handled-refusal handler, and `guarded`'s `SystemExit`
+    # branches, which is the route inventory's own suite aborts through. A control over handlers in
+    # the aggregate cannot say which handler ran. Each runner's real handler is now DRIVEN instead:
+    # inventory's own route (`main` -> `entry.guarded` -> `entry.failed`) here, and `distill.main`,
+    # `dispatch.main_boundary` and `stop.main_boundary` in their own suites.
+    def published_on_abort(raiser):
+        """`(exit code, what the boundary published)` for one abort through the real `guarded`."""
+        planted_row = ("a planted suite --self-test", ["a failure an abort must not swallow"])
+        boundary.SELF_TEST_COLLECTED.append(planted_row)
+        buffer = io.StringIO()
+        try:
+            code = boundary.guarded(raiser, stream=buffer)
+        finally:
+            boundary.SELF_TEST_COLLECTED.remove(planted_row)
+        return code, buffer.getvalue()
 
-    unwired = []
-    for rel, site in (("session-distill/distill.py", "an except handler"),
-                      ("session-distill/runlib/dispatch.py", "an except handler"),
-                      ("session-distill/runlib/stop.py", "an except handler"),
-                      ("session-distill/runlib/entry.py", "`failed`")):
-        parsed = ast.parse((REPO / rel).read_text(encoding="utf-8"))
-        sites = ([node for node in ast.walk(parsed) if isinstance(node, ast.ExceptHandler)]
-                 if site == "an except handler" else
-                 [node for node in ast.walk(parsed)
-                  if isinstance(node, ast.FunctionDef) and node.name == "failed"])
-        if not sites or not any(_reaches_publication(node) for node in sites):
-            unwired.append(f"{rel}: no {site} of it reaches publish_collected ({len(sites)} site(s))")
-    check("every abort path of this package publishes what the suite collected", not unwired,
-          f"{unwired}")
+    def _throw(exc):
+        raise exc
+
+    for kind, raiser in (("SystemExit carrying an int", lambda: sys.exit(3)),
+                         ("SystemExit carrying a message", lambda: sys.exit("a usage line")),
+                         ("SystemExit carrying None", lambda: sys.exit(None)),
+                         ("a refusal", lambda: _throw(Refused("a planted refusal"))),
+                         ("an unexpected failure", lambda: _throw(RuntimeError("a planted failure")))):
+        aborted_code, aborted_out = published_on_abort(raiser)
+        control(f"the guarded boundary publishes the collected failures on {kind}",
+                [f"published={'a failure an abort must not swallow' in aborted_out} code={aborted_code}"],
+                "published=True")
+    check("and a normal return through the same boundary publishes nothing",
+          published_on_abort(lambda: 0)[1] == "", f"{published_on_abort(lambda: 0)[1][:200]!r}")
     boundary.SELF_TEST_COLLECTED.remove(("inventory --self-test", failures))
     reporting.append("the report begins here")
     report(f"inventory --self-test: {'OK' if not failures else 'FAILED'} ({len(ran)} controls: the splitter's "
@@ -6249,8 +6625,11 @@ def self_test():
           f"personal carrier kind masked in every artifact while the hashes still bind to the raw carrier, a "
           f"malformed settings file reported incomplete rather than unsupported, and a failed acquisition that "
           f"still leaves a layer-status artifact)", home=str(pathlib.Path.home()))
-    for failure in failures:
-        report(f"inventory --self-test [FAIL] {failure}", home=str(pathlib.Path.home()))
+    for name, detail in failures:
+        # The NAME and the DETAIL are projected separately when the joined line would be withheld
+        # whole, so a failing control cannot lose its own name (r4 R8).
+        boundary.emit(boundary.failure_text("inventory --self-test", name, detail,
+                                            str(pathlib.Path.home())), sys.stdout)
     return 1 if failures else 0
 
 

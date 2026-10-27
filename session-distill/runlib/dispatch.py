@@ -278,15 +278,16 @@ FORM_SPELLINGS = (
 # program is refused until the row is updated.
 INLINE_PROGRAMS = (
     {"site": "session-distill/runlib/inventory.py", "name": "BYTECODE_PROBE",
-     "sha256": "15107827053e49d63f6ee778cc97ed4cc02a258a99282ba7276d62a5f49951ae", "loads": 5,
-     "reason": "the bytecode control's child: it runs the copy's own program at argv[5] as "
+     "sha256": "15107827053e49d63f6ee778cc97ed4cc02a258a99282ba7276d62a5f49951ae", "loads": 2,
+     "reason": "the bytecode control's child: it runs the copy's own program, its own sys.argv[2], as "
                "`__main__`, which is how production runs it, and reports that run's exit code. It "
                "observes nothing — the audit hook and its table of mutating events were removed "
                "with the claim that rested on them, and the tree comparison answers instead"},
     {"site": "session-distill/distill.py", "name": "IGNORES_TERM",
-     "sha256": "cfdf391fcc3aa2f392a80a79202ae2710f5f8c473a69bb1db568132e2276e693", "loads": None,
+     "sha256": "ec250f8f400ddb470e4d0da888652af25999b3720d3f7fc0dad39afbfe3524e0", "loads": None,
      "reason": "a TERM-ignoring descendant of a leader that exits on TERM, so the child bound is "
-               "shown to end a tree rather than one process. It loads nothing and ends on its own"},
+               "shown to end a tree rather than one process. It loads nothing, and both sleeps "
+               "outlast the bound so only the kill can end them inside the control's window (r4 R2)"},
     {"site": "session-distill/distill.py", "name": "SLEEPS_BRIEFLY",
      "sha256": "60fa9b25b673777b30dd8b9ac67da767456dc61c9108978724e70b4d4f27317e", "loads": None,
      "reason": "a child that outlives its bound and does nothing else, for the control that asks "
@@ -344,6 +345,34 @@ CLOSURE_ROOTS = ("session-distill/distill.py", "session-distill/runlib")
 IMPORT_DIRS = ("session-distill", "benchmarks")
 HOST_NAMES = ("claude", "codex", "claude-run", "codex-run")
 SHELLS = ("sh", "bash", "zsh", "dash", "env")
+# A literal interpreter name, by any spelling. Production starts Python through `sys.executable`,
+# which the trace reads as PYTHON and judges as a program; a literal `python3` is a different
+# interpreter — whatever PATH answers with — and is refused wherever it is written (r4 R5).
+INTERPRETER_NAME = re.compile(r"^python(\d+(\.\d+)?)?$|^py$|^pypy\d*$")
+# r4 R5, default deny: the tail of `_judge_program` admitted ANY literal program with no problem at
+# all, so `subprocess.Popen(['python3', '/fixture/other.py'])` and every other literal name were
+# admitted in silence. These are the eight sites the fallthrough admitted at e011005, instrumented
+# over the real tree and declared one by one; the program is matched by its basename, because the
+# trace resolves `zstd` and `ps` to wherever this machine holds them.
+LITERAL_PROGRAMS_DECLARED = (
+    {"site": "session-distill/distill.py", "program": "git",
+     "reason": "the driver reads the checkout's tracked paths and HEAD to record what it inventoried"},
+    {"site": "session-distill/migrate-ledger.py", "program": "git",
+     "reason": "the one-shot ledger migration records the commit it ran at"},
+    {"site": "session-distill/runlib/inventory.py", "program": "git",
+     "reason": "`tracked_paths` lists a source tree through git when the tree has a .git of its own"},
+    {"site": "session-distill/runlib/ledger.py", "program": "git",
+     "reason": "a ledger entry carries the commit it was recorded at"},
+    {"site": "session-distill/runlib/census.py", "program": "zstd",
+     "reason": "a compressed transcript is read through the zstd the run declares; `checked_zstd` "
+               "refuses a declared path whose resolved file is not named zstd"},
+    {"site": "session-distill/runlib/sources.py", "program": "zstd",
+     "reason": "the same read, in the module that owns `checked_zstd`"},
+    {"site": "session-distill/runlib/sources.py", "program": "cp",
+     "reason": "the immutable copy of a transcript is made with /bin/cp, an absolute path"},
+    {"site": "session-distill/runlib/stop.py", "program": "ps",
+     "reason": "the process table is read with /bin/ps, an absolute path, to verify a stopped tree"},
+)
 EXEC_CALLS = {f"subprocess.{n}" for n in ("run", "Popen", "call", "check_call", "check_output", "getoutput",
                                           "getstatusoutput")} | \
              {f"os.{n}" for n in ("system", "popen", "execv", "execve", "execvp", "execvpe", "execl", "execle", "execlp",
@@ -387,6 +416,9 @@ EXEC_MODULES = frozenset(name.split(".")[0] for name in set(EXEC_CALLS) | set(LO
 # unless it is declared here with the reason it is harmless where it stands.
 PROCESS_MODULES = ("multiprocessing", "pty", "asyncio", "concurrent", "concurrent.futures",
                    "socketserver", "xmlrpc.server")
+# The modules whose every reference this judge must be able to follow: the scratch module, the
+# executors and the loaders, and the modules that can start a process (r4 R5).
+WATCHED_MODULES = frozenset({"tempfile"} | set(EXEC_MODULES) | {name.split(".")[0] for name in PROCESS_MODULES})
 PROCESS_IMPORTS_DECLARED = (
     {"module": "concurrent.futures", "file": "session-distill/runlib/census.py",
      "reason": "ThreadPoolExecutor over already-listed transcript files (census.py:309); threads, "
@@ -561,6 +593,17 @@ def shape_violations(root=REPO, sites=TEMPFILE_SITES, scope=TEMPFILE_SCOPE, sour
                         problems.append(f"DISPATCH_EXEC_AS_VALUE {rel}:{node.lineno}: {spelled} is "
                                         f"referenced without being called, so the program it would "
                                         f"start is judged nowhere")
+            # r4 R5: a watched MODULE used as a value. The scratch check said it sees any REFERENCE
+            # to tempfile and saw only `tempfile.<attr>` and import aliases, so `t = tempfile` and
+            # then `t.TemporaryDirectory()` passed — and the same shape hides every executor and
+            # process module. A module's name loaded anywhere but as the base of an attribute access
+            # is a reference this judge cannot follow, so it is refused where it is written.
+            if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load) and node.id in WATCHED_MODULES:
+                parent = parents.get(id(node))
+                if not (isinstance(parent, ast.Attribute) and parent.value is node):
+                    problems.append(f"DISPATCH_MODULE_AS_VALUE {rel}:{node.lineno}: {node.id!r} is used as a "
+                                    f"value rather than as the base of an attribute access, which takes "
+                                    f"every call through it out of this judge's sight")
             if isinstance(node, ast.Constant) and node.value == SUITE_ARGV:
                 if not _suite_argv_admitted(node, parents):
                     problems.append(f"DISPATCH_SELF_TEST_ARGV {rel}:{node.lineno}: {SUITE_ARGV!r} "
@@ -1850,11 +1893,7 @@ def _judge_program(mod, program, rest, line, pinned, problems, depth=0, runs=(),
             if UNKNOWN in text:
                 problems.append(f"DISPATCH_UNRESOLVED {where}: a shell command line the trace cannot resolve")
                 continue
-            try:
-                words = shlex.split(text)
-            except ValueError:
-                words = text.split()
-            _judge_words(mod, words, line, pinned, problems)
+            _judge_words(mod, _shell_tokens(text), line, pinned, problems)
     elif base in HOST_NAMES or program in pinned:
         problems.append(f"DISPATCH_OUTSIDE_SUPERVISOR {where}: starts {program!r}, which only dispatch.py may start")
     elif UNKNOWN in program and not any(e["site"] == str(mod.rel) and all(g in mod.path.read_text(encoding="utf-8")
@@ -1899,8 +1938,15 @@ def _judge_program(mod, program, rest, line, pinned, problems, depth=0, runs=(),
                                     f"{digest if text is not None else 'not a module-level constant'}, "
                                     f"not the declared {row['sha256']}")
                 elif row["loads"] is not None:
-                    at = row["loads"]
-                    carried = elements[at] if 0 <= at < len(elements) else None
+                    # `loads` is the index the PROGRAM reads, in its own `sys.argv`. It used to be an
+                    # index into the OUTER argv, which is only the same thing while exactly one flag
+                    # precedes `-c`: with another flag, or none, admission inspected one element and
+                    # the child loaded another (r4 R6). The element is computed from where `-c`
+                    # actually sits — `elements[at_c + 1]` is the program text, and the program's
+                    # `sys.argv[1]` is the element after it.
+                    at_c = next((n for n, element in enumerate(elements) if element is nodes[0]), None)
+                    at = None if at_c is None else at_c + 1 + row["loads"]
+                    carried = elements[at] if at is not None and 0 <= at < len(elements) else None
                     entry, member = _copy_member(mod, carried) if carried is not None else (None, None)
                     if _own_file(mod, carried) if carried is not None else False:
                         pass            # the file this site is in: already in the closure
@@ -1908,7 +1954,8 @@ def _judge_program(mod, program, rest, line, pinned, problems, depth=0, runs=(),
                         if follow is not None:
                             follow.extend({"site": entry["site"], "path": path} for path in entry["paths"])
                     else:
-                        problems.append(f"DISPATCH_INLINE_UNDECLARED {where}: {row['name']} loads argv[{at}], "
+                        problems.append(f"DISPATCH_INLINE_UNDECLARED {where}: {row['name']} loads "
+                                        f"sys.argv[{row['loads']}], element {at} of this call's argv, "
                                         f"which this site does not produce as an admitted program form "
                                         f"({member or 'another expression'})")
         elif any(s.endswith("launch/agent-launch.py") for s in flag):
@@ -1939,17 +1986,146 @@ def _judge_program(mod, program, rest, line, pinned, problems, depth=0, runs=(),
         if any(UNKNOWN in w for w in words):
             problems.append(f"DISPATCH_UNRESOLVED {where}: {base} with arguments the trace cannot resolve")
         else:
-            _judge_words(mod, [w for word in words for w in (shlex.split(word) if " " in word else [word])], line, pinned, problems)
+            # The argv element after a `-c`-style flag is a shell LINE and is tokenized as one; every
+            # other element stays a word of its own, because re-splitting an argument would change
+            # the shape of a quoted one (r4 R5 addendum).
+            tokens, previous = [], ""
+            for word in words:
+                tokens += (_shell_tokens(word) if previous in SHELL_LINE_FLAGS
+                           else _plain_word_tokens(word))
+                previous = word
+            _judge_words(mod, tokens, line, pinned, problems)
+    else:
+        # r4 R5, the tail: a literal program nothing above answered for. It used to end here with no
+        # problem appended at all.
+        _judge_literal(mod, program, where, problems)
+
+
+def _judge_literal(mod, program, where, problems, inside_shell=False):
+    """Judge one LITERAL program name by declaration (r4 R5).
+
+    Default deny. A literal interpreter is refused wherever it is written, and every other literal
+    program must be declared for this site in `LITERAL_PROGRAMS_DECLARED`. The tail this replaces
+    appended nothing, so a program that was not a host, a pinned path, a shell, `sys.executable` or
+    unresolvable was admitted in silence — which is every spelling an author would reach for."""
+    base = os.path.basename(program)
+    base = base[:-3] if base.endswith(".sh") else base
+    written = "a command line starts" if inside_shell else "starts"
+    if INTERPRETER_NAME.match(base):
+        problems.append(f"DISPATCH_INTERPRETER_LITERAL {where}: {written} {program!r}, a literal interpreter; "
+                        f"production starts Python through sys.executable")
+        return
+    if not any(entry["site"] == str(mod.rel) and entry["program"] == base
+               for entry in LITERAL_PROGRAMS_DECLARED):
+        problems.append(f"DISPATCH_PROGRAM_UNDECLARED {where}: {written} {program!r} and no declaration "
+                        f"admits that program at this site")
+
+
+# The separators a shell line's commands are divided by: each command's FIRST word is a program, and
+# only the first word of the whole line used to be looked at (r4 R5).
+SHELL_SEPARATORS = (";", "&&", "||", "|", "|&", "&", "\n")
+# Words that start no program of their own.
+SHELL_BUILTINS = ("printf", "echo", "exit", "wait", "set", "cd", "export", "read", "test", "[", ":",
+                  "true", "false", "shift", "trap", "unset")
+# Builtins that run THE NEXT WORD as a program: skip the builtin and judge that word. `exec` sat in
+# the builtin list, so `exec python3 x.py` was admitted (r4 R5 addendum).
+SHELL_RUNS_NEXT = ("exec", "command", "nohup", "time", "nice", "xargs", "sudo", "doas", "env")
+# A builtin that runs a line built at run time: refused by name, because what it runs is not here.
+SHELL_EVALS = ("eval", "source", ".")
+# The flags whose argv element is a shell LINE rather than a word.
+SHELL_LINE_FLAGS = ("-c", "-ic", "-lc", "--command")
+# A redirection operator; the word after it is a file, not a program.
+SHELL_REDIRECTIONS = (">", ">>", "<", "<<", "<<<", "2>", "2>>", "&>", ">&", "<>")
+# Command substitution: the program inside is built or run by the shell and is not judged here.
+SHELL_SUBSTITUTIONS = ("$(", "`", "<(", ">(", "${")
+
+
+def _shell_tokens(text):
+    """Every token of one shell command LINE, with the separators as tokens of their own.
+
+    `shlex.split` leaves `status;` whole, so a separator glued to the command before it was never a
+    separator and every command after it went unjudged — `git status; python3 x.py` and
+    `git status|codex exec -` were both admitted (r4 R5 addendum). `punctuation_chars` splits
+    `;`, `&&`, `||`, `|`, `&`, `(` and `)` off however they are written, and a NEWLINE separates
+    commands as `;` does, which `shlex` would otherwise read as whitespace."""
+    tokens = []
+    for n, physical in enumerate(text.split("\n")):
+        if n:
+            tokens.append("\n")
+        lexer = shlex.shlex(physical, posix=True, punctuation_chars=True)
+        lexer.whitespace_split = True
+        try:
+            tokens += list(lexer)
+        except ValueError:                   # an unbalanced quote: the words are what is readable
+            tokens += physical.split()
+    return tokens
+
+
+def _plain_word_tokens(word):
+    """One argv element that is NOT a shell line, split on whitespace alone — its punctuation is
+    part of the argument and splitting it would change the argument's shape."""
+    try:
+        return shlex.split(word) if " " in word else [word]
+    except ValueError:
+        return word.split()
 
 
 def _judge_words(mod, words, line, pinned, problems):
+    """Judge a shell command LINE, command by command, from tokens one tokenizer produced.
+
+    Host names were the only thing read here, and only until the first one was found, so a second
+    command starting a host passed; and the words came pre-split, so a glued separator was no
+    separator at all (r4 R5 and its addendum)."""
+    where = f"{mod.rel}:{line}"
+    if any(word == "--self-test" or word.endswith("=--self-test") for word in words):
+        problems.append(f"DISPATCH_SELF_TEST_ARGV {where}: a shell command line carrying '--self-test'; "
+                        f"a suite is entered in this process, never handed to a child")
+    for n, word in enumerate(words):
+        # The tokenizer splits `(` off as its own token, so `$(` arrives as `$` then `(`: the mark is
+        # looked for in the word AND across the pair, or a substitution reads as an ordinary command.
+        glued = word + (words[n + 1] if n + 1 < len(words) else "")
+        for mark in SHELL_SUBSTITUTIONS:
+            if mark in word or glued.startswith(mark):
+                problems.append(f"DISPATCH_SHELL_SUBSTITUTION {where}: a shell line with {mark!r} in it; "
+                                f"the program the shell builds there is judged nowhere")
+                break
+    commands, current = [], []
     for word in words:
-        base = os.path.basename(word)
-        base = base[:-3] if base.endswith(".sh") else base
-        if base in HOST_NAMES or word in pinned or os.path.expanduser(word) in pinned:
-            problems.append(f"DISPATCH_OUTSIDE_SUPERVISOR {mod.rel}:{line}: a command line starts {word!r}, which only "
-                       f"dispatch.py may start")
-            return
+        if word in SHELL_SEPARATORS or word in ("(", ")", "{", "}"):
+            commands.append(current)
+            current = []
+        else:
+            current.append(word)
+    commands.append(current)
+    for command in commands:
+        skip_next = False
+        for word in command:
+            if skip_next:                      # a redirection's target is a file, not a program
+                skip_next = False
+                continue
+            base = os.path.basename(word)
+            base = base[:-3] if base.endswith(".sh") else base
+            if word in SHELL_REDIRECTIONS:
+                skip_next = True
+                continue
+            if "=" in word and not word.startswith("-") and word.split("=")[0].isidentifier():
+                continue                       # a `VAR=value` prefix
+            if base in SHELLS or word.startswith("-"):
+                continue                       # the shell itself, or a flag of what was skipped
+            if base in SHELL_EVALS:
+                problems.append(f"DISPATCH_SHELL_EVAL {where}: a shell line running {base!r}, which "
+                                f"runs a line built at run time; what it starts is judged nowhere")
+                break
+            if base in SHELL_RUNS_NEXT:
+                continue                       # it runs the NEXT word: judge that one
+            if base in SHELL_BUILTINS:
+                break                          # a builtin starts no program of its own
+            if base in HOST_NAMES or word in pinned or os.path.expanduser(word) in pinned:
+                problems.append(f"DISPATCH_OUTSIDE_SUPERVISOR {where}: a command line starts {word!r}, "
+                                f"which only dispatch.py may start")
+            else:
+                _judge_literal(mod, word, where, problems, inside_shell=True)
+            break
 
 
 def _sites(mod, pinned, depth=0, runs=(), follow=None):
@@ -3521,7 +3697,23 @@ def self_test(scratch=None):
             ("an-executor-referenced-as-a-value",
              {driver_rel: live_driver + "\n\ndef _planted_value(spawn=None):\n"
                                         "    return (spawn or subprocess.Popen)(['git'])\n"},
-             f"DISPATCH_EXEC_AS_VALUE {driver_rel}:")):
+             f"DISPATCH_EXEC_AS_VALUE {driver_rel}:"),
+            # r4 R5: the MODULE taken as a value. The scratch rule claimed it sees any reference to
+            # tempfile and saw only `tempfile.<attr>`, so these two spellings passed every judge.
+            ("the-scratch-module-taken-as-a-value",
+             {driver_rel: live_driver + "\n\ndef _planted_module_value():\n"
+                                        "    t = tempfile\n"
+                                        "    return t.TemporaryDirectory()\n"},
+             f"DISPATCH_MODULE_AS_VALUE {driver_rel}:"),
+            ("an-executors-module-taken-as-a-value",
+             {driver_rel: live_driver + "\n\ndef _planted_executor_module():\n"
+                                        "    sp = subprocess\n"
+                                        "    return sp.run(['git', 'status'])\n"},
+             f"DISPATCH_MODULE_AS_VALUE {driver_rel}:"),
+            ("a-watched-module-handed-to-a-function",
+             {driver_rel: live_driver + "\n\ndef _planted_module_argument(run=None):\n"
+                                        "    return (run or getattr)(subprocess, 'run')\n"},
+             f"DISPATCH_MODULE_AS_VALUE {driver_rel}:")):
         seen = shape_violations(sources=planted_sources)
         control(f"planted-{name}", any(row.startswith(needle) for row in seen),
                 f"expected {needle!r} in {seen}")
@@ -3560,6 +3752,64 @@ def self_test(scratch=None):
             "CLOSURE_IMPORTS_OUT_OF_SCOPE {at}: loads session-distill/screen-codex.py", 1)
     planted("shell-command-line", "session-distill/runlib/claims.py", "import os\nos.system('claude -p hello')",
             "DISPATCH_OUTSIDE_SUPERVISOR {at}: a command line starts 'claude'", 1)
+    # ---- r4 R5: the tail of the program judge is DEFAULT DENY, and every command of a shell line is
+    # judged by the same rules. Each plant is source-only, in the copied tree, and never run.
+    planted("a-literal-interpreter-as-the-program", "session-distill/runlib/claims.py",
+            "import subprocess\nsubprocess.run(['python3', '/fixture/other.py'])",
+            "DISPATCH_INTERPRETER_LITERAL {at}: starts 'python3', a literal interpreter", 1)
+    planted("a-literal-program-no-declaration-admits", "session-distill/runlib/claims.py",
+            "import subprocess\nsubprocess.run(['curl', 'https://example.invalid/'])",
+            "DISPATCH_PROGRAM_UNDECLARED {at}: starts 'curl'", 1)
+    # A declaration is per SITE: `git` is declared for four files, and the same program written
+    # anywhere else is refused exactly as an undeclared one is.
+    planted("a-declared-program-written-at-another-site", "session-distill/runlib/claims.py",
+            "import subprocess\nsubprocess.run(['git', 'status'])",
+            "DISPATCH_PROGRAM_UNDECLARED {at}: starts 'git'", 1)
+    planted("a-shell-line-carrying-the-suite-flag", "session-distill/runlib/claims.py",
+            "import os\nos.system('/bin/ls x.py --self-test')",
+            "DISPATCH_SELF_TEST_ARGV {at}: a shell command line carrying '--self-test'", 1)
+    planted("a-shell-lines-second-command-starting-a-host", "session-distill/runlib/claims.py",
+            "import os\nos.system('/bin/ls -l && codex exec -')",
+            "DISPATCH_OUTSIDE_SUPERVISOR {at}: a command line starts 'codex'", 1)
+    planted("a-shell-lines-second-command-running-an-interpreter", "session-distill/runlib/claims.py",
+            "import os\nos.system('/bin/ls -l | python3 -')",
+            "DISPATCH_INTERPRETER_LITERAL {at}: a command line starts 'python3'", 1)
+    # ---- r4 R5 addendum: the spellings a word-at-a-time reading let through. The first command of
+    # each line is `git`, which inventory.py declares, so what is judged is the SECOND command —
+    # glued to its separator, written after a newline, or run by a builtin. Source-only plants.
+    for name, spelled, needle in (
+            ("a-separator-glued-to-the-command-before-it", "git status;python3 x.py",
+             "DISPATCH_INTERPRETER_LITERAL {at}: a command line starts 'python3'"),
+            ("a-semicolon-with-a-space-after-it", "git status; python3 x.py",
+             "DISPATCH_INTERPRETER_LITERAL {at}: a command line starts 'python3'"),
+            ("a-glued-and-and", "git status&&python3 x.py",
+             "DISPATCH_INTERPRETER_LITERAL {at}: a command line starts 'python3'"),
+            ("a-glued-pipe-into-a-host", "git status|codex exec -",
+             "DISPATCH_OUTSIDE_SUPERVISOR {at}: a command line starts 'codex'"),
+            ("a-second-command-on-the-next-line", "git status\\npython3 x.py",
+             "DISPATCH_INTERPRETER_LITERAL {at}: a command line starts 'python3'"),
+            ("a-program-run-by-exec", "exec python3 x.py",
+             "DISPATCH_INTERPRETER_LITERAL {at}: a command line starts 'python3'"),
+            ("a-program-run-by-command", "command python3 x.py",
+             "DISPATCH_INTERPRETER_LITERAL {at}: a command line starts 'python3'"),
+            ("a-line-run-by-eval", "eval 'python3 x.py'",
+             "DISPATCH_SHELL_EVAL {at}: a shell line running 'eval'"),
+            ("a-command-substitution-in-dollar-parens", "git $(python3 x.py)",
+             "DISPATCH_SHELL_SUBSTITUTION {at}: a shell line with '$(' in it"),
+            ("a-command-substitution-in-backticks", "git `python3 x.py`",
+             "DISPATCH_SHELL_SUBSTITUTION {at}: a shell line with '`' in it"),
+            ("a-process-substitution", "git <(python3 x.py)",
+             "DISPATCH_SHELL_SUBSTITUTION {at}: a shell line with '<(' in it"),
+            ("a-subshell-around-the-program", "(python3 x.py)",
+             "DISPATCH_INTERPRETER_LITERAL {at}: a command line starts 'python3'")):
+        planted(f"shell-{name}", "session-distill/runlib/inventory.py",
+                f'import os\nos.system("{spelled}")', needle, 1)
+    # And a shell line of admitted commands only stays admitted: `git` is declared for this site.
+    clean_shell, clean_at = plant("session-distill/runlib/inventory.py",
+                                  'import os\nos.system("git status && git log -1")')
+    control("a-shell-line-of-declared-commands-only-is-admitted",
+            not [row for row in clean_shell if f"session-distill/runlib/inventory.py:{clean_at + 1}" in row],
+            f"{[row for row in clean_shell if str(clean_at + 1) in row]}")
     planted("pinned-binary-path", "session-distill/runlib/validate.py",
             "import os, subprocess\nsubprocess.Popen([os.path.expanduser('~/.local/share/claude/versions/2.1.304'), '-p'])",
             "DISPATCH_OUTSIDE_SUPERVISOR {at}: starts '~/.local/share/claude/versions/2.1.304'", 1)
@@ -3878,19 +4128,34 @@ def self_test(scratch=None):
     probe_row = [r for r in held_inlines if r["name"] == "BYTECODE_PROBE"]
     control("the-bytecode-probe-row-is-the-one-that-declares-a-loaded-element",
             len(probe_row) == 1 and probe_row[0]["loads"] is not None, f"{probe_row}")
-    try:    # argv[4] is this call's destination, not a program form the site produces
-        globals()["INLINE_PROGRAMS"] = tuple(dict(r, loads=4) if r["name"] == "BYTECODE_PROBE" else r
+    try:    # the program's own sys.argv[1] is this call's destination, not a program form
+        globals()["INLINE_PROGRAMS"] = tuple(dict(r, loads=1) if r["name"] == "BYTECODE_PROBE" else r
                                              for r in held_inlines)
         moved = closure_violations(tree)[0]
     finally:
         globals()["INLINE_PROGRAMS"] = held_inlines
     control("a-declared-inline-program-loading-an-element-the-site-does-not-produce",
             any(row.startswith(f"DISPATCH_INLINE_UNDECLARED {inventory_rel}:")
-                and "BYTECODE_PROBE loads argv[4]" in row
+                and "BYTECODE_PROBE loads sys.argv[1]" in row
                 and "which this site does not produce as an admitted program form" in row
                 for row in moved), f"{moved}")
     control("and-the-copied-tree-is-clean-again-after-the-index-move",
             not closure_violations(tree)[0], f"{closure_violations(tree)[0]}")
+    # ---- r4 R6: `loads` is the index the PROGRAM reads, so the element admission inspects is
+    # computed from where `-c` sits. Declared as an OUTER index it was right only while exactly one
+    # flag preceded `-c`: this plant writes NO flag, so the old reading inspected the copied member
+    # while the child loads its own sys.argv[2], which here is a literal path instead.
+    no_flag = plant("session-distill/runlib/inventory.py",
+                    "import subprocess, sys\n"
+                    "subprocess.Popen([sys.executable, '-c', BYTECODE_PROBE, 'out', '/fixture/other.py',\n"
+                    "                  copied_member(startup_copy, 'session-distill/distill.py')])")[0]
+    control("an-inline-program-whose-flagless-argv-moves-the-element-it-loads",
+            any(row.startswith(f"DISPATCH_INLINE_UNDECLARED {inventory_rel}:")
+                and "BYTECODE_PROBE loads sys.argv[2]" in row for row in no_flag),
+            f"{no_flag}")
+    control("and-the-real-call-with-its-one-flag-is-still-admitted",
+            not any("BYTECODE_PROBE loads" in row for row in closure_violations(tree)[0]),
+            f"{[row for row in closure_violations(tree)[0] if 'BYTECODE_PROBE' in row]}")
     # r7 found this requirement unguarded. The declared index names an element of the argv AT THE
     # CALL, so an argv that is not a list literal there means the declaration points at nothing
     # decidable — and no control saw it removed.
@@ -5560,6 +5825,34 @@ def self_test(scratch=None):
             unparted != source and not (set(bound.PART_CODES) & raised_codes(unparted)),
             "the scan still reports the part refusals after their raise is gone")
 
+    # ---- r4 R1: this runner's own `__main__` boundary, DRIVEN. It was a `try` inside the
+    # `if __name__` block, so the claim that it publishes what the suite collected was read out of
+    # the source in inventory's suite — satisfied by any handler of this file reaching the call.
+    # `main_boundary` is that block as a function; the real handler runs here.
+    boundary_published = []
+    planted_row = ("a planted suite --self-test", ["a failure an abort must not swallow"])
+    boundary.SELF_TEST_COLLECTED.append(planted_row)
+    aborted_with = ""
+    try:
+        main_boundary(run=lambda: (_ for _ in ()).throw(RuntimeError("a planted abort")),
+                      publish=boundary_published.append)
+    except RuntimeError as exc:
+        aborted_with = str(exc)
+    finally:
+        boundary.SELF_TEST_COLLECTED.remove(planted_row)
+    control("the main boundary publishes what the suite collected before an abort leaves",
+            "a planted suite --self-test [FAIL] a failure an abort must not swallow" in boundary_published
+            and aborted_with == "a planted abort",
+            f"{boundary_published} raised={aborted_with!r}")
+    clean_published = []
+    boundary.SELF_TEST_COLLECTED.append(planted_row)
+    try:
+        returned_code = main_boundary(run=lambda: 0, publish=clean_published.append)
+    finally:
+        boundary.SELF_TEST_COLLECTED.remove(planted_row)
+    control("and a run that returns normally through it publishes nothing and keeps its code",
+            clean_published == [] and returned_code == 0, f"{clean_published} code={returned_code}")
+
     reporting.append("the report begins here")
     boundary.SELF_TEST_COLLECTED.remove(("dispatch --self-test", failures))
     for failure in failures:
@@ -5570,12 +5863,22 @@ def self_test(scratch=None):
     return 0
 
 
+def main_boundary(run=None, publish=print):
+    """This module's `__main__` boundary, as a FUNCTION so a control can drive it.
+
+    It was a `try` inside the `if __name__` block, which no control can enter: the claim "every
+    abort path of this package publishes what the suite collected" was read out of the SOURCE
+    instead, and a check satisfied by any `except` handler in a file cannot see the handler that
+    does not publish (r4 R1). Here the real handler runs."""
+    try:
+        return (run or self_test)()
+    except BaseException:
+        # What the suite had collected, before the abort leaves with its own non-zero exit.
+        boundary.publish_collected(publish)
+        raise
+
+
 if __name__ == "__main__":
     if "--self-test" not in sys.argv[1:]:
         sys.exit("usage: dispatch.py --self-test")
-    try:
-        sys.exit(self_test())
-    except BaseException:
-        # What the suite had collected, before the abort leaves with its own non-zero exit.
-        boundary.publish_collected(print)
-        raise
+    sys.exit(main_boundary())
