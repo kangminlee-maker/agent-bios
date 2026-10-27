@@ -2025,13 +2025,16 @@ def _judge_literal(mod, program, where, problems, inside_shell=False):
 # only the first word of the whole line used to be looked at (r4 R5).
 SHELL_SEPARATORS = (";", "&&", "||", "|", "|&", "&", "\n")
 # Words that start no program of their own.
+# Words that start no program of their own AND run no string of their own. `trap` was here and runs
+# its first argument as a line when the signal arrives, which is `eval` deferred — it sits with the
+# other deferred lines now (r4 R5, third round).
 SHELL_BUILTINS = ("printf", "echo", "exit", "wait", "set", "cd", "export", "read", "test", "[", ":",
-                  "true", "false", "shift", "trap", "unset")
+                  "true", "false", "shift", "unset")
 # Builtins that run THE NEXT WORD as a program: skip the builtin and judge that word. `exec` sat in
 # the builtin list, so `exec python3 x.py` was admitted (r4 R5 addendum).
 SHELL_RUNS_NEXT = ("exec", "command", "nohup", "time", "nice", "xargs", "sudo", "doas", "env")
 # A builtin that runs a line built at run time: refused by name, because what it runs is not here.
-SHELL_EVALS = ("eval", "source", ".")
+SHELL_EVALS = ("eval", "source", ".", "trap")
 # The flags whose argv element is a shell LINE rather than a word.
 SHELL_LINE_FLAGS = ("-c", "-ic", "-lc", "--command")
 # A redirection operator; the word after it is a file, not a program.
@@ -2114,7 +2117,8 @@ def _judge_words(mod, words, line, pinned, problems):
                 continue                       # the shell itself, or a flag of what was skipped
             if base in SHELL_EVALS:
                 problems.append(f"DISPATCH_SHELL_EVAL {where}: a shell line running {base!r}, which "
-                                f"runs a line built at run time; what it starts is judged nowhere")
+                                f"runs a line of its own — built at run time, or deferred to a "
+                                f"signal; what it starts is judged nowhere")
                 break
             if base in SHELL_RUNS_NEXT:
                 continue                       # it runs the NEXT word: judge that one
@@ -3801,7 +3805,12 @@ def self_test(scratch=None):
             ("a-process-substitution", "git <(python3 x.py)",
              "DISPATCH_SHELL_SUBSTITUTION {at}: a shell line with '<(' in it"),
             ("a-subshell-around-the-program", "(python3 x.py)",
-             "DISPATCH_INTERPRETER_LITERAL {at}: a command line starts 'python3'")):
+             "DISPATCH_INTERPRETER_LITERAL {at}: a command line starts 'python3'"),
+            # `trap` runs its first argument as a line when the signal arrives: `eval` deferred.
+            ("a-line-deferred-by-trap", "trap 'python3 x.py' EXIT",
+             "DISPATCH_SHELL_EVAL {at}: a shell line running 'trap'"),
+            ("a-trap-after-an-admitted-command", "git status; trap 'codex exec -' EXIT",
+             "DISPATCH_SHELL_EVAL {at}: a shell line running 'trap'")):
         planted(f"shell-{name}", "session-distill/runlib/inventory.py",
                 f'import os\nos.system("{spelled}")', needle, 1)
     # And a shell line of admitted commands only stays admitted: `git` is declared for this site.

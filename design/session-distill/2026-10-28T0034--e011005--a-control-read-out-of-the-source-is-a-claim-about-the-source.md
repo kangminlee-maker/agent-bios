@@ -189,6 +189,8 @@ than corrections of 1405, and they are here so one record carries the round.
 | A line built at run time is refused rather than read | `SHELL_EVALS` | `planted-shell-a-line-run-by-eval` |
 | A command substitution is refused rather than read | `SHELL_SUBSTITUTIONS`, checked in a word and across a token pair | `planted-shell-a-command-substitution-in-dollar-parens`, `-in-backticks`, `-a-process-substitution` |
 | A failing control keeps its own name | `failure_text`'s whole-line-first judgement with a detail-free fallback | `a failure whose name and detail trip the floor together still publishes its name`, `a detail the floor admits alone is still not published when the pair is withheld` |
+| A line that skipped the floor cannot leave through the unprojecting printer | `emit`'s `FailureLine` type check | `the unprojecting printer refuses a line that did not come from the floor` |
+| A shell builtin that runs a line of its own is refused | `trap` sitting in `SHELL_EVALS` | `planted-shell-a-line-deferred-by-trap`, `-a-trap-after-an-admitted-command` |
 
 The eight literal programs the old fallthrough admitted in silence were instrumented over the real
 tree before the rule was closed, and exactly those eight are declared in
@@ -209,6 +211,15 @@ argument. There is no real shell line anywhere in `session-distill/` for these r
 every match for `os.system`, `os.popen`, `shell=True`, `getoutput` and `sh -c` outside the judge's
 own planted source strings is absent, so the positive control is the real tree staying clean.
 
+**Two more of the same two shapes, found after the first S9 commit.** `trap '<line>' SIG` runs its
+argument as a line when the signal arrives — `eval` deferred — and `trap` was in the list of
+builtins that start no program, so `trap 'python3 x.py' EXIT` and a `trap` after an admitted command
+were both admitted. It is refused by name now, with the refusal's wording covering a deferred line
+as well as one built at run time. And `emit`, the one printer that publishes without projecting,
+rested on a docstring naming its callers: `failure_text` now returns a marked `FailureLine` and
+`emit` refuses anything else by name, so a string from anywhere else cannot leave through it
+unprojected. A convention is not a guard.
+
 **A failing control's own name.** The `[FAIL]` lines of this package's two floor-bearing runners
 were projected as ONE string, so a line whose name and detail read as a credential key and its value
 together came back as the placeholder alone — no name, no tag, no suite label. The r4 R0 revert did
@@ -226,13 +237,17 @@ The controls for it carry BOOLEANS as their detail, never the planted text or th
 control for this defect must report through a line the defect cannot eat, and the first version of
 these two reported through one it could.
 
-## 3. The `head:` this record carries
+## 3. The `head:` this record carries, and what its present tense describes
 
-`head:` is `e011005`, the commit this record was written against and the commit every statement
-above was checked at. The S9 work itself is not committed when this line is written, so naming a
-later commit would be a claim about a tree that does not exist yet; the commits that carry it are
-listed in `work/impl/wp07a-claims.md` §S9, which also carries the revert table and the control
-counts.
+`head:` is `e011005`: the base this record was written against, before S9 was committed. It is not
+the tree every statement here was checked at, and the first version of this section said it was.
+Each "as it holds now" above describes the S9 code, which was checked in the worktree and is
+committed as `a4dadb6` — a commit that did not exist when this record was written, which is why the
+frontmatter cannot name it. Read the base from `head:` and the behaviour from `a4dadb6`.
+
+The revert table, the per-row verdicts and the control counts are in the implementer's work notes,
+which live outside this repository, and are summarized in the round-5 review packet. They are not
+referenced by path here: a path to a file no reader of this repository has is not a reference.
 
 ## 4. What this record does not establish
 
@@ -240,5 +255,5 @@ Round 5 has not run. The eight findings are the lead's rulings on round 4, check
 source by the lead and then by the implementation; the reproduction of R0 and of the JSON
 whole-withheld decision was re-run here before either was changed, and the 2119 prefix hypothesis
 was confirmed by reverting that refusal and printing the rows. No control-audit was run for this
-step; the control counts and the revert table are in `work/impl/wp07a-claims.md` §S9, which is
-author-side and does not ship.
+step; the control counts and the revert table are in the implementer's work notes outside this
+repository, summarized in the round-5 review packet.

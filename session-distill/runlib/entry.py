@@ -238,6 +238,14 @@ SELF_TEST_COLLECTED = []
 FAIL_TAG = "[FAIL]"
 
 
+class FailureLine(str):
+    """A `[FAIL]` line THIS MODULE has already projected, piece by piece or whole.
+
+    `emit` publishes without projecting, and "its callers only ever hand it `failure_text`'s result"
+    was a convention nothing held: any string could reach it and leave unprojected. The type is the
+    guard — only `failure_text` makes one, and `emit` refuses everything else by name."""
+
+
 def failure_text(label, name, detail, home=None):
     """One `[FAIL]` line, projected so the control's NAME is never what gets withheld.
 
@@ -259,20 +267,24 @@ def failure_text(label, name, detail, home=None):
     layer = floor()
     withheld = (layer.blank_for("x") if layer is not None else WITHHELD).strip()
     if whole.strip() != withheld:
-        return whole
+        return FailureLine(whole)
     shown_label = label if projected(label, home) == label else withheld
     shown_name = name if projected(name, home) == name else withheld
     which = ("the detail" if shown_name == name
              else "the name and the detail" if shown_label == label else "the whole line")
-    return f"{shown_label} {FAIL_TAG} {shown_name}: {withheld} ({which} withheld)"
+    return FailureLine(f"{shown_label} {FAIL_TAG} {shown_name}: {withheld} ({which} withheld)")
 
 
 def emit(text, stream=None):
-    """Publish a line THIS MODULE has already projected piece by piece (`failure_text`).
+    """Publish a line THIS MODULE has already projected (`failure_text`).
 
     The one printer here that does not project what it is given: projecting again would hand the
-    floor the joined line it has already withheld, and take the name back out. Its only callers are
-    in this module and the two suites' report functions, each passing `failure_text`'s result."""
+    floor the joined line it has already withheld, and take the name back out. What keeps that from
+    being a hole is the TYPE — anything that is not a `FailureLine` is refused by name, so a string
+    from anywhere else cannot leave through here unprojected."""
+    if not isinstance(text, FailureLine):
+        raise TypeError(f"EMIT_UNPROJECTED: this printer publishes without projecting and takes only "
+                        f"a FailureLine from `failure_text`, not a {type(text).__name__}")
     print(text, file=stream if stream is not None else sys.stderr)
 
 
@@ -295,7 +307,9 @@ def publish_collected(publish, home=None, through_floor=False):
         for failure in failures:
             name, detail = _failure_parts(failure)
             if name is None:
-                lines.append(projected(f"{label} {FAIL_TAG} {detail}", home) if through_floor
+                # A suite that collects plain strings has no name to keep, so the line is published
+                # whole — projected first when it is going to `emit`, which takes nothing else.
+                lines.append(FailureLine(projected(f"{label} {FAIL_TAG} {detail}", home)) if through_floor
                              else f"{label} {FAIL_TAG} {detail}")
             else:
                 lines.append(failure_text(label, name, detail, home) if through_floor

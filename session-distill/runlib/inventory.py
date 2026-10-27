@@ -5135,6 +5135,24 @@ def self_test():
                 [f"has_tag={'[FAIL]' in marked} has_name={marked_name in marked} "
                  f"carries_value={'alpha-bravo-charlie' in marked}"],
                 "has_tag=True", "has_name=True", "carries_value=False")
+        # And the printer that does not project is closed by TYPE rather than by convention: its
+        # docstring named its callers, which nothing held, so any string could have left through it
+        # unprojected. Details are booleans here for the same reason as above.
+        plain_refusal = ""
+        try:
+            boundary.emit("a plain string nobody projected", io.StringIO())
+        except TypeError as exc:
+            plain_refusal = str(exc)
+        control("the unprojecting printer refuses a line that did not come from the floor",
+                [f"refused={'EMIT_UNPROJECTED' in plain_refusal} "
+                 f"names_the_type={'FailureLine' in plain_refusal}"],
+                "refused=True", "names_the_type=True")
+        emitted_sink = io.StringIO()
+        boundary.emit(boundary.failure_text("inventory --self-test", "a planted control", "a planted detail",
+                                            home_here_str), emitted_sink)
+        check("and the real report path still prints through it",
+              "[FAIL] a planted control: a planted detail" in emitted_sink.getvalue(),
+              f"printed={bool(emitted_sink.getvalue().strip())}")
         # Every name this suite has registered so far, held against the floor: a name the floor
         # changes is a name that can be the thing withheld, whatever line it sits in.
         unprojected_names = [name for name in ran if projection.diagnostic(name, home_here_str) != name]
