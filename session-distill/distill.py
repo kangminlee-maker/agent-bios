@@ -1180,6 +1180,30 @@ def self_test():
                 and "could not be established" in unowned.stderr,
                 f"{signalled} {unowned.returncode} {unowned.stderr!r}")
 
+        # ---- S8f: default-deny at spawn. A child that leads no group of its own is one no bound
+        # here can end, so it is refused rather than recorded — r8's W6 showed the shape, where the
+        # shell was ended and the tree it had started was not, and only a control written for that
+        # one fixture noticed. `os.killpg` is a recorder, as in the branch above, so "no group was
+        # signalled" is READ and not assumed; the child is finite either way.
+        started, held_killpg, signalled_group = [], os.killpg, []
+        try:
+            os.killpg = lambda pgid, sig: signalled_group.append((pgid, sig))
+            no_session = entry.bounded(lambda: started.append(subprocess.Popen(
+                [sys.executable, "-c", SLEEPS_BRIEFLY], stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE, text=True)) or started[-1],
+                timeout=20, what="a child without a session of its own")
+        finally:
+            os.killpg = held_killpg
+        control("a child started without a session of its own is refused by name, and no group is signalled",
+                no_session.returncode == entry.NOT_GROUP_LEADER
+                and "CHILD_NOT_GROUP_LEADER" in no_session.stderr and signalled_group == [],
+                f"{no_session.returncode} {no_session.stderr!r} {signalled_group}")
+        control("and that child is gone, ended alone rather than left to the bound",
+                len(started) == 1 and started[0].poll() is not None,
+                f"{[proc.poll() for proc in started]}")
+        control("and os.killpg is the real one again, so no later control reads a recorder",
+                os.killpg is held_killpg, f"{os.killpg}")
+
         # The ordinary shape: the leader exits first and a descendant holds the pipe for a moment.
         # The bound must not fire, and the leader's own code must come back.
         early = entry.bounded(lambda: subprocess.Popen(

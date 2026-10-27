@@ -30,6 +30,12 @@ WITHHELD = ("STARTUP_FAILED: the command's modules could not be imported, and th
 
 TIMEOUT = 300
 TIMED_OUT = 99
+# A child that leads no group of its own, refused at spawn. Nonzero, so no caller can read it as a
+# result; distinct from TIMED_OUT, so a caller that tests for a timeout does not report one for a
+# child that never got to run; and distinct from STARTUP_UNAVAILABLE_CODE, the only other code this
+# package synthesizes. The two this module makes are adjacent on purpose: they are the two ways a
+# bound answers with something other than the child's own code.
+NOT_GROUP_LEADER = 98
 
 
 def _text(stream):
@@ -66,7 +72,9 @@ def end_group(proc, pgid):
     be this process's own. Ownership not established is child-only, and the note says so.
 
     The leader check is the same rule read the other way: a child started WITHOUT a session sits in
-    this process's group, so only the child is ended.
+    this process's group, so only the child is ended. `bounded` now REFUSES that case at spawn, so
+    this branch answers for a child that becomes a non-leader after it — which it cannot under
+    `setsid`, and the branch costs nothing.
 
     SIGKILL is not conditional on the leader surviving SIGTERM. Returning as soon as the leader
     exited left every descendant running — a leader that exits politely while its children do not is
@@ -116,7 +124,8 @@ def bounded(spawn, timeout=TIMEOUT, what="a child process"):
     call: the closure gate judges a dispatch where it is written, so moving it here would move every
     self-test's dispatch into this module and strip it of the admission its own site carries. It
     must start the child in a session of its own (`start_new_session=True`), which is what lets a
-    bound end a tree rather than one process.
+    bound end a tree rather than one process — and that requirement is REFUSED at spawn when it is
+    not met (`CHILD_NOT_GROUP_LEADER`), rather than stated here and left unchecked.
 
     An unbounded child is a control that cannot fail. When one hangs, or spawns a suite of its own,
     the run never reaches a verdict and has to be killed from outside — which leaves whatever the
@@ -132,6 +141,29 @@ def bounded(spawn, timeout=TIMEOUT, what="a child process"):
         pgid = os.getpgid(proc.pid)
     except OSError:                   # ownership unestablished: see `end_group`
         pgid = None
+    # Default-deny, decided at SPAWN. This bound ends a GROUP, so a child that leads none is a child
+    # no bound here can end: its descendants outlive the bound and nothing says so — r8's W6 showed
+    # the shape, where the shell was ended and the sleep it had backgrounded was not, and only a
+    # control written for that one fixture noticed. The requirement stood in this docstring and
+    # nothing checked it, so it is checked here.
+    #
+    # Refusing is NOT signalling: the child is ended alone, exactly as `end_group`'s non-leader
+    # branch does, and what changes is that a named failure comes back instead of a result. No
+    # `killpg` is reached, which is the whole point — the group is this process's own.
+    #
+    # `pgid is None` is a different case and is NOT refused: ownership was never established, which
+    # an ordinary child that exits before the read produces, and `end_group` answers for it at the
+    # timeout (F3).
+    if pgid is not None and pgid != proc.pid:
+        proc.kill()
+        try:
+            out, err = proc.communicate(timeout=GROUP_DRAIN)
+        except subprocess.TimeoutExpired:
+            out, err = "", ""
+        return subprocess.CompletedProcess(
+            proc.args, NOT_GROUP_LEADER, _text(out),
+            "\n".join([_text(err), f"CHILD_NOT_GROUP_LEADER {what}: started without a session of "
+                                    f"its own, so no bound could end its tree"]))
     try:
         out, err = proc.communicate(timeout=timeout)
         return subprocess.CompletedProcess(proc.args, proc.returncode, _text(out), _text(err))
