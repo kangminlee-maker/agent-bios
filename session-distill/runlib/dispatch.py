@@ -3525,6 +3525,26 @@ def self_test(scratch=None):
         seen = shape_violations(sources=planted_sources)
         control(f"planted-{name}", any(row.startswith(needle) for row in seen),
                 f"expected {needle!r} in {seen}")
+    # ---- audit 480/485/551: the scratch allow-list reads FILES, so an entry naming no file and an
+    # entry whose file does not parse are refusals of their own rather than a quiet `continue`. Each
+    # plant is this control's own scope tuple; indexing the live one would stop testing the day that
+    # tuple changes.
+    gone_rel = "session-distill/a-control-names-no-file.py"
+    gone = shape_violations(scope=(gone_rel,))
+    control("a-scratch-scope-entry-naming-no-file",
+            any(row == f"TEMPFILE_SCOPE_STALE {gone_rel}: no such file" for row in gone), f"{gone}")
+    unreadable_rel = "session-distill/a-control-that-does-not-parse.py"
+    unreadable = shape_violations(scope=(unreadable_rel,), sources={unreadable_rel: "def (\n"})
+    control("a-scratch-scope-entry-whose-file-does-not-parse",
+            any(row.startswith(f"TEMPFILE_UNREADABLE {unreadable_rel}: ") for row in unreadable),
+            f"{unreadable}")
+    # `import multiprocessing` is the other branch; this is the spelling that takes a NAME out of an
+    # undeclared process module, which that branch never sees.
+    from_process = shape_violations(sources={driver_rel: live_driver + "\n\nfrom multiprocessing import Pool\n"})
+    control("a-name-taken-out-of-an-undeclared-process-module",
+            any(row.startswith(f"DISPATCH_PROCESS_MODULE {driver_rel}:")
+                and "`from multiprocessing import Pool`" in row for row in from_process),
+            f"{from_process}")
     # A declared site that stops making its call admits nothing and must say so rather than sit there.
     stale = shape_violations(sources={inventory_rel: live_inventory.replace(
         "        with tempfile.TemporaryDirectory(prefix=prefix, dir=str(parent)) as td:\n"
@@ -3732,9 +3752,13 @@ def self_test(scratch=None):
             f"{[e['paths'] for e in probe_entry]}")
     if probe_entry:
         unowned_probe = without(probe_entry[0]["site"], "copied_member(", "a_copy_of(")
+        # The staleness half asks for the "it calls no" text, not the prefix: the closure walk reports
+        # `INVENTORY_STALE copy run {site} -> {path}: the site runs no such copy` for the same fixture,
+        # and a control matching a prefix two refusals share cannot tell which of them fired (S8i).
         control("the-bytecode-probes-load-without-its-owner-is-unresolved-and-stale",
                 any(v.startswith("DISPATCH_UNRESOLVED session-distill/runlib/inventory.py:") for v in unowned_probe)
-                and any(v.startswith("INVENTORY_STALE copy run session-distill/runlib/inventory.py") for v in unowned_probe),
+                and any(v.startswith("INVENTORY_STALE copy run session-distill/runlib/inventory.py")
+                        and "it calls no " in v for v in unowned_probe),
                 f"{unowned_probe}")
     # What the owner may produce is declared as `paths`, and the declaration is held against the
     # tree: an entry naming a file that is not there admits a member nobody can check.
@@ -3754,7 +3778,8 @@ def self_test(scratch=None):
     unowned = without(copy_entry["site"], f"{copy_entry['owner'].split('.')[-1]}(", "a_copy_of(")
     control("a-copy-run-whose-site-no-longer-calls-its-owner-is-unresolved-and-stale",
             any(v.startswith(f"DISPATCH_UNRESOLVED {copy_entry['site']}:") for v in unowned)
-            and any(v.startswith(f"INVENTORY_STALE copy run {copy_entry['site']}") for v in unowned),
+            and any(v.startswith(f"INVENTORY_STALE copy run {copy_entry['site']}")
+                    and f"it calls no {copy_entry['owner']}" in v for v in unowned),
             f"{unowned}")
     control("copy-run-declared-for-the-driver", copy_entry.get("paths") == ("session-distill/distill.py",),
             f"{COPY_RUNS}")
@@ -3845,6 +3870,27 @@ def self_test(scratch=None):
             f"{changed_rows}")
     control("and-the-copied-tree-is-clean-again-after-that-edit", not closure_violations(tree)[0],
             f"{closure_violations(tree)[0]}")
+    # ---- audit 1911: the declared element is read, and an element the site does not produce as an
+    # admitted program form is refused BY NAME. The plants above reach 1884's branch (a program that
+    # is not a declared constant); this one declares the row and moves its index, which with the
+    # refusal removed is admitted in silence — the child loads a path nothing in the closure follows.
+    held_inlines = globals()["INLINE_PROGRAMS"]
+    probe_row = [r for r in held_inlines if r["name"] == "BYTECODE_PROBE"]
+    control("the-bytecode-probe-row-is-the-one-that-declares-a-loaded-element",
+            len(probe_row) == 1 and probe_row[0]["loads"] is not None, f"{probe_row}")
+    try:    # argv[4] is this call's destination, not a program form the site produces
+        globals()["INLINE_PROGRAMS"] = tuple(dict(r, loads=4) if r["name"] == "BYTECODE_PROBE" else r
+                                             for r in held_inlines)
+        moved = closure_violations(tree)[0]
+    finally:
+        globals()["INLINE_PROGRAMS"] = held_inlines
+    control("a-declared-inline-program-loading-an-element-the-site-does-not-produce",
+            any(row.startswith(f"DISPATCH_INLINE_UNDECLARED {inventory_rel}:")
+                and "BYTECODE_PROBE loads argv[4]" in row
+                and "which this site does not produce as an admitted program form" in row
+                for row in moved), f"{moved}")
+    control("and-the-copied-tree-is-clean-again-after-the-index-move",
+            not closure_violations(tree)[0], f"{closure_violations(tree)[0]}")
     # r7 found this requirement unguarded. The declared index names an element of the argv AT THE
     # CALL, so an argv that is not a list literal there means the declaration points at nothing
     # decidable — and no control saw it removed.
@@ -3883,6 +3929,25 @@ def self_test(scratch=None):
     control("name-rebindings-over-no-file-refuses-rather-than-passing",
             any(row.startswith("INVENTORY_STALE form spellings") for row in name_rebindings(spellings=())),
             f"{name_rebindings(spellings=())}")
+    # ---- audit 2030: a spelling whose FILE is gone. The row above covers an empty list, which is a
+    # different refusal ("no file was scanned"), so this one keeps a present row beside the missing
+    # one: one file is scanned, and the missing row still has to be named.
+    gone_spelling = "session-distill/a-control-spells-no-file.py"
+    mixed = name_rebindings(spellings=(FORM_SPELLINGS[0],
+                                       {"site": gone_spelling, "str": "str", "path": "pathlib.Path",
+                                        "member": "copied_member", "imports": {},
+                                        "reason": "a control's own row: a spelling naming no file"}))
+    control("a-form-spelling-naming-no-file",
+            any(row == f"INVENTORY_STALE form spelling {gone_spelling}: no such file" for row in mixed),
+            f"{mixed}")
+    # ---- audit 2048: an import ALIAS that binds a watched name. The three plants above are an
+    # assignment, a `def` and a `for`; an import takes the `continue` branch and is judged by what
+    # the spelling declares the name to be imported as, not by being bound at all.
+    aliased, _ = plant(driver_rel, "import os as pathlib\n")
+    control("planted-a-watched-name-bound-by-an-import-alias",
+            any(row.startswith("DISPATCH_NAME_REBOUND") and "'pathlib'" in row
+                and "is imported in a way the spelling does not declare" in row for row in aliased),
+            f"{aliased}")
 
     # ---- audit 1797: the copy-run staleness leg, over rows this control BUILDS. Indexing the live
     # tuple would make the control stop testing the day that tuple changes, which is the trap this
