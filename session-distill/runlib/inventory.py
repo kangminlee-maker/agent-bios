@@ -54,6 +54,7 @@ import shutil
 import stat
 import subprocess
 import tempfile
+import time
 
 try:
     import tomllib  # the settings reader for a Codex config.toml (3.11+)
@@ -5030,10 +5031,19 @@ def self_test():
         slow_bin = scratch / "slow-git-bin"
         slow_bin.mkdir()
         slow_marker = scratch / "slow-git-ran"
-        # `: > file` is a shell builtin and `/bin/sleep` is absolute, so this script needs nothing
+        # `printf` is a shell builtin and `/bin/sleep` is absolute, so this script needs nothing
         # from PATH — the first version used bare `sleep`, which PATH did not hold, so the fixture
         # git died at once with code 127 and the control passed on the wrong failure (r3 #8 rework).
-        (slow_bin / "git").write_text(f"#!/bin/sh\n: > {slow_marker}\n/bin/sleep 3\n", encoding="utf-8")
+        #
+        # The budget below used to be 0.5s against a 3s sleep, which made the marker check a question
+        # about a child's START-UP time: in 8 of 61 inventory runs across r7 and r8 the timeout fired
+        # before the shell had written it, and the refusal control passed while this one failed. The
+        # margin is now wide in both directions — 3s to be seen, 30s before the child would end on
+        # its own — so what is read is the refusal and not the scheduler. The marker carries the two
+        # pids, because a 30s sleep that outlived the bound would outlive this suite.
+        (slow_bin / "git").write_text(f"#!/bin/sh\n/bin/sleep 30 &\n"
+                                      f"printf '%s\\n%s\\n' \"$!\" \"$$\" > {slow_marker}\nwait\n",
+                                      encoding="utf-8")
         (slow_bin / "git").chmod(0o755)
         # The SOURCE is a fixture of this control's own, never this checkout: `tracked_paths` takes
         # the git branch only when `source/.git` exists, and the commit hook materialises the index
@@ -5045,14 +5055,38 @@ def self_test():
         (slow_tree / "inner" / "held.txt").write_text("held\n", encoding="utf-8")
         slow_git = ""
         try:
-            tracked_paths(slow_tree, git_env={"PATH": f"{slow_bin}:/usr/bin:/bin"}, git_timeout=0.5)
+            tracked_paths(slow_tree, git_env={"PATH": f"{slow_bin}:/usr/bin:/bin"}, git_timeout=3)
             slow_git = "a listing came back from a git that never answered"
         except Exception as exc:
             slow_git = f"{type(exc).__name__}: {exc}"
         control("a git listing that does not finish is refused by name, never read as an empty tree",
                 [slow_git[:300]], "TREE_UNLISTABLE", "CHILD_TIMEOUT")
+        slow_pids = ([int(line) for line in slow_marker.read_text(encoding="utf-8").split()]
+                     if slow_marker.is_file() else [])
         check("and the fixture git really was the program that did not answer",
-              slow_marker.is_file(), f"{masked(slow_marker)} was never created")
+              slow_marker.is_file() and len(slow_pids) == 2,
+              f"{masked(slow_marker)}: {slow_pids}")
+
+        def alive(pid):
+            try:
+                os.kill(pid, 0)
+            except ProcessLookupError:
+                return False
+            except OSError:                      # it exists and is not ours to signal
+                return True
+            return True
+
+        # `tracked_paths` starts its child with a session of its own, so the bound ends the GROUP:
+        # the shell and the sleep it backgrounded both go. Asked rather than assumed, with a margin
+        # of its own because a just-killed grandchild is reaped by init and not by this process.
+        standing = list(slow_pids)
+        for _ in range(40):
+            standing = [pid for pid in standing if alive(pid)]
+            if not standing:
+                break
+            time.sleep(0.05)
+        check("and neither the fixture git nor the sleep it started outlived the bound",
+              not standing, f"{standing} still standing two seconds after the refusal")
 
         # ---- R2#3 and R2#7 for this entry point, in this process. Both used to be asked of a
         # child running this whole suite with `--self-test` in its argv, which is what made the
@@ -5764,10 +5798,21 @@ def self_test():
         check("there is a link in the copy for that leg to judge", len(linked) == 1
               and "a-link-only-this-control-makes" in linked,
               f"{sorted(linked)} — the planted link is the subject, and it is the only one")
+        def mode_of(value):
+            """The mode `tree_state` recorded in this entry, as an integer."""
+            found = re.search(r"\bmode=(\d+)\b", value)
+            return int(found.group(1), 8) if found else 0
+
+        # The PREFIX is not this rule's answer: `link:<target> ` comes from `is_symlink()` and
+        # `os.readlink`, so it survives `lstat` being reverted to `stat` and the control passed over
+        # a link it had followed (r8 G4, shown in a copy: `mode=100644`, a regular file). What the
+        # reverted line decides is the METADATA, so the metadata is what is read.
         check("and it reads links without following them",
               all(value.startswith("link:session-distill/distill.py ") for value in linked.values())
+              and all(stat.S_ISLNK(mode_of(value)) for value in linked.values())
               and len(before_tree) > 200,
-              f"{sorted(linked.items())} — a link was followed, or the tree was too small to judge")
+              f"{sorted(linked.items())} — a link was followed (a mode that is not a link), or the "
+              f"tree was too small to judge")
         check("the comparison had a tree to compare", len(before_tree) > 200,
               f"{len(before_tree)} entries")
 

@@ -734,8 +734,11 @@ def self_test():
         finally:
             inventory.run = kept_producer
         handed_projects = sorted((handed.get("native_roots") or {}).get("projects") or {})
+        # Observe only that the CALL happened. Its condition used to be `len(handed_projects) == 2`,
+        # which is the next control's subject: with the set wrong both failed, and this one's message
+        # said the producer was never reached when it had been (r8 R17b). Two controls, two facts.
         control("and that project set was read from a call that really happened",
-                len(handed_projects) == 2, f"{handed_projects} — the producer was never reached")
+                "native_roots" in handed, f"{sorted(handed)} — the producer was never reached")
         control("the project set the driver hands over names the other project AND this checkout",
                 str(pathlib.Path(__file__).resolve().parents[1]) in handed_projects
                 and str(pathlib.Path(other_project).resolve()) in handed_projects,
