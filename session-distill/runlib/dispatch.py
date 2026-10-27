@@ -419,6 +419,12 @@ PROCESS_MODULES = ("multiprocessing", "pty", "asyncio", "concurrent", "concurren
 # The modules whose every reference this judge must be able to follow: the scratch module, the
 # executors and the loaders, and the modules that can start a process (r4 R5).
 WATCHED_MODULES = frozenset({"tempfile"} | set(EXEC_MODULES) | {name.split(".")[0] for name in PROCESS_MODULES})
+# The dotted module paths those calls live under, which a Name check cannot see: `importlib.util` is
+# an Attribute whose own base is a watched Name, so it was admitted as an ordinary attribute access
+# (r5 F2). `subprocess.PIPE` and `os.environ` are NOT module paths and stay admitted.
+WATCHED_MODULE_PATHS = frozenset(
+    {name.rsplit(".", 1)[0] for name in set(EXEC_CALLS) | set(LOAD_CALLS) if "." in name}
+    | {name for name in PROCESS_MODULES if "." in name})
 PROCESS_IMPORTS_DECLARED = (
     {"module": "concurrent.futures", "file": "session-distill/runlib/census.py",
      "reason": "ThreadPoolExecutor over already-listed transcript files (census.py:309); threads, "
@@ -587,12 +593,22 @@ def shape_violations(root=REPO, sites=TEMPFILE_SITES, scope=TEMPFILE_SCOPE, sour
             # stored, returned or inside a BoolOp/IfExp it is a program this judge never sees
             if isinstance(node, ast.Attribute):
                 spelled = ast.unparse(node)
-                if spelled in EXEC_CALLS:
+                # The LOADERS too: `run_file = runpy.run_path` then `run_file(...)` passed every
+                # judge while the direct call is DYNAMIC_LOAD_UNDECLARED (r5 F2).
+                if spelled in EXEC_CALLS or spelled in LOAD_CALLS:
                     parent = parents.get(id(node))
                     if not (isinstance(parent, ast.Call) and parent.func is node):
                         problems.append(f"DISPATCH_EXEC_AS_VALUE {rel}:{node.lineno}: {spelled} is "
-                                        f"referenced without being called, so the program it would "
-                                        f"start is judged nowhere")
+                                        f"referenced without being called, so the program or module "
+                                        f"it would load is judged nowhere")
+                # A watched SUBMODULE as a value: `loader = importlib.util` is the module check's own
+                # blind spot, because the Name under it IS the base of an attribute access.
+                if spelled in WATCHED_MODULE_PATHS:
+                    parent = parents.get(id(node))
+                    if not (isinstance(parent, ast.Attribute) and parent.value is node):
+                        problems.append(f"DISPATCH_MODULE_AS_VALUE {rel}:{node.lineno}: {spelled} is used "
+                                        f"as a value rather than as the base of an attribute access, "
+                                        f"which takes every call through it out of this judge's sight")
             # r4 R5: a watched MODULE used as a value. The scratch check said it sees any REFERENCE
             # to tempfile and saw only `tempfile.<attr>` and import aliases, so `t = tempfile` and
             # then `t.TemporaryDirectory()` passed — and the same shape hides every executor and
@@ -2008,15 +2024,20 @@ def _judge_literal(mod, program, where, problems, inside_shell=False):
     program must be declared for this site in `LITERAL_PROGRAMS_DECLARED`. The tail this replaces
     appended nothing, so a program that was not a host, a pinned path, a shell, `sys.executable` or
     unresolvable was admitted in silence — which is every spelling an author would reach for."""
+    # Two names, and which one each comparison uses is the rule (r5 F3). The NORMALIZED name is for
+    # the comparisons that lead to a REFUSAL — a host written as `claude.sh` is still the host. The
+    # name AS WRITTEN is for the one that leads to ADMISSION: stripping `.sh` there let `git.sh`
+    # match the `git` declaration, which admits a different program entirely. A declaration still
+    # matches a basename, which is what lets a resolved `/bin/ps` match `ps`.
     base = os.path.basename(program)
-    base = base[:-3] if base.endswith(".sh") else base
+    normalized = base[:-3] if base.endswith(".sh") else base
     written = "a command line starts" if inside_shell else "starts"
-    if INTERPRETER_NAME.match(base):
+    if INTERPRETER_NAME.match(normalized):
         problems.append(f"DISPATCH_INTERPRETER_LITERAL {where}: {written} {program!r}, a literal interpreter; "
                         f"production starts Python through sys.executable")
         return
     if not any(entry["site"] == str(mod.rel) and entry["program"] == base
-               for entry in LITERAL_PROGRAMS_DECLARED):
+               for entry in LITERAL_PROGRAMS_DECLARED):   # `base`, as written: no suffix stripping
         problems.append(f"DISPATCH_PROGRAM_UNDECLARED {where}: {written} {program!r} and no declaration "
                         f"admits that program at this site")
 
@@ -2043,7 +2064,50 @@ SHELL_REDIRECTIONS = (">", ">>", "<", "<<", "<<<", "2>", "2>>", "&>", ">&", "<>"
 SHELL_SUBSTITUTIONS = ("$(", "`", "<(", ">(", "${")
 
 
-def _shell_tokens(text):
+# The operators a punctuation RUN is made of, longest first. `shlex` returns `;(`, `&&(` and `);`
+# as ONE token, and a run is not a separator, so the command after it went unjudged (r5 F1).
+SHELL_OPERATOR_RUNS = ("<<<", "2>>", "&>>", "||", "&&", "|&", ">>", "<<", "2>", "&>", ">&", "<>",
+                       ";", "|", "&", "(", ")", "{", "}", "<", ">")
+
+
+def _decompose(token, operators=SHELL_OPERATOR_RUNS):
+    """A punctuation run as the operators it is made of, or None when it does not decompose.
+
+    Longest match first, so `&&` is not two `&`. A run that does not decompose is handed back whole
+    and refused by name where it is judged: an operator this judge cannot read is a command boundary
+    it cannot see. The table is a PARAMETER so that both answers can be observed — with the real
+    table every run decomposes, which is why that refusal is unreachable, and `punctuation_covered`
+    below is what holds that true rather than a comment claiming it."""
+    out, rest = [], token
+    while rest:
+        for operator in operators:
+            if rest.startswith(operator):
+                out.append(operator)
+                rest = rest[len(operator):]
+                break
+        else:
+            return None
+    return out
+
+
+def punctuation_characters():
+    """The characters `shlex` can put in a punctuation run, read from an INSTANCE configured the way
+    the tokenizer configures one — not a copy of the string, which would drift from it."""
+    return set(shlex.shlex("", posix=True, punctuation_chars=True).punctuation_chars)
+
+
+def punctuation_covered(operators=SHELL_OPERATOR_RUNS):
+    """The punctuation characters the operator table does NOT cover as single-character operators.
+
+    Empty means every possible run decomposes: a run is a string of those characters, and each of
+    them matches on its own when nothing longer does. That emptiness is the reason
+    `DISPATCH_SHELL_UNPARSED` cannot fire against the real table, and it is asserted rather than
+    assumed, because the day `shlex` gains a punctuation character this table does not hold is the
+    day a run stops decomposing (r5 F1)."""
+    return sorted(punctuation_characters() - {operator for operator in operators if len(operator) == 1})
+
+
+def _shell_tokens(text, operators=SHELL_OPERATOR_RUNS):
     """Every token of one shell command LINE, with the separators as tokens of their own.
 
     `shlex.split` leaves `status;` whole, so a separator glued to the command before it was never a
@@ -2058,9 +2122,15 @@ def _shell_tokens(text):
         lexer = shlex.shlex(physical, posix=True, punctuation_chars=True)
         lexer.whitespace_split = True
         try:
-            tokens += list(lexer)
+            read = list(lexer)
         except ValueError:                   # an unbalanced quote: the words are what is readable
-            tokens += physical.split()
+            read = physical.split()
+        for token in read:
+            # A token of punctuation alone is a RUN of operators, however they are glued.
+            if token and all(character in "();<>|&{}" for character in token):
+                tokens += _decompose(token, operators) or [token]
+            else:
+                tokens.append(token)
     return tokens
 
 
@@ -2073,7 +2143,7 @@ def _plain_word_tokens(word):
         return word.split()
 
 
-def _judge_words(mod, words, line, pinned, problems):
+def _judge_words(mod, words, line, pinned, problems, operators=SHELL_OPERATOR_RUNS):
     """Judge a shell command LINE, command by command, from tokens one tokenizer produced.
 
     Host names were the only thing read here, and only until the first one was found, so a second
@@ -2092,6 +2162,10 @@ def _judge_words(mod, words, line, pinned, problems):
                 problems.append(f"DISPATCH_SHELL_SUBSTITUTION {where}: a shell line with {mark!r} in it; "
                                 f"the program the shell builds there is judged nowhere")
                 break
+    for word in words:
+        if word and all(character in "();<>|&{}" for character in word) and _decompose(word, operators) is None:
+            problems.append(f"DISPATCH_SHELL_UNPARSED {where}: a run of shell operators this judge "
+                            f"cannot read ({word!r}), so the commands it divides are judged nowhere")
     commands, current = [], []
     for word in words:
         if word in SHELL_SEPARATORS or word in ("(", ")", "{", "}"):
@@ -2106,25 +2180,28 @@ def _judge_words(mod, words, line, pinned, problems):
             if skip_next:                      # a redirection's target is a file, not a program
                 skip_next = False
                 continue
-            base = os.path.basename(word)
-            base = base[:-3] if base.endswith(".sh") else base
+            # A builtin, a word that runs the next one and a shell are recognized ONLY as the exact
+            # bare word: `/fixture/echo` is a file the shell runs, not the builtin `echo` (r5 F3).
+            # The normalized basename is kept for the host comparison, which refuses.
+            normalized = os.path.basename(word)
+            normalized = normalized[:-3] if normalized.endswith(".sh") else normalized
             if word in SHELL_REDIRECTIONS:
                 skip_next = True
                 continue
             if "=" in word and not word.startswith("-") and word.split("=")[0].isidentifier():
                 continue                       # a `VAR=value` prefix
-            if base in SHELLS or word.startswith("-"):
+            if word in SHELLS or word.startswith("-"):
                 continue                       # the shell itself, or a flag of what was skipped
-            if base in SHELL_EVALS:
-                problems.append(f"DISPATCH_SHELL_EVAL {where}: a shell line running {base!r}, which "
+            if word in SHELL_EVALS:
+                problems.append(f"DISPATCH_SHELL_EVAL {where}: a shell line running {word!r}, which "
                                 f"runs a line of its own — built at run time, or deferred to a "
                                 f"signal; what it starts is judged nowhere")
                 break
-            if base in SHELL_RUNS_NEXT:
+            if word in SHELL_RUNS_NEXT:
                 continue                       # it runs the NEXT word: judge that one
-            if base in SHELL_BUILTINS:
+            if word in SHELL_BUILTINS:
                 break                          # a builtin starts no program of its own
-            if base in HOST_NAMES or word in pinned or os.path.expanduser(word) in pinned:
+            if normalized in HOST_NAMES or word in pinned or os.path.expanduser(word) in pinned:
                 problems.append(f"DISPATCH_OUTSIDE_SUPERVISOR {where}: a command line starts {word!r}, "
                                 f"which only dispatch.py may start")
             else:
@@ -3714,6 +3791,22 @@ def self_test(scratch=None):
                                         "    sp = subprocess\n"
                                         "    return sp.run(['git', 'status'])\n"},
              f"DISPATCH_MODULE_AS_VALUE {driver_rel}:"),
+            # r5 F2: the LOADERS as values, and a watched SUBMODULE as a value.
+            ("a-loader-callable-taken-as-a-value",
+             {driver_rel: live_driver + "\n\ndef _planted_loader():\n"
+                                        "    run_file = runpy.run_path\n"
+                                        "    return run_file('/fixture/other.py')\n"},
+             f"DISPATCH_EXEC_AS_VALUE {driver_rel}:"),
+            ("an-import-module-callable-taken-as-a-value",
+             {driver_rel: live_driver + "\n\ndef _planted_import():\n"
+                                        "    load = importlib.import_module\n"
+                                        "    return load('x')\n"},
+             f"DISPATCH_EXEC_AS_VALUE {driver_rel}:"),
+            ("a-watched-submodule-taken-as-a-value",
+             {driver_rel: live_driver + "\n\ndef _planted_submodule():\n"
+                                        "    loader = importlib.util\n"
+                                        "    return loader.spec_from_file_location('m', '/x.py')\n"},
+             f"DISPATCH_MODULE_AS_VALUE {driver_rel}:"),
             ("a-watched-module-handed-to-a-function",
              {driver_rel: live_driver + "\n\ndef _planted_module_argument(run=None):\n"
                                         "    return (run or getattr)(subprocess, 'run')\n"},
@@ -3741,6 +3834,12 @@ def self_test(scratch=None):
             any(row.startswith(f"DISPATCH_PROCESS_MODULE {driver_rel}:")
                 and "`from multiprocessing import Pool`" in row for row in from_process),
             f"{from_process}")
+    # r5 F2's positive control: an attribute of a watched module that is NOT a module stays admitted,
+    # which is the line between "a module taken as a value" and an ordinary constant.
+    for name, extra in (("a-constant-of-a-watched-module", "\n\ndef _planted_pipe():\n    sink = subprocess.PIPE\n    return sink\n"),
+                        ("an-exception-type-of-a-watched-module", "\n\ndef _planted_error():\n    err = subprocess.TimeoutExpired\n    return err\n")):
+        admitted_value = shape_violations(sources={driver_rel: live_driver + extra})
+        control(f"{name}-stays-admitted", not admitted_value, f"{admitted_value}")
     # A declared site that stops making its call admits nothing and must say so rather than sit there.
     stale = shape_violations(sources={inventory_rel: live_inventory.replace(
         "        with tempfile.TemporaryDirectory(prefix=prefix, dir=str(parent)) as td:\n"
@@ -3813,6 +3912,69 @@ def self_test(scratch=None):
              "DISPATCH_SHELL_EVAL {at}: a shell line running 'trap'")):
         planted(f"shell-{name}", "session-distill/runlib/inventory.py",
                 f'import os\nos.system("{spelled}")', needle, 1)
+    # ---- r5 F1: a RUN of punctuation is one shlex token, so a separator glued to a parenthesis was
+    # no separator and the command it divides went unjudged. Decomposed longest-operator-first now.
+    for name, spelled, needle in (
+            ("a-separator-glued-to-a-subshell", "git status;(python3 x.py)",
+             "DISPATCH_INTERPRETER_LITERAL {at}: a command line starts 'python3'"),
+            ("an-and-and-glued-to-a-subshell", "git status&&(codex exec -)",
+             "DISPATCH_OUTSIDE_SUPERVISOR {at}: a command line starts 'codex'"),
+            ("a-closing-paren-glued-to-a-separator", "(git status);python3 x.py",
+             "DISPATCH_INTERPRETER_LITERAL {at}: a command line starts 'python3'"),
+            ("a-pipe-into-a-subshell", "git status|(python3 -)",
+             "DISPATCH_INTERPRETER_LITERAL {at}: a command line starts 'python3'")):
+        planted(f"shell-{name}", "session-distill/runlib/inventory.py",
+                f'import os\nos.system("{spelled}")', needle, 1)
+    # ---- r5 F1, the totality: every character `shlex` can put in a punctuation run is a
+    # single-character operator of the real table, so every run decomposes — which is WHY
+    # `DISPATCH_SHELL_UNPARSED` cannot fire against that table. Read from a configured INSTANCE, not
+    # from a copy of the string, so the day shlex gains a character this table lacks, this fails.
+    control("every punctuation character shlex separates is covered by the operator table",
+            not punctuation_covered(),
+            f"uncovered={punctuation_covered()} of {sorted(punctuation_characters())}")
+    control("and there are punctuation characters to cover at all, so that check judges something",
+            len(punctuation_characters()) >= 5, f"{sorted(punctuation_characters())}")
+    # And the refusal is reachable: a table this control BUILDS, missing every `&` operator, leaves a
+    # run it cannot read. Indexing the real table would make the control stop testing the day that
+    # table changes, which is the trap this repo has paid for.
+    short_table = tuple(operator for operator in SHELL_OPERATOR_RUNS if "&" not in operator)
+    control("the operator table this control built really leaves a character uncovered",
+            punctuation_covered(short_table) == ["&"], f"{punctuation_covered(short_table)}")
+    unparsed_mod = _Module(tree / "session-distill/runlib/inventory.py",
+                           pathlib.PurePosixPath("session-distill/runlib/inventory.py"))
+    unparsed = []
+    _judge_words(unparsed_mod, _shell_tokens("git status && codex exec -", short_table), 11,
+                 set(), unparsed, operators=short_table)
+    control("a run of operators the table cannot read is refused by name",
+            any(row.startswith("DISPATCH_SHELL_UNPARSED") and "'&&'" in row for row in unparsed),
+            f"{unparsed}")
+    # ---- r5 F3: an ADMITTING comparison uses the name as written. `.sh` stripping let `git.sh` match
+    # the `git` declaration, and a path's basename let `/fixture/echo` pass as the builtin `echo`.
+    planted("a-declared-program-with-a-suffix-is-another-program", "session-distill/runlib/inventory.py",
+            "import subprocess\nsubprocess.run(['git.sh', 'status'])",
+            "DISPATCH_PROGRAM_UNDECLARED {at}: starts 'git.sh'", 1)
+    # The premise: `git` IS declared at that site, so what the control above reads is the suffix and
+    # not an undeclared program. Without this, the same row passes at a site that declares nothing,
+    # where `git.sh` and `git` are both refused and the control cannot tell the two readings apart.
+    declared_here, declared_at = plant("session-distill/runlib/inventory.py",
+                                       "import subprocess\nsubprocess.run(['git', 'status'])")
+    control("and-the-same-call-written-git-is-admitted-at-that-site",
+            not [row for row in declared_here
+                 if f"session-distill/runlib/inventory.py:{declared_at + 1}" in row],
+            f"{[row for row in declared_here if str(declared_at + 1) in row]}")
+    planted("shell-a-path-whose-basename-is-a-builtin", "session-distill/runlib/inventory.py",
+            "import os\nos.system('/fixture/echo x')",
+            "DISPATCH_PROGRAM_UNDECLARED {at}: a command line starts '/fixture/echo'", 1)
+    # …while the refusing comparisons keep their normalization: a host written with a suffix is the
+    # host, and the bare builtin is still a builtin.
+    bare_builtin, bare_at = plant("session-distill/runlib/inventory.py",
+                                  'import os\nos.system("git status && echo done")')
+    control("a-bare-builtin-after-an-admitted-command-is-still-admitted",
+            not [row for row in bare_builtin if f"session-distill/runlib/inventory.py:{bare_at + 1}" in row],
+            f"{[row for row in bare_builtin if str(bare_at + 1) in row]}")
+    planted("shell-a-host-written-with-a-suffix", "session-distill/runlib/inventory.py",
+            "import os\nos.system('/fixture/claude.sh -p hi')",
+            "DISPATCH_OUTSIDE_SUPERVISOR {at}: a command line starts '/fixture/claude.sh'", 1)
     # And a shell line of admitted commands only stays admitted: `git` is declared for this site.
     clean_shell, clean_at = plant("session-distill/runlib/inventory.py",
                                   'import os\nos.system("git status && git log -1")')
@@ -4150,16 +4312,31 @@ def self_test(scratch=None):
                 for row in moved), f"{moved}")
     control("and-the-copied-tree-is-clean-again-after-the-index-move",
             not closure_violations(tree)[0], f"{closure_violations(tree)[0]}")
-    # ---- r4 R6: `loads` is the index the PROGRAM reads, so the element admission inspects is
-    # computed from where `-c` sits. Declared as an OUTER index it was right only while exactly one
-    # flag preceded `-c`: this plant writes NO flag, so the old reading inspected the copied member
-    # while the child loads its own sys.argv[2], which here is a literal path instead.
-    no_flag = plant("session-distill/runlib/inventory.py",
-                    "import subprocess, sys\n"
-                    "subprocess.Popen([sys.executable, '-c', BYTECODE_PROBE, 'out', '/fixture/other.py',\n"
-                    "                  copied_member(startup_copy, 'session-distill/distill.py')])")[0]
+    # ---- r4 R6, corrected in r5 (F4): `loads` is the index the PROGRAM reads, so the element
+    # admission inspects is computed from where `-c` sits. Declared as an OUTER index it was right
+    # only while exactly one flag preceded `-c`: this plant writes NO flag, so the old reading
+    # inspected element 5 while the child loads its own sys.argv[2].
+    #
+    # Element 5 is the ADMITTED form — `str(copied_member(...))` with a declared literal — so under
+    # the old meaning the call passes with no refusal at all, which is the defect. The first version
+    # of this plant put a BARE `copied_member(...)` there, which `_copy_member` refuses under both
+    # meanings, so its revert failed on the message's wording rather than on an admitted bad call.
+    no_flag_source = ("import subprocess, sys\n"
+                      "subprocess.Popen([sys.executable, '-c', BYTECODE_PROBE, 'out', '/fixture/other.py',\n"
+                      "                  str(copied_member(startup_copy, 'session-distill/distill.py'))])")
+    no_flag, no_flag_at = plant("session-distill/runlib/inventory.py", no_flag_source)
+    # The premise: that element, at the position the program DOES load it from, is admitted — so the
+    # decoy is genuinely admissible and the refusal below is about the INDEX, not about the form.
+    admitted_form = plant("session-distill/runlib/inventory.py",
+                          "import subprocess, sys\n"
+                          "subprocess.Popen([sys.executable, '-I', '-c', BYTECODE_PROBE, 'out',\n"
+                          "                  str(copied_member(startup_copy, 'session-distill/distill.py'))])")
+    control("and-that-decoy-element-is-admitted-where-the-program-really-loads-it",
+            not [row for row in admitted_form[0]
+                 if f"session-distill/runlib/inventory.py:{admitted_form[1] + 1}" in row],
+            f"{[row for row in admitted_form[0] if str(admitted_form[1] + 1) in row]}")
     control("an-inline-program-whose-flagless-argv-moves-the-element-it-loads",
-            any(row.startswith(f"DISPATCH_INLINE_UNDECLARED {inventory_rel}:")
+            any(row.startswith(f"DISPATCH_INLINE_UNDECLARED {inventory_rel}:{no_flag_at + 1}")
                 and "BYTECODE_PROBE loads sys.argv[2]" in row for row in no_flag),
             f"{no_flag}")
     control("and-the-real-call-with-its-one-flag-is-still-admitted",

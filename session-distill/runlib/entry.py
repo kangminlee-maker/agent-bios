@@ -239,11 +239,13 @@ FAIL_TAG = "[FAIL]"
 
 
 class FailureLine(str):
-    """A `[FAIL]` line THIS MODULE has already projected, piece by piece or whole.
+    """A `[FAIL]` line `failure_text` has already projected, piece by piece or whole.
 
-    `emit` publishes without projecting, and "its callers only ever hand it `failure_text`'s result"
-    was a convention nothing held: any string could reach it and leave unprojected. The type is the
-    guard — only `failure_text` makes one, and `emit` refuses everything else by name."""
+    A MARKER for this module's own callers, not proof of projection: anyone can write
+    `FailureLine("…")` around any string. What it rules out is a string reaching `emit` by accident
+    — a plain diagnostic, a caller's format string, a line from another module — which is what the
+    docstring naming its callers did not rule out. A caller that deliberately wraps unprojected text
+    is outside what this type answers for; that is the residual `forged_failure_line` (r5 F5)."""
 
 
 def failure_text(label, name, detail, home=None):
@@ -279,9 +281,10 @@ def emit(text, stream=None):
     """Publish a line THIS MODULE has already projected (`failure_text`).
 
     The one printer here that does not project what it is given: projecting again would hand the
-    floor the joined line it has already withheld, and take the name back out. What keeps that from
-    being a hole is the TYPE — anything that is not a `FailureLine` is refused by name, so a string
-    from anywhere else cannot leave through here unprojected."""
+    floor the joined line it has already withheld, and take the name back out. The TYPE keeps a
+    string from reaching it BY ACCIDENT — anything that is not a `FailureLine` is refused by name —
+    but it is a marker, not proof: a caller that wraps unprojected text in `FailureLine` is
+    publishing it, and nothing here can tell. See the residual `forged_failure_line`."""
     if not isinstance(text, FailureLine):
         raise TypeError(f"EMIT_UNPROJECTED: this printer publishes without projecting and takes only "
                         f"a FailureLine from `failure_text`, not a {type(text).__name__}")

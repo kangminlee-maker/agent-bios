@@ -403,15 +403,34 @@ class Malformed(Exception):
     says the inventory cannot read this kind of file, the other that this file is wrong."""
 
 
+def where_in(exc):
+    """` at line N column M` from a parser's own numeric attributes, or nothing.
+
+    A parser's MESSAGE is carrier text: tomllib names the duplicated table, json names the token,
+    and `SyntaxError` names the identifier it tripped on. Those messages reached a layer row's
+    reasons, which the floor projects as a diagnostic on its own — without the carrier's context —
+    so a carrier the floor withholds WHOLE leaked through its own parse error (r5 F0). Only the
+    position is taken, and only from the attributes, never parsed out of the message: the declared
+    floor is Python 3.11, where `TOMLDecodeError` carries no such attributes at all, so this is
+    absent as often as it is present."""
+    line, column = getattr(exc, "lineno", None), getattr(exc, "colno", None)
+    if line is None:
+        return ""
+    return f" at line {line}" + (f" column {column}" if column is not None else "")
+
+
 def structured(path, text, form):
     """A supported structured carrier, parsed to prove it is well formed. A settings file is the
     carrier kind whose breakage the splitter cannot see: `plain_blocks` divides any text at all, so
-    a settings file with a missing brace split clean and the layer reported complete (GA#5)."""
+    a settings file with a missing brace split clean and the layer reported complete (GA#5).
+
+    The reason carries the path, a fixed category and a numeric position — never the parser's
+    message, which is made of the carrier's own bytes (r5 F0)."""
     if form == "json":
         try:
             json.loads(text)
         except ValueError as exc:
-            raise Malformed(f"{path}: not valid JSON: {exc}") from exc
+            raise Malformed(f"{path}: not valid JSON{where_in(exc)}") from exc
     elif form == "toml":
         if tomllib is None:
             raise Unsupported(f"{path}: this interpreter has no TOML reader, so a settings file of this kind "
@@ -419,7 +438,7 @@ def structured(path, text, form):
         try:
             tomllib.loads(text)
         except Exception as exc:  # tomllib raises its own decode error type
-            raise Malformed(f"{path}: not valid TOML: {exc}") from exc
+            raise Malformed(f"{path}: not valid TOML{where_in(exc)}") from exc
 
 
 def blocks_of(path, text, form=None):
@@ -439,7 +458,9 @@ def blocks_of(path, text, form=None):
     except (SyntaxError, ValueError, RecursionError) as exc:
         # Python and markdown are forms this splitter supports, so a carrier of one that does not
         # parse is a malformed carrier of a supported form, never an unsupported structure (GB#12).
-        raise Malformed(f"{path}: {type(exc).__name__}: {exc}") from exc
+        # The TYPE NAME and the position only: a `SyntaxError`'s message names the identifier it
+        # tripped on, which is the carrier's text (r5 F0).
+        raise Malformed(f"{path}: {type(exc).__name__}{where_in(exc)}") from exc
     if "".join(block[1] for block in blocks) != text:
         raise Unsupported(f"{path}: the split does not reproduce the carrier")
     return blocks
@@ -5153,6 +5174,40 @@ def self_test():
         check("and the real report path still prints through it",
               "[FAIL] a planted control: a planted detail" in emitted_sink.getvalue(),
               f"printed={bool(emitted_sink.getvalue().strip())}")
+        # r5 F5: the type is a MARKER — anyone can wrap any string in it — so the one thing a check
+        # can hold is that nothing outside the boundary module constructs one. Read as a tree, since
+        # a mention in a docstring is not a call, and over SOURCES the caller may supply, so the
+        # check itself can be shown to fire.
+        def forged_failure_lines(sources=None):
+            """Every `FailureLine(...)` construction outside `runlib/entry.py`, as `rel:line`."""
+            found = []
+            held = dict(sources or {})
+            paths = sorted(str(path.relative_to(REPO)) for path in (REPO / "session-distill").rglob("*.py")
+                           if "__pycache__" not in str(path))
+            for rel in sorted(set(paths) | set(held)):
+                if rel.endswith("runlib/entry.py"):
+                    continue
+                source = held.get(rel)
+                if source is None:
+                    source = (REPO / rel).read_text(encoding="utf-8")
+                for node in ast.walk(ast.parse(source)):
+                    if isinstance(node, ast.Call) and getattr(node.func, "attr",
+                                                              getattr(node.func, "id", "")) == "FailureLine":
+                        found.append(f"{rel}:{node.lineno}")
+            return found
+
+        check("nothing outside the boundary module builds a FailureLine of its own",
+              not forged_failure_lines()
+              and len(list((REPO / "session-distill").rglob("*.py"))) > 10,
+              f"sites={len(forged_failure_lines())}")
+        planted_forge = forged_failure_lines(
+            {"session-distill/runlib/planted.py":
+             "from runlib.entry import FailureLine, emit\n\n\ndef _planted():\n"
+             "    return emit(FailureLine('a line nothing projected'))\n"})
+        control("and that check sees a construction planted outside it",
+                [f"found={len(planted_forge)} "
+                 f"named={any(row.startswith('session-distill/runlib/planted.py:') for row in planted_forge)}"],
+                "found=1", "named=True")
         # Every name this suite has registered so far, held against the floor: a name the floor
         # changes is a name that can be the thing withheld, whatever line it sits in.
         unprojected_names = [name for name in ran if projection.diagnostic(name, home_here_str) != name]
@@ -5487,6 +5542,72 @@ def self_test():
         check("and the lines it looked for include every fixture's own planted credential",
               all(any(secret in line for line in exclusive) for secret in (secret, heading_secret.strip())),
               f"exclusive={len(exclusive)}")
+
+        # ---- r5 F0 (blocking): a reason derived from a carrier carries NO text of the carrier.
+        # The parsers' own messages do: tomllib names the duplicated table, and a `SyntaxError` names
+        # the identifier it tripped on. Those messages became a layer row's reason and a reference
+        # row's reason, which the floor projects as a diagnostic on its own — without the carrier's
+        # context — so a carrier the floor withholds WHOLE leaked through its own parse error. The
+        # differential could not see it: it compares withheld LINES, and a message echoes a fragment.
+        # Each fixture carries its own canary and is searched for as a SUBSTRING of every published
+        # string. `leaked_before` records whether the parser's message really would have carried the
+        # canary — measured, not assumed, and false for the two parsers that echo nothing.
+        malformed_fixtures = {
+            "a toml carrier with a duplicated table": (
+                carrier("catalog", "claude/config.toml",
+                        'example = \'api\\_key: "alpha\'\n[shortpass-r5-toml-dup]\nx = 1\n'
+                        '[shortpass-r5-toml-dup]\ny = 2\n'),
+                "shortpass-r5-toml-dup", "toml", True),
+            "a python carrier whose SyntaxError names an identifier": (
+                # The escaped key sits in a COMMENT: in a string literal the carrier's own quote
+                # ends the literal and the parser reports THAT instead of the future import.
+                carrier("catalog", "claude/hooks/broken.py",
+                        '# api\\_key: "alpha\nfrom __future__ import shortpass_r5_py\n'),
+                "shortpass_r5_py", "python", True),
+            "a toml carrier with a syntax error": (
+                carrier("catalog", "claude/other.toml",
+                        'example = \'api\\_key: "alpha\'\nshortpass-r5-toml-bad = = 1\n'),
+                "shortpass-r5-toml-bad", "toml", False),
+            "a json carrier with a syntax error": (
+                carrier("catalog", "claude/guides/broken.json",
+                        '{"example": "api\\\\_key: \\"alpha", "shortpass-r5-json": }\n'),
+                "shortpass-r5-json", "json", False),
+        }
+
+        def parser_message(item, kind):
+            """What the parser itself says about this carrier — the string that used to become the
+            reason. Called for the premise only; nothing of it is published."""
+            try:
+                if kind == "toml":
+                    tomllib.loads(item["text"])
+                elif kind == "json":
+                    json.loads(item["text"])
+                else:
+                    ast.parse(item["text"])
+            except Exception as exc:
+                return f"{type(exc).__name__}: {exc}"
+            return ""
+
+        for name, (item, canary, kind, leaked_before) in malformed_fixtures.items():
+            check(f"{name} is withheld whole by the floor",
+                  projection.carrier_decision(item["text"], str(pathlib.Path.home())) == ([], True),
+                  f"whole_withheld={projection.carrier_decision(item['text'], str(pathlib.Path.home())) == ([], True)}")
+            check(f"{name} really is malformed, so a reason is what the document carries for it",
+                  bool(parser_message(item, kind)),
+                  f"parser_refused={bool(parser_message(item, kind))}")
+            if leaked_before:
+                check(f"{name}: the parser's own message would have carried its canary",
+                      canary in parser_message(item, kind),
+                      f"old_message_carried_it={canary in parser_message(item, kind)}")
+            published_here = document_strings([item])
+            control(f"{name}: its canary in no published string",
+                    [f"strings={len(published_here)} "
+                     f"carrying={len([1 for _where, text in published_here if canary in text])}"],
+                    "carrying=0")
+            check(f"{name}: and the document really carries a reason for it, so the control judges one",
+                  any("not valid" in text or "Error" in text
+                      for _where, text in published_here if "reason" in _where.lower() or True),
+                  f"strings={len(published_here)}")
 
         # ---- r4 R0 (blocking): two VERSIONS of one carrier identity in one reference point. The
         # identity is `(layer, package_id, item_ref, path)` with no content in it, and
