@@ -1124,10 +1124,10 @@ def emit_row(kind, table, source, place):
             raise Refused(f"EMISSION_UNDECLARED {kind}.{key}: the table declares this field and the "
                           f"record does not carry it")
         emitted[key] = _emit_value(spec, source.get(key), place, f"{kind}.{key}")
-    held = set(emitted) | {key for key in fields if key in optional and key not in source}
-    if held != set(fields):
-        raise Refused(f"EMISSION_UNDECLARED {kind}: the emitted row's fields are not the table's "
-                      f"({sorted(set(fields) ^ held)})")
+    # A post-condition over the loop above stood here — "the emitted row's fields are not the
+    # table's" — and could not fire: `emitted` takes its keys from `fields` alone, and every key of
+    # `fields` leaves the loop emitted, refused, or skipped as optional-and-absent, so the two sets
+    # are equal by construction. A check that cannot fire is not a check (lead ruling, S8h).
     return emitted
 
 
@@ -6059,6 +6059,53 @@ def self_test():
         control("two note keys that project to one string",
                 emitted(note={f"apiKeyHelper: {secret_text}": 1, f"apiKeyHelper: {other_secret}": 2}),
                 "EMISSION_KEY_COLLISION", "two note keys")
+        # ---- the four refusals of `_emit_value` and `emit_row` the S1 block did not ask for
+        # (lead's control-audit of 8b3b2c4). Each builds its own table and row, and each names a
+        # phrase only that refusal carries, so removing the check makes the control fail rather than
+        # some neighbour of it. What removal does TODAY is in each comment: these are the silent
+        # answers the refusals exist to prevent, not crashes.
+        #
+        # A str where a list is declared is ITERATED: with the check gone the item rule runs over
+        # each character, and a metadata item accepts every one of them, so "ab" would be emitted as
+        # ["a", "b"] and no one would see it.
+        str_list_table = table_of({"needs": list_of(as_metadata())})
+        control("a string where the table declares a list",
+                [str(_raised(lambda: emit_row("probe", str_list_table, {"needs": "ab"},
+                                              dict(emit_place))))],
+                "EMISSION_NOT_DECLARED_VALUE", "where the table declares a list")
+        check("and that string really would be emitted item by item with the check gone",
+              [_emit_value(as_metadata(), character, dict(emit_place), "probe.needs[]")
+               for character in "ab"] == ["a", "b"],
+              "the item rule refuses a single character, so the silent case is not what it looks like")
+        # A list where a map is declared reaches `.items()`: with the check gone that is an
+        # AttributeError, which is a crash in the middle of an emission rather than a named refusal.
+        list_map_table = table_of({"paths": map_of(as_metadata(), as_scalar())})
+        control("a list where the table declares a map",
+                [str(_raised(lambda: emit_row("probe", list_map_table, {"paths": [["a", 1]]},
+                                              dict(emit_place))))],
+                "EMISSION_NOT_DECLARED_VALUE", "where the table declares a map")
+        # A field the SCHEMA declares for this row that the table has no rule for. The subject is
+        # read from the schema rather than named here, so a schema that stops declaring it fails the
+        # first check instead of leaving the second one vacuous.
+        unit_fields = sorted(schema_row_fields("unit"))
+        check("the schema declares fields for a row this control can build on", len(unit_fields) > 1,
+              f"{unit_fields}")
+        partial_table = table_of({unit_fields[0]: as_metadata()}, schema="unit")
+        control("a field the schema declares for this row that no rule of its table names",
+                [str(_raised(lambda: emit_row("unit", partial_table,
+                                              {unit_fields[0]: "a value"}, dict(emit_place))))],
+                "EMISSION_UNDECLARED", "the schema declares this field for this row")
+        # A field the table declares, not optional, that the record does not carry. With the check
+        # gone a NULLABLE field emits null silently — the row comes back looking complete and the
+        # fact that nothing was ever carried is gone.
+        missing_table = table_of({"label": as_metadata(nullable=True)})
+        control("a field the table declares that the record does not carry",
+                [str(_raised(lambda: emit_row("probe", missing_table, {}, dict(emit_place))))],
+                "EMISSION_UNDECLARED", "the record does not carry it")
+        check("and that field really would be emitted as null with the check gone",
+              _emit_value(as_metadata(nullable=True), None, dict(emit_place), "probe.label") is None,
+              "a nullable metadata field refuses None, so the silent case is not what it looks like")
+
         collide_table = table_of({"paths": map_of(as_metadata(), as_scalar())})
         control("two map keys that project to one string",
                 [str(_raised(lambda: emit_row("probe", collide_table,
