@@ -3323,6 +3323,10 @@ def reason_problems(source=None):
 
 def self_test():
     """Done-when 1-6, each with the control that fails by name when the rule is taken out."""
+    # Set where this suite begins publishing its report. Past that point a control is not in the
+    # number the summary published, and the summary has already said OK — which is a conclusion
+    # printed before the judging. The helpers below refuse past it rather than trusting placement.
+    reporting = []
     failures, ran = [], []
     # Registered while this suite runs: an abort publishes what is here instead of taking it away.
     # Removed where this suite reports, below. The boundary is reached as `boundary` because `entry`
@@ -3331,6 +3335,9 @@ def self_test():
     boundary.SELF_TEST_COLLECTED.append(("inventory --self-test", failures))
 
     def control(name, problems, *needles):
+        if reporting:
+            raise RuntimeError(f"CONTROL_AFTER_SUMMARY {name}: this suite has begun publishing its "
+                               f"report, so `control` is not in the count it published")
         # The mirror of the boolean guard below: this helper judges a LIST of problem strings, and a
         # bare string or a bool here would be read character by character or silently admitted.
         if not isinstance(problems, list):
@@ -3346,11 +3353,17 @@ def self_test():
                 failures.append(f"{name}: expected {missing} among {problems}")
 
     def clean(name, problems):
+        if reporting:
+            raise RuntimeError(f"CONTROL_AFTER_SUMMARY {name}: this suite has begun publishing its "
+                               f"report, so `clean` is not in the count it published")
         ran.append(name)
         if problems:
             failures.append(f"{name}: expected no violation, got {problems}")
 
     def check(name, ok, detail=""):
+        if reporting:
+            raise RuntimeError(f"CONTROL_AFTER_SUMMARY {name}: this suite has begun publishing its "
+                               f"report, so `check` is not in the count it published")
         # A boolean-style helper given a problem LIST passed on whatever its needle said, because a
         # non-empty list is truthy: three controls in this package read correctly and asked nothing
         # until S8a found them. The signature is enforced here rather than remembered.
@@ -3361,21 +3374,30 @@ def self_test():
         if not ok:
             failures.append(f"{name}: {detail}")
 
-    def type_refusal(call):
-        """The message a self-test helper raises when it is given the wrong KIND of argument. The
-        controls below catch it here, so asking the guards does not fail the suite."""
+    def misuse_refusal(call):
+        """The message a self-test helper raises when it is MISUSED — the wrong kind of argument, or
+        a control asked after the report has begun. The controls below catch it here, so asking a
+        guard does not fail the suite."""
         try:
             call()
-        except TypeError as exc:
+        except Exception as exc:
             return str(exc)
         return ""
 
     check("a boolean-style check given a problem list is refused by name",
-          "CONTROL_CONDITION_NOT_BOOL" in type_refusal(lambda: check("a planted non-boolean", ["a problem"])),
+          "CONTROL_CONDITION_NOT_BOOL" in misuse_refusal(lambda: check("a planted non-boolean", ["a problem"])),
           "the guard admitted a non-boolean condition, so a control in the other style would pass on a truthy list")
     check("a problem-list control given something that is not a list is refused by name",
-          "CONTROL_PROBLEMS_NOT_LIST" in type_refusal(lambda: control("a planted non-list", "a problem")),
+          "CONTROL_PROBLEMS_NOT_LIST" in misuse_refusal(lambda: control("a planted non-list", "a problem")),
           "the guard admitted a non-list, so a bare string would be read character by character")
+    # The flag is planted rather than waited for: the report really beginning is the end of this
+    # suite, and a control cannot be asked from there. What is asked is the rule itself.
+    reporting.append("a planted report")
+    after_summary = misuse_refusal(lambda: check("a planted control after the summary", True))
+    reporting.clear()
+    check("a control asked after the report has begun is refused by name",
+          "CONTROL_AFTER_SUMMARY" in after_summary and not reporting,
+          f"{after_summary!r}")
 
     # ---- the splitter reproduces its carriers, over the real guides (the measured property)
     guides = sorted((REPO / "claude" / "guides").glob("*.md"))[:6] + sorted((REPO / "claude" / "hooks").glob("*.py"))[:2]
@@ -6045,36 +6067,6 @@ def self_test():
               "overlays" in leaky_row["reasons"][0] and len(leaky_row["reasons"]) == 1,
               f"{leaky_row['reasons']}")
 
-    report(f"inventory --self-test: {'OK' if not failures else 'FAILED'} ({len(ran)} controls: the splitter's "
-          f"reproduction over the real guides, the unit record and the layer set against the schema the code owns "
-          f"(no control reads a dated design record), a produced document validated against that schema, a span "
-          f"projected with its carrier intact — a credential's key four nonblank lines above its value, a "
-          f"multi-line credential the splitter cut in two, and an escaped key whose whole carrier the floor "
-          f"withholds, published through the real writer — every carrier-derived field out through one path and "
-          f"every carrier fixture differentially checked, over every string an emitted row carries and every "
-          f"string field the schema declares, for what the intact carrier does not keep, every refusal the "
-          f"emission tables can state asked of `emit_row` with rows the controls build, the unresolved context "
-          f"entry held to the same property through every carrier kind the splitter handles, this entry point's own "
-          f"report and uncaught failures through the one diagnostic boundary, the host homes as configured rather "
-          f"than as defaulted, a copy-run bound to the owner that produces it, an opaque carrier identity that "
-          f"lets an absolute native "
-          f"path be published, one source selection before every read of the owner's state with a leaf and an "
-          f"ancestor link refused for each read kind, and denying that selection stopping every category of read, "
-          f"the owner's roots protected whether or not this run reads them, a self-test scratch parent chosen by "
-          f"the same rule, the boundary module's own import inside a boundary — the fixed path-free "
-          f"line from both entry points, with `runlib/entry.py` missing and unreadable, as real "
-          f"children of a checkout copy — the checkout protected whatever `--project` declares, a "
-          f"standalone destination that is a run or already holds an inventory refused, the real invocation run as "
-          f"`__main__` against an uncached copy of the checkout leaving that copy unchanged, the cause "
-          f"judged in the entry files' own source with a positive control that removes it, a context that "
-          f"spans two guides "
-          f"and shrinks without its cross-reference, one fragment across two versions with two contexts, the release "
-          f"mapping against the baseline file's own item list, every layer status the table can report, the owner's "
-          f"state unchanged by a whole inventory beside the write its own entry point makes, an output destination "
-          f"overlapping a protected root refused before any write, a planted credential and home path in every "
-          f"personal carrier kind masked in every artifact while the hashes still bind to the raw carrier, a "
-          f"malformed settings file reported incomplete rather than unsupported, and a failed acquisition that "
-          f"still leaves a layer-status artifact)", home=str(pathlib.Path.home()))
     # ---- S8b item 6b: a suite collects its failures and prints them at the end, so an exception
     # leaving it took every line with it — which is how r7 recorded D3 and R12 as SILENT when the
     # cause was an abort rather than a silent rule. `entry.publish_collected` is what every abort
@@ -6130,6 +6122,37 @@ def self_test():
     check("every abort path of this package publishes what the suite collected", not unwired,
           f"{unwired}")
     boundary.SELF_TEST_COLLECTED.remove(("inventory --self-test", failures))
+    reporting.append("the report begins here")
+    report(f"inventory --self-test: {'OK' if not failures else 'FAILED'} ({len(ran)} controls: the splitter's "
+          f"reproduction over the real guides, the unit record and the layer set against the schema the code owns "
+          f"(no control reads a dated design record), a produced document validated against that schema, a span "
+          f"projected with its carrier intact — a credential's key four nonblank lines above its value, a "
+          f"multi-line credential the splitter cut in two, and an escaped key whose whole carrier the floor "
+          f"withholds, published through the real writer — every carrier-derived field out through one path and "
+          f"every carrier fixture differentially checked, over every string an emitted row carries and every "
+          f"string field the schema declares, for what the intact carrier does not keep, every refusal the "
+          f"emission tables can state asked of `emit_row` with rows the controls build, the unresolved context "
+          f"entry held to the same property through every carrier kind the splitter handles, this entry point's own "
+          f"report and uncaught failures through the one diagnostic boundary, the host homes as configured rather "
+          f"than as defaulted, a copy-run bound to the owner that produces it, an opaque carrier identity that "
+          f"lets an absolute native "
+          f"path be published, one source selection before every read of the owner's state with a leaf and an "
+          f"ancestor link refused for each read kind, and denying that selection stopping every category of read, "
+          f"the owner's roots protected whether or not this run reads them, a self-test scratch parent chosen by "
+          f"the same rule, the boundary module's own import inside a boundary — the fixed path-free "
+          f"line from both entry points, with `runlib/entry.py` missing and unreadable, as real "
+          f"children of a checkout copy — the checkout protected whatever `--project` declares, a "
+          f"standalone destination that is a run or already holds an inventory refused, the real invocation run as "
+          f"`__main__` against an uncached copy of the checkout leaving that copy unchanged, the cause "
+          f"judged in the entry files' own source with a positive control that removes it, a context that "
+          f"spans two guides "
+          f"and shrinks without its cross-reference, one fragment across two versions with two contexts, the release "
+          f"mapping against the baseline file's own item list, every layer status the table can report, the owner's "
+          f"state unchanged by a whole inventory beside the write its own entry point makes, an output destination "
+          f"overlapping a protected root refused before any write, a planted credential and home path in every "
+          f"personal carrier kind masked in every artifact while the hashes still bind to the raw carrier, a "
+          f"malformed settings file reported incomplete rather than unsupported, and a failed acquisition that "
+          f"still leaves a layer-status artifact)", home=str(pathlib.Path.home()))
     for failure in failures:
         report(f"inventory --self-test [FAIL] {failure}", home=str(pathlib.Path.home()))
     return 1 if failures else 0

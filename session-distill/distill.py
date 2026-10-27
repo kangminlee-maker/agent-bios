@@ -371,12 +371,19 @@ def main(argv=None):
 def self_test():
     """The golden end to end: declare, run a stub stage, amend, run another, and judge the
     declaration order of the recorded stages from the files on disk."""
+    # Set where this suite begins publishing its report. Past that point a control is not in the
+    # number the summary published, and the summary has already said OK — which is a conclusion
+    # printed before the judging. The helpers below refuse past it rather than trusting placement.
+    reporting = []
     failures, ran = [], []
     # Registered while this suite runs; removed by `report`, which is where this suite reports. An
     # abort between the two publishes what was collected rather than taking it away.
     entry.SELF_TEST_COLLECTED.append(("distill --self-test", failures))
 
     def control(name, ok, detail=""):
+        if reporting:
+            raise RuntimeError(f"CONTROL_AFTER_SUMMARY {name}: this suite has begun publishing its "
+                               f"report, so `control` is not in the count it published")
         # A boolean-style helper given a problem LIST passed on whatever its needle said, because a
         # non-empty list is truthy: three controls in this package read correctly and asked nothing
         # until S8a found them. The signature is enforced here rather than remembered.
@@ -1196,6 +1203,7 @@ def self_test():
         control("a suite starting inside a suite at the depth limit is refused by name",
                 "SELF_TEST_TOO_DEEP" in too_deep, too_deep[:200])
 
+    reporting.append("the report begins here")
     return report(failures, ran)
 
 

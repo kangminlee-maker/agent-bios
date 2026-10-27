@@ -2505,6 +2505,10 @@ def self_test(scratch=None):
         finally:
             shutil.rmtree(scratch, ignore_errors=True)
     from runlib import declare
+    # Set where this suite begins publishing its report. Past that point a control is not in the
+    # number the summary published, and the summary has already said OK — which is a conclusion
+    # printed before the judging. The helpers below refuse past it rather than trusting placement.
+    reporting = []
     failures, ran = [], []
     boundary.SELF_TEST_COLLECTED.append(("dispatch --self-test", failures))
     fake = scratch / "fake_host.py"
@@ -2515,6 +2519,9 @@ def self_test(scratch=None):
     caps = {"tokens": 50_000, "compactions": 2}
 
     def control(name, condition, detail):
+        if reporting:
+            raise RuntimeError(f"CONTROL_AFTER_SUMMARY {name}: this suite has begun publishing its "
+                               f"report, so `control` is not in the count it published")
         # A boolean-style helper given a problem LIST passed on whatever its needle said, because a
         # non-empty list is truthy: three controls in this package read correctly and asked nothing
         # until S8a found them. The signature is enforced here rather than remembered.
@@ -5488,6 +5495,7 @@ def self_test(scratch=None):
             unparted != source and not (set(bound.PART_CODES) & raised_codes(unparted)),
             "the scan still reports the part refusals after their raise is gone")
 
+    reporting.append("the report begins here")
     boundary.SELF_TEST_COLLECTED.remove(("dispatch --self-test", failures))
     for failure in failures:
         print(f"dispatch --self-test [FAIL] {failure}")

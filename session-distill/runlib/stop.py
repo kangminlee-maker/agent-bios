@@ -341,6 +341,10 @@ def self_test():
     # own directory is `sys.path[0]` and the package above it is not importable.
     sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
     from runlib import entry
+    # Set where this suite begins publishing its report. Past that point a control is not in the
+    # number the summary published, and the summary has already said OK — which is a conclusion
+    # printed before the judging. The helpers below refuse past it rather than trusting placement.
+    reporting = []
     failures, ran, spawned = [], [], []
     entry.SELF_TEST_COLLECTED.append(("stop --self-test", failures))
 
@@ -372,6 +376,9 @@ def self_test():
         return record
 
     def control(name, condition, detail):
+        if reporting:
+            raise RuntimeError(f"CONTROL_AFTER_SUMMARY {name}: this suite has begun publishing its "
+                               f"report, so `control` is not in the count it published")
         # A boolean-style helper given a problem LIST passed on whatever its needle said, because a
         # non-empty list is truthy: three controls in this package read correctly and asked nothing
         # until S8a found them. The signature is enforced here rather than remembered.
@@ -677,6 +684,7 @@ def self_test():
             p.wait(timeout=5)
         except subprocess.TimeoutExpired:
             pass
+    reporting.append("the report begins here")
     entry.SELF_TEST_COLLECTED.remove(("stop --self-test", failures))
     for failure in failures:
         print(f"stop --self-test [FAIL] {failure}")
