@@ -3408,13 +3408,17 @@ def self_test():
         blocks = blocks_of(path.name, text)
         check(f"the split reproduces {path.name}", "".join(block[1] for block in blocks) == text, "the concatenation differs")
         check(f"{path.name} yields units", len(blocks) > 1, f"{len(blocks)} block(s)")
+    # The unparsable carrier these three ask about, bound to a name: spelled inside the f-string
+    # below it carried a backslash in the expression part, which only Python 3.12 admits (PEP 701),
+    # and this repository's declared floor is 3.11. The controls are unchanged.
+    broken_source = "def f(:\n  pass\n"
     control("a carrier whose structure the splitter cannot divide",
-            [str(exc) for exc in [_raised(lambda: blocks_of("broken.py", "def f(:\n  pass\n"))]], "broken.py", "SyntaxError")
+            [str(exc) for exc in [_raised(lambda: blocks_of("broken.py", broken_source))]], "broken.py", "SyntaxError")
     control("a supported language that does not parse",
-            [str(_raised(lambda: blocks_of("broken.py", "def f(:\n  pass\n")))], "SyntaxError")
+            [str(_raised(lambda: blocks_of("broken.py", broken_source)))], "SyntaxError")
     check("a parse failure of a supported form is malformed, not unsupported",
-          isinstance(_raised(lambda: blocks_of("broken.py", "def f(:\n  pass\n")), Malformed),
-          f"{type(_raised(lambda: blocks_of('broken.py', 'def f(:\n  pass\n'))).__name__}")
+          isinstance(_raised(lambda: blocks_of("broken.py", broken_source)), Malformed),
+          f"{type(_raised(lambda: blocks_of('broken.py', broken_source))).__name__}")
     control("a carrier the split would lose bytes of", [str(exc) for exc in [_raised(lambda: blocks_of("blank.py", "\n\n"))]],
             "blank.py", "does not reproduce")
 
