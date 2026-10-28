@@ -73,7 +73,7 @@ except BaseException:
 STARTUP_WITHHELD = entry.WITHHELD
 
 try:
-    from runlib import census, coverage, declare, inventory, projection, records, stagelock, views
+    from runlib import census, coverage, declare, inventory, projection, records, sources, stagelock, views
     from runlib.records import Refused
 except BaseException as _startup_exc:   # SystemExit included: `validate` exits at import time
     # The imports used to stand OUTSIDE every boundary this command has: `runlib.validate` exits
@@ -253,16 +253,21 @@ def cmd_inventory(args):
     # record. Outside a run there is no census, and every native layer is `unknown` with that reason.
     run_dir = out_dir if args.run_id else None
 
-    def produce():
+    def produce(zstd=None):
         return inventory.run(repo, state_root, user_root, out_dir, pin=args.pin, native_roots=native,
                              ledger=ledger, commit=(head.stdout.strip() or None), run_dir=run_dir,
-                             declared_state=str(declared_state), declared_user=str(declared_user))
+                             zstd=zstd, declared_state=str(declared_state), declared_user=str(declared_user))
 
     if args.run_id:
         # S2 holds two producers; this is the inventory part, and views owns the other
-        # (records.STAGE_PARTS).
-        with records.run_stage(out_dir, "S2", part="inventory") as stage:
-            manifest = produce()
+        # (records.STAGE_PARTS). The census is its S1 input, declared as `views.run` declares it, so
+        # a census changed after S1 recorded it is refused by name instead of read (#11).
+        with records.run_stage(out_dir, "S2", [{"artifact": inventory.CENSUS, "producer_stage": "S1"}],
+                               part="inventory") as stage:
+            # A compressed transcript is read with the decoder the run DECLARES, taken the way
+            # `views.run` takes it (views.py ~1179): none was passed, so a zstd rollout could not be
+            # read here at all (#11). Read inside the stage, which has judged the declaration.
+            manifest = produce(sources.declared(records.read_json(records.run_json_path(out_dir))).get("zstd"))
             for reference in inventory.REFERENCES:
                 stage.output(f"inventory/{reference}.json")
             stage.output("inventory/manifest.json")
@@ -850,6 +855,86 @@ def self_test():
         code, err = cli("inventory", "--to", str(held_elsewhere), "--no-state")
         control("and a destination that already holds an inventory",
                 code == 1 and "INVENTORY_PRESENT" in err, f"{code} {err}")
+        # ---- #11: the inventory part through the driver. Its census is an S1 input, so a census
+        # changed after S1 recorded it is refused by name, and a compressed transcript is read with the
+        # decoder the run declares. Both used to be missing: the part declared no input and was handed
+        # no decoder, so a zstd rollout was unreadable to it and a moved census was read anyway.
+        inventory_run = out / "r-inventory"
+        code, err = cli("declare", "--run-id", "r-inventory", "--from", str(out / "declaration.json"))
+        control("a fixture run for the inventory part is declared", code == 0, f"{code}")
+        rollouts = scratch / "inventory-transcripts"
+        rollouts.mkdir()
+        block_marker = "the block a compressed rollout carried"
+        plain_rollout = rollouts / "rollout-2026-10-10T09-00-00-cccc.jsonl"
+        plain_rollout.write_text(json.dumps(
+            {"type": "session_meta", "timestamp": "2026-10-10T09:00:00+00:00",
+             "payload": {"id": "cccc", "cwd": str(scratch),
+                         "base_instructions": {"text": f"# Codex\n\n- {block_marker}\n"}}})
+            + "\n", encoding="utf-8")
+        plain_bytes = plain_rollout.read_bytes()
+        compressed_rollout = rollouts / "rollout-2026-10-10T09-00-00-cccc.jsonl.zst"
+
+        def zstd_frame(data):
+            """TEST ONLY, never called by a product path: `data` as one zstd frame (RFC 8878 §3.1.1)
+            holding raw, uncompressed blocks only, split into blocks of at most 128 KB. A real zstd
+            file, written without starting a program, so this suite runs no program dispatch.py has
+            not admitted; the declared decoder still reads it, through `sources.checked_zstd`."""
+            size = len(data)
+            header = (bytes([0x20]) + size.to_bytes(1, "little") if size < 256 else
+                      bytes([0x60]) + (size - 256).to_bytes(2, "little") if size < 65792 else
+                      bytes([0xA0]) + size.to_bytes(4, "little"))
+            chunks = [data[at:at + 131072] for at in range(0, size, 131072)] or [b""]
+            return (0xFD2FB528).to_bytes(4, "little") + header + b"".join(
+                ((len(chunk) << 3) | (index == len(chunks) - 1)).to_bytes(3, "little") + chunk
+                for index, chunk in enumerate(chunks))
+
+        compressed_rollout.write_bytes(zstd_frame(plain_bytes))
+        plain_rollout.unlink()
+        zstd = sources.declared(declare.fixture()).get("zstd")
+
+        def read_back(path):
+            """What the declared decoder makes of `path`, or None: a machine without it fails the
+            controls that need it by name, and none of them is skipped."""
+            try:
+                return b"".join(sources.read_lines(path, zstd))
+            except Exception:
+                return None
+
+        # The frame itself, positively: without this, a broken frame and an undelivered decoder would
+        # both look like a rollout with no event. Every size branch of the frame is read back - the
+        # fixture rollout, a two-byte content size, and a payload split into three blocks.
+        framed = {"the fixture rollout": (compressed_rollout, plain_bytes)}
+        for label, payload in (("a two-byte content size", b"y" * 999 + b"\n"),
+                               ("three blocks", b"x" * 299_999 + b"\n")):
+            framed[label] = (rollouts / f"frame-{len(payload)}.jsonl.zst", payload)
+            framed[label][0].write_bytes(zstd_frame(payload))
+        back = {label: read_back(path) == payload for label, (path, payload) in framed.items()}
+        control("the test-only zstd frame is read back byte for byte by the declared decoder",
+                all(back.values()), f"{back}")
+        bound = records.sha256_bytes(plain_bytes)
+        inventory_census = {"transcripts": [{
+            "host": "codex", "id": "cccc", "source": "codex_sessions", "path": str(compressed_rollout),
+            "status": "eligible", "parent": None, "sha256": bound,
+            "versions": [{"sha": bound, "record_count": 1, "prefix_sha": bound}]}]}
+        with records.run_stage(inventory_run, "S1") as recorded:
+            records.write_text(inventory_run, inventory_run / "census.json", json.dumps(inventory_census))
+            recorded.output("census.json")
+        code, err = cli("inventory", "--run-id", "r-inventory", "--no-state")
+        control("an ordinary run of the inventory part through the driver succeeds", code == 0, f"{code}")
+        current_path = inventory_run / "inventory" / "current.json"
+        current_units = (json.loads(current_path.read_text(encoding="utf-8"))["units"]
+                         if code == 0 and current_path.is_file() else [])
+        control("a zstd-compressed Codex rollout yields its event, by the decoded block's own text",
+                any(block_marker in unit["text"] for unit in current_units if unit["layer"] == "native_global"),
+                f"units={len(current_units)}")
+        census_bytes = (inventory_run / "census.json").read_bytes()
+        (inventory_run / "census.json").write_bytes(census_bytes.replace(b'"cccc"', b'"dddd"'))
+        code, err = cli("inventory", "--run-id", "r-inventory", "--no-state")
+        control("a census changed after S1 recorded it is refused by name",
+                code == 1 and "INPUT_INVALID S1" in err and "census.json is not the output S1 recorded" in err,
+                f"{code}")
+        (inventory_run / "census.json").write_bytes(census_bytes)
+
         # ---- GC#6: what the CLI prints crosses the disclosure boundary. `parse_args` and the
         # refusal printer both stood outside every boundary this run has.
         secret_argument = "api_key=shortpass"

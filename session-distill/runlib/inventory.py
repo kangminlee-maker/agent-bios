@@ -47,6 +47,7 @@ import hashlib
 import importlib.util
 import io
 import json
+import math
 import os
 import pathlib
 import re
@@ -443,10 +444,13 @@ def structured(path, text, form):
 
 def blocks_of(path, text, form=None):
     """The blocks of one carrier, by its declared form. The concatenation has to reproduce the
-    carrier byte for byte, or the structure is one this producer does not support."""
+    carrier byte for byte, or the structure is one this producer does not support.
+
+    The form is judged BEFORE the empty carrier returns: a form outside the closed set is a caller's
+    error whatever the text, and `md` reached the plain splitter for every transcript carrier (#13)."""
+    form = declared_form(form or form_of(path))
     if not text:
         return []
-    form = form or form_of(path)
     structured(path, text, form)
     try:
         if form == "markdown":
@@ -485,6 +489,18 @@ def form_of(path):
     return "plain"
 
 
+# The whole vocabulary of a carrier's form: the forms `blocks_of` splits and `structured` proves.
+FORMS = ("markdown", "python", "json", "toml", "plain")
+
+
+def declared_form(form):
+    """`form` when it is one of `FORMS`, or a refusal by name. A form outside the set is a code
+    defect, not a carrier property, so the refusal names the rule and nothing the caller passed."""
+    if not (isinstance(form, str) and form in FORMS):
+        raise Refused(f"CARRIER_FORM_UNDECLARED: a carrier's form is one of {list(FORMS)}")
+    return form
+
+
 def carrier_identity(layer, path, item_ref, package_id):
     """The canonical identity of a carrier — its package, the item that supplied it and the path it
     is delivered at — as a stable OPAQUE id.
@@ -511,7 +527,7 @@ def carrier(layer, path, text, item_ref=None, package_id=None, form=None, proven
     `output.json`, and reading its structure off the path's suffix made it a malformed settings
     file (GA#5)."""
     return {"layer": layer, "path": path, "item_ref": item_ref, "package_id": package_id,
-            "text": text, "version_sha256": sha256_text(text), "form": form or form_of(path),
+            "text": text, "version_sha256": sha256_text(text), "form": declared_form(form or form_of(path)),
             "carrier_id": carrier_identity(layer, path, item_ref, package_id),
             "provenance": provenance or {}}
 
@@ -1887,14 +1903,28 @@ def freeze(sources, destination, boundary=None):
     input passes `linked_above` first and every directory is copied through `walk_source`, so the
     bytes that land here are exactly the bytes the input manifest says were read — a link is omitted
     by name rather than followed, at the input's own path and at every component of it below the
-    declared root `boundary` (GB#8, GC#7)."""
+    declared root `boundary` (GB#8, GC#7).
+
+    Each omission is a ROW, `{path, outcome, reason, code, message}`, because two different facts
+    used to share one string: an input that is not there (`absent`) and one that is there and was not
+    read (`failed`: a link, a source the selection does not admit, a read that failed). Downstream they
+    mean different things — an optional journal that is absent is an empty answer, one that failed is
+    no answer — and the caller decides which by the input's class (#16). `omission_line` renders a
+    row the way this function used to report it."""
     destination = pathlib.Path(destination)
     missing = []
+
+    def omitted_row(path, outcome, reason, exc=None):
+        missing.append({"path": path, "outcome": outcome, "reason": reason,
+                        "code": refusal_code(exc) if exc is not None else None,
+                        "message": None if exc is None else (str(exc) if isinstance(exc, Refused)
+                                                            else projected_message(exc))})
+
     for source, relative in sources:
         source = pathlib.Path(source).expanduser()
         target = confined(destination, relative)
         if linked_above(source, boundary) is not None:
-            missing.append(f"{relative}: symlink")
+            omitted_row(relative, "failed", "symlink")
             continue
         if source.is_dir():
             readable, omitted = walk_source(source, boundary)
@@ -1903,25 +1933,53 @@ def freeze(sources, destination, boundary=None):
                 try:
                     admitted = source_selection(path, boundary or source)
                 except Refused as exc:
-                    missing.append(f"{relative}/{inner}: not admitted: {exc}")
+                    omitted_row(f"{relative}/{inner}", "failed", "not_admitted", exc)
                     continue
                 inner_target.parent.mkdir(parents=True, exist_ok=True)
                 try:
                     inner_target.write_bytes(admitted.read_bytes())
                 except OSError as exc:
-                    missing.append(f"{relative}/{inner}: {projected_message(exc)}")
-            missing += [f"{relative}/{row['path']}: {row['reason']}" for row in omitted]
+                    omitted_row(f"{relative}/{inner}", "failed", "unreadable", exc)
+            for row in omitted:
+                omitted_row(f"{relative}/{row['path']}", "failed", row["reason"])
         elif source.is_file():
             try:
                 admitted = source_selection(source, boundary)
             except Refused as exc:
-                missing.append(f"{relative}: not admitted: {exc}")
+                omitted_row(relative, "failed", "not_admitted", exc)
                 continue
             target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_bytes(admitted.read_bytes())
+            try:
+                target.write_bytes(admitted.read_bytes())
+            except OSError as exc:
+                omitted_row(relative, "failed", "unreadable", exc)
         else:
-            missing.append(relative)
+            omitted_row(relative, "absent", "absent")
     return missing
+
+
+def refusal_code(exc):
+    """The first word of this module's own refusal — `SOURCE_LINKED`, `PIN_ABSENT` — or the
+    exception's type name. A fixed vocabulary either way: never the message, which names paths."""
+    if isinstance(exc, Refused):
+        word = str(exc).split(" ", 1)[0].rstrip(":")
+        return word if re.fullmatch(r"[A-Z][A-Z0-9_]*", word) else "REFUSED"
+    return type(exc).__name__
+
+
+def omission_line(row):
+    """One `freeze` omission as the line it was reported as before it became a row."""
+    if row["outcome"] == "absent":
+        return row["path"]
+    if row["reason"] == "not_admitted":
+        return f"{row['path']}: not admitted: {row['message']}"
+    if row["reason"] == "unreadable":
+        return f"{row['path']}: {row['message']}"
+    return f"{row['path']}: {row['reason']}"
+
+
+def omission_lines(rows):
+    return [omission_line(row) for row in rows]
 
 
 def store_module(repo):
@@ -2098,8 +2156,33 @@ UNKNOWN_REASONS = {
     "unpinned": "unknown: no pin, so nothing says what this session was selected to receive",
     "ledger_history": "unknown: the ledger records the present, with no per-session history",
     "codex_identity": "unknown: Codex records the loaded text, not the file it was loaded from",
+    "unbound": "unknown: the census holds no binding for this transcript, so it is not opened",
+    "binding_invalid": ("unknown: the census binding for this transcript is not a hash with a line count, "
+                        "so it is not opened"),
+    "input_absent": "unknown: a required input is absent from the owner's state",
+    "input_failed": "unknown: an input of the owner's state could not be acquired",
+    "input_unread": "unknown: this run was given no root to read the input from",
 }
 SAFE_LABEL = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$")
+SHA256_HEX = re.compile(r"^[0-9a-f]{64}$")
+
+# The inputs a producer reads from the owner's state, and what an ABSENCE of each one means (#16).
+# `optional`: the absence is an answer — a learning journal that is not there is complete and empty,
+# and so is a personal state the owner never wrote (the store reads both that way). `required`: the
+# producer cannot answer without it, so the absence is a named unknown; a pin, its snapshot and a
+# baseline are of this kind, and so is the runtime state, because without it nothing names the
+# installed baseline the current overlays resolve against. A FAILED acquisition — a link, an
+# unreadable file, a source the selection does not admit — is unknown whatever the class: the input
+# is there and was not read. Every producer declares the kinds it reads on its `LAYERS` entry.
+INPUT_CLASSES = {
+    "runtime_state": "required",
+    "user_state": "optional",
+    "learning_journals": "optional",
+    "pin": "required",
+    "snapshot": "required",
+    "installed_baseline": "required",
+    "release_baseline": "required",
+}
 
 
 def safe_label(kind, value):
@@ -2222,6 +2305,28 @@ def self_test_scratch(prefix="wp07-self-test-", environ=None):
         SELF_TEST_DEPTH[0] -= 1
 
 
+# The census reasons and entrypoints that say a row's own thread is a child (census.py 221-245,
+# 333, and `index_only`'s `excluded`/`subagent`).
+SUBAGENT_REASONS = frozenset(("child_without_parent", "orphan_child", "subagent"))
+SUBAGENT_ENTRYPOINTS = frozenset(("sidechain", "subagent"))
+
+
+def transcript_kind(entry):
+    """`subagent` or `main` for a census row, from its LINEAGE and never from its processing status.
+
+    A child whose parent the census cleared (`orphan_child`) or never found (`child_without_parent`)
+    is still a subagent: the row stops being `child_of` (census.py ~333) without its thread becoming
+    a main session. A Codex child can keep `entrypoint='cli'` (lineage.py 164-166, census.py
+    240-241), so the entrypoint alone never makes a row main; what makes it a child is the status or
+    the reason the census gave it."""
+    reason, entrypoint = entry.get("reason"), entry.get("entrypoint")
+    if entry.get("status") == "child_of" \
+            or (isinstance(reason, str) and reason in SUBAGENT_REASONS) \
+            or (isinstance(entrypoint, str) and entrypoint in SUBAGENT_ENTRYPOINTS):
+        return "subagent"
+    return "main"
+
+
 def census_entries(run_dir):
     """The transcripts this run's census read, one row per session, as the inventory reads them.
 
@@ -2235,90 +2340,186 @@ def census_entries(run_dir):
     document = json.loads(path.read_text(encoding="utf-8"))
     rows = []
     for entry in document.get("transcripts") or []:
-        version = (entry.get("versions") or [{}])[-1]
+        versions = entry.get("versions")
+        version = versions[-1] if isinstance(versions, list) and versions and isinstance(versions[-1], dict) else {}
+        pin = entry.get("pin") if isinstance(entry.get("pin"), dict) else {}
         rows.append({"host": entry.get("host"), "id": entry.get("id"), "path": entry.get("path"),
-                     "kind": "subagent" if entry.get("status") == "child_of" else "main",
+                     "kind": transcript_kind(entry), "status": entry.get("status"),
+                     "reason": entry.get("reason"), "entrypoint": entry.get("entrypoint"),
                      "parent": entry.get("parent"), "sha256": entry.get("sha256"),
                      "prefix_sha": version.get("prefix_sha"), "record_count": version.get("record_count"),
-                     "pin": (entry.get("pin") or {}).get("content_ref")})
+                     "pin": pin.get("content_ref")})
     return rows
 
 
+def binding_of(entry):
+    """`(whole, prefix)`: the census row's whole-file hash, and its `(prefix_sha, record_count)` —
+    each None when the row does not carry it, and each validated ON ITS OWN.
+
+    A transcript is opened only under a binding (#9). The census acquires hashes only for the rows
+    it first classified `eligible` (census.py 349-360), so a child, an excluded row and an
+    `unknown_provenance` one arrive with `sha256: None` and no version; comparing only `if sha256`
+    read such a row anyway and bound it to nothing. A row with neither binding is `unbound` and its
+    file is never opened. A binding that is there but malformed refuses as THAT binding — it never
+    falls through to no comparison at all. A zero-line prefix is a prefix like any other."""
+    label = f"{entry.get('host')}:{entry.get('id')}"
+    whole = entry.get("sha256")
+    prefix, count = entry.get("prefix_sha"), entry.get("record_count")
+    if whole is None and prefix is None and count is None:
+        raise Unacquired(f"{UNKNOWN_REASONS['unbound']} ({label})")
+    if whole is not None and not (isinstance(whole, str) and SHA256_HEX.match(whole)):
+        raise Unacquired(f"{UNKNOWN_REASONS['binding_invalid']} ({label}: the whole-file hash)")
+    if (prefix, count) != (None, None) and not (isinstance(prefix, str) and SHA256_HEX.match(prefix)
+                                                  and type(count) is int and count >= 0):
+        raise Unacquired(f"{UNKNOWN_REASONS['binding_invalid']} ({label}: the complete-line prefix)")
+    return whole, (None if prefix is None else (prefix, count))
+
+
 def transcript_records(entry, zstd=None):
-    """`(records, which bytes)` of one transcript, read through the S1 reader and bound to its census
-    record.
+    """One transcript, read through the S1 reader and bound to its census record:
+    `{records: [(line, record)], undecodable: [(line, category)], lines, which}`.
+
+    `line` is the record's 1-based number among the file's COMPLETE lines — the coordinate the views
+    stage uses for a record's `line`, so a turn and an event of one transcript compare directly. It is
+    never the index among decoded objects: a malformed or non-object line in front of an event
+    shifted that index, and cutting a prefix by it let appended records back in (#10). A line that
+    does not decode is kept as a fixed category at its position (M5), because a dropped line is a
+    record nobody can say anything about — not even that it was there.
 
     A file whose bytes no longer hash to that record is NOT re-read and not repaired: the session's
     reference points go `unknown` with that reason, because a silent re-read answers about a
     different file than every other stage of the run judged. A transcript the host has grown since —
     append-only, with the census's own complete-line prefix intact — is read up to the census's
     boundary and says so."""
+    whole_sha, prefix = binding_of(entry)
+    label = f"{entry.get('host')}:{entry.get('id')}"
     if not entry.get("path"):
-        raise Unacquired(f"{UNKNOWN_REASONS['no_record']} ({entry.get('host')}:{entry.get('id')}): the census row has no path")
-    whole, prefix, count, read, tail = hashlib.sha256(), None, 0, [], b""
+        raise Unacquired(f"{UNKNOWN_REASONS['no_record']} ({label}): the census row has no path")
+    count = prefix[1] if prefix else None
+    digest = hashlib.sha256()
+    prefix_seen = digest.hexdigest() if count == 0 else None
+    line, read, undecodable, tail = 0, [], [], b""
     try:
         for raw in sources.read_lines(entry["path"], zstd):
             if not raw.endswith(b"\n"):
                 tail = raw
                 break
-            whole.update(raw)
-            count += 1
-            if entry.get("record_count") == count:
-                prefix = whole.hexdigest()
+            digest.update(raw)
+            line += 1
+            if count is not None and line == count:
+                prefix_seen = digest.hexdigest()
             try:
                 record = json.loads(raw)
-            except ValueError:
-                record = None
+            except (ValueError, RecursionError):
+                undecodable.append((line, "not_json"))
+                continue
             if isinstance(record, dict):
-                read.append(record)
+                read.append((line, record))
+            else:
+                undecodable.append((line, "not_object"))
     except sources.Unreadable as exc:
         raise Unacquired(f"{UNKNOWN_REASONS['unreadable']}: {projected_message(exc)}") from exc
-    whole.update(tail)
-    sha = whole.hexdigest()
-    if entry.get("sha256") and sha != entry["sha256"]:
-        if not (prefix and entry.get("prefix_sha") and prefix == entry["prefix_sha"]):
-            raise Unacquired(f"{UNKNOWN_REASONS['changed']} ({sha[:12]} now, {str(entry['sha256'])[:12]} on record)")
-        return read[:entry["record_count"]], "the census record's complete lines, the host having appended since"
-    return read, "the bytes the census read"
+    digest.update(tail)
+    sha = digest.hexdigest()
+    if whole_sha is not None and sha == whole_sha:
+        return {"records": read, "undecodable": undecodable, "lines": line, "which": "the bytes the census read"}
+    if prefix is not None and prefix_seen == prefix[0]:
+        return {"records": [(n, record) for n, record in read if n <= count],
+                "undecodable": [(n, category) for n, category in undecodable if n <= count],
+                "lines": count,
+                "which": "the census record's complete lines" + (", the host having appended since"
+                                                                 if whole_sha is not None else "")}
+    on_record = whole_sha if whole_sha is not None else prefix[0]
+    raise Unacquired(f"{UNKNOWN_REASONS['changed']} ({sha[:12]} now, {on_record[:12]} on record)")
 
 
-def _instant(text):
-    """A record's timestamp as an orderable value; None when it has none."""
-    if not isinstance(text, str):
+EPOCH = datetime.datetime(1970, 1, 1, tzinfo=datetime.timezone.utc)
+
+
+def _instant(value):
+    """A record's or a pin's time as an AWARE instant in UTC, or None (#5).
+
+    Two shapes are real: an ISO string carrying `Z` or an offset, which both hosts write, and an
+    epoch number in seconds, which a pin's `created` is (`compose/instructions_session.py` writes
+    `time.time()`). A string with no zone is UNSUPPORTED rather than read as UTC the way
+    `census.parse` reads it: its zone is not recorded, inside one transcript the record's line already
+    decides the order, and the one thing a guessed zone would buy is the order of two transcripts —
+    which is exactly where a wrong guess hands one session's answer to another. Anything else is
+    None too, and no shape raises: a naive instant beside an aware one used to raise `TypeError` in
+    the comparisons and take the whole run with it."""
+    if isinstance(value, datetime.datetime):
+        return value.astimezone(datetime.timezone.utc) if value.tzinfo else None
+    if type(value) in (int, float):
+        if not math.isfinite(value):
+            return None
+        try:
+            return datetime.datetime.fromtimestamp(value, tz=datetime.timezone.utc)
+        except (OverflowError, OSError, ValueError):
+            return None
+    if not isinstance(value, str):
         return None
     try:
-        return datetime.datetime.fromisoformat(text.replace("Z", "+00:00"))
+        when = datetime.datetime.fromisoformat(value.replace("Z", "+00:00"))
     except ValueError:
         return None
+    return when.astimezone(datetime.timezone.utc) if when.tzinfo else None
 
 
 def _timestamp(record):
+    """The time a record carries, in the shape it carries it — a string or a number, never a bool."""
     for key in ("timestamp", "ts", "time"):
-        if isinstance(record.get(key), str):
-            return record[key]
+        value = record.get(key)
+        if isinstance(value, str) or type(value) in (int, float):
+            return value
     payload = record.get("payload")
-    if isinstance(payload, dict) and isinstance(payload.get("timestamp"), str):
-        return payload["timestamp"]
+    if isinstance(payload, dict):
+        value = payload.get("timestamp")
+        if isinstance(value, str) or type(value) in (int, float):
+            return value
     return None
 
 
-def _located(record, delivered):
+def _located(record, delivered, damage=None, line=None):
     """`(where, how)` the delivered body sits in this record, or None.
 
     Located by the pin's snapshot text and its hash: the host's field is a LARGER string that holds
     the body (measured 2026-10-23: 23 of 23 recorded sessions, none of them field-exact), so an
-    equality test over the field would answer "absent" about a body that is there."""
+    equality test over the field would answer "absent" about a body that is there.
+
+    Two sources are admitted, each by its own discriminator (M3): an ATTACHMENT record's
+    `attachment.systemPrompt[]` — the same test views.py uses for an attachment — and a request-shape
+    record's `shape.system[].text`. A `systemPrompt` on any other record type is a lookalike, not a
+    delivery. A field of either source that is not the shape it should be is counted in `damage` by a
+    fixed category and the record's line, never by its content, and never raises (M2)."""
     if not delivered:
         return None
     places = []
-    attachment = record.get("attachment") if isinstance(record.get("attachment"), dict) else {}
-    for n, text in enumerate(attachment.get("systemPrompt") or []):
-        if isinstance(text, str):
-            places.append(("attachment.systemPrompt[]", text))
-    shape = record.get("shape") if isinstance(record.get("shape"), dict) else {}
-    for block in shape.get("system") or []:
-        if isinstance(block, dict) and isinstance(block.get("text"), str):
-            places.append(("shape.system[].text", block["text"]))
+
+    def harmed(category, ordinal=None):
+        if damage is not None:
+            damage.append({"line": line, "category": category, **({} if ordinal is None else {"ordinal": ordinal})})
+
+    if record.get("type") == "attachment" and isinstance(record.get("attachment"), dict) \
+            and "systemPrompt" in record["attachment"]:
+        prompts = record["attachment"]["systemPrompt"]
+        if not isinstance(prompts, list):
+            harmed("locator_unusable")
+        else:
+            for ordinal, text in enumerate(prompts):
+                if isinstance(text, str):
+                    places.append(("attachment.systemPrompt[]", text))
+                else:
+                    harmed("locator_element_rejected", ordinal)
+    if isinstance(record.get("shape"), dict) and "system" in record["shape"]:
+        blocks = record["shape"]["system"]
+        if not isinstance(blocks, list):
+            harmed("locator_unusable")
+        else:
+            for ordinal, block in enumerate(blocks):
+                if isinstance(block, dict) and isinstance(block.get("text"), str):
+                    places.append(("shape.system[].text", block["text"]))
+                else:
+                    harmed("locator_element_rejected", ordinal)
     for where, text in places:
         if text == delivered:
             return where, "the field is the delivered body"
@@ -2334,39 +2535,116 @@ def _normalised(text):
     return "\n".join(line.rstrip() for line in str(text).replace("\r\n", "\n").replace("\r", "\n").split("\n")).strip()
 
 
+# The member `type`s an `instructions` attachment admits, each the native layer the host itself
+# distinguishes. A member of any other type is REJECTED and counted, never given layer None: a None
+# layer dropped it from every layer at once, and the event read complete (M2, Fable M-b).
+ADMITTED_MEMBER_TYPES = frozenset(ATTACHMENT_LAYER)
+
+
+def member_problem(member):
+    """The fixed category one `files[]` member is rejected under, or None when it is usable. The
+    member's own values are never part of the answer: a type string is host text (r5 F0)."""
+    if not isinstance(member, dict):
+        return "member_not_object"
+    kind = member.get("type")
+    if not (isinstance(kind, str) and kind in ADMITTED_MEMBER_TYPES):
+        return "member_type_unmapped"
+    if not isinstance(member.get("path"), str):
+        return "member_path_invalid"
+    if not isinstance(member.get("content"), str):
+        return "member_content_invalid"
+    return None
+
+
+def record_owner(entry, record):
+    """`(session, transcript kind)` a Claude record belongs to.
+
+    lineage.py 102-105: inline sidechain records occur INSIDE ordinary main files, and such a file is
+    not thereby a child. A record carrying `isSidechain: true` or an `agentId` in a main row is
+    therefore that sidechain's, never the main session's — it does not answer for the main session
+    and it never feeds `current` (Fable M-a). In a subagent row every record is the row's own."""
+    session = f"{entry.get('host')}:{entry.get('id')}"
+    if entry.get("kind") != "main":
+        return session, entry.get("kind")
+    agent = record.get("agentId")
+    if record.get("isSidechain") is True or agent not in (None, ""):
+        name = agent if isinstance(agent, str) and SAFE_LABEL.match(agent) else "unnamed"
+        return f"{session}#sidechain:{name}", "subagent"
+    return session, "main"
+
+
 def injection_events(records, entry, delivered=None):
-    """The injection events one transcript records, in order (the 1548 amendment §1).
+    """`(events, damage, inherited)`: the injection events one transcript records, in line order (the
+    1548 amendment §1), the injection records it could not use, and the records that carry another
+    session's start (M10).
 
     An event is per INJECTION, not per session: the same session is injected again after a compaction
     and the second body is not always the first (measured 2026-10-23: 22 of 84 recorded file entries
     differed from the first). A layer the host does not distinguish stays one carrier — Codex records
-    `base_instructions` as one merged block, so no global/project split is derived from it."""
-    host, events = entry.get("host"), []
-    for n, record in enumerate(records):
+    `base_instructions` as one merged block, so no global/project split is derived from it.
+
+    Each source is admitted by its own discriminator (M3): a Claude `instructions` attachment only on a
+    record of type `attachment` whose `attachment` is an object, as views.py reads one; the Codex
+    block only on a `session_meta` record whose payload is an object, as lineage.py does. Damage is
+    told apart by level (M2): a rejected MEMBER is counted on its event, which keeps the members it
+    could use; an unusable CONTAINER is a `damage` row at its line, with no event. Every category is a
+    fixed word and every location a number — host text, the type string included, is never echoed.
+
+    A Codex rollout's own block is the `session_meta` whose `payload.id` is the rollout's own id, the
+    census row's (M10). A subagent or fork rollout also carries its parent's `session_meta`, with the
+    parent's id and the same block text (measured 2026-10-28: 333 of 1,334 rollouts): that record is
+    not an injection into this session. It is an `inherited` row — `another_session_id`, or
+    `no_session_id` when the payload names none — and never an event."""
+    host, events, damage, inherited = entry.get("host"), [], [], []
+    for line, record in records:
         at = _timestamp(record)
         if host == "claude":
-            attachment = record.get("attachment") if isinstance(record.get("attachment"), dict) else {}
-            if attachment.get("type") == "instructions":
-                files = [{"layer": ATTACHMENT_LAYER.get(member.get("type")), "type": member.get("type"),
-                          "path": member.get("path"), "text": member.get("content")}
-                         for member in attachment.get("files") or []
-                         if isinstance(member, dict) and isinstance(member.get("content"), str)]
-                if files:
-                    events.append({"kind": "native", "host": host, "at": at, "n": n, "files": files,
-                                   "session": f"{host}:{entry.get('id')}", "transcript": entry.get("kind"),
-                                   "scope": record.get("cwd") if isinstance(record.get("cwd"), str) else None,
-                                   "where": "attachment.files[] by type"})
-            found = _located(record, delivered)
+            session, transcript = record_owner(entry, record)
+            attachment = record.get("attachment")
+            if record.get("type") == "attachment" and isinstance(attachment, dict) \
+                    and attachment.get("type") == "instructions":
+                files = attachment.get("files")
+                if not isinstance(files, list):
+                    damage.append({"line": line, "category": "container_unusable"})
+                else:
+                    members, rejected = [], []
+                    for ordinal, member in enumerate(files):
+                        problem = member_problem(member)
+                        if problem:
+                            rejected.append({"ordinal": ordinal, "category": problem})
+                            continue
+                        members.append({"layer": ATTACHMENT_LAYER[member["type"]], "type": member["type"],
+                                        "path": member["path"], "text": member["content"], "ordinal": ordinal})
+                    if members or rejected:
+                        events.append({"kind": "native", "host": host, "at": at, "n": line, "files": members,
+                                       "rejected": rejected,
+                                       "unmapped": any(row["category"] == "member_type_unmapped" for row in rejected),
+                                       "session": session, "transcript": transcript,
+                                       "scope": record.get("cwd") if isinstance(record.get("cwd"), str) else None,
+                                       "where": "attachment.files[] by type"})
+            found = _located(record, delivered, damage, line)
             if found:
-                events.append({"kind": "session_injection", "host": host, "at": at, "n": n,
-                               "session": f"{host}:{entry.get('id')}", "transcript": entry.get("kind"),
+                events.append({"kind": "session_injection", "host": host, "at": at, "n": line,
+                               "session": session, "transcript": transcript,
                                "where": found[0], "how": found[1]})
         elif host == "codex":
-            payload = record.get("payload") if isinstance(record.get("payload"), dict) else {}
-            base = payload.get("base_instructions") if isinstance(payload.get("base_instructions"), dict) else None
-            text = (base or {}).get("text") if base else payload.get("base_instructions")
-            if isinstance(text, str) and text.strip():
-                events.append({"kind": "native", "host": host, "at": at, "n": n,
+            payload = record.get("payload")
+            if record.get("type") != "session_meta" or not isinstance(payload, dict):
+                continue
+            if not isinstance(payload.get("id"), str) or payload["id"] != entry.get("id"):
+                inherited.append({"line": line, "category": "another_session_id" if isinstance(payload.get("id"), str)
+                                  else "no_session_id"})
+                continue
+            if payload.get("base_instructions") is None:
+                continue
+            base = payload["base_instructions"]
+            text = base if isinstance(base, str) else base.get("text") if isinstance(base, dict) else None
+            if not isinstance(text, str):
+                damage.append({"line": line, "category": "container_unusable"})
+                continue
+            if text.strip():
+                events.append({"kind": "native", "host": host, "at": at, "n": line, "rejected": [],
+                               "unmapped": False,
                                "session": f"{host}:{entry.get('id')}", "transcript": entry.get("kind"),
                                "scope": (payload.get("cwd") if isinstance(payload.get("cwd"), str) else None),
                                "where": "session_meta.payload.base_instructions",
@@ -2376,7 +2654,7 @@ def injection_events(records, entry, delivered=None):
                                "files": [{"layer": "native_global", "type": "base_instructions",
                                           "path": "codex:base_instructions", "text": text,
                                           "undivided": True}]})
-    return events
+    return events, damage, inherited
 
 
 def event_in_force(events, when, kind="native"):
@@ -2384,7 +2662,7 @@ def event_in_force(events, when, kind="native"):
 
     A turn before every recorded event has an unknown reference point; a later event never answers
     for an earlier turn."""
-    moment = _instant(when) if not isinstance(when, datetime.datetime) else when
+    moment = _instant(when)
     best = None
     for event in events:
         if event["kind"] != kind:
@@ -2394,7 +2672,7 @@ def event_in_force(events, when, kind="native"):
             continue
         if moment is not None and at is None:
             continue
-        if best is None or (_instant(best.get("at")) or _instant("1970-01-01T00:00:00+00:00")) <= (at or _instant("1970-01-01T00:00:00+00:00")):
+        if best is None or (_instant(best.get("at")) or EPOCH) <= (at or EPOCH):
             best = event
     return best
 
@@ -2423,7 +2701,11 @@ def current_sets(events):
 
 
 def event_carriers(layer, event, reference):
-    """One event's files for one layer, as carriers, each carrying when and from whom it came."""
+    """One event's files for one layer, as carriers, each carrying when and from whom it came.
+
+    A Claude member's form is what its recorded path says it is, and the Codex block is markdown: the
+    form `md` this used to pass is in no splitter's vocabulary, so every transcript carrier was split
+    as plain text, with no heading and no operative context under one (#13)."""
     rows = []
     for member in event["files"]:
         if member["layer"] != layer:
@@ -2437,28 +2719,42 @@ def event_carriers(layer, event, reference):
             # loaded text is known (§2, design §6.3's Native layer row).
             provenance["identity"] = UNKNOWN_REASONS["codex_identity"]
         rows.append(carrier(layer, f"{event['host']}:{member.get('type')}:{member.get('path')}",
-                            member["text"], provenance=provenance, form="md"))
+                            member["text"], provenance=provenance,
+                            form="markdown" if member.get("undivided") else form_of(member["path"])))
     return rows
 
 
 def transcript_events(run_dir, delivered=None, zstd=None):
-    """Every injection event the run's census-bound transcripts record, with the rows that failed.
+    """`(events, unknown, findings)`: every injection event the run's census-bound transcripts
+    record, the sessions that are a named unknown, and what reading them found unusable.
 
-    A session whose bytes moved, or that records no injection, is a NAMED unknown here rather than a
-    silence: the reasons are what every layer status below is built from."""
+    A session whose bytes moved, that has no binding, or that records no injection, is a NAMED
+    unknown here rather than a silence: the reasons are what every layer status below is built from.
+    Reading and decoding run inside one handler, so a transcript that cannot be processed is that
+    session's unknown and every other session still processes (M2). `findings` holds each
+    undecodable line, each unusable injection container, each rejected member and each inherited
+    `session_meta` (M10), as a session, a line, a fixed category and an ordinal — nothing a host wrote."""
     entries = census_entries(run_dir)
     events, unknown = [], []
+    findings = {"undecodable": [], "damaged": [], "rejected": [], "inherited": []}
     for entry in entries:
+        label = f"{entry.get('host')}:{entry.get('id')}"
         try:
-            records_read, which = transcript_records(entry, zstd)
+            read = transcript_records(entry, zstd)
+            found, damage, inherited = injection_events(read["records"], entry, delivered)
         except Unacquired as exc:
-            unknown.append(f"{entry.get('host')}:{entry.get('id')}: {exc}")
+            unknown.append(f"{label}: {exc}")
             continue
-        found = injection_events(records_read, entry, delivered)
+        findings["undecodable"] += [{"session": label, "line": line, "category": category}
+                                    for line, category in read["undecodable"]]
+        findings["damaged"] += [{"session": label, **row} for row in damage]
+        findings["inherited"] += [{"session": label, **row} for row in inherited]
+        findings["rejected"] += [{"session": event["session"], "line": event["n"], **row}
+                                 for event in found for row in event.get("rejected") or []]
         if not found:
-            unknown.append(f"{entry.get('host')}:{entry.get('id')}: {UNKNOWN_REASONS['no_record']} ({which})")
+            unknown.append(f"{label}: {UNKNOWN_REASONS['no_record']} ({read['which']})")
         events += found
-    return events, unknown
+    return events, unknown, findings
 
 
 KEEP_ACTIVE = ("placed",)  # the ledger's own lifecycle states in which a keep record still stands
@@ -2520,11 +2816,19 @@ def baseline_items(state_root, ref):
 
 
 def read_pin(state_root, host, session_id):
-    """A pin, read as a file: the content ref it names is what the snapshot is frozen by."""
+    """A pin, read as a file: the content ref it names is what the snapshot is frozen by.
+
+    The file's OWN identity is checked against the one asked for, as `sources.read_pins` and the
+    store's `read_pin` do (M6): a pin at `pins/claude/<id>.json` whose record names another host or
+    session is another session's pin, and its snapshot is not this session's selection. A mismatch is
+    refused by name and nothing else is substituted for it."""
     pin_path = pathlib.Path(state_root).expanduser() / "sessions" / "pins" / host / f"{session_id}.json"
     if not pin_path.is_file():
         raise Refused(f"PIN_ABSENT {masked(pin_path)}: the selection reference point needs the session's pin")
     pin = json.loads(read_source(pin_path, state_root))
+    if not isinstance(pin, dict) or pin.get("host") != host or pin.get("session_id") != session_id:
+        raise Refused(f"PIN_IDENTITY_MISMATCH {masked(pin_path)}: the pin names another host or session "
+                      f"than the one asked for")
     if not isinstance(pin.get("content_ref"), str):
         raise Refused(f"PIN_UNREADABLE {masked(pin_path)}: the pin names no content_ref")
     return pin
@@ -2548,7 +2852,13 @@ def layer_rows(reference, context):
 
     This table decides what a complete reference point is, so every row is data and every row is
     answered: a layer with no producer here is `unknown` or `unsupported`, never absent and never
-    silently empty."""
+    silently empty.
+
+    Each producer DECLARES the inputs it reads (`INPUT_CLASSES`), and an omission answers only for
+    the producers that declare its input (#16). An exception out of the acquisition used to turn every
+    layer unknown, the checkout's catalog and the transcript layers among them; it now reaches only a
+    producer that reads the owner's state. A producer that declares nothing is refused by name: an
+    omission cannot be applied to a producer that never said what it reads."""
     rows = []
     context["reference"] = reference   # the producers answer per reference point, not per call site
     for layer, producers in LAYERS:
@@ -2557,14 +2867,23 @@ def layer_rows(reference, context):
             rows.append({"layer": layer, "producer": None, "status": "unknown", "carriers": [],
                          "reasons": [f"{layer} has no record at the {reference} reference point"]})
             continue
-        if context.get("acquisition_error"):
-            rows.append({"layer": layer, "producer": producer[0], "status": "unknown", "carriers": [],
-                         "reasons": [f"{layer}: {context['acquisition_error']}"]})
-            continue
+        if not (isinstance(producer, tuple) and len(producer) == 3 and isinstance(producer[2], tuple)
+                and all(kind in INPUT_CLASSES for kind in producer[2])):
+            raise Refused(f"PRODUCER_UNDECLARED {layer} at {reference}: a producer declares the inputs "
+                          f"it reads, each one of {sorted(INPUT_CLASSES)}")
         # A reason goes in RAW. `LAYER_ROW_TABLE`'s `list_of(as_metadata())` is the one thing that
         # projects it, so a reason added here cannot reach the artifact unprojected, and no site
         # holds a second copy of the projection rule (found during S1).
-        name, call = producer
+        name, call, inputs = producer
+        blocked = input_reasons(inputs, context)
+        if blocked:
+            rows.append({"layer": layer, "producer": name, "status": "unknown", "carriers": [],
+                         "reasons": [f"{layer}: {reason}" for reason in blocked]})
+            continue
+        if context.get("acquisition_error") and inputs:
+            rows.append({"layer": layer, "producer": name, "status": "unknown", "carriers": [],
+                         "reasons": [f"{layer}: {context['acquisition_error']}"]})
+            continue
         try:
             carriers = call(context)
         except Unacquired as exc:
@@ -2793,37 +3112,52 @@ def _selection_overlays(ctx):
     return [row for item in local for row in item_carriers(item, "overlays")]
 
 
-# layer -> reference point -> (producer name, producer). A reference point a layer has no producer
-# for is `unknown` by the table itself (§6.1: historical overlays and native layers are unknown
-# unless recorded), which makes that reference point incomplete.
+# layer -> reference point -> (producer name, producer, the inputs it reads). A reference point a layer
+# has no producer for is `unknown` by the table itself (§6.1: historical overlays and native layers are
+# unknown unless recorded), which makes that reference point incomplete. The third member is what an
+# omission is applied through (#16): an input that failed, or a required one that is absent, makes
+# exactly the producers that declare it unknown, and no other.
+STATE_NOW = ("runtime_state", "user_state", "installed_baseline")
+PINNED = ("pin", "snapshot")
+# A pinned session's release is the baseline its snapshot names, so the pin and the snapshot are read
+# for it too; with no pin asked for, neither is acquired, and nothing about them blocks the release.
+RELEASE = PINNED + ("release_baseline",)
 LAYERS = (
-    ("catalog", {"current": ("checkout catalog (compose/instructions_catalog.load_catalog)", _catalog_current),
-                 "release": ("baseline inventory (runtime/baselines/<ref>/inventory.json)", _release_catalog),
-                 "selection": ("pinned snapshot items (sessions/snapshots/<content_ref>)", _selection_catalog)}),
-    ("adopted_packages", {"current": ("the owner's installed state, items of an adopted package", _packages_current),
-                          "release": ("baseline inventory, items of an adopted package", _packages_release),
-                          "selection": ("pinned snapshot items of an adopted package", _packages_selection)}),
-    ("overlays", {"current": ("instructions_store._effective_items over frozen copies", _overlays_current),
-                  "selection": ("pinned snapshot items of @local packages", _selection_overlays)}),
+    ("catalog", {"current": ("checkout catalog (compose/instructions_catalog.load_catalog)", _catalog_current, ()),
+                 "release": ("baseline inventory (runtime/baselines/<ref>/inventory.json)", _release_catalog,
+                             RELEASE),
+                 "selection": ("pinned snapshot items (sessions/snapshots/<content_ref>)", _selection_catalog, PINNED)}),
+    ("adopted_packages", {"current": ("the owner's installed state, items of an adopted package", _packages_current,
+                                      STATE_NOW),
+                          "release": ("baseline inventory, items of an adopted package", _packages_release,
+                                      RELEASE),
+                          "selection": ("pinned snapshot items of an adopted package", _packages_selection, PINNED)}),
+    ("overlays", {"current": ("instructions_store._effective_items over frozen copies", _overlays_current,
+                              STATE_NOW + ("learning_journals",)),
+                  "selection": ("pinned snapshot items of @local packages", _selection_overlays, PINNED)}),
     # The native layers are what a transcript records as delivered: §8's newest recorded event per
     # scope for `current`, and the pinned session's own event for `selection`. No file is read.
-    ("native_global", {"current": ("the newest recorded instructions attachment, User entry", _native("native_global")),
-                       "selection": ("the pinned session's recorded instructions attachment, User entry", _native("native_global"))}),
-    ("native_project", {"current": ("the newest recorded instructions attachment, Project entry", _native("native_project")),
-                        "selection": ("the pinned session's recorded instructions attachment, Project entry", _native("native_project"))}),
-    ("native_settings", {"current": ("no producer: a settings file is carried by no transcript", _native("native_settings")),
-                         "selection": ("no producer: a settings file is carried by no transcript", _native("native_settings"))}),
-    ("native_memory", {"current": ("the newest recorded instructions attachment, AutoMem entry", _native("native_memory")),
-                       "selection": ("the pinned session's recorded instructions attachment, AutoMem entry", _native("native_memory"))}),
+    ("native_global", {"current": ("the newest recorded instructions attachment, User entry", _native("native_global"), ()),
+                       "selection": ("the pinned session's recorded instructions attachment, User entry",
+                                     _native("native_global"), ("pin",))}),
+    ("native_project", {"current": ("the newest recorded instructions attachment, Project entry", _native("native_project"), ()),
+                        "selection": ("the pinned session's recorded instructions attachment, Project entry",
+                                      _native("native_project"), ("pin",))}),
+    ("native_settings", {"current": ("no producer: a settings file is carried by no transcript", _native("native_settings"), ()),
+                         "selection": ("no producer: a settings file is carried by no transcript",
+                                       _native("native_settings"), ())}),
+    ("native_memory", {"current": ("the newest recorded instructions attachment, AutoMem entry", _native("native_memory"), ()),
+                       "selection": ("the pinned session's recorded instructions attachment, AutoMem entry",
+                                     _native("native_memory"), ("pin",))}),
     # Session-level injection exists per session, so "all layers now" can only mean the injection
     # the session being diagnosed received: with a pin, the snapshot's compiled text answers for
     # `current` too; without one there is nothing to read and the layer is `unknown`.
-    ("session_injection", {"current": ("the pinned session's compiled instruction text", _selection_injection),
-                           "selection": ("the snapshot's compiled instruction text", _selection_injection)}),
-    ("ledger_incubating", {"current": ("the ledger's incubating entries (schema 1 or 2)", _ledger("ledger_incubating")),
-                           "selection": ("no producer: the ledger records the present", _ledger_history)}),
-    ("ledger_keep", {"current": ("the ledger's standing keep records (schema 1 or 2)", _ledger("ledger_keep")),
-                     "selection": ("no producer: the ledger records the present", _ledger_history)}),
+    ("session_injection", {"current": ("the pinned session's compiled instruction text", _selection_injection, PINNED),
+                           "selection": ("the snapshot's compiled instruction text", _selection_injection, PINNED)}),
+    ("ledger_incubating", {"current": ("the ledger's incubating entries (schema 1 or 2)", _ledger("ledger_incubating"), ()),
+                           "selection": ("no producer: the ledger records the present", _ledger_history, ())}),
+    ("ledger_keep", {"current": ("the ledger's standing keep records (schema 1 or 2)", _ledger("ledger_keep"), ()),
+                     "selection": ("no producer: the ledger records the present", _ledger_history, ())}),
 )
 
 # The member names this module's own documents carry. A refusal may NAME a member only when it is one
@@ -2849,6 +3183,10 @@ DOCUMENT_MEMBERS = (
     "frozen_missing", "baselines", "installed", "pinned", "differ", "release", "selection",
     "current", "catalog", "host", "pin", "pin_unknown", "unknown_total", "current_scopes",
     "native_events", "delivery_confirmed", "session", "scope", "at", "acquisition_error",
+    # what reading the transcripts found unusable, and an acquisition omission row (#16, M2, M5)
+    "undecodable", "damaged", "rejected", "line", "category", "ordinal", "input", "outcome", "code",
+    # a parent's session_meta inside a child or fork rollout, counted and never an event (M10)
+    "inherited",
     # a rename row
     "from_unit_id", "from_carrier_id", "to_carrier_id", "from_path", "to_path", "from_layer",
     "to_layer", "moved", "ambiguous", "from_carriers", "to_carriers", "reason",
@@ -3086,7 +3424,7 @@ def bind_transcripts(ctx, run_dir, zstd=None):
     notes = {"read_through": "runlib/sources.read_lines, bound to the S1 census record",
              "native_files_read": 0}
     try:
-        events, unknown = transcript_events(run_dir, delivered, zstd)
+        events, unknown, findings = transcript_events(run_dir, delivered, zstd)
     except Unacquired as exc:
         ctx["transcript_error"] = str(exc)
         notes.update({"sessions": 0, "events": 0, "unknown": [str(exc)]})
@@ -3109,39 +3447,91 @@ def bind_transcripts(ctx, run_dir, zstd=None):
                   "delivery_confirmed": len(delivery),
                   "current_scopes": sorted({f"{layer}@{scope and masked(scope) or 'host'}"
                                             for layer, scope in (ctx["current_sets"] or {})}),
-                  "unknown": unknown[:20], "unknown_total": len(unknown)})
+                  "unknown": unknown[:20], "unknown_total": len(unknown),
+                  # What the reading found unusable, each at its line under a fixed category (M2, M5).
+                  # Recorded here and nowhere else yet: what an earlier event's applicability becomes
+                  # across one of these is the reference model's to decide.
+                  "undecodable": findings["undecodable"], "damaged": findings["damaged"],
+                  "rejected": findings["rejected"],
+                  # a parent's session_meta carried into a child or fork rollout: counted, never an event (M10)
+                  "inherited": findings["inherited"]})
     ctx["notes"]["transcripts"] = notes
 
 
 def freeze_inputs(frozen, repo, state_root, user_root, pin, ctx):
     """Copy what the producers read and point the context at the copies: after this, no producer
-    holds a path under the owner's state or home."""
+    holds a path under the owner's state or home.
+
+    Every input is acquired ON ITS OWN, and what happened to it is a row in `ctx["omissions"]` —
+    `{input, ref, path, outcome, reason, code}` — rather than an exception (#16). An input that is
+    not there is `absent`; one that is there and was not read is `failed`; one this run was given no
+    root for is `unread`. Which layers that touches is decided in `layer_rows`, from the inputs each
+    producer DECLARES: a pin that does not resolve leaves the catalog of the checkout and the
+    transcript layers exactly as they were, which an exception out of here used not to (every layer
+    went unknown at once). Every `freeze` result is collected, the pinned baseline's included."""
     state, user = frozen / "state", frozen / "user"
     ctx["state_root"], ctx["user_root"] = state, user
     # The project roots are protected write targets and nothing else: no native file is read, here
     # or anywhere (the 1548 amendment §5).
     ctx["projects"] = [str(root) for root in (ctx["native_roots"].get("projects") or {}).values()]
+    omissions = ctx.setdefault("omissions", [])
+    ctx.setdefault("pin_record", None)
+    ctx["installed_ref"], ctx["release_ref"], ctx["expected_release_items"] = None, None, []
+
+    def omitted(kind, ref, path, outcome, reason, code=None):
+        row = {"input": kind, "ref": ref, "path": path, "outcome": outcome, "reason": reason, "code": code}
+        if row not in omissions:
+            omissions.append(row)
+
+    def froze(kinds, ref, sources, destination, root):
+        """`freeze` over one input's sources, every row it reports tagged with the input it is."""
+        for row in freeze(sources, destination, root):
+            for kind in kinds:
+                omitted(kind, ref, row["path"], row["outcome"], row["reason"], row["code"])
+
+    if user_root is None:
+        for kind in ("user_state", "learning_journals"):
+            omitted(kind, None, None, "unread", "no_root")
+    else:
+        user_root = pathlib.Path(user_root).expanduser()
+        froze(("user_state",), None, [(user_root / "state.json", "state.json")], user, user_root)
+        froze(("learning_journals",), None, [(user_root / "learnings", "learnings")], user, user_root)
     if state_root is None:
         ctx["notes"]["state"] = "no state root: the overlay, release and selection producers have no record"
-        ctx["release_ref"], ctx["expected_release_items"] = None, []
+        for kind in ("runtime_state", "installed_baseline", "release_baseline") + (("pin", "snapshot") if pin else ()):
+            omitted(kind, pin if kind == "pin" else None, None, "unread", "no_root")
         return
     # Every read below goes through the one source selection, before any byte of it is read: the
     # runtime state here, the pin in `read_pin`, the snapshot in `snapshot_of`, the baseline's item
     # list in `baseline_items`, and each copy input in `freeze` (GC#7).
     runtime_path = state_root / "runtime" / "state.json"
-    runtime = json.loads(read_source(runtime_path, state_root)) if runtime_path.is_file() else {}
-    state_sources = [(runtime_path, "runtime/state.json")]
-    release_ref = None
+    runtime = {}
+    if runtime_path.is_file() or runtime_path.is_symlink():
+        try:
+            loaded = json.loads(read_source(runtime_path, state_root))
+            if not isinstance(loaded, dict):
+                raise ValueError("the runtime state is not an object")
+            runtime = loaded
+        except (Refused, ValueError, OSError) as exc:
+            omitted("runtime_state", None, "runtime/state.json", "failed", acquisition_reason(exc), refusal_code(exc))
+    froze(("runtime_state",), None, [(runtime_path, "runtime/state.json")], state, state_root)
     if pin:
-        host, _, session_id = pin.partition(":")
-        host, session_id = safe_label("pin host", host), safe_label("pin session id", session_id)
-        record = read_pin(state_root, host, session_id)
-        safe_label("snapshot content_ref", record["content_ref"])
-        state_sources += [(state_root / "sessions" / "pins" / host / f"{session_id}.json",
-                           f"sessions/pins/{host}/{session_id}.json"),
-                          (state_root / "sessions" / "snapshots" / record["content_ref"],
-                           f"sessions/snapshots/{record['content_ref']}")]
-        ctx["pin_record"] = record
+        ctx["pin_record"] = None
+        try:
+            host, _, session_id = pin.partition(":")
+            host, session_id = safe_label("pin host", host), safe_label("pin session id", session_id)
+            record = read_pin(state_root, host, session_id)
+            content_ref = safe_label("snapshot content_ref", record["content_ref"])
+        except (Refused, ValueError, OSError) as exc:
+            absent = refusal_code(exc) == "PIN_ABSENT"
+            omitted("pin", pin, None, "absent" if absent else "failed",
+                    "absent" if absent else acquisition_reason(exc), refusal_code(exc))
+        else:
+            ctx["pin_record"] = record
+            froze(("pin",), pin, [(state_root / "sessions" / "pins" / host / f"{session_id}.json",
+                                   f"sessions/pins/{host}/{session_id}.json")], state, state_root)
+            froze(("snapshot",), content_ref, [(state_root / "sessions" / "snapshots" / content_ref,
+                                                f"sessions/snapshots/{content_ref}")], state, state_root)
     else:
         ctx["notes"]["selection"] = "no pin: the selection reference point has no record (§6.3)"
     # Both baselines, always, and each with its own provenance. The current reference point's
@@ -3149,36 +3539,101 @@ def freeze_inputs(frozen, repo, state_root, user_root, pin, ctx):
     # baseline the session was activated from; freezing only the pin's left the current resolver
     # without its baseline tuple as soon as an upgrade moved the installed one (GA#8).
     installed_ref = runtime.get("selected_baseline_ref")
+    if installed_ref is not None:
+        try:
+            installed_ref = safe_label("baseline ref", installed_ref)
+        except Refused as exc:
+            omitted("installed_baseline", None, "runtime/state.json", "failed", "not_an_identifier", refusal_code(exc))
+            installed_ref = None
     ctx["installed_ref"] = installed_ref
+    release_ref = None
     if pin is None:
         release_ref = installed_ref
         if release_ref:
             ctx["notes"]["release"] = "from the installed state's selected_baseline_ref, there being no pin to name one"
     ctx["notes"]["baselines"] = {"installed": installed_ref, "pinned": None}
     for ref in sorted({release_ref, installed_ref} - {None}):
-        safe_label("baseline ref", ref)
-        state_sources.append((state_root / "runtime" / "baselines" / ref, f"runtime/baselines/{ref}"))
-    user_sources = []
-    if user_root:
-        user_root = pathlib.Path(user_root).expanduser()
-        user_sources = [(user_root / "state.json", "state.json"), (user_root / "learnings", "learnings")]
-    ctx["notes"]["frozen_missing"] = (freeze(state_sources, state, state_root)
-                                      + [f"user/{name}" for name in freeze(user_sources, user, user_root)])
-    if pin:
-        verified = snapshot_of(repo, state, ctx["pin_record"]["content_ref"])
-        release_ref = (verified["inputs"] or {}).get("baseline_ref")
-        ctx["snapshot"] = verified
-        ctx["notes"]["pin"] = {"host": pin.partition(":")[0], "content_ref": verified["content_ref"],
-                               "state": ctx["pin_record"].get("state")}
-        if release_ref:
-            safe_label("baseline ref", release_ref)
-            freeze([(state_root / "runtime" / "baselines" / release_ref, f"runtime/baselines/{release_ref}")],
-                   state, state_root)
-            ctx["notes"]["release"] = "from the pin's snapshot inputs.baseline_ref"
-            ctx["notes"]["baselines"] = {"installed": installed_ref, "pinned": release_ref,
-                                         "differ": installed_ref != release_ref}
+        kinds = tuple(kind for kind, named in (("installed_baseline", installed_ref), ("release_baseline", release_ref))
+                      if named == ref)
+        froze(kinds, ref, [(state_root / "runtime" / "baselines" / ref, f"runtime/baselines/{ref}")], state, state_root)
+    if pin and ctx["pin_record"] is not None and not any(row["input"] == "snapshot" for row in omissions):
+        content_ref = ctx["pin_record"]["content_ref"]
+        try:
+            verified = snapshot_of(repo, state, content_ref)
+        except Exception as exc:  # the store's verifier raises its own error types
+            omitted("snapshot", content_ref, f"sessions/snapshots/{content_ref}", "failed",
+                    acquisition_reason(exc), refusal_code(exc))
+        else:
+            ctx["snapshot"] = verified
+            ctx["notes"]["pin"] = {"host": pin.partition(":")[0], "content_ref": verified["content_ref"],
+                                   "state": ctx["pin_record"].get("state")}
+            release_ref = (verified["inputs"] or {}).get("baseline_ref")
+            if release_ref is not None:
+                try:
+                    release_ref = safe_label("baseline ref", release_ref)
+                except Refused as exc:
+                    omitted("release_baseline", None, f"sessions/snapshots/{content_ref}", "failed",
+                            "not_an_identifier", refusal_code(exc))
+                    release_ref = None
+            if release_ref:
+                froze(("release_baseline",), release_ref,
+                      [(state_root / "runtime" / "baselines" / release_ref, f"runtime/baselines/{release_ref}")],
+                      state, state_root)
+                ctx["notes"]["release"] = "from the pin's snapshot inputs.baseline_ref"
+                ctx["notes"]["baselines"] = {"installed": installed_ref, "pinned": release_ref,
+                                             "differ": installed_ref != release_ref}
     ctx["release_ref"] = release_ref
-    ctx["expected_release_items"] = baseline_items(state, release_ref) if release_ref else []
+    if release_ref and not any(row["input"] == "release_baseline" and row["outcome"] != "unread"
+                               for row in omissions):
+        try:
+            ctx["expected_release_items"] = baseline_items(state, release_ref)
+        except Refused as exc:
+            absent = refusal_code(exc) == "BASELINE_ABSENT"
+            omitted("release_baseline", release_ref, f"runtime/baselines/{release_ref}/inventory.json",
+                    "absent" if absent else "failed", "absent" if absent else acquisition_reason(exc),
+                    refusal_code(exc))
+        except (ValueError, OSError) as exc:
+            omitted("release_baseline", release_ref, f"runtime/baselines/{release_ref}/inventory.json",
+                    "failed", acquisition_reason(exc), refusal_code(exc))
+    ctx["notes"]["frozen_missing"] = [{**row, "class": INPUT_CLASSES[row["input"]]} for row in omissions]
+
+
+def acquisition_reason(exc):
+    """The fixed category an acquisition failure is reported under."""
+    code = refusal_code(exc)
+    return {"SOURCE_LINKED": "symlink", "PIN_IDENTITY_MISMATCH": "pin_mismatch",
+            "PIN_UNREADABLE": "unreadable", "INPUT_INVALID": "not_an_identifier",
+            "BASELINE_EMPTY": "empty", "JSONDecodeError": "not_json", "ValueError": "malformed",
+            "UnicodeDecodeError": "not_json"}.get(code, "unreadable" if isinstance(exc, OSError) else "not_admitted")
+
+
+def input_reasons(inputs, context):
+    """The reasons a producer's declared inputs give against running it, or `[]`.
+
+    A row about one of the inputs this producer reads blocks it when the input FAILED, was not read
+    at all, or is absent and REQUIRED; an absent optional input is the empty answer the store gives,
+    and blocks nothing. A row names the ref it is about, so when several pins, snapshots or
+    baselines are acquired, one's failure answers only for the producer reading that one."""
+    refs = {"pin": context.get("pin"),
+            "snapshot": (context.get("pin_record") or {}).get("content_ref"),
+            "installed_baseline": context.get("installed_ref"),
+            "release_baseline": context.get("release_ref")}
+    reasons = []
+    for row in context.get("omissions") or []:
+        kind = row["input"]
+        if kind not in inputs or (row["ref"] is not None and refs.get(kind) not in (None, row["ref"])):
+            continue
+        if row["outcome"] == "failed":
+            reason = f"{UNKNOWN_REASONS['input_failed']} ({kind}: {row['reason']})"
+        elif row["outcome"] == "unread":
+            reason = f"{UNKNOWN_REASONS['input_unread']} ({kind})"
+        elif INPUT_CLASSES[kind] == "required":
+            reason = f"{UNKNOWN_REASONS['input_absent']} ({kind})"
+        else:
+            continue
+        if reason not in reasons:
+            reasons.append(reason)
+    return reasons
 
 
 def safe_lines(lines, home=None):
@@ -3881,9 +4336,26 @@ def self_test():
         control("a selection with no pin on the state", [str(_raised(lambda: read_pin(state, "claude", "nobody")))],
                 "PIN_ABSENT")
         (state / "sessions" / "pins" / "claude").mkdir(parents=True)
-        (state / "sessions" / "pins" / "claude" / "hollow.json").write_text(json.dumps({"schema_version": 1}), encoding="utf-8")
+        (state / "sessions" / "pins" / "claude" / "hollow.json").write_text(json.dumps(
+            {"schema_version": 1, "host": "claude", "session_id": "hollow"}), encoding="utf-8")
         control("a pin that names no snapshot", [str(_raised(lambda: read_pin(state, "claude", "hollow")))],
                 "PIN_UNREADABLE")
+        # ---- M6: a pin is the session's own only when its record says so. The file sits at the
+        # session's path; what it NAMES is what decides, as the store's and the census's readers judge.
+        pin_dir = state / "sessions" / "pins" / "claude"
+        for name, record in (("matched", {"host": "claude", "session_id": "matched"}),
+                             ("other-session", {"host": "claude", "session_id": "someone-else"}),
+                             ("other-host", {"host": "codex", "session_id": "other-host"}),
+                             ("no-identity", {})):
+            (pin_dir / f"{name}.json").write_text(json.dumps(
+                {"schema_version": 1, "content_ref": "ref-of-a-snapshot", **record}), encoding="utf-8")
+        check("a pin whose record names the session asked for is accepted",
+              (_raised(lambda: read_pin(state, "claude", "matched")) is None
+               and read_pin(state, "claude", "matched")["content_ref"] == "ref-of-a-snapshot"),
+              f"{_raised(lambda: read_pin(state, 'claude', 'matched'))!r}")
+        for name in ("other-session", "other-host", "no-identity"):
+            control(f"a pin file whose record names another identity: {name}",
+                    [str(_raised(lambda name=name: read_pin(state, "claude", name)))], "PIN_IDENTITY_MISMATCH")
         control("a checkout with no catalog loader to read",
                 [str(_raised(lambda: catalog_carriers(scratch / "not-a-checkout")))], "PRODUCER_UNAVAILABLE")
         control("a checkout with no store to resolve the overlays with",
@@ -3928,7 +4400,7 @@ def self_test():
                        cwd=project_scope)])
         codex_path = jsonl(scratch / "transcripts" / "codex" / "rollout-2026-10-01T09-00-00-aaaa.jsonl", [
             {"type": "session_meta", "timestamp": "2026-10-01T09:00:00+00:00",
-             "payload": {"cwd": project_scope, "git": {"commit_hash": "abc1234"},
+             "payload": {"id": "aaaa", "cwd": project_scope, "git": {"commit_hash": "abc1234"},
                          "base_instructions": {"text": "# Merged\n\n- one undivided block\n",
                                                "provenance": "config + project"}}}])
 
@@ -3961,11 +4433,13 @@ def self_test():
         grown = scratch / "transcripts" / "claude" / "grown.jsonl"
         grown.write_bytes(main_path.read_bytes() + json.dumps({"type": "user", "timestamp": "2026-10-03T08:00:00+00:00"}).encode() + b"\n")
         appended = dict(entries["s-main"], path=str(grown))
-        read_back, which = transcript_records(appended)
+        grown_read = transcript_records(appended)
+        read_back, which = grown_read["records"], grown_read["which"]
         check("a transcript the host appended to is read to the census boundary, and says so",
               len(read_back) == appended["record_count"] and "appended" in which, f"{len(read_back)} record(s), {which}")
 
-        main_events = injection_events(transcript_records(entries["s-main"])[0], entries["s-main"], delivered_body)
+        main_events = injection_events(transcript_records(entries["s-main"])["records"], entries["s-main"],
+                                       delivered_body)[0]
         native_events = [event for event in main_events if event["kind"] == "native"]
         # Every row below is built from the list rather than indexed into it: a revert that drops an
         # event must fail by name here, not crash the suite on an index.
@@ -4003,7 +4477,7 @@ def self_test():
 
         all_events = []
         for entry in census_entries(run_fixture):
-            all_events += injection_events(transcript_records(entry)[0], entry, delivered_body)
+            all_events += injection_events(transcript_records(entry)["records"], entry, delivered_body)[0]
         sets = current_sets(all_events)
         check("the current reference point resolves per layer and scope",
               {key[0] for key in sets} == {"native_global", "native_project", "native_memory"},
@@ -4034,6 +4508,398 @@ def self_test():
               carriers_out[0]["provenance"]["as_of"] == global_event["at"]
               and carriers_out[0]["provenance"]["session"] == "claude:s-main",
               f"{carriers_out[0]['provenance']}")
+
+        # ======== WP-07 package B, phase 1: acquisition and decoding of the transcripts ========
+        def bound_row(host, ident, path, **fields):
+            """A census row bound to `path` as it is now, by both binding kinds, with `fields` over it."""
+            return {**census_row(host, ident, path), **fields}
+
+        def raw_lines(path, rows):
+            """A transcript whose lines are written as given: a dict becomes its JSON, bytes stay bytes."""
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(b"".join((row if isinstance(row, bytes) else json.dumps(row).encode()) + b"\n"
+                                      for row in rows))
+            return path
+
+        def opened_while(call):
+            """`(result or the exception, the paths sources.read_lines was asked for)` during `call`."""
+            asked, kept_reader = [], sources.read_lines
+            try:
+                sources.read_lines = lambda path, zstd=None: (asked.append(str(path)), kept_reader(path, zstd))[1]
+                try:
+                    outcome = call()
+                except Exception as exc:
+                    outcome = exc
+            finally:
+                sources.read_lines = kept_reader
+            return outcome, asked
+
+        def dated(at, text="# Global\n\n- a rule\n", **extra):
+            return {**attachment(at, [member("User", "~/.claude/CLAUDE.md", text)], cwd=project_scope), **extra}
+
+        # ---- #9: a transcript is opened only under a binding, and an unbound row says so unopened
+        unbound_path = raw_lines(scratch / "p1" / "unbound.jsonl", [dated("2026-10-05T09:00:00+00:00")])
+        unbound_row = {"host": "claude", "id": "s-unbound", "path": str(unbound_path), "status": "child_of",
+                       "parent": "s-main", "sha256": None, "versions": []}
+        outcome, asked = opened_while(lambda: transcript_records(
+            {**census_row("claude", "s-unbound", unbound_path), "sha256": None, "prefix_sha": None, "record_count": None}))
+        check("an unbound census row is never opened, and carries its reason",
+              isinstance(outcome, Unacquired) and UNKNOWN_REASONS["unbound"] in str(outcome) and not asked,
+              f"unacquired={isinstance(outcome, Unacquired)} opened={len(asked)}")
+        unbound_run = scratch / "p1" / "run-unbound"
+        unbound_run.mkdir(parents=True)
+        (unbound_run / CENSUS).write_text(json.dumps({"transcripts": [unbound_row]}), encoding="utf-8")
+        outcome, asked = opened_while(lambda: transcript_events(unbound_run))
+        check("and through the run's own path: the row is a named unknown and its file was not opened",
+              not isinstance(outcome, Exception) and not asked
+              and any(UNKNOWN_REASONS["unbound"] in row for row in outcome[1]),
+              f"raised={isinstance(outcome, Exception)} opened={len(asked)}")
+        grown_whole = raw_lines(scratch / "p1" / "whole.jsonl", [dated("2026-10-05T09:00:00+00:00")])
+        whole_only = {"host": "claude", "id": "s-whole", "path": str(grown_whole),
+                      "sha256": hashlib.sha256(grown_whole.read_bytes()).hexdigest()}
+        check("a whole-file binding alone binds the file it hashed",
+              len(transcript_records(whole_only)["records"]) == 1, "the whole-file binding did not read its file")
+        with grown_whole.open("ab") as handle:
+            handle.write(json.dumps(dated("2026-10-05T10:00:00+00:00")).encode() + b"\n")
+        check("and a whole-file binding alone refuses a file that no longer matches it",
+              UNKNOWN_REASONS["changed"] in str(_raised(lambda: transcript_records(whole_only))),
+              f"{type(_raised(lambda: transcript_records(whole_only))).__name__}")
+        prefix_path = raw_lines(scratch / "p1" / "prefix.jsonl", [dated("2026-10-05T09:00:00+00:00"),
+                                                                 dated("2026-10-05T10:00:00+00:00")])
+        first_line = prefix_path.read_bytes().split(b"\n", 1)[0] + b"\n"
+        prefix_only = {"host": "claude", "id": "s-prefix", "path": str(prefix_path), "sha256": None,
+                       "prefix_sha": hashlib.sha256(first_line).hexdigest(), "record_count": 1}
+        prefix_read = transcript_records(prefix_only)
+        check("a complete-line prefix alone binds the lines it counts and no more",
+              [line for line, _record in prefix_read["records"]] == [1], f"{[line for line, _ in prefix_read['records']]}")
+        check("and a prefix alone refuses a file whose prefix no longer matches it",
+              UNKNOWN_REASONS["changed"] in str(_raised(lambda: transcript_records(
+                  {**prefix_only, "prefix_sha": hashlib.sha256(b"other bytes\n").hexdigest()}))),
+              "a mismatched prefix was read")
+        for label, broken in (("a whole-file hash that is not a hash", {"sha256": "not-a-hash"}),
+                              ("a prefix with no line count", {"prefix_sha": "0" * 64, "record_count": None}),
+                              ("a line count with no prefix", {"prefix_sha": None, "record_count": 3}),
+                              ("a line count that is a boolean", {"prefix_sha": "0" * 64, "record_count": True})):
+            outcome, asked = opened_while(lambda broken=broken: transcript_records({**prefix_only, "sha256": None, **broken}))
+            check(f"a binding that is there but malformed is refused as that binding: {label}",
+                  isinstance(outcome, Unacquired) and UNKNOWN_REASONS["binding_invalid"] in str(outcome) and not asked,
+                  f"unacquired={isinstance(outcome, Unacquired)} opened={len(asked)}")
+        # Kind per ROW, from lineage. Every child below is BOUND and DATED, so each would qualify for
+        # `current` as a main row: the `unbound` guard cannot be what keeps them out.
+        kinds_run = scratch / "p1" / "run-kinds"
+        kinds_run.mkdir(parents=True)
+        child_rows = {
+            "orphan": bound_row("claude", "s-orphan", raw_lines(scratch / "p1" / "orphan.jsonl",
+                                                                [dated("2026-10-06T09:00:00+00:00")]),
+                                status="unknown_provenance", reason="orphan_child", entrypoint="sidechain"),
+            "without-parent": bound_row("claude", "s-without", raw_lines(scratch / "p1" / "without.jsonl",
+                                                                          [dated("2026-10-06T10:00:00+00:00")]),
+                                        status="unknown_provenance", reason="child_without_parent"),
+            "codex-cli": bound_row("codex", "c-child", raw_lines(scratch / "p1" / "codex-child.jsonl", [
+                {"type": "session_meta", "timestamp": "2026-10-06T11:00:00+00:00",
+                 "payload": {"id": "c-child", "cwd": project_scope, "source": "cli",
+                             "base_instructions": {"text": "# Child\n\n- a child's block\n"}}}]),
+                                   status="unknown_provenance", reason="child_without_parent", entrypoint="cli"),
+        }
+        (kinds_run / CENSUS).write_text(json.dumps({"transcripts": list(child_rows.values())}), encoding="utf-8")
+        kind_of = {row["id"]: row["kind"] for row in census_entries(kinds_run)}
+        kind_events, kind_unknown, _kind_findings = transcript_events(kinds_run)
+        check("the bound, dated children really record an event each, so the kind is what is judged",
+              len([event for event in kind_events if event["kind"] == "native"]) == 3 and not kind_unknown,
+              f"events={len(kind_events)} unknown={len(kind_unknown)}")
+        for label, row in child_rows.items():
+            check(f"a child row is a subagent by its lineage: {label}", kind_of.get(row["id"]) == "subagent",
+                  f"{kind_of.get(row['id'])}")
+        check("and none of those children's events answers for the current reference point",
+              current_sets(kind_events) == {}, f"{sorted(map(str, current_sets(kind_events)))}")
+        # Kind per RECORD: an inline sidechain inside a bound main file (lineage.py 102-105).
+        plain_main = raw_lines(scratch / "p1" / "plain-main.jsonl", [
+            {"type": "user", "timestamp": "2026-10-06T08:00:00+00:00", "isSidechain": False},
+            dated("2026-10-06T09:00:00+00:00", "# Global\n\n- the main session's rule\n")])
+        side_main = raw_lines(scratch / "p1" / "side-main.jsonl", [
+            {"type": "user", "timestamp": "2026-10-06T08:00:00+00:00", "isSidechain": False},
+            dated("2026-10-06T09:00:00+00:00", "# Global\n\n- the main session's rule\n"),
+            dated("2026-10-06T12:00:00+00:00", "# Global\n\n- what the sidechain's agent type got\n",
+                  isSidechain=True, agentId="a1"),
+            dated("2026-10-06T12:30:00+00:00", "# Global\n\n- an agent that names itself only\n", agentId="a2")])
+
+        def own_and_current(path, ident):
+            entry = {**bound_row("claude", ident, path), "kind": "main"}
+            found = injection_events(transcript_records(entry)["records"], entry)[0]
+            own = [(event["n"], globals_of(event)) for event in found if event["session"] == f"claude:{ident}"]
+            return own, {key: globals_of(event) for key, event in current_sets(found).items()}, found
+
+        plain_own, plain_current, _plain = own_and_current(plain_main, "s-side")
+        side_own, side_current, side_found = own_and_current(side_main, "s-side")
+        check("a bound main file's inline sidechain attachment leaves current unchanged",
+              side_current == plain_current and bool(plain_current), f"same={side_current == plain_current}")
+        check("and leaves the main session's own events unchanged",
+              side_own == plain_own and len(side_own) == 1, f"own={len(side_own)} same={side_own == plain_own}")
+        check("and the sidechain's events are its own, never the main session's",
+              sorted(event["session"] for event in side_found if event["session"] != "claude:s-side")
+              == ["claude:s-side#sidechain:a1", "claude:s-side#sidechain:a2"]
+              and all(event["transcript"] == "subagent" for event in side_found if "#sidechain:" in event["session"]),
+              f"{sorted(event['session'].rpartition('#')[2] for event in side_found)}")
+
+        # ---- #10: the census boundary is a count of LINES, and the line is the event's position
+        undecodable_rows = [dated("2026-10-07T09:00:00+00:00"), b"{a complete line that is not JSON",
+                            b"[\"a JSON line\", \"that is not an object\"]", dated("2026-10-07T10:00:00+00:00")]
+        cut_path = raw_lines(scratch / "p1" / "cut.jsonl", undecodable_rows)
+        census_prefix = hashlib.sha256(cut_path.read_bytes()).hexdigest()
+        with cut_path.open("ab") as handle:
+            handle.write(json.dumps(dated("2026-10-07T11:00:00+00:00", "# Global\n\n- appended after the census\n")).encode()
+                         + b"\n")
+        cut_row = {"host": "claude", "id": "s-cut", "path": str(cut_path), "kind": "main", "sha256": "1" * 64,
+                   "prefix_sha": census_prefix, "record_count": 4}
+        cut_read = transcript_records(cut_row)
+        cut_events = injection_events(cut_read["records"], cut_row)[0]
+        check("appended records are excluded after a prefix holding a malformed and a non-object line",
+              [event["n"] for event in cut_events] == [1, 4]
+              and not any("appended after" in text for event in cut_events for text in globals_of(event)),
+              f"lines={[event['n'] for event in cut_events]}")
+        still_path = raw_lines(scratch / "p1" / "still.jsonl", [b"{not json", b"7", dated("2026-10-07T09:00:00+00:00")])
+        still_row = {**bound_row("claude", "s-still", still_path), "kind": "main"}
+        still_events = injection_events(transcript_records(still_row)["records"], still_row)[0]
+        check("on an unchanged file, an event after such lines carries its raw-line position",
+              [event["n"] for event in still_events] == [3], f"{[event['n'] for event in still_events]}")
+        zero_read = _raised(lambda: transcript_records({**cut_row, "prefix_sha": hashlib.sha256(b"").hexdigest(),
+                                                        "record_count": 0}))
+        check("a zero-line census prefix binds a transcript the host has written to since",
+              zero_read is None and transcript_records({**cut_row, "prefix_sha": hashlib.sha256(b"").hexdigest(),
+                                                        "record_count": 0})["records"] == [],
+              f"{type(zero_read).__name__}")
+
+        # ---- #13: a transcript carrier is split by its own form, and the form set is closed
+        control("carrier() refuses a form outside the closed set",
+                [str(_raised(lambda: carrier("native_global", "claude:User:x.md", "# H\n\n- r\n", form="md")))],
+                "CARRIER_FORM_UNDECLARED")
+        control("blocks_of refuses a form outside the closed set over non-empty text",
+                [str(_raised(lambda: blocks_of("x.md", "# H\n\n- r\n", "md")))], "CARRIER_FORM_UNDECLARED")
+        control("blocks_of refuses a form outside the closed set over empty text",
+                [str(_raised(lambda: blocks_of("x.md", "", "md")))], "CARRIER_FORM_UNDECLARED")
+        headed_event = {"kind": "native", "host": "claude", "at": "2026-10-07T09:00:00+00:00", "n": 1,
+                        "session": "claude:s-headed", "transcript": "main", "scope": project_scope,
+                        "where": "attachment.files[] by type",
+                        "files": [{"layer": "native_project", "type": "Project", "path": f"{project_scope}/CLAUDE.md",
+                                   "text": "# Working here\n\n- a rule under the heading\n"}]}
+        try:  # a refusal here fails this control by name rather than the suite
+            headed_units = operative_context(units_of(event_carriers("native_project", headed_event, "current")))
+        except Exception:
+            headed_units = []
+        heading_ids = [unit["unit_id"] for unit in headed_units if unit["block"] == "heading"]
+        rule_units = [unit for unit in headed_units if "a rule under" in unit["text"]]
+        check("a transcript CLAUDE.md carrier's rule holds its heading unit in its operative context, by identity",
+              len(heading_ids) == 1 and len(rule_units) == 1 and heading_ids[0] in rule_units[0]["operative_context"],
+              f"headings={len(heading_ids)} rules={len(rule_units)}")
+
+        # ---- #5: the shapes real records and pins carry, and none that raises
+        moment = datetime.datetime(2026, 10, 1, 9, 0, tzinfo=datetime.timezone.utc)
+        check("a numeric instant and an offset-equivalent ISO instant parse to the same moment",
+              _instant(moment.timestamp()) == _instant("2026-10-01T18:00:00+09:00") == _instant("2026-10-01T09:00:00Z")
+              == moment, f"numeric={_instant(moment.timestamp()) == moment}")
+        check("a record's numeric timestamp is read, a boolean one is not",
+              _timestamp({"timestamp": int(moment.timestamp())}) == int(moment.timestamp())
+              and _timestamp({"timestamp": True}) is None, "a numeric record timestamp was ignored")
+        mixed_events = [{"kind": "native", "transcript": "main", "host": "claude", "at": "2026-10-01T09:00:00",
+                         "scope": project_scope, "files": [{"layer": "native_global"}]},
+                        {"kind": "native", "transcript": "main", "host": "claude", "at": "2026-10-01T10:00:00+00:00",
+                         "scope": project_scope, "files": [{"layer": "native_global"}]}]
+        check("a tz-less instant beside an aware one raises nothing, and is unsupported",
+              _raised(lambda: current_sets(mixed_events)) is None
+              and _raised(lambda: event_in_force(mixed_events, moment.timestamp())) is None
+              and _instant("2026-10-01T09:00:00") is None, "a naive instant raised or was guessed")
+        shapes = [None, True, False, "", "yesterday", "2026-10-01", float("nan"), float("inf"), -float("inf"),
+                  10 ** 30, -10 ** 30, [], {}, b"2026"]
+        check("no instant shape raises", all(_raised(lambda shape=shape: _instant(shape)) is None
+                                            and _instant(shape) is None for shape in shapes),
+              f"{[type(shape).__name__ for shape in shapes if _raised(lambda shape=shape: _instant(shape)) is not None]}")
+
+        # ---- M2: damage by level, usable evidence kept, every rejection a category and a number
+        raised_marker = object()
+
+        def decoded(records_in, entry_in, delivered_in=None):
+            """`injection_events`, or the marker when it raised: a control whose input makes it raise
+            fails by its own name instead of ending the suite."""
+            try:
+                return injection_events(records_in, entry_in, delivered_in)
+            except Exception:
+                return raised_marker
+
+        canary = "a-type-a-host-wrote-" + "Ab3" * 4
+        damaged_entry = {"host": "claude", "id": "s-damaged", "kind": "main"}
+        mixed = decoded([(5, {"type": "attachment", "timestamp": "2026-10-08T09:00:00Z",
+                              "attachment": {"type": "instructions", "files": [
+            member("User", "~/.claude/CLAUDE.md", "# G\n\n- kept\n"), member(canary, "elsewhere.md", "- unmapped\n"),
+            {"type": "Project", "path": "p.md", "content": 3}, "a member that is not an object"]}})], damaged_entry)
+        mixed_found, mixed_damage, _mixed_inherited = ([], [], []) if mixed is raised_marker else mixed
+        mixed_native = [event for event in mixed_found if event["kind"] == "native"]
+        check("a member of an unmapped type is rejected and counted, and the usable members stay",
+              mixed is not raised_marker and len(mixed_native) == 1 and [row["path"] for row in mixed_native[0]["files"]] == ["~/.claude/CLAUDE.md"]
+              and [(row["ordinal"], row["category"]) for row in mixed_native[0]["rejected"]]
+              == [(1, "member_type_unmapped"), (2, "member_content_invalid"), (3, "member_not_object")]
+              and mixed_native[0]["unmapped"] is True and not mixed_damage,
+              f"raised={mixed is raised_marker} "
+              f"{[(row['ordinal'], row['category']) for event in mixed_native for row in event.get('rejected', [])]}")
+        check("a rejection names a fixed category and a number, never what the host wrote",
+              mixed is not raised_marker
+              and canary not in json.dumps([event.get("rejected") for event in mixed_found] + mixed_damage),
+              f"raised={mixed is raised_marker} or the rejected member's type string reached the rejection")
+        raising_shapes = {
+            "files is a number": {"type": "attachment", "attachment": {"type": "instructions", "files": 5}},
+            "files is a boolean": {"type": "attachment", "attachment": {"type": "instructions", "files": True}},
+            "files is a string": {"type": "attachment", "attachment": {"type": "instructions", "files": "x"}},
+            "files is an object": {"type": "attachment", "attachment": {"type": "instructions", "files": {"a": 1}}},
+            "a member's type is a list": {"type": "attachment", "attachment": {"type": "instructions", "files": [
+                {"type": ["User"], "path": "a", "content": "b"}]}},
+            "systemPrompt is a number": {"type": "attachment", "attachment": {"type": "x", "systemPrompt": 7}},
+            "shape.system is a number": {"type": "request", "shape": {"system": 3}},
+            "a Codex block of another shape": {"type": "session_meta", "payload": {"id": "s-shape",
+                                                                                    "base_instructions": ["x"]}},
+        }
+        expected_damage = {"files is a number": ["container_unusable"], "files is a boolean": ["container_unusable"],
+                           "files is a string": ["container_unusable"], "files is an object": ["container_unusable"],
+                           "a member's type is a list": [], "systemPrompt is a number": ["locator_unusable"],
+                           "shape.system is a number": ["locator_unusable"],
+                           "a Codex block of another shape": ["container_unusable"]}
+        for label, record in raising_shapes.items():
+            entry_for = {"host": "codex" if "Codex" in label else "claude", "id": "s-shape", "kind": "main"}
+            shaped = decoded([(2, record)], entry_for, "a body")
+            found_for, damage_for, _inherited_for = ([], [], []) if shaped is raised_marker else shaped
+            check(f"a shape that used to raise is a counted rejection: {label}",
+                  shaped is not raised_marker and [row["category"] for row in damage_for] == expected_damage[label]
+                  and all(row["line"] == 2 for row in damage_for),
+                  f"raised={shaped is raised_marker} damage={[row['category'] for row in damage_for]}")
+        listed = decoded([(2, raising_shapes["a member's type is a list"])], damaged_entry)
+        check("and the list-valued type is a member rejection on its event, not a lost event",
+              listed is not raised_marker
+              and [row["category"] for event in listed[0] for row in event.get("rejected", [])] == ["member_type_unmapped"],
+              f"raised={listed is raised_marker} or the member with a list-valued type was not counted")
+        handled_run = scratch / "p1" / "run-handled"
+        handled_run.mkdir(parents=True)
+        good_path = raw_lines(scratch / "p1" / "good.jsonl", [dated("2026-10-08T09:00:00+00:00")])
+        (handled_run / CENSUS).write_text(json.dumps({"transcripts": [
+            census_row("claude", "s-fails", good_path), census_row("claude", "s-good", good_path)]}), encoding="utf-8")
+        kept_events_reader = globals()["injection_events"]
+
+        def failing_for_one(records_in, entry_in, delivered_in=None):
+            if entry_in.get("id") == "s-fails":
+                raise Unacquired(f"{UNKNOWN_REASONS['unreadable']}: a planted failure processing one transcript")
+            return kept_events_reader(records_in, entry_in, delivered_in)
+
+        try:
+            globals()["injection_events"] = failing_for_one
+            handled = _raised(lambda: transcript_events(handled_run))
+            handled_out = None if handled else transcript_events(handled_run)
+        finally:
+            globals()["injection_events"] = kept_events_reader
+        check("a transcript that cannot be processed is that session's unknown, and the others still process",
+              handled is None and handled_out is not None
+              and [row.split(":", 2)[1] for row in handled_out[1]] == ["s-fails"]
+              and {event["session"] for event in handled_out[0]} == {"claude:s-good"},
+              f"raised={type(handled).__name__ if handled else None}")
+
+        # ---- M3: each source by its own discriminator, and lookalikes are not deliveries
+        body_text = "- the compiled body\n"
+        for label, record in (
+                ("a user record carrying an instructions attachment",
+                 {"type": "user", "attachment": {"type": "instructions",
+                                                 "files": [member("User", "~/.claude/CLAUDE.md", "- x\n")]}}),
+                ("an attachment record whose attachment is not an object",
+                 {"type": "attachment", "attachment": [{"type": "instructions"}]})):
+            looked = decoded([(1, record)], damaged_entry)
+            check(f"a lookalike is no native event: {label}",
+                  looked is not raised_marker and looked[0] == [],
+                  f"raised={looked is raised_marker} or a lookalike made an event")
+        codex_entry = {"host": "codex", "id": "c-look", "kind": "main"}
+        # each lookalike names the rollout's own id, so the source discriminator is what refuses it, not M10
+        for label, record in (("an event record carrying base_instructions",
+                               {"type": "event_msg", "payload": {"id": "c-look", "base_instructions": {"text": "- x\n"}}}),
+                              ("a session_meta whose payload is not an object",
+                               {"type": "session_meta", "payload": [{"id": "c-look", "base_instructions": "- x\n"}]})):
+            looked = decoded([(1, record)], codex_entry)
+            check(f"a lookalike is no Codex block: {label}",
+                  looked is not raised_marker and looked[0] == [],
+                  f"raised={looked is raised_marker} or a lookalike made a Codex event")
+        admitted = decoded([(1, {"type": "session_meta", "payload": {"id": "c-look", "base_instructions": "- x\n"}})],
+                           codex_entry)
+        check("a Codex session_meta with its block is the event the lookalikes are not",
+              admitted is not raised_marker and len(admitted[0]) == 1,
+              f"raised={admitted is raised_marker} or the admitted Codex source made no event")
+        check("a systemPrompt locates the body only on an attachment record",
+              _located({"type": "user", "attachment": {"systemPrompt": [f"<r>{body_text}</r>"]}}, body_text) is None
+              and (_located({"type": "attachment", "attachment": {"systemPrompt": [f"<r>{body_text}</r>"]}},
+                            body_text) or ("",))[0] == "attachment.systemPrompt[]",
+              "a non-attachment record located the body, or an attachment did not")
+        check("the request-shape body stays its own admitted case",
+              (_located({"type": "request", "shape": {"system": [{"text": f"<r>{body_text}</r>"}]}}, body_text)
+               or ("",))[0] == "shape.system[].text", "the request shape no longer located the body")
+
+        # ---- M10: a child or fork rollout carries its parent's session_meta, which is not its injection
+        shared_block = {"text": "# Codex\n\n- the block parent and fork both carry\n"}
+
+        def codex_meta(ident, at, **payload):
+            return {"type": "session_meta", "timestamp": at,
+                    "payload": {**({"id": ident} if ident is not None else {}), "cwd": project_scope,
+                                "base_instructions": shared_block, **payload}}
+
+        m10_cases = {
+            # (records, the events' lines, the inherited rows)
+            "a fork-shaped rollout": (
+                [codex_meta("c-fork", "2026-10-09T10:00:00+00:00", forked_from_id="c-parent"),
+                 codex_meta("c-parent", "2026-10-09T08:00:00+00:00")],
+                [1], [{"session": "codex:c-fork", "line": 2, "category": "another_session_id"}]),
+            "a parent's record before the rollout's own": (
+                [codex_meta("c-parent", "2026-10-09T08:00:00+00:00"),
+                 codex_meta("c-fork", "2026-10-09T10:00:00+00:00", source={"subagent": "review"})],
+                [2], [{"session": "codex:c-fork", "line": 1, "category": "another_session_id"}]),
+            "a session_meta naming no session": (
+                [codex_meta("c-fork", "2026-10-09T10:00:00+00:00"), codex_meta(None, "2026-10-09T08:00:00+00:00")],
+                [1], [{"session": "codex:c-fork", "line": 2, "category": "no_session_id"}]),
+            "a rollout with one session_meta": (
+                [codex_meta("c-fork", "2026-10-09T10:00:00+00:00")], [1], []),
+        }
+        for label, (rows_for, event_lines, inherited_rows) in m10_cases.items():
+            slug = "-".join(label.split()[:4]).replace("'", "")
+            m10_path = raw_lines(scratch / "p1" / f"m10-{slug}.jsonl", rows_for)
+            m10_run = scratch / "p1" / f"run-m10-{slug}"
+            m10_run.mkdir(parents=True)
+            (m10_run / CENSUS).write_text(json.dumps({"transcripts": [census_row("codex", "c-fork", m10_path)]}),
+                                          encoding="utf-8")
+            outcome = _raised(lambda m10_run=m10_run: transcript_events(m10_run))
+            m10_events, _m10_unknown, m10_findings = ([], [], {}) if outcome else transcript_events(m10_run)
+            check(f"only the rollout's own session_meta is its event: {label}",
+                  outcome is None and [event["n"] for event in m10_events] == event_lines
+                  and {event["session"] for event in m10_events} == {"codex:c-fork"},
+                  f"raised={outcome is not None} lines={[event['n'] for event in m10_events]}")
+            check(f"and every other session_meta is counted as inherited: {label}",
+                  outcome is None and m10_findings.get("inherited") == inherited_rows,
+                  f"raised={outcome is not None} inherited={len(m10_findings.get('inherited') or [])}")
+            m10_ctx = {"notes": {}}
+            bound_outcome = _raised(lambda m10_ctx=m10_ctx, m10_run=m10_run: bind_transcripts(m10_ctx, m10_run))
+            check(f"and the run's notes carry the inherited count: {label}",
+                  bound_outcome is None
+                  and m10_ctx["notes"].get("transcripts", {}).get("inherited") == inherited_rows,
+                  f"raised={bound_outcome is not None}")
+
+        # ---- M5 (recording): an undecodable line is kept at its position, before and after an event
+        for label, rows_for, expected_line, event_line in (
+                ("malformed before a valid injection", [b"{\"type\": \"attachment\", \"attachm", dated("2026-10-09T09:00:00+00:00")], 1, 2),
+                ("malformed after a valid injection", [dated("2026-10-09T09:00:00+00:00"), b"{\"type\": \"attachment\", \"attachm"], 2, 1)):
+            m5_path = raw_lines(scratch / "p1" / f"m5-{expected_line}.jsonl", rows_for)
+            m5_run = scratch / "p1" / f"run-m5-{expected_line}"
+            m5_run.mkdir(parents=True)
+            (m5_run / CENSUS).write_text(json.dumps({"transcripts": [census_row("claude", "s-m5", m5_path)]}),
+                                         encoding="utf-8")
+            m5_events, _m5_unknown, m5_findings = transcript_events(m5_run)
+            check(f"a decoding failure is kept at its raw line: {label}",
+                  m5_findings["undecodable"] == [{"session": "claude:s-m5", "line": expected_line, "category": "not_json"}]
+                  and [event["n"] for event in m5_events] == [event_line],
+                  f"{m5_findings['undecodable']} {[event['n'] for event in m5_events]}")
+            m5_ctx = {"notes": {}}
+            bind_transcripts(m5_ctx, m5_run)
+            check(f"and the run's notes carry it: {label}",
+                  m5_ctx["notes"]["transcripts"].get("undecodable") == m5_findings["undecodable"],
+                  "the decoding failure did not reach the notes")
 
         # No native file is read, on any path: the host layer names of `NATIVE` are not read by this
         # module at all, and the check is on the module's own source rather than on a promise.
@@ -4095,7 +4961,7 @@ def self_test():
                 "no-units": ("incomplete", False), "raising": ("incomplete", False), "unknown": ("unknown", False)}
         saved = globals()["LAYERS"]
         try:
-            globals()["LAYERS"] = tuple((name, {"current": (f"{name} producer", call)}) for name, call in planted.items())
+            globals()["LAYERS"] = tuple((name, {"current": (f"{name} producer", call, ())}) for name, call in planted.items())
             document, units = reference_of("current", context_of(REPO, None, None, {}, None, None))
         finally:
             globals()["LAYERS"] = saved
@@ -4111,6 +4977,21 @@ def self_test():
         check("a layer that read nothing is never silently empty",
               "never silently empty" in "; ".join(rows["no-units"]["reasons"]), f"{rows['no-units']['reasons']}")
 
+        # ---- #16: an omission is applied through the inputs a producer declares, so one that declares
+        # nothing has nothing to be applied through, and is refused rather than run
+        saved_undeclared = globals()["LAYERS"]
+        try:
+            globals()["LAYERS"] = (("catalog", {"current": ("a producer that says nothing of its inputs",
+                                                            planted["complete"])}),)
+            undeclared = str(_raised(lambda: layer_rows("current", context_of(REPO, None, None, {}, None, None))))
+            globals()["LAYERS"] = (("catalog", {"current": ("a producer naming an input kind nobody has",
+                                                            planted["complete"], ("a_kind_nobody_declared",))}),)
+            unknown_kind = str(_raised(lambda: layer_rows("current", context_of(REPO, None, None, {}, None, None))))
+        finally:
+            globals()["LAYERS"] = saved_undeclared
+        control("a producer that declares no inputs is refused by name", [undeclared], "PRODUCER_UNDECLARED catalog")
+        control("and one that declares an input kind outside the classes", [unknown_kind], "PRODUCER_UNDECLARED catalog")
+
         # ---- GA#11: one cause at a time, so ignoring any single one of them cannot survive
         causes = {"unsupported": planted["unsupported"], "unknown": planted["unknown"],
                   "malformed": planted["malformed"],
@@ -4118,8 +4999,8 @@ def self_test():
         for cause, producer in causes.items():
             saved_one = globals()["LAYERS"]
             try:
-                globals()["LAYERS"] = (("catalog", {"current": ("the complete layer", planted["complete"])}),
-                                       ("overlays", {"current": (f"the {cause} layer", producer)}))
+                globals()["LAYERS"] = (("catalog", {"current": ("the complete layer", planted["complete"], ())}),
+                                       ("overlays", {"current": (f"the {cause} layer", producer, ())}))
                 document_one, _units_one = reference_of("current", context_of(REPO, None, None, {}, None, None))
             finally:
                 globals()["LAYERS"] = saved_one
@@ -4179,7 +5060,7 @@ def self_test():
             return [guide("first.md", first)]
 
         try:
-            globals()["LAYERS"] = (("catalog", {"current": ("a producer that writes", writing_producer)}),)
+            globals()["LAYERS"] = (("catalog", {"current": ("a producer that writes", writing_producer, ())}),)
             control("a producer that writes into the owner's state", [str(_raised(
                 lambda: run(REPO, state, user, scratch / "written", ledger=ledger,
                                    home=fixture_home)))], "STATE_WRITTEN")
@@ -4334,8 +5215,9 @@ def self_test():
 
             globals()["source_selection"] = deny
             denied_digests, denied_omissions = hash_tree(admit_root)
-            denied_missing = freeze([(admit_root / "runtime", "runtime"),
-                                     (admit_root / "runtime" / "state.json", "one.json")], denied_copy)
+            denied_missing = omission_lines(freeze([(admit_root / "runtime", "runtime"),
+                                                    (admit_root / "runtime" / "state.json", "one.json")],
+                                                   denied_copy))
         finally:
             globals()["source_selection"] = kept_selection
         control("a hash over a tree the selection admits nothing of",
@@ -4465,7 +5347,7 @@ def self_test():
         failing_out.write_text("not a directory", encoding="utf-8")
 
         try:
-            globals()["LAYERS"] = (("catalog", {"current": ("a producer that writes", writing_producer)}),)
+            globals()["LAYERS"] = (("catalog", {"current": ("a producer that writes", writing_producer, ())}),)
             control("a write is reported even when the inventory failed afterwards",
                     [str(_raised(lambda: run(REPO, state, user, failing_out, ledger=ledger,
                                                       home=fixture_home)))],
@@ -4507,8 +5389,8 @@ def self_test():
             link.parent.mkdir(parents=True, exist_ok=True)
             link.symlink_to(outside)
         frozen_probe = scratch / "frozen-probe"
-        left_out = freeze([(state / "runtime" / "baselines" / "ref1", "baseline"),
-                           (user / "learnings", "learnings")], frozen_probe)
+        left_out = omission_lines(freeze([(state / "runtime" / "baselines" / "ref1", "baseline"),
+                                          (user / "learnings", "learnings")], frozen_probe))
         control("a link inside a tree the run copies",
                 left_out, "baseline/linked.json: symlink", "learnings/linked.jsonl: symlink")
         check("the bytes outside the declared root are not in the frozen copy",
@@ -4562,7 +5444,7 @@ def self_test():
             "file_digests": {name: store._digest((snapshot_dir / name).read_bytes())
                              for name in ("CLAUDE.md", "output.json")}}), encoding="utf-8")
         (state / "sessions" / "pins" / "claude" / "session-1.json").write_text(
-            json.dumps({"schema_version": 1, "content_ref": content_ref,
+            json.dumps({"schema_version": 1, "content_ref": content_ref, "host": "claude", "session_id": "session-1",
                         "created": "2026-10-04T12:00:00+00:00"}), encoding="utf-8")
         # The planted credentials travel the way the owner's text really reaches this inventory now:
         # inside what a transcript records as delivered.
@@ -4804,20 +5686,28 @@ def self_test():
         except Exception as exc:
             brittle_failure = exc
         control("a run whose input freezing failed",
-                ([f"the run raised instead of reporting it: {type(brittle_failure).__name__}: {brittle_failure}"]
+                ([f"the run raised instead of reporting it: {type(brittle_failure).__name__}"]
                  if brittle_failure is not None else
                  [reason for entry in brittle_manifest["references"].values() for reason in entry["incomplete_reasons"]]),
-                "INPUT_UNACQUIRED")
+                UNKNOWN_REASONS["input_failed"], "runtime_state: not_json")
         check("the failed acquisition still wrote a layer-status artifact per reference point",
               all((brittle_out / "inventory" / f"{reference}.json").is_file() for reference in REFERENCES),
               "a reference point lost its artifact to the acquisition failure")
         brittle_current = brittle_out / "inventory" / "current.json"
-        brittle_layers = (json.loads(brittle_current.read_text(encoding="utf-8"))["layers"]
-                          if brittle_current.is_file() else [])
-        check("every layer of that artifact carries a status and the cause",
+        brittle_layers = {row["layer"]: row for row in (json.loads(brittle_current.read_text(encoding="utf-8"))["layers"]
+                                                        if brittle_current.is_file() else [])}
+        # #16: the failure answers for the producers that READ the runtime state, and for nothing
+        # else. It used to turn every layer unknown — the checkout's catalog and the ledger included.
+        check("every layer of that artifact carries a status, and the ones reading the runtime state say why",
               len(brittle_layers) == len(LAYERS)
-              and all(row["status"] == "unknown" and row["reasons"] for row in brittle_layers),
-              f"{[row['status'] for row in brittle_layers]}")
+              and all(brittle_layers.get(layer, {}).get("status") == "unknown"
+                      and "runtime_state" in "; ".join(brittle_layers.get(layer, {}).get("reasons") or [])
+                      for layer in ("adopted_packages", "overlays")),
+              f"{[(layer, row['status']) for layer, row in brittle_layers.items()]}")
+        check("and a layer that reads none of the owner's state keeps its own answer",
+              brittle_layers.get("catalog", {}).get("status") == "complete"
+              and brittle_layers.get("ledger_keep", {}).get("status") == "complete",
+              f"{[(layer, row['status']) for layer, row in brittle_layers.items()]}")
 
         # ---- GA#6, GA#7, GA#8: adopted packages, overlays per host, and both baselines frozen
         adopted_item = {"ref": "@vendor/pkg:guide-1", "item_id": "guide-1", "kind": "guide",
@@ -4856,7 +5746,7 @@ def self_test():
                 [f"installed={notes['baselines']['installed']} pinned={notes['baselines']['pinned']} "
                  f"differ={notes['baselines']['differ']}"],
                 "installed=ref2", "pinned=ref1", "differ=True")
-        frozen_both = [row for row in notes.get("frozen_missing", []) if "baselines" in row]
+        frozen_both = [row for row in notes.get("frozen_missing", []) if "baselines" in str(row.get("path"))]
         check("both baselines were frozen, so neither resolver is left without its tuple", not frozen_both,
               f"{frozen_both}")
         # The schema is a contract, not a second list: the real document's units and layer rows are
@@ -4911,6 +5801,130 @@ def self_test():
               any(unit["package_id"] == "@vendor/pkg" for unit in adopted_rows["release"])
               or notes["baselines"]["pinned"] == "ref1",
               "the release reference point lost the adopted package")
+
+        # ---- #16: an omission answers for the producers that READ that input, and for no other.
+        # Each input kind is planted failed (a link where the input is) and, where its class has one,
+        # absent, in a copy of the fixture state; the statuses of every layer at every reference point
+        # are compared with the clean copy's. The expected sets are written here, not derived from the
+        # declarations they judge, so a declaration that moves fails against something it is not.
+        matrix_seq = [0]
+
+        def statuses_over(state_root, user_root, pin="claude:session-1"):
+            matrix_seq[0] += 1
+            frozen_for = scratch / f"matrix-frozen-{matrix_seq[0]}"
+            ctx = context_of(REPO, state_root, user_root, {}, pin, ledger)
+            freeze_inputs(frozen_for, REPO, state_root, user_root, pin, ctx)
+            bind_transcripts(ctx, run_planted)
+            return {f"{reference}/{row['layer']}": (row["status"], "; ".join(row["reasons"]))
+                    for reference in REFERENCES for row in layer_rows(reference, ctx)}
+
+        def copied_fixture(label):
+            case = scratch / f"matrix-{label}"
+            shutil.copytree(state, case / "state", symlinks=True)
+            shutil.copytree(user, case / "user", symlinks=True)
+            return case / "state", case / "user"
+
+        def linked_instead(path):
+            """`path` replaced by a link to a copy of itself outside the fixture: a failed acquisition."""
+            aside = scratch / "matrix-outside" / f"{len(list((scratch / 'matrix-outside').glob('*'))) if (scratch / 'matrix-outside').is_dir() else 0}-{path.name}"
+            aside.parent.mkdir(parents=True, exist_ok=True)
+            if path.is_dir():
+                shutil.copytree(path, aside)
+                shutil.rmtree(path)
+            else:
+                shutil.copyfile(path, aside)
+                path.unlink()
+            path.symlink_to(aside)
+
+        def removed(path):
+            shutil.rmtree(path) if path.is_dir() else path.unlink()
+
+        matrix_pin = json.loads((state / "sessions" / "pins" / "claude" / "session-1.json").read_text(encoding="utf-8"))
+        matrix_installed = json.loads((state / "runtime" / "state.json").read_text(encoding="utf-8"))["selected_baseline_ref"]
+        clean_statuses = statuses_over(state, user)
+        reads_state_now = {"current/adopted_packages", "current/overlays"}
+        reads_the_pin = {"release/catalog", "release/adopted_packages", "selection/catalog",
+                         "selection/adopted_packages", "selection/overlays", "selection/native_global",
+                         "selection/native_project", "selection/native_memory", "current/session_injection",
+                         "selection/session_injection"}
+        reads_the_snapshot = reads_the_pin - {"selection/native_global", "selection/native_project",
+                                              "selection/native_memory"}
+        matrix_cases = [
+            ("runtime_state", "failed", lambda s, u: linked_instead(s / "runtime" / "state.json"), reads_state_now),
+            ("runtime_state", "absent", lambda s, u: removed(s / "runtime" / "state.json"), reads_state_now),
+            ("user_state", "failed", lambda s, u: linked_instead(u / "state.json"), reads_state_now),
+            ("user_state", "absent", lambda s, u: removed(u / "state.json"), set()),
+            ("learning_journals", "failed", lambda s, u: linked_instead(u / "learnings" / "claude" / "events.jsonl"),
+             {"current/overlays"}),
+            ("learning_journals", "absent", lambda s, u: removed(u / "learnings"), set()),
+            ("pin", "failed", lambda s, u: linked_instead(s / "sessions" / "pins" / "claude" / "session-1.json"),
+             reads_the_pin),
+            ("pin", "absent", lambda s, u: removed(s / "sessions" / "pins" / "claude" / "session-1.json"),
+             reads_the_pin),
+            ("snapshot", "failed", lambda s, u: linked_instead(s / "sessions" / "snapshots" / matrix_pin["content_ref"]),
+             reads_the_snapshot),
+            ("snapshot", "absent", lambda s, u: removed(s / "sessions" / "snapshots" / matrix_pin["content_ref"]),
+             reads_the_snapshot),
+            ("installed_baseline", "failed", lambda s, u: linked_instead(s / "runtime" / "baselines" / matrix_installed),
+             reads_state_now),
+            ("installed_baseline", "absent", lambda s, u: removed(s / "runtime" / "baselines" / matrix_installed),
+             reads_state_now),
+            # A link INSIDE the pinned baseline, beside an item list that copies fine: only the freeze
+            # result says the copy is short, so a discarded result reads the baseline as whole.
+            ("release_baseline", "failed",
+             lambda s, u: linked_instead(s / "runtime" / "baselines" / "ref1" / "defaults.json"),
+             {"release/catalog", "release/adopted_packages"}),
+            ("release_baseline", "absent", lambda s, u: removed(s / "runtime" / "baselines" / "ref1"),
+             {"release/catalog", "release/adopted_packages"}),
+        ]
+        check("the matrix's fixture pins one baseline and installs another, so the two are told apart",
+              matrix_installed != "ref1" and matrix_pin.get("content_ref") is not None,
+              f"installed_is_pinned={matrix_installed == 'ref1'}")
+        every_subject = set().union(*(expected for *_rest, expected in matrix_cases))
+        check("every layer the matrix expects to change answers in the clean copy",
+              all(clean_statuses.get(cell, ("unknown",))[0] != "unknown" for cell in every_subject),
+              f"{sorted(cell for cell in every_subject if clean_statuses.get(cell, ('unknown',))[0] == 'unknown')}")
+        for kind, outcome, plant, expected in matrix_cases:
+            case_state, case_user = copied_fixture(f"{kind}-{outcome}")
+            plant(case_state, case_user)
+            try:
+                case_statuses, failure = statuses_over(case_state, case_user), None
+            except Exception as exc:  # a case that raises fails its own control by name
+                case_statuses, failure = {}, exc
+            changed = {cell for cell in clean_statuses if case_statuses.get(cell, (None,))[0] != clean_statuses[cell][0]}
+            check(f"#16 {kind} {outcome}: exactly the layers that read it change",
+                  failure is None and changed == expected,
+                  f"raised={type(failure).__name__ if failure else None} "
+                  f"unexpected={sorted(changed - expected)} unchanged={sorted(expected - changed)}")
+            check(f"#16 {kind} {outcome}: and each of them is unknown, naming the input",
+                  failure is None and all(case_statuses[cell][0] == "unknown" and kind in case_statuses[cell][1]
+                                          for cell in expected),
+                  f"{sorted(cell for cell in expected if kind not in case_statuses.get(cell, ('', ''))[1])}")
+        # The acquisition's own unexpected failure: what it cannot attribute to one input reaches every
+        # producer that reads the owner's state, and still none that reads only the checkout, the
+        # transcripts or the ledger.
+        # Planted INSIDE the acquisition, where a real one would arise: `freeze_inputs` points the
+        # context at the frozen copies before it copies anything, so what it leaves behind is that.
+        kept_freeze = globals()["freeze"]
+        try:
+            def unexpected(*_args, **_kwargs):
+                raise RuntimeError("a planted failure no input owns")
+
+            globals()["freeze"] = unexpected
+            stray_out = scratch / "matrix-unexpected-out"
+            stray = _raised(lambda: run(REPO, state, user, stray_out, pin="claude:session-1", ledger=ledger,
+                                        run_dir=run_planted, home=fixture_home,
+                                        native_roots={"projects": {"project": scratch / "project"}}))
+        finally:
+            globals()["freeze"] = kept_freeze
+        stray_rows = {row["layer"]: row["status"] for row in (json.loads(
+            (stray_out / "inventory" / "current.json").read_text(encoding="utf-8"))["layers"]
+            if (stray_out / "inventory" / "current.json").is_file() else [])}
+        check("an unattributed acquisition failure leaves the checkout, transcript and ledger layers their answers",
+              stray is None and stray_rows.get("catalog") == "complete" and stray_rows.get("native_global") == "complete"
+              and stray_rows.get("ledger_keep") == "complete"
+              and stray_rows.get("overlays") == "unknown" and stray_rows.get("session_injection") == "unknown",
+              f"raised={type(stray).__name__ if stray else None} {sorted(stray_rows.items())}")
 
         # ---- GC#1: the temporary location is chosen and judged before anything is written
         guarded_tmp = scratch / "guarded-tmp"
@@ -6066,7 +7080,7 @@ def self_test():
                 [str(_raised(lambda: snapshot_of(REPO, frozen_above, "any-ref")))], "SOURCE_LINKED")
         with instead_a_link(state / "runtime" / "baselines", link_target / "runtime" / "baselines"):
             copy_probe = scratch / "frozen-copy-above"
-            left = freeze([(state / "runtime" / "baselines" / "ref1", "baseline")], copy_probe, state)
+            left = omission_lines(freeze([(state / "runtime" / "baselines" / "ref1", "baseline")], copy_probe, state))
             control("a copy input reached through a link above the declared root",
                     left, "baseline: symlink")
             check("and nothing from behind that link was copied",
