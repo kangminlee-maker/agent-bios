@@ -4499,15 +4499,23 @@ def self_test():
               [member_row["layer"] for member_row in codex_events[0]["files"]] == ["native_global"]
               and codex_events[0]["files"][0]["undivided"],
               f"{[member_row['layer'] for member_row in codex_events[0]['files']]}")
-        codex_carrier = event_carriers("native_global", codex_events[0], "current")[0]
+        def carriers_of(layer, event):
+            """`event_carriers`, or [] when it refuses: a control over a carrier fails by its own
+            name instead of ending the suite (a planted undeclared form refuses every one)."""
+            try:
+                return event_carriers(layer, event, "current")
+            except Exception:
+                return []
+
+        codex_carrier = (carriers_of("native_global", codex_events[0]) or [{"provenance": {}}])[0]
         check("a Codex carrier says its identity is unknown",
               "loaded text" in str(codex_carrier["provenance"].get("identity")),
               f"{codex_carrier['provenance']}")
-        carriers_out = event_carriers("native_global", global_event, "current")
+        carriers_out = carriers_of("native_global", global_event)
         check("a native carrier carries when and from whom it came",
-              carriers_out[0]["provenance"]["as_of"] == global_event["at"]
+              bool(carriers_out) and carriers_out[0]["provenance"]["as_of"] == global_event["at"]
               and carriers_out[0]["provenance"]["session"] == "claude:s-main",
-              f"{carriers_out[0]['provenance']}")
+              f"{carriers_out[0]['provenance'] if carriers_out else 'no carrier'}")
 
         # ======== WP-07 package B, phase 1: acquisition and decoding of the transcripts ========
         def bound_row(host, ident, path, **fields):
@@ -4857,6 +4865,11 @@ def self_test():
                 [1], [{"session": "codex:c-fork", "line": 2, "category": "no_session_id"}]),
             "a rollout with one session_meta": (
                 [codex_meta("c-fork", "2026-10-09T10:00:00+00:00")], [1], []),
+            # census takes the file name's id when the head names none (census.py ~225), and a later
+            # session_meta can carry exactly that id: every record is tested, not only the first
+            "an id-less head followed by the rollout's own": (
+                [codex_meta(None, "2026-10-09T08:00:00+00:00"), codex_meta("c-fork", "2026-10-09T10:00:00+00:00")],
+                [2], [{"session": "codex:c-fork", "line": 1, "category": "no_session_id"}]),
         }
         for label, (rows_for, event_lines, inherited_rows) in m10_cases.items():
             slug = "-".join(label.split()[:4]).replace("'", "")
