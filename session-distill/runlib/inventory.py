@@ -5557,11 +5557,23 @@ def self_test():
         check("and the two events of one record have two ids",
               failed is None and len(events_both) == 2 and len({event["id"] for event in events_both}) == 2,
               f"events={len(events_both)} ids={len({event['id'] for event in events_both})}")
+        # The same record of the same session at the same line, read under its prefix binding instead
+        # of its whole-file one: the binding is the ONLY component that differs, so the two production
+        # ids are compared with each other. Compared with `independent` alone, an id with no binding
+        # in it still differed from one built with the whole-file binding, and the control passed.
+        whole_native = [event["id"] for event in events_both if event["kind"] == "native"]
         prefix_only_row = {**both_row, "sha256": None}
         _r, failed, events_po, _f = p2_run("both-prefix", [prefix_only_row])
+        independent_prefix = "e-" + hashlib.sha256(json.dumps(
+            ["event", "native", "claude", "s-both",
+             ["prefix", both_row["versions"][0]["prefix_sha"], both_row["versions"][0]["record_count"]], 1],
+            separators=(",", ":"), ensure_ascii=False).encode("utf-8")).hexdigest()[:24]
         check("the binding a transcript was read under is part of its events' ids",
-              failed is None and len(events_po) == 1 and events_po[0]["id"] != independent,
-              f"raised={failed is not None} same={bool(events_po) and events_po[0]['id'] == independent}")
+              failed is None and len(events_po) == 1 and len(whole_native) == 1
+              and events_po[0]["id"] == independent_prefix and events_po[0]["id"] != whole_native[0],
+              f"raised={failed is not None} events={len(events_po)} "
+              f"canonical={bool(events_po) and events_po[0]['id'] == independent_prefix} "
+              f"same_as_whole={bool(events_po) and bool(whole_native) and events_po[0]['id'] == whole_native[0]}")
 
         damaged_in_force = next((event for event in events_dm if event["damaged"]), None)
         in_force = _raised(lambda: _native("native_global")(
