@@ -7,11 +7,13 @@
       "$comment": "A reference point's document, judged on its units and layer rows. One root per published document, each naming its kind as a `document` const (step 0 S-21); the code's DOCUMENT_ROOTS picks it, because this schema policy has no oneOf.",
       "type": "object",
       "additionalProperties": false,
-      "required": ["document", "units", "layers"],
+      "required": ["document", "units", "layers", "scopes", "scope_universe"],
       "properties": {
         "document": {"const": "current"},
         "units": {"type": "array", "items": {"$ref": "#/$defs/unit"}},
-        "layers": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/layer_row"}}
+        "layers": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/layer_row"}},
+        "scopes": {"type": "array", "items": {"$ref": "#/$defs/scope_answer"}},
+        "scope_universe": {"type": "array", "items": {"$ref": "#/$defs/scope_universe"}}
       }
     },
     "release_document": {
@@ -64,6 +66,57 @@
       }
     },
     "event_id": {"type": "string", "pattern": "^e-[0-9a-f]{24}$"},
+    "scope_id": {"type": "string", "pattern": "^s-[0-9a-f]{24}$"},
+    "scope_reason": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reason"],
+      "properties": {
+        "reason": {"type": "string", "minLength": 1},
+        "event_id": {"$ref": "#/$defs/event_id"},
+        "session_ref": {"$ref": "#/$defs/session_ref"},
+        "line": {"$ref": "#/$defs/line"}
+      }
+    },
+    "scope_answer": {
+      "$comment": "One scope's answer at the current reference point (step 0 S-10): a scope is a (layer, host, key) the host distinguishes, answered by its own newest eligible outcome.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scope_id", "layer", "host", "scope", "status", "as_of", "session", "session_ref", "line",
+                   "event_ids", "reasons", "evidence", "limitations", "freshness"],
+      "properties": {
+        "scope_id": {"$ref": "#/$defs/scope_id"},
+        "layer": {"type": "string", "enum": ["native_global", "native_project", "native_memory", "native_undivided"]},
+        "host": {"$ref": "#/$defs/host"},
+        "scope": {"type": ["string", "null"]},
+        "status": {"type": "string", "enum": ["answered", "empty", "incomplete", "uncertain", "unknown"]},
+        "as_of": {"type": ["string", "null"]},
+        "session": {"type": ["string", "null"]},
+        "session_ref": {"type": ["string", "null"], "pattern": "^p-[0-9a-f]{24}$"},
+        "line": {"type": ["integer", "null"], "minimum": 1},
+        "event_ids": {"type": "array", "items": {"$ref": "#/$defs/event_id"}},
+        "reasons": {"type": "array", "items": {"$ref": "#/$defs/scope_reason"}},
+        "evidence": {"type": "array", "items": {
+          "type": "object", "additionalProperties": false, "required": ["event_id", "as_of"],
+          "properties": {"event_id": {"$ref": "#/$defs/event_id"}, "as_of": {"type": ["string", "null"]}}}},
+        "limitations": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "freshness": {"type": "string", "minLength": 1}
+      }
+    },
+    "scope_universe": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["host", "no_scope", "cwd_unreadable", "memory_path_relative", "global_excluded_by_launch",
+                   "ineligible"],
+      "properties": {
+        "host": {"$ref": "#/$defs/host"},
+        "no_scope": {"type": "integer", "minimum": 0},
+        "cwd_unreadable": {"type": "integer", "minimum": 0},
+        "memory_path_relative": {"type": "integer", "minimum": 0},
+        "global_excluded_by_launch": {"type": "integer", "minimum": 0},
+        "ineligible": {"type": "integer", "minimum": 0}
+      }
+    },
     "owner_ref": {"type": "string", "pattern": "^o-[0-9a-f]{24}$"},
     "session_ref": {"type": "string", "pattern": "^p-[0-9a-f]{24}$"},
     "host": {"type": "string", "enum": ["claude", "codex"]},
@@ -178,6 +231,7 @@
         "native_project",
         "native_settings",
         "native_memory",
+        "native_undivided",
         "session_injection",
         "ledger_incubating",
         "ledger_keep"
@@ -238,7 +292,9 @@
         "status": {"type": ["string", "null"]},
         "keep_units": {"type": "array", "items": {"type": "string"}},
         "keep_reason": {"type": ["string", "null"]},
-        "hosts": {"type": "array", "items": {"type": "string"}}
+        "hosts": {"type": "array", "items": {"type": "string"}},
+        "scope_id": {"$ref": "#/$defs/scope_id"},
+        "event_id": {"$ref": "#/$defs/event_id"}
       }
     },
     "layer_row": {

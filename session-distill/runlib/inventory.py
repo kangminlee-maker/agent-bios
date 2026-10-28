@@ -40,6 +40,7 @@ import sys
 sys.dont_write_bytecode = True
 
 import ast
+import bisect
 import collections
 import datetime
 import contextlib
@@ -392,6 +393,15 @@ class Unacquired(Exception):
     """An input this reference point needs and this run has no record of: the layer is `unknown`,
     which is neither "the producer looked and found nothing" nor "this structure is unsupported".
     A run's native layers are unacquired until the S0 capture package lands (2026-10-23)."""
+
+
+class ScopedAnswer(Exception):
+    """A layer answered scope by scope whose row is not complete (S-10): its status, its reasons, and
+    the carriers of the scopes that did answer, which are published beside their scope's own row."""
+
+    def __init__(self, status, reasons, carriers):
+        super().__init__("; ".join(reasons))
+        self.status, self.reasons, self.carriers = status, reasons, carriers
 
 
 class Unsupported(Exception):
@@ -831,7 +841,8 @@ OPAQUE_FORMS = {"unit_id": re.compile(r"^u-[0-9a-f]{16}(-[0-9]+)?$"),
                 # the step-0 ids, each `<prefix>-` and 24 hex (`opaque_id`)
                 "event_id": re.compile(r"^e-[0-9a-f]{24}$"),
                 "owner_ref": re.compile(r"^o-[0-9a-f]{24}$"),
-                "session_ref": re.compile(r"^p-[0-9a-f]{24}$")}
+                "session_ref": re.compile(r"^p-[0-9a-f]{24}$"),
+                "scope_id": re.compile(r"^s-[0-9a-f]{24}$")}
 
 
 def as_scalar(nullable=False):
@@ -1238,8 +1249,10 @@ PROVENANCE_TABLE = table_of({
     "status": as_metadata(nullable=True),
     "keep_units": list_of(as_metadata()), "keep_reason": as_metadata(nullable=True),
     "hosts": list_of(as_enum(PROVENANCE_HOSTS)),
+    # a scope's answer (S-10): the scope row and the event a unit of `current` came from
+    "scope_id": as_opaque("scope_id"), "event_id": as_opaque("event_id"),
 }, optional=("as_of", "session", "transcript", "where", "scope", "reference", "record", "identity",
-             "status", "keep_units", "keep_reason", "hosts"), schema="provenance")
+             "status", "keep_units", "keep_reason", "hosts", "scope_id", "event_id"), schema="provenance")
 
 # §6.1's unit record as the artifact carries it. `operative_context` is ONE list with a per-item
 # union: a resolved entry is an opaque unit id, and an unresolved one is built from the carrier
@@ -1393,6 +1406,35 @@ SESSIONS_PRODUCED_BY_TABLE = table_of({
     "design": as_constant(DESIGN),
     "commit": as_metadata(nullable=True),
 })
+
+
+# §8's freshness sentence, carried by every scope answer as data (the 1548 amendment §8).
+FRESHNESS = ("the newest delivery on record, not the file on disk: an edit made after this event is unknown "
+             "until a later transcript records it")
+# The per-host counts of the scope universe (S-10): outcomes that answer no scope, each by its reason,
+# and the events that are not eligible to answer at all.
+UNIVERSE_COUNTS = ("no_scope", "cwd_unreadable", "memory_path_relative", "global_excluded_by_launch", "ineligible")
+SCOPE_REASON_TABLE = table_of({"reason": as_enum(lambda: UNKNOWN_REASONS), "event_id": as_opaque("event_id"),
+                               "session_ref": as_opaque("session_ref"), "line": as_scalar()},
+                              optional=("event_id", "session_ref", "line"), schema="scope_reason")
+SCOPE_TABLE = table_of({
+    "scope_id": as_opaque("scope_id"),
+    "layer": as_enum(lambda: SCOPED_LAYERS),
+    "host": as_enum(PROVENANCE_HOSTS),
+    "scope": as_metadata(nullable=True),
+    "status": as_enum(lambda: SCOPE_STATUSES),
+    "as_of": as_metadata(nullable=True),
+    "session": as_metadata(nullable=True),
+    "session_ref": as_opaque("session_ref", nullable=True),
+    "line": as_scalar(nullable=True),
+    "event_ids": list_of(as_opaque("event_id")),
+    "reasons": list_of(SCOPE_REASON_TABLE),
+    "evidence": list_of(table_of({"event_id": as_opaque("event_id"), "as_of": as_metadata(nullable=True)})),
+    "limitations": list_of(as_enum(lambda: UNKNOWN_REASONS)),
+    "freshness": as_constant(FRESHNESS),
+}, schema="scope_answer")
+UNIVERSE_TABLE = table_of({"host": as_enum(PROVENANCE_HOSTS), **{key: as_scalar() for key in UNIVERSE_COUNTS}},
+                          schema="scope_universe")
 
 
 def event_row(event):
@@ -2325,6 +2367,24 @@ UNKNOWN_REASONS = {
                               "one names this rollout"),
     "container_unusable": "unknown: an injection record whose container cannot be read",
     "undecodable_after": "uncertain: a line that does not decode lies inside this event's interval",
+    "no_scope": "not an outcome: the record names no cwd, so it answers no project scope",
+    "cwd_unreadable": "unknown: the record's cwd is not a string naming an absolute path",
+    "memory_path_relative": "not an outcome: the AutoMem path is not absolute, and nothing resolves it",
+    "tie": "unknown: two transcripts record different sets for this scope at one instant",
+    "memory_unconfirmed": ("unknown: a later injection of the same project names no member of this memory "
+                           "directory"),
+    "member_unmapped": "unknown: an injection carries a member whose type no native layer admits",
+    "member_rejected": "incomplete: an injection carries a member of this layer whose content is unusable",
+    "codex_undivided": ("unknown: Codex delivers its instructions as one block, so no global, project or "
+                        "memory part of it is known"),
+    "exclusion_unobservable": ("limitation: the session has no pin, so a launch that excluded the global "
+                               "instructions cannot be seen"),
+    "exclusion_unreadable": ("unknown: the session's pin was not read, so whether its launch excluded the global "
+                             "instructions is not known"),
+    "global_excluded_by_launch": ("not an outcome: the session was launched without the global instructions, so "
+                                  "its global set is not a deletion"),
+    "undecodable_elsewhere": ("uncertain: another transcript of this host holds a line that does not decode, "
+                              "after its last dated event and not bracketed below this answer"),
     "locator_element_rejected": ("unknown: an element of the field the body is located in was rejected, and "
                                  "the body is not among the rest"),
 }
@@ -2838,29 +2898,36 @@ def injection_events(records, entry, delivered=None, seen=None):
             if record.get("type") == "attachment" and isinstance(attachment, dict) \
                     and attachment.get("type") == "instructions":
                 files = attachment.get("files")
+                case, cwd = cwd_case(record)
                 if not isinstance(files, list):
                     damage.append({"line": line, "category": "container_unusable"})
                     events.append({"kind": "native", "host": host, "at": at, "n": line, "files": [],
                                    "rejected": [], "unmapped": False,
                                    "damaged": reason("container_unusable"), **mine,
-                                   "scope": record.get("cwd") if isinstance(record.get("cwd"), str) else None,
-                                   "where": "attachment.files[] by type"})
+                                   "scope": cwd, "cwd_case": case, "where": "attachment.files[] by type"})
                 else:
                     members, rejected = [], []
                     for ordinal, member in enumerate(files):
                         problem = member_problem(member)
                         if problem:
-                            rejected.append({"ordinal": ordinal, "category": problem})
+                            row = {"ordinal": ordinal, "category": problem}
+                            if problem in ("member_path_invalid", "member_content_invalid"):
+                                # A known type: the layer is identifiable, so it is incomplete rather
+                                # than unknown (S-6), and an AutoMem member with a path keeps its
+                                # directory, which is the scope it leaves incomplete.
+                                row["layer"] = ATTACHMENT_LAYER[member["type"]]
+                                if problem == "member_content_invalid":
+                                    row["path"] = member["path"]
+                            rejected.append(row)
                             continue
                         members.append({"layer": ATTACHMENT_LAYER[member["type"]], "type": member["type"],
                                         "path": member["path"], "text": member["content"], "ordinal": ordinal})
-                    if members or rejected:
-                        events.append({"kind": "native", "host": host, "at": at, "n": line, "files": members,
-                                       "rejected": rejected,
-                                       "unmapped": any(row["category"] == "member_type_unmapped" for row in rejected),
-                                       "damaged": None, **mine,
-                                       "scope": record.get("cwd") if isinstance(record.get("cwd"), str) else None,
-                                       "where": "attachment.files[] by type"})
+                    # A valid `files: []` is kept: it is an empty answer, a deletion that shows (#6, S-8).
+                    events.append({"kind": "native", "host": host, "at": at, "n": line, "files": members,
+                                   "rejected": rejected,
+                                   "unmapped": any(row["category"] in UNMAPPED_CATEGORIES for row in rejected),
+                                   "damaged": None, **mine,
+                                   "scope": cwd, "cwd_case": case, "where": "attachment.files[] by type"})
             before = len(damage)
             found = _located(record, delivered, damage, line)
             harmed = [row["category"] for row in damage[before:]]
@@ -2889,26 +2956,25 @@ def injection_events(records, entry, delivered=None, seen=None):
                     "owner_ref": owner_ref(host, entry.get("id"))}
             base = payload["base_instructions"]
             text = base if isinstance(base, str) else base.get("text") if isinstance(base, dict) else None
+            case, cwd = cwd_case(payload)
             if not isinstance(text, str):
                 damage.append({"line": line, "category": "container_unusable"})
                 events.append({"kind": "native", "host": host, "at": at, "n": line, "rejected": [],
                                "unmapped": False, "damaged": reason("container_unusable"),
-                               **mine, "files": [],
-                               "scope": (payload.get("cwd") if isinstance(payload.get("cwd"), str) else None),
+                               **mine, "files": [], "scope": cwd, "cwd_case": case,
                                "where": "session_meta.payload.base_instructions",
                                "git": payload.get("git") if isinstance(payload.get("git"), dict) else None})
                 continue
-            if text.strip():
-                events.append({"kind": "native", "host": host, "at": at, "n": line, "rejected": [],
-                               "unmapped": False, "damaged": None, **mine,
-                               "scope": (payload.get("cwd") if isinstance(payload.get("cwd"), str) else None),
-                               "where": "session_meta.payload.base_instructions",
-                               "git": payload.get("git") if isinstance(payload.get("git"), dict) else None,
-                               # One undivided block: the global and project parts of it are unknown,
-                               # and no estimated split is recorded (the 1548 amendment §1).
-                               "files": [{"layer": "native_global", "type": "base_instructions",
-                                          "path": "codex:base_instructions", "text": text,
-                                          "undivided": True}]})
+            events.append({"kind": "native", "host": host, "at": at, "n": line, "rejected": [],
+                           "unmapped": False, "damaged": None, **mine, "scope": cwd, "cwd_case": case,
+                           "where": "session_meta.payload.base_instructions",
+                           "git": payload.get("git") if isinstance(payload.get("git"), dict) else None,
+                           # One undivided block at its own layer value (#14, S-19): the global and
+                           # project parts of it are unknown, and no estimated split is recorded (the
+                           # 1548 amendment §1). An empty block is kept: an empty answer (#6).
+                           "files": [{"layer": "native_undivided", "type": "base_instructions",
+                                      "path": "codex:base_instructions", "text": text,
+                                      "undivided": True}] if text.strip() else []})
     return events, damage, inherited
 
 
@@ -2932,43 +2998,357 @@ def event_in_force(events, when, kind="native"):
     return best
 
 
-def current_sets(events):
-    """§8: per layer AND SCOPE, the whole file set of the newest recorded event, labelled `as_of`.
+# ---- §8's current reference point, scope by scope (step 0 S-7 .. S-10, S-19)
+# A scope is a (layer, host, key) the host itself distinguishes: the global layer per host, a project
+# per recorded cwd, a memory directory per AutoMem path, and the Codex block per (codex, cwd). Each is
+# answered by its own newest eligible outcome, never per path, and each answer is a published row.
+SCOPED_LAYERS = ("native_global", "native_project", "native_memory", "native_undivided")
+SCOPE_STATUSES = ("answered", "empty", "incomplete", "uncertain", "unknown")
+SCOPE_RANK = {"unknown": 1, "uncertain": 2, "incomplete": 3, "answered": 4, "empty": 4}
+# What each reason does to a scope (S-10's table): the rank-1 reasons make it unknown, the rank-2 ones
+# uncertain, a known-layer rejected member incomplete. One condition, one status, wherever it appears.
+REASON_STATUS = {
+    **{key: "unknown" for key in ("container_unusable", "member_unmapped", "cwd_unreadable", "undated",
+                                  "undated_naive", "tie", "memory_unconfirmed", "locator_element_rejected",
+                                  "exclusion_unreadable", "codex_undivided")},
+    **{key: "uncertain" for key in ("undecodable_after", "undecodable_elsewhere")},
+    "member_rejected": "incomplete",
+}
+# The layers each count leaves incomplete at its host (S-10: complete only without them). The global
+# layer is not among them: an event with no cwd still answers it (S-7), and an unreadable cwd reaches
+# it through its scope status. Memory is: S-9 asks whether a later event is at a directory's project,
+# and an event without a readable cwd cannot answer that (lead ruling, 2026-10-29).
+COUNTED_LAYERS = {"no_scope": ("native_project", "native_undivided", "native_memory"),
+                  "cwd_unreadable": ("native_project", "native_undivided", "native_memory"),
+                  "memory_path_relative": ("native_memory",)}
+UNMAPPED_CATEGORIES = ("member_type_unmapped", "member_not_object")
+ABSOLUTE = re.compile(r"^(/|[A-Za-z]:[\\/]|\\\\)")
+PROJECT_SEGMENT = re.compile(r"[\\/]projects[\\/]([^\\/]+)(?:[\\/]|$)")
 
-    Never per path. Taking the newest event for each path separately would keep a file alive forever
-    after it was deleted, because no later event mentions a file that is gone; a whole-set answer
-    lets a deletion show as a deletion.
 
-    Only MAIN transcripts feed this. A subagent's injection can omit a layer by agent type — some
-    built-in agent types load no `CLAUDE.md` — so a subagent event would make a present layer look
-    absent. Subagent transcripts keep their own past reference points (§6)."""
-    newest = {}
+def cwd_case(holder):
+    r"""`(case, cwd)` of one record's cwd, read as DATA and never resolved on disk (S-7): `absent` when
+    the key is not there, `unreadable` when it is not a string naming an absolute path by its spelling
+    (POSIX `/`, a drive `X:\` or `X:/`, a UNC `\\`), `scoped` with the string otherwise."""
+    if not isinstance(holder, dict) or "cwd" not in holder:
+        return "absent", None
+    value = holder["cwd"]
+    if isinstance(value, str) and ABSOLUTE.match(value):
+        return "scoped", value
+    return "unreadable", None
+
+
+def lexical_slug(text):
+    """`memory_slug`'s character rule on the recorded string itself: nothing expanded or resolved (S-9)."""
+    return re.sub(r"[^A-Za-z0-9]", "-", text)
+
+
+def member_dir(path):
+    """The directory of a recorded AutoMem path, by its spelling, or None when the path is not absolute."""
+    if not (isinstance(path, str) and ABSOLUTE.match(path)):
+        return None
+    cut = max(path.rfind("/"), path.rfind("\\"))
+    return path[:cut] or path[:1]
+
+
+def brackets(read):
+    """For one read transcript, `bracket(line)` = `(after, ok)`: the first supported instant of a
+    record LATER than that line, and whether the transcript's supported instants do not step back
+    across it (S-5's bracketing). The upper bound of an undated outcome, or of a line that does not
+    decode, is only ever that later record of its own transcript."""
+    supported = [(n, at) for n, record in read["records"] for at in [_instant(_timestamp(record))] if at is not None]
+    lines = [n for n, _at in supported]
+
+    def bracket(line):
+        later = bisect.bisect_right(lines, line)
+        earlier = bisect.bisect_left(lines, line) - 1
+        after = supported[later][1] if later < len(supported) else None
+        before = supported[earlier][1] if earlier >= 0 else None
+        return after, after is None or before is None or before <= after
+    return bracket
+
+
+def could_follow(other, chosen):
+    """Whether `other` may come after `chosen` by S-8's order: by line inside one transcript, by
+    instant across two, and an undated one by its upper bound only (an equal instant may follow)."""
+    if other["session_ref"] == chosen["session_ref"]:
+        return other["n"] > chosen["n"]
+    chosen_at, other_at = _instant(chosen.get("at")), _instant(other.get("at"))
+    if chosen_at is None:
+        return True
+    if other_at is not None:
+        return other_at >= chosen_at
+    upper = other.get("after_at") if other.get("bracket_ok") else None
+    return upper is None or upper > chosen_at
+
+
+def scope_id(layer, host, key):
+    """The opaque scope id (S-7, S-11), from the RAW layer, host and key: two raw scopes that project
+    to one display string stay two scopes."""
+    return opaque_id("s", "scope", layer, host, key)
+
+
+def pin_state(entry, ctx):
+    """What the session's pin says about the global instructions (S-8 b): `unpinned`, `included`,
+    `excluded`, or `unreadable` when its census row names a pin this run did not read. Only the
+    `--pin` session's pin is read here; a pinned session it did not read is unknown, never assumed."""
+    if not entry.get("pin"):
+        return "unpinned"
+    record = (ctx or {}).get("pin_record")
+    if not (record and (ctx or {}).get("pin") == f"{entry.get('host')}:{entry.get('id')}"
+            and record.get("content_ref") == entry.get("pin")):
+        return "unreadable"
+    flag = record.get("include_global_instructions", True)
+    if type(flag) is not bool:
+        return "unreadable"
+    return "included" if flag else "excluded"
+
+
+def outcomes_of(event, pin):
+    """`(outcomes, counts)`: every scope one ELIGIBLE event answers, each with the members it carries
+    there and the state that may keep it from answering, and the per-host counts of what it cannot
+    answer at all (S-7, S-8 b, S-9, S-19)."""
+    host, case, cwd = event["host"], event.get("cwd_case"), event.get("scope")
+    outcomes, counts = [], []
+    if case == "unreadable" and host == "codex":
+        return outcomes, [reason("cwd_unreadable")]
+    state = event.get("damaged") or (reason("member_unmapped") if event.get("unmapped") else None)
+
+    def answer(layer, key, members, own_state=None, incomplete=False, limitations=()):
+        outcomes.append({"layer": layer, "host": host, "key": key, "members": members,
+                         "state": own_state or state, "incomplete": incomplete,
+                         "limitations": list(limitations), "event": event})
+
+    rejected = event.get("rejected") or []
+    if host == "codex":
+        answer("native_global", None, [], reason("codex_undivided"))
+        if case == "absent":
+            return outcomes, [reason("no_scope")]
+        for layer in ("native_project", "native_memory"):
+            answer(layer, cwd, [], reason("codex_undivided"))
+        answer("native_undivided", cwd, [member for member in event["files"] if member["layer"] == "native_undivided"])
+        return outcomes, counts
+    if case == "unreadable":
+        # No global and no project answer (S-7); its memory directories come from their own recorded
+        # paths, never from the cwd, so it still answers them (S-9, lead ruling 2026-10-29).
+        counts.append(reason("cwd_unreadable"))
+    elif pin == "excluded":
+        counts.append(reason("global_excluded_by_launch"))
+    else:
+        answer("native_global", None, [member for member in event["files"] if member["layer"] == "native_global"],
+               reason("exclusion_unreadable") if pin == "unreadable" else None,
+               any(row.get("layer") == "native_global" for row in rejected),
+               [reason("exclusion_unobservable")] if pin == "unpinned" else ())
+    if case == "absent":
+        counts.append(reason("no_scope"))
+    elif case == "scoped":
+        answer("native_project", cwd, [member for member in event["files"] if member["layer"] == "native_project"],
+               incomplete=any(row.get("layer") == "native_project" for row in rejected))
+    if state is None:
+        directories = {}
+        for member in event["files"]:
+            if member["layer"] != "native_memory":
+                continue
+            directory = member_dir(member["path"])
+            if directory is None:
+                counts.append(reason("memory_path_relative"))
+                continue
+            directories.setdefault(directory, []).append(member)
+        # A member whose content is unusable still names its directory: that scope is answered,
+        # incomplete, even when no usable member of it is left (S-6).
+        broken = {member_dir(row.get("path")) for row in rejected
+                  if row.get("layer") == "native_memory" and row.get("path") is not None} - {None}
+        for directory in sorted(broken - set(directories)):
+            directories[directory] = []
+        for directory, members in directories.items():
+            answer("native_memory", directory, members, incomplete=directory in broken)
+    return outcomes, counts
+
+
+def memory_membership(event):
+    """What a LATER event says about memory directories (S-9): None when its AutoMem membership is
+    known, else the reason it is not — an unmapped member, an unusable container, or an AutoMem member
+    with no usable path, which leaves the directory incomplete rather than unknown."""
+    if event.get("damaged"):
+        return reason("container_unusable")
+    if event.get("unmapped"):
+        return reason("member_unmapped")
+    if any(row.get("layer") == "native_memory" and row["category"] == "member_path_invalid"
+           for row in event.get("rejected") or []):
+        return reason("member_rejected")
+    return None
+
+
+def same_project(directory, chosen, other):
+    """S-9's test, the host's own: the recorded cwd, under `memory_slug`'s rule without resolving it,
+    equals the `projects/<slug>/` segment of the directory's recorded path. Plain cwd equality only
+    where the path has no such segment; two missing cwds are never one project."""
+    if other.get("cwd_case") != "scoped":
+        return False
+    segment = PROJECT_SEGMENT.search(directory)
+    if segment:
+        return lexical_slug(other["scope"]) == segment.group(1)
+    return chosen.get("cwd_case") == "scoped" and chosen["scope"] == other["scope"]
+
+
+def signature(outcome):
+    """The multiset a tie is judged on (S-8 c): each member's type, recorded path and raw sha256."""
+    return sorted((member.get("type"), member.get("path"), sha256_text(member.get("text") or ""))
+                  for member in outcome["members"])
+
+
+def choose(candidates):
+    """S-8 over one scope: `(chosen, reasons, evidence)`.
+
+    Step 1 takes each transcript's greatest-line outcome; step 2 the latest instant across them. An
+    undated head is the scope's unknown unless a competitor provably follows its upper bound; a tie
+    at one instant gives one answer only when every candidate carries the same usable bytes, and a
+    damaged one is never promoted by them."""
+    heads = {}
+    for outcome in candidates:
+        held = heads.get(outcome["event"]["session_ref"])
+        if held is None or outcome["event"]["n"] > held["event"]["n"]:
+            heads[outcome["event"]["session_ref"]] = outcome
+    dated = [outcome for outcome in heads.values() if _instant(outcome["event"].get("at")) is not None]
+    latest = max((_instant(outcome["event"]["at"]) for outcome in dated), default=None)
+    evidence = [{"event_id": outcome["event"]["id"], "as_of": outcome["event"].get("at")} for outcome in heads.values()]
+    open_heads = [outcome for outcome in heads.values() if _instant(outcome["event"].get("at")) is None
+                  and not (latest is not None and outcome["event"].get("bracket_ok")
+                           and outcome["event"].get("after_at") is not None and latest > outcome["event"]["after_at"])]
+    if open_heads:
+        return open_heads, [{"reason": outcome["event"].get("at_reason") or reason("undated"),
+                             "event_id": outcome["event"]["id"]} for outcome in open_heads], evidence
+    top = [outcome for outcome in dated if _instant(outcome["event"]["at"]) == latest]
+    if len({json.dumps(signature(outcome)) for outcome in top}) > 1:
+        return top, [{"reason": reason("tie"), "event_id": outcome["event"]["id"]} for outcome in top], evidence
+    return top, [], evidence
+
+
+def scope_answer(layer, host, key, candidates, context):
+    """`(row, outcome)`: one scope's published row (S-10) — its status by the strongest condition that
+    applies at the chosen outcome or after it, every reason with the event or line it names, the
+    evidence, and the limitations, §8's freshness sentence among them — and the outcome its carriers
+    are built from, None when the scope is unknown and its sets are evidence only."""
+    chosen, reasons, evidence = choose(candidates)
+    first = chosen[0]["event"]
+    if not reasons:
+        for outcome in chosen:
+            if outcome["state"]:
+                reasons.append({"reason": outcome["state"], "event_id": outcome["event"]["id"]})
+            if outcome["incomplete"]:
+                reasons.append({"reason": reason("member_rejected"), "event_id": outcome["event"]["id"]})
+        # Any line after the chosen outcome in its own transcript that does not decode may hold a
+        # re-injection of this scope (S-5, S-10 rank 2); its interval alone would miss one after the
+        # next event of another scope.
+        for row in (context["timelines"].get(first["session_ref"]) or {}).get("undecodable", []):
+            if row["line"] > first["n"]:
+                reasons.append({"reason": reason("undecodable_after"), "event_id": first["id"], "line": row["line"]})
+        for marker in context["unreadable_cwd"].get(host, []):
+            if marker["id"] == first["id"] or not could_follow(marker, first):
+                continue
+            # At a memory directory only a record that names nothing under it: one that names a member
+            # there is the directory's own later outcome, and answers it (lead ruling, 2026-10-29).
+            if layer != "native_memory" or not any(member["layer"] == "native_memory" and member_dir(member["path"]) == key
+                                                   for member in marker["files"]):
+                reasons.append({"reason": reason("cwd_unreadable"), "event_id": marker["id"]})
+        chosen_at = _instant(first.get("at"))
+        for ref, timeline in context["timelines"].items():
+            if ref == first["session_ref"] or timeline["host"] != host or timeline["kind"] != "main":
+                continue
+            for row in timeline["undecodable"]:
+                upper = row["after_at"] if row["ok"] else None
+                if (timeline["last_dated"] is None or row["line"] > timeline["last_dated"]) \
+                        and (upper is None or upper > chosen_at):
+                    reasons.append({"reason": reason("undecodable_elsewhere"), "session_ref": ref, "line": row["line"]})
+        if layer == "native_memory" and host == "claude":
+            for later in context["eligible"]:
+                if later["host"] != host or later["id"] == first["id"] or not could_follow(later, first) \
+                        or not same_project(key, first, later):
+                    continue
+                unknown = memory_membership(later)
+                if unknown:
+                    reasons.append({"reason": unknown, "event_id": later["id"]})
+                elif not any(member["layer"] == "native_memory" and member_dir(member["path"]) == key
+                             for member in later["files"]):
+                    reasons.append({"reason": reason("memory_unconfirmed"), "event_id": later["id"]})
+    # `cwd_unreadable` later at the host: the global scope is unknown, an earlier project answer only
+    # uncertain (S-7), so the one key carries two statuses by the layer it lands on.
+    statuses = ["uncertain" if row["reason"] == "cwd_unreadable" and layer != "native_global"
+                else REASON_STATUS[row["reason"]] for row in reasons]
+    status = min(statuses, key=SCOPE_RANK.get) if statuses \
+        else ("answered" if chosen[0]["members"] else "empty")
+    answered = status != "unknown"
+    instant = _instant(first.get("at"))
+    row = {
+        "scope_id": scope_id(layer, host, key), "layer": layer, "host": host,
+        "scope": key, "status": status,
+        "as_of": instant.isoformat() if answered and instant else None,
+        "session": first["session"] if answered else None,
+        "session_ref": first["session_ref"] if answered else None,
+        "line": first["n"] if answered else None,
+        "event_ids": [outcome["event"]["id"] for outcome in chosen] if answered else [],
+        "reasons": reasons,
+        "evidence": [] if answered else [
+            {"event_id": item["event_id"], "as_of": (_instant(item["as_of"]).isoformat()
+                                                     if _instant(item["as_of"]) else None)} for item in evidence],
+        "limitations": sorted({limit for outcome in chosen for limit in outcome["limitations"]}),
+        "freshness": FRESHNESS,
+    }
+    return row, (chosen[0] if answered else None)
+
+
+def current_scopes(events, timelines=None, pins=None):
+    """§8's current reference point, scope by scope: `{scopes, universe}`.
+
+    Only an ELIGIBLE outcome answers — an event or a damaged event of the main owner of a main row,
+    with a known session (S-8); anything else is counted with its reason and never selected. Every
+    scope an eligible outcome names is in the universe, and so are the per-host counts of outcomes
+    that answer none (S-10)."""
+    pins = pins or {}
+    universe = {host: dict.fromkeys(UNIVERSE_COUNTS, 0) for host in sorted({event["host"] for event in events})}
+    grouped, eligible, unreadable_cwd = {}, [], {}
     for event in events:
-        if event["kind"] != "native" or event.get("transcript") != "main":
+        if event["kind"] != "native":
             continue
-        at = _instant(event.get("at"))
-        for layer in {member["layer"] for member in event["files"] if member["layer"]}:
-            key = (layer, event.get("scope") or event.get("host"))
-            held = newest.get(key)
-            if held is None or (at is not None and (_instant(held.get("at")) is None or at > _instant(held.get("at")))):
-                newest[key] = event
-    return newest
+        if event.get("transcript") != "main" or not event.get("session_ref"):
+            universe[event["host"]]["ineligible"] += 1
+            continue
+        eligible.append(event)
+        outcomes, counts = outcomes_of(event, pins.get(event["session_ref"], "unpinned"))
+        for count in counts:
+            universe[event["host"]][count] += 1
+        if "cwd_unreadable" in counts:
+            unreadable_cwd.setdefault(event["host"], []).append(event)
+        for outcome in outcomes:
+            grouped.setdefault((outcome["layer"], outcome["host"], outcome["key"]), []).append(outcome)
+    context = {"timelines": timelines or {}, "unreadable_cwd": unreadable_cwd, "eligible": eligible}
+    scopes, answers = [], {}
+    for (layer, host, key), candidates in sorted(grouped.items(), key=lambda row: json.dumps(row[0])):
+        row, outcome = scope_answer(layer, host, key, candidates, context)
+        scopes.append(row)
+        if outcome is not None:
+            answers[row["scope_id"]] = outcome
+    return {"scopes": scopes, "answers": answers,
+            "universe": [{"host": host, **counts} for host, counts in universe.items()]}
 
 
-def event_carriers(layer, event, reference):
-    """One event's files for one layer, as carriers, each carrying when and from whom it came.
+def event_carriers(layer, event, reference, members=None, scope=None):
+    """One event's files for one layer, as carriers, each carrying when and from whom it came, and,
+    for a scope's answer, the scope and the event it is (S-10).
 
     A Claude member's form is what its recorded path says it is, and the Codex block is markdown: the
     form `md` this used to pass is in no splitter's vocabulary, so every transcript carrier was split
     as plain text, with no heading and no operative context under one (#13)."""
     rows = []
-    for member in event["files"]:
+    for member in (event["files"] if members is None else members):
         if member["layer"] != layer:
             continue
         provenance = {"as_of": event.get("at"), "session": event.get("session"),
                       "transcript": event.get("transcript"), "where": event.get("where"),
                       "scope": masked(event.get("scope")) if event.get("scope") else None,
                       "reference": reference, "record": event.get("n")}
+        if scope is not None:
+            provenance.update(scope_id=scope, event_id=event.get("id"))
         if member.get("undivided"):
             # Codex delivers one merged body, so the layer's identity is unknown and only the
             # loaded text is known (§2, design §6.3's Native layer row).
@@ -3129,7 +3509,7 @@ def transcript_events(run_dir, delivered=None, zstd=None):
     an instructions attachment and the selected body."""
     entries = census_entries(run_dir)
     events, unknown = [], []
-    findings = {"undecodable": [], "damaged": [], "rejected": [], "inherited": [], "sessions": []}
+    findings = {"undecodable": [], "damaged": [], "rejected": [], "inherited": [], "sessions": [], "timelines": {}}
     for entry in entries:
         label = f"{entry.get('host')}:{entry.get('id')}"
         seen = {}
@@ -3140,17 +3520,25 @@ def transcript_events(run_dir, delivered=None, zstd=None):
             unknown.append(f"{label}: {exc}")
             findings["sessions"].append(session_record(entry, failure=exc))
             continue
+        bracket = brackets(read)
         for event in found:
             event["id"] = opaque_id("e", "event", event["kind"], entry.get("host"), entry.get("id"),
                                     read["binding"], event["n"])
             event["session_ref"] = session_ref(entry.get("host"), entry.get("id"))
             event["at_reason"] = instant_reason(event.get("at"))
+            event["after_at"], event["bracket_ok"] = bracket(event["n"])
         applicability(found, read)
+        dated = [event["n"] for event in found if _instant(event.get("at")) is not None]
+        findings["timelines"][session_ref(entry.get("host"), entry.get("id"))] = {
+            "host": entry.get("host"), "kind": entry.get("kind"), "last_dated": max(dated) if dated else None,
+            "undecodable": [{"line": line, "after_at": after, "ok": ok}
+                            for line, _category in read["undecodable"] for after, ok in [bracket(line)]]}
         findings["undecodable"] += [{"session": label, "line": line, "category": category}
                                     for line, category in read["undecodable"]]
         findings["damaged"] += [{"session": label, **row} for row in damage]
         findings["inherited"] += [{"session": label, **row} for row in inherited]
-        findings["rejected"] += [{"session": event["session"], "line": event["n"], **row}
+        findings["rejected"] += [{"session": event["session"], "line": event["n"], "ordinal": row["ordinal"],
+                                  "category": row["category"]}
                                  for event in found for row in event.get("rejected") or []]
         findings["sessions"].append(session_record(entry, read, found, damage, inherited, seen))
         if not found:
@@ -3288,6 +3676,10 @@ def layer_rows(reference, context):
             continue
         try:
             carriers = call(context)
+        except ScopedAnswer as exc:
+            rows.append({"layer": layer, "producer": name, "status": exc.status, "carriers": exc.carriers,
+                         "reasons": [f"{layer}: {text}" for text in exc.reasons]})
+            continue
         except Unacquired as exc:
             rows.append({"layer": layer, "producer": name, "status": "unknown", "carriers": [],
                          "reasons": [f"{layer}: {exc}"]})
@@ -3318,21 +3710,28 @@ def produce(rows):
     units = []
     for row in rows:
         row["empty"] = False
-        if row["status"] != "complete":
+        if row["status"] != "complete" and not row["carriers"]:
             row["units"] = 0
             continue
         if not row["carriers"]:  # the producer looked and this layer has nothing: an answer, stated
             row.update(units=0, empty=True)
             continue
+        # A row that is not complete and still carries carriers is a scoped layer (S-10): the scopes
+        # that answered keep their units, each pointing at its scope row, and the row keeps its status.
+        whole = row["status"] == "complete"
         try:
             produced = units_of(row["carriers"])
         except Unsupported as exc:
-            row.update(status="unsupported", units=0, reasons=row["reasons"] + [f"{row['layer']}: {exc}"])
+            row.update(status="unsupported" if whole else row["status"], units=0,
+                       reasons=row["reasons"] + [f"{row['layer']}: {exc}"])
             continue
         except Malformed as exc:
-            row.update(status="incomplete", units=0, reasons=row["reasons"] + [f"{row['layer']}: {exc}"])
+            row.update(status="incomplete" if whole else row["status"], units=0,
+                       reasons=row["reasons"] + [f"{row['layer']}: {exc}"])
             continue
         row["units"] = len(produced)
+        if not produced and not whole:
+            continue
         if not produced:
             row.update(status="incomplete", reasons=row["reasons"] + [
                 f"{row['layer']}: {row['producer']} read {len(row['carriers'])} carrier(s) and produced no unit, "
@@ -3446,13 +3845,8 @@ def _native(layer):
             raise Unacquired(ctx.get("transcript_error") or UNKNOWN_REASONS["census"])
         reference = ctx["reference"]
         if reference == "current":
-            chosen = {key: event for key, event in (ctx.get("current_sets") or {}).items() if key[0] == layer}
-            if not chosen:
-                raise Unacquired(f"{UNKNOWN_REASONS['no_record']}: no main transcript records {layer}")
-            rows = []
-            for (_layer, scope), event in sorted(chosen.items(), key=lambda row: str(row[0][1])):
-                rows += event_carriers(layer, event, reference)
-            return rows
+            return scoped_layer(layer, ctx.get("current_scopes") or {"scopes": [], "answers": {}, "universe": []},
+                                reference)
         if reference == "selection":
             if not ctx.get("pin"):
                 raise Unacquired(UNKNOWN_REASONS["unpinned"])
@@ -3468,6 +3862,39 @@ def _native(layer):
             return rows
         return None
     return produce_native
+
+
+def scoped_layer(layer, scoped, reference):
+    """A native layer at the current reference point, from its scope answers (S-10): its carriers are
+    the answering scopes' members, each pointing at its scope, and the row is complete only when every
+    scope answered or is empty and no count of a host leaves an outcome of this layer unscoped."""
+    rows = [row for row in scoped["scopes"] if row["layer"] == layer]
+    counts = [(entry["host"], key, entry[key]) for entry in scoped["universe"]
+              for key, layers in COUNTED_LAYERS.items() if layer in layers and entry[key]]
+    if not rows and not counts:
+        if layer == "native_undivided" and any(row["host"] == "claude" for row in scoped["scopes"]):
+            return []  # a Claude event carries no Codex block: complete and empty (S-19)
+        raise Unacquired(f"{UNKNOWN_REASONS['no_record']}: no main transcript records {layer}")
+    carriers = []
+    for row in rows:
+        outcome = scoped["answers"].get(row["scope_id"])
+        if outcome is not None:
+            carriers += event_carriers(layer, outcome["event"], reference, outcome["members"], row["scope_id"])
+    worst = min((row["status"] for row in rows), key=SCOPE_RANK.get, default="answered")
+    if SCOPE_RANK[worst] == SCOPE_RANK["answered"] and not counts:
+        return carriers
+    tally = collections.Counter(entry["reason"] for row in rows if row["status"] not in ("answered", "empty")
+                                for entry in row["reasons"])
+    reasons = [f"{UNKNOWN_REASONS[key]} ({n} over this layer's scope rows)" for key, n in sorted(tally.items())]
+    # Each count by its name and number, so a reader sees which outcomes left the layer unscoped.
+    reasons += [f"{key} {n} at {host}: {UNKNOWN_REASONS[key]}" for host, key, n in counts]
+    # `uncertain` is not a layer-row status: it is `unknown` with the reason saying `uncertain:` (S-21).
+    # Otherwise the row is `incomplete` — a count alone included, since the layer is identifiable and
+    # its universe is not whole — and `unknown` only when no scope of it answered at all, because then
+    # it has no usable carrier (S-20; lead ruling, 2026-10-29).
+    answered = any(row["status"] != "unknown" for row in rows)
+    status = "unknown" if not answered or SCOPE_RANK[worst] < SCOPE_RANK["incomplete"] else "incomplete"
+    raise ScopedAnswer(status, reasons, carriers)
 
 
 def _ledger_history(ctx):
@@ -3554,6 +3981,12 @@ LAYERS = (
     ("native_memory", {"current": ("the newest recorded instructions attachment, AutoMem entry", _native("native_memory"), ()),
                        "selection": ("the pinned session's recorded instructions attachment, AutoMem entry",
                                      _native("native_memory"), ("pin",))}),
+    # The Codex block, one carrier at its own layer value per (codex, cwd): Codex does not divide it,
+    # so its global, project and memory parts are unknown and never estimated (#14, S-19).
+    ("native_undivided", {"current": ("the newest recorded Codex base_instructions block, per cwd",
+                                      _native("native_undivided"), ()),
+                          "selection": ("the pinned Codex session's recorded base_instructions block",
+                                        _native("native_undivided"), ("pin",))}),
     # Session-level injection exists per session, so "all layers now" can only mean the injection
     # the session being diagnosed received: with a pin, the snapshot's compiled text answers for
     # `current` too; without one there is nothing to read and the layer is `unknown`.
@@ -3598,6 +4031,9 @@ DOCUMENT_MEMBERS = (
     "no_session_id", "own_meta_unidentified", "limitations", "count", "event_refs", "event_id", "owner",
     "at_reason", "interval_from", "interval_to", "certain_to", "uncertain_reason", "where",
     "id", "source", "transcript",
+    # `current.json`'s scope rows (step 0 S-10)
+    "scopes", "scope_universe", "scope_id", "event_ids", "evidence", "freshness", "no_scope",
+    "cwd_unreadable", "memory_path_relative", "global_excluded_by_launch", "ineligible",
     # a rename row
     "from_unit_id", "from_carrier_id", "to_carrier_id", "from_path", "to_path", "from_layer",
     "to_layer", "moved", "ambiguous", "from_carriers", "to_carriers", "reason",
@@ -3643,6 +4079,11 @@ def emitted_document(reference, rows, ctx, more_reasons=None):
         "units": shed(units, ctx.get("home")),
         "renames": [],
     }
+    if reference == "current":
+        scoped = ctx.get("current_scopes") or {"scopes": [], "universe": []}
+        document["scopes"] = [emit_row("scope_answer", SCOPE_TABLE, row, place) for row in scoped["scopes"]]
+        document["scope_universe"] = [emit_row("scope_universe", UNIVERSE_TABLE, row, place)
+                                      for row in scoped["universe"]]
     return document, units
 
 
@@ -3849,12 +4290,13 @@ def bind_transcripts(ctx, run_dir, zstd=None):
         ctx["transcript_error"] = str(exc)
         notes.update({"sessions": 0, "events": 0, "unknown": [str(exc)]})
         ctx["notes"]["transcripts"] = notes
-        ctx["current_sets"], ctx["pin_event"] = {}, None
+        ctx["current_scopes"], ctx["pin_event"] = None, None
         ctx["sessions"], ctx["events"] = [], []
         return
     ctx["events"] = events
     ctx["sessions"] = findings["sessions"]
-    ctx["current_sets"] = current_sets(events)
+    pins = {session_ref(entry.get("host"), entry.get("id")): pin_state(entry, ctx) for entry in census_entries(run_dir)}
+    ctx["current_scopes"] = current_scopes(events, findings["timelines"], pins)
     ctx["pin_event"] = None
     if ctx.get("pin") and ctx.get("pin_record"):
         session = f"{str(ctx['pin']).partition(':')[0]}:{str(ctx['pin']).partition(':')[2]}"
@@ -3867,8 +4309,9 @@ def bind_transcripts(ctx, run_dir, zstd=None):
     delivery = [event for event in events if event["kind"] == "session_injection" and not event.get("damaged")]
     notes.update({"events": len(events), "native_events": len([e for e in events if e["kind"] == "native"]),
                   "delivery_confirmed": len(delivery),
-                  "current_scopes": sorted({f"{layer}@{scope and masked(scope) or 'host'}"
-                                            for layer, scope in (ctx["current_sets"] or {})}),
+                  # the answers themselves are `current.json`'s `scopes`; here, how many of each
+                  "current_scopes": [f"{layer} {status} {n}" for (layer, status), n in sorted(collections.Counter(
+                      (row["layer"], row["status"]) for row in ctx["current_scopes"]["scopes"]).items())],
                   # every one, never a prefix: the authoritative per-session answers are in
                   # `sessions.json`, and a truncated list here would be the one a reader trusts
                   "unknown": unknown, "unknown_total": len(unknown), "sessions": len(findings["sessions"]),
@@ -4193,8 +4636,10 @@ def document_contract_problems(document, schema=None):
     if not (isinstance(kind, str) and kind in DOCUMENT_ROOTS):
         return [f"DOCUMENT_KIND_UNDECLARED: the document names "
                 f"{'no kind' if kind is None else 'a kind no root is declared for'}"]
-    # A reference point is judged on its units and layer rows; every other document whole.
-    subject = ({key: document[key] for key in ("document", "units", "layers") if key in document}
+    # A reference point is judged on the members its root declares (its units, its layer rows and,
+    # for `current`, its scope rows); every other document whole.
+    declared = ((schema.get("$defs") or {}).get(DOCUMENT_ROOTS[kind]) or {}).get("properties") or {}
+    subject = ({key: value for key, value in document.items() if key in declared}
                if kind in REFERENCES else document)
     picked = {**({"$schema": schema["$schema"]} if "$schema" in schema else {}),
               "$defs": schema.get("$defs") or {}, "$ref": f"#/$defs/{DOCUMENT_ROOTS[kind]}"}
@@ -4891,17 +5336,19 @@ def self_test():
         project_scope = str(scratch / "project")
         (scratch / "project").mkdir(exist_ok=True)
         delivered_body = "# Delivered\n\n- the body agent-bios compiled\n"
+        # absolute, and under no directory the floor reads as a home (`/home/<name>/` is one)
+        memory_one = f"{scratch}/owner/.claude/projects/{lexical_slug(project_scope)}/memory/one.md"
         main_path = jsonl(scratch / "transcripts" / "claude" / "s-main.jsonl", [
             attachment("2026-10-01T09:00:00+00:00",
                        [member("User", "~/.claude/CLAUDE.md", "# Global\n\n- a native rule\n"),
                         member("Project", f"{project_scope}/CLAUDE.md", "# Project\n\n- a project rule\n"),
-                        member("AutoMem", "~/.claude/projects/p/memory/one.md", "---\nname: one\n---\n\n- a fact\n")],
+                        member("AutoMem", memory_one, "---\nname: one\n---\n\n- a fact\n")],
                        cwd=project_scope,
                        prompt=f"<system-reminder>\n{delivered_body}</system-reminder>\n"),
             {"type": "user", "timestamp": "2026-10-01T09:30:00+00:00", "message": "a turn between the events"},
             attachment("2026-10-01T10:00:00+00:00",
                        [member("User", "~/.claude/CLAUDE.md", "# Global\n\n- a native rule, revised\n"),
-                        member("AutoMem", "~/.claude/projects/p/memory/one.md", "---\nname: one\n---\n\n- a fact\n")],
+                        member("AutoMem", memory_one, "---\nname: one\n---\n\n- a fact\n")],
                        cwd=project_scope)])
         child_path = jsonl(scratch / "transcripts" / "claude" / "s-main" / "subagents" / "s-child.jsonl", [
             attachment("2026-10-02T08:00:00+00:00",
@@ -4984,29 +5431,33 @@ def self_test():
               event_in_force(native_events, "2026-10-01T08:00:00+00:00") is None,
               "an event answered for a turn that preceded it")
 
-        all_events = []
-        for entry in census_entries(run_fixture):
-            all_events += injection_events(transcript_records(entry)["records"], entry, delivered_body)[0]
-        sets = current_sets(all_events)
-        check("the current reference point resolves per layer and scope",
-              {key[0] for key in sets} == {"native_global", "native_project", "native_memory"},
-              f"{sorted({key[0] for key in sets})}")
+        all_events, _all_unknown, all_findings = transcript_events(run_fixture, delivered_body)
+        scoped_all = current_scopes(all_events, all_findings["timelines"])
+        by_scope = {(row["layer"], row["host"], row["scope"]): row for row in scoped_all["scopes"]}
+        check("the current reference point resolves per layer, host and scope",
+              {key[0] for key in by_scope} == set(SCOPED_LAYERS), f"{sorted({key[0] for key in by_scope})}")
         check("a subagent's injection is not evidence about the current state",
-              all(event["transcript"] == "main" for event in sets.values()),
+              {row["session"] for row in scoped_all["scopes"]} <= {None, "claude:s-main", "codex:aaaa"}
+              and {row["host"]: row["ineligible"] for row in scoped_all["universe"]}.get("claude") == 1,
               "a subagent event was taken for the current reference point")
-        global_event = sets[("native_global", project_scope)]
+        global_row = by_scope.get(("native_global", "claude", None)) or {}
         check("the newest recorded event answers for its scope",
-              global_event["at"] == "2026-10-01T10:00:00+00:00", f"{global_event['at']}")
-        check("a file the newest event does not carry is gone from the current set",
-              not any(member_row["layer"] == "native_project" for member_row in global_event["files"]),
-              "a deleted project file survived in the newest event's set")
-        check("the whole set of one event answers, never the newest event per path",
-              sets[("native_project", project_scope)]["at"] == "2026-10-01T09:00:00+00:00",
-              "the project layer did not fall back to the event that last carried it")
+              global_row.get("status") == "answered" and global_row.get("as_of") == "2026-10-01T10:00:00+00:00",
+              f"{global_row.get('status')} {global_row.get('as_of')}")
+        # Replaces the control that REQUIRED the fall-back to the event that last carried the project
+        # file (#6): the newest event's whole set answers, so the deletion shows as an empty scope.
+        project_row = by_scope.get(("native_project", "claude", project_scope)) or {}
+        check("the whole set of one event answers, never the newest event per path: the project scope is "
+              "empty as of the event that no longer carries its file",
+              project_row.get("status") == "empty" and project_row.get("as_of") == "2026-10-01T10:00:00+00:00",
+              f"{project_row.get('status')} {project_row.get('as_of')}")
         codex_events = [event for event in all_events if event["host"] == "codex"]
-        check("Codex is one undivided block, with no global/project split derived from it",
-              [member_row["layer"] for member_row in codex_events[0]["files"]] == ["native_global"]
-              and codex_events[0]["files"][0]["undivided"],
+        check("Codex is one undivided block at its own layer value, with no global/project split derived from it",
+              [member_row["layer"] for member_row in codex_events[0]["files"]] == ["native_undivided"]
+              and codex_events[0]["files"][0]["undivided"]
+              and by_scope.get(("native_global", "codex", None), {}).get("reasons", [{}])[0].get("reason")
+              == "codex_undivided"
+              and by_scope.get(("native_undivided", "codex", project_scope), {}).get("status") == "answered",
               f"{[member_row['layer'] for member_row in codex_events[0]['files']]}")
         def carriers_of(layer, event):
             """`event_carriers`, or [] when it refuses: a control over a carrier fails by its own
@@ -5016,11 +5467,12 @@ def self_test():
             except Exception:
                 return []
 
-        codex_carrier = (carriers_of("native_global", codex_events[0]) or [{"provenance": {}}])[0]
+        codex_carrier = (carriers_of("native_undivided", codex_events[0]) or [{"provenance": {}}])[0]
         check("a Codex carrier says its identity is unknown",
               "loaded text" in str(codex_carrier["provenance"].get("identity")),
               f"{codex_carrier['provenance']}")
-        carriers_out = carriers_of("native_global", global_event)
+        global_event = (scoped_all["answers"].get(global_row.get("scope_id")) or {}).get("event") or {}
+        carriers_out = carriers_of("native_global", global_event) if global_event else []
         check("a native carrier carries when and from whom it came",
               bool(carriers_out) and carriers_out[0]["provenance"]["as_of"] == global_event["at"]
               and carriers_out[0]["provenance"]["session"] == "claude:s-main",
@@ -5128,7 +5580,8 @@ def self_test():
             check(f"a child row is a subagent by its lineage: {label}", kind_of.get(row["id"]) == "subagent",
                   f"{kind_of.get(row['id'])}")
         check("and none of those children's events answers for the current reference point",
-              current_sets(kind_events) == {}, f"{sorted(map(str, current_sets(kind_events)))}")
+              current_scopes(kind_events)["scopes"] == [],
+              f"{len(current_scopes(kind_events)['scopes'])} scope(s)")
         # Kind per RECORD: an inline sidechain inside a bound main file (lineage.py 102-105).
         plain_main = raw_lines(scratch / "p1" / "plain-main.jsonl", [
             {"type": "user", "timestamp": "2026-10-06T08:00:00+00:00", "isSidechain": False},
@@ -5141,10 +5594,16 @@ def self_test():
             dated("2026-10-06T12:30:00+00:00", "# Global\n\n- an agent that names itself only\n", agentId="a2")])
 
         def own_and_current(path, ident):
-            entry = {**bound_row("claude", ident, path), "kind": "main"}
-            found = injection_events(transcript_records(entry)["records"], entry)[0]
+            run_at = scratch / "p1" / f"run-own-{path.stem}"
+            run_at.mkdir(parents=True, exist_ok=True)
+            (run_at / CENSUS).write_text(json.dumps({"transcripts": [bound_row("claude", ident, path)]}),
+                                         encoding="utf-8")
+            found = transcript_events(run_at)[0]
             own = [(event["n"], globals_of(event)) for event in found if event["session"] == f"claude:{ident}"]
-            return own, {key: globals_of(event) for key, event in current_sets(found).items()}, found
+            scoped = current_scopes(found)
+            return own, {(row["layer"], row["scope"]): (row["status"], row["as_of"], row["line"], sorted(
+                member["text"] for member in (scoped["answers"].get(row["scope_id"]) or {}).get("members", [])))
+                for row in scoped["scopes"]}, found
 
         plain_own, plain_current, _plain = own_and_current(plain_main, "s-side")
         side_own, side_current, side_found = own_and_current(side_main, "s-side")
@@ -5217,12 +5676,15 @@ def self_test():
         check("a record's numeric timestamp is read, a boolean one is not",
               _timestamp({"timestamp": int(moment.timestamp())}) == int(moment.timestamp())
               and _timestamp({"timestamp": True}) is None, "a numeric record timestamp was ignored")
-        mixed_events = [{"kind": "native", "transcript": "main", "host": "claude", "at": "2026-10-01T09:00:00",
-                         "scope": project_scope, "files": [{"layer": "native_global"}]},
-                        {"kind": "native", "transcript": "main", "host": "claude", "at": "2026-10-01T10:00:00+00:00",
-                         "scope": project_scope, "files": [{"layer": "native_global"}]}]
+        mixed_events = [{"kind": "native", "transcript": "main", "host": "claude", "at": at, "n": 1,
+                         "session": f"claude:{ident}", "session_ref": session_ref("claude", ident),
+                         "id": opaque_id("e", "event", "native", "claude", ident, None, 1),
+                         "scope": project_scope, "cwd_case": "scoped", "rejected": [], "unmapped": False,
+                         "damaged": None, "at_reason": instant_reason(at), "after_at": None, "bracket_ok": True,
+                         "files": [{"layer": "native_global", "type": "User", "path": "/g", "text": "- r\n"}]}
+                        for ident, at in (("s-naive", "2026-10-01T09:00:00"), ("s-aware", "2026-10-01T10:00:00+00:00"))]
         check("a tz-less instant beside an aware one raises nothing, and is unsupported",
-              _raised(lambda: current_sets(mixed_events)) is None
+              _raised(lambda: current_scopes(mixed_events)) is None
               and _raised(lambda: event_in_force(mixed_events, moment.timestamp())) is None
               and _instant("2026-10-01T09:00:00") is None, "a naive instant raised or was guessed")
         shapes = [None, True, False, "", "yesterday", "2026-10-01", float("nan"), float("inf"), -float("inf"),
@@ -5739,6 +6201,333 @@ def self_test():
                 document_contract_problems({**sessions_doc, "sessions": [
                     {key: value for key, value in sessions_doc["sessions"][0].items() if key != "session_ref"}]}),
                 "DOCUMENT_INVALID", "session_ref")
+
+        # ---- P2.2: the current reference point, scope by scope, on the PUBLISHED answers (#6, step 0
+        # S-7 .. S-10, S-19). Each run goes through the path `run` takes — `bind_transcripts`,
+        # `layer_rows`, `emitted_document`, `write_document` — over the scoped native layers alone: the
+        # catalog's producers cost seconds a run and say nothing about a scope.
+        native_only = tuple((layer, producers) for layer, producers in LAYERS if layer in SCOPED_LAYERS)
+        missing = object()
+
+        def inj(at, files, cwd=missing, **extra):
+            record = {"type": "attachment", "attachment": {"type": "instructions", "files": files}}
+            if at is not None:
+                record["timestamp"] = at
+            if cwd is not missing:
+                record["cwd"] = cwd
+            return {**record, **extra}
+
+        def block_meta(ident, at, text, cwd):
+            return {"type": "session_meta", "timestamp": at,
+                    "payload": {"id": ident, "cwd": cwd, "base_instructions": {"text": text}}}
+
+        def published_current(name, transcripts, pin=None, pin_record=None):
+            """`current.json` as published for a census of `(host, id, records, extra row fields)`, or
+            `{"refused": <code>}` when the path refuses it: a control fails by its own name."""
+            run_at = scratch / "p22" / f"run-{name}"
+            rows_here = []
+            for host, ident, records_in, fields in transcripts:
+                path_here = raw_lines(scratch / "p22" / name / f"{ident}.jsonl", records_in)
+                rows_here.append({**census_row(host, ident, path_here), **fields})
+            run_at.mkdir(parents=True, exist_ok=True)
+            (run_at / CENSUS).write_text(json.dumps({"transcripts": rows_here}), encoding="utf-8")
+            ctx_here = context_of(REPO, None, None, {}, pin, None)
+            ctx_here.update(home=str(fixture_home), commit="fixture", pin_record=pin_record)
+            kept_layers = globals()["LAYERS"]
+            out_here = scratch / "p22" / f"out-{name}" / "inventory" / "current.json"
+            try:
+                globals()["LAYERS"] = native_only
+                bind_transcripts(ctx_here, run_at)
+                document_here, _units = emitted_document("current", layer_rows("current", ctx_here), ctx_here)
+                write_document(out_here.parents[1], out_here, document_here, str(fixture_home))
+            except Exception as exc:  # the control names what refused, never the suite
+                return {"refused": type(exc).__name__, "scopes": [], "layers": [], "units": [], "scope_universe": []}
+            finally:
+                globals()["LAYERS"] = kept_layers
+            return json.loads(out_here.read_text(encoding="utf-8"))
+
+        def scope_rows(document_here, layer, host):
+            return [row for row in document_here["scopes"] if row["layer"] == layer and row["host"] == host]
+
+        def one_scope(document_here, layer, host, scope=missing):
+            found_here = [row for row in scope_rows(document_here, layer, host) if scope is missing or row["scope"] == scope]
+            return found_here[0] if len(found_here) == 1 else {}
+
+        def reason_keys(row):
+            return [entry["reason"] for entry in row.get("reasons", [])]
+
+        p1, p2, p3, q = "/w/p1", "/w/p2", "/w/p3", "/w/q"
+        d1 = f"/w/owner/.claude/projects/{lexical_slug(p1)}/memory"
+        d2 = f"/w/owner/.claude/projects/{lexical_slug(q)}/memory"
+        d3 = f"/w/owner/.claude/projects/{lexical_slug(p3)}/memory"
+        secret_a, secret_b = "token=" + "A" * 24 + "1", "token=" + "B" * 24 + "2"
+        scopes_doc = published_current("scopes", [
+            ("claude", "s-del", [
+                inj("2026-10-20T09:00:00+00:00", [member("User", "/w/g.md", "# G\n\n- one\n"),
+                                                   member("Project", f"{p1}/CLAUDE.md", "# P\n\n- p1 rule\n"),
+                                                   member("AutoMem", f"{d1}/a.md", "- a\n"),
+                                                   member("AutoMem", f"{d1}/b.md", "- b\n"),
+                                                   member("AutoMem", f"{d2}/c.md", "- c\n")], cwd=p1),
+                inj("2026-10-20T10:00:00+00:00", [member("User", "/w/g.md", "# G\n\n- two\n"),
+                                                   member("AutoMem", f"{d1}/a.md", "- a\n")], cwd=p1)], {}),
+            ("claude", "s-two", [inj("2026-10-20T11:00:00+00:00", [member("User", "/w/g.md", "# G\n\n- three\n"),
+                                                                    member("Project", f"{p2}/CLAUDE.md", "- p2\n")],
+                                     cwd=p2)], {}),
+            ("claude", "s-mem", [inj("2026-10-20T09:00:00+00:00", [member("AutoMem", f"{d3}/m.md", "- m\n")], cwd=p3)], {}),
+            ("claude", "s-mem2", [inj("2026-10-20T10:30:00+00:00", [member("Project", f"{p3}/CLAUDE.md", "- p3\n")],
+                                      cwd=p3)], {}),
+            ("claude", "s-sec1", [inj("2026-10-20T08:00:00+00:00", [member("Project", f"/w/{secret_a}/CLAUDE.md", "- s\n")],
+                                      cwd=f"/w/{secret_a}")], {}),
+            ("claude", "s-sec2", [inj("2026-10-20T08:00:00+00:00", [member("Project", f"/w/{secret_b}/CLAUDE.md", "- s\n")],
+                                      cwd=f"/w/{secret_b}")], {}),
+            ("codex", "c-1", [block_meta("c-1", "2026-10-20T09:30:00+00:00", "# Block\n\n- the first\n", p1)], {}),
+            ("codex", "c-2", [block_meta("c-2", "2026-10-20T12:00:00+00:00", "", p1)], {})])
+        check("the published scope run was not refused", "refused" not in scopes_doc, f"{scopes_doc.get('refused')}")
+        clean("and its current.json validates, scope rows included", document_contract_problems(
+            {**scopes_doc, "document": "current"}) if "refused" not in scopes_doc else ["refused"])
+        deleted = one_scope(scopes_doc, "native_project", "claude", p1)
+        check("a deletion shows: the project scope is empty as of the event that no longer carries its file",
+              deleted.get("status") == "empty" and deleted.get("as_of") == "2026-10-20T10:00:00+00:00"
+              and deleted.get("session") == "claude:s-del" and deleted.get("line") == 2,
+              f"{deleted.get('status')} {deleted.get('as_of')} {deleted.get('line')}")
+        codex_project = one_scope(scopes_doc, "native_project", "codex", p1)
+        codex_block = one_scope(scopes_doc, "native_undivided", "codex", p1)
+        check("Claude and Codex at one cwd keep separate answers",
+              bool(deleted) and bool(codex_project) and codex_project.get("scope_id") != deleted.get("scope_id")
+              and reason_keys(codex_project) == ["codex_undivided"] and codex_project.get("status") == "unknown"
+              and bool(codex_block) and codex_block.get("scope_id") not in (deleted.get("scope_id"), codex_project.get("scope_id")),
+              f"claude={deleted.get('status')} codex={codex_project.get('status')} block={codex_block.get('status')}")
+        claude_globals = scope_rows(scopes_doc, "native_global", "claude")
+        check("the global layer from two cwds is one answer per host",
+              len(claude_globals) == 1 and claude_globals[0]["status"] == "answered"
+              and claude_globals[0]["session"] == "claude:s-two"
+              and [row["status"] for row in scope_rows(scopes_doc, "native_global", "codex")] == ["unknown"],
+              f"claude={[(row['status'], row['session']) for row in claude_globals]}")
+        memory_one, memory_two = one_scope(scopes_doc, "native_memory", "claude", d1), one_scope(scopes_doc, "native_memory", "claude", d2)
+        check("one event with two memory directories answers for both",
+              memory_two.get("status") == "answered" and memory_two.get("line") == 1
+              and memory_two.get("session") == "claude:s-del" and memory_one.get("status") == "answered",
+              f"d1={memory_one.get('status')} d2={memory_two.get('status')} {memory_two.get('line')}")
+        check("independent directories at one cwd: a later event of that cwd leaves another project's directory "
+              "answered", memory_two.get("status") == "answered" and memory_two.get("as_of") == "2026-10-20T09:00:00+00:00",
+              f"{memory_two.get('status')} {memory_two.get('as_of')}")
+        d1_paths = sorted(unit["path"] for unit in scopes_doc["units"]
+                          if unit["layer"] == "native_memory" and unit["provenance"].get("scope_id") == memory_one.get("scope_id"))
+        check("removing one AutoMem member while another names the same directory: the directory's set is the "
+              "newest event's whole set", memory_one.get("line") == 2 and bool(d1_paths)
+              and all(path.endswith("/a.md") for path in d1_paths),
+              f"line={memory_one.get('line')} paths={[path.rsplit('/', 1)[-1] for path in d1_paths]}")
+        check("a later empty Codex block empties the current block",
+              codex_block.get("status") == "empty" and codex_block.get("session") == "codex:c-2",
+              f"{codex_block.get('status')} {codex_block.get('session')}")
+        unconfirmed = one_scope(scopes_doc, "native_memory", "claude", d3)
+        check("a later event of the same project that names no member of a memory directory makes it "
+              "memory_unconfirmed, naming that event, the earlier set evidence only",
+              unconfirmed.get("status") == "unknown" and reason_keys(unconfirmed) == ["memory_unconfirmed"]
+              and len(unconfirmed.get("evidence", [])) == 1 and not unconfirmed.get("event_ids")
+              and not any(unit["provenance"].get("scope_id") == unconfirmed.get("scope_id") for unit in scopes_doc["units"]),
+              f"{unconfirmed.get('status')} {reason_keys(unconfirmed)}")
+        twin_scopes = [row for row in scope_rows(scopes_doc, "native_project", "claude") if row["session"] in
+                       ("claude:s-sec1", "claude:s-sec2")]
+        check("two raw scopes that project to one display string stay two scopes",
+              len(twin_scopes) == 2 and len({row["scope_id"] for row in twin_scopes}) == 2
+              and len({row["scope"] for row in twin_scopes}) == 1 and "A" * 24 not in json.dumps(scopes_doc),
+              f"rows={len(twin_scopes)} ids={len({row['scope_id'] for row in twin_scopes})} "
+              f"displays={len({row['scope'] for row in twin_scopes})}")
+        check("every scope answer, empty ones included, carries its as_of, its session and the freshness sentence",
+              all(row["freshness"] == FRESHNESS for row in scopes_doc["scopes"])
+              and all(row["as_of"] and row["session"] for row in scopes_doc["scopes"] if row["status"] in ("answered", "empty")),
+              f"{len(scopes_doc['scopes'])} row(s)")
+        check("an unpinned session's global answer carries the limitation that its launch exclusion is unobservable",
+              claude_globals and claude_globals[0]["limitations"] == ["exclusion_unobservable"],
+              f"{claude_globals[0]['limitations'] if claude_globals else None}")
+
+        empty_doc = published_current("empty-files", [
+            ("claude", "s-e", [inj("2026-10-20T10:00:00+00:00", [], cwd="/w/e")], {})])
+        check("a valid files: [] event is an empty answer at every scope it names, never a missing one",
+              one_scope(empty_doc, "native_global", "claude").get("status") == "empty"
+              and one_scope(empty_doc, "native_project", "claude", "/w/e").get("status") == "empty",
+              f"{[(row['layer'], row['status']) for row in empty_doc['scopes']]}")
+
+        # S-8 (a): an undated head, unbounded and then bounded by a later record of its own transcript
+        undated_head = [("claude", "s-a", [inj("2026-10-20T10:00:00+00:00", [member("User", "/w/g.md", "- a1\n")], cwd=p1),
+                                           inj(None, [member("User", "/w/g.md", "- a2\n")], cwd=p1)], {}),
+                        ("claude", "s-b", [inj("2026-10-20T11:00:00+00:00", [member("User", "/w/g.md", "- b\n")], cwd=p2)], {})]
+        unbounded = one_scope(published_current("undated", undated_head), "native_global", "claude")
+        check("an undated head is the scope's unknown, and a later transcript does not win over it",
+              unbounded.get("status") == "unknown" and reason_keys(unbounded) == ["undated"]
+              and unbounded.get("session") is None, f"{unbounded.get('status')} {reason_keys(unbounded)}")
+        bounded_head = [undated_head[0][:2] + ([*undated_head[0][2], {"type": "user", "timestamp": "2026-10-20T10:30:00+00:00"}], {}),
+                        undated_head[1]]
+        bounded = one_scope(published_current("bounded", bounded_head), "native_global", "claude")
+        check("and the competitor wins once a later dated record of the same transcript bounds the undated head",
+              bounded.get("status") == "answered" and bounded.get("session") == "claude:s-b",
+              f"{bounded.get('status')} {bounded.get('session')}")
+
+        # S-8 (c): ties
+        tie_doc = published_current("tie", [
+            ("claude", "s-x", [inj("2026-10-20T10:00:00+00:00", [member("User", "/w/g.md", "- x\n")], cwd=p1)], {}),
+            ("claude", "s-y", [inj("2026-10-20T10:00:00+00:00", [member("User", "/w/g.md", "- y\n")], cwd=p2)], {})])
+        tied = one_scope(tie_doc, "native_global", "claude")
+        check("two events at one instant that disagree give the scope's unknown",
+              tied.get("status") == "unknown" and reason_keys(tied) == ["tie", "tie"], f"{tied.get('status')} {reason_keys(tied)}")
+        ties_doc = published_current("ties", [
+            ("claude", "s-e1", [inj("2026-10-20T10:00:00+00:00", [], cwd="/w/t1")], {}),
+            ("claude", "s-e2", [inj("2026-10-20T10:00:00+00:00", 5, cwd="/w/t1")], {}),
+            ("claude", "s-f1", [inj("2026-10-20T10:00:00+00:00", [member("Project", "/w/t2/CLAUDE.md", "- t2\n")], cwd="/w/t2")], {}),
+            ("claude", "s-f2", [inj("2026-10-20T10:00:00+00:00", [member("Project", "/w/t2/CLAUDE.md", "- t2\n"),
+                                                                   {"type": "Project", "path": "/w/t2/x.md", "content": 5}],
+                                    cwd="/w/t2")], {}),
+            ("claude", "s-late", [inj("2026-10-20T12:00:00+00:00", [member("User", "/w/g.md", "- late\n")], cwd="/w/z")], {})])
+        damaged_tie = one_scope(ties_doc, "native_project", "claude", "/w/t1")
+        check("a valid empty event tied with a damaged one is never promoted to empty",
+              damaged_tie.get("status") == "unknown" and "container_unusable" in reason_keys(damaged_tie),
+              f"{damaged_tie.get('status')} {reason_keys(damaged_tie)}")
+        rejected_tie = one_scope(ties_doc, "native_project", "claude", "/w/t2")
+        check("a complete event tied with an equal-bytes event carrying an extra rejected member is incomplete",
+              rejected_tie.get("status") == "incomplete" and reason_keys(rejected_tie) == ["member_rejected"]
+              and len(rejected_tie.get("event_ids", [])) == 2, f"{rejected_tie.get('status')} {reason_keys(rejected_tie)}")
+
+        # S-7: the cwd cases, and a memory path that is not absolute
+        cwd_doc = published_current("cwd", [
+            ("claude", "s-ok", [inj("2026-10-20T09:00:00+00:00", [member("Project", "/w/c/CLAUDE.md", "- c\n"),
+                                                                   member("AutoMem", "~/.claude/projects/x/memory/m.md", "- m\n")],
+                                    cwd="/w/c")], {}),
+            ("claude", "s-nocwd", [inj("2026-10-20T10:00:00+00:00", [member("User", "/w/g.md", "- g\n")])], {}),
+            ("claude", "s-bad", [inj("2026-10-20T11:00:00+00:00", [member("User", "/w/g.md", "- bad\n")], cwd=5)], {}),
+            ("claude", "s-rel", [inj("2026-10-20T08:00:00+00:00", [member("User", "/w/g.md", "- rel\n")], cwd="rel/dir")], {})])
+        universe_cwd = {row["host"]: row for row in cwd_doc["scope_universe"]}.get("claude", {})
+        check("the scope universe counts an absent cwd, an unreadable one and a relative memory path per host",
+              (universe_cwd.get("no_scope"), universe_cwd.get("cwd_unreadable"), universe_cwd.get("memory_path_relative"))
+              == (1, 2, 1), f"{universe_cwd}")
+        global_cwd = one_scope(cwd_doc, "native_global", "claude")
+        check("an unreadable cwd later at the host makes the global scope unknown, naming its event",
+              global_cwd.get("status") == "unknown" and "cwd_unreadable" in reason_keys(global_cwd)
+              and all(entry.get("event_id") for entry in global_cwd.get("reasons", []) if entry["reason"] == "cwd_unreadable"),
+              f"{global_cwd.get('status')} {reason_keys(global_cwd)}")
+        project_cwd = one_scope(cwd_doc, "native_project", "claude", "/w/c")
+        check("and an earlier project answer only uncertain, with its content still published",
+              project_cwd.get("status") == "uncertain" and set(reason_keys(project_cwd)) == {"cwd_unreadable"}
+              and any(unit["provenance"].get("scope_id") == project_cwd.get("scope_id") for unit in cwd_doc["units"]),
+              f"{project_cwd.get('status')} {reason_keys(project_cwd)}")
+        layers_cwd = {row["layer"]: row for row in cwd_doc["layers"]}
+        check("a count of outcomes that answer no scope keeps its layers from complete",
+              layers_cwd.get("native_project", {}).get("status") == "unknown"
+              and any("names no cwd" in text for text in layers_cwd.get("native_project", {}).get("reasons", []))
+              # no memory directory answered here at all (the one AutoMem path is relative): unknown (S-20)
+              and layers_cwd.get("native_memory", {}).get("status") == "unknown"
+              and any("memory_path_relative 1 at claude" in text
+                      for text in layers_cwd.get("native_memory", {}).get("reasons", [])),
+              f"{layers_cwd.get('native_project', {}).get('status')} {layers_cwd.get('native_memory', {}).get('status')}")
+
+        # Lead ruling 2026-10-29 on S-10's counts: an event without a readable cwd may be the later
+        # same-project event of a memory directory, so the memory row is blocked by those counts too,
+        # and an unreadable cwd later than a directory's last naming event makes it uncertain.
+        dm = f"/w/owner/.claude/projects/{lexical_slug('/w/m')}/memory"
+        nocwd_rows = published_current("memory-nocwd", [
+            ("claude", "s-m", [inj("2026-10-20T09:00:00+00:00", [member("User", "/w/g.md", "- g\n"),
+                                                                  member("AutoMem", f"{dm}/a.md", "- a\n")], cwd="/w/m")], {}),
+            ("claude", "s-n", [inj("2026-10-20T10:00:00+00:00", [member("User", "/w/g.md", "- g2\n")])], {})])
+        nocwd_layers = {row["layer"]: row for row in nocwd_rows["layers"]}
+        check("a later no_scope event at the host leaves the memory row incomplete and the global row complete",
+              nocwd_layers.get("native_memory", {}).get("status") == "incomplete"
+              and nocwd_layers.get("native_global", {}).get("status") == "complete"
+              and one_scope(nocwd_rows, "native_global", "claude").get("session") == "claude:s-n",
+              f"memory={nocwd_layers.get('native_memory', {}).get('status')} "
+              f"global={nocwd_layers.get('native_global', {}).get('status')}")
+        later_bad = published_current("memory-badcwd", [
+            ("claude", "s-m", [inj("2026-10-20T09:00:00+00:00", [member("AutoMem", f"{dm}/a.md", "- a\n")], cwd="/w/m")], {}),
+            ("claude", "s-x", [inj("2026-10-20T10:00:00+00:00", [member("User", "/w/g.md", "- x\n")], cwd=5)], {})])
+        earlier_dir = one_scope(later_bad, "native_memory", "claude", dm)
+        check("a later cwd_unreadable record makes an earlier memory directory uncertain: cwd_unreadable",
+              earlier_dir.get("status") == "uncertain" and reason_keys(earlier_dir) == ["cwd_unreadable"]
+              and earlier_dir.get("session") == "claude:s-m",
+              f"{earlier_dir.get('status')} {reason_keys(earlier_dir)}")
+        naming_bad = published_current("memory-badcwd-names", [
+            ("claude", "s-m", [inj("2026-10-20T09:00:00+00:00", [member("AutoMem", f"{dm}/a.md", "- a\n")], cwd="/w/m")], {}),
+            ("claude", "s-x", [inj("2026-10-20T10:00:00+00:00", [member("AutoMem", f"{dm}/b.md", "- b\n")], cwd=5)], {})])
+        check("and a count alone leaves a layer that has an answering scope incomplete, naming the count",
+              any(text.startswith("native_memory: no_scope 1 at claude")
+                  for text in nocwd_layers.get("native_memory", {}).get("reasons", [])),
+              f"{nocwd_layers.get('native_memory', {}).get('reasons')}")
+        unscoped_only = published_current("all-nocwd", [
+            ("claude", "s-n", [inj("2026-10-20T10:00:00+00:00", [member("User", "/w/g.md", "- g\n"),
+                                                                  member("Project", "/w/x/CLAUDE.md", "- x\n")])], {})])
+        unscoped_layers = {row["layer"]: row for row in unscoped_only["layers"]}
+        check("a layer blocked by a count with no answering scope at all is unknown, the global layer complete",
+              unscoped_layers.get("native_project", {}).get("status") == "unknown"
+              and any("no_scope 1 at claude" in text for text in unscoped_layers.get("native_project", {}).get("reasons", []))
+              and unscoped_layers.get("native_global", {}).get("status") == "complete",
+              f"project={unscoped_layers.get('native_project', {}).get('status')} "
+              f"global={unscoped_layers.get('native_global', {}).get('status')}")
+        named_dir = one_scope(naming_bad, "native_memory", "claude", dm)
+        check("the same record naming a member under the directory leaves it answered by that record",
+              named_dir.get("status") == "answered" and named_dir.get("session") == "claude:s-x"
+              and not reason_keys(named_dir), f"{named_dir.get('status')} {named_dir.get('session')} {reason_keys(named_dir)}")
+
+        # S-9: the slug test, plain cwd equality only without a projects/<slug>/ segment, unknown memberships
+        memory_doc = published_current("memory", [
+            ("claude", "s-m1", [inj("2026-10-20T09:00:00+00:00", [member("AutoMem", "/mem/plain/a.md", "- a\n"),
+                                                                   member("AutoMem", "/mem/broken/b.md", "- b\n"),
+                                                                   member("AutoMem", "/mem/gap/c.md", "- c\n")],
+                                    cwd="/w/s")], {}),
+            ("claude", "s-m2", [inj("2026-10-20T10:00:00+00:00", [member("User", "/w/g.md", "- g\n")], cwd="/w/s")], {}),
+            ("claude", "s-n1", [inj("2026-10-20T09:00:00+00:00", [member("AutoMem", "/mem/nocwd/d.md", "- d\n")])], {}),
+            ("claude", "s-n2", [inj("2026-10-20T10:00:00+00:00", [member("User", "/w/g.md", "- g\n")])], {}),
+            ("claude", "s-k1", [inj("2026-10-20T09:00:00+00:00", [member("AutoMem", f"{d1}/k.md", "- k\n")], cwd=p1)], {}),
+            ("claude", "s-k2", [inj("2026-10-20T10:00:00+00:00", 7, cwd=p1)], {}),
+            ("claude", "s-j1", [inj("2026-10-20T09:00:00+00:00", [member("AutoMem", f"{d2}/j.md", "- j\n")], cwd=q)], {}),
+            ("claude", "s-j2", [inj("2026-10-20T10:00:00+00:00", [{"type": "AutoMem", "path": 9, "content": "- j\n"}],
+                                    cwd=q)], {})])
+        plain_dir = one_scope(memory_doc, "native_memory", "claude", "/mem/plain")
+        check("without a projects/<slug>/ segment, plain cwd equality decides the same project",
+              plain_dir.get("status") == "unknown" and reason_keys(plain_dir) == ["memory_unconfirmed"],
+              f"{plain_dir.get('status')} {reason_keys(plain_dir)}")
+        nocwd_dir = one_scope(memory_doc, "native_memory", "claude", "/mem/nocwd")
+        check("two missing cwds are never one project", nocwd_dir.get("status") == "answered",
+              f"{nocwd_dir.get('status')} {reason_keys(nocwd_dir)}")
+        damaged_dir = one_scope(memory_doc, "native_memory", "claude", d1)
+        check("a later unusable container of the same project makes the directory unknown by that reason",
+              damaged_dir.get("status") == "unknown" and reason_keys(damaged_dir) == ["container_unusable"],
+              f"{damaged_dir.get('status')} {reason_keys(damaged_dir)}")
+        pathless_dir = one_scope(memory_doc, "native_memory", "claude", d2)
+        check("a later AutoMem member of the same project with no usable path leaves the directory incomplete",
+              pathless_dir.get("status") == "incomplete" and reason_keys(pathless_dir) == ["member_rejected"],
+              f"{pathless_dir.get('status')} {reason_keys(pathless_dir)}")
+
+        # S-8 (b): a pinned session launched without the global instructions, and one whose pin is not read
+        pin_rows = [("claude", "s-old", [inj("2026-10-20T09:00:00+00:00", [member("User", "/w/g.md", "- old\n")], cwd=p1)], {}),
+                    ("claude", "s-pin", [inj("2026-10-20T10:00:00+00:00", [], cwd=p1)], {"pin": {"content_ref": "c-ref"}})]
+        excluded = one_scope(published_current("excluded", pin_rows, pin="claude:s-pin",
+                                               pin_record={"content_ref": "c-ref", "include_global_instructions": False}),
+                             "native_global", "claude")
+        check("a pinned, excluded session leaves the older global answer in force, and is counted",
+              excluded.get("status") == "answered" and excluded.get("session") == "claude:s-old",
+              f"{excluded.get('status')} {excluded.get('session')}")
+        unread = one_scope(published_current("unread-pin", pin_rows), "native_global", "claude")
+        check("a pinned session whose pin is not read gives the global scope exclusion_unreadable",
+              unread.get("status") == "unknown" and reason_keys(unread) == ["exclusion_unreadable"],
+              f"{unread.get('status')} {reason_keys(unread)}")
+
+        # S-5 / S-8: lines that do not decode, after the chosen outcome and in another transcript
+        undecodable_doc = published_current("undecodable", [
+            ("claude", "s-u1", [inj("2026-10-20T10:00:00+00:00", [member("User", "/w/g.md", "- u1\n")], cwd=p1),
+                                b"{not json"], {}),
+            ("claude", "s-u2", [inj("2026-10-20T08:00:00+00:00", [member("Project", "/w/u2/CLAUDE.md", "- u2\n")],
+                                    cwd="/w/u2"), b"{not json either"], {}),
+            ("claude", "s-u3", [inj("2026-10-20T07:00:00+00:00", [member("Project", "/w/u3/CLAUDE.md", "- u3\n")],
+                                    cwd="/w/u3"), b"{bracketed", {"type": "user", "timestamp": "2026-10-20T09:00:00+00:00"}], {})])
+        undecodable_global = one_scope(undecodable_doc, "native_global", "claude")
+        elsewhere = [entry for entry in undecodable_global.get("reasons", []) if entry["reason"] == "undecodable_elsewhere"]
+        check("a line that does not decode after the chosen outcome makes the scope uncertain, naming the line",
+              undecodable_global.get("status") == "uncertain"
+              and {"reason": "undecodable_after", "line": 2} in [{k: v for k, v in entry.items() if k != "event_id"}
+                                                                  for entry in undecodable_global.get("reasons", [])],
+              f"{undecodable_global.get('status')} {reason_keys(undecodable_global)}")
+        check("and one in another transcript after its last dated event, not bracketed below the answer, names "
+              "that transcript and line; a bracketed one does not",
+              [(entry.get("session_ref"), entry.get("line")) for entry in elsewhere]
+              == [(session_ref("claude", "s-u2"), 2)], f"{[(entry.get('line')) for entry in elsewhere]}")
 
         # ---- M5 (recording): an undecodable line is kept at its position, before and after an event
         for label, rows_for, expected_line, event_line in (
@@ -6471,9 +7260,16 @@ def self_test():
         native_rows = {row["layer"]: row for row in split_doc["layers"] if row["layer"] in NATIVE_LAYERS}
         check("every native layer is in the table", set(native_rows) == set(NATIVE_LAYERS),
               f"{sorted(native_rows)}")
-        check("the layers a transcript records answer at the current reference point",
-              all(native_rows[layer]["status"] == "complete" for layer in TRANSCRIPT_LAYERS),
-              f"{[(layer, native_rows[layer]['status'], native_rows[layer]['reasons']) for layer in TRANSCRIPT_LAYERS]}")
+        # The fixture holds a Codex rollout, so the divided layers are unknown at its scopes (S-19)
+        # while every Claude scope answers, and the block answers at its own layer value.
+        split_scopes = {(row["layer"], row["host"]): row["status"] for row in split_doc["scopes"]}
+        check("the layers a transcript records answer at the current reference point, scope by scope",
+              all(split_scopes.get((layer, "claude")) in ("answered", "empty") for layer in TRANSCRIPT_LAYERS)
+              and all(split_scopes.get((layer, "codex")) == "unknown" for layer in TRANSCRIPT_LAYERS)
+              and all(native_rows[layer]["status"] == "unknown"
+                      and any("one block" in text for text in native_rows[layer]["reasons"]) for layer in TRANSCRIPT_LAYERS)
+              and {row["layer"]: row["status"] for row in split_doc["layers"]}.get("native_undivided") == "complete",
+              f"{sorted(split_scopes.items())}")
         control("the settings layer, which no transcript carries and no mode reads",
                 [f"native_settings={native_rows['native_settings']['status']}: "
                  + "; ".join(native_rows["native_settings"]["reasons"])],
@@ -7335,7 +8131,10 @@ def self_test():
                         provenance={"as_of": "2026-10-28T00:00:00+09:00", "session": "s-a-planted-session",
                                     "transcript": f"{pathlib.Path.home()}/.claude/projects/p/planted.jsonl",
                                     "where": "User", "scope": "user", "reference": "current",
-                                    "record": 7, "identity": UNKNOWN_REASONS["codex_identity"]}),
+                                    "record": 7, "identity": UNKNOWN_REASONS["codex_identity"],
+                                    # a scope answer's unit (S-10): its scope row and its event
+                                    "scope_id": scope_id("native_global", "claude", None),
+                                    "event_id": opaque_id("e", "event", "native", "claude", "s-a", None, 7)}),
                     # The ledger's own provenance shape (`_ledger`), and the `hosts` list the
                     # deduplication appends: every leaf the schema declares under `provenance` is
                     # filled by some fixture, because the walk is judged LEAF BY LEAF and a

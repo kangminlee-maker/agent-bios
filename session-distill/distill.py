@@ -933,7 +933,7 @@ def self_test():
         current_units = (json.loads(current_path.read_text(encoding="utf-8"))["units"]
                          if code == 0 and current_path.is_file() else [])
         control("a zstd-compressed Codex rollout yields its event, by the decoded block's own text",
-                any(block_marker in unit["text"] for unit in current_units if unit["layer"] == "native_global"),
+                any(block_marker in unit["text"] for unit in current_units if unit["layer"] == "native_undivided"),
                 f"units={len(current_units)}")
         census_bytes = (inventory_run / "census.json").read_bytes()
         (inventory_run / "census.json").write_bytes(census_bytes.replace(b'"cccc"', b'"dddd"'))
