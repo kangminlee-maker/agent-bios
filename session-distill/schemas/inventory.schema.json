@@ -1,14 +1,173 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$comment": "design §6.1: the unit record a reference point's inventory carries, and the layers it answers for. This file is the authority the code is held against; the design section it was derived from is provenance, not an executable contract, because a dated record is a claim about a past tree and is superseded as a matter of course.",
-  "type": "object",
-  "additionalProperties": false,
-  "required": ["units", "layers"],
-  "properties": {
-    "units": {"type": "array", "items": {"$ref": "#/$defs/unit"}},
-    "layers": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/layer_row"}}
-  },
+  "$ref": "#/$defs/document_kind",
   "$defs": {
+    "current_document": {
+      "$comment": "A reference point's document, judged on its units and layer rows. One root per published document, each naming its kind as a `document` const (step 0 S-21); the code's DOCUMENT_ROOTS picks it, because this schema policy has no oneOf.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["document", "units", "layers"],
+      "properties": {
+        "document": {"const": "current"},
+        "units": {"type": "array", "items": {"$ref": "#/$defs/unit"}},
+        "layers": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/layer_row"}}
+      }
+    },
+    "release_document": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["document", "units", "layers"],
+      "properties": {
+        "document": {"const": "release"},
+        "units": {"type": "array", "items": {"$ref": "#/$defs/unit"}},
+        "layers": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/layer_row"}}
+      }
+    },
+    "selection_document": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["document", "units", "layers"],
+      "properties": {
+        "document": {"const": "selection"},
+        "units": {"type": "array", "items": {"$ref": "#/$defs/unit"}},
+        "layers": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/layer_row"}}
+      }
+    },
+    "sessions_document": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["document", "produced_by", "sessions", "events"],
+      "properties": {
+        "document": {"const": "sessions"},
+        "produced_by": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["module", "design", "commit"],
+          "properties": {
+            "module": {"type": "string"},
+            "design": {"type": "string"},
+            "commit": {"type": ["string", "null"]}
+          }
+        },
+        "sessions": {"type": "array", "items": {"$ref": "#/$defs/session"}},
+        "events": {"type": "array", "items": {"$ref": "#/$defs/event"}}
+      }
+    },
+    "document_kind": {
+      "$comment": "The file's own root. A document is validated against the $defs root its `document` names (the code's DOCUMENT_ROOTS); validated here, every real document is refused on purpose, because without oneOf no single root can admit them all.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["document"],
+      "properties": {
+        "document": {"type": "string", "enum": ["current", "release", "selection", "sessions"]}
+      }
+    },
+    "event_id": {"type": "string", "pattern": "^e-[0-9a-f]{24}$"},
+    "owner_ref": {"type": "string", "pattern": "^o-[0-9a-f]{24}$"},
+    "session_ref": {"type": "string", "pattern": "^p-[0-9a-f]{24}$"},
+    "host": {"type": "string", "enum": ["claude", "codex"]},
+    "line": {"type": "integer", "minimum": 1},
+    "unknown_entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reason"],
+      "properties": {
+        "reason": {"type": "string", "minLength": 1},
+        "line": {"$ref": "#/$defs/line"}
+      }
+    },
+    "ownership": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["intervals", "unknown"],
+      "properties": {
+        "intervals": {"type": "array", "items": {
+          "type": "object", "additionalProperties": false, "required": ["owner_ref", "from", "to"],
+          "properties": {"owner_ref": {"$ref": "#/$defs/owner_ref"}, "from": {"$ref": "#/$defs/line"},
+                         "to": {"$ref": "#/$defs/line"}}}},
+        "unknown": {"type": "array", "items": {
+          "type": "object", "additionalProperties": false, "required": ["from", "to"],
+          "properties": {"from": {"$ref": "#/$defs/line"}, "to": {"$ref": "#/$defs/line"}}}}
+      }
+    },
+    "limitation": {
+      "$comment": "One row per limitation kind; the code's LIMITATION_TABLE holds each kind to its own fields.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind"],
+      "properties": {
+        "kind": {"type": "string", "enum": ["alt_paths", "undecodable", "member_rejected", "damaged", "agent_id_unusable"]},
+        "count": {"type": "integer", "minimum": 1},
+        "category": {"type": "string", "enum": ["not_json", "not_object", "member_not_object", "member_type_unmapped",
+                                                "member_path_invalid", "member_content_invalid", "container_unusable",
+                                                "locator_unusable", "locator_element_rejected"]},
+        "line": {"$ref": "#/$defs/line"},
+        "ordinal": {"type": "integer", "minimum": 0}
+      }
+    },
+    "session": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["session_ref", "session", "host", "kind", "transcript", "parent_ref", "binding", "read",
+                   "lines_read", "owners", "ownership", "inherited_session_meta", "own_meta_unidentified",
+                   "limitations", "event_refs", "unknown"],
+      "properties": {
+        "session_ref": {"$ref": "#/$defs/session_ref"},
+        "session": {"type": "string"},
+        "host": {"$ref": "#/$defs/host"},
+        "kind": {"type": "string", "enum": ["main", "subagent"]},
+        "transcript": {"type": "object", "additionalProperties": false, "required": ["host", "id", "source"],
+                       "properties": {"host": {"$ref": "#/$defs/host"}, "id": {"type": "string"},
+                                      "source": {"type": ["string", "null"]}}},
+        "parent_ref": {"type": ["string", "null"], "pattern": "^p-[0-9a-f]{24}$"},
+        "binding": {"type": "string", "enum": ["whole", "prefix", "none"]},
+        "read": {"type": "string", "enum": ["bound", "appended", "changed", "unbound", "binding_invalid", "no_path",
+                                            "unreadable"]},
+        "lines_read": {"type": ["integer", "null"], "minimum": 0},
+        "owners": {"type": "array", "items": {
+          "type": "object", "additionalProperties": false, "required": ["owner_ref", "display"],
+          "properties": {"owner_ref": {"$ref": "#/$defs/owner_ref"}, "display": {"type": "string"}}}},
+        "ownership": {"$ref": "#/$defs/ownership"},
+        "inherited_session_meta": {
+          "type": "object", "additionalProperties": false, "required": ["another_session_id", "no_session_id"],
+          "properties": {"another_session_id": {"type": "integer", "minimum": 0},
+                         "no_session_id": {"type": "integer", "minimum": 0}}},
+        "own_meta_unidentified": {"type": ["integer", "null"], "minimum": 1},
+        "limitations": {"type": "array", "items": {"$ref": "#/$defs/limitation"}},
+        "event_refs": {"type": "array", "items": {"$ref": "#/$defs/event_id"}},
+        "unknown": {"type": "array", "items": {"$ref": "#/$defs/unknown_entry"}}
+      }
+    },
+    "event": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["event_id", "kind", "host", "session_ref", "owner_ref", "owner", "line", "at", "at_reason",
+                   "damaged", "interval_from", "interval_to", "certain_to", "uncertain_reason", "where",
+                   "rejected"],
+      "properties": {
+        "event_id": {"$ref": "#/$defs/event_id"},
+        "kind": {"type": "string", "enum": ["native", "session_injection"]},
+        "host": {"$ref": "#/$defs/host"},
+        "session_ref": {"$ref": "#/$defs/session_ref"},
+        "owner_ref": {"type": ["string", "null"], "pattern": "^o-[0-9a-f]{24}$"},
+        "owner": {"type": "string"},
+        "line": {"$ref": "#/$defs/line"},
+        "at": {"type": ["string", "null"]},
+        "at_reason": {"enum": ["undated", "undated_naive", null]},
+        "damaged": {"enum": ["container_unusable", "locator_element_rejected", null]},
+        "interval_from": {"type": ["integer", "null"], "minimum": 1},
+        "interval_to": {"type": ["integer", "null"], "minimum": 1},
+        "certain_to": {"type": ["integer", "null"], "minimum": 1},
+        "uncertain_reason": {"enum": ["undecodable_after", "ownership_unknown", null]},
+        "where": {"type": ["string", "null"]},
+        "rejected": {"type": "array", "items": {
+          "type": "object", "additionalProperties": false, "required": ["ordinal", "category"],
+          "properties": {"ordinal": {"type": "integer", "minimum": 0},
+                         "category": {"enum": ["member_not_object", "member_type_unmapped", "member_path_invalid",
+                                               "member_content_invalid"]}}}}
+      }
+    },
     "layer_name": {
       "type": "string",
       "enum": [

@@ -270,6 +270,7 @@ def cmd_inventory(args):
             manifest = produce(sources.declared(records.read_json(records.run_json_path(out_dir))).get("zstd"))
             for reference in inventory.REFERENCES:
                 stage.output(f"inventory/{reference}.json")
+            stage.output(f"inventory/{inventory.SESSIONS}.json")
             stage.output("inventory/manifest.json")
         # The stage record is a document this run wrote, so it answers the same question every
         # other written document answers.
@@ -921,6 +922,13 @@ def self_test():
             recorded.output("census.json")
         code, err = cli("inventory", "--run-id", "r-inventory", "--no-state")
         control("an ordinary run of the inventory part through the driver succeeds", code == 0, f"{code}")
+        inventory_part = ((records.stage_records(inventory_run).get("S2") or {}).get("parts") or {}).get("inventory") or {}
+        recorded_outputs = {row.get("artifact"): row.get("sha256") for row in inventory_part.get("outputs") or []}
+        written_outputs = {path.relative_to(inventory_run).as_posix(): records.sha256_file(path)
+                           for path in (inventory_run / "inventory").rglob("*") if path.is_file()}
+        control("every file the inventory part wrote is an output its stage record names, by its bytes",
+                code == 0 and len(written_outputs) >= 5 and recorded_outputs == written_outputs,
+                f"written={len(written_outputs)} recorded={len(recorded_outputs)}")
         current_path = inventory_run / "inventory" / "current.json"
         current_units = (json.loads(current_path.read_text(encoding="utf-8"))["units"]
                          if code == 0 and current_path.is_file() else [])

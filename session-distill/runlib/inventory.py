@@ -119,6 +119,7 @@ REPO = HERE.parent
 DESIGN = "design/session-distill/2026-10-20T1942--9684f05--mechanism-design.md"
 LEDGER_REL = "design/session-distill/ledger.json"
 REFERENCES = ("current", "release", "selection")
+SESSIONS = "sessions"  # `inventory/sessions.json`: the per-session records and their events
 STATUSES = ("complete", "incomplete", "unsupported", "unknown")
 
 # §6.1's unit record, with the two fields the plan adds and the one the emission adds. `class`
@@ -826,7 +827,11 @@ CONTEXT, TREE = "context", "tree"
 # projected (`carrier_id` was once the raw delivered path, GC#12).
 OPAQUE_FORMS = {"unit_id": re.compile(r"^u-[0-9a-f]{16}(-[0-9]+)?$"),
                 "carrier_id": re.compile(r"^c-[0-9a-f]{24}$"),
-                "sha256": re.compile(r"^[0-9a-f]{64}$")}
+                "sha256": re.compile(r"^[0-9a-f]{64}$"),
+                # the step-0 ids, each `<prefix>-` and 24 hex (`opaque_id`)
+                "event_id": re.compile(r"^e-[0-9a-f]{24}$"),
+                "owner_ref": re.compile(r"^o-[0-9a-f]{24}$"),
+                "session_ref": re.compile(r"^p-[0-9a-f]{24}$")}
 
 
 def as_scalar(nullable=False):
@@ -1317,6 +1322,156 @@ RENAME_TABLE = table_of({
     "to_layer": as_enum(layer_names),
     "moved": list_of(as_enum(("path", "layer", "package", "carrier"))),
 })
+
+# ---- `sessions.json` (step 0 S-14, S-5, S-11): the per-session records and their events. Every
+# location is a number, every category a fixed word, every join an opaque reference; the ids a host
+# wrote (session, agent, census id) pass the floor as metadata and are never a join key.
+SESSION_KINDS = ("main", "subagent")
+EVENT_KINDS = ("native", "session_injection")
+BINDINGS = ("whole", "prefix", "none")
+READ_OUTCOMES = ("bound", "appended", "changed", "unbound", "binding_invalid", "no_path", "unreadable")
+UNDECODABLE_CATEGORIES = ("not_json", "not_object")
+MEMBER_CATEGORIES = ("member_not_object", "member_type_unmapped", "member_path_invalid", "member_content_invalid")
+DAMAGE_CATEGORIES = ("container_unusable", "locator_unusable", "locator_element_rejected")
+INHERITED_CATEGORIES = ("another_session_id", "no_session_id")
+
+UNKNOWN_ENTRY_TABLE = table_of({"reason": as_enum(lambda: UNKNOWN_REASONS), "line": as_scalar()},
+                               optional=("line",), schema="unknown_entry")
+LIMITATION_TABLE = one_of(
+    table_of({"kind": as_constant("alt_paths"), "count": as_scalar()}),
+    table_of({"kind": as_constant("undecodable"), "category": as_enum(UNDECODABLE_CATEGORIES),
+              "line": as_scalar()}),
+    table_of({"kind": as_constant("member_rejected"), "category": as_enum(MEMBER_CATEGORIES),
+              "line": as_scalar(), "ordinal": as_scalar()}),
+    table_of({"kind": as_constant("damaged"), "category": as_enum(DAMAGE_CATEGORIES), "line": as_scalar(),
+              "ordinal": as_scalar()}, optional=("ordinal",)),
+    table_of({"kind": as_constant("agent_id_unusable"), "count": as_scalar(), "line": as_scalar()}),
+)
+OWNERSHIP_TABLE = table_of({
+    "intervals": list_of(table_of({"owner_ref": as_opaque("owner_ref"), "from": as_scalar(), "to": as_scalar()})),
+    "unknown": list_of(table_of({"from": as_scalar(), "to": as_scalar()})),
+}, schema="ownership")
+SESSION_TABLE = table_of({
+    "session_ref": as_opaque("session_ref"),
+    "session": as_metadata(),
+    "host": as_enum(PROVENANCE_HOSTS),
+    "kind": as_enum(SESSION_KINDS),
+    "transcript": table_of({"host": as_enum(PROVENANCE_HOSTS), "id": as_metadata(),
+                            "source": as_metadata(nullable=True)}),
+    "parent_ref": as_opaque("session_ref", nullable=True),
+    "binding": as_enum(BINDINGS),
+    "read": as_enum(READ_OUTCOMES),
+    "lines_read": as_scalar(nullable=True),
+    "owners": list_of(table_of({"owner_ref": as_opaque("owner_ref"), "display": as_metadata()})),
+    "ownership": OWNERSHIP_TABLE,
+    "inherited_session_meta": table_of({key: as_scalar() for key in INHERITED_CATEGORIES}),
+    "own_meta_unidentified": as_scalar(nullable=True),
+    "limitations": list_of(LIMITATION_TABLE),
+    "event_refs": list_of(as_opaque("event_id")),
+    "unknown": list_of(UNKNOWN_ENTRY_TABLE),
+}, schema="session")
+EVENT_TABLE = table_of({
+    "event_id": as_opaque("event_id"),
+    "kind": as_enum(EVENT_KINDS),
+    "host": as_enum(PROVENANCE_HOSTS),
+    "session_ref": as_opaque("session_ref"),
+    "owner_ref": as_opaque("owner_ref", nullable=True),
+    "owner": as_metadata(),
+    "line": as_scalar(),
+    "at": as_metadata(nullable=True),
+    "at_reason": as_enum(("undated", "undated_naive"), nullable=True),
+    "damaged": as_enum(("container_unusable", "locator_element_rejected"), nullable=True),
+    "interval_from": as_scalar(nullable=True),
+    "interval_to": as_scalar(nullable=True),
+    "certain_to": as_scalar(nullable=True),
+    "uncertain_reason": as_enum(("undecodable_after", "ownership_unknown"), nullable=True),
+    "where": as_metadata(nullable=True),
+    "rejected": list_of(table_of({"ordinal": as_scalar(), "category": as_enum(MEMBER_CATEGORIES)})),
+}, schema="event")
+SESSIONS_PRODUCED_BY_TABLE = table_of({
+    "module": as_constant("session-distill/runlib/inventory.py"),
+    "design": as_constant(DESIGN),
+    "commit": as_metadata(nullable=True),
+})
+
+
+def event_row(event):
+    """One event as `sessions.json` carries it: the fields `EVENT_TABLE` declares, from the event."""
+    instant = _instant(event.get("at"))
+    interval = event.get("interval")
+    return {"event_id": event["id"], "kind": event["kind"], "host": event["host"],
+            "session_ref": event["session_ref"], "owner_ref": event.get("owner_ref"),
+            "owner": event["session"], "line": event["n"],
+            "at": instant.isoformat() if instant is not None else None, "at_reason": event.get("at_reason"),
+            "damaged": event.get("damaged"),
+            "interval_from": interval[0] if interval else None, "interval_to": interval[1] if interval else None,
+            "certain_to": event.get("certain_to"), "uncertain_reason": event.get("uncertain_reason"),
+            "where": event.get("where"),
+            "rejected": [{"ordinal": row["ordinal"], "category": row["category"]}
+                         for row in event.get("rejected") or []]}
+
+
+def sessions_document(ctx):
+    """`sessions.json`: every census row's per-session record and every event, none truncated."""
+    place = {"home": ctx.get("home"), "decisions": {}}
+    return {
+        "document": "sessions",
+        "produced_by": emit_row("produced_by", SESSIONS_PRODUCED_BY_TABLE, {
+            "module": "session-distill/runlib/inventory.py", "design": DESIGN,
+            "commit": ctx.get("commit")}, place),
+        "sessions": [emit_row("session", SESSION_TABLE, record, place) for record in ctx.get("sessions") or []],
+        "events": [emit_row("event", EVENT_TABLE, event_row(event), place) for event in ctx.get("events") or []],
+    }
+
+
+def sessions_cross_problems(document):
+    """What `sessions.json` gets wrong ACROSS its records (step 0 S-21's cross-record validation), each
+    as a fixed code with counts: every event is listed by exactly one session record and points back at
+    it, every listed event exists exactly once, and one owner's intervals of one kind are ordered and
+    disjoint. The schema judges each record alone; none of this is visible to it."""
+    problems = []
+    events, sessions = document.get("events") or [], document.get("sessions") or []
+    by_id = {}
+    for event in events:
+        by_id.setdefault(event.get("event_id"), []).append(event)
+    twice = sum(1 for rows in by_id.values() if len(rows) > 1)
+    if twice:
+        problems.append(f"CROSS_EVENT_DUPLICATE: {twice} event id(s) name more than one event")
+    session_of = {}
+    for record in sessions:
+        session_of.setdefault(record.get("session_ref"), []).append(record)
+    if any(len(rows) > 1 for rows in session_of.values()):
+        problems.append("CROSS_SESSION_DUPLICATE: a session reference names more than one record")
+    listed = {}
+    for record in sessions:
+        for ref in record.get("event_refs") or []:
+            listed.setdefault(ref, []).append(record.get("session_ref"))
+    dangling = sum(1 for ref in listed if ref not in by_id)
+    if dangling:
+        problems.append(f"CROSS_EVENT_UNRESOLVED: {dangling} listed event reference(s) name no event")
+    unlisted = sum(1 for ref in by_id if len(listed.get(ref) or []) != 1)
+    if unlisted:
+        problems.append(f"CROSS_EVENT_UNLISTED: {unlisted} event(s) listed by no session record, or by several")
+    astray = sum(1 for ref, rows in by_id.items() for event in rows
+                 if listed.get(ref) and listed[ref][0] != event.get("session_ref"))
+    if astray:
+        problems.append(f"CROSS_EVENT_ASTRAY: {astray} event(s) listed by another session than their own")
+    lanes = {}
+    for event in events:
+        if event.get("owner_ref") is not None and event.get("interval_from") is not None:
+            lanes.setdefault((event["owner_ref"], event.get("kind")), []).append(
+                (event["interval_from"], event.get("interval_to")))
+    overlapping = 0
+    for rows in lanes.values():
+        rows.sort()
+        overlapping += sum(1 for (start, end), (after, _) in zip(rows, rows[1:])
+                           if end is None or start >= end or end > after)
+        overlapping += sum(1 for start, end in rows[-1:] if end is None or start >= end)
+    if overlapping:
+        problems.append(f"CROSS_INTERVAL_OVERLAP: {overlapping} interval(s) of one owner and kind are empty, "
+                        f"open or overlap the next")
+    return problems
+
 
 def shed(units, home=None):
     """The unit records the artifact carries: every field through `UNIT_TABLE`, and nothing else.
@@ -2162,7 +2317,44 @@ UNKNOWN_REASONS = {
     "input_absent": "unknown: a required input is absent from the owner's state",
     "input_failed": "unknown: an input of the owner's state could not be acquired",
     "input_unread": "unknown: this run was given no root to read the input from",
+    "no_path": "unknown: the census row names no file to read",
+    "ownership_unknown": "unknown: a sidechain record that names no agent, so no owner it belongs to",
+    "undated": "unknown: the record carries no instant this inventory reads",
+    "undated_naive": "unknown: the record's instant carries no zone, and none is guessed",
+    "own_meta_unidentified": ("unknown: the rollout's first session_meta names no session, and no later "
+                              "one names this rollout"),
+    "container_unusable": "unknown: an injection record whose container cannot be read",
+    "undecodable_after": "uncertain: a line that does not decode lies inside this event's interval",
+    "locator_element_rejected": ("unknown: an element of the field the body is located in was rejected, and "
+                                 "the body is not among the rest"),
 }
+
+
+def reason(key):
+    """A reason as a published record names it: its KEY, which must be in `UNKNOWN_REASONS`.
+    `reason_problems` reads every `reason("...")` call, so a key named here and nowhere declared
+    fails there, and a declared key counts as reported."""
+    if key not in UNKNOWN_REASONS:
+        raise KeyError(key)
+    return key
+
+
+def reason_key(message):
+    """The `UNKNOWN_REASONS` key a message states, by the text it starts with, or None: the record
+    of a session whose transcript raised names its reason by key, never by the message."""
+    text = str(message)
+    hits = [key for key, value in UNKNOWN_REASONS.items() if text.startswith(value)]
+    return max(hits, key=lambda key: len(UNKNOWN_REASONS[key])) if hits else None
+
+
+def opaque_id(prefix, *parts):
+    """`<prefix>-` and 24 hex of the sha256 of `parts` as one canonical JSON array: UTF-8, no
+    whitespace, raw values (step 0 S-11). The id says nothing of what it was built from, so it can
+    join two documents without either one publishing the raw value."""
+    canonical = json.dumps(list(parts), separators=(",", ":"), ensure_ascii=False)
+    return f"{prefix}-{hashlib.sha256(canonical.encode('utf-8')).hexdigest()[:24]}"
+
+
 SAFE_LABEL = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$")
 SHA256_HEX = re.compile(r"^[0-9a-f]{64}$")
 
@@ -2348,7 +2540,10 @@ def census_entries(run_dir):
                      "reason": entry.get("reason"), "entrypoint": entry.get("entrypoint"),
                      "parent": entry.get("parent"), "sha256": entry.get("sha256"),
                      "prefix_sha": version.get("prefix_sha"), "record_count": version.get("record_count"),
-                     "pin": pin.get("content_ref")})
+                     "pin": pin.get("content_ref"), "source": entry.get("source"),
+                     # census keeps the first file of an identity found twice and lists the others
+                     # (census.py 324-326): they are COUNTED, as a limitation, and never read (M9)
+                     "alt_paths": len(entry["alt_paths"]) if isinstance(entry.get("alt_paths"), list) else 0})
     return rows
 
 
@@ -2394,7 +2589,7 @@ def transcript_records(entry, zstd=None):
     whole_sha, prefix = binding_of(entry)
     label = f"{entry.get('host')}:{entry.get('id')}"
     if not entry.get("path"):
-        raise Unacquired(f"{UNKNOWN_REASONS['no_record']} ({label}): the census row has no path")
+        raise Unacquired(f"{UNKNOWN_REASONS['no_path']} ({label})")
     count = prefix[1] if prefix else None
     digest = hashlib.sha256()
     prefix_seen = digest.hexdigest() if count == 0 else None
@@ -2422,13 +2617,16 @@ def transcript_records(entry, zstd=None):
     digest.update(tail)
     sha = digest.hexdigest()
     if whole_sha is not None and sha == whole_sha:
-        return {"records": read, "undecodable": undecodable, "lines": line, "which": "the bytes the census read"}
+        return {"records": read, "undecodable": undecodable, "lines": line, "which": "the bytes the census read",
+                "read": "bound", "binding": ["whole", whole_sha]}
     if prefix is not None and prefix_seen == prefix[0]:
         return {"records": [(n, record) for n, record in read if n <= count],
                 "undecodable": [(n, category) for n, category in undecodable if n <= count],
                 "lines": count,
                 "which": "the census record's complete lines" + (", the host having appended since"
-                                                                 if whole_sha is not None else "")}
+                                                                 if whole_sha is not None else ""),
+                "read": "appended" if whole_sha is not None else "bound",
+                "binding": ["prefix", prefix[0], count]}
     on_record = whole_sha if whole_sha is not None else prefix[0]
     raise Unacquired(f"{UNKNOWN_REASONS['changed']} ({sha[:12]} now, {on_record[:12]} on record)")
 
@@ -2556,24 +2754,48 @@ def member_problem(member):
     return None
 
 
+def owner_ref(host, session_id, agent=None):
+    """The opaque owner reference every cross-document join uses (step 0 S-4): the RAW host, session
+    and agent. A display name is projected metadata, and two raw owners can project to one string."""
+    return opaque_id("o", "owner", host, session_id, agent)
+
+
+def session_ref(host, session_id):
+    """The opaque session reference (step 0 S-14), from the raw host and session id."""
+    return opaque_id("p", "session", host, session_id)
+
+
 def record_owner(entry, record):
-    """`(session, transcript kind)` a Claude record belongs to.
+    """Who one Claude record belongs to: `{session, transcript, owner_ref, agent_id_unusable}`.
 
     lineage.py 102-105: inline sidechain records occur INSIDE ordinary main files, and such a file is
-    not thereby a child. A record carrying `isSidechain: true` or an `agentId` in a main row is
-    therefore that sidechain's, never the main session's — it does not answer for the main session
-    and it never feeds `current` (Fable M-a). In a subagent row every record is the row's own."""
-    session = f"{entry.get('host')}:{entry.get('id')}"
+    not thereby a child. By the census's own test (lineage.py 76-77), a record of a main row is a
+    sidechain's when `isSidechain is True` or its `agentId` is a NON-EMPTY string; it then never
+    answers for the main session and never feeds `current` (Fable M-a). An `agentId` that is there but
+    empty, null or not a string, beside no `isSidechain`, leaves the record the main session's and is
+    counted (`agent_id_unusable`): a main injection that left `current` over a null field would be the
+    silent wrong answer. A sidechain record with no usable agent has NO owner (`owner_ref` None,
+    `ownership_unknown`): joining such records under one invented name merged children that may be
+    different ones. In a subagent row every record is the row's own."""
+    host, ident = entry.get("host"), entry.get("id")
+    session = f"{host}:{ident}"
     if entry.get("kind") != "main":
-        return session, entry.get("kind")
+        return {"session": session, "transcript": entry.get("kind"), "owner_ref": owner_ref(host, ident),
+                "agent_id_unusable": False}
     agent = record.get("agentId")
-    if record.get("isSidechain") is True or agent not in (None, ""):
-        name = agent if isinstance(agent, str) and SAFE_LABEL.match(agent) else "unnamed"
-        return f"{session}#sidechain:{name}", "subagent"
-    return session, "main"
+    usable = isinstance(agent, str) and agent != ""
+    if usable:
+        # the display is projected metadata when it is published; `owner_ref` is the join
+        return {"session": f"{session}#sidechain:{agent}", "transcript": "subagent",
+                "owner_ref": owner_ref(host, ident, agent), "agent_id_unusable": False}
+    if record.get("isSidechain") is True:
+        return {"session": f"{session}#sidechain:unidentified", "transcript": "subagent", "owner_ref": None,
+                "agent_id_unusable": False}
+    return {"session": session, "transcript": "main", "owner_ref": owner_ref(host, ident),
+            "agent_id_unusable": "agentId" in record}
 
 
-def injection_events(records, entry, delivered=None):
+def injection_events(records, entry, delivered=None, seen=None):
     """`(events, damage, inherited)`: the injection events one transcript records, in line order (the
     1548 amendment §1), the injection records it could not use, and the records that carry another
     session's start (M10).
@@ -2594,18 +2816,35 @@ def injection_events(records, entry, delivered=None):
     census row's (M10). A subagent or fork rollout also carries its parent's `session_meta`, with the
     parent's id and the same block text (measured 2026-10-28: 333 of 1,334 rollouts): that record is
     not an injection into this session. It is an `inherited` row — `another_session_id`, or
-    `no_session_id` when the payload names none — and never an event."""
+    `no_session_id` when the payload names none — and never an event.
+
+    An unusable container is ALSO an event, `damaged` with its category and no members (step 0 S-5):
+    it is a later injection whose content nobody can read, so it ends the previous event's interval
+    instead of vanishing. `seen`, when given, collects what the per-session record counts: the lines
+    of the rollout's own `session_meta` records and of each unusable `agentId`."""
     host, events, damage, inherited = entry.get("host"), [], [], []
+    seen = {} if seen is None else seen
+    seen.setdefault("own_meta", [])
+    seen.setdefault("agent_id_unusable", [])
     for line, record in records:
         at = _timestamp(record)
         if host == "claude":
-            session, transcript = record_owner(entry, record)
+            owner = record_owner(entry, record)
+            session, transcript = owner["session"], owner["transcript"]
+            if owner["agent_id_unusable"]:
+                seen["agent_id_unusable"].append(line)
+            mine = {"session": session, "transcript": transcript, "owner_ref": owner["owner_ref"]}
             attachment = record.get("attachment")
             if record.get("type") == "attachment" and isinstance(attachment, dict) \
                     and attachment.get("type") == "instructions":
                 files = attachment.get("files")
                 if not isinstance(files, list):
                     damage.append({"line": line, "category": "container_unusable"})
+                    events.append({"kind": "native", "host": host, "at": at, "n": line, "files": [],
+                                   "rejected": [], "unmapped": False,
+                                   "damaged": reason("container_unusable"), **mine,
+                                   "scope": record.get("cwd") if isinstance(record.get("cwd"), str) else None,
+                                   "where": "attachment.files[] by type"})
                 else:
                     members, rejected = [], []
                     for ordinal, member in enumerate(files):
@@ -2619,14 +2858,22 @@ def injection_events(records, entry, delivered=None):
                         events.append({"kind": "native", "host": host, "at": at, "n": line, "files": members,
                                        "rejected": rejected,
                                        "unmapped": any(row["category"] == "member_type_unmapped" for row in rejected),
-                                       "session": session, "transcript": transcript,
+                                       "damaged": None, **mine,
                                        "scope": record.get("cwd") if isinstance(record.get("cwd"), str) else None,
                                        "where": "attachment.files[] by type"})
+            before = len(damage)
             found = _located(record, delivered, damage, line)
+            harmed = [row["category"] for row in damage[before:]]
             if found:
-                events.append({"kind": "session_injection", "host": host, "at": at, "n": line,
-                               "session": session, "transcript": transcript,
-                               "where": found[0], "how": found[1]})
+                events.append({"kind": "session_injection", "host": host, "at": at, "n": line, **mine,
+                               "where": found[0], "how": found[1], "damaged": None})
+            elif harmed:
+                # The locator could not be read, or an element it holds was rejected and the body is not
+                # among the rest: the injection at this line is unknown, not absent (step 0 S-6).
+                events.append({"kind": "session_injection", "host": host, "at": at, "n": line, **mine,
+                               "where": None, "how": None,
+                               "damaged": reason("container_unusable") if "locator_unusable" in harmed
+                               else reason("locator_element_rejected")})
         elif host == "codex":
             payload = record.get("payload")
             if record.get("type") != "session_meta" or not isinstance(payload, dict):
@@ -2635,17 +2882,25 @@ def injection_events(records, entry, delivered=None):
                 inherited.append({"line": line, "category": "another_session_id" if isinstance(payload.get("id"), str)
                                   else "no_session_id"})
                 continue
+            seen["own_meta"].append(line)
             if payload.get("base_instructions") is None:
                 continue
+            mine = {"session": f"{host}:{entry.get('id')}", "transcript": entry.get("kind"),
+                    "owner_ref": owner_ref(host, entry.get("id"))}
             base = payload["base_instructions"]
             text = base if isinstance(base, str) else base.get("text") if isinstance(base, dict) else None
             if not isinstance(text, str):
                 damage.append({"line": line, "category": "container_unusable"})
+                events.append({"kind": "native", "host": host, "at": at, "n": line, "rejected": [],
+                               "unmapped": False, "damaged": reason("container_unusable"),
+                               **mine, "files": [],
+                               "scope": (payload.get("cwd") if isinstance(payload.get("cwd"), str) else None),
+                               "where": "session_meta.payload.base_instructions",
+                               "git": payload.get("git") if isinstance(payload.get("git"), dict) else None})
                 continue
             if text.strip():
                 events.append({"kind": "native", "host": host, "at": at, "n": line, "rejected": [],
-                               "unmapped": False,
-                               "session": f"{host}:{entry.get('id')}", "transcript": entry.get("kind"),
+                               "unmapped": False, "damaged": None, **mine,
                                "scope": (payload.get("cwd") if isinstance(payload.get("cwd"), str) else None),
                                "where": "session_meta.payload.base_instructions",
                                "git": payload.get("git") if isinstance(payload.get("git"), dict) else None,
@@ -2724,6 +2979,139 @@ def event_carriers(layer, event, reference):
     return rows
 
 
+def instant_reason(value):
+    """Why a record's instant is not read, as a reason key, or None when it is (step 0 S-3):
+    `undated_naive` for an ISO string with no zone, `undated` for anything else unread."""
+    if _instant(value) is not None:
+        return None
+    if isinstance(value, str):
+        try:
+            when = datetime.datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError:
+            return reason("undated")
+        if when.tzinfo is None:
+            return reason("undated_naive")
+    return reason("undated")
+
+
+def ownership_map(entry, read):
+    """Per transcript, the half-open line intervals each owner holds, and those whose owner is unknown
+    (step 0 S-4), and each owner's display. Built from EVERY decoded record's own markers, because a
+    turn is joined to its owner by its line: views publishes a turn's `line` and no `agentId`
+    (views.py ~960)."""
+    owner_at, displays = {}, {}
+    for line, record in read["records"]:
+        if entry.get("host") == "claude":
+            owner = record_owner(entry, record)
+            owner_at[line] = owner["owner_ref"]
+            if owner["owner_ref"] is not None:
+                displays.setdefault(owner["owner_ref"], owner["session"])
+        else:
+            owner_at[line] = owner_ref(entry.get("host"), entry.get("id"))
+            displays.setdefault(owner_at[line], f"{entry.get('host')}:{entry.get('id')}")
+    intervals, unknown, last = [], [], None
+    for line in range(1, (read["lines"] or 0) + 1):
+        owner = owner_at.get(line)          # an undecodable line is in no owner's hands
+        rows = unknown if owner is None else intervals
+        if last is not None and last[0] == owner and last[1]["to"] == line:
+            last[1]["to"] = line + 1
+            continue
+        row = {"from": line, "to": line + 1} if owner is None else {"owner_ref": owner, "from": line, "to": line + 1}
+        rows.append(row)
+        last = (owner, row)
+    return {"intervals": intervals, "unknown": unknown}, displays
+
+
+def applicability(found, read):
+    """Each event's interval (step 0 S-5): `[line, next)` per owner and kind, the last ending at
+    `lines_read + 1`, and where its certainty ends.
+
+    Only an undecodable line cuts certainty, for every owner, because nobody can say whose line it
+    was or whether it held a re-injection. A sidechain injection with no owner has no interval of its
+    own; it cuts the identified sidechains' intervals of its kind, and never the main owner's: it is a
+    sidechain record, so it cannot be the main session's re-injection."""
+    end_of_file = (read["lines"] or 0) + 1
+    broken = sorted(line for line, _category in read["undecodable"])
+    groups = {}
+    for event in found:
+        event.update(interval=None, certain_to=None, uncertain_reason=None)
+        if event.get("owner_ref") is not None:
+            groups.setdefault((event["owner_ref"], event["kind"]), []).append(event)
+    for (_owner, _kind), rows in groups.items():
+        rows.sort(key=lambda row: row["n"])
+        for here, after in zip(rows, rows[1:] + [None]):
+            here["interval"] = [here["n"], after["n"] if after else end_of_file]
+            cut = next((line for line in broken if here["n"] < line < here["interval"][1]), None)
+            if cut is not None:
+                here.update(certain_to=cut, uncertain_reason=reason("undecodable_after"))
+    for stray in (event for event in found if event.get("owner_ref") is None):
+        for event in found:
+            if event.get("interval") is None or event["kind"] != stray["kind"] or event["transcript"] != "subagent" \
+                    or not (event["n"] < stray["n"] < event["interval"][1]):
+                continue
+            if event["certain_to"] is None or stray["n"] < event["certain_to"]:
+                event.update(certain_to=stray["n"], uncertain_reason=reason("ownership_unknown"))
+    return found
+
+
+def session_record(entry, read=None, found=(), damage=(), inherited=(), seen=None, failure=None):
+    """The per-session record of step 0 S-14 for one census row, as far as the transcript says it.
+
+    Every location is a number and every reason a key: nothing a host wrote is in it except the ids,
+    which pass the floor as metadata when it is published."""
+    host, ident = entry.get("host"), entry.get("id")
+    seen = seen or {}
+    # the binding the transcript was READ under; for one that was not read, the binding the row carries
+    binding = read["binding"][0] if read is not None else "whole" if entry.get("sha256") is not None \
+        else "prefix" if (entry.get("prefix_sha"), entry.get("record_count")) != (None, None) else "none"
+    record = {"session_ref": session_ref(host, ident), "session": f"{host}:{ident}", "host": host,
+              "kind": entry.get("kind"),
+              "transcript": {"host": host, "id": ident, "source": entry.get("source")},
+              "parent_ref": session_ref(host, entry["parent"]) if entry.get("parent") else None,
+              "binding": binding, "read": None, "lines_read": None,
+              "owners": [], "ownership": {"intervals": [], "unknown": []},
+              "inherited_session_meta": {"another_session_id": 0, "no_session_id": 0},
+              "own_meta_unidentified": None, "limitations": [], "event_refs": [], "unknown": []}
+    if entry.get("alt_paths"):
+        record["limitations"].append({"kind": "alt_paths", "count": entry["alt_paths"]})
+    if failure is not None:
+        key = reason_key(failure)
+        key = key if key in READ_OUTCOMES else reason("unreadable")
+        record["read"] = key
+        record["unknown"].append({"reason": key})
+        return record
+    ownership, displays = ownership_map(entry, read)
+    record.update(read=read["read"], lines_read=read["lines"], ownership=ownership,
+                  owners=[{"owner_ref": ref, "display": name} for ref, name in sorted(displays.items())])
+    for row in inherited:
+        record["inherited_session_meta"][row["category"]] += 1
+    metas = sorted([row["line"] for row in inherited] + list(seen.get("own_meta") or []))
+    if host == "codex" and not seen.get("own_meta") and metas \
+            and any(row["line"] == metas[0] and row["category"] == "no_session_id" for row in inherited):
+        record["own_meta_unidentified"] = metas[0]
+    record["limitations"] += [{"kind": "undecodable", "category": category, "line": line}
+                              for line, category in read["undecodable"]]
+    record["limitations"] += [{"kind": "member_rejected", "category": row["category"], "line": event["n"],
+                               "ordinal": row["ordinal"]} for event in found for row in event.get("rejected") or []]
+    record["limitations"] += [{"kind": "damaged", "category": row["category"], "line": row["line"],
+                               **({"ordinal": row["ordinal"]} if "ordinal" in row else {})} for row in damage]
+    unusable = list(seen.get("agent_id_unusable") or [])
+    if unusable:
+        record["limitations"].append({"kind": "agent_id_unusable", "count": len(unusable), "line": unusable[0]})
+    record["event_refs"] = [event["id"] for event in found]
+    for event in found:
+        if event.get("damaged"):
+            record["unknown"].append({"reason": event["damaged"], "line": event["n"]})
+        if event.get("owner_ref") is None:
+            record["unknown"].append({"reason": reason("ownership_unknown"), "line": event["n"]})
+    if record["own_meta_unidentified"] is not None:
+        record["unknown"].append({"reason": reason("own_meta_unidentified"),
+                                  "line": record["own_meta_unidentified"]})
+    elif not any(not event.get("damaged") for event in found):
+        record["unknown"].append({"reason": reason("no_record")})
+    return record
+
+
 def transcript_events(run_dir, delivered=None, zstd=None):
     """`(events, unknown, findings)`: every injection event the run's census-bound transcripts
     record, the sessions that are a named unknown, and what reading them found unusable.
@@ -2733,24 +3121,38 @@ def transcript_events(run_dir, delivered=None, zstd=None):
     Reading and decoding run inside one handler, so a transcript that cannot be processed is that
     session's unknown and every other session still processes (M2). `findings` holds each
     undecodable line, each unusable injection container, each rejected member and each inherited
-    `session_meta` (M10), as a session, a line, a fixed category and an ordinal — nothing a host wrote."""
+    `session_meta` (M10), as a session, a line, a fixed category and an ordinal — nothing a host wrote,
+    and `findings["sessions"]` the per-session records (step 0 S-14), none truncated.
+
+    Every event gets its opaque id (step 0 S-11): its kind, the session, the census binding the
+    transcript was read under, and its line. The kind is in it because one Claude record can hold both
+    an instructions attachment and the selected body."""
     entries = census_entries(run_dir)
     events, unknown = [], []
-    findings = {"undecodable": [], "damaged": [], "rejected": [], "inherited": []}
+    findings = {"undecodable": [], "damaged": [], "rejected": [], "inherited": [], "sessions": []}
     for entry in entries:
         label = f"{entry.get('host')}:{entry.get('id')}"
+        seen = {}
         try:
             read = transcript_records(entry, zstd)
-            found, damage, inherited = injection_events(read["records"], entry, delivered)
+            found, damage, inherited = injection_events(read["records"], entry, delivered, seen)
         except Unacquired as exc:
             unknown.append(f"{label}: {exc}")
+            findings["sessions"].append(session_record(entry, failure=exc))
             continue
+        for event in found:
+            event["id"] = opaque_id("e", "event", event["kind"], entry.get("host"), entry.get("id"),
+                                    read["binding"], event["n"])
+            event["session_ref"] = session_ref(entry.get("host"), entry.get("id"))
+            event["at_reason"] = instant_reason(event.get("at"))
+        applicability(found, read)
         findings["undecodable"] += [{"session": label, "line": line, "category": category}
                                     for line, category in read["undecodable"]]
         findings["damaged"] += [{"session": label, **row} for row in damage]
         findings["inherited"] += [{"session": label, **row} for row in inherited]
         findings["rejected"] += [{"session": event["session"], "line": event["n"], **row}
                                  for event in found for row in event.get("rejected") or []]
+        findings["sessions"].append(session_record(entry, read, found, damage, inherited, seen))
         if not found:
             unknown.append(f"{label}: {UNKNOWN_REASONS['no_record']} ({read['which']})")
         events += found
@@ -3057,6 +3459,9 @@ def _native(layer):
             event = ctx.get("pin_event")
             if event is None:
                 raise Unacquired(f"{UNKNOWN_REASONS['no_record']}: the pinned session's transcript records no injection")
+            if event.get("damaged"):
+                # the event in force is one nobody can read: its layers are unknown, never empty (S-5)
+                raise Unacquired(UNKNOWN_REASONS[reason("container_unusable")])
             rows = event_carriers(layer, event, reference)
             if not rows:
                 raise Unacquired(f"{UNKNOWN_REASONS['no_record']}: the event in force records no {layer}")
@@ -3187,6 +3592,12 @@ DOCUMENT_MEMBERS = (
     "undecodable", "damaged", "rejected", "line", "category", "ordinal", "input", "outcome", "code",
     # a parent's session_meta inside a child or fork rollout, counted and never an event (M10)
     "inherited",
+    # `sessions.json` (step 0 S-14, S-5, S-11)
+    "document", "session_ref", "parent_ref", "binding", "read", "lines_read", "owners", "ownership",
+    "intervals", "owner_ref", "display", "from", "to", "inherited_session_meta", "another_session_id",
+    "no_session_id", "own_meta_unidentified", "limitations", "count", "event_refs", "event_id", "owner",
+    "at_reason", "interval_from", "interval_to", "certain_to", "uncertain_reason", "where",
+    "id", "source", "transcript",
     # a rename row
     "from_unit_id", "from_carrier_id", "to_carrier_id", "from_path", "to_path", "from_layer",
     "to_layer", "moved", "ambiguous", "from_carriers", "to_carriers", "reason",
@@ -3218,6 +3629,7 @@ def emitted_document(reference, rows, ctx, more_reasons=None):
             "release": {"kind": "release", "ref": ctx.get("release_ref")},
             "selection": {"kind": "selection", "content_ref": (ctx.get("snapshot") or {}).get("content_ref")}}[reference]
     document = {
+        "document": reference,
         "reference": emit_row("reference", REFERENCE_TABLE,
                               {**kind, "complete": not reasons, "incomplete_reasons": reasons}, place),
         "produced_by": emit_row("produced_by", PRODUCED_BY_TABLE, {
@@ -3313,7 +3725,8 @@ MANIFEST_TABLE = table_of({
     "baseline_items_expected": as_scalar(),
     "state_written": list_of(as_metadata()),
     "native_changed": list_of(as_metadata()),
-}, optional=("baseline_unmapped", "baseline_items_expected", "state_written", "native_changed",
+    "sessions": table_of({"sessions": as_scalar(), "events": as_scalar(), "unknown": as_scalar()}),
+}, optional=("sessions", "baseline_unmapped", "baseline_items_expected", "state_written", "native_changed",
              "watched_roots", "watched_native_files", "state_root_unchanged"))
 
 
@@ -3377,6 +3790,10 @@ def run(repo, state_root, user_root, out_dir, pin=None, native_roots=None, ledge
                 ctx.setdefault("expected_release_items", [])
             bind_transcripts(ctx, run_dir, zstd)
             inputs["transcripts"].update(ctx["notes"]["transcripts"])
+            sessions_doc = sessions_document(ctx)
+            crossed = sessions_cross_problems(sessions_doc)
+            if crossed:
+                raise Refused(f"{'; '.join(crossed)}; no artifact is written")
             expected_refs = {item["ref"] for item in ctx["expected_release_items"]} \
                 if ctx.get("release_ref") else None
             for reference in REFERENCES:
@@ -3393,6 +3810,9 @@ def run(repo, state_root, user_root, out_dir, pin=None, native_roots=None, ledge
                 problems = mapping_problems(expected_refs, produced["release"][1])
                 manifest["baseline_unmapped"] = problems
                 manifest["baseline_items_expected"] = len(ctx["expected_release_items"])
+        write_document(out_dir, out_dir / "inventory" / f"{SESSIONS}.json", sessions_doc, home)
+        manifest["sessions"] = {"sessions": len(sessions_doc["sessions"]), "events": len(sessions_doc["events"]),
+                                "unknown": sum(len(row["unknown"]) for row in sessions_doc["sessions"])}
         for reference, (document, units) in produced.items():
             write_document(out_dir, out_dir / "inventory" / f"{reference}.json", document, home)
             manifest["references"][reference] = {
@@ -3430,8 +3850,10 @@ def bind_transcripts(ctx, run_dir, zstd=None):
         notes.update({"sessions": 0, "events": 0, "unknown": [str(exc)]})
         ctx["notes"]["transcripts"] = notes
         ctx["current_sets"], ctx["pin_event"] = {}, None
+        ctx["sessions"], ctx["events"] = [], []
         return
     ctx["events"] = events
+    ctx["sessions"] = findings["sessions"]
     ctx["current_sets"] = current_sets(events)
     ctx["pin_event"] = None
     if ctx.get("pin") and ctx.get("pin_record"):
@@ -3442,12 +3864,14 @@ def bind_transcripts(ctx, run_dir, zstd=None):
             notes["pin_unknown"] = UNKNOWN_REASONS["no_record"] if any(
                 event["session"] == session for event in events) else UNKNOWN_REASONS["codex_identity"] \
                 if str(ctx["pin"]).startswith("codex:") else UNKNOWN_REASONS["no_record"]
-    delivery = [event for event in events if event["kind"] == "session_injection"]
+    delivery = [event for event in events if event["kind"] == "session_injection" and not event.get("damaged")]
     notes.update({"events": len(events), "native_events": len([e for e in events if e["kind"] == "native"]),
                   "delivery_confirmed": len(delivery),
                   "current_scopes": sorted({f"{layer}@{scope and masked(scope) or 'host'}"
                                             for layer, scope in (ctx["current_sets"] or {})}),
-                  "unknown": unknown[:20], "unknown_total": len(unknown),
+                  # every one, never a prefix: the authoritative per-session answers are in
+                  # `sessions.json`, and a truncated list here would be the one a reader trusts
+                  "unknown": unknown, "unknown_total": len(unknown), "sessions": len(findings["sessions"]),
                   # What the reading found unusable, each at its line under a fixed category (M2, M5).
                   # Recorded here and nowhere else yet: what an earlier event's applicability becomes
                   # across one of these is the reference model's to decide.
@@ -3685,6 +4109,9 @@ def report_lines(manifest, home=None):
 # either has to fail against something that is not itself. The schema is load-bearing beyond this
 # comparison — `self_test` validates the real documents' units and layer rows against it.
 SCHEMA_REL = "session-distill/schemas/inventory.schema.json"
+# The schema's `$defs` root for every document this module publishes, by the kind its `document`
+# member names (step 0 S-21). Held against the consts the schema declares by `document_roots_problems`.
+DOCUMENT_ROOTS = {**{reference: f"{reference}_document" for reference in REFERENCES}, SESSIONS: "sessions_document"}
 SCHEMA_PATH = HERE / "schemas" / "inventory.schema.json"
 
 
@@ -3754,12 +4181,85 @@ def document_contract_problems(document, schema=None):
     schema, problems = _schema_or_problem(schema)
     if problems:
         return problems
-    subject = {"units": document.get("units") or [], "layers": document.get("layers") or []}
     try:
-        validator = validate.compile_schema(schema)
+        validate.compile_schema(schema)
     except Exception as exc:  # a schema this policy refuses is a named failure, not a traceback
         return [f"SCHEMA_INVALID {SCHEMA_REL}: {type(exc).__name__}: {exc}"]
+    # One root per document: the `$defs` entry its `document` names (step 0 S-21, `DOCUMENT_ROOTS`).
+    # The schema policy has no `oneOf`, so the pick is made here, and a kind no root is declared for
+    # is refused by name: judged as another document, a misspelled one passed on the members the two
+    # happened to share.
+    kind = document.get("document") if isinstance(document, dict) else None
+    if not (isinstance(kind, str) and kind in DOCUMENT_ROOTS):
+        return [f"DOCUMENT_KIND_UNDECLARED: the document names "
+                f"{'no kind' if kind is None else 'a kind no root is declared for'}"]
+    # A reference point is judged on its units and layer rows; every other document whole.
+    subject = ({key: document[key] for key in ("document", "units", "layers") if key in document}
+               if kind in REFERENCES else document)
+    picked = {**({"$schema": schema["$schema"]} if "$schema" in schema else {}),
+              "$defs": schema.get("$defs") or {}, "$ref": f"#/$defs/{DOCUMENT_ROOTS[kind]}"}
+    try:
+        validator = validate.compile_schema(picked)
+    except Exception as exc:
+        return [f"SCHEMA_INVALID {SCHEMA_REL}: {type(exc).__name__}: {exc}"]
     return [f"DOCUMENT_INVALID {row}" for row in validate.validate_instance(validator, subject)]
+
+
+def document_roots_problems(schema=None):
+    """`DOCUMENT_ROOTS` against the schema, read from the schema and never restated: a root is a
+    `$defs` entry whose `document` is a const, it must require that member, each kind has one root,
+    the code picks every root by the kind the schema gives it, the file root's kind list is that set,
+    and every document this module publishes has a root."""
+    schema, problems = _schema_or_problem(schema)
+    if problems:
+        return problems
+    defs, roots = schema.get("$defs") or {}, {}
+    for name, shape in defs.items():
+        member = ((shape or {}).get("properties") or {}).get("document") or {}
+        if "const" not in member:
+            continue
+        roots.setdefault(member["const"], []).append(name)
+        if "document" not in ((shape or {}).get("required") or []):
+            problems.append(f"DOCUMENT_ROOT_UNREQUIRED {name}: a root names its kind and does not require it")
+    for kind, names in sorted(roots.items(), key=lambda row: str(row[0])):
+        if len(names) > 1:
+            problems.append(f"DOCUMENT_ROOT_AMBIGUOUS {kind}: {len(names)} roots name this kind")
+    declared = {kind: names[0] for kind, names in roots.items()}
+    if declared != DOCUMENT_ROOTS:
+        problems.append(f"DOCUMENT_ROOTS_MISMATCH: the schema's roots are {sorted(map(str, declared.items()))}, "
+                        f"the code picks {sorted(map(str, DOCUMENT_ROOTS.items()))}")
+    listed = ((defs.get(str(schema.get("$ref") or "").rpartition("/")[2]) or {}).get("properties") or {}) \
+        .get("document") or {}
+    if set(listed.get("enum") or ()) != set(DOCUMENT_ROOTS):
+        problems.append("DOCUMENT_KIND_ENUM_MISMATCH: the file root's kind list is not the set of roots")
+    published = set(REFERENCES) | {SESSIONS}
+    if set(DOCUMENT_ROOTS) != published:
+        problems.append(f"DOCUMENT_ROOTS_UNCOVERED: the module publishes {sorted(published)}, "
+                        f"the roots are picked for {sorted(map(str, DOCUMENT_ROOTS))}")
+    return problems
+
+
+def limitation_schema_problems(schema=None):
+    """`LIMITATION_TABLE` against the schema's `limitation` row, both READ: the schema declares one
+    closed object (it has no `oneOf`), so the kinds, the categories and the field names the table
+    holds each kind to must be the ones the schema admits, and none of them may be empty."""
+    schema, problems = _schema_or_problem(schema)
+    if problems:
+        return problems
+    declared = (((schema.get("$defs") or {}).get("limitation") or {}).get("properties") or {})
+    choices = LIMITATION_TABLE["choices"]
+    held = {"kinds": {choice["fields"]["kind"]["value"] for choice in choices},
+            "categories": set().union(*(_enum_values(choice["fields"]["category"]) for choice in choices
+                                        if "category" in choice["fields"])),
+            "fields": set().union(*(set(choice["fields"]) for choice in choices))}
+    admitted = {"kinds": set((declared.get("kind") or {}).get("enum") or ()),
+                "categories": set((declared.get("category") or {}).get("enum") or ()),
+                "fields": set(declared)}
+    for name in ("kinds", "categories", "fields"):
+        if not held[name] or held[name] != admitted[name]:
+            problems.append(f"LIMITATION_{name.upper()}_MISMATCH: the table holds {sorted(held[name])}, "
+                            f"the schema admits {sorted(admitted[name])}")
+    return problems
 
 
 DATED_RECORD = re.compile(r"design/[^\s\"']*/\d{4}-\d{2}-\d{2}T\d{4}--")
@@ -3820,12 +4320,15 @@ def reason_problems(source=None):
     problems, used = [], set()
 
     def named(node):
-        """The `UNKNOWN_REASONS[...]` keys inside one node."""
+        """The `UNKNOWN_REASONS[...]` keys and the `reason("...")` keys inside one node."""
         keys = set()
         for inner in ast.walk(node):
             if isinstance(inner, ast.Subscript) and getattr(inner.value, "id", None) == "UNKNOWN_REASONS" \
                     and isinstance(inner.slice, ast.Constant):
                 keys.add(inner.slice.value)
+            elif isinstance(inner, ast.Call) and getattr(inner.func, "id", None) == "reason" and inner.args \
+                    and isinstance(inner.args[0], ast.Constant):
+                keys.add(inner.args[0].value)
         return keys
 
     for node in ast.walk(tree):
@@ -3841,6 +4344,8 @@ def reason_problems(source=None):
     for key in UNKNOWN_REASONS:
         if key not in used:
             problems.append(f"REASON_UNUSED {key}: the table declares a reason no path reports")
+    for key in sorted(used - set(UNKNOWN_REASONS), key=str):
+        problems.append(f"REASON_UNDECLARED {key}: a path reports a reason the table does not declare")
     return problems
 
 
@@ -4013,6 +4518,10 @@ def self_test():
     control("a declared reason no path reports",
             reason_problems("".join(f"USED = UNKNOWN_REASONS[{key!r}]\n" for key in list(UNKNOWN_REASONS)[1:])),
             "REASON_UNUSED", list(UNKNOWN_REASONS)[0])
+    control("a published reason key the table does not declare",
+            reason_problems("".join(f"USED = UNKNOWN_REASONS[{key!r}]\n" for key in UNKNOWN_REASONS)
+                            + "NAMED = reason('a_reason_nobody_declared')\n"),
+            "REASON_UNDECLARED", "a_reason_nobody_declared")
 
     # ---- done-when 3: a context that spans two guides, and the mention that carries it
     def guide(name, body):
@@ -4789,10 +5298,10 @@ def self_test():
             census_row("claude", "s-fails", good_path), census_row("claude", "s-good", good_path)]}), encoding="utf-8")
         kept_events_reader = globals()["injection_events"]
 
-        def failing_for_one(records_in, entry_in, delivered_in=None):
+        def failing_for_one(records_in, entry_in, delivered_in=None, *rest):
             if entry_in.get("id") == "s-fails":
                 raise Unacquired(f"{UNKNOWN_REASONS['unreadable']}: a planted failure processing one transcript")
-            return kept_events_reader(records_in, entry_in, delivered_in)
+            return kept_events_reader(records_in, entry_in, delivered_in, *rest)
 
         try:
             globals()["injection_events"] = failing_for_one
@@ -4893,6 +5402,331 @@ def self_test():
                   bound_outcome is None
                   and m10_ctx["notes"].get("transcripts", {}).get("inherited") == inherited_rows,
                   f"raised={bound_outcome is not None}")
+
+        # ---- P2.1: events as published records (step 0 S-1, S-3, S-4, S-5, S-11, S-14, S-23, M9)
+        def p2_run(name, rows_by_id, delivered_in=None):
+            """A run directory whose census holds the given rows, and its transcript events."""
+            run_at = scratch / "p2" / f"run-{name}"
+            run_at.mkdir(parents=True)
+            (run_at / CENSUS).write_text(json.dumps({"transcripts": list(rows_by_id)}), encoding="utf-8")
+            try:
+                events_out, _unknown_out, findings_out = transcript_events(run_at, delivered_in)
+            except Exception as exc:  # the control fails by its own name instead of ending the suite
+                return run_at, exc, [], {"sessions": []}
+            return run_at, None, events_out, findings_out
+
+        def session_of(findings_out, ident):
+            return next((row for row in findings_out["sessions"] if row["transcript"]["id"] == ident), None)
+
+        # S-4: the census's own sidechain test
+        null_agent = raw_lines(scratch / "p2" / "null-agent.jsonl", [
+            dated("2026-10-11T09:00:00+00:00", agentId=""), dated("2026-10-11T10:00:00+00:00", agentId=None),
+            dated("2026-10-11T11:00:00+00:00", agentId=7)])
+        _r, failed, events_na, findings_na = p2_run("null-agent", [census_row("claude", "s-na", null_agent)])
+        record_na = session_of(findings_na, "s-na") or {}
+        check("an empty, null or non-string agentId beside no isSidechain leaves the record the main session's, "
+              "counted",
+              failed is None and [event["transcript"] for event in events_na] == ["main", "main", "main"]
+              and {event["owner_ref"] for event in events_na} == {owner_ref("claude", "s-na")}
+              and [row for row in record_na.get("limitations", []) if row["kind"] == "agent_id_unusable"]
+              == [{"kind": "agent_id_unusable", "count": 3, "line": 1}],
+              f"raised={failed is not None} kinds={[event['transcript'] for event in events_na]}")
+        unnamed = raw_lines(scratch / "p2" / "unnamed.jsonl", [
+            dated("2026-10-11T09:00:00+00:00"),
+            dated("2026-10-11T10:00:00+00:00", "# Global\n\n- one child\n", isSidechain=True),
+            dated("2026-10-11T11:00:00+00:00", "# Global\n\n- another child\n", isSidechain=True)])
+        _r, failed, events_un, findings_un = p2_run("unnamed", [census_row("claude", "s-un", unnamed)])
+        strays = [event for event in events_un if event["transcript"] == "subagent"]
+        record_un = session_of(findings_un, "s-un") or {}
+        check("a sidechain record that names no agent has no owner, and two of them are never one timeline",
+              failed is None and len(strays) == 2 and all(event["owner_ref"] is None for event in strays)
+              and all(event["interval"] is None for event in strays)
+              and [row for row in record_un.get("unknown", []) if row["reason"] == "ownership_unknown"]
+              == [{"reason": "ownership_unknown", "line": 2}, {"reason": "ownership_unknown", "line": 3}]
+              and record_un.get("ownership", {}).get("unknown") == [{"from": 2, "to": 4}],
+              f"raised={failed is not None} strays={len(strays)}")
+        twins = raw_lines(scratch / "p2" / "twins.jsonl", [
+            dated("2026-10-11T09:00:00+00:00", agentId="token=" + "A" * 24 + "1"),
+            dated("2026-10-11T10:00:00+00:00", agentId="token=" + "B" * 24 + "2")])
+        twins_run, failed, events_tw, findings_tw = p2_run("twins", [census_row("claude", "s-tw", twins)])
+        twins_doc = sessions_document({"home": None, "commit": None, "sessions": findings_tw["sessions"],
+                                       "events": events_tw})
+        published_owners = [row["owner_ref"] for row in twins_doc["events"]]
+        check("two owners whose display values project to one string keep distinct owner_refs after publication",
+              failed is None and len(published_owners) == 2 and len(set(published_owners)) == 2
+              and len({row["owner"] for row in twins_doc["events"]}) == 1,
+              f"raised={failed is not None} refs={len(set(published_owners))} "
+              f"displays={len({row['owner'] for row in twins_doc['events']})}")
+        check("and the agent ids a host wrote pass the floor in the published document",
+              ("A" * 24) not in json.dumps(twins_doc) and ("B" * 24) not in json.dumps(twins_doc),
+              "a raw agent id reached sessions.json")
+
+        # S-1 / S-5: an unusable container is a damaged event that opens its own interval
+        damaged_path = raw_lines(scratch / "p2" / "damaged.jsonl", [
+            dated("2026-10-12T09:00:00+00:00"),
+            {"type": "attachment", "timestamp": "2026-10-12T10:00:00+00:00", "cwd": project_scope,
+             "attachment": {"type": "instructions", "files": 5}},
+            dated("2026-10-12T11:00:00+00:00")])
+        _r, failed, events_dm, findings_dm = p2_run("damaged", [census_row("claude", "s-dm", damaged_path)])
+        record_dm = session_of(findings_dm, "s-dm") or {}
+        check("an unusable instructions container is a damaged event at its line, opening its own interval",
+              failed is None and [(event["n"], event["damaged"], event["interval"]) for event in events_dm]
+              == [(1, None, [1, 2]), (2, "container_unusable", [2, 3]), (3, None, [3, 4])]
+              and {"kind": "damaged", "category": "container_unusable", "line": 2} in record_dm.get("limitations", [])
+              and {"reason": "container_unusable", "line": 2} in record_dm.get("unknown", []),
+              f"raised={failed is not None} {[(event['n'], event['damaged'], event['interval']) for event in events_dm]}")
+        own_damaged = raw_lines(scratch / "p2" / "own-damaged.jsonl", [
+            {"type": "session_meta", "timestamp": "2026-10-12T09:00:00+00:00",
+             "payload": {"id": "c-own", "cwd": project_scope, "base_instructions": ["not a block"]}}])
+        _r, failed, events_od, findings_od = p2_run("own-damaged", [census_row("codex", "c-own", own_damaged)])
+        check("an own Codex session_meta whose block has another shape is a damaged native event, never inherited",
+              failed is None and [(event["kind"], event["damaged"]) for event in events_od]
+              == [("native", "container_unusable")]
+              and (session_of(findings_od, "c-own") or {}).get("inherited_session_meta")
+              == {"another_session_id": 0, "no_session_id": 0},
+              f"raised={failed is not None} {[(event['kind'], event['damaged']) for event in events_od]}")
+        body = "- the compiled body\n"
+        locator_rows = [
+            (1, {"type": "attachment", "timestamp": "2026-10-12T09:00:00+00:00",
+                 "attachment": {"type": "other", "systemPrompt": 5}}),
+            (2, {"type": "attachment", "timestamp": "2026-10-12T10:00:00+00:00",
+                 "attachment": {"type": "other", "systemPrompt": [3, "<r>another field</r>"]}}),
+            (3, {"type": "attachment", "timestamp": "2026-10-12T11:00:00+00:00",
+                 "attachment": {"type": "other", "systemPrompt": [3, f"<r>{body}</r>"]}})]
+        located = decoded(locator_rows, {"host": "claude", "id": "s-loc", "kind": "main"}, body)
+        located_events = [] if located is raised_marker else located[0]
+        check("an unreadable locator, and a rejected element with the body not among the rest, are damaged "
+              "session injections; a body found beside a rejected element is the injection",
+              [(event["n"], event["kind"], event["damaged"]) for event in located_events]
+              == [(1, "session_injection", "container_unusable"),
+                  (2, "session_injection", "locator_element_rejected"), (3, "session_injection", None)],
+              f"raised={located is raised_marker} {[(event['n'], event['damaged']) for event in located_events]}")
+
+        # S-5: certainty, cut by an undecodable line for every owner, and by an ownerless sidechain injection
+        cut_owners = raw_lines(scratch / "p2" / "cut-owners.jsonl", [
+            dated("2026-10-13T09:00:00+00:00"),
+            dated("2026-10-13T09:30:00+00:00", "# Global\n\n- a1's\n", agentId="a1"),
+            b"{a line that does not decode",
+            dated("2026-10-13T10:00:00+00:00")])
+        _r, failed, events_co, findings_co = p2_run("cut-owners", [census_row("claude", "s-co", cut_owners)])
+        main_co, a1_co = owner_ref("claude", "s-co"), owner_ref("claude", "s-co", "a1")
+        check("the ownership map gives each line its owner, and a line that does not decode to nobody",
+              failed is None and (session_of(findings_co, "s-co") or {}).get("ownership") == {
+                  "intervals": [{"owner_ref": main_co, "from": 1, "to": 2}, {"owner_ref": a1_co, "from": 2, "to": 3},
+                                {"owner_ref": main_co, "from": 4, "to": 5}],
+                  "unknown": [{"from": 3, "to": 4}]},
+              f"raised={failed is not None}")
+        check("an undecodable line cuts the certainty of the events before it, for every owner",
+              failed is None and [(event["n"], event["interval"], event["certain_to"], event["uncertain_reason"])
+                                  for event in events_co]
+              == [(1, [1, 4], 3, "undecodable_after"), (2, [2, 5], 3, "undecodable_after"), (4, [4, 5], None, None)],
+              f"raised={failed is not None} "
+              f"{[(event['n'], event['interval'], event['certain_to']) for event in events_co]}")
+        cut_stray = raw_lines(scratch / "p2" / "cut-stray.jsonl", [
+            dated("2026-10-13T09:00:00+00:00"),
+            dated("2026-10-13T09:30:00+00:00", "# Global\n\n- a1's\n", agentId="a1"),
+            dated("2026-10-13T10:00:00+00:00", "# Global\n\n- nobody's\n", isSidechain=True),
+            {"type": "user", "timestamp": "2026-10-13T10:30:00+00:00"}])
+        _r, failed, events_cs, _f = p2_run("cut-stray", [census_row("claude", "s-cs", cut_stray)])
+        check("a sidechain injection with no owner cuts the identified sidechains' certainty, never the main session's",
+              failed is None and [(event["n"], event["certain_to"], event["uncertain_reason"]) for event in events_cs]
+              == [(1, None, None), (2, 3, "ownership_unknown"), (3, None, None)],
+              f"raised={failed is not None} {[(event['n'], event['certain_to']) for event in events_cs]}")
+
+        # S-11: an event's id is its canonical tuple, with its kind and its binding in it
+        both_path = raw_lines(scratch / "p2" / "both.jsonl", [
+            {**dated("2026-10-14T09:00:00+00:00"), "attachment": {
+                "type": "instructions", "files": [member("User", "~/.claude/CLAUDE.md", "# G\n\n- r\n")],
+                "systemPrompt": [f"<r>{body}</r>"]}}])
+        both_row = census_row("claude", "s-both", both_path)
+        both_entry = {**both_row, "kind": "main", "prefix_sha": both_row["versions"][0]["prefix_sha"],
+                      "record_count": both_row["versions"][0]["record_count"]}
+        both_read = transcript_records(both_entry)
+        both_events = decoded(both_read["records"], both_entry, body)
+        both_events = [] if both_events is raised_marker else both_events[0]
+        independent = "e-" + hashlib.sha256(json.dumps(
+            ["event", "native", "claude", "s-both", ["whole", both_row["sha256"]], 1],
+            separators=(",", ":"), ensure_ascii=False).encode("utf-8")).hexdigest()[:24]
+        _r, failed, events_both, _f = p2_run("both", [both_row], body)
+        check("one record holding the instructions list and the selected body is two events, of two kinds",
+              sorted(event["kind"] for event in both_events) == ["native", "session_injection"],
+              f"{sorted(event['kind'] for event in both_events)}")
+        check("an event's id is the canonical tuple of its kind, session, binding and line",
+              failed is None and [event["id"] for event in events_both if event["kind"] == "native"] == [independent],
+              f"raised={failed is not None} matched={[event['id'] for event in events_both] == [independent]}")
+        check("and the two events of one record have two ids",
+              failed is None and len(events_both) == 2 and len({event["id"] for event in events_both}) == 2,
+              f"events={len(events_both)} ids={len({event['id'] for event in events_both})}")
+        prefix_only_row = {**both_row, "sha256": None}
+        _r, failed, events_po, _f = p2_run("both-prefix", [prefix_only_row])
+        check("the binding a transcript was read under is part of its events' ids",
+              failed is None and len(events_po) == 1 and events_po[0]["id"] != independent,
+              f"raised={failed is not None} same={bool(events_po) and events_po[0]['id'] == independent}")
+
+        damaged_in_force = next((event for event in events_dm if event["damaged"]), None)
+        in_force = _raised(lambda: _native("native_global")(
+            {"reference": "selection", "pin": "claude:s-dm", "pin_event": damaged_in_force}))
+        check("a pinned session whose event in force is damaged has its native layers unknown by that reason",
+              isinstance(in_force, Unacquired) and str(in_force) == UNKNOWN_REASONS["container_unusable"],
+              f"unacquired={isinstance(in_force, Unacquired)}")
+        delivery_path = raw_lines(scratch / "p2" / "delivery.jsonl", [record for _line, record in locator_rows])
+        delivery_run = scratch / "p2" / "run-delivery"
+        delivery_run.mkdir(parents=True)
+        (delivery_run / CENSUS).write_text(json.dumps({"transcripts": [
+            census_row("claude", "s-loc", delivery_path)]}), encoding="utf-8")
+        delivery_ctx = {"notes": {}, "snapshot": {"output": {"instruction_text": body}}}
+        delivery_failed = _raised(lambda: bind_transcripts(delivery_ctx, delivery_run))
+        check("a damaged session injection is never counted as a confirmed delivery",
+              delivery_failed is None
+              and delivery_ctx["notes"].get("transcripts", {}).get("delivery_confirmed") == 1
+              and len([event for event in delivery_ctx.get("events") or [] if event["kind"] == "session_injection"]) == 3,
+              f"raised={delivery_failed is not None} "
+              f"confirmed={delivery_ctx['notes'].get('transcripts', {}).get('delivery_confirmed')}")
+
+        # S-3: an unread instant says why
+        when_path = raw_lines(scratch / "p2" / "when.jsonl", [
+            {k: v for k, v in dated("x").items() if k != "timestamp"},
+            dated("2026-10-15T09:00:00"), dated("2026-10-15T18:00:00+09:00")])
+        _r, failed, events_wh, _f = p2_run("when", [census_row("claude", "s-wh", when_path)])
+        rows_wh = [event_row(event) for event in events_wh]
+        check("an event's instant is published in UTC, and an unread one says why: absent apart from zone-less",
+              failed is None and [(row["at"], row["at_reason"]) for row in rows_wh]
+              == [(None, "undated"), (None, "undated_naive"), ("2026-10-15T09:00:00+00:00", None)],
+              f"raised={failed is not None} {[row['at_reason'] for row in rows_wh]}")
+
+        # S-23: an id-less head with no later own record
+        headless = raw_lines(scratch / "p2" / "headless.jsonl", [
+            codex_meta(None, "2026-10-09T08:00:00+00:00"), codex_meta("c-parent", "2026-10-09T09:00:00+00:00")])
+        _r, failed, events_hl, findings_hl = p2_run("headless", [census_row("codex", "c-hl", headless)])
+        record_hl = session_of(findings_hl, "c-hl") or {}
+        check("a first session_meta naming no session, with no later own record, is own_meta_unidentified at its line",
+              failed is None and not events_hl and record_hl.get("own_meta_unidentified") == 1
+              and {"reason": "own_meta_unidentified", "line": 1} in record_hl.get("unknown", [])
+              and record_hl.get("inherited_session_meta") == {"another_session_id": 1, "no_session_id": 1},
+              f"raised={failed is not None} unidentified={record_hl.get('own_meta_unidentified')}")
+        headed = raw_lines(scratch / "p2" / "headed.jsonl", [
+            codex_meta(None, "2026-10-09T08:00:00+00:00"), codex_meta("c-hd", "2026-10-09T09:00:00+00:00")])
+        _r, failed, _events_hd, findings_hd = p2_run("headed", [census_row("codex", "c-hd", headed)])
+        check("and a later own record answers it",
+              failed is None and (session_of(findings_hd, "c-hd") or {}).get("own_meta_unidentified", 1) is None,
+              f"raised={failed is not None}")
+
+        # M9: the alternates are counted and never read
+        alt_main = raw_lines(scratch / "p2" / "alt-main.jsonl", [dated("2026-10-16T09:00:00+00:00")])
+        alt_other = [raw_lines(scratch / "p2" / f"alt-{n}.jsonl", [dated("2026-10-16T10:00:00+00:00")]) for n in (1, 2)]
+        alt_run = scratch / "p2" / "run-alt"
+        alt_run.mkdir(parents=True)
+        (alt_run / CENSUS).write_text(json.dumps({"transcripts": [
+            {**census_row("claude", "s-alt", alt_main), "alt_paths": [str(path) for path in alt_other]}]}),
+            encoding="utf-8")
+        alt_outcome, alt_asked = opened_while(lambda: transcript_events(alt_run))
+        alt_record = (session_of(alt_outcome[2], "s-alt") or {}) if isinstance(alt_outcome, tuple) else {}
+        check("a census row's two alternate files are counted on its session record, and no read reaches them",
+              isinstance(alt_outcome, tuple)
+              and {"kind": "alt_paths", "count": 2} in alt_record.get("limitations", [])
+              and alt_asked == [str(alt_main)],
+              f"tuple={isinstance(alt_outcome, tuple)} reads={len(alt_asked)}")
+
+        # S-14: every census row has its record, with its read outcome; the survivor `no path` is its own
+        bound_ok = raw_lines(scratch / "p2" / "rec-bound.jsonl", [dated("2026-10-17T09:00:00+00:00")])
+        moved = raw_lines(scratch / "p2" / "rec-moved.jsonl", [dated("2026-10-17T09:00:00+00:00")])
+        outcome_rows = [
+            census_row("claude", "r-bound", bound_ok),
+            {**census_row("claude", "r-unbound", bound_ok), "sha256": None, "versions": [],
+             "status": "child_of", "parent": "r-bound"},
+            {**census_row("claude", "r-nopath", bound_ok), "path": None},
+            {**census_row("claude", "r-invalid", bound_ok), "sha256": "not-a-hash"},
+            census_row("claude", "r-moved", moved, sha="1" * 64, prefix="2" * 64)]
+        _r, failed, _events_rec, findings_rec = p2_run("records", outcome_rows)
+        reads = {row["transcript"]["id"]: (row["read"], [entry["reason"] for entry in row["unknown"]])
+                 for row in findings_rec["sessions"]}
+        check("every census row has its session record, each with its own read outcome and reason",
+              failed is None and reads == {
+                  "r-bound": ("bound", []), "r-unbound": ("unbound", ["unbound"]),
+                  "r-nopath": ("no_path", ["no_path"]), "r-invalid": ("binding_invalid", ["binding_invalid"]),
+                  "r-moved": ("changed", ["changed"])},
+              f"raised={failed is not None} {sorted((key, value[0]) for key, value in reads.items())}")
+        check("a bound row with no path is `no_path`, never the shared `no_record` (a survivor replaced)",
+              reads.get("r-nopath") == ("no_path", ["no_path"]), f"{reads.get('r-nopath')}")
+        check("a child's session record points at its parent by reference",
+              (session_of(findings_rec, "r-unbound") or {}).get("parent_ref") == session_ref("claude", "r-bound"),
+              "the parent reference is not the parent's session reference")
+        many = [{**census_row("claude", f"r-many-{n}", bound_ok), "sha256": None, "versions": []} for n in range(25)]
+        many_run = scratch / "p2" / "run-many"
+        many_run.mkdir(parents=True)
+        (many_run / CENSUS).write_text(json.dumps({"transcripts": many}), encoding="utf-8")
+        many_ctx = {"notes": {}}
+        many_failed = _raised(lambda: bind_transcripts(many_ctx, many_run))
+        check("no list of named unknowns is truncated: 25 unbound rows are 25 records and 25 notes",
+              many_failed is None and len(many_ctx.get("sessions") or []) == 25
+              and len(many_ctx["notes"].get("transcripts", {}).get("unknown") or []) == 25,
+              f"raised={many_failed is not None} sessions={len(many_ctx.get('sessions') or [])}")
+
+        # the published document, through its production path and its own root in the schema
+        sessions_doc = sessions_document({"home": None, "commit": "fixture", "sessions": findings_rec["sessions"],
+                                          "events": _events_rec})
+        clean("sessions.json validates against its own root in the schema", document_contract_problems(sessions_doc))
+        clean("and its records agree with one another", sessions_cross_problems(sessions_doc))
+        control("a document whose kind is misspelled is refused by name, never judged as another document",
+                document_contract_problems({**sessions_doc, "document": "sesions"}), "DOCUMENT_KIND_UNDECLARED")
+        control("and so is a document that names no kind at all",
+                document_contract_problems({key: value for key, value in sessions_doc.items() if key != "document"}),
+                "DOCUMENT_KIND_UNDECLARED")
+        clean("every document this module publishes has the schema root its kind names", document_roots_problems())
+        own_roots = inventory_schema()
+        renamed = json.loads(json.dumps(own_roots))
+        renamed["$defs"]["sessions_document"]["properties"]["document"]["const"] = "sesions"
+        control("a schema root whose kind is not the one the code picks it by",
+                document_roots_problems(renamed), "DOCUMENT_ROOTS_MISMATCH")
+        unrequired = json.loads(json.dumps(own_roots))
+        unrequired["$defs"]["sessions_document"]["required"].remove("document")
+        control("a schema root that names its kind and does not require it",
+                document_roots_problems(unrequired), "DOCUMENT_ROOT_UNREQUIRED", "sessions_document")
+        unlisted = json.loads(json.dumps(own_roots))
+        unlisted["$defs"]["document_kind"]["properties"]["document"]["enum"].remove("sessions")
+        control("a file root whose kind list leaves a root out",
+                document_roots_problems(unlisted), "DOCUMENT_KIND_ENUM_MISMATCH")
+        kept_roots = globals()["DOCUMENT_ROOTS"]
+        try:
+            globals()["DOCUMENT_ROOTS"] = {**kept_roots, "extra": "sessions_document"}
+            extra_roots = document_roots_problems()
+        finally:
+            globals()["DOCUMENT_ROOTS"] = kept_roots
+        control("a root the code picks that the schema does not declare, for a document nobody publishes",
+                extra_roots, "DOCUMENT_ROOTS_MISMATCH", "DOCUMENT_ROOTS_UNCOVERED")
+        clean("the limitation kinds, categories and fields the code holds are the ones the schema admits",
+              limitation_schema_problems())
+        for name, field, value in (("kinds", "kind", "agent_id_unusable"), ("categories", "category", "locator_unusable")):
+            narrowed = json.loads(json.dumps(own_roots))
+            narrowed["$defs"]["limitation"]["properties"][field]["enum"].remove(value)
+            control(f"a schema whose limitation {field} leaves out one the table holds",
+                    limitation_schema_problems(narrowed), f"LIMITATION_{name.upper()}_MISMATCH")
+        widened = json.loads(json.dumps(own_roots))
+        widened["$defs"]["limitation"]["properties"]["note"] = {"type": "string"}
+        control("a schema whose limitation admits a field no kind of the table carries",
+                limitation_schema_problems(widened), "LIMITATION_FIELDS_MISMATCH")
+        doc_event = sessions_doc["events"][0]
+        doc_record = next(row for row in sessions_doc["sessions"] if doc_event["event_id"] in row["event_refs"])
+        control("an event listed twice", sessions_cross_problems(
+            {**sessions_doc, "events": sessions_doc["events"] + [doc_event]}), "CROSS_EVENT_DUPLICATE")
+        control("a session record listing an event nobody published", sessions_cross_problems(
+            {**sessions_doc, "sessions": [{**row, "event_refs": row["event_refs"] + ["e-" + "0" * 24]}
+                                          if row is doc_record else row for row in sessions_doc["sessions"]]}),
+            "CROSS_EVENT_UNRESOLVED")
+        control("an event no session record lists", sessions_cross_problems(
+            {**sessions_doc, "sessions": [{**row, "event_refs": []} if row is doc_record else row
+                                          for row in sessions_doc["sessions"]]}), "CROSS_EVENT_UNLISTED")
+        control("an event listed by another session than its own", sessions_cross_problems(
+            {**sessions_doc, "events": [{**event, "session_ref": "p-" + "0" * 24} if event is doc_event else event
+                                        for event in sessions_doc["events"]]}), "CROSS_EVENT_ASTRAY")
+        control("two intervals of one owner and kind that overlap", sessions_cross_problems(
+            {**sessions_doc, "events": sessions_doc["events"] + [
+                {**doc_event, "event_id": "e-" + "1" * 24, "interval_from": doc_event["interval_from"],
+                 "interval_to": doc_event["interval_to"]}]}), "CROSS_INTERVAL_OVERLAP")
+        control("and the schema refuses a session record missing its reference",
+                document_contract_problems({**sessions_doc, "sessions": [
+                    {key: value for key, value in sessions_doc["sessions"][0].items() if key != "session_ref"}]}),
+                "DOCUMENT_INVALID", "session_ref")
 
         # ---- M5 (recording): an undecodable line is kept at its position, before and after an event
         for label, rows_for, expected_line, event_line in (
@@ -5768,6 +6602,50 @@ def self_test():
               document_contract_problems(current_doc))
         check("that document really has units to judge", len(current_doc["units"]) > 100,
               f"{len(current_doc['units'])} unit(s)")
+        both_sessions_path = both_out / "inventory" / f"{SESSIONS}.json"
+        both_sessions = (json.loads(both_sessions_path.read_text(encoding="utf-8")) if both_sessions_path.is_file()
+                         else {"document": "sessions", "sessions": [], "events": []})
+        check("the run published sessions.json", both_sessions_path.is_file(), "no inventory/sessions.json")
+        clean("the run's published sessions.json against its own root in the schema",
+              document_contract_problems(both_sessions))
+        check("and it holds a record for every census row, with the manifest's count beside it",
+              len(both_sessions["sessions"]) >= 1
+              and (both.get("sessions") or {}).get("sessions") == len(both_sessions["sessions"])
+              and len(both_sessions["events"]) == (both.get("sessions") or {}).get("events") >= 1,
+              f"sessions={len(both_sessions['sessions'])} events={len(both_sessions['events'])}")
+        kept_record = globals()["session_record"]
+
+        def mixed_record(*args, **kwargs):
+            record = kept_record(*args, **kwargs)
+            record["limitations"] = record["limitations"] + [
+                {"kind": "alt_paths", "count": 1, "line": 3, "category": "not_json"}]
+            return record
+
+        mixed_out = scratch / "mixed-out"
+        try:
+            globals()["session_record"] = mixed_record
+            mixed = _raised(lambda: run(REPO, state, user, mixed_out, pin="claude:session-1",
+                                        ledger=ledger, commit="fixture", **captured()))
+        finally:
+            globals()["session_record"] = kept_record
+        check("a limitation carrying another kind's fields is refused by name on the publication path, "
+              "and nothing is written",
+              isinstance(mixed, Refused) and "EMISSION_UNION_UNMATCHED session.limitations[" in str(mixed)
+              and not any(mixed_out.rglob("*.json")),
+              f"refused={isinstance(mixed, Refused)} named={'EMISSION_UNION_UNMATCHED' in str(mixed)} "
+              f"written={len(list(mixed_out.rglob('*.json')))}")
+        kept_cross = globals()["sessions_cross_problems"]
+        crossed_out = scratch / "crossed-out"
+        try:
+            globals()["sessions_cross_problems"] = lambda document: ["CROSS_EVENT_DUPLICATE: planted"]
+            crossed = _raised(lambda: run(REPO, state, user, crossed_out, pin="claude:session-1",
+                                          ledger=ledger, commit="fixture", **captured()))
+        finally:
+            globals()["sessions_cross_problems"] = kept_cross
+        check("a run whose sessions.json records disagree with one another is refused, and writes no document",
+              isinstance(crossed, Refused) and "CROSS_EVENT_DUPLICATE" in str(crossed)
+              and not any(crossed_out.rglob("*.json")),
+              f"refused={isinstance(crossed, Refused)} written={len(list(crossed_out.rglob('*.json')))}")
         control("a unit whose carrier id is not the opaque identity the schema declares",
                 document_contract_problems({**current_doc, "units": [
                     {**current_doc["units"][0], "carrier_id": f"catalog\0claude/guides/x.md"}]}),
