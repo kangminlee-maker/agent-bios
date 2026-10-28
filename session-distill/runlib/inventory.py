@@ -6281,7 +6281,8 @@ def self_test():
             ("claude", "s-sec2", [inj("2026-10-20T08:00:00+00:00", [member("Project", f"/w/{secret_b}/CLAUDE.md", "- s\n")],
                                       cwd=f"/w/{secret_b}")], {}),
             ("codex", "c-1", [block_meta("c-1", "2026-10-20T09:30:00+00:00", "# Block\n\n- the first\n", p1)], {}),
-            ("codex", "c-2", [block_meta("c-2", "2026-10-20T12:00:00+00:00", "", p1)], {})])
+            ("codex", "c-2", [block_meta("c-2", "2026-10-20T12:00:00+00:00", "", p1)], {}),
+            ("codex", "c-3", [block_meta("c-3", "2026-10-20T09:45:00+00:00", "# Block\n\n- the block at p2\n", p2)], {})])
         check("the published scope run was not refused", "refused" not in scopes_doc, f"{scopes_doc.get('refused')}")
         clean("and its current.json validates, scope rows included", document_contract_problems(
             {**scopes_doc, "document": "current"}) if "refused" not in scopes_doc else ["refused"])
@@ -6320,6 +6321,16 @@ def self_test():
         check("a later empty Codex block empties the current block",
               codex_block.get("status") == "empty" and codex_block.get("session") == "codex:c-2",
               f"{codex_block.get('status')} {codex_block.get('session')}")
+        block_row = one_scope(scopes_doc, "native_undivided", "codex", p2)
+        block_units = [unit for unit in scopes_doc["units"] if "the block at p2" in unit["text"]]
+        check("a Codex block is published only at its own layer value: its text is a unit of native_undivided at "
+              "its (codex, cwd) scope row, no global unit carries it, and Claude's global row is Claude's alone",
+              block_row.get("status") == "answered" and block_row.get("session") == "codex:c-3"
+              and bool(block_units) and all(unit["layer"] == "native_undivided"
+                                             and unit["provenance"].get("scope_id") == block_row.get("scope_id")
+                                             for unit in block_units)
+              and claude_globals and claude_globals[0]["session"].startswith("claude:"),
+              f"{block_row.get('status')} units={[(unit['layer']) for unit in block_units]}")
         unconfirmed = one_scope(scopes_doc, "native_memory", "claude", d3)
         check("a later event of the same project that names no member of a memory directory makes it "
               "memory_unconfirmed, naming that event, the earlier set evidence only",
@@ -6348,6 +6359,33 @@ def self_test():
               one_scope(empty_doc, "native_global", "claude").get("status") == "empty"
               and one_scope(empty_doc, "native_project", "claude", "/w/e").get("status") == "empty",
               f"{[(row['layer'], row['status']) for row in empty_doc['scopes']]}")
+
+        # The published counterparts of two behaviours the function-level controls above judge (lead,
+        # 2026-10-29): a subagent row's and an inline sidechain's injections answer no current scope,
+        # and a zone-less instant is an unknown head, never an error.
+        eligibility_doc = published_current("eligibility", [
+            ("claude", "s-main", [inj("2026-10-20T09:00:00+00:00", [member("User", "/w/g.md", "- main\n")], cwd=p1),
+                                  inj("2026-10-20T11:00:00+00:00", [member("User", "/w/g.md", "- side\n")], cwd=p1,
+                                      isSidechain=True, agentId="a1")], {}),
+            ("claude", "s-kid", [inj("2026-10-20T10:00:00+00:00", [member("User", "/w/g.md", "- kid\n")], cwd=p1)],
+             {"status": "child_of", "parent": "s-main"})])
+        eligible_global = one_scope(eligibility_doc, "native_global", "claude")
+        check("a subagent row's and an inline sidechain's injections answer no current scope, and are counted "
+              "ineligible",
+              eligible_global.get("status") == "answered" and eligible_global.get("session") == "claude:s-main"
+              and eligible_global.get("line") == 1
+              and {row["host"]: row["ineligible"] for row in eligibility_doc["scope_universe"]}.get("claude") == 2,
+              f"{eligible_global.get('session')} {eligible_global.get('line')} "
+              f"{[row['ineligible'] for row in eligibility_doc['scope_universe']]}")
+        naive_doc = published_current("naive", [
+            ("claude", "s-nv", [inj("2026-10-20T12:00:00", [member("User", "/w/g.md", "- naive\n")], cwd=p1)], {}),
+            ("claude", "s-aw", [inj("2026-10-20T09:00:00+00:00", [member("User", "/w/g.md", "- aware\n")], cwd=p2)], {})])
+        naive_global = one_scope(naive_doc, "native_global", "claude")
+        check("a zone-less instant beside an aware one is published as the scope's unknown by undated_naive, and "
+              "nothing raises",
+              "refused" not in naive_doc and naive_global.get("status") == "unknown"
+              and reason_keys(naive_global) == ["undated_naive"],
+              f"{naive_doc.get('refused')} {naive_global.get('status')} {reason_keys(naive_global)}")
 
         # S-8 (a): an undated head, unbounded and then bounded by a later record of its own transcript
         undated_head = [("claude", "s-a", [inj("2026-10-20T10:00:00+00:00", [member("User", "/w/g.md", "- a1\n")], cwd=p1),
