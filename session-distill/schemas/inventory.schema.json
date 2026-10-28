@@ -56,16 +56,94 @@
         "events": {"type": "array", "items": {"$ref": "#/$defs/event"}}
       }
     },
+    "shared_store_document": {
+      "$comment": "`shared/store.json` (step 0 S-22): every carrier version the run names, once, keyed by carrier_id and then version_sha256, and every unit keyed by its unit_ref.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["document", "span_unit", "produced_by", "versions", "units"],
+      "properties": {
+        "document": {"const": "shared_store"},
+        "span_unit": {"$comment": "the unit every start and end counts, in the version's raw text", "const": "code_point"},
+        "produced_by": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["module", "design", "commit"],
+          "properties": {
+            "module": {"type": "string"},
+            "design": {"type": "string"},
+            "commit": {"type": ["string", "null"]}
+          }
+        },
+        "versions": {
+          "type": "object",
+          "additionalProperties": false,
+          "patternProperties": {
+            "^c-[0-9a-f]{24}$": {
+              "type": "object",
+              "additionalProperties": false,
+              "minProperties": 1,
+              "patternProperties": {"^[0-9a-f]{64}$": {"$ref": "#/$defs/carrier_version"}}
+            }
+          }
+        },
+        "units": {
+          "type": "object",
+          "additionalProperties": false,
+          "patternProperties": {"^r-[0-9a-f]{24}$": {"$ref": "#/$defs/carrier_unit"}}
+        }
+      }
+    },
     "document_kind": {
       "$comment": "The file's own root. A document is validated against the $defs root its `document` names (the code's DOCUMENT_ROOTS); validated here, every real document is refused on purpose, because without oneOf no single root can admit them all.",
       "type": "object",
       "additionalProperties": false,
       "required": ["document"],
       "properties": {
-        "document": {"type": "string", "enum": ["current", "release", "selection", "sessions"]}
+        "document": {"type": "string", "enum": ["current", "release", "selection", "sessions", "shared_store"]}
       }
     },
     "event_id": {"type": "string", "pattern": "^e-[0-9a-f]{24}$"},
+    "unit_ref": {
+      "$comment": "opaque (step 0 S-11): r- over [\"unit\", carrier_id, version_sha256, n], n the block's 1-based position in that version",
+      "type": "string",
+      "pattern": "^r-[0-9a-f]{24}$"
+    },
+    "carrier_version": {
+      "$comment": "One carrier version in the store. `length` is the raw text's length in Unicode code points; `unit_refs` lists its units in order; `split` says whether the splitter read it.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["layer", "path", "item_ref", "package_id", "form", "length", "split", "unit_refs"],
+      "properties": {
+        "layer": {"$ref": "#/$defs/layer_name"},
+        "path": {"type": "string", "minLength": 1},
+        "item_ref": {"type": ["string", "null"]},
+        "package_id": {"type": ["string", "null"]},
+        "form": {"type": "string", "enum": ["markdown", "python", "json", "toml", "plain"]},
+        "length": {"type": "integer", "minimum": 0},
+        "split": {"type": "string", "enum": ["split", "malformed", "unsupported"]},
+        "unit_refs": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/unit_ref"}}
+      }
+    },
+    "carrier_unit": {
+      "$comment": "A context-free unit of one carrier version. [start, end) is its span in the version's RAW text, in Unicode code points; `sha` is the raw fragment's sha256, and `text` its projection.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["carrier_id", "version_sha256", "n", "start", "end", "sha", "heading", "text", "class", "block",
+                   "redaction_version"],
+      "properties": {
+        "carrier_id": {"type": "string", "pattern": "^c-[0-9a-f]{24}$"},
+        "version_sha256": {"$ref": "#/$defs/sha256"},
+        "n": {"type": "integer", "minimum": 1},
+        "start": {"type": "integer", "minimum": 0},
+        "end": {"type": "integer", "minimum": 0},
+        "sha": {"$ref": "#/$defs/sha256"},
+        "heading": {"type": "string"},
+        "text": {"type": "string"},
+        "class": {"type": "string", "enum": ["operative", "reference"]},
+        "block": {"type": "string", "minLength": 1},
+        "redaction_version": {"type": "string", "pattern": "^r[0-9]+$"}
+      }
+    },
     "scope_id": {"type": "string", "pattern": "^s-[0-9a-f]{24}$"},
     "scope_reason": {
       "type": "object",
@@ -150,7 +228,8 @@
       "additionalProperties": false,
       "required": ["kind"],
       "properties": {
-        "kind": {"type": "string", "enum": ["alt_paths", "undecodable", "member_rejected", "damaged", "agent_id_unusable"]},
+        "kind": {"type": "string", "enum": ["alt_paths", "undecodable", "member_rejected", "damaged", "agent_id_unusable",
+                                            "member_duplicate"]},
         "count": {"type": "integer", "minimum": 1},
         "category": {"type": "string", "enum": ["not_json", "not_object", "member_not_object", "member_type_unmapped",
                                                 "member_path_invalid", "member_content_invalid", "container_unusable",
@@ -243,6 +322,7 @@
       "additionalProperties": false,
       "required": [
         "unit_id",
+        "unit_ref",
         "layer",
         "path",
         "heading",
@@ -256,6 +336,7 @@
       ],
       "properties": {
         "unit_id": {"type": "string", "pattern": "^u-[0-9a-f]{16}(-[0-9]+)?$"},
+        "unit_ref": {"$ref": "#/$defs/unit_ref"},
         "layer": {"$ref": "#/$defs/layer_name"},
         "path": {"type": "string", "minLength": 1},
         "heading": {"type": "string"},

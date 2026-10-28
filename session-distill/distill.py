@@ -271,6 +271,7 @@ def cmd_inventory(args):
             for reference in inventory.REFERENCES:
                 stage.output(f"inventory/{reference}.json")
             stage.output(f"inventory/{inventory.SESSIONS}.json")
+            stage.output(f"inventory/{inventory.STORE_REL}")
             stage.output("inventory/manifest.json")
         # The stage record is a document this run wrote, so it answers the same question every
         # other written document answers.

@@ -121,11 +121,14 @@ DESIGN = "design/session-distill/2026-10-20T1942--9684f05--mechanism-design.md"
 LEDGER_REL = "design/session-distill/ledger.json"
 REFERENCES = ("current", "release", "selection")
 SESSIONS = "sessions"  # `inventory/sessions.json`: the per-session records and their events
+STORE = "shared_store"  # `inventory/shared/store.json`: every carrier version the run names, once (S-22)
+STORE_REL = "shared/store.json"
 STATUSES = ("complete", "incomplete", "unsupported", "unknown")
 
-# §6.1's unit record, with the two fields the plan adds and the one the emission adds. `class`
-# carries §6.1's `operative|reference`; `contract_problems` holds this tuple against the schema.
-UNIT_FIELDS = ("unit_id", "layer", "path", "heading", "n", "text", "sha", "class",
+# §6.1's unit record, with the two fields the plan adds, the one the emission adds, and the unit's
+# reference into the shared store (step 0 S-11). `class` carries §6.1's `operative|reference`;
+# `contract_problems` holds this tuple against the schema.
+UNIT_FIELDS = ("unit_id", "unit_ref", "layer", "path", "heading", "n", "text", "sha", "class",
                "operative_context", "version_sha256", "redaction_version")
 PLAN_FIELDS = ("operative_context", "version_sha256")
 # The emitted strings that are SPANS of the carrier, and the ones that are metadata about it. The
@@ -532,15 +535,24 @@ def carrier_identity(layer, path, item_ref, package_id):
     return "c-" + sha256_text(f"{layer}\0{package_id or '-'}\0{item_ref or '-'}\0{path}")[:24]
 
 
-def carrier(layer, path, text, item_ref=None, package_id=None, form=None, provenance=None):
+def carrier(layer, path, text, item_ref=None, package_id=None, form=None, provenance=None, carrier_id=None):
     """One carrier. `form` is declared when the text is a member of the file the path names rather
     than the file itself — the session's compiled instruction text is markdown that lives inside an
     `output.json`, and reading its structure off the path's suffix made it a malformed settings
-    file (GA#5)."""
+    file (GA#5). `carrier_id` is given for a transcript carrier and a session injection, whose
+    identity is built from the raw values they were recorded under (step 0 S-11); every other
+    carrier keeps `carrier_identity`."""
     return {"layer": layer, "path": path, "item_ref": item_ref, "package_id": package_id,
             "text": text, "version_sha256": sha256_text(text), "form": declared_form(form or form_of(path)),
-            "carrier_id": carrier_identity(layer, path, item_ref, package_id),
+            "carrier_id": carrier_id or carrier_identity(layer, path, item_ref, package_id),
             "provenance": provenance or {}}
+
+
+def unit_ref(carrier_id, version_sha256, n):
+    """The unit reference `r-` (step 0 S-11): the block's 1-based position `n` in ONE carrier version.
+    `unit_id` is not one: its occurrence counter runs across a whole `units_of` call, so two versions
+    of one carrier split together give one fragment two ids, and it is never a join key."""
+    return opaque_id("r", "unit", carrier_id, version_sha256, n)
 
 
 def units_of(carriers):
@@ -565,13 +577,15 @@ def units_of(carriers):
             key = sha256_text(f"{item.get('carrier_id') or carrier_identity(item['layer'], item['path'], item.get('item_ref'), item.get('package_id'))}\0{text}")[:16]
             seen[key] += 1
             unit_id = f"u-{key}" if seen[key] == 1 else f"u-{key}-{seen[key]}"
-            unit = {"unit_id": unit_id, "layer": item["layer"], "path": item["path"],
+            carrier_id = item.get("carrier_id") or carrier_identity(
+                item["layer"], item["path"], item.get("item_ref"), item.get("package_id"))
+            unit = {"unit_id": unit_id, "unit_ref": unit_ref(carrier_id, item["version_sha256"], n),
+                    "layer": item["layer"], "path": item["path"],
                     "heading": " > ".join(heading_path), "n": n, "text": text, "sha": sha256_text(text),
                     "class": classify(kind, heading_path), "operative_context": [],
                     "version_sha256": item["version_sha256"], "redaction_version": projection.CURRENT,
                     "block": kind, "item_ref": item["item_ref"], "package_id": item["package_id"],
-                    "carrier_id": item.get("carrier_id") or carrier_identity(
-                        item["layer"], item["path"], item.get("item_ref"), item.get("package_id")),
+                    "carrier_id": carrier_id,
                     "provenance": item.get("provenance") or {},
                     "enclosing": list(enclosing),
                     # The carrier this block is a span OF, and where in it the span sits. The floor
@@ -842,7 +856,8 @@ OPAQUE_FORMS = {"unit_id": re.compile(r"^u-[0-9a-f]{16}(-[0-9]+)?$"),
                 "event_id": re.compile(r"^e-[0-9a-f]{24}$"),
                 "owner_ref": re.compile(r"^o-[0-9a-f]{24}$"),
                 "session_ref": re.compile(r"^p-[0-9a-f]{24}$"),
-                "scope_id": re.compile(r"^s-[0-9a-f]{24}$")}
+                "scope_id": re.compile(r"^s-[0-9a-f]{24}$"),
+                "unit_ref": re.compile(r"^r-[0-9a-f]{24}$")}
 
 
 def as_scalar(nullable=False):
@@ -1259,6 +1274,8 @@ PROVENANCE_TABLE = table_of({
 # offsets of the mention it came from — never from the stored string, which is what leaked (r3 #0).
 UNIT_TABLE = table_of({
     "unit_id": as_opaque("unit_id"),
+    # the unit's reference into `shared/store.json` (step 0 S-11, S-22)
+    "unit_ref": as_opaque("unit_ref"),
     "layer": as_enum(layer_names),
     "path": as_metadata(),
     "heading": as_span("heading_spans", join=" > ", marks=True),
@@ -1359,6 +1376,7 @@ LIMITATION_TABLE = one_of(
     table_of({"kind": as_constant("damaged"), "category": as_enum(DAMAGE_CATEGORIES), "line": as_scalar(),
               "ordinal": as_scalar()}, optional=("ordinal",)),
     table_of({"kind": as_constant("agent_id_unusable"), "count": as_scalar(), "line": as_scalar()}),
+    table_of({"kind": as_constant("member_duplicate"), "line": as_scalar(), "ordinal": as_scalar()}),
 )
 OWNERSHIP_TABLE = table_of({
     "intervals": list_of(table_of({"owner_ref": as_opaque("owner_ref"), "from": as_scalar(), "to": as_scalar()})),
@@ -1436,6 +1454,40 @@ SCOPE_TABLE = table_of({
 UNIVERSE_TABLE = table_of({"host": as_enum(PROVENANCE_HOSTS), **{key: as_scalar() for key in UNIVERSE_COUNTS}},
                           schema="scope_universe")
 
+# ---- `shared/store.json` (step 0 S-22): every carrier version the run names, once, with its
+# context-free units. A unit of a reference document resolves here by its `unit_ref`, a version by
+# `carrier_id` and `version_sha256`. Nothing here says when or from whom a version came: that is each
+# occurrence's own record, and a version delivered three times is still one row.
+SPLIT_OUTCOMES = ("split", "malformed", "unsupported")
+SPAN_UNIT = "code_point"  # every [start, end) the store publishes counts Unicode code points of the raw text
+CARRIER_VERSION_TABLE = table_of({
+    "layer": as_enum(layer_names),
+    "path": as_metadata(),
+    "item_ref": as_metadata(nullable=True),
+    "package_id": as_metadata(nullable=True),
+    "form": as_enum(FORMS),
+    "length": as_scalar(),
+    "split": as_enum(SPLIT_OUTCOMES),
+    "unit_refs": list_of(as_opaque("unit_ref")),
+}, schema="carrier_version")
+# A unit as the store carries it: no context and no provenance, its span in the RAW version's code
+# points, and `sha` the raw fragment's digest, so a projected `text` still binds to the bytes it came
+# from. `unit_id` is not here: it is the fragment's id within one reference document's split (see
+# `unit_ref`), and the run-wide store would give one reference two of them.
+CARRIER_UNIT_TABLE = table_of({
+    "carrier_id": as_opaque("carrier_id"),
+    "version_sha256": as_opaque("sha256"),
+    "n": as_scalar(),
+    "start": as_scalar(),
+    "end": as_scalar(),
+    "sha": as_opaque("sha256"),
+    "heading": as_span("heading_spans", join=" > ", marks=True),
+    "text": as_span("span"),
+    "class": as_enum(lambda: schema_enum("unit_class") or ("operative", "reference")),
+    "block": as_enum(BLOCK_KINDS),
+    "redaction_version": as_constant(projection.CURRENT),
+}, schema="carrier_unit")
+
 
 def event_row(event):
     """One event as `sessions.json` carries it: the fields `EVENT_TABLE` declares, from the event."""
@@ -1512,6 +1564,92 @@ def sessions_cross_problems(document):
     if overlapping:
         problems.append(f"CROSS_INTERVAL_OVERLAP: {overlapping} interval(s) of one owner and kind are empty, "
                         f"open or overlap the next")
+    return problems
+
+
+def store_carriers(ctx):
+    """Every carrier the run names: what each reference point's layer rows carried, and every member
+    of every recorded event, the ones no scope chose included. Damaged events carry none."""
+    named = list(ctx.get("carriers_named") or [])
+    for event in ctx.get("events") or []:
+        named += [member_carrier(event, member) for member in event.get("files") or []]
+    return named
+
+
+def store_document(ctx):
+    """`shared/store.json`: each carrier VERSION once, by (`carrier_id`, `version_sha256`), split on
+    its own so its units do not depend on what else a call held, every unit through the floor with
+    that version's whole-carrier decision. A version the splitter refuses is listed with no units and
+    the refusal's kind, never dropped."""
+    place = {"home": ctx.get("home"), "decisions": {}}
+    by_version = {}
+    for item in store_carriers(ctx):
+        by_version.setdefault((item["carrier_id"], item["version_sha256"]), item)
+    versions, units = {}, {}
+    for (carrier_id, version), item in sorted(by_version.items()):
+        try:
+            split, produced = "split", units_of([item])
+        except Malformed:
+            split, produced = "malformed", []
+        except Unsupported:
+            split, produced = "unsupported", []
+        where = f"versions[{carrier_id}][{version}]"
+        _emit_value(as_opaque("carrier_id"), carrier_id, place, f"{where}<key>")
+        versions.setdefault(carrier_id, {})[version] = emit_row(where, CARRIER_VERSION_TABLE, {
+            "layer": item["layer"], "path": item["path"], "item_ref": item.get("item_ref"),
+            "package_id": item.get("package_id"), "form": item["form"], "length": len(item["text"]),
+            "split": split, "unit_refs": [unit["unit_ref"] for unit in produced]}, place)
+        place["decision"] = _decision_for(place, carrier_id, item["text"])
+        for unit in produced:
+            place["unit"] = unit
+            units[unit["unit_ref"]] = emit_row(f"units[{unit['unit_ref']}]", CARRIER_UNIT_TABLE, {
+                "carrier_id": carrier_id, "version_sha256": version, "n": unit["n"],
+                "start": unit["span"][0], "end": unit["span"][1], "sha": unit["sha"],
+                "class": unit["class"], "block": unit["block"], "redaction_version": unit["redaction_version"],
+                "carrier_text": unit["carrier_text"], "span": unit["span"],
+                "heading_spans": unit["heading_spans"]}, place)
+    return {"document": STORE, "span_unit": SPAN_UNIT,
+            "produced_by": emit_row("produced_by", SESSIONS_PRODUCED_BY_TABLE, {
+                "module": "session-distill/runlib/inventory.py", "design": DESIGN,
+                "commit": ctx.get("commit")}, place),
+            "versions": versions, "units": units}
+
+
+def store_cross_problems(store, documents):
+    """What the store and the documents that point into it get wrong ACROSS records (step 0 S-21):
+    every reference resolves exactly once, a unit's version is one of its carrier's versions and
+    lists it, a unit's reference is the one its version and position derive, its span lies inside the
+    version, and every unit a reference document publishes is that block of the store."""
+    problems, listed = [], collections.Counter()
+    versions, units = store.get("versions") or {}, store.get("units") or {}
+    for carrier_id, rows in versions.items():
+        for version, row in rows.items():
+            for ref in row.get("unit_refs") or []:
+                listed[ref] += 1
+                found = units.get(ref)
+                if found is None:
+                    problems.append(f"STORE_UNRESOLVED {ref}: a version lists a unit the store does not hold")
+                elif (found.get("carrier_id"), found.get("version_sha256")) != (carrier_id, version):
+                    problems.append(f"STORE_VERSION_MISMATCH {ref}: listed by a version it is not a unit of")
+    for ref, found in units.items():
+        if listed[ref] != 1:
+            problems.append(f"STORE_UNIT_UNLISTED {ref}: its version lists it {listed[ref]} time(s), not once")
+        if ref != unit_ref(found.get("carrier_id"), found.get("version_sha256"), found.get("n")):
+            problems.append(f"STORE_REF_MISMATCH {ref}: not the reference its version and position derive")
+        version = (versions.get(found.get("carrier_id")) or {}).get(found.get("version_sha256"))
+        if version is None:
+            problems.append(f"STORE_VERSION_ABSENT {ref}: its carrier version is not in the store")
+        elif not (isinstance(found.get("start"), int) and isinstance(found.get("end"), int)
+                  and 0 <= found["start"] <= found["end"] <= version.get("length", -1)):
+            problems.append(f"STORE_SPAN_OUTSIDE {ref}: its span is not inside its version's text")
+    for name, document in sorted(documents.items()):
+        for n, unit in enumerate(document.get("units") or []):
+            found = units.get(unit.get("unit_ref"))
+            if found is None:
+                problems.append(f"STORE_UNRESOLVED {name}.units[{n}]: its unit_ref is not in the store")
+            elif (found.get("carrier_id"), found.get("version_sha256"), found.get("n"), found.get("sha")) \
+                    != (unit.get("carrier_id"), unit.get("version_sha256"), unit.get("n"), unit.get("sha")):
+                problems.append(f"STORE_MISMATCH {name}.units[{n}]: the store's unit at its reference is another block")
     return problems
 
 
@@ -2922,9 +3060,10 @@ def injection_events(records, entry, delivered=None, seen=None):
                             continue
                         members.append({"layer": ATTACHMENT_LAYER[member["type"]], "type": member["type"],
                                         "path": member["path"], "text": member["content"], "ordinal": ordinal})
+                    members, duplicates = distinct_members(host, case, cwd, members)
                     # A valid `files: []` is kept: it is an empty answer, a deletion that shows (#6, S-8).
                     events.append({"kind": "native", "host": host, "at": at, "n": line, "files": members,
-                                   "rejected": rejected,
+                                   "duplicates": duplicates, "rejected": rejected,
                                    "unmapped": any(row["category"] in UNMAPPED_CATEGORIES for row in rejected),
                                    "damaged": None, **mine,
                                    "scope": cwd, "cwd_case": case, "where": "attachment.files[] by type"})
@@ -2973,8 +3112,9 @@ def injection_events(records, entry, delivered=None, seen=None):
                            # project parts of it are unknown, and no estimated split is recorded (the
                            # 1548 amendment §1). An empty block is kept: an empty answer (#6).
                            "files": [{"layer": "native_undivided", "type": "base_instructions",
-                                      "path": "codex:base_instructions", "text": text,
-                                      "undivided": True}] if text.strip() else []})
+                                      "path": "codex:base_instructions", "text": text, "undivided": True,
+                                      "carrier_id": native_carrier_id(host, case, cwd, {"undivided": True})}]
+                           if text.strip() else []})
     return events, damage, inherited
 
 
@@ -3086,6 +3226,39 @@ def scope_id(layer, host, key):
     """The opaque scope id (S-7, S-11), from the RAW layer, host and key: two raw scopes that project
     to one display string stay two scopes."""
     return opaque_id("s", "scope", layer, host, key)
+
+
+def native_carrier_id(host, case, cwd, member):
+    """A transcript carrier's `c-` (step 0 S-11), from the raw values it was recorded under.
+
+    A Claude member is `["native", layer, host, type, recorded path]`, and a path that is not absolute
+    takes the event's project scope as well, so two projects' `./CLAUDE.md` stay two carriers; with no
+    usable cwd that component is `null`. The Codex block is `["native_undivided", "codex", its scope]`,
+    the scope `null` when the record has no usable cwd: the event keeps its carrier, and is simply no
+    `current` outcome."""
+    if member.get("undivided"):
+        return opaque_id("c", "native_undivided", "codex",
+                         scope_id("native_undivided", "codex", cwd) if case == "scoped" else None)
+    parts = ["native", member["layer"], host, member["type"], member["path"]]
+    if not ABSOLUTE.match(member["path"]):
+        parts.append(scope_id("native_project", host, cwd) if case == "scoped" else None)
+    return opaque_id("c", *parts)
+
+
+def distinct_members(host, case, cwd, members):
+    """`(members, duplicates)`: one member per carrier VERSION (step 0 S-12, final). A recorded path
+    named twice with equal bytes is one version, as `r-` has one copy per version; each dropped copy
+    is a duplicate by its ordinal. Two byte strings at one path stay two versions."""
+    kept, duplicates, seen = [], [], set()
+    for member in members:
+        member["carrier_id"] = native_carrier_id(host, case, cwd, member)
+        key = (member["carrier_id"], sha256_text(member["text"]))
+        if key in seen:
+            duplicates.append({"ordinal": member["ordinal"]})
+            continue
+        seen.add(key)
+        kept.append(member)
+    return kept, duplicates
 
 
 def pin_state(entry, ctx):
@@ -3353,10 +3526,17 @@ def event_carriers(layer, event, reference, members=None, scope=None):
             # Codex delivers one merged body, so the layer's identity is unknown and only the
             # loaded text is known (§2, design §6.3's Native layer row).
             provenance["identity"] = UNKNOWN_REASONS["codex_identity"]
-        rows.append(carrier(layer, f"{event['host']}:{member.get('type')}:{member.get('path')}",
-                            member["text"], provenance=provenance,
-                            form="markdown" if member.get("undivided") else form_of(member["path"])))
+        rows.append(member_carrier(event, member, provenance))
     return rows
+
+
+def member_carrier(event, member, provenance=None):
+    """One recorded member as a carrier, under the identity its event recorded (S-11)."""
+    return carrier(member["layer"], f"{event['host']}:{member.get('type')}:{member.get('path')}",
+                   member["text"], provenance=provenance,
+                   form="markdown" if member.get("undivided") else form_of(member["path"]),
+                   carrier_id=member.get("carrier_id") or native_carrier_id(
+                       event["host"], event.get("cwd_case"), event.get("scope"), member))
 
 
 def instant_reason(value):
@@ -3473,6 +3653,8 @@ def session_record(entry, read=None, found=(), damage=(), inherited=(), seen=Non
                               for line, category in read["undecodable"]]
     record["limitations"] += [{"kind": "member_rejected", "category": row["category"], "line": event["n"],
                                "ordinal": row["ordinal"]} for event in found for row in event.get("rejected") or []]
+    record["limitations"] += [{"kind": "member_duplicate", "line": event["n"], "ordinal": row["ordinal"]}
+                              for event in found for row in event.get("duplicates") or []]
     record["limitations"] += [{"kind": "damaged", "category": row["category"], "line": row["line"],
                                **({"ordinal": row["ordinal"]} if "ordinal" in row else {})} for row in damage]
     unusable = list(seen.get("agent_id_unusable") or [])
@@ -3932,8 +4114,10 @@ def _selection_injection(ctx):
     if snapshot is None:
         return None
     text = snapshot["output"].get("instruction_text") or ""
+    host = str(ctx.get("pin") or "").partition(":")[0] or None
     return [carrier("session_injection", f"snapshot:{snapshot['content_ref']}/output.json#instruction_text",
-                    text, form="markdown")] if text else []
+                    text, form="markdown",
+                    carrier_id=opaque_id("c", "session_injection", host, snapshot["content_ref"]))] if text else []
 
 
 def _selection_overlays(ctx):
@@ -4034,6 +4218,8 @@ DOCUMENT_MEMBERS = (
     # `current.json`'s scope rows (step 0 S-10)
     "scopes", "scope_universe", "scope_id", "event_ids", "evidence", "freshness", "no_scope",
     "cwd_unreadable", "memory_path_relative", "global_excluded_by_launch", "ineligible",
+    # `shared/store.json` (step 0 S-22) and a unit's reference into it
+    "versions", "unit_refs", "unit_ref", "length", "split", "start", "end", "form", "span_unit",
     # a rename row
     "from_unit_id", "from_carrier_id", "to_carrier_id", "from_path", "to_path", "from_layer",
     "to_layer", "moved", "ambiguous", "from_carriers", "to_carriers", "reason",
@@ -4050,6 +4236,7 @@ def emitted_document(reference, rows, ctx, more_reasons=None):
     THE production path, called by `reference_of` and by the differential control alike. It was
     composed inline inside `reference_of`, so a control could only approximate it — and a control
     that approximates the path it judges is judging a different path (r3 #0)."""
+    ctx.setdefault("carriers_named", []).extend(item for row in rows for item in row.get("carriers") or [])
     units = operative_context(produce(rows))
     place = {"home": ctx.get("home"), "decisions": {}}
     reasons = [reason for row in rows for reason in row["reasons"]]
@@ -4167,7 +4354,8 @@ MANIFEST_TABLE = table_of({
     "state_written": list_of(as_metadata()),
     "native_changed": list_of(as_metadata()),
     "sessions": table_of({"sessions": as_scalar(), "events": as_scalar(), "unknown": as_scalar()}),
-}, optional=("sessions", "baseline_unmapped", "baseline_items_expected", "state_written", "native_changed",
+    "store": table_of({"versions": as_scalar(), "units": as_scalar()}),
+}, optional=("sessions", "store", "baseline_unmapped", "baseline_items_expected", "state_written", "native_changed",
              "watched_roots", "watched_native_files", "state_root_unchanged"))
 
 
@@ -4245,6 +4433,10 @@ def run(repo, state_root, user_root, out_dir, pin=None, native_roots=None, ledge
             base = produced["release"][1]
             for reference in ("current", "selection"):
                 produced[reference][0]["renames"] = renames_against(produced[reference][1], base, home)
+            store_doc = store_document(ctx)
+            crossed = store_cross_problems(store_doc, {reference: produced[reference][0] for reference in REFERENCES})
+            if crossed:
+                raise Refused(f"{'; '.join(crossed[:4])}; no artifact is written")
             if ctx.get("release_ref"):
                 # The reference row already carries these, emitted through the table with every
                 # other reason. The manifest keeps its own copy, which its own table projects.
@@ -4254,6 +4446,9 @@ def run(repo, state_root, user_root, out_dir, pin=None, native_roots=None, ledge
         write_document(out_dir, out_dir / "inventory" / f"{SESSIONS}.json", sessions_doc, home)
         manifest["sessions"] = {"sessions": len(sessions_doc["sessions"]), "events": len(sessions_doc["events"]),
                                 "unknown": sum(len(row["unknown"]) for row in sessions_doc["sessions"])}
+        write_document(out_dir, out_dir / "inventory" / STORE_REL, store_doc, home)
+        manifest["store"] = {"versions": sum(len(rows) for rows in store_doc["versions"].values()),
+                             "units": len(store_doc["units"])}
         for reference, (document, units) in produced.items():
             write_document(out_dir, out_dir / "inventory" / f"{reference}.json", document, home)
             manifest["references"][reference] = {
@@ -4554,7 +4749,8 @@ def report_lines(manifest, home=None):
 SCHEMA_REL = "session-distill/schemas/inventory.schema.json"
 # The schema's `$defs` root for every document this module publishes, by the kind its `document`
 # member names (step 0 S-21). Held against the consts the schema declares by `document_roots_problems`.
-DOCUMENT_ROOTS = {**{reference: f"{reference}_document" for reference in REFERENCES}, SESSIONS: "sessions_document"}
+DOCUMENT_ROOTS = {**{reference: f"{reference}_document" for reference in REFERENCES}, SESSIONS: "sessions_document",
+                  STORE: "shared_store_document"}
 SCHEMA_PATH = HERE / "schemas" / "inventory.schema.json"
 
 
@@ -4677,7 +4873,7 @@ def document_roots_problems(schema=None):
         .get("document") or {}
     if set(listed.get("enum") or ()) != set(DOCUMENT_ROOTS):
         problems.append("DOCUMENT_KIND_ENUM_MISMATCH: the file root's kind list is not the set of roots")
-    published = set(REFERENCES) | {SESSIONS}
+    published = set(REFERENCES) | {SESSIONS, STORE}
     if set(DOCUMENT_ROOTS) != published:
         problems.append(f"DOCUMENT_ROOTS_UNCOVERED: the module publishes {sorted(published)}, "
                         f"the roots are picked for {sorted(map(str, DOCUMENT_ROOTS))}")
@@ -6221,8 +6417,9 @@ def self_test():
             return {"type": "session_meta", "timestamp": at,
                     "payload": {"id": ident, "cwd": cwd, "base_instructions": {"text": text}}}
 
-        def published_current(name, transcripts, pin=None, pin_record=None):
-            """`current.json` as published for a census of `(host, id, records, extra row fields)`, or
+        def published_run(name, transcripts, pin=None, pin_record=None):
+            """`current.json`, `sessions.json` and `shared/store.json` as published for a census of
+            `(host, id, records, extra row fields)`, crossed as `run` crosses them, or
             `{"refused": <code>}` when the path refuses it: a control fails by its own name."""
             run_at = scratch / "p22" / f"run-{name}"
             rows_here = []
@@ -6234,17 +6431,31 @@ def self_test():
             ctx_here = context_of(REPO, None, None, {}, pin, None)
             ctx_here.update(home=str(fixture_home), commit="fixture", pin_record=pin_record)
             kept_layers = globals()["LAYERS"]
-            out_here = scratch / "p22" / f"out-{name}" / "inventory" / "current.json"
+            out_here = scratch / "p22" / f"out-{name}" / "inventory"
+            written = {"current": out_here / "current.json", "sessions": out_here / f"{SESSIONS}.json",
+                       "store": out_here / STORE_REL}
             try:
                 globals()["LAYERS"] = native_only
                 bind_transcripts(ctx_here, run_at)
                 document_here, _units = emitted_document("current", layer_rows("current", ctx_here), ctx_here)
-                write_document(out_here.parents[1], out_here, document_here, str(fixture_home))
+                sessions_here, store_here = sessions_document(ctx_here), store_document(ctx_here)
+                crossed_here = sessions_cross_problems(sessions_here) + store_cross_problems(
+                    store_here, {"current": document_here})
+                if crossed_here:
+                    return {"refused": "crossed", "problems": crossed_here}
+                for key, document_out in (("current", document_here), ("sessions", sessions_here),
+                                          ("store", store_here)):
+                    write_document(out_here.parent, written[key], document_out, str(fixture_home))
             except Exception as exc:  # the control names what refused, never the suite
-                return {"refused": type(exc).__name__, "scopes": [], "layers": [], "units": [], "scope_universe": []}
+                return {"refused": type(exc).__name__}
             finally:
                 globals()["LAYERS"] = kept_layers
-            return json.loads(out_here.read_text(encoding="utf-8"))
+            return {key: json.loads(path.read_text(encoding="utf-8")) for key, path in written.items()}
+
+        def published_current(name, transcripts, pin=None, pin_record=None):
+            published = published_run(name, transcripts, pin, pin_record)
+            return published.get("current") or {"refused": published["refused"], "scopes": [], "layers": [],
+                                                  "units": [], "scope_universe": []}
 
         def scope_rows(document_here, layer, host):
             return [row for row in document_here["scopes"] if row["layer"] == layer and row["host"] == host]
@@ -6566,6 +6777,179 @@ def self_test():
               "that transcript and line; a bracketed one does not",
               [(entry.get("session_ref"), entry.get("line")) for entry in elsewhere]
               == [(session_ref("claude", "s-u2"), 2)], f"{[(entry.get('line')) for entry in elsewhere]}")
+
+        # ---- P2.3a: identities from raw values, duplicate members, the unit store and its spans, on the
+        # PUBLISHED documents (step 0 S-11, S-12 final, S-13 v3, S-22). An expected id is built here by
+        # hand from its canonical tuple, never by the function that publishes it.
+        def canonical(prefix, *parts):
+            text = json.dumps(list(parts), separators=(",", ":"), ensure_ascii=False)
+            return f"{prefix}-{hashlib.sha256(text.encode('utf-8')).hexdigest()[:24]}"
+
+        rel_a, rel_b, dup_at, cx = "/w/ra", "/w/rb", "/w/pd", "/w/cx"
+        secret_c = "token=" + "C" * 24 + "3"
+        spanned = f"# R\n\n- same\n\n- same\n\n- {secret_c} here\n"
+        ids_run = published_run("ids", [
+            ("claude", "s-ra", [inj("2026-10-20T08:00:00+00:00", [member("User", "/w/g.md", "- older\n")], cwd=rel_a),
+                                inj("2026-10-20T09:00:00+00:00", [member("Project", "./CLAUDE.md", "- rel a\n"),
+                                                                  member("User", "/w/g.md", "- g\n")], cwd=rel_a)], {}),
+            ("claude", "s-rb", [inj("2026-10-20T09:30:00+00:00", [member("Project", "./CLAUDE.md", "- rel b\n"),
+                                                                  member("User", "/w/g.md", "- g\n")], cwd=rel_b)], {}),
+            ("claude", "s-dup", [inj("2026-10-20T07:00:00+00:00", [member("Project", f"{dup_at}/CLAUDE.md", "- dup\n"),
+                                                                   member("Project", f"{dup_at}/CLAUDE.md", "- dup\n"),
+                                                                   member("Project", f"{dup_at}/CLAUDE.md", "- other bytes\n"),
+                                                                   member("User", "/w/span.md", spanned)], cwd=dup_at)], {}),
+            ("codex", "c-x", [block_meta("c-x", "2026-10-20T09:00:00+00:00", "# Block\n\n- at cx\n", cx)], {}),
+            ("codex", "c-y", [{"type": "session_meta", "timestamp": "2026-10-20T09:10:00+00:00",
+                               "payload": {"id": "c-y", "base_instructions": {"text": "# Block\n\n- no cwd\n"}}}], {})])
+        check("the identities run was published, its documents crossing clean", "refused" not in ids_run,
+              f"{ids_run.get('refused')} {(ids_run.get('problems') or [])[:2]}")
+        ids_store = ids_run.get("store") or {"document": STORE, "versions": {}, "units": {}}
+        ids_current = ids_run.get("current") or {"units": []}
+        ids_sessions = ids_run.get("sessions") or {"sessions": []}
+        clean("the published store validates against its own root in the schema",
+              document_contract_problems(ids_store) if "refused" not in ids_run else ["refused"])
+
+        def versions_at(layer, tail):
+            return {(carrier_id, version) for carrier_id, rows in ids_store["versions"].items()
+                    for version, row in rows.items() if row["layer"] == layer and row["path"].endswith(tail)}
+
+        relative_ids = {canonical("c", "native", "native_project", "claude", "Project", "./CLAUDE.md",
+                                  canonical("s", "scope", "native_project", "claude", where)) for where in (rel_a, rel_b)}
+        global_id = canonical("c", "native", "native_global", "claude", "User", "/w/g.md")
+        check("a transcript member's carrier id is its raw tuple: two projects' relative CLAUDE.md are two "
+              "carriers, and one absolute path recorded at two cwds is one",
+              {carrier_id for carrier_id, _version in versions_at("native_project", ":./CLAUDE.md")} == relative_ids
+              and {carrier_id for carrier_id, _version in versions_at("native_global", ":/w/g.md")} == {global_id},
+              f"relative={len(versions_at('native_project', ':./CLAUDE.md'))} "
+              f"global={len({carrier_id for carrier_id, _ in versions_at('native_global', ':/w/g.md')})}")
+        block_ids = {canonical("c", "native_undivided", "codex", canonical("s", "scope", "native_undivided", "codex", cx)),
+                     canonical("c", "native_undivided", "codex", None)}
+        check("the Codex block's carrier id carries its scope, and a block with no usable cwd carries null",
+              {carrier_id for carrier_id, rows in ids_store["versions"].items()
+               for row in rows.values() if row["layer"] == "native_undivided"} == block_ids,
+              f"{sorted(carrier_id for carrier_id, rows in ids_store['versions'].items() for row in rows.values() if row['layer'] == 'native_undivided')}")
+        block_units = [unit for unit in ids_current["units"] if unit["layer"] == "native_undivided"]
+        check("a published Codex block unit says its identity is unknown, beside the carrier id its scope gives it",
+              bool(block_units) and all("loaded text" in str(unit["provenance"].get("identity"))
+                                        and unit["carrier_id"] in block_ids for unit in block_units),
+              f"units={len(block_units)} {[unit['provenance'].get('identity') for unit in block_units][:1]}")
+        check("the published store states the unit its spans count, as data",
+              ids_store.get("span_unit") == "code_point", f"{ids_store.get('span_unit')}")
+        check("every published unit's reference is r- over its carrier version and position, and resolves in the "
+              "store as that block",
+              bool(ids_current["units"])
+              and all(unit.get("unit_ref") == canonical("r", "unit", unit["carrier_id"], unit["version_sha256"], unit["n"])
+                      for unit in ids_current["units"])
+              and not store_cross_problems(ids_store, {"current": ids_current}),
+              f"units={len(ids_current['units'])} {store_cross_problems(ids_store, {'current': ids_current})[:2]}")
+        check("a version no scope chose is in the store: the older global file beside the one in force",
+              versions_at("native_global", ":/w/g.md") == {(global_id, sha256_text("- older\n")), (global_id, sha256_text("- g\n"))},
+              f"{len(versions_at('native_global', ':/w/g.md'))} version(s)")
+        dup_id = canonical("c", "native", "native_project", "claude", "Project", f"{dup_at}/CLAUDE.md")
+        dup_limits = [row for record in ids_sessions["sessions"] if record["session"] == "claude:s-dup"
+                      for row in record["limitations"] if row["kind"] == "member_duplicate"]
+        dup_units = sorted(unit["sha"] for unit in ids_current["units"] if unit["carrier_id"] == dup_id)
+        check("one recorded path twice with equal bytes is one version, one set of units and one member_duplicate "
+              "limitation at its line and ordinal; another byte string at that path is a second version",
+              versions_at("native_project", f":{dup_at}/CLAUDE.md") == {(dup_id, sha256_text("- dup\n")),
+                                                                        (dup_id, sha256_text("- other bytes\n"))}
+              and dup_limits == [{"kind": "member_duplicate", "line": 1, "ordinal": 1}]
+              and dup_units == sorted([sha256_text("- dup\n"), sha256_text("- other bytes\n")]),
+              f"versions={len(versions_at('native_project', f':{dup_at}/CLAUDE.md'))} limits={dup_limits} units={len(dup_units)}")
+        span_row = (ids_store["versions"].get(canonical("c", "native", "native_global", "claude", "User", "/w/span.md"))
+                    or {}).get(sha256_text(spanned)) or {}
+        span_units = [ids_store["units"].get(ref) or {} for ref in span_row.get("unit_refs") or []]
+        same = [unit for unit in span_units if unit.get("sha") == sha256_text("- same\n\n")]  # a block keeps its blank line
+        token = [unit for unit in span_units if secret_c in spanned[unit.get("start", 0):unit.get("end", 0)]]
+        check("a store unit's span is its block's place in the RAW version: a repeated fragment is two spans and "
+              "two references, and every span's raw bytes are its digest",
+              span_row.get("length") == len(spanned) and bool(span_units)
+              and all(sha256_text(spanned[unit["start"]:unit["end"]]) == unit["sha"] for unit in span_units)
+              and len(same) == 2 and len({unit["start"] for unit in same}) == 2
+              and len(set(span_row["unit_refs"])) == len(span_units),
+              f"length={span_row.get('length')} units={len(span_units)} same={len(same)}")
+        check("a redaction that changes the text's length leaves the span raw and the digest the raw fragment's",
+              len(token) == 1 and token[0]["text"] != spanned[token[0]["start"]:token[0]["end"]]
+              and len(token[0]["text"]) != token[0]["end"] - token[0]["start"]
+              and token[0]["sha"] == sha256_text(spanned[token[0]["start"]:token[0]["end"]])
+              and "C" * 24 not in json.dumps(ids_store),
+              f"token units={len(token)}")
+        # The store carries what transcripts record, AutoMem included, so its floor is judged on
+        # TRANSCRIPT bodies: a credential and a home path in a User, a Project and an AutoMem member and
+        # in a Codex block, published by the production path and read back from the written files.
+        body_secret = "sk-ant-api03-" + "Tq7" * 14
+        body_home = f"{fixture_home}/Documents/a-directory-of-the-owner-s"
+        tainted_body = f"\n- a rule naming {body_home}, with apiKeyHelper: {body_secret}\n"
+        bodies = {"User": "# Global\n\n- one\n" + tainted_body, "Project": "# Project\n\n- two\n" + tainted_body,
+                  "AutoMem": "---\nname: m\n---\n\n- three\n" + tainted_body,
+                  "codex": "# Block\n\n- four\n" + tainted_body}
+        masked_run = published_run("masked", [
+            ("claude", "s-tainted", [inj("2026-10-20T09:00:00+00:00", [
+                member("User", "/w/tainted.md", bodies["User"]),
+                member("Project", f"{p1}/CLAUDE.md", bodies["Project"]),
+                member("AutoMem", f"{d1}/tainted.md", bodies["AutoMem"])], cwd=p1)], {}),
+            ("codex", "c-tainted", [block_meta("c-tainted", "2026-10-20T09:00:00+00:00", bodies["codex"], p2)], {})])
+        masked_files = {key: (scratch / "p22" / "out-masked" / "inventory" / rel)
+                        for key, rel in (("store", STORE_REL), ("sessions", f"{SESSIONS}.json"))}
+        masked_bytes = {key: path.read_text(encoding="utf-8") if path.is_file() else "" for key, path in masked_files.items()}
+        masked_store = masked_run.get("store") or {"versions": {}, "units": {}}
+        masked_units = {version: [masked_store["units"].get(ref) or {} for ref in row["unit_refs"]]
+                        for rows in masked_store["versions"].values() for version, row in rows.items()}
+        carried_bodies = [kind for kind, text in bodies.items() if masked_units.get(sha256_text(text))]
+        check("transcript bodies holding a credential and a home path — a User, a Project and an AutoMem member and "
+              "a Codex block — are in the written store under their raw versions, masked, and neither string is in "
+              "the written store, its map keys included, or in sessions.json",
+              "refused" not in masked_run and all(masked_bytes.values()) and sorted(carried_bodies) == sorted(bodies)
+              and all(any("<REDACTED>" in unit.get("text", "") or "<HOME>" in unit.get("text", "")
+                          for unit in masked_units[sha256_text(text)]) for text in bodies.values())
+              and not any(body_secret in text or body_home in text for text in masked_bytes.values()),
+              f"refused={masked_run.get('refused')} files={[key for key, text in masked_bytes.items() if text]} "
+              f"carried={sorted(carried_bodies)} "
+              f"raw={[key for key, text in masked_bytes.items() if body_secret in text or body_home in text]}")
+
+        # The store's cross-record checks, each planted on a copy of the published store.
+        planted_store = json.loads(json.dumps(ids_store))
+        refs_sorted = sorted(planted_store["units"])
+        first_ref = refs_sorted[0] if refs_sorted else "r-" + "0" * 24
+        control("a store missing a unit its own version lists is refused by name, with no document beside it",
+                store_cross_problems({**planted_store, "units": {ref: row for ref, row in planted_store["units"].items()
+                                                                 if ref != first_ref}}, {}),
+                f"STORE_UNRESOLVED {first_ref}")
+        spilled = json.loads(json.dumps(planted_store))
+        if first_ref in spilled["units"]:
+            spilled["units"][first_ref]["end"] = 10 ** 6
+        control("a unit whose span leaves its version is refused by name", store_cross_problems(spilled, {}),
+                "STORE_SPAN_OUTSIDE")
+        renumbered = json.loads(json.dumps(planted_store))
+        if first_ref in renumbered["units"]:
+            renumbered["units"][first_ref]["n"] += 1
+        control("a unit whose reference is not the one its version and position derive is refused by name",
+                store_cross_problems(renumbered, {}), "STORE_REF_MISMATCH")
+        orphaned = json.loads(json.dumps(planted_store))
+        if first_ref in orphaned["units"]:
+            owner_id = orphaned["units"][first_ref]["carrier_id"]
+            orphaned["versions"].pop(owner_id, None)
+        control("a unit whose carrier version is not in the store is refused by name, and so is its listing",
+                store_cross_problems(orphaned, {}), "STORE_VERSION_ABSENT", "STORE_UNIT_UNLISTED")
+        crossed_rows = json.loads(json.dumps(planted_store))
+        version_rows = [row for rows in crossed_rows["versions"].values() for row in rows.values()
+                        if first_ref not in row["unit_refs"]]
+        if version_rows:
+            version_rows[0]["unit_refs"].append(first_ref)
+        control("a version listing another version's unit is refused by name, and the unit is listed twice",
+                store_cross_problems(crossed_rows, {}), "STORE_VERSION_MISMATCH", "STORE_UNIT_UNLISTED")
+        aliased = json.loads(json.dumps(ids_current))
+        if len(aliased["units"]) > 1:
+            aliased["units"][0]["unit_ref"] = next((unit["unit_ref"] for unit in aliased["units"][1:]
+                                                    if unit["unit_ref"] != aliased["units"][0]["unit_ref"]),
+                                                   aliased["units"][0]["unit_ref"])
+        control("a document unit whose reference names another block of the store is refused by name",
+                store_cross_problems(planted_store, {"current": aliased}), "STORE_MISMATCH")
+        dangling = json.loads(json.dumps(ids_current))
+        if dangling["units"]:
+            dangling["units"][0]["unit_ref"] = "r-" + "f" * 24
+        control("a document unit whose reference the store does not hold is refused by name, at that unit",
+                store_cross_problems(planted_store, {"current": dangling}), "STORE_UNRESOLVED current.units[0]")
 
         # ---- M5 (recording): an undecodable line is kept at its position, before and after an event
         for label, rows_for, expected_line, event_line in (
@@ -7179,6 +7563,29 @@ def self_test():
               all(secret not in unit["text"] and private not in unit["text"] for unit in session_units)
               and any("<REDACTED>" in unit["text"] or "<HOME>" in unit["text"] for unit in session_units),
               "the session's units carry the planted credential or home path")
+        planted_store_path = planted_out / "inventory" / STORE_REL
+        planted_bytes = planted_store_path.read_text(encoding="utf-8") if planted_store_path.is_file() else ""
+        planted_store_doc = json.loads(planted_bytes) if planted_bytes else {"versions": {}, "units": {}}
+        planted_by_version = {version: [planted_store_doc["units"].get(ref) or {} for ref in row["unit_refs"]]
+                              for rows in planted_store_doc["versions"].values() for version, row in rows.items()}
+        planted_raw = [sha256_text(text) for text in planted_in.values()] + [sha256_text(injected)]
+        check("the planted run's store, read back from its written file, holds every planted carrier under its raw "
+              "version, masked, and its bytes carry neither the credential nor the home path",
+              bool(planted_bytes) and secret not in planted_bytes and private not in planted_bytes
+              and all(planted_by_version.get(version) for version in planted_raw)
+              and all(any("<REDACTED>" in unit.get("text", "") or "<HOME>" in unit.get("text", "")
+                          for unit in planted_by_version[version]) for version in planted_raw
+                      if planted_by_version.get(version)),
+              f"file={bool(planted_bytes)} carried={sum(1 for version in planted_raw if planted_by_version.get(version))}"
+              f"/{len(planted_raw)}")
+        planted_docs = {reference: json.loads((planted_out / "inventory" / f"{reference}.json").read_text(encoding="utf-8"))
+                        for reference in REFERENCES}
+        unequal = [(reference, n) for reference, document in planted_docs.items()
+                   for n, unit in enumerate(document["units"])
+                   if (planted_store_doc["units"].get(unit["unit_ref"]) or {}).get("text") != unit["text"]
+                   or (planted_store_doc["units"].get(unit["unit_ref"]) or {}).get("heading") != unit["heading"]]
+        check("a unit's text and heading in the store are its document's own: one floor and one decision answer for both",
+              bool(planted_docs["current"]["units"]) and not unequal, f"{len(unequal)} unit(s) differ: {unequal[:3]}")
         kept_project = projection.project
         try:  # a floor that masks nothing: the guard beyond it is what the control reads
             projection.project = lambda text, version=None, home=None: text
@@ -7459,6 +7866,46 @@ def self_test():
               and (both.get("sessions") or {}).get("sessions") == len(both_sessions["sessions"])
               and len(both_sessions["events"]) == (both.get("sessions") or {}).get("events") >= 1,
               f"sessions={len(both_sessions['sessions'])} events={len(both_sessions['events'])}")
+        both_store_path = both_out / "inventory" / STORE_REL
+        both_store = (json.loads(both_store_path.read_text(encoding="utf-8")) if both_store_path.is_file()
+                      else {"document": STORE, "versions": {}, "units": {}})
+        check("the run published shared/store.json, and the manifest counts its versions and units",
+              both_store_path.is_file() and len(both_store["units"]) > 100
+              and (both.get("store") or {}) == {"versions": sum(len(rows) for rows in both_store["versions"].values()),
+                                                "units": len(both_store["units"])},
+              f"store={both.get('store')} units={len(both_store['units'])}")
+        clean("the run's published store against its own root in the schema", document_contract_problems(both_store))
+        both_documents = {reference: json.loads((both_out / "inventory" / f"{reference}.json").read_text(encoding="utf-8"))
+                          for reference in REFERENCES}
+        clean("every unit of the run's three documents resolves in its store as that block, each version once",
+              store_cross_problems(both_store, both_documents))
+        injection_id = canonical("c", "session_injection", "claude", content_ref)
+        injection_units = [unit for unit in both_documents["current"]["units"] if unit["layer"] == "session_injection"]
+        check("a session injection's carrier is its host and the snapshot it was compiled into, in the document "
+              "and in the store",
+              bool(injection_units) and {unit["carrier_id"] for unit in injection_units} == {injection_id}
+              and injection_id in both_store["versions"],
+              f"units={len(injection_units)} in_store={injection_id in both_store['versions']}")
+        kept_store = globals()["store_document"]
+
+        def holed_store(ctx_in):
+            document = kept_store(ctx_in)
+            first = sorted(document["units"])[0]
+            document["units"] = {ref: row for ref, row in document["units"].items() if ref != first}
+            return document
+
+        holed_out = scratch / "holed-out"
+        try:
+            globals()["store_document"] = holed_store
+            holed = _raised(lambda: run(REPO, state, user, holed_out, pin="claude:session-1", ledger=ledger,
+                                        commit="fixture", **captured()))
+        finally:
+            globals()["store_document"] = kept_store
+        check("a store a published unit cannot resolve against refuses the whole run by name, and nothing is written",
+              isinstance(holed, Refused) and "STORE_UNRESOLVED" in str(holed)
+              and not (holed_out / "inventory" / "current.json").exists()
+              and not (holed_out / "inventory" / STORE_REL).exists(),
+              f"{type(holed).__name__}")
         kept_record = globals()["session_record"]
 
         def mixed_record(*args, **kwargs):
@@ -8497,6 +8944,62 @@ def self_test():
                 "unwalked=[]")
         check("the schema declared string fields to cover at all", len(declared_strings) >= 8,
               f"{declared_strings}")
+
+        # The same property over `shared/store.json` (step 0 S-21: the differential covers every new
+        # document, leaf by leaf). Each fixture is published as the store publishes it — split on its
+        # own, emitted through its version's decision, written by `write_document` — and judged on
+        # every string of the WRITTEN store, the map keys included.
+        store_count = [0]
+
+        def store_strings(items):
+            ctx_store = {"home": str(pathlib.Path.home()), "commit": None, "carriers_named": list(items), "events": []}
+            out = scratch / "p23-published-stores"
+            store_count[0] += 1
+            name = out / "inventory" / "shared" / f"store-{store_count[0]}.json"
+            try:
+                store_out = store_document(ctx_store)
+                write_document(out, name, store_out, ctx_store["home"])
+                published = json.loads(name.read_text(encoding="utf-8"))
+            except Refused as exc:
+                published = {"write_document_refused": str(exc)}
+            keys = [(f"published.{section}<key>", key) for section in ("versions", "units")
+                    for key in published.get(section) or {}]
+            return [(f"published{where}", text) for where, text in strings_in(published)] + keys
+
+        store_differential = {name: withheld_lines(item, lambda it: store_strings([it]))
+                              for name, item in fixtures.items()}
+        control("every carrier fixture, differentially, through the store the production path publishes",
+                [f"fixtures={len(store_differential)} "
+                 f"withheld_lines={sum(len(rows[0]) for rows in store_differential.values())} "
+                 f"leaks={ {name: rows[1] for name, rows in store_differential.items() if rows[1]} }"],
+                "leaks={}")
+        store_together = store_strings(list(fixtures.values()))
+        control("and the same for one store carrying every fixture at once",
+                [f"carriers={len(fixtures)} strings={len(store_together)} "
+                 f"leaks={sorted({where for line in exclusive for where, text in store_together if line in text})}"],
+                "leaks=[]")
+
+        def store_leaf(where):
+            """A walked store location as the schema names it: `versions.<id>.<sha>.<field>` is a
+            `carrier_version` field and `units.<ref>.<field>` a `carrier_unit` one."""
+            parts = re.sub(r"\[\d+\]", "[]", where).split(".")
+            if len(parts) >= 5 and parts[1] == "versions":
+                return "carrier_version." + ".".join(parts[4:])
+            if len(parts) >= 4 and parts[1] == "units":
+                return "carrier_unit." + ".".join(parts[3:])
+            return None
+
+        store_declared = sorted({f"{name}.{field}{leaf}" for name in ("carrier_version", "carrier_unit")
+                                 for field, spec in schema_here["$defs"][name]["properties"].items()
+                                 for leaf in string_leaves(spec)})
+        store_walked = {store_leaf(where) for where, _text in store_together} - {None}
+        control("a string field the store's rows declare that the differential never looks at",
+                [f"declared={store_declared} walked={sorted(store_walked)} "
+                 f"unwalked={[name for name in store_declared if name not in store_walked]}"],
+                "unwalked=[]")
+        check("the store's rows declared string fields to cover at all",
+              {"carrier_unit.text", "carrier_unit.heading", "carrier_version.path", "carrier_version.item_ref"}
+              <= set(store_declared), f"{store_declared}")
         # And the differential can see a leak: projecting each field DETACHED from its carrier is
         # exactly what this fix replaced — for the block, and then for the heading — so both shapes
         # must be reported.
