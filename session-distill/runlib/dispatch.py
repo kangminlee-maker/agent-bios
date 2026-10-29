@@ -4345,13 +4345,13 @@ def self_test(scratch=None):
     # r7 found this requirement unguarded. The declared index names an element of the argv AT THE
     # CALL, so an argv that is not a list literal there means the declaration points at nothing
     # decidable — and no control saw it removed.
+    # The site is found by its tokens, not by its indentation: the inventory suite's blocks sit at
+    # whatever depth its section guards give them.
     argv_probe = tree / inventory_rel
     held_argv_text = argv_probe.read_text(encoding="utf-8")
-    spliced = held_argv_text.replace(
-        '                [sys.executable, "-I", "-c", BYTECODE_PROBE, str(destination),\n'
-        '                 str(copied_member(from_copy, "session-distill/distill.py"))],',
-        '                [sys.executable, "-I", "-c", BYTECODE_PROBE] + [str(destination),\n'
-        '                 str(copied_member(from_copy, "session-distill/distill.py"))],', 1)
+    spliced = re.sub(r'(\[sys\.executable, "-I", "-c", BYTECODE_PROBE), (str\(destination\),\n[ ]*'
+                     r'str\(copied_member\(from_copy, "session-distill/distill\.py"\)\)\],)',
+                     r"\1] + [\2", held_argv_text, count=1)
     control("the argv-literal control really changed the declared site",
             spliced != held_argv_text, f"changed={spliced != held_argv_text}")
     try:
