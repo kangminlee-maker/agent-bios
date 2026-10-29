@@ -238,6 +238,17 @@ Python과 저작용 Python을 모두 그 interpreter로 컴파일하며, interpr
 v0.19.3까지 문서가 3.11이라고 적은 채 3.12를 요구하는 코드가 배포된 경로가
 그것이다.
 
+Interpreter 탐색은 `$HOME`을 따른다. `PATH`, 실행 중인 interpreter, 그리고
+`$HOME/.local/share/uv/python` 아래를 본다. HOME을 바꿔 넣은 환경 — sandbox,
+fixture 트리, 감사 harness — 에서는 어느 것도 찾히지 않으므로 gate는 최저 버전
+interpreter를 찾지 못하고 통과시키지 않고 막는다. 결함이 아니라 선언된 동작이다.
+따라서 자기 HOME으로 gate를 돌리는 호출자는 `AGENT_BIOS_FLOOR_PYTHON`으로
+interpreter를 지정해야 한다. umbrella 경로에서는 이 상태에 이르지 않는다.
+`gates/check-parity.sh`는 HOME을 바꾸지 않으며, HOME을 바꿔 넣는 유일한 호출자인
+`gates/test-install-guides.sh`는 항상 `AGENT_BIOS_IN_INSTALL_TEST=1`을 함께
+설정하고, 그 값에서는 `install.sh`의 `cmd_verify`가 umbrella를 건너뛰며 건너뛴
+사실을 알린다.
+
 ## Ownership
 
 | 소유처 | 소유 대상 |

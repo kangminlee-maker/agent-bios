@@ -291,6 +291,16 @@ compile under whatever `python3` resolves to is not a substitute — on a machin
 `python3` is newer than the floor it accepts syntax the floor rejects, which is how
 v0.19.0-v0.19.3 shipped code needing 3.12 under a documented 3.11.
 
+Discovery follows `$HOME`: it looks on `PATH`, at the running interpreter, and under
+`$HOME/.local/share/uv/python`. Under a substituted HOME — a sandbox, a fixture tree, an
+audit harness — none of those resolve, so the gate finds no floor interpreter and blocks
+instead of passing. That is the declared behavior rather than a defect, so a caller that
+runs the gate with its own HOME must name the interpreter in `AGENT_BIOS_FLOOR_PYTHON`.
+No umbrella path reaches that state: `gates/check-parity.sh` never sets HOME, and the one
+caller that does substitute one, `gates/test-install-guides.sh`, always sets
+`AGENT_BIOS_IN_INSTALL_TEST=1` alongside it, under which `install.sh`'s `cmd_verify` skips
+the umbrella and announces the skip.
+
 The full author umbrella also exercises compatibility clients and can provision its
 managed test environment, so it is not a read-only machine inventory:
 

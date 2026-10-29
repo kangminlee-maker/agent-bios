@@ -260,11 +260,18 @@ def compile_set(interpreter: str, root: Path, label: str, members: list[str]) ->
     return problems
 
 
-def run(root: Path = ROOT, *, exemptions=ASYMMETRY, finder=floor_interpreter, report=False) -> list[str]:
+def run(root: Path = ROOT, *, exemptions=ASYMMETRY, finder=floor_interpreter, lister=tracked,
+        report=False) -> list[str]:
+    # `finder` and `lister` are seams, not configuration: nothing outside the self-test
+    # passes them. They exist because several checks below guard states this gate cannot be
+    # put into from the outside — no tracked files at all, an interpreter that answers
+    # nothing, one that miscounts — and a guard no control can reach is not a guard
+    # (AGENTS.md, "A check that cannot fire is not a check"). `control-audit.py` named
+    # exactly those checks as survivors before these seams existed.
     want, problems = floor(root)
     if problems:
         return problems
-    files = tracked(root)
+    files = lister(root)
     if not files:
         return [f"{root}: no tracked files, so every check below would pass over nothing"]
     rows = declarations(root, files)
@@ -390,11 +397,60 @@ def self_test() -> int:
             shutil.rmtree(root)
         if not any(expected in problem for problem in result):
             failures.append(f"{label}: expected a failure naming {expected!r}, got {result}")
+
+    # The five checks `control-audit.py` reported as SURVIVED on the first audit of this
+    # gate: removing each left the self-test above still passing. Every one of them guards
+    # a state no ordinary fixture reaches -- a derived set that cannot be built, an
+    # interpreter that answers nothing or miscounts, an empty file list -- so each needed
+    # a seam or a deliberately broken fixture rather than one more file with a wrong
+    # version in it. That is the difference between a check and a check with a control.
+    # Both stand-in interpreters are fixtures rather than system binaries: `/bin/false`
+    # does not exist on macOS, and a control that depends on a path some machines lack is
+    # a control that reports a defect in the machine.
+    mute = "#!/bin/sh\nexit 3\n"                 # answers nothing, non-zero
+    stub = "#!/bin/sh\necho 'judged 0'\n"        # answers, exits 0, and judges nothing
+    seam_cases = [
+        ("package.json is not JSON", {"package.json": "{ not json"},
+         {"exemptions": licensed}, "cannot read files[]"),
+        # The "floor interpreter absent" case above substitutes a finder, so it never
+        # reaches floor_interpreter's OWN refusal. This asks real discovery for a version
+        # that cannot exist, which is the only way to reach that line.
+        ("real discovery finds no floor interpreter",
+         {OWNER_DOC: "# Dependencies\n\n**Python floor: 3.99** — the owner.\n"},
+         {"exemptions": ()}, "no Python 3.99 interpreter found"),
+        ("floor interpreter answers nothing", {"mute.sh": mute}, ("stub", "mute.sh"),
+         "did not report a judgement"),
+        # Without the count check, an interpreter that judged a partial set would report
+        # clean over the files it skipped.
+        ("floor interpreter miscounts", {"stub.sh": stub}, ("stub", "stub.sh"),
+         "the floor interpreter judged 0"),
+        ("no tracked files", {},
+         {"exemptions": licensed, "lister": lambda root: []}, "no tracked files"),
+    ]
+    for label, changes, kwargs, expected in seam_cases:
+        root = tree(changes)
+        try:
+            if isinstance(kwargs, tuple):         # ("stub", <fixture interpreter>)
+                stub_path = root / kwargs[1]
+                stub_path.chmod(0o755)
+                kwargs = {"exemptions": licensed,
+                          "finder": lambda want, p=str(stub_path): (p, [])}
+            result = run(root, **kwargs)
+        except Exception as exc:
+            failures.append(f"{label}: raised {type(exc).__name__}: {exc}")
+            continue
+        finally:
+            shutil.rmtree(root)
+        if not any(expected in problem for problem in result):
+            failures.append(f"{label}: expected a failure naming {expected!r}, got {result}")
+
     if failures:
         for failure in failures:
             print(f"check-python-floor --self-test: FAIL {failure}")
         return 1
-    print(f"check-python-floor --self-test: OK (positive control, {len(cases)} negative controls)")
+    print(f"check-python-floor --self-test: OK (positive control, 2 quiet controls, "
+          f"{len(cases)} negative controls, {len(seam_cases)} on checks an earlier audit "
+          f"reported as unguarded)")
     return 0
 
 

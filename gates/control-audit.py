@@ -57,9 +57,10 @@ SUBJECTS = [
     # Its self-test runs on temporary fixtures with mocked subprocesses, so the whole
     # audit costs about as much as one run of the umbrella's cheapest leg.
     "gates/check-development-plan.py",
-    # 11 failure statements x a 0.48s self-test on synthetic trees is about 6s, the
-    # cheapest subject here; its one floor-interpreter subprocess per set is what keeps
-    # the self-test off the 134s cliff that kept check-endpoints.py out for so long.
+    # ~9s: 11 statements x a 0.80s self-test, ESTIMATED — an audit run is the measurement,
+    # and this line is what a reader would otherwise mistake for one. Still the cheapest
+    # subject here; its one floor-interpreter subprocess per file set is what keeps the
+    # self-test off the 134s cliff that kept check-endpoints.py out for so long.
     "gates/check-python-floor.py",
 ]
 # The not-audited disclosure is DERIVED, not typed. The first version typed two shell
