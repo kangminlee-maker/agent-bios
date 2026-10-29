@@ -121,6 +121,9 @@ REPO = HERE.parent
 DESIGN = "design/session-distill/2026-10-20T1942--9684f05--mechanism-design.md"
 LEDGER_REL = "design/session-distill/ledger.json"
 REFERENCES = ("current", "release", "selection")
+# The reference points that publish units. `release.json` is the segment index (step 0 S-17), whose rows
+# point into the shared inventories and the store and copy no unit.
+UNIT_REFERENCES = ("current", "selection")
 SESSIONS = "sessions"  # `inventory/sessions.json`: the per-session records and their events
 STORE = "shared_store"  # `inventory/shared/store.json`: every carrier version the run names, once (S-22)
 # `inventory/shared/<selection|release>-<i>.json`: one per verified snapshot and per baseline a session's own
@@ -1319,19 +1322,18 @@ UNIT_TABLE = table_of({
 # before it can be published; what each note HOLDS is a producer's own shape (`as_tree`).
 NOTE_KEYS = frozenset((
     "adopted_packages", "baselines", "frozen_missing", "hosts_in_scope", "installed_baseline_ref",
-    "ledger_keep_held_back", "overlay_counts", "overlay_hosts", "pin", "release", "selection",
+    "ledger_keep_held_back", "overlay_counts", "overlay_hosts", "pin", "release", "renames_base", "selection",
     "state", "transcripts"))
 
-# R1: the reference point's own block. Which of `commit`, `ref` and `content_ref` it carries depends
-# on the reference point, so each is optional and the kind decides.
+# R1: the reference point's own block, of a reference point that publishes units. Which of `commit` and
+# `content_ref` it carries depends on the reference point, so each is optional and the kind decides.
 REFERENCE_TABLE = table_of({
-    "kind": as_enum(REFERENCES),
+    "kind": as_enum(UNIT_REFERENCES),
     "complete": as_scalar(),
     "incomplete_reasons": list_of(as_metadata()),
     "commit": as_metadata(nullable=True),
-    "ref": as_metadata(nullable=True),
     "content_ref": as_metadata(nullable=True),
-}, optional=("commit", "ref", "content_ref"))
+}, optional=("commit", "content_ref"))
 
 # R2: who produced it. `notes` is the producers' own, through the floor leaf by leaf.
 PRODUCED_BY_TABLE = table_of({
@@ -2830,6 +2832,13 @@ UNKNOWN_REASONS = {
     "no_event_yet": "unknown: no event of this kind is recorded yet at this line of the transcript",
     "injection_body_empty": ("unknown: the session's own snapshot holds an empty session-injection body, so no "
                              "injection of it can be looked for"),
+    # the release index (step 0 S-17, #8): an inline sidechain has no pin of its own (R6), and a pinned
+    # session's snapshot can name no baseline at all, which is not `baseline_absent`, a baseline named and
+    # not held (lead, D7)
+    "sidechain_unattributed": ("unknown: an inline sidechain has no pin of its own, so its selection, overlays "
+                               "and release session injection are not attributable, and never its parent's"),
+    "baseline_unnamed": ("unknown: the session's own snapshot names no usable baseline, so no release inventory "
+                         "is its"),
 }
 
 
@@ -4217,6 +4226,17 @@ def selection_of(pinned):
     return {"status": "read", "reason": None, "inventory_ref": inventory_id("selection", pinned["content_ref"])}
 
 
+def unsought_reason(pinned):
+    """Why nobody could look for a session's injection, or None when its own snapshot body is there to look
+    for (R15). One owner of the rule for the segments and the release index alike (lead, D9): unpinned is
+    `unpinned`, a Codex rollout `id_space`, a broken pin or snapshot its link's reason, and an empty own body
+    `injection_body_empty`."""
+    snapshot = pinned.get("snapshot") if pinned["status"] == "read" else None
+    if ((snapshot or {}).get("output") or {}).get("instruction_text"):
+        return None
+    return selection_of(pinned)["reason"] or reason("injection_body_empty")
+
+
 def delivery_of(pinned, read, found, own):
     """A session's delivery (step 0 S-13, S-14; lead rulings on the P2.4 plan, amended 12:25):
     `confirmed` by a usable RECORDED occurrence of its own selected body that its own owner `own` holds,
@@ -4294,10 +4314,7 @@ def transcript_events(run_dir, pins=None, zstd=None):
             event["after_at"], event["bracket_ok"] = bracket(event["n"])
             findings["occurrences"] += event_occurrences(event, injection_id)
         applicability(found, read)
-        # an injection is looked for by the session's own snapshot body; without one, by nobody (R15)
-        sought = {"native": None,
-                  "session_injection": None if delivered
-                  else selection_of(pinned)["reason"] or reason("injection_body_empty")}
+        sought = {"native": None, "session_injection": unsought_reason(pinned)}
         segmented = segments(found, read, ownership_map(entry, read)[0], sought)
         for row in segmented:
             row["session_ref"] = session_ref(entry.get("host"), entry.get("id"))
@@ -4486,13 +4503,6 @@ def layer_rows(reference, context):
         # projects it, so a reason added here cannot reach the artifact unprojected, and no site
         # holds a second copy of the projection rule (found during S1).
         name, call, inputs = producer
-        # An unpinned release, and a Codex one, reads none of the inputs its producers declare (S-24 option
-        # 1, S-16): it is `release_history_deferred` whatever any of them did, no journal is read for it,
-        # and the installed-now baseline is never taken for it. A Codex --pin's `id_space` is not its reason.
-        if reference == "release" and layer in SHARED_RELEASE_LAYERS and context.get("release_deferred"):
-            rows.append({"layer": layer, "producer": name, "status": "unknown", "carriers": [],
-                         "reasons": [f"{layer}: {UNKNOWN_REASONS['release_history_deferred']}"]})
-            continue
         blocked = input_reasons(inputs, context)
         if blocked:
             rows.append({"layer": layer, "producer": name, "status": "unknown", "carriers": [],
@@ -4843,7 +4853,7 @@ DOCUMENT_MEMBERS = (
     "layer_empty", "symlink_policy", "protected_roots", "roots", "roots_absent", "transcripts",
     "read_through", "native_files_read", "watched_roots", "watched_native_files", "files",
     "omissions", "baseline_unmapped", "baseline_items_expected", "state_root", "user_root",
-    "frozen_missing", "baselines", "installed", "pinned", "differ", "release", "selection",
+    "frozen_missing", "baselines", "installed", "release", "selection",
     "current", "catalog", "host", "pin", "pin_unknown", "unknown_total", "current_scopes",
     "native_events", "delivery_confirmed", "session", "scope", "at", "acquisition_error",
     # what reading the transcripts found unusable, and an acquisition omission row (#16, M2, M5)
@@ -4858,6 +4868,8 @@ DOCUMENT_MEMBERS = (
     "id", "source", "transcript",
     # an owner's segments in `sessions.json` (step 0 S-17)
     "segments", "segment_refs", "segment_id", "in_force", "event_ref", "native", "session_injection",
+    # the release segment index and its summary, and the renames' base (step 0 S-17, #8; R7, R8)
+    "segment_ref", "inventory_refs", "occurrence_refs", "unsegmented", "complete_segments", "renames_base",
     # `current.json`'s scope rows (step 0 S-10)
     "scopes", "scope_universe", "scope_id", "event_ids", "evidence", "freshness", "no_scope",
     "cwd_unreadable", "memory_path_relative", "global_excluded_by_launch", "ineligible",
@@ -4880,8 +4892,9 @@ DOCUMENT_KEYS = frozenset(DOCUMENT_MEMBERS + UNIT_FIELDS + PLAN_FIELDS + EMISSIO
                           + tuple(REFERENCES) + tuple(STATUSES))
 
 
-def emitted_document(reference, rows, ctx, more_reasons=None):
-    """The document one reference point publishes, from its layer rows.
+def emitted_document(reference, rows, ctx):
+    """The document one reference point that publishes units (`UNIT_REFERENCES`) publishes, from its
+    layer rows.
 
     THE production path, called by `reference_of` and by the differential control alike. It was
     composed inline inside `reference_of`, so a control could only approximate it — and a control
@@ -4894,14 +4907,7 @@ def emitted_document(reference, rows, ctx, more_reasons=None):
         reasons = [ctx["acquisition_error"]] + reasons
     if ctx.get("pin_disagreement"):
         reasons = [ctx["pin_disagreement"]] + reasons
-    if more_reasons is not None:
-        # A reason that can only be computed from the UNITS — the baseline mapping — belongs here,
-        # before the row is emitted. Appended to `document["reference"]["incomplete_reasons"]` after
-        # `reference_of` returned, those strings never passed `REFERENCE_TABLE`'s rule, and a
-        # mapping problem names a baseline item ref, which is a path often enough (r4 R4).
-        reasons = reasons + list(more_reasons(units))
     kind = {"current": {"kind": "current", "commit": ctx.get("commit")},
-            "release": {"kind": "release", "ref": ctx.get("release_ref")},
             "selection": {"kind": "selection", "content_ref": (ctx.get("snapshot") or {}).get("content_ref")}}[reference]
     document = {
         "document": reference,
@@ -4926,19 +4932,18 @@ def emitted_document(reference, rows, ctx, more_reasons=None):
     return document, units
 
 
-def reference_of(reference, ctx, more_reasons=None):
-    """One reference point: its layers, its units, its completeness and the reasons against it.
-
-    `more_reasons(units)` is a reason this reference point can only state once its units exist; it
-    reaches the row through the table like every other reason."""
-    return emitted_document(reference, layer_rows(reference, ctx), ctx, more_reasons)
+def reference_of(reference, ctx):
+    """One reference point that publishes units: its layers, its units, its completeness and the reasons
+    against it. `release` publishes none: it is the segment index (`release_index`), and its layer rows
+    are produced per baseline, in the shared release inventories."""
+    return emitted_document(reference, layer_rows(reference, ctx), ctx)
 
 
 def mapping_problems(expected, units):
     """Done-when 1: every item of the expected set — read from the baseline file itself, not from
     what was produced — carries at least one unit."""
     produced = {unit["item_ref"] for unit in units if unit["item_ref"]}
-    return [f"BASELINE_UNMAPPED {ref}: the release reference point produced no unit for this baseline item"
+    return [f"BASELINE_UNMAPPED {ref}: the release inventory produced no unit for this baseline item"
             for ref in sorted(expected) if ref not in produced]
 
 
@@ -4972,7 +4977,7 @@ def shared_inventories(ctx):
     for ref, (items, failures) in sorted((ctx.get("session_baselines") or {}).items()):
         omissions = list(unkeyed) + [{"input": "release_baseline", "ref": ref, **row} for row in failures]
         sub = {**ctx, "notes": {}, "omissions": omissions, "pin": None, "pin_record": None, "release_ref": ref,
-               "expected_release_items": items or [], "release_deferred": False}
+               "expected_release_items": items or []}
         rows = [row for row in layer_rows("release", sub) if row["layer"] in SHARED_RELEASE_LAYERS]
         out.append(shared_document("release", ref, rows, ctx,
                                    expected={item["ref"] for item in items} if items is not None else None))
@@ -5004,6 +5009,8 @@ def shared_document(kind, ref, rows, ctx, unavailable=None, expected=None):
     reasons = [text for row in rows for text in row["reasons"]]
     unmapped = mapping_problems(expected, units) if expected is not None else []
     identity = inventory_id(kind, ref)
+    # the units themselves, for `run`'s renames against the `--pin` session's release inventory (R7)
+    ctx.setdefault("shared_units", {})[identity] = units
     document = {
         "document": SHARED, "inventory_id": identity, "kind": kind, "ref": ref,
         "complete": not (reasons or unmapped), "incomplete_reasons": reasons + unmapped,
@@ -5062,6 +5069,317 @@ def shared_cross_problems(shared, store, sessions):
         ref = (record.get("selection") or {}).get("inventory_ref")
         if ref is not None and (published.get(ref) or {}).get("kind") != "selection":
             problems.append(f"SHARED_SELECTION_UNRESOLVED: a session's selection names no published selection inventory")
+    return problems
+
+
+# ---------------------------------------------------------------- the release segment index
+
+# S-10 (v3, final) status precedence as the release index applies it to one row (lead, D3 and D4 revised):
+# each condition's rank, strongest first. A row takes the strongest rank that applies and lists every reason
+# of that rank, because S-10 orders no rank-1 condition before another. Rank 1 is `unknown`, rank 2 `unknown`
+# with its reason `uncertain: <key>` (S-21), rank 3 `incomplete`. `recorded_unmapped` is not in S-10's table:
+# it is placed at rank 1, the rank of its status.
+CONDITION_RANK = {reason("member_unmapped"): 1, reason("container_unusable"): 1,
+                  reason("locator_element_rejected"): 1, reason("recorded_unmapped"): 1,
+                  reason("member_rejected"): 3}
+RANK_ROWS = {1: ("unknown", ""), 2: ("unknown", "uncertain: "), 3: ("incomplete", "")}
+# Each segment state, as one table (lead, D4): whether the in-force event's own conditions count, and the
+# rank the state's own reason takes beside them, or None when it adds none. An `uncertain` state's reason is
+# its certainty cut's: `undecodable_after`, or `ownership_unknown`, which S-5 (v3) cuts "as an undecodable
+# line does" and which is placed at rank 2 here, outside S-10's table. `no_event_yet` and `unsought` name no
+# event, so their reason is the row's only one.
+SEGMENT_ROW_STATES = {"in_force": (True, None), "uncertain": (True, 2),
+                      "no_event_yet": (False, 1), "unsought": (False, 1)}
+SPLIT_NATIVE = ("native_global", "native_project", "native_memory")
+# The rows no segment changes (§7): no transcript carries a settings file, and the ledger records the present.
+FIXED_INDEX_ROWS = {"native_settings": reason("settings"), "ledger_incubating": reason("ledger_history"),
+                    "ledger_keep": reason("ledger_history")}
+# A sidechain's rows that come from a pin, which it does not have (R6): never its parent's.
+UNATTRIBUTED = SHARED_RELEASE_LAYERS + ("overlays", "session_injection")
+
+
+def index_reasons():
+    """The whole vocabulary of an index row's reasons (lead, D1): a declared key, or one prefixed as an
+    uncertain one is (S-21)."""
+    return tuple(UNKNOWN_REASONS) + tuple(f"{RANK_ROWS[2][1]}{key}" for key in UNKNOWN_REASONS)
+
+
+# One index row: a layer, its status and reasons, and where it comes from — one shared inventory's row of
+# that layer, the in-force event's own members of the layer, or that event's occurrences — or nothing. No
+# unit is copied: each resolves through the inventory or the store (R5).
+RELEASE_SOURCE_TABLE = {**one_of(
+    table_of({"inventory_ref": as_opaque("inventory_id"), "layer": as_enum(SHARED_RELEASE_LAYERS + ("overlays",))}),
+    table_of({"event_ref": as_opaque("event_id"), "members": list_of(table_of({
+        "carrier_id": as_opaque("carrier_id"), "version_sha256": as_opaque("sha256")}))}),
+    table_of({"event_ref": as_opaque("event_id"), "occurrence_refs": list_of(as_opaque("occurrence_id"))})),
+    "nullable": True}
+# The member sets a source may have, read from the table above: the schema has no `oneOf` to hold a source to
+# exactly one of them, so the cross check does (a source naming two answers is not one row's answer).
+RELEASE_SOURCE_SHAPES = tuple(frozenset(choice["fields"]) for choice in RELEASE_SOURCE_TABLE["choices"])
+RELEASE_ROW_TABLE = table_of({"layer": as_enum(layer_names), "status": as_enum(STATUSES),
+                              "reasons": list_of(as_enum(index_reasons)), "source": RELEASE_SOURCE_TABLE},
+                             schema="release_row")
+RELEASE_ROWS_FIELDS = {
+    "inventory_refs": list_of(as_opaque("inventory_id")),
+    "layers": list_of(RELEASE_ROW_TABLE),
+    "complete": as_scalar(),
+    "incomplete_reasons": list_of(table_of({"layer": as_enum(layer_names), "status": as_enum(STATUSES),
+                                            "reasons": list_of(as_enum(index_reasons)),
+                                            "inventory_ref": as_opaque("inventory_id", nullable=True)})),
+}
+RELEASE_DOCUMENT_TABLE = table_of({
+    "document": as_constant("release"),
+    "produced_by": SESSIONS_PRODUCED_BY_TABLE,
+    "sessions": list_of(table_of({
+        "session_ref": as_opaque("session_ref"),
+        "segments": list_of(table_of({"segment_ref": as_opaque("segment_id"), **RELEASE_ROWS_FIELDS},
+                                     schema="release_segment")),
+        "unsegmented": {**table_of(RELEASE_ROWS_FIELDS, schema="release_rows"), "nullable": True},
+    }, schema="release_session")),
+}, schema="release_document")
+
+
+def ranked_row(layer, conditions, source):
+    """One index row from its S-10 conditions `[(rank, key)]`: complete with none, else the strongest rank's
+    status and every reason of that rank, in the order they arose."""
+    if not conditions:
+        return {"layer": layer, "status": "complete", "reasons": [], "source": source}
+    top = min(rank for rank, _key in conditions)
+    status, prefix = RANK_ROWS[top]
+    return {"layer": layer, "status": status, "source": source,
+            "reasons": list(dict.fromkeys(f"{prefix}{key}" for rank, key in conditions if rank == top))}
+
+
+def unknown_row(layer, key):
+    """A row with no source, `unknown` by one declared key."""
+    return {"layer": layer, "status": "unknown", "reasons": [key], "source": None}
+
+
+def host_row(host, layer):
+    """A row the host answers whatever the segment holds (lead, D8): Codex delivers one block, so its
+    global, project and memory parts are `codex_undivided`, and Claude delivers no block, so a Claude
+    session's `native_undivided` is complete and empty (S-19). None for every other row."""
+    if host == "codex" and layer in SPLIT_NATIVE:
+        return unknown_row(layer, reason("codex_undivided"))
+    if host == "claude" and layer == "native_undivided":
+        return {"layer": layer, "status": "complete", "reasons": [], "source": None}
+    return None
+
+
+def event_conditions(event, layer, occurrences):
+    """The S-10 conditions the event in force itself holds for one row: its container's damage; for a
+    native event an unmapped member, which makes every native layer of it unknown (S-6), and a rejected
+    member of this layer; for an injection, no occurrence of it whose bytes were recovered."""
+    keys = [event["damaged"]] if event.get("damaged") else []
+    if event["kind"] == "native":
+        if event.get("unmapped"):
+            keys.append(reason("member_unmapped"))
+        if any(row.get("layer") == layer for row in event.get("rejected") or []):
+            keys.append(reason("member_rejected"))
+    elif not keys and not any(row["method"] != "unmapped" for row in occurrences):
+        keys.append(reason("recorded_unmapped"))
+    return [(CONDITION_RANK[key], key) for key in keys]
+
+
+def segment_row(layer, state, events, occurrences):
+    """One event-derived row of a segment, from its kind's state through `SEGMENT_ROW_STATES`. Its source is
+    the event in force when the state names one: that event's own members of this layer, or its occurrences."""
+    counted, own_rank = SEGMENT_ROW_STATES[state["state"]]
+    event = events.get(state["event_ref"]) if counted else None
+    found = occurrences.get(state["event_ref"]) or []
+    conditions = event_conditions(event, layer, found) if event is not None else []
+    if own_rank is not None:
+        conditions.append((own_rank, state["reason"]))
+    source = None
+    if event is not None and layer == "session_injection":
+        source = {"event_ref": event["id"], "occurrence_refs": sorted(row["occurrence_id"] for row in found)}
+    elif event is not None:
+        source = {"event_ref": event["id"], "members": [
+            {"carrier_id": carrier_id, "version_sha256": version} for carrier_id, version in sorted(
+                {(member["carrier_id"], sha256_text(member["text"])) for member in event.get("files") or []
+                 if member["layer"] == layer})]}
+    return ranked_row(layer, conditions, source)
+
+
+def static_rows(record, published):
+    """A main owner's pin-derived rows (step 0 S-17, S-24, S-16, S-25): catalog and adopted packages from the
+    release inventory of the baseline its own snapshot names, overlays from its own selection inventory, each
+    with that inventory row's status and its reasons left in the inventory (lead, D2). A Codex rollout or an
+    unpinned session: `release_history_deferred`, and its selection's reason for overlays. A broken pin chain:
+    its one reason for all three."""
+    selection, baseline = record["selection"], record["pin"]["baseline_ref"]
+
+    def pointed(layer, identity):
+        held = [row["status"] for row in (published.get(identity) or {}).get("layers") or [] if row["layer"] == layer]
+        return {"layer": layer, "status": held[0] if len(held) == 1 else "unknown", "reasons": [],
+                "source": {"inventory_ref": identity, "layer": layer}}
+
+    if record["host"] == "codex" or selection["status"] == "unpinned":
+        return {**{layer: unknown_row(layer, reason("release_history_deferred")) for layer in SHARED_RELEASE_LAYERS},
+                "overlays": unknown_row("overlays", selection["reason"])}
+    if selection["status"] != "read":
+        return {layer: unknown_row(layer, selection["reason"]) for layer in SHARED_RELEASE_LAYERS + ("overlays",)}
+    return {**{layer: pointed(layer, inventory_id("release", baseline)) if baseline
+               else unknown_row(layer, reason("baseline_unnamed")) for layer in SHARED_RELEASE_LAYERS},
+            "overlays": pointed("overlays", selection["inventory_ref"])}
+
+
+def completeness(rows):
+    """§6.1's literal rule over one segment's rows (lead, D5): complete only when every row is, and every row
+    that is not listed with its status, its reasons, and the inventory those reasons live in when it names one."""
+    incomplete = [{"layer": row["layer"], "status": row["status"], "reasons": row["reasons"],
+                   "inventory_ref": (row["source"] or {}).get("inventory_ref")}
+                  for row in rows if row["status"] != "complete"]
+    return {"complete": not incomplete, "incomplete_reasons": incomplete}
+
+
+def index_entry(by_layer):
+    """One segment's rows, or one unsegmented session's, in the layer order in force, with the inventories
+    they name and their completeness."""
+    rows = [by_layer[layer] for layer, _producers in LAYERS]
+    return {"inventory_refs": sorted({row["source"]["inventory_ref"] for row in rows
+                                      if "inventory_ref" in (row["source"] or {})}),
+            "layers": rows, **completeness(rows)}
+
+
+def release_index(ctx, shared):
+    """`release.json` (step 0 S-17, #8, R10): every census-bound session, main and subagent rows of both hosts,
+    each segment of each of its owners as one row per layer; a session no segment covers (R3) has one row set
+    of its own, its pin-derived rows as a main owner's and every event-derived row unknown by its transcript's
+    reason (`no_event_yet` when the transcript was read and holds no line). It never picks one segment and
+    never unions versions: a row names one inventory's row, or one event's members or occurrences."""
+    published = {document["inventory_id"]: document for _path, document in shared}
+    events = {event["id"]: event for event in ctx.get("events") or []}
+    occurrences = {}
+    for row in ctx.get("occurrences") or []:
+        occurrences.setdefault(row["event_id"], []).append(row)
+    fixed = {layer: unknown_row(layer, key) for layer, key in FIXED_INDEX_ROWS.items()}
+    sessions = []
+    for record in ctx.get("sessions") or []:
+        host, ident = record["host"], record["transcript"]["id"]
+        mains = static_rows(record, published)
+        entry = {"session_ref": record["session_ref"], "segments": [], "unsegmented": None}
+        for segment in (row for row in ctx.get("segments") or [] if row["session_ref"] == record["session_ref"]):
+            main = segment["owner_ref"] == owner_ref(host, ident)
+            by_layer = {**fixed, **(mains if main else {
+                layer: unknown_row(layer, reason("sidechain_unattributed")) for layer in UNATTRIBUTED})}
+            for layer in SPLIT_NATIVE + ("native_undivided",):
+                by_layer[layer] = host_row(host, layer) or segment_row(layer, segment["in_force"]["native"], events,
+                                                                     occurrences)
+            if main:
+                by_layer["session_injection"] = segment_row("session_injection", segment["in_force"]["session_injection"],
+                                                          events, occurrences)
+            entry["segments"].append({"segment_ref": segment["segment_id"], **index_entry(by_layer)})
+        if not entry["segments"]:
+            unread = record["read"] if record["read"] in READ_FAILURES else reason("no_event_yet")
+            pinned = (ctx.get("session_pins") or {}).get(record["session_ref"]) or session_pin(None, host, ident, None)
+            by_layer = {**fixed, **mains,
+                        "session_injection": unknown_row("session_injection", unsought_reason(pinned) or unread)}
+            for layer in SPLIT_NATIVE + ("native_undivided",):
+                by_layer[layer] = host_row(host, layer) or unknown_row(layer, unread)
+            entry["unsegmented"] = index_entry(by_layer)
+        sessions.append(entry)
+    return emit_row("release", RELEASE_DOCUMENT_TABLE, {
+        "document": "release",
+        "produced_by": {"module": "session-distill/runlib/inventory.py", "design": DESIGN, "commit": ctx.get("commit")},
+        "sessions": sessions}, {"home": ctx.get("home"), "decisions": {}})
+
+
+def renames_base(ctx):
+    """`(inventory_ref, reason)`: the release inventory the `--pin` session's own snapshot names, which the
+    renames of `current` and `selection` are taken against (R7), or the declared key there is none by (D6 b):
+    no `--pin` or a Codex one (`release_history_deferred`), a `--pin` the census has no session for
+    (`no_census_session`: evidence about its pin only), the reason of its selection, or `baseline_unnamed`."""
+    host = str(ctx.get("pin") or "").partition(":")[0]
+    if not ctx.get("pin") or host != "claude":
+        return None, reason("release_history_deferred")
+    record = next((row for row in ctx.get("sessions") or [] if row["session"] == ctx["pin"]), None)
+    if record is None:
+        return None, reason("no_census_session")
+    if record["selection"]["status"] != "read":
+        return None, record["selection"]["reason"]
+    if not record["pin"]["baseline_ref"]:
+        return None, reason("baseline_unnamed")
+    return inventory_id("release", record["pin"]["baseline_ref"]), None
+
+
+def release_cross_problems(index, sessions, shared, store):
+    """What the release index gets wrong against the records it points into (step 0 S-21; lead, D2): every
+    session of `sessions.json` once; each one's segments, every one of them and each once, and a row set of
+    its own exactly when it has none; one row per layer in order; a source null or exactly one declared shape
+    (`RELEASE_SOURCE_SHAPES`); a row naming an inventory names a published one of the kind its layer comes
+    from, and carries that inventory row's status; an event it names is the segment's event in force of the
+    row's kind, its members exactly that event's members of the layer, each in the store, and its occurrences
+    exactly that event's; a segment's inventory list and completeness are its rows'."""
+    problems = []
+    published = {document.get("inventory_id"): document for _path, document in shared}
+    segments = {row.get("segment_id"): row for row in sessions.get("segments") or []}
+    events = {row.get("event_id"): row for row in sessions.get("events") or []}
+    found = collections.defaultdict(set)
+    for row in sessions.get("occurrences") or []:
+        found[row.get("event_id")].add(row.get("occurrence_id"))
+    versions = store.get("versions") or {}
+    layers = [layer for layer, _producers in LAYERS]
+    listed = collections.Counter(entry.get("session_ref") for entry in index.get("sessions") or [])
+    if set(listed) != {row.get("session_ref") for row in sessions.get("sessions") or []} \
+            or any(n != 1 for n in listed.values()):
+        problems.append("RELEASE_SESSIONS_DIFFER: the index does not list every session of sessions.json exactly once")
+    for entry in index.get("sessions") or []:
+        ref = entry.get("session_ref")
+        own = sorted(row.get("segment_id") for row in sessions.get("segments") or [] if row.get("session_ref") == ref)
+        if sorted(segment.get("segment_ref") for segment in entry.get("segments") or []) != own:
+            problems.append(f"RELEASE_SEGMENTS_DIFFER {ref}: not every segment of the session, each once")
+        if (entry.get("unsegmented") is not None) == bool(own):
+            problems.append(f"RELEASE_UNSEGMENTED {ref}: a row set of its own is there exactly when no segment is")
+        blocks = [(segment.get("segment_ref"), segment, (segments.get(segment.get("segment_ref")) or {}).get("in_force")
+                   or {}) for segment in entry.get("segments") or []]
+        if entry.get("unsegmented") is not None:
+            blocks.append((f"{ref} unsegmented", entry["unsegmented"], {}))
+        for where, block, in_force in blocks:
+            rows = block.get("layers") or []
+            if [row.get("layer") for row in rows] != layers:
+                problems.append(f"RELEASE_LAYERS_DIFFER {where}: not one row per layer, in the layer order")
+            for row in rows:
+                layer, source = row.get("layer"), row.get("source") or {}
+                if row.get("source") is not None and frozenset(row["source"] if isinstance(row["source"], dict) else ()) \
+                        not in RELEASE_SOURCE_SHAPES:
+                    problems.append(f"RELEASE_SOURCE_SHAPE {where} {layer}: its source is not exactly one declared "
+                                    f"shape, so it names no one answer")
+                if "inventory_ref" in source:
+                    document = published.get(source["inventory_ref"]) or {}
+                    held = [inner for inner in document.get("layers") or [] if inner.get("layer") == layer]
+                    if document.get("kind") != ("selection" if layer == "overlays" else "release") \
+                            or source.get("layer") != layer or len(held) != 1:
+                        problems.append(f"RELEASE_INVENTORY_UNRESOLVED {where} {layer}: it names no published "
+                                        f"inventory of the kind this layer comes from")
+                    elif held[0].get("status") != row.get("status"):
+                        problems.append(f"RELEASE_STATUS_DIFFERS {where} {layer}: not the status of the inventory "
+                                        f"row it names")
+                if "event_ref" in source:
+                    kind = "session_injection" if layer == "session_injection" else "native"
+                    if source["event_ref"] is None or (in_force.get(kind) or {}).get("event_ref") != source["event_ref"]:
+                        problems.append(f"RELEASE_EVENT_NOT_IN_FORCE {where} {layer}: not the segment's event in "
+                                        f"force of its kind")
+                if "members" in source:
+                    named = [(member.get("carrier_id"), member.get("version_sha256")) for member in source["members"]]
+                    if any((versions.get(carrier_id) or {}).get(version) is None for carrier_id, version in named):
+                        problems.append(f"RELEASE_MEMBER_UNRESOLVED {where} {layer}: a member it names is not in "
+                                        f"the store")
+                    expected = {(member.get("carrier_id"), member.get("version_sha256"))
+                                for member in (events.get(source.get("event_ref")) or {}).get("members") or []
+                                if ((versions.get(member.get("carrier_id")) or {}).get(member.get("version_sha256"))
+                                    or {}).get("layer") == layer}
+                    if set(named) != expected or len(set(named)) != len(named):
+                        problems.append(f"RELEASE_MEMBERS_DIFFER {where} {layer}: not exactly the event's own "
+                                        f"members of this layer")
+                if "occurrence_refs" in source and set(source["occurrence_refs"]) != found.get(source.get("event_ref"), set()):
+                    problems.append(f"RELEASE_OCCURRENCES_DIFFER {where} {layer}: not exactly the event's occurrences")
+            if block.get("inventory_refs") != sorted({(row.get("source") or {}).get("inventory_ref") for row in rows
+                                                      if "inventory_ref" in (row.get("source") or {})}):
+                problems.append(f"RELEASE_INVENTORY_REFS_DIFFER {where}: not the inventories its rows name")
+            if all(isinstance(row, dict) and {"layer", "status", "reasons", "source"} <= set(row) for row in rows) \
+                    and {key: block.get(key) for key in ("complete", "incomplete_reasons")} != completeness(rows):
+                problems.append(f"RELEASE_COMPLETENESS_DIFFERS {where}: not the completeness its rows give")
     return problems
 
 
@@ -5154,8 +5472,11 @@ INPUTS_TABLE = table_of({
     "roots_absent": list_of(as_metadata()),
     "transcripts": as_tree(),
 })
+# R8: the release index's summary, in place of a reference point's unit counts.
+MANIFEST_RELEASE_TABLE = table_of({"sessions": as_scalar(), "segments": as_scalar(), "complete_segments": as_scalar()})
 MANIFEST_TABLE = table_of({
-    "references": map_of(as_enum(REFERENCES), MANIFEST_REFERENCE_TABLE),
+    "references": table_of({**{reference: MANIFEST_REFERENCE_TABLE for reference in UNIT_REFERENCES},
+                            "release": MANIFEST_RELEASE_TABLE}),
     "state_root_unchanged": as_scalar(nullable=True),
     "out_dir": as_metadata(),
     "inputs": INPUTS_TABLE,
@@ -5259,8 +5580,6 @@ def run(repo, state_root, user_root, out_dir, pin=None, native_roots=None, ledge
                 ctx["acquisition_error"] = (f"INPUT_UNACQUIRED: freezing the inputs failed "
                                             f"({acquisition_reason(exc)}), so every layer "
                                             f"read from the owner's state has no record here")
-                ctx.setdefault("release_ref", None)
-                ctx.setdefault("expected_release_items", [])
                 # A pin the failure left unread was there to read: failed, not a root this run lacked.
                 table = ctx.setdefault("session_pins", {})
                 for entry in entries:
@@ -5274,28 +5593,29 @@ def run(repo, state_root, user_root, out_dir, pin=None, native_roots=None, ledge
             crossed = sessions_cross_problems(sessions_doc)
             if crossed:
                 raise Refused(f"{'; '.join(crossed)}; no artifact is written")
-            expected_refs = {item["ref"] for item in ctx["expected_release_items"]} \
-                if ctx.get("release_ref") else None
-            for reference in REFERENCES:
-                produced[reference] = reference_of(
-                    reference, ctx,
-                    more_reasons=(lambda units: mapping_problems(expected_refs, units))
-                    if expected_refs is not None and reference == "release" else None)
-            base = produced["release"][1]
-            for reference in ("current", "selection"):
-                produced[reference][0]["renames"] = renames_against(produced[reference][1], base, home)
+            # R7 and D6 (b): the renames of `current` and `selection` are taken against the units of the
+            # `--pin` session's own release inventory, and a run with none says why by a declared key.
+            base_ref, base_reason = renames_base(ctx)
+            ctx["notes"]["renames_base"] = {"inventory_ref": base_ref, "reason": base_reason}
+            for reference in UNIT_REFERENCES:
+                produced[reference] = reference_of(reference, ctx)
             shared = shared_inventories(ctx)
+            base = (ctx.get("shared_units") or {}).get(base_ref) or []
+            for reference in UNIT_REFERENCES:
+                produced[reference][0]["renames"] = renames_against(produced[reference][1], base, home)
+            index = release_index(ctx, shared)
             store_doc = store_document(ctx)
-            crossed = store_cross_problems(store_doc, {reference: produced[reference][0] for reference in REFERENCES}) \
-                + occurrence_cross_problems(sessions_doc, store_doc) + shared_cross_problems(shared, store_doc, sessions_doc)
+            crossed = store_cross_problems(store_doc, {reference: produced[reference][0] for reference in UNIT_REFERENCES}) \
+                + occurrence_cross_problems(sessions_doc, store_doc) + shared_cross_problems(shared, store_doc, sessions_doc) \
+                + release_cross_problems(index, sessions_doc, shared, store_doc)
             if crossed:
                 raise Refused(f"{'; '.join(crossed[:4])}; no artifact is written")
-            if ctx.get("release_ref"):
-                # The reference row already carries these, emitted through the table with every
-                # other reason. The manifest keeps its own copy, which its own table projects.
-                problems = mapping_problems(expected_refs, produced["release"][1])
-                manifest["baseline_unmapped"] = problems
-                manifest["baseline_items_expected"] = len(ctx["expected_release_items"])
+            based = next((document for _path, document in shared if document["inventory_id"] == base_ref), None)
+            if based is not None and based["baseline_items_expected"] is not None:
+                # R8: done-when 1 of the `--pin` session's own release inventory, which that inventory's own
+                # row carries; the manifest keeps its copy, which its own table projects.
+                manifest["baseline_unmapped"] = based["baseline_unmapped"]
+                manifest["baseline_items_expected"] = based["baseline_items_expected"]
         artifacts = manifest["artifacts"] = []
 
         def written(relative, document, identity=None):
@@ -5318,7 +5638,14 @@ def run(repo, state_root, user_root, out_dir, pin=None, native_roots=None, ledge
             written(relative, document, document["inventory_id"])
         manifest["store"] = {"versions": sum(len(rows) for rows in store_doc["versions"].values()),
                              "units": len(store_doc["units"])}
-        for reference, (document, units) in produced.items():
+        for reference in REFERENCES:
+            if reference == "release":
+                written("release.json", index)
+                held = [segment for entry in index["sessions"] for segment in entry["segments"]]
+                manifest["references"]["release"] = {"sessions": len(index["sessions"]), "segments": len(held),
+                                                     "complete_segments": sum(1 for segment in held if segment["complete"])}
+                continue
+            document, units = produced[reference]
             written(f"{reference}.json", document)
             manifest["references"][reference] = {
                 "complete": document["reference"]["complete"], "units": len(units),
@@ -5420,10 +5747,9 @@ def freeze_inputs(frozen, repo, state_root, user_root, pin, ctx, entries=()):
     ctx["projects"] = [str(root) for root in (ctx["native_roots"].get("projects") or {}).values()]
     omissions = ctx.setdefault("omissions", [])
     ctx.setdefault("pin_record", None)
-    ctx["installed_ref"], ctx["release_ref"], ctx["expected_release_items"] = None, None, []
-    # S-24 option 1 and S-16: an unpinned release, and a Codex one, is `release_history_deferred`. The
-    # installed baseline is frozen for the current overlays only, and no journal is read for a release.
-    ctx["release_deferred"] = pin is None or str(pin).partition(":")[0] != "claude"
+    # The installed baseline is frozen for the current overlays only. A release is per session (step 0 S-17):
+    # the baseline each session's own snapshot names, below, and no journal is read for one (S-24, S-16).
+    ctx["installed_ref"] = None
     ctx["session_baselines"] = {}
 
     def omitted(kind, ref, path, outcome, reason, code=None):
@@ -5484,8 +5810,7 @@ def freeze_inputs(frozen, repo, state_root, user_root, pin, ctx, entries=()):
         table[session_ref(host, ident)] = with_snapshot(pinned, host, ident) if pinned["status"] == "read" else pinned
     if state_root is None:
         ctx["notes"]["state"] = "no state root: the overlay, release and selection producers have no record"
-        for kind in ("runtime_state", "installed_baseline") + (() if ctx["release_deferred"] else ("release_baseline",)) \
-                + (("pin", "snapshot") if pin else ()):
+        for kind in ("runtime_state", "installed_baseline") + (("pin", "snapshot") if pin else ()):
             omitted(kind, pin if kind == "pin" else None, None, "unread", "no_root")
         return
     # Every read below goes through the one source selection, before any byte of it is read: the
@@ -5544,10 +5869,7 @@ def freeze_inputs(frozen, repo, state_root, user_root, pin, ctx, entries=()):
             omitted("installed_baseline", None, "runtime/state.json", "failed", "not_an_identifier", refusal_code(exc))
             installed_ref = None
     ctx["installed_ref"] = installed_ref
-    release_ref = None
-    if ctx["release_deferred"]:
-        ctx["notes"]["release"] = "release_history_deferred: no pin, or a Codex one, names this release (S-24, S-16)"
-    ctx["notes"]["baselines"] = {"installed": installed_ref, "pinned": None}
+    ctx["notes"]["baselines"] = {"installed": installed_ref}
     baselines = {}
 
     def baseline_once(ref):
@@ -5576,28 +5898,9 @@ def freeze_inputs(frozen, repo, state_root, user_root, pin, ctx, entries=()):
               [(state_root / "runtime" / "baselines" / installed_ref, f"runtime/baselines/{installed_ref}")],
               state, state_root)
     if verified is not None:
-        content_ref = verified["content_ref"]
         ctx["snapshot"] = verified
         ctx["notes"]["pin"] = {"host": pin.partition(":")[0], "content_ref": verified["content_ref"],
                                "state": ctx["pin_record"].get("state")}
-        release_ref = None if ctx["release_deferred"] else (verified["inputs"] or {}).get("baseline_ref")
-        if release_ref is not None:
-            try:
-                release_ref = safe_label("baseline ref", release_ref)
-            except Refused as exc:
-                omitted("release_baseline", None, f"sessions/snapshots/{content_ref}", "failed",
-                        "not_an_identifier", refusal_code(exc))
-                release_ref = None
-        if release_ref:
-            items, failures = baseline_once(release_ref)
-            for row in failures:
-                omitted("release_baseline", release_ref, row["path"], row["outcome"], row["reason"], row["code"])
-            if items is not None:
-                ctx["expected_release_items"] = items
-            ctx["notes"]["release"] = "from the pin's snapshot inputs.baseline_ref"
-            ctx["notes"]["baselines"] = {"installed": installed_ref, "pinned": release_ref,
-                                         "differ": installed_ref != release_ref}
-    ctx["release_ref"] = release_ref
     # Every baseline a session's own verified snapshot names, each frozen once under its own key, for
     # the shared release inventories (S-22, S-25's `baseline@<ref>`): a failure reaches the inventory of
     # THAT baseline and the sessions naming it, and nothing else.
@@ -5664,6 +5967,10 @@ def safe_lines(lines, home=None):
 def report_lines(manifest, home=None):
     lines = []
     for reference, row in manifest["references"].items():
+        if reference == "release":
+            lines.append(f"release: {row['sessions']} session(s), {row['segments']} segment(s), "
+                         f"{row['complete_segments']} complete")
+            continue
         flag = "complete" if row["complete"] else "incomplete"
         lines.append(f"{reference}: {row['units']} units ({row['operative']} operative), {flag}"
                      + (f", {row['renames']} rename(s)" if row["renames"] else ""))
@@ -5783,11 +6090,11 @@ def document_contract_problems(document, schema=None):
     if not (isinstance(kind, str) and kind in DOCUMENT_ROOTS):
         return [f"DOCUMENT_KIND_UNDECLARED: the document names "
                 f"{'no kind' if kind is None else 'a kind no root is declared for'}"]
-    # A reference point is judged on the members its root declares (its units, its layer rows and,
-    # for `current`, its scope rows); every other document whole.
+    # A reference point that publishes units is judged on the members its root declares (its units, its
+    # layer rows and, for `current`, its scope rows); every other document whole, the release index among them.
     declared = ((schema.get("$defs") or {}).get(DOCUMENT_ROOTS[kind]) or {}).get("properties") or {}
     subject = ({key: value for key, value in document.items() if key in declared}
-               if kind in REFERENCES else document)
+               if kind in UNIT_REFERENCES else document)
     picked = {**({"$schema": schema["$schema"]} if "$schema" in schema else {}),
               "$defs": schema.get("$defs") or {}, "$ref": f"#/$defs/{DOCUMENT_ROOTS[kind]}"}
     try:
@@ -6522,28 +6829,28 @@ def self_test():
                   "the baseline file changed with the mapping, so the control judges nothing")
             control("a baseline item with no unit", mapping_problems(expected_after, dropped),
                     "BASELINE_UNMAPPED @fixture/core:item-2")
-            # r4 R4: and such a reason reaches the WRITTEN document through the reference table's rule.
-            # It used to be appended to the emitted row afterwards, so it passed no rule at all — and an
-            # item ref is a path often enough. The reason this control plants carries a home path, so
-            # the published string either shows the projection or shows that it did not happen.
+            # r4 R4: and such a reason reaches the WRITTEN document through its table's rule. It used to be
+            # appended to the emitted row afterwards, so it passed no rule at all — and an item ref is a path
+            # often enough. The reason this control plants carries a home path, so the published string either
+            # shows the projection or shows that it did not happen. Done-when 1 is judged per shared release
+            # inventory (P2.5, R9: retargeted from the release reference point, which publishes no units now).
             home_ref = f"@fixture/core:{pathlib.Path.home()}/.claude/an-item-under-the-owners-home"
-            late_document, _late_units = emitted_document(
-                "release", [{"layer": "catalog", "producer": "a fixture producer", "status": "complete",
-                             "reasons": [], "carriers": [guide("mapped.md", "## Rule\n\n- a rule\n")]}],
-                {"home": str(pathlib.Path.home()), "state_root": None, "notes": {}, "release_ref": "ref1"},
-                more_reasons=lambda units: mapping_problems({home_ref}, units))
+            late_path, late_document = shared_document(
+                "release", "ref1", [{"layer": "catalog", "producer": "a fixture producer", "status": "complete",
+                                     "reasons": [], "carriers": [guide("mapped.md", "## Rule\n\n- a rule\n")]}],
+                {"home": str(pathlib.Path.home()), "commit": None}, expected={home_ref})
             late_out = scratch / "late-reason-out"
-            write_document(late_out, late_out / "inventory" / "release.json", late_document,
-                           str(pathlib.Path.home()))
-            late_published = (late_out / "inventory" / "release.json").read_text(encoding="utf-8")
+            write_document(late_out, late_out / "inventory" / late_path, late_document, str(pathlib.Path.home()))
+            late_published = (late_out / "inventory" / late_path).read_text(encoding="utf-8")
             control("a mapping reason carrying a home path is projected in the written document",
                     [f"published={late_published}"], "BASELINE_UNMAPPED", "<HOME>")
             check("and that reason named the planted ref while the home path itself is not published",
                   "an-item-under-the-owners-home" in late_published
                   and str(pathlib.Path.home()) not in late_published,
                   f"{late_published[:400]}")
-            check("and the reference point says it is incomplete because of it",
-                  late_document["reference"]["complete"] is False, f"{late_document['reference']}")
+            check("and the release inventory says it is incomplete because of it",
+                  late_document["complete"] is False and len(late_document["baseline_unmapped"]) == 1,
+                  f"{late_document['complete']} {late_document['baseline_unmapped']}")
             control("a baseline with no items at all",
                     [str(_raised(lambda: baseline_items(scratch / "empty", "ref1")))], "BASELINE_ABSENT")
 
@@ -8715,20 +9022,26 @@ def self_test():
                     bind_transcripts(ctx_here, run_at)
                     sessions_here = sessions_document(ctx_here)
                     shared_here = shared_inventories(ctx_here)
+                    # the release segment index too, crossed as `run` crosses it (P2.5)
+                    index_here = release_index(ctx_here, shared_here)
                     store_here = store_document(ctx_here)
                     crossed_here = shared_cross_problems(shared_here, store_here, sessions_here) \
-                        + occurrence_cross_problems(sessions_here, store_here)
+                        + occurrence_cross_problems(sessions_here, store_here) \
+                        + release_cross_problems(index_here, sessions_here, shared_here, store_here)
                     if crossed_here:
                         return {"refused": "crossed", "message": "; ".join(crossed_here)}
                     for relative, document_here in shared_here:
                         write_document(out_here, out_here / "inventory" / relative, document_here, str(fixture_home))
                     write_document(out_here, out_here / "inventory" / f"{SESSIONS}.json", sessions_here, str(fixture_home))
                     write_document(out_here, out_here / "inventory" / STORE_REL, store_here, str(fixture_home))
+                    write_document(out_here, out_here / "inventory" / "release.json", index_here, str(fixture_home))
                 except Exception as exc:  # the control names what refused, never the suite
                     return {"refused": type(exc).__name__, "message": str(exc)}
                 return {"shared": {path.stem: json.loads(path.read_text(encoding="utf-8"))
                                    for path in sorted((out_here / "inventory" / "shared").glob("*-i-*.json"))},
                         "sessions": json.loads((out_here / "inventory" / f"{SESSIONS}.json").read_text(encoding="utf-8")),
+                        "store": json.loads((out_here / "inventory" / STORE_REL).read_text(encoding="utf-8")),
+                        "release": json.loads((out_here / "inventory" / "release.json").read_text(encoding="utf-8")),
                         "out": out_here, "omissions": list(ctx_here.get("omissions") or [])}
 
             def plant_baseline(state_dir, ref, items):
@@ -9192,6 +9505,14 @@ def self_test():
                 path = pathlib.Path(path)
                 return json.loads(path.read_text(encoding="utf-8")) if path.is_file() else Absent()
 
+            def index_rows(document, layers):
+                """`[(session_ref, segment_ref or None, row)]` of the given layers, over every row set of a
+                release index (each segment's, and an unsegmented session's), in document order."""
+                return [(entry.get("session_ref"), block.get("segment_ref"), row)
+                        for entry in (document.get("sessions") or [])
+                        for block in (entry.get("segments") or []) + ([entry["unsegmented"]] if entry.get("unsegmented") else [])
+                        for row in block.get("layers") or [] if row.get("layer") in layers]
+
         with section("done-when 5: the owner's state is read through frozen copies"):
             # ---- done-when 5: the owner's state is read through frozen copies
             pending = state / "runtime" / "transactions" / "tx-1"
@@ -9225,21 +9546,29 @@ def self_test():
             check("the inventory wrote a file per reference point",
                   all((scratch / "out" / "inventory" / f"{reference}.json").is_file() for reference in REFERENCES),
                   "a reference point has no artifact")
-            # S-24 option 1: with no pin, release.json names no baseline and its catalog and adopted packages are
-            # `release_history_deferred`; the installed baseline (ref1 here) is never taken for it. Done-when 1's
-            # mapping is judged per shared release inventory, on the planted run below, whose session is pinned.
+            # S-24 option 1: with no pin, no session names a baseline, so the release index's catalog and adopted
+            # packages are `release_history_deferred` for every session; the installed baseline (ref1 here) is never
+            # taken for it. Done-when 1's mapping is judged per shared release inventory, on the planted run below,
+            # whose session is pinned. P2.5, R9: retargeted from release.json's layer rows and units, which it no
+            # longer has, to the index's rows of every session and the shared release inventories published.
             deferred_doc = written_json(scratch / "out" / "inventory" / "release.json")
-            # a layer missing from the document reads as no status, so the check fails by name rather than raising
-            deferred_rows = collections.defaultdict(lambda: {"status": None, "reasons": None},
-                                                    {row["layer"]: row for row in deferred_doc.get("layers") or []})
-            check("an unpinned release names no baseline: its catalog and adopted packages are release_history_deferred, "
-                  "and the installed baseline is not taken for it",
-                  all(deferred_rows[layer]["status"] == "unknown"
-                      and deferred_rows[layer]["reasons"] == [f"{layer}: {UNKNOWN_REASONS['release_history_deferred']}"]
-                      for layer in SHARED_RELEASE_LAYERS)
-                  and deferred_doc["reference"].get("ref") is None and "baseline_unmapped" not in manifest
-                  and not any(unit["layer"] in SHARED_RELEASE_LAYERS for unit in deferred_doc["units"]),
-                  f"{[(layer, deferred_rows[layer]['status'], deferred_rows[layer]['reasons']) for layer in SHARED_RELEASE_LAYERS]}")
+            deferred_rows = index_rows(deferred_doc, SHARED_RELEASE_LAYERS)
+            deferred_shared = sorted(path.name for path in (scratch / "out" / "inventory" / "shared").glob("release-*.json"))
+            deferred_base = (((written_json(scratch / "out" / "inventory" / "current.json").get("produced_by") or {})
+                              .get("notes") or {}).get("renames_base"))
+            check("an unpinned run names no baseline: every session's catalog and adopted packages in the release index "
+                  "are release_history_deferred, no release inventory is published, and the installed baseline is not "
+                  "taken for it",
+                  # a sidechain's are its own unknown (R6), and every session's main owner names the deferral
+                  len({ref for ref, _segment, row in deferred_rows if row["reasons"] == ["release_history_deferred"]})
+                  == len(deferred_doc.get("sessions") or []) >= 3 and all(
+                      (row["status"], row["source"]) == ("unknown", None)
+                      and row["reasons"] in (["release_history_deferred"], ["sidechain_unattributed"])
+                      for _ref, _segment, row in deferred_rows)
+                  and not deferred_shared and "baseline_unmapped" not in manifest
+                  and deferred_base == {"inventory_ref": None, "reason": "release_history_deferred"},
+                  f"{[(row['status'], row['reasons']) for _ref, _segment, row in deferred_rows][:6]} {deferred_shared} "
+                  f"{deferred_base}")
             # M4 (S-24 option 1, S-16) through a recording seam over `freeze`, the one route by which this module
             # reads the owner's state (done-when 5): an unpinned run, a Codex --pin run and an unpinned run whose
             # runtime state is absent read no transaction or installer journal, and their release rows are
@@ -9264,7 +9593,8 @@ def self_test():
                                                       commit="fixture", **captured()))
                     release_here = seam_out / "inventory" / "release.json"
                     seam_runs[label] = (raised_here, json.loads(release_here.read_text(encoding="utf-8"))
-                                        if release_here.is_file() else {})
+                                        if release_here.is_file() else {},
+                                        sorted(path.name for path in (seam_out / "inventory" / "shared").glob("release-*.json")))
             finally:
                 globals()["freeze"] = kept_freeze
             journal_reads = [source for source in frozen_sources if "transactions" in source or "journal" in source.lower()]
@@ -9273,15 +9603,19 @@ def self_test():
                   not journal_reads and any(source.endswith("runtime/state.json") for source in frozen_sources)
                   and (state / "runtime" / "transactions" / "tx-1" / "transaction.json").is_file(),
                   f"journal_reads={journal_reads} sources={len(frozen_sources)}")
-            check("and each one's release catalog and adopted packages are release_history_deferred, the Codex --pin's "
-                  "included and the absent runtime state's reason nowhere among them",
+            # P2.5, R9: retargeted from release.json's two layer rows to the index's rows of every session, and to the
+            # release inventories each run publishes, which are none: no session of these runs is pinned.
+            check("and in each one's release index every session's catalog and adopted packages are "
+                  "release_history_deferred and no release inventory is published, the Codex --pin's run included and "
+                  "the absent runtime state's reason nowhere among them",
                   len(seam_runs) == 3 and all(
-                      raised is None and [(row["layer"], row["status"], row["reasons"]) for row in doc.get("layers") or []
-                                          if row["layer"] in SHARED_RELEASE_LAYERS]
-                      == [(layer, "unknown", [f"{layer}: {UNKNOWN_REASONS['release_history_deferred']}"])
-                          for layer in SHARED_RELEASE_LAYERS]
-                      for raised, doc in seam_runs.values()),
-                  f"{[(label, type(raised).__name__ if raised else None, [(row['layer'], row['reasons']) for row in doc.get('layers') or [] if row['layer'] in SHARED_RELEASE_LAYERS]) for label, (raised, doc) in seam_runs.items()]}")
+                      raised is None and not shared_here and len(doc.get("sessions") or []) >= 3
+                      and {ref for ref, _segment, row in index_rows(doc, SHARED_RELEASE_LAYERS)
+                           if row["reasons"] == ["release_history_deferred"]} == {entry["session_ref"] for entry in doc["sessions"]}
+                      and all(row["reasons"] in (["release_history_deferred"], ["sidechain_unattributed"])
+                              for _ref, _segment, row in index_rows(doc, SHARED_RELEASE_LAYERS))
+                      for raised, doc, shared_here in seam_runs.values()),
+                  f"{[(label, type(raised).__name__ if raised else None, shared_here, sorted({str(row['reasons']) for _ref, _segment, row in index_rows(doc, SHARED_RELEASE_LAYERS)})) for label, (raised, doc, shared_here) in seam_runs.items()]}")
             planted_write = state / "runtime" / "planted-by-a-producer.json"
             saved = globals()["LAYERS"]
 
@@ -9713,7 +10047,9 @@ def self_test():
             check("no artifact carries the planted credential or the owner's home path",
                   not leaking and len(artifacts) >= len(REFERENCES), f"{leaking} artifacts={len(artifacts)}")
             emitted = {}
-            for reference in REFERENCES:
+            # the documents that publish units (P2.5, R9: the release index has none; its inventories' units are the
+            # store's, read next)
+            for reference in UNIT_REFERENCES:
                 for unit in written_json(planted_out / "inventory" / f"{reference}.json")["units"]:
                     emitted.setdefault(unit["path"], []).append(unit)
             # ...and the store, where every recorded member is published once: a selection holds no native layer
@@ -9740,7 +10076,7 @@ def self_test():
                              if unit["layer"] == "session_injection"]
             check("the session's compiled text was read at all", bool(session_units),
                   f"the pin produced no session_injection unit: "
-                  f"{[(r, m['layers'].get('session_injection')) for r, m in manifest['references'].items()]}")
+                  f"{[(r, manifest['references'][r]['layers'].get('session_injection')) for r in UNIT_REFERENCES]}")
             check("the session's compiled text is masked too",
                   all(secret not in unit["text"] and private not in unit["text"] for unit in session_units)
                   and any("<REDACTED>" in unit["text"] or "<HOME>" in unit["text"] for unit in session_units),
@@ -9761,7 +10097,7 @@ def self_test():
                   f"file={bool(planted_bytes)} carried={sum(1 for version in planted_raw if planted_by_version.get(version))}"
                   f"/{len(planted_raw)}")
             planted_docs = {reference: written_json(planted_out / "inventory" / f"{reference}.json")
-                            for reference in REFERENCES}
+                            for reference in UNIT_REFERENCES}
             unequal = [(reference, n) for reference, document in planted_docs.items()
                        for n, unit in enumerate(document["units"])
                        if (planted_store_doc["units"].get(unit["unit_ref"]) or {}).get("text") != unit["text"]
@@ -9997,7 +10333,8 @@ def self_test():
             control("a run whose input freezing failed",
                     ([f"the run raised instead of reporting it: {type(brittle_failure).__name__}"]
                      if brittle_failure is not None else
-                     [reason for entry in brittle_manifest["references"].values() for reason in entry["incomplete_reasons"]]),
+                     [reason for reference in UNIT_REFERENCES
+                      for reason in brittle_manifest["references"][reference]["incomplete_reasons"]]),
                     UNKNOWN_REASONS["input_failed"], "runtime_state: not_json")
             check("the failed acquisition still wrote a layer-status artifact per reference point",
                   all((brittle_out / "inventory" / f"{reference}.json").is_file() for reference in REFERENCES),
@@ -10052,13 +10389,32 @@ def self_test():
                               ledger=ledger, commit="fixture", **captured())
             current_doc = written_json(both_out / "inventory" / "current.json")
             notes = current_doc["produced_by"]["notes"]
-            control("a run whose pin names an older baseline than the installed one",
-                    [f"installed={notes['baselines']['installed']} pinned={notes['baselines']['pinned']} "
-                     f"differ={notes['baselines']['differ']}"],
-                    "installed=ref2", "pinned=ref1", "differ=True")
-            frozen_both = [row for row in notes.get("frozen_missing", []) if "baselines" in str(row.get("path"))]
+            # P2.5: a release is per session now (step 0 S-17), so the two baselines are told apart where the
+            # production path holds them: the installed one in the notes, and a census session's own one, frozen for
+            # its release inventory. This run's `--pin` has no census session (D6 b), so a census session pinned to
+            # the same snapshot is acquired through `freeze_inputs` and `shared_inventories`, as `run` does.
+            pinned_release_ctx = context_of(REPO, state, user, {}, "claude:session-1", ledger)
+            freeze_inputs(scratch / "adopted-release-frozen", REPO, state, user, "claude:session-1", pinned_release_ctx,
+                          census_entries(run_planted))
+            pinned_releases = [document for _path, document in shared_inventories(pinned_release_ctx)
+                               if document["kind"] == "release"]
+            pinned_own = (pinned_release_ctx.get("session_pins") or {}).get(session_ref("claude", "session-1")) or {}
+            control("a pinned session names an older baseline than the installed one, and its release inventory is the "
+                    "one it names",
+                    [f"installed={(pinned_release_ctx['notes'].get('baselines') or {}).get('installed')} "
+                     f"pinned={pinned_own.get('baseline_ref')} published={[document['ref'] for document in pinned_releases]}"],
+                    "installed=ref2", "pinned=ref1", "published=['ref1']")
+            # Strengthened (P2.5): this read only the absence of a missing baseline, which holds of a baseline nobody
+            # froze. Both are now shown READ: the installed one's frozen copy is there, and the pinned one's release
+            # inventory answers complete in both its layers.
+            frozen_both = [row for row in pinned_release_ctx["notes"].get("frozen_missing", [])
+                           if "baselines" in str(row.get("path"))]
             check("both baselines were frozen, so neither resolver is left without its tuple",
-                  bool(notes) and not frozen_both, f"{frozen_both} notes={bool(notes)}")
+                  not frozen_both and (scratch / "adopted-release-frozen" / "state" / "runtime" / "baselines" / "ref2"
+                                       / "inventory.json").is_file()
+                  and [(row["layer"], row["status"]) for document in pinned_releases for row in document["layers"]]
+                  == [(layer, "complete") for layer in SHARED_RELEASE_LAYERS],
+                  f"{frozen_both} {[(row['layer'], row['status']) for document in pinned_releases for row in document['layers']]}")
             # The schema is a contract, not a second list: the real document's units and layer rows are
             # validated against it, so a record that drifts fails here too (the 1548 amendment §10).
             clean("a produced document's units and layer rows against the schema the code owns",
@@ -10088,8 +10444,9 @@ def self_test():
             clean("the run's published store against its own root in the schema",
                   document_contract_problems(both_store) if both_store_path.is_file() else ["the run wrote no store"])
             both_documents = {reference: written_json(both_out / "inventory" / f"{reference}.json")
-                              for reference in REFERENCES}
-            clean("every unit of the run's three documents resolves in its store as that block, each version once",
+                              for reference in UNIT_REFERENCES}
+            clean("every unit of the run's documents that publish units resolves in its store as that block, each "
+                  "version once",
                   crossing(both_store, both_documents) if both_store_path.is_file() and all(both_documents.values())
                   else ["the run wrote no store or no reference document"])
             injection_id = canonical("c", "session_injection", "claude", content_ref)
@@ -10203,7 +10560,7 @@ def self_test():
                   bool(overlay_units) and not any(unit["item_ref"] == "@fixture/core:item-3" for unit in overlay_units),
                   "a tombstoned item came back as an overlay")
             adopted_rows = {reference: [unit for unit in written_json(both_out / "inventory" / f"{reference}.json")["units"]
-                if unit["layer"] == "adopted_packages"] for reference in REFERENCES}
+                if unit["layer"] == "adopted_packages"] for reference in UNIT_REFERENCES}
             control("a run with no state root to read the adoption record from",
                     [str(_raised(lambda: _packages_current(context_of(REPO, None, None, {}, None, None))))],
                     "PRODUCER_UNAVAILABLE adopted_packages")
@@ -10215,10 +10572,64 @@ def self_test():
                   any(unit["package_id"] == "@vendor/pkg" for unit in adopted_rows["current"]),
                   f"{sorted({unit['package_id'] for unit in adopted_rows['current']})} / "
                   f"{[row for row in current_doc['layers'] if row['layer'] == 'adopted_packages']}")
-            check("the adopted package's units are in the release reference point it was installed from",
-                  any(unit["package_id"] == "@vendor/pkg" for unit in adopted_rows["release"])
-                  or notes["baselines"]["pinned"] == "ref1",
-                  "the release reference point lost the adopted package")
+            # P2.5, R9: the release reference point this read is gone, and this run's `--pin` has no census session
+            # (D6 b), so it publishes no release inventory. At 7f75bda the check passed by its second term: ref1, the
+            # pinned baseline, carries no @vendor/pkg (ref2, the installed one, does), so what it judged was that the
+            # release side is the pinned baseline. Retargeted to say that directly, of the release inventory a census
+            # session pinned to the same snapshot gets through the production acquisition and `shared_inventories`
+            # (`pinned_release_ctx`, above).
+            pinned_release_adopted = [unit for document in pinned_releases
+                                      for unit in pinned_release_ctx["shared_units"][document["inventory_id"]]
+                                      if unit["layer"] == "adopted_packages"]
+            check("the release inventory a pinned session gets is its pinned baseline's, not the installed one's: ref1, "
+                  "which carries no unit of the package the installed ref2 adopted",
+                  [document["ref"] for document in pinned_releases] == ["ref1"]
+                  and not any(unit["package_id"] == "@vendor/pkg" for unit in pinned_release_adopted)
+                  and any(unit["package_id"] == "@vendor/pkg" for unit in adopted_rows["current"]),
+                  f"{[document['ref'] for document in pinned_releases]} "
+                  f"{sorted({unit['package_id'] for unit in pinned_release_adopted})}")
+            # D6 (b): a `--pin` naming a session the census does not hold is evidence about its pin only: it adds no
+            # release inventory of its own, its renames have no base, and the manifest maps no baseline, each by the
+            # declared key, never prose. Judged on a run of its own whose census holds a session with its own pin (the
+            # planted run's session-1, whose snapshot names ref1) while the `--pin` names a snapshot of ref2, so
+            # "exactly the census sessions' own" is a set that can be wrong; on the both run it was empty, which any
+            # answer satisfies (lead, after X11). Done-when 1 is judged on a census session's release inventory, by
+            # "done-when 1, per shared release inventory: …" on the planted run, and the manifest copies it (R8) there.
+            d6_state, d6_out = scratch / "d6b-state", scratch / "d6b-out"
+            shutil.copytree(state, d6_state, symlinks=True)
+            d6_inputs = {"baseline_ref": "ref2", "host": "claude", "selection": ["@fixture/core:item-1"]}
+            d6_ref = store._digest(d6_inputs)
+            d6_snapshot = d6_state / "sessions" / "snapshots" / d6_ref
+            d6_snapshot.mkdir(parents=True)
+            (d6_snapshot / "CLAUDE.md").write_text("# Session\n\n- a rule\n", encoding="utf-8")
+            (d6_snapshot / "output.json").write_text(json.dumps({
+                "instruction_text": "# Session\n\n- a rule\n", "files": ["CLAUDE.md"], "assets": {},
+                "item_refs": ["@fixture/core:item-1"], "unavailable": []}), encoding="utf-8")
+            (d6_snapshot / "inventory.json").write_text(json.dumps({
+                "inputs": d6_inputs, "items": [catalog_item("item-1", text="## Item 1\n\n- a rule\n")],
+                "file_digests": {name: store._digest((d6_snapshot / name).read_bytes())
+                                 for name in ("CLAUDE.md", "output.json")}}), encoding="utf-8")
+            (d6_state / "sessions" / "pins" / "claude" / "session-d6.json").write_text(
+                json.dumps({"schema_version": 1, "content_ref": d6_ref, "host": "claude", "session_id": "session-d6",
+                            "created": "2026-10-04T12:00:00+00:00"}), encoding="utf-8")
+            d6_manifest = judged_run("the census-less --pin", REPO, d6_state, user, d6_out, pin="claude:session-d6",
+                                     ledger=ledger, commit="fixture", **captured(run_dir=run_planted))
+            d6_current = written_json(d6_out / "inventory" / "current.json")
+            d6_base = ((d6_current.get("produced_by") or {}).get("notes") or {}).get("renames_base")
+            d6_published = sorted(written_json(path).get("ref")
+                                  for path in (d6_out / "inventory" / "shared").glob("release-*.json"))
+            # the baselines the census sessions' own snapshots name (a census row's `pin` is its content_ref)
+            d6_census_named = sorted({json.loads((d6_state / "sessions" / "snapshots" / entry["pin"]
+                                                  / "inventory.json").read_text(encoding="utf-8"))["inputs"]["baseline_ref"]
+                                      for entry in census_entries(run_planted) if entry.get("pin")})
+            check("D6 (b): a --pin the census has no session for adds no release inventory of its own, takes no renames "
+                  "base, by no_census_session, and the manifest maps no baseline",
+                  bool(d6_census_named) and d6_inputs["baseline_ref"] not in d6_census_named
+                  and d6_published == d6_census_named
+                  and d6_base == {"inventory_ref": None, "reason": "no_census_session"}
+                  and "baseline_unmapped" not in d6_manifest and not d6_current["renames"],
+                  f"census_named={d6_census_named} published={d6_published} pin_baseline={d6_inputs['baseline_ref']} "
+                  f"base={d6_base} {'baseline_unmapped' in d6_manifest} {len(d6_current['renames'] or [])}")
 
         with section('#16: an omission answers for the producers that READ that input, and for no other'):
             # ---- #16: an omission answers for the producers that READ that input, and for no other.
@@ -10229,13 +10640,35 @@ def self_test():
             matrix_seq = [0]
 
             def statuses_over(state_root, user_root, pin="claude:session-1"):
+                """`(cells, record)`: every layer of `current` and `selection` as `layer_rows` answers it, and the
+                release side through the production path (P2.5: a release is per session, step 0 S-17) — the
+                `--pin` session acquired as a census session, its own index rows of catalog and adopted packages,
+                a row that points to an inventory answering with that inventory row's reasons — and that session's
+                own record."""
                 matrix_seq[0] += 1
                 frozen_for = scratch / f"matrix-frozen-{matrix_seq[0]}"
                 ctx = context_of(REPO, state_root, user_root, {}, pin, ledger)
                 freeze_inputs(frozen_for, REPO, state_root, user_root, pin, ctx)
                 bind_transcripts(ctx, run_planted)
-                return {f"{reference}/{row['layer']}": (row["status"], "; ".join(row["reasons"]))
-                        for reference in REFERENCES for row in layer_rows(reference, ctx)}
+                cells = {f"{reference}/{row['layer']}": (row["status"], "; ".join(row["reasons"]))
+                         for reference in UNIT_REFERENCES for row in layer_rows(reference, ctx)}
+                session_ctx = context_of(REPO, state_root, user_root, {}, pin, ledger)
+                freeze_inputs(scratch / f"matrix-frozen-{matrix_seq[0]}-sessions", REPO, state_root, user_root, pin,
+                              session_ctx, census_entries(run_planted))
+                bind_transcripts(session_ctx, run_planted)
+                shared_here = shared_inventories(session_ctx)
+                held = {document["inventory_id"]: document for _path, document in shared_here}
+                index_here = release_index(session_ctx, shared_here)
+                own = session_ref("claude", "session-1")
+                entry = next((row for row in index_here["sessions"] if row["session_ref"] == own), {})
+                for row in ((entry.get("segments") or [entry.get("unsegmented") or {}])[0].get("layers") or []):
+                    if row["layer"] in SHARED_RELEASE_LAYERS:
+                        inner = [one for one in (held.get((row["source"] or {}).get("inventory_ref")) or {}).get("layers") or []
+                                 if one["layer"] == row["layer"]]
+                        cells[f"release/{row['layer']}"] = (row["status"], "; ".join(inner[0]["reasons"] if inner
+                                                                                     else row["reasons"]))
+                record = next((row for row in session_ctx.get("sessions") or [] if row["session_ref"] == own), {})
+                return cells, record
 
             def copied_fixture(label):
                 case = scratch / f"matrix-{label}"
@@ -10260,7 +10693,7 @@ def self_test():
 
             matrix_pin = json.loads((state / "sessions" / "pins" / "claude" / "session-1.json").read_text(encoding="utf-8"))
             matrix_installed = json.loads((state / "runtime" / "state.json").read_text(encoding="utf-8"))["selected_baseline_ref"]
-            clean_statuses = statuses_over(state, user)
+            clean_statuses, _clean_record = statuses_over(state, user)
             reads_state_now = {"current/adopted_packages", "current/overlays"}
             # A selection's native rows read no pin any more: they are `per_event` (lead ruling 5 on the P2.4 plan).
             reads_the_pin = {"release/catalog", "release/adopted_packages", "selection/catalog",
@@ -10306,18 +10739,35 @@ def self_test():
                 case_state, case_user = copied_fixture(f"{kind}-{outcome}")
                 plant(case_state, case_user)
                 try:
-                    case_statuses, failure = statuses_over(case_state, case_user), None
+                    (case_statuses, case_record), failure = statuses_over(case_state, case_user), None
                 except Exception as exc:  # a case that raises fails its own control by name
-                    case_statuses, failure = {}, exc
+                    (case_statuses, case_record), failure = ({}, {}), exc
                 changed = {cell for cell in clean_statuses if case_statuses.get(cell, (None,))[0] != clean_statuses[cell][0]}
                 check(f"#16 {kind} {outcome}: exactly the layers that read it change",
                       failure is None and changed == expected,
                       f"raised={type(failure).__name__ if failure else None} "
                       f"unexpected={sorted(changed - expected)} unchanged={sorted(expected - changed)}")
+
+                def names_it(cell):
+                    """NARROWED (P2.5, lead): a release cell of a pin or snapshot case is the session's own index
+                    row, whose reason is its selection's key (D1), which names no input; it must be exactly that
+                    key, and the compensating control below reads which link broke from the session's record."""
+                    status, text = case_statuses.get(cell, (None, ""))
+                    if cell.startswith("release/") and kind in ("pin", "snapshot"):
+                        return status == "unknown" and text == (case_record.get("selection") or {}).get("reason")
+                    return status == "unknown" and kind in text
+
                 check(f"#16 {kind} {outcome}: and each of them is unknown, naming the input",
-                      failure is None and all(case_statuses[cell][0] == "unknown" and kind in case_statuses[cell][1]
-                                              for cell in expected),
-                      f"{sorted(cell for cell in expected if kind not in case_statuses.get(cell, ('', ''))[1])}")
+                      failure is None and all(names_it(cell) for cell in expected),
+                      f"{sorted(cell for cell in expected if not names_it(cell))}")
+                if kind in ("pin", "snapshot"):
+                    pin_status = (case_record.get("pin") or {}).get("status")
+                    check(f"#16 {kind} {outcome}: and the session's own record says which link broke: its pin, or its "
+                          f"snapshot behind a pin that was read (COMPENSATING the narrowed release cells, P2.5)",
+                          failure is None and (case_record.get("selection") or {}).get("status") != "read"
+                          and bool((case_record.get("selection") or {}).get("reason"))
+                          and ((pin_status != "read") if kind == "pin" else (pin_status == "read")),
+                          f"pin={case_record.get('pin')} selection={case_record.get('selection')}")
             # The acquisition's own unexpected failure: what it cannot attribute to one input reaches every
             # producer that reads the owner's state, and still none that reads only the checkout, the
             # transcripts or the ledger.
@@ -11977,6 +12427,16 @@ def self_test():
                   == [(layer, "complete") for layer in SHARED_RELEASE_LAYERS],
                   f"{planted_release.get('baseline_unmapped')} {planted_release.get('baseline_items_expected')} "
                   f"{[(row['layer'], row['status']) for row in planted_release.get('layers') or []]}")
+            # R8: the manifest's mapping is the `--pin` session's own release inventory's, which is the planted run's
+            # census session, and the renames are taken against that inventory (R7)
+            planted_manifest = written_json(planted_out / "inventory" / "manifest.json")
+            planted_base = ((selection_doc.get("produced_by") or {}).get("notes") or {}).get("renames_base")
+            check("R8: the manifest maps the baseline of the --pin session's own release inventory, and R7: the renames "
+                  "are taken against that inventory",
+                  bool(planted_release) and planted_manifest.get("baseline_unmapped") == planted_release.get("baseline_unmapped")
+                  and planted_manifest.get("baseline_items_expected") == planted_release.get("baseline_items_expected") == 3
+                  and planted_base == {"inventory_ref": inventory_id("release", "ref1"), "reason": None},
+                  f"{planted_manifest.get('baseline_unmapped')} {planted_manifest.get('baseline_items_expected')} {planted_base}")
             planted_written = {path.relative_to(planted_out).as_posix(): hashlib.sha256(path.read_bytes()).hexdigest()
                                for path in (planted_out / "inventory").rglob("*.json") if path.name != "manifest.json"}
             planted_listed = {row["path"]: row for row in manifest.get("artifacts") or []}
@@ -12560,6 +13020,445 @@ def self_test():
                   == {"state": "uncertain", "event_ref": "e-1", "reason": "undecodable_after", "line": 3}
                   and event_at_instant(cut_at_end, half_past, "o-x")["state"] == "in_force",
                   f"{event_at_instant(cut_inside, half_past, 'o-x')} / {event_at_instant(cut_at_end, half_past, 'o-x')}")
+
+        with section('P2.5: the release segment index (step 0 S-17, #8, S-16, S-24; lead D1-D9)'):
+            # ---- P2.5: the release segment index (step 0 S-17, #8, S-16, S-24; lead D1-D9)
+            # One fixture state and one census through the production acquisition, `shared_inventories`,
+            # `release_index` and `release_cross_problems` (`published_shared`). Every expectation is written out by
+            # hand (rulings-2 S-12), never derived from the index it judges.
+            index_state = scratch / "p25" / "index-state"
+            x_items = [catalog_item("rule-x", "rule", "- rule x"),
+                       catalog_item("note-x", "rule", "- a local rule", package_id="@local/owner")]
+            plant_baseline(index_state, "ref-x", [catalog_item("rule-x", "rule", "- rule x")])
+            x_ref = plant_snapshot(index_state, seg_body, baseline_ref="ref-x", items=x_items)
+            unnamed_ref = plant_snapshot(index_state, "# Session\n\n- no baseline named\n", baseline_ref=None,
+                                         items=[catalog_item("rule-n", "rule", "- rule n")])
+            absent_ref = plant_snapshot(index_state, "# Session\n\n- a baseline not held\n", baseline_ref="ref-missing",
+                                        items=[catalog_item("rule-m", "rule", "- rule m")])
+            empty_ref = plant_snapshot(index_state, "", baseline_ref="ref-x", items=[catalog_item("rule-x", "rule", "- rule x")])
+            for ident, ref_here in (("s-seg", x_ref), ("s-seg-u", x_ref), ("s-nob", unnamed_ref), ("s-abs", absent_ref),
+                                    ("s-empty", empty_ref), ("s-empty-u", empty_ref)):
+                plant_pin(index_state, ident, ref_here)
+            at_x = "2026-10-23T09:00:00+00:00"
+            # a line before the event, so every such session has a segment before its first event
+            native_once = [{"type": "user", "timestamp": at_x}, inj(at_x, [member("User", "/w/g.md", "- once\n")], cwd="/w/x")]
+            index_rows_in = [
+                pinned_row("s-seg", seg_records, x_ref),
+                pinned_row("s-seg-u", native_once, x_ref, path=None),
+                pinned_row("s-nob", native_once, unnamed_ref),
+                pinned_row("s-abs", native_once, absent_ref),
+                pinned_row("s-empty", native_once, empty_ref),
+                pinned_row("s-empty-u", native_once, empty_ref, path=None),
+                pinned_row("s-gone", native_once, "7" * 64),
+                pinned_row("s-gone-u", native_once, "7" * 64, path=None),
+                ("claude", "s-free", native_once + [prompt_record(at_x, [seg_body])], {}),
+                ("claude", "s-free-u", native_once, {"path": None}),
+                ("codex", "c-seg", [block_meta("c-seg", at_x, "# Block\n\n- at seg\n", "/w/seg")], {}),
+                ("codex", "c-u", [block_meta("c-u", at_x, "# Block\n\n- unread\n", "/w/seg")], {"path": None}),
+                # D3's two real combinations: an unmapped member with an undecodable line after it (rank 1 over 2),
+                # and a rejected member of a known layer with one after it (rank 2 over 3); and a damaged container
+                ("claude", "s-two", [{"type": "user", "timestamp": at_x},
+                                     inj(at_x, [member("User", "/w/g.md", "- two\n"), member("Weird", "/w/w.md", "- w\n")],
+                                         cwd="/w/x"), b"not a json line", {"type": "user", "timestamp": at_x}], {}),
+                ("claude", "s-rej", [{"type": "user", "timestamp": at_x},
+                                     inj(at_x, [member("User", "/w/g.md", "- rej\n"), member("Project", "/w/x/CLAUDE.md", 5)],
+                                         cwd="/w/x"), b"not a json line", {"type": "user", "timestamp": at_x}], {}),
+                ("claude", "s-dmg", [{"type": "user", "timestamp": at_x},
+                                     {"type": "attachment", "timestamp": at_x,
+                                      "attachment": {"type": "instructions", "files": "not a list"}}], {}),
+                # a sidechain whose native event is cut by an owner-less sidechain record: `ownership_unknown`
+                ("claude", "s-own", [{"type": "user", "timestamp": at_x},
+                                     inj(at_x, [member("User", "/w/g.md", "- a3\n")], cwd="/w/x", isSidechain=True, agentId="a3"),
+                                     inj(at_x, [member("User", "/w/g.md", "- nobody's\n")], cwd="/w/x", isSidechain=True),
+                                     {"type": "user", "timestamp": at_x}], {})]
+            index_run = published_shared("index", index_rows_in, index_state)
+            check("the release index run was published, its documents crossing clean", "refused" not in index_run,
+                  f"{index_run.get('refused')} {str(index_run.get('message'))[:300]}")
+            index_doc = index_run.get("release") or {}
+            index_sessions = index_run.get("sessions") or {"sessions": [], "segments": [], "events": []}
+            index_shared = sorted((f"shared/{stem}.json", document) for stem, document in (index_run.get("shared") or {}).items())
+            index_store = index_run.get("store") or {}
+
+            def index_cells(session):
+                """`{owner display: [(from, to, {layer: (status, reasons, source)})]}` of one session's segments, and
+                its unsegmented `{layer: …}` under `None`. A source reads as its kind: `release`/`selection` for an
+                inventory's row, `members:<n>`, `occurrences:<n>`, or None."""
+                record = next((row for row in index_sessions.get("sessions") or [] if row["session"] == session), {})
+                names = {row["owner_ref"]: row["display"] for row in record.get("owners") or []}
+                spans = {row["segment_id"]: (names.get(row["owner_ref"], "?"), row["from"], row["to"])
+                         for row in index_sessions.get("segments") or []}
+                kinds = {document.get("inventory_id"): document.get("kind") for _path, document in index_shared}
+
+                def kind_of(source):
+                    if source is None:
+                        return None
+                    if "inventory_ref" in source:
+                        return kinds.get(source["inventory_ref"], "unpublished")
+                    if "members" in source:
+                        return f"members:{len(source['members'])}"
+                    return f"occurrences:{len(source['occurrence_refs'])}"
+
+                def cells(block):
+                    return {row["layer"]: (row["status"], row["reasons"], kind_of(row["source"])) for row in block["layers"]}
+
+                entry = next((row for row in index_doc.get("sessions") or [] if row["session_ref"] == record.get("session_ref")), {})
+                out = {}
+                for block in entry.get("segments") or []:
+                    owner, start, stop = spans.get(block["segment_ref"], ("?", None, None))
+                    out.setdefault(owner, []).append((start, stop, cells(block)))
+                if entry.get("unsegmented"):
+                    out[None] = cells(entry["unsegmented"])
+                return {owner: (sorted(rows, key=lambda row: row[0]) if owner is not None else rows)
+                        for owner, rows in out.items()}
+
+            def cell_at(session, owner, start):
+                return next((cells for row_from, _to, cells in (index_cells(session).get(owner) or []) if row_from == start), {})
+
+            settings_cell, ledger_cell = ("unknown", ["settings"], None), ("unknown", ["ledger_history"], None)
+            pinned_main = cell_at("claude:s-seg", "claude:s-seg", 3)
+            # X1 (#8): every cell of the plan's table, written out by hand, on the one run
+            check("X1: per layer its producer or its reason: a pinned Claude main, an unpinned one, a Codex main, an "
+                  "inline sidechain and a session no segment covers, every cell as written out by hand",
+                  pinned_main == {
+                      "catalog": ("complete", [], "release"), "adopted_packages": ("complete", [], "release"),
+                      "overlays": ("complete", [], "selection"), "native_global": ("complete", [], "members:1"),
+                      "native_project": ("complete", [], "members:0"), "native_settings": settings_cell,
+                      "native_memory": ("complete", [], "members:0"), "native_undivided": ("complete", [], None),
+                      "session_injection": ("complete", [], "occurrences:1"),
+                      "ledger_incubating": ledger_cell, "ledger_keep": ledger_cell}
+                  and cell_at("claude:s-free", "claude:s-free", 2) == {
+                      "catalog": ("unknown", ["release_history_deferred"], None),
+                      "adopted_packages": ("unknown", ["release_history_deferred"], None),
+                      "overlays": ("unknown", ["unpinned"], None), "native_global": ("complete", [], "members:1"),
+                      "native_project": ("complete", [], "members:0"), "native_settings": settings_cell,
+                      "native_memory": ("complete", [], "members:0"), "native_undivided": ("complete", [], None),
+                      "session_injection": ("unknown", ["unpinned"], None),
+                      "ledger_incubating": ledger_cell, "ledger_keep": ledger_cell}
+                  and cell_at("codex:c-seg", "codex:c-seg", 1) == {
+                      "catalog": ("unknown", ["release_history_deferred"], None),
+                      "adopted_packages": ("unknown", ["release_history_deferred"], None),
+                      "overlays": ("unknown", ["id_space"], None), "native_global": ("unknown", ["codex_undivided"], None),
+                      "native_project": ("unknown", ["codex_undivided"], None), "native_settings": settings_cell,
+                      "native_memory": ("unknown", ["codex_undivided"], None),
+                      "native_undivided": ("complete", [], "members:1"),
+                      "session_injection": ("unknown", ["id_space"], None),
+                      "ledger_incubating": ledger_cell, "ledger_keep": ledger_cell}
+                  and cell_at("claude:s-seg", "claude:s-seg#sidechain:a1", 5) == {
+                      "catalog": ("unknown", ["sidechain_unattributed"], None),
+                      "adopted_packages": ("unknown", ["sidechain_unattributed"], None),
+                      "overlays": ("unknown", ["sidechain_unattributed"], None),
+                      "native_global": ("complete", [], "members:1"), "native_project": ("complete", [], "members:0"),
+                      "native_settings": settings_cell, "native_memory": ("complete", [], "members:0"),
+                      "native_undivided": ("complete", [], None),
+                      "session_injection": ("unknown", ["sidechain_unattributed"], None),
+                      "ledger_incubating": ledger_cell, "ledger_keep": ledger_cell}
+                  and index_cells("claude:s-seg-u").get(None) == {
+                      "catalog": ("complete", [], "release"), "adopted_packages": ("complete", [], "release"),
+                      "overlays": ("complete", [], "selection"), "native_global": ("unknown", ["no_path"], None),
+                      "native_project": ("unknown", ["no_path"], None), "native_settings": settings_cell,
+                      "native_memory": ("unknown", ["no_path"], None), "native_undivided": ("complete", [], None),
+                      "session_injection": ("unknown", ["no_path"], None),
+                      "ledger_incubating": ledger_cell, "ledger_keep": ledger_cell},
+                  f"pinned={pinned_main} free={cell_at('claude:s-free', 'claude:s-free', 2)} "
+                  f"codex={cell_at('codex:c-seg', 'codex:c-seg', 1)} "
+                  f"side={cell_at('claude:s-seg', 'claude:s-seg#sidechain:a1', 5)} unread={index_cells('claude:s-seg-u').get(None)}")
+            check("R10: every census session is in the index, each once, main and subagent rows of both hosts alike",
+                  sorted(entry["session_ref"] for entry in index_doc.get("sessions") or [])
+                  == sorted(row["session_ref"] for row in index_sessions.get("sessions") or []) and len(index_rows_in) == 16
+                  and len(index_doc.get("sessions") or []) == 16, f"{len(index_doc.get('sessions') or [])}")
+            # X2: a pinned session's overlays come from its own snapshot, with no transcript confirmation needed; an
+            # unpinned one's are unknown by its reason, never the installed state
+            overlay_inventory = next((document for _path, document in index_shared
+                                      if document.get("inventory_id") == inventory_id("selection", x_ref)), {})
+            check("X2: a pinned session's overlays are its own selection inventory's overlays row, which holds its "
+                  "snapshot's @local item, and an unpinned session's are unknown: unpinned",
+                  pinned_main.get("overlays") == ("complete", [], "selection")
+                  and index_cells("claude:s-seg-u").get(None, {}).get("overlays") == ("complete", [], "selection")
+                  and [(row["layer"], row["status"], row["units"] > 0) for row in overlay_inventory.get("layers") or []
+                       if row["layer"] == "overlays"] == [("overlays", "complete", True)]
+                  and cell_at("claude:s-free", "claude:s-free", 1).get("overlays") == ("unknown", ["unpinned"], None),
+                  f"{pinned_main.get('overlays')} {[row for row in overlay_inventory.get('layers') or [] if row['layer'] == 'overlays']}")
+            nob_first = cell_at("claude:s-nob", "claude:s-nob", 1)
+            nob_record = next((row for row in index_sessions.get("sessions") or [] if row["session"] == "claude:s-nob"), {})
+            check("X3: a pinned Claude session with no recorded injection: its overlays known, its native and injection "
+                  "no_event_yet before its first event, its injection no_event_yet throughout, its delivery unknown",
+                  nob_first.get("overlays") == ("complete", [], "selection")
+                  and nob_first.get("native_global") == ("unknown", ["no_event_yet"], None)
+                  and nob_first.get("session_injection") == ("unknown", ["no_event_yet"], None)
+                  and all(cells.get("session_injection") == ("unknown", ["no_event_yet"], None)
+                          for _from, _to, cells in index_cells("claude:s-nob").get("claude:s-nob") or [])
+                  and (nob_record.get("delivery") or {}).get("status") == "unknown",
+                  f"{nob_first} {(nob_record.get('delivery') or {})}")
+            reinjected_cells = [(start, cells.get("native_global"))
+                                for start, _to, cells in index_cells("claude:s-seg").get("claude:s-seg") or []]
+
+            def members_at(session, owner, start, layer):
+                """The members a segment's row names, read from the index itself."""
+                entry = next((row for row in index_doc.get("sessions") or []
+                              if row["session_ref"] == session_ref(*session.split(":", 1))), {})
+                spans = {row["segment_id"]: row["from"] for row in index_sessions.get("segments") or []
+                         if row["owner_ref"] == owner}
+                block = next((block for block in entry.get("segments") or [] if spans.get(block["segment_ref"]) == start), {})
+                row = next((row for row in block.get("layers") or [] if row["layer"] == layer), {})
+                return [(member["carrier_id"], member["version_sha256"]) for member in (row.get("source") or {}).get("members") or []]
+
+            seg_owner = owner_ref("claude", "s-seg")
+            first_version, second_version = members_at("claude:s-seg", seg_owner, 2, "native_global"), \
+                members_at("claude:s-seg", seg_owner, 6, "native_global")
+            check("X4: a re-injection that changes a file gives two segments, the later naming the new version of the "
+                  "same carrier",
+                  len(first_version) == len(second_version) == 1 and first_version[0][0] == second_version[0][0]
+                  and first_version[0][1] == sha256_text("- g one\n") and second_version[0][1] == sha256_text("- g two\n")
+                  and members_at("claude:s-seg", seg_owner, 3, "native_global") == first_version,
+                  f"{first_version} {second_version}")
+            side_cells = cell_at("claude:s-seg", "claude:s-seg#sidechain:a1", 5)
+            check("X6: a sidechain's pin-derived rows and its injection are sidechain_unattributed while its parent's are "
+                  "known, and its native rows name its own event",
+                  all(side_cells.get(layer) == ("unknown", ["sidechain_unattributed"], None) for layer in UNATTRIBUTED)
+                  and all(pinned_main.get(layer, ("?",))[0] == "complete" for layer in UNATTRIBUTED)
+                  and [version for _carrier, version in members_at("claude:s-seg", owner_ref("claude", "s-seg", "a1"), 5,
+                                                                   "native_global")] == [sha256_text("- side\n")],
+                  f"{side_cells}")
+            codex_blocks = [cells for _from, _to, cells in index_cells("codex:c-seg").get("codex:c-seg") or []] \
+                + [index_cells("codex:c-u").get(None) or {}]
+            check("X7 and D8: a Codex session's global, project and memory layers are codex_undivided in every segment "
+                  "and in an unread one's rows, its catalog and adopted packages release_history_deferred, its overlays "
+                  "and injection id_space, and its block answers native_undivided where an event records it",
+                  len(codex_blocks) == 2 and all(
+                      all(cells.get(layer) == ("unknown", ["codex_undivided"], None) for layer in SPLIT_NATIVE)
+                      and all(cells.get(layer) == ("unknown", ["release_history_deferred"], None)
+                              for layer in SHARED_RELEASE_LAYERS)
+                      and cells.get("overlays") == cells.get("session_injection") == ("unknown", ["id_space"], None)
+                      for cells in codex_blocks)
+                  and codex_blocks[0].get("native_undivided") == ("complete", [], "members:1")
+                  and codex_blocks[1].get("native_undivided") == ("unknown", ["no_path"], None),
+                  f"{codex_blocks}")
+            gone = cell_at("claude:s-gone", "claude:s-gone", 2)
+            check("X8: a broken pin chain's reason replaces the pin-derived cells, and only those",
+                  all(gone.get(layer) == ("unknown", ["pin_absent"], None) for layer in SHARED_RELEASE_LAYERS + ("overlays",))
+                  and gone.get("native_global") == ("complete", [], "members:1")
+                  and gone.get("session_injection") == ("unknown", ["pin_absent"], None),
+                  f"{gone}")
+            nob_rows, abs_rows = cell_at("claude:s-nob", "claude:s-nob", 2), cell_at("claude:s-abs", "claude:s-abs", 2)
+            missing_inventory = next((document for _path, document in index_shared
+                                      if document.get("inventory_id") == inventory_id("release", "ref-missing")), {})
+            check("D7: a snapshot that names no baseline is baseline_unnamed, which a named baseline the state does not "
+                  "hold is not: that one is its release inventory's, unknown by baseline_absent",
+                  all(nob_rows.get(layer) == ("unknown", ["baseline_unnamed"], None) for layer in SHARED_RELEASE_LAYERS)
+                  and all(abs_rows.get(layer) == ("unknown", [], "release") for layer in SHARED_RELEASE_LAYERS)
+                  and all(row["status"] == "unknown" and any(UNKNOWN_REASONS["baseline_absent"] in text for text in row["reasons"])
+                          for row in missing_inventory.get("layers") or [])
+                  and len(missing_inventory.get("layers") or []) == 2,
+                  f"{[nob_rows.get(layer) for layer in SHARED_RELEASE_LAYERS]} {[abs_rows.get(layer) for layer in SHARED_RELEASE_LAYERS]} "
+                  f"{[(row['status'], row['reasons']) for row in missing_inventory.get('layers') or []]}")
+            # D3 (S-10 v3 final, ranks as data): the two combinations that occur, and a damaged container
+            two_after, rej_before, rej_after = cell_at("claude:s-two", "claude:s-two", 3), \
+                cell_at("claude:s-rej", "claude:s-rej", 2), cell_at("claude:s-rej", "claude:s-rej", 3)
+            check("D3 (i): an unmapped member beats an undecodable line after it, rank 1 over rank 2, in every native "
+                  "layer of the event",
+                  all(two_after.get(layer, ("?",))[:2] == ("unknown", ["member_unmapped"]) for layer in SPLIT_NATIVE),
+                  f"{[two_after.get(layer) for layer in SPLIT_NATIVE]}")
+            check("D3 (ii): an undecodable line after the event beats a rejected member of a known layer, rank 2 over "
+                  "rank 3, while before it the rejected member's layer is incomplete",
+                  rej_before.get("native_project", ("?",))[:2] == ("incomplete", ["member_rejected"])
+                  and rej_before.get("native_global", ("?",))[:2] == ("complete", [])
+                  and rej_after.get("native_project", ("?",))[:2] == ("unknown", ["uncertain: undecodable_after"])
+                  and rej_after.get("native_global", ("?",))[:2] == ("unknown", ["uncertain: undecodable_after"]),
+                  f"{rej_before.get('native_project')} {rej_after.get('native_project')}")
+            check("D3: a damaged container is unknown by its damage in every native layer of it, its event still named",
+                  all(cell_at("claude:s-dmg", "claude:s-dmg", 2).get(layer) == ("unknown", ["container_unusable"], "members:0")
+                      for layer in SPLIT_NATIVE),
+                  f"{cell_at('claude:s-dmg', 'claude:s-dmg', 2)}")
+            # D4: every segment state's row, one control per state, and the state table is the states' own set
+            check("D4: the segment-state table names every state the segments publish, and no other",
+                  set(SEGMENT_ROW_STATES) == set(SEGMENT_STATES), f"{sorted(SEGMENT_ROW_STATES)} {sorted(SEGMENT_STATES)}")
+            check("D4 in_force: a row of the event in force answers by that event's own conditions",
+                  pinned_main.get("native_global") == ("complete", [], "members:1"), f"{pinned_main.get('native_global')}")
+            check("D4 uncertain: past the cut the row is unknown by `uncertain: <the cut's key>`, its event still named",
+                  cell_at("claude:s-seg", "claude:s-seg", 8).get("native_global")
+                  == ("unknown", ["uncertain: undecodable_after"], "members:1")
+                  and cell_at("claude:s-own", "claude:s-own#sidechain:a3", 3).get("native_global")
+                  == ("unknown", ["uncertain: ownership_unknown"], "members:1"),
+                  f"{cell_at('claude:s-seg', 'claude:s-seg', 8).get('native_global')} "
+                  f"{cell_at('claude:s-own', 'claude:s-own#sidechain:a3', 3).get('native_global')}")
+            check("D4 no_event_yet: before the first event the row is unknown by no_event_yet, naming no event",
+                  cell_at("claude:s-seg", "claude:s-seg", 1).get("native_global") == ("unknown", ["no_event_yet"], None),
+                  f"{cell_at('claude:s-seg', 'claude:s-seg', 1).get('native_global')}")
+            check("D4 unsought: an injection nobody could look for is unknown by the session's own reason",
+                  cell_at("claude:s-free", "claude:s-free", 1).get("session_injection") == ("unknown", ["unpinned"], None)
+                  and cell_at("claude:s-empty", "claude:s-empty", 1).get("session_injection")
+                  == ("unknown", ["injection_body_empty"], None),
+                  f"{cell_at('claude:s-free', 'claude:s-free', 1).get('session_injection')}")
+            unmapped_event = {"id": "e-" + "1" * 24, "kind": "session_injection", "damaged": None}
+            check("recorded_unmapped, placed at rank 1 outside S-10's table: an injection in force whose only occurrence "
+                  "could not be mapped is unknown by it, its occurrence still named",
+                  segment_row("session_injection", {"state": "in_force", "event_ref": unmapped_event["id"], "reason": None,
+                                                  "line": None},
+                            {unmapped_event["id"]: unmapped_event},
+                            {unmapped_event["id"]: [{"occurrence_id": "q-" + "2" * 24, "method": "unmapped"}]})
+                  == {"layer": "session_injection", "status": "unknown", "reasons": ["recorded_unmapped"],
+                      "source": {"event_ref": unmapped_event["id"], "occurrence_refs": ["q-" + "2" * 24]}},
+                  "")
+            # D9: one owner of the "no body to look for" rule; a read session's segments and an unread twin's index rows
+            # give the same reason, for a session of each reason
+            agreeing = {}
+            for read_one, unread_one, expected in (("claude:s-free", "claude:s-free-u", "unpinned"),
+                                                   ("codex:c-seg", "codex:c-u", "id_space"),
+                                                   ("claude:s-gone", "claude:s-gone-u", "pin_absent"),
+                                                   ("claude:s-empty", "claude:s-empty-u", "injection_body_empty")):
+                read_ref = session_ref(*read_one.split(":", 1))
+                segment_reasons = {row["in_force"]["session_injection"]["reason"] for row in index_sessions.get("segments") or []
+                                   if row["session_ref"] == read_ref and row["owner_ref"] == owner_ref(*read_one.split(":", 1))}
+                unread_row = (index_cells(unread_one).get(None) or {}).get("session_injection")
+                agreeing[expected] = (segment_reasons, unread_row)
+            check("D9: the segments and the index ask one function why nobody could look for an injection, and agree on a "
+                  "session of each reason: unpinned, id_space, a broken pin chain, an empty own body",
+                  all(segments_said == {expected} and unread_row == ("unknown", [expected], None)
+                      for expected, (segments_said, unread_row) in agreeing.items()) and len(agreeing) == 4,
+                  f"{agreeing}")
+            # X9 (§6.1 per segment): settings make no segment complete today, so the positive case is planted
+            blocks_here = [block for entry in index_doc.get("sessions") or []
+                           for block in (entry.get("segments") or []) + ([entry["unsegmented"]] if entry.get("unsegmented") else [])]
+            whole = [{"layer": layer, "status": "complete", "reasons": [], "source": None} for layer, _producers in LAYERS]
+            one_short = whole[:-1] + [{"layer": whole[-1]["layer"], "status": "unknown", "reasons": [],
+                                       "source": {"inventory_ref": "i-" + "3" * 24, "layer": "catalog"}}]
+            check("X9: a segment is complete only when every row is: none is today, and a planted all-complete set is, "
+                  "while one inventory row short of it names the inventory its reasons live in",
+                  len(blocks_here) > 20 and not any(block["complete"] for block in blocks_here)
+                  and all(block["complete"] == all(row["status"] == "complete" for row in block["layers"]) for block in blocks_here)
+                  and completeness(whole) == {"complete": True, "incomplete_reasons": []}
+                  and completeness(one_short)["incomplete_reasons"] == [{"layer": whole[-1]["layer"], "status": "unknown",
+                                                                         "reasons": [], "inventory_ref": "i-" + "3" * 24}],
+                  f"{len(blocks_here)} {[block['complete'] for block in blocks_here][:4]}")
+            # X10 and D2: the cross check against planted documents, the positive control first
+            clean("X10: the published index crosses clean against its sessions, inventories and store, and validates "
+                  "against its own root",
+                  release_cross_problems(index_doc, index_sessions, index_shared, index_store)
+                  + document_contract_problems(index_doc) if index_doc else ["the run published no index"])
+
+            def planted_index(change):
+                """`release_cross_problems` of a deep copy of the published index after `change`."""
+                copy_here = json.loads(json.dumps(index_doc))
+                change(copy_here)
+                return release_cross_problems(copy_here, index_sessions, index_shared, index_store)
+
+            def seg_block(document, start=3):
+                entry = next(row for row in document["sessions"] if row["session_ref"] == session_ref("claude", "s-seg"))
+                spans = {row["segment_id"]: row["from"] for row in index_sessions["segments"] if row["owner_ref"] == seg_owner}
+                return next(block for block in entry["segments"] if spans.get(block["segment_ref"]) == start)
+
+            def layer_of(block, layer):
+                return next(row for row in block["layers"] if row["layer"] == layer)
+
+            def flip_status(document):
+                layer_of(seg_block(document), "catalog")["status"] = "incomplete"
+
+            def other_inventory(document):
+                layer_of(seg_block(document), "catalog")["source"]["inventory_ref"] = inventory_id("release", "ref-elsewhere")
+
+            def absent_member(document):
+                layer_of(seg_block(document), "native_global")["source"]["members"][0]["version_sha256"] = "8" * 64
+
+            def unioned(document):
+                row = layer_of(seg_block(document), "native_global")
+                row["source"]["members"] = row["source"]["members"] + layer_of(seg_block(document, 6), "native_global")["source"]["members"]
+
+            def not_in_force(document):
+                layer_of(seg_block(document), "native_global")["source"]["event_ref"] = \
+                    layer_of(seg_block(document, 6), "native_global")["source"]["event_ref"]
+
+            def dangling_segment(document):
+                seg_block(document)["segment_ref"] = "g-" + "9" * 24
+
+            def lost_occurrence(document):
+                layer_of(seg_block(document), "session_injection")["source"]["occurrence_refs"] = []
+
+            def wrong_refs(document):
+                seg_block(document)["inventory_refs"] = []
+
+            def wrong_complete(document):
+                seg_block(document)["complete"] = True
+
+            def dropped_layer(document):
+                seg_block(document)["layers"].pop()
+
+            def twice(document):
+                document["sessions"].append(document["sessions"][0])
+
+            def both_shapes(document):
+                document["sessions"][0]["unsegmented"] = seg_block(document)
+
+            def two_answers(document):
+                # the native event in force here, so no other code of the cross check refuses it
+                layer_of(seg_block(document), "catalog")["source"]["event_ref"] = \
+                    layer_of(seg_block(document), "native_global")["source"]["event_ref"]
+
+            for what, change, code in (
+                    ("D2: a row whose status is not its inventory row's", flip_status, "RELEASE_STATUS_DIFFERS"),
+                    ("a row naming an inventory nobody published", other_inventory, "RELEASE_INVENTORY_UNRESOLVED"),
+                    ("a row naming a member the store does not hold", absent_member, "RELEASE_MEMBER_UNRESOLVED"),
+                    ("X5: a row that unions two events' members", unioned, "RELEASE_MEMBERS_DIFFER"),
+                    ("a row naming an event that is not the segment's in force", not_in_force, "RELEASE_EVENT_NOT_IN_FORCE"),
+                    ("a dangling segment_ref", dangling_segment, "RELEASE_SEGMENTS_DIFFER"),
+                    ("an injection row missing its event's occurrence", lost_occurrence, "RELEASE_OCCURRENCES_DIFFER"),
+                    ("a segment whose inventory list is not its rows'", wrong_refs, "RELEASE_INVENTORY_REFS_DIFFER"),
+                    ("a segment complete while its rows are not", wrong_complete, "RELEASE_COMPLETENESS_DIFFERS"),
+                    ("a segment missing a layer", dropped_layer, "RELEASE_LAYERS_DIFFER"),
+                    ("a session listed twice", twice, "RELEASE_SESSIONS_DIFFER"),
+                    ("a segmented session with a row set of its own", both_shapes, "RELEASE_UNSEGMENTED"),
+                    ("a row source naming two answers", two_answers, "RELEASE_SOURCE_SHAPE")):
+                found_here = planted_index(change)
+                check(f"X10: {what} is refused by {code}", any(row.startswith(code) for row in found_here), f"{found_here[:3]}")
+            # X12: the schema holds the index's shapes, and the emission admits declared reasons only (D1).
+            # Strengthened: a source left with one member is refused by `minProperties` too, so each planted source
+            # is the catalog source with the block's own event_ref and the case's extra member, minus only the
+            # dependent; its twin keeps the dependent and is admitted, so each refusal is that dependent's. One
+            # case per `dependentRequired` entry of the schema's `release_source`.
+            schema_here = inventory_schema()
+            block_event = next((row["source"]["event_ref"] for row in seg_block(index_doc)["layers"]
+                                if (row["source"] or {}).get("event_ref")), None)
+            dependents = ((schema_here.get("$defs") or {}).get("release_source") or {}).get("dependentRequired") or {}
+            dependent_cases = (("inventory_ref", "layer", {}, "a row source naming an inventory and no layer"),
+                               ("layer", "inventory_ref", {}, "a row source naming a layer and no inventory"),
+                               ("members", "event_ref", {"members": []}, "a row source naming members and no event"),
+                               ("occurrence_refs", "event_ref", {"occurrence_refs": []},
+                                "a row source naming occurrences and no event"))
+            check("X12: every dependentRequired entry of a row source has its case",
+                  {trigger: [dependent] for trigger, dependent, _extra, _what in dependent_cases} == dependents,
+                  f"{dependents}")
+            for trigger, dependent, extra, what in dependent_cases:
+                bare_source, twin_source = json.loads(json.dumps(index_doc)), json.loads(json.dumps(index_doc))
+                for planted_doc, keeps_dependent in ((bare_source, False), (twin_source, True)):
+                    planted_source = layer_of(seg_block(planted_doc), "catalog")["source"]
+                    planted_source.update({"event_ref": block_event, **extra})
+                    if not keeps_dependent:
+                        planted_source.pop(dependent)
+                check(f"X12: {what} is refused by the schema",
+                      block_event is not None
+                      and any(problem.startswith("DOCUMENT_INVALID") for problem in document_contract_problems(bare_source, schema_here)),
+                      f"the schema admitted a source with {trigger} and no {dependent} (event_ref={block_event})")
+                clean(f"X12: and the {trigger} source with its {dependent} is admitted, so the refusal is the missing "
+                      f"{dependent}'s",
+                      document_contract_problems(twin_source, schema_here) if block_event is not None
+                      else ["the block has no event-sourced row to take an event_ref from"])
+            control("D1: an index row's reason that is not a declared key, an `uncertain:` one included, is refused at "
+                    "emission",
+                    [str(_raised(lambda: emit_row("release_row", RELEASE_ROW_TABLE, {
+                        "layer": "catalog", "status": "unknown", "reasons": ["uncertain: not_a_declared_key"],
+                        "source": None}, {"home": str(fixture_home), "decisions": {}})))], "EMISSION_NOT_DECLARED_VALUE")
+            # `run` crosses the index it built before it writes anything: a planted index naming no session, over the
+            # same census and state, is refused by name, and nothing is written
+            kept_index, hollow_out = globals()["release_index"], scratch / "p25" / "hollow-index-out"
+            try:
+                globals()["release_index"] = lambda ctx, shared: {**kept_index(ctx, shared), "sessions": []}
+                hollow = _raised(lambda: run(REPO, index_state, None, hollow_out, native_roots={"projects": {}},
+                                             run_dir=scratch / "p24b" / "run-index", commit="fixture", home=fixture_home))
+            finally:
+                globals()["release_index"] = kept_index
+            control("run crosses the release index before it writes: an index that lists no session is refused",
+                    [str(hollow)], "RELEASE_SESSIONS_DIFFER")
+            check("and the refused run wrote no artifact", not list(hollow_out.rglob("*.json")),
+                  f"{sorted(path.name for path in hollow_out.rglob('*.json'))}")
 
         with section("the general control (lead, after a36c728): no reason in ANY document this suite's runs"):
             # ---- the general control (lead, after a36c728): no reason in ANY document this suite's runs

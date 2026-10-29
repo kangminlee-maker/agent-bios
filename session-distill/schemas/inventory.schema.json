@@ -17,13 +17,91 @@
       }
     },
     "release_document": {
+      "$comment": "`release.json`, the segment index (step 0 S-17, #8): per census session, each segment of each of its owners with one row per layer, or a row set of its own for a session no segment covers. It never picks one segment and never unions versions: a row points into a shared inventory or at the in-force event, and copies no unit. Validated whole.",
       "type": "object",
       "additionalProperties": false,
-      "required": ["document", "units", "layers"],
+      "required": ["document", "produced_by", "sessions"],
       "properties": {
         "document": {"const": "release"},
-        "units": {"type": "array", "items": {"$ref": "#/$defs/unit"}},
-        "layers": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/layer_row"}}
+        "produced_by": {"type": "object", "additionalProperties": false, "required": ["module", "design", "commit"],
+                        "properties": {"module": {"type": "string"}, "design": {"type": "string"},
+                                       "commit": {"type": ["string", "null"]}}},
+        "sessions": {"type": "array", "items": {"$ref": "#/$defs/release_session"}}
+      }
+    },
+    "release_session": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["session_ref", "segments", "unsegmented"],
+      "properties": {
+        "session_ref": {"$ref": "#/$defs/session_ref"},
+        "segments": {"type": "array", "items": {"$ref": "#/$defs/release_segment"}},
+        "unsegmented": {"$ref": "#/$defs/release_rows"}
+      }
+    },
+    "release_segment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["segment_ref", "inventory_refs", "layers", "complete", "incomplete_reasons"],
+      "properties": {
+        "segment_ref": {"$ref": "#/$defs/segment_id"},
+        "inventory_refs": {"type": "array", "items": {"$ref": "#/$defs/inventory_id"}},
+        "layers": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/release_row"}},
+        "complete": {"type": "boolean"},
+        "incomplete_reasons": {"type": "array", "items": {"$ref": "#/$defs/release_incomplete"}}
+      }
+    },
+    "release_rows": {
+      "$comment": "the row set of a session no segment covers (R3), or null",
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["inventory_refs", "layers", "complete", "incomplete_reasons"],
+      "properties": {
+        "inventory_refs": {"type": "array", "items": {"$ref": "#/$defs/inventory_id"}},
+        "layers": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/release_row"}},
+        "complete": {"type": "boolean"},
+        "incomplete_reasons": {"type": "array", "items": {"$ref": "#/$defs/release_incomplete"}}
+      }
+    },
+    "release_row": {
+      "$comment": "one layer of one segment: its status, its reasons as declared keys (an uncertain one prefixed `uncertain: `, S-21), and its source, or null",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["layer", "status", "reasons", "source"],
+      "properties": {
+        "layer": {"$ref": "#/$defs/layer_name"},
+        "status": {"type": "string", "enum": ["complete", "incomplete", "unsupported", "unknown"]},
+        "reasons": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "source": {"$ref": "#/$defs/release_source"}
+      }
+    },
+    "release_source": {
+      "$comment": "one shared inventory's row of the layer ({inventory_ref, layer}), the in-force event's own members of the layer ({event_ref, members}), that event's occurrences ({event_ref, occurrence_refs}), or null",
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "minProperties": 2,
+      "dependentRequired": {"inventory_ref": ["layer"], "layer": ["inventory_ref"], "members": ["event_ref"],
+                            "occurrence_refs": ["event_ref"]},
+      "properties": {
+        "inventory_ref": {"$ref": "#/$defs/inventory_id"},
+        "layer": {"type": "string", "enum": ["catalog", "adopted_packages", "overlays"]},
+        "event_ref": {"$ref": "#/$defs/event_id"},
+        "members": {"type": "array", "items": {
+          "type": "object", "additionalProperties": false, "required": ["carrier_id", "version_sha256"],
+          "properties": {"carrier_id": {"type": "string", "pattern": "^c-[0-9a-f]{24}$"},
+                         "version_sha256": {"$ref": "#/$defs/sha256"}}}},
+        "occurrence_refs": {"type": "array", "items": {"type": "string", "pattern": "^q-[0-9a-f]{24}$"}}
+      }
+    },
+    "release_incomplete": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["layer", "status", "reasons", "inventory_ref"],
+      "properties": {
+        "layer": {"$ref": "#/$defs/layer_name"},
+        "status": {"type": "string", "enum": ["incomplete", "unsupported", "unknown"]},
+        "reasons": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "inventory_ref": {"type": ["string", "null"], "pattern": "^i-[0-9a-f]{24}$"}
       }
     },
     "selection_document": {
