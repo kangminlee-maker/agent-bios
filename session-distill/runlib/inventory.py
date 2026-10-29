@@ -44,6 +44,7 @@ import bisect
 import collections
 import datetime
 import contextlib
+import builtins
 import hashlib
 import importlib.util
 import io
@@ -122,6 +123,12 @@ LEDGER_REL = "design/session-distill/ledger.json"
 REFERENCES = ("current", "release", "selection")
 SESSIONS = "sessions"  # `inventory/sessions.json`: the per-session records and their events
 STORE = "shared_store"  # `inventory/shared/store.json`: every carrier version the run names, once (S-22)
+# `inventory/shared/<selection|release>-<i>.json`: one per verified snapshot and per baseline a session's own
+# pin names, each the layer rows of its kind, by reference into the store (S-22)
+SHARED = "shared_inventory"
+SHARED_KINDS = ("selection", "release")
+# the layers a release inventory answers: its overlays and session injection are per session (S-17)
+SHARED_RELEASE_LAYERS = ("catalog", "adopted_packages")
 STORE_REL = "shared/store.json"
 STATUSES = ("complete", "incomplete", "unsupported", "unknown")
 
@@ -445,7 +452,7 @@ def structured(path, text, form):
         try:
             json.loads(text)
         except ValueError as exc:
-            raise Malformed(f"{path}: not valid JSON{where_in(exc)}") from exc
+            raise Malformed(f"{path}: MALFORMED_CARRIER: not valid JSON{where_in(exc)}") from exc
     elif form == "toml":
         if tomllib is None:
             raise Unsupported(f"{path}: this interpreter has no TOML reader, so a settings file of this kind "
@@ -453,7 +460,7 @@ def structured(path, text, form):
         try:
             tomllib.loads(text)
         except Exception as exc:  # tomllib raises its own decode error type
-            raise Malformed(f"{path}: not valid TOML{where_in(exc)}") from exc
+            raise Malformed(f"{path}: MALFORMED_CARRIER: not valid TOML{where_in(exc)}") from exc
 
 
 def blocks_of(path, text, form=None):
@@ -476,9 +483,11 @@ def blocks_of(path, text, form=None):
     except (SyntaxError, ValueError, RecursionError) as exc:
         # Python and markdown are forms this splitter supports, so a carrier of one that does not
         # parse is a malformed carrier of a supported form, never an unsupported structure (GB#12).
-        # The TYPE NAME and the position only: a `SyntaxError`'s message names the identifier it
-        # tripped on, which is the carrier's text (r5 F0).
-        raise Malformed(f"{path}: {type(exc).__name__}{where_in(exc)}") from exc
+        # A fixed category and the position only: a `SyntaxError`'s message names the identifier it
+        # tripped on, which is the carrier's text (r5 F0), and the type's name is not something a
+        # reader of the row acts on (lead, after a36c728). A subclass is its base's category.
+        category = next(text for kind, text in CARRIER_PARSE_FAILURES.items() if isinstance(exc, kind))
+        raise Malformed(f"{path}: MALFORMED_CARRIER: {category}{where_in(exc)}") from exc
     if "".join(block[1] for block in blocks) != text:
         raise Unsupported(f"{path}: the split does not reproduce the carrier")
     return blocks
@@ -859,6 +868,7 @@ OPAQUE_FORMS = {"unit_id": re.compile(r"^u-[0-9a-f]{16}(-[0-9]+)?$"),
                 "scope_id": re.compile(r"^s-[0-9a-f]{24}$"),
                 "unit_ref": re.compile(r"^r-[0-9a-f]{24}$"),
                 "occurrence_id": re.compile(r"^q-[0-9a-f]{24}$"),
+                "inventory_id": re.compile(r"^i-[0-9a-f]{24}$"),
                 "commit_hash": re.compile(r"^[0-9a-f]{7,64}$")}
 
 
@@ -1387,6 +1397,7 @@ SNAPSHOT_REASONS = ("snapshot_absent", "input_failed")
 # never opened (`transcript_records`)
 READ_FAILURES = ("unbound", "binding_invalid", "no_path", "changed", "unreadable")
 DELIVERY_STATUSES = ("confirmed", "unknown")
+SELECTION_REASONS = tuple(dict.fromkeys(PIN_REASONS + SNAPSHOT_REASONS))
 DELIVERY_REASONS = tuple(dict.fromkeys(PIN_REASONS + SNAPSHOT_REASONS + READ_FAILURES
                                        + ("container_unusable", "locator_element_rejected", "recorded_unmapped",
                                           "no_record")))
@@ -1438,6 +1449,11 @@ SESSION_TABLE = table_of({
         "reason": as_enum(DELIVERY_REASONS, nullable=True),
         "event_refs": list_of(as_opaque("event_id")),
     }, schema="delivery"),
+    "selection": table_of({
+        "status": as_enum(PIN_STATUSES),
+        "reason": as_enum(SELECTION_REASONS, nullable=True),
+        "inventory_ref": as_opaque("inventory_id", nullable=True),
+    }, schema="session_selection"),
 }, schema="session")
 EVENT_TABLE = table_of({
     "event_id": as_opaque("event_id"),
@@ -2003,7 +2019,7 @@ def hash_tree(root):
         except Refused as exc:
             omissions.append({"path": relative, "reason": f"not admitted: {exc}"})
         except OSError as exc:
-            omissions.append({"path": relative, "reason": f"unreadable: {projected_message(exc)}"})
+            omissions.append({"path": relative, "reason": f"unreadable: {acquisition_reason(exc)}"})
     return digests, omissions
 
 
@@ -2460,6 +2476,12 @@ def freeze(sources, destination, boundary=None):
     return missing
 
 
+# `blocks_of`'s parse failures of a supported form, by the category a reason names them under.
+CARRIER_PARSE_FAILURES = {SyntaxError: "the carrier does not parse in its form",
+                          ValueError: "the carrier does not parse in its form",
+                          RecursionError: "the carrier nests deeper than the splitter reads"}
+
+
 def refusal_code(exc):
     """The first word of this module's own refusal — `SOURCE_LINKED`, `PIN_ABSENT` — or the
     exception's type name. A fixed vocabulary either way: never the message, which names paths."""
@@ -2506,9 +2528,8 @@ def store_of(repo, state_root, user_root):
 
 # ---------------------------------------------------------------- the producers
 
-def catalog_carriers(tree, layer="catalog", adopted=False):
-    """Rules, guides, skills, hooks and agents of a checkout's catalog, through the shipped loader.
-    `adopted=True` keeps the items an adopted package brought instead of the core ones."""
+def catalog_module(tree):
+    """The checkout's shipped catalog loader, as a module."""
     tree = pathlib.Path(tree)
     path = tree / "compose" / "instructions_catalog.py"
     if not path.is_file():
@@ -2518,6 +2539,15 @@ def catalog_carriers(tree, layer="catalog", adopted=False):
     sys.path.insert(0, str(tree / "compose"))
     with no_bytecode():
         spec.loader.exec_module(module)
+    return module
+
+
+def catalog_carriers(tree, layer="catalog", adopted=False):
+    """Rules, guides, skills, hooks and agents of a checkout's catalog, through the shipped loader.
+    `adopted=True` keeps the items an adopted package brought instead of the core ones."""
+    tree = pathlib.Path(tree)
+    module = catalog_module(tree)
+    with no_bytecode():
         catalog = module.load_catalog(tree)
     core = core_package_id(tree, catalog)
     rows = []
@@ -2544,7 +2574,12 @@ def core_package_id(tree, catalog):
 
 def item_carriers(item, layer):
     """One carrier per member of a catalog, baseline or snapshot item. A rule is one bullet line,
-    which is all the compiler takes from it; every other kind carries its member files."""
+    which is all the compiler takes from it; every other kind carries its member files.
+
+    An item that names no kind or no ref is a malformed item, said so in a declared reason: indexed
+    straight, it reached a layer row as the exception's type and text (lead, after a36c728)."""
+    if not (isinstance(item, dict) and isinstance(item.get("kind"), str) and isinstance(item.get("ref"), str)):
+        raise Malformed(f"MALFORMED_ITEM: a {layer} item that names no kind or no ref")
     if item["kind"] == "rule":
         return [carrier(layer, "claude/CLAUDE.md", item["body"], item["ref"], item.get("package_id"))]
     members = item.get("members") or {}
@@ -2702,6 +2737,12 @@ UNKNOWN_REASONS = {
     "no_census_session": "unknown: the pinned session has no census row, so no transcript of it is read",
     "recorded_unmapped": ("unknown: a normalised match of the selected body whose offsets could not be recovered "
                           "is the only recorded occurrence"),
+    # a selection's native layers, an unpinned release, and a baseline a release names (S-15, S-24, S-25)
+    "per_event": ("unknown: a native layer is what each event recorded, so a selection does not hold one; the "
+                  "session's events in sessions.json do"),
+    "release_history_deferred": ("unknown: which baseline an unpinned session ran under needs the baseline-selection "
+                                 "history, which a follow-up package builds; the installed-now inventory is not it"),
+    "baseline_absent": "unknown: the release names a baseline the owner's state does not hold",
 }
 
 
@@ -2750,6 +2791,10 @@ INPUT_CLASSES = {
     "installed_baseline": "required",
     "release_baseline": "required",
 }
+
+
+# A producer that raised: the layer row's declared reason, with `acquisition_reason`'s fixed category.
+PRODUCER_FAILED = "the producer could not read its input, so this layer has no record here"
 
 
 def safe_label(kind, value):
@@ -2988,7 +3033,7 @@ def transcript_records(entry, zstd=None):
             else:
                 undecodable.append((line, "not_object"))
     except sources.Unreadable as exc:
-        raise Unacquired(f"{UNKNOWN_REASONS['unreadable']}: {projected_message(exc)}") from exc
+        raise Unacquired(f"{UNKNOWN_REASONS['unreadable']} ({acquisition_reason(exc)})") from exc
     digest.update(tail)
     sha = digest.hexdigest()
     if whole_sha is not None and sha == whole_sha:
@@ -3957,6 +4002,7 @@ def session_record(entry, read=None, found=(), damage=(), inherited=(), seen=Non
               "own_meta_unidentified": None, "limitations": [], "event_refs": [], "unknown": [],
               # the snapshot the pin names when the pin was read (agreeing or not), else the one the
               # census row names; a Codex row's is read for nothing (S-16)
+              "selection": selection_of(pinned),
               "pin": {"status": pinned["status"], "reason": pinned["reason"],
                       "content_ref": pinned["content_ref"] if isinstance(pinned["content_ref"], str)
                       and SHA256_HEX.match(pinned["content_ref"]) else named,
@@ -4004,6 +4050,22 @@ def session_record(entry, read=None, found=(), damage=(), inherited=(), seen=Non
         record["unknown"].append({"reason": reason("no_record")})
     record["delivery"] = delivery_of(pinned, record["read"], found, owner_ref(host, ident))
     return record
+
+
+def inventory_id(kind, ref):
+    """A shared inventory's `i-` (step 0 S-11): `["inventory", "release"|"selection", ref]`."""
+    return opaque_id("i", "inventory", kind, ref)
+
+
+def selection_of(pinned):
+    """A session's selection (step 0 S-14, S-15): the shared selection inventory its own verified
+    snapshot is, or the one reason of the first broken link of its pin and snapshot."""
+    if pinned["status"] != "read":
+        return {"status": pinned["status"], "reason": pinned["reason"], "inventory_ref": None}
+    if pinned.get("snapshot") is None:
+        return {"status": "unknown", "reason": pinned.get("snapshot_reason") or reason("input_failed"),
+                "inventory_ref": None}
+    return {"status": "read", "reason": None, "inventory_ref": inventory_id("selection", pinned["content_ref"])}
 
 
 def delivery_of(pinned, read, found, own):
@@ -4266,6 +4328,13 @@ def layer_rows(reference, context):
         # projects it, so a reason added here cannot reach the artifact unprojected, and no site
         # holds a second copy of the projection rule (found during S1).
         name, call, inputs = producer
+        # An unpinned release, and a Codex one, reads none of the inputs its producers declare (S-24 option
+        # 1, S-16): it is `release_history_deferred` whatever any of them did, no journal is read for it,
+        # and the installed-now baseline is never taken for it. A Codex --pin's `id_space` is not its reason.
+        if reference == "release" and layer in SHARED_RELEASE_LAYERS and context.get("release_deferred"):
+            rows.append({"layer": layer, "producer": name, "status": "unknown", "carriers": [],
+                         "reasons": [f"{layer}: {UNKNOWN_REASONS['release_history_deferred']}"]})
+            continue
         blocked = input_reasons(inputs, context)
         if blocked:
             rows.append({"layer": layer, "producer": name, "status": "unknown", "carriers": [],
@@ -4294,8 +4363,10 @@ def layer_rows(reference, context):
                          "reasons": [f"{layer}: {exc}"]})
             continue
         except Exception as exc:  # a producer that cannot read its input leaves a status, not a traceback
+            # ...and a declared reason with a fixed category, never the exception's type and text (lead,
+            # after a36c728): an exception name is not something a reader of the row can act on.
             rows.append({"layer": layer, "producer": name, "status": "incomplete", "carriers": [],
-                         "reasons": [f"{layer}: {projected_message(exc, context.get('home'))}"]})
+                         "reasons": [f"{layer}: {PRODUCER_FAILED} ({acquisition_reason(exc)})"]})
             continue
         if carriers is None:
             rows.append({"layer": layer, "producer": name, "status": "unknown", "carriers": [],
@@ -4437,8 +4508,8 @@ def _overlays_current(ctx):
 def _native(layer):
     """A native layer at a reference point, from what a transcript records as delivered.
 
-    `current` is §8's newest recorded event per scope; `selection` is the event in force at the
-    pinned session's own activation, read from that session's transcript. No native file is read."""
+    `current` is §8's newest recorded event per scope; a `selection` holds none, since a native layer
+    is what each event recorded (`per_event`, S-15). No native file is read."""
     def produce_native(ctx):
         if layer == "native_settings":
             raise Unacquired(UNKNOWN_REASONS["settings"])
@@ -4449,18 +4520,10 @@ def _native(layer):
             return scoped_layer(layer, ctx.get("current_scopes") or {"scopes": [], "answers": {}, "universe": []},
                                 reference)
         if reference == "selection":
-            if not ctx.get("pin"):
-                raise Unacquired(UNKNOWN_REASONS["unpinned"])
-            event = ctx.get("pin_event")
-            if event is None:
-                raise Unacquired(f"{UNKNOWN_REASONS['no_record']}: the pinned session's transcript records no injection")
-            if event.get("damaged"):
-                # the event in force is one nobody can read: its layers are unknown, never empty (S-5)
-                raise Unacquired(UNKNOWN_REASONS[reason("container_unusable")])
-            rows = event_carriers(layer, event, reference)
-            if not rows:
-                raise Unacquired(f"{UNKNOWN_REASONS['no_record']}: the event in force records no {layer}")
-            return rows
+            # A selection holds what a pin selected; what a native layer delivered is per event, and
+            # `sessions.json` publishes every event (S-15; lead ruling 5 on the P2.4 plan). Picking the
+            # event in force at the pin's activation picked one event, which a selection never does.
+            raise Unacquired(UNKNOWN_REASONS["per_event"])
         return None
     return produce_native
 
@@ -4514,7 +4577,7 @@ def _ledger(layer):
 
 def _release_catalog(ctx):
     if not ctx.get("release_ref"):
-        return None  # no pin and no installed baseline: this reference point has no record
+        return None  # a pinned snapshot that names no baseline: this reference point has no record
     return [row for item in baseline_items(ctx["state_root"], ctx["release_ref"]) for row in item_carriers(item, "catalog")]
 
 
@@ -4533,7 +4596,8 @@ def _selection_injection(ctx):
     if snapshot is None:
         return None
     text = snapshot["output"].get("instruction_text") or ""
-    host = str(ctx.get("pin") or "").partition(":")[0] or None
+    # the host the snapshot was compiled for: the `--pin`'s, or a shared selection inventory's
+    host = ctx.get("selection_host") or str(ctx.get("pin") or "").partition(":")[0] or None
     return [carrier("session_injection", f"snapshot:{snapshot['content_ref']}/output.json#instruction_text",
                     text, form="markdown",
                     carrier_id=injection_carrier_id(host, snapshot["content_ref"]))] if text else []
@@ -4571,25 +4635,25 @@ LAYERS = (
                               STATE_NOW + ("learning_journals",)),
                   "selection": ("pinned snapshot items of @local packages", _selection_overlays, PINNED)}),
     # The native layers are what a transcript records as delivered: §8's newest recorded event per
-    # scope for `current`, and the pinned session's own event for `selection`. No file is read.
+    # scope for `current`; a selection holds none (per event, S-15). No file is read.
     ("native_global", {"current": ("the newest recorded instructions attachment, User entry", _native("native_global"), ()),
-                       "selection": ("the pinned session's recorded instructions attachment, User entry",
-                                     _native("native_global"), ("pin",))}),
+                       "selection": ("no producer: a native layer is per event, in sessions.json",
+                                     _native("native_global"), ())}),
     ("native_project", {"current": ("the newest recorded instructions attachment, Project entry", _native("native_project"), ()),
-                        "selection": ("the pinned session's recorded instructions attachment, Project entry",
-                                      _native("native_project"), ("pin",))}),
+                        "selection": ("no producer: a native layer is per event, in sessions.json",
+                                      _native("native_project"), ())}),
     ("native_settings", {"current": ("no producer: a settings file is carried by no transcript", _native("native_settings"), ()),
                          "selection": ("no producer: a settings file is carried by no transcript",
                                        _native("native_settings"), ())}),
     ("native_memory", {"current": ("the newest recorded instructions attachment, AutoMem entry", _native("native_memory"), ()),
-                       "selection": ("the pinned session's recorded instructions attachment, AutoMem entry",
-                                     _native("native_memory"), ("pin",))}),
+                       "selection": ("no producer: a native layer is per event, in sessions.json",
+                                     _native("native_memory"), ())}),
     # The Codex block, one carrier at its own layer value per (codex, cwd): Codex does not divide it,
     # so its global, project and memory parts are unknown and never estimated (#14, S-19).
     ("native_undivided", {"current": ("the newest recorded Codex base_instructions block, per cwd",
                                       _native("native_undivided"), ()),
-                          "selection": ("the pinned Codex session's recorded base_instructions block",
-                                        _native("native_undivided"), ("pin",))}),
+                          "selection": ("no producer: a native layer is per event, in sessions.json",
+                                        _native("native_undivided"), ())}),
     # Session-level injection exists per session, so "all layers now" can only mean the injection
     # the session being diagnosed received: with a pin, the snapshot's compiled text answers for
     # `current` too; without one there is nothing to read and the layer is `unknown`.
@@ -4644,6 +4708,8 @@ DOCUMENT_MEMBERS = (
     "repository_url",
     # a session's own pin and delivery, and an event's recorded members (step 0 S-14, S-15)
     "delivery", "members", "include_global_instructions", "baseline_ref", "pin_delivery",
+    # a shared inventory, a session's selection of one, and the manifest's artifact list (step 0 S-22)
+    "inventory_id", "unavailable", "surface", "inventory_ref", "artifacts",
     # a rename row
     "from_unit_id", "from_carrier_id", "to_carrier_id", "from_path", "to_path", "from_layer",
     "to_layer", "moved", "ambiguous", "from_carriers", "to_carriers", "reason",
@@ -4716,6 +4782,166 @@ def mapping_problems(expected, units):
             for ref in sorted(expected) if ref not in produced]
 
 
+# The inputs an omission row is keyed to one pin, snapshot or baseline for: a shared inventory takes only
+# its own of these, and every other omission of the run.
+KEYED_INPUTS = ("pin", "snapshot", "release_baseline")
+
+
+def shared_inventories(ctx):
+    """`[(relative path, document)]` of every shared inventory (step 0 S-22, S-25): a selection
+    inventory per verified snapshot a Claude session's OWN pin names, through the very producers
+    `selection.json` is made by, and a release inventory per baseline those snapshots name, its catalog
+    and adopted packages only (its overlays and session injection are per session, S-17).
+
+    Each runs over a context of its own: its own snapshot or baseline, the omission of THAT input and no
+    other (S-25), and notes of its own, so nothing one inventory reads reaches another's rows. The run's
+    UNKEYED omissions (runtime state, user state, the installed baseline, learning journals) are the
+    same inputs for every reference point, so they reach a shared inventory exactly as they reach
+    `selection.json`: through the inputs each producer declares. Starting from none hid a producer that
+    declared one (pretrial-p24b-2, W21). Only the rows keyed to a pin, a snapshot or a baseline are its own."""
+    out, snapshots = [], {}
+    unkeyed = [row for row in ctx.get("omissions") or [] if row["input"] not in KEYED_INPUTS]
+    for pinned in (ctx.get("session_pins") or {}).values():
+        if pinned["status"] == "read" and pinned.get("snapshot") is not None:
+            snapshots.setdefault(pinned["content_ref"], pinned["snapshot"])
+    for content_ref, snapshot in sorted(snapshots.items()):
+        sub = {**ctx, "notes": {}, "omissions": list(unkeyed), "pin": None, "pin_record": {"content_ref": content_ref},
+               "snapshot": snapshot, "selection_host": "claude"}
+        out.append(shared_document("selection", content_ref, layer_rows("selection", sub), ctx,
+                                   unavailable=unavailable_rows(ctx, snapshot)))
+    for ref, (items, failures) in sorted((ctx.get("session_baselines") or {}).items()):
+        omissions = list(unkeyed) + [{"input": "release_baseline", "ref": ref, **row} for row in failures]
+        sub = {**ctx, "notes": {}, "omissions": omissions, "pin": None, "pin_record": None, "release_ref": ref,
+               "expected_release_items": items or [], "release_deferred": False}
+        rows = [row for row in layer_rows("release", sub) if row["layer"] in SHARED_RELEASE_LAYERS]
+        out.append(shared_document("release", ref, rows, ctx,
+                                   expected={item["ref"] for item in items} if items is not None else None))
+    return out
+
+
+def unavailable_rows(ctx, snapshot):
+    """A selection's `output.unavailable` (S-22): each `ref` must be one of the snapshot's own items
+    (the catalog builds the list from its normalized items only) and each `surface` one of the
+    catalog's `SURFACES`; emitted with those as the fields' whole vocabulary, so any other is refused
+    by name. `reason` is metadata through the floor."""
+    rows = (snapshot.get("output") or {}).get("unavailable") or []
+    if not rows:
+        return [], ()
+    refs = tuple(sorted({item["ref"] for item in snapshot.get("items") or []
+                         if isinstance(item, dict) and isinstance(item.get("ref"), str)}))
+    surfaces = tuple(sorted(catalog_module(ctx["repo"]).SURFACES))
+    return rows, (refs, surfaces)
+
+
+def shared_document(kind, ref, rows, ctx, unavailable=None, expected=None):
+    """One shared inventory as `shared/<kind>-<i>.json` publishes it: its layer rows, the carrier
+    versions it holds and its units, by reference into the store, and — a release — its baseline items
+    the units do not map (done-when 1, per inventory: lead ruling 6 on the P2.4 plan)."""
+    place = {"home": ctx.get("home"), "decisions": {}}
+    carriers = [item for row in rows for item in row.get("carriers") or []]
+    ctx.setdefault("carriers_named", []).extend(carriers)
+    units = produce(rows)
+    reasons = [text for row in rows for text in row["reasons"]]
+    unmapped = mapping_problems(expected, units) if expected is not None else []
+    identity = inventory_id(kind, ref)
+    document = {
+        "document": SHARED, "inventory_id": identity, "kind": kind, "ref": ref,
+        "complete": not (reasons or unmapped), "incomplete_reasons": reasons + unmapped,
+        "produced_by": {"module": "session-distill/runlib/inventory.py", "design": DESIGN, "commit": ctx.get("commit")},
+        "layers": [{key: row[key] for key in ("layer", "producer", "status", "units", "empty", "reasons")} for row in rows],
+        "carriers": [{"carrier_id": carrier_id, "version_sha256": version}
+                     for carrier_id, version in sorted({(item["carrier_id"], item["version_sha256"]) for item in carriers})],
+        "unit_refs": sorted({unit["unit_ref"] for unit in units}),
+    }
+    table = SHARED_INVENTORY_TABLE
+    if kind == "selection":
+        rows_out, vocabulary = unavailable or ([], ())
+        document["unavailable"] = rows_out
+        if vocabulary:
+            table = table_of({**SHARED_INVENTORY_TABLE["fields"], "unavailable": list_of(table_of({
+                "ref": as_enum(vocabulary[0]), "surface": as_enum(vocabulary[1]), "reason": as_metadata()}))},
+                optional=SHARED_INVENTORY_TABLE["optional"], schema=SHARED_INVENTORY_TABLE["schema"])
+    else:
+        document["baseline_unmapped"] = unmapped
+        document["baseline_items_expected"] = len(expected) if expected is not None else None
+    return f"shared/{kind}-{identity}.json", emit_row("shared_inventory", table, document, place)
+
+
+def artifact_problems(artifacts):
+    """The manifest's artifact rows against their rule (S-22; lead ruling 5, 14:55): a shared inventory
+    is listed with its `i-` id, at the path that id names, and a single document with no id. The
+    manifest has no JSON schema of its own, so the tie is this check, refused by name."""
+    problems = []
+    for row in artifacts:
+        identity, path = row.get("id"), str(row.get("path"))
+        if row.get("document") == SHARED:
+            if not (isinstance(identity, str) and path.endswith(f"-{identity}.json")):
+                problems.append(f"ARTIFACT_ID_MISMATCH {path}: a shared inventory is listed at the path its id names")
+        elif identity is not None:
+            problems.append(f"ARTIFACT_ID_UNEXPECTED {path}: a single document is listed with no id")
+    return problems
+
+
+def shared_cross_problems(shared, store, sessions):
+    """What the shared inventories get wrong against the store and the session records (step 0 S-21):
+    each id is the one its kind and ref derive, every carrier version and unit it names is in the store,
+    and every session's `selection.inventory_ref` names a published selection inventory."""
+    problems = []
+    versions, units = store.get("versions") or {}, store.get("units") or {}
+    published = {document.get("inventory_id"): document for _path, document in shared}
+    for _path, document in shared:
+        identity = document.get("inventory_id")
+        if identity != inventory_id(document.get("kind"), document.get("ref")):
+            problems.append(f"SHARED_ID_MISMATCH {identity}: not the id its kind and ref derive")
+        if any((versions.get(row.get("carrier_id")) or {}).get(row.get("version_sha256")) is None
+               for row in document.get("carriers") or []):
+            problems.append(f"SHARED_VERSION_UNRESOLVED {identity}: a carrier version it names is not in the store")
+        if any(ref not in units for ref in document.get("unit_refs") or []):
+            problems.append(f"SHARED_UNIT_UNRESOLVED {identity}: a unit it names is not in the store")
+    for record in sessions.get("sessions") or []:
+        ref = (record.get("selection") or {}).get("inventory_ref")
+        if ref is not None and (published.get(ref) or {}).get("kind") != "selection":
+            problems.append(f"SHARED_SELECTION_UNRESOLVED: a session's selection names no published selection inventory")
+    return problems
+
+
+# The members of a published document whose strings are REASONS, and the exception types none of them may
+# name (lead, after a36c728): a Python exception's type is not something a reader of a row can act on.
+REASON_MEMBERS = ("reasons", "incomplete_reasons", "reason", "unknown", "acquisition_error", "baseline_unmapped")
+def exception_names():
+    """Every exception type name a reason may not carry, derived when asked and never listed by hand
+    (lead ruling 4, 14:55): the `__name__` of each BaseException subclass in builtins, in this module,
+    and in every module this module holds (json's JSONDecodeError, tomllib's TOMLDecodeError, sources'
+    Unreadable). A name that does not begin with a capital is left out: it is how `type(exc).__name__`
+    prints none of the classes a reason here could meet, and the word `error` is ordinary prose."""
+    spaces = [vars(builtins), globals()] + [vars(value) for value in list(globals().values())
+                                            if isinstance(value, type(builtins))]
+    return {value.__name__ for space in spaces for value in list(space.values())
+            if isinstance(value, type) and issubclass(value, BaseException) and value.__name__[:1].isupper()}
+
+
+def exception_named_problems(document, where="$"):
+    """`(problems, reasons judged)`: every reason string of one published document that names a Python
+    exception type, by its location, and how many reason strings there were to judge."""
+    problems, judged = [], [0]
+    named = re.compile(r"\b(" + "|".join(sorted(map(re.escape, exception_names()), key=len, reverse=True)) + r")\b")
+
+    def walk(value, at, inside):
+        if isinstance(value, dict):
+            for key, inner in value.items():
+                walk(inner, f"{at}.{key}", inside or key in REASON_MEMBERS)
+        elif isinstance(value, list):
+            for n, inner in enumerate(value):
+                walk(inner, f"{at}[{n}]", inside)
+        elif isinstance(value, str) and inside:
+            judged[0] += 1
+            if named.search(value):
+                problems.append(f"REASON_NAMES_EXCEPTION {at}: a reason names a Python exception type")
+
+    walk(document, where, False)
+    return problems, judged[0]
+
+
 def verify_unchanged(watched, before, native_before, failing=None, home=None):
     """Re-hash every watched root and native source and refuse by name on a difference.
 
@@ -4781,8 +5007,29 @@ MANIFEST_TABLE = table_of({
     "native_changed": list_of(as_metadata()),
     "sessions": table_of({"sessions": as_scalar(), "events": as_scalar(), "unknown": as_scalar()}),
     "store": table_of({"versions": as_scalar(), "units": as_scalar()}),
-}, optional=("sessions", "store", "baseline_unmapped", "baseline_items_expected", "state_written", "native_changed",
+    "artifacts": list_of(table_of({"path": as_metadata(), "document": as_enum(tuple(REFERENCES) + (SESSIONS, STORE, SHARED)),
+                                   "id": as_opaque("inventory_id", nullable=True), "sha256": as_opaque("sha256")})),
+}, optional=("sessions", "store", "artifacts", "baseline_unmapped", "baseline_items_expected", "state_written", "native_changed",
              "watched_roots", "watched_native_files", "state_root_unchanged"))
+
+
+# One shared inventory (step 0 S-22). Its `unavailable` rows' `ref` and `surface` are enums of the snapshot's
+# own item refs and the catalog's SURFACES, set per inventory by `shared_document`; empty here.
+SHARED_INVENTORY_TABLE = table_of({
+    "document": as_constant(SHARED),
+    "inventory_id": as_opaque("inventory_id"),
+    "kind": as_enum(SHARED_KINDS),
+    "ref": as_metadata(),
+    "complete": as_scalar(),
+    "incomplete_reasons": list_of(as_metadata()),
+    "produced_by": SESSIONS_PRODUCED_BY_TABLE,
+    "layers": list_of(LAYER_ROW_TABLE),
+    "carriers": list_of(table_of({"carrier_id": as_opaque("carrier_id"), "version_sha256": as_opaque("sha256")})),
+    "unit_refs": list_of(as_opaque("unit_ref")),
+    "unavailable": list_of(table_of({"ref": as_enum(()), "surface": as_enum(()), "reason": as_metadata()})),
+    "baseline_unmapped": list_of(as_metadata()),
+    "baseline_items_expected": as_scalar(nullable=True),
+}, optional=("unavailable", "baseline_unmapped", "baseline_items_expected"), schema="shared_inventory_document")
 
 
 def run(repo, state_root, user_root, out_dir, pin=None, native_roots=None, ledger=None, commit=None,
@@ -4835,6 +5082,10 @@ def run(repo, state_root, user_root, out_dir, pin=None, native_roots=None, ledge
         with no_bytecode(), tempfile.TemporaryDirectory(prefix="distill-inventory-", dir=str(temp_root)) as frozen_dir:
             ctx = context_of(repo, state_root, user_root, dict(native_roots or {}), pin, ledger)
             ctx["commit"] = commit
+            # One home, the one every artifact below is judged against by `write_document`: emitted against
+            # another (the process's), a leaf under the caller's home was not spelled `<HOME>` and the write
+            # refused it (lead, P2.4b). A production caller passes none, and both are the process's home.
+            ctx["home"] = home
             try:
                 entries = census_entries(run_dir)
             except Unacquired:
@@ -4843,7 +5094,7 @@ def run(repo, state_root, user_root, out_dir, pin=None, native_roots=None, ledge
                 freeze_inputs(pathlib.Path(frozen_dir), repo, state_root, user_root, pin, ctx, entries)
             except Exception as exc:  # acquisition is an input, and a missing input is a status
                 ctx["acquisition_error"] = (f"INPUT_UNACQUIRED: freezing the inputs failed "
-                                            f"({projected_message(exc, ctx.get('home'))}), so every layer "
+                                            f"({acquisition_reason(exc)}), so every layer "
                                             f"read from the owner's state has no record here")
                 ctx.setdefault("release_ref", None)
                 ctx.setdefault("expected_release_items", [])
@@ -4870,9 +5121,10 @@ def run(repo, state_root, user_root, out_dir, pin=None, native_roots=None, ledge
             base = produced["release"][1]
             for reference in ("current", "selection"):
                 produced[reference][0]["renames"] = renames_against(produced[reference][1], base, home)
+            shared = shared_inventories(ctx)
             store_doc = store_document(ctx)
             crossed = store_cross_problems(store_doc, {reference: produced[reference][0] for reference in REFERENCES}) \
-                + occurrence_cross_problems(sessions_doc, store_doc)
+                + occurrence_cross_problems(sessions_doc, store_doc) + shared_cross_problems(shared, store_doc, sessions_doc)
             if crossed:
                 raise Refused(f"{'; '.join(crossed[:4])}; no artifact is written")
             if ctx.get("release_ref"):
@@ -4881,14 +5133,30 @@ def run(repo, state_root, user_root, out_dir, pin=None, native_roots=None, ledge
                 problems = mapping_problems(expected_refs, produced["release"][1])
                 manifest["baseline_unmapped"] = problems
                 manifest["baseline_items_expected"] = len(ctx["expected_release_items"])
-        write_document(out_dir, out_dir / "inventory" / f"{SESSIONS}.json", sessions_doc, home)
+        artifacts = manifest["artifacts"] = []
+
+        def written(relative, document, identity=None):
+            """Write one artifact and list it in the manifest (S-22): its kind, its opaque id when it has
+            one, and the sha256 of the bytes written. The manifest is not in its own list. The row is
+            judged before the artifact is written."""
+            row = {"path": f"inventory/{relative}", "document": document["document"], "id": identity}
+            listed = artifact_problems([row])
+            if listed:
+                raise Refused(f"{'; '.join(listed)}; no artifact is written")
+            path = out_dir / "inventory" / relative
+            write_document(out_dir, path, document, home)
+            artifacts.append({**row, "sha256": hashlib.sha256(path.read_bytes()).hexdigest()})
+
+        written(f"{SESSIONS}.json", sessions_doc)
         manifest["sessions"] = {"sessions": len(sessions_doc["sessions"]), "events": len(sessions_doc["events"]),
                                 "unknown": sum(len(row["unknown"]) for row in sessions_doc["sessions"])}
-        write_document(out_dir, out_dir / "inventory" / STORE_REL, store_doc, home)
+        written(STORE_REL, store_doc)
+        for relative, document in shared:
+            written(relative, document, document["inventory_id"])
         manifest["store"] = {"versions": sum(len(rows) for rows in store_doc["versions"].values()),
                              "units": len(store_doc["units"])}
         for reference, (document, units) in produced.items():
-            write_document(out_dir, out_dir / "inventory" / f"{reference}.json", document, home)
+            written(f"{reference}.json", document)
             manifest["references"][reference] = {
                 "complete": document["reference"]["complete"], "units": len(units),
                 "operative": sum(1 for unit in units if unit["class"] == "operative"),
@@ -4910,8 +5178,8 @@ def run(repo, state_root, user_root, out_dir, pin=None, native_roots=None, ledge
 
 
 def bind_transcripts(ctx, run_dir, zstd=None):
-    """Read this run's census-bound transcripts into the context: the events, the pinned session's
-    event in force, §8's current sets, and every named unknown.
+    """Read this run's census-bound transcripts into the context: the events, §8's current sets, and
+    every named unknown.
 
     This is the only place a transcript is read, and it reads none of the owner's instruction files.
     Each session's own pin is what `freeze_inputs` read into `ctx["session_pins"]`; a session it holds
@@ -4926,7 +5194,7 @@ def bind_transcripts(ctx, run_dir, zstd=None):
         ctx["transcript_error"] = str(exc)
         notes.update({"sessions": 0, "events": 0, "unknown": [str(exc)]})
         ctx["notes"]["transcripts"] = notes
-        ctx["current_scopes"], ctx["pin_event"] = None, None
+        ctx["current_scopes"] = None
         ctx["sessions"], ctx["events"] = [], []
         return
     ctx["events"] = events
@@ -4941,15 +5209,6 @@ def bind_transcripts(ctx, run_dir, zstd=None):
         # the `--pin` session's selection is evidence about its pin only: no transcript of it is read (S-15)
         notes["pin_delivery"] = reason("no_census_session")
     ctx["current_scopes"] = current_scopes(events, findings["timelines"], pins)
-    ctx["pin_event"] = None
-    if ctx.get("pin") and ctx.get("pin_record"):
-        session = f"{str(ctx['pin']).partition(':')[0]}:{str(ctx['pin']).partition(':')[2]}"
-        own = [event for event in events if event["session"] == session and event["kind"] == "native"]
-        ctx["pin_event"] = event_in_force(own, ctx["pin_record"].get("created")) or (own[0] if own else None)
-        if not own:
-            notes["pin_unknown"] = UNKNOWN_REASONS["no_record"] if any(
-                event["session"] == session for event in events) else UNKNOWN_REASONS["codex_identity"] \
-                if str(ctx["pin"]).startswith("codex:") else UNKNOWN_REASONS["no_record"]
     # A delivery is confirmed only by a usable RECORDED occurrence the session's main owner holds in its own
     # transcript (step 0 S-13): a sidechain's copy, and a match whose bytes could not be recovered, are not.
     delivery = [event for event in events if event["kind"] == "session_injection" and not event.get("damaged")
@@ -4998,6 +5257,10 @@ def freeze_inputs(frozen, repo, state_root, user_root, pin, ctx, entries=()):
     omissions = ctx.setdefault("omissions", [])
     ctx.setdefault("pin_record", None)
     ctx["installed_ref"], ctx["release_ref"], ctx["expected_release_items"] = None, None, []
+    # S-24 option 1 and S-16: an unpinned release, and a Codex one, is `release_history_deferred`. The
+    # installed baseline is frozen for the current overlays only, and no journal is read for a release.
+    ctx["release_deferred"] = pin is None or str(pin).partition(":")[0] != "claude"
+    ctx["session_baselines"] = {}
 
     def omitted(kind, ref, path, outcome, reason, code=None):
         row = {"input": kind, "ref": ref, "path": path, "outcome": outcome, "reason": reason, "code": code}
@@ -5057,7 +5320,8 @@ def freeze_inputs(frozen, repo, state_root, user_root, pin, ctx, entries=()):
         table[session_ref(host, ident)] = with_snapshot(pinned, host, ident) if pinned["status"] == "read" else pinned
     if state_root is None:
         ctx["notes"]["state"] = "no state root: the overlay, release and selection producers have no record"
-        for kind in ("runtime_state", "installed_baseline", "release_baseline") + (("pin", "snapshot") if pin else ()):
+        for kind in ("runtime_state", "installed_baseline") + (() if ctx["release_deferred"] else ("release_baseline",)) \
+                + (("pin", "snapshot") if pin else ()):
             omitted(kind, pin if kind == "pin" else None, None, "unread", "no_root")
         return
     # Every read below goes through the one source selection, before any byte of it is read: the
@@ -5117,21 +5381,42 @@ def freeze_inputs(frozen, repo, state_root, user_root, pin, ctx, entries=()):
             installed_ref = None
     ctx["installed_ref"] = installed_ref
     release_ref = None
-    if pin is None:
-        release_ref = installed_ref
-        if release_ref:
-            ctx["notes"]["release"] = "from the installed state's selected_baseline_ref, there being no pin to name one"
+    if ctx["release_deferred"]:
+        ctx["notes"]["release"] = "release_history_deferred: no pin, or a Codex one, names this release (S-24, S-16)"
     ctx["notes"]["baselines"] = {"installed": installed_ref, "pinned": None}
-    for ref in sorted({release_ref, installed_ref} - {None}):
-        kinds = tuple(kind for kind, named in (("installed_baseline", installed_ref), ("release_baseline", release_ref))
-                      if named == ref)
-        froze(kinds, ref, [(state_root / "runtime" / "baselines" / ref, f"runtime/baselines/{ref}")], state, state_root)
+    baselines = {}
+
+    def baseline_once(ref):
+        """`(items, failures)` of one baseline, frozen and its item list read once: `items` is None
+        when any of it could not be acquired, and `failures` holds one `freeze`-shaped row per path."""
+        if ref not in baselines:
+            failures = [{key: row[key] for key in ("path", "outcome", "reason", "code")}
+                        for row in freeze([(state_root / "runtime" / "baselines" / ref, f"runtime/baselines/{ref}")],
+                                          state, state_root)]
+            items, listed = None, f"runtime/baselines/{ref}/inventory.json"
+            if not failures:
+                try:
+                    items = baseline_items(state, ref)
+                except Refused as exc:
+                    absent = refusal_code(exc) == "BASELINE_ABSENT"
+                    failures = [{"path": listed, "outcome": "absent" if absent else "failed",
+                                 "reason": "absent" if absent else acquisition_reason(exc), "code": refusal_code(exc)}]
+                except (ValueError, OSError) as exc:
+                    failures = [{"path": listed, "outcome": "failed", "reason": acquisition_reason(exc),
+                                 "code": refusal_code(exc)}]
+            baselines[ref] = (items, failures)
+        return baselines[ref]
+
+    if installed_ref:
+        froze(("installed_baseline",), installed_ref,
+              [(state_root / "runtime" / "baselines" / installed_ref, f"runtime/baselines/{installed_ref}")],
+              state, state_root)
     if verified is not None:
         content_ref = verified["content_ref"]
         ctx["snapshot"] = verified
         ctx["notes"]["pin"] = {"host": pin.partition(":")[0], "content_ref": verified["content_ref"],
                                "state": ctx["pin_record"].get("state")}
-        release_ref = (verified["inputs"] or {}).get("baseline_ref")
+        release_ref = None if ctx["release_deferred"] else (verified["inputs"] or {}).get("baseline_ref")
         if release_ref is not None:
             try:
                 release_ref = safe_label("baseline ref", release_ref)
@@ -5140,25 +5425,22 @@ def freeze_inputs(frozen, repo, state_root, user_root, pin, ctx, entries=()):
                         "not_an_identifier", refusal_code(exc))
                 release_ref = None
         if release_ref:
-            froze(("release_baseline",), release_ref,
-                  [(state_root / "runtime" / "baselines" / release_ref, f"runtime/baselines/{release_ref}")],
-                  state, state_root)
+            items, failures = baseline_once(release_ref)
+            for row in failures:
+                omitted("release_baseline", release_ref, row["path"], row["outcome"], row["reason"], row["code"])
+            if items is not None:
+                ctx["expected_release_items"] = items
             ctx["notes"]["release"] = "from the pin's snapshot inputs.baseline_ref"
             ctx["notes"]["baselines"] = {"installed": installed_ref, "pinned": release_ref,
                                          "differ": installed_ref != release_ref}
     ctx["release_ref"] = release_ref
-    if release_ref and not any(row["input"] == "release_baseline" and row["outcome"] != "unread"
-                               for row in omissions):
-        try:
-            ctx["expected_release_items"] = baseline_items(state, release_ref)
-        except Refused as exc:
-            absent = refusal_code(exc) == "BASELINE_ABSENT"
-            omitted("release_baseline", release_ref, f"runtime/baselines/{release_ref}/inventory.json",
-                    "absent" if absent else "failed", "absent" if absent else acquisition_reason(exc),
-                    refusal_code(exc))
-        except (ValueError, OSError) as exc:
-            omitted("release_baseline", release_ref, f"runtime/baselines/{release_ref}/inventory.json",
-                    "failed", acquisition_reason(exc), refusal_code(exc))
+    # Every baseline a session's own verified snapshot names, each frozen once under its own key, for
+    # the shared release inventories (S-22, S-25's `baseline@<ref>`): a failure reaches the inventory of
+    # THAT baseline and the sessions naming it, and nothing else.
+    for pinned in table.values():
+        ref = pinned.get("baseline_ref") if pinned["status"] == "read" and pinned.get("snapshot") else None
+        if ref and ref not in ctx["session_baselines"]:
+            ctx["session_baselines"][ref] = baseline_once(ref)
     ctx["notes"]["frozen_missing"] = [{**row, "class": INPUT_CLASSES[row["input"]]} for row in omissions]
 
 
@@ -5168,7 +5450,7 @@ def acquisition_reason(exc):
     return {"SOURCE_LINKED": "symlink", "PIN_IDENTITY_MISMATCH": "pin_mismatch",
             "PIN_UNREADABLE": "unreadable", "INPUT_INVALID": "not_an_identifier",
             "BASELINE_EMPTY": "empty", "JSONDecodeError": "not_json", "ValueError": "malformed",
-            "UnicodeDecodeError": "not_json"}.get(code, "unreadable" if isinstance(exc, OSError) else "not_admitted")
+            "UnicodeDecodeError": "not_json", "Unreadable": "unreadable"}.get(code, "unreadable" if isinstance(exc, OSError) else "not_admitted")
 
 
 def input_reasons(inputs, context):
@@ -5191,6 +5473,9 @@ def input_reasons(inputs, context):
             reason = f"{UNKNOWN_REASONS['input_failed']} ({kind}: {row['reason']})"
         elif row["outcome"] == "unread":
             reason = f"{UNKNOWN_REASONS['input_unread']} ({kind})"
+        elif kind in ("installed_baseline", "release_baseline"):
+            # a baseline a release names that is not there (S-25's `baseline@<ref>`)
+            reason = f"{UNKNOWN_REASONS['baseline_absent']} ({kind})"
         elif INPUT_CLASSES[kind] == "required":
             reason = f"{UNKNOWN_REASONS['input_absent']} ({kind})"
         else:
@@ -5252,7 +5537,7 @@ SCHEMA_REL = "session-distill/schemas/inventory.schema.json"
 # The schema's `$defs` root for every document this module publishes, by the kind its `document`
 # member names (step 0 S-21). Held against the consts the schema declares by `document_roots_problems`.
 DOCUMENT_ROOTS = {**{reference: f"{reference}_document" for reference in REFERENCES}, SESSIONS: "sessions_document",
-                  STORE: "shared_store_document"}
+                  STORE: "shared_store_document", SHARED: "shared_inventory_document"}
 SCHEMA_PATH = HERE / "schemas" / "inventory.schema.json"
 
 
@@ -5375,7 +5660,7 @@ def document_roots_problems(schema=None):
         .get("document") or {}
     if set(listed.get("enum") or ()) != set(DOCUMENT_ROOTS):
         problems.append("DOCUMENT_KIND_ENUM_MISMATCH: the file root's kind list is not the set of roots")
-    published = set(REFERENCES) | {SESSIONS, STORE}
+    published = set(REFERENCES) | {SESSIONS, STORE, SHARED}
     if set(DOCUMENT_ROOTS) != published:
         problems.append(f"DOCUMENT_ROOTS_UNCOVERED: the module publishes {sorted(published)}, "
                         f"the roots are picked for {sorted(map(str, DOCUMENT_ROOTS))}")
@@ -5583,9 +5868,9 @@ def self_test():
     # and this repository's declared floor is 3.11. The controls are unchanged.
     broken_source = "def f(:\n  pass\n"
     control("a carrier whose structure the splitter cannot divide",
-            [str(exc) for exc in [_raised(lambda: blocks_of("broken.py", broken_source))]], "broken.py", "SyntaxError")
+            [str(exc) for exc in [_raised(lambda: blocks_of("broken.py", broken_source))]], "broken.py", "MALFORMED_CARRIER")
     control("a supported language that does not parse",
-            [str(_raised(lambda: blocks_of("broken.py", broken_source)))], "SyntaxError")
+            [str(_raised(lambda: blocks_of("broken.py", broken_source)))], "does not parse in its form")
     check("a parse failure of a supported form is malformed, not unsupported",
           isinstance(_raised(lambda: blocks_of("broken.py", broken_source)), Malformed),
           f"{type(_raised(lambda: blocks_of('broken.py', broken_source))).__name__}")
@@ -5923,12 +6208,36 @@ def self_test():
     # copy of the checkout and run directories, and `tempfile`'s own resolution of `TMPDIR` would put
     # all of it inside a protected root when that is where `TMPDIR` points (R1#5).
     with self_test_scratch() as scratch:
+        catalog_code = catalog_module(REPO)
+
+        def catalog_item(item_id, kind="guide", text=None, package_id="@fixture/core"):
+            """An item in the shape the store writes it, built by the catalog's own builder and validator
+            (compose/instructions_catalog.py `_manifest_item`, `_validate_item`), which run offline. A
+            baseline's items and a snapshot's `items` (the normalized items the store selected from that
+            baseline) are this shape (lead ruling 3, 14:55: a hand-made shape published a broken selection
+            catalog from phase 1 on, and no control noticed)."""
+            text = text if text is not None else (f"- {item_id}" if kind == "rule" else f"## {item_id}\n\n- a rule\n")
+            if kind == "rule":
+                members, primary, source = {"rule.md": text + "\n"}, "rule.md", "claude/CLAUDE.md"
+            else:
+                primary = {"guide": f"guides/{item_id}.md", "skill": "SKILL.md", "hook": f"{item_id}.py",
+                           "agent": f"agents/{item_id}.md"}[kind]
+                members = {primary: text}
+                source = {"skill": f"claude/skills/{item_id}/SKILL.md", "hook": f"claude/hooks/{item_id}.py"}.get(
+                    kind, f"claude/{primary}")
+            return catalog_code._validate_item(catalog_code._manifest_item(
+                package_id=package_id, item_id=item_id, title=item_id, body=text, surface=catalog_code._surface_for(kind),
+                tier="env-personal", domains=["personal"], kind=kind, members=members, primary_member=primary,
+                source_path=source), package_id, set())
+
         # ---- done-when 1: the release mapping, against the baseline file's own item list
-        baseline = {"schema_version": 1, "packages": [{"package_id": "@fixture/core"}], "items": [
-            {"ref": f"@fixture/core:item-{n}", "item_id": f"item-{n}", "kind": "guide", "package_id": "@fixture/core",
-             "title": f"Item {n}", "surface": "relevant", "tier": "env-team", "domains": ["personal"],
-             "primary_member": f"guides/item-{n}.md", "members": {f"guides/item-{n}.md": f"## Item {n}\n\n- a rule\n"},
-             "origin": {"source_path": f"claude/guides/item-{n}.md"}, "body": "- a rule\n"} for n in (1, 2, 3)]}
+        baseline = {"schema_version": 1, "packages": [{"package_id": "@fixture/core"}],
+                    "items": [catalog_item(f"item-{n}", text=f"## Item {n}\n\n- a rule\n") for n in (1, 2, 3)]}
+        check("the fixture's catalog items are the shape the catalog writes: no content conflict, a primary member "
+              "whose text is the body",
+              all("content_conflict" not in item and item["members"].get(item.get("primary_member")) == item["body"]
+                  for item in baseline["items"]),
+              f"{[sorted(item) for item in baseline['items']]}")
         # The fixture's roots live under a FIXTURE HOME, and every `run` below is told that home.
         # The manifest projects each root through `masked(root, home)`, so a root under the home the
         # run was given appears as `<HOME>/…` — which is the product property. Two controls used to
@@ -6747,11 +7056,14 @@ def self_test():
               f"canonical={bool(events_po) and events_po[0]['id'] == independent_prefix} "
               f"same_as_whole={bool(events_po) and bool(whole_native) and events_po[0]['id'] == whole_native[0]}")
 
-        damaged_in_force = next((event for event in events_dm if event["damaged"]), None)
-        in_force = _raised(lambda: _native("native_global")(
-            {"reference": "selection", "pin": "claude:s-dm", "pin_event": damaged_in_force}))
-        check("a pinned session whose event in force is damaged has its native layers unknown by that reason",
-              isinstance(in_force, Unacquired) and str(in_force) == UNKNOWN_REASONS["container_unusable"],
+        # A selection holds no native layer (S-15; lead ruling 5 on the P2.4 plan): the damaged event that
+        # used to be "the event in force" at the pin is published with its damage in sessions.json, and the
+        # selection's native row is `per_event` whatever that event is.
+        in_force = _raised(lambda: _native("native_global")({"reference": "selection", "pin": "claude:s-dm"}))
+        check("a selection's native layer is per_event, a damaged event at the pin included, which stays published "
+              "with its damage",
+              isinstance(in_force, Unacquired) and str(in_force) == UNKNOWN_REASONS["per_event"]
+              and any(event["damaged"] == "container_unusable" for event in events_dm),
               f"unacquired={isinstance(in_force, Unacquired)}")
         delivery_path = raw_lines(scratch / "p2" / "delivery.jsonl", [record for _line, record in locator_rows])
         delivery_run = scratch / "p2" / "run-delivery"
@@ -6964,19 +7276,33 @@ def self_test():
                                   census_entries(run_at))
                 bind_transcripts(ctx_here, run_at)
                 document_here, _units = emitted_document("current", layer_rows("current", ctx_here), ctx_here)
+                shared_here = []
+                if state is not None:
+                    # A run over a fixture state publishes the shared inventories too, through the full
+                    # producer table `run` uses (lead ruling 3, 14:55: its selection catalog is judged).
+                    globals()["LAYERS"] = kept_layers
+                    shared_here = shared_inventories(ctx_here)
+                    globals()["LAYERS"] = native_only
                 sessions_here, store_here = sessions_document(ctx_here), store_document(ctx_here)
                 crossed_here = sessions_cross_problems(sessions_here) + store_cross_problems(
-                    store_here, {"current": document_here}) + occurrence_cross_problems(sessions_here, store_here)
+                    store_here, {"current": document_here}) + occurrence_cross_problems(sessions_here, store_here) \
+                    + (shared_cross_problems(shared_here, store_here, sessions_here) if state is not None else [])
                 if crossed_here:
                     return {"refused": "crossed", "problems": crossed_here}
                 for key, document_out in (("current", document_here), ("sessions", sessions_here),
                                           ("store", store_here)):
                     write_document(out_here.parent, written[key], document_out, str(fixture_home))
+                for relative, document_out in shared_here:
+                    write_document(out_here.parent, out_here / relative, document_out, str(fixture_home))
             except Exception as exc:  # the control names what refused, never the suite
                 return {"refused": type(exc).__name__}
             finally:
                 globals()["LAYERS"] = kept_layers
-            return {key: json.loads(path.read_text(encoding="utf-8")) for key, path in written.items()}
+            published_here = {key: json.loads(path.read_text(encoding="utf-8")) for key, path in written.items()}
+            if state is not None:
+                published_here["shared"] = {path.stem: json.loads(path.read_text(encoding="utf-8"))
+                                            for path in sorted((out_here / "shared").glob("*-i-*.json"))}
+            return published_here
 
         def published_current(name, transcripts, pin=None, state=None):
             published = published_run(name, transcripts, pin, state=state)
@@ -7274,9 +7600,11 @@ def self_test():
         # acquisition `run` uses, so its launch exclusion is known; none of these sessions is the `--pin`
         store_for_pins = store_module(REPO)
 
-        def plant_snapshot(state_dir, text, baseline_ref="ref1"):
-            """A verified-shape snapshot whose compiled text is `text`; its content_ref."""
-            inputs_here = {"baseline_ref": baseline_ref, "host": "claude", "selection": ["@fixture/core:item-1"],
+        def plant_snapshot(state_dir, text, baseline_ref="ref1", items=None, unavailable=()):
+            """A verified-shape snapshot whose compiled text is `text`, with `items` (by default one item in
+            the shape the store writes, `catalog_item`) and `unavailable` rows in its output; its content_ref."""
+            items = [catalog_item("item-1", text="## Item 1\n\n- a rule\n")] if items is None else items
+            inputs_here = {"baseline_ref": baseline_ref, "host": "claude", "selection": [item["ref"] for item in items],
                            "text": sha256_text(text)}
             ref = store_for_pins._digest(inputs_here)
             snap = state_dir / "sessions" / "snapshots" / ref
@@ -7284,9 +7612,9 @@ def self_test():
             (snap / "CLAUDE.md").write_text(text, encoding="utf-8")
             (snap / "output.json").write_text(json.dumps({
                 "instruction_text": text, "files": ["CLAUDE.md"], "assets": {},
-                "item_refs": ["@fixture/core:item-1"], "unavailable": []}), encoding="utf-8")
+                "item_refs": [item["ref"] for item in items], "unavailable": list(unavailable)}), encoding="utf-8")
             (snap / "inventory.json").write_text(json.dumps({
-                "inputs": inputs_here, "items": [{"ref": "@fixture/core:item-1"}],
+                "inputs": inputs_here, "items": items,
                 "file_digests": {part: store_for_pins._digest((snap / part).read_bytes())
                                  for part in ("CLAUDE.md", "output.json")}}), encoding="utf-8")
             return ref
@@ -7876,6 +8204,29 @@ def self_test():
             check(f"a delivery's one reason is its first broken link — {step}",
                   pin_is(ident) == expected_pin and delivery_is(ident) == expected,
                   f"pin={pin_is(ident)} delivery={delivery_is(ident)}")
+        # A session's selection is the shared inventory its own verified snapshot is, or the one reason of the
+        # first broken link of its pin and snapshot: the transcript's links are the delivery's, never its own.
+        selection_expected = {"s-none": ("unpinned", "unpinned", None), "c-id": ("unknown", "id_space", None),
+                              "s-absent": ("unknown", "pin_absent", None), "s-named": ("unknown", "pin_mismatch", None),
+                              "s-cref": ("unknown", "pin_content_ref_mismatch", None),
+                              "s-failed": ("unknown", "input_failed", None), "s-gone": ("unknown", "snapshot_absent", None),
+                              "s-broken": ("unknown", "input_failed", None),
+                              **{ident: ("read", None, inventory_id("selection", deliver_ref))
+                                 for ident in ("s-ok", "s-unbound", "s-nopath", "s-unrecorded", "s-sidechain", "s-damaged")}}
+        selection_got = {ident: tuple(((delivered_records.get(ident) or {}).get("selection") or {}).get(key)
+                                      for key in ("status", "reason", "inventory_ref")) for ident in selection_expected}
+        deliver_selection = ((deliveries.get("shared") or {}).get(f"selection-{inventory_id('selection', deliver_ref)}")
+                             or {})
+        deliver_catalog = next((row for row in deliver_selection.get("layers") or [] if row["layer"] == "catalog"), {})
+        check("POSITIVE: the deliveries run's selection catalog, its snapshot's shared selection inventory, is complete "
+              "(lead ruling 3, 14:55)",
+              deliver_catalog.get("status") == "complete" and deliver_catalog.get("reasons") == []
+              and deliver_catalog.get("units", 0) > 0,
+              f"{deliver_catalog} inventories={sorted(deliveries.get('shared') or {})}")
+        check("a session's selection: its own snapshot's shared inventory, or the first broken link of its pin and "
+              "snapshot, and never a transcript's link",
+              selection_got == selection_expected,
+              f"{ {ident: got for ident, got in selection_got.items() if got != selection_expected[ident]} }")
         damaged_injection = [event["event_id"] for event in (deliveries.get("sessions") or {}).get("events") or []
                              if event["owner"] == "claude:s-damaged" and event["kind"] == "session_injection"]
         check("a delivery's one reason is its first broken link — a damaged injection event of its own owner, "
@@ -7949,9 +8300,12 @@ def self_test():
               "chosen for exclusion_unreadable, and leaves the other session, every other scope and X's native "
               "events as they were",
               pin_parts[0].get("s-y") == clean_parts[0].get("s-y")
-              and {key: value for key, value in pin_parts[0].get("s-x", {}).items() if key not in ("pin", "delivery", "event_refs")}
-              == {key: value for key, value in clean_parts[0].get("s-x", {}).items() if key not in ("pin", "delivery", "event_refs")}
+              and {key: value for key, value in pin_parts[0].get("s-x", {}).items()
+                   if key not in ("pin", "delivery", "selection", "event_refs")}
+              == {key: value for key, value in clean_parts[0].get("s-x", {}).items()
+                  if key not in ("pin", "delivery", "selection", "event_refs")}
               and (pin_parts[0].get("s-x", {}).get("pin") or {}).get("reason") == "input_failed"
+              and (pin_parts[0].get("s-x", {}).get("selection") or {}).get("reason") == "input_failed"
               and (pin_parts[0].get("s-x", {}).get("delivery") or {}).get("reason") == "input_failed"
               and pin_parts[1] == clean_parts[1] and pin_parts[2]["claude:s-y"] == clean_parts[2]["claude:s-y"]
               and (clean_parts[3].get(global_key) or {}).get("status") == "answered"
@@ -8039,6 +8393,348 @@ def self_test():
               (((elsewhere_run.get("current") or {}).get("produced_by") or {}).get("notes") or {}).get(
                   "transcripts", {}).get("pin_delivery") == "no_census_session",
               f"{(((elsewhere_run.get('current') or {}).get('produced_by') or {}).get('notes') or {}).get('transcripts', {}).get('pin_delivery')}")
+
+        # ---- P2.4b: shared inventories (step 0 S-22, S-25; lead rulings 5-7 on the P2.4 plan), through the
+        # production acquisition and `shared_inventories`, which is what `run` calls. Fixtures only.
+        def published_shared(name, transcripts, state_here, pin=None):
+            """The shared inventories, sessions.json and the store as `run` makes, crosses and WRITES them
+            over a fixture state, read back from the written files; `{"refused", "message"}` when refused."""
+            run_at = scratch / "p24b" / f"run-{name}"
+            rows_here = []
+            for host, ident, records_in, fields in transcripts:
+                path_here = raw_lines(scratch / "p24b" / name / f"{ident}.jsonl", records_in)
+                rows_here.append({**census_row(host, ident, path_here), **fields})
+            run_at.mkdir(parents=True, exist_ok=True)
+            (run_at / CENSUS).write_text(json.dumps({"transcripts": rows_here}), encoding="utf-8")
+            ctx_here = context_of(REPO, None, None, {}, pin, None)
+            ctx_here.update(home=str(fixture_home), commit="fixture")
+            out_here = scratch / "p24b" / f"out-{name}"
+            try:
+                freeze_inputs(scratch / "p24b" / f"frozen-{name}", REPO, state_here, None, pin, ctx_here,
+                              census_entries(run_at))
+                bind_transcripts(ctx_here, run_at)
+                sessions_here = sessions_document(ctx_here)
+                shared_here = shared_inventories(ctx_here)
+                store_here = store_document(ctx_here)
+                crossed_here = shared_cross_problems(shared_here, store_here, sessions_here) \
+                    + occurrence_cross_problems(sessions_here, store_here)
+                if crossed_here:
+                    return {"refused": "crossed", "message": "; ".join(crossed_here)}
+                for relative, document_here in shared_here:
+                    write_document(out_here, out_here / "inventory" / relative, document_here, str(fixture_home))
+                write_document(out_here, out_here / "inventory" / f"{SESSIONS}.json", sessions_here, str(fixture_home))
+                write_document(out_here, out_here / "inventory" / STORE_REL, store_here, str(fixture_home))
+            except Exception as exc:  # the control names what refused, never the suite
+                return {"refused": type(exc).__name__, "message": str(exc)}
+            return {"shared": {path.stem: json.loads(path.read_text(encoding="utf-8"))
+                               for path in sorted((out_here / "inventory" / "shared").glob("*-i-*.json"))},
+                    "sessions": json.loads((out_here / "inventory" / f"{SESSIONS}.json").read_text(encoding="utf-8")),
+                    "out": out_here, "omissions": list(ctx_here.get("omissions") or [])}
+
+        def plant_baseline(state_dir, ref, items):
+            base_dir = state_dir / "runtime" / "baselines" / ref
+            base_dir.mkdir(parents=True, exist_ok=True)
+            (base_dir / "inventory.json").write_text(json.dumps({"items": items}), encoding="utf-8")
+
+
+        shared_state = scratch / "p24b" / "shared-state"
+        secret_u = "sk-ant-api03-" + "Un4" * 14
+        home_u = f"{fixture_home}/Documents/an-unavailable-reason-s-own"
+        unavailable_in = [{"ref": "@fixture/core:hook-1", "surface": "event",
+                           "reason": f"native event consumption is disabled under {home_u}, key {secret_u}"}]
+        a_items = [catalog_item("rule-a", "rule", "- rule a"), catalog_item("hook-1", "hook", "print('a hook')\n")]
+        a_ref = plant_snapshot(shared_state, "# Session\n\n- a\n", baseline_ref="ref-a", items=a_items,
+                               unavailable=unavailable_in)
+        b_ref = plant_snapshot(shared_state, "# Session\n\n- b\n", baseline_ref="ref-b",
+                               items=[catalog_item("rule-b", "rule", "- rule b")])
+        plant_baseline(shared_state, "ref-a", [catalog_item("rule-a", "rule", "- rule a")])
+        plant_baseline(shared_state, "ref-b", [catalog_item("rule-b", "rule", "- rule b")])
+        plant_pin(shared_state, "s-a", a_ref)
+        plant_pin(shared_state, "s-b", b_ref)
+        plant_pin(shared_state, "s-a2", a_ref)
+        s_at = "2026-10-22T09:00:00+00:00"
+        shared_rows = [pinned_row("s-a", [inj(s_at, [member("User", "/w/g.md", "- g a\n")], cwd=p1)], a_ref),
+                       pinned_row("s-a2", [inj(s_at, [member("Project", f"{p2}/CLAUDE.md", "- a2\n")], cwd=p2)], a_ref),
+                       pinned_row("s-b", [inj(s_at, [member("Project", f"{p3}/CLAUDE.md", "- b\n")], cwd=p3)], b_ref),
+                       ("claude", "s-free", [inj(s_at, [], cwd=p1)], {})]
+        shared_clean = published_shared("clean", shared_rows, shared_state)
+        check("the shared inventories were published and crossed clean", "refused" not in shared_clean,
+              f"{shared_clean.get('refused')} {str(shared_clean.get('message'))[:200]}")
+        shared_docs = shared_clean.get("shared") or {}
+        a_selection = shared_docs.get(f"selection-{inventory_id('selection', a_ref)}") or {}
+        b_selection = shared_docs.get(f"selection-{inventory_id('selection', b_ref)}") or {}
+        a_release = shared_docs.get(f"release-{inventory_id('release', 'ref-a')}") or {}
+        b_release = shared_docs.get(f"release-{inventory_id('release', 'ref-b')}") or {}
+        clean("and every one of them validates against its own root",
+              [problem for document_here in shared_docs.values() for problem in document_contract_problems(document_here)]
+              or ([] if len(shared_docs) == 4 else [f"documents={sorted(shared_docs)}"]))
+        check("one selection inventory per distinct snapshot a session's own pin names, and one release inventory per "
+              "baseline those snapshots name, each under the id its kind and ref derive",
+              sorted(shared_docs) == sorted([f"selection-{inventory_id('selection', a_ref)}",
+                                             f"selection-{inventory_id('selection', b_ref)}",
+                                             f"release-{inventory_id('release', 'ref-a')}",
+                                             f"release-{inventory_id('release', 'ref-b')}"])
+              and a_selection.get("inventory_id") == canonical("i", "inventory", "selection", a_ref)
+              and a_release.get("ref") == "ref-a" and a_release.get("kind") == "release",
+              f"{sorted(shared_docs)}")
+        shared_records = {row["transcript"]["id"]: row for row in (shared_clean.get("sessions") or {}).get("sessions") or []}
+        check("a session's selection names the shared inventory its own snapshot is, two sessions of one snapshot "
+              "naming one, and an unpinned session none",
+              (shared_records.get("s-a") or {}).get("selection") == {
+                  "status": "read", "reason": None, "inventory_ref": inventory_id("selection", a_ref)}
+              and (shared_records.get("s-a2") or {}).get("selection") == (shared_records.get("s-a") or {}).get("selection")
+              and (shared_records.get("s-free") or {}).get("selection") == {
+                  "status": "unpinned", "reason": "unpinned", "inventory_ref": None},
+              f"{(shared_records.get('s-a') or {}).get('selection')} {(shared_records.get('s-free') or {}).get('selection')}")
+        a_rows = {row["layer"]: row for row in a_selection.get("layers") or []}
+        check("a selection inventory's layers are the selection's: catalog and session injection from its snapshot, "
+              "every native layer unknown per_event, the ledgers by their own reason",
+              (a_rows.get("catalog") or {}).get("status") == "complete"
+              and (a_rows.get("session_injection") or {}).get("status") == "complete"
+              and all((a_rows.get(layer) or {}).get("reasons") == [f"{layer}: {UNKNOWN_REASONS['per_event']}"]
+                      for layer in TRANSCRIPT_LAYERS + ("native_undivided",))
+              and (a_rows.get("ledger_keep") or {}).get("reasons") == [f"ledger_keep: {UNKNOWN_REASONS['ledger_history']}"]
+              and bool(a_selection.get("unit_refs")) and bool(a_selection.get("carriers")),
+              f"{[(layer, row['status']) for layer, row in a_rows.items()]}")
+        check("a release inventory answers its catalog and adopted packages only, maps every baseline item, and names "
+              "its carrier versions and units by reference",
+              [row["layer"] for row in a_release.get("layers") or []] == list(SHARED_RELEASE_LAYERS)
+              and a_release.get("baseline_unmapped") == [] and a_release.get("baseline_items_expected") == 1
+              and a_release.get("complete") is True and bool(a_release.get("unit_refs")),
+              f"{[(row['layer'], row['status']) for row in a_release.get('layers') or []]} "
+              f"{a_release.get('baseline_unmapped')}")
+        check("ruling 7: a selection inventory carries its snapshot's unavailable list, its ref among the snapshot's "
+              "own items and its surface among the catalog's",
+              [(row["ref"], row["surface"]) for row in a_selection.get("unavailable") or []]
+              == [("@fixture/core:hook-1", "event")] and b_selection.get("unavailable") == [],
+              f"{a_selection.get('unavailable')}")
+        shared_written = "".join(path.read_text(encoding="utf-8")
+                                 for path in sorted((pathlib.Path(shared_clean.get("out") or scratch) / "inventory").rglob("*.json")))
+        check("an unavailable reason holding a credential and a home path reaches the written shared inventory masked",
+              bool(shared_written) and secret_u not in shared_written and home_u not in shared_written
+              and any("<REDACTED>" in row["reason"] or "<HOME>" in row["reason"] for row in a_selection.get("unavailable") or []),
+              f"written={bool(shared_written)} rows={len(a_selection.get('unavailable') or [])}")
+        foreign_state = scratch / "p24b" / "foreign-state"
+        foreign_ref = plant_snapshot(foreign_state, "# Session\n\n- foreign\n", baseline_ref="ref-a", items=a_items[:1],
+                                     unavailable=[{"ref": "@elsewhere:not-an-item", "surface": "event", "reason": "x"}])
+        plant_baseline(foreign_state, "ref-a", [catalog_item("rule-a", "rule", "- rule a")])
+        plant_pin(foreign_state, "s-f", foreign_ref)
+        foreign = published_shared("foreign", [pinned_row("s-f", [inj(s_at, [], cwd=p1)], foreign_ref)], foreign_state)
+        control("ruling 7: an unavailable ref that is not among the snapshot's own items is refused by name",
+                [f"{foreign.get('refused')}: {foreign.get('message')}"], "EMISSION_NOT_DECLARED_VALUE", ".unavailable[0].ref")
+
+        # S-25 `baseline@<ref>`, two sessions: a missing baseline reaches the release inventory of THAT baseline,
+        # by `baseline_absent`, and leaves the other inventory and every session record as they were
+        absent_state = scratch / "p24b" / "absent-state"
+        shutil.copytree(shared_state, absent_state)
+        shutil.rmtree(absent_state / "runtime" / "baselines" / "ref-a")
+        shared_absent = published_shared("absent", shared_rows, absent_state)
+        absent_docs = shared_absent.get("shared") or {}
+        absent_a = absent_docs.get(f"release-{inventory_id('release', 'ref-a')}") or {}
+        absent_records = {row["transcript"]["id"]: row for row in (shared_absent.get("sessions") or {}).get("sessions") or []}
+        check("S-25: a missing baseline@R makes R's release inventory unknown by baseline_absent, and leaves the other "
+              "release inventory, every selection inventory and every session record as they were",
+              "refused" not in shared_absent and bool(absent_a.get("layers"))
+              and all(row["status"] == "unknown" and row["reasons"]
+                      == [f"{row['layer']}: {UNKNOWN_REASONS['baseline_absent']} (release_baseline)"]
+                      for row in absent_a.get("layers") or [])
+              and absent_docs.get(f"release-{inventory_id('release', 'ref-b')}") == b_release
+              and {key: value for key, value in absent_docs.items() if key.startswith("selection-")}
+              == {key: value for key, value in shared_docs.items() if key.startswith("selection-")}
+              and absent_records == shared_records,
+              f"{shared_absent.get('refused')} {[(row['layer'], row['status'], row['reasons']) for row in absent_a.get('layers') or []]}")
+
+        # S-25 runtime state, two sessions: absent (the clean fixture holds none), present, or failed (a link), it
+        # reaches no shared inventory and no session record: those are a pinned session's, and runtime state is
+        # the installed-now inventory's input only (the matrix judges current.json for it)
+        runtime_cases = {}
+        for label, plant in (("present", lambda path: path.write_text(json.dumps(
+                {"schema_version": 1, "selected_baseline_ref": "ref-b"}), encoding="utf-8")),
+                             ("failed", lambda path: path.symlink_to(path.parent / "elsewhere.json"))):
+            runtime_state_here = scratch / "p24b" / f"runtime-{label}-state"
+            shutil.copytree(shared_state, runtime_state_here)
+            (runtime_state_here / "runtime").mkdir(parents=True, exist_ok=True)
+            plant(runtime_state_here / "runtime" / "state.json")
+            runtime_cases[label] = published_shared(f"runtime-{label}", shared_rows, runtime_state_here)
+        def selection_catalogs(case):
+            """The catalog row of every shared selection inventory one arm wrote: the subject the
+            comparison is about, so an arm that writes none cannot pass it."""
+            return [row for key, document_here in (case.get("shared") or {}).items() if key.startswith("selection-")
+                    for row in document_here.get("layers") or [] if row["layer"] == "catalog"]
+
+        check("S-25: every arm of the runtime-state control writes shared selection inventories whose catalog is complete",
+              all(len(selection_catalogs(case)) == 2 and all(row["status"] == "complete" for row in selection_catalogs(case))
+                  for case in (shared_clean, *runtime_cases.values())),
+              f"{[(label, [(row['status'], row['reasons']) for row in selection_catalogs(case)]) for label, case in (('absent', shared_clean), *runtime_cases.items())]}")
+        # The rule itself (lead, after pretrial-p24b-2): under a planted UNKEYED omission (the runtime state a
+        # link, so failed; and no user root), every row of the WRITTEN selection.json equals the same row of its
+        # own shared selection inventory, status and reasons — one producer, and one context but for the rows
+        # keyed to another pin, snapshot or baseline. Two arms, a --pin of s-a and of s-b, over one census of s-a,
+        # s-a2 and s-b; each a full run, wrapped.
+        equal_run = scratch / "p24b" / "run-equal"
+        equal_run.mkdir(parents=True, exist_ok=True)
+        equal_census = []
+        for host_e, ident_e, records_e, fields_e in shared_rows:
+            if ident_e in ("s-a", "s-a2", "s-b"):
+                path_e = raw_lines(scratch / "p24b" / "equal" / f"{ident_e}.jsonl", records_e)
+                equal_census.append({**census_row(host_e, ident_e, path_e), **fields_e})
+        (equal_run / CENSUS).write_text(json.dumps({"transcripts": equal_census}), encoding="utf-8")
+        equal_arms = {}
+        for ident_e, ref_e in (("s-a", a_ref), ("s-b", b_ref)):
+            equal_out = scratch / "p24b" / f"out-equal-{ident_e}"
+            raised_e = _raised(lambda: run(REPO, scratch / "p24b" / "runtime-failed-state", None, equal_out,
+                                           pin=f"claude:{ident_e}", run_dir=equal_run, commit="fixture",
+                                           home=fixture_home, native_roots={"projects": {"project": scratch / "project"}}))
+            files_e = {key: json.loads(path.read_text(encoding="utf-8")) if path.is_file() else {}
+                       for key, path in (("selection", equal_out / "inventory" / "selection.json"),
+                                         ("shared", equal_out / "inventory" / "shared"
+                                          / f"selection-{inventory_id('selection', ref_e)}.json"))}
+            equal_arms[ident_e] = (raised_e, files_e)
+
+        def arm_rows(document_here):
+            return [(row["layer"], row["status"], row["reasons"]) for row in document_here.get("layers") or []]
+
+        def arm_missing(files_e):
+            return ((files_e["selection"].get("produced_by") or {}).get("notes") or {}).get("frozen_missing") or []
+
+        check("under an unkeyed omission, every row of the written selection.json equals the same row of its own "
+              "shared selection inventory, status and reasons",
+              len(equal_arms) == 2 and all(
+                  raised_e is None and bool(arm_rows(files_e["selection"]))
+                  and arm_rows(files_e["selection"]) == arm_rows(files_e["shared"])
+                  and any(row.get("input") == "runtime_state" and row.get("outcome") == "failed"
+                          for row in arm_missing(files_e))
+                  for raised_e, files_e in equal_arms.values()),
+              f"{[(ident_e, type(raised_e).__name__ if raised_e else None, str(raised_e or '')[:200], [pair for pair in zip(arm_rows(files_e['selection']), arm_rows(files_e['shared'])) if pair[0] != pair[1]][:2], [(row.get('input'), row.get('outcome')) for row in arm_missing(files_e)]) for ident_e, (raised_e, files_e) in equal_arms.items()]}")
+        # One home for emission and judgement (lead, P2.4b): run(home=X) whose published leaf holds a path under X
+        # writes it as `<HOME>` and is not refused — s-a's unavailable reason names this suite's fixture home
+        a_raised, a_files = equal_arms.get("s-a", (None, {"shared": {}}))
+        a_reasons = [row.get("reason") or "" for row in a_files["shared"].get("unavailable") or []]
+        check("run(home=X): a published leaf holding a path under X is written as <HOME>, and the run is not refused",
+              a_raised is None and len(a_reasons) == 1 and "<HOME>" in a_reasons[0]
+              and str(fixture_home) not in a_reasons[0] and secret_u not in a_reasons[0],
+              f"raised={type(a_raised).__name__ if a_raised else None}: {str(a_raised or '')[:200]} reasons={a_reasons}")
+        # ...and an omission KEYED to the --pin is that pin's alone: a --pin whose pin does not read reaches no
+        # session's shared inventory (KEYED_INPUTS)
+        pin_failed_case = published_shared("pin-failed", shared_rows, shared_state, pin="claude:s-missing")
+        check("S-25: a --pin whose pin does not read reaches no shared inventory and no session record, its "
+              "omission being keyed to it",
+              "refused" not in pin_failed_case and pin_failed_case.get("shared") == shared_docs and bool(shared_docs)
+              and {row["transcript"]["id"]: row for row in pin_failed_case["sessions"]["sessions"]} == shared_records
+              and any(row["input"] == "pin" and row["ref"] == "claude:s-missing"
+                      for row in pin_failed_case.get("omissions") or []),
+              f"{pin_failed_case.get('refused')} {[(row['input'], row['ref'], row['outcome']) for row in pin_failed_case.get('omissions') or []]}")
+        check("S-25: runtime state absent, present or failed changes no shared inventory and no session record",
+              all("refused" not in case and case.get("shared") == shared_docs
+                  and {row["transcript"]["id"]: row for row in case["sessions"]["sessions"]} == shared_records
+                  for case in runtime_cases.values()) and bool(shared_docs),
+              f"{[(label, case.get('refused'), sorted(case.get('shared') or {}) == sorted(shared_docs)) for label, case in runtime_cases.items()]}")
+        # each of the shared cross checks refuses by name, over rows built here
+        crossed_store = {"versions": {}, "units": {}}
+        crossed_doc = {"inventory_id": inventory_id("selection", "other-ref"), "kind": "selection", "ref": "a-ref",
+                       "carriers": [{"carrier_id": "c-" + "0" * 24, "version_sha256": "0" * 64}],
+                       "unit_refs": ["r-" + "0" * 24]}
+        crossed_sessions = {"sessions": [{"selection": {"inventory_ref": inventory_id("selection", "unpublished")}}]}
+        control("ruling 5: a shared inventory listed under another id than its path names, and a single document "
+                "listed with an id, each refused by name",
+                artifact_problems([{"path": f"inventory/shared/selection-{inventory_id('selection', 'a')}.json",
+                                    "document": SHARED, "id": inventory_id("selection", "b")},
+                                   {"path": "inventory/current.json", "document": "current",
+                                    "id": inventory_id("selection", "a")}]),
+                "ARTIFACT_ID_MISMATCH inventory/shared/selection-", "ARTIFACT_ID_UNEXPECTED inventory/current.json")
+        control("a shared inventory's id that its kind and ref do not derive, a carrier version and a unit outside the "
+                "store, and a session naming no published selection inventory, each refused by name",
+                shared_cross_problems([("x", crossed_doc)], crossed_store, crossed_sessions),
+                "SHARED_ID_MISMATCH", "SHARED_VERSION_UNRESOLVED", "SHARED_UNIT_UNRESOLVED", "SHARED_SELECTION_UNRESOLVED")
+
+        # The selection rows a malformed snapshot item reaches are a declared reason, never an exception's name
+        # (found by the lead after a36c728): the default fixture item names only its ref.
+        declared_texts = tuple(UNKNOWN_REASONS.values()) + ("MALFORMED_ITEM:", PRODUCER_FAILED)
+
+        def undeclared_rows(rows):
+            """The layer rows that are neither evidence (`complete`) nor unknown or incomplete by reasons
+            this module declares, as `layer=status: reasons`; `[]` when every row is one or the other."""
+            return [f"{row['layer']}={row['status']}: {row['reasons']}" for row in rows
+                    if not (row["status"] == "complete" and not row["reasons"])
+                    and not (row["status"] in ("unknown", "incomplete") and row["reasons"] and all(
+                        text.split(": ", 1)[-1].startswith(declared_texts) for text in row["reasons"]))]
+
+        malformed_state = scratch / "p24b" / "malformed-state"
+        # the ONE fixture whose item names only its ref: built for MALFORMED_ITEM, and no other is
+        malformed_ref = plant_snapshot(malformed_state, "# Session\n\n- m\n", baseline_ref="ref-a",
+                                       items=[{"ref": "@fixture/core:item-1"}])
+        plant_baseline(malformed_state, "ref-a", [catalog_item("rule-a", "rule", "- rule a")])
+        plant_pin(malformed_state, "s-m", malformed_ref)
+        malformed = published_shared("malformed", [pinned_row("s-m", [inj(s_at, [], cwd=p1)], malformed_ref)], malformed_state)
+        malformed_doc = (malformed.get("shared") or {}).get(f"selection-{inventory_id('selection', malformed_ref)}") or {}
+        check("every row of a selection is the pin's evidence or carries a declared reason: a snapshot item naming no "
+              "kind is MALFORMED_ITEM, never an exception's name",
+              bool(malformed_doc.get("layers")) and not undeclared_rows(malformed_doc["layers"])
+              and (({row["layer"]: row for row in malformed_doc.get("layers") or []}.get("catalog") or {}).get("reasons")
+                   == ["catalog: MALFORMED_ITEM: a catalog item that names no kind or no ref"]),
+              f"{[(row['layer'], row['status'], row['reasons']) for row in malformed_doc.get('layers') or []]}")
+        def raising_producer(_ctx):
+            raise KeyError("kind")
+
+        kept_layers_here = globals()["LAYERS"]
+        try:
+            globals()["LAYERS"] = (("catalog", {"current": ("a fixture producer that raises", raising_producer, ())}),)
+            raised_rows = layer_rows("current", {"notes": {}, "omissions": []})
+        finally:
+            globals()["LAYERS"] = kept_layers_here
+        # a missing row is a failed condition below, never an IndexError that ends the suite
+        raised_first = raised_rows[0] if raised_rows else {"layer": "catalog", "producer": None, "status": "unknown",
+                                                           "reasons": ["layer_rows returned no row"]}
+        raised_row = emit_row("layer_row", LAYER_ROW_TABLE,
+                              {**{key: raised_first[key] for key in ("layer", "producer", "status", "reasons")},
+                               "units": 0, "empty": False},
+                              {"home": str(fixture_home), "decisions": {}})
+        check("a producer that raises an undeclared exception leaves the declared reason with its fixed category, "
+              "never the exception's type or text",
+              raised_row["status"] == "incomplete"
+              and raised_row["reasons"] == [f"catalog: {PRODUCER_FAILED} (not_admitted)"]
+              and not exception_named_problems(raised_row)[0],
+              f"{raised_row['reasons']}")
+        # W4: a transcript the reader cannot read (no permission) is `unreadable` by category
+        locked_path = raw_lines(scratch / "p24b" / "locked" / "s-locked.jsonl", [inj(s_at, [], cwd=p1)])
+        locked_entry = census_row("claude", "s-locked", locked_path)
+        locked_path.chmod(0)
+        try:
+            locked = _raised(lambda: transcript_records(locked_entry))
+        finally:
+            locked_path.chmod(0o600)
+        check("an unreadable transcript's reason is its fixed category, never the reader's exception type or its path",
+              isinstance(locked, Unacquired) and str(locked) == f"{UNKNOWN_REASONS['unreadable']} (unreadable)"
+              and not exception_named_problems({"reason": str(locked)})[0],
+              f"{type(locked).__name__}: {locked}")
+        # W5: a file the tree hash cannot read is omitted with its fixed category
+        locked_tree = scratch / "p24b" / "locked-tree"
+        locked_tree.mkdir(parents=True)
+        (locked_tree / "readable.txt").write_text("x\n", encoding="utf-8")
+        (locked_tree / "locked.txt").write_text("y\n", encoding="utf-8")
+        (locked_tree / "locked.txt").chmod(0)
+        try:
+            locked_digests, locked_omissions = hash_tree(locked_tree)
+        finally:
+            (locked_tree / "locked.txt").chmod(0o600)
+        check("a path the tree hash cannot read is omitted by its fixed category, never the exception's type",
+              locked_omissions == [{"path": "locked.txt", "reason": "unreadable: unreadable"}]
+              and "readable.txt" in locked_digests and not exception_named_problems({"omissions": locked_omissions})[0],
+              f"{locked_omissions}")
+        # ruling 4: the names are derived, not listed: a class defined after the fact is among them
+        globals()["PlantedProbeFailure"] = type("PlantedProbeFailure", (Exception,), {})
+        try:
+            derived_names = exception_names()
+        finally:
+            del globals()["PlantedProbeFailure"]
+        check("the exception names are derived: builtins, this module's own and its modules' (a class planted in this "
+              "module after import is among them)",
+              {"KeyError", "SyntaxError", "JSONDecodeError", "Refused", "Malformed", "Unacquired", "Unreadable",
+               "PlantedProbeFailure"} <= derived_names and "PlantedProbeFailure" not in exception_names(),
+              f"{sorted(name for name in ('KeyError', 'JSONDecodeError', 'Refused', 'Unreadable', 'PlantedProbeFailure') if name not in derived_names)}")
+        named_here, judged_here = exception_named_problems({"layers": [{"reasons": ["catalog: KeyError: 'kind'"]}]})
+        control("a reason naming a Python exception type is found by name, where it is",
+                named_here + [f"judged={judged_here}"], "REASON_NAMES_EXCEPTION $.layers[0].reasons[0]", "judged=1")
 
         # ---- M5 (recording): an undecodable line is kept at its position, before and after an event
         for label, rows_for, expected_line, event_line in (
@@ -8208,9 +8904,63 @@ def self_test():
         check("the inventory wrote a file per reference point",
               all((scratch / "out" / "inventory" / f"{reference}.json").is_file() for reference in REFERENCES),
               "a reference point has no artifact")
-        check("the fixture release mapped every item",
-              manifest.get("baseline_unmapped") == [] and manifest.get("baseline_items_expected") == 3,
-              f"{manifest.get('baseline_unmapped')}")
+        # S-24 option 1: with no pin, release.json names no baseline and its catalog and adopted packages are
+        # `release_history_deferred`; the installed baseline (ref1 here) is never taken for it. Done-when 1's
+        # mapping is judged per shared release inventory, on the planted run below, whose session is pinned.
+        deferred_doc = json.loads((scratch / "out" / "inventory" / "release.json").read_text(encoding="utf-8"))
+        # a layer missing from the document reads as no status, so the check fails by name rather than raising
+        deferred_rows = collections.defaultdict(lambda: {"status": None, "reasons": None},
+                                                {row["layer"]: row for row in deferred_doc.get("layers") or []})
+        check("an unpinned release names no baseline: its catalog and adopted packages are release_history_deferred, "
+              "and the installed baseline is not taken for it",
+              all(deferred_rows[layer]["status"] == "unknown"
+                  and deferred_rows[layer]["reasons"] == [f"{layer}: {UNKNOWN_REASONS['release_history_deferred']}"]
+                  for layer in SHARED_RELEASE_LAYERS)
+              and deferred_doc["reference"].get("ref") is None and "baseline_unmapped" not in manifest
+              and not any(unit["layer"] in SHARED_RELEASE_LAYERS for unit in deferred_doc["units"]),
+              f"{[(layer, deferred_rows[layer]['status'], deferred_rows[layer]['reasons']) for layer in SHARED_RELEASE_LAYERS]}")
+        # M4 (S-24 option 1, S-16) through a recording seam over `freeze`, the one route by which this module
+        # reads the owner's state (done-when 5): an unpinned run, a Codex --pin run and an unpinned run whose
+        # runtime state is absent read no transaction or installer journal, and their release rows are
+        # deferred, never the installed baseline and never a runtime-state reason. The fixture holds a
+        # transaction (tx-1), so the absence is about a path that is there.
+        kept_freeze, frozen_sources, seam_runs = globals()["freeze"], [], {}
+
+        def recording_freeze(sources, *args, **kwargs):
+            sources = list(sources)
+            frozen_sources.extend(str(source) for source, _relative in sources)
+            return kept_freeze(sources, *args, **kwargs)
+
+        stateless = scratch / "m4-stateless-state"
+        shutil.copytree(state, stateless, symlinks=True)
+        (stateless / "runtime" / "state.json").unlink()
+        globals()["freeze"] = recording_freeze
+        try:
+            for label, state_here, pin_here in (("unpinned", state, None), ("codex", state, "codex:c-seam"),
+                                                ("no-runtime-state", stateless, None)):
+                seam_out = scratch / f"m4-{label}"
+                raised_here = _raised(lambda: run(REPO, state_here, user, seam_out, pin=pin_here, ledger=ledger,
+                                                  commit="fixture", **captured()))
+                release_here = seam_out / "inventory" / "release.json"
+                seam_runs[label] = (raised_here, json.loads(release_here.read_text(encoding="utf-8"))
+                                    if release_here.is_file() else {})
+        finally:
+            globals()["freeze"] = kept_freeze
+        journal_reads = [source for source in frozen_sources if "transactions" in source or "journal" in source.lower()]
+        check("M4: an unpinned run, a Codex --pin run and an unpinned run with no runtime state read no transaction "
+              "or installer journal",
+              not journal_reads and any(source.endswith("runtime/state.json") for source in frozen_sources)
+              and (state / "runtime" / "transactions" / "tx-1" / "transaction.json").is_file(),
+              f"journal_reads={journal_reads} sources={len(frozen_sources)}")
+        check("and each one's release catalog and adopted packages are release_history_deferred, the Codex --pin's "
+              "included and the absent runtime state's reason nowhere among them",
+              len(seam_runs) == 3 and all(
+                  raised is None and [(row["layer"], row["status"], row["reasons"]) for row in doc.get("layers") or []
+                                      if row["layer"] in SHARED_RELEASE_LAYERS]
+                  == [(layer, "unknown", [f"{layer}: {UNKNOWN_REASONS['release_history_deferred']}"])
+                      for layer in SHARED_RELEASE_LAYERS]
+                  for raised, doc in seam_runs.values()),
+              f"{[(label, type(raised).__name__ if raised else None, [(row['layer'], row['reasons']) for row in doc.get('layers') or [] if row['layer'] in SHARED_RELEASE_LAYERS]) for label, (raised, doc) in seam_runs.items()]}")
         planted_write = state / "runtime" / "planted-by-a-producer.json"
         saved = globals()["LAYERS"]
 
@@ -8581,7 +9331,8 @@ def self_test():
         # ---- GA#0: a credential or a home path planted in every personal carrier kind, and in the
         # session's compiled text, reaches no artifact — while the hashes still bind to the raw carrier
         secret = "sk-ant-api03-" + "Ab3" * 14
-        private = str(pathlib.Path.home() / "Documents" / "a-directory-of-the-owner-s")
+        # under the home the planted run is GIVEN (home=fixture_home), so the masking judged is that home's
+        private = str(fixture_home / "Documents" / "a-directory-of-the-owner-s")
         tainted = f"\n- a rule naming {private}, with apiKeyHelper: {secret}\n"
         planted_in = {
             "native_global": "# Global\n\n- a native rule\n" + tainted,
@@ -8599,7 +9350,7 @@ def self_test():
                   "item_refs": ["@fixture/core:item-1"], "unavailable": []}
         (snapshot_dir / "output.json").write_text(json.dumps(output), encoding="utf-8")
         (snapshot_dir / "inventory.json").write_text(json.dumps({
-            "inputs": snapshot_inputs, "items": [{"ref": "@fixture/core:item-1"}],
+            "inputs": snapshot_inputs, "items": [catalog_item("item-1", text="## Item 1\n\n- a rule\n")],
             "file_digests": {name: store._digest((snapshot_dir / name).read_bytes())
                              for name in ("CLAUDE.md", "output.json")}}), encoding="utf-8")
         (state / "sessions" / "pins" / "claude" / "session-1.json").write_text(
@@ -8634,6 +9385,15 @@ def self_test():
         for reference in REFERENCES:
             for unit in json.loads((planted_out / "inventory" / f"{reference}.json").read_text(encoding="utf-8"))["units"]:
                 emitted.setdefault(unit["path"], []).append(unit)
+        # ...and the store, where every recorded member is published once: a selection holds no native layer
+        # any more (lead ruling 5 on the P2.4 plan), and the AutoMem member here answers no current scope
+        # (its path is `~/`, so `memory_path_relative`), so the store is where its units are.
+        planted_store_written = json.loads((planted_out / "inventory" / STORE_REL).read_text(encoding="utf-8"))
+        for carrier_id_here, rows_here in planted_store_written["versions"].items():
+            for version_here, row_here in rows_here.items():
+                for ref_here in row_here["unit_refs"]:
+                    unit = planted_store_written["units"][ref_here]
+                    emitted.setdefault(row_here["path"], []).append({**unit, "layer": row_here["layer"]})
         for layer, raw_text in planted_in.items():
             carried = [unit for units_for in emitted.values() for unit in units_for
                        if unit["layer"] == layer and unit["version_sha256"] == sha256_text(raw_text)]
@@ -8690,7 +9450,7 @@ def self_test():
         # ---- GA#0 (security review): the fields beside `text`, and the boundary that does not
         # depend on remembering them
         heading_secret = f"## A heading naming apiKeyHelper {secret} and {private}\n"
-        headed = shed(units_of([guide("headed.md", heading_secret + "\n- a rule under it\n")]), home=str(pathlib.Path.home()))
+        headed = shed(units_of([guide("headed.md", heading_secret + "\n- a rule under it\n")]), home=str(fixture_home))
         check("a secret in a heading line is masked in every unit that carries the heading",
               all(secret not in unit["heading"] and private not in unit["heading"] for unit in headed)
               and all(secret not in unit["text"] for unit in headed),
@@ -8712,7 +9472,8 @@ def self_test():
                   OSError(f"cannot read {pathlib.Path.home()}/Documents/x"), hiding["home"]),
               "the exception message carried the owner's home path")
         manifest_text = (planted_out / "inventory" / "manifest.json").read_text(encoding="utf-8")
-        check("the manifest carries no owner home prefix", str(pathlib.Path.home()) not in manifest_text,
+        check("the manifest carries no owner home prefix",
+              str(pathlib.Path.home()) not in manifest_text and str(fixture_home) not in manifest_text,
               "the manifest holds an absolute path under the owner's home")
         under_home = pathlib.Path.home() / "Documents" / "a-run-directory"
         check("a path the manifest records is masked with the projection's own mask",
@@ -9138,12 +9899,11 @@ def self_test():
         matrix_installed = json.loads((state / "runtime" / "state.json").read_text(encoding="utf-8"))["selected_baseline_ref"]
         clean_statuses = statuses_over(state, user)
         reads_state_now = {"current/adopted_packages", "current/overlays"}
+        # A selection's native rows read no pin any more: they are `per_event` (lead ruling 5 on the P2.4 plan).
         reads_the_pin = {"release/catalog", "release/adopted_packages", "selection/catalog",
-                         "selection/adopted_packages", "selection/overlays", "selection/native_global",
-                         "selection/native_project", "selection/native_memory", "current/session_injection",
+                         "selection/adopted_packages", "selection/overlays", "current/session_injection",
                          "selection/session_injection"}
-        reads_the_snapshot = reads_the_pin - {"selection/native_global", "selection/native_project",
-                                              "selection/native_memory"}
+        reads_the_snapshot = set(reads_the_pin)
         matrix_cases = [
             ("runtime_state", "failed", lambda s, u: linked_instead(s / "runtime" / "state.json"), reads_state_now),
             ("runtime_state", "absent", lambda s, u: removed(s / "runtime" / "state.json"), reads_state_now),
@@ -9219,6 +9979,14 @@ def self_test():
         stray_record = next((row for row in (json.loads((stray_out / "inventory" / f"{SESSIONS}.json").read_text(
             encoding="utf-8"))["sessions"] if (stray_out / "inventory" / f"{SESSIONS}.json").is_file() else [])
             if row["transcript"]["id"] == "session-1"), {})
+        stray_reference = (json.loads((stray_out / "inventory" / "current.json").read_text(encoding="utf-8"))["reference"]
+                           if (stray_out / "inventory" / "current.json").is_file() else {})
+        check("an unattributed acquisition failure's reason is its fixed category, never the exception's type or text",
+              any(text.startswith("INPUT_UNACQUIRED: freezing the inputs failed (not_admitted)")
+                  for text in stray_reference.get("incomplete_reasons") or [])
+              and not exception_named_problems(stray_reference)[0]
+              and not any("a planted failure no input owns" in text for text in stray_reference.get("incomplete_reasons") or []),
+              f"{stray_reference.get('incomplete_reasons')}")
         check("an unattributed acquisition failure leaves the checkout, transcript and ledger layers their answers",
               stray is None and stray_rows.get("catalog") == "complete" and stray_rows.get("native_project") == "complete"
               and stray_rows.get("ledger_keep") == "complete"
@@ -9260,7 +10028,8 @@ def self_test():
                                     native_roots={"projects": {"project": scratch / "project"}}))
         nopin_files = {name: json.loads((nopin_out / "inventory" / rel).read_text(encoding="utf-8"))
                        if (nopin_out / "inventory" / rel).is_file() else {}
-                       for name, rel in (("sessions", f"{SESSIONS}.json"), ("selection", "selection.json"))}
+                       for name, rel in (("sessions", f"{SESSIONS}.json"), ("selection", "selection.json"),
+                                         ("current", "current.json"))}
         nopin_records = {row["transcript"]["id"]: row for row in nopin_files["sessions"].get("sessions") or []}
         nopin_reference = nopin_files["selection"].get("reference") or {}
         nopin_injection = next((row for row in nopin_files["selection"].get("layers") or []
@@ -9278,6 +10047,19 @@ def self_test():
               and any(text.startswith("pin_content_ref_mismatch: ") for text in nopin_reference.get("incomplete_reasons") or [])
               and ((nopin_records.get("session-1") or {}).get("pin") or {}).get("status") != "unpinned",
               f"{nopin_injection.get('status')} {nopin_reference.get('incomplete_reasons')}")
+        nopin_global = next((row for row in nopin_files["current"].get("layers") or [] if row["layer"] == "native_global"), {})
+        check("and its session record's selection carries the same reason and names no shared inventory, while every "
+              "row of its selection.json is evidence or a declared reason",
+              (nopin_records.get("session-1") or {}).get("selection") == {
+                  "status": "unknown", "reason": "pin_content_ref_mismatch", "inventory_ref": None}
+              and bool(nopin_files["selection"].get("layers")) and not undeclared_rows(nopin_files["selection"]["layers"]),
+              f"{(nopin_records.get('session-1') or {}).get('selection')} {undeclared_rows(nopin_files['selection'].get('layers') or [])}")
+        check("and the written current.json's global scope, which that session's event is chosen for, is "
+              "exclusion_unreadable (lead reading, 12:40)",
+              nopin_global.get("status") == "unknown"
+              and any(text.startswith(f"native_global: {UNKNOWN_REASONS['exclusion_unreadable']}")
+                      for text in nopin_global.get("reasons") or []),
+              f"{nopin_global.get('status')} {nopin_global.get('reasons')}")
         check("a session the --pin does not name, whose census row names no pin, stays unpinned and its pin file is "
               "not read",
               (nopin_records.get("s-other") or {}).get("pin") == {
@@ -9984,10 +10766,14 @@ def self_test():
                     [f"strings={len(published_here)} "
                      f"carrying={len([1 for _where, text in published_here if canary in text])}"],
                     "carrying=0")
-            check(f"{name}: and the document really carries a reason for it, so the control judges one",
-                  any("not valid" in text or "Error" in text
-                      for _where, text in published_here if "reason" in _where.lower() or True),
-                  f"strings={len(published_here)}")
+            # ...and the reason it carries is the category every parse failure of a supported form is
+            # published under, never the parser's exception type (lead, after a36c728): a reason naming
+            # one is itself the defect the exception-name scan forbids.
+            reason_strings = [text for where, text in published_here if "reason" in where.lower()]
+            check(f"{name}: and the document carries its reason as MALFORMED_CARRIER, naming no exception type",
+                  any("MALFORMED_CARRIER" in text for text in reason_strings)
+                  and not any(exception_named_problems({"reasons": [text]})[0] for text in reason_strings),
+                  f"reasons={reason_strings[:4]}")
 
         # ---- r4 R0 (blocking): two VERSIONS of one carrier identity in one reference point. The
         # identity is `(layer, package_id, item_ref, path)` with no content in it, and
@@ -10764,21 +11550,74 @@ def self_test():
         check("the comparison had a tree to compare", len(before_tree) > 200,
               f"{len(before_tree)} entries")
 
-        # ---- the pinned session's own transcript answers the selection reference point
+        # ---- a selection holds no native layer: each native row of the PUBLISHED selection.json is unknown
+        # `per_event`, and the pinned session's native events stay published in sessions.json (S-15; lead
+        # ruling 5 on the P2.4 plan). The row is made by the one producer the shared selection inventory of
+        # the same snapshot is made by, so the two files carry the same rows.
         selection_doc = json.loads((planted_out / "inventory" / "selection.json").read_text(encoding="utf-8"))
-        selection_rows = {row["layer"]: row for row in selection_doc["layers"]}
-        check("the pinned session's native layers come from its own transcript",
-              all(selection_rows[layer]["status"] == "complete" for layer in TRANSCRIPT_LAYERS),
+        # a layer missing from the document reads as no status, so a check fails by name rather than raising
+        selection_rows = collections.defaultdict(lambda: {"status": None, "reasons": None},
+                                                 {row["layer"]: row for row in selection_doc.get("layers") or []})
+        planted_sessions_doc = json.loads((planted_out / "inventory" / f"{SESSIONS}.json").read_text(encoding="utf-8"))
+        check("selection.json's native rows are unknown per_event, and the pinned session's native events stay "
+              "published in sessions.json",
+              all(selection_rows[layer]["status"] == "unknown"
+                  and selection_rows[layer]["reasons"] == [f"{layer}: {UNKNOWN_REASONS['per_event']}"]
+                  for layer in TRANSCRIPT_LAYERS + ("native_undivided",))
+              and not any(unit["layer"] in TRANSCRIPT_LAYERS for unit in selection_doc["units"])
+              and any(event["owner"] == "claude:session-1" and event["kind"] == "native"
+                      for event in planted_sessions_doc["events"]),
               f"{[(layer, selection_rows[layer]['status'], selection_rows[layer]['reasons']) for layer in TRANSCRIPT_LAYERS]}")
-        check("and each one names the session it was recorded in",
-              {unit["provenance"].get("session") for unit in selection_doc["units"]
-               if unit["layer"] in TRANSCRIPT_LAYERS} == {"claude:session-1"},
-              f"{sorted({unit['provenance'].get('session') for unit in selection_doc['units'] if unit['layer'] in TRANSCRIPT_LAYERS})}")
+        check("the planted run's selection.json: every row is the pin's evidence or carries a declared reason "
+              "(it published `catalog: KeyError` at a36c728, found by the lead)",
+              bool(selection_doc["layers"]) and not undeclared_rows(selection_doc["layers"]),
+              f"{undeclared_rows(selection_doc['layers'])}")
+        # POSITIVE (lead ruling 3, 14:55): with snapshot items in the shape the store writes, the selection catalog
+        # path is exercised end to end, so a broken path cannot pass as a declared reason
+        check("the planted run's selection.json catalog is complete, with units of its snapshot's item",
+              selection_rows["catalog"]["status"] == "complete" and selection_rows["catalog"]["reasons"] == []
+              and any(unit["layer"] == "catalog" and unit["item_ref"] == "@fixture/core:item-1"
+                      for unit in selection_doc["units"]),
+              f"catalog={selection_rows['catalog']['status']} {selection_rows['catalog']['reasons']}")
+        planted_shared = {path.name: json.loads(path.read_text(encoding="utf-8"))
+                          for path in sorted((planted_out / "inventory" / "shared").glob("selection-*.json"))}
+        planted_ref = selection_doc["reference"].get("content_ref")
+        own_inventory = planted_shared.get(f"selection-{inventory_id('selection', planted_ref)}.json") or {}
+        planted_release_path = planted_out / "inventory" / "shared" / f"release-{inventory_id('release', 'ref1')}.json"
+        planted_release = json.loads(planted_release_path.read_text(encoding="utf-8")) if planted_release_path.is_file() else {}
+        check("done-when 1, per shared release inventory: the baseline the pinned session's snapshot names maps "
+              "every item to a unit (lead ruling 6 on the P2.4 plan)",
+              planted_release.get("baseline_unmapped") == [] and planted_release.get("baseline_items_expected") == 3
+              and [(row["layer"], row["status"]) for row in planted_release.get("layers") or []]
+              == [(layer, "complete") for layer in SHARED_RELEASE_LAYERS],
+              f"{planted_release.get('baseline_unmapped')} {planted_release.get('baseline_items_expected')} "
+              f"{[(row['layer'], row['status']) for row in planted_release.get('layers') or []]}")
+        planted_written = {path.relative_to(planted_out).as_posix(): hashlib.sha256(path.read_bytes()).hexdigest()
+                           for path in (planted_out / "inventory").rglob("*.json") if path.name != "manifest.json"}
+        planted_listed = {row["path"]: row for row in manifest.get("artifacts") or []}
+        check("the manifest lists every artifact the run wrote, the shared inventories among them, by its bytes, its "
+              "kind and its id, and not itself (S-22)",
+              {path: row["sha256"] for path, row in planted_listed.items()} == planted_written
+              and any(path.startswith("inventory/shared/selection-i-") for path in planted_written)
+              and any(path.startswith("inventory/shared/release-i-") for path in planted_written)
+              and all((row["id"] is None) == ("-i-" not in path)
+                      and (row["id"] is None or path.endswith(f"-{row['id']}.json"))
+                      for path, row in planted_listed.items())
+              and "inventory/manifest.json" not in planted_listed,
+              f"written={sorted(planted_written)} listed={sorted(planted_listed)}")
+        check("and the shared selection inventory of the same snapshot, from the same producer, carries the same rows",
+              bool(own_inventory) and own_inventory.get("layers") == selection_doc["layers"]
+              and own_inventory.get("ref") == planted_ref
+              and {(row["carrier_id"], row["version_sha256"]) for row in own_inventory.get("carriers") or []}
+              >= {(unit["carrier_id"], unit["version_sha256"]) for unit in selection_doc["units"]}
+              and bool(selection_doc["units"]),
+              f"inventories={sorted(planted_shared)} same={own_inventory.get('layers') == selection_doc['layers']} "
+              f"carriers={len(own_inventory.get('carriers') or [])} units={len(selection_doc['units'])}")
         unpinned_doc = json.loads((split_out / "inventory" / "selection.json").read_text(encoding="utf-8"))
         control("a selection reference point with no pin to name a session",
                 [f"{row['layer']}={row['status']}: " + "; ".join(row["reasons"])
                  for row in unpinned_doc["layers"] if row["layer"] in TRANSCRIPT_LAYERS],
-                "native_global=unknown", "no pin")
+                "native_global=unknown", "what each event recorded")
         control("a ledger layer at a past reference point",
                 [f"{row['layer']}={row['status']}: " + "; ".join(row["reasons"])
                  for row in unpinned_doc["layers"] if row["layer"] == "ledger_keep"],
@@ -11106,6 +11945,31 @@ def self_test():
         check("while the reason is still there to read",
               "overlays" in leaky_row["reasons"][0] and len(leaky_row["reasons"]) == 1,
               f"{leaky_row['reasons']}")
+
+        # ---- the general control (lead, after a36c728): no reason in ANY document this suite's runs
+        # published names a Python exception type. Asked last, of every file written under an `inventory/`
+        # directory of this suite's scratch, so every run above is its subject; the subject set is counted
+        # per document kind, and each kind the module publishes must have been judged.
+        published_here = [path for path in sorted(scratch.rglob("*.json"))
+                          if "inventory" in path.relative_to(scratch).parts[:-1]]
+        named_all, judged_all, kinds_judged = [], 0, collections.Counter()
+        for path in published_here:
+            try:
+                document_here = json.loads(path.read_text(encoding="utf-8"))
+            except ValueError:
+                continue
+            if not isinstance(document_here, dict):
+                continue
+            problems_here, judged_here = exception_named_problems(document_here, str(path.relative_to(scratch)))
+            named_all += problems_here
+            judged_all += judged_here
+            kinds_judged[str(document_here.get("document") or "manifest")] += 1
+        check("no reason in any document this suite's runs published names a Python exception type",
+              not named_all, f"named={len(named_all)} {named_all[:6]}")
+        check("and that judged every kind of document the module publishes, with reasons to read",
+              bool(published_here) and set(REFERENCES) | {SESSIONS, STORE, SHARED, "manifest"} <= set(kinds_judged)
+              and judged_all > 100,
+              f"judged={judged_all} kinds={dict(kinds_judged)}")
 
     # ---- S8b item 6b: a suite collects its failures and prints them at the end, so an exception
     # leaving it took every line with it — which is how r7 recorded D3 and R12 as SILENT when the

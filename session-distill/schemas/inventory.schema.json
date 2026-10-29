@@ -58,6 +58,36 @@
         "occurrences": {"type": "array", "items": {"$ref": "#/$defs/occurrence"}}
       }
     },
+    "shared_inventory_document": {
+      "$comment": "`shared/<selection|release>-<i>.json` (step 0 S-22): one per verified snapshot and per baseline a session's own pin names. Its layer rows, the carrier versions and units it holds by reference into shared/store.json, a selection's unavailable list (ref among the snapshot's own items, surface among the catalog's SURFACES) and a release's baseline items its units do not map.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["document", "inventory_id", "kind", "ref", "complete", "incomplete_reasons", "produced_by", "layers",
+                   "carriers", "unit_refs"],
+      "properties": {
+        "document": {"const": "shared_inventory"},
+        "inventory_id": {"$ref": "#/$defs/inventory_id"},
+        "kind": {"type": "string", "enum": ["selection", "release"]},
+        "ref": {"type": "string", "minLength": 1},
+        "complete": {"type": "boolean"},
+        "incomplete_reasons": {"type": "array", "items": {"type": "string"}},
+        "produced_by": {"type": "object", "additionalProperties": false, "required": ["module", "design", "commit"],
+                        "properties": {"module": {"type": "string"}, "design": {"type": "string"},
+                                       "commit": {"type": ["string", "null"]}}},
+        "layers": {"type": "array", "items": {"$ref": "#/$defs/layer_row"}},
+        "carriers": {"type": "array", "items": {
+          "type": "object", "additionalProperties": false, "required": ["carrier_id", "version_sha256"],
+          "properties": {"carrier_id": {"type": "string", "pattern": "^c-[0-9a-f]{24}$"},
+                         "version_sha256": {"$ref": "#/$defs/sha256"}}}},
+        "unit_refs": {"type": "array", "items": {"$ref": "#/$defs/unit_ref"}},
+        "unavailable": {"type": "array", "items": {
+          "type": "object", "additionalProperties": false, "required": ["ref", "surface", "reason"],
+          "properties": {"ref": {"type": "string"}, "surface": {"type": "string"}, "reason": {"type": "string"}}}},
+        "baseline_unmapped": {"type": "array", "items": {"type": "string"}},
+        "baseline_items_expected": {"type": ["integer", "null"], "minimum": 0}
+      }
+    },
+    "inventory_id": {"type": "string", "pattern": "^i-[0-9a-f]{24}$"},
     "shared_store_document": {
       "$comment": "`shared/store.json` (step 0 S-22): every carrier version the run names, once, keyed by carrier_id and then version_sha256, and every unit keyed by its unit_ref.",
       "type": "object",
@@ -101,7 +131,8 @@
       "additionalProperties": false,
       "required": ["document"],
       "properties": {
-        "document": {"type": "string", "enum": ["current", "release", "selection", "sessions", "shared_store"]}
+        "document": {"type": "string", "enum": ["current", "release", "selection", "sessions", "shared_store",
+                                                "shared_inventory"]}
       }
     },
     "event_id": {"type": "string", "pattern": "^e-[0-9a-f]{24}$"},
@@ -277,7 +308,7 @@
       "additionalProperties": false,
       "required": ["session_ref", "session", "host", "kind", "transcript", "parent_ref", "binding", "read",
                    "lines_read", "owners", "ownership", "inherited_session_meta", "own_meta_unidentified",
-                   "limitations", "event_refs", "unknown", "pin", "delivery"],
+                   "limitations", "event_refs", "unknown", "pin", "delivery", "selection"],
       "properties": {
         "session_ref": {"$ref": "#/$defs/session_ref"},
         "session": {"type": "string"},
@@ -304,7 +335,20 @@
         "event_refs": {"type": "array", "items": {"$ref": "#/$defs/event_id"}},
         "unknown": {"type": "array", "items": {"$ref": "#/$defs/unknown_entry"}},
         "pin": {"$ref": "#/$defs/pin"},
-        "delivery": {"$ref": "#/$defs/delivery"}
+        "delivery": {"$ref": "#/$defs/delivery"},
+        "selection": {"$ref": "#/$defs/session_selection"}
+      }
+    },
+    "session_selection": {
+      "$comment": "A session's selection (step 0 S-14, S-15): the shared selection inventory its own verified snapshot is (inventory_ref), or the one reason of the first broken link of its pin and snapshot.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "reason", "inventory_ref"],
+      "properties": {
+        "status": {"type": "string", "enum": ["read", "unpinned", "unknown"]},
+        "reason": {"enum": ["unpinned", "id_space", "pin_absent", "pin_mismatch", "pin_content_ref_mismatch",
+                            "input_failed", "input_unread", "snapshot_absent", null]},
+        "inventory_ref": {"type": ["string", "null"], "pattern": "^i-[0-9a-f]{24}$"}
       }
     },
     "pin": {

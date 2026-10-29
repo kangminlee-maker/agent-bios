@@ -209,6 +209,16 @@ def cmd_census(args):
     return 0
 
 
+def register_inventory_outputs(stage, manifest):
+    """Every artifact inventory's manifest lists, the shared inventories among them (step 0 S-22), as an
+    output of the stage, and the manifest itself, whose own digest lives here rather than in its own
+    list. The list is inventory's, never one of this driver's: a file it wrote and this did not name
+    would ship unseen."""
+    for artifact in manifest.get("artifacts") or []:
+        stage.output(artifact["path"])
+    stage.output("inventory/manifest.json")
+
+
 def cmd_inventory(args):
     """S2's inventory: `inventory/<reference>.json` for every reference point of design §6.1."""
     out_dir = run_dir_of(args) if args.run_id else pathlib.Path(args.to or "")
@@ -268,11 +278,7 @@ def cmd_inventory(args):
             # `views.run` takes it (views.py ~1179): none was passed, so a zstd rollout could not be
             # read here at all (#11). Read inside the stage, which has judged the declaration.
             manifest = produce(sources.declared(records.read_json(records.run_json_path(out_dir))).get("zstd"))
-            for reference in inventory.REFERENCES:
-                stage.output(f"inventory/{reference}.json")
-            stage.output(f"inventory/{inventory.SESSIONS}.json")
-            stage.output(f"inventory/{inventory.STORE_REL}")
-            stage.output("inventory/manifest.json")
+            register_inventory_outputs(stage, manifest)
         # The stage record is a document this run wrote, so it answers the same question every
         # other written document answers.
         disclosed = inventory.stage_record_problems(out_dir, "S2", str(pathlib.Path.home()))
@@ -943,6 +949,35 @@ def self_test():
                 code == 1 and "INPUT_INVALID S1" in err and "census.json is not the output S1 recorded" in err,
                 f"{code}")
         (inventory_run / "census.json").write_bytes(census_bytes)
+
+        # ---- S-22 (lead, P2.4b): the inventory part registers every artifact inventory's OWN manifest lists,
+        # the shared inventories among them, by its bytes, and the manifest. Asked of the registration itself
+        # over a planted output, inside a real stage: the --no-state run above writes no shared inventory.
+        code, err = cli("declare", "--run-id", "r-register", "--from", str(out / "declaration.json"))
+        control("a fixture run for the registration is declared", code == 0, f"{code}")
+        register_run = out / "r-register"
+        shared_paths = [f"inventory/shared/selection-{inventory.inventory_id('selection', 'a' * 64)}.json",
+                        f"inventory/shared/release-{inventory.inventory_id('release', 'ref-a')}.json"]
+        single_paths = [f"inventory/{name}.json" for name in (*inventory.REFERENCES, inventory.SESSIONS)] \
+            + [f"inventory/{inventory.STORE_REL}"]
+        every_path = single_paths + shared_paths + ["inventory/manifest.json"]
+        for n, path in enumerate(every_path):
+            (register_run / path).parent.mkdir(parents=True, exist_ok=True)
+            records.write_text(register_run, register_run / path, json.dumps({"planted": n}))
+        registered_error = None
+        try:
+            with records.run_stage(register_run, "S2", part="inventory") as stage:
+                register_inventory_outputs(stage, {"artifacts": [{"path": path} for path in single_paths + shared_paths]})
+        except Exception as exc:  # the control names what refused, never the suite
+            registered_error = exc
+        register_part = ((records.stage_records(register_run).get("S2") or {}).get("parts") or {}).get("inventory") or {}
+        registered = {row.get("artifact"): row.get("sha256") for row in register_part.get("outputs") or []}
+        control("the inventory part registers every artifact inventory's manifest lists, a shared selection and a "
+                "shared release among them, by its bytes, and the manifest",
+                registered_error is None and set(registered) == set(every_path)
+                and all(registered.get(path) == records.sha256_file(register_run / path)
+                        for path in shared_paths + ["inventory/manifest.json"]),
+                f"{type(registered_error).__name__ if registered_error else None} registered={sorted(registered)}")
 
         # ---- GC#6: what the CLI prints crosses the disclosure boundary. `parse_args` and the
         # refusal printer both stood outside every boundary this run has.
