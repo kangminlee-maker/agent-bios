@@ -6557,11 +6557,11 @@ def self_test():
               f"rows={len(twin_scopes)} ids={len({row['scope_id'] for row in twin_scopes})} "
               f"displays={len({row['scope'] for row in twin_scopes})}")
         check("every scope answer, empty ones included, carries its as_of, its session and the freshness sentence",
-              all(row["freshness"] == FRESHNESS for row in scopes_doc["scopes"])
+              bool(scopes_doc["scopes"]) and all(row["freshness"] == FRESHNESS for row in scopes_doc["scopes"])
               and all(row["as_of"] and row["session"] for row in scopes_doc["scopes"] if row["status"] in ("answered", "empty")),
               f"{len(scopes_doc['scopes'])} row(s)")
         check("an unpinned session's global answer carries the limitation that its launch exclusion is unobservable",
-              claude_globals and claude_globals[0]["limitations"] == ["exclusion_unobservable"],
+              bool(claude_globals) and claude_globals[0]["limitations"] == ["exclusion_unobservable"],
               f"{claude_globals[0]['limitations'] if claude_globals else None}")
 
         empty_doc = published_current("empty-files", [
@@ -6809,6 +6809,14 @@ def self_test():
         clean("the published store validates against its own root in the schema",
               document_contract_problems(ids_store) if "refused" not in ids_run else ["refused"])
 
+        def crossing(store_in, documents_in):
+            """`store_cross_problems`, or the KIND of exception it raised as its one problem: a control
+            that plants a store fails by its own name whatever the check does with it."""
+            try:
+                return store_cross_problems(store_in, documents_in)
+            except Exception as exc:
+                return [f"RAISED {type(exc).__name__}"]
+
         def versions_at(layer, tail):
             return {(carrier_id, version) for carrier_id, rows in ids_store["versions"].items()
                     for version, row in rows.items() if row["layer"] == layer and row["path"].endswith(tail)}
@@ -6840,8 +6848,8 @@ def self_test():
               bool(ids_current["units"])
               and all(unit.get("unit_ref") == canonical("r", "unit", unit["carrier_id"], unit["version_sha256"], unit["n"])
                       for unit in ids_current["units"])
-              and not store_cross_problems(ids_store, {"current": ids_current}),
-              f"units={len(ids_current['units'])} {store_cross_problems(ids_store, {'current': ids_current})[:2]}")
+              and not crossing(ids_store, {"current": ids_current}),
+              f"units={len(ids_current['units'])} {crossing(ids_store, {'current': ids_current})[:2]}")
         check("a version no scope chose is in the store: the older global file beside the one in force",
               versions_at("native_global", ":/w/g.md") == {(global_id, sha256_text("- older\n")), (global_id, sha256_text("- g\n"))},
               f"{len(versions_at('native_global', ':/w/g.md'))} version(s)")
@@ -6868,12 +6876,38 @@ def self_test():
               and len(same) == 2 and len({unit["start"] for unit in same}) == 2
               and len(set(span_row["unit_refs"])) == len(span_units),
               f"length={span_row.get('length')} units={len(span_units)} same={len(same)}")
+        span_expected = [canonical("r", "unit", canonical("c", "native", "native_global", "claude", "User", "/w/span.md"),
+                                   sha256_text(spanned), n) for n in (1, 2, 3, 4)]
+        check("a version's unit references are r- over hand-made (carrier, version, position) tuples, and one block "
+              "text at two positions is two references",
+              len(set(span_expected)) == 4 and span_row.get("unit_refs") == span_expected
+              and sorted(ref for ref in span_row["unit_refs"]
+                         if (ids_store["units"].get(ref) or {}).get("sha") == sha256_text("- same\n\n")) == sorted(span_expected[1:3]),
+              f"listed={len(span_row.get('unit_refs') or [])} distinct={len(set(span_row.get('unit_refs') or []))}")
         check("a redaction that changes the text's length leaves the span raw and the digest the raw fragment's",
               len(token) == 1 and token[0]["text"] != spanned[token[0]["start"]:token[0]["end"]]
               and len(token[0]["text"]) != token[0]["end"] - token[0]["start"]
               and token[0]["sha"] == sha256_text(spanned[token[0]["start"]:token[0]["end"]])
               and "C" * 24 not in json.dumps(ids_store),
               f"token units={len(token)}")
+        # The store is also what the reference points' OWN carriers resolve into — a catalog guide no
+        # transcript records — asked on the production builders before any full run, so a store that
+        # lost them fails here by name rather than as the first full run's refusal.
+        named_ctx = {"home": str(fixture_home), "state_root": None, "notes": {}, "commit": None,
+                     "release_ref": None, "snapshot": {}, "events": []}
+        named_guide = carrier("catalog", "claude/guides/named-for-the-store.md",
+                              "# Named\n\n- a catalog rule the store must hold\n")
+        try:
+            emitted_document("current", [{"layer": "catalog", "producer": "this suite's fixture producer",
+                                          "status": "complete", "reasons": [], "carriers": [named_guide]}], named_ctx)
+            named_store, named_raised = store_document(named_ctx), None
+        except Exception as exc:  # the control names the kind, never the suite
+            named_store, named_raised = {"versions": {}}, type(exc).__name__
+        check("the store holds every carrier a reference point's layer rows carried, a catalog guide among them",
+              named_raised is None
+              and named_guide["version_sha256"] in (named_store["versions"].get(named_guide["carrier_id"]) or {}),
+              f"raised={named_raised} versions={len(named_store['versions'])}")
+
         # The store carries what transcripts record, AutoMem included, so its floor is judged on
         # TRANSCRIPT bodies: a credential and a home path in a User, a Project and an AutoMem member and
         # in a Codex block, published by the production path and read back from the written files.
@@ -6912,44 +6946,44 @@ def self_test():
         refs_sorted = sorted(planted_store["units"])
         first_ref = refs_sorted[0] if refs_sorted else "r-" + "0" * 24
         control("a store missing a unit its own version lists is refused by name, with no document beside it",
-                store_cross_problems({**planted_store, "units": {ref: row for ref, row in planted_store["units"].items()
-                                                                 if ref != first_ref}}, {}),
+                crossing({**planted_store, "units": {ref: row for ref, row in planted_store["units"].items()
+                                                     if ref != first_ref}}, {}),
                 f"STORE_UNRESOLVED {first_ref}")
         spilled = json.loads(json.dumps(planted_store))
         if first_ref in spilled["units"]:
             spilled["units"][first_ref]["end"] = 10 ** 6
-        control("a unit whose span leaves its version is refused by name", store_cross_problems(spilled, {}),
+        control("a unit whose span leaves its version is refused by name", crossing(spilled, {}),
                 "STORE_SPAN_OUTSIDE")
         renumbered = json.loads(json.dumps(planted_store))
         if first_ref in renumbered["units"]:
             renumbered["units"][first_ref]["n"] += 1
         control("a unit whose reference is not the one its version and position derive is refused by name",
-                store_cross_problems(renumbered, {}), "STORE_REF_MISMATCH")
+                crossing(renumbered, {}), "STORE_REF_MISMATCH")
         orphaned = json.loads(json.dumps(planted_store))
         if first_ref in orphaned["units"]:
             owner_id = orphaned["units"][first_ref]["carrier_id"]
             orphaned["versions"].pop(owner_id, None)
         control("a unit whose carrier version is not in the store is refused by name, and so is its listing",
-                store_cross_problems(orphaned, {}), "STORE_VERSION_ABSENT", "STORE_UNIT_UNLISTED")
+                crossing(orphaned, {}), "STORE_VERSION_ABSENT", "STORE_UNIT_UNLISTED")
         crossed_rows = json.loads(json.dumps(planted_store))
         version_rows = [row for rows in crossed_rows["versions"].values() for row in rows.values()
                         if first_ref not in row["unit_refs"]]
         if version_rows:
             version_rows[0]["unit_refs"].append(first_ref)
         control("a version listing another version's unit is refused by name, and the unit is listed twice",
-                store_cross_problems(crossed_rows, {}), "STORE_VERSION_MISMATCH", "STORE_UNIT_UNLISTED")
+                crossing(crossed_rows, {}), "STORE_VERSION_MISMATCH", "STORE_UNIT_UNLISTED")
         aliased = json.loads(json.dumps(ids_current))
         if len(aliased["units"]) > 1:
             aliased["units"][0]["unit_ref"] = next((unit["unit_ref"] for unit in aliased["units"][1:]
                                                     if unit["unit_ref"] != aliased["units"][0]["unit_ref"]),
                                                    aliased["units"][0]["unit_ref"])
         control("a document unit whose reference names another block of the store is refused by name",
-                store_cross_problems(planted_store, {"current": aliased}), "STORE_MISMATCH")
+                crossing(planted_store, {"current": aliased}), "STORE_MISMATCH")
         dangling = json.loads(json.dumps(ids_current))
         if dangling["units"]:
             dangling["units"][0]["unit_ref"] = "r-" + "f" * 24
         control("a document unit whose reference the store does not hold is refused by name, at that unit",
-                store_cross_problems(planted_store, {"current": dangling}), "STORE_UNRESOLVED current.units[0]")
+                crossing(planted_store, {"current": dangling}), "STORE_UNRESOLVED current.units[0]")
 
         # ---- M5 (recording): an undecodable line is kept at its position, before and after an event
         for label, rows_for, expected_line, event_line in (
@@ -7878,7 +7912,7 @@ def self_test():
         both_documents = {reference: json.loads((both_out / "inventory" / f"{reference}.json").read_text(encoding="utf-8"))
                           for reference in REFERENCES}
         clean("every unit of the run's three documents resolves in its store as that block, each version once",
-              store_cross_problems(both_store, both_documents))
+              crossing(both_store, both_documents))
         injection_id = canonical("c", "session_injection", "claude", content_ref)
         injection_units = [unit for unit in both_documents["current"]["units"] if unit["layer"] == "session_injection"]
         check("a session injection's carrier is its host and the snapshot it was compiled into, in the document "
