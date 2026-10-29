@@ -516,7 +516,7 @@ class DependencyInventoryTests(unittest.TestCase):
             json_calls = [call for call in calls if "jsonschema" in " ".join(call)]
             self.assertEqual(["/fixture/python3", str(managed)], [call[0] for call in json_calls])
             self.assertIn("actual != '4.26.0'", json_calls[-1][-1])
-            self.assertIn("sys.version_info < (3, 11)", json_calls[-1][-1])
+            self.assertIn("sys.version_info < (3, 12)", json_calls[-1][-1])
             def missing(argv, **kwargs):
                 return SimpleNamespace(returncode=1 if "jsonschema" in " ".join(argv) else 0, stdout="", stderr="missing")
             rows = {row["id"]: row for row in dependency_inventory(repo, env, runner=missing, which=which, system="Linux")}
@@ -710,7 +710,7 @@ class ProvisionerTests(unittest.TestCase):
         self.env["AGENT_LAUNCH_PYTHON"] = str(old)
         result = self.run_provisioner()
         self.assertNotEqual(0, result.returncode)
-        self.assertIn("requires Python 3.11+", result.stderr)
+        self.assertIn("requires Python 3.12+", result.stderr)
         self.assertFalse(self.managed.exists())
         self.assertFalse(self.log.exists())
 
@@ -720,7 +720,7 @@ class ProvisionerTests(unittest.TestCase):
         before = (self.managed / "bin/python").read_bytes()
         result = self.run_provisioner()
         self.assertNotEqual(0, result.returncode)
-        self.assertIn("requires Python 3.11+", result.stderr)
+        self.assertIn("requires Python 3.12+", result.stderr)
         self.assertEqual(before, (self.managed / "bin/python").read_bytes())
         self.assertFalse(self.log.exists())
 

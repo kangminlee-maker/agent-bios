@@ -365,6 +365,21 @@ if [ -f gates/check-model-currency.py ]; then
     || { echo "FAIL: model-currency self-test (gates/check-model-currency.py --self-test)"; fail=1; }
 fi
 
+# The declared Python floor, judged by a real interpreter of that floor. Shipped
+# launch/agent-launch.py has needed 3.12 since 47ec804 while every document said 3.11+,
+# and ast.parse(feature_version=(3, 11)) accepts the PEP 701 f-strings that made the
+# difference, so no static analysis run from here would have caught it. BOTH halves
+# block: a declaration disagreeing with DEPENDENCIES.md is decidable text, and a missing
+# floor interpreter means the parse half judged nothing, which must not report clean.
+# Its stdout is deliberately kept — the per-set counts are how you see the leg had
+# subjects at all.
+if [ -f gates/check-python-floor.py ]; then
+  python3 gates/check-python-floor.py \
+    || { echo "FAIL: declared Python floor (run gates/check-python-floor.py)"; fail=1; }
+  python3 gates/check-python-floor.py --self-test >/dev/null \
+    || { echo "FAIL: python-floor self-test (gates/check-python-floor.py --self-test)"; fail=1; }
+fi
+
 if [ -f gates/check-endpoints.py ]; then
   python3 gates/check-endpoints.py >/dev/null \
     || { echo "FAIL: endpoint contract gate (run gates/check-endpoints.py)"; fail=1; }

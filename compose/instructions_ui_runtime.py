@@ -238,8 +238,8 @@ def release_ui_runtime() -> None:
 def activate_ui_runtime(repo: Path) -> Path:
     """Activate only verified shipped modules; imports must follow this call."""
     global _ACTIVE
-    if sys.version_info < (3, 11):
-        raise UiRuntimeError("the bundled UI runtime requires Python 3.11 or newer")
+    if sys.version_info < (3, 12):
+        raise UiRuntimeError("the bundled UI runtime requires Python 3.12 or newer")
     with _LOCK:
         manifest, archives = _read_bundle(repo)
         if _ACTIVE is not None and _ACTIVE[0] != manifest["bundle_id"]:

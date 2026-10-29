@@ -24,9 +24,9 @@ esac
 command -v npm >/dev/null 2>&1 ||
   fail "npm is required and was not found. Install Node.js 18 or newer (https://nodejs.org, or 'brew install node' on macOS), then run this command again."
 command -v python3 >/dev/null 2>&1 ||
-  fail "python3 3.11 or newer is required and was not found."
-python3 -c 'import sys; raise SystemExit(0 if sys.version_info >= (3, 11) else 1)' 2>/dev/null ||
-  fail "python3 3.11 or newer is required; found $(python3 --version 2>&1). Install a newer python3 and run this command again."
+  fail "python3 3.12 or newer is required and was not found."
+python3 -c 'import sys; raise SystemExit(0 if sys.version_info >= (3, 12) else 1)' 2>/dev/null ||
+  fail "python3 3.12 or newer is required; found $(python3 --version 2>&1). Install a newer python3 and run this command again."
 
 note "installing the current published release"
 npm install --global agent-bios@latest

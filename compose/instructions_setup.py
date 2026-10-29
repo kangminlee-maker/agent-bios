@@ -90,9 +90,9 @@ def dependency_inventory(repo: Path, environ: dict[str, str] | None = None, *,
         path=paths["bash"], argv=[paths["bash"], "--version"] if paths["bash"] else None,
         action=formula("bash"), scope="Homebrew prefix", reason="Install Bash using your operating system package manager.")
     py = sys.executable if system == "Windows" else paths["python3"]
-    add("python3", "Python 3.11+", "runtime", "Runs installation, instructions storage, and terminal interfaces.", path=py,
-        argv=[py, "-c", "import sys; print(sys.version.split()[0]); raise SystemExit(sys.version_info < (3,11))"] if py else None,
-        action=formula("python"), scope="Homebrew prefix", reason="Install Python 3.11+ and ensure python3 resolves to it.")
+    add("python3", "Python 3.12+", "runtime", "Runs installation, instructions storage, and terminal interfaces.", path=py,
+        argv=[py, "-c", "import sys; print(sys.version.split()[0]); raise SystemExit(sys.version_info < (3,12))"] if py else None,
+        action=formula("python"), scope="Homebrew prefix", reason="Install Python 3.12+ and ensure python3 resolves to it.")
     node = paths["node"]
     node_row = add("node", "Node.js 22+", "delivery / optional host install", "Supports npm host installation and optional slide rendering.", path=node,
         argv=[node, "--version"] if node else None, action=formula("node"), scope="Homebrew prefix",
@@ -143,7 +143,7 @@ def dependency_inventory(repo: Path, environ: dict[str, str] | None = None, *,
         if name == "jsonschema":
             code += "; from jsonschema import Draft202012Validator"
         if managed and name in pins:
-            code += f"; import sys; raise SystemExit(sys.version_info < (3, 11) or actual != {pins[name]!r})"
+            code += f"; import sys; raise SystemExit(sys.version_info < (3, 12) or actual != {pins[name]!r})"
         binding = runtime_environment(env)
         if binding and name == "jsonschema" and not managed:
             return [interpreter, "-I", "-X", "utf8", binding['AGENT_BIOS_PYTHON_ENTRY'],
@@ -151,8 +151,8 @@ def dependency_inventory(repo: Path, environ: dict[str, str] | None = None, *,
         return [interpreter, "-c", code]
 
     bootstrap = add("python-venv", "Python venv / pip bootstrap", "managed dependency prerequisite", "Creates the managed environment using AGENT_LAUNCH_PYTHON when set, otherwise python3.", path=bootstrap_python,
-        argv=[bootstrap_python, "-c", "import sys, venv, ensurepip; print('venv; bundled pip ' + ensurepip.version()); raise SystemExit(sys.version_info < (3, 11))"] if bootstrap_python else None,
-        reason="Install venv/ensurepip for Python 3.11+; check AGENT_LAUNCH_PYTHON if configured. An existing managed environment does not need this bootstrap.")
+        argv=[bootstrap_python, "-c", "import sys, venv, ensurepip; print('venv; bundled pip ' + ensurepip.version()); raise SystemExit(sys.version_info < (3, 12))"] if bootstrap_python else None,
+        reason="Install venv/ensurepip for Python 3.12+; check AGENT_LAUNCH_PYTHON if configured. An existing managed environment does not need this bootstrap.")
     can_provision = system != "Windows" and bool(paths["bash"] and provisioner.is_file() and (vpy.is_file() or bootstrap["status"] == "available"))
     try:
         from .instructions_ui_runtime import runtime_inventory

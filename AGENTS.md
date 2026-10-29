@@ -183,7 +183,9 @@ carries no org or personal binding outside `(private)`-marked lines or per-reaso
 exemptions), the endpoint-contract gate (`ENDPOINTS.md`'s wire literals against the
 code, and the zero-egress default against the real transport resolver), the MCP
 inventory projection (the servers the package ships, derived from code into
-`DEPENDENCIES.md` and its Korean reference), and the
+`DEPENDENCIES.md` and its Korean reference), the Python-floor gate (every shipped and
+author-side Python compiled by a real interpreter of the floor `DEPENDENCIES.md`
+declares, and every restatement of that floor held against it), and the
 review-routing golden (which pins the
 rendered review contract byte-for-byte across every setup/host/family
 combination), each with its own `--self-test` negative control. Line numbers are
@@ -197,6 +199,9 @@ omitted deliberately: they were wrong within a day of being written.
 | Runtime path missing from the npm payload | blocking — derived from real references |
 | Launch config binds a model no prompting guide covers | blocking — a set comparison |
 | A decision record that closes no alternative | blocking — an empty list is decidable |
+| Python that does not parse on the declared floor | blocking — a real interpreter of the floor decides |
+| A floor declaration disagreeing with `DEPENDENCIES.md` | blocking — a version comparison is decidable |
+| No interpreter of the floor on the machine | blocking — the parse half judged nothing, and clean-about-nothing is the failure this table exists to prevent |
 | Whether a rule earns its place in the deployed global | not gated — a person decides |
 | Whether a number in a guide is still true | not gated — re-measure |
 
@@ -385,7 +390,7 @@ bash install.sh install --non-interactive
 `install` and `onboard` otherwise open the interactive UI, including when selection
 flags are present. Non-TTY callers must opt out explicitly; `--instructions`/`--select`
 initialize UI choices, while private `--domains` calls require `--non-interactive`.
-The bundled UI requires Python 3.11+, not a preinstalled Textual environment.
+The bundled UI requires Python 3.12+, not a preinstalled Textual environment.
 
 Three more, each of which cost a real failed attempt:
 

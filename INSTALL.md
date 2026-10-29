@@ -83,7 +83,7 @@ provide conversational setup. Stop this installation route and report the checke
 revision. Do not run an older `install`, enable compatibility mode, or claim that
 unpublished checkout features are available from the public repository.
 
-Bash and Python 3.11 or newer are required. Check them after the language choice.
+Bash and Python 3.12 or newer are required. Check them after the language choice.
 If missing, explain the prerequisite and help resolve it through documented
 platform instructions within the user's authorization. This route does not need
 Codex CLI, another model login, Node/npm or Textual. Do not borrow an undocumented
