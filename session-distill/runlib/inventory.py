@@ -1374,6 +1374,22 @@ UNDECODABLE_CATEGORIES = ("not_json", "not_object")
 MEMBER_CATEGORIES = ("member_not_object", "member_type_unmapped", "member_path_invalid", "member_content_invalid")
 DAMAGE_CATEGORIES = ("container_unusable", "locator_unusable", "locator_element_rejected")
 INHERITED_CATEGORIES = ("another_session_id", "no_session_id")
+# A session's own pin and its delivery (step 0 S-14, S-15, S-25; lead rulings on the P2.4 plan and their
+# 12:25 amendment): one status and ONE reason each. A delivery's reason is the first broken link in the
+# order the chain is read — the pin, its snapshot, the transcript read, a damaged injection event of the
+# session's own owner, a recorded occurrence whose offsets could not be recovered — and only when none
+# is broken, `no_record`: no recorded occurrence never reads as "not delivered".
+PIN_STATUSES = ("read", "unpinned", "unknown")
+PIN_REASONS = ("unpinned", "id_space", "pin_absent", "pin_mismatch", "pin_content_ref_mismatch", "input_failed",
+               "input_unread")
+SNAPSHOT_REASONS = ("snapshot_absent", "input_failed")
+# a transcript that was not read: `changed` among them, since bytes that no longer match the census are
+# never opened (`transcript_records`)
+READ_FAILURES = ("unbound", "binding_invalid", "no_path", "changed", "unreadable")
+DELIVERY_STATUSES = ("confirmed", "unknown")
+DELIVERY_REASONS = tuple(dict.fromkeys(PIN_REASONS + SNAPSHOT_REASONS + READ_FAILURES
+                                       + ("container_unusable", "locator_element_rejected", "recorded_unmapped",
+                                          "no_record")))
 
 UNKNOWN_ENTRY_TABLE = table_of({"reason": as_enum(lambda: UNKNOWN_REASONS), "line": as_scalar()},
                                optional=("line",), schema="unknown_entry")
@@ -1410,6 +1426,18 @@ SESSION_TABLE = table_of({
     "limitations": list_of(LIMITATION_TABLE),
     "event_refs": list_of(as_opaque("event_id")),
     "unknown": list_of(UNKNOWN_ENTRY_TABLE),
+    "pin": table_of({
+        "status": as_enum(PIN_STATUSES),
+        "reason": as_enum(PIN_REASONS, nullable=True),
+        "content_ref": as_opaque("sha256", nullable=True),
+        "baseline_ref": as_metadata(nullable=True),
+        "include_global_instructions": as_scalar(nullable=True),
+    }, schema="pin"),
+    "delivery": table_of({
+        "status": as_enum(DELIVERY_STATUSES),
+        "reason": as_enum(DELIVERY_REASONS, nullable=True),
+        "event_refs": list_of(as_opaque("event_id")),
+    }, schema="delivery"),
 }, schema="session")
 EVENT_TABLE = table_of({
     "event_id": as_opaque("event_id"),
@@ -1428,6 +1456,10 @@ EVENT_TABLE = table_of({
     "uncertain_reason": as_enum(("undecodable_after", "ownership_unknown"), nullable=True),
     "where": as_metadata(nullable=True),
     "rejected": list_of(table_of({"ordinal": as_scalar(), "category": as_enum(MEMBER_CATEGORIES)})),
+    # every member the event recorded, a collapsed duplicate's copy included, at its own ordinal: what an
+    # occurrence of this event is held against (an injection event's carrier is its session's own)
+    "members": list_of(table_of({"ordinal": as_scalar(), "carrier_id": as_opaque("carrier_id"),
+                                 "version_sha256": as_opaque("sha256")})),
 }, schema="event")
 # One recorded occurrence (step 0 S-12, S-13): where in which event a carrier version's bytes sit. Its
 # span counts code points of the decoded FIELD text the pointer names — not the carrier version's raw
@@ -1531,7 +1563,20 @@ def event_row(event):
             "certain_to": event.get("certain_to"), "uncertain_reason": event.get("uncertain_reason"),
             "where": event.get("where"),
             "rejected": [{"ordinal": row["ordinal"], "category": row["category"]}
-                         for row in event.get("rejected") or []]}
+                         for row in event.get("rejected") or []],
+            "members": event_members(event)}
+
+
+def event_members(event):
+    """`(ordinal, carrier_id, version_sha256)` of every member a native event recorded, by ordinal, a
+    collapsed duplicate's copy included; an injection event records none of its own."""
+    if event["kind"] != "native":
+        return []
+    rows = [{"ordinal": member.get("ordinal", 0), "carrier_id": member["carrier_id"],
+             "version_sha256": sha256_text(member["text"])} for member in event.get("files") or []]
+    rows += [{"ordinal": row["ordinal"], "carrier_id": row["carrier_id"], "version_sha256": row["version_sha256"]}
+             for row in event.get("duplicates") or []]
+    return sorted(rows, key=lambda row: row["ordinal"])
 
 
 def sessions_document(ctx):
@@ -1604,10 +1649,16 @@ def occurrence_cross_problems(sessions, store):
     """What the occurrences get wrong against the events and the store (step 0 S-21): each id is the one
     its event, ordinal and pointer derive and names one occurrence, its event is published, a mapped
     occurrence's version is in the store with exactly its span's length and the digest of its recorded
-    bytes, and an unmapped one carries no version, span or digest and says why."""
+    bytes, and an unmapped one carries no version, span or digest and says why.
+
+    Its carrier is the one its event recorded at its ordinal, or for an injection event the session's own
+    injection carrier, and the kind of place its pointer names is the layer of the version it names
+    (lead, carried from P2.3b): an occurrence that names another carrier than the one at its place is a
+    claim about bytes its event never held."""
     problems = []
     rows = sessions.get("occurrences") or []
-    events = {event.get("event_id") for event in sessions.get("events") or []}
+    events = {event.get("event_id"): event for event in sessions.get("events") or []}
+    records = {record.get("session_ref"): record for record in sessions.get("sessions") or []}
     versions = store.get("versions") or {}
     twice = sum(1 for n in collections.Counter(row.get("occurrence_id") for row in rows).values() if n > 1)
     if twice:
@@ -1619,6 +1670,10 @@ def occurrence_cross_problems(sessions, store):
         if row.get("occurrence_id") != opaque_id("q", "occurrence", row.get("event_id"), row.get("ordinal"),
                                                  row.get("pointer")):
             problems.append(f"OCCURRENCE_ID_MISMATCH {where}: not the id its event, ordinal and pointer derive")
+        event = events.get(row.get("event_id"))
+        if event is not None and not occurrence_carrier_holds(event, row, records):
+            problems.append(f"OCCURRENCE_CARRIER_MISMATCH {where}: not the carrier its event recorded at its "
+                            f"place, nor its session's own injection carrier")
         if row.get("method") == "unmapped":
             if row.get("reason") != "recorded_unmapped" or any(
                     row.get(key) is not None for key in ("version_sha256", "start", "end", "sha256")):
@@ -1633,6 +1688,9 @@ def occurrence_cross_problems(sessions, store):
         if version is None:
             problems.append(f"OCCURRENCE_VERSION_UNRESOLVED {where}: its carrier version is not in the store")
             continue
+        if version.get("layer") not in pointer_layers(row.get("pointer")):
+            problems.append(f"OCCURRENCE_LAYER_MISMATCH {where}: the place its pointer names does not hold "
+                            f"the layer of the version it names")
         start, end = row.get("start"), row.get("end")
         if not (isinstance(start, int) and isinstance(end, int) and 0 <= start <= end
                 and end - start == version.get("length")):
@@ -1640,6 +1698,34 @@ def occurrence_cross_problems(sessions, store):
         if row.get("sha256") != row.get("version_sha256"):
             problems.append(f"OCCURRENCE_DIGEST_MISMATCH {where}: its recorded bytes are not its version")
     return problems
+
+
+# The kind of place a pointer names, and the layers a version found there can be (step 0 S-13): an
+# instructions member, a Codex block, or the selected body in a system prompt or a request shape.
+POINTER_KINDS = (("/attachment/files/", ("native_global", "native_project", "native_memory")),
+                 ("/payload/base_instructions", ("native_undivided",)),
+                 ("/attachment/systemPrompt/", ("session_injection",)),
+                 ("/shape/system/", ("session_injection",)))
+
+
+def pointer_layers(pointer):
+    """The layers a version at `pointer` can be, or `()` for a place no recorded event points at."""
+    text = pointer if isinstance(pointer, str) else ""
+    return next((layers for prefix, layers in POINTER_KINDS if text.startswith(prefix)), ())
+
+
+def occurrence_carrier_holds(event, row, records):
+    """Whether an occurrence names the carrier its event recorded at its ordinal (with that member's
+    version when it is mapped), or, in an injection event, its session's own injection carrier — the
+    session's pin read and its snapshot's `c-`."""
+    if event.get("kind") == "native":
+        member = next((member for member in event.get("members") or [] if member.get("ordinal") == row.get("ordinal")),
+                      None)
+        return member is not None and member.get("carrier_id") == row.get("carrier_id") \
+            and (row.get("method") == "unmapped" or member.get("version_sha256") == row.get("version_sha256"))
+    pin = (records.get(event.get("session_ref")) or {}).get("pin") or {}
+    return pin.get("status") == "read" and pin.get("content_ref") is not None \
+        and row.get("carrier_id") == injection_carrier_id(event.get("host"), pin.get("content_ref"))
 
 
 def store_carriers(ctx):
@@ -2606,6 +2692,16 @@ UNKNOWN_REASONS = {
                               "after its last dated event and not bracketed below this answer"),
     "locator_element_rejected": ("unknown: an element of the field the body is located in was rejected, and "
                                  "the body is not among the rest"),
+    # a session's own pin chain (step 0 S-15, S-16, S-25), and its delivery when no link of it is broken
+    "id_space": ("unknown: Codex session ids and pins are different id spaces, so no pin is associated with "
+                 "a rollout, an equal id included"),
+    "pin_absent": "unknown: the census names a pin for this session that the owner's state does not hold",
+    "pin_mismatch": "unknown: the pin at this session's path names another host or session",
+    "pin_content_ref_mismatch": "unknown: the session's pin names another snapshot than its census row",
+    "snapshot_absent": "unknown: the session's pin is there and the snapshot it names is not",
+    "no_census_session": "unknown: the pinned session has no census row, so no transcript of it is read",
+    "recorded_unmapped": ("unknown: a normalised match of the selected body whose offsets could not be recovered "
+                          "is the only recorded occurrence"),
 }
 
 
@@ -3424,7 +3520,8 @@ def injection_carrier_id(host, content_ref):
 def event_occurrences(event, injection_id=None):
     """Every recorded occurrence one event holds (step 0 S-12, S-13): one per member at its pointer —
     a duplicate's copy included, since its bytes were at that pointer too — and one per place the
-    selected body was found, whose version is the RECORDED bytes there. `recorded`, `kind` and `host`
+    selected body was found, under the session's own injection carrier `injection_id`, whose version
+    is the RECORDED bytes there. `recorded`, `kind` and `host`
     stay internal: the store reads them, the occurrence row does not carry them."""
     rows = []
 
@@ -3444,7 +3541,7 @@ def event_occurrences(event, injection_id=None):
         return rows
     for match in event.get("matches") or []:
         recorded = match.get("recorded")
-        add(match["ordinal"], match["pointer"], injection_id or injection_carrier_id(event["host"], None),
+        add(match["ordinal"], match["pointer"], injection_id,
             sha256_text(recorded) if recorded is not None else None, match.get("start"), match.get("end"),
             match["method"], recorded=recorded)
     return rows
@@ -3484,20 +3581,17 @@ def distinct_members(host, case, cwd, members):
     return kept, duplicates
 
 
-def pin_state(entry, ctx):
-    """What the session's pin says about the global instructions (S-8 b): `unpinned`, `included`,
-    `excluded`, or `unreadable` when its census row names a pin this run did not read. Only the
-    `--pin` session's pin is read here; a pinned session it did not read is unknown, never assumed."""
-    if not entry.get("pin"):
+def pin_state(pinned):
+    """What a session's own pin says about the global instructions (S-8 b, S-25): `unpinned` when no
+    pin is recorded, `included` or `excluded` by the flag the pin records, and `unreadable` when the
+    census names a pin this run could not read as the session's own — absent, failed, another
+    session's or another snapshot's — or one whose flag is not a boolean. Every pinned session's pin is
+    read (`session_pin`); its snapshot is not consulted, because the flag is the pin's."""
+    if pinned["status"] == "unpinned":
         return "unpinned"
-    record = (ctx or {}).get("pin_record")
-    if not (record and (ctx or {}).get("pin") == f"{entry.get('host')}:{entry.get('id')}"
-            and record.get("content_ref") == entry.get("pin")):
+    if pinned["status"] != "read" or pinned["include"] is None:
         return "unreadable"
-    flag = record.get("include_global_instructions", True)
-    if type(flag) is not bool:
-        return "unreadable"
-    return "included" if flag else "excluded"
+    return "included" if pinned["include"] else "excluded"
 
 
 def outcomes_of(event, pin):
@@ -3839,16 +3933,20 @@ def applicability(found, read):
     return found
 
 
-def session_record(entry, read=None, found=(), damage=(), inherited=(), seen=None, failure=None):
+def session_record(entry, read=None, found=(), damage=(), inherited=(), seen=None, failure=None, pinned=None):
     """The per-session record of step 0 S-14 for one census row, as far as the transcript says it.
 
     Every location is a number and every reason a key: nothing a host wrote is in it except the ids,
-    which pass the floor as metadata when it is published."""
+    which pass the floor as metadata when it is published. `pinned` is the session's own pin as
+    `session_pin` read it; a row given none is a pin this run did not read."""
     host, ident = entry.get("host"), entry.get("id")
     seen = seen or {}
+    pinned = pinned or session_pin(None, host, ident, entry.get("pin"))
     # the binding the transcript was READ under; for one that was not read, the binding the row carries
     binding = read["binding"][0] if read is not None else "whole" if entry.get("sha256") is not None \
         else "prefix" if (entry.get("prefix_sha"), entry.get("record_count")) != (None, None) else "none"
+    named = entry.get("pin") if host == "claude" and isinstance(entry.get("pin"), str) \
+        and SHA256_HEX.match(entry["pin"]) else None
     record = {"session_ref": session_ref(host, ident), "session": f"{host}:{ident}", "host": host,
               "kind": entry.get("kind"),
               "transcript": {"host": host, "id": ident, "source": entry.get("source")},
@@ -3856,7 +3954,14 @@ def session_record(entry, read=None, found=(), damage=(), inherited=(), seen=Non
               "binding": binding, "read": None, "lines_read": None,
               "owners": [], "ownership": {"intervals": [], "unknown": []},
               "inherited_session_meta": {"another_session_id": 0, "no_session_id": 0},
-              "own_meta_unidentified": None, "limitations": [], "event_refs": [], "unknown": []}
+              "own_meta_unidentified": None, "limitations": [], "event_refs": [], "unknown": [],
+              # the snapshot the pin names when the pin was read (agreeing or not), else the one the
+              # census row names; a Codex row's is read for nothing (S-16)
+              "pin": {"status": pinned["status"], "reason": pinned["reason"],
+                      "content_ref": pinned["content_ref"] if isinstance(pinned["content_ref"], str)
+                      and SHA256_HEX.match(pinned["content_ref"]) else named,
+                      "baseline_ref": pinned.get("baseline_ref"),
+                      "include_global_instructions": pinned["include"]}}
     if entry.get("alt_paths"):
         record["limitations"].append({"kind": "alt_paths", "count": entry["alt_paths"]})
     if failure is not None:
@@ -3864,6 +3969,7 @@ def session_record(entry, read=None, found=(), damage=(), inherited=(), seen=Non
         key = key if key in READ_OUTCOMES else reason("unreadable")
         record["read"] = key
         record["unknown"].append({"reason": key})
+        record["delivery"] = delivery_of(pinned, key, (), None)
         return record
     ownership, displays = ownership_map(entry, read)
     record.update(read=read["read"], lines_read=read["lines"], ownership=ownership,
@@ -3896,10 +4002,40 @@ def session_record(entry, read=None, found=(), damage=(), inherited=(), seen=Non
                                   "line": record["own_meta_unidentified"]})
     elif not any(not event.get("damaged") for event in found):
         record["unknown"].append({"reason": reason("no_record")})
+    record["delivery"] = delivery_of(pinned, record["read"], found, owner_ref(host, ident))
     return record
 
 
-def transcript_events(run_dir, delivered=None, zstd=None, injection_id=None):
+def delivery_of(pinned, read, found, own):
+    """A session's delivery (step 0 S-13, S-14; lead rulings on the P2.4 plan, amended 12:25):
+    `confirmed` by a usable RECORDED occurrence of its own selected body that its own owner `own` holds,
+    else `unknown` with ONE reason — the first broken link of the pin, its snapshot, the transcript read,
+    a damaged injection event of its own owner, an occurrence of it whose offsets could not be recovered —
+    and `no_record` only when no link is broken."""
+    def unknown(key, refs=()):
+        return {"status": "unknown", "reason": key, "event_refs": list(refs)}
+
+    if pinned["status"] != "read":
+        return unknown(pinned["reason"])
+    if pinned.get("snapshot") is None:
+        return unknown(pinned.get("snapshot_reason") or reason("input_failed"))
+    if read in READ_FAILURES:
+        return unknown(read)
+    mine = [event for event in found if event["kind"] == "session_injection" and event.get("owner_ref") == own]
+    confirming = [event["id"] for event in mine if not event.get("damaged")
+                  and any(match["method"] != "unmapped" for match in event.get("matches") or [])]
+    if confirming:
+        return {"status": "confirmed", "reason": None, "event_refs": confirming}
+    damaged = [event for event in mine if event.get("damaged")]
+    if damaged:
+        return unknown(damaged[0]["damaged"], [event["id"] for event in damaged])
+    unmapped = [event["id"] for event in mine if event.get("matches")]
+    if unmapped:
+        return unknown(reason("recorded_unmapped"), unmapped)
+    return unknown(reason("no_record"))
+
+
+def transcript_events(run_dir, pins=None, zstd=None):
     """`(events, unknown, findings)`: every injection event the run's census-bound transcripts
     record, the sessions that are a named unknown, and what reading them found unusable.
 
@@ -3913,7 +4049,12 @@ def transcript_events(run_dir, delivered=None, zstd=None, injection_id=None):
 
     Every event gets its opaque id (step 0 S-11): its kind, the session, the census binding the
     transcript was read under, and its line. The kind is in it because one Claude record can hold both
-    an instructions attachment and the selected body."""
+    an instructions attachment and the selected body.
+
+    `pins` holds each session's own pin by session reference, as `freeze_inputs` read it with its
+    snapshot. The body looked for in a transcript is THAT session's own selected body, under that
+    session's own injection carrier (S-1, #4); a session with no read snapshot has none to look for. A
+    row `pins` does not hold is a pin this run did not read."""
     entries = census_entries(run_dir)
     events, unknown = [], []
     findings = {"undecodable": [], "damaged": [], "rejected": [], "inherited": [], "sessions": [], "timelines": {},
@@ -3921,12 +4062,17 @@ def transcript_events(run_dir, delivered=None, zstd=None, injection_id=None):
     for entry in entries:
         label = f"{entry.get('host')}:{entry.get('id')}"
         seen = {}
+        pinned = (pins or {}).get(session_ref(entry.get("host"), entry.get("id"))) \
+            or session_pin(None, entry.get("host"), entry.get("id"), entry.get("pin"))
+        snapshot = pinned.get("snapshot") if pinned["status"] == "read" else None
+        delivered = ((snapshot or {}).get("output") or {}).get("instruction_text") or None
+        injection_id = injection_carrier_id(entry.get("host"), pinned["content_ref"]) if delivered else None
         try:
             read = transcript_records(entry, zstd)
             found, damage, inherited = injection_events(read["records"], entry, delivered, seen)
         except Unacquired as exc:
             unknown.append(f"{label}: {exc}")
-            findings["sessions"].append(session_record(entry, failure=exc))
+            findings["sessions"].append(session_record(entry, failure=exc, pinned=pinned))
             continue
         bracket = brackets(read)
         for event in found:
@@ -3949,7 +4095,7 @@ def transcript_events(run_dir, delivered=None, zstd=None, injection_id=None):
         findings["rejected"] += [{"session": event["session"], "line": event["n"], "ordinal": row["ordinal"],
                                   "category": row["category"]}
                                  for event in found for row in event.get("rejected") or []]
-        findings["sessions"].append(session_record(entry, read, found, damage, inherited, seen))
+        findings["sessions"].append(session_record(entry, read, found, damage, inherited, seen, pinned=pinned))
         if not found:
             unknown.append(f"{label}: {UNKNOWN_REASONS['no_record']} ({read['which']})")
         events += found
@@ -4031,6 +4177,52 @@ def read_pin(state_root, host, session_id):
     if not isinstance(pin.get("content_ref"), str):
         raise Refused(f"PIN_UNREADABLE {masked(pin_path)}: the pin names no content_ref")
     return pin
+
+
+def session_pin(state_root, host, session_id, census_ref, evidence=False):
+    """One session's own pin, the first links of its chain (step 0 S-15, S-16, M6; lead rulings on the
+    P2.4 plan): `{status, reason, content_ref, record, include, outcome, detail, code}`.
+
+    A Codex row is `id_space` before anything is read, its census `content_ref` included: no pin is
+    associated with a rollout by any means (S-16). A Claude row whose census names no pin is
+    `unpinned`. Otherwise the pin is read under the session's own host and id, its record must name
+    them (M6), and its `content_ref` must be the one the census row names. `evidence` is a `--pin`
+    the census names no pin for: evidence about that pin only, with nothing to hold it against.
+    `outcome`, `detail` and `code` are what an omission row says of a pin that was not read; a flag
+    that is not a boolean leaves the pin read and its exclusion unknown (`include` None)."""
+    entry = {"status": "unknown", "reason": None, "content_ref": None, "record": None, "include": None,
+             "outcome": None, "detail": None, "code": None}
+    if host != "claude" and not evidence:
+        return {**entry, "reason": reason("id_space")}
+    if census_ref is None and not evidence:
+        return {**entry, "status": "unpinned", "reason": reason("unpinned")}
+    if state_root is None:
+        return {**entry, "reason": reason("input_unread"), "outcome": "unread", "detail": "no_root"}
+    try:
+        if census_ref is not None and not (isinstance(census_ref, str) and SHA256_HEX.match(census_ref)):
+            raise Refused("INPUT_INVALID census content_ref: not a snapshot digest")
+        record = read_pin(state_root, safe_label("pin host", host), safe_label("pin session id", session_id))
+        content_ref = safe_label("snapshot content_ref", record["content_ref"])
+    except (Refused, ValueError, OSError) as exc:
+        code = refusal_code(exc)
+        if code == "PIN_ABSENT":
+            return {**entry, "reason": reason("pin_absent"), "outcome": "absent", "detail": "absent", "code": code}
+        key = reason("pin_mismatch") if code == "PIN_IDENTITY_MISMATCH" else reason("input_failed")
+        return {**entry, "reason": key, "outcome": "failed", "detail": acquisition_reason(exc), "code": code}
+    if census_ref is not None and content_ref != census_ref:
+        return disagreeing(entry, content_ref)
+    flag = record.get("include_global_instructions", True)
+    return {**entry, "status": "read", "content_ref": content_ref, "record": record,
+            "include": flag if type(flag) is bool else None}
+
+
+def disagreeing(entry, content_ref):
+    """A session's own pin that its census row does not agree with (M6): read, and still not this
+    session's selection. It names the snapshot the PIN names, so the disagreement is visible, and no
+    baseline: what that snapshot names is not this session's release."""
+    return {**entry, "status": "unknown", "reason": reason("pin_content_ref_mismatch"), "content_ref": content_ref,
+            "record": None, "include": None, "snapshot": None, "baseline_ref": None, "outcome": "failed",
+            "detail": "pin_content_ref_mismatch", "code": "PIN_CONTENT_REF_MISMATCH"}
 
 
 def snapshot_of(repo, frozen_state, content_ref):
@@ -4450,6 +4642,8 @@ DOCUMENT_MEMBERS = (
     # an occurrence in `sessions.json` and a Codex block's git (step 0 S-12, S-13, S-19)
     "occurrences", "occurrence_id", "pointer", "method", "sha256", "git", "commit_hash", "branch",
     "repository_url",
+    # a session's own pin and delivery, and an event's recorded members (step 0 S-14, S-15)
+    "delivery", "members", "include_global_instructions", "baseline_ref", "pin_delivery",
     # a rename row
     "from_unit_id", "from_carrier_id", "to_carrier_id", "from_path", "to_path", "from_layer",
     "to_layer", "moved", "ambiguous", "from_carriers", "to_carriers", "reason",
@@ -4472,6 +4666,8 @@ def emitted_document(reference, rows, ctx, more_reasons=None):
     reasons = [reason for row in rows for reason in row["reasons"]]
     if ctx.get("acquisition_error"):
         reasons = [ctx["acquisition_error"]] + reasons
+    if ctx.get("pin_disagreement"):
+        reasons = [ctx["pin_disagreement"]] + reasons
     if more_reasons is not None:
         # A reason that can only be computed from the UNITS — the baseline mapping — belongs here,
         # before the row is emitted. Appended to `document["reference"]["incomplete_reasons"]` after
@@ -4640,13 +4836,24 @@ def run(repo, state_root, user_root, out_dir, pin=None, native_roots=None, ledge
             ctx = context_of(repo, state_root, user_root, dict(native_roots or {}), pin, ledger)
             ctx["commit"] = commit
             try:
-                freeze_inputs(pathlib.Path(frozen_dir), repo, state_root, user_root, pin, ctx)
+                entries = census_entries(run_dir)
+            except Unacquired:
+                entries = ()  # no census: `bind_transcripts` names it, and no session's pin is read
+            try:
+                freeze_inputs(pathlib.Path(frozen_dir), repo, state_root, user_root, pin, ctx, entries)
             except Exception as exc:  # acquisition is an input, and a missing input is a status
                 ctx["acquisition_error"] = (f"INPUT_UNACQUIRED: freezing the inputs failed "
                                             f"({projected_message(exc, ctx.get('home'))}), so every layer "
                                             f"read from the owner's state has no record here")
                 ctx.setdefault("release_ref", None)
                 ctx.setdefault("expected_release_items", [])
+                # A pin the failure left unread was there to read: failed, not a root this run lacked.
+                table = ctx.setdefault("session_pins", {})
+                for entry in entries:
+                    pinned = session_pin(None, entry.get("host"), entry.get("id"), entry.get("pin"))
+                    if state_root is not None and pinned["reason"] == "input_unread":
+                        pinned = {**pinned, "reason": reason("input_failed"), "outcome": "failed", "detail": "not_admitted"}
+                    table.setdefault(session_ref(entry.get("host"), entry.get("id")), pinned)
             bind_transcripts(ctx, run_dir, zstd)
             inputs["transcripts"].update(ctx["notes"]["transcripts"])
             sessions_doc = sessions_document(ctx)
@@ -4706,15 +4913,15 @@ def bind_transcripts(ctx, run_dir, zstd=None):
     """Read this run's census-bound transcripts into the context: the events, the pinned session's
     event in force, §8's current sets, and every named unknown.
 
-    This is the only place a transcript is read, and it reads none of the owner's instruction files."""
-    delivered = ((ctx.get("snapshot") or {}).get("output") or {}).get("instruction_text")
-    injection_id = injection_carrier_id(str(ctx.get("pin") or "").partition(":")[0] or None,
-                                        (ctx.get("snapshot") or {}).get("content_ref")) if delivered else None
+    This is the only place a transcript is read, and it reads none of the owner's instruction files.
+    Each session's own pin is what `freeze_inputs` read into `ctx["session_pins"]`; a session it holds
+    none for is a pin this run did not read, never an assumed one."""
+    table = ctx.get("session_pins") or {}
     notes = {"read_through": "runlib/sources.read_lines, bound to the S1 census record",
              "native_files_read": 0}
     ctx["occurrences"] = []
     try:
-        events, unknown, findings = transcript_events(run_dir, delivered, zstd, injection_id)
+        events, unknown, findings = transcript_events(run_dir, table, zstd)
     except Unacquired as exc:
         ctx["transcript_error"] = str(exc)
         notes.update({"sessions": 0, "events": 0, "unknown": [str(exc)]})
@@ -4725,7 +4932,14 @@ def bind_transcripts(ctx, run_dir, zstd=None):
     ctx["events"] = events
     ctx["sessions"] = findings["sessions"]
     ctx["occurrences"] = findings["occurrences"]
-    pins = {session_ref(entry.get("host"), entry.get("id")): pin_state(entry, ctx) for entry in census_entries(run_dir)}
+    entries = census_entries(run_dir)
+    pins = {}
+    for entry in entries:
+        ref = session_ref(entry.get("host"), entry.get("id"))
+        pins[ref] = pin_state(table.get(ref) or session_pin(None, entry.get("host"), entry.get("id"), entry.get("pin")))
+    if ctx.get("pin") and not any(f"{entry.get('host')}:{entry.get('id')}" == ctx["pin"] for entry in entries):
+        # the `--pin` session's selection is evidence about its pin only: no transcript of it is read (S-15)
+        notes["pin_delivery"] = reason("no_census_session")
     ctx["current_scopes"] = current_scopes(events, findings["timelines"], pins)
     ctx["pin_event"] = None
     if ctx.get("pin") and ctx.get("pin_record"):
@@ -4759,7 +4973,7 @@ def bind_transcripts(ctx, run_dir, zstd=None):
     ctx["notes"]["transcripts"] = notes
 
 
-def freeze_inputs(frozen, repo, state_root, user_root, pin, ctx):
+def freeze_inputs(frozen, repo, state_root, user_root, pin, ctx, entries=()):
     """Copy what the producers read and point the context at the copies: after this, no producer
     holds a path under the owner's state or home.
 
@@ -4769,7 +4983,13 @@ def freeze_inputs(frozen, repo, state_root, user_root, pin, ctx):
     root for is `unread`. Which layers that touches is decided in `layer_rows`, from the inputs each
     producer DECLARES: a pin that does not resolve leaves the catalog of the checkout and the
     transcript layers exactly as they were, which an exception out of here used not to (every layer
-    went unknown at once). Every `freeze` result is collected, the pinned baseline's included."""
+    went unknown at once). Every `freeze` result is collected, the pinned baseline's included.
+
+    Every census row in `entries` has its OWN pin read into `ctx["session_pins"]` (step 0 S-15, S-16,
+    S-25), with its snapshot frozen and verified once per `content_ref` however many sessions name it.
+    A session's failure is that session's, stated in its own record and in no omission row, so it
+    reaches no reference point it is not. The `--pin` reference point takes the same entry when the
+    census names its pin; a `--pin` the census names no pin for is evidence about that pin only."""
     state, user = frozen / "state", frozen / "user"
     ctx["state_root"], ctx["user_root"] = state, user
     # The project roots are protected write targets and nothing else: no native file is read, here
@@ -4797,6 +5017,44 @@ def freeze_inputs(frozen, repo, state_root, user_root, pin, ctx):
         user_root = pathlib.Path(user_root).expanduser()
         froze(("user_state",), None, [(user_root / "state.json", "state.json")], user, user_root)
         froze(("learning_journals",), None, [(user_root / "learnings", "learnings")], user, user_root)
+    census = {(entry.get("host"), entry.get("id")): entry for entry in entries or ()}
+    snapshots, table = {}, {}
+    ctx["session_pins"] = table
+
+    def snapshot_once(content_ref):
+        """`(verified, outcome, detail, code)` of one snapshot, frozen and verified once."""
+        if content_ref not in snapshots:
+            rows = freeze([(state_root / "sessions" / "snapshots" / content_ref, f"sessions/snapshots/{content_ref}")],
+                          state, state_root)
+            if rows:
+                snapshots[content_ref] = (None, rows[0]["outcome"], rows[0]["reason"], rows[0]["code"])
+            else:
+                try:
+                    snapshots[content_ref] = (snapshot_of(repo, state, content_ref), None, None, None)
+                except Exception as exc:  # the store's verifier raises its own error types
+                    snapshots[content_ref] = (None, "failed", acquisition_reason(exc), refusal_code(exc))
+        return snapshots[content_ref]
+
+    def with_snapshot(pinned, host, ident):
+        """A read pin, frozen, with its snapshot and the baseline that snapshot names (S-25's chain)."""
+        rows = freeze([(state_root / "sessions" / "pins" / host / f"{ident}.json", f"sessions/pins/{host}/{ident}.json")],
+                      state, state_root)
+        if rows:
+            return {**pinned, "status": "unknown", "reason": reason("input_failed"), "record": None,
+                    "content_ref": None, "include": None, "outcome": "failed", "detail": rows[0]["reason"],
+                    "code": rows[0]["code"]}
+        verified, outcome, detail, code = snapshot_once(pinned["content_ref"])
+        inputs = (verified or {}).get("inputs")
+        named = inputs.get("baseline_ref") if isinstance(inputs, dict) else None
+        return {**pinned, "snapshot": verified,
+                "baseline_ref": named if isinstance(named, str) and SAFE_LABEL.match(named) else None,
+                "snapshot_reason": None if verified is not None
+                else reason("snapshot_absent") if outcome == "absent" else reason("input_failed"),
+                "snapshot_omission": (outcome, detail, code)}
+
+    for (host, ident), entry in census.items():
+        pinned = session_pin(state_root, host, ident, entry.get("pin"))
+        table[session_ref(host, ident)] = with_snapshot(pinned, host, ident) if pinned["status"] == "read" else pinned
     if state_root is None:
         ctx["notes"]["state"] = "no state root: the overlay, release and selection producers have no record"
         for kind in ("runtime_state", "installed_baseline", "release_baseline") + (("pin", "snapshot") if pin else ()):
@@ -4816,23 +5074,34 @@ def freeze_inputs(frozen, repo, state_root, user_root, pin, ctx):
         except (Refused, ValueError, OSError) as exc:
             omitted("runtime_state", None, "runtime/state.json", "failed", acquisition_reason(exc), refusal_code(exc))
     froze(("runtime_state",), None, [(runtime_path, "runtime/state.json")], state, state_root)
+    verified = None
     if pin:
         ctx["pin_record"] = None
-        try:
-            host, _, session_id = pin.partition(":")
-            host, session_id = safe_label("pin host", host), safe_label("pin session id", session_id)
-            record = read_pin(state_root, host, session_id)
-            content_ref = safe_label("snapshot content_ref", record["content_ref"])
-        except (Refused, ValueError, OSError) as exc:
-            absent = refusal_code(exc) == "PIN_ABSENT"
-            omitted("pin", pin, None, "absent" if absent else "failed",
-                    "absent" if absent else acquisition_reason(exc), refusal_code(exc))
+        host, _, session_id = pin.partition(":")
+        named = census.get((host, session_id))
+        if host == "claude" and named is not None and named.get("pin") is not None:
+            pinned = table[session_ref(host, session_id)]
         else:
-            ctx["pin_record"] = record
-            froze(("pin",), pin, [(state_root / "sessions" / "pins" / host / f"{session_id}.json",
-                                   f"sessions/pins/{host}/{session_id}.json")], state, state_root)
-            froze(("snapshot",), content_ref, [(state_root / "sessions" / "snapshots" / content_ref,
-                                                f"sessions/snapshots/{content_ref}")], state, state_root)
+            # no census row, or one that names no pin: evidence about this pin only (S-15, S-16)
+            pinned = session_pin(state_root, host, session_id, None, evidence=True)
+            pinned = with_snapshot(pinned, host, session_id) if pinned["status"] == "read" else pinned
+            if host == "claude" and named is not None and pinned["status"] == "read":
+                # The census row names no pin and the frozen state holds one: under M6 they disagree (the
+                # state moved, or the census could not read it). The session's own record says so, and so
+                # does every document this evidence reaches, so none says unpinned while another shows the
+                # selection (lead ruling on the P2.4 readings).
+                table[session_ref(host, session_id)] = disagreeing(pinned, pinned["content_ref"])
+                ctx["pin_disagreement"] = (f"{reason('pin_content_ref_mismatch')}: "
+                                           f"{UNKNOWN_REASONS['pin_content_ref_mismatch']}; the --pin is evidence "
+                                           f"about its pin only")
+        if pinned["status"] != "read":
+            omitted("pin", pin, None, pinned["outcome"], pinned["detail"], pinned["code"])
+        else:
+            ctx["pin_record"] = pinned["record"]
+            verified = pinned["snapshot"]
+            if verified is None:
+                omitted("snapshot", pinned["content_ref"], f"sessions/snapshots/{pinned['content_ref']}",
+                        *pinned["snapshot_omission"])
     else:
         ctx["notes"]["selection"] = "no pin: the selection reference point has no record (§6.3)"
     # Both baselines, always, and each with its own provenance. The current reference point's
@@ -4857,32 +5126,26 @@ def freeze_inputs(frozen, repo, state_root, user_root, pin, ctx):
         kinds = tuple(kind for kind, named in (("installed_baseline", installed_ref), ("release_baseline", release_ref))
                       if named == ref)
         froze(kinds, ref, [(state_root / "runtime" / "baselines" / ref, f"runtime/baselines/{ref}")], state, state_root)
-    if pin and ctx["pin_record"] is not None and not any(row["input"] == "snapshot" for row in omissions):
-        content_ref = ctx["pin_record"]["content_ref"]
-        try:
-            verified = snapshot_of(repo, state, content_ref)
-        except Exception as exc:  # the store's verifier raises its own error types
-            omitted("snapshot", content_ref, f"sessions/snapshots/{content_ref}", "failed",
-                    acquisition_reason(exc), refusal_code(exc))
-        else:
-            ctx["snapshot"] = verified
-            ctx["notes"]["pin"] = {"host": pin.partition(":")[0], "content_ref": verified["content_ref"],
-                                   "state": ctx["pin_record"].get("state")}
-            release_ref = (verified["inputs"] or {}).get("baseline_ref")
-            if release_ref is not None:
-                try:
-                    release_ref = safe_label("baseline ref", release_ref)
-                except Refused as exc:
-                    omitted("release_baseline", None, f"sessions/snapshots/{content_ref}", "failed",
-                            "not_an_identifier", refusal_code(exc))
-                    release_ref = None
-            if release_ref:
-                froze(("release_baseline",), release_ref,
-                      [(state_root / "runtime" / "baselines" / release_ref, f"runtime/baselines/{release_ref}")],
-                      state, state_root)
-                ctx["notes"]["release"] = "from the pin's snapshot inputs.baseline_ref"
-                ctx["notes"]["baselines"] = {"installed": installed_ref, "pinned": release_ref,
-                                             "differ": installed_ref != release_ref}
+    if verified is not None:
+        content_ref = verified["content_ref"]
+        ctx["snapshot"] = verified
+        ctx["notes"]["pin"] = {"host": pin.partition(":")[0], "content_ref": verified["content_ref"],
+                               "state": ctx["pin_record"].get("state")}
+        release_ref = (verified["inputs"] or {}).get("baseline_ref")
+        if release_ref is not None:
+            try:
+                release_ref = safe_label("baseline ref", release_ref)
+            except Refused as exc:
+                omitted("release_baseline", None, f"sessions/snapshots/{content_ref}", "failed",
+                        "not_an_identifier", refusal_code(exc))
+                release_ref = None
+        if release_ref:
+            froze(("release_baseline",), release_ref,
+                  [(state_root / "runtime" / "baselines" / release_ref, f"runtime/baselines/{release_ref}")],
+                  state, state_root)
+            ctx["notes"]["release"] = "from the pin's snapshot inputs.baseline_ref"
+            ctx["notes"]["baselines"] = {"installed": installed_ref, "pinned": release_ref,
+                                         "differ": installed_ref != release_ref}
     ctx["release_ref"] = release_ref
     if release_ref and not any(row["input"] == "release_baseline" and row["outcome"] != "unread"
                                for row in omissions):
@@ -5805,6 +6068,16 @@ def self_test():
                                   "record_count": count if count is not None else lines,
                                   "prefix_sha": prefix or hashlib.sha256(data).hexdigest()}]}
 
+        def delivered_to(text, *sessions, content_ref="0" * 64):
+            """A pins table in which each `host:id` session's own pin was read with a snapshot whose
+            compiled text is `text` — what `freeze_inputs` hands `transcript_events`, for a control
+            about the transcript and not about the pin."""
+            snapshot = {"content_ref": content_ref, "inputs": {}, "items": [], "output": {"instruction_text": text}}
+            return {session_ref(*name.split(":", 1)): {
+                "status": "read", "reason": None, "content_ref": content_ref, "record": {"content_ref": content_ref},
+                "include": True, "outcome": None, "detail": None, "code": None, "snapshot": snapshot,
+                "baseline_ref": None, "snapshot_reason": None} for name in sessions}
+
         run_fixture = scratch / "run"
         run_fixture.mkdir(parents=True, exist_ok=True)
         rows_in = [census_row("claude", "s-main", main_path),
@@ -5866,7 +6139,8 @@ def self_test():
               event_in_force(native_events, "2026-10-01T08:00:00+00:00") is None,
               "an event answered for a turn that preceded it")
 
-        all_events, _all_unknown, all_findings = transcript_events(run_fixture, delivered_body)
+        all_events, _all_unknown, all_findings = transcript_events(
+            run_fixture, delivered_to(delivered_body, "claude:s-main", "claude:s-child"))
         scoped_all = current_scopes(all_events, all_findings["timelines"])
         by_scope = {(row["layer"], row["host"], row["scope"]): row for row in scoped_all["scopes"]}
         check("the current reference point resolves per layer, host and scope",
@@ -6307,7 +6581,8 @@ def self_test():
             run_at.mkdir(parents=True)
             (run_at / CENSUS).write_text(json.dumps({"transcripts": list(rows_by_id)}), encoding="utf-8")
             try:
-                events_out, _unknown_out, findings_out = transcript_events(run_at, delivered_in)
+                events_out, _unknown_out, findings_out = transcript_events(run_at, delivered_to(
+                    delivered_in, *[f"{row['host']}:{row['id']}" for row in rows_by_id]) if delivered_in else None)
             except Exception as exc:  # the control fails by its own name instead of ending the suite
                 return run_at, exc, [], {"sessions": []}
             return run_at, None, events_out, findings_out
@@ -6483,7 +6758,7 @@ def self_test():
         delivery_run.mkdir(parents=True)
         (delivery_run / CENSUS).write_text(json.dumps({"transcripts": [
             census_row("claude", "s-loc", delivery_path)]}), encoding="utf-8")
-        delivery_ctx = {"notes": {}, "snapshot": {"output": {"instruction_text": body}}}
+        delivery_ctx = {"notes": {}, "session_pins": delivered_to(body, "claude:s-loc")}
         delivery_failed = _raised(lambda: bind_transcripts(delivery_ctx, delivery_run))
         check("a damaged session injection is never counted as a confirmed delivery",
               delivery_failed is None
@@ -6656,10 +6931,14 @@ def self_test():
             return {"type": "session_meta", "timestamp": at,
                     "payload": {"id": ident, "cwd": cwd, "base_instructions": {"text": text}}}
 
-        def published_run(name, transcripts, pin=None, pin_record=None, snapshot=None):
+        def published_run(name, transcripts, pin=None, snapshot=None, state=None):
             """`current.json`, `sessions.json` and `shared/store.json` as published for a census of
             `(host, id, records, extra row fields)`, crossed as `run` crosses them, or
-            `{"refused": <code>}` when the path refuses it: a control fails by its own name."""
+            `{"refused": <code>}` when the path refuses it: a control fails by its own name.
+
+            `state` is a fixture state root, acquired through `freeze_inputs` as `run` acquires it, so
+            every census row's own pin is read there. `snapshot` is a control about the transcript and
+            not the pin: every Claude session's own pin reads with it."""
             run_at = scratch / "p22" / f"run-{name}"
             rows_here = []
             for host, ident, records_in, fields in transcripts:
@@ -6668,13 +6947,21 @@ def self_test():
             run_at.mkdir(parents=True, exist_ok=True)
             (run_at / CENSUS).write_text(json.dumps({"transcripts": rows_here}), encoding="utf-8")
             ctx_here = context_of(REPO, None, None, {}, pin, None)
-            ctx_here.update(home=str(fixture_home), commit="fixture", pin_record=pin_record, snapshot=snapshot)
+            ctx_here.update(home=str(fixture_home), commit="fixture")
+            if snapshot is not None:
+                ctx_here.update(snapshot=snapshot, pin_record={"content_ref": snapshot["content_ref"]},
+                                session_pins=delivered_to(snapshot["output"]["instruction_text"], *[
+                                    f"{host}:{ident}" for host, ident, _records, _fields in transcripts if host == "claude"],
+                                    content_ref=snapshot["content_ref"]))
             kept_layers = globals()["LAYERS"]
             out_here = scratch / "p22" / f"out-{name}" / "inventory"
             written = {"current": out_here / "current.json", "sessions": out_here / f"{SESSIONS}.json",
                        "store": out_here / STORE_REL}
             try:
                 globals()["LAYERS"] = native_only
+                if state is not None:
+                    freeze_inputs(scratch / "p22" / f"frozen-{name}", REPO, state, None, pin, ctx_here,
+                                  census_entries(run_at))
                 bind_transcripts(ctx_here, run_at)
                 document_here, _units = emitted_document("current", layer_rows("current", ctx_here), ctx_here)
                 sessions_here, store_here = sessions_document(ctx_here), store_document(ctx_here)
@@ -6691,8 +6978,8 @@ def self_test():
                 globals()["LAYERS"] = kept_layers
             return {key: json.loads(path.read_text(encoding="utf-8")) for key, path in written.items()}
 
-        def published_current(name, transcripts, pin=None, pin_record=None):
-            published = published_run(name, transcripts, pin, pin_record)
+        def published_current(name, transcripts, pin=None, state=None):
+            published = published_run(name, transcripts, pin, state=state)
             return published.get("current") or {"refused": published["refused"], "scopes": [], "layers": [],
                                                   "units": [], "scope_universe": []}
 
@@ -6779,7 +7066,7 @@ def self_test():
               and bool(block_units) and all(unit["layer"] == "native_undivided"
                                              and unit["provenance"].get("scope_id") == block_row.get("scope_id")
                                              for unit in block_units)
-              and claude_globals and claude_globals[0]["session"].startswith("claude:"),
+              and claude_globals and str(claude_globals[0].get("session") or "").startswith("claude:"),
               f"{block_row.get('status')} units={[(unit['layer']) for unit in block_units]}")
         unconfirmed = one_scope(scopes_doc, "native_memory", "claude", d3)
         check("a later event of the same project that names no member of a memory directory makes it "
@@ -6983,17 +7270,68 @@ def self_test():
               pathless_dir.get("status") == "incomplete" and reason_keys(pathless_dir) == ["member_rejected"],
               f"{pathless_dir.get('status')} {reason_keys(pathless_dir)}")
 
-        # S-8 (b): a pinned session launched without the global instructions, and one whose pin is not read
-        pin_rows = [("claude", "s-old", [inj("2026-10-20T09:00:00+00:00", [member("User", "/w/g.md", "- old\n")], cwd=p1)], {}),
-                    ("claude", "s-pin", [inj("2026-10-20T10:00:00+00:00", [], cwd=p1)], {"pin": {"content_ref": "c-ref"}})]
-        excluded = one_scope(published_current("excluded", pin_rows, pin="claude:s-pin",
-                                               pin_record={"content_ref": "c-ref", "include_global_instructions": False}),
+        # S-8 (b), S-25: EVERY pinned session's own pin is read from a fixture state, through the
+        # acquisition `run` uses, so its launch exclusion is known; none of these sessions is the `--pin`
+        store_for_pins = store_module(REPO)
+
+        def plant_snapshot(state_dir, text, baseline_ref="ref1"):
+            """A verified-shape snapshot whose compiled text is `text`; its content_ref."""
+            inputs_here = {"baseline_ref": baseline_ref, "host": "claude", "selection": ["@fixture/core:item-1"],
+                           "text": sha256_text(text)}
+            ref = store_for_pins._digest(inputs_here)
+            snap = state_dir / "sessions" / "snapshots" / ref
+            snap.mkdir(parents=True, exist_ok=True)
+            (snap / "CLAUDE.md").write_text(text, encoding="utf-8")
+            (snap / "output.json").write_text(json.dumps({
+                "instruction_text": text, "files": ["CLAUDE.md"], "assets": {},
+                "item_refs": ["@fixture/core:item-1"], "unavailable": []}), encoding="utf-8")
+            (snap / "inventory.json").write_text(json.dumps({
+                "inputs": inputs_here, "items": [{"ref": "@fixture/core:item-1"}],
+                "file_digests": {part: store_for_pins._digest((snap / part).read_bytes())
+                                 for part in ("CLAUDE.md", "output.json")}}), encoding="utf-8")
+            return ref
+
+        def plant_pin(state_dir, ident, content_ref, include=True, names=None):
+            """A Claude pin at `ident`'s path, naming `names` (another session) when given."""
+            pins_dir = state_dir / "sessions" / "pins" / "claude"
+            pins_dir.mkdir(parents=True, exist_ok=True)
+            (pins_dir / f"{ident}.json").write_text(json.dumps({
+                "schema_version": 1, "content_ref": content_ref, "host": "claude", "session_id": names or ident,
+                "created": "2026-10-20T00:00:00+00:00", "include_global_instructions": include}), encoding="utf-8")
+
+        pins_state = scratch / "p24" / "pins-state"
+        included_ref = plant_snapshot(pins_state, "# Session\n\n- included\n")
+        excluded_ref = plant_snapshot(pins_state, "# Session\n\n- excluded\n")
+        plant_pin(pins_state, "s-pin", excluded_ref, include=False)
+        plant_pin(pins_state, "s-inc", included_ref)
+        plant_pin(pins_state, "s-mis", excluded_ref)
+        old_row = ("claude", "s-old", [inj("2026-10-20T09:00:00+00:00", [member("User", "/w/g.md", "- old\n")], cwd=p1)], {})
+
+        def newer(ident, census_ref, files=()):
+            return ("claude", ident, [inj("2026-10-20T10:00:00+00:00", list(files), cwd=p1)],
+                    {"pin": {"content_ref": census_ref}})
+
+        excluded = one_scope(published_current("excluded", [old_row, newer("s-pin", excluded_ref)], state=pins_state),
                              "native_global", "claude")
         check("a pinned, excluded session leaves the older global answer in force, and is counted",
               excluded.get("status") == "answered" and excluded.get("session") == "claude:s-old",
               f"{excluded.get('status')} {excluded.get('session')}")
-        unread = one_scope(published_current("unread-pin", pin_rows), "native_global", "claude")
-        check("a pinned session whose pin is not read gives the global scope exclusion_unreadable",
+        included = one_scope(published_current("included", [old_row, newer(
+            "s-inc", included_ref, [member("User", "/w/g.md", "- new\n")])], state=pins_state), "native_global", "claude")
+        check("TRANSITIONAL removed: a pinned session that is not the --pin, whose pin reads with "
+              "include_global_instructions true, answers the global scope",
+              included.get("status") == "answered" and included.get("session") == "claude:s-inc",
+              f"{included.get('status')} {included.get('session')} {reason_keys(included)}")
+        mismatched = one_scope(published_current("mismatched", [old_row, newer(
+            "s-mis", included_ref, [member("User", "/w/g.md", "- mis\n")])], state=pins_state), "native_global", "claude")
+        check("a session's own pin that names another snapshot than its census row leaves its launch exclusion "
+              "unknown: the global scope it is chosen for is exclusion_unreadable",
+              mismatched.get("status") == "unknown" and reason_keys(mismatched) == ["exclusion_unreadable"],
+              f"{mismatched.get('status')} {reason_keys(mismatched)}")
+        unread = one_scope(published_current("unread-pin", [old_row, newer("s-pin", excluded_ref)]),
+                           "native_global", "claude")
+        check("a pinned session whose pin this run was given no root to read gives the global scope "
+              "exclusion_unreadable",
               unread.get("status") == "unknown" and reason_keys(unread) == ["exclusion_unreadable"],
               f"{unread.get('status')} {reason_keys(unread)}")
 
@@ -7262,8 +7600,8 @@ def self_test():
         delivered_body = "# Session\n\n- rule one\n- rule two\n"
         crlf_field = "<r>\r\n# Session  \r\n\r\n- rule one \r\n- rule two\r\n</r>"
         twice_field = f"<system-reminder>\n{delivered_body}</system-reminder>\n{delivered_body}"
-        snapshot_here = {"content_ref": "snap-ref-1", "output": {"instruction_text": delivered_body}}
-        injection_here = canonical("c", "session_injection", "claude", "snap-ref-1")
+        snapshot_here = {"content_ref": "1" * 64, "output": {"instruction_text": delivered_body}}
+        injection_here = canonical("c", "session_injection", "claude", "1" * 64)
         delivered_run = published_run("delivered", [
             ("claude", "s-twice", [prompt_record("2026-10-20T09:00:00+00:00", [twice_field]),
                                    prompt_record("2026-10-20T09:05:00+00:00", [delivered_body],
@@ -7348,6 +7686,14 @@ def self_test():
               and injection_here not in (unmapped_run.get("store") or {}).get("versions", {})
               and (unmapped_notes.get("transcripts") or {}).get("delivery_confirmed") == 0,
               f"refused={unmapped_run.get('refused')} rows={[(row['method'], row['reason']) for row in unmapped_rows]}")
+        unmapped_record = next((row for row in unmapped_sessions.get("sessions") or []
+                                if row["transcript"]["id"] == "s-crlf"), {})
+        check("a delivery's one reason is its first broken link — an occurrence of its own body whose offsets could "
+              "not be recovered, naming its event",
+              unmapped_record.get("delivery") == {
+                  "status": "unknown", "reason": "recorded_unmapped",
+                  "event_refs": [event_of(unmapped_sessions, "claude:s-crlf", "session_injection").get("event_id")]},
+              f"{unmapped_record.get('delivery')}")
         # The RECORDED bytes come from a transcript, so they are judged like every transcript body: a
         # credential and a home path in a normalised match, on the written store and sessions files.
         recorded_secret = "sk-ant-api03-" + "Rc9" * 14
@@ -7356,13 +7702,13 @@ def self_test():
         recorded_field = "<r>\r\n" + recorded_body.replace("\n", "  \r\n") + "</r>"
         recorded_run = published_run("recorded", [
             ("claude", "s-rec", [prompt_record("2026-10-20T09:00:00+00:00", [recorded_field])], {})],
-            pin="claude:s-rec", snapshot={"content_ref": "snap-ref-2", "output": {"instruction_text": recorded_body}})
+            pin="claude:s-rec", snapshot={"content_ref": "2" * 64, "output": {"instruction_text": recorded_body}})
         recorded_out = scratch / "p22" / "out-recorded" / "inventory"
         recorded_bytes = {name: (recorded_out / rel).read_text(encoding="utf-8") if (recorded_out / rel).is_file() else ""
                           for name, rel in (("store", STORE_REL), ("sessions", f"{SESSIONS}.json"))}
         recorded_rows = (recorded_run.get("sessions") or {}).get("occurrences") or []
         recorded_versions = (recorded_run.get("store") or {}).get("versions", {}).get(
-            canonical("c", "session_injection", "claude", "snap-ref-2")) or {}
+            canonical("c", "session_injection", "claude", "2" * 64)) or {}
         recorded_units = [(recorded_run.get("store") or {}).get("units", {}).get(ref) or {}
                           for row in recorded_versions.values() for ref in row["unit_refs"]]
         check("a RECORDED session injection holding a credential and a home path is in the written store under its "
@@ -7441,6 +7787,258 @@ def self_test():
         doubled["occurrences"] = doubled.get("occurrences", [])[:1] * 2 + doubled.get("occurrences", [])[1:]
         control("two occurrences under one id are refused by name", occurring(doubled, delivered_store),
                 "OCCURRENCE_DUPLICATE")
+
+        # ---- P2.4a: every session's OWN pin and snapshot (step 0 S-14, S-15, S-16, S-25; lead rulings on
+        # the P2.4 plan). Pins and snapshots are fixtures under this suite's own state roots; none of the
+        # sessions below is the `--pin`, and each answer is read from the PUBLISHED sessions.json.
+        deliver_state = scratch / "p24" / "deliver-state"
+        deliver_body = "# Session\n\n- a delivered rule\n"
+        deliver_ref = plant_snapshot(deliver_state, deliver_body)
+        broken_ref = plant_snapshot(deliver_state, "# Session\n\n- a snapshot whose file was changed\n")
+        (deliver_state / "sessions" / "snapshots" / broken_ref / "CLAUDE.md").write_text("changed\n", encoding="utf-8")
+        gone_ref = "3" * 64  # a pin names it; no snapshot of it exists
+        for ident in ("s-ok", "s-unbound", "s-nopath", "s-damaged", "s-unrecorded", "s-sidechain"):
+            plant_pin(deliver_state, ident, deliver_ref)
+        plant_pin(deliver_state, "s-named", deliver_ref, names="s-other")
+        plant_pin(deliver_state, "s-cref", broken_ref)
+        plant_pin(deliver_state, "s-gone", gone_ref)
+        plant_pin(deliver_state, "s-broken", broken_ref)
+        (deliver_state / "sessions" / "pins" / "claude" / "s-failed.json").write_text("{not json", encoding="utf-8")
+        d_at, d_late = "2026-10-21T09:00:00+00:00", "2026-10-21T09:00:30+00:00"
+        d_native = inj(d_at, [member("User", "/w/g.md", "- g\n")], cwd=p1)
+        d_body = prompt_record(d_late, [f"<r>{deliver_body}</r>"])
+
+        def pinned_row(ident, records_in, census_ref=deliver_ref, **fields):
+            return ("claude", ident, records_in, {"pin": {"content_ref": census_ref}, **fields})
+
+        deliveries = published_run("deliveries", [
+            pinned_row("s-ok", [d_native, d_body]),
+            ("claude", "s-none", [d_native, d_body], {}),
+            ("codex", "c-id", [block_meta("c-id", d_at, "# Block\n\n- a block\n", p1)], {"pin": {"content_ref": deliver_ref}}),
+            pinned_row("s-absent", [d_native, d_body]),
+            pinned_row("s-named", [d_native, d_body]),
+            pinned_row("s-cref", [d_native, d_body]),
+            pinned_row("s-failed", [d_native, d_body]),
+            pinned_row("s-gone", [d_native, d_body], gone_ref),
+            pinned_row("s-broken", [d_native, d_body], broken_ref),
+            pinned_row("s-unbound", [d_native, d_body], sha256=None, versions=[]),
+            pinned_row("s-nopath", [d_native, d_body], path=None),
+            pinned_row("s-damaged", [d_native, prompt_record(d_late, [3, "<r>another field</r>"])]),
+            pinned_row("s-unrecorded", [d_native]),
+            pinned_row("s-sidechain", [d_native, prompt_record(d_late, [deliver_body], isSidechain=True, agentId="a7")])],
+            state=deliver_state)
+        check("the deliveries run was published, its occurrences crossing clean", "refused" not in deliveries,
+              f"{deliveries.get('refused')} {(deliveries.get('problems') or [])[:2]}")
+        delivered_records = {row["transcript"]["id"]: row for row in (deliveries.get("sessions") or {}).get("sessions") or []}
+        clean("and its sessions.json validates, pins and deliveries included",
+              document_contract_problems(deliveries["sessions"]) if "sessions" in deliveries else ["refused"])
+
+        def delivery_is(ident):
+            row = (delivered_records.get(ident) or {}).get("delivery") or {}
+            return row.get("status"), row.get("reason")
+
+        def pin_is(ident):
+            row = (delivered_records.get(ident) or {}).get("pin") or {}
+            return row.get("status"), row.get("reason")
+
+        ok_injection = [event["event_id"] for event in (deliveries.get("sessions") or {}).get("events") or []
+                        if event["owner"] == "claude:s-ok" and event["kind"] == "session_injection"]
+        check("a session whose own body its own owner holds is a confirmed delivery, naming that event, and its pin "
+              "is read with the snapshot's baseline and its flag",
+              (delivered_records.get("s-ok") or {}).get("delivery") == {"status": "confirmed", "reason": None,
+                                                                        "event_refs": ok_injection}
+              and len(ok_injection) == 1
+              and (delivered_records.get("s-ok") or {}).get("pin") == {
+                  "status": "read", "reason": None, "content_ref": deliver_ref, "baseline_ref": "ref1",
+                  "include_global_instructions": True},
+              f"{(delivered_records.get('s-ok') or {}).get('delivery')} {(delivered_records.get('s-ok') or {}).get('pin')}")
+        for ident, step, expected_pin, expected in (
+                ("s-none", "the pin chain: no pin recorded", ("unpinned", "unpinned"), ("unknown", "unpinned")),
+                ("c-id", "the pin chain: a Codex rollout", ("unknown", "id_space"), ("unknown", "id_space")),
+                ("s-absent", "the pin chain: a pin the census names and the state does not hold",
+                 ("unknown", "pin_absent"), ("unknown", "pin_absent")),
+                ("s-named", "the pin chain: the pin at this path names another session",
+                 ("unknown", "pin_mismatch"), ("unknown", "pin_mismatch")),
+                ("s-cref", "the pin chain: the pin names another snapshot than the census",
+                 ("unknown", "pin_content_ref_mismatch"), ("unknown", "pin_content_ref_mismatch")),
+                ("s-failed", "the pin chain: a pin that does not read", ("unknown", "input_failed"),
+                 ("unknown", "input_failed")),
+                ("s-gone", "the snapshot: a read pin whose snapshot is not there", ("read", None),
+                 ("unknown", "snapshot_absent")),
+                ("s-broken", "the snapshot: a read pin whose snapshot does not verify", ("read", None),
+                 ("unknown", "input_failed")),
+                ("s-unbound", "the transcript read: no binding", ("read", None), ("unknown", "unbound")),
+                ("s-nopath", "the transcript read: no path", ("read", None), ("unknown", "no_path")),
+                ("s-unrecorded", "no link broken and no recorded occurrence: not a non-delivery", ("read", None),
+                 ("unknown", "no_record")),
+                ("s-sidechain", "a sidechain's copy is not its session's own delivery", ("read", None),
+                 ("unknown", "no_record"))):
+            check(f"a delivery's one reason is its first broken link — {step}",
+                  pin_is(ident) == expected_pin and delivery_is(ident) == expected,
+                  f"pin={pin_is(ident)} delivery={delivery_is(ident)}")
+        damaged_injection = [event["event_id"] for event in (deliveries.get("sessions") or {}).get("events") or []
+                             if event["owner"] == "claude:s-damaged" and event["kind"] == "session_injection"]
+        check("a delivery's one reason is its first broken link — a damaged injection event of its own owner, "
+              "named, with no usable occurrence",
+              (delivered_records.get("s-damaged") or {}).get("delivery") == {
+                  "status": "unknown", "reason": "locator_element_rejected", "event_refs": damaged_injection}
+              and len(damaged_injection) == 1,
+              f"{(delivered_records.get('s-damaged') or {}).get('delivery')}")
+        check("a Codex row's census content_ref is read for nothing, and a pin whose snapshot is not read names "
+              "no baseline",
+              ((delivered_records.get("c-id") or {}).get("pin") or {}).get("content_ref") is None
+              and ((delivered_records.get("s-gone") or {}).get("pin") or {}).get("baseline_ref") is None
+              and ((delivered_records.get("s-gone") or {}).get("pin") or {}).get("content_ref") == gone_ref,
+              f"{(delivered_records.get('c-id') or {}).get('pin')} {(delivered_records.get('s-gone') or {}).get('pin')}")
+
+        # S-25, two sessions through the production acquisition: a failed pin@(claude, X) reaches X's own
+        # record and the aggregate scope X's event is chosen for; a failed snapshot@(claude, X) reaches X's
+        # own record and nothing else. X's native events stay published either way.
+        two_state = scratch / "p24" / "two-state"
+        x_body, y_body = "# Session\n\n- x\n", "# Session\n\n- y\n"
+        x_ref, y_ref = plant_snapshot(two_state, x_body), plant_snapshot(two_state, y_body)
+        plant_pin(two_state, "s-x", x_ref)
+        plant_pin(two_state, "s-y", y_ref)
+        two_rows = [
+            pinned_row("s-y", [inj("2026-10-21T09:00:00+00:00", [member("User", "/w/g.md", "- y\n"),
+                                                                 member("Project", f"{p2}/CLAUDE.md", "- y at p2\n")],
+                                   cwd=p2), prompt_record("2026-10-21T09:00:30+00:00", [y_body])], y_ref),
+            pinned_row("s-x", [inj("2026-10-21T10:00:00+00:00", [member("User", "/w/g.md", "- x\n"),
+                                                                 member("Project", f"{p1}/CLAUDE.md", "- x at p1\n")],
+                                   cwd=p1), prompt_record("2026-10-21T10:00:30+00:00", [x_body])], x_ref)]
+
+        def two_with(label, damage=None):
+            case = scratch / "p24" / f"two-{label}"
+            shutil.copytree(two_state, case)
+            if damage is not None:
+                damage(case)
+            return published_run(f"two-{label}", two_rows, state=case)
+
+        two_clean = two_with("clean")
+        two_pin = two_with("pin", lambda case: (case / "sessions" / "pins" / "claude" / "s-x.json").write_text(
+            "{not json", encoding="utf-8"))
+        two_snapshot = two_with("snapshot", lambda case: (case / "sessions" / "snapshots" / x_ref / "CLAUDE.md").write_text(
+            "changed\n", encoding="utf-8"))
+
+        def two_parts(published):
+            """`(records by id, native events, injection events by owner, scope rows by (layer, scope))`."""
+            sessions_here = published.get("sessions") or {}
+            events_here = sessions_here.get("events") or []
+            return ({row["transcript"]["id"]: row for row in sessions_here.get("sessions") or []},
+                    sorted(json.dumps(event, sort_keys=True) for event in events_here if event["kind"] == "native"),
+                    {owner: sorted(json.dumps(event, sort_keys=True) for event in events_here
+                                   if event["kind"] == "session_injection" and event["owner"] == owner)
+                     for owner in ("claude:s-x", "claude:s-y")},
+                    {(row["layer"], row["host"], row["scope"]): row
+                     for row in (published.get("current") or {}).get("scopes") or []})
+
+        clean_parts, pin_parts, snap_parts = two_parts(two_clean), two_parts(two_pin), two_parts(two_snapshot)
+        check("the two-session runs were published", not any("refused" in run_here for run_here in
+                                                              (two_clean, two_pin, two_snapshot)),
+              f"{[run_here.get('refused') for run_here in (two_clean, two_pin, two_snapshot)]}")
+        x_occurrences = [row["carrier_id"] for row in (two_clean.get("sessions") or {}).get("occurrences") or []
+                         if row["pointer"].startswith("/attachment/systemPrompt/")]
+        check("each session's own body is looked for in its own transcript, under its own injection carrier",
+              sorted(x_occurrences) == sorted([canonical("c", "session_injection", "claude", x_ref),
+                                               canonical("c", "session_injection", "claude", y_ref)])
+              and clean_parts[0].get("s-x", {}).get("delivery", {}).get("status") == "confirmed"
+              and clean_parts[0].get("s-y", {}).get("delivery", {}).get("status") == "confirmed",
+              f"{len(x_occurrences)} occurrence(s)")
+        global_key = ("native_global", "claude", None)
+        check("S-25: a failed pin@(claude, X) changes X's own pin and delivery, makes the global scope X's event is "
+              "chosen for exclusion_unreadable, and leaves the other session, every other scope and X's native "
+              "events as they were",
+              pin_parts[0].get("s-y") == clean_parts[0].get("s-y")
+              and {key: value for key, value in pin_parts[0].get("s-x", {}).items() if key not in ("pin", "delivery", "event_refs")}
+              == {key: value for key, value in clean_parts[0].get("s-x", {}).items() if key not in ("pin", "delivery", "event_refs")}
+              and (pin_parts[0].get("s-x", {}).get("pin") or {}).get("reason") == "input_failed"
+              and (pin_parts[0].get("s-x", {}).get("delivery") or {}).get("reason") == "input_failed"
+              and pin_parts[1] == clean_parts[1] and pin_parts[2]["claude:s-y"] == clean_parts[2]["claude:s-y"]
+              and (clean_parts[3].get(global_key) or {}).get("status") == "answered"
+              and (pin_parts[3].get(global_key) or {}).get("status") == "unknown"
+              and reason_keys(pin_parts[3].get(global_key) or {}) == ["exclusion_unreadable"]
+              and {key: row for key, row in pin_parts[3].items() if key != global_key}
+              == {key: row for key, row in clean_parts[3].items() if key != global_key},
+              f"global={(pin_parts[3].get(global_key) or {}).get('status')} "
+              f"x_pin={(pin_parts[0].get('s-x', {}).get('pin') or {}).get('reason')}")
+        check("S-25: a failed snapshot@(claude, X) leaves X's pin read and its exclusion known, every scope and the "
+              "other session as they were, and X's native events published; X's delivery says why",
+              snap_parts[0].get("s-y") == clean_parts[0].get("s-y")
+              and (snap_parts[0].get("s-x", {}).get("pin") or {}).get("status") == "read"
+              and (snap_parts[0].get("s-x", {}).get("pin") or {}).get("baseline_ref") is None
+              and (snap_parts[0].get("s-x", {}).get("delivery") or {}).get("reason") == "input_failed"
+              and snap_parts[1] == clean_parts[1] and snap_parts[2]["claude:s-y"] == clean_parts[2]["claude:s-y"]
+              and snap_parts[3] == clean_parts[3],
+              f"x={(snap_parts[0].get('s-x', {}).get('delivery') or {}).get('reason')} "
+              f"scopes_same={snap_parts[3] == clean_parts[3]}")
+
+        # An occurrence's carrier is the one its event recorded at its ordinal, or its session's own injection
+        # carrier, and the place its pointer names holds the layer of the version it names (carried from P2.3b)
+        carrier_sessions = deliveries.get("sessions") or {"events": [], "occurrences": [], "sessions": []}
+        carrier_store = deliveries.get("store") or {"versions": {}, "units": {}}
+        ok_native = next((event for event in carrier_sessions["events"]
+                          if event["owner"] == "claude:s-ok" and event["kind"] == "native"), {})
+        check("a native event publishes every member it recorded, at its ordinal, by carrier and version",
+              ok_native.get("members") == [{"ordinal": 0, "version_sha256": sha256_text("- g\n"), "carrier_id": canonical(
+                  "c", "native", "native_global", "claude", "User", "/w/g.md")}],
+              f"{ok_native.get('members')}")
+        clean("the deliveries run's occurrences hold their events' members and their sessions' own carriers",
+              occurring(carrier_sessions, carrier_store))
+        foreign = canonical("c", "session_injection", "claude", "4" * 64)
+        for label, pick, change, codes in (
+                ("a native occurrence naming another carrier than its event recorded at its ordinal",
+                 lambda row: row["pointer"].startswith("/attachment/files/"),
+                 lambda row: row.update(carrier_id=canonical("c", "session_injection", "claude", deliver_ref)),
+                 ("OCCURRENCE_CARRIER_MISMATCH",)),
+                ("an injection occurrence naming another snapshot's injection carrier than its session's own",
+                 lambda row: row["pointer"].startswith("/attachment/systemPrompt/"),
+                 lambda row: row.update(carrier_id=foreign), ("OCCURRENCE_CARRIER_MISMATCH",)),
+                ("a member occurrence whose pointer names a system prompt, its version a native layer's",
+                 lambda row: row["pointer"].startswith("/attachment/files/"),
+                 lambda row: row.update(pointer="/attachment/systemPrompt/0", occurrence_id=canonical(
+                     "q", "occurrence", row["event_id"], row["ordinal"], "/attachment/systemPrompt/0")),
+                 ("OCCURRENCE_LAYER_MISMATCH",))):
+            planted_rows = json.loads(json.dumps(carrier_sessions))
+            target = next((row for row in planted_rows["occurrences"] if pick(row)), None)
+            if target is not None:
+                change(target)
+            control(label, occurring(planted_rows, carrier_store), *codes)
+        kept_event_occurrences = globals()["event_occurrences"]
+
+        def astray_occurrences(event, injection_id=None):
+            return kept_event_occurrences(event, foreign if injection_id else injection_id)
+
+        globals()["event_occurrences"] = astray_occurrences
+        try:
+            astray = published_run("astray", [pinned_row("s-ok", [d_native, d_body])], state=deliver_state)
+        finally:
+            globals()["event_occurrences"] = kept_event_occurrences
+        control("a published run whose injection occurrence names another snapshot's carrier is refused by name",
+                astray.get("problems") or [str(astray.get("refused"))], "OCCURRENCE_CARRIER_MISMATCH")
+
+        # The `--pin` takes its session's own entry when the census names its pin, and is evidence about its
+        # pin only when the census names none (S-15)
+        pin_mis_ctx, pin_evidence_ctx = {"native_roots": {}, "notes": {}}, {"native_roots": {}, "notes": {}}
+        pin_mis_raised = _raised(lambda: freeze_inputs(scratch / "p24" / "frozen-pin-mis", REPO, pins_state, None,
+                                                       "claude:s-mis", pin_mis_ctx,
+                                                       [{"host": "claude", "id": "s-mis", "pin": included_ref}]))
+        pin_evidence_raised = _raised(lambda: freeze_inputs(scratch / "p24" / "frozen-pin-evidence", REPO, pins_state,
+                                                            None, "claude:s-mis", pin_evidence_ctx, []))
+        check("the --pin of a session whose census names a pin takes that session's own entry: a pin naming another "
+              "snapshot than the census is no selection, and says why",
+              pin_mis_raised is None and pin_mis_ctx.get("pin_record") is None
+              and [(row["outcome"], row["reason"]) for row in pin_mis_ctx.get("omissions") or [] if row["input"] == "pin"]
+              == [("failed", "pin_content_ref_mismatch")],
+              f"raised={pin_mis_raised is not None} {[row for row in pin_mis_ctx.get('omissions') or [] if row['input'] == 'pin']}")
+        check("a --pin with no census row is evidence about its pin only: read, with its snapshot",
+              pin_evidence_raised is None and (pin_evidence_ctx.get("pin_record") or {}).get("content_ref") == excluded_ref
+              and (pin_evidence_ctx.get("snapshot") or {}).get("content_ref") == excluded_ref,
+              f"raised={pin_evidence_raised is not None}")
+        elsewhere_run = published_run("pin-elsewhere", [old_row], pin="claude:s-elsewhere", state=pins_state)
+        check("a --pin with no census row says its delivery is unknown: no transcript of it is read",
+              (((elsewhere_run.get("current") or {}).get("produced_by") or {}).get("notes") or {}).get(
+                  "transcripts", {}).get("pin_delivery") == "no_census_session",
+              f"{(((elsewhere_run.get('current') or {}).get('produced_by') or {}).get('notes') or {}).get('transcripts', {}).get('pin_delivery')}")
 
         # ---- M5 (recording): an undecodable line is kept at its position, before and after an event
         for label, rows_for, expected_line, event_line in (
@@ -8018,7 +8616,9 @@ def self_test():
         run_planted = scratch / "run-planted"
         run_planted.mkdir(parents=True, exist_ok=True)
         (run_planted / CENSUS).write_text(json.dumps({"transcripts": [
-            census_row("claude", "session-1", planted_path)]}), encoding="utf-8")
+            # the census names the pin it read for the session, as `census.py` does from the same state
+            {**census_row("claude", "session-1", planted_path), "pin": {"content_ref": content_ref}}]}),
+            encoding="utf-8")
         planted_out = scratch / "planted-out"
         manifest = run(REPO, state, user, planted_out, pin="claude:session-1",
                        native_roots={"projects": {"project": scratch / "project"}},
@@ -8612,14 +9212,79 @@ def self_test():
                                         native_roots={"projects": {"project": scratch / "project"}}))
         finally:
             globals()["freeze"] = kept_freeze
-        stray_rows = {row["layer"]: row["status"] for row in (json.loads(
+        stray_layers = {row["layer"]: row for row in (json.loads(
             (stray_out / "inventory" / "current.json").read_text(encoding="utf-8"))["layers"]
             if (stray_out / "inventory" / "current.json").is_file() else [])}
+        stray_rows = {layer: row["status"] for layer, row in stray_layers.items()}
+        stray_record = next((row for row in (json.loads((stray_out / "inventory" / f"{SESSIONS}.json").read_text(
+            encoding="utf-8"))["sessions"] if (stray_out / "inventory" / f"{SESSIONS}.json").is_file() else [])
+            if row["transcript"]["id"] == "session-1"), {})
         check("an unattributed acquisition failure leaves the checkout, transcript and ledger layers their answers",
-              stray is None and stray_rows.get("catalog") == "complete" and stray_rows.get("native_global") == "complete"
+              stray is None and stray_rows.get("catalog") == "complete" and stray_rows.get("native_project") == "complete"
               and stray_rows.get("ledger_keep") == "complete"
               and stray_rows.get("overlays") == "unknown" and stray_rows.get("session_injection") == "unknown",
               f"raised={type(stray).__name__ if stray else None} {sorted(stray_rows.items())}")
+        # The census names session-1's pin, and the failure left it unread: the global scope its event is
+        # chosen for depends on that pin (S-8 b, S-25), so it is the one transcript layer that becomes
+        # unknown, by that reason, and the session's own record says its pin failed.
+        check("and the global scope a session whose pin the failure left unread is chosen for is "
+              "exclusion_unreadable, while that session's record says its pin failed",
+              stray_rows.get("native_global") == "unknown"
+              and any(text.startswith(f"native_global: {UNKNOWN_REASONS['exclusion_unreadable']}")
+                      for text in stray_layers.get("native_global", {}).get("reasons") or [])
+              and (stray_record.get("pin") or {}).get("reason") == "input_failed"
+              and (stray_record.get("delivery") or {}).get("reason") == "input_failed",
+              f"{stray_rows.get('native_global')} {stray_layers.get('native_global', {}).get('reasons')} "
+              f"{stray_record.get('pin')} {stray_record.get('delivery')}")
+
+        # A --pin whose census row names no pin while the frozen state holds one: under M6 the two disagree
+        # (lead ruling on the P2.4 readings, 2026-10-29). Both written files name pin_content_ref_mismatch,
+        # and neither says unpinned while the other shows the selection. A session the --pin does not name,
+        # with no pin in its census row, stays `unpinned` and its pin file is not read: here it is a link,
+        # which a read would refuse.
+        nopin_state = scratch / "nopin-state"
+        shutil.copytree(state, nopin_state, symlinks=True)
+        (nopin_state / "sessions" / "pins" / "claude" / "s-other.json").symlink_to(
+            nopin_state / "sessions" / "pins" / "claude" / "session-1.json")
+        other_path = jsonl(scratch / "transcripts" / "claude" / "s-other.jsonl", [
+            attachment("2026-10-04T10:00:00+00:00", [member("Project", f"{project_scope}/CLAUDE.md", "# Other\n\n- other\n")],
+                       cwd=project_scope)])
+        run_nopin = scratch / "run-nopin"
+        run_nopin.mkdir(parents=True, exist_ok=True)
+        (run_nopin / CENSUS).write_text(json.dumps({"transcripts": [
+            census_row("claude", "session-1", planted_path), census_row("claude", "s-other", other_path)]}),
+            encoding="utf-8")
+        nopin_out = scratch / "nopin-out"
+        nopin = _raised(lambda: run(REPO, nopin_state, user, nopin_out, pin="claude:session-1", run_dir=run_nopin,
+                                    ledger=ledger, commit="fixture", home=fixture_home,
+                                    native_roots={"projects": {"project": scratch / "project"}}))
+        nopin_files = {name: json.loads((nopin_out / "inventory" / rel).read_text(encoding="utf-8"))
+                       if (nopin_out / "inventory" / rel).is_file() else {}
+                       for name, rel in (("sessions", f"{SESSIONS}.json"), ("selection", "selection.json"))}
+        nopin_records = {row["transcript"]["id"]: row for row in nopin_files["sessions"].get("sessions") or []}
+        nopin_reference = nopin_files["selection"].get("reference") or {}
+        nopin_injection = next((row for row in nopin_files["selection"].get("layers") or []
+                                if row["layer"] == "session_injection"), {})
+        check("a --pin whose census row names no pin while the state holds one: sessions.json names "
+              "pin_content_ref_mismatch for its pin and its delivery, with the snapshot the pin names",
+              nopin is None and (nopin_records.get("session-1") or {}).get("pin") == {
+                  "status": "unknown", "reason": "pin_content_ref_mismatch", "content_ref": matrix_pin["content_ref"],
+                  "baseline_ref": None, "include_global_instructions": None}
+              and ((nopin_records.get("session-1") or {}).get("delivery") or {}).get("reason") == "pin_content_ref_mismatch",
+              f"raised={type(nopin).__name__ if nopin else None} {(nopin_records.get('session-1') or {}).get('pin')}")
+        check("and selection.json, still that pin's evidence, names the same reason: neither file says unpinned while "
+              "the other shows the selection",
+              nopin_injection.get("status") == "complete" and nopin_reference.get("complete") is False
+              and any(text.startswith("pin_content_ref_mismatch: ") for text in nopin_reference.get("incomplete_reasons") or [])
+              and ((nopin_records.get("session-1") or {}).get("pin") or {}).get("status") != "unpinned",
+              f"{nopin_injection.get('status')} {nopin_reference.get('incomplete_reasons')}")
+        check("a session the --pin does not name, whose census row names no pin, stays unpinned and its pin file is "
+              "not read",
+              (nopin_records.get("s-other") or {}).get("pin") == {
+                  "status": "unpinned", "reason": "unpinned", "content_ref": None, "baseline_ref": None,
+                  "include_global_instructions": None}
+              and ((nopin_records.get("s-other") or {}).get("delivery") or {}).get("reason") == "unpinned",
+              f"{(nopin_records.get('s-other') or {}).get('pin')}")
 
         # ---- GC#1: the temporary location is chosen and judged before anything is written
         guarded_tmp = scratch / "guarded-tmp"

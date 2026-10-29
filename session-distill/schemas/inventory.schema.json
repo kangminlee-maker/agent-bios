@@ -277,7 +277,7 @@
       "additionalProperties": false,
       "required": ["session_ref", "session", "host", "kind", "transcript", "parent_ref", "binding", "read",
                    "lines_read", "owners", "ownership", "inherited_session_meta", "own_meta_unidentified",
-                   "limitations", "event_refs", "unknown"],
+                   "limitations", "event_refs", "unknown", "pin", "delivery"],
       "properties": {
         "session_ref": {"$ref": "#/$defs/session_ref"},
         "session": {"type": "string"},
@@ -302,7 +302,37 @@
         "own_meta_unidentified": {"type": ["integer", "null"], "minimum": 1},
         "limitations": {"type": "array", "items": {"$ref": "#/$defs/limitation"}},
         "event_refs": {"type": "array", "items": {"$ref": "#/$defs/event_id"}},
-        "unknown": {"type": "array", "items": {"$ref": "#/$defs/unknown_entry"}}
+        "unknown": {"type": "array", "items": {"$ref": "#/$defs/unknown_entry"}},
+        "pin": {"$ref": "#/$defs/pin"},
+        "delivery": {"$ref": "#/$defs/delivery"}
+      }
+    },
+    "pin": {
+      "$comment": "A session's own pin (step 0 S-14, S-15, S-16). reason is null exactly when the pin was read; content_ref is the one the pin names when the pin was read, agreeing with the census or not (pin_content_ref_mismatch), else the one the census row names (a Codex row's is read for nothing); baseline_ref is what the pin's verified snapshot names.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "reason", "content_ref", "baseline_ref", "include_global_instructions"],
+      "properties": {
+        "status": {"type": "string", "enum": ["read", "unpinned", "unknown"]},
+        "reason": {"enum": ["unpinned", "id_space", "pin_absent", "pin_mismatch", "pin_content_ref_mismatch",
+                            "input_failed", "input_unread", null]},
+        "content_ref": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+        "baseline_ref": {"type": ["string", "null"]},
+        "include_global_instructions": {"type": ["boolean", "null"]}
+      }
+    },
+    "delivery": {
+      "$comment": "Whether the session's own selected body was delivered (step 0 S-13, S-14): confirmed by a usable recorded occurrence its own owner holds, else unknown with ONE reason, the first broken link of the pin, its snapshot, the transcript read, a damaged injection event of its own owner and a recorded occurrence whose offsets could not be recovered (recorded_unmapped), and no_record only when none is broken.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "reason", "event_refs"],
+      "properties": {
+        "status": {"type": "string", "enum": ["confirmed", "unknown"]},
+        "reason": {"enum": ["unpinned", "id_space", "pin_absent", "pin_mismatch", "pin_content_ref_mismatch",
+                            "input_failed", "input_unread", "snapshot_absent", "unbound", "binding_invalid",
+                            "no_path", "changed", "unreadable", "container_unusable", "locator_element_rejected",
+                            "recorded_unmapped", "no_record", null]},
+        "event_refs": {"type": "array", "items": {"$ref": "#/$defs/event_id"}}
       }
     },
     "event": {
@@ -310,7 +340,7 @@
       "additionalProperties": false,
       "required": ["event_id", "kind", "host", "session_ref", "owner_ref", "owner", "line", "at", "at_reason",
                    "damaged", "interval_from", "interval_to", "certain_to", "uncertain_reason", "where",
-                   "rejected"],
+                   "rejected", "members"],
       "properties": {
         "event_id": {"$ref": "#/$defs/event_id"},
         "kind": {"type": "string", "enum": ["native", "session_injection"]},
@@ -331,7 +361,12 @@
           "type": "object", "additionalProperties": false, "required": ["ordinal", "category"],
           "properties": {"ordinal": {"type": "integer", "minimum": 0},
                          "category": {"enum": ["member_not_object", "member_type_unmapped", "member_path_invalid",
-                                               "member_content_invalid"]}}}}
+                                               "member_content_invalid"]}}}},
+        "members": {"type": "array", "items": {
+          "type": "object", "additionalProperties": false, "required": ["ordinal", "carrier_id", "version_sha256"],
+          "properties": {"ordinal": {"type": "integer", "minimum": 0},
+                         "carrier_id": {"type": "string", "pattern": "^c-[0-9a-f]{24}$"},
+                         "version_sha256": {"$ref": "#/$defs/sha256"}}}}
       }
     },
     "layer_name": {
