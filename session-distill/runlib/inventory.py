@@ -4955,7 +4955,7 @@ def verify_unchanged(watched, before, native_before, failing=None, home=None):
     native_after = {name: hashlib.sha256(pathlib.Path(name).read_bytes()).hexdigest()
                     for name in native_before if pathlib.Path(name).is_file()}
     result["state_root_unchanged"] = before == after and native_before == native_after
-    result["watched_roots"] = {masked(root, home): len(before[str(root)]) for root in watched}
+    result["watched_roots"] = {str(root): len(before[str(root)]) for root in watched}  # projected when emitted
     result["watched_native_files"] = len(native_before)
     beside = f" (raised while {type(failing).__name__}: {failing} was in flight)" if failing else ""
     if native_before != native_after:
@@ -5069,15 +5069,18 @@ def run(repo, state_root, user_root, out_dir, pin=None, native_roots=None, ledge
     before, omitted = {}, {}
     for root in watched:
         before[str(root)], omitted[str(root)] = hash_tree(root)
-    inputs = {"symlink_policy": SYMLINK_POLICY, "protected_roots": [masked(root, home) for root in guarded],
-              "roots": {masked(root, home): {"files": len(before[str(root)]), "omissions": omitted[str(root)]}
+    # Raw paths: MANIFEST_TABLE's METADATA rule projects every one against this run's home when the manifest
+    # is emitted, the floor's one path for every document (lead, after b0abfef: masking here as well was a
+    # second restatement of that projection, and a revert of either one was invisible).
+    inputs = {"symlink_policy": SYMLINK_POLICY, "protected_roots": [str(root) for root in guarded],
+              "roots": {str(root): {"files": len(before[str(root)]), "omissions": omitted[str(root)]}
                         for root in watched},
-              "roots_absent": [masked(root, home) for root in (state_root, user_path)
+              "roots_absent": [str(root) for root in (state_root, user_path)
                                if root is not None and not root.is_dir()],
               "transcripts": {"read_through": "runlib/sources.read_lines, bound to the S1 census record",
                               "native_files_read": 0}}
     produced, manifest = {}, {"references": {}, "state_root_unchanged": None,
-                              "out_dir": masked(out_dir, home), "inputs": inputs}
+                              "out_dir": str(out_dir), "inputs": inputs}
     try:
         with no_bytecode(), tempfile.TemporaryDirectory(prefix="distill-inventory-", dir=str(temp_root)) as frozen_dir:
             ctx = context_of(repo, state_root, user_root, dict(native_roots or {}), pin, ledger)
@@ -5816,10 +5819,31 @@ def self_test():
         if problems:
             failures.append((name, f"expected no violation, got {problems}"))
 
+    class Absent(dict):
+        """What a refused full run left behind (lead, after b0abfef: a refusal fails by name and never
+        aborts the suite): an EMPTY dict whose every key reads as Absent again, so reading it never
+        raises. Equality and membership keep a dict's own meaning (it lies on neither); it orders
+        against nothing and adds to nothing, which only spares a comparison from raising. A negative
+        control downstream of a judged run carries a presence term, because an empty subject would
+        otherwise satisfy it."""
+        def __getitem__(self, key):
+            return Absent()
+
+        def get(self, key, default=None):
+            return Absent() if default is None else default
+
+        __lt__ = __le__ = __gt__ = __ge__ = lambda self, other: False
+        __add__ = __radd__ = __sub__ = __rsub__ = lambda self, other: Absent()
+        __hash__ = None
+
     def check(name, ok, detail=""):
         if reporting:
             raise RuntimeError(f"CONTROL_AFTER_SUMMARY {name}: this suite has begun publishing its "
                                f"report, so `check` is not in the count it published")
+        # A condition that reads a refused run's `Absent` (an `and` chain hands it back as it is) is a
+        # failed condition, said so, and never a TypeError that ends the suite.
+        if isinstance(ok, Absent):
+            ok, detail = False, f"{detail} (its subject is a run that wrote nothing)"
         # A boolean-style helper given a problem LIST passed on whatever its needle said, because a
         # non-empty list is truthy: three controls in this package read correctly and asked nothing
         # until S8a found them. The signature is enforced here rather than remembered.
@@ -8874,6 +8898,20 @@ def self_test():
             return {"native_roots": {"projects": {"project": scratch / "project"}},
                     "run_dir": run_fixture, "home": fixture_home, **extra}
 
+        def judged_run(name, *args, **kwargs):
+            """A full `run` judged where it is called: a refusal is a failure by name, and what the run would
+            have returned reads as `Absent`, so the controls after it fail by name too."""
+            returned = []
+            raised = _raised(lambda: returned.append(run(*args, **kwargs)))
+            check(f"{name} run completes", raised is None,
+                  f"{type(raised).__name__}: {str(raised)[:300]}" if raised else "")
+            return returned[0] if returned else Absent()
+
+        def written_json(path):
+            """A document a run wrote, or `Absent` when that run wrote none."""
+            path = pathlib.Path(path)
+            return json.loads(path.read_text(encoding="utf-8")) if path.is_file() else Absent()
+
         # ---- done-when 5: the owner's state is read through frozen copies
         pending = state / "runtime" / "transactions" / "tx-1"
         pending.mkdir(parents=True)
@@ -8884,11 +8922,12 @@ def self_test():
                                                      "selection": None,
                                                      "learning_suppressions": {"claude": [], "codex": []}}), encoding="utf-8")
         before, _ = hash_tree(state)
-        manifest = run(REPO, state, user, scratch / "out", ledger=ledger, commit="fixture", **captured())
+        manifest = judged_run("the unpinned", REPO, state, user, scratch / "out", ledger=ledger, commit="fixture",
+                              **captured())
         check("the frozen route left the owner's state untouched", manifest["state_root_unchanged"] and hash_tree(state)[0] == before,
               "the state root changed while the inventory read it")
         # ---- GA#11: the records as the artifact serializes them, not the field tuple in this module
-        serialized = json.loads((scratch / "out" / "inventory" / "current.json").read_text(encoding="utf-8"))["units"]
+        serialized = written_json(scratch / "out" / "inventory" / "current.json")["units"]
         check("the artifact carries units to judge", bool(serialized), "no unit reached the artifact")
         missing_fields = sorted({field for unit in serialized for field in UNIT_FIELDS if field not in unit})
         control("a serialized unit record missing a field §6.1 asks for",
@@ -8907,7 +8946,7 @@ def self_test():
         # S-24 option 1: with no pin, release.json names no baseline and its catalog and adopted packages are
         # `release_history_deferred`; the installed baseline (ref1 here) is never taken for it. Done-when 1's
         # mapping is judged per shared release inventory, on the planted run below, whose session is pinned.
-        deferred_doc = json.loads((scratch / "out" / "inventory" / "release.json").read_text(encoding="utf-8"))
+        deferred_doc = written_json(scratch / "out" / "inventory" / "release.json")
         # a layer missing from the document reads as no status, so the check fails by name rather than raising
         deferred_rows = collections.defaultdict(lambda: {"status": None, "reasons": None},
                                                 {row["layer"]: row for row in deferred_doc.get("layers") or []})
@@ -9268,8 +9307,8 @@ def self_test():
         link = state / "runtime" / "a-link-out.json"
         link.symlink_to(scratch / "project" / "CLAUDE.md")
         try:
-            manifest = run(REPO, state, user, scratch / "manifest-out", ledger=ledger,
-                           home=fixture_home)
+            manifest = judged_run("the linked-input", REPO, state, user, scratch / "manifest-out", ledger=ledger,
+                                  home=fixture_home)
         finally:
             link.unlink()
         inputs = manifest["inputs"]
@@ -9277,7 +9316,8 @@ def self_test():
         # the projection gone they raise rather than report, and a reader of this suite needs the
         # spelling stated where it can fail as a control instead of as an abort.
         check("the manifest spells the roots it read as the projection does, never as raw paths",
-              all(key.startswith("<HOME>/") for key in inputs["roots"]) and str(state) not in inputs["roots"],
+              bool(inputs["roots"]) and all(key.startswith("<HOME>/") for key in inputs["roots"])
+              and str(state) not in inputs["roots"],
               f"{sorted(inputs['roots'])}")
         # Read by the PROJECTED key, and read so that a key that is not there REPORTS rather than
         # raises: an indexing lookup aborted this suite with a `KeyError` before any control ran,
@@ -9320,8 +9360,9 @@ def self_test():
         # a run given this process's own home produce the same manifest for the same inputs — which
         # is what "the default is the process's own home" means, stated where a change would fail.
         default_out, named_out = scratch / "home-default-out", scratch / "home-named-out"
-        by_default = run(REPO, state, user, default_out, ledger=ledger)
-        by_process_home = run(REPO, state, user, named_out, ledger=ledger, home=str(pathlib.Path.home()))
+        by_default = judged_run("the default-home", REPO, state, user, default_out, ledger=ledger)
+        by_process_home = judged_run("the process-home", REPO, state, user, named_out, ledger=ledger,
+                                     home=str(pathlib.Path.home()))
         check("a run given no home projects exactly as a run given this process's own home",
               by_default["inputs"] == by_process_home["inputs"]
               and by_default["out_dir"] == masked(default_out, str(pathlib.Path.home()))
@@ -9371,24 +9412,25 @@ def self_test():
             {**census_row("claude", "session-1", planted_path), "pin": {"content_ref": content_ref}}]}),
             encoding="utf-8")
         planted_out = scratch / "planted-out"
-        manifest = run(REPO, state, user, planted_out, pin="claude:session-1",
-                       native_roots={"projects": {"project": scratch / "project"}},
-                       run_dir=run_planted, ledger=ledger, commit="fixture", home=fixture_home)
+        manifest = judged_run("the planted", REPO, state, user, planted_out, pin="claude:session-1",
+                              native_roots={"projects": {"project": scratch / "project"}},
+                              run_dir=run_planted, ledger=ledger, commit="fixture", home=fixture_home)
         artifacts = sorted(path for path in planted_out.rglob("*") if path.is_file())
         check("the planted run wrote artifacts to scan", len(artifacts) >= len(REFERENCES),
               f"{len(artifacts)} artifact(s)")
         leaking = sorted(path.name for path in artifacts
                          if secret in path.read_text(encoding="utf-8") or private in path.read_text(encoding="utf-8"))
-        check("no artifact carries the planted credential or the owner's home path", not leaking,
-              f"{leaking}")
+        # ...judged over artifacts that exist: a run that wrote nothing carries nothing, and says nothing
+        check("no artifact carries the planted credential or the owner's home path",
+              not leaking and len(artifacts) >= len(REFERENCES), f"{leaking} artifacts={len(artifacts)}")
         emitted = {}
         for reference in REFERENCES:
-            for unit in json.loads((planted_out / "inventory" / f"{reference}.json").read_text(encoding="utf-8"))["units"]:
+            for unit in written_json(planted_out / "inventory" / f"{reference}.json")["units"]:
                 emitted.setdefault(unit["path"], []).append(unit)
         # ...and the store, where every recorded member is published once: a selection holds no native layer
         # any more (lead ruling 5 on the P2.4 plan), and the AutoMem member here answers no current scope
         # (its path is `~/`, so `memory_path_relative`), so the store is where its units are.
-        planted_store_written = json.loads((planted_out / "inventory" / STORE_REL).read_text(encoding="utf-8"))
+        planted_store_written = written_json(planted_out / "inventory" / STORE_REL)
         for carrier_id_here, rows_here in planted_store_written["versions"].items():
             for version_here, row_here in rows_here.items():
                 for ref_here in row_here["unit_refs"]:
@@ -9429,7 +9471,7 @@ def self_test():
                       if planted_by_version.get(version)),
               f"file={bool(planted_bytes)} carried={sum(1 for version in planted_raw if planted_by_version.get(version))}"
               f"/{len(planted_raw)}")
-        planted_docs = {reference: json.loads((planted_out / "inventory" / f"{reference}.json").read_text(encoding="utf-8"))
+        planted_docs = {reference: written_json(planted_out / "inventory" / f"{reference}.json")
                         for reference in REFERENCES}
         unequal = [(reference, n) for reference, document in planted_docs.items()
                    for n, unit in enumerate(document["units"])
@@ -9471,9 +9513,30 @@ def self_test():
               and str(pathlib.Path.home()) not in projected_message(
                   OSError(f"cannot read {pathlib.Path.home()}/Documents/x"), hiding["home"]),
               "the exception message carried the owner's home path")
-        manifest_text = (planted_out / "inventory" / "manifest.json").read_text(encoding="utf-8")
+        manifest_path = planted_out / "inventory" / "manifest.json"
+        manifest_text = manifest_path.read_text(encoding="utf-8") if manifest_path.is_file() else ""
+        # POSITIVE (lead, after b0abfef): the roots ARE under the home this run is given, so the manifest
+        # spells them `<HOME>/…`; a manifest that holds none of them has nothing for the check below to judge
+        check("the planted manifest spells its protected roots and its read roots under the run's home as <HOME>/…",
+              any(str(root).startswith("<HOME>/") for root in manifest.get("inputs", {}).get("protected_roots", []))
+              and any(str(root).startswith("<HOME>/") for root in manifest.get("inputs", {}).get("roots", {})),
+              f"{manifest.get('inputs', {}).get('protected_roots', [])}")
+        # The manifest's paths are masked ONCE, by MANIFEST_TABLE's METADATA rule (lead, after b0abfef). That
+        # `masked()` before it added nothing rested on two facts, judged here rather than assumed: over paths
+        # under the home a run is given, the projection is idempotent, and `masked()` is that same projection.
+        fixture_home_text = str(fixture_home)
+        idem_cases = [f"{fixture_home_text}/state", fixture_home_text, f"{fixture_home_text}/user/",
+                      f"{fixture_home_text}/Documents/a b/x", "/elsewhere/state", f"{fixture_home_text}x/state",
+                      f"{fixture_home_text}/.claude/projects/p/memory", f"{fixture_home_text}/state/api_key=abc"]
+        idem_rows = [(case, projection.project(case, projection.CURRENT, fixture_home_text)) for case in idem_cases]
+        check("over eight paths at, under, beside and outside a run's home, projecting twice is projecting once, and "
+              "masked() is that projection",
+              all(projection.project(once, projection.CURRENT, fixture_home_text) == once
+                  and masked(case, fixture_home_text) == once for case, once in idem_rows)
+              and sum("<HOME>" in once for _case, once in idem_rows) == 6,
+              f"{[(case[len(fixture_home_text):] if case.startswith(fixture_home_text) else case, once) for case, once in idem_rows]}")
         check("the manifest carries no owner home prefix",
-              str(pathlib.Path.home()) not in manifest_text and str(fixture_home) not in manifest_text,
+              bool(manifest_text) and str(pathlib.Path.home()) not in manifest_text and str(fixture_home) not in manifest_text,
               "the manifest holds an absolute path under the owner's home")
         under_home = pathlib.Path.home() / "Documents" / "a-run-directory"
         check("a path the manifest records is masked with the projection's own mask",
@@ -9552,8 +9615,8 @@ def self_test():
         # ---- the 1548 amendment: the native layers come from the transcript, settings never do,
         # and nothing reads a native file in any mode
         split_out = scratch / "split-out"
-        split = run(REPO, state, user, split_out, ledger=ledger, **captured())
-        split_doc = json.loads((split_out / "inventory" / "current.json").read_text(encoding="utf-8"))
+        split = judged_run("the split", REPO, state, user, split_out, ledger=ledger, **captured())
+        split_doc = written_json(split_out / "inventory" / "current.json")
         native_rows = {row["layer"]: row for row in split_doc["layers"] if row["layer"] in NATIVE_LAYERS}
         check("every native layer is in the table", set(native_rows) == set(NATIVE_LAYERS),
               f"{sorted(native_rows)}")
@@ -9579,14 +9642,14 @@ def self_test():
                   for unit in split_doc["units"] if unit["layer"] in TRANSCRIPT_LAYERS),
               "a current native unit carries no as_of or no session")
         check("the run's artifact names no mode that reads a host home",
-              "mode" not in split_doc["produced_by"] and split["inputs"]["transcripts"]["native_files_read"] == 0,
+              bool(split_doc["produced_by"]) and "mode" not in split_doc["produced_by"]
+              and split["inputs"]["transcripts"]["native_files_read"] == 0,
               f"{sorted(split_doc['produced_by'])}")
         # A run with no census at all: every native layer unknown, with the census reason.
         blind_out = scratch / "blind-out"
-        blind = run(REPO, state, user, blind_out, ledger=ledger, home=fixture_home,
-                    native_roots={"projects": {"project": scratch / "project"}})
-        blind_rows = {row["layer"]: row for row in json.loads(
-            (blind_out / "inventory" / "current.json").read_text(encoding="utf-8"))["layers"]}
+        blind = judged_run("the blind", REPO, state, user, blind_out, ledger=ledger, home=fixture_home,
+                           native_roots={"projects": {"project": scratch / "project"}})
+        blind_rows = {row["layer"]: row for row in written_json(blind_out / "inventory" / "current.json")["layers"]}
         control("a run with no census to read a transcript through",
                 [f"{layer}={blind_rows[layer]['status']}: " + "; ".join(blind_rows[layer]["reasons"])
                  for layer in TRANSCRIPT_LAYERS],
@@ -9690,21 +9753,21 @@ def self_test():
              "selection": None,
              "learning_suppressions": {"claude": [store._digest(suppressed_event)], "codex": []}}), encoding="utf-8")
         both_out = scratch / "both-out"
-        both = run(REPO, state, user, both_out, pin="claude:session-1",
-                   ledger=ledger, commit="fixture", **captured())
-        current_doc = json.loads((both_out / "inventory" / "current.json").read_text(encoding="utf-8"))
+        both = judged_run("the both-baselines", REPO, state, user, both_out, pin="claude:session-1",
+                          ledger=ledger, commit="fixture", **captured())
+        current_doc = written_json(both_out / "inventory" / "current.json")
         notes = current_doc["produced_by"]["notes"]
         control("a run whose pin names an older baseline than the installed one",
                 [f"installed={notes['baselines']['installed']} pinned={notes['baselines']['pinned']} "
                  f"differ={notes['baselines']['differ']}"],
                 "installed=ref2", "pinned=ref1", "differ=True")
         frozen_both = [row for row in notes.get("frozen_missing", []) if "baselines" in str(row.get("path"))]
-        check("both baselines were frozen, so neither resolver is left without its tuple", not frozen_both,
-              f"{frozen_both}")
+        check("both baselines were frozen, so neither resolver is left without its tuple",
+              bool(notes) and not frozen_both, f"{frozen_both} notes={bool(notes)}")
         # The schema is a contract, not a second list: the real document's units and layer rows are
         # validated against it, so a record that drifts fails here too (the 1548 amendment §10).
         clean("a produced document's units and layer rows against the schema the code owns",
-              document_contract_problems(current_doc))
+              document_contract_problems(current_doc) if current_doc else ["the run wrote no current.json"])
         check("that document really has units to judge", len(current_doc["units"]) > 100,
               f"{len(current_doc['units'])} unit(s)")
         both_sessions_path = both_out / "inventory" / f"{SESSIONS}.json"
@@ -9712,7 +9775,8 @@ def self_test():
                          else {"document": "sessions", "sessions": [], "events": []})
         check("the run published sessions.json", both_sessions_path.is_file(), "no inventory/sessions.json")
         clean("the run's published sessions.json against its own root in the schema",
-              document_contract_problems(both_sessions))
+              document_contract_problems(both_sessions) if both_sessions_path.is_file()
+              else ["the run wrote no sessions.json"])
         check("and it holds a record for every census row, with the manifest's count beside it",
               len(both_sessions["sessions"]) >= 1
               and (both.get("sessions") or {}).get("sessions") == len(both_sessions["sessions"])
@@ -9726,11 +9790,13 @@ def self_test():
               and (both.get("store") or {}) == {"versions": sum(len(rows) for rows in both_store["versions"].values()),
                                                 "units": len(both_store["units"])},
               f"store={both.get('store')} units={len(both_store['units'])}")
-        clean("the run's published store against its own root in the schema", document_contract_problems(both_store))
-        both_documents = {reference: json.loads((both_out / "inventory" / f"{reference}.json").read_text(encoding="utf-8"))
+        clean("the run's published store against its own root in the schema",
+              document_contract_problems(both_store) if both_store_path.is_file() else ["the run wrote no store"])
+        both_documents = {reference: written_json(both_out / "inventory" / f"{reference}.json")
                           for reference in REFERENCES}
         clean("every unit of the run's three documents resolves in its store as that block, each version once",
-              crossing(both_store, both_documents))
+              crossing(both_store, both_documents) if both_store_path.is_file() and all(both_documents.values())
+              else ["the run wrote no store or no reference document"])
         injection_id = canonical("c", "session_injection", "claude", content_ref)
         injection_units = [unit for unit in both_documents["current"]["units"] if unit["layer"] == "session_injection"]
         check("a session injection's carrier is its host and the snapshot it was compiled into, in the document "
@@ -9738,8 +9804,10 @@ def self_test():
               bool(injection_units) and {unit["carrier_id"] for unit in injection_units} == {injection_id}
               and injection_id in both_store["versions"],
               f"units={len(injection_units)} in_store={injection_id in both_store['versions']}")
-        both_sessions_doc = json.loads((both_out / "inventory" / f"{SESSIONS}.json").read_text(encoding="utf-8"))
-        clean("every occurrence of the run's sessions.json resolves against its store", occurring(both_sessions_doc, both_store))
+        both_sessions_doc = written_json(both_out / "inventory" / f"{SESSIONS}.json")
+        clean("every occurrence of the run's sessions.json resolves against its store",
+              occurring(both_sessions_doc, both_store) if both_sessions_doc and both_store_path.is_file()
+              else ["the run wrote no sessions.json or no store"])
         check("and the run recorded occurrences to judge", len(both_sessions_doc.get("occurrences") or []) >= 1,
               f"{len(both_sessions_doc.get('occurrences') or [])}")
         kept_occurrences = globals()["event_occurrences"]
@@ -9837,10 +9905,9 @@ def self_test():
               len({unit["carrier_id"] for unit in overlay_units}) == len(overlay_units),
               "the same overlay carrier was emitted twice")
         check("a tombstoned item is not in the overlay layer",
-              not any(unit["item_ref"] == "@fixture/core:item-3" for unit in overlay_units),
+              bool(overlay_units) and not any(unit["item_ref"] == "@fixture/core:item-3" for unit in overlay_units),
               "a tombstoned item came back as an overlay")
-        adopted_rows = {reference: [unit for unit in json.loads(
-            (both_out / "inventory" / f"{reference}.json").read_text(encoding="utf-8"))["units"]
+        adopted_rows = {reference: [unit for unit in written_json(both_out / "inventory" / f"{reference}.json")["units"]
             if unit["layer"] == "adopted_packages"] for reference in REFERENCES}
         control("a run with no state root to read the adoption record from",
                 [str(_raised(lambda: _packages_current(context_of(REPO, None, None, {}, None, None))))],
@@ -11554,11 +11621,11 @@ def self_test():
         # `per_event`, and the pinned session's native events stay published in sessions.json (S-15; lead
         # ruling 5 on the P2.4 plan). The row is made by the one producer the shared selection inventory of
         # the same snapshot is made by, so the two files carry the same rows.
-        selection_doc = json.loads((planted_out / "inventory" / "selection.json").read_text(encoding="utf-8"))
+        selection_doc = written_json(planted_out / "inventory" / "selection.json")
         # a layer missing from the document reads as no status, so a check fails by name rather than raising
         selection_rows = collections.defaultdict(lambda: {"status": None, "reasons": None},
                                                  {row["layer"]: row for row in selection_doc.get("layers") or []})
-        planted_sessions_doc = json.loads((planted_out / "inventory" / f"{SESSIONS}.json").read_text(encoding="utf-8"))
+        planted_sessions_doc = written_json(planted_out / "inventory" / f"{SESSIONS}.json")
         check("selection.json's native rows are unknown per_event, and the pinned session's native events stay "
               "published in sessions.json",
               all(selection_rows[layer]["status"] == "unknown"
@@ -11613,7 +11680,7 @@ def self_test():
               and bool(selection_doc["units"]),
               f"inventories={sorted(planted_shared)} same={own_inventory.get('layers') == selection_doc['layers']} "
               f"carriers={len(own_inventory.get('carriers') or [])} units={len(selection_doc['units'])}")
-        unpinned_doc = json.loads((split_out / "inventory" / "selection.json").read_text(encoding="utf-8"))
+        unpinned_doc = written_json(split_out / "inventory" / "selection.json")
         control("a selection reference point with no pin to name a session",
                 [f"{row['layer']}={row['status']}: " + "; ".join(row["reasons"])
                  for row in unpinned_doc["layers"] if row["layer"] in TRANSCRIPT_LAYERS],
