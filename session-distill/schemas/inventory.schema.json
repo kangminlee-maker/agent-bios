@@ -39,9 +39,10 @@
     "sessions_document": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["document", "produced_by", "sessions", "events"],
+      "required": ["document", "span_unit", "produced_by", "sessions", "events", "occurrences"],
       "properties": {
         "document": {"const": "sessions"},
+        "span_unit": {"$comment": "the unit an occurrence's start and end count, in the decoded text of the FIELD its pointer names; a different coordinate from the store's, which counts in a carrier version's raw text", "const": "code_point"},
         "produced_by": {
           "type": "object",
           "additionalProperties": false,
@@ -53,7 +54,8 @@
           }
         },
         "sessions": {"type": "array", "items": {"$ref": "#/$defs/session"}},
-        "events": {"type": "array", "items": {"$ref": "#/$defs/event"}}
+        "events": {"type": "array", "items": {"$ref": "#/$defs/event"}},
+        "occurrences": {"type": "array", "items": {"$ref": "#/$defs/occurrence"}}
       }
     },
     "shared_store_document": {
@@ -107,6 +109,38 @@
       "$comment": "opaque (step 0 S-11): r- over [\"unit\", carrier_id, version_sha256, n], n the block's 1-based position in that version",
       "type": "string",
       "pattern": "^r-[0-9a-f]{24}$"
+    },
+    "git": {
+      "$comment": "What a Codex session_meta records of its repository (step 0 S-19); the URL's userinfo is removed before the floor.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["commit_hash", "branch", "repository_url"],
+      "properties": {
+        "commit_hash": {"type": ["string", "null"], "pattern": "^[0-9a-f]{7,64}$"},
+        "branch": {"type": ["string", "null"]},
+        "repository_url": {"type": ["string", "null"]}
+      }
+    },
+    "occurrence": {
+      "$comment": "One recorded occurrence of a carrier version in an event (step 0 S-12, S-13). [start, end) counts code points of the decoded field text the pointer names. An unmapped occurrence (a normalised match whose offsets could not be recovered) carries no version, span or digest, and the reason recorded_unmapped.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["occurrence_id", "event_id", "ordinal", "pointer", "carrier_id", "version_sha256", "start", "end",
+                   "sha256", "method", "reason"],
+      "properties": {
+        "occurrence_id": {"type": "string", "pattern": "^q-[0-9a-f]{24}$"},
+        "event_id": {"$ref": "#/$defs/event_id"},
+        "ordinal": {"type": "integer", "minimum": 0},
+        "pointer": {"type": "string", "minLength": 1},
+        "carrier_id": {"type": "string", "pattern": "^c-[0-9a-f]{24}$"},
+        "version_sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+        "start": {"type": ["integer", "null"], "minimum": 0},
+        "end": {"type": ["integer", "null"], "minimum": 0},
+        "sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+        "method": {"type": "string", "enum": ["field", "exact", "normalised", "unmapped"]},
+        "reason": {"type": ["string", "null"], "enum": ["recorded_unmapped", null]},
+        "git": {"$ref": "#/$defs/git"}
+      }
     },
     "carrier_version": {
       "$comment": "One carrier version in the store. `length` is the raw text's length in Unicode code points; `unit_refs` lists its units in order; `split` says whether the splitter read it.",
@@ -375,7 +409,8 @@
         "keep_reason": {"type": ["string", "null"]},
         "hosts": {"type": "array", "items": {"type": "string"}},
         "scope_id": {"$ref": "#/$defs/scope_id"},
-        "event_id": {"$ref": "#/$defs/event_id"}
+        "event_id": {"$ref": "#/$defs/event_id"},
+        "git": {"$ref": "#/$defs/git"}
       }
     },
     "layer_row": {

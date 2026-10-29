@@ -857,7 +857,9 @@ OPAQUE_FORMS = {"unit_id": re.compile(r"^u-[0-9a-f]{16}(-[0-9]+)?$"),
                 "owner_ref": re.compile(r"^o-[0-9a-f]{24}$"),
                 "session_ref": re.compile(r"^p-[0-9a-f]{24}$"),
                 "scope_id": re.compile(r"^s-[0-9a-f]{24}$"),
-                "unit_ref": re.compile(r"^r-[0-9a-f]{24}$")}
+                "unit_ref": re.compile(r"^r-[0-9a-f]{24}$"),
+                "occurrence_id": re.compile(r"^q-[0-9a-f]{24}$"),
+                "commit_hash": re.compile(r"^[0-9a-f]{7,64}$")}
 
 
 def as_scalar(nullable=False):
@@ -1252,6 +1254,12 @@ EMISSION_INTERNAL = frozenset(("carrier_text", "span", "heading_spans", "enclosi
 # injection is named by the producer, never read out of a file.
 PROVENANCE_HOSTS = frozenset(("claude", "codex"))
 
+GIT_TABLE = table_of({
+    "commit_hash": as_opaque("commit_hash", nullable=True),
+    "branch": as_metadata(nullable=True),
+    "repository_url": as_metadata(nullable=True),
+}, schema="git")
+
 PROVENANCE_TABLE = table_of({
     "as_of": as_metadata(nullable=True), "session": as_metadata(nullable=True),
     "transcript": as_metadata(nullable=True), "where": as_metadata(nullable=True),
@@ -1266,8 +1274,10 @@ PROVENANCE_TABLE = table_of({
     "hosts": list_of(as_enum(PROVENANCE_HOSTS)),
     # a scope's answer (S-10): the scope row and the event a unit of `current` came from
     "scope_id": as_opaque("scope_id"), "event_id": as_opaque("event_id"),
+    # what a Codex `session_meta` records of its repository (step 0 S-19), userinfo removed
+    "git": GIT_TABLE,
 }, optional=("as_of", "session", "transcript", "where", "scope", "reference", "record", "identity",
-             "status", "keep_units", "keep_reason", "hosts", "scope_id", "event_id"), schema="provenance")
+             "status", "keep_units", "keep_reason", "hosts", "scope_id", "event_id", "git"), schema="provenance")
 
 # §6.1's unit record as the artifact carries it. `operative_context` is ONE list with a per-item
 # union: a resolved entry is an opaque unit id, and an unresolved one is built from the carrier
@@ -1419,6 +1429,25 @@ EVENT_TABLE = table_of({
     "where": as_metadata(nullable=True),
     "rejected": list_of(table_of({"ordinal": as_scalar(), "category": as_enum(MEMBER_CATEGORIES)})),
 }, schema="event")
+# One recorded occurrence (step 0 S-12, S-13): where in which event a carrier version's bytes sit. Its
+# span counts code points of the decoded FIELD text the pointer names — not the carrier version's raw
+# text, which is the store's coordinate. `unmapped` is a normalised match whose offsets could not be
+# recovered: kept as evidence, with no version, span or digest (#14).
+OCCURRENCE_METHODS = ("field", "exact", "normalised", "unmapped")
+OCCURRENCE_TABLE = table_of({
+    "occurrence_id": as_opaque("occurrence_id"),
+    "event_id": as_opaque("event_id"),
+    "ordinal": as_scalar(),
+    "pointer": as_metadata(),
+    "carrier_id": as_opaque("carrier_id"),
+    "version_sha256": as_opaque("sha256", nullable=True),
+    "start": as_scalar(nullable=True),
+    "end": as_scalar(nullable=True),
+    "sha256": as_opaque("sha256", nullable=True),
+    "method": as_enum(OCCURRENCE_METHODS),
+    "reason": as_enum(("recorded_unmapped",), nullable=True),
+    "git": GIT_TABLE,
+}, optional=("git",), schema="occurrence")
 SESSIONS_PRODUCED_BY_TABLE = table_of({
     "module": as_constant("session-distill/runlib/inventory.py"),
     "design": as_constant(DESIGN),
@@ -1513,8 +1542,12 @@ def sessions_document(ctx):
         "produced_by": emit_row("produced_by", SESSIONS_PRODUCED_BY_TABLE, {
             "module": "session-distill/runlib/inventory.py", "design": DESIGN,
             "commit": ctx.get("commit")}, place),
+        "span_unit": SPAN_UNIT,
         "sessions": [emit_row("session", SESSION_TABLE, record, place) for record in ctx.get("sessions") or []],
         "events": [emit_row("event", EVENT_TABLE, event_row(event), place) for event in ctx.get("events") or []],
+        "occurrences": [emit_row("occurrence", OCCURRENCE_TABLE,
+                                 {key: row[key] for key in OCCURRENCE_TABLE["fields"] if key in row}, place)
+                        for row in ctx.get("occurrences") or []],
     }
 
 
@@ -1567,12 +1600,60 @@ def sessions_cross_problems(document):
     return problems
 
 
+def occurrence_cross_problems(sessions, store):
+    """What the occurrences get wrong against the events and the store (step 0 S-21): each id is the one
+    its event, ordinal and pointer derive and names one occurrence, its event is published, a mapped
+    occurrence's version is in the store with exactly its span's length and the digest of its recorded
+    bytes, and an unmapped one carries no version, span or digest and says why."""
+    problems = []
+    rows = sessions.get("occurrences") or []
+    events = {event.get("event_id") for event in sessions.get("events") or []}
+    versions = store.get("versions") or {}
+    twice = sum(1 for n in collections.Counter(row.get("occurrence_id") for row in rows).values() if n > 1)
+    if twice:
+        problems.append(f"OCCURRENCE_DUPLICATE: {twice} occurrence id(s) name more than one occurrence")
+    for n, row in enumerate(rows):
+        where = f"occurrences[{n}]"
+        if row.get("event_id") not in events:
+            problems.append(f"OCCURRENCE_EVENT_UNRESOLVED {where}: its event is not published")
+        if row.get("occurrence_id") != opaque_id("q", "occurrence", row.get("event_id"), row.get("ordinal"),
+                                                 row.get("pointer")):
+            problems.append(f"OCCURRENCE_ID_MISMATCH {where}: not the id its event, ordinal and pointer derive")
+        if row.get("method") == "unmapped":
+            if row.get("reason") != "recorded_unmapped" or any(
+                    row.get(key) is not None for key in ("version_sha256", "start", "end", "sha256")):
+                problems.append(f"OCCURRENCE_UNMAPPED_INCONSISTENT {where}: an unmapped occurrence carries a "
+                                f"version, a span or a digest, or no reason")
+            continue
+        if row.get("reason") is not None or row.get("version_sha256") is None:
+            problems.append(f"OCCURRENCE_UNMAPPED_INCONSISTENT {where}: a mapped occurrence names no version, "
+                            f"or a reason")
+            continue
+        version = (versions.get(row.get("carrier_id")) or {}).get(row.get("version_sha256"))
+        if version is None:
+            problems.append(f"OCCURRENCE_VERSION_UNRESOLVED {where}: its carrier version is not in the store")
+            continue
+        start, end = row.get("start"), row.get("end")
+        if not (isinstance(start, int) and isinstance(end, int) and 0 <= start <= end
+                and end - start == version.get("length")):
+            problems.append(f"OCCURRENCE_SPAN_MISMATCH {where}: its span is not its version's length")
+        if row.get("sha256") != row.get("version_sha256"):
+            problems.append(f"OCCURRENCE_DIGEST_MISMATCH {where}: its recorded bytes are not its version")
+    return problems
+
+
 def store_carriers(ctx):
     """Every carrier the run names: what each reference point's layer rows carried, and every member
     of every recorded event, the ones no scope chose included. Damaged events carry none."""
     named = list(ctx.get("carriers_named") or [])
     for event in ctx.get("events") or []:
         named += [member_carrier(event, member) for member in event.get("files") or []]
+    # what a transcript recorded of a session's selected body, at each place it was found (M1, #14):
+    # an exact match is the selected version itself, a normalised one a version of its own
+    named += [carrier("session_injection", f"{row['host']}:session_injection:{row['pointer']}", row["recorded"],
+                      form="markdown", carrier_id=row["carrier_id"])
+              for row in ctx.get("occurrences") or [] if row.get("recorded") is not None
+              and row.get("kind") == "session_injection"]
     return named
 
 
@@ -2875,8 +2956,14 @@ def _timestamp(record):
     return None
 
 
+LOCATED_HOW = {"field": "the field is the delivered body",
+               "exact": "the delivered body inside the field",
+               "normalised": "the delivered body inside the field, line endings normalised",
+               "unmapped": "the delivered body inside the field, line endings normalised, its offsets unrecovered"}
+
+
 def _located(record, delivered, damage=None, line=None):
-    """`(where, how)` the delivered body sits in this record, or None.
+    """`(where, how, matches)` the delivered body sits in this record, or None.
 
     Located by the pin's snapshot text and its hash: the host's field is a LARGER string that holds
     the body (measured 2026-10-23: 23 of 23 recorded sessions, none of them field-exact), so an
@@ -2886,7 +2973,12 @@ def _located(record, delivered, damage=None, line=None):
     `attachment.systemPrompt[]` — the same test views.py uses for an attachment — and a request-shape
     record's `shape.system[].text`. A `systemPrompt` on any other record type is a lookalike, not a
     delivery. A field of either source that is not the shape it should be is counted in `damage` by a
-    fixed category and the record's line, never by its content, and never raises (M2)."""
+    fixed category and the record's line, never by its content, and never raises (M2).
+
+    Every place the body sits is a MATCH (step 0 S-13, M1): the field's JSON pointer, the half-open span
+    in the field's decoded text in code points, and the exact bytes there — the RECORDED version, which
+    a normalised match does not share with the selected one (`_field_matches`). `where` and `how` are
+    the first match's."""
     if not delivered:
         return None
     places = []
@@ -2903,7 +2995,7 @@ def _located(record, delivered, damage=None, line=None):
         else:
             for ordinal, text in enumerate(prompts):
                 if isinstance(text, str):
-                    places.append(("attachment.systemPrompt[]", text))
+                    places.append(("attachment.systemPrompt[]", f"/attachment/systemPrompt/{ordinal}", text))
                 else:
                     harmed("locator_element_rejected", ordinal)
     if isinstance(record.get("shape"), dict) and "system" in record["shape"]:
@@ -2913,22 +3005,89 @@ def _located(record, delivered, damage=None, line=None):
         else:
             for ordinal, block in enumerate(blocks):
                 if isinstance(block, dict) and isinstance(block.get("text"), str):
-                    places.append(("shape.system[].text", block["text"]))
+                    places.append(("shape.system[].text", f"/shape/system/{ordinal}/text", block["text"]))
                 else:
                     harmed("locator_element_rejected", ordinal)
-    for where, text in places:
-        if text == delivered:
-            return where, "the field is the delivered body"
-        if delivered in text:
-            return where, "the delivered body inside the field"
-        if _normalised(delivered) and _normalised(delivered) in _normalised(text):
-            return where, "the delivered body inside the field, line endings normalised"
-    return None
+    matches = [{"where": where, **match} for where, pointer, text in places
+               for match in _field_matches(text, delivered, pointer)]
+    if not matches:
+        return None
+    return matches[0]["where"], LOCATED_HOW[matches[0]["method"]], matches
+
+
+def _field_matches(text, delivered, pointer):
+    """Every place `delivered` sits in one field, each `{pointer, ordinal, method, start, end, recorded}`.
+
+    The field itself, else every exact occurrence, else every normalised one (#14): found in the
+    normalised field, mapped back through `_normalised_index` to the field's own offsets, and kept only
+    when the bytes there normalise to the body again. One that does not is `unmapped`, with no span and
+    no recorded bytes: a span that might be wrong is never published as the recorded version."""
+    if text == delivered:
+        return [{"pointer": pointer, "ordinal": 0, "method": "field", "start": 0, "end": len(text), "recorded": text}]
+    found, at = [], text.find(delivered)
+    while at >= 0:
+        found.append({"pointer": pointer, "ordinal": len(found), "method": "exact", "start": at,
+                      "end": at + len(delivered), "recorded": delivered})
+        at = text.find(delivered, at + len(delivered))
+    body = _normalised(delivered)
+    if found or not body:
+        return found
+    normal, offsets = _normalised_index(text)
+    at = normal.find(body)
+    while at >= 0:
+        start, end = offsets[at], offsets[at + len(body) - 1] + 1
+        recorded = text[start:end]
+        if _normalised(recorded) == body:
+            found.append({"pointer": pointer, "ordinal": len(found), "method": "normalised", "start": start,
+                          "end": end, "recorded": recorded})
+        else:
+            found.append({"pointer": pointer, "ordinal": len(found), "method": "unmapped", "start": None,
+                          "end": None, "recorded": None})
+        at = normal.find(body, at + len(body))
+    return found
 
 
 def _normalised(text):
     """Line endings and trailing whitespace only: the normalisation the match check measured."""
     return "\n".join(line.rstrip() for line in str(text).replace("\r\n", "\n").replace("\r", "\n").split("\n")).strip()
+
+
+def _normalised_index(text):
+    """`(normalised, offsets)`: `_normalised(text)` built character by character, each kept character
+    with its offset in `text`, so a match in the normalised text maps back to the field (#14). A line
+    break stands at the offset of the `\r` or `\n` that made it."""
+    kept, offsets, line = [], [], []
+
+    def close(newline_at):
+        while line and line[-1][0].isspace():
+            line.pop()
+        for char, at in line:
+            kept.append(char)
+            offsets.append(at)
+        line.clear()
+        if newline_at is not None:
+            kept.append("\n")
+            offsets.append(newline_at)
+
+    at = 0
+    while at < len(text):
+        char = text[at]
+        if char == "\r":
+            close(at)
+            at += 2 if text[at + 1:at + 2] == "\n" else 1
+        elif char == "\n":
+            close(at)
+            at += 1
+        else:
+            line.append((char, at))
+            at += 1
+    close(None)
+    start, end = 0, len(kept)
+    while start < end and kept[start].isspace():
+        start += 1
+    while end > start and kept[end - 1].isspace():
+        end -= 1
+    return "".join(kept[start:end]), offsets[start:end]
 
 
 # The member `type`s an `instructions` attachment admits, each the native layer the host itself
@@ -3059,7 +3218,8 @@ def injection_events(records, entry, delivered=None, seen=None):
                             rejected.append(row)
                             continue
                         members.append({"layer": ATTACHMENT_LAYER[member["type"]], "type": member["type"],
-                                        "path": member["path"], "text": member["content"], "ordinal": ordinal})
+                                        "path": member["path"], "text": member["content"], "ordinal": ordinal,
+                                        "pointer": f"/attachment/files/{ordinal}/content"})
                     members, duplicates = distinct_members(host, case, cwd, members)
                     # A valid `files: []` is kept: it is an empty answer, a deletion that shows (#6, S-8).
                     events.append({"kind": "native", "host": host, "at": at, "n": line, "files": members,
@@ -3072,7 +3232,7 @@ def injection_events(records, entry, delivered=None, seen=None):
             harmed = [row["category"] for row in damage[before:]]
             if found:
                 events.append({"kind": "session_injection", "host": host, "at": at, "n": line, **mine,
-                               "where": found[0], "how": found[1], "damaged": None})
+                               "where": found[0], "how": found[1], "matches": found[2], "damaged": None})
             elif harmed:
                 # The locator could not be read, or an element it holds was rejected and the body is not
                 # among the rest: the injection at this line is unknown, not absent (step 0 S-6).
@@ -3102,17 +3262,19 @@ def injection_events(records, entry, delivered=None, seen=None):
                                "unmapped": False, "damaged": reason("container_unusable"),
                                **mine, "files": [], "scope": cwd, "cwd_case": case,
                                "where": "session_meta.payload.base_instructions",
-                               "git": payload.get("git") if isinstance(payload.get("git"), dict) else None})
+                               "git": git_of(payload)})
                 continue
             events.append({"kind": "native", "host": host, "at": at, "n": line, "rejected": [],
                            "unmapped": False, "damaged": None, **mine, "scope": cwd, "cwd_case": case,
                            "where": "session_meta.payload.base_instructions",
-                           "git": payload.get("git") if isinstance(payload.get("git"), dict) else None,
+                           "git": git_of(payload),
                            # One undivided block at its own layer value (#14, S-19): the global and
                            # project parts of it are unknown, and no estimated split is recorded (the
                            # 1548 amendment §1). An empty block is kept: an empty answer (#6).
                            "files": [{"layer": "native_undivided", "type": "base_instructions",
                                       "path": "codex:base_instructions", "text": text, "undivided": True,
+                                      "ordinal": 0, "pointer": "/payload/base_instructions"
+                                      + ("" if isinstance(base, str) else "/text"),
                                       "carrier_id": native_carrier_id(host, case, cwd, {"undivided": True})}]
                            if text.strip() else []})
     return events, damage, inherited
@@ -3228,6 +3390,66 @@ def scope_id(layer, host, key):
     return opaque_id("s", "scope", layer, host, key)
 
 
+COMMIT_HASH = re.compile(r"^[0-9a-f]{7,64}$")
+
+
+def without_userinfo(url):
+    """A repository URL with whatever stands before `@` in its authority removed — a user, a token, a
+    password — for `scheme://` URLs and scp-like `user@host:path` alike, before the floor sees it."""
+    scheme, sep, rest = url.partition("://")
+    if sep:
+        authority, slash, path = rest.partition("/")
+        return f"{scheme}://{authority.rpartition('@')[2]}{slash}{path}"
+    head, colon, tail = url.partition(":")
+    return head.rpartition("@")[2] + colon + tail if colon and "@" in head else url
+
+
+def git_of(payload):
+    """`payload.git` as provenance (step 0 S-19), or None: the commit hash only when it is one, the
+    branch, and the repository URL without its userinfo. What the floor still finds in them is its."""
+    git = payload.get("git")
+    if not isinstance(git, dict):
+        return None
+    commit, branch, url = git.get("commit_hash"), git.get("branch"), git.get("repository_url")
+    return {"commit_hash": commit if isinstance(commit, str) and COMMIT_HASH.match(commit) else None,
+            "branch": branch if isinstance(branch, str) and branch else None,
+            "repository_url": without_userinfo(url) if isinstance(url, str) and url else None}
+
+
+def injection_carrier_id(host, content_ref):
+    """A session injection's `c-` (step 0 S-11): its host and the snapshot it was compiled into."""
+    return opaque_id("c", "session_injection", host, content_ref)
+
+
+def event_occurrences(event, injection_id=None):
+    """Every recorded occurrence one event holds (step 0 S-12, S-13): one per member at its pointer —
+    a duplicate's copy included, since its bytes were at that pointer too — and one per place the
+    selected body was found, whose version is the RECORDED bytes there. `recorded`, `kind` and `host`
+    stay internal: the store reads them, the occurrence row does not carry them."""
+    rows = []
+
+    def add(ordinal, pointer, carrier_id, version, start, end, method, **internal):
+        rows.append({"occurrence_id": opaque_id("q", "occurrence", event["id"], ordinal, pointer),
+                     "event_id": event["id"], "ordinal": ordinal, "pointer": pointer, "carrier_id": carrier_id,
+                     "version_sha256": version, "start": start, "end": end, "sha256": version, "method": method,
+                     "reason": "recorded_unmapped" if method == "unmapped" else None,
+                     "kind": event["kind"], "host": event["host"], **internal})
+
+    if event["kind"] == "native":
+        for member in event.get("files") or []:
+            add(member.get("ordinal", 0), member["pointer"], member["carrier_id"], sha256_text(member["text"]),
+                0, len(member["text"]), "field", **({"git": event["git"]} if event.get("git") else {}))
+        for row in event.get("duplicates") or []:
+            add(row["ordinal"], row["pointer"], row["carrier_id"], row["version_sha256"], 0, row["length"], "field")
+        return rows
+    for match in event.get("matches") or []:
+        recorded = match.get("recorded")
+        add(match["ordinal"], match["pointer"], injection_id or injection_carrier_id(event["host"], None),
+            sha256_text(recorded) if recorded is not None else None, match.get("start"), match.get("end"),
+            match["method"], recorded=recorded)
+    return rows
+
+
 def native_carrier_id(host, case, cwd, member):
     """A transcript carrier's `c-` (step 0 S-11), from the raw values it was recorded under.
 
@@ -3254,7 +3476,8 @@ def distinct_members(host, case, cwd, members):
         member["carrier_id"] = native_carrier_id(host, case, cwd, member)
         key = (member["carrier_id"], sha256_text(member["text"]))
         if key in seen:
-            duplicates.append({"ordinal": member["ordinal"]})
+            duplicates.append({"ordinal": member["ordinal"], "pointer": member.get("pointer"),
+                               "carrier_id": key[0], "version_sha256": key[1], "length": len(member["text"])})
             continue
         seen.add(key)
         kept.append(member)
@@ -3526,6 +3749,8 @@ def event_carriers(layer, event, reference, members=None, scope=None):
             # Codex delivers one merged body, so the layer's identity is unknown and only the
             # loaded text is known (§2, design §6.3's Native layer row).
             provenance["identity"] = UNKNOWN_REASONS["codex_identity"]
+            if event.get("git"):
+                provenance["git"] = event["git"]
         rows.append(member_carrier(event, member, provenance))
     return rows
 
@@ -3674,7 +3899,7 @@ def session_record(entry, read=None, found=(), damage=(), inherited=(), seen=Non
     return record
 
 
-def transcript_events(run_dir, delivered=None, zstd=None):
+def transcript_events(run_dir, delivered=None, zstd=None, injection_id=None):
     """`(events, unknown, findings)`: every injection event the run's census-bound transcripts
     record, the sessions that are a named unknown, and what reading them found unusable.
 
@@ -3691,7 +3916,8 @@ def transcript_events(run_dir, delivered=None, zstd=None):
     an instructions attachment and the selected body."""
     entries = census_entries(run_dir)
     events, unknown = [], []
-    findings = {"undecodable": [], "damaged": [], "rejected": [], "inherited": [], "sessions": [], "timelines": {}}
+    findings = {"undecodable": [], "damaged": [], "rejected": [], "inherited": [], "sessions": [], "timelines": {},
+                "occurrences": []}
     for entry in entries:
         label = f"{entry.get('host')}:{entry.get('id')}"
         seen = {}
@@ -3709,6 +3935,7 @@ def transcript_events(run_dir, delivered=None, zstd=None):
             event["session_ref"] = session_ref(entry.get("host"), entry.get("id"))
             event["at_reason"] = instant_reason(event.get("at"))
             event["after_at"], event["bracket_ok"] = bracket(event["n"])
+            findings["occurrences"] += event_occurrences(event, injection_id)
         applicability(found, read)
         dated = [event["n"] for event in found if _instant(event.get("at")) is not None]
         findings["timelines"][session_ref(entry.get("host"), entry.get("id"))] = {
@@ -4117,7 +4344,7 @@ def _selection_injection(ctx):
     host = str(ctx.get("pin") or "").partition(":")[0] or None
     return [carrier("session_injection", f"snapshot:{snapshot['content_ref']}/output.json#instruction_text",
                     text, form="markdown",
-                    carrier_id=opaque_id("c", "session_injection", host, snapshot["content_ref"]))] if text else []
+                    carrier_id=injection_carrier_id(host, snapshot["content_ref"]))] if text else []
 
 
 def _selection_overlays(ctx):
@@ -4220,6 +4447,9 @@ DOCUMENT_MEMBERS = (
     "cwd_unreadable", "memory_path_relative", "global_excluded_by_launch", "ineligible",
     # `shared/store.json` (step 0 S-22) and a unit's reference into it
     "versions", "unit_refs", "unit_ref", "length", "split", "start", "end", "form", "span_unit",
+    # an occurrence in `sessions.json` and a Codex block's git (step 0 S-12, S-13, S-19)
+    "occurrences", "occurrence_id", "pointer", "method", "sha256", "git", "commit_hash", "branch",
+    "repository_url",
     # a rename row
     "from_unit_id", "from_carrier_id", "to_carrier_id", "from_path", "to_path", "from_layer",
     "to_layer", "moved", "ambiguous", "from_carriers", "to_carriers", "reason",
@@ -4434,7 +4664,8 @@ def run(repo, state_root, user_root, out_dir, pin=None, native_roots=None, ledge
             for reference in ("current", "selection"):
                 produced[reference][0]["renames"] = renames_against(produced[reference][1], base, home)
             store_doc = store_document(ctx)
-            crossed = store_cross_problems(store_doc, {reference: produced[reference][0] for reference in REFERENCES})
+            crossed = store_cross_problems(store_doc, {reference: produced[reference][0] for reference in REFERENCES}) \
+                + occurrence_cross_problems(sessions_doc, store_doc)
             if crossed:
                 raise Refused(f"{'; '.join(crossed[:4])}; no artifact is written")
             if ctx.get("release_ref"):
@@ -4477,10 +4708,13 @@ def bind_transcripts(ctx, run_dir, zstd=None):
 
     This is the only place a transcript is read, and it reads none of the owner's instruction files."""
     delivered = ((ctx.get("snapshot") or {}).get("output") or {}).get("instruction_text")
+    injection_id = injection_carrier_id(str(ctx.get("pin") or "").partition(":")[0] or None,
+                                        (ctx.get("snapshot") or {}).get("content_ref")) if delivered else None
     notes = {"read_through": "runlib/sources.read_lines, bound to the S1 census record",
              "native_files_read": 0}
+    ctx["occurrences"] = []
     try:
-        events, unknown, findings = transcript_events(run_dir, delivered, zstd)
+        events, unknown, findings = transcript_events(run_dir, delivered, zstd, injection_id)
     except Unacquired as exc:
         ctx["transcript_error"] = str(exc)
         notes.update({"sessions": 0, "events": 0, "unknown": [str(exc)]})
@@ -4490,6 +4724,7 @@ def bind_transcripts(ctx, run_dir, zstd=None):
         return
     ctx["events"] = events
     ctx["sessions"] = findings["sessions"]
+    ctx["occurrences"] = findings["occurrences"]
     pins = {session_ref(entry.get("host"), entry.get("id")): pin_state(entry, ctx) for entry in census_entries(run_dir)}
     ctx["current_scopes"] = current_scopes(events, findings["timelines"], pins)
     ctx["pin_event"] = None
@@ -4501,7 +4736,11 @@ def bind_transcripts(ctx, run_dir, zstd=None):
             notes["pin_unknown"] = UNKNOWN_REASONS["no_record"] if any(
                 event["session"] == session for event in events) else UNKNOWN_REASONS["codex_identity"] \
                 if str(ctx["pin"]).startswith("codex:") else UNKNOWN_REASONS["no_record"]
-    delivery = [event for event in events if event["kind"] == "session_injection" and not event.get("damaged")]
+    # A delivery is confirmed only by a usable RECORDED occurrence the session's main owner holds in its own
+    # transcript (step 0 S-13): a sidechain's copy, and a match whose bytes could not be recovered, are not.
+    delivery = [event for event in events if event["kind"] == "session_injection" and not event.get("damaged")
+                and event.get("transcript") == "main"
+                and any(match["method"] != "unmapped" for match in event.get("matches") or [])]
     notes.update({"events": len(events), "native_events": len([e for e in events if e["kind"] == "native"]),
                   "delivery_confirmed": len(delivery),
                   # the answers themselves are `current.json`'s `scopes`; here, how many of each
@@ -6417,7 +6656,7 @@ def self_test():
             return {"type": "session_meta", "timestamp": at,
                     "payload": {"id": ident, "cwd": cwd, "base_instructions": {"text": text}}}
 
-        def published_run(name, transcripts, pin=None, pin_record=None):
+        def published_run(name, transcripts, pin=None, pin_record=None, snapshot=None):
             """`current.json`, `sessions.json` and `shared/store.json` as published for a census of
             `(host, id, records, extra row fields)`, crossed as `run` crosses them, or
             `{"refused": <code>}` when the path refuses it: a control fails by its own name."""
@@ -6429,7 +6668,7 @@ def self_test():
             run_at.mkdir(parents=True, exist_ok=True)
             (run_at / CENSUS).write_text(json.dumps({"transcripts": rows_here}), encoding="utf-8")
             ctx_here = context_of(REPO, None, None, {}, pin, None)
-            ctx_here.update(home=str(fixture_home), commit="fixture", pin_record=pin_record)
+            ctx_here.update(home=str(fixture_home), commit="fixture", pin_record=pin_record, snapshot=snapshot)
             kept_layers = globals()["LAYERS"]
             out_here = scratch / "p22" / f"out-{name}" / "inventory"
             written = {"current": out_here / "current.json", "sessions": out_here / f"{SESSIONS}.json",
@@ -6440,7 +6679,7 @@ def self_test():
                 document_here, _units = emitted_document("current", layer_rows("current", ctx_here), ctx_here)
                 sessions_here, store_here = sessions_document(ctx_here), store_document(ctx_here)
                 crossed_here = sessions_cross_problems(sessions_here) + store_cross_problems(
-                    store_here, {"current": document_here})
+                    store_here, {"current": document_here}) + occurrence_cross_problems(sessions_here, store_here)
                 if crossed_here:
                     return {"refused": "crossed", "problems": crossed_here}
                 for key, document_out in (("current", document_here), ("sessions", sessions_here),
@@ -6984,6 +7223,224 @@ def self_test():
             dangling["units"][0]["unit_ref"] = "r-" + "f" * 24
         control("a document unit whose reference the store does not hold is refused by name, at that unit",
                 crossing(planted_store, {"current": dangling}), "STORE_UNRESOLVED current.units[0]")
+
+        # ---- P2.3b: occurrences, every located span (M1), a normalised match mapped back or unknown (#14),
+        # recorded versions in the store, deliveries, and a Codex block's git (step 0 S-12, S-13, S-19),
+        # on the PUBLISHED documents. Expected ids, offsets and digests are computed here by hand.
+        def occurring(sessions_in, store_in):
+            """`occurrence_cross_problems`, or the KIND of exception it raised as its one problem."""
+            try:
+                return occurrence_cross_problems(sessions_in, store_in)
+            except Exception as exc:
+                return [f"RAISED {type(exc).__name__}"]
+
+        def occurrences_of(sessions_in, event_id):
+            return [row for row in sessions_in.get("occurrences") or [] if row["event_id"] == event_id]
+
+        def event_of(sessions_in, owner, kind):
+            found_here = [row for row in sessions_in.get("events") or [] if row["owner"] == owner and row["kind"] == kind]
+            return found_here[0] if len(found_here) == 1 else {}
+
+        def prompt_record(at, prompts, **extra):
+            return {"type": "attachment", "timestamp": at, "attachment": {"type": "system_prompt", "systemPrompt": prompts},
+                    **extra}
+
+        dup_event = event_of(ids_sessions, "claude:s-dup", "native")
+        dup_rows = sorted(occurrences_of(ids_sessions, dup_event.get("event_id")), key=lambda row: row["ordinal"])
+        dup_texts = ["- dup\n", "- dup\n", "- other bytes\n", spanned]
+        dup_ids = [canonical("c", "native", "native_project", "claude", "Project", f"{dup_at}/CLAUDE.md")] * 3 + [
+            canonical("c", "native", "native_global", "claude", "User", "/w/span.md")]
+        check("every recorded member is an occurrence at its own pointer, its whole field, the version the store "
+              "holds — a duplicate's copy included, pointing at the one version",
+              [(row["ordinal"], row["pointer"], row["carrier_id"], row["version_sha256"], row["start"], row["end"],
+                row["method"], row["occurrence_id"]) for row in dup_rows]
+              == [(n, f"/attachment/files/{n}/content", dup_ids[n], sha256_text(text), 0, len(text), "field",
+                   canonical("q", "occurrence", dup_event.get("event_id"), n, f"/attachment/files/{n}/content"))
+                  for n, text in enumerate(dup_texts)]
+              and not occurring(ids_sessions, ids_store),
+              f"rows={len(dup_rows)} {occurring(ids_sessions, ids_store)[:2]}")
+        delivered_body = "# Session\n\n- rule one\n- rule two\n"
+        crlf_field = "<r>\r\n# Session  \r\n\r\n- rule one \r\n- rule two\r\n</r>"
+        twice_field = f"<system-reminder>\n{delivered_body}</system-reminder>\n{delivered_body}"
+        snapshot_here = {"content_ref": "snap-ref-1", "output": {"instruction_text": delivered_body}}
+        injection_here = canonical("c", "session_injection", "claude", "snap-ref-1")
+        delivered_run = published_run("delivered", [
+            ("claude", "s-twice", [prompt_record("2026-10-20T09:00:00+00:00", [twice_field]),
+                                   prompt_record("2026-10-20T09:05:00+00:00", [delivered_body],
+                                                 isSidechain=True, agentId="a9")], {}),
+            ("claude", "s-crlf", [prompt_record("2026-10-20T09:00:00+00:00", ["unrelated", crlf_field])], {}),
+            ("claude", "s-shape", [{"type": "request", "timestamp": "2026-10-20T09:00:00+00:00",
+                                    "shape": {"system": [{"text": "x"}, {"text": delivered_body}]}}], {}),
+            ("codex", "c-str", [{"type": "session_meta", "timestamp": "2026-10-20T09:00:00+00:00",
+                                 "payload": {"id": "c-str", "cwd": cx, "base_instructions": "# Block\n\n- a string\n"}}],
+             {})], pin="claude:s-crlf", snapshot=snapshot_here)
+        check("the delivered run was published, its occurrences crossing clean", "refused" not in delivered_run,
+              f"{delivered_run.get('refused')} {(delivered_run.get('problems') or [])[:2]}")
+        delivered_sessions = delivered_run.get("sessions") or {"events": [], "occurrences": []}
+        delivered_store = delivered_run.get("store") or {"versions": {}, "units": {}}
+        twice_rows = sorted(occurrences_of(delivered_sessions, event_of(delivered_sessions, "claude:s-twice",
+                                                                        "session_injection").get("event_id")),
+                            key=lambda row: row["ordinal"])
+        twice_starts = [twice_field.find(delivered_body), twice_field.rfind(delivered_body)]
+        check("a body found twice in one field is two occurrences, each with its own ordinal and span, and both are "
+              "the selected version",
+              [(row["ordinal"], row["pointer"], row["start"], row["end"], row["method"], row["version_sha256"],
+                row["carrier_id"]) for row in twice_rows]
+              == [(n, "/attachment/systemPrompt/0", start, start + len(delivered_body), "exact",
+                   sha256_text(delivered_body), injection_here) for n, start in enumerate(twice_starts)]
+              and twice_starts[0] != twice_starts[1],
+              f"rows={[(row['ordinal'], row['method'], row['start']) for row in twice_rows]}")
+        crlf_rows = occurrences_of(delivered_sessions, event_of(delivered_sessions, "claude:s-crlf",
+                                                                "session_injection").get("event_id"))
+        crlf_start = crlf_field.index("# Session")
+        crlf_end = crlf_field.index("- rule two") + len("- rule two")
+        crlf_recorded = crlf_field[crlf_start:crlf_end]
+        crlf_version = (delivered_store["versions"].get(injection_here) or {}).get(sha256_text(crlf_recorded)) or {}
+        check("M1: a CRLF and trailing-space body against the LF snapshot reaches the locator and the publication, "
+              "mapped back to its own bytes: a real occurrence, and its raw digest beside the selected one",
+              [(row["pointer"], row["start"], row["end"], row["method"], row["sha256"], row["version_sha256"])
+               for row in crlf_rows]
+              == [("/attachment/systemPrompt/1", crlf_start, crlf_end, "normalised", sha256_text(crlf_recorded),
+                   sha256_text(crlf_recorded))]
+              and sha256_text(crlf_recorded) != sha256_text(delivered_body)
+              and crlf_version.get("length") == len(crlf_recorded) and bool(crlf_version.get("unit_refs")),
+              f"rows={[(row['method'], row['start'], row['end']) for row in crlf_rows]} in_store={bool(crlf_version)}")
+        shape_rows = occurrences_of(delivered_sessions, event_of(delivered_sessions, "claude:s-shape",
+                                                                 "session_injection").get("event_id"))
+        check("a request shape's body is an occurrence at its own indexed pointer",
+              [(row["pointer"], row["method"], row["start"], row["end"]) for row in shape_rows]
+              == [("/shape/system/1/text", "field", 0, len(delivered_body))],
+              f"{[(row['pointer'], row['method']) for row in shape_rows]}")
+        string_rows = occurrences_of(delivered_sessions, event_of(delivered_sessions, "codex:c-str", "native").get("event_id"))
+        check("a Codex block recorded as a plain string is an occurrence at /payload/base_instructions",
+              [(row["pointer"], row["method"]) for row in string_rows] == [("/payload/base_instructions", "field")],
+              f"{[(row['pointer'], row['method']) for row in string_rows]}")
+        delivered_notes = ((delivered_run.get("current") or {}).get("produced_by") or {}).get("notes") or {}
+        check("a delivery is confirmed only by a usable recorded occurrence of a session's main owner: a sidechain's "
+              "copy is not counted",
+              (delivered_notes.get("transcripts") or {}).get("delivery_confirmed") == 3
+              and len(occurrences_of(delivered_sessions, event_of(delivered_sessions, "claude:s-twice#sidechain:a9",
+                                                                  "session_injection").get("event_id"))) == 1,
+              f"{(delivered_notes.get('transcripts') or {}).get('delivery_confirmed')}")
+        sessions_written = scratch / "p22" / "out-delivered" / "inventory" / f"{SESSIONS}.json"
+        check("sessions.json states the unit its occurrences' spans count, as data, read from the written file",
+              sessions_written.is_file()
+              and json.loads(sessions_written.read_text(encoding="utf-8")).get("span_unit") == "code_point",
+              f"written={sessions_written.is_file()}")
+        # #14: a normalised match whose bytes cannot be recovered is an unknown, kept as evidence. Reached
+        # through its own seam: an offset map that is off by one gives bytes that no longer normalise.
+        kept_index = globals()["_normalised_index"]
+        try:
+            globals()["_normalised_index"] = lambda text: (kept_index(text)[0], [at + 1 for at in kept_index(text)[1]])
+            unmapped_run = published_run("unmapped", [
+                ("claude", "s-crlf", [prompt_record("2026-10-20T09:00:00+00:00", [crlf_field])], {})],
+                pin="claude:s-crlf", snapshot=snapshot_here)
+        finally:
+            globals()["_normalised_index"] = kept_index
+        unmapped_sessions = unmapped_run.get("sessions") or {"events": [], "occurrences": []}
+        unmapped_rows = unmapped_sessions.get("occurrences") or []
+        unmapped_notes = ((unmapped_run.get("current") or {}).get("produced_by") or {}).get("notes") or {}
+        check("#14: a normalised match whose offsets cannot be recovered is recorded_unmapped, kept as evidence with "
+              "no version, span or digest, adds no recorded version, and confirms no delivery",
+              "refused" not in unmapped_run
+              and [(row["method"], row["reason"], row["version_sha256"], row["start"], row["end"], row["sha256"])
+                   for row in unmapped_rows] == [("unmapped", "recorded_unmapped", None, None, None, None)]
+              and injection_here not in (unmapped_run.get("store") or {}).get("versions", {})
+              and (unmapped_notes.get("transcripts") or {}).get("delivery_confirmed") == 0,
+              f"refused={unmapped_run.get('refused')} rows={[(row['method'], row['reason']) for row in unmapped_rows]}")
+        # The RECORDED bytes come from a transcript, so they are judged like every transcript body: a
+        # credential and a home path in a normalised match, on the written store and sessions files.
+        recorded_secret = "sk-ant-api03-" + "Rc9" * 14
+        recorded_home = f"{fixture_home}/Documents/a-directory-of-the-owner-s"
+        recorded_body = f"# Session\n\n- a rule naming {recorded_home}, with apiKeyHelper: {recorded_secret}\n"
+        recorded_field = "<r>\r\n" + recorded_body.replace("\n", "  \r\n") + "</r>"
+        recorded_run = published_run("recorded", [
+            ("claude", "s-rec", [prompt_record("2026-10-20T09:00:00+00:00", [recorded_field])], {})],
+            pin="claude:s-rec", snapshot={"content_ref": "snap-ref-2", "output": {"instruction_text": recorded_body}})
+        recorded_out = scratch / "p22" / "out-recorded" / "inventory"
+        recorded_bytes = {name: (recorded_out / rel).read_text(encoding="utf-8") if (recorded_out / rel).is_file() else ""
+                          for name, rel in (("store", STORE_REL), ("sessions", f"{SESSIONS}.json"))}
+        recorded_rows = (recorded_run.get("sessions") or {}).get("occurrences") or []
+        recorded_versions = (recorded_run.get("store") or {}).get("versions", {}).get(
+            canonical("c", "session_injection", "claude", "snap-ref-2")) or {}
+        recorded_units = [(recorded_run.get("store") or {}).get("units", {}).get(ref) or {}
+                          for row in recorded_versions.values() for ref in row["unit_refs"]]
+        check("a RECORDED session injection holding a credential and a home path is in the written store under its "
+              "own version, masked, and neither string is in the written store or sessions.json",
+              "refused" not in recorded_run and all(recorded_bytes.values())
+              and [row["method"] for row in recorded_rows] == ["normalised"]
+              and len(recorded_versions) == 1 and bool(recorded_units)
+              and any("<REDACTED>" in unit.get("text", "") or "<HOME>" in unit.get("text", "") for unit in recorded_units)
+              and not any(recorded_secret in text or recorded_home in text for text in recorded_bytes.values()),
+              f"refused={recorded_run.get('refused')} methods={[row['method'] for row in recorded_rows]} "
+              f"versions={len(recorded_versions)} raw={[name for name, text in recorded_bytes.items() if recorded_secret in text or recorded_home in text]}")
+        # S-19: a Codex block's git, the commit hash kept and every userinfo removed, a credential-shaped one included.
+        github_token = "ghp_" + "A1b2" * 9
+        git_run = published_run("git", [
+            ("codex", "c-g1", [{"type": "session_meta", "timestamp": "2026-10-20T09:00:00+00:00",
+                                "payload": {"id": "c-g1", "cwd": "/w/g1", "base_instructions": {"text": "# B\n\n- one\n"},
+                                            "git": {"commit_hash": "abc1234def", "branch": "feature/x",
+                                                    "repository_url": "https://user:shortpass@example.com/org/repo.git"}}}], {}),
+            ("codex", "c-g2", [{"type": "session_meta", "timestamp": "2026-10-20T09:00:00+00:00",
+                                "payload": {"id": "c-g2", "cwd": "/w/g2", "base_instructions": {"text": "# B\n\n- two\n"},
+                                            "git": {"commit_hash": "0123456789abcdef0123456789abcdef01234567",
+                                                    "branch": "main",
+                                                    "repository_url": f"https://x-access-token:{github_token}@github.com/org/repo.git"}}}],
+             {})])
+        git_units = sorted({((unit["provenance"].get("git") or {}).get("repository_url"),
+                             (unit["provenance"].get("git") or {}).get("commit_hash"),
+                             (unit["provenance"].get("git") or {}).get("branch"))
+                            for unit in (git_run.get("current") or {}).get("units", []) if unit["layer"] == "native_undivided"})
+        git_rows = sorted(((row.get("git") or {}).get("repository_url"), (row.get("git") or {}).get("commit_hash"))
+                          for row in (git_run.get("sessions") or {}).get("occurrences", []))
+        git_out = scratch / "p22" / "out-git" / "inventory"
+        git_bytes = "".join((git_out / rel).read_text(encoding="utf-8") for rel in ("current.json", f"{SESSIONS}.json")
+                            if (git_out / rel).is_file())
+        check("S-19: a Codex block's git is published — the commit hash kept, the branch, and the repository URL "
+              "without its userinfo, a token-shaped one included — on its units and its occurrences",
+              "refused" not in git_run and bool(git_bytes)
+              and git_units == [("https://example.com/org/repo.git", "abc1234def", "feature/x"),
+                                ("https://github.com/org/repo.git", "0123456789abcdef0123456789abcdef01234567", "main")]
+              and git_rows == [("https://example.com/org/repo.git", "abc1234def"),
+                               ("https://github.com/org/repo.git", "0123456789abcdef0123456789abcdef01234567")]
+              and not any(text in git_bytes for text in ("shortpass", github_token, "x-access-token", "user:")),
+              f"refused={git_run.get('refused')} units={len(git_units)} rows={len(git_rows)}")
+        check("a scp-like repository address loses its user too, and a commit hash that is not one is null",
+              without_userinfo("git@github.com:org/repo.git") == "github.com:org/repo.git"
+              and git_of({"git": {"commit_hash": "not a hash", "branch": "", "repository_url": None}})
+              == {"commit_hash": None, "branch": None, "repository_url": None},
+              f"{without_userinfo('git@github.com:org/repo.git')}")
+        # The occurrences' cross-record checks, each planted on a copy of the published sessions.json.
+        planted_sessions = json.loads(json.dumps(delivered_sessions))
+        first_row = (planted_sessions.get("occurrences") or [{}])[0]
+
+        def with_first(**changes):
+            copy = json.loads(json.dumps(planted_sessions))
+            if copy.get("occurrences"):
+                copy["occurrences"][0].update(changes)
+            return copy
+
+        control("an occurrence whose event is not published is refused by name",
+                occurring(with_first(event_id="e-" + "f" * 24), delivered_store), "OCCURRENCE_EVENT_UNRESOLVED")
+        control("an occurrence whose id is not the one its event, ordinal and pointer derive is refused by name",
+                occurring(with_first(ordinal=(first_row.get("ordinal") or 0) + 7), delivered_store),
+                "OCCURRENCE_ID_MISMATCH")
+        control("a mapped occurrence whose version the store does not hold is refused by name",
+                occurring(with_first(version_sha256="0" * 64, sha256="0" * 64), delivered_store),
+                "OCCURRENCE_VERSION_UNRESOLVED")
+        control("a mapped occurrence whose span is not its version's length is refused by name",
+                occurring(with_first(end=(first_row.get("end") or 0) + 1), delivered_store), "OCCURRENCE_SPAN_MISMATCH")
+        control("a mapped occurrence whose digest is not its version is refused by name",
+                occurring(with_first(sha256="1" * 64), delivered_store), "OCCURRENCE_DIGEST_MISMATCH")
+        control("an unmapped occurrence that carries a version is refused by name",
+                occurring(with_first(method="unmapped", reason="recorded_unmapped"), delivered_store),
+                "OCCURRENCE_UNMAPPED_INCONSISTENT")
+        control("a mapped occurrence that names a reason is refused by name",
+                occurring(with_first(reason="recorded_unmapped"), delivered_store), "OCCURRENCE_UNMAPPED_INCONSISTENT")
+        doubled = json.loads(json.dumps(planted_sessions))
+        doubled["occurrences"] = doubled.get("occurrences", [])[:1] * 2 + doubled.get("occurrences", [])[1:]
+        control("two occurrences under one id are refused by name", occurring(doubled, delivered_store),
+                "OCCURRENCE_DUPLICATE")
 
         # ---- M5 (recording): an undecodable line is kept at its position, before and after an event
         for label, rows_for, expected_line, event_line in (
@@ -7920,6 +8377,26 @@ def self_test():
               bool(injection_units) and {unit["carrier_id"] for unit in injection_units} == {injection_id}
               and injection_id in both_store["versions"],
               f"units={len(injection_units)} in_store={injection_id in both_store['versions']}")
+        both_sessions_doc = json.loads((both_out / "inventory" / f"{SESSIONS}.json").read_text(encoding="utf-8"))
+        clean("every occurrence of the run's sessions.json resolves against its store", occurring(both_sessions_doc, both_store))
+        check("and the run recorded occurrences to judge", len(both_sessions_doc.get("occurrences") or []) >= 1,
+              f"{len(both_sessions_doc.get('occurrences') or [])}")
+        kept_occurrences = globals()["event_occurrences"]
+
+        def misnumbered(event_in, injection_in=None):
+            return [{**row, "ordinal": row["ordinal"] + 1} for row in kept_occurrences(event_in, injection_in)]
+
+        misnumbered_out = scratch / "misnumbered-out"
+        try:
+            globals()["event_occurrences"] = misnumbered
+            misnumbered_raised = _raised(lambda: run(REPO, state, user, misnumbered_out, pin="claude:session-1",
+                                                     ledger=ledger, commit="fixture", **captured()))
+        finally:
+            globals()["event_occurrences"] = kept_occurrences
+        check("an occurrence whose id its own fields do not derive refuses the whole run by name, and nothing is written",
+              isinstance(misnumbered_raised, Refused) and "OCCURRENCE_ID_MISMATCH" in str(misnumbered_raised)
+              and not (misnumbered_out / "inventory" / f"{SESSIONS}.json").exists(),
+              f"{type(misnumbered_raised).__name__}")
         kept_store = globals()["store_document"]
 
         def holed_store(ctx_in):
@@ -8653,7 +9130,10 @@ def self_test():
                                     "record": 7, "identity": UNKNOWN_REASONS["codex_identity"],
                                     # a scope answer's unit (S-10): its scope row and its event
                                     "scope_id": scope_id("native_global", "claude", None),
-                                    "event_id": opaque_id("e", "event", "native", "claude", "s-a", None, 7)}),
+                                    "event_id": opaque_id("e", "event", "native", "claude", "s-a", None, 7),
+                                    # a Codex block's git (S-19): every leaf the schema declares is filled
+                                    "git": {"commit_hash": "abc1234", "branch": "a-planted-branch",
+                                            "repository_url": "https://example.invalid/org/planted.git"}}),
                     # The ledger's own provenance shape (`_ledger`), and the `hosts` list the
                     # deduplication appends: every leaf the schema declares under `provenance` is
                     # filled by some fixture, because the walk is judged LEAF BY LEAF and a
