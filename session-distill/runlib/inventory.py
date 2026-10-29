@@ -869,6 +869,7 @@ OPAQUE_FORMS = {"unit_id": re.compile(r"^u-[0-9a-f]{16}(-[0-9]+)?$"),
                 "unit_ref": re.compile(r"^r-[0-9a-f]{24}$"),
                 "occurrence_id": re.compile(r"^q-[0-9a-f]{24}$"),
                 "inventory_id": re.compile(r"^i-[0-9a-f]{24}$"),
+                "segment_id": re.compile(r"^g-[0-9a-f]{24}$"),
                 "commit_hash": re.compile(r"^[0-9a-f]{7,64}$")}
 
 
@@ -1436,6 +1437,7 @@ SESSION_TABLE = table_of({
     "own_meta_unidentified": as_scalar(nullable=True),
     "limitations": list_of(LIMITATION_TABLE),
     "event_refs": list_of(as_opaque("event_id")),
+    "segment_refs": list_of(as_opaque("segment_id")),
     "unknown": list_of(UNKNOWN_ENTRY_TABLE),
     "pin": table_of({
         "status": as_enum(PIN_STATUSES),
@@ -1477,6 +1479,24 @@ EVENT_TABLE = table_of({
     "members": list_of(table_of({"ordinal": as_scalar(), "carrier_id": as_opaque("carrier_id"),
                                  "version_sha256": as_opaque("sha256")})),
 }, schema="event")
+# One owner's segment (step 0 S-17): a line interval `[from, to)` of its transcript in which the event in
+# force of each kind is fixed. Per kind: the event in force, or none yet, or the one in force past its
+# certainty cut (the line named), or a kind nobody could look for, by the reason (`unsought`).
+SEGMENT_STATES = ("in_force", "no_event_yet", "uncertain", "unsought")
+IN_FORCE_TABLE = table_of({
+    "state": as_enum(SEGMENT_STATES),
+    "event_ref": as_opaque("event_id", nullable=True),
+    "reason": as_enum(lambda: UNKNOWN_REASONS, nullable=True),
+    "line": as_scalar(nullable=True),
+}, schema="in_force")
+SEGMENT_TABLE = table_of({
+    "segment_id": as_opaque("segment_id"),
+    "session_ref": as_opaque("session_ref"),
+    "owner_ref": as_opaque("owner_ref"),
+    "from": as_scalar(),
+    "to": as_scalar(),
+    "in_force": table_of({kind: IN_FORCE_TABLE for kind in EVENT_KINDS}),
+}, schema="segment")
 # One recorded occurrence (step 0 S-12, S-13): where in which event a carrier version's bytes sit. Its
 # span counts code points of the decoded FIELD text the pointer names — not the carrier version's raw
 # text, which is the store's coordinate. `unmapped` is a normalised match whose offsets could not be
@@ -1606,6 +1626,7 @@ def sessions_document(ctx):
         "span_unit": SPAN_UNIT,
         "sessions": [emit_row("session", SESSION_TABLE, record, place) for record in ctx.get("sessions") or []],
         "events": [emit_row("event", EVENT_TABLE, event_row(event), place) for event in ctx.get("events") or []],
+        "segments": [emit_row("segment", SEGMENT_TABLE, row, place) for row in ctx.get("segments") or []],
         "occurrences": [emit_row("occurrence", OCCURRENCE_TABLE,
                                  {key: row[key] for key in OCCURRENCE_TABLE["fields"] if key in row}, place)
                         for row in ctx.get("occurrences") or []],
@@ -1658,6 +1679,67 @@ def sessions_cross_problems(document):
     if overlapping:
         problems.append(f"CROSS_INTERVAL_OVERLAP: {overlapping} interval(s) of one owner and kind are empty, "
                         f"open or overlap the next")
+    return problems + segment_cross_problems(document, by_id)
+
+
+def segment_cross_problems(document, by_id):
+    """What the segments get wrong across `sessions.json` (step 0 S-17, S-21): each is listed by exactly
+    its own session; one owner's segments of one transcript are ordered, disjoint and cover
+    `[1, lines_read + 1)` with no gap; and per kind the event a segment names has the segment's owner and
+    that kind, its interval covers the segment (its own line may precede it), and the segment's state
+    agrees with the event's certainty cut. Each problem is a fixed code with a count."""
+    problems = []
+    rows, sessions = document.get("segments") or [], document.get("sessions") or []
+    ids = {}
+    for row in rows:
+        ids.setdefault(row.get("segment_id"), []).append(row)
+    if any(len(found) > 1 for found in ids.values()):
+        problems.append("CROSS_SEGMENT_DUPLICATE: a segment id names more than one segment")
+    listed = {}
+    for record in sessions:
+        for ref in record.get("segment_refs") or []:
+            listed.setdefault(ref, []).append(record.get("session_ref"))
+    dangling = sum(1 for ref in listed if ref not in ids)
+    unlisted = sum(1 for ref, found in ids.items()
+                   if listed.get(ref) is None or listed[ref] != [found[0].get("session_ref")])
+    if dangling:
+        problems.append(f"CROSS_SEGMENT_UNRESOLVED: {dangling} listed segment reference(s) name no segment")
+    if unlisted:
+        problems.append(f"CROSS_SEGMENT_UNLISTED: {unlisted} segment(s) listed by no session, by several, "
+                        f"or by another session than their own")
+    end_of = {record.get("session_ref"): (record.get("lines_read") or 0) + 1 for record in sessions}
+    lanes = {}
+    for row in rows:
+        lanes.setdefault((row.get("session_ref"), row.get("owner_ref")), []).append((row.get("from"), row.get("to")))
+    broken = 0
+    for (session, _owner), spans in lanes.items():
+        spans.sort(key=lambda span: (span[0] is None, span))
+        edges = [1] + [end for _start, end in spans]
+        broken += sum(1 for (start, end), expected in zip(spans, edges)
+                      if start != expected or not isinstance(end, int) or end <= start)
+        broken += 0 if spans and spans[-1][1] == end_of.get(session) else 1
+    if broken:
+        problems.append(f"CROSS_SEGMENT_PARTITION: {broken} segment(s) or owner(s) whose segments do not "
+                        f"partition the transcript from line 1 to its end")
+    astray = 0
+    for row in rows:
+        for kind, state in (row.get("in_force") or {}).items():
+            event = (by_id.get(state.get("event_ref")) or [None])[0]
+            if state.get("state") in ("no_event_yet", "unsought"):
+                astray += 0 if state.get("event_ref") is None else 1
+                continue
+            cut = (event or {}).get("certain_to")
+            astray += 1 if event is None or event.get("owner_ref") != row.get("owner_ref") \
+                or event.get("kind") != kind or event.get("session_ref") != row.get("session_ref") \
+                or not (event.get("interval_from") or 0) <= row.get("from", 0) \
+                or not row.get("to", 0) <= (event.get("interval_to") or 0) \
+                or (state.get("state") == "in_force" and cut is not None and row.get("to", 0) > cut) \
+                or (state.get("state") == "uncertain" and (cut is None or row.get("from", 0) < cut
+                                                           or state.get("line") != cut)) else 0
+    if astray:
+        problems.append(f"CROSS_SEGMENT_EVENT: {astray} segment state(s) naming an event of another owner, "
+                        f"session or kind, one whose interval does not cover the segment, or one its cut "
+                        f"contradicts")
     return problems
 
 
@@ -2743,6 +2825,11 @@ UNKNOWN_REASONS = {
     "release_history_deferred": ("unknown: which baseline an unpinned session ran under needs the baseline-selection "
                                  "history, which a follow-up package builds; the installed-now inventory is not it"),
     "baseline_absent": "unknown: the release names a baseline the owner's state does not hold",
+    # a segment before an owner's first event of a kind (S-17), and an injection nobody can look for
+    # because the body that finds it is empty (R15's `unsought`)
+    "no_event_yet": "unknown: no event of this kind is recorded yet at this line of the transcript",
+    "injection_body_empty": ("unknown: the session's own snapshot holds an empty session-injection body, so no "
+                             "injection of it can be looked for"),
 }
 
 
@@ -3421,24 +3508,48 @@ def injection_events(records, entry, delivered=None, seen=None):
     return events, damage, inherited
 
 
-def event_in_force(events, when, kind="native"):
-    """The event a turn is judged against: the most recent one at or before `when` (§6).
+def event_at_instant(events, when, owner_ref, kind="native"):
+    """The event in force for an INSTANT alone (step 0 S-5): auxiliary, because a turn from views always
+    has a line, and its line finds its segment (S-17).
 
-    A turn before every recorded event has an unknown reference point; a later event never answers
-    for an earlier turn."""
+    Over one owner's events of one kind in line order, only the longest prefix whose instants are all
+    supported and non-decreasing can bracket an instant. The answer is the last event of that prefix at
+    or before `when`. Where an event past the prefix could still be the one in force — `when` at or after
+    the prefix's last instant, or before its first, while events remain beyond it — the answer is
+    `uncertain`, naming the line that broke the prefix, never the prefix's last event (the lower bound).
+    An unsupported `when` has no event (`none`); one before every event of a fully ordered list is
+    `no_event_yet`. A chosen event past its own certainty cut is `uncertain` by that cut's reason and line
+    (lead ruling R13): an instant cannot be held against a line. The answer is `{state, event_ref, reason,
+    line}`; it is not published."""
     moment = _instant(when)
-    best = None
-    for event in events:
-        if event["kind"] != kind:
-            continue
+    if moment is None:
+        return {"state": "none", "event_ref": None, "reason": None, "line": None}
+    own = sorted((event for event in events if event.get("owner_ref") == owner_ref and event["kind"] == kind),
+                 key=lambda event: event["n"])
+    prefix = []
+    for event in own:
         at = _instant(event.get("at"))
-        if moment is not None and at is not None and at > moment:
-            continue
-        if moment is not None and at is None:
-            continue
-        if best is None or (_instant(best.get("at")) or EPOCH) <= (at or EPOCH):
-            best = event
-    return best
+        if at is None or (prefix and at < _instant(prefix[-1].get("at"))):
+            break
+        prefix.append(event)
+    breaker = own[len(prefix)] if len(prefix) < len(own) else None
+    unbracketed = {"state": "uncertain", "event_ref": None, "line": breaker["n"] if breaker else None,
+                   "reason": breaker.get("at_reason") if breaker else None}
+    chosen = None
+    for event in prefix:
+        if _instant(event.get("at")) > moment:
+            break
+        chosen = event
+    if chosen is None:
+        return unbracketed if breaker else {"state": "no_event_yet", "event_ref": None,
+                                            "reason": reason("no_event_yet"), "line": None}
+    if breaker is not None and chosen is prefix[-1]:
+        return unbracketed
+    interval = chosen.get("interval") or [chosen["n"], None]
+    cut = chosen.get("certain_to")
+    if cut is not None and interval[0] < cut and (interval[1] is None or cut < interval[1]):
+        return {"state": "uncertain", "event_ref": chosen["id"], "reason": chosen.get("uncertain_reason"), "line": cut}
+    return {"state": "in_force", "event_ref": chosen["id"], "reason": None, "line": None}
 
 
 # ---- §8's current reference point, scope by scope (step 0 S-7 .. S-10, S-19)
@@ -3978,7 +4089,43 @@ def applicability(found, read):
     return found
 
 
-def session_record(entry, read=None, found=(), damage=(), inherited=(), seen=None, failure=None, pinned=None):
+def segments(found, read, ownership, sought):
+    """Each owner's segments (step 0 S-17): line intervals partitioning `[1, lines_read + 1)` of the
+    transcript, cut at the owner's event lines and at its events' certainty cuts (S-5), so that the event
+    in force of each kind is fixed within one.
+
+    Per kind a segment names the event in force, or says none is recorded yet (`no_event_yet`), or that
+    the one in force is past its certainty cut, by the cut's own reason and line. `sought` maps a kind
+    nobody could look for to its reason (`unsought`): an injection event is found by the session's own
+    snapshot body, which an unpinned session does not have (lead ruling R15), so its absence is no
+    evidence. Records of an unknown owner get no segment; the ownership map holds them as unknown."""
+    end_of_file = (read["lines"] or 0) + 1
+    out = []
+    for owner in sorted({row["owner_ref"] for row in ownership["intervals"]}):
+        own = sorted((event for event in found if event.get("owner_ref") == owner), key=lambda event: event["n"])
+        bounds = sorted({1, end_of_file} | {event["n"] for event in own}
+                        | {event["certain_to"] for event in own if event.get("certain_to") is not None})
+        for start, stop in zip(bounds, bounds[1:]):
+            row = {"segment_id": opaque_id("g", "segment", owner, start), "owner_ref": owner,
+                   "from": start, "to": stop, "in_force": {}}
+            for kind in EVENT_KINDS:
+                event = next((event for event in reversed(own) if event["kind"] == kind and event["n"] <= start), None)
+                if sought.get(kind) is not None:
+                    state = {"state": "unsought", "event_ref": None, "reason": sought[kind], "line": None}
+                elif event is None:
+                    state = {"state": "no_event_yet", "event_ref": None, "reason": reason("no_event_yet"), "line": None}
+                elif event.get("certain_to") is not None and start >= event["certain_to"]:
+                    state = {"state": "uncertain", "event_ref": event["id"], "reason": event["uncertain_reason"],
+                             "line": event["certain_to"]}
+                else:
+                    state = {"state": "in_force", "event_ref": event["id"], "reason": None, "line": None}
+                row["in_force"][kind] = state
+            out.append(row)
+    return out
+
+
+def session_record(entry, read=None, found=(), damage=(), inherited=(), seen=None, failure=None, pinned=None,
+                   segment_refs=()):
     """The per-session record of step 0 S-14 for one census row, as far as the transcript says it.
 
     Every location is a number and every reason a key: nothing a host wrote is in it except the ids,
@@ -3999,7 +4146,8 @@ def session_record(entry, read=None, found=(), damage=(), inherited=(), seen=Non
               "binding": binding, "read": None, "lines_read": None,
               "owners": [], "ownership": {"intervals": [], "unknown": []},
               "inherited_session_meta": {"another_session_id": 0, "no_session_id": 0},
-              "own_meta_unidentified": None, "limitations": [], "event_refs": [], "unknown": [],
+              "own_meta_unidentified": None, "limitations": [], "event_refs": [], "segment_refs": [],
+              "unknown": [],
               # the snapshot the pin names when the pin was read (agreeing or not), else the one the
               # census row names; a Codex row's is read for nothing (S-16)
               "selection": selection_of(pinned),
@@ -4038,6 +4186,7 @@ def session_record(entry, read=None, found=(), damage=(), inherited=(), seen=Non
     if unusable:
         record["limitations"].append({"kind": "agent_id_unusable", "count": len(unusable), "line": unusable[0]})
     record["event_refs"] = [event["id"] for event in found]
+    record["segment_refs"] = list(segment_refs)
     for event in found:
         if event.get("damaged"):
             record["unknown"].append({"reason": event["damaged"], "line": event["n"]})
@@ -4120,7 +4269,7 @@ def transcript_events(run_dir, pins=None, zstd=None):
     entries = census_entries(run_dir)
     events, unknown = [], []
     findings = {"undecodable": [], "damaged": [], "rejected": [], "inherited": [], "sessions": [], "timelines": {},
-                "occurrences": []}
+                "occurrences": [], "segments": []}
     for entry in entries:
         label = f"{entry.get('host')}:{entry.get('id')}"
         seen = {}
@@ -4145,6 +4294,14 @@ def transcript_events(run_dir, pins=None, zstd=None):
             event["after_at"], event["bracket_ok"] = bracket(event["n"])
             findings["occurrences"] += event_occurrences(event, injection_id)
         applicability(found, read)
+        # an injection is looked for by the session's own snapshot body; without one, by nobody (R15)
+        sought = {"native": None,
+                  "session_injection": None if delivered
+                  else selection_of(pinned)["reason"] or reason("injection_body_empty")}
+        segmented = segments(found, read, ownership_map(entry, read)[0], sought)
+        for row in segmented:
+            row["session_ref"] = session_ref(entry.get("host"), entry.get("id"))
+        findings["segments"] += segmented
         dated = [event["n"] for event in found if _instant(event.get("at")) is not None]
         findings["timelines"][session_ref(entry.get("host"), entry.get("id"))] = {
             "host": entry.get("host"), "kind": entry.get("kind"), "last_dated": max(dated) if dated else None,
@@ -4157,7 +4314,8 @@ def transcript_events(run_dir, pins=None, zstd=None):
         findings["rejected"] += [{"session": event["session"], "line": event["n"], "ordinal": row["ordinal"],
                                   "category": row["category"]}
                                  for event in found for row in event.get("rejected") or []]
-        findings["sessions"].append(session_record(entry, read, found, damage, inherited, seen, pinned=pinned))
+        findings["sessions"].append(session_record(entry, read, found, damage, inherited, seen, pinned=pinned,
+                                                    segment_refs=[row["segment_id"] for row in segmented]))
         if not found:
             unknown.append(f"{label}: {UNKNOWN_REASONS['no_record']} ({read['which']})")
         events += found
@@ -4698,6 +4856,8 @@ DOCUMENT_MEMBERS = (
     "no_session_id", "own_meta_unidentified", "limitations", "count", "event_refs", "event_id", "owner",
     "at_reason", "interval_from", "interval_to", "certain_to", "uncertain_reason", "where",
     "id", "source", "transcript",
+    # an owner's segments in `sessions.json` (step 0 S-17)
+    "segments", "segment_refs", "segment_id", "in_force", "event_ref", "native", "session_injection",
     # `current.json`'s scope rows (step 0 S-10)
     "scopes", "scope_universe", "scope_id", "event_ids", "evidence", "freshness", "no_scope",
     "cwd_unreadable", "memory_path_relative", "global_excluded_by_launch", "ineligible",
@@ -5198,10 +5358,11 @@ def bind_transcripts(ctx, run_dir, zstd=None):
         notes.update({"sessions": 0, "events": 0, "unknown": [str(exc)]})
         ctx["notes"]["transcripts"] = notes
         ctx["current_scopes"] = None
-        ctx["sessions"], ctx["events"] = [], []
+        ctx["sessions"], ctx["events"], ctx["segments"] = [], [], []
         return
     ctx["events"] = events
     ctx["sessions"] = findings["sessions"]
+    ctx["segments"] = findings["segments"]
     ctx["occurrences"] = findings["occurrences"]
     entries = census_entries(run_dir)
     pins = {}
@@ -6527,7 +6688,16 @@ def self_test():
             control("the two injections carry their own bytes, which is why a reference point is per event",
                     [f"distinct_bodies={len({tuple(body) for body in bodies})} of {len(bodies)}"],
                     "distinct_bodies=2 of 2")
-            in_force_before = globals_of(event_in_force(native_events, "2026-10-01T09:30:00+00:00"))
+            def in_force_at(when):
+                """The event `event_at_instant` names as in force for the main owner at `when`, or None. These
+                events come from `injection_events` itself, before `transcript_events` gives them ids, so each
+                is named here by its line."""
+                numbered = [{**event, "id": str(event["n"])} for event in native_events]
+                answer = event_at_instant(numbered, when, (native_events[0] if native_events else {}).get("owner_ref"))
+                return next((event for event in native_events if str(event["n"]) == answer["event_ref"]), None) \
+                    if answer["state"] == "in_force" else None
+
+            in_force_before = globals_of(in_force_at("2026-10-01T09:30:00+00:00"))
             control("the body in force before the second injection is the first injection's",
                     [f"in_force_count={len(in_force_before)} "
                      f"in_force_has_the_later_body={any('revised' in text for text in in_force_before)}"],
@@ -6540,11 +6710,14 @@ def self_test():
                   == ["attachment.systemPrompt[]"],
                   f"{[event['where'] for event in main_events if event['kind'] == 'session_injection']}")
             check("a turn between two events is judged against the earlier one",
-                  (event_in_force(native_events, "2026-10-01T09:30:00+00:00") or {}).get("n")
+                  (in_force_at("2026-10-01T09:30:00+00:00") or {}).get("n")
                   == (native_events[0]["n"] if native_events else None),
                   "a later event answered for an earlier turn")
             check("a turn before every recorded event has no event in force",
-                  event_in_force(native_events, "2026-10-01T08:00:00+00:00") is None,
+                  event_at_instant([{**event, "id": str(event["n"])} for event in native_events],
+                                   "2026-10-01T08:00:00+00:00",
+                                   (native_events[0] if native_events else {}).get("owner_ref"))["state"]
+                  == "no_event_yet",
                   "an event answered for a turn that preceded it")
 
             all_events, _all_unknown, all_findings = transcript_events(
@@ -6806,7 +6979,7 @@ def self_test():
                             for ident, at in (("s-naive", "2026-10-01T09:00:00"), ("s-aware", "2026-10-01T10:00:00+00:00"))]
             check("a tz-less instant beside an aware one raises nothing, and is unsupported",
                   _raised(lambda: current_scopes(mixed_events)) is None
-                  and _raised(lambda: event_in_force(mixed_events, moment.timestamp())) is None
+                  and _raised(lambda: event_at_instant(mixed_events, moment.timestamp(), None)) is None
                   and _instant("2026-10-01T09:00:00") is None, "a naive instant raised or was guessed")
             shapes = [None, True, False, "", "yesterday", "2026-10-01", float("nan"), float("inf"), -float("inf"),
                       10 ** 30, -10 ** 30, [], {}, b"2026"]
@@ -7267,7 +7440,7 @@ def self_test():
 
             # the published document, through its production path and its own root in the schema
             sessions_doc = sessions_document({"home": None, "commit": "fixture", "sessions": findings_rec["sessions"],
-                                              "events": _events_rec})
+                                              "events": _events_rec, "segments": findings_rec.get("segments") or []})
             clean("sessions.json validates against its own root in the schema", document_contract_problems(sessions_doc))
             clean("and its records agree with one another", sessions_cross_problems(sessions_doc))
             control("a document whose kind is misspelled is refused by name, never judged as another document",
@@ -8412,9 +8585,9 @@ def self_test():
                   "events as they were",
                   pin_parts[0].get("s-y") == clean_parts[0].get("s-y")
                   and {key: value for key, value in pin_parts[0].get("s-x", {}).items()
-                       if key not in ("pin", "delivery", "selection", "event_refs")}
+                       if key not in ("pin", "delivery", "selection", "event_refs", "segment_refs")}
                   == {key: value for key, value in clean_parts[0].get("s-x", {}).items()
-                      if key not in ("pin", "delivery", "selection", "event_refs")}
+                      if key not in ("pin", "delivery", "selection", "event_refs", "segment_refs")}
                   and (pin_parts[0].get("s-x", {}).get("pin") or {}).get("reason") == "input_failed"
                   and (pin_parts[0].get("s-x", {}).get("selection") or {}).get("reason") == "input_failed"
                   and (pin_parts[0].get("s-x", {}).get("delivery") or {}).get("reason") == "input_failed"
@@ -8426,6 +8599,21 @@ def self_test():
                   == {key: row for key, row in clean_parts[3].items() if key != global_key},
                   f"global={(pin_parts[3].get(global_key) or {}).get('status')} "
                   f"x_pin={(pin_parts[0].get('s-x', {}).get('pin') or {}).get('reason')}")
+
+            def x_segments(published):
+                """X's segments in `published`: `(native event refs they name, injection states)`."""
+                record = (two_parts(published)[0]).get("s-x") or {}
+                rows = [row for row in (published.get("sessions") or {}).get("segments") or []
+                        if row["session_ref"] == record.get("session_ref")]
+                return ({row["in_force"]["native"]["event_ref"] for row in rows},
+                        {(row["in_force"]["session_injection"]["state"], row["in_force"]["session_injection"]["reason"])
+                         for row in rows})
+
+            check("S-25: and X's segments name the same native events while its injection is unsought by "
+                  "input_failed in every one: a failed pin leaves no injection anyone could look for",
+                  bool(x_segments(two_clean)[0]) and x_segments(two_pin)[0] == x_segments(two_clean)[0]
+                  and x_segments(two_pin)[1] == {("unsought", "input_failed")},
+                  f"{x_segments(two_pin)} / {x_segments(two_clean)}")
             check("S-25: a failed snapshot@(claude, X) leaves X's pin read and its exclusion known, every scope and the "
                   "other session as they were, and X's native events published; X's delivery says why",
                   snap_parts[0].get("s-y") == clean_parts[0].get("s-y")
@@ -12146,6 +12334,232 @@ def self_test():
             check("while the reason is still there to read",
                   "overlays" in leaky_row["reasons"][0] and len(leaky_row["reasons"]) == 1,
                   f"{leaky_row['reasons']}")
+
+        with section('P2.5: segments per owner, and the instant-only placement (step 0 S-17, S-5)'):
+            # ---- P2.5: segments per owner, and the instant-only placement (step 0 S-17, S-5)
+            # One main transcript holds a main owner and an inline sidechain `a1`, each with native and
+            # injection events, a re-injected native file, an owner-less sidechain injection (line 7), an
+            # undecodable line (8), and a sidechain `a2` that records no event (line 10, R2). The expected segments are written out by hand below, never derived from
+            # `segments` (rulings-2 S-12: a recompute-equals-runtime control cannot see a bug both share).
+            seg_body = "# Segments\n\n- the selected body\n"
+            seg_records = [
+                {"type": "user", "timestamp": "2026-10-21T08:59:00+00:00"},
+                inj("2026-10-21T09:00:00+00:00", [member("User", "/w/g.md", "- g one\n")], cwd="/w/seg"),
+                prompt_record("2026-10-21T09:01:00+00:00", [seg_body]),
+                inj("2026-10-21T09:02:00+00:00", [member("User", "/w/g.md", "- side\n")], cwd="/w/seg",
+                    isSidechain=True, agentId="a1"),
+                prompt_record("2026-10-21T09:03:00+00:00", [seg_body], isSidechain=True, agentId="a1"),
+                inj("2026-10-21T09:10:00+00:00", [member("User", "/w/g.md", "- g two\n")], cwd="/w/seg"),
+                prompt_record("2026-10-21T09:11:00+00:00", [seg_body], isSidechain=True),
+                b"not a json line",
+                {"type": "user", "timestamp": "2026-10-21T09:20:00+00:00"},
+                {"type": "user", "timestamp": "2026-10-21T09:21:00+00:00", "isSidechain": True, "agentId": "a2"}]
+            seg_run = published_run("segments", [
+                ("claude", "s-seg", seg_records, {}),
+                ("codex", "c-seg", [block_meta("c-seg", "2026-10-21T09:00:00+00:00", "# Block\n\n- at seg\n", "/w/seg")],
+                 {})], pin="claude:s-seg", snapshot={"content_ref": "5" * 64, "output": {"instruction_text": seg_body}})
+            check("the segments run was published, its documents crossing clean", "refused" not in seg_run,
+                  f"{seg_run.get('refused')} {(seg_run.get('problems') or [])[:2]}")
+            seg_sessions = seg_run.get("sessions") or {"sessions": [], "events": [], "segments": []}
+
+            def lanes_of(sessions_in, session):
+                """Per owner display, its segments as `(from, to, native, injection)`, each kind as
+                `(state, the line of the event it names, reason, cut line)`: what S-17 publishes, read back."""
+                line_of = {row["event_id"]: row["line"] for row in sessions_in.get("events") or []}
+                record = next((row for row in sessions_in.get("sessions") or [] if row["session"] == session), {})
+                names = {row["owner_ref"]: row["display"] for row in record.get("owners") or []}
+                out = {}
+                for row in sessions_in.get("segments") or []:
+                    if row["session_ref"] == record.get("session_ref"):
+                        kinds = tuple((state["state"], line_of.get(state["event_ref"]), state["reason"], state["line"])
+                                      for state in (row["in_force"]["native"], row["in_force"]["session_injection"]))
+                        out.setdefault(names.get(row["owner_ref"], "?"), []).append((row["from"], row["to"]) + kinds)
+                return {name: sorted(rows) for name, rows in out.items()}
+
+            not_yet = ("no_event_yet", None, "no_event_yet", None)
+
+            def held(line):
+                return ("in_force", line, None, None)
+
+            def past_cut(line, why, cut):
+                return ("uncertain", line, why, cut)
+
+            seg_lanes = lanes_of(seg_sessions, "claude:s-seg")
+            main_lane, side_lane = seg_lanes.get("claude:s-seg") or [], seg_lanes.get("claude:s-seg#sidechain:a1") or []
+            check("S-17: each owner's segments partition its transcript at its own event lines and certainty cuts, "
+                  "each kind's state as written out by hand",
+                  seg_lanes == {
+                      "claude:s-seg": [(1, 2, not_yet, not_yet), (2, 3, held(2), not_yet), (3, 6, held(2), held(3)),
+                                       (6, 8, held(6), held(3)),
+                                       (8, 11, past_cut(6, "undecodable_after", 8), past_cut(3, "undecodable_after", 8))],
+                      "claude:s-seg#sidechain:a1": [
+                          (1, 4, not_yet, not_yet), (4, 5, held(4), not_yet), (5, 7, held(4), held(5)),
+                          (7, 8, held(4), past_cut(5, "ownership_unknown", 7)),
+                          (8, 11, past_cut(4, "undecodable_after", 8), past_cut(5, "ownership_unknown", 7))],
+                      "claude:s-seg#sidechain:a2": [(1, 11, not_yet, not_yet)]},
+                  f"{seg_lanes}")
+            check("R2: an owner that records no event still has its segment, every kind no_event_yet over the whole "
+                  "transcript",
+                  seg_lanes.get("claude:s-seg#sidechain:a2") == [(1, 11, not_yet, not_yet)],
+                  f"{seg_lanes.get('claude:s-seg#sidechain:a2')}")
+            check("S-17: before an owner's first event of a kind, that kind is no_event_yet",
+                  bool(main_lane) and bool(side_lane) and main_lane[0][2:] == (not_yet, not_yet)
+                  and side_lane[0][2:] == (not_yet, not_yet) and main_lane[1][3] == not_yet,
+                  f"{main_lane[:2]} / {side_lane[:1]}")
+            check("S-5: past an undecodable line every owner's kinds in force are uncertain by undecodable_after, "
+                  "the line named",
+                  bool(main_lane) and main_lane[-1][2][2:] == ("undecodable_after", 8) == main_lane[-1][3][2:]
+                  and bool(side_lane) and side_lane[-1][2][2:] == ("undecodable_after", 8),
+                  f"{main_lane[-1:]} / {side_lane[-1:]}")
+            check("S-5: an owner-less sidechain injection cuts the identified sidechain's injection, never the main "
+                  "owner's",
+                  any(row[:2] == (7, 8) and row[3] == past_cut(5, "ownership_unknown", 7) for row in side_lane)
+                  and bool(main_lane) and all(row[0] != 7 for row in main_lane),
+                  f"{side_lane} / {main_lane}")
+            reinjected = [row for row in seg_sessions["events"] if row["owner"] == "claude:s-seg" and row["kind"] == "native"]
+            check("a re-injected native file gives two events and two segment boundaries, each event its own bytes",
+                  [row["line"] for row in reinjected] == [2, 6]
+                  and len({tuple((member["carrier_id"], member["version_sha256"]) for member in row["members"])
+                           for row in reinjected}) == 2
+                  and {2, 6} <= {row[0] for row in main_lane}, f"{[row['line'] for row in reinjected]}")
+            codex_lane = lanes_of(seg_sessions, "codex:c-seg").get("codex:c-seg") or []
+            seg_plain = published_run("segments-unpinned", [("claude", "s-seg", seg_records, {})])
+            plain_lanes = lanes_of(seg_plain.get("sessions") or {}, "claude:s-seg")
+            check("an injection nobody could look for is unsought by the session's own reason, never no_event_yet: "
+                  "unpinned, and a Codex rollout's id space",
+                  "refused" not in seg_plain and bool(plain_lanes) and bool(codex_lane)
+                  and all(row[3] == ("unsought", None, "unpinned", None) for rows in plain_lanes.values() for row in rows)
+                  and all(row[3] == ("unsought", None, "id_space", None) for row in codex_lane)
+                  and codex_lane[0][:3] == (1, 2, held(1)),
+                  f"{plain_lanes} / {codex_lane}")
+            seg_empty = published_run("segments-empty", [("claude", "s-seg", seg_records, {})], pin="claude:s-seg",
+                                      snapshot={"content_ref": "6" * 64, "output": {"instruction_text": ""}})
+            empty_lanes = lanes_of(seg_empty.get("sessions") or {}, "claude:s-seg")
+            check("a pinned session whose own snapshot body is empty has its injection unsought by "
+                  "injection_body_empty, in every segment",
+                  "refused" not in seg_empty and bool(empty_lanes)
+                  and all(row[3] == ("unsought", None, "injection_body_empty", None)
+                          for rows in empty_lanes.values() for row in rows),
+                  f"{seg_empty.get('refused')} {empty_lanes}")
+            covered = []
+            for event in seg_sessions["events"]:
+                naming = sorted((row["from"], row["to"]) for row in seg_sessions["segments"]
+                                if row["in_force"][event["kind"]]["event_ref"] == event["event_id"])
+                if event["owner_ref"] is not None:
+                    covered.append(bool(naming) and naming[0][0] == event["interval_from"]
+                                   and naming[-1][1] == event["interval_to"]
+                                   and all(left[1] == right[0] for left, right in zip(naming, naming[1:])))
+            check("every per-event reference point is recoverable: the segments naming an event cover exactly its "
+                  "interval, with no gap",
+                  len(covered) >= 6 and all(covered), f"{len(covered)} {covered}")
+            clean("the published segments cross clean, and the sessions document validates against its own root",
+                  segment_cross_problems(seg_sessions, {row["event_id"]: [row] for row in seg_sessions["events"]})
+                  + document_contract_problems(seg_sessions))
+
+            def planted_segments(change):
+                """`segment_cross_problems` of a deep copy of the published segments after `change`."""
+                copy_here = json.loads(json.dumps(seg_sessions))
+                change(copy_here)
+                return segment_cross_problems(copy_here, {row["event_id"]: [row] for row in copy_here["events"]})
+
+            main_rows = [row for row in seg_sessions["segments"] if row["owner_ref"] == owner_ref("claude", "s-seg")]
+            side_ref = owner_ref("claude", "s-seg", "a1")
+            side_native = next((row["event_id"] for row in seg_sessions["events"]
+                                if row["owner_ref"] == side_ref and row["kind"] == "native"), None)
+            first_native = next((row["event_id"] for row in reinjected), None)
+
+            def drop_segment(doc):
+                gone = next(row for row in doc["segments"] if row["segment_id"] == main_rows[2]["segment_id"])
+                doc["segments"].remove(gone)
+                for record in doc["sessions"]:
+                    record["segment_refs"] = [ref for ref in record["segment_refs"] if ref != gone["segment_id"]]
+
+            def widen(doc):
+                next(row for row in doc["segments"] if row["segment_id"] == main_rows[2]["segment_id"])["from"] -= 1
+
+            def name_state(field, value, at=3):
+                def change(doc):
+                    next(row for row in doc["segments"]
+                         if row["segment_id"] == main_rows[at]["segment_id"])["in_force"]["native"][field] = value
+                return change
+
+            def dangle(doc):
+                doc["sessions"][0]["segment_refs"].append(opaque_id("g", "segment", "nobody", 1))
+
+            def unlist(doc):
+                doc["sessions"][0]["segment_refs"] = doc["sessions"][0]["segment_refs"][1:]
+
+            planted_cases = (("a gap", drop_segment, "CROSS_SEGMENT_PARTITION"),
+                             ("an overlap", widen, "CROSS_SEGMENT_PARTITION"),
+                             ("a segment naming another owner's event", name_state("event_ref", side_native),
+                              "CROSS_SEGMENT_EVENT"),
+                             ("a segment naming an event whose interval does not cover it",
+                              name_state("event_ref", first_native), "CROSS_SEGMENT_EVENT"),
+                             ("a dangling segment reference", dangle, "CROSS_SEGMENT_UNRESOLVED"),
+                             ("a segment its session does not list", unlist, "CROSS_SEGMENT_UNLISTED"))
+            for what, change, code in planted_cases:
+                found_here = planted_segments(change) if len(main_rows) == 5 and side_native and first_native else []
+                check(f"S-21: {what} is refused by {code}", any(row.startswith(code) for row in found_here),
+                      f"{found_here}")
+            bad_id = json.loads(json.dumps(seg_sessions))
+            if bad_id["segments"]:
+                bad_id["segments"][0]["segment_id"] = "x-" + "0" * 24
+            check("a segment id of another form is refused by the schema",
+                  bool(seg_sessions["segments"]) and any("DOCUMENT_INVALID" in row
+                                                         for row in document_contract_problems(bad_id)),
+                  "the schema admitted a segment id that is not g-")
+
+            # S-5's instant-only placement, on events built here: one owner, line order authoritative.
+            def placed(lines_at, **cut):
+                rows = []
+                for n, at in lines_at:
+                    rows.append({"kind": "native", "owner_ref": "o-x", "n": n, "at": at, "id": f"e-{n}",
+                                 "at_reason": instant_reason(at), "interval": None, "certain_to": None,
+                                 "uncertain_reason": None})
+                for here, after in zip(rows, rows[1:] + [None]):
+                    here["interval"] = [here["n"], after["n"] if after else 99]
+                for n, (to, why) in cut.items():
+                    next(row for row in rows if row["n"] == int(n[1:])).update(certain_to=to, uncertain_reason=why)
+                return rows
+
+            ordered = placed([(1, "2026-10-21T09:00:00+00:00"), (5, "2026-10-21T10:00:00+00:00")])
+            half_past = "2026-10-21T09:30:00+00:00"
+            check("S-5: an instant between two events selects the earlier one, by identity, given as an offset ISO "
+                  "string and as a number (POSITIVE)",
+                  [event_at_instant(ordered, when, "o-x")["event_ref"]
+                   for when in ("2026-10-21T18:30:00+09:00", _instant(half_past).timestamp())] == ["e-1", "e-1"]
+                  and event_at_instant(ordered, "2026-10-21T10:30:00+00:00", "o-x")["event_ref"] == "e-5",
+                  f"{[event_at_instant(ordered, when, 'o-x') for when in (half_past, '2026-10-21T10:30:00+00:00')]}")
+            check("S-5: an instant before every event of a fully ordered list is no_event_yet, and an unsupported one "
+                  "has no event",
+                  event_at_instant(ordered, "2026-10-21T08:00:00+00:00", "o-x")["state"] == "no_event_yet"
+                  and [event_at_instant(ordered, when, "o-x")["state"] for when in (None, "yesterday", True)]
+                  == ["none", "none", "none"], "an instant outside the events was answered")
+            backwards = placed([(1, "2026-10-21T09:00:00+00:00"), (2, "2026-10-21T10:00:00+00:00"),
+                                (3, "2026-10-21T08:00:00+00:00")])
+            unsupported = placed([(1, "2026-10-21T09:00:00+00:00"), (2, "2026-10-21T10:00:00+00:00"), (3, "soon")])
+            check("S-5: past a backwards step or an unsupported instant the answer is uncertain, naming the line that "
+                  "broke the order, never the prefix's last event",
+                  [(answer["state"], answer["event_ref"], answer["line"], answer["reason"]) for answer in (
+                      event_at_instant(backwards, "2026-10-21T10:30:00+00:00", "o-x"),
+                      event_at_instant(backwards, "2026-10-21T07:00:00+00:00", "o-x"),
+                      event_at_instant(unsupported, "2026-10-21T10:30:00+00:00", "o-x"))]
+                  == [("uncertain", None, 3, None), ("uncertain", None, 3, None), ("uncertain", None, 3, "undated")]
+                  and event_at_instant(backwards, half_past, "o-x")["event_ref"] == "e-1",
+                  f"{event_at_instant(backwards, '2026-10-21T10:30:00+00:00', 'o-x')}")
+            tied = placed([(1, "2026-10-21T09:00:00+00:00"), (2, "2026-10-21T09:00:00+00:00"),
+                           (3, "2026-10-21T10:00:00+00:00")])
+            check("S-5: of equal instants, the later line is in force", event_at_instant(tied, half_past, "o-x")["event_ref"]
+                  == "e-2", f"{event_at_instant(tied, half_past, 'o-x')}")
+            ordered_at = [(1, "2026-10-21T09:00:00+00:00"), (5, "2026-10-21T10:00:00+00:00")]
+            cut_inside = placed(ordered_at, n1=(3, "undecodable_after"))
+            cut_at_end = placed(ordered_at, n1=(5, "undecodable_after"))
+            check("S-5: a chosen event past a certainty cut inside its own interval is uncertain by the cut's reason "
+                  "and line, and a cut at its interval's end is none",
+                  event_at_instant(cut_inside, half_past, "o-x")
+                  == {"state": "uncertain", "event_ref": "e-1", "reason": "undecodable_after", "line": 3}
+                  and event_at_instant(cut_at_end, half_past, "o-x")["state"] == "in_force",
+                  f"{event_at_instant(cut_inside, half_past, 'o-x')} / {event_at_instant(cut_at_end, half_past, 'o-x')}")
 
         with section("the general control (lead, after a36c728): no reason in ANY document this suite's runs"):
             # ---- the general control (lead, after a36c728): no reason in ANY document this suite's runs

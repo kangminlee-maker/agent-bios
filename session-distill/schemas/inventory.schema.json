@@ -39,7 +39,7 @@
     "sessions_document": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["document", "span_unit", "produced_by", "sessions", "events", "occurrences"],
+      "required": ["document", "span_unit", "produced_by", "sessions", "events", "segments", "occurrences"],
       "properties": {
         "document": {"const": "sessions"},
         "span_unit": {"$comment": "the unit an occurrence's start and end count, in the decoded text of the FIELD its pointer names; a different coordinate from the store's, which counts in a carrier version's raw text", "const": "code_point"},
@@ -55,6 +55,7 @@
         },
         "sessions": {"type": "array", "items": {"$ref": "#/$defs/session"}},
         "events": {"type": "array", "items": {"$ref": "#/$defs/event"}},
+        "segments": {"type": "array", "items": {"$ref": "#/$defs/segment"}},
         "occurrences": {"type": "array", "items": {"$ref": "#/$defs/occurrence"}}
       }
     },
@@ -88,6 +89,41 @@
       }
     },
     "inventory_id": {"type": "string", "pattern": "^i-[0-9a-f]{24}$"},
+    "segment_id": {"type": "string", "pattern": "^g-[0-9a-f]{24}$"},
+    "in_force": {
+      "$comment": "one kind's state over a segment (step 0 S-17): the event in force, none recorded yet, the one in force past its certainty cut (the line named), or a kind nobody could look for, by its reason",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "event_ref", "reason", "line"],
+      "properties": {
+        "state": {"enum": ["in_force", "no_event_yet", "uncertain", "unsought"]},
+        "event_ref": {"type": ["string", "null"], "pattern": "^e-[0-9a-f]{24}$"},
+        "reason": {"type": ["string", "null"], "minLength": 1},
+        "line": {"type": ["integer", "null"], "minimum": 1}
+      }
+    },
+    "segment": {
+      "$comment": "an owner's line interval [from, to) of its transcript in which the event in force of each kind is fixed (step 0 S-17); one owner's segments partition [1, lines_read + 1)",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["segment_id", "session_ref", "owner_ref", "from", "to", "in_force"],
+      "properties": {
+        "segment_id": {"$ref": "#/$defs/segment_id"},
+        "session_ref": {"$ref": "#/$defs/session_ref"},
+        "owner_ref": {"$ref": "#/$defs/owner_ref"},
+        "from": {"$ref": "#/$defs/line"},
+        "to": {"$ref": "#/$defs/line"},
+        "in_force": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["native", "session_injection"],
+          "properties": {
+            "native": {"$ref": "#/$defs/in_force"},
+            "session_injection": {"$ref": "#/$defs/in_force"}
+          }
+        }
+      }
+    },
     "shared_store_document": {
       "$comment": "`shared/store.json` (step 0 S-22): every carrier version the run names, once, keyed by carrier_id and then version_sha256, and every unit keyed by its unit_ref.",
       "type": "object",
@@ -308,7 +344,7 @@
       "additionalProperties": false,
       "required": ["session_ref", "session", "host", "kind", "transcript", "parent_ref", "binding", "read",
                    "lines_read", "owners", "ownership", "inherited_session_meta", "own_meta_unidentified",
-                   "limitations", "event_refs", "unknown", "pin", "delivery", "selection"],
+                   "limitations", "event_refs", "segment_refs", "unknown", "pin", "delivery", "selection"],
       "properties": {
         "session_ref": {"$ref": "#/$defs/session_ref"},
         "session": {"type": "string"},
@@ -333,6 +369,7 @@
         "own_meta_unidentified": {"type": ["integer", "null"], "minimum": 1},
         "limitations": {"type": "array", "items": {"$ref": "#/$defs/limitation"}},
         "event_refs": {"type": "array", "items": {"$ref": "#/$defs/event_id"}},
+        "segment_refs": {"type": "array", "items": {"$ref": "#/$defs/segment_id"}},
         "unknown": {"type": "array", "items": {"$ref": "#/$defs/unknown_entry"}},
         "pin": {"$ref": "#/$defs/pin"},
         "delivery": {"$ref": "#/$defs/delivery"},
