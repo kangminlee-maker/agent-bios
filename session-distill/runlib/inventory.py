@@ -6239,6 +6239,66 @@ def self_test():
         except Exception as exc:  # named below; the next block still runs
             (record or check)(f"{name} did not run to its end: {type(exc).__name__}", False, str(exc)[:300])
 
+    # The guard's own controls: each plants its block under a recorder of its own, so the planted failure
+    # never reaches this suite's verdict, and whatever the guard lets out is caught here and said by name.
+    class PlantedExit(BaseException):
+        """Not an Exception: the guard must let it through."""
+
+    def guard_trial(block, raised):
+        """What `section` recorded for a block that raises `raised` (None: it runs to its end), and the
+        exception that left the block, if one did."""
+        planted_records = []
+        try:
+            with section(block, record=lambda name, ok, detail="": planted_records.append((name, ok, detail))):
+                if raised is not None:
+                    raise raised
+        except (Exception, PlantedExit) as exc:  # let out by the guard: said by the controls below
+            return planted_records, exc
+        return planted_records, None
+
+    planted_records, let_out = guard_trial("a planted block", ValueError("planted inside the block"))
+    check("a block that raises is one failed control named by its block and the exception's type, and the "
+          "exception does not leave the block",
+          let_out is None and planted_records == [("a planted block did not run to its end: ValueError", False,
+                                                   "planted inside the block")], f"{planted_records} / {let_out!r}")
+    planted_records, let_out = guard_trial("a planted long message", ValueError("x" * 400))
+    check("a block's failed control carries the exception's first 300 characters as its detail",
+          let_out is None and [len(detail) for _name, _ok, detail in planted_records] == [300], f"{let_out!r}")
+    planted_records, let_out = guard_trial("a block that runs to its end", None)
+    check("a block that runs to its end records nothing", let_out is None and planted_records == [],
+          f"{planted_records} / {let_out!r}")
+    planted_records, let_out = guard_trial("a planted exit", PlantedExit())
+    check("the guard lets an exception that is not an Exception through and records nothing for it",
+          isinstance(let_out, PlantedExit) and planted_records == [], f"{planted_records} / {let_out!r}")
+
+    # The default path, no recorder given. `section` reads this suite's `check` through its closure when
+    # it is called, so `check` is rebound to a capture for the trial and restored after; the closure's own
+    # cell shows the guard saw the capture, and sees the original again.
+    def sink_of_section():
+        cells = dict(zip(section.__wrapped__.__code__.co_freevars, section.__wrapped__.__closure__ or ()))
+        return cells["check"].cell_contents if "check" in cells else None
+
+    held_check, default_records, let_out, sink_during = check, [], None, None
+    capture = lambda name, ok, detail="": default_records.append((name, ok, detail))
+    try:
+        check = capture
+        sink_during = sink_of_section()
+        try:
+            with section("a planted default block"):
+                raise ValueError("planted with no recorder")
+        except Exception as exc:  # let out by the guard: said by the control below
+            let_out = exc
+    finally:
+        check = held_check
+    check("a block given no recorder is one failed control in the suite's own check, and the exception does "
+          "not leave the block",
+          let_out is None and default_records == [("a planted default block did not run to its end: ValueError",
+                                                   False, "planted with no recorder")],
+          f"{default_records} / {let_out!r}")
+    check("the default-path trial reached the guard's own sink and left it as it was",
+          sink_during is capture and sink_of_section() is held_check and check is held_check,
+          f"during={sink_during!r} after={sink_of_section()!r}")
+
     # The scratch parent is CHOSEN AND JUDGED, not probed: this suite writes fixture state roots, a
     # copy of the checkout and run directories, and `tempfile`'s own resolution of `TMPDIR` would put
     # all of it inside a protected root when that is where `TMPDIR` points (R1#5).
