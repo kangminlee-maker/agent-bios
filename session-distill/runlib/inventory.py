@@ -1899,8 +1899,9 @@ SESSIONS_PRODUCED_BY_TABLE = table_of({
 FRESHNESS = ("the newest delivery on record, not the file on disk: an edit made after this event is unknown "
              "until a later transcript records it")
 # The per-host counts of the scope universe (S-10): outcomes that answer no scope, each by its reason,
-# and the events that are not eligible to answer at all.
-UNIVERSE_COUNTS = ("no_scope", "cwd_unreadable", "memory_path_relative", "global_excluded_by_launch", "ineligible")
+# the events that are not eligible to answer at all, and the main transcripts that were not read (R1, A).
+UNIVERSE_COUNTS = ("no_scope", "cwd_unreadable", "memory_path_relative", "memory_path_unusable",
+                   "global_excluded_by_launch", "ineligible", "transcript_unread")
 SCOPE_REASON_TABLE = table_of({"reason": as_enum(lambda: UNKNOWN_REASONS), "event_id": as_opaque("event_id"),
                                "session_ref": as_opaque("session_ref"), "line": as_scalar()},
                               optional=("event_id", "session_ref", "line"), schema="scope_reason")
@@ -3195,7 +3196,13 @@ UNKNOWN_REASONS = {
     "no_scope": "not an outcome: the record names no cwd, so it answers no project scope",
     "cwd_unreadable": "unknown: the record's cwd is not a string naming an absolute path",
     "memory_path_relative": "not an outcome: the AutoMem path is not absolute, and nothing resolves it",
-    "tie": "unknown: two transcripts record different sets for this scope at one instant",
+    "memory_path_unusable": ("not an outcome: an AutoMem member records no usable path, so the directory it "
+                             "belongs to is unknown"),
+    "transcript_unread": ("unknown: a main transcript of this host was not read, so a newer outcome it records "
+                          "for any scope is unknown"),
+    "carrier_malformed": "incomplete: a carrier version this row names did not split, its text being malformed",
+    "carrier_unsupported": "incomplete: a carrier version this row names is of a form no splitter supports",
+    "tie":"unknown: two transcripts record different sets for this scope at one instant",
     "memory_unconfirmed": ("unknown: a later injection of the same project names no member of this memory "
                            "directory"),
     "member_unmapped": "unknown: an injection carries a member whose type no native layer admits",
@@ -3981,10 +3988,14 @@ REASON_STATUS = {
 # The layers each count leaves incomplete at its host (S-10: complete only without them). The global
 # layer is not among them: an event with no cwd still answers it (S-7), and an unreadable cwd reaches
 # it through its scope status. Memory is: S-9 asks whether a later event is at a directory's project,
-# and an event without a readable cwd cannot answer that (lead ruling, 2026-10-29).
+# and an event without a readable cwd cannot answer that (lead ruling, 2026-10-29). A main transcript
+# that was not read leaves every one of them, the global layer included: its newest outcome could be any
+# scope's (R1, decision A).
 COUNTED_LAYERS = {"no_scope": ("native_project", "native_undivided", "native_memory"),
                   "cwd_unreadable": ("native_project", "native_undivided", "native_memory"),
-                  "memory_path_relative": ("native_memory",)}
+                  "memory_path_relative": ("native_memory",),
+                  "memory_path_unusable": ("native_memory",),
+                  "transcript_unread": SCOPED_LAYERS}
 UNMAPPED_CATEGORIES = ("member_type_unmapped", "member_not_object")
 ABSOLUTE = re.compile(r"^(/|[A-Za-z]:[\\/]|\\\\)")
 PROJECT_SEGMENT = re.compile(r"[\\/]projects[\\/]([^\\/]+)(?:[\\/]|$)")
@@ -4211,9 +4222,14 @@ def outcomes_of(event, pin):
                 continue
             directories.setdefault(directory, []).append(member)
         # A member whose content is unusable still names its directory: that scope is answered,
-        # incomplete, even when no usable member of it is left (S-6).
+        # incomplete, even when no usable member of it is left (S-6). One that names none is counted
+        # (R1 #2): a relative path as a valid member's is, and no path at all by its own key.
         broken = {member_dir(row.get("path")) for row in rejected
                   if row.get("layer") == "native_memory" and row.get("path") is not None} - {None}
+        for row in rejected:
+            if row.get("layer") == "native_memory" and member_dir(row.get("path")) is None:
+                counts.append(reason("memory_path_unusable") if row.get("path") is None
+                              else reason("memory_path_relative"))
         for directory in sorted(broken - set(directories)):
             directories[directory] = []
         for directory, members in directories.items():
@@ -4353,15 +4369,21 @@ def scope_answer(layer, host, key, candidates, context):
     return row, (chosen[0] if answered else None)
 
 
-def current_scopes(events, timelines=None, pins=None):
+def current_scopes(events, timelines=None, pins=None, sessions=()):
     """§8's current reference point, scope by scope: `{scopes, universe}`.
 
     Only an ELIGIBLE outcome answers — an event or a damaged event of the main owner of a main row,
     with a known session (S-8); anything else is counted with its reason and never selected. Every
     scope an eligible outcome names is in the universe, and so are the per-host counts of outcomes
-    that answer none (S-10)."""
+    that answer none (S-10). A main transcript of `sessions` that was not read is counted at its host
+    (R1, decision A): its newest outcome could be any scope's. A child's is not, since none answers."""
     pins = pins or {}
-    universe = {host: dict.fromkeys(UNIVERSE_COUNTS, 0) for host in sorted({event["host"] for event in events})}
+    unread = collections.Counter(record["host"] for record in sessions
+                                 if record.get("kind") == "main" and record.get("read") in READ_FAILURES)
+    universe = {host: dict.fromkeys(UNIVERSE_COUNTS, 0)
+                for host in sorted({event["host"] for event in events} | set(unread))}
+    for host, n in unread.items():
+        universe[host][reason("transcript_unread")] = n
     grouped, eligible, unreadable_cwd = {}, [], {}
     for event in events:
         if event["kind"] != "native":
@@ -5314,7 +5336,8 @@ DOCUMENT_MEMBERS = (
     "segment_ref", "inventory_refs", "occurrence_refs", "unsegmented", "complete_segments", "renames_base",
     # `current.json`'s scope rows (step 0 S-10)
     "scopes", "scope_universe", "scope_id", "event_ids", "evidence", "freshness", "no_scope",
-    "cwd_unreadable", "memory_path_relative", "global_excluded_by_launch", "ineligible",
+    "cwd_unreadable", "memory_path_relative", "memory_path_unusable", "global_excluded_by_launch", "ineligible",
+    "transcript_unread",
     # `shared/store.json` (step 0 S-22) and a unit's reference into it
     "versions", "unit_refs", "unit_ref", "length", "split", "start", "end", "form", "span_unit",
     # an occurrence in `sessions.json` and a Codex block's git (step 0 S-12, S-13, S-19)
@@ -5694,7 +5717,10 @@ def context_cross_problems(sessions, index, shared, store):
 # it is placed at rank 1, the rank of its status.
 CONDITION_RANK = {reason("member_unmapped"): 1, reason("container_unusable"): 1,
                   reason("locator_element_rejected"): 1, reason("recorded_unmapped"): 1,
+                  reason("carrier_malformed"): 3, reason("carrier_unsupported"): 3,
                   reason("member_rejected"): 3}
+# A version the store did not split, by the store's own outcome (R1 #3, §3.4): incomplete, never dropped.
+SPLIT_REASONS = {"malformed": reason("carrier_malformed"), "unsupported": reason("carrier_unsupported")}
 RANK_ROWS = {1: ("unknown", ""), 2: ("unknown", "uncertain: "), 3: ("incomplete", "")}
 # Each segment state, as one table (lead, D4): whether the in-force event's own conditions count, and the
 # rank the state's own reason takes beside them, or None when it adds none. An `uncertain` state's reason is
@@ -5795,23 +5821,36 @@ def event_conditions(event, layer, occurrences):
     return [(CONDITION_RANK[key], key) for key in keys]
 
 
-def segment_row(layer, state, events, occurrences):
+def split_conditions(named, versions):
+    """The S-10 conditions of the versions a row names that the store did not split (R1 #3): each by the store's
+    own outcome for it, read from `versions` and never computed again, at the incomplete rank. The row keeps its
+    source, so the units of the versions that did split stay reachable (§3.4)."""
+    keys = [SPLIT_REASONS[split] for carrier_id, version in named
+            for split in [((versions.get(carrier_id) or {}).get(version) or {}).get("split")] if split in SPLIT_REASONS]
+    return [(CONDITION_RANK[key], key) for key in dict.fromkeys(keys)]
+
+
+def segment_row(layer, state, events, occurrences, versions):
     """One event-derived row of a segment, from its kind's state through `SEGMENT_ROW_STATES`. Its source is
-    the event in force when the state names one: that event's own members of this layer, or its occurrences."""
+    the event in force when the state names one: that event's own members of this layer, or its occurrences;
+    and a version the source names that the store (`versions`) did not split leaves the row incomplete."""
     counted, own_rank = SEGMENT_ROW_STATES[state["state"]]
     event = events.get(state["event_ref"]) if counted else None
     found = occurrences.get(state["event_ref"]) or []
     conditions = event_conditions(event, layer, found) if event is not None else []
     if own_rank is not None:
         conditions.append((own_rank, state["reason"]))
-    source = None
+    source, named = None, []
     if event is not None and layer == "session_injection":
         source = {"event_ref": event["id"], "occurrence_refs": sorted(row["occurrence_id"] for row in found)}
+        named = [(row["carrier_id"], row["version_sha256"]) for row in found if row["method"] != "unmapped"]
     elif event is not None:
         source = {"event_ref": event["id"], "members": [
             {"carrier_id": carrier_id, "version_sha256": version} for carrier_id, version in sorted(
                 {(member["carrier_id"], sha256_text(member["text"])) for member in event.get("files") or []
                  if member["layer"] == layer})]}
+        named = [(member["carrier_id"], member["version_sha256"]) for member in source["members"]]
+    conditions += split_conditions(named, versions)
     return ranked_row(layer, conditions, source)
 
 
@@ -5856,13 +5895,15 @@ def index_entry(by_layer):
             "layers": rows, **completeness(rows)}
 
 
-def release_index(ctx, shared):
+def release_index(ctx, shared, store):
     """`release.json` (step 0 S-17, #8, R10): every census-bound session, main and subagent rows of both hosts,
     each segment of each of its owners as one row per layer; a session no segment covers (R3) has one row set
     of its own, its pin-derived rows as a main owner's and every event-derived row unknown by its transcript's
     reason (`no_event_yet` when the transcript was read and holds no line). It never picks one segment and
-    never unions versions: a row names one inventory's row, or one event's members or occurrences."""
+    never unions versions: a row names one inventory's row, or one event's members or occurrences. Whether a
+    version it names split is the `store`'s answer, which is built first (R1 #3)."""
     published = {document["inventory_id"]: document for _path, document in shared}
+    versions = store["versions"]
     events = {event["id"]: event for event in ctx.get("events") or []}
     occurrences = {}
     for row in ctx.get("occurrences") or []:
@@ -5879,10 +5920,10 @@ def release_index(ctx, shared):
                 layer: unknown_row(layer, reason("sidechain_unattributed")) for layer in UNATTRIBUTED})}
             for layer in SPLIT_NATIVE + ("native_undivided",):
                 by_layer[layer] = host_row(host, layer) or segment_row(layer, segment["in_force"]["native"], events,
-                                                                     occurrences)
+                                                                     occurrences, versions)
             if main:
                 by_layer["session_injection"] = segment_row("session_injection", segment["in_force"]["session_injection"],
-                                                          events, occurrences)
+                                                          events, occurrences, versions)
             entry["segments"].append({"segment_ref": segment["segment_id"], **index_entry(by_layer)})
         if not entry["segments"]:
             unread = record["read"] if record["read"] in READ_FAILURES else reason("no_event_yet")
@@ -5924,14 +5965,16 @@ def release_cross_problems(index, sessions, shared, store):
     (`RELEASE_SOURCE_SHAPES`); a row naming an inventory names a published one of the kind its layer comes
     from, and carries that inventory row's status; an event it names is the segment's event in force of the
     row's kind, its members exactly that event's members of the layer, each in the store, and its occurrences
-    exactly that event's; a segment's inventory list and completeness are its rows'."""
+    exactly that event's; a complete row names no version, as a member or as a mapped occurrence's recorded
+    bytes, that the store did not split (R1 #3); a segment's inventory list and completeness are its rows'."""
     problems = []
     published = {document.get("inventory_id"): document for _path, document in shared}
     segments = {row.get("segment_id"): row for row in sessions.get("segments") or []}
     events = {row.get("event_id"): row for row in sessions.get("events") or []}
-    found = collections.defaultdict(set)
+    found, recorded = collections.defaultdict(set), {}
     for row in sessions.get("occurrences") or []:
         found[row.get("event_id")].add(row.get("occurrence_id"))
+        recorded[row.get("occurrence_id")] = row
     versions = store.get("versions") or {}
     layers = [layer for layer, _producers in LAYERS]
     listed = collections.Counter(entry.get("session_ref") for entry in index.get("sessions") or [])
@@ -5988,6 +6031,15 @@ def release_cross_problems(index, sessions, shared, store):
                                         f"members of this layer")
                 if "occurrence_refs" in source and set(source["occurrence_refs"]) != found.get(source.get("event_ref"), set()):
                     problems.append(f"RELEASE_OCCURRENCES_DIFFER {where} {layer}: not exactly the event's occurrences")
+                if row.get("status") == "complete" and isinstance(source, dict):
+                    named = [(member.get("carrier_id"), member.get("version_sha256")) for member in source.get("members") or []]
+                    named += [(occurrence.get("carrier_id"), occurrence.get("version_sha256"))
+                              for occurrence in (recorded.get(ref) or {} for ref in source.get("occurrence_refs") or [])
+                              if occurrence.get("method") != "unmapped"]
+                    if any(((versions.get(carrier_id) or {}).get(version) or {}).get("split") not in (None, "split")
+                           for carrier_id, version in named):
+                        problems.append(f"RELEASE_SPLIT_DIFFERS {where} {layer}: complete, and it names a version the "
+                                        f"store did not split")
             if block.get("inventory_refs") != sorted({(row.get("source") or {}).get("inventory_ref") for row in rows
                                                       if "inventory_ref" in (row.get("source") or {})}):
                 problems.append(f"RELEASE_INVENTORY_REFS_DIFFER {where}: not the inventories its rows name")
@@ -6216,8 +6268,9 @@ def run(repo, state_root, user_root, out_dir, pin=None, native_roots=None, ledge
             base = (ctx.get("shared_units") or {}).get(base_ref) or []
             for reference in UNIT_REFERENCES:
                 produced[reference][0]["renames"] = renames_against(produced[reference][1], base, home)
-            index = release_index(ctx, shared)
+            # The store first: whether a version the index names split is the store's answer (R1 #3).
             store_doc = store_document(ctx)
+            index = release_index(ctx, shared, store_doc)
             # The records and the index crossed over sessions.json's pre-context content, never written, before the
             # context sets are computed from them (lead, R17's condition): an index that names no session, or a
             # member the store lacks, is refused by its own name, not as a context set nothing could compute.
@@ -6327,7 +6380,7 @@ def bind_transcripts(ctx, run_dir, zstd=None):
     if ctx.get("pin") and not any(f"{entry.get('host')}:{entry.get('id')}" == ctx["pin"] for entry in entries):
         # the `--pin` session's selection is evidence about its pin only: no transcript of it is read (S-15)
         notes["pin_delivery"] = reason("no_census_session")
-    ctx["current_scopes"] = current_scopes(events, findings["timelines"], pins)
+    ctx["current_scopes"] = current_scopes(events, findings["timelines"], pins, findings["sessions"])
     # A delivery is confirmed only by a usable RECORDED occurrence the session's main owner holds in its own
     # transcript (step 0 S-13): a sidechain's copy, and a match whose bytes could not be recovered, are not.
     delivery = [event for event in events if event["kind"] == "session_injection" and not event.get("damaged")
@@ -8431,7 +8484,8 @@ def self_test():
             # segments' context sets computed from the index and the store as `run` computes them (P2.6)
             ctx_rec = {"home": None, "commit": "fixture", "sessions": findings_rec["sessions"], "events": _events_rec,
                        "segments": findings_rec.get("segments") or []}
-            index_rec, store_rec = release_index(ctx_rec, []), store_document(ctx_rec)
+            store_rec = store_document(ctx_rec)
+            index_rec = release_index(ctx_rec, [], store_rec)
             sessions_doc = sessions_with_contexts(ctx_rec, [], index_rec, store_rec)
             clean("sessions.json validates against its own root in the schema", document_contract_problems(sessions_doc))
             clean("and its records agree with one another", sessions_cross_problems(sessions_doc))
@@ -8592,7 +8646,7 @@ def self_test():
                         globals()["LAYERS"] = native_only
                     # sessions.json complete, as `run` publishes it: its context sets need the index and the store
                     store_here = store_document(ctx_here)
-                    index_here = release_index(ctx_here, shared_here)
+                    index_here = release_index(ctx_here, shared_here, store_here)
                     sessions_here = sessions_with_contexts(ctx_here, shared_here, index_here, store_here)
                     crossed_here = sessions_cross_problems(sessions_here) + store_cross_problems(
                         store_here, {"current": document_here}) + occurrence_cross_problems(sessions_here, store_here) \
@@ -8998,6 +9052,67 @@ def self_test():
                   "that transcript and line; a bracketed one does not",
                   [(entry.get("session_ref"), entry.get("line")) for entry in elsewhere]
                   == [(session_ref("claude", "s-u2"), 2)], f"{[(entry.get('line')) for entry in elsewhere]}")
+
+        with section("R1#2, R1#A: current's native layers count every failure input, a rejected AutoMem member and an "
+                     "unread main transcript among them"):
+            # ---- R1 #2: a rejected AutoMem member that names no usable directory is counted, as a valid member with a
+            # relative path is, and no longer dropped; one event, valid and rejected members together, published.
+            def r1_layer(document_here, layer):
+                return next((row for row in document_here.get("layers") or [] if row.get("layer") == layer), {})
+
+            def r1_universe(document_here, host="claude"):
+                return {row.get("host"): row for row in document_here.get("scope_universe") or []}.get(host) or {}
+
+            for r12_name, r12_member, r12_key in (
+                    ("no path", member("AutoMem", None, "- no path\n"), "memory_path_unusable"),
+                    ("a relative path", member("AutoMem", "notes/b.md", 5), "memory_path_relative")):
+                r12_doc = published_current(f"r1-2-{r12_key}", [
+                    ("claude", "s-r12", [inj("2026-10-20T09:00:00+00:00", [member("User", "/w/g.md", "- g\n"),
+                                                                           member("AutoMem", f"{d1}/a.md", "- kept\n"),
+                                                                           r12_member], cwd=p1)], {})])
+                r12_memory = r1_layer(r12_doc, "native_memory")
+                check(f"R1#2: a rejected AutoMem member with {r12_name} beside a valid one leaves current native_memory "
+                      f"incomplete by {r12_key}, the valid unit kept",
+                      "refused" not in r12_doc and r12_memory.get("status") == "incomplete" and r12_memory.get("units", 0) >= 1
+                      and any(f"{r12_key} 1 at claude" in text for text in r12_memory.get("reasons") or [])
+                      and r1_universe(r12_doc).get(r12_key) == 1
+                      and one_scope(r12_doc, "native_memory", "claude", d1).get("status") == "answered",
+                      f"refused={r12_doc.get('refused')} {r12_memory.get('status')} units={r12_memory.get('units')} "
+                      f"reasons={r12_memory.get('reasons')} universe={r1_universe(r12_doc)}")
+
+            # ---- R1 decision A: a main transcript the run did not read is counted at its host, so the host's current
+            # native layers are incomplete while the read scopes keep their units; a child's is not counted.
+            r1a_run = published_run("r1-a-unread", [
+                ("claude", "s-r1a", [inj("2026-10-20T09:00:00+00:00", [member("User", "/w/g.md", "- read\n")], cwd=p1)], {}),
+                ("claude", "s-r1a-u", [inj("2026-10-20T10:00:00+00:00", [member("User", "/w/g.md", "- unread\n")], cwd=p1)],
+                 {"path": None})])
+            r1a_doc = r1a_run.get("current") or {}
+            r1a_global = r1_layer(r1a_doc, "native_global")
+            r1a_unread = [row.get("read") for row in (r1a_run.get("sessions") or {}).get("sessions") or []
+                          if row.get("session") == "claude:s-r1a-u"]
+            check("R1#A: an unread main transcript beside a read one leaves its host's current native layers incomplete by "
+                  "transcript_unread, the read scope keeping its units",
+                  "refused" not in r1a_run and r1a_unread == ["no_path"] and r1a_global.get("status") == "incomplete"
+                  and r1a_global.get("units", 0) >= 1
+                  and any("transcript_unread 1 at claude" in text for text in r1a_global.get("reasons") or [])
+                  and r1_universe(r1a_doc).get("transcript_unread") == 1
+                  and one_scope(r1a_doc, "native_global", "claude").get("status") == "answered",
+                  f"refused={r1a_run.get('refused')} read={r1a_unread} {r1a_global.get('status')} "
+                  f"units={r1a_global.get('units')} reasons={r1a_global.get('reasons')} universe={r1_universe(r1a_doc)}")
+            r1a_child_run = published_run("r1-a-child", [
+                ("claude", "s-r1c", [inj("2026-10-20T09:00:00+00:00", [member("User", "/w/g.md", "- main\n")], cwd=p1)], {}),
+                ("claude", "s-r1c-kid", [inj("2026-10-20T10:00:00+00:00", [member("User", "/w/g.md", "- kid\n")], cwd=p1)],
+                 {"status": "child_of", "parent": "s-r1c", "sha256": None, "versions": []})])
+            r1a_child_doc = r1a_child_run.get("current") or {}
+            r1a_kid = [(row.get("kind"), row.get("read")) for row in (r1a_child_run.get("sessions") or {}).get("sessions") or []
+                       if row.get("session") == "claude:s-r1c-kid"]
+            check("R1#A: an unbound child transcript leaves current answered: a child's outcomes answer no scope, so its "
+                  "transcript is not counted",
+                  "refused" not in r1a_child_run and r1a_kid == [("subagent", "unbound")]
+                  and r1_layer(r1a_child_doc, "native_global").get("status") == "complete"
+                  and r1_universe(r1a_child_doc).get("transcript_unread") == 0,
+                  f"refused={r1a_child_run.get('refused')} kid={r1a_kid} "
+                  f"{r1_layer(r1a_child_doc, 'native_global').get('status')} universe={r1_universe(r1a_child_doc)}")
 
         with section('P2.3a: identities from raw values, duplicate members, the unit store and its spans, on the'):
             # ---- P2.3a: identities from raw values, duplicate members, the unit store and its spans, on the
@@ -9754,8 +9869,8 @@ def self_test():
                     shared_here = shared_inventories(ctx_here)
                     # the release segment index too, crossed as `run` crosses it (P2.5), and sessions.json complete
                     # with the context sets the index and the store give (P2.6)
-                    index_here = release_index(ctx_here, shared_here)
                     store_here = store_document(ctx_here)
+                    index_here = release_index(ctx_here, shared_here, store_here)
                     sessions_here = sessions_with_contexts(ctx_here, shared_here, index_here, store_here)
                     crossed_here = shared_cross_problems(shared_here, store_here, sessions_here) \
                         + occurrence_cross_problems(sessions_here, store_here) \
@@ -11410,7 +11525,7 @@ def self_test():
                 bind_transcripts(session_ctx, run_planted)
                 shared_here = shared_inventories(session_ctx)
                 held = {document["inventory_id"]: document for _path, document in shared_here}
-                index_here = release_index(session_ctx, shared_here)
+                index_here = release_index(session_ctx, shared_here, store_document(session_ctx))
                 own = session_ref("claude", "session-1")
                 entry = next((row for row in index_here["sessions"] if row["session_ref"] == own), {})
                 for row in ((entry.get("segments") or [entry.get("unsegmented") or {}])[0].get("layers") or []):
@@ -14092,7 +14207,7 @@ def self_test():
                   segment_row("session_injection", {"state": "in_force", "event_ref": unmapped_event["id"], "reason": None,
                                                   "line": None},
                             {unmapped_event["id"]: unmapped_event},
-                            {unmapped_event["id"]: [{"occurrence_id": "q-" + "2" * 24, "method": "unmapped"}]})
+                            {unmapped_event["id"]: [{"occurrence_id": "q-" + "2" * 24, "method": "unmapped"}]}, {})
                   == {"layer": "session_injection", "status": "unknown", "reasons": ["recorded_unmapped"],
                       "source": {"event_ref": unmapped_event["id"], "occurrence_refs": ["q-" + "2" * 24]}},
                   "")
@@ -14272,7 +14387,7 @@ def self_test():
             # same census and state, is refused by name, and nothing is written
             kept_index, hollow_out = globals()["release_index"], scratch / "p25" / "hollow-index-out"
             try:
-                globals()["release_index"] = lambda ctx, shared: {**kept_index(ctx, shared), "sessions": []}
+                globals()["release_index"] = lambda ctx, shared, store: {**kept_index(ctx, shared, store), "sessions": []}
                 hollow = _raised(lambda: run(REPO, index_state, None, hollow_out, native_roots={"projects": {}},
                                              run_dir=scratch / "p24b" / "run-index", commit="fixture", home=fixture_home))
             finally:
@@ -14281,6 +14396,133 @@ def self_test():
                     [str(hollow)], "RELEASE_SESSIONS_DIFFER")
             check("and the refused run wrote no artifact", not list(hollow_out.rglob("*.json")),
                   f"{sorted(path.name for path in hollow_out.rglob('*.json'))}")
+
+        with section("R1#3: a release row is complete only when every carrier version it names split"):
+            # ---- R1 #3 (§3.4): the index reads the store's own outcome for every version a row names, as a member or
+            # as a mapped occurrence's recorded bytes; one that did not split leaves the row incomplete by its key, the
+            # row keeping its source, and a complete row naming one is refused by the cross check. One fixture state of
+            # its own; every expectation written out by hand.
+            r13_state = scratch / "r1-3" / "state"
+            plant_baseline(r13_state, "ref-r13", [catalog_item("rule-r13", "rule", "- rule r13")])
+            r13_body = "# R1 3\n\n- the selected body\n"
+            r13_ref = plant_snapshot(r13_state, r13_body, baseline_ref="ref-r13",
+                                     items=[catalog_item("rule-r13", "rule", "- rule r13")])
+            for r13_ident in ("s-r13m", "s-r13u"):
+                plant_pin(r13_state, r13_ident, r13_ref)
+            r13_at = "2026-10-23T09:00:00+00:00"
+
+            def r13_records(odd_member):
+                return [{"type": "user", "timestamp": r13_at},
+                        inj(r13_at, [member("User", "/w/g.md", "- r13\n"), member("Project", "/w/r13/CLAUDE.md", "- kept\n"),
+                                     odd_member], cwd="/w/r13"),
+                        prompt_record("2026-10-23T09:01:00+00:00", [r13_body])]
+
+            def r13_block(index_here, ident):
+                """`ident`'s segment whose native and injection events are both in force: the block itself, which a
+                planting changes in place. Raises when the index holds none, which a planting reports by name."""
+                entry = next(row for row in index_here["sessions"] if row["session_ref"] == session_ref("claude", ident))
+                return next(block for block in entry["segments"]
+                            if all((row["source"] or {}).get("occurrence_refs") or (row["source"] or {}).get("members")
+                                   for row in block["layers"] if row["layer"] in ("session_injection", "native_project")))
+
+            def r13_row(run_here, ident, layer):
+                try:
+                    return next(row for row in r13_block(run_here["release"], ident)["layers"] if row["layer"] == layer)
+                except (KeyError, StopIteration, TypeError):
+                    return {}
+
+            r13_malformed = published_shared("r1-3-malformed", [pinned_row("s-r13m", r13_records(
+                member("Project", "/w/r13/rules.json", "{not json")), r13_ref)], r13_state)
+            r13_m_project = r13_row(r13_malformed, "s-r13m", "native_project")
+            r13_m_versions = [row for rows in (r13_malformed.get("store") or {}).get("versions", {}).values()
+                              for row in rows.values() if row.get("layer") == "native_project"]
+            check("R1#3: a malformed member makes its release segment row incomplete by carrier_malformed, its source still "
+                  "naming both members and the store keeping the other member's units",
+                  "refused" not in r13_malformed and r13_m_project.get("status") == "incomplete"
+                  and r13_m_project.get("reasons") == ["carrier_malformed"]
+                  and len((r13_m_project.get("source") or {}).get("members") or []) == 2
+                  and sorted(row.get("split") for row in r13_m_versions) == ["malformed", "split"]
+                  and all(bool(row.get("unit_refs")) == (row.get("split") == "split") for row in r13_m_versions),
+                  f"refused={r13_malformed.get('refused')} {str(r13_malformed.get('message'))[:200]} "
+                  f"row={[r13_m_project.get(key) for key in ('status', 'reasons')]} "
+                  f"versions={[(row.get('split'), len(row.get('unit_refs') or [])) for row in r13_m_versions]}")
+            r13_kept_units = globals()["units_of"]
+
+            def r13_units(items, *args, **kwargs):
+                if any(str(item.get("path") or "").endswith("r13-odd.md") for item in items):
+                    raise Unsupported("R1#3: a planted splitter has no form for this carrier")
+                return r13_kept_units(items, *args, **kwargs)
+
+            try:
+                globals()["units_of"] = r13_units
+                r13_unsupported = published_shared("r1-3-unsupported", [pinned_row("s-r13u", r13_records(
+                    member("Project", "/w/r13/r13-odd.md", "- odd\n")), r13_ref)], r13_state)
+            finally:
+                globals()["units_of"] = r13_kept_units
+            r13_u_project = r13_row(r13_unsupported, "s-r13u", "native_project")
+            check("R1#3: an unsupported member (a planted splitter) makes it incomplete by carrier_unsupported",
+                  "refused" not in r13_unsupported and r13_u_project.get("status") == "incomplete"
+                  and r13_u_project.get("reasons") == ["carrier_unsupported"],
+                  f"refused={r13_unsupported.get('refused')} {str(r13_unsupported.get('message'))[:200]} "
+                  f"row={[r13_u_project.get(key) for key in ('status', 'reasons')]}")
+            r13_event = {"id": "e-" + "4" * 24, "kind": "session_injection", "damaged": None}
+            r13_found = [{"occurrence_id": "q-" + "5" * 24, "method": "exact", "carrier_id": "c-" + "6" * 24,
+                          "version_sha256": "7" * 64}]
+            r13_injection = segment_row("session_injection", {"state": "in_force", "event_ref": r13_event["id"],
+                                                              "reason": None, "line": None},
+                                        {r13_event["id"]: r13_event}, {r13_event["id"]: r13_found},
+                                        {"c-" + "6" * 24: {"7" * 64: {"split": "malformed"}}})
+            check("R1#3: an injection whose mapped occurrence's recorded bytes did not split is incomplete by "
+                  "carrier_malformed, its occurrence still named",
+                  r13_injection == {"layer": "session_injection", "status": "incomplete", "reasons": ["carrier_malformed"],
+                                    "source": {"event_ref": r13_event["id"], "occurrence_refs": ["q-" + "5" * 24]}},
+                  f"{r13_injection}")
+
+            # The cross check, against the malformed run's own published documents: the positive first, then a complete
+            # row naming a version the store did not split, once as a member and once as an occurrence's recorded
+            # bytes. Each planting keeps the block's completeness its rows', so only the new clause can refuse it.
+            r13_shared = sorted((f"shared/{stem}.json", document)
+                                for stem, document in (r13_malformed.get("shared") or {}).items())
+            r13_sessions = r13_malformed.get("sessions") or {}
+            r13_store = r13_malformed.get("store") or {}
+            clean("R1#3: the mixed run's index crosses clean against its sessions, inventories and store",
+                  release_cross_problems(r13_malformed["release"], r13_sessions, r13_shared, r13_store)
+                  if "release" in r13_malformed else ["the run published no index"])
+
+            def r13_planted(plant):
+                """`release_cross_problems` over copies of the malformed run's index and store after `plant`, or the
+                named reason nothing was planted: a refused run's documents have no place for it (P2.7c)."""
+                index_copy, store_copy = json.loads(json.dumps(r13_malformed.get("release"))), json.loads(json.dumps(r13_store))
+                try:
+                    planted_here = plant(r13_block(index_copy, "s-r13m"), store_copy)
+                except (KeyError, IndexError, StopIteration, TypeError) as exc:
+                    return [f"PLANT_UNREACHABLE: the published documents have no place for this planted change "
+                            f"({type(exc).__name__})"]
+                if not planted_here:
+                    return ["nothing planted: the row is complete already, so planting it complete tests nothing"]
+                return release_cross_problems(index_copy, r13_sessions, r13_shared, store_copy)
+
+            def r13_complete_member(block, _store_copy):
+                row = next(row for row in block["layers"] if row["layer"] == "native_project")
+                if row["status"] == "complete":
+                    return False
+                row.update(status="complete", reasons=[])
+                block.update(completeness(block["layers"]))
+                return True
+
+            def r13_unsplit_occurrence(block, store_copy):
+                row = next(row for row in block["layers"] if row["layer"] == "session_injection")
+                if row["status"] != "complete":
+                    return False
+                occurrence = next(one for one in r13_sessions["occurrences"]
+                                  if one["occurrence_id"] in row["source"]["occurrence_refs"] and one["method"] != "unmapped")
+                store_copy["versions"][occurrence["carrier_id"]][occurrence["version_sha256"]]["split"] = "malformed"
+                return True
+
+            control("R1#3: a complete release row naming a member version that did not split is refused by "
+                    "RELEASE_SPLIT_DIFFERS", r13_planted(r13_complete_member), "RELEASE_SPLIT_DIFFERS", "native_project")
+            control("R1#3: and so is a complete injection row naming a mapped occurrence whose recorded bytes did not split",
+                    r13_planted(r13_unsplit_occurrence), "RELEASE_SPLIT_DIFFERS", "session_injection")
 
         with section("P2.6: closures as published edges, typed unresolved requirements, one closure rule (step 0 S-12)"):
             # ---- P2.6 (step 0 S-12, S-26; lead rulings on the P2.6 plan): one closure loop, typed `k-`
@@ -15595,6 +15837,8 @@ def self_test():
                               "release_history_deferred", "baseline_absent", "snapshot_absent",
                               "exclusion_unreadable", "undecodable_elsewhere"),
                 "phase 2": ("baseline_unnamed", "injection_body_empty"),
+                "review round 1": ("memory_path_unusable", "transcript_unread", "carrier_malformed",
+                                   "carrier_unsupported"),
             }
             vocabulary_by_refusal = {}
             vocabulary_keys = [key for keys in vocabulary_expected.values() for key in keys]
