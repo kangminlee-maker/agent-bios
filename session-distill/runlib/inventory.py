@@ -619,7 +619,56 @@ def units_of(carriers):
 CONDITION_HEADING = re.compile(
     r"(?i)\b(exception|exceptions|unless|caveat|caveats|limitation|limitations|scope|applies|"
     r"applicability|trigger|triggers|when to|conditions?|prerequisites?)\b")
-UNRESOLVED = "unknown:"  # a mention this reference point could not resolve, kept as a requirement
+UNRESOLVED = "unknown:"  # the in-memory label of a mention this reference point could not resolve
+# The one closure semantics (step 0 S-12): every published document names it, and a reader that
+# implements another refuses the document rather than computing a different context from it.
+CLOSURE_RULE = "operative-context/1"
+SUPPORTED_CLOSURE_RULES = (CLOSURE_RULE,)
+# What an unresolved mention failed on: no carrier at the path it named, a heading that carrier does
+# not have, or several carriers at that path (step 0 S-12).
+UNKNOWN_KINDS = ("plain", "heading", "ambiguous")
+
+
+def unknown_id(carrier_id, version_sha256, named, heading, kind):
+    """The typed unresolved requirement `k-` (step 0 S-12): over its ORIGIN — the carrier version the
+    mention was read in, the offsets of the path it named and of the heading it named, and what it
+    failed on — never over the text it named. Two carriers naming one missing guide are two entries,
+    and so are two versions of one carrier."""
+    return opaque_id("k", "unknown", carrier_id, version_sha256, list(named),
+                     list(heading) if heading is not None else None, kind)
+
+
+def closure_of(direct, reached):
+    """THE closure rule (`CLOSURE_RULE`), over edges: every key of `direct` with its requirement set,
+    sorted by reference string (step 0 S-12, canonical form).
+
+    `direct[u]` is what the unit carries by its own carrier — itself, its frontmatter, its enclosing
+    headings, the condition spans at or above it — and `reached[u]` what its mentions resolved to. The
+    set is transitive and cycle-safe: what was just included is expanded in turn, each entry once. An
+    entry with no edges of its own (an unresolved `k-` requirement, a unit outside these edges) is a
+    terminal. `operative_context` calls this over its own maps and `published_closures` over the
+    published ones, so there is one rule; the identifiers are whatever the edges hold."""
+    closures = {}
+    for start in direct:
+        context, seen = list(direct[start]), {start}
+        # The starting unit's own requirements are expanded as well: seeding the queue with its
+        # mentions alone left a condition span's own references out of the closure, so a rule whose
+        # exception pointed at a second guide was read without that guide (GC#8).
+        queue = collections.deque([row for row in direct[start] if row != start] + list(reached.get(start, ())))
+        while queue:  # cycle-safe: each entry is expanded once
+            row = queue.popleft()
+            if row in seen:
+                continue
+            seen.add(row)
+            context.append(row)
+            for member in direct.get(row, ()):
+                if member not in seen:
+                    queue.append(member)
+            for onward in reached.get(row, ()):
+                if onward not in seen:
+                    queue.append(onward)
+        closures[start] = sorted(set(context))
+    return closures
 
 
 def _carrier_key(unit):
@@ -661,12 +710,17 @@ def operative_context(units):
 
     The closure is transitive and cycle-safe: a requirement reached through another guide is read
     with that guide's own conditions, and the mentions inside what was just included are followed in
-    turn, each unit visited once. What cannot be resolved stays in the set as `unknown:<what>` — a
-    context that silently omits what it could not reach claims a completeness it does not have.
+    turn, each unit visited once (`closure_of`, the one rule). What cannot be resolved stays in the set
+    as a typed `k-` requirement, one per mention it was read at (`unknown_id`) — a context that
+    silently omits what it could not reach claims a completeness it does not have.
 
     Everything is keyed by CARRIER IDENTITY, not by path: two packages deliver `claude/guides/x.md`
     at one path, and grouping by path gave one package's rule the other package's trigger, with the
-    answer depending on which package the run enumerated first (GB#10)."""
+    answer depending on which package the run enumerated first (GB#10).
+
+    Beside the closure each unit carries, never emitted: its `direct` and `reached` lists (a shared
+    inventory publishes them as edges) and the map of every `k-` entry of this call, with the raw
+    label a reader in this process can name it by."""
     by_carrier = collections.defaultdict(list)
     for unit in units:
         by_carrier[_carrier_key(unit)].append(unit)
@@ -710,28 +764,31 @@ def operative_context(units):
         direct[unit["unit_id"]] = list(dict.fromkeys(context))
 
     def mentioned(unit_id):
-        """What this unit's text names: resolved unit ids, and `unknown:` for what it does not.
+        """What this unit's text names: resolved unit ids, and a `k-` entry for what it does not.
 
-        An `unknown:` entry is kept as the string the closure walks, AND its position in the carrier
-        is recorded in `origins`. The string is raw carrier text, so the emission builds the entry
-        from those offsets through the floor instead of carrying it (r3 #0). Resolution reads the raw
-        text as before: only what is emitted changes."""
+        A `k-` entry is the terminal the closure walks, and `unknowns` keeps what the emission needs
+        to publish it: the carrier version it was read in and the offsets there. Its label is raw
+        carrier text, so the emission builds the entry's display from those offsets through the floor
+        instead of carrying it (r3 #0). Resolution reads the raw text as before: only what is
+        emitted changes. A record built by hand carries no carrier of its own, and its block is its
+        carrier, which is the answer `_emit_span` gives it too."""
         unit = by_id[unit_id]
         reached = []
-        base = (unit.get("span") or (0, 0))[0] if unit.get("carrier_text") else None
+        carrier_text = unit.get("carrier_text") or unit["text"]
+        base = (unit.get("span") or (0, 0))[0] if unit.get("carrier_text") else 0
+        version = unit.get("version_sha256") or sha256_text(carrier_text)
 
-        def origin(entry, kind, match):
-            """Where in the carrier this entry was read, so the emission can project it."""
-            if base is None:
-                return
+        def unknown(label, kind, match):
+            """The `k-` entry this mention is, recorded once with its origin."""
             named_at = (base + match.start("path"), base + match.end("path"))
             heading_at = None
-            if match.group("heading") is not None and match.start("heading") >= 0:
+            if kind == "heading" and match.group("heading") is not None and match.start("heading") >= 0:
                 heading_at = (base + match.start("heading"), base + match.end("heading"))
-            row = (unit["carrier_id"], unit["carrier_text"], named_at,
-                   heading_at if kind == "heading" else None, kind)
-            if row not in origins.setdefault(entry, []):
-                origins[entry].append(row)
+            key = unknown_id(unit["carrier_id"], version, named_at, heading_at, kind)
+            unknowns.setdefault(key, {"label": label, "kind": kind, "carrier_id": unit["carrier_id"],
+                                      "version_sha256": version, "carrier_text": carrier_text,
+                                      "named": named_at, "heading": heading_at, "unit_id": unit_id})
+            reached.append(key)
 
         for match in MENTION.finditer(unit["text"]):
             named, heading = match.group("path"), (match.group("heading") or "").strip()
@@ -739,15 +796,13 @@ def operative_context(units):
             targets = [key for path in paths for key in carriers_at_path[path]]
             if not targets:
                 if named != unit["path"] and named != unit["path"].rsplit("/", 1)[-1]:
-                    reached.append(f"{UNRESOLVED}{named}")
-                    origin(f"{UNRESOLVED}{named}", "plain", match)
+                    unknown(f"{UNRESOLVED}{named}", "plain", match)
                 continue
             if len(targets) > 1:
                 # Several packages deliver this path. Every candidate's requirements are in the set
                 # AND the ambiguity is stated: choosing the first match is how a context silently
                 # became another package's (GB#10).
-                reached.append(f"{UNRESOLVED}ambiguous:{named}")
-                origin(f"{UNRESOLVED}ambiguous:{named}", "ambiguous", match)
+                unknown(f"{UNRESOLVED}ambiguous:{named}", "ambiguous", match)
             for key in targets:
                 if heading:
                     rows = [u["unit_id"] for u in by_carrier[key]
@@ -755,42 +810,30 @@ def operative_context(units):
                     if rows:
                         reached += rows
                     else:
-                        reached.append(f"{UNRESOLVED}{named}#{heading}")
-                        origin(f"{UNRESOLVED}{named}#{heading}", "heading", match)
+                        unknown(f"{UNRESOLVED}{named}#{heading}", "heading", match)
                 else:
                     reached += whole_carrier(key)
         return [row for row in dict.fromkeys(reached) if row != unit_id]
 
-    origins = {}
+    unknowns = {}
     reached = {unit["unit_id"]: mentioned(unit["unit_id"]) for unit in units}
-    # One map for every unit: an entry a unit reached through the closure was READ in another
-    # carrier, and it is that carrier's offsets and that carrier's floor decision the emission needs.
+    closures = closure_of(direct, reached)
     for unit in units:
-        unit["context_origins"] = origins
-
-    for unit in units:
-        context, seen = list(direct[unit["unit_id"]]), {unit["unit_id"]}
-        # The starting unit's own requirements are expanded as well: seeding the queue with its
-        # mentions alone left a condition span's own references out of the closure, so a rule whose
-        # exception pointed at a second guide was read without that guide (GC#8).
-        queue = collections.deque([row for row in direct[unit["unit_id"]] if row != unit["unit_id"]]
-                                  + reached[unit["unit_id"]])
-        while queue:  # cycle-safe: each unit id is expanded once
-            row = queue.popleft()
-            if row in seen:
-                continue
-            seen.add(row)
-            context.append(row)
-            if row.startswith(UNRESOLVED):
-                continue
-            for member in direct.get(row, []):
-                if member not in seen:
-                    queue.append(member)
-            for onward in reached.get(row, []):
-                if onward not in seen:
-                    queue.append(onward)
-        unit["operative_context"] = list(dict.fromkeys(context))
+        unit["operative_context"] = closures[unit["unit_id"]]
+        unit["context_direct"], unit["context_reached"] = direct[unit["unit_id"]], reached[unit["unit_id"]]
+        # One map for every unit: an entry a unit reached through the closure was READ in another
+        # carrier, and it is that carrier's offsets and that carrier's floor decision the emission needs.
+        unit["context_unknowns"] = unknowns
     return units
+
+
+def context_labels(unit):
+    """The unit's closure as a reader in THIS process names it: each `k-` entry by its raw label
+    (`unknown:<named>`, `unknown:ambiguous:<named>`, `unknown:<named>#<heading>`), every other entry
+    as it is. Never emitted: the label is carrier text, and the artifact publishes the entry's
+    `display`, projected from its origin."""
+    unknowns = unit.get("context_unknowns") or {}
+    return [unknowns[row]["label"] if row in unknowns else row for row in unit["operative_context"]]
 
 
 def _carrier_span(carrier_text, start, end, home=None, decision=None):
@@ -873,6 +916,7 @@ OPAQUE_FORMS = {"unit_id": re.compile(r"^u-[0-9a-f]{16}(-[0-9]+)?$"),
                 "occurrence_id": re.compile(r"^q-[0-9a-f]{24}$"),
                 "inventory_id": re.compile(r"^i-[0-9a-f]{24}$"),
                 "segment_id": re.compile(r"^g-[0-9a-f]{24}$"),
+                "unknown_id": re.compile(r"^k-[0-9a-f]{24}$"),
                 "commit_hash": re.compile(r"^[0-9a-f]{7,64}$")}
 
 
@@ -924,10 +968,10 @@ def layer_names():
 
 
 def as_context():
-    """One entry of `operative_context` that this reference point could not resolve.
+    """The `display` of one unresolved requirement (`k-`, an `unknown_entries` row).
 
-    The entry is BUILT from the carrier offsets of the mention it came from, through the same floor
-    decision as any other span of that carrier — never from the stored string, which is raw carrier
+    It is BUILT from the carrier offsets of the mention it came from, through the same floor
+    decision as any other span of that carrier — never from the stored label, which is raw carrier
     text and is what leaked (r3 #0). Internal resolution still reads the raw text; only what is
     emitted changes."""
     return {"rule": CONTEXT}
@@ -1125,25 +1169,19 @@ def _render_context(origin, place):
 
 
 def _emit_context(value, place, where):
-    """An unresolved entry, from its ORIGINS. An entry with none is refused: the stored string is
-    raw carrier text and is never what is emitted.
+    """An unresolved requirement's `display`, from its ORIGIN: `{"label", "origin"}`, the origin being
+    the one carrier version its mention was read in and the offsets there. A value with no origin is
+    refused: the stored label is raw carrier text and is never what is emitted.
 
-    Several carriers can name the same thing, and their floor decisions can differ — one withholds
-    its carrier whole and another does not. When the renderings disagree the WITHHELD one stands,
-    because a context entry says what a reader would have to read and the safe answer is the one
-    that carries nothing."""
-    unit = place["unit"]
-    origins = (unit.get("context_origins") or {}).get(value)
-    if not origins:
-        if not unit.get("carrier_text"):
-            # A record built by hand carries no carrier of its own, so this entry takes exactly the
-            # path that record's `text` takes.
-            return projected(value, place["home"])
+    One origin per entry (step 0 S-12 [F:312-317]): several carriers naming one missing thing are
+    several `k-` entries, each projected under its OWN carrier's floor decision. The rule this
+    replaced emitted one string for all of them and let the withheld rendering stand; under typed
+    entries no rendering answers for another carrier's mention, so there is nothing to choose."""
+    origin = value.get("origin") if isinstance(value, dict) else None
+    if not origin:
         raise Refused(f"EMISSION_UNDECLARED {where}: an unresolved context entry with no carrier "
                       f"offsets behind it; the stored string is never what is emitted")
-    rendered = sorted({_render_context(origin, place) for origin in origins})
-    withheld = [row for row in rendered if projection.blank_for("x") in row]
-    return (withheld or rendered)[0]
+    return _render_context(origin, place)
 
 
 def _emit_value(spec, value, place, where):
@@ -1263,7 +1301,7 @@ BLOCK_KINDS = frozenset((
 # closure's own bookkeeping. Declared here so a field left off the table is refused rather than
 # silently dropped.
 EMISSION_INTERNAL = frozenset(("carrier_text", "span", "heading_spans", "enclosing",
-                               "context_origins"))
+                               "context_direct", "context_reached", "context_unknowns"))
 # The hosts a provenance row may name. This one IS a vocabulary of this code: the host of a session
 # injection is named by the producer, never read out of a file.
 PROVENANCE_HOSTS = frozenset(("claude", "codex"))
@@ -1293,9 +1331,10 @@ PROVENANCE_TABLE = table_of({
 }, optional=("as_of", "session", "transcript", "where", "scope", "reference", "record", "identity",
              "status", "keep_units", "keep_reason", "hosts", "scope_id", "event_id", "git"), schema="provenance")
 
-# §6.1's unit record as the artifact carries it. `operative_context` is ONE list with a per-item
-# union: a resolved entry is an opaque unit id, and an unresolved one is built from the carrier
-# offsets of the mention it came from — never from the stored string, which is what leaked (r3 #0).
+# §6.1's unit record as the artifact carries it. `operative_context` is ONE sorted list of opaque
+# ids: a resolved entry is a unit id, and an unresolved one a `k-` id whose row in the document's
+# `unknown_entries` carries a display built from the carrier offsets of the mention it came from —
+# never from the stored label, which is what leaked (r3 #0).
 UNIT_TABLE = table_of({
     "unit_id": as_opaque("unit_id"),
     # the unit's reference into `shared/store.json` (step 0 S-11, S-22)
@@ -1307,7 +1346,7 @@ UNIT_TABLE = table_of({
     "text": as_span("span"),
     "sha": as_opaque("sha256"),
     "class": as_enum(lambda: schema_enum("unit_class") or ("operative", "reference")),
-    "operative_context": list_of(one_of(as_opaque("unit_id"), as_context())),
+    "operative_context": list_of(one_of(as_opaque("unit_id"), as_opaque("unknown_id"))),
     "version_sha256": as_opaque("sha256"),
     "redaction_version": as_constant(projection.CURRENT),
     "block": as_enum(BLOCK_KINDS),
@@ -1316,6 +1355,82 @@ UNIT_TABLE = table_of({
     "carrier_id": as_opaque("carrier_id"),
     "provenance": PROVENANCE_TABLE,
 }, schema="unit")
+
+# One unresolved requirement as a document lists it (step 0 S-12): its id, what it failed on, the
+# carrier version and the offsets it was read at, and its display, projected ONCE here under that
+# version's floor decision. The offsets are code points of the raw version. An origin the floor
+# withholds WHOLE publishes none (lead A5): a mention's offsets are finer than the unit boundaries the
+# store publishes for that carrier, so they would say more of it than its own units do.
+UNKNOWN_REQUIREMENT_TABLE = table_of({
+    "unknown_id": as_opaque("unknown_id"),
+    "kind": as_enum(UNKNOWN_KINDS),
+    "carrier_id": as_opaque("carrier_id"),
+    "version_sha256": as_opaque("sha256"),
+    "named": {**list_of(as_scalar()), "nullable": True},
+    "heading": {**list_of(as_scalar()), "nullable": True},
+    "display": as_context(),
+}, schema="unknown_requirement")
+# A shared inventory's edges for one unit (step 0 S-12): `direct` starts the closure and holds the unit
+# itself, `reached` is what its mentions resolved to in the inventory's own universe, both sorted.
+EDGE_TABLE = table_of({
+    "unit_ref": as_opaque("unit_ref"),
+    "direct": list_of(as_opaque("unit_ref")),
+    "reached": list_of(one_of(as_opaque("unit_ref"), as_opaque("unknown_id"))),
+}, schema="requirement_edges")
+
+
+def unknown_sources(units, referenced, place):
+    """The `unknown_entries` source rows for the `k-` ids `referenced`, from the units' map, sorted by
+    id. The display's source is the stored label beside its origin: the label is what a detached
+    emitter would publish, and `_emit_context` builds the display from the origin instead.
+
+    An origin version the floor withholds whole (`_decision_for`, the decision its display is projected
+    under) publishes its entry with no offsets. The id is still over them, as S-12 defines it: it
+    commits to the offsets without stating them."""
+    unknowns = {}
+    for unit in units:
+        unknowns.update(unit.get("context_unknowns") or {})
+    rows = []
+    for key in sorted(referenced):
+        entry = unknowns[key]
+        withheld = _decision_for(place, entry["carrier_id"], entry["carrier_text"])[1]
+        rows.append({"unknown_id": key, "kind": entry["kind"], "carrier_id": entry["carrier_id"],
+                     "version_sha256": entry["version_sha256"],
+                     "named": None if withheld else list(entry["named"]),
+                     "heading": list(entry["heading"]) if entry["heading"] is not None and not withheld else None,
+                     "display": {"label": entry["label"],
+                                 "origin": (entry["carrier_id"], entry["carrier_text"], entry["named"],
+                                            entry["heading"], entry["kind"])}})
+    return rows
+
+
+def edges_of(units):
+    """A shared inventory's published edges (step 0 S-12): per unit, by its `r-` reference, the
+    `direct` and `reached` lists `operative_context` closed over, each sorted, an unresolved mention
+    as its `k-` entry. A closure is never published here: `published_closures` computes it."""
+    ref_of = {unit["unit_id"]: unit["unit_ref"] for unit in units}
+    rows = {}
+    for unit in units:
+        rows.setdefault(unit["unit_ref"], {
+            "unit_ref": unit["unit_ref"],
+            "direct": sorted({ref_of[row] for row in unit["context_direct"]}),
+            "reached": sorted({ref_of.get(row, row) for row in unit["context_reached"]})})
+    return [rows[ref] for ref in sorted(rows)]
+
+
+def published_closures(inventory):
+    """Every unit's closure, from ONE shared inventory's PUBLISHED edges only (step 0 S-12 [F:304-306]).
+
+    The edges go through `closure_of`, the loop `operative_context` runs, so there is one rule. The
+    inventory is a value its caller already loaded: this reads no file, no source tree and no state
+    root. A document naming a closure rule this reader does not implement is refused by name rather
+    than read as if it were this one."""
+    if inventory.get("closure_rule") not in SUPPORTED_CLOSURE_RULES:
+        raise Refused(f"CLOSURE_RULE_UNSUPPORTED {inventory.get('inventory_id')}: the document names a "
+                      f"closure rule this reader does not implement, so no closure is computed from it")
+    edges = inventory.get("edges") or []
+    return closure_of({row["unit_ref"]: row["direct"] for row in edges},
+                      {row["unit_ref"]: row["reached"] for row in edges})
 
 
 # The note keys the layer producers write. The key set is declared so a new note is declared here
@@ -1622,6 +1737,7 @@ def sessions_document(ctx):
     place = {"home": ctx.get("home"), "decisions": {}}
     return {
         "document": "sessions",
+        "closure_rule": CLOSURE_RULE,
         "produced_by": emit_row("produced_by", SESSIONS_PRODUCED_BY_TABLE, {
             "module": "session-distill/runlib/inventory.py", "design": DESIGN,
             "commit": ctx.get("commit")}, place),
@@ -1875,7 +1991,7 @@ def store_document(ctx):
                 "class": unit["class"], "block": unit["block"], "redaction_version": unit["redaction_version"],
                 "carrier_text": unit["carrier_text"], "span": unit["span"],
                 "heading_spans": unit["heading_spans"]}, place)
-    return {"document": STORE, "span_unit": SPAN_UNIT,
+    return {"document": STORE, "span_unit": SPAN_UNIT, "closure_rule": CLOSURE_RULE,
             "produced_by": emit_row("produced_by", SESSIONS_PRODUCED_BY_TABLE, {
                 "module": "session-distill/runlib/inventory.py", "design": DESIGN,
                 "commit": ctx.get("commit")}, place),
@@ -4882,6 +4998,8 @@ DOCUMENT_MEMBERS = (
     "delivery", "members", "include_global_instructions", "baseline_ref", "pin_delivery",
     # a shared inventory, a session's selection of one, and the manifest's artifact list (step 0 S-22)
     "inventory_id", "unavailable", "surface", "inventory_ref", "artifacts",
+    # closures as published edges, and the typed unresolved requirements they name (step 0 S-12)
+    "closure_rule", "edges", "direct", "reached", "unknown_entries", "unknown_id", "named",
     # a rename row
     "from_unit_id", "from_carrier_id", "to_carrier_id", "from_path", "to_path", "from_layer",
     "to_layer", "moved", "ambiguous", "from_carriers", "to_carriers", "reason",
@@ -4898,10 +5016,19 @@ def emitted_document(reference, rows, ctx):
 
     THE production path, called by `reference_of` and by the differential control alike. It was
     composed inline inside `reference_of`, so a control could only approximate it — and a control
-    that approximates the path it judges is judging a different path (r3 #0)."""
+    that approximates the path it judges is judging a different path (r3 #0).
+
+    The units are listed in one canonical order — by layer row, then carrier id, version and position
+    — and each closure is sorted (step 0 S-12, canonical form), so the same carriers enumerated in
+    another order publish the same bytes. Every `k-` a closure names has its row in
+    `unknown_entries`."""
     ctx.setdefault("carriers_named", []).extend(item for row in rows for item in row.get("carriers") or [])
     units = operative_context(produce(rows))
     place = {"home": ctx.get("home"), "decisions": {}}
+    position = {row["layer"]: n for n, row in enumerate(rows)}
+    listed = sorted(units, key=lambda unit: (position.get(unit["layer"], len(position)), unit["carrier_id"],
+                                             unit["version_sha256"] or "", unit["n"], unit["unit_id"]))
+    referenced = {row for unit in units for row in unit["operative_context"] if row.startswith("k-")}
     reasons = [reason for row in rows for reason in row["reasons"]]
     if ctx.get("acquisition_error"):
         reasons = [ctx["acquisition_error"]] + reasons
@@ -4911,6 +5038,7 @@ def emitted_document(reference, rows, ctx):
             "selection": {"kind": "selection", "content_ref": (ctx.get("snapshot") or {}).get("content_ref")}}[reference]
     document = {
         "document": reference,
+        "closure_rule": CLOSURE_RULE,
         "reference": emit_row("reference", REFERENCE_TABLE,
                               {**kind, "complete": not reasons, "incomplete_reasons": reasons}, place),
         "produced_by": emit_row("produced_by", PRODUCED_BY_TABLE, {
@@ -4921,7 +5049,9 @@ def emitted_document(reference, rows, ctx):
                             {key: row[key] for key in ("layer", "producer", "status", "units",
                                                        "empty", "reasons")}, place)
                    for row in rows],
-        "units": shed(units, ctx.get("home")),
+        "units": shed(listed, ctx.get("home")),
+        "unknown_entries": [emit_row(f"unknown_entries[{row['unknown_id']}]", UNKNOWN_REQUIREMENT_TABLE, row, place)
+                            for row in unknown_sources(units, referenced, place)],
         "renames": [],
     }
     if reference == "current":
@@ -5000,25 +5130,31 @@ def unavailable_rows(ctx, snapshot):
 
 def shared_document(kind, ref, rows, ctx, unavailable=None, expected=None):
     """One shared inventory as `shared/<kind>-<i>.json` publishes it: its layer rows, the carrier
-    versions it holds and its units, by reference into the store, and — a release — its baseline items
-    the units do not map (done-when 1, per inventory: lead ruling 6 on the P2.4 plan)."""
+    versions it holds and its units, by reference into the store, its edges (`edges_of`: every unit's
+    `direct` and `reached`, mentions resolved in this inventory's own universe, step 0 S-12) with the
+    unresolved requirements they name, and — a release — its baseline items the units do not map
+    (done-when 1, per inventory: lead ruling 6 on the P2.4 plan)."""
     place = {"home": ctx.get("home"), "decisions": {}}
     carriers = [item for row in rows for item in row.get("carriers") or []]
     ctx.setdefault("carriers_named", []).extend(carriers)
-    units = produce(rows)
+    units = operative_context(produce(rows))
+    edges = edges_of(units)
     reasons = [text for row in rows for text in row["reasons"]]
     unmapped = mapping_problems(expected, units) if expected is not None else []
     identity = inventory_id(kind, ref)
     # the units themselves, for `run`'s renames against the `--pin` session's release inventory (R7)
     ctx.setdefault("shared_units", {})[identity] = units
     document = {
-        "document": SHARED, "inventory_id": identity, "kind": kind, "ref": ref,
+        "document": SHARED, "closure_rule": CLOSURE_RULE, "inventory_id": identity, "kind": kind, "ref": ref,
         "complete": not (reasons or unmapped), "incomplete_reasons": reasons + unmapped,
         "produced_by": {"module": "session-distill/runlib/inventory.py", "design": DESIGN, "commit": ctx.get("commit")},
         "layers": [{key: row[key] for key in ("layer", "producer", "status", "units", "empty", "reasons")} for row in rows],
         "carriers": [{"carrier_id": carrier_id, "version_sha256": version}
                      for carrier_id, version in sorted({(item["carrier_id"], item["version_sha256"]) for item in carriers})],
         "unit_refs": sorted({unit["unit_ref"] for unit in units}),
+        "edges": edges,
+        "unknown_entries": unknown_sources(units, {row for edge in edges for row in edge["reached"]
+                                                   if row.startswith("k-")}, place),
     }
     table = SHARED_INVENTORY_TABLE
     if kind == "selection":
@@ -5069,6 +5205,42 @@ def shared_cross_problems(shared, store, sessions):
         ref = (record.get("selection") or {}).get("inventory_ref")
         if ref is not None and (published.get(ref) or {}).get("kind") != "selection":
             problems.append(f"SHARED_SELECTION_UNRESOLVED: a session's selection names no published selection inventory")
+    return problems
+
+
+def closure_cross_problems(documents, shared):
+    """What the published closures and edges get wrong ACROSS records (step 0 S-12, S-21: every
+    reference resolves exactly once within the run's artifacts): every `k-` a reference document's
+    closure or a shared inventory's edge names has exactly one row in that document's
+    `unknown_entries`; every unit id a reference document's closure names is exactly one of its units;
+    and a shared inventory's edges and its units name each other exactly once — one edges row per
+    unit, and every `direct` and `reached` unit reference one of its units (its own universe)."""
+    problems = []
+    for reference, document in documents.items():
+        units = collections.Counter(unit.get("unit_id") for unit in document.get("units") or [])
+        if any(str(row).startswith("u-") and units[row] != 1
+               for unit in document.get("units") or [] for row in unit.get("operative_context") or []):
+            problems.append(f"CLOSURE_UNIT_UNRESOLVED {reference}: a closure names a unit its document does not "
+                            f"hold exactly once")
+    subjects = [(reference, document) for reference, document in documents.items()] \
+        + [(document.get("inventory_id"), document) for _path, document in shared]
+    for name, document in subjects:
+        rows = collections.Counter(row.get("unknown_id") for row in document.get("unknown_entries") or [])
+        named = [row for unit in document.get("units") or [] for row in unit.get("operative_context") or []] \
+            + [row for edge in document.get("edges") or [] for row in edge.get("reached") or []]
+        if any(str(row).startswith("k-") and rows[row] != 1 for row in named):
+            problems.append(f"CLOSURE_UNKNOWN_UNRESOLVED {name}: a closure or an edge names an unresolved "
+                            f"requirement its document does not list exactly once")
+    for _path, document in shared:
+        units = collections.Counter(document.get("unit_refs") or [])
+        edges = collections.Counter(edge.get("unit_ref") for edge in document.get("edges") or [])
+        pointed = [row for edge in document.get("edges") or [] for row in edge.get("direct") or []] \
+            + [row for edge in document.get("edges") or [] for row in edge.get("reached") or []
+               if str(row).startswith("r-")]
+        if edges != units or any(count != 1 for count in units.values()) \
+                or any(units[row] != 1 for row in pointed):
+            problems.append(f"CLOSURE_EDGE_UNRESOLVED {document.get('inventory_id')}: its edges and its units do "
+                            f"not name each other exactly once")
     return problems
 
 
@@ -5129,6 +5301,7 @@ RELEASE_ROWS_FIELDS = {
 }
 RELEASE_DOCUMENT_TABLE = table_of({
     "document": as_constant("release"),
+    "closure_rule": as_constant(CLOSURE_RULE),
     "produced_by": SESSIONS_PRODUCED_BY_TABLE,
     "sessions": list_of(table_of({
         "session_ref": as_opaque("session_ref"),
@@ -5280,7 +5453,7 @@ def release_index(ctx, shared):
             entry["unsegmented"] = index_entry(by_layer)
         sessions.append(entry)
     return emit_row("release", RELEASE_DOCUMENT_TABLE, {
-        "document": "release",
+        "document": "release", "closure_rule": CLOSURE_RULE,
         "produced_by": {"module": "session-distill/runlib/inventory.py", "design": DESIGN, "commit": ctx.get("commit")},
         "sessions": sessions}, {"home": ctx.get("home"), "decisions": {}})
 
@@ -5498,6 +5671,7 @@ MANIFEST_TABLE = table_of({
 # own item refs and the catalog's SURFACES, set per inventory by `shared_document`; empty here.
 SHARED_INVENTORY_TABLE = table_of({
     "document": as_constant(SHARED),
+    "closure_rule": as_constant(CLOSURE_RULE),
     "inventory_id": as_opaque("inventory_id"),
     "kind": as_enum(SHARED_KINDS),
     "ref": as_metadata(),
@@ -5507,6 +5681,8 @@ SHARED_INVENTORY_TABLE = table_of({
     "layers": list_of(LAYER_ROW_TABLE),
     "carriers": list_of(table_of({"carrier_id": as_opaque("carrier_id"), "version_sha256": as_opaque("sha256")})),
     "unit_refs": list_of(as_opaque("unit_ref")),
+    "edges": list_of(EDGE_TABLE),
+    "unknown_entries": list_of(UNKNOWN_REQUIREMENT_TABLE),
     "unavailable": list_of(table_of({"ref": as_enum(()), "surface": as_enum(()), "reason": as_metadata()})),
     "baseline_unmapped": list_of(as_metadata()),
     "baseline_items_expected": as_scalar(nullable=True),
@@ -5607,7 +5783,8 @@ def run(repo, state_root, user_root, out_dir, pin=None, native_roots=None, ledge
             store_doc = store_document(ctx)
             crossed = store_cross_problems(store_doc, {reference: produced[reference][0] for reference in UNIT_REFERENCES}) \
                 + occurrence_cross_problems(sessions_doc, store_doc) + shared_cross_problems(shared, store_doc, sessions_doc) \
-                + release_cross_problems(index, sessions_doc, shared, store_doc)
+                + release_cross_problems(index, sessions_doc, shared, store_doc) \
+                + closure_cross_problems({reference: produced[reference][0] for reference in UNIT_REFERENCES}, shared)
             if crossed:
                 raise Refused(f"{'; '.join(crossed[:4])}; no artifact is written")
             based = next((document for _path, document in shared if document["inventory_id"] == base_ref), None)
@@ -6539,7 +6716,7 @@ def self_test():
     dangling = operative_context(units_of([guide("dangling.md", "## Rule\n\n- follow claude/guides/absent.md\n")]))
     unresolved = next(unit for unit in dangling if "follow claude" in unit["text"])
     control("a mention this reference point cannot resolve",
-            [row for row in unresolved["operative_context"] if row.startswith(UNRESOLVED)],
+            [row for row in context_labels(unresolved) if row.startswith(UNRESOLVED)],
             "unknown:claude/guides/absent.md")
 
     # ---- GB#9: a whole-guide reference, a same-carrier one, an unresolved heading, and a cycle
@@ -6566,7 +6743,7 @@ def self_test():
         guide("answering.md", "---\nuse_when:\n  - asked\n---\n\n## Elsewhere\n\n- a requirement\n")]))
     asking = next(unit for unit in missing_heading if "follow claude" in unit["text"])
     control("a mention naming a heading the carrier does not have",
-            [row for row in asking["operative_context"] if row.startswith(UNRESOLVED)],
+            [row for row in context_labels(asking) if row.startswith(UNRESOLVED)],
             "unknown:claude/guides/answering.md#Nowhere")
     chained = operative_context(units_of([
         guide("chain-a.md", "## Rule\n\n- start at claude/guides/chain-b.md\n"),
@@ -6593,7 +6770,7 @@ def self_test():
         """§6.3's vocabulary over one returned span: `delivered` when every requirement of the
         unit's context is in what came back, `exposed_not_read` when the unit is but a requirement
         of its context is not."""
-        requirements = [row for row in context_rows if not row.startswith(UNRESOLVED)]
+        requirements = [row for row in context_rows if not row.startswith("k-")]
         present = [row for row in requirements if row in returned]
         if len(present) == len(requirements):
             return "delivered"
@@ -6688,7 +6865,7 @@ def self_test():
           "the requirement set moved with the enumeration order")
     ambiguous_mention = next(row for row in forward if "read it twice" in row["text"])
     control("a mention of a path two packages deliver",
-            [row for row in ambiguous_mention["operative_context"] if row.startswith(UNRESOLVED)],
+            [row for row in context_labels(ambiguous_mention) if row.startswith(UNRESOLVED)],
             "unknown:ambiguous:claude/guides/review.md")
 
     layer_renames = renames_against(same_path_layer, older)
@@ -7874,7 +8051,8 @@ def self_test():
                     sessions_here, store_here = sessions_document(ctx_here), store_document(ctx_here)
                     crossed_here = sessions_cross_problems(sessions_here) + store_cross_problems(
                         store_here, {"current": document_here}) + occurrence_cross_problems(sessions_here, store_here) \
-                        + (shared_cross_problems(shared_here, store_here, sessions_here) if state is not None else [])
+                        + (shared_cross_problems(shared_here, store_here, sessions_here) if state is not None else []) \
+                        + closure_cross_problems({"current": document_here}, shared_here)
                     if crossed_here:
                         return {"refused": "crossed", "problems": crossed_here}
                     for key, document_out in (("current", document_here), ("sessions", sessions_here),
@@ -11638,7 +11816,7 @@ def self_test():
                              "## Ref\n\n- read claude/guides/two-versions.md before answering\n")
 
             def mentioning_context(items):
-                found = [unit["operative_context"] for unit in operative_context(units_of(items))
+                found = [context_labels(unit) for unit in operative_context(units_of(items))
                          if unit["path"].endswith("mentions-it.md") and len(unit["operative_context"]) > 1]
                 return found[0] if found else []
 
@@ -11734,6 +11912,25 @@ def self_test():
                     "unwalked=[]")
             check("the schema declared string fields to cover at all", len(declared_strings) >= 8,
                   f"{declared_strings}")
+            # P2.6 (step 0 S-21 [F:459-460]): the same over an unresolved requirement's row, whose
+            # `display` is the one new text leaf, walked in the documents the production path publishes
+            # for mentions that resolve to nothing, to a missing heading and to two packages at one path.
+            unknown_leaves = sorted(set(string_leaves(schema_here["$defs"]["unknown_requirement"])))
+            unresolving = [
+                carrier("catalog", "claude/guides/unresolving.md",
+                        "## Rule\n\n- see claude/guides/absent.md, claude/guides/unresolving.md § Nowhere "
+                        "and claude/guides/twice.md\n"),
+                carrier("catalog", "claude/guides/twice.md", "## Twice\n\n- one package's rule\n", package_id="@a/one"),
+                carrier("catalog", "claude/guides/twice.md", "## Twice\n\n- the other's rule\n", package_id="@a/two")]
+            walked_unknown = {re.sub(r"\[\d+\]", "[]", found.group(1))
+                              for where, _text in document_strings(unresolving)
+                              for found in [re.search(r"\.unknown_entries\[\d+\](\..*)$", where)] if found}
+            control("a string field of an unresolved requirement that the differential never looks at",
+                    [f"declared={unknown_leaves} walked={sorted(walked_unknown)} "
+                     f"unwalked={[name for name in unknown_leaves if name not in walked_unknown]}"],
+                    "unwalked=[]")
+            check("an unresolved requirement declares its display among the string fields to cover",
+                  ".display" in unknown_leaves and len(unknown_leaves) >= 5, f"{unknown_leaves}")
 
             # The same property over `shared/store.json` (step 0 S-21: the differential covers every new
             # document, leaf by leaf). Each fixture is published as the store publishes it — split on its
@@ -11828,17 +12025,28 @@ def self_test():
 
         with section('r3 S1, the differential over the CONTEXT path: a mention is a string this module'):
             # ---- r3 S1, the differential over the CONTEXT path: a mention is a string this module
-            # built, and the entry it is stored under is RAW carrier text. `shed` alone never fills
+            # built, and the label it is stored under is RAW carrier text. `shed` alone never fills
             # `operative_context`, so the walk above cannot reach it; this leg produces the same
-            # fixtures the way a reference point does, through `operative_context`, so the entry rule is
-            # held to the same property as every span.
+            # fixtures the way a reference point does, through `operative_context`, and emits each
+            # unresolved requirement's `unknown_entries` row beside the units (P2.6: the entry is a `k-`
+            # id in the closure and its display is the row's), so the entry rule is held to the same
+            # property as every span.
+            def entries_of(units):
+                """The `unknown_entries` rows a document publishes for these units' closures."""
+                place_here = {"home": str(pathlib.Path.home()), "decisions": {}}
+                return [emit_row("unknown_entry", UNKNOWN_REQUIREMENT_TABLE, row, place_here)
+                        for row in unknown_sources(units, {key for unit in units for key in unit["operative_context"]
+                                                           if key.startswith("k-")}, place_here)]
+
             def context_strings(item):
                 units = operative_context(produce([{"layer": item["layer"], "producer": "a fixture producer",
                                                     "status": "complete", "carriers": [item],
                                                     "reasons": []}]))
                 rows = shed(units, str(pathlib.Path.home()))
                 return [(f"{item['layer']}[{n}]{where}", text)
-                        for n, row in enumerate(rows) for where, text in strings_in(row)]
+                        for n, row in enumerate(rows) for where, text in strings_in(row)] \
+                    + [(f"{item['layer']}.unknown_entries[{n}]{where}", text)
+                       for n, row in enumerate(entries_of(units)) for where, text in strings_in(row)]
 
             # Withheld whole (the escape the floor cannot decode), and the mention names a guide no
             # fixture delivers, so the entry stays unresolved and the stored string is the raw text the
@@ -11897,7 +12105,7 @@ def self_test():
                   f"{sorted({form_of(item['path']) for item in list(mention_fixtures.values()) + list(masked_mentions.values())})}")
             for name, item in masked_mentions.items():
                 entries = [text for where, text in context_strings(item)
-                           if "operative_context" in where and text.startswith(UNRESOLVED)]
+                           if "unknown_entries" in where and where.endswith(".display")]
                 check(f"{name} publishes no part of the credential its mention was made of",
                       entries and not any("shortpass" in entry for entry in entries), f"{entries}")
                 # The whole way out for that fixture: produce, shed, and the REAL writer into a sink in
@@ -11909,7 +12117,8 @@ def self_test():
                                                              "reasons": []}]))
                 json_out = scratch / "mention-shaped-out"
                 write_document(json_out, json_out / "inventory" / "current.json",
-                               {"units": shed(produced_units, str(pathlib.Path.home()))},
+                               {"units": shed(produced_units, str(pathlib.Path.home())),
+                                "unknown_entries": entries_of(produced_units)},
                                str(pathlib.Path.home()))
                 published = (json_out / "inventory" / "current.json").read_text(encoding="utf-8")
                 control(f"{name} through splitting, the context rule, shedding and the real writer",
@@ -11921,7 +12130,7 @@ def self_test():
                       projection.carrier_decision(item["text"], str(pathlib.Path.home()))[1],
                       "the floor returns this carrier, so the fixture is not a withheld one")
                 check(f"{name} really does produce an unresolved context entry",
-                      any(entry.startswith(UNRESOLVED)
+                      any(entry.startswith("k-")
                           for row in operative_context(produce([{"layer": item["layer"],
                                                                  "producer": "a fixture producer",
                                                                  "status": "complete", "carriers": [item],
@@ -11933,7 +12142,7 @@ def self_test():
             # differential below cannot see this on its own, because an entry is not a whole line.
             for name, item in mention_fixtures.items():
                 entries = [text for where, text in context_strings(item)
-                           if "operative_context" in where and text.startswith(UNRESOLVED)]
+                           if "unknown_entries" in where and where.endswith(".display")]
                 # The floor's fixed withheld form is the PLACEHOLDER, which is what an entry carries: it
                 # is a span of the carrier, not the carrier. `blank_for(the whole text)` quotes the mask
                 # when the carrier is valid JSON, and an entry of the JSON fixture this round added is
@@ -11952,15 +12161,15 @@ def self_test():
                      f"leaks={ {name: rows[1] for name, rows in context_differential.items() if rows[1]} }"],
                     "leaks={}")
             check("and the context walk reached an unresolved entry, so it judged the entry rule",
-                  any(where.endswith("]") and "operative_context" in where
+                  any(where.endswith(".display") and "unknown_entries" in where
                       for name in mention_fixtures
                       for where, _text in context_strings(mention_fixtures[name])),
-                  "no emitted string sat in operative_context")
+                  "no emitted string sat in an unresolved entry's display")
             # And it can see the leak: emitting the entry from its STORED STRING is the shape r3 #0
             # found, and for a carrier the floor withholds whole it publishes raw carrier text.
             kept_context = globals()["_emit_context"]
             try:
-                globals()["_emit_context"] = lambda value, place, where: projected(value, place["home"])
+                globals()["_emit_context"] = lambda value, place, where: projected(value["label"], place["home"])
                 stored = {name: withheld_lines(item, context_strings)[1]
                           for name, item in mention_fixtures.items()}
             finally:
@@ -12767,7 +12976,7 @@ def self_test():
                   "the agreeing fixture did not come back as its carrier's bytes")
             context_table = table_of({"needs": list_of(as_context())})
             originless = {"needs": [secret_text], "carrier_text": "## Rule\n\n- a rule\n",
-                          "span": (9, 18), "context_origins": {}}
+                          "span": (9, 18)}
             control("an unresolved context entry with no carrier offsets behind it",
                     [str(_raised(lambda: emit_row("probe", context_table, originless,
                                                   span_place(originless))))],
@@ -13459,6 +13668,404 @@ def self_test():
                     [str(hollow)], "RELEASE_SESSIONS_DIFFER")
             check("and the refused run wrote no artifact", not list(hollow_out.rglob("*.json")),
                   f"{sorted(path.name for path in hollow_out.rglob('*.json'))}")
+
+        with section("P2.6: closures as published edges, typed unresolved requirements, one closure rule (step 0 S-12)"):
+            # ---- P2.6 (step 0 S-12, S-26; lead rulings on the P2.6 plan): one closure loop, typed `k-`
+            # entries, the canonical order, a shared inventory's edges and the function that closes over them
+            p26_home, p26_count = str(fixture_home), [0]
+
+            def p26_rows(items):
+                """One complete layer row per layer, in first-seen order, holding these carriers."""
+                return [{"layer": layer, "producer": "this suite's fixture producer", "status": "complete",
+                         "reasons": [], "carriers": [item for item in items if item["layer"] == layer]}
+                        for layer in dict.fromkeys(item["layer"] for item in items)]
+
+            def p26_written(document):
+                """`(bytes, document)` as `write_document` publishes it, read back from this suite's scratch."""
+                p26_count[0] += 1
+                out = scratch / "p26-written"
+                name = out / "inventory" / f"document-{p26_count[0]}.json"
+                write_document(out, name, document, p26_home)
+                return name.read_bytes(), json.loads(name.read_text(encoding="utf-8"))
+
+            def p26_reference(items, reference="current"):
+                """`(bytes, written document, runtime units)` of the reference document the production path
+                publishes for these carriers."""
+                ctx_k = {"home": p26_home, "state_root": None, "notes": {}, "commit": None, "release_ref": None,
+                         "snapshot": {}}
+                document, units = emitted_document(reference, p26_rows(items), ctx_k)
+                return (*p26_written(document), units)
+
+            def p26_shared(items, kind="selection", ref="p26-fixture"):
+                """`(bytes, written document, runtime units)` of one shared inventory of these carriers."""
+                ctx_k = {"home": p26_home, "commit": None}
+                _path, document = shared_document(kind, ref, p26_rows(items), ctx_k)
+                return (*p26_written(document), ctx_k["shared_units"][inventory_id(kind, ref)])
+
+            def p26_names(units):
+                """A readable name per unit id and per `r-` reference: `<basename>[@package]:<n>`."""
+                names = {}
+                for unit in units:
+                    label = (f"{unit['path'].rsplit('/', 1)[-1]}{'@' + unit['package_id'] if unit['package_id'] else ''}"
+                             f":{unit['n']}")
+                    names[unit["unit_id"]] = names[unit["unit_ref"]] = label
+                return names
+
+            def p26_mismatches(written, runtime_units):
+                """The `r-` references whose closure `published_closures` computes from a WRITTEN shared
+                inventory differs from the runtime `operative_context` over that inventory's units."""
+                ref_of = {unit["unit_id"]: unit["unit_ref"] for unit in runtime_units}
+                runtime = {unit["unit_ref"]: sorted({ref_of.get(row, row) for row in unit["operative_context"]})
+                           for unit in runtime_units}
+                recomputed = published_closures(written)
+                return sorted(ref for ref in set(runtime) | set(recomputed) if runtime.get(ref) != recomputed.get(ref))
+
+            # K1, permutation (step 0 S-12 [F:300-303, F:329]): the same carriers in another order publish
+            # identical bytes. The mention names a basename two carriers share, so the closure's visit order
+            # follows the enumeration order; only the canonical order makes the bytes equal.
+            p26_k1 = [carrier("catalog", "claude/guides/k1/x/rules.md", "## Rules\n\n- the x rule\n"),
+                      carrier("catalog", "claude/guides/k1/y/rules.md", "## Rules\n\n- the y rule\n"),
+                      carrier("catalog", "claude/guides/k1/start.md",
+                              "## Start\n\n- read rules.md, then claude/guides/k1/absent.md\n\n### Exceptions\n\n"
+                              "- unless claude/guides/k1/x/rules.md says otherwise\n")]
+            p26_k1_forward, p26_k1_backward = {}, {}
+            for p26_order, p26_items in ((p26_k1_forward, p26_k1), (p26_k1_backward, list(reversed(p26_k1)))):
+                p26_order["current"] = p26_reference(p26_items)
+                p26_order["selection"] = p26_reference(p26_items, "selection")
+                p26_order["shared"] = p26_shared(p26_items)
+            check("and K1's fixture holds an ambiguous basename, so the visit order follows the enumeration",
+                  any(label.startswith(f"{UNRESOLVED}ambiguous:") for unit in p26_k1_forward["current"][2]
+                      for label in context_labels(unit)),
+                  "no ambiguous mention in K1's fixture")
+            # The carriers each run enumerated, in the order the production path split them (the runtime units),
+            # so a permutation that changed nothing shows here and fails the control.
+            p26_k1_orders = [list(dict.fromkeys(unit["path"].rsplit("claude/guides/k1/", 1)[-1] for unit in order["current"][2]))
+                             for order in (p26_k1_forward, p26_k1_backward)]
+            control("K1: the same carriers in another order publish byte-identical current.json, selection.json and "
+                    "shared inventories",
+                    [f"enumerated={p26_k1_orders[0]} then={p26_k1_orders[1]} "
+                     f"enumeration_differs={p26_k1_orders[0] != p26_k1_orders[1]}"]
+                    + [f"{name} identical={p26_k1_forward[name][0] == p26_k1_backward[name][0]}"
+                       for name in ("current", "selection", "shared")],
+                    "enumeration_differs=True", "current identical=True", "selection identical=True",
+                    "shared identical=True")
+            check("and every published closure is sorted by reference string",
+                  all(unit["operative_context"] == sorted(unit["operative_context"])
+                      for unit in p26_k1_forward["current"][1]["units"])
+                  and all(edge["direct"] == sorted(edge["direct"]) and edge["reached"] == sorted(edge["reached"])
+                          for edge in p26_k1_forward["shared"][1]["edges"]),
+                  "a closure or an edge list is published unsorted")
+
+            # K2 (step 0 S-12 [F:312-318, F:336-337]; lead A5): one mention with two origins is two typed
+            # entries, each rendered under its own carrier's floor decision. One origin carrier is withheld
+            # whole, and its canary must reach no published string.
+            p26_canary = "shortpass-p26-k2"
+            p26_withheld = carrier("catalog", "claude/guides/k2/withheld.md",
+                                   f'## Keys\n\napi\\_key: "alpha {p26_canary}\n\n'
+                                   f'- see claude/guides/k2/absent.md before applying this\n\n'
+                                   f'- and claude/guides/k2/plain.md § Nowhere\n')
+            p26_plain = carrier("catalog", "claude/guides/k2/plain.md",
+                                "## Rule\n\n- see claude/guides/k2/absent.md, and read claude/guides/k2/withheld.md\n\n"
+                                "- then claude/guides/k2/withheld.md § Nowhere\n")
+            check("K2's withheld carrier is withheld whole by the floor, and the plain one is not",
+                  projection.carrier_decision(p26_withheld["text"], p26_home)[1]
+                  and not projection.carrier_decision(p26_plain["text"], p26_home)[1],
+                  "the floor does not withhold the fixture the way K2 needs")
+            p26_k2_bytes, p26_k2_doc, p26_k2_units = p26_reference([p26_plain, p26_withheld])
+            p26_k2_rows = {row["unknown_id"]: row for row in p26_k2_doc["unknown_entries"]}
+            p26_k2_unit = next((unit for unit in p26_k2_doc["units"] if unit["carrier_id"] == p26_plain["carrier_id"]
+                                and unit["n"] == 2), {"operative_context": []})
+            p26_k2_entries = [p26_k2_rows[row] for row in p26_k2_unit["operative_context"] if row in p26_k2_rows]
+            p26_blank = projection.blank_for("x")
+            p26_k2_plain_kind = [row for row in p26_k2_entries if row["kind"] == "plain"]
+            control("K2: one mention with two origins gives two typed entries, each under its own carrier's decision",
+                    [f"entries={len(p26_k2_plain_kind)} "
+                     f"withheld={sum(1 for row in p26_k2_plain_kind if row['carrier_id'] == p26_withheld['carrier_id'] and p26_blank in row['display'] and 'absent' not in row['display'])} "
+                     f"plain={sum(1 for row in p26_k2_plain_kind if row['carrier_id'] == p26_plain['carrier_id'] and row['display'] == 'unknown:claude/guides/k2/absent.md')}"],
+                    "entries=2 withheld=1 plain=1")
+            # lead A5: a whole-withheld origin's entry publishes no offsets and a blank display; a disclosed
+            # origin's entry publishes its spans, which are the carrier's bytes of what it named, and its rendering.
+            p26_k2_withheld_rows = [row for row in p26_k2_doc["unknown_entries"] if row["carrier_id"] == p26_withheld["carrier_id"]]
+            p26_k2_plain_rows = [row for row in p26_k2_doc["unknown_entries"] if row["carrier_id"] == p26_plain["carrier_id"]]
+            p26_text = p26_plain["text"]
+            control("K2: a whole-withheld origin's entries have no offsets and a blank display; a disclosed origin's have "
+                    "their spans and their rendering",
+                    [f"withheld={len(p26_k2_withheld_rows)} kinds={sorted(row['kind'] for row in p26_k2_withheld_rows)} "
+                     f"no_offsets={all(row['named'] is None and row['heading'] is None for row in p26_k2_withheld_rows)} "
+                     f"blank={all(p26_blank in row['display'] and 'claude/' not in row['display'] and 'Nowhere' not in row['display'] for row in p26_k2_withheld_rows)}",
+                     f"disclosed={len(p26_k2_plain_rows)} kinds={sorted(row['kind'] for row in p26_k2_plain_rows)} "
+                     f"named={sorted(p26_text[row['named'][0]:row['named'][1]] for row in p26_k2_plain_rows if row['named'])} "
+                     f"heading={[p26_text[row['heading'][0]:row['heading'][1]].strip() for row in p26_k2_plain_rows if row['heading']]} "
+                     f"displays={sorted(row['display'] for row in p26_k2_plain_rows)}"],
+                    "withheld=2 kinds=['heading', 'plain'] no_offsets=True blank=True",
+                    "disclosed=2 kinds=['heading', 'plain'] named=['claude/guides/k2/absent.md', 'claude/guides/k2/withheld.md'] "
+                    "heading=['Nowhere'] displays=['unknown:claude/guides/k2/absent.md', 'unknown:claude/guides/k2/withheld.md#Nowhere']")
+            p26_k2_shared_bytes = p26_shared([p26_plain, p26_withheld])[0]
+            control("K2: the withheld carrier's canary in no published string, the reference document and the shared "
+                    "inventory both",
+                    [f"current={p26_canary.encode() in p26_k2_bytes} shared={p26_canary.encode() in p26_k2_shared_bytes} "
+                     f"withheld_entry_named={any('absent' in row['display'] for row in p26_k2_entries if row['carrier_id'] == p26_withheld['carrier_id'])}"],
+                    "current=False shared=False withheld_entry_named=False")
+
+            # K2b: one unresolved mention at one place in two VERSIONS of one carrier is two entries, the version
+            # being in the id; one version alone is one.
+            p26_v1 = carrier("catalog", "claude/guides/k2b/twice.md", "## Rule\n\n- see claude/guides/k2b/absent.md first\n")
+            p26_v2 = carrier("catalog", "claude/guides/k2b/twice.md", "## Rule\n\n- see claude/guides/k2b/absent.md later\n")
+            p26_k2b_one = p26_reference([p26_v1])[1]["unknown_entries"]
+            p26_k2b_two = p26_reference([p26_v1, p26_v2])[1]["unknown_entries"]
+            control("K2b: one unresolved mention in two versions of one carrier is two entries, the version in the id",
+                    [f"one_version={len(p26_k2b_one)} two_versions={len(p26_k2b_two)} "
+                     f"same_carrier={len({row['carrier_id'] for row in p26_k2b_two}) == 1} "
+                     f"same_offsets={len({tuple(row['named']) for row in p26_k2b_two}) == 1} "
+                     f"versions={len({row['version_sha256'] for row in p26_k2b_two})}"],
+                    "one_version=1 two_versions=2 same_carrier=True same_offsets=True versions=2")
+
+            # K3 (lead A2): current.json's closure membership is 520b010's but for the typed entries. The expected
+            # sets are 520b010's emission of this fixture (impl/wp07b/k3-520b010.log), frozen here; an old
+            # `unknown:` string in unit A's closure maps to the k- entries of the mentions whose OWN unit is in A's
+            # old closure. c.md:2 mentions the same missing guide as a.md:2 and is not reached from it, so the exact
+            # mapping differs from "every origin of that string".
+            p26_k3 = [carrier("catalog", f"claude/guides/{name}", text) for name, text in (
+                ("a.md", "## Rule\n\n- follow claude/guides/b.md and claude/guides/absent.md\n\n- a second rule\n"),
+                ("b.md", "## Rule\n\n- the b requirement, see claude/guides/absent.md\n\n- and claude/guides/c.md § Nowhere\n"),
+                ("c.md", "## Rule\n\n- c reads claude/guides/absent.md\n\n### Exceptions\n\n"
+                         "- unless claude/guides/gone.md says otherwise\n"))]
+            p26_k3_520b010 = {
+                ("a.md", 1): [("a.md", 1)],
+                ("a.md", 2): [("a.md", 1), ("a.md", 2), ("b.md", 1), ("b.md", 2), ("b.md", 3),
+                              "unknown:claude/guides/absent.md", "unknown:claude/guides/c.md#Nowhere"],
+                ("a.md", 3): [("a.md", 1), ("a.md", 3)],
+                ("b.md", 1): [("b.md", 1)],
+                ("b.md", 2): [("b.md", 1), ("b.md", 2), "unknown:claude/guides/absent.md"],
+                ("b.md", 3): [("b.md", 1), ("b.md", 3), "unknown:claude/guides/c.md#Nowhere"],
+                ("c.md", 1): [("c.md", 1), ("c.md", 3), ("c.md", 4), "unknown:claude/guides/gone.md"],
+                ("c.md", 2): [("c.md", 1), ("c.md", 2), ("c.md", 3), ("c.md", 4), "unknown:claude/guides/absent.md",
+                              "unknown:claude/guides/gone.md"],
+                ("c.md", 3): [("c.md", 1), ("c.md", 3), ("c.md", 4), "unknown:claude/guides/gone.md"],
+                ("c.md", 4): [("c.md", 1), ("c.md", 3), ("c.md", 4), "unknown:claude/guides/gone.md"]}
+            _bytes, p26_k3_doc, p26_k3_units = p26_reference(p26_k3)
+            p26_k3_at = {unit["unit_id"]: (unit["path"].rsplit("/", 1)[-1], unit["n"]) for unit in p26_k3_doc["units"]}
+            p26_k3_labels = {}
+            for unit in p26_k3_units:
+                p26_k3_labels.update({key: entry["label"] for key, entry in unit["context_unknowns"].items()})
+            # each entry's own unit, by its published offsets inside a runtime unit's span of that carrier version
+            p26_k3_origin = {row["unknown_id"]: next((p26_k3_at[unit["unit_id"]] for unit in p26_k3_units
+                                                      if unit["carrier_id"] == row["carrier_id"]
+                                                      and unit["version_sha256"] == row["version_sha256"]
+                                                      and unit["span"][0] <= row["named"][0] < unit["span"][1]), None)
+                             for row in p26_k3_doc["unknown_entries"]}
+
+            def p26_k3_expected(old):
+                units_old = {row for row in old if isinstance(row, tuple)}
+                return units_old | {key for key, label in p26_k3_labels.items()
+                                    if label in old and p26_k3_origin.get(key) in units_old}
+
+            p26_k3_now = {p26_k3_at[unit["unit_id"]]: {p26_k3_at.get(row, row) for row in unit["operative_context"]}
+                          for unit in p26_k3_doc["units"]}
+            check("K3's fixture holds a same-named unresolved mention in a unit a.md:2 does not reach",
+                  any(p26_k3_labels.get(key) == "unknown:claude/guides/absent.md" and origin == ("c.md", 2)
+                      for key, origin in p26_k3_origin.items())
+                  and ("c.md", 2) not in p26_k3_520b010[("a.md", 2)],
+                  f"{p26_k3_origin}")
+            control("K3: current.json's closures are 520b010's, each unknown: string mapped exactly to its typed entries",
+                    [f"units={len(p26_k3_now)} expected={len(p26_k3_520b010)} "
+                     f"differing={sorted(at for at in p26_k3_520b010 if p26_k3_now.get(at) != p26_k3_expected(p26_k3_520b010[at]))}"],
+                    "units=10 expected=10 differing=[]")
+
+            # K4: the schema admits u- and k- in a closure and nothing else, and a k- naming no row is refused
+            # across records; the planted table names each cross-record case of a shared inventory's edges.
+            _bytes, p26_k4_shared, _units = p26_shared(p26_k3)
+            p26_k4_current = p26_k3_doc
+            clean("K4: the unplanted current document and shared inventory, against the schema and across records",
+                  document_contract_problems(p26_k4_current) + document_contract_problems(p26_k4_shared)
+                  + closure_cross_problems({"current": p26_k4_current}, [("shared", p26_k4_shared)]))
+            p26_k4_unit = next(unit for unit in p26_k4_current["units"]
+                               if any(row.startswith("k-") for row in unit["operative_context"]))
+            p26_k4_ref = p26_k4_shared["unit_refs"][0]
+            control("K4: a closure holding a unit reference is refused by the schema",
+                    document_contract_problems({**p26_k4_current, "units": [
+                        {**p26_k4_unit, "operative_context": p26_k4_unit["operative_context"] + [p26_k4_ref]}]}),
+                    "DOCUMENT_INVALID")
+
+            def p26_edges(document, change):
+                """A copy of a shared inventory whose edges `change` rewrote."""
+                return {**document, "edges": change(json.loads(json.dumps(document["edges"])))}
+
+            p26_k4_reaching = next((n for n, edge in enumerate(p26_k4_shared["edges"])
+                                    if any(row.startswith("k-") for row in edge["reached"])), None)
+            p26_k4_table = (
+                ("a closure naming a unit its document does not hold", "current",
+                 {**p26_k4_current, "units": [{**unit, "operative_context": sorted(unit["operative_context"] + ["u-" + "e" * 16])}
+                                              if unit is p26_k4_unit else unit for unit in p26_k4_current["units"]]},
+                 "CLOSURE_UNIT_UNRESOLVED"),
+                ("a closure naming a unit its document holds twice", "current",
+                 {**p26_k4_current, "units": p26_k4_current["units"] + [p26_k4_unit]}, "CLOSURE_UNIT_UNRESOLVED"),
+                ("a closure naming a k- its document does not list", "current",
+                 {**p26_k4_current, "unknown_entries": []}, "CLOSURE_UNKNOWN_UNRESOLVED"),
+                ("a k- listed twice", "current",
+                 {**p26_k4_current, "unknown_entries": p26_k4_current["unknown_entries"] * 2}, "CLOSURE_UNKNOWN_UNRESOLVED"),
+                ("an edge naming a k- its inventory does not list", "shared",
+                 {**p26_k4_shared, "unknown_entries": []}, "CLOSURE_UNKNOWN_UNRESOLVED"),
+                ("a unit with no edges row", "shared",
+                 p26_edges(p26_k4_shared, lambda edges: edges[1:]), "CLOSURE_EDGE_UNRESOLVED"),
+                ("an edges row listed twice", "shared",
+                 p26_edges(p26_k4_shared, lambda edges: edges + edges[:1]), "CLOSURE_EDGE_UNRESOLVED"),
+                ("a direct entry naming no unit of the inventory", "shared",
+                 p26_edges(p26_k4_shared, lambda edges: [{**edges[0], "direct": edges[0]["direct"] + ["r-" + "e" * 24]}]
+                           + edges[1:]), "CLOSURE_EDGE_UNRESOLVED"),
+                ("a reached entry naming no unit of the inventory", "shared",
+                 p26_edges(p26_k4_shared, lambda edges: [{**edges[0], "reached": edges[0]["reached"] + ["r-" + "e" * 24]}]
+                           + edges[1:]), "CLOSURE_EDGE_UNRESOLVED"))
+            for p26_name, p26_where, p26_planted, p26_code in p26_k4_table:
+                p26_crossed = (closure_cross_problems({"current": p26_planted}, [("shared", p26_k4_shared)])
+                               if p26_where == "current" else
+                               closure_cross_problems({"current": p26_k4_current}, [("shared", p26_planted)]))
+                control(f"K4: {p26_name} is refused across records", p26_crossed, p26_code)
+            check("and the shared inventory K4 plants into has an edge reaching a k- entry",
+                  p26_k4_reaching is not None, "no edge reaches an unresolved requirement")
+
+            # K5 (step 0 S-12 [F:333-334]): for every unit of every shared inventory — these fixtures', and a fixture
+            # run's, through the production acquisition — the closure computed from the WRITTEN edges is the runtime
+            # one. K6 beside it holds hand-written expectations, since this alone cannot see a bug both sides share.
+            p26_k5_subjects = [("K1", p26_shared(p26_k1)), ("K2", p26_shared([p26_plain, p26_withheld])),
+                               ("K3", p26_shared(p26_k3)), ("K3 release", p26_shared(p26_k3, "release", "p26-release"))]
+            for _path, p26_document in shared_inventories(pinned_release_ctx):
+                p26_k5_subjects.append((f"run {p26_document['kind']}",
+                                        (*p26_written(p26_document),
+                                         pinned_release_ctx["shared_units"][p26_document["inventory_id"]])))
+            p26_k5 = {name: p26_mismatches(subject[1], subject[2]) for name, subject in p26_k5_subjects}
+            control("K5: every unit of every shared inventory: the closure from the written edges is the runtime one",
+                    [f"inventories={len(p26_k5)} units={sum(len(subject[2]) for _name, subject in p26_k5_subjects)} "
+                     f"differing={ {name: rows for name, rows in p26_k5.items() if rows} }"],
+                    "differing={}")
+            check("K5 judged both kinds of a fixture run's shared inventories, each with units",
+                  {name for name, subject in p26_k5_subjects if name.startswith("run ") and subject[2]}
+                  >= {"run selection", "run release"},
+                  f"{[(name, len(subject[2])) for name, subject in p26_k5_subjects]}")
+            check("and K5's fixtures hold mentions that reach other units",
+                  any(row.startswith("r-") for _name, subject in p26_k5_subjects for edge in subject[1]["edges"]
+                      for row in edge["reached"]),
+                  "no edge reaches a unit, so the recompute judged only `direct`")
+
+            # K6 (step 0 S-12 [F:332]): hand-written expected closures, independent of the runtime, for a chain
+            # through a condition span into a named heading, and for an ambiguity.
+            p26_k6_chain = [
+                carrier("catalog", "claude/guides/k6/a.md", "## Rule\n\n- follow claude/guides/k6/b.md\n"),
+                carrier("catalog", "claude/guides/k6/b.md",
+                        "## Rule\n\n- the b rule\n\n### Exceptions\n\n- unless claude/guides/k6/c.md § Details applies\n"),
+                # Under a `#` title: with none, `units_of` nests the second `##` heading under the first
+                # ("Details > Other"), a defect of the splitter's heading levels that predates this section and is
+                # reported on its own; this fixture judges the closure, so its headings are well formed.
+                carrier("catalog", "claude/guides/k6/c.md",
+                        "# C\n\n## Details\n\n- the c detail\n\n## Other\n\n- not reached\n")]
+            p26_k6_chain_expected = {
+                "a.md:1": {"a.md:1"},
+                "a.md:2": {"a.md:1", "a.md:2", "b.md:1", "b.md:2", "b.md:3", "b.md:4", "c.md:1", "c.md:2", "c.md:3"},
+                "b.md:1": {"b.md:1", "b.md:3", "b.md:4", "c.md:1", "c.md:2", "c.md:3"},
+                "b.md:2": {"b.md:1", "b.md:2", "b.md:3", "b.md:4", "c.md:1", "c.md:2", "c.md:3"},
+                "b.md:3": {"b.md:1", "b.md:3", "b.md:4", "c.md:1", "c.md:2", "c.md:3"},
+                "b.md:4": {"b.md:1", "b.md:3", "b.md:4", "c.md:1", "c.md:2", "c.md:3"},
+                "c.md:1": {"c.md:1"}, "c.md:2": {"c.md:1", "c.md:2"}, "c.md:3": {"c.md:1", "c.md:2", "c.md:3"},
+                "c.md:4": {"c.md:1", "c.md:4"}, "c.md:5": {"c.md:1", "c.md:4", "c.md:5"}}
+            p26_k6_ambiguous = [
+                carrier("catalog", "claude/guides/k6/m.md", "## Rule\n\n- read claude/guides/k6/dup.md first\n"),
+                carrier("catalog", "claude/guides/k6/dup.md", "## Dup\n\n- one's rule\n", package_id="@p/one"),
+                carrier("catalog", "claude/guides/k6/dup.md", "## Dup\n\n- two's rule\n", package_id="@p/two")]
+            p26_k6_ambiguous_expected = {
+                "m.md:1": {"m.md:1"},
+                "m.md:2": {"m.md:1", "m.md:2", "dup.md@@p/one:1", "dup.md@@p/one:2", "dup.md@@p/two:1", "dup.md@@p/two:2",
+                           "unknown:ambiguous:claude/guides/k6/dup.md"},
+                "dup.md@@p/one:1": {"dup.md@@p/one:1"}, "dup.md@@p/one:2": {"dup.md@@p/one:1", "dup.md@@p/one:2"},
+                "dup.md@@p/two:1": {"dup.md@@p/two:1"}, "dup.md@@p/two:2": {"dup.md@@p/two:1", "dup.md@@p/two:2"}}
+            for p26_name, p26_items, p26_expected in (("a chain through a condition span", p26_k6_chain, p26_k6_chain_expected),
+                                                       ("an ambiguity", p26_k6_ambiguous, p26_k6_ambiguous_expected)):
+                _bytes, p26_document, p26_units = p26_shared(p26_items)
+                p26_named = p26_names(p26_units)
+                p26_named.update({row["unknown_id"]: row["display"] for row in p26_document["unknown_entries"]})
+                p26_got = {p26_named[ref]: {p26_named.get(row, row) for row in closure}
+                           for ref, closure in published_closures(p26_document).items()}
+                control(f"K6: {p26_name}, the closures computed from the written edges against hand-written ones",
+                        [f"units={len(p26_got)} differing={sorted(name for name in set(p26_expected) | set(p26_got) if p26_got.get(name) != p26_expected.get(name))}"],
+                        f"units={len(p26_expected)} differing=[]")
+                _bytes, p26_reference_doc, p26_reference_units = p26_reference(p26_items)
+                p26_named = p26_names(p26_reference_units)
+                p26_named.update({row["unknown_id"]: row["display"] for row in p26_reference_doc["unknown_entries"]})
+                p26_got = {p26_named[unit["unit_id"]]: {p26_named.get(row, row) for row in unit["operative_context"]}
+                           for unit in p26_reference_doc["units"]}
+                control(f"K6: {p26_name}, current.json's closures against the same hand-written ones",
+                        [f"units={len(p26_got)} differing={sorted(name for name in set(p26_expected) | set(p26_got) if p26_got.get(name) != p26_expected.get(name))}"],
+                        f"units={len(p26_expected)} differing=[]")
+
+            # K7 (step 0 S-12 [F:308-309, F:330-331]): a document naming another closure rule, or none, is refused by name.
+            _bytes, p26_k7, _units = p26_shared(p26_k6_chain)
+            clean("K7: the written shared inventory names the rule this reader implements",
+                  [] if published_closures(p26_k7) else ["no closure computed"])
+            control("K7: a shared inventory naming another closure rule is refused by name",
+                    [str(_raised(lambda: published_closures({**p26_k7, "closure_rule": "operative-context/2"})))],
+                    "CLOSURE_RULE_UNSUPPORTED")
+            control("K7: and one naming no closure rule",
+                    [str(_raised(lambda: published_closures({key: value for key, value in p26_k7.items()
+                                                             if key != "closure_rule"})))],
+                    "CLOSURE_RULE_UNSUPPORTED")
+
+            # K8 (lead, P2.6 ruling): one edge removed from a written shared inventory, and K5's comparison names the
+            # unit it belonged to. Commit 2 adds the digest that refuses it by name in a context set.
+            # The edge removed is a.md:2's mention of b.md, at b.md:2: nothing else reaches b.md:2 (K6's hand-written
+            # closures), so a.md:2's closure loses it and the recompute must name a.md:2.
+            _bytes, p26_k8, p26_k8_units = p26_shared(p26_k6_chain)
+            clean("K8: the unplanted inventory recomputes to its runtime closures", p26_mismatches(p26_k8, p26_k8_units))
+            p26_k8_ref = {name: ref for ref, name in p26_names(p26_k8_units).items() if ref.startswith("r-")}
+            p26_k8_from, p26_k8_to = p26_k8_ref.get("a.md:2"), p26_k8_ref.get("b.md:2")
+            p26_k8_planted = p26_edges(p26_k8, lambda edges: [
+                {**edge, "reached": [row for row in edge["reached"] if row != p26_k8_to]}
+                if edge["unit_ref"] == p26_k8_from else edge for edge in edges])
+            control("K8: one edge removed from a written shared inventory, and the recompute names its unit",
+                    [f"removed={any(edge['unit_ref'] == p26_k8_from and p26_k8_to in edge['reached'] for edge in p26_k8['edges'])} "
+                     f"named={p26_mismatches(p26_k8_planted, p26_k8_units) == [p26_k8_from]}"],
+                    "removed=True named=True")
+
+            # lead A3: `published_closures` reads no file ([F:305]). The documents are loaded first; every way of
+            # reading a file is then made to raise for the duration of the call, and the call still answers the same.
+            p26_a3_expected = published_closures(p26_k8)
+            p26_a3_kept = (builtins.open, io.open, os.open, pathlib.Path.read_text, pathlib.Path.read_bytes,
+                           pathlib.Path.open, os.listdir, os.scandir)
+
+            def p26_no_read(*_args, **_kwargs):
+                raise PermissionError("A3: a file read during published_closures")
+
+            p26_a3_bites = None
+            try:
+                builtins.open = io.open = os.open = os.listdir = os.scandir = p26_no_read
+                pathlib.Path.read_text = pathlib.Path.read_bytes = pathlib.Path.open = p26_no_read
+                p26_a3_bites = _raised(lambda: pathlib.Path(__file__).read_text())
+                p26_a3_got = _raised(lambda: published_closures(p26_k8)) or published_closures(p26_k8)
+            finally:
+                (builtins.open, io.open, os.open, pathlib.Path.read_text, pathlib.Path.read_bytes,
+                 pathlib.Path.open, os.listdir, os.scandir) = p26_a3_kept
+            control("A3: published_closures computes from loaded documents while every file read raises",
+                    [f"patch_bites={isinstance(p26_a3_bites, PermissionError)} "
+                     f"equal={p26_a3_got == p26_a3_expected} units={len(p26_a3_expected)}"],
+                    "patch_bites=True equal=True units=11")
+
+            # R4 (lead): every document kind `DOCUMENT_ROOTS` declares is written by a run and carries the one closure
+            # rule; and a written document of each kind with its rule removed is refused by the schema.
+            p26_manifest = written_json(planted_out / "inventory" / "manifest.json")
+            p26_kinds = {}
+            for p26_row in p26_manifest.get("artifacts") or []:
+                p26_kinds.setdefault(p26_row["document"], []).append(written_json(planted_out / p26_row["path"]))
+            control("R4: every kind DOCUMENT_ROOTS declares is written by the planted run and carries the one closure rule",
+                    [f"kinds={len(DOCUMENT_ROOTS)} documents={sum(len(rows) for rows in p26_kinds.values())} "
+                     f"unwritten={[kind for kind in sorted(DOCUMENT_ROOTS) if not p26_kinds.get(kind)]} "
+                     f"other_rule={[kind for kind in sorted(DOCUMENT_ROOTS) if any(document.get('closure_rule') != CLOSURE_RULE for document in p26_kinds.get(kind) or [])]}"],
+                    "unwritten=[] other_rule=[]")
+            for kind in sorted(DOCUMENT_ROOTS):
+                p26_document = (p26_kinds.get(kind) or [{}])[0]
+                clean(f"R4: the written {kind} document as it is, against the schema",
+                      document_contract_problems(p26_document) if p26_document else [f"no {kind} document written"])
+                control(f"R4: the written {kind} document with its closure rule removed is refused by the schema",
+                        document_contract_problems({key: value for key, value in p26_document.items()
+                                                    if key != "closure_rule"}),
+                        "DOCUMENT_INVALID", "closure_rule")
 
         with section("the general control (lead, after a36c728): no reason in ANY document this suite's runs"):
             # ---- the general control (lead, after a36c728): no reason in ANY document this suite's runs

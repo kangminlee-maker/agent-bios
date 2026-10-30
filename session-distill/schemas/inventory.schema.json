@@ -7,9 +7,11 @@
       "$comment": "A reference point's document, judged on its units and layer rows. One root per published document, each naming its kind as a `document` const (step 0 S-21); the code's DOCUMENT_ROOTS picks it, because this schema policy has no oneOf.",
       "type": "object",
       "additionalProperties": false,
-      "required": ["document", "units", "layers", "scopes", "scope_universe"],
+      "required": ["document", "closure_rule", "units", "unknown_entries", "layers", "scopes", "scope_universe"],
       "properties": {
         "document": {"const": "current"},
+        "closure_rule": {"$ref": "#/$defs/closure_rule"},
+        "unknown_entries": {"type": "array", "items": {"$ref": "#/$defs/unknown_requirement"}},
         "units": {"type": "array", "items": {"$ref": "#/$defs/unit"}},
         "layers": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/layer_row"}},
         "scopes": {"type": "array", "items": {"$ref": "#/$defs/scope_answer"}},
@@ -20,9 +22,10 @@
       "$comment": "`release.json`, the segment index (step 0 S-17, #8): per census session, each segment of each of its owners with one row per layer, or a row set of its own for a session no segment covers. It never picks one segment and never unions versions: a row points into a shared inventory or at the in-force event, and copies no unit. Validated whole.",
       "type": "object",
       "additionalProperties": false,
-      "required": ["document", "produced_by", "sessions"],
+      "required": ["document", "closure_rule", "produced_by", "sessions"],
       "properties": {
         "document": {"const": "release"},
+        "closure_rule": {"$ref": "#/$defs/closure_rule"},
         "produced_by": {"type": "object", "additionalProperties": false, "required": ["module", "design", "commit"],
                         "properties": {"module": {"type": "string"}, "design": {"type": "string"},
                                        "commit": {"type": ["string", "null"]}}},
@@ -107,9 +110,11 @@
     "selection_document": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["document", "units", "layers"],
+      "required": ["document", "closure_rule", "units", "unknown_entries", "layers"],
       "properties": {
         "document": {"const": "selection"},
+        "closure_rule": {"$ref": "#/$defs/closure_rule"},
+        "unknown_entries": {"type": "array", "items": {"$ref": "#/$defs/unknown_requirement"}},
         "units": {"type": "array", "items": {"$ref": "#/$defs/unit"}},
         "layers": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/layer_row"}}
       }
@@ -117,9 +122,10 @@
     "sessions_document": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["document", "span_unit", "produced_by", "sessions", "events", "segments", "occurrences"],
+      "required": ["document", "closure_rule", "span_unit", "produced_by", "sessions", "events", "segments", "occurrences"],
       "properties": {
         "document": {"const": "sessions"},
+        "closure_rule": {"$ref": "#/$defs/closure_rule"},
         "span_unit": {"$comment": "the unit an occurrence's start and end count, in the decoded text of the FIELD its pointer names; a different coordinate from the store's, which counts in a carrier version's raw text", "const": "code_point"},
         "produced_by": {
           "type": "object",
@@ -141,10 +147,11 @@
       "$comment": "`shared/<selection|release>-<i>.json` (step 0 S-22): one per verified snapshot and per baseline a session's own pin names. Its layer rows, the carrier versions and units it holds by reference into shared/store.json, a selection's unavailable list (ref among the snapshot's own items, surface among the catalog's SURFACES) and a release's baseline items its units do not map.",
       "type": "object",
       "additionalProperties": false,
-      "required": ["document", "inventory_id", "kind", "ref", "complete", "incomplete_reasons", "produced_by", "layers",
-                   "carriers", "unit_refs"],
+      "required": ["document", "closure_rule", "inventory_id", "kind", "ref", "complete", "incomplete_reasons", "produced_by",
+                   "layers", "carriers", "unit_refs", "edges", "unknown_entries"],
       "properties": {
         "document": {"const": "shared_inventory"},
+        "closure_rule": {"$ref": "#/$defs/closure_rule"},
         "inventory_id": {"$ref": "#/$defs/inventory_id"},
         "kind": {"type": "string", "enum": ["selection", "release"]},
         "ref": {"type": "string", "minLength": 1},
@@ -159,6 +166,8 @@
           "properties": {"carrier_id": {"type": "string", "pattern": "^c-[0-9a-f]{24}$"},
                          "version_sha256": {"$ref": "#/$defs/sha256"}}}},
         "unit_refs": {"type": "array", "items": {"$ref": "#/$defs/unit_ref"}},
+        "edges": {"type": "array", "items": {"$ref": "#/$defs/requirement_edges"}},
+        "unknown_entries": {"type": "array", "items": {"$ref": "#/$defs/unknown_requirement"}},
         "unavailable": {"type": "array", "items": {
           "type": "object", "additionalProperties": false, "required": ["ref", "surface", "reason"],
           "properties": {"ref": {"type": "string"}, "surface": {"type": "string"}, "reason": {"type": "string"}}}},
@@ -206,9 +215,10 @@
       "$comment": "`shared/store.json` (step 0 S-22): every carrier version the run names, once, keyed by carrier_id and then version_sha256, and every unit keyed by its unit_ref.",
       "type": "object",
       "additionalProperties": false,
-      "required": ["document", "span_unit", "produced_by", "versions", "units"],
+      "required": ["document", "closure_rule", "span_unit", "produced_by", "versions", "units"],
       "properties": {
         "document": {"const": "shared_store"},
+        "closure_rule": {"$ref": "#/$defs/closure_rule"},
         "span_unit": {"$comment": "the unit every start and end counts, in the version's raw text", "const": "code_point"},
         "produced_by": {
           "type": "object",
@@ -254,6 +264,41 @@
       "$comment": "opaque (step 0 S-11): r- over [\"unit\", carrier_id, version_sha256, n], n the block's 1-based position in that version",
       "type": "string",
       "pattern": "^r-[0-9a-f]{24}$"
+    },
+    "closure_rule": {
+      "$comment": "step 0 S-12: the one closure semantics every document carries; a reader that implements another refuses the document by name (CLOSURE_RULE_UNSUPPORTED)",
+      "const": "operative-context/1"
+    },
+    "unknown_id": {
+      "$comment": "opaque (step 0 S-12): k- over [\"unknown\", origin carrier_id, origin version_sha256, named span, heading span or null, kind]",
+      "type": "string",
+      "pattern": "^k-[0-9a-f]{24}$"
+    },
+    "unknown_requirement": {
+      "$comment": "step 0 S-12: one unresolved mention, a terminal requirement. One origin per entry: several carriers naming one missing thing are several entries. `named` and `heading` are [start, end) code points of the origin version's raw text, the coordinate the store's unit spans count in, and both are null when the floor withholds that version whole: a mention's offsets are finer than the unit spans the store publishes for it. The id still commits to them. `display` is projected once, at production, under that version's floor decision.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["unknown_id", "kind", "carrier_id", "version_sha256", "named", "heading", "display"],
+      "properties": {
+        "unknown_id": {"$ref": "#/$defs/unknown_id"},
+        "kind": {"type": "string", "enum": ["plain", "heading", "ambiguous"]},
+        "carrier_id": {"type": "string", "pattern": "^c-[0-9a-f]{24}$"},
+        "version_sha256": {"$ref": "#/$defs/sha256"},
+        "named": {"type": ["array", "null"], "minItems": 2, "maxItems": 2, "items": {"type": "integer", "minimum": 0}},
+        "heading": {"type": ["array", "null"], "minItems": 2, "maxItems": 2, "items": {"type": "integer", "minimum": 0}},
+        "display": {"type": "string", "minLength": 1}
+      }
+    },
+    "requirement_edges": {
+      "$comment": "step 0 S-12: one unit's edges in a shared inventory. `direct` holds the unit itself, its frontmatter, enclosing headings and condition spans; `reached` what its mentions resolved to in the inventory's own universe, an unresolved one as its k- entry. Both sorted by reference string.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["unit_ref", "direct", "reached"],
+      "properties": {
+        "unit_ref": {"$ref": "#/$defs/unit_ref"},
+        "direct": {"type": "array", "items": {"$ref": "#/$defs/unit_ref"}},
+        "reached": {"type": "array", "items": {"type": "string", "pattern": "^(r|k)-[0-9a-f]{24}$"}}
+      }
     },
     "git": {
       "$comment": "What a Codex session_meta records of its repository (step 0 S-19); the URL's userinfo is removed before the floor.",
@@ -572,7 +617,8 @@
         "text": {"type": "string"},
         "sha": {"$ref": "#/$defs/sha256"},
         "class": {"type": "string", "enum": ["operative", "reference"]},
-        "operative_context": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "operative_context": {"$comment": "sorted unit ids and k- ids (step 0 S-12); a k- names a row of the document's unknown_entries",
+                              "type": "array", "items": {"type": "string", "pattern": "^(u-[0-9a-f]{16}(-[0-9]+)?|k-[0-9a-f]{24})$"}},
         "version_sha256": {"$ref": "#/$defs/sha256"},
         "redaction_version": {"type": "string", "pattern": "^r[0-9]+$"},
         "block": {"type": "string", "minLength": 1},
