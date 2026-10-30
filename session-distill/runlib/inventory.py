@@ -4534,13 +4534,47 @@ def segments(found, read, ownership, sought):
     return out
 
 
+def session_unknown(host, read=None, found=(), inherited=(), seen=None, failure=None):
+    """Why one session is unknown as a whole, decided once for the two places that publish it: its record in
+    sessions.json and its entry in the manifest's per-session list (P2.7b2: they had named the same session
+    differently). `None`, or `{"reason": key, "line": n or None, "detail": text}`, first match wins:
+    - a read that failed, by the key its message states, the detail being the rest of that message; a message
+      that states no read outcome is `unreadable`, carried whole in the detail;
+    - a Codex rollout whose first `session_meta` names no session and no later one names it (S-23), at its line;
+    - no undamaged event: none at all, or every one damaged (`no_record`), naming the bytes that were read.
+    A damaged event and an event with no owner are line entries of the record, not an answer about the whole
+    session, and are not decided here."""
+    if failure is not None:
+        message = str(failure)
+        key = reason_key(message)
+        if key in READ_OUTCOMES:
+            return {"reason": key, "line": None, "detail": message[len(UNKNOWN_REASONS[key]):]}
+        return {"reason": reason("unreadable"), "line": None, "detail": f" ({message})"}
+    seen = seen or {}
+    metas = sorted([row["line"] for row in inherited] + list(seen.get("own_meta") or []))
+    if host == "codex" and not seen.get("own_meta") and metas \
+            and any(row["line"] == metas[0] and row["category"] == "no_session_id" for row in inherited):
+        return {"reason": reason("own_meta_unidentified"), "line": metas[0], "detail": f" (line {metas[0]})"}
+    if not any(not event.get("damaged") for event in found):
+        return {"reason": reason("no_record"), "line": None, "detail": f" ({read['which']})"}
+    return None
+
+
+def unknown_text(label, decided):
+    """A session's entry in the manifest's per-session unknown list, made from `session_unknown`'s decision: its
+    key's table text and its detail, so a failed read's entry is the failure's own message, byte for byte."""
+    return f"{label}: {UNKNOWN_REASONS[decided['reason']]}{decided['detail']}"
+
+
 def session_record(entry, read=None, found=(), damage=(), inherited=(), seen=None, failure=None, pinned=None,
-                   segment_refs=()):
+                   segment_refs=(), *, decided):
     """The per-session record of step 0 S-14 for one census row, as far as the transcript says it.
 
     Every location is a number and every reason a key: nothing a host wrote is in it except the ids,
     which pass the floor as metadata when it is published. `pinned` is the session's own pin as
-    `session_pin` read it; a row given none is a pin this run did not read."""
+    `session_pin` read it; a row given none is a pin this run did not read. `decided` is
+    `session_unknown`'s answer for this row, which the manifest's entry is made from too: the record
+    publishes it and never decides it again."""
     host, ident = entry.get("host"), entry.get("id")
     seen = seen or {}
     pinned = pinned or session_pin(None, host, ident, entry.get("pin"))
@@ -4569,21 +4603,17 @@ def session_record(entry, read=None, found=(), damage=(), inherited=(), seen=Non
     if entry.get("alt_paths"):
         record["limitations"].append({"kind": "alt_paths", "count": entry["alt_paths"]})
     if failure is not None:
-        key = reason_key(failure)
-        key = key if key in READ_OUTCOMES else reason("unreadable")
-        record["read"] = key
-        record["unknown"].append({"reason": key})
-        record["delivery"] = delivery_of(pinned, key, (), None)
+        record["read"] = decided["reason"]
+        record["unknown"].append({"reason": decided["reason"]})
+        record["delivery"] = delivery_of(pinned, decided["reason"], (), None)
         return record
     ownership, displays = ownership_map(entry, read)
     record.update(read=read["read"], lines_read=read["lines"], ownership=ownership,
                   owners=[{"owner_ref": ref, "display": name} for ref, name in sorted(displays.items())])
     for row in inherited:
         record["inherited_session_meta"][row["category"]] += 1
-    metas = sorted([row["line"] for row in inherited] + list(seen.get("own_meta") or []))
-    if host == "codex" and not seen.get("own_meta") and metas \
-            and any(row["line"] == metas[0] and row["category"] == "no_session_id" for row in inherited):
-        record["own_meta_unidentified"] = metas[0]
+    if decided is not None and decided["reason"] == "own_meta_unidentified":
+        record["own_meta_unidentified"] = decided["line"]
     record["limitations"] += [{"kind": "undecodable", "category": category, "line": line}
                               for line, category in read["undecodable"]]
     record["limitations"] += [{"kind": "member_rejected", "category": row["category"], "line": event["n"],
@@ -4602,11 +4632,9 @@ def session_record(entry, read=None, found=(), damage=(), inherited=(), seen=Non
             record["unknown"].append({"reason": event["damaged"], "line": event["n"]})
         if event.get("owner_ref") is None:
             record["unknown"].append({"reason": reason("ownership_unknown"), "line": event["n"]})
-    if record["own_meta_unidentified"] is not None:
-        record["unknown"].append({"reason": reason("own_meta_unidentified"),
-                                  "line": record["own_meta_unidentified"]})
-    elif not any(not event.get("damaged") for event in found):
-        record["unknown"].append({"reason": reason("no_record")})
+    if decided is not None:
+        record["unknown"].append({"reason": decided["reason"],
+                                  **({"line": decided["line"]} if decided["line"] is not None else {})})
     record["delivery"] = delivery_of(pinned, record["read"], found, owner_ref(host, ident))
     return record
 
@@ -4703,8 +4731,9 @@ def transcript_events(run_dir, pins=None, zstd=None):
             read = transcript_records(entry, zstd)
             found, damage, inherited = injection_events(read["records"], entry, delivered, seen)
         except Unacquired as exc:
-            unknown.append(f"{label}: {exc}")
-            findings["sessions"].append(session_record(entry, failure=exc, pinned=pinned))
+            decided = session_unknown(entry.get("host"), failure=exc)
+            unknown.append(unknown_text(label, decided))
+            findings["sessions"].append(session_record(entry, failure=exc, pinned=pinned, decided=decided))
             continue
         bracket = brackets(read)
         for event in found:
@@ -4732,10 +4761,12 @@ def transcript_events(run_dir, pins=None, zstd=None):
         findings["rejected"] += [{"session": event["session"], "line": event["n"], "ordinal": row["ordinal"],
                                   "category": row["category"]}
                                  for event in found for row in event.get("rejected") or []]
+        decided = session_unknown(entry.get("host"), read, found, inherited, seen)
         findings["sessions"].append(session_record(entry, read, found, damage, inherited, seen, pinned=pinned,
-                                                    segment_refs=[row["segment_id"] for row in segmented]))
-        if not found:
-            unknown.append(f"{label}: {UNKNOWN_REASONS['no_record']} ({read['which']})")
+                                                    segment_refs=[row["segment_id"] for row in segmented],
+                                                    decided=decided))
+        if decided is not None:
+            unknown.append(unknown_text(label, decided))
         events += found
     return events, unknown, findings
 
@@ -15313,7 +15344,9 @@ def self_test():
                 ("claude", "r-invalid", p27_turn, {"sha256": "not-a-hash"}),
                 ("claude", "r-gone", p27_turn, {"path": str(scratch / "p27" / "reads-gone.jsonl")}),  # never written
                 ("codex", "c-hl", [codex_meta(None, "2026-10-09T08:00:00+00:00"),
-                                   codex_meta("c-parent", "2026-10-09T09:00:00+00:00")], {})])
+                                   codex_meta("c-parent", "2026-10-09T09:00:00+00:00")], {}),
+                # P2.7b2: a session whose one injection is damaged (its `files` is no list), so no event is undamaged
+                ("claude", "r-damaged", [inj("2026-10-21T09:00:00+00:00", "not-a-list", cwd="/w/p1")], {})])
             p27_reads_rows = {row["transcript"]["id"]: row
                               for row in (p27_reads.get("sessions") or {}).get("sessions") or []}
             p27_reads_seen = {ident: (row.get("read"), [entry.get("reason") for entry in row.get("unknown") or []])
@@ -15343,6 +15376,14 @@ def self_test():
                           "count, so it is not opened (claude:r-invalid: the whole-file hash)",
                           "claude:r-gone: unknown: the transcript could not be read (")),
                   f"raised={p27_reads_raised} listed={p27_reads_listed}")
+            p27_damaged = p27_reads_rows.get("r-damaged") or {}
+            check("P2.7b2: a session whose every injection is damaged is unknown by no_record in sessions.json, after its "
+                  "line entry, and in the manifest",
+                  p27_damaged.get("unknown") == [{"reason": "container_unusable", "line": 1}, {"reason": "no_record"}]
+                  and [entry for entry in p27_reads_listed if entry.startswith("claude:r-damaged: ")]
+                  == ["claude:r-damaged: unknown: the transcript records no injection (the bytes the census read)"],
+                  f"record={p27_damaged.get('unknown')} "
+                  f"listed={[entry for entry in p27_reads_listed if entry.startswith('claude:r-damaged: ')]}")
 
         with section("the general control (lead, after a36c728): no reason in ANY document this suite's runs"):
             # ---- the general control (lead, after a36c728): no reason in ANY document this suite's runs
@@ -15469,6 +15510,63 @@ def self_test():
                                     if key not in vocabulary_driven and key not in vocabulary_by_refusal]
             clean("the reason vocabulary: an independent expected key set equals UNKNOWN_REASONS, and a real fixture "
                   "path drove every key", vocabulary_problems)
+
+        with section("P2.7b2: why a session is unknown, the same in the manifest and in sessions.json"):
+            # ---- P2.7b2: the two places that publish why a session is unknown as a whole — its record in
+            # sessions.json and its entry in the manifest's per-session list — answer from one decision
+            # (`session_unknown`). Asked of every run this suite wrote whose `inventory/` holds both documents and
+            # at least one session (a run whose transcripts could not be bound at all lists the run's own reason):
+            # each session's whole-session key in sessions.json (the one `unknown[]` reason among the keys written
+            # here) against the key its manifest entry's text states, read back through the table's texts, never
+            # through the module's own reader. A manifest entry shaped like a session label naming no session of
+            # its run is a problem too. The fixture sessions that once disagreed must be among those compared.
+            p27b2_whole = ("changed", "unbound", "binding_invalid", "no_path", "unreadable", "own_meta_unidentified",
+                           "no_record")
+            p27b2_texts = sorted(UNKNOWN_REASONS.items(), key=lambda item: -len(item[1]))
+            p27b2_problems, p27b2_labels, p27b2_runs = [], set(), 0
+            for manifest_path in sorted(scratch.rglob("manifest.json")):
+                sessions_path = manifest_path.parent / f"{SESSIONS}.json"
+                if manifest_path.parent.name != "inventory" or not sessions_path.is_file():
+                    continue
+                try:
+                    manifest_here = json.loads(manifest_path.read_text(encoding="utf-8"))
+                    sessions_here = json.loads(sessions_path.read_text(encoding="utf-8"))
+                except ValueError:
+                    continue
+                records_here = (sessions_here.get("sessions") if isinstance(sessions_here, dict) else None) or []
+                if not records_here or not isinstance(manifest_here, dict):
+                    continue
+                p27b2_runs += 1
+                where = str(manifest_path.parent.parent.relative_to(scratch))
+                by_record = {}
+                for row in records_here:
+                    keys = [entry.get("reason") for entry in row.get("unknown") or [] if entry.get("reason") in p27b2_whole]
+                    if len(keys) > 1:
+                        p27b2_problems.append(f"P2.7B2_TWICE {where} {row.get('session')}: {keys}")
+                    if keys:
+                        by_record[row.get("session")] = keys[0]
+                labels_here = {row.get("session") for row in records_here}
+                by_manifest, listed_here = {}, ((manifest_here.get("inputs") or {}).get("transcripts") or {}).get("unknown") or []
+                for text in listed_here:
+                    label = next((name for name in labels_here if text.startswith(f"{name}: ")), None)
+                    if label is None:
+                        if re.match(r"^(claude|codex):[^ ]+: ", text):
+                            p27b2_problems.append(f"P2.7B2_ASTRAY {where}: a manifest entry names no session of its run")
+                        continue
+                    rest = text[len(label) + 2:]
+                    if label in by_manifest:
+                        p27b2_problems.append(f"P2.7B2_LISTED_TWICE {where} {label}")
+                    by_manifest[label] = next((key for key, value in p27b2_texts if rest.startswith(value)), None)
+                if by_manifest != by_record:
+                    p27b2_problems.append(f"P2.7B2_DIFFER {where}: manifest {sorted(by_manifest.items())} "
+                                          f"sessions.json {sorted(by_record.items())}")
+                p27b2_labels |= set(by_record) | set(by_manifest)
+            p27b2_needed = {"claude:s-quiet", "claude:r-moved", "claude:r-invalid", "claude:r-gone", "codex:c-hl",
+                            "claude:r-damaged"}
+            if not p27b2_needed <= p27b2_labels:
+                p27b2_problems.append(f"P2.7B2_UNJUDGED: runs={p27b2_runs}, not compared: {sorted(p27b2_needed - p27b2_labels)}")
+            clean("P2.7b2: in every run this suite wrote, the manifest's per-session unknown list and sessions.json name "
+                  "each unknown session by the same key", p27b2_problems)
 
         with section("the disclosure cache: the remembered answers equal the verifier's own"):
             # ---- the disclosure cache: every string and key of every document this suite's runs wrote under
