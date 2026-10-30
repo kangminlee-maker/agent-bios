@@ -15137,6 +15137,59 @@ def self_test():
                   and judged_all > 100,
                   f"judged={judged_all} kinds={dict(kinds_judged)}")
 
+        with section("the disclosure cache: the remembered answers equal the verifier's own"):
+            # ---- the disclosure cache: every string and key of every document this suite's runs wrote under
+            # an `inventory/` directory, and every line of the transcripts its fixtures wrote, asked of the
+            # verifier without the cache and with it, for the fixture home and for this process's own (None,
+            # resolved per call). Its projection module cannot ask this: the documents exist only where the
+            # inventory's runs write them, and the inventory imports the projection, never the reverse. The
+            # second ask of each must come from the cache, and some answers must be disclosures, or the
+            # comparison is between two Nones. Texts are never printed: counts and detector names only.
+            cache_subjects = set()
+
+            def cache_strings(value):
+                if isinstance(value, dict):
+                    for key, item in value.items():
+                        cache_strings(key)
+                        cache_strings(item)
+                elif isinstance(value, list):
+                    for item in value:
+                        cache_strings(item)
+                elif isinstance(value, str):
+                    cache_subjects.add(value)
+
+            cache_documents = [path for path in sorted(scratch.rglob("*.json"))
+                               if "inventory" in path.relative_to(scratch).parts[:-1]]
+            for path in cache_documents:
+                try:
+                    cache_strings(json.loads(path.read_text(encoding="utf-8")))
+                except ValueError:
+                    continue
+            cache_from_documents = len(cache_subjects)
+            for path in sorted(scratch.rglob("*.jsonl")):
+                cache_subjects.update(path.read_text(encoding="utf-8", errors="replace").splitlines())
+            cache_differing, cache_second_missed, cache_disclosed = collections.Counter(), 0, collections.Counter()
+            for subject in sorted(cache_subjects):
+                for home_here in (str(fixture_home), None):
+                    plain = projection.discloses_uncached(subject, home_here)
+                    first = projection.discloses(subject, home_here)
+                    hits_before = projection.DISCLOSES_CACHE_STATS["hits"]
+                    second = projection.discloses(subject, home_here)
+                    cache_second_missed += projection.DISCLOSES_CACHE_STATS["hits"] != hits_before + 1
+                    if plain is not None:
+                        cache_disclosed[plain] += 1
+                    if not plain == first == second:
+                        cache_differing[f"{plain}/{first}/{second}"] += 1
+            control("the remembered disclosure answers equal the uncached verifier's over every document and transcript this suite wrote",
+                    [f"judged={cache_from_documents > 0 and sum(cache_disclosed.values()) > 0 and cache_second_missed == 0} "
+                     f"subjects={len(cache_subjects)} from_documents={cache_from_documents} documents={len(cache_documents)} "
+                     f"disclosed={dict(cache_disclosed)} second_missed={cache_second_missed} differing={dict(cache_differing)}"],
+                    "judged=True", "differing={}")
+            check("and the cache held its bound over this suite",
+                  len(projection._DISCLOSES_CACHE) <= projection.DISCLOSES_CACHE_MAX,
+                  f"entries={len(projection._DISCLOSES_CACHE)} bound={projection.DISCLOSES_CACHE_MAX} "
+                  f"stats={dict(projection.DISCLOSES_CACHE_STATS)}")
+
     # ---- S8b item 6b: a suite collects its failures and prints them at the end, so an exception
     # leaving it took every line with it — which is how r7 recorded D3 and R12 as SILENT when the
     # cause was an abort rather than a silent rule. `entry.publish_collected` is what every abort

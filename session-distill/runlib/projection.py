@@ -75,6 +75,9 @@ from the source, which an unregistered version does.
 """
 import importlib.util
 import collections
+import hashlib
+import threading
+import types
 import unicodedata
 import random
 import contextlib
@@ -1390,8 +1393,10 @@ def every_spelling(value, depth=0, reach=None):
     return out, reach
 
 
-def discloses(text, home=None):
+def discloses_uncached(text, home=None):
     """What a projected block still discloses, named by the detector that found it - or None.
+
+    `discloses` is this, remembered; this is the verifier itself, and what the cache's controls compare it with.
 
     Three rules, each LOCAL and TOTAL - they ask what the output contains, never what the projection did
     with it:
@@ -1424,6 +1429,92 @@ def discloses(text, home=None):
         if any(not vf_exempt(value) for _name, value in vf_keyed(form)):
             return "keyed fragment"
     return "verifier-limit" if reach.exhausted else None
+
+
+# ---- the verifier's answers, remembered ------------------------------------------------------------
+#
+# One run asks the verifier the same question many times over: the inventory's self-test made 10,769,881
+# calls over 21,291 distinct (text, home) inputs, and spent 191.3 of its 192.6 seconds in the verifier on
+# inputs it had already asked about (2026-10-30, f506ef0). An answer depends on three things and nothing
+# else - the text, the home it is judged against, and the rules in force - so it is remembered under all
+# three. The rules are not a list kept here: they are every module-level name `discloses_uncached` reaches,
+# followed through this module's own functions and classes (`DISCLOSURE_RULE_NAMES`, derived at the end of
+# the module, once every name exists), and every member of the floor. A rule replaced while the module runs - a self-test plants one - starts a new generation, and an
+# answer of an older generation is never returned for it.
+#
+# The text itself is not kept: its sha256 is, so the bound is a bound on memory whatever the texts' length.
+DISCLOSES_CACHE_MAX = 65536   # answers remembered at most; past it the oldest is forgotten first
+DISCLOSES_CACHE_STATS = collections.Counter()   # hits, misses, evicted, cleared, bypassed - updated under the lock
+_DISCLOSES_CACHE = {}         # (sha256 of the text, the resolved home, the generation) -> the answer
+_DISCLOSES_STATE = {"rules": None, "generation": 0}
+_DISCLOSES_LOCK = threading.Lock()
+
+
+def disclosure_rules():
+    """The rules in force NOW, as one comparable value: the current value of every name the verifier reaches,
+    and every member of the floor - a list read as its items, because the floor's patterns are changed in
+    place as well as rebound. It is compared, never hashed: a rule is the same when it is the same object."""
+    floor = tuple((name, tuple(value) if isinstance(value, list) else value)
+                  for name, value in vars(FLOOR).items() if not name.startswith("__"))
+    return tuple(map(globals().get, DISCLOSURE_RULE_NAMES)), floor
+
+
+def discloses(text, home=None):
+    """`discloses_uncached`, remembered under the text, the home and the rules in force.
+
+    The home is resolved here, once, and the verifier is asked with exactly the home the key holds: `None`
+    means this process's home as it stands at the call, so a changed `HOME` is a different key. Anything but
+    a plain string text and home is asked of the verifier directly. An exception is never remembered."""
+    resolved = os.path.expanduser("~") if home is None else home
+    if type(text) is not str or type(resolved) is not str:
+        with _DISCLOSES_LOCK:
+            DISCLOSES_CACHE_STATS["bypassed"] += 1
+        return discloses_uncached(text, resolved)
+    rules = disclosure_rules()
+    digest = hashlib.sha256(text.encode("utf-8", "surrogatepass")).digest()
+    with _DISCLOSES_LOCK:
+        if rules != _DISCLOSES_STATE["rules"]:
+            if _DISCLOSES_STATE["rules"] is not None:
+                DISCLOSES_CACHE_STATS["cleared"] += 1
+            _DISCLOSES_STATE["rules"] = rules
+            _DISCLOSES_STATE["generation"] += 1
+            _DISCLOSES_CACHE.clear()
+        key = (digest, resolved, _DISCLOSES_STATE["generation"])
+        if key in _DISCLOSES_CACHE:
+            DISCLOSES_CACHE_STATS["hits"] += 1
+            return _DISCLOSES_CACHE[key]
+    answer = discloses_uncached(text, resolved)
+    with _DISCLOSES_LOCK:
+        DISCLOSES_CACHE_STATS["misses"] += 1
+        while _DISCLOSES_CACHE and len(_DISCLOSES_CACHE) >= DISCLOSES_CACHE_MAX:
+            del _DISCLOSES_CACHE[next(iter(_DISCLOSES_CACHE))]
+            DISCLOSES_CACHE_STATS["evicted"] += 1
+        _DISCLOSES_CACHE[key] = answer
+    return answer
+
+
+def _reached_names(start):
+    """The module-level names `start` reaches, `start` included: every name its code reads, followed into this
+    module's own functions and into the methods of its own classes, nested code included - a helper three calls
+    down is as much the verifier as its entry point is."""
+    namespace = globals()
+    names, pending = {start}, [namespace[start]]
+    while pending:
+        value = pending.pop()
+        if isinstance(value, types.FunctionType) and value.__module__ == __name__:
+            codes = [value.__code__]
+        elif isinstance(value, type) and value.__module__ == __name__:
+            codes = [member.__code__ for member in vars(value).values() if isinstance(member, types.FunctionType)]
+        else:
+            continue
+        while codes:
+            code = codes.pop()
+            codes += [constant for constant in code.co_consts if isinstance(constant, types.CodeType)]
+            for name in code.co_names:
+                if name in namespace and name not in names:
+                    names.add(name)
+                    pending.append(namespace[name])
+    return tuple(sorted(names))
 
 
 def spellings_of(value):
@@ -3826,6 +3917,132 @@ def self_test():
     if diagnostic("STAGE_NOT_IMPLEMENTED read (S3)", owner) != "STAGE_NOT_IMPLEMENTED read (S3)":
         failures.append("a diagnostic with nothing to mask was not printed as it stands")
 
+    # ---- the remembered answers: a rule, a home or a bound that changed is never answered from memory ----
+    #
+    # Each control warms the cache first and shows the warm answer CAME from it (a hit counted), so a pass is
+    # not the verifier answering where the cache should have been asked.
+    def asked_twice(text, home=None):
+        """The answer asked once and again, and whether the second ask was answered from the cache."""
+        first = discloses(text, home)
+        hits = DISCLOSES_CACHE_STATS["hits"]
+        second = discloses(text, home)
+        return first, second, DISCLOSES_CACHE_STATS["hits"] == hits + 1
+
+    planted_text = "zq7 a value only a planted floor pattern names 0123456789"
+    cold, warm, hit = asked_twice(planted_text, owner)
+    FLOOR.SECRET_RE.append(re.compile(r"zq7 a value only a planted floor pattern names"))
+    try:
+        planted_answer = discloses(planted_text, owner)
+    finally:
+        FLOOR.SECRET_RE.pop()
+    restored_answer = discloses(planted_text, owner)
+    if (cold, warm, hit, planted_answer, restored_answer) != (None, None, True, "floor", None):
+        failures.append(f"a warm cache answers a floor pattern planted in place after it: cold={cold!r} warm={warm!r} "
+                        f"hit={hit} planted={planted_answer!r} restored={restored_answer!r}")
+
+    member_text = '{"zq7plainname": "a plain value"}'
+    cold, warm, hit = asked_twice(member_text, owner)
+    kept_secret_key = globals()["secret_key"]
+    globals()["secret_key"] = lambda name: True
+    try:
+        replaced_answer = discloses(member_text, owner)
+    finally:
+        globals()["secret_key"] = kept_secret_key
+    restored_answer = discloses(member_text, owner)
+    if (cold, warm, hit, replaced_answer, restored_answer) != (None, None, True, "secret-named key", None):
+        failures.append(f"a warm cache answers a secret_key replaced after it: cold={cold!r} warm={warm!r} hit={hit} "
+                        f"replaced={replaced_answer!r} restored={restored_answer!r}")
+
+    # a helper the verifier reaches only through another one: `vf_unescape`, through `every_spelling`
+    deep_text = "zq7 nothing here to unescape"
+    cold, warm, hit = asked_twice(deep_text, owner)
+    kept_unescape = globals()["vf_unescape"]
+    globals()["vf_unescape"] = lambda text: f"api_key={_PROBE}"
+    try:
+        deep_answer = discloses(deep_text, owner)
+    finally:
+        globals()["vf_unescape"] = kept_unescape
+    restored_answer = discloses(deep_text, owner)
+    if (cold, warm, hit, deep_answer, restored_answer) != (None, None, True, "floor", None):
+        failures.append(f"a warm cache answers a helper replaced two calls below the verifier: cold={cold!r} "
+                        f"warm={warm!r} hit={hit} replaced={deep_answer!r} restored={restored_answer!r}")
+
+    home_a, home_b = "/opt/zq7-home-a", "/opt/zq7-home-b"
+    home_text = f"read {home_a}/notes"
+    a_cold, a_warm, a_hit = asked_twice(home_text, home_a)
+    b_answer = discloses(home_text, home_b)
+    kept_home = os.environ.get("HOME")
+    try:
+        os.environ["HOME"] = home_a
+        env_a, env_a_again, env_a_hit = asked_twice(home_text)
+        os.environ["HOME"] = home_b
+        env_b = discloses(home_text)
+    finally:
+        if kept_home is None:
+            os.environ.pop("HOME", None)
+        else:
+            os.environ["HOME"] = kept_home
+    if (a_cold, a_warm, a_hit, b_answer, env_a, env_a_again, env_a_hit, env_b) != (
+            "home path", "home path", True, None, "home path", "home path", True, None):
+        failures.append(f"a warm cache answers each home with its own answer, and an unnamed home as HOME stands: "
+                        f"a={a_cold!r}/{a_warm!r} hit={a_hit} b={b_answer!r} HOME=a {env_a!r}/{env_a_again!r} "
+                        f"hit={env_a_hit} HOME=b {env_b!r}")
+
+    kept_max = DISCLOSES_CACHE_MAX
+    bound_texts = [f"zq7 bound probe {n}" for n in range(7)]
+    with _DISCLOSES_LOCK:
+        size_before, evicted_before = len(_DISCLOSES_CACHE), DISCLOSES_CACHE_STATS["evicted"]
+    try:
+        globals()["DISCLOSES_CACHE_MAX"] = 4
+        bound_answers = [discloses(text, owner) for text in bound_texts]
+        with _DISCLOSES_LOCK:
+            size_bounded, evicted = len(_DISCLOSES_CACHE), DISCLOSES_CACHE_STATS["evicted"] - evicted_before
+            misses = DISCLOSES_CACHE_STATS["misses"]
+        again = discloses(bound_texts[0], owner)
+        again_missed = DISCLOSES_CACHE_STATS["misses"] == misses + 1
+    finally:
+        globals()["DISCLOSES_CACHE_MAX"] = kept_max
+    with _DISCLOSES_LOCK:
+        size_after = len(_DISCLOSES_CACHE)
+    if (size_bounded != 4 or evicted != size_before + len(bound_texts) - 4 or again != bound_answers[0]
+            or not again_missed or size_after > DISCLOSES_CACHE_MAX):
+        failures.append(f"the cache holds at most its bound, forgetting the oldest: size={size_bounded} of 4, "
+                        f"evicted={evicted} of {size_before + len(bound_texts) - 4}, the forgotten asked again "
+                        f"missed={again_missed} same={again == bound_answers[0]}, then {size_after} of "
+                        f"{DISCLOSES_CACHE_MAX}")
+
+    # every rule the key compares is a value that cannot change in place - a dict or set changed in place
+    # would compare equal to itself and keep an answer computed under its old contents - and no reached
+    # function looks a name up by its string, which the derivation cannot follow
+    def immutable_rule(value):
+        if isinstance(value, tuple):
+            return all(immutable_rule(item) for item in value)
+        # A path is a value object with no public mutator: `FLOOR_PATH`, which the verifier's refusal names,
+        # is one, and without it here this control would refuse today's verifier for a value that cannot change.
+        return value is None or isinstance(value, (types.FunctionType, types.BuiltinFunctionType, type,
+                                                   types.ModuleType, re.Pattern, pathlib.PurePath, str, bytes,
+                                                   int, float, range, frozenset))
+
+    def code_names(code):
+        names, codes = set(), [code]
+        while codes:
+            here = codes.pop()
+            names |= set(here.co_names)
+            codes += [constant for constant in here.co_consts if isinstance(constant, types.CodeType)]
+        return names
+
+    helper_values, floor_values = disclosure_rules()
+    mutable = [f"{name} ({type(value).__name__})" for name, value in zip(DISCLOSURE_RULE_NAMES, helper_values)
+               if not immutable_rule(value)]
+    mutable += [f"FLOOR.{name} ({type(value).__name__})" for name, value in floor_values if not immutable_rule(value)]
+    by_string = sorted(name for name, value in zip(DISCLOSURE_RULE_NAMES, helper_values)
+                       if isinstance(value, types.FunctionType)
+                       and code_names(value.__code__) & {"globals", "vars", "eval", "exec"})
+    if mutable or by_string or len(DISCLOSURE_RULE_NAMES) < 2 or not floor_values:
+        failures.append(f"every rule the cache compares is immutable and reached by name: mutable={mutable} "
+                        f"looked up by string={by_string} names={len(DISCLOSURE_RULE_NAMES)} "
+                        f"floor members={len(floor_values)}")
+
     for failure in failures:
         print(f"projection --self-test [FAIL] {failure}")
     if failures:
@@ -3844,8 +4061,15 @@ def self_test():
           f"differential over the whole fixture corpus (whatever the unchanged floor masks, the "
           f"projection masks at least as much, and somewhere it masks more), and the sweep over a fixture run directory - a planted member found in a record and in a "
           f"pretty-printed window, every quoting its masker writes recognised, an index judged only for its "
-          f"shape, and an unreadable record, an unreadable document and an empty subject set each refused)")
+          f"shape, and an unreadable record, an unreadable document and an empty subject set each refused, and "
+          f"the remembered verifier answers asked again after a floor pattern, a helper, a home and the bound "
+          f"each changed under a warm cache)")
     return 0
+
+
+# The names the verifier reaches, derived here rather than beside the cache: every name exists by now, so a
+# helper defined below the verifier cannot be missed for not existing yet.
+DISCLOSURE_RULE_NAMES = _reached_names("discloses_uncached")
 
 
 if __name__ == "__main__":
