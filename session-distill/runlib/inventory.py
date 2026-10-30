@@ -14142,6 +14142,13 @@ def self_test():
             schema_here = inventory_schema()
             block_event = next((row["source"]["event_ref"] for row in (found_seg_block(index_doc) or {}).get("layers") or []
                                 if (row["source"] or {}).get("event_ref")), None)
+            # A planting needs both: an event_ref to plant, and the catalog row's source to plant it into. A published
+            # index can hold a catalog row with no source (a pin whose snapshot names no baseline, P2.7e).
+            catalog_source = next((row.get("source") for row in (found_seg_block(index_doc) or {}).get("layers") or []
+                                   if row.get("layer") == "catalog"), None)
+            plantable = block_event is not None and isinstance(catalog_source, dict)
+            unplanted = "; ".join((["no event-sourced row to take an event_ref from"] if block_event is None else [])
+                                  + ([] if isinstance(catalog_source, dict) else ["no catalog row source to plant into"]))
             dependents = ((schema_here.get("$defs") or {}).get("release_source") or {}).get("dependentRequired") or {}
             dependent_cases = (("inventory_ref", "layer", {}, "a row source naming an inventory and no layer"),
                                ("layer", "inventory_ref", {}, "a row source naming a layer and no inventory"),
@@ -14153,22 +14160,23 @@ def self_test():
                   f"{dependents}")
             for trigger, dependent, extra, what in dependent_cases:
                 bare_source, twin_source = json.loads(json.dumps(index_doc)), json.loads(json.dumps(index_doc))
-                # no block to take an event_ref from (a refused run's index): nothing is planted, and both controls
-                # below fail by name on `block_event is None`
-                for planted_doc, keeps_dependent in (((bare_source, False), (twin_source, True))
-                                                     if block_event is not None else ()):
+                # nothing to plant (a refused run's index has no block to take an event_ref from; a published one can
+                # hold a catalog row with no source): nothing is planted, and both controls below fail by name on what
+                # is missing, so neither passes on a document nothing was planted into
+                for planted_doc, keeps_dependent in (((bare_source, False), (twin_source, True)) if plantable else ()):
                     planted_source = layer_of(seg_block(planted_doc), "catalog")["source"]
                     planted_source.update({"event_ref": block_event, **extra})
                     if not keeps_dependent:
                         planted_source.pop(dependent)
                 check(f"X12: {what} is refused by the schema",
-                      block_event is not None
+                      plantable
                       and any(problem.startswith("DOCUMENT_INVALID") for problem in document_contract_problems(bare_source, schema_here)),
-                      f"the schema admitted a source with {trigger} and no {dependent} (event_ref={block_event})")
+                      f"the schema admitted a source with {trigger} and no {dependent} (event_ref={block_event})"
+                      if plantable else f"nothing planted: {unplanted}")
                 clean(f"X12: and the {trigger} source with its {dependent} is admitted, so the refusal is the missing "
                       f"{dependent}'s",
-                      document_contract_problems(twin_source, schema_here) if block_event is not None
-                      else ["the block has no event-sourced row to take an event_ref from"])
+                      document_contract_problems(twin_source, schema_here) if plantable
+                      else [f"nothing planted: {unplanted}"])
             control("D1: an index row's reason that is not a declared key, an `uncertain:` one included, is refused at "
                     "emission",
                     [str(_raised(lambda: emit_row("release_row", RELEASE_ROW_TABLE, {
