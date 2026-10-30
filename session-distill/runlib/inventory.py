@@ -732,8 +732,9 @@ def operative_context(units):
     answer depending on which package the run enumerated first (GB#10).
 
     Beside the closure each unit carries, never emitted: its `direct` and `reached` lists (a shared
-    inventory publishes them as edges) and the map of every `k-` entry of this call, with the raw
-    label a reader in this process can name it by."""
+    inventory publishes them as edges), the map of every `k-` entry of this call, with the raw
+    label a reader in this process can name it by, and the `(resolution path, carrier_id,
+    version_sha256)` triples its mentions matched (`context_matches`, an override set's key)."""
     by_carrier = collections.defaultdict(list)
     for unit in units:
         by_carrier[_carrier_key(unit)].append(unit)
@@ -807,6 +808,9 @@ def operative_context(units):
             named, heading = match.group("path"), (match.group("heading") or "").strip()
             paths = [named] if named in carriers_at_path else basenames.get(named.rsplit("/", 1)[-1], [])
             targets = [key for path in paths for key in carriers_at_path[path]]
+            # what this mention MATCHED, by resolution path and carrier version: an override set's key
+            # (step 0 S-12, the v- triples), which a carrier no mention matches cannot change
+            matched[unit_id].update((path, *key) for path in paths for key in carriers_at_path[path])
             if not targets:
                 if named != unit["path"] and named != unit["path"].rsplit("/", 1)[-1]:
                     unknown(f"{UNRESOLVED}{named}", "plain", match)
@@ -828,12 +832,13 @@ def operative_context(units):
                     reached += whole_carrier(key)
         return [row for row in dict.fromkeys(reached) if row != unit_id]
 
-    unknowns = {}
+    unknowns, matched = {}, collections.defaultdict(set)
     reached = {unit["unit_id"]: mentioned(unit["unit_id"]) for unit in units}
     closures = closure_of(direct, reached)
     for unit in units:
         unit["operative_context"] = closures[unit["unit_id"]]
         unit["context_direct"], unit["context_reached"] = direct[unit["unit_id"]], reached[unit["unit_id"]]
+        unit["context_matches"] = sorted(matched[unit["unit_id"]], key=repr)
         # One map for every unit: an entry a unit reached through the closure was READ in another
         # carrier, and it is that carrier's offsets and that carrier's floor decision the emission needs.
         unit["context_unknowns"] = unknowns
@@ -930,6 +935,8 @@ OPAQUE_FORMS = {"unit_id": re.compile(r"^u-[0-9a-f]{16}(-[0-9]+)?$"),
                 "inventory_id": re.compile(r"^i-[0-9a-f]{24}$"),
                 "segment_id": re.compile(r"^g-[0-9a-f]{24}$"),
                 "unknown_id": re.compile(r"^k-[0-9a-f]{24}$"),
+                "context_set_id": re.compile(r"^x-[0-9a-f]{24}$"),
+                "override_set_id": re.compile(r"^v-[0-9a-f]{24}$"),
                 "commit_hash": re.compile(r"^[0-9a-f]{7,64}$")}
 
 
@@ -1314,7 +1321,7 @@ BLOCK_KINDS = frozenset((
 # closure's own bookkeeping. Declared here so a field left off the table is refused rather than
 # silently dropped.
 EMISSION_INTERNAL = frozenset(("carrier_text", "span", "heading_spans", "heading_chain", "enclosing",
-                               "context_direct", "context_reached", "context_unknowns"))
+                               "context_direct", "context_reached", "context_unknowns", "context_matches"))
 # The hosts a provenance row may name. This one IS a vocabulary of this code: the host of a session
 # injection is named by the producer, never read out of a file.
 PROVENANCE_HOSTS = frozenset(("claude", "codex"))
@@ -1390,6 +1397,29 @@ EDGE_TABLE = table_of({
     "direct": list_of(as_opaque("unit_ref")),
     "reached": list_of(one_of(as_opaque("unit_ref"), as_opaque("unknown_id"))),
 }, schema="requirement_edges")
+CARRIER_VERSION_REF_TABLE = table_of({"carrier_id": as_opaque("carrier_id"), "version_sha256": as_opaque("sha256")})
+# One segment universe's context set (step 0 S-12, S-11): the universe it is over — its carrier versions and
+# the inventories its segment names — the event units' edges, the override sets it applies, and the digest of
+# the closures they yield over every unit of the universe. Computed over the KNOWN universe (lead, R8/R14).
+CONTEXT_SET_TABLE = table_of({
+    "context_set_id": as_opaque("context_set_id"),
+    "carriers": list_of(CARRIER_VERSION_REF_TABLE),
+    "inventory_refs": list_of(as_opaque("inventory_id")),
+    "edges": list_of(EDGE_TABLE),
+    "override_refs": list_of(as_opaque("override_set_id")),
+    "closure_digest": as_opaque("sha256"),
+}, schema="context_set")
+# One shared inventory's overrides in some universe (step 0 S-12): the carrier versions its mentions matched,
+# and the `reached` list of every unit of its pointed layers whose `reached` differs there. Never `direct`.
+OVERRIDE_SET_TABLE = table_of({
+    "override_set_id": as_opaque("override_set_id"),
+    "inventory_ref": as_opaque("inventory_id"),
+    "matches": list_of(CARRIER_VERSION_REF_TABLE),
+    "overrides": list_of(table_of({
+        "unit_ref": as_opaque("unit_ref"),
+        "reached": list_of(one_of(as_opaque("unit_ref"), as_opaque("unknown_id"))),
+    })),
+}, schema="override")
 
 
 def unknown_sources(units, referenced, place):
@@ -1431,19 +1461,223 @@ def edges_of(units):
     return [rows[ref] for ref in sorted(rows)]
 
 
-def published_closures(inventory):
-    """Every unit's closure, from ONE shared inventory's PUBLISHED edges only (step 0 S-12 [F:304-306]).
+def published_closures(inventory=None, *, sessions=None, context_set=None, inventories=(), store=None):
+    """Every unit's closure from PUBLISHED edges only (step 0 S-12 [F:304-306]): one shared inventory's,
+    or, given `context_set` (an `x-` id of `sessions`), every unit of that context set's universe.
 
-    The edges go through `closure_of`, the loop `operative_context` runs, so there is one rule. The
-    inventory is a value its caller already loaded: this reads no file, no source tree and no state
-    root. A document naming a closure rule this reader does not implement is refused by name rather
-    than read as if it were this one."""
-    if inventory.get("closure_rule") not in SUPPORTED_CLOSURE_RULES:
-        raise Refused(f"CLOSURE_RULE_UNSUPPORTED {inventory.get('inventory_id')}: the document names a "
-                      f"closure rule this reader does not implement, so no closure is computed from it")
-    edges = inventory.get("edges") or []
-    return closure_of({row["unit_ref"]: row["direct"] for row in edges},
-                      {row["unit_ref"]: row["reached"] for row in edges})
+    The edges go through `closure_of`, the loop `operative_context` runs, so there is one rule. Every
+    document is a value its caller already loaded — `sessions.json`, the shared inventories the context
+    set names, `shared/store.json` — so this reads no file, no source tree and no state root. A document
+    naming a closure rule this reader does not implement is refused by name rather than read as if it
+    were this one.
+
+    A context set's universe is the store's units of its carrier versions, a pointed inventory's carrier
+    taking the units that inventory publishes (lead, R16). Each unit's edges are its inventory's, or the
+    context set's for an event unit, and then the override sets it lists replace `reached` (`direct` is
+    never overridden). A unit with no edge row has no closure of its own, so a removed edge changes the
+    closure map, and a map whose digest is not the one the context set carries is refused by name."""
+    documents = [inventory] if context_set is None else [sessions, *inventories]
+    for document in documents:
+        if (document or {}).get("closure_rule") not in SUPPORTED_CLOSURE_RULES:
+            raise Refused(f"CLOSURE_RULE_UNSUPPORTED {(document or {}).get('inventory_id') or (document or {}).get('document')}: "
+                          f"the document names a closure rule this reader does not implement, so no closure is "
+                          f"computed from it")
+    if context_set is None:
+        edges = inventory.get("edges") or []
+        return closure_of({row["unit_ref"]: row["direct"] for row in edges},
+                          {row["unit_ref"]: row["reached"] for row in edges})
+    row = next((row for row in sessions.get("context_sets") or [] if row.get("context_set_id") == context_set), None)
+    if row is None:
+        raise Refused(f"CONTEXT_SET_UNRESOLVED {context_set}: the sessions document publishes no such context set")
+    named = {document.get("inventory_id"): document for document in inventories}
+    universe = universe_units(row, named, (store or {}).get("versions") or {})
+    direct, reached = {}, {}
+    for edge in [edge for identity in row.get("inventory_refs") or []
+                 for edge in (named.get(identity) or {}).get("edges") or []] + list(row.get("edges") or []):
+        if edge.get("unit_ref") in universe:
+            direct[edge["unit_ref"]], reached[edge["unit_ref"]] = edge.get("direct") or [], edge.get("reached") or []
+    overrides = {found.get("override_set_id"): found for found in sessions.get("override_sets") or []}
+    for ref in row.get("override_refs") or []:
+        for override in (overrides.get(ref) or {}).get("overrides") or []:
+            if override.get("unit_ref") in direct:
+                reached[override["unit_ref"]] = override.get("reached") or []
+    closures = closure_of(direct, reached)
+    if closure_digest(closures) != row.get("closure_digest"):
+        raise Refused(f"CLOSURE_DIGEST_MISMATCH {context_set}: the closures its published edges and overrides give "
+                      f"are not the ones its closure_digest names")
+    return closures
+
+
+def closure_digest(closures):
+    """`closure_digest` (step 0 S-12): the sha256 of a closure map in canonical form — `[[reference, sorted
+    closure], ...]` sorted by reference, as one JSON array: UTF-8, no whitespace (the S-11 encoding)."""
+    canonical = json.dumps([[ref, sorted(closures[ref])] for ref in sorted(closures)], separators=(",", ":"),
+                           ensure_ascii=False)
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def universe_units(context, named, versions):
+    """The `r-` references of a context set's universe, from published values: the store's units of each
+    carrier version it lists, a version one of its named inventories holds taking only the units that
+    inventory publishes (a layer `produce` refused publishes none, where the store splits each version
+    alone)."""
+    held = {}
+    for identity in context.get("inventory_refs") or []:
+        for row in (named.get(identity) or {}).get("carriers") or []:
+            held[(row.get("carrier_id"), row.get("version_sha256"))] = identity
+    units = set()
+    for row in context.get("carriers") or []:
+        key = (row.get("carrier_id"), row.get("version_sha256"))
+        refs = set(((versions.get(key[0]) or {}).get(key[1]) or {}).get("unit_refs") or [])
+        if key in held:
+            refs &= set((named.get(held[key]) or {}).get("unit_refs") or [])
+        units |= refs
+    return units
+
+
+def _as_universe_units(units):
+    """Copies of `units` keyed by their `r-` reference, their enclosing headings too. `unit_id` is a
+    fragment's id within one split, so one universe holding two versions of one carrier, split apart,
+    would give two units one id; `r-` is per version and position, so it cannot."""
+    ref_of = {unit["unit_id"]: unit["unit_ref"] for unit in units}
+    return [{**unit, "unit_id": unit["unit_ref"], "enclosing": [ref_of[row] for row in unit["enclosing"]]}
+            for unit in units]
+
+
+def universe_context(members, inventories, place):
+    """One segment universe's context set (step 0 S-12), from the event carrier items `members` and
+    `inventories`, `[(i- id, its carrier versions in the universe, its units of the pointed layers, its
+    published edges by unit_ref)]`.
+
+    Every member version is split alone, as the store splits it, and `operative_context` runs ONCE over
+    the whole universe, so a mention resolves against everything in it — a catalog unit naming
+    `CLAUDE.md` in a universe that carries a native one reaches it, or states the ambiguity. The result:
+    the context set (its id over the universe's carrier versions and the inventories, the event units'
+    edges, the digest of EVERY universe unit's closure, from these runtime closures, R13), and per
+    inventory one override set holding every pointed unit whose `reached` differs from its published edge,
+    reached by anything or not, keyed by that inventory and the triples its pointed units' mentions
+    matched (R7, consequence 3); none for an inventory with no differing unit (R11). Also the `k-` entries
+    the edges and overrides name, and the runtime closures (never emitted)."""
+    items = {}
+    for item in members:
+        items.setdefault((item["carrier_id"], item["version_sha256"]), item)
+    units, carriers = [], set(items)
+    for key in sorted(items):
+        try:
+            units += _as_universe_units(units_of([items[key]]))
+        except (Malformed, Unsupported):
+            pass  # a version the splitter refuses has no units, as in the store
+    event_refs = {unit["unit_id"] for unit in units}
+    pointed = []
+    for identity, held, own, edges in inventories:
+        carriers |= set(held)
+        copies = _as_universe_units(own)
+        pointed.append((identity, [unit["unit_id"] for unit in copies], edges))
+        units += copies
+    units = list({unit["unit_id"]: unit for unit in units}.values())
+    operative_context(units)
+    by_ref = {unit["unit_id"]: unit for unit in units}
+    override_sets = []
+    for identity, refs, edges in pointed:
+        rows = []
+        for ref in refs:
+            reached = sorted(set(by_ref[ref]["context_reached"]))
+            if reached != (edges.get(ref) or {}).get("reached"):
+                rows.append({"unit_ref": ref, "reached": reached})
+        if not rows:
+            continue
+        triples = sorted({tuple(row) for ref in refs for row in by_ref[ref]["context_matches"]}, key=repr)
+        override_sets.append({
+            "override_set_id": opaque_id("v", "override", identity, [list(row) for row in triples]),
+            "inventory_ref": identity,
+            "matches": [{"carrier_id": carrier_id, "version_sha256": version}
+                        for carrier_id, version in sorted({row[1:] for row in triples}, key=repr)],
+            "overrides": sorted(rows, key=lambda row: row["unit_ref"])})
+    edges = edges_of([unit for unit in units if unit["unit_id"] in event_refs])
+    inventory_refs = sorted(identity for identity, _refs, _edges in pointed)
+    closures = {unit["unit_id"]: unit["operative_context"] for unit in units}
+    referenced = {row for edge in edges for row in edge["reached"]} \
+        | {row for found in override_sets for override in found["overrides"] for row in override["reached"]}
+    context = {
+        "context_set_id": opaque_id("x", "context", [list(row) for row in sorted(carriers)], inventory_refs),
+        "carriers": [{"carrier_id": carrier_id, "version_sha256": version} for carrier_id, version in sorted(carriers)],
+        "inventory_refs": inventory_refs, "edges": edges,
+        "override_refs": sorted(found["override_set_id"] for found in override_sets),
+        "closure_digest": closure_digest(closures)}
+    return {"context_set": context, "override_sets": override_sets, "closures": closures,
+            "unknown_entries": unknown_sources(units, {row for row in referenced if row.startswith("k-")}, place)}
+
+
+def universe_of(block, published, versions):
+    """`(member versions, {i- id: (pointed layers, its carrier versions in those layers)})` of one segment's
+    index rows (R7 (a)): the event members its rows name, and each `(inventory, layer)` pair a row points
+    to, with that inventory's carriers whose store version is of a pointed layer. An inventory the index
+    names that is not published holds nothing here; `release_cross_problems` refuses it by name."""
+    members, pairs = set(), set()
+    for row in block.get("layers") or []:
+        source = row.get("source") or {}
+        members |= {(member.get("carrier_id"), member.get("version_sha256")) for member in source.get("members") or []}
+        if "inventory_ref" in source:
+            pairs.add((source.get("inventory_ref"), source.get("layer")))
+    inventories = {}
+    for identity in sorted({identity for identity, _layer in pairs}):
+        layers = frozenset(layer for named, layer in pairs if named == identity)
+        inventories[identity] = (layers, sorted(
+            (row.get("carrier_id"), row.get("version_sha256")) for row in (published.get(identity) or {}).get("carriers") or []
+            if ((versions.get(row.get("carrier_id")) or {}).get(row.get("version_sha256")) or {}).get("layer") in layers))
+    return members, inventories
+
+
+def context_sets(ctx, index, shared, store):
+    """Every segment's context set (step 0 S-12, S-11), from the release index's own rows: the universe
+    a segment's rows name (`universe_of`) — the event members of each kind in force (an uncertain state's
+    rows carry its event's members, R8) and the pointed inventory layers — and the empty context set for an
+    empty known universe (R14). Context sets and override sets are deduplicated by id, and one id with
+    different content is refused by name (lead A1): R7's fixed layers are what make an id determine its
+    content, and this makes that checked rather than assumed.
+
+    Each segment row of `ctx` gains `context_set_ref`, and each occurrence `context_set`: the context set of
+    the segment its event starts in its owner's partition, null for an owner-less event (R10). An owned
+    event that starts no segment is left null, and the cross check refuses it."""
+    place = {"home": ctx.get("home"), "decisions": {}}
+    published = {document["inventory_id"]: document for _path, document in shared}
+    versions = store.get("versions") or {}
+    items = {}
+    for item in store_carriers(ctx):
+        items.setdefault((item["carrier_id"], item["version_sha256"]), item)
+    computed, sets, overrides, unknown, segment_ref, closures = {}, {}, {}, {}, {}, {}
+    for entry in index.get("sessions") or []:
+        for block in entry.get("segments") or []:
+            members, inventories = universe_of(block, published, versions)
+            key = (frozenset(members), frozenset((identity, layers) for identity, (layers, _held) in inventories.items()))
+            if key not in computed:
+                computed[key] = found = universe_context(
+                    [items[member] for member in sorted(members)],
+                    [(identity, held, [unit for unit in (ctx.get("shared_units") or {}).get(identity) or []
+                                       if unit["layer"] in layers],
+                      {row["unit_ref"]: row for row in (published.get(identity) or {}).get("edges") or []})
+                     for identity, (layers, held) in inventories.items()], place)
+                identity = found["context_set"]["context_set_id"]
+                for table, row_id, row, what in [(sets, identity, found["context_set"], "context sets")] + [
+                        (overrides, row["override_set_id"], row, "override sets") for row in found["override_sets"]]:
+                    if table.setdefault(row_id, row) != row:
+                        raise Refused(f"CONTEXT_ID_COLLISION {row_id}: two {what} with one id and different content; "
+                                      f"no artifact is written")
+                closures[identity] = found["closures"]
+                for row in found["unknown_entries"]:
+                    unknown.setdefault(row["unknown_id"], row)
+            segment_ref[block.get("segment_ref")] = computed[key]["context_set"]["context_set_id"]
+    starts = {}
+    for row in ctx.get("segments") or []:
+        row["context_set_ref"] = segment_ref.get(row["segment_id"])
+        starts[(row.get("session_ref"), row.get("owner_ref"), row.get("from"))] = row["context_set_ref"]
+    events = {event["id"]: event for event in ctx.get("events") or []}
+    for row in ctx.get("occurrences") or []:
+        event = events.get(row.get("event_id")) or {}
+        row["context_set"] = None if event.get("owner_ref") is None else \
+            starts.get((event.get("session_ref"), event["owner_ref"], event.get("n")))
+    return {"context_sets": [sets[key] for key in sorted(sets)], "override_sets": [overrides[key] for key in sorted(overrides)],
+            "unknown_entries": [unknown[key] for key in sorted(unknown)], "closures": closures}
 
 
 # The note keys the layer producers write. The key set is declared so a new note is declared here
@@ -1626,6 +1860,8 @@ SEGMENT_TABLE = table_of({
     "from": as_scalar(),
     "to": as_scalar(),
     "in_force": table_of({kind: IN_FORCE_TABLE for kind in EVENT_KINDS}),
+    # its universe's context set (step 0 S-12): every segment has one, the empty one for an empty known universe
+    "context_set_ref": as_opaque("context_set_id"),
 }, schema="segment")
 # One recorded occurrence (step 0 S-12, S-13): where in which event a carrier version's bytes sit. Its
 # span counts code points of the decoded FIELD text the pointer names — not the carrier version's raw
@@ -1644,6 +1880,8 @@ OCCURRENCE_TABLE = table_of({
     "sha256": as_opaque("sha256", nullable=True),
     "method": as_enum(OCCURRENCE_METHODS),
     "reason": as_enum(("recorded_unmapped",), nullable=True),
+    # the context set of the segment its event starts in its owner's partition; null for an owner-less event (R10)
+    "context_set": as_opaque("context_set_id", nullable=True),
     "git": GIT_TABLE,
 }, optional=("git",), schema="occurrence")
 SESSIONS_PRODUCED_BY_TABLE = table_of({
@@ -1745,10 +1983,25 @@ def event_members(event):
     return sorted(rows, key=lambda row: row["ordinal"])
 
 
-def sessions_document(ctx):
-    """`sessions.json`: every census row's per-session record and every event, none truncated."""
+def _without(table, field):
+    """`table` with one field left out and no schema row to be held to: a row's pre-context content."""
+    return table_of({key: spec for key, spec in table["fields"].items() if key != field},
+                    optional=tuple(key for key in table["optional"] if key != field))
+
+
+def sessions_document(ctx, early=False):
+    """`sessions.json`: every census row's per-session record and every event, none truncated, and the
+    context sets of its segments with the override sets and unresolved requirements they name
+    (`context_sets`, which `sessions_with_contexts` runs: a segment's context set needs the index).
+
+    `early` is its pre-context content, which `run` crosses before the context sets are computed and
+    never writes (lead, R17's condition): a defect of the records or of the index stays refused by its
+    own name, rather than as the emission of a context set nothing could compute for it."""
     place = {"home": ctx.get("home"), "decisions": {}}
-    return {
+    contexts = ctx.get("contexts") or {}
+    segment_table, occurrence_table = (_without(SEGMENT_TABLE, "context_set_ref"), _without(OCCURRENCE_TABLE, "context_set")) \
+        if early else (SEGMENT_TABLE, OCCURRENCE_TABLE)
+    document = {
         "document": "sessions",
         "closure_rule": CLOSURE_RULE,
         "produced_by": emit_row("produced_by", SESSIONS_PRODUCED_BY_TABLE, {
@@ -1757,11 +2010,26 @@ def sessions_document(ctx):
         "span_unit": SPAN_UNIT,
         "sessions": [emit_row("session", SESSION_TABLE, record, place) for record in ctx.get("sessions") or []],
         "events": [emit_row("event", EVENT_TABLE, event_row(event), place) for event in ctx.get("events") or []],
-        "segments": [emit_row("segment", SEGMENT_TABLE, row, place) for row in ctx.get("segments") or []],
-        "occurrences": [emit_row("occurrence", OCCURRENCE_TABLE,
-                                 {key: row[key] for key in OCCURRENCE_TABLE["fields"] if key in row}, place)
+        "segments": [emit_row("segment", segment_table, row, place) for row in ctx.get("segments") or []],
+        "occurrences": [emit_row("occurrence", occurrence_table,
+                                 {key: row[key] for key in occurrence_table["fields"] if key in row}, place)
                         for row in ctx.get("occurrences") or []],
     }
+    if early:
+        return document
+    return {**document,
+            "context_sets": [emit_row("context_set", CONTEXT_SET_TABLE, row, place) for row in contexts.get("context_sets") or []],
+            "override_sets": [emit_row("override_set", OVERRIDE_SET_TABLE, row, place)
+                              for row in contexts.get("override_sets") or []],
+            "unknown_entries": [emit_row(f"unknown_entries[{row['unknown_id']}]", UNKNOWN_REQUIREMENT_TABLE, row, place)
+                                for row in contexts.get("unknown_entries") or []]}
+
+
+def sessions_with_contexts(ctx, shared, index, store):
+    """`sessions.json` complete: its segments' context sets computed from the index and the store first
+    (`context_sets`), then the document. The runtime closures stay in `ctx["contexts"]`, never emitted."""
+    ctx["contexts"] = context_sets(ctx, index, shared, store)
+    return sessions_document(ctx)
 
 
 def sessions_cross_problems(document):
@@ -5013,6 +5281,9 @@ DOCUMENT_MEMBERS = (
     "inventory_id", "unavailable", "surface", "inventory_ref", "artifacts",
     # closures as published edges, and the typed unresolved requirements they name (step 0 S-12)
     "closure_rule", "edges", "direct", "reached", "unknown_entries", "unknown_id", "named",
+    # a segment universe's context set and the override sets it applies (step 0 S-12, S-11)
+    "context_sets", "context_set_id", "override_refs", "closure_digest", "override_sets", "override_set_id",
+    "matches", "overrides", "context_set_ref", "context_set",
     # a rename row
     "from_unit_id", "from_carrier_id", "to_carrier_id", "from_path", "to_path", "from_layer",
     "to_layer", "moved", "ambiguous", "from_carriers", "to_carriers", "reason",
@@ -5221,13 +5492,13 @@ def shared_cross_problems(shared, store, sessions):
     return problems
 
 
-def closure_cross_problems(documents, shared):
+def closure_cross_problems(documents, shared, sessions=None):
     """What the published closures and edges get wrong ACROSS records (step 0 S-12, S-21: every
     reference resolves exactly once within the run's artifacts): every `k-` a reference document's
-    closure or a shared inventory's edge names has exactly one row in that document's
-    `unknown_entries`; every unit id a reference document's closure names is exactly one of its units;
-    and a shared inventory's edges and its units name each other exactly once — one edges row per
-    unit, and every `direct` and `reached` unit reference one of its units (its own universe)."""
+    closure, a shared inventory's edge, or a context set's edge or override names has exactly one row in
+    that document's `unknown_entries`; every unit id a reference document's closure names is exactly one
+    of its units; and a shared inventory's edges and its units name each other exactly once — one edges
+    row per unit, and every `direct` and `reached` unit reference one of its units (its own universe)."""
     problems = []
     for reference, document in documents.items():
         units = collections.Counter(unit.get("unit_id") for unit in document.get("units") or [])
@@ -5236,11 +5507,16 @@ def closure_cross_problems(documents, shared):
             problems.append(f"CLOSURE_UNIT_UNRESOLVED {reference}: a closure names a unit its document does not "
                             f"hold exactly once")
     subjects = [(reference, document) for reference, document in documents.items()] \
-        + [(document.get("inventory_id"), document) for _path, document in shared]
+        + [(document.get("inventory_id"), document) for _path, document in shared] \
+        + ([("sessions", sessions)] if sessions is not None else [])
     for name, document in subjects:
         rows = collections.Counter(row.get("unknown_id") for row in document.get("unknown_entries") or [])
         named = [row for unit in document.get("units") or [] for row in unit.get("operative_context") or []] \
-            + [row for edge in document.get("edges") or [] for row in edge.get("reached") or []]
+            + [row for edge in document.get("edges") or [] for row in edge.get("reached") or []] \
+            + [row for context in document.get("context_sets") or [] for edge in context.get("edges") or []
+               for row in edge.get("reached") or []] \
+            + [row for found in document.get("override_sets") or [] for override in found.get("overrides") or []
+               for row in override.get("reached") or []]
         if any(str(row).startswith("k-") and rows[row] != 1 for row in named):
             problems.append(f"CLOSURE_UNKNOWN_UNRESOLVED {name}: a closure or an edge names an unresolved "
                             f"requirement its document does not list exactly once")
@@ -5254,6 +5530,106 @@ def closure_cross_problems(documents, shared):
                 or any(units[row] != 1 for row in pointed):
             problems.append(f"CLOSURE_EDGE_UNRESOLVED {document.get('inventory_id')}: its edges and its units do "
                             f"not name each other exactly once")
+    return problems
+
+
+def context_cross_problems(sessions, index, shared, store):
+    """What the context sets get wrong ACROSS records (step 0 S-12, S-21), each a fixed code with a count:
+    every segment names one published context set, each named by some segment and each id once; each id
+    is the one its universe derives, and that universe is the one its segment's index rows give (R7); every
+    override set it lists is published, each listed and each id once; an override set's inventory is one
+    its context set names, its overrides name units of that inventory's pointed layers and its matches
+    carrier versions of the universe ([F:458]); its edges and its universe's event units name each other
+    exactly once; an occurrence's context set is the one of the segment its event starts in its owner's
+    partition, null only for an owner-less event (R10); and every context set's digest is reproduced by
+    `published_closures` from the published values, under a closure rule it implements."""
+    problems = []
+    published = {document.get("inventory_id"): document for _path, document in shared}
+    versions = store.get("versions") or {}
+    rows = sessions.get("context_sets") or []
+    by_id = {row.get("context_set_id"): row for row in rows}
+    found = sessions.get("override_sets") or []
+    overrides = {row.get("override_set_id"): row for row in found}
+    segments = sessions.get("segments") or []
+    named = collections.Counter(row.get("context_set_ref") for row in segments)
+    if any(n != 1 for n in collections.Counter(row.get("context_set_id") for row in rows).values()) \
+            or any(ref not in by_id for ref in named) or any(identity not in named for identity in by_id):
+        problems.append("CONTEXT_SET_UNRESOLVED: a segment names no published context set, a context set is named "
+                        "by no segment, or one id names several")
+    derived = sum(1 for row in rows if row.get("context_set_id") != opaque_id(
+        "x", "context", sorted([carrier.get("carrier_id"), carrier.get("version_sha256")] for carrier in row.get("carriers") or []),
+        sorted(row.get("inventory_refs") or [])))
+    if derived:
+        problems.append(f"CONTEXT_SET_ID_MISMATCH: {derived} context set id(s) not the one its carriers and inventories derive")
+    blocks = {block.get("segment_ref"): block for entry in index.get("sessions") or [] for block in entry.get("segments") or []}
+    differs = 0
+    for segment in segments:
+        context, block = by_id.get(segment.get("context_set_ref")), blocks.get(segment.get("segment_id"))
+        if context is None or block is None:
+            continue
+        members, inventories = universe_of(block, published, versions)
+        expected = sorted(members | {row for _layers, held in inventories.values() for row in held})
+        differs += 1 if sorted((row.get("carrier_id"), row.get("version_sha256")) for row in context.get("carriers") or []) \
+            != expected or sorted(context.get("inventory_refs") or []) != sorted(inventories) else 0
+    if differs:
+        problems.append(f"CONTEXT_UNIVERSE_DIFFERS: {differs} segment(s) whose context set is not over the universe its "
+                        f"index rows give")
+    listed = collections.Counter(ref for row in rows for ref in set(row.get("override_refs") or []))
+    if any(n != 1 for n in collections.Counter(row.get("override_set_id") for row in found).values()) \
+            or any(ref not in overrides for ref in listed) or any(identity not in listed for identity in overrides):
+        problems.append("CONTEXT_OVERRIDE_UNRESOLVED: a context set lists an override set that is not published, an "
+                        "override set is listed by none, or one id names several")
+    astray = unresolved = 0
+    for row in rows:
+        carriers = {(carrier.get("carrier_id"), carrier.get("version_sha256")) for carrier in row.get("carriers") or []}
+        named_here = {identity: published.get(identity) or {} for identity in row.get("inventory_refs") or []}
+        held = {(carrier.get("carrier_id"), carrier.get("version_sha256"))
+                for document in named_here.values() for carrier in document.get("carriers") or []}
+        universe = universe_units(row, named_here, versions)
+        for ref in row.get("override_refs") or []:
+            override = overrides.get(ref)
+            if override is None:
+                continue
+            document = published.get(override.get("inventory_ref")) or {}
+            own = {(carrier.get("carrier_id"), carrier.get("version_sha256")) for carrier in document.get("carriers") or []}
+            units = universe_units({"carriers": [{"carrier_id": c, "version_sha256": v} for c, v in own & carriers],
+                                    "inventory_refs": [override.get("inventory_ref")]},
+                                   {override.get("inventory_ref"): document}, versions)
+            astray += 1 if override.get("inventory_ref") not in named_here \
+                or any(item.get("unit_ref") not in units for item in override.get("overrides") or []) \
+                or any((item.get("carrier_id"), item.get("version_sha256")) not in carriers
+                       for item in override.get("matches") or []) else 0
+        events = {unit for carrier_id, version in carriers - held
+                  for unit in ((versions.get(carrier_id) or {}).get(version) or {}).get("unit_refs") or []}
+        edges = collections.Counter(edge.get("unit_ref") for edge in row.get("edges") or [])
+        pointed = [ref for edge in row.get("edges") or [] for ref in edge.get("direct") or []] \
+            + [ref for edge in row.get("edges") or [] for ref in edge.get("reached") or [] if str(ref).startswith("r-")]
+        unresolved += 1 if set(edges) != events or any(n != 1 for n in edges.values()) \
+            or any(ref not in universe for ref in pointed) else 0
+    if astray:
+        problems.append(f"CONTEXT_OVERRIDE_ASTRAY: {astray} override set(s) whose inventory its context set does not "
+                        f"name, or naming a unit outside that inventory's pointed layers or a match outside the universe")
+    if unresolved:
+        problems.append(f"CONTEXT_EDGE_UNRESOLVED: {unresolved} context set(s) whose edges and event units do not name "
+                        f"each other exactly once")
+    events = {event.get("event_id"): event for event in sessions.get("events") or []}
+    starts = {(row.get("session_ref"), row.get("owner_ref"), row.get("from")): row.get("context_set_ref") for row in segments}
+    astray_occurrences = 0
+    for row in sessions.get("occurrences") or []:
+        event = events.get(row.get("event_id")) or {}
+        key = (event.get("session_ref"), event.get("owner_ref"), event.get("line"))
+        astray_occurrences += 0 if (row.get("context_set") is None if event.get("owner_ref") is None
+                                    else key in starts and row.get("context_set") == starts[key]) else 1
+    if astray_occurrences:
+        problems.append(f"CONTEXT_OCCURRENCE_DIFFERS: {astray_occurrences} occurrence(s) whose context set is not the one "
+                        f"of the segment its event starts, or null for an owned event")
+    for row in rows:
+        try:
+            published_closures(sessions=sessions, context_set=row.get("context_set_id"), store=store,
+                               inventories=[published[identity] for identity in row.get("inventory_refs") or []
+                                            if identity in published])
+        except Refused as exc:
+            problems.append(str(exc))
     return problems
 
 
@@ -5778,10 +6154,6 @@ def run(repo, state_root, user_root, out_dir, pin=None, native_roots=None, ledge
                     table.setdefault(session_ref(entry.get("host"), entry.get("id")), pinned)
             bind_transcripts(ctx, run_dir, zstd)
             inputs["transcripts"].update(ctx["notes"]["transcripts"])
-            sessions_doc = sessions_document(ctx)
-            crossed = sessions_cross_problems(sessions_doc)
-            if crossed:
-                raise Refused(f"{'; '.join(crossed)}; no artifact is written")
             # R7 and D6 (b): the renames of `current` and `selection` are taken against the units of the
             # `--pin` session's own release inventory, and a run with none says why by a declared key.
             base_ref, base_reason = renames_base(ctx)
@@ -5794,10 +6166,24 @@ def run(repo, state_root, user_root, out_dir, pin=None, native_roots=None, ledge
                 produced[reference][0]["renames"] = renames_against(produced[reference][1], base, home)
             index = release_index(ctx, shared)
             store_doc = store_document(ctx)
-            crossed = store_cross_problems(store_doc, {reference: produced[reference][0] for reference in UNIT_REFERENCES}) \
+            # The records and the index crossed over sessions.json's pre-context content, never written, before the
+            # context sets are computed from them (lead, R17's condition): an index that names no session, or a
+            # member the store lacks, is refused by its own name, not as a context set nothing could compute.
+            early = sessions_document(ctx, early=True)
+            crossed = sessions_cross_problems(early) + occurrence_cross_problems(early, store_doc) \
+                + shared_cross_problems(shared, store_doc, early) + release_cross_problems(index, early, shared, store_doc)
+            if crossed:
+                raise Refused(f"{'; '.join(crossed[:4])}; no artifact is written")
+            # sessions.json is emitted ONCE, complete: a segment's context set needs the index and the store (lead,
+            # R17), and one cross over every completed document stands before anything is written (lead A4)
+            sessions_doc = sessions_with_contexts(ctx, shared, index, store_doc)
+            crossed = sessions_cross_problems(sessions_doc) \
+                + store_cross_problems(store_doc, {reference: produced[reference][0] for reference in UNIT_REFERENCES}) \
                 + occurrence_cross_problems(sessions_doc, store_doc) + shared_cross_problems(shared, store_doc, sessions_doc) \
                 + release_cross_problems(index, sessions_doc, shared, store_doc) \
-                + closure_cross_problems({reference: produced[reference][0] for reference in UNIT_REFERENCES}, shared)
+                + closure_cross_problems({reference: produced[reference][0] for reference in UNIT_REFERENCES}, shared,
+                                         sessions_doc) \
+                + context_cross_problems(sessions_doc, index, shared, store_doc)
             if crossed:
                 raise Refused(f"{'; '.join(crossed[:4])}; no artifact is written")
             based = next((document for _path, document in shared if document["inventory_id"] == base_ref), None)
@@ -7935,11 +8321,16 @@ def self_test():
                   and len(many_ctx["notes"].get("transcripts", {}).get("unknown") or []) == 25,
                   f"raised={many_failed is not None} sessions={len(many_ctx.get('sessions') or [])}")
 
-            # the published document, through its production path and its own root in the schema
-            sessions_doc = sessions_document({"home": None, "commit": "fixture", "sessions": findings_rec["sessions"],
-                                              "events": _events_rec, "segments": findings_rec.get("segments") or []})
+            # the published document, through its production path and its own root in the schema; complete, its
+            # segments' context sets computed from the index and the store as `run` computes them (P2.6)
+            ctx_rec = {"home": None, "commit": "fixture", "sessions": findings_rec["sessions"], "events": _events_rec,
+                       "segments": findings_rec.get("segments") or []}
+            index_rec, store_rec = release_index(ctx_rec, []), store_document(ctx_rec)
+            sessions_doc = sessions_with_contexts(ctx_rec, [], index_rec, store_rec)
             clean("sessions.json validates against its own root in the schema", document_contract_problems(sessions_doc))
             clean("and its records agree with one another", sessions_cross_problems(sessions_doc))
+            clean("and its context sets agree with its index and its store",
+                  context_cross_problems(sessions_doc, index_rec, [], store_rec))
             control("a document whose kind is misspelled is refused by name, never judged as another document",
                     document_contract_problems({**sessions_doc, "document": "sesions"}), "DOCUMENT_KIND_UNDECLARED")
             control("and so is a document that names no kind at all",
@@ -8061,11 +8452,15 @@ def self_test():
                         globals()["LAYERS"] = kept_layers
                         shared_here = shared_inventories(ctx_here)
                         globals()["LAYERS"] = native_only
-                    sessions_here, store_here = sessions_document(ctx_here), store_document(ctx_here)
+                    # sessions.json complete, as `run` publishes it: its context sets need the index and the store
+                    store_here = store_document(ctx_here)
+                    index_here = release_index(ctx_here, shared_here)
+                    sessions_here = sessions_with_contexts(ctx_here, shared_here, index_here, store_here)
                     crossed_here = sessions_cross_problems(sessions_here) + store_cross_problems(
                         store_here, {"current": document_here}) + occurrence_cross_problems(sessions_here, store_here) \
                         + (shared_cross_problems(shared_here, store_here, sessions_here) if state is not None else []) \
-                        + closure_cross_problems({"current": document_here}, shared_here)
+                        + closure_cross_problems({"current": document_here}, shared_here, sessions_here) \
+                        + context_cross_problems(sessions_here, index_here, shared_here, store_here)
                     if crossed_here:
                         return {"refused": "crossed", "problems": crossed_here}
                     for key, document_out in (("current", document_here), ("sessions", sessions_here),
@@ -9194,9 +9589,12 @@ def self_test():
         with section('P2.4b: shared inventories (step 0 S-22, S-25; lead rulings 5-7 on the P2.4 plan), through '):
             # ---- P2.4b: shared inventories (step 0 S-22, S-25; lead rulings 5-7 on the P2.4 plan), through the
             # production acquisition and `shared_inventories`, which is what `run` calls. Fixtures only.
+            shared_runs = []  # every published run below, for the controls that judge every one (P2.6: K16, R8, R14, K19)
+
             def published_shared(name, transcripts, state_here, pin=None):
                 """The shared inventories, sessions.json and the store as `run` makes, crosses and WRITES them
-                over a fixture state, read back from the written files; `{"refused", "message"}` when refused."""
+                over a fixture state, read back from the written files; `{"refused", "message"}` when refused.
+                Beside them, the runtime closures of each context set, which are never written."""
                 run_at = scratch / "p24b" / f"run-{name}"
                 rows_here = []
                 for host, ident, records_in, fields in transcripts:
@@ -9211,14 +9609,16 @@ def self_test():
                     freeze_inputs(scratch / "p24b" / f"frozen-{name}", REPO, state_here, None, pin, ctx_here,
                                   census_entries(run_at))
                     bind_transcripts(ctx_here, run_at)
-                    sessions_here = sessions_document(ctx_here)
                     shared_here = shared_inventories(ctx_here)
-                    # the release segment index too, crossed as `run` crosses it (P2.5)
+                    # the release segment index too, crossed as `run` crosses it (P2.5), and sessions.json complete
+                    # with the context sets the index and the store give (P2.6)
                     index_here = release_index(ctx_here, shared_here)
                     store_here = store_document(ctx_here)
+                    sessions_here = sessions_with_contexts(ctx_here, shared_here, index_here, store_here)
                     crossed_here = shared_cross_problems(shared_here, store_here, sessions_here) \
                         + occurrence_cross_problems(sessions_here, store_here) \
-                        + release_cross_problems(index_here, sessions_here, shared_here, store_here)
+                        + release_cross_problems(index_here, sessions_here, shared_here, store_here) \
+                        + context_cross_problems(sessions_here, index_here, shared_here, store_here)
                     if crossed_here:
                         return {"refused": "crossed", "message": "; ".join(crossed_here)}
                     for relative, document_here in shared_here:
@@ -9228,12 +9628,16 @@ def self_test():
                     write_document(out_here, out_here / "inventory" / "release.json", index_here, str(fixture_home))
                 except Exception as exc:  # the control names what refused, never the suite
                     return {"refused": type(exc).__name__, "message": str(exc)}
-                return {"shared": {path.stem: json.loads(path.read_text(encoding="utf-8"))
-                                   for path in sorted((out_here / "inventory" / "shared").glob("*-i-*.json"))},
-                        "sessions": json.loads((out_here / "inventory" / f"{SESSIONS}.json").read_text(encoding="utf-8")),
-                        "store": json.loads((out_here / "inventory" / STORE_REL).read_text(encoding="utf-8")),
-                        "release": json.loads((out_here / "inventory" / "release.json").read_text(encoding="utf-8")),
-                        "out": out_here, "omissions": list(ctx_here.get("omissions") or [])}
+                published_here = {
+                    "shared": {path.stem: json.loads(path.read_text(encoding="utf-8"))
+                               for path in sorted((out_here / "inventory" / "shared").glob("*-i-*.json"))},
+                    "sessions": json.loads((out_here / "inventory" / f"{SESSIONS}.json").read_text(encoding="utf-8")),
+                    "store": json.loads((out_here / "inventory" / STORE_REL).read_text(encoding="utf-8")),
+                    "release": json.loads((out_here / "inventory" / "release.json").read_text(encoding="utf-8")),
+                    "out": out_here, "omissions": list(ctx_here.get("omissions") or []),
+                    "closures": (ctx_here.get("contexts") or {}).get("closures") or {}}
+                shared_runs.append(published_here)
+                return published_here
 
             def plant_baseline(state_dir, ref, items):
                 base_dir = state_dir / "runtime" / "baselines" / ref
@@ -12051,6 +12455,13 @@ def self_test():
                         for row in unknown_sources(units, {key for unit in units for key in unit["operative_context"]
                                                            if key.startswith("k-")}, place_here)]
 
+            def universe_entries(item):
+                """The `unknown_entries` rows sessions.json publishes for this carrier as an event member of a segment
+                universe (P2.6 commit 2: the context set's own entries, through the same emission table)."""
+                place_here = {"home": str(pathlib.Path.home()), "decisions": {}}
+                return [emit_row("unknown_entry", UNKNOWN_REQUIREMENT_TABLE, row, place_here)
+                        for row in universe_context([item], [], place_here)["unknown_entries"]]
+
             def context_strings(item):
                 units = operative_context(produce([{"layer": item["layer"], "producer": "a fixture producer",
                                                     "status": "complete", "carriers": [item],
@@ -12059,7 +12470,9 @@ def self_test():
                 return [(f"{item['layer']}[{n}]{where}", text)
                         for n, row in enumerate(rows) for where, text in strings_in(row)] \
                     + [(f"{item['layer']}.unknown_entries[{n}]{where}", text)
-                       for n, row in enumerate(entries_of(units)) for where, text in strings_in(row)]
+                       for n, row in enumerate(entries_of(units)) for where, text in strings_in(row)] \
+                    + [(f"{item['layer']}.sessions.unknown_entries[{n}]{where}", text)
+                       for n, row in enumerate(universe_entries(item)) for where, text in strings_in(row)]
 
             # Withheld whole (the escape the floor cannot decode), and the mention names a guide no
             # fixture delivers, so the entry stays unresolved and the stored string is the raw text the
@@ -12178,6 +12591,11 @@ def self_test():
                       for name in mention_fixtures
                       for where, _text in context_strings(mention_fixtures[name])),
                   "no emitted string sat in an unresolved entry's display")
+            check("and through a segment universe too, so sessions.json's entries are judged (P2.6)",
+                  any(where.endswith(".display") and ".sessions.unknown_entries" in where
+                      for name in mention_fixtures
+                      for where, _text in context_strings(mention_fixtures[name])),
+                  "no emitted string sat in a sessions.json entry's display")
             # And it can see the leak: emitting the entry from its STORED STRING is the shape r3 #0
             # found, and for a carrier the floor withholds whole it publishes raw carrier text.
             kept_context = globals()["_emit_context"]
@@ -14129,6 +14547,569 @@ def self_test():
                     "in_out_item=Guide > In > Out enclosing=[('gt.md', 1), ('gt.md', 2)]",
                     "deliver_conditions=[('gt.md', 1), ('gt.md', 4), ('gt.md', 5), ('gt.md', 6), ('gt.md', 7)]",
                     "mention_reached=[('gt.md', 2), ('gt.md', 3)]")
+
+        with section("P2.6: context sets, override sets and an occurrence's context set (step 0 S-12, S-11, S-21)"):
+            # ---- P2.6 commit 2 (lead rulings on the P2.6 plan and the commit-2 plan: R7-R18, A1, A3, A4, K14b, K15):
+            # a segment universe's context set, the per-inventory override sets, and the one function that closes
+            # over them from published values. Every expectation is written out by hand, never read off the
+            # structure it judges.
+            p26b_place = {"home": p26_home, "decisions": {}}
+            p26b_global = carrier("native_global", "claude:User:/w/CLAUDE.md", "## Global\n\n- the global rule\n")
+            p26b_v1 = carrier("native_project", "claude:Project:/w/x/CLAUDE.md", "## Project\n\n- project rule one\n")
+            p26b_v2 = carrier("native_project", "claude:Project:/w/x/CLAUDE.md", "## Project\n\n- project rule two\n")
+            p26b_uses = carrier("catalog", "claude/guides/p26b/uses.md", "## Uses\n\n- read CLAUDE.md before acting\n")
+
+            def p26b_inventory(items, kind="release", ref="p26b"):
+                """`(written document, runtime units, items)` of one shared inventory of these carriers."""
+                _bytes, document, units = p26_shared(items, kind, ref)
+                return document, units, list(items)
+
+            def p26b_universe(members, inventories, layers=None):
+                """`universe_context` over member carriers and `[(written document, runtime units, items)]`, each
+                inventory's units of `layers` pointed (every layer when None)."""
+                rows = []
+                for document, units, _items in inventories:
+                    own = [unit for unit in units if layers is None or unit["layer"] in layers]
+                    rows.append((document["inventory_id"], sorted({(unit["carrier_id"], unit["version_sha256"]) for unit in own}),
+                                 own, {edge["unit_ref"]: edge for edge in document["edges"]}))
+                return universe_context(members, rows, p26b_place)
+
+            def p26b_published(found, members, inventories):
+                """What a reader holds for one universe: a sessions document carrying its context set, override sets
+                and entries through the emission tables, and a store over every carrier, both back through JSON."""
+                ctx_k = {"home": p26_home, "commit": None,
+                         "carriers_named": list(members) + [item for _doc, _units, items in inventories for item in items],
+                         "contexts": {"context_sets": [found["context_set"]], "override_sets": found["override_sets"],
+                                      "unknown_entries": found["unknown_entries"]}}
+                return (json.loads(json.dumps(sessions_document(ctx_k))), json.loads(json.dumps(store_document(ctx_k))))
+
+            def p26b_names(*carriers_in):
+                """A name per `r-` of these carriers' units, `<basename>:<n>` (`p26_names`)."""
+                names = {}
+                for item in carriers_in:
+                    names.update(p26_names(units_of([item])))
+                return names
+
+            # K10 (step 0 S-12 [F:323]): one path, two native versions, two universes: two override sets AND two
+            # context sets — the versions are in both keys.
+            p26b_k10_inventory = p26b_inventory([p26b_uses], ref="p26b-k10")
+            p26b_k10 = [p26b_universe([version], [p26b_k10_inventory]) for version in (p26b_v1, p26b_v2)]
+            control("K10: two universes with one path set and two native versions give two override sets and two context sets",
+                    [f"overrides={len(p26b_k10[0]['override_sets'])},{len(p26b_k10[1]['override_sets'])} "
+                     f"distinct_v={({row['override_set_id'] for row in p26b_k10[0]['override_sets']} != {row['override_set_id'] for row in p26b_k10[1]['override_sets']})} "
+                     f"distinct_x={p26b_k10[0]['context_set']['context_set_id'] != p26b_k10[1]['context_set']['context_set_id']}"],
+                    "overrides=1,1 distinct_v=True distinct_x=True")
+
+            # K11 ([F:324]): the same native version, two inventories of identical carriers: two override sets.
+            p26b_k11 = [p26b_universe([p26b_v1], [p26b_inventory([p26b_uses], ref=ref)]) for ref in ("p26b-k11-a", "p26b-k11-b")]
+            control("K11: two inventories with the same native versions give two override sets",
+                    [f"overrides={len(p26b_k11[0]['override_sets'])},{len(p26b_k11[1]['override_sets'])} "
+                     f"distinct_v={({row['override_set_id'] for row in p26b_k11[0]['override_sets']} != {row['override_set_id'] for row in p26b_k11[1]['override_sets']})}"],
+                    "overrides=1,1 distinct_v=True")
+
+            # K12 ([F:325-326]): two inventories naming different headings of one unchanged target carrier: two
+            # override sets, each holding its own heading's units (lead: their i- alone already makes them distinct).
+            p26b_target = carrier("native_project", "claude:Project:/w/h/CLAUDE.md",
+                                  "## Alpha\n\n- the alpha rule\n\n## Beta\n\n- the beta rule\n")
+            p26b_k12 = [p26b_universe([p26b_target], [p26b_inventory([carrier("catalog", f"claude/guides/p26b/{name}.md",
+                                                                                f"## Uses\n\n- see CLAUDE.md § {heading}\n")],
+                                                                       ref=f"p26b-k12-{name}")])
+                        for name, heading in (("alpha", "Alpha"), ("beta", "Beta"))]
+            p26b_k12_names = p26b_names(p26b_target)
+            p26b_k12_held = [sorted({p26b_k12_names.get(row, row) for found in universe["override_sets"]
+                                     for override in found["overrides"] for row in override["reached"]}) for universe in p26b_k12]
+            control("K12: two inventories mentioning different headings of one unchanged target carrier stay distinct, each "
+                    "override holding its own heading's units",
+                    [f"distinct_v={({row['override_set_id'] for row in p26b_k12[0]['override_sets']} != {row['override_set_id'] for row in p26b_k12[1]['override_sets']})} "
+                     f"alpha={p26b_k12_held[0]} beta={p26b_k12_held[1]}"],
+                    "distinct_v=True alpha=['CLAUDE.md:1', 'CLAUDE.md:2'] beta=['CLAUDE.md:3', 'CLAUDE.md:4']")
+
+            # K13 ([F:327-328, F:290-291]): a guide nothing mentions, that itself mentions CLAUDE.md, gets its override
+            # (Fable's probe B), and so does a guide something does reach: every unit whose reached differs.
+            p26b_k13_items = [carrier("catalog", "claude/guides/p26b/k13/a.md", "## A\n\n- read claude/guides/p26b/k13/d.md\n"),
+                              carrier("catalog", "claude/guides/p26b/k13/b.md", "## B\n\n- b follows CLAUDE.md\n"),
+                              carrier("catalog", "claude/guides/p26b/k13/d.md", "## D\n\n- d follows CLAUDE.md\n")]
+            p26b_k13 = p26b_universe([p26b_v1], [p26b_inventory(p26b_k13_items, ref="p26b-k13")])
+            p26b_k13_names = p26b_names(*p26b_k13_items)
+            control("K13: a guide nothing mentions, that itself mentions CLAUDE.md, gets its override, and so does every unit "
+                    "whose reached differs",
+                    [f"overridden={sorted(p26b_k13_names.get(override['unit_ref'], override['unit_ref']) for found in p26b_k13['override_sets'] for override in found['overrides'])}"],
+                    "overridden=['b.md:2', 'd.md:2']")
+
+            # K14 ([F:283-286]): a native carrier no mention matches changes the universe, and no v-.
+            p26b_memory = carrier("native_memory", "claude:AutoMem:/w/x/memory/notes.md", "- a fact nobody names\n")
+            p26b_k14 = [p26b_universe(members, [p26b_k10_inventory]) for members in ([p26b_v1], [p26b_v1, p26b_memory])]
+            control("K14: adding a native carrier no mention matches leaves every v- unchanged",
+                    [f"same_v={[row['override_set_id'] for row in p26b_k14[0]['override_sets']] == [row['override_set_id'] for row in p26b_k14[1]['override_sets']]} "
+                     f"x_changed={p26b_k14[0]['context_set']['context_set_id'] != p26b_k14[1]['context_set']['context_set_id']} "
+                     f"overrides={len(p26b_k14[1]['override_sets'])}"],
+                    "same_v=True x_changed=True overrides=1")
+
+            def p26b_sets(blocks, inventories, members):
+                """`(context_sets result, store)` over a hand-built index — `blocks` `[(segment_ref, member carriers,
+                [(i- id, layer)])]` — the shared inventories `[(written document, runtime units, items)]` and the
+                member carriers: what `run` hands `context_sets`, built by hand."""
+                ctx_k = {"home": p26_home, "commit": None, "segments": [], "events": [], "occurrences": [],
+                         "carriers_named": list(members) + [item for _doc, _units, items in inventories for item in items],
+                         "shared_units": {document["inventory_id"]: units for document, units, _items in inventories}}
+                store_k = json.loads(json.dumps(store_document(ctx_k)))
+                index_k = {"sessions": [{"segments": [{"segment_ref": ref, "layers": [
+                    {"layer": item["layer"], "source": {"event_ref": None, "members": [
+                        {"carrier_id": item["carrier_id"], "version_sha256": item["version_sha256"]}]}} for item in held]
+                    + [{"layer": layer, "source": {"inventory_ref": identity, "layer": layer}} for identity, layer in pairs]}
+                    for ref, held, pairs in blocks]}]}
+                return context_sets(ctx_k, index_k, [(f"shared/{document['inventory_id']}.json", document)
+                                                     for document, _units, _items in inventories], store_k), store_k
+
+            # K14b (lead, R7 consequence 3): a mention changed in an UNPOINTED layer of a named inventory — the
+            # selection's catalog, where only its overlays are pointed — leaves every v- unchanged.
+            p26b_note = carrier("overlays", "claude/guides/p26b/note.md", "## Note\n\n- see CLAUDE.md\n", package_id="@local/owner")
+            p26b_agents = carrier("native_project", "claude:Project:/w/x/AGENTS.md", "## Agents\n\n- the agents rule\n")
+            p26b_k14b = []
+            for p26b_named in ("CLAUDE.md", "AGENTS.md"):
+                p26b_selection = p26b_inventory([p26b_note, carrier("catalog", "claude/guides/p26b/cat.md",
+                                                                    f"## Cat\n\n- see {p26b_named}\n")], "selection", "p26b-k14b")
+                p26b_k14b.append(p26b_sets([("g-" + "1" * 24, [p26b_v1, p26b_agents],
+                                             [(p26b_selection[0]["inventory_id"], "overlays")])],
+                                           [p26b_selection], [p26b_v1, p26b_agents])[0])
+            control("K14b: changing a mention in an unpointed layer of a named inventory leaves every v- unchanged",
+                    [f"same_i={len({found['override_sets'][0]['inventory_ref'] for found in p26b_k14b if found['override_sets']})} "
+                     f"overrides={len(p26b_k14b[0]['override_sets'])},{len(p26b_k14b[1]['override_sets'])} "
+                     f"same_v={[row['override_set_id'] for row in p26b_k14b[0]['override_sets']] == [row['override_set_id'] for row in p26b_k14b[1]['override_sets']]}"],
+                    "same_i=1 overrides=1,1 same_v=True")
+
+            # K16, hand-written ([F:332]): a cross-universe fixture — an inventory unit reaching a native unit that
+            # reaches back into the inventory — closed from the PUBLISHED values against closures written out by hand.
+            p26b_k16_native = carrier("native_project", "claude:Project:/w/k16/CLAUDE.md",
+                                      "## Project\n\n- see claude/guides/p26b/k16/b.md\n")
+            p26b_k16_items = [carrier("catalog", "claude/guides/p26b/k16/a.md", "## Rule\n\n- read CLAUDE.md\n"),
+                              carrier("catalog", "claude/guides/p26b/k16/b.md", "## B\n\n- the b rule\n")]
+            p26b_k16_inventory = p26b_inventory(p26b_k16_items, ref="p26b-k16")
+            p26b_k16 = p26b_universe([p26b_k16_native], [p26b_k16_inventory])
+            p26b_k16_sessions, p26b_k16_store = p26b_published(p26b_k16, [p26b_k16_native], [p26b_k16_inventory])
+            p26b_k16_names = p26b_names(p26b_k16_native, *p26b_k16_items)
+            p26b_k16_expected = {
+                "CLAUDE.md:1": {"CLAUDE.md:1"},
+                "CLAUDE.md:2": {"CLAUDE.md:1", "CLAUDE.md:2", "b.md:1", "b.md:2"},
+                "a.md:1": {"a.md:1"},
+                "a.md:2": {"a.md:1", "a.md:2", "CLAUDE.md:1", "CLAUDE.md:2", "b.md:1", "b.md:2"},
+                "b.md:1": {"b.md:1"}, "b.md:2": {"b.md:1", "b.md:2"}}
+            p26b_k16_got = {}
+            p26b_k16_raised = _raised(lambda: p26b_k16_got.update({
+                p26b_k16_names.get(ref, ref): {p26b_k16_names.get(row, row) for row in closure}
+                for ref, closure in published_closures(
+                    sessions=p26b_k16_sessions, context_set=p26b_k16["context_set"]["context_set_id"],
+                    inventories=[p26b_k16_inventory[0]], store=p26b_k16_store).items()}))
+            control("K16: a hand-written cross-universe fixture's closures, from the published structures, are the expected ones",
+                    [f"raised={p26b_k16_raised} units={len(p26b_k16_got)} differing="
+                     f"{sorted(name for name in set(p26b_k16_expected) | set(p26b_k16_got) if p26b_k16_got.get(name) != p26b_k16_expected.get(name))}"],
+                    "raised=None units=6 differing=[]")
+            check("and K16's fixture holds an override, so the published recompute applied one",
+                  bool(p26b_k16["override_sets"]), "no unit's reached differs in this universe")
+
+            # lead A3, extended: the context-set call reads no file either.
+            p26b_a3_call = lambda: published_closures(sessions=p26b_k16_sessions, store=p26b_k16_store,  # noqa: E731
+                                                      context_set=p26b_k16["context_set"]["context_set_id"],
+                                                      inventories=[p26b_k16_inventory[0]])
+            p26b_a3_expected = _raised(p26b_a3_call) or p26b_a3_call()
+            p26b_a3_bites = p26b_a3_got = None
+            try:
+                builtins.open = io.open = os.open = os.listdir = os.scandir = p26_no_read
+                pathlib.Path.read_text = pathlib.Path.read_bytes = pathlib.Path.open = p26_no_read
+                p26b_a3_bites = _raised(lambda: pathlib.Path(__file__).read_text())
+                p26b_a3_got = _raised(p26b_a3_call) or p26b_a3_call()
+            finally:
+                (builtins.open, io.open, os.open, pathlib.Path.read_text, pathlib.Path.read_bytes,
+                 pathlib.Path.open, os.listdir, os.scandir) = p26_a3_kept
+            control("A3: published_closures reads no file for a context set either",
+                    [f"patch_bites={isinstance(p26b_a3_bites, PermissionError)} equal={p26b_a3_got == p26b_a3_expected} "
+                     f"units={len(p26b_a3_expected) if isinstance(p26b_a3_expected, dict) else p26b_a3_expected}"],
+                    "patch_bites=True equal=True units=6")
+
+            # K7, extended: a sessions document naming another closure rule, and a context set it does not publish.
+            control("K7: a sessions document naming another closure rule is refused by name",
+                    [str(_raised(lambda: published_closures(
+                        sessions={**p26b_k16_sessions, "closure_rule": "operative-context/2"}, store=p26b_k16_store,
+                        context_set=p26b_k16["context_set"]["context_set_id"], inventories=[p26b_k16_inventory[0]])))],
+                    "CLOSURE_RULE_UNSUPPORTED")
+            control("K7: a context set the sessions document does not publish is refused by name",
+                    [str(_raised(lambda: published_closures(sessions=p26b_k16_sessions, store=p26b_k16_store,
+                                                            context_set="x-" + "0" * 24,
+                                                            inventories=[p26b_k16_inventory[0]])))],
+                    "CONTEXT_SET_UNRESOLVED")
+
+            # K20 (step 0 S-21): an x-, v- or k- of another form, refused where it is emitted and by the schema
+            # (commit 1 added k- to OPAQUE_FORMS with no form control). Its universe holds one row of each kind: an
+            # override (the guide reaches the native CLAUDE.md) and an unresolved mention (the native's own).
+            p26b_k20_native = carrier("native_project", "claude:Project:/w/k20/CLAUDE.md",
+                                      "## K20\n\n- see claude/guides/p26b/absent-k20.md\n")
+            p26b_k20_inventory = p26b_inventory([p26b_uses], ref="p26b-k20")
+            p26b_k20 = p26b_universe([p26b_k20_native], [p26b_k20_inventory])
+            p26b_k20_set = {**p26b_k20["context_set"], "context_set_id": "x-" + "z" * 24}
+            p26b_k20_override = {**p26b_k20["override_sets"][0], "override_set_id": "v-" + "z" * 24} \
+                if p26b_k20["override_sets"] else {}
+            p26b_k20_entry = {**p26b_k20["unknown_entries"][0], "unknown_id": "k-" + "z" * 24} \
+                if p26b_k20["unknown_entries"] else {}
+            for p26b_what, p26b_table, p26b_row in (("an x-", CONTEXT_SET_TABLE, p26b_k20_set),
+                                                    ("a v-", OVERRIDE_SET_TABLE, p26b_k20_override),
+                                                    ("a k-", UNKNOWN_REQUIREMENT_TABLE, p26b_k20_entry)):
+                control(f"K20: {p26b_what} of another form is refused where it is emitted",
+                        [str(_raised(lambda: emit_row("k20", p26b_table, p26b_row, dict(p26b_place))))], "EMISSION_NOT_OPAQUE")
+            p26b_k20_doc = p26b_published(p26b_k20, [p26b_k20_native], [p26b_k20_inventory])[0]
+            for p26b_key, p26b_field in (("context_sets", "context_set_id"), ("override_sets", "override_set_id"),
+                                         ("unknown_entries", "unknown_id")):
+                for p26b_row in p26b_k20_doc[p26b_key]:
+                    p26b_row[p26b_field] = p26b_row[p26b_field][:2] + "z" * 24
+            control("K20: and an x-, v- and k- of another form are refused by the schema",
+                    document_contract_problems(p26b_k20_doc), "DOCUMENT_INVALID")
+            check("and K20's document held one row of each kind to plant into",
+                  all(p26b_k20_doc[key] for key in ("context_sets", "override_sets", "unknown_entries")),
+                  f"{[(key, len(p26b_k20_doc[key])) for key in ('context_sets', 'override_sets', 'unknown_entries')]}")
+
+            # K21 ([F:288-289]): basename resolution splits on "/" only. A native carrier recorded at a Windows path
+            # is not taken by its basename; its POSIX twin is.
+            p26b_k21 = [p26b_universe([carrier("native_project", path, "## Win\n\n- the windows rule\n")],
+                                      [p26b_inventory([p26b_uses], ref="p26b-k21")])
+                        for path in ("claude:Project:C:\\w\\CLAUDE.md", "claude:Project:/w/w/CLAUDE.md")]
+            control("K21: a recorded Windows path's basename is not taken",
+                    [f"windows_overrides={len(p26b_k21[0]['override_sets'])} posix_overrides={len(p26b_k21[1]['override_sets'])}"],
+                    "windows_overrides=0 posix_overrides=1")
+
+            # lead A1: one id with different content is refused at construction. The collision is planted by
+            # making every universe answer one id; two universes with different contents then meet under it.
+            p26b_a1_blocks = [("g-" + "1" * 24, [p26b_v1], [(p26b_k10_inventory[0]["inventory_id"], "catalog")]),
+                              ("g-" + "2" * 24, [p26b_v2], [(p26b_k10_inventory[0]["inventory_id"], "catalog")])]
+            p26b_a1_clean = p26b_sets(p26b_a1_blocks, [p26b_k10_inventory], [p26b_v1, p26b_v2])[0]
+            check("A1: the unplanted universes give two context sets and two override sets",
+                  (len(p26b_a1_clean["context_sets"]), len(p26b_a1_clean["override_sets"])) == (2, 2),
+                  f"{len(p26b_a1_clean['context_sets'])} {len(p26b_a1_clean['override_sets'])}")
+            p26b_a1_kept = globals()["universe_context"]
+            p26b_a1 = {}
+            for p26b_what, p26b_plant in (
+                    ("context sets", lambda found: {**found, "context_set": {**found["context_set"], "context_set_id": "x-" + "a" * 24}}),
+                    ("override sets", lambda found: {**found, "override_sets": [{**row, "override_set_id": "v-" + "a" * 24}
+                                                                                for row in found["override_sets"]]})):
+                try:
+                    globals()["universe_context"] = lambda *args, plant=p26b_plant: plant(p26b_a1_kept(*args))
+                    p26b_a1[p26b_what] = _raised(lambda: p26b_sets(p26b_a1_blocks, [p26b_k10_inventory], [p26b_v1, p26b_v2]))
+                finally:
+                    globals()["universe_context"] = p26b_a1_kept
+            control("A1: two context sets with one id and different content are refused at construction, CONTEXT_ID_COLLISION",
+                    [str(p26b_a1["context sets"])], "CONTEXT_ID_COLLISION")
+            control("A1: and two override sets with one id and different content",
+                    [str(p26b_a1["override sets"])], "CONTEXT_ID_COLLISION")
+
+            # ---- the run-level fixture: one baseline, one snapshot whose catalog holds ANOTHER version of the
+            # baseline's rule (lead, R7 consequence 4), a guide that mentions CLAUDE.md, and sessions whose events
+            # record two native CLAUDE.md files, one naming a guide nobody delivers.
+            p26b_state = scratch / "p26b" / "state"
+            plant_baseline(p26b_state, "ref-k", [catalog_item("guide-k", "guide", "## Guide k\n\n- read CLAUDE.md before acting\n"),
+                                                 catalog_item("rule-k", "rule", "- rule k one")])
+            p26b_body = "# Session k\n\n- the selected body\n"
+            p26b_ref = plant_snapshot(p26b_state, p26b_body, baseline_ref="ref-k", items=[
+                catalog_item("guide-k", "guide", "## Guide k\n\n- read CLAUDE.md before acting\n"),
+                catalog_item("rule-k", "rule", "- rule k two"),
+                catalog_item("note-k", "rule", "- a local note", package_id="@local/owner")])
+            p26b_at = "2026-10-24T09:00:00+00:00"
+            p26b_natives = [member("User", "/w/CLAUDE.md", "## Global\n\n- the global rule, see claude/guides/absent-k.md\n"),
+                            member("Project", "/w/k/CLAUDE.md", "## Project\n\n- the project rule\n")]
+            p26b_records = [{"type": "user", "timestamp": p26b_at}, inj(p26b_at, p26b_natives, cwd="/w/k"),
+                            prompt_record(p26b_at, [p26b_body])]
+            for p26b_ident in ("k-one", "k-two"):
+                plant_pin(p26b_state, p26b_ident, p26b_ref)
+            p26b_run = published_shared("p26b", [pinned_row("k-one", p26b_records, p26b_ref),
+                                                 pinned_row("k-two", p26b_records, p26b_ref)], p26b_state)
+            check("the P2.6 context-set run was published, its documents crossing clean", "refused" not in p26b_run,
+                  f"{p26b_run.get('refused')} {str(p26b_run.get('message'))[:300]}")
+            p26b_sessions = p26b_run.get("sessions") or {}
+            p26b_store = p26b_run.get("store") or {}
+            p26b_shared = sorted((f"shared/{stem}.json", document) for stem, document in (p26b_run.get("shared") or {}).items())
+            p26b_by_kind = {document.get("kind"): document for _path, document in p26b_shared}
+            p26b_versions = p26b_store.get("versions") or {}
+
+            def p26b_version(carrier_id, version):
+                return (p26b_versions.get(carrier_id) or {}).get(version) or {}
+
+            def p26b_session_segments(session):
+                """`[(from, context_set_ref)]` of one session's segments, by its `host:id`."""
+                record = next((row for row in p26b_sessions.get("sessions") or [] if row["session"] == session), {})
+                return sorted((row["from"], row["context_set_ref"]) for row in p26b_sessions.get("segments") or []
+                              if row["session_ref"] == record.get("session_ref"))
+
+            p26b_k_one, p26b_k_two = p26b_session_segments("claude:k-one"), p26b_session_segments("claude:k-two")
+            p26b_last = (p26b_k_one or [(None, None)])[-1][1]
+            p26b_context = next((row for row in p26b_sessions.get("context_sets") or [] if row["context_set_id"] == p26b_last), {})
+            p26b_universe_carriers = {(row["carrier_id"], row["version_sha256"]) for row in p26b_context.get("carriers") or []}
+
+            # R7 (lead, consequence 4): the pinned main's universe holds the RELEASE inventory's catalog version of
+            # rule-k, and not the selection inventory's, which differs.
+            def p26b_rule_versions(document):
+                return {(row["carrier_id"], row["version_sha256"]) for row in (document or {}).get("carriers") or []
+                        if p26b_version(row["carrier_id"], row["version_sha256"]).get("layer") == "catalog"
+                        and str(p26b_version(row["carrier_id"], row["version_sha256"]).get("item_ref")).endswith("rule-k")}
+
+            p26b_release_rule, p26b_selection_rule = p26b_rule_versions(p26b_by_kind.get("release")), \
+                p26b_rule_versions(p26b_by_kind.get("selection"))
+            control("R7: a segment's universe holds the release inventory's catalog version and not the selection "
+                    "inventory's, which differs",
+                    [f"release_in={bool(p26b_release_rule) and p26b_release_rule <= p26b_universe_carriers} "
+                     f"selection_in={bool(p26b_selection_rule & p26b_universe_carriers)} "
+                     f"versions_differ={bool(p26b_release_rule) and bool(p26b_selection_rule) and p26b_release_rule != p26b_selection_rule}"],
+                    "release_in=True selection_in=False versions_differ=True")
+
+            # K17: a session's segments that share one universe share one x- (the injection event adds no carrier,
+            # R9), and the same universe in another session is the same x-.
+            control("K17: two segments with one universe share one x-, and one universe in two sessions too",
+                    [f"segments={len(p26b_k_one)} distinct={len({ref for _from, ref in p26b_k_one})} "
+                     f"across={[ref for _from, ref in p26b_k_one] == [ref for _from, ref in p26b_k_two]}"],
+                    "segments=3 distinct=2 across=True")
+
+            # K9 ([F:320-322]): the catalog guide mentioning CLAUDE.md, in a universe that carries two native CLAUDE.md
+            # files, has the ambiguity entry and every native unit in its closure, recomputed from the WRITTEN files.
+            p26b_guide = next((ref for ref in (p26b_by_kind.get("release") or {}).get("unit_refs") or []
+                               if "read CLAUDE.md before acting" in str(((p26b_store.get("units") or {}).get(ref) or {}).get("text"))), None)
+            p26b_native_units = {ref for carrier_id, version in p26b_universe_carriers
+                                 if str(p26b_version(carrier_id, version).get("layer")).startswith("native_")
+                                 for ref in p26b_version(carrier_id, version).get("unit_refs") or []}
+            p26b_entries = {row["unknown_id"]: row for row in p26b_sessions.get("unknown_entries") or []}
+            p26b_k9 = {}
+            p26b_k9_raised = _raised(lambda: p26b_k9.update(published_closures(
+                sessions=p26b_sessions, context_set=p26b_last, store=p26b_store,
+                inventories=[document for _path, document in p26b_shared])))
+            p26b_k9_closure = set(p26b_k9.get(p26b_guide) or [])
+            control("K9: a catalog unit mentioning CLAUDE.md, in a segment whose universe carries a native CLAUDE.md, has the "
+                    "ambiguity entry and the native units in its closure recomputed from the written files",
+                    [f"raised={p26b_k9_raised} guide={p26b_guide is not None} "
+                     f"ambiguous={any((p26b_entries.get(row) or {}).get('kind') == 'ambiguous' for row in p26b_k9_closure)} "
+                     f"native={len(p26b_native_units & p26b_k9_closure)}/{len(p26b_native_units)}"],
+                    "raised=None guide=True ambiguous=True native=4/4")
+
+            # K15 ([F:330-331], lead): a changed edge under an unchanged closure_digest, and a removed shared edge the
+            # universe uses, are each refused by name.
+            def p26b_k15(change):
+                """What `published_closures` raises over the written documents with `change` planted into copies; a
+                fixture with nothing to plant into raises too, and is said, never a block cut short."""
+                def attempt():
+                    sessions_k, shared_k = json.loads(json.dumps(p26b_sessions)), json.loads(json.dumps(dict(p26b_shared)))
+                    change(sessions_k, shared_k)
+                    published_closures(sessions=sessions_k, context_set=p26b_last, store=p26b_store,
+                                       inventories=list(shared_k.values()))
+                return [str(_raised(attempt))]
+
+            def p26b_k15_event_edge(sessions_k, _shared_k):
+                for row in sessions_k["context_sets"]:
+                    if row["context_set_id"] == p26b_last:
+                        edge = next(edge for edge in row["edges"] if edge["reached"])
+                        edge["reached"] = edge["reached"][1:]
+
+            def p26b_k15_shared_edge(_sessions_k, shared_k):
+                for document in shared_k.values():
+                    document["edges"] = [edge for edge in document["edges"] if edge["unit_ref"] != p26b_guide]
+
+            clean("K15: the unplanted written documents reproduce the context set's digest",
+                  [] if p26b_k9_raised is None and p26b_k9 else [f"{p26b_k9_raised}"])
+            control("K15: a changed edge under an unchanged closure_digest is refused, CLOSURE_DIGEST_MISMATCH",
+                    p26b_k15(p26b_k15_event_edge), "CLOSURE_DIGEST_MISMATCH")
+            control("K15: removing a shared edge a context set's universe uses is refused, CLOSURE_DIGEST_MISMATCH",
+                    p26b_k15(p26b_k15_shared_edge), "CLOSURE_DIGEST_MISMATCH")
+
+            # K16 ([F:333-334]): every unit of every context set of every published_shared run in this suite: the closure
+            # from the written files is the runtime one.
+            p26b_k16_runs, p26b_k16_rows, p26b_k16_units, p26b_k16_differing = 0, 0, 0, {}
+            p26b_k16_overridden = p26b_k16_edged = False
+            # the units whose reached an override set gave (lead, after pretrial-p26b-1: a run whose overrides were
+            # skipped refused, so without this the control judged only the runs that had none)
+            p26b_k16_override_units = 0
+            for p26b_one in shared_runs:
+                p26b_k16_runs += 1
+                p26b_overrides_here = {row["override_set_id"]: row for row in p26b_one["sessions"].get("override_sets") or []}
+                for p26b_row in p26b_one["sessions"].get("context_sets") or []:
+                    p26b_k16_rows += 1
+                    p26b_k16_overridden |= bool(p26b_row["override_refs"])
+                    p26b_k16_edged |= bool(p26b_row["edges"])
+                    p26b_runtime = (p26b_one.get("closures") or {}).get(p26b_row["context_set_id"])
+                    p26b_recomputed = {}
+                    p26b_failed = _raised(lambda: p26b_recomputed.update(published_closures(
+                        sessions=p26b_one["sessions"], context_set=p26b_row["context_set_id"], store=p26b_one["store"],
+                        inventories=list(p26b_one["shared"].values()))))
+                    p26b_k16_units += len(p26b_runtime or {})
+                    p26b_k16_override_units += len({override["unit_ref"] for ref in p26b_row["override_refs"]
+                                                    for override in (p26b_overrides_here.get(ref) or {}).get("overrides") or []}
+                                                   & set(p26b_runtime or {}))
+                    if p26b_failed is not None or p26b_runtime is None or p26b_recomputed != p26b_runtime:
+                        p26b_k16_differing[p26b_row["context_set_id"]] = str(p26b_failed or "differs")[:120]
+            control("K16: every unit of every context set of the fixture runs: the closure from the written files is the runtime one",
+                    [f"judged={p26b_k16_runs >= 2 and p26b_k16_rows > 0 and p26b_k16_override_units >= 1} runs={p26b_k16_runs} "
+                     f"context_sets={p26b_k16_rows} units={p26b_k16_units} override_units_judged={p26b_k16_override_units} "
+                     f"differing={p26b_k16_differing}"],
+                    "judged=True", "differing={}")
+            check("and K16 judged context sets with event edges and with overrides, across at least two runs",
+                  p26b_k16_runs >= 2 and p26b_k16_overridden and p26b_k16_edged,
+                  f"runs={p26b_k16_runs} overridden={p26b_k16_overridden} edged={p26b_k16_edged}")
+
+            # R8 (lead): an uncertain segment's universe holds its event's members (the index row's own reading).
+            p26b_r8_count, p26b_r8_missing = 0, []
+            for p26b_one in shared_runs:
+                p26b_events = {row["event_id"]: row for row in p26b_one["sessions"].get("events") or []}
+                p26b_sets_here = {row["context_set_id"]: row for row in p26b_one["sessions"].get("context_sets") or []}
+                for p26b_segment in p26b_one["sessions"].get("segments") or []:
+                    p26b_state_here = p26b_segment["in_force"]["native"]
+                    if p26b_state_here["state"] != "uncertain":
+                        continue
+                    p26b_r8_count += 1
+                    p26b_held = {(row["carrier_id"], row["version_sha256"])
+                                 for row in (p26b_sets_here.get(p26b_segment["context_set_ref"]) or {}).get("carriers") or []}
+                    p26b_members = {(row["carrier_id"], row["version_sha256"])
+                                    for row in (p26b_events.get(p26b_state_here["event_ref"]) or {}).get("members") or []}
+                    if not p26b_members or not p26b_members <= p26b_held:
+                        p26b_r8_missing.append(p26b_segment["segment_id"])
+            control("R8: an uncertain segment's universe holds its event's members",
+                    [f"present={p26b_r8_count >= 2} uncertain={p26b_r8_count} missing={p26b_r8_missing}"],
+                    "present=True", "missing=[]")
+            check("and R8's fixture runs hold uncertain segments", p26b_r8_count >= 2, f"{p26b_r8_count}")
+
+            # R14 (lead): every segment with an empty known universe names the ONE empty context set, whose id is the
+            # S-11 encoding of an empty universe and whose digest is that of an empty closure map.
+            p26b_empty = opaque_id("x", "context", [], [])
+            p26b_r14_refs, p26b_r14_rows = set(), []
+            for p26b_one in shared_runs:
+                p26b_blocks = {block["segment_ref"]: block for entry in p26b_one["release"].get("sessions") or []
+                               for block in entry.get("segments") or []}
+                for p26b_segment in p26b_one["sessions"].get("segments") or []:
+                    p26b_block = p26b_blocks.get(p26b_segment["segment_id"]) or {}
+                    if not any("members" in (row.get("source") or {}) or "inventory_ref" in (row.get("source") or {})
+                               for row in p26b_block.get("layers") or []):
+                        p26b_r14_refs.add(p26b_segment["context_set_ref"])
+                        p26b_r14_rows += [row for row in p26b_one["sessions"]["context_sets"]
+                                          if row["context_set_id"] == p26b_segment["context_set_ref"]]
+            control("R14: segments with an empty known universe share the empty context set",
+                    [f"refs={sorted(p26b_r14_refs)} digests={sorted({row['closure_digest'] for row in p26b_r14_rows})}"],
+                    f"refs=['{p26b_empty}'] digests=['{hashlib.sha256(b'[]').hexdigest()}']")
+            check("and R14's fixture runs hold more than one such segment", len(p26b_r14_rows) >= 2, f"{len(p26b_r14_rows)}")
+
+            # K19 (R10): an occurrence's context set is the one of the segment its event starts in its owner's
+            # partition; null only for an owner-less event.
+            p26b_k19_total = p26b_k19_ownerless = 0
+            p26b_k19_differing = []
+            for p26b_one in shared_runs:
+                p26b_events = {row["event_id"]: row for row in p26b_one["sessions"].get("events") or []}
+                p26b_starts = {(row["session_ref"], row["owner_ref"], row["from"]): row["context_set_ref"]
+                               for row in p26b_one["sessions"].get("segments") or []}
+                for p26b_occurrence in p26b_one["sessions"].get("occurrences") or []:
+                    p26b_event = p26b_events.get(p26b_occurrence["event_id"]) or {}
+                    p26b_k19_total += 1
+                    if p26b_event.get("owner_ref") is None:
+                        p26b_k19_ownerless += 1
+                        p26b_expected = None
+                    else:
+                        p26b_expected = p26b_starts.get((p26b_event.get("session_ref"), p26b_event["owner_ref"],
+                                                         p26b_event.get("line")), "no segment starts there")
+                    if p26b_occurrence["context_set"] != p26b_expected:
+                        p26b_k19_differing.append(p26b_occurrence["occurrence_id"])
+            control("K19: an occurrence's context set is its event's segment's, null only for an owner-less event",
+                    [f"present={p26b_k19_ownerless >= 1 and p26b_k19_total > p26b_k19_ownerless} "
+                     f"occurrences={p26b_k19_total} differing={len(p26b_k19_differing)}"], "present=True", "differing=0")
+            check("and K19's fixture runs hold owned and owner-less occurrences",
+                  p26b_k19_ownerless >= 1 and p26b_k19_total - p26b_k19_ownerless >= 1,
+                  f"total={p26b_k19_total} ownerless={p26b_k19_ownerless}")
+
+            # K18: no override row of the fixture runs carries `direct`, and a planted one is refused by the schema.
+            p26b_k18_rows = [override for p26b_one in shared_runs for found in p26b_one["sessions"].get("override_sets") or []
+                             for override in found["overrides"]]
+            check("K18: no override row of the fixture runs carries direct",
+                  bool(p26b_k18_rows) and all(set(row) == {"unit_ref", "reached"} for row in p26b_k18_rows),
+                  f"rows={len(p26b_k18_rows)} keys={sorted({key for row in p26b_k18_rows for key in row})}")
+            p26b_k18_doc = json.loads(json.dumps(p26b_sessions))
+            for p26b_found in p26b_k18_doc.get("override_sets") or []:
+                for p26b_override in p26b_found["overrides"]:
+                    p26b_override["direct"] = [p26b_override["unit_ref"]]
+            control("K18: no override row carries direct, and a planted one is refused by the schema",
+                    document_contract_problems(p26b_k18_doc), "DOCUMENT_INVALID", "direct")
+
+            # K19, the planted table: each cross-record code, on the written documents of the P2.6 run.
+            def p26b_crossed(change):
+                sessions_k = json.loads(json.dumps(p26b_sessions))
+                shared_k = [(path, json.loads(json.dumps(document))) for path, document in p26b_shared]
+                change(sessions_k, shared_k)
+                return context_cross_problems(sessions_k, p26b_run.get("release") or {}, shared_k, p26b_store) \
+                    + closure_cross_problems({}, shared_k, sessions_k)
+
+            def p26b_rename(sessions_k, old, new):
+                """Every reference to the context set `old` renamed `new`: its row, the segments and occurrences."""
+                for row in sessions_k["context_sets"]:
+                    row["context_set_id"] = new if row["context_set_id"] == old else row["context_set_id"]
+                for row in sessions_k["segments"]:
+                    row["context_set_ref"] = new if row["context_set_ref"] == old else row["context_set_ref"]
+                for row in sessions_k["occurrences"]:
+                    row["context_set"] = new if row["context_set"] == old else row["context_set"]
+
+            def p26b_set(sessions_k):
+                return next(row for row in sessions_k["context_sets"] if row["context_set_id"] == p26b_last)
+
+            def p26b_shrunk(sessions_k, _shared_k):
+                """One native carrier dropped from the universe, under the id its new universe derives."""
+                row = p26b_set(sessions_k)
+                row["carriers"] = [carrier_row for carrier_row in row["carriers"]
+                                   if not str(p26b_version(carrier_row["carrier_id"], carrier_row["version_sha256"]).get("layer")).startswith("native_")][1:] \
+                    + [carrier_row for carrier_row in row["carriers"]
+                       if str(p26b_version(carrier_row["carrier_id"], carrier_row["version_sha256"]).get("layer")).startswith("native_")]
+                p26b_rename(sessions_k, p26b_last, opaque_id("x", "context", sorted([carrier_row["carrier_id"], carrier_row["version_sha256"]]
+                                                                                    for carrier_row in row["carriers"]),
+                                                             sorted(row["inventory_refs"])))
+
+            def p26b_owned_unstarted(sessions_k, _shared_k):
+                owned = {row["event_id"] for row in sessions_k["events"] if row["owner_ref"] is not None}
+                for row in sessions_k["events"]:
+                    if row["event_id"] in owned and any(found["event_id"] == row["event_id"] for found in sessions_k["occurrences"]):
+                        row["line"] = 999
+                        break
+
+            p26b_k19_table = (
+                ("CONTEXT_SET_ID_MISMATCH", "a context set id that is not the one its universe derives",
+                 lambda sessions_k, _shared_k: p26b_rename(sessions_k, p26b_last, "x-" + "b" * 24)),
+                ("CONTEXT_UNIVERSE_DIFFERS", "a context set over another universe than its segment's index rows give",
+                 p26b_shrunk),
+                ("CONTEXT_SET_UNRESOLVED", "a segment naming a context set that is not published",
+                 lambda sessions_k, _shared_k: sessions_k["segments"][0].update(context_set_ref="x-" + "c" * 24)),
+                ("CONTEXT_OVERRIDE_UNRESOLVED", "a listed override set that is not published",
+                 lambda sessions_k, _shared_k: sessions_k.update(override_sets=sessions_k["override_sets"][1:])),
+                ("CONTEXT_OVERRIDE_ASTRAY", "an override set matching a carrier version outside its universe",
+                 lambda sessions_k, _shared_k: sessions_k["override_sets"][0]["matches"].append(
+                     {"carrier_id": "c-" + "0" * 24, "version_sha256": "0" * 64})),
+                ("CONTEXT_EDGE_UNRESOLVED", "a context set whose event edges name one unit twice",
+                 lambda sessions_k, _shared_k: p26b_set(sessions_k).update(edges=p26b_set(sessions_k)["edges"] * 2)),
+                ("CONTEXT_OCCURRENCE_DIFFERS", "an occurrence naming another segment's context set",
+                 lambda sessions_k, _shared_k: next(row for row in sessions_k["occurrences"] if row["context_set"]).update(
+                     context_set=next(ref for ref in {row["context_set_ref"] for row in sessions_k["segments"]}
+                                      if ref != next(row for row in sessions_k["occurrences"] if row["context_set"])["context_set"]))),
+                ("CONTEXT_OCCURRENCE_DIFFERS", "an owned event, with occurrences, that starts no segment of its owner",
+                 p26b_owned_unstarted),
+                ("CLOSURE_UNKNOWN_UNRESOLVED", "a k- a context set's edge names that sessions.json does not list",
+                 lambda sessions_k, _shared_k: sessions_k.update(unknown_entries=[])),
+                ("CLOSURE_DIGEST_MISMATCH", "an override's reached changed under an unchanged digest",
+                 lambda sessions_k, _shared_k: sessions_k["override_sets"][0]["overrides"][0].update(reached=[])))
+            clean("K19: the P2.6 run's written documents cross clean", p26b_crossed(lambda _s, _h: None))
+            for p26b_code, p26b_what, p26b_change in p26b_k19_table:
+                p26b_found = []
+                p26b_raised = _raised(lambda: p26b_found.extend(p26b_crossed(p26b_change)))
+                control(f"K19: {p26b_code} is refused across records: {p26b_what}",
+                        p26b_found + ([f"raised {p26b_raised!r}"] if p26b_raised is not None else []), p26b_code)
+            check("and the K19 table plants into a run with override sets, k- entries and occurrences",
+                  all(p26b_sessions.get(key) for key in ("override_sets", "unknown_entries", "occurrences")),
+                  f"{[(key, len(p26b_sessions.get(key) or [])) for key in ('override_sets', 'unknown_entries', 'occurrences')]}")
+
+            # lead A4: a context-set defect planted AFTER the index refuses the run, and nothing is written.
+            p26b_a4_kept, p26b_a4_out = globals()["context_sets"], scratch / "p26b" / "a4-out"
+            try:
+                globals()["context_sets"] = lambda *args: (lambda found: {**found, "context_sets": [
+                    {**row, "edges": row["edges"] * 2} for row in found["context_sets"]]})(p26b_a4_kept(*args))
+                p26b_a4 = _raised(lambda: run(REPO, index_state, None, p26b_a4_out, native_roots={"projects": {}},
+                                              run_dir=scratch / "p24b" / "run-index", commit="fixture", home=fixture_home))
+            finally:
+                globals()["context_sets"] = p26b_a4_kept
+            control("A4: a context-set defect planted after the index refuses the run, and no artifact is written",
+                    [f"{p26b_a4} written={sorted(path.name for path in p26b_a4_out.rglob('*.json'))}"],
+                    "CONTEXT_EDGE_UNRESOLVED", "written=[]")
 
         with section("the general control (lead, after a36c728): no reason in ANY document this suite's runs"):
             # ---- the general control (lead, after a36c728): no reason in ANY document this suite's runs

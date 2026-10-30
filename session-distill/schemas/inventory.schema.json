@@ -122,7 +122,8 @@
     "sessions_document": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["document", "closure_rule", "span_unit", "produced_by", "sessions", "events", "segments", "occurrences"],
+      "required": ["document", "closure_rule", "span_unit", "produced_by", "sessions", "events", "segments", "occurrences",
+                   "context_sets", "override_sets", "unknown_entries"],
       "properties": {
         "document": {"const": "sessions"},
         "closure_rule": {"$ref": "#/$defs/closure_rule"},
@@ -140,7 +141,10 @@
         "sessions": {"type": "array", "items": {"$ref": "#/$defs/session"}},
         "events": {"type": "array", "items": {"$ref": "#/$defs/event"}},
         "segments": {"type": "array", "items": {"$ref": "#/$defs/segment"}},
-        "occurrences": {"type": "array", "items": {"$ref": "#/$defs/occurrence"}}
+        "occurrences": {"type": "array", "items": {"$ref": "#/$defs/occurrence"}},
+        "context_sets": {"type": "array", "items": {"$ref": "#/$defs/context_set"}},
+        "override_sets": {"type": "array", "items": {"$ref": "#/$defs/override"}},
+        "unknown_entries": {"type": "array", "items": {"$ref": "#/$defs/unknown_requirement"}}
       }
     },
     "shared_inventory_document": {
@@ -193,7 +197,7 @@
       "$comment": "an owner's line interval [from, to) of its transcript in which the event in force of each kind is fixed (step 0 S-17); one owner's segments partition [1, lines_read + 1)",
       "type": "object",
       "additionalProperties": false,
-      "required": ["segment_id", "session_ref", "owner_ref", "from", "to", "in_force"],
+      "required": ["segment_id", "session_ref", "owner_ref", "from", "to", "in_force", "context_set_ref"],
       "properties": {
         "segment_id": {"$ref": "#/$defs/segment_id"},
         "session_ref": {"$ref": "#/$defs/session_ref"},
@@ -208,7 +212,8 @@
             "native": {"$ref": "#/$defs/in_force"},
             "session_injection": {"$ref": "#/$defs/in_force"}
           }
-        }
+        },
+        "context_set_ref": {"$ref": "#/$defs/context_set_id"}
       }
     },
     "shared_store_document": {
@@ -300,6 +305,59 @@
         "reached": {"type": "array", "items": {"type": "string", "pattern": "^(r|k)-[0-9a-f]{24}$"}}
       }
     },
+    "context_set_id": {
+      "$comment": "opaque (step 0 S-11): x- over [\"context\", sorted [carrier_id, version_sha256] of every carrier version in the universe, sorted i- ids of the inventories the segment names]",
+      "type": "string",
+      "pattern": "^x-[0-9a-f]{24}$"
+    },
+    "override_set_id": {
+      "$comment": "opaque (step 0 S-11): v- over [\"override\", the i- id of the inventory whose units it overrides, sorted matched [resolution path, carrier_id, version_sha256] triples of that inventory's mentions]; the path is the raw resolution path, so the id commits to it without stating it",
+      "type": "string",
+      "pattern": "^v-[0-9a-f]{24}$"
+    },
+    "carrier_version_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["carrier_id", "version_sha256"],
+      "properties": {
+        "carrier_id": {"type": "string", "pattern": "^c-[0-9a-f]{24}$"},
+        "version_sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "context_set": {
+      "$comment": "step 0 S-12: one segment universe's context set, deduplicated by its id. A context set is computed over the KNOWN universe: the carrier versions of the events in force that the segment's index rows name, and the layers of the inventories they point to. An uncertain event, or an unknown inventory (release_history_deferred, an unattributed sidechain), stays said by the segment's in_force and its index rows; the empty context set means an empty known universe, not no context. `edges` are the event units' edges; `override_refs` the override sets it applies; `closure_digest` the sha256 of the canonical closure map of every unit of the universe.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["context_set_id", "carriers", "inventory_refs", "edges", "override_refs", "closure_digest"],
+      "properties": {
+        "context_set_id": {"$ref": "#/$defs/context_set_id"},
+        "carriers": {"type": "array", "items": {"$ref": "#/$defs/carrier_version_ref"}},
+        "inventory_refs": {"type": "array", "items": {"$ref": "#/$defs/inventory_id"}},
+        "edges": {"type": "array", "items": {"$ref": "#/$defs/requirement_edges"}},
+        "override_refs": {"type": "array", "items": {"$ref": "#/$defs/override_set_id"}},
+        "closure_digest": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "override": {
+      "$comment": "step 0 S-12: one shared inventory's override set, deduplicated by its id: the carrier versions its pointed units' mentions matched, and the reached list of every unit of its pointed layers whose reached differs in the universe. `direct` is never overridden.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["override_set_id", "inventory_ref", "matches", "overrides"],
+      "properties": {
+        "override_set_id": {"$ref": "#/$defs/override_set_id"},
+        "inventory_ref": {"$ref": "#/$defs/inventory_id"},
+        "matches": {"type": "array", "items": {"$ref": "#/$defs/carrier_version_ref"}},
+        "overrides": {"type": "array", "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["unit_ref", "reached"],
+          "properties": {
+            "unit_ref": {"$ref": "#/$defs/unit_ref"},
+            "reached": {"type": "array", "items": {"type": "string", "pattern": "^(r|k)-[0-9a-f]{24}$"}}
+          }
+        }}
+      }
+    },
     "git": {
       "$comment": "What a Codex session_meta records of its repository (step 0 S-19); the URL's userinfo is removed before the floor.",
       "type": "object",
@@ -316,7 +374,7 @@
       "type": "object",
       "additionalProperties": false,
       "required": ["occurrence_id", "event_id", "ordinal", "pointer", "carrier_id", "version_sha256", "start", "end",
-                   "sha256", "method", "reason"],
+                   "sha256", "method", "reason", "context_set"],
       "properties": {
         "occurrence_id": {"type": "string", "pattern": "^q-[0-9a-f]{24}$"},
         "event_id": {"$ref": "#/$defs/event_id"},
@@ -329,6 +387,7 @@
         "sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
         "method": {"type": "string", "enum": ["field", "exact", "normalised", "unmapped"]},
         "reason": {"type": ["string", "null"], "enum": ["recorded_unmapped", null]},
+        "context_set": {"$comment": "the context set of the segment its event starts in its owner's partition; null only for an owner-less event (R10)", "type": ["string", "null"], "pattern": "^x-[0-9a-f]{24}$"},
         "git": {"$ref": "#/$defs/git"}
       }
     },
