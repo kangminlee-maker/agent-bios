@@ -1612,15 +1612,20 @@ def universe_context(members, inventories, place):
             "unknown_entries": unknown_sources(units, {row for row in referenced if row.startswith("k-")}, place)}
 
 
-def universe_of(block, published, versions):
+def universe_of(block, published, versions, occurrences):
     """`(member versions, {i- id: (pointed layers, its carrier versions in those layers)})` of one segment's
-    index rows (R7 (a)): the event members its rows name, and each `(inventory, layer)` pair a row points
-    to, with that inventory's carriers whose store version is of a pointed layer. An inventory the index
-    names that is not published holds nothing here; `release_cross_problems` refuses it by name."""
+    index rows (R7 (a)): the event members its rows name, each mapped occurrence's RECORDED version an
+    injection row names (R1 #0: `occurrences` by id, an unmapped one has no recovered bytes), and each
+    `(inventory, layer)` pair a row points to, with that inventory's carriers whose store version is of a
+    pointed layer. An inventory the index names that is not published holds nothing here;
+    `release_cross_problems` refuses it by name."""
     members, pairs = set(), set()
     for row in block.get("layers") or []:
         source = row.get("source") or {}
         members |= {(member.get("carrier_id"), member.get("version_sha256")) for member in source.get("members") or []}
+        members |= {(occurrence.get("carrier_id"), occurrence.get("version_sha256"))
+                    for occurrence in (occurrences.get(ref) or {} for ref in source.get("occurrence_refs") or [])
+                    if occurrence.get("method") not in (None, "unmapped") and occurrence.get("version_sha256") is not None}
         if "inventory_ref" in source:
             pairs.add((source.get("inventory_ref"), source.get("layer")))
     inventories = {}
@@ -1649,10 +1654,11 @@ def context_sets(ctx, index, shared, store):
     items = {}
     for item in store_carriers(ctx):
         items.setdefault((item["carrier_id"], item["version_sha256"]), item)
+    occurrences = {row["occurrence_id"]: row for row in ctx.get("occurrences") or []}
     computed, sets, overrides, unknown, segment_ref, closures = {}, {}, {}, {}, {}, {}
     for entry in index.get("sessions") or []:
         for block in entry.get("segments") or []:
-            members, inventories = universe_of(block, published, versions)
+            members, inventories = universe_of(block, published, versions, occurrences)
             key = (frozenset(members), frozenset((identity, layers) for identity, (layers, _held) in inventories.items()))
             if key not in computed:
                 computed[key] = found = universe_context(
@@ -5637,13 +5643,15 @@ def context_cross_problems(sessions, index, shared, store):
     if derived:
         problems.append(f"CONTEXT_SET_ID_MISMATCH: {derived} context set id(s) not the one its carriers and inventories derive")
     blocks = {block.get("segment_ref"): block for entry in index.get("sessions") or [] for block in entry.get("segments") or []}
-    differs = 0
+    occurrences = {row.get("occurrence_id"): row for row in sessions.get("occurrences") or []}
+    differs, pointed_held = 0, {}
     for segment in segments:
         context, block = by_id.get(segment.get("context_set_ref")), blocks.get(segment.get("segment_id"))
         if context is None or block is None:
             continue
-        members, inventories = universe_of(block, published, versions)
-        expected = sorted(members | {row for _layers, held in inventories.values() for row in held})
+        members, inventories = universe_of(block, published, versions, occurrences)
+        pointed_held[segment.get("context_set_ref")] = {row for _layers, held in inventories.values() for row in held}
+        expected = sorted(members | pointed_held[segment.get("context_set_ref")])
         differs += 1 if sorted((row.get("carrier_id"), row.get("version_sha256")) for row in context.get("carriers") or []) \
             != expected or sorted(context.get("inventory_refs") or []) != sorted(inventories) else 0
     if differs:
@@ -5658,8 +5666,14 @@ def context_cross_problems(sessions, index, shared, store):
     for row in rows:
         carriers = {(carrier.get("carrier_id"), carrier.get("version_sha256")) for carrier in row.get("carriers") or []}
         named_here = {identity: published.get(identity) or {} for identity in row.get("inventory_refs") or []}
-        held = {(carrier.get("carrier_id"), carrier.get("version_sha256"))
-                for document in named_here.values() for carrier in document.get("carriers") or []}
+        # An inventory's carriers are the ones of the layers its segments point at, the producer's definition
+        # (`universe_of`), so every other carrier of the universe is an event carrier with edges of its own (R1 #0):
+        # an exact injection's recorded version is also its selection inventory's session_injection carrier, a layer
+        # no segment points at. A context set no segment names keeps every named carrier, and is refused above.
+        held = pointed_held.get(row.get("context_set_id"))
+        if held is None:
+            held = {(carrier.get("carrier_id"), carrier.get("version_sha256"))
+                    for document in named_here.values() for carrier in document.get("carriers") or []}
         universe = universe_units(row, named_here, versions)
         for ref in row.get("override_refs") or []:
             override = overrides.get(ref)
@@ -9081,24 +9095,52 @@ def self_test():
                       f"reasons={r12_memory.get('reasons')} universe={r1_universe(r12_doc)}")
 
             # ---- R1 decision A: a main transcript the run did not read is counted at its host, so the host's current
-            # native layers are incomplete while the read scopes keep their units; a child's is not counted.
-            r1a_run = published_run("r1-a-unread", [
-                ("claude", "s-r1a", [inj("2026-10-20T09:00:00+00:00", [member("User", "/w/g.md", "- read\n")], cwd=p1)], {}),
-                ("claude", "s-r1a-u", [inj("2026-10-20T10:00:00+00:00", [member("User", "/w/g.md", "- unread\n")], cwd=p1)],
-                 {"path": None})])
-            r1a_doc = r1a_run.get("current") or {}
-            r1a_global = r1_layer(r1a_doc, "native_global")
-            r1a_unread = [row.get("read") for row in (r1a_run.get("sessions") or {}).get("sessions") or []
-                          if row.get("session") == "claude:s-r1a-u"]
-            check("R1#A: an unread main transcript beside a read one leaves its host's current native layers incomplete by "
-                  "transcript_unread, the read scope keeping its units",
-                  "refused" not in r1a_run and r1a_unread == ["no_path"] and r1a_global.get("status") == "incomplete"
-                  and r1a_global.get("units", 0) >= 1
-                  and any("transcript_unread 1 at claude" in text for text in r1a_global.get("reasons") or [])
-                  and r1_universe(r1a_doc).get("transcript_unread") == 1
-                  and one_scope(r1a_doc, "native_global", "claude").get("status") == "answered",
-                  f"refused={r1a_run.get('refused')} read={r1a_unread} {r1a_global.get('status')} "
-                  f"units={r1a_global.get('units')} reasons={r1a_global.get('reasons')} universe={r1_universe(r1a_doc)}")
+            # native layers fall short of complete while the read scopes keep their units; a child's is not counted.
+            # One case per READ_FAILURES member, each from a fixture of its own as the read-outcome controls build
+            # them (P2.1's records, P2.7's reads). The subject is READ_FAILURES itself, so a member with no fixture
+            # fails by its name, and a fixture for something else fails the set check. The read session answers the
+            # global, project and memory scopes, so those layers are incomplete; it answers no Codex block, so
+            # native_undivided is unknown, by the same count (the residual named for commit d91164b).
+            r1a_fixtures = {
+                "unbound": {"sha256": None, "versions": []},
+                "binding_invalid": {"sha256": "not-a-hash"},
+                "no_path": {"path": None},
+                "changed": {"sha256": "1" * 64, "versions": [{"sha": "1" * 64, "record_count": 1, "prefix_sha": "2" * 64}]},
+                "unreadable": {"path": str(scratch / "r1-a" / "never-written.jsonl")}}
+            check("R1#A: the unread-transcript cases are exactly READ_FAILURES, one fixture each",
+                  set(r1a_fixtures) == set(READ_FAILURES) and len(READ_FAILURES) == 5,
+                  f"fixtures={sorted(r1a_fixtures)} READ_FAILURES={sorted(READ_FAILURES)}")
+            r1a_expected = {"native_global": "incomplete", "native_project": "incomplete", "native_memory": "incomplete",
+                            "native_undivided": "unknown"}
+            for r1a_member in READ_FAILURES:
+                r1a_name = (f"R1#A: an unread main transcript ({r1a_member}) beside a read one leaves current's native "
+                            f"layers short of complete by transcript_unread, the read scopes keeping their units")
+                if r1a_member not in r1a_fixtures:
+                    check(r1a_name, False, f"no fixture builds a main transcript whose read is {r1a_member}")
+                    continue
+                r1a_run = published_run(f"r1-a-{r1a_member}", [
+                    ("claude", "s-r1a", [inj("2026-10-20T09:00:00+00:00", [member("User", "/w/g.md", "- read\n"),
+                                                                           member("Project", f"{p1}/CLAUDE.md", "- p\n"),
+                                                                           member("AutoMem", f"{d1}/a.md", "- m\n")],
+                                             cwd=p1)], {}),
+                    ("claude", "s-r1a-u", [inj("2026-10-20T10:00:00+00:00", [member("User", "/w/g.md", "- unread\n")],
+                                               cwd=p1)], r1a_fixtures[r1a_member])])
+                r1a_doc = r1a_run.get("current") or {}
+                r1a_read = [(row.get("kind"), row.get("read")) for row in (r1a_run.get("sessions") or {}).get("sessions") or []
+                            if row.get("session") == "claude:s-r1a-u"]
+                r1a_layers = {layer: r1_layer(r1a_doc, layer) for layer in r1a_expected}
+                check(r1a_name,
+                      "refused" not in r1a_run and r1a_read == [("main", r1a_member)]
+                      and {layer: row.get("status") for layer, row in r1a_layers.items()} == r1a_expected
+                      and all(any("transcript_unread 1 at claude" in text for text in row.get("reasons") or [])
+                              for row in r1a_layers.values())
+                      and all(r1a_layers[layer].get("units", 0) >= 1 for layer in ("native_global", "native_project",
+                                                                                   "native_memory"))
+                      and r1_universe(r1a_doc).get("transcript_unread") == 1
+                      and one_scope(r1a_doc, "native_global", "claude").get("status") == "answered",
+                      f"refused={r1a_run.get('refused')} read={r1a_read} "
+                      f"layers={ {layer: (row.get('status'), row.get('units')) for layer, row in r1a_layers.items()} } "
+                      f"universe={r1_universe(r1a_doc).get('transcript_unread')}")
             r1a_child_run = published_run("r1-a-child", [
                 ("claude", "s-r1c", [inj("2026-10-20T09:00:00+00:00", [member("User", "/w/g.md", "- main\n")], cwd=p1)], {}),
                 ("claude", "s-r1c-kid", [inj("2026-10-20T10:00:00+00:00", [member("User", "/w/g.md", "- kid\n")], cwd=p1)],
@@ -14524,6 +14566,105 @@ def self_test():
             control("R1#3: and so is a complete injection row naming a mapped occurrence whose recorded bytes did not split",
                     r13_planted(r13_unsplit_occurrence), "RELEASE_SPLIT_DIFFERS", "session_injection")
 
+        with section("R1#0: an injected body's own units are in its segment's context"):
+            # ---- R1 #0 (§3.8): a mapped injection occurrence's RECORDED version is an event carrier of its segment, so
+            # its units are in the context set's universe, with their edges and their closures, and its mention of a
+            # native carrier reaches that carrier's unit. One fixture state of its own; the selected body recorded
+            # exactly inside a longer prompt, and recorded so with CRLF line endings (a normalised match, whose recorded bytes are a version of
+            # their own). Every expectation written out by hand: the body is a heading and one rule, two units.
+            r10_state = scratch / "r1-0" / "state"
+            plant_baseline(r10_state, "ref-r10", [catalog_item("rule-r10", "rule", "- rule r10")])
+            r10_body = "# R1 0\n\n- read CLAUDE.md before you edit\n"
+            r10_ref = plant_snapshot(r10_state, r10_body, baseline_ref="ref-r10",
+                                     items=[catalog_item("rule-r10", "rule", "- rule r10")])
+            for r10_ident in ("s-r10e", "s-r10n"):
+                plant_pin(r10_state, r10_ident, r10_ref)
+            r10_at = "2026-10-24T09:00:00+00:00"
+
+            def r10_case(ident, recorded):
+                """`(summary, occurrence)` of one run whose session records `recorded` as its selected body: the
+                injection occurrence's method, whether its context set holds its recorded version, how many of that
+                version's units the store holds and the context set's closures hold, and whether the rule unit's
+                closure reaches the native carrier's unit; or the named reason it could not be asked."""
+                run_here = published_shared(f"r1-0-{ident}", [pinned_row(ident, [
+                    {"type": "user", "timestamp": r10_at},
+                    inj(r10_at, [member("User", "/w/CLAUDE.md", "# Global\n\n- a native rule\n")], cwd="/w/r10"),
+                    prompt_record("2026-10-24T09:01:00+00:00", [f"<r>{recorded}</r>"])], r10_ref)], r10_state)
+                if "refused" in run_here:
+                    return f"refused: {run_here.get('refused')} {str(run_here.get('message'))[:300]}", {}
+                sessions_here, store_here = run_here["sessions"], run_here["store"]
+                # by the kind of the event each occurrence belongs to: a method says how the bytes were found, and
+                # a prompt that is the body alone is a `field` match too
+                kinds = {row["event_id"]: row["kind"] for row in sessions_here["events"]}
+                injected = [row for row in sessions_here["occurrences"] if kinds.get(row["event_id"]) == "session_injection"]
+                native = [row for row in sessions_here["occurrences"] if kinds.get(row["event_id"]) == "native"]
+                if len(injected) != 1 or len(native) != 1:
+                    return f"occurrences: {len(injected)} injected and {len(native)} native, where one each was recorded", {}
+                occurrence = injected[0]
+
+                def unit_refs(row):
+                    return ((store_here["versions"].get(row["carrier_id"]) or {}).get(row["version_sha256"]) or {}) \
+                        .get("unit_refs") or []
+
+                injected_units, native_units = unit_refs(occurrence), unit_refs(native[0])
+                context = next((row for row in sessions_here["context_sets"]
+                                if row["context_set_id"] == occurrence["context_set"]), {})
+                held = (occurrence["carrier_id"], occurrence["version_sha256"]) in {
+                    (row["carrier_id"], row["version_sha256"]) for row in context.get("carriers") or []}
+                try:
+                    closures = published_closures(sessions=sessions_here, context_set=occurrence["context_set"],
+                                                  store=store_here, inventories=list(run_here["shared"].values()))
+                except Refused as exc:
+                    return f"published_closures refused: {str(exc)[:300]}", occurrence
+                rules = [ref for ref in injected_units if store_here["units"][ref]["class"] == "operative"]
+                reaching = [ref for ref in rules if set(closures.get(ref) or []) & set(native_units)]
+                return (f"method={occurrence['method']} held={held} units={len(injected_units)} "
+                        f"in_closures={len(set(injected_units) & set(closures))} rules={len(rules)} "
+                        f"reaching_native={len(reaching)}"), occurrence
+
+            r10_exact, _r10_occurrence = r10_case("s-r10e", r10_body)
+            control("R1#0: an injected body's own units are in its segment's context set, with its mention of a native "
+                    "carrier reached", [r10_exact],
+                    "method=exact held=True units=2 in_closures=2 rules=1 reaching_native=1")
+            r10_normalised, r10_occurrence = r10_case("s-r10n", r10_body.replace("\n", "\r\n"))
+            control("R1#0: and a normalised recorded version is the one in the universe",
+                    [f"{r10_normalised} recorded_is_selected={r10_occurrence.get('version_sha256') == sha256_text(r10_body)}"],
+                    "method=normalised held=True units=2 in_closures=2 rules=1 reaching_native=1",
+                    "recorded_is_selected=False")
+
+            # K17's same-session claim under the R1 #0 rule (lead): two non-empty segments of ONE session whose
+            # universes are equal share one x-. The native files re-injected unchanged after the body cut a fourth
+            # segment whose universe is the third's (the same member versions, the same injection in force); the
+            # same re-injection with one carrier's bytes changed gives that segment a universe and an x- of its own.
+            # Segments are cut at every event line, so four lines give four (`segments`).
+            for r10_ident in ("s-r10s", "s-r10d"):
+                plant_pin(r10_state, r10_ident, r10_ref)
+            r10_files = [member("User", "/w/CLAUDE.md", "# Global\n\n- a native rule\n"),
+                         member("Project", "/w/r10/CLAUDE.md", "- the project rule\n")]
+
+            def r10_segments(ident, later_files):
+                """The context set refs of `ident`'s segments, in line order, summarised, or the named refusal."""
+                run_here = published_shared(f"r1-0-{ident}", [pinned_row(ident, [
+                    {"type": "user", "timestamp": r10_at},
+                    inj(r10_at, r10_files, cwd="/w/r10"),
+                    prompt_record("2026-10-24T09:01:00+00:00", [f"<r>{r10_body}</r>"]),
+                    inj("2026-10-24T09:02:00+00:00", later_files, cwd="/w/r10")], r10_ref)], r10_state)
+                if "refused" in run_here:
+                    return f"refused: {run_here.get('refused')} {str(run_here.get('message'))[:300]}"
+                record = next((row for row in run_here["sessions"]["sessions"] if row["session"] == f"claude:{ident}"), {})
+                refs = [row["context_set_ref"] for row in sorted(
+                    (row for row in run_here["sessions"]["segments"] if row["session_ref"] == record.get("session_ref")),
+                    key=lambda row: row["from"])]
+                return (f"segments={len(refs)} distinct={len(set(refs))} "
+                        f"last_two_shared={len(refs) == 4 and refs[2] == refs[3]}")
+
+            control("R1#0: two non-empty segments of one session with equal universes share one x-: the native files "
+                    "re-injected unchanged under the same injection", [r10_segments("s-r10s", r10_files)],
+                    "segments=4 distinct=3 last_two_shared=True")
+            control("R1#0: and the same re-injection with one carrier's bytes changed gives that segment an x- of its own",
+                    [r10_segments("s-r10d", [r10_files[0], member("Project", "/w/r10/CLAUDE.md", "- the rule, changed\n")])],
+                    "segments=4 distinct=4 last_two_shared=False")
+
         with section("P2.6: closures as published edges, typed unresolved requirements, one closure rule (step 0 S-12)"):
             # ---- P2.6 (step 0 S-12, S-26; lead rulings on the P2.6 plan): one closure loop, typed `k-`
             # entries, the canonical order, a shared inventory's edges and the function that closes over them
@@ -15314,12 +15455,16 @@ def self_test():
                      f"versions_differ={bool(p26b_release_rule) and bool(p26b_selection_rule) and p26b_release_rule != p26b_selection_rule}"],
                     "release_in=True selection_in=False versions_differ=True")
 
-            # K17: a session's segments that share one universe share one x- (the injection event adds no carrier,
-            # R9), and the same universe in another session is the same x-.
-            control("K17: two segments with one universe share one x-, and one universe in two sessions too",
+            # K17, under R1 #0: each segment's universe is its own x-, an injection's recorded version being one of its
+            # carriers, so the segment under the injection is not the native-only one before it (R9's "the injection
+            # event adds no carrier" no longer holds); and the same universe in another session is the same x-. Two
+            # equal non-empty universes in ONE session sharing one x- are held in the R1#0 section, on a fixture of
+            # their own, so this shared fixture stays as it is.
+            control("K17: each segment's universe is its own x-, an injection's recorded version among its carriers, "
+                    "and one universe in two sessions is one x-",
                     [f"segments={len(p26b_k_one)} distinct={len({ref for _from, ref in p26b_k_one})} "
                      f"across={[ref for _from, ref in p26b_k_one] == [ref for _from, ref in p26b_k_two]}"],
-                    "segments=3 distinct=2 across=True")
+                    "segments=3 distinct=3 across=True")
 
             # K9 ([F:320-322]): the catalog guide mentioning CLAUDE.md, in a universe that carries two native CLAUDE.md
             # files, has the ambiguity entry and every native unit in its closure, recomputed from the WRITTEN files.
