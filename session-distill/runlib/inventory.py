@@ -10913,21 +10913,25 @@ def self_test():
             check("the layers a transcript records answer at the current reference point, scope by scope",
                   all(split_scopes.get((layer, "claude")) in ("answered", "empty") for layer in TRANSCRIPT_LAYERS)
                   and all(split_scopes.get((layer, "codex")) == "unknown" for layer in TRANSCRIPT_LAYERS)
-                  and all(native_rows[layer]["status"] == "unknown"
-                          and any("one block" in text for text in native_rows[layer]["reasons"]) for layer in TRANSCRIPT_LAYERS)
+                  and all((native_rows.get(layer) or {}).get("status") == "unknown"
+                          and any("one block" in text for text in (native_rows.get(layer) or {}).get("reasons") or [])
+                          for layer in TRANSCRIPT_LAYERS)
                   and {row["layer"]: row["status"] for row in split_doc["layers"]}.get("native_undivided") == "complete",
                   f"{sorted(split_scopes.items())}")
+            # A refused run leaves no row to read: each read below is a missing row the control fails on by name,
+            # never a KeyError that ends this section (P2.7c, probe-run-refused-1).
+            settings_row = native_rows.get("native_settings") or {}
             control("the settings layer, which no transcript carries and no mode reads",
-                    [f"native_settings={native_rows['native_settings']['status']}: "
-                     + "; ".join(native_rows["native_settings"]["reasons"])],
+                    [f"native_settings={settings_row.get('status')}: " + "; ".join(settings_row.get("reasons") or [])],
                     "native_settings=unknown", "settings file is carried by no transcript")
             check("a reference point missing the settings layer is incomplete",
                   split["references"]["current"]["complete"] is False,
                   "a reference point with an unknown layer reported complete")
+            split_native_units = [unit for unit in split_doc["units"] if unit["layer"] in TRANSCRIPT_LAYERS]
             check("the current native layers carry when and from whom they came",
-                  all(unit["provenance"].get("as_of") and unit["provenance"].get("session")
-                      for unit in split_doc["units"] if unit["layer"] in TRANSCRIPT_LAYERS),
-                  "a current native unit carries no as_of or no session")
+                  bool(split_native_units) and all(unit["provenance"].get("as_of") and unit["provenance"].get("session")
+                                                   for unit in split_native_units),
+                  f"a current native unit carries no as_of or no session, or there is none ({len(split_native_units)})")
             check("the run's artifact names no mode that reads a host home",
                   bool(split_doc["produced_by"]) and "mode" not in split_doc["produced_by"]
                   and split["inputs"]["transcripts"]["native_files_read"] == 0,
@@ -10938,8 +10942,8 @@ def self_test():
                                native_roots={"projects": {"project": scratch / "project"}})
             blind_rows = {row["layer"]: row for row in written_json(blind_out / "inventory" / "current.json")["layers"]}
             control("a run with no census to read a transcript through",
-                    [f"{layer}={blind_rows[layer]['status']}: " + "; ".join(blind_rows[layer]["reasons"])
-                     for layer in TRANSCRIPT_LAYERS],
+                    [f"{layer}={(blind_rows.get(layer) or {}).get('status')}: "
+                     + "; ".join((blind_rows.get(layer) or {}).get("reasons") or []) for layer in TRANSCRIPT_LAYERS],
                     "native_global=unknown", "INPUT_UNACQUIRED")
             check("a run with no census is incomplete", blind["references"]["current"]["complete"] is False,
                   "a run that bound no transcript reported complete")
@@ -11198,23 +11202,26 @@ def self_test():
                     document_contract_problems({**current_doc, "layers": [
                         {**current_doc["layers"][0], "layer": "a_layer_nobody_declared"}]}),
                     "DOCUMENT_INVALID")
-            overlay_row = next(row for row in current_doc["layers"] if row["layer"] == "overlays")
+            # A refused run leaves no overlay row and no overlay unit: each control below fails on that by name,
+            # never on a StopIteration that ends this section, and none passes on an empty set (P2.7c).
+            overlay_row = next((row for row in current_doc["layers"] if row["layer"] == "overlays"), {})
             check("the overlay layer resolved rather than failing on a missing baseline",
-                  overlay_row["status"] == "complete", f"{overlay_row['status']}: {overlay_row['reasons']}")
+                  overlay_row.get("status") == "complete", f"{overlay_row.get('status')}: {overlay_row.get('reasons')}")
             overlay_units = [unit for unit in current_doc["units"] if unit["layer"] == "overlays"]
             learned_texts = {unit["text"] for unit in overlay_units}
             check("every host in scope contributed its learned rule",
                   all(any(lesson.strip() in text for text in learned_texts) for lesson in learned.values()),
                   f"{sorted(learned_texts)}")
             control("a learned rule the owner suppressed",
-                    [f"suppressed present: {any('suppressed' in text for text in learned_texts)}"],
-                    "suppressed present: False")
+                    [f"suppressed present: {any('suppressed' in text for text in learned_texts)}; "
+                     f"overlay units judged: {bool(overlay_units)}"],
+                    "suppressed present: False", "overlay units judged: True")
             hosts_named = {host for unit in overlay_units for host in unit["provenance"].get("hosts", [])}
             check("an overlay carries the hosts it resolved for", hosts_named == {"claude", "codex"},
                   f"{sorted(hosts_named)}")
             check("an item both hosts share is one carrier, not two",
-                  len({unit["carrier_id"] for unit in overlay_units}) == len(overlay_units),
-                  "the same overlay carrier was emitted twice")
+                  bool(overlay_units) and len({unit["carrier_id"] for unit in overlay_units}) == len(overlay_units),
+                  f"the same overlay carrier was emitted twice, or there is none ({len(overlay_units)})")
             check("a tombstoned item is not in the overlay layer",
                   bool(overlay_units) and not any(unit["item_ref"] == "@fixture/core:item-3" for unit in overlay_units),
                   "a tombstoned item came back as an overlay")
@@ -11225,8 +11232,8 @@ def self_test():
                     "PRODUCER_UNAVAILABLE adopted_packages")
             control("a reference point whose adopted packages were read from the checkout catalog",
                     [f"from the checkout: {len(catalog_carriers(REPO, layer='adopted_packages', adopted=True))}; "
-                     f"from the owner's state: {len(adopted_rows['current'])}"],
-                    "from the checkout: 0", "from the owner's state:")
+                     f"from the owner's state: {len(adopted_rows['current'])}; judged={bool(adopted_rows['current'])}"],
+                    "from the checkout: 0", "from the owner's state:", "judged=True")
             check("the adopted package's units are in the current reference point",
                   any(unit["package_id"] == "@vendor/pkg" for unit in adopted_rows["current"]),
                   f"{sorted({unit['package_id'] for unit in adopted_rows['current']})} / "
@@ -14041,10 +14048,24 @@ def self_test():
                   + document_contract_problems(index_doc) if index_doc else ["the run published no index"])
 
             def planted_index(change):
-                """`release_cross_problems` of a deep copy of the published index after `change`."""
+                """`release_cross_problems` of a deep copy of the published index after `change`. An index the run did
+                not publish (a refused run) has no place for the change: that is this case's named failure, never a
+                KeyError that ends the section (P2.7c). Only the planting is guarded; the product's check is not, so
+                a check that cannot read a document fails as itself."""
                 copy_here = json.loads(json.dumps(index_doc))
-                change(copy_here)
+                try:
+                    change(copy_here)
+                except (KeyError, IndexError, StopIteration, TypeError) as exc:
+                    return [f"PLANT_UNREACHABLE: the published index has no place for this planted change "
+                            f"({type(exc).__name__})"]
                 return release_cross_problems(copy_here, index_sessions, index_shared, index_store)
+
+            def found_seg_block(document, start=3):
+                """`seg_block`, or None where the document holds no such block (a refused run's)."""
+                try:
+                    return seg_block(document, start)
+                except (KeyError, IndexError, StopIteration, TypeError):
+                    return None
 
             def seg_block(document, start=3):
                 entry = next(row for row in document["sessions"] if row["session_ref"] == session_ref("claude", "s-seg"))
@@ -14119,7 +14140,7 @@ def self_test():
             # dependent; its twin keeps the dependent and is admitted, so each refusal is that dependent's. One
             # case per `dependentRequired` entry of the schema's `release_source`.
             schema_here = inventory_schema()
-            block_event = next((row["source"]["event_ref"] for row in seg_block(index_doc)["layers"]
+            block_event = next((row["source"]["event_ref"] for row in (found_seg_block(index_doc) or {}).get("layers") or []
                                 if (row["source"] or {}).get("event_ref")), None)
             dependents = ((schema_here.get("$defs") or {}).get("release_source") or {}).get("dependentRequired") or {}
             dependent_cases = (("inventory_ref", "layer", {}, "a row source naming an inventory and no layer"),
@@ -14132,7 +14153,10 @@ def self_test():
                   f"{dependents}")
             for trigger, dependent, extra, what in dependent_cases:
                 bare_source, twin_source = json.loads(json.dumps(index_doc)), json.loads(json.dumps(index_doc))
-                for planted_doc, keeps_dependent in ((bare_source, False), (twin_source, True)):
+                # no block to take an event_ref from (a refused run's index): nothing is planted, and both controls
+                # below fail by name on `block_event is None`
+                for planted_doc, keeps_dependent in (((bare_source, False), (twin_source, True))
+                                                     if block_event is not None else ()):
                     planted_source = layer_of(seg_block(planted_doc), "catalog")["source"]
                     planted_source.update({"event_ref": block_event, **extra})
                     if not keeps_dependent:
