@@ -153,6 +153,11 @@ DATA_SINKS = {
         "missing": "what a frozen copy left out — an absent source, a symlink, an unreadable file; "
                    "it is reported as the run's input manifest, and the refusal for a state that "
                    "CHANGED while being read is raised by name instead",
+        "unknown": "the per-session unknown list: each entry a named unknown — a session whose transcript "
+                   "could not be read, or that records no injection — published whole as data in the "
+                   "manifest's transcripts note; a named unknown is an answer, never a failure",
+        "failed": "a layer row's per-carrier splitting failures (step 0 S-20): each becomes one of the "
+                  "row's published reasons, an answer about that carrier, never a failure of the run",
     },
     "session-distill/runlib/monitor.py": {"uncertain": "requests whose sending no host record "
                                                        "establishes; disclosed beside the boundary "

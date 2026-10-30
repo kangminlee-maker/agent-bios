@@ -567,11 +567,15 @@ def unit_ref(carrier_id, version_sha256, n):
     return opaque_id("r", "unit", carrier_id, version_sha256, n)
 
 
-def units_of(carriers):
+def units_of(carriers, seen=None):
     """Every carrier's units, each with its enclosing headings. `unit_id` is the carrier and the
     fragment, so one fragment in one carrier keeps its id across reference points; a fragment
-    repeated inside a carrier carries its occurrence."""
-    units, seen = [], collections.Counter()
+    repeated inside a carrier carries its occurrence.
+
+    `seen` is that occurrence count, updated in place. A caller splitting one row carrier by carrier
+    passes one count for the row (`produce`): two VERSIONS of one carrier share its id, and a block both
+    hold must get the two ids a split of the whole row gives."""
+    units, seen = [], collections.Counter() if seen is None else seen
     for item in carriers:
         # The headings still open above the current block, outermost first, each with its level.
         open_headings, heading_chain, heading_spans, enclosing, before = [], (), [], [], ""
@@ -4942,8 +4946,15 @@ def layer_rows(reference, context):
 
 
 def produce(rows):
-    """Split every layer's carriers into units, and hold each layer against its own non-empty
-    assertion: a producer that ran and yielded nothing is `incomplete`, never clean."""
+    """Split every layer's carriers into units, carrier by carrier, and hold each layer against its own
+    non-empty assertion (step 0 S-20, §7):
+
+    * a carrier that does not split drops its own units and nothing else: a complete row becomes
+      `incomplete`, naming that carrier's failure, and the other carriers' units are kept — an
+      unsupported carrier included, since `unsupported` is a producer's answer, not one carrier's;
+    * a row whose every carrier is empty text is a valid empty set: `complete` and empty, each version
+      still in the store;
+    * a row with content that still produced no unit is `incomplete`, never clean."""
     units = []
     for row in rows:
         row["empty"] = False
@@ -4956,24 +4967,27 @@ def produce(rows):
         # A row that is not complete and still carries carriers is a scoped layer (S-10): the scopes
         # that answered keep their units, each pointing at its scope row, and the row keeps its status.
         whole = row["status"] == "complete"
-        try:
-            produced = units_of(row["carriers"])
-        except Unsupported as exc:
-            row.update(status="unsupported" if whole else row["status"], units=0,
-                       reasons=row["reasons"] + [f"{row['layer']}: {exc}"])
-            continue
-        except Malformed as exc:
-            row.update(status="incomplete" if whole else row["status"], units=0,
-                       reasons=row["reasons"] + [f"{row['layer']}: {exc}"])
-            continue
+        # One carrier at a time, under ONE occurrence count for the row: two versions of one carrier share
+        # its id, so a block both hold gets the ids a split of the whole row gives. Each carrier counts on
+        # a trial copy that stands only when the carrier split, so one that fails never moves the count.
+        produced, failed, seen = [], [], collections.Counter()
+        for item in row["carriers"]:
+            trial = collections.Counter(seen)
+            try:
+                produced += units_of([item], trial)
+            except (Unsupported, Malformed) as exc:
+                failed.append(f"{row['layer']}: {exc}")
+                continue
+            seen = trial
         row["units"] = len(produced)
-        if not produced and not whole:
-            continue
-        if not produced:
+        if failed:
+            row.update(status="incomplete" if whole else row["status"], reasons=row["reasons"] + failed)
+        elif not produced and whole and all(item["text"] == "" for item in row["carriers"]):
+            row["empty"] = True
+        elif not produced and whole:
             row.update(status="incomplete", reasons=row["reasons"] + [
                 f"{row['layer']}: {row['producer']} read {len(row['carriers'])} carrier(s) and produced no unit, "
                 f"and a layer is never silently empty"])
-            continue
         units += produced
     for row in rows:
         row.pop("carriers", None)
@@ -5498,10 +5512,17 @@ def closure_cross_problems(documents, shared, sessions=None):
     closure, a shared inventory's edge, or a context set's edge or override names has exactly one row in
     that document's `unknown_entries`; every unit id a reference document's closure names is exactly one
     of its units; and a shared inventory's edges and its units name each other exactly once — one edges
-    row per unit, and every `direct` and `reached` unit reference one of its units (its own universe)."""
+    row per unit, and every `direct` and `reached` unit reference one of its units (its own universe).
+
+    Before any of that, a unit id names ONE unit of its document (`UNIT_DUPLICATE`): the closure check
+    below counts on it, and two versions of one carrier split apart once published one id twice. A
+    shared inventory publishes no unit id, only its `r-` references."""
     problems = []
     for reference, document in documents.items():
         units = collections.Counter(unit.get("unit_id") for unit in document.get("units") or [])
+        twice = sum(1 for count in units.values() if count > 1)
+        if twice:
+            problems.append(f"UNIT_DUPLICATE {reference}: {twice} unit id(s) name more than one unit")
         if any(str(row).startswith("u-") and units[row] != 1
                for unit in document.get("units") or [] for row in unit.get("operative_context") or []):
             problems.append(f"CLOSURE_UNIT_UNRESOLVED {reference}: a closure names a unit its document does not "
@@ -10021,9 +10042,12 @@ def self_test():
                 "raising": lambda ctx: (_ for _ in ()).throw(Refused("INPUT_UNREADABLE hollow: planted")),
                 "unknown": lambda ctx: None,
             }
-            want = {"complete": ("complete", False), "empty": ("complete", True), "unsupported": ("unsupported", False),
+            # S-20 (step 0 §7): a carrier that does not split leaves its row incomplete, an unsupported one
+            # included, and a row whose every carrier is empty text is a valid empty set. A row with content
+            # that yields no unit is judged in the P2.7 section, where a planted splitter can produce one.
+            want = {"complete": ("complete", False), "empty": ("complete", True), "unsupported": ("incomplete", False),
                     "malformed": ("incomplete", False),
-                    "no-units": ("incomplete", False), "raising": ("incomplete", False), "unknown": ("unknown", False)}
+                    "no-units": ("complete", True), "raising": ("incomplete", False), "unknown": ("unknown", False)}
             saved = globals()["LAYERS"]
             try:
                 globals()["LAYERS"] = tuple((name, {"current": (f"{name} producer", call, ())}) for name, call in planted.items())
@@ -10039,8 +10063,6 @@ def self_test():
                     check(f"the {layer} layer says why", bool(rows[layer]["reasons"]), "no reason given")
             check("an unsupported or unknown layer makes the reference point incomplete",
                   document["reference"]["complete"] is False, "the reference point reported complete")
-            check("a layer that read nothing is never silently empty",
-                  "never silently empty" in "; ".join(rows["no-units"]["reasons"]), f"{rows['no-units']['reasons']}")
 
         with section('#16: an omission is applied through the inputs a producer declares, so one that declares'):
             # ---- #16: an omission is applied through the inputs a producer declares, so one that declares
@@ -10060,17 +10082,24 @@ def self_test():
 
         with section('GA#11: one cause at a time, so ignoring any single one of them cannot survive'):
             # ---- GA#11: one cause at a time, so ignoring any single one of them cannot survive
+            # `no-units` is content that yields no unit (S-20: empty text is a valid empty set now, and the
+            # planted empty layer above is complete). Today's splitter yields a unit for any text, so the
+            # cause is planted: a splitter that yields nothing for that one carrier and splits the rest.
+            kept_units_ga11 = globals()["units_of"]
             causes = {"unsupported": planted["unsupported"], "unknown": planted["unknown"],
                       "malformed": planted["malformed"],
-                      "no-units": planted["no-units"], "raising": planted["raising"]}
+                      "no-units": lambda ctx: [carrier("catalog", "content.md", "- a rule\n")], "raising": planted["raising"]}
             for cause, producer in causes.items():
                 saved_one = globals()["LAYERS"]
                 try:
                     globals()["LAYERS"] = (("catalog", {"current": ("the complete layer", planted["complete"], ())}),
                                            ("overlays", {"current": (f"the {cause} layer", producer, ())}))
+                    if cause == "no-units":
+                        globals()["units_of"] = lambda carriers, seen=None: (
+                            [] if [item["path"] for item in carriers] == ["content.md"] else kept_units_ga11(carriers, seen))
                     document_one, _units_one = reference_of("current", context_of(REPO, None, None, {}, None, None))
                 finally:
-                    globals()["LAYERS"] = saved_one
+                    globals()["LAYERS"], globals()["units_of"] = saved_one, kept_units_ga11
                 rows_one = {row["layer"]: row for row in document_one["layers"]}
                 control(f"a reference point whose only fault is a {cause} layer",
                         [f"complete={document_one['reference']['complete']} "
@@ -15110,6 +15139,163 @@ def self_test():
             control("A4: a context-set defect planted after the index refuses the run, and no artifact is written",
                     [f"{p26b_a4} written={sorted(path.name for path in p26b_a4_out.rglob('*.json'))}"],
                     "CONTEXT_EDGE_UNRESOLVED", "written=[]")
+
+        with section("P2.7: the Codex block at a Claude-only run, usable units of a layer, and the no_record survivors (step 0 §6, §7)"):
+            # ---- S-19 (§6): at a Claude event the Codex block is complete and empty. At the current reference
+            # point that is `scoped_layer`'s Claude branch: a run whose transcripts are all Claude has Claude scope
+            # rows and no Codex one, so `native_undivided` answers from no scope of its own, and that is an answer.
+            p27_claude = published_current("p27-claude-only", [
+                ("claude", "s-only", [inj("2026-10-21T09:00:00+00:00", [member("User", "/w/g.md", "# G\n\n- one\n")],
+                                          cwd="/w/p1")], {})])
+            p27_claude_rows = {row["layer"]: row for row in p27_claude.get("layers") or []}
+            p27_block = p27_claude_rows.get("native_undivided") or {}
+            p27_global = p27_claude_rows.get("native_global") or {}
+            check("S-19: a run whose transcripts are all Claude publishes native_undivided complete and empty at the current "
+                  "reference point",
+                  "refused" not in p27_claude
+                  and (p27_block.get("status"), p27_block.get("empty"), p27_block.get("units"), p27_block.get("reasons"))
+                  == ("complete", True, 0, []) and p27_global.get("status") == "complete" and p27_global.get("units", 0) > 0,
+                  f"refused={p27_claude.get('refused')} "
+                  f"block={[p27_block.get(key) for key in ('status', 'empty', 'units', 'reasons')]} "
+                  f"global={[p27_global.get(key) for key in ('status', 'units')]}")
+
+            # ---- S-20: `produce` splits carrier by carrier. Planted producer tables, as the layer-status block
+            # plants them; a planted splitter reaches the one branch today's splitter cannot (a non-empty text
+            # always yields a unit, because the split must reproduce it). Returns the rows and the document.
+            def p27_planted(planted_here, units_planted=None):
+                kept_layers_p27, kept_units_p27 = globals()["LAYERS"], globals()["units_of"]
+                try:
+                    globals()["LAYERS"] = tuple((name, {"current": (f"{name} producer", call, ())})
+                                                for name, call in planted_here.items())
+                    if units_planted is not None:
+                        globals()["units_of"] = units_planted
+                    document_p27, _units_p27 = reference_of("current", context_of(REPO, None, None, {}, None, None))
+                finally:
+                    globals()["LAYERS"], globals()["units_of"] = kept_layers_p27, kept_units_p27
+                return {row["layer"]: row for row in document_p27["layers"]}, document_p27
+
+            # ---- S-20 (§7): a valid empty set. A member whose content is empty text is a carrier the event
+            # recorded: its layer is complete and empty, the store keeps its version like any other, and a
+            # reference point whose only other layer is complete stays complete beside it.
+            p27_empty = published_run("p27-empty-text", [
+                ("claude", "s-empty", [inj("2026-10-21T09:00:00+00:00", [member("User", "/w/empty.md", "")],
+                                           cwd="/w/p1")], {})])
+            p27_empty_row = {row["layer"]: row for row in (p27_empty.get("current") or {}).get("layers") or []}.get(
+                "native_global") or {}
+            p27_empty_versions = [row for rows_here in ((p27_empty.get("store") or {}).get("versions") or {}).values()
+                                  for row in rows_here.values() if row.get("layer") == "native_global"]
+            _p27_rows, p27_empty_reference = p27_planted({"catalog": planted["complete"],
+                                                          "overlays": lambda ctx: [carrier("catalog", "hollow.md", "")]})
+            check("S-20: a layer whose every carrier is empty text is complete and empty, and the store keeps each version "
+                  "with length 0 and no unit",
+                  "refused" not in p27_empty
+                  and (p27_empty_row.get("status"), p27_empty_row.get("empty"), p27_empty_row.get("units")) == ("complete", True, 0)
+                  and [(row.get("length"), row.get("split"), row.get("unit_refs")) for row in p27_empty_versions] == [(0, "split", [])]
+                  and p27_empty_reference["reference"]["complete"] is True,
+                  f"refused={p27_empty.get('refused')} "
+                  f"row={[p27_empty_row.get(key) for key in ('status', 'empty', 'units', 'reasons')]} "
+                  f"versions={[(row.get('length'), row.get('split'), len(row.get('unit_refs') or [])) for row in p27_empty_versions]} "
+                  f"reference_complete={p27_empty_reference['reference']['complete']}")
+
+            p27_expected = len(units_of([guide("good.md", first)]))
+            p27_mixed, _p27_document = p27_planted({
+                "mixed-malformed": lambda ctx: [guide("good.md", first), carrier("catalog", "broken.py", "def f(:\n  pass\n")],
+                "mixed-unsupported": lambda ctx: [guide("good-too.md", first), carrier("catalog", "blank.py", "\n\n")]})
+            p27_malformed = p27_mixed.get("mixed-malformed") or {}
+            check("S-20: one carrier that does not split drops only its own units: the row is incomplete, the other carrier's "
+                  "units are published, and the reason names the failed carrier's category",
+                  p27_expected > 0 and p27_malformed.get("status") == "incomplete" and p27_malformed.get("units") == p27_expected
+                  and any("broken.py" in text and "MALFORMED_CARRIER" in text for text in p27_malformed.get("reasons") or []),
+                  f"expected={p27_expected} {[p27_malformed.get(key) for key in ('status', 'units', 'reasons')]}")
+            p27_unsupported = p27_mixed.get("mixed-unsupported") or {}
+            check("S-20: an unsupported carrier among good ones leaves the row incomplete, not unsupported",
+                  p27_unsupported.get("status") == "incomplete" and p27_unsupported.get("units") == p27_expected
+                  and any("blank.py" in text and "does not reproduce" in text for text in p27_unsupported.get("reasons") or []),
+                  f"expected={p27_expected} {[p27_unsupported.get(key) for key in ('status', 'units', 'reasons')]}")
+            p27_hollow = p27_planted({"content-no-unit": lambda ctx: [carrier("catalog", "content.md", "- a rule\n")]},
+                                     units_planted=lambda carriers, seen=None: [])[0].get("content-no-unit") or {}
+            check("S-20: a non-empty carrier that yields no unit leaves the row incomplete, never silently empty",
+                  p27_hollow.get("status") == "incomplete" and p27_hollow.get("empty") is False
+                  and any("never silently empty" in text for text in p27_hollow.get("reasons") or []),
+                  f"{[p27_hollow.get(key) for key in ('status', 'empty', 'reasons')]}")
+
+            # ---- S-20, the split's ids: two VERSIONS of one carrier in one row (distinct_members keeps two byte
+            # strings at one path, and event_carriers makes a carrier of each), sharing a block. Split carrier
+            # by carrier, they must keep the ids one split of the whole row gives, never one id twice. Each unit is
+            # compared by its `r-` reference, which names its version: the document's ORDER is its canonical sort's
+            # (layer, carrier, version, n, id; P2.6), not the splitter's, and is no part of this contract.
+            p27_v1 = carrier("catalog", "same.md", "## Rules\n\n- one\n")
+            p27_v2 = carrier("catalog", "same.md", "## Rules\n\n- two\n")
+            p27_shared_blocks = len({text for _kind, text in blocks_of("same.md", p27_v1["text"])}
+                                    & {text for _kind, text in blocks_of("same.md", p27_v2["text"])})
+            p27_whole_map = {unit["unit_ref"]: unit["unit_id"] for unit in units_of([p27_v1, p27_v2])}
+            _p27_rows, p27_two_document = p27_planted({"two-versions": lambda ctx: [p27_v1, p27_v2]})
+            p27_two_units = [unit for unit in p27_two_document.get("units") or [] if str(unit.get("path")).endswith("same.md")]
+            p27_two_ids = [unit["unit_id"] for unit in p27_two_units]
+            p27_two_map = {unit["unit_ref"]: unit["unit_id"] for unit in p27_two_units}
+            check("S-20: two versions of one carrier that share a block keep distinct unit ids, the ones a split of the whole "
+                  "row gives",
+                  p27_v1["carrier_id"] == p27_v2["carrier_id"] and p27_shared_blocks >= 1
+                  and len(p27_two_ids) == len(set(p27_two_ids)) == len(p27_whole_map) and p27_two_map == p27_whole_map,
+                  f"one_identity={p27_v1['carrier_id'] == p27_v2['carrier_id']} shared_blocks={p27_shared_blocks} "
+                  f"published={len(p27_two_ids)} distinct={len(set(p27_two_ids))} whole_row={len(p27_whole_map)} "
+                  f"map_equal={p27_two_map == p27_whole_map}")
+
+            # ---- the guard under it: a unit id names ONE unit of its published document (UNIT_DUPLICATE), so a
+            # split that hands one id to two units is refused by name before anything is written. A planted
+            # duplicate is refused; two versions of one recorded file sharing a heading, through the
+            # production path, publish.
+            p27_planted_dup = closure_cross_problems({"current": {"units": [
+                {"unit_id": "u-0123456789abcdef", "operative_context": []},
+                {"unit_id": "u-0123456789abcdef", "operative_context": []}]}}, [])
+            p27_two_run = published_run("p27-two-versions", [
+                ("claude", "s-twov", [inj("2026-10-21T09:00:00+00:00", [member("User", "/w/g.md", "# G\n\n- one\n"),
+                                                                        member("User", "/w/g.md", "# G\n\n- two\n")],
+                                          cwd="/w/p1")], {})])
+            p27_two_run_units = [unit for unit in (p27_two_run.get("current") or {}).get("units") or []
+                                 if unit.get("layer") == "native_global"]
+            p27_two_run_ids = [unit.get("unit_id") for unit in p27_two_run_units]
+            control("UNIT_DUPLICATE: a unit id naming two units of one document is refused by name, and two versions of one "
+                    "recorded file sharing a heading publish",
+                    [f"planted={p27_planted_dup} refused={p27_two_run.get('refused')} problems={p27_two_run.get('problems')} "
+                     f"both_versions={len({unit.get('version_sha256') for unit in p27_two_run_units}) == 2} "
+                     f"global_units={len(p27_two_run_ids)} distinct={len(set(p27_two_run_ids))}"],
+                    "UNIT_DUPLICATE current: 1 unit id(s) name more than one unit", "refused=None", "both_versions=True",
+                    f"global_units={len(set(p27_two_run_ids))} distinct={len(set(p27_two_run_ids))}")
+
+            # ---- the no_record survivors (the brief's "Survivors, the sink, and the reason vocabulary"). Each
+            # branch driven with its prerequisites met: a Claude transcript the census binds and that reads
+            # whole, so `census`, `unbound`, `no_path` and `changed` cannot answer first, and nothing in it is
+            # an injection. Each control names the outcome AND where it is published.
+            p27_quiet = [("claude", "s-quiet", [{"type": "user", "timestamp": "2026-10-21T09:00:00+00:00",
+                                                 "message": "a turn, and no injection"}], {})]
+            p27_none = published_run("p27-no-injection", p27_quiet)
+            p27_none_rows = {row["layer"]: row for row in (p27_none.get("current") or {}).get("layers") or []}
+            p27_native = ("native_global", "native_project", "native_memory", "native_undivided")
+            check("survivor: a run whose bound, readable transcripts record no injection publishes each native layer unknown "
+                  "by no_record at the current reference point, from scoped_layer",
+                  "refused" not in p27_none and all(
+                      ((p27_none_rows.get(layer) or {}).get("status"), (p27_none_rows.get(layer) or {}).get("reasons"))
+                      == ("unknown", [f"{layer}: unknown: the transcript records no injection: no main transcript records {layer}"])
+                      for layer in p27_native),
+                  f"refused={p27_none.get('refused')} "
+                  f"{[(layer, (p27_none_rows.get(layer) or {}).get('status'), (p27_none_rows.get(layer) or {}).get('reasons')) for layer in p27_native]}")
+            p27_session_rows = list((p27_none.get("sessions") or {}).get("sessions") or [])
+            check("survivor: a bound, readable transcript with no injection event has one session unknown entry, no_record, "
+                  "in sessions.json",
+                  len(p27_session_rows) == 1 and p27_session_rows[0].get("read") == "bound"
+                  and [entry.get("reason") for entry in p27_session_rows[0].get("unknown") or []] == ["no_record"],
+                  f"{[(row.get('read'), row.get('unknown')) for row in p27_session_rows]}")
+            p27_out = scratch / "p27" / "out-no-injection"
+            p27_raised = _raised(lambda: run(REPO, None, None, p27_out, run_dir=scratch / "p22" / "run-p27-no-injection",
+                                             commit="fixture", home=fixture_home, native_roots={"projects": {}}))
+            p27_manifest = written_json(p27_out / "inventory" / "manifest.json")
+            p27_listed = (((p27_manifest.get("inputs") if isinstance(p27_manifest, dict) else None) or {})
+                          .get("transcripts") or {}).get("unknown")
+            check("survivor: and the run's per-session unknown list names that session with no_record, in manifest.json",
+                  p27_raised is None
+                  and p27_listed == ["claude:s-quiet: unknown: the transcript records no injection (the bytes the census read)"],
+                  f"raised={p27_raised} listed={p27_listed}")
 
         with section("the general control (lead, after a36c728): no reason in ANY document this suite's runs"):
             # ---- the general control (lead, after a36c728): no reason in ANY document this suite's runs
