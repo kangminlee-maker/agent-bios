@@ -1699,7 +1699,7 @@ REFERENCE_TABLE = table_of({
     "incomplete_reasons": list_of(as_metadata()),
     "commit": as_metadata(nullable=True),
     "content_ref": as_metadata(nullable=True),
-}, optional=("commit", "content_ref"))
+}, optional=("commit", "content_ref"), schema="reference_block")
 
 # R2: who produced it. `notes` is the producers' own, through the floor leaf by leaf.
 PRODUCED_BY_TABLE = table_of({
@@ -1707,7 +1707,7 @@ PRODUCED_BY_TABLE = table_of({
     "design": as_constant(DESIGN),
     "state_root": as_metadata(nullable=True),
     "notes": map_of(as_enum(NOTE_KEYS), as_tree()),
-})
+}, schema="reference_produced_by")
 
 # R3: the layer/producer table. `reasons` are diagnostics this module composed, exception messages
 # among them, and an exception message is a path often enough — so every one passes the floor. Two
@@ -6698,7 +6698,7 @@ def contract_problems(schema=None):
 
 
 def document_contract_problems(document, schema=None):
-    """The units and layer rows of one produced document against the schema.
+    """One produced document, whole, against its own root in the schema.
 
     This is what makes the schema a contract rather than a second list: the real artifact is
     validated against it, so a document that drifts from the declaration fails here and not only
@@ -6718,18 +6718,15 @@ def document_contract_problems(document, schema=None):
     if not (isinstance(kind, str) and kind in DOCUMENT_ROOTS):
         return [f"DOCUMENT_KIND_UNDECLARED: the document names "
                 f"{'no kind' if kind is None else 'a kind no root is declared for'}"]
-    # A reference point that publishes units is judged on the members its root declares (its units, its
-    # layer rows and, for `current`, its scope rows); every other document whole, the release index among them.
-    declared = ((schema.get("$defs") or {}).get(DOCUMENT_ROOTS[kind]) or {}).get("properties") or {}
-    subject = ({key: value for key, value in document.items() if key in declared}
-               if kind in UNIT_REFERENCES else document)
+    # Every document is judged whole, the reference points among them: a member its root does not declare is
+    # refused, never dropped before judging (R1 #5).
     picked = {**({"$schema": schema["$schema"]} if "$schema" in schema else {}),
               "$defs": schema.get("$defs") or {}, "$ref": f"#/$defs/{DOCUMENT_ROOTS[kind]}"}
     try:
         validator = validate.compile_schema(picked)
     except Exception as exc:
         return [f"SCHEMA_INVALID {SCHEMA_REL}: {type(exc).__name__}: {exc}"]
-    return [f"DOCUMENT_INVALID {row}" for row in validate.validate_instance(validator, subject)]
+    return [f"DOCUMENT_INVALID {row}" for row in validate.validate_instance(validator, document)]
 
 
 def document_roots_problems(schema=None):
@@ -6785,6 +6782,63 @@ def limitation_schema_problems(schema=None):
     for name in ("kinds", "categories", "fields"):
         if not held[name] or held[name] != admitted[name]:
             problems.append(f"LIMITATION_{name.upper()}_MISMATCH: the table holds {sorted(held[name])}, "
+                            f"the schema admits {sorted(admitted[name])}")
+    return problems
+
+
+# R1 #5: the one place the schema may carry a key pattern every key matches. `additionalProperties: false`
+# beside such a pattern is an open object the lint's closed-object rule does not see, so the licence names its
+# site as data and every other site is refused. Matching is a search, as JSON Schema's is: `^`, the empty
+# pattern and `.*` each admit any key, and a pattern is taken to be one when it matches every probe.
+CATCHALL_SITE = "#/$defs/note_tree"
+CATCHALL_PROBES = ("", "a", "Z9", "-_.", " ", "é", "an unexpected key")
+
+
+def catchall_sites(schema, path="#"):
+    """Every place in `schema` whose `patternProperties` holds a pattern every probe key matches, or one
+    this reader cannot compile, which cannot be shown to admit less."""
+    sites = []
+    if isinstance(schema, dict):
+        patterns = schema.get("patternProperties")
+        for pattern in patterns if isinstance(patterns, dict) else ():
+            try:
+                every = all(re.search(pattern, probe) is not None for probe in CATCHALL_PROBES)
+            except re.error:
+                every = True
+            if every:
+                sites.append(path)
+        for key, inner in schema.items():
+            sites.extend(catchall_sites(inner, f"{path}/{key}"))
+    elif isinstance(schema, list):
+        for n, inner in enumerate(schema):
+            sites.extend(catchall_sites(inner, f"{path}/{n}"))
+    return sites
+
+
+def reference_schema_problems(schema=None):
+    """The reference points' own members against the schema, both READ (R1 #5): the note keys
+    `NOTE_KEYS` declares, the fields of a rename row in either of its two shapes, and the reference
+    kinds must be the ones `reference_produced_by`, `rename` and `reference_block` admit, and none of
+    them may be empty. The schema has no `oneOf`, so a rename is one closed row over both shapes.
+    A key pattern every key matches stands only at `CATCHALL_SITE`."""
+    schema, problems = _schema_or_problem(schema)
+    if problems:
+        return problems
+    for site in catchall_sites(schema):
+        if site != CATCHALL_SITE:
+            problems.append(f"REFERENCE_CATCHALL_ELSEWHERE {site}: a key pattern every key matches, where only "
+                            f"{CATCHALL_SITE} is licensed to carry one")
+    defs = schema.get("$defs") or {}
+    produced = (defs.get("reference_produced_by") or {}).get("properties") or {}
+    block = (defs.get("reference_block") or {}).get("properties") or {}
+    held = {"notes": set(NOTE_KEYS), "rename": set(RENAME_TABLE["fields"]) | set(RENAME_AMBIGUOUS_TABLE["fields"]),
+            "kinds": set(UNIT_REFERENCES)}
+    admitted = {"notes": set((produced.get("notes") or {}).get("properties") or {}),
+                "rename": set((defs.get("rename") or {}).get("properties") or {}),
+                "kinds": set((block.get("kind") or {}).get("enum") or ())}
+    for name, code_holds in held.items():
+        if not code_holds or code_holds != admitted[name]:
+            problems.append(f"REFERENCE_{name.upper()}_MISMATCH: the code holds {sorted(code_holds)}, "
                             f"the schema admits {sorted(admitted[name])}")
     return problems
 
@@ -8421,6 +8475,26 @@ def self_test():
             widened["$defs"]["limitation"]["properties"]["note"] = {"type": "string"}
             control("a schema whose limitation admits a field no kind of the table carries",
                     limitation_schema_problems(widened), "LIMITATION_FIELDS_MISMATCH")
+            clean("R1#5: the note keys, the rename fields and the reference kinds the code holds are the ones the schema "
+                  "admits, and no key pattern every key matches stands outside note_tree", reference_schema_problems())
+            catchall = json.loads(json.dumps(own_roots))
+            catchall["$defs"]["rename"]["patternProperties"] = {"^": {"type": "string"}}
+            control("R1#5: a key pattern every key matches, outside note_tree, is refused by name",
+                    reference_schema_problems(catchall), "REFERENCE_CATCHALL_ELSEWHERE", "#/$defs/rename")
+            for name, label, where, value in (
+                    ("notes", "note keys", ("reference_produced_by", "properties", "notes", "properties"), "pin"),
+                    ("rename", "rename fields", ("rename", "properties"), "from_carriers"),
+                    ("kinds", "reference kinds", ("reference_block", "properties", "kind", "enum"), "selection")):
+                narrowed = json.loads(json.dumps(own_roots))
+                held_here = narrowed["$defs"]
+                for step in where:
+                    held_here = held_here[step]
+                if isinstance(held_here, list):
+                    held_here.remove(value)
+                else:
+                    del held_here[value]
+                control(f"R1#5: a schema whose {label} leave out one the code holds",
+                        reference_schema_problems(narrowed), f"REFERENCE_{name.upper()}_MISMATCH")
             # Every control below plants into a published event and the session record listing it. A records run
             # that raised publishes neither (p2_run's empty findings, P2.7f): nothing is planted then, and each
             # control fails by name on what is missing, so none passes on a document nothing was planted into.
@@ -14601,6 +14675,39 @@ def self_test():
                         document_contract_problems({key: value for key, value in p26_document.items()
                                                     if key != "closure_rule"}),
                         "DOCUMENT_INVALID", "closure_rule")
+
+            # R1 #5: every written document is judged whole against its own root. The reference points' members their
+            # root did not declare were dropped before judging, so `reference`, `produced_by` and `renames` passed
+            # unseen. The positive validates directly against the root, so it does not ride on the judge; the
+            # reference points' with renames of both shapes `renames_against` emits, since the run's may hold one.
+            r15_schema = inventory_schema()
+
+            def r15_direct(document_here):
+                root_here = {**({"$schema": r15_schema["$schema"]} if "$schema" in r15_schema else {}),
+                             "$defs": r15_schema.get("$defs") or {},
+                             "$ref": f"#/$defs/{DOCUMENT_ROOTS[document_here['document']]}"}
+                return [f"DOCUMENT_INVALID {row}" for row in
+                        validate.validate_instance(validate.compile_schema(root_here), document_here)]
+
+            r15_fragment = "- the fragment R1 #5 moves\n"
+            r15_older = units_of([guide("r15-a.md", f"## Rule\n\n{r15_fragment}")])
+            r15_shared = units_of([guide("r15-a.md", f"## Rule\n\n{r15_fragment}"), guide("r15-b.md", f"## Rule\n\n{r15_fragment}")])
+            r15_renames = (renames_against(units_of([guide("r15-b.md", f"## Rule\n\n{r15_fragment}")]), r15_older)
+                           + renames_against(units_of([guide("r15-c.md", f"## Rule\n\n{r15_fragment}")]), r15_shared))
+            r15_shapes = sorted({"ambiguous" if row.get("ambiguous") else "moved" for row in r15_renames})
+            for kind in sorted(DOCUMENT_ROOTS):
+                r15_document = (p26_kinds.get(kind) or [{}])[0]
+                r15_subjects = [r15_document] + ([{**r15_document, "renames": r15_renames}] if kind in UNIT_REFERENCES else [])
+                clean(f"R1#5: the written {kind} document validates directly against its own root, unfiltered"
+                      + (", and with renames of both shapes" if kind in UNIT_REFERENCES else ""),
+                      ([problem for subject in r15_subjects for problem in r15_direct(subject)] if r15_document
+                       else [f"no {kind} document written"])
+                      + ([f"rename shapes built: {r15_shapes}"]
+                         if kind in UNIT_REFERENCES and r15_shapes != ["ambiguous", "moved"] else []))
+                control(f"R1#5: the written {kind} document with an unexpected top-level member is refused by its root",
+                        document_contract_problems({**r15_document, "r15_unexpected_member": True}) if r15_document
+                        else [f"no {kind} document written"],
+                        "DOCUMENT_INVALID", "r15_unexpected_member")
 
         with section("H1: a heading's parent is the nearest shallower heading still open (K6's finding, P2.6)"):
             # ---- H1 (lead's K6 rulings): `units_of` nested headings by the slot their level number names

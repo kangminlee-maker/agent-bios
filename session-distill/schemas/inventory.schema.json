@@ -4,16 +4,20 @@
   "$ref": "#/$defs/document_kind",
   "$defs": {
     "current_document": {
-      "$comment": "A reference point's document, judged on its units and layer rows. One root per published document, each naming its kind as a `document` const (step 0 S-21); the code's DOCUMENT_ROOTS picks it, because this schema policy has no oneOf.",
+      "$comment": "A reference point's document, judged whole: every member it publishes is declared here, and one it does not declare is refused (R1 #5). One root per published document, each naming its kind as a `document` const (step 0 S-21); the code's DOCUMENT_ROOTS picks it, because this schema policy has no oneOf.",
       "type": "object",
       "additionalProperties": false,
-      "required": ["document", "closure_rule", "units", "unknown_entries", "layers", "scopes", "scope_universe"],
+      "required": ["document", "closure_rule", "reference", "produced_by", "units", "unknown_entries", "layers", "renames",
+                   "scopes", "scope_universe"],
       "properties": {
         "document": {"const": "current"},
+        "reference": {"$ref": "#/$defs/reference_block"},
+        "produced_by": {"$ref": "#/$defs/reference_produced_by"},
         "closure_rule": {"$ref": "#/$defs/closure_rule"},
         "unknown_entries": {"type": "array", "items": {"$ref": "#/$defs/unknown_requirement"}},
         "units": {"type": "array", "items": {"$ref": "#/$defs/unit"}},
         "layers": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/layer_row"}},
+        "renames": {"type": "array", "items": {"$ref": "#/$defs/rename"}},
         "scopes": {"type": "array", "items": {"$ref": "#/$defs/scope_answer"}},
         "scope_universe": {"type": "array", "items": {"$ref": "#/$defs/scope_universe"}}
       }
@@ -110,13 +114,77 @@
     "selection_document": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["document", "closure_rule", "units", "unknown_entries", "layers"],
+      "required": ["document", "closure_rule", "reference", "produced_by", "units", "unknown_entries", "layers", "renames"],
       "properties": {
         "document": {"const": "selection"},
+        "reference": {"$ref": "#/$defs/reference_block"},
+        "produced_by": {"$ref": "#/$defs/reference_produced_by"},
         "closure_rule": {"$ref": "#/$defs/closure_rule"},
         "unknown_entries": {"type": "array", "items": {"$ref": "#/$defs/unknown_requirement"}},
         "units": {"type": "array", "items": {"$ref": "#/$defs/unit"}},
-        "layers": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/layer_row"}}
+        "layers": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/layer_row"}},
+        "renames": {"type": "array", "items": {"$ref": "#/$defs/rename"}}
+      }
+    },
+    "reference_block": {
+      "$comment": "R1 #5: a reference point's own block (REFERENCE_TABLE). Which of `commit` and `content_ref` it carries depends on the reference point, so neither is required.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "complete", "incomplete_reasons"],
+      "properties": {
+        "kind": {"type": "string", "enum": ["current", "selection"]},
+        "complete": {"type": "boolean"},
+        "incomplete_reasons": {"type": "array", "items": {"type": "string"}},
+        "commit": {"type": ["string", "null"]},
+        "content_ref": {"type": ["string", "null"]}
+      }
+    },
+    "reference_produced_by": {
+      "$comment": "R1 #5: who produced a reference point's document (PRODUCED_BY_TABLE). `notes` declares the note keys NOTE_KEYS declares, each a producer's own tree.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["module", "design", "state_root", "notes"],
+      "properties": {
+        "module": {"type": "string"},
+        "design": {"type": "string"},
+        "state_root": {"type": ["string", "null"]},
+        "notes": {"type": "object", "additionalProperties": false,
+                  "properties": {"adopted_packages": {"$ref": "#/$defs/note_tree"}, "baselines": {"$ref": "#/$defs/note_tree"},
+                                 "frozen_missing": {"$ref": "#/$defs/note_tree"}, "hosts_in_scope": {"$ref": "#/$defs/note_tree"},
+                                 "installed_baseline_ref": {"$ref": "#/$defs/note_tree"},
+                                 "ledger_keep_held_back": {"$ref": "#/$defs/note_tree"},
+                                 "overlay_counts": {"$ref": "#/$defs/note_tree"}, "overlay_hosts": {"$ref": "#/$defs/note_tree"},
+                                 "pin": {"$ref": "#/$defs/note_tree"}, "release": {"$ref": "#/$defs/note_tree"},
+                                 "renames_base": {"$ref": "#/$defs/note_tree"}, "selection": {"$ref": "#/$defs/note_tree"},
+                                 "state": {"$ref": "#/$defs/note_tree"}, "transcripts": {"$ref": "#/$defs/note_tree"}}}
+      }
+    },
+    "note_tree": {
+      "$comment": "R1 #5: one producer note, the shape `as_tree` emits: null, a boolean, an integer, a string, or a list or object of notes. The KEY SET of `notes` is declared above; below it the shape is the producer's own, so an object here takes any string key, each value a note again. This is the schema's one licensed catch-all key pattern (CATCHALL_SITE in inventory.py): beside `additionalProperties: false` it is an open object the lint does not see, so every other site is refused (REFERENCE_CATCHALL_ELSEWHERE); a note is producer diagnostics, and copying fourteen producer shapes here would be a second copy of them.",
+      "type": ["null", "boolean", "integer", "string", "array", "object"],
+      "additionalProperties": false,
+      "patternProperties": {"^": {"$ref": "#/$defs/note_tree"}},
+      "items": {"$ref": "#/$defs/note_tree"}
+    },
+    "rename": {
+      "$comment": "R1 #5: a rename in either of its two shapes (RENAME_TABLE, RENAME_AMBIGUOUS_TABLE). The policy has no oneOf, so this is one closed row over both shapes' fields; each shape is held to its own fields by its table on the emission path.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["unit_id"],
+      "properties": {
+        "unit_id": {"type": "string", "pattern": "^u-[0-9a-f]{16}(-[0-9]+)?$"},
+        "from_unit_id": {"type": "string", "pattern": "^u-[0-9a-f]{16}(-[0-9]+)?$"},
+        "from_carrier_id": {"type": "string", "pattern": "^c-[0-9a-f]{24}$"},
+        "to_carrier_id": {"type": "string", "pattern": "^c-[0-9a-f]{24}$"},
+        "from_path": {"type": "string"},
+        "to_path": {"type": "string"},
+        "from_layer": {"$ref": "#/$defs/layer_name"},
+        "to_layer": {"$ref": "#/$defs/layer_name"},
+        "moved": {"type": "array", "items": {"type": "string", "enum": ["path", "layer", "package", "carrier"]}},
+        "ambiguous": {"type": "boolean"},
+        "from_carriers": {"type": "array", "items": {"type": "string", "pattern": "^c-[0-9a-f]{24}$"}},
+        "to_carriers": {"type": "array", "items": {"type": "string", "pattern": "^c-[0-9a-f]{24}$"}},
+        "reason": {"type": "string"}
       }
     },
     "sessions_document": {
