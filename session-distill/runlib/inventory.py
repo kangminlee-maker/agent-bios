@@ -573,19 +573,27 @@ def units_of(carriers):
     repeated inside a carrier carries its occurrence."""
     units, seen = [], collections.Counter()
     for item in carriers:
-        heading_path, heading_spans, enclosing, before = [], [], [], ""
+        # The headings still open above the current block, outermost first, each with its level.
+        open_headings, heading_chain, heading_spans, enclosing, before = [], (), [], [], ""
         carrier_text = item["text"]
         for n, (kind, text) in enumerate(blocks_of(item["path"], item["text"], item.get("form")), 1):
             if kind == "heading":
                 level = len(text) - len(text.lstrip("#"))
-                heading_path = heading_path[:level - 1] + [text.strip().lstrip("#").strip()]
+                # A heading's parent is the nearest SHALLOWER heading still open, not the slot its level
+                # number names. Slicing by the absolute level (`[:level - 1]`, da8ac2b) made a carrier
+                # whose first heading is `##` nest its next `##` under it, and a skipped level nest a
+                # heading under its own sibling (K6, P2.6).
+                while open_headings and open_headings[-1]["level"] >= level:
+                    open_headings.pop()
                 # Where that heading block sits in the carrier. A heading is carrier text like any
                 # other span, and projecting the detached string lost both the carrier's whole-carrier
                 # decision and its credential context: for `api\_key: "alpha\n\n## shortpass\n"` the
                 # floor withholds the carrier, while `heading` carried `shortpass` into two emitted
                 # rows whose `text` was redacted (R2#0).
-                heading_spans = heading_spans[:level - 1] + [(len(before), len(before) + len(text))]
-                enclosing = enclosing[:level - 1]
+                at = (len(before), len(before) + len(text))
+                heading_chain = tuple(row["title"] for row in open_headings) + (text.strip().lstrip("#").strip(),)
+                heading_spans = [row["span"] for row in open_headings] + [at]
+                enclosing = [row["unit_id"] for row in open_headings]
             key = sha256_text(f"{item.get('carrier_id') or carrier_identity(item['layer'], item['path'], item.get('item_ref'), item.get('package_id'))}\0{text}")[:16]
             seen[key] += 1
             unit_id = f"u-{key}" if seen[key] == 1 else f"u-{key}-{seen[key]}"
@@ -593,8 +601,8 @@ def units_of(carriers):
                 item["layer"], item["path"], item.get("item_ref"), item.get("package_id"))
             unit = {"unit_id": unit_id, "unit_ref": unit_ref(carrier_id, item["version_sha256"], n),
                     "layer": item["layer"], "path": item["path"],
-                    "heading": " > ".join(heading_path), "n": n, "text": text, "sha": sha256_text(text),
-                    "class": classify(kind, heading_path), "operative_context": [],
+                    "heading": " > ".join(heading_chain), "n": n, "text": text, "sha": sha256_text(text),
+                    "class": classify(kind, heading_chain), "operative_context": [],
                     "version_sha256": item["version_sha256"], "redaction_version": projection.CURRENT,
                     "block": kind, "item_ref": item["item_ref"], "package_id": item["package_id"],
                     "carrier_id": carrier_id,
@@ -608,8 +616,13 @@ def units_of(carriers):
                     # value was a list with blank lines in it (GC#4). Neither field is emitted —
                     # `shed` carries §6.1's record and the carrier metadata, and nothing else.
                     "carrier_text": carrier_text, "span": (len(before), len(before) + len(text)),
-                    "heading_spans": list(heading_spans)}
+                    "heading_spans": list(heading_spans),
+                    # The heading path as the stack holds it, one title per level. `heading` is that tuple
+                    # joined for the artifact; nothing re-splits it, because a title can itself contain
+                    # " > " and would read as two levels.
+                    "heading_chain": heading_chain}
             if kind == "heading":
+                open_headings.append({"level": level, "title": heading_chain[-1], "span": at, "unit_id": unit_id})
                 enclosing = enclosing + [unit_id]
             before += text
             units.append(unit)
@@ -688,7 +701,7 @@ def _section_spans(units):
     """Per carrier version, the units under each heading path — the span a heading opens."""
     spans = collections.defaultdict(list)
     for unit in units:
-        spans[(_carrier_key(unit), tuple(h for h in unit["heading"].split(" > ") if h))].append(unit["unit_id"])
+        spans[(_carrier_key(unit), tuple(h for h in unit["heading_chain"] if h))].append(unit["unit_id"])
     return spans
 
 
@@ -737,7 +750,7 @@ def operative_context(units):
     by_id = {unit["unit_id"]: unit for unit in units}
 
     def conditions(unit):
-        chain = tuple(h for h in unit["heading"].split(" > ") if h)
+        chain = tuple(h for h in unit["heading_chain"] if h)
         found = []
         for (key, heading_path), members in spans.items():
             if key != _carrier_key(unit) or not heading_path:
@@ -806,7 +819,7 @@ def operative_context(units):
             for key in targets:
                 if heading:
                     rows = [u["unit_id"] for u in by_carrier[key]
-                            if u["heading"] and heading.lower().startswith(u["heading"].rsplit(" > ", 1)[-1].lower())]
+                            if u["heading"] and heading.lower().startswith(u["heading_chain"][-1].lower())]
                     if rows:
                         reached += rows
                     else:
@@ -1300,7 +1313,7 @@ BLOCK_KINDS = frozenset((
 # what they hold: the carrier and the offsets are what `as_span` reads, and `enclosing` is the
 # closure's own bookkeeping. Declared here so a field left off the table is refused rather than
 # silently dropped.
-EMISSION_INTERNAL = frozenset(("carrier_text", "span", "heading_spans", "enclosing",
+EMISSION_INTERNAL = frozenset(("carrier_text", "span", "heading_spans", "heading_chain", "enclosing",
                                "context_direct", "context_reached", "context_unknowns"))
 # The hosts a provenance row may name. This one IS a vocabulary of this code: the host of a session
 # injection is named by the producer, never read out of a file.
@@ -13953,20 +13966,16 @@ def self_test():
                 carrier("catalog", "claude/guides/k6/a.md", "## Rule\n\n- follow claude/guides/k6/b.md\n"),
                 carrier("catalog", "claude/guides/k6/b.md",
                         "## Rule\n\n- the b rule\n\n### Exceptions\n\n- unless claude/guides/k6/c.md § Details applies\n"),
-                # Under a `#` title: with none, `units_of` nests the second `##` heading under the first
-                # ("Details > Other"), a defect of the splitter's heading levels that predates this section and is
-                # reported on its own; this fixture judges the closure, so its headings are well formed.
-                carrier("catalog", "claude/guides/k6/c.md",
-                        "# C\n\n## Details\n\n- the c detail\n\n## Other\n\n- not reached\n")]
+                carrier("catalog", "claude/guides/k6/c.md", "## Details\n\n- the c detail\n\n## Other\n\n- not reached\n")]
             p26_k6_chain_expected = {
                 "a.md:1": {"a.md:1"},
-                "a.md:2": {"a.md:1", "a.md:2", "b.md:1", "b.md:2", "b.md:3", "b.md:4", "c.md:1", "c.md:2", "c.md:3"},
-                "b.md:1": {"b.md:1", "b.md:3", "b.md:4", "c.md:1", "c.md:2", "c.md:3"},
-                "b.md:2": {"b.md:1", "b.md:2", "b.md:3", "b.md:4", "c.md:1", "c.md:2", "c.md:3"},
-                "b.md:3": {"b.md:1", "b.md:3", "b.md:4", "c.md:1", "c.md:2", "c.md:3"},
-                "b.md:4": {"b.md:1", "b.md:3", "b.md:4", "c.md:1", "c.md:2", "c.md:3"},
-                "c.md:1": {"c.md:1"}, "c.md:2": {"c.md:1", "c.md:2"}, "c.md:3": {"c.md:1", "c.md:2", "c.md:3"},
-                "c.md:4": {"c.md:1", "c.md:4"}, "c.md:5": {"c.md:1", "c.md:4", "c.md:5"}}
+                "a.md:2": {"a.md:1", "a.md:2", "b.md:1", "b.md:2", "b.md:3", "b.md:4", "c.md:1", "c.md:2"},
+                "b.md:1": {"b.md:1", "b.md:3", "b.md:4", "c.md:1", "c.md:2"},
+                "b.md:2": {"b.md:1", "b.md:2", "b.md:3", "b.md:4", "c.md:1", "c.md:2"},
+                "b.md:3": {"b.md:1", "b.md:3", "b.md:4", "c.md:1", "c.md:2"},
+                "b.md:4": {"b.md:1", "b.md:3", "b.md:4", "c.md:1", "c.md:2"},
+                "c.md:1": {"c.md:1"}, "c.md:2": {"c.md:1", "c.md:2"},
+                "c.md:3": {"c.md:3"}, "c.md:4": {"c.md:3", "c.md:4"}}
             p26_k6_ambiguous = [
                 carrier("catalog", "claude/guides/k6/m.md", "## Rule\n\n- read claude/guides/k6/dup.md first\n"),
                 carrier("catalog", "claude/guides/k6/dup.md", "## Dup\n\n- one's rule\n", package_id="@p/one"),
@@ -14045,7 +14054,7 @@ def self_test():
             control("A3: published_closures computes from loaded documents while every file read raises",
                     [f"patch_bites={isinstance(p26_a3_bites, PermissionError)} "
                      f"equal={p26_a3_got == p26_a3_expected} units={len(p26_a3_expected)}"],
-                    "patch_bites=True equal=True units=11")
+                    "patch_bites=True equal=True units=10")
 
             # R4 (lead): every document kind `DOCUMENT_ROOTS` declares is written by a run and carries the one closure
             # rule; and a written document of each kind with its rule removed is refused by the schema.
@@ -14066,6 +14075,60 @@ def self_test():
                         document_contract_problems({key: value for key, value in p26_document.items()
                                                     if key != "closure_rule"}),
                         "DOCUMENT_INVALID", "closure_rule")
+
+        with section("H1: a heading's parent is the nearest shallower heading still open (K6's finding, P2.6)"):
+            # ---- H1 (lead's K6 rulings): `units_of` nested headings by the slot their level number names
+            # (`[:level - 1]`, da8ac2b), and three sites re-split the joined path on " > ". Each case is
+            # asked of `units_of` directly, the context cases of `operative_context` over its units.
+            def h1_units(text, path="claude/guides/h1/one.md"):
+                return units_of([carrier("catalog", path, text)])
+
+            def h1_row(units, n):
+                """`(heading, enclosing positions, class)` of the unit at position `n`."""
+                at = {unit["unit_id"]: unit["n"] for unit in units}
+                unit = next(unit for unit in units if unit["n"] == n)
+                return unit["heading"], [at[row] for row in unit["enclosing"]], unit["class"]
+
+            h1_siblings = h1_units("## A\n\n- a item\n\n## B\n\n- b item\n")
+            control('H1: siblings under a level-2 first heading: "## A / ## B" gives B the path "B" and no enclosing heading',
+                    [f"B={h1_row(h1_siblings, 3)[0]} B_enclosing={h1_row(h1_siblings, 3)[1]} "
+                     f"b_item={h1_row(h1_siblings, 4)[0]} b_item_enclosing={h1_row(h1_siblings, 4)[1]}"],
+                    "B=B B_enclosing=[] b_item=B b_item_enclosing=[3]")
+            h1_skipped = h1_units("# A\n\n### C\n\n- c item\n\n### D\n\n- d item\n\n## B\n\n- b item\n")
+            control('H1: a skipped level: "# A / ### C / ### D / ## B" gives D "A > D" and B "A > B"',
+                    [f"C={h1_row(h1_skipped, 2)[0]} D={h1_row(h1_skipped, 4)[0]} D_enclosing={h1_row(h1_skipped, 4)[1]} "
+                     f"B={h1_row(h1_skipped, 6)[0]} B_enclosing={h1_row(h1_skipped, 6)[1]} "
+                     f"b_item_enclosing={h1_row(h1_skipped, 7)[1]}"],
+                    "C=A > C D=A > D D_enclosing=[1] B=A > B B_enclosing=[1] b_item_enclosing=[1, 6]")
+            h1_nested = h1_units("## Rule\n\n- the rule\n\n### Exceptions\n\n- unless told otherwise\n")
+            control('H1: real nesting kept: "## Rule / ### Exceptions" gives "Rule > Exceptions"',
+                    [f"Exceptions={h1_row(h1_nested, 3)[0]} enclosing={h1_row(h1_nested, 3)[1]} "
+                     f"item_enclosing={h1_row(h1_nested, 4)[1]}"],
+                    "Exceptions=Rule > Exceptions enclosing=[1] item_enclosing=[1, 3]")
+            h1_reference = h1_units("## Rationale\n\n- why it is so\n\n## Rule\n\n- do it\n")
+            control("H1: a sibling of a Reference heading is classified by its own path",
+                    [f"why={h1_row(h1_reference, 2)[2]} do_it={h1_row(h1_reference, 4)[2]} "
+                     f"do_it_heading={h1_row(h1_reference, 4)[0]}"],
+                    "why=reference do_it=operative do_it_heading=Rule")
+            # A title that itself contains " > " is ONE level. Asked where the joined string used to be split
+            # again: the section spans and a unit's chain (a literal "### Rule > Exceptions" under "## Delivery"
+            # is a condition span of Delivery, not of a "Rule" section nobody wrote) and a heading mention
+            # ("§ In > Out" names the "In > Out" heading, not one called "Out").
+            h1_gt_path = "claude/guides/h1/gt.md"
+            h1_gt = carrier("catalog", h1_gt_path,
+                            "# Guide\n\n## In > Out\n\n- the in-out item\n\n## Delivery\n\n- deliver it\n\n"
+                            "### Rule > Exceptions\n\n- unless told otherwise\n")
+            h1_ref = carrier("catalog", "claude/guides/h1/ref.md", f"## Ref\n\n- see {h1_gt_path} § In > Out\n")
+            h1_context = operative_context(units_of([h1_gt, h1_ref]))
+            h1_at = {unit["unit_id"]: (unit["path"].rsplit("/", 1)[-1], unit["n"]) for unit in h1_context}
+            h1_by = {h1_at[unit["unit_id"]]: unit for unit in h1_context}
+            control('H1: a heading whose text contains " > " is one level, in the spans, the chain and a heading mention',
+                    [f"in_out_item={h1_by[('gt.md', 3)]['heading']} enclosing={sorted(h1_at[row] for row in h1_by[('gt.md', 3)]['enclosing'])} "
+                     f"deliver_conditions={sorted(h1_at[row] for row in h1_by[('gt.md', 5)]['context_direct'] if row in h1_at)} "
+                     f"mention_reached={sorted(h1_at.get(row, 'k-') for row in h1_by[('ref.md', 2)]['context_reached'])}"],
+                    "in_out_item=Guide > In > Out enclosing=[('gt.md', 1), ('gt.md', 2)]",
+                    "deliver_conditions=[('gt.md', 1), ('gt.md', 4), ('gt.md', 5), ('gt.md', 6), ('gt.md', 7)]",
+                    "mention_reached=[('gt.md', 2), ('gt.md', 3)]")
 
         with section("the general control (lead, after a36c728): no reason in ANY document this suite's runs"):
             # ---- the general control (lead, after a36c728): no reason in ANY document this suite's runs
