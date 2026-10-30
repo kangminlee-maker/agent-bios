@@ -8834,11 +8834,15 @@ def self_test():
                 return ("claude", ident, [inj("2026-10-20T10:00:00+00:00", list(files), cwd=p1)],
                         {"pin": {"content_ref": census_ref}})
 
-            excluded = one_scope(published_current("excluded", [old_row, newer("s-pin", excluded_ref)], state=pins_state),
-                                 "native_global", "claude")
+            excluded_doc = published_current("excluded", [old_row, newer("s-pin", excluded_ref)], state=pins_state)
+            excluded = one_scope(excluded_doc, "native_global", "claude")
+            # counted: the excluded event is one in the Claude row of the published scope universe (P2.7b, lead)
+            excluded_count = next((row.get("global_excluded_by_launch") for row in excluded_doc.get("scope_universe") or []
+                                   if row.get("host") == "claude"), None)
             check("a pinned, excluded session leaves the older global answer in force, and is counted",
-                  excluded.get("status") == "answered" and excluded.get("session") == "claude:s-old",
-                  f"{excluded.get('status')} {excluded.get('session')}")
+                  excluded.get("status") == "answered" and excluded.get("session") == "claude:s-old"
+                  and excluded_count == 1,
+                  f"{excluded.get('status')} {excluded.get('session')} counted={excluded_count}")
             included = one_scope(published_current("included", [old_row, newer(
                 "s-inc", included_ref, [member("User", "/w/g.md", "- new\n")])], state=pins_state), "native_global", "claude")
             check("TRANSITIONAL removed: a pinned session that is not the --pin, whose pin reads with "
@@ -15297,6 +15301,49 @@ def self_test():
                   and p27_listed == ["claude:s-quiet: unknown: the transcript records no injection (the bytes the census read)"],
                   f"raised={p27_raised} listed={p27_listed}")
 
+            # ---- the reason vocabulary's own fixture (P2.7b, lead's ruling on R23). Four read outcomes this suite
+            # asked only in memory (`p2_run` -> `transcript_events`) are published here, through the product steps
+            # and through `run` for the manifest: a transcript whose bytes no longer match its binding, a binding
+            # that is not a hash, a census row whose file is gone, and a Codex rollout whose first session_meta
+            # names no session and no later one names it.
+            p27_turn = [{"type": "user", "timestamp": "2026-10-21T09:00:00+00:00", "message": "a turn"}]
+            p27_reads = published_run("p27-reads", [
+                ("claude", "r-moved", p27_turn, {"sha256": "1" * 64, "versions": [
+                    {"sha": "1" * 64, "record_count": 1, "prefix_sha": "2" * 64}]}),
+                ("claude", "r-invalid", p27_turn, {"sha256": "not-a-hash"}),
+                ("claude", "r-gone", p27_turn, {"path": str(scratch / "p27" / "reads-gone.jsonl")}),  # never written
+                ("codex", "c-hl", [codex_meta(None, "2026-10-09T08:00:00+00:00"),
+                                   codex_meta("c-parent", "2026-10-09T09:00:00+00:00")], {})])
+            p27_reads_rows = {row["transcript"]["id"]: row
+                              for row in (p27_reads.get("sessions") or {}).get("sessions") or []}
+            p27_reads_seen = {ident: (row.get("read"), [entry.get("reason") for entry in row.get("unknown") or []])
+                              for ident, row in p27_reads_rows.items()}
+            check("vocabulary: a transcript that changed, a malformed binding and a file that cannot be read each publish "
+                  "their read outcome and one unknown reason in sessions.json",
+                  "refused" not in p27_reads and all(p27_reads_seen.get(ident) == (key, [key]) for ident, key in (
+                      ("r-moved", "changed"), ("r-invalid", "binding_invalid"), ("r-gone", "unreadable"))),
+                  f"refused={p27_reads.get('refused')} {sorted(p27_reads_seen.items())}")
+            p27_headless = p27_reads_rows.get("c-hl") or {}
+            check("vocabulary: a Codex rollout whose first session_meta names no session publishes own_meta_unidentified "
+                  "at its line in sessions.json",
+                  p27_headless.get("read") == "bound" and p27_headless.get("own_meta_unidentified") == 1
+                  and p27_headless.get("unknown") == [{"reason": "own_meta_unidentified", "line": 1}],
+                  f"{[p27_headless.get(key) for key in ('read', 'own_meta_unidentified', 'unknown')]}")
+            p27_reads_out = scratch / "p27" / "out-reads"
+            p27_reads_raised = _raised(lambda: run(REPO, None, None, p27_reads_out, run_dir=scratch / "p22" / "run-p27-reads",
+                                                   commit="fixture", home=fixture_home, native_roots={"projects": {}}))
+            p27_reads_manifest = written_json(p27_reads_out / "inventory" / "manifest.json")
+            p27_reads_listed = (((p27_reads_manifest.get("inputs") if isinstance(p27_reads_manifest, dict) else None) or {})
+                                .get("transcripts") or {}).get("unknown") or []
+            check("vocabulary: and the run's per-session unknown list names each of those three by its text, in manifest.json",
+                  p27_reads_raised is None and all(
+                      len([entry for entry in p27_reads_listed if entry.startswith(prefix)]) == 1 for prefix in (
+                          "claude:r-moved: unknown: the transcript's bytes no longer match its census record (",
+                          "claude:r-invalid: unknown: the census binding for this transcript is not a hash with a line "
+                          "count, so it is not opened (claude:r-invalid: the whole-file hash)",
+                          "claude:r-gone: unknown: the transcript could not be read (")),
+                  f"raised={p27_reads_raised} listed={p27_reads_listed}")
+
         with section("the general control (lead, after a36c728): no reason in ANY document this suite's runs"):
             # ---- the general control (lead, after a36c728): no reason in ANY document this suite's runs
             # published names a Python exception type. Asked last, of every file written under an `inventory/`
@@ -15322,6 +15369,106 @@ def self_test():
                   bool(published_here) and set(REFERENCES) | {SESSIONS, STORE, SHARED, "manifest"} <= set(kinds_judged)
                   and judged_all > 100,
                   f"judged={judged_all} kinds={dict(kinds_judged)}")
+
+        with section("the reason vocabulary: an independent key set, compared both ways, and every key driven"):
+            # ---- the reason vocabulary (brief, "Survivors, the sink, and the reason vocabulary"). The expected
+            # set is written here, literally, by where each key comes from, and never read out of the table: a
+            # control that indexes the live table goes quiet when the table changes (AGENTS.md, Ontology rounds).
+            # `reason_problems` is not this control: it asks the SOURCE that each raise names a key and each key
+            # is raised somewhere. This one asks that a run of this suite PUBLISHED each key, in a document it
+            # wrote under an `inventory/` directory, read where reasons live (`REASON_MEMBERS`): a key as itself
+            # (a session's unknown entry, its pin, delivery or selection, a scope or segment reason), or a layer
+            # row's text read back to its key through the table, which answers "which key is this text" and
+            # never "which keys exist". No text holds another (asked below), so a text names one key. Three more
+            # places publish a key and are read here, each by this control alone (`REASON_MEMBERS` stays the
+            # subject of the exception-name check: these hold fixed table vocabulary, never a message):
+            #   1. the string items of a scope row's `limitations` (`exclusion_unobservable`); a dict item is a
+            #      session's limitation row, whose `kind` is another vocabulary that shares a name, and is not read;
+            #   2. a `scope_universe` row's count member named by a table key, with a count above 0
+            #      (`global_excluded_by_launch`);
+            #   3. the `identity` of a published provenance (a unit's), read as a text (`codex_identity`).
+            # A key that only a refusal carries is named with the control that drives that refusal, which must
+            # have run and passed in this process.
+            vocabulary_expected = {
+                "phase 1": ("census", "no_record", "changed", "unreadable", "settings", "ledger_history",
+                            "codex_identity", "unbound", "binding_invalid", "input_absent", "input_failed",
+                            "input_unread"),
+                "step 0 §8": ("undated", "undated_naive", "no_scope", "cwd_unreadable", "memory_path_relative",
+                              "no_path", "ownership_unknown", "sidechain_unattributed", "no_census_session",
+                              "id_space", "per_event", "pin_absent", "pin_mismatch", "pin_content_ref_mismatch",
+                              "member_rejected", "member_unmapped", "container_unusable",
+                              "locator_element_rejected", "undecodable_after", "tie", "memory_unconfirmed",
+                              "codex_undivided", "no_event_yet", "recorded_unmapped", "unpinned",
+                              "global_excluded_by_launch", "exclusion_unobservable", "own_meta_unidentified",
+                              "release_history_deferred", "baseline_absent", "snapshot_absent",
+                              "exclusion_unreadable", "undecodable_elsewhere"),
+                "phase 2": ("baseline_unnamed", "injection_body_empty"),
+            }
+            vocabulary_by_refusal = {}
+            vocabulary_keys = [key for keys in vocabulary_expected.values() for key in keys]
+            vocabulary_problems = [f"VOCABULARY_TWICE {key}: the expected set names it more than once"
+                                   for key, n in sorted(collections.Counter(vocabulary_keys).items()) if n > 1]
+            vocabulary_problems += [f"VOCABULARY_MISSING {key}: expected, and UNKNOWN_REASONS does not declare it"
+                                    for key in vocabulary_keys if key not in UNKNOWN_REASONS]
+            vocabulary_problems += [f"VOCABULARY_UNEXPECTED {key}: UNKNOWN_REASONS declares it, and the expected set "
+                                    f"does not" for key in UNKNOWN_REASONS if key not in vocabulary_keys]
+            vocabulary_problems += [f"VOCABULARY_TEXT_HELD {key}: its text holds {other}'s, so a text names no one key"
+                                    for key, text in UNKNOWN_REASONS.items()
+                                    for other, inner in UNKNOWN_REASONS.items() if key != other and inner in text]
+            vocabulary_driven, vocabulary_read = collections.defaultdict(set), [0]
+
+            def vocabulary_walk(value, inside, kind, member=None):
+                if isinstance(value, dict):
+                    for key, inner in value.items():
+                        vocabulary_walk(inner, inside or key in REASON_MEMBERS, kind, key)
+                    if member == "provenance" and isinstance(value.get("identity"), str):
+                        for key, text in UNKNOWN_REASONS.items():
+                            if text in value["identity"]:
+                                vocabulary_driven[key].add(kind)
+                elif isinstance(value, list):
+                    for inner in value:
+                        if member == "limitations" and isinstance(inner, str) and inner in UNKNOWN_REASONS:
+                            vocabulary_driven[inner].add(kind)
+                        if member == "scope_universe" and isinstance(inner, dict):
+                            for name, count in inner.items():
+                                if name in UNKNOWN_REASONS and type(count) is int and count > 0:
+                                    vocabulary_driven[name].add(kind)
+                        vocabulary_walk(inner, inside, kind)
+                elif isinstance(value, str) and inside:
+                    vocabulary_read[0] += 1
+                    if value in UNKNOWN_REASONS:
+                        vocabulary_driven[value].add(kind)
+                    for key, text in UNKNOWN_REASONS.items():
+                        if text in value:
+                            vocabulary_driven[key].add(kind)
+
+            vocabulary_documents = [path for path in sorted(scratch.rglob("*.json"))
+                                    if "inventory" in path.relative_to(scratch).parts[:-1]]
+            for path in vocabulary_documents:
+                try:
+                    document_here = json.loads(path.read_text(encoding="utf-8"))
+                except ValueError:
+                    continue
+                if isinstance(document_here, dict):
+                    vocabulary_walk(document_here, False, str(document_here.get("document") or "manifest"))
+            if not vocabulary_documents or not vocabulary_read[0]:
+                vocabulary_problems.append(f"VOCABULARY_UNJUDGED: documents={len(vocabulary_documents)} "
+                                           f"reasons={vocabulary_read[0]}")
+            vocabulary_failed = {name for name, _ in failures}
+            for key, refusal in sorted(vocabulary_by_refusal.items()):
+                if key in vocabulary_driven:
+                    vocabulary_problems.append(f"VOCABULARY_REFUSAL_STALE {key}: a written document carries it, so "
+                                               f"it is not carried by a refusal alone")
+                elif refusal not in ran:
+                    vocabulary_problems.append(f"VOCABULARY_REFUSAL_NOT_RUN {key}: `{refusal}` did not run here")
+                elif refusal in vocabulary_failed:
+                    vocabulary_problems.append(f"VOCABULARY_REFUSAL_FAILED {key}: `{refusal}` failed here")
+            vocabulary_problems += [f"VOCABULARY_UNDRIVEN {key} ({group}): no document this suite's runs wrote "
+                                    f"carries it, and no refusal control is named for it"
+                                    for group, keys in vocabulary_expected.items() for key in keys
+                                    if key not in vocabulary_driven and key not in vocabulary_by_refusal]
+            clean("the reason vocabulary: an independent expected key set equals UNKNOWN_REASONS, and a real fixture "
+                  "path drove every key", vocabulary_problems)
 
         with section("the disclosure cache: the remembered answers equal the verifier's own"):
             # ---- the disclosure cache: every string and key of every document this suite's runs wrote under
