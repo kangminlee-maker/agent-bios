@@ -8421,28 +8421,40 @@ def self_test():
             widened["$defs"]["limitation"]["properties"]["note"] = {"type": "string"}
             control("a schema whose limitation admits a field no kind of the table carries",
                     limitation_schema_problems(widened), "LIMITATION_FIELDS_MISMATCH")
-            doc_event = sessions_doc["events"][0]
-            doc_record = next(row for row in sessions_doc["sessions"] if doc_event["event_id"] in row["event_refs"])
+            # Every control below plants into a published event and the session record listing it. A records run
+            # that raised publishes neither (p2_run's empty findings, P2.7f): nothing is planted then, and each
+            # control fails by name on what is missing, so none passes on a document nothing was planted into.
+            doc_event = next(iter(sessions_doc["events"]), None)
+            doc_record = None if doc_event is None else next(
+                (row for row in sessions_doc["sessions"] if doc_event["event_id"] in row["event_refs"]), None)
+            plantable = doc_event is not None and doc_record is not None
+            unplanted = "; ".join((["no published event"] if doc_event is None else [])
+                                  + ([] if doc_record is not None else ["no session record listing it"]))
+            unplanted_problems = [f"nothing planted: {unplanted}"]
             control("an event listed twice", sessions_cross_problems(
-                {**sessions_doc, "events": sessions_doc["events"] + [doc_event]}), "CROSS_EVENT_DUPLICATE")
+                {**sessions_doc, "events": sessions_doc["events"] + [doc_event]})
+                if plantable else unplanted_problems, "CROSS_EVENT_DUPLICATE")
             control("a session record listing an event nobody published", sessions_cross_problems(
                 {**sessions_doc, "sessions": [{**row, "event_refs": row["event_refs"] + ["e-" + "0" * 24]}
-                                              if row is doc_record else row for row in sessions_doc["sessions"]]}),
-                "CROSS_EVENT_UNRESOLVED")
+                                              if row is doc_record else row for row in sessions_doc["sessions"]]})
+                if plantable else unplanted_problems, "CROSS_EVENT_UNRESOLVED")
             control("an event no session record lists", sessions_cross_problems(
                 {**sessions_doc, "sessions": [{**row, "event_refs": []} if row is doc_record else row
-                                              for row in sessions_doc["sessions"]]}), "CROSS_EVENT_UNLISTED")
+                                              for row in sessions_doc["sessions"]]})
+                if plantable else unplanted_problems, "CROSS_EVENT_UNLISTED")
             control("an event listed by another session than its own", sessions_cross_problems(
                 {**sessions_doc, "events": [{**event, "session_ref": "p-" + "0" * 24} if event is doc_event else event
-                                            for event in sessions_doc["events"]]}), "CROSS_EVENT_ASTRAY")
+                                            for event in sessions_doc["events"]]})
+                if plantable else unplanted_problems, "CROSS_EVENT_ASTRAY")
             control("two intervals of one owner and kind that overlap", sessions_cross_problems(
                 {**sessions_doc, "events": sessions_doc["events"] + [
                     {**doc_event, "event_id": "e-" + "1" * 24, "interval_from": doc_event["interval_from"],
-                     "interval_to": doc_event["interval_to"]}]}), "CROSS_INTERVAL_OVERLAP")
+                     "interval_to": doc_event["interval_to"]}]})
+                if plantable else unplanted_problems, "CROSS_INTERVAL_OVERLAP")
             control("and the schema refuses a session record missing its reference",
                     document_contract_problems({**sessions_doc, "sessions": [
-                        {key: value for key, value in sessions_doc["sessions"][0].items() if key != "session_ref"}]}),
-                    "DOCUMENT_INVALID", "session_ref")
+                        {key: value for key, value in sessions_doc["sessions"][0].items() if key != "session_ref"}]})
+                    if plantable else unplanted_problems, "DOCUMENT_INVALID", "session_ref")
 
         with section('P2.2: the current reference point, scope by scope, on the PUBLISHED answers (#6, step 0'):
             # ---- P2.2: the current reference point, scope by scope, on the PUBLISHED answers (#6, step 0
