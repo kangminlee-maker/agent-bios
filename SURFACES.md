@@ -143,7 +143,7 @@ installs global instructions nor enables native instructions hooks or agents.
   `compose/instructions_ui_runtime.py` verifies the shipped `compose/ui_runtime/` wheels and
   extracts them temporarily for the process. Installation, package/current-checkout
   Instructions Studio, and private/current-checkout launcher rich CLI paths activate that
-  runtime before UI imports. Python 3.11+ is required; preinstalled Textual, pip and
+  runtime before UI imports. Python 3.12+ is required; preinstalled Textual, pip and
   runtime downloads are not. A broken bundle requires repair rather than silent fallback.
   Standalone compatibility copies and in-process APIs retain their named managed paths.
   Normal exit cleans the runtime; `launch/agent-launch.py` also releases it before

@@ -1,7 +1,8 @@
 # Dependencies
 
 This file owns the dependency inventory, required capabilities, and the observed local
-versions below. Required minimums come from the code that enforces them. The Textual
+versions below, including the declared Python floor stated under Runtime tools. Other
+required minimums come from the code that enforces them. The Textual
 root pin and optional learning-validator pin belong to `launch/provision-venv.sh`.
 `gates/build-ui-runtime.py` derives the exact shipped wheel inventory in
 `compose/ui_runtime/manifest.json` from `TEXTUAL_PIN`; setup reads that inventory and
@@ -15,6 +16,16 @@ The verification column states the scope of each check.
 
 ## Runtime tools
 
+**Python floor: 3.12** — the single owner of this value. Every shipped and author-side
+Python file must parse under a real interpreter of that version, and every other
+statement of the floor in this repository restates this line.
+`gates/check-python-floor.py` reads the floor here, compiles both file sets with a real
+floor interpreter, and fails on any declaration that disagrees. The floor is 3.12 rather
+than 3.11 because shipped `launch/agent-launch.py` has used PEP 701 f-strings since
+2026-09-11, so releases from v0.19.0 already required it while every document said 3.11.
+Author-side work therefore needs a 3.12 interpreter present (`uv python install 3.12`);
+without one the gate blocks rather than reporting a clean judgement of nothing.
+
 The supported operating systems are macOS and Linux (`package.json` `os`). Private
 transactions, instruction capture and app registration use POSIX file locks, file
 descriptors and symlinks. The JSON setup protocol, machine-mode instructions operations,
@@ -26,7 +37,7 @@ have separate runtime requirements below.
 
 | Tool | Required by | Required capability | Verified |
 | --- | --- | --- | --- |
-| `python3` | `compose/instructions*.py`, app bridge helper, `session-cost.py`, `launch/agent-launch.py` | Python 3.11+ (`tomllib`) for the private store, offline installer UI loader, import evidence, app receipts and native session adapter | 3.14.5 · version report · 2026-09-12 |
+| `python3` | `compose/instructions*.py`, app bridge helper, `session-cost.py`, `launch/agent-launch.py` | Python 3.12+ (`tomllib`) for the private store, offline installer UI loader, import evidence, app receipts and native session adapter | 3.14.5 · version report · 2026-09-12 |
 | `bash` | `install.sh`, shell adapters, provisioner and app helper command dispatch | Bash arrays and argument-preserving execution; macOS system Bash is supported | 3.2.57 · version report · 2026-09-12 |
 | `git` | conversation source acquisition, clone updates and version-control workflows | clone and detached checkout for a fixed source commit; worktrees and modern revision operations for development. No Git checkout is required to use an installed npm package | 2.50.1 · version report · 2026-09-12 |
 | `zsh` | `launch/agent-launch.zsh`, optional `launch/shell_integration.py` connection | shell functions, TTY checks and argument-preserving dispatch. Used by the explicit private shell connection as well as compatibility installation; it is not required for ordinary private storage or app context use | 5.9 · version report · 2026-09-12 |
@@ -43,7 +54,7 @@ have separate runtime requirements below.
 
 `agent-bios install` and `onboard` are interactive unless `--non-interactive` is explicit.
 Selection flags seed the UI, and a non-TTY default call fails before writes. Python
-3.11+ is still required. `compose/instructions_ui_runtime.py` validates the shipped bundle
+3.12+ is still required. `compose/instructions_ui_runtime.py` validates the shipped bundle
 before UI imports and uses one process-owned temporary extraction, cleaned on normal
 exit and released by the launcher before backend `execve`. It creates no persistent UI
 package installation. Missing, damaged or conflicting bundle state produces repair
@@ -58,7 +69,7 @@ probes, not another instructions language or persisted host setting. Locale vari
 a starting choice; the user still sees the chooser. The JSON setup protocol accepts an
 explicit review language while retaining its stable field names and exact values.
 
-`agent-bios setup` needs Python 3.11+ and Bash, with no TTY, Textual, model SDK or new
+`agent-bios setup` needs Python 3.12+ and Bash, with no TTY, Textual, model SDK or new
 server. It reuses `SetupController` for inspection, reviewed plans and fixed dependency
 actions. Only explicit Apply runs selected actions; its durable receipts use private
 state. `status` and `resume` inspect or prepare further review without executing
@@ -77,7 +88,7 @@ steps; absence of an optional route does not make the local instructions store u
 Manager recipes are offered only after their version probe succeeds. Creating a new
 managed environment requires the selected Python venv/ensurepip bootstrap; an existing
 managed interpreter does not need to bootstrap again. The provisioner checks Python
-3.11+ before modifying the environment.
+3.12+ before modifying the environment.
 
 ## Host agent CLIs
 
@@ -268,17 +279,33 @@ python3 gates/build-ui-runtime.py --self-test
 ```
 
 Only the builder's explicit `--build` path fetches packages; do not hand-edit wheel
-archives or their manifest. The full author umbrella also exercises compatibility
-clients and can provision its managed test environment, so it is not a read-only
-machine inventory:
+archives or their manifest.
+
+Author-side work needs an interpreter of the declared floor on the machine, which is a
+prerequisite of the gates rather than of the package: `gates/check-python-floor.py`
+compiles every shipped and author-side Python with it, and blocks when it is absent,
+because a run with no floor interpreter has judged nothing about parsing. Install one
+with `uv python install 3.12`, or name an existing one in `AGENT_BIOS_FLOOR_PYTHON`; the
+gate verifies that interpreter's own version against the floor before using it. A
+compile under whatever `python3` resolves to is not a substitute — on a machine whose
+`python3` is newer than the floor it accepts syntax the floor rejects, which is how
+v0.19.0-v0.19.3 shipped code needing 3.12 under a documented 3.11.
+
+Discovery follows `$HOME`: it looks on `PATH`, at the running interpreter, and under
+`$HOME/.local/share/uv/python`. Under a substituted HOME — a sandbox, a fixture tree, an
+audit harness — none of those resolve, so the gate finds no floor interpreter and blocks
+instead of passing. That is the declared behavior rather than a defect, so a caller that
+runs the gate with its own HOME must name the interpreter in `AGENT_BIOS_FLOOR_PYTHON`.
+No umbrella path reaches that state: `gates/check-parity.sh` never sets HOME, and the one
+caller that does substitute one, `gates/test-install-guides.sh`, always sets
+`AGENT_BIOS_IN_INSTALL_TEST=1` alongside it, under which `install.sh`'s `cmd_verify` skips
+the umbrella and announces the skip.
+
+The full author umbrella also exercises compatibility clients and can provision its
+managed test environment, so it is not a read-only machine inventory:
 
 ```bash
-python3 -B - <<'PY'
-import pathlib
-paths = list(pathlib.Path('compose').glob('instructions*.py')) + [pathlib.Path('launch/agent-launch.py')]
-for path in paths:
-    compile(path.read_text(), str(path), 'exec')
-PY
+python3 gates/check-python-floor.py
 bash -n install.sh launch/provision-venv.sh wrappers/codex-run.sh wrappers/codex-helm.sh wrappers/claude-run.sh
 zsh -n launch/agent-launch.zsh
 ./gates/check-parity.sh
@@ -288,12 +315,13 @@ zsh -n launch/agent-launch.zsh
 
 | Owner | Owns |
 | --- | --- |
-| `DEPENDENCIES.md` | required capability inventory and scoped local version observations |
+| `DEPENDENCIES.md` | required capability inventory, scoped local version observations, and the declared Python floor every other statement of it restates |
+| `gates/check-python-floor.py` | reading that floor, compiling both Python sets with a real interpreter of it, and the licensed asymmetries that may differ |
 | `launch/provision-venv.sh` | Textual root pin, `JSONSCHEMA_PIN` and explicit managed package installation |
 | `gates/build-ui-runtime.py` | author-side bundle generation and offline check/self-test |
 | `compose/ui_runtime/manifest.json` | generated exact UI wheel inventory, versions, hashes and licenses |
 | `compose/instructions_ui_runtime.py` | offline verification, process-lifetime extraction and release |
 | `compose/instructions_setup.py` | shared SetupController, local inventory and reviewed dependency recipes |
-| `package.json` and runtime validators | supported platforms and required runtime minimums |
+| `package.json` and runtime validators | supported platforms, the Node minimum, and the runtime validators that enforce the Python floor stated above rather than restating it |
 | guide `Environment Binding` and launch profile | role/model bindings and feature-specific host evidence |
 | guide `Evidence Base` | measured behavior and numeric defaults |

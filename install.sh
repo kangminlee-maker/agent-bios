@@ -104,8 +104,8 @@ check_prereqs() {
   command -v git >/dev/null 2>&1 || { log "missing prerequisite: git"; ok=1; }
   command -v python3 >/dev/null 2>&1 || { log "missing prerequisite: python3"; ok=1; }
   if command -v python3 >/dev/null 2>&1; then
-    python3 -c 'import sys; sys.exit(0 if sys.version_info>=(3,11) else 1)' 2>/dev/null \
-      || { log "python3 >= 3.11 required (tomllib)"; ok=1; }
+    python3 -c 'import sys; sys.exit(0 if sys.version_info>=(3,12) else 1)' 2>/dev/null \
+      || { log "python3 >= 3.12 required (tomllib)"; ok=1; }
   fi
   command -v zsh >/dev/null 2>&1 || log "note: zsh not found; the shell hook targets zsh"
   command -v codex >/dev/null 2>&1 || log "note: codex CLI not found; Codex-side steps will be skipped"
@@ -1858,8 +1858,8 @@ if [ "$CMD" = "import" ]; then
   exec python3 "$REPO/compose/instructions_import.py" --repo "$REPO" "$@" <&3
 fi
 if [ "$CMD" = "setup" ]; then
-  if ! command -v python3 >/dev/null 2>&1 || ! python3 -c 'import sys; sys.exit(sys.version_info < (3, 11))' </dev/null; then
-    log "Python 3.11 or newer is required for conversation setup."
+  if ! command -v python3 >/dev/null 2>&1 || ! python3 -c 'import sys; sys.exit(sys.version_info < (3, 12))' </dev/null; then
+    log "Python 3.12 or newer is required for conversation setup."
     log "Install Python with your operating system package manager, then rerun this command."
     exit 1
   fi
@@ -1868,8 +1868,8 @@ fi
 if [ "${AGENT_BIOS_LEGACY_INSTALL:-0}" != 1 ]; then
   case "$CMD" in
     install|onboard|verify|status|uninstall|migrate|reset)
-      if ! command -v python3 >/dev/null 2>&1 || ! python3 -c 'import sys; sys.exit(sys.version_info < (3, 11))' </dev/null; then
-        log "Python 3.11 or newer is required for the installer and dependency chooser."
+      if ! command -v python3 >/dev/null 2>&1 || ! python3 -c 'import sys; sys.exit(sys.version_info < (3, 12))' </dev/null; then
+        log "Python 3.12 or newer is required for the installer and dependency chooser."
         log "Install Python with your operating system package manager, then rerun this command."
         exit 1
       fi

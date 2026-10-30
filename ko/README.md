@@ -70,7 +70,7 @@ agent-bios는 일하는 기준과 방법을 담은 규칙·가이드·절차, **
 powershell -NoProfile -ExecutionPolicy Bypass -Command "iwr 'https://kangminlee-maker.github.io/agent-bios/install.ps1' -UseBasicParsing -OutFile (Join-Path ([IO.Path]::GetTempPath()) 'agent-bios-install.ps1') -ErrorAction Stop; & (Join-Path ([IO.Path]::GetTempPath()) 'agent-bios-install.ps1') -AcceptUnsignedPreview"
 ```
 
-**macOS 또는 Linux** — **Python 3.11 이상**과 **Node.js 18 이상·npm**이 이미
+**macOS 또는 Linux** — **Python 3.12 이상**과 **Node.js 18 이상·npm**이 이미
 설치되어 있어야 합니다.
 
 ```text
@@ -119,7 +119,7 @@ Codex CLI 세션은 마지막 인자를 `codex`로 바꾸면 됩니다.
 bash install.sh install
 ```
 
-Bash와 Python 3.11 이상이 필요하며, 소스를 받는 데 Node/npm은 필요하지 않습니다.
+Bash와 Python 3.12 이상이 필요하며, 소스를 받는 데 Node/npm은 필요하지 않습니다.
 관리 명령도 해당 소스 폴더에서 `bash install.sh <command>`로 실행하세요.
 전역 `agent-bios`는 다른 npm 버전일 수 있습니다.
 

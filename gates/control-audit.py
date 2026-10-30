@@ -57,6 +57,11 @@ SUBJECTS = [
     # Its self-test runs on temporary fixtures with mocked subprocesses, so the whole
     # audit costs about as much as one run of the umbrella's cheapest leg.
     "gates/check-development-plan.py",
+    # ~9s: 11 statements x a 0.80s self-test, ESTIMATED — an audit run is the measurement,
+    # and this line is what a reader would otherwise mistake for one. Still the cheapest
+    # subject here; its one floor-interpreter subprocess per file set is what keeps the
+    # self-test off the 134s cliff that kept check-endpoints.py out for so long.
+    "gates/check-python-floor.py",
 ]
 # The not-audited disclosure is DERIVED, not typed. The first version typed two shell
 # gates here while the tracked tree held five shell checkers — the audit tool carrying
@@ -291,12 +296,50 @@ def audit(rel, work, report=print):
     return killed, survivors
 
 
-def main(argv):
-    only = None
-    if "--only" in argv:
-        only = argv[argv.index("--only") + 1]
-        if only not in SUBJECTS:
-            sys.exit(f"control-audit: {only} is not an audited gate; subjects are {SUBJECTS}")
+USAGE = ("usage: control-audit.py [--only <listed gate path>]\n"
+         "       control-audit.py --self-test\n"
+         "  (no arguments)  audit every gate in SUBJECTS — minutes, and it clones the repo\n"
+         "  --only PATH     audit exactly one gate, named exactly as SUBJECTS spells it\n"
+         "  --self-test     fixtures only; proves the harness tells a killed check from a "
+         "survivor")
+
+
+class Usage(Exception):
+    """An argv this tool refuses, named, before it clones or mutates anything."""
+
+
+def parse_argv(argv, subjects=None):
+    """("audit", only_or_None) or ("self-test", None); raise Usage naming the refusal.
+
+    Pure — no filesystem, no subprocess, no exit — so every refusal is testable without
+    starting an audit, which is the whole point of having them.
+
+    The permissive version accepted any argv CONTAINING `--only` and ignored every other
+    word, so `--help` ran a full audit: minutes of mutation runs, a repo clone, and a
+    91 MB scratch copy left behind when the operator killed it. That cost a real attempt
+    here. A bare `--only` was worse than wrong, raising IndexError as a traceback rather
+    than saying what was missing. An unknown word is now a refusal, because the only safe
+    reading of a word this tool does not recognize is that the caller meant something it
+    does not do — and the expensive default is the one that must never be reached by
+    accident."""
+    subjects = SUBJECTS if subjects is None else subjects
+    if not argv:
+        return "audit", None
+    if argv == ["--self-test"]:
+        return "self-test", None
+    if argv[0] == "--only":
+        if len(argv) == 1:
+            raise Usage("--only needs the path of a listed gate after it; "
+                        f"subjects are {subjects}")
+        if len(argv) > 2:
+            raise Usage(f"--only takes exactly one path, got {argv[1:]}")
+        if argv[1] not in subjects:
+            raise Usage(f"{argv[1]} is not an audited gate; subjects are {subjects}")
+        return "audit", argv[1]
+    raise Usage(f"unrecognized argument {argv[0]!r}")
+
+
+def main(only=None):
     subjects = [only] if only else SUBJECTS
 
     with tempfile.TemporaryDirectory() as td:
@@ -508,15 +551,63 @@ if __name__ == "__main__":
         problems.append(f"unclassified-sink disclosure reported {unclassified_p!r}, "
                         f"expected exactly one hit for 'zz' and none for the DATA name")
 
+    # Argument refusals. These are pure calls, so the cases cost nothing and -- more to the
+    # point -- can be written at all: a case that had to RUN the tool to see `--help`
+    # refused would start the very audit the refusal exists to prevent.
+    fixture = ["gates/one.py", "gates/two.py"]
+    accepted = [([], ("audit", None)),
+                (["--self-test"], ("self-test", None)),
+                (["--only", "gates/two.py"], ("audit", "gates/two.py"))]
+    for argv, want in accepted:
+        try:
+            got = parse_argv(argv, fixture)
+        except Usage as exc:
+            problems.append(f"parse_argv({argv!r}) refused an accepted vector: {exc}")
+            continue
+        if got != want:
+            problems.append(f"parse_argv({argv!r}) returned {got!r}, expected {want!r}")
+    refusals = [(["--help"], "unrecognized argument '--help'"),
+                (["-h"], "unrecognized argument '-h'"),
+                (["--verbose"], "unrecognized argument '--verbose'"),
+                (["--only"], "--only needs the path"),
+                (["--only", "gates/two.py", "extra"], "exactly one path"),
+                (["--only", "gates/absent.py"], "gates/absent.py is not an audited gate"),
+                (["gates/two.py"], "unrecognized argument 'gates/two.py'")]
+    for argv, expected in refusals:
+        try:
+            got = parse_argv(argv, fixture)
+        except Usage as exc:
+            if expected not in str(exc):
+                problems.append(f"parse_argv({argv!r}) refused with {str(exc)!r}, "
+                                f"expected a message naming {expected!r}")
+            # Naming the gate is what makes the refusal actionable rather than a shrug.
+            elif "subject" in expected or "not an audited gate" in expected:
+                if not all(member in str(exc) for member in fixture):
+                    problems.append(f"parse_argv({argv!r}) refused without listing the "
+                                    f"subjects, so the caller cannot see the real names")
+            continue
+        problems.append(f"parse_argv({argv!r}) returned {got!r} instead of refusing — an "
+                        f"unknown word reaching the default starts a full audit")
+
     for p in problems:
         print(f"control-audit --self-test [FAIL] {p}")
     if problems:
         return 1
     print("control-audit --self-test: OK (a controlled check is killed, an uncontrolled one "
-          "survives, a return-emitting check is killable, and all four failure shapes are "
-          "found with data returns excluded)")
+          "survives, a return-emitting check is killable, all four failure shapes are "
+          f"found with data returns excluded, and {len(refusals)} bad argvs are refused by "
+          f"name while {len(accepted)} good ones are accepted)")
     return 0
 
 
 if __name__ == "__main__":
-    sys.exit(self_test() if "--self-test" in sys.argv[1:] else main(sys.argv[1:]))
+    # One owner for the whole argv. The old dispatcher asked `"--self-test" in sys.argv`,
+    # which both ignored trailing words and let every other flag fall through to the
+    # expensive default.
+    try:
+        _mode, _only = parse_argv(sys.argv[1:])
+    except Usage as _exc:
+        print(f"control-audit: {_exc}", file=sys.stderr)
+        print(USAGE, file=sys.stderr)
+        sys.exit(2)
+    sys.exit(self_test() if _mode == "self-test" else main(_only))

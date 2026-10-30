@@ -535,8 +535,8 @@ class DesktopBundle:
     def _interpreter(self, binding: dict[str, str]) -> str:
         if binding:
             return binding["AGENT_BIOS_PYTHON_EXECUTABLE"]
-        if sys.version_info < (3, 11):
-            raise AppError(f"the Desktop bundle needs Python 3.11 or newer; this is {sys.version.split()[0]} at {sys.executable}")
+        if sys.version_info < (3, 12):
+            raise AppError(f"the Desktop bundle needs Python 3.12 or newer; this is {sys.version.split()[0]} at {sys.executable}")
         if not sys.executable or not Path(sys.executable).is_absolute():
             raise AppError("cannot name an absolute Python interpreter for the Desktop bundle")
         return sys.executable

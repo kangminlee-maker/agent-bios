@@ -86,7 +86,7 @@ release is an unsigned preview, which is what the trailing flag accepts:
 powershell -NoProfile -ExecutionPolicy Bypass -Command "iwr 'https://kangminlee-maker.github.io/agent-bios/install.ps1' -UseBasicParsing -OutFile (Join-Path ([IO.Path]::GetTempPath()) 'agent-bios-install.ps1') -ErrorAction Stop; & (Join-Path ([IO.Path]::GetTempPath()) 'agent-bios-install.ps1') -AcceptUnsignedPreview"
 ```
 
-On **macOS or Linux**, where **Python 3.11+** and **Node.js 18+ with npm** must
+On **macOS or Linux**, where **Python 3.12+** and **Node.js 18+ with npm** must
 already be present:
 
 ```text
@@ -137,7 +137,7 @@ source. From the obtained repository folder, run:
 bash install.sh install
 ```
 
-This route needs Bash and Python 3.11+; Node/npm are not acquisition prerequisites.
+This route needs Bash and Python 3.12+; Node/npm are not acquisition prerequisites.
 Keep using `bash install.sh <command>` from that source for management. A global
 `agent-bios` command can belong to a different npm version.
 

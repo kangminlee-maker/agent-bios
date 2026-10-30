@@ -9,7 +9,8 @@ Textual root pin과 선택적 학습 validator pin은 `launch/provision-venv.sh`
 소유한다. `gates/build-ui-runtime.py`는 `TEXTUAL_PIN`에서 정확한 wheel 묶음을
 만들어 `compose/ui_runtime/manifest.json`에 기록한다. Setup은 이 inventory와
 선택적 validator pin을 읽는다.
-최소 요구 버전은 `package.json`과 runtime 검사 코드가 정하며,
+Python 최저 버전은 영문 정본의 Runtime tools 절이 소유하고, 그 밖의 최소 요구
+버전은 `package.json`과 runtime 검사 코드가 정하며,
 모델·역할 바인딩은 가이드의 `Environment Binding`과 launch profile,
 실측값은 `Evidence Base`가 소유한다.
 
@@ -25,7 +26,7 @@ JSON setup 프로토콜, 비대화형 지침 작업, import, 앱 context는 Pyth
 
 | 도구 | 사용 경로 | 필요한 기능 | 검증 버전 |
 | --- | --- | --- | --- |
-| `python3` | `compose/instructions*.py`, 앱 helper, 비용 측정, launcher | Python 3.11+의 `tomllib`과 표준 라이브러리. `jsonschema`·Textual은 각각의 선택 경로에서 요구한다 | [영문 runtime 정본](../DEPENDENCIES.md#runtime-tools) |
+| `python3` | `compose/instructions*.py`, 앱 helper, 비용 측정, launcher | Python 3.12+의 `tomllib`과 표준 라이브러리. `jsonschema`·Textual은 각각의 선택 경로에서 요구한다 | [영문 runtime 정본](../DEPENDENCIES.md#runtime-tools) |
 | `bash` | `install.sh`, shell adapter, provisioner, 앱 helper | 배열과 인자 보존 실행; macOS system Bash 지원 | [영문 runtime 정본](../DEPENDENCIES.md#runtime-tools) |
 | `git` | 대화 설치의 소스 확보, clone 업데이트와 버전 관리 | 커밋을 고정하는 clone과 detached checkout; 개발에는 worktree와 revision 연산. 설치된 npm 패키지 사용에는 checkout이 필요 없다 | [영문 runtime 정본](../DEPENDENCIES.md#runtime-tools) |
 | `zsh` | `launch/agent-launch.zsh`, 선택적 shell connection | private 환경에서 명시적으로 연결한 셸과 호환 설치에 사용한다. 일반 private 저장·앱 context 사용에는 필요 없다 | [영문 runtime 정본](../DEPENDENCIES.md#runtime-tools) |
@@ -41,7 +42,7 @@ JSON setup 프로토콜, 비대화형 지침 작업, import, 앱 context는 Pyth
 | `jsonschema` | 사용자 `learn` 수집과 저작 검증 | Draft 2020-12 validator. 사용 가능한 system validator가 없으면 configured managed Python으로 실행한다. `JSONSCHEMA_PIN`과 `--learning-only` 경로가 설치를 소유한다 | [영문 runtime 정본](../DEPENDENCIES.md#runtime-tools) |
 
 `install`과 `onboard`는 `--non-interactive`를 명시하지 않으면 대화형이다.
-선택 옵션은 UI 초기값이며, non-TTY 기본 호출은 쓰기 전에 실패한다. Python 3.11+는
+선택 옵션은 UI 초기값이며, non-TTY 기본 호출은 쓰기 전에 실패한다. Python 3.12+는
 필요하다. `compose/instructions_ui_runtime.py`는 번들을 검증해 프로세스 전용 임시
 디렉터리에 풀고 정상 종료 시 정리한다. 런처는 backend `execve` 직전에도 정리한다.
 영구적인 UI 패키지 설치는 만들지 않는다. 패키지 UI의 번들이 없거나 손상되면
@@ -55,7 +56,7 @@ UI 언어이며 지침 언어나 저장되는 호스트 설정을 바꾸지 않�
 제안만 정하고 실제 선택 화면은 항상 표시한다. JSON setup 프로토콜은 검토 언어를
 명시적으로 받으며, 정해진 필드 이름과 정확한 값은 유지한다.
 
-`agent-bios setup`은 Python 3.11+와 Bash가 필요하며 TTY, Textual, 모델 SDK나
+`agent-bios setup`은 Python 3.12+와 Bash가 필요하며 TTY, Textual, 모델 SDK나
 새 서버를 요구하지 않는다. 검사·검토 계획·고정된 의존성 설치 명령에는 같은
 `SetupController`를 사용한다. 명시적인 Apply만 선택한 작업을 실행하고 private
 상태에 영구 receipt를 남긴다. `status`와 `resume`은 설치 작업을 실행하지 않고
@@ -73,7 +74,7 @@ Setup의 로컬 검사는 패키지를 설치하거나 로그인하지 않는다
 사용할 수 있다. Manager 버전 검사가 성공해야 설치 recipe를 제안한다. 새 managed
 환경을 만들 때는 선택한 Python의 venv/ensurepip가 필요하며, 이미 있는 managed
 interpreter는 다시 bootstrap할 필요가 없다. Provisioner는 환경을 바꾸기 전에
-Python 3.11+를 확인한다.
+Python 3.12+를 확인한다.
 
 ## Host agent CLIs
 
@@ -226,11 +227,34 @@ provisioner는 필요하지 않다. 학습 검증, 호환 client, 저작 환경�
 격리된 import·화면·정리를 검증한다. 명시적인 `--build`만 패키지를 가져온다.
 Wheel과 manifest는 직접 편집하지 않고 builder로 생성한다.
 
+저작 작업에는 선언된 Python 최저 버전의 interpreter가 기계에 있어야 한다. 이는
+패키지의 요구가 아니라 gate의 요구다. `gates/check-python-floor.py`가 배포되는
+Python과 저작용 Python을 모두 그 interpreter로 컴파일하며, interpreter가 없으면
+통과시키지 않고 막는다. 판정한 것이 없는 실행을 깨끗하다고 보고할 수 없기
+때문이다. `uv python install 3.12`로 설치하거나 `AGENT_BIOS_FLOOR_PYTHON`으로
+기존 interpreter를 지정한다. gate는 쓰기 전에 그 interpreter의 버전을 최저 버전과
+맞춰 본다. `python3`가 가리키는 것으로 컴파일하는 것은 대체가 되지 않는다. 최저
+버전보다 새로운 `python3`는 최저 버전이 거부하는 구문을 받아들이며, v0.19.0부터
+v0.19.3까지 문서가 3.11이라고 적은 채 3.12를 요구하는 코드가 배포된 경로가
+그것이다.
+
+Interpreter 탐색은 `$HOME`을 따른다. `PATH`, 실행 중인 interpreter, 그리고
+`$HOME/.local/share/uv/python` 아래를 본다. HOME을 바꿔 넣은 환경 — sandbox,
+fixture 트리, 감사 harness — 에서는 어느 것도 찾히지 않으므로 gate는 최저 버전
+interpreter를 찾지 못하고 통과시키지 않고 막는다. 결함이 아니라 선언된 동작이다.
+따라서 자기 HOME으로 gate를 돌리는 호출자는 `AGENT_BIOS_FLOOR_PYTHON`으로
+interpreter를 지정해야 한다. umbrella 경로에서는 이 상태에 이르지 않는다.
+`gates/check-parity.sh`는 HOME을 바꾸지 않으며, HOME을 바꿔 넣는 유일한 호출자인
+`gates/test-install-guides.sh`는 항상 `AGENT_BIOS_IN_INSTALL_TEST=1`을 함께
+설정하고, 그 값에서는 `install.sh`의 `cmd_verify`가 umbrella를 건너뛰며 건너뛴
+사실을 알린다.
+
 ## Ownership
 
 | 소유처 | 소유 대상 |
 | --- | --- |
-| 영문 `DEPENDENCIES.md` | 요구 기능과 범위가 명시된 버전 관측의 정본 |
+| 영문 `DEPENDENCIES.md` | 요구 기능과 범위가 명시된 버전 관측의 정본, 그리고 다른 모든 선언이 되풀이하는 Python 최저 버전 |
+| `gates/check-python-floor.py` | 그 최저 버전을 읽고, 두 Python 집합을 실제 interpreter로 컴파일하며, 달라도 되는 사이트를 이유와 함께 명시한다 |
 | `launch/provision-venv.sh` | Textual root pin, validator pin, 명시적 managed 설치 |
 | `gates/build-ui-runtime.py` | 저작용 번들 생성과 오프라인 검사·대조군 |
 | `compose/ui_runtime/manifest.json` | 생성된 wheel 목록, 버전, hash와 license |
