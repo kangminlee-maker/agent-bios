@@ -536,7 +536,7 @@
       "type": "object",
       "additionalProperties": false,
       "required": ["host", "no_scope", "cwd_unreadable", "memory_path_relative", "memory_path_unusable",
-                   "global_excluded_by_launch", "ineligible", "transcript_unread"],
+                   "global_excluded_by_launch", "ineligible", "transcript_unread", "memory_membership_unknown"],
       "properties": {
         "host": {"$ref": "#/$defs/host"},
         "no_scope": {"type": "integer", "minimum": 0},
@@ -545,7 +545,8 @@
         "memory_path_unusable": {"type": "integer", "minimum": 0},
         "global_excluded_by_launch": {"type": "integer", "minimum": 0},
         "ineligible": {"type": "integer", "minimum": 0},
-        "transcript_unread": {"type": "integer", "minimum": 0}
+        "transcript_unread": {"type": "integer", "minimum": 0},
+        "memory_membership_unknown": {"type": "integer", "minimum": 0}
       }
     },
     "owner_ref": {"type": "string", "pattern": "^o-[0-9a-f]{24}$"},

@@ -1905,9 +1905,10 @@ SESSIONS_PRODUCED_BY_TABLE = table_of({
 FRESHNESS = ("the newest delivery on record, not the file on disk: an edit made after this event is unknown "
              "until a later transcript records it")
 # The per-host counts of the scope universe (S-10): outcomes that answer no scope, each by its reason,
-# the events that are not eligible to answer at all, and the main transcripts that were not read (R1, A).
+# the events that are not eligible to answer at all, the main transcripts that were not read (R1, A),
+# and the injections whose AutoMem membership is not known (R2 #0).
 UNIVERSE_COUNTS = ("no_scope", "cwd_unreadable", "memory_path_relative", "memory_path_unusable",
-                   "global_excluded_by_launch", "ineligible", "transcript_unread")
+                   "global_excluded_by_launch", "ineligible", "transcript_unread", "memory_membership_unknown")
 SCOPE_REASON_TABLE = table_of({"reason": as_enum(lambda: UNKNOWN_REASONS), "event_id": as_opaque("event_id"),
                                "session_ref": as_opaque("session_ref"), "line": as_scalar()},
                               optional=("event_id", "session_ref", "line"), schema="scope_reason")
@@ -3208,6 +3209,9 @@ UNKNOWN_REASONS = {
                              "belongs to is unknown"),
     "transcript_unread": ("unknown: a main transcript of this host was not read, so a newer outcome it records "
                           "for any scope is unknown"),
+    "memory_membership_unknown": ("not an outcome: an injection's AutoMem membership is not known (an unmapped "
+                                  "member or an unusable container), so the memory directories it names are not "
+                                  "all known"),
     "carrier_malformed": "incomplete: a carrier version this row names did not split, its text being malformed",
     "carrier_unsupported": "incomplete: a carrier version this row names is of a form no splitter supports",
     "tie":"unknown: two transcripts record different sets for this scope at one instant",
@@ -4008,12 +4012,13 @@ REASON_STATUS = {
 # it through its scope status. Memory is: S-9 asks whether a later event is at a directory's project,
 # and an event without a readable cwd cannot answer that (lead ruling, 2026-10-29). A main transcript
 # that was not read leaves every one of them, the global layer included: its newest outcome could be any
-# scope's (R1, decision A).
+# scope's (R1, decision A). An injection whose AutoMem membership is not known leaves memory (R2 #0).
 COUNTED_LAYERS = {"no_scope": ("native_project", "native_undivided", "native_memory"),
                   "cwd_unreadable": ("native_project", "native_undivided", "native_memory"),
                   "memory_path_relative": ("native_memory",),
                   "memory_path_unusable": ("native_memory",),
-                  "transcript_unread": SCOPED_LAYERS}
+                  "transcript_unread": SCOPED_LAYERS,
+                  "memory_membership_unknown": ("native_memory",)}
 UNMAPPED_CATEGORIES = ("member_type_unmapped", "member_not_object")
 ABSOLUTE = re.compile(r"^(/|[A-Za-z]:[\\/]|\\\\)")
 PROJECT_SEGMENT = re.compile(r"[\\/]projects[\\/]([^\\/]+)(?:[\\/]|$)")
@@ -4197,7 +4202,7 @@ def pin_state(pinned):
 def outcomes_of(event, pin):
     """`(outcomes, counts)`: every scope one ELIGIBLE event answers, each with the members it carries
     there and the state that may keep it from answering, and the per-host counts of what it cannot
-    answer at all (S-7, S-8 b, S-9, S-19)."""
+    answer at all (S-7, S-8 b, S-9, S-19; R2 #0)."""
     host, case, cwd = event["host"], event.get("cwd_case"), event.get("scope")
     outcomes, counts = [], []
     if case == "unreadable" and host == "codex":
@@ -4234,29 +4239,34 @@ def outcomes_of(event, pin):
     elif case == "scoped":
         answer("native_project", cwd, [member for member in event["files"] if member["layer"] == "native_project"],
                incomplete=any(row.get("layer") == "native_project" for row in rejected))
-    if state is None:
-        directories = {}
-        for member in event["files"]:
-            if member["layer"] != "native_memory":
-                continue
-            directory = member_dir(member["path"])
-            if directory is None:
-                counts.append(reason("memory_path_relative"))
-                continue
-            directories.setdefault(directory, []).append(member)
-        # A member whose content is unusable still names its directory: that scope is answered,
-        # incomplete, even when no usable member of it is left (S-6). One that names none is counted
-        # (R1 #2): a relative path as a valid member's is, and no path at all by its own key.
-        broken = {member_dir(row.get("path")) for row in rejected
-                  if row.get("layer") == "native_memory" and row.get("path") is not None} - {None}
-        for row in rejected:
-            if row.get("layer") == "native_memory" and member_dir(row.get("path")) is None:
-                counts.append(reason("memory_path_unusable") if row.get("path") is None
-                              else reason("memory_path_relative"))
-        for directory in sorted(broken - set(directories)):
-            directories[directory] = []
-        for directory, members in directories.items():
-            answer("native_memory", directory, members, incomplete=directory in broken)
+    # Every event answers the memory directories it names, carrying its state as the global and project
+    # answers do: a damaged or unmapped event's directories are its scopes' unknowns, never absent (R2 #0).
+    directories = {}
+    for member in event["files"]:
+        if member["layer"] != "native_memory":
+            continue
+        directory = member_dir(member["path"])
+        if directory is None:
+            counts.append(reason("memory_path_relative"))
+            continue
+        directories.setdefault(directory, []).append(member)
+    # A member whose content is unusable still names its directory: that scope is answered,
+    # incomplete, even when no usable member of it is left (S-6). One that names none is counted
+    # (R1 #2): a relative path as a valid member's is, and no path at all by its own key.
+    broken = {member_dir(row.get("path")) for row in rejected
+              if row.get("layer") == "native_memory" and row.get("path") is not None} - {None}
+    for row in rejected:
+        if row.get("layer") == "native_memory" and member_dir(row.get("path")) is None:
+            counts.append(reason("memory_path_unusable") if row.get("path") is None
+                          else reason("memory_path_relative"))
+    for directory in sorted(broken - set(directories)):
+        directories[directory] = []
+    for directory, members in directories.items():
+        answer("native_memory", directory, members, incomplete=directory in broken)
+    if state is not None:
+        # An unmapped member may belong to any directory, and an unusable container names none, so the
+        # directories this event names are not all it delivered: counted, as one that names none is.
+        counts.append(reason("memory_membership_unknown"))
     return outcomes, counts
 
 
@@ -5394,7 +5404,7 @@ DOCUMENT_MEMBERS = (
     # `current.json`'s scope rows (step 0 S-10)
     "scopes", "scope_universe", "scope_id", "event_ids", "evidence", "freshness", "no_scope",
     "cwd_unreadable", "memory_path_relative", "memory_path_unusable", "global_excluded_by_launch", "ineligible",
-    "transcript_unread",
+    "transcript_unread", "memory_membership_unknown",
     # `shared/store.json` (step 0 S-22) and a unit's reference into it
     "versions", "unit_refs", "unit_ref", "length", "split", "start", "end", "form", "span_unit",
     # an occurrence in `sessions.json` and a Codex block's git (step 0 S-12, S-13, S-19)
@@ -9207,6 +9217,61 @@ def self_test():
                   and r1_universe(r1a_child_doc).get("transcript_unread") == 0,
                   f"refused={r1a_child_run.get('refused')} kid={r1a_kid} "
                   f"{r1_layer(r1a_child_doc, 'native_global').get('status')} universe={r1_universe(r1a_child_doc)}")
+
+        with section("R2#0: a damaged or unmapped event's memory"):
+            # ---- R2 #0: an event with a state (an unmapped member, an unusable container) answered its global and
+            # project scopes with that state and no memory directory at all, so current's native_memory read complete
+            # without it. Two sessions at two projects: s-r20a at p1 names d1 validly, s-r20b at q, later, names d2
+            # beside its own case. The later event is at another project, so S-9 leaves d1 answered in every case.
+            # Where d2 is a scope of its own and unknown, the layer row is unknown by S-20's rule, its answering
+            # scopes' units kept; where no directory is named, the count alone makes it incomplete.
+            def r20_doc(name, b_files):
+                return published_current(f"r2-0-{name}", [
+                    ("claude", "s-r20a", [inj("2026-10-20T09:00:00+00:00", [member("User", "/w/g.md", "- a\n"),
+                                                                            member("AutoMem", f"{d1}/a.md", "- kept\n")],
+                                              cwd=p1)], {}),
+                    ("claude", "s-r20b", [inj("2026-10-20T10:00:00+00:00", b_files, cwd=q)], {})])
+
+            def r20_seen(document_here):
+                memory_row = r1_layer(document_here, "native_memory")
+                return (f"refused={document_here.get('refused')} {memory_row.get('status')} units={memory_row.get('units')} "
+                        f"reasons={memory_row.get('reasons')} d1={one_scope(document_here, 'native_memory', 'claude', d1)} "
+                        f"d2={one_scope(document_here, 'native_memory', 'claude', d2)} "
+                        f"universe={r1_universe(document_here).get('memory_membership_unknown')}")
+
+            r20_unmapped = r20_doc("unmapped", [member("User", "/w/g.md", "- b\n"), member("AutoMem", f"{d2}/c.md", "- c\n"),
+                                                {"type": "Weird", "path": f"{q}/x.md", "content": "- x\n"}])
+            r20_memory = r1_layer(r20_unmapped, "native_memory")
+            check("R2#0: an unmapped member beside a valid AutoMem member at another project leaves current native_memory "
+                  "short of complete, that directory unknown by member_unmapped and counted, the other directory's unit kept",
+                  "refused" not in r20_unmapped and r20_memory.get("status") == "unknown"
+                  and r20_memory.get("units", 0) >= 1
+                  and any("memory_membership_unknown 1 at claude" in text for text in r20_memory.get("reasons") or [])
+                  and r1_universe(r20_unmapped).get("memory_membership_unknown") == 1
+                  and one_scope(r20_unmapped, "native_memory", "claude", d1).get("status") == "answered"
+                  and one_scope(r20_unmapped, "native_memory", "claude", d2).get("status") == "unknown"
+                  and reason_keys(one_scope(r20_unmapped, "native_memory", "claude", d2)) == ["member_unmapped"]
+                  and len(one_scope(r20_unmapped, "native_memory", "claude", d2).get("evidence") or []) == 1,
+                  r20_seen(r20_unmapped))
+            r20_damaged = r20_doc("damaged", 7)
+            r20_damaged_memory = r1_layer(r20_damaged, "native_memory")
+            check("R2#0: an unusable container at another project leaves current native_memory short of complete by its "
+                  "count, the other directory's unit kept",
+                  "refused" not in r20_damaged and r20_damaged_memory.get("status") == "incomplete"
+                  and r20_damaged_memory.get("units", 0) >= 1
+                  and any("memory_membership_unknown 1 at claude" in text
+                          for text in r20_damaged_memory.get("reasons") or [])
+                  and r1_universe(r20_damaged).get("memory_membership_unknown") == 1
+                  and [row.get("scope") for row in scope_rows(r20_damaged, "native_memory", "claude")] == [d1]
+                  and one_scope(r20_damaged, "native_memory", "claude", d1).get("status") == "answered",
+                  r20_seen(r20_damaged))
+            r20_clean = r20_doc("clean", [member("User", "/w/g.md", "- b\n"), member("AutoMem", f"{d2}/c.md", "- c\n")])
+            check("R2#0: a clean event at another project leaves current native_memory complete with both directories",
+                  "refused" not in r20_clean and r1_layer(r20_clean, "native_memory").get("status") == "complete"
+                  and r1_universe(r20_clean).get("memory_membership_unknown") == 0
+                  and all(one_scope(r20_clean, "native_memory", "claude", directory).get("status") == "answered"
+                          for directory in (d1, d2)),
+                  r20_seen(r20_clean))
 
         with section('P2.3a: identities from raw values, duplicate members, the unit store and its spans, on the'):
             # ---- P2.3a: identities from raw values, duplicate members, the unit store and its spans, on the
@@ -16331,6 +16396,7 @@ def self_test():
                 "phase 2": ("baseline_unnamed", "injection_body_empty"),
                 "review round 1": ("memory_path_unusable", "transcript_unread", "carrier_malformed",
                                    "carrier_unsupported", "census_malformed"),
+                "review round 2": ("memory_membership_unknown",),
             }
             vocabulary_by_refusal = {}
             vocabulary_keys = [key for keys in vocabulary_expected.values() for key in keys]
