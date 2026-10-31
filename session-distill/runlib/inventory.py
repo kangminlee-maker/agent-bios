@@ -3102,11 +3102,11 @@ def item_carriers(item, layer):
     """One carrier per member of a catalog, baseline or snapshot item. A rule is one bullet line,
     which is all the compiler takes from it; every other kind carries its member files.
 
-    An item that names no kind or no ref is a malformed item, said so in a declared reason: indexed
-    straight, it reached a layer row as the exception's type and text (lead, after a36c728). So is
-    one whose other consumed field is of another type (`item_problem`, R2 #1): it is never handed on
-    as a carrier. A baseline's and a snapshot's items are refused before they get here, as their
-    input's failure; this is the boundary for every other reader."""
+    An item of another shape than the store writes (`item_problem`: a consumed field of another type,
+    its kind and ref among them; R2 #1) is a malformed item, said so in a declared reason and never
+    handed on as a carrier: indexed straight, it reached a layer row as the exception's type and text
+    (lead, after a36c728). A baseline's and a snapshot's items are refused before they get here, as
+    their input's failure; this is the boundary for every other reader."""
     problem = item_problem(item)
     if problem:
         raise Malformed(f"MALFORMED_ITEM: a {layer} item of another shape than the store writes ({problem})")
@@ -5312,9 +5312,10 @@ def scoped_layer(layer, scoped, reference):
     # Each count by its name and number, so a reader sees which outcomes left the layer unscoped.
     reasons += [f"{key} {n} at {host}: {UNKNOWN_REASONS[key]}" for host, key, n in counts]
     # `uncertain` is not a layer-row status: it is `unknown` with the reason saying `uncertain:` (S-21).
-    # Otherwise the row is `incomplete` — a count alone included, since the layer is identifiable and
-    # its universe is not whole — and `unknown` only when no scope of it answered at all, because then
-    # it has no usable carrier (S-20; lead ruling, 2026-10-29).
+    # The row is `unknown` when no scope of it answered, or when its worst scope is unknown or
+    # uncertain; otherwise, a scope incomplete or a count alone (the layer is identifiable and its
+    # universe is not whole), it is `incomplete`. Either way the answering scopes' carriers are kept
+    # (S-20; lead ruling, 2026-10-29).
     answered = any(row["status"] != "unknown" for row in rows)
     status = "unknown" if not answered or SCOPE_RANK[worst] < SCOPE_RANK["incomplete"] else "incomplete"
     raise ScopedAnswer(status, reasons, carriers)
