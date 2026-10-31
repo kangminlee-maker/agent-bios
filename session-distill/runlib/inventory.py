@@ -3216,6 +3216,8 @@ CENSUS = "census.json"
 # a layer that goes unknown without one is the silence the whole record exists to refuse.
 UNKNOWN_REASONS = {
     "census": "INPUT_UNACQUIRED: this run has no S1 census, so no transcript is bound to a record here",
+    "census_unreadable": ("INPUT_UNACQUIRED: this run's S1 census could not be read, so no transcript is bound to a "
+                          "record here"),
     "census_malformed": ("INPUT_UNACQUIRED: this run's S1 census is not the shape S1 writes, so no transcript is "
                          "bound to a record here"),
     "no_record": "unknown: the transcript records no injection",
@@ -3506,8 +3508,14 @@ def census_entries(run_dir):
     # whole: a row skipped here would be a session nobody counted (R1 #6, decision D). Out of here an
     # AttributeError or a decoding error ended the run with no manifest; `run` and `bind_transcripts`
     # turn this Unacquired into the transcript layers' named unknown, and the run publishes.
+    # A read that fails is the same unknown, never an exception out of the run: a census gone between the
+    # check and the read is no census, and one that is there and cannot be read is its own key (R2 #2).
     try:
         document = json.loads(path.read_text(encoding="utf-8"))
+    except FileNotFoundError as exc:
+        raise Unacquired(UNKNOWN_REASONS["census"]) from exc
+    except OSError as exc:
+        raise Unacquired(UNKNOWN_REASONS["census_unreadable"]) from exc
     except ValueError as exc:  # a JSONDecodeError and a UnicodeDecodeError are both ValueErrors
         raise Unacquired(UNKNOWN_REASONS["census_malformed"]) from exc
     transcripts = document.get("transcripts") if isinstance(document, dict) else None
@@ -4787,7 +4795,23 @@ def delivery_of(pinned, read, found, own):
     return unknown(reason("no_record"))
 
 
-def transcript_events(run_dir, pins=None, zstd=None):
+def census_of(ctx, run_dir):
+    """This run's census entries, read ONCE (R2 #2): the first call reads it and keeps the entries, or
+    the Unacquired its read raised, in `ctx["census"]`, and every later reader of the run takes that
+    same answer, so no second read can see other bytes. A failed read raises that Unacquired again,
+    its reason the one `census_entries` named."""
+    if "census" not in ctx:
+        try:
+            ctx["census"] = (census_entries(run_dir), None)
+        except Unacquired as exc:
+            ctx["census"] = ((), exc)
+    entries, error = ctx["census"]
+    if error is not None:
+        raise error
+    return entries
+
+
+def transcript_events(run_dir, pins=None, zstd=None, entries=None):
     """`(events, unknown, findings)`: every injection event the run's census-bound transcripts
     record, the sessions that are a named unknown, and what reading them found unusable.
 
@@ -4806,8 +4830,9 @@ def transcript_events(run_dir, pins=None, zstd=None):
     `pins` holds each session's own pin by session reference, as `freeze_inputs` read it with its
     snapshot. The body looked for in a transcript is THAT session's own selected body, under that
     session's own injection carrier (S-1, #4); a session with no read snapshot has none to look for. A
-    row `pins` does not hold is a pin this run did not read."""
-    entries = census_entries(run_dir)
+    row `pins` does not hold is a pin this run did not read. `entries` is the census the run already
+    read (`census_of`); a caller with none has it read here."""
+    entries = census_entries(run_dir) if entries is None else entries
     events, unknown = [], []
     findings = {"undecodable": [], "damaged": [], "rejected": [], "inherited": [], "sessions": [], "timelines": {},
                 "occurrences": [], "segments": []}
@@ -6356,7 +6381,7 @@ def run(repo, state_root, user_root, out_dir, pin=None, native_roots=None, ledge
             # refused it (lead, P2.4b). A production caller passes none, and both are the process's home.
             ctx["home"] = home
             try:
-                entries = census_entries(run_dir)
+                entries = census_of(ctx, run_dir)
             except Unacquired:
                 entries = ()  # no census: `bind_transcripts` names it, and no session's pin is read
             try:
@@ -6476,7 +6501,8 @@ def bind_transcripts(ctx, run_dir, zstd=None):
              "native_files_read": 0}
     ctx["occurrences"] = []
     try:
-        events, unknown, findings = transcript_events(run_dir, table, zstd)
+        entries = census_of(ctx, run_dir)
+        events, unknown, findings = transcript_events(run_dir, table, zstd, entries)
     except Unacquired as exc:
         ctx["transcript_error"] = str(exc)
         notes.update({"sessions": 0, "events": 0, "unknown": [str(exc)]})
@@ -6488,7 +6514,6 @@ def bind_transcripts(ctx, run_dir, zstd=None):
     ctx["sessions"] = findings["sessions"]
     ctx["segments"] = findings["segments"]
     ctx["occurrences"] = findings["occurrences"]
-    entries = census_entries(run_dir)
     pins = {}
     for entry in entries:
         ref = session_ref(entry.get("host"), entry.get("id"))
@@ -6965,14 +6990,17 @@ CATCHALL_PROBES = ("", "a", "Z9", "-_.", " ", "é", "an unexpected key")
 
 
 def catchall_sites(schema, path="#"):
-    """Every place in `schema` whose `patternProperties` holds a pattern every probe key matches, or one
-    this reader cannot compile, which cannot be shown to admit less."""
+    """Every place in `schema` whose `patternProperties` admit every probe key between them, or hold a
+    pattern this reader cannot compile, which cannot be shown to admit less. A site is judged by the
+    union of its patterns: a key is admitted when any of them matches it, so a catch-all split over two
+    patterns that each admit less is still one (R2 #3)."""
     sites = []
     if isinstance(schema, dict):
         patterns = schema.get("patternProperties")
-        for pattern in patterns if isinstance(patterns, dict) else ():
+        if isinstance(patterns, dict) and patterns:
             try:
-                every = all(re.search(pattern, probe) is not None for probe in CATCHALL_PROBES)
+                every = all(any(re.search(pattern, probe) is not None for pattern in patterns)
+                            for probe in CATCHALL_PROBES)
             except re.error:
                 every = True
             if every:
@@ -8652,6 +8680,16 @@ def self_test():
             catchall["$defs"]["rename"]["patternProperties"] = {"^": {"type": "string"}}
             control("R1#5: a key pattern every key matches, outside note_tree, is refused by name",
                     reference_schema_problems(catchall), "REFERENCE_CATCHALL_ELSEWHERE", "#/$defs/rename")
+            # R2 #3: a site is judged by the union of its patterns, so two that each admit less are still a catch-all
+            r23_patterns = ("^$", "[\\s\\S]")
+            split_catchall = json.loads(json.dumps(own_roots))
+            split_catchall["$defs"]["rename"]["patternProperties"] = {pattern: {"type": "string"}
+                                                                       for pattern in r23_patterns}
+            control("R2#3: a catch-all split over two key patterns outside note_tree is refused by name",
+                    reference_schema_problems(split_catchall), "REFERENCE_CATCHALL_ELSEWHERE", "#/$defs/rename")
+            r23_alone = {pattern: catchall_sites({"patternProperties": {pattern: {}}}) for pattern in r23_patterns}
+            check("R2#3: and neither of those two patterns alone admits every key",
+                  r23_alone == {pattern: [] for pattern in r23_patterns}, f"{r23_alone}")
             for name, label, where, value in (
                     ("notes", "note keys", ("reference_produced_by", "properties", "notes", "properties"), "pin"),
                     ("rename", "rename fields", ("rename", "properties"), "from_carriers"),
@@ -15190,6 +15228,86 @@ def self_test():
                   and _raised(lambda: item_carriers(r21_rule, "catalog")) is None,
                   f"{ {field: f'{type(raised).__name__}: {raised}' for field, raised in r21_carried.items()} }")
 
+        with section("R2#2: a census that cannot be read, and one read per run"):
+            # ---- R2 #2: a census that is there and cannot be read raised an OSError out of `census_entries`, past `run`'s
+            # `except Unacquired`, and the run ended with no manifest; so did one gone between the check and the read. And
+            # one run read its census three times, so two of its readers could see different bytes. Full runs over R1#6's
+            # base state; each fixture is undone after its run.
+            def r22_run(label, prepare):
+                """`(raised, native_global rows, a manifest written)` of a full `run` over an empty census, with
+                `prepare(census path)` applied before it and the undo it returns called after it."""
+                run_at = scratch / "r2-2" / f"run-{label}"
+                run_at.mkdir(parents=True)
+                census_here = run_at / CENSUS
+                census_here.write_text(json.dumps({"transcripts": []}), encoding="utf-8")
+                undo = prepare(census_here)
+                out_here = scratch / "r2-2" / f"out-{label}"
+                try:
+                    raised_here = _raised(lambda: run(REPO, r16_base, None, out_here, run_dir=run_at, commit="fixture",
+                                                      home=fixture_home,
+                                                      native_roots={"projects": {"project": scratch / "project"}}))
+                finally:
+                    undo()
+                current_here = r16_json(out_here / "inventory" / "current.json")
+                return (type(raised_here).__name__ if raised_here else None,
+                        [(row["status"], row["reasons"]) for row in current_here.get("layers") or []
+                         if row["layer"] == "native_global"],
+                        (out_here / "inventory" / "manifest.json").is_file())
+
+            r22_planted = []
+
+            def r22_lock(census_here):
+                census_here.chmod(0)
+                r22_planted.append(not os.access(census_here, os.R_OK))
+                return lambda: census_here.chmod(0o600)
+
+            r22_locked = r22_run("unreadable", r22_lock)
+            check("R2#2: a census that cannot be read is the transcript layers' named unknown, and the run publishes",
+                  r22_planted == [True]
+                  and r22_locked == (None, [("unknown", [f"native_global: {UNKNOWN_REASONS['census_unreadable']}"])], True),
+                  ("" if r22_planted == [True] else "nothing planted: the census is still readable (as under root); ")
+                  + f"{r22_locked}")
+
+            r22_kept_read, r22_vanished = pathlib.Path.read_text, []
+
+            def r22_vanish(census_here):
+                def vanishing(self, *args, **kwargs):
+                    if self == census_here:
+                        r22_vanished.append(str(self))
+                        raise FileNotFoundError(2, "No such file or directory", str(self))
+                    return r22_kept_read(self, *args, **kwargs)
+
+                def undo():
+                    pathlib.Path.read_text = r22_kept_read
+
+                pathlib.Path.read_text = vanishing
+                return undo
+
+            r22_gone = r22_run("gone", r22_vanish)
+            check("R2#2: a census gone between its check and its read is the absent census's unknown",
+                  bool(r22_vanished) and pathlib.Path.read_text is r22_kept_read
+                  and r22_gone == (None, [("unknown", [f"native_global: {UNKNOWN_REASONS['census']}"])], True),
+                  f"vanished={len(r22_vanished)} {r22_gone}")
+
+            r22_kept_entries, r22_reads = globals()["census_entries"], []
+
+            def r22_count(_census_here):
+                def counting(run_dir_here):
+                    r22_reads.append(str(run_dir_here))
+                    return r22_kept_entries(run_dir_here)
+
+                def undo():
+                    globals()["census_entries"] = r22_kept_entries
+
+                globals()["census_entries"] = counting
+                return undo
+
+            r22_once = r22_run("once", r22_count)
+            check("R2#2: one run reads its census once",
+                  len(r22_reads) == 1 and globals()["census_entries"] is r22_kept_entries
+                  and r22_once[0] is None and r22_once[2],
+                  f"reads={len(r22_reads)} {r22_once}")
+
         with section("P2.6: closures as published edges, typed unresolved requirements, one closure rule (step 0 S-12)"):
             # ---- P2.6 (step 0 S-12, S-26; lead rulings on the P2.6 plan): one closure loop, typed `k-`
             # entries, the canonical order, a shared inventory's edges and the function that closes over them
@@ -16509,7 +16627,7 @@ def self_test():
                 "phase 2": ("baseline_unnamed", "injection_body_empty"),
                 "review round 1": ("memory_path_unusable", "transcript_unread", "carrier_malformed",
                                    "carrier_unsupported", "census_malformed"),
-                "review round 2": ("memory_membership_unknown",),
+                "review round 2": ("memory_membership_unknown", "census_unreadable"),
             }
             vocabulary_by_refusal = {}
             vocabulary_keys = [key for keys in vocabulary_expected.values() for key in keys]
