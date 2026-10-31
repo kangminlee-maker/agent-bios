@@ -3065,14 +3065,51 @@ def core_package_id(tree, catalog):
     return packages[0].get("package_id") if len(packages) == 1 and isinstance(packages[0], dict) else None
 
 
+def item_problem(item):
+    """The first field of `item` this module consumes that is not of the type the store writes, or None:
+    `kind` and `ref` strings; `package_id` absent, null or a string; a rule's `body` a string, any other
+    kind's absent, null or a string; `members` absent, null or an object of strings; `primary_member`
+    absent, null or a string; `origin` absent or an object whose `source_path` is absent, null or a
+    string. One reader for every boundary an item crosses here (`baseline_items`, `snapshot_shape`,
+    `item_carriers`): a `package_id` of another type reached the store's emission and refused the whole
+    run, and the other fields failed a producer as an unread input, losing that layer's valid units
+    with it (R2 #1)."""
+    if not isinstance(item, dict):
+        return "not an object"
+    for field in ("kind", "ref"):
+        if not isinstance(item.get(field), str):
+            return field
+
+    def optional(value):
+        return value is None or isinstance(value, str)
+
+    if not optional(item.get("package_id")):
+        return "package_id"
+    if not (isinstance(item.get("body"), str) if item["kind"] == "rule" else optional(item.get("body"))):
+        return "body"
+    members = item.get("members")
+    if members is not None and not (isinstance(members, dict)
+                                    and all(isinstance(content, str) for content in members.values())):
+        return "members"
+    if not optional(item.get("primary_member")):
+        return "primary_member"
+    if "origin" in item and not (isinstance(item["origin"], dict) and optional(item["origin"].get("source_path"))):
+        return "origin"
+    return None
+
+
 def item_carriers(item, layer):
     """One carrier per member of a catalog, baseline or snapshot item. A rule is one bullet line,
     which is all the compiler takes from it; every other kind carries its member files.
 
     An item that names no kind or no ref is a malformed item, said so in a declared reason: indexed
-    straight, it reached a layer row as the exception's type and text (lead, after a36c728)."""
-    if not (isinstance(item, dict) and isinstance(item.get("kind"), str) and isinstance(item.get("ref"), str)):
-        raise Malformed(f"MALFORMED_ITEM: a {layer} item that names no kind or no ref")
+    straight, it reached a layer row as the exception's type and text (lead, after a36c728). So is
+    one whose other consumed field is of another type (`item_problem`, R2 #1): it is never handed on
+    as a carrier. A baseline's and a snapshot's items are refused before they get here, as their
+    input's failure; this is the boundary for every other reader."""
+    problem = item_problem(item)
+    if problem:
+        raise Malformed(f"MALFORMED_ITEM: a {layer} item of another shape than the store writes ({problem})")
     if item["kind"] == "rule":
         return [carrier(layer, "claude/CLAUDE.md", item["body"], item["ref"], item.get("package_id"))]
     members = item.get("members") or {}
@@ -4886,8 +4923,10 @@ def baseline_items(state_root, ref):
     items = document.get("items")
     if not isinstance(items, list) or not items:
         raise Refused(f"BASELINE_EMPTY {masked(path)}: a baseline inventory with no items judges nothing")
-    if not all(isinstance(item, dict) and isinstance(item.get("ref"), str) for item in items):
-        raise Refused(f"BASELINE_MALFORMED {masked(path)}: a baseline item that is not an object with a ref")
+    problem = next(filter(None, map(item_problem, items)), None)
+    if problem:
+        raise Refused(f"BASELINE_MALFORMED {masked(path)}: a baseline item of another shape than the store writes "
+                      f"({problem})")
     return items
 
 
@@ -4968,16 +5007,18 @@ def snapshot_of(repo, frozen_state, content_ref):
 
 def snapshot_shape(verified):
     """`verified` when the parts of it this module reads and the store's verifier does not check are
-    the shape the store writes: `items` a list of items with a ref, `output.unavailable` a list of rows
-    with a string ref, surface and reason, and `output.instruction_text` a string. Otherwise
-    SNAPSHOT_MALFORMED, which `snapshot_once` makes that snapshot's failure, reaching the sessions
-    naming it and nothing else (R1 #6): a row that is not an object refused the whole run in the
-    emission, and a body that is not a string was a selection read with nothing delivered."""
+    the shape the store writes: `items` a list of items `item_problem` admits (R2 #1), `output.unavailable`
+    a list of rows with a string ref, surface and reason, and `output.instruction_text` a string.
+    Otherwise SNAPSHOT_MALFORMED, which `snapshot_once` makes that snapshot's failure, reaching the
+    sessions naming it and nothing else (R1 #6): a row that is not an object refused the whole run in
+    the emission, and a body that is not a string was a selection read with nothing delivered."""
     output = verified.get("output") or {}
     items, unavailable = verified.get("items"), output.get("unavailable")
-    if not isinstance(items, list) or not all(isinstance(item, dict) and isinstance(item.get("ref"), str)
-                                              for item in items):
-        raise Refused("SNAPSHOT_MALFORMED: its items are not a list of items with a ref")
+    if not isinstance(items, list):
+        raise Refused("SNAPSHOT_MALFORMED: its items are not a list")
+    problem = next(filter(None, map(item_problem, items)), None)
+    if problem:
+        raise Refused(f"SNAPSHOT_MALFORMED: an item of another shape than the store writes ({problem})")
     if not isinstance(unavailable, list) or not all(
             isinstance(row, dict) and all(isinstance(row.get(key), str) for key in ("ref", "surface", "reason"))
             for row in unavailable):
@@ -10272,7 +10313,9 @@ def self_test():
                     "SHARED_ID_MISMATCH", "SHARED_VERSION_UNRESOLVED", "SHARED_UNIT_UNRESOLVED", "SHARED_SELECTION_UNRESOLVED")
 
             # The selection rows a malformed snapshot item reaches are a declared reason, never an exception's name
-            # (found by the lead after a36c728): the default fixture item names only its ref.
+            # (found by the lead after a36c728): the default fixture item names only its ref. Such an item is now
+            # refused where the snapshot is read (`snapshot_shape`, R2 #1), so the snapshot fails as its input
+            # and no selection inventory is published from it; `item_carriers`' own refusal is asked in R2#1.
             declared_texts = tuple(UNKNOWN_REASONS.values()) + ("MALFORMED_ITEM:", PRODUCER_FAILED)
 
             def undeclared_rows(rows):
@@ -10284,19 +10327,25 @@ def self_test():
                             text.split(": ", 1)[-1].startswith(declared_texts) for text in row["reasons"]))]
 
             malformed_state = scratch / "p24b" / "malformed-state"
-            # the ONE fixture whose item names only its ref: built for MALFORMED_ITEM, and no other is
+            # the ONE fixture whose item names only its ref: built for the malformed snapshot item, and no other is
             malformed_ref = plant_snapshot(malformed_state, "# Session\n\n- m\n", baseline_ref="ref-a",
                                            items=[{"ref": "@fixture/core:item-1"}])
             plant_baseline(malformed_state, "ref-a", [catalog_item("rule-a", "rule", "- rule a")])
             plant_pin(malformed_state, "s-m", malformed_ref)
             malformed = published_shared("malformed", [pinned_row("s-m", [inj(s_at, [], cwd=p1)], malformed_ref)], malformed_state)
             malformed_doc = (malformed.get("shared") or {}).get(f"selection-{inventory_id('selection', malformed_ref)}") or {}
+            malformed_selection = [tuple((row.get("selection") or {}).get(key) for key in ("status", "reason"))
+                                   for row in (malformed.get("sessions") or {}).get("sessions") or []
+                                   if (row.get("transcript") or {}).get("id") == "s-m"]
+            malformed_shared = [document_here for name_here, document_here in (malformed.get("shared") or {}).items()
+                                if name_here.startswith("selection-")]
             check("every row of a selection is the pin's evidence or carries a declared reason: a snapshot item naming no "
-                  "kind is MALFORMED_ITEM, never an exception's name",
-                  bool(malformed_doc.get("layers")) and not undeclared_rows(malformed_doc["layers"])
-                  and (({row["layer"]: row for row in malformed_doc.get("layers") or []}.get("catalog") or {}).get("reasons")
-                       == ["catalog: MALFORMED_ITEM: a catalog item that names no kind or no ref"]),
-                  f"{[(row['layer'], row['status'], row['reasons']) for row in malformed_doc.get('layers') or []]}")
+                  "kind is that snapshot's failure, SNAPSHOT_MALFORMED, never an exception's name",
+                  "refused" not in malformed and not malformed_doc
+                  and malformed_selection == [("unknown", "input_failed")]
+                  and not any(undeclared_rows(document_here.get("layers") or []) for document_here in malformed_shared),
+                  f"refused={malformed.get('refused')} doc={bool(malformed_doc)} selection={malformed_selection} "
+                  f"undeclared={[undeclared_rows(item.get('layers') or []) for item in malformed_shared]}")
             def raising_producer(_ctx):
                 raise KeyError("kind")
 
@@ -15076,6 +15125,70 @@ def self_test():
                       got == (None, [("unknown", [f"native_global: {UNKNOWN_REASONS['census_malformed']}"])])
                       for got in r16_census.values()),
                   f"{r16_census}")
+
+        with section("R2#1: an item's metadata of another type is its input's failure"):
+            # ---- R2 #1: a baseline or snapshot item whose `package_id` is not a string reached the store's emission and
+            # refused the whole run; one whose body, member content, origin or primary member is of another type failed
+            # a producer, its layer incomplete as an unread input with the valid items' units lost too. `item_problem`
+            # is read where each item enters (the baseline, the snapshot, `item_carriers`). Over R1#6's fixture state.
+            r21_rule = catalog_item("rule-r21", "rule", "- rule r21")
+            r21_guide = catalog_item("guide-r21", "guide", "## R21\n\n- a rule\n")
+            r21_bad = {**r21_rule, "package_id": 7}
+            r21_raised, r21_good_rows, r21_bad_rows = r16_baseline_case(
+                "r2-1-baseline", json.dumps({"items": r16_items + [r21_bad]}))
+            check("R2#1: a baseline item whose package_id is not a string is that baseline's failure, and the other "
+                  "session's release publishes",
+                  r21_raised is None and dict((layer, status) for layer, status, _reasons in r21_good_rows).get("catalog")
+                  == "complete" and not any("input_failed" in str(reasons) for _l, _s, reasons in r21_good_rows)
+                  and r16_failed_release(r21_bad_rows),
+                  f"raised={type(r21_raised).__name__ if r21_raised else None}: {str(r21_raised or '')[:200]} "
+                  f"good={r21_good_rows} bad={r21_bad_rows}")
+
+            r21_state = scratch / "r1-6" / "r2-1-snapshot-state"
+            shutil.copytree(r16_base, r21_state)
+            r21_ref = plant_snapshot(r21_state, "# R2 1\n\n- bad snapshot item\n", baseline_ref="ref-r16g",
+                                     items=r16_items + [r21_bad])
+            plant_pin(r21_state, "s-r16b", r21_ref)
+            r21_snap_raised, r21_dir = r16_run("r2-1-snapshot", r21_state, [("s-r16g", r16_good), ("s-r16b", r21_ref)],
+                                               pin_here="claude:s-r16b")
+            r21_records = {row["transcript"]["id"]: row for row in r16_json(r21_dir / f"{SESSIONS}.json")
+                           .get("sessions") or []}
+            r21_snapshot = (
+                type(r21_snap_raised).__name__ if r21_snap_raised else None,
+                {ident: (tuple(((r21_records.get(ident) or {}).get("pin") or {}).get(key) for key in ("status", "reason")),
+                         tuple(((r21_records.get(ident) or {}).get("selection") or {}).get(key)
+                               for key in ("status", "reason", "inventory_ref")))
+                 for ident in ("s-r16g", "s-r16b")},
+                (r21_dir / "shared" / f"selection-{inventory_id('selection', r16_good)}.json").is_file(),
+                [(row.get("outcome"), row.get("reason"), row.get("code"))
+                 for row in ((r16_json(r21_dir / "current.json").get("produced_by") or {}).get("notes") or {})
+                 .get("frozen_missing") or [] if row.get("input") == "snapshot"])
+            check("R2#1: a snapshot item whose package_id is not a string is that snapshot's failure under a --pin, and "
+                  "the other session publishes",
+                  r21_snapshot == r16_snapshot_expected, f"{r21_snapshot} {str(r21_snap_raised or '')[:200]}")
+
+            r21_cases = {
+                "package_id": r21_bad,
+                "body": {**r21_rule, "body": 7},
+                "members": {**r21_guide, "members": {name: 7 for name in r21_guide["members"]}},
+                "origin": {**r21_guide, "members": {}, "origin": "not an object"},
+                "primary_member": {key: value for key, value in {**r21_guide, "members": {}, "primary_member": 7}.items()
+                                   if key != "origin"},
+                "kind": {key: value for key, value in r21_rule.items() if key != "kind"},
+                "not an object": 7}
+            r21_named = {field: item_problem(item) for field, item in r21_cases.items()}
+            check("R2#1: item_problem names each consumed field of another type",
+                  r21_named == {field: field for field in r21_cases}
+                  and item_problem(r21_rule) is None and item_problem(r21_guide) is None,
+                  f"named={r21_named} valid={item_problem(r21_rule)}, {item_problem(r21_guide)}")
+            r21_carried = {field: _raised(lambda item=item: item_carriers(item, "catalog"))
+                           for field, item in (("package_id", r21_bad), ("kind", {"ref": "@fixture/core:item-1"}))}
+            check("R2#1: an item of another type is refused by item_carriers by name, never handed on as a carrier",
+                  all(isinstance(raised, Malformed) and str(raised) == f"MALFORMED_ITEM: a catalog item of another shape "
+                                                                      f"than the store writes ({field})"
+                      for field, raised in r21_carried.items())
+                  and _raised(lambda: item_carriers(r21_rule, "catalog")) is None,
+                  f"{ {field: f'{type(raised).__name__}: {raised}' for field, raised in r21_carried.items()} }")
 
         with section("P2.6: closures as published edges, typed unresolved requirements, one closure rule (step 0 S-12)"):
             # ---- P2.6 (step 0 S-12, S-26; lead rulings on the P2.6 plan): one closure loop, typed `k-`
