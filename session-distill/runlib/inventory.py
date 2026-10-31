@@ -3178,6 +3178,8 @@ CENSUS = "census.json"
 # a layer that goes unknown without one is the silence the whole record exists to refuse.
 UNKNOWN_REASONS = {
     "census": "INPUT_UNACQUIRED: this run has no S1 census, so no transcript is bound to a record here",
+    "census_malformed": ("INPUT_UNACQUIRED: this run's S1 census is not the shape S1 writes, so no transcript is "
+                         "bound to a record here"),
     "no_record": "unknown: the transcript records no injection",
     "changed": "unknown: the transcript's bytes no longer match its census record",
     "unreadable": "unknown: the transcript could not be read",
@@ -3459,9 +3461,19 @@ def census_entries(run_dir):
     path = (pathlib.Path(run_dir) / CENSUS) if run_dir else None
     if path is None or not path.is_file():
         raise Unacquired(UNKNOWN_REASONS["census"])
-    document = json.loads(path.read_text(encoding="utf-8"))
+    # S1 writes an object whose `transcripts` is a list of rows. Any other shape binds nothing, and as a
+    # whole: a row skipped here would be a session nobody counted (R1 #6, decision D). Out of here an
+    # AttributeError or a decoding error ended the run with no manifest; `run` and `bind_transcripts`
+    # turn this Unacquired into the transcript layers' named unknown, and the run publishes.
+    try:
+        document = json.loads(path.read_text(encoding="utf-8"))
+    except ValueError as exc:  # a JSONDecodeError and a UnicodeDecodeError are both ValueErrors
+        raise Unacquired(UNKNOWN_REASONS["census_malformed"]) from exc
+    transcripts = document.get("transcripts") if isinstance(document, dict) else None
+    if not isinstance(transcripts, list) or not all(isinstance(entry, dict) for entry in transcripts):
+        raise Unacquired(UNKNOWN_REASONS["census_malformed"])
     rows = []
-    for entry in document.get("transcripts") or []:
+    for entry in transcripts:
         versions = entry.get("versions")
         version = versions[-1] if isinstance(versions, list) and versions and isinstance(versions[-1], dict) else {}
         pin = entry.get("pin") if isinstance(entry.get("pin"), dict) else {}
@@ -4856,9 +4868,16 @@ def baseline_items(state_root, ref):
     if not path.is_file():
         raise Refused(f"BASELINE_ABSENT {masked(path)}: the release reference point has no baseline inventory")
     document = json.loads(read_source(path, state_root))
+    # A shape the store does not write is this baseline's failure (`baseline_once` makes a Refused one),
+    # reaching its own release inventory and the sessions naming it: an AttributeError here, or a
+    # TypeError over an item later, refused the whole run (R1 #6, S-25).
+    if not isinstance(document, dict):
+        raise Refused(f"BASELINE_MALFORMED {masked(path)}: a baseline inventory that is not an object")
     items = document.get("items")
     if not isinstance(items, list) or not items:
         raise Refused(f"BASELINE_EMPTY {masked(path)}: a baseline inventory with no items judges nothing")
+    if not all(isinstance(item, dict) and isinstance(item.get("ref"), str) for item in items):
+        raise Refused(f"BASELINE_MALFORMED {masked(path)}: a baseline item that is not an object with a ref")
     return items
 
 
@@ -4935,6 +4954,27 @@ def snapshot_of(repo, frozen_state, content_ref):
     handed the root: nothing the store reads is admitted by a decision made after the read."""
     root = source_selection(pathlib.Path(frozen_state) / "sessions" / "snapshots" / content_ref, frozen_state)
     return store_module(repo).verify_snapshot(root, content_ref)
+
+
+def snapshot_shape(verified):
+    """`verified` when the parts of it this module reads and the store's verifier does not check are
+    the shape the store writes: `items` a list of items with a ref, `output.unavailable` a list of rows
+    with a string ref, surface and reason, and `output.instruction_text` a string. Otherwise
+    SNAPSHOT_MALFORMED, which `snapshot_once` makes that snapshot's failure, reaching the sessions
+    naming it and nothing else (R1 #6): a row that is not an object refused the whole run in the
+    emission, and a body that is not a string was a selection read with nothing delivered."""
+    output = verified.get("output") or {}
+    items, unavailable = verified.get("items"), output.get("unavailable")
+    if not isinstance(items, list) or not all(isinstance(item, dict) and isinstance(item.get("ref"), str)
+                                              for item in items):
+        raise Refused("SNAPSHOT_MALFORMED: its items are not a list of items with a ref")
+    if not isinstance(unavailable, list) or not all(
+            isinstance(row, dict) and all(isinstance(row.get(key), str) for key in ("ref", "surface", "reason"))
+            for row in unavailable):
+        raise Refused("SNAPSHOT_MALFORMED: its unavailable rows are not rows with a string ref, surface and reason")
+    if not isinstance(output.get("instruction_text"), str):
+        raise Refused("SNAPSHOT_MALFORMED: its compiled instruction text is not a string")
+    return verified
 
 
 # ---------------------------------------------------------------- the layer table
@@ -6489,7 +6529,7 @@ def freeze_inputs(frozen, repo, state_root, user_root, pin, ctx, entries=()):
                 snapshots[content_ref] = (None, rows[0]["outcome"], rows[0]["reason"], rows[0]["code"])
             else:
                 try:
-                    snapshots[content_ref] = (snapshot_of(repo, state, content_ref), None, None, None)
+                    snapshots[content_ref] = (snapshot_shape(snapshot_of(repo, state, content_ref)), None, None, None)
                 except Exception as exc:  # the store's verifier raises its own error types
                     snapshots[content_ref] = (None, "failed", acquisition_reason(exc), refusal_code(exc))
         return snapshots[content_ref]
@@ -6622,7 +6662,8 @@ def acquisition_reason(exc):
     code = refusal_code(exc)
     return {"SOURCE_LINKED": "symlink", "PIN_IDENTITY_MISMATCH": "pin_mismatch",
             "PIN_UNREADABLE": "unreadable", "INPUT_INVALID": "not_an_identifier",
-            "BASELINE_EMPTY": "empty", "JSONDecodeError": "not_json", "ValueError": "malformed",
+            "BASELINE_EMPTY": "empty", "BASELINE_MALFORMED": "malformed", "SNAPSHOT_MALFORMED": "malformed",
+            "JSONDecodeError": "not_json", "ValueError": "malformed",
             "UnicodeDecodeError": "not_json", "Unreadable": "unreadable"}.get(code, "unreadable" if isinstance(exc, OSError) else "not_admitted")
 
 
@@ -14785,6 +14826,132 @@ def self_test():
                   f"bracket={r14_bracket('2026-10-22T08:00:00+00:00')} "
                   f"scope={[r14_rising.get('status'), reason_keys(r14_rising)]} units={r14_units}")
 
+        with section("R1#6: a malformed input is that input's failure"):
+            # ---- R1 #6 (S-25: a failure reaches the inventory of THAT baseline and the sessions naming it, and nothing
+            # else). A file of the owner's state whose JSON is another shape than its writer's, and a census of another
+            # shape than S1's, used to escape its input's own failure: an AttributeError or a TypeError out of the
+            # acquisition or the emission refused the whole run. Each is now its input's failure by a declared code or
+            # key, and the run publishes. Full runs over fixture states of their own; every expectation by hand.
+            r16_at = "2026-10-25T09:00:00+00:00"
+            r16_items = [catalog_item("rule-r16", "rule", "- rule r16")]
+            r16_records = [inj(r16_at, [member("User", "/w/CLAUDE.md", "- r16\n")], cwd="/w/r16")]
+            r16_base = scratch / "r1-6" / "base-state"
+            r16_good = plant_snapshot(r16_base, "# R1 6\n\n- good\n", baseline_ref="ref-r16g", items=r16_items)
+            plant_pin(r16_base, "s-r16g", r16_good)
+            plant_baseline(r16_base, "ref-r16g", r16_items)
+
+            def r16_run(label, state_here, pins, census_text=None, pin_here=None):
+                """`(raised, inventory dir)` of a full `run` over `state_here`, with `--pin pin_here`, and a census of one
+                Claude session per `(ident, content_ref)` in `pins`, or of `census_text` written as it is."""
+                run_at = scratch / "r1-6" / f"run-{label}"
+                run_at.mkdir(parents=True, exist_ok=True)
+                if census_text is None:
+                    census_text = json.dumps({"transcripts": [
+                        {**census_row("claude", ident, raw_lines(scratch / "r1-6" / label / f"{ident}.jsonl", r16_records)),
+                         "pin": {"content_ref": ref_here}} for ident, ref_here in pins]})
+                (run_at / CENSUS).write_text(census_text, encoding="utf-8")
+                out_here = scratch / "r1-6" / f"out-{label}"
+                raised_here = _raised(lambda: run(REPO, state_here, None, out_here, pin=pin_here, run_dir=run_at,
+                                                  commit="fixture", home=fixture_home,
+                                                  native_roots={"projects": {"project": scratch / "project"}}))
+                return raised_here, out_here / "inventory"
+
+            def r16_json(path):
+                return json.loads(path.read_text(encoding="utf-8")) if path.is_file() else {}
+
+            def r16_release(inventory_dir, ref_here):
+                """`[(layer, status, reasons)]` of `ref_here`'s written release inventory, `[]` when none was written."""
+                document_here = r16_json(inventory_dir / "shared" / f"release-{inventory_id('release', ref_here)}.json")
+                return [(row["layer"], row["status"], row["reasons"]) for row in document_here.get("layers") or []]
+
+            def r16_failed_release(rows):
+                return bool(rows) and all(
+                    status == "unknown" and reasons == [f"{layer}: {UNKNOWN_REASONS['input_failed']} (release_baseline: malformed)"]
+                    for layer, status, reasons in rows)
+
+            def r16_baseline_case(label, document_text):
+                """A second session whose own snapshot names the baseline `ref-r16b`, whose inventory.json is
+                `document_text`, beside the valid one: `(raised, good release rows, bad release rows)`."""
+                state_here = scratch / "r1-6" / f"{label}-state"
+                shutil.copytree(r16_base, state_here)
+                bad_ref = plant_snapshot(state_here, "# R1 6\n\n- bad baseline\n", baseline_ref="ref-r16b", items=r16_items)
+                plant_pin(state_here, "s-r16b", bad_ref)
+                (state_here / "runtime" / "baselines" / "ref-r16b").mkdir(parents=True)
+                (state_here / "runtime" / "baselines" / "ref-r16b" / "inventory.json").write_text(document_text,
+                                                                                                  encoding="utf-8")
+                raised_here, inventory_dir = r16_run(label, state_here, [("s-r16g", r16_good), ("s-r16b", bad_ref)])
+                return raised_here, r16_release(inventory_dir, "ref-r16g"), r16_release(inventory_dir, "ref-r16b")
+
+            for r16_label, r16_text, r16_name in (
+                    ("baseline-list", "[]", "R1#6: two sessions, one baseline [] and one valid: the valid one publishes its "
+                                            "release, the other is a named unknown, and the run is not refused"),
+                    ("baseline-item", json.dumps({"items": [7]}),
+                     "R1#6: a baseline item that is not an object is that baseline's failure")):
+                r16_raised, r16_good_rows, r16_bad_rows = r16_baseline_case(r16_label, r16_text)
+                check(r16_name,
+                      r16_raised is None and dict((layer, status) for layer, status, _reasons in r16_good_rows).get("catalog")
+                      == "complete" and not any("input_failed" in str(reasons) for _l, _s, reasons in r16_good_rows)
+                      and r16_failed_release(r16_bad_rows),
+                      f"raised={type(r16_raised).__name__ if r16_raised else None}: {str(r16_raised or '')[:200]} "
+                      f"good={r16_good_rows} bad={r16_bad_rows}")
+
+            def r16_snapshot(state_here, text, **output):
+                """`plant_snapshot`'s snapshot with `output`'s members written over its output.json, the digest the
+                verifier checks kept true, so only the shape is wrong; its content_ref."""
+                ref_here = plant_snapshot(state_here, text, baseline_ref="ref-r16g", items=r16_items)
+                snap = state_here / "sessions" / "snapshots" / ref_here
+                written = json.loads((snap / "output.json").read_text(encoding="utf-8"))
+                (snap / "output.json").write_text(json.dumps({**written, **output}), encoding="utf-8")
+                inventory_here = json.loads((snap / "inventory.json").read_text(encoding="utf-8"))
+                inventory_here["file_digests"]["output.json"] = store_for_pins._digest((snap / "output.json").read_bytes())
+                (snap / "inventory.json").write_text(json.dumps(inventory_here), encoding="utf-8")
+                return ref_here
+
+            r16_snapshots = {}
+            for r16_label, r16_output in (("snapshot-unavailable", {"unavailable": [7]}),
+                                          ("snapshot-text", {"instruction_text": 7})):
+                state_here = scratch / "r1-6" / f"{r16_label}-state"
+                shutil.copytree(r16_base, state_here)
+                bad_ref = r16_snapshot(state_here, f"# R1 6\n\n- {r16_label}\n", **r16_output)
+                plant_pin(state_here, "s-r16b", bad_ref)
+                # a `--pin` of the bad session, so its snapshot's failure is also an omission row with its category
+                r16_raised, inventory_dir = r16_run(r16_label, state_here, [("s-r16g", r16_good), ("s-r16b", bad_ref)],
+                                                    pin_here="claude:s-r16b")
+                records_here = {row["transcript"]["id"]: row for row in r16_json(inventory_dir / f"{SESSIONS}.json")
+                                .get("sessions") or []}
+                r16_snapshots[r16_label] = (
+                    type(r16_raised).__name__ if r16_raised else None,
+                    {ident: (tuple(((records_here.get(ident) or {}).get("pin") or {}).get(key) for key in ("status", "reason")),
+                             tuple(((records_here.get(ident) or {}).get("selection") or {}).get(key)
+                                   for key in ("status", "reason", "inventory_ref")))
+                     for ident in ("s-r16g", "s-r16b")},
+                    (inventory_dir / "shared" / f"selection-{inventory_id('selection', r16_good)}.json").is_file(),
+                    [(row.get("outcome"), row.get("reason"), row.get("code"))
+                     for row in ((r16_json(inventory_dir / "current.json").get("produced_by") or {}).get("notes") or {})
+                     .get("frozen_missing") or [] if row.get("input") == "snapshot"])
+            r16_snapshot_expected = (None, {"s-r16g": (("read", None), ("read", None, inventory_id("selection", r16_good))),
+                                            "s-r16b": (("read", None), ("unknown", "input_failed", None))}, True,
+                                     [("failed", "malformed", "SNAPSHOT_MALFORMED")])
+            check("R1#6: a snapshot whose unavailable row is not an object, or whose instruction_text is not a string, is "
+                  "that snapshot's failure, by its category, and the other session publishes",
+                  len(r16_snapshots) == 2 and all(got == r16_snapshot_expected for got in r16_snapshots.values()),
+                  f"{r16_snapshots}")
+
+            r16_census = {}
+            for r16_label, r16_text in (("census-list", "[]"), ("census-row", json.dumps({"transcripts": [7]})),
+                                        ("census-text", "{not json")):
+                r16_raised, inventory_dir = r16_run(r16_label, r16_base, [], census_text=r16_text)
+                current_here = r16_json(inventory_dir / "current.json")
+                r16_census[r16_label] = (type(r16_raised).__name__ if r16_raised else None,
+                                         [(row["status"], row["reasons"]) for row in current_here.get("layers") or []
+                                          if row["layer"] == "native_global"])
+            check("R1#6: a census that is not JSON, is not an object, or holds a row that is not one, is the transcript "
+                  "layers' named unknown, and the run publishes",
+                  len(r16_census) == 3 and all(
+                      got == (None, [("unknown", [f"native_global: {UNKNOWN_REASONS['census_malformed']}"])])
+                      for got in r16_census.values()),
+                  f"{r16_census}")
+
         with section("P2.6: closures as published edges, typed unresolved requirements, one closure rule (step 0 S-12)"):
             # ---- P2.6 (step 0 S-12, S-26; lead rulings on the P2.6 plan): one closure loop, typed `k-`
             # entries, the canonical order, a shared inventory's edges and the function that closes over them
@@ -16103,7 +16270,7 @@ def self_test():
                               "exclusion_unreadable", "undecodable_elsewhere"),
                 "phase 2": ("baseline_unnamed", "injection_body_empty"),
                 "review round 1": ("memory_path_unusable", "transcript_unread", "carrier_malformed",
-                                   "carrier_unsupported"),
+                                   "carrier_unsupported", "census_malformed"),
             }
             vocabulary_by_refusal = {}
             vocabulary_keys = [key for keys in vocabulary_expected.values() for key in keys]
