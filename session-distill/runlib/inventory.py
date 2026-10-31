@@ -4034,18 +4034,23 @@ def member_dir(path):
 
 def brackets(read):
     """For one read transcript, `bracket(line)` = `(after, ok)`: the first supported instant of a
-    record LATER than that line, and whether the transcript's supported instants do not step back
-    across it (S-5's bracketing). The upper bound of an undated outcome, or of a line that does not
-    decode, is only ever that later record of its own transcript."""
+    record LATER than that line, and whether the transcript's supported instants never step back
+    from its first one up to and including that record (S-5's bracketing). The upper bound of an
+    undated outcome, or of a line that does not decode, is only ever that later record of its own
+    transcript, and a step back anywhere before it says line order is not time order there: the
+    step adjacent to the line is not the only one that can (R1 #4)."""
     supported = [(n, at) for n, record in read["records"] for at in [_instant(_timestamp(record))] if at is not None]
     lines = [n for n, _at in supported]
+    # rising[i]: the supported instants do not step back anywhere from the first up to the i-th
+    rising, held = [], True
+    for index, (_n, at) in enumerate(supported):
+        held = held and (index == 0 or supported[index - 1][1] <= at)
+        rising.append(held)
 
     def bracket(line):
         later = bisect.bisect_right(lines, line)
-        earlier = bisect.bisect_left(lines, line) - 1
         after = supported[later][1] if later < len(supported) else None
-        before = supported[earlier][1] if earlier >= 0 else None
-        return after, after is None or before is None or before <= after
+        return after, after is None or rising[later]
     return bracket
 
 
@@ -5236,6 +5241,11 @@ def _selection_injection(ctx):
     text = snapshot["output"].get("instruction_text") or ""
     # the host the snapshot was compiled for: the `--pin`'s, or a shared selection inventory's
     host = ctx.get("selection_host") or str(ctx.get("pin") or "").partition(":")[0] or None
+    # `current`'s injection is the one the session being diagnosed received. A Codex `--pin`'s snapshot
+    # is evidence about that pin only: no pin is associated with a rollout, an equal id included (§3.3),
+    # so no Codex session is known to have received it. The selection reference point keeps it.
+    if ctx.get("reference") == "current" and host == "codex":
+        raise Unacquired(UNKNOWN_REASONS["id_space"])
     return [carrier("session_injection", f"snapshot:{snapshot['content_ref']}/output.json#instruction_text",
                     text, form="markdown",
                     carrier_id=injection_carrier_id(host, snapshot["content_ref"]))] if text else []
@@ -5293,8 +5303,9 @@ LAYERS = (
                           "selection": ("no producer: a native layer is per event, in sessions.json",
                                         _native("native_undivided"), ())}),
     # Session-level injection exists per session, so "all layers now" can only mean the injection
-    # the session being diagnosed received: with a pin, the snapshot's compiled text answers for
-    # `current` too; without one there is nothing to read and the layer is `unknown`.
+    # the session being diagnosed received: with a Claude pin, the snapshot's compiled text answers for
+    # `current` too; a Codex pin's is `unknown` by id_space, and without one there is nothing to read
+    # and the layer is `unknown`.
     ("session_injection", {"current": ("the pinned session's compiled instruction text", _selection_injection, PINNED),
                            "selection": ("the snapshot's compiled instruction text", _selection_injection, PINNED)}),
     ("ledger_incubating", {"current": ("the ledger's incubating entries (schema 1 or 2)", _ledger("ledger_incubating"), ()),
@@ -14664,6 +14675,115 @@ def self_test():
             control("R1#0: and the same re-injection with one carrier's bytes changed gives that segment an x- of its own",
                     [r10_segments("s-r10d", [r10_files[0], member("Project", "/w/r10/CLAUDE.md", "- the rule, changed\n")])],
                     "segments=4 distinct=4 last_two_shared=False")
+
+        with section("R1#1: a Codex --pin's current injection is id_space"):
+            # ---- R1 #1 (§3.3): a `--pin codex:<id>` snapshot is evidence about that pin only. `current`'s injection is
+            # the one the session being diagnosed received, and no pin is associated with a rollout, an equal id
+            # included, so a Codex pin leaves `current`'s injection unknown by id_space while the selection reference
+            # point keeps the pin's evidence. A Claude `--pin` of the same snapshot still answers `current` from it.
+            # One fixture state of its own, read through `freeze_inputs` as `run` reads it; every expectation by hand.
+            r11_state = scratch / "r1-1" / "state"
+            r11_body = "# R1 1\n\n- a pin's compiled body\n"
+            r11_ref = plant_snapshot(r11_state, r11_body, baseline_ref="ref-r11",
+                                     items=[catalog_item("rule-r11", "rule", "- rule r11")])
+            r11_codex_pins = r11_state / "sessions" / "pins" / "codex"
+            r11_codex_pins.mkdir(parents=True, exist_ok=True)
+            (r11_codex_pins / "c-r11.json").write_text(json.dumps({
+                "schema_version": 1, "content_ref": r11_ref, "host": "codex", "session_id": "c-r11",
+                "created": "2026-10-20T00:00:00+00:00"}), encoding="utf-8")
+            plant_pin(r11_state, "s-r11", r11_ref)
+            r11_at = "2026-10-24T09:00:00+00:00"
+            r11_layers = tuple((layer, producers) for layer, producers in LAYERS if layer == "session_injection")
+
+            def r11_case(label, pin_here, host, ident, records_in, fields):
+                """`(current row, current's injection unit texts, selection row, the census session's own pin
+                chain)` for a `--pin pin_here` run whose census holds `ident`'s transcript alone, its row carrying
+                `fields`; or a refusal summary in the first place, which every check below reads as a failure."""
+                run_at = scratch / "r1-1" / f"run-{label}"
+                path_here = raw_lines(scratch / "r1-1" / label / f"{ident}.jsonl", records_in)
+                run_at.mkdir(parents=True, exist_ok=True)
+                (run_at / CENSUS).write_text(json.dumps({"transcripts": [{**census_row(host, ident, path_here), **fields}]}),
+                                             encoding="utf-8")
+                ctx_here = context_of(REPO, None, None, {}, pin_here, None)
+                ctx_here.update(home=str(fixture_home), commit="fixture")
+                kept_layers = globals()["LAYERS"]
+                try:
+                    freeze_inputs(scratch / "r1-1" / f"frozen-{label}", REPO, r11_state, None, pin_here, ctx_here,
+                                  census_entries(run_at))
+                    bind_transcripts(ctx_here, run_at)
+                    globals()["LAYERS"] = r11_layers
+                    current_here, _units = emitted_document("current", layer_rows("current", ctx_here), ctx_here)
+                    selection_here, _units = emitted_document("selection", layer_rows("selection", ctx_here), ctx_here)
+                except Exception as exc:  # the control names what refused, never the suite
+                    return {"refused": f"{type(exc).__name__}: {str(exc)[:300]}"}, [], {}, {}
+                finally:
+                    globals()["LAYERS"] = kept_layers
+                current_row = next((row for row in current_here["layers"] if row["layer"] == "session_injection"), {})
+                selection_row = next((row for row in selection_here["layers"] if row["layer"] == "session_injection"), {})
+                texts = [unit["text"].strip() for unit in current_here["units"] if unit["layer"] == "session_injection"]
+                own = (ctx_here.get("session_pins") or {}).get(session_ref(host, ident)) or {}
+                return current_row, texts, selection_row, own
+
+            r11_codex, r11_codex_texts, r11_codex_selection, r11_codex_own = r11_case(
+                "codex", "codex:c-r11", "codex", "c-r11", [block_meta("c-r11", r11_at, "# Block\n\n- a block\n", "/w/r11")], {})
+            check("R1#1: a Codex --pin's current session_injection is unknown id_space, and its pin evidence is kept",
+                  r11_codex.get("status") == "unknown"
+                  and r11_codex.get("reasons") == [f"session_injection: {UNKNOWN_REASONS['id_space']}"]
+                  and r11_codex_texts == []
+                  and r11_codex_selection.get("status") == "complete" and r11_codex_selection.get("reasons") == []
+                  and (r11_codex_own.get("status"), r11_codex_own.get("reason")) == ("unknown", "id_space"),
+                  f"current={[r11_codex.get(key) for key in ('refused', 'status', 'reasons')]} units={r11_codex_texts} "
+                  f"selection={[r11_codex_selection.get(key) for key in ('status', 'reasons')]} "
+                  f"own_pin={[r11_codex_own.get(key) for key in ('status', 'reason')]}")
+            r11_claude, r11_claude_texts, r11_claude_selection, _r11_claude_own = r11_case(
+                "claude", "claude:s-r11", "claude", "s-r11",
+                [inj(r11_at, [member("User", "/w/CLAUDE.md", "- a native rule\n")], cwd="/w/r11")],
+                {"pin": {"content_ref": r11_ref}})
+            check("R1#1: and a Claude --pin's current session_injection is still complete from its snapshot",
+                  r11_claude.get("status") == "complete" and r11_claude.get("reasons") == []
+                  and r11_claude_texts == ["# R1 1", "- a pin's compiled body"]
+                  and r11_claude_selection.get("status") == "complete",
+                  f"current={[r11_claude.get(key) for key in ('refused', 'status', 'reasons')]} units={r11_claude_texts} "
+                  f"selection={[r11_claude_selection.get(key) for key in ('status', 'reasons')]}")
+
+        with section("R1#4: an undated event's upper bound needs no step back anywhere before it"):
+            # ---- R1 #4 (§3.15): the only upper bound admitted for an undated event is the first later record of its own
+            # transcript with a supported instant, when the instants are non-decreasing up to it. Session A records an
+            # injection at 12:00, a record at 09:00, an undated injection and a record at 10:00: the step back is not
+            # adjacent to the undated line, and it still leaves the line unbounded, so B's injection at 11:00 does not
+            # provably follow it and native_global is unknown by A's undated head. With A's 12:00 made 08:00 the
+            # instants rise throughout, the bound 10:00 is admitted, and B answers. Every expectation by hand.
+            def r14_records(first_at):
+                return [inj(first_at, [member("User", "/w/CLAUDE.md", "# G\n\n- A first\n")], cwd="/w/r14"),
+                        {"type": "user", "timestamp": "2026-10-22T09:00:00+00:00"},
+                        inj(None, [member("User", "/w/CLAUDE.md", "# G\n\n- A undated\n")], cwd="/w/r14"),
+                        {"type": "user", "timestamp": "2026-10-22T10:00:00+00:00"}]
+
+            def r14_bracket(first_at):
+                """`brackets` at A's undated line (3), over A's records as the reader numbers them."""
+                at, ok = brackets({"records": list(enumerate(r14_records(first_at), start=1))})(3)
+                return None if at is None else at.isoformat(), ok
+
+            r14_b = ("claude", "s-r14b", [inj("2026-10-22T11:00:00+00:00",
+                                               [member("User", "/w/CLAUDE.md", "# G\n\n- B at 11:00\n")], cwd="/w/r14")], {})
+            r14_back = one_scope(published_current("r1-4-back", [
+                ("claude", "s-r14a", r14_records("2026-10-22T12:00:00+00:00"), {}), r14_b]), "native_global", "claude")
+            check("R1#4: a backward step earlier in a transcript leaves its undated head without an upper bound, so "
+                  "another session's later event is not answered for it",
+                  r14_bracket("2026-10-22T12:00:00+00:00") == ("2026-10-22T10:00:00+00:00", False)
+                  and r14_back.get("status") == "unknown" and reason_keys(r14_back) == ["undated"],
+                  f"bracket={r14_bracket('2026-10-22T12:00:00+00:00')} "
+                  f"scope={[r14_back.get('status'), reason_keys(r14_back)]}")
+            r14_rising_doc = published_current("r1-4-rising", [
+                ("claude", "s-r14a", r14_records("2026-10-22T08:00:00+00:00"), {}), r14_b])
+            r14_rising = one_scope(r14_rising_doc, "native_global", "claude")
+            r14_units = sorted(unit["text"].strip() for unit in r14_rising_doc["units"] if unit["layer"] == "native_global")
+            check("R1#4: and with the instants rising throughout, the bound is admitted and the later session answers",
+                  r14_bracket("2026-10-22T08:00:00+00:00") == ("2026-10-22T10:00:00+00:00", True)
+                  and r14_rising.get("status") == "answered" and reason_keys(r14_rising) == []
+                  and r14_units == ["# G", "- B at 11:00"],
+                  f"bracket={r14_bracket('2026-10-22T08:00:00+00:00')} "
+                  f"scope={[r14_rising.get('status'), reason_keys(r14_rising)]} units={r14_units}")
 
         with section("P2.6: closures as published edges, typed unresolved requirements, one closure rule (step 0 S-12)"):
             # ---- P2.6 (step 0 S-12, S-26; lead rulings on the P2.6 plan): one closure loop, typed `k-`
