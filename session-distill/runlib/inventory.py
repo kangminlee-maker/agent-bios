@@ -12172,6 +12172,14 @@ def self_test():
             # margin is now wide in both directions — 3s to be seen, 30s before the child would end on
             # its own — so what is read is the refusal and not the scheduler. The marker carries the two
             # pids, because a 30s sleep that outlived the bound would outlive this suite.
+            #
+            # The first execution of a freshly written script costs more than the next one: measured at
+            # up to 0.5s in six suites run at once, and 0.01s once it has run. So each fixture git
+            # runs once BEFORE its bound, outside it, writing only a warm marker, and the 3s bound then
+            # times a program that has already started once. Six suites at once have read past the
+            # bound by more than that cost, for a cause not determined; a failure here therefore states
+            # its own times (`slow_timing`), so the next one says whether the bound fired early, the
+            # marker came late, or the fixture never started.
             def slow_git_script(marker):
                 """`(the fixture git's text, the environment it reads its marker path from)`.
 
@@ -12179,10 +12187,38 @@ def self_test():
                 Interpolated bare after `>`, a scratch parent holding a space made the shell redirect to
                 the path's first word — a file outside scratch, truncated by a fixture (r4 R3). A suite's
                 own shell text is shell, and a path is not a word. One function, so the control below
-                runs the same text this fixture does."""
-                return ("#!/bin/sh\n/bin/sleep 30 &\n"
+                runs the same text this fixture does. With `SLOW_GIT_WARM` set, the script writes that
+                marker and exits at once: the warm run `warm_start` makes before the bound."""
+                return ("#!/bin/sh\n"
+                        "[ -n \"$SLOW_GIT_WARM\" ] && { printf 'warm\\n' > \"$SLOW_GIT_WARM\"; exit 0; }\n"
+                        "/bin/sleep 30 &\n"
                         "printf '%s\\n%s\\n' \"$!\" \"$$\" > \"$SLOW_GIT_MARKER\"\nwait\n",
                         {"SLOW_GIT_MARKER": str(marker)})
+
+            def warm_start(tree, bin_dir, script_env, warm_marker):
+                """`(what the warm run returned, when it started)`: the fixture git run once through the
+                same caller, under a bound of 30s, so its first-execution cost is paid outside the 3s
+                bound the controls read. It answers an empty listing; anything else is returned as the
+                refusal's text, for the control that judges it."""
+                started = time.time()
+                try:
+                    listing = tracked_paths(tree, git_env={"PATH": f"{bin_dir}:/usr/bin:/bin", **script_env,
+                                                           "SLOW_GIT_WARM": str(warm_marker)}, git_timeout=30)
+                except Exception as exc:
+                    listing = f"{type(exc).__name__}: {exc}"[:300]
+                return listing, started
+
+            def marker_written(path, since):
+                """When `path` was written, in seconds from `since`, or that it is absent."""
+                return f"at {path.stat().st_mtime - since:.3f}s" if path.is_file() else "absent"
+
+            def slow_timing(warm_marker, warm_at, marker, started, fired):
+                """The times a failure here is read by, in seconds from the start of each call: when the
+                warm marker was written, when the bound fired (the refusal came back), and when the slow
+                marker was written, or that a marker is absent."""
+                return (f"warm marker {marker_written(warm_marker, warm_at)} of the warm call; bound fired at "
+                        f"{fired - started:.3f}s of the bounded call; slow marker {marker_written(marker, started)} "
+                        f"of it")
 
             slow_script, slow_script_env = slow_git_script(slow_marker)
             (slow_bin / "git").write_text(slow_script, encoding="utf-8")
@@ -12195,20 +12231,31 @@ def self_test():
             (slow_tree / "inner").mkdir(parents=True)
             (slow_tree / ".git").write_text("gitdir: a fixture, not a repository\n", encoding="utf-8")
             (slow_tree / "inner" / "held.txt").write_text("held\n", encoding="utf-8")
+            slow_warm = scratch / "slow-git-warm"
+            slow_listing, slow_warm_at = warm_start(slow_tree, slow_bin, slow_script_env, slow_warm)
+            slow_after_warm = slow_marker.exists()
+            check("the fixture git ran once before its bound, outside it, and wrote only its warm marker",
+                  slow_listing == [] and slow_warm.is_file()
+                  and slow_warm.read_text(encoding="utf-8") == "warm\n" and not slow_after_warm,
+                  f"listing={slow_listing!r} {masked(slow_warm)} {marker_written(slow_warm, slow_warm_at)} of the "
+                  f"warm call; slow marker after the warm run={slow_after_warm}")
             slow_git = ""
+            slow_started = time.time()
             try:
                 tracked_paths(slow_tree, git_env={"PATH": f"{slow_bin}:/usr/bin:/bin", **slow_script_env},
                               git_timeout=3)
                 slow_git = "a listing came back from a git that never answered"
             except Exception as exc:
                 slow_git = f"{type(exc).__name__}: {exc}"
+            slow_fired = time.time()
             control("a git listing that does not finish is refused by name, never read as an empty tree",
                     [slow_git[:300]], "TREE_UNLISTABLE", "CHILD_TIMEOUT")
             slow_pids = ([int(line) for line in slow_marker.read_text(encoding="utf-8").split()]
                          if slow_marker.is_file() else [])
             check("and the fixture git really was the program that did not answer",
                   slow_marker.is_file() and len(slow_pids) == 2,
-                  f"{masked(slow_marker)}: {slow_pids}")
+                  f"{masked(slow_marker)}: {slow_pids}; "
+                  f"{slow_timing(slow_warm, slow_warm_at, slow_marker, slow_started, slow_fired)}")
 
             def alive(pid):
                 try:
@@ -12252,16 +12299,29 @@ def self_test():
             # Through `tracked_paths`, the same caller the fixture git has above: it bounds the child and
             # ends its group, so the backgrounded sleep is not left standing — and this control adds no
             # dispatch site of its own, which a direct `/bin/sh <scratch path>` would (the trace cannot
-            # resolve a scratch path, and an unresolvable program is a refusal by design).
+            # resolve a scratch path, and an unresolvable program is a refusal by design). It too runs
+            # once before its bound, its warm marker under the same parent.
+            hostile_warm = hostile_parent / "slow-git-warm"
+            hostile_listing, hostile_warm_at = warm_start(hostile_tree, hostile_bin, hostile_env, hostile_warm)
+            hostile_after_warm = hostile_marker.exists()
+            hostile_started = time.time()
             try:
                 tracked_paths(hostile_tree, git_env={"PATH": f"{hostile_bin}:/usr/bin:/bin", **hostile_env},
                               git_timeout=3)
             except Exception:
                 pass          # the refusal is the one the control above already names
+            hostile_fired = time.time()
             check("the fixture git writes its marker inside scratch when its parent's name is shell",
                   hostile_marker.is_file() and len(hostile_marker.read_text(encoding="utf-8").split()) == 2,
                   f"{masked(hostile_marker)}: exists={hostile_marker.is_file()} "
-                  f"{sorted(path.name for path in hostile_parent.iterdir())}")
+                  f"{sorted(path.name for path in hostile_parent.iterdir())}; "
+                  f"{slow_timing(hostile_warm, hostile_warm_at, hostile_marker, hostile_started, hostile_fired)}")
+            check("and under the parent whose name is shell, it too ran once before its bound",
+                  hostile_listing == [] and hostile_warm.is_file()
+                  and hostile_warm.read_text(encoding="utf-8") == "warm\n" and not hostile_after_warm,
+                  f"listing={hostile_listing!r} {masked(hostile_warm)} "
+                  f"{marker_written(hostile_warm, hostile_warm_at)} of the warm call; "
+                  f"slow marker after the warm run={hostile_after_warm}")
             check("and the file an unquoted redirect would have truncated is untouched",
                   sentinel.read_text(encoding="utf-8") == "a sentinel this fixture must leave alone\n",
                   f"{masked(sentinel)}: {sentinel.read_text(encoding='utf-8')!r}")
