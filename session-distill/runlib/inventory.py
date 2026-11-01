@@ -8664,6 +8664,24 @@ def self_test():
                 globals()["DOCUMENT_ROOTS"] = kept_roots
             control("a root the code picks that the schema does not declare, for a document nobody publishes",
                     extra_roots, "DOCUMENT_ROOTS_MISMATCH", "DOCUMENT_ROOTS_UNCOVERED")
+            twinned = json.loads(json.dumps(own_roots))
+            twinned["$defs"]["sessions_document_twin"] = json.loads(json.dumps(twinned["$defs"]["sessions_document"]))
+            control("two schema roots naming one kind",
+                    document_roots_problems(twinned), "DOCUMENT_ROOT_AMBIGUOUS sessions: 2 roots")
+            # A schema whole enough to compile, with no root for the document's kind: nothing else refers to that
+            # root, so only the pick fails to compile, and the document is never judged without its root. Collected
+            # rather than returned, so a pick that raised fails this control by name and does not end the section.
+            rootless = json.loads(json.dumps(own_roots))
+            del rootless["$defs"]["sessions_document"]
+            check("a schema with one document root removed still compiles whole, so the pick is what is judged",
+                  _raised(lambda: validate.compile_schema(rootless)) is None,
+                  f"{_raised(lambda: validate.compile_schema(rootless))}"[:300])
+            rootless_found = []
+            rootless_raised = _raised(lambda: rootless_found.extend(
+                document_contract_problems({"document": SESSIONS}, rootless)))
+            control("a schema with no root for the document's kind is refused by name, never judged without one",
+                    rootless_found or [f"no problem named; raised {type(rootless_raised).__name__}"],
+                    "SCHEMA_INVALID", "$ref must name an entry")
             clean("the limitation kinds, categories and fields the code holds are the ones the schema admits",
                   limitation_schema_problems())
             for name, field, value in (("kinds", "kind", "agent_id_unusable"), ("categories", "category", "locator_unusable")):
@@ -8718,6 +8736,11 @@ def self_test():
             control("an event listed twice", sessions_cross_problems(
                 {**sessions_doc, "events": sessions_doc["events"] + [doc_event]})
                 if plantable else unplanted_problems, "CROSS_EVENT_DUPLICATE")
+            # The second record lists nothing, so no event or segment is listed twice and only the reference names two.
+            control("a session reference naming two records", sessions_cross_problems(
+                {**sessions_doc, "sessions": sessions_doc["sessions"] + [
+                    {**doc_record, "event_refs": [], "segment_refs": []}]})
+                if plantable else unplanted_problems, "CROSS_SESSION_DUPLICATE")
             control("a session record listing an event nobody published", sessions_cross_problems(
                 {**sessions_doc, "sessions": [{**row, "event_refs": row["event_refs"] + ["e-" + "0" * 24]}
                                               if row is doc_record else row for row in sessions_doc["sessions"]]})
@@ -9914,6 +9937,28 @@ def self_test():
                   and ((delivered_records.get("s-gone") or {}).get("pin") or {}).get("baseline_ref") is None
                   and ((delivered_records.get("s-gone") or {}).get("pin") or {}).get("content_ref") == gone_ref,
                   f"{(delivered_records.get('c-id') or {}).get('pin')} {(delivered_records.get('s-gone') or {}).get('pin')}")
+            # A census content_ref that is not a snapshot digest is that session's input failure, named before its pin
+            # is read: held against it, the pin's own digest differs and the session read as a pin naming another
+            # snapshot. Over a copy of the deliveries state, with the pin there, beside a session that reads as s-ok did.
+            badref_state = scratch / "p24" / "badref-state"
+            shutil.copytree(deliver_state, badref_state)
+            plant_pin(badref_state, "s-badref", deliver_ref)
+            badref = published_run("bad-census-ref", [pinned_row("s-ok", [d_native, d_body]),
+                                                      pinned_row("s-badref", [d_native, d_body], "not-a-digest")],
+                                   state=badref_state)
+            badref_records = {row["transcript"]["id"]: row
+                              for row in (badref.get("sessions") or {}).get("sessions") or []}
+            badref_got = {ident: (tuple(((badref_records.get(ident) or {}).get("pin") or {}).get(key)
+                                        for key in ("status", "reason")),
+                                  tuple(((badref_records.get(ident) or {}).get("selection") or {}).get(key)
+                                        for key in ("status", "reason")))
+                          for ident in ("s-ok", "s-badref")}
+            check("a census content_ref that is not a snapshot digest is that session's input_failed unknown, its pin "
+                  "never held against it, and the other session's pin and selection read",
+                  "refused" not in badref and badref_got == {
+                      "s-ok": (("read", None), ("read", None)),
+                      "s-badref": (("unknown", "input_failed"), ("unknown", "input_failed"))},
+                  f"{badref.get('refused')} {badref_got}")
 
             # S-25, two sessions through the production acquisition: a failed pin@(claude, X) reaches X's own
             # record and the aggregate scope X's event is chosen for; a failed snapshot@(claude, X) reaches X's
@@ -10270,6 +10315,22 @@ def self_test():
                   all(len(selection_catalogs(case)) == 2 and all(row["status"] == "complete" for row in selection_catalogs(case))
                       for case in (shared_clean, *runtime_cases.values())),
                   f"{[(label, [(row['status'], row['reasons']) for row in selection_catalogs(case)]) for label, case in (('absent', shared_clean), *runtime_cases.items())]}")
+            # A runtime state that is JSON and not an object is that input's failure, by its category, as a link is:
+            # the acquisition reads `selected_baseline_ref` out of it, and a list has none. Acquired alone, over a
+            # state holding nothing else, so the one runtime_state row is this file's.
+            array_state = scratch / "p24b" / "runtime-array-state"
+            (array_state / "runtime").mkdir(parents=True)
+            (array_state / "runtime" / "state.json").write_text("[]", encoding="utf-8")
+            array_ctx = context_of(REPO, None, None, {}, None, None)
+            array_raised = _raised(lambda: freeze_inputs(scratch / "p24b" / "frozen-runtime-array", REPO, array_state,
+                                                         None, None, array_ctx))
+            array_rows = [row for row in array_ctx.get("omissions") or [] if row["input"] == "runtime_state"]
+            check("S-25: a runtime state that is a JSON array is the runtime_state input's failure, malformed, and the "
+                  "acquisition goes on",
+                  array_raised is None and array_rows == [{"input": "runtime_state", "ref": None,
+                                                           "path": "runtime/state.json", "outcome": "failed",
+                                                           "reason": "malformed", "code": "ValueError"}],
+                  f"raised={type(array_raised).__name__ if array_raised else None} rows={array_rows}")
             # The rule itself (lead, after pretrial-p24b-2): under a planted UNKEYED omission (the runtime state a
             # link, so failed; and no user root), every row of the WRITTEN selection.json equals the same row of its
             # own shared selection inventory, status and reasons — one producer, and one context but for the rows
@@ -11642,6 +11703,24 @@ def self_test():
                   isinstance(crossed, Refused) and "CROSS_EVENT_DUPLICATE" in str(crossed)
                   and not any(crossed_out.rglob("*.json")),
                   f"refused={isinstance(crossed, Refused)} written={len(list(crossed_out.rglob('*.json')))}")
+            # S-22: an artifact's manifest row is judged before the artifact is written. Planted on the first one the
+            # run writes, its sessions.json, so a judgement that did not stop the write leaves that file behind.
+            kept_listed = globals()["artifact_problems"]
+            listed_out = scratch / "listed-out"
+            try:
+                globals()["artifact_problems"] = lambda artifacts: [
+                    f"ARTIFACT_ID_UNEXPECTED {row['path']}: planted" for row in artifacts
+                    if row["path"] == f"inventory/{SESSIONS}.json"]
+                listed = _raised(lambda: run(REPO, state, user, listed_out, pin="claude:session-1",
+                                             ledger=ledger, commit="fixture", **captured()))
+            finally:
+                globals()["artifact_problems"] = kept_listed
+            check("an artifact whose manifest row its rule refuses is refused by name before it is written (S-22)",
+                  isinstance(listed, Refused)
+                  and f"ARTIFACT_ID_UNEXPECTED inventory/{SESSIONS}.json: planted" in str(listed)
+                  and not any(listed_out.rglob("*.json")),
+                  f"refused={isinstance(listed, Refused)}: {str(listed or '')[:200]} "
+                  f"written={sorted(str(path.relative_to(listed_out)) for path in listed_out.rglob('*.json'))}")
             control("a unit whose carrier id is not the opaque identity the schema declares",
                     document_contract_problems({**current_doc, "units": [
                         {**current_doc["units"][0], "carrier_id": f"catalog\0claude/guides/x.md"}]}),
@@ -12534,6 +12613,23 @@ def self_test():
             check("and nothing was created in the location the judgement refused",
                   not any(guarded_tmp.iterdir()),
                   f"{sorted(path.name for path in guarded_tmp.iterdir())}")
+            # The depth bound, asked in this process as the driver's suite asks it: at the limit a suite is refused
+            # its scratch by name. The parent it would get is inside this suite's scratch, so a bound that let it
+            # through creates its directory there and nowhere else, and the body runs no suite, so it cannot recurse.
+            deep_tmp = scratch / "too-deep-tmp"
+            deep_tmp.mkdir()
+            held_depth, held_parent = SELF_TEST_DEPTH[0], SELF_TEST_SCRATCH_PARENT[0]
+            too_deep = ""
+            try:
+                SELF_TEST_DEPTH[0] = SELF_TEST_DEPTH_LIMIT
+                with self_test_scratch("wp07-too-deep-", environ={**guarded_env, "TMPDIR": str(deep_tmp)}):
+                    too_deep = "a suite at the depth limit was given a scratch directory"
+            except Exception as exc:
+                too_deep = f"{type(exc).__name__}: {exc}"
+            finally:
+                SELF_TEST_DEPTH[0], SELF_TEST_SCRATCH_PARENT[0] = held_depth, held_parent
+            control("a suite starting inside a suite at the depth limit is refused its scratch by name",
+                    [too_deep[:300]], "SELF_TEST_TOO_DEEP")
 
         with section('R1#0/R2#0, the differential: for EVERY carrier fixture in this suite, nothing the'):
             # ---- R1#0/R2#0, the differential: for EVERY carrier fixture in this suite, nothing the
@@ -14168,7 +14264,12 @@ def self_test():
             def unlist(doc):
                 doc["sessions"][0]["segment_refs"] = doc["sessions"][0]["segment_refs"][1:]
 
-            planted_cases = (("a gap", drop_segment, "CROSS_SEGMENT_PARTITION"),
+            def twice(doc):
+                doc["segments"].append(dict(next(row for row in doc["segments"]
+                                                 if row["segment_id"] == main_rows[2]["segment_id"])))
+
+            planted_cases = (("a segment id naming two segments", twice, "CROSS_SEGMENT_DUPLICATE"),
+                             ("a gap", drop_segment, "CROSS_SEGMENT_PARTITION"),
                              ("an overlap", widen, "CROSS_SEGMENT_PARTITION"),
                              ("a segment naming another owner's event", name_state("event_ref", side_native),
                               "CROSS_SEGMENT_EVENT"),
@@ -15228,6 +15329,15 @@ def self_test():
                       for field, raised in r21_carried.items())
                   and _raised(lambda: item_carriers(r21_rule, "catalog")) is None,
                   f"{ {field: f'{type(raised).__name__}: {raised}' for field, raised in r21_carried.items()} }")
+            # `snapshot_shape` asks for a list before it asks about any item. A dict or a string iterates, so without
+            # that check its keys or characters are judged as items and the snapshot fails as an item's shape instead.
+            r21_listless = {label: str(_raised(lambda items=items: snapshot_shape(
+                                {"items": items, "output": {"unavailable": [], "instruction_text": ""}})))
+                            for label, items in (("a dict", {"rule-r21": r21_rule}), ("a string", "rule-r21"))}
+            check("R2#1: a snapshot whose items are a dict or a string is SNAPSHOT_MALFORMED as not a list, never as "
+                  "an item",
+                  r21_listless == {label: "SNAPSHOT_MALFORMED: its items are not a list" for label in r21_listless},
+                  f"{r21_listless}")
 
         with section("R2#2: a census that cannot be read, and one read per run"):
             # ---- R2 #2: a census that is there and cannot be read raised an OSError out of `census_entries`, past `run`'s

@@ -1129,6 +1129,25 @@ def self_test():
         control("a startup whose floor cannot load prints the fixed path-free line",
                 floorless.returncode != 0 and floorless.stderr.strip() == STARTUP_WITHHELD,
                 f"{floorless.returncode} {floorless.stderr[-300:]}")
+        # Earlier in startup than both: the boundary module itself does not import, so only the
+        # bootstrap at the top of this file can answer (r3 #2). Its line and its own code, and nothing
+        # after them: without the exit the bootstrap falls through to `entry.WITHHELD`, and the
+        # NameError's traceback carries the copy's paths under code 1. Inventory's suite asks this of
+        # the copy too; this suite asks it of its own entry point, so removing the exit fails here.
+        (startup_copy / "session-distill" / "runlib" / "entry.py").unlink()
+        boundaryless = entry.bounded(lambda: subprocess.Popen(
+            [sys.executable,
+             str(inventory.copied_member(startup_copy, "session-distill/distill.py")),
+             "inventory", "--to", str(scratch / "boundaryless-out"), "--no-state"],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=startup_env,
+            start_new_session=True), what="the copy's driver with no boundary")
+        control("a startup whose boundary module cannot load prints the bootstrap's line, exits with its code "
+                "and prints no traceback",
+                boundaryless.returncode == STARTUP_UNAVAILABLE_CODE
+                and boundaryless.stderr.strip() == STARTUP_UNAVAILABLE
+                and "Traceback" not in boundaryless.stderr and str(startup_copy) not in boundaryless.stderr
+                and not (scratch / "boundaryless-out").exists(),
+                f"{boundaryless.returncode} {boundaryless.stderr[-300:]}")
         # This suite's own failure lines leave through `say`, so a planted path in one is masked. The
         # printer is called directly with rows this control builds, which is the only way to observe
         # a FAILING self-test without failing this one.
