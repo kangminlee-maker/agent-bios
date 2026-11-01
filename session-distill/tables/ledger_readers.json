@@ -1,26 +1,137 @@
 {
-  "$comment": "The code that reads design/session-distill/ledger.json, as data (plan WP-13, F36). `migrate-ledger.py --check` compares it with a discovery over the tracked code files (.py .js .mjs .cjs .sh .toml) in three layers: `text` (the file names ledger.json), `ast` (a Python scope assembles the path from `session-distill` and `ledger.json`, in one statement or several) and `argument` (a line of a file with one of the pattern's suffixes matches one of `argument_patterns`, the way a workflow script handed the ledger's rows names them). A file found by any layer is a reader or a mention, and the one this list lacks fails by path. `path_built` is `literal` (the text layer must find it) or `components` (the AST layer must find it) when the file builds the path itself, `imported` when it receives the module that does, and `argument` when it receives the rows: an argument reader carries a `witness` pattern that must still match its source. `reads` are the schema 1 field names the reader depends on; an entry marked `via` ledger_compat reads the projection, not the entry. `mentions_only` are files that name the ledger in prose or a comment and read nothing; each carries its reason, and an entry whose file stops naming the ledger fails as stale.",
-  "argument_patterns": [{"regex": "\\bargs\\.ledger\\b", "suffixes": [".js", ".mjs", ".cjs"]}],
-  "limits": [
-    "A reader that gets the ledger's rows through a channel no layer names (a pipe from another program, a path read from configuration, a file copied under another name) is invisible to all three layers.",
-    "The AST layer reads Python only, and combines string constants within one module, function or class scope; a path whose pieces sit in different scopes, or are joined from names or imported constants, is found only when the text layer sees `ledger.json` as a literal.",
-    "An argument reader is found by `argument_patterns`, each limited to the suffixes whose scripts take arguments that way (a Python `args.ledger` is an argument parser, and the decision ledger has one); a new reader that names the rows differently is not found until a pattern is added.",
-    "Only code files are searched. Markdown, JSON and the design records are not, so a runbook that tells a person to open the ledger is not a reader here.",
-    "A mention in a comment, a docstring or a string of prose is reported like a reader and has to be listed under `mentions_only`."
-  ],
-  "readers": [
-    {"path": "learn/build-promotions.py", "reads": ["status", "learning_id", "placed_anchor", "placed_package_id"], "via": "session-distill/runlib/ledger_compat.py placed_entries", "path_built": "components"},
-    {"path": "compose/instructions-state.py", "reads": ["status", "classification.layer"], "via": "direct", "path_built": "literal"},
-    {"path": "learn/ingest-learnings-export.py", "reads": ["learning_id"], "via": "direct", "path_built": "components"},
-    {"path": "session-distill/merge-ledger.py", "reads": ["id", "status", "window", "supporting_sessions", "recurrence", "strength", "verdict", "criteria", "principle", "baseline_ref", "placement_proposed", "rationale", "classification"], "via": "direct, until the cutover replaces its body with runlib/ledger.py", "path_built": "literal"},
-    {"path": "session-distill/runlib/ledger.py", "reads": ["the whole ledger"], "via": "direct", "path_built": "literal"},
-    {"path": "session-distill/runlib/ledger_compat.py", "reads": ["status", "learning_id", "classification", "placed_anchor", "placed_package_id", "destination"], "via": "direct", "path_built": "argument", "witness": "def placed_entries\\("},
-    {"path": "session-distill/migrate-ledger.py", "reads": ["the whole ledger"], "via": "direct", "path_built": "imported"},
-    {"path": "session-distill/consolidate.js", "reads": ["id", "lesson"], "via": "the rows `args.ledger` carries, which the runbook (guides/session-distill-workflow.md, step 5) builds from the ledger's entries until the cutover", "path_built": "argument", "witness": "\\bargs\\.ledger\\b"}
-  ],
-  "mentions_only": [
-    {"path": "launch/agent-launch.toml", "reason": "the Session distill preset's mission names the file in prose; no code of the launcher reads it"},
-    {"path": "learn/check-learning.py", "reason": "a docstring names the ledger's shape; the module validates learning records and reads no ledger"},
-    {"path": "session-distill/runlib/dispatch.py", "reason": "names its own per-run supervisor ledger (run_dir/supervisor/ledger.json), a different file; reads nothing of design/session-distill/ledger.json"}
-  ]
+ "$comment": "The code that reads design/session-distill/ledger.json, as data (plan WP-13, F36). `migrate-ledger.py --check` compares it with a discovery over the tracked code files (.py .js .mjs .cjs .sh .toml) in three layers: `text` (the file names ledger.json), `ast` (a Python scope assembles the path from `session-distill` and `ledger.json`, in one statement or several) and `argument` (a line of a file with one of the pattern's suffixes matches one of `argument_patterns`, the way a workflow script handed the ledger's rows names them). A file found by any layer is a reader or a mention, and the one this list lacks fails by path. `path_built` is `literal` (the text layer must find it) or `components` (the AST layer must find it) when the file builds the path itself, `imported` when it receives the module that does, and `argument` when it receives the rows: an argument reader carries a `witness` pattern that must still match its source. `reads` are the schema 1 field names the reader depends on; an entry marked `via` ledger_compat reads the projection, not the entry. `mentions_only` are files that name the ledger in prose or a comment and read nothing; each carries its reason, and an entry whose file stops naming the ledger fails as stale.",
+ "argument_patterns": [
+  {
+   "regex": "\\bargs\\.ledger\\b",
+   "suffixes": [
+    ".js",
+    ".mjs",
+    ".cjs"
+   ]
+  }
+ ],
+ "limits": [
+  "A reader that gets the ledger's rows through a channel no layer names (a pipe from another program, a path read from configuration, a file copied under another name) is invisible to all three layers.",
+  "The AST layer reads Python only, and combines string constants within one module, function or class scope; a path whose pieces sit in different scopes, or are joined from names or imported constants, is found only when the text layer sees `ledger.json` as a literal.",
+  "An argument reader is found by `argument_patterns`, each limited to the suffixes whose scripts take arguments that way (a Python `args.ledger` is an argument parser, and the decision ledger has one); a new reader that names the rows differently is not found until a pattern is added.",
+  "Only code files are searched. Markdown, JSON and the design records are not, so a runbook that tells a person to open the ledger is not a reader here.",
+  "A mention in a comment, a docstring or a string of prose is reported like a reader and has to be listed under `mentions_only`."
+ ],
+ "readers": [
+  {
+   "path": "compose/instructions-state.py",
+   "reads": [
+    "status",
+    "classification.layer"
+   ],
+   "via": "direct",
+   "path_built": "literal"
+  },
+  {
+   "path": "learn/build-promotions.py",
+   "reads": [
+    "status",
+    "learning_id",
+    "placed_anchor",
+    "placed_package_id"
+   ],
+   "via": "session-distill/runlib/ledger_compat.py placed_entries",
+   "path_built": "components"
+  },
+  {
+   "path": "learn/ingest-learnings-export.py",
+   "reads": [
+    "learning_id"
+   ],
+   "via": "direct",
+   "path_built": "components"
+  },
+  {
+   "path": "session-distill/consolidate.js",
+   "reads": [
+    "id",
+    "lesson"
+   ],
+   "via": "the rows `args.ledger` carries, which the runbook (guides/session-distill-workflow.md, step 5) builds from the ledger's entries until the cutover",
+   "path_built": "argument",
+   "witness": "\\bargs\\.ledger\\b"
+  },
+  {
+   "path": "session-distill/merge-ledger.py",
+   "reads": [
+    "id",
+    "status",
+    "window",
+    "supporting_sessions",
+    "recurrence",
+    "strength",
+    "verdict",
+    "criteria",
+    "principle",
+    "baseline_ref",
+    "placement_proposed",
+    "rationale",
+    "classification"
+   ],
+   "via": "direct, until the cutover replaces its body with runlib/ledger.py",
+   "path_built": "literal"
+  },
+  {
+   "path": "session-distill/migrate-ledger.py",
+   "reads": [
+    "the whole ledger"
+   ],
+   "via": "direct",
+   "path_built": "imported"
+  },
+  {
+   "path": "session-distill/runlib/inventory.py",
+   "reads": [
+    "schema",
+    "entries[].id",
+    "entries[].status",
+    "entries[].lesson",
+    "entries[].principle",
+    "entries[].keep"
+   ],
+   "via": "direct",
+   "path_built": "literal"
+  },
+  {
+   "path": "session-distill/runlib/ledger.py",
+   "reads": [
+    "the whole ledger"
+   ],
+   "via": "direct",
+   "path_built": "literal"
+  },
+  {
+   "path": "session-distill/runlib/ledger_compat.py",
+   "reads": [
+    "status",
+    "learning_id",
+    "classification",
+    "placed_anchor",
+    "placed_package_id",
+    "destination"
+   ],
+   "via": "direct",
+   "path_built": "argument",
+   "witness": "def placed_entries\\("
+  }
+ ],
+ "mentions_only": [
+  {
+   "path": "launch/agent-launch.toml",
+   "reason": "the Session distill preset's mission names the file in prose; no code of the launcher reads it"
+  },
+  {
+   "path": "learn/check-learning.py",
+   "reason": "a docstring names the ledger's shape; the module validates learning records and reads no ledger"
+  },
+  {
+   "path": "session-distill/runlib/dispatch.py",
+   "reason": "names its own per-run supervisor ledger (run_dir/supervisor/ledger.json), a different file; reads nothing of design/session-distill/ledger.json"
+  }
+ ]
 }

@@ -75,6 +75,9 @@ from the source, which an unregistered version does.
 """
 import importlib.util
 import collections
+import hashlib
+import threading
+import types
 import unicodedata
 import random
 import contextlib
@@ -1390,8 +1393,10 @@ def every_spelling(value, depth=0, reach=None):
     return out, reach
 
 
-def discloses(text, home=None):
+def discloses_uncached(text, home=None):
     """What a projected block still discloses, named by the detector that found it - or None.
+
+    `discloses` is this, remembered; this is the verifier itself, and what the cache's controls compare it with.
 
     Three rules, each LOCAL and TOTAL - they ask what the output contains, never what the projection did
     with it:
@@ -1424,6 +1429,92 @@ def discloses(text, home=None):
         if any(not vf_exempt(value) for _name, value in vf_keyed(form)):
             return "keyed fragment"
     return "verifier-limit" if reach.exhausted else None
+
+
+# ---- the verifier's answers, remembered ------------------------------------------------------------
+#
+# One run asks the verifier the same question many times over: the inventory's self-test made 10,769,881
+# calls over 21,291 distinct (text, home) inputs, and spent 191.3 of its 192.6 seconds in the verifier on
+# inputs it had already asked about (2026-10-30, f506ef0). An answer depends on three things and nothing
+# else - the text, the home it is judged against, and the rules in force - so it is remembered under all
+# three. The rules are not a list kept here: they are every module-level name `discloses_uncached` reaches,
+# followed through this module's own functions and classes (`DISCLOSURE_RULE_NAMES`, derived at the end of
+# the module, once every name exists), and every member of the floor. A rule replaced while the module runs - a self-test plants one - starts a new generation, and an
+# answer of an older generation is never returned for it.
+#
+# The text itself is not kept: its sha256 is, so the bound is a bound on memory whatever the texts' length.
+DISCLOSES_CACHE_MAX = 65536   # answers remembered at most; past it the oldest is forgotten first
+DISCLOSES_CACHE_STATS = collections.Counter()   # hits, misses, evicted, cleared, bypassed - updated under the lock
+_DISCLOSES_CACHE = {}         # (sha256 of the text, the resolved home, the generation) -> the answer
+_DISCLOSES_STATE = {"rules": None, "generation": 0}
+_DISCLOSES_LOCK = threading.Lock()
+
+
+def disclosure_rules():
+    """The rules in force NOW, as one comparable value: the current value of every name the verifier reaches,
+    and every member of the floor - a list read as its items, because the floor's patterns are changed in
+    place as well as rebound. It is compared, never hashed: a rule is the same when it is the same object."""
+    floor = tuple((name, tuple(value) if isinstance(value, list) else value)
+                  for name, value in vars(FLOOR).items() if not name.startswith("__"))
+    return tuple(map(globals().get, DISCLOSURE_RULE_NAMES)), floor
+
+
+def discloses(text, home=None):
+    """`discloses_uncached`, remembered under the text, the home and the rules in force.
+
+    The home is resolved here, once, and the verifier is asked with exactly the home the key holds: `None`
+    means this process's home as it stands at the call, so a changed `HOME` is a different key. Anything but
+    a plain string text and home is asked of the verifier directly. An exception is never remembered."""
+    resolved = os.path.expanduser("~") if home is None else home
+    if type(text) is not str or type(resolved) is not str:
+        with _DISCLOSES_LOCK:
+            DISCLOSES_CACHE_STATS["bypassed"] += 1
+        return discloses_uncached(text, resolved)
+    rules = disclosure_rules()
+    digest = hashlib.sha256(text.encode("utf-8", "surrogatepass")).digest()
+    with _DISCLOSES_LOCK:
+        if rules != _DISCLOSES_STATE["rules"]:
+            if _DISCLOSES_STATE["rules"] is not None:
+                DISCLOSES_CACHE_STATS["cleared"] += 1
+            _DISCLOSES_STATE["rules"] = rules
+            _DISCLOSES_STATE["generation"] += 1
+            _DISCLOSES_CACHE.clear()
+        key = (digest, resolved, _DISCLOSES_STATE["generation"])
+        if key in _DISCLOSES_CACHE:
+            DISCLOSES_CACHE_STATS["hits"] += 1
+            return _DISCLOSES_CACHE[key]
+    answer = discloses_uncached(text, resolved)
+    with _DISCLOSES_LOCK:
+        DISCLOSES_CACHE_STATS["misses"] += 1
+        while _DISCLOSES_CACHE and len(_DISCLOSES_CACHE) >= DISCLOSES_CACHE_MAX:
+            del _DISCLOSES_CACHE[next(iter(_DISCLOSES_CACHE))]
+            DISCLOSES_CACHE_STATS["evicted"] += 1
+        _DISCLOSES_CACHE[key] = answer
+    return answer
+
+
+def _reached_names(start):
+    """The module-level names `start` reaches, `start` included: every name its code reads, followed into this
+    module's own functions and into the methods of its own classes, nested code included - a helper three calls
+    down is as much the verifier as its entry point is."""
+    namespace = globals()
+    names, pending = {start}, [namespace[start]]
+    while pending:
+        value = pending.pop()
+        if isinstance(value, types.FunctionType) and value.__module__ == __name__:
+            codes = [value.__code__]
+        elif isinstance(value, type) and value.__module__ == __name__:
+            codes = [member.__code__ for member in vars(value).values() if isinstance(member, types.FunctionType)]
+        else:
+            continue
+        while codes:
+            code = codes.pop()
+            codes += [constant for constant in code.co_consts if isinstance(constant, types.CodeType)]
+            for name in code.co_names:
+                if name in namespace and name not in names:
+                    names.add(name)
+                    pending.append(namespace[name])
+    return tuple(sorted(names))
 
 
 def spellings_of(value):
@@ -1738,6 +1829,62 @@ def project_text(text, home=None, depth=0, masked=None):
     return emit(text, mask_spans(text, mask_extents(text, home, depth)), home, masked)
 
 
+def carrier_decision(carrier, home=None):
+    """What this floor decides about a WHOLE carrier, for every span of it to inherit:
+    `(extents, withheld)`.
+
+    `extents` are what it would mask, in the carrier's own coordinates — a credential's key and its
+    value are one relationship, and a splitter that puts the two in different blocks breaks that
+    relationship for anything reading a block alone.
+
+    `withheld` is the decision extents cannot express: the floor sometimes declines to return the
+    carrier AT ALL — undecodable escaped text, an output that still discloses, a masking that broke
+    the syntax. That decision is taken in `emit`, about the whole, and it is asked here by projecting
+    the whole carrier THROUGH THAT ONE EXIT rather than by re-deriving its conditions, which would be
+    a second authority on the same question.
+
+    Extents alone were the leak: for the Markdown carrier `api\\_key: "alpha\\nbravo\\n\\nshortpass"`
+    `project` returns the mask, while the span path applied the undecodable decision only to the
+    detached span and emitted `shortpass` from a later one."""
+    whole = project(carrier, CURRENT, home)
+    if whole == blank_for(carrier):
+        return [], True
+    return mask_extents(carrier, home, 0), False
+
+
+def carrier_extents(carrier, home=None):
+    """The masked extents of a whole carrier. A caller wants `carrier_decision`: this omits the
+    whole-carrier withholding decision, which is not expressible as an extent."""
+    return mask_extents(carrier, home, 0)
+
+
+def project_span(carrier, start, end, home=None, decision=None):
+    """The projection of `carrier[start:end]`, judged with the carrier INTACT.
+
+    Two things carry over from the whole carrier. A decision to WITHHOLD it withholds every span of
+    it: a span of a carrier the floor refused to return is refused too, never projected on its own.
+    Otherwise the carrier's extents are clipped to the span, UNION the span's own — the key three
+    lines above the value still masks it, a credential straddling the span's start is masked for the
+    part inside it, and nothing the span discloses alone is lost because the carrier's context
+    suppressed a match. Masks only grow, which is what makes the union the safe direction.
+
+    This replaces a fixed window of preceding lines. Two nonblank lines do not preserve a carrier's
+    structural context: for `api_key: [\\n "alpha",\\n\\n "bravo",\\n\\n "shortpass"\\n]` the key had
+    fallen outside the window by the time the last element's block was projected, and the value was
+    emitted with nothing to mark it."""
+    span = carrier[start:end]
+    extents, withheld = carrier_decision(carrier, home) if decision is None else decision
+    if withheld or undecodable_claim(span, 0):
+        STATS["carrier_withheld" if withheld else "undecodable_claim"] += 1
+        return emit(span, blank_for(span), home)
+    clipped = []
+    for extent_start, extent_end, replacement, rank in extents:
+        low, high = max(extent_start, start), min(extent_end, end)
+        if low < high:
+            clipped.append((low - start, high - start, replacement, rank))
+    return emit(span, mask_spans(span, clipped + mask_extents(span, home, 0)), home)
+
+
 def note_change(before, after, what, masked):
     """`after`, recording that `what` changed the text when it did."""
     if masked is not None and after != before:
@@ -1828,10 +1975,128 @@ def project(value, version=CURRENT, home=None):
 # 24 members where the decoded strings held 63, the thirteen worst of them scalars no structure story
 # explains. A verification that reads a different text than the thing it verifies cannot be its evidence.
 #
+# `inventory/` is swept for the same reason as the rest: S2's unit records carry the projection of every
+# carrier's fragments, the native layers among them, so the text a judge or the reconstruction author reads
+# is this layer and the sweep has to judge the same text (WP-07's record of 2026-10-22).
+#
 # `index/` is not scanned, and that is safe rather than convenient: a BM25 index's keys are the vocabulary
 # of already-projected text and its values are document numbers, so a posting named `token` means the word
 # occurred. Scanning it reported 2,794 members that were words. The sweep asserts that shape instead.
-SWEPT = ("redacted", "views", "evidence")
+# ---------------------------------------------------------------- a decoded document
+
+DOCUMENT_SAFE_NAME = re.compile(r"^[A-Za-z][A-Za-z0-9_.-]{0,39}$")
+
+
+def document_members(document):
+    """`[(key, value)]` of one decoded object, or None when the value is not one.
+
+    Two representations reach this module from outside: a plain `json.loads` result, whose objects are
+    `dict`, and this module's own `Members`, which keeps duplicates and order. Both are objects, and a
+    caller should not have to know which helper reads which."""
+    if isinstance(document, Members):
+        return [(key, item) for key, item in document]
+    if isinstance(document, dict):
+        return list(document.items())
+    return None
+
+
+def as_members(value):
+    """A decoded value in the representation this module's own walk uses: every object as `Members`.
+
+    `all_mask` reads an object as `Members` (that is how the structure walk hands it one) and answers
+    "not the mask" for a plain `dict` whatever it holds. The conversion lives here, with the helper
+    that needs it, rather than in every caller."""
+    members = document_members(value)
+    if members is not None:
+        return Members([(key, as_members(item)) for key, item in members])
+    if isinstance(value, (list, tuple)):
+        return [as_members(item) for item in value]
+    return value
+
+
+def document_location(parent, key, n, schema=()):
+    """Where a member sits, named by a key the document's own schema declares or by its ordinal.
+
+    A key is untrusted text — a document can carry a credential AS a key, and `shortpass` is a
+    perfectly ordinary word to find there. Syntax is not authority: the previous rule named any key
+    that matched `DOCUMENT_SAFE_NAME` and that this floor had nothing to say about, which named the
+    arbitrary nested key of `{"api_key": {"shortpass": {"token": "x"}}}` and repeated the secret in
+    the refusal. So the name is used only when the code that owns the document declares it as a
+    member name (`schema`), which is a set this floor is handed rather than one it infers.
+
+    A name missing from `schema` costs a readable location and nothing else — the member is reported
+    by its ordinal — so the failure direction is toward saying less."""
+    if isinstance(key, str) and key in schema and DOCUMENT_SAFE_NAME.match(key):
+        return f"{parent}.{key}"
+    return f"{parent}[key #{n}]"
+
+
+def document_disclosures(document, home=None, at="$", depth=0, schema=()):
+    """Every place in a DECODED document that this floor objects to, as `location: what was found`.
+
+    This is the one entry point for "does this document disclose anything". It takes the document in
+    either representation (plain `json.loads` output or `Members`) and converts internally, because
+    the helpers underneath read different shapes: `all_mask` reads `Members`, `holds_secret` reads
+    plain objects, and `discloses` reads a string. A caller that picked a helper per value had to
+    know all three, and got one wrong in each direction — a masked nested member read as disclosed,
+    and a credential-named member inside a plain object read as clean.
+
+    Three rules, every one of them this module's own:
+
+    * a credential-named member whose value is not the mask, for every member of every object at any
+      depth, duplicates included;
+    * a key that itself discloses something;
+    * a string — value or key — that `discloses` still objects to, which covers a structure embedded
+      in that string in any spelling it can reach.
+
+    A row names where it sits and which rule found it, never the value, never a path and never a
+    hash of either. `schema` is the set of member names the code that owns the document declares;
+    `document_location` names a key only when it is one of them, and reports every other key by its
+    ordinal."""
+    problems = []
+    if depth > MAX_DEPTH:
+        return [f"{at}: the document is nested deeper than this floor reads"]
+    members = document_members(document)
+    if members is not None:
+        for n, (key, item) in enumerate(members):
+            where = document_location(at, key, n, schema)
+            if isinstance(key, str) and secret_key(key) and not all_mask(as_members(item)):
+                problems.append(f"{where}: a credential-named member carries a value that is not the mask")
+            if isinstance(key, str):
+                found = discloses(key, home)
+                if found is not None:
+                    problems.append(f"{where}: a key discloses a {found}")
+            problems += document_disclosures(item, home, where, depth + 1, schema)
+        return problems
+    if isinstance(document, (list, tuple)):
+        for n, item in enumerate(document):
+            problems += document_disclosures(item, home, f"{at}[{n}]", depth + 1, schema)
+        return problems
+    if isinstance(document, str):
+        found = discloses(document, home)
+        if found is not None:
+            problems.append(f"{at}: the string discloses a {found}")
+    return problems
+
+
+WITHHELD = ("DIAGNOSTIC_WITHHELD: the message still disclosed something after projection, "
+            "so it is not printed")
+
+
+def diagnostic(text, home=None, schema=()):
+    """One line a command prints, as the floor permits it to be printed.
+
+    A diagnostic is an artifact: a person reads it and whatever captured the terminal stores it, so
+    printing a line the write boundary would refuse is the same leak by another route. The line is
+    projected and then asked the same question every written document is asked, through the same one
+    entry point; a line that still discloses is replaced by the refusal rather than raised, because
+    this runs ON the error path and a diagnostic that raises loses the diagnosis as well as the
+    secret."""
+    projected = project(str(text), CURRENT, home)
+    return WITHHELD if document_disclosures(projected, home, schema=schema) else projected
+
+
+SWEPT = ("redacted", "views", "evidence", "inventory")
 
 
 _KEY_TAIL = re.compile(r'[\w.-]+\Z')
@@ -3565,11 +3830,225 @@ def self_test():
             refused = report_sweep(empty)
         if refused == 0:
             failures.append("the sweep reported success over no subject at all")
+    # ---- document_disclosures: one entry point, over every representation a caller can hand it.
+    # The helpers underneath read different shapes (`all_mask` an object as Members, `holds_secret` a
+    # plain object, `discloses` a string), and a caller choosing per value got one wrong in each
+    # direction. The table is the contract: the same document discloses the same thing whichever
+    # representation it arrives in.
+    doc_token = "sk-ant-oat01-" + "Ab1_" * 12
+    document_shapes = [
+        ("a plain mapping with a credential-named member", {"api_key": "shortpass"}, True),
+        ("the same mapping in this module's own representation", Members([("api_key", "shortpass")]), True),
+        ("a duplicate credential-named member behind a masked one",
+         Members([("api_key", FLOOR.PLACEHOLDER), ("api_key", "shortpass")]), True),
+        ("a list of mappings", [{"api_key": "shortpass"}], True),
+        ("a mapping nested three deep", {"a": {"b": {"api_key": "shortpass"}}}, True),
+        ("a secret string inside a list inside a mapping", {"a": [{"note": f"use {doc_token} now"}]}, True),
+        ("a credential-named member carrying a number", {"api_key": 12345678901234567890}, True),
+        ("a credential-named member carrying a structure", {"token": {"value": "shortpass"}}, True),
+        ("a structure masked through and through", {"token": {"value": FLOOR.PLACEHOLDER}}, False),
+        ("a credential-named member with nothing in it", {"api_key": None}, False),
+        ("the owner's home path in a value", {"path": f"{owner}/Documents/x"}, True),
+        ("a credential as a key", {f"api_key {doc_token}": "x"}, True),
+        ("ordinary prose", {"note": "the dispatch path is verified"}, False),
+        ("a mapping of masked members", Members([("api_key", FLOOR.PLACEHOLDER), ("note", "plain")]), False),
+    ]
+    for label, document, expected in document_shapes:
+        found = document_disclosures(document, owner)
+        if bool(found) != expected:
+            failures.append(f"document_disclosures on {label}: expected "
+                            f"{'a disclosure' if expected else 'none'}, got {found}")
+        for row in found:
+            if doc_token in row or owner in row or "shortpass" in row:
+                failures.append(f"document_disclosures on {label} repeated what it objected to: {row}")
+    both_ways = (document_disclosures({"a": {"api_key": "shortpass"}}, owner),
+                 document_disclosures(as_members({"a": {"api_key": "shortpass"}}), owner))
+    if not both_ways[0] or both_ways[0] != both_ways[1]:
+        failures.append(f"the two representations of one document disclosed differently: {both_ways}")
+    if document_members({"a": 1}) is None or document_members(Members([("a", 1)])) is None \
+            or document_members([1]) is not None:
+        failures.append("document_members does not read both object representations, and only those")
+    if all_mask(as_members({"value": FLOOR.PLACEHOLDER})) is not True \
+            or all_mask({"value": FLOOR.PLACEHOLDER}) is not False:
+        failures.append("as_members no longer hands all_mask the representation it reads")
+    deep = {"a": "x"}
+    for _ in range(MAX_DEPTH + 2):
+        deep = {"a": deep}
+    if not any("nested deeper" in row for row in document_disclosures(deep, owner)):
+        failures.append("a document nested past this floor's reach was judged rather than named")
+    # ---- a location names a key only from the owning code's schema; every other key is an ordinal.
+    # `shortpass` is an ordinary short secret and a perfectly ordinary word to find as a key, and
+    # naming it because it matched a name-shaped regex repeated it in the refusal.
+    nested_key = document_disclosures({"api_key": {"shortpass": {"token": "x"}}}, owner)
+    if not nested_key or any("shortpass" in row for row in nested_key):
+        failures.append(f"an ordinary short secret as a nested key was repeated in its location: {nested_key}")
+    if not all("[key #" in row for row in nested_key):
+        failures.append(f"a key no schema declares was named rather than numbered: {nested_key}")
+    declared = document_disclosures({"api_key": "shortpass"}, owner, schema=frozenset({"api_key"}))
+    if not declared or not all(row.startswith("$.api_key") for row in declared):
+        failures.append(f"a member name the owning code declares was not used as the location: {declared}")
+    # The "a key discloses" rule needs a control of its own: the credential-named-member rule fires on
+    # the same fixture for a secret-shaped key, so removing this rule went unnoticed. A home path as a
+    # key discloses without being credential-named, and this is the only rule that reports it.
+    key_only = document_disclosures({f"{owner}/Documents/x": "plain"}, owner)
+    if [row.partition(": ")[2] for row in key_only] != ["a key discloses a home path"]:
+        failures.append(f"a key that discloses without being credential-named was not reported: {key_only}")
+    if any(owner in row for row in key_only):
+        failures.append(f"the refusal repeated the home path it objected to: {key_only}")
+    # ---- a span is projected with the intact carrier's structural context (GC#4)
+    span_carrier = 'api_key: [\n  "alpha",\n\n  "bravo",\n\n  "shortpass"\n]\n'
+    last = span_carrier.index('  "shortpass"')
+    far = project_span(span_carrier, last, len(span_carrier), owner)
+    if "shortpass" in far:
+        failures.append(f"a credential whose key sits more than two nonblank lines above the value "
+                        f"was emitted unmasked: {far!r}")
+    multiline = 'password: "alpha\nbravo\nshortpass"\n'
+    fragment = project_span(multiline, multiline.index("bravo"), len(multiline), owner)
+    if "shortpass" in fragment or "bravo" in fragment:
+        failures.append(f"a span inside a multi-line credential was emitted unmasked: {fragment!r}")
+    plain = "the dispatch path is verified\n"
+    if project_span(plain, 0, len(plain), owner) != project(plain, CURRENT, owner):
+        failures.append("a span of a carrier that discloses nothing is not the carrier's own projection")
+    if project_span(span_carrier, 0, len(span_carrier), owner) != project(span_carrier, CURRENT, owner):
+        failures.append("a span that IS the whole carrier differs from projecting the carrier")
+    # ---- a printed line passes the same floor, and a line that still discloses is withheld
+    if owner in diagnostic(f"cannot read {owner}/Documents/x", owner):
+        failures.append("a diagnostic printed the owner's home path")
+    if diagnostic("STAGE_NOT_IMPLEMENTED read (S3)", owner) != "STAGE_NOT_IMPLEMENTED read (S3)":
+        failures.append("a diagnostic with nothing to mask was not printed as it stands")
+
+    # ---- the remembered answers: a rule, a home or a bound that changed is never answered from memory ----
+    #
+    # Each control warms the cache first and shows the warm answer CAME from it (a hit counted), so a pass is
+    # not the verifier answering where the cache should have been asked.
+    def asked_twice(text, home=None):
+        """The answer asked once and again, and whether the second ask was answered from the cache."""
+        first = discloses(text, home)
+        hits = DISCLOSES_CACHE_STATS["hits"]
+        second = discloses(text, home)
+        return first, second, DISCLOSES_CACHE_STATS["hits"] == hits + 1
+
+    planted_text = "zq7 a value only a planted floor pattern names 0123456789"
+    cold, warm, hit = asked_twice(planted_text, owner)
+    FLOOR.SECRET_RE.append(re.compile(r"zq7 a value only a planted floor pattern names"))
+    try:
+        planted_answer = discloses(planted_text, owner)
+    finally:
+        FLOOR.SECRET_RE.pop()
+    restored_answer = discloses(planted_text, owner)
+    if (cold, warm, hit, planted_answer, restored_answer) != (None, None, True, "floor", None):
+        failures.append(f"a warm cache answers a floor pattern planted in place after it: cold={cold!r} warm={warm!r} "
+                        f"hit={hit} planted={planted_answer!r} restored={restored_answer!r}")
+
+    member_text = '{"zq7plainname": "a plain value"}'
+    cold, warm, hit = asked_twice(member_text, owner)
+    kept_secret_key = globals()["secret_key"]
+    globals()["secret_key"] = lambda name: True
+    try:
+        replaced_answer = discloses(member_text, owner)
+    finally:
+        globals()["secret_key"] = kept_secret_key
+    restored_answer = discloses(member_text, owner)
+    if (cold, warm, hit, replaced_answer, restored_answer) != (None, None, True, "secret-named key", None):
+        failures.append(f"a warm cache answers a secret_key replaced after it: cold={cold!r} warm={warm!r} hit={hit} "
+                        f"replaced={replaced_answer!r} restored={restored_answer!r}")
+
+    # a helper the verifier reaches only through another one: `vf_unescape`, through `every_spelling`
+    deep_text = "zq7 nothing here to unescape"
+    cold, warm, hit = asked_twice(deep_text, owner)
+    kept_unescape = globals()["vf_unescape"]
+    globals()["vf_unescape"] = lambda text: f"api_key={_PROBE}"
+    try:
+        deep_answer = discloses(deep_text, owner)
+    finally:
+        globals()["vf_unescape"] = kept_unescape
+    restored_answer = discloses(deep_text, owner)
+    if (cold, warm, hit, deep_answer, restored_answer) != (None, None, True, "floor", None):
+        failures.append(f"a warm cache answers a helper replaced two calls below the verifier: cold={cold!r} "
+                        f"warm={warm!r} hit={hit} replaced={deep_answer!r} restored={restored_answer!r}")
+
+    home_a, home_b = "/opt/zq7-home-a", "/opt/zq7-home-b"
+    home_text = f"read {home_a}/notes"
+    a_cold, a_warm, a_hit = asked_twice(home_text, home_a)
+    b_answer = discloses(home_text, home_b)
+    kept_home = os.environ.get("HOME")
+    try:
+        os.environ["HOME"] = home_a
+        env_a, env_a_again, env_a_hit = asked_twice(home_text)
+        os.environ["HOME"] = home_b
+        env_b = discloses(home_text)
+    finally:
+        if kept_home is None:
+            os.environ.pop("HOME", None)
+        else:
+            os.environ["HOME"] = kept_home
+    if (a_cold, a_warm, a_hit, b_answer, env_a, env_a_again, env_a_hit, env_b) != (
+            "home path", "home path", True, None, "home path", "home path", True, None):
+        failures.append(f"a warm cache answers each home with its own answer, and an unnamed home as HOME stands: "
+                        f"a={a_cold!r}/{a_warm!r} hit={a_hit} b={b_answer!r} HOME=a {env_a!r}/{env_a_again!r} "
+                        f"hit={env_a_hit} HOME=b {env_b!r}")
+
+    kept_max = DISCLOSES_CACHE_MAX
+    bound_texts = [f"zq7 bound probe {n}" for n in range(7)]
+    with _DISCLOSES_LOCK:
+        size_before, evicted_before = len(_DISCLOSES_CACHE), DISCLOSES_CACHE_STATS["evicted"]
+    try:
+        globals()["DISCLOSES_CACHE_MAX"] = 4
+        bound_answers = [discloses(text, owner) for text in bound_texts]
+        with _DISCLOSES_LOCK:
+            size_bounded, evicted = len(_DISCLOSES_CACHE), DISCLOSES_CACHE_STATS["evicted"] - evicted_before
+            misses = DISCLOSES_CACHE_STATS["misses"]
+        again = discloses(bound_texts[0], owner)
+        again_missed = DISCLOSES_CACHE_STATS["misses"] == misses + 1
+    finally:
+        globals()["DISCLOSES_CACHE_MAX"] = kept_max
+    with _DISCLOSES_LOCK:
+        size_after = len(_DISCLOSES_CACHE)
+    if (size_bounded != 4 or evicted != size_before + len(bound_texts) - 4 or again != bound_answers[0]
+            or not again_missed or size_after > DISCLOSES_CACHE_MAX):
+        failures.append(f"the cache holds at most its bound, forgetting the oldest: size={size_bounded} of 4, "
+                        f"evicted={evicted} of {size_before + len(bound_texts) - 4}, the forgotten asked again "
+                        f"missed={again_missed} same={again == bound_answers[0]}, then {size_after} of "
+                        f"{DISCLOSES_CACHE_MAX}")
+
+    # every rule the key compares is a value that cannot change in place - a dict or set changed in place
+    # would compare equal to itself and keep an answer computed under its old contents - and no reached
+    # function looks a name up by its string, which the derivation cannot follow
+    def immutable_rule(value):
+        if isinstance(value, tuple):
+            return all(immutable_rule(item) for item in value)
+        # A path is a value object with no public mutator: `FLOOR_PATH`, which the verifier's refusal names,
+        # is one, and without it here this control would refuse today's verifier for a value that cannot change.
+        return value is None or isinstance(value, (types.FunctionType, types.BuiltinFunctionType, type,
+                                                   types.ModuleType, re.Pattern, pathlib.PurePath, str, bytes,
+                                                   int, float, range, frozenset))
+
+    def code_names(code):
+        names, codes = set(), [code]
+        while codes:
+            here = codes.pop()
+            names |= set(here.co_names)
+            codes += [constant for constant in here.co_consts if isinstance(constant, types.CodeType)]
+        return names
+
+    helper_values, floor_values = disclosure_rules()
+    mutable = [f"{name} ({type(value).__name__})" for name, value in zip(DISCLOSURE_RULE_NAMES, helper_values)
+               if not immutable_rule(value)]
+    mutable += [f"FLOOR.{name} ({type(value).__name__})" for name, value in floor_values if not immutable_rule(value)]
+    by_string = sorted(name for name, value in zip(DISCLOSURE_RULE_NAMES, helper_values)
+                       if isinstance(value, types.FunctionType)
+                       and code_names(value.__code__) & {"globals", "vars", "eval", "exec"})
+    if mutable or by_string or len(DISCLOSURE_RULE_NAMES) < 2 or not floor_values:
+        failures.append(f"every rule the cache compares is immutable and reached by name: mutable={mutable} "
+                        f"looked up by string={by_string} names={len(DISCLOSURE_RULE_NAMES)} "
+                        f"floor members={len(floor_values)}")
+
     for failure in failures:
         print(f"projection --self-test [FAIL] {failure}")
     if failures:
         return 1
-    print(f"projection --self-test: OK ({len(secrets)} secret shapes and {len(paths)} home-path shapes masked and "
+    print(f"projection --self-test: OK ({len(document_shapes)} decoded-document shapes judged through the one "
+          f"entry point in both representations, {len(secrets)} secret shapes and {len(paths)} home-path shapes masked and "
           f"idempotent, {len(structured)} structured and JSON-keyed shapes masked (keyed secrets, nested, in a list, "
           f"a non-string value, a Windows path through a tool argument and through escaped text), "
           f"{len(kept) + len(structured_kept)} look-alikes untouched, three escape sequences read as boundaries, the "
@@ -3582,8 +4061,15 @@ def self_test():
           f"differential over the whole fixture corpus (whatever the unchanged floor masks, the "
           f"projection masks at least as much, and somewhere it masks more), and the sweep over a fixture run directory - a planted member found in a record and in a "
           f"pretty-printed window, every quoting its masker writes recognised, an index judged only for its "
-          f"shape, and an unreadable record, an unreadable document and an empty subject set each refused)")
+          f"shape, and an unreadable record, an unreadable document and an empty subject set each refused, and "
+          f"the remembered verifier answers asked again after a floor pattern, a helper, a home and the bound "
+          f"each changed under a warm cache)")
     return 0
+
+
+# The names the verifier reaches, derived here rather than beside the cache: every name exists by now, so a
+# helper defined below the verifier cannot be missed for not existing yet.
+DISCLOSURE_RULE_NAMES = _reached_names("discloses_uncached")
 
 
 if __name__ == "__main__":

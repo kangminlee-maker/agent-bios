@@ -281,6 +281,10 @@ if [ -f session-distill/distill.py ]; then
   python3 session-distill/distill.py declare --self-test >/dev/null \
     || { echo "FAIL: session-distill run declaration self-test (session-distill/distill.py declare)"; fail=1; }
 fi
+if [ -f session-distill/runlib/inventory.py ]; then
+  python3 session-distill/runlib/inventory.py --self-test >/dev/null \
+    || { echo "FAIL: session-distill inventory self-test (session-distill/runlib/inventory.py)"; fail=1; }
+fi
 if [ -f session-distill/runlib/records.py ]; then
   python3 session-distill/runlib/records.py --self-test >/dev/null \
     || { echo "FAIL: session-distill stage record self-test (session-distill/runlib/records.py)"; fail=1; }

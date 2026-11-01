@@ -1601,6 +1601,22 @@ def migration_element(status, **extra):
     return legacy_element("status", "unknown", kind="legacy_migration", legacy_status=status, legacy_text=status, **extra)
 
 
+# The hard-kill fixture this module's self-test runs: a real process that proposes a successor and
+# dies before the rename, so bytes that are still the base afterwards say the rename had not
+# happened (X#1). An inline `python -c` program is admitted by DECLARATION
+# (`runlib/dispatch.py` `INLINE_PROGRAMS`, which pins its sha256), so its text is FIXED and the four
+# values it used to interpolate arrive as its own argv (r3 S3). A test fixture; nothing in this
+# module's behaviour reads it.
+HARD_KILL = (
+    "import json, os, sys, pathlib\n"
+    "here, target, current, lock_root = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]\n"
+    "sys.path.insert(0, here)\n"
+    "from runlib import ledger\n"
+    "doc = json.loads(pathlib.Path(target).read_text())\n"
+    "proposed = ledger.apply_decision(doc, 'S3-2', ledger.sample_element('r2', 'correct'))\n"
+    "ledger.write_atomic(target, proposed, current, lock_root, before_rename=lambda: os._exit(9))\n")
+
+
 def self_test():
     failures = []
     ran = {"events": {}, "effects": set()}
@@ -2849,16 +2865,8 @@ def self_test():
             pass
         if target.read_bytes() != before or sorted(p.name for p in target.parent.iterdir()) != ["ledger.json", "probe.json"]:
             failures.append("write: a crash before the rename changed the file or left a temporary behind")
-        hard = subprocess.run([sys.executable, "-c", (
-            "import json,os,sys,pathlib\n"
-            f"sys.path.insert(0, {str(HERE)!r})\n"
-            "from runlib import ledger\n"
-            f"doc = json.loads(pathlib.Path({str(target)!r}).read_text())\n"
-            # a successor of its own, so bytes that are still the base after the kill say the rename
-            # had not happened; proposing the file back would say that either way (X#1)
-            "proposed = ledger.apply_decision(doc, 'S3-2', ledger.sample_element('r2', 'correct'))\n"
-            f"ledger.write_atomic({str(target)!r}, proposed, {current!r}, {str(lock_root)!r}, before_rename=lambda: os._exit(9))\n")],
-            capture_output=True, text=True)
+        hard = subprocess.run([sys.executable, "-c", HARD_KILL, str(HERE), str(target), current,
+                               str(lock_root)], capture_output=True, text=True)
         if hard.returncode != 9 or target.read_bytes() != before:
             failures.append(f"write: a process killed before the rename left the file changed (exit {hard.returncode})")
         # the same successor the killed child proposed, written now: it lands, so what the child

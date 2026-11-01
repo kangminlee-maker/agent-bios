@@ -1188,7 +1188,8 @@ def run(run_dir, reservation=None, overhead=bound.PACKET_OVERHEAD, seats_path=No
         raise Refused(f"VIEW_NAME_COLLISION: {clash} name more than one transcript")
     done = {}
     with records.run_stage(run_dir, "S2", [{"artifact": "census.json", "producer_stage": "S1"},
-                                           {"artifact": "coverage.json", "producer_stage": "S1"}]) as stage:
+                                           {"artifact": "coverage.json", "producer_stage": "S1"}],
+                           part="views") as stage:
         def work(item):
             done[item["id"]] = view_transcript(run_dir, item["entry"], state, ctx)
 
@@ -1762,9 +1763,14 @@ def self_test():
         expect("the Codex session's blocks are read through its own record shape",
                sorted({r["kind"] for w in [records.read_json(run_dir / f["path"]) for f in golden_run["codex"]["windows"]]
                        for r in w["records"]}), ["human", "tool_call", "tool_result"])
-        expect("the stage recorded S2 as complete with views.json as its output",
-               [(r["status"], [o["artifact"] for o in r["outputs"]]) for s, r in records.stage_records(run_dir).items() if s == "S2"],
+        # S2 holds two producers (records.STAGE_PARTS): this stage run is the views part, and the
+        # stage itself is complete only once the inventory part has run too.
+        expect("the views part of S2 is complete with views.json as its output",
+               [(r["parts"]["views"]["status"], [o["artifact"] for o in r["parts"]["views"]["outputs"]])
+                for s, r in records.stage_records(run_dir).items() if s == "S2"],
                [("complete", ["views.json"])])
+        expect("the stage is partial while the other part of S2 has not run",
+               [r["status"] for s, r in records.stage_records(run_dir).items() if s == "S2"], ["partial"])
         expect("the totals of views.json add up over the transcripts it lists",
                (manifest["totals"]["windows"], manifest["totals"]["clipped"]),
                (sum(len(t["windows"]) for t in manifest["transcripts"]), sum(t["clipped"] for t in manifest["transcripts"])))

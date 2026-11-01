@@ -59,6 +59,11 @@ jsonl_lines, jsonl_read = _jsonl.split, _jsonl.read
 
 # S0 is the declaration itself (run.json); these are the stages that read it and leave a record.
 STAGES = ("S1", "S2", "S3", "S4", "S5", "S6", "S7", "S7b", "S8", "S9", "S9b", "S10", "S10b", "S11", "S12")
+# The stages whose one record holds more than one producer, and the parts each has. A stage absent
+# here keeps the single-producer record shape exactly as it was, and its readers do not change: S2
+# produces the reading views and the inventory of the library, which neither calls the other nor
+# may overwrite the other's record (design §6.1, §6.3).
+STAGE_PARTS = {"S2": ("views", "inventory")}
 STATUSES = ("running", "complete", "partial", "failed")
 OUTCOMES = ("retained", "merged", "rejected", "quarantined")  # design §3.2 item 5
 
@@ -105,6 +110,62 @@ def write_text(run_dir, path, text):
 
 def write_json(run_dir, path, obj):
     write_text(run_dir, path, json_text(obj))
+
+
+# The member names a stage record carries, which is what a refusal about one may name. A key outside
+# this set is reported by its ordinal, so a name missing here costs a readable location and nothing
+# more (`projection.document_location`).
+RECORD_KEYS = frozenset((
+    "stage", "parts", "status", "run_json_sha256", "declaration_seq", "started", "ended",
+    "inputs", "outputs", "calls", "quarantined", "usage", "artifact", "sha256", "producer_stage",
+    "producer_seq", "id", "reason", "because", "unit", "route", "test_config",
+    "measured", "provisional", "unresolved", "complete",
+))
+
+
+def _floor():
+    """`runlib.projection`, imported on use.
+
+    `projection` imports this module for `jsonl_read`, so the two cannot both import at module
+    level; the dependency that matters is this direction, because the floor is where a record is
+    judged before it is published."""
+    from runlib import projection
+    return projection
+
+
+def record_disclosures(document):
+    """What a stage record would disclose, through the floor's one entry point.
+
+    A stage record is a document this run writes, so it answers the question every written document
+    answers — and it answers it BEFORE the bytes land, not after the stage completed. The earlier
+    code checked only after `cmd_inventory` finished successfully, which left the `running` document
+    and every failure record unchecked; an item's quarantine reason is an exception message, and an
+    exception message is a path more often than not (GC#6)."""
+    return _floor().document_disclosures(document, str(pathlib.Path.home()), schema=RECORD_KEYS)
+
+
+def publish_record(run_dir, stage, document, failing=None):
+    """THE publication of a stage record: judged by the floor, then written.
+
+    Every write of `stages/<stage>/record.json` goes through here — the `running` document, the
+    final one, the failure one, and the one carrying another part's preserved entry — so a control
+    observes the real writer rather than a helper beside it.
+
+    `failing` is the exception already on its way out, when there is one: the final publication runs
+    in a `finally`, and a refusal there replaces what was in flight. The disclosure is the graver
+    fact, so it is the one raised, but the failure it ran beside is carried in the message rather
+    than swallowed."""
+    problems = record_disclosures(document)
+    if problems:
+        floor = _floor()
+        beside = ""
+        if failing is not None:
+            beside = (f" (raised while {type(failing).__name__}: "
+                      f"{floor.diagnostic(failing, str(pathlib.Path.home()))} was in flight)")
+        raise Refused(f"RECORD_DISCLOSES {stage}: {'; '.join(problems[:4])}"
+                      + (f" (+{len(problems) - 4} more)" if len(problems) > 4 else "")
+                      + f"; the stage record is not written{beside}")
+    write_json(run_dir, record_path(run_dir, stage), document)
 
 
 def read_json(path):
@@ -249,7 +310,11 @@ def run_items(posture, items, work):
         try:
             work(item)
         except Exception as exc:
-            reason = f"{type(exc).__name__}: {exc}"
+            # The reason is published in the stage record, and an exception's message is a path
+            # often enough — an OSError's message IS one. It passes the floor here, where the text
+            # is made, rather than at the seam that would then have to refuse the whole record.
+            floor = _floor()
+            reason = f"{type(exc).__name__}: {floor.project(str(exc), floor.CURRENT, str(pathlib.Path.home()))}"
             if posture != "production":
                 raise Refused(f"ITEM_FAILED {item['id']} ({posture}): {reason}") from exc
             quarantined[item["id"]] = {"id": item["id"], "reason": reason, "because": None}
@@ -257,8 +322,9 @@ def run_items(posture, items, work):
                 shared = [key for key in SHARED_KEYS
                           if item.get(key) is not None and item.get(key) == other.get(key)]
                 if other["id"] != item["id"] and shared and other["id"] not in quarantined:
+                    shared_value = floor.project(repr(item[shared[0]]), floor.CURRENT, str(pathlib.Path.home()))
                     quarantined[other["id"]] = {"id": other["id"], "because": item["id"],
-                                                "reason": f"shares {shared[0]} {item[shared[0]]!r} with {item['id']}, which failed"}
+                                                "reason": f"shares {shared[0]} {shared_value} with {item['id']}, which failed"}
             done = [i for i in done if i not in quarantined]
         else:
             done.append(item["id"])
@@ -285,16 +351,68 @@ class StageRun:
         return result
 
 
+def _legacy_part(stage, record):
+    """Which declared part a pre-parts record belongs to, from the artifacts it recorded.
+
+    A record written before a stage had parts names no producer, but its outputs do: `views.json`
+    was written by the views part and by nothing else. A record whose outputs match no part's
+    artifacts keeps no part name, and the caller decides what to do with it."""
+    produced = {row.get("artifact") for row in record.get("outputs") or []}
+    for label in STAGE_PARTS.get(stage, ()):
+        if any(str(artifact).startswith(label) or str(artifact).startswith(f"{label}.")
+               or str(artifact).startswith(f"{label}/") for artifact in produced):
+            return label
+    return None
+
+
+def producing_part(record, artifact):
+    """`(label, entry)` of the part of a stage record that produced `artifact`.
+
+    A record with no `parts` is the single-producer shape and answers for itself, so every reader
+    written before parts existed keeps working unchanged."""
+    parts = record.get("parts")
+    if not isinstance(parts, dict):
+        return record.get("stage"), record
+    for label in sorted(parts):
+        entry = parts[label]
+        if any(row.get("artifact") == artifact for row in entry.get("outputs", [])):
+            return label, entry
+    return None, None
+
+
+def derived_status(record):
+    """A stage's status, derived from its parts and never written on its own: complete only when
+    every declared part is complete."""
+    parts = record.get("parts")
+    if not isinstance(parts, dict):
+        return record.get("status")
+    declared = STAGE_PARTS.get(record.get("stage"), ())
+    states = [parts.get(label, {}).get("status") for label in declared]
+    if "failed" in states:
+        return "failed"
+    if "running" in states:
+        return "running"
+    if all(state == "complete" for state in states):
+        return "complete"
+    return "partial"
+
+
 def _check_input(run_dir, stage, spec, seq, amendments, records):
     """(pinned input, violations) for one declared input `{artifact, producer_stage}`."""
     artifact, producer = spec["artifact"], spec["producer_stage"]
     produced = records.get(producer)
     if produced is None:
         return None, [f"INPUT_INVALID {producer}: no record for the stage that produces {artifact}"]
+    # An input is judged against the PART that produced it: the inventory failing says nothing
+    # about views.json, and views being partial says everything about it.
+    label, produced = producing_part(produced, artifact)
+    if produced is None:
+        return None, [f"INPUT_INVALID {producer}: no part of its record produced {artifact}"]
+    producer_label = f"{producer}.{label}" if label and label != producer else producer
     if produced.get("status") in ("running", "partial"):
-        return None, [f"INPUT_PARTIAL {producer}: its record is {produced['status']}, so {artifact} is incomplete"]
+        return None, [f"INPUT_PARTIAL {producer_label}: its record is {produced['status']}, so {artifact} is incomplete"]
     if produced.get("status") != "complete":
-        return None, [f"INPUT_INVALID {producer}: its record is {produced.get('status')!r}"]
+        return None, [f"INPUT_INVALID {producer_label}: its record is {produced.get('status')!r}"]
     path = contained(run_dir, artifact)
     if path is None:
         return None, [f"INPUT_INVALID {producer}: {artifact} leaves the run directory"]
@@ -302,21 +420,35 @@ def _check_input(run_dir, stage, spec, seq, amendments, records):
         return None, [f"INPUT_INVALID {producer}: {artifact} is not a file"]
     digest = sha256_file(path)
     if {o["artifact"]: o["sha256"] for o in produced["outputs"]}.get(artifact) != digest:
-        return None, [f"INPUT_INVALID {producer}: {artifact} is not the output {producer} recorded"]
+        return None, [f"INPUT_INVALID {producer_label}: {artifact} is not the output {producer_label} recorded"]
     errors = check_declaration_order(stage, seq, producer, produced["declaration_seq"], amendments)
     return {"artifact": artifact, "sha256": digest, "producer_stage": producer,
             "producer_seq": produced["declaration_seq"]}, errors
 
 
 @contextlib.contextmanager
-def run_stage(run_dir, stage, inputs=()):
+def run_stage(run_dir, stage, inputs=(), part=None):
     """Hold the stage's lock, refuse to start on a stale, partial or invalid input or a
     declaration edited outside `declare`, write the record as `running`, and finish it as
     `complete` (or as `partial` when the stage said so, or `failed` on an exception).
 
-    `inputs` are `{artifact, producer_stage}`: the artifact's path under the run directory."""
+    `inputs` are `{artifact, producer_stage}`: the artifact's path under the run directory.
+
+    `part` names one producer of a stage that has several (`STAGE_PARTS`). The record is still one
+    file and one lock; this call reads it, replaces its own part's entry, and leaves every other
+    part's entry exactly as it found it. The stage's own status is derived from the parts rather
+    than written, so no producer can declare a stage complete on another's behalf."""
     if stage not in STAGES:
         raise Refused(f"STAGE_UNKNOWN {stage}: not one of {', '.join(STAGES)}")
+    if part is not None and part not in STAGE_PARTS.get(stage, ()):
+        raise Refused(f"STAGE_PART_UNKNOWN {stage}.{part}: the parts of {stage} are "
+                      f"{list(STAGE_PARTS.get(stage, ())) or 'none'}")
+    if part is None and stage in STAGE_PARTS:
+        # A part-less write to a stage that HAS parts replaces the whole record, whatever is there.
+        # Refusing only when another part's entry already exists made the rule depend on the order
+        # the producers happened to run in (GC#9).
+        raise Refused(f"STAGE_PART_REQUIRED {stage}: it has the parts {list(STAGE_PARTS[stage])}, so a "
+                      f"writer names the part it produces")
     with stagelock.hold(run_dir, f"stage-{stage}"):
         # the declaration lock makes "read the declaration, check, pin it" one step: `declare`
         # cannot edit or amend between the check and the record
@@ -333,7 +465,33 @@ def run_stage(run_dir, stage, inputs=()):
             record = {"stage": stage, "run_json_sha256": digest, "declaration_seq": seq, "started": now(),
                       "ended": None, "status": "running", "inputs": pinned, "outputs": [], "calls": [],
                       "quarantined": [], "usage": {"measured": 0, "provisional": 0, "unresolved": 0, "complete": False}}
-            write_json(run_dir, record_path(run_dir, stage), record)
+            document = record
+            existing = read_json(record_path(run_dir, stage)) if record_path(run_dir, stage).is_file() else {}
+            if part is not None:
+                parts = dict(existing.get("parts") or {})
+                if not parts and existing.get("outputs") is not None:
+                    # A record written before this stage had parts is one producer's record. Which
+                    # producer is decided by the artifacts it carries, and it is kept: adding a part
+                    # beside it must not take `views.json` away from the stage that made it (GB#11).
+                    kept = _legacy_part(stage, existing)
+                    if kept is None:
+                        # A running or failed record with no outputs names no producer, and its
+                        # artifacts cannot name one either. Discarding it silently is what GB#11
+                        # forbids, so the ambiguity is refused rather than resolved (GC#9).
+                        raise Refused(f"STAGE_PART_AMBIGUOUS {stage}: the record already here names no part "
+                                      f"and its outputs identify none (status "
+                                      f"{existing.get('status')!r}, {len(existing.get('outputs') or [])} "
+                                      f"output(s)); close or remove it before a part writes")
+                    if kept != part:
+                        parts[kept] = existing
+                parts[part] = record
+                document = {"stage": stage, "parts": parts}
+                document["status"] = derived_status(document)
+            elif existing.get("parts"):
+                raise Refused(f"STAGE_PART_REQUIRED {stage}: its record already holds the parts "
+                              f"{sorted(existing['parts'])}, and a writer that names no part would "
+                              f"replace all of them")
+            publish_record(run_dir, stage, document)
         try:
             yield StageRun(run_dir, record, run.get("posture"))
         except BaseException:
@@ -344,7 +502,9 @@ def run_stage(run_dir, stage, inputs=()):
                 record["status"] = "complete"
         finally:
             record["ended"] = now()
-            write_json(run_dir, record_path(run_dir, stage), record)
+            if part is not None:
+                document["status"] = derived_status(document)
+            publish_record(run_dir, stage, document, sys.exc_info()[1])
 
 
 def expect_set(ids):
@@ -574,6 +734,15 @@ def self_test():
             except Exception as exc:  # a reverted check fails by its control's name, not by a traceback
                 return [f"RAISED {exc!r}"]
 
+        def part_run_elsewhere(directory):
+            """A part named for a stage that declares none: refused by name."""
+            try:
+                with run_stage(directory, "S1", part="views"):
+                    pass
+                return []
+            except Refused as exc:
+                return str(exc).splitlines()
+
         def start_in(other_dir, stage="S1", inputs=()):
             try:
                 with run_stage(other_dir, stage, inputs):
@@ -597,11 +766,14 @@ def self_test():
                                        if k not in first])
         if first["status"] != "complete" or first["run_json_sha256"] != sha256_file(run_json_path(run_dir)):
             failures.append(f"S1 record does not pin the declaration it read: {first}")
-        expect("complete input accepted", start("S2", [{"artifact": "S1.out", "producer_stage": "S1"}]))
-        pinned = read_json(record_path(run_dir, "S2"))["inputs"]
+        expect("complete input accepted", start("S3", [{"artifact": "S1.out", "producer_stage": "S1"}]))
+        # Guard the subject: when the run above was refused there is no record to read, and the
+        # control that named the refusal has already fired.
+        pinned = (read_json(record_path(run_dir, "S3")).get("inputs")
+                  if record_path(run_dir, "S3").is_file() else "no S3 record was written")
         if pinned != [{"artifact": "S1.out", "sha256": sha256_file(run_dir / "S1.out"),
                        "producer_stage": "S1", "producer_seq": 0}]:
-            failures.append(f"S2 record does not pin its input: {pinned}")
+            failures.append(f"S3 record does not pin its input: {pinned}")
         produce("S4", status="partial")
         expect("partial input is refused under the production posture", start("S5", [{"artifact": "S4.out", "producer_stage": "S4"}]), "INPUT_PARTIAL S4")
         expect("no producer record", start("S7", [{"artifact": "S6.out", "producer_stage": "S6"}]), "INPUT_INVALID S6")
@@ -630,8 +802,10 @@ def self_test():
         amend_fixture(run_dir, {**base, "declaration_seq": 1}, amend(1, scope=("S10",)))
         expect("amendment licenses S10, producer S1 not invalidated",
                start("S10", [{"artifact": "S1.out", "producer_stage": "S1"}]))
-        if read_json(record_path(run_dir, "S10"))["inputs"][0]["producer_seq"] != 0:
-            failures.append("S10 pinned its producer's sequence as its own")
+        pinned_s10 = (read_json(record_path(run_dir, "S10")).get("inputs")
+                      if record_path(run_dir, "S10").is_file() else [])
+        if [row.get("producer_seq") for row in pinned_s10] != [0]:
+            failures.append(f"S10 pinned its producer's sequence as its own: {pinned_s10}")
         expect("amendment does not list S10b",
                start("S10b", [{"artifact": "S1.out", "producer_stage": "S1"}]), "DECLARATION_DRIFT S10b")
         # a log that is not a numbered sequence, or not readable, is named
@@ -727,7 +901,7 @@ def self_test():
         by_hand(record_path(bound, "S1"), producer)
 
         def consume(name):
-            return start_in(bound, "S2", [{"artifact": name, "producer_stage": "S1"}])
+            return start_in(bound, "S3", [{"artifact": name, "producer_stage": "S1"}])
 
         expect("a contained artifact is accepted", consume("sub/ok.out"))  # the positive case, before any escape
         expect("a contained artifact that is not a file", consume("sub/gone.out"), "INPUT_INVALID S1: sub/gone.out is not a file")
@@ -837,6 +1011,219 @@ def self_test():
         expect("a symlinked stages directory", escape(under_run, stages, "S1"), "RUN_PATH_ESCAPE")
         if list(target.iterdir()):
             failures.append(f"a stage record was written through a symlinked stages directory: {list(target.iterdir())}")
+
+        # ---- a stage with several producers: one record, one lock, one part each
+        parts_dir = pathlib.Path(td) / "parts"
+        declare_fixture(parts_dir, base)
+
+        def part_run(label, artifact, status="complete", raising=False, body=None):
+            try:
+                with run_stage(parts_dir, "S2", part=label) as st:
+                    (parts_dir / artifact).write_text(body or f"{label} output\n", encoding="utf-8")
+                    st.output(artifact)
+                    st.record["status"] = status
+                    if raising:
+                        raise RuntimeError(f"{label} failed")
+            except RuntimeError:
+                pass
+            except Refused as exc:
+                return str(exc).splitlines()
+            return []
+
+        expect("the first part of a stage runs", part_run("views", "views.json"))
+        expect("the second part runs beside it", part_run("inventory", "inventory.json"))
+        both = read_json(record_path(parts_dir, "S2"))
+        if sorted(both.get("parts", {})) != ["inventory", "views"]:
+            failures.append(f"the second part clobbered the first: {sorted(both.get('parts', {}))}")
+        both.setdefault("parts", {}).setdefault("views", {"outputs": [], "started": None})
+        both["parts"].setdefault("inventory", {"outputs": [], "started": None})
+        if [o["artifact"] for o in both["parts"]["views"].get("outputs", [])] != ["views.json"]:
+            failures.append(f"the views part lost its own outputs: {sorted(both['parts']['views'])}")
+        if both.get("status") != "complete":
+            failures.append(f"a stage whose every part is complete is not complete: {both.get('status')}")
+        started = both["parts"]["views"].get("started")
+        expect("a part reruns", part_run("inventory", "inventory.json", body="a second inventory\n"))
+        again = read_json(record_path(parts_dir, "S2"))
+        again_parts = again.get("parts", {})
+        if again_parts.get("views") != both["parts"]["views"] or again_parts.get("views", {}).get("started") != started:
+            failures.append("rerunning one part rewrote the other part's entry")
+        if again_parts.get("inventory", {}).get("outputs") == both["parts"]["inventory"].get("outputs"):
+            failures.append("rerunning a part did not replace its own entry")
+        part_run("inventory", "inventory.json", raising=True)
+        derived = read_json(record_path(parts_dir, "S2"))
+        if derived.get("status") != "failed" or derived.get("parts", {}).get("views", {}).get("status") != "complete":
+            failures.append(f"the stage status is not derived from its parts: {derived.get('status')} "
+                            f"/ {derived.get('parts', {}).get('views', {}).get('status')}")
+        expect("a downstream input is admitted by the part that produced it",
+               start_in(parts_dir, "S3", [{"artifact": "views.json", "producer_stage": "S2"}]))
+        expect("an artifact no part of the stage produced",
+               start_in(parts_dir, "S4", [{"artifact": "nobody.json", "producer_stage": "S2"}]),
+               "INPUT_INVALID S2", "no part of its record produced")
+        expect("a downstream input whose producing part failed",
+               start_in(parts_dir, "S5", [{"artifact": "inventory.json", "producer_stage": "S2"}]),
+               "INPUT_INVALID S2.inventory")
+        part_run("views", "views.json", status="partial")
+        expect("a downstream input whose producing part is partial",
+               start_in(parts_dir, "S6", [{"artifact": "views.json", "producer_stage": "S2"}]),
+               "INPUT_PARTIAL S2.views")
+        expect("a part the stage does not declare", part_run("census", "census.json"),
+               "STAGE_PART_UNKNOWN S2.census")
+        expect("a writer that names no part of a stage that has them",
+               start_in(parts_dir, "S2", []), "STAGE_PART_REQUIRED S2")
+        # the same refusal before any part has run: a fresh part-less write is the same violation
+        fresh_dir = pathlib.Path(td) / "fresh-parts"
+        declare_fixture(fresh_dir, base)
+        expect("a part-less writer to a stage with parts, before any part has run",
+               start_in(fresh_dir, "S2", []), "STAGE_PART_REQUIRED S2")
+        if record_path(fresh_dir, "S2").is_file():
+            failures.append("a refused part-less write still left an S2 record")
+        # The second half of the same rule, and the one `STAGE_PARTS` does not reach: a stage this
+        # version declares NO parts for, whose record on disk nevertheless holds some — an older
+        # run's, or a later version's. A part-less write there would replace every part's entry at
+        # once, so it is refused by what the record HOLDS rather than by the table. This was a
+        # control-audit survivor: removing the refusal left every suite green.
+        held_dir = pathlib.Path(td) / "parts-held-by-record"
+        declare_fixture(held_dir, base)
+        held_record = {"stage": "S3", "status": "complete", "declaration_seq": 1,
+                       "parts": {"a-producer": {"stage": "S3", "status": "complete", "outputs": []}}}
+        write_json(held_dir, record_path(held_dir, "S3"), held_record)
+        expect("a part-less writer to a stage whose record already holds parts",
+               start_in(held_dir, "S3", []), "STAGE_PART_REQUIRED S3", "already holds the parts")
+        if read_json(record_path(held_dir, "S3")) != held_record:
+            failures.append("the refused part-less write replaced the parts the record held")
+        if "S3" in STAGE_PARTS:
+            failures.append("S3 has declared parts, so this control is the table's refusal again")
+        # a legacy record whose outputs identify no part: refused, not silently replaced
+        ambiguous_dir = pathlib.Path(td) / "ambiguous-legacy"
+        declare_fixture(ambiguous_dir, base)
+        write_json(ambiguous_dir, record_path(ambiguous_dir, "S2"),
+                   {"stage": "S2", "status": "failed", "outputs": [], "declaration_seq": 1})
+        def legacy_ambiguous():
+            try:
+                with run_stage(ambiguous_dir, "S2", part="inventory"):
+                    pass
+                return []
+            except Refused as exc:
+                return str(exc).splitlines()
+            except Exception as exc:
+                return [f"RAISED {exc!r}"]
+
+        expect("a legacy record whose outputs identify no producer", legacy_ambiguous(),
+               "STAGE_PART_AMBIGUOUS S2")
+        if read_json(record_path(ambiguous_dir, "S2")).get("status") != "failed":
+            failures.append("the ambiguous legacy record was overwritten after all")
+        # a record written before the stage had parts keeps its producer when a part is added
+        legacy_dir = pathlib.Path(td) / "legacy"
+        declare_fixture(legacy_dir, base)
+        # Built directly, not through the writer API: the writer now refuses a part-less write to a
+        # stage with parts, so a fixture made with it would be a record this version can produce
+        # rather than the one an older version left behind (GC#9).
+        (legacy_dir / "views.json").write_text("the legacy views output\n", encoding="utf-8")
+        write_json(legacy_dir, record_path(legacy_dir, "S2"), {
+            "stage": "S2", "run_json_sha256": sha256_file(legacy_dir / "run.json"),
+            "declaration_seq": read_json(legacy_dir / "run.json")["declaration_seq"],
+            "started": now(), "ended": now(), "status": "complete", "inputs": [],
+            "outputs": [{"artifact": "views.json", "sha256": sha256_file(legacy_dir / "views.json")}],
+            "calls": [], "quarantined": [],
+            "usage": {"measured": 0, "provisional": 0, "unresolved": 0, "complete": True}})
+        with run_stage(legacy_dir, "S2", part="inventory") as st:
+            (legacy_dir / "inventory.json").write_text("the inventory output\n", encoding="utf-8")
+            st.output("inventory.json")
+        moved = read_json(record_path(legacy_dir, "S2"))
+        if sorted(moved.get("parts", {})) != ["inventory", "views"]:
+            failures.append(f"adding a part discarded the legacy producer: {sorted(moved.get('parts', {}))}")
+        kept_label, kept_entry = producing_part(moved, "views.json")
+        if kept_label != "views" or not kept_entry:
+            failures.append(f"the legacy producer's artifact lost its producing part: {kept_label}")
+        expect("a downstream input on the artifact the legacy producer made",
+               start_in(legacy_dir, "S3", [{"artifact": "views.json", "producer_stage": "S2"}]))
+        expect("a stage that declares no parts refuses one",
+               part_run_elsewhere(parts_dir), "STAGE_PART_UNKNOWN S1.views")
+        # the record written before parts existed still reads, and is still its own producer
+        legacy = read_json(record_path(run_dir, "S1"))
+        if "parts" in legacy or derived_status(legacy) != legacy.get("status"):
+            failures.append(f"a single-producer record did not keep its shape: {sorted(legacy)}")
+        try:
+            label, entry = producing_part(legacy, "S1.out")
+        except Exception as exc:  # the control names the rule, not a traceback
+            label, entry = f"RAISED {exc!r}", None
+        if label != "S1" or entry is not legacy:
+            failures.append(f"a record written before parts existed no longer answers for its own output: {label}")
+
+        # ---- GC#6: every stage-record publication crosses the disclosure boundary FIRST, and the
+        # controls observe the real writer — `run_stage`'s own two writes — rather than a helper.
+        home = str(pathlib.Path.home())
+        secret_path = f"{home}/Documents/not-a-real-file"
+
+        def published(directory, stage, body, part=None):
+            """What `run_stage` left on disk, and what it raised: the writer itself, not a filter."""
+            try:
+                with run_stage(directory, stage, part=part) as stage_run:
+                    body(stage_run)
+                raised = ""
+            except Refused as exc:
+                raised = str(exc)
+            except Exception as exc:
+                raised = f"RAISED {exc!r}"
+            path = record_path(directory, stage)
+            return raised, (path.read_text(encoding="utf-8") if path.is_file() else "")
+
+        # (1) a failure record: an item's quarantine reason is an exception message, and an OSError's
+        # message IS a path. The record is published, and what it publishes is the projection.
+        failing_dir = pathlib.Path(td) / "disclose-items"
+        declare_fixture(failing_dir, base)
+
+        def fail_with_path(item):
+            if item["id"] == "B":
+                raise OSError(f"cannot read {secret_path}")
+        raised, text = published(failing_dir, "S3", lambda st: st.run_items(batch, fail_with_path))
+        if secret_path in text or home in text:
+            failures.append(f"a quarantine reason published the owner's home path: {raised} {text[:200]}")
+        if "<HOME>" not in text or '"quarantined"' not in text:
+            failures.append(f"the failure record was not published with the reason projected: {raised} {text[:200]}")
+
+        # (2) a preserved part: the record already on disk is carried into `parts` by the FIRST
+        # (running) publication, so the boundary has to be crossed there and not after the stage.
+        kept_dir = pathlib.Path(td) / "disclose-preserved"
+        declare_fixture(kept_dir, base)
+        (kept_dir / "views.json").write_text("the legacy views output\n", encoding="utf-8")
+        planted = {"stage": "S2", "run_json_sha256": sha256_file(kept_dir / "run.json"),
+                   "declaration_seq": read_json(kept_dir / "run.json")["declaration_seq"],
+                   "started": now(), "ended": now(), "status": "complete", "inputs": [],
+                   "outputs": [{"artifact": "views.json", "sha256": sha256_file(kept_dir / "views.json")}],
+                   "calls": [{"api_key": "shortpass"}], "quarantined": [],
+                   "usage": {"measured": 0, "provisional": 0, "unresolved": 0, "complete": True}}
+        write_json(kept_dir, record_path(kept_dir, "S2"), planted)
+        before = record_path(kept_dir, "S2").read_text(encoding="utf-8")
+        raised, text = published(kept_dir, "S2", lambda st: None, part="inventory")
+        expect("a preserved part carrying a credential is refused before the record is published",
+               [raised], "RECORD_DISCLOSES S2", "a credential-named member")
+        if text != before:
+            failures.append("the refused publication replaced the record anyway")
+        if "shortpass" in raised:
+            failures.append(f"the refusal repeated the credential it objected to: {raised}")
+
+        # (3) the final publication: a stage that puts a raw path in its own record is refused there,
+        # and the refusal carries the stage's own failure when one was already in flight.
+        late_dir = pathlib.Path(td) / "disclose-final"
+        declare_fixture(late_dir, base)
+
+        def leak_late(stage_run):
+            stage_run.record["calls"].append({"note": secret_path})
+        raised, text = published(late_dir, "S3", leak_late)
+        expect("a stage record that would publish a raw path is refused at its final publication",
+               [raised], "RECORD_DISCLOSES S3", "the string discloses a home path")
+        if secret_path in text:
+            failures.append(f"the refused final publication wrote the path anyway: {text[:200]}")
+
+        def leak_and_fail(stage_run):
+            stage_run.record["calls"].append({"note": secret_path})
+            raise ValueError("the stage itself failed")
+        both_dir = pathlib.Path(td) / "disclose-final-failing"
+        declare_fixture(both_dir, base)
+        raised, _text = published(both_dir, "S3", leak_and_fail)
+        expect("a refusal in the finally names the failure that was already in flight",
+               [raised], "RECORD_DISCLOSES S3", "ValueError", "was in flight")
 
     for failure in failures:
         print(f"records --self-test [FAIL] {failure}")
