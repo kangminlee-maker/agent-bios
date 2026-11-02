@@ -2226,7 +2226,11 @@ def report_sweep(run_dir):
 
 
 def self_test():
-    failures = []
+    # This suite prints its own report outside the shared boundary, so in stop-at-first-failure mode
+    # its list prints the failure itself, in the report's own form, before the suite leaves.
+    from runlib import entry
+    failures = entry.self_test_failures("projection --self-test",
+                                        publish=lambda failure: print(f"projection --self-test [FAIL] {failure}"))
     # a .jsonl record ends at "\n" only; JSON allows U+2028 and U+2029 raw inside a string
     with tempfile.TemporaryDirectory() as td:
         held = {"text": "before\u2028between\u2029after"}

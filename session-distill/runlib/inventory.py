@@ -7175,11 +7175,11 @@ def self_test():
     # number the summary published, and the summary has already said OK — which is a conclusion
     # printed before the judging. The helpers below refuse past it rather than trusting placement.
     reporting = []
-    failures, ran = [], []
     # Registered while this suite runs: an abort publishes what is here instead of taking it away.
     # Removed where this suite reports, below. The boundary is reached as `boundary` because `entry`
     # is a LOCAL name in this suite — a census row, and an omission row — which shadows the module.
     from runlib import entry as boundary
+    failures, ran = boundary.self_test_failures("inventory --self-test"), []
     boundary.SELF_TEST_COLLECTED.append(("inventory --self-test", failures))
 
     def control(name, problems, *needles):

@@ -396,7 +396,7 @@ def self_test():
     # number the summary published, and the summary has already said OK — which is a conclusion
     # printed before the judging. The helpers below refuse past it rather than trusting placement.
     reporting = []
-    failures, ran = [], []
+    failures, ran = entry.self_test_failures("distill --self-test"), []
     # Registered while this suite runs; removed by `report`, which is where this suite reports. An
     # abort between the two publishes what was collected rather than taking it away.
     entry.SELF_TEST_COLLECTED.append(("distill --self-test", failures))
@@ -1493,6 +1493,92 @@ def self_test():
         control("and a command that does not abort publishes nothing of what a suite collected",
                 "a failure nothing aborted" not in clean_buffer.getvalue(),
                 f"{clean_buffer.getvalue()[:200]!r}")
+
+        # ---- Stop at the first failure (`entry.STOP_AT_FIRST_FAILURE`). A planted miniature suite in
+        # this process, collecting through `entry.self_test_failures` and run through the same
+        # `entry.guarded` the real suites run inside: two passing controls around two failing ones.
+        # This suite's own row is set aside while it runs, so an abort of the miniature publishes only
+        # the miniature's lines, and the variable is put back as this suite found it.
+        def miniature(results, outcomes=(True, False, False, True), nested=None, publish=None, add="append"):
+            def suite():
+                mini_failures, mini_ran = entry.self_test_failures("a planted suite --self-test", publish), []
+                results["list"] = type(mini_failures).__name__
+                entry.SELF_TEST_COLLECTED.append(("a planted suite --self-test", mini_failures))
+                if nested is not None:
+                    results["nested"] = nested()
+                for at, ok in enumerate(outcomes):
+                    mini_ran.append(f"planted control {at}")
+                    planted = [] if ok else [(f"planted control {at}", "planted to fail")]
+                    if add == "+=":
+                        # Every control adds, a passing one nothing, as projection's `+=` of a
+                        # comprehension does: an empty addition must not stop the suite.
+                        mini_failures += planted
+                    elif planted:
+                        mini_failures.append(planted[0])
+                results["ran"] = len(mini_ran)
+                entry.SELF_TEST_COLLECTED.remove(("a planted suite --self-test", mini_failures))
+                for name, detail in mini_failures:
+                    entry.emit(entry.failure_text("a planted suite --self-test", name, detail), sys.stderr)
+                if mini_failures:
+                    return 1
+                say(f"a planted suite --self-test: OK ({len(mini_ran)} controls)")
+                return 0
+            return suite
+
+        def run_miniature(stop, **kwargs):
+            results, buffer = {}, io.StringIO()
+            held_rows, held_mode = entry.SELF_TEST_COLLECTED[:], os.environ.get(entry.STOP_AT_FIRST_FAILURE)
+            entry.SELF_TEST_COLLECTED[:] = []
+            if stop:
+                os.environ[entry.STOP_AT_FIRST_FAILURE] = "1"
+            else:
+                os.environ.pop(entry.STOP_AT_FIRST_FAILURE, None)
+            try:
+                with contextlib.redirect_stdout(buffer), contextlib.redirect_stderr(buffer):
+                    results["code"] = entry.guarded(miniature(results, **kwargs), stream=buffer)
+                results["left"] = os.environ.get(entry.STOP_AT_FIRST_FAILURE)
+            finally:
+                entry.SELF_TEST_COLLECTED[:] = held_rows
+                if held_mode is None:
+                    os.environ.pop(entry.STOP_AT_FIRST_FAILURE, None)
+                else:
+                    os.environ[entry.STOP_AT_FIRST_FAILURE] = held_mode
+            return results, buffer.getvalue()
+
+        stopped, stopped_text = run_miniature(True)
+        control("stop at the first failure: set, a suite leaves right after its first failure with a non-zero "
+                "exit, that failure's [FAIL] line and no later one",
+                stopped.get("code") == 1 and stopped.get("list") == "FailuresThatStop"
+                and "a planted suite --self-test [FAIL] planted control 1:" in stopped_text
+                and "planted control 2" not in stopped_text and "ran" not in stopped
+                and "stopped at its first failure" in stopped_text and stopped.get("left") is None,
+                f"{stopped} {stopped_text[:300]!r}")
+        clean_run, clean_text = run_miniature(True, outcomes=(True, True, True, True), add="+=")
+        control("stop at the first failure: set, a suite with no failure runs to its end with its OK line and "
+                "count, though each control added an empty list",
+                clean_run.get("code") == 0 and clean_run.get("ran") == 4
+                and "a planted suite --self-test: OK (4 controls)" in clean_text and "stopped" not in clean_text,
+                f"{clean_run} {clean_text[:300]!r}")
+        full, full_text = run_miniature(False)
+        control("stop at the first failure: unset, a suite with an early failure runs on and reports every failure",
+                full.get("code") == 1 and full.get("ran") == 4 and full.get("list") == "list"
+                and "[FAIL] planted control 1:" in full_text and "[FAIL] planted control 2:" in full_text
+                and "stopped" not in full_text, f"{full} {full_text[:300]!r}")
+        inner = {}
+        outer, outer_text = run_miniature(True, nested=lambda: (miniature(inner)(), inner)[1])
+        control("stop at the first failure: a suite started inside a stopping suite is not stopped, it runs in full",
+                outer.get("code") == 1 and outer.get("list") == "FailuresThatStop" and inner.get("list") == "list"
+                and inner.get("ran") == 4, f"outer={outer} inner={inner} {outer_text[:300]!r}")
+        added, added_text = run_miniature(True, add="+=")
+        control("stop at the first failure: set, a failure added with += stops the suite as an append does",
+                added.get("code") == 1 and "[FAIL] planted control 1:" in added_text
+                and "planted control 2" not in added_text and "ran" not in added, f"{added} {added_text[:300]!r}")
+        printed = []
+        own, own_text = run_miniature(True, publish=lambda failure: printed.append(failure))
+        control("stop at the first failure: a suite outside the shared boundary is handed its first failure to "
+                "print before it leaves",
+                own.get("code") == 1 and printed == [("planted control 1", "planted to fail")],
+                f"{own} printed={printed}")
 
     reporting.append("the report begins here")
     return report(failures, ran)

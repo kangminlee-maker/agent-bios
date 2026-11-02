@@ -2827,7 +2827,7 @@ def self_test(scratch=None):
     # number the summary published, and the summary has already said OK — which is a conclusion
     # printed before the judging. The helpers below refuse past it rather than trusting placement.
     reporting = []
-    failures, ran = [], []
+    failures, ran = boundary.self_test_failures("dispatch --self-test"), []
     boundary.SELF_TEST_COLLECTED.append(("dispatch --self-test", failures))
     fake = scratch / "fake_host.py"
     fake.write_text(FAKE_HOST, encoding="utf-8")
