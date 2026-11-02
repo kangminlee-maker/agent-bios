@@ -6,6 +6,7 @@ import json
 import os
 from pathlib import Path
 import pty
+import re
 import select
 import shlex
 import shutil
@@ -836,6 +837,37 @@ class SetupCliTests(unittest.TestCase):
         self.press_next(child, 4)
         self.read_tty(child, "Review the effects")
 
+    def await_drawn(self, child, after, *patterns, timeout=25):
+        """Read until every pattern has been drawn in the output past offset `after`.
+
+        A text appearing is not the screen being ready for keys: the review status is written in
+        the same refresh that starts swapping the buttons, and Tabs sent then landed on the old
+        screen's Cancel. What a key reaches is the focused widget, which Textual draws as reverse
+        video, so that drawing is what this waits for."""
+        process, master, output = child
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            if all(pattern.search(bytes(output), after) for pattern in patterns):
+                return
+            ready, _, _ = select.select([master], [], [], 0.1)
+            if ready:
+                try:
+                    chunk = os.read(master, 65536)
+                except OSError:
+                    chunk = b""
+                if chunk:
+                    output.extend(chunk)
+                    continue
+            if process.poll() is not None:
+                self.fail(f"Installer exited before {patterns}; recent output: {output.decode(errors='replace')[-6000:]}")
+        self.fail(f"Installer never drew {patterns}; recent output: {output.decode(errors='replace')[-6000:]}")
+
+    @staticmethod
+    def drawn_button(label, focused=False):
+        """A button drawn with this label; `focused` asks for Textual's focus style, reverse video."""
+        style = rb"(?:\d+;)*7(?:;\d+)*" if focused else rb"[\d;]*"
+        return re.compile(rb"\x1b\[" + style + rb"m " + re.escape(label.encode()) + rb" \x1b\[0m")
+
     def press_next(self, child, tabs):
         time.sleep(0.35)
         os.write(child[1], b"\t" * tabs + b"\r")
@@ -908,6 +940,10 @@ class SetupCliTests(unittest.TestCase):
     def test_tty_apply_installs_chosen_policy_and_prints_compact_completion(self):
         child = self.spawn_tty()
         self.reach_review(child)
+        # The review screen's own state, not its first text: its Apply button drawn, and Back, where
+        # the review step puts focus, drawn focused. Two Tabs from there reach Apply.
+        review = bytes(child[2]).rfind(b"Review the effects")
+        self.await_drawn(child, review, self.drawn_button("Apply setup"), self.drawn_button("Back", focused=True))
         self.no_install_writes()
         os.write(child[1], b"\t\t\r")
         self.read_tty(child, "Setup complete. Private runtime installed.")

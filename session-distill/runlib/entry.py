@@ -17,7 +17,9 @@ It lives here because two files need it and a constant copied into both is two c
 **Scope.** This is package A's two entry points: `session-distill/distill.py` and
 `session-distill/runlib/inventory.py`. The other runlib modules each have a standalone
 `--self-test` that still prints directly; they are not this package's subject, and that is said here
-rather than left to be inferred from which files import this one.
+rather than left to be inferred from which files import this one. One exception: the four suites a
+revert sweep or an audit runs (distill, inventory, dispatch, projection) collect their failures
+through `self_test_failures`, so the stop-at-first-failure mode is one mechanism, not four.
 """
 import os
 import signal
@@ -233,6 +235,59 @@ def failed(exc, home=None, label="COMMAND_FAILED", code=1, stream=None):
 # it runs and removes it when it reports, so what is left is exactly what an abort would have
 # swallowed. A nested suite pushes a list of its own; nothing is shared between runs.
 SELF_TEST_COLLECTED = []
+
+# A person narrowing one failure, or a harness that only asks whether a planted fault is caught, does
+# not need the rest of a suite: with this variable "1", a suite that collects its failures through
+# `self_test_failures` leaves right after its first. Unset, the list is a plain list and the suite is
+# what it was. The commit umbrella and its hook unset it, so an inherited shell never shortens a gate.
+STOP_AT_FIRST_FAILURE = "AGENT_BIOS_SELF_TEST_STOP_AT_FIRST_FAILURE"
+
+
+class StoppedAtFirstFailure(SystemExit):
+    """A suite leaving right after its first recorded failure: a `SystemExit` with code 1, so a section
+    guard that catches `Exception` lets it through, and `guarded` publishes what the suite collected
+    (that failure, as its `[FAIL]` line) before it returns the code."""
+
+
+class FailuresThatStop(list):
+    """A suite's failure list in stop-at-first-failure mode. A failure added by `append`, `+=` or
+    `extend` is recorded first; then the suite says it stopped and `StoppedAtFirstFailure` leaves.
+    `publish`, for a suite that runs outside `guarded` and prints its own report, prints what was
+    recorded before it leaves."""
+
+    def __init__(self, label, publish=None):
+        super().__init__()
+        self.label, self.publish = label, publish
+
+    def append(self, failure):
+        super().append(failure)
+        self._stop()
+
+    def extend(self, failures):
+        held = len(self)
+        super().extend(failures)
+        if len(self) > held:
+            self._stop()
+
+    def __iadd__(self, failures):
+        self.extend(failures)
+        return self
+
+    def _stop(self):
+        if self.publish is not None:
+            for failure in self:
+                self.publish(failure)
+        say(f"{self.label}: stopped at its first failure ({STOP_AT_FIRST_FAILURE}=1)", sys.stderr)
+        raise StoppedAtFirstFailure(1)
+
+
+def self_test_failures(label, publish=None):
+    """The list a suite collects its failures in: a plain list, or one that ends the suite at its first
+    failure when STOP_AT_FIRST_FAILURE is "1". The variable is read here and removed from the
+    environment, so a suite this one starts, in this process or as a child, runs in full."""
+    if os.environ.pop(STOP_AT_FIRST_FAILURE, None) == "1":
+        return FailuresThatStop(label, publish)
+    return []
 
 
 FAIL_TAG = "[FAIL]"

@@ -124,12 +124,22 @@ git config core.hooksPath .githooks
 
 `.githooks/pre-commit` runs `gates/check-package.sh` and `gates/check-parity.sh`
 and aborts the commit on failure. Budget **minutes, not seconds** — on the author's
-machine the umbrella runs ~4.5 minutes (2026-08-31) — 267s, of which the install
-scenarios in `gates/test-install-guides.sh` are 42s and the umbrella's own other legs
-are the remaining ~217s; measure with `time`, and never
+machine the commit hook ran 293s at `9dadb8f` (2026-11-02, load about 10), bounded by the
+umbrella's longest leg, the inventory self-test (202s); `gates/check-package.sh` ran 0.7s. The umbrella
+records its external legs and `gates/run-legs.py` runs them `AGENT_BIOS_PARITY_JOBS` at a time
+(default 6), so a run is bounded by its longest legs, not their sum: the same day, on a clean clone
+with the real HOME and venv, the legs took 1370s one after another and 475s, 472s and 486s six at a
+time, before the dispatch and inventory self-tests stopped re-parsing unchanged files. The install
+scenarios run alone before the others (`-a`) because they plant a file in the source tree. The
+runner's closing `LEGS longest:` line names each run's longest legs. Measure with `time`, and never
 `pkill -f check-parity` while a commit runs, because that kills your own commit.
 
-That figure was **50m26s** until 2026-08-31, and the cause was not the scenarios.
+The distill, inventory, dispatch and projection self-tests, run with
+`AGENT_BIOS_SELF_TEST_STOP_AT_FIRST_FAILURE=1`, leave right after their first failure, which is all a
+revert row or an audit asking whether one planted fault is caught needs. The umbrella and the hook
+unset the variable, so an inherited shell never shortens a gate.
+
+The umbrella took **50m26s** until 2026-08-31, and the cause was not the scenarios.
 Each of the suite's twelve `install`/`verify` runs ends in `install.sh`'s `cmd_verify`,
 which re-ran this umbrella on the tree the umbrella was already judging — the suite sets
 `REPO="$PWD"` and writes only into a sandbox HOME, so all twelve re-derived one unchanged

@@ -975,8 +975,15 @@ def _enum_values(spec):
 
 
 def schema_enum(name):
-    """The vocabulary the SCHEMA declares for one of its shapes."""
-    return frozenset(((inventory_schema().get("$defs") or {}).get(name) or {}).get("enum") or ())
+    """The vocabulary the SCHEMA declares for one of its shapes.
+
+    Asked for every enumerated value the emitter checks, about 240,000 times in one self-test run, so
+    the parse behind the answer is kept while the schema file's text is unchanged
+    (`kept_schema_enum`). A reader standing in for `inventory_schema` (a control withholding or
+    replacing the schema) is asked every time, as the file's own reader was before its parse was kept."""
+    if inventory_schema is not OWN_SCHEMA_READER:
+        return frozenset(((inventory_schema().get("$defs") or {}).get(name) or {}).get("enum") or ())
+    return kept_schema_enum(SCHEMA_PATH, name)
 
 
 def layer_names():
@@ -6836,12 +6843,40 @@ DOCUMENT_ROOTS = {**{reference: f"{reference}_document" for reference in REFEREN
 SCHEMA_PATH = HERE / "schemas" / "inventory.schema.json"
 
 
-def inventory_schema(path=SCHEMA_PATH):
-    """The schema this module's documents are held against, read from the file the code owns."""
+def schema_text(path=SCHEMA_PATH):
+    """The schema file's text, read from the file the code owns; a missing file is refused by name."""
     path = pathlib.Path(path)
     if not path.is_file():
         raise Refused(f"SCHEMA_MISSING {SCHEMA_REL}: the inventory has no contract to hold")
-    return json.loads(path.read_text(encoding="utf-8"))
+    return path.read_text(encoding="utf-8")
+
+
+def inventory_schema(path=SCHEMA_PATH):
+    """The schema this module's documents are held against, read from the file the code owns."""
+    return json.loads(schema_text(path))
+
+
+OWN_SCHEMA_READER = inventory_schema
+# The parse `schema_enum` answers from, per schema path: (the text it was parsed from, the parse, the
+# answers given from it by shape name). Never handed out: `inventory_schema` still gives every caller
+# a parse of its own to change.
+KEPT_SCHEMAS = {}
+
+
+def kept_schema_enum(path, name):
+    """`schema_enum`'s answer for the schema at `path`, from the parse kept while the file's text is the
+    text it was parsed from. The file is read on every call, through the reader's own path and
+    refusals; only the parse is kept. A file's stat cannot stand for its text: a rewrite of the same
+    size within one tick of a coarse clock leaves inode, size, mtime and ctime as they were."""
+    text = schema_text(path)
+    kept = KEPT_SCHEMAS.get(str(path))
+    if kept is None or kept[0] != text:
+        kept = (text, json.loads(text), {})
+        KEPT_SCHEMAS[str(path)] = kept
+    answers = kept[2]
+    if name not in answers:
+        answers[name] = frozenset(((kept[1].get("$defs") or {}).get(name) or {}).get("enum") or ())
+    return answers[name]
 
 
 def _schema_or_problem(schema):
@@ -7135,11 +7170,11 @@ def self_test():
     # number the summary published, and the summary has already said OK — which is a conclusion
     # printed before the judging. The helpers below refuse past it rather than trusting placement.
     reporting = []
-    failures, ran = [], []
     # Registered while this suite runs: an abort publishes what is here instead of taking it away.
     # Removed where this suite reports, below. The boundary is reached as `boundary` because `entry`
     # is a LOCAL name in this suite — a census row, and an omission row — which shadows the module.
     from runlib import entry as boundary
+    failures, ran = boundary.self_test_failures("inventory --self-test"), []
     boundary.SELF_TEST_COLLECTED.append(("inventory --self-test", failures))
 
     def control(name, problems, *needles):
@@ -13884,6 +13919,61 @@ def self_test():
                                                {"type": "object", "additionalProperties": False,
                                                 "properties": {"units": {}}}),
                     "SCHEMA_INVALID")
+
+        with section("the schema vocabulary is kept while the schema file's text is unchanged"):
+            # `schema_enum` answers from a kept parse (`kept_schema_enum`). Its answers must be a fresh
+            # parse's, a file rewritten (even with its stat unchanged) or removed after it was read must be
+            # read again, and a reader standing in for the file's own must still be the one asked. Names
+            # here carry `kv_` because a section is not a scope: a plain `first` here rebound the suite's
+            # own fixture text `first`, which the P2.7 section reads, and that section failed.
+            kv_fresh_defs = inventory_schema().get("$defs") or {}
+            kv_asked = sorted(kv_fresh_defs) + ["a-shape-no-schema-declares"]
+            kv_expected = {name: frozenset((kv_fresh_defs.get(name) or {}).get("enum") or ()) for name in kv_asked}
+            kv_first_answers = {name: schema_enum(name) for name in kv_asked}
+            kv_kept_answers = {name: schema_enum(name) for name in kv_asked}
+            check("the kept schema vocabulary answers as a fresh parse, for every shape and one it lacks",
+                  len(kv_fresh_defs) > 0 and any(kv_expected.values()) and str(SCHEMA_PATH) in KEPT_SCHEMAS
+                  and kv_first_answers == kv_expected and kv_kept_answers == kv_expected,
+                  f"{sorted(n for n in kv_asked if kv_kept_answers[n] != kv_expected[n] or kv_first_answers[n] != kv_expected[n])}")
+            kv_kept_path = scratch / "a-kept-schema.json"
+
+            def kv_kept_write(enum):
+                kv_kept_path.write_text(json.dumps({"$defs": {"shape": {"enum": enum}}}), encoding="utf-8")
+
+            kv_kept_write(["one"])
+            kv_first = kept_schema_enum(kv_kept_path, "shape")
+            kv_kept_write(["one", "two"])
+            check("a schema file rewritten with other content after it was read is read again",
+                  kv_first == {"one"} and kept_schema_enum(kv_kept_path, "shape") == {"one", "two"},
+                  f"{sorted(kv_first)} / {sorted(kept_schema_enum(kv_kept_path, 'shape'))}")
+            kv_read_state = os.stat(kv_kept_path)
+            kv_kept_write(["one", "six"])  # the same length as the content read above
+            # Every stat of this file pinned to the one taken when it was read, which is what a coarse
+            # clock gives a rewrite of the same size within one tick: only the text changed.
+            kv_real_stat = os.stat
+            os.stat = lambda target, *args, **kwargs: (
+                kv_read_state if os.fspath(target) == os.fspath(kv_kept_path) else kv_real_stat(target, *args, **kwargs))
+            try:
+                kv_pinned_face = os.stat(kv_kept_path) == kv_read_state
+                kv_pinned = kept_schema_enum(kv_kept_path, "shape")
+            finally:
+                os.stat = kv_real_stat
+            check("a rewrite of the same length whose every stat value is the one read is read again: the parse "
+                  "is kept by the file's text, never by its stat",
+                  kv_pinned_face and kv_pinned == {"one", "six"}, f"pinned={kv_pinned_face} {sorted(kv_pinned)}")
+            kv_kept_path.unlink()
+            check("a schema file removed after it was read is refused, never answered from the kept parse",
+                  "SCHEMA_MISSING" in str(_raised(lambda: kept_schema_enum(kv_kept_path, "shape"))),
+                  str(_raised(lambda: kept_schema_enum(kv_kept_path, "shape"))))
+            kv_held_reader = globals()["inventory_schema"]
+            try:
+                globals()["inventory_schema"] = lambda path=SCHEMA_PATH: {"$defs": {"shape": {"enum": ["stood-in"]}}}
+                kv_stood_in = schema_enum("shape")
+            finally:
+                globals()["inventory_schema"] = kv_held_reader
+            check("a reader standing in for the schema file's own is asked, not the kept parse",
+                  kv_stood_in == {"stood-in"} and schema_enum("shape") == kv_expected.get("shape", frozenset()),
+                  f"{sorted(kv_stood_in)}")
 
         with section("r3 #2: the boundary module's OWN import is inside a boundary. Everything else this"):
             # ---- r3 #2: the boundary module's OWN import is inside a boundary. Everything else this
