@@ -23,6 +23,10 @@ environment, `_` set as the shell sets it for a command it runs, and each leg's 
 compared with the file's, both taken over the entries sorted (the shell's own order shifts as it
 creates variables, and means nothing to a leg): a leg recorded under a different environment (an
 export, unset or cd came between the leg and the run) is refused by name rather than run differently.
+The shell passes the digest it took of the file, and this program takes the same digest, the same
+way, of the bytes it read before any leg starts: a file cut or rewritten after the shell's digest (a
+full disk, another writer) can still parse, and would start every leg without what it lost, so a
+snapshot whose digest is not the shell's is refused and no leg runs.
 Exit 0 when every leg passed, 1 when any failed, 2 when the spec or the settings cannot be
 trusted or a leg was refused.
 
@@ -121,6 +125,16 @@ def environ_from(data):
         if name != b"_":
             environ[os.fsdecode(name)] = os.fsdecode(value)
     return environ
+
+
+def snapshot_digest(data):
+    """The digest `legs_run` passes, `LC_ALL=C sort -z <FILE | cksum`, taken by the same commands over
+    `data`, the bytes this program read."""
+    done = subprocess.run(["/bin/sh", "-c", "LC_ALL=C sort -z | cksum"], input=data, capture_output=True)
+    if done.returncode != 0:
+        raise SpecError("the environment snapshot's digest could not be taken: "
+                        + (done.stderr.decode(errors="replace").strip() or f"exit {done.returncode}"))
+    return done.stdout.decode(errors="replace").rstrip("\n")
 
 
 def leg_environ(environ, argv):
@@ -282,7 +296,12 @@ def main(argv):
     say = lambda text: (out.write(text.encode() + b"\n"), out.flush())
     spec, declared, env, environ_file = argv
     try:
-        environ = environ_from(pathlib.Path(environ_file).read_bytes())
+        snapshot = pathlib.Path(environ_file).read_bytes()
+        read = snapshot_digest(snapshot)
+        if read != env:
+            raise SpecError(f"the environment snapshot read is not the one the shell took its digest of "
+                            f"(digest {read!r}, the shell's {env!r}), so no leg ran")
+        environ = environ_from(snapshot)
         jobs = jobs_from(environ)
         entries = parse_spec(pathlib.Path(spec).read_bytes())
         total = sum(1 for e in entries if e["kind"] == "leg")
@@ -318,17 +337,19 @@ def main(argv):
     return 1 if failed else 0
 
 
-def spec_of(*entries):
-    """A spec as the umbrella writes it: ("slot", path) or ("leg", line, argv, flags...)."""
+def spec_of(*entries, env="E"):
+    """A spec as the umbrella writes it: ("slot", path) or ("leg", line, argv, flags... [, cwd, digest]),
+    each leg recorded under `env` unless it names its own digest."""
     out = b""
     for entry in entries:
         if entry[0] == "slot":
             out += b"slot\0" + os.fsencode(entry[1]) + b"\0"
             continue
         _, line, argv, quiet, early, log, message, *rest = entry
-        cwd, env = rest if rest else (os.getcwd(), "E")
+        cwd, recorded = rest if rest else (os.getcwd(), None)
         # `early` is 0, 1, or "alone" for a leg that runs before the others, by itself
-        fields = [str(line), "1" if early == 1 else "0", "1" if early == "alone" else "0", log or "", cwd, env,
+        fields = [str(line), "1" if early == 1 else "0", "1" if early == "alone" else "0", log or "", cwd,
+                  env if recorded is None else recorded,
                   message, str(len(argv))]
         fields.insert(1, "1" if quiet else "0")
         out += b"leg\0" + b"".join(f.encode() + b"\0" for f in fields)
@@ -362,21 +383,35 @@ def self_test():
         env = dict(os.environ, TMPDIR=str(private), **{NESTED: "1"})
         env.pop(JOBS_VAR, None)
 
-        def environ_file(environ, raw=None):
-            """`environ` as `env -0` writes it, for the runner's ENVIRON argument."""
-            path = base / "environ"
-            path.write_bytes(raw if raw is not None else
-                             b"".join(os.fsencode(f"{k}={v}") + b"\0" for k, v in environ.items()))
-            return str(path)
+        def as_env0(environ):
+            return b"".join(os.fsencode(f"{k}={v}") + b"\0" for k, v in environ.items())
 
-        def run(entries, declared=None, jobs=None, raw=None, runner_env=None, snapshot=None):
-            spec = base / "spec"
-            spec.write_bytes(raw if raw is not None else spec_of(*entries))
-            count = sum(1 for e in entries if e[0] == "leg") if declared is None else declared
+        def digest(data):
+            """The digest `legs_run` passes for a snapshot holding `data`, taken as it takes it."""
+            path = base / "digested"
+            path.write_bytes(data)
+            done = subprocess.run(["/bin/sh", "-c", 'LC_ALL=C sort -z <"$1" | cksum', "sh", str(path)],
+                                  capture_output=True, check=True)
+            return done.stdout.decode().rstrip("\n")
+
+        def environ_file(environ, raw=None):
+            """`environ` as `env -0` writes it, for the runner's ENVIRON argument, and its digest, for
+            the ENV argument and the legs recorded under it."""
+            path = base / "environ"
+            path.write_bytes(raw if raw is not None else as_env0(environ))
+            return str(path), digest(path.read_bytes())
+
+        def run(entries, declared=None, jobs=None, raw=None, runner_env=None, snapshot=None, digested=None):
+            """`digested`: the bytes the shell took its digest of, when the runner is to read others."""
             run_env = dict(env, **({JOBS_VAR: str(jobs)} if jobs is not None else {}))
-            done = subprocess.run([sys.executable, str(here), str(spec), str(count), "E",
-                                   environ_file(run_env, snapshot)], env=runner_env or run_env,
-                                  capture_output=True, timeout=120)
+            path, shell_digest = environ_file(run_env, snapshot)
+            if digested is not None:
+                shell_digest = digest(digested)
+            spec = base / "spec"
+            spec.write_bytes(raw if raw is not None else spec_of(*entries, env=shell_digest))
+            count = sum(1 for e in entries if e[0] == "leg") if declared is None else declared
+            done = subprocess.run([sys.executable, str(here), str(spec), str(count), shell_digest, path],
+                                  env=runner_env or run_env, capture_output=True, timeout=120)
             left = sorted(p.name for p in private.iterdir())
             return done.returncode, done.stdout.decode(errors="replace"), left
 
@@ -425,7 +460,7 @@ def self_test():
         # (c) each leg starts in the directory it was recorded in, wherever the runner itself was started
         elsewhere = base / "recorded-cwd"
         elsewhere.mkdir()
-        code, out, left = run([("leg", 55, sh("pwd -P"), 0, 0, None, "FAIL: cwd", str(elsewhere), "E")])
+        code, out, left = run([("leg", 55, sh("pwd -P"), 0, 0, None, "FAIL: cwd", str(elsewhere), None)])
         control("a-leg-runs-in-its-recorded-directory", code == 0
                 and out.startswith(str(elsewhere.resolve()) + "\n") and not left, f"{code} {out!r}")
         # a leg recorded under another exported environment is refused by name, not run
@@ -441,15 +476,32 @@ def self_test():
                               runner_env=dict(env, PLANTED_RUNNER_ONLY="1"))
         control("a-leg-gets-the-shells-environment-not-the-runners", code == 0
                 and out.startswith("runner=unset shell=unset _=/bin/sh\n") and not left, f"{code} {out!r}")
-        shell_env = dict(env, PLANTED_SHELL_ONLY="1")
+        path, shell_digest = environ_file(dict(env, PLANTED_SHELL_ONLY="1"))
         spec = base / "spec"
-        spec.write_bytes(spec_of(("leg", 59, sh('echo "shell=${PLANTED_SHELL_ONLY-unset}"'), 0, 0, None, "FAIL: environ")))
-        done = subprocess.run([sys.executable, str(here), str(spec), "1", "E", environ_file(shell_env)], env=env,
+        spec.write_bytes(spec_of(("leg", 59, sh('echo "shell=${PLANTED_SHELL_ONLY-unset}"'), 0, 0, None, "FAIL: environ"),
+                                 env=shell_digest))
+        done = subprocess.run([sys.executable, str(here), str(spec), "1", shell_digest, path], env=env,
                               capture_output=True, timeout=120)
         control("a-leg-gets-a-variable-only-the-shell-exported", done.returncode == 0
                 and done.stdout.decode(errors="replace").startswith("shell=1\n"), f"{done.returncode} {done.stdout!r}")
         code, out, left = run([("leg", 60, sh("true"), 0, 0, None, "")], snapshot=b"A=1\0B=2")
         control("a-cut-environment-snapshot-is-refused", code == 2 and "cut short" in out and not left, f"{code} {out!r}")
+        # The runner reads the snapshot after the shell took its digest. Cut at an entry boundary after
+        # that (a full disk, another writer), it still parses, and every leg would start without what it
+        # lost: here a leg that fails while PLANTED_MUST_FAIL is exported. Cut, or emptied, under the
+        # shell's digest of the whole, the snapshot is refused and no leg runs.
+        whole = as_env0(env) + b"PLANTED_MUST_FAIL=1\0"
+        must_fail = [("leg", 63, sh('echo ran-anyway; [ -z "${PLANTED_MUST_FAIL-}" ]'), 0, 0, None, "FAIL: must fail")]
+        whole_code, whole_out, _ = run(must_fail, snapshot=whole)
+        code, out, left = run(must_fail, snapshot=as_env0(env), digested=whole)
+        control("an-environment-snapshot-cut-at-an-entry-boundary-under-the-shells-digest-is-refused",
+                whole_code == 1 and "ran-anyway" in whole_out and code == 2
+                and "not the one the shell took its digest of" in out and "ran-anyway" not in out and not left,
+                f"whole: {whole_code}; cut: {code} {out!r}")
+        code, out, left = run(must_fail, snapshot=b"", digested=whole)
+        control("an-empty-environment-snapshot-under-the-shells-digest-is-refused", code == 2
+                and "not the one the shell took its digest of" in out and "ran-anyway" not in out and not left,
+                f"{code} {out!r}")
         # 6. order holds when a later leg ends first, and legs really overlap: the first leg can only
         # finish after the second has made its file, so a serial runner fails it on its bound
         flag = base / "second-ran"
@@ -483,9 +535,11 @@ def self_test():
         pid_file = base / "sleeper-pid"
         spec = base / "spec"
         term_file = base / "sleeper-got-term"
+        path, shell_digest = environ_file(env)
         spec.write_bytes(spec_of(("leg", 65, sh(f"trap 'echo term > \"{term_file}\"; kill $! 2>/dev/null; exit 0' TERM; "
-                                                f"echo $$ > '{pid_file}'; sleep 30 & wait"), 0, 0, None, "")))
-        runner = subprocess.Popen([sys.executable, str(here), str(spec), "1", "E", environ_file(env)], env=env,
+                                                f"echo $$ > '{pid_file}'; sleep 30 & wait"), 0, 0, None, ""),
+                                 env=shell_digest))
+        runner = subprocess.Popen([sys.executable, str(here), str(spec), "1", shell_digest, path], env=env,
                                   stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         for _ in range(300):
             if pid_file.exists() and pid_file.read_text().strip():
@@ -596,20 +650,25 @@ def self_test():
         # Under a C locale with no LC_CTYPE, Python puts a UTF-8 LC_CTYPE into its own environment as it
         # starts (PEP 538). A leg that is not Python, started through the runner, must still receive what
         # the same shell gives it directly: the two dumps below are taken the same way, one by a recorded
-        # leg and one in place, and compared whole.
+        # leg and one in place, and compared whole. A value may span lines, so both are taken with
+        # `env -0`, split on NUL and judged by variable name: the planted value below holds a line that
+        # reads like LC_CTYPE, and is one entry of another variable.
         through, direct = base / "through-the-runner.env", base / "run-in-place.env"
         c_env = {k: v for k, v in env.items() if not k.startswith("LC_")}
         c_env["LANG"] = "C"
+        c_env["PLANTED_MULTILINE"] = "first\nLC_CTYPE=fixture"
         code, out, left = umbrella_run(
-            f"legs_begin\nleg \"FAIL: planted environment dump\" /bin/sh -c 'env > \"$1\"' sh '{through}'\n"
-            f"/bin/sh -c 'env > \"$1\"' sh '{direct}'\nlegs_run || fail=1\nexit \"$fail\"\n", shell_env=c_env)
-        got = sorted(through.read_text().splitlines()) if through.exists() else None
-        want = sorted(direct.read_text().splitlines()) if direct.exists() else None
+            f"legs_begin\nleg \"FAIL: planted environment dump\" /bin/sh -c 'env -0 > \"$1\"' sh '{through}'\n"
+            f"/bin/sh -c 'env -0 > \"$1\"' sh '{direct}'\nlegs_run || fail=1\nexit \"$fail\"\n", shell_env=c_env)
+        entries = lambda dump: sorted(dump.read_bytes().split(b"\0")[:-1]) if dump.exists() else None
+        names = lambda found: sorted({e.split(b"=", 1)[0].decode(errors="replace") for e in found})
+        got, want = entries(through), entries(direct)
         control("a-non-python-leg-gets-what-the-shell-gives-it-under-a-c-locale", code == 0 and got is not None
-                and got == want and not any(line.startswith("LC_CTYPE=") for line in got) and not left,
+                and got == want and b"PLANTED_MULTILINE=first\nLC_CTYPE=fixture" in got
+                and "LC_CTYPE" not in names(got) and not left,
                 # NAMES only: a failing control must not print the values of the environment it compared
-                f"{code} only through the runner: {sorted({e.split('=', 1)[0] for e in set(got or []) - set(want or [])})} "
-                f"only in place: {sorted({e.split('=', 1)[0] for e in set(want or []) - set(got or [])})} {out[-300:]!r}")
+                f"{code} only through the runner: {names(set(got or []) - set(want or []))} "
+                f"only in place: {names(set(want or []) - set(got or []))} {out[-300:]!r}")
     for failure in failures:
         print(f"run-legs --self-test [FAIL] {failure}")
     if failures:
