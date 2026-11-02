@@ -39,6 +39,11 @@ kept on a failure, with its FAIL lines and its tail printed.
 The captures live in one directory this program creates and removes; the spec and slot files
 are the umbrella's, in a directory its EXIT trap removes.
 
+Each leg runs with a TMPDIR of its own: a directory this program makes inside the TMPDIR the
+umbrella exported, and removes when the leg ends. A leg that exits 0 but leaves anything there
+fails, its output naming up to five of the entries, so no leg's temporary files outlive the run
+unnoticed. The captures and a logged leg's log stay in the umbrella's own TMPDIR.
+
   python3 gates/run-legs.py SPEC DECLARED ENV ENVIRON
   python3 gates/run-legs.py --self-test
 """
@@ -159,6 +164,8 @@ class Runner:
         self.entries, self.jobs, self.out, self.env, self.environ = entries, jobs, out, env, environ
         self.running, self.lock, self.stopping, self.started = {}, threading.Lock(), False, 0
         self.seconds = {}
+        # The TMPDIR the legs would have shared: each gets a directory of its own inside it instead.
+        self.tmpdir = environ.get("TMPDIR") or tempfile.gettempdir()
 
     def run_one(self, index, leg, captures):
         """(None for a pass or what went wrong, the capture path)."""
@@ -167,6 +174,7 @@ class Runner:
         else:
             capture = os.path.join(captures, f"leg.{index}")
             handle = os.open(capture, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        scratch, left = None, []
         try:
             if leg["env"] != self.env:
                 # Recorded under one exported environment and about to inherit another: an export,
@@ -179,8 +187,14 @@ class Runner:
                     return "not run: the umbrella was interrupted", capture
                 self.started += 1
                 try:
+                    # A TMPDIR of its own, removed when it ends: what a leg leaves there is named and fails
+                    # it, where in the shared one it outlived the run with nobody to say whose it was. The
+                    # prefix is short because a leg's socket paths grow with its TMPDIR. Set here, after the
+                    # recorded digest was compared above: the digests stay those of what the shell exported,
+                    # and TMPDIR is the one variable the runner changes, by design.
+                    scratch = tempfile.mkdtemp(prefix="pt", dir=self.tmpdir)
                     proc = subprocess.Popen(leg["argv"], cwd=leg["cwd"], stderr=handle,
-                                            env=leg_environ(self.environ, leg["argv"]),
+                                            env=leg_environ({**self.environ, "TMPDIR": scratch}, leg["argv"]),
                                             stdout=subprocess.DEVNULL if leg["quiet"] else handle)
                 except OSError as exc:
                     os.write(handle, f"{leg['argv'][0]}: {exc.strerror or exc}\n".encode())
@@ -191,10 +205,18 @@ class Runner:
             self.seconds[index] = time.monotonic() - began
             with self.lock:
                 self.running.pop(index, None)
+            left = sorted(os.listdir(scratch))
+            if left:
+                os.write(handle, f"leg runner: it left {len(left)} entr{'y' if len(left) == 1 else 'ies'} in its "
+                                 f"TMPDIR: {', '.join(left[:5])}{', ...' if len(left) > 5 else ''}\n".encode())
         finally:
             os.close(handle)
+            if scratch:
+                shutil.rmtree(scratch, ignore_errors=True)
         if code < 0:
             return f"killed by signal {-code}", capture
+        if code == 0 and left:
+            return f"left {len(left)} in its TMPDIR", capture
         return (None if code == 0 else f"exit {code}"), capture
 
     def interrupt(self):
@@ -584,6 +606,23 @@ def self_test():
         code, out, left = run([("leg", 82, sh("echo fine"), 0, 0, "planted-scenarios", "FAIL: never")])
         control("a-passing-logged-leg-leaves-nothing", code == 0 and "fine" not in out and not left,
                 f"{code} {out!r} {left}")
+        # 8b. each leg's TMPDIR is its own, inside the umbrella's, and gone when it ends; a leg that passes
+        # but leaves something there fails by name, and the umbrella's TMPDIR gains nothing either way
+        code, out, left = run([("leg", 83, sh('echo "tmp=$TMPDIR"'), 0, 0, None, "FAIL: tmp"),
+                               ("leg", 84, sh('echo "tmp=$TMPDIR"'), 0, 0, None, "FAIL: tmp")], jobs=2)
+        seen = [line[4:] for line in out.splitlines() if line.startswith("tmp=")]
+        control("each-leg-gets-a-tmpdir-of-its-own-inside-the-umbrellas", code == 0 and len(set(seen)) == 2
+                and all(pathlib.Path(p).parent == private and pathlib.Path(p).name.startswith("pt") for p in seen)
+                and not any(pathlib.Path(p).exists() for p in seen) and not left, f"{code} {out!r} {left}")
+        code, out, left = run([("leg", 85, sh('mkdir "$TMPDIR/planted-leftover-dir"; '
+                                              ': > "$TMPDIR/planted-leftover-file"; echo made'), 0, 0, None,
+                                "FAIL: planted leftover"),
+                               ("leg", 86, sh("echo clean"), 0, 0, None, "FAIL: clean")])
+        control("a-leg-that-leaves-something-in-its-tmpdir-fails-by-name", code == 1
+                and "made\nleg runner: it left 2 entries in its TMPDIR: planted-leftover-dir, planted-leftover-file\n"
+                    "FAIL: planted leftover\nclean\n" in out
+                and ":85 /bin/sh -c " in out and "— left 2 in its TMPDIR" in out and "FAIL: clean" not in out
+                and not left, f"{code} {out!r} {left}")
         # 9. a bound that is not a positive integer is refused, not read as a default
         code, out, left = run(legs, jobs=0)
         control("a-bad-bound-is-refused", code == 2 and JOBS_VAR in out, f"{code} {out!r}")
@@ -652,7 +691,8 @@ def self_test():
         # the same shell gives it directly: the two dumps below are taken the same way, one by a recorded
         # leg and one in place, and compared whole. A value may span lines, so both are taken with
         # `env -0`, split on NUL and judged by variable name: the planted value below holds a line that
-        # reads like LC_CTYPE, and is one entry of another variable.
+        # reads like LC_CTYPE, and is one entry of another variable. TMPDIR is the one declared difference:
+        # the leg's is its own directory inside the shell's (8b), so it is compared as that, not as equal.
         through, direct = base / "through-the-runner.env", base / "run-in-place.env"
         c_env = {k: v for k, v in env.items() if not k.startswith("LC_")}
         c_env["LANG"] = "C"
@@ -660,12 +700,16 @@ def self_test():
         code, out, left = umbrella_run(
             f"legs_begin\nleg \"FAIL: planted environment dump\" /bin/sh -c 'env -0 > \"$1\"' sh '{through}'\n"
             f"/bin/sh -c 'env -0 > \"$1\"' sh '{direct}'\nlegs_run || fail=1\nexit \"$fail\"\n", shell_env=c_env)
-        entries = lambda dump: sorted(dump.read_bytes().split(b"\0")[:-1]) if dump.exists() else None
+        dumped = lambda dump: dump.read_bytes().split(b"\0")[:-1] if dump.exists() else None
+        entries = lambda found: None if found is None else sorted(e for e in found if not e.startswith(b"TMPDIR="))
+        tmpdir_of = lambda found: next((os.fsdecode(e[7:]) for e in found or [] if e.startswith(b"TMPDIR=")), None)
         names = lambda found: sorted({e.split(b"=", 1)[0].decode(errors="replace") for e in found})
-        got, want = entries(through), entries(direct)
+        got, want = entries(dumped(through)), entries(dumped(direct))
+        leg_tmp, shell_tmp = tmpdir_of(dumped(through)), tmpdir_of(dumped(direct))
         control("a-non-python-leg-gets-what-the-shell-gives-it-under-a-c-locale", code == 0 and got is not None
                 and got == want and b"PLANTED_MULTILINE=first\nLC_CTYPE=fixture" in got
-                and "LC_CTYPE" not in names(got) and not left,
+                and "LC_CTYPE" not in names(got) and shell_tmp == str(private) and leg_tmp is not None
+                and pathlib.Path(leg_tmp).parent == private and not left,
                 # NAMES only: a failing control must not print the values of the environment it compared
                 f"{code} only through the runner: {names(set(got or []) - set(want or []))} "
                 f"only in place: {names(set(want or []) - set(got or []))} {out[-300:]!r}")

@@ -2864,12 +2864,27 @@ def self_test(scratch=None):
                 lambda: control("a planted non-boolean", ["a problem"], "")),
             "the guard admitted a non-boolean condition, so a control in the other file's style would pass on a truthy list")
 
+    UNEXPECTED = "UNEXPECTED"
+
     def refusal(fn, *args, **kwargs):
+        """The refusal `fn` raised, as its text, or None when it ran through. Any other exception comes back
+        as `UNEXPECTED <type>: <text>`, which no control's expected refusal starts with, so that control fails
+        by its own name: a refusal that stopped refusing let the next line raise instead, and the suite ended on
+        a traceback with no [FAIL] line naming what was lost."""
         try:
             fn(*args, **kwargs)
         except (Refused, breakers.Deferred) as exc:
             return str(exc)
+        except Exception as exc:                          # noqa: BLE001 - returned to the comparing control
+            return f"{UNEXPECTED} {type(exc).__name__}: {exc}"
         return None
+
+    try:
+        unexpected = refusal(lambda: {}["a planted missing key"])
+    except KeyError:
+        unexpected = None
+    control("a-non-refusal-exception-comes-back-to-its-control-instead-of-ending-the-suite",
+            (unexpected or "").startswith(f"{UNEXPECTED} KeyError"), f"{unexpected!r}")
 
     astra = "codex:gpt-6-astra/xhigh"
     codex_flags = gate.pinned_flags_sha256("codex", "0.163.0", "hermetic")
@@ -5242,7 +5257,9 @@ def self_test(scratch=None):
         globals()["STOP_LOCK_WAIT_S"] = held_wait
         holder_release.set()
         holder.join(60)
-    control("BC#0-a-lock-timeout-does-not-escape-the-call-unhandled", timeout_error is None, f"{timeout_error}")
+    # `refusal` hands an escaping exception back as UNEXPECTED, so an escape now reads there, not in timeout_error.
+    control("BC#0-a-lock-timeout-does-not-escape-the-call-unhandled",
+            timeout_error is None and not (over or "").startswith(UNEXPECTED), f"{timeout_error or over}")
     control("BC#0-the-call-whose-stop-could-not-be-stamped-still-fails-by-name",
             (over or "").startswith(f"{bound.STOP_CODE} {rt['call_id']}"), f"{over}")
     timed_out = ledger_stop(bc0)

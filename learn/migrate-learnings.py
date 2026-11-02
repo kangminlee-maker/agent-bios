@@ -474,7 +474,14 @@ def _self_test():
     user's bundle), removal of an in-bundle promotion from BOTH prose + jsonl,
     idempotency, and that the user's own '## Personal' text is untouched. Uses
     collect-learning's own writers so the seeded format is authoritative."""
+    import atexit
+    import shutil
     import tempfile
+
+    # Every scratch home below is made inside one root, removed when the process ends however it ends: the
+    # homes used to outlive it, sixteen directories per umbrella run.
+    tempfile.tempdir = tempfile.mkdtemp(prefix="migrate-selftest-root-")
+    atexit.register(shutil.rmtree, tempfile.tempdir, True)
 
     collect = load_collect()
 

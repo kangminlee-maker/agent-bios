@@ -129,8 +129,10 @@ umbrella's longest leg, the inventory self-test (202s); `gates/check-package.sh`
 records its external legs and `gates/run-legs.py` runs them `AGENT_BIOS_PARITY_JOBS` at a time
 (default 6), so a run is bounded by its longest legs, not their sum: the same day, on a clean clone
 with the real HOME and venv, the legs took 1370s one after another and 475s, 472s and 486s six at a
-time, before the dispatch and inventory self-tests stopped re-parsing unchanged files. The install
-scenarios run alone before the others (`-a`) because they plant a file in the source tree. The
+time, before the dispatch and inventory self-tests stopped re-parsing unchanged files. No leg writes
+into the source tree, so none runs alone (`-a`): under the same conditions the umbrella took 260s at
+`d30268e`, when the install scenarios still ran alone first, and 192s without that (2026-11-02, load 3-8).
+Each leg runs with a TMPDIR of its own and fails for anything it leaves there. The
 runner's closing `LEGS longest:` line names each run's longest legs. Measure with `time`, and never
 `pkill -f check-parity` while a commit runs, because that kills your own commit.
 

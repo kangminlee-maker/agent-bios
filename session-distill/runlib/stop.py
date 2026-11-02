@@ -513,6 +513,7 @@ def self_test():
     # yet the tree's process groups are killed whole, the orphan in the root's group among them.
     # A line that cannot be read (a command's second line, were one printed) is counted, not
     # fatal: the readable rows still stop and kill the tree, and both verifications are unverified.
+    import shutil
     import tempfile
     sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
     from runlib import monitor
@@ -598,6 +599,7 @@ def self_test():
             control(f"{case}-kills-its-group", orphans and groups_killed == [proc.pid] and not left and not reaped_named
                     and record["freeze_at"] is None, f"groups killed {groups_killed}, orphans {sorted(orphans)} left {left}, {record}")
         cleanup(orphans)
+    shutil.rmtree(fakes, ignore_errors=True)   # the fake ps scripts: the last listing that names them is above
 
     # the freeze and kill listings fail and the verification listing succeeds: a sampled member in a
     # group of its own, never reached and never signalled, is alive and named among the survivors

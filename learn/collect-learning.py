@@ -644,12 +644,16 @@ def _self_test():
     advance, transient-stop (no storm), permanent-drop, no-token skip, poison
     line, plus capture-time redaction wiring. Injects post_fn/now; exits
     non-zero on any failure."""
+    import atexit
     import tempfile
 
     # One scratch tree for the whole run, removed at the end: every mkdtemp here
     # used to survive the process, and the gate that calls this ran on every
-    # commit — 10k directories before anyone counted.
+    # commit — 10k directories before anyone counted. Removed again when the
+    # process ends, however it ends: a run that raises never reaches the last
+    # line, and the seam-coverage gate runs this suite on mutated copies.
     scratch = pathlib.Path(tempfile.mkdtemp(prefix="learn-selftest-"))
+    atexit.register(shutil.rmtree, scratch, True)
     made = {"n": 0}
 
     def scratch_dir(tag):

@@ -16618,8 +16618,22 @@ def shell_wrapper(fx):
 
 def main(argv):
     from fixture_support import legacy_host_environment
-    with legacy_host_environment(pathlib.Path(__file__).resolve().parents[1]):
-        return run_checks(argv)
+    # Every temporary file and directory this run and the programs it starts make goes into one root,
+    # removed when the run ends: about ninety of them, from the checks and their drivers, outlived each
+    # umbrella run. The prefix is short because a child's socket path grows with TMPDIR.
+    root = tempfile.mkdtemp(prefix="cp-")
+    saved = os.environ.get("TMPDIR"), tempfile.tempdir
+    os.environ["TMPDIR"], tempfile.tempdir = root, root
+    try:
+        with legacy_host_environment(pathlib.Path(__file__).resolve().parents[1]):
+            return run_checks(argv)
+    finally:
+        if saved[0] is None:
+            os.environ.pop("TMPDIR", None)
+        else:
+            os.environ["TMPDIR"] = saved[0]
+        tempfile.tempdir = saved[1]
+        shutil.rmtree(root, ignore_errors=True)
 
 
 def run_checks(argv):
