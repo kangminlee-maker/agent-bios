@@ -907,7 +907,7 @@ cmd_install() {
     info "[dry-run] project instructions-status"
   else
     local projection_log
-    projection_log="$(mktemp -t instructions-projection)"
+    projection_log="$(mktemp "${TMPDIR:-/tmp}/instructions-projection.XXXXXX")"
     if python3 "$REPO/compose/instructions-state.py" project --repo "$REPO" >"$projection_log" 2>&1; then
       info "instructions-status projected"
       rm -f "$projection_log"
@@ -1176,7 +1176,7 @@ PY
     # and the install-scenario harness each learned this after a failure cost an eleven-
     # minute re-run that came back green; verify is where a USER meets it, with no clone to
     # re-run from.
-    parity_log="$(mktemp -t verify-parity)"
+    parity_log="$(mktemp "${TMPDIR:-/tmp}/verify-parity.XXXXXX")"
     if "$REPO/gates/check-parity.sh" >"$parity_log" 2>&1; then
       info "repo mirror parity OK"; rm -f "$parity_log"
     else
@@ -1496,7 +1496,7 @@ cmd_onboard() {
   # onboarding prints a completed summary over a status file that never learned the
   # selection was applied. That is the state this whole change exists to remove, so it
   # cannot be the one still guarded by `|| true`.
-  record_log="$(mktemp -t instructions-record-apply)"
+  record_log="$(mktemp "${TMPDIR:-/tmp}/instructions-record-apply.XXXXXX")"
   if ! python3 "$REPO/compose/instructions-state.py" record-apply \
        --requested "$sel" --outcome applied >"$record_log" 2>&1; then
     log "ONBOARDING INCOMPLETE: the instructions applied, but recording that outcome failed —"

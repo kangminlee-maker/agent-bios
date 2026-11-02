@@ -652,6 +652,11 @@ if [ -f gates/check-model-currency.py ]; then
     python3 gates/check-model-currency.py --self-test
 fi
 
+# The cost meter users run as `agent-bios cost`. Its self-test plants transcripts of both hosts,
+# a renamed usage key among them, and had no leg: its controls ran only when someone ran them.
+leg -q "FAIL: session cost self-test (run python3 session-cost.py --self-test)" \
+  python3 session-cost.py --self-test
+
 if [ -f gates/check-endpoints.py ]; then
   leg -q "FAIL: endpoint contract gate (run gates/check-endpoints.py)" \
     python3 gates/check-endpoints.py

@@ -17,20 +17,76 @@ _agent_launch_direct() {
   # provide is handed to whatever the user's function does. `builtin` cannot be shadowed,
   # so the resolution is the one the comment above already promised.
   if [[ "$host" == "claude" && -z "${_agent_launch_private_connection:-}" ]]; then
-    case "${1-}" in
-      # These six background-session verbs are dispatched only from the first argument:
-      # with a flag in front, `claude attach <id>` is a new session whose prompt is
-      # "attach <id>". Measured on 2.1.280 over all 21 subcommand spellings — only these
-      # six are displaced, and the other fifteen (mcp, doctor, plugin, project, auth,
-      # agents, ultrareview, update ...) parse the flag in front, which is what makes the
-      # list this short rather than every verb. They act on a session that already exists,
-      # so no permission default belongs in front of them.
-      logs|attach|stop|kill|respawn|rm) builtin command claude "$@" ;;
-      *) builtin command claude --dangerously-skip-permissions "$@" ;;
-    esac
+    # The permission default goes in front of a prompt or an option, never in front of a
+    # subcommand: some subcommands are dispatched only from the first argument, so with a
+    # flag in front `claude attach <id>` is a new session whose prompt is "attach <id>",
+    # and which ones is the installed version's to say. The subcommands are what that
+    # version's `claude --help` lists (_agent_launch_claude_subcommands); a first argument
+    # that starts with `-` is no subcommand and needs no probe. When the list cannot be
+    # read, the flag stays off.
+    if [[ $# -eq 0 || "$1" == -* ]]; then
+      builtin command claude --dangerously-skip-permissions "$@"
+    elif _agent_launch_claude_subcommands && (( ! ${_agent_launch_claude_verbs[(Ie)$1]} )); then
+      builtin command claude --dangerously-skip-permissions "$@"
+    else
+      builtin command claude "$@"
+    fi
   else
     builtin command "$host" "$@"
   fi
+}
+
+# The subcommand spellings (`stop|kill` is two) the installed `claude --help` lists under
+# `Commands:`, in `_agent_launch_claude_verbs`. Read once per installed binary: the key is the
+# binary's resolved path, modification time and size, held in this shell and in
+# ~/.local/share/agent-bios/claude-subcommands (the state dir the shadow log below uses, never
+# created here), so an update, which installs a new versioned path or rewrites the file, is
+# probed again. Returns nonzero when no list can be read: no `claude` on PATH, no zstat, a help
+# that fails or lists nothing. A failed probe is not cached.
+typeset -ga _agent_launch_claude_verbs
+typeset -g _agent_launch_claude_verbs_key=""
+_agent_launch_claude_subcommands() {
+  setopt localoptions noksharrays no_err_return no_err_exit no_bash_rematch no_rematch_pcre
+  local bin real key help line cache="$HOME/.local/share/agent-bios/claude-subcommands"
+  local -a words cached
+  local -A meta
+  bin="$(whence -p claude)" || return 1
+  [[ -n "$bin" ]] || return 1
+  real="${bin:A}"
+  zmodload -F zsh/stat b:zstat 2>/dev/null || return 1
+  zstat -H meta -- "$real" 2>/dev/null || return 1
+  key="${real}"$'\t'"${meta[mtime]}"$'\t'"${meta[size]}"
+  [[ "$key" == "$_agent_launch_claude_verbs_key" ]] && return 0
+  if [[ -f "$cache" && ! -L "$cache" ]]; then
+    cached=("${(@f)$(<"$cache")}")
+    if [[ "${cached[1]-}" == "$key" && ${#cached} -gt 1 ]]; then
+      _agent_launch_claude_verbs=("${(@)cached[2,-1]}")
+      _agent_launch_claude_verbs_key="$key"
+      return 0
+    fi
+  fi
+  help="$("$bin" --help </dev/null 2>/dev/null)" || return 1
+  local in_commands=0
+  for line in "${(@f)help}"; do
+    if [[ "$line" == Commands:* ]]; then
+      in_commands=1
+    elif (( in_commands )); then
+      if [[ "$line" =~ '^  ([a-z][a-z0-9-]*([|][a-z][a-z0-9-]*)*)( |$)' ]]; then
+        words+=("${(@s:|:)match[1]}")
+      elif [[ -n "$line" && "$line" != ' '* ]]; then
+        break
+      fi
+    fi
+  done
+  (( ${#words} )) || return 1
+  _agent_launch_claude_verbs=("${words[@]}")
+  _agent_launch_claude_verbs_key="$key"
+  if [[ -d "${cache:h}" && ( ! -e "$cache" || ( -f "$cache" && ! -L "$cache" ) ) ]]; then
+    builtin print -rl -- "$key" "${words[@]}" >| "$cache.$$" 2>/dev/null \
+      && builtin command mv -f -- "$cache.$$" "$cache" 2>/dev/null \
+      || builtin command rm -f -- "$cache.$$" 2>/dev/null
+  fi
+  return 0
 }
 
 _agent_launch_dispatch() {

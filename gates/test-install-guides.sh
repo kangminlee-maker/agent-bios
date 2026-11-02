@@ -354,7 +354,7 @@ for rel in subprocess.run(['git','-C',str(src),'ls-files','-z'],capture_output=T
         (dst/rel).parent.mkdir(parents=True,exist_ok=True); shutil.copy2(src/rel,dst/rel)"
 rm -f "$B/compose/assemble.py"
 env HOME="$T/broken-home" ZDOTDIR="$T/broken-home" CLAUDE_CONFIG_DIR="$T/broken-home/.claude" \
-  CODEX_HOME="$T/broken-home/.codex" AGENT_BIOS_IN_INSTALL_TEST=1 \
+  CODEX_HOME="$T/broken-home/.codex" AGENT_BIOS_IN_INSTALL_TEST=1 TMPDIR="$T/tmp" \
   AGENT_LAUNCH_VENV="$T/broken-home/.local/share/agent-launch/venv" \
   bash "$B/install.sh" install >"$T/blog" 2>&1; echo $? > "$T/brc"
 chk "I7 an unreadable audience declaration aborts the install" "[ \$(cat \"$T/brc\") -ne 0 ]"
@@ -606,7 +606,7 @@ BLOCKED="$T/i17blocked"; mkdir -p "$BLOCKED"; chmod 500 "$BLOCKED"
 run_i17() {   # $1: extra env
   rm -rf "$UPD_HOME"; mkdir -p "$UPD_HOME"
   env HOME="$UPD_HOME" ZDOTDIR="$UPD_HOME" CLAUDE_CONFIG_DIR="$UPD_HOME/.claude" \
-      CODEX_HOME="$UPD_HOME/.codex" AGENT_BIOS_IN_INSTALL_TEST=1 ${1:-} \
+      CODEX_HOME="$UPD_HOME/.codex" AGENT_BIOS_IN_INSTALL_TEST=1 TMPDIR="$T/tmp" ${1:-} \
       AGENT_LAUNCH_VENV="$UPD_HOME/.local/share/agent-launch/venv" \
       bash "$REPO/install.sh" install >"$T/log" 2>&1
   echo $? > "$T/rc"

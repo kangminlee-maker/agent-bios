@@ -164,6 +164,14 @@ PY
   fresh; printf '\ngrep -q x <<<"x"\n' >> "$W/wrappers/codex-run.sh"
   case_ok "a grep -q reading a here-string in a pipefail script"
 
+  # a mktemp -t in a shipped shell script, alone and with another flag first; a comment naming it is no call
+  fresh; printf '\nlog="$(mktemp -%s probe)"\n' t >> "$W/install.sh"
+  case_is "a mktemp -t in a shipped shell script" "mktemp -t call(s) in a shipped shell script"
+  fresh; printf '\nlog="$(mktemp -q -%s probe)"\n' t >> "$W/wrappers/codex-helm.sh"
+  case_is "a mktemp -q -t in a shipped shell script" "wrappers/codex-helm.sh:"
+  fresh; printf '\n# never mktemp -%s here\n' t >> "$W/install.sh"
+  case_ok "a comment naming mktemp -t in a shipped shell script"
+
   # a shipped module loaded by path, which no import statement names
   fresh; dropline package.json '"wrappers/jsonl_lines.py"'
   case_is "a module loaded by path that files[] does not ship" "wrappers/jsonl_lines.py"
@@ -885,8 +893,24 @@ for p in shell_scripts():
     piped_grep += [(rel, n, line.strip()) for n, line in code if PIPED_QUIET_GREP.search(line)]
 leg("pipefail scripts without a piped quiet grep", pipefail_scripts)
 
+# A shipped shell script may not call `mktemp -t`. macOS builds a template from -t's prefix; GNU
+# mktemp requires three X's in the last component and marks -t deprecated, so under `set -e` the
+# line aborts on Linux, which package.json declares. The portable form names its own template:
+# `mktemp "${TMPDIR:-/tmp}/name.XXXXXX"`. Comment lines are not calls.
+MKTEMP_T = re.compile(r"\bmktemp\s+(?:-[A-Za-z]+\s+)*-[A-Za-z]*t")
+shipped_shell, mktemp_t = [], []
+for p in shell_scripts():
+    rel = p.relative_to(REPO).as_posix()
+    if not shipped(rel):
+        continue
+    shipped_shell.append(rel)
+    mktemp_t += [(rel, n, line.strip())
+                 for n, line in enumerate(p.read_text(encoding="utf-8", errors="replace").splitlines(), 1)
+                 if not line.lstrip().startswith("#") and MKTEMP_T.search(line)]
+leg("shipped shell scripts without mktemp -t", shipped_shell)
+
 checked = sum(1 for r in found if r not in EXEMPT and not author_side(r) and (REPO / r).exists())
-if missing or leaked or prose_bad or unguarded or prov_bad or piped_grep:
+if missing or leaked or prose_bad or unguarded or prov_bad or piped_grep or mktemp_t:
     if missing:
         print(f"check-package: FAILED — {len(missing)} runtime path(s) not in package.json files[]:")
         for rel, srcs in missing:
@@ -906,6 +930,11 @@ if missing or leaked or prose_bad or unguarded or prov_bad or piped_grep:
               f"pipefail; grep's early exit SIGPIPEs the writer and pipefail turns a match into a miss "
               f"(capture the output, then match a here-string or case):")
         for rel, n, line in piped_grep:
+            print(f"  {rel}:{n}: {line}")
+    if mktemp_t:
+        print(f"check-package: FAILED — {len(mktemp_t)} mktemp -t call(s) in a shipped shell script; GNU mktemp "
+              f"refuses -t's prefix as a template (use mktemp \"${{TMPDIR:-/tmp}}/name.XXXXXX\"):")
+        for rel, n, line in mktemp_t:
             print(f"  {rel}:{n}: {line}")
     if prose_bad:
         print(f"check-package: FAILED — {len(prose_bad)} shipped-prose reference(s) "

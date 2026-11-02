@@ -182,27 +182,47 @@ def check_structure(profile: dict, sites: list[dict], agents: list[dict]) -> lis
 
 # ------------------------------------------------------------------- the host catalogues
 
+def shape_problem(data, keys: tuple[str, ...]):
+    """`(value, None)` for `data[keys[0]][keys[1]]...` when it is a non-empty list, else
+    `(None, what is wrong)`, naming the first key that is missing."""
+    for at, key in enumerate(keys):
+        if not isinstance(data, dict) or key not in data:
+            return None, "no " + "/".join(keys[:at + 1]) + " key"
+        data = data[key]
+    if not isinstance(data, list) or not data:
+        return None, "/".join(keys) + " is not a non-empty list"
+    return data, None
+
+
 def claude_catalogue(home: pathlib.Path) -> dict | None:
     """The freshest cache file that actually carries a model list.
 
     Freshest by the catalogue's OWN `fetchedAt` rather than by mtime, and files that are
     not catalogues are skipped rather than failing the read — the directory holds other
     things, and picking the wrong one silently would be worse than reporting none.
+
+    None when the directory holds no JSON file at all. When it holds some and none is a
+    catalogue, `{"unreadable": ...}` names each file and what is wrong with it: a cache the
+    vendor reshaped is not "no catalogue on this machine", and saying so sent the reader to
+    look for a missing file.
     """
-    best = None
-    for name in glob.glob(str(home / ".claude" / "cache" / "model-catalog" / "*.json")):
+    best, unread = None, []
+    for name in sorted(glob.glob(str(home / ".claude" / "cache" / "model-catalog" / "*.json"))):
+        shown = "~/.claude/cache/model-catalog/" + pathlib.Path(name).name
         try:
             data = json.loads(pathlib.Path(name).read_text(encoding="utf-8"))
-            models = data["catalog"]["config"]["models"]
-        except (OSError, ValueError, KeyError, TypeError):
+        except (OSError, ValueError) as exc:
+            unread.append(f"{shown} ({type(exc).__name__})")
             continue
-        if not isinstance(models, list) or not models:
+        models, problem = shape_problem(data, ("catalog", "config", "models"))
+        if problem:
+            unread.append(f"{shown} ({problem})")
             continue
         at = data.get("fetchedAt") or 0
         if best is None or at > best[0]:
             best = (at, models)
     if best is None:
-        return None
+        return {"unreadable": "; ".join(unread)} if unread else None
     entries = {}
     for m in best[1]:
         if not isinstance(m, dict) or not m.get("id"):
@@ -220,14 +240,19 @@ def claude_catalogue(home: pathlib.Path) -> dict | None:
 
 
 def codex_catalogue(home: pathlib.Path) -> dict | None:
+    """None when the cache file is absent; `{"unreadable": ...}` when it is there and not the
+    shape this reads, naming what is wrong (see `claude_catalogue`)."""
     path = home / ".codex" / "models_cache.json"
+    shown = "~/.codex/models_cache.json"
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
-        models = data["models"]
-    except (OSError, ValueError, KeyError, TypeError):
+    except FileNotFoundError:
         return None
-    if not isinstance(models, list) or not models:
-        return None
+    except (OSError, ValueError) as exc:
+        return {"unreadable": f"{shown} ({type(exc).__name__})"}
+    models, problem = shape_problem(data, ("models",))
+    if problem:
+        return {"unreadable": f"{shown} ({problem})"}
     entries = {}
     for m in models:
         if not isinstance(m, dict) or not m.get("slug"):
@@ -314,6 +339,10 @@ def classify(sites: list[dict], rows: dict, catalogues: dict) -> list[dict]:
             verdict["note"] = f"no {host} catalogue on this machine"
             out.append(verdict)
             continue
+        if "unreadable" in cat:
+            verdict["note"] = f"the {host} catalogue is not in a shape this reads: {cat['unreadable']}"
+            out.append(verdict)
+            continue
         entries = cat["entries"]
         found, ambiguous = resolve(mid, entries)
         if ambiguous:
@@ -382,6 +411,9 @@ def report(verdicts: list[dict], catalogues: dict) -> list[str]:
     for host, cat in sorted(catalogues.items()):
         if cat is None:
             lines.append(f"  {host} catalogue: none on this machine — bindings unjudged")
+        elif "unreadable" in cat:
+            lines.append(f"  {host} catalogue: present, in a shape this does not read — {cat['unreadable']} "
+                         f"— bindings unjudged")
         else:
             when = cat.get("fetched_at") or f"epoch-ms {cat.get('fetched_ms')}"
             lines.append(f"  {host} catalogue: {len(cat['entries'])} models, fetched {when}")
@@ -430,9 +462,13 @@ def publish_problems(result: dict) -> list[str]:
     problems = []
     bound_hosts = {v["host"] for v in result["verdicts"] if v["host"]}
     for host in sorted(bound_hosts):
-        if result["catalogues"].get(host) is None:
+        cat = result["catalogues"].get(host)
+        if cat is None:
             problems.append(f"no {host} catalogue on this machine, so its bindings cannot "
                             f"be judged — a release must not ship an unjudged binding")
+        elif "unreadable" in cat:
+            problems.append(f"the {host} catalogue is in a shape this does not read ({cat['unreadable']}), so "
+                            f"its bindings cannot be judged — a release must not ship an unjudged binding")
     for v in result["verdicts"]:
         if v["verdict"] in REFUSING:
             tail = f", superseded by {v['successor']}" if v["successor"] else ""
@@ -609,6 +645,26 @@ def self_test() -> int:
         control("publish refuses an unjudged host rather than passing it",
                 any("cannot be judged" in p for p in publish_problems(
                     {"verdicts": v, "catalogues": cats})))
+
+        # Both caches present in a shape the vendor changed (keys renamed): each is named as
+        # present and unreadable, with the file and the missing key, never as absent.
+        odd_home = root / "odd" / "home"
+        (odd_home / ".claude" / "cache" / "model-catalog").mkdir(parents=True)
+        (odd_home / ".claude" / "cache" / "model-catalog" / "cat.json").write_text(
+            json.dumps({"fetchedAt": 2, "catalogue": {"config": {"models": MAIN}}}))
+        (odd_home / ".codex").mkdir(parents=True)
+        (odd_home / ".codex" / "models_cache.json").write_text(json.dumps({"data": CX}))
+        v, cats = judge([{"where": "t.helm", "model": "claude-opus-5", "effort": "max"},
+                         {"where": "t.wh", "model": "gpt-5.6-sol", "effort": "max"}], {}, odd_home)
+        text = "\n".join(report(v, cats))
+        control("a reshaped cache is named as present and unreadable, with the file and the missing key",
+                [x["verdict"] for x in v] == [UNJUDGED, UNJUDGED]
+                and "cat.json (no catalog key)" in v[0]["note"] and "models_cache.json (no models key)" in v[1]["note"]
+                and "none on this machine" not in text and text.count("present, in a shape this does not read") == 2
+                and str(odd_home) not in text)
+        control("publish refuses a host whose catalogue it cannot read",
+                sum("in a shape this does not read" in p for p in publish_problems(
+                    {"verdicts": v, "catalogues": cats})) == 2)
 
         # The refusal this whole mechanism exists for: a superseded binding must not ship,
         # an acknowledged one must, and a correct tree must raise nothing at all.

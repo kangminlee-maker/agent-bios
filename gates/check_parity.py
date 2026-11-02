@@ -1843,7 +1843,7 @@ def codex_run():
             fake.write_text(
                 "#!/usr/bin/env bash\n"
                 "printf '%s\\n' \"$@\" > \"$FAKE_CODEX_ARGV\"\n"
-                "cat >/dev/null\n"
+                "cat >\"${FAKE_CODEX_STDIN:-/dev/null}\"\n"
                 "printf 'progress-err\\n' >&2\n"
                 "printf 'final-out\\n'\n"
                 "exit \"${FAKE_CODEX_STATUS:-0}\"\n"
@@ -1915,6 +1915,68 @@ def codex_run():
                     ("--dangerously-bypass-approvals-and-sandbox", f'model_reasoning_effort="{effort}"', f"features.multi_agent={multi_agent}"),
                     ("--sandbox",),
                 )
+
+            # codex-helm reads stdin only when it is the prompt's source: no prompt argument, or a `-` among
+            # them; never under --dry-run. An open stdin nobody writes to (a caller's inherited pipe) hung
+            # every call, --dry-run included. Each case below holds such a pipe open and requires the call to
+            # end; the piped cases require the prompt Codex received to carry, or not carry, what was piped.
+            prompt_seen = tmp / "codex-stdin"
+
+            def helm_call(argv, piped=None, timeout=60):
+                # stdin is a pipe whose write end this process holds: with `piped` it is written and
+                # closed, without it it stays open and idle until the call has ended (communicate()
+                # on a Popen-made pipe would close it at once, and an EOF tests nothing)
+                if prompt_seen.exists():
+                    prompt_seen.unlink()
+                read_end, write_end = os.pipe()
+                try:
+                    proc = subprocess.Popen(["bash", str(helm), "--reach", "inherit", *argv], stdin=read_end,
+                                            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+                                            env={**env, "FAKE_CODEX_STDIN": str(prompt_seen)}, start_new_session=True)
+                finally:
+                    os.close(read_end)
+                if piped is not None:
+                    os.write(write_end, piped.encode())
+                    os.close(write_end)
+                    write_end = None
+                try:
+                    out, err = proc.communicate(timeout=timeout)
+                except subprocess.TimeoutExpired:
+                    # A reader still blocked on the idle stdin holds the output pipes open: end the stdin
+                    # and the call's whole session before draining, or the drain waits on it forever.
+                    if write_end is not None:
+                        os.close(write_end)
+                        write_end = None
+                    os.killpg(proc.pid, signal.SIGKILL)
+                    proc.communicate()
+                    return None, "", "timed out: it read an idle stdin"
+                finally:
+                    if write_end is not None:
+                        os.close(write_end)
+                seen = prompt_seen.read_text() if prompt_seen.exists() else ""
+                return proc.returncode, out, seen if piped is not None or argv[:1] != ["--dry-run"] else err
+
+            code, _, seen = helm_call(["probe-held-open"])
+            if code != 0 or "probe-held-open" not in seen:
+                mark_fail(f"codex-helm with a prompt argument and an idle open stdin: exit {code}, {seen[-200:]!r}")
+            code, _, said = helm_call(["--dry-run"])
+            if code != 2 or "--dry-run reads no stdin" not in said:
+                mark_fail(f"codex-helm --dry-run with no prompt and an idle open stdin must refuse at once: exit {code}, "
+                          f"{said[-200:]!r}")
+            code, out, _ = helm_call(["--dry-run", "probe-dry", "-"])
+            if code != 0 or "<stdin: not read under --dry-run>" not in out:
+                mark_fail(f"codex-helm --dry-run with `-` must not read stdin: exit {code}")
+            code, _, seen = helm_call([], piped="piped-only-prompt\n")
+            if code != 0 or "piped-only-prompt" not in seen:
+                mark_fail(f"codex-helm with no prompt argument must take the piped prompt: exit {code}, {seen[-200:]!r}")
+            code, _, seen = helm_call(["probe-arg", "-"], piped="piped-beside-arg\n")
+            if code != 0 or "probe-arg\n\n<stdin>\npiped-beside-arg\n</stdin>" not in seen:
+                mark_fail(f"codex-helm with `-` beside a prompt must append stdin in a <stdin> block: exit {code}, "
+                          f"{seen[-200:]!r}")
+            code, _, seen = helm_call(["probe-arg-alone"], piped="piped-unasked\n")
+            if code != 0 or "probe-arg-alone" not in seen or "piped-unasked" in seen:
+                mark_fail(f"codex-helm with a prompt argument and no `-` must leave stdin unread: exit {code}, "
+                          f"{seen[-200:]!r}")
 
             # Advanced launch docs promise an explicit --sandbox disables the HELM default bypass
             # "regardless of flag order", and the flag that would re-enable it is parsed
@@ -2572,6 +2634,12 @@ def canary_separates_not_loading_from_not_probed():
                 "compose/canary.sh returns the same verdict for loading, not-loading and "
                 f"not-probed ({proven}/{refuted}/{unprobed}) — the split is not being made"
             )
+        # The not-loading diagnosis names the entry file's import line and no approval: the entry
+        # file is user-scope, whose imports the vendor's memory page says load without a dialog.
+        said = drive("echo BUNDLE-NOT-LOADED").stdout
+        if "'@central/bundle.md'" not in said or re.search(r"approv", said, re.I):
+            mark_fail("compose/canary.sh's not-loading diagnosis must name the entry file's '@central/bundle.md' "
+                      f"line and no import approval, which a user-scope file never asks for: {said.strip()[-300:]!r}")
 
 
 @check
@@ -3589,10 +3657,13 @@ def launcher_shell_reassert(fx):
         env = shell_env(home, zdot)
         if real_direct:
             # The true direct path, with a fake `claude` binary first in PATH so the
-            # `builtin command claude …` line is exercised without launching anything.
+            # `builtin command claude …` line is exercised without launching anything. It answers
+            # `--help` with a Commands block, which the wrapper reads to keep the permission
+            # default off subcommands (a prompt word is not one, so the default stays on).
             fake = tmp / "bin"
             fake.mkdir()
-            (fake / "claude").write_text('#!/bin/sh\nprintf "REAL-CLAUDE %s\\n" "$*"\n')
+            (fake / "claude").write_text('#!/bin/sh\nif [ "$1" = --help ]; then printf "Commands:\\n  mcp  Configure\\n"; '
+                                         'exit 0; fi\nprintf "REAL-CLAUDE %s\\n" "$*"\n')
             (fake / "claude").chmod(0o755)
             env["PATH"] = f"{fake}:{env.get('PATH', '')}"
         env.update(env_extra or {})
@@ -16566,45 +16637,96 @@ def shell_wrapper(fx):
     env, tmp = fx.env, fx.tmp
     shell_bin = tmp / "shell-bin"
     shell_bin.mkdir()
-    dispatch_log = tmp / "dispatch.argv"
+    dispatch_log, probe_log = tmp / "dispatch.argv", tmp / "help.probes"
     shell_backend = shell_bin / "backend"
+    # The fake answers `claude --help` with a Commands block in the installed CLI's layout, and
+    # counts each probe; FAKE_HELP decides the answer: listed (default), fail, empty, or `more`,
+    # which lists one more verb. Every other call records its argv.
+    help_text = ("Usage: claude [options] [command] [prompt]\n\nOptions:\n  -p, --print   Print\n\nCommands:\n"
+                 + "".join(f"  {spelling} <id>        A verb\n                          continued\n"
+                           for spelling in ("logs", "attach", "respawn", "rm", "stop|kill"))
+                 + "  mcp                     Configure MCP\n  planted-verb            A verb no list held\n")
+    (tmp / "help.txt").write_text(help_text)
     shell_backend.write_text(
         "#!/usr/bin/env bash\n"
+        "if [ \"$(basename \"$0\")\" = claude ] && [ \"${1-}\" = --help ]; then\n"
+        "  echo probe >> \"$FAKE_HELP_PROBES\"\n"
+        "  case \"${FAKE_HELP-listed}\" in\n"
+        "    fail) exit 1 ;;\n"
+        "    empty) printf 'Usage: claude\\n\\nCommands:\\n' ;;\n"
+        "    more) cat \"$FAKE_HELP_TEXT\"; printf '  later-verb              Added later\\n' ;;\n"
+        "    *) cat \"$FAKE_HELP_TEXT\" ;;\n"
+        "  esac\n"
+        "  exit 0\n"
+        "fi\n"
         "printf '%s\\n' \"$(basename \"$0\")\" \"$@\" > \"$FAKE_DISPATCH_ARGV\"\n"
     )
     shell_backend.chmod(0o755)
     (shell_bin / "codex").symlink_to(shell_backend)
     (shell_bin / "claude").symlink_to(shell_backend)
+    # A HOME of its own: the wrapper caches the subcommand list in ~/.local/share/agent-bios, and
+    # this check must not write the owner's.
+    shell_home = tmp / "shell-home"
+    (shell_home / ".local" / "share" / "agent-bios").mkdir(parents=True)
+    cache = shell_home / ".local" / "share" / "agent-bios" / "claude-subcommands"
     shell_env = env.copy()
     shell_env.update(
         PATH=f"{shell_bin}{os.pathsep}{shell_env.get('PATH', '')}",
+        HOME=str(shell_home),
         FAKE_DISPATCH_ARGV=str(dispatch_log),
+        FAKE_HELP_PROBES=str(probe_log),
+        FAKE_HELP_TEXT=str(tmp / "help.txt"),
     )
-    # The six verbs Claude Code dispatches only from the first argument. The rows are
-    # written out here rather than read from the wrapper, so emptying the wrapper's list
-    # fails them instead of leaving nothing to compare against.
-    session_verbs = [
-        (f"claude {verb} probe-id", ["claude", verb, "probe-id"])
-        for verb in ("logs", "attach", "stop", "kill", "respawn", "rm")
-    ]
+
+    def dispatched(command, extra=None):
+        if dispatch_log.exists():
+            dispatch_log.unlink()
+        shell_result = invoke(["zsh", "-f", "-c", f"source {shell_init}; {command}"],
+                              env={**shell_env, **(extra or {})})
+        received = dispatch_log.read_text().splitlines() if dispatch_log.is_file() else []
+        return shell_result.returncode, received
+
+    def probes():
+        return len(probe_log.read_text().splitlines()) if probe_log.exists() else 0
+
+    # Every spelling the help lists passes through with no flag in front, a verb no fixed list held
+    # included; the rows are written out here rather than read from the wrapper.
+    listed = [(f"claude {verb} probe-id", ["claude", verb, "probe-id"])
+              for verb in ("logs", "attach", "stop", "kill", "respawn", "rm", "planted-verb")]
     for command, expected in (
         ("codex exec probe", ["codex", "exec", "probe"]),
         ("claude --no-tui -p probe", ["claude", "--dangerously-skip-permissions", "-p", "probe"]),
-        *session_verbs,
+        *listed,
         ("claude --no-tui attach probe-id", ["claude", "attach", "probe-id"]),
-        # Only the exact verb passes through. A prompt that merely begins with one keeps the
-        # default, and so does a subcommand Claude Code parses with the flag in front — `mcp`
-        # is one of the fifteen that do, which is why the list above is six and not all of them.
+        # Only the exact spelling passes through. A prompt that merely begins with one keeps the
+        # default; a listed subcommand that takes the flag in front (`mcp`) gets none either.
         ("claude 'attach the file'", ["claude", "--dangerously-skip-permissions", "attach the file"]),
-        ("claude mcp list", ["claude", "--dangerously-skip-permissions", "mcp", "list"]),
+        ("claude mcp list", ["claude", "mcp", "list"]),
+        ("claude", ["claude", "--dangerously-skip-permissions"]),
         ("codex", ["codex"]),
     ):
-        shell_result = invoke([
-            "zsh", "-f", "-c", f"source {shell_init}; {command}"
-        ], env=shell_env)
-        received = dispatch_log.read_text().splitlines() if dispatch_log.is_file() else []
-        if shell_result.returncode != 0 or received != expected:
+        code, received = dispatched(command)
+        if code != 0 or received != expected:
             mark_fail(f"shell dispatch for {command!r} is {received!r}, want {expected!r}")
+    # Read once per installed binary: every call above ran in a shell of its own, and one probe
+    # served them all through the cache, keyed to the binary.
+    if probes() != 1 or not cache.is_file() or not cache.read_text().startswith(str(shell_backend.resolve())):
+        mark_fail(f"the wrapper probed `claude --help` {probes()} times for one binary, want 1 "
+                  f"(cache present: {cache.is_file()})")
+    # A changed binary is probed again: the new spelling it lists passes through.
+    with shell_backend.open("a") as fh:
+        fh.write("# a later release\n")
+    code, received = dispatched("claude later-verb x", {"FAKE_HELP": "more"})
+    if code != 0 or received != ["claude", "later-verb", "x"] or probes() != 2:
+        mark_fail(f"after the binary changed, `claude later-verb x` dispatched {received!r} after {probes()} "
+                  f"probes, want no flag and a second probe")
+    # A help that fails or lists nothing leaves the flag off, and is not cached.
+    for answer in ("fail", "empty"):
+        cache.unlink(missing_ok=True)
+        code, received = dispatched("claude something-else", {"FAKE_HELP": answer})
+        if code != 0 or received != ["claude", "something-else"] or cache.exists():
+            mark_fail(f"with a help that is {answer}, `claude something-else` dispatched {received!r} "
+                      f"(cache written: {cache.exists()}), want no flag and no cache")
     alias_result = invoke([
         "zsh", "-f", "-c",
         f"alias codex='false'; alias claude='false'; source {shell_init}; codex exec alias-probe",
@@ -16614,7 +16736,6 @@ def shell_wrapper(fx):
         "codex", "exec", "alias-probe"
     ]:
         mark_fail("shell init did not replace pre-existing codex/claude aliases")
-
 
 def main(argv):
     from fixture_support import legacy_host_environment

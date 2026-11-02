@@ -104,7 +104,8 @@ core_rules:
   prompt, 파일명, content 문자열은 raw CLI argument로 inline하면 안 된다 —
   target process가 보기 전에 shell이 그것을 expand하거나 망가뜨린다. stdin,
   heredoc, temp file로 넘긴다. (우리 dispatch script인
-  codex-run/codex-helm은 이미 stdin을 받는다 — 그 경로를 쓴다.)
+  codex-run/codex-helm은 이미 stdin을 받는다 — 그 경로를 쓴다. codex-helm은
+  prompt argument가 없거나 `-` argument가 있을 때만 stdin을 읽는다.)
 - **Multi-line pasted commands**: continuation marker 없이 여러 줄에 걸쳐
   붙여넣은 command는 두 개의 invocation으로 다시 wrap되어 trailing flag를
   조용히 떨어뜨릴 수 있다(실제 사례: auth flow 중 `--scopes`가 사라져 →

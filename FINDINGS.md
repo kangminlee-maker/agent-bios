@@ -136,31 +136,6 @@ wrong one.
 
 ---
 
-## F-23 — `install.sh` uses a temp-file form GNU `mktemp` refuses, and the abort restores the wrong manifest
-
-`install.sh` creates three logs with `mktemp -t <word>` (in `cmd_install`, `cmd_verify` and
-`cmd_onboard`), as does `gates/check-parity.sh`. The macOS `mktemp(1)` builds a template from
-the prefix. The GNU manual requires "at least three consecutive 'X's in the last component" and
-marks `-t` deprecated. `package.json` declares `linux`, and under `set -euo pipefail`
-`cmd_install` aborts at that line. By then every file is deployed, but the status projection has
-not run and `INSTALL_COMPLETED=1` has not been set. The EXIT trap then copies the previous
-manifest back over the new install, which is the reading its own comment calls the worst one:
-`uninstall` later removes the wrong set. No CI job runs `install.sh` on Linux; the ubuntu jobs
-only run `bash -n` and a PATH probe on `packages/posix/install.sh`. The form is on `main` and
-absent from the published 0.19.3. The hook and the wrappers already use the portable
-`mktemp "${TMPDIR:-/tmp}/name.XXXXXX"` form. Not reproduced on Linux; the code was read and the
-GNU contract quoted (`design/dependency-contracts/`, row C-3).
-
-Alternatives:
-
-1. **Use the portable template form at all four sites, and add a Linux job that runs
-   `install.sh install --non-interactive` in a sandbox HOME.** Risk: the job is new CI surface
-   to keep green.
-2. **Drop `linux` from `package.json` `os` until such a job exists.** Risk: it withdraws a
-   declared platform from users who may already depend on it.
-
----
-
 ## F-24 — the Codex context-evidence probe waits on `select()` for a line Python already buffered
 
 `wrappers/codex_frame_filter.py` `app_server_sources` starts `codex app-server` with
@@ -179,25 +154,6 @@ Alternatives:
    on every exit path.
 2. **Read the descriptor unbuffered (`os.read`) and split lines in the probe.** Risk: the probe
    then owns partial-line and decoding handling that the text layer did before.
-
----
-
-## F-25 — `agent-bios cost` reports `$0.00` without a word when a transcript usage key moves
-
-`session-cost.py` sums `message.usage.{input_tokens, output_tokens, cache_read_input_tokens,
-cache_creation_input_tokens, …}` from Claude transcript records. The vendor's sessions
-documentation says the entry format "is internal to Claude Code and changes between versions".
-A renamed key reads as zero, and a bad JSON line is skipped uncounted, so the user-facing report
-prints a cost of nothing and names no cause (row B-2). AGENTS.md §12 puts validating a
-no-contract input, and refusing a drift by name, on our side.
-
-Alternatives:
-
-1. **Count the records that carry a `usage` object but no recognised key, and report them by
-   name with the host version.** Risk: a host that adds keys without removing any raises a
-   false alarm unless the check is about missing keys, not extra ones.
-2. **Refuse to print a total when any assistant record has an unreadable usage shape.**
-   Risk: one odd record withholds a report that was otherwise right.
 
 ---
 
@@ -222,42 +178,6 @@ Alternatives:
    Risk: the stream is also undocumented in part (row B-5), and the proof of what was loaded
    weakens to a proof of what was offered. This is the owner decision named in the dated
    record.
-
----
-
-## F-27 — the zsh wrapper's subcommand exceptions are a measurement of one Claude version
-
-`launch/agent-launch.zsh` prepends `--dangerously-skip-permissions` to a bare `claude <verb>`.
-It skips this only for six verbs measured on 2.1.280 (`logs attach stop kill respawn rm`),
-because a leading flag turns those subcommands into a new session whose prompt is the verb. No
-document states which subcommands stop parsing after a flag. A verb added later, typed bare,
-starts a permission-skipping session with the verb as its prompt, silently (row A-11).
-
-Alternatives:
-
-1. **Invert the rule: prepend the flag only when the first argument is not a subcommand
-   `claude --help` lists, probed once per installed version and cached.** Risk: one probe of
-   help text per version; help prose is not a contract either, so a failed probe must leave
-   the flag off.
-2. **Prepend the flag only for a bare `claude` and for the documented prompt flags.** Risk:
-   users lose the bypass for forms the current list allows.
-
----
-
-## F-28 — `codex-helm.sh` reads a non-terminal stdin to EOF, so an idle inherited stdin hangs it
-
-`codex-helm.sh` takes a piped prompt with `if [ ! -t 0 ]; then stdin_prompt="$(cat)"`, its
-`--dry-run` included. A caller that runs it with an open, idle stdin hangs it at 0% CPU.
-Python's `subprocess` passes the parent's stdin by default. The gate (`invoke`, `stdin=DEVNULL`)
-and `install.sh` (`exec </dev/null`) fixed their own calls after it hung the gate for ten
-minutes. Nothing checks the other callers (row C-5).
-
-Alternatives:
-
-1. **Read stdin only when the caller asks for it (an explicit `-`), and never in
-   `--dry-run`.** Risk: a documented pipe usage changes and needs the flag.
-2. **Bound the read with a deadline and name the timeout.** Risk: a slow but real producer is
-   cut off.
 
 ---
 
