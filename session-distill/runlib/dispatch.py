@@ -448,23 +448,93 @@ SUITE_ARGV_CONTEXTS = (
 IN_PROCESS_ENTRIES = ("main", "guarded_entry", "self_test")
 
 
+class _Parsed:
+    """One source text parsed once, with the walks the judges below repeat over it.
+
+    The judges read the same modules again and again — every planted control re-judges the whole
+    import closure with one file changed — and each read used to parse and walk the file afresh. The
+    same text always parses to the same tree, and nothing here changes a tree once it is parsed, so a
+    parse kept under its exact text answers what a fresh parse would; `parse_cache_problems` holds
+    that against a fresh parse of the live tree. The walks are kept in `ast.walk`'s own order, which
+    every judge reads in."""
+
+    def __init__(self, source, filename):
+        self.tree = ast.parse(source, filename)
+        self.nodes = list(ast.walk(self.tree))
+        self.parent, self.aliases, self._assigns = {}, {}, {}
+        for node in self.nodes:
+            for kid in ast.iter_child_nodes(node):
+                self.parent[kid] = node
+            if isinstance(node, ast.Import):
+                for a in node.names:
+                    self.aliases[(a.asname or a.name).split(".")[0]] = a.name if a.asname else a.name.split(".")[0]
+            elif isinstance(node, ast.ImportFrom) and node.module:
+                for a in node.names:
+                    self.aliases[a.asname or a.name] = f"{node.module}.{a.name}"
+        self.by_id = {id(kid): node for kid, node in self.parent.items()}
+        self.functions = [n for n in self.nodes if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))]
+
+    def assigns(self, scope):
+        """`{name: [values]}` of the assignments to a plain name anywhere under `scope`, each in
+        `ast.walk(scope)` order and each assignment once per name it binds."""
+        index = self._assigns.get(scope)
+        if index is None:
+            index = {}
+            for n in ast.walk(scope):
+                if isinstance(n, ast.Assign):
+                    for name in dict.fromkeys(t.id for t in n.targets if isinstance(t, ast.Name)):
+                        index.setdefault(name, []).append(n.value)
+            self._assigns[scope] = index
+        return index
+
+
+# Parses by file, newest first: one kept for the live text and one for a planted variant, which is
+# all a planted control needs, so the cache holds about two trees per file and never more.
+PARSES_PER_FILE = 2
+_PARSES = {}
+
+
+def _parsed(source, name, filename="<unknown>"):
+    """The `_Parsed` of `source`, the file `name` holds. A miss parses with the caller's own
+    `filename`, so a SyntaxError reads as it always did; an error is never kept."""
+    rows = _PARSES.setdefault(str(name), [])
+    for at, (text, parsed) in enumerate(rows):
+        if text is source or text == source:
+            if at:
+                rows.insert(0, rows.pop(at))
+            return parsed
+    parsed = _Parsed(source, filename)
+    rows.insert(0, (source, parsed))
+    del rows[PARSES_PER_FILE:]
+    return parsed
+
+
+def parse_cache_problems(root=REPO):
+    """Where the kept parses answer otherwise than fresh ones over the same tree: the three judges that
+    read through `_parsed`, run with whatever the cache holds, then with the cache emptied. Empty when
+    keeping parses changes no answer."""
+    def judged():
+        return closure_violations(root), shape_violations(root), name_rebindings(root)
+
+    kept = judged()
+    _PARSES.clear()
+    fresh = judged()
+    return [f"PARSE_CACHE_DIVERGES {name}: kept {k!r}, fresh {f!r}"
+            for name, k, f in zip(("closure", "shape", "rebindings"), kept, fresh) if k != f]
+
+
 def _parents(parsed):
-    """`{id(child): parent}` for one tree: a context rule needs the node above, not only the node."""
-    seen = {}
-    for node in ast.walk(parsed):
-        for child in ast.iter_child_nodes(node):
-            seen[id(child)] = node
-    return seen
+    """`{id(child): parent}` for one parse: a context rule needs the node above, not only the node."""
+    return parsed.by_id
 
 
 def _enclosing(parsed, lineno):
     """The name of the function a line stands in, or None at module scope."""
     best = None
-    for node in ast.walk(parsed):
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            if node.lineno <= lineno <= (node.end_lineno or node.lineno) and (
-                    best is None or node.lineno > best.lineno):
-                best = node
+    for node in parsed.functions:
+        if node.lineno <= lineno <= (node.end_lineno or node.lineno) and (
+                best is None or node.lineno > best.lineno):
+            best = node
     return best.name if best else None
 
 
@@ -518,11 +588,11 @@ def shape_violations(root=REPO, sites=TEMPFILE_SITES, scope=TEMPFILE_SCOPE, sour
             problems.append(f"TEMPFILE_SCOPE_STALE {rel}: no such file")
             continue
         try:
-            parsed = ast.parse(source)
+            parsed = _parsed(source, rel)
         except SyntaxError as exc:
             problems.append(f"TEMPFILE_UNREADABLE {rel}: {exc}")
             continue
-        for node in ast.walk(parsed):
+        for node in parsed.nodes:
             if isinstance(node, ast.Import):
                 for alias in node.names:
                     if alias.name == "tempfile" and alias.asname:
@@ -557,11 +627,11 @@ def shape_violations(root=REPO, sites=TEMPFILE_SITES, scope=TEMPFILE_SCOPE, sour
         if source is None or not rel.startswith("session-distill/"):
             continue
         try:
-            parsed = ast.parse(source)
+            parsed = _parsed(source, rel)
         except SyntaxError:
             continue
         parents = _parents(parsed)
-        for node in ast.walk(parsed):
+        for node in parsed.nodes:
             if isinstance(node, ast.Import):
                 for alias in node.names:
                     head = alias.name.split(".")[0]
@@ -1641,17 +1711,8 @@ class _Module:
 
     def __init__(self, path, rel, source=None):
         self.path, self.rel = path, rel
-        self.tree = ast.parse(source if source is not None else path.read_text(encoding="utf-8"), str(rel))
-        self.parent, self.aliases = {}, {}
-        for node in ast.walk(self.tree):
-            for kid in ast.iter_child_nodes(node):
-                self.parent[kid] = node
-            if isinstance(node, ast.Import):
-                for a in node.names:
-                    self.aliases[(a.asname or a.name).split(".")[0]] = a.name if a.asname else a.name.split(".")[0]
-            elif isinstance(node, ast.ImportFrom) and node.module:
-                for a in node.names:
-                    self.aliases[a.asname or a.name] = f"{node.module}.{a.name}"
+        self.parsed = _parsed(source if source is not None else path.read_text(encoding="utf-8"), rel, str(rel))
+        self.tree, self.parent, self.aliases = self.parsed.tree, self.parsed.parent, self.parsed.aliases
 
     def dotted(self, node):
         if isinstance(node, ast.Name):
@@ -1670,8 +1731,7 @@ class _Module:
                 scopes.append(node)
         found = []
         for scope in scopes:
-            found += [n.value for n in ast.walk(scope) if isinstance(n, ast.Assign)
-                      and any(isinstance(t, ast.Name) and t.id == name.id for t in n.targets)]
+            found += self.parsed.assigns(scope).get(name.id, [])
             if found:
                 return found
         return [n.value for n in self.tree.body if isinstance(n, ast.Assign)
@@ -2211,7 +2271,7 @@ def _judge_words(mod, words, line, pinned, problems, operators=SHELL_OPERATOR_RU
 
 def _sites(mod, pinned, depth=0, runs=(), follow=None):
     problems = []
-    for node in ast.walk(mod.tree):
+    for node in mod.parsed.nodes:
         if not isinstance(node, ast.Call):
             continue
         name = mod.dotted(node.func)
@@ -2286,13 +2346,14 @@ def name_rebindings(root=REPO, spellings=None):
         if not path.is_file():
             problems.append(f"INVENTORY_STALE form spelling {row['site']}: no such file")
             continue
-        tree = ast.parse(path.read_text(encoding="utf-8"))
+        parsed = _parsed(path.read_text(encoding="utf-8"), row["site"])
+        tree = parsed.tree
         scanned += 1
         # The module names come from the spellings themselves, so a new form is covered by the name
         # it is written with rather than by a list someone has to remember to extend.
         watched = {"__file__", row["str"].split(".")[0], row["path"].split(".")[0],
                    row["member"].split(".")[0]}
-        for node in ast.walk(tree):
+        for node in parsed.nodes:
             bound = []
             if isinstance(node, ast.Name) and isinstance(node.ctx, (ast.Store, ast.Del)):
                 bound = [node.id]
@@ -2386,7 +2447,7 @@ def closure_violations(root=REPO, out_of_scope=OUT_OF_SCOPE, dynamic=DYNAMIC_LOA
         rel = path.relative_to(root.resolve())
         mod = _Module(path, rel)
         closure.append(str(rel))
-        for node in ast.walk(mod.tree):
+        for node in mod.parsed.nodes:
             targets = []
             if isinstance(node, ast.Import):
                 targets = [(a.name, 0) for a in node.names]
@@ -2430,7 +2491,7 @@ def closure_violations(root=REPO, out_of_scope=OUT_OF_SCOPE, dynamic=DYNAMIC_LOA
                 # above; the walk must not die on it, or that report never gets printed.
                 if (root / entry["path"]).is_file():
                     queue.append(root / entry["path"])
-            sites += sum(1 for n in ast.walk(mod.tree) if isinstance(n, ast.Call) and mod.dotted(n.func) in EXEC_CALLS)
+            sites += sum(1 for n in mod.parsed.nodes if isinstance(n, ast.Call) and mod.dotted(n.func) in EXEC_CALLS)
             problems.extend(found)
     for entry in dynamic:
         if (entry["site"], entry["path"]) not in used and (root / entry["site"]).is_file():
@@ -3680,6 +3741,24 @@ def self_test(scratch=None):
             and {f"session-distill/runlib/{p.name}" for p in (REPO / "session-distill" / "runlib").glob("*.py")} <= set(closure)
             and sites >= 3, f"{violations} closure {closure} sites {sites}")
     control("closure-imports-no-out-of-scope-executor", not set(closure) & {e["path"] for e in OUT_OF_SCOPE}, f"{closure}")
+    # The parses kept under their text answer as fresh ones do, with a planted variant of a file kept
+    # beside its live text as every planted control below leaves one; and a kept parse that no longer
+    # is the file's text, planted here, is told apart, so the comparison can see a difference at all.
+    variant_rel = "session-distill/distill.py"
+    _parsed((REPO / variant_rel).read_text(encoding="utf-8") + "\nimport subprocess\n"
+            "subprocess.run(['planted-kept-variant'])\n", variant_rel)
+    variants_kept = len(_PARSES.get(variant_rel, []))
+    cache_problems = parse_cache_problems()
+    control("the-parse-cache-answers-as-a-fresh-parse", variants_kept == PARSES_PER_FILE and cache_problems == [],
+            f"kept {variants_kept} parses of {variant_rel}; {cache_problems}")
+    stale_rel = "session-distill/distill.py"
+    stale_live = (REPO / stale_rel).read_text(encoding="utf-8")
+    _PARSES[stale_rel] = [(stale_live, _Parsed(stale_live + "\nimport subprocess\n"
+                                                "subprocess.run(['planted-stale-parse'])\n", stale_rel))]
+    stale = parse_cache_problems()
+    control("a-stale-kept-parse-is-told-from-a-fresh-one",
+            any(row.startswith("PARSE_CACHE_DIVERGES closure") and "planted-stale-parse" in row for row in stale),
+            f"{stale}")
     tree = scratch / "tree"
     for rel in ["session-distill/distill.py", "session-distill/seats.json", "session-distill/screen-codex.py", "launch/agent-launch.py"] \
             + [str(p.relative_to(REPO)) for p in (REPO / "session-distill" / "runlib").glob("*.py")] \
