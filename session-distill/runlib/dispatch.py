@@ -78,6 +78,7 @@ CLOSURE_IMPORTS_OUT_OF_SCOPE, DYNAMIC_LOAD_UNDECLARED and INVENTORY_STALE.
 import ast
 import contextlib
 import hashlib
+import importlib.util
 import inspect
 import json
 import math
@@ -86,7 +87,6 @@ import pathlib
 import re
 import shlex
 import shutil
-import signal
 import subprocess
 import sys
 import tempfile
@@ -105,6 +105,22 @@ from runlib import usage as usages
 from runlib.records import Refused
 
 REPO = pathlib.Path(__file__).resolve().parents[2]
+# wrappers/codex_protocol.py owns a child's lifecycle in a process group of its own (Owned), loaded by
+# its literal repo path (author-side imports shipped, never the reverse)
+PROCESS_OWNER = pathlib.Path(__file__).resolve().parents[2] / "wrappers" / "codex_protocol.py"
+_process_owner = None
+
+
+def process_owner():
+    global _process_owner
+    if _process_owner is None:
+        spec = importlib.util.spec_from_file_location("codex_protocol", PROCESS_OWNER)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        _process_owner = module
+    return _process_owner
+
+
 RUNNERS = {"claude": REPO / "wrappers" / "claude-run.sh", "codex": REPO / "wrappers" / "codex-run.sh"}
 USES = ("judge", "producing", "authoring")  # claude-run's call profiles (plan WP-03); producing is Claude's alone
 # the refusals each adapter names on a nonzero exit: before anything is sent (codex-run's capture
@@ -132,8 +148,12 @@ LOCK_WAIT_S = 30
 # adapter is asked for it (claude-run --server-policy-probe: the one documented line of `claude doctor`, in a
 # cell of its own with the call's environment and token, which never passes through here); the record is
 # kept as supervisor/server-policy.json and handed to every hermetic Claude call of the run. The bound is
-# the adapter's own doctor bound (60 s) with room for its cell checks.
+# the adapter's own doctor bound (60 s) with room for its cell checks. The probe runs under
+# PROCESS_OWNER's Owned: its group is ended before it is reaped, on every path, and once the group is
+# ended its pipes are given SERVER_POLICY_DRAIN_S, so a process that left the group holding one is
+# not waited for; the same bound is its grace between SIGTERM and SIGKILL.
 SERVER_POLICY_PROBE_S = 120
+SERVER_POLICY_DRAIN_S = 5
 # the stop's own wait on the declaration lock, read from the module at each stop so a control can
 # shorten it; production never changes it (BC#0)
 STOP_LOCK_WAIT_S = LOCK_WAIT_S
@@ -174,6 +194,12 @@ DYNAMIC_LOADS = (
                "server_policy_record, the hermeticity a receipt states); read, not traced: the rest of that file "
                "renders a capture, and its one executor (server_policy, `claude doctor`) is run by claude-run "
                "inside a cell, never by the gate or the dispatcher"},
+    {"site": "session-distill/runlib/dispatch.py", "path": "wrappers/codex_protocol.py", "trace": False,
+     "reason": "the owner of a child's lifecycle in a process group of its own (Owned), loaded by its literal repo "
+               "path (PROCESS_OWNER) so the server-policy probe is ended and drained by the rule the Codex client "
+               "follows, never a copy of it; read, not traced: Owned starts nothing and only signals and reaps the "
+               "child it is handed, while the module's executors (Client, codex_version, ensure_schema) start codex, "
+               "which the dispatcher never calls"},
     {"site": "session-distill/runlib/records.py", "path": "wrappers/jsonl_lines.py", "trace": True,
      "reason": "the one JSONL splitter, shipped, loaded by its literal repo path (_load_jsonl_lines) so runlib's "
                "readers use it, never a copy; it imports nothing and runs nothing"},
@@ -863,6 +889,8 @@ class Supervisor:
         self.policy_runner = None
         self.monitor = monitor or monitors.Monitor  # the self-test's delayed-reader controls give a slower one
         self.drain_deadline_s = DRAIN_DEADLINE_S  # the self-test's held-pipe control gives a shorter one
+        # the self-test's held-output control gives the server-policy probe shorter bounds
+        self.server_policy_probe_s, self.server_policy_drain_s = SERVER_POLICY_PROBE_S, SERVER_POLICY_DRAIN_S
         self.cell_root = pathlib.Path(cell_root) if cell_root else None
         self.env = dict(os.environ if env is None else env)
         self.breaker = breakers.Breaker(self.run_dir)
@@ -907,14 +935,13 @@ class Supervisor:
             proc = subprocess.Popen(probe({"cell": str(cell), "host_bin": host_bin, "host_version": host_version}),
                                     stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env,
                                     start_new_session=True)
-            try:
-                out, err = proc.communicate(timeout=SERVER_POLICY_PROBE_S)
-            except subprocess.TimeoutExpired:
-                with contextlib.suppress(ProcessLookupError):
-                    os.killpg(proc.pid, signal.SIGKILL)
-                proc.communicate()
+            out, err, timed_out, held = process_owner().Owned(proc).collect(
+                self.server_policy_probe_s, self.server_policy_drain_s, self.server_policy_drain_s)
+            if timed_out:
                 record = {"status": None, "verdict": "unknown",
-                          "reason": f"the server-policy probe did not finish within {SERVER_POLICY_PROBE_S} s"}
+                          "reason": f"the server-policy probe did not finish within {self.server_policy_probe_s} s"
+                                    + ("; a process that left its process group still held its output, and was not "
+                                       "waited for" if held else "")}
             else:
                 try:
                     held = json.loads(out) if proc.returncode == 0 else None
@@ -5074,6 +5101,51 @@ def self_test(scratch=None):
             (held_applied.get("server_policy") or {}).get("verdict") == "not confirmed"
             and (held_applied.get("server_policy") or {}).get("status") == "2 settings applied"
             and held_applied.get("fully_hermetic") is False, f"{held_applied}")
+    # R3#2: a server-policy probe that outlives its bound while a process that left its group holds its
+    # output. The probe's group is ended and its output given the drain bound, never waited for past it,
+    # and the run records the policy as unknown, saying both. The process outside the group is beyond
+    # the dispatcher's reach: it ends when this control writes its stop file, or after 30 s, and the
+    # control then sees every process the probe started gone.
+    held_cells, held_note = scratch / "policy-held-output", scratch / "policy-held-output.pids"
+    held_cells.mkdir()
+    sup_h = Supervisor(run_dir("run-policy-held-output", {"S6": 400_000}), clock=lambda: clock[0],
+                       cell_root=held_cells, realization="golden")
+    sup_h.server_policy_probe_s, sup_h.server_policy_drain_s = 0.5, 0.3
+    away = ("import os, sys, time\nend = time.monotonic() + 30\n"
+            "while not os.path.exists(sys.argv[1]) and time.monotonic() < end:\n    time.sleep(0.05)\n")
+    sup_h.policy_runner = lambda spec: [
+        sys.executable, "-c",
+        "import os, subprocess, sys, time\n"
+        f"away = subprocess.Popen([sys.executable, '-c', {away!r}, sys.argv[1] + '.stop'], start_new_session=True)\n"
+        "with open(sys.argv[1], 'w') as noted:\n"
+        "    noted.write(f'{os.getpid()} {away.pid}')\n"
+        "time.sleep(30)\n", str(held_note)]
+    began = time.monotonic()
+    held_path = sup_h.server_policy("2.1.304", "/nonexistent/claude")
+    took = time.monotonic() - began
+    held_record = records.read_json(held_path) if held_path else {}
+    probe_pids = [int(n) for n in held_note.read_text().split() if int(n) > 1] if held_note.is_file() else []
+
+    def running(pid):
+        try:
+            os.kill(pid, 0)
+        except ProcessLookupError:
+            return False
+        return True
+    outside_ran = len(probe_pids) == 2 and running(probe_pids[1])
+    held_note.with_name(held_note.name + ".stop").touch()
+    for _ in range(100):
+        if not any(running(pid) for pid in probe_pids):
+            break
+        time.sleep(0.05)
+    left = [pid for pid in probe_pids if running(pid)]
+    if outside_ran:
+        print(f"dispatch --self-test NOTE: R3#2 ended the probe's child outside its group ({probe_pids[1]}) through "
+              f"its stop file, beyond the dispatcher's reach" + (f"; still running: {left}" if left else ""))
+    control("R3#2-a-probe-whose-output-a-process-outside-its-group-holds-is-recorded-unknown-within-its-bounds",
+            held_record.get("verdict") == "unknown" and "did not finish within 0.5 s" in (held_record.get("reason") or "")
+            and "left its process group" in (held_record.get("reason") or "") and took < 5 and outside_ran and not left,
+            f"took {took:.1f} s, {held_record}, outside the group while asked: {outside_ran}, left {left}")
     # ... and one mutation per forwarding behaviour, on a copy of the adapter the launcher is pointed at
     adapter_copy = scratch / "adapter-mutations"
     adapter_copy.mkdir(exist_ok=True)

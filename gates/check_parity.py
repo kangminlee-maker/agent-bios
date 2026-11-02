@@ -3853,10 +3853,15 @@ def launcher_shell_reassert(fx):
     if len((log or "").splitlines()) != 1:
         mark_fail(f"shell reassert [every-prompt shadower]: expected exactly one log line, got {(log or '').splitlines()!r}")
     # 8b. An alias named `builtin` that exists when the file is sourced must not be baked
-    #     into `_agent_launch_direct` — the real direct path, with a fake `claude` in PATH.
-    out, _, _ = run(shadower(), zshenv_before="alias builtin='print BUILTIN-ALIAS'", real_direct=True)
+    #     into `_agent_launch_direct` — the real direct path, with a fake `claude` in PATH —
+    #     nor reach a command substitution, which is parsed when it runs: the subcommand probe
+    #     still finds claude and python3, and the shadow log's time field is still a time.
+    out, log, _ = run(shadower(), zshenv_before="alias builtin='print BUILTIN-ALIAS'", real_direct=True, state=True)
     if f"REAL-CLAUDE --dangerously-skip-permissions probe-{nonce}" not in out or "BUILTIN-ALIAS" in out or "SHADOW-RAN" in out:
         mark_fail(f"shell reassert [alias builtin before source]: the direct path did not reach the binary: {out.strip()[:200]!r}")
+    stamps = [line.split("\t", 1)[0] for line in (log or "").splitlines()]
+    if not stamps or not all(re.fullmatch(r"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ", stamp) for stamp in stamps):
+        mark_fail(f"shell reassert [alias builtin before source]: the shadow log's time field is not a time: {stamps!r}")
     # 8c. A hook registered AFTER ours in preexec wins for its command (documented, not
     #     fought) — but the shadow is still in place at the next prompt, so it must be
     #     recorded there. ONE command, then EOF: with a second command the next preexec
@@ -17044,6 +17049,114 @@ def shell_wrapper(fx):
                       f"{'at once' if mode == 'partial' else 'after about 5 s'}, one line saying {want!r}, no cache "
                       f"and no process left")
 
+    # The lister ends the help's whole group on every path, before the help is reaped. Asked of the lister
+    # itself, three at once, with a help that prints `logs` and starts a child in its group that holds no
+    # output: when the help then exits 0, its list is taken at once and the child does not outlive the
+    # lister; when it runs on, SIGINT to the lister while it waits, or in the half second after SIGTERM
+    # to a help that survives SIGTERM, ends the lister by SIGINT with one line naming it. Each time
+    # none of the processes the help started is left.
+    fake_help = tmp / "fake-help"
+    fake_help.write_text(
+        f"#!{sys.executable}\n"
+        "import os, signal, subprocess, sys, time\n"
+        "mode, pids = os.environ['FAKE_HELP_MODE'], os.environ['FAKE_HELP_PID']\n"
+        "def note(pid):\n"
+        "    with open(pids, 'a') as fh:\n"
+        "        fh.write(f'{pid}\\n')\n"
+        "if mode == 'stubborn':\n"
+        "    signal.signal(signal.SIGTERM, lambda *_: open(pids + '.term', 'w').close())\n"
+        "note(os.getpid())\n"
+        "sys.stdout.write('Commands:\\n  logs <id>   A verb\\n')\n"
+        "sys.stdout.flush()\n"
+        "kid = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(60)'], stdin=subprocess.DEVNULL,\n"
+        "                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)\n"
+        "note(kid.pid)\n"
+        "if mode == 'leftover':\n"
+        "    sys.exit(0)\n"
+        "while True:\n"
+        "    time.sleep(0.05)\n")
+    fake_help.chmod(0o755)
+    lister = (shell_init.parent / "claude_subcommands.py").resolve()
+
+    def noted(path):
+        return [int(n) for n in path.read_text().split() if int(n) > 1] if path.is_file() else []
+
+    def waited_for(ready, limit):
+        end = time.monotonic() + limit
+        while not ready() and time.monotonic() < end:
+            time.sleep(0.01)
+        return ready()
+
+    listers = {}
+    for mode in ("leftover", "hang", "stubborn"):
+        pid_file = tmp / f"lister-{mode}.pids"
+        listers[mode] = (pid_file, time.monotonic(), subprocess.Popen(
+            [sys.executable, "-I", str(lister), str(fake_help)], env={**shell_env, "FAKE_HELP_MODE": mode,
+                                                                      "FAKE_HELP_PID": str(pid_file)},
+            stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True))
+    # the help that exits is asked first, so its time is its own; the other two are signalled once the
+    # help has started its child, and once it has been sent SIGTERM
+    readiness = {"hang": lambda pid_file: len(noted(pid_file)) == 2,
+                 "stubborn": lambda pid_file: pid_file.with_name(pid_file.name + ".term").exists()}
+    signalled = {}
+    for mode, (pid_file, began, proc) in listers.items():
+        if mode in readiness:
+            signalled[mode] = waited_for(lambda: readiness[mode](pid_file), 15)
+            if signalled[mode]:
+                proc.send_signal(signal.SIGINT)
+        try:
+            out, err = proc.communicate(timeout=30)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            out, err = proc.communicate()
+        took = time.monotonic() - began
+        pids = noted(pid_file)
+        ended = gone(pids)
+        said = [line for line in err.splitlines() if line.strip()]
+        if mode == "leftover":
+            fine = proc.returncode == 0 and out == "logs\n" and not said and took < 4
+            want = "exit 0 at once, printing `logs`, with nothing on stderr"
+        else:
+            fine = (signalled[mode] and proc.returncode == -signal.SIGINT and len(said) == 1
+                    and "interrupted by SIGINT" in said[0])
+            want = "an end by SIGINT, with one line saying so"
+        if not fine or len(pids) != 2 or not ended:
+            mark_fail(f"the lister, with a help that is {mode}, ended {proc.returncode} after {took:.1f} s "
+                      f"(stdout {out!r}, stderr {said!r}, signalled: {signalled.get(mode, 'not asked')}, a help "
+                      f"process left: {not ended}, noted {len(pids)}), want {want} and no process left")
+
+    # The lister reads its clock to decide whether to go on draining and again to size the wait, and under
+    # load the deadline can pass in between. Run with a clock that moves 0.4 s per read, which puts the
+    # drain's second read past its half-second deadline, a help that runs on ends the lister with exit 1
+    # and the one line saying it did not end within 5 s, not with an error, and leaves no process behind.
+    jumping = tmp / "jumping-clock.py"
+    jumping.write_text(
+        "import importlib.util, sys, time\n"
+        "spec = importlib.util.spec_from_file_location('claude_subcommands_under_test', sys.argv[1])\n"
+        "lister = importlib.util.module_from_spec(spec)\n"
+        "spec.loader.exec_module(lister)\n"
+        "class Clock:\n"
+        "    reads = 0\n"
+        "    def monotonic(self):\n"
+        "        Clock.reads += 1\n"
+        "        return Clock.reads * 0.4\n"
+        "    def __getattr__(self, name):\n"
+        "        return getattr(time, name)\n"
+        "lister.time = Clock()\n"
+        "sys.exit(lister.main(['claude_subcommands.py', sys.argv[2]]))\n")
+    pid_file = tmp / "lister-jumping.pids"
+    jumped = subprocess.run([sys.executable, "-I", str(jumping), str(lister), str(fake_help)],
+                            env={**shell_env, "FAKE_HELP_MODE": "hang", "FAKE_HELP_PID": str(pid_file)},
+                            stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=60)
+    pids = noted(pid_file)
+    ended = gone(pids)
+    said = [line for line in jumped.stderr.splitlines() if line.strip()]
+    if (jumped.returncode != 1 or len(said) != 1 or "did not end within 5 s" not in said[0] or len(pids) != 2
+            or not ended):
+        mark_fail(f"the lister, with a clock that passes its drain deadline between two reads, ended "
+                  f"{jumped.returncode} (stderr {said[-3:]!r}, noted {len(pids)}, a help process left: {not ended}), "
+                  f"want exit 1, one line saying it did not end within 5 s, and no process left")
+
     # Without a python3 to run the lister, or without the lister, the call goes ahead without the flag and
     # one line says why; a list read would have put the flag in front of `something-else`. On macOS,
     # /usr/bin/python3 without the Command Line Tools would open their installer on every call, so it is
@@ -17066,7 +17179,15 @@ def shell_wrapper(fx):
         fake.chmod(0o755)
     cases = [("no python3", {"PATH": str(nopy)}, "", "no python3 is on PATH", False),
              ("no lister", {}, "_agent_launch_claude_lister=/nonexistent/claude_subcommands.py; ",
-              "the subcommand lister is missing at /nonexistent/claude_subcommands.py", False)]
+              "the subcommand lister is missing at /nonexistent/claude_subcommands.py", False),
+             # the binary's key cannot be read: zsh/stat does not load, or zstat cannot be called
+             ("a zsh/stat that does not load", {}, "zmodload zsh/parameter; module_path=(/nonexistent); ",
+              "zsh's zsh/stat module did not load", False),
+             ("a zstat that cannot be called", {}, "zmodload -F zsh/stat b:zstat; disable zstat; ",
+              "zstat could not read", False),
+             # the wrapper calls the builtins, past functions of the user's that share their names
+             ("functions of the user's named whence, zmodload and zstat", {},
+              "whence() { return 1; }; zmodload() { return 1; }; zstat() { return 1; }; ", None, True)]
     if sys.platform == "darwin":
         cases += [("the Command Line Tools stub", {"PATH": f"{stub}:/usr/bin:/bin"}, "",
                    "python3 is the Command Line Tools stub", False),
@@ -17083,6 +17204,15 @@ def shell_wrapper(fx):
                 or (want is not None and (len(said) != 1 or want not in said[0])) or (want is None and said)):
             mark_fail(f"with {label}, `claude something-else` dispatched {received!r} (cached: {cache.is_file()}, "
                       f"stderr: {said!r}), want {expected!r}" + (f" and one line saying {want!r}" if want else ""))
+    # A claude missing from PATH is not reported by the wrapper: the call fails by itself, and a line
+    # about the flag would only stand in front of that error.
+    empty = tmp / "no-claude-bin"
+    empty.mkdir()
+    missing = invoke([zsh, "-f", "-c", f"source {shell_init}; claude something-else"],
+                     env={**shell_env, "PATH": str(empty)})
+    if missing.returncode == 0 or "agent-bios:" in missing.stderr:
+        mark_fail(f"with no claude on PATH, `claude something-else` exited {missing.returncode} and said "
+                  f"{missing.stderr.strip()[-200:]!r}, want a failure of its own and no line from the wrapper")
     # A probe leaves the user's job table and `$!` as they were.
     cache.unlink(missing_ok=True)
     jobs = invoke(["zsh", "-f", "-c", f"source {shell_init}; sleep 5 & b=$!; jobs >| {tmp}/jobs.before; "

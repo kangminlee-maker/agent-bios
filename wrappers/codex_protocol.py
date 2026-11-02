@@ -14,21 +14,29 @@ private activation and for codex-run's context evidence (D-20261102-d8310f). So:
   (D-20261102-efc529): null is the user's "none", and "" the user's own empty value.
 - The client reads the server on a thread into a queue. A select() on the text stream missed a
   line Python had already buffered, so a notification and the response in one write left the
-  response unread until the timeout.
+  response unread until the timeout; on POSIX the thread reads the descriptor itself, keeping its
+  own partial line, so nothing is buffered where select() cannot see it.
+- The server runs in a process group of its own and is ended with that group (Owned), which
+  session-distill's dispatcher also uses for its server-policy probe (author-side imports shipped,
+  never the reverse).
 
 Loaded by path: beside codex_frame_filter.py, deployed together, and by compose from the package's
 wrappers/ directory (host_platform.codex_protocol_for).
 """
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import json
 import os
 import pathlib
 import queue
 import re
+import select
 import shutil
+import signal
 import subprocess
+import sys
 import tempfile
 import threading
 import time
@@ -392,20 +400,136 @@ def _raise_for(record):
     return record
 
 
+TICK_S = 0.05      # how often a wait on a child's pipes or on its end looks again
+CLOSE_S = 5        # how long a server whose input closed is given to end, and to end after SIGTERM
+DRAIN_S = 2        # how long its output is given to close once its group has been ended
+
+
+class Owned:
+    """A child started in a session of its own (start_new_session=True), ended with its process group.
+
+    The child's end is watched without reaping it — kqueue's process filter where the platform has
+    one, since the Pythons macOS ships lack os.waitid, and waitid(WNOWAIT) elsewhere — and its group
+    is signalled before the child is reaped, on every path: until then the child's number, which is
+    the group's, belongs to no other process. A child that ended by itself has its group sent SIGKILL,
+    which reaches what it left behind in the group; one still running is sent SIGTERM, given its
+    grace, then SIGKILL. A process that made a session of its own has left the group and is beyond
+    this reach: a pipe it still holds is closed on this side after a bounded drain, never waited for,
+    and the caller is told. On Windows there is no group: the child is terminated, then killed, and
+    its handle keeps its number until it is waited for."""
+
+    def __init__(self, proc):
+        self.proc, self._ended, self._watch = proc, False, None
+        self.clock = time.monotonic  # collect's clock; a control gives one that moves between two reads
+        if os.name != "nt" and hasattr(select, "kqueue"):
+            self._watch = select.kqueue()
+            try:
+                self._watch.control([select.kevent(proc.pid, select.KQ_FILTER_PROC,
+                                                   select.KQ_EV_ADD | select.KQ_EV_ONESHOT, select.KQ_NOTE_EXIT)], 0, 0)
+            except ProcessLookupError:  # it ended before the watch began: an unreaped child cannot be watched
+                self._ended = True
+
+    def ended(self, wait_s=0.0):
+        """Whether the child has ended, waiting at most `wait_s`. It is never reaped here."""
+        if self._ended or self.proc.returncode is not None:
+            return True
+        if os.name == "nt":
+            with contextlib.suppress(subprocess.TimeoutExpired):
+                self.proc.wait(timeout=wait_s)
+            return self.proc.returncode is not None
+        if self._watch is not None:
+            self._ended = bool(self._watch.control(None, 1, max(wait_s, 0)))
+            return self._ended
+        deadline = time.monotonic() + wait_s
+        while os.waitid(os.P_PID, self.proc.pid, os.WEXITED | os.WNOHANG | os.WNOWAIT) is None:
+            if time.monotonic() >= deadline:
+                return False
+            time.sleep(TICK_S)
+        self._ended = True
+        return True
+
+    def end(self, grace_s):
+        """End the child's group, then reap the child. Nothing is signalled once the child is reaped,
+        and SIGKILL is sent even when the wait for SIGTERM is interrupted."""
+        if self.proc.returncode is not None:
+            return
+        if os.name == "nt":
+            if not self.ended():
+                self.proc.terminate()
+                if not self.ended(grace_s):
+                    self.proc.kill()
+            self.proc.wait()
+            return
+        try:
+            if not self.ended():
+                # ESRCH, or EPERM on macOS when the unreaped child is all the group holds: nothing to signal
+                with contextlib.suppress(ProcessLookupError, PermissionError):
+                    os.killpg(self.proc.pid, signal.SIGTERM)
+                    self.ended(grace_s)
+        finally:
+            with contextlib.suppress(ProcessLookupError, PermissionError):
+                os.killpg(self.proc.pid, signal.SIGKILL)
+            self.proc.wait()
+            if self._watch is not None:
+                self._watch.close()
+
+    def collect(self, limit_s, grace_s, drain_s):
+        """(stdout, stderr, timed_out, held): the child's piped output, read until every pipe has closed
+        and the child has ended, for at most `limit_s`; then its group is ended (end) and the pipes are
+        read for at most `drain_s` more and closed. `held` is true when one was still open then, held
+        by a process outside the group. POSIX only: Windows pipes cannot be selected."""
+        streams = [stream for stream in (self.proc.stdout, self.proc.stderr) if stream is not None]
+        fds = [None if stream is None else stream.fileno() for stream in (self.proc.stdout, self.proc.stderr)]
+        open_fds = {stream.fileno() for stream in streams}
+        read = {fd: [] for fd in open_fds}
+
+        def take(wait_s):
+            # a wait computed from a deadline that passed meanwhile is a poll, never a refusal
+            for fd in select.select(sorted(open_fds), [], [], max(wait_s, 0))[0]:
+                chunk = os.read(fd, 65536)
+                if chunk:
+                    read[fd].append(chunk)
+                else:
+                    open_fds.discard(fd)
+        deadline, timed_out = self.clock() + limit_s, False
+        try:
+            while open_fds or not self.ended():
+                left = deadline - self.clock()
+                if left <= 0:
+                    timed_out = True
+                    break
+                if open_fds:
+                    take(min(left, TICK_S))
+                else:
+                    self.ended(min(left, TICK_S))
+        finally:
+            self.end(grace_s)
+        deadline = self.clock() + drain_s
+        while open_fds and self.clock() < deadline:
+            take(min(deadline - self.clock(), TICK_S))
+        held = bool(open_fds)
+        for stream in streams:
+            stream.close()
+        out, err = (b"" if fd is None else b"".join(read[fd]) for fd in fds)
+        return out, err, timed_out, held
+
+
 class Client:
-    """One app-server over stdio, read on a thread into a queue."""
+    """One app-server over stdio, read on a thread into a queue, in a process group of its own (Owned)."""
 
     def __init__(self, argv, cwd=None, env=None):
         self.proc = subprocess.Popen(argv, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
-                                     cwd=cwd, env=env, text=True, encoding="utf-8")
+                                     cwd=cwd, env=env, start_new_session=True)
+        self.owned = Owned(self.proc)
         self.sequence = 0
         self.events = queue.Queue()
+        self.stopping, self.drained = threading.Event(), threading.Event()
         self.reader = threading.Thread(target=self._read, daemon=True)
         self.reader.start()
 
     def _read(self):
         try:
-            for line in self.proc.stdout:
+            for line in self._lines():
                 try:
                     self.events.put(json.loads(line))
                 except ValueError:
@@ -413,15 +537,39 @@ class Client:
         finally:
             self.events.put({"transport_error": "app-server closed before its response"})
 
-    def notify(self, method):
-        self.proc.stdin.write(json.dumps({"method": method}) + "\n")
+    def _lines(self):
+        """The server's output, line by line, until it closes or close() stops the reading. On POSIX
+        the descriptor is read directly, so a stop takes effect within TICK_S and no thread is left
+        reading a stream that a process outside the group holds open; Windows pipes cannot be
+        selected, so there the stream is read until it closes."""
+        if os.name == "nt":
+            yield from self.proc.stdout
+            self.drained.set()
+            return
+        fd, partial = self.proc.stdout.fileno(), b""
+        while not self.stopping.is_set():
+            if not select.select([fd], [], [], TICK_S)[0]:
+                continue
+            chunk = os.read(fd, 65536)
+            if not chunk:
+                self.drained.set()
+                if partial:
+                    yield partial
+                return
+            *lines, partial = (partial + chunk).split(b"\n")
+            yield from lines
+
+    def _send(self, message):
+        self.proc.stdin.write((json.dumps(message) + "\n").encode("utf-8"))
         self.proc.stdin.flush()
+
+    def notify(self, method):
+        self._send({"method": method})
 
     def call(self, method, params, timeout=45):
         self.sequence += 1
         request_id = self.sequence
-        self.proc.stdin.write(json.dumps({"id": request_id, "method": method, "params": params}) + "\n")
-        self.proc.stdin.flush()
+        self._send({"id": request_id, "method": method, "params": params})
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
             try:
@@ -440,17 +588,20 @@ class Client:
         raise ProtocolError(f"app-server timed out: {method}")
 
     def close(self):
-        if self.proc.stdin:
+        """The server's input is closed and it is given CLOSE_S to end, then its group is ended before
+        it is reaped (Owned.end). Its output then has DRAIN_S to close: a process outside the group
+        that still holds it is not waited for, and one line on stderr says so. The reader is stopped,
+        within TICK_S on POSIX, and the output is closed only once no thread reads it."""
+        with contextlib.suppress(OSError):  # a server that already ended has broken the pipe
             self.proc.stdin.close()
         try:
-            self.proc.wait(timeout=5)
-        except subprocess.TimeoutExpired:
-            self.proc.terminate()
-            try:
-                self.proc.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                self.proc.kill()
-                self.proc.wait(timeout=5)
-        if self.proc.stdout:
+            self.owned.ended(CLOSE_S)
+        finally:
+            self.owned.end(CLOSE_S)
+        if not self.drained.wait(DRAIN_S):
+            sys.stderr.write("agent-bios: a process the Codex app-server left outside its process group still "
+                             "holds its output; agent-bios stopped reading it without waiting for it to close\n")
+        self.stopping.set()
+        self.reader.join(timeout=DRAIN_S)
+        if not self.reader.is_alive():
             self.proc.stdout.close()
-        self.reader.join(timeout=2)

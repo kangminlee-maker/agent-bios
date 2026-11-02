@@ -1,7 +1,9 @@
 # Alias expansion is OFF while this file is parsed and restored to what it was at the
 # end: zsh expands aliases at parse time, inside function bodies too, so an alias named
 # `builtin`, `command`, or `claude` that exists when this file is sourced would be baked
-# into the functions below and the real binary never reached.
+# into the functions below and the real binary never reached. A command substitution is
+# the exception: its text is parsed again each time it runs, under the aliases then in
+# force, so a builtin inside `$(...)` is written `\builtin`, which no alias can replace.
 [[ -o aliases ]] && _agent_launch_aliases_were=1 || _agent_launch_aliases_were=0
 setopt no_aliases
 
@@ -49,20 +51,35 @@ _agent_launch_direct() {
 # header names it, else beside this file (the compatibility install deploys the two together, as
 # the checkout holds them). The python3 that runs it is the one on PATH; on macOS /usr/bin/python3
 # without the Command Line Tools would open their installer on every call, so it is not run then.
-# Without a python3 or a lister the flag stays off and one line says so.
+# When zsh/stat does not load or cannot read the binary, or there is no python3 or lister, the flag
+# stays off and one line names the check (_agent_launch_claude_unread). A claude missing from PATH
+# is not reported: the call that follows fails by itself, and a line about the flag would only
+# stand in front of that error. The builtins are called as builtins, past any function of the
+# user's that shares their name.
 typeset -ga _agent_launch_claude_verbs
 typeset -g _agent_launch_claude_verbs_key=""
 typeset -g _agent_launch_claude_lister="${_agent_launch_claude_lister:-${${(%):-%x}:a:h}/claude_subcommands.py}"
+_agent_launch_claude_unread() {
+  builtin print -ru2 -- "agent-bios: $1, so the subcommands claude lists cannot be read; claude starts" \
+    "without --dangerously-skip-permissions"
+  return 1
+}
 _agent_launch_claude_subcommands() {
   setopt localoptions noksharrays no_err_return no_err_exit
   local bin real key py listed why cache="$HOME/.local/share/agent-bios/claude-subcommands"
   local -a words cached
   local -A meta
-  bin="$(whence -p claude)" || return 1
+  bin="$(\builtin whence -p claude)" || return 1
   [[ -n "$bin" ]] || return 1
   real="${bin:A}"
-  zmodload -F zsh/stat b:zstat 2>/dev/null || return 1
-  zstat -H meta -- "$real" 2>/dev/null || return 1
+  if ! builtin zmodload -F zsh/stat b:zstat 2>/dev/null; then
+    _agent_launch_claude_unread "zsh's zsh/stat module did not load"
+    return 1
+  fi
+  if ! { builtin zstat -H meta -- "$real" } 2>/dev/null; then
+    _agent_launch_claude_unread "zstat could not read $real"
+    return 1
+  fi
   key="${real}"$'\t'"${meta[mtime]}"$'\t'"${meta[size]}"
   [[ "$key" == "$_agent_launch_claude_verbs_key" ]] && return 0
   if [[ -f "$cache" && ! -L "$cache" ]]; then
@@ -73,7 +90,7 @@ _agent_launch_claude_subcommands() {
       return 0
     fi
   fi
-  py="$(whence -p python3)" || py=""
+  py="$(\builtin whence -p python3)" || py=""
   if [[ -n "$py" && "$OSTYPE" == darwin* && "${py:A}" == /usr/bin/python3 ]] \
       && ! builtin command xcode-select -p >/dev/null 2>&1; then
     why="python3 is the Command Line Tools stub, which are not installed"
@@ -83,8 +100,7 @@ _agent_launch_claude_subcommands() {
     why="the subcommand lister is missing at $_agent_launch_claude_lister"
   fi
   if [[ -n "$why" ]]; then
-    builtin print -ru2 -- "agent-bios: $why, so the subcommands claude lists cannot be read; claude starts" \
-      "without --dangerously-skip-permissions"
+    _agent_launch_claude_unread "$why"
     return 1
   fi
   listed="$("$py" -I "$_agent_launch_claude_lister" "$bin" </dev/null)" || return 1
@@ -183,7 +199,7 @@ _agent_launch_note_shadow() {
   prog="${TERM_PROGRAM:-unknown}"
   prog="${prog//[[:cntrl:]]/ }"
   # `builtin command`: a shell function named `date` must not write this field.
-  stamp="$(builtin command date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null)"
+  stamp="$(\builtin command date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null)"
   stamp="${stamp//[[:cntrl:]]/ }"
   # `builtin printf`: a shell function named printf could report success and write nothing.
   if builtin printf '%s\t%s\t%s\t%s\n' "${stamp:-<unknown>}" "$host" "$prog" \

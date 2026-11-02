@@ -1,8 +1,11 @@
 """The Codex app-server protocol check (D-20261102-d8310f) and its threaded client; no model turns."""
+import contextlib
+import io
 import json
 import os
 from pathlib import Path
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
@@ -20,7 +23,11 @@ protocol = codex_protocol_for(__file__)
 # developer_instructions and, when asked for layers, FAKE_LAYERS (JSON, or `absent`); by default one
 # user layer that sets what FAKE_DEVELOPER states, as codex-cli 0.163.0 answers. Every
 # schema generation is counted in FAKE_GENERATED. With FAKE_HOMES, each command records the CODEX_HOME it
-# was given and, as the real one does, makes <CODEX_HOME or HOME/.codex>/tmp.
+# was given and, as the real one does, makes <CODEX_HOME or HOME/.codex>/tmp. With FAKE_LEAVES, the
+# app-server starts a child that holds its output for 30 s, in its group (`same`) or in a session of its
+# own (`escaped`), and writes both numbers to FAKE_PIDS; the server itself ends when its input closes.
+# With FAKE_SPLIT, a notification and all but the last ten bytes of the response are one write, and the
+# rest follows 0.2 s later.
 FAKE = r'''
 import json, os, pathlib, sys
 argv = sys.argv[1:]
@@ -45,6 +52,12 @@ elif argv[:2] == ["app-server", "generate-json-schema"]:
     out.mkdir(parents=True, exist_ok=True)
     (out / "codex_app_server_protocol.schemas.json").write_text(json.dumps(module.fixture_bundle(drop)))
 elif "app-server" in argv:
+    if os.environ.get("FAKE_LEAVES"):
+        import subprocess
+        kid = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(30)"], stdin=subprocess.DEVNULL,
+                               stdout=sys.stdout, start_new_session=os.environ["FAKE_LEAVES"] == "escaped")
+        with open(os.environ["FAKE_PIDS"], "w") as noted:
+            noted.write(f"{os.getpid()} {kid.pid}")
     for line in sys.stdin:
         request = json.loads(line)
         if "id" not in request:
@@ -61,7 +74,16 @@ elif "app-server" in argv:
                      "config": {} if stated is None else {"developer_instructions": stated}}]
         else:
             result = {}
-        if os.environ.get("FAKE_COALESCED"):
+        if os.environ.get("FAKE_SPLIT"):
+            import time
+            framed = (json.dumps({"method": "noise", "params": {}}) + "\n"
+                      + json.dumps({"id": request["id"], "result": result}) + "\n")
+            sys.stdout.write(framed[:-10])
+            sys.stdout.flush()
+            time.sleep(0.2)
+            sys.stdout.write(framed[-10:])
+            sys.stdout.flush()
+        elif os.environ.get("FAKE_COALESCED"):
             sys.stdout.write(json.dumps({"method": "noise", "params": {}}) + "\n" + json.dumps({"id": request["id"], "result": result}) + "\n")
             sys.stdout.flush()
         else:
@@ -239,6 +261,90 @@ class CodexProtocolTests(unittest.TestCase):
             self.assertLess(time.monotonic() - began, 5)
         finally:
             client.close()
+
+    def test_a_response_whose_line_arrives_in_two_reads_is_read_whole_once_it_ends(self):
+        # the reader keeps the partial line until its end arrives, after the whole notification before it
+        client = protocol.Client([str(self.codex), 'app-server', '--stdio'], env=dict(self.env, FAKE_SPLIT='1'))
+        try:
+            began = time.monotonic()
+            self.assertEqual({}, client.call('initialize', {}, timeout=10))
+            took = time.monotonic() - began
+            self.assertGreaterEqual(took, 0.2)
+            self.assertLess(took, 2)
+        finally:
+            client.close()
+
+    @unittest.skipIf(os.name == 'nt', 'process groups are POSIX')
+    def test_a_deadline_that_passes_between_two_reads_of_the_clock_ends_the_wait_without_error(self):
+        # Owned.collect reads its clock to decide whether to wait and again to size the wait; under load the
+        # deadline can pass in between. A clock that moves 0.4 s per read puts the drain's second read past
+        # its 0.6 s deadline: the wait is then a poll, the child that outlived the bound is ended, and the
+        # collection reports the timeout rather than raising.
+        proc = subprocess.Popen([sys.executable, '-c', "import time; print('x', flush=True); time.sleep(30)"],
+                                stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                start_new_session=True)
+        owned = protocol.Owned(proc)
+        reads = iter(range(10_000))
+        owned.clock = lambda: next(reads) * 0.4
+        try:
+            out, _err, timed_out, held = owned.collect(0.6, 0.3, 0.6)
+        finally:
+            if proc.returncode is None:
+                proc.kill()
+                proc.wait()
+        self.assertTrue(timed_out)
+        self.assertFalse(held)
+        self.assertEqual(-signal.SIGTERM, proc.returncode)
+        self.assertIn(out, (b'', b'x\n'))
+
+    @unittest.skipIf(os.name == 'nt', 'process groups are POSIX')
+    def test_close_returns_in_its_bounds_though_a_child_of_the_server_holds_its_output(self):
+        # the server ends when its input closes, leaving a child that holds its output. A child in its group
+        # is ended with the group at once and nothing is said; one in a session of its own is beyond the
+        # client's reach: close() stops reading within its drain bound and says so in one line, and this
+        # test ends that child itself. Either way the reader stops and the output is closed.
+        def running(pid):
+            try:
+                os.kill(pid, 0)
+            except ProcessLookupError:
+                return False
+            return True
+
+        def settled(pids, limit=2.0):
+            end = time.monotonic() + limit
+            while any(running(pid) for pid in pids) and time.monotonic() < end:
+                time.sleep(0.05)
+            return [pid for pid in pids if running(pid)]
+        for leaves in ('same', 'escaped'):
+            with self.subTest(leaves=leaves):
+                noted = self.root / f'pids-{leaves}'
+                client = protocol.Client([str(self.codex), 'app-server', '--stdio'],
+                                         env=dict(self.env, FAKE_LEAVES=leaves, FAKE_PIDS=str(noted)))
+                self.assertEqual({}, client.call('initialize', {}, timeout=10))
+                server, kid = (int(n) for n in noted.read_text().split())
+                said = io.StringIO()
+                began = time.monotonic()
+                with contextlib.redirect_stderr(said):
+                    client.close()
+                took = time.monotonic() - began
+                left = settled([server, kid])
+                outside = kid in left
+                if outside and kid > 1:
+                    os.kill(kid, signal.SIGKILL)
+                    print(f"\nthis test ended the child outside the server's group ({kid}), beyond close()'s reach",
+                          file=sys.stderr)
+                self.assertEqual([], settled([server, kid]))
+                self.assertFalse(client.reader.is_alive())
+                self.assertTrue(client.proc.stdout.closed)
+                if leaves == 'same':
+                    self.assertLess(took, 1)
+                    self.assertEqual([], left)
+                    self.assertEqual('', said.getvalue())
+                else:
+                    self.assertLess(took, protocol.DRAIN_S + 1)
+                    self.assertEqual([kid], left)
+                    self.assertEqual(1, len(said.getvalue().splitlines()))
+                    self.assertIn('still holds its output', said.getvalue())
 
 
 if __name__ == '__main__':
