@@ -124,12 +124,17 @@ git config core.hooksPath .githooks
 
 `.githooks/pre-commit` runs `gates/check-package.sh` and `gates/check-parity.sh`
 and aborts the commit on failure. Budget **minutes, not seconds** — on the author's
-machine the umbrella runs ~4.5 minutes (2026-08-31) — 267s, of which the install
-scenarios in `gates/test-install-guides.sh` are 42s and the umbrella's own other legs
-are the remaining ~217s; measure with `time`, and never
-`pkill -f check-parity` while a commit runs, because that kills your own commit.
+machine the umbrella ran 475s, 472s and 486s in three consecutive runs (2026-11-02, a clean
+clone with the real HOME and venv, load 8-10, measured before the verify-speed S2 changes to the
+heaviest suites); `gates/check-package.sh` ran 0.7s. The umbrella records its external legs and
+`gates/run-legs.py` runs them `AGENT_BIOS_PARITY_JOBS` at a time (default 6), so the run is bounded
+by its longest legs, not their sum (1370s when they ran one after another, the same day): the
+dispatch self-test (374-390s), the inventory self-test (281-294s), and the install scenarios,
+which run alone before the others (`-a`) because they plant a file in the source tree. The
+runner's closing `LEGS longest:` line names the longest legs of each run. Measure with `time`,
+and never `pkill -f check-parity` while a commit runs, because that kills your own commit.
 
-That figure was **50m26s** until 2026-08-31, and the cause was not the scenarios.
+The umbrella took **50m26s** until 2026-08-31, and the cause was not the scenarios.
 Each of the suite's twelve `install`/`verify` runs ends in `install.sh`'s `cmd_verify`,
 which re-ran this umbrella on the tree the umbrella was already judging — the suite sets
 `REPO="$PWD"` and writes only into a sandbox HOME, so all twelve re-derived one unchanged
