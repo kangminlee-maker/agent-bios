@@ -12687,7 +12687,8 @@ def launcher_global_instruction_option(fx):
 
         launcher_module.private_instructions_enabled = lambda: True
         launcher_module.instructions_store = lambda: FixtureStore()
-        sys.modules["instructions_session"] = types.SimpleNamespace(compose_argv=compose)
+        sys.modules["instructions_session"] = types.SimpleNamespace(compose_argv=compose,
+                                                                    raise_on_termination=lambda: None)
 
         def custom_choices(final_action, setting, saved_name=None):
             actions = iter(("global-instructions", final_action))

@@ -27,7 +27,10 @@ protocol = codex_protocol_for(__file__)
 # app-server starts a child that holds its output for 30 s, in its group (`same`) or in a session of its
 # own (`escaped`), and writes both numbers to FAKE_PIDS; the server itself ends when its input closes.
 # With FAKE_SPLIT, a notification and all but the last ten bytes of the response are one write, and the
-# rest follows 0.2 s later.
+# rest follows 0.2 s later. With FAKE_DEAF, the app-server writes its number to FAKE_PIDS and never reads
+# its input; with FAKE_STAYS, it runs on for a minute after its input closes. A `hang` request, and the
+# method FAKE_HANG names, are never answered. With FAKE_TERM_NOTED, SIGTERM does not end the app-server:
+# it writes that file and runs on. `debug prompt-input` renders an empty context.
 FAKE = r'''
 import json, os, pathlib, sys
 argv = sys.argv[1:]
@@ -38,6 +41,8 @@ if os.environ.get("FAKE_HOMES") and argv[:1] in (["--version"], ["app-server"]):
                 exist_ok=True)
 if argv == ["--version"]:
     print("codex-cli 9.9.9-fake")
+elif argv[:2] == ["debug", "prompt-input"]:
+    print("[]")
 elif argv[:2] == ["app-server", "generate-json-schema"]:
     with open(os.environ["FAKE_GENERATED"], "a") as count:
         count.write("x")
@@ -52,6 +57,14 @@ elif argv[:2] == ["app-server", "generate-json-schema"]:
     out.mkdir(parents=True, exist_ok=True)
     (out / "codex_app_server_protocol.schemas.json").write_text(json.dumps(module.fixture_bundle(drop)))
 elif "app-server" in argv:
+    if os.environ.get("FAKE_TERM_NOTED"):
+        import signal
+        signal.signal(signal.SIGTERM, lambda *_: open(os.environ["FAKE_TERM_NOTED"], "w").close())
+    if os.environ.get("FAKE_DEAF"):
+        import time
+        with open(os.environ["FAKE_PIDS"], "w") as noted:
+            noted.write(f"{os.getpid()}")
+        time.sleep(60)
     if os.environ.get("FAKE_LEAVES"):
         import subprocess
         kid = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(30)"], stdin=subprocess.DEVNULL,
@@ -60,7 +73,7 @@ elif "app-server" in argv:
             noted.write(f"{os.getpid()} {kid.pid}")
     for line in sys.stdin:
         request = json.loads(line)
-        if "id" not in request:
+        if "id" not in request or request["method"] in ("hang", os.environ.get("FAKE_HANG")):
             continue
         if request["method"] == "config/read":
             developer = os.environ["FAKE_DEVELOPER"]
@@ -88,7 +101,105 @@ elif "app-server" in argv:
             sys.stdout.flush()
         else:
             print(json.dumps({"id": request["id"], "result": result}), flush=True)
+    if os.environ.get("FAKE_STAYS"):
+        import time
+        time.sleep(60)
 '''
+
+# A process that owns what the protocol module starts, for the controls that signal their owner, so the
+# signals never reach the test runner: `close-sigint` and `collect-sigint` interrupt their own close() or
+# collect() with SIGINT 0.3 s in and print what was left; `terminate` asks for raise_on_termination,
+# opens a client whose server never answers `hang`, prints `ready` and then `buffered` without flushing
+# it, and waits on that call. `first-in-cleanup` closes its client and `repeat-in-cleanup` is
+# `terminate`; in both, the owner sends itself SIGTERM inside close() just before the server is reaped,
+# and prints the server's exit status at exit. `idle` owns nothing: it prints `ready`, then `buffered`
+# without flushing it, and sleeps.
+OWNER = r'''
+import atexit, importlib.util, json, os, signal, subprocess, sys, threading, time
+spec = importlib.util.spec_from_file_location("owner_protocol", sys.argv[1])
+protocol = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(protocol)
+mode, codex = sys.argv[2], sys.argv[3]
+if mode in ("terminate", "first-in-cleanup", "repeat-in-cleanup", "idle"):
+    protocol.raise_on_termination()
+if mode == "idle":
+    print("ready", flush=True)
+    print("buffered")
+    time.sleep(60)
+    raise SystemExit(3)
+if mode == "collect-sigint":
+    proc = subprocess.Popen([sys.executable, "-c", "import time; print('x', flush=True); time.sleep(60)"],
+                            stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                            start_new_session=True)
+    with open(os.environ["FAKE_PIDS"], "w") as noted:
+        noted.write(f"{proc.pid}")
+    threading.Timer(0.3, os.kill, (os.getpid(), signal.SIGINT)).start()
+    try:
+        protocol.Owned(proc).collect(10, 0.3, 0.3)
+        interrupted = False
+    except KeyboardInterrupt:
+        interrupted = True
+    print(json.dumps({"interrupted": interrupted, "closed": [proc.stdout.closed, proc.stderr.closed],
+                      "child": proc.returncode}), flush=True)
+    raise SystemExit(0)
+client = protocol.Client([codex, "app-server", "--stdio"])
+client.call("initialize", {}, timeout=10)
+if mode in ("first-in-cleanup", "repeat-in-cleanup"):
+    # a SIGTERM to itself in the middle of close()'s cleanup, just before the server is reaped
+    original = client.proc.wait
+
+    def wait_after_a_signal(*args, **kwargs):
+        client.proc.wait = original
+        os.kill(os.getpid(), signal.SIGTERM)
+        return original(*args, **kwargs)
+    client.proc.wait = wait_after_a_signal
+    atexit.register(lambda: print(json.dumps({"server": client.proc.returncode}), flush=True))
+if mode == "first-in-cleanup":
+    client.close()
+    raise SystemExit(3)
+if mode in ("terminate", "repeat-in-cleanup"):
+    print("ready", flush=True)
+    print("buffered")
+    try:
+        client.call("hang", {}, timeout=60)
+    finally:
+        client.close()
+    raise SystemExit(3)
+threading.Timer(0.3, os.kill, (os.getpid(), signal.SIGINT)).start()
+try:
+    client.close()
+    interrupted = False
+except KeyboardInterrupt:
+    interrupted = True
+print(json.dumps({"interrupted": interrupted, "reader": client.reader.is_alive(), "closed": client.proc.stdout.closed,
+                  "server": client.proc.returncode}), flush=True)
+'''
+
+
+def _running(pid):
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    return True
+
+
+def _ended_by_the_test(pids):
+    """`pids`, after ending each with SIGKILL and saying so: a defect left them, and the test that found
+    them leaves nothing behind."""
+    for pid in pids:
+        if pid > 1:
+            os.kill(pid, signal.SIGKILL)
+            print(f"\nthis test ended a process left behind ({pid})", file=sys.stderr)
+    return pids
+
+
+def _settled(pids, limit=3.0):
+    """The processes in `pids` still running after at most `limit` seconds."""
+    end = time.monotonic() + limit
+    while any(_running(pid) for pid in pids) and time.monotonic() < end:
+        time.sleep(0.05)
+    return [pid for pid in pids if _running(pid)]
 
 
 class CodexProtocolTests(unittest.TestCase):
@@ -273,6 +384,210 @@ class CodexProtocolTests(unittest.TestCase):
             self.assertLess(took, 2)
         finally:
             client.close()
+
+    @unittest.skipIf(os.name == 'nt', 'the bounded write is POSIX')
+    def test_a_server_that_stops_reading_cannot_hold_a_call_past_its_timeout(self):
+        # a request far larger than a pipe holds, to a server that never reads: the call ends within its
+        # timeout, the client then refuses every call by the request it could not finish, and close()
+        # still ends the server within its bounds
+        noted = self.root / 'pids-deaf'
+        client = protocol.Client([str(self.codex), 'app-server', '--stdio'],
+                                 env=dict(self.env, FAKE_DEAF='1', FAKE_PIDS=str(noted)))
+        try:
+            began = time.monotonic()
+            with self.assertRaisesRegex(protocol.ProtocolError,
+                                        'initialize: the request was not sent whole within its timeout'):
+                client.call('initialize', {'blob': 'x' * 4_000_000}, timeout=0.5)
+            self.assertLess(time.monotonic() - began, 2)
+            began = time.monotonic()
+            with self.assertRaisesRegex(protocol.ProtocolError, 'initialize: the request was not sent whole'):
+                client.call('config/read', {}, timeout=10)
+            self.assertLess(time.monotonic() - began, 0.5)
+        finally:
+            began = time.monotonic()
+            client.close()
+            took = time.monotonic() - began
+        self.assertLess(took, protocol.CLOSE_S + protocol.DRAIN_S + 2)
+        self.assertEqual([], _ended_by_the_test(_settled([int(noted.read_text())])))
+
+    def owner(self, mode, env, **popen):
+        """The OWNER program in `mode`, started with `env` in a process of its own."""
+        path = self.root / 'owner.py'
+        path.write_text(OWNER)
+        return subprocess.Popen([sys.executable, str(path), str(ROOT / 'wrappers/codex_protocol.py'), mode,
+                                 str(self.codex)], env=env, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                                stderr=subprocess.PIPE, text=True, **popen)
+
+    @unittest.skipIf(os.name == 'nt', 'process groups and these signals are POSIX')
+    def test_sigint_during_close_still_ends_the_group_stops_the_reader_and_closes_the_output(self):
+        # the server runs on after its input closes, and a child of its own session holds its output:
+        # SIGINT while close() waits for the server propagates only after the group is ended, the reader
+        # stopped and the output closed. The holder is beyond close()'s reach, and this test ends it.
+        noted = self.root / 'pids-close-sigint'
+        owner = self.owner('close-sigint', dict(self.env, FAKE_LEAVES='escaped', FAKE_STAYS='1', FAKE_PIDS=str(noted)))
+        out, err = owner.communicate(timeout=60)
+        server, kid = (int(n) for n in noted.read_text().split())
+        left = _settled([server, kid], 1.0)
+        if kid in left and kid > 1:
+            os.kill(kid, signal.SIGKILL)
+            print(f"\nthis test ended the child outside the server's group ({kid}), beyond close()'s reach",
+                  file=sys.stderr)
+        state = json.loads(out.splitlines()[-1]) if out.strip() else {}
+        self.assertEqual({'interrupted': True, 'reader': False, 'closed': True},
+                         {key: state.get(key) for key in ('interrupted', 'reader', 'closed')}, err[-400:])
+        self.assertIsNotNone(state.get('server'))
+        self.assertNotIn(server, left)
+        self.assertEqual([], _settled([server, kid]))
+
+    @unittest.skipIf(os.name == 'nt', 'process groups and these signals are POSIX')
+    def test_sigint_during_collect_still_ends_the_group_and_closes_the_pipes(self):
+        noted = self.root / 'pids-collect-sigint'
+        owner = self.owner('collect-sigint', dict(self.env, FAKE_PIDS=str(noted)))
+        out, err = owner.communicate(timeout=60)
+        state = json.loads(out.splitlines()[-1]) if out.strip() else {}
+        left = _ended_by_the_test(_settled([int(noted.read_text())]))
+        self.assertEqual({'interrupted': True, 'closed': [True, True], 'child': -signal.SIGTERM}, state, err[-400:])
+        self.assertEqual([], left)
+
+    @unittest.skipIf(os.name == 'nt', 'process groups and these signals are POSIX')
+    def test_sigterm_or_sighup_to_an_owner_ends_its_server_and_the_owner_by_that_signal(self):
+        # an owner that asked for raise_on_termination waits on a call its server never answers; the
+        # server has a child in its group. Each signal ends the server and its child through close(), and
+        # the owner dies by the signal it was sent, with no traceback.
+        for signum in (signal.SIGTERM, signal.SIGHUP):
+            with self.subTest(signal=signum.name):
+                noted = self.root / f'pids-{signum.name}'
+                owner = self.owner('terminate', dict(self.env, FAKE_LEAVES='same', FAKE_PIDS=str(noted)))
+                ready = owner.stdout.readline()
+                owner.send_signal(signum)
+                try:
+                    out, err = owner.communicate(timeout=30)
+                except subprocess.TimeoutExpired:
+                    owner.kill()
+                    out, err = owner.communicate()
+                pids = [int(n) for n in noted.read_text().split()] if noted.is_file() else []
+                left = _ended_by_the_test(_settled(pids))
+                self.assertEqual('ready\n', ready, err[-400:])
+                self.assertEqual('buffered\n', out)
+                self.assertEqual(-signum, owner.returncode, err[-400:])
+                self.assertNotIn('Traceback', err)
+                self.assertEqual(2, len(pids))
+                self.assertEqual([], left)
+
+    @unittest.skipIf(os.name == 'nt', 'these signals are POSIX')
+    def test_an_owner_holding_no_child_dies_by_the_signal_at_once_with_its_output_written(self):
+        # with no child to end, the handler ends the process by the signal itself, as the default would,
+        # but writes what Python still buffers first: a script's own exit writes it before atexit, which
+        # is why the Terminated path keeps it anyway, while dying from the handler would lose it
+        for signum in (signal.SIGTERM, signal.SIGHUP):
+            with self.subTest(signal=signum.name):
+                owner = self.owner('idle', dict(self.env))
+                ready = owner.stdout.readline()
+                began = time.monotonic()
+                owner.send_signal(signum)
+                try:
+                    out, err = owner.communicate(timeout=30)
+                except subprocess.TimeoutExpired:
+                    owner.kill()
+                    out, err = owner.communicate()
+                self.assertEqual('ready\n', ready, err[-400:])
+                self.assertEqual(-signum, owner.returncode, err[-400:])
+                self.assertLess(time.monotonic() - began, 5)
+                self.assertEqual('buffered\n', out)
+
+    @unittest.skipIf(os.name == 'nt', 'process groups and these signals are POSIX')
+    def test_a_second_sigterm_in_the_grace_after_sigterm_to_the_server_still_ends_everything(self):
+        # the server survives SIGTERM, so close() is in its grace before SIGKILL when the owner is sent a
+        # second SIGTERM: the owner still ends the group and dies by the signal
+        noted, termed = self.root / 'pids-grace', self.root / 'server-termed'
+        owner = self.owner('terminate', dict(self.env, FAKE_LEAVES='same', FAKE_STAYS='1', FAKE_PIDS=str(noted),
+                                             FAKE_TERM_NOTED=str(termed)))
+        ready = owner.stdout.readline()
+        owner.send_signal(signal.SIGTERM)
+        end = time.monotonic() + 20
+        while not termed.exists() and time.monotonic() < end:
+            time.sleep(0.01)
+        reached = termed.exists()
+        owner.send_signal(signal.SIGTERM)
+        try:
+            out, err = owner.communicate(timeout=30)
+        except subprocess.TimeoutExpired:
+            owner.kill()
+            out, err = owner.communicate()
+        pids = [int(n) for n in noted.read_text().split()] if noted.is_file() else []
+        left = _ended_by_the_test(_settled(pids))
+        self.assertEqual('ready\n', ready, err[-400:])
+        self.assertTrue(reached)
+        self.assertEqual(-signal.SIGTERM, owner.returncode, err[-400:])
+        self.assertNotIn('Traceback', err)
+        self.assertEqual(2, len(pids))
+        self.assertEqual([], left)
+
+    @unittest.skipIf(os.name == 'nt', 'process groups and these signals are POSIX')
+    def test_a_sigterm_inside_closes_cleanup_waits_until_the_server_is_reaped(self):
+        # injected just before the server is reaped, where an exception would leave it unreaped: as the
+        # first signal (the owner was closing on its own) and as a repeat (the owner was terminated)
+        for mode in ('first-in-cleanup', 'repeat-in-cleanup'):
+            with self.subTest(mode=mode):
+                noted = self.root / f'pids-{mode}'
+                owner = self.owner(mode, dict(self.env, FAKE_LEAVES='same', FAKE_PIDS=str(noted)))
+                if mode == 'repeat-in-cleanup':
+                    owner.stdout.readline()
+                    owner.send_signal(signal.SIGTERM)
+                try:
+                    out, err = owner.communicate(timeout=30)
+                except subprocess.TimeoutExpired:
+                    owner.kill()
+                    out, err = owner.communicate()
+                pids = [int(n) for n in noted.read_text().split()] if noted.is_file() else []
+                left = _ended_by_the_test(_settled(pids))
+                states = [json.loads(line) for line in out.splitlines() if line.startswith('{')]
+                self.assertEqual(-signal.SIGTERM, owner.returncode, err[-400:])
+                self.assertEqual(1, len(states), out)
+                self.assertIsNotNone(states[0]['server'], out)
+                self.assertNotIn('Traceback', err)
+                self.assertEqual([], left)
+
+    @unittest.skipIf(os.name == 'nt', 'process groups and these signals are POSIX')
+    def test_sigterm_to_the_frame_filters_context_ends_its_app_server_and_the_filter_by_that_signal(self):
+        # the real entry point: codex-run's context helper, waiting on a thread/start its app-server never
+        # answers, while the server has a child in its group
+        noted, capture, work, cwd = (self.root / name for name in ('pids-filter', 'capture', 'work', 'cwd'))
+        for directory in (capture, work, cwd):
+            directory.mkdir()
+        env = dict(self.env, FAKE_HANG='thread/start', FAKE_LEAVES='same', FAKE_PIDS=str(noted),
+                   AGENT_BIOS_STATE_DIR=str(self.root / 'state'))
+        helper = subprocess.Popen([sys.executable, str(ROOT / 'wrappers/codex_frame_filter.py'), 'context',
+                                   '--codex', str(self.codex), '--version', '9.9.9-fake', '--codex-home',
+                                   str(self.root / 'codex-home'), '--child-home', str(self.root), '--cwd', str(cwd),
+                                   '--capture', str(capture), '--work', str(work)],
+                                  env=env, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                  text=True)
+        end = time.monotonic() + 20
+        while not noted.is_file() and time.monotonic() < end:
+            time.sleep(0.05)
+        time.sleep(0.5)  # the server is up and its thread/start sent
+        helper.send_signal(signal.SIGTERM)
+        try:
+            _out, err = helper.communicate(timeout=30)
+        except subprocess.TimeoutExpired:
+            helper.kill()
+            _out, err = helper.communicate()
+        pids = [int(n) for n in noted.read_text().split()] if noted.is_file() else []
+        left = _ended_by_the_test(_settled(pids))
+        self.assertEqual(-signal.SIGTERM, helper.returncode, err[-400:])
+        self.assertNotIn('Traceback', err)
+        self.assertEqual(2, len(pids))
+        self.assertEqual([], left)
+
+    def test_the_launcher_asks_for_termination_handling_wherever_it_opens_a_session(self):
+        # agent-launch opens a CodexServer only through instructions_session, after its UI has returned;
+        # each place it imports that module asks for raise_on_termination before calling into it
+        text = (ROOT / 'launch' / 'agent-launch.py').read_text()
+        sites = text.count('        import instructions_session\n')
+        self.assertEqual(3, sites)
+        self.assertEqual(sites, text.count('        import instructions_session\n'
+                                           '        instructions_session.raise_on_termination()\n'))
 
     @unittest.skipIf(os.name == 'nt', 'process groups are POSIX')
     def test_a_deadline_that_passes_between_two_reads_of_the_clock_ends_the_wait_without_error(self):

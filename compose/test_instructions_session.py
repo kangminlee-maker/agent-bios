@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 from unittest import mock
@@ -141,6 +142,24 @@ class PinTests(unittest.TestCase):
                                                self.root, {}, resume_id='allowed-cwd-session'))
         self.assertEqual(['codex', 'resume', 'allowed-cwd-session', *argv], native.call_args.args[0])
         self.assertEqual(str(self.root.resolve()), native.call_args.kwargs['cwd'])
+
+    def test_the_session_does_not_start_beside_a_codex_server_still_running(self):
+        # the launcher's SIGTERM and SIGHUP reach the user's session unchanged only while it owns no server
+        record = session.prepare(self.root, 'codex', self.snapshot, ['--model', 'test'], self.root, {})
+        session.observe_and_pin(self.root, record, 'beside-a-server', {'method': 'test-control'})
+        protocol = session.codex_protocol_for(session.__file__)
+        child = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(30)'], start_new_session=True)
+        owned = protocol.Owned(child)
+        try:
+            with mock.patch.object(session, 'validate_codex_hooks'), \
+                    mock.patch.object(session.subprocess, 'call', return_value=0) as native:
+                with self.assertRaisesRegex(session.SessionError, rf'still running \(process {child.pid}\)'):
+                    session.launch('codex', [], self.root, 'codex', self.snapshot, self.root, {},
+                                   resume_id='beside-a-server')
+            native.assert_not_called()
+        finally:
+            owned.end(0.5)
+        self.assertEqual([], protocol.unreaped())
 
     def test_relative_launch_cwd_is_pinned_before_caller_moves(self):
         first, second = self.root / 'first', self.root / 'second'

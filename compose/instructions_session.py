@@ -158,6 +158,24 @@ def atomic_json(path, data):
         tmp.unlink(missing_ok=True)
 
 
+def raise_on_termination():
+    """For the launcher, before it composes or resumes a session: a SIGTERM or SIGHUP that arrives while
+    a CodexServer is open ends the server's process group before the launcher ends by that signal, and
+    one that arrives at any other time ends the launcher as before (codex_protocol.raise_on_termination)."""
+    codex_protocol_for(__file__).raise_on_termination()
+
+
+def _no_server_running():
+    """Refuse to open the user's session while a Codex app-server this process started is unreaped. The
+    launcher's SIGTERM and SIGHUP end the process at once only while it owns no such server, and the
+    session must see them so (codex_protocol.raise_on_termination): a server left open would turn them
+    into an exception that subprocess.call answers by killing the session."""
+    left = codex_protocol_for(__file__).unreaped()
+    if left:
+        raise SessionError(f"a Codex app-server this launch started is still running (process "
+                           f"{', '.join(str(pid) for pid in left)}), so the session does not start")
+
+
 class CodexServer:
     """One owned stdio server. No turn/start or model generation is used.
 
@@ -778,6 +796,7 @@ def launch(command, argv, state_root, host, snapshot, cwd=None, env=None, resume
             validate_codex_hooks(command, pinned, record['argv'], record['cwd'], env, state_root)
         argv = record['argv']
         native = ['resume', resume_id, *argv] if host == 'codex' else ['--resume', resume_id, *argv]
+        _no_server_running()
         return subprocess.call([command, *native], cwd=record['cwd'], env=env)
     snapshot = _verified_launch_snapshot(state_root, snapshot)
     argv = compose_argv(command, argv, host, snapshot, cwd, env, include_global_instructions, state_root)
@@ -791,12 +810,14 @@ def launch(command, argv, state_root, host, snapshot, cwd=None, env=None, resume
         # id comes from the real host and is pinned before any user turn is possible.
         create_codex_session(command, argv, state_root, record, cwd, env)
         native = ['resume', record['session_id'], *argv]
+        _no_server_running()
         return subprocess.call([command, *native], cwd=cwd, env=env)
     requested_id = str(uuid.uuid4())
     record['requested_session_id'] = requested_id
     intents, _ = session_paths(state_root)
     atomic_json(intents / record['intent_id'] / 'journal.json', record)
     native = ['--session-id', requested_id, *argv]
+    _no_server_running()
     child = subprocess.Popen([command, *native], cwd=cwd, env=env)
     try:
         while True:

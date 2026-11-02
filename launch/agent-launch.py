@@ -11252,6 +11252,7 @@ def main(argv: list[str], *, bundled_ui: bool = False) -> int:
             raise LaunchError("an instruction-pinned resume requires a private installation")
         store = instructions_store()
         import instructions_session
+        instructions_session.raise_on_termination()
         return instructions_session.launch(command, [], store.state_root, args.host, {},
                                      resume_id=args.resume_session)
     nudge = session_distill_nudge(config)
@@ -11394,6 +11395,7 @@ def main(argv: list[str], *, bundled_ui: bool = False) -> int:
         projected += [understand_initial_prompt("<pinned-understand-session-prompt>")]
     if snapshot is not None and args.dry_run:
         import instructions_session
+        instructions_session.raise_on_termination()
         projected = instructions_session.compose_argv(
             command,
             projected,
@@ -11450,6 +11452,7 @@ def main(argv: list[str], *, bundled_ui: bool = False) -> int:
     summary_stream.flush()
     if snapshot is not None:
         import instructions_session
+        instructions_session.raise_on_termination()
         return instructions_session.launch(command, projected, store.state_root, args.host,
                                      snapshot, env=env,
                                      include_global_instructions=plan["include_global_instructions"])

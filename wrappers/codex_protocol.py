@@ -25,6 +25,7 @@ wrappers/ directory (host_platform.codex_protocol_for).
 """
 from __future__ import annotations
 
+import atexit
 import contextlib
 import hashlib
 import json
@@ -403,6 +404,81 @@ def _raise_for(record):
 TICK_S = 0.05      # how often a wait on a child's pipes or on its end looks again
 CLOSE_S = 5        # how long a server whose input closed is given to end, and to end after SIGTERM
 DRAIN_S = 2        # how long its output is given to close once its group has been ended
+_UNREAPED = set()  # every Owned whose child has not been reaped yet
+_TERMINATED = []   # the termination signal raise_on_termination turned into Terminated, if any
+_INSTALLED = []    # whether raise_on_termination has installed its handler in this process
+_CLEANING = [0]    # how many cleanups (Owned.end, Client.close, a collection's end) are running
+_NOTED = []        # a termination signal that arrived during a cleanup, raised when the outermost ends
+
+
+class Terminated(SystemExit):
+    """SIGTERM or SIGHUP, raised while this process owns an unreaped child (raise_on_termination), so
+    the owner's cleanup ends the child's group on the way out; the process then ends by the signal."""
+
+    def __init__(self, signum):
+        super().__init__(128 + signum)
+        self.signum = signum
+
+
+def raise_on_termination():
+    """For an entry point that owns children through Owned, called from its main thread: from now on
+    SIGTERM and SIGHUP raise Terminated while any Owned child is unreaped, and at exit the process ends
+    by the same signal; while none is, they end the process at once, as their default does, so code
+    that owns no child (a host session this process waits on, a UI) sees them unchanged. The library
+    never installs this itself."""
+    if threading.current_thread() is not threading.main_thread() or _INSTALLED:
+        return
+    _INSTALLED.append(True)
+
+    def handler(signum, _frame):
+        if _TERMINATED:
+            return  # the first one ends the process once its cleanup is done
+        if _CLEANING[0]:
+            _NOTED[:] = _NOTED or [signum]  # raised when the cleanup it would have cut short is done
+            return
+        if not _UNREAPED:
+            end_by(signum)
+        _TERMINATED.append(signum)
+        raise Terminated(signum)
+    for signum in (signal.SIGTERM, signal.SIGHUP):
+        signal.signal(signum, handler)
+    atexit.register(lambda: _TERMINATED and end_by(_TERMINATED[0]))
+
+
+def unreaped():
+    """The numbers of the children this process owns through Owned and has not reaped."""
+    return sorted(owned.proc.pid for owned in _UNREAPED)
+
+
+def end_by(signum):
+    """End this process by `signum`'s default action, so whoever waits on it sees that signal. What
+    Python still buffers is written first, since the default action ends the process at once; a
+    terminal that has gone (SIGHUP) refuses the write, which is then given up."""
+    for stream in (sys.stdout, sys.stderr):
+        with contextlib.suppress(OSError, ValueError, AttributeError):
+            stream.flush()
+    signal.signal(signum, signal.SIG_DFL)
+    os.kill(os.getpid(), signum)
+
+
+class _Cleanup:
+    """A cleanup a termination signal must not cut short: raise_on_termination's handler only notes a
+    signal that arrives inside one, and the outermost one raises it when it is done. When another
+    exception is already leaving the cleanup, that one goes on, and the process still ends by the noted
+    signal at exit."""
+
+    def __enter__(self):
+        _CLEANING[0] += 1
+
+    def __exit__(self, exc_type, _exc, _tb):
+        _CLEANING[0] -= 1
+        if _CLEANING[0] or not _NOTED or _TERMINATED:
+            return False
+        signum = _NOTED.pop()
+        _TERMINATED.append(signum)
+        if exc_type is None:
+            raise Terminated(signum)
+        return False
 
 
 class Owned:
@@ -421,6 +497,7 @@ class Owned:
     def __init__(self, proc):
         self.proc, self._ended, self._watch = proc, False, None
         self.clock = time.monotonic  # collect's clock; a control gives one that moves between two reads
+        _UNREAPED.add(self)
         if os.name != "nt" and hasattr(select, "kqueue"):
             self._watch = select.kqueue()
             try:
@@ -450,8 +527,14 @@ class Owned:
 
     def end(self, grace_s):
         """End the child's group, then reap the child. Nothing is signalled once the child is reaped,
-        and SIGKILL is sent even when the wait for SIGTERM is interrupted."""
+        SIGKILL is sent even when the wait for SIGTERM is interrupted, and a termination signal waits
+        until the child is reaped (_Cleanup)."""
+        with _Cleanup():
+            self._end(grace_s)
+
+    def _end(self, grace_s):
         if self.proc.returncode is not None:
+            _UNREAPED.discard(self)
             return
         if os.name == "nt":
             if not self.ended():
@@ -459,6 +542,7 @@ class Owned:
                 if not self.ended(grace_s):
                     self.proc.kill()
             self.proc.wait()
+            _UNREAPED.discard(self)
             return
         try:
             if not self.ended():
@@ -470,14 +554,16 @@ class Owned:
             with contextlib.suppress(ProcessLookupError, PermissionError):
                 os.killpg(self.proc.pid, signal.SIGKILL)
             self.proc.wait()
+            _UNREAPED.discard(self)
             if self._watch is not None:
                 self._watch.close()
 
     def collect(self, limit_s, grace_s, drain_s):
         """(stdout, stderr, timed_out, held): the child's piped output, read until every pipe has closed
         and the child has ended, for at most `limit_s`; then its group is ended (end) and the pipes are
-        read for at most `drain_s` more and closed. `held` is true when one was still open then, held
-        by a process outside the group. POSIX only: Windows pipes cannot be selected."""
+        read for at most `drain_s` more. The pipes are closed however the collection ends, an
+        interrupted one included. `held` is true when one was still open after the drain, held by a
+        process outside the group. POSIX only: Windows pipes cannot be selected."""
         streams = [stream for stream in (self.proc.stdout, self.proc.stderr) if stream is not None]
         fds = [None if stream is None else stream.fileno() for stream in (self.proc.stdout, self.proc.stderr)]
         open_fds = {stream.fileno() for stream in streams}
@@ -493,34 +579,45 @@ class Owned:
                     open_fds.discard(fd)
         deadline, timed_out = self.clock() + limit_s, False
         try:
-            while open_fds or not self.ended():
-                left = deadline - self.clock()
-                if left <= 0:
-                    timed_out = True
-                    break
-                if open_fds:
-                    take(min(left, TICK_S))
-                else:
-                    self.ended(min(left, TICK_S))
+            try:
+                while open_fds or not self.ended():
+                    left = deadline - self.clock()
+                    if left <= 0:
+                        timed_out = True
+                        break
+                    if open_fds:
+                        take(min(left, TICK_S))
+                    else:
+                        self.ended(min(left, TICK_S))
+            finally:
+                self.end(grace_s)
+            deadline = self.clock() + drain_s
+            while open_fds and self.clock() < deadline:
+                take(min(deadline - self.clock(), TICK_S))
         finally:
-            self.end(grace_s)
-        deadline = self.clock() + drain_s
-        while open_fds and self.clock() < deadline:
-            take(min(deadline - self.clock(), TICK_S))
+            for stream in streams:
+                stream.close()
         held = bool(open_fds)
-        for stream in streams:
-            stream.close()
         out, err = (b"" if fd is None else b"".join(read[fd]) for fd in fds)
         return out, err, timed_out, held
 
 
 class Client:
-    """One app-server over stdio, read on a thread into a queue, in a process group of its own (Owned)."""
+    """One app-server over stdio, read on a thread into a queue, in a process group of its own (Owned).
+
+    On POSIX a request is written to the server's input descriptor, made non-blocking, only while the
+    call's deadline lasts: a server that stops reading cannot hold a call past its timeout. A request
+    not sent whole by then leaves part of a frame in the server's input, so the client refuses every
+    later call, naming that request. Nothing is written through the buffered input stream, so closing
+    it flushes nothing. On Windows, where pipes cannot be selected, a request is written as before."""
 
     def __init__(self, argv, cwd=None, env=None):
         self.proc = subprocess.Popen(argv, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
                                      cwd=cwd, env=env, start_new_session=True)
         self.owned = Owned(self.proc)
+        self.broken = None
+        if os.name != "nt":
+            os.set_blocking(self.proc.stdin.fileno(), False)
         self.sequence = 0
         self.events = queue.Queue()
         self.stopping, self.drained = threading.Event(), threading.Event()
@@ -559,18 +656,41 @@ class Client:
             *lines, partial = (partial + chunk).split(b"\n")
             yield from lines
 
-    def _send(self, message):
-        self.proc.stdin.write((json.dumps(message) + "\n").encode("utf-8"))
-        self.proc.stdin.flush()
+    def _send(self, method, message, deadline):
+        if self.broken:
+            raise ProtocolError(self.broken)
+        data = (json.dumps(message) + "\n").encode("utf-8")
+        if os.name == "nt":
+            self.proc.stdin.write(data)
+            self.proc.stdin.flush()
+            return
+        fd, whole = self.proc.stdin.fileno(), len(data)
+        while data:
+            left = deadline - time.monotonic()
+            if left <= 0 and len(data) == whole:
+                raise ProtocolError(f"app-server timed out: {method} (the server read none of the request)")
+            if left <= 0:
+                self.broken = (f"app-server {method}: the request was not sent whole within its timeout, so the "
+                               f"server's input holds part of it and this client sends nothing more")
+                raise ProtocolError(self.broken)
+            if not select.select([], [fd], [], min(left, TICK_S))[1]:
+                continue
+            try:
+                data = data[os.write(fd, data):]
+            except BlockingIOError:
+                continue
+            except OSError as exc:  # a server that ended has broken the pipe
+                self.broken = f"app-server {method}: the server's input closed ({exc.__class__.__name__})"
+                raise ProtocolError(self.broken) from exc
 
-    def notify(self, method):
-        self._send({"method": method})
+    def notify(self, method, timeout=45):
+        self._send(method, {"method": method}, time.monotonic() + timeout)
 
     def call(self, method, params, timeout=45):
         self.sequence += 1
         request_id = self.sequence
-        self._send({"id": request_id, "method": method, "params": params})
         deadline = time.monotonic() + timeout
+        self._send(method, {"id": request_id, "method": method, "params": params}, deadline)
         while time.monotonic() < deadline:
             try:
                 message = self.events.get(timeout=max(0.01, deadline - time.monotonic()))
@@ -591,17 +711,27 @@ class Client:
         """The server's input is closed and it is given CLOSE_S to end, then its group is ended before
         it is reaped (Owned.end). Its output then has DRAIN_S to close: a process outside the group
         that still holds it is not waited for, and one line on stderr says so. The reader is stopped,
-        within TICK_S on POSIX, and the output is closed only once no thread reads it."""
-        with contextlib.suppress(OSError):  # a server that already ended has broken the pipe
-            self.proc.stdin.close()
+        within TICK_S on POSIX, and the output is closed only once no thread reads it. Each step runs
+        however the one before it ended, an interrupted wait included, and a termination signal waits
+        until the last is done (_Cleanup)."""
+        with _Cleanup():
+            self._close()
+
+    def _close(self):
         try:
-            self.owned.ended(CLOSE_S)
+            try:
+                with contextlib.suppress(OSError):
+                    self.proc.stdin.close()  # nothing was written through its buffer, so this flushes nothing
+                self.owned.ended(CLOSE_S)
+            finally:
+                self.owned.end(CLOSE_S)
+            if not self.drained.wait(DRAIN_S):
+                with contextlib.suppress(OSError):  # a terminal that has gone (SIGHUP) refuses the line
+                    sys.stderr.write("agent-bios: a process the Codex app-server left outside its process group "
+                                     "still holds its output; agent-bios stopped reading it without waiting for it "
+                                     "to close\n")
         finally:
-            self.owned.end(CLOSE_S)
-        if not self.drained.wait(DRAIN_S):
-            sys.stderr.write("agent-bios: a process the Codex app-server left outside its process group still "
-                             "holds its output; agent-bios stopped reading it without waiting for it to close\n")
-        self.stopping.set()
-        self.reader.join(timeout=DRAIN_S)
-        if not self.reader.is_alive():
-            self.proc.stdout.close()
+            self.stopping.set()
+            self.reader.join(timeout=DRAIN_S)
+            if not self.reader.is_alive():
+                self.proc.stdout.close()

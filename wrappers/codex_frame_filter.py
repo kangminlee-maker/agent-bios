@@ -1185,6 +1185,13 @@ def main(argv):
     p.add_argument("--manifest")
     p.add_argument("--flag", action="append", default=[])
     args = parser.parse_args(argv[1:])
+    if args.command == "context":
+        # the app-server it asks runs in a group of its own: a SIGTERM or SIGHUP ends that group before
+        # this process ends by the signal (a missing protocol module is the context's own error to report)
+        try:
+            codex_protocol().raise_on_termination()
+        except OSError:
+            pass
     return {"filter": run_filter, "events": run_events, "context": run_context, "finish": run_finish}[args.command](args)
 
 
