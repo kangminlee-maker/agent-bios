@@ -171,6 +171,9 @@ PY
   case_is "a mktemp -q -t in a shipped shell script" "wrappers/codex-helm.sh:"
   fresh; printf '\n# never mktemp -%s here\n' t >> "$W/install.sh"
   case_ok "a comment naming mktemp -t in a shipped shell script"
+  # ...a -t on a continuation line is the same call, as the shell joins it
+  fresh; printf '\nlog="$(mktemp \\\n  -%s probe)"\n' t >> "$W/install.sh"
+  case_is "a mktemp -t continued onto the next line" "mktemp -t call(s) in a shipped shell script"
 
   # a lock writer that waits without bound, shipped and author-side; a control's holder and a string are not
   fresh; printf '\n\ndef planted_writer(fh):\n    fcntl.flock(fh, fcntl.LOCK_%s)\n' EX >> "$W/compose/instructions_store.py"
@@ -181,6 +184,9 @@ PY
   case_ok "a control's lock holder inside a self_test"
   fresh; printf '\n\nSHOWN = "fcntl.flock(fh, fcntl.LOCK_%s)"\n' EX >> "$W/compose/instructions_store.py"
   case_ok "a string showing an unbounded flock call"
+  # ...and LOCK_NB behind a conditional is not set on the writer's branch: d30268e's transaction lock
+  fresh; printf '\n\ndef planted_writer(descriptor, readonly):\n    fcntl.flock(descriptor, fcntl.LOCK_%s | (fcntl.LOCK_NB if readonly else 0))\n' EX >> "$W/compose/instructions_store.py"
+  case_is "a lock writer whose LOCK_NB is conditional" "compose/instructions_store.py:"
 
   # a shipped module loaded by path, which no import statement names
   fresh; dropline package.json '"wrappers/jsonl_lines.py"'
@@ -906,8 +912,29 @@ leg("pipefail scripts without a piped quiet grep", pipefail_scripts)
 # A shipped shell script may not call `mktemp -t`. macOS builds a template from -t's prefix; GNU
 # mktemp requires three X's in the last component and marks -t deprecated, so under `set -e` the
 # line aborts on Linux, which package.json declares. The portable form names its own template:
-# `mktemp "${TMPDIR:-/tmp}/name.XXXXXX"`. Comment lines are not calls.
+# `mktemp "${TMPDIR:-/tmp}/name.XXXXXX"`. Comment lines are not calls. A command is read as the shell
+# reads it, its backslash-newline continuations joined, so `mktemp \` with `-t` on the next line is one.
 MKTEMP_T = re.compile(r"\bmktemp\s+(?:-[A-Za-z]+\s+)*-[A-Za-z]*t")
+
+
+def logical_lines(text):
+    """(first line number, line) for each shell line, continuation lines joined. A comment line ends
+    at its newline, backslash or not."""
+    joined, start = "", None
+    for n, line in enumerate(text.splitlines(), 1):
+        if start is None and line.lstrip().startswith("#"):
+            yield n, line
+            continue
+        start = n if start is None else start
+        if (len(line) - len(line.rstrip("\\"))) % 2:
+            joined += line[:-1]
+            continue
+        yield start, joined + line
+        joined, start = "", None
+    if start is not None:
+        yield start, joined
+
+
 shipped_shell, mktemp_t = [], []
 for p in shell_scripts():
     rel = p.relative_to(REPO).as_posix()
@@ -915,20 +942,30 @@ for p in shell_scripts():
         continue
     shipped_shell.append(rel)
     mktemp_t += [(rel, n, line.strip())
-                 for n, line in enumerate(p.read_text(encoding="utf-8", errors="replace").splitlines(), 1)
+                 for n, line in logical_lines(p.read_text(encoding="utf-8", errors="replace"))
                  if not line.lstrip().startswith("#") and MKTEMP_T.search(line)]
 leg("shipped shell scripts without mktemp -t", shipped_shell)
 
 # Every exclusive lock a writer takes waits at most 30 s and then refuses naming the lock
 # (D-20261102-49b466), through host_platform.lock_within; a flock(LOCK_EX) without LOCK_NB waits
-# without bound. Read from the parsed module, so a string or a comment showing the call is not one. A
+# without bound. LOCK_NB counts only when every evaluation sets it: an operand of a `|` chain. Behind
+# a conditional (`LOCK_EX | (LOCK_NB if readonly else 0)`, whose writer branch blocks), a variable or
+# a call, it cannot be established, and the call is a writer that waits without bound. Read from the
+# parsed module, so a string or a comment showing the call is not one. A
 # control's own holder takes a lock on purpose: a call inside a function named self_test, _self_test or
 # test_*, in a test_*.py module, or under gates/ (whose every check is a control) is not a writer.
 # No tracked writer is exempt: the author-side benchmark budget waits on the same bound.
 
 
+def always_nonblocking(flags):
+    """Whether the flag expression sets LOCK_NB on every evaluation: a `|` chain with it as an operand."""
+    if isinstance(flags, ast.BinOp) and isinstance(flags.op, ast.BitOr):
+        return always_nonblocking(flags.left) or always_nonblocking(flags.right)
+    return (flags.attr if isinstance(flags, ast.Attribute) else getattr(flags, "id", None)) == "LOCK_NB"
+
+
 def unbounded_locks(text):
-    """Line numbers of flock calls asking LOCK_EX without LOCK_NB outside a control."""
+    """Line numbers of flock calls asking LOCK_EX without an unconditional LOCK_NB outside a control."""
     try:
         tree = ast.parse(text)
     except SyntaxError:
@@ -943,7 +980,7 @@ def unbounded_locks(text):
                 called = child.func.attr if isinstance(child.func, ast.Attribute) else getattr(child.func, "id", None)
                 flags = {n.attr if isinstance(n, ast.Attribute) else getattr(n, "id", None)
                          for n in ast.walk(child.args[1])}
-                if called == "flock" and "LOCK_EX" in flags and "LOCK_NB" not in flags:
+                if called == "flock" and "LOCK_EX" in flags and not always_nonblocking(child.args[1]):
                     lines.append(child.lineno)
             visit(child, inside)
     visit(tree, False)

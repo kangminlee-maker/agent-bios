@@ -95,7 +95,11 @@ if 'app-server' in sys.argv:
         if method == 'initialize':
             result = {}
         elif method == 'config/read':
+            # as codex-cli 0.163.0 answers: the layers only when asked, the user's layer setting the text
             result = {'config': {'developer_instructions': 'NATIVE DEVELOPER MARKER'}}
+            if request['params'].get('includeLayers'):
+                result['layers'] = [{'name': {'type': 'user'}, 'version': '1',
+                                     'config': {'developer_instructions': 'NATIVE DEVELOPER MARKER'}}]
         elif method in ('thread/start', 'thread/read'):
             result = {'thread': {'id': '12345678-1234-1234-1234-123456789abc'}}
         elif method == 'thread/inject_items':

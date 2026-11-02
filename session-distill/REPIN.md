@@ -67,10 +67,16 @@ PY
 ## 5. Add the version's set
 
 In `wrappers/claude_hermetic_evidence.py`, add `RECORD_KINDS["<version>"]` with the counted `types` and
-`attachments`, beside the earlier versions' sets. Compare with the previous set first:
+`attachments`, beside the earlier versions' sets. The set records what this sample showed, not every kind the
+version writes. Compare with the previous set first:
 
-- Every kind in `READ_TYPES` and `READ_ATTACHMENTS` must still be there. One that is gone or renamed means the
-  helper reads the format wrongly on this version: re-derive `requests_of` and `summarise` before pinning.
+- A kind in `READ_TYPES` or `READ_ATTACHMENTS` that the sample does not show is unobserved, not gone: one empty
+  hermetic call loads no instruction file, skill or agent, so `instructions` or `skill_listing` need not appear.
+  Name each unobserved read kind in the re-pin's decision record (step 6). It is gone or renamed only when a call
+  that must write it shows another kind in its place (for `instructions`, a call whose working directory holds a
+  `CLAUDE.md`); then the helper reads the format wrongly on this version: re-derive `requests_of` and
+  `summarise` before pinning. Until such a call is measured, a renamed read kind is refused by name on the first
+  transcript that holds it, since its new name is outside every measured set.
 - A new kind or attachment type is added to the set as known and unread, unless it carries context the evidence
   must see (an instruction, skill, agent, hook or MCP server), in which case the helper must read it first.
 - One hermetic call shows the kinds one call writes. Kinds that appear only under other uses (compaction, a
@@ -83,10 +89,10 @@ In `wrappers/claude_hermetic_evidence.py`, add `RECORD_KINDS["<version>"]` with 
   text says how: observed main-request input tokens, the maximum over hermetic calls through dispatch) and the
   `seat_capacity` rows whose `host_version` names the old version. These are model calls too.
 - `DEPENDENCIES.md`: the verified Claude version for the hermetic profile.
-- Record the re-pin with `python3 decisions/record-decision.py --kind design`, naming the version left and any
-  kind that changed.
+- Record the re-pin with `python3 decisions/record-decision.py --kind design`, naming the version left, any
+  kind that changed, and each read kind the sample did not show.
 
 ## 7. Verify
 
-`./gates/check-parity.sh` (the helper's self-test holds `READ_TYPES` inside every measured set), then one
-dispatch through distill on the new pin.
+`./gates/check-parity.sh` (the helper's self-test holds every read kind inside the union of the measured sets),
+then one dispatch through distill on the new pin.

@@ -16,11 +16,19 @@ ROOT = Path(__file__).resolve().parents[1]
 protocol = codex_protocol_for(__file__)
 
 # A fake Codex: `--version`, the schema command (writing the fixture bundle, less FAKE_DROP), and an
-# app-server answering config/read with FAKE_DEVELOPER (JSON) as developer_instructions. Every
-# schema generation is counted in FAKE_GENERATED.
+# app-server answering config/read with FAKE_DEVELOPER (JSON, or `absent` for no key) as
+# developer_instructions and, when asked for layers, FAKE_LAYERS (JSON, or `absent`); by default one
+# user layer that sets what FAKE_DEVELOPER states, as codex-cli 0.163.0 answers. Every
+# schema generation is counted in FAKE_GENERATED. With FAKE_HOMES, each command records the CODEX_HOME it
+# was given and, as the real one does, makes <CODEX_HOME or HOME/.codex>/tmp.
 FAKE = r'''
 import json, os, pathlib, sys
 argv = sys.argv[1:]
+if os.environ.get("FAKE_HOMES") and argv[:1] in (["--version"], ["app-server"]):
+    with open(os.environ["FAKE_HOMES"], "a") as seen:
+        seen.write(json.dumps({"command": argv[0], "codex_home": os.environ.get("CODEX_HOME")}) + "\n")
+    os.makedirs(os.path.join(os.environ.get("CODEX_HOME") or os.path.join(os.environ["HOME"], ".codex"), "tmp"),
+                exist_ok=True)
 if argv == ["--version"]:
     print("codex-cli 9.9.9-fake")
 elif argv[:2] == ["app-server", "generate-json-schema"]:
@@ -42,7 +50,15 @@ elif "app-server" in argv:
         if "id" not in request:
             continue
         if request["method"] == "config/read":
-            result = {"config": {"developer_instructions": json.loads(os.environ["FAKE_DEVELOPER"])}}
+            developer = os.environ["FAKE_DEVELOPER"]
+            config = {} if developer == "absent" else {"developer_instructions": json.loads(developer)}
+            result = {"config": config}
+            layers = os.environ.get("FAKE_LAYERS")
+            if request["params"].get("includeLayers") and layers != "absent":
+                stated = config.get("developer_instructions")
+                result["layers"] = json.loads(layers) if layers else [
+                    {"name": {"type": "user", "file": "config.toml"}, "version": "1",
+                     "config": {} if stated is None else {"developer_instructions": stated}}]
         else:
             result = {}
         if os.environ.get("FAKE_COALESCED"):
@@ -123,12 +139,31 @@ class CodexProtocolTests(unittest.TestCase):
             protocol.ensure_schema(str(self.codex), dict(self.env, FAKE_DROP='thread/read|result|thread.id'), cache)
         self.assertEqual('xx', self.generated.read_text())
 
+    def test_the_check_gives_codex_a_scratch_home_and_leaves_the_users_alone(self):
+        # each command the check runs is given a CODEX_HOME of its own, removed after, so nothing lands in
+        # HOME/.codex, whatever the caller's environment holds (2026-11-02: a probe wrote /private/tmp/.codex)
+        seen, home = self.root / 'seen-homes', self.root / 'home'
+        home.mkdir()
+        env = {k: v for k, v in self.env.items() if k != 'CODEX_HOME'}
+        protocol.ensure_schema(str(self.codex), dict(env, HOME=str(home), FAKE_HOMES=str(seen)))
+        rows = [json.loads(line) for line in seen.read_text().splitlines()]
+        self.assertEqual(['--version', 'app-server'], [row['command'] for row in rows])
+        for row in rows:
+            self.assertTrue(row['codex_home'], 'a command ran with no CODEX_HOME of its own')
+            self.assertFalse(Path(row['codex_home']).exists(), 'a scratch CODEX_HOME was left behind')
+            self.assertFalse(Path(row['codex_home']).is_relative_to(home))
+        self.assertEqual([], sorted(p.name for p in home.iterdir()))
+
     def test_a_schema_that_could_not_be_generated_refuses_and_is_not_kept(self):
         cache = self.root / 'state' / 'codex-protocol'
         cache.parent.mkdir()
         with self.assertRaisesRegex(protocol.ProtocolError, r'the schema itself \(`app-server generate-json-schema` exited 3'):
             protocol.ensure_schema(str(self.codex), dict(self.env, FAKE_SCHEMA_FAILS='1'), cache)
         self.assertEqual([], list(cache.glob('*.json')))
+        # Kept in this process neither: the same binary, once its schema generates, passes without the
+        # process forgetting anything first.
+        self.assertEqual([], protocol.ensure_schema(str(self.codex), self.env, cache)['missing'])
+        self.assertEqual('xx', self.generated.read_text())
 
     def test_no_state_directory_is_created_for_the_verdict(self):
         protocol.ensure_schema(str(self.codex), self.env, self.root / 'absent' / 'codex-protocol')
@@ -145,6 +180,47 @@ class CodexProtocolTests(unittest.TestCase):
                                             f'config.developer_instructions: {shown}, not str\\|null'):
                     session.compose_argv(str(self.codex), [], 'codex', snapshot, self.root,
                                          dict(self.env, FAKE_DEVELOPER=wrong))
+
+    def test_developer_instructions_are_held_to_the_layers_that_state_them(self):
+        # D-20261102-efc529, from codex-cli 0.163.0's answers: the key is always sent; null when no layer
+        # sets it; the highest layer that sets it wins, a higher layer's "" over a lower one's text included.
+        snapshot = {'instruction_text': 'PRIVATE_CANARY'}
+
+        def layer(kind, *value):
+            return {'name': {'type': kind}, 'version': '1',
+                    'config': {'developer_instructions': value[0]} if value else {}}
+
+        def composed(developer, layers=None):
+            env = dict(self.env, FAKE_DEVELOPER=developer)
+            if layers is not None:
+                env['FAKE_LAYERS'] = layers if isinstance(layers, str) else json.dumps(layers)
+            argv = session.compose_argv(str(self.codex), [], 'codex', snapshot, self.root, env)
+            return next(a for a in argv if a.startswith('developer_instructions='))
+
+        for label, developer, layers, kept in (
+                ('the users own text', '"MINE"', [layer('user', 'MINE'), layer('system')], 'MINE'),
+                ('the users own empty value', '""', [layer('user', ''), layer('system')], None),
+                ('a higher layers empty value over a lower layers text', '""',
+                 [layer('sessionFlags', ''), layer('user', 'MINE'), layer('system')], None)):
+            with self.subTest(label):
+                projected = composed(developer, layers)
+                self.assertIn('PRIVATE_CANARY', projected)
+                if kept:
+                    self.assertIn(kept, projected)
+                else:
+                    self.assertNotIn('MINE', projected)
+        for label, developer, layers, refusal in (
+                ('an omitted key', 'absent', None, r'config\.developer_instructions: missing'),
+                ('null while a layer sets text', 'null', [layer('user', 'MINE'), layer('system')],
+                 r'config\.developer_instructions is null while the user layer\(s\) set it'),
+                ('an empty value no layer sets', '""', [layer('user', 'MINE'), layer('system')],
+                 r'config\.developer_instructions is a value no layer sets \(0 characters; layers setting it: user\)'),
+                ('text no layer sets', '"OTHER"', [layer('user', 'MINE')],
+                 r'config\.developer_instructions is a value no layer sets \(5 characters'),
+                ('no layers', '"MINE"', 'absent', r'no layers to hold config\.developer_instructions to')):
+            with self.subTest(label):
+                with self.assertRaisesRegex(session.SessionError, refusal):
+                    composed(developer, layers)
 
     def test_an_undeclared_reading_is_refused(self):
         with self.assertRaisesRegex(protocol.ProtocolError, 'declares no shape for turn/start'):

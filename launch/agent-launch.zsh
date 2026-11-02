@@ -26,7 +26,7 @@ _agent_launch_direct() {
     # read, the flag stays off.
     if [[ $# -eq 0 || "$1" == -* ]]; then
       builtin command claude --dangerously-skip-permissions "$@"
-    elif _agent_launch_claude_subcommands && (( ! ${_agent_launch_claude_verbs[(Ie)$1]} )); then
+    elif _agent_launch_claude_subcommands && ! _agent_launch_claude_lists "$1"; then
       builtin command claude --dangerously-skip-permissions "$@"
     else
       builtin command claude "$@"
@@ -42,13 +42,21 @@ _agent_launch_direct() {
 # ~/.local/share/agent-bios/claude-subcommands (the state dir the shadow log below uses, never
 # created here), so an update, which installs a new versioned path or rewrites the file, is
 # probed again. Returns nonzero when no list can be read: no `claude` on PATH, no zstat, a help
-# that fails or lists nothing. A failed probe is not cached.
+# that lists nothing or does not end within 5 s. A failed probe is not cached.
+#
+# The help is read by zsh alone, with its own clock (zsh/datetime) and sysread's timeout (zsh/system,
+# that builtin only); macOS has no `timeout`. 5 s is not a measurement: it is meant to sit well above
+# what a first `claude --help` takes from a slow disk, and a help past it costs the user that wait
+# once per call, a one-line notice on stderr, and a claude started without the flag.
+# zsh's process substitution sets no `$!`, so /bin/sh prints its own number and becomes the help.
 typeset -ga _agent_launch_claude_verbs
 typeset -g _agent_launch_claude_verbs_key=""
 _agent_launch_claude_subcommands() {
   setopt localoptions noksharrays no_err_return no_err_exit no_bash_rematch no_rematch_pcre
   local bin real key help line cache="$HOME/.local/share/agent-bios/claude-subcommands"
-  local -a words cached
+  # The `=~` below sets these; local, so the user's own last match survives the probe.
+  local MATCH MBEGIN MEND
+  local -a words cached match mbegin mend
   local -A meta
   bin="$(whence -p claude)" || return 1
   [[ -n "$bin" ]] || return 1
@@ -65,7 +73,30 @@ _agent_launch_claude_subcommands() {
       return 0
     fi
   fi
-  help="$("$bin" --help </dev/null 2>/dev/null)" || return 1
+  zmodload -F zsh/datetime p:EPOCHREALTIME 2>/dev/null || return 1
+  zmodload -F zsh/system b:sysread 2>/dev/null || return 1
+  local fd buf chunk why limit=5 rc=4 deadline left
+  exec {fd}< <(exec /bin/sh -c 'echo "$$"; exec "$0" --help </dev/null 2>/dev/null' "$bin") || return 1
+  deadline=$(( EPOCHREALTIME + limit ))
+  {
+    while left=$(( deadline - EPOCHREALTIME )); (( left > 0 )); do
+      chunk=""
+      sysread -t "$left" -i "$fd" chunk; rc=$?
+      (( rc == 0 )) || break
+      buf+="$chunk"
+      rc=4
+    done
+    # 5 is the end of the output; anything else leaves the help running, so it is stopped.
+    if (( rc != 5 )); then
+      _agent_launch_claude_help_stop "${buf%%$'\n'*}" "$fd"
+      (( rc == 4 )) && why="gave no answer within ${limit} s" || why="could not be read (sysread status $rc)"
+      builtin print -ru2 -- "agent-bios: \`claude --help\` $why; claude starts without --dangerously-skip-permissions"
+    fi
+  } always {
+    exec {fd}<&-
+  }
+  (( rc == 5 )) || return 1
+  help="${buf#*$'\n'}"
   local in_commands=0
   for line in "${(@f)help}"; do
     if [[ "$line" == Commands:* ]]; then
@@ -87,6 +118,36 @@ _agent_launch_claude_subcommands() {
       || builtin command rm -f -- "$cache.$$" 2>/dev/null
   fi
   return 0
+}
+
+# Stops the help probe whose number is $1 and whose output is still open on fd $2: TERM, then KILL when
+# its output has not ended half a second later. Only a number of 2 or more that is not this shell's,
+# and only while the output has not ended: `kill` given 0 signals this shell's whole process group (the
+# user's shell and every job in it), 1 is init, and a probe whose output ended has exited, its number
+# free for another process.
+_agent_launch_claude_help_stop() {
+  # no_sh_glob: under the user's SH_GLOB, `<2->` would be no number range and the probe never stopped.
+  setopt localoptions no_err_return no_err_exit no_sh_glob
+  local pid="$1" fd="$2" rest end rc=4
+  [[ "$pid" == <2-> && "$pid" != "$$" ]] || return 1
+  builtin kill -TERM "$pid" 2>/dev/null || return 0
+  end=$(( EPOCHREALTIME + 0.5 ))
+  while (( end > EPOCHREALTIME )); do
+    rest=""
+    sysread -t $(( end - EPOCHREALTIME )) -i "$fd" rest; rc=$?
+    (( rc == 0 )) || break
+    rc=4
+  done
+  (( rc == 5 )) || builtin kill -KILL "$pid" 2>/dev/null
+  return 0
+}
+
+# Whether $1 is a spelling `_agent_launch_claude_verbs` holds. A function of its own so the
+# subscript is read under zsh's array options, not the user's: with KSH_ARRAYS set, `(Ie)` answers
+# 0 for the first element, the same answer as "absent".
+_agent_launch_claude_lists() {
+  setopt localoptions noksharrays no_err_return no_err_exit
+  (( ${_agent_launch_claude_verbs[(Ie)$1]} ))
 }
 
 _agent_launch_dispatch() {

@@ -464,11 +464,13 @@ def compose_argv(command, argv, host, snapshot, cwd=None, env=None, include_glob
             )
         hooks = _codex_hook_config(snapshot)
         with CodexServer(command, config_flags(argv, exclude_developer=True), cwd, env, state_root) as server:
-            config = server.call('config/read', {'cwd': str(cwd or pathlib.Path.cwd()), 'includeLayers': bool(hooks)})
-        # The shape check has refused anything but text or null; under a schema that names the field,
-        # null is the user's "no developer instructions" (the vendor: null uses the built-in ones).
-        native = config['config'].get('developer_instructions')
-        native = '' if native is None else native
+            config = server.call('config/read', {'cwd': str(cwd or pathlib.Path.cwd()), 'includeLayers': True})
+        # Held to the layers that state it (D-20261102-efc529): null and "" are the user's none and
+        # empty value; an omitted key, or a value the layers do not give, refuses by name.
+        try:
+            native = server.protocol.developer_instructions(config)
+        except server.protocol.ProtocolError as exc:
+            raise SessionError(str(exc)) from exc
         result = replace_developer(argv, '\n\n'.join(x for x in (native, content, contract) if x))
         return _with_codex_hooks(result, hooks, config)
     boundary = argv.index('--') if '--' in argv else len(argv)

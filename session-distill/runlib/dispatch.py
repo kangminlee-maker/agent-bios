@@ -1255,13 +1255,16 @@ class Supervisor:
         except Refused:
             self.release(stage, call_id, "refused")
             raise
-        policy = None
+        policy = policy_record = None
         if host == "claude" and runner_profile == "hermetic":
             pinned_bin = os.path.expanduser(gate.seats(self.seats_path)["hosts"]["claude"]["path"])
             try:
                 policy = self.server_policy(host_version, pinned_bin)
-            except OSError:
-                policy = None   # the call's own record says the policy is unknown, never clean
+                # the call record carries the run's verdict, so the gate holds the capture's to it
+                held_policy = records.read_json(policy) if policy else None
+                policy_record = {k: held_policy.get(k) for k in ("status", "verdict", "reason")} if held_policy else None
+            except (OSError, Refused):
+                policy = policy_record = None   # the call's own record says the policy is unknown, never clean
 
         provider_model, _, effort = seat.partition(":")[2].rpartition("/")
         try:
@@ -1321,7 +1324,7 @@ class Supervisor:
                                    "stop_standing": bool(self._blocked(ledger))},
                         "wall_ms": None, "stopped": None, "contract": "required" if contract is not None else "none",
                         "provider_signals": [], "caps": caps, "use": use, "max_output_tokens": max_output_tokens,
-                        "runner_refused": None,
+                        "runner_refused": None, "server_policy": policy_record,
                         "reservation": {k: held[k] for k in ("amount", "calibration", "tranche", "declaration_seq")}}
                 records.write_json(self.run_dir, call_dir / "call.json", call)
                 spec = {"call_id": call_id, "stage": stage, "seat": seat, "model": provider_model, "effort": effort,
@@ -2957,9 +2960,22 @@ def self_test(scratch=None):
 
     UNEXPECTED = "UNEXPECTED"
 
+    class Unexpected(str):
+        """A non-refusal exception as its control receives it. The text is the classification alone,
+        `UNEXPECTED <type>`, so no expected refusal is found in it: with the message in the text, a
+        RuntimeError('PRINCIPLES_MISSING') satisfied a control that looks for that code as a substring.
+        The message rides in the repr, which the controls' failure details print."""
+        def __new__(cls, exc):
+            made = super().__new__(cls, f"{UNEXPECTED} {type(exc).__name__}")
+            made.message = str(exc)
+            return made
+
+        def __repr__(self):
+            return f"{str.__repr__(self)} ({self.message!r})"
+
     def refusal(fn, *args, **kwargs):
         """The refusal `fn` raised, as its text, or None when it ran through. Any other exception comes back
-        as `UNEXPECTED <type>: <text>`, which no control's expected refusal starts with, so that control fails
+        as Unexpected, which no control's expected refusal starts with or contains, so that control fails
         by its own name: a refusal that stopped refusing let the next line raise instead, and the suite ended on
         a traceback with no [FAIL] line naming what was lost."""
         try:
@@ -2967,7 +2983,7 @@ def self_test(scratch=None):
         except (Refused, breakers.Deferred) as exc:
             return str(exc)
         except Exception as exc:                          # noqa: BLE001 - returned to the comparing control
-            return f"{UNEXPECTED} {type(exc).__name__}: {exc}"
+            return Unexpected(exc)
         return None
 
     try:
@@ -2976,6 +2992,14 @@ def self_test(scratch=None):
         unexpected = None
     control("a-non-refusal-exception-comes-back-to-its-control-instead-of-ending-the-suite",
             (unexpected or "").startswith(f"{UNEXPECTED} KeyError"), f"{unexpected!r}")
+
+    def raising(code):
+        raise RuntimeError(code)
+
+    quoted = [refusal(raising, code) for code in ("PRINCIPLES_MISSING", "SCHEMA_REFERENCE_MISSING")]
+    control("a-non-refusal-exception-quoting-a-refusal-code-is-not-that-refusal",
+            all(got.startswith(f"{UNEXPECTED} RuntimeError") and code not in got
+                for got, code in zip(quoted, ("PRINCIPLES_MISSING", "SCHEMA_REFERENCE_MISSING"))), f"{quoted!r}")
 
     astra = "codex:gpt-6-astra/xhigh"
     codex_flags = gate.pinned_flags_sha256("codex", "0.163.0", "hermetic")
@@ -5037,6 +5061,10 @@ def self_test(scratch=None):
     control("F-31-the-hermetic-call-states-the-runs-server-policy-in-its-capture",
             held_real.get("assessed") is True and (held_real.get("server_policy") or {}).get("verdict") == "clean",
             f"{held_real}")
+    control("F-31-the-call-record-carries-the-runs-server-policy",
+            real_record.get("server_policy") == {k: policy_held.get(k) for k in ("status", "verdict", "reason")}
+            and held_real.get("server_policy") == real_record.get("server_policy"),
+            f"call={real_record.get('server_policy')} capture={held_real.get('server_policy')}")
     again = sup_r.server_policy(gate.seats()["hosts"]["claude"]["version"], str(home_r / "fake-claude"))
     control("F-31-a-run-asks-once", again == policy_file and len(doctor_runs(home_r)) == 1,
             f"{again} doctor runs={len(doctor_runs(home_r))}")

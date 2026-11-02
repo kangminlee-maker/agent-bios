@@ -16842,8 +16842,9 @@ def shell_wrapper(fx):
     dispatch_log, probe_log = tmp / "dispatch.argv", tmp / "help.probes"
     shell_backend = shell_bin / "backend"
     # The fake answers `claude --help` with a Commands block in the installed CLI's layout, and
-    # counts each probe; FAKE_HELP decides the answer: listed (default), fail, empty, or `more`,
-    # which lists one more verb. Every other call records its argv.
+    # counts each probe; FAKE_HELP decides the answer: listed (default), fail, empty, `more`,
+    # which lists one more verb, or `hang`, which writes its process number to FAKE_HELP_PID and
+    # sleeps a minute without a word. Every other call records its argv.
     help_text = ("Usage: claude [options] [command] [prompt]\n\nOptions:\n  -p, --print   Print\n\nCommands:\n"
                  + "".join(f"  {spelling} <id>        A verb\n                          continued\n"
                            for spelling in ("logs", "attach", "respawn", "rm", "stop|kill"))
@@ -16857,6 +16858,7 @@ def shell_wrapper(fx):
         "    fail) exit 1 ;;\n"
         "    empty) printf 'Usage: claude\\n\\nCommands:\\n' ;;\n"
         "    more) cat \"$FAKE_HELP_TEXT\"; printf '  later-verb              Added later\\n' ;;\n"
+        "    hang) echo $$ > \"$FAKE_HELP_PID\"; exec sleep 60 ;;\n"
         "    *) cat \"$FAKE_HELP_TEXT\" ;;\n"
         "  esac\n"
         "  exit 0\n"
@@ -16955,6 +16957,80 @@ def shell_wrapper(fx):
                 or received != ["claude", "planted-verb", "probe-id"]):
             mark_fail(f"in {label}, the wrapper's probe changed what `stat` is or did not run: "
                       f"{stat_result.stdout.strip()[-200:]!r}, dispatched {received!r}")
+    # The wrapper runs inside the user's shell, under the user's options. With KSH_ARRAYS on, the help's
+    # first listed spelling (`logs` here) still passes through with no flag in front, from the cache and
+    # from a fresh probe alike, and the user's option is still on afterwards.
+    for label, fresh in (("from a fresh probe", True), ("from the cache", False)):
+        if fresh:
+            cache.unlink(missing_ok=True)
+        if dispatch_log.exists():
+            dispatch_log.unlink()
+        ksh = invoke(["zsh", "-f", "-c", f"setopt ksharrays; source {shell_init}; claude logs probe-id; "
+                                         "[[ -o ksharrays ]] && print -r -- KSH-STILL-ON"], env=shell_env)
+        received = dispatch_log.read_text().splitlines() if dispatch_log.is_file() else []
+        if ksh.returncode != 0 or received != ["claude", "logs", "probe-id"] or "KSH-STILL-ON" not in ksh.stdout:
+            mark_fail(f"with KSH_ARRAYS on, {label}, `claude logs probe-id` dispatched {received!r} "
+                      f"(option kept: {'KSH-STILL-ON' in ksh.stdout}), want the first listed subcommand with no flag")
+    # A help that answers is read to its end and stopped by nothing: no line on stderr, and the stop, which
+    # signals only a help whose output has not ended, is never reached.
+    cache.unlink(missing_ok=True)
+    answered = invoke(["zsh", "-f", "-c", f"source {shell_init}; claude planted-verb probe-id"], env=shell_env)
+    if answered.returncode != 0 or "claude --help" in answered.stderr or not cache.is_file():
+        mark_fail(f"a `claude --help` that answered was treated as one that did not: "
+                  f"{answered.stderr.strip()[-200:]!r} (cached: {cache.is_file()})")
+    # A help that never ends holds the call 5 s and no longer: the call goes ahead without the flag, one
+    # line on stderr says why, nothing is cached, and the help it started is stopped. Unbounded, the call
+    # waited out the fake's minute.
+    cache.unlink(missing_ok=True)
+    help_pid = tmp / "help.pid"
+    if dispatch_log.exists():
+        dispatch_log.unlink()
+    began = time.monotonic()
+    hung = invoke(["zsh", "-f", "-c", f"source {shell_init}; claude slow-verb x"],
+                  env={**shell_env, "FAKE_HELP": "hang", "FAKE_HELP_PID": str(help_pid)})
+    took = time.monotonic() - began
+    received = dispatch_log.read_text().splitlines() if dispatch_log.is_file() else []
+    probe_pid = int(help_pid.read_text()) if help_pid.is_file() else None
+    alive, settle = probe_pid is not None, time.monotonic() + 2
+    while alive and time.monotonic() < settle:
+        try:
+            os.kill(probe_pid, 0)
+        except ProcessLookupError:
+            alive = False
+        else:
+            time.sleep(0.05)
+    if alive:
+        os.kill(probe_pid, signal.SIGKILL)  # this check's own fake help, left running by the defect
+    said = [line for line in hung.stderr.splitlines() if "claude --help" in line]
+    if (hung.returncode != 0 or received != ["claude", "slow-verb", "x"] or cache.exists() or alive
+            or probe_pid is None or not 4.5 <= took < 15 or len(said) != 1 or "gave no answer within 5 s" not in said[0]):
+        mark_fail(f"with a `claude --help` that never ends, `claude slow-verb x` dispatched {received!r} after "
+                  f"{took:.1f} s (cache written: {cache.exists()}, help still running: {alive}, stderr: {said!r}), "
+                  f"want no flag after about 5 s, one line saying so, no cache and the help stopped")
+    # The stop signals no number below 2, no non-number and not its own shell: `kill` given 0 signals the
+    # caller's whole process group, the user's shell and its jobs (a first draft of this probe, run on
+    # 2026-11-02 before the guard, sent TERM to its own group that way). The shell runs in a session of its
+    # own, so a stop without the guard signals that shell alone, whose trap says so.
+    guard = subprocess.run(
+        ["zsh", "-f", "-c", f"source {shell_init}; zmodload -F zsh/datetime p:EPOCHREALTIME; "
+                            "zmodload -F zsh/system b:sysread; trap 'print -r -- GOT-TERM' TERM; exec {fd}</dev/null; "
+                            "for n in 0 1 '' x12 $$; do _agent_launch_claude_help_stop \"$n\" $fd; "
+                            "print -r -- \"STOP=$?\"; done; print -r -- GUARD-DONE"],
+        stdin=subprocess.DEVNULL, capture_output=True, text=True, env=shell_env, timeout=60, start_new_session=True)
+    if ("GOT-TERM" in guard.stdout or "GUARD-DONE" not in guard.stdout
+            or guard.stdout.count("STOP=1") != 5):
+        mark_fail(f"the help probe's stop signalled a number it must refuse (0, 1, empty, not a number, its own "
+                  f"shell): {guard.stdout.strip()[-200:]!r}")
+    # The help is parsed with `=~`, which sets MATCH, MBEGIN, MEND and match, mbegin, mend: a probe leaves
+    # the user's own values of all six as they were.
+    cache.unlink(missing_ok=True)
+    seeded = ("MATCH=m0; MBEGIN=1; MEND=2; match=(c1 c2); mbegin=(3 4); mend=(5 6); ")
+    shown = 'print -r -- "RX[$MATCH|$MBEGIN|$MEND|${(j:,:)match}|${(j:,:)mbegin}|${(j:,:)mend}]"'
+    regex = invoke(["zsh", "-f", "-c", f"source {shell_init}; {seeded}claude planted-verb probe-id; {shown}"],
+                   env=shell_env)
+    if regex.returncode != 0 or "RX[m0|1|2|c1,c2|3,4|5,6]" not in regex.stdout or not cache.is_file():
+        mark_fail(f"a probe of `claude --help` changed the user's regex match parameters: "
+                  f"{regex.stdout.strip()[-120:]!r}, want RX[m0|1|2|c1,c2|3,4|5,6] (probed: {cache.is_file()})")
 
 def main(argv):
     from fixture_support import legacy_host_environment

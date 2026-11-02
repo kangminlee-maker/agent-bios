@@ -9,8 +9,9 @@ private activation and for codex-run's context evidence (D-20261102-d8310f). So:
   version. The verdict is kept per version under `<state dir>/codex-protocol/` when the caller names
   a state directory, and in the process otherwise.
 - Every result the code reads is checked for its shape, in SHAPES, before it is read; a wrong or
-  missing shape refuses naming the method and the field. Under a passing schema a null
-  `developer_instructions` is the user's "none", not a refusal.
+  missing shape refuses naming the method and the field. The effective `developer_instructions`
+  is read only through developer_instructions(), which holds it to the layers that state it
+  (D-20261102-efc529): null is the user's "none", and "" the user's own empty value.
 - The client reads the server on a thread into a queue. A select() on the text stream missed a
   line Python had already buffered, so a notification and the response in one write left the
   response unread until the timeout.
@@ -90,10 +91,11 @@ SHAPES = {
         ("data[].hooks[].enabled", "bool", False), ("data[].hooks[].trustStatus", "str", False),
     ),
     "config/read": (
-        ("config", "dict", True), ("config.developer_instructions", "str|null", False),
+        ("config", "dict", True), ("config.developer_instructions", "str|null", True),
         ("config.features", "dict", False), ("config.features.hooks", "bool", False),
         ("layers", "list|null", False), ("layers[]", "dict", True), ("layers[].name", "dict", True),
         ("layers[].name.type", "str", True), ("layers[].config", "dict", False),
+        ("layers[].config.developer_instructions", "str|null", False),
     ),
     "thread/start": (("thread", "dict", True), ("thread.id", "str", True), ("thread.path", "str|null", False)),
     "thread/start#sources": (
@@ -153,6 +155,35 @@ def check_result(method, result, reading=None):
     if problems:
         raise ProtocolError(f"app-server {method} answered in a shape agent-bios does not read: {'; '.join(problems)}")
     return result
+
+
+def developer_instructions(result):
+    """The effective developer instructions a shape-checked config/read `result`, asked with
+    includeLayers, states: text, '' for none. Held to the layers (D-20261102-efc529, measured on
+    codex-cli 0.163.0: the key is always sent, null when no layer sets it, and the highest layer
+    that sets it wins, so a higher layer's "" over a lower layer's text is the user's choice): null
+    only when no layer sets a string, a string only when some layer sets that string. Anything else,
+    or no layers, refuses by name: an effective value that drops text a layer holds would replace
+    the user's developer instructions with nothing. A layer's `config` is open in the generated
+    schema (`true`), so its field is held by SHAPES and this check, not by USED."""
+    value = result["config"]["developer_instructions"]
+    layers = result.get("layers")
+    if not isinstance(layers, list):
+        raise ProtocolError("app-server config/read: no layers to hold config.developer_instructions to, "
+                            "though agent-bios asked for them (includeLayers)")
+    stated = {}
+    for layer in layers:
+        held = (layer.get("config") or {}).get("developer_instructions")
+        if isinstance(held, str):
+            stated.setdefault(held, []).append(layer["name"]["type"])
+    if value is None and stated:
+        raise ProtocolError(f"app-server config/read: config.developer_instructions is null while the "
+                            f"{', '.join(t for types in stated.values() for t in types)} layer(s) set it")
+    if isinstance(value, str) and value not in stated:
+        raise ProtocolError(f"app-server config/read: config.developer_instructions is a value no layer sets "
+                            f"({len(value)} characters; layers setting it: "
+                            f"{', '.join(t for types in stated.values() for t in types) or 'none'})")
+    return value or ""
 
 
 def schema_missing(bundle):
@@ -305,8 +336,10 @@ def ensure_schema(codex, env=None, cache_dir=None, timeout=30):
     missing, generated = generated_missing(str(real), env, timeout)
     record = {"version": version, "binary": binary, "used": USED_DIGEST, "missing": missing,
               "names": len(USED), "checked_at": time.time()}
-    _VERDICTS[memo] = record
-    # A schema that could not be generated is not a verdict about the version: it is not kept on disk.
+    # A schema that could not be generated is not a verdict about the version: it is kept neither in
+    # this process nor on disk, so the next check generates again.
+    if generated:
+        _VERDICTS[memo] = record
     if record_path is not None and generated:
         handle, staged = tempfile.mkstemp(dir=record_path.parent, prefix=".codex-protocol-")
         try:
