@@ -1547,7 +1547,7 @@ def self_test():
 
         stopped, stopped_text = run_miniature(True)
         control("stop at the first failure: set, a suite leaves right after its first failure with a non-zero "
-                "exit, that failure's [FAIL] line and no later one",
+                "exit, that failure's line and no later one",
                 stopped.get("code") == 1 and stopped.get("list") == "FailuresThatStop"
                 and "a planted suite --self-test [FAIL] planted control 1:" in stopped_text
                 and "planted control 2" not in stopped_text and "ran" not in stopped

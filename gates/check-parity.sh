@@ -25,9 +25,13 @@ unset AGENT_BIOS_SELF_TEST_STOP_AT_FIRST_FAILURE
 # every leg's output whole and in the order written here; that file says what counts as a failure.
 # Whatever this shell prints between two legs goes to an ordered slot file, so an inline check still
 # runs in place and its output still lands between the same two legs. A leg is recorded with the
-# directory it was declared in and a digest of the exported environment at that point; the runner
-# starts it in that directory and refuses it by name if the environment it would inherit differs, so
-# an export, unset or cd between a leg and the run cannot change the leg silently.
+# directory it was declared in and a digest of the exported environment at that point (`env -0`, what
+# a command started here receives). `legs_run` writes that environment to a file for the runner,
+# which starts every leg in its directory with exactly that environment, never the runner's own, and
+# refuses a leg by name if its digest differs, so an export, unset or cd between a leg and the run
+# cannot change the leg silently. The digest is taken over the entries SORTED: bash lists what it
+# exports in the order of its own variable table, which changes as this script creates variables
+# (bash 3.2 reordered it between the 8th and 9th legs), and the order means nothing to a leg.
 #
 # What stays serial, and why:
 #   - the preconditions and the leg scan: they decide whether the run means anything;
@@ -91,7 +95,7 @@ leg() {
     echo "FAIL: the leg at line ${BASH_LINENO[0]} names no command"; fail=1; return 0
   fi
   legs_close_slot
-  printf '%s\0' leg "${BASH_LINENO[0]}" "$quiet" "$early" "$alone" "$log" "$PWD" "$(export -p | cksum)" \
+  printf '%s\0' leg "${BASH_LINENO[0]}" "$quiet" "$early" "$alone" "$log" "$PWD" "$(env -0 | LC_ALL=C sort -z | cksum)" \
     "$1" "$(($# - 1))" >>"$LEGS_SPEC"
   shift
   printf '%s\0' "$@" >>"$LEGS_SPEC"
@@ -114,7 +118,12 @@ legs_run() {
     echo "FAIL: gates/run-legs.py is missing, so none of the $legs_declared recorded leg(s) ran"
     return 1
   fi
-  python3 gates/run-legs.py "$LEGS_SPEC" "$legs_declared" "$(export -p | cksum)"
+  if ! env -0 >"$LEGS_DIR/environ"; then
+    legs_dump_slots
+    echo "FAIL: the exported environment could not be written for the leg runner, so none of the $legs_declared recorded leg(s) ran"
+    return 1
+  fi
+  python3 gates/run-legs.py "$LEGS_SPEC" "$legs_declared" "$(LC_ALL=C sort -z <"$LEGS_DIR/environ" | cksum)" "$LEGS_DIR/environ"
 }
 legs_exit() {
   local status=$?

@@ -14,9 +14,15 @@ umbrella passes the number of legs it declared, and the spec must hold exactly t
 spec that lost a record fails by name instead of reporting clean over fewer legs.
 
 A recorded leg runs as it would have where it was written: in the directory it was recorded in,
-under the exported environment of that moment. The umbrella passes a digest of the exported
-environment it starts this program with, and a leg recorded under a different one (an export,
-unset or cd came between the leg and the run) is refused by name rather than run differently.
+under the exported environment of that moment. That environment is the umbrella shell's, never
+this program's: Python changes its own environment as it starts (a C locale is coerced to a UTF-8
+LC_CTYPE, PEP 538; a macOS framework build adds its launcher variable), and a leg that inherited it
+would run under variables its shell never exported. So the umbrella writes its exported environment
+to a file with `env -0` just before starting this program, every leg starts with exactly that
+environment, `_` set as the shell sets it for a command it runs, and each leg's recorded digest is
+compared with the file's, both taken over the entries sorted (the shell's own order shifts as it
+creates variables, and means nothing to a leg): a leg recorded under a different environment (an
+export, unset or cd came between the leg and the run) is refused by name rather than run differently.
 Exit 0 when every leg passed, 1 when any failed, 2 when the spec or the settings cannot be
 trusted or a leg was refused.
 
@@ -29,7 +35,7 @@ kept on a failure, with its FAIL lines and its tail printed.
 The captures live in one directory this program creates and removes; the spec and slot files
 are the umbrella's, in a directory its EXIT trap removes.
 
-  python3 gates/run-legs.py SPEC DECLARED ENV
+  python3 gates/run-legs.py SPEC DECLARED ENV ENVIRON
   python3 gates/run-legs.py --self-test
 """
 import concurrent.futures
@@ -102,6 +108,27 @@ def parse_spec(data):
     return entries
 
 
+def environ_from(data):
+    """The environment `env -0` wrote, as `{name: value}`, without the `_` the shell set for `env`
+    itself: `Runner` sets `_` for each leg."""
+    if data and not data.endswith(b"\0"):
+        raise SpecError("the environment snapshot does not end on an entry boundary, so it was cut short")
+    environ = {}
+    for entry in data.split(b"\0")[:-1] if data else []:
+        name, equals, value = entry.partition(b"=")
+        if not equals or not name:
+            raise SpecError(f"the environment snapshot holds an entry that is not NAME=VALUE: {entry[:40]!r}")
+        if name != b"_":
+            environ[os.fsdecode(name)] = os.fsdecode(value)
+    return environ
+
+
+def leg_environ(environ, argv):
+    """`environ` with `_` as bash exports it to a command it runs: the pathname it ran."""
+    program = argv[0] if "/" in argv[0] else shutil.which(argv[0], path=environ.get("PATH", os.defpath))
+    return {**environ, "_": program or argv[0]}
+
+
 def jobs_from(environ):
     raw = environ.get(JOBS_VAR, "")
     if raw == "":
@@ -114,8 +141,8 @@ def jobs_from(environ):
 class Runner:
     """Runs the legs `jobs` at a time and writes slot, leg, slot, leg ... to `out` in order."""
 
-    def __init__(self, entries, jobs, out, env):
-        self.entries, self.jobs, self.out, self.env = entries, jobs, out, env
+    def __init__(self, entries, jobs, out, env, environ):
+        self.entries, self.jobs, self.out, self.env, self.environ = entries, jobs, out, env, environ
         self.running, self.lock, self.stopping, self.started = {}, threading.Lock(), False, 0
         self.seconds = {}
 
@@ -139,6 +166,7 @@ class Runner:
                 self.started += 1
                 try:
                     proc = subprocess.Popen(leg["argv"], cwd=leg["cwd"], stderr=handle,
+                                            env=leg_environ(self.environ, leg["argv"]),
                                             stdout=subprocess.DEVNULL if leg["quiet"] else handle)
                 except OSError as exc:
                     os.write(handle, f"{leg['argv'][0]}: {exc.strerror or exc}\n".encode())
@@ -247,14 +275,15 @@ def describe(leg):
 def main(argv):
     if argv == ["--self-test"]:
         return self_test()
-    if len(argv) != 3:
-        print("usage: run-legs.py SPEC DECLARED ENV | --self-test", file=sys.stderr)
+    if len(argv) != 4:
+        print("usage: run-legs.py SPEC DECLARED ENV ENVIRON | --self-test", file=sys.stderr)
         return 2
     out = sys.stdout.buffer
     say = lambda text: (out.write(text.encode() + b"\n"), out.flush())
-    spec, declared, env = argv
+    spec, declared, env, environ_file = argv
     try:
-        jobs = jobs_from(os.environ)
+        environ = environ_from(pathlib.Path(environ_file).read_bytes())
+        jobs = jobs_from(environ)
         entries = parse_spec(pathlib.Path(spec).read_bytes())
         total = sum(1 for e in entries if e["kind"] == "leg")
         if not declared.isdigit() or int(declared) != total:
@@ -270,7 +299,7 @@ def main(argv):
 
     for signum in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
         signal.signal(signum, on_signal)
-    runner = Runner(entries, jobs, out, env)
+    runner = Runner(entries, jobs, out, env, environ)
     try:
         failed = runner.run()
     except Interrupted as stop:
@@ -333,12 +362,20 @@ def self_test():
         env = dict(os.environ, TMPDIR=str(private), **{NESTED: "1"})
         env.pop(JOBS_VAR, None)
 
-        def run(entries, declared=None, jobs=None, raw=None):
+        def environ_file(environ, raw=None):
+            """`environ` as `env -0` writes it, for the runner's ENVIRON argument."""
+            path = base / "environ"
+            path.write_bytes(raw if raw is not None else
+                             b"".join(os.fsencode(f"{k}={v}") + b"\0" for k, v in environ.items()))
+            return str(path)
+
+        def run(entries, declared=None, jobs=None, raw=None, runner_env=None, snapshot=None):
             spec = base / "spec"
             spec.write_bytes(raw if raw is not None else spec_of(*entries))
             count = sum(1 for e in entries if e[0] == "leg") if declared is None else declared
             run_env = dict(env, **({JOBS_VAR: str(jobs)} if jobs is not None else {}))
-            done = subprocess.run([sys.executable, str(here), str(spec), str(count), "E"], env=run_env,
+            done = subprocess.run([sys.executable, str(here), str(spec), str(count), "E",
+                                   environ_file(run_env, snapshot)], env=runner_env or run_env,
                                   capture_output=True, timeout=120)
             left = sorted(p.name for p in private.iterdir())
             return done.returncode, done.stdout.decode(errors="replace"), left
@@ -397,6 +434,22 @@ def self_test():
         control("a-leg-whose-environment-changed-is-refused", code == 2 and "ran-anyway" not in out.split("LEGS:", 1)[0]
                 and "environment changed after this leg was recorded" in out and "FAIL: drifted" in out
                 and ":56 " in out and "sibling" in out and not left, f"{code} {out!r}")
+        # a leg starts with the environment the umbrella's shell exported, never the runner's own: the
+        # runner below carries a variable the snapshot does not, and the snapshot one the runner lacks
+        code, out, left = run([("leg", 58, sh('echo "runner=${PLANTED_RUNNER_ONLY-unset} shell=${PLANTED_SHELL_ONLY-unset} '
+                                              '_=$_"'), 0, 0, None, "FAIL: environ")],
+                              runner_env=dict(env, PLANTED_RUNNER_ONLY="1"))
+        control("a-leg-gets-the-shells-environment-not-the-runners", code == 0
+                and out.startswith("runner=unset shell=unset _=/bin/sh\n") and not left, f"{code} {out!r}")
+        shell_env = dict(env, PLANTED_SHELL_ONLY="1")
+        spec = base / "spec"
+        spec.write_bytes(spec_of(("leg", 59, sh('echo "shell=${PLANTED_SHELL_ONLY-unset}"'), 0, 0, None, "FAIL: environ")))
+        done = subprocess.run([sys.executable, str(here), str(spec), "1", "E", environ_file(shell_env)], env=env,
+                              capture_output=True, timeout=120)
+        control("a-leg-gets-a-variable-only-the-shell-exported", done.returncode == 0
+                and done.stdout.decode(errors="replace").startswith("shell=1\n"), f"{done.returncode} {done.stdout!r}")
+        code, out, left = run([("leg", 60, sh("true"), 0, 0, None, "")], snapshot=b"A=1\0B=2")
+        control("a-cut-environment-snapshot-is-refused", code == 2 and "cut short" in out and not left, f"{code} {out!r}")
         # 6. order holds when a later leg ends first, and legs really overlap: the first leg can only
         # finish after the second has made its file, so a serial runner fails it on its bound
         flag = base / "second-ran"
@@ -432,7 +485,7 @@ def self_test():
         term_file = base / "sleeper-got-term"
         spec.write_bytes(spec_of(("leg", 65, sh(f"trap 'echo term > \"{term_file}\"; kill $! 2>/dev/null; exit 0' TERM; "
                                                 f"echo $$ > '{pid_file}'; sleep 30 & wait"), 0, 0, None, "")))
-        runner = subprocess.Popen([sys.executable, str(here), str(spec), "1", "E"], env=env,
+        runner = subprocess.Popen([sys.executable, str(here), str(spec), "1", "E", environ_file(env)], env=env,
                                   stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         for _ in range(300):
             if pid_file.exists() and pid_file.read_text().strip():
@@ -489,12 +542,12 @@ def self_test():
         control("the-umbrella-carries-the-leg-block", "legs_begin()" in block and "leg()" in block,
                 f"markers at {begin} and {end}")
 
-        def umbrella_run(body):
+        def umbrella_run(body, shell_env=None):
             if not block:
                 return None, "no leg block to run", []
             script = base / "mini-umbrella.sh"
             script.write_text("set -u\nfail=0\n" + block + "\n" + body)
-            shell = subprocess.Popen(["bash", str(script)], cwd=repo, env=env, stdout=subprocess.PIPE,
+            shell = subprocess.Popen(["bash", str(script)], cwd=repo, env=shell_env or env, stdout=subprocess.PIPE,
                                      stderr=subprocess.STDOUT, start_new_session=True)
             try:
                 out = shell.communicate(timeout=120)[0]
@@ -521,12 +574,42 @@ def self_test():
         control("an-umbrella-that-stops-still-runs-what-it-recorded", code != 0
                 and out.startswith("before-the-stop\nrecorded-leg-ran\n") and "unbound variable" in out
                 and "never-reached" not in out and not left, f"{code} {out!r} {left}")
+        # bash 3.2 rebuilds the environment it exports, in another order, after a temporary assignment
+        # such as `IFS='|' read`: the real umbrella's anchor loop moved OLDPWD to the front between its
+        # 8th and 9th legs. A reorder alone is no change to a leg, so the leg below still runs; the
+        # presence term shows the planted assignment really reordered what the shell exports.
+        code, out, left = umbrella_run(
+            "legs_begin\ncd .\nleg \"FAIL: planted reorder\" /bin/sh -c 'echo ran-after-a-reorder'\n"
+            "before=$(env -0 | tr '\\0' '\\n' | cut -d= -f1)\n"
+            "IFS='|' read -r planted_field <<<'a|b'\n"
+            "after=$(env -0 | tr '\\0' '\\n' | cut -d= -f1)\n"
+            "[ \"$before\" != \"$after\" ] && echo reordered\nlegs_run || fail=1\nexit \"$fail\"\n")
+        control("a-leg-recorded-before-the-shell-reordered-its-exports-still-runs", code == 0
+                and out.startswith("ran-after-a-reorder\nreordered\n") and "environment changed" not in out
+                and not left, f"{code} {out!r}")
         code, out, left = umbrella_run(
             "legs_begin\nleg \"FAIL: planted drift\" /bin/sh -c 'echo ran-anyway'\n"
             "export PLANTED_AFTER_THE_LEG=1\nlegs_run || fail=1\nexit \"$fail\"\n")
         control("an-export-after-a-leg-refuses-that-leg", code == 1 and "ran-anyway" not in out.split("LEGS:", 1)[0]
                 and "environment changed after this leg was recorded" in out and "FAIL: planted drift" in out
                 and not left, f"{code} {out!r} {left}")
+        # Under a C locale with no LC_CTYPE, Python puts a UTF-8 LC_CTYPE into its own environment as it
+        # starts (PEP 538). A leg that is not Python, started through the runner, must still receive what
+        # the same shell gives it directly: the two dumps below are taken the same way, one by a recorded
+        # leg and one in place, and compared whole.
+        through, direct = base / "through-the-runner.env", base / "run-in-place.env"
+        c_env = {k: v for k, v in env.items() if not k.startswith("LC_")}
+        c_env["LANG"] = "C"
+        code, out, left = umbrella_run(
+            f"legs_begin\nleg \"FAIL: planted environment dump\" /bin/sh -c 'env > \"$1\"' sh '{through}'\n"
+            f"/bin/sh -c 'env > \"$1\"' sh '{direct}'\nlegs_run || fail=1\nexit \"$fail\"\n", shell_env=c_env)
+        got = sorted(through.read_text().splitlines()) if through.exists() else None
+        want = sorted(direct.read_text().splitlines()) if direct.exists() else None
+        control("a-non-python-leg-gets-what-the-shell-gives-it-under-a-c-locale", code == 0 and got is not None
+                and got == want and not any(line.startswith("LC_CTYPE=") for line in got) and not left,
+                # NAMES only: a failing control must not print the values of the environment it compared
+                f"{code} only through the runner: {sorted({e.split('=', 1)[0] for e in set(got or []) - set(want or [])})} "
+                f"only in place: {sorted({e.split('=', 1)[0] for e in set(want or []) - set(got or [])})} {out[-300:]!r}")
     for failure in failures:
         print(f"run-legs --self-test [FAIL] {failure}")
     if failures:

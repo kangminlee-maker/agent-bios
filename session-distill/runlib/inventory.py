@@ -978,9 +978,9 @@ def schema_enum(name):
     """The vocabulary the SCHEMA declares for one of its shapes.
 
     Asked for every enumerated value the emitter checks, about 240,000 times in one self-test run, so
-    the parse behind the answer is kept while the schema file is unchanged (`kept_schema_enum`). A
-    reader standing in for `inventory_schema` (a control withholding or replacing the schema) is asked
-    every time, as the file's own reader was before its parse was kept."""
+    the parse behind the answer is kept while the schema file's text is unchanged
+    (`kept_schema_enum`). A reader standing in for `inventory_schema` (a control withholding or
+    replacing the schema) is asked every time, as the file's own reader was before its parse was kept."""
     if inventory_schema is not OWN_SCHEMA_READER:
         return frozenset(((inventory_schema().get("$defs") or {}).get(name) or {}).get("enum") or ())
     return kept_schema_enum(SCHEMA_PATH, name)
@@ -6843,41 +6843,36 @@ DOCUMENT_ROOTS = {**{reference: f"{reference}_document" for reference in REFEREN
 SCHEMA_PATH = HERE / "schemas" / "inventory.schema.json"
 
 
-def inventory_schema(path=SCHEMA_PATH):
-    """The schema this module's documents are held against, read from the file the code owns."""
+def schema_text(path=SCHEMA_PATH):
+    """The schema file's text, read from the file the code owns; a missing file is refused by name."""
     path = pathlib.Path(path)
     if not path.is_file():
         raise Refused(f"SCHEMA_MISSING {SCHEMA_REL}: the inventory has no contract to hold")
-    return json.loads(path.read_text(encoding="utf-8"))
+    return path.read_text(encoding="utf-8")
+
+
+def inventory_schema(path=SCHEMA_PATH):
+    """The schema this module's documents are held against, read from the file the code owns."""
+    return json.loads(schema_text(path))
 
 
 OWN_SCHEMA_READER = inventory_schema
-# The parse `schema_enum` answers from, per schema path: (the file's state when it was read, the
-# parse, the answers given from it by shape name). Never handed out: `inventory_schema` still gives
-# every caller a parse of its own to change.
+# The parse `schema_enum` answers from, per schema path: (the text it was parsed from, the parse, the
+# answers given from it by shape name). Never handed out: `inventory_schema` still gives every caller
+# a parse of its own to change.
 KEPT_SCHEMAS = {}
 
 
-def schema_file_state(path):
-    """What says a schema file is still the one that was parsed: its inode, size, mtime and ctime. The
-    ctime too, because a rewrite of the same size that restores the mtime still moves it. None when
-    the file cannot be stat'ed, and None is never an answer kept."""
-    try:
-        st = os.stat(path)
-    except OSError:
-        return None
-    return (st.st_ino, st.st_size, st.st_mtime_ns, st.st_ctime_ns)
-
-
 def kept_schema_enum(path, name):
-    """`schema_enum`'s answer for the schema at `path`, from the parse kept while the file's state is
-    unchanged. Any other state, or none, is a new read by the file's own reader, with its refusals."""
-    state = schema_file_state(path)
+    """`schema_enum`'s answer for the schema at `path`, from the parse kept while the file's text is the
+    text it was parsed from. The file is read on every call, through the reader's own path and
+    refusals; only the parse is kept. A file's stat cannot stand for its text: a rewrite of the same
+    size within one tick of a coarse clock leaves inode, size, mtime and ctime as they were."""
+    text = schema_text(path)
     kept = KEPT_SCHEMAS.get(str(path))
-    if state is None or kept is None or kept[0] != state:
-        kept = (state, OWN_SCHEMA_READER(path), {})
-        if state is not None:
-            KEPT_SCHEMAS[str(path)] = kept
+    if kept is None or kept[0] != text:
+        kept = (text, json.loads(text), {})
+        KEPT_SCHEMAS[str(path)] = kept
     answers = kept[2]
     if name not in answers:
         answers[name] = frozenset(((kept[1].get("$defs") or {}).get(name) or {}).get("enum") or ())
@@ -13925,12 +13920,12 @@ def self_test():
                                                 "properties": {"units": {}}}),
                     "SCHEMA_INVALID")
 
-        with section("the schema vocabulary is kept per state of the schema file"):
+        with section("the schema vocabulary is kept while the schema file's text is unchanged"):
             # `schema_enum` answers from a kept parse (`kept_schema_enum`). Its answers must be a fresh
-            # parse's, a file rewritten or removed after it was read must be read again, and a reader
-            # standing in for the file's own must still be the one asked. Names here carry `kv_` because a
-            # section is not a scope: a plain `first` here rebound the suite's own fixture text `first`,
-            # which the P2.7 section reads, and that section failed.
+            # parse's, a file rewritten (even with its stat unchanged) or removed after it was read must be
+            # read again, and a reader standing in for the file's own must still be the one asked. Names
+            # here carry `kv_` because a section is not a scope: a plain `first` here rebound the suite's
+            # own fixture text `first`, which the P2.7 section reads, and that section failed.
             kv_fresh_defs = inventory_schema().get("$defs") or {}
             kv_asked = sorted(kv_fresh_defs) + ["a-shape-no-schema-declares"]
             kv_expected = {name: frozenset((kv_fresh_defs.get(name) or {}).get("enum") or ()) for name in kv_asked}
@@ -13953,14 +13948,19 @@ def self_test():
                   f"{sorted(kv_first)} / {sorted(kept_schema_enum(kv_kept_path, 'shape'))}")
             kv_read_state = os.stat(kv_kept_path)
             kv_kept_write(["one", "six"])  # the same length as the content read above
-            os.utime(kv_kept_path, ns=(kv_read_state.st_atime_ns, kv_read_state.st_mtime_ns))
-            kv_restored = os.stat(kv_kept_path)
-            kv_same_face = ((kv_restored.st_ino, kv_restored.st_size, kv_restored.st_mtime_ns)
-                            == (kv_read_state.st_ino, kv_read_state.st_size, kv_read_state.st_mtime_ns))
-            check("a rewrite of the same size whose mtime is put back is read again, because its ctime moved",
-                  kv_same_face and kv_restored.st_ctime_ns != kv_read_state.st_ctime_ns
-                  and kept_schema_enum(kv_kept_path, "shape") == {"one", "six"},
-                  f"same inode, size and mtime: {kv_same_face}; {sorted(kept_schema_enum(kv_kept_path, 'shape'))}")
+            # Every stat of this file pinned to the one taken when it was read, which is what a coarse
+            # clock gives a rewrite of the same size within one tick: only the text changed.
+            kv_real_stat = os.stat
+            os.stat = lambda target, *args, **kwargs: (
+                kv_read_state if os.fspath(target) == os.fspath(kv_kept_path) else kv_real_stat(target, *args, **kwargs))
+            try:
+                kv_pinned_face = os.stat(kv_kept_path) == kv_read_state
+                kv_pinned = kept_schema_enum(kv_kept_path, "shape")
+            finally:
+                os.stat = kv_real_stat
+            check("a rewrite of the same length whose every stat value is the one read is read again: the parse "
+                  "is kept by the file's text, never by its stat",
+                  kv_pinned_face and kv_pinned == {"one", "six"}, f"pinned={kv_pinned_face} {sorted(kv_pinned)}")
             kv_kept_path.unlink()
             check("a schema file removed after it was read is refused, never answered from the kept parse",
                   "SCHEMA_MISSING" in str(_raised(lambda: kept_schema_enum(kv_kept_path, "shape"))),
