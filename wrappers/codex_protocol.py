@@ -164,16 +164,23 @@ def developer_instructions(result):
     that sets it wins, so a higher layer's "" over a lower layer's text is the user's choice): null
     only when no layer sets a string, a string only when some layer sets that string. Anything else,
     or no layers, refuses by name: an effective value that drops text a layer holds would replace
-    the user's developer instructions with nothing. A layer's `config` is open in the generated
+    the user's developer instructions with nothing. So does a layer that reports no `config` (the
+    schema requires one): an unreported configuration is not an empty one, and only a reported
+    config without the field says that layer sets none. A layer's `config` is open in the generated
     schema (`true`), so its field is held by SHAPES and this check, not by USED."""
     value = result["config"]["developer_instructions"]
     layers = result.get("layers")
-    if not isinstance(layers, list):
+    if not isinstance(layers, list) or not layers:
         raise ProtocolError("app-server config/read: no layers to hold config.developer_instructions to, "
                             "though agent-bios asked for them (includeLayers)")
+    unreported = [f"{layer['name']['type']} (layer {index})" for index, layer in enumerate(layers)
+                  if not isinstance(layer.get("config"), dict)]
+    if unreported:
+        raise ProtocolError(f"app-server config/read: the {', '.join(unreported)} layer reported no config, so "
+                            f"whether it sets developer_instructions is unknown")
     stated = {}
     for layer in layers:
-        held = (layer.get("config") or {}).get("developer_instructions")
+        held = layer["config"].get("developer_instructions")
         if isinstance(held, str):
             stated.setdefault(held, []).append(layer["name"]["type"])
     if value is None and stated:

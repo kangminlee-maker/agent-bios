@@ -500,8 +500,10 @@ def _rollback_transaction(args: argparse.Namespace, repo: pathlib.Path, commit: 
                 bak.parent.mkdir(parents=True, exist_ok=True)
                 bak.write_bytes(dst.read_bytes())
             dst.parent.mkdir(parents=True, exist_ok=True)
-            dst.write_bytes(content)
+            # Registered before the write: a write that fails partway has already changed the file
+            # (truncated, or half its new bytes), and only a recorded entry puts it back.
             undo.append((dst, bak))
+            dst.write_bytes(content)
             if rel.startswith("claude/hooks/"):
                 dst.chmod(0o755)
             written += 1
@@ -515,8 +517,8 @@ def _rollback_transaction(args: argparse.Namespace, repo: pathlib.Path, commit: 
             bak = backup / rel
             bak.parent.mkdir(parents=True, exist_ok=True)
             bak.write_bytes(dst.read_bytes())
-            dst.unlink()
             undo.append((dst, bak))
+            dst.unlink()
             removed += 1
         # The assembled surfaces land LAST: the bundle is what the agent reads, so
         # it names the target version only once every guide it references has.
@@ -530,8 +532,8 @@ def _rollback_transaction(args: argparse.Namespace, repo: pathlib.Path, commit: 
                 bak.parent.mkdir(parents=True, exist_ok=True)
                 bak.write_bytes(bundle_dst.read_bytes())
             bundle_dst.parent.mkdir(parents=True, exist_ok=True)
-            bundle_dst.write_bytes(bundle)
             undo.append((bundle_dst, bak))
+            bundle_dst.write_bytes(bundle)
             written += 1
         codex_dst = CODEX_DIR / "AGENTS.md"
         if args.dry_run:
@@ -546,8 +548,8 @@ def _rollback_transaction(args: argparse.Namespace, repo: pathlib.Path, commit: 
             # install uses — atomic, mode-preserving, marker-bounded — never a
             # whole-file write of a snapshot: an edit the user landed while the
             # guides were copying rides through; only the region is ours to move.
-            merge_codex(CODEX_DIR, codex_central)
             undo.append((codex_dst, bak))
+            merge_codex(CODEX_DIR, codex_central)
             written += 1
         if not args.dry_run:
             # Re-project, then mark the rollback (a plain project would report latest), both
@@ -853,9 +855,9 @@ agents.write_text(body)
         codex_seed = ("<!-- agent-bios:central:start -->\nCODEX two\n"
                       "<!-- agent-bios:central:end -->\n\n## Personal\nMY OWN CODEX LINE\n")
 
-        def attempt(fail_at, refuse_lock_at=None, break_status=False):
-            home = root / (f"home-{fail_at}" if refuse_lock_at is None and not break_status
-                           else f"home-{fail_at}-lock{refuse_lock_at}-status{int(break_status)}")
+        def attempt(fail_at, refuse_lock_at=None, break_status=False, partial=None):
+            home = root / (f"home-{fail_at}" if refuse_lock_at is None and not break_status and partial is None
+                           else f"home-{fail_at}-lock{refuse_lock_at}-status{int(break_status)}-{partial}")
             claude = home / ".claude"
             codex_home = home / ".codex"
             saved_claude = globals()["CLAUDE_DIR"]
@@ -872,7 +874,7 @@ agents.write_text(body)
             (codex_home / "AGENTS.md").write_text(codex_seed)
             # A user-restricted mode must ride through the region merge.
             (codex_home / "AGENTS.md").chmod(0o600)
-            counter = [0]
+            counter, broke = [0], []
             real_write = pathlib.Path.write_bytes
 
             def flaky(self, data):
@@ -880,6 +882,11 @@ agents.write_text(body)
                     counter[0] += 1
                     if counter[0] == fail_at:
                         raise OSError("self-test write failure")
+                    if partial is not None and self.name == partial and not broke:
+                        # A disk filling up mid-write, once: the file already holds two bytes of the new content.
+                        broke.append(self)
+                        real_write(self, data[:2])
+                        raise OSError(28, "self-test: no space left on device after a partial write")
                 return real_write(self, data)
 
             real_assemble_at = globals()["_assemble_at"]
@@ -1008,6 +1015,20 @@ agents.write_text(body)
                 "a failed rollback moved the live bundle — the reader surface is split")
         if "CODEX two" not in agents_text or "MY OWN CODEX LINE" not in agents_text:
             problems.append("a failed rollback did not leave the codex surface as it was")
+        # A write that changes the file before it fails, an existing guide's and the live bundle's: the
+        # rollback puts back the bytes the write had already replaced, the status stays the previous
+        # version, and the refusal says the instructions are unchanged, which is then true.
+        for name in ("g0.md", "bundle.md"):
+            said = io.StringIO()
+            with own_repo_env(), contextlib.redirect_stderr(said):
+                code, landed, seeded, bundle_text, agents_text, _, status = attempt(0, partial=name)
+            if (code == 0 or seeded != "PREVIOUS\n" or bundle_text != "LIVE BUNDLE\n" or landed != ["g0.md"]
+                    or "CODEX two" not in agents_text or status.get("current_version") != "before"
+                    or "were restored, so the instructions are unchanged" not in said.getvalue()):
+                problems.append(
+                    f"a write to {name} that changed the file before it failed was not undone: code={code}, guide "
+                    f"{seeded[:12]!r}, bundle {bundle_text[:12]!r}, guides {landed}, status "
+                    f"{status.get('current_version')!r}, said {said.getvalue().strip()[-120:]!r}")
         # The status lock refusing at its bound, at each acquisition the rollback once made after
         # its files had moved (the projection's, then the mark's), and a status write that fails:
         # the files and the status must end at one version, and a rollback left at the previous one

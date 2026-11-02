@@ -1299,6 +1299,15 @@ def self_test():
         lambda f: jedit(f, "capture/host.json", lambda o: o.update(hermeticity={**stated_policy, "server_policy": {
             "status": None, "verdict": "unknown", "reason": "no server-policy check was run for this call"}}))),
         "RECORD_INTEGRITY capture hermeticity: server policy {'reason': 'no server-policy check was run for this call'")
+    # A capture whose server policy contradicts itself (a clean verdict without the clean status) is not
+    # fully hermetic in the receipt the gate recomputes: the observer's own validator reads the verdict.
+    ran.append("receipt-a-contradictory-server-policy-is-not-fully-hermetic")
+    contradictory = variant(claude, lambda f: jedit(f, "capture/host.json", lambda o: o.update(hermeticity={
+        **stated_policy, "server_policy": {"status": None, "verdict": "clean", "reason": "failed"}})))
+    recomputed = json.loads(json.loads(contradictory["receipt.json"])["evidence"]["hermeticity"])
+    if recomputed.get("fully_hermetic") is not False:
+        failures.append(f"receipt-a-contradictory-server-policy-is-not-fully-hermetic: the recomputed receipt "
+                        f"states {recomputed!r}")
     control("receipt-seat-sent-is-not-the-call-seat", variant(claude, lambda f: jedit(f, "receipt.json", lambda o: o.update(model="claude-opus-5-5")),
                                                               reseal=False), "RECORD_INTEGRITY receipt model")
     control("receipt-exit-status-is-not-observed", variant(claude, lambda f: jedit(f, "receipt.json", lambda o: o.update(exit_status=1)),

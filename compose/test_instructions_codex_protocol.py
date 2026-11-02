@@ -200,6 +200,7 @@ class CodexProtocolTests(unittest.TestCase):
         for label, developer, layers, kept in (
                 ('the users own text', '"MINE"', [layer('user', 'MINE'), layer('system')], 'MINE'),
                 ('the users own empty value', '""', [layer('user', ''), layer('system')], None),
+                ('no layer sets any, every layer reporting its config', 'null', [layer('user'), layer('system')], None),
                 ('a higher layers empty value over a lower layers text', '""',
                  [layer('sessionFlags', ''), layer('user', 'MINE'), layer('system')], None)):
             with self.subTest(label):
@@ -217,7 +218,11 @@ class CodexProtocolTests(unittest.TestCase):
                  r'config\.developer_instructions is a value no layer sets \(0 characters; layers setting it: user\)'),
                 ('text no layer sets', '"OTHER"', [layer('user', 'MINE')],
                  r'config\.developer_instructions is a value no layer sets \(5 characters'),
-                ('no layers', '"MINE"', 'absent', r'no layers to hold config\.developer_instructions to')):
+                ('no layers', '"MINE"', 'absent', r'no layers to hold config\.developer_instructions to'),
+                ('an empty layer list', 'null', [], r'no layers to hold config\.developer_instructions to'),
+                ('a layer that reports no config', 'null',
+                 [{'name': {'type': 'user'}, 'version': '1'}, layer('system')],
+                 r'the user \(layer 0\) layer reported no config, so whether it sets developer_instructions is unknown')):
             with self.subTest(label):
                 with self.assertRaisesRegex(session.SessionError, refusal):
                     composed(developer, layers)

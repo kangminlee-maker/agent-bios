@@ -834,6 +834,8 @@ cmd_install() {
   migrate_user_presets || exit 1   # must precede the deploy below, which overwrites profiles.toml
   deploy_file "$REPO/launch/agent-launch.toml" "$LAUNCH_DIR/profiles.toml"
   deploy_file "$REPO/launch/agent-launch.zsh"   "$LAUNCH_DIR/shell.zsh"
+  # The wrapper runs the subcommand lister it finds beside itself.
+  deploy_file "$REPO/launch/claude_subcommands.py" "$LAUNCH_DIR/claude_subcommands.py"
   # The launcher below lands alone in BIN_DIR, so the lock helper it loads by path (the shared
   # bounded wait) lands beside its config, where it looks when no package is beside itself.
   deploy_file "$REPO/compose/host_platform.py"  "$LAUNCH_DIR/host_platform.py"
@@ -1069,6 +1071,7 @@ cmd_verify() {
   verify_match "$REPO/launch/agent-launch.py" "$BIN_DIR/agent-launch"        || fail=1
   verify_match "$REPO/launch/agent-launch.toml" "$LAUNCH_DIR/profiles.toml"   || fail=1
   verify_match "$REPO/launch/agent-launch.zsh"  "$LAUNCH_DIR/shell.zsh"        || fail=1
+  verify_match "$REPO/launch/claude_subcommands.py" "$LAUNCH_DIR/claude_subcommands.py" || fail=1
   verify_match "$REPO/compose/host_platform.py" "$LAUNCH_DIR/host_platform.py" || fail=1
   # Evidence, never a verdict: a shadow that was repaired is the mechanism working.
   shell_shadow_summary
@@ -1273,7 +1276,8 @@ cmd_uninstall() {
     local p
     for p in "$CODEX_DIR/bin/codex-run" "$CODEX_DIR/bin/codex-helm" \
              "$CLAUDE_DIR/bin/claude-run" "$CLAUDE_DIR/bin/claude_hermetic_evidence.py" "$CLAUDE_DIR/bin/jsonl_lines.py" \
-             "$LAUNCH_DIR/profiles.toml" "$LAUNCH_DIR/shell.zsh" "$BIN_DIR/agent-launch"; do
+             "$LAUNCH_DIR/profiles.toml" "$LAUNCH_DIR/shell.zsh" "$LAUNCH_DIR/claude_subcommands.py" \
+             "$BIN_DIR/agent-launch"; do
       [ -f "$p" ] && { run rm -f "$p"; [ "$DRY_RUN" = 1 ] || info "removed  $p"; }
     done
     # Skills: only the names the shipped tree carries, mirrored under each host's skills

@@ -41,22 +41,22 @@ _agent_launch_direct() {
 # binary's resolved path, modification time and size, held in this shell and in
 # ~/.local/share/agent-bios/claude-subcommands (the state dir the shadow log below uses, never
 # created here), so an update, which installs a new versioned path or rewrites the file, is
-# probed again. Returns nonzero when no list can be read: no `claude` on PATH, no zstat, a help
-# that lists nothing or does not end within 5 s. A failed probe is not cached.
+# probed again. Returns nonzero when no list can be read, and a failed probe is not cached.
 #
-# The help is read by zsh alone, with its own clock (zsh/datetime) and sysread's timeout (zsh/system,
-# that builtin only); macOS has no `timeout`. 5 s is not a measurement: it is meant to sit well above
-# what a first `claude --help` takes from a slow disk, and a help past it costs the user that wait
-# once per call, a one-line notice on stderr, and a claude started without the flag.
-# zsh's process substitution sets no `$!`, so /bin/sh prints its own number and becomes the help.
+# The help is run by the lister, launch/claude_subcommands.py: in a process group of its own, for
+# at most 5 s, and answered for only when it exited 0 and listed a subcommand; on any other outcome
+# it says why in one line on stderr. The lister is found where the private shell connection's
+# header names it, else beside this file (the compatibility install deploys the two together, as
+# the checkout holds them). The python3 that runs it is the one on PATH; on macOS /usr/bin/python3
+# without the Command Line Tools would open their installer on every call, so it is not run then.
+# Without a python3 or a lister the flag stays off and one line says so.
 typeset -ga _agent_launch_claude_verbs
 typeset -g _agent_launch_claude_verbs_key=""
+typeset -g _agent_launch_claude_lister="${_agent_launch_claude_lister:-${${(%):-%x}:a:h}/claude_subcommands.py}"
 _agent_launch_claude_subcommands() {
-  setopt localoptions noksharrays no_err_return no_err_exit no_bash_rematch no_rematch_pcre
-  local bin real key help line cache="$HOME/.local/share/agent-bios/claude-subcommands"
-  # The `=~` below sets these; local, so the user's own last match survives the probe.
-  local MATCH MBEGIN MEND
-  local -a words cached match mbegin mend
+  setopt localoptions noksharrays no_err_return no_err_exit
+  local bin real key py listed why cache="$HOME/.local/share/agent-bios/claude-subcommands"
+  local -a words cached
   local -A meta
   bin="$(whence -p claude)" || return 1
   [[ -n "$bin" ]] || return 1
@@ -73,42 +73,22 @@ _agent_launch_claude_subcommands() {
       return 0
     fi
   fi
-  zmodload -F zsh/datetime p:EPOCHREALTIME 2>/dev/null || return 1
-  zmodload -F zsh/system b:sysread 2>/dev/null || return 1
-  local fd buf chunk why limit=5 rc=4 deadline left
-  exec {fd}< <(exec /bin/sh -c 'echo "$$"; exec "$0" --help </dev/null 2>/dev/null' "$bin") || return 1
-  deadline=$(( EPOCHREALTIME + limit ))
-  {
-    while left=$(( deadline - EPOCHREALTIME )); (( left > 0 )); do
-      chunk=""
-      sysread -t "$left" -i "$fd" chunk; rc=$?
-      (( rc == 0 )) || break
-      buf+="$chunk"
-      rc=4
-    done
-    # 5 is the end of the output; anything else leaves the help running, so it is stopped.
-    if (( rc != 5 )); then
-      _agent_launch_claude_help_stop "${buf%%$'\n'*}" "$fd"
-      (( rc == 4 )) && why="gave no answer within ${limit} s" || why="could not be read (sysread status $rc)"
-      builtin print -ru2 -- "agent-bios: \`claude --help\` $why; claude starts without --dangerously-skip-permissions"
-    fi
-  } always {
-    exec {fd}<&-
-  }
-  (( rc == 5 )) || return 1
-  help="${buf#*$'\n'}"
-  local in_commands=0
-  for line in "${(@f)help}"; do
-    if [[ "$line" == Commands:* ]]; then
-      in_commands=1
-    elif (( in_commands )); then
-      if [[ "$line" =~ '^  ([a-z][a-z0-9-]*([|][a-z][a-z0-9-]*)*)( |$)' ]]; then
-        words+=("${(@s:|:)match[1]}")
-      elif [[ -n "$line" && "$line" != ' '* ]]; then
-        break
-      fi
-    fi
-  done
+  py="$(whence -p python3)" || py=""
+  if [[ -n "$py" && "$OSTYPE" == darwin* && "${py:A}" == /usr/bin/python3 ]] \
+      && ! builtin command xcode-select -p >/dev/null 2>&1; then
+    why="python3 is the Command Line Tools stub, which are not installed"
+  elif [[ -z "$py" ]]; then
+    why="no python3 is on PATH"
+  elif [[ ! -f "$_agent_launch_claude_lister" ]]; then
+    why="the subcommand lister is missing at $_agent_launch_claude_lister"
+  fi
+  if [[ -n "$why" ]]; then
+    builtin print -ru2 -- "agent-bios: $why, so the subcommands claude lists cannot be read; claude starts" \
+      "without --dangerously-skip-permissions"
+    return 1
+  fi
+  listed="$("$py" -I "$_agent_launch_claude_lister" "$bin" </dev/null)" || return 1
+  words=("${(@f)listed}")
   (( ${#words} )) || return 1
   _agent_launch_claude_verbs=("${words[@]}")
   _agent_launch_claude_verbs_key="$key"
@@ -117,28 +97,6 @@ _agent_launch_claude_subcommands() {
       && builtin command mv -f -- "$cache.$$" "$cache" 2>/dev/null \
       || builtin command rm -f -- "$cache.$$" 2>/dev/null
   fi
-  return 0
-}
-
-# Stops the help probe whose number is $1 and whose output is still open on fd $2: TERM, then KILL when
-# its output has not ended half a second later. Only a number of 2 or more that is not this shell's,
-# and only while the output has not ended: `kill` given 0 signals this shell's whole process group (the
-# user's shell and every job in it), 1 is init, and a probe whose output ended has exited, its number
-# free for another process.
-_agent_launch_claude_help_stop() {
-  # no_sh_glob: under the user's SH_GLOB, `<2->` would be no number range and the probe never stopped.
-  setopt localoptions no_err_return no_err_exit no_sh_glob
-  local pid="$1" fd="$2" rest end rc=4
-  [[ "$pid" == <2-> && "$pid" != "$$" ]] || return 1
-  builtin kill -TERM "$pid" 2>/dev/null || return 0
-  end=$(( EPOCHREALTIME + 0.5 ))
-  while (( end > EPOCHREALTIME )); do
-    rest=""
-    sysread -t $(( end - EPOCHREALTIME )) -i "$fd" rest; rc=$?
-    (( rc == 0 )) || break
-    rc=4
-  done
-  (( rc == 5 )) || builtin kill -KILL "$pid" 2>/dev/null
   return 0
 }
 

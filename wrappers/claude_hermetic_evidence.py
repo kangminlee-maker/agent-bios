@@ -393,9 +393,10 @@ def server_policy_record(held):
 
 def fully_hermetic(managed, unverified, policy):
     """Fully hermetic only when every managed-settings location was checked and found absent and the
-    server-delivered policy is confirmed clean; anything not established is not."""
+    server-delivered policy is confirmed clean, as server_policy_record reads it (a clean verdict
+    stands only on the clean status); anything not established is not."""
     return (managed == [] and unverified == [] and isinstance(policy, dict)
-            and policy.get("verdict") == "clean")
+            and server_policy_record(policy)["verdict"] == "clean")
 
 
 def hermeticity(profile, pre, policy):
@@ -1073,7 +1074,9 @@ def self_test():
                 and json.loads(receipt_hermeticity({"hermeticity": {**stated, "managed_unverified": ["x (OSError)"]}}))[
                     "fully_hermetic"] is False
                 and json.loads(receipt_hermeticity({"hermeticity": {
-                    k: v for k, v in stated.items() if k != "managed_unverified"}}))["fully_hermetic"] is False)
+                    k: v for k, v in stated.items() if k != "managed_unverified"}}))["fully_hermetic"] is False
+                and json.loads(receipt_hermeticity({"hermeticity": {**stated, "server_policy": {
+                    "status": None, "verdict": "clean", "reason": "failed"}}}))["fully_hermetic"] is False)
 
         # D-20261102-252c92: the server-delivered half. Only the documented line's status is kept; clean is
         # that exact status; anything else is not confirmed; no line, a failure or no answer is unknown.

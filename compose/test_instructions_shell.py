@@ -73,6 +73,13 @@ class ShellTests(ShellFixture, unittest.TestCase):
             self.assertIn(command, help_text)
         self.assert_globals()
 
+    def test_the_connection_names_the_packages_lister(self):
+        # The wrapper runs the subcommand lister from the package the connection was made from.
+        header = self.manager._script_body().split(b"\n")[:3]
+        self.assertIn(("typeset -g _agent_launch_claude_lister="
+                       + shlex.quote(str(SOURCE / "launch" / "claude_subcommands.py"))).encode(), header)
+        self.assertTrue((SOURCE / "launch" / "claude_subcommands.py").is_file())
+
     def test_cli_restore_idempotent_remove_preserves_user_bytes(self):
         restored = json.loads(self.cli("shell", "restore").stdout)
         self.assertTrue(restored["enabled"])
