@@ -820,6 +820,8 @@ cmd_install() {
   deploy_file "$REPO/wrappers/codex-run.sh"  "$CODEX_DIR/bin/codex-run"  "+x"
   # codex-run resolves its capture helper beside itself, so the helper lands in the same bin.
   deploy_file "$REPO/wrappers/codex_frame_filter.py" "$CODEX_DIR/bin/codex_frame_filter.py"
+  # ...and the helper resolves the app-server client and its protocol check beside itself.
+  deploy_file "$REPO/wrappers/codex_protocol.py" "$CODEX_DIR/bin/codex_protocol.py"
   deploy_file "$REPO/wrappers/codex-helm.sh" "$CODEX_DIR/bin/codex-helm" "+x"
   # The claude-side adapter lands under CLAUDE_DIR for the same reason its codex twin
   # lands under CODEX_DIR: each is that host's, and a single shared bin would make the
@@ -832,6 +834,9 @@ cmd_install() {
   migrate_user_presets || exit 1   # must precede the deploy below, which overwrites profiles.toml
   deploy_file "$REPO/launch/agent-launch.toml" "$LAUNCH_DIR/profiles.toml"
   deploy_file "$REPO/launch/agent-launch.zsh"   "$LAUNCH_DIR/shell.zsh"
+  # The launcher below lands alone in BIN_DIR, so the lock helper it loads by path (the shared
+  # bounded wait) lands beside its config, where it looks when no package is beside itself.
+  deploy_file "$REPO/compose/host_platform.py"  "$LAUNCH_DIR/host_platform.py"
   # UI text catalogs: deploy-managed siblings of the config, one per language.
   # The launcher resolves them from the config path, so the deployed home is
   # $LAUNCH_DIR/i18n exactly as the checkout's is launch/i18n.
@@ -1064,6 +1069,7 @@ cmd_verify() {
   verify_match "$REPO/launch/agent-launch.py" "$BIN_DIR/agent-launch"        || fail=1
   verify_match "$REPO/launch/agent-launch.toml" "$LAUNCH_DIR/profiles.toml"   || fail=1
   verify_match "$REPO/launch/agent-launch.zsh"  "$LAUNCH_DIR/shell.zsh"        || fail=1
+  verify_match "$REPO/compose/host_platform.py" "$LAUNCH_DIR/host_platform.py" || fail=1
   # Evidence, never a verdict: a shadow that was repaired is the mechanism working.
   shell_shadow_summary
   # Not `whence -v`: a function redefined at preexec carries no "from FILE" annotation,
@@ -1123,6 +1129,7 @@ PY
   verify_present "$CLAUDE_DIR/bin/claude_hermetic_evidence.py" || fail=1
   verify_present "$CLAUDE_DIR/bin/jsonl_lines.py" || fail=1
   verify_present "$CODEX_DIR/bin/codex_frame_filter.py" || fail=1
+  verify_present "$CODEX_DIR/bin/codex_protocol.py" || fail=1
   # Then WHICH version landed, because this file is on the panel's dispatch path now and
   # an older copy would dispatch reviews that quietly emit nothing. The earlier check
   # here asserted that an unpinned dispatch is refused; that guard was deliberately

@@ -25,9 +25,6 @@ from typing import Any, Callable, NoReturn
 
 if os.name == "nt":
     sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "compose"))
-    from host_platform import file_locks as fcntl
-else:
-    import fcntl
 
 
 TIER_ORDER = ("frontier", "helm", "workhorse", "sweep")
@@ -4108,6 +4105,42 @@ class BackRequested(RuntimeError):
     pass
 
 
+_LOCK_PLATFORMS: dict[pathlib.Path, Any] = {}
+
+
+def lock_platform(config_path: pathlib.Path):
+    """compose/host_platform.py, which owns the shared bounded lock wait (D-20261102-49b466), loaded by
+    path under a private name: from the package this launcher runs in, or, for the compatibility
+    install's standalone copy in ~/.local/bin, from the copy deployed beside the launcher's config.
+    With neither, the launcher refuses naming both rather than waiting on a lock without a bound."""
+    import importlib.util
+
+    candidates = (pathlib.Path(__file__).resolve().parents[1] / "compose" / "host_platform.py",
+                  config_path.with_name("host_platform.py"))
+    for path in candidates:
+        if path in _LOCK_PLATFORMS:
+            return _LOCK_PLATFORMS[path]
+        if path.is_file():
+            spec = importlib.util.spec_from_file_location(
+                "agent_launch_host_platform_" + hashlib.sha256(str(path).encode()).hexdigest()[:12], path)
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            _LOCK_PLATFORMS[path] = module
+            return module
+    raise LaunchError("the launcher's lock helper is missing (looked for "
+                      + " and ".join(str(path) for path in candidates) + "); reinstall agent-bios")
+
+
+def lock_within(handle, name: str, config_path: pathlib.Path) -> None:
+    """Hold `handle`'s exclusive lock, waiting at most the shared bound; past it, a LaunchError names
+    the lock. The launcher's writers used to wait on their locks with no deadline."""
+    platform = lock_platform(config_path)
+    try:
+        platform.lock_within(handle, name)
+    except platform.LockWaitExpired as exc:
+        raise LaunchError(str(exc)) from exc
+
+
 def resolve_command(value: str) -> str:
     # Guarded here rather than at each call site because the callers disagree about what a
     # failure means: `resolve_backend` reports it and stops, while `host_dispatch_command`
@@ -6644,7 +6677,12 @@ def register_reviewer_wizard(
                 lock_path, os.O_CREAT | os.O_WRONLY | getattr(os, "O_NOFOLLOW", 0), 0o600
             )
             with os.fdopen(lock_fd, "w") as lock_handle:
-                fcntl.flock(lock_handle, fcntl.LOCK_EX)
+                try:
+                    lock_within(lock_handle, f"the launcher methods lock ({lock_path})", config_path)
+                except LaunchError as exc:
+                    _instructions_info(ui, t("wizard.title"), [str(exc)],
+                                       back_hint=t("instructions.back.hint"))
+                    return False
                 # Existence is part of the snapshot: a file created (or removed)
                 # since the trial must read as a race even when its bytes happen
                 # to equal the header the wizard would have invented.
@@ -7692,7 +7730,7 @@ def save_preset(
         lock_path = target.with_name(target.name + ".lock")
         lock_fd = os.open(lock_path, os.O_CREAT | os.O_WRONLY | getattr(os, "O_NOFOLLOW", 0), 0o600)
         with os.fdopen(lock_fd, "w") as lock_handle:
-            fcntl.flock(lock_handle, fcntl.LOCK_EX)
+            lock_within(lock_handle, f"the launcher presets lock ({lock_path})", config_path)
             try:
                 kept = remove_preset_block(
                     target.read_text(encoding="utf-8"), name

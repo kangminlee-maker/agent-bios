@@ -43,8 +43,9 @@ Options:
 
 Prompt can be passed as arguments, stdin, or both. Stdin is read when no prompt
 argument is given, or where a prompt argument is `-`: with other arguments beside
-it, stdin is appended in a <stdin> block. A prompt argument without `-` leaves
-stdin unread, and --dry-run never reads it.
+it, stdin is appended in a <stdin> block. Beside a prompt argument without `-`, a
+redirected file is still appended; a pipe or socket is left unread, and a note
+on stderr says so. --dry-run never reads stdin.
 USAGE
 }
 
@@ -194,9 +195,11 @@ if [ "${#extra_c[@]}" -gt 0 ]; then
   done
 fi
 
-# Stdin is read only when it is the prompt's source: no prompt argument (and not a terminal), or a `-`
-# among the arguments. Read unconditionally, an open stdin nobody writes to (a caller's inherited
-# pipe) hung every call, --dry-run included, at 0% CPU. --dry-run never reads it.
+# Stdin is read when it is the prompt's source: no prompt argument (and not a terminal), or a `-` among
+# the arguments. Read unconditionally, an open stdin nobody writes to (a caller's inherited pipe) hung
+# every call, --dry-run included, at 0% CPU. Beside a prompt argument without `-`, a redirected file is
+# still read, since a file cannot hang; a pipe or socket, where an idle writer and a slow one look the
+# same, is left unread and said so, never dropped in silence. --dry-run never reads stdin.
 user_prompt=""
 read_stdin=0
 kept_parts=()
@@ -206,6 +209,14 @@ else
   for part in "${prompt_parts[@]}"; do
     if [ "$part" = "-" ]; then read_stdin=1; else kept_parts+=("$part"); fi
   done
+  if [ "$read_stdin" -eq 0 ]; then
+    if [ -f /dev/stdin ]; then
+      read_stdin=1
+    elif [ -p /dev/stdin ] || [ -S /dev/stdin ]; then
+      kind="a pipe"; [ -S /dev/stdin ] && kind="a socket"
+      echo "codex-helm: stdin is $kind and was not read, because a prompt argument was given without -; add - to the arguments to append stdin in a <stdin> block" >&2
+    fi
+  fi
 fi
 if [ "${#kept_parts[@]}" -gt 0 ]; then
   user_prompt="${kept_parts[*]}"

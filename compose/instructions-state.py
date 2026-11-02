@@ -22,9 +22,9 @@ import io
 import json
 import contextlib
 try:
-    from host_platform import file_locks as fcntl
+    from host_platform import LockWaitExpired, file_locks as fcntl, lock_within
 except ImportError:
-    from .host_platform import file_locks as fcntl
+    from .host_platform import LockWaitExpired, file_locks as fcntl, lock_within
 import os
 import pathlib
 import shutil
@@ -559,14 +559,18 @@ APPLY_OUTCOMES = ("applied", "canary_failed", "install_failed")
 
 
 @contextlib.contextmanager
-def _flock(lock_path: pathlib.Path):
-    """Exclusive advisory lock at `lock_path`, held for the with-block."""
+def _flock(lock_path: pathlib.Path, name: str):
+    """Exclusive advisory lock at `lock_path`, held for the with-block. Waits at most the shared
+    bound (host_platform.lock_within), then refuses naming `name` and the path."""
     lock_path.parent.mkdir(parents=True, exist_ok=True)
     # O_NOFOLLOW and no truncation: a "w" open follows a planted symlink and
     # truncates its target merely by running the command.
     fd = os.open(str(lock_path), os.O_CREAT | os.O_WRONLY | getattr(os, "O_NOFOLLOW", 0), 0o600)
     with os.fdopen(fd, "w") as handle:
-        fcntl.flock(handle, fcntl.LOCK_EX)
+        try:
+            lock_within(handle, f"{name} ({lock_path})")
+        except LockWaitExpired as exc:
+            raise SystemExit(f"instructions-state: {exc}") from exc
         yield
 
 
@@ -574,7 +578,7 @@ def _status_lock():
     """Exclusive advisory lock over instructions-status writes. `project` and
     `record-apply` both read-modify-write the whole file; unlocked, whichever
     writes second silently reverts the other's fields."""
-    return _flock(STATUS.with_name(STATUS.name + ".lock"))
+    return _flock(STATUS.with_name(STATUS.name + ".lock"), "the instructions status lock")
 
 
 def _deploy_lock():
@@ -583,7 +587,7 @@ def _deploy_lock():
     rollbacks both report success over a split instructions. A DIFFERENT file from the
     status lock, deliberately — rollback takes the status lock inside this one,
     and flock on a second open of one file deadlocks a single process."""
-    return _flock(STATUS.with_name(STATUS.name + ".deploy.lock"))
+    return _flock(STATUS.with_name(STATUS.name + ".deploy.lock"), "the instructions deploy lock")
 
 
 def _write_status(status: dict) -> None:
@@ -1128,6 +1132,32 @@ agents.write_text(body)
         if after is not None and after != seeded_status:
             problems.append("an interrupted status write altered the recorded status")
         (globals()["STATE_DIR"], globals()["STATUS"]) = saved_state
+
+        # ---- A lock held past the bound is refused BY NAME, not waited on forever. ----
+        # The bounds are scaled; the holder is a child that lets go after 8 s, so a writer that
+        # waits without a bound returns late and is caught here rather than hanging the suite.
+        bounds = sys.modules[lock_within.__module__]
+        saved_bounds = (bounds.LOCK_WAIT_S, bounds.LOCK_NOTICE_S)
+        held_path = root / "held.lock"
+        holder = subprocess.Popen([sys.executable, "-c", "import fcntl, sys, time; f = open(sys.argv[1], 'a'); "
+                                   "fcntl.flock(f, fcntl.LOCK_EX); print('held', flush=True); time.sleep(8)",
+                                   str(held_path)], stdout=subprocess.PIPE, text=True)
+        notice = io.StringIO()
+        try:
+            holder.stdout.readline()
+            bounds.LOCK_WAIT_S, bounds.LOCK_NOTICE_S = 0.6, 0.2
+            with contextlib.redirect_stderr(notice), _flock(held_path, "the planted lock"):
+                problems.append("a writer took a lock another holder still held")
+        except SystemExit as exc:
+            if f"the planted lock ({held_path}) is still held after 0.6 s" not in str(exc.code):
+                problems.append(f"a lock held past the bound was refused without naming it: {exc.code!r}")
+            if "waiting for the planted lock" not in notice.getvalue():
+                problems.append("a writer waiting on a held lock did not say what it waited for")
+        finally:
+            bounds.LOCK_WAIT_S, bounds.LOCK_NOTICE_S = saved_bounds
+            holder.kill()
+            holder.wait()
+            holder.stdout.close()
     except subprocess.CalledProcessError as exc:
         # A fixture command failing outside the control above is the same defect seen
         # from the main run — named here so the gate reports it instead of a traceback.

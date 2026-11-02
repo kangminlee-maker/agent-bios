@@ -213,7 +213,8 @@ class NativeSnapshotTests(unittest.TestCase):
                                       if row['eventName'] == 'sessionStart')
                     self.assertEqual('trusted' if trusted else 'untrusted', configured['trustStatus'])
                     thread = server.call('thread/start', {'cwd': str(self.root), 'ephemeral': True})['thread']['id']
-                    server.call('turn/start', {'threadId': thread, 'input': [{'type': 'text', 'text': 'offline test', 'text_elements': []}]})
+                    # A model turn is this test's own call, not one agent-bios makes: the client, unchecked.
+                    server.client.call('turn/start', {'threadId': thread, 'input': [{'type': 'text', 'text': 'offline test', 'text_elements': []}]})
                     self.assertTrue(received.wait(15), 'host never reached the local transport')
                 self.assertEqual(trusted, marker.exists())
                 self.assertEqual(trusted, 'NATIVE_HOOK_OFFLINE_SENTINEL' in json.dumps(requests[-1]))

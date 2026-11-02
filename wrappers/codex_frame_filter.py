@@ -39,8 +39,8 @@ import argparse
 import hashlib
 import json
 import os
+import pathlib
 import re
-import select
 import shutil
 import subprocess
 import sys
@@ -75,7 +75,13 @@ LEVELS = ("off", "error", "warn", "info", "debug", "trace")
 # The receipt evidence a call carries (the gate's key set; the launcher owns the top-level fields).
 EVIDENCE_KEYS = ("call_id", "schema_sha256", "payload_sha256", "seat_observed", "profile", "profile_flags_sha256",
                  "cwd", "manifest_sha256", "context_observed_sha256", "usage_state", "usage_totals",
-                 "capture_sha256", "session_id")
+                 "capture_sha256", "session_id", "hermeticity")
+# What a Codex capture states for the receipt's hermeticity (contract record 2026-11-02, F-31): the
+# assessment of managed and server-delivered settings is the hermetic Claude call's; a Codex call's
+# context evidence is its prompt-input rendering and instructionSources.
+HERMETICITY = {"assessed": False, "reason": "hermeticity is assessed for hermetic Claude calls (D-20261102-252c92); a "
+                                            "Codex call's context evidence is its prompt-input rendering and "
+                                            "instructionSources"}
 PAYLOAD_MARKER = "=== PAYLOAD ==="
 TOKEN_KEYS = ("input", "output", "cache_read", "cache_creation")
 CONTEXT_SETS = ("instructions", "appended_prompts", "skills", "agents", "hooks")
@@ -396,54 +402,52 @@ def rendering_facts(messages, norm):
             "skill_roots": sorted(set(roots)), "skills": sorted(set(skills))}
 
 
+PROTOCOL = pathlib.Path(__file__).resolve().parent / "codex_protocol.py"
+_protocol = None
+
+
+def codex_protocol():
+    """wrappers/codex_protocol.py, loaded from beside this file, where every install puts the two
+    together: the app-server client, the per-version schema check and the result shapes."""
+    global _protocol
+    if _protocol is None:
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("agent_bios_codex_protocol", PROTOCOL)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        _protocol = module
+    return _protocol
+
+
 def app_server_sources(codex, env, cwd, overrides, timeout=60):
-    """`codex app-server` thread/start (ephemeral): the host's own list of instruction files."""
-    config = {key: override_value(value) for key, _, value in (kv.partition("=") for kv in overrides)}
-    proc = subprocess.Popen([codex, "app-server", "--listen", "stdio://"], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                            stderr=subprocess.DEVNULL, env=env, cwd=cwd, text=True, bufsize=1)
-
-    def send(obj):
-        proc.stdin.write(json.dumps(obj) + "\n")
-        proc.stdin.flush()
-
-    def answer(want):
-        end = time.time() + timeout
-        while time.time() < end:
-            ready, _, _ = select.select([proc.stdout], [], [], 1)
-            if not ready:
-                continue
-            line = proc.stdout.readline()
-            if not line:
-                return None
-            try:
-                message = json.loads(line)
-            except ValueError:
-                continue
-            if message.get("id") == want:
-                return message
-        return None
+    """`codex app-server` thread/start (ephemeral): the host's own list of instruction files. The
+    installed Codex's protocol schema is checked first (its verdict kept in the agent-bios state
+    directory when that exists), and the answer's shape before it is read. The server is read on a
+    thread: a select() on the text stream missed a response that arrived in one write with a
+    notification, and waited out the whole timeout."""
     try:
-        send({"id": 1, "method": "initialize", "params": {"clientInfo": {"name": "codex-run-capture", "title": "codex-run",
-                                                                       "version": "1"}, "capabilities": {"experimentalApi": True}}})
-        answer(1)
-        send({"method": "initialized"})
-        send({"id": 2, "method": "thread/start", "params": {"cwd": cwd, "ephemeral": True, "approvalPolicy": "never",
-                                                            "sandbox": "read-only", "config": config or None}})
-        reply = answer(2) or {}
-        result = reply.get("result") or {}
-        return {"instructionSources": result.get("instructionSources"), "model": result.get("model"), "cwd": result.get("cwd"),
-                "reasoningEffort": result.get("reasoningEffort"), "error": reply.get("error") if reply else "no answer"}
-    finally:
-        for close in (proc.stdin.close, proc.terminate):
-            try:
-                close()
-            except (OSError, ValueError):
-                pass
+        protocol = codex_protocol()
+    except OSError as exc:
+        return {"instructionSources": None, "error": f"the app-server protocol module is missing beside the helper "
+                                                       f"({PROTOCOL}): {exc}"}
+    config = {key: override_value(value) for key, _, value in (kv.partition("=") for kv in overrides)}
+    state = os.environ.get("AGENT_BIOS_STATE_DIR") or os.path.join(os.path.expanduser("~"), ".local", "share", "agent-bios")
+    try:
+        protocol.ensure_schema(codex, env, os.path.join(state, "codex-protocol"))
+        client = protocol.Client([codex, "app-server", "--listen", "stdio://"], cwd=cwd, env=env)
         try:
-            proc.wait(timeout=10)
-        except subprocess.TimeoutExpired:
-            proc.kill()
-            proc.wait()
+            client.call("initialize", {"clientInfo": {"name": "codex-run-capture", "title": "codex-run", "version": "1"},
+                                       "capabilities": {"experimentalApi": True}}, timeout)
+            client.notify("initialized")
+            result = protocol.check_result("thread/start", client.call(
+                "thread/start", {"cwd": cwd, "ephemeral": True, "approvalPolicy": "never", "sandbox": "read-only",
+                                 "config": config or None}, timeout), "thread/start#sources")
+        finally:
+            client.close()
+    except protocol.ProtocolError as exc:
+        return {"instructionSources": None, "model": None, "cwd": None, "reasoningEffort": None, "error": str(exc)}
+    return {"instructionSources": result.get("instructionSources"), "model": result.get("model"), "cwd": result.get("cwd"),
+            "reasoningEffort": result.get("reasoningEffort"), "error": None}
 
 
 def override_value(value):
@@ -840,7 +844,7 @@ def run_finish(args):
             "profile_flags_sha256": canonical_sha256(args.flag), "cwd": args.cwd, "session_id": thread,
             "workdir_files": pre["workdir_files"], "context": pre["context"], "codex_path": pre["codex_path"],
             "codex_version": pre["codex_version"], "rendering": pre["rendering"],
-            "exit_status": args.exit_status, "wall_ms": args.wall_ms}
+            "exit_status": args.exit_status, "wall_ms": args.wall_ms, "hermeticity": HERMETICITY}
     usage = {"schema": "CodexCaptureUsage/v1", "call_id": args.call_id, "seat_requested": f"{args.model}/{args.effort}",
              **summary, "totals": summed, "usage_state": usage_state(summed)}
     for name, obj in (("host.json", host), ("usage.json", usage)):
@@ -858,7 +862,8 @@ def run_finish(args):
               "profile": args.profile, "profile_flags_sha256": host["profile_flags_sha256"], "cwd": args.cwd,
               "manifest_sha256": manifest, "context_observed_sha256": canonical_sha256(pre["context"]),
               "usage_state": usage["usage_state"], "usage_totals": canonical(summed),
-              "capture_sha256": capture_sha256(args.capture), "session_id": thread or ""}
+              "capture_sha256": capture_sha256(args.capture), "session_id": thread or "",
+              "hermeticity": canonical(host["hermeticity"])}
     for key in EVIDENCE_KEYS:
         print(f"{key}={values[key]}")
     return 0
@@ -1137,11 +1142,12 @@ def self_test():
     piped = [w for w in ("capture" + "_output", "input" + "=", "subprocess." + "PIPE") if w in body]
     control("self-test-hands-no-child-a-pipe", [f"self_test uses {piped}"] if piped else [])
     # copied once from design §3.2 step 1's evidence list with plan WP-02's payload_sha256
-    # (session-distill/runlib/receipts.py EVIDENCE_KEYS on wp/02-gate-supervisor)
+    # (session-distill/runlib/receipts.py EVIDENCE_KEYS on wp/02-gate-supervisor) and the contract-fix
+    # record's hermeticity (design/contract-fix/, 2026-11-02, F-31)
     control("evidence-keys-are-the-gates", [] if EVIDENCE_KEYS == (
         "call_id", "schema_sha256", "payload_sha256", "seat_observed", "profile", "profile_flags_sha256", "cwd",
-        "manifest_sha256", "context_observed_sha256", "usage_state", "usage_totals", "capture_sha256", "session_id")
-        else [f"evidence keys {EVIDENCE_KEYS}"])
+        "manifest_sha256", "context_observed_sha256", "usage_state", "usage_totals", "capture_sha256", "session_id",
+        "hermeticity") else [f"evidence keys {EVIDENCE_KEYS}"])
     control("payload-hash-after-the-marker", [] if payload_sha256(b"HEAD\n=== PAYLOAD ===\nbody")
             == hashlib.sha256(b"body").hexdigest() and payload_sha256(b"plain") == hashlib.sha256(b"plain").hexdigest()
             else ["payload hash"])

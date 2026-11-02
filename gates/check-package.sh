@@ -172,6 +172,16 @@ PY
   fresh; printf '\n# never mktemp -%s here\n' t >> "$W/install.sh"
   case_ok "a comment naming mktemp -t in a shipped shell script"
 
+  # a lock writer that waits without bound, shipped and author-side; a control's holder and a string are not
+  fresh; printf '\n\ndef planted_writer(fh):\n    fcntl.flock(fh, fcntl.LOCK_%s)\n' EX >> "$W/compose/instructions_store.py"
+  case_is "an unbounded lock writer in a shipped module" "compose/instructions_store.py:"
+  fresh; printf '\n\ndef planted_writer(fh):\n    fcntl.flock(fh.fileno(), fcntl.LOCK_%s)\n' EX >> "$W/decisions/record-decision.py"
+  case_is "an unbounded lock writer in the decision recorder" "lock writer(s) waiting on flock(LOCK_EX) without a bound"
+  fresh; printf '\n\ndef self_test():\n    fcntl.flock(fh, fcntl.LOCK_%s)\n' EX >> "$W/compose/instructions_store.py"
+  case_ok "a control's lock holder inside a self_test"
+  fresh; printf '\n\nSHOWN = "fcntl.flock(fh, fcntl.LOCK_%s)"\n' EX >> "$W/compose/instructions_store.py"
+  case_ok "a string showing an unbounded flock call"
+
   # a shipped module loaded by path, which no import statement names
   fresh; dropline package.json '"wrappers/jsonl_lines.py"'
   case_is "a module loaded by path that files[] does not ship" "wrappers/jsonl_lines.py"
@@ -909,8 +919,51 @@ for p in shell_scripts():
                  if not line.lstrip().startswith("#") and MKTEMP_T.search(line)]
 leg("shipped shell scripts without mktemp -t", shipped_shell)
 
+# Every exclusive lock a writer takes waits at most 30 s and then refuses naming the lock
+# (D-20261102-49b466), through host_platform.lock_within; a flock(LOCK_EX) without LOCK_NB waits
+# without bound. Read from the parsed module, so a string or a comment showing the call is not one. A
+# control's own holder takes a lock on purpose: a call inside a function named self_test, _self_test or
+# test_*, in a test_*.py module, or under gates/ (whose every check is a control) is not a writer.
+# No tracked writer is exempt: the author-side benchmark budget waits on the same bound.
+
+
+def unbounded_locks(text):
+    """Line numbers of flock calls asking LOCK_EX without LOCK_NB outside a control."""
+    try:
+        tree = ast.parse(text)
+    except SyntaxError:
+        return []
+    lines = []
+
+    def visit(node, control):
+        for child in ast.iter_child_nodes(node):
+            inside = control or (isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef))
+                                 and (child.name in ("self_test", "_self_test") or child.name.startswith("test_")))
+            if not inside and isinstance(child, ast.Call) and len(child.args) >= 2:
+                called = child.func.attr if isinstance(child.func, ast.Attribute) else getattr(child.func, "id", None)
+                flags = {n.attr if isinstance(n, ast.Attribute) else getattr(n, "id", None)
+                         for n in ast.walk(child.args[1])}
+                if called == "flock" and "LOCK_EX" in flags and "LOCK_NB" not in flags:
+                    lines.append(child.lineno)
+            visit(child, inside)
+    visit(tree, False)
+    return lines
+
+
+lock_writers, unbounded = [], []
+for p in tracked_files():
+    rel = p.relative_to(REPO).as_posix()
+    if p.suffix != ".py" or not p.is_file() or rel.startswith("gates/") or p.name.startswith("test_"):
+        continue
+    text = p.read_text(encoding="utf-8", errors="replace")
+    if "flock" not in text:
+        continue
+    lock_writers.append(rel)
+    unbounded += [(rel, n) for n in unbounded_locks(text)]
+leg("python lock writers without an unbounded wait", lock_writers)
+
 checked = sum(1 for r in found if r not in EXEMPT and not author_side(r) and (REPO / r).exists())
-if missing or leaked or prose_bad or unguarded or prov_bad or piped_grep or mktemp_t:
+if missing or leaked or prose_bad or unguarded or prov_bad or piped_grep or mktemp_t or unbounded:
     if missing:
         print(f"check-package: FAILED — {len(missing)} runtime path(s) not in package.json files[]:")
         for rel, srcs in missing:
@@ -936,6 +989,11 @@ if missing or leaked or prose_bad or unguarded or prov_bad or piped_grep or mkte
               f"refuses -t's prefix as a template (use mktemp \"${{TMPDIR:-/tmp}}/name.XXXXXX\"):")
         for rel, n, line in mktemp_t:
             print(f"  {rel}:{n}: {line}")
+    if unbounded:
+        print(f"check-package: FAILED — {len(unbounded)} lock writer(s) waiting on flock(LOCK_EX) without a "
+              f"bound; take the lock through host_platform.lock_within (D-20261102-49b466):")
+        for rel, n in unbounded:
+            print(f"  {rel}:{n}")
     if prose_bad:
         print(f"check-package: FAILED — {len(prose_bad)} shipped-prose reference(s) "
               f"to a path the user will not have:")

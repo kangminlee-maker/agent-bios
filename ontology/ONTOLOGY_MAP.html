@@ -62,7 +62,7 @@
     <div><b>Judgment question</b><span>Change one concept — how far do the obligations reach, and which of them is anything actually holding?</span></div>
     <div><b>Coverage</b><span>38 entities across 5 families; 55 obligation edges over 9 kinds; 12 golden relationships</span></div>
     <div><b>Held against code</b><span class="ok"><code>gates/check-ontology.py</code> — anchors, derived counts, edge integrity, graph health, projection freshness; 7 negative controls</span></div>
-    <div><b>Derived from source</b><span>13 legacy deploy targets · 21 guides · 8 tier bindings · 18 subcommands · 85 payload paths</span></div>
+    <div><b>Derived from source</b><span>15 legacy deploy targets · 21 guides · 8 tier bindings · 18 subcommands · 86 payload paths</span></div>
     <div><b>Main risk</b><span class="risk">11 of 38 entities carry no P6 assertion at all; 4 of 12 golden relationships are unguarded and GR-4 is violated</span></div>
   </section>
 
@@ -104,9 +104,9 @@
       <rect class="node" x="322"  y="146" width="252" height="96" rx="5" fill="#dcfce7" stroke="#18794e"/>
       <text class="s" x="340" y="174"><tspan font-weight="700">P2 derived</tspan><tspan x="340" dy="22">emitted by a named producer</tspan><tspan class="m" x="340" dy="21">codex/, ko/codex/, promotions</tspan></text>
       <rect class="node" x="608"  y="146" width="252" height="96" rx="5" fill="#e7eaee" stroke="#667085"/>
-      <text class="s" x="626" y="174"><tspan font-weight="700">P3 packaged</tspan><tspan x="626" dy="22">in the shipped payload</tspan><tspan class="m" x="626" dy="21">85 files[] paths</tspan></text>
+      <text class="s" x="626" y="174"><tspan font-weight="700">P3 packaged</tspan><tspan x="626" dy="22">in the shipped payload</tspan><tspan class="m" x="626" dy="21">86 files[] paths</tspan></text>
       <rect class="node" x="894"  y="146" width="252" height="96" rx="5" fill="#e7eaee" stroke="#667085"/>
-      <text class="s" x="912" y="174"><tspan font-weight="700">P4 deployed</tspan><tspan x="912" dy="22">written onto a machine</tspan><tspan class="m" x="912" dy="21">13 legacy targets</tspan></text>
+      <text class="s" x="912" y="174"><tspan font-weight="700">P4 deployed</tspan><tspan x="912" dy="22">written onto a machine</tspan><tspan class="m" x="912" dy="21">15 legacy targets</tspan></text>
       <rect class="node" x="1180" y="146" width="284" height="96" rx="5" fill="#f3e8ff" stroke="#7c3aed"/>
       <text class="s" x="1198" y="174"><tspan font-weight="700">P5 consumed</tspan><tspan x="1198" dy="22">a branch that reads it and acts</tspan><tspan class="m" x="1198" dy="21">absent ⇒ inert (GR-6)</tspan></text>
       <path class="authority" d="M288 194 H316"/>
@@ -734,23 +734,25 @@ show(null); render();
   </table>
 
   <h2>GR-4, computed</h2>
-  <p class="lede"><code>ontology/extract.py</code> reads the explicit legacy installer's <code>deploy_file</code>/<code>deploy_glob</code> and <code>verify_match</code>/<code>verify_present</code> call sites at generation time. 13 legacy deploy writes, 3 without complete verification. Private installation uses its own release and ownership verification in <code>compose/instructions_install.py</code>.</p>
+  <p class="lede"><code>ontology/extract.py</code> reads the explicit legacy installer's <code>deploy_file</code>/<code>deploy_glob</code> and <code>verify_match</code>/<code>verify_present</code> call sites at generation time. 15 legacy deploy writes, 3 without complete verification. Private installation uses its own release and ownership verification in <code>compose/instructions_install.py</code>.</p>
   <table>
     <thead><tr><th>P4 write</th><th>P6 assertion</th><th>Strength</th></tr></thead>
     <tbody>
       <tr><td><code>$CODEX_DIR/bin/codex-run</code> :820</td><td>—</td><td class="risk">none</td></tr>
-      <tr><td><code>$CODEX_DIR/bin/codex_frame_filter.py</code> :822</td><td><code>verify_present</code> :1125</td><td class="">existence</td></tr>
-      <tr><td><code>$CODEX_DIR/bin/codex-helm</code> :823</td><td>—</td><td class="risk">none</td></tr>
-      <tr><td><code>$CLAUDE_DIR/bin/claude-run</code> :827</td><td><code>verify_present</code> :1122</td><td class="">existence</td></tr>
-      <tr><td><code>$CLAUDE_DIR/bin/claude_hermetic_evidence.py</code> :829</td><td><code>verify_present</code> :1123</td><td class="">existence</td></tr>
-      <tr><td><code>$CLAUDE_DIR/bin/jsonl_lines.py</code> :831</td><td><code>verify_present</code> :1124</td><td class="">existence</td></tr>
-      <tr><td><code>$LAUNCH_DIR/profiles.toml</code> :833</td><td><code>verify_match</code> :1065</td><td class="ok">byte-identity</td></tr>
-      <tr><td><code>$LAUNCH_DIR/shell.zsh</code> :834</td><td><code>verify_match</code> :1066</td><td class="ok">byte-identity</td></tr>
-      <tr><td><code>$BIN_DIR/agent-launch</code> :869</td><td><code>verify_match</code> :1064</td><td class="ok">byte-identity</td></tr>
-      <tr><td><code>$LAUNCH_DIR/i18n/$lang.toml</code> :872</td><td><code>verify_match</code> :1080</td><td class="ok">byte-identity</td></tr>
+      <tr><td><code>$CODEX_DIR/bin/codex_frame_filter.py</code> :822</td><td><code>verify_present</code> :1131</td><td class="">existence</td></tr>
+      <tr><td><code>$CODEX_DIR/bin/codex_protocol.py</code> :824</td><td><code>verify_present</code> :1132</td><td class="">existence</td></tr>
+      <tr><td><code>$CODEX_DIR/bin/codex-helm</code> :825</td><td>—</td><td class="risk">none</td></tr>
+      <tr><td><code>$CLAUDE_DIR/bin/claude-run</code> :829</td><td><code>verify_present</code> :1128</td><td class="">existence</td></tr>
+      <tr><td><code>$CLAUDE_DIR/bin/claude_hermetic_evidence.py</code> :831</td><td><code>verify_present</code> :1129</td><td class="">existence</td></tr>
+      <tr><td><code>$CLAUDE_DIR/bin/jsonl_lines.py</code> :833</td><td><code>verify_present</code> :1130</td><td class="">existence</td></tr>
+      <tr><td><code>$LAUNCH_DIR/profiles.toml</code> :835</td><td><code>verify_match</code> :1070</td><td class="ok">byte-identity</td></tr>
+      <tr><td><code>$LAUNCH_DIR/shell.zsh</code> :836</td><td><code>verify_match</code> :1071</td><td class="ok">byte-identity</td></tr>
+      <tr><td><code>$LAUNCH_DIR/host_platform.py</code> :839</td><td><code>verify_match</code> :1072</td><td class="ok">byte-identity</td></tr>
+      <tr><td><code>$BIN_DIR/agent-launch</code> :874</td><td><code>verify_match</code> :1069</td><td class="ok">byte-identity</td></tr>
+      <tr><td><code>$LAUNCH_DIR/i18n/$lang.toml</code> :877</td><td><code>verify_match</code> :1086</td><td class="ok">byte-identity</td></tr>
       <tr><td><code>$CODEX_DIR/agents</code> :808</td><td>—</td><td class="risk">none</td></tr>
-      <tr><td><code>$CLAUDE_DIR/skills/$skill</code> :816</td><td><code>verify_match</code> :1102</td><td class="ok">byte-identity</td></tr>
-      <tr><td><code>$CODEX_DIR/skills/$skill</code> :817</td><td><code>verify_match</code> :1103</td><td class="ok">byte-identity</td></tr>
+      <tr><td><code>$CLAUDE_DIR/skills/$skill</code> :816</td><td><code>verify_match</code> :1108</td><td class="ok">byte-identity</td></tr>
+      <tr><td><code>$CODEX_DIR/skills/$skill</code> :817</td><td><code>verify_match</code> :1109</td><td class="ok">byte-identity</td></tr>
     </tbody>
   </table>
 

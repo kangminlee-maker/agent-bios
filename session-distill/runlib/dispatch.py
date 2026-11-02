@@ -86,6 +86,7 @@ import pathlib
 import re
 import shlex
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
@@ -113,7 +114,8 @@ ADAPTER_CODES = {"codex": ("HOST_VERSION_MISMATCH", "CONTEXT_EVIDENCE_MISSING", 
                            "CODEX_INSTRUCTION_OVERRIDE_UNSUPPORTED", "CODEX_INSTRUCTION_OVERRIDE_REPEATED"),
                  "claude": ("HOST_VERSION_MISMATCH", "HOST_BINARY_UNPINNED", "CELL_UNDER_HOME", "CELL_OUTSIDE_ROOT",
                             "CELL_ROOT_OWNER", "CELL_ROOT_MODE", "CELL_ANCESTOR_SURFACE", "CELL_CWD_MISSING",
-                            "READ_ROOT_MISMATCH", "TRANSCRIPT_UNREADABLE")}
+                            "READ_ROOT_MISMATCH", "TRANSCRIPT_UNREADABLE", "RECORD_KIND_UNKNOWN",
+                            "ATTACHMENT_TYPE_UNKNOWN", "RECORD_VERSION_UNKNOWN")}
 ADAPTER_REFUSAL = {host: re.compile(rb"^" + host.encode() + rb"-run: (" + "|".join(codes).encode() + rb")\b[^\n]{0,400}")
                    for host, codes in ADAPTER_CODES.items()}
 # the channels monitor.CodexFeed reads; the retry warnings are what HTTPS attempt coverage reconciles (design §3.2)
@@ -125,6 +127,13 @@ CONTRACT = {"$comment": "design §13.2 (reservation, both caps, the breaker, the
                         "2026-10-21T0026--cc0498f--input-bound-amendment.md (the window bound): the Supervisor's "
                         "refusals and item outcomes", "predicate": "Supervisor"}
 LOCK_WAIT_S = 30
+# D-20261102-252c92: an organisation's server-delivered policy reaches a hermetic Claude call at startup,
+# where no file check before the call sees it. Once per run, before its first hermetic Claude call, the
+# adapter is asked for it (claude-run --server-policy-probe: the one documented line of `claude doctor`, in a
+# cell of its own with the call's environment and token, which never passes through here); the record is
+# kept as supervisor/server-policy.json and handed to every hermetic Claude call of the run. The bound is
+# the adapter's own doctor bound (60 s) with room for its cell checks.
+SERVER_POLICY_PROBE_S = 120
 # the stop's own wait on the declaration lock, read from the module at each stop so a control can
 # shorten it; production never changes it (BC#0)
 STOP_LOCK_WAIT_S = LOCK_WAIT_S
@@ -159,10 +168,12 @@ DYNAMIC_LOADS = (
                "(gate.FRAME_READERS: responses, completions, join, attempts), held by the gate's self-test; read, not "
                "traced: its context command starts codex (app-server, debug prompt-input), which the gate never calls"},
     {"site": "session-distill/runlib/gate.py", "path": "wrappers/claude_hermetic_evidence.py", "trace": False,
-     "reason": "the Claude observer's one owner, loaded by its literal repo path (OBSERVER_OWNER) for the one pure "
-               "function the declared-instruction hash is computed with (gate.OBSERVER_READERS: norm_sha256), so the "
-               "rendering rule is imported and never copied (BC#2); read, not traced: the rest of that file renders a "
-               "capture and runs no host"},
+     "reason": "the Claude observer's one owner, loaded by its literal repo path (OBSERVER_OWNER) for its pure "
+               "functions (gate.OBSERVER_READERS: norm_sha256, the function the declared-instruction hash is computed "
+               "with, so the rendering rule is imported and never copied (BC#2); receipt_hermeticity and "
+               "server_policy_record, the hermeticity a receipt states); read, not traced: the rest of that file "
+               "renders a capture, and its one executor (server_policy, `claude doctor`) is run by claude-run "
+               "inside a cell, never by the gate or the dispatcher"},
     {"site": "session-distill/runlib/records.py", "path": "wrappers/jsonl_lines.py", "trace": True,
      "reason": "the one JSONL splitter, shipped, loaded by its literal repo path (_load_jsonl_lines) so runlib's "
                "readers use it, never a copy; it imports nothing and runs nothing"},
@@ -777,6 +788,8 @@ def runner_argv(host, spec):
     argv += ["--cell-root", str(pathlib.Path(spec["cell"]).parent), "--call-id", spec["call_id"], "--cd", spec["workdir"],
              "--claude-bin", spec["host_bin"], "--host-version", spec["host_version"],
              "--max-output-tokens", str(spec["max_output_tokens"])]
+    if spec.get("server_policy"):
+        argv += ["--server-policy", spec["server_policy"]]
     for prompt in spec.get("appended_prompts") or []:
         # the file holds the exact bytes admission counted, and the hash is the one the call record carries,
         # so the adapter's own check compares the delivered bytes with the declaration (BB#2)
@@ -788,6 +801,14 @@ def runner_argv(host, spec):
     elif spec["use"] != "judge":
         argv += ["--use", spec["use"]]
     return argv
+
+
+def server_policy_argv(spec):
+    """claude-run's server-policy probe for the pinned host, in the adapter's interface (its --help): no
+    call is made; it prints one JSON line, the record. The cell is the one DISTILL_CELL names."""
+    cell = pathlib.Path(spec["cell"])
+    return [str(RUNNERS["claude"]), "--profile", "hermetic", "--server-policy-probe", "--cell-root", str(cell.parent),
+            "--call-id", cell.name, "--claude-bin", spec["host_bin"], "--host-version", spec["host_version"]]
 
 
 def stop_detail(offered):
@@ -836,6 +857,10 @@ class Supervisor:
         self.run_dir = pathlib.Path(run_dir)
         self.run_id = self.run_dir.resolve().name
         self.clock, self.runner, self.realization = clock, runner or runner_argv, realization
+        # the server-policy probe goes with the pinned runner, judged when it is asked for (a control may set
+        # the runner after construction); a golden host has none, and its calls record the server-delivered
+        # policy as unknown. A control hands the adapter's own probe in here, with a fixture host.
+        self.policy_runner = None
         self.monitor = monitor or monitors.Monitor  # the self-test's delayed-reader controls give a slower one
         self.drain_deadline_s = DRAIN_DEADLINE_S  # the self-test's held-pipe control gives a shorter one
         self.cell_root = pathlib.Path(cell_root) if cell_root else None
@@ -863,6 +888,50 @@ class Supervisor:
 
     def _lock(self):
         return stagelock.hold(self.run_dir, "supervisor", wait_s=LOCK_WAIT_S)
+
+    def server_policy(self, host_version, host_bin):
+        """The run's server-policy record (supervisor/server-policy.json): asked of the adapter once, before
+        the run's first hermetic Claude call, outside the supervisor lock so no other call waits on it; a
+        second asker that raced it keeps the record already written. None when this supervisor's runner has
+        no probe. A probe that fails, refuses or does not answer is recorded as unknown, never as clean."""
+        path = self._path("server-policy.json")
+        probe = self.policy_runner or (server_policy_argv if self.runner is runner_argv else None)
+        if path.is_file() or probe is None:
+            return path if path.is_file() else None
+        cell = pathlib.Path(tempfile.mkdtemp(prefix="server-policy-", dir=self.cell_root))
+        try:
+            for part in ("home", "config", "cwd"):
+                (cell / part).mkdir()
+            env = {k: v for k, v in self.env.items() if k != "REVIEW_CRITERION_SCHEMA"}
+            env["DISTILL_CELL"] = str(cell)
+            proc = subprocess.Popen(probe({"cell": str(cell), "host_bin": host_bin, "host_version": host_version}),
+                                    stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env,
+                                    start_new_session=True)
+            try:
+                out, err = proc.communicate(timeout=SERVER_POLICY_PROBE_S)
+            except subprocess.TimeoutExpired:
+                with contextlib.suppress(ProcessLookupError):
+                    os.killpg(proc.pid, signal.SIGKILL)
+                proc.communicate()
+                record = {"status": None, "verdict": "unknown",
+                          "reason": f"the server-policy probe did not finish within {SERVER_POLICY_PROBE_S} s"}
+            else:
+                try:
+                    held = json.loads(out) if proc.returncode == 0 else None
+                except ValueError:
+                    held = None
+                refused = ADAPTER_REFUSAL["claude"].search(err) if proc.returncode else None
+                record = gate.observer_owner().server_policy_record(held) if held is not None else {
+                    "status": None, "verdict": "unknown",
+                    "reason": f"the server-policy probe exited {proc.returncode}"
+                              + (f": {refused.group(0).decode('utf-8', 'replace')}" if refused else "")}
+        finally:
+            shutil.rmtree(cell, ignore_errors=True)
+        with self._lock():
+            if not path.is_file():
+                records.write_json(self.run_dir, path, {"schema": "DistillServerPolicy/v1", "host_version": host_version,
+                                                        "checked_at": self.clock(), **record})
+        return path
 
     def calibration(self):
         path = self._path("calibration.json")
@@ -1186,6 +1255,13 @@ class Supervisor:
         except Refused:
             self.release(stage, call_id, "refused")
             raise
+        policy = None
+        if host == "claude" and runner_profile == "hermetic":
+            pinned_bin = os.path.expanduser(gate.seats(self.seats_path)["hosts"]["claude"]["path"])
+            try:
+                policy = self.server_policy(host_version, pinned_bin)
+            except OSError:
+                policy = None   # the call's own record says the policy is unknown, never clean
 
         provider_model, _, effort = seat.partition(":")[2].rpartition("/")
         try:
@@ -1255,7 +1331,8 @@ class Supervisor:
                         "cell": str(cell), "capture": str(capture), "caps": caps, "use": use,
                         "read_root": manifest["workdir_path"] if use == "producing" else None, "max_output_tokens": max_output_tokens,
                         "view_window": bool(view_window), "appended_prompts": delivered,
-                        "flags_sha256": gate.pinned_flags_sha256(host, host_version, profile)}
+                        "flags_sha256": gate.pinned_flags_sha256(host, host_version, profile),
+                        "server_policy": str(policy) if policy else None}
                 env = self.runner_env(call_id, cell, capture, host, host_version, spec["host_bin"])
                 began = time.monotonic()
                 proc = subprocess.Popen(self.runner(host, spec), stdin=subprocess.PIPE, stdout=subprocess.PIPE,
@@ -2548,6 +2625,20 @@ import hashlib, json, os, pathlib, sys
 here = pathlib.Path(__file__).resolve().parent
 if "--version" in sys.argv[1:]:
     print((here / "version.txt").read_text().strip() + " (Claude Code)")
+    sys.exit(0)
+if sys.argv[1:] == ["doctor"]:
+    # what the probe ran under, by name and fact only (never a value), and the documented line
+    null, fd0 = os.stat(os.devnull), os.fstat(0)
+    with open(here / "doctor-runs.log", "a") as log:
+        log.write(json.dumps({"home": os.path.realpath(os.environ.get("HOME", "")),
+                              "config": os.path.realpath(os.environ.get("CLAUDE_CONFIG_DIR", "")),
+                              "token": bool(os.environ.get("CLAUDE_CODE_OAUTH_TOKEN")),
+                              "token_file": "CLAUDE_RUN_TOKEN_FILE" in os.environ,
+                              "stdin_null": (fd0.st_rdev, fd0.st_ino) == (null.st_rdev, null.st_ino)}) + "\n")
+    status = here / "doctor-status.txt"
+    print("Account: someone@example.invalid")
+    print("Managed settings (remote): " + (status.read_text().strip() if status.is_file()
+                                            else "none configured for this organization"))
     sys.exit(0)
 appended = [sys.argv[i + 1] for i, a in enumerate(sys.argv) if a == "--append-system-prompt-file"]
 (here / "received.json").write_text(json.dumps({
@@ -4581,6 +4672,15 @@ def self_test(scratch=None):
     control("runner-argv-of-a-producing-call", runner_argv("claude", producing) == claude_head + [
         "--schema", "/calls/c1/schema.json", "--use", "producing", "--tools", "Read", "--manifest", "/cells/c1/cwd"],
         f"{runner_argv('claude', producing)}")
+    control("runner-argv-of-a-judge-call-hands-over-the-runs-server-policy",
+            runner_argv("claude", dict(base, server_policy="/runs/r1/supervisor/server-policy.json")) == claude_head + [
+                "--server-policy", "/runs/r1/supervisor/server-policy.json", "--schema", "/calls/c1/schema.json"],
+            f"{runner_argv('claude', dict(base, server_policy='/runs/r1/supervisor/server-policy.json'))}")
+    control("server-policy-argv-is-the-adapters-probe", server_policy_argv(
+        {"cell": "/cells/server-policy-x", "host_bin": "/hosts/claude/2.1.304", "host_version": "2.1.304"}) == [
+        str(RUNNERS["claude"]), "--profile", "hermetic", "--server-policy-probe", "--cell-root", "/cells",
+        "--call-id", "server-policy-x", "--claude-bin", "/hosts/claude/2.1.304", "--host-version", "2.1.304"],
+        "the probe argv is not the adapter's interface")
     control("runner-argv-of-a-codex-call", runner_argv("codex", dict(base, model="gpt-6-luna")) == [
         str(RUNNERS["codex"]), "--profile", "hermetic", "--model", "gpt-6-luna", "--effort", "low", "--cd", "/cells/c1/cwd",
         "--schema", "/calls/c1/schema.json", "-"], f"{runner_argv('codex', dict(base, model='gpt-6-luna'))}")
@@ -4627,6 +4727,10 @@ def self_test(scratch=None):
             len(recorded) == 3 and recorded[0][-6:] == claude_pin
             and producing_argv[-12:] == claude_pin + ["--use", "producing", "--tools", "Read", "--manifest", cd]
             and not {"--max-output-tokens", "--use", "--claude-bin"} & set(recorded[2]), f"{recorded}")
+    # a runner set after construction is not the pinned one, so no probe of the host runs for its calls
+    control("a-golden-runner-asks-no-server-policy-of-the-pinned-host",
+            not (da / "supervisor" / "server-policy.json").exists()
+            and not any("--server-policy" in argv for argv in recorded), f"{recorded}")
     control("the-real-adapter-binds-the-producing-paths", len(binds) == 2 and binds[0][0] == (0, "") and binds[1][0] == (0, ""),
             f"{binds}")
     control("the-real-adapter-refuses-a-read-root-that-is-not-the-working-directory",
@@ -4837,7 +4941,9 @@ def self_test(scratch=None):
     # The wrapper is run for real against a fake host binary that starts no model and records what it
     # received; then the two forwarding behaviours are removed from a copy of the wrapper, one at a time,
     # and the same run must lose exactly that. A grep for the flag passed with the parser deleted.
-    def adapter_dispatch(label):
+    adapter_runs = {}
+
+    def adapter_dispatch(label, doctor_status=None):
         """Dispatch one real `claude-run.sh` call and return what the host received.
 
         BD#3: the invocation is the production one. The argv is `runner_argv` over the spec the Supervisor
@@ -4857,6 +4963,8 @@ def self_test(scratch=None):
         host_bin.chmod(0o700)
         (home / "version.txt").write_text(gate.seats()["hosts"]["claude"]["version"], encoding="utf-8")
         (home / "token").write_text("CLAUDE_CODE_OAUTH_TOKEN=a-fixture-not-a-token\n", encoding="utf-8")
+        if doctor_status is not None:
+            (home / "doctor-status.txt").write_text(doctor_status + "\n", encoding="utf-8")
         adapter_run_dir = run_dir(f"run-adapter-{label}", {"S6": 400_000})
         sup_a = Supervisor(adapter_run_dir, clock=lambda: clock[0], cell_root=cells, realization="golden",
                            env={**os.environ, "HOME": str(home / "home"),
@@ -4864,6 +4972,9 @@ def self_test(scratch=None):
                                 "CLAUDE_RUN_TOKEN_FILE": str(home / "token")})
         # the production builder, with the pinned host binary replaced by the fixture
         sup_a.runner = lambda host, spec: runner_argv(host, {**spec, "host_bin": str(host_bin)})
+        # and its server-policy probe, the adapter's own, with the same fixture
+        sup_a.policy_runner = lambda spec: server_policy_argv({**spec, "host_bin": str(host_bin)})
+        adapter_runs[label] = (sup_a, adapter_run_dir, home)
         ra = sup_a.reserve("S6", f"adapter-{label}", judge, "judge", tranche="calibration")
         try:
             sup_a.call("S6", judge, packets.build(ra["call_id"], "S6", judge, "Reply OK.\n", None), None,
@@ -4899,6 +5010,42 @@ def self_test(scratch=None):
     control("BD#3-the-packet-the-host-received-names-the-call-the-dispatcher-reserved",
             (got_real or {}).get("packet_head") == f"CALL-ID: {real_call_id}",
             f"{(got_real or {}).get('packet_head')} / {real_call_id}")
+    # F-31's server-delivered half (D-20261102-252c92): asked once per run, before its first hermetic Claude
+    # call, through the adapter's own probe, in a cell of its own with the call's environment; the record
+    # reaches the call's capture, and so its receipt's hermeticity
+    sup_r, run_r, home_r = adapter_runs["real"]
+
+    def doctor_runs(home):
+        log = home / "doctor-runs.log"
+        return [json.loads(line) for line in log.read_text(encoding="utf-8").splitlines()] if log.is_file() else []
+
+    def call_hermeticity(run, call_id):
+        host_file = run / "calls" / call_id / "capture" / "host.json"
+        return (json.loads(host_file.read_text(encoding="utf-8")).get("hermeticity") or {}) if host_file.is_file() else {}
+    policy_file = run_r / "supervisor" / "server-policy.json"
+    policy_held = json.loads(policy_file.read_text(encoding="utf-8")) if policy_file.is_file() else {}
+    runs = doctor_runs(home_r)
+    cells_real = os.path.realpath(home_r / "cells")
+    control("F-31-the-run-asks-the-adapter-for-the-server-policy-before-its-first-hermetic-claude-call",
+            policy_held.get("verdict") == "clean" and policy_held.get("status") == "none configured for this organization"
+            and len(runs) == 1, f"verdict={policy_held.get('verdict')!r} doctor runs={len(runs)}")
+    control("F-31-the-probe-runs-in-a-cell-of-its-own-with-the-calls-environment-and-stdin-closed",
+            len(runs) == 1 and runs[0]["home"].startswith(cells_real + os.sep)
+            and runs[0]["config"].startswith(cells_real + os.sep) and runs[0]["token"] and not runs[0]["token_file"]
+            and runs[0]["stdin_null"] and not list((home_r / "cells").glob("server-policy-*")), f"{runs}")
+    held_real = call_hermeticity(run_r, real_call_id)
+    control("F-31-the-hermetic-call-states-the-runs-server-policy-in-its-capture",
+            held_real.get("assessed") is True and (held_real.get("server_policy") or {}).get("verdict") == "clean",
+            f"{held_real}")
+    again = sup_r.server_policy(gate.seats()["hosts"]["claude"]["version"], str(home_r / "fake-claude"))
+    control("F-31-a-run-asks-once", again == policy_file and len(doctor_runs(home_r)) == 1,
+            f"{again} doctor runs={len(doctor_runs(home_r))}")
+    _, applied_call_id, _ = adapter_dispatch("policy-applied", doctor_status="2 settings applied")
+    held_applied = call_hermeticity(adapter_runs["policy-applied"][1], applied_call_id)
+    control("F-31-a-policy-that-loaded-is-recorded-and-the-call-is-not-fully-hermetic",
+            (held_applied.get("server_policy") or {}).get("verdict") == "not confirmed"
+            and (held_applied.get("server_policy") or {}).get("status") == "2 settings applied"
+            and held_applied.get("fully_hermetic") is False, f"{held_applied}")
     # ... and one mutation per forwarding behaviour, on a copy of the adapter the launcher is pointed at
     adapter_copy = scratch / "adapter-mutations"
     adapter_copy.mkdir(exist_ok=True)

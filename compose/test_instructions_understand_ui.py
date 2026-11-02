@@ -68,8 +68,21 @@ class Fixture:
         self.config = self.launch.load_config(self.config_path)
         for name in ("claude", "codex"):
             executable = self.bin / name
-            executable.write_text(f"#!{sys.executable}\n" + r'''
+            executable.write_text(f"#!{sys.executable}\nPROTOCOL = {str(ROOT / 'wrappers/codex_protocol.py')!r}\n" + r'''
 import json, os, pathlib, sys
+# The protocol check (wrappers/codex_protocol.py) asks a Codex for its version and its generated
+# schema before any app-server call; the fake answers with a schema naming what the code uses.
+if sys.argv[1:] == ['--version']:
+    raise SystemExit(print('codex-cli 0.0.0-fake'))
+if sys.argv[1:3] == ['app-server', 'generate-json-schema']:
+    import importlib.util
+    spec = importlib.util.spec_from_file_location('fake_codex_protocol', PROTOCOL)
+    protocol = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(protocol)
+    out = pathlib.Path(sys.argv[sys.argv.index('--out') + 1])
+    out.mkdir(parents=True, exist_ok=True)
+    (out / 'codex_app_server_protocol.schemas.json').write_text(json.dumps(protocol.fixture_bundle()))
+    raise SystemExit
 with open(os.environ['UNDERSTAND_PROBE_LOG'], 'a') as stream:
     stream.write(json.dumps({'host': pathlib.Path(sys.argv[0]).name, 'argv': sys.argv[1:],
                             'session': os.environ.get('AGENT_BIOS_UNDERSTAND_SESSION')}) + '\n')

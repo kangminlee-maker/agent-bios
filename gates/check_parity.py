@@ -37,6 +37,7 @@ import string
 import secrets
 import select
 import signal
+import socket
 import struct
 import shlex
 import shutil
@@ -1916,26 +1917,39 @@ def codex_run():
                     ("--sandbox",),
                 )
 
-            # codex-helm reads stdin only when it is the prompt's source: no prompt argument, or a `-` among
-            # them; never under --dry-run. An open stdin nobody writes to (a caller's inherited pipe) hung
-            # every call, --dry-run included. Each case below holds such a pipe open and requires the call to
-            # end; the piped cases require the prompt Codex received to carry, or not carry, what was piped.
+            # codex-helm reads stdin when it is the prompt's source: no prompt argument, or a `-` among them;
+            # never under --dry-run. An open stdin nobody writes to (a caller's inherited pipe) hung every call,
+            # --dry-run included. Beside a prompt argument without `-`, a redirected file is still appended,
+            # and a pipe or socket is left unread with a note on stderr naming `-`, never dropped in silence.
+            # Each pipe or socket case holds its write end open and requires the call to end; the cases that
+            # carry content require the prompt Codex received to carry, or not carry, it.
             prompt_seen = tmp / "codex-stdin"
+            stdin_file = tmp / "codex-helm-stdin-file"
 
-            def helm_call(argv, piped=None, timeout=60):
-                # stdin is a pipe whose write end this process holds: with `piped` it is written and
-                # closed, without it it stays open and idle until the call has ended (communicate()
-                # on a Popen-made pipe would close it at once, and an EOF tests nothing)
+            def helm_call(argv, piped=None, timeout=60, kind="pipe"):
+                # stdin is a pipe (or socket) whose write end this process holds: with `piped` it is
+                # written and closed, without it it stays open and idle until the call has ended
+                # (communicate() on a Popen-made pipe would close it at once, and an EOF tests nothing).
+                # kind="file" redirects a regular file holding `piped` instead.
                 if prompt_seen.exists():
                     prompt_seen.unlink()
-                read_end, write_end = os.pipe()
+                if kind == "file":
+                    stdin_file.write_text(piped or "")
+                    read_end, write_end = os.open(stdin_file, os.O_RDONLY), None
+                elif kind == "socket":
+                    ours, theirs = socket.socketpair()
+                    read_end, write_end = os.dup(theirs.fileno()), os.dup(ours.fileno())
+                    ours.close()
+                    theirs.close()
+                else:
+                    read_end, write_end = os.pipe()
                 try:
                     proc = subprocess.Popen(["bash", str(helm), "--reach", "inherit", *argv], stdin=read_end,
                                             stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
                                             env={**env, "FAKE_CODEX_STDIN": str(prompt_seen)}, start_new_session=True)
                 finally:
                     os.close(read_end)
-                if piped is not None:
+                if piped is not None and write_end is not None:
                     os.write(write_end, piped.encode())
                     os.close(write_end)
                     write_end = None
@@ -1949,34 +1963,58 @@ def codex_run():
                         write_end = None
                     os.killpg(proc.pid, signal.SIGKILL)
                     proc.communicate()
-                    return None, "", "timed out: it read an idle stdin"
+                    return None, "", "timed out: it read an idle stdin", ""
                 finally:
                     if write_end is not None:
                         os.close(write_end)
                 seen = prompt_seen.read_text() if prompt_seen.exists() else ""
-                return proc.returncode, out, seen if piped is not None or argv[:1] != ["--dry-run"] else err
+                return proc.returncode, out, err, seen
 
-            code, _, seen = helm_call(["probe-held-open"])
-            if code != 0 or "probe-held-open" not in seen:
-                mark_fail(f"codex-helm with a prompt argument and an idle open stdin: exit {code}, {seen[-200:]!r}")
-            code, _, said = helm_call(["--dry-run"])
+            # Failure lines name what was or was not found, never the prompt itself: it carries the wrapper's
+            # role contracts, which a log has no need of.
+            note = "was not read, because a prompt argument was given without -; add - to the arguments"
+
+            def found(text, *pieces):
+                return ", ".join(f"{piece!r} {'present' if piece in text else 'absent'}" for piece in pieces)
+
+            code, _, err, seen = helm_call(["probe-held-open"])
+            if code != 0 or "probe-held-open" not in seen or f"stdin is a pipe and {note}" not in err:
+                mark_fail(f"codex-helm with a prompt argument and an idle open stdin must end at once and say the pipe "
+                          f"was not read: exit {code}, {found(seen, 'probe-held-open')}, {found(err, 'stdin is a pipe')}")
+            code, _, err, seen = helm_call(["probe-held-socket"], kind="socket")
+            if code != 0 or "probe-held-socket" not in seen or f"stdin is a socket and {note}" not in err:
+                mark_fail(f"codex-helm with a prompt argument and an idle open socket on stdin must end at once and say "
+                          f"so: exit {code}, {found(seen, 'probe-held-socket')}, {found(err, 'stdin is a socket')}")
+            code, out, err, _ = helm_call(["--dry-run", "probe-dry-held"])
+            if code != 0 or "probe-dry-held" not in out or f"stdin is a pipe and {note}" not in err:
+                mark_fail(f"codex-helm --dry-run with a prompt argument and an idle open stdin must say the pipe was not "
+                          f"read: exit {code}, {found(out, 'probe-dry-held')}, {found(err, 'stdin is a pipe')}")
+            code, _, said, _ = helm_call(["--dry-run"])
             if code != 2 or "--dry-run reads no stdin" not in said:
                 mark_fail(f"codex-helm --dry-run with no prompt and an idle open stdin must refuse at once: exit {code}, "
-                          f"{said[-200:]!r}")
-            code, out, _ = helm_call(["--dry-run", "probe-dry", "-"])
+                          f"{found(said, '--dry-run reads no stdin')}")
+            code, out, _, _ = helm_call(["--dry-run", "probe-dry", "-"])
             if code != 0 or "<stdin: not read under --dry-run>" not in out:
                 mark_fail(f"codex-helm --dry-run with `-` must not read stdin: exit {code}")
-            code, _, seen = helm_call([], piped="piped-only-prompt\n")
+            code, _, _, seen = helm_call([], piped="piped-only-prompt\n")
             if code != 0 or "piped-only-prompt" not in seen:
-                mark_fail(f"codex-helm with no prompt argument must take the piped prompt: exit {code}, {seen[-200:]!r}")
-            code, _, seen = helm_call(["probe-arg", "-"], piped="piped-beside-arg\n")
-            if code != 0 or "probe-arg\n\n<stdin>\npiped-beside-arg\n</stdin>" not in seen:
+                mark_fail(f"codex-helm with no prompt argument must take the piped prompt: exit {code}, "
+                          f"{found(seen, 'piped-only-prompt')}")
+            block = "probe-arg\n\n<stdin>\npiped-beside-arg\n</stdin>"
+            code, _, err, seen = helm_call(["probe-arg", "-"], piped="piped-beside-arg\n")
+            if code != 0 or block not in seen or note in err:
                 mark_fail(f"codex-helm with `-` beside a prompt must append stdin in a <stdin> block: exit {code}, "
-                          f"{seen[-200:]!r}")
-            code, _, seen = helm_call(["probe-arg-alone"], piped="piped-unasked\n")
-            if code != 0 or "probe-arg-alone" not in seen or "piped-unasked" in seen:
-                mark_fail(f"codex-helm with a prompt argument and no `-` must leave stdin unread: exit {code}, "
-                          f"{seen[-200:]!r}")
+                          f"{found(seen, block)}, {found(err, note)}")
+            code, _, err, seen = helm_call(["probe-arg-alone"], piped="piped-unasked\n")
+            if (code != 0 or "probe-arg-alone" not in seen or "piped-unasked" in seen
+                    or f"stdin is a pipe and {note}" not in err):
+                mark_fail(f"codex-helm with a prompt argument and no `-` must leave a pipe unread and say so: exit {code}, "
+                          f"{found(seen, 'probe-arg-alone', 'piped-unasked')}, {found(err, 'stdin is a pipe')}")
+            block = "probe-arg-file\n\n<stdin>\nredirected-file\n</stdin>"
+            code, _, err, seen = helm_call(["probe-arg-file"], piped="redirected-file\n", kind="file")
+            if code != 0 or block not in seen or note in err:
+                mark_fail(f"codex-helm with a prompt argument and a redirected file must append the file in a <stdin> "
+                          f"block: exit {code}, {found(seen, block)}, {found(err, note)}")
 
             # Advanced launch docs promise an explicit --sandbox disables the HELM default bypass
             # "regardless of flag order", and the flag that would re-enable it is parsed
@@ -2152,6 +2190,16 @@ if argv[:1] == ["--version"]:
     print("codex-cli 0.163.0")
 elif argv[:2] == ["debug", "prompt-input"]:
     print(json.dumps(rendering(os.getcwd(), argv[-1])))
+elif argv[:2] == ["app-server", "generate-json-schema"]:
+    # the protocol check's question: a schema naming what the code uses, less FAKE_CODEX_SCHEMA_DROP
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("fake_codex_protocol", os.environ["FAKE_CODEX_PROTOCOL"])
+    protocol = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(protocol)
+    drop = [tuple(item.split("|")) for item in os.environ.get("FAKE_CODEX_SCHEMA_DROP", "").split(",") if item]
+    out = pathlib.Path(argv[argv.index("--out") + 1])
+    out.mkdir(parents=True, exist_ok=True)
+    (out / "codex_app_server_protocol.schemas.json").write_text(json.dumps(protocol.fixture_bundle(drop)))
 elif argv[:1] == ["app-server"]:
     for line in sys.stdin:
         msg = json.loads(line)
@@ -2163,9 +2211,17 @@ elif argv[:1] == ["app-server"]:
             print(json.dumps({"id": 1, "result": {}}), flush=True)
         elif msg.get("id") == 2 and os.environ.get("FAKE_CODEX_APPSERVER") == "fail":
             print(json.dumps({"id": 2, "error": {"code": -32603, "message": "thread/start failed"}}), flush=True)
+        elif msg.get("id") == 2 and os.environ.get("FAKE_CODEX_APPSERVER") == "badshape":
+            print(json.dumps({"id": 2, "result": {"instructionSources": "AGENTS.md", "model": "gpt-6-luna"}}), flush=True)
         elif msg.get("id") == 2:
-            print(json.dumps({"id": 2, "result": {"instructionSources": [str(f) for f in instruction_files(os.getcwd())],
-                                                  "model": "gpt-6-luna", "cwd": os.getcwd()}}), flush=True)
+            answer = json.dumps({"id": 2, "result": {"instructionSources": [str(f) for f in instruction_files(os.getcwd())],
+                                                     "model": "gpt-6-luna", "cwd": os.getcwd()}})
+            if os.environ.get("FAKE_CODEX_APPSERVER") == "coalesced":
+                # a notification and the response in ONE write: both lines land in the reader's buffer at once
+                sys.stdout.write(json.dumps({"method": "thread/started", "params": {}}) + "\n" + answer + "\n")
+                sys.stdout.flush()
+            else:
+                print(answer, flush=True)
 elif argv[:1] == ["exec"]:
     if os.environ.get("FAKE_CODEX_ARGV"):
         pathlib.Path(os.environ["FAKE_CODEX_ARGV"]).write_text("\n".join(argv) + "\n")
@@ -2227,10 +2283,11 @@ elif argv[:1] == ["exec"]:
 '''
 
 # The receipt evidence a capture must carry: design §3.2 step 1's list with the plan's
-# payload_sha256, as WP-02's session-distill/runlib/receipts.py EVIDENCE_KEYS names it.
+# payload_sha256 and the contract-fix record's hermeticity (2026-11-02, F-31), as WP-02's
+# session-distill/runlib/receipts.py EVIDENCE_KEYS names it.
 CAPTURE_EVIDENCE_KEYS = ("call_id", "schema_sha256", "payload_sha256", "seat_observed", "profile", "profile_flags_sha256",
                          "cwd", "manifest_sha256", "context_observed_sha256", "usage_state", "usage_totals",
-                         "capture_sha256", "session_id")
+                         "capture_sha256", "session_id", "hermeticity")
 # frames.jsonl is the combined frame and otel artifact the plan lists as frames.jsonl and otel.jsonl
 # (addendum 2026-10-21T1752); no rollout exists under the hermetic --ephemeral profile.
 CAPTURE_FILES = ("frames.jsonl", "events.jsonl", "host.json", "usage.json", "prompt-input.txt", "instruction-sources.json")
@@ -2277,11 +2334,14 @@ def codex_run_capture(tmp, run):
     repo = tmp / "capture-repo"
     (repo / ".git").mkdir(parents=True)
     (repo / "AGENTS.md").write_text("project rules CANARY-AGENTS\n")
+    # The protocol check keeps its verdict in the agent-bios state directory: this one, never the caller's.
+    (tmp / "capture-state").mkdir()
     base = dict(os.environ, PATH=f"{bin_dir}{os.pathsep}{os.environ.get('PATH', '')}", CODEX_HOME=str(owner_home),
                 AGENT_LAUNCH_BIN=str(bin_dir / "agent-launch"), RUST_LOG=CAPTURE_TRACE,
-                CODEX_RUN_BIN=str(bin_dir / "codex"), CODEX_RUN_VERSION="0.163.0")
+                CODEX_RUN_BIN=str(bin_dir / "codex"), CODEX_RUN_VERSION="0.163.0",
+                AGENT_BIOS_STATE_DIR=str(tmp / "capture-state"), FAKE_CODEX_PROTOCOL=str(run.parent / "codex_protocol.py"))
     for key in ("REVIEW_CAPTURE_DIR", "REVIEW_CALL_ID", "DISTILL_CALL_ID", "REVIEW_RECEIPT_DIR", "REVIEW_CONTEXT_MANIFEST",
-                "FAKE_CODEX_APPSERVER", "FAKE_CODEX_EXTRA"):
+                "FAKE_CODEX_APPSERVER", "FAKE_CODEX_EXTRA", "FAKE_CODEX_SCHEMA_DROP"):
         base.pop(key, None)
     packet = "CALL-ID: wp04-golden\n=== PAYLOAD ===\nPROMPT-BODY-CANARY review this\n"
     runs = [0]
@@ -2425,6 +2485,31 @@ def codex_run_capture(tmp, run):
     if result.returncode != 3 or "CONTEXT_EVIDENCE_MISSING app-server" not in result.stderr or argv_log.exists():
         mark_fail(f"codex-run dispatched without the host's instruction sources: {result.stderr.strip()[-200:]}")
 
+    # D-20261102-d8310f: before the app-server is used, the installed Codex's generated protocol schema
+    # must carry every name the code uses; the verdict is kept per version in the state directory. A
+    # schema without one refuses naming it and the version, and an answer in another shape refuses
+    # naming the field.
+    verdict = tmp / "capture-state" / "codex-protocol" / "codex-cli_0.163.0.json"
+    if not verdict.is_file() or jload(verdict).get("missing") != []:
+        mark_fail("codex-run kept no passing protocol verdict for the Codex it ran in the state directory")
+    result, _, _, _, argv_log = capture(run, "hermetic", env_update={
+        "AGENT_BIOS_STATE_DIR": str(tmp / "capture-state-unkept"),
+        "FAKE_CODEX_SCHEMA_DROP": "thread/start|result|instructionSources"})
+    if (result.returncode != 3 or "lacks what agent-bios uses: thread/start result instructionSources" not in result.stderr
+            or "codex-cli 0.163.0" not in result.stderr or argv_log.exists()):
+        mark_fail(f"codex-run used an app-server whose schema lacks a name it reads: {result.stderr.strip()[-300:]}")
+    result, _, _, _, argv_log = capture(run, "hermetic", env_update={"FAKE_CODEX_APPSERVER": "badshape"})
+    if result.returncode != 3 or "instructionSources: str, not list" not in result.stderr or argv_log.exists():
+        mark_fail(f"codex-run read an app-server answer in another shape without naming the field: "
+                  f"{result.stderr.strip()[-300:]}")
+    # A response that arrives in one write with a notification is read at once, not after the
+    # helper's whole app-server timeout (60 s) has run out.
+    began = time.monotonic()
+    result, _, _, _, _ = capture(run, "hermetic", env_update={"FAKE_CODEX_APPSERVER": "coalesced"})
+    if result.returncode != 0 or time.monotonic() - began > 30:
+        mark_fail(f"codex-run did not read an app-server response written in one write with a notification at once "
+                  f"(exit {result.returncode}, {time.monotonic() - began:.0f} s): {result.stderr.strip()[-200:]}")
+
     # RUST_LOG unset: the frames are silent and the capture says so (the live control is WP-04v's)
     result, cap, _, _, _ = capture(run, "hermetic", unset=("RUST_LOG",))
     silent = jload(cap / "usage.json") if (cap / "usage.json").is_file() else {}
@@ -2446,11 +2531,12 @@ def codex_run_capture(tmp, run):
     planted.mkdir()
     shutil.copy(run, planted / "codex-run.sh")
     source = helper_src.read_text()
-    marker = '"capture_sha256", "session_id")'
+    marker = '"capture_sha256", "session_id", "hermeticity")'
     if marker not in source:
         mark_fail("codex-run evidence-key control could not be planted: the helper's EVIDENCE_KEYS changed shape")
     else:
-        (planted / "codex_frame_filter.py").write_text(source.replace(marker, '"capture_sha256")', 1))
+        (planted / "codex_frame_filter.py").write_text(source.replace(marker, '"capture_sha256", "hermeticity")', 1))
+        shutil.copy(run.parent / "codex_protocol.py", planted / "codex_protocol.py")
         _, _, receipts, call_id, _ = capture(planted / "codex-run.sh", "hermetic")
         if receipt_key_problems(receipts, call_id) != ["RECEIPT_KEY_MISSING evidence.session_id"]:
             mark_fail(f"codex-run evidence-key control did not fire by name: {receipt_key_problems(receipts, call_id)}")
@@ -2930,6 +3016,8 @@ records.append({"type": "assistant", "requestRef": "req-1", "message": {
 for tid, err, body in results:
     records.append({"type": "user", "message": {"role": "user", "content": [
         {"type": "tool_result", "tool_use_id": tid, "is_error": err, "content": body}]}})
+for r in records:  # each names the writing version, as the host's records do (the evidence helper checks it)
+    r["version"] = VERSION
 folder = pathlib.Path(config) / "projects" / slug
 folder.mkdir(parents=True, exist_ok=True)
 with open(folder / f"{session}.jsonl", "a") as log:
@@ -3145,7 +3233,7 @@ def claude_run_hermetic(run):
             mark_fail("claude-run hermetic: the token remains in a file after the fake's dump was removed")
         evidence = {line.split("=", 1)[0] for line in receipt if "=" in line and not line.startswith("--")}
         for key in ("call_id", "profile", "profile_flags_sha256", "cwd", "context_observed_sha256", "capture_sha256",
-                    "session_id", "seat_observed", "schema_sha256"):
+                    "session_id", "seat_observed", "schema_sha256", "hermeticity"):
             if key not in evidence:
                 mark_fail(f"claude-run hermetic: the receipt carries no evidence key {key}")
         # result.usage is the last main segment (design §13.3): the adapter's receipt claims no call totals
@@ -4077,6 +4165,60 @@ def launcher_registration_wizard(fx):
             )
         if target.read_bytes() != before:
             mark_fail("a reader-refused registration modified the user's methods file")
+        # Bounded-wait control (D-20261102-49b466): behind a methods lock held past the bound the
+        # wizard refuses on its screen naming the lock, and the file is left as it was. The bounds are
+        # scaled on the helper the launcher loads; a second open of one file conflicts under flock.
+        # The holder is a child that lets go after 8 s, so a wizard that waits without a bound returns
+        # late and fails here rather than hanging the gate.
+        before = target.read_bytes()
+        held_lock = target.resolve().with_name(target.name + ".lock")
+        bounds = launcher_module.lock_platform(profile)
+        saved_bounds = (bounds.LOCK_WAIT_S, bounds.LOCK_NOTICE_S)
+        holder = subprocess.Popen([sys.executable, "-c", "import fcntl, os, sys, time; "
+                                   "fd = os.open(sys.argv[1], os.O_CREAT | os.O_WRONLY, 0o600); "
+                                   "fcntl.flock(fd, fcntl.LOCK_EX); print('held', flush=True); time.sleep(8)",
+                                   str(held_lock)], stdout=subprocess.PIPE, text=True)
+        held_screen = io.StringIO()
+        try:
+            holder.stdout.readline()
+            bounds.LOCK_WAIT_S, bounds.LOCK_NOTICE_S = 0.6, 0.2
+            fed, launcher_module.read_input = scripted(["gate-wiz-held", *happy[1:]])
+            try:
+                with contextlib.redirect_stdout(held_screen), contextlib.redirect_stderr(held_screen):
+                    landed_held = launcher_module.register_reviewer_wizard(None, profile, config, registry)
+            except (AssertionError, launcher_module.BackRequested, launcher_module.LaunchError):
+                landed_held = False
+        finally:
+            bounds.LOCK_WAIT_S, bounds.LOCK_NOTICE_S = saved_bounds
+            holder.kill(); holder.wait(); holder.stdout.close()
+        if landed_held or f"the launcher methods lock ({held_lock}) is still held after 0.6 s" not in held_screen.getvalue():
+            mark_fail("the registration wizard did not refuse by name behind a methods lock held past the bound")
+        if target.read_bytes() != before:
+            mark_fail("a wizard refused behind a held methods lock modified the user's methods file")
+        # With no lock helper reachable the wizard refuses on its screen naming the helper, and the
+        # file is left as it was. The module is told it lives in an empty directory, as the
+        # compatibility install's standalone copy does, so lock_platform finds neither candidate.
+        before = target.read_bytes()
+        nowhere = sandbox / "standalone" / "bin"
+        nowhere.mkdir(parents=True, exist_ok=True)
+        if profile.with_name("host_platform.py").exists():
+            mark_fail("wizard missing-helper control: a host_platform.py sits beside the sandbox profile")
+        real_file = launcher_module.__file__
+        bare_screen = io.StringIO()
+        try:
+            launcher_module.__file__ = str(nowhere / "agent-launch.py")
+            fed, launcher_module.read_input = scripted(["gate-wiz-bare", *happy[1:]])
+            try:
+                with contextlib.redirect_stdout(bare_screen), contextlib.redirect_stderr(bare_screen):
+                    landed_bare = launcher_module.register_reviewer_wizard(None, profile, config, registry)
+            except (AssertionError, launcher_module.BackRequested, launcher_module.LaunchError):
+                landed_bare = False
+        finally:
+            launcher_module.__file__ = real_file
+        if landed_bare or "the launcher's lock helper is missing" not in bare_screen.getvalue():
+            mark_fail("the registration wizard did not refuse naming the missing lock helper")
+        if target.read_bytes() != before:
+            mark_fail("a wizard refused for a missing lock helper modified the user's methods file")
         # Publication-failure control (writable-scratch round, #6): a directory at
         # the target makes the atomic replace fail AFTER the trial passed. The
         # wizard must refuse like any other refusal — no raw OSError, no
@@ -15927,6 +16069,9 @@ def preset_save_round_trips(fx):
         "sys.modules['agl'] = mod; spec.loader.exec_module(mod)\n"
         "config = mod.load_config(cfg)\n"
         "plan = mod.build_plan(config, 'codex', 'balanced')\n"
+        "if sys.argv[3:] == ['bounded']:\n"
+        "    bounds = mod.lock_platform(cfg)\n"
+        "    bounds.LOCK_WAIT_S, bounds.LOCK_NOTICE_S = 0.6, 0.2\n"
         "mod.save_preset(plan, config, cfg, sys.argv[2])\n",
         encoding="utf-8",
     )
@@ -15938,6 +16083,19 @@ def preset_save_round_trips(fx):
     try:
         with os.fdopen(held, "w") as handle:
             fcntl.flock(handle, fcntl.LOCK_EX)
+            # The wait is bounded (D-20261102-49b466): with the bounds scaled, a saver behind the held
+            # lock refuses naming it, and writes nothing.
+            try:
+                bounded = subprocess.run([sys.executable, str(saver), str(profile), "lock-bounded", "bounded"],
+                                         capture_output=True, text=True, timeout=15)
+                if (bounded.returncode == 0
+                        or f"the launcher presets lock ({lock_path}) is still held after 0.6 s" not in bounded.stderr
+                        or "waiting for the launcher presets lock" not in bounded.stderr
+                        or presets_file.is_file()):
+                    mark_fail(f"a preset save behind a lock held past the bound did not refuse by name: exit "
+                              f"{bounded.returncode}, {bounded.stderr.strip()[-300:]!r}")
+            except subprocess.TimeoutExpired:
+                mark_fail("a preset save behind a lock held past a 0.6 s bound was still waiting after 15 s")
             worker = subprocess.Popen(
                 [sys.executable, str(saver), str(profile), "lock-probe"],
                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
@@ -15954,6 +16112,50 @@ def preset_save_round_trips(fx):
         if worker.poll() is None:
             worker.kill()
             worker.communicate()
+    # The lock helper is loaded at the save, not at startup: a standalone launcher copy with no
+    # host_platform.py beside it or in a package above it (the compatibility install's ~/.local/bin
+    # copy before its helper is deployed) still starts and plans, and its save refuses naming the
+    # missing helper rather than waiting on a lock without a bound.
+    alone = workspace / "standalone"
+    (alone / "bin").mkdir(parents=True, exist_ok=True)
+    (alone / "cfg").mkdir(exist_ok=True)
+    alone_launcher = alone / "bin" / "agent-launch.py"
+    shutil.copy(launcher, alone_launcher)
+    alone_profile = alone / "cfg" / "agent-launch.toml"
+    alone_profile.write_text(fx.profile_text, encoding="utf-8")
+    if any(path.exists() for path in (alone / "compose" / "host_platform.py",
+                                      alone_profile.with_name("host_platform.py"))):
+        mark_fail("standalone launcher control: a host_platform.py is reachable from the copy, so the "
+                  "missing-helper refusal is not what runs")
+    alone_saver = workspace / "standalone-saver.py"
+    alone_saver.write_text(
+        "import sys, pathlib, importlib.util\n"
+        "spec = importlib.util.spec_from_file_location('agl', sys.argv[1])\n"
+        "mod = importlib.util.module_from_spec(spec)\n"
+        "sys.modules['agl'] = mod; spec.loader.exec_module(mod)\n"
+        "cfg = pathlib.Path(sys.argv[2])\n"
+        "plan = mod.build_plan(mod.load_config(cfg), 'codex', 'balanced')\n"
+        "print('planned', flush=True)\n"
+        "mod.save_preset(plan, mod.load_config(cfg), cfg, 'standalone-probe')\n",
+        encoding="utf-8",
+    )
+    try:
+        helped = subprocess.run([sys.executable, str(alone_launcher), "--config", str(alone_profile), "--help"],
+                                capture_output=True, text=True, timeout=30, env=fx.env)
+        alone_save = subprocess.run([sys.executable, str(alone_saver), str(alone_launcher), str(alone_profile)],
+                                    capture_output=True, text=True, timeout=30, env=fx.env)
+    except subprocess.TimeoutExpired:
+        mark_fail("standalone launcher control: the copy without its lock helper did not finish in 30 s")
+    else:
+        if helped.returncode != 0 or "usage:" not in helped.stdout:
+            mark_fail(f"a launcher copy without its lock helper does not start: --help exit {helped.returncode}")
+        if alone_save.stdout.strip() != "planned":
+            mark_fail("a launcher copy without its lock helper could not load its config and plan a launch")
+        if (alone_save.returncode == 0 or "the launcher's lock helper is missing" not in alone_save.stderr
+                or launcher_module.user_presets_path(alone_profile).is_file()):
+            mark_fail(f"a preset save with no lock helper did not refuse naming it: exit {alone_save.returncode}, "
+                      f"{alone_save.stderr.strip()[-200:]!r}")
+
     if blocked is False:
         mark_fail("preset save took no exclusive lock — a second launcher saving at the "
                   "same moment reads the file this one is about to replace, and the later "
@@ -16736,6 +16938,23 @@ def shell_wrapper(fx):
         "codex", "exec", "alias-probe"
     ]:
         mark_fail("shell init did not replace pre-existing codex/claude aliases")
+    # The probe loads zstat alone (`zmodload -F zsh/stat b:zstat`): the whole module would put a `stat`
+    # builtin in front of the user's /usr/bin/stat in their own shell. Asked of a shell that had not loaded
+    # the module and of one that had, around a call that runs the probe: `stat` resolves as it did before,
+    # and the probe still works.
+    for label, preload in (("a shell without zsh/stat", ""), ("a shell that loaded zsh/stat", "zmodload zsh/stat; ")):
+        cache.unlink(missing_ok=True)
+        if dispatch_log.exists():
+            dispatch_log.unlink()
+        stat_result = invoke(["zsh", "-f", "-c",
+                              f'{preload}before="$(whence -w stat)"; source {shell_init}; claude planted-verb probe-id; '
+                              f'print -r -- "STAT[$before][$(whence -w stat)]"'], env=shell_env)
+        seen = re.search(r"STAT\[(.*)\]\[(.*)\]", stat_result.stdout)
+        received = dispatch_log.read_text().splitlines() if dispatch_log.is_file() else []
+        if (stat_result.returncode != 0 or not seen or seen.group(1) != seen.group(2) or not seen.group(1)
+                or received != ["claude", "planted-verb", "probe-id"]):
+            mark_fail(f"in {label}, the wrapper's probe changed what `stat` is or did not run: "
+                      f"{stat_result.stdout.strip()[-200:]!r}, dispatched {received!r}")
 
 def main(argv):
     from fixture_support import legacy_host_environment

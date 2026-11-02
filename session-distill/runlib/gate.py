@@ -319,7 +319,8 @@ def frame_owner():
 # calling that function rather than by copying the rule (BC#2). Author-side imports shipped, never
 # the reverse.
 OBSERVER_OWNER = pathlib.Path(__file__).resolve().parents[2] / "wrappers" / "claude_hermetic_evidence.py"
-OBSERVER_READERS = ("norm_sha256",)  # the observer's only function read here
+# the observer's only functions read here and by dispatch.py (server_policy_record, over the probe's answer)
+OBSERVER_READERS = ("norm_sha256", "receipt_hermeticity", "server_policy_record")
 _observer_owner = None
 
 
@@ -579,7 +580,8 @@ def receipt_evidence(call_dir):
             "cwd": host.get("cwd") or "", "manifest_sha256": canonical_sha256(call.get("manifest")),
             "context_observed_sha256": canonical_sha256(host.get("context")),
             "usage_state": usages.call_state(c.usage), "usage_totals": usages.totals_text(c.usage),
-            "capture_sha256": capture_sha256(c.dir), "session_id": host.get("session_id") or ""}
+            "capture_sha256": capture_sha256(c.dir), "session_id": host.get("session_id") or "",
+            "hermeticity": observer_owner().receipt_hermeticity(host)}
 
 
 @check("completion_binding")
@@ -608,6 +610,7 @@ def receipt_binding(c, errors):
         "evidence.usage_totals": usages.totals_text(usage) if usage else None,
         "evidence.capture_sha256": capture_sha256(c.dir),
         "evidence.session_id": host.get("session_id"),
+        "evidence.hermeticity": observer_owner().receipt_hermeticity(host),
     }
     for key, value in want.items():
         held = evidence.get(key.split(".", 1)[1]) if key.startswith("evidence.") else receipt.get(key)
@@ -1265,7 +1268,8 @@ def self_test():
             "RECORD_INTEGRITY receipt packet_sha256", "BINDING_MISMATCH request text")
     for key, value in (("schema_sha256", "0" * 64), ("payload_sha256", "0" * 64), ("seat_observed", '{"main":["claude-opus-5-5"]}'),
                        ("manifest_sha256", "0" * 64), ("context_observed_sha256", "0" * 64), ("usage_state", "provisional"),
-                       ("usage_totals", '{"measured":1}'), ("capture_sha256", "0" * 64), ("session_id", "another-session")):
+                       ("usage_totals", '{"measured":1}'), ("capture_sha256", "0" * 64), ("session_id", "another-session"),
+                       ("hermeticity", '{"assessed":true,"fully_hermetic":true}')):
         control(f"receipt-{key}-is-not-recomputed", variant(claude, lambda f, k=key, v=value: jedit(f, "receipt.json", lambda o: o["evidence"].update({k: v})),
                                                            reseal=False), f"RECORD_INTEGRITY receipt evidence.{key}")
     control("receipt-seat-sent-is-not-the-call-seat", variant(claude, lambda f: jedit(f, "receipt.json", lambda o: o.update(model="claude-opus-5-5")),
@@ -2041,6 +2045,7 @@ def self_test():
         "receipt usage state": ("receipt-usage_state-is-not-recomputed", "RECORD_INTEGRITY"),
         "receipt usage totals": ("receipt-usage_totals-is-not-recomputed", "RECORD_INTEGRITY"),
         "receipt capture hash": ("receipt-capture_sha256-is-not-recomputed", "RECORD_INTEGRITY"),
+        "receipt hermeticity": ("receipt-hermeticity-is-not-recomputed", "RECORD_INTEGRITY"),
         "receipt session or thread id": ("receipt-session_id-is-not-recomputed", "RECORD_INTEGRITY"),
         "receipt exit status": ("receipt-exit-status-is-not-observed", "RECORD_INTEGRITY"),
         "receipt evidence key missing": ("receipt-key-missing", "RECEIPT_KEY_MISSING"),
@@ -2295,7 +2300,7 @@ def self_test():
             ("evidence.manifest_sha256", "receipt context-manifest hash"),
             ("evidence.context_observed_sha256", "receipt observed-context hash"), ("evidence.usage_state", "receipt usage state"),
             ("evidence.usage_totals", "receipt usage totals"), ("evidence.capture_sha256", "receipt capture hash"),
-            ("evidence.session_id", "receipt session or thread id"))},
+            ("evidence.session_id", "receipt session or thread id"), ("evidence.hermeticity", "receipt hermeticity"))},
         ("references", "RECORD_INTEGRITY {} id {} at {} resolves to nothing"): ("every reference resolves",),
         ("schema", "SCHEMA_INVALID result: not one JSON document (nothing is extracted from prose)"): ("prose is never parsed (F22)",),
         ("schema", "SCHEMA_INVALID schema.json: refused by the schema policy ({})"): ("schema policy",),

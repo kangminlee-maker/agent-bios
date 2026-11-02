@@ -1733,7 +1733,7 @@ def _self_test_body(base):
     # not in transport_config) and to m68 (it is not in drain_uploads), so only
     # the shipped-command probe can see it.
     root = _copy_tree(base / "m76")
-    _mutate_once(root / cl, "        if not args.no_upload:\n            import fcntl",
+    _mutate_once(root / cl, "        if not args.no_upload:\n            summary = drain_under_lock(",
             "        _amb = home / 'hooks' / 'dashboard-url'\n"
             "        if _amb.is_file():\n"
             "            _s = pathlib.Path.home() / '.config' / 'agent-bios'\n"
@@ -1741,7 +1741,7 @@ def _self_test_body(base):
             "            (_s / 'ingest-url').write_text(_amb.read_text().strip())\n"
             "            (_s / 'token').write_text('ambient')\n"
             "        if not args.no_upload:\n"
-            "            import fcntl")
+            "            summary = drain_under_lock(")
     ok &= _expect("the shipped command configures itself from ambient state", root,
                   "zero egress is broken on the real path", legs=("wire",))
 
@@ -1773,7 +1773,7 @@ def _self_test_body(base):
     # before both fixtures shared one planter this bypass passed the gate AND
     # its self-test.
     root = _copy_tree(base / "m78")
-    _mutate_once(root / cl, "        if not args.no_upload:\n            import fcntl",
+    _mutate_once(root / cl, "        if not args.no_upload:\n            summary = drain_under_lock(",
             "        _amb = home / 'hooks' / 'ingest-url'\n"
             "        if _amb.is_file():\n"
             "            _s = pathlib.Path.home() / '.config' / 'agent-bios'\n"
@@ -1781,7 +1781,7 @@ def _self_test_body(base):
             "            (_s / 'ingest-url').write_text(_amb.read_text().strip())\n"
             "            (_s / 'token').write_text('ambient')\n"
             "        if not args.no_upload:\n"
-            "            import fcntl")
+            "            summary = drain_under_lock(")
     ok &= _expect("a CLI-layer fallback reads the ingest-url locator", root,
                   "zero egress is broken on the real path", legs=("wire",))
 
@@ -1820,7 +1820,7 @@ def _self_test_body(base):
     # falls through to the generic "not by name" path, which this assertion
     # refuses to accept.
     root = _copy_tree(base / "m79")
-    _mutate_once(root / cl, "        if not args.no_upload:\n            import fcntl",
+    _mutate_once(root / cl, "        if not args.no_upload:\n            summary = drain_under_lock(",
             "        _amb = home / 'hooks' / 'ingest-url'\n"
             "        if _amb.is_file():\n"
             "            _s = pathlib.Path.home() / '.config' / 'agent-bios'\n"
@@ -1828,7 +1828,7 @@ def _self_test_body(base):
             "            (_s / 'ingest-url').write_text(_amb.read_text().strip())\n"
             "            (_s / 'token').write_text('ambient')\n"
             "        if not args.no_upload:\n"
-            "            import fcntl")
+            "            summary = drain_under_lock(")
     swallowed = _io.StringIO()
     with _ctx.redirect_stderr(swallowed):
         accepted = _expect("meta: right reach, needle nothing says", root,

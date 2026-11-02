@@ -21,9 +21,9 @@ if __name__ == "__main__":
     sys.dont_write_bytecode = True
 
 try:
-    from host_platform import sync_directory, cli_argv, python_argv, runtime_environment
+    from host_platform import sync_directory, cli_argv, python_argv, runtime_environment, process_identity as _process_identity
 except ImportError:
-    from .host_platform import sync_directory, cli_argv, python_argv, runtime_environment
+    from .host_platform import sync_directory, cli_argv, python_argv, runtime_environment, process_identity as _process_identity
 
 try:
     from instructions_install import InstructionsInstaller
@@ -93,40 +93,6 @@ def _identity() -> dict[str, Any]:
     return {"machine_id": hashlib.sha256(hardware.encode()).hexdigest(), "identity_method": method,
             "hostname": host, "platform": platform.system(), "architecture": platform.machine(),
             "uid": os.getuid() if hasattr(os, "getuid") else None}
-
-
-def _process_identity(pid: int) -> str | None:
-    if os.name == "nt":
-        import ctypes
-        from ctypes import wintypes
-        kernel = ctypes.WinDLL("kernel32", use_last_error=True)
-        kernel.OpenProcess.restype = wintypes.HANDLE
-        kernel.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
-        kernel.GetProcessTimes.argtypes = [wintypes.HANDLE] + [ctypes.POINTER(wintypes.FILETIME)] * 4
-        kernel.CloseHandle.argtypes = [wintypes.HANDLE]
-        handle = kernel.OpenProcess(0x1000, False, pid)
-        if not handle:
-            return None
-        try:
-            times = [wintypes.FILETIME() for _ in range(4)]
-            if not kernel.GetProcessTimes(handle, *(ctypes.byref(t) for t in times)):
-                return None
-            return str((times[0].dwHighDateTime << 32) | times[0].dwLowDateTime)
-        finally:
-            kernel.CloseHandle(handle)
-    if sys.platform.startswith("linux"):
-        try:
-            fields = (Path("/proc") / str(pid) / "stat").read_text().rsplit(")", 1)[1].split()
-            return fields[19]
-        except (OSError, IndexError):
-            return None
-    try:
-        result = subprocess.run(["/bin/ps", "-p", str(pid), "-o", "lstart="], stdin=subprocess.DEVNULL,
-                                capture_output=True, text=True, timeout=3,
-                                env={**os.environ, "LC_ALL": "C", "TZ": "UTC"})
-        return result.stdout.strip() if result.returncode == 0 and result.stdout.strip() else None
-    except (OSError, subprocess.SubprocessError):
-        return None
 
 
 def _read_json(path: Path) -> dict[str, Any]:
