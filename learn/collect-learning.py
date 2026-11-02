@@ -639,17 +639,40 @@ def print_upload_summary(s):
           f"pending={s['pending']}{tail}")
 
 
+def drain_under_lock(destination, drain):
+    """Run `drain` holding the host's upload lock, so two captures never drain one queue at once. The
+    wait is bounded (host_platform.lock_within): past it the drain is not run and the lock is named;
+    the learning is already captured, and the next drain sends it."""
+    if str(REPO / "compose") not in sys.path:
+        sys.path.insert(0, str(REPO / "compose"))
+    from host_platform import LockWaitExpired, lock_within
+    lock = destination / 'upload.lock'
+    fd = os.open(lock, os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+    with os.fdopen(fd, 'a') as handle:
+        try:
+            lock_within(handle, f"the learning upload lock ({lock})")
+        except LockWaitExpired as exc:
+            print(f"  upload -> NOT RUN: {exc}; the record is captured and stays queued for the next "
+                  f"learn!", file=sys.stderr)
+            return None
+        return drain()
+
+
 def _self_test():
     """Socket-free verification of the drain: status classification, watermark
     advance, transient-stop (no storm), permanent-drop, no-token skip, poison
     line, plus capture-time redaction wiring. Injects post_fn/now; exits
     non-zero on any failure."""
+    import atexit
     import tempfile
 
     # One scratch tree for the whole run, removed at the end: every mkdtemp here
     # used to survive the process, and the gate that calls this ran on every
-    # commit — 10k directories before anyone counted.
+    # commit — 10k directories before anyone counted. Removed again when the
+    # process ends, however it ends: a run that raises never reaches the last
+    # line, and the seam-coverage gate runs this suite on mutated copies.
     scratch = pathlib.Path(tempfile.mkdtemp(prefix="learn-selftest-"))
+    atexit.register(shutil.rmtree, scratch, True)
     made = {"n": 0}
 
     def scratch_dir(tag):
@@ -1135,6 +1158,37 @@ def _self_test():
     checks.append(("post limit is a hard cap",
                    capped["n"] == 1 and s["uploaded"] == 1 and s["reason"] == "limit"))
 
+    # 18) a drain behind an upload lock held past the bound is not run, and the lock is named — the
+    #     writer used to wait on it with no deadline. The bounds are scaled; the holder is a child
+    #     that lets go after 8 s, so a drain that waits without a bound runs late and fails here.
+    import contextlib
+    import io
+    import subprocess
+    if str(REPO / "compose") not in sys.path:
+        sys.path.insert(0, str(REPO / "compose"))
+    import host_platform
+    held_dir = scratch_dir("held-upload")
+    holder = subprocess.Popen([sys.executable, "-c", "import fcntl, sys, time; f = open(sys.argv[1], 'a'); "
+                               "fcntl.flock(f, fcntl.LOCK_EX); print('held', flush=True); time.sleep(8)",
+                               str(held_dir / "upload.lock")], stdout=subprocess.PIPE, text=True)
+    saved = (host_platform.LOCK_WAIT_S, host_platform.LOCK_NOTICE_S)
+    drained = {"n": 0}
+    said = io.StringIO()
+    try:
+        holder.stdout.readline()
+        host_platform.LOCK_WAIT_S, host_platform.LOCK_NOTICE_S = 0.6, 0.2
+        with contextlib.redirect_stderr(said):
+            outcome = drain_under_lock(held_dir, lambda: drained.update(n=1) or {"status": "ok"})
+    finally:
+        host_platform.LOCK_WAIT_S, host_platform.LOCK_NOTICE_S = saved
+        holder.kill()
+        holder.wait()
+        holder.stdout.close()
+    checks.append(("a drain behind a held upload lock is not run and names the lock",
+                   outcome is None and drained["n"] == 0
+                   and f"the learning upload lock ({held_dir / 'upload.lock'}) is still held after 0.6 s" in said.getvalue()
+                   and "waiting for the learning upload lock" in said.getvalue()))
+
     shutil.rmtree(scratch, ignore_errors=True)
     failed = [name for name, ok in checks if not ok]
     if failed:
@@ -1195,14 +1249,11 @@ def main():
         result = store.capture_learning(host, record)
         print(f"collect-learning: OK host={host} learning_id={result['learning_id']} · private source; future activated sessions")
         if not args.no_upload:
-            import fcntl
-            lock = destination / 'upload.lock'
-            fd = os.open(lock, os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
-            with os.fdopen(fd, 'a') as handle:
-                fcntl.flock(handle, fcntl.LOCK_EX)
-                print_upload_summary(drain_uploads(
-                    home, jsonl_path=destination / 'events.jsonl',
-                    state_path=destination / 'upload-state.json'))
+            summary = drain_under_lock(destination, lambda: drain_uploads(
+                home, jsonl_path=destination / 'events.jsonl',
+                state_path=destination / 'upload-state.json'))
+            if summary is not None:
+                print_upload_summary(summary)
         return
     bullet = prose_bullet(record)
     jsonl = append_record(home, record, dry)

@@ -89,8 +89,19 @@ def moment(ts):
     return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
 
 
+# The usage keys this report reads. The vendor calls the transcript format internal and liable to
+# change between versions, so a usage object carrying none of them is a moved format, not a free
+# request: it is counted and named with the host version. A key added beside these is no alarm.
+USAGE_KEYS = ("input_tokens", "output_tokens", "cache_read_input_tokens", "cache_creation_input_tokens",
+              "cache_creation")
+
+
 def scan(path):
-    """-> {(scope, model): {in,out,cr,cw5,cw1,turns}}, (t_min, t_max), {scope: agent_ids}
+    """-> {(scope, model): {in,out,cr,cw5,cw1,turns}}, (t_min, t_max), {scope: agent_ids}, drift
+
+    `drift` is what the totals leave out: `unread`, the responses whose usage object carries none
+    of USAGE_KEYS, `versions`, the host versions those records name, and `bad_lines`, the lines
+    that are not JSON.
 
     A single API response is written to the transcript several times as it
     streams, each line carrying output_tokens *so far* (e.g. 2, 2, 2, 540).
@@ -100,17 +111,22 @@ def scan(path):
     """
     best, tmin, tmax = {}, None, None
     agents = {"main": set(), "sub": set()}
+    drift = {"unread": 0, "versions": set(), "bad_lines": 0}
     anonymous = itertools.count()
     try:
         handle = open(path, errors="replace")
     except OSError as exc:
         print(f"session-cost: cannot read {path}: {exc}", file=sys.stderr)
-        return {}, (None, None), agents
+        return {}, (None, None), agents, drift
     with handle:
         for line in handle:
             try:
                 d = json.loads(line)
             except json.JSONDecodeError:
+                drift["bad_lines"] += 1
+                continue
+            if not isinstance(d, dict):
+                drift["bad_lines"] += 1
                 continue
             at = moment(d.get("timestamp"))
             if at is not None:
@@ -133,10 +149,13 @@ def scan(path):
             key = (scope, ident if ident else f"anonymous-{next(anonymous)}")
             prev = best.get(key)
             if prev is None or u.get("output_tokens", 0) > prev[1].get("output_tokens", 0):
-                best[key] = (model, u)
+                best[key] = (model, u, d.get("version"))
 
     agg = {}
-    for (scope, _), (model, u) in best.items():
+    for (scope, _), (model, u, version) in best.items():
+        if not any(k in u for k in USAGE_KEYS):
+            drift["unread"] += 1
+            drift["versions"].add(version if isinstance(version, str) and version else None)
         a = agg.setdefault((scope, model), dict(inp=0, out=0, cr=0, cw5=0, cw1=0, turns=0))
         a["inp"] += u.get("input_tokens", 0)
         a["out"] += u.get("output_tokens", 0)
@@ -148,7 +167,7 @@ def scan(path):
         else:
             a["cw5"] += u.get("cache_creation_input_tokens", 0)
         a["turns"] += 1
-    return agg, (tmin, tmax), agents
+    return agg, (tmin, tmax), agents, drift
 
 def cost(model, a):
     p = price_for(model)
@@ -176,8 +195,12 @@ def report(session_path):
            f"{'cache_rd':>10}{'cache_wr':>10}{'cost$':>9}")
     print(hdr); print("-" * len(hdr))
     span_min = span_max = None
+    unread, versions, bad_lines = 0, set(), 0
     for label, path in sources:
-        agg, (tmin, tmax), agents = scan(path)
+        agg, (tmin, tmax), agents, drift = scan(path)
+        unread += drift["unread"]
+        versions |= drift["versions"]
+        bad_lines += drift["bad_lines"]
         if tmin:
             span_min = min(span_min or tmin, tmin); span_max = max(span_max or tmax, tmax)
         for (scope, model), a in sorted(agg.items()):
@@ -205,6 +228,15 @@ def report(session_path):
         print(f"\nwall clock: no usable timestamps   |   modeled total cost: ${grand:,.2f}")
     if unpriced:
         print(f"WARN unpriced models: {set(unpriced)}")
+    if unread:
+        named = sorted(v for v in versions if v)
+        writer = ", ".join(f"Claude Code {v}" for v in named) + (", " if named and None in versions else "")
+        writer += "a record naming no host version" if None in versions else ""
+        print(f"WARN {unread} response(s) carry a usage object with none of the keys this report reads "
+              f"({', '.join(USAGE_KEYS)}), written by {writer}: the transcript format has moved, and the "
+              f"totals above count them as zero")
+    if bad_lines:
+        print(f"WARN {bad_lines} line(s) are not a JSON record and were skipped")
     for key in sorted(tiered_seen):
         print(f"NOTE {key}: {TIERED[key]}")
     return 0
@@ -418,7 +450,9 @@ def _self_test():
 
     def check(name, got, want):
         ok = got == want
-        print(f"  {'ok  ' if ok else 'FAIL'} {name}" + ("" if ok else f"  got {got!r} want {want!r}"))
+        # A failure goes to stderr too: the umbrella runs this quietly and shows stderr alone.
+        print(f"  {'ok  ' if ok else 'FAIL'} {name}" + ("" if ok else f"  got {got!r} want {want!r}"),
+              file=sys.stdout if ok else sys.stderr)
         if not ok:
             failures.append(name)
 
@@ -464,6 +498,32 @@ def _self_test():
                   (result.returncode,
                    "modeled total cost: " + expected in result.stdout),
                   (0, True))
+
+        # A usage key the vendor renames reads as zero. The report names how many responses it
+        # could not read and the host version that wrote them; a key added beside the known ones
+        # is no alarm; a line that is not JSON is counted, not skipped in silence.
+        def cost_report(name, records, raw=""):
+            path = write(td, name, records)
+            if raw:
+                with open(path, "a", encoding="utf-8") as fh:
+                    fh.write(raw)
+            done = subprocess.run([sys.executable, os.path.abspath(__file__), path], capture_output=True, text=True)
+            return done.returncode, done.stdout
+        moved = [{"type": "assistant", "version": "9.9.9-planted", "message": {
+            "id": f"moved-{n}", "model": "claude-opus-5", "usage": {"inputTokens": 10, "outputTokens": 5}}}
+            for n in range(2)]
+        code, out = cost_report("moved.jsonl", moved)
+        check("a renamed usage key is reported by count and host version",
+              (code, "WARN 2 response(s) carry a usage object with none of the keys" in out, "9.9.9-planted" in out),
+              (0, True, True))
+        code, out = cost_report("added.jsonl", [{"type": "assistant", "version": "9.9.9-planted", "message": {
+            "id": "added", "model": "claude-opus-5",
+            "usage": {"input_tokens": 10, "output_tokens": 5, "planted_new_key": 3}}}])
+        check("a usage key added beside the known ones raises nothing", (code, "WARN" in out), (0, False))
+        code, out = cost_report("bad-line.jsonl", moved[:0] + [{"type": "assistant", "message": {
+            "id": "fine", "model": "claude-opus-5", "usage": {"input_tokens": 10}}}], raw="{not json\n")
+        check("a line that is not JSON is counted", (code, "WARN 1 line(s) are not a JSON record" in out),
+              (0, True))
 
         # Claude: two requests. The first is written twice as it streams, the
         # second is a sidechain that must not be counted.
@@ -542,7 +602,8 @@ def _self_test():
         check("an unmeasurable transcript reports failure, not zero",
               context_report(empty), False)
 
-    print("\nself-test: " + (f"{len(failures)} FAILED" if failures else "all passed"))
+    print("\nself-test: " + (f"{len(failures)} FAILED" if failures else "all passed"),
+          file=sys.stderr if failures else sys.stdout)
     return 1 if failures else 0
 
 

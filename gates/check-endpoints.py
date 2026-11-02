@@ -827,12 +827,10 @@ def leg_wire(root):
         mark = len(seen)
         cli_home = home_env / "cli-home"
         cli_home.mkdir()
-        cli_env = dict(os.environ)
-        cli_env["CLAUDE_CONFIG_DIR"] = str(cli_home)
         # The subprocess resolves its slot from $HOME; pointing that at the
         # scratch tree is how the shipped CLI reaches the loopback server
         # without this process mutating its own environment.
-        cli_env["HOME"] = str(home_env)
+        cli_env = probe_environ(home_env, cli_home)
         # Through `install.sh learn` on plain stdin — the SHIPPED entry,
         # plumbing included: install.sh parks the caller's stdin on fd 3 itself
         # and cmd_learn reads it back, so a `<&3` regression breaks the real
@@ -866,9 +864,7 @@ def leg_wire(root):
         # how a probe passes while the defect it names is live.
         egress_cli_home = home_env / "no-slot-cli-home"
         plant_legacy_decoy(egress_cli_home / "hooks", f"http://127.0.0.1:{port}")
-        egress_env = dict(os.environ)
-        egress_env["CLAUDE_CONFIG_DIR"] = str(egress_cli_home)
-        egress_env["HOME"] = str(egress_home)
+        egress_env = probe_environ(egress_home, egress_cli_home)
         # Both hosts. A Claude-only probe leaves the same bypass open on the
         # Codex path, and the two hosts resolve their config home differently —
         # which is exactly where a host-specific fallback would live.
@@ -920,6 +916,16 @@ def plant_legacy_decoy(hooks_dir, url):
     (hooks_dir / "token").write_text("decoy\n", encoding="utf-8")
     (hooks_dir / "dashboard-url").write_text(url + "\n", encoding="utf-8")
     (hooks_dir / "ingest-url").write_text(url + "\n", encoding="utf-8")
+
+
+def probe_environ(home, config_home):
+    """The environment the CLI probes start the shipped `learn` with: this process's own minus every
+    `AGENT_BIOS_*` and `CODEX_HOME`, with HOME and both hosts' config homes set to the probe's scratch tree.
+    Copied whole, an inherited AGENT_BIOS_CORPUS_DIR (or INSTRUCTIONS_DIR, STATE_DIR) pointed `learn` at the
+    caller's own corpus queue, and an inherited CODEX_HOME sent the codex run past the decoy planted for it."""
+    env = {k: v for k, v in os.environ.items() if not k.startswith("AGENT_BIOS_") and k != "CODEX_HOME"}
+    env.update(HOME=str(home), CLAUDE_CONFIG_DIR=str(config_home), CODEX_HOME=str(config_home))
+    return env
 
 LEG_ORDER = ("anchors", "default", "hooks", "urls", "wire")
 CHEAP_LEGS = ("anchors", "default", "hooks", "urls")
@@ -1727,7 +1733,7 @@ def _self_test_body(base):
     # not in transport_config) and to m68 (it is not in drain_uploads), so only
     # the shipped-command probe can see it.
     root = _copy_tree(base / "m76")
-    _mutate_once(root / cl, "        if not args.no_upload:\n            import fcntl",
+    _mutate_once(root / cl, "        if not args.no_upload:\n            summary = drain_under_lock(",
             "        _amb = home / 'hooks' / 'dashboard-url'\n"
             "        if _amb.is_file():\n"
             "            _s = pathlib.Path.home() / '.config' / 'agent-bios'\n"
@@ -1735,7 +1741,7 @@ def _self_test_body(base):
             "            (_s / 'ingest-url').write_text(_amb.read_text().strip())\n"
             "            (_s / 'token').write_text('ambient')\n"
             "        if not args.no_upload:\n"
-            "            import fcntl")
+            "            summary = drain_under_lock(")
     ok &= _expect("the shipped command configures itself from ambient state", root,
                   "zero egress is broken on the real path", legs=("wire",))
 
@@ -1767,7 +1773,7 @@ def _self_test_body(base):
     # before both fixtures shared one planter this bypass passed the gate AND
     # its self-test.
     root = _copy_tree(base / "m78")
-    _mutate_once(root / cl, "        if not args.no_upload:\n            import fcntl",
+    _mutate_once(root / cl, "        if not args.no_upload:\n            summary = drain_under_lock(",
             "        _amb = home / 'hooks' / 'ingest-url'\n"
             "        if _amb.is_file():\n"
             "            _s = pathlib.Path.home() / '.config' / 'agent-bios'\n"
@@ -1775,7 +1781,7 @@ def _self_test_body(base):
             "            (_s / 'ingest-url').write_text(_amb.read_text().strip())\n"
             "            (_s / 'token').write_text('ambient')\n"
             "        if not args.no_upload:\n"
-            "            import fcntl")
+            "            summary = drain_under_lock(")
     ok &= _expect("a CLI-layer fallback reads the ingest-url locator", root,
                   "zero egress is broken on the real path", legs=("wire",))
 
@@ -1814,7 +1820,7 @@ def _self_test_body(base):
     # falls through to the generic "not by name" path, which this assertion
     # refuses to accept.
     root = _copy_tree(base / "m79")
-    _mutate_once(root / cl, "        if not args.no_upload:\n            import fcntl",
+    _mutate_once(root / cl, "        if not args.no_upload:\n            summary = drain_under_lock(",
             "        _amb = home / 'hooks' / 'ingest-url'\n"
             "        if _amb.is_file():\n"
             "            _s = pathlib.Path.home() / '.config' / 'agent-bios'\n"
@@ -1822,7 +1828,7 @@ def _self_test_body(base):
             "            (_s / 'ingest-url').write_text(_amb.read_text().strip())\n"
             "            (_s / 'token').write_text('ambient')\n"
             "        if not args.no_upload:\n"
-            "            import fcntl")
+            "            summary = drain_under_lock(")
     swallowed = _io.StringIO()
     with _ctx.redirect_stderr(swallowed):
         accepted = _expect("meta: right reach, needle nothing says", root,
@@ -1837,6 +1843,39 @@ def _self_test_body(base):
               "control, but not for the per-leg reason — the rejection came from "
               f"the generic path, so the per-leg rule is unproven: "
               f"{swallowed.getvalue()[:200]!r}", file=sys.stderr)
+        ok = False
+
+    # The CLI probes' environment, judged through the real call sites: with an AGENT_BIOS_* root and
+    # CODEX_HOME planted in this process's environment, no `install.sh learn` the wire leg starts may carry
+    # them, and none of the planted directories may come into being. The positive term: the leg ran its learn
+    # probes at all (three: one wire dispatch, two zero-egress hosts) and passed.
+    import subprocess as _sp
+    planted = {"AGENT_BIOS_CORPUS_DIR": base / "planted-corpus", "AGENT_BIOS_INSTRUCTIONS_DIR": base / "planted-user",
+               "AGENT_BIOS_STATE_DIR": base / "planted-state", "CODEX_HOME": base / "planted-codex-home"}
+    saved = {name: os.environ.get(name) for name in planted}
+    real_run, learn_envs = _sp.run, []
+
+    def recording_run(argv, *args, **kwargs):
+        if isinstance(argv, list) and "learn" in argv:
+            learn_envs.append(dict(kwargs.get("env") or os.environ))
+        return real_run(argv, *args, **kwargs)
+    os.environ.update({name: str(path) for name, path in planted.items()})
+    _sp.run = recording_run
+    try:
+        wire_problems, _ = leg_wire(clean)
+    finally:
+        _sp.run = real_run
+        for name, value in saved.items():
+            if value is None:
+                os.environ.pop(name, None)
+            else:
+                os.environ[name] = value
+    reached = sorted({name for env in learn_envs for name, path in planted.items() if env.get(name) == str(path)}
+                     | {name for name, path in planted.items() if path.exists()})
+    if len(learn_envs) != 3 or reached or wire_problems:
+        print("check-endpoints --self-test: FAIL: a CLI probe inherited the caller's AGENT_BIOS_* or CODEX_HOME: "
+              f"{len(learn_envs)} learn runs (3 expected), reached {reached}, wire problems "
+              f"{[p[:120] for p in wire_problems]}", file=sys.stderr)
         ok = False
 
     if not ok:

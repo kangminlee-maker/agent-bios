@@ -89,8 +89,14 @@ class ShellIntegration:
         body = self._read(source)
         if body is None:
             raise ShellIntegrationError(f"shell connection source missing: {source}")
+        # The wrapper's subcommand lister stays in the package this connection was made from. Only values
+        # every process derives alike go here: a script that is no longer these bytes, and has lost its
+        # receipt, is not recognised as ours (the python that made it differs between the installer and
+        # the launcher, so it is not one of them).
         return SCRIPT_HEADER + (
-            f"typeset -g _agent_launch_private_connection={shlex.quote(str(self.script))}\n").encode() + body
+            f"typeset -g _agent_launch_private_connection={shlex.quote(str(self.script))}\n"
+            f"typeset -g _agent_launch_claude_lister="
+            f"{shlex.quote(str(self.source / 'launch' / 'claude_subcommands.py'))}\n").encode() + body
 
     def has_connection(self):
         """Discover interrupted opt-ins without inspecting an ordinary user's rc.

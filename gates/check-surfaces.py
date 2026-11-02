@@ -57,6 +57,12 @@ NOT_A_SURFACE: dict[str, str] = {
     # renderers catalog-free, and the AI-consumed instructions are English-unified by
     # user decision (2026-08-10).
     "launch/i18n/$lang.toml": "interface text for the human operator; never reaches a model",
+    # The compatibility install copies the launcher alone into BIN_DIR, so the lock helper it
+    # loads by path (the shared bounded lock wait, D-20261102-49b466) lands beside its config.
+    "compose/host_platform.py": "the launcher's lock helper, code the launcher runs; no text in it reaches a model",
+    # ...and the shell wrapper's lister lands beside shell.zsh, where the wrapper looks for it.
+    "launch/claude_subcommands.py": "the shell wrapper's subcommand lister, code the wrapper runs; it hands claude's "
+                                    "subcommand names to the wrapper, and nothing it prints reaches a model",
 }
 
 

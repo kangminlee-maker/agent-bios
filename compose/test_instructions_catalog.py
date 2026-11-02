@@ -3,12 +3,14 @@ from __future__ import annotations
 
 import copy
 import json
+import os
 import pathlib
 import shutil
 import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 from instructions_catalog import CatalogError, compile_items, load_catalog, normalize_content, update_content
 
@@ -344,14 +346,26 @@ class InstructionsCatalogTests(unittest.TestCase):
             root = pathlib.Path(temp)
             both = compile_items([hook, agent], root / "both", "claude", native=True)
             self.assertEqual(2, len(both["assets"]["claude_plugins"]))
-            for relative in both["assets"]["claude_plugins"]:
-                plugin = root / "both" / relative
-                components = list((plugin / "agents").glob("*.md")) + list((plugin / "hooks").glob("*.py"))
-                self.assertTrue(components, f"plugin has no actual component subject: {plugin}")
-                checked = subprocess.run(["claude", "plugin", "validate", "--json", str(plugin)],
-                                         capture_output=True, text=True, timeout=30)
-                self.assertEqual(0, checked.returncode, checked.stdout + checked.stderr)
-                self.assertTrue(json.loads(checked.stdout)["success"])
+            # The validator runs with a home of its own: under the caller's it wrote ~/.claude.json and its
+            # backups there. The caller's HOME and config dir are planted as two empty directories, which must
+            # stay empty.
+            planted = {"HOME": root / "planted-home", "CLAUDE_CONFIG_DIR": root / "planted-config"}
+            for path in planted.values():
+                path.mkdir()
+            sandbox = root / "validator-home"
+            with mock.patch.dict(os.environ, {name: str(path) for name, path in planted.items()}):
+                for relative in both["assets"]["claude_plugins"]:
+                    plugin = root / "both" / relative
+                    components = list((plugin / "agents").glob("*.md")) + list((plugin / "hooks").glob("*.py"))
+                    self.assertTrue(components, f"plugin has no actual component subject: {plugin}")
+                    checked = subprocess.run(["claude", "plugin", "validate", "--json", str(plugin)],
+                                             capture_output=True, text=True, timeout=30,
+                                             env={**os.environ, "HOME": str(sandbox),
+                                                  "CLAUDE_CONFIG_DIR": str(sandbox / ".claude")})
+                    self.assertEqual(0, checked.returncode, checked.stdout + checked.stderr)
+                    self.assertTrue(json.loads(checked.stdout)["success"])
+            self.assertEqual([], sorted(str(p.relative_to(root)) for path in planted.values() for p in path.iterdir()),
+                             "the validator wrote into the caller's HOME or config dir")
             after = compile_items([agent], root / "after", "claude", native=True)
             restored = compile_items([hook, agent], root / "restored", "claude", native=True)
         self.assertEqual(1, len(after["assets"]["claude_plugins"]))

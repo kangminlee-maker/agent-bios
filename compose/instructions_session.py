@@ -5,19 +5,17 @@ records and pins; no global instructions, auth, or discovery registration is cop
 """
 from __future__ import annotations
 try:
-    from host_platform import sync_directory, cli_argv
+    from host_platform import codex_protocol_for, sync_directory, cli_argv
 except ImportError:
-    from .host_platform import sync_directory, cli_argv
+    from .host_platform import codex_protocol_for, sync_directory, cli_argv
 
 import hashlib
 import json
 import os
 import pathlib
-import queue
 import re
 import subprocess
 import sys
-import threading
 import time
 import uuid
 import unicodedata
@@ -160,77 +158,61 @@ def atomic_json(path, data):
         tmp.unlink(missing_ok=True)
 
 
-class CodexServer:
-    """One owned stdio server. No turn/start or model generation is used."""
+def raise_on_termination():
+    """For the launcher, before it composes or resumes a session: a SIGTERM or SIGHUP that arrives while
+    a CodexServer is open ends the server's process group before the launcher ends by that signal, and
+    one that arrives at any other time ends the launcher as before (codex_protocol.raise_on_termination)."""
+    codex_protocol_for(__file__).raise_on_termination()
 
-    def __init__(self, command, config_args=(), cwd=None, env=None):
+
+def _no_server_running():
+    """Refuse to open the user's session while a Codex app-server this process started is unreaped. The
+    launcher's SIGTERM and SIGHUP end the process at once only while it owns no such server, and the
+    session must see them so (codex_protocol.raise_on_termination): a server left open would turn them
+    into an exception that subprocess.call answers by killing the session."""
+    left = codex_protocol_for(__file__).unreaped()
+    if left:
+        raise SessionError(f"a Codex app-server this launch started is still running (process "
+                           f"{', '.join(str(pid) for pid in left)}), so the session does not start")
+
+
+class CodexServer:
+    """One owned stdio server. No turn/start or model generation is used.
+
+    Before it starts, the installed Codex's generated protocol schema must carry every name the
+    session code uses (wrappers/codex_protocol.py, D-20261102-d8310f); the verdict is kept under the
+    state root when the caller names one. Every result is checked for the shape its reader expects."""
+
+    def __init__(self, command, config_args=(), cwd=None, env=None, state_root=None):
         self.command, self.config_args, self.cwd, self.env = command, config_args, cwd, env
-        self.sequence = 0
-        self.events = queue.Queue()
+        self.state_root = state_root
+        self.protocol = codex_protocol_for(__file__)
 
     def __enter__(self):
-        self.proc = subprocess.Popen(
-            [self.command, *self.config_args, 'app-server', '--stdio'],
-            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
-            cwd=self.cwd, env=self.env, text=True, encoding='utf-8',
-        )
-        self.reader = threading.Thread(target=self._read, daemon=True)
-        self.reader.start()
+        cache = pathlib.Path(self.state_root) / 'codex-protocol' if self.state_root is not None else None
+        try:
+            self.protocol.ensure_schema(self.command, self.env, cache)
+        except self.protocol.ProtocolError as exc:
+            raise SessionError(str(exc)) from exc
+        self.client = self.protocol.Client([self.command, *self.config_args, 'app-server', '--stdio'],
+                                           cwd=self.cwd, env=self.env)
         try:
             self.call('initialize', {'clientInfo': {'name': 'agent-bios', 'version': '1'},
                                      'capabilities': {'experimentalApi': True}})
-            self.proc.stdin.write('{"method":"initialized"}\n')
-            self.proc.stdin.flush()
+            self.client.notify('initialized')
             return self
         except BaseException:
             self.__exit__(None, None, None)
             raise
 
-    def _read(self):
-        try:
-            for line in self.proc.stdout:
-                try:
-                    self.events.put(json.loads(line))
-                except ValueError:
-                    self.events.put({'transport_error': 'invalid app-server JSON'})
-        finally:
-            self.events.put({'transport_error': 'app-server closed before its response'})
-
     def call(self, method, params, timeout=45):
-        self.sequence += 1
-        request_id = self.sequence
-        self.proc.stdin.write(json.dumps({'id': request_id, 'method': method, 'params': params}) + '\n')
-        self.proc.stdin.flush()
-        deadline = time.monotonic() + timeout
-        while time.monotonic() < deadline:
-            try:
-                message = self.events.get(timeout=max(0.01, deadline - time.monotonic()))
-            except queue.Empty as exc:
-                raise SessionError(f"app-server timed out: {method}") from exc
-            if 'transport_error' in message:
-                raise SessionError(message['transport_error'])
-            if message.get('id') != request_id:
-                continue
-            if 'error' in message:
-                raise SessionError(f"app-server {method}: {message['error'].get('message', 'refused')}")
-            return message['result']
-        raise SessionError(f"app-server timed out: {method}")
+        try:
+            return self.protocol.check_result(method, self.client.call(method, params, timeout))
+        except self.protocol.ProtocolError as exc:
+            raise SessionError(str(exc)) from exc
 
     def __exit__(self, *unused):
-        if self.proc.stdin:
-            self.proc.stdin.close()
-        try:
-            self.proc.wait(timeout=5)
-        except subprocess.TimeoutExpired:
-            self.proc.terminate()
-            try:
-                self.proc.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                self.proc.kill()
-                self.proc.wait(timeout=5)
-        if self.proc.stdout:
-            self.proc.stdout.close()
-        self.reader.join(timeout=2)
+        self.client.close()
 
 
 def config_flags(argv, exclude_developer=False):
@@ -409,14 +391,14 @@ def _with_codex_hooks(argv, hooks, config):
     return [*argv[:boundary], *flags, *argv[boundary:]]
 
 
-def validate_codex_hooks(command, snapshot, argv, cwd, env):
+def validate_codex_hooks(command, snapshot, argv, cwd, env, state_root=None):
     """Prove discovery on this runtime; preserve native enablement and trust."""
     hooks = _codex_hook_config(snapshot)
     if not hooks:
         return
     expected = {(event[0].lower() + event[1:], group['matcher'], handler['command'])
                 for event, groups in hooks.items() for group in groups for handler in group['hooks']}
-    with CodexServer(command, config_flags(argv), cwd, env) as server:
+    with CodexServer(command, config_flags(argv), cwd, env, state_root) as server:
         result = server.call('hooks/list', {'cwds': [str(cwd)]})
         config = server.call('config/read', {'cwd': str(cwd), 'includeLayers': False})
     rows = result.get('data')
@@ -471,7 +453,7 @@ def _verified_launch_snapshot(state_root, snapshot):
             'assets': verified['output'].get('assets', {})}
 
 
-def compose_argv(command, argv, host, snapshot, cwd=None, env=None, include_global_instructions=True):
+def compose_argv(command, argv, host, snapshot, cwd=None, env=None, include_global_instructions=True, state_root=None):
     """Preserve native instructions before the selected instructions and launch contract."""
     validate_working_directory_argv(host, argv)
     _global_instruction_choice(host, include_global_instructions)
@@ -499,11 +481,14 @@ def compose_argv(command, argv, host, snapshot, cwd=None, env=None, include_glob
                 'profile semantics'
             )
         hooks = _codex_hook_config(snapshot)
-        with CodexServer(command, config_flags(argv, exclude_developer=True), cwd, env) as server:
-            config = server.call('config/read', {'cwd': str(cwd or pathlib.Path.cwd()), 'includeLayers': bool(hooks)})
-        native = config.get('config', {}).get('developer_instructions') or ''
-        if not isinstance(native, str):
-            raise SessionError('effective developer_instructions are not text')
+        with CodexServer(command, config_flags(argv, exclude_developer=True), cwd, env, state_root) as server:
+            config = server.call('config/read', {'cwd': str(cwd or pathlib.Path.cwd()), 'includeLayers': True})
+        # Held to the layers that state it (D-20261102-efc529): null and "" are the user's none and
+        # empty value; an omitted key, or a value the layers do not give, refuses by name.
+        try:
+            native = server.protocol.developer_instructions(config)
+        except server.protocol.ProtocolError as exc:
+            raise SessionError(str(exc)) from exc
         result = replace_developer(argv, '\n\n'.join(x for x in (native, content, contract) if x))
         return _with_codex_hooks(result, hooks, config)
     boundary = argv.index('--') if '--' in argv else len(argv)
@@ -737,7 +722,7 @@ def recover_activations(state_root, command=None, host=None, env=None):
                 validate_session_id(requested)
                 try:
                     native_env = restore_environment(record, env)
-                    with CodexServer(command, config_flags(record['argv']), record['cwd'], native_env) as server:
+                    with CodexServer(command, config_flags(record['argv']), record['cwd'], native_env, state_root) as server:
                         observed = server.call('thread/read', {'threadId': requested, 'includeTurns': False})
                     if observed.get('thread', {}).get('id') == requested:
                         evidence = {'method': 'recovered-thread/read'}
@@ -753,7 +738,7 @@ def recover_activations(state_root, command=None, host=None, env=None):
 
 def create_codex_session(command, argv, state_root, record, cwd, env):
     validate_working_directory_argv('codex', argv)
-    with CodexServer(command, config_flags(argv), cwd, env) as server:
+    with CodexServer(command, config_flags(argv), cwd, env, state_root) as server:
         params = {'cwd': str(cwd), 'developerInstructions': instruction_value(argv, 'codex'),
                   'ephemeral': False, 'experimentalRawEvents': False}
         for index, token in enumerate(argv[:-1]):
@@ -771,7 +756,7 @@ def create_codex_session(command, argv, state_root, record, cwd, env):
         server.call('thread/inject_items', {'threadId': host_id, 'items': [
             {'type': 'message', 'role': 'developer', 'content': [
                 {'type': 'input_text', 'text': f"agent-bios session snapshot: {record['content_ref']}"}]}]})
-    with CodexServer(command, config_flags(argv), cwd, env) as server:
+    with CodexServer(command, config_flags(argv), cwd, env, state_root) as server:
         persisted = server.call('thread/read', {'threadId': host_id, 'includeTurns': False})
         if persisted.get('thread', {}).get('id') != host_id:
             raise SessionError('host did not persist the requested instructions session')
@@ -808,14 +793,15 @@ def launch(command, argv, state_root, host, snapshot, cwd=None, env=None, resume
         if host == 'claude':
             validate_claude_plugins(command, pinned, record['cwd'], env)
         else:
-            validate_codex_hooks(command, pinned, record['argv'], record['cwd'], env)
+            validate_codex_hooks(command, pinned, record['argv'], record['cwd'], env, state_root)
         argv = record['argv']
         native = ['resume', resume_id, *argv] if host == 'codex' else ['--resume', resume_id, *argv]
+        _no_server_running()
         return subprocess.call([command, *native], cwd=record['cwd'], env=env)
     snapshot = _verified_launch_snapshot(state_root, snapshot)
-    argv = compose_argv(command, argv, host, snapshot, cwd, env, include_global_instructions)
+    argv = compose_argv(command, argv, host, snapshot, cwd, env, include_global_instructions, state_root)
     if host == 'codex':
-        validate_codex_hooks(command, snapshot, argv, cwd, env)
+        validate_codex_hooks(command, snapshot, argv, cwd, env, state_root)
     if host == 'claude':
         validate_claude_plugins(command, snapshot, cwd, env)
     record = prepare(state_root, host, snapshot, argv, cwd, env, include_global_instructions)
@@ -824,12 +810,14 @@ def launch(command, argv, state_root, host, snapshot, cwd=None, env=None, resume
         # id comes from the real host and is pinned before any user turn is possible.
         create_codex_session(command, argv, state_root, record, cwd, env)
         native = ['resume', record['session_id'], *argv]
+        _no_server_running()
         return subprocess.call([command, *native], cwd=cwd, env=env)
     requested_id = str(uuid.uuid4())
     record['requested_session_id'] = requested_id
     intents, _ = session_paths(state_root)
     atomic_json(intents / record['intent_id'] / 'journal.json', record)
     native = ['--session-id', requested_id, *argv]
+    _no_server_running()
     child = subprocess.Popen([command, *native], cwd=cwd, env=env)
     try:
         while True:

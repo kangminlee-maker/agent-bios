@@ -18,6 +18,9 @@ of the host's transcript, its stream, or a listing taken before the call, and th
            kind and normalised sha256, appended system prompts by sha256, skills, agents,
            hooks), `actions.jsonl` (every tool request and its result, content reduced to a
            length and a sha256), the receipt evidence, and the final result object on stdout
+  server-policy  run `claude doctor` once in the call's environment and print, as one JSON line, the
+           status of its "Managed settings (remote):" line and the verdict on it; nothing else of
+           its output is kept
 
 The session is persisted on purpose: the transcript is the only record of which instruction
 files the host loaded (the stream's init event lists tools and skills, never instructions).
@@ -50,6 +53,74 @@ MANIFEST_PLACEHOLDER = "<manifest>"
 REMINDER_INSTRUCTIONS = "<system-reminder>\nCodebase and user instructions are shown below"
 HOST_NUDGES = ("Output token limit hit", "[structured-output-enforce]")
 INSTRUCTION_HEADER = re.compile(r"^Contents of (.+?) \((.*?)\):\s*$", re.M)
+# The transcript's record kinds and attachment types, per Claude version, as measured from that
+# version's hermetic calls (D-20261102-29ca35). The vendor calls the format internal and changing
+# between versions, and a renamed kind read as an absent one: no requests, no instructions, and no
+# problem. So a transcript holding a kind or an attachment type outside every measured set is
+# refused naming it, the version that wrote it and the versions measured; a version whose records
+# stay inside the known kinds passes unpinned. The sets hold what the helper reads (READ_TYPES,
+# READ_ATTACHMENTS) and what is known and left unread; `hook*` attachments are read by prefix. 2.1.304:
+# the 404 transcripts of the 2026-10-20 probe captures. A version is added by the author-side re-pin
+# procedure, which measures it with one hermetic call, and reaches users with the release carrying it.
+# A version's set holds the kinds its sample showed, not every kind that version writes: a read kind
+# the sample did not show (one empty hermetic call loads no instruction file) is known from the union.
+RECORD_KINDS = {
+    "2.1.304": {
+        "types": ("agent-name", "ai-title", "api-request", "api-request-blob", "api-request-shape", "assistant",
+                  "atis-latch", "attachment", "cost-state", "custom-title", "file-history-snapshot", "fork-context-ref",
+                  "last-prompt", "mode", "permission-mode", "queue-operation", "shim-session-start", "system", "user"),
+        "attachments": ("agent_listing_delta", "budget_usd", "date", "deferred_tools_delta", "deferred_tools_record",
+                        "environment", "file", "hook_additional_context", "hook_non_blocking_error", "hook_success",
+                        "instructions", "max_turns_reached", "model", "prompt_snapshot", "read_truncation_notice",
+                        "remote_session_change", "sandbox_instructions", "session_context", "skill_listing",
+                        "structured_output", "total_tokens_reminder"),
+    },
+}
+READ_TYPES = ("api-request", "api-request-blob", "api-request-shape", "assistant", "attachment", "user")
+READ_ATTACHMENTS = ("agent_listing_delta", "deferred_tools_delta", "environment", "instructions", "skill_listing")
+# Claude Code's managed settings load under every flag (--safe-mode, --setting-sources "",
+# --restricted alike), so a hermetic call on a managed machine is not fully hermetic. Before the call
+# these documented locations (code.claude.com/docs/en/managed-settings, read 2026-11-02) are checked
+# for existence only, never read; when any exists the call still runs and its capture says which and
+# that it is not fully hermetic (D-20261102-6b6676). A location whose check fails (a parent the user
+# may not search, a registry read refused) is neither: it is recorded as unverified, and an unverified
+# location is no more fully hermetic than a present one. `{user}` is the login name. On Windows the
+# `Settings` value under each Policies key counts too. The server-delivered organisation policy is
+# SERVER_POLICY_LINE's.
+MANAGED_SOURCES = {
+    "darwin": ("/Library/Application Support/ClaudeCode/managed-settings.json",
+               "/Library/Application Support/ClaudeCode/managed-settings.d",
+               "/Library/Application Support/ClaudeCode/managed-mcp.json",
+               "/Library/Managed Preferences/com.anthropic.claudecode.plist",
+               "/Library/Managed Preferences/{user}/com.anthropic.claudecode.plist"),
+    "linux": ("/etc/claude-code/managed-settings.json", "/etc/claude-code/managed-settings.d",
+              "/etc/claude-code/managed-mcp.json"),
+    "win32": ("C:\\Program Files\\ClaudeCode\\managed-settings.json", "C:\\Program Files\\ClaudeCode\\managed-settings.d",
+              "C:\\Program Files\\ClaudeCode\\managed-mcp.json"),
+}
+WINDOWS_POLICY_KEYS = (("HKEY_LOCAL_MACHINE", 0x80000002), ("HKEY_CURRENT_USER", 0x80000001))
+# The server-delivered half (D-20261102-252c92): a Team or Enterprise credential fetches its
+# organisation's policy at startup, which no file check sees. `claude doctor` (v2.1.248+) reports the
+# fetch's outcome without a model call on one documented line; that line alone is read, in the call's
+# own environment, and only its status is kept (at most 200 characters). Clean means exactly
+# SERVER_POLICY_CLEAN; any other status is "not confirmed"; no line, an exit other than 0 or no answer
+# within SERVER_POLICY_TIMEOUT_S is "unknown", never clean. Nothing skips the fetch: exporting a
+# provider or base-URL variable to avoid it would evade an organisation's policy.
+SERVER_POLICY_LINE = "Managed settings (remote):"
+SERVER_POLICY_CLEAN = "none configured for this organization"
+SERVER_POLICY_TIMEOUT_S = 60
+SERVER_POLICY_VERDICTS = ("clean", "not confirmed", "unknown")
+ANSI = re.compile(r"\x1b\[[0-9;?]*[ -/]*[@-~]|\x1b\][^\x07]*\x07")
+# Why a receipt's hermeticity is not assessed: the inherit profile loads the cell's settings on purpose,
+# and a capture written before the assessment existed (or by another host) carries none.
+NOT_ASSESSED_INHERIT = "the inherit profile loads the cell's own settings by design; hermeticity is assessed for hermetic calls"
+NOT_ASSESSED_MISSING = "the capture carries no hermeticity assessment"
+# What a capture records as unverified when its call's pre-call check left no managed-settings record.
+MANAGED_NOT_CHECKED = "no pre-call managed-settings check was recorded for this call"
+# Why the call keeps `--setting-sources ""`, whose empty value the CLI reference does not describe.
+SETTING_SOURCES_MOOT = ("--setting-sources \"\" is undocumented for an empty value and moot here: the call runs with "
+                        "a fresh HOME and configuration directory, in an empty cell working directory, and the "
+                        "evidence check reads every source the host recorded as loaded")
 # Passed after `--`, each of these puts text into the system prompt the call is sent.
 APPENDING_FLAGS = ("--append-system-prompt", "--append-system-prompt-file", "--system-prompt",
                    "--system-prompt-file")
@@ -213,14 +284,169 @@ def check_root(root, home):
     return 3 if problems else 0
 
 
-def prepare(cell, cwd, home, out, strict=False, homes=None):
+def managed_sources(root="", system=None, user=None):
+    """The documented managed-settings locations on this machine, by existence alone: (those that
+    exist, those whose check failed, each with the failure's class). Only a location that cannot
+    exist (no such file, a parent that is not a directory) counts as absent. `root` prefixes every
+    file path, so a control can plant one."""
+    system = system or ("linux" if sys.platform.startswith("linux") else sys.platform)
+    user = user or os.environ.get("USER") or os.environ.get("USERNAME") or ""
+    found, unverified = [], []
+    for path in MANAGED_SOURCES.get(system, ()):
+        path = path.format(user=user)
+        try:
+            os.lstat(root + path)
+        except (FileNotFoundError, NotADirectoryError):
+            continue
+        except OSError as exc:
+            unverified.append(f"{path} ({exc.__class__.__name__})")
+            continue
+        found.append(path)
+    if system == "win32" and not root:
+        present, failed = windows_policy_values()
+        found += present
+        unverified += failed
+    return found, unverified
+
+
+def windows_policy_values():
+    """`HKLM|HKCU\\SOFTWARE\\Policies\\ClaudeCode` `Settings` values that exist, asked for their size only
+    (RegGetValueW with no data buffer), so a policy's content is never read: (present, unverified).
+    Only ERROR_FILE_NOT_FOUND is absence; any other failure leaves the value unverified."""
+    import ctypes
+    from ctypes import wintypes
+    advapi = ctypes.WinDLL("advapi32")
+    advapi.RegGetValueW.argtypes = [wintypes.HANDLE, wintypes.LPCWSTR, wintypes.LPCWSTR, wintypes.DWORD,
+                                    ctypes.c_void_p, ctypes.c_void_p, ctypes.POINTER(wintypes.DWORD)]
+    found, unverified = [], []
+    for name, hive in WINDOWS_POLICY_KEYS:
+        size = wintypes.DWORD(0)
+        code = advapi.RegGetValueW(wintypes.HANDLE(hive), "SOFTWARE\\Policies\\ClaudeCode", "Settings", 0x0000FFFF,
+                                   None, None, ctypes.byref(size))
+        value = f"{name}\\SOFTWARE\\Policies\\ClaudeCode\\Settings"
+        if code == 0:
+            found.append(value)
+        elif code != 2:
+            unverified.append(f"{value} (error {code})")
+    return found, unverified
+
+
+def server_policy_verdict(output, returncode):
+    """The server-policy record for one `claude doctor` run: its documented line's status and the verdict
+    on it. Nothing else of the output is kept, since the rest names the account."""
+    if returncode != 0:
+        return {"status": None, "verdict": "unknown", "reason": f"claude doctor exited {returncode}"}
+    lines = [ANSI.sub("", line).strip() for line in output.splitlines()]
+    found = [line[len(SERVER_POLICY_LINE):].strip() for line in lines if line.startswith(SERVER_POLICY_LINE)]
+    if len(found) != 1:
+        return {"status": None, "verdict": "unknown",
+                "reason": f"claude doctor printed {len(found)} '{SERVER_POLICY_LINE}' lines, not one"}
+    status = found[0][:200]
+    if status == SERVER_POLICY_CLEAN:
+        return {"status": status, "verdict": "clean", "reason": None}
+    return {"status": status, "verdict": "not confirmed",
+            "reason": "the organisation's server-delivered policy is not confirmed absent, so the call is not "
+                      "confirmed hermetic"}
+
+
+def server_policy(claude_bin, timeout=None):
+    """Run `claude doctor` once in this process's environment (claude-run gives it the call's) with stdin
+    closed, and return its server-policy record."""
+    import subprocess
+    try:
+        done = subprocess.run([claude_bin, "doctor"], stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                              stderr=subprocess.STDOUT, timeout=timeout or SERVER_POLICY_TIMEOUT_S)
+    except subprocess.TimeoutExpired:
+        return {"status": None, "verdict": "unknown",
+                "reason": f"claude doctor did not finish within {timeout or SERVER_POLICY_TIMEOUT_S} s"}
+    except OSError as exc:
+        return {"status": None, "verdict": "unknown", "reason": f"claude doctor did not start: {exc.__class__.__name__}"}
+    return server_policy_verdict(done.stdout.decode("utf-8", "replace"), done.returncode)
+
+
+def read_server_policy(path):
+    """The server-policy record a dispatcher handed over, or an unknown one saying why there is none."""
+    if not path:
+        return {"status": None, "verdict": "unknown",
+                "reason": "no server-policy check was run for this call (a distill run checks once, before its first "
+                          "hermetic Claude call)"}
+    try:
+        held = json.loads(pathlib.Path(path).read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        return {"status": None, "verdict": "unknown",
+                "reason": f"the server-policy record is unreadable: {exc.__class__.__name__}"}
+    return server_policy_record(held)
+
+
+def server_policy_record(held):
+    """`held` as a server-policy record, or an unknown one when it is not one: a clean verdict stands only
+    on the clean status itself."""
+    record = {"status": held.get("status"), "verdict": held.get("verdict"), "reason": held.get("reason")} \
+        if isinstance(held, dict) else {}
+    if (record.get("verdict") not in SERVER_POLICY_VERDICTS
+            or not (record["status"] is None or isinstance(record["status"], str) and len(record["status"]) <= 200)
+            or not (record["reason"] is None or isinstance(record["reason"], str))
+            or record["verdict"] == "clean" and record["status"] != SERVER_POLICY_CLEAN):
+        return {"status": None, "verdict": "unknown", "reason": "the server-policy record is not one"}
+    return record
+
+
+def fully_hermetic(managed, unverified, policy):
+    """Fully hermetic only when every managed-settings location was checked and found absent and the
+    server-delivered policy is confirmed clean, as server_policy_record reads it (a clean verdict
+    stands only on the clean status); anything not established is not."""
+    return (managed == [] and unverified == [] and isinstance(policy, dict)
+            and server_policy_record(policy)["verdict"] == "clean")
+
+
+def hermeticity(profile, pre, policy):
+    """The call's hermeticity as its capture and receipt state it, from the pre-call record `pre` (a
+    record without the managed-settings check is one whose locations are all unverified)."""
+    if profile != "hermetic":
+        return {"assessed": False, "reason": NOT_ASSESSED_INHERIT}
+    managed, unverified = pre.get("managed_settings"), pre.get("managed_unverified")
+    if not isinstance(managed, list) or not isinstance(unverified, list):
+        managed, unverified = managed if isinstance(managed, list) else [], [MANAGED_NOT_CHECKED]
+    return {"assessed": True, "managed_sources": list(managed), "managed_unverified": list(unverified),
+            "server_policy": policy, "fully_hermetic": fully_hermetic(managed, unverified, policy),
+            "setting_sources_note": SETTING_SOURCES_MOOT}
+
+
+def receipt_hermeticity(host):
+    """The receipt's `hermeticity` evidence for a capture's host.json: the assessment it carries, as
+    canonical JSON, or one saying it carries none. `fully_hermetic` is derived again from the parts
+    the assessment states, so a capture cannot carry a clean verdict its parts do not establish."""
+    held = host.get("hermeticity") if isinstance(host, dict) else None
+    if isinstance(held, dict) and held.get("assessed") is True:
+        return canonical({**held, "fully_hermetic": fully_hermetic(
+            held.get("managed_sources"), held.get("managed_unverified"), held.get("server_policy"))})
+    if isinstance(held, dict) and held.get("assessed") is False and isinstance(held.get("reason"), str) and held["reason"]:
+        return canonical(held)
+    return canonical({"assessed": False, "reason": NOT_ASSESSED_MISSING})
+
+
+def server_policy_command(args):
+    sys.stdout.write(json.dumps(server_policy(args.claude_bin), sort_keys=True) + "\n")
+    return 0
+
+
+def prepare(cell, cwd, home, out, strict=False, homes=None, managed_root=""):
     problems = prepare_problems(cell, cwd, homes if homes is not None else operator_homes(home), strict)
     if problems:
         for line in problems:
             print(f"claude-run: {line}", file=sys.stderr)
         return 3
+    managed, unverified = managed_sources(managed_root)
+    if managed:
+        print(f"claude-run: managed settings exist at {', '.join(managed)}; they load under every flag, so this "
+              f"call is not fully hermetic, and its capture says so", file=sys.stderr)
+    if unverified:
+        print(f"claude-run: managed-settings locations could not be checked: {', '.join(unverified)}; this call is "
+              f"not confirmed fully hermetic, and its capture says so", file=sys.stderr)
     pathlib.Path(out).write_text(json.dumps({"cwd": str(cwd), "workdir_files": listing(cwd),
-                                             "ancestor_exposure": ancestor_exposure(cwd)}, sort_keys=True),
+                                             "ancestor_exposure": ancestor_exposure(cwd),
+                                             "managed_settings": managed, "managed_unverified": unverified},
+                                            sort_keys=True),
                                  encoding="utf-8")
     print(uuid.uuid4())
     return 0
@@ -316,10 +542,30 @@ def requests_of(records, role):
     return out
 
 
+def kind_problems(records):
+    """The record kinds and attachment types in `records` outside every measured set, each named
+    with the Claude version that wrote the transcript and the versions the sets were measured on.
+    Any version passes whose records stay inside the known kinds: the check is for drift, not a pin.
+    A transcript in which no record names a version is refused, since the drift could not be named."""
+    versions = sorted({r["version"] for r in records if isinstance(r, dict) and isinstance(r.get("version"), str)})
+    if not versions:
+        return [f"RECORD_VERSION_UNKNOWN {len(records)} record(s), none naming the Claude version that wrote them"]
+    known_types = {k for kinds in RECORD_KINDS.values() for k in kinds["types"]}
+    known_attachments = {k for kinds in RECORD_KINDS.values() for k in kinds["attachments"]}
+    where = f"(Claude {'/'.join(versions)}; the known kinds were measured on {', '.join(sorted(RECORD_KINDS))})"
+    problems = sorted({f"RECORD_KIND_UNKNOWN {r.get('type')!r} {where}" for r in records
+                       if isinstance(r, dict) and r.get("type") not in known_types})
+    problems += sorted({f"ATTACHMENT_TYPE_UNKNOWN {(r.get('attachment') or {}).get('type')!r} {where}"
+                        for r in records if isinstance(r, dict) and r.get("type") == "attachment"
+                        and (r.get("attachment") or {}).get("type") not in known_attachments
+                        and not str((r.get("attachment") or {}).get("type") or "").startswith("hook")})
+    return problems
+
+
 def summarise(path, role):
     """One transcript's requests, responses, StructuredOutput calls, tool actions and context."""
     records = read_records(path)
-    s = {"requests": requests_of(records, role), "assistant": [], "structured_calls": [], "actions": [],
+    s = {"kind_problems": kind_problems(records), "requests": requests_of(records, role), "assistant": [], "structured_calls": [], "actions": [],
          "instructions": [], "skills": [], "agents": [], "hooks": [], "mcp_servers": [], "cwd": None, "session_id": None}
     seen, results = set(), {}
     for r in records:
@@ -498,6 +744,8 @@ def render(args):
             summaries.append(summarise(path, role))
         except (OSError, ValueError) as exc:
             problems.append(f"TRANSCRIPT_UNREADABLE {path.name}: {exc.__class__.__name__}")
+            continue
+        problems.extend(f"{problem} in {path.name}" for problem in summaries[-1]["kind_problems"])
     main = next((s for s in summaries if s["requests"] or s["assistant"]), summaries[0] if summaries else None)
     requests = [q for s in summaries for q in s["requests"]]
     appended = [{"name": n, "bytes": pathlib.Path(f).read_bytes(), "declared_sha256": d}
@@ -513,6 +761,7 @@ def render(args):
         "session_id": (main or {}).get("session_id") or (result or {}).get("session_id") or args.session_id,
         "workdir_files": pre.get("workdir_files", []), "ancestor_exposure": pre.get("ancestor_exposure", []),
         "binary": args.binary, "env_names": sorted(args.env_name),
+        "hermeticity": hermeticity(args.profile, pre, read_server_policy(args.server_policy)),
         "transcripts": [str(p.relative_to(pathlib.Path(args.config))) for p in mains + subs],
         "requests": [{k: v for k, v in q.items() if k != "system_text"} for q in requests],
         "assistant": [a for s in summaries for a in s["assistant"]],
@@ -560,7 +809,7 @@ def receipt_evidence(host, result, capture, schema):
             "schema_sha256": sha256(pathlib.Path(schema).read_bytes()) if schema else "none",
             "seat_observed": canonical({role: sorted(models) for role, models in sorted(seen.items())}),
             "context_observed_sha256": canonical_sha256(host.get("context")),
-            "capture_sha256": capture_sha256(capture)}
+            "capture_sha256": capture_sha256(capture), "hermeticity": receipt_hermeticity(host)}
 
 
 def render_command(args):
@@ -607,8 +856,10 @@ def self_test():
         packet = "CALL-ID: c1\nReturn the answer.\n"
         base_system = ["You are Claude Code.", "Environment block.", "Tool guidance."]
 
-        def transcript(name="s1", plants=(), system_extra=(), tools=(), role_model="claude-sonnet-5-5"):
-            """A synthetic session in the record shapes the host writes (probe 4)."""
+        def transcript(name="s1", plants=(), system_extra=(), tools=(), role_model="claude-sonnet-5-5",
+                       version="2.1.304", extra=()):
+            """A synthetic session in the record shapes the host writes (probe 4), each record but a blob
+            naming the writing `version` as the host's do; `extra` records are appended as given."""
             records, user_blocks = [], []
             files = [p for p in plants if p[0] == "instruction"]
             if files:
@@ -647,6 +898,10 @@ def self_test():
             records.append({"type": "assistant", "requestRef": "req-1",
                             "message": {"id": "msg-1", "role": "assistant", "model": role_model, "stop_reason": "tool_use",
                                         "content": content}})
+            records.extend(extra)
+            for r in records:
+                if version is not None and r.get("type") != "api-request-blob":
+                    r.setdefault("version", version)
             folder = config / "projects" / "-cell-cwd"
             folder.mkdir(parents=True, exist_ok=True)
             for old in folder.glob("*.jsonl"):
@@ -659,12 +914,13 @@ def self_test():
                                         "usage": {"input_tokens": 3, "output_tokens": 5}}) + "\n", encoding="utf-8")
         listing_file = scratch / "pre.json"
 
-        def run(flags=("--safe-mode",), extra=(), appended=(), manifest=None, use="judge"):
+        def run(flags=("--safe-mode",), extra=(), appended=(), manifest=None, use="judge", policy=None,
+                profile="hermetic"):
             ns = argparse.Namespace(listing=str(listing_file), config=str(config), session_id="s1", stream=str(stream),
-                                    call_id="c1", profile="hermetic", use=use, flag=list(flags), extra=list(extra),
+                                    call_id="c1", profile=profile, use=use, flag=list(flags), extra=list(extra),
                                     manifest=manifest, binary="/x/claude", env_name=["HOME"],
                                     appended_name=[a[0] for a in appended], appended_file=[a[1] for a in appended],
-                                    appended_declared=[a[2] for a in appended])
+                                    appended_declared=[a[2] for a in appended], server_policy=policy)
             return render(ns)
 
         # positive control first: a clean call records the request as sent and no context at all
@@ -688,6 +944,222 @@ def self_test():
         control("result-object-is-the-last-result-line", result == {"type": "result", "is_error": False,
                                                                     "structured_output": {"answer": "OK"},
                                                                     "usage": {"input_tokens": 3, "output_tokens": 5}})
+
+        # D-20261102-29ca35: the record kinds are checked against the union of the measured sets. Every kind
+        # the helper reads is in that union, or a transcript holding one would be refused; a version's own set
+        # need not hold them all, since it records what its sample showed.
+        def read_kinds_measured():
+            return (bool(RECORD_KINDS) and set(READ_TYPES) <= {k for v in RECORD_KINDS.values() for k in v["types"]}
+                    and set(READ_ATTACHMENTS) <= {k for v in RECORD_KINDS.values() for k in v["attachments"]})
+
+        control("kinds-the-read-ones-are-in-the-measured-union", read_kinds_measured())
+        RECORD_KINDS["9.9.9-sparse"] = {"types": ("assistant", "attachment", "user"), "attachments": ("environment",)}
+        try:
+            transcript(version="9.9.9-sparse")
+            host = run()[0]
+            control("kinds-a-sparse-sample-is-recorded-as-a-set-not-as-a-removal",
+                    read_kinds_measured() and "problems" not in host and "context" in host, str(host.get("problems")))
+        finally:
+            del RECORD_KINDS["9.9.9-sparse"]
+        transcript(extra=[{"type": "queue-operation"}, {"type": "attachment", "attachment": {"type": "prompt_snapshot"}}])
+        host = run()[0]
+        control("kinds-a-known-unread-kind-passes", "problems" not in host and "context" in host, str(host.get("problems")))
+        transcript(version="2.1.316")
+        host = run()[0]
+        control("kinds-another-version-inside-the-known-kinds-passes", "problems" not in host and "context" in host,
+                str(host.get("problems")))
+        for label, kwargs, needle in (
+                ("kinds-a-renamed-record-kind-is-refused-by-name", {"extra": [{"type": "api-request-v2"}]},
+                 "RECORD_KIND_UNKNOWN 'api-request-v2' (Claude 2.1.304; the known kinds were measured on 2.1.304) "
+                 "in s1.jsonl"),
+                ("kinds-an-unknown-attachment-type-is-refused-by-name",
+                 {"extra": [{"type": "attachment", "attachment": {"type": "instructions_v2"}}]},
+                 "ATTACHMENT_TYPE_UNKNOWN 'instructions_v2' (Claude 2.1.304; the known kinds were measured on "
+                 "2.1.304) in s1.jsonl"),
+                ("kinds-a-new-kind-on-another-version-names-both-versions",
+                 {"version": "2.1.316", "extra": [{"type": "api-request-v2"}]},
+                 "RECORD_KIND_UNKNOWN 'api-request-v2' (Claude 2.1.316; the known kinds were measured on 2.1.304)"),
+                ("kinds-a-transcript-naming-no-version-is-refused", {"version": None},
+                 "RECORD_VERSION_UNKNOWN")):
+            transcript(**kwargs)
+            host = run()[0]
+            control(label, any(needle in p for p in host.get("problems", [])) and "context" not in host,
+                    str(host.get("problems")))
+
+        # D-20261102-6b6676: managed settings are checked before the call, for existence only; present,
+        # the call still runs, and its capture names them and says it is not fully hermetic
+        system = "linux" if sys.platform.startswith("linux") else sys.platform
+        managed_root = scratch / "managed-root"
+        control("managed-none-at-a-clean-root", managed_sources(str(managed_root), "darwin", "u") == ([], [])
+                and managed_sources(str(managed_root), "linux", "u") == ([], []))
+        (managed_root / "Library/Application Support/ClaudeCode/managed-settings.d").mkdir(parents=True)
+        (managed_root / "Library/Managed Preferences/u").mkdir(parents=True)
+        (managed_root / "Library/Managed Preferences/u/com.anthropic.claudecode.plist").write_text("")
+        (managed_root / "etc/claude-code").mkdir(parents=True)
+        (managed_root / "etc/claude-code/managed-mcp.json").write_text("")
+        control("managed-each-planted-source-is-named",
+                managed_sources(str(managed_root), "darwin", "u") == ([
+                    "/Library/Application Support/ClaudeCode/managed-settings.d",
+                    "/Library/Managed Preferences/u/com.anthropic.claudecode.plist"], [])
+                and managed_sources(str(managed_root), "linux", "u") == (["/etc/claude-code/managed-mcp.json"], []))
+        planted = managed_sources(str(managed_root), system, os.environ.get("USER") or os.environ.get("USERNAME") or "")[0]
+        said = io.StringIO()
+        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(said):
+            rc = prepare(str(scratch / "cell"), str(cwd), "", str(listing_file), strict=True,
+                         homes=[str(scratch / "elsewhere")], managed_root=str(managed_root))
+        transcript()
+        clean_policy = scratch / "server-policy-clean.json"
+        clean_policy.write_text(json.dumps({"status": SERVER_POLICY_CLEAN, "verdict": "clean", "reason": None}),
+                                encoding="utf-8")
+        held = run(policy=str(clean_policy))[0].get("hermeticity") or {}
+        control("managed-present-the-call-runs-and-its-capture-says-not-fully-hermetic",
+                rc == 0 and bool(planted) and held.get("managed_sources") == planted and held.get("assessed") is True
+                and held.get("fully_hermetic") is False and "not fully hermetic" in said.getvalue()
+                and held.get("setting_sources_note") == SETTING_SOURCES_MOOT, f"{rc} {held}")
+        with contextlib.redirect_stdout(io.StringIO()):
+            prepare(str(scratch / "cell"), str(cwd), "", str(listing_file), strict=True,
+                    homes=[str(scratch / "elsewhere")], managed_root=str(scratch / "managed-none"))
+        held = run(policy=str(clean_policy))[0].get("hermeticity") or {}
+        control("managed-absent-and-server-clean-the-capture-says-fully-hermetic",
+                held.get("managed_sources") == [] and held.get("managed_unverified") == []
+                and held.get("fully_hermetic") is True and held.get("server_policy", {}).get("verdict") == "clean",
+                str(held))
+        # A location whose check fails is unverified, never absent: a parent the user may not search
+        # (PermissionError; root searches anything, so it is planted only for another user) and a
+        # parent that is a symlink loop (ELOOP, for every user). Unverified, the call still runs, its
+        # capture names each location with the failure's class, and neither it nor the receipt is clean.
+        locked = scratch / "managed-locked"
+        (locked / "Library/Application Support/ClaudeCode").mkdir(parents=True)
+        (locked / "Library/Managed Preferences").symlink_to("Managed Preferences")
+        (locked / "etc").symlink_to("etc")
+        searchable = os.geteuid() != 0
+        (locked / "Library/Application Support/ClaudeCode").chmod(0o000)
+        try:
+            darwin, linux = managed_sources(str(locked), "darwin", "u"), managed_sources(str(locked), "linux", "u")
+            with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()) as said:
+                rc = prepare(str(scratch / "cell"), str(cwd), "", str(listing_file), strict=True,
+                             homes=[str(scratch / "elsewhere")], managed_root=str(locked))
+        finally:
+            (locked / "Library/Application Support/ClaudeCode").chmod(0o700)
+        want_darwin = [*([f"{p} (PermissionError)" for p in MANAGED_SOURCES["darwin"][:3]] if searchable else []),
+                       *(f"{p.format(user='u')} (OSError)" for p in MANAGED_SOURCES["darwin"][3:])]
+        control("managed-a-location-whose-check-fails-is-unverified-not-absent",
+                darwin == ([], want_darwin)
+                and linux == ([], [f"{p} (OSError)" for p in MANAGED_SOURCES["linux"]]), f"{darwin} {linux}")
+        unverified = json.loads(listing_file.read_text()).get("managed_unverified")
+        captured = run(policy=str(clean_policy))[0]
+        held = captured.get("hermeticity") or {}
+        receipt = json.loads(receipt_hermeticity(captured))
+        control("managed-unverified-the-call-runs-and-neither-capture-nor-receipt-is-clean",
+                rc == 0 and bool(unverified) and held.get("managed_unverified") == unverified
+                and held.get("managed_sources") == [] and held.get("fully_hermetic") is False
+                and receipt.get("fully_hermetic") is False and receipt.get("managed_unverified") == unverified
+                and "could not be checked" in said.getvalue(), f"{rc} {unverified} {held} {receipt}")
+        # A pre-call record without the check (an older listing, a run that never checked) is unverified.
+        listing_file.write_text(json.dumps({"cwd": str(cwd), "workdir_files": [], "ancestor_exposure": []}),
+                                encoding="utf-8")
+        held = run(policy=str(clean_policy))[0].get("hermeticity") or {}
+        control("managed-a-listing-without-the-check-is-unverified",
+                held.get("managed_unverified") == [MANAGED_NOT_CHECKED] and held.get("fully_hermetic") is False,
+                str(held))
+        with contextlib.redirect_stdout(io.StringIO()):
+            prepare(str(scratch / "cell"), str(cwd), "", str(listing_file), strict=True,
+                    homes=[str(scratch / "elsewhere")], managed_root=str(scratch / "managed-none"))
+        # The receipt derives fully_hermetic from the parts again: a capture stating it clean over an
+        # unverified location, or without the unverified list, does not reach the receipt as clean.
+        stated = {"assessed": True, "managed_sources": [], "managed_unverified": [], "fully_hermetic": True,
+                  "server_policy": {"status": SERVER_POLICY_CLEAN, "verdict": "clean", "reason": None}}
+        control("receipt-fully-hermetic-is-derived-from-the-parts",
+                json.loads(receipt_hermeticity({"hermeticity": stated}))["fully_hermetic"] is True
+                and json.loads(receipt_hermeticity({"hermeticity": {**stated, "managed_unverified": ["x (OSError)"]}}))[
+                    "fully_hermetic"] is False
+                and json.loads(receipt_hermeticity({"hermeticity": {
+                    k: v for k, v in stated.items() if k != "managed_unverified"}}))["fully_hermetic"] is False
+                and json.loads(receipt_hermeticity({"hermeticity": {**stated, "server_policy": {
+                    "status": None, "verdict": "clean", "reason": "failed"}}}))["fully_hermetic"] is False)
+
+        # D-20261102-252c92: the server-delivered half. Only the documented line's status is kept; clean is
+        # that exact status; anything else is not confirmed; no line, a failure or no answer is unknown.
+        account = "Logged in as someone@example.invalid (Example Org)"
+        for name, (output, code), want in (
+                ("server-a-clean-status-is-clean", (f"{account}\n \x1b[1mManaged settings (remote):\x1b[0m "
+                                                    f"{SERVER_POLICY_CLEAN}\n", 0), ("clean", SERVER_POLICY_CLEAN)),
+                ("server-another-status-is-not-confirmed",
+                 (f"{account}\nManaged settings (remote): 3 settings applied\n", 0), ("not confirmed", "3 settings applied")),
+                ("server-a-long-status-is-cut-to-200", ("Managed settings (remote): " + "x" * 300 + "\n", 0),
+                 ("not confirmed", "x" * 200)),
+                ("server-no-line-is-unknown", (f"{account}\nManaged settings: none\n", 0), ("unknown", None)),
+                ("server-two-lines-are-unknown", ("Managed settings (remote): a\nManaged settings (remote): b\n", 0),
+                 ("unknown", None)),
+                ("server-a-failed-doctor-is-unknown", (f"Managed settings (remote): {SERVER_POLICY_CLEAN}\n", 1),
+                 ("unknown", None))):
+            record = server_policy_verdict(output, code)
+            control(name, (record["verdict"], record["status"]) == want and "example.invalid" not in json.dumps(record),
+                    f"verdict={record['verdict']!r} status_present={record['status'] is not None}")
+        doctor = scratch / "fake-doctor"
+        # it answers clean only when its stdin is the null device, so a doctor handed a pipe is caught
+        doctor.write_text(f"#!{sys.executable}\nimport os, sys, time\nif sys.argv[1:] != ['doctor']:\n    sys.exit(9)\n"
+                          "time.sleep(float(os.environ.get('FAKE_DOCTOR_SLEEP') or 0))\n"
+                          "null, fd0 = os.stat(os.devnull), os.fstat(0)\n"
+                          "closed = (fd0.st_rdev, fd0.st_ino) == (null.st_rdev, null.st_ino)\n"
+                          "print('Account: someone@example.invalid')\n"
+                          f"print('Managed settings (remote): ' + ({SERVER_POLICY_CLEAN!r} if closed else 'stdin was open'))\n",
+                          encoding="utf-8")
+        doctor.chmod(0o755)
+        # through the subcommand claude-run runs, itself handed a pipe on stdin, so a doctor that inherited
+        # it would say so whatever this suite's own stdin is
+        import subprocess
+        asked = subprocess.run([sys.executable, str(pathlib.Path(__file__).resolve()), "server-policy",
+                                "--claude-bin", str(doctor)], input=b"", stdout=subprocess.PIPE, timeout=60)
+        try:
+            record = json.loads(asked.stdout)
+        except ValueError:
+            record = {}
+        control("server-doctor-runs-with-stdin-closed-and-keeps-one-line",
+                asked.returncode == 0 and record == {"status": SERVER_POLICY_CLEAN, "verdict": "clean", "reason": None},
+                f"exit={asked.returncode} verdict={record.get('verdict')!r}")
+        os.environ["FAKE_DOCTOR_SLEEP"] = "5"
+        try:
+            record = server_policy(str(doctor), timeout=0.5)
+        finally:
+            os.environ.pop("FAKE_DOCTOR_SLEEP", None)
+        control("server-a-doctor-past-its-bound-is-unknown",
+                record["verdict"] == "unknown" and "did not finish within 0.5 s" in (record["reason"] or ""), str(record))
+        unknown = run(policy=None)[0].get("hermeticity") or {}
+        control("server-unchecked-is-unknown-and-never-fully-hermetic",
+                unknown.get("server_policy", {}).get("verdict") == "unknown" and unknown.get("fully_hermetic") is False,
+                str(unknown))
+        forged = scratch / "server-policy-forged.json"
+        forged.write_text(json.dumps({"status": "2 settings applied", "verdict": "clean", "reason": None}), encoding="utf-8")
+        held = run(policy=str(forged))[0].get("hermeticity") or {}
+        control("server-a-clean-verdict-on-another-status-is-not-one",
+                held.get("server_policy", {}).get("verdict") == "unknown" and held.get("fully_hermetic") is False, str(held))
+        refused = scratch / "server-policy-refused.json"
+        refused.write_text(json.dumps(server_policy_verdict("Managed settings (remote): 3 settings applied\n", 0)),
+                           encoding="utf-8")
+        held = run(policy=str(refused))[0].get("hermeticity") or {}
+        control("server-not-confirmed-is-recorded-and-not-fully-hermetic",
+                held.get("server_policy", {}).get("status") == "3 settings applied" and held.get("fully_hermetic") is False,
+                str(held))
+        # doctor and the call's own startup fetch write these into the configuration home; they are not a signal
+        for name in ("remote-settings.json", ".synced-at", "policy-limits.json", "policy-limits.signature.json",
+                     "policy-limits.stamp.json"):
+            (config / name).write_text("{}", encoding="utf-8")
+        fetched = run(policy=str(clean_policy))[0]
+        control("server-fetched-policy-files-in-the-cell-are-not-problems", "problems" not in fetched
+                and "context" in fetched and (fetched.get("hermeticity") or {}).get("fully_hermetic") is True,
+                str(fetched.get("problems")))
+        for name in ("remote-settings.json", ".synced-at", "policy-limits.json", "policy-limits.signature.json",
+                     "policy-limits.stamp.json"):
+            (config / name).unlink()
+        # the receipt's hermeticity: the assessment the capture carries, or one saying it carries none
+        inherit = run(policy=str(clean_policy), profile="inherit")[0]
+        control("receipt-hermeticity-is-the-captures-assessment",
+                receipt_hermeticity(fetched) == canonical(fetched["hermeticity"])
+                and json.loads(receipt_hermeticity(inherit)) == {"assessed": False, "reason": NOT_ASSESSED_INHERIT}
+                and json.loads(receipt_hermeticity({"host": "claude"})) == {"assessed": False, "reason": NOT_ASSESSED_MISSING}
+                and json.loads(receipt_hermeticity({"hermeticity": {"assessed": False}}))["reason"] == NOT_ASSESSED_MISSING,
+                receipt_hermeticity(inherit))
 
         # the five §3.2 sources, each as the host records it when it loads one: each must be recorded
         for label, plant, needle in (
@@ -923,6 +1395,9 @@ def main(argv):
     r.add_argument("--schema")
     r.add_argument("--evidence-out")
     r.add_argument("--print-result", action="store_true")
+    r.add_argument("--server-policy")
+    s = sub.add_parser("server-policy")
+    s.add_argument("--claude-bin", required=True)
     args = parser.parse_args(argv[1:])
     if args.command == "prepare":
         return prepare(args.cell, args.cwd, args.home, args.out, strict=args.strict)
@@ -930,6 +1405,8 @@ def main(argv):
         return bind(args.root, args.cell, args.cwd, args.manifest)
     if args.command == "check-root":
         return check_root(args.root, args.home)
+    if args.command == "server-policy":
+        return server_policy_command(args)
     return render_command(args)
 
 

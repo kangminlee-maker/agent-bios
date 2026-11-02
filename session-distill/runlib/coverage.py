@@ -628,7 +628,9 @@ def self_test():
         refused("a state that is not JSON", lambda: load(directory / "bad.json"), "COVERAGE_INVALID")
     broken = copy.deepcopy(after2)
     broken["transcripts"][T]["versions"][0]["processed"]["w9"] = [[0, 99]]
-    refused("a range past record_count", lambda: write_atomic(pathlib.Path(tempfile.mkdtemp()), broken, digest(new_state())), "COVERAGE_INVALID")
+    with tempfile.TemporaryDirectory() as refused_into:
+        refused("a range past record_count", lambda: write_atomic(pathlib.Path(refused_into), broken, digest(new_state())),
+                "COVERAGE_INVALID")
     for label, edit, fragment in (
             ("ranges out of order", lambda st: st["transcripts"][T]["versions"][0]["read"].__setitem__(slice(None), [[5, 8], [0, 2]]), "ranges are not sorted"),
             ("a read range past record_count", lambda st: st["transcripts"][T]["versions"][0]["read"].__setitem__(slice(None), [[0, 99]]), "ends past record_count 12"),

@@ -562,7 +562,15 @@ def self_test():
            part_bytes({"text": "abc", "bytes": 3}), (3, None))
     named("control, BB#1: a length asserted as something other than a whole number is refused",
           [part_bytes({"text": "abc", "bytes": "3"})[1] or ""], "DRIVER_PART_LENGTH_CONFLICT")
-    moving = pathlib.Path(__file__).parent / "__bound_selftest_part.md"
+    # The files the BB#1 and BC#1 controls write and rewrite live in a scratch directory of their own, never
+    # beside this module: the source tree is what the umbrella's other legs read while this one runs.
+    import shutil
+    import tempfile
+    scratch = pathlib.Path(tempfile.mkdtemp(prefix="bound-selftest-"))
+    moving, counted_path = scratch / "part.md", scratch / "counted.md"
+    source_dir = pathlib.Path(__file__).resolve().parent
+    expect("its scratch files live outside the source tree the other umbrella legs read",
+           [str(p) for p in (moving, counted_path) if p.resolve().is_relative_to(source_dir)], [])
     try:
         moving.write_bytes(b"the bytes that were counted")
         snapshot, snapshot_problem = part_snapshot({"name": "moving.md", "path": str(moving)})
@@ -590,7 +598,6 @@ def self_test():
     # BC#1: exactly one read per path-backed part. The count, the hash and the delivered bytes come off
     # one body, and the asserted length is judged against THAT body - not against a second read, which is
     # what `part_bytes` used to do inside `part_snapshot`.
-    counted_path = pathlib.Path(__file__).parent / "__bound_selftest_counted.md"
     real_read_bytes = pathlib.Path.read_bytes
     try:
         counted_path.write_bytes(b"ten bytes!")
@@ -623,7 +630,7 @@ def self_test():
                (None, 10, hashlib.sha256(b"ten bytes!").hexdigest(), b"ten bytes!", 1))
     finally:
         pathlib.Path.read_bytes = real_read_bytes
-        counted_path.unlink(missing_ok=True)
+        shutil.rmtree(scratch, ignore_errors=True)
 
     # BB#3: an appended system prompt is declared by content; the path form is the instruction file's
     named("control, BB#3: an appended prompt declared by path is refused at declaration",

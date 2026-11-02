@@ -9,6 +9,44 @@ import time
 
 WINDOWS = os.name == 'nt'
 
+# Every exclusive lock a writer takes waits at most LOCK_WAIT_S, says after LOCK_NOTICE_S what it waits
+# for, and then refuses naming the lock (D-20261102-49b466). Read at each call, so a control can scale
+# them. Measured holds: an install 0.38 s, verify 0.034 s, a launcher preset save under 1 ms; only a
+# setup apply holds the transaction lock for minutes, and the refusal names it.
+LOCK_WAIT_S = 30.0
+LOCK_NOTICE_S = 2.0
+LOCK_RETRY_S = 0.05
+
+
+class LockWaitExpired(TimeoutError):
+    """An exclusive lock another process still held when the wait bound ran out."""
+
+
+def emulated_flock(fd, operation, locking, unlock_mode, try_mode) -> None:
+    """flock's LOCK_EX/LOCK_NB/LOCK_UN over a byte-range `locking` call (msvcrt on Windows), retried
+    every LOCK_RETRY_S. A blocking request used to retry forever; it now waits no longer than
+    lock_within would and raises LockWaitExpired. Takes the primitive as arguments so a control can
+    drive it on any OS."""
+    position = os.lseek(fd, 0, os.SEEK_CUR)
+    began = time.monotonic()
+    try:
+        while True:
+            os.lseek(fd, 0, os.SEEK_SET)
+            try:
+                locking(fd, unlock_mode if operation & 8 else try_mode, 1)
+                return
+            except OSError as exc:
+                if operation & 8 or exc.errno not in (errno.EACCES, errno.EAGAIN, errno.EDEADLK):
+                    raise
+                if operation & 4:
+                    raise BlockingIOError(exc.errno, str(exc)) from exc
+                if time.monotonic() - began >= LOCK_WAIT_S:
+                    raise LockWaitExpired(f"a file lock is still held after {LOCK_WAIT_S:g} s") from exc
+                time.sleep(LOCK_RETRY_S)
+    finally:
+        os.lseek(fd, position, os.SEEK_SET)
+
+
 if not WINDOWS:
     import fcntl as file_locks
 else:
@@ -20,21 +58,80 @@ else:
         @staticmethod
         def flock(file, operation):
             fd = file if isinstance(file, int) else file.fileno()
-            position = os.lseek(fd, 0, os.SEEK_CUR)
-            try:
-                while True:
-                    os.lseek(fd, 0, os.SEEK_SET)
-                    try:
-                        msvcrt.locking(fd, msvcrt.LK_UNLCK if operation & 8 else msvcrt.LK_NBLCK, 1)
-                        return
-                    except OSError as exc:
-                        if operation & 8 or exc.errno not in (errno.EACCES, errno.EAGAIN, errno.EDEADLK):
-                            raise
-                        if operation & 4:
-                            raise BlockingIOError(exc.errno, str(exc)) from exc
-                        time.sleep(.05)
-            finally:
-                os.lseek(fd, position, os.SEEK_SET)
+            emulated_flock(fd, operation, msvcrt.locking, msvcrt.LK_UNLCK, msvcrt.LK_NBLCK)
+
+
+
+def lock_within(file, name, holder=None, stream=None) -> None:
+    """Take an exclusive lock on `file` (a descriptor or an object with fileno()), waiting at most
+    LOCK_WAIT_S. `name` says what the lock guards and where, as "<what> (<path>)". After LOCK_NOTICE_S
+    one line on stderr says what is awaited; at the bound LockWaitExpired names the lock and, where
+    `holder()` can tell, who holds it. A writer used to block in flock with no deadline, so one stuck
+    holder hung every later command without a word."""
+    began = time.monotonic()
+    noticed = False
+    while True:
+        try:
+            file_locks.flock(file, file_locks.LOCK_EX | file_locks.LOCK_NB)
+            return
+        except BlockingIOError:
+            pass
+        waited = time.monotonic() - began
+        if waited >= LOCK_WAIT_S or (not noticed and waited >= LOCK_NOTICE_S):
+            held = _holder_text(holder)
+            by = f", held by {held}" if held else ""
+            if waited >= LOCK_WAIT_S:
+                raise LockWaitExpired(f"{name} is still held after {LOCK_WAIT_S:g} s{by}")
+            print(f"agent-bios: waiting for {name}{by}; giving up after {LOCK_WAIT_S:g} s",
+                  file=stream or sys.stderr, flush=True)
+            noticed = True
+        time.sleep(LOCK_RETRY_S)
+
+
+def _holder_text(holder):
+    """What `holder()` says about who holds a lock, or None: naming the holder is a courtesy, and a
+    holder that cannot be read must not turn the wait into a different error."""
+    if holder is None:
+        return None
+    try:
+        return holder()
+    except Exception:
+        return None
+
+
+def process_identity(pid: int) -> str | None:
+    """A token that tells process `pid` from a later process reusing the number: its start time."""
+    if WINDOWS:
+        import ctypes
+        from ctypes import wintypes
+        kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+        kernel.OpenProcess.restype = wintypes.HANDLE
+        kernel.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+        kernel.GetProcessTimes.argtypes = [wintypes.HANDLE] + [ctypes.POINTER(wintypes.FILETIME)] * 4
+        kernel.CloseHandle.argtypes = [wintypes.HANDLE]
+        handle = kernel.OpenProcess(0x1000, False, pid)
+        if not handle:
+            return None
+        try:
+            times = [wintypes.FILETIME() for _ in range(4)]
+            if not kernel.GetProcessTimes(handle, *(ctypes.byref(t) for t in times)):
+                return None
+            return str((times[0].dwHighDateTime << 32) | times[0].dwLowDateTime)
+        finally:
+            kernel.CloseHandle(handle)
+    if sys.platform.startswith("linux"):
+        try:
+            fields = (Path("/proc") / str(pid) / "stat").read_text().rsplit(")", 1)[1].split()
+            return fields[19]
+        except (OSError, IndexError):
+            return None
+    try:
+        result = subprocess.run(["/bin/ps", "-p", str(pid), "-o", "lstart="], stdin=subprocess.DEVNULL,
+                                capture_output=True, text=True, timeout=3,
+                                env={**os.environ, "LC_ALL": "C", "TZ": "UTC"})
+        return result.stdout.strip() if result.returncode == 0 and result.stdout.strip() else None
+    except (OSError, subprocess.SubprocessError):
+        return None
 
 
 _jsonl_lines = {}
@@ -57,6 +154,29 @@ def jsonl_lines_for(anchor) -> object:
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
         _jsonl_lines[path] = module
+    return module
+
+
+_codex_protocol = {}
+
+
+def codex_protocol_for(anchor) -> object:
+    """The Codex app-server protocol module of the package root that holds `anchor`:
+    <root>/wrappers/codex_protocol.py, loaded by path under a name of its own, as jsonl_lines_for
+    loads the splitter. It lives in wrappers/ because codex_frame_filter.py loads it from beside
+    itself, where the compatibility install deploys the two together."""
+    path = Path(anchor).resolve().parents[1] / "wrappers" / "codex_protocol.py"
+    module = _codex_protocol.get(path)
+    if module is None:
+        if not path.is_file():
+            raise FileNotFoundError(f"the package's Codex protocol module is missing: {path}")
+        import hashlib
+        import importlib.util
+        spec = importlib.util.spec_from_file_location(
+            "agent_bios_codex_protocol_" + hashlib.sha256(str(path).encode()).hexdigest()[:12], path)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        _codex_protocol[path] = module
     return module
 
 

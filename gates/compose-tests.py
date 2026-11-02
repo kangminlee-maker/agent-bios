@@ -88,6 +88,9 @@ def main(argv):
     # What `python -m unittest discover -s compose` does, over this group's modules only: the
     # working directory first on the import path, as `-m` puts it, and the runner `unittest.main`
     # builds, warnings included.
+    # The node-based CLIs the tests run (claude, codex, npm) would otherwise leave a compile cache
+    # directory in the caller's TMPDIR, which outlives the run.
+    os.environ["NODE_DISABLE_COMPILE_CACHE"] = "1"
     runner = unittest.TextTestRunner(warnings=None if sys.warnoptions else "default")
     return 0 if runner.run(group_suite(placed[argv[0]])).wasSuccessful() else 1
 

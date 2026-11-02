@@ -9,11 +9,13 @@ dispatch and not once per stage. The groups and ceilings are the design's table.
 from __future__ import annotations
 
 import contextlib
-import fcntl
 import json
 import math
 import os
 import pathlib
+import sys
+
+REPO = pathlib.Path(__file__).resolve().parents[2]
 
 TOTAL_CEILING = 165.0
 # A dispatch is refused unless its bounded charge fits inside both remaining ceilings
@@ -506,16 +508,31 @@ def ack_streak(root: pathlib.Path, prefix: str, why: str) -> dict:
     return {"attempt": aid, "streak_closed": n, "group": last["group"], **line}
 
 
+def lock_platform():
+    """The package's OS boundary, which owns the shared bounded lock wait; author-side imports
+    shipped, never the reverse."""
+    if str(REPO / "compose") not in sys.path:
+        sys.path.insert(0, str(REPO / "compose"))
+    import host_platform as module
+    return module
+
+
 @contextlib.contextmanager
 def locked(root: pathlib.Path):
-    """An exclusive lock on the root's ledger for the span of a check-and-reserve."""
+    """An exclusive lock on the root's ledger for the span of a check-and-reserve, waited on for at
+    most the shared bound (compose/host_platform.py lock_within, D-20261102-49b466); past it a
+    BudgetError names the lock."""
     root = pathlib.Path(root); root.mkdir(parents=True, exist_ok=True)
+    platform = lock_platform()
     with open(root / LOCK, "a+") as fh:
-        fcntl.flock(fh.fileno(), fcntl.LOCK_EX)
+        try:
+            platform.lock_within(fh.fileno(), f"the benchmark budget lock ({root / LOCK})")
+        except platform.LockWaitExpired as exc:
+            raise BudgetError(str(exc)) from exc
         try:
             yield
         finally:
-            fcntl.flock(fh.fileno(), fcntl.LOCK_UN)
+            platform.file_locks.flock(fh.fileno(), platform.file_locks.LOCK_UN)
 
 
 def reserve(root: pathlib.Path, group: str, kind: str, ref: str, prefix: str | None = None,
@@ -850,6 +867,28 @@ def self_test() -> int:
             spend(d); bad.append("an unreadable ledger was read")
         except BudgetError:
             ok.append("an unreadable attempts ledger stops the read, by line")
+        # a held budget lock is waited on for the bound and then refused naming it; the holder is a
+        # child that lets go after 5 s, so an unbounded wait returns late rather than hanging
+        import subprocess, time
+        holder = subprocess.Popen([sys.executable, "-c", "import fcntl, sys, time; f = open(sys.argv[1], 'a+'); "
+                                   "fcntl.flock(f, fcntl.LOCK_EX); print('held', flush=True); time.sleep(5)",
+                                   str(d / LOCK)], stdout=subprocess.PIPE, text=True)
+        platform = lock_platform()
+        saved = platform.LOCK_WAIT_S, platform.LOCK_NOTICE_S
+        try:
+            holder.stdout.readline()
+            platform.LOCK_WAIT_S, platform.LOCK_NOTICE_S = 0.5, 60.0
+            began = time.monotonic()
+            try:
+                with locked(d):
+                    pass
+                bad.append(f"a held budget lock was taken after {time.monotonic() - began:.1f} s, not refused")
+            except BudgetError as exc:
+                (ok if "the benchmark budget lock" in str(exc) and time.monotonic() - began < 4 else bad).append(
+                    f"a held budget lock is refused by name within the bound ({exc})")
+        finally:
+            platform.LOCK_WAIT_S, platform.LOCK_NOTICE_S = saved
+            holder.kill(); holder.wait(); holder.stdout.close()
     finally:
         shutil.rmtree(d, ignore_errors=True)
     for b in bad:

@@ -26,10 +26,12 @@ import sys
 
 REPO = pathlib.Path(__file__).resolve().parents[2]
 LAUNCHER = REPO / "launch" / "agent-launch.py"
-# design §3.2 step 1's evidence list, plus payload_sha256 (plan WP-02, "Packet identity")
+# design §3.2 step 1's evidence list, plus payload_sha256 (plan WP-02, "Packet identity") and
+# hermeticity (the contract-fix record of 2026-11-02 under design/contract-fix/, F-31: managed and
+# server-delivered settings, D-20261102-6b6676 and D-20261102-252c92)
 EVIDENCE_KEYS = ("call_id", "schema_sha256", "payload_sha256", "seat_observed", "profile", "profile_flags_sha256",
                  "cwd", "manifest_sha256", "context_observed_sha256", "usage_state", "usage_totals",
-                 "capture_sha256", "session_id")
+                 "capture_sha256", "session_id", "hermeticity")
 # the launcher's top-level fields that design §3.2 also requires: packet and result hashes, the seat sent
 TOP_KEYS = ("method_id", "dispatch_id", "packet_sha256", "result_sha256", "provider", "model", "effort", "exit_status")
 _launcher = None
@@ -107,12 +109,13 @@ def self_test():
     # provider, model, effort, exit_status, evidence{}}), and design §3.2 step 1's evidence list
     # (call_id, the schema hash, the seat observed, the profile and flag-set hash, the working
     # directory, the context-manifest and observed-context hashes, the usage state and totals, the
-    # capture hash, the session or thread id) with the plan's addition payload_sha256 ("Packet identity").
+    # capture hash, the session or thread id) with the plan's addition payload_sha256 ("Packet identity"),
+    # and the contract-fix record's hermeticity (2026-11-02, F-31).
     required_top = ("schema", "method_id", "dispatch_id", "packet_sha256", "result_sha256", "provider", "model",
                     "effort", "exit_status", "evidence")
     required_evidence = ("call_id", "schema_sha256", "seat_observed", "profile", "profile_flags_sha256", "cwd",
                          "manifest_sha256", "context_observed_sha256", "usage_state", "usage_totals", "capture_sha256",
-                         "session_id", "payload_sha256")
+                         "session_id", "payload_sha256", "hermeticity")
     ran.append("receipt-field-inventory-is-the-contract")
     if set(TOP_KEYS) | {"schema", "evidence"} != set(required_top) or set(EVIDENCE_KEYS) != set(required_evidence):
         failures.append(f"receipt fields {sorted(TOP_KEYS)} / {sorted(EVIDENCE_KEYS)} are not the contract's "

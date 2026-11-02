@@ -90,6 +90,11 @@ CALL_SCHEMA = _closed(
                   output_reservation={"type": ["integer", "null"]}),
     use={"enum": ["judge", "producing", "authoring"]}, max_output_tokens={"type": ["integer", "null"]},
     runner_refused=_str_or_null,
+    # the run's server-delivered policy verdict, which the dispatcher hands every hermetic Claude call
+    # (D-20261102-252c92); optional, like `bound`: a golden host's call and one recorded before carry none
+    server_policy={**_closed(("status", "verdict", "reason"), status=_str_or_null,
+                             verdict={"enum": ["clean", "not confirmed", "unknown"]}, reason=_str_or_null),
+                   "type": ["object", "null"]},
     caps=_closed(("tokens", "compactions"), tokens=_int, compactions=_int),
     reservation=_closed(("amount", "calibration", "tranche", "declaration_seq"), amount=_int,
                         calibration={"enum": ["measured", "provisional"]}, tranche={"enum": ["broad", "calibration"]},
@@ -319,7 +324,8 @@ def frame_owner():
 # calling that function rather than by copying the rule (BC#2). Author-side imports shipped, never
 # the reverse.
 OBSERVER_OWNER = pathlib.Path(__file__).resolve().parents[2] / "wrappers" / "claude_hermetic_evidence.py"
-OBSERVER_READERS = ("norm_sha256",)  # the observer's only function read here
+# the observer's only functions read here and by dispatch.py (server_policy_record, over the probe's answer)
+OBSERVER_READERS = ("norm_sha256", "receipt_hermeticity", "server_policy_record")
 _observer_owner = None
 
 
@@ -579,7 +585,8 @@ def receipt_evidence(call_dir):
             "cwd": host.get("cwd") or "", "manifest_sha256": canonical_sha256(call.get("manifest")),
             "context_observed_sha256": canonical_sha256(host.get("context")),
             "usage_state": usages.call_state(c.usage), "usage_totals": usages.totals_text(c.usage),
-            "capture_sha256": capture_sha256(c.dir), "session_id": host.get("session_id") or ""}
+            "capture_sha256": capture_sha256(c.dir), "session_id": host.get("session_id") or "",
+            "hermeticity": observer_owner().receipt_hermeticity(host)}
 
 
 @check("completion_binding")
@@ -608,6 +615,7 @@ def receipt_binding(c, errors):
         "evidence.usage_totals": usages.totals_text(usage) if usage else None,
         "evidence.capture_sha256": capture_sha256(c.dir),
         "evidence.session_id": host.get("session_id"),
+        "evidence.hermeticity": observer_owner().receipt_hermeticity(host),
     }
     for key, value in want.items():
         held = evidence.get(key.split(".", 1)[1]) if key.startswith("evidence.") else receipt.get(key)
@@ -621,6 +629,12 @@ def receipt_binding(c, errors):
         errors.append("PROFILE_INHERITED receipt: the flag-set hash is not the one seats.json pins for the profile")
     if "cwd" in evidence and evidence["cwd"] != (call.get("manifest") or {}).get("workdir_path"):
         errors.append(f"CWD_OUTSIDE_MANIFEST receipt: cwd {evidence['cwd']!r} is not the declared working directory")
+    # the server policy the capture states is the run's verdict the dispatcher recorded for this call
+    if isinstance(call.get("server_policy"), dict):
+        stated = (host.get("hermeticity") or {}).get("server_policy") if isinstance(host.get("hermeticity"), dict) else None
+        if stated != call["server_policy"]:
+            errors.append(f"RECORD_INTEGRITY capture hermeticity: server policy {stated!r} is not the run's record "
+                          f"{call['server_policy']!r} in call.json")
 
 
 @check("completion_binding")
@@ -966,6 +980,10 @@ def self_test():
     import tempfile
     failures, ran, outcomes = [], [], []
     scratch = pathlib.Path(tempfile.mkdtemp(prefix="gate-self-test-"))
+    # removed at exit as well, so a suite that stops on an exception leaves nothing in its TMPDIR
+    import atexit
+    import shutil
+    atexit.register(shutil.rmtree, scratch, True)
 
     def fixture(probe, case, name):
         return (FIXTURES / probe / case / name).read_bytes()
@@ -1265,9 +1283,31 @@ def self_test():
             "RECORD_INTEGRITY receipt packet_sha256", "BINDING_MISMATCH request text")
     for key, value in (("schema_sha256", "0" * 64), ("payload_sha256", "0" * 64), ("seat_observed", '{"main":["claude-opus-5-5"]}'),
                        ("manifest_sha256", "0" * 64), ("context_observed_sha256", "0" * 64), ("usage_state", "provisional"),
-                       ("usage_totals", '{"measured":1}'), ("capture_sha256", "0" * 64), ("session_id", "another-session")):
+                       ("usage_totals", '{"measured":1}'), ("capture_sha256", "0" * 64), ("session_id", "another-session"),
+                       ("hermeticity", '{"assessed":true,"fully_hermetic":true}')):
         control(f"receipt-{key}-is-not-recomputed", variant(claude, lambda f, k=key, v=value: jedit(f, "receipt.json", lambda o: o["evidence"].update({k: v})),
                                                            reseal=False), f"RECORD_INTEGRITY receipt evidence.{key}")
+    # the capture states the run's server-policy verdict as call.json records it (D-20261102-252c92)
+    run_policy = {"status": "none configured for this organization", "verdict": "clean", "reason": None}
+    stated_policy = {"assessed": True, "managed_sources": [], "managed_unverified": [], "server_policy": run_policy,
+                     "fully_hermetic": True, "setting_sources_note": "n"}
+    control("capture-server-policy-is-the-runs", variant(
+        claude, lambda f: jedit(f, "call.json", lambda o: o.update(server_policy=run_policy)),
+        lambda f: jedit(f, "capture/host.json", lambda o: o.update(hermeticity=stated_policy))))
+    control("capture-server-policy-is-not-the-runs", variant(
+        claude, lambda f: jedit(f, "call.json", lambda o: o.update(server_policy=run_policy)),
+        lambda f: jedit(f, "capture/host.json", lambda o: o.update(hermeticity={**stated_policy, "server_policy": {
+            "status": None, "verdict": "unknown", "reason": "no server-policy check was run for this call"}}))),
+        "RECORD_INTEGRITY capture hermeticity: server policy {'reason': 'no server-policy check was run for this call'")
+    # A capture whose server policy contradicts itself (a clean verdict without the clean status) is not
+    # fully hermetic in the receipt the gate recomputes: the observer's own validator reads the verdict.
+    ran.append("receipt-a-contradictory-server-policy-is-not-fully-hermetic")
+    contradictory = variant(claude, lambda f: jedit(f, "capture/host.json", lambda o: o.update(hermeticity={
+        **stated_policy, "server_policy": {"status": None, "verdict": "clean", "reason": "failed"}})))
+    recomputed = json.loads(json.loads(contradictory["receipt.json"])["evidence"]["hermeticity"])
+    if recomputed.get("fully_hermetic") is not False:
+        failures.append(f"receipt-a-contradictory-server-policy-is-not-fully-hermetic: the recomputed receipt "
+                        f"states {recomputed!r}")
     control("receipt-seat-sent-is-not-the-call-seat", variant(claude, lambda f: jedit(f, "receipt.json", lambda o: o.update(model="claude-opus-5-5")),
                                                               reseal=False), "RECORD_INTEGRITY receipt model")
     control("receipt-exit-status-is-not-observed", variant(claude, lambda f: jedit(f, "receipt.json", lambda o: o.update(exit_status=1)),
@@ -1948,8 +1988,12 @@ def self_test():
     # accepted() hands a schema-less call's final text to the stage, on both hosts
     ran.append("accepted-keeps-schema-less-output")
     claude_text = jload(claude, "result.json")["result"]
-    if accepted(materialize(variant(claude, schemaless))) != claude_text or accepted(materialize(codex)) != "OK":
-        failures.append("accepted() did not return a schema-less call's final text")
+    try:
+        handed, refused = (accepted(materialize(variant(claude, schemaless))), accepted(materialize(codex))), ""
+    except Refused as exc:   # a refusal of the clean fixtures is reported by its codes, not raised past the suite
+        handed, refused = None, f"; refused: {exc}"
+    if handed != (claude_text, "OK"):
+        failures.append("accepted() did not return a schema-less call's final text" + refused)
     control("claude-schema-less-call-without-result-text", variant(claude, schemaless, lambda f: jedit(f, "result.json", lambda o: o.pop("result"))),
             "COMPLETION_INCOMPLETE result text")
 
@@ -1997,8 +2041,12 @@ def self_test():
     except Refused as exc:
         if "SCHEMA_INVALID" not in str(exc):
             failures.append(f"accepted() refused unnamed: {exc}")
-    if accepted(materialize(claude)) != {"answer": '{"answer":"OK"}'}:
-        failures.append("accepted() did not return the accepted call's structured output")
+    try:
+        handed, refused = accepted(materialize(claude)), ""
+    except Refused as exc:
+        handed, refused = None, f"; refused: {exc}"
+    if handed != {"answer": '{"answer":"OK"}'}:
+        failures.append("accepted() did not return the accepted call's structured output" + refused)
 
     # --- contract fidelity (done-when 8) and the port of the probe's mutation audit -----------------
     # design §3.2's predicate branches and its control list, and the plan's additions, copied here
@@ -2156,6 +2204,10 @@ def self_test():
         "schema policy": "plan WP-01: a schema the validator's policy refuses judges nothing",
         "working directory listed": "design §3.1: the working directory is listed before the call",
         "working directory holds the manifest": "design §3.1: an empty directory or exactly the manifest's files",
+        "receipt hermeticity": "the contract-fix records of 2026-11-02 (F-31): the receipt states the call's hermeticity, "
+                               "recomputed from the call directory",
+        "capture server policy is the run's": "the contract-fix records of 2026-11-02 (D-20261102-252c92): the "
+                                              "capture states the run's server-policy verdict, as call.json records it",
         "the window bound": "the input-bound amendment record 2026-10-21T0026--cc0498f and the seam record of "
                             "2026-10-22: the bound `runlib/bound.py` owns is judged a second time here, from "
                             "the call directory, so an accepted call is evidence that it held",
@@ -2295,7 +2347,9 @@ def self_test():
             ("evidence.manifest_sha256", "receipt context-manifest hash"),
             ("evidence.context_observed_sha256", "receipt observed-context hash"), ("evidence.usage_state", "receipt usage state"),
             ("evidence.usage_totals", "receipt usage totals"), ("evidence.capture_sha256", "receipt capture hash"),
-            ("evidence.session_id", "receipt session or thread id"))},
+            ("evidence.session_id", "receipt session or thread id"), ("evidence.hermeticity", "receipt hermeticity"))},
+        ("receipt_binding", "RECORD_INTEGRITY capture hermeticity: server policy {} is not the run's record {} in "
+                            "call.json"): ("capture server policy is the run's",),
         ("references", "RECORD_INTEGRITY {} id {} at {} resolves to nothing"): ("every reference resolves",),
         ("schema", "SCHEMA_INVALID result: not one JSON document (nothing is extracted from prose)"): ("prose is never parsed (F22)",),
         ("schema", "SCHEMA_INVALID schema.json: refused by the schema policy ({})"): ("schema policy",),
@@ -2379,7 +2433,6 @@ def self_test():
         failures.append(f"only {len(rejecting)} rejecting controls over recorded captures; WP-02 done-when 1 asks for at least 40")
     audited = len(rejecting)
 
-    import shutil
     shutil.rmtree(scratch, ignore_errors=True)
     for failure in failures:
         print(f"gate --self-test [FAIL] {failure}")

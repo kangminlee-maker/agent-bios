@@ -534,7 +534,8 @@ class AppInstructionsTests(unittest.TestCase):
 
         def discovered():
             with CodexServer(shutil.which("codex"), cwd=str(self.project), env=env) as server:
-                response = server.call("skills/list", {"cwds": [str(self.project)], "forceReload": True}, timeout=20)
+                # skills/list is this test's own question, not a call agent-bios makes: the client, unchecked.
+                response = server.client.call("skills/list", {"cwds": [str(self.project)], "forceReload": True}, timeout=20)
             groups = response.get("data", [])
             self.assertTrue(groups)
             self.assertFalse([error for group in groups for error in group.get("errors", [])])

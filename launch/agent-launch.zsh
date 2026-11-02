@@ -1,7 +1,9 @@
 # Alias expansion is OFF while this file is parsed and restored to what it was at the
 # end: zsh expands aliases at parse time, inside function bodies too, so an alias named
 # `builtin`, `command`, or `claude` that exists when this file is sourced would be baked
-# into the functions below and the real binary never reached.
+# into the functions below and the real binary never reached. A command substitution is
+# the exception: its text is parsed again each time it runs, under the aliases then in
+# force, so a builtin inside `$(...)` is written `\builtin`, which no alias can replace.
 [[ -o aliases ]] && _agent_launch_aliases_were=1 || _agent_launch_aliases_were=0
 setopt no_aliases
 
@@ -17,20 +19,109 @@ _agent_launch_direct() {
   # provide is handed to whatever the user's function does. `builtin` cannot be shadowed,
   # so the resolution is the one the comment above already promised.
   if [[ "$host" == "claude" && -z "${_agent_launch_private_connection:-}" ]]; then
-    case "${1-}" in
-      # These six background-session verbs are dispatched only from the first argument:
-      # with a flag in front, `claude attach <id>` is a new session whose prompt is
-      # "attach <id>". Measured on 2.1.280 over all 21 subcommand spellings — only these
-      # six are displaced, and the other fifteen (mcp, doctor, plugin, project, auth,
-      # agents, ultrareview, update ...) parse the flag in front, which is what makes the
-      # list this short rather than every verb. They act on a session that already exists,
-      # so no permission default belongs in front of them.
-      logs|attach|stop|kill|respawn|rm) builtin command claude "$@" ;;
-      *) builtin command claude --dangerously-skip-permissions "$@" ;;
-    esac
+    # The permission default goes in front of a prompt or an option, never in front of a
+    # subcommand: some subcommands are dispatched only from the first argument, so with a
+    # flag in front `claude attach <id>` is a new session whose prompt is "attach <id>",
+    # and which ones is the installed version's to say. The subcommands are what that
+    # version's `claude --help` lists (_agent_launch_claude_subcommands); a first argument
+    # that starts with `-` is no subcommand and needs no probe. When the list cannot be
+    # read, the flag stays off.
+    if [[ $# -eq 0 || "$1" == -* ]]; then
+      builtin command claude --dangerously-skip-permissions "$@"
+    elif _agent_launch_claude_subcommands && ! _agent_launch_claude_lists "$1"; then
+      builtin command claude --dangerously-skip-permissions "$@"
+    else
+      builtin command claude "$@"
+    fi
   else
     builtin command "$host" "$@"
   fi
+}
+
+# The subcommand spellings (`stop|kill` is two) the installed `claude --help` lists under
+# `Commands:`, in `_agent_launch_claude_verbs`. Read once per installed binary: the key is the
+# binary's resolved path, modification time and size, held in this shell and in
+# ~/.local/share/agent-bios/claude-subcommands (the state dir the shadow log below uses, never
+# created here), so an update, which installs a new versioned path or rewrites the file, is
+# probed again. Returns nonzero when no list can be read, and a failed probe is not cached.
+#
+# The help is run by the lister, launch/claude_subcommands.py: in a process group of its own, for
+# at most 5 s, and answered for only when it exited 0 and listed a subcommand; on any other outcome
+# it says why in one line on stderr. The lister is found where the private shell connection's
+# header names it, else beside this file (the compatibility install deploys the two together, as
+# the checkout holds them). The python3 that runs it is the one on PATH; on macOS /usr/bin/python3
+# without the Command Line Tools would open their installer on every call, so it is not run then.
+# When zsh/stat does not load or cannot read the binary, or there is no python3 or lister, the flag
+# stays off and one line names the check (_agent_launch_claude_unread). A claude missing from PATH
+# is not reported: the call that follows fails by itself, and a line about the flag would only
+# stand in front of that error. The builtins are called as builtins, past any function of the
+# user's that shares their name.
+typeset -ga _agent_launch_claude_verbs
+typeset -g _agent_launch_claude_verbs_key=""
+typeset -g _agent_launch_claude_lister="${_agent_launch_claude_lister:-${${(%):-%x}:a:h}/claude_subcommands.py}"
+_agent_launch_claude_unread() {
+  builtin print -ru2 -- "agent-bios: $1, so the subcommands claude lists cannot be read; claude starts" \
+    "without --dangerously-skip-permissions"
+  return 1
+}
+_agent_launch_claude_subcommands() {
+  setopt localoptions noksharrays no_err_return no_err_exit
+  local bin real key py listed why cache="$HOME/.local/share/agent-bios/claude-subcommands"
+  local -a words cached
+  local -A meta
+  bin="$(\builtin whence -p claude)" || return 1
+  [[ -n "$bin" ]] || return 1
+  real="${bin:A}"
+  if ! builtin zmodload -F zsh/stat b:zstat 2>/dev/null; then
+    _agent_launch_claude_unread "zsh's zsh/stat module did not load"
+    return 1
+  fi
+  if ! { builtin zstat -H meta -- "$real" } 2>/dev/null; then
+    _agent_launch_claude_unread "zstat could not read $real"
+    return 1
+  fi
+  key="${real}"$'\t'"${meta[mtime]}"$'\t'"${meta[size]}"
+  [[ "$key" == "$_agent_launch_claude_verbs_key" ]] && return 0
+  if [[ -f "$cache" && ! -L "$cache" ]]; then
+    cached=("${(@f)$(<"$cache")}")
+    if [[ "${cached[1]-}" == "$key" && ${#cached} -gt 1 ]]; then
+      _agent_launch_claude_verbs=("${(@)cached[2,-1]}")
+      _agent_launch_claude_verbs_key="$key"
+      return 0
+    fi
+  fi
+  py="$(\builtin whence -p python3)" || py=""
+  if [[ -n "$py" && "$OSTYPE" == darwin* && "${py:A}" == /usr/bin/python3 ]] \
+      && ! builtin command xcode-select -p >/dev/null 2>&1; then
+    why="python3 is the Command Line Tools stub, which are not installed"
+  elif [[ -z "$py" ]]; then
+    why="no python3 is on PATH"
+  elif [[ ! -f "$_agent_launch_claude_lister" ]]; then
+    why="the subcommand lister is missing at $_agent_launch_claude_lister"
+  fi
+  if [[ -n "$why" ]]; then
+    _agent_launch_claude_unread "$why"
+    return 1
+  fi
+  listed="$("$py" -I "$_agent_launch_claude_lister" "$bin" </dev/null)" || return 1
+  words=("${(@f)listed}")
+  (( ${#words} )) || return 1
+  _agent_launch_claude_verbs=("${words[@]}")
+  _agent_launch_claude_verbs_key="$key"
+  if [[ -d "${cache:h}" && ( ! -e "$cache" || ( -f "$cache" && ! -L "$cache" ) ) ]]; then
+    builtin print -rl -- "$key" "${words[@]}" >| "$cache.$$" 2>/dev/null \
+      && builtin command mv -f -- "$cache.$$" "$cache" 2>/dev/null \
+      || builtin command rm -f -- "$cache.$$" 2>/dev/null
+  fi
+  return 0
+}
+
+# Whether $1 is a spelling `_agent_launch_claude_verbs` holds. A function of its own so the
+# subscript is read under zsh's array options, not the user's: with KSH_ARRAYS set, `(Ie)` answers
+# 0 for the first element, the same answer as "absent".
+_agent_launch_claude_lists() {
+  setopt localoptions noksharrays no_err_return no_err_exit
+  (( ${_agent_launch_claude_verbs[(Ie)$1]} ))
 }
 
 _agent_launch_dispatch() {
@@ -108,7 +199,7 @@ _agent_launch_note_shadow() {
   prog="${TERM_PROGRAM:-unknown}"
   prog="${prog//[[:cntrl:]]/ }"
   # `builtin command`: a shell function named `date` must not write this field.
-  stamp="$(builtin command date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null)"
+  stamp="$(\builtin command date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null)"
   stamp="${stamp//[[:cntrl:]]/ }"
   # `builtin printf`: a shell function named printf could report success and write nothing.
   if builtin printf '%s\t%s\t%s\t%s\n' "${stamp:-<unknown>}" "$host" "$prog" \

@@ -40,17 +40,17 @@ unset AGENT_BIOS_SELF_TEST_STOP_AT_FIRST_FAILURE
 #   - the runner's own self-test, run directly rather than recorded, so a runner that reported every
 #     leg as passing could not also pass its own controls;
 #   - venv provisioning: the legs that use the venv are recorded after it exists;
-#   - the two legs marked `-a`, which change source-tree files while they run (each says which):
-#     they run first, one at a time, before any other leg starts.
+#   - a leg marked `-a` (none today): one that changes files other legs read while it runs would run
+#     first, by itself, before any other leg starts.
 # Every other leg overlaps freely. Measured 2026-11-02 at 43dc4bf, each leg run alone with the inode
-# change times of the tree, .git, HOME and the venv compared around it: apart from those two, the
-# tree writes are __pycache__ files, which Python replaces by rename; check-publish's self-test adds
-# loose objects to .git, which git writes atomically, and is the only leg writing ~/.npm; the
-# compose `rest` group is the only one running the claude CLI, which writes ~/.claude.json; no
-# other leg reads what these write. The legs that change git state do it in scratch repositories with
-# GIT_DIR scrubbed; the one scan of the shared temp area by name (check_parity.py,
-# agent-launch-register-*) matches only names its own wizard creates; ports are kernel-assigned;
-# sockets live under each leg's own mkdtemp, so TMPDIR is left as it is.
+# change times of the tree, .git, HOME and the venv compared around it: the tree writes are __pycache__
+# files, which Python replaces by rename. Of the writes found then, the install scenarios' I13 plant
+# goes into a copy of the tree, bound.py's self-test files into scratch, and check-publish's npm and
+# the compose tests' claude CLI run with sandbox homes, each held by a control in its own suite;
+# check-publish's self-test clones the repository with hardlinks, which moves the change time of its
+# loose objects and writes none. The legs that change git state do it in scratch repositories with
+# GIT_DIR scrubbed; ports are kernel-assigned; each leg runs with a TMPDIR of its own, which
+# gates/run-legs.py removes when it ends and fails the leg for leaving anything in.
 legs_begin() {
   LEGS_DIR="$(mktemp -d "${TMPDIR:-/tmp}/parity-legs.XXXXXX")" || {
     echo "FAIL: no directory for the leg runner's spec"; exit 1; }
@@ -359,9 +359,8 @@ else
   # how it stops being read at all.
   # The runner keeps that handling (`-l`): the whole output goes to an install-scenarios.* log in
   # TMPDIR, removed on a pass; on a failure its FAIL lines, its last 15 lines and the kept log's path
-  # are printed. It runs alone (`-a`): its I13 scenario plants gate-i13-probe.md in the source tree's
-  # claude/skills/repo-charter/ for one install, and the legs that read the skill tree must not see it.
-  leg -a -l install-scenarios "FAIL: full-mode install scenarios (run gates/test-install-guides.sh)" \
+  # are printed. One of the long legs (`-e`).
+  leg -e -l install-scenarios "FAIL: full-mode install scenarios (run gates/test-install-guides.sh)" \
     env AGENT_BIOS_LEGACY_INSTALL=1 bash gates/test-install-guides.sh
 fi
 
@@ -461,9 +460,7 @@ fi
 # the recovery rule. They used to sit in the view side's suite, where this umbrella ran them; moving
 # the rule moved them out of every gate until this leg (BC#5).
 if [ -f session-distill/runlib/bound.py ]; then
-  # Alone (`-a`): its self-test writes __bound_selftest_*.md beside itself in session-distill/runlib/
-  # and removes them, so it runs before any leg that reads that directory could see them.
-  leg -q -a "FAIL: session-distill window bound self-test (session-distill/runlib/bound.py)" \
+  leg -q "FAIL: session-distill window bound self-test (session-distill/runlib/bound.py)" \
     python3 session-distill/runlib/bound.py --self-test
 fi
 if [ -f session-distill/runlib/views.py ]; then
@@ -655,6 +652,11 @@ if [ -f gates/check-model-currency.py ]; then
     python3 gates/check-model-currency.py --self-test
 fi
 
+# The cost meter users run as `agent-bios cost`. Its self-test plants transcripts of both hosts,
+# a renamed usage key among them, and had no leg: its controls ran only when someone ran them.
+leg -q "FAIL: session cost self-test (run python3 session-cost.py --self-test)" \
+  python3 session-cost.py --self-test
+
 if [ -f gates/check-endpoints.py ]; then
   leg -q "FAIL: endpoint contract gate (run gates/check-endpoints.py)" \
     python3 gates/check-endpoints.py
@@ -840,8 +842,12 @@ def live_lines(text):
             continue
         # All three shell quoting forms for the delimiter — <<'EOF', <<"EOF", <<\EOF —
         # plus bare. Only single quotes were handled first, and a payload behind a
-        # double-quoted delimiter read as live shell again.
-        hd = re.search(r"<<-?\s*(?:'([^']+)'|\"([^\"]+)\"|\\?([A-Za-z_][A-Za-z_0-9]*))", s)
+        # double-quoted delimiter read as live shell again. Only in the line's code, and
+        # never `<<<`: a here-string feeds one word and opens no body, and a `<<EOF` or
+        # `<<< word` inside a comment opened a heredoc that swallowed every later line,
+        # reading the legs after it as never reached.
+        hd = re.search(r"(?<!<)<<(?!<)-?\s*(?:'([^']+)'|\"([^\"]+)\"|\\?([A-Za-z_][A-Za-z_0-9]*))",
+                       sans_comment(s))
         if hd:
             heredoc_end = next(g for g in hd.groups() if g)
         m = re.match(r'if\s+(!\s*)?(true|false)\b', s)
@@ -1581,6 +1587,12 @@ probes = [
      "a backslash-quoted delimiter is still a heredoc"),
     ("cat <<'EOF'\nwords\nEOF\n./gates/a.sh", {"gates/a.sh"},
      "a command after the heredoc still counts"),
+    ("# a note on the <<EOF form\n./gates/a.sh", {"gates/a.sh"},
+     "a heredoc opener inside a comment opens nothing"),
+    ("# feed it with <<< word\n./gates/a.sh", {"gates/a.sh"},
+     "a here-string inside a comment opens nothing"),
+    ('grep -q x <<<"$v"\n./gates/a.sh', {"gates/a.sh"},
+     "a here-string is not a heredoc: the command after it still counts"),
     ("for gate in gates/dead.py; do :; done\nfor gate in gates/live.py; do\n  \"./$gate\"\ndone",
      {"gates/live.py"}, "a loop variable's invocation binds to its own loop"),
     ("for g in gates/a.sh; do \"./$g\"; done", {"gates/a.sh"},

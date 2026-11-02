@@ -41,8 +41,11 @@ Options:
                      wrapper defaults (repeatable)
   -h, --help          Show this help
 
-Prompt can be passed as arguments, stdin, or both. If both are present, stdin is
-appended in a <stdin> block.
+Prompt can be passed as arguments, stdin, or both. Stdin is read when no prompt
+argument is given, or where a prompt argument is `-`: with other arguments beside
+it, stdin is appended in a <stdin> block. Beside a prompt argument without `-`, a
+redirected file is still appended; a pipe or socket is left unread, and a note
+on stderr says so. --dry-run never reads stdin.
 USAGE
 }
 
@@ -103,6 +106,7 @@ while [ $# -gt 0 ]; do
     -c) extra_c+=("${2:?-c needs a value}"); shift 2 ;;
     -h|--help) usage; exit 0 ;;
     --) shift; prompt_parts+=("$@"); break ;;
+    -) prompt_parts+=("-"); shift ;;
     -*) echo "codex-helm: unknown argument: $1" >&2; usage >&2; exit 2 ;;
     *) prompt_parts+=("$1"); shift ;;
   esac
@@ -191,12 +195,39 @@ if [ "${#extra_c[@]}" -gt 0 ]; then
   done
 fi
 
+# Stdin is read when it is the prompt's source: no prompt argument (and not a terminal), or a `-` among
+# the arguments. Read unconditionally, an open stdin nobody writes to (a caller's inherited pipe) hung
+# every call, --dry-run included, at 0% CPU. Beside a prompt argument without `-`, a redirected file is
+# still read, since a file cannot hang; a pipe or socket, where an idle writer and a slow one look the
+# same, is left unread and said so, never dropped in silence. --dry-run never reads stdin.
 user_prompt=""
-if [ "${#prompt_parts[@]}" -gt 0 ]; then
-  user_prompt="${prompt_parts[*]}"
+read_stdin=0
+kept_parts=()
+if [ "${#prompt_parts[@]}" -eq 0 ]; then
+  [ -t 0 ] || read_stdin=1
+else
+  for part in "${prompt_parts[@]}"; do
+    if [ "$part" = "-" ]; then read_stdin=1; else kept_parts+=("$part"); fi
+  done
+  if [ "$read_stdin" -eq 0 ]; then
+    if [ -f /dev/stdin ]; then
+      read_stdin=1
+    elif [ -p /dev/stdin ] || [ -S /dev/stdin ]; then
+      kind="a pipe"; [ -S /dev/stdin ] && kind="a socket"
+      echo "codex-helm: stdin is $kind and was not read, because a prompt argument was given without -; add - to the arguments to append stdin in a <stdin> block" >&2
+    fi
+  fi
 fi
-if [ ! -t 0 ]; then
-  stdin_prompt="$(cat)"
+if [ "${#kept_parts[@]}" -gt 0 ]; then
+  user_prompt="${kept_parts[*]}"
+fi
+stdin_prompt=""
+if [ "$read_stdin" -eq 1 ]; then
+  if [ "$dry_run" -eq 1 ]; then
+    [ "${#prompt_parts[@]}" -gt 0 ] && stdin_prompt="<stdin: not read under --dry-run>"
+  else
+    stdin_prompt="$(cat)"
+  fi
   if [ -n "$stdin_prompt" ]; then
     if [ -n "$user_prompt" ]; then
       user_prompt="$user_prompt
@@ -210,7 +241,7 @@ $stdin_prompt
   fi
 fi
 if [ -z "$user_prompt" ]; then
-  echo "codex-helm: prompt required via arguments or stdin" >&2
+  echo "codex-helm: prompt required via arguments or stdin (--dry-run reads no stdin; pass the prompt as arguments)" >&2
   exit 2
 fi
 

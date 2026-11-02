@@ -48,6 +48,10 @@ CONTRACT = {"$comment": "design §13.2: freeze the process tree, rescan it, swee
 
 PS = "/bin/ps"  # the self-test's listing controls put a failing one here
 PS_TIMEOUT_S = 10.0
+# How far the wall clock may move apart from the monotonic one across a stop before its stamps are
+# no evidence. The stamps are wall time because the boundary holds them against host wall-clock
+# records; a step (an NTP correction, a manual set) between them makes that comparison meaningless.
+CLOCK_STEP_S = 1.0
 
 
 class ListingFailed(Exception):
@@ -64,8 +68,11 @@ def ps_table():
     fields only (a Listing). Raises ListingFailed when the listing is no evidence: ps did not run
     or exited nonzero, or the listing omits this very process, which no complete listing can."""
     try:
+        # Under the C locale and UTC, as compose/instructions_setup_cli.py runs it: `lstart` is five words
+        # there, and seven under ko_KR, where every row read as unreadable and the listing was refused for
+        # omitting this process. UTC keeps a start time the same text in every listing of one process.
         done = subprocess.run([PS, "-axo", "pid=,ppid=,pgid=,stat=,lstart="], capture_output=True, text=True,
-                              timeout=PS_TIMEOUT_S)
+                              timeout=PS_TIMEOUT_S, env={**os.environ, "LC_ALL": "C", "TZ": "UTC"})
     except (OSError, subprocess.SubprocessError) as exc:
         raise ListingFailed(f"ps did not run ({exc.__class__.__name__})") from None
     if done.returncode != 0:
@@ -189,17 +196,23 @@ def _kill_root_group(proc):
         pass
 
 
-def stop_tree(proc, sampler, clock=time.time, settle_s=0.3, freeze_wait_s=1.0, _scanned=None):
+def stop_tree(proc, sampler, clock=time.time, settle_s=0.3, freeze_wait_s=1.0, _scanned=None, monotonic=time.monotonic):
     """Freeze until a fresh listing shows a stable, fully stopped tree; kill; verify the kill.
     Returns the record, including `problems` (STOP_FREEZE_UNVERIFIED, STOP_SURVIVORS) when
     either verification fails. `_scanned(rows, new)` exists for the self-test's fork control
-    only: it runs after each round's listing, before that round's new members are stopped."""
+    only: it runs after each round's listing, before that round's new members are stopped.
+
+    The stamps are wall time (`clock`); the freeze deadline runs on `monotonic`, and the record
+    keeps the monotonic instant beside each stamp. A wall clock that moved apart from the
+    monotonic one by more than CLOCK_STEP_S between the decision and the kill leaves the freeze
+    unverified, by name: its instant cannot be held against host records any more."""
     problems = []
     record = {"decided_at": clock()}
+    mono = {"decided_at": monotonic()}
     sampler.halt.set()
     members, found_by_rescan, swept = {}, set(), set()
     first = dict(sampler.known)
-    deadline, rounds, running, new = clock() + freeze_wait_s, 0, [], {}
+    deadline, rounds, running, new = mono["decided_at"] + freeze_wait_s, 0, [], {}
     unlisted, unread = None, 0
     anchor = anchored(proc)  # the caller reaps the runner only after every stop of the call is done
     while True:
@@ -219,13 +232,13 @@ def stop_tree(proc, sampler, clock=time.time, settle_s=0.3, freeze_wait_s=1.0, _
         running = sorted(pid for pid in alive if "T" not in rows[pid]["stat"] and "Z" not in rows[pid]["stat"])
         if not new and not running:
             break
-        if clock() > deadline:
+        if monotonic() > deadline:
             break
         members.update(new)
         _signal(rows, {**new, **{pid: alive[pid] for pid in running}}, signal.SIGSTOP)
         time.sleep(0.005)
     stable = anchor and unlisted is None and not unread and not new and not running
-    record["freeze_at"] = clock() if stable else None
+    record["freeze_at"], mono["freeze_at"] = (clock() if stable else None), monotonic()
     if not anchor:
         problems.append(f"STOP_FREEZE_UNVERIFIED the runner {proc.pid} was reaped before the stop, so no group id is "
                         f"provably its own: no group was swept or signalled by it ({rounds} rounds)")
@@ -260,7 +273,12 @@ def stop_tree(proc, sampler, clock=time.time, settle_s=0.3, freeze_wait_s=1.0, _
     until = time.monotonic() + 10
     while anchor and not exited(proc) and time.monotonic() < until:  # waited for, never reaped here
         time.sleep(0.01)
-    record["kill_at"] = clock()
+    record["kill_at"], mono["kill_at"] = clock(), monotonic()
+    step = (record["kill_at"] - record["decided_at"]) - (mono["kill_at"] - mono["decided_at"])
+    if abs(step) > CLOCK_STEP_S:
+        problems.append(f"STOP_FREEZE_UNVERIFIED the wall clock moved {step:+.3f} s against the monotonic clock "
+                        f"between the decision and the kill, so the freeze instant is no evidence ({rounds} rounds)")
+        record["freeze_at"] = None
     time.sleep(settle_s)
     try:
         rows = ps_table()
@@ -276,7 +294,7 @@ def stop_tree(proc, sampler, clock=time.time, settle_s=0.3, freeze_wait_s=1.0, _
         problems.append(f"STOP_SURVIVORS the process listing failed ({exc}), so the kill of {survivors} is not verified")
     if rows is not None and survivors:
         problems.append(f"STOP_SURVIVORS pids {survivors} outlived the kill (verified by pid and start time)")
-    record.update(tree=[{"pid": pid, "start": row["start"]} for pid, row in sorted(members.items())],
+    record.update(monotonic=mono, tree=[{"pid": pid, "start": row["start"]} for pid, row in sorted(members.items())],
                   found_by_rescan=sorted(found_by_rescan), swept=sorted(swept), rounds=rounds, survivors=survivors,
                   problems=problems)
     return record
@@ -426,6 +444,41 @@ def self_test():
     control("process-outside-the-tree-untouched", same(ps_table(), outsider.pid, outsider_start), "the outsider was signalled")
     cleanup({outsider.pid: {"start": outsider_start}})
 
+    # the listing does not depend on the caller's locale: under ko_KR `lstart` is seven words, which read every
+    # row as unreadable and refused the listing for omitting this process. The presence term: the planted
+    # locale really prints seven words when ps is asked directly.
+    seven = subprocess.run(["/bin/ps", "-p", str(os.getpid()), "-o", "lstart="], capture_output=True, text=True,
+                           env={**os.environ, "LC_ALL": "ko_KR.UTF-8"}).stdout.split()
+    saved_lc_all = os.environ.get("LC_ALL")
+    os.environ["LC_ALL"] = "ko_KR.UTF-8"
+    try:
+        localized = ps_table()
+        read = (os.getpid() in localized, localized.unreadable)
+    except ListingFailed as exc:
+        read = (False, str(exc))
+    finally:
+        if saved_lc_all is None:
+            os.environ.pop("LC_ALL", None)
+        else:
+            os.environ["LC_ALL"] = saved_lc_all
+    control("the-listing-reads-the-same-under-a-seven-word-lstart-locale", len(seven) == 7 and read == (True, 0),
+            f"ps printed {len(seven)} words under ko_KR; the listing read {read}")
+
+    # a wall clock that steps between the decision and the kill leaves the freeze unverified, by name, while
+    # the stop itself completes; the record keeps the monotonic instant beside each stamp
+    proc, kid, sampler = launch()
+    calls = []
+
+    def stepping():
+        calls.append(1)
+        return time.time() - (3600.0 if len(calls) > 1 else 0.0)
+    record = stop_and_reap(proc, sampler, clock=stepping)
+    stepped = [p for p in record["problems"] if p.startswith("STOP_FREEZE_UNVERIFIED the wall clock moved -3600.")]
+    control("a-wall-clock-step-across-the-stop-leaves-the-freeze-unverified-by-name",
+            len(stepped) == 1 and record["freeze_at"] is None and not record["survivors"] and not group(proc.pid)
+            and set(record["monotonic"]) == {"decided_at", "freeze_at", "kill_at"},
+            f"{record['problems']}, freeze {record['freeze_at']}, monotonic {record.get('monotonic')}")
+
     # negative control: killing the root alone leaves the rest of the tree alive (the probe's rootonly)
     proc, kid, sampler = launch()
     sampler.halt.set()
@@ -513,6 +566,7 @@ def self_test():
     # yet the tree's process groups are killed whole, the orphan in the root's group among them.
     # A line that cannot be read (a command's second line, were one printed) is counted, not
     # fatal: the readable rows still stop and kill the tree, and both verifications are unverified.
+    import shutil
     import tempfile
     sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
     from runlib import monitor
@@ -598,6 +652,7 @@ def self_test():
             control(f"{case}-kills-its-group", orphans and groups_killed == [proc.pid] and not left and not reaped_named
                     and record["freeze_at"] is None, f"groups killed {groups_killed}, orphans {sorted(orphans)} left {left}, {record}")
         cleanup(orphans)
+    shutil.rmtree(fakes, ignore_errors=True)   # the fake ps scripts: the last listing that names them is above
 
     # the freeze and kill listings fail and the verification listing succeeds: a sampled member in a
     # group of its own, never reached and never signalled, is alive and named among the survivors

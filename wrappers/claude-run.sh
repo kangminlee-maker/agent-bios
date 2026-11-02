@@ -82,6 +82,15 @@ Usage: claude-run.sh [--profile inherit|hermetic] [--model M --effort E]
                a declared instruction file and the sha256 it was declared at (repeatable);
                the capture records the sha256 of what was sent, so an edit after the
                declaration is visible to the gate
+  --server-policy FILE
+               the run's server-policy record (what --server-policy-probe printed), stated in
+               the capture's and the receipt's hermeticity; without it the server-delivered
+               policy is recorded as unknown, never as clean (hermetic)
+  --server-policy-probe
+               make no call: run `claude doctor` once in the cell, with the call's environment
+               and stdin closed, and print as one JSON line the status of its "Managed
+               settings (remote):" line and the verdict (clean, not confirmed, unknown);
+               nothing else of its output is kept (hermetic)
   --           everything after is passed to claude verbatim (expert override); under
                hermetic it changes the recorded flag-set hash
 
@@ -103,9 +112,13 @@ Environment (the adapter calling convention; all optional):
 A dispatcher calls one hermetic Claude call as (the arguments in brackets per call):
   claude-run.sh --profile hermetic --model M --effort E --cell-root ROOT --call-id ID --cd CWD
                 --claude-bin VERSIONED_PATH --host-version V --max-output-tokens N [--schema F]
-                [--use producing --tools Read --manifest DIR]
+                [--use producing --tools Read --manifest DIR] [--server-policy FILE]
   with DISTILL_CELL (the cell it made under ROOT), REVIEW_CAPTURE_DIR and the token in the
   environment; the packet on stdin; the result object on stdout; exit status mirrored.
+  Once per run, before the first such call, it asks for the server-policy record as
+  claude-run.sh --profile hermetic --server-policy-probe --cell-root ROOT --call-id ID
+                --claude-bin VERSIONED_PATH --host-version V
+  with DISTILL_CELL and the token in the environment, and hands the record to every call.
 USAGE
 }
 
@@ -140,6 +153,8 @@ max_output=""
 use=""
 tools=""
 manifest=""
+server_policy=""
+server_policy_probe=0
 append_files=()
 append_declared=()
 
@@ -158,7 +173,7 @@ while [ $# -gt 0 ]; do
     --host-version) host_version="${2:?--host-version needs a value}"; shift 2 ;;
     --schema) schema="${2:?--schema needs a value}"; shift 2 ;;
     --max-output-tokens) max_output="${2:?--max-output-tokens needs a value}"; shift 2 ;;
-    --use|--manifest|--declared-sha256)
+    --use|--manifest|--declared-sha256|--server-policy)
       if [ "$profile" != hermetic ]; then
         echo "claude-run: $1 applies only to --profile hermetic" >&2; exit 2
       fi
@@ -166,8 +181,14 @@ while [ $# -gt 0 ]; do
         --use) use="${2:?--use needs a value}" ;;
         --manifest) manifest="${2:?--manifest needs a value}" ;;
         --declared-sha256) append_declared+=("${2:?--declared-sha256 needs a value}") ;;
+        --server-policy) server_policy="${2:?--server-policy needs a value}" ;;
       esac
       shift 2 ;;
+    --server-policy-probe)
+      if [ "$profile" != hermetic ]; then
+        echo "claude-run: $1 applies only to --profile hermetic" >&2; exit 2
+      fi
+      server_policy_probe=1; shift ;;
     # claude's own flags, which the hermetic profile owns: under inherit they are forwarded
     # one token at a time, exactly as before the profile existed.
     --tools|--append-system-prompt-file)
@@ -246,7 +267,7 @@ if [ -n "$claude_bin" ]; then
   claude_bin="$(cd -P "$(dirname "$claude_bin")" && pwd)/$(basename "$claude_bin")"
 fi
 
-if [ -z "$model" ] || [ -z "$effort" ]; then
+if [ "$server_policy_probe" = 0 ] && { [ -z "$model" ] || [ -z "$effort" ]; }; then
   # Warn and dispatch, matching codex-run. Refusing outright was right while nothing
   # called this file; on the live path it converts "the review ran unpinned" into "the
   # review did not run", and the honest signal already exists — an unpinned dispatch
@@ -424,6 +445,21 @@ if [ -n "$claude_bin" ]; then
   esac
 fi
 
+# The server-delivered policy (D-20261102-252c92), asked once per run in a cell of its own with exactly
+# the environment the call gets, so the organisation the token belongs to is the one reported. The
+# helper runs `claude doctor` with stdin closed and a bound, and prints only the status of its one line.
+if [ "$server_policy_probe" = 1 ]; then
+  py="$(command -v python3)"
+  (
+    for name in $(compgen -e); do unset "$name" 2>/dev/null || true; done
+    export PATH=/usr/bin:/bin:/usr/sbin:/sbin HOME="$cell/home" CLAUDE_CONFIG_DIR="$cell/config" \
+           TMPDIR="$cell/tmp" LANG=en_US.UTF-8 DISABLE_AUTOUPDATER=1
+    export CLAUDE_CODE_OAUTH_TOKEN="$run_token"
+    cd "$cd_dir" && exec "$py" "$helper" server-policy --claude-bin "$claude_bin"
+  )
+  exit $?
+fi
+
 work=""
 if [ "$needs_evidence" = 1 ] || [ -n "${REVIEW_RECEIPT_DIR:-}" ]; then
   work="$(mktemp -d "${TMPDIR:-/tmp}/claude-run-XXXXXX")"
@@ -580,6 +616,7 @@ if [ "$needs_evidence" = 1 ]; then
   if [ "$profile" = hermetic ]; then
     render+=(--session-id "$session_id" --use "$use" --print-result)
     if [ -n "$manifest" ]; then render+=(--manifest "$manifest"); fi
+    if [ -n "$server_policy" ]; then render+=(--server-policy "$server_policy"); fi
     for n in "${child_env_names[@]}"; do render+=(--env-name "$n"); done
     i=0
     while [ "$i" -lt "${#appended_snaps[@]}" ]; do
