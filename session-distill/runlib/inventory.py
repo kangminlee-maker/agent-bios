@@ -96,7 +96,7 @@ except BaseException:
     raise SystemExit(STARTUP_UNAVAILABLE_CODE)
 
 try:
-    from runlib import projection, records, sources, validate
+    from runlib import census, projection, records, sources, validate
     from runlib.records import Refused
 except BaseException as _startup_exc:   # SystemExit included: `validate` exits at import time
     if __name__ == "__main__":
@@ -3502,7 +3502,13 @@ def transcript_kind(entry):
 
 
 def census_entries(run_dir):
-    """The transcripts this run's census read, one row per session, as the inventory reads them.
+    """The transcripts this run's census read, one row per transcript file, as the inventory reads them.
+
+    A census row is one session; a Codex session written across several rollout files is one row with a file per
+    segment (D-20261103-a7128a), and each file is read under its own binding, with its own lines and its own timeline -
+    the coordinates of one file are not another's. So the inventory's row is the FILE: a Claude row's one file under the
+    session's id, and every Codex file under `<id>@<stem>`, the name its coverage key carries. A row the census lists
+    with no file is still a row, with nothing to bind.
 
     WP-07 opens no host home. Every transcript byte reaches it through the S1 readers
     (`sources.read_lines`) and is bound to the census record that says what S1 read, so a reference
@@ -3518,39 +3524,51 @@ def census_entries(run_dir):
     # A read that fails is the same unknown, never an exception out of the run: a census gone between the
     # check and the read is no census, and one that is there and cannot be read is its own key (R2 #2).
     try:
-        document = json.loads(path.read_text(encoding="utf-8"))
+        document = census.load_document(path)
     except FileNotFoundError as exc:
         raise Unacquired(UNKNOWN_REASONS["census"]) from exc
     except OSError as exc:
         raise Unacquired(UNKNOWN_REASONS["census_unreadable"]) from exc
     except ValueError as exc:  # a JSONDecodeError and a UnicodeDecodeError are both ValueErrors
         raise Unacquired(UNKNOWN_REASONS["census_malformed"]) from exc
-    transcripts = document.get("transcripts") if isinstance(document, dict) else None
-    if not isinstance(transcripts, list) or not all(isinstance(entry, dict) for entry in transcripts):
-        raise Unacquired(UNKNOWN_REASONS["census_malformed"])
+    try:
+        transcripts = census.rows(document)
+    except ValueError as exc:  # not a list of rows, or a row holding its files where its host does not keep them
+        raise Unacquired(UNKNOWN_REASONS["census_malformed"]) from exc
+    # a Codex file is referred to by its coverage key's name, `<id>@<stem>`, one file or several, and a child's parent by
+    # the parent's first file; the row's `id` stays the session's, which its own session_meta is judged against
+    first_file = {(e.get("host"), e.get("id")): f"{e.get('id')}@{e['segments'][0]['stem']}" for e in transcripts
+                  if e.get("host") == "codex" and e["segments"]}
     rows = []
     for entry in transcripts:
-        versions = entry.get("versions")
-        version = versions[-1] if isinstance(versions, list) and versions and isinstance(versions[-1], dict) else {}
         pin = entry.get("pin") if isinstance(entry.get("pin"), dict) else {}
-        rows.append({"host": entry.get("host"), "id": entry.get("id"), "path": entry.get("path"),
-                     "kind": transcript_kind(entry), "status": entry.get("status"),
-                     "reason": entry.get("reason"), "entrypoint": entry.get("entrypoint"),
-                     "parent": entry.get("parent"), "sha256": entry.get("sha256"),
-                     "prefix_sha": version.get("prefix_sha"), "record_count": version.get("record_count"),
-                     "pin": pin.get("content_ref"), "source": entry.get("source"),
-                     # census keeps the first file of an identity found twice and lists the others
-                     # (census.py 324-326): they are COUNTED, as a limitation, and never read (M9)
-                     "alt_paths": len(entry["alt_paths"]) if isinstance(entry.get("alt_paths"), list) else 0})
+        copies = entry["alt_paths"] if isinstance(entry.get("alt_paths"), list) else []
+        files = (census.segments_of(entry) if entry.get("host") == "codex" else [{**{k: entry.get(k) for k in census.SEGMENT_FIELDS}, "stem": None}])
+        for file in files or [{"stem": None, "path": None, "sha256": None, "versions": None}]:
+            versions = file.get("versions")
+            version = versions[-1] if isinstance(versions, list) and versions and isinstance(versions[-1], dict) else {}
+            rows.append({"host": entry.get("host"), "id": entry.get("id"),
+                         "ref": f"{entry.get('id')}@{file['stem']}" if file["stem"] else entry.get("id"),
+                         "parent_ref": first_file.get((entry.get("host"), entry.get("parent")), entry.get("parent")),
+                         "path": file.get("path"),
+                         "kind": transcript_kind(entry), "status": entry.get("status"),
+                         "reason": entry.get("reason"), "entrypoint": entry.get("entrypoint"),
+                         "parent": entry.get("parent"), "sha256": file.get("sha256"),
+                         "prefix_sha": version.get("prefix_sha"), "record_count": version.get("record_count"),
+                         "pin": pin.get("content_ref"), "source": entry.get("source"),
+                         # census keeps the first file of an identity found twice and lists the others
+                         # (census.py, build): they are COUNTED, as a limitation of the file they copy, and never read (M9)
+                         "alt_paths": sum(1 for c in copies if not file["stem"] or census.stem_of(c) == file["stem"])})
     return rows
 
 
 def binding_of(entry):
-    """`(whole, prefix)`: the census row's whole-file hash, and its `(prefix_sha, record_count)` —
-    each None when the row does not carry it, and each validated ON ITS OWN.
+    """`(whole, prefix)`: the census row's version hash (its complete lines, D-20261103-8facee), and its
+    `(prefix_sha, record_count)` — each None when the row does not carry it, and each validated ON ITS OWN.
 
     A transcript is opened only under a binding (#9). The census acquires hashes only for the rows
-    it first classified `eligible` (census.py 349-360), so a child, an excluded row and an
+    it read in full - the ones it first classified `eligible`, and every member of a unit whose root
+    is eligible (D-20261103-85f3e8) - so a child of any other unit, an excluded row and an
     `unknown_provenance` one arrive with `sha256: None` and no version; comparing only `if sha256`
     read such a row anyway and bound it to nothing. A row with neither binding is `unbound` and its
     file is never opened. A binding that is there but malformed refuses as THAT binding — it never
@@ -3612,7 +3630,8 @@ def transcript_records(entry, zstd=None):
                 undecodable.append((line, "not_object"))
     except sources.Unreadable as exc:
         raise Unacquired(f"{UNKNOWN_REASONS['unreadable']} ({acquisition_reason(exc)})") from exc
-    digest.update(tail)
+    # the census's version is the transcript's complete lines (D-20261103-8facee): a line the host is still writing is
+    # no part of it, here or there, so the comparison leaves it out
     sha = digest.hexdigest()
     if whole_sha is not None and sha == whole_sha:
         return {"records": read, "undecodable": undecodable, "lines": line, "which": "the bytes the census read",
@@ -3839,6 +3858,12 @@ def owner_ref(host, session_id, agent=None):
 def session_ref(host, session_id):
     """The opaque session reference (step 0 S-14), from the raw host and session id."""
     return opaque_id("p", "session", host, session_id)
+
+
+def ref_of(entry):
+    """What an inventory row's references are made from: the file it reads (`census_entries` `ref`), which for a Claude
+    row is its session's id and for a Codex file `<id>@<stem>` (D-20261103-a7128a); a row made without one is its id."""
+    return entry.get("ref") or entry.get("id")
 
 
 def record_owner(entry, record):
@@ -4690,10 +4715,10 @@ def session_record(entry, read=None, found=(), damage=(), inherited=(), seen=Non
         else "prefix" if (entry.get("prefix_sha"), entry.get("record_count")) != (None, None) else "none"
     named = entry.get("pin") if host == "claude" and isinstance(entry.get("pin"), str) \
         and SHA256_HEX.match(entry["pin"]) else None
-    record = {"session_ref": session_ref(host, ident), "session": f"{host}:{ident}", "host": host,
+    record = {"session_ref": session_ref(host, ref_of(entry)), "session": f"{host}:{ident}", "host": host,
               "kind": entry.get("kind"),
               "transcript": {"host": host, "id": ident, "source": entry.get("source")},
-              "parent_ref": session_ref(host, entry["parent"]) if entry.get("parent") else None,
+              "parent_ref": session_ref(host, entry.get("parent_ref") or entry["parent"]) if entry.get("parent") else None,
               "binding": binding, "read": None, "lines_read": None,
               "owners": [], "ownership": {"intervals": [], "unknown": []},
               "inherited_session_meta": {"another_session_id": 0, "no_session_id": 0},
@@ -4863,7 +4888,7 @@ def transcript_events(run_dir, pins=None, zstd=None, entries=None):
         for event in found:
             event["id"] = opaque_id("e", "event", event["kind"], entry.get("host"), entry.get("id"),
                                     read["binding"], event["n"])
-            event["session_ref"] = session_ref(entry.get("host"), entry.get("id"))
+            event["session_ref"] = session_ref(entry.get("host"), ref_of(entry))
             event["at_reason"] = instant_reason(event.get("at"))
             event["after_at"], event["bracket_ok"] = bracket(event["n"])
             findings["occurrences"] += event_occurrences(event, injection_id)
@@ -4871,10 +4896,10 @@ def transcript_events(run_dir, pins=None, zstd=None, entries=None):
         sought = {"native": None, "session_injection": unsought_reason(pinned)}
         segmented = segments(found, read, ownership_map(entry, read)[0], sought)
         for row in segmented:
-            row["session_ref"] = session_ref(entry.get("host"), entry.get("id"))
+            row["session_ref"] = session_ref(entry.get("host"), ref_of(entry))
         findings["segments"] += segmented
         dated = [event["n"] for event in found if _instant(event.get("at")) is not None]
-        findings["timelines"][session_ref(entry.get("host"), entry.get("id"))] = {
+        findings["timelines"][session_ref(entry.get("host"), ref_of(entry))] = {
             "host": entry.get("host"), "kind": entry.get("kind"), "last_dated": max(dated) if dated else None,
             "undecodable": [{"line": line, "after_at": after, "ok": ok}
                             for line, _category in read["undecodable"] for after, ok in [bracket(line)]]}
@@ -6524,8 +6549,9 @@ def bind_transcripts(ctx, run_dir, zstd=None):
     ctx["occurrences"] = findings["occurrences"]
     pins = {}
     for entry in entries:
-        ref = session_ref(entry.get("host"), entry.get("id"))
-        pins[ref] = pin_state(table.get(ref) or session_pin(None, entry.get("host"), entry.get("id"), entry.get("pin")))
+        # a pin is the session's: every file of a Codex thread answers under the thread's one pin
+        pins[session_ref(entry.get("host"), ref_of(entry))] = pin_state(table.get(session_ref(entry.get("host"), entry.get("id")))
+                                                                       or session_pin(None, entry.get("host"), entry.get("id"), entry.get("pin")))
     if ctx.get("pin") and not any(f"{entry.get('host')}:{entry.get('id')}" == ctx["pin"] for entry in entries):
         # the `--pin` session's selection is evidence about its pin only: no transcript of it is read (S-15)
         notes["pin_delivery"] = reason("no_census_session")
@@ -7851,14 +7877,26 @@ def self_test():
                                                    "provenance": "config + project"}}}])
 
             def census_row(host, ident, path, status="eligible", parent=None, sha=None, count=None, prefix=None):
+                """A census row of one file in its host's shape: a Codex row holds the file in `segments`."""
                 data = pathlib.Path(path).read_bytes()
                 lines = data.count(b"\n")
-                return {"host": host, "id": ident, "source": "claude_projects" if host == "claude" else "codex_sessions",
-                        "path": str(path), "status": status, "parent": parent,
-                        "sha256": sha or hashlib.sha256(data).hexdigest(),
+                source = "claude_projects" if host == "claude" else "codex_sessions"
+                file = {"path": str(path), "sha256": sha or hashlib.sha256(data).hexdigest(),
                         "versions": [{"sha": sha or hashlib.sha256(data).hexdigest(),
                                       "record_count": count if count is not None else lines,
                                       "prefix_sha": prefix or hashlib.sha256(data).hexdigest()}]}
+                row = {"host": host, "id": ident, "source": source, "status": status, "parent": parent}
+                if host == "codex":
+                    return {**row, "segments": [{"stem": census.stem_of(path), "source": source, "owned": [],
+                                                 "work": {"version": 0, "in_window": [], "backlog": []}, **file}]}
+                return {**row, **file}
+
+            def with_fields(row, fields):
+                """`row` with `fields` over it, a Codex row's file fields (`census.SEGMENT_FIELDS`) over its one file."""
+                if row["host"] != "codex":
+                    return {**row, **fields}
+                return {**row, **{k: v for k, v in fields.items() if k not in census.SEGMENT_FIELDS},
+                        "segments": [{**row["segments"][0], **{k: v for k, v in fields.items() if k in census.SEGMENT_FIELDS}}]}
 
             def delivered_to(text, *sessions, content_ref="0" * 64):
                 """A pins table in which each `host:id` session's own pin was read with a snapshot whose
@@ -7994,7 +8032,7 @@ def self_test():
             # ======== WP-07 package B, phase 1: acquisition and decoding of the transcripts ========
             def bound_row(host, ident, path, **fields):
                 """A census row bound to `path` as it is now, by both binding kinds, with `fields` over it."""
-                return {**census_row(host, ident, path), **fields}
+                return with_fields(census_row(host, ident, path), fields)
 
             def raw_lines(path, rows):
                 """A transcript whose lines are written as given: a dict becomes its JSON, bytes stay bytes."""
@@ -8047,6 +8085,63 @@ def self_test():
             check("and a whole-file binding alone refuses a file that no longer matches it",
                   UNKNOWN_REASONS["changed"] in str(_raised(lambda: transcript_records(whole_only))),
                   f"{type(_raised(lambda: transcript_records(whole_only))).__name__}")
+            # D-20261103-8facee: the census's version is the complete lines, so a line the host is still writing past them
+            # is no part of it - the whole binding still binds the lines it hashed, and nothing is reported appended
+            tail_path = raw_lines(scratch / "p1" / "tail.jsonl", [dated("2026-10-05T09:00:00+00:00")])
+            tail_bound = {"host": "claude", "id": "s-tail", "path": str(tail_path),
+                          "sha256": hashlib.sha256(tail_path.read_bytes()).hexdigest()}
+            with tail_path.open("ab") as handle:
+                handle.write(b'{"type": "user", "timestamp": "2026-10-05T10:00:00+00:00"')
+            tail_read = _raised(lambda: transcript_records(tail_bound)) or transcript_records(tail_bound)
+            check("8facee: a whole binding still binds while the host writes a line past it",
+                  isinstance(tail_read, dict) and tail_read["binding"][0] == "whole" and tail_read["read"] == "bound"
+                  and len(tail_read["records"]) == 1, f"{tail_read!r}"[:200])
+            # D-20261103-85f3e8: S1 reads every member of an eligible unit, so a member two levels down arrives bound and is read
+            from runlib import census as census_module, coverage as coverage_module
+            unit_home = census_module.Home(scratch / "unit-home")
+            unit_root, unit_mid, unit_deep = (f"019e00{n}-0000-7000-8000-000000000000" for n in (90, 91, 92))
+            unit_spawn = lambda parent: {"subagent": {"thread_spawn": {"parent_thread_id": parent}}}  # noqa: E731
+            unit_home.codex(unit_root, census_module.fx_codex(unit_root, "vscode", "Codex Desktop"))
+            unit_home.codex(unit_mid, census_module.fx_codex(unit_mid, unit_spawn(unit_root)), indexed=False)
+            unit_home.codex(unit_deep, census_module.fx_codex(unit_deep, unit_spawn(unit_mid)), indexed=False)
+            unit_home.finish()
+            unit_table = census_module.load_originators()
+            unit_census, _unit_state = census_module.build(unit_home.run(), coverage_module.new_state(), *unit_table, jobs=1)
+            unit_run = scratch / "unit-run"
+            unit_run.mkdir()
+            (unit_run / CENSUS).write_text(census_module.dump(unit_census), encoding="utf-8")
+            unit_rows = {row["id"]: row for row in census_entries(unit_run)}
+            deep_read = _raised(lambda: transcript_records(unit_rows[unit_deep])) or transcript_records(unit_rows[unit_deep])
+            check("85f3e8: a member two levels under an eligible root arrives bound from the census and is read",
+                  unit_rows[unit_deep]["status"] == "child_of" and isinstance(deep_read, dict) and deep_read["read"] == "bound",
+                  f"{unit_rows[unit_deep]['status']} {deep_read!r}"[:200])
+            # D-20261103-a7128a: a thread in two files is two rows, each bound to its own file and read as its own transcript,
+            # with its own reference and timeline; the first file is read though only it lies in the window
+            split_home = census_module.Home(scratch / "split-home")
+            split_id = "019e0095-0000-7000-8000-000000000000"
+            split_home.codex(split_id, census_module.fx_codex(split_id, "vscode", "Codex Desktop"), name_at="2026-10-03T10-00-00")
+            split_home.codex(split_id, census_module.fx_codex(split_id, "vscode", "Codex Desktop", day=10), indexed=False,
+                             name_at="2026-10-10T10-00-00", day=10)
+            split_home.finish()
+            split_census, _split_state = census_module.build(split_home.run(), coverage_module.new_state(), *unit_table, jobs=1)
+            split_run = scratch / "split-run"
+            split_run.mkdir()
+            (split_run / CENSUS).write_text(census_module.dump(split_census), encoding="utf-8")
+            split_rows = [row for row in census_entries(split_run) if row["id"] == split_id]
+            split_reads = [_raised(lambda row=row: transcript_records(row)) or transcript_records(row) for row in split_rows]
+            check("a7128a: a thread in two files is two rows, each bound to its own file and read, the first though only it is in the window",
+                  [row["ref"] for row in split_rows] == [f"{split_id}@rollout-2026-10-03T10-00-00-{split_id}",
+                                                          f"{split_id}@rollout-2026-10-10T10-00-00-{split_id}"]
+                  and all(isinstance(r, dict) and r["read"] == "bound" and len(r["records"]) == 7 for r in split_reads),
+                  f"{[row.get('ref') for row in split_rows]} {split_reads!r}"[:300])
+            split_outcome = _raised(lambda: transcript_events(split_run))
+            split_findings = {} if split_outcome else transcript_events(split_run)[2]
+            split_refs = {session_ref("codex", row["ref"]) for row in split_rows}
+            split_sessions = sorted(r["session_ref"] for r in split_findings.get("sessions", []) if r["session"] == f"codex:{split_id}")
+            check("a7128a: each file of the thread has its own session reference and its own timeline",
+                  split_outcome is None and len(split_refs) == 2 and split_refs <= set(split_findings.get("timelines", {}))
+                  and split_sessions == sorted(split_refs),
+                  f"raised={split_outcome!r} refs={len(split_refs)} sessions={len(split_sessions)}"[:300])
             prefix_path = raw_lines(scratch / "p1" / "prefix.jsonl", [dated("2026-10-05T09:00:00+00:00"),
                                                                      dated("2026-10-05T10:00:00+00:00")])
             first_line = prefix_path.read_bytes().split(b"\n", 1)[0] + b"\n"
@@ -8830,7 +8925,7 @@ def self_test():
                 rows_here = []
                 for host, ident, records_in, fields in transcripts:
                     path_here = raw_lines(scratch / "p22" / name / f"{ident}.jsonl", records_in)
-                    rows_here.append({**census_row(host, ident, path_here), **fields})
+                    rows_here.append(with_fields(census_row(host, ident, path_here), fields))
                 run_at.mkdir(parents=True, exist_ok=True)
                 (run_at / CENSUS).write_text(json.dumps({"transcripts": rows_here}), encoding="utf-8")
                 ctx_here = context_of(REPO, None, None, {}, pin, None)
@@ -10175,7 +10270,7 @@ def self_test():
                 rows_here = []
                 for host, ident, records_in, fields in transcripts:
                     path_here = raw_lines(scratch / "p24b" / name / f"{ident}.jsonl", records_in)
-                    rows_here.append({**census_row(host, ident, path_here), **fields})
+                    rows_here.append(with_fields(census_row(host, ident, path_here), fields))
                 run_at.mkdir(parents=True, exist_ok=True)
                 (run_at / CENSUS).write_text(json.dumps({"transcripts": rows_here}), encoding="utf-8")
                 ctx_here = context_of(REPO, None, None, {}, pin, None)
@@ -10377,7 +10472,7 @@ def self_test():
             for host_e, ident_e, records_e, fields_e in shared_rows:
                 if ident_e in ("s-a", "s-a2", "s-b"):
                     path_e = raw_lines(scratch / "p24b" / "equal" / f"{ident_e}.jsonl", records_e)
-                    equal_census.append({**census_row(host_e, ident_e, path_e), **fields_e})
+                    equal_census.append(with_fields(census_row(host_e, ident_e, path_e), fields_e))
             (equal_run / CENSUS).write_text(json.dumps({"transcripts": equal_census}), encoding="utf-8")
             equal_arms = {}
             for ident_e, ref_e in (("s-a", a_ref), ("s-b", b_ref)):
@@ -14716,7 +14811,9 @@ def self_test():
                                                    ("codex:c-seg", "codex:c-u", "id_space"),
                                                    ("claude:s-gone", "claude:s-gone-u", "pin_absent"),
                                                    ("claude:s-empty", "claude:s-empty-u", "injection_body_empty")):
-                read_ref = session_ref(*read_one.split(":", 1))
+                # a Codex file is referred to as `<id>@<stem>` (D-20261103-a7128a), and this fixture's file is named after its session
+                read_host, read_id = read_one.split(":", 1)
+                read_ref = session_ref(read_host, read_id if read_host == "claude" else f"{read_id}@{read_id}")
                 segment_reasons = {row["in_force"]["session_injection"]["reason"] for row in index_sessions.get("segments") or []
                                    if row["session_ref"] == read_ref and row["owner_ref"] == owner_ref(*read_one.split(":", 1))}
                 unread_row = (index_cells(unread_one).get(None) or {}).get("session_injection")
@@ -15147,7 +15244,7 @@ def self_test():
                 run_at = scratch / "r1-1" / f"run-{label}"
                 path_here = raw_lines(scratch / "r1-1" / label / f"{ident}.jsonl", records_in)
                 run_at.mkdir(parents=True, exist_ok=True)
-                (run_at / CENSUS).write_text(json.dumps({"transcripts": [{**census_row(host, ident, path_here), **fields}]}),
+                (run_at / CENSUS).write_text(json.dumps({"transcripts": [with_fields(census_row(host, ident, path_here), fields)]}),
                                              encoding="utf-8")
                 ctx_here = context_of(REPO, None, None, {}, pin_here, None)
                 ctx_here.update(home=str(fixture_home), commit="fixture")

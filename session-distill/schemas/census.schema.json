@@ -5,10 +5,12 @@
   "type": "object",
   "additionalProperties": false,
   "required": ["kind", "window", "originator_table_sha256", "sources", "originators", "provenance", "pins",
-               "independence", "pending_events", "transcripts"],
+               "independence", "unowned", "pending_events", "transcripts"],
   "$defs": {
     "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
     "count": {"type": "integer", "minimum": 0},
+    "files_and_records": {"type": "object", "additionalProperties": false, "required": ["files", "records"],
+                          "properties": {"files": {"$ref": "#/$defs/count"}, "records": {"$ref": "#/$defs/count"}}},
     "text": {"type": "string", "minLength": 1},
     "ranges": {"type": "array", "items": {"type": "array", "minItems": 2, "maxItems": 2, "items": {"type": "integer", "minimum": 0}}},
     "source": {
@@ -31,9 +33,9 @@
     },
     "transcript": {
       "type": "object", "additionalProperties": false,
-      "required": ["host", "id", "source", "path", "sha256", "status", "reason", "parent", "originator", "entrypoint",
-                   "source_class", "lineage", "provenance", "counted", "window_overlap", "pin", "versions",
-                   "owned", "work", "alt_paths"],
+      "$comment": "A Claude row carries path, sha256, versions, owned and work and no segments; a Codex row carries them only per file, in segments (D-20261103-a7128a). The lint admits no conditional keyword, so census.account checks which host has which shape.",
+      "required": ["host", "id", "source", "status", "reason", "parent", "originator", "entrypoint",
+                   "source_class", "lineage", "provenance", "counted", "window_overlap", "pin", "alt_paths"],
       "properties": {
         "host": {"enum": ["claude", "codex"]},
         "id": {"$ref": "#/$defs/text"},
@@ -56,24 +58,40 @@
         },
         "provenance": {"enum": ["indexed", "not_indexed", "index_missing", null]},
         "counted": {"type": "boolean"},
-        "window_overlap": {"enum": ["inside", "straddles_start", "straddles_end", "context_only", null]},
+        "window_overlap": {"enum": ["inside", "straddles_start", "straddles_end", "straddles_both", "context_only", null]},
         "pin": {"type": "object", "additionalProperties": false, "required": ["content_ref"],
                 "properties": {"content_ref": {"type": ["string", "null"]}}},
-        "versions": {"type": "array", "items": {
-          "type": "object", "additionalProperties": false, "required": ["sha", "record_count", "prefix_sha"],
-          "properties": {"sha": {"$ref": "#/$defs/sha256"}, "record_count": {"$ref": "#/$defs/count"},
-                         "prefix_sha": {"$ref": "#/$defs/sha256"}}}},
+        "versions": {"$ref": "#/$defs/versions"},
         "owned": {"$ref": "#/$defs/ranges"},
-        "work": {
-          "type": "object", "additionalProperties": false, "required": ["version", "in_window", "backlog"],
-          "properties": {"version": {"type": ["integer", "null"], "minimum": 0}, "in_window": {"$ref": "#/$defs/ranges"},
-                         "backlog": {"type": "array", "items": {
-                           "type": "object", "additionalProperties": false, "required": ["window", "version", "unread"],
-                           "properties": {"window": {"$ref": "#/$defs/text"}, "version": {"$ref": "#/$defs/count"},
-                                          "unread": {"$ref": "#/$defs/ranges"}}}}}
-        },
-        "alt_paths": {"type": "array", "items": {"type": "string", "minLength": 1}}
+        "work": {"$ref": "#/$defs/work"},
+        "alt_paths": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "segments": {"type": "array", "items": {"$ref": "#/$defs/segment"}}
       }
+    },
+    "segment": {
+      "type": "object", "additionalProperties": false,
+      "required": ["stem", "source", "path", "sha256", "versions", "owned", "work"],
+      "properties": {
+        "stem": {"$ref": "#/$defs/text"},
+        "source": {"$ref": "#/$defs/text"},
+        "path": {"type": ["string", "null"]},
+        "sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+        "versions": {"$ref": "#/$defs/versions"},
+        "owned": {"$ref": "#/$defs/ranges"},
+        "work": {"$ref": "#/$defs/work"}
+      }
+    },
+    "versions": {"type": "array", "items": {
+      "type": "object", "additionalProperties": false, "required": ["sha", "record_count", "prefix_sha"],
+      "properties": {"sha": {"$ref": "#/$defs/sha256"}, "record_count": {"$ref": "#/$defs/count"},
+                     "prefix_sha": {"$ref": "#/$defs/sha256"}}}},
+    "work": {
+      "type": "object", "additionalProperties": false, "required": ["version", "in_window", "backlog"],
+      "properties": {"version": {"type": ["integer", "null"], "minimum": 0}, "in_window": {"$ref": "#/$defs/ranges"},
+                     "backlog": {"type": "array", "items": {
+                       "type": "object", "additionalProperties": false, "required": ["window", "version", "unread"],
+                       "properties": {"window": {"$ref": "#/$defs/text"}, "version": {"$ref": "#/$defs/count"},
+                                      "unread": {"$ref": "#/$defs/ranges"}}}}}
     }
   },
   "properties": {
@@ -96,6 +114,11 @@
       "properties": {"components": {"$ref": "#/$defs/count"}, "unknown_components": {"$ref": "#/$defs/count"},
                      "sessions": {"$ref": "#/$defs/count"}, "unknown_sessions": {"$ref": "#/$defs/count"}}
     },
+    "unowned": {
+      "$comment": "review c0fix r1 #1: records a window already run owns in a version no earlier version leads to - a file never read before, or one rewritten since - are owned by no run; the census counts them against earlier_windows, the windows it judged",
+      "type": "object", "additionalProperties": false, "required": ["earlier_windows", "rewritten", "first_seen"],
+      "properties": {"earlier_windows": {"$ref": "#/$defs/count"}, "rewritten": {"$ref": "#/$defs/files_and_records"},
+                     "first_seen": {"$ref": "#/$defs/files_and_records"}}},
     "pending_events": {"type": "array", "items": {
       "type": "object", "additionalProperties": false, "required": ["id", "transcript", "version", "window", "first_record"],
       "properties": {"id": {"$ref": "#/$defs/text"}, "transcript": {"$ref": "#/$defs/text"}, "version": {"$ref": "#/$defs/count"},

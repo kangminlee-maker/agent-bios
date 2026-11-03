@@ -137,8 +137,12 @@ def discover_codex(root):
 
 def discover_claude(root):
     """(top-level, children, other) under `claude_projects`: `<project>/<id>.jsonl` is a session,
-    `<project>/<id>/subagents/**.jsonl` is a child of session `<id>`; any other file is counted
-    and not read. `top` is `[(id, path)]`, `children` is `[(parent_id, path)]`."""
+    `<project>/<id>/subagents/**/agent-*.jsonl` is a child of session `<id>`; any other file is counted
+    and not read. `top` is `[(id, path)]`, `children` is `[(parent_id, path)]`.
+
+    Only an `agent-*` file under `subagents/` is a subagent's transcript. The host writes other JSONL
+    there too - a workflow's `journal.jsonl` records the workflow's steps, not a conversation - and
+    such a file is no child: it is counted with the files that are not read."""
     root = os.path.abspath(root)
     top, children, other = [], [], 0
     for path in walk_files(root):
@@ -147,7 +151,7 @@ def discover_claude(root):
             other += 1
         elif len(parts) == 2:
             top.append((parts[1][:-len(".jsonl")], path))
-        elif len(parts) >= 4 and parts[2] == "subagents":
+        elif len(parts) >= 4 and parts[2] == "subagents" and parts[-1].startswith("agent-"):
             children.append((parts[1], path))
         else:
             other += 1
@@ -344,12 +348,14 @@ def self_test():
 
         # discovery: a layout the census does not recognise is counted, not read and not dropped silently
         proj = root / "claude" / "-proj"
-        for rel in ("s1.jsonl", "s1/subagents/agent-a.jsonl", "s1/subagents/workflows/w/agent-b.jsonl", "s1/other/x.jsonl", "notes.md"):
+        # a workflow's journal under subagents/ records the workflow's steps: it is no child (C0, 2026-11-03)
+        for rel in ("s1.jsonl", "s1/subagents/agent-a.jsonl", "s1/subagents/workflows/w/agent-b.jsonl", "s1/other/x.jsonl", "notes.md",
+                    "s1/subagents/workflows/w/journal.jsonl"):
             (proj / rel).parent.mkdir(parents=True, exist_ok=True)
             (proj / rel).write_text("{}\n")
         top, kids, other = discover_claude(root / "claude")
-        if [t[0] for t in top] != ["s1"] or sorted(k[0] for k in kids) != ["s1", "s1"] or other != 2:
-            failures.append(f"claude discovery: {top} {kids} {other}")
+        if [t[0] for t in top] != ["s1"] or sorted(os.path.basename(k[1]) for k in kids) != ["agent-a.jsonl", "agent-b.jsonl"] or other != 3:
+            failures.append(f"claude discovery (a workflow journal is not a child): {top} {kids} {other}")
         (root / "cx" / "2026").mkdir(parents=True)
         for name in ("rollout-1.jsonl", "rollout-2.jsonl.zst", "readme.md", "rollout-3.json"):
             (root / "cx" / "2026" / name).write_text("{}\n")

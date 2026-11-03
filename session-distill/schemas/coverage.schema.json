@@ -40,14 +40,14 @@
       }
     },
     "backlog_entry": {
-      "$comment": "design §5.2: the unread ranges are the design's; the rest says whose they are",
+      "$comment": "design §5.2: the unread ranges are the design's; the rest says whose they are. status is the result that left them unread, or appended: records S1 found appended after their window was run (review c0fix r1 #1)",
       "type": "object", "additionalProperties": false,
       "required": ["transcript", "version", "window", "status", "unread"],
       "properties": {
         "transcript": {"type": "string", "minLength": 1},
         "version": {"$ref": "#/$defs/count"},
         "window": {"type": "string", "minLength": 1},
-        "status": {"type": "string", "enum": ["read_partial", "failed", "deferred"]},
+        "status": {"type": "string", "enum": ["read_partial", "failed", "deferred", "appended"]},
         "unread": {"$ref": "#/$defs/ranges"}
       }
     }
