@@ -629,8 +629,11 @@ DECLARATION_READERS = {
     ("runlib/records.py", "<module>"): "this guard's own DECLARATION_FILE, the name it looks for",
     ("runlib/records.py", "run_json_path"): "the one place the declaration's path is spelled",
     ("runlib/records.py", "confine_declaration"): "confines the declaration's path beneath the run before anything reads it",
-    ("runlib/records.py", "declaration_state"): "the declaration's reader under the declaration lock, for run_stage and the "
-                                                "dispatcher",
+    ("runlib/records.py", "declaration_state"): "the declaration's reader, which takes no lock itself and checks that run.json "
+                                                "is the one the log binds: run_stage and dispatch's stop stamp call it "
+                                                "under the declaration lock, and the dispatcher's other reads call it under "
+                                                "the supervisor's lock alone, where a read landing mid-amendment is refused "
+                                                "by name (DECLARATION_DRIFT) rather than believed",
     ("runlib/records.py", "run_stage"): "admits a stage: what it reads under the lock is the StageRun.declaration the stage "
                                         "builds from",
     ("runlib/declare.py", "create"): "the declaration's writer (S0): writes run.json under the declaration lock",

@@ -46,9 +46,11 @@ session a record stands by (segment order, line); across the unit's members by i
 and a claim whose order against the event cannot be known, for want of an instant, is left out and counted
 (`Timeline`, `later`, `joinable_claims`). The stitch's answer is checked by `stitch_problems`, its `stage_check`: one
 resolution per listed event, a resolved one naming claims and quotes and an unresolved one neither, every claim one the
-packet lists as joinable and every quote one of the claims it names (SET_MISMATCH, RECORD_INTEGRITY). A carried event is
-shown at its first record in this run's projection when its file was only appended to, which keeps its version's number
-(`coverage.observe`), and not shown when the file was rewritten; then it stays pending, named in the unit's record.
+packet lists as joinable and every quote one of the claims it names (SET_MISMATCH, RECORD_INTEGRITY). A carried event is any
+file's of the unit, the files this run owes nothing among them, which S2 views for it with no window (`carried_only`). It
+is shown at its first record in this run's projection when its file was only appended to, which keeps its version's
+number (`coverage.observe`), and not shown when the file was rewritten or has no view; then it stays pending, named in
+the unit's record.
 
 Packets are cut by what they measure (`shard_plan`): rendered as they are sent, under the bound the declaration gives a
 view-window call less the room a retry's correction takes. The events go in groups of at most half of what the bound
@@ -81,8 +83,12 @@ code sets over the scope - every declared transcript source and every session of
 stage's end judgement over its scope, and each due
 observation's resolution is derived from them (`measures.derive_resolution`) into `observations/resolutions.json`,
 which counts apart the resolutions left pending only because the basis is incomplete and names what made it so.
-`stored_resolutions` believes that file only after deriving it again (INSTANCE_IMMUTABLE, RESOLUTION_DRIFT). Rendering
-and the ledger's close are WP-21's (plan amendment row 6).
+An occasion a window and an expansion of one of its records both judge is one instance (`settle_occasions`): the same
+judgement kept once with the evidence of both, a different one the expansion's, the window's named superseded. An
+occasion on a backlog record is late evidence of the window that record belongs to (design §5.2): it goes to that
+window's file with basis `incomplete`, named under the resolutions file's `late`, and derives nothing of this window.
+Every resolution is derived before any instance is written. `stored_resolutions` believes that file only after deriving
+it again (INSTANCE_IMMUTABLE, RESOLUTION_DRIFT). Rendering and the ledger's close are WP-21's (plan amendment row 6).
 
 The reader takes the declaration S3 was admitted against (`records.StageRun.declaration`), and refuses a view whose
 windows were cut for another output cap than the one its calls declare (WINDOW_CAP_MISMATCH).
@@ -386,10 +392,13 @@ def keep(run_dir, name, where, window, call_id, answer):
             dropped.append({"observation": o["expected_id"], "occasion": o["occasion_locator"], "code": failed[bad[0]],
                             "quotes": bad})
             continue
-        # the occasion is named by the view it lies in and its entry there; its basis is the scope's, set at the stage's end
+        # the occasion is named by the view it lies in and its entry there; its basis is the scope's, set at the stage's end.
+        # Beside it, for this run only, the window role of the record it lies on - a backlog record's occasion is late
+        # evidence of the window it belongs to (design §5.2, W r1) - and whether an expansion read it.
         observed.append({"expected_id": o["expected_id"], "occasion_locator": f"{name}#{o['occasion_locator']}",
                          "exposure": o["exposure"], "verdict": o["verdict"],
-                         "evidence_ids": [located[e]["evidence_id"] for e in o["evidence_ids"]], "quotes": o["evidence_ids"]})
+                         "evidence_ids": [located[e]["evidence_id"] for e in o["evidence_ids"]], "quotes": o["evidence_ids"],
+                         "role": shown_entries(window)[o["occasion_locator"]]["window_role"], "expansion": "/x/" in where})
     quoted = {e for c in answer["claims"] if c["claim_id"] in kept for e in c["evidence_ids"]}
     for e in sorted(quoted | {q for o in observed for q in o.pop("quotes")}):
         evidence.append(run_dir, name, located[e])
@@ -751,7 +760,8 @@ class Reader:
         if not t["windows"]:
             if t["viewed_items"]:
                 raise Refused(f"WINDOWLESS_VIEW {t['transcript']}: {t['viewed_items']} viewed blocks and no window")
-            result["windowless"] = "the records it owes hold no content block"
+            result["windowless"] = ("it owes the window nothing and is viewed for the events earlier runs left pending on it"
+                                    if t.get("carried_only") else "the records it owes hold no content block")
             result.update(view_complete=True, source_complete=not t["unresolved_versions"], skipped=[],
                           overlap={"rows": 0, "credited": 0, "not_owed": 0, "uncredited": []}, pending=0, seen=[])
             return result, held
@@ -823,6 +833,8 @@ class Reader:
         # an uncredited overlap row has an owner that was not accepted, so the view is already incomplete; it is named
         # among the unit's reasons (`unit_status`)
         overlap = overlap_accounting(name, docs, accepted, views.sequence_doc(self.run_dir, name))
+        held["observations"], superseded, conflicting = settle_occasions(held["observations"])
+        result["occasions"] = {"superseded": superseded, "conflicting": conflicting}
         result.update(view_complete=state["view_complete"], source_complete=state["source_complete"],
                       skipped=state["skipped"], overlap=overlap, pending=pending, seen=coverage.normalize([[i, i + 1] for i in sorted(seen)]))
         return result, held
@@ -843,7 +855,11 @@ class Reader:
                                        "description": r["description"],
                                        "claims": [{"claim_id": c, "fact": facts[c]} for c in r["claim_ids"]]}})
         for p in carried:
-            view, line = by_file[p["transcript"]], p["first_record"] + 1
+            view, line = by_file.get(p["transcript"]), p["first_record"] + 1
+            if view is None:  # S2 views every file of a unit that holds one; a file it could not reach has none (W r1)
+                not_stitched.append({"event_id": p["id"], "file": p["transcript"],
+                                     "reason": "its file has no view in this run, so the event cannot be shown"})
+                continue
             # coverage keeps a version's number when its file was only appended to - the earlier records are the new
             # file's prefix, so the record is where it was - and gives a rewritten file a new one (coverage.observe)
             if p["version"] != view["version"]:
@@ -985,6 +1001,33 @@ def owed_readings(file, view, complete, window_id, seen=()):
             "processed": processed_ranges}
 
 
+def settle_occasions(instances):
+    """One instance per occasion of an expected observation (W r1). A window and an expansion of one of its records may
+    both judge an occasion on the same entry, and each answer is valid alone. The same judgement (verdict and exposure)
+    is kept once, with the evidence of both. A different one is the expansion's, which read the entry whole, and the
+    window's is named superseded; expansions that judge it otherwise among themselves keep none of it, named
+    conflicting, which leaves the unit `read_partial`. Returns `(instances, superseded, conflicting)`, in the order the
+    occasions were first judged."""
+    groups = {}
+    for i in instances:
+        groups.setdefault((i["expected_id"], i["occasion_locator"]), []).append(i)
+    kept, superseded, conflicting = [], [], []
+    judged = lambda group: sorted({(i["verdict"], i["exposure"]) for i in group})  # noqa: E731
+    for (expected_id, locator), group in groups.items():
+        chosen = group
+        if len(judged(group)) > 1:
+            chosen = [i for i in group if i["expansion"]]
+            superseded += [{"expected_id": expected_id, "occasion_locator": locator, "verdict": i["verdict"],
+                            "exposure": i["exposure"]} for i in group if not i["expansion"]]
+        if not chosen or len(judged(chosen)) > 1:
+            conflicting.append({"expected_id": expected_id, "occasion_locator": locator,
+                                "judgements": [list(j) for j in judged(group)]})
+            continue
+        evidence_ids = chosen[0]["evidence_ids"] if len(chosen) == 1 else sorted({e for i in chosen for e in i["evidence_ids"]})
+        kept.append({**chosen[0], "evidence_ids": evidence_ids})
+    return kept, superseded, conflicting
+
+
 def unit_status(files, outcomes, stitch=None):
     """`(status, reasons)` of one unit's reading, and of its stitch when it ran."""
     reasons = []
@@ -995,6 +1038,9 @@ def unit_status(files, outcomes, stitch=None):
             reasons.append(f"{f['transcript']}: {len(f['overlap']['uncredited'])} overlap rows uncredited")
         if f.get("unresolved"):
             reasons.append(f"{f['transcript']}: other versions unresolved")
+        if f.get("occasions", {}).get("conflicting"):
+            reasons.append(f"{f['transcript']}: {len(f['occasions']['conflicting'])} occasions judged otherwise by its "
+                           f"expansions")
     if stitch is not None and not stitch["finished"]:
         reasons.append(f"the stitch did not finish: {[c['item'] for c in stitch['calls'] if c['outcome'] != 'accepted']}")
     if any(o == "deferred" for o in outcomes):
@@ -1049,6 +1095,12 @@ def run(run_dir, supervisor, tranche="broad", stitch_bound=None, jobs=S3_JOBS):
         views_of = collections.defaultdict(list)
         for t in manifest["transcripts"]:
             views_of[t["unit"]].append(t)
+        # every file of each unit, viewed or not, as S2 chose them: an event an earlier run left pending on a file this run
+        # owes nothing is still the unit's, and S2 viewed that file for it (W r1)
+        by_key, members = {census.key_of(e): e for e in rows}, census.units(rows)
+        files_of = {unit: {f["key"] for e in [by_key[unit]] + [by_key[m] for m in members.get(unit, [])]
+                           if e is by_key[unit] or e["status"] == "child_of" for f in census.segments_of(e)}
+                    for unit in views_of}
         # a stitch packet is cut by what it measures, under the bound the declaration S3 was admitted against gives a
         # view-window call, less the room its one retry's correction takes; S2's overhead is not a stitch's
         bound_bytes = bound.driver_budget(views.limits_of(reader.declaration)) - CORRECTION_ROOM
@@ -1071,8 +1123,7 @@ def run(run_dir, supervisor, tranche="broad", stitch_bound=None, jobs=S3_JOBS):
                 held["events"] += h["events"]
                 held["observations"] += h["observations"]
             status, reasons = unit_status(read, outcomes)
-            keys = {t["transcript"] for t in views_of[unit]}
-            carried = [p for p in state["pending_events"] if p["transcript"] in keys]
+            carried = [p for p in state["pending_events"] if p["transcript"] in files_of[unit]]
             pending, resolved = [], []
             if status == "read_complete":
                 order = {t["transcript"]: ((t["session"] != unit, t["session"]), segment.get(t["transcript"], 0))
@@ -1120,9 +1171,12 @@ def run(run_dir, supervisor, tranche="broad", stitch_bound=None, jobs=S3_JOBS):
         scope, causes = observation_scope(document, done, complete)
         follow = follow_up(run_dir, window_id, due, [i for unit in sorted(observed) for i in observed[unit]], scope, causes)
         stage.output(follow["instances"])
+        for held in follow["late"].values():
+            stage.output(held["instances"])
         stage.output(RESOLUTIONS)
         summary["observations"] = {
             "due": len(due), "instances": len(follow["digests"]), "basis": follow["basis"],
+            "late_instances": sum(len(held["digests"]) for held in follow["late"].values()),
             "resolutions": dict(collections.Counter(r["resolution"] for r in follow["resolutions"].values())),
             "pending_because_incomplete": len(follow["pending_because_incomplete"]),
             "incomplete_sessions": len(follow["incomplete"]["sessions"]),
@@ -1166,23 +1220,32 @@ def observation_scope(document, done, complete):
 
 
 def follow_up(run_dir, window_id, due, instances, scope, causes):
-    """The instances of the window with the basis code set over `scope`, appended to `observations/<window>.jsonl`, and
-    each due observation's resolution derived from them (`measures.derive_resolution`) into
-    `observations/resolutions.json`, beside the line digests and what made the basis incomplete. A resolution left
-    pending only because the basis is incomplete is counted apart, with the sessions and sources that made it so
-    (Q2 of WP-08 commit 4). Rendering and the ledger's close are WP-21's (plan amendment row 6)."""
+    """The instances of the window with the basis code set over `scope`, in `observations/<window>.jsonl`, and each due
+    observation's resolution derived from them (`measures.derive_resolution`) into `observations/resolutions.json`,
+    beside the line digests and what made the basis incomplete. A resolution left pending only because the basis is
+    incomplete is counted apart, with the sessions and sources that made it so (Q2 of WP-08 commit 4). Rendering and the
+    ledger's close are WP-21's (plan amendment row 6).
+
+    An instance whose occasion lies on a backlog record is late evidence of the window that record belongs to (design
+    §5.2): it is kept apart, in `observations/<that window>.jsonl` with basis `incomplete` - this run cannot say that
+    window's scope is complete - and named under `late` in the resolutions file with its digests, and it derives no
+    resolution of this window (W r1). Every row is checked and every resolution derived before any file is written, so a
+    stage that refuses leaves no instance behind."""
     basis = views.coverage_basis(scope)
-    rows = [{**i, "basis": basis} for i in instances]
-    for row in rows:
+    late_of = {}
+    for i in instances:
+        role = i["role"]
+        if role != "in_window":
+            if not views.ROLE_BACKLOG.match(role):
+                raise Refused(f"OBSERVATION_INVALID {i['occasion_locator']}: an occasion lies on a {role!r} record")
+            late_of.setdefault(role[len("backlog("):-1], []).append(i)
+    plain = lambda i: {k: v for k, v in i.items() if k not in ("role", "expansion")}  # noqa: E731
+    rows = [{**plain(i), "basis": basis} for i in instances if i["role"] == "in_window"]
+    late_rows = {w: [{**plain(i), "basis": "incomplete"} for i in late_of[w]] for w in sorted(late_of)}
+    for row in rows + [r for group in late_rows.values() for r in group]:
         problems = claim_records.validate_record("observation", row)
         if problems:
             raise Refused("OBSERVATION_INVALID " + "; ".join(problems))
-    rel = f"observations/{views.safe_name(window_id)}.jsonl"
-    lines = [json.dumps(row, sort_keys=True, ensure_ascii=False) for row in rows]
-    # the basis is the stage's end judgement over the whole scope, which a resumed run may revise, so the file is that
-    # judgement replaced whole (through a temporary and a rename), not a log (WP-08 commit 5a)
-    records.write_text(run_dir, pathlib.Path(run_dir) / rel, "".join(line + "\n" for line in lines))
-    digests = [records.sha256_bytes(line.encode("utf-8")) for line in lines]
     resolutions, held_back = {}, []
     for e in due:
         mine = [r for r in rows if r["expected_id"] == e["expected_id"]]
@@ -1190,9 +1253,23 @@ def follow_up(run_dir, window_id, due, instances, scope, causes):
         if basis == "incomplete" and resolutions[e["expected_id"]]["resolution"] == "pending" and measures.derive_resolution(
                 [{**r, "basis": "source"} for r in mine], "source")["resolution"] != "pending":
             held_back.append(e["expected_id"])
-    doc = {"window": window_id, "basis": basis, "instances": rel, "digests": digests, "resolutions": resolutions,
+
+    def lines_of(group):
+        return [json.dumps(row, sort_keys=True, ensure_ascii=False) for row in group]
+    rel = f"observations/{views.safe_name(window_id)}.jsonl"
+    lines = lines_of(rows)
+    late = {w: {"instances": f"observations/{views.safe_name(w)}.jsonl", "lines": lines_of(group)}
+            for w, group in late_rows.items()}
+    # the basis is the stage's end judgement over the whole scope, which a resumed run may revise, so each file is that
+    # judgement replaced whole (through a temporary and a rename), not a log (WP-08 commit 5a)
+    records.write_text(run_dir, pathlib.Path(run_dir) / rel, "".join(line + "\n" for line in lines))
+    for w, held in late.items():
+        records.write_text(run_dir, pathlib.Path(run_dir) / held["instances"], "".join(line + "\n" for line in held["lines"]))
+    digest = lambda group: [records.sha256_bytes(line.encode("utf-8")) for line in group]  # noqa: E731
+    doc = {"window": window_id, "basis": basis, "instances": rel, "digests": digest(lines), "resolutions": resolutions,
            "pending_because_incomplete": held_back,
-           "incomplete": causes if basis == "incomplete" else {"sessions": [], "sources": []}}
+           "incomplete": causes if basis == "incomplete" else {"sessions": [], "sources": []},
+           "late": {w: {"instances": held["instances"], "digests": digest(held["lines"])} for w, held in late.items()}}
     records.write_json(run_dir, pathlib.Path(run_dir) / RESOLUTIONS, doc)
     return doc
 
@@ -1206,12 +1283,17 @@ def stored_resolutions(run_dir):
     resolution is not what its instances derive, or an instance's observation has none (Q5 of WP-08 commit 4)."""
     run_dir = pathlib.Path(run_dir)
     doc = records.read_json(stagelock.confine(run_dir, run_dir / RESOLUTIONS))
-    lines = stagelock.confine(run_dir, run_dir / doc["instances"]).read_text(encoding="utf-8").splitlines()
+    lines = records.jsonl_read(stagelock.confine(run_dir, run_dir / doc["instances"]))
     found = [records.sha256_bytes(line.encode("utf-8")) for line in lines]
     if found != doc["digests"]:
         changed = [n for n, (a, b) in enumerate(zip(found, doc["digests"])) if a != b]
         raise Refused(f"INSTANCE_IMMUTABLE {doc['instances']}: {len(found)} lines, {len(doc['digests'])} recorded, lines "
                       f"{changed} differ; an instance is never edited in place")
+    for window, held in sorted(doc.get("late", {}).items()):
+        late_found = [records.sha256_bytes(line.encode("utf-8"))
+                      for line in records.jsonl_read(stagelock.confine(run_dir, run_dir / held["instances"]))]
+        if late_found != held["digests"]:
+            raise Refused(f"INSTANCE_IMMUTABLE {held['instances']}: the late evidence of {window} is not the lines recorded")
     rows = [json.loads(line) for line in lines]
     for expected_id in sorted({r["expected_id"] for r in rows} - set(doc["resolutions"])):
         raise Refused(f"RESOLUTION_DRIFT {expected_id}: instances of it are stored and no resolution is recorded")
@@ -1313,7 +1395,7 @@ def fx_blocks(payload):
     """The pending events and the claims a stitch packet lists, as the golden host reads them."""
     def block(tag):
         body = payload.split(f"<{tag}>\n", 1)[1].split(f"\n</{tag}>", 1)[0]
-        return [json.loads(line) for line in body.splitlines() if line.strip()]
+        return [json.loads(line) for line in records.jsonl_lines(body) if line.strip()]
     return block("pending_events"), block("later_claims")
 
 
@@ -1676,7 +1758,7 @@ def self_test():
                 [(d.get("claim"), d["code"]) for d in codex_window.get("dropped", [])] == [("c2", "QUOTE_OCCURRENCE_UNKNOWN")]
                 and units.get(codex_unit) == "read_complete", f"{codex_window.get('dropped')} {units.get(codex_unit)}")
         kept_events = [json.loads(line) for n in (name, codex_name) if n and (run_dir / "events" / f"{n}.jsonl").is_file()
-                       for line in (run_dir / "events" / f"{n}.jsonl").read_text().splitlines()]
+                       for line in records.jsonl_read(run_dir / "events" / f"{n}.jsonl")]
         stored_ids = {c["claim_id"] for n in (name, codex_name) if n for c in guarded(lambda n=n: stored_claims(run_dir, n), [])}
         last = {e["event_id"]: e for n in (name, codex_name) if n for e in guarded(lambda n=n: current_events(run_dir, n), [])}
         control("events are stored with their claims' stored ids, a window's line pending or resolved as answered, and the "
@@ -1692,7 +1774,7 @@ def self_test():
         held = {r["evidence_id"] for r in stored_evidence}
         control("every stored quote walks back to the immutable copy, and every claim's evidence is stored",
                 verified and not any(verified) and cited <= held, f"{verified[:2]} {sorted(cited - held)[:2]}")
-        logged = guarded(lambda: [json.loads(line) for line in (run_dir / "expansions.jsonl").read_text().splitlines()], [])
+        logged = guarded(lambda: [json.loads(line) for line in records.jsonl_read(run_dir / "expansions.jsonl")], [])
         own_ids = {m["omission_id"] for w in windows.values() for m in own_rows(json.loads((run_dir / w["path"]).read_text()))}
         control("every own omission of the view has one executed decision, the forced one expanded",
                 sorted(d["locator"]["omission_id"] for d in logged) == sorted(own_ids)
@@ -1769,7 +1851,7 @@ def self_test():
         result_f = next((r for r in guarded(lambda: records.read_json(run_f / "read-results.json")["results"], [])
                          if r["transcript"] == main_unit), {})
         name_f = guarded(lambda: fx_main_windows(run_f)[0], None)
-        lines_f = [json.loads(line) for line in guarded(lambda: (run_f / "events" / f"{name_f}.jsonl").read_text().splitlines(), [])]
+        lines_f = [json.loads(line) for line in guarded(lambda: records.jsonl_read(run_f / "events" / f"{name_f}.jsonl"), [])]
         undecided_f = {u["event_id"]: u["reason"] for u in record_f.get("stitch", {}).get("undecided", [])}
         control("a stitch call that fails twice leaves the unit read_partial by name: nothing is appended to the event "
                 "store, every event of the stitch is named undecided with the call, and nothing is handed on",
@@ -1810,7 +1892,7 @@ def self_test():
         summary_e = {}
         problem = refusal(lambda: summary_e.update(run(run_e, sup_e)))
         judged_away = f"e-S3-{name_e}-w{forced_of.get('a', ('/0',))[0].rsplit('/', 1)[1]}-a1"
-        kept_e = [json.loads(line) for line in guarded(lambda: (run_e / "claims" / f"{name_e}.jsonl").read_text().splitlines(), [])]
+        kept_e = [json.loads(line) for line in guarded(lambda: records.jsonl_read(run_e / "claims" / f"{name_e}.jsonl"), [])]
         control("an attempt the gate passed and the stage's check failed is never read as accepted: none of its claims is "
                 "stored, and its unit is quarantined by name",
                 not problem and "STAGE_CHECK_FAILED" in json.dumps(summary_e.get("quarantined"))
@@ -1881,7 +1963,7 @@ def self_test():
                                         seen=seen_s, bad=failing, main_records=fx_apart_records, owned=[[0, 6]])
             problem = refusal(lambda: run(run_s, sup_s, stitch_bound=fixed_bytes(run_s) + 4000))
             view_s = guarded(lambda: fx_main_windows(run_s)[0], None)
-            lines_s = [json.loads(line) for line in guarded(lambda: (run_s / "events" / f"{view_s}.jsonl").read_text().splitlines(), [])]
+            lines_s = [json.loads(line) for line in guarded(lambda: records.jsonl_read(run_s / "events" / f"{view_s}.jsonl"), [])]
             ids = {e["description"][:9]: e["event_id"] for e in lines_s}
             record_s = record_of(run_s, main_unit)
             shard_runs[label] = {"problem": problem, "record": record_s, "lines": lines_s, "ids": ids, "dir": run_s,
@@ -2005,6 +2087,53 @@ def self_test():
                 and claim_records.validate_record("event", {**own_event, "outcome": "resolved", "stitched_from": ["c-1"],
                                                             "carried_from": {"window": "w", "first_record": 3}}) == [],
                 f"{claim_records.validate_record('event', own_event)}")
+
+        # W r1: the event run N handed on, on a file that owes run N+1 nothing - its parent session unchanged since - and
+        # its outcome in the child, which owes N+1 a new record. S2 views the parent for the event alone, with no window,
+        # and the unit's stitch shows the event from that view and joins it to the child's claim.
+        def child_next():
+            return views.fx_child_records() + [views.fx_assistant(views.fx_stamp(10, hour=2), "OUTCOME-X in the child")]
+
+        def answers_x(where, doc, rows, parts):
+            if "OUTCOME-X" in json.dumps(doc["records"], ensure_ascii=False):
+                return [((), fx_answer(doc, rows, fact="OUTCOME: the child holds the answer."))]
+            return [((), fx_answer(doc, rows))]
+        seen_x = []
+        run_x, sup_x, _ = fx_reader(root / "nx", "nx", answers_x, resolve=fx_resolving({10: "OUTCOME:"}), seen=seen_x,
+                                    window=FX_NEXT_WINDOW, state=state_n, owned=[], child_records=child_next, prefix_ok=True)
+        problem_x = refusal(lambda: run(run_x, sup_x))
+        record_x = record_of(run_x, main_unit)
+        joined_x = next((r for r in record_x.get("stitch", {}).get("resolutions", [])
+                         if r["event_id"] == last_event.get("event_id")), {})
+        parent_x = next((f for f in record_x.get("files", []) if f["transcript"] == main_unit), {})
+        shown_x = next((e for _i, events, _c in seen_x for e in events if e["event_id"] == last_event.get("event_id")), {})
+        handed_x = guarded(lambda: records.read_json(run_x / "read-results.json"), {"window": None, "results": []})
+        result_x = next((r for r in handed_x["results"] if r["transcript"] == main_unit), {})
+        state_x = guarded(lambda: census.reconcile(census.load(run_x), coverage.load(run_x / "coverage.json")[0],
+                                                   handed_x["results"], "periodic")[1], {"pending_events": [{"id": None}]})
+        control("W r1: an event pending on a file the run owes nothing is shown from that file's view, joined to the "
+                "outcome another member holds, resolved, and no longer pending once folded",
+                not problem_x and parent_x.get("windowless", "").startswith("it owes the window nothing")
+                and shown_x.get("carried_from") == handed_n["window"] and shown_x.get("line") == 10
+                and joined_x.get("carried") is True and joined_x.get("outcome") == "resolved"
+                and result_x.get("resolved_events") == [last_event.get("event_id")]
+                and last_event.get("event_id") not in [p["id"] for p in state_x["pending_events"]],
+                f"{problem_x} parent={parent_x.get('windowless')} shown={shown_x} joined={joined_x} "
+                f"resolved={result_x.get('resolved_events')}")
+        # and its file with no view: the stitch names the event, makes no call for it, and leaves it pending
+        views_x = guarded(lambda: records.read_json(run_x / "views.json")["transcripts"], [])
+        others_x = [t for t in views_x if t["unit"] == main_unit and t["transcript"] != main_unit]
+        pending_x = [p for p in state_n["pending_events"] if p["id"] == last_event.get("event_id")]
+        reader_x = guarded(lambda: Reader(run_x, sup_x, records.read_json(records.run_json_path(run_x))), None)
+        order_x = {t["transcript"]: ((t["session"] != main_unit, t["session"]), 0) for t in others_x}
+        unseen_x = guarded(lambda: reader_x.stitch(main_unit, others_x, {"claims": [], "events": [], "observations": []},
+                                                   pending_x, Timeline(run_x, others_x, order_x), handed_x["window"],
+                                                   10 ** 6)[0], {})
+        control("W r1: an event pending on a file of the unit with no view in the run is named not stitched, with no call",
+                bool(others_x) and len(pending_x) == 1 and [(n["event_id"], n["reason"].split(",")[0])
+                                                            for n in unseen_x.get("not_stitched", [])]
+                == [(last_event.get("event_id"), "its file has no view in this run")] and not unseen_x.get("calls"),
+                f"{unseen_x}")
 
         # ---- the stitch's own steps 4 and 5, one departure each (no call)
         listed = {"v1": {"c1": {"after": {"e2"}, "all": {"e1", "e2"}}}, "v2": {"c2": {"after": {"e3"}, "all": {"e3", "e4"}}}}
@@ -2301,14 +2430,13 @@ def self_test():
                 "not its twin with the same head and tail",
                 [(f.get("terms"), f.get("forced")) for f in searched_o] == [(1, [term_rid])]
                 and searched_o[0].get("matched", 0) >= 1, f"{searched_o}")
-        logged_o = [json.loads(line) for line in guarded(lambda: (run_o / "expansions.jsonl").read_text(), "").splitlines()]
+        logged_o = [json.loads(line) for line in guarded(lambda: records.jsonl_read(run_o / "expansions.jsonl"), [])]
         control("4b row 10: the forced record's decision is logged as forced by the search",
                 {(d["locator"]["record_id"], d["forced_by"]) for d in logged_o if d["locator"]["transcript"] == main_o
                  and d["locator"]["record_id"] in (term_rid, plain_rid)} == {(term_rid, "search_match"), (plain_rid, "none")},
                 f"{[(d['locator']['record_id'], d['forced_by']) for d in logged_o if d['locator']['transcript'] == main_o]}")
         follow_o = guarded(lambda: records.read_json(run_o / RESOLUTIONS), {})
-        instances_o = [json.loads(line) for line in guarded(
-            lambda: (run_o / follow_o["instances"]).read_text(), "").splitlines()]
+        instances_o = [json.loads(line) for line in guarded(lambda: records.jsonl_read(run_o / follow_o["instances"]), [])]
         stored_ids = {e["evidence_id"] for e in stored_evidence_of(run_o, main_o)}
         control("4b: an instance is stored with the basis code set, its occasion named by its view and entry, and evidence "
                 "the store holds",
@@ -2328,7 +2456,7 @@ def self_test():
                 and follow_o.get("pending_because_incomplete") == [] and follow_o.get("incomplete") == {"sessions": [], "sources": []},
                 f"{follow_o}")
         control("4b: read.json counts the follow-up",
-                summary_o.get("observations") == {"due": 2, "instances": 1, "basis": "source",
+                summary_o.get("observations") == {"due": 2, "instances": 1, "basis": "source", "late_instances": 0,
                                                   "resolutions": {"observed": 1, "no_occasion": 1}, "pending_because_incomplete": 0,
                                                   "incomplete_sessions": 0, "incomplete_sources": 0, "search_forced": 1},
                 f"{summary_o.get('observations')}")
@@ -2434,7 +2562,7 @@ def self_test():
                 and [c["session"] for c in causes_fail["sessions"]] == [unit_o], f"{causes_fail}")
         due_one = [{"expected_id": "N-1@r0", **FX_OBSERVED, "expiry": "2026-12-31"}]
         seen_i = {"expected_id": "N-1@r0", "occasion_locator": "v#1/message/content", "exposure": "eligible",
-                  "verdict": "observed", "evidence_ids": ["ev-1"]}
+                  "verdict": "observed", "evidence_ids": ["ev-1"], "role": "in_window", "expansion": False}
         scratch = root / "follow"
         scratch.mkdir()
         held_back = guarded(lambda: follow_up(scratch, "w1", due_one, [seen_i], scope_fail, causes_fail), {})
@@ -2459,8 +2587,103 @@ def self_test():
         read_back = guarded(lambda: stored_resolutions(scratch_r), {})
         control("5a Q2: a second judgement of a window's instances replaces the first whole, and reads back as its own",
                 again_r.get("basis") == "incomplete" and read_back.get("basis") == "incomplete"
-                and len((scratch_r / "observations" / "w1.jsonl").read_text(encoding="utf-8").splitlines()) == 1,
+                and len(records.jsonl_read(scratch_r / "observations" / "w1.jsonl")) == 1,
                 f"{again_r.get('basis')} {read_back}")
+
+        # W r1: an instance's strings may hold what JSON allows raw and str.splitlines breaks a line at; the stored lines
+        # are read back by the one JSONL splitter, so each is its own line and its digest the one recorded
+        for char in ("\u0085", "\u2028", "\u2029"):
+            scratch_x = root / f"follow-raw-{ord(char):04x}"
+            scratch_x.mkdir()
+            raw_i = {**seen_i, "occasion_locator": f"v{char}w#1/message/content"}
+            guarded(lambda: follow_up(scratch_x, "w1", due_one, [raw_i], scope_full, causes_full), {})
+            control(f"W r1: an instance holding U+{ord(char):04X} reads back as the line recorded",
+                    refusal(lambda: stored_resolutions(scratch_x)) == "", refusal(lambda: stored_resolutions(scratch_x)))
+
+        # W r1: one occasion, its window role alone different - on a record this window owns, or on a backlog record of
+        # an earlier window. The backlog one is that window's late evidence: kept apart, and no resolution of this
+        # window's rests on it.
+        prev_role = f"backlog({views.FX_PREV_WINDOW})"
+        for role, label in (("in_window", "an occasion on a record the window owns is this window's"),
+                            (prev_role, "an occasion on a backlog record is late evidence of its own window, kept apart "
+                                        "with basis incomplete, and derives nothing of this one")):
+            scratch_b = root / f"follow-role-{label}"
+            scratch_b.mkdir()
+            doc_b = guarded(lambda: follow_up(scratch_b, "w1", due_one, [{**seen_i, "role": role}], scope_full, causes_full), {})
+            late_b = doc_b.get("late", {}).get(views.FX_PREV_WINDOW, {})
+            late_rows_b = [json.loads(l) for l in guarded(lambda: records.jsonl_read(scratch_b / late_b["instances"]), [])]
+            got_b = (doc_b.get("resolutions", {}).get("N-1@r0", {}).get("resolution"), len(doc_b.get("digests", [])),
+                     len(late_b.get("digests", [])), [r.get("basis") for r in late_rows_b],
+                     refusal(lambda: stored_resolutions(scratch_b)))
+            want_b = ("observed", 1, 0, [], "") if role == "in_window" else ("no_occasion", 0, 1, ["incomplete"], "")
+            control(f"W r1: {label}", got_b == want_b, f"{got_b}")
+        scratch_w = root / "follow-refused"
+        scratch_w.mkdir()
+
+        def follow_twice():
+            """`written`, or the first word of what refused it: one occasion judged twice cannot derive a resolution."""
+            try:
+                follow_up(scratch_w, "w1", due_one, [seen_i, {**seen_i, "evidence_ids": ["ev-2"]}], scope_full, causes_full)
+            except Exception as exc:  # noqa: BLE001 - the control names whatever refused it
+                return str(exc).split()[0] if str(exc) else type(exc).__name__
+            return "written"
+        refused_w = follow_twice()
+        control("W r1: every resolution is derived before any instance is written: a follow-up that cannot derive one "
+                "leaves no file", refused_w.startswith("RESOLUTION_INPUT") and not (scratch_w / "observations").exists(),
+                f"{refused_w} {sorted(p.name for p in (scratch_w / 'observations').glob('*')) if (scratch_w / 'observations').exists() else []}")
+
+        # W r1, through the stage: a clipped record whose expansion shows it whole under the same entry, judged an occasion
+        # of N-1 by its window and by the expansion - the same, or otherwise - and an occasion on a backlog record
+        clip_entry = f"{made_o['lines']['late_clip']}/message/content/0/content"
+
+        def judging(entry, verdicts):
+            """Every omission expanded; `entry` judged an occasion of N-1, `verdicts[0]` by a window and `verdicts[1]` by
+            an expansion."""
+            def answers(where, doc, rows, parts):
+                answer = fx_answer(doc, rows, decide=lambda m: "expand")
+                target = next((r for r in doc["records"] if views.eid(r) == entry), None)
+                if target is not None:
+                    text, occurrence = fx_quote(target)
+                    answer["quotes"].append({"quote_id": "q7", "entry": entry, "text": text,
+                                             **({"occurrence": occurrence} if occurrence is not None else {})})
+                    answer["observations"] = [{"expected_id": "N-1@r0", "occasion_locator": entry, "exposure": "eligible",
+                                               "verdict": verdicts["/x/" in where], "evidence_ids": ["q7"]}]
+                return [((), answer)]
+            return answers
+
+        def observed_run(label, entry, verdicts):
+            run_c, sup_c, made_c = fx_reader(root / label, label, judging(entry, verdicts), expanding=lambda m: True,
+                                             ledger_doc=fx_ledger(label))
+            problem_c = refusal(lambda: run(run_c, sup_c))
+            follow_c = guarded(lambda: stored_resolutions(run_c), {})
+            rows_c = [json.loads(l) for l in guarded(lambda: records.jsonl_read(run_c / follow_c["instances"]), [])]
+            files_c = [f for unit in guarded(lambda: sorted((run_c / "read").glob("*.json")), [])
+                       for f in records.read_json(unit)["files"]]
+            return run_c, problem_c, follow_c, rows_c, files_c
+        for label, verdicts, named in (
+                ("same", ("observed", "observed"), "an occasion its window and its expansion judge the same is one instance"),
+                ("otherwise", ("observed", "not_observed"), "an occasion its window and its expansion judge otherwise is "
+                                                            "the expansion's instance, the window's named superseded")):
+            _run_c, problem_c, follow_c, rows_c, files_c = observed_run(f"oc-{label}", clip_entry, verdicts)
+            mine_c = [(r["verdict"], r["occasion_locator"].split("#", 1)[1]) for r in rows_c if r["expected_id"] == "N-1@r0"]
+            settled_c = [f["occasions"] for f in files_c if (f.get("occasions") or {}).get("superseded")
+                         or (f.get("occasions") or {}).get("conflicting")]
+            want_c = [{"superseded": [{"expected_id": "N-1@r0", "verdict": "observed", "exposure": "eligible"}],
+                       "conflicting": []}] if label == "otherwise" else []
+            judged_c = sum(1 for f in files_c for w in f.get("windows", []) + f.get("expansions", [])
+                           for o in w.get("observations", []) if o["occasion_locator"].endswith(f"#{clip_entry}"))
+            control(f"W r1: {named}", not problem_c and judged_c == 2 and mine_c == [(verdicts[1], clip_entry)]
+                    and [{k: [{x: y for x, y in o.items() if x != "occasion_locator"} for o in v] for k, v in c.items()}
+                         for c in settled_c] == want_c,
+                    f"{problem_c} judged={judged_c} {mine_c} {settled_c}")
+        backlog_entry = "1/payload/content/0/text"
+        run_b2, problem_b2, follow_b2, rows_b2, _files_b2 = observed_run("ob", backlog_entry, ("observed", "observed"))
+        late_b2 = follow_b2.get("late", {}).get(views.FX_PREV_WINDOW, {})
+        late_rows_b2 = guarded(lambda: [json.loads(l) for l in records.jsonl_read(run_b2 / late_b2["instances"])], None)
+        control("W r1: an occasion on a backlog record is stored as late evidence of its window and not as this window's",
+                not problem_b2 and [r["expected_id"] for r in rows_b2] == [] and late_rows_b2 is not None
+                and [(r["expected_id"], r["occasion_locator"].split("#", 1)[1], r["basis"]) for r in late_rows_b2]
+                == [("N-1@r0", backlog_entry, "incomplete")], f"{problem_b2} {rows_b2} {late_b2} {late_rows_b2}")
 
         # ---- commit 5a: a run repeated over its own directory, a store written under a taken id, a run resumed after
         # its driver was killed mid-call. Every process signalled here is one this suite started.
@@ -2474,16 +2697,33 @@ def self_test():
                                      "description": "The person asked for a change; its outcome is recorded."}]
             return [((), answer)]
 
+        # what a run that reused or closed calls records of that, and nothing else, which the comparisons leave out
+        RUN_METADATA = ("reused", "not_reused", "interrupted")
+
+        def steady(doc):
+            if isinstance(doc, dict):
+                return {k: steady(v) for k, v in doc.items() if k not in RUN_METADATA}
+            return [steady(v) for v in doc] if isinstance(doc, list) else doc
+
         def stores(directory):
             """Every store's bytes by path, the directory's own path written as <RUN>: claims, events, evidence, the
-            observation instances and resolutions, the expansion decisions and the expanded windows."""
+            observation instances and resolutions, the expansion decisions and the expanded windows; and the results, the
+            stage summary and every unit's read record, without the reuse and interruption fields (W r1)."""
             held_stores = {}
             for pattern in ("claims/*.jsonl", "events/*.jsonl", "evidence/*.jsonl", "observations/*", "expansions.jsonl",
                             "views/*/expansion-*.json"):
                 for found in sorted(directory.glob(pattern)):
                     held_stores[str(found.relative_to(directory))] = found.read_bytes().replace(
                         str(directory.resolve().parent).encode("utf-8"), b"<RUN>")
+            for found in sorted(directory.glob("read/*.json")) + [directory / "read-results.json", directory / "read.json"]:
+                if found.is_file():
+                    held_stores[str(found.relative_to(directory))] = records.json_text(
+                        steady(records.read_json(found))).encode("utf-8").replace(
+                        str(directory.resolve().parent).encode("utf-8"), b"<RUN>")
             return held_stores
+
+        def differing(a, b):
+            return sorted(k for k in set(a) | set(b) if a.get(k) != b.get(k))
 
         def calls_of(directory):
             return sorted(p.name for p in (directory / "calls").iterdir()) if (directory / "calls").is_dir() else []
@@ -2499,7 +2739,7 @@ def self_test():
                 and stores(twice_dir) == first_stores and calls_of(twice_dir) == first_calls
                 and first_twice.get("reused") == 0 and second_twice.get("reused", 0) > 0
                 and second_twice.get("interrupted") == [],
-                f"kinds={sorted(kinds)} same={stores(twice_dir) == first_stores} calls={len(first_calls)}->"
+                f"kinds={sorted(kinds)} differ={differing(stores(twice_dir), first_stores)} calls={len(first_calls)}->"
                 f"{len(calls_of(twice_dir))} reused={first_twice.get('reused')}/{second_twice.get('reused')}")
 
         def first_window(directory):
@@ -2582,15 +2822,41 @@ def self_test():
                 and closed_k[0].get("charged") == "reserved" and closed_k[0].get("cell") == "removed" and not alive_after
                 and not any(p.name.startswith(f"{held_call}-") for p in kill_root.iterdir()), f"{closed_k} alive={alive_after}")
         resumed_id = f"{held_call.rpartition('-a')[0]}-a2" if held_call else "-"
-        # the call id is in the lines and in the name of the expanded windows' files, which carry their call
-        renamed = {k.replace(resumed_id, str(held_call)): v.replace(resumed_id.encode("utf-8"), str(held_call).encode("utf-8"))
-                   for k, v in stores(kill_dir).items()}
+        # the call id is in the lines and in the name of the expanded windows' files, which carry their call, and so in
+        # the digest of every stored line that names it, which the read records list (W r1)
+        swaps = [(resumed_id.encode("utf-8"), str(held_call).encode("utf-8"))]
+        for store in sorted(kill_dir.glob("claims/*.jsonl")) + sorted(kill_dir.glob("events/*.jsonl")):
+            for line in guarded(lambda: records.jsonl_read(store), []):
+                if resumed_id in line:
+                    swaps.append((records.sha256_bytes(line.encode("utf-8")).encode("utf-8"),
+                                  records.sha256_bytes(line.replace(resumed_id, str(held_call)).encode("utf-8")).encode("utf-8")))
+
+        def swapped(data):
+            for was, now in swaps:
+                data = data.replace(was, now)
+            return data
+        renamed = {k.replace(resumed_id, str(held_call)): swapped(v) for k, v in stores(kill_dir).items()}
         control("5a Q5: the resumed run's stores are the one-go run's but for the call id of the window it read again, "
                 "and it made the one-go run's calls and the killed attempt", bool(renamed) and renamed == stores(one_dir)
                 and stores(kill_dir) != stores(one_dir) and len(calls_of(kill_dir)) == len(calls_of(one_dir)) + 1
                 and resumed.get("reused", 0) > 0,
-                f"same={renamed == stores(one_dir)} calls={len(calls_of(kill_dir))}/{len(calls_of(one_dir))} "
+                f"differ={differing(renamed, stores(one_dir))} calls={len(calls_of(kill_dir))}/{len(calls_of(one_dir))} "
                 f"reused={resumed.get('reused')}")
+
+        def narrowed(held):
+            """`held` with the first processed range of read-results.json one record shorter, or None when it has none."""
+            doc = json.loads(held.get("read-results.json", b"null"))
+            for result in (doc or {}).get("results", []) if isinstance(doc, dict) else []:
+                for reading in result.get("readings", []):
+                    for ranges in reading.get("processed", {}).values():
+                        if ranges and ranges[-1][1] - ranges[-1][0] > 1:
+                            ranges[-1][1] -= 1
+                            return {**held, "read-results.json": records.json_text(doc).encode("utf-8")}
+            return None
+        narrow = narrowed(renamed)
+        control("W r1: the resume comparison holds the results too: a resumed run whose processed range differs fails it",
+                "read-results.json" in stores(one_dir) and narrow is not None and narrow != stores(one_dir),
+                f"results={'read-results.json' in stores(one_dir)} narrowed={narrow is not None}")
         # a host the resume failed to stop is not signalled here: its pid may be another program's by now, and the golden
         # host ends by itself; the check below names it
 
@@ -2645,7 +2911,7 @@ def self_test():
         # stage's end, and each view's decisions keep their own order
         rank_t = {n: units_w.index(u) for n, u in names_w.items()}
         log_t = twice_dir / "expansions.jsonl"
-        held_t = [line for line in guarded(lambda: log_t.read_text(encoding="utf-8"), "").splitlines() if line.strip()]
+        held_t = [line for line in guarded(lambda: records.jsonl_read(log_t), []) if line.strip()]
         decided_t = {json.loads(line)["locator"]["transcript"] for line in held_t}
         # a view of another unit than every decided one's: a view of the same unit shares its place in the order
         other_t = next((n for n in sorted(names_w) if names_w[n] not in {names_w.get(d) for d in decided_t}), None)
@@ -2657,7 +2923,7 @@ def self_test():
             log_t.write_text("".join(line + "\n" for line in ([planted_t] + held_t if ahead else held_t + [planted_t])),
                              encoding="utf-8")
             rerun_t = refusal(lambda: run(twice_dir, twice_sup))
-            after_t = [line for line in guarded(lambda: log_t.read_text(encoding="utf-8"), "").splitlines() if line.strip()]
+            after_t = [line for line in guarded(lambda: records.jsonl_read(log_t), []) if line.strip()]
             control("5b Q6: the stage leaves the decision log in unit order, each view's decisions in the order made",
                     after_t == sorted([planted_t] + held_t, key=lambda line: rank_t[json.loads(line)["locator"]["transcript"]])
                     and after_t != ([planted_t] + held_t if ahead else held_t + [planted_t]) and rerun_t == "",

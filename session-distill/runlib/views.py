@@ -21,7 +21,8 @@ whole; the rest is a gap named in the omission manifest with its size, its span 
 characters (so two results that look alike from outside, and differ inside, are told apart). A record is viewed when
 the census says this run owes it: the records the window owns and has not processed, and the backlog on the latest
 version. Anything else is shown only as the overlap (five entries each side of a window, each cut to
-`OVERLAP_ITEM_BYTES`) and is `context`.
+`OVERLAP_ITEM_BYTES`) and is `context`. A file of a unit that owes the window nothing and holds an event an earlier run
+left pending is viewed with no window (`carried_only`), so the unit's stitch can show that event from this run's copy.
 
 **Windows.** Entries are cut greedily into windows in record order. Every viewed entry is owned by exactly one window;
 an entry too large for a window is split into **spans**, each a slice of the entry's view text with the mapping of
@@ -1194,7 +1195,9 @@ def view_transcript(run_dir, entry, file, state, ctx, unit=None):
         "pending_first_records": pending, "windows": len(windows)})
     index_rel = f"index/bm25/{name}.json"
     search.dump(index, index_destination(run_dir, index_rel))
-    return {"transcript": ident, "session": census.key_of(entry), "segment": file["stem"], "name": name, "host": entry["host"],
+    carried_only = {"carried_only": True} if not (work["in_window"] or work["backlog"]) else {}
+    return {**carried_only, "transcript": ident, "session": census.key_of(entry), "segment": file["stem"], "name": name,
+            "host": entry["host"],
             "kind": "child" if child else "session", "parent": entry.get("parent"), "unit": unit or census.key_of(entry),
             "version": version, "version_sha": sha, "source_copy": copy_rel, "redacted": proj_rel, "sequence": sequence_rel,
             "index": index_rel, "records": stats["records"], "items": counts["items"], "viewed_items": counts["viewed"],
@@ -1213,19 +1216,22 @@ def run(run_dir, overhead=bound.PACKET_OVERHEAD, seats_path=None):
         raise Refused(f"INPUT_INVALID S1: {run_dir}/census.json: {exc}") from exc
     state = coverage.load(run_dir / "coverage.json")[0]
     # The unit is a root with every member at any depth (D-20261103-85f3e8). Of an eligible unit S2 reads each transcript
-    # that owes the window something - the root or a member, its records in the window or its backlog - and no other: a
+    # that owes the window something - the root or a member, its records in the window or its backlog. A file that owes
+    # nothing and holds an event an earlier run left pending is viewed too, with no window (`carried_only`): the unit's
+    # stitch shows that event from this run's copy and projection, which only a view makes (W r1). No other file is: a
     # member with nothing to read would cut no window. An eligible root whose unit owes nothing contradicts S1.
     by_id = {census.key_of(e): e for e in transcripts}
     units = census.units(transcripts)
     owes = lambda f: bool(f["path"] and (f["work"]["in_window"] or f["work"]["backlog"]))  # noqa: E731
+    pending_on = {p["transcript"] for p in state["pending_events"]}
     todo, idle = [], []
     for root in (e for e in transcripts if e["status"] == "eligible"):
         unit = census.key_of(root)
-        read = [(e, f, unit) for e in [root] + [by_id[m] for m in units.get(unit, [])] if e is root or e["status"] == "child_of"
-                for f in census.segments_of(e) if owes(f)]
-        todo += read
-        if not read:
+        files = [(e, f) for e in [root] + [by_id[m] for m in units.get(unit, [])] if e is root or e["status"] == "child_of"
+                 for f in census.segments_of(e)]
+        if not any(owes(f) for _e, f in files):
             idle.append(unit)
+        todo += [(e, f, unit) for e, f in files if owes(f) or (f["path"] and f["key"] in pending_on)]
     if idle:
         raise Refused(f"SET_MISMATCH S2: eligible sessions whose unit owes the window nothing: {sorted(idle)}")
     names = collections.Counter(safe_name(f["key"]) for _e, f, _unit in todo)
@@ -1407,7 +1413,8 @@ def record_decision(run_dir, call_id, name, record_id, decision, reason, forced_
     # call is another line
     # units read side by side append here: the read and the append are one step under the log's lock (WP-08 commit 5b)
     with stagelock.hold(run_dir, "expansions", wait_s=DECISIONS_LOCK_WAIT_S):
-        held = [h for h in path.read_text(encoding="utf-8").splitlines() if h.strip()] if path.is_file() else []
+        # read by the one JSONL splitter: a reason may hold U+2028, U+2029 or U+0085 raw, which str.splitlines breaks at
+        held = [h for h in records.jsonl_read(path) if h.strip()] if path.is_file() else []
         if line in held:
             return
         if any((d["call_id"], d["locator"]) == (call_id, locator) for d in map(json.loads, held)):
@@ -1429,7 +1436,7 @@ def order_decisions(run_dir, rank):
     with stagelock.hold(run_dir, "expansions", wait_s=DECISIONS_LOCK_WAIT_S):
         if not path.is_file():
             return
-        lines = [line for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+        lines = [line for line in records.jsonl_read(path) if line.strip()]
         ordered = sorted(lines, key=lambda line: rank.get(json.loads(line)["locator"]["transcript"], len(rank)))
         if ordered != lines:
             records.write_text(run_dir, path, "".join(line + "\n" for line in ordered))
@@ -1653,7 +1660,7 @@ def fx_seats(root, capacity, seat=None, host_version=None, name=None):
 
 def golden(root, name="g", overhead=bound.PACKET_OVERHEAD, capacity=None, reservation=32_000,
            allowance=3200, census_sha=None, compressed=False, main_records=None, owned=None, allowance_entry=None,
-           window=None, state=None, prefix_ok=None, ledger_doc=None):
+           window=None, state=None, prefix_ok=None, ledger_doc=None, child_records=None):
     """A run directory S2 can be run over, and the result of running it (realization: golden).
 
     The transcripts are `fx_main_records` (eligible, with a pending event and four clipped tool results), its child,
@@ -1664,15 +1671,16 @@ def golden(root, name="g", overhead=bound.PACKET_OVERHEAD, capacity=None, reserv
     the transcripts are observed into that state as S1 observes them, `prefix_ok` saying whether a changed file kept the
     earlier version as its prefix (`coverage.observe`), and nothing is planted in it. The declaration's checkout holds
     `ledger_doc` (an empty schema 2 ledger by default) and pins its hash, as S0 pins the ledger S3 reads the expected
-    observations due from."""
+    observations due from. `child_records` runs it over another child transcript, as `main_records` does the main one."""
     root = pathlib.Path(root)
     run_dir, host = root / name, root / f"{name}-host"
+    child_rows = child_records() if child_records else fx_child_records()
     main_path, child_path = host / "t1.jsonl", host / "t1-child.jsonl"
     codex_path = host / ("rollout-t3.jsonl.zst" if compressed else "rollout-t3.jsonl")
     # `main_records` lets a control run the WHOLE stage over a different transcript - the overlap cases need
     # long turns, and a case that cannot be built as a real run can only be tested against hand-made rows
     main_sha = fx_write(main_path, main_records() if main_records else fx_main_records())
-    child_sha = fx_write(child_path, fx_child_records())
+    child_sha = fx_write(child_path, child_rows)
     if compressed:
         plain = host / "rollout-t3.jsonl"
         codex_sha = fx_write(plain, fx_codex_records())
@@ -1697,7 +1705,7 @@ def golden(root, name="g", overhead=bound.PACKET_OVERHEAD, capacity=None, reserv
 
     planted, state = state is None, copy.deepcopy(state) if state is not None else coverage.new_state()
     for tid, sha, count in ((main_tid, main_sha, len(main_records() if main_records else fx_main_records())),
-                            (codex_tid, codex_sha, len(fx_codex_records())), (child_tid, child_sha, len(fx_child_records()))):
+                            (codex_tid, codex_sha, len(fx_codex_records())), (child_tid, child_sha, len(child_rows))):
         coverage.observe(state, tid, sha, count, records.sha256_bytes(f"prefix-{tid}".encode()), prefix_ok)
     if planted:
         state["pending_events"] = [{"id": "pe-1", "transcript": main_tid, "version": 0, "window": window_id, "first_record": 4}]
@@ -1706,15 +1714,15 @@ def golden(root, name="g", overhead=bound.PACKET_OVERHEAD, capacity=None, reserv
     # the records whose timestamps fall in the window; for the default transcript the first and the last two
     # do not. A caller whose transcript puts a case on the first record says so, or the control it writes
     # would be about a record no window owns.
-    main_owned = owned or [[1, 10]]
+    main_owned = [[1, 10]] if owned is None else owned
     codex_work = coverage.work_of(state, codex_tid, [], window_id)
     entries = [
         fx_entry("claude", main_id, "claude_projects", main_path, census_sha or main_sha, owned=main_owned,
                  work=coverage.work_of(state, main_tid, main_owned, window_id), versions=fx_versions(state, main_tid)),
         # S1 reads a member of an eligible unit like its root (D-20261103-85f3e8): the child carries its own work
         fx_entry("claude", child_id, "claude_projects", child_path, child_sha, status="child_of", parent=main_id,
-                 owned=fx_owned(fx_child_records(), window),
-                 work=coverage.work_of(state, child_tid, fx_owned(fx_child_records(), window), window_id),
+                 owned=fx_owned(child_rows, window),
+                 work=coverage.work_of(state, child_tid, fx_owned(child_rows, window), window_id),
                  versions=fx_versions(state, child_tid)),
         # a later window's run may find the Codex session owing it nothing, which S1 records as nothing new
         fx_entry("codex", codex_id, "codex_sessions", codex_path, codex_sha, owned=[], work=codex_work,
@@ -3115,7 +3123,7 @@ def self_test():
                ("".join(r["text"] for w in expansion for r in w["records"])
                 == texts[rid("pending_clip")][clip["omitted_span"]["start"]:clip["omitted_span"]["end"]],
                 [(d["locator"]["record_id"], d["decision"], d["forced_by"]) for d in
-                 (json.loads(l) for l in (run_dir / "expansions.jsonl").read_text(encoding="utf-8").splitlines() if l.strip())]),
+                 (json.loads(l) for l in records.jsonl_read(run_dir / "expansions.jsonl") if l.strip())]),
                (True, [(rid("pending_clip"), "expand", "pending_event")]))
         refused("control: an expansion of a record no window lists as clipped is refused",
                 lambda: expand(run_dir, "r1/S3/t1/3", name, "99/message/content", "why not"), "EXPANSION_UNKNOWN")
@@ -3196,7 +3204,7 @@ def self_test():
                 record_decision(run_dir, f"r1/S3/t1/9-{other}", name, row["record_id"], "expand", "read whole",
                                 "pending_event" if row["record_id"] == rid("pending_clip") else "none",
                                 omission=other)
-        recorded = [json.loads(l) for l in (run_dir / "expansions.jsonl").read_text(encoding="utf-8").splitlines() if l.strip()]
+        recorded = [json.loads(l) for l in records.jsonl_read(run_dir / "expansions.jsonl") if l.strip()]
         mine = [d for d in recorded if d["locator"]["transcript"] == name and d["call_id"].startswith("r1/S3/t1/9")]
         derived = completeness([True] * len(windows), clipped_ids,
                                [{"omission_id": d["locator"]["omission_id"], "decision": d["decision"]} for d in mine],
@@ -3407,7 +3415,7 @@ def self_test():
             expect(f"R#5: ... and each set is readable on its own and carries its own record",
                    ([window_doc(long_dir, long_name, path)["expansion_of"] for path in mine],
                     len(mine)), ([row["record_id"]] * len(got), len(got)))
-        decided = [json.loads(l) for l in (long_dir / "expansions.jsonl").read_text(encoding="utf-8").splitlines() if l.strip()]
+        decided = [json.loads(l) for l in records.jsonl_read(long_dir / "expansions.jsonl") if l.strip()]
         expect("R#5: ... and each decision names the omission it was about, not only the record",
                [d for d in decided if not d["locator"].get("omission_id")], [])
         found = expand(run_dir, "r1/S3/t1/7", name, rid("pair_term"), "the search matched inside the gap", "search_match",
@@ -3691,6 +3699,41 @@ def self_test():
                       ("EXPANSION_DECISION_CONFLICT", True))
         checks.expect("5a: another call's decision of the same omission is another line",
                       (decide("r1/S3/w2", "skip", "not worth it"), len(logged().splitlines())), ("written", 2))
+    # W r1: a reason may hold what JSON allows raw and str.splitlines breaks a line at. The log is read by the one JSONL
+    # splitter, so a decision made again is still found, the order is still kept, and two runs leave the same bytes.
+    for char in ("\u0085", "\u2028", "\u2029"):
+        label, reason = f"U+{ord(char):04X}", f"kept{char}whole"
+        logs = []
+        for _run in (1, 2):
+            with tempfile.TemporaryDirectory() as raw:
+                raw_dir = pathlib.Path(raw)
+
+                def decide_raw(call_id, view):
+                    try:
+                        record_decision(raw_dir, call_id, view, "1/message/content", "expand", reason,
+                                        omission=f"{view}#om")
+                    except (Refused, ValueError) as exc:  # a fragment that does not parse is a ValueError
+                        return f"{exc.__class__.__name__} {str(exc).split()[0] if str(exc) else ''}"
+                    return "written"
+
+                def ordered_raw():
+                    try:
+                        order_decisions(raw_dir, {"a": 0, "b": 1})
+                    except (Refused, ValueError) as exc:
+                        return f"{exc.__class__.__name__}"
+                    return "ordered"
+                steps = (decide_raw("r1/S3/w2", "b"), decide_raw("r1/S3/w2", "b"), decide_raw("r1/S3/w1", "a"),
+                         ordered_raw())
+                once = (raw_dir / "expansions.jsonl").read_bytes()
+                again = ordered_raw()
+                read = [json.loads(line) for line in records.jsonl_read(raw_dir / "expansions.jsonl")]
+                logs.append((steps, again, once == (raw_dir / "expansions.jsonl").read_bytes(),
+                             [(d["locator"]["transcript"], d["reason"]) for d in read], once))
+        checks.expect(f"W r1: a reason holding {label} is appended once, ordered, and read back whole",
+                      logs[0][:4], (("written", "written", "written", "ordered"), "ordered", True,
+                                    [("a", reason), ("b", reason)]))
+        checks.expect(f"W r1: two runs deciding the same with a reason holding {label} leave the same bytes",
+                      logs[0][4] == logs[1][4], True)
     if not checks.ran:
         checks.failures.append("the self-test asserted nothing")
     for failure in checks.failures:
