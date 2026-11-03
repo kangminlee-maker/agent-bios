@@ -4025,12 +4025,16 @@ def injection_events(records, entry, delivered=None, seen=None):
     return events, damage, inherited
 
 
-def event_at_instant(events, when, owner_ref, kind="native"):
+def event_at_instant(events, when, owner_ref, session_ref, kind="native"):
     """The event in force for an INSTANT alone (step 0 S-5): auxiliary, because a turn from views always
     has a line, and its line finds its segment (S-17).
 
-    Over one owner's events of one kind in line order, only the longest prefix whose instants are all
-    supported and non-decreasing can bracket an instant. The answer is the last event of that prefix at
+    `session_ref` is the transcript file the instant is placed in, and is required: a line is its file's
+    coordinate, and the files of a Codex thread share its owner, so an earlier file's event never answers for
+    an instant in a later one, as no segment carries into the next file (`segments`).
+
+    Over one owner's events of one kind in one file, in line order, only the longest prefix whose instants
+    are all supported and non-decreasing can bracket an instant. The answer is the last event of that prefix at
     or before `when`. Where an event past the prefix could still be the one in force — `when` at or after
     the prefix's last instant, or before its first, while events remain beyond it — the answer is
     `uncertain`, naming the line that broke the prefix, never the prefix's last event (the lower bound).
@@ -4038,11 +4042,13 @@ def event_at_instant(events, when, owner_ref, kind="native"):
     `no_event_yet`. A chosen event past its own certainty cut is `uncertain` by that cut's reason and line
     (lead ruling R13): an instant cannot be held against a line. The answer is `{state, event_ref, reason,
     line}`; it is not published."""
+    if session_ref is None:
+        raise ValueError("event_at_instant places an instant in one transcript file, and was given none")
     moment = _instant(when)
     if moment is None:
         return {"state": "none", "event_ref": None, "reason": None, "line": None}
-    own = sorted((event for event in events if event.get("owner_ref") == owner_ref and event["kind"] == kind),
-                 key=lambda event: event["n"])
+    own = sorted((event for event in events if event.get("owner_ref") == owner_ref and event["kind"] == kind
+                  and event.get("session_ref") == session_ref), key=lambda event: event["n"])
     prefix = []
     for event in own:
         at = _instant(event.get("at"))
@@ -4861,9 +4867,10 @@ def transcript_events(run_dir, pins=None, zstd=None, entries=None):
     `session_meta` (M10), as a session, a line, a fixed category and an ordinal — nothing a host wrote,
     and `findings["sessions"]` the per-session records (step 0 S-14), none truncated.
 
-    Every event gets its opaque id (step 0 S-11): its kind, the session, the census binding the
-    transcript was read under, and its line. The kind is in it because one Claude record can hold both
-    an instructions attachment and the selected body.
+    Every event gets its opaque id (step 0 S-11): its kind, the transcript file (`ref_of`: a Claude
+    session's id, a Codex file's `<id>@<stem>`), the census binding it was read under, and its line. The
+    kind is in it because one Claude record can hold both an instructions attachment and the selected body;
+    the file because two files of one Codex thread can hold the same bytes, and so the same binding.
 
     `pins` holds each session's own pin by session reference, as `freeze_inputs` read it with its
     snapshot. The body looked for in a transcript is THAT session's own selected body, under that
@@ -4907,7 +4914,7 @@ def transcript_events(run_dir, pins=None, zstd=None, entries=None):
             event["kind"] == "native" and event["n"] == 1 for event in found)
         bracket = brackets(read)
         for event in found:
-            event["id"] = opaque_id("e", "event", event["kind"], entry.get("host"), entry.get("id"),
+            event["id"] = opaque_id("e", "event", event["kind"], entry.get("host"), ref_of(entry),
                                     read["binding"], event["n"])
             event["session_ref"] = session_ref(entry.get("host"), ref_of(entry))
             event["at_reason"] = instant_reason(event.get("at"))
@@ -7973,10 +7980,11 @@ def self_test():
                     "distinct_bodies=2 of 2")
             def in_force_at(when):
                 """The event `event_at_instant` names as in force for the main owner at `when`, or None. These
-                events come from `injection_events` itself, before `transcript_events` gives them ids, so each
-                is named here by its line."""
-                numbered = [{**event, "id": str(event["n"])} for event in native_events]
-                answer = event_at_instant(numbered, when, (native_events[0] if native_events else {}).get("owner_ref"))
+                events come from `injection_events` itself, before `transcript_events` gives them ids and file
+                references, so each is named here by its line, all in one file."""
+                numbered = [{**event, "id": str(event["n"]), "session_ref": "p-one"} for event in native_events]
+                answer = event_at_instant(numbered, when, (native_events[0] if native_events else {}).get("owner_ref"),
+                                          "p-one")
                 return next((event for event in native_events if str(event["n"]) == answer["event_ref"]), None) \
                     if answer["state"] == "in_force" else None
 
@@ -7997,9 +8005,9 @@ def self_test():
                   == (native_events[0]["n"] if native_events else None),
                   "a later event answered for an earlier turn")
             check("a turn before every recorded event has no event in force",
-                  event_at_instant([{**event, "id": str(event["n"])} for event in native_events],
+                  event_at_instant([{**event, "id": str(event["n"]), "session_ref": "p-one"} for event in native_events],
                                    "2026-10-01T08:00:00+00:00",
-                                   (native_events[0] if native_events else {}).get("owner_ref"))["state"]
+                                   (native_events[0] if native_events else {}).get("owner_ref"), "p-one")["state"]
                   == "no_event_yet",
                   "an event answered for a turn that preceded it")
 
@@ -8319,7 +8327,8 @@ def self_test():
                             for ident, at in (("s-naive", "2026-10-01T09:00:00"), ("s-aware", "2026-10-01T10:00:00+00:00"))]
             check("a tz-less instant beside an aware one raises nothing, and is unsupported",
                   _raised(lambda: current_scopes(mixed_events)) is None
-                  and _raised(lambda: event_at_instant(mixed_events, moment.timestamp(), None)) is None
+                  and _raised(lambda: event_at_instant([{**event, "session_ref": "p-one"} for event in mixed_events],
+                                                       moment.timestamp(), None, "p-one")) is None
                   and _instant("2026-10-01T09:00:00") is None, "a naive instant raised or was guessed")
             shapes = [None, True, False, "", "yesterday", "2026-10-01", float("nan"), float("inf"), -float("inf"),
                       10 ** 30, -10 ** 30, [], {}, b"2026"]
@@ -14510,8 +14519,8 @@ def self_test():
             def placed(lines_at, **cut):
                 rows = []
                 for n, at in lines_at:
-                    rows.append({"kind": "native", "owner_ref": "o-x", "n": n, "at": at, "id": f"e-{n}",
-                                 "at_reason": instant_reason(at), "interval": None, "certain_to": None,
+                    rows.append({"kind": "native", "owner_ref": "o-x", "session_ref": "p-x", "n": n, "at": at,
+                                 "id": f"e-{n}", "at_reason": instant_reason(at), "interval": None, "certain_to": None,
                                  "uncertain_reason": None})
                 for here, after in zip(rows, rows[1:] + [None]):
                     here["interval"] = [here["n"], after["n"] if after else 99]
@@ -14523,14 +14532,14 @@ def self_test():
             half_past = "2026-10-21T09:30:00+00:00"
             check("S-5: an instant between two events selects the earlier one, by identity, given as an offset ISO "
                   "string and as a number (POSITIVE)",
-                  [event_at_instant(ordered, when, "o-x")["event_ref"]
+                  [event_at_instant(ordered, when, "o-x", "p-x")["event_ref"]
                    for when in ("2026-10-21T18:30:00+09:00", _instant(half_past).timestamp())] == ["e-1", "e-1"]
-                  and event_at_instant(ordered, "2026-10-21T10:30:00+00:00", "o-x")["event_ref"] == "e-5",
-                  f"{[event_at_instant(ordered, when, 'o-x') for when in (half_past, '2026-10-21T10:30:00+00:00')]}")
+                  and event_at_instant(ordered, "2026-10-21T10:30:00+00:00", "o-x", "p-x")["event_ref"] == "e-5",
+                  f"{[event_at_instant(ordered, when, 'o-x', 'p-x') for when in (half_past, '2026-10-21T10:30:00+00:00')]}")
             check("S-5: an instant before every event of a fully ordered list is no_event_yet, and an unsupported one "
                   "has no event",
-                  event_at_instant(ordered, "2026-10-21T08:00:00+00:00", "o-x")["state"] == "no_event_yet"
-                  and [event_at_instant(ordered, when, "o-x")["state"] for when in (None, "yesterday", True)]
+                  event_at_instant(ordered, "2026-10-21T08:00:00+00:00", "o-x", "p-x")["state"] == "no_event_yet"
+                  and [event_at_instant(ordered, when, "o-x", "p-x")["state"] for when in (None, "yesterday", True)]
                   == ["none", "none", "none"], "an instant outside the events was answered")
             backwards = placed([(1, "2026-10-21T09:00:00+00:00"), (2, "2026-10-21T10:00:00+00:00"),
                                 (3, "2026-10-21T08:00:00+00:00")])
@@ -14538,25 +14547,35 @@ def self_test():
             check("S-5: past a backwards step or an unsupported instant the answer is uncertain, naming the line that "
                   "broke the order, never the prefix's last event",
                   [(answer["state"], answer["event_ref"], answer["line"], answer["reason"]) for answer in (
-                      event_at_instant(backwards, "2026-10-21T10:30:00+00:00", "o-x"),
-                      event_at_instant(backwards, "2026-10-21T07:00:00+00:00", "o-x"),
-                      event_at_instant(unsupported, "2026-10-21T10:30:00+00:00", "o-x"))]
+                      event_at_instant(backwards, "2026-10-21T10:30:00+00:00", "o-x", "p-x"),
+                      event_at_instant(backwards, "2026-10-21T07:00:00+00:00", "o-x", "p-x"),
+                      event_at_instant(unsupported, "2026-10-21T10:30:00+00:00", "o-x", "p-x"))]
                   == [("uncertain", None, 3, None), ("uncertain", None, 3, None), ("uncertain", None, 3, "undated")]
-                  and event_at_instant(backwards, half_past, "o-x")["event_ref"] == "e-1",
-                  f"{event_at_instant(backwards, '2026-10-21T10:30:00+00:00', 'o-x')}")
+                  and event_at_instant(backwards, half_past, "o-x", "p-x")["event_ref"] == "e-1",
+                  f"{event_at_instant(backwards, '2026-10-21T10:30:00+00:00', 'o-x', 'p-x')}")
             tied = placed([(1, "2026-10-21T09:00:00+00:00"), (2, "2026-10-21T09:00:00+00:00"),
                            (3, "2026-10-21T10:00:00+00:00")])
-            check("S-5: of equal instants, the later line is in force", event_at_instant(tied, half_past, "o-x")["event_ref"]
-                  == "e-2", f"{event_at_instant(tied, half_past, 'o-x')}")
+            check("S-5: of equal instants, the later line is in force", event_at_instant(tied, half_past, "o-x", "p-x")["event_ref"]
+                  == "e-2", f"{event_at_instant(tied, half_past, 'o-x', 'p-x')}")
             ordered_at = [(1, "2026-10-21T09:00:00+00:00"), (5, "2026-10-21T10:00:00+00:00")]
             cut_inside = placed(ordered_at, n1=(3, "undecodable_after"))
             cut_at_end = placed(ordered_at, n1=(5, "undecodable_after"))
             check("S-5: a chosen event past a certainty cut inside its own interval is uncertain by the cut's reason "
                   "and line, and a cut at its interval's end is none",
-                  event_at_instant(cut_inside, half_past, "o-x")
+                  event_at_instant(cut_inside, half_past, "o-x", "p-x")
                   == {"state": "uncertain", "event_ref": "e-1", "reason": "undecodable_after", "line": 3}
-                  and event_at_instant(cut_at_end, half_past, "o-x")["state"] == "in_force",
-                  f"{event_at_instant(cut_inside, half_past, 'o-x')} / {event_at_instant(cut_at_end, half_past, 'o-x')}")
+                  and event_at_instant(cut_at_end, half_past, "o-x", "p-x")["state"] == "in_force",
+                  f"{event_at_instant(cut_inside, half_past, 'o-x', 'p-x')} / {event_at_instant(cut_at_end, half_past, 'o-x', 'p-x')}")
+            # C0b r1: an instant is placed in one file. A later file's instant before its first event is no_event_yet
+            # there, as its segment says, never an earlier file's event of the same owner
+            two_files = placed([(1, "2026-10-21T09:00:00+00:00")]) + [
+                {**row, "session_ref": "p-y", "id": "e-y2"} for row in placed([(2, "2026-10-22T09:00:00+00:00")])]
+            check("C0b: an instant in a later file before its first event is no_event_yet there, the earlier file's "
+                  "event answering only in its own file, and an instant given no file is refused",
+                  event_at_instant(two_files, "2026-10-22T08:00:00+00:00", "o-x", "p-y")["state"] == "no_event_yet"
+                  and event_at_instant(two_files, "2026-10-22T08:00:00+00:00", "o-x", "p-x")["event_ref"] == "e-1"
+                  and isinstance(_raised(lambda: event_at_instant(two_files, half_past, "o-x", None)), ValueError),
+                  f"{[event_at_instant(two_files, '2026-10-22T08:00:00+00:00', 'o-x', ref) for ref in ('p-y', 'p-x')]}")
 
         with section('P2.5: the release segment index (step 0 S-17, #8, S-16, S-24; lead D1-D9)'):
             # ---- P2.5: the release segment index (step 0 S-17, #8, S-16, S-24; lead D1-D9)
@@ -16963,6 +16982,17 @@ def self_test():
                   and late_noted == {"threads": 1, "later_files": 2, "later_files_unread": 1,
                                      "later_files_without_native_at_line_1": 1},
                   f"{late_out.get('refused')} {late_out.get('problems')} {late_segments} {late_noted}"[:400])
+            # r1: two files of one thread can hold the same bytes, so the same binding; an event's id is made with its file
+            same_records = [codex_meta("c-same", "2026-10-21T09:00:00+00:00"), late_turn(1)]
+            same_out = published_run("c0b-split-same", [("codex", "c-same", tuple(list(same_records) for _ in range(3)), {})])
+            same_doc = same_out.get("sessions") or {}
+            same_ids = [row.get("event_id") for row in same_doc.get("events") or []]
+            same_listed = sorted(len(record.get("event_refs") or []) for record in same_doc.get("sessions") or []
+                                 if record.get("session") == "codex:c-same")
+            check("C0b: three files of one thread holding the same bytes publish three events, each listed by its own file",
+                  "refused" not in same_out and len(same_ids) == len(set(same_ids)) == 3 and same_listed == [1, 1, 1],
+                  f"{same_out.get('refused')} {same_out.get('problems')} ids={len(set(same_ids))}/{len(same_ids)} "
+                  f"listed={same_listed}"[:400])
 
         with section("the general control (lead, after a36c728): no reason in ANY document this suite's runs"):
             # ---- the general control (lead, after a36c728): no reason in ANY document this suite's runs
