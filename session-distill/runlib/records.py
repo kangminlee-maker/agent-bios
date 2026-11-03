@@ -549,6 +549,101 @@ def fx_amended_at_admission(stage, assignments, when="before"):
         module.run_stage = admitted
 
 
+# The structural guard of the declaration a stage reads (X review of WP-08 r2; the shape three reviews found one stage at
+# a time): a stage builds from the declaration it was admitted against, `StageRun.declaration`, so outside the sites
+# listed here nothing reads run.json - takes its path, reads its state, or spells its name. Each site is a module and its
+# top-level function, or a class's method, with the reason it may. A site not listed, a listed site that no longer reads
+# the declaration, and a scan that found no module or no site fail by name: DECLARATION_READ_UNLISTED,
+# DECLARATION_READ_STALE, DECLARATION_READ_UNSCANNED. Every Python module of session-distill is scanned, the pipeline
+# beside distill.py included. The guard sees a read where it is spelled: a listed site that hands what it read to its
+# caller hands on the declaration, so each reason says what the site does with it.
+DECLARATION_FILE = "run.json"
+DECLARATION_READS = frozenset(("run_json_path", "declaration_state"))
+DECLARATION_MODULES = ("*.py", "runlib/*.py")
+DECLARATION_READERS = {
+    ("runlib/records.py", "<module>"): "this guard's own DECLARATION_FILE, the name it looks for",
+    ("runlib/records.py", "run_json_path"): "the one place the declaration's path is spelled",
+    ("runlib/records.py", "confine_declaration"): "confines the declaration's path beneath the run before anything reads it",
+    ("runlib/records.py", "declaration_state"): "the declaration's reader under the declaration lock, for run_stage and the "
+                                                "dispatcher",
+    ("runlib/records.py", "run_stage"): "admits a stage: what it reads under the lock is the StageRun.declaration the stage "
+                                        "builds from",
+    ("runlib/declare.py", "create"): "the declaration's writer (S0): writes run.json under the declaration lock",
+    ("runlib/declare.py", "set_fields"): "the declaration's writer: an amendment's fields, read and written under the lock",
+    ("runlib/declare.py", "amend"): "the declaration's writer: an amendment, read and written under the lock",
+    ("runlib/census.py", "run"): "S1 reads the declaration before admission for the coverage base and originator table it "
+                                 "pins; StageRun.admitted refuses that read unless it is byte for byte the declaration S1 was "
+                                 "admitted against (DECLARATION_MOVED)",
+    ("runlib/dispatch.py", "Supervisor.remaining"): "the budget a stage has left, read against the declaration current "
+                                                    "when it is asked, as a reservation reads it",
+    ("runlib/dispatch.py", "Supervisor.reserve"): "a call's reservation reads the budget current at the call, under the "
+                                                  "dispatcher's lock: a call's admission, not a stage's build",
+    ("runlib/dispatch.py", "Supervisor._admit_seat"): "a call's seat and host allowance are admitted against the "
+                                                      "declaration current when it is made",
+    ("runlib/dispatch.py", "Supervisor._blocked"): "whether an amendment lifts the run's standing stop is read from the "
+                                                   "declaration's log as it stands",
+    ("runlib/dispatch.py", "Supervisor._stop_run"): "a run's stop is stamped with the declaration and amendments current "
+                                                    "when it stops",
+    ("runlib/inventory.py", "<module>"): "RUN_MARKERS names the declaration's file to recognise a run directory, and reads "
+                                         "nothing of it",
+    ("distill.py", "self_test"): "the CLI's self-test reads the declarations its scratch runs made, to check what each "
+                                 "command declared and recorded",
+    ("runlib/records.py", "self_test"): "the records self-test reads the declarations it plants",
+    ("runlib/declare.py", "self_test"): "the declaration's own self-test reads what its writer wrote",
+    ("runlib/census.py", "controls"): "the census self-test's body reads its scratch runs' declarations, to check what S1 "
+                                      "recorded against them",
+    ("runlib/dispatch.py", "self_test"): "the dispatcher's self-test plants and reads its scratch runs' declarations",
+    ("runlib/views.py", "self_test"): "the S2 self-test reads its scratch runs' declarations, to check what S2 recorded",
+    ("runlib/stage_read.py", "fx_reader"): "the S3 fixture reads the seat its golden run declared, to seed the supervisor "
+                                           "before S3 runs",
+    ("runlib/stage_read.py", "self_test"): "the S3 self-test reads its scratch runs' declarations, to check what S3 "
+                                           "recorded against them",
+}
+
+
+def declaration_texts(root=None):
+    """The sources `declaration_reads` judges: every module of `DECLARATION_MODULES`, by path relative to session-distill."""
+    root = pathlib.Path(root) if root is not None else pathlib.Path(__file__).resolve().parents[1]
+    return {path.relative_to(root).as_posix(): path.read_text(encoding="utf-8")
+            for pattern in DECLARATION_MODULES for path in sorted(root.glob(pattern))}
+
+
+def declaration_reads(texts, allowed=None):
+    """`(violations, sites)` of the declaration guard over `texts` (`{relative path: source}`). A site is where code
+    names `run_json_path` or `declaration_state`, under any name it imported them as, or the literal "run.json"; it is
+    keyed by its module and top-level function, a class's method as `Class.method`, or `<module>`."""
+    import ast
+    allowed = DECLARATION_READERS if allowed is None else allowed
+    sites = {}
+    for rel, text in sorted(texts.items()):
+        tree = ast.parse(text)
+        names = set(DECLARATION_READS) | {a.asname for n in ast.walk(tree) if isinstance(n, ast.ImportFrom)
+                                         for a in n.names if a.name in DECLARATION_READS and a.asname}
+        units = []
+        for top in tree.body:
+            if isinstance(top, ast.ClassDef):
+                units += [(f"{top.name}.{m.name}" if isinstance(m, (ast.FunctionDef, ast.AsyncFunctionDef)) else top.name, m)
+                          for m in top.body]
+            else:
+                units.append((top.name if isinstance(top, (ast.FunctionDef, ast.AsyncFunctionDef)) else "<module>", top))
+        for name, unit in units:
+            for node in ast.walk(unit):
+                if (isinstance(node, ast.Constant) and node.value == DECLARATION_FILE) \
+                        or (isinstance(node, ast.Name) and node.id in names) \
+                        or (isinstance(node, ast.Attribute) and node.attr in DECLARATION_READS):
+                    sites.setdefault((rel, name), node.lineno)
+    violations = [f"DECLARATION_READ_UNLISTED {rel}:{line} ({name}): reads the declaration where no stage's admission "
+                  "carries it; a stage builds from StageRun.declaration, and a site that must read run.json is listed in "
+                  "records.DECLARATION_READERS with its reason" for (rel, name), line in sorted(sites.items())
+                  if (rel, name) not in allowed]
+    violations += [f"DECLARATION_READ_STALE {rel} ({name}): listed in records.DECLARATION_READERS, and it no longer reads "
+                   "the declaration" for rel, name in sorted(set(allowed) - set(sites))]
+    if not texts or not sites:
+        violations.append(f"DECLARATION_READ_UNSCANNED: {len(texts)} modules scanned and {len(sites)} sites found; a "
+                          "guard that judged nothing is not clean")
+    return violations, set(sites)
+
+
 def expect_set(ids):
     """The ids a transformation must account for, each once."""
     ids = list(ids)
@@ -1267,6 +1362,49 @@ def self_test():
         expect("a refusal in the finally names the failure that was already in flight",
                [raised], "RECORD_DISCLOSES S3", "ValueError", "was in flight")
 
+    # The structural guard (X review of WP-08 r2): outside the listed sites nothing reads run.json. Positive control first,
+    # on the real tree: every site is listed and every listed site still reads the declaration.
+    texts = declaration_texts()
+    found, sites = declaration_reads(texts)
+    expect("the real tree reads the declaration only where DECLARATION_READERS says why", found)
+    if sites != set(DECLARATION_READERS) or not {"distill.py", "census.py", "runlib/records.py"} <= set(texts):
+        failures.append(f"the guard judged {len(texts)} modules and {sorted(sites)} sites, not every module of "
+                        "session-distill and every listed site")
+
+    def planted(rel, function, line):
+        """`texts` with `line` as the first statement of `function` in `rel`: a read before the stage's admission."""
+        import ast
+        node = next(n for n in ast.parse(texts[rel]).body if isinstance(n, ast.FunctionDef) and n.name == function)
+        lines = texts[rel].splitlines(keepends=True)
+        at = node.body[0].lineno - 1
+        return {**texts, rel: "".join(lines[:at] + [" " * node.body[0].col_offset + line + "\n"] + lines[at:])}
+
+    for label, plant, code in (
+            ("S2 reading the declaration before its admission",
+             planted("runlib/views.py", "run", "early = records.read_json(records.run_json_path(run_dir))"),
+             "DECLARATION_READ_UNLISTED runlib/views.py:"),
+            ("S3 spelling the declaration's file itself",
+             planted("runlib/stage_read.py", "run", 'early = json.loads((run_dir / "run.json").read_text())'),
+             "DECLARATION_READ_UNLISTED runlib/stage_read.py:"),
+            ("S2 reading the declaration's state under another name",
+             {**planted("runlib/views.py", "run", "early = state_of(run_dir)"),
+              "runlib/views.py": "from runlib.records import declaration_state as state_of\n"
+              + planted("runlib/views.py", "run", "early = state_of(run_dir)")["runlib/views.py"]},
+             "DECLARATION_READ_UNLISTED runlib/views.py:")):
+        found_here = declaration_reads(plant)[0]
+        expect(f"{label} is named", found_here, code, "(run)")
+    unlisted = {key: why for key, why in DECLARATION_READERS.items() if key != ("runlib/census.py", "run")}
+    expect("S1's pre-admission read with its entry removed is named", declaration_reads(texts, unlisted)[0],
+           "DECLARATION_READ_UNLISTED runlib/census.py:", "(run)")
+    expect("an entry whose site no longer reads the declaration is named",
+           declaration_reads(texts, {**DECLARATION_READERS, ("runlib/views.py", "run"): "fixture"})[0],
+           "DECLARATION_READ_STALE runlib/views.py (run)")
+    with tempfile.TemporaryDirectory() as td:
+        moved = declaration_texts(td)
+        expect("a scan that found no module is not clean", declaration_reads(moved, {})[0], "DECLARATION_READ_UNSCANNED: 0 modules")
+    expect("a scan that found no site is not clean", declaration_reads({"runlib/views.py": "def run():\n    pass\n"}, {})[0],
+           "DECLARATION_READ_UNSCANNED: 1 modules scanned and 0 sites")
+
     for failure in failures:
         print(f"records --self-test [FAIL] {failure}")
     if failures:
@@ -1274,7 +1412,7 @@ def self_test():
     print("records --self-test: OK (declaration order: equal, amended, silently advanced, invalidated, "
           "unlicensed, reversed; set accounting; the failure posture over items; stage records pin the "
           "declaration, inputs and outputs, refuse partial, invalid, stale and drifted declarations and "
-          "paths that leave the run directory)")
+          "paths that leave the run directory; run.json is read only where DECLARATION_READERS says why)")
     return 0
 
 
