@@ -1063,7 +1063,8 @@ def self_test():
             schema_sha = hashlib.sha256(files["schema.json"]).hexdigest()
         host = jload(files, "capture/host.json")
         jput(files, "call.json", {"schema": "DistillCall/v1", "call_id": host["call_id"], "stage": "S6", "item": case,
-                                  "attempt": 1, "host": "claude", "host_version": "2.1.304", "seat": facts["seat"],
+                                  "attempt": 1, "host": "claude", "host_version": seats()["hosts"]["claude"]["version"],
+                                  "seat": facts["seat"],
                                   "child_seat": None, "profile": "hermetic", "manifest": manifest(facts["workdir_path"]),
                                   "schema_sha256": schema_sha, "view_window": False, "realization": "replay",
                                   "exit_status": facts["exit_status"], "wall_ms": None, "stopped": None, "contract": "none"})
@@ -2030,7 +2031,9 @@ def self_test():
     held = json.loads(SEATS.read_text(encoding="utf-8"))
     held["hosts"]["claude"]["auxiliary"][0]["measured"] = True
     measured_seats.write_text(json.dumps(held), encoding="utf-8")
-    if auxiliary_models("claude", "2.1.304", live=True, path=measured_seats) != {aux} or auxiliary_models("claude", "2.1.304", live=True):
+    pinned_claude = seats()["hosts"]["claude"]["version"]
+    if (auxiliary_models("claude", pinned_claude, live=True, path=measured_seats) != {aux}
+            or auxiliary_models("claude", pinned_claude, live=True)):
         failures.append("a measured auxiliary declaration is not what admits a live call")
 
     # --- the corrective retry ---------------------------------------------------------------------

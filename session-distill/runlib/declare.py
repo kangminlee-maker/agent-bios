@@ -46,7 +46,7 @@ import zoneinfo
 
 if __package__ in (None, ""):  # run as a script: put session-distill/ on the import path
     sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
-from runlib import records, stagelock, validate
+from runlib import gate, records, stagelock, validate
 from runlib.records import Refused
 
 REPO = pathlib.Path(__file__).resolve().parents[2]
@@ -316,9 +316,13 @@ def amend(run_dir, assignments, reason, scope=(), invalidates=(), repo=REPO):
 # --- self-test ------------------------------------------------------------------------------
 
 def fixture():
-    """A valid declaration (golden): its seats are the ones the prompting guides cover today."""
+    """A valid declaration (golden): its seats are the ones the prompting guides cover today. Its S3 seat and
+    its Claude host are the ones seats.json pins, read from it, so a re-pin moves every suite built on this
+    declaration with it instead of leaving them on a host version the checkout no longer pins."""
     digest = lambda name: records.sha256_bytes(name.encode())  # noqa: E731
-    sonnet, opus = "claude:claude-sonnet-5-5/xhigh", "claude:claude-opus-5-5/high"
+    pinned = gate.seats()
+    claude = pinned["hosts"]["claude"]["version"]
+    sonnet, opus = pinned["stage_seats"][VIEW_WINDOW_STAGE][0], "claude:claude-opus-5-5/high"
     astra = "codex:gpt-6-astra/xhigh"
     return {
         "question": "Which repeated work patterns deserve a place in the library?",
@@ -341,9 +345,9 @@ def fixture():
         "starting_hashes": {"ledger": digest("ledger"), "coverage": digest("coverage"),
                             "layers": {"global": digest("global")}},
         "account": {"extra_usage": "off", "declared_on": "2026-10-21"},
-        "hosts": {"claude": "2.1.304", "codex": "0.163.0"},
+        "hosts": {"claude": claude, "codex": "0.163.0"},
         "declaration_seq": 0,
-        "host_allowance": {sonnet: {"allowance_tokens": 3200, "host_version": "2.1.304",
+        "host_allowance": {sonnet: {"allowance_tokens": 3200, "host_version": claude,
                                     "flag_set_sha256": digest("flags")}},
         "output_caps": {VIEW_WINDOW_STAGE: 32000},
         "destinations": {name: f"/srv/fixture/destinations/{name}" for name in DESTINATIONS},
@@ -472,14 +476,15 @@ def self_test():
             "ALLOWANCE_UNDECLARED seats.S3")
     control("host-allowance-measured-on-another-host-version",
             mutated(lambda run: run["hosts"].update(claude="2.1.305")),
-            f"HOST_ALLOWANCE_STALE host_allowance.{sonnet}: measured on host 2.1.304, the declaration names 2.1.305")
+            f"HOST_ALLOWANCE_STALE host_allowance.{sonnet}: measured on host {fixture()['hosts']['claude']}, "
+            f"the declaration names 2.1.305")
     control("host-allowance-for-an-undeclared-seat",
             mutated(lambda run: run["host_allowance"].update({"claude:claude-haiku-5-5/low": run["host_allowance"][sonnet]})),
             "DECLARATION_INVALID host_allowance.claude:claude-haiku-5-5/low: not a seat this declaration names")
     control("host-allowance-key-not-a-seat", mutated(lambda run: run["host_allowance"].update({"sonnet": run["host_allowance"][sonnet]})),
             "DECLARATION_INVALID host_allowance.sonnet: not a seat")
     control("host-allowance-without-its-flag-set", mutated(lambda run: run["host_allowance"][sonnet].pop("flag_set_sha256")),
-            "DECLARATION_INVALID host_allowance.claude:claude-sonnet-5-5/xhigh.flag_set_sha256: missing")
+            f"DECLARATION_INVALID host_allowance.{sonnet}.flag_set_sha256: missing")
     # seat coverage by the prompting-targets gate's own reader
     control("stage-seat-uncovered",
             mutated(lambda run: run["seats"].update(S4="claude:claude-opus-9-9/high")),
@@ -492,15 +497,15 @@ def self_test():
 
     # the reader is the gate's own: compiled from its script, and it follows the script when that changes
     owners, targets = prompting_reader()
-    gate = str(REPO / "launch" / "check-prompting-targets.sh")
+    targets_gate = str(REPO / "launch" / "check-prompting-targets.sh")
     ran.append("reader-is-compiled-from-the-gate-script")
-    if targets.__code__.co_filename != gate or owners.get("claude") is None:
+    if targets.__code__.co_filename != targets_gate or owners.get("claude") is None:
         failures.append(f"reader-is-compiled-from-the-gate-script: {targets.__code__.co_filename}")
     with tempfile.TemporaryDirectory() as td:
         scratch = pathlib.Path(td)
         (scratch / "launch").mkdir()
         (scratch / "codex" / "guides").mkdir(parents=True)
-        text = pathlib.Path(gate).read_text(encoding="utf-8")
+        text = pathlib.Path(targets_gate).read_text(encoding="utf-8")
         for guide in ("claude-prompting", "gpt-prompting"):
             (scratch / "codex" / "guides" / f"{guide}.md").write_bytes(
                 (REPO / "codex" / "guides" / f"{guide}.md").read_bytes())
@@ -512,7 +517,7 @@ def self_test():
         control("scratch-copy-of-the-gate-agrees", with_gate(lambda t: t))
         control("gate-edit-moves-the-verdict",  # claude seats now read the gpt guide: the reader followed the script
                 with_gate(lambda t: t.replace('"claude": "claude-prompting"', '"claude": "gpt-prompting"')),
-                "SEAT_UNCOVERED claude:claude-sonnet-5-5/xhigh: gpt-prompting does not name claude-sonnet-5-5")
+                f"SEAT_UNCOVERED {sonnet}: gpt-prompting does not name {parse_seat(sonnet)[1]}")
         control("gate-without-a-targets-function",
                 with_gate(lambda t: t.replace("def targets(", "def renamed(")), "SEAT_COVERAGE_UNREADABLE")
         control("gate-without-a-python-body", with_gate(lambda t: t.replace("<<'PY'", "<<'EOF'")),

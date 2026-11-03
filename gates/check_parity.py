@@ -3084,6 +3084,9 @@ def claude_run_hermetic(run):
     if seats.get("version") != "2.1.304" or "versions/2.1.304" not in seats.get("path", ""):
         mark_fail(f"seats.json pins claude {seats.get('version')!r} at {seats.get('path')!r}, not the "
                   f"versioned 2.1.304 binary the hermetic flag set was measured on")
+    # The fake host below answers as the pinned version, so its captures meet the flag set and the record
+    # kinds the checkout pins for it; only the line above names the version.
+    pinned_version = seats.get("version")
 
     def pinned(profile):
         flags = seats.get("profiles", {}).get(profile)
@@ -3103,13 +3106,13 @@ def claude_run_hermetic(run):
             d.mkdir()
         cells.chmod(0o700)
         seen = tmp / "seen.json"
-        for name, version in (("claude", "2.1.304"), ("claude-2.1.303", "2.1.303")):
+        for name, version in (("claude", pinned_version), ("claude-2.1.303", "2.1.303")):
             (bin_dir / name).write_text(f"#!{sys.executable}\nOUT = {str(seen)!r}\nVERSION = {version!r}\n" + FAKE_CLAUDE_HOST)
         (bin_dir / "agent-launch").write_text("#!/usr/bin/env bash\nprintf '%s\\n' \"$@\" > \"$FAKE_RECEIPT\"\n")
         for name in ("claude", "claude-2.1.303", "agent-launch"):
             (bin_dir / name).chmod(0o755)
         (bin_dir / "claude-current").symlink_to(bin_dir / "claude")
-        pinned_host = ["--claude-bin", str(bin_dir / "claude"), "--host-version", "2.1.304"]
+        pinned_host = ["--claude-bin", str(bin_dir / "claude"), "--host-version", pinned_version]
         # The documented token shape, never a real one: the prefix the subscription token
         # carries and a random body, so a hit in any file is this run's and no one else's.
         token = "sk-ant-oat01-" + secrets.token_urlsafe(70)
@@ -3282,11 +3285,11 @@ def claude_run_hermetic(run):
         # Plan P2: the versioned binary the dispatcher declares, checked before the call. The
         # pinned fake above ran; another version, a symlink and no binary at all do not.
         for label, host_args, needle in (
-                ("another version", ["--claude-bin", str(bin_dir / "claude-2.1.303"), "--host-version", "2.1.304"],
+                ("another version", ["--claude-bin", str(bin_dir / "claude-2.1.303"), "--host-version", pinned_version],
                  "HOST_VERSION_MISMATCH"),
                 ("a symlink to the pinned binary", ["--claude-bin", str(bin_dir / "claude-current"), "--host-version",
-                                                    "2.1.304"], "HOST_BINARY_UNPINNED"),
-                ("no binary", ["--host-version", "2.1.304"], "--claude-bin PATH")):
+                                                    pinned_version], "HOST_BINARY_UNPINNED"),
+                ("no binary", ["--host-version", pinned_version], "--claude-bin PATH")):
             result, got, _, _, _ = hermetic(*pinned_args, *host_args, cell=new_cell(), pin=False)
             if result.returncode == 0 or got is not None or needle not in result.stderr:
                 mark_fail(f"claude-run hermetic ran with {label} (exit {result.returncode}, expected {needle}): "
@@ -3455,7 +3458,7 @@ def claude_run_hermetic(run):
             seen.unlink(missing_ok=True)
             argv = ["bash", str(run), "--profile", "hermetic", "--model", "claude-sonnet-5-5", "--effort", "medium",
                     "--cell-root", str(cells), "--call-id", call_id, "--cd", str(cell / "cwd"),
-                    "--claude-bin", str(bin_dir / "claude"), "--host-version", "2.1.304", "--max-output-tokens", "8192",
+                    "--claude-bin", str(bin_dir / "claude"), "--host-version", pinned_version, "--max-output-tokens", "8192",
                     *per_call]
             env = dict(base_env, DISTILL_CELL=str(cell), DISTILL_CALL_ID=call_id, REVIEW_CAPTURE_DIR=str(cap),
                        REVIEW_RECEIPT_DIR=str(cap / "runner-receipts"))
@@ -3589,7 +3592,7 @@ def claude_run_hermetic(run):
                 (d / name).write_bytes(data)
             model = "claude-sonnet-5-5"
             call = {"schema": "DistillCall/v1", "call_id": call_id, "stage": "S6", "item": call_id, "attempt": 1,
-                    "host": "claude", "host_version": "2.1.304", "seat": f"claude:{model}/medium", "child_seat": None,
+                    "host": "claude", "host_version": pinned_version, "seat": f"claude:{model}/medium", "child_seat": None,
                     "profile": profile, "schema_sha256": hashlib.sha256(files["schema.json"]).hexdigest(),
                     "manifest": {"workdir_path": host["cwd"], "workdir_files": host["workdir_files"] if workdir_files is None
                                  else workdir_files, "instructions": [], "appended_prompts": list(appended), "skills": [],

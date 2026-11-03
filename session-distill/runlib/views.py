@@ -1634,12 +1634,14 @@ def fx_census(window_id, entries):
             "pending_events": [], "transcripts": entries}
 
 
-def fx_seats(root, capacity, seat=None, host_version="2.1.304", name=None):
+def fx_seats(root, capacity, seat=None, host_version=None, name=None):
     """A `seats.json` fixture that differs from the checkout's in one declared context capacity.
 
     The capacity is read through `gate.seat_capacity` like every other, so a control that needs a narrower
-    seat declares one instead of handing the window builder a number (BB#5)."""
+    seat declares one instead of handing the window builder a number (BB#5). The seat and the host version
+    default to the checkout's S3 seat and pinned Claude host."""
     seat = seat or declare.fixture()["seats"][declare.VIEW_WINDOW_STAGE]
+    host_version = host_version or gate.seats()["hosts"]["claude"]["version"]
     held = json.loads(gate.SEATS.read_text(encoding="utf-8"))
     held["seat_capacity"] = {**(held.get("seat_capacity") or {}),
                              seat: {"context_capacity": capacity, "host_version": host_version,
@@ -2806,28 +2808,30 @@ def self_test():
         named("control, unbounded: under the production posture the transcript whose windows cannot be bounded is "
               "quarantined by name", [q["reason"] for q in golden(root, "nobound", overhead=bound.INPUT_BOUND - 10_000)["manifest"]["quarantined"]],
               "WINDOW_UNBOUNDED")
+        # The S3 seat and the Claude host version these controls cut against are the checkout's pins.
+        s3_seat, pinned_claude = gate.seats()["stage_seats"]["S3"][0], gate.seats()["hosts"]["claude"]["version"]
         # BA#1: cutting a window reads the SAME declaration the dispatcher admits against, and there is no
         # default - a window cut against an invented capacity is cut against nothing.
         refused("control, BA#1: a seat seats.json declares no context capacity for cuts no window",
                 lambda: limits_of({"seats": {"S3": "claude:no-such-model/high"},
                                    "host_allowance": {"claude:no-such-model/high": {
-                                       "allowance_tokens": 4000, "host_version": "2.1.304"}}, "output_caps": {"S3": 32_000}}),
+                                       "allowance_tokens": 4000, "host_version": pinned_claude}}, "output_caps": {"S3": 32_000}}),
                 "CAPACITY_UNDECLARED")
         # ... and the cap itself: a window is cut against the cap the call will declare, never a constant
         refused("control, the ruling of 2026-10-22: a window cut with no declared output cap is refused",
-                lambda: limits_of({"seats": {"S3": "claude:claude-sonnet-5-5/xhigh"},
-                                   "host_allowance": {"claude:claude-sonnet-5-5/xhigh": {
-                                       "allowance_tokens": 3886, "host_version": "2.1.304"}}}),
+                lambda: limits_of({"seats": {"S3": s3_seat},
+                                   "host_allowance": {s3_seat: {
+                                       "allowance_tokens": 3886, "host_version": pinned_claude}}}),
                 "CAP_UNDECLARED")
         expect("the ruling of 2026-10-22: the reservation in the window's limits IS the declared cap",
-               limits_of({"seats": {"S3": "claude:claude-sonnet-5-5/xhigh"},
-                          "host_allowance": {"claude:claude-sonnet-5-5/xhigh": {
-                              "allowance_tokens": 3886, "host_version": "2.1.304"}}, "output_caps": {"S3": 48_000}})["reservation"], 48_000)
+               limits_of({"seats": {"S3": s3_seat},
+                          "host_allowance": {s3_seat: {
+                              "allowance_tokens": 3886, "host_version": pinned_claude}}, "output_caps": {"S3": 48_000}})["reservation"], 48_000)
         expect("BA#1: the S3 seat's capacity is the host-reported one seats.json declares, not a constant",
-               limits_of({"seats": {"S3": "claude:claude-sonnet-5-5/xhigh"},
-                          "host_allowance": {"claude:claude-sonnet-5-5/xhigh": {
-                              "allowance_tokens": 3886, "host_version": "2.1.304"}}, "output_caps": {"S3": 32_000}})["capacity"],
-               gate.seat_capacity("claude:claude-sonnet-5-5/xhigh", "2.1.304")[0])
+               limits_of({"seats": {"S3": s3_seat},
+                          "host_allowance": {s3_seat: {
+                              "allowance_tokens": 3886, "host_version": pinned_claude}}, "output_caps": {"S3": 32_000}})["capacity"],
+               gate.seat_capacity(s3_seat, pinned_claude)[0])
         # BB#5: there is no way to hand the window builder a capacity. Both entry points resolve it through
         # the shared declaration reader, and a control that needs another one declares it in a seats fixture -
         # so no production path, and no test, can cut a window against a number no declaration carries.
@@ -2840,14 +2844,14 @@ def self_test():
                    "reservation" in inspect.signature(entry).parameters, False)
         narrower = fx_seats(root, 150_000)
         expect("BB#5: a capacity a seats fixture declares is read by the same reader production reads",
-               limits_of({"seats": {"S3": "claude:claude-sonnet-5-5/xhigh"},
-                          "host_allowance": {"claude:claude-sonnet-5-5/xhigh": {
-                              "allowance_tokens": 3886, "host_version": "2.1.304"}}, "output_caps": {"S3": 32_000}},
+               limits_of({"seats": {"S3": s3_seat},
+                          "host_allowance": {s3_seat: {
+                              "allowance_tokens": 3886, "host_version": pinned_claude}}, "output_caps": {"S3": 32_000}},
                          seats_path=narrower)["capacity"],
-               gate.seat_capacity("claude:claude-sonnet-5-5/xhigh", "2.1.304", path=narrower)[0])
+               gate.seat_capacity(s3_seat, pinned_claude, path=narrower)[0])
         refused("control, BB#5: a fixture that declares no capacity for the seat cuts no window either",
-                lambda: limits_of({"seats": {"S3": "claude:claude-sonnet-5-5/xhigh"},
-                                   "host_allowance": {"claude:claude-sonnet-5-5/xhigh": {
+                lambda: limits_of({"seats": {"S3": s3_seat},
+                                   "host_allowance": {s3_seat: {
                                        "allowance_tokens": 3886, "host_version": "9.9.9"}}, "output_caps": {"S3": 32_000}},
                                   seats_path=narrower),
                 "CAPACITY_UNDECLARED")

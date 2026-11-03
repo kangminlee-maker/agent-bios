@@ -968,17 +968,18 @@ def self_test():
         host = run()[0]
         control("kinds-another-version-inside-the-known-kinds-passes", "problems" not in host and "context" in host,
                 str(host.get("problems")))
+        measured = ", ".join(sorted(RECORD_KINDS))  # a re-pin adds a version; the needles follow it
         for label, kwargs, needle in (
                 ("kinds-a-renamed-record-kind-is-refused-by-name", {"extra": [{"type": "api-request-v2"}]},
-                 "RECORD_KIND_UNKNOWN 'api-request-v2' (Claude 2.1.304; the known kinds were measured on 2.1.304) "
+                 f"RECORD_KIND_UNKNOWN 'api-request-v2' (Claude 2.1.304; the known kinds were measured on {measured}) "
                  "in s1.jsonl"),
                 ("kinds-an-unknown-attachment-type-is-refused-by-name",
                  {"extra": [{"type": "attachment", "attachment": {"type": "instructions_v2"}}]},
                  "ATTACHMENT_TYPE_UNKNOWN 'instructions_v2' (Claude 2.1.304; the known kinds were measured on "
-                 "2.1.304) in s1.jsonl"),
+                 f"{measured}) in s1.jsonl"),
                 ("kinds-a-new-kind-on-another-version-names-both-versions",
                  {"version": "2.1.316", "extra": [{"type": "api-request-v2"}]},
-                 "RECORD_KIND_UNKNOWN 'api-request-v2' (Claude 2.1.316; the known kinds were measured on 2.1.304)"),
+                 f"RECORD_KIND_UNKNOWN 'api-request-v2' (Claude 2.1.316; the known kinds were measured on {measured})"),
                 ("kinds-a-transcript-naming-no-version-is-refused", {"version": None},
                  "RECORD_VERSION_UNKNOWN")):
             transcript(**kwargs)

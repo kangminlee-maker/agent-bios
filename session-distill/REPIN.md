@@ -89,6 +89,9 @@ version writes. Compare with the previous set first:
   text says how: observed main-request input tokens, the maximum over hermetic calls through dispatch) and the
   `seat_capacity` rows whose `host_version` names the old version. These are model calls too.
 - `DEPENDENCIES.md`: the verified Claude version for the hermetic profile.
+- `gates/check_parity.py` `claude_run_hermetic`: the one line that names the version the hermetic flag set was
+  measured on. Its fake host, and every self-test that joins a fixture to the checkout's pin, read the pinned
+  version and the S3 seat from `seats.json`, so nothing else names the version.
 - Record the re-pin with `python3 decisions/record-decision.py --kind design`, naming the version left, any
   kind that changed, and each read kind the sample did not show.
 

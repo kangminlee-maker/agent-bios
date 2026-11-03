@@ -42,7 +42,8 @@
 #                       they were declared at. `--use producing` grants Read alone, confined to
 #                       the --manifest directory by a path-scoped allow rule.
 #
-# Verified against claude 2.1.221 (inherit) and 2.1.304 (hermetic flag set).
+# Verified against claude 2.1.221 (inherit). The hermetic flag set is verified per host version by
+# the author-side re-pin, on the version session-distill/seats.json pins.
 set -euo pipefail
 
 usage() {

@@ -3231,9 +3231,11 @@ def self_test(scratch=None):
     # Every view-window control below runs on a CLAUDE seat, because a view-window call is admitted only on
     # a host whose adapter can convey the cap check (d) reserves, and codex-run conveys none (BB#4). S3's
     # seat is the one seats.json declares a host-reported capacity for; its allowance is read from the same
-    # file the admission reads, never copied, so re-measuring preflight cannot leave this test behind.
-    vseat, vstage = "claude:claude-sonnet-5-5/xhigh", "S3"
-    claude_flags = gate.pinned_flags_sha256("claude", "2.1.304", "hermetic")
+    # file the admission reads, never copied, so re-measuring preflight cannot leave this test behind. The
+    # seat and the Claude host version are read from it too, so a re-pin moves this suite with it.
+    vstage = "S3"
+    vseat, pinned_claude = gate.seats()["stage_seats"][vstage][0], gate.seats()["hosts"]["claude"]["version"]
+    claude_flags = gate.pinned_flags_sha256("claude", pinned_claude, "hermetic")
     claude_allowance = gate.seats()["hosts"]["claude"]["host_allowance"]["hermetic"]["allowance_tokens"]
 
     def run_dir(name, per_stage, allowance=None, window_allowance=None):
@@ -3246,7 +3248,7 @@ def self_test(scratch=None):
         if allowance is not None:
             run["host_allowance"][astra] = {"allowance_tokens": allowance, "host_version": "0.163.0", "flag_set_sha256": codex_flags}
         run["host_allowance"][vseat] = {"allowance_tokens": claude_allowance if window_allowance is None else window_allowance,
-                                        "host_version": "2.1.304", "flag_set_sha256": claude_flags}
+                                        "host_version": pinned_claude, "flag_set_sha256": claude_flags}
         declare.create(directory, run)
         return directory
 
@@ -4612,9 +4614,10 @@ def self_test(scratch=None):
     control("a-shell-line-of-declared-commands-only-is-admitted",
             not [row for row in clean_shell if f"session-distill/runlib/inventory.py:{clean_at + 1}" in row],
             f"{[row for row in clean_shell if str(clean_at + 1) in row]}")
+    pinned_path = gate.seats()["hosts"]["claude"]["path"]
     planted("pinned-binary-path", "session-distill/runlib/validate.py",
-            "import os, subprocess\nsubprocess.Popen([os.path.expanduser('~/.local/share/claude/versions/2.1.304'), '-p'])",
-            "DISPATCH_OUTSIDE_SUPERVISOR {at}: starts '~/.local/share/claude/versions/2.1.304'", 1)
+            f"import os, subprocess\nsubprocess.Popen([os.path.expanduser({pinned_path!r}), '-p'])",
+            f"DISPATCH_OUTSIDE_SUPERVISOR {{at}}: starts {pinned_path!r}", 1)
     planted("unresolved-program", "session-distill/runlib/stagelock.py", "def _run(binary):\n    subprocess.run([binary, '-p'])",
             "DISPATCH_UNRESOLVED {at}: a program the trace cannot resolve", 1)
     # An inline program that starts a host: refused because it is not declared, which is the
@@ -5337,9 +5340,9 @@ def self_test(scratch=None):
         found, reason = gate.seat_capacity(astra, "0.163.0", path=bad)
         control(f"a-seat-capacity-{row.replace(' ', '-')}-is-no-capacity", found is None and why in (reason or ""),
                 f"{found} {reason}")
-    found, basis = gate.seat_capacity("claude:claude-sonnet-5-5/xhigh", "2.1.304")
+    found, basis = gate.seat_capacity(vseat, pinned_claude)
     control("the-checkout-declares-the-S3-seat-s-host-reported-capacity",
-            found == 1_000_000 and "modelUsage.contextWindow" in (basis or ""), f"{found} {basis}")
+            found is not None and "modelUsage.contextWindow" in (basis or ""), f"{found} {basis}")
     control("the-checkout-leaves-every-codex-seat-undeclared",
             all(not str(k).startswith("codex:") for k in (gate.seats().get("seat_capacity") or {})),
             "a Codex seat carries a capacity no capture reports")
@@ -5656,7 +5659,7 @@ def self_test(scratch=None):
     control("a-new-window-call-records-the-complete-bound-block",
             sorted(wrec.get("bound") or {}) == ["context_capacity", "driver_bytes", "limit",
                                                 "output_reservation", "stop_standing"]
-            and wrec["bound"]["context_capacity"] == gate.seat_capacity(vseat, "2.1.304")[0]
+            and wrec["bound"]["context_capacity"] == gate.seat_capacity(vseat, pinned_claude)[0]
             and wrec["bound"]["output_reservation"] == 32_000
             and wrec["bound"]["driver_bytes"] == len(packets.build(rw["call_id"], vstage, vseat, "x\n", None)),
             f"{wrec.get('bound')}")
