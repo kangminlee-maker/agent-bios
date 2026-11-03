@@ -1405,14 +1405,34 @@ def record_decision(run_dir, call_id, name, record_id, decision, reason, forced_
     # the same decision of the same call again, as a resumed run makes it when its call is reused, is not written
     # twice, and the same call deciding the same omission otherwise is refused (WP-08 commit 5a); a decision by another
     # call is another line
-    held = [h for h in path.read_text(encoding="utf-8").splitlines() if h.strip()] if path.is_file() else []
-    if line in held:
-        return
-    if any((d["call_id"], d["locator"]) == (call_id, locator) for d in map(json.loads, held)):
-        raise Refused(f"EXPANSION_DECISION_CONFLICT {record_id}: call {call_id} decided {omission or 'the record'} of "
-                      f"{name} already, otherwise; a call's decision of an omission is written once")
-    with open(path, "a", encoding="utf-8") as handle:
-        handle.write(line + "\n")
+    # units read side by side append here: the read and the append are one step under the log's lock (WP-08 commit 5b)
+    with stagelock.hold(run_dir, "expansions", wait_s=DECISIONS_LOCK_WAIT_S):
+        held = [h for h in path.read_text(encoding="utf-8").splitlines() if h.strip()] if path.is_file() else []
+        if line in held:
+            return
+        if any((d["call_id"], d["locator"]) == (call_id, locator) for d in map(json.loads, held)):
+            raise Refused(f"EXPANSION_DECISION_CONFLICT {record_id}: call {call_id} decided {omission or 'the record'} of "
+                          f"{name} already, otherwise; a call's decision of an omission is written once")
+        with open(path, "a", encoding="utf-8") as handle:
+            handle.write(line + "\n")
+
+
+DECISIONS_LOCK_WAIT_S = 30  # how long a decision waits for another unit's to be written
+
+
+def order_decisions(run_dir, rank):
+    """`expansions.jsonl` with its lines in the `rank` order of the view each decides, each view's in the order they
+    were made, replaced whole (WP-08 commit 5b). Units read side by side append their decisions interleaved; in this
+    order the log is the same bytes however many were read at once. A view `rank` does not name keeps its order, after
+    the ranked ones."""
+    path = stagelock.confine(run_dir, pathlib.Path(run_dir) / "expansions.jsonl")
+    with stagelock.hold(run_dir, "expansions", wait_s=DECISIONS_LOCK_WAIT_S):
+        if not path.is_file():
+            return
+        lines = [line for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+        ordered = sorted(lines, key=lambda line: rank.get(json.loads(line)["locator"]["transcript"], len(rank)))
+        if ordered != lines:
+            records.write_text(run_dir, path, "".join(line + "\n" for line in ordered))
 
 
 # ---- fixtures ---------------------------------------------------------------------------------
@@ -3546,7 +3566,7 @@ def self_test():
         refused("control: S2 over a run whose census S1 never wrote is refused by name, never over an empty set",
                 lambda: run(bare), "INPUT_INVALID S1")
         reporting = records.run_items
-        records.run_items = lambda posture, items, work: {"done": [], "quarantined": []}
+        records.run_items = lambda posture, items, work, jobs=1: {"done": [], "quarantined": []}
         try:  # a stage runner that reports neither a view nor a quarantine for an eligible session
             refused("control: an eligible session that ends with neither a view nor a quarantine is named",
                     lambda: run(fx_prepared_run(root, "silent", COLLIDING[:1])), "SET_MISMATCH S2")

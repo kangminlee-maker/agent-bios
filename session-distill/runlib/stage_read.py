@@ -94,9 +94,14 @@ accepted when that attempt was made for the same payload, seat, schema and outpu
 stores' write-once rules keep what it kept: run twice, a run directory's stores are the same bytes, and a resumed run's
 are a run read in one go's but for the call id of what it read again.
 
+Units are read side by side, S3_JOBS at a time in a broad tranche and one at a time in a calibration tranche (WP-08
+commit 5b, `run`): a unit writes only its own read record and its views' stores, what the units add to the stage's
+record is folded in unit order, and the decision log they share is written under its lock and left in unit order, so
+the stage's bytes do not depend on how many units were read at once.
+
 Refused by name: OVERLAP_OWNER_MISSING, OVERLAP_INTERVAL_UNSHOWN, WINDOWLESS_VIEW, VIEW_DRIFT, CLAIM_IMMUTABLE,
 EVENT_IMMUTABLE, WINDOW_CAP_MISMATCH, STITCH_OVER_BOUND, LEDGER_UNREADABLE, LEDGER_BASE_STALE, LEDGER_INVALID,
-EXPECTED_EXPIRY_UNREADABLE, INSTANCE_IMMUTABLE, RESOLUTION_DRIFT, and CLAIM_INVALID, EVENT_INVALID and
+EXPECTED_EXPIRY_UNREADABLE, INSTANCE_IMMUTABLE, RESOLUTION_DRIFT, READ_JOBS_EXCEEDED, and CLAIM_INVALID, EVENT_INVALID and
 OBSERVATION_INVALID for a stored record its schema refuses.
 
   stage_read.py --self-test
@@ -113,6 +118,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 
 if __package__ in (None, ""):  # run as a script: put session-distill/ on the import path
@@ -1009,10 +1015,23 @@ def hand_back(rows, viewed, results, done):
             for u in answered]
 
 
-def run(run_dir, supervisor, tranche="broad", stitch_bound=None):
+S3_JOBS = 12  # the units S3 reads at once in a broad tranche (plan WP-08 Q6); a calibration tranche reads one at a time
+
+
+def run(run_dir, supervisor, tranche="broad", stitch_bound=None, jobs=S3_JOBS):
     """S3 over the views S2 left: one read record per unit, `read-results.json`, `read.json`. `stitch_bound` narrows the
-    driver bytes a stitch packet may take, never widens them: the self-test's way to make a small unit need shards."""
+    driver bytes a stitch packet may take, never widens them: the self-test's way to make a small unit need shards.
+
+    The units are read `jobs` at a time, at most S3_JOBS (READ_JOBS_EXCEEDED), and one at a time in a calibration
+    tranche, whose calls the dispatcher admits only at concurrency one (CALIBRATION_SERIAL). A unit writes only files
+    of its own; what the units add to one record is gathered per unit and folded in unit order, and the decision log
+    they all append to is written under its lock and put in unit order at the end, so the stage leaves the same bytes
+    however many units were read at once (WP-08 commit 5b)."""
     run_dir = pathlib.Path(run_dir)
+    if isinstance(jobs, bool) or not isinstance(jobs, int) or not 1 <= jobs <= S3_JOBS:
+        raise Refused(f"READ_JOBS_EXCEEDED {jobs!r}: S3 reads one to {S3_JOBS} units at a time")
+    # a calibration tranche runs at concurrency one (S-15, dispatch CALIBRATION_SERIAL), so its units go one at a time
+    jobs = 1 if tranche == "calibration" else jobs
     with records.run_stage(run_dir, STAGE, [{"artifact": "views.json", "producer_stage": "S2"},
                                             {"artifact": "census.json", "producer_stage": "S1"},
                                             {"artifact": "coverage.json", "producer_stage": "S1"}]) as stage:
@@ -1037,6 +1056,8 @@ def run(run_dir, supervisor, tranche="broad", stitch_bound=None):
         results, summary = {}, {"units": {}, "windowless": [], "overlap_not_owed": 0, "dropped": 0,
                                 "stitch": collections.Counter()}
         observed, complete, forced_by_search, reads = {}, {}, collections.Counter(), []
+        # what each unit adds to the stage's record, kept apart while units are read side by side and folded after them
+        per_unit = {}
 
         def work(item):
             unit = item["id"]
@@ -1049,9 +1070,6 @@ def run(run_dir, supervisor, tranche="broad", stitch_bound=None):
                 held["claims"] += h["claims"]
                 held["events"] += h["events"]
                 held["observations"] += h["observations"]
-            observed[unit] = held["observations"]
-            complete[unit] = (all(f["view_complete"] for f in read), all(f["source_complete"] for f in read))
-            forced_by_search[unit] = sum(len(f["searched"]["forced"]) for f in read)
             status, reasons = unit_status(read, outcomes)
             keys = {t["transcript"] for t in views_of[unit]}
             carried = [p for p in state["pending_events"] if p["transcript"] in keys]
@@ -1065,23 +1083,33 @@ def run(run_dir, supervisor, tranche="broad", stitch_bound=None):
             else:
                 stitched = {"skipped": "the reading did not finish, so the unit is not stitched", "carried": len(carried)}
             by_view = {t["transcript"]: t for t in views_of[unit]}
-            results[unit] = {"transcript": unit, "status": status, "pending_events": pending, "resolved_events": resolved,
-                             "readings": [owed_readings(files[f["transcript"]], by_view[f["transcript"]],
-                                                        status == "read_complete", window_id, f["seen"]) for f in read]}
+            result = {"transcript": unit, "status": status, "pending_events": pending, "resolved_events": resolved,
+                      "readings": [owed_readings(files[f["transcript"]], by_view[f["transcript"]],
+                                                 status == "read_complete", window_id, f["seen"]) for f in read]}
             records.write_json(run_dir, run_dir / "read" / f"{views.safe_name(unit)}.json",
                                {"unit": unit, "status": status, "reasons": reasons, "files": read, "stitch": stitched})
+            per_unit[unit] = {"result": result, "read": read, "status": status, "stitched": stitched, "pending": pending,
+                              "resolved": resolved, "observed": held["observations"],
+                              "complete": (all(f["view_complete"] for f in read), all(f["source_complete"] for f in read))}
+
+        outcome = stage.run_items([{"id": unit, "unit": unit} for unit in sorted(views_of)], work, jobs)
+        for unit in sorted(per_unit):  # in unit order, as one at a time would have added them
+            u = per_unit[unit]
+            read, stitched = u["read"], u["stitched"]
+            results[unit], observed[unit], complete[unit] = u["result"], u["observed"], u["complete"]
+            forced_by_search[unit] = sum(len(f["searched"]["forced"]) for f in read)
             reads.extend(read)
-            summary["units"][unit] = status
+            summary["units"][unit] = u["status"]
             summary["windowless"] += [{"transcript": f["transcript"], "reason": f["windowless"]} for f in read if f["windowless"]]
             summary["overlap_not_owed"] += sum(f["overlap"]["not_owed"] for f in read)
             summary["dropped"] += sum(len(w.get("dropped", [])) for f in read for w in f["windows"] + f["expansions"])
-            summary["stitch"].update({"calls": len(stitched.get("calls", [])), "handed_on": len(pending),
-                                      "carried_resolved": len(resolved), "not_stitched": len(stitched.get("not_stitched", [])),
+            summary["stitch"].update({"calls": len(stitched.get("calls", [])), "handed_on": len(u["pending"]),
+                                      "carried_resolved": len(u["resolved"]), "not_stitched": len(stitched.get("not_stitched", [])),
                                       "undecided": len(stitched.get("undecided", [])),
-                                      "unordered_claims": sum(u["claims"] for u in stitched.get("unordered", []))})
+                                      "unordered_claims": sum(x["claims"] for x in stitched.get("unordered", []))})
             summary["stitch"].update(r["outcome"] for r in stitched.get("resolutions", []))
-
-        outcome = stage.run_items([{"id": unit, "unit": unit} for unit in sorted(views_of)], work)
+        # the decision log the units appended to side by side, put in unit order: the run's bytes are one order's
+        views.order_decisions(run_dir, {t["name"]: n for n, unit in enumerate(sorted(views_of)) for t in views_of[unit]})
         done = hand_back(rows, views_of, results, outcome["done"])
         for result in done:
             summary["units"][result["transcript"]] = result["status"]
@@ -1100,7 +1128,7 @@ def run(run_dir, supervisor, tranche="broad", stitch_bound=None):
             "incomplete_sessions": len(follow["incomplete"]["sessions"]),
             "incomplete_sources": len(follow["incomplete"]["sources"]),
             "search_forced": sum(forced_by_search.values())}
-        summary.update(interrupted=interrupted, reused=sum(1 for f in reads for w in f["windows"] + f["expansions"] if w.get("reused")),
+        summary.update(jobs=jobs, interrupted=interrupted, reused=sum(1 for f in reads for w in f["windows"] + f["expansions"] if w.get("reused")),
                        window=window_id, declaration_seq=reader.declaration["declaration_seq"], quarantined=outcome["quarantined"], accounted=flags["accounted"], fully_read=flags["fully_read"],
                        statuses=dict(collections.Counter(summary["units"].values())), stitch=dict(summary["stitch"]))
         records.write_json(run_dir, run_dir / "read.json", summary)
@@ -1289,6 +1317,9 @@ def fx_blocks(payload):
     return block("pending_events"), block("later_claims")
 
 
+FX_PLAN_LOCK = threading.Lock()
+
+
 def fx_stitcher(sup, plan, resolve, first=None, seen=None, bad=lambda item: False):
     """Make the golden host answer each stitch from what its packet lists, as a reader of it would: `resolve(event,
     claims)`, given the packet's claims by id, returns `(claim ids, evidence ids)` to resolve a listed event with, or None
@@ -1310,17 +1341,20 @@ def fx_stitcher(sup, plan, resolve, first=None, seen=None, bad=lambda item: Fals
                                     "claim_ids": list(joined[0]) if joined else [],
                                     "evidence_ids": list(joined[1]) if joined else []})
             body = payload.split("<pending_events>", 1)[1].split("# Your task", 1)[0]
-            rows = json.loads(plan.read_text(encoding="utf-8"))
             answer = {"resolutions": resolutions}
             if bad(name):
                 answer = {"resolutions": [{**r, "outcome": "resolved", "claim_ids": ["c-none"], "evidence_ids": ["e-none"]}
                                           for r in resolutions]}
-            if first is not None:
-                rows.insert(0, {"match": [body], "answer": first(copy.deepcopy(answer), events)})
-                rows.insert(0, {"match": [body, RETRY], "answer": answer})
-            else:
-                rows.insert(0, {"match": [body], "answer": answer})
-            plan.write_text(json.dumps(rows), encoding="utf-8")
+            # units read side by side plant their rows in one plan, which a host may be reading: one at a time, replaced
+            # whole (WP-08 commit 5b)
+            with FX_PLAN_LOCK:
+                rows = json.loads(plan.read_text(encoding="utf-8"))
+                if first is not None:
+                    rows.insert(0, {"match": [body], "answer": first(copy.deepcopy(answer), events)})
+                    rows.insert(0, {"match": [body, RETRY], "answer": answer})
+                else:
+                    rows.insert(0, {"match": [body], "answer": answer})
+                records.write_text(plan.parent, plan, json.dumps(rows))
         return honest(stage, name, seat, payload, schema, **kwargs)
     sup.item = item
 
@@ -2560,6 +2594,102 @@ def self_test():
         # a host the resume failed to stop is not signalled here: its pid may be another program's by now, and the golden
         # host ends by itself; the check below names it
 
+        # ---- commit 5b: units read side by side leave the bytes units read one at a time leave
+        def recorded(directory):
+            """The stores, every read record, the results and the stage summary, with `jobs` - which says how the run
+            was read - taken out of the summary."""
+            held_recorded = stores(directory)
+            for found in sorted((directory / "read").glob("*.json")) + [directory / "read-results.json"]:
+                held_recorded[str(found.relative_to(directory))] = found.read_bytes().replace(
+                    str(directory.resolve().parent).encode("utf-8"), b"<RUN>")
+            summary_r = guarded(lambda: records.read_json(directory / "read.json"), {})
+            summary_r.pop("jobs", None)
+            held_recorded["read.json"] = records.json_text(summary_r).encode("utf-8")
+            return held_recorded
+
+        serial_dir, serial_sup, _ = fx_reader(root / "serial", "k", answers_r, expanding=lambda m: True,
+                                              ledger_doc=fx_ledger("k"))
+        serial = guarded(lambda: run(serial_dir, serial_sup, jobs=1), {})
+        wide_dir, wide_sup, _ = fx_reader(root / "wide", "k", answers_r, expanding=lambda m: True, ledger_doc=fx_ledger("k"))
+        units_w = sorted({t["unit"] for t in guarded(lambda: records.read_json(wide_dir / "views.json")["transcripts"], [])})
+        names_w = {t["name"]: t["unit"] for t in guarded(lambda: records.read_json(wide_dir / "views.json")["transcripts"], [])}
+        first_waited = []
+        honest_w = wide_sup.item
+
+        def unit_of_item(item_name):
+            return next((u for n, u in names_w.items() if item_name.startswith(f"{n}-")), None) or next(
+                (u for u in units_w if item_name.startswith(f"{views.safe_name(u)}-s")), None)
+
+        def ordered_wide(stage, name, seat, payload, schema, **kwargs):
+            """The first unit's first call waits until the second unit's read record is written: the second unit is
+            then read whole before the first, the order one at a time never takes, and only side by side can it be."""
+            if len(units_w) >= 2 and unit_of_item(name) == units_w[0] and not first_waited:
+                second_record, until = wide_dir / "read" / f"{views.safe_name(units_w[1])}.json", time.monotonic() + 60
+                while not second_record.exists() and time.monotonic() < until:
+                    time.sleep(0.02)
+                first_waited.append(second_record.exists())
+            return honest_w(stage, name, seat, payload, schema, **kwargs)
+        wide_sup.item = ordered_wide
+        wide = guarded(lambda: run(wide_dir, wide_sup, jobs=12), {})
+        serial_bytes, wide_bytes = recorded(serial_dir), recorded(wide_dir)
+        control("5b Q6: S3 reading twelve units at a time leaves every store, read record, the results and the summary "
+                "the bytes one at a time leaves, the reading's own jobs aside",
+                len(units_w) >= 2 and serial.get("jobs") == 1 and wide.get("jobs") == 12
+                and any(k.startswith("expansions") for k in serial_bytes) and serial_bytes == wide_bytes,
+                f"units={len(units_w)} jobs={serial.get('jobs')}/{wide.get('jobs')} differ="
+                f"{sorted(k for k in set(serial_bytes) | set(wide_bytes) if serial_bytes.get(k) != wide_bytes.get(k))}")
+        control("5b Q6: the units were read side by side: the first unit's first call waited until the second unit was "
+                "read whole", first_waited == [True], f"waited={first_waited}")
+        # the golden run's decisions are all one unit's, so the decision log's order is shown on a log a dead run left in
+        # another order: a decision of the other unit's view, planted against the unit order, is put in place by the
+        # stage's end, and each view's decisions keep their own order
+        rank_t = {n: units_w.index(u) for n, u in names_w.items()}
+        log_t = twice_dir / "expansions.jsonl"
+        held_t = [line for line in guarded(lambda: log_t.read_text(encoding="utf-8"), "").splitlines() if line.strip()]
+        decided_t = {json.loads(line)["locator"]["transcript"] for line in held_t}
+        # a view of another unit than every decided one's: a view of the same unit shares its place in the order
+        other_t = next((n for n in sorted(names_w) if names_w[n] not in {names_w.get(d) for d in decided_t}), None)
+        if held_t and other_t is not None:
+            planted_t = json.dumps({"call_id": "k-S3-planted-a1", "decision": "skip", "forced_by": "none", "reason": "planted",
+                                    "locator": {"transcript": other_t, "record_id": "1/message/content", "omission_id": None}},
+                                   sort_keys=True, ensure_ascii=False)
+            ahead = rank_t[other_t] > max(rank_t[json.loads(line)["locator"]["transcript"]] for line in held_t)
+            log_t.write_text("".join(line + "\n" for line in ([planted_t] + held_t if ahead else held_t + [planted_t])),
+                             encoding="utf-8")
+            rerun_t = refusal(lambda: run(twice_dir, twice_sup))
+            after_t = [line for line in guarded(lambda: log_t.read_text(encoding="utf-8"), "").splitlines() if line.strip()]
+            control("5b Q6: the stage leaves the decision log in unit order, each view's decisions in the order made",
+                    after_t == sorted([planted_t] + held_t, key=lambda line: rank_t[json.loads(line)["locator"]["transcript"]])
+                    and after_t != ([planted_t] + held_t if ahead else held_t + [planted_t]) and rerun_t == "",
+                    f"{len(after_t)} lines, ahead={ahead}, first={json.loads(after_t[0])['locator']['transcript'] if after_t else None}, "
+                    f"rerun={rerun_t[:300]}")
+        else:
+            control("5b Q6: the stage leaves the decision log in unit order, each view's decisions in the order made",
+                    False, f"no log to reorder: {len(held_t)} lines, other view {other_t}")
+        calib_dir, calib_sup, _ = fx_reader(root / "calibration", "k", answers_r, expanding=lambda m: True,
+                                            ledger_doc=fx_ledger("k"))
+        in_flight_c, widest_c, flight_lock_c = [0], [0], threading.Lock()
+        honest_c = calib_sup.item
+
+        def counted(stage, name, seat, payload, schema, **kwargs):
+            with flight_lock_c:
+                in_flight_c[0] += 1
+                widest_c[0] = max(widest_c[0], in_flight_c[0])
+            try:
+                return honest_c(stage, name, seat, payload, schema, **kwargs)
+            finally:
+                with flight_lock_c:
+                    in_flight_c[0] -= 1
+        calib_sup.item = counted
+        calibrating = guarded(lambda: run(calib_dir, calib_sup, tranche="calibration", jobs=12), {})
+        control("5b Q6: a calibration tranche reads its units one at a time, whatever jobs it is asked for",
+                calibrating.get("jobs") == 1 and widest_c[0] == 1 and calibrating.get("statuses", {}).get("read_complete") == len(units_w),
+                f"jobs={calibrating.get('jobs')} widest={widest_c[0]} statuses={calibrating.get('statuses')}")
+        control("5b Q6: S3 refuses to read more than twelve units at a time, before the stage begins",
+                refusal(lambda: run(serial_dir, serial_sup, jobs=13)).startswith("READ_JOBS_EXCEEDED")
+                and refusal(lambda: run(serial_dir, serial_sup, jobs=0)).startswith("READ_JOBS_EXCEEDED"),
+                refusal(lambda: run(serial_dir, serial_sup, jobs=13)))
+
     control("5a Q5: nothing this suite started outlives it - its driver, the host the driver left - nor its temporary "
             "tree", not pathlib.Path(td).exists() and driver.poll() is not None
             and not guarded(lambda: stop.same(stop.ps_table(), runner["pid"], runner["start"]), True), f"{runner}")
@@ -2574,10 +2704,10 @@ def self_test():
 
 def fixture_driver(argv):
     """`--fixture-driver RUN_DIR ROOT PLAN`: the self-test's child, S3 over a golden run `fx_reader` made, driven as
-    a separate process so the self-test can kill its driver mid-call and resume the run (WP-08 commit 5a). It starts
-    no model; its host is the run's golden one."""
+    a separate process so the self-test can kill its driver mid-call and resume the run (WP-08 commit 5a). It reads one
+    unit at a time, so the kill leaves exactly the held call open. It starts no model; its host is the run's golden one."""
     run_dir, root, plan = (pathlib.Path(a) for a in argv)
-    run(run_dir, fx_supervisor(run_dir, root, plan))
+    run(run_dir, fx_supervisor(run_dir, root, plan), jobs=1)
     return 0
 
 

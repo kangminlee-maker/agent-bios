@@ -470,6 +470,9 @@ PROCESS_IMPORTS_DECLARED = (
     {"module": "concurrent.futures", "file": "session-distill/runlib/census.py",
      "reason": "ThreadPoolExecutor over already-listed transcript files (census.py:309); threads, "
                "not processes, and no program name reaches it"},
+    {"module": "concurrent.futures", "file": "session-distill/runlib/records.py",
+     "reason": "ThreadPoolExecutor running a stage's items `jobs` at a time (run_items, WP-08 commit 5b); threads, "
+               "not processes, and no program name reaches it"},
 )
 # Names that may be taken OUT of an executor's or loader's module, each because it starts and loads
 # nothing. EMPTY on purpose: this tree holds no `as` or `from` import of any such module — every one
@@ -3525,6 +3528,9 @@ def self_test(scratch=None):
     control("interrupted-names-a-runner-listed-with-another-identity-and-signals-nothing",
             closed_rows.get(left_open["sent-reused-pid"], {}).get("host") == "identity_mismatch" and second_p.poll() is None,
             f"{closed_rows} second={second_p.poll()}")
+    control("a-pid-since-reused-by-another-process-closes-interrupted-and-the-resume-goes-on",
+            closed_as("sent-reused-pid") == ("reserved", False, "interrupted") and "refused" not in closed_rows,
+            f"{closed_rows.get(left_open['sent-reused-pid'])}")
     control("an-interrupted-call-is-never-a-calibration-sample",
             sup.calibration().get(class_key("S9", judge, "judge"), {}).get("samples", []) == samples_before,
             f"{samples_before}")

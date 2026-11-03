@@ -19,11 +19,12 @@ that is partial, stale or invalid is refused whatever the posture.
 
 Failures are named by their first word: DECLARATION_DRIFT, INPUT_STALE, INPUT_PARTIAL,
 INPUT_INVALID, OUTPUT_OUTSIDE_RUN, RUN_PATH_ESCAPE (`stagelock.confine`: no write leaves the run
-directory, through a symlink or otherwise), ITEM_FAILED, SET_MISMATCH. Predicates return their
+directory, through a symlink or otherwise), ITEM_FAILED, ITEMS_JOBS_INVALID, SET_MISMATCH. Predicates return their
 violations as a list; the ones that guard starting a stage or running its items raise `Refused`.
 
   records.py --self-test
 """
+import concurrent.futures
 import contextlib
 import copy
 import datetime
@@ -34,6 +35,7 @@ import os
 import pathlib
 import sys
 import tempfile
+import threading
 
 if __package__ in (None, ""):  # run as a script: put session-distill/ on the import path
     sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
@@ -293,7 +295,7 @@ contained = stagelock.contained
 SHARED_KEYS = ("unit", "route", "test_config")
 
 
-def run_items(posture, items, work):
+def run_items(posture, items, work, jobs=1, stop=None):
     """Run `work(item)` over `items` under a failure posture (design §4).
 
     An item is `{id, unit, route, test_config}`; a key it does not have shares nothing. In
@@ -302,10 +304,73 @@ def run_items(posture, items, work):
     already done are moved to the quarantine, and the independent items continue. Under any
     other posture the first failure stops by name (ITEM_FAILED), and so does a missing posture.
     Returns `{done: [ids], quarantined: [{id, reason, because}]}`; `because` is the failing item
-    that took the item with it, None for the failing item itself."""
+    that took the item with it, None for the failing item itself.
+
+    With `jobs` above one, the items run that many at a time and the posture's rules hold as they do one at a time
+    (WP-08 commit 5b): items joined by a shared unit, route or test configuration, directly or through others, run in
+    one sequence in their order, so a failure skips and quarantines the others of its sequence exactly as above, and
+    sequences that share nothing run side by side. Under any posture but production a failure sets `stop` (an event a
+    caller may hold) and lets no item start after it; the items already running finish, and the earliest failure in
+    `items` order is the one named. `done`
+    and the quarantine are in `items` order. A `jobs` that is not a positive integer is refused (ITEMS_JOBS_INVALID)."""
     expect_set(item["id"] for item in items)
+    if isinstance(jobs, bool) or not isinstance(jobs, int) or jobs < 1:
+        raise Refused(f"ITEMS_JOBS_INVALID {jobs!r}: items run one or more at a time")
+    if jobs == 1:
+        return _run_sequence(posture, items, work)
+    order = {item["id"]: n for n, item in enumerate(items)}
+    stop, failed = stop if stop is not None else threading.Event(), []
+
+    def sequence(group):
+        try:
+            return _run_sequence(posture, group, work, stop)
+        except Refused as exc:
+            if not str(exc).startswith("ITEM_FAILED "):
+                raise
+            stop.set()
+            failed.append((min(n for i, n in order.items() if str(exc).startswith(f"ITEM_FAILED {i} (")), exc))
+            return {"done": [], "quarantined": []}
+    with concurrent.futures.ThreadPoolExecutor(max_workers=jobs) as pool:
+        outcomes = [future.result() for future in [pool.submit(sequence, group) for group in sharing_groups(items)]]
+    if failed:
+        raise min(failed, key=lambda pair: pair[0])[1]
+    done = {i for outcome in outcomes for i in outcome["done"]}
+    chunks = {}  # a failure and the items it took with it, in the order one at a time would list them
+    for outcome in outcomes:
+        for entry in outcome["quarantined"]:
+            chunks.setdefault(entry["because"] or entry["id"], []).append(entry)
+    return {"done": [item["id"] for item in items if item["id"] in done],
+            "quarantined": [entry for key in sorted(chunks, key=order.get) for entry in chunks[key]]}
+
+
+def sharing_groups(items):
+    """`items` split into the sequences that share a unit, route or test configuration, directly or through others,
+    each in `items` order, ordered by their first item."""
+    parent = list(range(len(items)))
+
+    def find(n):
+        while parent[n] != n:
+            parent[n] = parent[parent[n]]
+            n = parent[n]
+        return n
+    first = {}
+    for n, item in enumerate(items):
+        for key in SHARED_KEYS:
+            if item.get(key) is not None:
+                held = first.setdefault((key, item[key]), n)
+                parent[find(n)] = find(held)
+    groups = {}
+    for n, item in enumerate(items):
+        groups.setdefault(find(n), []).append(item)
+    return list(groups.values())  # keyed in the order their first items come
+
+
+def _run_sequence(posture, items, work, stop=None):
+    """One sequence of `run_items`, one item at a time; with `stop`, no item starts once it is set."""
     done, quarantined = [], {}
     for item in items:
+        if stop is not None and stop.is_set():
+            break
         if item["id"] in quarantined:
             continue
         try:
@@ -360,9 +425,9 @@ class StageRun:
             raise Refused(f"OUTPUT_OUTSIDE_RUN {artifact}: leaves the run directory")
         self.record["outputs"].append({"artifact": artifact, "sha256": sha256_file(path)})
 
-    def run_items(self, items, work):
-        """`run_items` under this run's posture; the quarantined items are listed in the record."""
-        result = run_items(self.posture, items, work)
+    def run_items(self, items, work, jobs=1):
+        """`run_items` under this run's posture, `jobs` at a time; the quarantined items are listed in the record."""
+        result = run_items(self.posture, items, work, jobs)
         self.record["quarantined"].extend(result["quarantined"])
         return result
 
@@ -778,6 +843,19 @@ def self_test():
         except Refused as exc:  # production that stopped is reported under its own controls, not a crash
             return ({"done": [], "quarantined": [], "stopped": str(exc)} if posture == "production" else str(exc)), calls
 
+    def run_batch_jobs(posture, items, jobs, fails=("B",)):
+        calls, calls_lock = [], threading.Lock()
+
+        def work(it):
+            with calls_lock:
+                calls.append(it["id"])
+            if it["id"] in fails:
+                raise ValueError(f"{it['id']} failed")
+        try:
+            return run_items(posture, items, work, jobs=jobs), calls
+        except Refused as exc:
+            return ({"done": [], "quarantined": [], "stopped": str(exc)} if posture == "production" else str(exc)), calls
+
     result, calls = run_batch("production", batch)
     expect("production: the failing item and its dependants are quarantined, the rest continue",
            [] if sorted(q["id"] for q in result["quarantined"]) == ["A", "B", "C", "D"]
@@ -807,6 +885,90 @@ def self_test():
             failures.append(f"{posture}: work continued past the failure: {calls}")
     message, _calls = run_batch("production", [item("A"), item("A")])
     expect("items with a repeated id", [message] if isinstance(message, str) else [f"{message}"], "SET_MISMATCH")
+
+    # WP-08 commit 5b: items run `jobs` at a time under the same rules
+    one_at_a_time, calls_one = run_batch("production", batch)
+    side_by_side, calls_many = run_batch_jobs("production", batch, 4)
+    expect("jobs: production over the batch four at a time quarantines and keeps what one at a time does, in its order",
+           [] if side_by_side == one_at_a_time else [f"{side_by_side} != {one_at_a_time}"])
+    expect("jobs: a dependant not yet run is skipped four at a time too, because items that share run in one sequence",
+           [] if "C" not in calls_many and "D" not in calls_many and sorted(calls_many) == sorted(calls_one)
+           else [f"calls {calls_many}"])
+    expect("jobs: the sequences are the items joined by a shared key, directly or through others, in items order",
+           [] if [[i["id"] for i in g] for g in sharing_groups(batch)] == [["A", "B", "C", "D", "X"], ["E"], ["F"], ["G"]]
+           else [f"{[[i['id'] for i in g] for g in sharing_groups(batch)]}"])
+    both_running = {"B": threading.Event(), "F": threading.Event()}
+    many_fail_calls, many_fail_lock = [], threading.Lock()
+
+    def two_fail(it):
+        with many_fail_lock:
+            many_fail_calls.append(it["id"])
+        if it["id"] in both_running:  # B and F each fail only once the other runs: both failures are made
+            both_running[it["id"]].set()
+            both_running["F" if it["id"] == "B" else "B"].wait(timeout=30)
+            raise ValueError(f"{it['id']} failed")
+    try:
+        run_items("development", batch, two_fail, jobs=4)
+        many_fail = "ran through"
+    except Refused as exc:
+        many_fail = str(exc)
+    expect("jobs: under development four at a time the earliest failure in items order is named",
+           [many_fail] if isinstance(many_fail, str) else [f"{many_fail}"], "ITEM_FAILED B (development): ValueError: B failed")
+    expect("jobs: and nothing of the failing sequence runs after its failure",
+           [] if "C" not in many_fail_calls and "D" not in many_fail_calls and "X" not in many_fail_calls
+           else [f"calls {many_fail_calls}"])
+    widest, in_flight, flight_lock, thirteen = [0], [0], threading.Lock(), []
+    gate_12, gate_13 = threading.Barrier(12), threading.Barrier(13)
+
+    def flying(it):
+        with flight_lock:
+            in_flight[0] += 1
+            widest[0] = max(widest[0], in_flight[0])
+        try:
+            if int(it["id"][1:]) < 13:  # thirteen at once would meet here; twelve workers wait it out and it breaks
+                try:
+                    gate_13.wait(timeout=2)
+                    thirteen.append(it["id"])
+                except threading.BrokenBarrierError:
+                    pass
+            if int(it["id"][1:]) < 12:  # the first twelve meet: only twelve running at once can pass
+                gate_12.wait(timeout=30)
+        finally:
+            with flight_lock:
+                in_flight[0] -= 1
+    try:
+        flown = run_items("production", [item(f"i{n}") for n in range(30)], flying, jobs=12)
+    except Refused as exc:
+        flown = {"done": [], "quarantined": [], "refused": str(exc)}
+    expect("jobs: twelve at a time runs twelve independent items at once and never a thirteenth",
+           [] if widest[0] == 12 and not thirteen and len(flown["done"]) == 30 and not flown["quarantined"]
+           else [f"widest {widest[0]}, thirteen met {thirteen}, {flown}"])
+    stopped, q1_running, ran_after = threading.Event(), threading.Event(), []
+
+    def failing_first(it):
+        if it["id"] == "P":
+            q1_running.wait(timeout=30)  # P fails while Q1 runs
+            raise ValueError("P failed")
+        if it["id"] == "Q1":
+            q1_running.set()
+            stopped.wait(timeout=30)  # Q1 outlasts the failure: run_items sets the stop when P fails
+        ran_after.append(it["id"])
+    try:
+        run_items("development", [item("P", unit="UP"), item("Q1", unit="UQ"), item("Q2", unit="UQ")], failing_first,
+                  jobs=2, stop=stopped)
+        stop_message = "ran through"
+    except Refused as exc:
+        stop_message = str(exc)
+    expect("jobs: under development a failure lets no item start after it, in any sequence",
+           [] if stop_message.startswith("ITEM_FAILED P ") and stopped.is_set() and ran_after == ["Q1"]
+           else [f"{stop_message} stopped={stopped.is_set()} ran {ran_after}"])
+    for bad_jobs in (0, True, "2"):
+        try:
+            run_items("production", [item("A")], lambda it: None, jobs=bad_jobs)
+            got_jobs = "ran"
+        except Refused as exc:
+            got_jobs = str(exc)
+        expect(f"jobs: {bad_jobs!r} is refused", [got_jobs], "ITEMS_JOBS_INVALID")
 
     def interrupted(it):
         raise KeyboardInterrupt
