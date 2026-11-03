@@ -546,6 +546,11 @@ if [ -f session-distill/runlib/stage_read.py ]; then
   leg -q "FAIL: session-distill S3 read self-test (session-distill/runlib/stage_read.py)" \
     python3 session-distill/runlib/stage_read.py --self-test
 fi
+# Follow-up resolutions (plan WP-08 done-when 5, design §11): the O9 fixtures through the derivation, each flipped.
+if [ -f session-distill/runlib/measures.py ]; then
+  leg -q "FAIL: session-distill follow-up resolution self-test (session-distill/runlib/measures.py)" \
+    python3 session-distill/runlib/measures.py --self-test
+fi
 
 # Instructions rollback (compose/instructions-state.py) — a destructive path with no other
 # coverage: every version registered today is UNAVAILABLE (it predates the assembled
