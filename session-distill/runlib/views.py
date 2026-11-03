@@ -1242,9 +1242,12 @@ def run(run_dir, reservation=None, overhead=bound.PACKET_OVERHEAD, seats_path=No
 
 
 def totals_of(transcripts):
+    """The manifest's totals. A line of the manifest is one file's view, and a Codex thread written in several files has a
+    line for each (D-20261103-a7128a), so `files` counts the lines and `sessions` and `children` the distinct sessions
+    they belong to (review c0fix r2)."""
     drivers = [w["driver_bytes"] for t in transcripts for w in t["windows"]]
-    return {"transcripts": len(transcripts), "sessions": sum(t["kind"] == "session" for t in transcripts),
-            "children": sum(t["kind"] == "child" for t in transcripts), "windows": len(drivers),
+    return {"files": len(transcripts), "sessions": len({t["session"] for t in transcripts if t["kind"] == "session"}),
+            "children": len({t["session"] for t in transcripts if t["kind"] == "child"}), "windows": len(drivers),
             "driver_bytes": sum(drivers), "max_driver_bytes": max(drivers, default=0),
             "records": sum(t["records"] for t in transcripts), "items": sum(t["items"] for t in transcripts),
             "viewed_items": sum(t["viewed_items"] for t in transcripts), "clipped": sum(t["clipped"] for t in transcripts),
@@ -1264,8 +1267,8 @@ def report_lines(manifest):
     t, limits = manifest["totals"], manifest["limits"]
     per = sorted(len(x["windows"]) for x in manifest["transcripts"])
     mean = t["driver_bytes"] / t["windows"] if t["windows"] else 0
-    return [f"views window {manifest['window']}: {t['sessions']} sessions and {t['children']} children, {t['windows']} windows "
-            f"(per transcript: min {per[0] if per else 0}, median {per[len(per) // 2] if per else 0}, max {per[-1] if per else 0})",
+    return [f"views window {manifest['window']}: {t['sessions']} sessions and {t['children']} children in {t['files']} files, "
+            f"{t['windows']} windows (per file: min {per[0] if per else 0}, median {per[len(per) // 2] if per else 0}, max {per[-1] if per else 0})",
             f"  driver bytes: total {t['driver_bytes']}, mean {mean:.0f}, max {t['max_driver_bytes']} of {bound.driver_budget(limits)} "
             f"(allowance {limits['allowance']}, overhead {limits['overhead']})",
             f"  estimated tokens at 3.5 bytes each (a packing diagnostic, not a bound): {t['driver_bytes'] / 3.5:.0f}",
@@ -3402,7 +3405,7 @@ def self_test():
                if isinstance(changed_manifest, dict) else repr(changed_manifest),
                sorted([(unit_ids["d2"], True, None), (unit_ids["root"], False, unit_ids["d2"]), (unit_ids["d1"], False, unit_ids["d2"])]))
         expect("r1 #4: the views made for a unit before one of its members failed are quarantined with it, not published",
-               ([t["transcript"] for t in changed_manifest["transcripts"]], changed_manifest["totals"]["transcripts"])
+               ([t["transcript"] for t in changed_manifest["transcripts"]], changed_manifest["totals"]["files"])
                if isinstance(changed_manifest, dict) else repr(changed_manifest), ([], 0))
         _mid_dir, _ids, mid_manifest = golden_unit(root, "unit-mid", plant="mid_unreadable")
         expect("r1 #2: a member S1 could not read leaves the unit, and the member below it is still read as part of the root's unit",
@@ -3421,6 +3424,10 @@ def self_test():
                    sorted((t["transcript"], t["session"], t["segment"]) for t in split["transcripts"])
                    if isinstance(split, dict) else repr(split),
                    sorted((split_keys[n], split_keys[n].split("@")[0], split_keys[n].split("@")[1]) for n in read))
+            if read == [0, 1]:
+                expect("r2: a thread viewed in both its files is one session in two files, in the totals and in the report",
+                       ((split["totals"]["sessions"], split["totals"]["children"], split["totals"]["files"]), report_lines(split)[0].split(": ", 1)[1].split(",")[0])
+                       if isinstance(split, dict) else repr(split), ((1, 0, 2), "1 sessions and 0 children in 2 files"))
         for base, why in (("empty", "an empty base"), ("older", "a base that saw fewer records")):
             split_keys, targeted = golden_split(root, f"targeted-{base}", ([[0, 3]], [[0, 3]]), base=base)
             expect(f"r1 #3: a targeted run's views copy the version its census read, over {why}",
