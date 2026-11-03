@@ -1783,8 +1783,10 @@ class Supervisor:
         answer's references to its own ids, the call id it echoes, a set whose rule depends on the item. It is a
         function of an attempt's call directory returning failure lines, asked only of an attempt the gate
         accepted, and an attempt it fails is failed exactly as one the gate fails: retried once with those lines,
-        the item failed when the retry fails too. It narrows what is accepted and never widens it. What it said of
-        each attempt is returned as `checked`."""
+        the item failed when the retry fails too: the item makes two attempts at most, whichever of the gate and the
+        stage failed them. It narrows what is accepted and never widens it. What it said of an attempt is written
+        beside it (`gate.STAGE_CHECK`), so `gate.accepted` refuses an attempt it failed on every read, and is returned
+        as `checked`, one entry per attempt."""
         schema_bytes = packets.schema_bytes(schema) if schema is not None else None
         dirs, text, settled, checked = [], payload, None, []
         for attempt in (1, 2):
@@ -1813,6 +1815,8 @@ class Supervisor:
             settled = gate.settle(dirs)
             judged = list(stage_check(call_dir)) if settled["ok"] and stage_check is not None else []
             checked.append(judged)
+            if settled["ok"] and stage_check is not None:
+                records.write_json(self.run_dir, pathlib.Path(call_dir) / gate.STAGE_CHECK, {"failures": judged})
             if judged:
                 settled = {**settled, "ok": False, "accepted": None, "retry": len(dirs) == 1,
                            "codes": sorted(set(settled["codes"]) | {line.split()[0] for line in judged})}
@@ -3207,6 +3211,24 @@ def self_test(scratch=None):
                    view_window=False, stage_check=picky)
     control("a-stage-check-is-never-asked-of-an-attempt-the-gate-failed",
             out["outcome"] == "failed" and asked == [] and out["checked"] == [[], []], f"{out} asked={asked}")
+    # the one corrective retry is shared: a gate failure and then a stage-check failure end the item at two attempts
+    sup.mode, asked = "invalid-then-valid", []
+    out = sup.item("S6", "checked-after-gate", judge, "Is the rule present?\n", verdict_schema, case_type="judge", caps=caps,
+                   view_window=False, stage_check=lambda call_dir: asked.append(call_dir) or ["SET_MISMATCH planted stage check"])
+    control("a-gate-failure-then-a-stage-check-failure-ends-the-item-at-two-attempts",
+            out["outcome"] == "failed" and len(out["attempts"]) == 2 and len(asked) == 1
+            and out["checked"] == [[], ["SET_MISMATCH planted stage check"]], f"{out} asked={len(asked)}")
+    sup.mode = "clean"
+    judged_out = sup.item("S6", "checked-recorded", judge, "Is the rule present?\n", verdict_schema, case_type="judge",
+                          caps=caps, view_window=False,
+                          stage_check=lambda call_dir: ["RECORD_INTEGRITY planted"] if call_dir.name.endswith("-a1") else [])
+    first_dir, second_dir = (pathlib.Path(p) for p in (judged_out["attempts"] + ["", ""])[:2])
+    control("a-stage-check-verdict-is-written-beside-each-attempt-it-judged",
+            judged_out["outcome"] == "accepted" and gate.stage_check_of(first_dir) == ["RECORD_INTEGRITY planted"]
+            and gate.stage_check_of(second_dir) == [], f"{judged_out}")
+    control("an-attempt-its-stage-check-failed-is-never-read-as-accepted",
+            str(refusal(gate.accepted, first_dir) or "").startswith("STAGE_CHECK_FAILED")
+            and str(refusal(gate.accepted, first_dir, True) or "").startswith("STAGE_CHECK_FAILED"), f"{judged_out}")
     plan = scratch / "answers.json"
     plan.write_text(json.dumps([{"match": ["no such text"], "answer": {"verdict": "PRESENT", "why": "wrong row"}},
                                 {"match": ["Is the rule", "present?"], "answer": {"verdict": "UNCLEAR", "why": "<CALL-ID>"}}]))

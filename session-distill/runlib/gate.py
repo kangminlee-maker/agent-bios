@@ -66,6 +66,9 @@ CODES = ("COMPLETION_INCOMPLETE", "BINDING_MISMATCH", "MODEL_UNATTESTED", "frame
          "RECEIPT_MISSING", "RECEIPT_KEY_MISSING", "PROFILE_INHERITED", "CWD_OUTSIDE_MANIFEST", "RETRY_EXHAUSTED",
          "USAGE_ATTRIBUTION_UNKNOWN")
 CLAUDE_STOPS = ("end_turn", "stop_sequence", "tool_use")
+# A stage's own judgement of an attempt the gate accepted (`dispatch.Supervisor.item(stage_check=)`), written beside the
+# attempt by the supervisor: `{"failures": [line, ...]}`, empty when the stage's check passed it.
+STAGE_CHECK = "stage_check.json"
 
 
 def _closed(required=(), **properties):
@@ -874,12 +877,29 @@ def accept(call_dir, skip=()):
             "context_evidence": (c.host or {}).get("context") if isinstance(c.host, dict) else None}
 
 
-def accepted(call_dir):
+def stage_check_of(call_dir):
+    """The failure lines a stage's own check recorded for this attempt, or None when no stage judged it."""
+    path = pathlib.Path(call_dir) / STAGE_CHECK
+    return list(records.read_json(path)["failures"]) if path.is_file() else None
+
+
+def accepted(call_dir, judged=False):
     """The output a stage may read: only through here, and only when the call is accepted —
-    the structured output of a schema-bound call, the final text of a schema-less one."""
+    the structured output of a schema-bound call, the final text of a schema-less one.
+
+    Accepted means the gate's verdict AND, where a stage judged the attempt, that judgement: an attempt whose recorded
+    stage check failed is refused on every read (STAGE_CHECK_FAILED), so the gate and the stage's judge have one answer
+    between them. A stage that judges its attempts reads with `judged=True`, which also refuses an attempt no judgement
+    was recorded for (STAGE_CHECK_MISSING)."""
     verdict = accept(call_dir)
     if not verdict["ok"]:
         raise Refused(f"{' '.join(verdict['codes'])} {call_dir}: " + "; ".join(verdict["failures"]))
+    judgement = stage_check_of(call_dir)
+    if judgement:
+        raise Refused(f"STAGE_CHECK_FAILED {call_dir}: " + "; ".join(judgement))
+    if judged and judgement is None:
+        raise Refused(f"STAGE_CHECK_MISSING {call_dir}: its stage judges every attempt, and no judgement of this one "
+                      "was recorded")
     return Call(call_dir).answer()
 
 
@@ -2047,6 +2067,26 @@ def self_test():
         handed, refused = None, f"; refused: {exc}"
     if handed != {"answer": '{"answer":"OK"}'}:
         failures.append("accepted() did not return the accepted call's structured output" + refused)
+    # a stage's judgement recorded beside an attempt the gate accepted: one answer between the gate and the judge (WP-08)
+    for label, judgement, judged, code in (
+            ("a recorded stage-check failure is refused on a read that does not ask for the judgement",
+             ["SET_MISMATCH planted judgement"], False, "STAGE_CHECK_FAILED"),
+            ("a recorded stage-check failure is refused on a judged read", ["SET_MISMATCH planted judgement"], True,
+             "STAGE_CHECK_FAILED"),
+            ("a judged read of an attempt no judgement was recorded for is refused", None, True, "STAGE_CHECK_MISSING"),
+            ("a judged read of an attempt its stage passed returns the output", [], True, None)):
+        ran.append(f"accepted: {label}")
+        judged_dir = materialize(claude)
+        if judgement is not None:
+            (judged_dir / STAGE_CHECK).write_text(json.dumps({"failures": judgement}), encoding="utf-8")
+        try:
+            handed, refused = accepted(judged_dir, judged=judged), ""
+        except Refused as exc:
+            handed, refused = None, str(exc)
+        if code is None and handed != {"answer": '{"answer":"OK"}'}:
+            failures.append(f"accepted: {label}: {refused}")
+        if code is not None and not refused.startswith(code):
+            failures.append(f"accepted: {label}: {refused or 'the output was returned'}")
 
     # --- contract fidelity (done-when 8) and the port of the probe's mutation audit -----------------
     # design §3.2's predicate branches and its control list, and the plan's additions, copied here

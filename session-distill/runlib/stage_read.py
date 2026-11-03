@@ -162,6 +162,14 @@ def answer_problems(window, rows, answer, call_id, expected_ids=()):
     return errors
 
 
+def judge(window, rows, expected_ids=()):
+    """The stage's check of one window's attempts, as `Supervisor.item(stage_check=)` asks it: pure code over the
+    attempt's call directory, which it only reads (its answer and its call id) - no model, no network, no write. The
+    supervisor records what it says beside the attempt, and `gate.accepted(judged=True)` is the one read of an answer
+    that sees both verdicts."""
+    return lambda call_dir: answer_problems(window, rows, answer_of(call_dir), call_id_of(call_dir), tuple(expected_ids))
+
+
 def answer_of(call_dir):
     """What an attempt answered, for the stage's check of it: only asked once the gate accepted the attempt."""
     return gate.Call(call_dir).answer()
@@ -315,20 +323,22 @@ class Reader:
 
     def call(self, item, window, rows, expected=()):
         """One window's call through the supervisor, its answer checked by the stage (`answer_problems`)."""
-        ids = tuple(e["expected_id"] for e in expected)
         return self.supervisor.item(
             STAGE, item, self.seat, payload(window, rows, expected), self.schema, case_type=CASE, caps=self.caps,
             view_window=True, tranche=self.tranche, max_output_tokens=self.cap,
-            stage_check=lambda d: answer_problems(window, rows, answer_of(d), call_id_of(d), ids))
+            stage_check=judge(window, rows, [e["expected_id"] for e in expected]))
 
     def window(self, name, where, item, doc, rows):
         """Read one window and keep its answer; returns its read record."""
         out = self.call(item, doc, rows)
+        # each attempt with what the stage's check said of it: [] when it passed, its lines when it failed, None when the
+        # gate failed it first and the check was not asked
+        attempts = out.get("attempts", [])
         row = {"window": where, "item": item, "outcome": out["outcome"], "codes": out.get("codes", []),
-               "checked": out.get("checked", []), "attempts": [pathlib.Path(a).name for a in out.get("attempts", [])]}
+               "attempts": [{"call": pathlib.Path(a).name, "stage_check": gate.stage_check_of(a)} for a in attempts]}
         if out["outcome"] != "accepted":
             return row, None
-        answer = gate.accepted(out["accepted"])
+        answer = gate.accepted(out["accepted"], judged=True)
         call_id = call_id_of(out["accepted"])
         row.update(call_id=call_id, **keep(self.run_dir, name, where, doc, call_id, answer))
         return row, (answer, call_id)
@@ -517,6 +527,12 @@ def fx_quote(entry, width=24):
     return quote, (0 if len(evidence.view_spans(entry, quote)) > 1 else None)
 
 
+def tree_digest(directory):
+    """`{path: sha256}` of every file under `directory` (self-test reading)."""
+    directory = pathlib.Path(directory)
+    return {str(p.relative_to(directory)): records.sha256_file(p) for p in sorted(directory.rglob("*")) if p.is_file()}
+
+
 def stored_evidence_of(run_dir, name):
     """The evidence records of one file's store (self-test reading)."""
     path = pathlib.Path(run_dir) / "evidence" / f"{name}.jsonl"
@@ -697,7 +713,32 @@ def self_test():
         first = next((w for w in windows_read if w["window"] == forced_of.get("a", ("",))[0]), {})
         control("EXPANSION_SKIPPED: an answer skipping a forced omission is refused by the stage and retried with its lines",
                 first.get("outcome") == "accepted" and len(first.get("attempts", [])) == 2
-                and any(line.startswith("EXPANSION_SKIPPED") for line in (first.get("checked") or [[]])[0]), f"{first}")
+                and any(line.startswith("EXPANSION_SKIPPED") for line in (first["attempts"][0]["stage_check"] or []))
+                and first["attempts"][1]["stage_check"] == [], f"{first}")
+        first_dirs = [run_dir / "calls" / a["call"] for a in first.get("attempts", [])]
+        control("the judge's failure is named beside the attempt in its call directory, as in the read record",
+                len(first_dirs) == 2 and guarded(lambda: gate.stage_check_of(first_dirs[0]), None)
+                == first["attempts"][0]["stage_check"]
+                and str(refusal(lambda: gate.accepted(first_dirs[0], judged=True))).startswith("STAGE_CHECK_FAILED"),
+                f"{first_dirs}")
+        # asked of a read-only copy of the accepted attempt, a judge that writes anything - even what it wrote before, in
+        # the run - fails on the copy, and the run itself must not change under it
+        accepted_dir = first_dirs[-1] if first_dirs else run_dir
+        pure_copy = root / "pure" / accepted_dir.name
+        guarded(lambda: shutil.copytree(accepted_dir, pure_copy), None)
+        locked = [pure_copy, *sorted(pure_copy.rglob("*"))] if pure_copy.is_dir() else []
+        for path in locked:
+            path.chmod(0o500 if path.is_dir() else 0o400)
+        before = tree_digest(run_dir)
+        forced_doc = guarded(lambda: json.loads((run_dir / windows[int(first["window"].rsplit("/", 1)[1])]["path"]).read_text()),
+                             None)
+        try:
+            verdict = guarded(lambda: judge(forced_doc, own_rows(forced_doc))(pure_copy), None) if locked else None
+        finally:
+            for path in locked:
+                path.chmod(0o700 if path.is_dir() else 0o600)
+        control("the judge is pure: asked of a read-only copy of an accepted attempt it answers the same, and nothing in the "
+                "run changes", verdict == [] and tree_digest(run_dir) == before, f"{verdict}")
         expansions = main_file.get("expansions", [])
         control("the forced omission is expanded, and its expansion windows read under the same template",
                 bool(expansions) and all(x["outcome"] == "accepted" for x in expansions), f"{expansions}")
@@ -806,6 +847,26 @@ def self_test():
         seq_d = guarded(lambda: records.read_json(records.run_json_path(run_d))["declaration_seq"], None)
         control("X r1: the reading runs under the declaration S3 was admitted against, not one read before it",
                 not problem and summary_d.get("declaration_seq") == seq_d and seq_d == 1, f"{problem} {summary_d.get('declaration_seq')} {seq_d}")
+
+        # ---- run E: a supervisor handing back the attempt its stage check failed - one read sees both verdicts
+        run_e, sup_e, _ = fx_reader(root / "e", "e", answers_a, expanding=forcing)
+        name_e, _ = fx_main_windows(run_e)
+        honest = sup_e.item
+
+        def lying(*args, **kwargs):
+            out = honest(*args, **kwargs)
+            if out.get("outcome") == "accepted" and len(out.get("attempts", [])) == 2:
+                out = {**out, "accepted": out["attempts"][0]}
+            return out
+        sup_e.item = lying
+        summary_e = {}
+        problem = refusal(lambda: summary_e.update(run(run_e, sup_e)))
+        judged_away = f"e-S3-{name_e}-w{forced_of.get('a', ('/0',))[0].rsplit('/', 1)[1]}-a1"
+        kept_e = [json.loads(line) for line in guarded(lambda: (run_e / "claims" / f"{name_e}.jsonl").read_text().splitlines(), [])]
+        control("an attempt the gate passed and the stage's check failed is never read as accepted: none of its claims is "
+                "stored, and its unit is quarantined by name",
+                not problem and "STAGE_CHECK_FAILED" in json.dumps(summary_e.get("quarantined"))
+                and not any(c["call_id"] == judged_away for c in kept_e), f"{problem} {summary_e.get('quarantined')}")
 
         # ---- run C: a reading that credits what its file does not owe is refused by the hand-back before anything lands
         real = globals()["owed_readings"]
