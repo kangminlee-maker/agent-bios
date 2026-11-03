@@ -365,6 +365,15 @@ def self_test():
                 answers=planted("read", lambda s: s["$defs"]["observation"]["properties"]["exposure"]["enum"].append("exposed"),
                                 answers)),
              "CONTRACT_MISMATCH read.observation.exposure (design §11)"),
+            # X review of WP-08 r1 #3: each comparison has a departure only it names
+            ("a window answering what the stitch records (stitched_from)", lambda: answer_problems(
+                answers=planted("read", lambda s: s["$defs"]["event"]["properties"].update(
+                    stitched_from={"type": "array", "items": {"type": "string"}}), answers)),
+             "CONTRACT_MISMATCH read.event fields (design §5.4)"),
+            ("a verdict the stored instance cannot hold", lambda: answer_problems(
+                answers=planted("read", lambda s: s["$defs"]["observation"]["properties"]["verdict"]["enum"].append("unclear"),
+                                answers)),
+             "CONTRACT_MISMATCH read.observation.verdict (design §11)"),
             ("a decision other than expand or skip", lambda: answer_problems(
                 answers=planted("read", lambda s: s["$defs"]["decision"]["properties"]["decision"]["enum"].append("defer"),
                                 answers)),

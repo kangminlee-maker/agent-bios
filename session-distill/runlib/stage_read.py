@@ -9,15 +9,17 @@ records and the expected observations due, and answers in `schemas/read.schema.j
 `answer_problems` is the stage's part of steps 4 and 5, handed to `Supervisor.item` as its `stage_check`, so an answer
 that fails it is retried once with its lines exactly as one the gate fails:
 
-- every quote names an entry this window owns, every claim's and observation's `evidence_ids` name quotes of the
-  same answer, every event's `claim_ids` claims of it, every claim echoes this call's id, an event starts on an owned
-  record that is not context, and ids do not repeat (RECORD_INTEGRITY);
+- every quote names an entry this window shows - its own records or the overlap before and after them - every
+  claim's and observation's `evidence_ids` name quotes of the same answer, every event's `claim_ids` claims of it,
+  every claim echoes this call's id, an event starts and an observation's occasion lies on an owned record, an event
+  not on a context one, and ids do not repeat (RECORD_INTEGRITY);
 - one decision for each omission of the window's own records, and none skipping a forced one (`views.check_decisions`:
   SET_MISMATCH, EXPANSION_SKIPPED, EXPANSION_DECISION_INVALID). The overlap rows are the owning window's
   (D-20261103-8bfd69).
 
 Quote fidelity is code's, after the call: every quote becomes an evidence record through `evidence.from_view`, which
-finds the span in what the window showed and reads the text from the projection. A quote that does not locate drops
+finds the span in what the window showed of that entry, owned or overlap, and reads the text from the projection; the
+record keeps the entry's own role. A quote that does not locate drops
 every claim citing it, and an event left with no claim, and the window's read record lists each drop with its code
 (QUOTE_MISMATCH, QUOTE_AMBIGUOUS, ...): the claim is never repaired. A stored claim keeps its fact, interpretation
 and uncertainty as answered, with the located evidence ids and an id derived from its window; claim files are
@@ -39,7 +41,11 @@ and its reasons are named. Until the stitch exists, a unit with a pending event 
 `read-results.json` is `coverage.apply_results`' input, folded here against the census's observed state so a result
 that does not fit is refused in S3; S12 promotes it. `read.json` holds the counts.
 
-Refused by name: OVERLAP_OWNER_MISSING, OVERLAP_INTERVAL_UNSHOWN, WINDOWLESS_VIEW, VIEW_DRIFT, CLAIM_IMMUTABLE, and
+The reader takes the declaration S3 was admitted against (`records.StageRun.declaration`), and refuses a view whose
+windows were cut for another output cap than the one its calls declare (WINDOW_CAP_MISMATCH).
+
+Refused by name: OVERLAP_OWNER_MISSING, OVERLAP_INTERVAL_UNSHOWN, WINDOWLESS_VIEW, VIEW_DRIFT, CLAIM_IMMUTABLE,
+WINDOW_CAP_MISMATCH, and
 CLAIM_INVALID and EVENT_INVALID for a stored record its schema refuses.
 
   stage_read.py --self-test
@@ -96,12 +102,22 @@ def payload(window, rows, expected=()):
 
 
 def shown_entries(window):
+    """The records this window owns, by entry: where an event starts and an observation's occasion lies."""
     return {views.eid(r): r for r in window["records"]}
+
+
+def quotable_entries(window):
+    """Every entry this window shows, by entry: its own records and the overlap before and after them. A quote may cite
+    any of them as shown (an exposure seen in the overlap before an owned action, X review of WP-08 r1), and is located
+    in what that entry showed, under its own role (`evidence.from_view`); owning stays with `shown_entries`."""
+    out = {e["entry"]: e for side in ("prev", "next") for e in window.get("overlap", {}).get(side, [])}
+    out.update(shown_entries(window))
+    return out
 
 
 def answer_problems(window, rows, answer, call_id, expected_ids=()):
     """The stage's steps 4 and 5 over one answer (module docstring); empty when it holds."""
-    errors, shown = [], shown_entries(window)
+    errors, shown, quotable = [], shown_entries(window), quotable_entries(window)
 
     def ids(kind, items, key):
         found = [item[key] for item in items]
@@ -114,9 +130,9 @@ def answer_problems(window, rows, answer, call_id, expected_ids=()):
     claim_ids = ids("claim", answer["claims"], "claim_id")
     ids("event", answer["events"], "event_id")
     for q in answer["quotes"]:
-        if q["entry"] not in shown:
-            errors.append(f"RECORD_INTEGRITY entry {q['entry']!r} at quotes/{q['quote_id']} is no record this window "
-                          "owns; quote only the records owned by this window")
+        if q["entry"] not in quotable:
+            errors.append(f"RECORD_INTEGRITY entry {q['entry']!r} at quotes/{q['quote_id']} is no entry this window "
+                          "shows")
     for c in answer["claims"]:
         if c["call_id"] != call_id:
             errors.append(f"RECORD_INTEGRITY call id {c['call_id']!r} at claims/{c['claim_id']} is not this packet's "
@@ -173,7 +189,7 @@ def append_lines(run_dir, rel, rows):
 def keep(run_dir, name, where, window, call_id, answer):
     """Store one accepted answer of the window `where`: evidence for every quote that locates, the claims whose
     quotes all located, the events with a claim left. Returns what the window's read record says of it."""
-    shown, located, failed = shown_entries(window), {}, {}
+    shown, located, failed = quotable_entries(window), {}, {}
     for q in answer["quotes"]:
         try:
             located[q["quote_id"]] = evidence.from_view(run_dir, window["version_sha"], shown[q["entry"]], q["text"],
@@ -286,9 +302,10 @@ def overlap_accounting(name, docs, accepted, sequence):
 class Reader:
     """One S3 run's reading: the declaration's seat and cap, the supervisor every call goes through."""
 
-    def __init__(self, run_dir, supervisor, tranche="broad"):
+    def __init__(self, run_dir, supervisor, declaration, tranche="broad"):
+        """`declaration` is the one the stage was admitted against (`records.StageRun.declaration`), never a read of
+        run.json made before admission (X review of WP-08 r1)."""
         self.run_dir, self.supervisor, self.tranche = pathlib.Path(run_dir), supervisor, tranche
-        declaration = records.read_json(records.run_json_path(self.run_dir))
         self.declaration = declaration
         self.seat = declaration["seats"][STAGE]
         self.cap = declaration["output_caps"][STAGE]
@@ -328,6 +345,12 @@ class Reader:
                           overlap={"rows": 0, "credited": 0, "not_owed": 0, "uncredited": []}, pending=0, seen=[])
             return result
         docs, accepted, decisions, expanded, seen = {}, set(), [], set(), set()
+        # a window was cut leaving room for the cap S3 declares; a call declaring another cap is a window cut for
+        # another call (X review of WP-08 r1)
+        reservation = views.sequence_doc(self.run_dir, name)["limits"]["reservation"]
+        if reservation != self.cap:
+            raise Refused(f"WINDOW_CAP_MISMATCH {t['transcript']}: its windows were cut for an output cap of "
+                          f"{reservation} and this run's S3 calls declare {self.cap}")
         for listed in t["windows"]:
             path = self.run_dir / listed["path"]
             if records.sha256_file(path) != listed["sha256"]:
@@ -430,10 +453,10 @@ def hand_back(rows, viewed, results, done):
 def run(run_dir, supervisor, tranche="broad"):
     """S3 over the views S2 left: one read record per unit, `read-results.json`, `read.json`."""
     run_dir = pathlib.Path(run_dir)
-    reader = Reader(run_dir, supervisor, tranche)
     with records.run_stage(run_dir, STAGE, [{"artifact": "views.json", "producer_stage": "S2"},
                                             {"artifact": "census.json", "producer_stage": "S1"},
                                             {"artifact": "coverage.json", "producer_stage": "S1"}]) as stage:
+        reader = Reader(run_dir, supervisor, stage.declaration, tranche)
         manifest = records.read_json(run_dir / "views.json")
         document = census.load(run_dir)
         rows = census.rows(document)
@@ -474,7 +497,7 @@ def run(run_dir, supervisor, tranche="broad"):
         _census, _state, flags = census.reconcile(document, state, done, reader.declaration["kind"])
         records.write_json(run_dir, run_dir / "read-results.json", {"window": window_id, "results": done})
         stage.output("read-results.json")
-        summary.update(window=window_id, quarantined=outcome["quarantined"], accounted=flags["accounted"], fully_read=flags["fully_read"],
+        summary.update(window=window_id, declaration_seq=reader.declaration["declaration_seq"], quarantined=outcome["quarantined"], accounted=flags["accounted"], fully_read=flags["fully_read"],
                        statuses=dict(collections.Counter(summary["units"].values())))
         records.write_json(run_dir, run_dir / "read.json", summary)
         stage.output("read.json")
@@ -492,6 +515,27 @@ def fx_quote(entry, width=24):
     text = entry["text"][seg["view"][0]:seg["view"][1]]
     quote = text[:width]
     return quote, (0 if len(evidence.view_spans(entry, quote)) > 1 else None)
+
+
+def stored_evidence_of(run_dir, name):
+    """The evidence records of one file's store (self-test reading)."""
+    path = pathlib.Path(run_dir) / "evidence" / f"{name}.jsonl"
+    return evidence.load(run_dir, name) if path.is_file() else []
+
+
+OVERLAP_QUOTE_AT = 40   # where in its first shown stretch the overlap quote starts: past what the owning window quotes
+
+
+def fx_overlap_quote(doc, quote_id="q2"):
+    """A quote of the last entry the overlap before `doc` shows (an exposure seen before an owned action), or None. It
+    starts OVERLAP_QUOTE_AT characters into the entry, so its evidence is not the one the owning window's quote made."""
+    if not doc["overlap"]["prev"]:
+        return None
+    entry = doc["overlap"]["prev"][-1]
+    a, b = entry["segments"][0]["view"]
+    text = entry["text"][a + OVERLAP_QUOTE_AT:min(b, a + OVERLAP_QUOTE_AT + 24)]
+    occurrence = 0 if len(evidence.view_spans(entry, text)) > 1 else None
+    return {"quote_id": quote_id, "entry": entry["entry"], "text": text, **({"occurrence": occurrence} if occurrence is not None else {})}
 
 
 def fx_answer(doc, rows, decide=lambda m: "expand" if m["forced_by"] != "none" else "skip", events=(), extra_quotes=(),
@@ -624,8 +668,8 @@ def self_test():
                 text, _ = fx_quote(first)
                 retyped = {"quote_id": "q2", "entry": views.eid(first), "text": ("Z" if text[0] != "Z" else "Y") + text[1:]}
                 return [((), fx_answer(doc, rows, extra_quotes=[retyped], events=[event("c2", "pending")]))]
-            if where.endswith("/3") and where.startswith("claude_"):
-                return [((), fx_answer(doc, rows, events=[event("c1", "pending")]))]
+            if where.endswith("/3") and where.startswith("claude_"):  # a claim resting on what the overlap shows
+                return [((), fx_answer(doc, rows, events=[event("c1", "pending")], extra_quotes=[fx_overlap_quote(doc)]))]
             if where.startswith("codex_"):
                 return [((), fx_answer(doc, rows, events=[event("c1", "resolved")]))]
             return [((), fx_answer(doc, rows))]
@@ -670,6 +714,19 @@ def self_test():
                 "window's record reports both by code",
                 [(d.get("claim") or d.get("event"), d["code"]) for d in second.get("dropped", [])]
                 == [("c2", "QUOTE_MISMATCH"), ("v1", "CLAIMS_DROPPED")] and len(second.get("claims", [])) == 1, f"{second}")
+        third = next((w for w in windows_read if w["window"] == f"{name}/3"), {})
+        third_doc = guarded(lambda: json.loads((run_dir / windows[3]["path"]).read_text()), {"overlap": {"prev": []}})
+        overlap_entry = (third_doc["overlap"]["prev"] or [{}])[-1]
+        overlap_evidence = [r for r in stored_evidence_of(run_dir, name) if r["line"] == overlap_entry.get("line")
+                            and r["json_pointer"] == overlap_entry.get("json_pointer")
+                            and r["char_span"][0] == overlap_entry["segments"][0]["block"][0] + OVERLAP_QUOTE_AT] \
+            if overlap_entry.get("segments") else []
+        control("X r1: a claim resting on a quote of the overlap before the window is kept, its evidence located in what "
+                "the overlap showed under that record's own role",
+                len(third.get("claims", [])) == 2 and not third.get("dropped") and len(overlap_evidence) == 1
+                and overlap_evidence[0]["window_role"] == overlap_entry.get("window_role")
+                and not guarded(lambda: evidence.verify(run_dir, overlap_evidence[0]), ["unverifiable"]),
+                f"{third} {overlap_evidence}")
         codex_name = next((f["name"] for f in record_of(run_dir, codex_unit).get("files", [])), None)
         kept_events = [json.loads(line) for n in (name, codex_name) if n and (run_dir / "events" / f"{n}.jsonl").is_file()
                        for line in (run_dir / "events" / f"{n}.jsonl").read_text().splitlines()]
@@ -732,6 +789,24 @@ def self_test():
                 "stays read_partial", bool(file_b.get("overlap", {}).get("uncredited")) and main_b.get("status") == "read_partial"
                 and any("overlap rows uncredited" in r for r in main_b.get("reasons", [])), f"{file_b.get('overlap')} {main_b.get('reasons')}")
 
+        # ---- run D: an amendment landing just before S3's admission is the declaration the reading runs under (X r1)
+        run_d, sup_d, _ = fx_reader(root / "d", "d", lambda where, doc, rows, parts: [((), fx_answer(doc, rows))], expanding=forcing)
+        admitted = records.run_stage
+
+        def racing(directory, stage, inputs=(), part=None):
+            if stage == STAGE:
+                declare.amend(directory, [("checks.view_complete_share_min", 0.8)], "an amendment just before S3's admission")
+            return admitted(directory, stage, inputs, part=part)
+        records.run_stage = racing
+        try:
+            summary_d = {}
+            problem = refusal(lambda: summary_d.update(run(run_d, sup_d)))
+        finally:
+            records.run_stage = admitted
+        seq_d = guarded(lambda: records.read_json(records.run_json_path(run_d))["declaration_seq"], None)
+        control("X r1: the reading runs under the declaration S3 was admitted against, not one read before it",
+                not problem and summary_d.get("declaration_seq") == seq_d and seq_d == 1, f"{problem} {summary_d.get('declaration_seq')} {seq_d}")
+
         # ---- run C: a reading that credits what its file does not owe is refused by the hand-back before anything lands
         real = globals()["owed_readings"]
 
@@ -782,8 +857,8 @@ def self_test():
             edit(answer)
             found = answer_problems(doc, rows, answer, "r-S3-x-a1")
             control(f"answer_problems: {label}", any(line.startswith(code) and fragment in line for line in found), f"{found}")
-        departs("a quote of an entry the window does not own", lambda a: a["quotes"][0].update(entry="999/message/content"),
-                "RECORD_INTEGRITY", "is no record this window owns")
+        departs("a quote of an entry the window does not show", lambda a: a["quotes"][0].update(entry="999/message/content"),
+                "RECORD_INTEGRITY", "is no entry this window shows")
         departs("a claim echoing another call id", lambda a: a["claims"][0].update(call_id="r-S3-x-a2"), "RECORD_INTEGRITY",
                 "is not this packet's CALL-ID")
         departs("a claim citing a quote the answer does not hold", lambda a: a["claims"][0].update(evidence_ids=["q9"]),
@@ -808,6 +883,32 @@ def self_test():
                                                                         "at_record": good["quotes"][0]["entry"], "claim_ids": ["c1"],
                                                                         "outcome": "pending", "description": "x"}]}, "r-S3-x-a1")
         control("answer_problems: an event starting on a context record is another window's", any("a context record" in l for l in found), f"{found}")
+        bounded = next((json.loads((run_dir / w["path"]).read_text()) for _n, w in sorted(windows.items())
+                        if json.loads((run_dir / w["path"]).read_text())["overlap"]["prev"]), None)
+        if bounded is None:
+            control("X r1: the golden view has a window with overlap before it", False)
+        else:
+            b_rows = own_rows(bounded)
+            exposure = fx_overlap_quote(bounded)
+            seen = json.loads(json.dumps(fx_answer(bounded, b_rows, extra_quotes=[exposure])).replace("<CALL-ID>", "r-S3-x-a1"))
+            owned_at, overlap_at = seen["quotes"][0]["entry"], exposure["entry"]
+            observed = {**seen, "claims": seen["claims"][:1], "observations": [
+                {"expected_id": "x-1", "occasion_locator": owned_at, "exposure": "eligible", "verdict": "observed",
+                 "evidence_ids": ["q2", "q1"]}]}
+            control("X r1 boundary: an owned action whose exposure the overlap before it shows is answerable, citing both",
+                    answer_problems(bounded, b_rows, observed, "r-S3-x-a1", ("x-1",)) == [],
+                    f"{answer_problems(bounded, b_rows, observed, 'r-S3-x-a1', ('x-1',))}")
+            elsewhere = copy.deepcopy(observed)
+            elsewhere["observations"][0]["occasion_locator"] = overlap_at
+            found = answer_problems(bounded, b_rows, elsewhere, "r-S3-x-a1", ("x-1",))
+            control("X r1: an occasion in the overlap is another window's", any(f"{overlap_at!r} at observations/x-1 is no "
+                                                                                   "record this window owns" in l for l in found), f"{found}")
+            started = {**observed, "observations": [], "events": [{"event_id": "v1", "kind": "request", "at_record": overlap_at,
+                                                                 "claim_ids": ["c1"], "outcome": "pending", "description": "x"}]}
+            found = answer_problems(bounded, b_rows, started, "r-S3-x-a1")
+            control("X r1: an event starting in the overlap is another window's",
+                    any(f"{overlap_at!r} at events/v1/at_record is no record this window owns" in l for l in found), f"{found}")
+
 
         # ---- the overlap accounting's refusals (no call)
         docs = {n: json.loads((run_dir / w["path"]).read_text()) for n, w in windows.items()}
@@ -833,7 +934,7 @@ def self_test():
         control("an overlap row whose owner was not accepted is uncredited", target["omission_id"] in partial["uncredited"], f"{partial}")
 
         # ---- a file S2 cut no window for (plan amendment row 9)
-        reader = Reader(run_dir, sup)
+        reader = Reader(run_dir, sup, records.read_json(records.run_json_path(run_dir)))
         bare = {"transcript": "claude:w", "name": "claude_w", "windows": [], "viewed_items": 0, "unresolved_versions": []}
         credited = guarded(lambda: reader.file(bare, 0), {})
         control("a file whose owed records hold no content block is credited by code, with its reason",
@@ -842,6 +943,10 @@ def self_test():
         control("WINDOWLESS_VIEW: a file with viewed blocks and no window is refused",
                 refusal(lambda: reader.file({**bare, "viewed_items": 3}, 0)).startswith("WINDOWLESS_VIEW"))
         listed = records.read_json(run_dir / "views.json")["transcripts"]
+        declared = records.read_json(records.run_json_path(run_dir))
+        other_cap = Reader(run_dir, sup, {**declared, "output_caps": {STAGE: declared["output_caps"][STAGE] + 1}})
+        control("WINDOW_CAP_MISMATCH: a view cut for another output cap than the one the calls declare is never read",
+                refusal(lambda: other_cap.file(next(t for t in listed if t["name"] == name), 0)).startswith("WINDOW_CAP_MISMATCH"))
         drifted = next(t for t in listed if t["name"] == name)
         window_file = run_dir / drifted["windows"][0]["path"]
         window_file.write_bytes(window_file.read_bytes() + b"\n")

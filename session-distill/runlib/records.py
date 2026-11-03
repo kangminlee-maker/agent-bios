@@ -25,6 +25,7 @@ violations as a list; the ones that guard starting a stage or running its items 
   records.py --self-test
 """
 import contextlib
+import copy
 import datetime
 import hashlib
 import importlib.util
@@ -333,10 +334,14 @@ def run_items(posture, items, work):
 
 class StageRun:
     """The record of a running stage; the stage adds its outputs, runs its items under the
-    run's posture, and may mark itself partial."""
+    run's posture, and may mark itself partial. `declaration` is the run.json the stage was
+    admitted against, read under the declaration lock: a stage takes what it needs of the
+    declaration from here, never from a read of its own made before admission, which an
+    amendment could have overtaken (X review of WP-08 r1)."""
 
-    def __init__(self, run_dir, record, posture):
+    def __init__(self, run_dir, record, posture, declaration=None):
         self.run_dir, self.record, self.posture = pathlib.Path(run_dir), record, posture
+        self.declaration = declaration
 
     def output(self, artifact):
         path = contained(self.run_dir, artifact)
@@ -493,7 +498,7 @@ def run_stage(run_dir, stage, inputs=(), part=None):
                               f"replace all of them")
             publish_record(run_dir, stage, document)
         try:
-            yield StageRun(run_dir, record, run.get("posture"))
+            yield StageRun(run_dir, record, run.get("posture"), copy.deepcopy(run))
         except BaseException:
             record["status"] = "failed"
             raise

@@ -501,6 +501,18 @@ def render_entry(entry):
     return header_of(entry) + "\n" + entry["text"] + "\n"
 
 
+def shown_segments(entry, end):
+    """The segments of `entry` that the first `end` characters of its view text show, each in the same coordinates."""
+    out = []
+    for seg in entry["segments"]:
+        a, b = seg["view"]
+        if a >= end:
+            break
+        stop = min(b, end)
+        out.append({"view": [a, stop], "block": [seg["block"][0], seg["block"][0] + (stop - a)]})
+    return out
+
+
 def overlap_of(entry):
     """An entry as the overlap of its neighbour shows it: cut to OVERLAP_ITEM_BYTES, with its place in the
     sequence and every interval it has lost, in the PROJECTED BLOCK's coordinates, each with its own hash.
@@ -521,10 +533,13 @@ def overlap_of(entry):
     # `size` is the record's own length - the full projected block - and it rides along unchanged. A row
     # that substituted a span's end, or the length of a text already capped to 700, reported the head of a
     # clipped result as the size of the record; §5.4 and done-when 4 read this number as the record's size.
-    shown = {"entry": eid(entry), "record_id": entry["record_id"], "line": entry["line"],
+    # `json_pointer` and the `segments` of what is shown let a quote of the overlap be located exactly as one of an owned
+    # record: the overlap is evidence a reading may cite (an exposure seen before the action, X review of WP-08 r1), while
+    # owning it stays with its own window. The cut is a prefix, so the shown segments are the entry's, ended at the cut.
+    shown = {"entry": eid(entry), "record_id": entry["record_id"], "line": entry["line"], "json_pointer": entry["json_pointer"],
              "size": entry["size"], "kind": entry["kind"], "tool": entry.get("tool"),
              "ts": entry.get("ts"), "window_role": entry["window_role"], "error": entry.get("error", False),
-             "text": text, "overlap_cut": cut or bool(entry.get("cut"))}
+             "text": text, "segments": shown_segments(entry, len(text)), "overlap_cut": cut or bool(entry.get("cut"))}
     lost = (omitted_intervals(entry, len(text), len(entry["text"])) if cut else []) \
         + list(entry.get("cut_spans", []))
     if lost:
@@ -1190,16 +1205,11 @@ def view_transcript(run_dir, entry, file, state, ctx, unit=None):
 def run(run_dir, overhead=bound.PACKET_OVERHEAD, seats_path=None):
     """`distill.py views`: S2 over the census and the coverage state S1 left in the run directory."""
     run_dir = pathlib.Path(run_dir)
-    declaration = records.read_json(records.run_json_path(run_dir))
-    limits = limits_of(declaration, overhead, seats_path)
     try:
         transcripts = census.rows(census.load(run_dir))
     except ValueError as exc:
         raise Refused(f"INPUT_INVALID S1: {run_dir}/census.json: {exc}") from exc
     state = coverage.load(run_dir / "coverage.json")[0]
-    _, _, window_id = coverage.window_bounds(declaration["window"])
-    ctx = {"limits": limits, "redaction_version": projection.CURRENT, "zstd": sources.declared(declaration).get("zstd"),
-           "window_bounds": coverage.window_bounds(declaration["window"])[:2]}
     # The unit is a root with every member at any depth (D-20261103-85f3e8). Of an eligible unit S2 reads each transcript
     # that owes the window something - the root or a member, its records in the window or its backlog - and no other: a
     # member with nothing to read would cut no window. An eligible root whose unit owes nothing contradicts S1.
@@ -1224,6 +1234,14 @@ def run(run_dir, overhead=bound.PACKET_OVERHEAD, seats_path=None):
     with records.run_stage(run_dir, "S2", [{"artifact": "census.json", "producer_stage": "S1"},
                                            {"artifact": "coverage.json", "producer_stage": "S1"}],
                            part="views") as stage:
+        # the limits are the declaration this stage was admitted against: a read made before admission could be
+        # overtaken by an amendment of the cap, and the windows would be cut at a cap the record does not name (X r1)
+        declaration = stage.declaration
+        limits = limits_of(declaration, overhead, seats_path)
+        _, _, window_id = coverage.window_bounds(declaration["window"])
+        ctx = {"limits": limits, "redaction_version": projection.CURRENT, "zstd": sources.declared(declaration).get("zstd"),
+               "window_bounds": coverage.window_bounds(declaration["window"])[:2]}
+
         def work(item):
             done[item["id"]] = view_transcript(run_dir, item["entry"], item["file"], state, ctx, item["unit"])
 
@@ -3540,6 +3558,63 @@ def self_test():
     checks.expect("design §5.4: a claim of absence rests on basis source and on nothing else",
                   {basis: absence_claim_allowed(basis) for basis in ("incomplete", "view", "source")},
                   {"incomplete": False, "view": False, "source": True})
+    with tempfile.TemporaryDirectory(prefix="views-x1-") as td:
+        x1 = pathlib.Path(td)
+        # X review of WP-08 r1 #2: an amendment of the cap landing after a read of the declaration and before S2's
+        # admission. The windows are cut with the cap of the declaration the stage was admitted against
+        admitted = records.run_stage
+
+        def racing(run_dir, stage, inputs=(), part=None):
+            if stage == "S2":
+                declare.amend(run_dir, [(f"output_caps.{declare.VIEW_WINDOW_STAGE}", 48_000)],
+                              "an amendment between a read of the declaration and the admission")
+            return admitted(run_dir, stage, inputs, part=part)
+        records.run_stage = racing
+        try:
+            raced = golden(x1, "raced", overhead=100_000)
+        except Exception as exc:  # noqa: BLE001 - reported by the controls below, by name
+            raced = {"error": repr(exc)}
+        finally:
+            records.run_stage = admitted
+        if "error" in raced:
+            checks.expect("X r1: a run whose cap is amended just before S2's admission is made", raced["error"], None)
+        else:
+            raced_dir = pathlib.Path(raced["run_dir"])
+            seq = records.read_json(records.run_json_path(raced_dir))["declaration_seq"]
+            part = records.read_json(records.record_path(raced_dir, "S2")).get("parts", {}).get("views", {})
+            checks.expect("X r1: an amendment just before S2's admission is the cap the views record and their windows "
+                          "are cut with, under the declaration S2 recorded",
+                          ({views_t["limits"]["reservation"] for views_t in [raced["manifest"]]},
+                           {sequence_doc(raced_dir, t["name"])["limits"]["reservation"] for t in raced["manifest"]["transcripts"]},
+                           part["declaration_seq"] == seq),
+                          ({48_000}, {48_000}, True))
+        # X review of WP-08 r1 #1: what the overlap shows is located like an owned record's text, and nothing past its cut
+        shown_run = golden(x1, "shown", overhead=100_000)
+        shown_dir, shown_main = pathlib.Path(shown_run["run_dir"]), shown_run["main"]
+        cut_entry = next((e for w in shown_run["windows"] for e in w["overlap"]["prev"] if e["overlap_cut"]), None)
+        split_part = next((e for w in shown_run["windows"] for e in w["overlap"]["prev"] + w["overlap"]["next"]
+                            if "#" in e["entry"]), None)
+        for label, entry in (("a cut overlap entry", cut_entry), ("an overlap entry of a split span", split_part)):
+            if entry is None:
+                checks.expect(f"X r1: the golden windows hold {label}", None, "an entry")
+                continue
+            try:
+                made = evidence_store.from_view(shown_dir, shown_main["version_sha"], entry, entry["text"][:30])
+                got = (evidence_store.verify(shown_dir, made), made["window_role"])
+            except Exception as exc:  # noqa: BLE001 - an entry that cannot be located fails this control by name
+                got = repr(exc)
+            checks.expect(f"X r1: a quote of {label} as shown is located and walks back to the copy, keeping its role",
+                          got, ([], entry["window_role"]))
+        if cut_entry is not None:
+            checks.expect("X r1: a cut overlap entry's segments end where its shown text ends, so they claim no more than "
+                          "it shows", max((s["view"][1] for s in cut_entry.get("segments", [])), default=None),
+                          len(cut_entry["text"]))
+            owner_text = next(r["text"] for w in shown_run["windows"] for r in w["records"]
+                              if eid(r) == cut_entry["entry"])
+            past = owner_text[len(cut_entry["text"]):len(cut_entry["text"]) + 30]
+            checks.refused("X r1: a quote of what the overlap cut off is not located in the overlap",
+                           lambda: evidence_store.from_view(shown_dir, shown_main["version_sha"], cut_entry, past),
+                           "QUOTE_MISMATCH")
     if not checks.ran:
         checks.failures.append("the self-test asserted nothing")
     for failure in checks.failures:
