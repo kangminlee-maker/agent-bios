@@ -367,7 +367,8 @@ def stop_recorded(identity, settle_s=2.0, freeze_wait_s=1.0):
         rows = ps_table()
     except ListingFailed as exc:
         return "unverified", (f"the kill listing failed ({exc}): pids {sorted(members)} of group {pgid} were stopped "
-                              f"and none was killed")
+                              f"and none was killed; they stay stopped until the owner checks each pid against the run's "
+                              f"host and ends it")
     _signal(rows, members, signal.SIGKILL)
     deadline, left = time.monotonic() + settle_s, None
     while time.monotonic() < deadline:
