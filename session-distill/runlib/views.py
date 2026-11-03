@@ -1617,13 +1617,17 @@ def fx_seats(root, capacity, seat=None, host_version="2.1.304", name=None):
 
 
 def golden(root, name="g", overhead=bound.PACKET_OVERHEAD, capacity=None, reservation=32_000,
-           allowance=3200, census_sha=None, compressed=False, main_records=None, owned=None, allowance_entry=None):
+           allowance=3200, census_sha=None, compressed=False, main_records=None, owned=None, allowance_entry=None,
+           window=None, state=None, prefix_ok=None):
     """A run directory S2 can be run over, and the result of running it (realization: golden).
 
     The transcripts are `fx_main_records` (eligible, with a pending event and four clipped tool results), its child,
     and a Codex session the previous window deferred. `overhead` is what makes the bound bite: the packet's bytes are
     the one part of the driver's budget a fixture can set, so a small corpus produces several windows, split spans and
-    overlaps instead of a 100 KB one. `census_sha` plants a census that read other bytes than the copy now hashes to."""
+    overlaps instead of a 100 KB one. `census_sha` plants a census that read other bytes than the copy now hashes to.
+    `window` and `state` make the run of a later window over the coverage state an earlier run left (WP-08 done-when 4):
+    the transcripts are observed into that state as S1 observes them, `prefix_ok` saying whether a changed file kept the
+    earlier version as its prefix (`coverage.observe`), and nothing is planted in it."""
     root = pathlib.Path(root)
     run_dir, host = root / name, root / f"{name}-host"
     main_path, child_path = host / "t1.jsonl", host / "t1-child.jsonl"
@@ -1651,35 +1655,41 @@ def golden(root, name="g", overhead=bound.PACKET_OVERHEAD, capacity=None, reserv
     # a Codex file's coverage key names the file (D-20261103-a7128a)
     main_tid, child_tid, codex_tid = (lineage.identity("claude", main_id), lineage.identity("claude", child_id),
                                       f"{lineage.identity('codex', codex_id)}@{census.stem_of(codex_path)}")
-    _start, _end, window_id = coverage.window_bounds(FX_WINDOW)
+    window = window or FX_WINDOW
+    _start, _end, window_id = coverage.window_bounds(window)
 
-    state = coverage.new_state()
+    planted, state = state is None, copy.deepcopy(state) if state is not None else coverage.new_state()
     for tid, sha, count in ((main_tid, main_sha, len(main_records() if main_records else fx_main_records())),
                             (codex_tid, codex_sha, len(fx_codex_records())), (child_tid, child_sha, len(fx_child_records()))):
-        coverage.observe(state, tid, sha, count, records.sha256_bytes(f"prefix-{tid}".encode()), None)
-    state["pending_events"] = [{"id": "pe-1", "transcript": main_tid, "version": 0, "window": window_id, "first_record": 4}]
-    state["backlog"] = [{"transcript": codex_tid, "version": 0, "window": FX_PREV_WINDOW, "status": "deferred",
-                         "unread": [[0, len(fx_codex_records())]]}]
+        coverage.observe(state, tid, sha, count, records.sha256_bytes(f"prefix-{tid}".encode()), prefix_ok)
+    if planted:
+        state["pending_events"] = [{"id": "pe-1", "transcript": main_tid, "version": 0, "window": window_id, "first_record": 4}]
+        state["backlog"] = [{"transcript": codex_tid, "version": 0, "window": FX_PREV_WINDOW, "status": "deferred",
+                             "unread": [[0, len(fx_codex_records())]]}]
     # the records whose timestamps fall in the window; for the default transcript the first and the last two
     # do not. A caller whose transcript puts a case on the first record says so, or the control it writes
     # would be about a record no window owns.
     main_owned = owned or [[1, 10]]
+    codex_work = coverage.work_of(state, codex_tid, [], window_id)
     entries = [
         fx_entry("claude", main_id, "claude_projects", main_path, census_sha or main_sha, owned=main_owned,
                  work=coverage.work_of(state, main_tid, main_owned, window_id), versions=fx_versions(state, main_tid)),
         # S1 reads a member of an eligible unit like its root (D-20261103-85f3e8): the child carries its own work
         fx_entry("claude", child_id, "claude_projects", child_path, child_sha, status="child_of", parent=main_id,
-                 owned=fx_owned(fx_child_records()),
-                 work=coverage.work_of(state, child_tid, fx_owned(fx_child_records()), window_id), versions=fx_versions(state, child_tid)),
-        fx_entry("codex", codex_id, "codex_sessions", codex_path, codex_sha, owned=[],
-                 work=coverage.work_of(state, codex_tid, [], window_id), versions=fx_versions(state, codex_tid)),
+                 owned=fx_owned(fx_child_records(), window),
+                 work=coverage.work_of(state, child_tid, fx_owned(fx_child_records(), window), window_id),
+                 versions=fx_versions(state, child_tid)),
+        # a later window's run may find the Codex session owing it nothing, which S1 records as nothing new
+        fx_entry("codex", codex_id, "codex_sessions", codex_path, codex_sha, owned=[], work=codex_work,
+                 status="eligible" if codex_work["in_window"] or codex_work["backlog"] else "nothing_new",
+                 versions=fx_versions(state, codex_tid)),
     ]
     document = fx_census(window_id, entries)
     problems = validate.validate_instance(census.validator(), document)
     if problems:
         raise Refused("CENSUS_INVALID the golden census does not conform: " + "; ".join(problems[:3]))
 
-    declaration = {**declare.fixture(), "window": FX_WINDOW, "output_caps": {declare.VIEW_WINDOW_STAGE: reservation}}
+    declaration = {**declare.fixture(), "window": window, "output_caps": {declare.VIEW_WINDOW_STAGE: reservation}}
     seat = declaration["seats"][declare.VIEW_WINDOW_STAGE]
     declaration["host_allowance"] = {seat: {**declaration["host_allowance"][seat], "allowance_tokens": allowance}}
     if allowance_entry is not None:

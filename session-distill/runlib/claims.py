@@ -12,7 +12,9 @@ stage reads cannot enter a schema unnoticed.
 
 The two answers S3's calls return (`read.schema.json`, `stitch.schema.json`) are held to the same copies by
 `answer_mismatch`: a reading's claim object is §3.3's, its vocabularies are the stored records', and what code
-sets - an observation's coverage basis, an event's `unresolved` and `stitched_from` - is never answered.
+sets - an observation's coverage basis, an event's `unresolved`, `stitched_from` and `carried_from` - is never answered.
+`validate_record` holds the one event rule no schema keyword can state: an event names a claim of its own unless it is
+the line of one carried from an earlier run (`carried_from`).
 
   claims.py --self-test
 """
@@ -40,8 +42,14 @@ def validator_for(kind, schema_dir=SCHEMA_DIR):
 
 
 def validate_record(kind, record, schema_dir=SCHEMA_DIR):
-    """Violations of one record against its kind's schema; empty when it conforms."""
-    return validate.validate_instance(validator_for(kind, schema_dir), record)
+    """Violations of one record against its kind's schema; empty when it conforms. An event's `claim_ids` may be empty
+    only on a line carried from an earlier run's pending events, which this run holds no claim of (`carried_from`): the
+    schema policy has no conditional keyword, so the rule is here, where every stored record is validated."""
+    problems = validate.validate_instance(validator_for(kind, schema_dir), record)
+    if kind == "event" and isinstance(record, dict) and record.get("claim_ids") == [] and "carried_from" not in record:
+        problems.append("claim_ids: an event of a run's own reading names at least one claim; only the line of one "
+                        "carried from an earlier run (carried_from) names none")
+    return problems
 
 
 def contract_mismatch(kind, schema, section, required, together=()):
@@ -112,7 +120,7 @@ def answer_mismatch(answers, stored, claim_contract, basis, basis_returns, decis
         differ(f"read.observation.{field}", "§11", enum(answered, field), enum(observation, field))
     window_event = defs.get("event", {})
     differ("read.event fields", "§5.4", window_event.get("properties", {}),
-           set(event.get("properties", {})) - {"stitched_from"})
+           set(event.get("properties", {})) - {"stitched_from", "carried_from"})
     differ("read.event.outcome", "§5.4", enum(window_event, "outcome"), set(enum(event, "outcome")) - {"unresolved"})
     resolution = answers["stitch"].get("$defs", {}).get("resolution", {})
     differ("stitch.resolution.outcome", "§5.4", enum(resolution, "outcome"), set(enum(event, "outcome")) - {"pending"})
@@ -131,8 +139,11 @@ def self_test():
                               "char_span", "redaction_version", "redacted_text", "window_role"), ()),
         "expected_observation": ("§7.3", ("occasion_criteria", "exposure_rule", "expected_behavior",
                                           "retrieval_terms", "expiry"), ("counter", "threshold")),
-        # §5.4 names events and their outcomes; the field list is the implementation plan's WP-08 artifacts
-        "event": ("§5.4", ("event_id", "kind", "at_record", "claim_ids", "outcome", "description", "stitched_from"), ()),
+        # §5.4 names events and their outcomes; the field list is the implementation plan's WP-08 artifacts, and
+        # carried_from, a group of one, is the coverage origin a carried event's line names (design record
+        # 2026-11-04T0026--ed87f66, the lead's answer on the stitch's carried events)
+        "event": ("§5.4", ("event_id", "kind", "at_record", "claim_ids", "outcome", "description", "stitched_from"),
+                  ("carried_from",)),
         # §11's instance, with §5.4's basis; the field list is the implementation plan's WP-08 artifacts
         "observation": ("§11", ("expected_id", "occasion_locator", "exposure", "verdict", "basis", "evidence_ids"), ()),
     }
@@ -174,9 +185,10 @@ def self_test():
             "kind": "WP-09: S4 forms candidates with set accounting over events (design §4)",
             "at_record": "WP-08: an event belongs to the window of its first record (design §5.2); a pending one forces expansion (§5.4)",
             "claim_ids": "WP-08 done-when 3: the stitch call receives the claims; WP-09 S4",
-            "outcome": "WP-08 done-when 3: a unit with pending events and no stitch call is read_partial",
+            "outcome": "WP-08 done-when 3: pending until the unit's stitch, which appends resolved or unresolved; an unresolved one is handed on to coverage.json's pending_events",
             "description": "WP-08 done-when 3: the stitch call receives it; WP-20 render",
             "stitched_from": "WP-08 done-when 3: a stitched resolution names the claims it was resolved with",
+            "carried_from": "WP-08 done-when 4: a carried event's line names the window and record coverage carried it from; WP-09 S4",
         },
         "observation": {
             "expected_id": "WP-08 measures.derive_resolution: the window resolution is derived per expected observation (design §11)",
@@ -254,6 +266,10 @@ def self_test():
             failures.append(f"positive control: {kind} consumers name a field the schema lacks")
         if validate_record(kind, valid[kind]):
             failures.append(f"positive control: the valid {kind} record was rejected: {validate_record(kind, valid[kind])}")
+    carried = {**valid["event"], "claim_ids": [], "outcome": "resolved", "stitched_from": ["c-9"],
+               "carried_from": {"window": "2026-10-01T00:00:00/2026-10-08T00:00:00@UTC", "first_record": 9}}
+    if validate_record("event", carried):
+        failures.append(f"positive control: a carried event's line naming no claim of its own was rejected: {validate_record('event', carried)}")
     full = {**valid["expected_observation"], "counter": "plain-explanation asks", "threshold": 0.5}
     if validate_record("expected_observation", full):
         failures.append("positive control: an expected observation with counter and threshold was rejected")

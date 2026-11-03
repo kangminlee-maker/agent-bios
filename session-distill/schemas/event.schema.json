@@ -1,17 +1,20 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$comment": "design §5.4 (stitching); the field list is the implementation plan's WP-08 artifacts. outcome is pending only before the unit's stitch call, resolved or unresolved after it; stitched_from names the claims a stitch resolved it with, and is empty otherwise",
+  "$comment": "design §5.4 (stitching); the field list is the implementation plan's WP-08 artifacts. outcome is pending only before the unit's stitch call, resolved or unresolved after it; stitched_from names the claims a stitch resolved it with, and is empty otherwise. carried_from is the coverage origin of an event an earlier run left pending, whose line this run writes when its stitch resolves it: it names no claim of its own (claim_ids empty), and only such a line may (claims.validate_record)",
   "title": "Event record",
   "type": "object",
   "additionalProperties": false,
   "required": ["event_id", "kind", "at_record", "claim_ids", "outcome", "description", "stitched_from"],
+  "dependentRequired": {"carried_from": []},
   "properties": {
     "event_id": {"type": "string", "minLength": 1},
     "kind": {"type": "string", "minLength": 1},
     "at_record": {"type": "string", "minLength": 1},
-    "claim_ids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "claim_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
     "outcome": {"type": "string", "enum": ["resolved", "pending", "unresolved"]},
     "description": {"type": "string", "minLength": 1},
-    "stitched_from": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}}
+    "stitched_from": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "carried_from": {"type": "object", "additionalProperties": false, "required": ["window", "first_record"],
+                     "properties": {"window": {"type": "string", "minLength": 1}, "first_record": {"type": "integer", "minimum": 0}}}
   }
 }
