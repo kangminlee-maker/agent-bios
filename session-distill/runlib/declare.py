@@ -5,7 +5,8 @@
 has recorded that it read it, `set_fields` edits it in place; from then on a change is an
 amendment (`amend`): one line in `amendments.jsonl`, `declaration_seq` advanced, and the
 stages whose results it makes stale listed in `invalidates[]`. Changing `checks{}` after a
-stage record exists invalidates S3 and everything downstream.
+stage record exists invalidates S3 and everything downstream; changing `output_caps{}` after
+one invalidates S2 and everything downstream, because S2 cut the windows against that cap.
 
 A declaration is checked in three steps, each only when the one before it holds. Its structure
 is `schemas/run.schema.json`, validated by jsonschema through `validate.py` (closed objects,
@@ -27,7 +28,8 @@ at call time: nothing here restates which guide owns which host or how its targe
 to the declaration by `design/session-distill/2026-10-21T0318--2d4fbd4--plan-addendum-wp01.md`;
 it is read by `records.StageRun.run_items`. `host_allowance` is the per-seat allowance of the
 amendment to design §5.4 and `destinations` the root of each class every S11 and S12 writer
-must resolve into.
+must resolve into. `output_caps` is the output-token cap of S3's calls: S2 cuts every window
+reserving it and S3 declares it on every call, so both read this one number.
 
   declare.py --self-test
 """
@@ -54,8 +56,11 @@ VALIDATOR = validate.compile_schema(SCHEMA)
 STRATA = tuple(SCHEMA["properties"]["actor_seats"]["items"]["properties"]["stratum"]["enum"])  # design §8.4
 DESTINATIONS = tuple(SCHEMA["properties"]["destinations"]["required"])
 # A change to these top-level fields makes the results of the named stage, and every later
-# stage that has a record, stale: criteria applied by S3 no longer describe what it read.
-INVALIDATED_FROM = {"checks": "S3"}
+# stage that has a record, stale: criteria applied by S3 no longer describe what it read, and a
+# window S2 cut while reserving one output cap is not the window a call reserving another may
+# send - raising the cap is accepted as an amendment, and the views are cut again under it
+# (`design/session-distill/2026-11-03T2155--6779ed7--the-output-cap-is-declared-and-a-reading-cites-its-own-quotes.md`).
+INVALIDATED_FROM = {"checks": "S3", "output_caps": "S2"}
 # The stage whose calls carry a window of a transcript view (S3 reading and its expansions): the
 # seat of that stage needs a declared host allowance (amendment to design §5.4).
 VIEW_WINDOW_STAGE = "S3"
@@ -340,6 +345,7 @@ def fixture():
         "declaration_seq": 0,
         "host_allowance": {sonnet: {"allowance_tokens": 3200, "host_version": "2.1.304",
                                     "flag_set_sha256": digest("flags")}},
+        "output_caps": {VIEW_WINDOW_STAGE: 32000},
         "destinations": {name: f"/srv/fixture/destinations/{name}" for name in DESTINATIONS},
     }
 
@@ -380,11 +386,12 @@ def self_test():
 
     # The declaration's fields, copied here once: design §4.1's contents plus what the plan adds
     # (WP-01: declaration_seq, host_allowance, destinations; P3 / design §13.2: account, hosts) and
-    # `posture`, whose authority is design/session-distill/2026-10-21T0318--2d4fbd4--plan-addendum-wp01.md.
+    # `posture`, whose authority is design/session-distill/2026-10-21T0318--2d4fbd4--plan-addendum-wp01.md,
+    # and `output_caps` (WP-08: the cap's declared home, named in the schema's $comment).
     # The schema is the authority for their shape; this pins which fields exist.
     declared = {"question", "kind", "posture", "window", "sources", "checks", "budget", "seats",
                 "actor_seats", "config_manifest_B", "starting_hashes", "account", "hosts",
-                "declaration_seq", "host_allowance", "destinations"}
+                "declaration_seq", "host_allowance", "output_caps", "destinations"}
     control("schema-requires-exactly-the-declared-fields",
             [] if set(SCHEMA["required"]) == declared == set(SCHEMA["properties"])
             else [f"schema requires {sorted(SCHEMA['required'])}, declares {sorted(SCHEMA['properties'])}"])
@@ -408,6 +415,11 @@ def self_test():
     control("account-impossible-date", mutated(lambda run: run["account"].update(declared_on="2026-13-40")),
             "ACCOUNT_UNDECLARED account.declared_on: not a calendar date")
     control("kind-unknown", mutated(lambda run: run.update(kind="adhoc")), "DECLARATION_INVALID kind")
+    control("output-cap-zero", mutated(lambda run: run["output_caps"].update(S3=0)), "DECLARATION_INVALID output_caps.S3")
+    control("output-cap-not-an-integer", mutated(lambda run: run["output_caps"].update(S3=True)),
+            "DECLARATION_INVALID output_caps.S3")
+    control("output-cap-for-a-stage-nothing-reads", mutated(lambda run: run["output_caps"].update(S4=8000)),
+            "DECLARATION_INVALID output_caps: Additional properties")
     control("posture-unknown", mutated(lambda run: run.update(posture="staging")), "DECLARATION_INVALID posture")
     control("window-reversed", mutated(lambda run: run["window"].update(start="2026-10-09T00:00:00")),
             "DECLARATION_INVALID window: the half-open window")
@@ -580,6 +592,11 @@ def self_test():
             control("amend-host-upgrade-with-the-new-allowance",
                     [] if upgrade["seq"] == 4 and records.read_json(records.run_json_path(run_dir))["host_allowance"] == remeasured
                     else [f"unexpected {upgrade}"])
+            # raising the cap is ACCEPTED, and every recorded stage from S2 on is stale: S2 cut the windows reserving
+            # the old cap, so a call reserving more may not send them
+            raised = must("amend output_caps", amend, run_dir, [("output_caps.S3", 48000)], "a longer answer")
+            control("amend-output-cap-invalidates-s2-and-downstream",
+                    [] if (raised["seq"], raised["invalidates"]) == (5, ["S2", "S3", "S4"]) else [f"unexpected {raised}"])
 
             # each declaration seq is bound to the run.json authorized at it: a hand edit, before any stage
             # has read the new seq, is found by the next amendment, edit or stage

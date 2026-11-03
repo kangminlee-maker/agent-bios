@@ -1,16 +1,22 @@
 #!/usr/bin/env python3
-"""The three record schemas every later stage keeps: claim, evidence, expected observation.
+"""The record schemas every later stage keeps: claim, evidence, expected observation, event, observation.
 
 They are `session-distill/schemas/<kind>.schema.json`, loaded through `validate.compile_schema`
 (`check_schema`, then the schema-policy lint). Each carries `$comment: "design §X"` and its
 `required` set is the field list of that design section: §3.3 (claim records), §5.5 (evidence
-locators, plus `window_role` from §5.2), §7.3 (proposal content, the expected observation). The `--self-test` holds the
-three lists, copied once and cited, and fails naming the schema and the section when a
+locators, plus `window_role` from §5.2), §7.3 (proposal content, the expected observation), §5.4 (events,
+the field list of the implementation plan's WP-08 artifacts) and §11 (an observation instance, the same).
+The `--self-test` holds the lists, copied once and cited, and fails naming the schema and the section when a
 schema's field set differs; it also names the consumer of every field, so a field no later
 stage reads cannot enter a schema unnoticed.
 
+The two answers S3's calls return (`read.schema.json`, `stitch.schema.json`) are held to the same copies by
+`answer_mismatch`: a reading's claim object is §3.3's, its vocabularies are the stored records', and what code
+sets - an observation's coverage basis, an event's `unresolved` and `stitched_from` - is never answered.
+
   claims.py --self-test
 """
+import ast
 import copy
 import json
 import pathlib
@@ -21,7 +27,8 @@ if __package__ in (None, ""):  # run as a script: put session-distill/ on the im
 from runlib import validate
 
 SCHEMA_DIR = pathlib.Path(__file__).resolve().parents[1] / "schemas"
-KINDS = ("claim", "evidence", "expected_observation")
+KINDS = ("claim", "evidence", "expected_observation", "event", "observation")
+ANSWERS = ("read", "stitch")   # what S3's calls return; each holds the stored records' contracts, never its own
 
 
 def read_schema(kind, schema_dir=SCHEMA_DIR):
@@ -65,6 +72,54 @@ def unconsumed_fields(schema, consumers):
     return sorted(set(schema.get("properties", {})) - set(consumers))
 
 
+def returned_literals(source, function):
+    """The string constants `function` of `source` returns: the vocabulary a predicate can answer in."""
+    tree = ast.parse(source)
+    for node in tree.body:
+        if isinstance(node, ast.FunctionDef) and node.name == function:
+            return sorted({n.value.value for n in ast.walk(node) if isinstance(n, ast.Return)
+                           and isinstance(n.value, ast.Constant) and isinstance(n.value.value, str)})
+    return []
+
+
+def answer_mismatch(answers, stored, claim_contract, basis, basis_returns, decisions):
+    """Where S3's two answer schemas depart from the records they become (WP-08 done-when 8).
+
+    `answers` and `stored` map a kind to its schema; `claim_contract` is §3.3's field list, `basis` §5.4's
+    three words, `basis_returns` what `views.coverage_basis` can return, `decisions` `views.DECISIONS`. A
+    reading's claim object is §3.3's; an observation's exposure and verdict are the stored instance's and its
+    basis is never answered (code sets it over the scope, §5.4); a window's event is the stored event without
+    `unresolved` or `stitched_from` (the stitch call's), and a stitch answers resolved or unresolved, never
+    pending."""
+    errors = []
+    defs = answers["read"].get("$defs", {})
+    errors += contract_mismatch("read.claim", defs.get("claim", {}), "§3.3", claim_contract)
+
+    def enum(schema, field):
+        return sorted((schema.get("properties", {}).get(field) or {}).get("enum", []))
+
+    def differ(name, section, have, want):
+        if sorted(have) != sorted(want):
+            errors.append(f"CONTRACT_MISMATCH {name} (design {section}): {sorted(have)} is not {sorted(want)}")
+
+    observation, event = stored["observation"], stored["event"]
+    differ("observation.basis", "§5.4", enum(observation, "basis"), basis)
+    differ("views.coverage_basis returns", "§5.4", basis_returns, basis)
+    answered = defs.get("observation", {})
+    differ("read.observation fields", "§11", answered.get("properties", {}),
+           set(observation.get("properties", {})) - {"basis"})
+    for field in ("exposure", "verdict"):
+        differ(f"read.observation.{field}", "§11", enum(answered, field), enum(observation, field))
+    window_event = defs.get("event", {})
+    differ("read.event fields", "§5.4", window_event.get("properties", {}),
+           set(event.get("properties", {})) - {"stitched_from"})
+    differ("read.event.outcome", "§5.4", enum(window_event, "outcome"), set(enum(event, "outcome")) - {"unresolved"})
+    resolution = answers["stitch"].get("$defs", {}).get("resolution", {})
+    differ("stitch.resolution.outcome", "§5.4", enum(resolution, "outcome"), set(enum(event, "outcome")) - {"pending"})
+    differ("read.decision.decision", "§5.4", enum(defs.get("decision", {}), "decision"), decisions)
+    return errors
+
+
 def self_test():
     # The field lists of the design sections, copied here once (WP-01 done-when 5). A second
     # copy anywhere else is a second authority; the cross-provider review of this module
@@ -76,7 +131,13 @@ def self_test():
                               "char_span", "redaction_version", "redacted_text", "window_role"), ()),
         "expected_observation": ("§7.3", ("occasion_criteria", "exposure_rule", "expected_behavior",
                                           "retrieval_terms", "expiry"), ("counter", "threshold")),
+        # §5.4 names events and their outcomes; the field list is the implementation plan's WP-08 artifacts
+        "event": ("§5.4", ("event_id", "kind", "at_record", "claim_ids", "outcome", "description", "stitched_from"), ()),
+        # §11's instance, with §5.4's basis; the field list is the implementation plan's WP-08 artifacts
+        "observation": ("§11", ("expected_id", "occasion_locator", "exposure", "verdict", "basis", "evidence_ids"), ()),
     }
+    # §5.4's three coverage bases, in its checking order (WP-08 done-when 8)
+    basis = ("incomplete", "view", "source")
     # Every field and the work package that reads it (the inert-field rule): a field enters a
     # schema when a later stage consumes it, and this table is where that is said.
     consumers = {
@@ -108,6 +169,23 @@ def self_test():
             "counter": "WP-21: the plain-asks adapter of design §11",
             "threshold": "WP-21: the plain-asks adapter resolves by it (design §11)",
         },
+        "event": {
+            "event_id": "WP-08 done-when 3: the stitch call answers for it by id; coverage.json's pending_events carries it (WP-05)",
+            "kind": "WP-09: S4 forms candidates with set accounting over events (design §4)",
+            "at_record": "WP-08: an event belongs to the window of its first record (design §5.2); a pending one forces expansion (§5.4)",
+            "claim_ids": "WP-08 done-when 3: the stitch call receives the claims; WP-09 S4",
+            "outcome": "WP-08 done-when 3: a unit with pending events and no stitch call is read_partial",
+            "description": "WP-08 done-when 3: the stitch call receives it; WP-20 render",
+            "stitched_from": "WP-08 done-when 3: a stitched resolution names the claims it was resolved with",
+        },
+        "observation": {
+            "expected_id": "WP-08 measures.derive_resolution: the window resolution is derived per expected observation (design §11)",
+            "occasion_locator": "WP-20 render: where the occasion is",
+            "exposure": "WP-08 measures.derive_resolution: an exposure_unknown occasion leaves the resolution pending (design §11)",
+            "verdict": "WP-08 measures.derive_resolution: not observed / observed (design §11)",
+            "basis": "WP-08 measures.derive_resolution: an absence needs basis source (design §5.4, §11)",
+            "evidence_ids": "WP-08 done-when 5: each instance is judged with evidence ids; WP-20 render",
+        },
     }
     valid = {
         "claim": {"claim_id": "c-1", "fact": "The owner asked for the plain version twice.",
@@ -122,6 +200,11 @@ def self_test():
                                  "exposure_rule": "the unit was delivered before the ask",
                                  "expected_behavior": "no second request for the plain version",
                                  "retrieval_terms": ["plain version", "explain"], "expiry": "2026-12-31"},
+        "event": {"event_id": "v-1", "kind": "request", "at_record": "4/message/content", "claim_ids": ["c-1"],
+                  "outcome": "pending", "description": "The owner asked for a rerun; its result is not in this window.",
+                  "stitched_from": []},
+        "observation": {"expected_id": "x-1", "occasion_locator": "12/message/content", "exposure": "eligible",
+                        "verdict": "observed", "basis": "view", "evidence_ids": ["e-1"]},
     }
     # one rejected mutation per row: (kind, name, mutate(record), a fragment the violation must carry)
     def drop(field):
@@ -146,6 +229,12 @@ def self_test():
         ("expected_observation", "retrieval_terms empty", put("retrieval_terms", []), "retrieval_terms:"),
         ("expected_observation", "counter without threshold", put("counter", "plain-explanation asks"), "'threshold' is a dependency of"),
         ("expected_observation", "threshold without counter", put("threshold", 0.5), "'counter' is a dependency of"),
+        ("event", "outcome outside the three", put("outcome", "open"), "outcome:"),
+        ("event", "an event no claim describes", put("claim_ids", []), "claim_ids:"),
+        ("observation", "a fourth coverage basis", put("basis", "partial"), "basis:"),
+        ("observation", "exposure outside §11's two", put("exposure", "exposed"), "exposure:"),
+        ("observation", "verdict outside §11's two", put("verdict", "maybe"), "verdict:"),
+        ("observation", "an instance judged without evidence", put("evidence_ids", []), "evidence_ids:"),
     ]
 
     failures = []
@@ -216,13 +305,87 @@ def self_test():
     except validate.SchemaPolicyError:
         pass
 
+    # S3's answers (WP-08 done-when 8): the two schemas the model answers in, held to the stored records' copies.
+    # `views` is read for its basis predicate and its decision vocabulary only, inside the test: the schemas
+    # are leaves, and nothing at import time may make them depend on the stage that cuts windows.
+    from runlib import views
+    answers = {}
+    for kind in ANSWERS:
+        try:
+            answers[kind] = read_schema(kind)
+            validator_for(kind)
+        except Exception as exc:
+            failures.append(f"positive control: the {kind} answer schema did not load: {exc!r}")
+    stored = {kind: read_schema(kind) for kind in ("event", "observation")}
+    basis_returns = returned_literals(pathlib.Path(views.__file__).read_text(encoding="utf-8"), "coverage_basis")
+
+    def answer_problems(answers=answers, stored=stored, returns=basis_returns):
+        return answer_mismatch(answers, stored, contract["claim"][1], basis, returns, views.DECISIONS)
+
+    answer_mutations = []
+    if len(answers) == len(ANSWERS):
+        for problem in answer_problems():
+            failures.append(f"positive control: {problem}")
+        if not basis_returns:
+            failures.append("positive control: views.coverage_basis returns no literal the check could read")
+
+        def planted(kind, edit, schemas):
+            copied = copy.deepcopy(schemas)
+            edit(copied[kind])
+            return copied
+
+        claim_of = lambda s: s["$defs"]["claim"]  # noqa: E731
+        answer_mutations = [
+            ("a fourth coverage basis in the stored instance", lambda: answer_problems(
+                stored=planted("observation", lambda s: s["properties"]["basis"]["enum"].append("partial"), stored)),
+             "CONTRACT_MISMATCH observation.basis (design §5.4)"),
+            ("a fourth basis the predicate can return", lambda: answer_problems(returns=sorted(basis_returns + ["partial"])),
+             "CONTRACT_MISMATCH views.coverage_basis returns (design §5.4)"),
+            ("a claim field added to the reading's claim object", lambda: answer_problems(
+                answers=planted("read", lambda s: (claim_of(s)["required"].append("revises"),
+                                                   claim_of(s)["properties"].update(revises={"type": "string"})), answers)),
+             "CONTRACT_MISMATCH read.claim (design §3.3): required adds ['revises']"),
+            ("a §3.3 field dropped from the reading's claim object", lambda: answer_problems(
+                answers=planted("read", lambda s: (claim_of(s)["required"].remove("uncertainty"),
+                                                   claim_of(s)["properties"].pop("uncertainty")), answers)),
+             "CONTRACT_MISMATCH read.claim (design §3.3): required lacks ['uncertainty']"),
+            ("the model answering the coverage basis", lambda: answer_problems(
+                answers=planted("read", lambda s: s["$defs"]["observation"]["properties"].update(
+                    basis={"type": "string", "enum": list(basis)}), answers)),
+             "CONTRACT_MISMATCH read.observation fields (design §11)"),
+            ("a window answering unresolved", lambda: answer_problems(
+                answers=planted("read", lambda s: s["$defs"]["event"]["properties"]["outcome"]["enum"].append("unresolved"),
+                                answers)),
+             "CONTRACT_MISMATCH read.event.outcome (design §5.4)"),
+            ("a stitch answering pending", lambda: answer_problems(
+                answers=planted("stitch", lambda s: s["$defs"]["resolution"]["properties"]["outcome"]["enum"].append("pending"),
+                                answers)),
+             "CONTRACT_MISMATCH stitch.resolution.outcome (design §5.4)"),
+            ("an exposure the stored instance cannot hold", lambda: answer_problems(
+                answers=planted("read", lambda s: s["$defs"]["observation"]["properties"]["exposure"]["enum"].append("exposed"),
+                                answers)),
+             "CONTRACT_MISMATCH read.observation.exposure (design §11)"),
+            ("a decision other than expand or skip", lambda: answer_problems(
+                answers=planted("read", lambda s: s["$defs"]["decision"]["properties"]["decision"]["enum"].append("defer"),
+                                answers)),
+             "CONTRACT_MISMATCH read.decision.decision (design §5.4)"),
+        ]
+        for label, problems, fragment in answer_mutations:
+            found = problems()
+            if not any(fragment in line for line in found):
+                failures.append(f"answer contract control not named: {label} -> {found}")
+        planted_source = "def coverage_basis(scope):\n    if scope:\n        return 'incomplete'\n    return 'partial'\n"
+        if returned_literals(planted_source, "coverage_basis") != ["incomplete", "partial"]:
+            failures.append("returned_literals control: a planted predicate's literals were not read")
+
     for failure in failures:
         print(f"claims --self-test [FAIL] {failure}")
     if failures:
         return 1
-    print(f"claims --self-test: OK ({len(KINDS)} schemas match §3.3, §5.5, §7.3; "
+    print(f"claims --self-test: OK ({len(KINDS)} schemas match §3.3, §5.5, §7.3, §5.4, §11; "
           f"{sum(len(c) for c in consumers.values())} fields each name a consumer; "
-          f"{len(mutations)} record mutations and {6 * len(KINDS)} schema mutations rejected by name)")
+          f"{len(mutations)} record mutations and {6 * len(KINDS)} schema mutations rejected by name; "
+          f"{len(ANSWERS)} answer schemas hold the stored contracts, {len(answer_mutations)} departures named)")
     return 0
 
 

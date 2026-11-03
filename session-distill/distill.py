@@ -291,7 +291,7 @@ def cmd_inventory(args):
 
 
 def cmd_views(args):
-    say("\n".join(views.report_lines(views.run(run_dir_of(args), reservation=args.output_cap))))
+    say("\n".join(views.report_lines(views.run(run_dir_of(args)))))
     return 0
 
 
@@ -329,12 +329,6 @@ def build_parser():
         common(sub)
         if name == "close":
             sub.add_argument("--recovery", action="store_true", help="the recovery close (reserved)")
-        if name == "views":
-            # the cap the S3 call will declare for its answer: check (d) reserves exactly that, and there
-            # is no constant standing in for it (the ruling of 2026-10-22). The dispatcher reads the same
-            # number from the stage that makes the call.
-            sub.add_argument("--output-cap", type=int, required=True,
-                             help="S3's output-token cap, which the window's (d) check reserves")
         if name == "inventory":
             sub.add_argument("--to", help="write inventory/<reference>.json here instead of into a run directory")
             sub.add_argument("--pin", help="HOST:SESSION_ID, the activation pin whose selection and release to read")
@@ -1041,13 +1035,13 @@ def self_test():
                 not (declared_run / "stages").exists(),
                 f"{sorted(p.name for p in (declared_run / 'stages').rglob('*'))}"
                 if (declared_run / "stages").exists() else "")
-        code, err = cli("views", "--run-id", "r1", "--output-cap", "32000")
+        code, err = cli("views", "--run-id", "r1")
         control("views (S2) refuses by name when the census it reads is not in the run",
                 code == 1 and "INPUT_INVALID S1" in err, err)
-        # the ruling of 2026-10-22: (d) reserves the cap the S3 call declares, so the stage cannot be run
-        # without one - argparse refuses it, and the refusal names the flag
-        code, err = cli("views", "--run-id", "r1")
-        control("views (S2) cannot run without the output cap its (d) check reserves",
+        # the ruling of 2026-10-22: (d) reserves the cap the S3 call declares. WP-08 gave it a home in run.json
+        # (`output_caps`), so the flag that stood in for it is gone: a caller cannot cut against another number
+        code, err = cli("views", "--run-id", "r1", "--output-cap", "32000")
+        control("views (S2) takes its output cap from run.json, not from a flag",
                 code == 2 and "--output-cap" in err, f"{code} {err}")
         # the census (S1) through the driver: a declared run over sources that are not there is unknown coverage, not zero
         coverage_file = scratch / "coverage.json"

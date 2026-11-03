@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$comment": "design §4 (S3), §3.3, §5.4, §11: one window's reading. evidence_ids name this answer's quotes; code makes each quote an evidence record (evidence.from_view) and derives every stored id",
+  "title": "S3 window reading",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["quotes", "claims", "events", "decisions", "observations"],
+  "properties": {
+    "quotes": {"type": "array", "items": {"$ref": "#/$defs/quote"}},
+    "claims": {"type": "array", "items": {"$ref": "#/$defs/claim"}},
+    "events": {"type": "array", "items": {"$ref": "#/$defs/event"}},
+    "decisions": {"type": "array", "items": {"$ref": "#/$defs/decision"}},
+    "observations": {"type": "array", "items": {"$ref": "#/$defs/observation"}}
+  },
+  "$defs": {
+    "entry": {"type": "string", "minLength": 1},
+    "quote_ids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "pattern": "^q[1-9][0-9]*$"}},
+    "quote": {
+      "type": "object", "additionalProperties": false,
+      "required": ["quote_id", "entry", "text"],
+      "properties": {
+        "quote_id": {"type": "string", "pattern": "^q[1-9][0-9]*$"},
+        "entry": {"$ref": "#/$defs/entry"},
+        "text": {"type": "string", "minLength": 1},
+        "occurrence": {"type": "integer", "minimum": 0}
+      }
+    },
+    "claim": {
+      "$comment": "design §3.3",
+      "type": "object", "additionalProperties": false,
+      "required": ["claim_id", "fact", "interpretation", "uncertainty", "evidence_ids", "call_id"],
+      "properties": {
+        "claim_id": {"type": "string", "pattern": "^c[1-9][0-9]*$"},
+        "fact": {"type": "string", "minLength": 1},
+        "interpretation": {"type": "string"},
+        "uncertainty": {"type": "string"},
+        "evidence_ids": {"$ref": "#/$defs/quote_ids"},
+        "call_id": {"type": "string", "minLength": 1}
+      }
+    },
+    "event": {
+      "$comment": "design §5.4; unresolved is the stitch call's answer, never a window's",
+      "type": "object", "additionalProperties": false,
+      "required": ["event_id", "kind", "at_record", "claim_ids", "outcome", "description"],
+      "properties": {
+        "event_id": {"type": "string", "pattern": "^v[1-9][0-9]*$"},
+        "kind": {"type": "string", "minLength": 1},
+        "at_record": {"$ref": "#/$defs/entry"},
+        "claim_ids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "pattern": "^c[1-9][0-9]*$"}},
+        "outcome": {"type": "string", "enum": ["resolved", "pending"]},
+        "description": {"type": "string", "minLength": 1}
+      }
+    },
+    "decision": {
+      "type": "object", "additionalProperties": false,
+      "required": ["omission_id", "decision", "reason"],
+      "properties": {
+        "omission_id": {"type": "string", "minLength": 1},
+        "decision": {"type": "string", "enum": ["expand", "skip"]},
+        "reason": {"type": "string", "minLength": 1}
+      }
+    },
+    "observation": {
+      "$comment": "design §11; the coverage basis is set by code",
+      "type": "object", "additionalProperties": false,
+      "required": ["expected_id", "occasion_locator", "exposure", "verdict", "evidence_ids"],
+      "properties": {
+        "expected_id": {"type": "string", "minLength": 1},
+        "occasion_locator": {"$ref": "#/$defs/entry"},
+        "exposure": {"type": "string", "enum": ["eligible", "exposure_unknown"]},
+        "verdict": {"type": "string", "enum": ["observed", "not_observed"]},
+        "evidence_ids": {"$ref": "#/$defs/quote_ids"}
+      }
+    }
+  }
+}

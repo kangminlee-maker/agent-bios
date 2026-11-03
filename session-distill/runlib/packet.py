@@ -28,8 +28,14 @@ The schema a call is given is compiled through `validate.compile_schema` (closed
 supported keywords) before it is written, so a packet never references a schema the policy
 refuses.
 
+A stage's payload is one of the templates under `session-distill/packets/` (`read.md`, `stitch.md`)
+with its `{{field}}` placeholders filled by `render`, once and in one pass: every placeholder takes
+exactly one field, no field is left over, and a field's text is never read as a template, so a
+transcript quoting `{{window}}` stays text.
+
 Linter failures are named CALL_ID_MISSING, PRINCIPLES_MISSING, SCHEMA_REFERENCE_MISSING and
-PAYLOAD_MISSING; a guide without its section is PRINCIPLES_UNAVAILABLE.
+PAYLOAD_MISSING; a guide without its section is PRINCIPLES_UNAVAILABLE; a template that is not there,
+or fields that are not its placeholders, are TEMPLATE_UNAVAILABLE and TEMPLATE_FIELDS_MISMATCH.
 
   packet.py --self-test
 """
@@ -45,6 +51,9 @@ from runlib import validate
 
 REPO = pathlib.Path(__file__).resolve().parents[2]
 PAYLOAD_MARKER = "=== PAYLOAD ==="
+TEMPLATE_DIR = pathlib.Path(__file__).resolve().parents[1] / "packets"
+TEMPLATES = ("read", "stitch")      # S3's two calls (plan WP-08)
+PLACEHOLDER = re.compile(r"\{\{([a-z_]+)\}\}")
 # (summary title, owning guide, the part of it that is the summary)
 PRINCIPLE_SOURCES = (
     ("Concept economy", "claude/guides/concept-economy.md", "core_rules"),
@@ -57,6 +66,11 @@ PRINCIPLE_SOURCES = (
 
 class Unavailable(Exception):
     """A guide lacks the section its summary is taken from; the message starts with PRINCIPLES_UNAVAILABLE."""
+
+
+class TemplateError(Exception):
+    """A payload template is missing or was given other fields than its placeholders; the message starts with
+    TEMPLATE_UNAVAILABLE or TEMPLATE_FIELDS_MISMATCH."""
 
 
 def sha256_bytes(data):
@@ -103,6 +117,29 @@ def build(call_id, stage, seat, payload, schema=None, repo=REPO):
     header = (f"CALL-ID: {call_id}\nSTAGE: {stage}\nSEAT: {seat}\nSCHEMA: {reference}\n"
               f"PRINCIPLES: sha256:{sha256_bytes(block.encode('utf-8'))}\n\n")
     return (header + block + PAYLOAD_MARKER + "\n" + payload).encode("utf-8")
+
+
+def template_text(name, template_dir=TEMPLATE_DIR):
+    try:
+        return (pathlib.Path(template_dir) / f"{name}.md").read_text(encoding="utf-8")
+    except OSError as exc:
+        raise TemplateError(f"TEMPLATE_UNAVAILABLE {name}: {exc}") from exc
+
+
+def template_fields(name, template_dir=TEMPLATE_DIR):
+    """The placeholders of one template, sorted."""
+    return sorted(set(PLACEHOLDER.findall(template_text(name, template_dir))))
+
+
+def render(name, fields, template_dir=TEMPLATE_DIR):
+    """The payload of template `name` with every placeholder replaced by its field's text, in one pass."""
+    text = template_text(name, template_dir)
+    wanted = set(PLACEHOLDER.findall(text))
+    missing, extra = sorted(wanted - set(fields)), sorted(set(fields) - wanted)
+    if missing or extra or not all(isinstance(v, str) for v in fields.values()):
+        raise TemplateError(f"TEMPLATE_FIELDS_MISMATCH {name}: missing={missing} extra={extra}; every placeholder "
+                            "takes exactly one text field")
+    return PLACEHOLDER.sub(lambda m: fields[m.group(1)], text)
 
 
 def split(packet):
@@ -218,12 +255,55 @@ def self_test():
         (pathlib.Path(td) / "claude/guides/verification-discipline.md").unlink()
         control("guide-missing", raised(lambda: principles_block(td), Unavailable,
                                         "PRINCIPLES_UNAVAILABLE claude/guides/verification-discipline.md"))
+        control("template-missing", raised(lambda: render("read", {}, template_dir=td), TemplateError,
+                                           "TEMPLATE_UNAVAILABLE read"))
+
+    # S3's two templates (plan WP-08): each takes exactly the fields its stage fills, the packet it makes passes the
+    # linter, and the part every call of it carries - envelope, principles, template, schema - leaves room in the
+    # overhead the windows were cut with for what the call adds (its omissions and expected observations). The room
+    # is reported, not judged: what one call adds is counted with the call, by the dispatcher's bound check.
+    from runlib import bound
+    schemas = pathlib.Path(__file__).resolve().parents[1] / "schemas"
+    filled_by = {"read": ["expected", "omissions", "window"], "stitch": ["claims", "events"]}
+    room = {}
+    for name in TEMPLATES:
+        try:
+            fields = template_fields(name)
+            answer = schema_bytes(json.loads((schemas / f"{name}.schema.json").read_text(encoding="utf-8")))
+        except (TemplateError, OSError, ValueError) as exc:
+            failures.append(f"positive control: the {name} template or schema did not load: {exc}")
+            continue
+        control(f"{name}-template-takes-the-fields-its-stage-fills",
+                [] if fields == filled_by[name] else [f"placeholders {fields}, filled {filled_by[name]}"])
+        call = f"r1-S3-{name}-a1"
+        made = build(call, "S3", "claude:claude-sonnet-5-5/high", render(name, {f: f"<{f}>" for f in fields}), answer)
+        control(f"{name}-packet-passes-the-linter", check(made, call, answer))
+        fixed = len(build(call, "S3", "claude:claude-sonnet-5-5/high", render(name, {f: "" for f in fields}), answer)) \
+            + len(answer)
+        room[name] = bound.PACKET_OVERHEAD - fixed
+        control(f"{name}-fixed-part-fits-the-overhead",
+                [] if room[name] > 0 else [f"{fixed} fixed bytes, overhead {bound.PACKET_OVERHEAD}"])
+    control("template-field-missing", raised(lambda: render("read", {"window": "w", "omissions": "o"}), TemplateError,
+                                             "TEMPLATE_FIELDS_MISMATCH read: missing=['expected']"))
+    control("template-field-extra", raised(lambda: render("stitch", {"events": "e", "claims": "c", "window": "w"}),
+                                           TemplateError, "TEMPLATE_FIELDS_MISMATCH stitch: missing=[] extra=['window']"))
+    control("template-field-not-text", raised(lambda: render("stitch", {"events": "e", "claims": 3}), TemplateError,
+                                              "TEMPLATE_FIELDS_MISMATCH stitch"))
+    # a template that no longer takes these fields fails this control by its name, never as a traceback that would
+    # hide every failure recorded before it
+    try:
+        once = render("read", {"window": "a record quoting {{omissions}}", "omissions": "ONLY-HERE", "expected": "none"})
+        expanded = [] if "a record quoting {{omissions}}" in once and once.count("ONLY-HERE") == 1 else ["a field was expanded"]
+    except TemplateError as exc:
+        expanded = [f"RAISED {exc}"]
+    control("a-field-is-never-read-as-a-template", expanded)
 
     for failure in failures:
         print(f"packet --self-test [FAIL] {failure}")
     if failures:
         return 1
-    print(f"packet --self-test: OK ({len(ran)} controls: " + ", ".join(ran) + ")")
+    print(f"packet --self-test: OK ({len(ran)} controls: " + ", ".join(ran) + "; room left in the "
+          f"{bound.PACKET_OVERHEAD}-byte overhead: " + ", ".join(f"{k} {v}" for k, v in room.items()) + ")")
     return 0
 
 

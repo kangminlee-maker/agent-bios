@@ -1,12 +1,12 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$comment": "design §4.1; posture: design/session-distill/2026-10-21T0318--2d4fbd4--plan-addendum-wp01.md",
+  "$comment": "design §4.1; posture: design/session-distill/2026-10-21T0318--2d4fbd4--plan-addendum-wp01.md; output_caps: design/session-distill/2026-11-03T2155--6779ed7--the-output-cap-is-declared-and-a-reading-cites-its-own-quotes.md",
   "title": "Run declaration",
   "type": "object",
   "additionalProperties": false,
   "required": ["question", "kind", "posture", "window", "sources", "checks", "budget", "seats",
                "actor_seats", "config_manifest_B", "starting_hashes", "account", "hosts",
-               "declaration_seq", "host_allowance", "destinations"],
+               "declaration_seq", "host_allowance", "output_caps", "destinations"],
   "$defs": {
     "text": {"type": "string", "minLength": 1},
     "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
@@ -85,6 +85,10 @@
                                      "properties": {"allowance_tokens": {"$ref": "#/$defs/count"},
                                                     "host_version": {"$ref": "#/$defs/text"},
                                                     "flag_set_sha256": {"$ref": "#/$defs/sha256"}}}}
+    },
+    "output_caps": {
+      "type": "object", "additionalProperties": false, "required": ["S3"],
+      "properties": {"S3": {"type": "integer", "minimum": 1}}
     },
     "destinations": {
       "type": "object", "additionalProperties": false,

@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$comment": "design §5.4 (stitching): after every window of a unit is read, one call receives the unit's pending events and the claims recorded after each, and answers once for every pending event - resolved with the claims and evidence records that show its outcome, or unresolved with none. Every id here is a stored id the packet lists; nothing is retyped.",
+  "title": "S3 unit stitch",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["resolutions"],
+  "properties": {
+    "resolutions": {"type": "array", "items": {"$ref": "#/$defs/resolution"}}
+  },
+  "$defs": {
+    "ids": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "resolution": {
+      "type": "object", "additionalProperties": false,
+      "required": ["event_id", "outcome", "claim_ids", "evidence_ids"],
+      "properties": {
+        "event_id": {"type": "string", "minLength": 1},
+        "outcome": {"type": "string", "enum": ["resolved", "unresolved"]},
+        "claim_ids": {"$ref": "#/$defs/ids"},
+        "evidence_ids": {"$ref": "#/$defs/ids"}
+      }
+    }
+  }
+}
