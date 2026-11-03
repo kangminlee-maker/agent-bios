@@ -540,6 +540,12 @@ if [ -f session-distill/runlib/breaker.py ]; then
   leg -q "FAIL: session-distill provider breaker self-test (session-distill/runlib/breaker.py)" \
     python3 session-distill/runlib/breaker.py --self-test
 fi
+# S3 read (plan WP-08): golden runs of the stage through the supervisor and dispatch's golden host, which
+# answers from a plan made of the windows themselves; no model is called.
+if [ -f session-distill/runlib/stage_read.py ]; then
+  leg -q "FAIL: session-distill S3 read self-test (session-distill/runlib/stage_read.py)" \
+    python3 session-distill/runlib/stage_read.py --self-test
+fi
 
 # Instructions rollback (compose/instructions-state.py) — a destructive path with no other
 # coverage: every version registered today is UNAVAILABLE (it predates the assembled

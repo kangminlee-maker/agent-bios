@@ -34,7 +34,7 @@ Think the problem through before you answer. Then return the JSON your schema as
   "". `uncertainty`: what could make it wrong, or "". `evidence_ids`: the quotes it rests on. `call_id`: this packet's
   CALL-ID. Ids c1, c2, ...
 - `events`: each cause whose outcome matters - a request, decision, error, correction or change of plan - at its first
-  owned entry (`at_record`), with a short noun `kind`, the `claim_ids` describing it, and a one-sentence `description`
+  owned entry (`at_record`, never a `context` one: that is another window's), with a short noun `kind`, the `claim_ids` describing it, and a one-sentence `description`
   of the cause and the outcome it waits for. `outcome`: `resolved` if this window shows the outcome, `pending` if it
   lies outside; pending events are joined to their outcomes later. Ids v1, v2, ...
 - `decisions`: one per omission listed above, by `omission_id`: `expand` (read as further windows) or `skip`, with a

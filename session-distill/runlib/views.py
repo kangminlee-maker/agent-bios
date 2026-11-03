@@ -1568,10 +1568,15 @@ def fx_owned(rows, window=None):
 
 
 def fx_census(window_id, entries):
-    """The census document a golden run reads: the fields S1 writes, over the fixture's transcripts."""
+    """The census document a golden run reads: the fields S1 writes, over the fixture's transcripts. Each source has
+    discovered what is filed under it and totals it by status, as S1 does, so the census S3 hands back is accountable
+    (`census.account`)."""
+    sources = {name: {"state": "present", "path": f"/srv/golden/{name}",
+                      "discovered": sum(1 for e in entries if e["source"] == name),
+                      "unrecognized": 0, "totals": {}, "detail": None} for name in census.DIRECTORIES}
+    census.totals_of(entries, sources)
     return {"kind": "periodic", "window": window_id, "originator_table_sha256": records.sha256_bytes(b"golden"),
-            "sources": {name: {"state": "present", "path": f"/srv/golden/{name}", "discovered": 0,
-                                "unrecognized": 0, "totals": {}, "detail": None} for name in census.DIRECTORIES},
+            "sources": sources,
             "originators": {}, "provenance": {}, "pins": {},
             "independence": {"components": 1, "unknown_components": 0, "sessions": len(entries), "unknown_sessions": 0},
             "unowned": {"earlier_windows": 0, "rewritten": {"files": 0, "records": 0}, "first_seen": {"files": 0, "records": 0}},
@@ -1594,7 +1599,7 @@ def fx_seats(root, capacity, seat=None, host_version="2.1.304", name=None):
 
 
 def golden(root, name="g", overhead=bound.PACKET_OVERHEAD, capacity=None, reservation=32_000,
-           allowance=3200, census_sha=None, compressed=False, main_records=None, owned=None):
+           allowance=3200, census_sha=None, compressed=False, main_records=None, owned=None, allowance_entry=None):
     """A run directory S2 can be run over, and the result of running it (realization: golden).
 
     The transcripts are `fx_main_records` (eligible, with a pending event and four clipped tool results), its child,
@@ -1659,6 +1664,10 @@ def golden(root, name="g", overhead=bound.PACKET_OVERHEAD, capacity=None, reserv
     declaration = {**declare.fixture(), "window": FX_WINDOW, "output_caps": {declare.VIEW_WINDOW_STAGE: reservation}}
     seat = declaration["seats"][declare.VIEW_WINDOW_STAGE]
     declaration["host_allowance"] = {seat: {**declaration["host_allowance"][seat], "allowance_tokens": allowance}}
+    if allowance_entry is not None:
+        # a stage that DISPATCHES over these windows declares the allowance seats.json measured, which the
+        # dispatcher admits a view-window call against; S2's own controls keep the small one that bites
+        declaration["host_allowance"] = {seat: allowance_entry}
     run_dir.mkdir(parents=True, exist_ok=True)
     declare.create(run_dir, declaration)
     with records.run_stage(run_dir, "S1") as stage:

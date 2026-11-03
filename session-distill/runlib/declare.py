@@ -400,7 +400,9 @@ def self_test():
             [] if addendum in SCHEMA["$comment"] and (REPO / addendum).is_file()
             else [f"run.schema.json cites {SCHEMA['$comment']!r}; {addendum} must be named and present"])
     control("valid-declaration", checked(fixture()))  # the positive control, first
-    for name in sorted(SCHEMA["required"]):
+    # over the pinned set, not the schema's own list: a control that indexes a live list stops testing, silently, when
+    # an entry leaves it, so a requirement dropped from the schema still has its drop control here, and that fails
+    for name in sorted(declared):
         code = "ACCOUNT_UNDECLARED" if name == "account" else "DECLARATION_INVALID"
         control(f"drop-{name}", mutated(lambda run, name=name: run.pop(name)), f"{code} {name}: missing")
     control("unknown-field", mutated(lambda run: run.update(extra=1)),

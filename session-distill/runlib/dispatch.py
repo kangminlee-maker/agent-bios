@@ -1772,13 +1772,21 @@ class Supervisor:
 
     # --- one item: the gate and the one corrective retry ---------------------------------------
 
-    def item(self, stage, item, seat, payload, schema, *, case_type, caps, view_window, tranche="broad", **kwargs):
+    def item(self, stage, item, seat, payload, schema, *, case_type, caps, view_window, tranche="broad", stage_check=None,
+             **kwargs):
         """An item's attempts through reservation, dispatch and the gate (design §3.2): a failing
         output is retried once with the validation message; a provider signal or a stop is never
         retried here; every attempt is kept. Outcomes: accepted, failed, not_done, deferred,
-        budget_stopped."""
+        budget_stopped.
+
+        `stage_check` is the stage's own part of steps 4 and 5 where a static contract.json cannot name it - an
+        answer's references to its own ids, the call id it echoes, a set whose rule depends on the item. It is a
+        function of an attempt's call directory returning failure lines, asked only of an attempt the gate
+        accepted, and an attempt it fails is failed exactly as one the gate fails: retried once with those lines,
+        the item failed when the retry fails too. It narrows what is accepted and never widens it. What it said of
+        each attempt is returned as `checked`."""
         schema_bytes = packets.schema_bytes(schema) if schema is not None else None
-        dirs, text, settled = [], payload, None
+        dirs, text, settled, checked = [], payload, None, []
         for attempt in (1, 2):
             try:
                 reservation = self.reserve(stage, item, seat, case_type, tranche=tranche, attempt=attempt)
@@ -1803,12 +1811,18 @@ class Supervisor:
                         "why": call["stopped"]["why"], "boundary": call["stopped"]["boundary"],
                         "attempts": [str(d) for d in dirs]}
             settled = gate.settle(dirs)
+            judged = list(stage_check(call_dir)) if settled["ok"] and stage_check is not None else []
+            checked.append(judged)
+            if judged:
+                settled = {**settled, "ok": False, "accepted": None, "retry": len(dirs) == 1,
+                           "codes": sorted(set(settled["codes"]) | {line.split()[0] for line in judged})}
             if settled["ok"] or not settled["retry"]:
                 break
-            text = payload + "\n" + gate.correction(settled["attempts"][-1])
+            text = payload + "\n" + gate.correction({"failures": judged} if judged else settled["attempts"][-1])
         return {"item": item, "outcome": "accepted" if settled["ok"] else "failed", "accepted": settled["accepted"],
-                "codes": sorted(set(settled["codes"]) | {c for a in settled["attempts"] for c in a["codes"]}),
-                "attempts": [str(d) for d in dirs]}
+                "codes": sorted(set(settled["codes"]) | {c for a in settled["attempts"] for c in a["codes"]}
+                                | {line.split()[0] for lines in checked for line in lines}),
+                "attempts": [str(d) for d in dirs], "checked": checked}
 
 
 # --- dispatch edges: the import closure and its executor sites ----------------------------------
@@ -2813,6 +2827,10 @@ if host == "claude":
     answer = {"verdict": "ABSENT", "why": "no section names it"}
     if mode == "invalid" or (mode == "invalid-then-valid" and "rejected by validation" not in packet):
         answer = {"verdict": "MAYBE"}
+    if spec.get("answers"):  # a stage's golden plan: the first row whose every text the packet holds, its call id filled in
+        plan = json.loads(pathlib.Path(spec["answers"]).read_text())
+        answer = next((row["answer"] for row in plan if all(text in packet for text in row["match"])), {"unplanned": True})
+        answer = json.loads(json.dumps(answer).replace("<CALL-ID>", call_id))
     structured = answer if schema is not None else None
     result = {**base, "subtype": "success", "is_error": False, "terminal_reason": "completed", "api_error": None,
               "api_error_status": None, "structured_output": structured}
@@ -3166,6 +3184,38 @@ def self_test(scratch=None):
     out = sup.item("S6", "retry-no", judge, "Is the rule present?\n", verdict_schema, case_type="judge", caps=caps, view_window=False)
     control("two-invalid-attempts-retry-exhausted", out["outcome"] == "failed" and "RETRY_EXHAUSTED" in out["codes"]
             and len(out["attempts"]) == 2, f"{out}")
+    # a stage's own check (WP-08): asked only of an attempt the gate accepted, its failure retried once with its lines
+    sup.mode, asked = "clean", []
+
+    def picky(call_dir):
+        asked.append(pathlib.Path(call_dir).name)
+        return ["RECORD_INTEGRITY planted stage check"] if len(asked) == 1 else []
+    out = sup.item("S6", "checked-ok", judge, "Is the rule present?\n", verdict_schema, case_type="judge", caps=caps,
+                   view_window=False, stage_check=picky)
+    control("a-stage-check-failure-is-retried-with-its-lines",
+            out["outcome"] == "accepted" and len(out["attempts"]) == 2 and out["accepted"] == out["attempts"][1]
+            and out["checked"] == [["RECORD_INTEGRITY planted stage check"], []]
+            and "- RECORD_INTEGRITY planted stage check" in (pathlib.Path(out["attempts"][1]) / "packet.md").read_text()
+            and "RECORD_INTEGRITY" in out["codes"], f"{out}")
+    out = sup.item("S6", "checked-no", judge, "Is the rule present?\n", verdict_schema, case_type="judge", caps=caps,
+                   view_window=False, stage_check=lambda call_dir: ["SET_MISMATCH planted stage check"])
+    control("a-stage-check-failing-both-attempts-fails-the-item",
+            out["outcome"] == "failed" and out["accepted"] is None and len(out["attempts"]) == 2
+            and "SET_MISMATCH" in out["codes"], f"{out}")
+    sup.mode, asked = "invalid", []
+    out = sup.item("S6", "checked-gate", judge, "Is the rule present?\n", verdict_schema, case_type="judge", caps=caps,
+                   view_window=False, stage_check=picky)
+    control("a-stage-check-is-never-asked-of-an-attempt-the-gate-failed",
+            out["outcome"] == "failed" and asked == [] and out["checked"] == [[], []], f"{out} asked={asked}")
+    plan = scratch / "answers.json"
+    plan.write_text(json.dumps([{"match": ["no such text"], "answer": {"verdict": "PRESENT", "why": "wrong row"}},
+                                {"match": ["Is the rule", "present?"], "answer": {"verdict": "UNCLEAR", "why": "<CALL-ID>"}}]))
+    sup.mode, sup.extra = "clean", {"answers": str(plan)}
+    out = sup.item("S6", "planned", judge, "Is the rule present?\n", verdict_schema, case_type="judge", caps=caps, view_window=False)
+    planned = gate.accepted(out["accepted"]) if out["outcome"] == "accepted" else None
+    control("the-golden-host-answers-from-a-stage-plan-with-its-call-id",
+            planned == {"verdict": "UNCLEAR", "why": f"{sup.run_id}-S6-planned-a1"}, f"{out} {planned}")
+    sup.extra = {}
 
     # both caps stop a judge call mid-stream; the tree is killed and verified; usage stays provisional
     sup.mode = "big-first-request"
