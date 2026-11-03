@@ -2054,8 +2054,9 @@ def sessions_with_contexts(ctx, shared, index, store):
 def sessions_cross_problems(document):
     """What `sessions.json` gets wrong ACROSS its records (step 0 S-21's cross-record validation), each
     as a fixed code with counts: every event is listed by exactly one session record and points back at
-    it, every listed event exists exactly once, and one owner's intervals of one kind are ordered and
-    disjoint. The schema judges each record alone; none of this is visible to it."""
+    it, every listed event exists exactly once, and one owner's intervals of one kind in one transcript file
+    are ordered and disjoint (a line is its file's coordinate, and a Codex thread written in several files has
+    one owner across them). The schema judges each record alone; none of this is visible to it."""
     problems = []
     events, sessions = document.get("events") or [], document.get("sessions") or []
     by_id = {}
@@ -2086,7 +2087,7 @@ def sessions_cross_problems(document):
     lanes = {}
     for event in events:
         if event.get("owner_ref") is not None and event.get("interval_from") is not None:
-            lanes.setdefault((event["owner_ref"], event.get("kind")), []).append(
+            lanes.setdefault((event.get("session_ref"), event["owner_ref"], event.get("kind")), []).append(
                 (event["interval_from"], event.get("interval_to")))
     overlapping = 0
     for rows in lanes.values():
@@ -4631,7 +4632,7 @@ def applicability(found, read):
     return found
 
 
-def segments(found, read, ownership, sought):
+def segments(found, read, ownership, sought, session):
     """Each owner's segments (step 0 S-17): line intervals partitioning `[1, lines_read + 1)` of the
     transcript, cut at the owner's event lines and at its events' certainty cuts (S-5), so that the event
     in force of each kind is fixed within one.
@@ -4640,7 +4641,12 @@ def segments(found, read, ownership, sought):
     the one in force is past its certainty cut, by the cut's own reason and line. `sought` maps a kind
     nobody could look for to its reason (`unsought`): an injection event is found by the session's own
     snapshot body, which an unpinned session does not have (lead ruling R15), so its absence is no
-    evidence. Records of an unknown owner get no segment; the ownership map holds them as unknown."""
+    evidence. Records of an unknown owner get no segment; the ownership map holds them as unknown.
+
+    A segment is one transcript file's, `session` its reference: a line is that file's coordinate, and the files
+    of a Codex thread written in several (D-20261103-a7128a) share the thread's one owner, so the id is made from
+    the file, the owner and the first line, and no segment carries into the next file. Each later file opens with
+    the thread's own `session_meta`; lines before its own event are `no_event_yet`, never the earlier file's."""
     end_of_file = (read["lines"] or 0) + 1
     out = []
     for owner in sorted({row["owner_ref"] for row in ownership["intervals"]}):
@@ -4648,8 +4654,8 @@ def segments(found, read, ownership, sought):
         bounds = sorted({1, end_of_file} | {event["n"] for event in own}
                         | {event["certain_to"] for event in own if event.get("certain_to") is not None})
         for start, stop in zip(bounds, bounds[1:]):
-            row = {"segment_id": opaque_id("g", "segment", owner, start), "owner_ref": owner,
-                   "from": start, "to": stop, "in_force": {}}
+            row = {"segment_id": opaque_id("g", "segment", session, owner, start), "session_ref": session,
+                   "owner_ref": owner, "from": start, "to": stop, "in_force": {}}
             for kind in EVENT_KINDS:
                 event = next((event for event in reversed(own) if event["kind"] == kind and event["n"] <= start), None)
                 if sought.get(kind) is not None:
@@ -4863,13 +4869,25 @@ def transcript_events(run_dir, pins=None, zstd=None, entries=None):
     snapshot. The body looked for in a transcript is THAT session's own selected body, under that
     session's own injection carrier (S-1, #4); a session with no read snapshot has none to look for. A
     row `pins` does not hold is a pin this run did not read. `entries` is the census the run already
-    read (`census_of`); a caller with none has it read here."""
+    read (`census_of`); a caller with none has it read here.
+
+    `findings["split_threads"]` counts the threads written in several files and their later files, in the census's
+    order: those that could not be read, and those read whose line 1 records no native event. A segment of such a
+    file before its own event is `no_event_yet` rather than the earlier file's (`segments`), so a count that is not
+    zero is where that choice gives another answer than carrying the earlier file's event would."""
     entries = census_entries(run_dir) if entries is None else entries
     events, unknown = [], []
     findings = {"undecodable": [], "damaged": [], "rejected": [], "inherited": [], "sessions": [], "timelines": {},
-                "occurrences": [], "segments": []}
+                "occurrences": [], "segments": [],
+                "split_threads": {"threads": 0, "later_files": 0, "later_files_unread": 0,
+                                  "later_files_without_native_at_line_1": 0}}
+    split, files_seen = findings["split_threads"], collections.Counter()
     for entry in entries:
         label = f"{entry.get('host')}:{entry.get('id')}"
+        files_seen[(entry.get("host"), entry.get("id"))] += 1
+        later = files_seen[(entry.get("host"), entry.get("id"))] > 1
+        split["threads"] += files_seen[(entry.get("host"), entry.get("id"))] == 2
+        split["later_files"] += later
         seen = {}
         pinned = (pins or {}).get(session_ref(entry.get("host"), entry.get("id"))) \
             or session_pin(None, entry.get("host"), entry.get("id"), entry.get("pin"))
@@ -4883,7 +4901,10 @@ def transcript_events(run_dir, pins=None, zstd=None, entries=None):
             decided = session_unknown(entry.get("host"), failure=exc)
             unknown.append(unknown_text(label, decided))
             findings["sessions"].append(session_record(entry, failure=exc, pinned=pinned, decided=decided))
+            split["later_files_unread"] += later
             continue
+        split["later_files_without_native_at_line_1"] += later and not any(
+            event["kind"] == "native" and event["n"] == 1 for event in found)
         bracket = brackets(read)
         for event in found:
             event["id"] = opaque_id("e", "event", event["kind"], entry.get("host"), entry.get("id"),
@@ -4894,9 +4915,8 @@ def transcript_events(run_dir, pins=None, zstd=None, entries=None):
             findings["occurrences"] += event_occurrences(event, injection_id)
         applicability(found, read)
         sought = {"native": None, "session_injection": unsought_reason(pinned)}
-        segmented = segments(found, read, ownership_map(entry, read)[0], sought)
-        for row in segmented:
-            row["session_ref"] = session_ref(entry.get("host"), ref_of(entry))
+        segmented = segments(found, read, ownership_map(entry, read)[0], sought,
+                             session_ref(entry.get("host"), ref_of(entry)))
         findings["segments"] += segmented
         dated = [event["n"] for event in found if _instant(event.get("at")) is not None]
         findings["timelines"][session_ref(entry.get("host"), ref_of(entry))] = {
@@ -6575,7 +6595,9 @@ def bind_transcripts(ctx, run_dir, zstd=None):
                   "undecodable": findings["undecodable"], "damaged": findings["damaged"],
                   "rejected": findings["rejected"],
                   # a parent's session_meta carried into a child or fork rollout: counted, never an event (M10)
-                  "inherited": findings["inherited"]})
+                  "inherited": findings["inherited"],
+                  # the threads written in several files, and their later files with no native event at line 1
+                  "split_threads": findings["split_threads"]})
     ctx["notes"]["transcripts"] = notes
 
 
@@ -8924,8 +8946,18 @@ def self_test():
                 run_at = scratch / "p22" / f"run-{name}"
                 rows_here = []
                 for host, ident, records_in, fields in transcripts:
-                    path_here = raw_lines(scratch / "p22" / name / f"{ident}.jsonl", records_in)
-                    rows_here.append(with_fields(census_row(host, ident, path_here), fields))
+                    # a tuple is a Codex thread written in several files, one census row with a file per segment
+                    # (D-20261103-a7128a): each part its records, or `(records, fields)` with fields over that file
+                    # alone; `fields` lie over the row and its first file
+                    parts = [(part, {}) if isinstance(part, list) else part
+                             for part in (records_in if isinstance(records_in, tuple) else (records_in,))]
+                    paths_here = [(raw_lines(scratch / "p22" / name / (f"{ident}.jsonl" if len(parts) == 1
+                                                                       else f"{ident}-{n}.jsonl"), part), part_fields)
+                                  for n, (part, part_fields) in enumerate(parts, 1)]
+                    row_here = with_fields(census_row(host, ident, paths_here[0][0]), {**fields, **paths_here[0][1]})
+                    row_here.get("segments", []).extend({**census_row(host, ident, path)["segments"][0], **part_fields}
+                                                        for path, part_fields in paths_here[1:])
+                    rows_here.append(row_here)
                 run_at.mkdir(parents=True, exist_ok=True)
                 (run_at / CENSUS).write_text(json.dumps({"transcripts": rows_here}), encoding="utf-8")
                 ctx_here = context_of(REPO, None, None, {}, pin, None)
@@ -16863,6 +16895,74 @@ def self_test():
                   == ["claude:r-damaged: unknown: the transcript records no injection (the bytes the census read)"],
                   f"record={p27_damaged.get('unknown')} "
                   f"listed={[entry for entry in p27_reads_listed if entry.startswith('claude:r-damaged: ')]}")
+
+            # ---- C0b (2026-11-03): a Codex thread written in two files, each opening with the thread's own session_meta
+            # and so recording its own native event at its line 1, as all 105 files of the 31 such threads did. The
+            # owner is the thread's; a line, an interval and a segment are one file's coordinates.
+            split_parts = tuple([codex_meta("c-split", f"2026-10-2{day}T09:00:00+00:00"),
+                                 {"type": "event_msg", "timestamp": f"2026-10-2{day}T09:01:00+00:00",
+                                  "payload": {"type": "user_message", "message": "a turn"}}] for day in (1, 2))
+            split_out = published_run("c0b-split", [("codex", "c-split", split_parts, {})])
+            split_doc = split_out.get("sessions") or {}
+            split_records = [row for row in split_doc.get("sessions") or [] if row.get("session") == "codex:c-split"]
+            split_segments = split_doc.get("segments") or []
+            check("C0b: a thread in two files publishes, each file's segment by its own id and listed by that file's record",
+                  "refused" not in split_out and len(split_records) == 2
+                  and len({row.get("segment_id") for row in split_segments}) == len(split_segments) == 2
+                  and all([row.get("segment_id") for row in split_segments if row.get("session_ref") == record["session_ref"]]
+                          == record.get("segment_refs") for record in split_records),
+                  f"{split_out.get('refused')} {split_out.get('problems')} records={len(split_records)} "
+                  f"segments={[(row.get('segment_id'), row.get('session_ref')) for row in split_segments]}"[:400])
+            split_events = {row.get("event_id"): row for row in split_doc.get("events") or []}
+            split_ends = {record["session_ref"]: (record.get("lines_read") or 0) + 1 for record in split_records}
+            check("C0b: each file's native event is in force in that file's segment, its interval from its line 1 to that "
+                  "file's end",
+                  len(split_events) == 2 and all(
+                      (split_events.get(row["in_force"]["native"].get("event_ref")) or {}).get("session_ref") == row["session_ref"]
+                      for row in split_segments) and sorted(
+                      (event.get("interval_from"), event.get("interval_to"), split_ends.get(event.get("session_ref")))
+                      for event in split_events.values()) == [(1, 3, 3), (1, 3, 3)],
+                  f"{[(e.get('session_ref'), e.get('interval_from'), e.get('interval_to')) for e in split_events.values()]} "
+                  f"ends={split_ends}"[:400])
+            split_run_out = scratch / "p27" / "out-c0b-split"
+            split_raised = _raised(lambda: run(REPO, None, None, split_run_out, run_dir=scratch / "p22" / "run-c0b-split",
+                                               commit="fixture", home=fixture_home, native_roots={"projects": {}}))
+            split_release = written_json(split_run_out / "inventory" / "release.json")
+            split_index = [entry for entry in (split_release.get("sessions") if isinstance(split_release, dict) else None) or []
+                           if entry.get("session_ref") in split_ends]
+            check("C0b: and the run over it publishes, its release index naming each file's own segment once",
+                  split_raised is None and len(split_index) == 2
+                  and all(len(entry.get("segments") or []) == 1 for entry in split_index)
+                  and len({segment.get("segment_ref") for entry in split_index for segment in entry["segments"]}) == 2,
+                  f"raised={split_raised} index={[(e.get('session_ref'), len(e.get('segments') or [])) for e in split_index]}"[:400])
+            split_manifest = written_json(split_run_out / "inventory" / "manifest.json")
+            split_noted = ((((split_manifest.get("inputs") if isinstance(split_manifest, dict) else None) or {})
+                            .get("transcripts") or {}).get("split_threads"))
+            check("C0b: the run's manifest counts the thread and its later file, which records its native event at line 1",
+                  split_noted == {"threads": 1, "later_files": 1, "later_files_unread": 0,
+                                  "later_files_without_native_at_line_1": 0}, f"{split_noted}")
+            # the case the counts are there to show: a later file whose line 1 records no native event shows that line as
+            # no_event_yet, not the earlier file's event (lead, 2026-11-03); a later file that cannot be read is counted apart
+            late_meta = lambda day: codex_meta("c-late", f"2026-10-2{day}T09:00:00+00:00")  # noqa: E731
+            late_turn = lambda day: {"type": "event_msg", "timestamp": f"2026-10-2{day}T09:01:00+00:00",  # noqa: E731
+                                     "payload": {"type": "user_message", "message": "a turn"}}
+            late_out = published_run("c0b-split-late", [("codex", "c-late", (
+                [late_meta(1), late_turn(1)], [late_turn(2), late_meta(2)],
+                ([late_meta(3), late_turn(3)], {"sha256": "1" * 64, "versions": [
+                    {"sha": "1" * 64, "record_count": 2, "prefix_sha": "2" * 64}]})), {})])
+            late_doc = late_out.get("sessions") or {}
+            late_second = next((row.get("session_ref") for row in late_doc.get("events") or [] if row.get("line") == 2), None)
+            late_segments = sorted((row.get("from"), row.get("to"), row["in_force"]["native"].get("state"))
+                                   for row in late_doc.get("segments") or [] if row.get("session_ref") == late_second)
+            late_noted = (((late_out.get("current") or {}).get("produced_by") or {}).get("notes") or {}) \
+                .get("transcripts", {}).get("split_threads")
+            check("C0b: a later file whose line 1 records no native event is no_event_yet there and counted, and an "
+                  "unreadable later file is counted apart",
+                  "refused" not in late_out and late_second is not None
+                  and late_segments == [(1, 2, "no_event_yet"), (2, 3, "in_force")]
+                  and late_noted == {"threads": 1, "later_files": 2, "later_files_unread": 1,
+                                     "later_files_without_native_at_line_1": 1},
+                  f"{late_out.get('refused')} {late_out.get('problems')} {late_segments} {late_noted}"[:400])
 
         with section("the general control (lead, after a36c728): no reason in ANY document this suite's runs"):
             # ---- the general control (lead, after a36c728): no reason in ANY document this suite's runs
