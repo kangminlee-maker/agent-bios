@@ -630,10 +630,15 @@ DECLARATION_READERS = {
     ("runlib/records.py", "run_json_path"): "the one place the declaration's path is spelled",
     ("runlib/records.py", "confine_declaration"): "confines the declaration's path beneath the run before anything reads it",
     ("runlib/records.py", "declaration_state"): "the declaration's reader, which takes no lock itself and checks that run.json "
-                                                "is the one the log binds: run_stage and dispatch's stop stamp call it "
-                                                "under the declaration lock, and the dispatcher's other reads call it under "
-                                                "the supervisor's lock alone, where a read landing mid-amendment is refused "
-                                                "by name (DECLARATION_DRIFT) rather than believed",
+                                                "is the one the log binds. Its callers hold different locks: run_stage's "
+                                                "stage admission and dispatch's stop stamp (_stop_run) hold the declaration "
+                                                "lock; dispatch's reservation (reserve) holds the supervisor's lock alone, "
+                                                "and so does the standing-stop check (_blocked) where reserve and a call's "
+                                                "launch make it; that check as a call first makes it and the seat admission "
+                                                "(_admit_seat), both before the call takes the supervisor's lock, and the "
+                                                "read-only budget query (remaining) hold neither. A read without the "
+                                                "declaration lock that lands "
+                                                "mid-amendment is refused by name (DECLARATION_DRIFT) rather than believed",
     ("runlib/records.py", "run_stage"): "admits a stage: what it reads under the lock is the StageRun.declaration the stage "
                                         "builds from",
     ("runlib/declare.py", "create"): "the declaration's writer (S0): writes run.json under the declaration lock",

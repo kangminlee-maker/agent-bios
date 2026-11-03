@@ -316,9 +316,16 @@ def stop_recorded(identity, settle_s=2.0, freeze_wait_s=1.0):
     members cannot be shown to be the runner's (its id is free once the leader is gone and the group empties), so
     nothing is signalled and the stop is `unverified`.
 
+    A listing with an unreadable line can hide a member, so none of the three conclusions - the group gone, the freeze
+    stable, the kill done - is drawn from one (W r2): the first listing is taken again until it is complete, within
+    `freeze_wait_s`; the freeze goes on listing until a complete listing shows it stable, or until its deadline, when
+    the members found are killed; and only a complete listing verifies the kill. When none is complete in time the stop
+    is `unverified`.
+
     Returns `(outcome, detail)`: `stopped`, `survivors`, `gone` (no such process, and no process in its group),
-    `identity_mismatch` (named, nothing signalled) or `unverified` (no listing, an identity not recorded whole, or a
-    group left without its leader: nothing signalled; or a kill no listing verified)."""
+    `identity_mismatch` (named, nothing signalled) or `unverified` (no listing, an identity not recorded whole, a
+    group left without its leader, or a leader not listed by any complete listing: nothing signalled; or a kill no
+    complete listing verified)."""
     pid, start, pgid = identity.get("pid"), identity.get("start"), identity.get("pgid")
     if not isinstance(pid, int) or not isinstance(pgid, int) or not start or pgid in (0, 1) or pgid == os.getpgrp():
         return "unverified", f"the runner's identity was not recorded whole: {identity}"
@@ -328,9 +335,16 @@ def stop_recorded(identity, settle_s=2.0, freeze_wait_s=1.0):
 
     try:
         rows = ps_table()
+        retry_until = time.monotonic() + freeze_wait_s
+        while pid not in rows and rows.unreadable and time.monotonic() < retry_until:  # absence needs a complete listing
+            time.sleep(0.05)
+            rows = ps_table()
     except ListingFailed as exc:
         return "unverified", f"no listing to verify the runner against ({exc})"
     row = rows.get(pid)
+    if row is None and rows.unreadable:
+        return "unverified", (f"pid {pid} is not listed, and no listing within {freeze_wait_s}s read every line (the last "
+                              f"had {rows.unreadable} unreadable): its group is not shown gone, so none is signalled")
     if row is None:
         held = in_group(rows)
         if held:
@@ -351,7 +365,7 @@ def stop_recorded(identity, settle_s=2.0, freeze_wait_s=1.0):
         new = {p: r for p, r in in_group(rows).items() if p not in members}
         running = [p for p, r in members.items() if same(rows, p, r["start"]) and "T" not in rows[p]["stat"]
                    and "Z" not in rows[p]["stat"]]
-        if not new and not running:
+        if not new and not running and not rows.unreadable:  # an unreadable line may hide a member still running
             frozen = True
             break
         if time.monotonic() > deadline:
@@ -370,19 +384,23 @@ def stop_recorded(identity, settle_s=2.0, freeze_wait_s=1.0):
                               f"and none was killed; they stay stopped until the owner checks each pid against the run's "
                               f"host and ends it")
     _signal(rows, members, signal.SIGKILL)
-    deadline, left = time.monotonic() + settle_s, None
+    deadline, left, incomplete = time.monotonic() + settle_s, None, 0
     while time.monotonic() < deadline:
         time.sleep(0.05)
         try:
             after = ps_table()
         except ListingFailed:
             continue
+        if after.unreadable:  # it may hide a process the group still holds: it verifies nothing
+            incomplete += 1
+            continue
         left = sorted({p for p, r in members.items() if same(after, p, r["start"]) and "Z" not in after[p]["stat"]}
                       | set(in_group(after)))
         if not left:
             break
     if left is None:
-        return "unverified", f"no listing verified the kill of pids {sorted(members)} of group {pgid}"
+        return "unverified", (f"no complete listing verified the kill of pids {sorted(members)} of group {pgid}"
+                              + (f" ({incomplete} had unreadable lines)" if incomplete else ""))
     if left:
         return "survivors", f"pids {left} of group {pgid} outlived the kill"
     return "stopped", (f"group {pgid}: {len(members)} processes, frozen in {rounds} listings" if frozen else
@@ -889,9 +907,11 @@ def self_test():
     # between the first listing and the kill); `after_kill` adds one to the first listing after a SIGKILL was sent (a
     # process the group holds once the kill is done), whatever number that listing has.
     class Table:
-        def __init__(self, procs, arrive=None, after_kill=()):
+        """A mocked process table. `hidden` maps a pid to how many listings show it only as an unreadable line."""
+
+        def __init__(self, procs, arrive=None, after_kill=(), hidden=None):
             self.procs, self.arrive, self.after_kill = {r["pid"]: dict(r) for r in procs}, arrive or {}, list(after_kill)
-            self.listings, self.sent = 0, []
+            self.listings, self.sent, self.hidden = 0, [], hidden or {}
 
         def list(self):
             self.listings += 1
@@ -900,7 +920,8 @@ def self_test():
             if self.after_kill and any(sig == signal.SIGKILL for _pid, sig in self.sent):
                 self.procs.update((r["pid"], dict(r)) for r in self.after_kill)
                 self.after_kill = []
-            rows = Listing({p: dict(r) for p, r in self.procs.items()})
+            rows = Listing({p: dict(r) for p, r in self.procs.items() if self.hidden.get(p, 0) < self.listings})
+            rows.unreadable = sum(1 for p in self.procs if self.hidden.get(p, 0) >= self.listings)
             rows[os.getpid()] = {"pid": os.getpid(), "ppid": 1, "pgid": os.getpgrp(), "stat": "R", "start": "now"}
             return rows
 
@@ -942,6 +963,28 @@ def self_test():
     outcome = driven(emptied, leader)
     control("W r1: a leader gone with its group empty is gone, and nothing is signalled",
             outcome[0] == "gone" and emptied.sent == [], f"{outcome} {emptied.sent}")
+    # W r2: a live member shown only as an unreadable line - the listing is incomplete, never evidence of absence
+    always = float("inf")
+    masked = Table([proc_row(1)], hidden={lead + 1: always})
+    outcome = driven(masked, leader)
+    control("W r2: a leader unlisted beside an unreadable line is unverified, never gone, and nothing is signalled",
+            outcome[0] == "unverified" and masked.sent == [] and masked.listings > 1, f"{outcome} {masked.sent}")
+    late_leader = Table([proc_row(0), proc_row(1)], hidden={lead: 1})
+    outcome = driven(late_leader, leader)
+    control("W r2: a first listing hiding the leader is taken again, and the complete one decides",
+            outcome[0] == "stopped" and (lead, signal.SIGKILL) in late_leader.sent
+            and (lead + 1, signal.SIGKILL) in late_leader.sent and not late_leader.procs, f"{outcome} {late_leader.sent}")
+    unseen = Table([proc_row(0), proc_row(1)], hidden={lead + 1: 2})
+    outcome = driven(unseen, leader)
+    control("W r2: a member an unreadable line hid from the first listings is frozen and killed once a complete "
+            "listing shows it",
+            outcome[0] == "stopped" and (lead + 1, signal.SIGSTOP) in unseen.sent
+            and (lead + 1, signal.SIGKILL) in unseen.sent and not unseen.procs, f"{outcome} {unseen.sent}")
+    never = Table([proc_row(0), proc_row(1)], hidden={lead + 1: always})
+    outcome = driven(never, leader)
+    control("W r2: a kill no complete listing verifies is unverified, not stopped",
+            outcome[0] == "unverified" and "no complete listing verified the kill" in outcome[1]
+            and never.procs.get(lead + 1, {}).get("stat") == "S", f"{outcome} {never.sent}")
     # W r1: the reaped runner's pid, recycled as the leader of an unrelated group (mocked: no real signal is sent).
     # Cleanup by the recorded identities signals nothing of it; looking the group up again by the pid would.
     recycled, real_kill, real_table = [], os.kill, ps_table

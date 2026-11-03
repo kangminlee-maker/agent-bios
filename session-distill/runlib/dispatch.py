@@ -1372,9 +1372,19 @@ class Supervisor:
                         "flags_sha256": gate.pinned_flags_sha256(host, host_version, profile),
                         "server_policy": str(policy) if policy else None}
                 env = self.runner_env(call_id, cell, capture, host, host_version, spec["host_bin"])
+                # written before the runner starts (W r2): a driver that dies after this and before the identity below
+                # is written leaves a runner that may be running with nothing to stop it by, and `interrupted` refuses
+                # the resume beside it; without the mark, no runner was started
+                held["spawning"] = self.clock()
+                self._write(ledger)
                 began = time.monotonic()
-                proc = subprocess.Popen(self.runner(host, spec), stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                                        stderr=subprocess.PIPE, env=env, start_new_session=True)
+                try:
+                    proc = subprocess.Popen(self.runner(host, spec), stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                            stderr=subprocess.PIPE, env=env, start_new_session=True)
+                except OSError:  # no runner started: the mark comes off
+                    del held["spawning"]
+                    self._write(ledger)
+                    raise
                 # what identifies the runner if this driver dies before it settles: a resumed run stops it by these
                 # three and nothing else (`interrupted`, WP-08 commit 5a)
                 held["runner"] = runner_identity(proc.pid)
@@ -1901,9 +1911,10 @@ class Supervisor:
         (`_interrupted_cell`); a host that finished before its driver died reported its own
         spend in the capture its runner wrote, and that is charged in place of the estimate (`host_reported`). A
         runner that may still be running - the kill left survivors, or its
-        recorded identity cannot be verified - refuses the resume (RESUME_HOST_UNVERIFIED) before anything is closed,
-        since a new call beside it would spend twice; a reservation marked dispatched with no runner recorded died
-        before its runner started. Returns one row per reservation closed."""
+        recorded identity cannot be verified, or it was marked spawning and no identity followed (W r2: the run died
+        between starting its runner and writing who it is) - refuses the resume (RESUME_HOST_UNVERIFIED) before
+        anything is closed, since a new call beside it would spend twice; a reservation marked dispatched and not
+        spawning died before its runner started. Returns one row per reservation closed."""
         with self._lock():
             ledger = self.ledger()
             held_open = [dict(r) for r in self._stage(ledger, stage)["reservations"].values() if r["open"]]
@@ -1913,6 +1924,11 @@ class Supervisor:
             if held.get("dispatched_at") is not None:
                 if held.get("runner"):
                     row["host"], row["host_detail"] = stop.stop_recorded(held["runner"])
+                elif held.get("spawning") is not None:
+                    row["host"], row["host_detail"] = "unverified", (
+                        "the run died after starting its runner and before writing its identity, so a runner may "
+                        "still run with nothing to stop it by; the owner looks for a process using the cell its "
+                        "call.json names and ends it")
                 else:  # the run died between marking the call dispatched and starting its runner
                     row["host"], row["host_detail"] = "unrecorded", "no runner was recorded as started"
             rows.append(row)
@@ -3554,6 +3570,92 @@ def self_test(scratch=None):
         planted_ledger = sup.ledger()
         sup._stage(planted_ledger, "S9")["reservations"][unverified].update(open=False, outcome="interrupted")
         sup._write(planted_ledger)
+    # W r2: the driver dies between starting its runner and writing who it is - right after the Popen, and with the
+    # identity known but not yet written. A planted exception nothing in the dispatcher catches stands for the death and
+    # leaves the ledger as a dead driver's; each runner is this suite's own child, held from its Popen and ended here
+    # by closing its stdin (killed only if it is still this suite's unreaped child after that).
+    class Crash(BaseException):
+        """A driver dying at a planted point."""
+    real_identity, real_runner, crashed_runners = runner_identity, sup.runner, []
+
+    def crash_at(point):
+        def identity(pid):
+            crashed_runners.append(sys._getframe(1).f_locals["proc"])
+            if point == "popen":
+                raise Crash(point)
+            found = real_identity(pid)
+
+            def dying_write(ledger):
+                raise Crash(point)
+            sup._write = dying_write  # the next ledger write is the one that would hold the identity
+            return found
+        return identity
+
+    def crashed(point, item):
+        globals()["runner_identity"] = crash_at(point)
+        sup.runner = lambda host, spec: [sys.executable, "-c", "import sys; sys.stdin.buffer.read()"]
+        try:
+            sup.item("S6", item, judge, "Is the rule present?\n", verdict_schema, case_type="judge", caps=caps,
+                     view_window=False, max_output_tokens=4096)
+            return "no crash"
+        except Crash:
+            return "crashed"
+        finally:
+            globals()["runner_identity"], sup.runner = real_identity, real_runner
+            sup.__dict__.pop("_write", None)
+
+    def open_s6():
+        return {cid: r for cid, r in sup.ledger()["stages"]["S6"]["reservations"].items() if r["open"]}
+    before_crash = open_s6()
+    crash_a = crashed("popen", "crash-after-popen")
+    spawned_a = [cid for cid in open_s6() if cid not in before_crash]
+    held_a = open_s6().get(spawned_a[0], {}) if len(spawned_a) == 1 else {}
+    refused_a = str(refusal(sup.interrupted, "S6") or "")
+    control("W r2: a driver dead right after it started its runner leaves the reservation spawning, and the resume "
+            "refuses beside it",
+            crash_a == "crashed" and held_a.get("spawning") is not None and "runner" not in held_a
+            and refused_a.startswith("RESUME_HOST_UNVERIFIED") and spawned_a[0] in refused_a and spawned_a[0] in open_s6(),
+            f"{crash_a} before={sorted(before_crash)} {spawned_a} held={sorted(held_a)} {refused_a[:200]}")
+    crash_b = crashed("write", "crash-before-identity-written")
+    spawned_b = [cid for cid in open_s6() if cid not in before_crash and cid not in spawned_a]
+    held_b = open_s6().get(spawned_b[0], {}) if len(spawned_b) == 1 else {}
+    refused_b = str(refusal(sup.interrupted, "S6") or "")
+    control("W r2: a driver dead with its runner's identity known and not yet written is refused the same way",
+            crash_b == "crashed" and held_b.get("spawning") is not None and "runner" not in held_b
+            and refused_b.startswith("RESUME_HOST_UNVERIFIED") and spawned_b[0] in refused_b,
+            f"{crash_b} {spawned_b} {refused_b[:300]}")
+    more = {name: sup.reserve("S6", name, judge, "judge")["call_id"] for name in ("crash-never-sent", "crash-sent-unspawned")}
+    with sup._lock():
+        planted_ledger = sup.ledger()
+        sup._stage(planted_ledger, "S6")["reservations"][more["crash-sent-unspawned"]]["dispatched_at"] = clock[0]
+        sup._write(planted_ledger)
+    refused_m = str(refusal(sup.interrupted, "S6") or "")
+    # beside them a reservation never dispatched and one dispatched with no spawning mark - each of which closes when
+    # alone (the S9 controls above) - and the one earlier controls left open
+    control("W r2: among several open reservations the resume refuses on the spawning ones alone and closes none",
+            refused_m.startswith("RESUME_HOST_UNVERIFIED") and sorted(c for c in open_s6() if c in refused_m)
+            == sorted(spawned_a + spawned_b)
+            and set(open_s6()) == set(before_crash) | set(spawned_a + spawned_b + list(more.values())),
+            f"open={sorted(open_s6())} {refused_m[:300]}")
+    for proc in crashed_runners:
+        proc.stdin.close()
+        try:
+            proc.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            proc.kill()  # this suite's own unreaped child: its pid cannot have gone to another program
+            proc.wait(timeout=10)
+        proc.stdout.close()
+        proc.stderr.close()
+    with sup._lock():
+        planted_ledger = sup.ledger()
+        for cid in spawned_a + spawned_b + list(more.values()):
+            sup._stage(planted_ledger, "S6")["reservations"][cid].update(open=False, outcome="interrupted")
+        sup._write(planted_ledger)
+    for cid in spawned_a + spawned_b:
+        sup._interrupted_cell(d / "calls" / cid)
+    control("the crash controls' runners, this suite's own children, have all ended",
+            len(crashed_runners) == 2 and all(p.poll() is not None for p in crashed_runners)
+            and set(open_s6()) == set(before_crash), f"{[p.poll() for p in crashed_runners]} {sorted(open_s6())}")
     plan = scratch / "answers.json"
     plan.write_text(json.dumps([{"match": ["no such text"], "answer": {"verdict": "PRESENT", "why": "wrong row"}},
                                 {"match": ["Is the rule", "present?"], "answer": {"verdict": "UNCLEAR", "why": "<CALL-ID>"}}]))
