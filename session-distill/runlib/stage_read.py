@@ -686,8 +686,11 @@ def self_test():
                 return [((), fx_answer(doc, rows, extra_quotes=[retyped], events=[event("c2", "pending")]))]
             if where.endswith("/3") and where.startswith("claude_"):  # a claim resting on what the overlap shows
                 return [((), fx_answer(doc, rows, events=[event("c1", "pending")], extra_quotes=[fx_overlap_quote(doc)]))]
-            if where.startswith("codex_"):
-                return [((), fx_answer(doc, rows, events=[event("c1", "resolved")]))]
+            if where.startswith("codex_"):  # and a quote naming an occurrence its text does not have (X r2)
+                text, _ = fx_quote(first)
+                unknown = {"quote_id": "q2", "entry": views.eid(first), "text": text,
+                           "occurrence": len(evidence.view_spans(first, text))}
+                return [((), fx_answer(doc, rows, events=[event("c1", "resolved")], extra_quotes=[unknown]))]
             return [((), fx_answer(doc, rows))]
 
         forcing = lambda m: m["forced_by"] != "none"  # noqa: E731 - the plan expands the forced omissions
@@ -769,6 +772,10 @@ def self_test():
                 and not guarded(lambda: evidence.verify(run_dir, overlap_evidence[0]), ["unverifiable"]),
                 f"{third} {overlap_evidence}")
         codex_name = next((f["name"] for f in record_of(run_dir, codex_unit).get("files", [])), None)
+        codex_window = next((w for f in record_of(run_dir, codex_unit).get("files", []) for w in f["windows"]), {})
+        control("X r2: a quote naming an occurrence its text does not have drops its claim by name, and the unit reads on",
+                [(d.get("claim"), d["code"]) for d in codex_window.get("dropped", [])] == [("c2", "QUOTE_OCCURRENCE_UNKNOWN")]
+                and units.get(codex_unit) == "read_complete", f"{codex_window.get('dropped')} {units.get(codex_unit)}")
         kept_events = [json.loads(line) for n in (name, codex_name) if n and (run_dir / "events" / f"{n}.jsonl").is_file()
                        for line in (run_dir / "events" / f"{n}.jsonl").read_text().splitlines()]
         stored_ids = {c["claim_id"] for n in (name, codex_name) if n for c in guarded(lambda n=n: stored_claims(run_dir, n), [])}
@@ -830,23 +837,20 @@ def self_test():
                 "stays read_partial", bool(file_b.get("overlap", {}).get("uncredited")) and main_b.get("status") == "read_partial"
                 and any("overlap rows uncredited" in r for r in main_b.get("reasons", [])), f"{file_b.get('overlap')} {main_b.get('reasons')}")
 
-        # ---- run D: an amendment landing just before S3's admission is the declaration the reading runs under (X r1)
-        run_d, sup_d, _ = fx_reader(root / "d", "d", lambda where, doc, rows, parts: [((), fx_answer(doc, rows))], expanding=forcing)
-        admitted = records.run_stage
-
-        def racing(directory, stage, inputs=(), part=None):
-            if stage == STAGE:
-                declare.amend(directory, [("checks.view_complete_share_min", 0.8)], "an amendment just before S3's admission")
-            return admitted(directory, stage, inputs, part=part)
-        records.run_stage = racing
-        try:
+        # ---- run D: an amendment landing just before S3's admission is the declaration the reading runs under, and one
+        # landing just after it changes nothing the reading runs under (X r1, r2)
+        for when, want in (("before", 1), ("after", 0)):
+            run_d, sup_d, _ = fx_reader(root / f"d-{when}", f"d{when[0]}", lambda where, doc, rows, parts: [((), fx_answer(doc, rows))],
+                                        expanding=forcing)
             summary_d = {}
-            problem = refusal(lambda: summary_d.update(run(run_d, sup_d)))
-        finally:
-            records.run_stage = admitted
-        seq_d = guarded(lambda: records.read_json(records.run_json_path(run_d))["declaration_seq"], None)
-        control("X r1: the reading runs under the declaration S3 was admitted against, not one read before it",
-                not problem and summary_d.get("declaration_seq") == seq_d and seq_d == 1, f"{problem} {summary_d.get('declaration_seq')} {seq_d}")
+            with records.fx_amended_at_admission(STAGE, [("checks.view_complete_share_min", 0.8)], when):
+                problem = refusal(lambda: summary_d.update(run(run_d, sup_d)))
+            s3_seq = guarded(lambda: records.read_json(records.record_path(run_d, STAGE))["declaration_seq"], None)
+            landed = guarded(lambda: records.read_json(records.run_json_path(run_d))["declaration_seq"], None)
+            control("X r1: the reading runs under the declaration S3 was admitted against, not one read before it"
+                    if when == "before" else "X r2: an amendment just after S3's admission changes nothing the reading runs under",
+                    not problem and summary_d.get("declaration_seq") == s3_seq == want and landed == 1,
+                    f"{problem} {summary_d.get('declaration_seq')} {s3_seq} run.json at {landed}")
 
         # ---- run E: a supervisor handing back the attempt its stage check failed - one read sees both verdicts
         run_e, sup_e, _ = fx_reader(root / "e", "e", answers_a, expanding=forcing)

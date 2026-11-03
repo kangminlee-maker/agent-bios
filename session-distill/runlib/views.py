@@ -3560,34 +3560,28 @@ def self_test():
                   {"incomplete": False, "view": False, "source": True})
     with tempfile.TemporaryDirectory(prefix="views-x1-") as td:
         x1 = pathlib.Path(td)
-        # X review of WP-08 r1 #2: an amendment of the cap landing after a read of the declaration and before S2's
-        # admission. The windows are cut with the cap of the declaration the stage was admitted against
-        admitted = records.run_stage
-
-        def racing(run_dir, stage, inputs=(), part=None):
-            if stage == "S2":
-                declare.amend(run_dir, [(f"output_caps.{declare.VIEW_WINDOW_STAGE}", 48_000)],
-                              "an amendment between a read of the declaration and the admission")
-            return admitted(run_dir, stage, inputs, part=part)
-        records.run_stage = racing
-        try:
-            raced = golden(x1, "raced", overhead=100_000)
-        except Exception as exc:  # noqa: BLE001 - reported by the controls below, by name
-            raced = {"error": repr(exc)}
-        finally:
-            records.run_stage = admitted
-        if "error" in raced:
-            checks.expect("X r1: a run whose cap is amended just before S2's admission is made", raced["error"], None)
-        else:
+        # X review of WP-08 r1 #2 and r2: an amendment of the cap landing just before S2's admission is the cap the windows
+        # are cut with; one landing just after it changes nothing they were cut with
+        cap = [(f"output_caps.{declare.VIEW_WINDOW_STAGE}", 48_000)]
+        for when, want in (("before", 48_000), ("after", 32_000)):
+            with records.fx_amended_at_admission("S2", cap, when):
+                try:
+                    raced = golden(x1, f"raced-{when}", overhead=100_000)
+                except Exception as exc:  # noqa: BLE001 - reported by the control below, by name
+                    raced = {"error": repr(exc)}
+            label = (f"X r1: an amendment just before S2's admission is the cap the views record and their windows are cut "
+                     f"with, under the declaration S2 recorded" if when == "before" else
+                     "X r2: an amendment just after S2's admission changes nothing the windows were cut with")
+            if "error" in raced:
+                checks.expect(label, raced["error"], None)
+                continue
             raced_dir = pathlib.Path(raced["run_dir"])
-            seq = records.read_json(records.run_json_path(raced_dir))["declaration_seq"]
             part = records.read_json(records.record_path(raced_dir, "S2")).get("parts", {}).get("views", {})
-            checks.expect("X r1: an amendment just before S2's admission is the cap the views record and their windows "
-                          "are cut with, under the declaration S2 recorded",
-                          ({views_t["limits"]["reservation"] for views_t in [raced["manifest"]]},
-                           {sequence_doc(raced_dir, t["name"])["limits"]["reservation"] for t in raced["manifest"]["transcripts"]},
-                           part["declaration_seq"] == seq),
-                          ({48_000}, {48_000}, True))
+            # the amendment landed in both cases: run.json is at sequence 1 either way
+            checks.expect(label, ({raced["manifest"]["limits"]["reservation"]},
+                                  {sequence_doc(raced_dir, t["name"])["limits"]["reservation"] for t in raced["manifest"]["transcripts"]},
+                                  part.get("declaration_seq"), records.read_json(records.run_json_path(raced_dir))["declaration_seq"]),
+                          ({want}, {want}, 1 if when == "before" else 0, 1))
         # X review of WP-08 r1 #1: what the overlap shows is located like an owned record's text, and nothing past its cut
         shown_run = golden(x1, "shown", overhead=100_000)
         shown_dir, shown_main = pathlib.Path(shown_run["run_dir"]), shown_run["main"]

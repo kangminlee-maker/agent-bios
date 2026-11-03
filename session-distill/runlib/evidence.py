@@ -8,7 +8,8 @@ content block of that record; the span is over the block's **redacted projection
 block's value), never over the raw bytes, and the stored text is that span. Nothing here lets a model type a locator or a quote: `make` takes the span
 and reads the text from the projection, `from_view` finds a quote in what a window showed and maps it to the block's
 characters through the entry's segments, and a quote that is not exactly there (a character changed, or the raw
-bytes where the projection holds a mask) is `QUOTE_MISMATCH`.
+bytes where the projection holds a mask) is `QUOTE_MISMATCH`. A quote found more than once names its `occurrence`
+(QUOTE_AMBIGUOUS otherwise), and an occurrence it does not have is QUOTE_OCCURRENCE_UNKNOWN.
 
 `verify` re-derives everything from the immutable copy and does not trust the projection file or the record:
 
@@ -139,6 +140,17 @@ def quote_spans(text, quote):
     return spans
 
 
+def nth(spans, occurrence, where):
+    """The index of the span a quote names: its only span, or the `occurrence` it names, which must be one of the spans
+    found (QUOTE_OCCURRENCE_UNKNOWN). A model may answer any integer the schema admits, and an index past the spans was an
+    IndexError that quarantined the whole unit instead of dropping the one quote (X review of WP-08 r2)."""
+    if occurrence is None:
+        return 0
+    if isinstance(occurrence, bool) or not isinstance(occurrence, int) or not 0 <= occurrence < len(spans):
+        raise Refused(f"QUOTE_OCCURRENCE_UNKNOWN {where}: occurrence {occurrence!r} of a quote found {len(spans)} time(s)")
+    return occurrence
+
+
 def from_quote(run_dir, version_sha, line, pointer, quote, window_role, version=projection.CURRENT, occurrence=None):
     """The evidence record for `quote` in a block's projection: unique, or named by `occurrence`."""
     path, problem = copy_problem(run_dir, version_sha)
@@ -150,7 +162,7 @@ def from_quote(run_dir, version_sha, line, pointer, quote, window_role, version=
         raise Refused(f"QUOTE_MISMATCH line {line} {pointer}: the quote is not in the block's projection at {version}")
     if len(spans) > 1 and occurrence is None:
         raise Refused(f"QUOTE_AMBIGUOUS line {line} {pointer}: the quote occurs {len(spans)} times; name the occurrence")
-    return make(run_dir, version_sha, line, pointer, spans[0 if occurrence is None else occurrence], window_role, version)
+    return make(run_dir, version_sha, line, pointer, spans[nth(spans, occurrence, f"line {line} {pointer}")], window_role, version)
 
 
 def view_spans(entry, quote):
@@ -171,7 +183,7 @@ def from_view(run_dir, version_sha, entry, quote, version=projection.CURRENT, oc
         raise Refused(f"QUOTE_MISMATCH {entry['record_id']}: the quote is not in any stretch the window showed")
     if len(spans) > 1 and occurrence is None:
         raise Refused(f"QUOTE_AMBIGUOUS {entry['record_id']}: the quote occurs {len(spans)} times; name the occurrence")
-    return make(run_dir, version_sha, entry["line"], entry["json_pointer"], spans[0 if occurrence is None else occurrence],
+    return make(run_dir, version_sha, entry["line"], entry["json_pointer"], spans[nth(spans, occurrence, entry["record_id"])],
                 entry["window_role"], version)
 
 
@@ -735,6 +747,18 @@ def self_test():
         except Refused as exc:
             if "QUOTE_AMBIGUOUS" not in str(exc):
                 failures.append(f"an ambiguous quote was refused unnamed: {exc}")
+        for label, call in (("by line and pointer", lambda n: from_quote(run_dir, sha, golden["lines"]["human"], "/message/content",
+                                                                        quote, "in_window", occurrence=n)),
+                            ("out of a window", lambda n: from_view(run_dir, sha, human, quote, occurrence=n))):
+            for n in (1, -1):  # the quote occurs once: occurrence 1 names nothing, and -1 must not index from the end
+                try:
+                    call(n)
+                    failures.append(f"an occurrence the quote does not have ({n}, {label}) was made into evidence")
+                except Refused as exc:
+                    if not str(exc).startswith("QUOTE_OCCURRENCE_UNKNOWN"):
+                        failures.append(f"an occurrence the quote does not have ({n}, {label}) was refused unnamed: {exc}")
+                except Exception as exc:  # noqa: BLE001 - an IndexError here is the defect this control names
+                    failures.append(f"an occurrence the quote does not have ({n}, {label}) raised {exc!r}")
         try:  # the same, read out of a window's entry rather than named by line and pointer
             from_view(run_dir, sha, human, "e")
             failures.append("an ambiguous quote in a window was resolved without naming the occurrence")

@@ -343,6 +343,17 @@ class StageRun:
         self.run_dir, self.record, self.posture = pathlib.Path(run_dir), record, posture
         self.declaration = declaration
 
+    def admitted(self, early):
+        """`early`, a declaration a stage read before admission so that it could refuse before writing a record, when it
+        is the one this stage was admitted against; refused by name otherwise (DECLARATION_MOVED), because an amendment
+        landed between the read and the admission (X review of WP-08 r2)."""
+        if bound_digest(early) != self.record["run_json_sha256"]:
+            raise Refused(f"DECLARATION_MOVED {self.record['stage']}: the declaration read before admission "
+                          f"({bound_digest(early)[:12]}) is not the one the stage was admitted against "
+                          f"({self.record['run_json_sha256'][:12]}, declaration_seq {self.record['declaration_seq']}); "
+                          "run the stage again")
+        return early
+
     def output(self, artifact):
         path = contained(self.run_dir, artifact)
         if path is None:
@@ -510,6 +521,32 @@ def run_stage(run_dir, stage, inputs=(), part=None):
             if part is not None:
                 document["status"] = derived_status(document)
             publish_record(run_dir, stage, document, sys.exc_info()[1])
+
+
+@contextlib.contextmanager
+def fx_amended_at_admission(stage, assignments, when="before"):
+    """Self-test fixture: while it is held, `run_stage` of `stage` has an amendment of `assignments` land just before its
+    admission (`before`) or just after it (`after`) - the two places a stage that reads the declaration on its own can
+    be overtaken (X review of WP-08 r1 and r2). Every stage's race control uses it, so the two cases are the same two
+    cases everywhere. `run_stage` is restored on exit."""
+    from runlib import declare  # declare imports this module, so the fixture imports it when it runs
+    if when not in ("before", "after"):
+        raise ValueError(f"when: {when!r}")
+    module, admitted = sys.modules[__name__], run_stage
+
+    @contextlib.contextmanager
+    def racing(run_dir, name, inputs=(), part=None):
+        if name == stage and when == "before":
+            declare.amend(run_dir, assignments, f"an amendment just before {stage}'s admission")
+        with admitted(run_dir, name, inputs, part=part) as held:
+            if name == stage and when == "after":
+                declare.amend(run_dir, assignments, f"an amendment just after {stage}'s admission")
+            yield held
+    module.run_stage = racing
+    try:
+        yield
+    finally:
+        module.run_stage = admitted
 
 
 def expect_set(ids):

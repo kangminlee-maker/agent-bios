@@ -889,6 +889,9 @@ def run(run_dir, coverage_path=None, originators_path=None, jobs=8):
     table, table_sha = bound_table(declaration, originators_path)
     parent = stagelock.confine(run_dir, run_dir / "private")  # resolved beneath the run before anything is created or read into it
     with records.run_stage(run_dir, "S1") as stage:
+        # the declaration was read first so that a stale pin or table is refused before any record is written; what
+        # builds the census is that read only if it is the declaration S1 was admitted against (X review of WP-08 r2)
+        declaration = stage.admitted(declaration)
         parent.mkdir(exist_ok=True)
         census, state = build(declaration, base, table, table_sha, jobs, parent)
         problems = validate.validate_instance(validator(), census)
@@ -2057,6 +2060,28 @@ def controls(checks):
         declare.create(out / "r2", {**declaration, "starting_hashes": {**fixture["starting_hashes"], "coverage": "0" * 64}})
         refused("a declaration that pinned another coverage state stops the stage", lambda: run(out / "r2", tracked / "coverage.json", jobs=2), "COVERAGE_BASE_STALE")
         expect("the refused stage left no record", records.record_path(out / "r2", "S1").exists(), False)
+        # X review of WP-08 r2: an amendment landing just before S1's admission, after census.run read the declaration, is
+        # refused by name; one landing just after it changes nothing the census was built from
+        later = [("window.end", "2026-10-09T00:00:00")]
+        for when in ("before", "after"):
+            raced = out / f"race-{when}"
+            declare.create(raced, declaration)
+            with records.fx_amended_at_admission("S1", later, when):
+                try:
+                    got = run(raced, tracked / "coverage.json", jobs=2)["window"]
+                except Refused as exc:
+                    got = str(exc).split()[0]
+                except Exception as exc:  # noqa: BLE001 - reported by the control below, by name
+                    got = repr(exc)
+            s1 = records.record_path(raced, "S1")
+            seq = records.read_json(s1)["declaration_seq"] if s1.is_file() else None
+            if when == "before":
+                expect("X r2: an amendment between census.run's read and S1's admission is refused, and no census is written",
+                       (got, (raced / "census.json").exists()), ("DECLARATION_MOVED", False))
+            else:
+                expect("X r2: an amendment just after S1's admission changes nothing the census was built from",
+                       (got, seq, records.read_json(records.run_json_path(raced))["declaration_seq"]),
+                       (coverage.window_bounds(WINDOW)[2], 0, 1))
         declare.create(out / "r3", declaration)
         real_build = build
         globals()["build"] = lambda *a, **k: ({**real_build(*a, **k)[0], "kind": "bogus"}, empty)
