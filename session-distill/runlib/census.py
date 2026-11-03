@@ -115,13 +115,169 @@ def key_of(entry):
     return lineage.identity(entry["host"], entry["id"])
 
 
+# What a census row holds of one transcript file. A Claude row holds its one file in these fields; a Codex row holds
+# them per file in `segments`, never on the row (D-20261103-a7128a): Codex Desktop writes one thread across several
+# rollout files under one id, and a row-level copy of one file's fields read as the session's would drop the others.
+SEGMENT_FIELDS = ("path", "sha256", "versions", "owned", "work")
+
+
+def stem_of(path):
+    """A Codex rollout file's name without `.jsonl` or `.jsonl.zst`: the same for a file and its compressed copy."""
+    return re.sub(r"\.jsonl$", "", re.sub(r"\.zst$", "", os.path.basename(path)))
+
+
+def segment(stem, source, path=None):
+    return {"stem": stem, "source": source, "path": path, "sha256": None, "versions": [], "owned": [],
+            "work": {"version": None, "in_window": [], "backlog": []}}
+
+
+def coverage_key(entry, seg):
+    """The coverage state's name for one file of a row: the row's identity for a Claude transcript, and
+    `codex:<id>@<stem>` for every Codex rollout file, one file or several (D-20261103-a7128a)."""
+    return key_of(entry) if entry["host"] == "claude" else f"{key_of(entry)}@{seg['stem']}"
+
+
+def identity_of_key(key):
+    """The row identity a coverage key belongs to."""
+    return key.split("@", 1)[0]
+
+
+def segments_of(entry):
+    """The transcript files of a census row in their order, each `{key, stem, source, path, sha256, versions, owned,
+    work}` with `key` its coverage key: the one reader of a row's files outside the census (D-20261103-a7128a). A Codex
+    row's are its `segments` (none for a row an index or the coverage state names without a file); a Claude row's is the
+    row itself. What it returns is a copy: a reader changes nothing in the census through it."""
+    if entry["host"] == "codex":
+        return [{"key": coverage_key(entry, seg), **copy.deepcopy(seg)} for seg in entry["segments"]]
+    return [{"key": key_of(entry), "stem": None, "source": entry["source"], **copy.deepcopy({k: entry[k] for k in SEGMENT_FIELDS})}]
+
+
+CENSUS_FILE = "census.json"
+
+
+def load_document(path):
+    """The census document at `path`, parsed. What the read raises - absent, unreadable, not JSON - is the caller's to
+    name; `rows` then takes the rows out of it."""
+    return json.loads(pathlib.Path(path).read_text(encoding="utf-8"))
+
+
+def load(run_dir):
+    """The census S1 left in `run_dir`, refused by name when there is none."""
+    path = pathlib.Path(run_dir) / CENSUS_FILE
+    if not path.is_file():
+        raise Refused(f"INPUT_INVALID S1: {path} is absent; run the census first")
+    return load_document(path)
+
+
+def misplaced(e):
+    """Why a row's files are not where its host keeps them, or None: a Codex row holds them in `segments` and never on
+    the row, a Claude row never in `segments` (D-20261103-a7128a)."""
+    if e.get("host") == "codex":
+        on_row = [k for k in SEGMENT_FIELDS if k in e]
+        return (f"a Codex row carries {on_row} on the row" if on_row
+                else None if isinstance(e.get("segments"), list) else "a Codex row has no segments")
+    return "a Claude row carries segments" if "segments" in e else None
+
+
+def rows(document):
+    """The rows of a census document: the one way into them outside the census (with `segments_of` for a row's files).
+    ValueError, naming the first row, when they are not a list of rows each holding its files where its host keeps
+    them, so a reader built for another shape fails here by name instead of reading a part of a session as the whole."""
+    transcripts = document.get("transcripts") if isinstance(document, dict) else None
+    if not isinstance(transcripts, list) or not all(isinstance(e, dict) for e in transcripts):
+        raise ValueError("CENSUS_MALFORMED: its transcripts are not a list of rows")
+    for e in transcripts:
+        why = misplaced(e)
+        if why:
+            raise ValueError(f"CENSUS_MALFORMED {e.get('host')}:{e.get('id')}: {why}")
+    return transcripts
+
+
+# The structural guard of D-20261103-a7128a: outside this module a census document is read only through `load` or
+# `load_document` and its rows only through `rows`, so every reader meets the row shapes above. A module that names the
+# census file is listed here with the reason it may; a site not listed, or a listed site that no longer names it, fails.
+READER_MODULES = ("distill.py", "runlib/*.py")
+READER_EXCEPTIONS = {
+    ("runlib/views.py", "run"): "declares census.json as S2's input artifact; the census itself is read through load",
+    ("runlib/inventory.py", "<module>"): "CENSUS names the file the inventory part declares and opens",
+    ("runlib/inventory.py", "census_entries"): "maps an absent, unreadable or malformed census to the transcript layers' "
+                                               "named unknowns, reading it through load_document and rows",
+    ("distill.py", "cmd_inventory"): "declares the census as the inventory part's S1 input artifact",
+}
+LOADERS = frozenset(("load", "load_document", "build", "reconcile", "run"))
+TEST_CODE = ("self_test", "fx_", "golden")
+
+
+def reader_bypasses(texts):
+    """Violations of the guard over `texts` (`{relative path: source}`): `(violations, sites)`. A site is a
+    `(module, top-level function)` of non-test code that names the census file (`"census.json"` or `CENSUS`); a
+    violation is a site no exception lists, an exception no site matches, or a census document taken from this
+    module's loaders and indexed for its `transcripts` instead of read through `rows`."""
+    import ast
+    sites, violations = set(), []
+    for rel, text in sorted(texts.items()):
+        tree = ast.parse(text)
+        for top in [n for n in tree.body]:
+            name = top.name if isinstance(top, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)) else "<module>"
+            if name.startswith(TEST_CODE):
+                continue
+            skipped = {id(n) for f in ast.walk(top) if isinstance(f, (ast.FunctionDef, ast.AsyncFunctionDef)) and f.name.startswith(TEST_CODE)
+                       for n in ast.walk(f)}
+            loaded = set()
+            for node in ast.walk(top):
+                if id(node) in skipped:
+                    continue
+                if (isinstance(node, ast.Constant) and node.value == CENSUS_FILE) or (isinstance(node, ast.Name) and node.id == "CENSUS") \
+                        or (isinstance(node, ast.Attribute) and node.attr == "CENSUS"):
+                    sites.add((rel, name))
+                if isinstance(node, ast.Assign) and isinstance(node.value, ast.Call) and isinstance(node.value.func, ast.Attribute) \
+                        and isinstance(node.value.func.value, ast.Name) and node.value.func.value.id == "census" and node.value.func.attr in LOADERS:
+                    for target in node.targets:
+                        loaded |= {n.id for n in ast.walk(target) if isinstance(n, ast.Name)}
+            for node in ast.walk(top):
+                if id(node) in skipped:
+                    continue
+                key = (node.slice if isinstance(node, ast.Subscript) else node.args[0] if isinstance(node, ast.Call) and node.args
+                       and isinstance(node.func, ast.Attribute) and node.func.attr == "get" else None)
+                holder = node.value if isinstance(node, ast.Subscript) else node.func.value if key is not None else None
+                if isinstance(key, ast.Constant) and key.value == "transcripts" and isinstance(holder, ast.Name) and holder.id in loaded:
+                    violations.append(f"CENSUS_READER_BYPASS {rel}:{node.lineno} ({name}): {holder.id}['transcripts'] is a census "
+                                      "document's rows taken around census.rows")
+    violations += [f"CENSUS_READER_BYPASS {rel} ({name}) names the census file outside the census, and no exception lists it"
+                   for rel, name in sorted(sites - set(READER_EXCEPTIONS))]
+    violations += [f"CENSUS_READER_BYPASS stale exception {rel} ({name}): it no longer names the census file"
+                   for rel, name in sorted(set(READER_EXCEPTIONS) - sites) if rel in texts]
+    return violations, sites
+
+
+def reader_texts():
+    """The sources `reader_bypasses` judges: every module of `READER_MODULES` but this one."""
+    found = {}
+    for pattern in READER_MODULES:
+        for path in sorted(HERE.glob(pattern)):
+            rel = path.relative_to(HERE).as_posix()
+            if rel != "runlib/census.py":
+                found[rel] = path.read_text(encoding="utf-8")
+    return found
+
+
 def blank(host, ident, source, path=None, **fields):
-    entry = {"host": host, "id": ident, "source": source, "path": path, "sha256": None, "status": "eligible", "reason": None,
+    """A row as the census builds it: its files in `segments` whatever the host, until `finish` gives it its shape."""
+    entry = {"host": host, "id": ident, "source": source, "status": "eligible", "reason": None,
              "parent": None, "originator": None, "entrypoint": None, "source_class": None,
              "lineage": {"component": None, "root": None, "unique_root": False, "affirmed": [], "measurement_pending": False},
              "provenance": None, "counted": False, "window_overlap": None, "pin": {"content_ref": None},
-             "versions": [], "owned": [], "work": {"version": None, "in_window": [], "backlog": []}, "alt_paths": []}
+             "segments": [segment(stem_of(path) if host == "codex" else None, source, path)] if path else [], "alt_paths": []}
     entry.update(fields)
+    return entry
+
+
+def finish(entry):
+    """A built row in the shape the census document holds: a Claude row's one file moved onto the row, a Codex row's
+    files left in `segments`."""
+    if entry["host"] == "claude":
+        files = entry.pop("segments")
+        entry.update({k: (files[0] if files else segment(None, entry["source"]))[k] for k in SEGMENT_FIELDS})
     return entry
 
 
@@ -292,8 +448,12 @@ def entry_of(file, head, pins, table):
         source = meta.get("source") if meta else None
         entry.update(originator=meta.get("originator") if meta else None,
                      entrypoint=source if isinstance(source, str) else "subagent" if kind == "subagent" else None)
+        sub = meta.get("source", {}).get("subagent") if meta and isinstance(meta.get("source"), dict) else None
         if meta is None:
             entry.update(status="unknown_provenance", reason="no_session_meta")
+        elif isinstance(sub, dict) and sub.get("other") == "guardian":
+            # Codex's own automatic risk review of a session's actions (D-20261103-b1989d): automated like `exec`, never a unit member
+            entry.update(status="excluded", reason="guardian")
         elif kind == "subagent":
             entry.update(status="child_of", parent=parent) if parent else entry.update(status="unknown_provenance", reason="child_without_parent")
         else:
@@ -306,9 +466,10 @@ def entry_of(file, head, pins, table):
 def provenance_of(entry, host, threads, history, desktop):
     """`indexed`, `not_indexed` or `index_missing` from the index the host itself writes (design §5.3).
 
-    Codex: a `threads` row of this id whose `rollout_path` is the file, or the file before in-place
-    compression (the index keeps the pre-compression path). Claude CLI: a `history.jsonl` entry with the
-    id. Claude Desktop: a session-index file whose `cliSessionId` is the id."""
+    Codex: a `threads` row of this id whose `rollout_path` is one of the row's files - any segment of a thread
+    written across several, or a true copy of one (`alt_paths`) - or such a file before in-place compression (the index
+    keeps the pre-compression path). Claude CLI: a `history.jsonl` entry with the id. Claude Desktop: a session-index file
+    whose `cliSessionId` is the id."""
     if host == "codex":
         if threads is None:
             return "index_missing"
@@ -316,8 +477,8 @@ def provenance_of(entry, host, threads, history, desktop):
         if not row or not row["rollout_path"]:
             return "not_indexed"
         have = os.path.realpath(row["rollout_path"])
-        want = os.path.realpath(entry["path"])
-        return "indexed" if have in (want, want[:-len(".zst")] if want.endswith(".zst") else want) else "not_indexed"
+        wanted = [os.path.realpath(p) for p in [s["path"] for s in entry["segments"] if s["path"]] + entry["alt_paths"]]
+        return "indexed" if any(have in (want, want[:-len(".zst")] if want.endswith(".zst") else want) for want in wanted) else "not_indexed"
     index = desktop if entry["entrypoint"] == "claude-desktop" else history
     return "index_missing" if index is None else "indexed" if entry["id"] in index else "not_indexed"
 
@@ -374,10 +535,23 @@ def build(run, base, table, table_sha, jobs=8, scratch=None):
     for file, head in zip(files, heads):
         entry = entry_of(file, head, pins, table)
         ident = key_of(entry)
-        if ident in entries:  # one identity in two files: the first keeps the entry, the other is named beside it
-            entries[ident]["alt_paths"].append(file["path"])
+        if ident not in entries:
+            entries[ident], extras[ident] = entry, {"file": file, "head": head, "files": [file]}
             continue
-        entries[ident], extras[ident] = entry, {"file": file, "head": head}
+        have, stem = entries[ident], entry["segments"][0]["stem"]
+        if entry["host"] == "claude" or any(s["stem"] == stem for s in have["segments"]):
+            have["alt_paths"].append(file["path"])  # the same file found twice: the first keeps it, the copy is named beside it
+            continue
+        # one Codex thread written across several rollout files under one id (D-20261103-a7128a): one row, a segment per
+        # file in name order, which is the order the host wrote them in; the row is classified from its first file
+        files_now = sorted(extras[ident]["files"] + [file], key=lambda f: stem_of(f["path"]))
+        if files_now[0] is file:
+            entry["segments"], entry["alt_paths"] = have["segments"] + entry["segments"], have["alt_paths"]
+            entries[ident], extras[ident]["file"], extras[ident]["head"] = entry, file, head
+        else:
+            have["segments"] = have["segments"] + entry["segments"]
+        entries[ident]["segments"].sort(key=lambda s: s["stem"])
+        extras[ident]["files"] = files_now
     discovered = {}  # the identities each source named, counted before anything else is decided about them
     for entry in entries.values():
         discovered[entry["source"]] = discovered.get(entry["source"], 0) + 1
@@ -394,30 +568,53 @@ def build(run, base, table, table_sha, jobs=8, scratch=None):
     # every eligible transcript is read in full, whatever its age: its sha, its continuity against the version on
     # record, the records the window owns, and the lineage evidence wherever in the file it lies
     owed = {b["transcript"] for b in state["backlog"]} | {e["transcript"] for e in state["pending_events"]}
+    # a file of a row the coverage state owes work on and that is no longer here: the session cannot be read in full, so
+    # its row says which file it lacks, and the work stays owed (the file is listed with no path)
+    present = {coverage_key(e, s) for e in entries.values() for s in e["segments"]}
+    for key in sorted(k for k in owed - present if identity_of_key(k) in entries and "@" in k):
+        entry = entries[identity_of_key(key)]
+        entry["segments"] = sorted(entry["segments"] + [segment(key.split("@", 1)[1], "coverage_state")], key=lambda s: s["stem"])
+        entry.update(status="unreadable", reason=f"SEGMENT_ABSENT {key}: the coverage state owes work on this file of the "
+                                                 "session and it is no longer here")
 
-    def read(ident):
-        file = extras[ident]["file"]
-        scan, own = (lineage.ClaudeScan() if file["host"] == "claude" else lineage.CodexScan(file["stem"])), coverage.Ownership(start, end)
-        try:
-            return scan, own, read_full(file, zstd, scan, own, coverage.latest(state, ident)), None
-        except sources.Unreadable as exc:
-            return scan, own, None, str(exc)
+    def read(ident, scanned=True):
+        """Every file of row `ident` read in full: `(scan, [(segment, got)], stamped records, error)`. The scan is the
+        first file's - its kind and its pointer are the row's - with the lineage evidence of the later files added; a
+        later file's own `history_base` is no edge (D-20261103-a7128a)."""
+        entry, row_scan, out, stamped = entries[ident], None, [], 0
+        for seg, file in zip(entry["segments"], extras[ident]["files"]):
+            scan = (lineage.ClaudeScan() if file["host"] == "claude" else lineage.CodexScan(file["stem"])) if scanned else NO_SCAN
+            own = coverage.Ownership(start, end)
+            try:
+                got = read_full(file, zstd, scan, own, coverage.latest(state, coverage_key(entry, seg)))
+            except sources.Unreadable as exc:
+                return None, [], 0, str(exc)
+            if scanned:
+                row_scan = scan if row_scan is None else row_scan.absorb(scan)
+            out.append((seg, got))
+            stamped += own.stamped
+        return row_scan, out, stamped, None
 
-    def taken(ident, entry, got):
-        coverage.observe(state, ident, got["sha"], got["record_count"], got["prefix_sha"], got["prefix_ok"])
-        entry.update(sha256=got["sha"], owned=got["owned"], window_overlap=overlap_of(got))
+    def taken(entry, out):
+        for seg, got in out:
+            coverage.observe(state, coverage_key(entry, seg), got["sha"], got["record_count"], got["prefix_sha"], got["prefix_ok"])
+            seg.update(sha256=got["sha"], owned=got["owned"])
+        entry["window_overlap"] = overlap_of({side: any(got[side] for _seg, got in out) for side in ("owned", "before", "after")})
+
+    def unstamped(out, stamped):
+        return stamped == 0 and any(got["record_count"] for _seg, got in out)
 
     for ident, entry in entries.items():
         if entry["status"] != "eligible":
             continue
-        scan, own, got, error = read(ident)  # one at a time: decompression runs beside it in zstd, and CPU-bound threads only fight for the GIL
+        scan, out, stamped, error = read(ident)  # one at a time: decompression runs beside it in zstd, and CPU-bound threads only fight for the GIL
         if error:
             entry.update(status="unreadable", reason=error)
-        elif own.stamped == 0 and got["record_count"]:
+        elif unstamped(out, stamped):
             entry.update(status="unknown_provenance", reason="no_timestamps", source_class=None)
         else:
             extras[ident]["head"]["scan"] = scan
-            taken(ident, entry, got)
+            taken(entry, out)
 
     # The unit S1 judges and S2 reads is a root with all its descendants, at any depth (D-20261103-85f3e8; design §5.1:
     # a child is "read as part of the parent's evidence"). Every member of a root still eligible after its own read is
@@ -428,45 +625,49 @@ def build(run, base, table, table_sha, jobs=8, scratch=None):
         if entries[root]["status"] != "eligible":
             continue
         for ident in members:
-            entry, own = entries[ident], coverage.Ownership(start, end)
-            try:
-                got = read_full(extras[ident]["file"], zstd, NO_SCAN, own, coverage.latest(state, ident))
-            except sources.Unreadable as exc:
-                entry.update(status="unreadable", reason=str(exc))
+            entry = entries[ident]
+            _scan, out, stamped, error = read(ident, scanned=False)
+            if error:
+                entry.update(status="unreadable", reason=error)
                 continue
-            if own.stamped == 0 and got["record_count"]:
+            if unstamped(out, stamped):
                 entry.update(status="unknown_provenance", reason="no_timestamps")
                 continue
-            taken(ident, entry, got)
+            taken(entry, out)
 
     def owes(entry):
-        return bool(entry["work"]["in_window"] or entry["work"]["backlog"])
+        return any(s["work"]["in_window"] or s["work"]["backlog"] for s in entry["segments"])
 
-    def worked(ident, entry):
-        entry["work"] = coverage.work_of(state, ident, entry["owned"], window_id)
-        known = state["transcripts"].get(ident, {"versions": []})["versions"]
-        entry["versions"] = [{k: v[k] for k in ("sha", "record_count", "prefix_sha")} for v in known]
-        entry["sha256"] = entry["sha256"] or (known[-1]["sha"] if known else None)
+    def worked(entry):
+        for seg in entry["segments"]:
+            key = coverage_key(entry, seg)
+            seg["work"] = coverage.work_of(state, key, seg["owned"], window_id)
+            known = state["transcripts"].get(key, {"versions": []})["versions"]
+            seg["versions"] = [{k: v[k] for k in ("sha", "record_count", "prefix_sha")} for v in known]
+            seg["sha256"] = seg["sha256"] or (known[-1]["sha"] if known else None)
 
     for ident, entry in entries.items():
         if entry["status"] != "eligible":
             continue
-        worked(ident, entry)
+        worked(entry)
         read_members = [m for m in unit_members.get(ident, []) if entries[m]["status"] == "child_of"]
         for member in read_members:
-            worked(member, entries[member])
+            worked(entries[member])
         # nothing is new for the unit only when neither the root nor any member owes the window anything
         if not owes(entry) and not any(owes(entries[m]) for m in read_members):
             entry["status"] = "nothing_new"
 
     # lineage over the owner's transcripts, then the counting rule (design §5.3); a component is active in the window
     # when any unit in it owns a record of the window, a member's as much as a root's
+    def owns(entry):
+        return any(s["owned"] for s in entry["segments"])
+
     mine = {i: e for i, e in entries.items() if e["status"] in ("eligible", "nothing_new")}
     nodes = [extras[i]["head"]["scan"].lineage_node(e["id"]) for i, e in mine.items()]
     linked, pending, active = lineage.components(nodes), {n["id"]: n.get("pending", False) for n in nodes}, {}
     for ident, entry in mine.items():
         entry["lineage"] = {**linked[ident], "measurement_pending": pending[ident]}
-        unit_owned = bool(entry["owned"]) or any(entries[m]["owned"] for m in unit_members.get(ident, []) if entries[m]["status"] == "child_of")
+        unit_owned = owns(entry) or any(owns(entries[m]) for m in unit_members.get(ident, []) if entries[m]["status"] == "child_of")
         active[entry["lineage"]["component"]] = active.get(entry["lineage"]["component"], False) or unit_owned
     for ident, entry in mine.items():
         lin = entry["lineage"]
@@ -474,14 +675,20 @@ def build(run, base, table, table_sha, jobs=8, scratch=None):
                                 and active[lin["component"]] and entry["source_class"] in CLASSES)
     named = index_only(set(entries), threads, history, desktop, pins, table, start, end)
     # work the coverage state still owes on a transcript that is no longer here is a lost transcript, not a vanished obligation
-    lost = [blank(*lineage.split_identity(ident), "coverage_state", status="known_absent", reason="owed_by_coverage")
-            for ident in sorted(owed - set(entries) - {key_of(e) for e in named})]
+    present = {coverage_key(e, s) for e in entries.values() for s in e["segments"]}
+    lost_keys = sorted(k for k in owed - present if identity_of_key(k) not in {key_of(e) for e in named})
+    lost = []
+    for ident in sorted({identity_of_key(k) for k in lost_keys}):
+        row = blank(*lineage.split_identity(ident), "coverage_state", status="known_absent", reason="owed_by_coverage")
+        if row["host"] == "codex":
+            row["segments"] = [segment(k.split("@", 1)[1], "coverage_state") for k in lost_keys if identity_of_key(k) == ident and "@" in k]
+        lost.append(row)
     if lost:
         report["coverage_state"] = {"state": "present", "path": None, "discovered": None, "unrecognized": 0, "totals": None,
                                     "detail": "transcripts the coverage state owes work on that are no longer here"}
     for entry in named + lost:
         discovered[entry["source"]] = discovered.get(entry["source"], 0) + 1
-    everything = list(entries.values()) + named + lost
+    everything = [finish(e) for e in list(entries.values()) + named + lost]
     for name, rep in report.items():
         if rep["state"] == "present" and name != "agent_bios_state":
             rep["discovered"] = discovered.get(name, 0)
@@ -501,10 +708,10 @@ def totals_of(entries, report):
 def summarize(entries, report, kind, window_id, table, table_sha, state):
     """Fold per-transcript entries into the census document and check that nothing was dropped."""
     totals_of(entries, report)
-    entries.sort(key=lambda e: (e["source"], e["path"] or "", e["id"]))
+    entries.sort(key=lambda e: (e["source"], first_path(e) or "", e["id"]))
     originators, provenance, pins, components = {}, {}, {}, {}
     for e in entries:
-        if e["originator"] is not None and e["entrypoint"] == "vscode" and e["path"]:
+        if e["originator"] is not None and e["entrypoint"] == "vscode" and first_path(e):
             cell = originators.setdefault(e["originator"], {"count": 0, "class": table.get(e["originator"], "unmapped")})
             cell["count"] += 1
         if e["provenance"]:
@@ -531,11 +738,35 @@ def summarize(entries, report, kind, window_id, table, table_sha, state):
     return census
 
 
+def first_path(e):
+    """The path of a finished row's first file, or None."""
+    return e["path"] if e["host"] == "claude" else (e["segments"][0]["path"] if e["segments"] else None)
+
+
+def shape_errors(e):
+    """Where a row departs from its host's shape: a Claude row holds its file's fields on the row and has no `segments`;
+    a Codex row holds them only in `segments` (D-20261103-a7128a). The schema cannot say this - its lint admits no
+    conditional keyword (validate.SUPPORTED_KEYWORDS) - so the census's own accounting does."""
+    if e["host"] == "codex":
+        on_row = [k for k in SEGMENT_FIELDS if k in e]
+        if on_row or not isinstance(e.get("segments"), list):
+            return [f"SET_MISMATCH shape {key_of(e)}: a Codex row holds its files in segments, "
+                    + (f"never {on_row} on the row" if on_row else "and this one has none")]
+        return []
+    missing = [k for k in SEGMENT_FIELDS if k not in e]
+    if missing or "segments" in e:
+        return [f"SET_MISMATCH shape {key_of(e)}: a Claude row holds its file on the row, "
+                + (f"and this one lacks {missing}" if missing else "never in segments")]
+    return []
+
+
 def account(census):
     """Violations of the set accounting of §5.1, empty when it holds: no identity appears twice, a source with
-    no total files nothing under it, and each source's statuses add up to the identities it discovered."""
+    no total files nothing under it, each source's statuses add up to the identities it discovered, and every row has
+    its host's shape."""
     errors, seen = [], {}
     for e in census["transcripts"]:
+        errors += shape_errors(e)
         seen.setdefault(key_of(e), []).append(e["source"])
     errors += [f"SET_MISMATCH id {i} appears {len(s)} times ({sorted(s)})" for i, s in sorted(seen.items()) if len(s) > 1]
     for name, rep in census["sources"].items():
@@ -562,22 +793,28 @@ def reconcile(census, state, results, kind):
     Every session that was `eligible` at S1 needs exactly one result, and a result names an eligible session
     (SET_MISMATCH otherwise, listing the sessions). A result answers the session's whole unit: the readings of its
     read members are credited to them (`coverage.apply_results`). The inputs are not touched, and the reconciled census
-    must still conform to its schema."""
+    must still conform to its schema. A reading names the file it read by its coverage key (`segments_of`) unless the
+    session is one file."""
     census, window_id = copy.deepcopy(census), census["window"]
     waiting = {key_of(e): e for e in census["transcripts"] if e["status"] == "eligible"}
     # one result answers a unit (D-20261103-85f3e8): its members' readings are credited to them, and what they own is owed
+    # the coverage state names files, not rows: a Codex thread's files each by its own key (D-20261103-a7128a), so a unit is
+    # the files of its root and the files of its read members
     by_key, found = {key_of(e): e for e in census["transcripts"]}, units(census["transcripts"])
-    members = {root: [m for m in found.get(root, []) if by_key[m]["status"] == "child_of" and by_key[m]["sha256"]] for root in waiting}
+    files = {i: segments_of(e) for i, e in by_key.items() if i in waiting or e["status"] == "child_of"}
+    members = {root: [m for m in found.get(root, []) if by_key[m]["status"] == "child_of" and any(s["sha256"] for s in files[m])]
+               for root in waiting}
     got = [r["transcript"] for r in results]
     missing, extra = sorted(set(waiting) - set(got)), sorted(set(got) - set(waiting))
     repeated = sorted({i for i in got if got.count(i) > 1})
     if missing or extra or repeated:
         raise Refused(f"SET_MISMATCH S3 results do not match the eligible sessions: missing={missing} extra={extra} repeated={repeated}")
+    unit_keys = {root: ([s["key"] for s in files[root]], [s["key"] for m in members[root] for s in files[m]]) for root in waiting}
+    read = [s for root in waiting for s in files[root]] + [s for ms in members.values() for m in ms for s in files[m]]
     # a targeted run's results are held to the periodic rules against the state the census observed, and then discarded
-    read = [by_key[m] for ms in members.values() for m in ms]
-    seen = state if kind == "periodic" else coverage.observed(state, list(waiting.values()) + read)
-    owned = {**{i: e["owned"] for i, e in waiting.items()}, **{key_of(e): e["owned"] for e in read}}
-    after = coverage.apply_results(seen, window_id, kind, results, owned, members)
+    seen = state if kind == "periodic" else coverage.observed(state, read)
+    owned = {s["key"]: s["owned"] for s in read}
+    after = coverage.apply_results(seen, window_id, kind, results, owned, unit_keys)
     for result in results:
         waiting[result["transcript"]]["status"] = result["status"]
     totals_of(census["transcripts"], census["sources"])
@@ -585,7 +822,7 @@ def reconcile(census, state, results, kind):
     errors = account(census) + [f"CENSUS_INVALID {p}" for p in validate.validate_instance(validator(), census)[:5]]
     if errors:
         raise Refused("\n".join(errors))
-    flags = dict(zip(("accounted", "fully_read"), coverage.accounted(census["transcripts"], after, window_id, members)))
+    flags = dict(zip(("accounted", "fully_read"), coverage.accounted(census["transcripts"], after, window_id, unit_keys, owned)))
     if kind == "periodic":
         after["windows"][window_id] = flags
     else:
@@ -749,9 +986,9 @@ class Home:
             {"sessionId": f"local_{self.desktops}", "cliSessionId": sid, "createdAt": int(fx_when(created) * 1000),
              "lastActivityAt": int(fx_when(last) * 1000), "title": "fixture"}))
 
-    def codex(self, tid, rows, where="sessions", zst=False, indexed=True, source=None, mtime=None, raw=None, day=3):
+    def codex(self, tid, rows, where="sessions", zst=False, indexed=True, source=None, mtime=None, raw=None, day=3, name_at=None):
         directory = self.sessions / "2026" / "10" / f"{day:02d}" if where == "sessions" else self.archived
-        path = directory / f"rollout-2026-10-{day:02d}T10-00-00-{tid}.jsonl"
+        path = directory / f"rollout-{name_at or f'2026-10-{day:02d}T10-00-00'}-{tid}.jsonl"
         if raw is None:
             self.put(path, rows, mtime)
         else:
@@ -828,9 +1065,19 @@ def fx_get(entry, key):
     return entry
 
 
+def fx_view(e):
+    """A row as the fixtures read it: a Codex row of one file, or of none, with that file's fields beside its own, so one
+    expectation reads a row of either host alike. A row of several files is left as it is: what it holds per file is
+    read through `segments_of`."""
+    if e["host"] != "codex" or len(e["segments"]) > 1:
+        return e
+    seg = e["segments"][0] if e["segments"] else segment(None, e["source"])
+    return {**e, **{k: seg[k] for k in SEGMENT_FIELDS}}
+
+
 def fx_check(census, expected):
     """Violations of a fixture table `{name: (identity, {attribute: value})}`, each naming its fixture."""
-    by_id, errors = {key_of(e): e for e in census["transcripts"]}, []
+    by_id, errors = {key_of(e): fx_view(e) for e in census["transcripts"]}, []
     for name, (ident, want) in sorted(expected.items()):
         got = by_id.get(ident)
         if got is None:
@@ -1013,20 +1260,21 @@ def fx_corpus(h):
 
 def fx_results(census, status="read_complete", skip=(), extra_read=None, pending=None, resolved=None, members=True):
     """S3's results for every eligible session: it read and processed everything the window owns (and the backlog),
-    each range credited to the version it belongs to - the root's, and every read member's of its unit under the
-    member's name (D-20261103-85f3e8). `skip`, `extra_read`, `pending` and `resolved` are keyed by identity; with
-    `members` False the results answer the roots alone."""
+    each range credited to the version it belongs to - of every file of the root, and of every file of each read member
+    of its unit, a file named by its coverage key unless it is the root's only file under the root's own identity
+    (D-20261103-85f3e8, D-20261103-a7128a). `skip` names sessions, `extra_read` files by key; `pending` and `resolved`
+    are keyed by session. With `members` False the results answer the roots' own files alone."""
     by_key, found = {key_of(e): e for e in census["transcripts"]}, units(census["transcripts"])
 
-    def readings_of(e, ident, named):
-        newest = e["work"]["version"]
+    def readings_of(file, named):
+        newest = file["work"]["version"]
         if newest is None:
             return []
-        name = {"transcript": ident} if named else {}
-        readings = {newest: {**name, "version": newest, "sha": e["sha256"], "processed": {census["window"]: e["work"]["in_window"]},
-                             "read": coverage.union(coverage.union(e["owned"], e["work"]["in_window"]), (extra_read or {}).get(ident, []))}}
-        for b in e["work"]["backlog"]:
-            got = readings.setdefault(b["version"], {**name, "version": b["version"], "sha": e["versions"][b["version"]]["sha"], "processed": {}, "read": []})
+        name = {"transcript": file["key"]} if named else {}
+        readings = {newest: {**name, "version": newest, "sha": file["sha256"], "processed": {census["window"]: file["work"]["in_window"]},
+                             "read": coverage.union(coverage.union(file["owned"], file["work"]["in_window"]), (extra_read or {}).get(file["key"], []))}}
+        for b in file["work"]["backlog"]:
+            got = readings.setdefault(b["version"], {**name, "version": b["version"], "sha": file["versions"][b["version"]]["sha"], "processed": {}, "read": []})
             got["processed"][b["window"]] = coverage.union(got["processed"].get(b["window"], []), b["unread"])
             got["read"] = coverage.union(got["read"], b["unread"])
         return [readings[v] for v in sorted(readings)]
@@ -1036,10 +1284,10 @@ def fx_results(census, status="read_complete", skip=(), extra_read=None, pending
         ident = key_of(e)
         if e["status"] != "eligible" or ident in skip:
             continue
-        readings = readings_of(e, ident, False)
+        readings = [r for f in segments_of(e) for r in readings_of(f, f["key"] != ident)]
         for m in found.get(ident, []) if members else []:
-            if by_key[m]["status"] == "child_of" and by_key[m]["sha256"]:
-                readings += readings_of(by_key[m], m, True)
+            if by_key[m]["status"] == "child_of" and any(f["sha256"] for f in segments_of(by_key[m])):
+                readings += [r for f in segments_of(by_key[m]) for r in readings_of(f, True)]
         out.append({"transcript": ident, "status": status, "readings": readings,
                     "pending_events": (pending or {}).get(ident, []), "resolved_events": (resolved or {}).get(ident, [])})
     return out
@@ -1090,10 +1338,10 @@ def controls(checks):
 
     def by_id(census):
         """The census by bare session id: the fixtures share none across hosts except the one `by_key` serves."""
-        return {e["id"]: e for e in census["transcripts"]}
+        return {e["id"]: fx_view(e) for e in census["transcripts"]}
 
     def by_key(census):
-        return {key_of(e): e for e in census["transcripts"]}
+        return {key_of(e): fx_view(e) for e in census["transcripts"]}
 
     X1, C1 = "019e0001-0000-7000-8000-000000000000", "c0000001-0000-4000-8000-000000000000"
     cid, xid = (lambda sid: lineage.identity("claude", sid)), (lambda sid: lineage.identity("codex", sid))  # noqa: E731
@@ -1124,7 +1372,8 @@ def controls(checks):
                [("child_of", "019e0001-0000-7000-8000-000000000000"), ("child_of", "019e0036-0000-7000-8000-000000000000")])
         same = lineage.split_identity(lineage.identity("codex", "c0000060-0000-4000-8000-000000000000"))[1]
         expect("one id on two hosts is two transcripts, two entries of the coverage state, and the sets still add up",
-               (sorted(e["host"] for e in census["transcripts"] if e["id"] == same), sorted(k for k in state["transcripts"] if k.endswith(same)), account(census)),
+               (sorted(e["host"] for e in census["transcripts"] if e["id"] == same),
+                sorted(identity_of_key(k) for k in state["transcripts"] if identity_of_key(k).endswith(same)), account(census)),
                (["claude", "codex"], [f"claude:{same}", f"codex:{same}"], []))
         for name, (ident, want) in sorted(expected.items()):
             flipped = next(s for s in STATUSES_5_1 if s != want.get("status", "eligible"))
@@ -1207,7 +1456,7 @@ def controls(checks):
                 census_void["sources"]["claude_projects"]["discovered"], census_void["independence"]),
                ([], {}, 0, {"components": 0, "unknown_components": 0, "sessions": 0, "unknown_sessions": 0}))
         census_unzstd, _ = build(home.run(zstd="/nonexistent/zstd"), empty, table, table_sha, jobs=4)
-        unreadable = {e["id"]: e for e in census_unzstd["transcripts"] if e["status"] == "unreadable"}
+        unreadable = {e["id"]: fx_view(e) for e in census_unzstd["transcripts"] if e["status"] == "unreadable"}
         packed = sorted(p.name for p in list(home.sessions.rglob("*.zst")) + list(home.archived.rglob("*.zst")))
         expect("with zstd missing every .zst rollout is unreadable by name, not skipped",
                (len(unreadable), len(packed), all("ZSTD_UNAVAILABLE /nonexistent/zstd" in e["reason"] and e["path"] in e["reason"] for e in unreadable.values() if e["path"].endswith(".zst"))),
@@ -1273,7 +1522,7 @@ def controls(checks):
         unit_results = fx_results(unit_census)
         _rc, unit_after, unit_flags = reconcile(unit_census, unit_state, unit_results, "periodic")
         expect("85f3e8: a member's readings are credited to the member, and the window is accounted",
-               (coverage.latest(unit_after, K2K)["processed"].get(unit_census["window"]), unit_flags),
+               (coverage.latest(unit_after, segments_of(by_key(unit_census)[K2K])[0]["key"])["processed"].get(unit_census["window"]), unit_flags),
                (u[K2K]["owned"], {"accounted": True, "fully_read": True}))
         refused("85f3e8: a read_complete that leaves a member's window unprocessed is refused, naming the member",
                 lambda: reconcile(unit_census, unit_state, fx_results(unit_census, members=False), "periodic"), "RESULT_INCONSISTENT", CIN)
@@ -1285,8 +1534,155 @@ def controls(checks):
         deferred = [partial[r["transcript"]] if r["transcript"] in (RK, CRK) else r for r in unit_results]
         _rd, deferred_after, deferred_flags = reconcile(unit_census, unit_state, deferred, "periodic")
         expect("85f3e8: a carried result keeps every member's unread window in the backlog, under the member",
-               (sorted(b["transcript"] for b in deferred_after["backlog"] if b["transcript"] in (K1K, K2K, CIN)), deferred_flags["accounted"]),
+               (sorted(identity_of_key(b["transcript"]) for b in deferred_after["backlog"] if identity_of_key(b["transcript"]) in (K1K, K2K, CIN)),
+                deferred_flags["accounted"]),
                (sorted([K1K, K2K, CIN]), True))
+
+        # D-20261103-a7128a: a Codex thread written across several rollout files under one id is one row, a file per
+        # segment in name order, each under its own coverage key; a copy of one file under the same name is no segment
+        seg_home = Home(root / "segments")
+        SL, SF, SS, ST, SC, G = (f"019e01{n}-0000-7000-8000-000000000000" for n in (10, 11, 12, 13, 14, 15))
+        later = {"history_base": {"thread_id": "019e0199-0000-7000-8000-000000000000", "end_ordinal_exclusive": 7}}
+        # SL: in the window only in its last file, the first before it; the index names the last; only the last compacted
+        seg_home.codex(SL, fx_codex(SL, "vscode", "Codex Desktop", month=9, day=20), indexed=False, name_at="2026-09-20T10-00-00")
+        seg_home.codex(SL, fx_codex(SL, "vscode", "Codex Desktop", meta=later, compacted=True), name_at="2026-10-03T10-00-00")
+        # SF: in the window only in its first file, the last after it, and the later file's history_base points elsewhere;
+        # its first file was archived, so the census finds the later one first, and the later one says it was run by exec
+        seg_home.codex(SF, fx_codex(SF, "vscode", "Codex Desktop"), where="archived", name_at="2026-10-03T10-00-00")
+        seg_home.codex(SF, fx_codex(SF, "exec", "codex_exec", day=10, meta=later), indexed=False, name_at="2026-10-10T10-00-00")
+        # SS: both files in the window; the second has a compressed copy in archived_sessions, which the index names
+        seg_home.codex(SS, fx_codex(SS, "vscode", "Codex Desktop", day=2), indexed=False, name_at="2026-10-02T10-00-00")
+        seg_home.codex(SS, fx_codex(SS, "vscode", "Codex Desktop", day=4, meta=later), indexed=False, name_at="2026-10-04T10-00-00", day=4)
+        copy_of = seg_home.codex(SS, fx_codex(SS, "vscode", "Codex Desktop", day=4, meta=later), where="archived", zst=True,
+                                 name_at="2026-10-04T10-00-00", day=4)
+        # ST: its last file is being written: a line without its end
+        seg_home.codex(ST, fx_codex(ST, "vscode", "Codex Desktop", day=2), name_at="2026-10-02T10-00-00")
+        writing_file = seg_home.codex(ST, fx_codex(ST, "vscode", "Codex Desktop", day=4, meta=later), indexed=False, name_at="2026-10-04T10-00-00", day=4)
+        with writing_file.open("ab") as handle:
+            handle.write(b'{"timestamp": "2026-10-04T11:00:00.000Z", "type": "event_msg", "payload": {"type": "task_sta')
+        # SC: a child of SF in two files; G: a Guardian review of SS
+        spawn_of = lambda parent: {"subagent": {"thread_spawn": {"parent_thread_id": parent}}}  # noqa: E731
+        seg_home.codex(SC, fx_codex(SC, spawn_of(SF)), indexed=False, name_at="2026-10-03T11-00-00")
+        seg_home.codex(SC, fx_codex(SC, spawn_of(SF), day=5, meta=later), indexed=False, name_at="2026-10-05T11-00-00", day=5)
+        seg_home.codex(G, fx_codex(G, {"subagent": {"other": "guardian"}}, meta={"parent_thread_id": SS}), indexed=False)
+        # a Claude session with a workflow's journal beside its subagents
+        CW = "c0000090-0000-4000-8000-000000000000"
+        seg_home.claude(CW, fx_claude(CW))
+        seg_home.put(seg_home.projects / "-fx" / CW / "subagents" / "workflows" / "w" / "journal.jsonl", [{"type": "step"}])
+        seg_home.finish()
+        seg_census, seg_state = build(seg_home.run(), empty, table, table_sha, jobs=2)
+        sg = {key_of(e): e for e in seg_census["transcripts"]}
+        files = {k: segments_of(e) for k, e in sg.items()}
+        SLK, SFK, SSK, STK, SCK, GK = (xid(s) for s in (SL, SF, SS, ST, SC, G))
+        expect("a7128a: a thread in several files is one row, its files in name order, each under its own coverage key",
+               [(f["key"], f["source"]) for f in files[SSK]],
+               [(f"{SSK}@rollout-2026-10-02T10-00-00-{SS}", "codex_sessions"), (f"{SSK}@rollout-2026-10-04T10-00-00-{SS}", "codex_sessions")])
+        expect("a7128a: a file found again under its own name is a copy beside its row, not a file of the session",
+               (sg[SSK]["alt_paths"], len(files[SSK])), ([str(copy_of)], 2))
+        expect("a7128a: a thread in the window only in its last file is eligible, and the window owns that file's records",
+               (sg[SLK]["status"], [f["owned"] != [] for f in files[SLK]], [f["sha256"] is not None for f in files[SLK]], sg[SLK]["window_overlap"]),
+               ("eligible", [False, True], [True, True], "straddles_start"))
+        expect("a7128a: a thread in the window only in its first file is eligible, and the window owns that file's records",
+               (sg[SFK]["status"], [f["owned"] != [] for f in files[SFK]], sg[SFK]["window_overlap"]), ("eligible", [True, False], "straddles_end"))
+        expect("a7128a: a thread spanning two files owes the window both",
+               [f["work"]["in_window"] != [] for f in files[SSK]], [True, True])
+        complete_lines = writing_file.read_bytes().rsplit(b"\n", 1)[0] + b"\n"
+        expect("a7128a: a file still being written is its complete lines, like any transcript",
+               (files[STK][1]["sha256"], files[STK][1]["versions"][-1]["record_count"]), (hashlib.sha256(complete_lines).hexdigest(), 7))
+        expect("a7128a: a thread is indexed when the index names any of its files, or a copy of one",
+               (sg[SLK]["provenance"], sg[SFK]["provenance"], sg[SSK]["provenance"]), ("indexed", "indexed", "indexed"))
+        expect("a7128a: the kind and pointer are the first file's, though the census found a later one first: its source "
+               "classifies the thread, and a later file's history_base is no edge, so the thread is its own root",
+               (sg[SFK]["status"], sg[SFK]["entrypoint"], sg[SFK]["lineage"]["root"], sg[SFK]["lineage"]["unique_root"],
+                sg[SFK]["lineage"]["affirmed"], sg[SFK]["counted"]),
+               ("eligible", "vscode", SFK, True, [], True))
+        expect("a7128a: a compaction in any file of a thread keeps its lineage pending",
+               (sg[SLK]["lineage"]["measurement_pending"], sg[SFK]["lineage"]["measurement_pending"]), (True, False))
+        expect("85f3e8 with a7128a: a member in two files is read in both, as part of its root's unit",
+               (sg[SCK]["status"], [f["sha256"] is not None and f["owned"] != [] for f in files[SCK]], units(seg_census["transcripts"]).get(SFK)),
+               ("child_of", [True, True], [SCK]))
+        expect("b1989d: a Guardian review session is excluded by name, and is no member of the session it reviews",
+               (sg[GK]["status"], sg[GK]["reason"], units(seg_census["transcripts"]).get(SSK)), ("excluded", "guardian", None))
+        expect("a workflow's journal under subagents/ is no child: no row, and counted with the files that are not read",
+               (sorted(k for k in sg if k.startswith(cid(CW))), seg_census["sources"]["claude_projects"]["unrecognized"]), ([cid(CW)], 1))
+        expect("the census of split threads conforms to its schema and its sets add up",
+               (validate.validate_instance(validator(), seg_census), account(seg_census)), ([], []))
+
+        # one S3 result answers a thread in several files: each reading names the file it read, and is credited to it
+        seg_results = fx_results(seg_census)
+        _seg_done, seg_after, seg_flags = reconcile(seg_census, seg_state, seg_results, "periodic")
+        expect("a7128a: each file's readings are credited to that file, the first and the last alike",
+               ([coverage.latest(seg_after, f["key"])["processed"].get(seg_census["window"]) for f in files[SSK]], seg_flags),
+               ([f["owned"] for f in files[SSK]], {"accounted": True, "fully_read": True}))
+        pending_results = [{**r, "pending_events": [{"id": "pe-seg", "first_record": 2}]} if r["transcript"] == SSK else r for r in seg_results]
+        _pending_done, pending_after, _pending_flags = reconcile(seg_census, seg_state, pending_results, "periodic")
+        expect("a7128a: a pending event of a thread in several files is held under its last file unless it names one",
+               [(e["transcript"], e["version"]) for e in pending_after["pending_events"] if e["id"] == "pe-seg"], [(files[SSK][-1]["key"], 0)])
+        stray_event = [{**r, "pending_events": [{"id": "pe-stray", "first_record": 2, "transcript": f"{SSK}@nowhere"}]} if r["transcript"] == SSK
+                       else r for r in seg_results]
+        refused("a7128a: a pending event naming a file outside its unit is refused",
+                lambda: reconcile(seg_census, seg_state, stray_event, "periodic"), "RESULT_INCONSISTENT", "not a file of its unit")
+        unnamed = [{**r, "readings": [{k: v for k, v in g.items() if k != "transcript"} for g in r["readings"]]} if r["transcript"] == SSK else r
+                   for r in seg_results]
+        refused("a7128a: a reading that names no file of a thread written in several is refused",
+                lambda: reconcile(seg_census, seg_state, unnamed, "periodic"), "RESULT_INCONSISTENT", "names no file")
+        first_only = [{**r, "readings": [g for g in r["readings"] if g.get("transcript") != files[SSK][0]["key"]]} if r["transcript"] == SSK else r
+                      for r in seg_results]
+        refused("a7128a: a read_complete that leaves the first file's window unprocessed is refused, naming that file",
+                lambda: reconcile(seg_census, seg_state, first_only, "periodic"), "RESULT_INCONSISTENT", files[SSK][0]["key"])
+
+        # the shape of a row is its host's: the census's own accounting names a row that departs from it, and so does
+        # the one reader of rows outside the census
+        def bent(change):
+            doc = copy.deepcopy(seg_census)
+            change({key_of(e): e for e in doc["transcripts"]})
+            return doc
+        for label, change, why in (
+                ("a Codex row carrying a file's path on the row", lambda rows_: rows_[SSK].update(path="/x"), "never ['path'] on the row"),
+                ("a Codex row without segments", lambda rows_: rows_[SSK].pop("segments"), "and this one has none"),
+                ("a Claude row carrying segments", lambda rows_: rows_[cid(CW)].update(segments=[]), "never in segments")):
+            doc = bent(change)
+            expect(f"a7128a: {label} is named by the census's accounting",
+                   [e for e in account(doc) if "SET_MISMATCH shape" in e and why in e] != [], True)
+            try:
+                rows(doc)
+                said = None
+            except ValueError as exc:
+                said = str(exc)
+            expect(f"a7128a: {label} is refused by the reader of rows", "CENSUS_MALFORMED" in (said or ""), True)
+
+        # a file of a thread the coverage state owes work on that is gone: the row says which, and the work stays owed;
+        # a thread with no file left is a lost transcript under the file's own key
+        gone_key, lost_key = f"{SSK}@rollout-2026-10-01T09-00-00-{SS}", f"{xid('019e0198-0000-7000-8000-000000000000')}@rollout-2026-10-01T09-00-00-x"
+        owing = coverage.new_state()
+        for key in (gone_key, lost_key):
+            coverage.observe(owing, key, "ab" * 32, 3, "ab" * 32, None)
+            owing["backlog"].append({"transcript": key, "version": 0, "window": NEXT_ID, "status": "deferred", "unread": [[0, 3]]})
+        owed_census, _owed_state = build(seg_home.run(), owing, table, table_sha, jobs=2)
+        og = {key_of(e): e for e in owed_census["transcripts"]}
+        expect("a7128a: a session whose owed file is gone is unreadable, naming the file, and lists it with no path",
+               (og[SSK]["status"], (og[SSK]["reason"] or "").startswith(f"SEGMENT_ABSENT {gone_key}:"),
+                [(f["key"], f["path"] is None) for f in segments_of(og[SSK])][0]),
+               ("unreadable", True, (gone_key, True)))
+        expect("a7128a: a thread whose every owed file is gone is a lost transcript, listing the file it owes",
+               ((og[identity_of_key(lost_key)]["status"], [f["key"] for f in segments_of(og[identity_of_key(lost_key)])]),
+                account(owed_census), validate.validate_instance(validator(), owed_census)),
+               (("known_absent", [lost_key]), [], []))
+
+        # the structural guard: outside the census a census document is read only through its readers
+        texts = reader_texts()
+        bypasses, reader_sites = reader_bypasses(texts)
+        expect("a7128a: outside the census, the census file is named only where an exception says why, and its rows are read through rows",
+               (bypasses, len(texts) >= 20, sorted(reader_sites)), ([], True, sorted(READER_EXCEPTIONS)))
+        for label, planted_text, code in (
+                ("a module that parses the census file itself", texts["runlib/views.py"]
+                 + '\n\ndef sneak(run_dir):\n    return json.loads((run_dir / "census.json").read_text())\n', "runlib/views.py (sneak)"),
+                ("a census document's rows taken around rows", texts["runlib/views.py"]
+                 + '\n\ndef sneak(run_dir):\n    doc = census.load(run_dir)\n    return doc["transcripts"]\n', "(sneak): doc['transcripts']"),
+                ("an exception whose site no longer names the file", texts["runlib/views.py"].replace('"census.json"', '"elsewhere.json"'),
+                 "stale exception runlib/views.py (run)")):
+            found_here = reader_bypasses({**texts, "runlib/views.py": planted_text})[0]
+            expect(f"a7128a: {label} is named", [v for v in found_here if code in v] != [], True)
 
         # done-when 1 and 3, the runs that follow one another: a resume, an event across the window's end, a rewrite
         two = Home(root / "two")
@@ -1379,7 +1775,8 @@ def controls(checks):
                (t_b["id"], len(t_b["versions"]), t_b["sha256"] == parked["sha256"], t_b["source"], t_b["provenance"]),
                (M, 1, True, "codex_archived_sessions", "indexed"))
         expect("the move keeps its continuity: the ranges processed before it are still processed, so the window owes it nothing",
-               (t_b["status"], t_b["work"]["in_window"], coverage.latest(state_b, MK)["processed"] == coverage.latest(state1, MK)["processed"] != {}),
+               (t_b["status"], t_b["work"]["in_window"],
+                coverage.latest(state_b, f"{MK}@{stem_of(moved)}")["processed"] == coverage.latest(state1, f"{MK}@{stem_of(moved)}")["processed"] != {}),
                ("nothing_new", [], True))
         run_c, _ = build(two.run(), empty, table, table_sha, jobs=2)
         expect("instrument control: a census that forgot the pre-move coverage would treat the moved file as new work",

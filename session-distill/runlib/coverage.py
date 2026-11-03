@@ -222,24 +222,28 @@ def work_of(state, tid, owned, window_id):
             "in_window": subtract(owned, done), "backlog": carried}
 
 
-def accounted(entries, state, window_id, members=None):
+def accounted(entries, state, window_id, units=None, owned=None):
     """(accounted, fully_read) of a window over the census `entries` that are eligible (design §5.2).
 
     Accounted: every eligible session has a terminal status, and a session whose reading did not finish has
     what it still owes in the backlog: the unread records of this window it owns, and whatever it carries
-    from earlier windows, each under the window it belongs to. A session is its unit (D-20261103-85f3e8):
-    `members` maps a root's identity to its members', and a member's unread records are owed the same way.
-    Fully read: every one finished or had nothing to read."""
+    from earlier windows, each under the window it belongs to. A session is its unit (D-20261103-85f3e8), and the
+    state names its files (D-20261103-a7128a): `units` maps a root's identity to `(its own files' keys, its members'
+    files' keys)`, `owned` a key to the records the window owns there, and every file's unread records are owed the
+    same way. Without them a session is one file under its identity and owns what its entry says. Fully read: every
+    one finished or had nothing to read."""
     eligible = [e for e in entries if e["status"] == "eligible" or e["status"] in TERMINAL]
     terminal = all(e["status"] in TERMINAL for e in eligible)
-    by_ident = {lineage.identity(e["host"], e["id"]): e for e in entries}
+    if owned is None:
+        owned = {lineage.identity(e["host"], e["id"]): e.get("owned", []) for e in entries}
 
     def owes_nothing_unheld(entry):
         root = lineage.identity(entry["host"], entry["id"])
+        own, members = (units or {}).get(root, ([root], []))
         held_any = False
-        for tid in [root] + list((members or {}).get(root, [])):
+        for tid in list(own) + list(members):
             version = latest(state, tid)
-            remaining = subtract(by_ident.get(tid, {}).get("owned", []), version["processed"].get(window_id, []) if version else [])
+            remaining = subtract(owned.get(tid, []), version["processed"].get(window_id, []) if version else [])
             held = [b for b in state["backlog"] if b["transcript"] == tid and b["unread"]]
             held_any = held_any or bool(held)
             if subtract(remaining, normalize([r for b in held if b["window"] == window_id for r in b["unread"]])):
@@ -250,13 +254,14 @@ def accounted(entries, state, window_id, members=None):
     return terminal and carried, all(e["status"] in ("read_complete", "nothing_new") for e in eligible)
 
 
-def observed(state, entries):
-    """A copy of `state` as the census observed it: each of the census `entries` (eligible ones, with their `versions`)
-    has those versions, an append moved in place and a rewrite added, with nothing read or processed in a new one."""
+def observed(state, files):
+    """A copy of `state` as the census observed it: each of the census's `files` (`census.segments_of`: a `key` and the
+    `versions` S1 recorded) has those versions, an append moved in place and a rewrite added, with nothing read or
+    processed in a new one."""
     after = copy.deepcopy(state)
-    for entry in entries:
-        have = after["transcripts"].setdefault(lineage.identity(entry["host"], entry["id"]), {"versions": []})["versions"]
-        for number, version in enumerate(entry["versions"]):
+    for file in files:
+        have = after["transcripts"].setdefault(file["key"], {"versions": []})["versions"]
+        for number, version in enumerate(file["versions"]):
             if number < len(have):
                 have[number].update(version)
             else:
@@ -264,7 +269,7 @@ def observed(state, entries):
     return after
 
 
-def apply_results(state, window_id, kind, results, owned, members=None):
+def apply_results(state, window_id, kind, results, owned, units=None):
     """The state after S3's `results` (a copy; `state` is not touched).
 
     A result is `{transcript, status, readings, pending_events, resolved_events}`, `readings` a list of
@@ -275,30 +280,37 @@ def apply_results(state, window_id, kind, results, owned, members=None):
     still holds it. A targeted run reads but never advances coverage: its results are held to the same rules and
     the state it gets back is the one it gave.
 
-    One result answers a unit (D-20261103-85f3e8): `members` maps the result's transcript to its members', and a
-    reading that carries `transcript` reads that member instead of the root. A reading naming a transcript outside
-    the unit is refused. A `read_complete` or `nothing_new` result leaves nothing of the unit unprocessed, and a
-    carried one keeps every member's unread ranges in the backlog under that member."""
-    folded = _fold(state, window_id, results, owned, members or {})
+    One result answers a unit (D-20261103-85f3e8), and the state names its files (D-20261103-a7128a): `units` maps the
+    result's transcript to `(the keys of its own files, the keys of its members' files)`, by default its identity alone.
+    A reading names the file it read by `transcript`, which a session of one file may leave out; a reading naming a
+    file outside the unit is refused, and so is one that leaves it out of a session written across several files. A
+    `read_complete` or `nothing_new` result leaves nothing of the unit unprocessed, and a carried one keeps every
+    file's unread ranges in the backlog under that file. A pending event names its file the same way, by default the
+    session's last."""
+    folded = _fold(state, window_id, results, owned, units or {})
     return folded if kind == "periodic" else copy.deepcopy(state)
 
 
-def _fold(state, window_id, results, owned, members):
+def _fold(state, window_id, results, owned, units):
     for result in results:
         if result["status"] not in TERMINAL:
             raise Refused(f"RESULT_STATUS_INVALID {result['transcript']}: {result['status']!r} is not a terminal status; S3 ends in one of {TERMINAL}")
     after = copy.deepcopy(state)
     for result in results:
         root = result["transcript"]
-        unit = [root] + list(members.get(root, []))
+        own, members = units.get(root, ([root], []))
+        unit = list(own) + list(members)
         newest, credited, seen = {}, {}, set()
         for tid in unit:
             versions = after["transcripts"].get(tid, {}).get("versions", [])
-            if tid == root and not versions:
+            if tid in own and not versions:
                 raise Refused(f"VERSION_MISMATCH {tid}: the state has no version of it")
             newest[tid] = len(versions) - 1
         for reading in result["readings"]:
-            tid, n = reading.get("transcript", root), reading["version"]
+            tid, n = reading.get("transcript", own[0] if len(own) == 1 else None), reading["version"]
+            if tid is None:
+                raise Refused(f"RESULT_INCONSISTENT {root}: a reading names no file, and the session is written across "
+                              f"{len(own)} files ({own}); a reading names the one it read")
             if tid not in newest:
                 raise Refused(f"RESULT_INCONSISTENT {root}: a reading names {tid}, which is not a member of its unit")
             if (tid, n) in seen:
@@ -353,7 +365,12 @@ def _fold(state, window_id, results, owned, members):
         gone = set(result.get("resolved_events", []))
         after["pending_events"] = [e for e in after["pending_events"] if e["id"] not in gone]
         known = {e["id"] for e in after["pending_events"]}
-        after["pending_events"] += [{"transcript": root, "version": newest[root], "window": window_id, **e} for e in result.get("pending_events", []) if e["id"] not in known]
+        for e in result.get("pending_events", []):
+            where = e.get("transcript", own[-1])
+            if where not in newest:
+                raise Refused(f"RESULT_INCONSISTENT {root}: a pending event names {where}, which is not a file of its unit")
+            if e["id"] not in known:
+                after["pending_events"].append({"version": newest[where], "window": window_id, **e, "transcript": where})
     errors = check_state(after)
     if errors:
         raise Refused("\n".join(errors))
@@ -623,8 +640,8 @@ def self_test():
         state, apply_results(state, W1, "periodic", [run1], own))], ["TARGETED_ADVANCED_COVERAGE"])
 
     # observed(): the versions a census saw laid over a state that has not seen them
-    seen_at = [{"host": "claude", "id": "t", "versions": [{"sha": sha("x2"), "record_count": 14, "prefix_sha": sha("x2")}]},
-               {"host": "codex", "id": "n", "versions": [{"sha": sha("n"), "record_count": 3, "prefix_sha": sha("n")}]}]
+    seen_at = [{"key": T, "versions": [{"sha": sha("x2"), "record_count": 14, "prefix_sha": sha("x2")}]},
+               {"key": "codex:n", "versions": [{"sha": sha("n"), "record_count": 3, "prefix_sha": sha("n")}]}]
     watched = observed(after1, seen_at)
     expect("an append moves the version in place and keeps what was read", [(v["sha"], v["record_count"], v["read"]) for v in watched["transcripts"][T]["versions"]],
            [(sha("x2"), 14, [[0, 12]])])

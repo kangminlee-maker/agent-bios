@@ -31,9 +31,9 @@
     },
     "transcript": {
       "type": "object", "additionalProperties": false,
-      "required": ["host", "id", "source", "path", "sha256", "status", "reason", "parent", "originator", "entrypoint",
-                   "source_class", "lineage", "provenance", "counted", "window_overlap", "pin", "versions",
-                   "owned", "work", "alt_paths"],
+      "$comment": "A Claude row carries path, sha256, versions, owned and work and no segments; a Codex row carries them only per file, in segments (D-20261103-a7128a). The lint admits no conditional keyword, so census.account checks which host has which shape.",
+      "required": ["host", "id", "source", "status", "reason", "parent", "originator", "entrypoint",
+                   "source_class", "lineage", "provenance", "counted", "window_overlap", "pin", "alt_paths"],
       "properties": {
         "host": {"enum": ["claude", "codex"]},
         "id": {"$ref": "#/$defs/text"},
@@ -59,21 +59,37 @@
         "window_overlap": {"enum": ["inside", "straddles_start", "straddles_end", "straddles_both", "context_only", null]},
         "pin": {"type": "object", "additionalProperties": false, "required": ["content_ref"],
                 "properties": {"content_ref": {"type": ["string", "null"]}}},
-        "versions": {"type": "array", "items": {
-          "type": "object", "additionalProperties": false, "required": ["sha", "record_count", "prefix_sha"],
-          "properties": {"sha": {"$ref": "#/$defs/sha256"}, "record_count": {"$ref": "#/$defs/count"},
-                         "prefix_sha": {"$ref": "#/$defs/sha256"}}}},
+        "versions": {"$ref": "#/$defs/versions"},
         "owned": {"$ref": "#/$defs/ranges"},
-        "work": {
-          "type": "object", "additionalProperties": false, "required": ["version", "in_window", "backlog"],
-          "properties": {"version": {"type": ["integer", "null"], "minimum": 0}, "in_window": {"$ref": "#/$defs/ranges"},
-                         "backlog": {"type": "array", "items": {
-                           "type": "object", "additionalProperties": false, "required": ["window", "version", "unread"],
-                           "properties": {"window": {"$ref": "#/$defs/text"}, "version": {"$ref": "#/$defs/count"},
-                                          "unread": {"$ref": "#/$defs/ranges"}}}}}
-        },
-        "alt_paths": {"type": "array", "items": {"type": "string", "minLength": 1}}
+        "work": {"$ref": "#/$defs/work"},
+        "alt_paths": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "segments": {"type": "array", "items": {"$ref": "#/$defs/segment"}}
       }
+    },
+    "segment": {
+      "type": "object", "additionalProperties": false,
+      "required": ["stem", "source", "path", "sha256", "versions", "owned", "work"],
+      "properties": {
+        "stem": {"$ref": "#/$defs/text"},
+        "source": {"$ref": "#/$defs/text"},
+        "path": {"type": ["string", "null"]},
+        "sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+        "versions": {"$ref": "#/$defs/versions"},
+        "owned": {"$ref": "#/$defs/ranges"},
+        "work": {"$ref": "#/$defs/work"}
+      }
+    },
+    "versions": {"type": "array", "items": {
+      "type": "object", "additionalProperties": false, "required": ["sha", "record_count", "prefix_sha"],
+      "properties": {"sha": {"$ref": "#/$defs/sha256"}, "record_count": {"$ref": "#/$defs/count"},
+                     "prefix_sha": {"$ref": "#/$defs/sha256"}}}},
+    "work": {
+      "type": "object", "additionalProperties": false, "required": ["version", "in_window", "backlog"],
+      "properties": {"version": {"type": ["integer", "null"], "minimum": 0}, "in_window": {"$ref": "#/$defs/ranges"},
+                     "backlog": {"type": "array", "items": {
+                       "type": "object", "additionalProperties": false, "required": ["window", "version", "unread"],
+                       "properties": {"window": {"$ref": "#/$defs/text"}, "version": {"$ref": "#/$defs/count"},
+                                      "unread": {"$ref": "#/$defs/ranges"}}}}}
     }
   },
   "properties": {

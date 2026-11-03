@@ -1116,29 +1116,31 @@ def limits_refusal(golden_run):
     return []
 
 
-def census_version(entry, state):
-    """`{sha, record_count}` of the version S1 read of `entry`: the census row's sha and the record count the coverage
-    state holds for it. A transcript the state does not hold was not read by this census, and is refused by name."""
-    ident = census.key_of(entry)
-    latest = coverage.latest(state, ident)
-    if latest is None or not entry.get("sha256"):
-        raise Refused(f"VERSION_MISMATCH {ident}: the census holds no version of it to copy")
-    return {"sha": entry["sha256"], "record_count": latest["record_count"]}
+def census_version(file, state):
+    """`{sha, record_count}` of the version S1 read of one transcript file (`census.segments_of`): the census's sha and
+    the record count the coverage state holds for it. A file the state does not hold was not read by this census, and is
+    refused by name."""
+    latest = coverage.latest(state, file["key"])
+    if latest is None or not file.get("sha256"):
+        raise Refused(f"VERSION_MISMATCH {file['key']}: the census holds no version of it to copy")
+    return {"sha": file["sha256"], "record_count": latest["record_count"]}
 
 
-def view_transcript(run_dir, entry, state, ctx, unit=None):
-    """Everything S2 leaves for one transcript of a unit (`unit` is its root's identity); returns its line of `views.json`.
-    A member's work is the census's, like a root's: S1 read every member of an eligible unit (D-20261103-85f3e8)."""
+def view_transcript(run_dir, entry, file, state, ctx, unit=None):
+    """Everything S2 leaves for one transcript file of a unit - `entry` its census row, `file` one of the row's files
+    (`census.segments_of`), `unit` its root's identity; returns its line of `views.json`. A member's work is the census's,
+    like a root's: S1 read every member of an eligible unit (D-20261103-85f3e8). Each file of a Codex thread written
+    across several is a transcript of its own here, named by its coverage key (D-20261103-a7128a)."""
     run_dir = pathlib.Path(run_dir)
-    ident = census.key_of(entry)
+    ident = file["key"]
     child = entry["status"] == "child_of"
     rv, limits, zstd = ctx["redaction_version"], ctx["limits"], ctx["zstd"]
-    copy_rel, sha = copy_version(run_dir, entry["path"], zstd, census_version(entry, state))
+    copy_rel, sha = copy_version(run_dir, file["path"], zstd, census_version(file, state))
     name = safe_name(ident)
     proj_rel = f"redacted/{sha}.{rv}.jsonl"
     stats = project_version(run_dir, copy_rel, entry["host"], child, rv, proj_rel)
-    work = entry["work"]
-    version, owned, backlog = work["version"], entry["owned"], work["backlog"]
+    work = file["work"]
+    version, owned, backlog = work["version"], file["owned"], work["backlog"]
     viewed_ranges = coverage.union(work["in_window"], [r for b in backlog if b["version"] == version for r in b["unread"]])
     viewed, role_of = RangeSet(viewed_ranges), role_fn(owned, backlog, version)
     index = search.Index(sha, rv)
@@ -1170,8 +1172,8 @@ def view_transcript(run_dir, entry, state, ctx, unit=None):
         "pending_first_records": pending, "windows": len(windows)})
     index_rel = f"index/bm25/{name}.json"
     search.dump(index, index_destination(run_dir, index_rel))
-    return {"transcript": ident, "name": name, "host": entry["host"], "kind": "child" if child else "session", "parent": entry.get("parent"),
-            "unit": unit or ident,
+    return {"transcript": ident, "session": census.key_of(entry), "segment": file["stem"], "name": name, "host": entry["host"],
+            "kind": "child" if child else "session", "parent": entry.get("parent"), "unit": unit or census.key_of(entry),
             "version": version, "version_sha": sha, "source_copy": copy_rel, "redacted": proj_rel, "sequence": sequence_rel,
             "index": index_rel, "records": stats["records"], "items": counts["items"], "viewed_items": counts["viewed"],
             "windows": files, "clipped": len(clipped), "forced": sum(1 for v in forced.values() if v != "none"),
@@ -1185,9 +1187,10 @@ def run(run_dir, reservation=None, overhead=bound.PACKET_OVERHEAD, seats_path=No
     run_dir = pathlib.Path(run_dir)
     declaration = records.read_json(records.run_json_path(run_dir))
     limits = limits_of(declaration, reservation, overhead, seats_path)
-    document = json.loads((run_dir / "census.json").read_text(encoding="utf-8")) if (run_dir / "census.json").is_file() else None
-    if document is None:
-        raise Refused(f"INPUT_INVALID S1: {run_dir}/census.json is absent; run the census first")
+    try:
+        transcripts = census.rows(census.load(run_dir))
+    except ValueError as exc:
+        raise Refused(f"INPUT_INVALID S1: {run_dir}/census.json: {exc}") from exc
     state = coverage.load(run_dir / "coverage.json")[0]
     _, _, window_id = coverage.window_bounds(declaration["window"])
     ctx = {"limits": limits, "redaction_version": projection.CURRENT, "zstd": sources.declared(declaration).get("zstd"),
@@ -1195,20 +1198,20 @@ def run(run_dir, reservation=None, overhead=bound.PACKET_OVERHEAD, seats_path=No
     # The unit is a root with every member at any depth (D-20261103-85f3e8). Of an eligible unit S2 reads each transcript
     # that owes the window something - the root or a member, its records in the window or its backlog - and no other: a
     # member with nothing to read would cut no window. An eligible root whose unit owes nothing contradicts S1.
-    by_id = {census.key_of(e): e for e in document["transcripts"]}
-    units = census.units(document["transcripts"])
-    owes = lambda e: bool(e.get("path") and (e["work"]["in_window"] or e["work"]["backlog"]))  # noqa: E731
+    by_id = {census.key_of(e): e for e in transcripts}
+    units = census.units(transcripts)
+    owes = lambda f: bool(f["path"] and (f["work"]["in_window"] or f["work"]["backlog"]))  # noqa: E731
     todo, idle = [], []
-    for root in (e for e in document["transcripts"] if e["status"] == "eligible"):
+    for root in (e for e in transcripts if e["status"] == "eligible"):
         unit = census.key_of(root)
-        read = [e for e in [root] + [by_id[m] for m in units.get(unit, [])]
-                if (e is root or e["status"] == "child_of") and owes(e)]
-        todo += [(e, unit) for e in read]
+        read = [(e, f, unit) for e in [root] + [by_id[m] for m in units.get(unit, [])] if e is root or e["status"] == "child_of"
+                for f in census.segments_of(e) if owes(f)]
+        todo += read
         if not read:
             idle.append(unit)
     if idle:
         raise Refused(f"SET_MISMATCH S2: eligible sessions whose unit owes the window nothing: {sorted(idle)}")
-    names = collections.Counter(safe_name(census.key_of(e)) for e, _unit in todo)
+    names = collections.Counter(safe_name(f["key"]) for _e, f, _unit in todo)
     clash = sorted(n for n, c in names.items() if c > 1)
     if clash:
         raise Refused(f"VIEW_NAME_COLLISION: {clash} name more than one transcript")
@@ -1217,13 +1220,13 @@ def run(run_dir, reservation=None, overhead=bound.PACKET_OVERHEAD, seats_path=No
                                            {"artifact": "coverage.json", "producer_stage": "S1"}],
                            part="views") as stage:
         def work(item):
-            done[item["id"]] = view_transcript(run_dir, item["entry"], state, ctx, item["unit"])
+            done[item["id"]] = view_transcript(run_dir, item["entry"], item["file"], state, ctx, item["unit"])
 
-        # a unit fails together: under the production posture a failing member quarantines its root and every other
-        # member with it, because they share the unit (records.run_items)
-        items = [{"id": census.key_of(e), "unit": unit, "entry": e} for e, unit in todo]
+        # a unit fails together: under the production posture a failing file quarantines its root and every other
+        # file of the unit with it, because they share the unit (records.run_items)
+        items = [{"id": f["key"], "unit": unit, "entry": e, "file": f} for e, f, unit in todo]
         outcome = stage.run_items(items, work)
-        owed = {census.key_of(e) for e, _unit in todo}
+        owed = {f["key"] for _e, f, _unit in todo}
         missing = sorted(owed - set(done) - {q["id"] for q in outcome["quarantined"]})
         if missing:
             raise Refused(f"SET_MISMATCH S2: transcripts that owe the window something without a view: {missing}")
@@ -1532,9 +1535,12 @@ def fx_write(path, rows):
 
 
 def fx_entry(host, ident, source, path, sha, status="eligible", **fields):
+    """A census row of one transcript file, in its host's shape (`census.finish`)."""
     fields.setdefault("counted", status == "eligible")
-    return census.blank(host, ident, source, str(path), sha256=sha, status=status,
-                        provenance="indexed", window_overlap="inside", **fields)
+    file = {k: fields.pop(k) for k in ("owned", "work", "versions") if k in fields}
+    entry = census.blank(host, ident, source, str(path), status=status, provenance="indexed", window_overlap="inside", **fields)
+    entry["segments"][0].update(sha256=sha, **file)
+    return census.finish(entry)
 
 
 def fx_owned(rows, window=None):
@@ -1603,8 +1609,9 @@ def golden(root, name="g", overhead=bound.PACKET_OVERHEAD, capacity=None, reserv
 
     main_id, child_id, codex_id = "a1000000-0000-4000-8000-000000000001", "a1000000-0000-4000-8000-000000000002", \
         "019e0001-0000-7000-8000-000000000003"
+    # a Codex file's coverage key names the file (D-20261103-a7128a)
     main_tid, child_tid, codex_tid = (lineage.identity("claude", main_id), lineage.identity("claude", child_id),
-                                      lineage.identity("codex", codex_id))
+                                      f"{lineage.identity('codex', codex_id)}@{census.stem_of(codex_path)}")
     _start, _end, window_id = coverage.window_bounds(FX_WINDOW)
 
     state = coverage.new_state()
@@ -1700,6 +1707,38 @@ def golden_unit(root, name, plant=None):
     except Exception as exc:  # the refusal, or what a reverted check raises: a control reads it, never a traceback
         outcome = exc
     return run_dir, {key: lineage.identity("claude", value) for key, value in ids.items()}, outcome
+
+
+def golden_split(root, name, owns):
+    """A run whose census holds one Codex thread written in two files (D-20261103-a7128a), the window owning `owns[0]` of
+    the first and `owns[1]` of the second. Returns `(the two files' coverage keys, manifest or the refusal)`."""
+    root = pathlib.Path(root)
+    run_dir, host = root / name, root / f"{name}-host"
+    thread = "019e0002-0000-7000-8000-000000000004"
+    _start, _end, window_id = coverage.window_bounds(FX_WINDOW)
+    state, files = coverage.new_state(), []
+    for n, owned in enumerate(owns):
+        path = host / f"rollout-2026-10-0{n + 2}T10-00-00-{thread}.jsonl"
+        sha = fx_write(path, fx_codex_records())
+        key = f"{lineage.identity('codex', thread)}@{census.stem_of(path)}"
+        coverage.observe(state, key, sha, len(fx_codex_records()), sha, None)
+        files.append({**census.segment(census.stem_of(path), "codex_sessions", str(path)), "sha256": sha, "owned": owned,
+                      "work": coverage.work_of(state, key, owned, window_id)})
+    entry = census.blank("codex", thread, "codex_sessions", status="eligible", counted=True, provenance="indexed", window_overlap="inside")
+    entry["segments"] = files
+    document = fx_census(window_id, [census.finish(entry)])
+    run_dir.mkdir(parents=True, exist_ok=True)
+    declare.create(run_dir, {**declare.fixture(), "window": FX_WINDOW})
+    with records.run_stage(run_dir, "S1") as stage:
+        records.write_text(run_dir, run_dir / "census.json", census.dump(document))
+        records.write_json(run_dir, run_dir / "coverage.json", state)
+        stage.output("census.json")
+        stage.output("coverage.json")
+    try:
+        outcome = run(run_dir, 32_000)
+    except Exception as exc:  # the refusal, or what a reverted check raises: a control reads it, never a traceback
+        outcome = exc
+    return [f"{lineage.identity('codex', thread)}@{census.stem_of(f['path'])}" for f in files], outcome
 
 
 # ---- self-test --------------------------------------------------------------------------------
@@ -3345,6 +3384,15 @@ def self_test():
         _idle_dir, _ids, idle = golden_unit(root, "unit-idle", plant="idle")
         named("85f3e8: an eligible root whose unit owes the window nothing contradicts S1 and is refused by name",
               [str(idle)] if isinstance(idle, Exception) else [], "SET_MISMATCH S2", unit_ids["root"])
+        # D-20261103-a7128a: S2 reads each file of a thread written in several that owes the window something, as a
+        # transcript of its own under its coverage key, and no other
+        for label, owns, read in (("only its first file", ([[0, 3]], []), [0]), ("only its last file", ([], [[0, 3]]), [1]),
+                                  ("both its files", ([[0, 3]], [[0, 3]]), [0, 1])):
+            split_keys, split = golden_split(root, f"split-{read}", owns)
+            expect(f"a7128a: a thread whose window lies in {label} has that file copied and viewed, under its own key",
+                   sorted((t["transcript"], t["session"], t["segment"]) for t in split["transcripts"])
+                   if isinstance(split, dict) else repr(split),
+                   sorted((split_keys[n], split_keys[n].split("@")[0], split_keys[n].split("@")[1]) for n in read))
         # M#12: the index destination is confined before anything is created. `index/` is replaced by a
         # symlink to a directory outside the run; the write must be refused AND the outside directory must
         # be exactly as it was - a refusal that arrives after `mkdir` has run is not a confinement.

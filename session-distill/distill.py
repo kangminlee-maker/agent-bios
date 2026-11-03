@@ -195,13 +195,13 @@ def cmd_declare(args):
 def cmd_census(args):
     run_dir = run_dir_of(args)
     if args.reconcile:
-        before = json.loads((run_dir / "census.json").read_text(encoding="utf-8"))
+        before = census.load(run_dir)
         state = coverage.load(run_dir / "coverage.json")[0]
         results = json.loads(pathlib.Path(args.reconcile).read_text(encoding="utf-8"))
         done, after, flags = census.reconcile(before, state, results, before["kind"])
         records.write_text(run_dir, run_dir / "census.reconciled.json", census.dump(done))
         records.write_json(run_dir, run_dir / "coverage.reconciled.json", after)
-        counts = census.window_counts(done["transcripts"])
+        counts = census.window_counts(census.rows(done))
         say(f"reconciled {run_dir}: accounted {flags['accounted']} ({counts['accounted']}/{counts['eligible']} sessions), "
             f"fully read {flags['fully_read']} ({counts['fully_read']}/{counts['eligible']})")
         return 0
@@ -920,10 +920,12 @@ def self_test():
         control("the test-only zstd frame is read back byte for byte by the declared decoder",
                 all(back.values()), f"{back}")
         bound = records.sha256_bytes(plain_bytes)
+        # a Codex row holds its file in segments (D-20261103-a7128a)
         inventory_census = {"transcripts": [{
-            "host": "codex", "id": "cccc", "source": "codex_sessions", "path": str(compressed_rollout),
-            "status": "eligible", "parent": None, "sha256": bound,
-            "versions": [{"sha": bound, "record_count": 1, "prefix_sha": bound}]}]}
+            "host": "codex", "id": "cccc", "source": "codex_sessions", "status": "eligible", "parent": None,
+            "segments": [{"stem": census.stem_of(compressed_rollout), "source": "codex_sessions", "path": str(compressed_rollout),
+                          "sha256": bound, "versions": [{"sha": bound, "record_count": 1, "prefix_sha": bound}],
+                          "owned": [], "work": {"version": 0, "in_window": [], "backlog": []}}]}]}
         with records.run_stage(inventory_run, "S1") as recorded:
             records.write_text(inventory_run, inventory_run / "census.json", json.dumps(inventory_census))
             recorded.output("census.json")

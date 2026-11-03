@@ -155,6 +155,16 @@ class CodexScan:
         if isinstance(retained, dict) and isinstance(retained.get("revision"), str):
             self.ids.add(hash(retained["revision"]))
 
+    def absorb(self, later):
+        """This scan with the lineage evidence of a later rollout file of the same thread added: its record ids, its turns
+        and whether it was compacted. The later file's `session_meta` is not taken: the thread's kind and pointer are its
+        first file's, and a later file's `history_base` names the thread it continues, which is no edge to another
+        (D-20261103-a7128a)."""
+        self.ids |= later.ids
+        self.turns |= later.turns
+        self.compacted = self.compacted or later.compacted
+        return self
+
     def kind(self):
         """`subagent` (a child), `fork`, `continuation`, `root` or `unknown`, and the parent id it points at."""
         meta = self.meta
