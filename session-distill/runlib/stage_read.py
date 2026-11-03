@@ -66,12 +66,27 @@ was accepted), processes nothing, hands on no event, and its reasons are named. 
 `coverage.apply_results`' input, folded here against the census's observed state so a result that does not fit is
 refused in S3; S12 promotes it. `read.json` holds the counts.
 
+The expected observations due are read from the ledger in the declaration's checkout, the one its
+`starting_hashes.ledger` pins (`pinned_ledger`: LEDGER_UNREADABLE, LEDGER_BASE_STALE, LEDGER_INVALID): every one a
+decision of an earlier run holds whose expiry is not before the window's first day, by id `<entry>@<run>`
+(`due_observations`). Each window's packet shows them with their occasion criteria, exposure rule and expected behaviour;
+their retrieval terms are not shown, and the full-source search with them forces the expansion of every own omission of
+a clipped record they match (`searched`, plan amendment row 10), so an answer skipping one fails the stage's check. An
+observation is kept when its quotes locate, named by its view and entry; when every unit is read, each gets the basis
+code sets over the scope - every declared transcript source and every session of the window, a unit with every member
+(`observation_scope`, plan amendment row 5) - and is appended to `observations/<window>.jsonl`, and each due
+observation's resolution is derived from them (`measures.derive_resolution`) into `observations/resolutions.json`,
+which counts apart the resolutions left pending only because the basis is incomplete and names what made it so.
+`stored_resolutions` believes that file only after deriving it again (INSTANCE_IMMUTABLE, RESOLUTION_DRIFT). Rendering
+and the ledger's close are WP-21's (plan amendment row 6).
+
 The reader takes the declaration S3 was admitted against (`records.StageRun.declaration`), and refuses a view whose
 windows were cut for another output cap than the one its calls declare (WINDOW_CAP_MISMATCH).
 
 Refused by name: OVERLAP_OWNER_MISSING, OVERLAP_INTERVAL_UNSHOWN, WINDOWLESS_VIEW, VIEW_DRIFT, CLAIM_IMMUTABLE,
-EVENT_IMMUTABLE, WINDOW_CAP_MISMATCH, STITCH_OVER_BOUND, and CLAIM_INVALID and EVENT_INVALID for a stored record its
-schema refuses.
+EVENT_IMMUTABLE, WINDOW_CAP_MISMATCH, STITCH_OVER_BOUND, LEDGER_UNREADABLE, LEDGER_BASE_STALE, LEDGER_INVALID,
+EXPECTED_EXPIRY_UNREADABLE, INSTANCE_IMMUTABLE, RESOLUTION_DRIFT, and CLAIM_INVALID, EVENT_INVALID and
+OBSERVATION_INVALID for a stored record its schema refuses.
 
   stage_read.py --self-test
 """
@@ -89,7 +104,8 @@ import tempfile
 
 if __package__ in (None, ""):  # run as a script: put session-distill/ on the import path
     sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
-from runlib import bound, census, claims as claim_records, coverage, declare, evidence, gate, packet, records, stagelock, views
+from runlib import bound, census, claims as claim_records, coverage, declare, evidence, gate, ledger as ledger_records, measures, packet, \
+    records, sources, stagelock, views
 from runlib.records import Refused
 
 STAGE = declare.VIEW_WINDOW_STAGE
@@ -119,9 +135,67 @@ def omissions_text(rows):
                      for m in rows)
 
 
+EXPECTED_FIELDS = ("occasion_criteria", "exposure_rule", "expected_behavior", "retrieval_terms", "expiry")
+ISO_DAY = re.compile(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}$")
+
+
+def pinned_ledger(declaration):
+    """The ledger of the declaration's checkout (`destinations.checkout`), when it is the one the declaration pinned
+    (`starting_hashes.ledger`): the one owner of the expected observations S3 judges (Q1 of WP-08 commit 4). Refused as
+    LEDGER_UNREADABLE, LEDGER_BASE_STALE (another file than the pinned one) or LEDGER_INVALID."""
+    path = pathlib.Path(declaration["destinations"]["checkout"]) / ledger_records.LEDGER_REL
+    try:
+        raw = path.read_bytes()
+    except OSError as exc:
+        raise Refused(f"LEDGER_UNREADABLE S3: the checkout's {ledger_records.LEDGER_REL}: {exc.strerror}") from exc
+    pinned, found = declaration["starting_hashes"]["ledger"], records.sha256_bytes(raw)
+    if found != pinned:
+        raise Refused(f"LEDGER_BASE_STALE S3: the declaration pinned ledger {pinned[:12]}, the checkout's file hashes "
+                      f"{found[:12]}; amend starting_hashes.ledger or restore the file")
+    try:
+        doc = ledger_records.parse(raw)
+        problems = ledger_records.validate_ledger(doc)
+    except ledger_records.LedgerError as exc:
+        problems = [str(exc)]
+    if problems:
+        raise Refused("LEDGER_INVALID S3: " + "; ".join(problems[:3]))
+    return doc
+
+
+def due_observations(doc, run_id, window):
+    """The expected observations due in `window`, each by id `<entry id>@<deciding run>`: every one a decision of an
+    earlier run holds whose expiry (a day) is not before the window's first day. A schema 1 ledger holds none, and a
+    migrated element is no run's decision (design §12.1-§12.2); an expiry that is no day is EXPECTED_EXPIRY_UNREADABLE."""
+    if doc.get("schema") != 2:
+        return []
+    first_day, due = window["start"][:10], []
+    for entry in doc["entries"]:
+        for element in entry["decisions"]:
+            observation = element.get("expected_observation")
+            if observation is None or ledger_records.is_legacy(element) or element["run"] == run_id:
+                continue
+            expected_id = f"{entry['id']}@{element['run']}"
+            if not ISO_DAY.match(observation["expiry"]):
+                raise Refused(f"EXPECTED_EXPIRY_UNREADABLE {expected_id}: expiry {observation['expiry']!r} is no day, so "
+                              "whether the observation is due in this window cannot be told")
+            if observation["expiry"] >= first_day:
+                due.append({"expected_id": expected_id, **{k: observation[k] for k in EXPECTED_FIELDS}})
+    return sorted(due, key=lambda e: e["expected_id"])
+
+
 def expected_text(expected):
-    """The expected observations due; none until the observation commit gives them a source."""
-    return "none" if not expected else "\n".join(f"- {e['expected_id']}" for e in expected)
+    """The expected observations due, each with what the reading judges it by. Their retrieval terms are not shown:
+    code searches the full source with them and forces the expansions they match (`searched`)."""
+    if not expected:
+        return "none"
+    return "\n".join(f"- {e['expected_id']}\n  occasion: {e['occasion_criteria']}\n  exposure rule: {e['exposure_rule']}\n"
+                     f"  expected behaviour: {e['expected_behavior']}" for e in expected)
+
+
+def searched(rows, hits):
+    """`rows` with every omission of a clipped record the full-source search matched forced as `search_match`, unless a
+    pending event forces it already (design §5.4, plan amendment row 10)."""
+    return [{**m, "forced_by": "search_match"} if m["forced_by"] == "none" and m["record_id"] in hits else m for m in rows]
 
 
 def payload(window, rows, expected=()):
@@ -177,6 +251,10 @@ def answer_problems(window, rows, answer, call_id, expected_ids=()):
         elif entry["window_role"] == "context":
             errors.append(f"RECORD_INTEGRITY events/{v['event_id']} starts on {v['at_record']!r}, a context record: an "
                           "event belongs to the window of its first record (design §5.2)")
+    occasions = [(o["expected_id"], o["occasion_locator"]) for o in answer["observations"]]
+    repeated = sorted({o for o in occasions if occasions.count(o) > 1})
+    if repeated:
+        errors.append(f"RECORD_INTEGRITY occasions repeat: {repeated}: each occasion of an expected observation is judged once")
     for o in answer["observations"]:
         if o["expected_id"] not in expected_ids:
             errors.append(f"RECORD_INTEGRITY expected observation {o['expected_id']!r} is not one due in this window")
@@ -248,7 +326,19 @@ def keep(run_dir, name, where, window, call_id, answer):
         kept[c["claim_id"]] = record["claim_id"]
         stored.append(record)
         cited.append({"record": record, "evidence": [located[e] for e in c["evidence_ids"]]})
-    for e in sorted({e for c in answer["claims"] if c["claim_id"] in kept for e in c["evidence_ids"]}):
+    observed = []
+    for o in answer["observations"]:
+        bad = [e for e in o["evidence_ids"] if e in failed]
+        if bad:
+            dropped.append({"observation": o["expected_id"], "occasion": o["occasion_locator"], "code": failed[bad[0]],
+                            "quotes": bad})
+            continue
+        # the occasion is named by the view it lies in and its entry there; its basis is the scope's, set at the stage's end
+        observed.append({"expected_id": o["expected_id"], "occasion_locator": f"{name}#{o['occasion_locator']}",
+                         "exposure": o["exposure"], "verdict": o["verdict"],
+                         "evidence_ids": [located[e]["evidence_id"] for e in o["evidence_ids"]], "quotes": o["evidence_ids"]})
+    quoted = {e for c in answer["claims"] if c["claim_id"] in kept for e in c["evidence_ids"]}
+    for e in sorted(quoted | {q for o in observed for q in o.pop("quotes")}):
         evidence.append(run_dir, name, located[e])
     events, lost, owned = [], [], shown_entries(window)
     for v in answer["events"]:
@@ -268,9 +358,11 @@ def keep(run_dir, name, where, window, call_id, answer):
         events.append(record)
     digests = append_lines(run_dir, f"claims/{name}.jsonl", stored)
     event_digests = append_lines(run_dir, f"events/{name}.jsonl", events)
-    held = {"claims": cited, "events": [{"record": r, "role": owned[r["at_record"]]["window_role"]} for r in events]}
+    held = {"claims": cited, "events": [{"record": r, "role": owned[r["at_record"]]["window_role"]} for r in events],
+            "observations": observed}
     return {"claims": [{"claim_id": r["claim_id"], "sha256": d} for r, d in zip(stored, digests)],
             "events": [{"event_id": r["event_id"], "outcome": r["outcome"], "sha256": d} for r, d in zip(events, event_digests)],
+            "observations": [{k: o[k] for k in ("expected_id", "occasion_locator", "exposure", "verdict")} for o in observed],
             "dropped": dropped + lost, "quotes_failed": sorted(failed)}, held
 
 
@@ -560,10 +652,12 @@ def current_events(run_dir, name):
 class Reader:
     """One S3 run's reading: the declaration's seat and cap, the supervisor every call goes through."""
 
-    def __init__(self, run_dir, supervisor, declaration, tranche="broad"):
+    def __init__(self, run_dir, supervisor, declaration, tranche="broad", due=()):
         """`declaration` is the one the stage was admitted against (`records.StageRun.declaration`), never a read of
-        run.json made before admission (X review of WP-08 r1)."""
+        run.json made before admission (X review of WP-08 r1); `due` the expected observations due in its window."""
         self.run_dir, self.supervisor, self.tranche = pathlib.Path(run_dir), supervisor, tranche
+        self.due = list(due)
+        self.terms = sorted({t for e in self.due for t in e["retrieval_terms"]})
         self.declaration = declaration
         self.seat = declaration["seats"][STAGE]
         self.cap = declaration["output_caps"][STAGE]
@@ -581,7 +675,7 @@ class Reader:
     def window(self, name, where, item, doc, rows):
         """Read one window and keep its answer; returns its read record and, when accepted, `(answer, call id, what the
         stitch reads of it)`."""
-        out = self.call(item, doc, rows)
+        out = self.call(item, doc, rows, self.due)
         row = {"window": where, "item": item, "outcome": out["outcome"], "codes": out.get("codes", []),
                "attempts": attempts_of(out)}
         if out["outcome"] != "accepted":
@@ -597,7 +691,8 @@ class Reader:
         Returns its read record and what the unit's stitch reads of it (`held`)."""
         name = t["name"]
         result = {"transcript": t["transcript"], "name": name, "windows": [], "expansions": [], "windowless": None}
-        held = {"claims": [], "events": []}
+        held = {"claims": [], "events": [], "observations": []}
+        result["searched"] = {"terms": len(self.terms), "matched": 0, "forced": []}
         if not t["windows"]:
             if t["viewed_items"]:
                 raise Refused(f"WINDOWLESS_VIEW {t['transcript']}: {t['viewed_items']} viewed blocks and no window")
@@ -618,17 +713,23 @@ class Reader:
                 raise Refused(f"VIEW_DRIFT {listed['path']}: the window is not the one views.json recorded")
             doc = views.window_doc(self.run_dir, name, path)
             docs[doc["window_n"]] = doc
+        # the full-source search with the due observations' retrieval terms forces what it matches (design §5.4)
+        # (a match clipped only in another window's overlap forces nothing: that record's own window decides it)
+        hits = views.forced_by_search(self.run_dir, name, self.terms) if self.terms else {}
+        forced_here = set()
 
         def hold(kept):
             for c in kept["claims"]:
                 held["claims"].append({**c, "file": t["transcript"], "name": name})
             for e in kept["events"]:
                 held["events"].append({**e, "file": t["transcript"], "name": name})
+            held["observations"] += kept["observations"]
             return sum(1 for e in kept["events"] if e["record"]["outcome"] == "pending")
 
         pending = 0
         for n, doc in sorted(docs.items()):
-            rows = own_rows(doc)
+            rows = searched(own_rows(doc), hits)
+            forced_here.update(m["record_id"] for m in rows if m["forced_by"] == "search_match")
             row, kept = self.window(name, f"{name}/{n}", f"{name}-w{n}", doc, rows)
             result["windows"].append(row)
             if kept is None:
@@ -651,7 +752,8 @@ class Reader:
                 read_all = True
                 for part in parts:
                     where = f"{name}/x/{m['omission_id']}/{part['window_n']}"
-                    xrow, xkept = self.window(name, where, f"{name}-x{tag}-{part['window_n']}", part, own_rows(part))
+                    xrow, xkept = self.window(name, where, f"{name}-x{tag}-{part['window_n']}", part,
+                                              searched(own_rows(part), hits))
                     result["expansions"].append(xrow)
                     read_all = read_all and xkept is not None
                     if xkept is not None:
@@ -659,6 +761,7 @@ class Reader:
                         pending += hold(xkept[2])
                 if read_all:
                     expanded.add(m["omission_id"])
+        result["searched"].update(matched=len(hits), forced=sorted(forced_here))
         own_ids = [m["omission_id"] for doc in docs.values() for m in own_rows(doc)]
         state = views.completeness([n in accepted for n in sorted(docs)], own_ids, decisions, expanded,
                                    t["unresolved_versions"])
@@ -863,7 +966,8 @@ def run(run_dir, supervisor, tranche="broad", stitch_bound=None):
     with records.run_stage(run_dir, STAGE, [{"artifact": "views.json", "producer_stage": "S2"},
                                             {"artifact": "census.json", "producer_stage": "S1"},
                                             {"artifact": "coverage.json", "producer_stage": "S1"}]) as stage:
-        reader = Reader(run_dir, supervisor, stage.declaration, tranche)
+        due = due_observations(pinned_ledger(stage.declaration), run_dir.resolve().name, stage.declaration["window"])
+        reader = Reader(run_dir, supervisor, stage.declaration, tranche, due)
         manifest = records.read_json(run_dir / "views.json")
         document = census.load(run_dir)
         rows = census.rows(document)
@@ -880,10 +984,11 @@ def run(run_dir, supervisor, tranche="broad", stitch_bound=None):
         bound_bytes = min(bound_bytes, stitch_bound) if stitch_bound is not None else bound_bytes
         results, summary = {}, {"units": {}, "windowless": [], "overlap_not_owed": 0, "dropped": 0,
                                 "stitch": collections.Counter()}
+        observed, complete, forced_by_search = {}, {}, collections.Counter()
 
         def work(item):
             unit = item["id"]
-            read, outcomes, held = [], [], {"claims": [], "events": []}
+            read, outcomes, held = [], [], {"claims": [], "events": [], "observations": []}
             for t in sorted(views_of[unit], key=lambda t: (t["kind"] != "session", t["name"])):
                 f, h = reader.file(t)
                 f["unresolved"] = bool(t["unresolved_versions"])
@@ -891,6 +996,10 @@ def run(run_dir, supervisor, tranche="broad", stitch_bound=None):
                 outcomes += [w["outcome"] for w in f["windows"] + f["expansions"]]
                 held["claims"] += h["claims"]
                 held["events"] += h["events"]
+                held["observations"] += h["observations"]
+            observed[unit] = held["observations"]
+            complete[unit] = (all(f["view_complete"] for f in read), all(f["source_complete"] for f in read))
+            forced_by_search[unit] = sum(len(f["searched"]["forced"]) for f in read)
             status, reasons = unit_status(read, outcomes)
             keys = {t["transcript"] for t in views_of[unit]}
             carried = [p for p in state["pending_events"] if p["transcript"] in keys]
@@ -927,11 +1036,105 @@ def run(run_dir, supervisor, tranche="broad", stitch_bound=None):
         _census, _state, flags = census.reconcile(document, state, done, reader.declaration["kind"])
         records.write_json(run_dir, run_dir / "read-results.json", {"window": window_id, "results": done})
         stage.output("read-results.json")
+        scope, causes = observation_scope(document, done, complete)
+        follow = follow_up(run_dir, window_id, due, [i for unit in sorted(observed) for i in observed[unit]], scope, causes)
+        stage.output(follow["instances"])
+        stage.output(RESOLUTIONS)
+        summary["observations"] = {
+            "due": len(due), "instances": len(follow["digests"]), "basis": follow["basis"],
+            "resolutions": dict(collections.Counter(r["resolution"] for r in follow["resolutions"].values())),
+            "pending_because_incomplete": len(follow["pending_because_incomplete"]),
+            "incomplete_sessions": len(follow["incomplete"]["sessions"]),
+            "incomplete_sources": len(follow["incomplete"]["sources"]),
+            "search_forced": sum(forced_by_search.values())}
         summary.update(window=window_id, declaration_seq=reader.declaration["declaration_seq"], quarantined=outcome["quarantined"], accounted=flags["accounted"], fully_read=flags["fully_read"],
                        statuses=dict(collections.Counter(summary["units"].values())), stitch=dict(summary["stitch"]))
         records.write_json(run_dir, run_dir / "read.json", summary)
         stage.output("read.json")
     return summary
+
+
+# ---- the follow-up of the expected observations due ----------------------------------------------
+
+def observation_scope(document, done, complete):
+    """The scope every observation of the window is judged over (design §5.4, plan amendment row 5, Q2 of WP-08 commit
+    4): every declared transcript source, and every session of the window in them, a unit with every member - a member's
+    row is its unit's, and an excluded row is out of scope. A unit S3 read ends with its own status, view complete and
+    source complete when every file of it is; a session owing nothing is complete. Returns `views.coverage_basis`'
+    scope, and what makes it incomplete: the sessions and the sources, by name."""
+    statuses = {r["transcript"]: r["status"] for r in done}
+    declared = [(n, s) for n, s in sorted(document["sources"].items())
+                if n in sources.TRANSCRIPT_SOURCES and s["state"] != "undeclared"]
+    scope = {"sources": [{"accounted": s["state"] != "unreadable", "directory_present": s["state"] != "missing"}
+                         for _n, s in declared], "sessions": []}
+    causes = {"sessions": [], "sources": [n for n, s in declared if s["state"] in ("unreadable", "missing")]}
+    for row in census.rows(document):
+        status, key = row["status"], census.key_of(row)
+        if status in ("excluded", "child_of") and key not in statuses:
+            continue
+        if status == "eligible" or key in statuses:
+            status = statuses.get(key, "failed")
+            view, source = complete.get(key, (False, False)) if status == "read_complete" else (False, False)
+        else:
+            view = source = status == "nothing_new"
+        scope["sessions"].append({"status": status, "view_complete": view, "source_complete": source, "unprocessed": False})
+        if status in views.INCOMPLETE_STATUSES or not view:
+            causes["sessions"].append({"session": key, "status": status, "view_complete": view})
+    return scope, causes
+
+
+def follow_up(run_dir, window_id, due, instances, scope, causes):
+    """The instances of the window with the basis code set over `scope`, appended to `observations/<window>.jsonl`, and
+    each due observation's resolution derived from them (`measures.derive_resolution`) into
+    `observations/resolutions.json`, beside the line digests and what made the basis incomplete. A resolution left
+    pending only because the basis is incomplete is counted apart, with the sessions and sources that made it so
+    (Q2 of WP-08 commit 4). Rendering and the ledger's close are WP-21's (plan amendment row 6)."""
+    basis = views.coverage_basis(scope)
+    rows = [{**i, "basis": basis} for i in instances]
+    for row in rows:
+        problems = claim_records.validate_record("observation", row)
+        if problems:
+            raise Refused("OBSERVATION_INVALID " + "; ".join(problems))
+    rel = f"observations/{views.safe_name(window_id)}.jsonl"
+    digests = append_lines(run_dir, rel, rows)
+    resolutions, held_back = {}, []
+    for e in due:
+        mine = [r for r in rows if r["expected_id"] == e["expected_id"]]
+        resolutions[e["expected_id"]] = measures.derive_resolution(mine, basis)
+        if basis == "incomplete" and resolutions[e["expected_id"]]["resolution"] == "pending" and measures.derive_resolution(
+                [{**r, "basis": "source"} for r in mine], "source")["resolution"] != "pending":
+            held_back.append(e["expected_id"])
+    doc = {"window": window_id, "basis": basis, "instances": rel, "digests": digests, "resolutions": resolutions,
+           "pending_because_incomplete": held_back,
+           "incomplete": causes if basis == "incomplete" else {"sessions": [], "sources": []}}
+    records.write_json(run_dir, pathlib.Path(run_dir) / RESOLUTIONS, doc)
+    return doc
+
+
+RESOLUTIONS = "observations/resolutions.json"
+
+
+def stored_resolutions(run_dir):
+    """The resolutions S3 recorded, believed only after they are derived again from the instances and the basis stored
+    beside them: INSTANCE_IMMUTABLE when an instance line is not the one recorded, RESOLUTION_DRIFT when a recorded
+    resolution is not what its instances derive, or an instance's observation has none (Q5 of WP-08 commit 4)."""
+    run_dir = pathlib.Path(run_dir)
+    doc = records.read_json(stagelock.confine(run_dir, run_dir / RESOLUTIONS))
+    lines = stagelock.confine(run_dir, run_dir / doc["instances"]).read_text(encoding="utf-8").splitlines()
+    found = [records.sha256_bytes(line.encode("utf-8")) for line in lines]
+    if found != doc["digests"]:
+        changed = [n for n, (a, b) in enumerate(zip(found, doc["digests"])) if a != b]
+        raise Refused(f"INSTANCE_IMMUTABLE {doc['instances']}: {len(found)} lines, {len(doc['digests'])} recorded, lines "
+                      f"{changed} differ; an instance is never edited in place")
+    rows = [json.loads(line) for line in lines]
+    for expected_id in sorted({r["expected_id"] for r in rows} - set(doc["resolutions"])):
+        raise Refused(f"RESOLUTION_DRIFT {expected_id}: instances of it are stored and no resolution is recorded")
+    for expected_id, recorded in sorted(doc["resolutions"].items()):
+        again = measures.derive_resolution([r for r in rows if r["expected_id"] == expected_id], doc["basis"])
+        if again != recorded:
+            raise Refused(f"RESOLUTION_DRIFT {expected_id}: recorded {recorded['resolution']!r} on basis "
+                          f"{recorded['basis']!r}, and its instances derive {again['resolution']!r} on {again['basis']!r}")
+    return doc
 
 
 # ---- self-test (realization: golden) --------------------------------------------------------------
@@ -1099,6 +1302,29 @@ def fx_reader(root, name, answers_for, expanding=lambda m: False, resolve=lambda
     sup.seed_from({dispatch.class_key(STAGE, seat, CASE): [9000] * 5, dispatch.class_key(STAGE, seat, STITCH_CASE): [9000] * 5})
     fx_stitcher(sup, plan, resolve, first, seen, bad)
     return run_dir, sup, made
+
+
+FX_OBSERVED = {"occasion_criteria": "the person asks for a simpler telling of something the agent said",
+               "exposure_rule": "the plain-explanation guide reached the session before the ask",
+               "expected_behavior": "the agent answers in plain words without being asked twice",
+               "retrieval_terms": [views.FX_TERM]}
+
+
+def fx_ledger(run_name):
+    """A schema 2 ledger with four expected observations against the golden window (2026-10-01 to 2026-10-08): N-1 due,
+    N-4 due on its expiry's day, N-2 expired the day before the window, N-3 a decision of this run (`run_name`)."""
+    def entry(eid, run, expiry):
+        observation = {**FX_OBSERVED, "expiry": expiry, "resolutions": []}
+        return ledger_records.sample_entry(eid, "incubating", kind="misfire", disposition="incubate", decisions=[
+            ledger_records.sample_element(run, "incubate", observation=observation)])
+    return ledger_records.sample_ledger(entry("N-1", "r0", "2026-12-31"), entry("N-2", "r0", "2026-09-30"),
+                                        entry("N-3", run_name, "2026-12-31"), entry("N-4", "r0", "2026-10-01"))
+
+
+def fx_bent(quote, quote_id):
+    """`quote` retyped by one character under another id: a quote that does not locate."""
+    text = quote["text"]
+    return {**quote, "quote_id": quote_id, "text": text[:-1] + ("x" if text[-1] != "x" else "y")}
 
 
 FX_NEXT_WINDOW = {"start": "2026-10-08T00:00:00", "end": "2026-10-15T00:00:00", "tz": "UTC"}  # the window after views'
@@ -1923,6 +2149,206 @@ def self_test():
         window_file.write_bytes(window_file.read_bytes() + b"\n")
         control("VIEW_DRIFT: a window that is not the one views.json recorded is never read",
                 refusal(lambda: reader.file(drifted)).startswith("VIEW_DRIFT"))
+
+        # ---- commit 4b: the expected observations due, the search forcing, the instances and their resolutions
+        asked, payloads = [], []
+
+        def answers_o(where, doc, rows, parts):
+            """Every omission expanded, so the scope is source complete; the window owning the person's ask for the
+            plain version judges N-1 observed on it, and N-4 not observed with a retyped quote, which drops it."""
+            answer = fx_answer(doc, rows, decide=lambda m: "expand")
+            asking = next((r for r in doc["records"] if views.FX_QUOTE in r.get("text", "")), None)
+            if asking is not None:
+                text, occurrence = fx_quote(asking)
+                quote = {"quote_id": "q9", "entry": views.eid(asking), "text": text,
+                         **({"occurrence": occurrence} if occurrence is not None else {})}
+                answer["quotes"] += [quote, fx_bent(quote, "q8")]
+                answer["observations"] = [
+                    {"expected_id": "N-1@r0", "occasion_locator": views.eid(asking), "exposure": "eligible",
+                     "verdict": "observed", "evidence_ids": ["q9"]},
+                    {"expected_id": "N-4@r0", "occasion_locator": views.eid(asking), "exposure": "eligible",
+                     "verdict": "not_observed", "evidence_ids": ["q8"]}]
+                asked.append((where, views.eid(asking)))
+            return [((), answer)]
+
+        run_o, sup_o, made_o = fx_reader(root / "o", "o", answers_o, expanding=lambda m: True, ledger_doc=fx_ledger("o"))
+        honest_o = sup_o.item
+
+        def capturing(stage, name, seat, payload, schema, **kwargs):
+            if schema.get("title") == "S3 window reading":
+                payloads.append(payload)
+            return honest_o(stage, name, seat, payload, schema, **kwargs)
+        sup_o.item = capturing
+        summary_o = guarded(lambda: run(run_o, sup_o), {})
+        main_o = made_o["main"]["name"] if made_o.get("main") else ""
+        term_rid = f"{made_o['lines']['pair_term']}/message/content/0/content"
+        plain_rid = f"{made_o['lines']['pair_plain']}/message/content/0/content"
+        shown_due = sorted({m for p in payloads for m in re.findall(r"^- (N-[0-9]@[A-Za-z0-9]+)$", p, re.M)})
+        control("4b Q1: the expected observations due are the pinned ledger's: one due and one due on its expiry's "
+                "day, not the one expired before the window nor this run's own decision",
+                shown_due == ["N-1@r0", "N-4@r0"] and bool(payloads), f"{shown_due}")
+        control("4b: the packet shows each due observation's occasion criteria, exposure rule and expected behaviour",
+                any(f"- N-1@r0\n  occasion: {FX_OBSERVED['occasion_criteria']}\n  exposure rule: "
+                    f"{FX_OBSERVED['exposure_rule']}\n  expected behaviour: {FX_OBSERVED['expected_behavior']}" in p
+                    for p in payloads), f"{payloads[:1]}")
+        control("4b: a due observation's retrieval term is never shown to the model", not any(
+            f"retrieval" in p.split("<expected_observations>", 1)[-1].split("</expected_observations>", 1)[0] for p in payloads))
+        unit_o = made_o["tids"]["main"]
+        read_o = record_of(run_o, unit_o)
+        searched_o = [f.get("searched", {}) for f in read_o.get("files", []) if f.get("name") == main_o]
+        control("4b row 10: the full-source search with the due terms forces the clipped record that holds a term, and "
+                "not its twin with the same head and tail",
+                [(f.get("terms"), f.get("forced")) for f in searched_o] == [(1, [term_rid])]
+                and searched_o[0].get("matched", 0) >= 1, f"{searched_o}")
+        logged_o = [json.loads(line) for line in guarded(lambda: (run_o / "expansions.jsonl").read_text(), "").splitlines()]
+        control("4b row 10: the forced record's decision is logged as forced by the search",
+                {(d["locator"]["record_id"], d["forced_by"]) for d in logged_o if d["locator"]["transcript"] == main_o
+                 and d["locator"]["record_id"] in (term_rid, plain_rid)} == {(term_rid, "search_match"), (plain_rid, "none")},
+                f"{[(d['locator']['record_id'], d['forced_by']) for d in logged_o if d['locator']['transcript'] == main_o]}")
+        follow_o = guarded(lambda: records.read_json(run_o / RESOLUTIONS), {})
+        instances_o = [json.loads(line) for line in guarded(
+            lambda: (run_o / follow_o["instances"]).read_text(), "").splitlines()]
+        stored_ids = {e["evidence_id"] for e in stored_evidence_of(run_o, main_o)}
+        control("4b: an instance is stored with the basis code set, its occasion named by its view and entry, and evidence "
+                "the store holds",
+                len(asked) == 1 and [(i["expected_id"], i["occasion_locator"], i["exposure"], i["verdict"], i["basis"])
+                                     for i in instances_o] == [("N-1@r0", f"{main_o}#{asked[0][1]}", "eligible", "observed",
+                                                                "source")]
+                and all(set(i["evidence_ids"]) <= stored_ids and i["evidence_ids"] for i in instances_o),
+                f"{asked} {instances_o}")
+        dropped_o = [d for f in read_o.get("files", []) for w in f.get("windows", []) + f.get("expansions", [])
+                     for d in w.get("dropped", []) if "observation" in d]
+        control("4b: an observation whose quote does not locate is dropped with its code, and is no instance",
+                [(d["observation"], d["code"]) for d in dropped_o] == [("N-4@r0", "QUOTE_MISMATCH")], f"{dropped_o}")
+        control("4b row 6: each due observation's resolution is derived from the window's instances on its basis",
+                {k: (v["resolution"], v["basis"], v["counts"]) for k, v in follow_o.get("resolutions", {}).items()} == {
+                    "N-1@r0": ("observed", "source", {"eligible": 1, "observed": 1, "not_observed": 0, "exposure_unknown": 0}),
+                    "N-4@r0": ("no_occasion", "source", {"eligible": 0, "observed": 0, "not_observed": 0, "exposure_unknown": 0})}
+                and follow_o.get("pending_because_incomplete") == [] and follow_o.get("incomplete") == {"sessions": [], "sources": []},
+                f"{follow_o}")
+        control("4b: read.json counts the follow-up",
+                summary_o.get("observations") == {"due": 2, "instances": 1, "basis": "source",
+                                                  "resolutions": {"observed": 1, "no_occasion": 1}, "pending_because_incomplete": 0,
+                                                  "incomplete_sessions": 0, "incomplete_sources": 0, "search_forced": 1},
+                f"{summary_o.get('observations')}")
+        outputs_o = [o["artifact"] for o in guarded(lambda: records.read_json(run_o / "stages" / "S3" / "record.json"), {}).get("outputs", [])]
+        control("4b: the instances and the resolutions are the stage's recorded outputs",
+                {follow_o.get("instances"), RESOLUTIONS} <= set(outputs_o), f"{outputs_o}")
+        control("4b Q5: the recorded resolutions are believed once derived again from their instances",
+                refusal(lambda: stored_resolutions(run_o)) == "", refusal(lambda: stored_resolutions(run_o)))
+        for label, tamper, code in (
+                ("a recorded resolution its instances do not derive", lambda d: d.update(resolutions={
+                    **d["resolutions"], "N-1@r0": {**d["resolutions"]["N-1@r0"], "resolution": "pending"}}), "RESOLUTION_DRIFT N-1@r0"),
+                ("instances of an observation with no resolution recorded", lambda d: d["resolutions"].pop("N-1@r0"),
+                 "RESOLUTION_DRIFT N-1@r0: instances of it are stored"),
+                ("an instance line edited in place", None, "INSTANCE_IMMUTABLE")):
+            copied = root / f"o-tampered-{len(ran)}"
+            guarded(lambda: shutil.copytree(run_o, copied), None)
+            if tamper is not None:
+                doc_t = guarded(lambda: records.read_json(copied / RESOLUTIONS), {"resolutions": {"N-1@r0": {}}})
+                guarded(lambda: tamper(doc_t), None)
+                guarded(lambda: (copied / RESOLUTIONS).write_text(json.dumps(doc_t), encoding="utf-8"), None)
+            else:
+                lines_t = copied / follow_o.get("instances", "x")
+                guarded(lambda: lines_t.write_text(lines_t.read_text().replace('"observed"', '"not_observed"'), encoding="utf-8"), None)
+            control(f"4b Q5: {label} is refused when read", refusal(lambda: stored_resolutions(copied)).startswith(code),
+                    refusal(lambda: stored_resolutions(copied)))
+
+        # the due list, by itself
+        ledger_o = fx_ledger("o")
+        control("4b Q1: due_observations keeps the due and the one due on its expiry's day",
+                [e["expected_id"] for e in guarded(lambda: due_observations(ledger_o, "o", views.FX_WINDOW), [])]
+                == ["N-1@r0", "N-4@r0"], f"{guarded(lambda: due_observations(ledger_o, 'o', views.FX_WINDOW), [])}")
+        control("4b Q1: a schema 1 ledger holds nothing due",
+                guarded(lambda: due_observations({"schema": 1, "entries": []}, "o", views.FX_WINDOW), None) == [])
+        legacy_o = copy.deepcopy(ledger_o)
+        legacy_o["entries"][0]["decisions"][0]["run"] = "legacy-migration"
+        control("4b Q1: a migrated element is no run's decision, so nothing of it is due",
+                [e["expected_id"] for e in guarded(lambda: due_observations(legacy_o, "o", views.FX_WINDOW), [])] == ["N-4@r0"])
+        undated = copy.deepcopy(ledger_o)
+        undated["entries"][0]["decisions"][0]["expected_observation"]["expiry"] = "after the next release"
+        control("4b Q1: an expiry that is no day is refused by name", refusal(
+            lambda: due_observations(undated, "o", views.FX_WINDOW)).startswith("EXPECTED_EXPIRY_UNREADABLE N-1@r0"))
+        declared_o = guarded(lambda: records.read_json(records.run_json_path(run_o)), {})
+        moved = root / "o-checkout-moved"
+        guarded(lambda: shutil.copytree(declared_o["destinations"]["checkout"], moved), None)
+        at_moved = {**declared_o, "destinations": {**declared_o.get("destinations", {}), "checkout": str(moved)}}
+        control("4b Q1: the pinned ledger is read from the declaration's checkout",
+                refusal(lambda: pinned_ledger(at_moved)) == "", refusal(lambda: pinned_ledger(at_moved)))
+        moved_ledger = moved / ledger_records.LEDGER_REL
+        guarded(lambda: moved_ledger.write_text(moved_ledger.read_text() + " ", encoding="utf-8"), None)
+        control("4b Q1: LEDGER_BASE_STALE: a ledger other than the one the declaration pinned is never read",
+                refusal(lambda: pinned_ledger(at_moved)).startswith("LEDGER_BASE_STALE S3"), refusal(lambda: pinned_ledger(at_moved)))
+        guarded(lambda: moved_ledger.write_text('{"schema": 2}', encoding="utf-8"), None)
+        at_invalid = {**at_moved, "starting_hashes": {**at_moved.get("starting_hashes", {}),
+                                                      "ledger": records.sha256_bytes(b'{"schema": 2}')}}
+        control("4b Q1: LEDGER_INVALID: a pinned ledger that does not hold is refused",
+                refusal(lambda: pinned_ledger(at_invalid)).startswith("LEDGER_INVALID S3"), refusal(lambda: pinned_ledger(at_invalid)))
+        guarded(lambda: moved_ledger.unlink(), None)
+        control("4b Q1: LEDGER_UNREADABLE: a checkout with no ledger is refused",
+                refusal(lambda: pinned_ledger(at_invalid)).startswith("LEDGER_UNREADABLE S3"))
+        control("4b: expected_text says none when nothing is due", expected_text([]) == "none")
+
+        # the stage's check over a due list and a search-forced omission
+        docs_o = [guarded(lambda w=w: views.window_doc(run_o, main_o, run_o / w["path"]), {"records": [], "omission_manifest": []})
+                  for w in (made_o["main"] or {}).get("windows", [])]
+        holding = next((d for d in docs_o if any(m["record_id"] == term_rid for m in own_rows(d))), None)
+        if holding is not None:
+            rows_h = searched(own_rows(holding), {term_rid: "search_match"})
+            skipping = json.loads(json.dumps(fx_answer(holding, rows_h, decide=lambda m: "skip")).replace("<CALL-ID>", "r-S3-x-a1"))
+            control("4b row 10: an answer skipping the omission the search forced fails the stage's check",
+                    any(line.startswith("EXPANSION_SKIPPED") for line in answer_problems(holding, rows_h, skipping, "r-S3-x-a1")),
+                    f"{answer_problems(holding, rows_h, skipping, 'r-S3-x-a1')}")
+            control("4b row 10: a pending event's forcing is kept when the search matches the same record",
+                    searched([{**own_rows(holding)[0], "forced_by": "pending_event", "record_id": term_rid}],
+                             {term_rid: "search_match"})[0]["forced_by"] == "pending_event")
+            twice = copy.deepcopy(skipping)
+            entry_h = holding["records"][0]
+            twice["observations"] = [{"expected_id": "N-1@r0", "occasion_locator": views.eid(entry_h), "exposure": "eligible",
+                                      "verdict": "observed", "evidence_ids": ["q1"]}] * 2
+            control("4b: one occasion judged twice in an answer fails the stage's check", any(
+                "occasions repeat" in line for line in answer_problems(holding, rows_h, twice, "r-S3-x-a1", ("N-1@r0",))))
+        else:
+            control("4b row 10: a window holds the omission the search forces", False, f"{[own_rows(d) for d in docs_o]}")
+
+        # the scope and the follow-up, by themselves (Q2): what makes the basis incomplete is named and counted
+        census_o = made_o["census"]
+        done_o = [{"transcript": census.key_of(r), "status": "read_complete"} for r in census.rows(census_o)
+                  if r["status"] == "eligible"]
+        complete_o = {d["transcript"]: (True, True) for d in done_o}
+        scope_full, causes_full = observation_scope(census_o, done_o, complete_o)
+        control("4b Q2: a scope every session and source of which is complete is basis source, a member folded into its unit",
+                views.coverage_basis(scope_full) == "source" and causes_full == {"sessions": [], "sources": []}
+                and len(scope_full["sessions"]) == len([r for r in census.rows(census_o) if r["status"] != "child_of"]),
+                f"{scope_full} {causes_full}")
+        unread_src = copy.deepcopy(census_o)
+        unread_src["sources"]["codex_sessions"]["state"] = "unreadable"
+        scope_f04, causes_f04 = observation_scope(unread_src, done_o, complete_o)
+        control("4b Q2 F04: one declared source left unaccounted makes the scope incomplete, named",
+                views.coverage_basis(scope_f04) == "incomplete" and causes_f04["sources"] == ["codex_sessions"], f"{causes_f04}")
+        failed_one = [{**d, "status": "failed"} if d["transcript"] == unit_o else d for d in done_o]
+        scope_fail, causes_fail = observation_scope(census_o, failed_one, complete_o)
+        control("4b Q2: one unit that failed makes the scope incomplete, and is named",
+                views.coverage_basis(scope_fail) == "incomplete"
+                and [c["session"] for c in causes_fail["sessions"]] == [unit_o], f"{causes_fail}")
+        due_one = [{"expected_id": "N-1@r0", **FX_OBSERVED, "expiry": "2026-12-31"}]
+        seen_i = {"expected_id": "N-1@r0", "occasion_locator": "v#1/message/content", "exposure": "eligible",
+                  "verdict": "observed", "evidence_ids": ["ev-1"]}
+        scratch = root / "follow"
+        scratch.mkdir()
+        held_back = guarded(lambda: follow_up(scratch, "w1", due_one, [seen_i], scope_fail, causes_fail), {})
+        control("4b Q2: an observed occasion in an incomplete scope is pending, counted as pending because incomplete, "
+                "with the sessions that made it so",
+                held_back.get("resolutions", {}).get("N-1@r0", {}).get("resolution") == "pending"
+                and held_back.get("pending_because_incomplete") == ["N-1@r0"]
+                and [c["session"] for c in held_back.get("incomplete", {}).get("sessions", [])] == [unit_o], f"{held_back}")
+        scratch_u = root / "follow-unknown"
+        scratch_u.mkdir()
+        unknown_only = guarded(lambda: follow_up(scratch_u, "w1", due_one, [{**seen_i, "exposure": "exposure_unknown"}],
+                                                 scope_fail, causes_fail), {})
+        control("4b Q2: a resolution pending for its own reasons is not counted as pending because incomplete",
+                unknown_only.get("resolutions", {}).get("N-1@r0", {}).get("resolution") == "pending"
+                and unknown_only.get("pending_because_incomplete") == [], f"{unknown_only}")
 
     for failure in failures:
         print(f"stage_read --self-test [FAIL] {failure}")

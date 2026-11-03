@@ -69,7 +69,7 @@ import tempfile
 
 if __package__ in (None, ""):  # run as a script: put session-distill/ on the import path
     sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
-from runlib import bound, census, claims, coverage, declare, gate, lineage, projection, records, search, sources, stagelock, validate
+from runlib import bound, census, claims, coverage, declare, gate, ledger, lineage, projection, records, search, sources, stagelock, validate
 from runlib.records import Refused
 
 OVERLAP_TURNS = 5
@@ -867,14 +867,16 @@ def completeness(windows_ok, omission_ids, decisions, expanded_ok, unresolved=()
             "skipped": skipped, "unresolved_versions": held}
 
 
+INCOMPLETE_STATUSES = ("unreadable", "known_absent", "unknown_provenance", "read_partial", "failed", "deferred")
+
+
 def coverage_basis(scope):
     """`incomplete`, `view` or `source` for a claim's scope (design §5.4), checked in that order. `scope` is
     `{sources: [{accounted, directory_present}], sessions: [{status, unprocessed, view_complete, source_complete}]}`."""
     if any(not s["accounted"] or not s["directory_present"] for s in scope["sources"]):
         return "incomplete"
     for session in scope["sessions"]:
-        if session["status"] in ("unreadable", "known_absent", "unknown_provenance", "read_partial", "failed", "deferred") \
-                or session.get("unprocessed"):
+        if session["status"] in INCOMPLETE_STATUSES or session.get("unprocessed"):
             return "incomplete"
     # A session that is not even view complete is a hole, and the predicate used to FALL THROUGH it to
     # `source` - the strongest basis - because only the `view and not source` case was named. The mutation
@@ -1618,7 +1620,7 @@ def fx_seats(root, capacity, seat=None, host_version="2.1.304", name=None):
 
 def golden(root, name="g", overhead=bound.PACKET_OVERHEAD, capacity=None, reservation=32_000,
            allowance=3200, census_sha=None, compressed=False, main_records=None, owned=None, allowance_entry=None,
-           window=None, state=None, prefix_ok=None):
+           window=None, state=None, prefix_ok=None, ledger_doc=None):
     """A run directory S2 can be run over, and the result of running it (realization: golden).
 
     The transcripts are `fx_main_records` (eligible, with a pending event and four clipped tool results), its child,
@@ -1627,7 +1629,9 @@ def golden(root, name="g", overhead=bound.PACKET_OVERHEAD, capacity=None, reserv
     overlaps instead of a 100 KB one. `census_sha` plants a census that read other bytes than the copy now hashes to.
     `window` and `state` make the run of a later window over the coverage state an earlier run left (WP-08 done-when 4):
     the transcripts are observed into that state as S1 observes them, `prefix_ok` saying whether a changed file kept the
-    earlier version as its prefix (`coverage.observe`), and nothing is planted in it."""
+    earlier version as its prefix (`coverage.observe`), and nothing is planted in it. The declaration's checkout holds
+    `ledger_doc` (an empty schema 2 ledger by default) and pins its hash, as S0 pins the ledger S3 reads the expected
+    observations due from."""
     root = pathlib.Path(root)
     run_dir, host = root / name, root / f"{name}-host"
     main_path, child_path = host / "t1.jsonl", host / "t1-child.jsonl"
@@ -1696,6 +1700,12 @@ def golden(root, name="g", overhead=bound.PACKET_OVERHEAD, capacity=None, reserv
         # a stage that DISPATCHES over these windows declares the allowance seats.json measured, which the
         # dispatcher admits a view-window call against; S2's own controls keep the small one that bites
         declaration["host_allowance"] = {seat: allowance_entry}
+    checkout = root / f"{name}-checkout"
+    ledger_path = checkout / ledger.LEDGER_REL
+    ledger_path.parent.mkdir(parents=True, exist_ok=True)
+    ledger_path.write_text(ledger.render(ledger_doc if ledger_doc is not None else ledger.sample_ledger()), encoding="utf-8")
+    declaration["destinations"] = {**declaration["destinations"], "checkout": str(checkout.resolve())}
+    declaration["starting_hashes"] = {**declaration["starting_hashes"], "ledger": records.sha256_file(ledger_path)}
     run_dir.mkdir(parents=True, exist_ok=True)
     declare.create(run_dir, declaration)
     with records.run_stage(run_dir, "S1") as stage:
@@ -1715,7 +1725,7 @@ def golden(root, name="g", overhead=bound.PACKET_OVERHEAD, capacity=None, reserv
     return {"run_dir": run_dir, "run": declaration, "seat": seat, "manifest": manifest, "limits": manifest["limits"],
             "main": main, "child": by_name.get(safe_name(child_tid)), "codex": by_name.get(safe_name(codex_tid)),
             "by_name": by_name, "windows": windows, "state": state, "census": document, "window": window_id,
-            "paths": {"main": main_path, "child": child_path, "codex": codex_path},
+            "paths": {"main": main_path, "child": child_path, "codex": codex_path, "ledger": ledger_path},
             "tids": {"main": main_tid, "child": child_tid, "codex": codex_tid},
             "lines": {"before": 1, "human": 2, "secret": 3, "call": 4, "pending_clip": 5, "second_human": 6,
                       "late_clip": 7, "long": 8, "pair_plain": 9, "pair_term": 10, "after": 11},

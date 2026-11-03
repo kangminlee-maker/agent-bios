@@ -1653,6 +1653,16 @@ def controls(checks):
             targeted_late = str(exc)[:300]
         expect("r1 #1: a targeted run reads the appended records under their window, and leaves periodic coverage as it was",
                targeted_late, ({"accounted": True, "fully_read": True}, True))
+        # WP-08 commit 4b, Q4: unowned records are counted only against the windows already run other than the one being
+        # run (`earlier` in `build`), so the share of the window S3 reads is zero by construction, and S3's observation
+        # basis takes no unowned input (`stage_read.observation_scope`). A re-run of window 1 over the state its first run
+        # left, with a file rewritten and one first seen since, counts none of their records as unowned.
+        try:
+            rerun_unowned = build(late_home.run(), late_after1, table, table_sha, jobs=2)[0]["unowned"]
+        except Refused as exc:  # a control reads the refusal, never a traceback
+            rerun_unowned = str(exc)[:300]
+        expect("4b Q4: a census never counts the window it is run for among the windows unowned records are owed to",
+               rerun_unowned, {"earlier_windows": 0, "rewritten": {"files": 0, "records": 0}, "first_seen": {"files": 0, "records": 0}})
         # what read_full says a window already run owns is the appended records only, never the ones before them
         lines = append_path.read_bytes().splitlines(keepends=True)
         before = {"record_count": 10, "prefix_sha": hashlib.sha256(b"".join(lines[:10])).hexdigest()}
