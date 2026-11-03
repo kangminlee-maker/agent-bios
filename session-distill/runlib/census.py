@@ -15,11 +15,14 @@ once, whatever its age: sha, record count, the append-only test against the vers
 the window owns, and all the lineage evidence (pointers, host-minted record ids, (timestamp, human text)
 turns) wherever in the file it lies, because an old transcript's only link to an active one may be past
 its head. The version is the transcript's complete lines (D-20261103-8facee): a line the host is still
-writing is not in it, and what the host appends after this read is the next run's.
+writing is not in it, and what the host appends after this read is the next run's. The next run reads another
+window, so what it finds appended to a version and stamped inside a window already run - a line that was still being
+written then, or one written late - it holds in the backlog under that window, for itself to read (`carry_appended`).
 
 The unit S1 judges and S2 reads is a root with all its descendants at any depth (D-20261103-85f3e8): every
 member of an eligible root is read in full like the root, and the root is `nothing_new` only when neither it
-nor any member owes the window anything. One S3 result answers the unit, crediting each member's readings to
+nor any member owes the window anything. A member whose read fails leaves the unit and its descendants stay in it:
+the unit follows the parent links, not the statuses. One S3 result answers the unit, crediting each member's readings to
 the member. Counting follows §5.3: a lineage counts once, through its root, when its component has exactly
 one root and a host-written index names that root.
 
@@ -321,15 +324,21 @@ def head_of(file, zstd):
     return {"scan": scan, "first_ts": first_ts, "error": error}
 
 
-def read_full(file, zstd, scan, own, prev):
-    """One pass over a whole transcript: `{sha, record_count, prefix_sha, prefix_ok, partial_tail, owned, before, after}`.
+def read_full(file, zstd, scan, own, prev, earlier=()):
+    """One pass over a whole transcript: `{sha, record_count, prefix_sha, prefix_ok, partial_tail, owned, before, after,
+    late}`.
 
     The version this run reads is the transcript's complete lines (D-20261103-8facee): `sha` and `prefix_sha` both
     hash them, and a record the host is still writing is no record yet, so it moves neither (`partial_tail` says it was
     there). S2 copies exactly these `record_count` lines and accepts them when they hash to `sha`; what the host
     appends after this read belongs to the next run. `prefix_ok` answers §5.2's append-only test against `prev`, the
-    version on record: did the first `prev.record_count` lines hash to its `prefix_sha`."""
+    version on record: did the first `prev.record_count` lines hash to its `prefix_sha`. Of the windows of `earlier`
+    (`(start, end, id)`, the windows already run), `late` maps each to the records it owns past `prev.record_count` in
+    an append - what was written after that window was read (review c0fix r1 #1) - and `unowned` to the records it owns
+    in a version with no earlier one to be owed through: a file never read before, or one rewritten since. Those are
+    owned by no run, and the census counts them."""
     whole, count, boundary, tail = hashlib.sha256(), 0, None, b""
+    owners = coverage.Owners(earlier) if earlier else None
     if prev and prev["record_count"] == 0:
         boundary = whole.hexdigest()
     for raw in sources.read_lines(file["path"], zstd):
@@ -344,12 +353,17 @@ def read_full(file, zstd, scan, own, prev):
         if isinstance(rec, dict):
             scan.feed(rec, count)
             own.feed(count, rec.get("timestamp"))
+            if owners:
+                owners.feed(count, rec.get("timestamp"))
         count += 1
         if prev and count == prev["record_count"]:
             boundary = whole.hexdigest()
     prefix = whole.hexdigest()
-    return {"sha": prefix, "record_count": count, "prefix_sha": prefix, "partial_tail": bool(tail),
-            "prefix_ok": None if prev is None else boundary == prev["prefix_sha"], **own.finish(count)}
+    prefix_ok = None if prev is None else boundary == prev["prefix_sha"]
+    earlier_owned = owners.finish(count) if owners else {}
+    appended = {window: coverage.subtract(ranges, [[0, prev["record_count"]]]) for window, ranges in earlier_owned.items()} if prefix_ok else {}
+    return {"sha": prefix, "record_count": count, "prefix_sha": prefix, "partial_tail": bool(tail), "prefix_ok": prefix_ok,
+            "late": {w: r for w, r in appended.items() if r}, "unowned": {} if prefix_ok else earlier_owned, **own.finish(count)}
 
 
 class _NoScan:
@@ -371,10 +385,12 @@ def overlap_of(got):
 
 
 def root_of(by_key, entry):
-    """The root `entry`'s chain of parents reaches in `by_key` (`{<host>:<id>: entry}`): the first ancestor that is not
-    `child_of`, `entry` itself when it is not one, or None when the chain breaks or loops."""
+    """The root `entry`'s chain of parents reaches in `by_key` (`{<host>:<id>: entry}`): the first ancestor that names
+    no parent, `entry` itself when it names none, or None when the chain breaks or loops. The chain is the parent links,
+    not the statuses: a member whose own read failed keeps its parent and stays a link, so what lies below it is still
+    in its root's unit (review c0fix r1 #2)."""
     seen = set()
-    while entry is not None and entry["status"] == "child_of":
+    while entry is not None and entry.get("parent") is not None:
         if key_of(entry) in seen:
             return None
         seen.add(key_of(entry))
@@ -384,7 +400,8 @@ def root_of(by_key, entry):
 
 def units_of(by_key):
     """`{root key: [member keys]}`: every `child_of` entry of `by_key` under the root its chain reaches, at any depth
-    (D-20261103-85f3e8). The members are sorted, so a unit reads the same in every run."""
+    (D-20261103-85f3e8). A member that could not be read is no member, and its descendants still are. The members are
+    sorted, so a unit reads the same in every run."""
     found = {}
     for key, entry in by_key.items():
         root = root_of(by_key, entry) if entry["status"] == "child_of" else None
@@ -577,6 +594,11 @@ def build(run, base, table, table_sha, jobs=8, scratch=None):
         entry.update(status="unreadable", reason=f"SEGMENT_ABSENT {key}: the coverage state owes work on this file of the "
                                                  "session and it is no longer here")
 
+    # the windows already run, whose records appended since their run are owed to them (review c0fix r1 #1); what the
+    # windows own in a file never read before or in a rewritten version is owed through no version, and is counted
+    earlier = [(*coverage.bounds_of(w), w) for w in sorted(state["windows"]) if w != window_id]
+    unowned = {"earlier_windows": len(earlier), "rewritten": {"files": 0, "records": 0}, "first_seen": {"files": 0, "records": 0}}
+
     def read(ident, scanned=True):
         """Every file of row `ident` read in full: `(scan, [(segment, got)], stamped records, error)`. The scan is the
         first file's - its kind and its pointer are the row's - with the lineage evidence of the later files added; a
@@ -586,7 +608,7 @@ def build(run, base, table, table_sha, jobs=8, scratch=None):
             scan = (lineage.ClaudeScan() if file["host"] == "claude" else lineage.CodexScan(file["stem"])) if scanned else NO_SCAN
             own = coverage.Ownership(start, end)
             try:
-                got = read_full(file, zstd, scan, own, coverage.latest(state, coverage_key(entry, seg)))
+                got = read_full(file, zstd, scan, own, coverage.latest(state, coverage_key(entry, seg)), earlier)
             except sources.Unreadable as exc:
                 return None, [], 0, str(exc)
             if scanned:
@@ -597,7 +619,12 @@ def build(run, base, table, table_sha, jobs=8, scratch=None):
 
     def taken(entry, out):
         for seg, got in out:
-            coverage.observe(state, coverage_key(entry, seg), got["sha"], got["record_count"], got["prefix_sha"], got["prefix_ok"])
+            if coverage.observe(state, coverage_key(entry, seg), got["sha"], got["record_count"], got["prefix_sha"], got["prefix_ok"]) == "append":
+                coverage.carry_appended(state, coverage_key(entry, seg), got["late"])
+            nobody = coverage.normalize([r for ranges in got["unowned"].values() for r in ranges])
+            if nobody:
+                cell = unowned["first_seen" if got["prefix_ok"] is None else "rewritten"]
+                cell["files"], cell["records"] = cell["files"] + 1, cell["records"] + sum(end - start for start, end in nobody)
             seg.update(sha256=got["sha"], owned=got["owned"])
         entry["window_overlap"] = overlap_of({side: any(got[side] for _seg, got in out) for side in ("owned", "before", "after")})
 
@@ -692,7 +719,7 @@ def build(run, base, table, table_sha, jobs=8, scratch=None):
     for name, rep in report.items():
         if rep["state"] == "present" and name != "agent_bios_state":
             rep["discovered"] = discovered.get(name, 0)
-    census = summarize(everything, report, run["kind"], window_id, table, table_sha, state)
+    census = summarize(everything, report, run["kind"], window_id, table, table_sha, state, unowned)
     return census, (state if run["kind"] == "periodic" else base)
 
 
@@ -705,7 +732,7 @@ def totals_of(entries, report):
                     rep["totals"][e["status"]] = rep["totals"].get(e["status"], 0) + 1
 
 
-def summarize(entries, report, kind, window_id, table, table_sha, state):
+def summarize(entries, report, kind, window_id, table, table_sha, state, unowned):
     """Fold per-transcript entries into the census document and check that nothing was dropped."""
     totals_of(entries, report)
     entries.sort(key=lambda e: (e["source"], first_path(e) or "", e["id"]))
@@ -731,7 +758,7 @@ def summarize(entries, report, kind, window_id, table, table_sha, state):
               "independence": {"components": len(components), "unknown_components": len(unknown),
                                "sessions": sum(map(len, components.values())),
                                "unknown_sessions": sum(len(components[c]) for c in unknown)},
-              "pending_events": copy.deepcopy(state["pending_events"]), "transcripts": entries}
+              "unowned": unowned, "pending_events": copy.deepcopy(state["pending_events"]), "transcripts": entries}
     errors = account(census)
     if errors:
         raise Refused("\n".join(errors))
@@ -883,7 +910,10 @@ def report_lines(census):
             *[f"  provenance {key}: indexed {c['indexed']}, not_indexed {c['not_indexed']}, index_missing {c['index_missing']}"
               for key, c in sorted(census["provenance"].items())],
             *[f"  originator {name}: {c['count']} ({c['class']})" for name, c in sorted(census["originators"].items())],
-            f"  independence: {ind['unknown_components']}/{ind['components']} components and {ind['unknown_sessions']}/{ind['sessions']} sessions unknown"]
+            f"  independence: {ind['unknown_components']}/{ind['components']} components and {ind['unknown_sessions']}/{ind['sessions']} sessions unknown",
+            f"  owned by no run, against {census['unowned']['earlier_windows']} windows already run: "
+            + "; ".join(f"{cause} {c['files']} files {c['records']} records" for cause, c in (
+                ("rewritten", census["unowned"]["rewritten"]), ("first seen", census["unowned"]["first_seen"])))]
 
 
 def contract_mismatch(schema, statuses):
@@ -1537,6 +1567,95 @@ def controls(checks):
                (sorted(identity_of_key(b["transcript"]) for b in deferred_after["backlog"] if identity_of_key(b["transcript"]) in (K1K, K2K, CIN)),
                 deferred_flags["accounted"]),
                (sorted([K1K, K2K, CIN]), True))
+
+        # review c0fix r1 #2: a member whose full read fails, under a root and above a member of its own, is named and
+        # leaves the unit; what lies below it stays in the root's unit and is read, processed and carried with it
+        mid_home = Home(root / "mid")
+        MR, MM, MD = (f"019e00{n}-0000-7000-8000-000000000000" for n in (84, 85, 86))
+        mid_home.codex(MR, fx_codex(MR, "vscode", "Codex Desktop"))
+        mid_file = mid_home.codex(MM, fx_codex(MM, spawn(MR)), indexed=False)
+        mid_home.codex(MD, fx_codex(MD, spawn(MM)), indexed=False)
+        mid_home.finish()
+        whole_read = globals()["read_full"]
+
+        def mid_fails(file, *args, **kwargs):
+            """The head of the middle member reads, so it names its parent; its full read fails, as a tail the host
+            corrupted or a file replaced between the two reads would make it."""
+            if file["path"] == str(mid_file):
+                raise sources.Unreadable(f"READ_FAILED {mid_file}: planted")
+            return whole_read(file, *args, **kwargs)
+
+        globals()["read_full"] = mid_fails
+        try:
+            mid_census, mid_state = build(mid_home.run(), empty, table, table_sha, jobs=2)
+        finally:
+            globals()["read_full"] = whole_read
+        mv, MDK = by_key(mid_census), segments_of(by_key(mid_census)[xid(MD)])[0]["key"]
+        expect("r1 #2: a member whose read failed keeps its parent, and the member below it stays in the root's unit",
+               (mv[xid(MM)]["status"], mv[xid(MM)]["parent"], units(mid_census["transcripts"]).get(xid(MR))), ("unreadable", MR, [xid(MD)]))
+        _rm, mid_after, mid_flags = reconcile(mid_census, mid_state, fx_results(mid_census), "periodic")
+        expect("r1 #2: the member below a failed one is processed with its root, and the window is accounted",
+               ((coverage.latest(mid_after, MDK) or {}).get("processed", {}).get(mid_census["window"]), mid_flags),
+               (mv[xid(MD)]["owned"], {"accounted": True, "fully_read": True}))
+        refused("r1 #2: a read_complete that leaves the member below a failed one unprocessed is refused, naming it",
+                lambda: reconcile(mid_census, mid_state, fx_results(mid_census, members=False), "periodic"), "RESULT_INCONSISTENT", MDK)
+
+        # review c0fix r1 #1: a record appended after the run of the window its stamp is in is owed to that window by the
+        # next run (D-20261103-8facee): a line the host was still writing at window 1's census and completed since, and a
+        # complete line written late; a line stamped in the window being run is that window's, as before
+        late_home = Home(root / "late")
+        LP, LA = "c0000090-0000-4000-8000-000000000000", "c0000091-0000-4000-8000-000000000000"
+        partial_path, append_path = late_home.claude(LP, fx_claude(LP, day=7)), late_home.claude(LA, fx_claude(LA, day=7))
+        with partial_path.open("ab") as handle:
+            handle.write(b'{"type": "user", "timestamp": "2026-10-07T12:00:00.000Z", "message": {"role": "user", "content": "half')
+        LR, LF = "c0000092-0000-4000-8000-000000000000", "c0000093-0000-4000-8000-000000000000"
+        rewritten_path = late_home.claude(LR, fx_claude(LR, day=7))
+        late_home.finish()
+        late1, late_state1 = build(late_home.run(), empty, table, table_sha, jobs=2)
+        _rl, late_after1, _fl = reconcile(late1, late_state1, fx_results(late1), "periodic")
+        with partial_path.open("ab") as handle:
+            handle.write(b'"}}\n')
+        with append_path.open("ab") as handle:
+            for stamp in ("2026-10-07T13:00:00.000Z", "2026-10-09T09:00:00.000Z"):
+                handle.write(json.dumps({"type": "user", "timestamp": stamp, "message": {"role": "user", "content": "late"}}).encode() + b"\n")
+        # outside the fix, and counted: a session rewritten since window 1 was run, and one never read before, both stamped in it
+        late_home.put(rewritten_path, fx_claude(LR, day=7, texts=["the first question, rewritten"]))
+        late_home.claude(LF, fx_claude(LF, day=7, turns=2))
+        late2, late_state2 = build(late_home.run(window=NEXT), late_after1, table, table_sha, jobs=2)
+        lv, W1ID = by_key(late2), late1["window"]
+        expect("r1 #1: with no window run before, nothing can be owned by no run, and the census says it judged no window",
+               late1["unowned"], {"earlier_windows": 0, "rewritten": {"files": 0, "records": 0}, "first_seen": {"files": 0, "records": 0}})
+        expect("r1 #1: what a window already run owns in a rewritten version or a file never read before is counted, by cause",
+               late2["unowned"], {"earlier_windows": 1, "rewritten": {"files": 1, "records": 10}, "first_seen": {"files": 1, "records": 8}})
+        expect("r1 #1: a line completed after its window was run is owed to that window by the next run",
+               (lv[cid(LP)]["status"], lv[cid(LP)]["work"]["backlog"], lv[cid(LP)]["work"]["in_window"]),
+               ("eligible", [{"window": W1ID, "version": 0, "unread": [[10, 11]]}], []))
+        expect("r1 #1: a complete line written late is owed to the window its stamp is in, a line of the window being run to it",
+               (lv[cid(LA)]["work"]["backlog"], lv[cid(LA)]["work"]["in_window"]),
+               ([{"window": W1ID, "version": 0, "unread": [[10, 11]]}], [[11, 12]]))
+        expect("r1 #1: S1 holds them in the run's backlog under the status appended",
+               sorted((b["transcript"], b["window"], b["status"], b["unread"]) for b in late_state2["backlog"]),
+               [(cid(LP), W1ID, "appended", [[10, 11]]), (cid(LA), W1ID, "appended", [[10, 11]])])
+        _rl2, late_after2, late_flags2 = reconcile(late2, late_state2, fx_results(late2), "periodic")
+        expect("r1 #1: the next run processes each under its own window, and nothing is left owed",
+               ([coverage.latest(late_after2, k)["processed"] for k in (cid(LP), cid(LA))], late_after2["backlog"], late_flags2),
+               ([{W1ID: [[0, 11]]}, {W1ID: [[0, 11]], NEXT_ID: [[11, 12]]}], [], {"accounted": True, "fully_read": True}))
+        late_t, late_t_state = build(late_home.run(kind="targeted", window=NEXT), late_after1, table, table_sha, jobs=2)
+        try:
+            _rt, late_t_after, late_t_flags = reconcile(late_t, late_t_state, fx_results(late_t), "targeted")
+            targeted_late = (late_t_flags, records.json_text(late_t_after) == records.json_text(late_after1))
+        except Refused as exc:  # a control reads the refusal, never a traceback
+            targeted_late = str(exc)[:300]
+        expect("r1 #1: a targeted run reads the appended records under their window, and leaves periodic coverage as it was",
+               targeted_late, ({"accounted": True, "fully_read": True}, True))
+        # what read_full says a window already run owns is the appended records only, never the ones before them
+        lines = append_path.read_bytes().splitlines(keepends=True)
+        before = {"record_count": 10, "prefix_sha": hashlib.sha256(b"".join(lines[:10])).hexdigest()}
+        w1_start, w1_end, _w1 = coverage.window_bounds(WINDOW)
+        got_late = read_full({"host": "claude", "path": str(append_path)}, ZSTD, NO_SCAN, coverage.Ownership(*coverage.window_bounds(NEXT)[:2]),
+                             before, [(w1_start, w1_end, W1ID)])
+        expect("r1 #1: the records a window already run owns are taken from the append alone", (got_late["prefix_ok"], got_late["late"]),
+               (True, {W1ID: [[10, 11]]}))
 
         # D-20261103-a7128a: a Codex thread written across several rollout files under one id is one row, a file per
         # segment in name order, each under its own coverage key; a copy of one file under the same name is no segment

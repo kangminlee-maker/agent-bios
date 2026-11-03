@@ -5,10 +5,12 @@
   "type": "object",
   "additionalProperties": false,
   "required": ["kind", "window", "originator_table_sha256", "sources", "originators", "provenance", "pins",
-               "independence", "pending_events", "transcripts"],
+               "independence", "unowned", "pending_events", "transcripts"],
   "$defs": {
     "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
     "count": {"type": "integer", "minimum": 0},
+    "files_and_records": {"type": "object", "additionalProperties": false, "required": ["files", "records"],
+                          "properties": {"files": {"$ref": "#/$defs/count"}, "records": {"$ref": "#/$defs/count"}}},
     "text": {"type": "string", "minLength": 1},
     "ranges": {"type": "array", "items": {"type": "array", "minItems": 2, "maxItems": 2, "items": {"type": "integer", "minimum": 0}}},
     "source": {
@@ -112,6 +114,11 @@
       "properties": {"components": {"$ref": "#/$defs/count"}, "unknown_components": {"$ref": "#/$defs/count"},
                      "sessions": {"$ref": "#/$defs/count"}, "unknown_sessions": {"$ref": "#/$defs/count"}}
     },
+    "unowned": {
+      "$comment": "review c0fix r1 #1: records a window already run owns in a version no earlier version leads to - a file never read before, or one rewritten since - are owned by no run; the census counts them against earlier_windows, the windows it judged",
+      "type": "object", "additionalProperties": false, "required": ["earlier_windows", "rewritten", "first_seen"],
+      "properties": {"earlier_windows": {"$ref": "#/$defs/count"}, "rewritten": {"$ref": "#/$defs/files_and_records"},
+                     "first_seen": {"$ref": "#/$defs/files_and_records"}}},
     "pending_events": {"type": "array", "items": {
       "type": "object", "additionalProperties": false, "required": ["id", "transcript", "version", "window", "first_record"],
       "properties": {"id": {"$ref": "#/$defs/text"}, "transcript": {"$ref": "#/$defs/text"}, "version": {"$ref": "#/$defs/count"},

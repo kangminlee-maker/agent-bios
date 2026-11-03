@@ -1116,14 +1116,15 @@ def limits_refusal(golden_run):
     return []
 
 
-def census_version(file, state):
+def census_version(file):
     """`{sha, record_count}` of the version S1 read of one transcript file (`census.segments_of`): the census's sha and
-    the record count the coverage state holds for it. A file the state does not hold was not read by this census, and is
-    refused by name."""
-    latest = coverage.latest(state, file["key"])
-    if latest is None or not file.get("sha256"):
+    the record count of the version its work names, both from the census. Not from the run's coverage state: a targeted
+    run's state is the periodic base, which never holds what the census observed (review c0fix r1 #3). A file the census
+    did not read has no version to copy, and is refused by name."""
+    number, versions = file["work"]["version"], file.get("versions") or []
+    if not file.get("sha256") or number is None or not 0 <= number < len(versions):
         raise Refused(f"VERSION_MISMATCH {file['key']}: the census holds no version of it to copy")
-    return {"sha": file["sha256"], "record_count": latest["record_count"]}
+    return {"sha": file["sha256"], "record_count": versions[number]["record_count"]}
 
 
 def view_transcript(run_dir, entry, file, state, ctx, unit=None):
@@ -1135,7 +1136,7 @@ def view_transcript(run_dir, entry, file, state, ctx, unit=None):
     ident = file["key"]
     child = entry["status"] == "child_of"
     rv, limits, zstd = ctx["redaction_version"], ctx["limits"], ctx["zstd"]
-    copy_rel, sha = copy_version(run_dir, file["path"], zstd, census_version(file, state))
+    copy_rel, sha = copy_version(run_dir, file["path"], zstd, census_version(file))
     name = safe_name(ident)
     proj_rel = f"redacted/{sha}.{rv}.jsonl"
     stats = project_version(run_dir, copy_rel, entry["host"], child, rv, proj_rel)
@@ -1226,12 +1227,14 @@ def run(run_dir, reservation=None, overhead=bound.PACKET_OVERHEAD, seats_path=No
         # file of the unit with it, because they share the unit (records.run_items)
         items = [{"id": f["key"], "unit": unit, "entry": e, "file": f} for e, f, unit in todo]
         outcome = stage.run_items(items, work)
-        owed = {f["key"] for _e, f, _unit in todo}
-        missing = sorted(owed - set(done) - {q["id"] for q in outcome["quarantined"]})
+        # the views published are the ones the stage still holds done: a file whose view was made before another file of
+        # its unit failed went to the quarantine with the unit, and its view goes with it (review c0fix r1 #4)
+        owed, published = {f["key"] for _e, f, _unit in todo}, set(outcome["done"])
+        missing = sorted(owed - published - {q["id"] for q in outcome["quarantined"]})
         if missing:
             raise Refused(f"SET_MISMATCH S2: transcripts that owe the window something without a view: {missing}")
         manifest = {"window": window_id, "redaction_version": projection.CURRENT, "limits": limits,
-                    "quarantined": outcome["quarantined"], "transcripts": [done[i] for i in sorted(done)]}
+                    "quarantined": outcome["quarantined"], "transcripts": [done[i] for i in sorted(published)]}
         manifest["totals"] = totals_of(manifest["transcripts"])
         records.write_json(run_dir, run_dir / "views.json", manifest)
         stage.output("views.json")
@@ -1543,6 +1546,11 @@ def fx_entry(host, ident, source, path, sha, status="eligible", **fields):
     return census.finish(entry)
 
 
+def fx_versions(state, tid):
+    """The versions of `tid` a census row carries, as S1 writes them from the state it observed (`census.build`)."""
+    return [{k: v[k] for k in ("sha", "record_count", "prefix_sha")} for v in state["transcripts"][tid]["versions"]]
+
+
 def fx_owned(rows, window=None):
     """The records of `rows` the window owns, decided the way S1 decides them (`coverage.Ownership`)."""
     start, end, _id = coverage.window_bounds(window or FX_WINDOW)
@@ -1559,6 +1567,7 @@ def fx_census(window_id, entries):
                                 "unrecognized": 0, "totals": {}, "detail": None} for name in census.DIRECTORIES},
             "originators": {}, "provenance": {}, "pins": {},
             "independence": {"components": 1, "unknown_components": 0, "sessions": len(entries), "unknown_sessions": 0},
+            "unowned": {"earlier_windows": 0, "rewritten": {"files": 0, "records": 0}, "first_seen": {"files": 0, "records": 0}},
             "pending_events": [], "transcripts": entries}
 
 
@@ -1627,13 +1636,13 @@ def golden(root, name="g", overhead=bound.PACKET_OVERHEAD, capacity=None, reserv
     main_owned = owned or [[1, 10]]
     entries = [
         fx_entry("claude", main_id, "claude_projects", main_path, census_sha or main_sha, owned=main_owned,
-                 work=coverage.work_of(state, main_tid, main_owned, window_id), versions=[]),
+                 work=coverage.work_of(state, main_tid, main_owned, window_id), versions=fx_versions(state, main_tid)),
         # S1 reads a member of an eligible unit like its root (D-20261103-85f3e8): the child carries its own work
         fx_entry("claude", child_id, "claude_projects", child_path, child_sha, status="child_of", parent=main_id,
                  owned=fx_owned(fx_child_records()),
-                 work=coverage.work_of(state, child_tid, fx_owned(fx_child_records()), window_id), versions=[]),
+                 work=coverage.work_of(state, child_tid, fx_owned(fx_child_records()), window_id), versions=fx_versions(state, child_tid)),
         fx_entry("codex", codex_id, "codex_sessions", codex_path, codex_sha, owned=[],
-                 work=coverage.work_of(state, codex_tid, [], window_id), versions=[]),
+                 work=coverage.work_of(state, codex_tid, [], window_id), versions=fx_versions(state, codex_tid)),
     ]
     document = fx_census(window_id, entries)
     problems = validate.validate_instance(census.validator(), document)
@@ -1672,8 +1681,8 @@ def golden(root, name="g", overhead=bound.PACKET_OVERHEAD, capacity=None, reserv
 def golden_unit(root, name, plant=None):
     """A run whose census holds one unit (D-20261103-85f3e8): a Claude root, a member under it, a member under that
     member, and a third level whose records all lie before the window. `plant` is `changed` (the second level's
-    census read other bytes) or `idle` (the root's unit owes the window nothing). Returns `(run_dir, ids, manifest or
-    the refusal)`."""
+    census read other bytes), `idle` (the root's unit owes the window nothing) or `mid_unreadable` (S1 could not read the
+    first level, which keeps its parent: review c0fix r1 #2). Returns `(run_dir, ids, manifest or the refusal)`."""
     root = pathlib.Path(root)
     run_dir, host = root / name, root / f"{name}-host"
     ids = {"root": "a2000000-0000-4000-8000-000000000001", "d1": "a2000000-0000-4000-8000-000000000002",
@@ -1691,8 +1700,10 @@ def golden_unit(root, name, plant=None):
         owned = [] if plant == "idle" else fx_owned(rows[key])
         census_sha = "00" * 32 if (plant == "changed" and key == "d2") else sha
         fields = {"status": "child_of", "parent": ids[parents[key]]} if key in parents else {}
+        if plant == "mid_unreadable" and key == "d1":
+            fields.update(status="unreadable", reason=f"READ_FAILED {path}: planted")
         entries.append(fx_entry("claude", ids[key], "claude_projects", path, census_sha, owned=owned,
-                                work=coverage.work_of(state, tid, owned, window_id), versions=[], **fields))
+                                work=coverage.work_of(state, tid, owned, window_id), versions=fx_versions(state, tid), **fields))
     document = fx_census(window_id, entries)
     declaration = {**declare.fixture(), "window": FX_WINDOW}
     run_dir.mkdir(parents=True, exist_ok=True)
@@ -1709,9 +1720,11 @@ def golden_unit(root, name, plant=None):
     return run_dir, {key: lineage.identity("claude", value) for key, value in ids.items()}, outcome
 
 
-def golden_split(root, name, owns):
+def golden_split(root, name, owns, base=None):
     """A run whose census holds one Codex thread written in two files (D-20261103-a7128a), the window owning `owns[0]` of
-    the first and `owns[1]` of the second. Returns `(the two files' coverage keys, manifest or the refusal)`."""
+    the first and `owns[1]` of the second. `base` writes the run's coverage state as a targeted run leaves it, the
+    periodic base instead of what S1 observed (review c0fix r1 #3): `empty`, or `older` (it saw two records fewer of each
+    file). Returns `(the two files' coverage keys, manifest or the refusal)`."""
     root = pathlib.Path(root)
     run_dir, host = root / name, root / f"{name}-host"
     thread = "019e0002-0000-7000-8000-000000000004"
@@ -1723,7 +1736,7 @@ def golden_split(root, name, owns):
         key = f"{lineage.identity('codex', thread)}@{census.stem_of(path)}"
         coverage.observe(state, key, sha, len(fx_codex_records()), sha, None)
         files.append({**census.segment(census.stem_of(path), "codex_sessions", str(path)), "sha256": sha, "owned": owned,
-                      "work": coverage.work_of(state, key, owned, window_id)})
+                      "work": coverage.work_of(state, key, owned, window_id), "versions": fx_versions(state, key)})
     entry = census.blank("codex", thread, "codex_sessions", status="eligible", counted=True, provenance="indexed", window_overlap="inside")
     entry["segments"] = files
     document = fx_census(window_id, [census.finish(entry)])
@@ -1731,7 +1744,14 @@ def golden_split(root, name, owns):
     declare.create(run_dir, {**declare.fixture(), "window": FX_WINDOW})
     with records.run_stage(run_dir, "S1") as stage:
         records.write_text(run_dir, run_dir / "census.json", census.dump(document))
-        records.write_json(run_dir, run_dir / "coverage.json", state)
+        written = state
+        if base == "empty":
+            written = coverage.new_state()
+        elif base == "older":
+            written = copy.deepcopy(state)
+            for entry in written["transcripts"].values():
+                entry["versions"][-1]["record_count"] -= 2
+        records.write_json(run_dir, run_dir / "coverage.json", written)
         stage.output("census.json")
         stage.output("coverage.json")
     try:
@@ -3381,6 +3401,14 @@ def self_test():
                sorted((q["id"], "SOURCE_CHANGED" in q["reason"], q["because"]) for q in changed_manifest["quarantined"])
                if isinstance(changed_manifest, dict) else repr(changed_manifest),
                sorted([(unit_ids["d2"], True, None), (unit_ids["root"], False, unit_ids["d2"]), (unit_ids["d1"], False, unit_ids["d2"])]))
+        expect("r1 #4: the views made for a unit before one of its members failed are quarantined with it, not published",
+               ([t["transcript"] for t in changed_manifest["transcripts"]], changed_manifest["totals"]["transcripts"])
+               if isinstance(changed_manifest, dict) else repr(changed_manifest), ([], 0))
+        _mid_dir, _ids, mid_manifest = golden_unit(root, "unit-mid", plant="mid_unreadable")
+        expect("r1 #2: a member S1 could not read leaves the unit, and the member below it is still read as part of the root's unit",
+               sorted((t["transcript"], t["unit"], t["kind"]) for t in mid_manifest["transcripts"])
+               if isinstance(mid_manifest, dict) else repr(mid_manifest),
+               sorted([(unit_ids["root"], unit_ids["root"], "session"), (unit_ids["d2"], unit_ids["root"], "child")]))
         _idle_dir, _ids, idle = golden_unit(root, "unit-idle", plant="idle")
         named("85f3e8: an eligible root whose unit owes the window nothing contradicts S1 and is refused by name",
               [str(idle)] if isinstance(idle, Exception) else [], "SET_MISMATCH S2", unit_ids["root"])
@@ -3393,6 +3421,11 @@ def self_test():
                    sorted((t["transcript"], t["session"], t["segment"]) for t in split["transcripts"])
                    if isinstance(split, dict) else repr(split),
                    sorted((split_keys[n], split_keys[n].split("@")[0], split_keys[n].split("@")[1]) for n in read))
+        for base, why in (("empty", "an empty base"), ("older", "a base that saw fewer records")):
+            split_keys, targeted = golden_split(root, f"targeted-{base}", ([[0, 3]], [[0, 3]]), base=base)
+            expect(f"r1 #3: a targeted run's views copy the version its census read, over {why}",
+                   (sorted(t["transcript"] for t in targeted["transcripts"]), targeted["quarantined"])
+                   if isinstance(targeted, dict) else repr(targeted), (sorted(split_keys), []))
         # M#12: the index destination is confined before anything is created. `index/` is replaced by a
         # symlink to a directory outside the run; the write must be refused AND the outside directory must
         # be exactly as it was - a refusal that arrives after `mkdir` has run is not a confinement.

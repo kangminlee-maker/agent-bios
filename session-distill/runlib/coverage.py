@@ -31,8 +31,10 @@ RESULT_INCONSISTENT, RESULT_STATUS_INVALID.
 
   coverage.py --self-test
 """
+import bisect
 import copy
 import datetime
+import itertools
 import hashlib
 import json
 import os
@@ -49,6 +51,9 @@ from runlib.records import Refused
 SCHEMA_PATH = pathlib.Path(__file__).resolve().parents[1] / "schemas" / "coverage.schema.json"
 TERMINAL = ("read_complete", "read_partial", "failed", "deferred", "nothing_new")  # design §5.1
 CARRIED = ("read_partial", "failed", "deferred")  # the ones whose unread ranges wait in the backlog
+# the backlog status of records S1 found appended to a version after the run of the window that owns them (review c0fix
+# r1 #1): no result left them unread, they had not been written when that window was read
+APPENDED = "appended"
 _VALIDATOR = []
 
 
@@ -101,6 +106,25 @@ def window_bounds(window):
     return start, end, f"{window['start']}/{window['end']}@{window['tz']}"
 
 
+def bounds_of(window_id):
+    """(start, end) of the window an id names, read back the way `window_bounds` wrote it (`<start>/<end>@<tz>`)."""
+    span, _at, tz = window_id.rpartition("@")
+    start, _slash, end = span.partition("/")
+    try:
+        return window_bounds({"start": start, "end": end, "tz": tz})[:2]
+    except (ValueError, zoneinfo.ZoneInfoNotFoundError) as exc:
+        raise Refused(f"COVERAGE_INVALID window {window_id!r}: {exc}") from exc
+
+
+def instant(stamp):
+    """A record's timestamp as an aware instant (one without an offset is UTC), or None when it has none that parses."""
+    try:
+        when = datetime.datetime.fromisoformat(stamp)
+    except (TypeError, ValueError):
+        return None
+    return when if when.tzinfo else when.replace(tzinfo=datetime.timezone.utc)
+
+
 class Ownership:
     """Which records a window owns (design §5.2): a record belongs to the window when its timestamp
     is in `[start, end)`. A record with no timestamp takes its predecessor's; leading ones take the
@@ -110,10 +134,8 @@ class Ownership:
         self.start, self.end, self.runs, self.stamped = start, end, [], 0
 
     def feed(self, index, stamp):
-        try:
-            when = datetime.datetime.fromisoformat(stamp)
-            when = when if when.tzinfo else when.replace(tzinfo=datetime.timezone.utc)
-        except (TypeError, ValueError):
+        when = instant(stamp)
+        if when is None:
             return
         self.stamped += 1
         side = -1 if when < self.start else 1 if when >= self.end else 0
@@ -128,6 +150,43 @@ class Ownership:
         owned = normalize([[run[1], end] for run, end in zip(self.runs, bounds) if run[0] == 0])
         sides = {run[0] for run in self.runs}
         return {"owned": owned, "before": -1 in sides, "after": 1 in sides}
+
+
+class Owners:
+    """Which of several windows (`[(start, end, id)]`) own each record, by `Ownership`'s rule: a record belongs to every
+    window whose `[start, end)` holds its timestamp, one without a timestamp to its predecessor's windows, leading ones
+    to the first stamped record's. The windows are searched by their start, and the search goes back only while an
+    earlier window still reaches past the record, so windows that do not overlap cost a comparison or two a record."""
+
+    def __init__(self, windows):
+        self.windows = sorted(windows, key=lambda w: (w[0], w[1]))
+        self.starts = [w[0] for w in self.windows]
+        self.reach = list(itertools.accumulate((w[1] for w in self.windows), max))
+        self.runs = []
+
+    def feed(self, index, stamp):
+        when = instant(stamp)
+        if when is None:
+            return
+        found, k = [], bisect.bisect_right(self.starts, when) - 1
+        while k >= 0 and self.reach[k] > when:
+            if self.windows[k][1] > when:
+                found.append(self.windows[k][2])
+            k -= 1
+        owners = tuple(sorted(found))
+        if not self.runs:
+            self.runs.append([owners, 0])
+        elif self.runs[-1][0] != owners:
+            self.runs.append([owners, index])
+
+    def finish(self, count):
+        """`{window id: owned ranges}` for every window that owns a record."""
+        bounds = [run[1] for run in self.runs[1:]] + [count]
+        owned = {}
+        for (owners, start), end in zip(self.runs, bounds):
+            for window in owners:
+                owned.setdefault(window, []).append([start, end])
+        return {window: normalize(ranges) for window, ranges in owned.items()}
 
 
 # ---- the state --------------------------------------------------------------------------------
@@ -211,6 +270,25 @@ def observe(state, tid, sha, record_count, prefix_sha, prefix_ok):
     return "rewritten"
 
 
+def carry_appended(state, tid, late):
+    """Hold in the backlog what S1 found appended to `tid`'s latest version and owned by a window already run: `late` maps
+    such a window's id to the records of the append it owns (review c0fix r1 #1). D-20261103-8facee gives what the host
+    appends after a census to the next run, and the next run reads another window: without this, a record stamped inside
+    a window that has been read - a line the host was still writing then, or one written late - is owned by no run. Each
+    is owed to its own window, under the status `appended`; what that window processed or the backlog already holds is
+    not owed again. Returns the entries added."""
+    versions = state["transcripts"][tid]["versions"]
+    number, version, added = len(versions) - 1, versions[-1], []
+    for window, ranges in sorted(late.items()):
+        held = normalize([r for b in state["backlog"] if (b["transcript"], b["version"], b["window"]) == (tid, number, window)
+                          for r in b["unread"]])
+        unread = subtract(subtract(ranges, version["processed"].get(window, [])), held)
+        if unread:
+            added.append({"transcript": tid, "version": number, "window": window, "status": APPENDED, "unread": unread})
+    state["backlog"] += added
+    return added
+
+
 def work_of(state, tid, owned, window_id):
     """What a run owes one transcript: `version` (the latest, which `in_window` is about), `in_window` (owned
     records not yet processed for the window) and `backlog` (unread ranges carried from earlier runs, each
@@ -255,9 +333,10 @@ def accounted(entries, state, window_id, units=None, owned=None):
 
 
 def observed(state, files):
-    """A copy of `state` as the census observed it: each of the census's `files` (`census.segments_of`: a `key` and the
-    `versions` S1 recorded) has those versions, an append moved in place and a rewrite added, with nothing read or
-    processed in a new one."""
+    """A copy of `state` as the census observed it: each of the census's `files` (`census.segments_of`: a `key`, the
+    `versions` S1 recorded and its `work`) has those versions, an append moved in place and a rewrite added, with nothing
+    read or processed in a new one; and the backlog S1 added for records appended after their window was run
+    (`carry_appended`), which the work carries and the state does not."""
     after = copy.deepcopy(state)
     for file in files:
         have = after["transcripts"].setdefault(file["key"], {"versions": []})["versions"]
@@ -266,6 +345,12 @@ def observed(state, files):
                 have[number].update(version)
             else:
                 have.append({**version, "read": [], "processed": {}})
+        for b in (file.get("work") or {}).get("backlog", []):
+            held = normalize([r for h in after["backlog"] if (h["transcript"], h["version"], h["window"]) == (file["key"], b["version"], b["window"])
+                              for r in h["unread"]])
+            unread = subtract(b["unread"], held)
+            if unread:
+                after["backlog"].append({"transcript": file["key"], "version": b["version"], "window": b["window"], "status": APPENDED, "unread": unread})
     return after
 
 
@@ -362,7 +447,14 @@ def _fold(state, window_id, results, owned, units):
             kept += [{"transcript": tid, "version": newest[tid], "window": window_id, "status": result["status"], "unread": left}
                      for tid, left in remaining.items()]
         after["backlog"] = kept
+        # a result resolves only the events of its own unit: one naming an event that is not pending, or that is pending
+        # on a file outside the unit, is refused before anything is removed (review c0fix r1 #5)
+        pending_on = {e["id"]: e["transcript"] for e in after["pending_events"]}
         gone = set(result.get("resolved_events", []))
+        foreign = sorted(i for i in gone if pending_on.get(i) not in newest)
+        if foreign:
+            raise Refused(f"RESULT_INCONSISTENT {root}: it resolves {foreign}, which are not pending events of its unit "
+                          f"({[pending_on.get(i) for i in foreign]})")
         after["pending_events"] = [e for e in after["pending_events"] if e["id"] not in gone]
         known = {e["id"] for e in after["pending_events"]}
         for e in result.get("pending_events", []):
@@ -475,6 +567,14 @@ def self_test():
            "2026-10-01T00:00:00/2026-10-08T00:00:00@Asia/Seoul")
     expect("a window without an offset is read in its zone", window_bounds({"start": "2026-10-01T09:00:00", "end": "2026-10-08T00:00:00", "tz": "Asia/Seoul"})[0],
            datetime.datetime(2026, 10, 1, tzinfo=zone))
+
+    # r1 #1: several windows at once, as S1 judges records against the windows already run; c reaches past a
+    day = lambda d, m=10: datetime.datetime(2026, m, d, tzinfo=zone)  # noqa: E731
+    owners = Owners([(day(1), day(8), "a"), (day(8), day(15), "b"), (day(1, 9), day(15), "c")])
+    for index, stamp in enumerate(["2026-08-30T00:00:00Z", None, "2026-10-02T00:00:00Z", "2026-10-09T00:00:00Z", None, "garbage"]):
+        owners.feed(index, stamp)
+    expect("r1 #1: each record belongs to every window that holds its stamp, stampless ones to their predecessor's",
+           owners.finish(6), {"a": [[2, 3]], "b": [[3, 6]], "c": [[2, 6]]})
 
     # versions: new, same, append (continuity), rewritten (it fails)
     state = new_state()
@@ -647,6 +747,50 @@ def self_test():
            [(sha("x2"), 14, [[0, 12]])])
     expect("a transcript the state never saw gets a version with nothing read", watched["transcripts"]["codex:n"]["versions"][0]["read"], [])
     expect("observing leaves the state it was given alone", records.json_text(after1) == records.json_text(apply_results(state, W1, "periodic", [run1], own)), True)
+
+    # review c0fix r1 #1: records appended after the run of the window that owns them are owed to that window
+    week = {"start": "2026-10-01T00:00:00", "end": "2026-10-08T00:00:00", "tz": "Asia/Seoul"}
+    expect("r1 #1: a window id is read back to the bounds it was made from", bounds_of(window_bounds(week)[2]), window_bounds(week)[:2])
+    refused("r1 #1: a window id that is not <start>/<end>@<tz> is refused by name", lambda: bounds_of("w1"), "COVERAGE_INVALID window 'w1'")
+    late = copy.deepcopy(after1)  # version 0 of T: 12 records, window 1 processed [0, 10)
+    expect("r1 #1: the append moves version 0 in place", observe(late, T, sha("x3"), 14, sha("x3"), True), "append")
+    expect("r1 #1: the appended records a window already run owns are held for it, under the status appended",
+           carry_appended(late, T, {W1: [[12, 14]]}), [{"transcript": T, "version": 0, "window": W1, "status": APPENDED, "unread": [[12, 14]]}])
+    # each on a copy: a reverted check must fail its own label, not leave an entry that makes a later control raise
+    expect("r1 #1: what the backlog already holds is not held again", carry_appended(copy.deepcopy(late), T, {W1: [[12, 14]]}), [])
+    expect("r1 #1: what the window processed is not owed again", carry_appended(copy.deepcopy(late), T, {W1: [[8, 10]]}), [])
+    expect("r1 #1: the next run is told to read them, under their window", work_of(late, T, [], W2)["backlog"],
+           [{"window": W1, "version": 0, "unread": [[12, 14]]}])
+    try:
+        credited_late = apply_results(late, W2, "periodic", [answer("read_complete", [
+            {"version": 0, "sha": sha("x3"), "read": [[0, 14]], "processed": {W1: [[12, 14]]}}])], {T: []})
+        credited_late = (latest(credited_late, T)["processed"], credited_late["backlog"])
+    except Refused as exc:  # a control reads the refusal, never a traceback
+        credited_late = str(exc)
+    expect("r1 #1: the next run that reads them is credited under their window, and they leave the backlog", credited_late,
+           ({W1: [[0, 10], [12, 14]]}, []))
+    seen_late = observed(after1, [{"key": T, "versions": [{"sha": sha("x3"), "record_count": 14, "prefix_sha": sha("x3")}],
+                                   "work": {"version": 0, "in_window": [], "backlog": [{"window": W1, "version": 0, "unread": [[12, 14]]}]}}])
+    expect("r1 #1: the state a targeted census observed holds the backlog it added for appended records", seen_late["backlog"],
+           [{"transcript": T, "version": 0, "window": W1, "status": APPENDED, "unread": [[12, 14]]}])
+
+    # review c0fix r1 #5: a result resolves only the pending events of its own unit
+    pair = new_state()
+    RA, RB = lineage.identity("claude", "ra"), lineage.identity("claude", "rb")
+    for tid, text in ((RA, "ra"), (RB, "rb")):
+        observe(pair, tid, sha(text), 4, sha(text), None)
+    pair["pending_events"] = [{"id": "event-b", "transcript": RB, "version": 0, "window": W1, "first_record": 2}]
+
+    def whole(tid, text, resolved=()):
+        return {**answer("read_complete", [reading(text, [[0, 4]], {W1: [[0, 4]]})]), "transcript": tid, "resolved_events": list(resolved)}
+
+    both_owned = {RA: [[0, 4]], RB: [[0, 4]]}
+    refused("r1 #5: a result resolving another unit's pending event is refused, naming the event", lambda: apply_results(
+        pair, W1, "periodic", [whole(RA, "ra", ["event-b"]), whole(RB, "rb")], both_owned), f"RESULT_INCONSISTENT {RA}: it resolves ['event-b']")
+    refused("r1 #5: a result resolving an event that is not pending is refused", lambda: apply_results(
+        pair, W1, "periodic", [whole(RA, "ra", ["ghost"]), whole(RB, "rb")], both_owned), f"RESULT_INCONSISTENT {RA}: it resolves ['ghost']")
+    expect("r1 #5: the unit an event is pending on resolves it", apply_results(
+        pair, W1, "periodic", [whole(RA, "ra"), whole(RB, "rb", ["event-b"])], both_owned)["pending_events"], [])
 
     # the state on disk: it validates, and writes are atomic against a base hash
     with tempfile.TemporaryDirectory() as td:
