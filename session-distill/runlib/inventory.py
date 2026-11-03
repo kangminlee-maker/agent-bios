@@ -3546,11 +3546,12 @@ def census_entries(run_dir):
 
 
 def binding_of(entry):
-    """`(whole, prefix)`: the census row's whole-file hash, and its `(prefix_sha, record_count)` —
-    each None when the row does not carry it, and each validated ON ITS OWN.
+    """`(whole, prefix)`: the census row's version hash (its complete lines, D-20261103-8facee), and its
+    `(prefix_sha, record_count)` — each None when the row does not carry it, and each validated ON ITS OWN.
 
     A transcript is opened only under a binding (#9). The census acquires hashes only for the rows
-    it first classified `eligible` (census.py 349-360), so a child, an excluded row and an
+    it read in full - the ones it first classified `eligible`, and every member of a unit whose root
+    is eligible (D-20261103-85f3e8) - so a child of any other unit, an excluded row and an
     `unknown_provenance` one arrive with `sha256: None` and no version; comparing only `if sha256`
     read such a row anyway and bound it to nothing. A row with neither binding is `unbound` and its
     file is never opened. A binding that is there but malformed refuses as THAT binding — it never
@@ -3612,7 +3613,8 @@ def transcript_records(entry, zstd=None):
                 undecodable.append((line, "not_object"))
     except sources.Unreadable as exc:
         raise Unacquired(f"{UNKNOWN_REASONS['unreadable']} ({acquisition_reason(exc)})") from exc
-    digest.update(tail)
+    # the census's version is the transcript's complete lines (D-20261103-8facee): a line the host is still writing is
+    # no part of it, here or there, so the comparison leaves it out
     sha = digest.hexdigest()
     if whole_sha is not None and sha == whole_sha:
         return {"records": read, "undecodable": undecodable, "lines": line, "which": "the bytes the census read",
@@ -8047,6 +8049,36 @@ def self_test():
             check("and a whole-file binding alone refuses a file that no longer matches it",
                   UNKNOWN_REASONS["changed"] in str(_raised(lambda: transcript_records(whole_only))),
                   f"{type(_raised(lambda: transcript_records(whole_only))).__name__}")
+            # D-20261103-8facee: the census's version is the complete lines, so a line the host is still writing past them
+            # is no part of it - the whole binding still binds the lines it hashed, and nothing is reported appended
+            tail_path = raw_lines(scratch / "p1" / "tail.jsonl", [dated("2026-10-05T09:00:00+00:00")])
+            tail_bound = {"host": "claude", "id": "s-tail", "path": str(tail_path),
+                          "sha256": hashlib.sha256(tail_path.read_bytes()).hexdigest()}
+            with tail_path.open("ab") as handle:
+                handle.write(b'{"type": "user", "timestamp": "2026-10-05T10:00:00+00:00"')
+            tail_read = _raised(lambda: transcript_records(tail_bound)) or transcript_records(tail_bound)
+            check("8facee: a whole binding still binds while the host writes a line past it",
+                  isinstance(tail_read, dict) and tail_read["binding"][0] == "whole" and tail_read["read"] == "bound"
+                  and len(tail_read["records"]) == 1, f"{tail_read!r}"[:200])
+            # D-20261103-85f3e8: S1 reads every member of an eligible unit, so a member two levels down arrives bound and is read
+            from runlib import census as census_module, coverage as coverage_module
+            unit_home = census_module.Home(scratch / "unit-home")
+            unit_root, unit_mid, unit_deep = (f"019e00{n}-0000-7000-8000-000000000000" for n in (90, 91, 92))
+            unit_spawn = lambda parent: {"subagent": {"thread_spawn": {"parent_thread_id": parent}}}  # noqa: E731
+            unit_home.codex(unit_root, census_module.fx_codex(unit_root, "vscode", "Codex Desktop"))
+            unit_home.codex(unit_mid, census_module.fx_codex(unit_mid, unit_spawn(unit_root)), indexed=False)
+            unit_home.codex(unit_deep, census_module.fx_codex(unit_deep, unit_spawn(unit_mid)), indexed=False)
+            unit_home.finish()
+            unit_table = census_module.load_originators()
+            unit_census, _unit_state = census_module.build(unit_home.run(), coverage_module.new_state(), *unit_table, jobs=1)
+            unit_run = scratch / "unit-run"
+            unit_run.mkdir()
+            (unit_run / CENSUS).write_text(census_module.dump(unit_census), encoding="utf-8")
+            unit_rows = {row["id"]: row for row in census_entries(unit_run)}
+            deep_read = _raised(lambda: transcript_records(unit_rows[unit_deep])) or transcript_records(unit_rows[unit_deep])
+            check("85f3e8: a member two levels under an eligible root arrives bound from the census and is read",
+                  unit_rows[unit_deep]["status"] == "child_of" and isinstance(deep_read, dict) and deep_read["read"] == "bound",
+                  f"{unit_rows[unit_deep]['status']} {deep_read!r}"[:200])
             prefix_path = raw_lines(scratch / "p1" / "prefix.jsonl", [dated("2026-10-05T09:00:00+00:00"),
                                                                      dated("2026-10-05T10:00:00+00:00")])
             first_line = prefix_path.read_bytes().split(b"\n", 1)[0] + b"\n"

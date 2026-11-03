@@ -14,7 +14,13 @@ automated rollouts that are known by their first record. Every eligible transcri
 once, whatever its age: sha, record count, the append-only test against the version on record, the records
 the window owns, and all the lineage evidence (pointers, host-minted record ids, (timestamp, human text)
 turns) wherever in the file it lies, because an old transcript's only link to an active one may be past
-its head. Counting follows §5.3: a lineage counts once, through its root, when its component has exactly
+its head. The version is the transcript's complete lines (D-20261103-8facee): a line the host is still
+writing is not in it, and what the host appends after this read is the next run's.
+
+The unit S1 judges and S2 reads is a root with all its descendants at any depth (D-20261103-85f3e8): every
+member of an eligible root is read in full like the root, and the root is `nothing_new` only when neither it
+nor any member owes the window anything. One S3 result answers the unit, crediting each member's readings to
+the member. Counting follows §5.3: a lineage counts once, through its root, when its component has exactly
 one root and a host-written index names that root.
 
 Identity is `(host, session id)`: a transcript is keyed `<host>:<id>` (`lineage.identity`) in the coverage
@@ -160,11 +166,13 @@ def head_of(file, zstd):
 
 
 def read_full(file, zstd, scan, own, prev):
-    """One pass over a whole transcript: `{sha, record_count, prefix_sha, prefix_ok, owned, before, after}`.
+    """One pass over a whole transcript: `{sha, record_count, prefix_sha, prefix_ok, partial_tail, owned, before, after}`.
 
-    `sha` hashes everything read, `prefix_sha` the complete lines only, so a record the host is still
-    writing moves the first and not the second. `prefix_ok` answers §5.2's append-only test against `prev`,
-    the version on record: did the first `prev.record_count` lines hash to its `prefix_sha`."""
+    The version this run reads is the transcript's complete lines (D-20261103-8facee): `sha` and `prefix_sha` both
+    hash them, and a record the host is still writing is no record yet, so it moves neither (`partial_tail` says it was
+    there). S2 copies exactly these `record_count` lines and accepts them when they hash to `sha`; what the host
+    appends after this read belongs to the next run. `prefix_ok` answers §5.2's append-only test against `prev`, the
+    version on record: did the first `prev.record_count` lines hash to its `prefix_sha`."""
     whole, count, boundary, tail = hashlib.sha256(), 0, None, b""
     if prev and prev["record_count"] == 0:
         boundary = whole.hexdigest()
@@ -184,9 +192,54 @@ def read_full(file, zstd, scan, own, prev):
         if prev and count == prev["record_count"]:
             boundary = whole.hexdigest()
     prefix = whole.hexdigest()
-    whole.update(tail)
-    return {"sha": whole.hexdigest(), "record_count": count, "prefix_sha": prefix,
+    return {"sha": prefix, "record_count": count, "prefix_sha": prefix, "partial_tail": bool(tail),
             "prefix_ok": None if prev is None else boundary == prev["prefix_sha"], **own.finish(count)}
+
+
+class _NoScan:
+    """`read_full`'s scan for a unit member: its records are the root's evidence, not lineage of their own (§5.1)."""
+
+    def feed(self, rec, index=0):
+        pass
+
+
+NO_SCAN = _NoScan()
+
+
+def overlap_of(got):
+    """How a read transcript lies against the window: inside it, across its start, its end or both, or only as context."""
+    if not got["owned"]:
+        return "context_only"
+    return {(False, False): "inside", (True, False): "straddles_start", (False, True): "straddles_end",
+            (True, True): "straddles_both"}[(bool(got["before"]), bool(got["after"]))]
+
+
+def root_of(by_key, entry):
+    """The root `entry`'s chain of parents reaches in `by_key` (`{<host>:<id>: entry}`): the first ancestor that is not
+    `child_of`, `entry` itself when it is not one, or None when the chain breaks or loops."""
+    seen = set()
+    while entry is not None and entry["status"] == "child_of":
+        if key_of(entry) in seen:
+            return None
+        seen.add(key_of(entry))
+        entry = by_key.get(lineage.identity(entry["host"], entry["parent"]))
+    return entry
+
+
+def units_of(by_key):
+    """`{root key: [member keys]}`: every `child_of` entry of `by_key` under the root its chain reaches, at any depth
+    (D-20261103-85f3e8). The members are sorted, so a unit reads the same in every run."""
+    found = {}
+    for key, entry in by_key.items():
+        root = root_of(by_key, entry) if entry["status"] == "child_of" else None
+        if root is not None:
+            found.setdefault(key_of(root), []).append(key)
+    return {root: sorted(members) for root, members in found.items()}
+
+
+def units(transcripts):
+    """`units_of` over a census document's transcripts: the one reader of the unit that reconcile and S2 share."""
+    return units_of({key_of(e): e for e in transcripts})
 
 
 def load_index(src, report, name, loader):
@@ -334,6 +387,10 @@ def build(run, base, table, table_sha, jobs=8, scratch=None):
         elif entry["status"] not in ("child_of", "unreadable"):
             entry["provenance"] = provenance_of(entry, entry["host"], threads, history, desktop)
 
+    for ident, entry in entries.items():
+        if entry["status"] == "child_of" and root_of(entries, entry) is None:  # parents that loop reach no root: a link to nothing
+            entry.update(status="unknown_provenance", reason="orphan_child", parent=None)
+
     # every eligible transcript is read in full, whatever its age: its sha, its continuity against the version on
     # record, the records the window owns, and the lineage evidence wherever in the file it lies
     owed = {b["transcript"] for b in state["backlog"]} | {e["transcript"] for e in state["pending_events"]}
@@ -346,6 +403,10 @@ def build(run, base, table, table_sha, jobs=8, scratch=None):
         except sources.Unreadable as exc:
             return scan, own, None, str(exc)
 
+    def taken(ident, entry, got):
+        coverage.observe(state, ident, got["sha"], got["record_count"], got["prefix_sha"], got["prefix_ok"])
+        entry.update(sha256=got["sha"], owned=got["owned"], window_overlap=overlap_of(got))
+
     for ident, entry in entries.items():
         if entry["status"] != "eligible":
             continue
@@ -356,26 +417,57 @@ def build(run, base, table, table_sha, jobs=8, scratch=None):
             entry.update(status="unknown_provenance", reason="no_timestamps", source_class=None)
         else:
             extras[ident]["head"]["scan"] = scan
-            coverage.observe(state, ident, got["sha"], got["record_count"], got["prefix_sha"], got["prefix_ok"])
-            entry.update(sha256=got["sha"], owned=got["owned"], window_overlap=(
-                "context_only" if not got["owned"] else "straddles_start" if got["before"] else "straddles_end" if got["after"] else "inside"))
-    for ident, entry in entries.items():
-        if entry["status"] != "eligible":
+            taken(ident, entry, got)
+
+    # The unit S1 judges and S2 reads is a root with all its descendants, at any depth (D-20261103-85f3e8; design §5.1:
+    # a child is "read as part of the parent's evidence"). Every member of a root still eligible after its own read is
+    # read in full like the root, so what the window owns in it is known. A member that cannot be read, or carries no
+    # timestamp, is named the way a root would be and leaves the unit; the rest of the unit is judged without it.
+    unit_members = units_of(entries)
+    for root, members in unit_members.items():
+        if entries[root]["status"] != "eligible":
             continue
+        for ident in members:
+            entry, own = entries[ident], coverage.Ownership(start, end)
+            try:
+                got = read_full(extras[ident]["file"], zstd, NO_SCAN, own, coverage.latest(state, ident))
+            except sources.Unreadable as exc:
+                entry.update(status="unreadable", reason=str(exc))
+                continue
+            if own.stamped == 0 and got["record_count"]:
+                entry.update(status="unknown_provenance", reason="no_timestamps")
+                continue
+            taken(ident, entry, got)
+
+    def owes(entry):
+        return bool(entry["work"]["in_window"] or entry["work"]["backlog"])
+
+    def worked(ident, entry):
         entry["work"] = coverage.work_of(state, ident, entry["owned"], window_id)
-        if not entry["work"]["in_window"] and not entry["work"]["backlog"]:
-            entry["status"] = "nothing_new"
         known = state["transcripts"].get(ident, {"versions": []})["versions"]
         entry["versions"] = [{k: v[k] for k in ("sha", "record_count", "prefix_sha")} for v in known]
         entry["sha256"] = entry["sha256"] or (known[-1]["sha"] if known else None)
 
-    # lineage over the owner's transcripts, then the counting rule (design §5.3)
+    for ident, entry in entries.items():
+        if entry["status"] != "eligible":
+            continue
+        worked(ident, entry)
+        read_members = [m for m in unit_members.get(ident, []) if entries[m]["status"] == "child_of"]
+        for member in read_members:
+            worked(member, entries[member])
+        # nothing is new for the unit only when neither the root nor any member owes the window anything
+        if not owes(entry) and not any(owes(entries[m]) for m in read_members):
+            entry["status"] = "nothing_new"
+
+    # lineage over the owner's transcripts, then the counting rule (design §5.3); a component is active in the window
+    # when any unit in it owns a record of the window, a member's as much as a root's
     mine = {i: e for i, e in entries.items() if e["status"] in ("eligible", "nothing_new")}
     nodes = [extras[i]["head"]["scan"].lineage_node(e["id"]) for i, e in mine.items()]
     linked, pending, active = lineage.components(nodes), {n["id"]: n.get("pending", False) for n in nodes}, {}
     for ident, entry in mine.items():
         entry["lineage"] = {**linked[ident], "measurement_pending": pending[ident]}
-        active[entry["lineage"]["component"]] = active.get(entry["lineage"]["component"], False) or bool(entry["owned"])
+        unit_owned = bool(entry["owned"]) or any(entries[m]["owned"] for m in unit_members.get(ident, []) if entries[m]["status"] == "child_of")
+        active[entry["lineage"]["component"]] = active.get(entry["lineage"]["component"], False) or unit_owned
     for ident, entry in mine.items():
         lin = entry["lineage"]
         entry["counted"] = bool(lin["unique_root"] and lin["root"] == ident and entry["provenance"] == "indexed"
@@ -468,18 +560,24 @@ def reconcile(census, state, results, kind):
     """S3's `results` folded back: `(census, state, flags)` with the eligible statuses terminal.
 
     Every session that was `eligible` at S1 needs exactly one result, and a result names an eligible session
-    (SET_MISMATCH otherwise, listing the sessions). The inputs are not touched, and the reconciled census
+    (SET_MISMATCH otherwise, listing the sessions). A result answers the session's whole unit: the readings of its
+    read members are credited to them (`coverage.apply_results`). The inputs are not touched, and the reconciled census
     must still conform to its schema."""
     census, window_id = copy.deepcopy(census), census["window"]
     waiting = {key_of(e): e for e in census["transcripts"] if e["status"] == "eligible"}
+    # one result answers a unit (D-20261103-85f3e8): its members' readings are credited to them, and what they own is owed
+    by_key, found = {key_of(e): e for e in census["transcripts"]}, units(census["transcripts"])
+    members = {root: [m for m in found.get(root, []) if by_key[m]["status"] == "child_of" and by_key[m]["sha256"]] for root in waiting}
     got = [r["transcript"] for r in results]
     missing, extra = sorted(set(waiting) - set(got)), sorted(set(got) - set(waiting))
     repeated = sorted({i for i in got if got.count(i) > 1})
     if missing or extra or repeated:
         raise Refused(f"SET_MISMATCH S3 results do not match the eligible sessions: missing={missing} extra={extra} repeated={repeated}")
     # a targeted run's results are held to the periodic rules against the state the census observed, and then discarded
-    seen = state if kind == "periodic" else coverage.observed(state, waiting.values())
-    after = coverage.apply_results(seen, window_id, kind, results, {i: e["owned"] for i, e in waiting.items()})
+    read = [by_key[m] for ms in members.values() for m in ms]
+    seen = state if kind == "periodic" else coverage.observed(state, list(waiting.values()) + read)
+    owned = {**{i: e["owned"] for i, e in waiting.items()}, **{key_of(e): e["owned"] for e in read}}
+    after = coverage.apply_results(seen, window_id, kind, results, owned, members)
     for result in results:
         waiting[result["transcript"]]["status"] = result["status"]
     totals_of(census["transcripts"], census["sources"])
@@ -487,7 +585,7 @@ def reconcile(census, state, results, kind):
     errors = account(census) + [f"CENSUS_INVALID {p}" for p in validate.validate_instance(validator(), census)[:5]]
     if errors:
         raise Refused("\n".join(errors))
-    flags = dict(zip(("accounted", "fully_read"), coverage.accounted(census["transcripts"], after, window_id)))
+    flags = dict(zip(("accounted", "fully_read"), coverage.accounted(census["transcripts"], after, window_id, members)))
     if kind == "periodic":
         after["windows"][window_id] = flags
     else:
@@ -913,22 +1011,36 @@ def fx_corpus(h):
     return exp
 
 
-def fx_results(census, status="read_complete", skip=(), extra_read=None, pending=None, resolved=None):
+def fx_results(census, status="read_complete", skip=(), extra_read=None, pending=None, resolved=None, members=True):
     """S3's results for every eligible session: it read and processed everything the window owns (and the backlog),
-    each range credited to the version it belongs to. `skip`, `extra_read`, `pending` and `resolved` are keyed by identity."""
+    each range credited to the version it belongs to - the root's, and every read member's of its unit under the
+    member's name (D-20261103-85f3e8). `skip`, `extra_read`, `pending` and `resolved` are keyed by identity; with
+    `members` False the results answer the roots alone."""
+    by_key, found = {key_of(e): e for e in census["transcripts"]}, units(census["transcripts"])
+
+    def readings_of(e, ident, named):
+        newest = e["work"]["version"]
+        if newest is None:
+            return []
+        name = {"transcript": ident} if named else {}
+        readings = {newest: {**name, "version": newest, "sha": e["sha256"], "processed": {census["window"]: e["work"]["in_window"]},
+                             "read": coverage.union(coverage.union(e["owned"], e["work"]["in_window"]), (extra_read or {}).get(ident, []))}}
+        for b in e["work"]["backlog"]:
+            got = readings.setdefault(b["version"], {**name, "version": b["version"], "sha": e["versions"][b["version"]]["sha"], "processed": {}, "read": []})
+            got["processed"][b["window"]] = coverage.union(got["processed"].get(b["window"], []), b["unread"])
+            got["read"] = coverage.union(got["read"], b["unread"])
+        return [readings[v] for v in sorted(readings)]
+
     out = []
     for e in census["transcripts"]:
         ident = key_of(e)
         if e["status"] != "eligible" or ident in skip:
             continue
-        newest = e["work"]["version"]
-        readings = {newest: {"version": newest, "sha": e["sha256"], "processed": {census["window"]: e["work"]["in_window"]},
-                             "read": coverage.union(coverage.union(e["owned"], e["work"]["in_window"]), (extra_read or {}).get(ident, []))}}
-        for b in e["work"]["backlog"]:
-            got = readings.setdefault(b["version"], {"version": b["version"], "sha": e["versions"][b["version"]]["sha"], "processed": {}, "read": []})
-            got["processed"][b["window"]] = coverage.union(got["processed"].get(b["window"], []), b["unread"])
-            got["read"] = coverage.union(got["read"], b["unread"])
-        out.append({"transcript": ident, "status": status, "readings": [readings[v] for v in sorted(readings)],
+        readings = readings_of(e, ident, False)
+        for m in found.get(ident, []) if members else []:
+            if by_key[m]["status"] == "child_of" and by_key[m]["sha256"]:
+                readings += readings_of(by_key[m], m, True)
+        out.append({"transcript": ident, "status": status, "readings": readings,
                     "pending_events": (pending or {}).get(ident, []), "resolved_events": (resolved or {}).get(ident, [])})
     return out
 
@@ -1107,6 +1219,74 @@ def controls(checks):
         expect("an unreadable index makes its sessions index_missing: read, not counted",
                (census_bad["sources"]["codex_state"]["state"], bad["status"], bad["provenance"], bad["counted"], bad["sha256"] is not None),
                ("unreadable", "eligible", "index_missing", False, True))
+
+        # D-20261103-85f3e8: the unit S1 judges is a root with every member at any depth. A Codex root whose own records
+        # are all before the window, with a member chain three deep: the first two write in the window, the third does not
+        units_home = Home(root / "units")
+        R, K1, K2, K3 = (f"019e00{n}-0000-7000-8000-000000000000" for n in (80, 81, 82, 83))
+        spawn = lambda parent: {"subagent": {"thread_spawn": {"parent_thread_id": parent}}}  # noqa: E731
+        units_home.codex(R, fx_codex(R, "vscode", "Codex Desktop", month=9, day=1), mtime=fx_when(1, 9))
+        units_home.codex(K1, fx_codex(K1, spawn(R)), indexed=False)
+        units_home.codex(K2, fx_codex(K2, spawn(K1)), indexed=False)
+        units_home.codex(K3, fx_codex(K3, spawn(K2), month=9, day=1), indexed=False, mtime=fx_when(1, 9))
+        # a Claude root before the window whose one subagent writes in it, and a second subagent that cannot be read
+        CR = "c0000080-0000-4000-8000-000000000000"
+        units_home.claude(CR, fx_claude(CR, month=9, day=1), mtime=fx_when(1, 9))
+        units_home.child(CR, "agent-in", fx_claude(CR, side=(True, "in")))
+        locked = units_home.child(CR, "agent-locked", fx_claude(CR, side=(True, "locked")))
+        # a root with records before, inside and after the window, and one whose last line the host is still writing
+        CB, CT = "c0000081-0000-4000-8000-000000000000", "c0000082-0000-4000-8000-000000000000"
+        units_home.claude(CB, fx_claude(CB, stamps=["2026-09-30T10:00:00.000Z", "2026-10-03T10:00:00.000Z", "2026-10-09T10:00:00.000Z"]))
+        writing = units_home.claude(CT, fx_claude(CT))
+        with writing.open("ab") as handle:
+            handle.write(b'{"type": "user", "timestamp": "2026-10-03T11:00:00.000Z", "message": {"role": "user", "content": "half')
+        units_home.finish()
+        locked.chmod(0)
+        try:
+            unit_census, unit_state = build(units_home.run(), empty, table, table_sha, jobs=2)
+        finally:
+            locked.chmod(0o644)
+        u = by_key(unit_census)
+        RK, K1K, K2K, K3K, CRK = xid(R), xid(K1), xid(K2), xid(K3), cid(CR)
+        CIN, CLOCK = cid(f"{CR}/agent-in"), cid(f"{CR}/agent-locked")
+        expect("85f3e8: a root whose own records are all before the window is eligible when a member writes in it",
+               (u[RK]["status"], u[RK]["window_overlap"], u[RK]["owned"], u[CRK]["status"]), ("eligible", "context_only", [], "eligible"))
+        expect("85f3e8: members are read at every depth - each carries the version S1 read and what the window owns of it",
+               [(k, u[k]["status"], u[k]["sha256"] is not None, u[k]["owned"] != []) for k in (K1K, K2K, K3K, CIN)],
+               [(K1K, "child_of", True, True), (K2K, "child_of", True, True), (K3K, "child_of", True, False), (CIN, "child_of", True, True)])
+        expect("85f3e8: the unit is the root with every member under it, whatever the depth; a member left unreadable is no longer in it",
+               (units(unit_census["transcripts"]).get(RK), units(unit_census["transcripts"]).get(CRK)), ([K1K, K2K, K3K], [CIN]))
+        expect("85f3e8: a member that cannot be read is named unreadable under its parent, and the unit is judged on the rest",
+               (u[CLOCK]["status"], u[CLOCK]["parent"], "READ_FAILED" in (u[CLOCK]["reason"] or ""), u[CRK]["status"]),
+               ("unreadable", CR, True, "eligible"))
+        expect("85f3e8: a unit active only through a member counts once, through its root",
+               (u[RK]["counted"], u[RK]["provenance"], u[RK]["lineage"]["unique_root"]), (True, "indexed", True))
+        expect("the window_overlap of a transcript with records before, inside and after the window says it straddles both",
+               (u[cid(CB)]["window_overlap"], u[cid(CB)]["owned"]), ("straddles_both", [[5, 6]]))
+        complete = writing.read_bytes().rsplit(b"\n", 1)[0] + b"\n"
+        expect("8facee: the version S1 records is the complete lines - a line the host is still writing moves no hash",
+               (u[cid(CT)]["sha256"], u[cid(CT)]["versions"][-1]["prefix_sha"], u[cid(CT)]["versions"][-1]["record_count"]),
+               (hashlib.sha256(complete).hexdigest(), hashlib.sha256(complete).hexdigest(), 10))
+        expect("the unit census conforms to its schema and its sets add up", (validate.validate_instance(validator(), unit_census), account(unit_census)), ([], []))
+        # one S3 result answers the unit: its members' readings are credited to them, and a result that leaves a member's
+        # window unprocessed, or reads outside its unit, is refused by name
+        unit_results = fx_results(unit_census)
+        _rc, unit_after, unit_flags = reconcile(unit_census, unit_state, unit_results, "periodic")
+        expect("85f3e8: a member's readings are credited to the member, and the window is accounted",
+               (coverage.latest(unit_after, K2K)["processed"].get(unit_census["window"]), unit_flags),
+               (u[K2K]["owned"], {"accounted": True, "fully_read": True}))
+        refused("85f3e8: a read_complete that leaves a member's window unprocessed is refused, naming the member",
+                lambda: reconcile(unit_census, unit_state, fx_results(unit_census, members=False), "periodic"), "RESULT_INCONSISTENT", CIN)
+        stranger = [{**r, "readings": r["readings"] + [{**r["readings"][0], "transcript": XK1}]} for r in unit_results
+                    for XK1 in [xid(X1)]]
+        refused("85f3e8: a reading that names a transcript outside the result's unit is refused",
+                lambda: reconcile(unit_census, unit_state, stranger, "periodic"), "RESULT_INCONSISTENT", "not a member of its unit")
+        partial = {r["transcript"]: r for r in fx_results(unit_census, status="deferred", members=False)}
+        deferred = [partial[r["transcript"]] if r["transcript"] in (RK, CRK) else r for r in unit_results]
+        _rd, deferred_after, deferred_flags = reconcile(unit_census, unit_state, deferred, "periodic")
+        expect("85f3e8: a carried result keeps every member's unread window in the backlog, under the member",
+               (sorted(b["transcript"] for b in deferred_after["backlog"] if b["transcript"] in (K1K, K2K, CIN)), deferred_flags["accounted"]),
+               (sorted([K1K, K2K, CIN]), True))
 
         # done-when 1 and 3, the runs that follow one another: a resume, an event across the window's end, a rewrite
         two = Home(root / "two")
@@ -1310,7 +1490,7 @@ def controls(checks):
         refused("a targeted run's reading of bytes the census did not see is refused by name", lambda: reconcile(fresh_t, fresh_base, wrong_sha, "targeted"),
                 "VERSION_MISMATCH")
         original = coverage.apply_results
-        coverage.apply_results = lambda st, w, kind, res, owned: original(st, w, "periodic", res, owned)  # a writer that ignores the run kind
+        coverage.apply_results = lambda st, w, kind, res, owned, members=None: original(st, w, "periodic", res, owned, members)  # a writer that ignores the run kind
         try:
             refused("a targeted run that advanced a processed range fails TARGETED_ADVANCED_COVERAGE",
                     lambda: reconcile(tgt, carried, fx_results(tgt), "targeted"), "TARGETED_ADVANCED_COVERAGE")

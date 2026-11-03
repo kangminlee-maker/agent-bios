@@ -21,7 +21,9 @@ A transcript is keyed by its identity, `<host>:<session id>` (`lineage.identity`
 an S3 result names the version it read and may credit a range only to the current window's own records of
 the latest version, or to a backlog entry of that same version and window, and only for records the same
 result read: a record read earlier as context is read again by the run that owns it. A targeted run's
-results are held to the same rules against the state it observed, and then discarded.
+results are held to the same rules against the state it observed, and then discarded. One result answers a
+unit, a root with its members (D-20261103-85f3e8): a member is a transcript of its own here, and the result's
+readings credit it by name.
 
 Failures are named by their first word: COVERAGE_INVALID, COVERAGE_BASE_STALE,
 TARGETED_ADVANCED_COVERAGE, PROCESSED_OUTSIDE_OWNED, PROCESSED_UNREAD, VERSION_MISMATCH,
@@ -220,22 +222,29 @@ def work_of(state, tid, owned, window_id):
             "in_window": subtract(owned, done), "backlog": carried}
 
 
-def accounted(entries, state, window_id):
+def accounted(entries, state, window_id, members=None):
     """(accounted, fully_read) of a window over the census `entries` that are eligible (design §5.2).
 
     Accounted: every eligible session has a terminal status, and a session whose reading did not finish has
     what it still owes in the backlog: the unread records of this window it owns, and whatever it carries
-    from earlier windows, each under the window it belongs to. Fully read: every one finished or had nothing to read."""
+    from earlier windows, each under the window it belongs to. A session is its unit (D-20261103-85f3e8):
+    `members` maps a root's identity to its members', and a member's unread records are owed the same way.
+    Fully read: every one finished or had nothing to read."""
     eligible = [e for e in entries if e["status"] == "eligible" or e["status"] in TERMINAL]
     terminal = all(e["status"] in TERMINAL for e in eligible)
+    by_ident = {lineage.identity(e["host"], e["id"]): e for e in entries}
 
     def owes_nothing_unheld(entry):
-        tid = lineage.identity(entry["host"], entry["id"])
-        version = latest(state, tid)
-        remaining = subtract(entry.get("owned", []), version["processed"].get(window_id, []) if version else [])
-        held = [b for b in state["backlog"] if b["transcript"] == tid and b["unread"]]
-        here = normalize([r for b in held if b["window"] == window_id for r in b["unread"]])
-        return bool(held) and not subtract(remaining, here)
+        root = lineage.identity(entry["host"], entry["id"])
+        held_any = False
+        for tid in [root] + list((members or {}).get(root, [])):
+            version = latest(state, tid)
+            remaining = subtract(by_ident.get(tid, {}).get("owned", []), version["processed"].get(window_id, []) if version else [])
+            held = [b for b in state["backlog"] if b["transcript"] == tid and b["unread"]]
+            held_any = held_any or bool(held)
+            if subtract(remaining, normalize([r for b in held if b["window"] == window_id for r in b["unread"]])):
+                return False
+        return held_any
 
     carried = all(owes_nothing_unheld(e) for e in eligible if e["status"] in CARRIED)
     return terminal and carried, all(e["status"] in ("read_complete", "nothing_new") for e in eligible)
@@ -255,7 +264,7 @@ def observed(state, entries):
     return after
 
 
-def apply_results(state, window_id, kind, results, owned):
+def apply_results(state, window_id, kind, results, owned, members=None):
     """The state after S3's `results` (a copy; `state` is not touched).
 
     A result is `{transcript, status, readings, pending_events, resolved_events}`, `readings` a list of
@@ -264,27 +273,38 @@ def apply_results(state, window_id, kind, results, owned):
     window only when that reading read it, and the window owns it in the latest version (`owned` maps a transcript
     to the ranges the current window owns there) or a backlog entry of that same transcript, version and window
     still holds it. A targeted run reads but never advances coverage: its results are held to the same rules and
-    the state it gets back is the one it gave."""
-    folded = _fold(state, window_id, results, owned)
+    the state it gets back is the one it gave.
+
+    One result answers a unit (D-20261103-85f3e8): `members` maps the result's transcript to its members', and a
+    reading that carries `transcript` reads that member instead of the root. A reading naming a transcript outside
+    the unit is refused. A `read_complete` or `nothing_new` result leaves nothing of the unit unprocessed, and a
+    carried one keeps every member's unread ranges in the backlog under that member."""
+    folded = _fold(state, window_id, results, owned, members or {})
     return folded if kind == "periodic" else copy.deepcopy(state)
 
 
-def _fold(state, window_id, results, owned):
+def _fold(state, window_id, results, owned, members):
     for result in results:
         if result["status"] not in TERMINAL:
             raise Refused(f"RESULT_STATUS_INVALID {result['transcript']}: {result['status']!r} is not a terminal status; S3 ends in one of {TERMINAL}")
     after = copy.deepcopy(state)
     for result in results:
-        tid = result["transcript"]
-        versions = after["transcripts"].get(tid, {}).get("versions", [])
-        if not versions:
-            raise Refused(f"VERSION_MISMATCH {tid}: the state has no version of it")
-        newest, credited, seen = len(versions) - 1, {}, set()
+        root = result["transcript"]
+        unit = [root] + list(members.get(root, []))
+        newest, credited, seen = {}, {}, set()
+        for tid in unit:
+            versions = after["transcripts"].get(tid, {}).get("versions", [])
+            if tid == root and not versions:
+                raise Refused(f"VERSION_MISMATCH {tid}: the state has no version of it")
+            newest[tid] = len(versions) - 1
         for reading in result["readings"]:
-            n = reading["version"]
-            if n in seen:
-                raise Refused(f"RESULT_INCONSISTENT {tid}: version {n} is read twice in one result")
-            seen.add(n)
+            tid, n = reading.get("transcript", root), reading["version"]
+            if tid not in newest:
+                raise Refused(f"RESULT_INCONSISTENT {root}: a reading names {tid}, which is not a member of its unit")
+            if (tid, n) in seen:
+                raise Refused(f"RESULT_INCONSISTENT {root}: version {n} of {tid} is read twice in one result")
+            seen.add((tid, n))
+            versions = after["transcripts"].get(tid, {}).get("versions", [])
             if not 0 <= n < len(versions) or versions[n]["sha"] != reading["sha"]:
                 have = versions[n]["sha"][:12] if 0 <= n < len(versions) else "absent"
                 raise Refused(f"VERSION_MISMATCH {tid}: S3 read version {n} as {reading['sha'][:12]}, the state has {have}")
@@ -297,35 +317,43 @@ def _fold(state, window_id, results, owned):
                     raise Refused(f"PROCESSED_UNREAD {tid}: version {n} processed {subtract(ranges, reading['read'])} for window {w}, which this result "
                                   "did not read; a record read earlier as context is read again by the run that processes it")
                 allowed = normalize([r for b in after["backlog"] if (b["transcript"], b["version"], b["window"]) == (tid, n, w) for r in b["unread"]]
-                                    + (owned.get(tid, []) if w == window_id and n == newest else []))
+                                    + (owned.get(tid, []) if w == window_id and n == newest[tid] else []))
                 if subtract(ranges, allowed):
                     raise Refused(f"PROCESSED_OUTSIDE_OWNED {tid}: version {n} processed {subtract(ranges, allowed)} for window {w}, which is owed "
                                   f"{allowed}; a record is processed by the run whose window owns it or that reads its backlog, never in advance")
                 version["processed"][w] = union(version["processed"].get(w, []), ranges)
-                credited[(n, w)] = union(credited.get((n, w), []), ranges)
-        # the backlog of this session: each entry loses what was credited to its own version and window; this window's, on the latest version, is recomputed
-        kept = []
+                credited[(tid, n, w)] = union(credited.get((tid, n, w), []), ranges)
+        # the backlog of the unit: each entry loses what was credited to its own transcript, version and window; this window's,
+        # on each member's latest version, is recomputed
+        kept, remaining, carried_over = [], {}, False
         for entry in after["backlog"]:
-            if entry["transcript"] != tid:
+            if entry["transcript"] not in newest:
                 kept.append(entry)
-            elif not (entry["window"] == window_id and entry["version"] == newest):
-                entry["unread"] = subtract(entry["unread"], credited.get((entry["version"], entry["window"]), []))
+            elif not (entry["window"] == window_id and entry["version"] == newest[entry["transcript"]]):
+                entry["unread"] = subtract(entry["unread"], credited.get((entry["transcript"], entry["version"], entry["window"]), []))
                 if entry["unread"]:
                     kept.append(entry)
-        remaining = subtract(owned.get(tid, []), versions[newest]["processed"].get(window_id, []))
-        carried_over = any(e["transcript"] == tid and e["unread"] for e in kept)
+                    carried_over = True
+        for tid in unit:
+            if newest[tid] < 0:
+                continue
+            left = subtract(owned.get(tid, []), after["transcripts"][tid]["versions"][newest[tid]]["processed"].get(window_id, []))
+            if left:
+                remaining[tid] = left
         if result["status"] in ("read_complete", "nothing_new") and (remaining or carried_over):
-            raise Refused(f"RESULT_INCONSISTENT {tid}: {result['status']}, but {remaining or 'earlier-window ranges'} are still unprocessed")
+            where = next(iter(remaining.items()), None)
+            raise Refused(f"RESULT_INCONSISTENT {root}: {result['status']}, but "
+                          f"{f'{where[1]} of {where[0]}' if where else 'earlier-window ranges'} are still unprocessed")
         if result["status"] in CARRIED:
             if not (remaining or carried_over):
-                raise Refused(f"RESULT_INCONSISTENT {tid}: {result['status']}, but nothing is left unread")
-            if remaining:
-                kept.append({"transcript": tid, "version": newest, "window": window_id, "status": result["status"], "unread": remaining})
+                raise Refused(f"RESULT_INCONSISTENT {root}: {result['status']}, but nothing is left unread")
+            kept += [{"transcript": tid, "version": newest[tid], "window": window_id, "status": result["status"], "unread": left}
+                     for tid, left in remaining.items()]
         after["backlog"] = kept
         gone = set(result.get("resolved_events", []))
         after["pending_events"] = [e for e in after["pending_events"] if e["id"] not in gone]
         known = {e["id"] for e in after["pending_events"]}
-        after["pending_events"] += [{"transcript": tid, "version": newest, "window": window_id, **e} for e in result.get("pending_events", []) if e["id"] not in known]
+        after["pending_events"] += [{"transcript": root, "version": newest[root], "window": window_id, **e} for e in result.get("pending_events", []) if e["id"] not in known]
     errors = check_state(after)
     if errors:
         raise Refused("\n".join(errors))
