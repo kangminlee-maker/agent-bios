@@ -68,7 +68,8 @@ linter's codes), CALIBRATION_PROVISIONAL, CALIBRATION_SERIAL, BUDGET_UNDECLARED,
 DRIVER_PART_LENGTH_CONFLICT, APPENDED_PROMPT_PATH_FORM, APPENDED_PROMPT_UNDELIVERABLE,
 CAP_UNDELIVERABLE, USAGE_INCOMPLETE, CAPACITY_UNDECLARED, CALL_EXISTS,
 USAGE_UNCAPTURED, RECEIPT_MISSING, SEAT_UNPINNED, ALLOWANCE_UNMEASURED, ALLOWANCE_MISMATCH,
-WINDOW_OVER_BOUND, RUNNER_REALIZATION_MISMATCH, USE_REFUSED, CAP_UNDECLARED. CONTRACT names the sections; the self-test
+WINDOW_OVER_BOUND, RUNNER_REALIZATION_MISMATCH, USE_REFUSED, CAP_UNDECLARED, RESUME_HOST_UNVERIFIED. CONTRACT names the
+sections; the self-test
 derives this set from the source and holds it, and this list, against its own cited copy. The
 closure check (`closure_violations`) names DISPATCH_OUTSIDE_SUPERVISOR, DISPATCH_UNRESOLVED,
 CLOSURE_IMPORTS_OUT_OF_SCOPE, DYNAMIC_LOAD_UNDECLARED and INVENTORY_STALE.
@@ -248,6 +249,9 @@ SCRIPT_RUNS = (
      "reason": "the same handoff's second step, run by the same self-test: it digests the census's sessions"},
     {"site": "session-distill/migrate-ledger.py", "path": "session-distill/merge-ledger.py",
      "reason": "the migrator's self-test runs the documented merge-ledger.py --window-end invocation on a fixture ledger"},
+    {"site": "session-distill/runlib/stage_read.py", "path": "session-distill/runlib/stage_read.py",
+     "reason": "S3's self-test runs its own `--fixture-driver` as a child it kills while the golden host holds a window, "
+               "then resumes the run in-process (WP-08 commit 5a); the child's host is the golden one, it starts no model"},
 )
 # Sites that run a closure file FROM A COPY of this checkout. The program is computed, so the trace
 # cannot name it; what admits it is that the copy is this tree's own, made by
@@ -1230,7 +1234,8 @@ class Supervisor:
     # --- one call ----------------------------------------------------------------------------
 
     def call(self, stage, seat, packet, schema, *, reservation, caps, view_window, host_version=None, manifest=None,
-             child_seat=None, profile="hermetic", contract=None, use="judge", read_root=None, max_output_tokens=None):
+             child_seat=None, profile="hermetic", contract=None, use="judge", read_root=None, max_output_tokens=None,
+             payload_sha256=None):
         """Dispatch one model call and return its call directory (calls/<call_id>/). `use` is the
         call's profile of use (USES): a producing call is Claude's, reading only `read_root`, and
         its profile is recorded as `<profile>-producing` (the flag set it runs under, seats.json);
@@ -1351,7 +1356,7 @@ class Supervisor:
                                    "stop_standing": bool(self._blocked(ledger))},
                         "wall_ms": None, "stopped": None, "contract": "required" if contract is not None else "none",
                         "provider_signals": [], "caps": caps, "use": use, "max_output_tokens": max_output_tokens,
-                        "runner_refused": None, "server_policy": policy_record,
+                        "runner_refused": None, "server_policy": policy_record, "payload_sha256": payload_sha256,
                         "reservation": {k: held[k] for k in ("amount", "calibration", "tranche", "declaration_seq")}}
                 records.write_json(self.run_dir, call_dir / "call.json", call)
                 spec = {"call_id": call_id, "stage": stage, "seat": seat, "model": provider_model, "effort": effort,
@@ -1367,6 +1372,10 @@ class Supervisor:
                 began = time.monotonic()
                 proc = subprocess.Popen(self.runner(host, spec), stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                         stderr=subprocess.PIPE, env=env, start_new_session=True)
+                # what identifies the runner if this driver dies before it settles: a resumed run stops it by these
+                # three and nothing else (`interrupted`, WP-08 commit 5a)
+                held["runner"] = runner_identity(proc.pid)
+                self._write(ledger)
         except breakers.Deferred:
             self._defer(stage, call_id, held["item"], host)
             raise
@@ -1773,7 +1782,7 @@ class Supervisor:
     # --- one item: the gate and the one corrective retry ---------------------------------------
 
     def item(self, stage, item, seat, payload, schema, *, case_type, caps, view_window, tranche="broad", stage_check=None,
-             **kwargs):
+             resume=False, **kwargs):
         """An item's attempts through reservation, dispatch and the gate (design §3.2): a failing
         output is retried once with the validation message; a provider signal or a stop is never
         retried here; every attempt is kept. Outcomes: accepted, failed, not_done, deferred,
@@ -1786,8 +1795,18 @@ class Supervisor:
         the item failed when the retry fails too: the item makes two attempts at most, whichever of the gate and the
         stage failed them. It narrows what is accepted and never widens it. What it said of an attempt is written
         beside it (`gate.STAGE_CHECK`), so `gate.accepted` refuses an attempt it failed on every read, and is returned
-        as `checked`, one entry per attempt."""
+        as `checked`, one entry per attempt.
+
+        With `resume`, an earlier attempt `reusable` finds answers the item and nothing is dispatched; the outcome names
+        it as `reused`, and `not_reused` says why each other attempt was not (WP-08 commit 5a)."""
         schema_bytes = packets.schema_bytes(schema) if schema is not None else None
+        not_reused = []
+        if resume:
+            earlier, not_reused = self.reusable(stage, item, seat, payload, schema, kwargs.get("max_output_tokens"), stage_check)
+            if earlier is not None:
+                return {"item": item, "outcome": "accepted", "accepted": str(earlier), "codes": [],
+                        "attempts": [str(earlier)], "checked": [[]], "reused": earlier.name, "not_reused": not_reused}
+        payload_sha256 = packets.sha256_bytes(payload.encode("utf-8"))
         dirs, text, settled, checked = [], payload, None, []
         for attempt in (1, 2):
             try:
@@ -1797,7 +1816,7 @@ class Supervisor:
             packet = packets.build(reservation["call_id"], stage, seat, text, schema_bytes)
             try:
                 call_dir = self.call(stage, seat, packet, schema, reservation=reservation, caps=caps,
-                                     view_window=view_window, **kwargs)
+                                     view_window=view_window, payload_sha256=payload_sha256, **kwargs)
             except breakers.Deferred as exc:
                 return {"item": item, "outcome": "deferred", "why": str(exc), "attempts": [str(d) for d in dirs]}
             dirs.append(call_dir)
@@ -1826,7 +1845,154 @@ class Supervisor:
         return {"item": item, "outcome": "accepted" if settled["ok"] else "failed", "accepted": settled["accepted"],
                 "codes": sorted(set(settled["codes"]) | {c for a in settled["attempts"] for c in a["codes"]}
                                 | {line.split()[0] for lines in checked for line in lines}),
-                "attempts": [str(d) for d in dirs], "checked": checked}
+                "attempts": [str(d) for d in dirs], "checked": checked, "not_reused": not_reused}
+
+    REUSE_FIELDS = (("payload_sha256", "REUSE_PAYLOAD_CHANGED"), ("seat", "REUSE_SEAT_CHANGED"),
+                    ("schema_sha256", "REUSE_SCHEMA_CHANGED"), ("max_output_tokens", "REUSE_CAP_CHANGED"))
+
+    def reusable(self, stage, item, seat, payload, schema, max_output_tokens=None, stage_check=None):
+        """`(call directory, reasons)`: the earlier attempt of `stage`'s `item` this call may answer with instead of a
+        new one (WP-08 commit 5a), or None with why each earlier attempt is not it. An attempt is reused only when it
+        is accepted on the one read of acceptance - `gate.accepted`, judged when the stage judges - and the stage's
+        check still holds of it, and it was made for this payload, seat, schema and output cap: REUSE_NOT_ACCEPTED,
+        REUSE_JUDGE_FAILED, REUSE_PAYLOAD_CHANGED, REUSE_SEAT_CHANGED, REUSE_SCHEMA_CHANGED, REUSE_CAP_CHANGED. The
+        latest attempt is asked first."""
+        schema_bytes = packets.schema_bytes(schema) if schema is not None else None
+        want = {"payload_sha256": packets.sha256_bytes(payload.encode("utf-8")), "seat": seat,
+                "schema_sha256": packets.sha256_bytes(schema_bytes) if schema_bytes is not None else None,
+                "max_output_tokens": max_output_tokens}
+        prefix = f"{self.run_id}-{stage}-{item}-a"
+        calls = self.run_dir / "calls"
+        # confined as `call` confines the directory it returns, so a reused attempt is named by the same path
+        attempts = sorted((int(d.name[len(prefix):]), stagelock.confine(self.run_dir, d))
+                          for d in (calls.iterdir() if calls.is_dir() else ())
+                          if d.name.startswith(prefix) and d.name[len(prefix):].isdigit())
+        reasons = []
+        for _n, call_dir in reversed(attempts):
+            try:
+                gate.accepted(call_dir, judged=stage_check is not None)
+            except Refused as exc:
+                reasons.append(f"REUSE_NOT_ACCEPTED {call_dir.name}: {str(exc).split()[0]}")
+                continue
+            call = records.read_json(call_dir / "call.json")
+            changed = [code for field, code in self.REUSE_FIELDS if call.get(field) != want[field]]
+            if changed:
+                reasons.append(f"{changed[0]} {call_dir.name}: " + ", ".join(
+                    field for field, code in self.REUSE_FIELDS if code in changed) + " differ from this call's")
+                continue
+            judged = list(stage_check(call_dir)) if stage_check is not None else []
+            if judged:
+                reasons.append(f"REUSE_JUDGE_FAILED {call_dir.name}: " + "; ".join(judged))
+                continue
+            return call_dir, reasons
+        return None, reasons
+
+    def interrupted(self, stage):
+        """Close every reservation of `stage` a dead run left open (WP-08 commit 5a). Its caller holds the stage's
+        lock, so no live run of the stage holds one. A reservation never dispatched closes unspent. A dispatched one's
+        runner, when still alive as the pid, start time and process group recorded at its start, is stopped first
+        (`stop.stop_recorded`); one listed with another identity is named and not signalled. It is then charged what
+        its call directory measured (`usage.json`), else what its host reported (below), else its reserved amount as
+        provisional spend, and closes
+        `interrupted`, never a calibration sample, and its cell is removed once its transcripts are kept
+        (`_interrupted_cell`); a host that finished before its driver died reported its own
+        spend in the capture its runner wrote, and that is charged in place of the estimate (`host_reported`). A
+        runner that may still be running - the kill left survivors, or its
+        recorded identity cannot be verified - refuses the resume (RESUME_HOST_UNVERIFIED) before anything is closed,
+        since a new call beside it would spend twice; a reservation marked dispatched with no runner recorded died
+        before its runner started. Returns one row per reservation closed."""
+        with self._lock():
+            ledger = self.ledger()
+            held_open = [dict(r) for r in self._stage(ledger, stage)["reservations"].values() if r["open"]]
+        rows = []
+        for held in held_open:
+            row = {"call_id": held["call_id"], "item": held["item"]}
+            if held.get("dispatched_at") is not None:
+                if held.get("runner"):
+                    row["host"], row["host_detail"] = stop.stop_recorded(held["runner"])
+                else:  # the run died between marking the call dispatched and starting its runner
+                    row["host"], row["host_detail"] = "unrecorded", "no runner was recorded as started"
+            rows.append(row)
+        alive = [r for r in rows if r.get("host") in ("survivors", "unverified")]
+        if alive:
+            raise Refused("RESUME_HOST_UNVERIFIED " + "; ".join(f"{r['call_id']}: {r['host_detail']}" for r in alive)
+                          + ": a call left running by a dead run may still be spending, so nothing is resumed beside it")
+        for held, row in zip(held_open, rows):
+            if held.get("dispatched_at") is None:
+                self.release(stage, held["call_id"], "interrupted")
+                row["charged"] = "unspent"
+                continue
+            call_dir = stagelock.confine(self.run_dir, self.run_dir / "calls" / held["call_id"])
+            reported = host_reported(call_dir)
+            if (call_dir / "usage.json").is_file():  # the driver died after it measured the call
+                totals, row["charged"] = usages.totals(records.read_json(call_dir / "usage.json")), "measured"
+            elif reported is not None:
+                totals, row["charged"] = {"measured": reported, "provisional": 0, "unresolved": 0, "complete": False}, "host_reported"
+            else:
+                totals = {"measured": 0, "provisional": held["amount"], "unresolved": 0, "complete": False}
+                row["charged"] = "reserved"
+            self.charge(stage, held["call_id"], totals, "interrupted")
+            row["cell"] = self._interrupted_cell(call_dir)
+        return rows
+
+    def _interrupted_cell(self, call_dir):
+        """The temporary home a dead run's call left (WP-08 commit 5a), once its runner is stopped or gone: the
+        transcripts it holds are kept in the call's capture, as a settled call's are, and the cell is removed. Only a
+        directory this supervisor's cell root holds under the call's own prefix is ever removed."""
+        call = records.read_json(call_dir / "call.json") if (call_dir / "call.json").is_file() else {}
+        workdir = (call.get("manifest") or {}).get("workdir_path")
+        if not workdir:
+            return "none recorded"
+        cell = pathlib.Path(workdir).parent
+        home = pathlib.Path(self.cell_root or tempfile.gettempdir()).resolve()
+        if cell.resolve().parent != home or not cell.name.startswith(f"{call_dir.name}-"):
+            return f"not removed: {cell} is not a cell of this supervisor's"
+        if not cell.is_dir():
+            return "gone"
+        projects, kept = cell / "config" / "projects", call_dir / "capture" / "transcripts"
+        if projects.is_dir() and not kept.exists():
+            shutil.copytree(projects, kept)
+        shutil.rmtree(cell)
+        return "removed"
+
+
+
+def host_reported(call_dir):
+    """The tokens a call's host itself reported spending when it finished, read from the capture its runner wrote
+    while the driver was alive to start it, or None when the capture holds no finished report (WP-08 commit 5a): a
+    Claude host's closing `result` event in capture/stream.jsonl - the sum of its modelUsage - or the usage record
+    codex-run's capture helper writes at exit (CodexCaptureUsage/v1), only when every request in it is measured. A
+    report short of that is not the call's spend, and its reservation is charged instead."""
+    capture = pathlib.Path(call_dir) / "capture"
+    if (capture / "stream.jsonl").is_file():
+        ended = None
+        for line in records.jsonl_read(capture / "stream.jsonl"):
+            try:
+                event = json.loads(line)
+            except ValueError:
+                continue
+            if isinstance(event, dict) and event.get("type") == "result" and isinstance(event.get("modelUsage"), dict):
+                ended = event
+        if ended is not None:
+            keys = ("inputTokens", "outputTokens", "cacheReadInputTokens", "cacheCreationInputTokens")
+            return sum(int((u or {}).get(k) or 0) for u in ended["modelUsage"].values() for k in keys)
+    if (capture / "usage.json").is_file():
+        reported = records.read_json(capture / "usage.json")
+        rows = reported.get("requests") if reported.get("schema") == "CodexCaptureUsage/v1" else None
+        if rows and all(r.get("state") == "measured" for r in rows):
+            return sum(usages.request_total(r) for r in rows)
+    return None
+
+
+def runner_identity(pid):
+    """What identifies a runner after its driver is gone: its pid, start time and process group from one listing
+    (WP-08 commit 5a). The start time and group are None when the listing is no evidence, and then nothing is ever
+    stopped on its account (`stop.stop_recorded`)."""
+    try:
+        row = stop.ps_table().get(pid)
+    except stop.ListingFailed:
+        row = None
+    return {"pid": pid, "start": row["start"] if row else None, "pgid": row["pgid"] if row else None}
 
 
 # --- dispatch edges: the import closure and its executor sites ----------------------------------
@@ -2833,8 +2999,14 @@ if host == "claude":
         answer = {"verdict": "MAYBE"}
     if spec.get("answers"):  # a stage's golden plan: the first row whose every text the packet holds, its call id filled in
         plan = json.loads(pathlib.Path(spec["answers"]).read_text())
-        answer = next((row["answer"] for row in plan if all(text in packet for text in row["match"])), {"unplanned": True})
+        planned = next((row for row in plan if all(text in packet for text in row["match"])), None)
+        answer = planned["answer"] if planned else {"unplanned": True}
         answer = json.loads(json.dumps(answer).replace("<CALL-ID>", call_id))
+        # a row's `hold` (WP-08 commit 5a): the first call it answers writes its call id there and waits to be
+        # killed, as a host does that its driver died under; a later call of it answers
+        if planned and planned.get("hold") and not os.path.exists(planned["hold"]):
+            pathlib.Path(planned["hold"]).write_text(call_id)
+            time.sleep(120)
     structured = answer if schema is not None else None
     result = {**base, "subtype": "success", "is_error": False, "terminal_reason": "completed", "api_error": None,
               "api_error_status": None, "structured_output": structured}
@@ -3229,6 +3401,151 @@ def self_test(scratch=None):
     control("an-attempt-its-stage-check-failed-is-never-read-as-accepted",
             str(refusal(gate.accepted, first_dir) or "").startswith("STAGE_CHECK_FAILED")
             and str(refusal(gate.accepted, first_dir, True) or "").startswith("STAGE_CHECK_FAILED"), f"{judged_out}")
+    # WP-08 commit 5a: on a resume an accepted attempt answers its item again, only when it was made for this call
+    def holds(call_dir):
+        return []
+    asked_again = dict(case_type="judge", caps=caps, view_window=False, stage_check=holds, resume=True, max_output_tokens=4096)
+    first_r = sup.item("S6", "resumable", judge, "Is the rule present?\n", verdict_schema, **asked_again)
+    calls_before = sorted(p.name for p in (d / "calls").iterdir())
+    again_r = sup.item("S6", "resumable", judge, "Is the rule present?\n", verdict_schema, **asked_again)
+    control("resume-reuses-the-accepted-attempt-made-for-this-call-and-dispatches-nothing",
+            first_r["outcome"] == "accepted" and again_r.get("reused") == pathlib.Path(first_r["accepted"]).name
+            and again_r["accepted"] == first_r["accepted"] and sorted(p.name for p in (d / "calls").iterdir()) == calls_before,
+            f"{first_r} {again_r}")
+    for label, change, code in (("payload", {"payload": "Is the rule absent?\n"}, "REUSE_PAYLOAD_CHANGED"),
+                                ("seat", {"seat": luna}, "REUSE_SEAT_CHANGED"),
+                                ("schema", {"schema": {**verdict_schema, "title": "another"}}, "REUSE_SCHEMA_CHANGED"),
+                                ("output-cap", {"cap": 2048}, "REUSE_CAP_CHANGED")):
+        asked = {"payload": "Is the rule present?\n", "seat": judge, "schema": verdict_schema, "cap": 4096, **change}
+        found, why = sup.reusable("S6", "resumable", asked["seat"], asked["payload"], asked["schema"], asked["cap"], holds)
+        control(f"resume-does-not-reuse-when-the-{label}-changed-and-names-it",
+                found is None and any(w.startswith(code) for w in why), f"{found} {why}")
+    found, why = sup.reusable("S6", "resumable", judge, "Is the rule present?\n", verdict_schema, 4096,
+                              lambda call_dir: ["SET_MISMATCH planted"])
+    control("resume-does-not-reuse-an-attempt-the-stage-check-no-longer-holds-of",
+            found is None and any(w.startswith("REUSE_JUDGE_FAILED") for w in why), f"{found} {why}")
+    found, why = sup.reusable("S6", "checked-no", judge, "Is the rule present?\n", verdict_schema, 4096, holds)
+    control("resume-never-reuses-an-attempt-its-recorded-stage-check-failed",
+            found is None and len(why) == 2 and all(w.startswith("REUSE_NOT_ACCEPTED") and "STAGE_CHECK_FAILED" in w for w in why),
+            f"{found} {why}")
+    unjudged_r = sup.item("S6", "unjudged", judge, "Is the rule present?\n", verdict_schema, case_type="judge", caps=caps,
+                          view_window=False, max_output_tokens=4096)
+    found, why = sup.reusable("S6", "unjudged", judge, "Is the rule present?\n", verdict_schema, 4096, holds)
+    control("resume-never-reuses-an-attempt-no-stage-check-judged-when-the-stage-judges",
+            unjudged_r["outcome"] == "accepted" and found is None
+            and any(w.startswith("REUSE_NOT_ACCEPTED") and "STAGE_CHECK_MISSING" in w for w in why), f"{found} {why}")
+    changed_r = sup.item("S6", "resumable", judge, "Is the rule absent?\n", verdict_schema, **asked_again)
+    control("resume-dispatches-a-new-attempt-when-none-is-reusable-and-says-why",
+            changed_r["outcome"] == "accepted" and changed_r.get("reused") is None and changed_r["accepted"].endswith("-a2")
+            and any(w.startswith("REUSE_PAYLOAD_CHANGED") for w in changed_r["not_reused"]), f"{changed_r}")
+
+    # WP-08 commit 5a: what a dead run left open is closed by the next, and a runner it left alive is stopped by the
+    # identity recorded at its start. Every process here is one this suite starts, so a reverted check signals only them.
+    def sleeper():
+        return subprocess.Popen([sys.executable, "-c", "import time; time.sleep(300)"], stdin=subprocess.DEVNULL,
+                                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+    # `ps` lists a start time to the second, so the process whose pid is planted with another's start time is started
+    # a second apart from it: two started within one second would read as one identity
+    second_p = sleeper()
+    time.sleep(1.2)
+    orphan_p, third_p = sleeper(), sleeper()
+    time.sleep(0.3)
+    control("the-fixture-processes-of-the-identity-controls-have-distinct-start-times",
+            runner_identity(second_p.pid)["start"] != runner_identity(orphan_p.pid)["start"],
+            f"{runner_identity(second_p.pid)} {runner_identity(orphan_p.pid)}")
+    left_open = {name: sup.reserve("S9", name, judge, "judge")["call_id"]
+                 for name in ("never-sent", "sent-unmeasured", "sent-measured", "sent-alive", "sent-reused-pid",
+                              "sent-host-reported", "sent-codex-reported", "sent-codex-unresolved")}
+    measured_dir = d / "calls" / left_open["sent-measured"]
+    measured_dir.mkdir(parents=True)
+    shutil.copy(pathlib.Path(first_r["accepted"]) / "usage.json", measured_dir / "usage.json")
+    # a host that finished before its driver died: its runner's capture, without the usage record the driver writes
+    reported_dir = d / "calls" / left_open["sent-host-reported"]
+    shutil.copytree(pathlib.Path(first_r["accepted"]) / "capture", reported_dir / "capture")
+    for name, rows in (("sent-codex-reported", [{"id": "r1", "state": "measured", "input": 900, "output": 40,
+                                                 "cache_read": 60, "cache_creation": 0}]),
+                       ("sent-codex-unresolved", [{"id": "r1", "state": "measured", "input": 900, "output": 40,
+                                                   "cache_read": 60, "cache_creation": 0},
+                                                  {"id": "r2", "state": "unresolved", "input": None, "output": None,
+                                                   "cache_read": None, "cache_creation": None}])):
+        (d / "calls" / left_open[name] / "capture").mkdir(parents=True)
+        (d / "calls" / left_open[name] / "capture" / "usage.json").write_text(
+            json.dumps({"schema": "CodexCaptureUsage/v1", "requests": rows}), encoding="utf-8")
+    with sup._lock():
+        planted_ledger = sup.ledger()
+        held_rows = sup._stage(planted_ledger, "S9")["reservations"]
+        for name in ("sent-unmeasured", "sent-measured", "sent-alive", "sent-reused-pid", "sent-host-reported",
+                     "sent-codex-reported", "sent-codex-unresolved"):
+            held_rows[left_open[name]]["dispatched_at"] = clock[0]
+        held_rows[left_open["sent-alive"]]["runner"] = runner_identity(orphan_p.pid)
+        # a pid whose recorded start time is another process's: the pid since reused by another program
+        held_rows[left_open["sent-reused-pid"]]["runner"] = {**runner_identity(second_p.pid),
+                                                            "start": runner_identity(orphan_p.pid)["start"]}
+        sup._write(planted_ledger)
+    samples_before = list(sup.calibration().get(class_key("S9", judge, "judge"), {}).get("samples", []))
+    try:
+        closed_rows = {r["call_id"]: r for r in sup.interrupted("S9")}
+    except Refused as exc:
+        closed_rows = {"refused": {"why": str(exc)}}
+    after_rows = sup.ledger()["stages"]["S9"]["reservations"]
+
+    def closed_as(name):
+        return (closed_rows.get(left_open[name], {}).get("charged"), after_rows[left_open[name]]["open"],
+                after_rows[left_open[name]]["outcome"])
+    control("interrupted-closes-a-reservation-never-dispatched-unspent",
+            set(closed_rows) == set(left_open.values())
+            and closed_as("never-sent") == ("unspent", False, "interrupted") and "spent" not in after_rows[left_open["never-sent"]],
+            f"{closed_rows}")
+    control("interrupted-charges-a-dispatched-call-its-reserved-amount-when-nothing-was-measured",
+            closed_as("sent-unmeasured") == ("reserved", False, "interrupted")
+            and after_rows[left_open["sent-unmeasured"]]["spent"]["provisional"] == after_rows[left_open["sent-unmeasured"]]["amount"],
+            f"{closed_rows} {after_rows[left_open['sent-unmeasured']]}")
+    control("interrupted-charges-what-the-call-directory-measured",
+            closed_as("sent-measured") == ("measured", False, "interrupted")
+            and after_rows[left_open["sent-measured"]]["spent"] == usages.totals(records.read_json(measured_dir / "usage.json")),
+            f"{closed_rows} {after_rows[left_open['sent-measured']]}")
+    live_spent = usages.totals(records.read_json(pathlib.Path(first_r["accepted"]) / "usage.json"))["measured"]
+    control("interrupted-charges-what-a-finished-claude-host-reported-in-its-capture",
+            closed_as("sent-host-reported") == ("host_reported", False, "interrupted")
+            and after_rows[left_open["sent-host-reported"]]["spent"]["measured"] == live_spent
+            and after_rows[left_open["sent-host-reported"]]["spent"]["provisional"] == 0,
+            f"{closed_rows} {after_rows[left_open['sent-host-reported']]} live={live_spent}")
+    control("interrupted-charges-what-a-finished-codex-capture-measured-and-only-when-all-of-it-is-measured",
+            closed_as("sent-codex-reported") == ("host_reported", False, "interrupted")
+            and after_rows[left_open["sent-codex-reported"]]["spent"]["measured"] == 1000
+            and closed_as("sent-codex-unresolved") == ("reserved", False, "interrupted"),
+            f"{closed_rows}")
+    try:
+        orphan_code = orphan_p.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        orphan_code = None
+    control("interrupted-stops-the-runner-a-dead-run-left-alive-by-its-recorded-pid-start-and-group",
+            closed_rows.get(left_open["sent-alive"], {}).get("host") == "stopped" and orphan_code is not None,
+            f"{closed_rows} exit={orphan_code}")
+    control("interrupted-names-a-runner-listed-with-another-identity-and-signals-nothing",
+            closed_rows.get(left_open["sent-reused-pid"], {}).get("host") == "identity_mismatch" and second_p.poll() is None,
+            f"{closed_rows} second={second_p.poll()}")
+    control("an-interrupted-call-is-never-a-calibration-sample",
+            sup.calibration().get(class_key("S9", judge, "judge"), {}).get("samples", []) == samples_before,
+            f"{samples_before}")
+    unverified = sup.reserve("S9", "sent-unverified", judge, "judge")["call_id"]
+    with sup._lock():
+        planted_ledger = sup.ledger()
+        held_rows = sup._stage(planted_ledger, "S9")["reservations"]
+        held_rows[unverified].update(dispatched_at=clock[0], runner={"pid": third_p.pid, "start": None, "pgid": None})
+        sup._write(planted_ledger)
+    control("interrupted-refuses-the-resume-while-a-runner-it-cannot-verify-may-still-run",
+            str(refusal(sup.interrupted, "S9") or "").startswith("RESUME_HOST_UNVERIFIED")
+            and sup.ledger()["stages"]["S9"]["reservations"][unverified]["open"] and third_p.poll() is None,
+            f"{refusal(sup.interrupted, 'S9')}")
+    for proc in (orphan_p, second_p, third_p):
+        if proc.poll() is None:
+            proc.kill()
+        proc.wait(timeout=10)
+    with sup._lock():
+        planted_ledger = sup.ledger()
+        sup._stage(planted_ledger, "S9")["reservations"][unverified].update(open=False, outcome="interrupted")
+        sup._write(planted_ledger)
     plan = scratch / "answers.json"
     plan.write_text(json.dumps([{"match": ["no such text"], "answer": {"verdict": "PRESENT", "why": "wrong row"}},
                                 {"match": ["Is the rule", "present?"], "answer": {"verdict": "UNCLEAR", "why": "<CALL-ID>"}}]))
@@ -6336,7 +6653,9 @@ def self_test(scratch=None):
         "RUNNER_REALIZATION_MISMATCH",
         # plan WP-03's adapter interface: the producing profile is Claude's and reads one declared directory;
         # every Claude call carries its stage's output-token cap (lead decision, WP-02 review round 9)
-        "USE_REFUSED", "CAP_UNDECLARED"}
+        "USE_REFUSED", "CAP_UNDECLARED",
+        # WP-08 commit 5a: a resume never dispatches beside a call a dead run may have left running
+        "RESUME_HOST_UNVERIFIED"}
     # design §3.2 (accepted, failed with every attempt kept) and §13.2 (deferred, not done, budget_stopped)
     outcomes = {"accepted", "failed", "deferred", "not_done", "budget_stopped"}
     source = pathlib.Path(__file__).read_text(encoding="utf-8")

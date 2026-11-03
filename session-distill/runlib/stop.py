@@ -300,6 +300,45 @@ def stop_tree(proc, sampler, clock=time.time, settle_s=0.3, freeze_wait_s=1.0, _
     return record
 
 
+def stop_recorded(identity, settle_s=2.0):
+    """Stop what a dead driver left running (WP-08 commit 5a): the process group of the runner whose `identity`
+    dispatch recorded when it started it (`{pid, start, pgid}`). It is signalled only when a fresh listing shows the
+    process at `pid` with the recorded start time, in the recorded group, and leading it, as dispatch starts every
+    runner (start_new_session); a pid since reused by another program, a group that is not the runner's, or an identity
+    recorded in part is never signalled. Every member of the group is SIGKILLed, each only while its own start time is
+    the one listed, and the kill is verified. Returns `(outcome, detail)`: `stopped`, `survivors`, `gone` (no such
+    process), `identity_mismatch` (named, nothing signalled) or `unverified` (no listing, or an identity not recorded
+    whole: nothing signalled)."""
+    pid, start, pgid = identity.get("pid"), identity.get("start"), identity.get("pgid")
+    if not isinstance(pid, int) or not isinstance(pgid, int) or not start or pgid in (0, 1) or pgid == os.getpgrp():
+        return "unverified", f"the runner's identity was not recorded whole: {identity}"
+    try:
+        rows = ps_table()
+    except ListingFailed as exc:
+        return "unverified", f"no listing to verify the runner against ({exc})"
+    row = rows.get(pid)
+    if row is None:
+        return "gone", f"pid {pid} is not listed"
+    differs = [name for name, want in (("start", start), ("pgid", pgid)) if row[name] != want]
+    if not differs and pid != pgid:
+        differs = ["group leader"]
+    if differs:
+        return "identity_mismatch", f"pid {pid} is listed with another {', '.join(differs)} than the runner recorded"
+    members = {p: r for p, r in rows.items() if r["pgid"] == pgid and p != os.getpid()}
+    _signal(rows, members, signal.SIGKILL)
+    deadline, left = time.monotonic() + settle_s, list(members)
+    while left and time.monotonic() < deadline:
+        time.sleep(0.05)
+        try:
+            after = ps_table()
+        except ListingFailed:
+            continue
+        left = [p for p, r in members.items() if same(after, p, r["start"]) and after[p]["stat"][:1] != "Z"]
+    if left:
+        return "survivors", f"pids {sorted(left)} of group {pgid} outlived the kill"
+    return "stopped", f"group {pgid}: {len(members)} processes"
+
+
 def problem_codes(source, function=CONTRACT["predicate"], sink="problems"):
     """The codes `function` can report: the leading word of every f-string it appends to `sink`
     (the implemented branch set, read from code; monitor.py reads its boundary with it too)."""
@@ -739,6 +778,55 @@ def self_test():
             p.wait(timeout=5)
         except subprocess.TimeoutExpired:
             pass
+
+    # ---- WP-08 commit 5a: what a dead driver left running is stopped only when it is the runner recorded. Every
+    # process here is one this suite started, so a reverted check can only ever signal one of them.
+    def identity_of(pid):
+        row = ps_table().get(pid)
+        return {"pid": pid, "start": row["start"] if row else None, "pgid": row["pgid"] if row else None}
+
+    run_a, kid_a, sampler_a = launch()
+    sampler_a.halt.set()
+    time.sleep(1.2)  # `ps` lists a start time to the second: B's must not read as A's
+    run_b, kid_b, sampler_b = launch()
+    sampler_b.halt.set()
+    run_c, _kid_c, sampler_c = launch()
+    sampler_c.halt.set()
+    recorded_a, recorded_b, recorded_c = identity_of(run_a.pid), identity_of(run_b.pid), identity_of(run_c.pid)
+    kid_row_a = ps_table().get(kid_a, {})
+    control("stop_recorded: the fixture runners have distinct start times", recorded_a["start"] != recorded_b["start"],
+            f"{recorded_a} {recorded_b}")
+    outcome_a = stop_recorded(recorded_a)
+    try:  # the runner here is this suite's child, so its zombie is reaped here, as init reaps a dead driver's
+        run_a.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        pass
+    time.sleep(0.2)
+    listed = ps_table()
+    control("stop_recorded: the runner recorded, at its pid with its start time and group, is stopped with its group",
+            outcome_a[0] == "stopped" and not same(listed, run_a.pid, recorded_a["start"])
+            and not same(listed, kid_a, kid_row_a.get("start")), f"{outcome_a}")
+    # a pid and group no system hands out, so that a reverted check here has nothing it could signal: the stopped
+    # runner's own pid may already be another program's
+    nobody = {"pid": 2 ** 30 + 7, "start": recorded_a["start"], "pgid": 2 ** 30 + 7}
+    gone = stop_recorded(nobody)
+    control("stop_recorded: a runner no longer listed is named gone", gone[0] == "gone", f"{gone}")
+    for label, planted in (("another start time at its pid", {**recorded_b, "start": recorded_a["start"]}),
+                           ("another process group", {**recorded_b, "pgid": recorded_c["pgid"]}),
+                           # its recorded group is its own pid, so it reads as leading it: only the listed group differs
+                           ("a process listed in another group than the one recorded", {**identity_of(kid_b), "pgid": kid_b}),
+                           ("a member that does not lead its group", {**identity_of(kid_b), "pgid": recorded_b["pgid"]})):
+        outcome = stop_recorded(planted)
+        listed = ps_table()
+        control(f"stop_recorded: {label} is named and nothing is signalled",
+                outcome[0] == "identity_mismatch" and same(listed, run_b.pid, recorded_b["start"])
+                and same(listed, run_c.pid, recorded_c["start"]), f"{outcome}")
+    outcome = stop_recorded({**recorded_b, "start": None})
+    control("stop_recorded: an identity recorded in part is unverified and nothing is signalled",
+            outcome[0] == "unverified" and same(ps_table(), run_b.pid, recorded_b["start"]), f"{outcome}")
+    for proc in (run_a, run_b, run_c):
+        cleanup(group(proc.pid))
+        proc.wait(timeout=10)
 
     # ---- r4 R1: this runner's own `__main__` boundary, DRIVEN rather than read out of the source.
     # It was a `try` inside the `if __name__` block that no control could enter.

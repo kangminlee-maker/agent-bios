@@ -23,7 +23,9 @@ record keeps the entry's own role. A quote that does not locate drops
 every claim citing it, and an event left with no claim, and the window's read record lists each drop with its code
 (QUOTE_MISMATCH, QUOTE_AMBIGUOUS, ...): the claim is never repaired. A stored claim keeps its fact, interpretation
 and uncertainty as answered, with the located evidence ids and an id derived from its window; claim files are
-append-only, and `stored_claims` refuses a line whose digest the read records do not hold (CLAIM_IMMUTABLE).
+append-only and hold each claim once - a line already there is not written again, and a claim written under an id the
+file holds with other content is refused where it would be written (CLAIM_IMMUTABLE) - and `stored_claims` refuses a
+line whose digest the read records do not hold (CLAIM_IMMUTABLE).
 
 An `expand` decision is executed by `views.expand`, and the expansion windows are read with the same template; a
 `skip` is logged by `views.record_decision`. An overlap row is credited only through the window of the same view
@@ -56,7 +58,8 @@ no shard resolves by the last ends `unresolved`; so does one no claim may join, 
 (STITCH_OVER_BOUND when one row fits no shard). The decided outcome of each event of this reading is appended to its
 file's event store with `stitched_from` naming the claims that resolved it, and a carried event the stitch resolved gets
 a line of its own there, naming its origin (`carried_from`) and no claim of its own. The store is append-only like the
-claims' (EVENT_IMMUTABLE), and `current_events` is the one reader of an event's current state. A unit is processed when
+claims' (EVENT_IMMUTABLE, refused where it would be written as where it is read: one line per event for its reading
+and one for each stitch's outcome), and `current_events` is the one reader of an event's current state. A unit is processed when
 its reading finished and every stitch call was accepted; then its readings credit what each file owes the window, its
 unresolved events are handed on as pending events of its result, at their first record and window, and the earlier
 runs' events it resolved as resolved events. A stitch call the gate and the check refused twice decided nothing: no
@@ -74,7 +77,8 @@ their retrieval terms are not shown, and the full-source search with them forces
 a clipped record they match (`searched`, plan amendment row 10), so an answer skipping one fails the stage's check. An
 observation is kept when its quotes locate, named by its view and entry; when every unit is read, each gets the basis
 code sets over the scope - every declared transcript source and every session of the window, a unit with every member
-(`observation_scope`, plan amendment row 5) - and is appended to `observations/<window>.jsonl`, and each due
+(`observation_scope`, plan amendment row 5) - and is written to `observations/<window>.jsonl`, replaced whole as the
+stage's end judgement over its scope, and each due
 observation's resolution is derived from them (`measures.derive_resolution`) into `observations/resolutions.json`,
 which counts apart the resolutions left pending only because the basis is incomplete and names what made it so.
 `stored_resolutions` believes that file only after deriving it again (INSTANCE_IMMUTABLE, RESOLUTION_DRIFT). Rendering
@@ -82,6 +86,13 @@ and the ledger's close are WP-21's (plan amendment row 6).
 
 The reader takes the declaration S3 was admitted against (`records.StageRun.declaration`), and refuses a view whose
 windows were cut for another output cap than the one its calls declare (WINDOW_CAP_MISMATCH).
+
+A run is resumed by running S3 again over its directory (WP-08 commit 5a): a reservation of S3 still open when the
+stage's lock is taken is a dead run's and is closed first (`dispatch.Supervisor.interrupted`, which stops the host it
+left running only by the identity recorded at its start), each window and stitch is answered again by the attempt it
+accepted when that attempt was made for the same payload, seat, schema and output cap (`Supervisor.reusable`), and the
+stores' write-once rules keep what it kept: run twice, a run directory's stores are the same bytes, and a resumed run's
+are a run read in one go's but for the call id of what it read again.
 
 Refused by name: OVERLAP_OWNER_MISSING, OVERLAP_INTERVAL_UNSHOWN, WINDOWLESS_VIEW, VIEW_DRIFT, CLAIM_IMMUTABLE,
 EVENT_IMMUTABLE, WINDOW_CAP_MISMATCH, STITCH_OVER_BOUND, LEDGER_UNREADABLE, LEDGER_BASE_STALE, LEDGER_INVALID,
@@ -99,13 +110,16 @@ import json
 import pathlib
 import re
 import shutil
+import subprocess
 import sys
 import tempfile
+import time
 
 if __package__ in (None, ""):  # run as a script: put session-distill/ on the import path
     sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
+HERE = pathlib.Path(__file__).resolve().parents[1]  # session-distill/: the self-test's child runs this file from it
 from runlib import bound, census, claims as claim_records, coverage, declare, evidence, gate, ledger as ledger_records, measures, packet, \
-    records, sources, stagelock, views
+    records, sources, stagelock, stop, views
 from runlib.records import Refused
 
 STAGE = declare.VIEW_WINDOW_STAGE
@@ -287,17 +301,50 @@ def call_id_of(call_dir):
 
 # ---- what an accepted answer leaves ------------------------------------------------------------
 
-def append_lines(run_dir, rel, rows):
-    """Append records to `rel` and return each line's sha256: the claim and event stores are append-only."""
+def append_lines(run_dir, rel, rows, key=None, held=None, kind=None):
+    """Append records to `rel` and return each line's sha256. The claim and event stores are append-only and hold each
+    record once (WP-08 commit 5a): a row whose line is there already is not written again, so a resumed run keeps what
+    it kept and a run repeated over its own directory leaves every store as it was; a row whose identity `key(row)` is
+    there with other content is refused before anything of the batch is written - CLAIM_IMMUTABLE or EVENT_IMMUTABLE
+    by `kind` - so a store never holds two versions of one record. `held(lines)` names the identities already there."""
     path = stagelock.confine(run_dir, pathlib.Path(run_dir) / rel)
     path.parent.mkdir(parents=True, exist_ok=True)
-    digests = []
+    lines = [line for line in records.jsonl_read(path) if line.strip()] if path.is_file() else []
+    present = {records.sha256_bytes(line.encode("utf-8")) for line in lines}
+    taken = set(held(lines)) if held is not None else set()
+    out, new = [], []
+    for row in rows:
+        line = json.dumps(row, sort_keys=True, ensure_ascii=False)
+        digest = records.sha256_bytes(line.encode("utf-8"))
+        out.append(digest)
+        if digest in present:
+            continue
+        ident = key(row) if key is not None else None
+        if ident is not None and ident in taken:
+            code, why = IMMUTABLE[kind]
+            raise Refused(f"{code} {rel}: {ident!r} is stored already with other content; {why}")
+        taken.add(ident)
+        present.add(digest)
+        new.append(line)
     with open(path, "a", encoding="utf-8") as handle:
-        for row in rows:
-            line = json.dumps(row, sort_keys=True, ensure_ascii=False)
+        for line in new:
             handle.write(line + "\n")
-            digests.append(records.sha256_bytes(line.encode("utf-8")))
-    return digests
+    return out
+
+
+def claim_ids_of(lines):
+    return {json.loads(line)["claim_id"] for line in lines}
+
+
+def event_phases(lines):
+    """`{(event_id, phase)}` of an event store's lines: an event's first line is its reading's (`read`), unless it is the
+    line of an event carried from an earlier run (`carried_from`); every other line of it is its stitch's (`stitch`)."""
+    seen, out = set(), set()
+    for line in lines:
+        row = json.loads(line)
+        out.add((row["event_id"], "read" if row["event_id"] not in seen and "carried_from" not in row else "stitch"))
+        seen.add(row["event_id"])
+    return out
 
 
 def keep(run_dir, name, where, window, call_id, answer):
@@ -356,8 +403,10 @@ def keep(run_dir, name, where, window, call_id, answer):
         if problems:
             raise Refused("EVENT_INVALID " + "; ".join(problems))
         events.append(record)
-    digests = append_lines(run_dir, f"claims/{name}.jsonl", stored)
-    event_digests = append_lines(run_dir, f"events/{name}.jsonl", events)
+    digests = append_lines(run_dir, f"claims/{name}.jsonl", stored, key=lambda r: r["claim_id"], held=claim_ids_of,
+                           kind="claims")
+    event_digests = append_lines(run_dir, f"events/{name}.jsonl", events, key=lambda r: (r["event_id"], "read"),
+                                 held=event_phases, kind="events")
     held = {"claims": cited, "events": [{"record": r, "role": owned[r["at_record"]]["window_role"]} for r in events],
             "observations": observed}
     return {"claims": [{"claim_id": r["claim_id"], "sha256": d} for r, d in zip(stored, digests)],
@@ -670,14 +719,14 @@ class Reader:
         return self.supervisor.item(
             STAGE, item, self.seat, payload(window, rows, expected), self.schema, case_type=CASE, caps=self.caps,
             view_window=True, tranche=self.tranche, max_output_tokens=self.cap,
-            stage_check=judge(window, rows, [e["expected_id"] for e in expected]))
+            stage_check=judge(window, rows, [e["expected_id"] for e in expected]), resume=True)
 
     def window(self, name, where, item, doc, rows):
         """Read one window and keep its answer; returns its read record and, when accepted, `(answer, call id, what the
         stitch reads of it)`."""
         out = self.call(item, doc, rows, self.due)
         row = {"window": where, "item": item, "outcome": out["outcome"], "codes": out.get("codes", []),
-               "attempts": attempts_of(out)}
+               "attempts": attempts_of(out), "reused": out.get("reused"), "not_reused": out.get("not_reused", [])}
         if out["outcome"] != "accepted":
             return row, None
         answer = gate.accepted(out["accepted"], judged=True)
@@ -849,7 +898,7 @@ class Reader:
                 item = f"{views.safe_name(unit)}-s{g + 1}-{k + 1}"
                 out = self.supervisor.item(STAGE, item, self.seat, text_of([ev["id"] for ev in live], shard), self.stitch_schema,
                                            case_type=STITCH_CASE, caps=self.caps, view_window=True, tranche=self.tranche,
-                                           max_output_tokens=self.cap, stage_check=stitch_judge(listed))
+                                           max_output_tokens=self.cap, stage_check=stitch_judge(listed), resume=True)
                 call = {"shard": [g + 1, k + 1], "item": item, "outcome": out["outcome"], "codes": out.get("codes", []),
                         "events": [ev["id"] for ev in live], "claims": len(shard), "attempts": attempts_of(out)}
                 calls.append(call)
@@ -900,8 +949,9 @@ class Reader:
                 raise Refused("EVENT_INVALID " + "; ".join(problems))
             appended[ev["name"]].append((resolution, line))
         for name, pairs in sorted(appended.items()):
-            for (resolution, _line), digest in zip(pairs, append_lines(self.run_dir, f"events/{name}.jsonl",
-                                                                       [line for _r, line in pairs])):
+            for (resolution, _line), digest in zip(pairs, append_lines(
+                    self.run_dir, f"events/{name}.jsonl", [line for _r, line in pairs],
+                    key=lambda r: (r["event_id"], "stitch"), held=event_phases, kind="events")):
                 resolution.update(name=name, sha256=digest)
         return record, outcomes, pending, resolved
 
@@ -968,6 +1018,8 @@ def run(run_dir, supervisor, tranche="broad", stitch_bound=None):
                                             {"artifact": "coverage.json", "producer_stage": "S1"}]) as stage:
         due = due_observations(pinned_ledger(stage.declaration), run_dir.resolve().name, stage.declaration["window"])
         reader = Reader(run_dir, supervisor, stage.declaration, tranche, due)
+        # S3's lock is held, so a reservation of S3 still open is a dead run's: closed, its runner stopped if alive
+        interrupted = supervisor.interrupted(STAGE)
         manifest = records.read_json(run_dir / "views.json")
         document = census.load(run_dir)
         rows = census.rows(document)
@@ -984,7 +1036,7 @@ def run(run_dir, supervisor, tranche="broad", stitch_bound=None):
         bound_bytes = min(bound_bytes, stitch_bound) if stitch_bound is not None else bound_bytes
         results, summary = {}, {"units": {}, "windowless": [], "overlap_not_owed": 0, "dropped": 0,
                                 "stitch": collections.Counter()}
-        observed, complete, forced_by_search = {}, {}, collections.Counter()
+        observed, complete, forced_by_search, reads = {}, {}, collections.Counter(), []
 
         def work(item):
             unit = item["id"]
@@ -1018,6 +1070,7 @@ def run(run_dir, supervisor, tranche="broad", stitch_bound=None):
                                                         status == "read_complete", window_id, f["seen"]) for f in read]}
             records.write_json(run_dir, run_dir / "read" / f"{views.safe_name(unit)}.json",
                                {"unit": unit, "status": status, "reasons": reasons, "files": read, "stitch": stitched})
+            reads.extend(read)
             summary["units"][unit] = status
             summary["windowless"] += [{"transcript": f["transcript"], "reason": f["windowless"]} for f in read if f["windowless"]]
             summary["overlap_not_owed"] += sum(f["overlap"]["not_owed"] for f in read)
@@ -1047,7 +1100,8 @@ def run(run_dir, supervisor, tranche="broad", stitch_bound=None):
             "incomplete_sessions": len(follow["incomplete"]["sessions"]),
             "incomplete_sources": len(follow["incomplete"]["sources"]),
             "search_forced": sum(forced_by_search.values())}
-        summary.update(window=window_id, declaration_seq=reader.declaration["declaration_seq"], quarantined=outcome["quarantined"], accounted=flags["accounted"], fully_read=flags["fully_read"],
+        summary.update(interrupted=interrupted, reused=sum(1 for f in reads for w in f["windows"] + f["expansions"] if w.get("reused")),
+                       window=window_id, declaration_seq=reader.declaration["declaration_seq"], quarantined=outcome["quarantined"], accounted=flags["accounted"], fully_read=flags["fully_read"],
                        statuses=dict(collections.Counter(summary["units"].values())), stitch=dict(summary["stitch"]))
         records.write_json(run_dir, run_dir / "read.json", summary)
         stage.output("read.json")
@@ -1096,7 +1150,11 @@ def follow_up(run_dir, window_id, due, instances, scope, causes):
         if problems:
             raise Refused("OBSERVATION_INVALID " + "; ".join(problems))
     rel = f"observations/{views.safe_name(window_id)}.jsonl"
-    digests = append_lines(run_dir, rel, rows)
+    lines = [json.dumps(row, sort_keys=True, ensure_ascii=False) for row in rows]
+    # the basis is the stage's end judgement over the whole scope, which a resumed run may revise, so the file is that
+    # judgement replaced whole (through a temporary and a rename), not a log (WP-08 commit 5a)
+    records.write_text(run_dir, pathlib.Path(run_dir) / rel, "".join(line + "\n" for line in lines))
+    digests = [records.sha256_bytes(line.encode("utf-8")) for line in lines]
     resolutions, held_back = {}, []
     for e in due:
         mine = [r for r in rows if r["expected_id"] == e["expected_id"]]
@@ -1294,14 +1352,23 @@ def fx_reader(root, name, answers_for, expanding=lambda m: False, resolve=lambda
     run_dir = pathlib.Path(made["run_dir"])
     plan = root / f"{name}-plan.json"
     plan.write_text(json.dumps(fx_plan(run_dir, root, answers_for, expanding)), encoding="utf-8")
-    fake = root / "fake_host.py"
-    fake.write_text(dispatch.FAKE_HOST, encoding="utf-8")
-    sup = dispatch.Supervisor(run_dir, cell_root=root, realization="golden")
-    sup.runner = lambda host, spec: [sys.executable, str(fake), host, "clean", json.dumps({**spec, "answers": str(plan)})]
+    (root / "fake_host.py").write_text(dispatch.FAKE_HOST, encoding="utf-8")
+    sup = fx_supervisor(run_dir, root, plan, resolve, first, seen, bad)
     seat = records.read_json(records.run_json_path(run_dir))["seats"][STAGE]
     sup.seed_from({dispatch.class_key(STAGE, seat, CASE): [9000] * 5, dispatch.class_key(STAGE, seat, STITCH_CASE): [9000] * 5})
-    fx_stitcher(sup, plan, resolve, first, seen, bad)
     return run_dir, sup, made
+
+
+def fx_supervisor(run_dir, root, plan, resolve=lambda event, claims: None, first=None, seen=None, bad=lambda item: False):
+    """The golden supervisor of a run `fx_reader` made: its host is `root`'s fake_host.py answering from `plan`. A
+    resumed run makes it again over the same run directory, as a new driver does (WP-08 commit 5a)."""
+    from runlib import dispatch
+    root, plan = pathlib.Path(root), pathlib.Path(plan)
+    fake = root / "fake_host.py"
+    sup = dispatch.Supervisor(run_dir, cell_root=root, realization="golden")
+    sup.runner = lambda host, spec: [sys.executable, str(fake), host, "clean", json.dumps({**spec, "answers": str(plan)})]
+    fx_stitcher(sup, plan, resolve, first, seen, bad)
+    return sup
 
 
 FX_OBSERVED = {"occasion_criteria": "the person asks for a simpler telling of something the agent said",
@@ -2350,6 +2417,153 @@ def self_test():
                 unknown_only.get("resolutions", {}).get("N-1@r0", {}).get("resolution") == "pending"
                 and unknown_only.get("pending_because_incomplete") == [], f"{unknown_only}")
 
+        # commit 5a: the instances are the stage's end judgement, so a second judgement replaces the first whole
+        scratch_r = root / "follow-again"
+        scratch_r.mkdir()
+        guarded(lambda: follow_up(scratch_r, "w1", due_one, [seen_i], scope_full, causes_full), {})
+        again_r = guarded(lambda: follow_up(scratch_r, "w1", due_one, [seen_i], scope_fail, causes_fail), {})
+        read_back = guarded(lambda: stored_resolutions(scratch_r), {})
+        control("5a Q2: a second judgement of a window's instances replaces the first whole, and reads back as its own",
+                again_r.get("basis") == "incomplete" and read_back.get("basis") == "incomplete"
+                and len((scratch_r / "observations" / "w1.jsonl").read_text(encoding="utf-8").splitlines()) == 1,
+                f"{again_r.get('basis')} {read_back}")
+
+        # ---- commit 5a: a run repeated over its own directory, a store written under a taken id, a run resumed after
+        # its driver was killed mid-call. Every process signalled here is one this suite started.
+        def answers_r(where, doc, rows, parts):
+            """4b's plan - every omission expanded, the observations on the person's ask - and a pending event on each
+            window's claim, so every store has lines."""
+            answer = copy.deepcopy(answers_o(where, doc, rows, parts)[0][1])
+            if "/x/" not in where:
+                answer["events"] = [{"event_id": "v1", "kind": "request", "at_record": views.eid(doc["records"][0]),
+                                     "claim_ids": ["c1"], "outcome": "pending",
+                                     "description": "The person asked for a change; its outcome is recorded."}]
+            return [((), answer)]
+
+        def stores(directory):
+            """Every store's bytes by path, the directory's own path written as <RUN>: claims, events, evidence, the
+            observation instances and resolutions, the expansion decisions and the expanded windows."""
+            held_stores = {}
+            for pattern in ("claims/*.jsonl", "events/*.jsonl", "evidence/*.jsonl", "observations/*", "expansions.jsonl",
+                            "views/*/expansion-*.json"):
+                for found in sorted(directory.glob(pattern)):
+                    held_stores[str(found.relative_to(directory))] = found.read_bytes().replace(
+                        str(directory.resolve().parent).encode("utf-8"), b"<RUN>")
+            return held_stores
+
+        def calls_of(directory):
+            return sorted(p.name for p in (directory / "calls").iterdir()) if (directory / "calls").is_dir() else []
+
+        twice_dir, twice_sup, _ = fx_reader(root / "twice", "k", answers_r, expanding=lambda m: True, ledger_doc=fx_ledger("k"))
+        first_twice = guarded(lambda: run(twice_dir, twice_sup), {})
+        first_stores, first_calls = stores(twice_dir), calls_of(twice_dir)
+        second_twice = guarded(lambda: run(twice_dir, twice_sup), {})
+        kinds = {key.split("/")[0] for key in first_stores}
+        control("5a Q2: S3 run twice over one run directory leaves every store byte for byte as the first run left it and "
+                "dispatches no call, each window answered again by the attempt it accepted",
+                {"claims", "events", "evidence", "observations", "expansions.jsonl", "views"} <= kinds
+                and stores(twice_dir) == first_stores and calls_of(twice_dir) == first_calls
+                and first_twice.get("reused") == 0 and second_twice.get("reused", 0) > 0
+                and second_twice.get("interrupted") == [],
+                f"kinds={sorted(kinds)} same={stores(twice_dir) == first_stores} calls={len(first_calls)}->"
+                f"{len(calls_of(twice_dir))} reused={first_twice.get('reused')}/{second_twice.get('reused')}")
+
+        def first_window(directory):
+            """`(name, where, window document, accepted call directory)` of the first accepted window S3 kept."""
+            for unit_path in sorted((directory / "read").glob("*.json")):
+                for f in records.read_json(unit_path)["files"]:
+                    for w in f["windows"]:
+                        if w.get("call_id"):
+                            t = next(t for t in records.read_json(directory / "views.json")["transcripts"] if t["name"] == f["name"])
+                            n = int(w["window"].rsplit("/", 1)[1])
+                            doc = next(d for d in (views.window_doc(directory, t["name"], directory / listed["path"])
+                                                   for listed in t["windows"]) if d["window_n"] == n)
+                            return f["name"], w["window"], doc, directory / "calls" / w["call_id"]
+            return None
+        taken = guarded(lambda: first_window(twice_dir), None)
+        if taken is not None:
+            name_t, where_t, doc_t, call_t = taken
+            answer_t = gate.accepted(call_t, judged=True)
+            before_t = stores(twice_dir)
+            claim_taken = refusal(lambda: keep(twice_dir, name_t, where_t, doc_t, "another-call-a1", answer_t))
+            control("5a Q2: a claim kept again under its id with other content - another call's - is refused where it "
+                    "would be written, and no store changes", claim_taken.startswith("CLAIM_IMMUTABLE")
+                    and stores(twice_dir) == before_t, claim_taken)
+            retold = copy.deepcopy(answer_t)
+            for v in retold["events"]:
+                v["description"] = v["description"] + " Told again."
+            event_taken = refusal(lambda: keep(twice_dir, name_t, where_t, doc_t, call_id_of(call_t), retold))
+            control("5a Q2: an event kept again under its id with other content is refused where it would be written, "
+                    "and no store changes", bool(retold["events"]) and event_taken.startswith("EVENT_IMMUTABLE")
+                    and stores(twice_dir) == before_t, event_taken)
+        else:
+            control("5a Q2: a claim kept again under its id with other content is refused where it would be written, and "
+                    "no store changes", False, "the repeated run kept no window")
+            control("5a Q2: an event kept again under its id with other content is refused where it would be written, "
+                    "and no store changes", False, "the repeated run kept no window")
+
+        # Q5: the same run read in one go, and read by a driver killed while its host holds a window, then resumed
+        one_dir, one_sup, _ = fx_reader(root / "one-go", "k", answers_r, expanding=lambda m: True, ledger_doc=fx_ledger("k"))
+        guarded(lambda: run(one_dir, one_sup), {})
+        kill_root = root / "killed"
+        kill_dir, _unused, _ = fx_reader(kill_root, "k", answers_r, expanding=lambda m: True, ledger_doc=fx_ledger("k"))
+        plan_k, marker = kill_root / "k-plan.json", kill_root / "held"
+        rows_k = json.loads(plan_k.read_text(encoding="utf-8"))
+        one_ledger = guarded(one_sup.ledger, {})
+        in_order = sorted(((r["at"], r["call_id"]) for r in one_ledger.get("stages", {}).get(STAGE, {}).get("reservations", {}).values()), key=lambda x: x[0])
+        window_calls = []
+        for _at, call_id in in_order:
+            packet_text = guarded(lambda: (one_dir / "calls" / call_id / "packet.md").read_text(encoding="utf-8"), "")
+            row_k = next((r for r in rows_k if r["match"] and all(m in packet_text for m in r["match"])
+                          and "resolutions" not in r["answer"]), None)
+            if row_k is not None:
+                window_calls.append((call_id, row_k))
+        held_call, held_row = window_calls[len(window_calls) // 2] if len(window_calls) >= 3 else (None, None)
+        if held_row is not None:
+            held_row["hold"] = str(marker)
+            plan_k.write_text(json.dumps(rows_k), encoding="utf-8")
+        driver = subprocess.Popen([sys.executable, "-I", str(HERE / "runlib" / "stage_read.py"), "--fixture-driver",
+                                   str(kill_dir), str(kill_root), str(plan_k)],
+                                  stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        deadline = time.monotonic() + 180
+        while held_row is not None and not marker.exists() and driver.poll() is None and time.monotonic() < deadline:
+            time.sleep(0.05)
+        reached = marker.exists()
+        driver.kill()  # SIGKILL to this suite's own child, and to nothing else
+        driver.wait(timeout=30)
+        resumed_sup = fx_supervisor(kill_dir, kill_root, plan_k)  # the new driver's supervisor, before it runs
+        killed_ledger = guarded(resumed_sup.ledger, {})
+        left_open = [r for r in killed_ledger.get("stages", {}).get(STAGE, {}).get("reservations", {}).values() if r["open"]]
+        runner = (left_open[0].get("runner") or {}) if len(left_open) == 1 else {}
+        alive_before = guarded(lambda: stop.same(stop.ps_table(), runner["pid"], runner["start"]), False)
+        resumed = guarded(lambda: run(kill_dir, resumed_sup), {})
+        alive_after = guarded(lambda: stop.same(stop.ps_table(), runner["pid"], runner["start"]), True)
+        control("5a Q5: the driver was killed while its host held the middle window, and the host it started outlived it",
+                reached and driver.returncode == -9 and len(left_open) == 1 and alive_before
+                and marker.read_text() == held_call, f"reached={reached} rc={driver.returncode} open={len(left_open)} "
+                f"alive={alive_before} windows={len(window_calls)}")
+        closed_k = (resumed.get("interrupted") or [{}])
+        control("5a Q3/Q4: the resumed run stops the orphaned host by its recorded identity, charges the dead call its "
+                "reservation and removes its cell", len(closed_k) == 1 and closed_k[0].get("host") == "stopped"
+                and closed_k[0].get("charged") == "reserved" and closed_k[0].get("cell") == "removed" and not alive_after
+                and not any(p.name.startswith(f"{held_call}-") for p in kill_root.iterdir()), f"{closed_k} alive={alive_after}")
+        resumed_id = f"{held_call.rpartition('-a')[0]}-a2" if held_call else "-"
+        # the call id is in the lines and in the name of the expanded windows' files, which carry their call
+        renamed = {k.replace(resumed_id, str(held_call)): v.replace(resumed_id.encode("utf-8"), str(held_call).encode("utf-8"))
+                   for k, v in stores(kill_dir).items()}
+        control("5a Q5: the resumed run's stores are the one-go run's but for the call id of the window it read again, "
+                "and it made the one-go run's calls and the killed attempt", bool(renamed) and renamed == stores(one_dir)
+                and stores(kill_dir) != stores(one_dir) and len(calls_of(kill_dir)) == len(calls_of(one_dir)) + 1
+                and resumed.get("reused", 0) > 0,
+                f"same={renamed == stores(one_dir)} calls={len(calls_of(kill_dir))}/{len(calls_of(one_dir))} "
+                f"reused={resumed.get('reused')}")
+        # a host the resume failed to stop is not signalled here: its pid may be another program's by now, and the golden
+        # host ends by itself; the check below names it
+
+    control("5a Q5: nothing this suite started outlives it - its driver, the host the driver left - nor its temporary "
+            "tree", not pathlib.Path(td).exists() and driver.poll() is not None
+            and not guarded(lambda: stop.same(stop.ps_table(), runner["pid"], runner["start"]), True), f"{runner}")
+
     for failure in failures:
         print(f"stage_read --self-test [FAIL] {failure}")
     if failures:
@@ -2358,7 +2572,18 @@ def self_test():
     return 0
 
 
+def fixture_driver(argv):
+    """`--fixture-driver RUN_DIR ROOT PLAN`: the self-test's child, S3 over a golden run `fx_reader` made, driven as
+    a separate process so the self-test can kill its driver mid-call and resume the run (WP-08 commit 5a). It starts
+    no model; its host is the run's golden one."""
+    run_dir, root, plan = (pathlib.Path(a) for a in argv)
+    run(run_dir, fx_supervisor(run_dir, root, plan))
+    return 0
+
+
 if __name__ == "__main__":
+    if sys.argv[1:2] == ["--fixture-driver"] and len(sys.argv) == 5:
+        sys.exit(fixture_driver(sys.argv[2:]))
     if "--self-test" not in sys.argv[1:]:
         sys.exit("usage: stage_read.py --self-test")
     sys.exit(self_test())

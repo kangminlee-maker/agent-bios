@@ -93,6 +93,9 @@ CALL_SCHEMA = _closed(
                   output_reservation={"type": ["integer", "null"]}),
     use={"enum": ["judge", "producing", "authoring"]}, max_output_tokens={"type": ["integer", "null"]},
     runner_refused=_str_or_null,
+    # the sha256 of the payload the item was asked with, before any retry's correction: what makes an earlier accepted
+    # attempt the answer to this call (dispatch `Supervisor.reusable`); optional, a record written before carries none
+    payload_sha256=_str_or_null,
     # the run's server-delivered policy verdict, which the dispatcher hands every hermetic Claude call
     # (D-20261102-252c92); optional, like `bound`: a golden host's call and one recorded before carry none
     server_policy={**_closed(("status", "verdict", "reason"), status=_str_or_null,

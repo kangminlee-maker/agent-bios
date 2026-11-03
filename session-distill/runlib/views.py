@@ -47,7 +47,7 @@ complete* when no span was skipped (`completeness`); `coverage_basis` is the ord
 Failures are named by their first word: ALLOWANCE_UNDECLARED, WINDOW_UNBOUNDED, WINDOW_BOUND_EXCEEDED,
 WINDOW_CAPACITY_EXCEEDED, INPUT_BOUND_EXCEEDED, SOURCE_CHANGED, SOURCE_TAMPERED, SOURCE_UNREADABLE,
 VIEW_NAME_COLLISION, SET_MISMATCH, OVERLAP_MISSING, SPAN_UNION_MISMATCH, ERROR_LINE_DROPPED, EXPANSION_SKIPPED,
-EXPANSION_DECISION_INVALID, EXPANSION_SOURCE_DRIFT, EXPANSION_UNKNOWN. Under the production posture a transcript
+EXPANSION_DECISION_INVALID, EXPANSION_DECISION_CONFLICT, EXPANSION_SOURCE_DRIFT, EXPANSION_UNKNOWN. Under the production posture a transcript
 whose work raises is quarantined under that name and the run goes on (design §4, `records.run_items`).
 
   views.py --self-test
@@ -1388,20 +1388,31 @@ def expand(run_dir, call_id, name, record_id, reason, forced_by="none", omission
 
 
 def record_decision(run_dir, call_id, name, record_id, decision, reason, forced_by="none", omission=None):
-    """Append one decision to `expansions.jsonl`. A skip of a forced record is refused (EXPANSION_SKIPPED)."""
+    """Append one decision to `expansions.jsonl`. A skip of a forced record is refused (EXPANSION_SKIPPED); a call's
+    decision of an omission is written once, and another decision of it by the same call is refused where it would be
+    written (EXPANSION_DECISION_CONFLICT)."""
     if decision not in DECISIONS or forced_by not in FORCED_BY or not str(reason or "").strip():
         raise Refused(f"EXPANSION_DECISION_INVALID {record_id}: decision {decision!r} (expand or skip), forced_by {forced_by!r}, "
                       "and a reason are required")
     if decision == "skip" and forced_by != "none":
         raise Refused(f"EXPANSION_SKIPPED {record_id}: forced by {forced_by}, so it must be expanded")
     path = stagelock.confine(run_dir, pathlib.Path(run_dir) / "expansions.jsonl")
+    # the locator names the OMISSION as well as the record: accounting is by interval, and a decision
+    # that names only the record answers for intervals nobody looked at
+    locator = {"transcript": name, "record_id": record_id, "omission_id": omission}
+    line = json.dumps({"call_id": call_id, "locator": locator, "reason": reason, "decision": decision, "forced_by": forced_by},
+                      sort_keys=True, ensure_ascii=False)
+    # the same decision of the same call again, as a resumed run makes it when its call is reused, is not written
+    # twice, and the same call deciding the same omission otherwise is refused (WP-08 commit 5a); a decision by another
+    # call is another line
+    held = [h for h in path.read_text(encoding="utf-8").splitlines() if h.strip()] if path.is_file() else []
+    if line in held:
+        return
+    if any((d["call_id"], d["locator"]) == (call_id, locator) for d in map(json.loads, held)):
+        raise Refused(f"EXPANSION_DECISION_CONFLICT {record_id}: call {call_id} decided {omission or 'the record'} of "
+                      f"{name} already, otherwise; a call's decision of an omission is written once")
     with open(path, "a", encoding="utf-8") as handle:
-        # the locator names the OMISSION as well as the record: accounting is by interval, and a decision
-        # that names only the record answers for intervals nobody looked at
-        handle.write(json.dumps({"call_id": call_id,
-                                 "locator": {"transcript": name, "record_id": record_id, "omission_id": omission},
-                                 "reason": reason, "decision": decision, "forced_by": forced_by},
-                                sort_keys=True, ensure_ascii=False) + "\n")
+        handle.write(line + "\n")
 
 
 # ---- fixtures ---------------------------------------------------------------------------------
@@ -3629,6 +3640,33 @@ def self_test():
             checks.refused("X r1: a quote of what the overlap cut off is not located in the overlap",
                            lambda: evidence_store.from_view(shown_dir, shown_main["version_sha"], cut_entry, past),
                            "QUOTE_MISMATCH")
+    # WP-08 commit 5a: a call's decision of an omission is written once - again as it was, nothing more; otherwise, refused
+    with tempfile.TemporaryDirectory() as decided:
+        decided_dir = pathlib.Path(decided)
+        omitted = {"name": "v", "record_id": "1/message/content", "omission": "1/message/content@0-9#ab"}
+
+        def decide(call_id, decision, reason):
+            """`written`, or the refusal's code: a reverted rule fails its control by name, not by a traceback."""
+            try:
+                record_decision(decided_dir, call_id, omitted["name"], omitted["record_id"], decision, reason,
+                                omission=omitted["omission"])
+            except Refused as exc:
+                return str(exc).split()[0]
+            return "written"
+
+        def logged():
+            path = decided_dir / "expansions.jsonl"
+            return path.read_bytes() if path.is_file() else b""
+        first_decision = decide("r1/S3/w1", "expand", "read it whole")
+        log_once = logged()
+        checks.expect("5a: a call's decision of an omission made again as it was is not written twice",
+                      (first_decision, decide("r1/S3/w1", "expand", "read it whole"), logged() == log_once,
+                       len(log_once.splitlines())), ("written", "written", True, 1))
+        checks.expect("5a: the same call deciding the same omission otherwise is refused where it would be written",
+                      (decide("r1/S3/w1", "skip", "not worth it"), logged() == log_once),
+                      ("EXPANSION_DECISION_CONFLICT", True))
+        checks.expect("5a: another call's decision of the same omission is another line",
+                      (decide("r1/S3/w2", "skip", "not worth it"), len(logged().splitlines())), ("written", 2))
     if not checks.ran:
         checks.failures.append("the self-test asserted nothing")
     for failure in checks.failures:
