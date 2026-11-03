@@ -3081,9 +3081,9 @@ def claude_run_hermetic(run):
             mark_fail(f"required file missing: {required}")
             return
     seats = json.loads(seats_path.read_text(encoding="utf-8"))["hosts"]["claude"]
-    if seats.get("version") != "2.1.304" or "versions/2.1.304" not in seats.get("path", ""):
+    if seats.get("version") != "2.1.317" or "versions/2.1.317" not in seats.get("path", ""):
         mark_fail(f"seats.json pins claude {seats.get('version')!r} at {seats.get('path')!r}, not the "
-                  f"versioned 2.1.304 binary the hermetic flag set was measured on")
+                  f"versioned 2.1.317 binary the hermetic flag set was measured on")
     # The fake host below answers as the pinned version, so its captures meet the flag set and the record
     # kinds the checkout pins for it; only the line above names the version.
     pinned_version = seats.get("version")

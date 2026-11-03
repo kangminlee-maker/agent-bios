@@ -3,8 +3,8 @@
   "schema": "DistillSeats/v1",
   "hosts": {
     "claude": {
-      "version": "2.1.304",
-      "path": "~/.local/share/claude/versions/2.1.304",
+      "version": "2.1.317",
+      "path": "~/.local/share/claude/versions/2.1.317",
       "profiles": {
         "hermetic": [
           "--safe-mode",
@@ -38,9 +38,9 @@
       ],
       "host_allowance": {
         "hermetic": {
-          "allowance_tokens": 3886,
+          "allowance_tokens": 3795,
           "measured": true,
-          "basis": "WP-03v 2026-10-22: observed main-request input tokens, max over 4 hermetic calls through dispatch (claude 2.1.304, claude-sonnet-5-5/medium); includes the packet, so it overstates the host's share"
+          "basis": "A-1 re-pin 2026-11-04 (WP-08 commit 6): observed main-request input tokens, max over 5 hermetic judge calls through dispatch (claude 2.1.317, claude-sonnet-5-5/high, stage S3, structured output; 3795, 3784, 3784, 3784, 3794); includes the packet, so it overstates the host's share. WP-03v measured 3886 the same way on 2.1.304 at /medium"
         }
       }
     },
@@ -76,9 +76,9 @@
     }
   },
   "stage_seats": {
-    "$comment": "design §4: S3 claude-sonnet-5-5/xhigh; S4 claude-opus-5-5/high; S6 A claude-opus-5-5/high, B gpt-6-astra/xhigh, sweeps claude-sonnet-5-5/medium and gpt-6-luna/medium; S7 claude-opus-5-5/high; S7b gpt-6-astra/xhigh; S9b gpt-6-astra/high. S8 and S10b seat their actors from run.json actor_seats (design §8.4).",
+    "$comment": "design §4: S3 claude-sonnet-5-5/high (plan amendment row 13, D-20261103-4b967e); S4 claude-opus-5-5/high; S6 A claude-opus-5-5/high, B gpt-6-astra/xhigh, sweeps claude-sonnet-5-5/medium and gpt-6-luna/medium; S7 claude-opus-5-5/high; S7b gpt-6-astra/xhigh; S9b gpt-6-astra/high. S8 and S10b seat their actors from run.json actor_seats (design §8.4).",
     "S3": [
-      "claude:claude-sonnet-5-5/xhigh"
+      "claude:claude-sonnet-5-5/high"
     ],
     "S4": [
       "claude:claude-opus-5-5/high"
@@ -101,15 +101,10 @@
   },
   "seat_capacity": {
     "$comment": "The seat's context window, host-reported. A view-window call on a seat with no entry here is refused (CAPACITY_UNDECLARED): check (d) is about the context, and an invented capacity is a check about nothing. Codex seats carry no entry until a capture reports one.",
-    "claude:claude-sonnet-5-5/xhigh": {
+    "claude:claude-sonnet-5-5/high": {
       "context_capacity": 1000000,
-      "host_version": "2.1.304",
-      "basis": "host-reported modelUsage.contextWindow, WP-03v 2026-10-22 (claude 2.1.304, claude-sonnet-5-5; maxOutputTokens 128000 in the same record)"
-    },
-    "claude:claude-sonnet-5-5/medium": {
-      "context_capacity": 1000000,
-      "host_version": "2.1.304",
-      "basis": "host-reported modelUsage.contextWindow, WP-03v 2026-10-22 (claude 2.1.304, claude-sonnet-5-5; maxOutputTokens 128000 in the same record)"
+      "host_version": "2.1.317",
+      "basis": "host-reported modelUsage.contextWindow, A-1 re-pin 2026-11-04 (claude 2.1.317, claude-sonnet-5-5/high: one standalone hermetic call and five judge calls through dispatch, all 1000000; maxOutputTokens 128000 in the same records)"
     }
   }
 }

@@ -75,6 +75,14 @@ RECORD_KINDS = {
                         "remote_session_change", "sandbox_instructions", "session_context", "skill_listing",
                         "structured_output", "total_tokens_reminder"),
     },
+    # 2.1.317: the A-1 re-pin's six calls (2026-11-04), one standalone hermetic call and five structured-output
+    # judge calls through dispatch. `tools-used` is new: it names the tools a session used (here StructuredOutput,
+    # which the helper reads from the assistant's tool_use blocks), carries no context, and is known and left unread.
+    "2.1.317": {
+        "types": ("api-request", "api-request-blob", "api-request-shape", "assistant", "atis-latch", "attachment",
+                  "cost-state", "last-prompt", "queue-operation", "tools-used", "user"),
+        "attachments": ("date", "environment", "model", "prompt_snapshot", "session_context", "structured_output"),
+    },
 }
 READ_TYPES = ("api-request", "api-request-blob", "api-request-shape", "assistant", "attachment", "user")
 READ_ATTACHMENTS = ("agent_listing_delta", "deferred_tools_delta", "environment", "instructions", "skill_listing")

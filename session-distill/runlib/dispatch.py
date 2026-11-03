@@ -4312,7 +4312,7 @@ def self_test(scratch=None):
 
     # seats are pinned per stage (design §4 in seats.json, or run.json); a view-window call needs its measured allowance
     design_4 = {  # design §4's stage table, "Seat (default)" column, copied by hand
-        "S3": ["claude:claude-sonnet-5-5/xhigh"], "S4": ["claude:claude-opus-5-5/high"],
+        "S3": ["claude:claude-sonnet-5-5/high"], "S4": ["claude:claude-opus-5-5/high"],
         "S6": ["claude:claude-opus-5-5/high", "codex:gpt-6-astra/xhigh", "claude:claude-sonnet-5-5/medium", "codex:gpt-6-luna/medium"],
         "S7": ["claude:claude-opus-5-5/high"], "S7b": ["codex:gpt-6-astra/xhigh"], "S9b": ["codex:gpt-6-astra/high"]}
     pinned = {k: v for k, v in gate.seats().get("stage_seats", {}).items() if not k.startswith("$")}
