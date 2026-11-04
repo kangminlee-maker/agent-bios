@@ -104,14 +104,41 @@ def principles_block(repo=REPO):
                           for title, guide, part in PRINCIPLE_SOURCES]) + "\n"
 
 
+def host_schema(schema):
+    """The schema a host is handed, derived from `schema` by code and never written by hand (WP-08 commit 7, dw2-live1):
+    no `$schema`, every `$ref` replaced by a copy of the `$defs` entry it names, and no `$defs`.
+
+    Claude Code's `--json-schema` check builds Ajv's draft-07 class, which refuses a schema naming a meta-schema it does
+    not hold - the 2020-12 one every distill schema names - and exits before any request; and the host hands the schema
+    on as a tool's input schema, which then holds no reference to resolve. The policy pins draft 2020-12 in code
+    (`validate.compile_schema`) and allows a `$ref` only to an entry of the schema's own `$defs` (`validate.lint`), so
+    neither key decides anything the inlined form does not. A `$ref` beside other keywords, or one that reaches itself,
+    has no inlined form and is refused."""
+    defs = schema.get("$defs") or {}
+
+    def inline(node, seen):
+        if isinstance(node, list):
+            return [inline(item, seen) for item in node]
+        if not isinstance(node, dict):
+            return node
+        if "$ref" in node:
+            ref, name = node["$ref"], str(node["$ref"])[len("#/$defs/"):]
+            if set(node) != {"$ref"}:
+                raise validate.SchemaPolicyError(f"HOST_SCHEMA {ref}: a $ref beside {sorted(set(node) - {'$ref'})} has no inlined form")
+            if name in seen:
+                raise validate.SchemaPolicyError(f"HOST_SCHEMA {ref}: the reference reaches itself")
+            return inline(defs[name], seen | {name})
+        return {key: inline(value, seen) for key, value in node.items()}
+    return inline({key: value for key, value in schema.items() if key not in ("$schema", "$defs")}, frozenset())
+
+
 def schema_bytes(schema):
-    """The bytes `schema.json` holds, which are the schema the host is handed: the schema compiled through the policy,
-    as canonical JSON, without its `$schema`. The policy pins draft 2020-12 in code (`validate.compile_schema`), so the
-    key decides nothing here; Claude Code's `--json-schema` check builds Ajv's draft-07 class, refuses a schema whose
-    `$schema` names a meta-schema it does not hold - the 2020-12 one every distill schema names - and exits before any
-    request (WP-08 commit 7, live leg dw2-live1)."""
+    """The bytes `schema.json` holds, which are the schema the host is handed (`host_schema`), as canonical JSON. The
+    schema and its handed form are both compiled through the policy. The same bytes are what the packet's SCHEMA hash
+    names and the receipt hashes, so the gate binds one schema from the driver to the host."""
     validate.compile_schema(schema)
-    sent = {key: value for key, value in schema.items() if key != "$schema"}
+    sent = host_schema(schema)
+    validate.compile_schema(sent)
     return (json.dumps(sent, sort_keys=True, separators=(",", ":"), ensure_ascii=False) + "\n").encode("utf-8")
 
 
@@ -242,21 +269,66 @@ def self_test():
 
     control("schema-builder-refuses-an-open-schema",
             raised(lambda: schema_bytes({"type": "object", "properties": {}}), validate.SchemaPolicyError, "open object"))
-    # the bytes a host is handed carry no $schema (WP-08 commit 7, dw2-live1): asked of the schemas S3 hands a host,
-    # each of which names the 2020-12 meta-schema, and the bytes must still be the same schema to the policy
+    # the schema a host is handed (WP-08 commit 7, dw2-live1), asked of the schemas S3 hands a host, each of which names
+    # the 2020-12 meta-schema and holds references: no meta-schema, no reference and no $defs in the bytes, which the
+    # policy still compiles; and the inlined form is derived from the schema itself, so a change to an entry of its
+    # $defs shows at every place a reference reached it
     host_bound = {}
     for name in TEMPLATES:
         try:
             held = json.loads((pathlib.Path(__file__).resolve().parents[1] / "schemas" / f"{name}.schema.json").read_text(encoding="utf-8"))
-            sent = json.loads(schema_bytes(held))
-            validate.compile_schema(sent)
-            host_bound[name] = (held, sent)
+            sent_text = schema_bytes(held).decode("utf-8")
+            validate.compile_schema(json.loads(sent_text))
+            host_bound[name] = (held, sent_text)
         except Exception as exc:  # noqa: BLE001 - whatever stops a schema here is reported by name
             failures.append(f"positive control: the {name} schema did not load or compile: {exc}")
-    control("host-schema-carries-no-$schema",
+    control("host-schema-names-no-meta-schema-and-no-reference",
             [] if sorted(host_bound) == sorted(TEMPLATES) and all(
-                "$schema" in held and sent == {k: v for k, v in held.items() if k != "$schema"} for held, sent in host_bound.values())
-            else [f"a schema handed a host still names its meta-schema: {[n for n, (_h, s) in host_bound.items() if '$schema' in s]}"])
+                "$schema" in held and held.get("$defs") and '"$ref"' in json.dumps(held)
+                and not any(key in sent for key in ('"$schema"', '"$defs"', '"$ref"')) for held, sent in host_bound.values())
+            else [f"a handed schema still names a meta-schema or a reference: "
+                  f"{[n for n, (_h, s) in host_bound.items() if any(k in s for k in ('$schema', '$defs', '$ref'))]}"])
+
+    def reached(schema, node=None, seen=frozenset()):
+        """How many times each $defs entry is reached from the schema's root, following references through entries."""
+        node = {k: v for k, v in schema.items() if k != "$defs"} if node is None else node
+        counts = {}
+        for value in (node.values() if isinstance(node, dict) else node if isinstance(node, list) else ()):
+            if isinstance(value, dict) and "$ref" in value:
+                name = value["$ref"][len("#/$defs/"):]
+                counts[name] = counts.get(name, 0) + 1
+                for inner, n in reached(schema, schema["$defs"][name], seen | {name}).items():
+                    counts[inner] = counts.get(inner, 0) + n
+            elif isinstance(value, (dict, list)):
+                for inner, n in reached(schema, value, seen).items():
+                    counts[inner] = counts.get(inner, 0) + n
+        return counts
+    followed = {}
+    for name, (held, sent_text) in host_bound.items():
+        marked = json.loads(json.dumps(held))
+        for entry, sub in marked["$defs"].items():
+            sub["$comment"] = f"FOLLOWS-{name}-{entry}"
+        made, problem = None, None
+        try:
+            made = schema_bytes(marked).decode("utf-8")
+        except Exception as exc:  # noqa: BLE001 - reported by the control below
+            problem = str(exc)
+        expected = reached(held)
+        followed[name] = (made is not None and made != sent_text and bool(expected) and all(
+            made.count(f'"FOLLOWS-{name}-{entry}"') == expected.get(entry, 0) for entry in held["$defs"]), problem)
+    control("host-schema-follows-a-change-to-its-defs",
+            [] if sorted(followed) == sorted(TEMPLATES) and all(ok for ok, _t in followed.values())
+            else [f"a handed schema did not follow its $defs: {followed}"])
+    control("host-schema-refuses-a-reference-it-cannot-inline",
+            raised(lambda: host_schema({"type": "object", "additionalProperties": False, "$defs": {"a": {"type": "string"}},
+                                        "properties": {"x": {"$ref": "#/$defs/a", "title": "beside"}}}),
+                   validate.SchemaPolicyError, "HOST_SCHEMA #/$defs/a: a $ref beside"))
+    control("host-schema-refuses-a-reference-that-reaches-itself",
+            raised(lambda: host_schema({"type": "object", "additionalProperties": False,
+                                        "$defs": {"a": {"type": "object", "additionalProperties": False,
+                                                        "properties": {"next": {"$ref": "#/$defs/a"}}}},
+                                        "properties": {"x": {"$ref": "#/$defs/a"}}}),
+                   validate.SchemaPolicyError, "HOST_SCHEMA #/$defs/a: the reference reaches itself"))
     with tempfile.TemporaryDirectory() as td:
         for _title, guide, _part in PRINCIPLE_SOURCES:
             target = pathlib.Path(td) / guide

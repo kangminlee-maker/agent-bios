@@ -2075,6 +2075,39 @@ def self_test():
                 len(host_schemas) == sum(len(v) for leg in live for v in live[leg]["attempts"].values()) > 0
                 and all(h.get("type") == "object" and "$schema" not in h for h in host_schemas),
                 f"{len(host_schemas)} {[sorted(h)[:3] for h in host_schemas if '$schema' in h or not h][:3]}")
+        # the handed schema judges as the schema does (WP-08 commit 7): every answer the three legs' golden runs gave, and
+        # each one broken in one place - a required key gone, a key added, an id off its pattern, an outcome off its
+        # list - is accepted or refused alike by the schema and by the form a host is handed
+        def broken(answer, kind):
+            out = [{k: v for k, v in answer.items() if k != key} for key in answer] + [{**answer, "unlisted": 1}]
+            first = lambda key: copy.deepcopy(answer[key][0]) if answer.get(key) else None  # noqa: E731
+            if kind == "read" and first("claims"):
+                out.append({**answer, "claims": [{**first("claims"), "claim_id": "x1"}] + answer["claims"][1:]})
+            if kind == "read" and first("quotes"):
+                out.append({**answer, "quotes": [{**first("quotes"), "unlisted": 1}] + answer["quotes"][1:]})
+            if kind == "stitch" and first("resolutions"):
+                out.append({**answer, "resolutions": [{**first("resolutions"), "outcome": "maybe"}] + answer["resolutions"][1:]})
+            return out
+        from runlib import validate
+        judged = {"read": [], "stitch": []}
+        for leg in live:
+            for kind, calls_of in (("read", live[leg]["attempts"]["window"] + live[leg]["attempts"]["expansion"]),
+                                   ("stitch", live[leg]["attempts"]["stitch"])):
+                for c in calls_of:
+                    answer = guarded(lambda c=c, leg=leg: json.loads((live[leg]["dir"] / "calls" / c / "result.json").read_text())["structured_output"], None)
+                    if isinstance(answer, dict):
+                        judged[kind] += [(answer, True)] + [(b, False) for b in broken(answer, kind)]
+        agree = {}
+        for kind, schema_of in (("read", read_schema), ("stitch", stitch_schema)):
+            held = schema_of()
+            original = guarded(lambda held=held: validate.compile_schema(held), None)
+            as_handed = guarded(lambda held=held: validate.compile_schema(json.loads(packet.schema_bytes(held))), None)
+            rows = judged[kind]
+            agree[kind] = (len(rows), sum(1 for _a, ok in rows if ok), original is not None and as_handed is not None and rows
+                           and all(original.is_valid(a) == ok == as_handed.is_valid(a) for a, ok in rows))
+        control("WP-08 commit 7: the schema a host is handed accepts and refuses the answers the schema does - the legs' "
+                "golden answers, and each broken in one place",
+                all(n > accepted > 0 and same for n, accepted, same in agree.values()), f"{agree}")
         la, lt = live["apart"], live["twin"]
         at_la = {key: [n for n, d in la["docs"].items() for r in d["records"] if key in r["text"]] for key in (FX_CAUSE, FX_OUTCOME)}
         cause_la = next((e for e in la["events"] if e["description"].startswith("The person asked for the search index")), {})
