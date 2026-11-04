@@ -2068,6 +2068,13 @@ def self_test():
                 and all(cited_d2.get(e, {}).get("line") == 3 for e in resolution_d2["evidence_ids"])
                 and "pe-1" in d2["result"].get("resolved_events", []),
                 f"{d2['problem']} {carried_d2} {resolution_d2} {d2['result'].get('resolved_events')}")
+        host_schemas = [guarded(lambda c=c, leg=leg: json.loads((live[leg]["dir"] / "calls" / c / "schema.json").read_text(encoding="utf-8")), {})
+                  for leg in live for kind in ("window", "expansion", "stitch") for c in live[leg]["attempts"][kind]]
+        control("WP-08 commit 7: every schema S3 hands a host names no meta-schema, which Claude Code's --json-schema check "
+                "refuses before any request (dw2-live1)",
+                len(host_schemas) == sum(len(v) for leg in live for v in live[leg]["attempts"].values()) > 0
+                and all(h.get("type") == "object" and "$schema" not in h for h in host_schemas),
+                f"{len(host_schemas)} {[sorted(h)[:3] for h in host_schemas if '$schema' in h or not h][:3]}")
         la, lt = live["apart"], live["twin"]
         at_la = {key: [n for n, d in la["docs"].items() for r in d["records"] if key in r["text"]] for key in (FX_CAUSE, FX_OUTCOME)}
         cause_la = next((e for e in la["events"] if e["description"].startswith("The person asked for the search index")), {})

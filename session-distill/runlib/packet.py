@@ -105,9 +105,14 @@ def principles_block(repo=REPO):
 
 
 def schema_bytes(schema):
-    """The bytes `schema.json` holds: the schema compiled through the policy, as canonical JSON."""
+    """The bytes `schema.json` holds, which are the schema the host is handed: the schema compiled through the policy,
+    as canonical JSON, without its `$schema`. The policy pins draft 2020-12 in code (`validate.compile_schema`), so the
+    key decides nothing here; Claude Code's `--json-schema` check builds Ajv's draft-07 class, refuses a schema whose
+    `$schema` names a meta-schema it does not hold - the 2020-12 one every distill schema names - and exits before any
+    request (WP-08 commit 7, live leg dw2-live1)."""
     validate.compile_schema(schema)
-    return (json.dumps(schema, sort_keys=True, separators=(",", ":"), ensure_ascii=False) + "\n").encode("utf-8")
+    sent = {key: value for key, value in schema.items() if key != "$schema"}
+    return (json.dumps(sent, sort_keys=True, separators=(",", ":"), ensure_ascii=False) + "\n").encode("utf-8")
 
 
 def build(call_id, stage, seat, payload, schema=None, repo=REPO):
@@ -237,6 +242,21 @@ def self_test():
 
     control("schema-builder-refuses-an-open-schema",
             raised(lambda: schema_bytes({"type": "object", "properties": {}}), validate.SchemaPolicyError, "open object"))
+    # the bytes a host is handed carry no $schema (WP-08 commit 7, dw2-live1): asked of the schemas S3 hands a host,
+    # each of which names the 2020-12 meta-schema, and the bytes must still be the same schema to the policy
+    host_bound = {}
+    for name in TEMPLATES:
+        try:
+            held = json.loads((pathlib.Path(__file__).resolve().parents[1] / "schemas" / f"{name}.schema.json").read_text(encoding="utf-8"))
+            sent = json.loads(schema_bytes(held))
+            validate.compile_schema(sent)
+            host_bound[name] = (held, sent)
+        except Exception as exc:  # noqa: BLE001 - whatever stops a schema here is reported by name
+            failures.append(f"positive control: the {name} schema did not load or compile: {exc}")
+    control("host-schema-carries-no-$schema",
+            [] if sorted(host_bound) == sorted(TEMPLATES) and all(
+                "$schema" in held and sent == {k: v for k, v in held.items() if k != "$schema"} for held, sent in host_bound.values())
+            else [f"a schema handed a host still names its meta-schema: {[n for n, (_h, s) in host_bound.items() if '$schema' in s]}"])
     with tempfile.TemporaryDirectory() as td:
         for _title, guide, _part in PRINCIPLE_SOURCES:
             target = pathlib.Path(td) / guide
