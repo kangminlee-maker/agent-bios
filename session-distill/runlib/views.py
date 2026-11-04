@@ -1660,7 +1660,7 @@ def fx_seats(root, capacity, seat=None, host_version=None, name=None):
 
 def golden(root, name="g", overhead=bound.PACKET_OVERHEAD, capacity=None, reservation=32_000,
            allowance=3200, census_sha=None, compressed=False, main_records=None, owned=None, allowance_entry=None,
-           window=None, state=None, prefix_ok=None, ledger_doc=None, child_records=None):
+           window=None, state=None, prefix_ok=None, ledger_doc=None, child_records=None, main_only=False, pending_at=4):
     """A run directory S2 can be run over, and the result of running it (realization: golden).
 
     The transcripts are `fx_main_records` (eligible, with a pending event and four clipped tool results), its child,
@@ -1671,7 +1671,10 @@ def golden(root, name="g", overhead=bound.PACKET_OVERHEAD, capacity=None, reserv
     the transcripts are observed into that state as S1 observes them, `prefix_ok` saying whether a changed file kept the
     earlier version as its prefix (`coverage.observe`), and nothing is planted in it. The declaration's checkout holds
     `ledger_doc` (an empty schema 2 ledger by default) and pins its hash, as S0 pins the ledger S3 reads the expected
-    observations due from. `child_records` runs it over another child transcript, as `main_records` does the main one."""
+    observations due from. `child_records` runs it over another child transcript, as `main_records` does the main one.
+    `main_only` leaves the child and the Codex session out of the census, so S2 views the main session alone and a run
+    over it makes only the calls that session needs (WP-08 commit 7's live legs). `pending_at` is the first record of the
+    pending event the planted state carries on the main session; None plants none."""
     root = pathlib.Path(root)
     run_dir, host = root / name, root / f"{name}-host"
     child_rows = child_records() if child_records else fx_child_records()
@@ -1679,9 +1682,14 @@ def golden(root, name="g", overhead=bound.PACKET_OVERHEAD, capacity=None, reserv
     codex_path = host / ("rollout-t3.jsonl.zst" if compressed else "rollout-t3.jsonl")
     # `main_records` lets a control run the WHOLE stage over a different transcript - the overlap cases need
     # long turns, and a case that cannot be built as a real run can only be tested against hand-made rows
-    main_sha = fx_write(main_path, main_records() if main_records else fx_main_records())
-    child_sha = fx_write(child_path, child_rows)
-    if compressed:
+    main_rows = main_records() if main_records else fx_main_records()
+    main_sha = fx_write(main_path, main_rows)
+    child_sha = codex_sha = None
+    if not main_only:
+        child_sha = fx_write(child_path, child_rows)
+    if main_only:
+        pass  # neither the child nor the Codex session is written, so no source lists them
+    elif compressed:
         plain = host / "rollout-t3.jsonl"
         codex_sha = fx_write(plain, fx_codex_records())
         zstd = sources.declared(declare.fixture()).get("zstd")
@@ -1704,21 +1712,25 @@ def golden(root, name="g", overhead=bound.PACKET_OVERHEAD, capacity=None, reserv
     _start, _end, window_id = coverage.window_bounds(window)
 
     planted, state = state is None, copy.deepcopy(state) if state is not None else coverage.new_state()
-    for tid, sha, count in ((main_tid, main_sha, len(main_records() if main_records else fx_main_records())),
-                            (codex_tid, codex_sha, len(fx_codex_records())), (child_tid, child_sha, len(child_rows))):
+    observed = [(main_tid, main_sha, len(main_rows))]
+    if not main_only:
+        observed += [(codex_tid, codex_sha, len(fx_codex_records())), (child_tid, child_sha, len(child_rows))]
+    for tid, sha, count in observed:
         coverage.observe(state, tid, sha, count, records.sha256_bytes(f"prefix-{tid}".encode()), prefix_ok)
     if planted:
-        state["pending_events"] = [{"id": "pe-1", "transcript": main_tid, "version": 0, "window": window_id, "first_record": 4}]
-        state["backlog"] = [{"transcript": codex_tid, "version": 0, "window": FX_PREV_WINDOW, "status": "deferred",
-                             "unread": [[0, len(fx_codex_records())]]}]
+        state["pending_events"] = [] if pending_at is None else [
+            {"id": "pe-1", "transcript": main_tid, "version": 0, "window": window_id, "first_record": pending_at}]
+        state["backlog"] = [] if main_only else [{"transcript": codex_tid, "version": 0, "window": FX_PREV_WINDOW,
+                                                  "status": "deferred", "unread": [[0, len(fx_codex_records())]]}]
     # the records whose timestamps fall in the window; for the default transcript the first and the last two
     # do not. A caller whose transcript puts a case on the first record says so, or the control it writes
     # would be about a record no window owns.
     main_owned = [[1, 10]] if owned is None else owned
-    codex_work = coverage.work_of(state, codex_tid, [], window_id)
     entries = [
         fx_entry("claude", main_id, "claude_projects", main_path, census_sha or main_sha, owned=main_owned,
-                 work=coverage.work_of(state, main_tid, main_owned, window_id), versions=fx_versions(state, main_tid)),
+                 work=coverage.work_of(state, main_tid, main_owned, window_id), versions=fx_versions(state, main_tid))]
+    codex_work = None if main_only else coverage.work_of(state, codex_tid, [], window_id)
+    entries += [] if main_only else [
         # S1 reads a member of an eligible unit like its root (D-20261103-85f3e8): the child carries its own work
         fx_entry("claude", child_id, "claude_projects", child_path, child_sha, status="child_of", parent=main_id,
                  owned=fx_owned(child_rows, window),
@@ -1766,7 +1778,8 @@ def golden(root, name="g", overhead=bound.PACKET_OVERHEAD, capacity=None, reserv
     return {"run_dir": run_dir, "run": declaration, "seat": seat, "manifest": manifest, "limits": manifest["limits"],
             "main": main, "child": by_name.get(safe_name(child_tid)), "codex": by_name.get(safe_name(codex_tid)),
             "by_name": by_name, "windows": windows, "state": state, "census": document, "window": window_id,
-            "paths": {"main": main_path, "child": child_path, "codex": codex_path, "ledger": ledger_path},
+            "paths": {"main": main_path, "child": None if main_only else child_path,
+                      "codex": None if main_only else codex_path, "ledger": ledger_path},
             "tids": {"main": main_tid, "child": child_tid, "codex": codex_tid},
             "lines": {"before": 1, "human": 2, "secret": 3, "call": 4, "pending_clip": 5, "second_human": 6,
                       "late_clip": 7, "long": 8, "pair_plain": 9, "pair_term": 10, "after": 11},

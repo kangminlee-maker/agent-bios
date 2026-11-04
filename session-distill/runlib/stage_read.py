@@ -1527,15 +1527,56 @@ FX_CAUSE = "please rebuild the search index and tell me when it is done"
 FX_OUTCOME = "the index rebuild finished: every document is indexed"
 
 
-def fx_apart_records():
+def fx_apart_records(outcome=True, trailing=True, turns=3, steps=220):
     """A cause and its outcome four windows apart (plan WP-08 done-when 3, design §5.4's fixture): a request, three long
     turns that S2 cuts across windows 1 to 5, the turn that reports the outcome, which lands in window 5, and one more
-    long turn after it, so the outcome's window is not the view's last."""
-    turn = lambda i: "".join(f"step {i}.{n:03d} of the index rebuild is still running. " for n in range(220))  # noqa: E731
+    long turn after it, so the outcome's window is not the view's last.
+
+    The live legs (WP-08 commit 7) change the shape, not the case: without `trailing`, `turns` long turns of `steps`
+    steps each put the outcome in the view's last window; without `outcome` the transcript holds no outcome turn at all,
+    since a live reader reads whatever record it is shown. Where S2 cuts depends on the turns' lengths, which is why the
+    self-test holds each leg to its windows."""
+    turn = lambda i: "".join(f"step {i}.{n:03d} of the index rebuild is still running. " for n in range(steps))  # noqa: E731
     return ([views.fx_human(views.fx_stamp(3, hour=1), FX_CAUSE)]
-            + [views.fx_assistant(views.fx_stamp(3, hour=2 + i), turn(i)) for i in range(3)]
-            + [views.fx_assistant(views.fx_stamp(3, hour=5), FX_OUTCOME),
-               views.fx_assistant(views.fx_stamp(3, hour=6), turn(9))])
+            + [views.fx_assistant(views.fx_stamp(3, hour=2 + i), turn(i)) for i in range(turns)]
+            + ([views.fx_assistant(views.fx_stamp(3, hour=2 + turns), FX_OUTCOME)] if outcome else [])
+            + ([views.fx_assistant(views.fx_stamp(3, hour=3 + turns), turn(9))] if trailing else []))
+
+
+FX_DECISIVE_CAUSE = "please restore last night's backup into staging and tell me whether every row came back"
+FX_DECISIVE = "restore verified: all 4812 rows match the backup, none missing"
+
+
+def fx_decisive_log(filler=40):
+    """A successful tool result long enough to be clipped whose omitted middle alone holds the decisive outcome (plan
+    WP-08 done-when 2). No line of it reads as an error (`views.ERROR_LINE`), so the clipper keeps none of the middle."""
+    head = "\n".join(f"  restoring table {i:03d}  ok  {'.' * 28}" for i in range(70))
+    tail = "\n".join(f"  cleanup {i:03d}  done  {'-' * 26}" for i in range(45))
+    middle = [f"  copied batch {i:03d} {'=' * 30}" for i in range(filler)]
+    return head + "\n" + "\n".join(middle[:filler // 2] + ["  " + FX_DECISIVE] + middle[filler // 2:]) + "\n" + tail
+
+
+def fx_decisive_records():
+    """Done-when 2's session: the request, the agent's call, its successful result whose clipped middle holds the
+    outcome, and a closing turn that does not repeat it. The pending event that forces the expansion is the one the
+    coverage state carries on the request (`fx_live_legs`)."""
+    return [views.fx_human(views.fx_stamp(3, hour=1), FX_DECISIVE_CAUSE),
+            views.fx_call(views.fx_stamp(3, hour=2), "Bash", {"command": "restore-backup --into staging --verify"}),
+            views.fx_result(views.fx_stamp(3, hour=3), fx_decisive_log()),
+            views.fx_assistant(views.fx_stamp(3, hour=4), "the restore command finished; its log is above")]
+
+
+def fx_live_legs():
+    """The fixtures of WP-08's live legs (commit 7) as `views.golden` keyword arguments: each views the main session
+    alone, so a leg makes only the calls its done-when judges. `dw2` carries a pending event on the request, which
+    forces the expansion of the clipped result after it; `apart` ends on its outcome's window; `twin` holds no outcome
+    turn: it is `apart` without the records of its outcome's window. The self-test runs each golden and holds it to its
+    windows, its calls and its outcome before a live call is spent on it."""
+    def leg(rows, pending_at):
+        return {"main_only": True, "main_records": rows, "owned": views.fx_owned(rows()), "pending_at": pending_at}
+    return {"dw2": leg(fx_decisive_records, 0),
+            "apart": leg(lambda: fx_apart_records(trailing=False, turns=5, steps=170), None),
+            "twin": leg(lambda: fx_apart_records(outcome=False, trailing=False, turns=4, steps=170), None)}
 
 
 def fx_claim(answer, doc, entry, fact, quote_id):
@@ -1575,6 +1616,18 @@ def fx_apart_answers(withheld=False, progress=False):
                 fx_claim(answer, doc, r, "PROGRESS: the rebuild reached its second step.", "q9")
         return [((), answer)]
     return answers
+
+
+def fx_decisive_answers(where, doc, rows, parts):
+    """The golden readings of done-when 2's session: each window answers as `fx_answer` does, expanding the forced
+    omission, and the expansion that shows the decisive line claims it on a quote of that line alone."""
+    answer = fx_answer(doc, rows)
+    for r in doc["records"]:
+        if "/x/" in where and FX_DECISIVE in r["text"]:
+            answer["quotes"].append({"quote_id": "q9", "entry": views.eid(r), "text": FX_DECISIVE})
+            answer["claims"].append({"claim_id": f"c{len(answer['claims']) + 1}", "fact": "DECISIVE: every row came back.",
+                                     "interpretation": "", "uncertainty": "", "evidence_ids": ["q9"], "call_id": "<CALL-ID>"})
+    return [((), answer)]
 
 
 def fx_resolving(markers, beside=False):
@@ -1959,6 +2012,83 @@ def self_test():
                 and {"id": t["cause"].get("event_id"), "transcript": main_unit, "first_record": 0,
                      "window": t["summary"].get("window")} in t["result"].get("pending_events", []),
                 f"{t['problem']} {t['cause']} {t['resolution']} {t['result'].get('pending_events')}")
+
+        # ---- the live legs' fixtures (WP-08 commit 7): each run golden and held to the windows, the calls and the outcome
+        # its live leg is planned and capped by, so a live call is never the first run of a fixture
+        leg_answers = {"dw2": (fx_decisive_answers, fx_resolving({1: "DECISIVE:"})),
+                       "apart": (fx_apart_answers(), joined_by), "twin": (fx_apart_answers(), joined_by)}
+        live = {}
+        for leg, golden in fx_live_legs().items():
+            answers, resolve = leg_answers[leg]
+            made_dir, made_sup, _ = fx_reader(root / f"live-{leg}", f"l{leg}", answers, resolve=resolve,
+                                              expanding=lambda m: m["forced_by"] != "none", **golden)
+            got = {}
+            problem = refusal(lambda: got.update(run(made_dir, made_sup)))
+            listed = guarded(lambda: records.read_json(made_dir / "views.json")["transcripts"], [])
+            view, wins = guarded(lambda: fx_main_windows(made_dir), (None, {}))
+            docs_of = {n: guarded(lambda w=w: json.loads((made_dir / w["path"]).read_text()), {"records": [], "omission_manifest": []})
+                       for n, w in wins.items()}
+            record = record_of(made_dir, main_unit)
+            file = next(iter(record.get("files", [])), {})
+            stitch_calls = record.get("stitch", {}).get("calls", [])
+            attempts = {"window": [a["call"] for w in file.get("windows", []) for a in w.get("attempts", [])],
+                        "expansion": [a["call"] for x in file.get("expansions", []) for a in x.get("attempts", [])],
+                        "stitch": [a["call"] for c in stitch_calls for a in c.get("attempts", [])]}
+            events = guarded(lambda: current_events(made_dir, view), [])
+            live[leg] = {"dir": made_dir, "problem": problem, "summary": got, "listed": listed, "view": view, "docs": docs_of,
+                         "record": record, "attempts": attempts, "events": events,
+                         "calls": {k: len(v) for k, v in attempts.items() if v},
+                         "on_disk": len(list((made_dir / "calls").iterdir())) if (made_dir / "calls").is_dir() else 0,
+                         "lines": {n: [(r["line"], [g["view"] for g in r["segments"]]) for r in d["records"]] for n, d in docs_of.items()},
+                         "result": next((r for r in guarded(lambda: records.read_json(made_dir / "read-results.json")["results"], [])
+                                         if r["transcript"] == main_unit), {})}
+
+        def packet_of(leg, kind):
+            return [guarded(lambda c=c: (live[leg]["dir"] / "calls" / c / "packet.md").read_text(encoding="utf-8"), "")
+                    for c in live[leg]["attempts"][kind]]
+        d2 = live["dw2"]
+        forced_d2 = [(m["record_id"].split("/")[0], m["forced_by"]) for doc in d2["docs"].values() for m in doc["omission_manifest"]]
+        control("WP-08 commit 7, live leg dw2 (golden): the main session alone is viewed, with no failed tool result, in one "
+                "window whose clipped result is forced by the pending event carried on the request; one window, one expansion "
+                "and one stitch call",
+                not d2["problem"] and len(d2["listed"]) == 1 and d2["listed"][0]["hints"]["error_results"] == 0
+                and len(d2["docs"]) == 1 and forced_d2 == [("3", "pending_event")]
+                and d2["calls"] == {"window": 1, "expansion": 1, "stitch": 1} and d2["on_disk"] == 3,
+                f"{d2['problem']} {len(d2['listed'])} {forced_d2} {d2['calls']} {d2['on_disk']}")
+        decisive = next((c for c in guarded(lambda: stored_claims(d2["dir"], d2["view"]), []) if c["fact"].startswith("DECISIVE:")), {})
+        cited_d2 = {e["evidence_id"]: e for e in stored_evidence_of(d2["dir"], d2["view"])} if d2["view"] else {}
+        carried_d2 = next((e for e in d2["events"] if e["event_id"] == "pe-1"), {})
+        resolution_d2 = next((r for r in d2["record"].get("stitch", {}).get("resolutions", []) if r["event_id"] == "pe-1"), {})
+        control("WP-08 commit 7, live leg dw2 (golden): the decisive line is in the expansion's packet and in no window's, and "
+                "the stitch resolves the carried event with the expansion's claim, its evidence on the clipped result's record",
+                not d2["problem"] and not any(FX_DECISIVE in t for t in packet_of("dw2", "window"))
+                and packet_of("dw2", "expansion") and all(FX_DECISIVE in t for t in packet_of("dw2", "expansion"))
+                and carried_d2.get("outcome") == "resolved" and carried_d2.get("stitched_from") == [decisive.get("claim_id")]
+                and resolution_d2.get("evidence_ids")
+                and all(cited_d2.get(e, {}).get("line") == 3 for e in resolution_d2["evidence_ids"])
+                and "pe-1" in d2["result"].get("resolved_events", []),
+                f"{d2['problem']} {carried_d2} {resolution_d2} {d2['result'].get('resolved_events')}")
+        la, lt = live["apart"], live["twin"]
+        at_la = {key: [n for n, d in la["docs"].items() for r in d["records"] if key in r["text"]] for key in (FX_CAUSE, FX_OUTCOME)}
+        cause_la = next((e for e in la["events"] if e["description"].startswith("The person asked for the search index")), {})
+        outcome_la = next((c for c in guarded(lambda: stored_claims(la["dir"], la["view"]), []) if c["fact"].startswith("OUTCOME:")), {})
+        control("WP-08 commit 7, live leg apart (golden): five windows of the main session alone, the cause in the first and the "
+                "outcome in the fifth and last, five window calls and one stitch, and the cause resolved by the outcome's claim",
+                not la["problem"] and len(la["listed"]) == 1 and sorted(la["docs"]) == [1, 2, 3, 4, 5]
+                and at_la == {FX_CAUSE: [1], FX_OUTCOME: [5]} and la["calls"] == {"window": 5, "stitch": 1} and la["on_disk"] == 6
+                and cause_la.get("outcome") == "resolved" and cause_la.get("stitched_from") == [outcome_la.get("claim_id")],
+                f"{la['problem']} {len(la['listed'])} {at_la} {la['calls']} {la['on_disk']} {cause_la}")
+        cause_lt = next((e for e in lt["events"] if e["description"].startswith("The person asked for the search index")), {})
+        control("WP-08 commit 7, live leg twin (golden): the apart leg without its outcome's window - the same first four "
+                "windows and no record of the outcome - four window calls and one stitch, and the cause left unresolved and "
+                "handed on as a pending event of the unit's result",
+                not lt["problem"] and len(lt["listed"]) == 1 and lt["lines"] and lt["lines"] == {n: la["lines"].get(n) for n in (1, 2, 3, 4)}
+                and not any(FX_OUTCOME in r["text"] for d in lt["docs"].values() for r in d["records"])
+                and lt["calls"] == {"window": 4, "stitch": 1} and lt["on_disk"] == 5
+                and cause_lt.get("outcome") == "unresolved" and cause_lt.get("stitched_from") == []
+                and {"id": cause_lt.get("event_id"), "transcript": main_unit, "first_record": 0,
+                     "window": lt["summary"].get("window")} in lt["result"].get("pending_events", []),
+                f"{lt['problem']} {sorted(lt['lines'])} {lt['calls']} {lt['on_disk']} {cause_lt} {lt['result'].get('pending_events')}")
 
         # ---- the shard rule (plan amendment row 1): the apart session with a second event, under a bound that leaves
         # 4,000 bytes beside the stitch packet's fixed part - room for both events and not for all of their claims
