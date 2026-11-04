@@ -567,8 +567,11 @@ def overlap_side(entries, budget=OVERLAP_SIDE_BYTES, from_end=False):
             # A turn the budget cannot hold is OMITTED, and an omission with no span and no hash is not an
             # accounting - it names a record and says nothing about what was in it. The whole text goes, so
             # the span is the whole text and the hash is the whole text's.
+            # the role is the record's, as a shown entry's is: without it the manifest row named an in-window
+            # record context, and an expansion of that row carried the wrong role into evidence
             omitted.append({"entry": eid(entry), "record_id": entry["record_id"], "line": entry["line"],
                             "kind": entry["kind"], "size": entry["size"], "reason": "overlap_budget",
+                            "window_role": entry["window_role"],
                             # the whole of what this entry shows goes, in block coordinates, and so does
                             # anything it had already lost
                             "omitted_intervals": (omitted_intervals(entry, 0, len(entry["text"]))
@@ -3327,6 +3330,41 @@ def self_test():
                     "one of them discharges only that one",
                     lambda: expand(long_dir, "r1/S3/long/2", long_name, multi[0], "all of it"),
                     "EXPANSION_AMBIGUOUS")
+        # WP-08 overlap role: a record the overlap budget omits from a NEIGHBOUR's overlap keeps its own role. The
+        # omitted entries carried none, so the manifest gave the row `context` and an expansion of that row put
+        # `context` on an in-window record. At the unit, the two cases are the same entries and differ only in
+        # their role; the run is this fixture's own, every record of it in a window, so no row is borrowed.
+        gone_roles = []
+        for role in ("context", "in_window"):
+            same = [{**synthetic(n, "assistant" if n % 2 else "tool_result", "z" * 600), "window_role": role}
+                    for n in range(1, 8)]
+            gone_roles.append(sorted({g.get("window_role") for g in overlap_side(same, budget=1_200)[1]}))
+        expect("WP-08 overlap role: an entry the side's budget omits keeps its own role, for an in-window entry as "
+               "for a context one", gone_roles, [["context"], ["in_window"]])
+        role_run = golden(root, "roles", overhead=100_000, main_only=True, main_records=fx_role_records,
+                          owned=fx_owned(fx_role_records()), pending_at=None)
+        role_name, role_dir = role_run["main"]["name"], role_run["run_dir"]
+        role_docs = [window_doc(role_dir, role_name, role_dir / f["path"]) for f in role_run["main"]["windows"]]
+        own_role = {r["record_id"]: r["window_role"] for d in role_docs for r in d["records"]}
+        budget_rows = [m for d in role_docs for m in d["omission_manifest"] if m["origin"] == "overlap"
+                       and m["record_id"] in {g["record_id"] for side in ("prev", "next")
+                                              for g in d["overlap"]["omitted"][side]}]
+        expect("WP-08 overlap role: this fixture's overlap budget omits records that are in a window, so the next "
+               "two controls judge something",
+               (len(role_docs) > 1, bool(budget_rows), sorted({own_role.get(m["record_id"]) for m in budget_rows})),
+               (True, True, ["in_window"]))
+        expect("WP-08 overlap role: the overlap row of such a record carries the record's own role, not context",
+               [m["omission_id"] for m in budget_rows if m["window_role"] != own_role.get(m["record_id"])], [])
+        if budget_rows:
+            row = budget_rows[0]
+            try:
+                back = sorted({r["window_role"] for w in expand(role_dir, "r1/S3/roles/1", role_name, row["record_id"],
+                                                                "the overlap omitted it and a claim needs it",
+                                                                omission=row["omission_id"]) for r in w["records"]})
+            except Refused as exc:
+                back = f"refused: {exc}"
+            expect("WP-08 overlap role: ... and what is expanded from that row carries the record's own role",
+                   back, [own_role.get(row["record_id"])])
         # V#1: every DISPLAYED cut of a generated window is in the manifest, hashed against the projected
         # block, expandable, and required for completeness. A displayed cut is the easy one to lose - the
         # entry is still shown, so nothing looks missing - and a 2000-character context entry shown as 700
@@ -3799,6 +3837,20 @@ def fx_long_records():
         # window views: its view elides a middle, which is the case whose coordinates a view-local interval
         # gets wrong
         out.append(fx_result(fx_stamp(day, hour=hour), wordy(f"r{n}", 6_000 if n == 1 else 1_500)))
+    return out
+
+
+def fx_role_records():
+    """One request and ten assistant turns, each with its call and result, every record inside the window: the
+    turns are longer than an overlap item and the results long enough that a side's budget runs out, so a
+    neighbour's overlap omits records that are IN a window rather than context (the overlap-role control)."""
+    out = [fx_human(fx_stamp(3, hour=1), "please tidy the build scripts and report each step")]
+    for i in range(10):
+        out += [fx_assistant(fx_stamp(3, hour=2, minute=3 * i),
+                             "".join(f"note {i}.{k:02d} on the build. " for k in range(60))),
+                fx_call(fx_stamp(3, hour=2, minute=3 * i + 1), "Bash", {"command": f"make step-{i}"}),
+                fx_result(fx_stamp(3, hour=2, minute=3 * i + 2),
+                          "\n".join(f"  step {i} line {k:02d} ok {'.' * 20}" for k in range(40)))]
     return out
 
 
