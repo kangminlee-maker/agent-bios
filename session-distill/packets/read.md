@@ -47,4 +47,5 @@ Think the problem through before you answer. Then return the JSON your schema as
   the decision or action, else `exposure_unknown`; `verdict` `observed` or `not_observed` against its expected
   behaviour; `evidence_ids` the quotes showing both.
 
-An empty list is a valid answer for any of the five.
+An empty list is a valid answer for `quotes`, `claims`, `events` and `observations`. `decisions` is empty only when
+this window lists no omissions of its own (`none` above); otherwise it holds one decision for each.

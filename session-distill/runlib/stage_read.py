@@ -2240,6 +2240,25 @@ def self_test():
                 and len(labelled["claims"]) > 0 and sum("RECORD_INTEGRITY call id 'CALL-ID: r-S3-x-a1'" in p
                                                         for p in problems_of(labelled)) == len(labelled["claims"]),
                 f"{texted is not None} {problems_of(as_offered)[:2]} {problems_of(trimmed)[:2]} {problems_of(labelled)[:2]}")
+        # read.md once said an empty list was a valid answer for any of the five lists, while each omission a window
+        # lists needs its decision (X review of WP-08 commit 7, r1): a window listing one of its own is refused
+        # SET_MISMATCH with no decisions, so no sentence of its packet may allow that - one about empty lists names
+        # `decisions` only with the condition, and none speaks of every list at once
+        with_omissions = {(leg, n): text for leg in live for n, text in window_packets(leg).items()
+                          if own_rows(live[leg]["docs"][n])}
+        empty_sentences = {key: [s for s in re.split(r"(?<=[.;])\s+", text.split(packet.PAYLOAD_MARKER, 1)[-1])
+                                 if "empty" in s.lower()] for key, text in with_omissions.items()}
+        allowing = {key: [s for s in found if re.search(r"\b(any|all|each|every)\b.*\b(five|lists)\b", s)
+                          or ("`decisions`" in s and "no omissions" not in s)] for key, found in empty_sentences.items()}
+        doc_om = live["dw2"]["docs"].get(1, {"records": [], "omission_manifest": []})
+        rows_om = own_rows(doc_om) if "omission_manifest" in doc_om else []
+        undecided = {**fx_answer(doc_om, rows_om), "decisions": []} if rows_om else None
+        undecided = json.loads(json.dumps(undecided).replace("<CALL-ID>", "r-S3-x-a1")) if undecided else None
+        control("WP-08 commit 7 (X r1): a window that lists an omission of its own is refused with no decisions, and no "
+                "sentence of its packet allows an empty `decisions`",
+                with_omissions and all(empty_sentences.values()) and not any(allowing.values()) and undecided is not None
+                and any(p.startswith("SET_MISMATCH") for p in guarded(lambda: answer_problems(doc_om, rows_om, undecided, "r-S3-x-a1"), [])),
+                f"{sorted(with_omissions)} {[s[:80] for found in allowing.values() for s in found][:2]} {undecided is not None}")
 
         # ---- the shard rule (plan amendment row 1): the apart session with a second event, under a bound that leaves
         # 4,000 bytes beside the stitch packet's fixed part - room for both events and not for all of their claims
