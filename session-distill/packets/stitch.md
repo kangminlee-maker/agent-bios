@@ -21,7 +21,8 @@ Think the problem through before you answer. Then return the JSON your schema as
 
 - `resolutions`: exactly one for each pending event above, by its `event_id`. `outcome` is `resolved` when the later
   claims show what the event led to - then `claim_ids` names those claims and `evidence_ids` the quotes among theirs
-  that show it - and `unresolved` when they do not, with both lists empty. Use only ids listed above.
+  that show it - and `unresolved` when they do not, with both lists empty. Use only ids listed above, each written as
+  the value of its field there - an `event_id`, a `claim_id`, an `evidence_id` - whole and without its field name.
 
 Each pending event names under `joinable` the claims recorded after it, each with its `quotes_after`: the quotes of
 it that this run reads as its own and that stand after the event. Join an event only to those claims, and cite at

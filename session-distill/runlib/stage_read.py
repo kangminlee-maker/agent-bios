@@ -1527,20 +1527,37 @@ FX_CAUSE = "please rebuild the search index and tell me when it is done"
 FX_OUTCOME = "the index rebuild finished: every document is indexed"
 
 
-def fx_apart_records(outcome=True, trailing=True, turns=3, steps=220):
+def fx_apart_records():
     """A cause and its outcome four windows apart (plan WP-08 done-when 3, design §5.4's fixture): a request, three long
     turns that S2 cuts across windows 1 to 5, the turn that reports the outcome, which lands in window 5, and one more
     long turn after it, so the outcome's window is not the view's last.
 
-    The live legs (WP-08 commit 7) change the shape, not the case: without `trailing`, `turns` long turns of `steps`
-    steps each put the outcome in the view's last window; without `outcome` the transcript holds no outcome turn at all,
-    since a live reader reads whatever record it is shown. Where S2 cuts depends on the turns' lengths, which is why the
-    self-test holds each leg to its windows."""
-    turn = lambda i: "".join(f"step {i}.{n:03d} of the index rebuild is still running. " for n in range(steps))  # noqa: E731
+    Apart in what the windows own, not in what they show: a long turn's spans are one turn, so the five-turn overlap of
+    every window before the fifth reaches the outcome, and the fifth's reaches the request. A golden reader answers from
+    the owned records alone; a live one reads the overlap too, which is why the live leg has its own session
+    (`fx_apart_live_records`)."""
+    turn = lambda i: "".join(f"step {i}.{n:03d} of the index rebuild is still running. " for n in range(220))  # noqa: E731
     return ([views.fx_human(views.fx_stamp(3, hour=1), FX_CAUSE)]
-            + [views.fx_assistant(views.fx_stamp(3, hour=2 + i), turn(i)) for i in range(turns)]
-            + ([views.fx_assistant(views.fx_stamp(3, hour=2 + turns), FX_OUTCOME)] if outcome else [])
-            + ([views.fx_assistant(views.fx_stamp(3, hour=3 + turns), turn(9))] if trailing else []))
+            + [views.fx_assistant(views.fx_stamp(3, hour=2 + i), turn(i)) for i in range(3)]
+            + [views.fx_assistant(views.fx_stamp(3, hour=5), FX_OUTCOME),
+               views.fx_assistant(views.fx_stamp(3, hour=6), turn(9))])
+
+
+# S2 cuts the live apart session's turns into five windows, the fifth from the 450th turn on (`fx_live_legs`)
+FX_APART_LIVE_TURNS, FX_TWIN_LIVE_TURNS = 460, 449
+
+
+def fx_apart_live_records(turns=FX_APART_LIVE_TURNS, outcome=True):
+    """The live apart leg's session (WP-08 commit 7): the request, `turns` short turns, and - with `outcome` - the turn
+    that reports it, in the fifth and last window. apart-live1 ran three to five long turns, and the overlap of every
+    window before the outcome's showed the outcome (`fx_apart_records`), so a reader saw cause and outcome together and
+    the stitch had nothing to join. A short turn is one entry, so the five turns of an overlap end within a few hundred
+    bytes of their window, and the outcome follows eleven turns of the fifth window, past the fourth's five. The
+    twin's `FX_TWIN_LIVE_TURNS` are the records before that fifth window. The self-test holds both to these windows."""
+    return ([views.fx_human(views.fx_stamp(3, hour=1), FX_CAUSE)]
+            + [views.fx_assistant(views.fx_stamp(3, hour=2 + i // 60, minute=i % 60),
+                                  f"step {i + 1:03d} of the index rebuild is still running.") for i in range(turns)]
+            + ([views.fx_assistant(views.fx_stamp(3, hour=2 + turns // 60, minute=turns % 60), FX_OUTCOME)] if outcome else []))
 
 
 FX_DECISIVE_CAUSE = "please restore last night's backup into staging and tell me whether every row came back"
@@ -1571,12 +1588,12 @@ def fx_live_legs():
     alone, so a leg makes only the calls its done-when judges. `dw2` carries a pending event on the request, which
     forces the expansion of the clipped result after it; `apart` ends on its outcome's window; `twin` holds no outcome
     turn: it is `apart` without the records of its outcome's window. The self-test runs each golden and holds it to its
-    windows, its calls and its outcome before a live call is spent on it."""
+    windows, its calls and its outcome - owned and shown - before a live call is spent on it."""
     def leg(rows, pending_at):
         return {"main_only": True, "main_records": rows, "owned": views.fx_owned(rows()), "pending_at": pending_at}
     return {"dw2": leg(fx_decisive_records, 0),
-            "apart": leg(lambda: fx_apart_records(trailing=False, turns=5, steps=170), None),
-            "twin": leg(lambda: fx_apart_records(outcome=False, trailing=False, turns=4, steps=170), None)}
+            "apart": leg(fx_apart_live_records, None),
+            "twin": leg(lambda: fx_apart_live_records(FX_TWIN_LIVE_TURNS, outcome=False), None)}
 
 
 def fx_claim(answer, doc, entry, fact, quote_id):
@@ -2075,6 +2092,31 @@ def self_test():
                 len(host_schemas) == sum(len(v) for leg in live for v in live[leg]["attempts"].values()) > 0
                 and all(h.get("type") == "object" and "$schema" not in h for h in host_schemas),
                 f"{len(host_schemas)} {[sorted(h)[:3] for h in host_schemas if '$schema' in h or not h][:3]}")
+
+        # Claude Code checks --json-schema with a draft-07 Ajv in strict mode, which refuses a keyword draft 2019-09 or
+        # 2020-12 added as unknown (dependentRequired, dw2-live1's probe); the policy admits one of them, so a schema
+        # handed to a host is walked for all of them, keywords only - a property's name is not a keyword
+        def keywords_of(node):
+            if isinstance(node, list):
+                return [k for item in node for k in keywords_of(item)]
+            if not isinstance(node, dict):
+                return []
+            out = []
+            for key, value in node.items():
+                out.append(key)
+                if key in ("properties", "patternProperties") and isinstance(value, dict):
+                    out += [k for sub in value.values() for k in keywords_of(sub)]
+                elif key not in ("enum", "const", "required"):
+                    out += keywords_of(value)
+            return out
+        post_draft07 = {"$anchor", "$defs", "$dynamicAnchor", "$dynamicRef", "$recursiveAnchor", "$recursiveRef",
+                        "$vocabulary", "contentSchema", "dependentRequired", "dependentSchemas", "maxContains",
+                        "minContains", "prefixItems", "unevaluatedItems", "unevaluatedProperties"}
+        handed_forms = host_schemas + [guarded(lambda s=s: json.loads(packet.schema_bytes(s())), {}) for s in (read_schema, stitch_schema)]
+        control("WP-08 commit 7: no schema S3 hands a host carries a keyword draft 2019-09 or 2020-12 added, which the host's "
+                "draft-07 check refuses as unknown",
+                len(handed_forms) > 2 and all(h for h in handed_forms) and not any(post_draft07 & set(keywords_of(h)) for h in handed_forms),
+                f"{len(handed_forms)} {sorted({k for h in handed_forms for k in post_draft07 & set(keywords_of(h))})}")
         # the handed schema judges as the schema does (WP-08 commit 7): every answer the three legs' golden runs gave, and
         # each one broken in one place - a required key gone, a key added, an id off its pattern, an outcome off its
         # list - is accepted or refused alike by the schema and by the form a host is handed
@@ -2129,6 +2171,75 @@ def self_test():
                 and {"id": cause_lt.get("event_id"), "transcript": main_unit, "first_record": 0,
                      "window": lt["summary"].get("window")} in lt["result"].get("pending_events", []),
                 f"{lt['problem']} {sorted(lt['lines'])} {lt['calls']} {lt['on_disk']} {cause_lt} {lt['result'].get('pending_events')}")
+        # what each window SHOWS, not only what it owns: apart-live1's long turns put the outcome in the overlap of every
+        # window before its own, so a live reader quoted it from the first window on and the stitch had nothing to join
+        def shown_lines(doc):
+            ov = doc.get("overlap", {})
+            return {r["line"] for r in doc["records"]} | {e["line"] for side in ("prev", "next")
+                                                          for e in ov.get(side, []) + ov.get("omitted", {}).get(side, [])}
+
+        def window_packets(leg):
+            return {int(m.group(1)): text for c, text in zip(live[leg]["attempts"]["window"], packet_of(leg, "window"))
+                    for m in [re.search(r"-w(\d+)-a\d+$", c)] if m}
+        lines_at = {key: next((r["line"] for d in la["docs"].values() for r in d["records"] if key in r["text"]), None)
+                   for key in (FX_CAUSE, FX_OUTCOME)}
+        packets_la, packets_lt = window_packets("apart"), window_packets("twin")
+        earlier = {n: la["docs"].get(n, {"records": []}) for n in (1, 2, 3, 4)}
+        control("WP-08 commit 7, live leg apart (golden): no window before the outcome's owns the outcome or shows it in its "
+                "overlap, shown or named, and no packet of theirs holds its text",
+                lines_at[FX_OUTCOME] is not None and sorted(la["docs"]) == [1, 2, 3, 4, 5]
+                and lines_at[FX_OUTCOME] in {r["line"] for r in la["docs"][5]["records"]}
+                and not any(lines_at[FX_OUTCOME] in shown_lines(d) for d in earlier.values())
+                and sorted(packets_la) == [1, 2, 3, 4, 5] and not any(FX_OUTCOME in packets_la[n] for n in earlier),
+                f"{lines_at} {sorted(la['docs'])} {[n for n, d in earlier.items() if lines_at[FX_OUTCOME] in shown_lines(d)]} "
+                f"{sorted(packets_la)}")
+        control("WP-08 commit 7, live leg apart (golden): the outcome's window neither owns nor shows the cause, and its "
+                "packet does not hold the cause's text",
+                lines_at[FX_CAUSE] is not None and 5 in la["docs"] and lines_at[FX_CAUSE] not in shown_lines(la["docs"][5])
+                and 5 in packets_la and FX_CAUSE not in packets_la[5],
+                f"{lines_at} {sorted(shown_lines(la['docs'].get(5, {'records': []})))[:8]} {sorted(packets_la)}")
+        control("WP-08 commit 7, live leg twin (golden): no window of the twin owns or shows an outcome, and no packet of "
+                "its holds the outcome's text",
+                lt["docs"] and sorted(packets_lt) == sorted(lt["docs"])
+                and not any(FX_OUTCOME in e["text"] for d in lt["docs"].values()
+                            for e in d["records"] + d["overlap"]["prev"] + d["overlap"]["next"])
+                and not any(FX_OUTCOME in text for text in packets_lt.values()),
+                f"{sorted(lt['docs'])} {sorted(packets_lt)}")
+
+        # how a reading writes an entry and a call id (WP-08 commit 7): apart-live1 wrote an overlap entry without its
+        # last part, '7/message/content/0' for '7/message/content/0/text', and dw2-live2's expansion wrote its call id
+        # with the label, 'CALL-ID: <id>'. Each entry a packet shows stands alone on its own `entry: ` line, the value the
+        # stage's check takes; the two shapes the live readers wrote stay refused by name.
+        offered = {(leg, n): sorted(line[len("entry: "):] for line in text.splitlines() if line.startswith("entry: "))
+                   for leg in live for n, text in window_packets(leg).items()}
+        control("WP-08 commit 7: each entry a window's packet shows stands on a line of its own as `entry: <entry>`, and "
+                "those values are the entries the stage's check takes as shown, every one and no other",
+                len(offered) == sum(len(live[leg]["docs"]) for leg in live) > 0
+                and all(offered[(leg, n)] == sorted(quotable_entries(live[leg]["docs"][n])) for leg, n in offered),
+                f"{len(offered)} {[(k, len(v)) for k, v in offered.items() if v != sorted(quotable_entries(live[k[0]]['docs'].get(k[1], {'records': []})))][:3]}")
+        doc_w1 = la["docs"].get(1, {"records": [], "omission_manifest": []})
+        rows_w1 = own_rows(doc_w1) if "omission_manifest" in doc_w1 else []
+        texted = next((r for r in doc_w1["records"] if views.eid(r).endswith("/text")), None)
+        as_offered = {"quotes": [], "claims": [], "events": [], "decisions": [], "observations": []}
+        if texted is not None:
+            as_offered = fx_answer(doc_w1, rows_w1)
+            fx_claim(as_offered, doc_w1, texted, "The agent reported a step of the rebuild.", "q7")
+            as_offered = json.loads(json.dumps(as_offered).replace("<CALL-ID>", "r-S3-x-a1"))
+        trimmed, labelled = copy.deepcopy(as_offered), copy.deepcopy(as_offered)
+        for q in trimmed["quotes"]:
+            if q["quote_id"] == "q7":
+                q["entry"] = q["entry"][:-len("/text")]
+        for c in labelled["claims"]:
+            c["call_id"] = "CALL-ID: r-S3-x-a1"
+        problems_of = lambda answer: guarded(lambda: answer_problems(doc_w1, rows_w1, answer, "r-S3-x-a1"), ["unjudged"])  # noqa: E731
+        control("WP-08 commit 7 (apart-live1 w1 and w2, dw2-live2 x1): an entry written without its last part and a call id "
+                "written with its CALL-ID label are refused by name, and the answer as the packet offers it is not",
+                texted is not None and problems_of(as_offered) == []
+                and any(p.startswith(f"RECORD_INTEGRITY entry {views.eid(texted)[:-len('/text')]!r} at quotes/q7 ")
+                        for p in problems_of(trimmed))
+                and len(labelled["claims"]) > 0 and sum("RECORD_INTEGRITY call id 'CALL-ID: r-S3-x-a1'" in p
+                                                        for p in problems_of(labelled)) == len(labelled["claims"]),
+                f"{texted is not None} {problems_of(as_offered)[:2]} {problems_of(trimmed)[:2]} {problems_of(labelled)[:2]}")
 
         # ---- the shard rule (plan amendment row 1): the apart session with a second event, under a bound that leaves
         # 4,000 bytes beside the stitch packet's fixed part - room for both events and not for all of their claims

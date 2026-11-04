@@ -491,11 +491,15 @@ def normal_stamp(value):
 
 
 def header_of(entry):
-    bits = [f"[{eid(entry)}]", entry["kind"] + (f":{entry['tool']}" if entry.get("tool") else ""), entry.get("ts") or "-",
+    """An entry's heading: a line `entry: <entry>` holding nothing but the value a reading writes as its `entry`, then
+    its kind, time and role. The entry once stood in brackets before the rest, and live readers wrote it without its
+    last part (`7/message/content/0` for `7/message/content/0/text`, WP-08 commit 7's apart leg): a line that is the
+    value alone, under the answer field's own name, leaves nothing to trim."""
+    bits = [entry["kind"] + (f":{entry['tool']}" if entry.get("tool") else ""), entry.get("ts") or "-",
             role_label(entry["window_role"])]
     if entry.get("error"):
         bits.append("ERROR")
-    return " ".join(bits)
+    return f"entry: {eid(entry)}\n" + " ".join(bits)
 
 
 def render_entry(entry):
@@ -1557,9 +1561,12 @@ def fx_clipped(hidden, filler=6):
 
 
 def fx_main_records():
-    """T1, the eligible Claude session: one record before the window, the viewed turns, two after it."""
+    """T1, the eligible Claude session: one record before the window, the viewed turns, two after it. The record before
+    is longer than an overlap item, so the first window's overlap cuts it and a record the run does not owe carries an
+    overlap row by construction (D-20261103-8bfd69), not by how a side's budget happens to fill."""
     return [
-        fx_assistant(fx_stamp(30, month=9, hour=10), "an answer from the week before this window"),
+        fx_assistant(fx_stamp(30, month=9, hour=10), "an answer from the week before this window. "
+                     + "".join(f"note {i:03d} of that answer. " for i in range(40))),
         fx_human(fx_stamp(3, hour=1), f"{FX_QUOTE} of that, and see {FX_RAW_PATH} please"),
         fx_assistant(fx_stamp(3, hour=2), f"here it is; the slot still holds {FX_SECRET} for the runner"),
         fx_call(fx_stamp(3, hour=3), FX_TOOL_SECRET, {"command": f"ls {FX_HOME}/Documents/repo"}),
@@ -3661,7 +3668,11 @@ def self_test():
         # X review of WP-08 r1 #1: what the overlap shows is located like an owned record's text, and nothing past its cut
         shown_run = golden(x1, "shown", overhead=100_000)
         shown_dir, shown_main = pathlib.Path(shown_run["run_dir"]), shown_run["main"]
-        cut_entry = next((e for w in shown_run["windows"] for e in w["overlap"]["prev"] if e["overlap_cut"]), None)
+        # a record some window owns, whose text past the cut that window shows (the record before the window is cut in
+        # the first window's overlap too, and no window owns it)
+        owned_entries = {eid(r) for w in shown_run["windows"] for r in w["records"]}
+        cut_entry = next((e for w in shown_run["windows"] for e in w["overlap"]["prev"]
+                          if e["overlap_cut"] and e["entry"] in owned_entries), None)
         split_part = next((e for w in shown_run["windows"] for e in w["overlap"]["prev"] + w["overlap"]["next"]
                             if "#" in e["entry"]), None)
         for label, entry in (("a cut overlap entry", cut_entry), ("an overlap entry of a split span", split_part)):
@@ -3679,12 +3690,15 @@ def self_test():
             checks.expect("X r1: a cut overlap entry's segments end where its shown text ends, so they claim no more than "
                           "it shows", max((s["view"][1] for s in cut_entry.get("segments", [])), default=None),
                           len(cut_entry["text"]))
-            owner_text = next(r["text"] for w in shown_run["windows"] for r in w["records"]
-                              if eid(r) == cut_entry["entry"])
-            past = owner_text[len(cut_entry["text"]):len(cut_entry["text"]) + 30]
-            checks.refused("X r1: a quote of what the overlap cut off is not located in the overlap",
-                           lambda: evidence_store.from_view(shown_dir, shown_main["version_sha"], cut_entry, past),
-                           "QUOTE_MISMATCH")
+            owner_text = next((r["text"] for w in shown_run["windows"] for r in w["records"]
+                               if eid(r) == cut_entry["entry"]), None)
+            if owner_text is None:
+                checks.expect("X r1: a window owns the cut overlap entry, which shows what the cut left out", None, "an owner")
+            else:
+                past = owner_text[len(cut_entry["text"]):len(cut_entry["text"]) + 30]
+                checks.refused("X r1: a quote of what the overlap cut off is not located in the overlap",
+                               lambda: evidence_store.from_view(shown_dir, shown_main["version_sha"], cut_entry, past),
+                               "QUOTE_MISMATCH")
     # WP-08 commit 5a: a call's decision of an omission is written once - again as it was, nothing more; otherwise, refused
     with tempfile.TemporaryDirectory() as decided:
         decided_dir = pathlib.Path(decided)
