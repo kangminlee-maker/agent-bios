@@ -300,6 +300,113 @@ def stop_tree(proc, sampler, clock=time.time, settle_s=0.3, freeze_wait_s=1.0, _
     return record
 
 
+def stop_recorded(identity, settle_s=2.0, freeze_wait_s=1.0):
+    """Stop what a dead driver left running (WP-08 commit 5a): the process group of the runner whose `identity`
+    dispatch recorded when it started it (`{pid, start, pgid}`). It is signalled only when a fresh listing shows the
+    process at `pid` with the recorded start time, in the recorded group, and leading it, as dispatch starts every
+    runner (start_new_session); a pid since reused by another program, a group that is not the runner's, or an identity
+    recorded in part is never signalled.
+
+    The group is frozen before it is killed, as `stop_tree` freezes a tree (W r1): every member a listing shows in the
+    group is SIGSTOPped, and the group is listed again until one listing, still showing the leader as recorded, shows
+    every member stopped and none new. A member forked after the first listing is found that way, since a stopped
+    process cannot fork. Every member is then SIGKILLed, each only while its own start time is the one listed, and the
+    kill is verified over the whole group as a fresh listing shows it, not over the members found: a process the group
+    still holds is a survivor whether or not it was found. With the leader no longer listed, a group that still has
+    members cannot be shown to be the runner's (its id is free once the leader is gone and the group empties), so
+    nothing is signalled and the stop is `unverified`.
+
+    A listing with an unreadable line can hide a member, so none of the three conclusions - the group gone, the freeze
+    stable, the kill done - is drawn from one (W r2): the first listing is taken again until it is complete, within
+    `freeze_wait_s`; the freeze goes on listing until a complete listing shows it stable, or until its deadline, when
+    the members found are killed; and only a complete listing verifies the kill. When none is complete in time the stop
+    is `unverified`.
+
+    Returns `(outcome, detail)`: `stopped`, `survivors`, `gone` (no such process, and no process in its group),
+    `identity_mismatch` (named, nothing signalled) or `unverified` (no listing, an identity not recorded whole, a
+    group left without its leader, or a leader not listed by any complete listing: nothing signalled; or a kill no
+    complete listing verified)."""
+    pid, start, pgid = identity.get("pid"), identity.get("start"), identity.get("pgid")
+    if not isinstance(pid, int) or not isinstance(pgid, int) or not start or pgid in (0, 1) or pgid == os.getpgrp():
+        return "unverified", f"the runner's identity was not recorded whole: {identity}"
+
+    def in_group(rows):
+        return {p: r for p, r in rows.items() if r["pgid"] == pgid and p != os.getpid() and "Z" not in r["stat"]}
+
+    try:
+        rows = ps_table()
+        retry_until = time.monotonic() + freeze_wait_s
+        while pid not in rows and rows.unreadable and time.monotonic() < retry_until:  # absence needs a complete listing
+            time.sleep(0.05)
+            rows = ps_table()
+    except ListingFailed as exc:
+        return "unverified", f"no listing to verify the runner against ({exc})"
+    row = rows.get(pid)
+    if row is None and rows.unreadable:
+        return "unverified", (f"pid {pid} is not listed, and no listing within {freeze_wait_s}s read every line (the last "
+                              f"had {rows.unreadable} unreadable): its group is not shown gone, so none is signalled")
+    if row is None:
+        held = in_group(rows)
+        if held:
+            return "unverified", (f"pid {pid} is not listed and its group {pgid} still holds pids {sorted(held)}: with no "
+                                  f"leader to show the group is the runner's, none is signalled")
+        return "gone", f"pid {pid} is not listed"
+    differs = [name for name, want in (("start", start), ("pgid", pgid)) if row[name] != want]
+    if not differs and pid != pgid:
+        differs = ["group leader"]
+    if differs:
+        return "identity_mismatch", f"pid {pid} is listed with another {', '.join(differs)} than the runner recorded"
+    members, rounds, frozen = {}, 0, False
+    deadline = time.monotonic() + freeze_wait_s
+    while True:  # the freeze: a member joins only from a listing that shows the leader as recorded
+        rounds += 1
+        if not same(rows, pid, start) or rows[pid]["pgid"] != pgid:
+            break
+        new = {p: r for p, r in in_group(rows).items() if p not in members}
+        running = [p for p, r in members.items() if same(rows, p, r["start"]) and "T" not in rows[p]["stat"]
+                   and "Z" not in rows[p]["stat"]]
+        if not new and not running and not rows.unreadable:  # an unreadable line may hide a member still running
+            frozen = True
+            break
+        if time.monotonic() > deadline:
+            break
+        members.update(new)
+        _signal(rows, {**new, **{p: members[p] for p in running}}, signal.SIGSTOP)
+        time.sleep(0.005)
+        try:
+            rows = ps_table()
+        except ListingFailed:
+            break
+    try:
+        rows = ps_table()
+    except ListingFailed as exc:
+        return "unverified", (f"the kill listing failed ({exc}): pids {sorted(members)} of group {pgid} were stopped "
+                              f"and none was killed; they stay stopped until the owner checks each pid against the run's "
+                              f"host and ends it")
+    _signal(rows, members, signal.SIGKILL)
+    deadline, left, incomplete = time.monotonic() + settle_s, None, 0
+    while time.monotonic() < deadline:
+        time.sleep(0.05)
+        try:
+            after = ps_table()
+        except ListingFailed:
+            continue
+        if after.unreadable:  # it may hide a process the group still holds: it verifies nothing
+            incomplete += 1
+            continue
+        left = sorted({p for p, r in members.items() if same(after, p, r["start"]) and "Z" not in after[p]["stat"]}
+                      | set(in_group(after)))
+        if not left:
+            break
+    if left is None:
+        return "unverified", (f"no complete listing verified the kill of pids {sorted(members)} of group {pgid}"
+                              + (f" ({incomplete} had unreadable lines)" if incomplete else ""))
+    if left:
+        return "survivors", f"pids {left} of group {pgid} outlived the kill"
+    return "stopped", (f"group {pgid}: {len(members)} processes, frozen in {rounds} listings" if frozen else
+                       f"group {pgid}: {len(members)} processes, the freeze not shown stable in {rounds} listings")
+
+
 def problem_codes(source, function=CONTRACT["predicate"], sink="problems"):
     """The codes `function` can report: the leading word of every f-string it appends to `sink`
     (the implemented branch set, read from code; monitor.py reads its boundary with it too)."""
@@ -739,6 +846,164 @@ def self_test():
             p.wait(timeout=5)
         except subprocess.TimeoutExpired:
             pass
+
+    # ---- WP-08 commit 5a: what a dead driver left running is stopped only when it is the runner recorded. Every
+    # process here is one this suite started, so a reverted check can only ever signal one of them.
+    def identity_of(pid):
+        row = ps_table().get(pid)
+        return {"pid": pid, "start": row["start"] if row else None, "pgid": row["pgid"] if row else None}
+
+    run_a, kid_a, sampler_a = launch()
+    sampler_a.halt.set()
+    time.sleep(1.2)  # `ps` lists a start time to the second: B's must not read as A's
+    run_b, kid_b, sampler_b = launch()
+    sampler_b.halt.set()
+    run_c, _kid_c, sampler_c = launch()
+    sampler_c.halt.set()
+    recorded_a, recorded_b, recorded_c = identity_of(run_a.pid), identity_of(run_b.pid), identity_of(run_c.pid)
+    kid_row_a = ps_table().get(kid_a, {})
+    # what each runner's group holds, listed while all three are this suite's unreaped children, so each group id is
+    # provably theirs: cleanup signals these identities only, and never looks a group up again by a pid it has reaped
+    owned = {**group(run_a.pid), **group(run_b.pid), **group(run_c.pid)}
+
+    def release(procs, members):
+        """Kill what this suite started, by the identities recorded while it was unreaped, and reap its runners."""
+        cleanup(members)
+        for proc in procs:
+            proc.wait(timeout=10)
+    control("stop_recorded: the fixture runners have distinct start times", recorded_a["start"] != recorded_b["start"],
+            f"{recorded_a} {recorded_b}")
+    outcome_a = stop_recorded(recorded_a)
+    try:  # the runner here is this suite's child, so its zombie is reaped here, as init reaps a dead driver's
+        run_a.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        pass
+    time.sleep(0.2)
+    listed = ps_table()
+    control("stop_recorded: the runner recorded, at its pid with its start time and group, is stopped with its group",
+            outcome_a[0] == "stopped" and not same(listed, run_a.pid, recorded_a["start"])
+            and not same(listed, kid_a, kid_row_a.get("start")), f"{outcome_a}")
+    # a pid and group no system hands out, so that a reverted check here has nothing it could signal: the stopped
+    # runner's own pid may already be another program's
+    nobody = {"pid": 2 ** 30 + 7, "start": recorded_a["start"], "pgid": 2 ** 30 + 7}
+    gone = stop_recorded(nobody)
+    control("stop_recorded: a runner no longer listed is named gone", gone[0] == "gone", f"{gone}")
+    for label, planted in (("another start time at its pid", {**recorded_b, "start": recorded_a["start"]}),
+                           ("another process group", {**recorded_b, "pgid": recorded_c["pgid"]}),
+                           # its recorded group is its own pid, so it reads as leading it: only the listed group differs
+                           ("a process listed in another group than the one recorded", {**identity_of(kid_b), "pgid": kid_b}),
+                           ("a member that does not lead its group", {**identity_of(kid_b), "pgid": recorded_b["pgid"]})):
+        outcome = stop_recorded(planted)
+        listed = ps_table()
+        control(f"stop_recorded: {label} is named and nothing is signalled",
+                outcome[0] == "identity_mismatch" and same(listed, run_b.pid, recorded_b["start"])
+                and same(listed, run_c.pid, recorded_c["start"]), f"{outcome}")
+    outcome = stop_recorded({**recorded_b, "start": None})
+    control("stop_recorded: an identity recorded in part is unverified and nothing is signalled",
+            outcome[0] == "unverified" and same(ps_table(), run_b.pid, recorded_b["start"]), f"{outcome}")
+
+    # W r1: the group as the listings show it over time, driven deterministically (mocked: no real signal is sent).
+    # SIGSTOP stops a listed process and SIGKILL removes it. `arrive` adds a process before the n-th listing (a fork
+    # between the first listing and the kill); `after_kill` adds one to the first listing after a SIGKILL was sent (a
+    # process the group holds once the kill is done), whatever number that listing has.
+    class Table:
+        """A mocked process table. `hidden` maps a pid to how many listings show it only as an unreadable line."""
+
+        def __init__(self, procs, arrive=None, after_kill=(), hidden=None):
+            self.procs, self.arrive, self.after_kill = {r["pid"]: dict(r) for r in procs}, arrive or {}, list(after_kill)
+            self.listings, self.sent, self.hidden = 0, [], hidden or {}
+
+        def list(self):
+            self.listings += 1
+            for r in self.arrive.get(self.listings, ()):
+                self.procs[r["pid"]] = dict(r)
+            if self.after_kill and any(sig == signal.SIGKILL for _pid, sig in self.sent):
+                self.procs.update((r["pid"], dict(r)) for r in self.after_kill)
+                self.after_kill = []
+            rows = Listing({p: dict(r) for p, r in self.procs.items() if self.hidden.get(p, 0) < self.listings})
+            rows.unreadable = sum(1 for p in self.procs if self.hidden.get(p, 0) >= self.listings)
+            rows[os.getpid()] = {"pid": os.getpid(), "ppid": 1, "pgid": os.getpgrp(), "stat": "R", "start": "now"}
+            return rows
+
+        def kill(self, target, sig):
+            self.sent.append((target, sig))
+            if target not in self.procs:
+                raise ProcessLookupError(target)
+            if sig == signal.SIGSTOP:
+                self.procs[target]["stat"] = "T"
+            elif sig == signal.SIGKILL:
+                del self.procs[target]
+
+    def driven(table, recorded):
+        real_kill, real_table = os.kill, ps_table
+        os.kill, globals()["ps_table"] = table.kill, table.list
+        try:
+            return stop_recorded(recorded, settle_s=0.2)
+        finally:
+            os.kill, globals()["ps_table"] = real_kill, real_table
+
+    lead = 2 ** 30 + 21
+
+    def proc_row(n, stat="S"):
+        return {"pid": lead + n, "ppid": lead if n else 1, "pgid": lead, "stat": stat, "start": f"Mon Jan  1 00:00:0{n} 2001"}
+    leader = {"pid": lead, "start": proc_row(0)["start"], "pgid": lead}
+    forked = Table([proc_row(0), proc_row(1)], arrive={2: [proc_row(2)]})
+    outcome = driven(forked, leader)
+    control("W r1: stop_recorded freezes the group and kills a member forked after its first listing",
+            outcome[0] == "stopped" and (lead + 2, signal.SIGKILL) in forked.sent and not forked.procs, f"{outcome} {forked.sent}")
+    late = Table([proc_row(0), proc_row(1)], after_kill=[proc_row(3)])
+    outcome = driven(late, leader)
+    control("W r1: stop_recorded verifies the whole group, so a process it holds after the kill is a survivor",
+            outcome[0] == "survivors" and str(lead + 3) in outcome[1], f"{outcome} {late.sent}")
+    leaderless = Table([proc_row(1), proc_row(2)])
+    outcome = driven(leaderless, leader)
+    control("W r1: a group still holding processes after its leader is gone is unverified and nothing is signalled",
+            outcome[0] == "unverified" and leaderless.sent == [] and str(lead + 1) in outcome[1], f"{outcome} {leaderless.sent}")
+    emptied = Table([])
+    outcome = driven(emptied, leader)
+    control("W r1: a leader gone with its group empty is gone, and nothing is signalled",
+            outcome[0] == "gone" and emptied.sent == [], f"{outcome} {emptied.sent}")
+    # W r2: a live member shown only as an unreadable line - the listing is incomplete, never evidence of absence
+    always = float("inf")
+    masked = Table([proc_row(1)], hidden={lead + 1: always})
+    outcome = driven(masked, leader)
+    control("W r2: a leader unlisted beside an unreadable line is unverified, never gone, and nothing is signalled",
+            outcome[0] == "unverified" and masked.sent == [] and masked.listings > 1, f"{outcome} {masked.sent}")
+    late_leader = Table([proc_row(0), proc_row(1)], hidden={lead: 1})
+    outcome = driven(late_leader, leader)
+    control("W r2: a first listing hiding the leader is taken again, and the complete one decides",
+            outcome[0] == "stopped" and (lead, signal.SIGKILL) in late_leader.sent
+            and (lead + 1, signal.SIGKILL) in late_leader.sent and not late_leader.procs, f"{outcome} {late_leader.sent}")
+    unseen = Table([proc_row(0), proc_row(1)], hidden={lead + 1: 2})
+    outcome = driven(unseen, leader)
+    control("W r2: a member an unreadable line hid from the first listings is frozen and killed once a complete "
+            "listing shows it",
+            outcome[0] == "stopped" and (lead + 1, signal.SIGSTOP) in unseen.sent
+            and (lead + 1, signal.SIGKILL) in unseen.sent and not unseen.procs, f"{outcome} {unseen.sent}")
+    never = Table([proc_row(0), proc_row(1)], hidden={lead + 1: always})
+    outcome = driven(never, leader)
+    control("W r2: a kill no complete listing verifies is unverified, not stopped",
+            outcome[0] == "unverified" and "no complete listing verified the kill" in outcome[1]
+            and never.procs.get(lead + 1, {}).get("stat") == "S", f"{outcome} {never.sent}")
+    # W r1: the reaped runner's pid, recycled as the leader of an unrelated group (mocked: no real signal is sent).
+    # Cleanup by the recorded identities signals nothing of it; looking the group up again by the pid would.
+    recycled, real_kill, real_table = [], os.kill, ps_table
+    stranger_row = {"pid": run_a.pid, "ppid": 1, "pgid": run_a.pid, "stat": "S", "start": "Mon Jan  1 00:00:00 2001"}
+    member_row = {"pid": 2 ** 30 + 11, "ppid": run_a.pid, "pgid": run_a.pid, "stat": "S", "start": "Mon Jan  1 00:00:00 2001"}
+
+    def recycled_table():
+        rows = Listing({os.getpid(): {"pid": os.getpid(), "ppid": 1, "pgid": os.getpgrp(), "stat": "R", "start": "now"},
+                        run_a.pid: dict(stranger_row), member_row["pid"]: dict(member_row)})
+        return rows
+    os.kill = lambda target, sig: recycled.append((target, sig))
+    globals()["ps_table"] = recycled_table
+    try:
+        release([run_a], {pid: row for pid, row in owned.items() if row["pgid"] == recorded_a["pgid"]})
+    finally:
+        os.kill, globals()["ps_table"] = real_kill, real_table
+    control("W r1: cleanup after the reap signals nothing of a group a recycled pid now leads", recycled == [],
+            f"signalled {recycled}")
+    release([run_b, run_c], owned)
 
     # ---- r4 R1: this runner's own `__main__` boundary, DRIVEN rather than read out of the source.
     # It was a `try` inside the `if __name__` block that no control could enter.

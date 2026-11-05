@@ -401,6 +401,12 @@ if [ -f wrappers/codex_frame_filter.py ]; then
   leg -q "FAIL: codex capture helper self-test (wrappers/codex_frame_filter.py)" \
     python3 wrappers/codex_frame_filter.py --self-test
 fi
+# The Claude adapter's evidence helper: the record kinds measured per version (RECORD_KINDS), the cell and
+# manifest checks, and the evidence it renders; the adapter's capture runs in check_parity.py claude_run.
+if [ -f wrappers/claude_hermetic_evidence.py ]; then
+  leg -q "FAIL: claude hermetic evidence helper self-test (wrappers/claude_hermetic_evidence.py)" \
+    python3 wrappers/claude_hermetic_evidence.py --self-test
+fi
 if [ -f session-distill/distill.py ]; then
   leg -q "FAIL: session-distill driver self-test (declare -> stage -> amend -> stage)" \
     python3 session-distill/distill.py --self-test
@@ -539,6 +545,17 @@ fi
 if [ -f session-distill/runlib/breaker.py ]; then
   leg -q "FAIL: session-distill provider breaker self-test (session-distill/runlib/breaker.py)" \
     python3 session-distill/runlib/breaker.py --self-test
+fi
+# S3 read (plan WP-08): golden runs of the stage through the supervisor and dispatch's golden host, which
+# answers from a plan made of the windows themselves; no model is called.
+if [ -f session-distill/runlib/stage_read.py ]; then
+  leg -q "FAIL: session-distill S3 read self-test (session-distill/runlib/stage_read.py)" \
+    python3 session-distill/runlib/stage_read.py --self-test
+fi
+# Follow-up resolutions (plan WP-08 done-when 5, design §11): the O9 fixtures through the derivation, each flipped.
+if [ -f session-distill/runlib/measures.py ]; then
+  leg -q "FAIL: session-distill follow-up resolution self-test (session-distill/runlib/measures.py)" \
+    python3 session-distill/runlib/measures.py --self-test
 fi
 
 # Instructions rollback (compose/instructions-state.py) — a destructive path with no other

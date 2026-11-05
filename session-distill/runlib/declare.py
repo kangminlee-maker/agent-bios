@@ -5,7 +5,8 @@
 has recorded that it read it, `set_fields` edits it in place; from then on a change is an
 amendment (`amend`): one line in `amendments.jsonl`, `declaration_seq` advanced, and the
 stages whose results it makes stale listed in `invalidates[]`. Changing `checks{}` after a
-stage record exists invalidates S3 and everything downstream.
+stage record exists invalidates S3 and everything downstream; changing `output_caps{}` after
+one invalidates S2 and everything downstream, because S2 cut the windows against that cap.
 
 A declaration is checked in three steps, each only when the one before it holds. Its structure
 is `schemas/run.schema.json`, validated by jsonschema through `validate.py` (closed objects,
@@ -27,7 +28,8 @@ at call time: nothing here restates which guide owns which host or how its targe
 to the declaration by `design/session-distill/2026-10-21T0318--2d4fbd4--plan-addendum-wp01.md`;
 it is read by `records.StageRun.run_items`. `host_allowance` is the per-seat allowance of the
 amendment to design §5.4 and `destinations` the root of each class every S11 and S12 writer
-must resolve into.
+must resolve into. `output_caps` is the output-token cap of S3's calls: S2 cuts every window
+reserving it and S3 declares it on every call, so both read this one number.
 
   declare.py --self-test
 """
@@ -44,7 +46,7 @@ import zoneinfo
 
 if __package__ in (None, ""):  # run as a script: put session-distill/ on the import path
     sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
-from runlib import records, stagelock, validate
+from runlib import gate, records, stagelock, validate
 from runlib.records import Refused
 
 REPO = pathlib.Path(__file__).resolve().parents[2]
@@ -54,8 +56,11 @@ VALIDATOR = validate.compile_schema(SCHEMA)
 STRATA = tuple(SCHEMA["properties"]["actor_seats"]["items"]["properties"]["stratum"]["enum"])  # design §8.4
 DESTINATIONS = tuple(SCHEMA["properties"]["destinations"]["required"])
 # A change to these top-level fields makes the results of the named stage, and every later
-# stage that has a record, stale: criteria applied by S3 no longer describe what it read.
-INVALIDATED_FROM = {"checks": "S3"}
+# stage that has a record, stale: criteria applied by S3 no longer describe what it read, and a
+# window S2 cut while reserving one output cap is not the window a call reserving another may
+# send - raising the cap is accepted as an amendment, and the views are cut again under it
+# (`design/session-distill/2026-11-03T2155--6779ed7--the-output-cap-is-declared-and-a-reading-cites-its-own-quotes.md`).
+INVALIDATED_FROM = {"checks": "S3", "output_caps": "S2"}
 # The stage whose calls carry a window of a transcript view (S3 reading and its expansions): the
 # seat of that stage needs a declared host allowance (amendment to design §5.4).
 VIEW_WINDOW_STAGE = "S3"
@@ -311,9 +316,13 @@ def amend(run_dir, assignments, reason, scope=(), invalidates=(), repo=REPO):
 # --- self-test ------------------------------------------------------------------------------
 
 def fixture():
-    """A valid declaration (golden): its seats are the ones the prompting guides cover today."""
+    """A valid declaration (golden): its seats are the ones the prompting guides cover today. Its S3 seat and
+    its Claude host are the ones seats.json pins, read from it, so a re-pin moves every suite built on this
+    declaration with it instead of leaving them on a host version the checkout no longer pins."""
     digest = lambda name: records.sha256_bytes(name.encode())  # noqa: E731
-    sonnet, opus = "claude:claude-sonnet-5-5/xhigh", "claude:claude-opus-5-5/high"
+    pinned = gate.seats()
+    claude = pinned["hosts"]["claude"]["version"]
+    sonnet, opus = pinned["stage_seats"][VIEW_WINDOW_STAGE][0], "claude:claude-opus-5-5/high"
     astra = "codex:gpt-6-astra/xhigh"
     return {
         "question": "Which repeated work patterns deserve a place in the library?",
@@ -336,10 +345,11 @@ def fixture():
         "starting_hashes": {"ledger": digest("ledger"), "coverage": digest("coverage"),
                             "layers": {"global": digest("global")}},
         "account": {"extra_usage": "off", "declared_on": "2026-10-21"},
-        "hosts": {"claude": "2.1.304", "codex": "0.163.0"},
+        "hosts": {"claude": claude, "codex": "0.163.0"},
         "declaration_seq": 0,
-        "host_allowance": {sonnet: {"allowance_tokens": 3200, "host_version": "2.1.304",
+        "host_allowance": {sonnet: {"allowance_tokens": 3200, "host_version": claude,
                                     "flag_set_sha256": digest("flags")}},
+        "output_caps": {VIEW_WINDOW_STAGE: 32000},
         "destinations": {name: f"/srv/fixture/destinations/{name}" for name in DESTINATIONS},
     }
 
@@ -380,11 +390,12 @@ def self_test():
 
     # The declaration's fields, copied here once: design §4.1's contents plus what the plan adds
     # (WP-01: declaration_seq, host_allowance, destinations; P3 / design §13.2: account, hosts) and
-    # `posture`, whose authority is design/session-distill/2026-10-21T0318--2d4fbd4--plan-addendum-wp01.md.
+    # `posture`, whose authority is design/session-distill/2026-10-21T0318--2d4fbd4--plan-addendum-wp01.md,
+    # and `output_caps` (WP-08: the cap's declared home, named in the schema's $comment).
     # The schema is the authority for their shape; this pins which fields exist.
     declared = {"question", "kind", "posture", "window", "sources", "checks", "budget", "seats",
                 "actor_seats", "config_manifest_B", "starting_hashes", "account", "hosts",
-                "declaration_seq", "host_allowance", "destinations"}
+                "declaration_seq", "host_allowance", "output_caps", "destinations"}
     control("schema-requires-exactly-the-declared-fields",
             [] if set(SCHEMA["required"]) == declared == set(SCHEMA["properties"])
             else [f"schema requires {sorted(SCHEMA['required'])}, declares {sorted(SCHEMA['properties'])}"])
@@ -393,7 +404,9 @@ def self_test():
             [] if addendum in SCHEMA["$comment"] and (REPO / addendum).is_file()
             else [f"run.schema.json cites {SCHEMA['$comment']!r}; {addendum} must be named and present"])
     control("valid-declaration", checked(fixture()))  # the positive control, first
-    for name in sorted(SCHEMA["required"]):
+    # over the pinned set, not the schema's own list: a control that indexes a live list stops testing, silently, when
+    # an entry leaves it, so a requirement dropped from the schema still has its drop control here, and that fails
+    for name in sorted(declared):
         code = "ACCOUNT_UNDECLARED" if name == "account" else "DECLARATION_INVALID"
         control(f"drop-{name}", mutated(lambda run, name=name: run.pop(name)), f"{code} {name}: missing")
     control("unknown-field", mutated(lambda run: run.update(extra=1)),
@@ -408,6 +421,11 @@ def self_test():
     control("account-impossible-date", mutated(lambda run: run["account"].update(declared_on="2026-13-40")),
             "ACCOUNT_UNDECLARED account.declared_on: not a calendar date")
     control("kind-unknown", mutated(lambda run: run.update(kind="adhoc")), "DECLARATION_INVALID kind")
+    control("output-cap-zero", mutated(lambda run: run["output_caps"].update(S3=0)), "DECLARATION_INVALID output_caps.S3")
+    control("output-cap-not-an-integer", mutated(lambda run: run["output_caps"].update(S3=True)),
+            "DECLARATION_INVALID output_caps.S3")
+    control("output-cap-for-a-stage-nothing-reads", mutated(lambda run: run["output_caps"].update(S4=8000)),
+            "DECLARATION_INVALID output_caps: Additional properties")
     control("posture-unknown", mutated(lambda run: run.update(posture="staging")), "DECLARATION_INVALID posture")
     control("window-reversed", mutated(lambda run: run["window"].update(start="2026-10-09T00:00:00")),
             "DECLARATION_INVALID window: the half-open window")
@@ -458,14 +476,15 @@ def self_test():
             "ALLOWANCE_UNDECLARED seats.S3")
     control("host-allowance-measured-on-another-host-version",
             mutated(lambda run: run["hosts"].update(claude="2.1.305")),
-            f"HOST_ALLOWANCE_STALE host_allowance.{sonnet}: measured on host 2.1.304, the declaration names 2.1.305")
+            f"HOST_ALLOWANCE_STALE host_allowance.{sonnet}: measured on host {fixture()['hosts']['claude']}, "
+            f"the declaration names 2.1.305")
     control("host-allowance-for-an-undeclared-seat",
             mutated(lambda run: run["host_allowance"].update({"claude:claude-haiku-5-5/low": run["host_allowance"][sonnet]})),
             "DECLARATION_INVALID host_allowance.claude:claude-haiku-5-5/low: not a seat this declaration names")
     control("host-allowance-key-not-a-seat", mutated(lambda run: run["host_allowance"].update({"sonnet": run["host_allowance"][sonnet]})),
             "DECLARATION_INVALID host_allowance.sonnet: not a seat")
     control("host-allowance-without-its-flag-set", mutated(lambda run: run["host_allowance"][sonnet].pop("flag_set_sha256")),
-            "DECLARATION_INVALID host_allowance.claude:claude-sonnet-5-5/xhigh.flag_set_sha256: missing")
+            f"DECLARATION_INVALID host_allowance.{sonnet}.flag_set_sha256: missing")
     # seat coverage by the prompting-targets gate's own reader
     control("stage-seat-uncovered",
             mutated(lambda run: run["seats"].update(S4="claude:claude-opus-9-9/high")),
@@ -478,15 +497,15 @@ def self_test():
 
     # the reader is the gate's own: compiled from its script, and it follows the script when that changes
     owners, targets = prompting_reader()
-    gate = str(REPO / "launch" / "check-prompting-targets.sh")
+    targets_gate = str(REPO / "launch" / "check-prompting-targets.sh")
     ran.append("reader-is-compiled-from-the-gate-script")
-    if targets.__code__.co_filename != gate or owners.get("claude") is None:
+    if targets.__code__.co_filename != targets_gate or owners.get("claude") is None:
         failures.append(f"reader-is-compiled-from-the-gate-script: {targets.__code__.co_filename}")
     with tempfile.TemporaryDirectory() as td:
         scratch = pathlib.Path(td)
         (scratch / "launch").mkdir()
         (scratch / "codex" / "guides").mkdir(parents=True)
-        text = pathlib.Path(gate).read_text(encoding="utf-8")
+        text = pathlib.Path(targets_gate).read_text(encoding="utf-8")
         for guide in ("claude-prompting", "gpt-prompting"):
             (scratch / "codex" / "guides" / f"{guide}.md").write_bytes(
                 (REPO / "codex" / "guides" / f"{guide}.md").read_bytes())
@@ -498,7 +517,7 @@ def self_test():
         control("scratch-copy-of-the-gate-agrees", with_gate(lambda t: t))
         control("gate-edit-moves-the-verdict",  # claude seats now read the gpt guide: the reader followed the script
                 with_gate(lambda t: t.replace('"claude": "claude-prompting"', '"claude": "gpt-prompting"')),
-                "SEAT_UNCOVERED claude:claude-sonnet-5-5/xhigh: gpt-prompting does not name claude-sonnet-5-5")
+                f"SEAT_UNCOVERED {sonnet}: gpt-prompting does not name {parse_seat(sonnet)[1]}")
         control("gate-without-a-targets-function",
                 with_gate(lambda t: t.replace("def targets(", "def renamed(")), "SEAT_COVERAGE_UNREADABLE")
         control("gate-without-a-python-body", with_gate(lambda t: t.replace("<<'PY'", "<<'EOF'")),
@@ -580,6 +599,11 @@ def self_test():
             control("amend-host-upgrade-with-the-new-allowance",
                     [] if upgrade["seq"] == 4 and records.read_json(records.run_json_path(run_dir))["host_allowance"] == remeasured
                     else [f"unexpected {upgrade}"])
+            # raising the cap is ACCEPTED, and every recorded stage from S2 on is stale: S2 cut the windows reserving
+            # the old cap, so a call reserving more may not send them
+            raised = must("amend output_caps", amend, run_dir, [("output_caps.S3", 48000)], "a longer answer")
+            control("amend-output-cap-invalidates-s2-and-downstream",
+                    [] if (raised["seq"], raised["invalidates"]) == (5, ["S2", "S3", "S4"]) else [f"unexpected {raised}"])
 
             # each declaration seq is bound to the run.json authorized at it: a hand edit, before any stage
             # has read the new seq, is found by the next amendment, edit or stage

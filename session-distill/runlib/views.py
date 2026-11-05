@@ -21,7 +21,8 @@ whole; the rest is a gap named in the omission manifest with its size, its span 
 characters (so two results that look alike from outside, and differ inside, are told apart). A record is viewed when
 the census says this run owes it: the records the window owns and has not processed, and the backlog on the latest
 version. Anything else is shown only as the overlap (five entries each side of a window, each cut to
-`OVERLAP_ITEM_BYTES`) and is `context`.
+`OVERLAP_ITEM_BYTES`) and is `context`. A file of a unit that owes the window nothing and holds an event an earlier run
+left pending is viewed with no window (`carried_only`), so the unit's stitch can show that event from this run's copy.
 
 **Windows.** Entries are cut greedily into windows in record order. Every viewed entry is owned by exactly one window;
 an entry too large for a window is split into **spans**, each a slice of the entry's view text with the mapping of
@@ -31,7 +32,8 @@ two viewed runs that have unviewed records between them.
 **The bound** (design §5.4 as amended, view-window calls only). The driver's part of a call - the window as
 `render_window` writes it, plus the packet template, schema and instructions (`overhead`) - is at most
 `bound.INPUT_BOUND` minus the seat's declared host allowance, in bytes (a token covers at least one byte), and, with the
-allowance and the output reservation, within the seat's context capacity. A window failing either is cut smaller.
+allowance and the output reservation (`run.json`'s `output_caps.S3`, the cap every S3 call declares), within the seat's
+context capacity. A window failing either is cut smaller.
 `bound.check_observed` compares what a call really consumed with `bound.INPUT_BOUND`; above it is a host change
 (`INPUT_BOUND_EXCEEDED`) and the dispatcher refuses every dispatch until an amendment of `host_allowance` follows.
 No guarantee about the complete request is claimed.
@@ -46,7 +48,7 @@ complete* when no span was skipped (`completeness`); `coverage_basis` is the ord
 Failures are named by their first word: ALLOWANCE_UNDECLARED, WINDOW_UNBOUNDED, WINDOW_BOUND_EXCEEDED,
 WINDOW_CAPACITY_EXCEEDED, INPUT_BOUND_EXCEEDED, SOURCE_CHANGED, SOURCE_TAMPERED, SOURCE_UNREADABLE,
 VIEW_NAME_COLLISION, SET_MISMATCH, OVERLAP_MISSING, SPAN_UNION_MISMATCH, ERROR_LINE_DROPPED, EXPANSION_SKIPPED,
-EXPANSION_DECISION_INVALID, EXPANSION_SOURCE_DRIFT, EXPANSION_UNKNOWN. Under the production posture a transcript
+EXPANSION_DECISION_INVALID, EXPANSION_DECISION_CONFLICT, EXPANSION_SOURCE_DRIFT, EXPANSION_UNKNOWN. Under the production posture a transcript
 whose work raises is quarantined under that name and the run goes on (design §4, `records.run_items`).
 
   views.py --self-test
@@ -68,7 +70,7 @@ import tempfile
 
 if __package__ in (None, ""):  # run as a script: put session-distill/ on the import path
     sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
-from runlib import bound, census, claims, coverage, declare, gate, lineage, projection, records, search, sources, stagelock, validate
+from runlib import bound, census, claims, coverage, declare, gate, ledger, lineage, projection, records, search, sources, stagelock, validate
 from runlib.records import Refused
 
 OVERLAP_TURNS = 5
@@ -89,8 +91,9 @@ ROLE_BACKLOG = re.compile(r"^backlog\(.+\)$")
 
 # ---- the bound -------------------------------------------------------------------------------
 
-def limits_of(run, reservation=None, overhead=bound.PACKET_OVERHEAD, seats_path=None):
-    """The bound a view-window call keeps, from the declaration: the S3 seat's declared allowance.
+def limits_of(run, overhead=bound.PACKET_OVERHEAD, seats_path=None):
+    """The bound a view-window call keeps, from the declaration: the S3 seat's declared allowance, and the output cap
+    the declaration gives S3's calls.
 
     Where the allowance comes from is this module's business; what the bound then IS belongs to
     `runlib/bound.py`, which both this side and the dispatcher import (the seam record of 2026-10-22).
@@ -98,7 +101,8 @@ def limits_of(run, reservation=None, overhead=bound.PACKET_OVERHEAD, seats_path=
     There is no capacity argument. It was one, and a caller could then cut a window against a number no
     declaration carried; the capacity now comes from the shared reader on every path, and a test that needs
     another one declares it in a `seats.json` fixture and names it with `seats_path` - the reader is the
-    same, and so is what it requires of a declaration (BB#5)."""
+    same, and so is what it requires of a declaration (BB#5). There is no reservation argument either, for the same
+    reason: the cap is `run.json`'s `output_caps`, the number S3's calls declare (WP-08)."""
     seat = (run.get("seats") or {}).get("S3")
     entry = (run.get("host_allowance") or {}).get(seat)
     if not seat or not entry:
@@ -114,11 +118,12 @@ def limits_of(run, reservation=None, overhead=bound.PACKET_OVERHEAD, seats_path=
         raise Refused(f"CAPACITY_UNDECLARED seats.S3: {basis}; no window is cut against a capacity nobody "
                       "measured (the seat's context window is host-reported)")
     # The output reservation is the cap the S3 call will declare for its answer - the same number the
-    # dispatcher admits that call against, supplied by the stage that makes it. There is no constant: a
-    # window cut against a reservation nobody chose reserves nothing (the ruling of 2026-10-22).
+    # dispatcher admits that call against. There is no constant: a window cut against a reservation nobody
+    # chose reserves nothing (the ruling of 2026-10-22), and the declaration is where it is chosen (WP-08).
+    reservation = (run.get("output_caps") or {}).get(declare.VIEW_WINDOW_STAGE)
     if not (isinstance(reservation, int) and not isinstance(reservation, bool) and reservation > 0):
-        raise Refused(f"CAP_UNDECLARED seats.S3: output-token cap {reservation!r}; a window is cut against the cap the "
-                      "call will declare for its answer, as a positive integer")
+        raise Refused(f"CAP_UNDECLARED output_caps.S3: output-token cap {reservation!r}; a window is cut against the cap "
+                      "the call will declare for its answer, and run.json declares it as a positive integer")
     return bound.limits(entry["allowance_tokens"], seat=seat, capacity=capacity, reservation=reservation,
                         overhead=overhead)
 
@@ -486,15 +491,31 @@ def normal_stamp(value):
 
 
 def header_of(entry):
-    bits = [f"[{eid(entry)}]", entry["kind"] + (f":{entry['tool']}" if entry.get("tool") else ""), entry.get("ts") or "-",
+    """An entry's heading: a line `entry: <entry>` holding nothing but the value a reading writes as its `entry`, then
+    its kind, time and role. The entry once stood in brackets before the rest, and live readers wrote it without its
+    last part (`7/message/content/0` for `7/message/content/0/text`, WP-08 commit 7's apart leg): a line that is the
+    value alone, under the answer field's own name, leaves nothing to trim."""
+    bits = [entry["kind"] + (f":{entry['tool']}" if entry.get("tool") else ""), entry.get("ts") or "-",
             role_label(entry["window_role"])]
     if entry.get("error"):
         bits.append("ERROR")
-    return " ".join(bits)
+    return f"entry: {eid(entry)}\n" + " ".join(bits)
 
 
 def render_entry(entry):
     return header_of(entry) + "\n" + entry["text"] + "\n"
+
+
+def shown_segments(entry, end):
+    """The segments of `entry` that the first `end` characters of its view text show, each in the same coordinates."""
+    out = []
+    for seg in entry["segments"]:
+        a, b = seg["view"]
+        if a >= end:
+            break
+        stop = min(b, end)
+        out.append({"view": [a, stop], "block": [seg["block"][0], seg["block"][0] + (stop - a)]})
+    return out
 
 
 def overlap_of(entry):
@@ -517,10 +538,13 @@ def overlap_of(entry):
     # `size` is the record's own length - the full projected block - and it rides along unchanged. A row
     # that substituted a span's end, or the length of a text already capped to 700, reported the head of a
     # clipped result as the size of the record; §5.4 and done-when 4 read this number as the record's size.
-    shown = {"entry": eid(entry), "record_id": entry["record_id"], "line": entry["line"],
+    # `json_pointer` and the `segments` of what is shown let a quote of the overlap be located exactly as one of an owned
+    # record: the overlap is evidence a reading may cite (an exposure seen before the action, X review of WP-08 r1), while
+    # owning it stays with its own window. The cut is a prefix, so the shown segments are the entry's, ended at the cut.
+    shown = {"entry": eid(entry), "record_id": entry["record_id"], "line": entry["line"], "json_pointer": entry["json_pointer"],
              "size": entry["size"], "kind": entry["kind"], "tool": entry.get("tool"),
              "ts": entry.get("ts"), "window_role": entry["window_role"], "error": entry.get("error", False),
-             "text": text, "overlap_cut": cut or bool(entry.get("cut"))}
+             "text": text, "segments": shown_segments(entry, len(text)), "overlap_cut": cut or bool(entry.get("cut"))}
     lost = (omitted_intervals(entry, len(text), len(entry["text"])) if cut else []) \
         + list(entry.get("cut_spans", []))
     if lost:
@@ -543,8 +567,11 @@ def overlap_side(entries, budget=OVERLAP_SIDE_BYTES, from_end=False):
             # A turn the budget cannot hold is OMITTED, and an omission with no span and no hash is not an
             # accounting - it names a record and says nothing about what was in it. The whole text goes, so
             # the span is the whole text and the hash is the whole text's.
+            # the role is the record's, as a shown entry's is: without it the manifest row named an in-window
+            # record context, and an expansion of that row carried the wrong role into evidence
             omitted.append({"entry": eid(entry), "record_id": entry["record_id"], "line": entry["line"],
                             "kind": entry["kind"], "size": entry["size"], "reason": "overlap_budget",
+                            "window_role": entry["window_role"],
                             # the whole of what this entry shows goes, in block coordinates, and so does
                             # anything it had already lost
                             "omitted_intervals": (omitted_intervals(entry, 0, len(entry["text"]))
@@ -848,14 +875,16 @@ def completeness(windows_ok, omission_ids, decisions, expanded_ok, unresolved=()
             "skipped": skipped, "unresolved_versions": held}
 
 
+INCOMPLETE_STATUSES = ("unreadable", "known_absent", "unknown_provenance", "read_partial", "failed", "deferred")
+
+
 def coverage_basis(scope):
     """`incomplete`, `view` or `source` for a claim's scope (design §5.4), checked in that order. `scope` is
     `{sources: [{accounted, directory_present}], sessions: [{status, unprocessed, view_complete, source_complete}]}`."""
     if any(not s["accounted"] or not s["directory_present"] for s in scope["sources"]):
         return "incomplete"
     for session in scope["sessions"]:
-        if session["status"] in ("unreadable", "known_absent", "unknown_provenance", "read_partial", "failed", "deferred") \
-                or session.get("unprocessed"):
+        if session["status"] in INCOMPLETE_STATUSES or session.get("unprocessed"):
             return "incomplete"
     # A session that is not even view complete is a hole, and the predicate used to FALL THROUGH it to
     # `source` - the strongest basis - because only the `view and not source` case was named. The mutation
@@ -1110,7 +1139,7 @@ def limits_refusal(golden_run):
     """The refusal `limits_of` gives for a declaration with no allowance, as a list of lines - so a control
     can read both stages' words for one stop side by side."""
     try:
-        limits_of({"seats": {"S3": golden_run["seat"]}, "host_allowance": {}}, reservation=32_000)
+        limits_of({"seats": {"S3": golden_run["seat"]}, "host_allowance": {}, "output_caps": {"S3": 32_000}})
     except Refused as exc:
         return str(exc).splitlines()
     return []
@@ -1173,7 +1202,9 @@ def view_transcript(run_dir, entry, file, state, ctx, unit=None):
         "pending_first_records": pending, "windows": len(windows)})
     index_rel = f"index/bm25/{name}.json"
     search.dump(index, index_destination(run_dir, index_rel))
-    return {"transcript": ident, "session": census.key_of(entry), "segment": file["stem"], "name": name, "host": entry["host"],
+    carried_only = {"carried_only": True} if not (work["in_window"] or work["backlog"]) else {}
+    return {**carried_only, "transcript": ident, "session": census.key_of(entry), "segment": file["stem"], "name": name,
+            "host": entry["host"],
             "kind": "child" if child else "session", "parent": entry.get("parent"), "unit": unit or census.key_of(entry),
             "version": version, "version_sha": sha, "source_copy": copy_rel, "redacted": proj_rel, "sequence": sequence_rel,
             "index": index_rel, "records": stats["records"], "items": counts["items"], "viewed_items": counts["viewed"],
@@ -1183,33 +1214,31 @@ def view_transcript(run_dir, entry, file, state, ctx, unit=None):
             "source_bytes": (run_dir / copy_rel).stat().st_size}
 
 
-def run(run_dir, reservation=None, overhead=bound.PACKET_OVERHEAD, seats_path=None):
+def run(run_dir, overhead=bound.PACKET_OVERHEAD, seats_path=None):
     """`distill.py views`: S2 over the census and the coverage state S1 left in the run directory."""
     run_dir = pathlib.Path(run_dir)
-    declaration = records.read_json(records.run_json_path(run_dir))
-    limits = limits_of(declaration, reservation, overhead, seats_path)
     try:
         transcripts = census.rows(census.load(run_dir))
     except ValueError as exc:
         raise Refused(f"INPUT_INVALID S1: {run_dir}/census.json: {exc}") from exc
     state = coverage.load(run_dir / "coverage.json")[0]
-    _, _, window_id = coverage.window_bounds(declaration["window"])
-    ctx = {"limits": limits, "redaction_version": projection.CURRENT, "zstd": sources.declared(declaration).get("zstd"),
-           "window_bounds": coverage.window_bounds(declaration["window"])[:2]}
     # The unit is a root with every member at any depth (D-20261103-85f3e8). Of an eligible unit S2 reads each transcript
-    # that owes the window something - the root or a member, its records in the window or its backlog - and no other: a
+    # that owes the window something - the root or a member, its records in the window or its backlog. A file that owes
+    # nothing and holds an event an earlier run left pending is viewed too, with no window (`carried_only`): the unit's
+    # stitch shows that event from this run's copy and projection, which only a view makes (W r1). No other file is: a
     # member with nothing to read would cut no window. An eligible root whose unit owes nothing contradicts S1.
     by_id = {census.key_of(e): e for e in transcripts}
     units = census.units(transcripts)
     owes = lambda f: bool(f["path"] and (f["work"]["in_window"] or f["work"]["backlog"]))  # noqa: E731
+    pending_on = {p["transcript"] for p in state["pending_events"]}
     todo, idle = [], []
     for root in (e for e in transcripts if e["status"] == "eligible"):
         unit = census.key_of(root)
-        read = [(e, f, unit) for e in [root] + [by_id[m] for m in units.get(unit, [])] if e is root or e["status"] == "child_of"
-                for f in census.segments_of(e) if owes(f)]
-        todo += read
-        if not read:
+        files = [(e, f) for e in [root] + [by_id[m] for m in units.get(unit, [])] if e is root or e["status"] == "child_of"
+                 for f in census.segments_of(e)]
+        if not any(owes(f) for _e, f in files):
             idle.append(unit)
+        todo += [(e, f, unit) for e, f in files if owes(f) or (f["path"] and f["key"] in pending_on)]
     if idle:
         raise Refused(f"SET_MISMATCH S2: eligible sessions whose unit owes the window nothing: {sorted(idle)}")
     names = collections.Counter(safe_name(f["key"]) for _e, f, _unit in todo)
@@ -1220,6 +1249,14 @@ def run(run_dir, reservation=None, overhead=bound.PACKET_OVERHEAD, seats_path=No
     with records.run_stage(run_dir, "S2", [{"artifact": "census.json", "producer_stage": "S1"},
                                            {"artifact": "coverage.json", "producer_stage": "S1"}],
                            part="views") as stage:
+        # the limits are the declaration this stage was admitted against: a read made before admission could be
+        # overtaken by an amendment of the cap, and the windows would be cut at a cap the record does not name (X r1)
+        declaration = stage.declaration
+        limits = limits_of(declaration, overhead, seats_path)
+        _, _, window_id = coverage.window_bounds(declaration["window"])
+        ctx = {"limits": limits, "redaction_version": projection.CURRENT, "zstd": sources.declared(declaration).get("zstd"),
+               "window_bounds": coverage.window_bounds(declaration["window"])[:2]}
+
         def work(item):
             done[item["id"]] = view_transcript(run_dir, item["entry"], item["file"], state, ctx, item["unit"])
 
@@ -1364,20 +1401,52 @@ def expand(run_dir, call_id, name, record_id, reason, forced_by="none", omission
 
 
 def record_decision(run_dir, call_id, name, record_id, decision, reason, forced_by="none", omission=None):
-    """Append one decision to `expansions.jsonl`. A skip of a forced record is refused (EXPANSION_SKIPPED)."""
+    """Append one decision to `expansions.jsonl`. A skip of a forced record is refused (EXPANSION_SKIPPED); a call's
+    decision of an omission is written once, and another decision of it by the same call is refused where it would be
+    written (EXPANSION_DECISION_CONFLICT)."""
     if decision not in DECISIONS or forced_by not in FORCED_BY or not str(reason or "").strip():
         raise Refused(f"EXPANSION_DECISION_INVALID {record_id}: decision {decision!r} (expand or skip), forced_by {forced_by!r}, "
                       "and a reason are required")
     if decision == "skip" and forced_by != "none":
         raise Refused(f"EXPANSION_SKIPPED {record_id}: forced by {forced_by}, so it must be expanded")
     path = stagelock.confine(run_dir, pathlib.Path(run_dir) / "expansions.jsonl")
-    with open(path, "a", encoding="utf-8") as handle:
-        # the locator names the OMISSION as well as the record: accounting is by interval, and a decision
-        # that names only the record answers for intervals nobody looked at
-        handle.write(json.dumps({"call_id": call_id,
-                                 "locator": {"transcript": name, "record_id": record_id, "omission_id": omission},
-                                 "reason": reason, "decision": decision, "forced_by": forced_by},
-                                sort_keys=True, ensure_ascii=False) + "\n")
+    # the locator names the OMISSION as well as the record: accounting is by interval, and a decision
+    # that names only the record answers for intervals nobody looked at
+    locator = {"transcript": name, "record_id": record_id, "omission_id": omission}
+    line = json.dumps({"call_id": call_id, "locator": locator, "reason": reason, "decision": decision, "forced_by": forced_by},
+                      sort_keys=True, ensure_ascii=False)
+    # the same decision of the same call again, as a resumed run makes it when its call is reused, is not written
+    # twice, and the same call deciding the same omission otherwise is refused (WP-08 commit 5a); a decision by another
+    # call is another line
+    # units read side by side append here: the read and the append are one step under the log's lock (WP-08 commit 5b)
+    with stagelock.hold(run_dir, "expansions", wait_s=DECISIONS_LOCK_WAIT_S):
+        # read by the one JSONL splitter: a reason may hold U+2028, U+2029 or U+0085 raw, which str.splitlines breaks at
+        held = [h for h in records.jsonl_read(path) if h.strip()] if path.is_file() else []
+        if line in held:
+            return
+        if any((d["call_id"], d["locator"]) == (call_id, locator) for d in map(json.loads, held)):
+            raise Refused(f"EXPANSION_DECISION_CONFLICT {record_id}: call {call_id} decided {omission or 'the record'} of "
+                          f"{name} already, otherwise; a call's decision of an omission is written once")
+        with open(path, "a", encoding="utf-8") as handle:
+            handle.write(line + "\n")
+
+
+DECISIONS_LOCK_WAIT_S = 30  # how long a decision waits for another unit's to be written
+
+
+def order_decisions(run_dir, rank):
+    """`expansions.jsonl` with its lines in the `rank` order of the view each decides, each view's in the order they
+    were made, replaced whole (WP-08 commit 5b). Units read side by side append their decisions interleaved; in this
+    order the log is the same bytes however many were read at once. A view `rank` does not name keeps its order, after
+    the ranked ones."""
+    path = stagelock.confine(run_dir, pathlib.Path(run_dir) / "expansions.jsonl")
+    with stagelock.hold(run_dir, "expansions", wait_s=DECISIONS_LOCK_WAIT_S):
+        if not path.is_file():
+            return
+        lines = [line for line in records.jsonl_read(path) if line.strip()]
+        ordered = sorted(lines, key=lambda line: rank.get(json.loads(line)["locator"]["transcript"], len(rank)))
+        if ordered != lines:
+            records.write_text(run_dir, path, "".join(line + "\n" for line in ordered))
 
 
 # ---- fixtures ---------------------------------------------------------------------------------
@@ -1495,9 +1564,12 @@ def fx_clipped(hidden, filler=6):
 
 
 def fx_main_records():
-    """T1, the eligible Claude session: one record before the window, the viewed turns, two after it."""
+    """T1, the eligible Claude session: one record before the window, the viewed turns, two after it. The record before
+    is longer than an overlap item, so the first window's overlap cuts it and a record the run does not owe carries an
+    overlap row by construction (D-20261103-8bfd69), not by how a side's budget happens to fill."""
     return [
-        fx_assistant(fx_stamp(30, month=9, hour=10), "an answer from the week before this window"),
+        fx_assistant(fx_stamp(30, month=9, hour=10), "an answer from the week before this window. "
+                     + "".join(f"note {i:03d} of that answer. " for i in range(40))),
         fx_human(fx_stamp(3, hour=1), f"{FX_QUOTE} of that, and see {FX_RAW_PATH} please"),
         fx_assistant(fx_stamp(3, hour=2), f"here it is; the slot still holds {FX_SECRET} for the runner"),
         fx_call(fx_stamp(3, hour=3), FX_TOOL_SECRET, {"command": f"ls {FX_HOME}/Documents/repo"}),
@@ -1564,22 +1636,29 @@ def fx_owned(rows, window=None):
 
 
 def fx_census(window_id, entries):
-    """The census document a golden run reads: the fields S1 writes, over the fixture's transcripts."""
+    """The census document a golden run reads: the fields S1 writes, over the fixture's transcripts. Each source has
+    discovered what is filed under it and totals it by status, as S1 does, so the census S3 hands back is accountable
+    (`census.account`)."""
+    sources = {name: {"state": "present", "path": f"/srv/golden/{name}",
+                      "discovered": sum(1 for e in entries if e["source"] == name),
+                      "unrecognized": 0, "totals": {}, "detail": None} for name in census.DIRECTORIES}
+    census.totals_of(entries, sources)
     return {"kind": "periodic", "window": window_id, "originator_table_sha256": records.sha256_bytes(b"golden"),
-            "sources": {name: {"state": "present", "path": f"/srv/golden/{name}", "discovered": 0,
-                                "unrecognized": 0, "totals": {}, "detail": None} for name in census.DIRECTORIES},
+            "sources": sources,
             "originators": {}, "provenance": {}, "pins": {},
             "independence": {"components": 1, "unknown_components": 0, "sessions": len(entries), "unknown_sessions": 0},
             "unowned": {"earlier_windows": 0, "rewritten": {"files": 0, "records": 0}, "first_seen": {"files": 0, "records": 0}},
             "pending_events": [], "transcripts": entries}
 
 
-def fx_seats(root, capacity, seat=None, host_version="2.1.304", name=None):
+def fx_seats(root, capacity, seat=None, host_version=None, name=None):
     """A `seats.json` fixture that differs from the checkout's in one declared context capacity.
 
     The capacity is read through `gate.seat_capacity` like every other, so a control that needs a narrower
-    seat declares one instead of handing the window builder a number (BB#5)."""
+    seat declares one instead of handing the window builder a number (BB#5). The seat and the host version
+    default to the checkout's S3 seat and pinned Claude host."""
     seat = seat or declare.fixture()["seats"][declare.VIEW_WINDOW_STAGE]
+    host_version = host_version or gate.seats()["hosts"]["claude"]["version"]
     held = json.loads(gate.SEATS.read_text(encoding="utf-8"))
     held["seat_capacity"] = {**(held.get("seat_capacity") or {}),
                              seat: {"context_capacity": capacity, "host_version": host_version,
@@ -1590,22 +1669,37 @@ def fx_seats(root, capacity, seat=None, host_version="2.1.304", name=None):
 
 
 def golden(root, name="g", overhead=bound.PACKET_OVERHEAD, capacity=None, reservation=32_000,
-           allowance=3200, census_sha=None, compressed=False, main_records=None, owned=None):
+           allowance=3200, census_sha=None, compressed=False, main_records=None, owned=None, allowance_entry=None,
+           window=None, state=None, prefix_ok=None, ledger_doc=None, child_records=None, main_only=False, pending_at=4):
     """A run directory S2 can be run over, and the result of running it (realization: golden).
 
     The transcripts are `fx_main_records` (eligible, with a pending event and four clipped tool results), its child,
     and a Codex session the previous window deferred. `overhead` is what makes the bound bite: the packet's bytes are
     the one part of the driver's budget a fixture can set, so a small corpus produces several windows, split spans and
-    overlaps instead of a 100 KB one. `census_sha` plants a census that read other bytes than the copy now hashes to."""
+    overlaps instead of a 100 KB one. `census_sha` plants a census that read other bytes than the copy now hashes to.
+    `window` and `state` make the run of a later window over the coverage state an earlier run left (WP-08 done-when 4):
+    the transcripts are observed into that state as S1 observes them, `prefix_ok` saying whether a changed file kept the
+    earlier version as its prefix (`coverage.observe`), and nothing is planted in it. The declaration's checkout holds
+    `ledger_doc` (an empty schema 2 ledger by default) and pins its hash, as S0 pins the ledger S3 reads the expected
+    observations due from. `child_records` runs it over another child transcript, as `main_records` does the main one.
+    `main_only` leaves the child and the Codex session out of the census, so S2 views the main session alone and a run
+    over it makes only the calls that session needs (WP-08 commit 7's live legs). `pending_at` is the first record of the
+    pending event the planted state carries on the main session; None plants none."""
     root = pathlib.Path(root)
     run_dir, host = root / name, root / f"{name}-host"
+    child_rows = child_records() if child_records else fx_child_records()
     main_path, child_path = host / "t1.jsonl", host / "t1-child.jsonl"
     codex_path = host / ("rollout-t3.jsonl.zst" if compressed else "rollout-t3.jsonl")
     # `main_records` lets a control run the WHOLE stage over a different transcript - the overlap cases need
     # long turns, and a case that cannot be built as a real run can only be tested against hand-made rows
-    main_sha = fx_write(main_path, main_records() if main_records else fx_main_records())
-    child_sha = fx_write(child_path, fx_child_records())
-    if compressed:
+    main_rows = main_records() if main_records else fx_main_records()
+    main_sha = fx_write(main_path, main_rows)
+    child_sha = codex_sha = None
+    if not main_only:
+        child_sha = fx_write(child_path, child_rows)
+    if main_only:
+        pass  # neither the child nor the Codex session is written, so no source lists them
+    elif compressed:
         plain = host / "rollout-t3.jsonl"
         codex_sha = fx_write(plain, fx_codex_records())
         zstd = sources.declared(declare.fixture()).get("zstd")
@@ -1624,37 +1718,57 @@ def golden(root, name="g", overhead=bound.PACKET_OVERHEAD, capacity=None, reserv
     # a Codex file's coverage key names the file (D-20261103-a7128a)
     main_tid, child_tid, codex_tid = (lineage.identity("claude", main_id), lineage.identity("claude", child_id),
                                       f"{lineage.identity('codex', codex_id)}@{census.stem_of(codex_path)}")
-    _start, _end, window_id = coverage.window_bounds(FX_WINDOW)
+    window = window or FX_WINDOW
+    _start, _end, window_id = coverage.window_bounds(window)
 
-    state = coverage.new_state()
-    for tid, sha, count in ((main_tid, main_sha, len(main_records() if main_records else fx_main_records())),
-                            (codex_tid, codex_sha, len(fx_codex_records())), (child_tid, child_sha, len(fx_child_records()))):
-        coverage.observe(state, tid, sha, count, records.sha256_bytes(f"prefix-{tid}".encode()), None)
-    state["pending_events"] = [{"id": "pe-1", "transcript": main_tid, "version": 0, "window": window_id, "first_record": 4}]
-    state["backlog"] = [{"transcript": codex_tid, "version": 0, "window": FX_PREV_WINDOW, "status": "deferred",
-                         "unread": [[0, len(fx_codex_records())]]}]
+    planted, state = state is None, copy.deepcopy(state) if state is not None else coverage.new_state()
+    observed = [(main_tid, main_sha, len(main_rows))]
+    if not main_only:
+        observed += [(codex_tid, codex_sha, len(fx_codex_records())), (child_tid, child_sha, len(child_rows))]
+    for tid, sha, count in observed:
+        coverage.observe(state, tid, sha, count, records.sha256_bytes(f"prefix-{tid}".encode()), prefix_ok)
+    if planted:
+        state["pending_events"] = [] if pending_at is None else [
+            {"id": "pe-1", "transcript": main_tid, "version": 0, "window": window_id, "first_record": pending_at}]
+        state["backlog"] = [] if main_only else [{"transcript": codex_tid, "version": 0, "window": FX_PREV_WINDOW,
+                                                  "status": "deferred", "unread": [[0, len(fx_codex_records())]]}]
     # the records whose timestamps fall in the window; for the default transcript the first and the last two
     # do not. A caller whose transcript puts a case on the first record says so, or the control it writes
     # would be about a record no window owns.
-    main_owned = owned or [[1, 10]]
+    main_owned = [[1, 10]] if owned is None else owned
     entries = [
         fx_entry("claude", main_id, "claude_projects", main_path, census_sha or main_sha, owned=main_owned,
-                 work=coverage.work_of(state, main_tid, main_owned, window_id), versions=fx_versions(state, main_tid)),
+                 work=coverage.work_of(state, main_tid, main_owned, window_id), versions=fx_versions(state, main_tid))]
+    codex_work = None if main_only else coverage.work_of(state, codex_tid, [], window_id)
+    entries += [] if main_only else [
         # S1 reads a member of an eligible unit like its root (D-20261103-85f3e8): the child carries its own work
         fx_entry("claude", child_id, "claude_projects", child_path, child_sha, status="child_of", parent=main_id,
-                 owned=fx_owned(fx_child_records()),
-                 work=coverage.work_of(state, child_tid, fx_owned(fx_child_records()), window_id), versions=fx_versions(state, child_tid)),
-        fx_entry("codex", codex_id, "codex_sessions", codex_path, codex_sha, owned=[],
-                 work=coverage.work_of(state, codex_tid, [], window_id), versions=fx_versions(state, codex_tid)),
+                 owned=fx_owned(child_rows, window),
+                 work=coverage.work_of(state, child_tid, fx_owned(child_rows, window), window_id),
+                 versions=fx_versions(state, child_tid)),
+        # a later window's run may find the Codex session owing it nothing, which S1 records as nothing new
+        fx_entry("codex", codex_id, "codex_sessions", codex_path, codex_sha, owned=[], work=codex_work,
+                 status="eligible" if codex_work["in_window"] or codex_work["backlog"] else "nothing_new",
+                 versions=fx_versions(state, codex_tid)),
     ]
     document = fx_census(window_id, entries)
     problems = validate.validate_instance(census.validator(), document)
     if problems:
         raise Refused("CENSUS_INVALID the golden census does not conform: " + "; ".join(problems[:3]))
 
-    declaration = {**declare.fixture(), "window": FX_WINDOW}
+    declaration = {**declare.fixture(), "window": window, "output_caps": {declare.VIEW_WINDOW_STAGE: reservation}}
     seat = declaration["seats"][declare.VIEW_WINDOW_STAGE]
     declaration["host_allowance"] = {seat: {**declaration["host_allowance"][seat], "allowance_tokens": allowance}}
+    if allowance_entry is not None:
+        # a stage that DISPATCHES over these windows declares the allowance seats.json measured, which the
+        # dispatcher admits a view-window call against; S2's own controls keep the small one that bites
+        declaration["host_allowance"] = {seat: allowance_entry}
+    checkout = root / f"{name}-checkout"
+    ledger_path = checkout / ledger.LEDGER_REL
+    ledger_path.parent.mkdir(parents=True, exist_ok=True)
+    ledger_path.write_text(ledger.render(ledger_doc if ledger_doc is not None else ledger.sample_ledger()), encoding="utf-8")
+    declaration["destinations"] = {**declaration["destinations"], "checkout": str(checkout.resolve())}
+    declaration["starting_hashes"] = {**declaration["starting_hashes"], "ledger": records.sha256_file(ledger_path)}
     run_dir.mkdir(parents=True, exist_ok=True)
     declare.create(run_dir, declaration)
     with records.run_stage(run_dir, "S1") as stage:
@@ -1664,7 +1778,7 @@ def golden(root, name="g", overhead=bound.PACKET_OVERHEAD, capacity=None, reserv
         stage.output("coverage.json")
 
     # a narrower capacity than the checkout declares is a seats fixture, read by the shared reader (BB#5)
-    manifest = run(run_dir, reservation, overhead,
+    manifest = run(run_dir, overhead,
                    fx_seats(root, capacity) if capacity is not None else None)
     by_name = {t["name"]: t for t in manifest["transcripts"]}
     main = by_name.get(safe_name(main_tid))  # absent when the run quarantined it, which `census_sha` plants
@@ -1674,7 +1788,8 @@ def golden(root, name="g", overhead=bound.PACKET_OVERHEAD, capacity=None, reserv
     return {"run_dir": run_dir, "run": declaration, "seat": seat, "manifest": manifest, "limits": manifest["limits"],
             "main": main, "child": by_name.get(safe_name(child_tid)), "codex": by_name.get(safe_name(codex_tid)),
             "by_name": by_name, "windows": windows, "state": state, "census": document, "window": window_id,
-            "paths": {"main": main_path, "child": child_path, "codex": codex_path},
+            "paths": {"main": main_path, "child": None if main_only else child_path,
+                      "codex": None if main_only else codex_path, "ledger": ledger_path},
             "tids": {"main": main_tid, "child": child_tid, "codex": codex_tid},
             "lines": {"before": 1, "human": 2, "secret": 3, "call": 4, "pending_clip": 5, "second_human": 6,
                       "late_clip": 7, "long": 8, "pair_plain": 9, "pair_term": 10, "after": 11},
@@ -2715,6 +2830,8 @@ def self_test():
         expect("a run whose (d) check is the tighter bound cuts the same corpus into more windows: a window failing "
                "(d) is split", (bound.driver_budget(tighter["limits"]) < bound.driver_budget(limits),
                                 tighter["manifest"]["totals"]["windows"] > manifest["totals"]["windows"]), (True, True))
+        expect("WP-08: S2 cuts every window reserving the output cap run.json declares for S3",
+               golden(root, "cap48", reservation=48_000)["manifest"]["limits"]["reservation"], 48_000)
         one = make_entry({"pointer": "/message/content", "kind": "human", "text": "x" * 100}, 1, "in_window", 0)
         refused("control, unbounded: a packet that leaves no room for an entry is refused, never cut away",
                 lambda: cut_windows({"transcript": "t", "version": 0, "version_sha": "ab" * 32, "redaction_version": projection.CURRENT},
@@ -2722,31 +2839,30 @@ def self_test():
         named("control, unbounded: under the production posture the transcript whose windows cannot be bounded is "
               "quarantined by name", [q["reason"] for q in golden(root, "nobound", overhead=bound.INPUT_BOUND - 10_000)["manifest"]["quarantined"]],
               "WINDOW_UNBOUNDED")
+        # The S3 seat and the Claude host version these controls cut against are the checkout's pins.
+        s3_seat, pinned_claude = gate.seats()["stage_seats"]["S3"][0], gate.seats()["hosts"]["claude"]["version"]
         # BA#1: cutting a window reads the SAME declaration the dispatcher admits against, and there is no
         # default - a window cut against an invented capacity is cut against nothing.
         refused("control, BA#1: a seat seats.json declares no context capacity for cuts no window",
                 lambda: limits_of({"seats": {"S3": "claude:no-such-model/high"},
                                    "host_allowance": {"claude:no-such-model/high": {
-                                       "allowance_tokens": 4000, "host_version": "2.1.304"}}},
-                                  reservation=32_000),
+                                       "allowance_tokens": 4000, "host_version": pinned_claude}}, "output_caps": {"S3": 32_000}}),
                 "CAPACITY_UNDECLARED")
         # ... and the cap itself: a window is cut against the cap the call will declare, never a constant
         refused("control, the ruling of 2026-10-22: a window cut with no declared output cap is refused",
-                lambda: limits_of({"seats": {"S3": "claude:claude-sonnet-5-5/xhigh"},
-                                   "host_allowance": {"claude:claude-sonnet-5-5/xhigh": {
-                                       "allowance_tokens": 3886, "host_version": "2.1.304"}}}),
+                lambda: limits_of({"seats": {"S3": s3_seat},
+                                   "host_allowance": {s3_seat: {
+                                       "allowance_tokens": 3886, "host_version": pinned_claude}}}),
                 "CAP_UNDECLARED")
         expect("the ruling of 2026-10-22: the reservation in the window's limits IS the declared cap",
-               limits_of({"seats": {"S3": "claude:claude-sonnet-5-5/xhigh"},
-                          "host_allowance": {"claude:claude-sonnet-5-5/xhigh": {
-                              "allowance_tokens": 3886, "host_version": "2.1.304"}}},
-                         reservation=48_000)["reservation"], 48_000)
+               limits_of({"seats": {"S3": s3_seat},
+                          "host_allowance": {s3_seat: {
+                              "allowance_tokens": 3886, "host_version": pinned_claude}}, "output_caps": {"S3": 48_000}})["reservation"], 48_000)
         expect("BA#1: the S3 seat's capacity is the host-reported one seats.json declares, not a constant",
-               limits_of({"seats": {"S3": "claude:claude-sonnet-5-5/xhigh"},
-                          "host_allowance": {"claude:claude-sonnet-5-5/xhigh": {
-                              "allowance_tokens": 3886, "host_version": "2.1.304"}}},
-                         reservation=32_000)["capacity"],
-               gate.seat_capacity("claude:claude-sonnet-5-5/xhigh", "2.1.304")[0])
+               limits_of({"seats": {"S3": s3_seat},
+                          "host_allowance": {s3_seat: {
+                              "allowance_tokens": 3886, "host_version": pinned_claude}}, "output_caps": {"S3": 32_000}})["capacity"],
+               gate.seat_capacity(s3_seat, pinned_claude)[0])
         # BB#5: there is no way to hand the window builder a capacity. Both entry points resolve it through
         # the shared declaration reader, and a control that needs another one declares it in a seats fixture -
         # so no production path, and no test, can cut a window against a number no declaration carries.
@@ -2754,18 +2870,21 @@ def self_test():
         for entry in (limits_of, run):
             expect(f"BB#5: {entry.__name__} takes no capacity of its own",
                    "capacity" in inspect.signature(entry).parameters, False)
+            # WP-08: nor a reservation - the cap is the declaration's, so no caller can cut against another one
+            expect(f"WP-08: {entry.__name__} takes no output reservation of its own",
+                   "reservation" in inspect.signature(entry).parameters, False)
         narrower = fx_seats(root, 150_000)
         expect("BB#5: a capacity a seats fixture declares is read by the same reader production reads",
-               limits_of({"seats": {"S3": "claude:claude-sonnet-5-5/xhigh"},
-                          "host_allowance": {"claude:claude-sonnet-5-5/xhigh": {
-                              "allowance_tokens": 3886, "host_version": "2.1.304"}}},
-                         reservation=32_000, seats_path=narrower)["capacity"],
-               gate.seat_capacity("claude:claude-sonnet-5-5/xhigh", "2.1.304", path=narrower)[0])
+               limits_of({"seats": {"S3": s3_seat},
+                          "host_allowance": {s3_seat: {
+                              "allowance_tokens": 3886, "host_version": pinned_claude}}, "output_caps": {"S3": 32_000}},
+                         seats_path=narrower)["capacity"],
+               gate.seat_capacity(s3_seat, pinned_claude, path=narrower)[0])
         refused("control, BB#5: a fixture that declares no capacity for the seat cuts no window either",
-                lambda: limits_of({"seats": {"S3": "claude:claude-sonnet-5-5/xhigh"},
-                                   "host_allowance": {"claude:claude-sonnet-5-5/xhigh": {
-                                       "allowance_tokens": 3886, "host_version": "9.9.9"}}},
-                                  reservation=32_000, seats_path=narrower),
+                lambda: limits_of({"seats": {"S3": s3_seat},
+                                   "host_allowance": {s3_seat: {
+                                       "allowance_tokens": 3886, "host_version": "9.9.9"}}, "output_caps": {"S3": 32_000}},
+                                  seats_path=narrower),
                 "CAPACITY_UNDECLARED")
         refused("control, allowance: a declaration with no measured host allowance for the S3 seat cuts no window",
                 lambda: limits_of({"seats": {"S3": "claude:x/high"}, "host_allowance": {}}), "ALLOWANCE_UNDECLARED")
@@ -3027,7 +3146,7 @@ def self_test():
                ("".join(r["text"] for w in expansion for r in w["records"])
                 == texts[rid("pending_clip")][clip["omitted_span"]["start"]:clip["omitted_span"]["end"]],
                 [(d["locator"]["record_id"], d["decision"], d["forced_by"]) for d in
-                 (json.loads(l) for l in (run_dir / "expansions.jsonl").read_text(encoding="utf-8").splitlines() if l.strip())]),
+                 (json.loads(l) for l in records.jsonl_read(run_dir / "expansions.jsonl") if l.strip())]),
                (True, [(rid("pending_clip"), "expand", "pending_event")]))
         refused("control: an expansion of a record no window lists as clipped is refused",
                 lambda: expand(run_dir, "r1/S3/t1/3", name, "99/message/content", "why not"), "EXPANSION_UNKNOWN")
@@ -3108,7 +3227,7 @@ def self_test():
                 record_decision(run_dir, f"r1/S3/t1/9-{other}", name, row["record_id"], "expand", "read whole",
                                 "pending_event" if row["record_id"] == rid("pending_clip") else "none",
                                 omission=other)
-        recorded = [json.loads(l) for l in (run_dir / "expansions.jsonl").read_text(encoding="utf-8").splitlines() if l.strip()]
+        recorded = [json.loads(l) for l in records.jsonl_read(run_dir / "expansions.jsonl") if l.strip()]
         mine = [d for d in recorded if d["locator"]["transcript"] == name and d["call_id"].startswith("r1/S3/t1/9")]
         derived = completeness([True] * len(windows), clipped_ids,
                                [{"omission_id": d["locator"]["omission_id"], "decision": d["decision"]} for d in mine],
@@ -3211,6 +3330,41 @@ def self_test():
                     "one of them discharges only that one",
                     lambda: expand(long_dir, "r1/S3/long/2", long_name, multi[0], "all of it"),
                     "EXPANSION_AMBIGUOUS")
+        # WP-08 overlap role: a record the overlap budget omits from a NEIGHBOUR's overlap keeps its own role. The
+        # omitted entries carried none, so the manifest gave the row `context` and an expansion of that row put
+        # `context` on an in-window record. At the unit, the two cases are the same entries and differ only in
+        # their role; the run is this fixture's own, every record of it in a window, so no row is borrowed.
+        gone_roles = []
+        for role in ("context", "in_window"):
+            same = [{**synthetic(n, "assistant" if n % 2 else "tool_result", "z" * 600), "window_role": role}
+                    for n in range(1, 8)]
+            gone_roles.append(sorted({g.get("window_role") for g in overlap_side(same, budget=1_200)[1]}))
+        expect("WP-08 overlap role: an entry the side's budget omits keeps its own role, for an in-window entry as "
+               "for a context one", gone_roles, [["context"], ["in_window"]])
+        role_run = golden(root, "roles", overhead=100_000, main_only=True, main_records=fx_role_records,
+                          owned=fx_owned(fx_role_records()), pending_at=None)
+        role_name, role_dir = role_run["main"]["name"], role_run["run_dir"]
+        role_docs = [window_doc(role_dir, role_name, role_dir / f["path"]) for f in role_run["main"]["windows"]]
+        own_role = {r["record_id"]: r["window_role"] for d in role_docs for r in d["records"]}
+        budget_rows = [m for d in role_docs for m in d["omission_manifest"] if m["origin"] == "overlap"
+                       and m["record_id"] in {g["record_id"] for side in ("prev", "next")
+                                              for g in d["overlap"]["omitted"][side]}]
+        expect("WP-08 overlap role: this fixture's overlap budget omits records that are in a window, so the next "
+               "two controls judge something",
+               (len(role_docs) > 1, bool(budget_rows), sorted({own_role.get(m["record_id"]) for m in budget_rows})),
+               (True, True, ["in_window"]))
+        expect("WP-08 overlap role: the overlap row of such a record carries the record's own role, not context",
+               [m["omission_id"] for m in budget_rows if m["window_role"] != own_role.get(m["record_id"])], [])
+        if budget_rows:
+            row = budget_rows[0]
+            try:
+                back = sorted({r["window_role"] for w in expand(role_dir, "r1/S3/roles/1", role_name, row["record_id"],
+                                                                "the overlap omitted it and a claim needs it",
+                                                                omission=row["omission_id"]) for r in w["records"]})
+            except Refused as exc:
+                back = f"refused: {exc}"
+            expect("WP-08 overlap role: ... and what is expanded from that row carries the record's own role",
+                   back, [own_role.get(row["record_id"])])
         # V#1: every DISPLAYED cut of a generated window is in the manifest, hashed against the projected
         # block, expandable, and required for completeness. A displayed cut is the easy one to lose - the
         # entry is still shown, so nothing looks missing - and a 2000-character context entry shown as 700
@@ -3319,7 +3473,7 @@ def self_test():
             expect(f"R#5: ... and each set is readable on its own and carries its own record",
                    ([window_doc(long_dir, long_name, path)["expansion_of"] for path in mine],
                     len(mine)), ([row["record_id"]] * len(got), len(got)))
-        decided = [json.loads(l) for l in (long_dir / "expansions.jsonl").read_text(encoding="utf-8").splitlines() if l.strip()]
+        decided = [json.loads(l) for l in records.jsonl_read(long_dir / "expansions.jsonl") if l.strip()]
         expect("R#5: ... and each decision names the omission it was about, not only the record",
                [d for d in decided if not d["locator"].get("omission_id")], [])
         found = expand(run_dir, "r1/S3/t1/7", name, rid("pair_term"), "the search matched inside the gap", "search_match",
@@ -3475,17 +3629,17 @@ def self_test():
                ("window_role" in schema["required"], schema["$comment"]),
                (True, "design §5.5, plus window_role from design §5.2"))
         refused("control: two transcripts that would be written to one view directory are refused",
-                lambda: run(fx_prepared_run(root, "collide"), reservation=32_000), "VIEW_NAME_COLLISION")
+                lambda: run(fx_prepared_run(root, "collide")), "VIEW_NAME_COLLISION")
         bare = root / "bare"
         bare.mkdir()
         declare.create(bare, {**golden_run["run"], "declaration_seq": 0})
         refused("control: S2 over a run whose census S1 never wrote is refused by name, never over an empty set",
-                lambda: run(bare, reservation=32_000), "INPUT_INVALID S1")
+                lambda: run(bare), "INPUT_INVALID S1")
         reporting = records.run_items
-        records.run_items = lambda posture, items, work: {"done": [], "quarantined": []}
+        records.run_items = lambda posture, items, work, jobs=1: {"done": [], "quarantined": []}
         try:  # a stage runner that reports neither a view nor a quarantine for an eligible session
             refused("control: an eligible session that ends with neither a view nor a quarantine is named",
-                    lambda: run(fx_prepared_run(root, "silent", COLLIDING[:1]), reservation=32_000), "SET_MISMATCH S2")
+                    lambda: run(fx_prepared_run(root, "silent", COLLIDING[:1])), "SET_MISMATCH S2")
         finally:
             records.run_items = reporting
 
@@ -3525,6 +3679,126 @@ def self_test():
     checks.expect("design §5.4: a claim of absence rests on basis source and on nothing else",
                   {basis: absence_claim_allowed(basis) for basis in ("incomplete", "view", "source")},
                   {"incomplete": False, "view": False, "source": True})
+    with tempfile.TemporaryDirectory(prefix="views-x1-") as td:
+        x1 = pathlib.Path(td)
+        # X review of WP-08 r1 #2 and r2: an amendment of the cap landing just before S2's admission is the cap the windows
+        # are cut with; one landing just after it changes nothing they were cut with
+        cap = [(f"output_caps.{declare.VIEW_WINDOW_STAGE}", 48_000)]
+        for when, want in (("before", 48_000), ("after", 32_000)):
+            with records.fx_amended_at_admission("S2", cap, when):
+                try:
+                    raced = golden(x1, f"raced-{when}", overhead=100_000)
+                except Exception as exc:  # noqa: BLE001 - reported by the control below, by name
+                    raced = {"error": repr(exc)}
+            label = (f"X r1: an amendment just before S2's admission is the cap the views record and their windows are cut "
+                     f"with, under the declaration S2 recorded" if when == "before" else
+                     "X r2: an amendment just after S2's admission changes nothing the windows were cut with")
+            if "error" in raced:
+                checks.expect(label, raced["error"], None)
+                continue
+            raced_dir = pathlib.Path(raced["run_dir"])
+            part = records.read_json(records.record_path(raced_dir, "S2")).get("parts", {}).get("views", {})
+            # the amendment landed in both cases: run.json is at sequence 1 either way
+            checks.expect(label, ({raced["manifest"]["limits"]["reservation"]},
+                                  {sequence_doc(raced_dir, t["name"])["limits"]["reservation"] for t in raced["manifest"]["transcripts"]},
+                                  part.get("declaration_seq"), records.read_json(records.run_json_path(raced_dir))["declaration_seq"]),
+                          ({want}, {want}, 1 if when == "before" else 0, 1))
+        # X review of WP-08 r1 #1: what the overlap shows is located like an owned record's text, and nothing past its cut
+        shown_run = golden(x1, "shown", overhead=100_000)
+        shown_dir, shown_main = pathlib.Path(shown_run["run_dir"]), shown_run["main"]
+        # a record some window owns, whose text past the cut that window shows (the record before the window is cut in
+        # the first window's overlap too, and no window owns it)
+        owned_entries = {eid(r) for w in shown_run["windows"] for r in w["records"]}
+        cut_entry = next((e for w in shown_run["windows"] for e in w["overlap"]["prev"]
+                          if e["overlap_cut"] and e["entry"] in owned_entries), None)
+        split_part = next((e for w in shown_run["windows"] for e in w["overlap"]["prev"] + w["overlap"]["next"]
+                            if "#" in e["entry"]), None)
+        for label, entry in (("a cut overlap entry", cut_entry), ("an overlap entry of a split span", split_part)):
+            if entry is None:
+                checks.expect(f"X r1: the golden windows hold {label}", None, "an entry")
+                continue
+            try:
+                made = evidence_store.from_view(shown_dir, shown_main["version_sha"], entry, entry["text"][:30])
+                got = (evidence_store.verify(shown_dir, made), made["window_role"])
+            except Exception as exc:  # noqa: BLE001 - an entry that cannot be located fails this control by name
+                got = repr(exc)
+            checks.expect(f"X r1: a quote of {label} as shown is located and walks back to the copy, keeping its role",
+                          got, ([], entry["window_role"]))
+        if cut_entry is not None:
+            checks.expect("X r1: a cut overlap entry's segments end where its shown text ends, so they claim no more than "
+                          "it shows", max((s["view"][1] for s in cut_entry.get("segments", [])), default=None),
+                          len(cut_entry["text"]))
+            owner_text = next((r["text"] for w in shown_run["windows"] for r in w["records"]
+                               if eid(r) == cut_entry["entry"]), None)
+            if owner_text is None:
+                checks.expect("X r1: a window owns the cut overlap entry, which shows what the cut left out", None, "an owner")
+            else:
+                past = owner_text[len(cut_entry["text"]):len(cut_entry["text"]) + 30]
+                checks.refused("X r1: a quote of what the overlap cut off is not located in the overlap",
+                               lambda: evidence_store.from_view(shown_dir, shown_main["version_sha"], cut_entry, past),
+                               "QUOTE_MISMATCH")
+    # WP-08 commit 5a: a call's decision of an omission is written once - again as it was, nothing more; otherwise, refused
+    with tempfile.TemporaryDirectory() as decided:
+        decided_dir = pathlib.Path(decided)
+        omitted = {"name": "v", "record_id": "1/message/content", "omission": "1/message/content@0-9#ab"}
+
+        def decide(call_id, decision, reason):
+            """`written`, or the refusal's code: a reverted rule fails its control by name, not by a traceback."""
+            try:
+                record_decision(decided_dir, call_id, omitted["name"], omitted["record_id"], decision, reason,
+                                omission=omitted["omission"])
+            except Refused as exc:
+                return str(exc).split()[0]
+            return "written"
+
+        def logged():
+            path = decided_dir / "expansions.jsonl"
+            return path.read_bytes() if path.is_file() else b""
+        first_decision = decide("r1/S3/w1", "expand", "read it whole")
+        log_once = logged()
+        checks.expect("5a: a call's decision of an omission made again as it was is not written twice",
+                      (first_decision, decide("r1/S3/w1", "expand", "read it whole"), logged() == log_once,
+                       len(log_once.splitlines())), ("written", "written", True, 1))
+        checks.expect("5a: the same call deciding the same omission otherwise is refused where it would be written",
+                      (decide("r1/S3/w1", "skip", "not worth it"), logged() == log_once),
+                      ("EXPANSION_DECISION_CONFLICT", True))
+        checks.expect("5a: another call's decision of the same omission is another line",
+                      (decide("r1/S3/w2", "skip", "not worth it"), len(logged().splitlines())), ("written", 2))
+    # W r1: a reason may hold what JSON allows raw and str.splitlines breaks a line at. The log is read by the one JSONL
+    # splitter, so a decision made again is still found, the order is still kept, and two runs leave the same bytes.
+    for char in ("\u0085", "\u2028", "\u2029"):
+        label, reason = f"U+{ord(char):04X}", f"kept{char}whole"
+        logs = []
+        for _run in (1, 2):
+            with tempfile.TemporaryDirectory() as raw:
+                raw_dir = pathlib.Path(raw)
+
+                def decide_raw(call_id, view):
+                    try:
+                        record_decision(raw_dir, call_id, view, "1/message/content", "expand", reason,
+                                        omission=f"{view}#om")
+                    except (Refused, ValueError) as exc:  # a fragment that does not parse is a ValueError
+                        return f"{exc.__class__.__name__} {str(exc).split()[0] if str(exc) else ''}"
+                    return "written"
+
+                def ordered_raw():
+                    try:
+                        order_decisions(raw_dir, {"a": 0, "b": 1})
+                    except (Refused, ValueError) as exc:
+                        return f"{exc.__class__.__name__}"
+                    return "ordered"
+                steps = (decide_raw("r1/S3/w2", "b"), decide_raw("r1/S3/w2", "b"), decide_raw("r1/S3/w1", "a"),
+                         ordered_raw())
+                once = (raw_dir / "expansions.jsonl").read_bytes()
+                again = ordered_raw()
+                read = [json.loads(line) for line in records.jsonl_read(raw_dir / "expansions.jsonl")]
+                logs.append((steps, again, once == (raw_dir / "expansions.jsonl").read_bytes(),
+                             [(d["locator"]["transcript"], d["reason"]) for d in read], once))
+        checks.expect(f"W r1: a reason holding {label} is appended once, ordered, and read back whole",
+                      logs[0][:4], (("written", "written", "written", "ordered"), "ordered", True,
+                                    [("a", reason), ("b", reason)]))
+        checks.expect(f"W r1: two runs deciding the same with a reason holding {label} leave the same bytes",
+                      logs[0][4] == logs[1][4], True)
     if not checks.ran:
         checks.failures.append("the self-test asserted nothing")
     for failure in checks.failures:
@@ -3563,6 +3837,20 @@ def fx_long_records():
         # window views: its view elides a middle, which is the case whose coordinates a view-local interval
         # gets wrong
         out.append(fx_result(fx_stamp(day, hour=hour), wordy(f"r{n}", 6_000 if n == 1 else 1_500)))
+    return out
+
+
+def fx_role_records():
+    """One request and ten assistant turns, each with its call and result, every record inside the window: the
+    turns are longer than an overlap item and the results long enough that a side's budget runs out, so a
+    neighbour's overlap omits records that are IN a window rather than context (the overlap-role control)."""
+    out = [fx_human(fx_stamp(3, hour=1), "please tidy the build scripts and report each step")]
+    for i in range(10):
+        out += [fx_assistant(fx_stamp(3, hour=2, minute=3 * i),
+                             "".join(f"note {i}.{k:02d} on the build. " for k in range(60))),
+                fx_call(fx_stamp(3, hour=2, minute=3 * i + 1), "Bash", {"command": f"make step-{i}"}),
+                fx_result(fx_stamp(3, hour=2, minute=3 * i + 2),
+                          "\n".join(f"  step {i} line {k:02d} ok {'.' * 20}" for k in range(40)))]
     return out
 
 

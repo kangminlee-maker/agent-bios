@@ -75,6 +75,14 @@ RECORD_KINDS = {
                         "remote_session_change", "sandbox_instructions", "session_context", "skill_listing",
                         "structured_output", "total_tokens_reminder"),
     },
+    # 2.1.317: the A-1 re-pin's six calls (2026-11-04), one standalone hermetic call and five structured-output
+    # judge calls through dispatch. `tools-used` is new: it names the tools a session used (here StructuredOutput,
+    # which the helper reads from the assistant's tool_use blocks), carries no context, and is known and left unread.
+    "2.1.317": {
+        "types": ("api-request", "api-request-blob", "api-request-shape", "assistant", "atis-latch", "attachment",
+                  "cost-state", "last-prompt", "queue-operation", "tools-used", "user"),
+        "attachments": ("date", "environment", "model", "prompt_snapshot", "session_context", "structured_output"),
+    },
 }
 READ_TYPES = ("api-request", "api-request-blob", "api-request-shape", "assistant", "attachment", "user")
 READ_ATTACHMENTS = ("agent_listing_delta", "deferred_tools_delta", "environment", "instructions", "skill_listing")
@@ -968,17 +976,18 @@ def self_test():
         host = run()[0]
         control("kinds-another-version-inside-the-known-kinds-passes", "problems" not in host and "context" in host,
                 str(host.get("problems")))
+        measured = ", ".join(sorted(RECORD_KINDS))  # a re-pin adds a version; the needles follow it
         for label, kwargs, needle in (
                 ("kinds-a-renamed-record-kind-is-refused-by-name", {"extra": [{"type": "api-request-v2"}]},
-                 "RECORD_KIND_UNKNOWN 'api-request-v2' (Claude 2.1.304; the known kinds were measured on 2.1.304) "
+                 f"RECORD_KIND_UNKNOWN 'api-request-v2' (Claude 2.1.304; the known kinds were measured on {measured}) "
                  "in s1.jsonl"),
                 ("kinds-an-unknown-attachment-type-is-refused-by-name",
                  {"extra": [{"type": "attachment", "attachment": {"type": "instructions_v2"}}]},
                  "ATTACHMENT_TYPE_UNKNOWN 'instructions_v2' (Claude 2.1.304; the known kinds were measured on "
-                 "2.1.304) in s1.jsonl"),
+                 f"{measured}) in s1.jsonl"),
                 ("kinds-a-new-kind-on-another-version-names-both-versions",
                  {"version": "2.1.316", "extra": [{"type": "api-request-v2"}]},
-                 "RECORD_KIND_UNKNOWN 'api-request-v2' (Claude 2.1.316; the known kinds were measured on 2.1.304)"),
+                 f"RECORD_KIND_UNKNOWN 'api-request-v2' (Claude 2.1.316; the known kinds were measured on {measured})"),
                 ("kinds-a-transcript-naming-no-version-is-refused", {"version": None},
                  "RECORD_VERSION_UNKNOWN")):
             transcript(**kwargs)

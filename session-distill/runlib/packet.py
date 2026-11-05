@@ -28,8 +28,14 @@ The schema a call is given is compiled through `validate.compile_schema` (closed
 supported keywords) before it is written, so a packet never references a schema the policy
 refuses.
 
+A stage's payload is one of the templates under `session-distill/packets/` (`read.md`, `stitch.md`)
+with its `{{field}}` placeholders filled by `render`, once and in one pass: every placeholder takes
+exactly one field, no field is left over, and a field's text is never read as a template, so a
+transcript quoting `{{window}}` stays text.
+
 Linter failures are named CALL_ID_MISSING, PRINCIPLES_MISSING, SCHEMA_REFERENCE_MISSING and
-PAYLOAD_MISSING; a guide without its section is PRINCIPLES_UNAVAILABLE.
+PAYLOAD_MISSING; a guide without its section is PRINCIPLES_UNAVAILABLE; a template that is not there,
+or fields that are not its placeholders, are TEMPLATE_UNAVAILABLE and TEMPLATE_FIELDS_MISMATCH.
 
   packet.py --self-test
 """
@@ -45,6 +51,9 @@ from runlib import validate
 
 REPO = pathlib.Path(__file__).resolve().parents[2]
 PAYLOAD_MARKER = "=== PAYLOAD ==="
+TEMPLATE_DIR = pathlib.Path(__file__).resolve().parents[1] / "packets"
+TEMPLATES = ("read", "stitch")      # S3's two calls (plan WP-08)
+PLACEHOLDER = re.compile(r"\{\{([a-z_]+)\}\}")
 # (summary title, owning guide, the part of it that is the summary)
 PRINCIPLE_SOURCES = (
     ("Concept economy", "claude/guides/concept-economy.md", "core_rules"),
@@ -57,6 +66,11 @@ PRINCIPLE_SOURCES = (
 
 class Unavailable(Exception):
     """A guide lacks the section its summary is taken from; the message starts with PRINCIPLES_UNAVAILABLE."""
+
+
+class TemplateError(Exception):
+    """A payload template is missing or was given other fields than its placeholders; the message starts with
+    TEMPLATE_UNAVAILABLE or TEMPLATE_FIELDS_MISMATCH."""
 
 
 def sha256_bytes(data):
@@ -90,10 +104,42 @@ def principles_block(repo=REPO):
                           for title, guide, part in PRINCIPLE_SOURCES]) + "\n"
 
 
+def host_schema(schema):
+    """The schema a host is handed, derived from `schema` by code and never written by hand (WP-08 commit 7, dw2-live1):
+    no `$schema`, every `$ref` replaced by a copy of the `$defs` entry it names, and no `$defs`.
+
+    Claude Code's `--json-schema` check builds Ajv's draft-07 class, which refuses a schema naming a meta-schema it does
+    not hold - the 2020-12 one every distill schema names - and exits before any request; and the host hands the schema
+    on as a tool's input schema, which then holds no reference to resolve. The policy pins draft 2020-12 in code
+    (`validate.compile_schema`) and allows a `$ref` only to an entry of the schema's own `$defs` (`validate.lint`), so
+    neither key decides anything the inlined form does not. A `$ref` beside other keywords, or one that reaches itself,
+    has no inlined form and is refused."""
+    defs = schema.get("$defs") or {}
+
+    def inline(node, seen):
+        if isinstance(node, list):
+            return [inline(item, seen) for item in node]
+        if not isinstance(node, dict):
+            return node
+        if "$ref" in node:
+            ref, name = node["$ref"], str(node["$ref"])[len("#/$defs/"):]
+            if set(node) != {"$ref"}:
+                raise validate.SchemaPolicyError(f"HOST_SCHEMA {ref}: a $ref beside {sorted(set(node) - {'$ref'})} has no inlined form")
+            if name in seen:
+                raise validate.SchemaPolicyError(f"HOST_SCHEMA {ref}: the reference reaches itself")
+            return inline(defs[name], seen | {name})
+        return {key: inline(value, seen) for key, value in node.items()}
+    return inline({key: value for key, value in schema.items() if key not in ("$schema", "$defs")}, frozenset())
+
+
 def schema_bytes(schema):
-    """The bytes `schema.json` holds: the schema compiled through the policy, as canonical JSON."""
+    """The bytes `schema.json` holds, which are the schema the host is handed (`host_schema`), as canonical JSON. The
+    schema and its handed form are both compiled through the policy. The same bytes are what the packet's SCHEMA hash
+    names and the receipt hashes, so the gate binds one schema from the driver to the host."""
     validate.compile_schema(schema)
-    return (json.dumps(schema, sort_keys=True, separators=(",", ":"), ensure_ascii=False) + "\n").encode("utf-8")
+    sent = host_schema(schema)
+    validate.compile_schema(sent)
+    return (json.dumps(sent, sort_keys=True, separators=(",", ":"), ensure_ascii=False) + "\n").encode("utf-8")
 
 
 def build(call_id, stage, seat, payload, schema=None, repo=REPO):
@@ -103,6 +149,29 @@ def build(call_id, stage, seat, payload, schema=None, repo=REPO):
     header = (f"CALL-ID: {call_id}\nSTAGE: {stage}\nSEAT: {seat}\nSCHEMA: {reference}\n"
               f"PRINCIPLES: sha256:{sha256_bytes(block.encode('utf-8'))}\n\n")
     return (header + block + PAYLOAD_MARKER + "\n" + payload).encode("utf-8")
+
+
+def template_text(name, template_dir=TEMPLATE_DIR):
+    try:
+        return (pathlib.Path(template_dir) / f"{name}.md").read_text(encoding="utf-8")
+    except OSError as exc:
+        raise TemplateError(f"TEMPLATE_UNAVAILABLE {name}: {exc}") from exc
+
+
+def template_fields(name, template_dir=TEMPLATE_DIR):
+    """The placeholders of one template, sorted."""
+    return sorted(set(PLACEHOLDER.findall(template_text(name, template_dir))))
+
+
+def render(name, fields, template_dir=TEMPLATE_DIR):
+    """The payload of template `name` with every placeholder replaced by its field's text, in one pass."""
+    text = template_text(name, template_dir)
+    wanted = set(PLACEHOLDER.findall(text))
+    missing, extra = sorted(wanted - set(fields)), sorted(set(fields) - wanted)
+    if missing or extra or not all(isinstance(v, str) for v in fields.values()):
+        raise TemplateError(f"TEMPLATE_FIELDS_MISMATCH {name}: missing={missing} extra={extra}; every placeholder "
+                            "takes exactly one text field")
+    return PLACEHOLDER.sub(lambda m: fields[m.group(1)], text)
 
 
 def split(packet):
@@ -200,6 +269,66 @@ def self_test():
 
     control("schema-builder-refuses-an-open-schema",
             raised(lambda: schema_bytes({"type": "object", "properties": {}}), validate.SchemaPolicyError, "open object"))
+    # the schema a host is handed (WP-08 commit 7, dw2-live1), asked of the schemas S3 hands a host, each of which names
+    # the 2020-12 meta-schema and holds references: no meta-schema, no reference and no $defs in the bytes, which the
+    # policy still compiles; and the inlined form is derived from the schema itself, so a change to an entry of its
+    # $defs shows at every place a reference reached it
+    host_bound = {}
+    for name in TEMPLATES:
+        try:
+            held = json.loads((pathlib.Path(__file__).resolve().parents[1] / "schemas" / f"{name}.schema.json").read_text(encoding="utf-8"))
+            sent_text = schema_bytes(held).decode("utf-8")
+            validate.compile_schema(json.loads(sent_text))
+            host_bound[name] = (held, sent_text)
+        except Exception as exc:  # noqa: BLE001 - whatever stops a schema here is reported by name
+            failures.append(f"positive control: the {name} schema did not load or compile: {exc}")
+    control("host-schema-names-no-meta-schema-and-no-reference",
+            [] if sorted(host_bound) == sorted(TEMPLATES) and all(
+                "$schema" in held and held.get("$defs") and '"$ref"' in json.dumps(held)
+                and not any(key in sent for key in ('"$schema"', '"$defs"', '"$ref"')) for held, sent in host_bound.values())
+            else [f"a handed schema still names a meta-schema or a reference: "
+                  f"{[n for n, (_h, s) in host_bound.items() if any(k in s for k in ('$schema', '$defs', '$ref'))]}"])
+
+    def reached(schema, node=None, seen=frozenset()):
+        """How many times each $defs entry is reached from the schema's root, following references through entries."""
+        node = {k: v for k, v in schema.items() if k != "$defs"} if node is None else node
+        counts = {}
+        for value in (node.values() if isinstance(node, dict) else node if isinstance(node, list) else ()):
+            if isinstance(value, dict) and "$ref" in value:
+                name = value["$ref"][len("#/$defs/"):]
+                counts[name] = counts.get(name, 0) + 1
+                for inner, n in reached(schema, schema["$defs"][name], seen | {name}).items():
+                    counts[inner] = counts.get(inner, 0) + n
+            elif isinstance(value, (dict, list)):
+                for inner, n in reached(schema, value, seen).items():
+                    counts[inner] = counts.get(inner, 0) + n
+        return counts
+    followed = {}
+    for name, (held, sent_text) in host_bound.items():
+        marked = json.loads(json.dumps(held))
+        for entry, sub in marked["$defs"].items():
+            sub["$comment"] = f"FOLLOWS-{name}-{entry}"
+        made, problem = None, None
+        try:
+            made = schema_bytes(marked).decode("utf-8")
+        except Exception as exc:  # noqa: BLE001 - reported by the control below
+            problem = str(exc)
+        expected = reached(held)
+        followed[name] = (made is not None and made != sent_text and bool(expected) and all(
+            made.count(f'"FOLLOWS-{name}-{entry}"') == expected.get(entry, 0) for entry in held["$defs"]), problem)
+    control("host-schema-follows-a-change-to-its-defs",
+            [] if sorted(followed) == sorted(TEMPLATES) and all(ok for ok, _t in followed.values())
+            else [f"a handed schema did not follow its $defs: {followed}"])
+    control("host-schema-refuses-a-reference-it-cannot-inline",
+            raised(lambda: host_schema({"type": "object", "additionalProperties": False, "$defs": {"a": {"type": "string"}},
+                                        "properties": {"x": {"$ref": "#/$defs/a", "title": "beside"}}}),
+                   validate.SchemaPolicyError, "HOST_SCHEMA #/$defs/a: a $ref beside"))
+    control("host-schema-refuses-a-reference-that-reaches-itself",
+            raised(lambda: host_schema({"type": "object", "additionalProperties": False,
+                                        "$defs": {"a": {"type": "object", "additionalProperties": False,
+                                                        "properties": {"next": {"$ref": "#/$defs/a"}}}},
+                                        "properties": {"x": {"$ref": "#/$defs/a"}}}),
+                   validate.SchemaPolicyError, "HOST_SCHEMA #/$defs/a: the reference reaches itself"))
     with tempfile.TemporaryDirectory() as td:
         for _title, guide, _part in PRINCIPLE_SOURCES:
             target = pathlib.Path(td) / guide
@@ -218,12 +347,55 @@ def self_test():
         (pathlib.Path(td) / "claude/guides/verification-discipline.md").unlink()
         control("guide-missing", raised(lambda: principles_block(td), Unavailable,
                                         "PRINCIPLES_UNAVAILABLE claude/guides/verification-discipline.md"))
+        control("template-missing", raised(lambda: render("read", {}, template_dir=td), TemplateError,
+                                           "TEMPLATE_UNAVAILABLE read"))
+
+    # S3's two templates (plan WP-08): each takes exactly the fields its stage fills, the packet it makes passes the
+    # linter, and the part every call of it carries - envelope, principles, template, schema - leaves room in the
+    # overhead the windows were cut with for what the call adds (its omissions and expected observations). The room
+    # is reported, not judged: what one call adds is counted with the call, by the dispatcher's bound check.
+    from runlib import bound
+    schemas = pathlib.Path(__file__).resolve().parents[1] / "schemas"
+    filled_by = {"read": ["expected", "omissions", "window"], "stitch": ["claims", "events"]}
+    room = {}
+    for name in TEMPLATES:
+        try:
+            fields = template_fields(name)
+            answer = schema_bytes(json.loads((schemas / f"{name}.schema.json").read_text(encoding="utf-8")))
+        except (TemplateError, OSError, ValueError) as exc:
+            failures.append(f"positive control: the {name} template or schema did not load: {exc}")
+            continue
+        control(f"{name}-template-takes-the-fields-its-stage-fills",
+                [] if fields == filled_by[name] else [f"placeholders {fields}, filled {filled_by[name]}"])
+        call = f"r1-S3-{name}-a1"
+        made = build(call, "S3", "claude:claude-sonnet-5-5/high", render(name, {f: f"<{f}>" for f in fields}), answer)
+        control(f"{name}-packet-passes-the-linter", check(made, call, answer))
+        fixed = len(build(call, "S3", "claude:claude-sonnet-5-5/high", render(name, {f: "" for f in fields}), answer)) \
+            + len(answer)
+        room[name] = bound.PACKET_OVERHEAD - fixed
+        control(f"{name}-fixed-part-fits-the-overhead",
+                [] if room[name] > 0 else [f"{fixed} fixed bytes, overhead {bound.PACKET_OVERHEAD}"])
+    control("template-field-missing", raised(lambda: render("read", {"window": "w", "omissions": "o"}), TemplateError,
+                                             "TEMPLATE_FIELDS_MISMATCH read: missing=['expected']"))
+    control("template-field-extra", raised(lambda: render("stitch", {"events": "e", "claims": "c", "window": "w"}),
+                                           TemplateError, "TEMPLATE_FIELDS_MISMATCH stitch: missing=[] extra=['window']"))
+    control("template-field-not-text", raised(lambda: render("stitch", {"events": "e", "claims": 3}), TemplateError,
+                                              "TEMPLATE_FIELDS_MISMATCH stitch"))
+    # a template that no longer takes these fields fails this control by its name, never as a traceback that would
+    # hide every failure recorded before it
+    try:
+        once = render("read", {"window": "a record quoting {{omissions}}", "omissions": "ONLY-HERE", "expected": "none"})
+        expanded = [] if "a record quoting {{omissions}}" in once and once.count("ONLY-HERE") == 1 else ["a field was expanded"]
+    except TemplateError as exc:
+        expanded = [f"RAISED {exc}"]
+    control("a-field-is-never-read-as-a-template", expanded)
 
     for failure in failures:
         print(f"packet --self-test [FAIL] {failure}")
     if failures:
         return 1
-    print(f"packet --self-test: OK ({len(ran)} controls: " + ", ".join(ran) + ")")
+    print(f"packet --self-test: OK ({len(ran)} controls: " + ", ".join(ran) + "; room left in the "
+          f"{bound.PACKET_OVERHEAD}-byte overhead: " + ", ".join(f"{k} {v}" for k, v in room.items()) + ")")
     return 0
 
 

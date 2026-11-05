@@ -19,12 +19,14 @@ that is partial, stale or invalid is refused whatever the posture.
 
 Failures are named by their first word: DECLARATION_DRIFT, INPUT_STALE, INPUT_PARTIAL,
 INPUT_INVALID, OUTPUT_OUTSIDE_RUN, RUN_PATH_ESCAPE (`stagelock.confine`: no write leaves the run
-directory, through a symlink or otherwise), ITEM_FAILED, SET_MISMATCH. Predicates return their
+directory, through a symlink or otherwise), ITEM_FAILED, ITEMS_JOBS_INVALID, SET_MISMATCH. Predicates return their
 violations as a list; the ones that guard starting a stage or running its items raise `Refused`.
 
   records.py --self-test
 """
+import concurrent.futures
 import contextlib
+import copy
 import datetime
 import hashlib
 import importlib.util
@@ -33,6 +35,7 @@ import os
 import pathlib
 import sys
 import tempfile
+import threading
 
 if __package__ in (None, ""):  # run as a script: put session-distill/ on the import path
     sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
@@ -292,7 +295,7 @@ contained = stagelock.contained
 SHARED_KEYS = ("unit", "route", "test_config")
 
 
-def run_items(posture, items, work):
+def run_items(posture, items, work, jobs=1, stop=None):
     """Run `work(item)` over `items` under a failure posture (design §4).
 
     An item is `{id, unit, route, test_config}`; a key it does not have shares nothing. In
@@ -301,10 +304,73 @@ def run_items(posture, items, work):
     already done are moved to the quarantine, and the independent items continue. Under any
     other posture the first failure stops by name (ITEM_FAILED), and so does a missing posture.
     Returns `{done: [ids], quarantined: [{id, reason, because}]}`; `because` is the failing item
-    that took the item with it, None for the failing item itself."""
+    that took the item with it, None for the failing item itself.
+
+    With `jobs` above one, the items run that many at a time and the posture's rules hold as they do one at a time
+    (WP-08 commit 5b): items joined by a shared unit, route or test configuration, directly or through others, run in
+    one sequence in their order, so a failure skips and quarantines the others of its sequence exactly as above, and
+    sequences that share nothing run side by side. Under any posture but production a failure sets `stop` (an event a
+    caller may hold) and lets no item start after it; the items already running finish, and the earliest failure in
+    `items` order is the one named. `done`
+    and the quarantine are in `items` order. A `jobs` that is not a positive integer is refused (ITEMS_JOBS_INVALID)."""
     expect_set(item["id"] for item in items)
+    if isinstance(jobs, bool) or not isinstance(jobs, int) or jobs < 1:
+        raise Refused(f"ITEMS_JOBS_INVALID {jobs!r}: items run one or more at a time")
+    if jobs == 1:
+        return _run_sequence(posture, items, work)
+    order = {item["id"]: n for n, item in enumerate(items)}
+    stop, failed = stop if stop is not None else threading.Event(), []
+
+    def sequence(group):
+        try:
+            return _run_sequence(posture, group, work, stop)
+        except Refused as exc:
+            if not str(exc).startswith("ITEM_FAILED "):
+                raise
+            stop.set()
+            failed.append((min(n for i, n in order.items() if str(exc).startswith(f"ITEM_FAILED {i} (")), exc))
+            return {"done": [], "quarantined": []}
+    with concurrent.futures.ThreadPoolExecutor(max_workers=jobs) as pool:
+        outcomes = [future.result() for future in [pool.submit(sequence, group) for group in sharing_groups(items)]]
+    if failed:
+        raise min(failed, key=lambda pair: pair[0])[1]
+    done = {i for outcome in outcomes for i in outcome["done"]}
+    chunks = {}  # a failure and the items it took with it, in the order one at a time would list them
+    for outcome in outcomes:
+        for entry in outcome["quarantined"]:
+            chunks.setdefault(entry["because"] or entry["id"], []).append(entry)
+    return {"done": [item["id"] for item in items if item["id"] in done],
+            "quarantined": [entry for key in sorted(chunks, key=order.get) for entry in chunks[key]]}
+
+
+def sharing_groups(items):
+    """`items` split into the sequences that share a unit, route or test configuration, directly or through others,
+    each in `items` order, ordered by their first item."""
+    parent = list(range(len(items)))
+
+    def find(n):
+        while parent[n] != n:
+            parent[n] = parent[parent[n]]
+            n = parent[n]
+        return n
+    first = {}
+    for n, item in enumerate(items):
+        for key in SHARED_KEYS:
+            if item.get(key) is not None:
+                held = first.setdefault((key, item[key]), n)
+                parent[find(n)] = find(held)
+    groups = {}
+    for n, item in enumerate(items):
+        groups.setdefault(find(n), []).append(item)
+    return list(groups.values())  # keyed in the order their first items come
+
+
+def _run_sequence(posture, items, work, stop=None):
+    """One sequence of `run_items`, one item at a time; with `stop`, no item starts once it is set."""
     done, quarantined = [], {}
     for item in items:
+        if stop is not None and stop.is_set():
+            break
         if item["id"] in quarantined:
             continue
         try:
@@ -333,10 +399,25 @@ def run_items(posture, items, work):
 
 class StageRun:
     """The record of a running stage; the stage adds its outputs, runs its items under the
-    run's posture, and may mark itself partial."""
+    run's posture, and may mark itself partial. `declaration` is the run.json the stage was
+    admitted against, read under the declaration lock: a stage takes what it needs of the
+    declaration from here, never from a read of its own made before admission, which an
+    amendment could have overtaken (X review of WP-08 r1)."""
 
-    def __init__(self, run_dir, record, posture):
+    def __init__(self, run_dir, record, posture, declaration=None):
         self.run_dir, self.record, self.posture = pathlib.Path(run_dir), record, posture
+        self.declaration = declaration
+
+    def admitted(self, early):
+        """`early`, a declaration a stage read before admission so that it could refuse before writing a record, when it
+        is the one this stage was admitted against; refused by name otherwise (DECLARATION_MOVED), because an amendment
+        landed between the read and the admission (X review of WP-08 r2)."""
+        if bound_digest(early) != self.record["run_json_sha256"]:
+            raise Refused(f"DECLARATION_MOVED {self.record['stage']}: the declaration read before admission "
+                          f"({bound_digest(early)[:12]}) is not the one the stage was admitted against "
+                          f"({self.record['run_json_sha256'][:12]}, declaration_seq {self.record['declaration_seq']}); "
+                          "run the stage again")
+        return early
 
     def output(self, artifact):
         path = contained(self.run_dir, artifact)
@@ -344,9 +425,9 @@ class StageRun:
             raise Refused(f"OUTPUT_OUTSIDE_RUN {artifact}: leaves the run directory")
         self.record["outputs"].append({"artifact": artifact, "sha256": sha256_file(path)})
 
-    def run_items(self, items, work):
-        """`run_items` under this run's posture; the quarantined items are listed in the record."""
-        result = run_items(self.posture, items, work)
+    def run_items(self, items, work, jobs=1):
+        """`run_items` under this run's posture, `jobs` at a time; the quarantined items are listed in the record."""
+        result = run_items(self.posture, items, work, jobs)
         self.record["quarantined"].extend(result["quarantined"])
         return result
 
@@ -493,7 +574,7 @@ def run_stage(run_dir, stage, inputs=(), part=None):
                               f"replace all of them")
             publish_record(run_dir, stage, document)
         try:
-            yield StageRun(run_dir, record, run.get("posture"))
+            yield StageRun(run_dir, record, run.get("posture"), copy.deepcopy(run))
         except BaseException:
             record["status"] = "failed"
             raise
@@ -505,6 +586,135 @@ def run_stage(run_dir, stage, inputs=(), part=None):
             if part is not None:
                 document["status"] = derived_status(document)
             publish_record(run_dir, stage, document, sys.exc_info()[1])
+
+
+@contextlib.contextmanager
+def fx_amended_at_admission(stage, assignments, when="before"):
+    """Self-test fixture: while it is held, `run_stage` of `stage` has an amendment of `assignments` land just before its
+    admission (`before`) or just after it (`after`) - the two places a stage that reads the declaration on its own can
+    be overtaken (X review of WP-08 r1 and r2). Every stage's race control uses it, so the two cases are the same two
+    cases everywhere. `run_stage` is restored on exit."""
+    from runlib import declare  # declare imports this module, so the fixture imports it when it runs
+    if when not in ("before", "after"):
+        raise ValueError(f"when: {when!r}")
+    module, admitted = sys.modules[__name__], run_stage
+
+    @contextlib.contextmanager
+    def racing(run_dir, name, inputs=(), part=None):
+        if name == stage and when == "before":
+            declare.amend(run_dir, assignments, f"an amendment just before {stage}'s admission")
+        with admitted(run_dir, name, inputs, part=part) as held:
+            if name == stage and when == "after":
+                declare.amend(run_dir, assignments, f"an amendment just after {stage}'s admission")
+            yield held
+    module.run_stage = racing
+    try:
+        yield
+    finally:
+        module.run_stage = admitted
+
+
+# The structural guard of the declaration a stage reads (X review of WP-08 r2; the shape three reviews found one stage at
+# a time): a stage builds from the declaration it was admitted against, `StageRun.declaration`, so outside the sites
+# listed here nothing reads run.json - takes its path, reads its state, or spells its name. Each site is a module and its
+# top-level function, or a class's method, with the reason it may. A site not listed, a listed site that no longer reads
+# the declaration, and a scan that found no module or no site fail by name: DECLARATION_READ_UNLISTED,
+# DECLARATION_READ_STALE, DECLARATION_READ_UNSCANNED. Every Python module of session-distill is scanned, the pipeline
+# beside distill.py included. The guard sees a read where it is spelled: a listed site that hands what it read to its
+# caller hands on the declaration, so each reason says what the site does with it.
+DECLARATION_FILE = "run.json"
+DECLARATION_READS = frozenset(("run_json_path", "declaration_state"))
+DECLARATION_MODULES = ("*.py", "runlib/*.py")
+DECLARATION_READERS = {
+    ("runlib/records.py", "<module>"): "this guard's own DECLARATION_FILE, the name it looks for",
+    ("runlib/records.py", "run_json_path"): "the one place the declaration's path is spelled",
+    ("runlib/records.py", "confine_declaration"): "confines the declaration's path beneath the run before anything reads it",
+    ("runlib/records.py", "declaration_state"): "the declaration's reader, which takes no lock itself and checks that run.json "
+                                                "is the one the log binds. Its callers hold different locks: run_stage's "
+                                                "stage admission and dispatch's stop stamp (_stop_run) hold the declaration "
+                                                "lock; dispatch's reservation (reserve) holds the supervisor's lock alone, "
+                                                "and so does the standing-stop check (_blocked) where reserve and a call's "
+                                                "launch make it; that check as a call first makes it and the seat admission "
+                                                "(_admit_seat), both before the call takes the supervisor's lock, and the "
+                                                "read-only budget query (remaining) hold neither. A read without the "
+                                                "declaration lock that lands "
+                                                "mid-amendment is refused by name (DECLARATION_DRIFT) rather than believed",
+    ("runlib/records.py", "run_stage"): "admits a stage: what it reads under the lock is the StageRun.declaration the stage "
+                                        "builds from",
+    ("runlib/declare.py", "create"): "the declaration's writer (S0): writes run.json under the declaration lock",
+    ("runlib/declare.py", "set_fields"): "the declaration's writer: an amendment's fields, read and written under the lock",
+    ("runlib/declare.py", "amend"): "the declaration's writer: an amendment, read and written under the lock",
+    ("runlib/census.py", "run"): "S1 reads the declaration before admission for the coverage base and originator table it "
+                                 "pins; StageRun.admitted refuses that read unless it is byte for byte the declaration S1 was "
+                                 "admitted against (DECLARATION_MOVED)",
+    ("runlib/dispatch.py", "Supervisor.remaining"): "the budget a stage has left, read against the declaration current "
+                                                    "when it is asked, as a reservation reads it",
+    ("runlib/dispatch.py", "Supervisor.reserve"): "a call's reservation reads the budget current at the call, under the "
+                                                  "dispatcher's lock: a call's admission, not a stage's build",
+    ("runlib/dispatch.py", "Supervisor._admit_seat"): "a call's seat and host allowance are admitted against the "
+                                                      "declaration current when it is made",
+    ("runlib/dispatch.py", "Supervisor._blocked"): "whether an amendment lifts the run's standing stop is read from the "
+                                                   "declaration's log as it stands",
+    ("runlib/dispatch.py", "Supervisor._stop_run"): "a run's stop is stamped with the declaration and amendments current "
+                                                    "when it stops",
+    ("runlib/inventory.py", "<module>"): "RUN_MARKERS names the declaration's file to recognise a run directory, and reads "
+                                         "nothing of it",
+    ("distill.py", "self_test"): "the CLI's self-test reads the declarations its scratch runs made, to check what each "
+                                 "command declared and recorded",
+    ("runlib/records.py", "self_test"): "the records self-test reads the declarations it plants",
+    ("runlib/declare.py", "self_test"): "the declaration's own self-test reads what its writer wrote",
+    ("runlib/census.py", "controls"): "the census self-test's body reads its scratch runs' declarations, to check what S1 "
+                                      "recorded against them",
+    ("runlib/dispatch.py", "self_test"): "the dispatcher's self-test plants and reads its scratch runs' declarations",
+    ("runlib/views.py", "self_test"): "the S2 self-test reads its scratch runs' declarations, to check what S2 recorded",
+    ("runlib/stage_read.py", "fx_reader"): "the S3 fixture reads the seat its golden run declared, to seed the supervisor "
+                                           "before S3 runs",
+    ("runlib/stage_read.py", "self_test"): "the S3 self-test reads its scratch runs' declarations, to check what S3 "
+                                           "recorded against them",
+}
+
+
+def declaration_texts(root=None):
+    """The sources `declaration_reads` judges: every module of `DECLARATION_MODULES`, by path relative to session-distill."""
+    root = pathlib.Path(root) if root is not None else pathlib.Path(__file__).resolve().parents[1]
+    return {path.relative_to(root).as_posix(): path.read_text(encoding="utf-8")
+            for pattern in DECLARATION_MODULES for path in sorted(root.glob(pattern))}
+
+
+def declaration_reads(texts, allowed=None):
+    """`(violations, sites)` of the declaration guard over `texts` (`{relative path: source}`). A site is where code
+    names `run_json_path` or `declaration_state`, under any name it imported them as, or the literal "run.json"; it is
+    keyed by its module and top-level function, a class's method as `Class.method`, or `<module>`."""
+    import ast
+    allowed = DECLARATION_READERS if allowed is None else allowed
+    sites = {}
+    for rel, text in sorted(texts.items()):
+        tree = ast.parse(text)
+        names = set(DECLARATION_READS) | {a.asname for n in ast.walk(tree) if isinstance(n, ast.ImportFrom)
+                                         for a in n.names if a.name in DECLARATION_READS and a.asname}
+        units = []
+        for top in tree.body:
+            if isinstance(top, ast.ClassDef):
+                units += [(f"{top.name}.{m.name}" if isinstance(m, (ast.FunctionDef, ast.AsyncFunctionDef)) else top.name, m)
+                          for m in top.body]
+            else:
+                units.append((top.name if isinstance(top, (ast.FunctionDef, ast.AsyncFunctionDef)) else "<module>", top))
+        for name, unit in units:
+            for node in ast.walk(unit):
+                if (isinstance(node, ast.Constant) and node.value == DECLARATION_FILE) \
+                        or (isinstance(node, ast.Name) and node.id in names) \
+                        or (isinstance(node, ast.Attribute) and node.attr in DECLARATION_READS):
+                    sites.setdefault((rel, name), node.lineno)
+    violations = [f"DECLARATION_READ_UNLISTED {rel}:{line} ({name}): reads the declaration where no stage's admission "
+                  "carries it; a stage builds from StageRun.declaration, and a site that must read run.json is listed in "
+                  "records.DECLARATION_READERS with its reason" for (rel, name), line in sorted(sites.items())
+                  if (rel, name) not in allowed]
+    violations += [f"DECLARATION_READ_STALE {rel} ({name}): listed in records.DECLARATION_READERS, and it no longer reads "
+                   "the declaration" for rel, name in sorted(set(allowed) - set(sites))]
+    if not texts or not sites:
+        violations.append(f"DECLARATION_READ_UNSCANNED: {len(texts)} modules scanned and {len(sites)} sites found; a "
+                          "guard that judged nothing is not clean")
+    return violations, set(sites)
 
 
 def expect_set(ids):
@@ -641,6 +851,19 @@ def self_test():
         except Refused as exc:  # production that stopped is reported under its own controls, not a crash
             return ({"done": [], "quarantined": [], "stopped": str(exc)} if posture == "production" else str(exc)), calls
 
+    def run_batch_jobs(posture, items, jobs, fails=("B",)):
+        calls, calls_lock = [], threading.Lock()
+
+        def work(it):
+            with calls_lock:
+                calls.append(it["id"])
+            if it["id"] in fails:
+                raise ValueError(f"{it['id']} failed")
+        try:
+            return run_items(posture, items, work, jobs=jobs), calls
+        except Refused as exc:
+            return ({"done": [], "quarantined": [], "stopped": str(exc)} if posture == "production" else str(exc)), calls
+
     result, calls = run_batch("production", batch)
     expect("production: the failing item and its dependants are quarantined, the rest continue",
            [] if sorted(q["id"] for q in result["quarantined"]) == ["A", "B", "C", "D"]
@@ -670,6 +893,90 @@ def self_test():
             failures.append(f"{posture}: work continued past the failure: {calls}")
     message, _calls = run_batch("production", [item("A"), item("A")])
     expect("items with a repeated id", [message] if isinstance(message, str) else [f"{message}"], "SET_MISMATCH")
+
+    # WP-08 commit 5b: items run `jobs` at a time under the same rules
+    one_at_a_time, calls_one = run_batch("production", batch)
+    side_by_side, calls_many = run_batch_jobs("production", batch, 4)
+    expect("jobs: production over the batch four at a time quarantines and keeps what one at a time does, in its order",
+           [] if side_by_side == one_at_a_time else [f"{side_by_side} != {one_at_a_time}"])
+    expect("jobs: a dependant not yet run is skipped four at a time too, because items that share run in one sequence",
+           [] if "C" not in calls_many and "D" not in calls_many and sorted(calls_many) == sorted(calls_one)
+           else [f"calls {calls_many}"])
+    expect("jobs: the sequences are the items joined by a shared key, directly or through others, in items order",
+           [] if [[i["id"] for i in g] for g in sharing_groups(batch)] == [["A", "B", "C", "D", "X"], ["E"], ["F"], ["G"]]
+           else [f"{[[i['id'] for i in g] for g in sharing_groups(batch)]}"])
+    both_running = {"B": threading.Event(), "F": threading.Event()}
+    many_fail_calls, many_fail_lock = [], threading.Lock()
+
+    def two_fail(it):
+        with many_fail_lock:
+            many_fail_calls.append(it["id"])
+        if it["id"] in both_running:  # B and F each fail only once the other runs: both failures are made
+            both_running[it["id"]].set()
+            both_running["F" if it["id"] == "B" else "B"].wait(timeout=30)
+            raise ValueError(f"{it['id']} failed")
+    try:
+        run_items("development", batch, two_fail, jobs=4)
+        many_fail = "ran through"
+    except Refused as exc:
+        many_fail = str(exc)
+    expect("jobs: under development four at a time the earliest failure in items order is named",
+           [many_fail] if isinstance(many_fail, str) else [f"{many_fail}"], "ITEM_FAILED B (development): ValueError: B failed")
+    expect("jobs: and nothing of the failing sequence runs after its failure",
+           [] if "C" not in many_fail_calls and "D" not in many_fail_calls and "X" not in many_fail_calls
+           else [f"calls {many_fail_calls}"])
+    widest, in_flight, flight_lock, thirteen = [0], [0], threading.Lock(), []
+    gate_12, gate_13 = threading.Barrier(12), threading.Barrier(13)
+
+    def flying(it):
+        with flight_lock:
+            in_flight[0] += 1
+            widest[0] = max(widest[0], in_flight[0])
+        try:
+            if int(it["id"][1:]) < 13:  # thirteen at once would meet here; twelve workers wait it out and it breaks
+                try:
+                    gate_13.wait(timeout=2)
+                    thirteen.append(it["id"])
+                except threading.BrokenBarrierError:
+                    pass
+            if int(it["id"][1:]) < 12:  # the first twelve meet: only twelve running at once can pass
+                gate_12.wait(timeout=30)
+        finally:
+            with flight_lock:
+                in_flight[0] -= 1
+    try:
+        flown = run_items("production", [item(f"i{n}") for n in range(30)], flying, jobs=12)
+    except Refused as exc:
+        flown = {"done": [], "quarantined": [], "refused": str(exc)}
+    expect("jobs: twelve at a time runs twelve independent items at once and never a thirteenth",
+           [] if widest[0] == 12 and not thirteen and len(flown["done"]) == 30 and not flown["quarantined"]
+           else [f"widest {widest[0]}, thirteen met {thirteen}, {flown}"])
+    stopped, q1_running, ran_after = threading.Event(), threading.Event(), []
+
+    def failing_first(it):
+        if it["id"] == "P":
+            q1_running.wait(timeout=30)  # P fails while Q1 runs
+            raise ValueError("P failed")
+        if it["id"] == "Q1":
+            q1_running.set()
+            stopped.wait(timeout=30)  # Q1 outlasts the failure: run_items sets the stop when P fails
+        ran_after.append(it["id"])
+    try:
+        run_items("development", [item("P", unit="UP"), item("Q1", unit="UQ"), item("Q2", unit="UQ")], failing_first,
+                  jobs=2, stop=stopped)
+        stop_message = "ran through"
+    except Refused as exc:
+        stop_message = str(exc)
+    expect("jobs: under development a failure lets no item start after it, in any sequence",
+           [] if stop_message.startswith("ITEM_FAILED P ") and stopped.is_set() and ran_after == ["Q1"]
+           else [f"{stop_message} stopped={stopped.is_set()} ran {ran_after}"])
+    for bad_jobs in (0, True, "2"):
+        try:
+            run_items("production", [item("A")], lambda it: None, jobs=bad_jobs)
+            got_jobs = "ran"
+        except Refused as exc:
+            got_jobs = str(exc)
+        expect(f"jobs: {bad_jobs!r} is refused", [got_jobs], "ITEMS_JOBS_INVALID")
 
     def interrupted(it):
         raise KeyboardInterrupt
@@ -1225,6 +1532,49 @@ def self_test():
         expect("a refusal in the finally names the failure that was already in flight",
                [raised], "RECORD_DISCLOSES S3", "ValueError", "was in flight")
 
+    # The structural guard (X review of WP-08 r2): outside the listed sites nothing reads run.json. Positive control first,
+    # on the real tree: every site is listed and every listed site still reads the declaration.
+    texts = declaration_texts()
+    found, sites = declaration_reads(texts)
+    expect("the real tree reads the declaration only where DECLARATION_READERS says why", found)
+    if sites != set(DECLARATION_READERS) or not {"distill.py", "census.py", "runlib/records.py"} <= set(texts):
+        failures.append(f"the guard judged {len(texts)} modules and {sorted(sites)} sites, not every module of "
+                        "session-distill and every listed site")
+
+    def planted(rel, function, line):
+        """`texts` with `line` as the first statement of `function` in `rel`: a read before the stage's admission."""
+        import ast
+        node = next(n for n in ast.parse(texts[rel]).body if isinstance(n, ast.FunctionDef) and n.name == function)
+        lines = texts[rel].splitlines(keepends=True)
+        at = node.body[0].lineno - 1
+        return {**texts, rel: "".join(lines[:at] + [" " * node.body[0].col_offset + line + "\n"] + lines[at:])}
+
+    for label, plant, code in (
+            ("S2 reading the declaration before its admission",
+             planted("runlib/views.py", "run", "early = records.read_json(records.run_json_path(run_dir))"),
+             "DECLARATION_READ_UNLISTED runlib/views.py:"),
+            ("S3 spelling the declaration's file itself",
+             planted("runlib/stage_read.py", "run", 'early = json.loads((run_dir / "run.json").read_text())'),
+             "DECLARATION_READ_UNLISTED runlib/stage_read.py:"),
+            ("S2 reading the declaration's state under another name",
+             {**planted("runlib/views.py", "run", "early = state_of(run_dir)"),
+              "runlib/views.py": "from runlib.records import declaration_state as state_of\n"
+              + planted("runlib/views.py", "run", "early = state_of(run_dir)")["runlib/views.py"]},
+             "DECLARATION_READ_UNLISTED runlib/views.py:")):
+        found_here = declaration_reads(plant)[0]
+        expect(f"{label} is named", found_here, code, "(run)")
+    unlisted = {key: why for key, why in DECLARATION_READERS.items() if key != ("runlib/census.py", "run")}
+    expect("S1's pre-admission read with its entry removed is named", declaration_reads(texts, unlisted)[0],
+           "DECLARATION_READ_UNLISTED runlib/census.py:", "(run)")
+    expect("an entry whose site no longer reads the declaration is named",
+           declaration_reads(texts, {**DECLARATION_READERS, ("runlib/views.py", "run"): "fixture"})[0],
+           "DECLARATION_READ_STALE runlib/views.py (run)")
+    with tempfile.TemporaryDirectory() as td:
+        moved = declaration_texts(td)
+        expect("a scan that found no module is not clean", declaration_reads(moved, {})[0], "DECLARATION_READ_UNSCANNED: 0 modules")
+    expect("a scan that found no site is not clean", declaration_reads({"runlib/views.py": "def run():\n    pass\n"}, {})[0],
+           "DECLARATION_READ_UNSCANNED: 1 modules scanned and 0 sites")
+
     for failure in failures:
         print(f"records --self-test [FAIL] {failure}")
     if failures:
@@ -1232,7 +1582,7 @@ def self_test():
     print("records --self-test: OK (declaration order: equal, amended, silently advanced, invalidated, "
           "unlicensed, reversed; set accounting; the failure posture over items; stage records pin the "
           "declaration, inputs and outputs, refuse partial, invalid, stale and drifted declarations and "
-          "paths that leave the run directory)")
+          "paths that leave the run directory; run.json is read only where DECLARATION_READERS says why)")
     return 0
 
 

@@ -275,9 +275,10 @@ def cmd_inventory(args):
         with records.run_stage(out_dir, "S2", [{"artifact": inventory.CENSUS, "producer_stage": "S1"}],
                                part="inventory") as stage:
             # A compressed transcript is read with the decoder the run DECLARES, taken the way
-            # `views.run` takes it (views.py ~1179): none was passed, so a zstd rollout could not be
-            # read here at all (#11). Read inside the stage, which has judged the declaration.
-            manifest = produce(sources.declared(records.read_json(records.run_json_path(out_dir))).get("zstd"))
+            # `views.run` takes it: none was passed, so a zstd rollout could not be read here at all
+            # (#11). It is the declaration the stage was admitted against, never a read of run.json,
+            # which an amendment landing after the admission could have changed (X review of WP-08 r2).
+            manifest = produce(sources.declared(stage.declaration).get("zstd"))
             register_inventory_outputs(stage, manifest)
         # The stage record is a document this run wrote, so it answers the same question every
         # other written document answers.
@@ -291,7 +292,7 @@ def cmd_inventory(args):
 
 
 def cmd_views(args):
-    say("\n".join(views.report_lines(views.run(run_dir_of(args), reservation=args.output_cap))))
+    say("\n".join(views.report_lines(views.run(run_dir_of(args)))))
     return 0
 
 
@@ -329,12 +330,6 @@ def build_parser():
         common(sub)
         if name == "close":
             sub.add_argument("--recovery", action="store_true", help="the recovery close (reserved)")
-        if name == "views":
-            # the cap the S3 call will declare for its answer: check (d) reserves exactly that, and there
-            # is no constant standing in for it (the ruling of 2026-10-22). The dispatcher reads the same
-            # number from the stage that makes the call.
-            sub.add_argument("--output-cap", type=int, required=True,
-                             help="S3's output-token cap, which the window's (d) check reserves")
         if name == "inventory":
             sub.add_argument("--to", help="write inventory/<reference>.json here instead of into a run directory")
             sub.add_argument("--pin", help="HOST:SESSION_ID, the activation pin whose selection and release to read")
@@ -951,6 +946,24 @@ def self_test():
                 code == 1 and "INPUT_INVALID S1" in err and "census.json is not the output S1 recorded" in err,
                 f"{code}")
         (inventory_run / "census.json").write_bytes(census_bytes)
+        # X review of WP-08 r2: the inventory part takes the declaration it was admitted against, whichever side of the
+        # admission an amendment lands on
+        for when in ("before", "after"):
+            seq_before = records.read_json(records.run_json_path(inventory_run))["declaration_seq"]
+            given, real_declared = [], sources.declared
+            sources.declared = lambda declaration: (given.append(declaration.get("declaration_seq")), real_declared(declaration))[1]
+            try:
+                with records.fx_amended_at_admission("S2", [("question", f"amended {when} the inventory's admission")], when):
+                    code, err = cli("inventory", "--run-id", "r-inventory", "--no-state")
+            finally:
+                sources.declared = real_declared
+            admitted_seq = (((records.stage_records(inventory_run).get("S2") or {}).get("parts") or {})
+                            .get("inventory") or {}).get("declaration_seq")
+            landed = records.read_json(records.run_json_path(inventory_run))["declaration_seq"]
+            control(f"X r2: an amendment just {when} the inventory part's admission leaves it reading the declaration it "
+                    "was admitted against", code == 0 and given and given[-1] == admitted_seq and landed == seq_before + 1
+                    and admitted_seq == (landed if when == "before" else seq_before),
+                    f"{code} given={given} admitted={admitted_seq} run.json {seq_before}->{landed}")
 
         # ---- S-22 (lead, P2.4b): the inventory part registers every artifact inventory's OWN manifest lists,
         # the shared inventories among them, by its bytes, and the manifest. Asked of the registration itself
@@ -1041,13 +1054,13 @@ def self_test():
                 not (declared_run / "stages").exists(),
                 f"{sorted(p.name for p in (declared_run / 'stages').rglob('*'))}"
                 if (declared_run / "stages").exists() else "")
-        code, err = cli("views", "--run-id", "r1", "--output-cap", "32000")
+        code, err = cli("views", "--run-id", "r1")
         control("views (S2) refuses by name when the census it reads is not in the run",
                 code == 1 and "INPUT_INVALID S1" in err, err)
-        # the ruling of 2026-10-22: (d) reserves the cap the S3 call declares, so the stage cannot be run
-        # without one - argparse refuses it, and the refusal names the flag
-        code, err = cli("views", "--run-id", "r1")
-        control("views (S2) cannot run without the output cap its (d) check reserves",
+        # the ruling of 2026-10-22: (d) reserves the cap the S3 call declares. WP-08 gave it a home in run.json
+        # (`output_caps`), so the flag that stood in for it is gone: a caller cannot cut against another number
+        code, err = cli("views", "--run-id", "r1", "--output-cap", "32000")
+        control("views (S2) takes its output cap from run.json, not from a flag",
                 code == 2 and "--output-cap" in err, f"{code} {err}")
         # the census (S1) through the driver: a declared run over sources that are not there is unknown coverage, not zero
         coverage_file = scratch / "coverage.json"
