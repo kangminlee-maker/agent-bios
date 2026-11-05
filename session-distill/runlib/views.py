@@ -238,14 +238,33 @@ def record_items(host, rec, child):
                 yield f"/payload/output/{j}/text", "tool_result", None, False, part["text"]
 
 
+def clip_bounds(text):
+    """`(head end, tail start)` of a clipped block: on line boundaries where its text has them (WP-08c). The head ends at
+    the last line end at or before HEAD_CHARS when that keeps at least half of HEAD_CHARS, and the tail starts at the
+    first line start at or after `len - TAIL_CHARS` when that keeps at least half of TAIL_CHARS; otherwise the cut is
+    by characters, as in a block that is one long line. A cut inside a line split it between a shown side and the
+    omitted middle, so the middle's expansion began or ended mid-line (dw2-live1: it ended at "cleanup 028")."""
+    n = len(text)
+    head, tail = HEAD_CHARS, n - TAIL_CHARS
+    start = text.rfind("\n", 0, head) + 1
+    if start >= HEAD_CHARS // 2:
+        head = start
+    if tail > 0 and text[tail - 1] != "\n":
+        end = text.find("\n", tail)
+        if end != -1 and n - (end + 1) >= TAIL_CHARS // 2:
+            tail = end + 1
+    return head, tail
+
+
 def clip_parts(text, kind):
     """`([(type, a, b)], meta)`: `text` parts are shown, `gap` parts omitted, together tiling [0, len(text)).
     `meta` is None for a block shown whole; else the head, the tail, the error lines kept whole, the omitted span of
-    the middle with the sha256 of its characters, and the gaps."""
+    the middle with the sha256 of its characters, and the gaps. The head and tail end on line boundaries
+    (`clip_bounds`)."""
     n = len(text)
     if kind != "tool_result" or n <= CLIP_OVER:
         return [("text", 0, n)], None
-    head, tail = HEAD_CHARS, n - TAIL_CHARS
+    head, tail = clip_bounds(text)
     shown, errors, offset = [(0, head), (tail, n)], [], 0
     for line in text.splitlines(keepends=True):
         a, b = offset, offset + len(line)
@@ -738,13 +757,15 @@ def cut_windows(base, seq, limits, overlap=True):
 
 # ---- checks over a cut view -------------------------------------------------------------------
 
-def error_lines_of(text, head=HEAD_CHARS, tail=TAIL_CHARS):
-    """The error lines of a tool result's middle, as the clipper reads them (ranges in the block)."""
-    out, offset, n = [], 0, len(text)
+def error_lines_of(text):
+    """The error lines of a tool result's middle, as the clipper reads them (ranges in the block), between the bounds it
+    cuts at (`clip_bounds`)."""
+    out, offset = [], 0
+    head, tail = clip_bounds(text)
     for line in text.splitlines(keepends=True):
         a, b = offset, offset + len(line)
         offset = b
-        if b > head and a < n - tail and ERROR_LINE.search(line):
+        if b > head and a < tail and ERROR_LINE.search(line):
             out.append([a, b])
     return out
 
@@ -2845,6 +2866,24 @@ def self_test():
                 r["clipped"]["gaps"] = coverage.normalize(r["clipped"]["gaps"] + [[a, b]])
         named("control, error line: an error line of a clipped result moved into the gap is named",
               check_tiling(hidden_error, texts), "ERROR_LINE_DROPPED")
+        # the clip's bounds (WP-08c): a log of 41-character lines, whose 1,200th and (n-800)th characters fall inside
+        # lines; one long line; a block whose only line end before the head would keep less than half of it; and one
+        # whose only line start after the tail would keep less than half of it
+        lined = "".join(f"line {i:04d} of the build log, still going.\n" for i in range(300))
+        cuts = {}
+        for label, text in (("lined", lined), ("one line", "x" * 10_000), ("sparse head", "a" * 99 + "\n" + "b" * 9_900),
+                            ("sparse tail", "c" * 9_699 + "\n" + "d" * 300)):
+            _parts, meta = clip_parts(text, "tool_result")
+            span = meta["omitted_span"]
+            cuts[label] = (meta["head"][1], meta["tail"][0], span["start"], span["end"])
+        lined_view = compose(lined, clip_parts(lined, "tool_result")[0])[0]
+        expect("WP-08c: a clipped tool result's head ends at a line end and its tail starts at a line start, so its "
+               "omitted middle is whole lines; a block with no line boundary that keeps half of the head or tail is cut "
+               "by characters",
+               (len(lined.splitlines()[0]) + 1, cuts, "[... 10332 chars omitted (1189-11521) ...]" in lined_view,
+                lined[1188], lined[11520]),
+               (41, {"lined": (1189, 11521, 1189, 11521), "one line": (1200, 9200, 1200, 9200),
+                     "sparse head": (1200, 9200, 1200, 9200), "sparse tail": (1200, 9200, 1200, 9200)}, True, "\n", "\n"))
 
         # ---- done-when 3: the bound as the owner's amendment of §5.4 states it --------------------
         limits = golden_run["limits"]

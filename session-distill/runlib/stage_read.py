@@ -50,7 +50,9 @@ join. A claim is joinable when one of its quotes is of a record the run processe
 resolution cites at least one such quote and may cite the claim's others beside it (an exposure in context). Within a
 session a record stands by (segment order, line); across the unit's members by instant, an equal one counting as after,
 and a claim whose order against the event cannot be known, for want of an instant, is left out and counted
-(`Timeline`, `later`, `joinable_claims`). The stitch's answer is checked by `stitch_problems`, its `stage_check`: one
+(`Timeline`, `later`, `joinable_claims`). On the event's own record a quote stands after it when it begins at or after
+the end of the quotes the event's own claims place there (`anchor_of`, WP-08c); when they place none there, no quote
+on that record does. The stitch's answer is checked by `stitch_problems`, its `stage_check`: one
 resolution per listed event, a resolved one naming claims and quotes and an unresolved one neither, every claim one the
 packet lists as joinable and every quote one of the claims it names (SET_MISMATCH, RECORD_INTEGRITY). A stitch packet
 names its events, claims and quotes by labels of its own too (v1, c1, q1, ...; `StitchLabels`), an event's own claims by
@@ -651,17 +653,38 @@ def standing(position):
     return (position[0] or EARLIEST, *position[1:])
 
 
-def joinable_claims(event_at, own, claims, at):
+def block_order(pointer):
+    """A sort key for a block of one record by its JSON pointer: a numeric segment by its value, so `/10` follows `/9`."""
+    return tuple((0, int(s), "") if s.isdigit() else (1, 0, s) for s in pointer.split("/")[1:])
+
+
+def anchor_of(file, line, own, claims):
+    """Where an event stands inside its own record (WP-08c): `(file, line, (block, character))` at the latest end of the
+    quotes its `own` claims place on that record, in block order and then by character; None when they place none
+    there, and then only the record is known. An event's own record can hold its outcome too - a tool result's end
+    reporting what its beginning set off (dw2-live1's open cleanup) - which a rule by record alone never offered."""
+    ends = [(block_order(r["json_pointer"]), r["char_span"][1]) for c in claims
+            if c["record"]["claim_id"] in own and c["file"] == file for r in c["evidence"] if r["line"] == line]
+    return (file, line, max(ends)) if ends else None
+
+
+def joinable_claims(event_at, own, claims, at, anchor=None):
     """`(joinable, unordered)` for an event standing at `event_at`. `joinable` maps each claim it may join to
     `{"after": the quotes of it that the run processes and that stand after the event, "all": every quote of it}`: a
     claim, other than the event's `own`, with at least one such quote. `unordered` counts the claims left out because
     a quote the run processes stands where its order against the event cannot be known (`later` is None): one is never
-    shown as after."""
+    shown as after. With an `anchor` (`anchor_of`), a quote on the event's own record stands after it when it begins at
+    or after the anchor, in block order; one that begins before it, overlapping included, does not."""
+    def standing_after(c, r):
+        if anchor is not None and (c["file"], r["line"]) == anchor[:2]:
+            return (block_order(r["json_pointer"]), r["char_span"][0]) >= anchor[2]
+        return later(at(c["file"], r["line"]), event_at)
+
     joinable, unordered = {}, 0
     for c in claims:
         if c["record"]["claim_id"] in own:
             continue
-        order = [(r["evidence_id"], later(at(c["file"], r["line"]), event_at)) for r in c["evidence"] if processed(r["window_role"])]
+        order = [(r["evidence_id"], standing_after(c, r)) for r in c["evidence"] if processed(r["window_role"])]
         after = [ident for ident, is_after in order if is_after]
         if after:
             joinable[c["record"]["claim_id"]] = {"after": after, "all": [r["evidence_id"] for r in c["evidence"]]}
@@ -996,8 +1019,9 @@ class Reader:
         claims = sorted(held["claims"], key=lambda c: min(standing(timeline.at(c["file"], r["line"])) for r in c["evidence"]))
         unordered = []
         for ev in events:
-            ev["joinable"], left_out = joinable_claims(timeline.at(ev["file"], ev["line"]),
-                                                       set() if ev["carried"] else set(ev["record"]["claim_ids"]), claims, timeline.at)
+            own = set() if ev["carried"] else set(ev["record"]["claim_ids"])
+            ev["joinable"], left_out = joinable_claims(timeline.at(ev["file"], ev["line"]), own, claims, timeline.at,
+                                                       anchor_of(ev["file"], ev["line"], own, claims))
             if left_out:
                 unordered.append({"event_id": ev["id"], "claims": left_out})
         rows = {c["record"]["claim_id"]: claim_row(c) for c in claims}
@@ -2424,6 +2448,46 @@ def self_test():
                 and all(cited_d2.get(e, {}).get("line") == 3 for e in resolution_d2["evidence_ids"])
                 and "pe-1" in d2["result"].get("resolved_events", []),
                 f"{d2['problem']} {carried_d2} {resolution_d2} {d2['result'].get('resolved_events')}")
+        # WP-08c: the clip's bounds on dw2's result, whose 1,200th and (n-800)th characters fall inside lines
+        log_d2 = fx_decisive_log()
+        spans_d2 = [(m["omitted_span"]["start"], m["omitted_span"]["end"]) for doc in d2["docs"].values()
+                    for m in doc["omission_manifest"]]
+        control("WP-08c, live leg dw2 (golden): the clipped result's omitted middle is whole lines - from the line start at "
+                "1,176 to the line start at 7,377, where a cut by characters (1,200 to 7,344) split two lines",
+                spans_d2 == [(1176, 7377)] and log_d2[1175] == log_d2[7376] == "\n" and "\n" not in log_d2[1176:1201]
+                and "\n" not in log_d2[7343:7376], f"{spans_d2} {len(log_d2)}")
+
+        # WP-08c: an event whose outcome stands later on its own record (dw2-live1's open cleanup). The window's event at
+        # the clipped result, on a quote of the result's head, may join the expansion's claim on the result's middle
+        def fx_same_record_answers(where, doc, rows, parts):
+            plan = fx_decisive_answers(where, doc, rows, parts)
+            answer = plan[0][1]
+            result = None if "/x/" in where else next((r for r in doc["records"] if r["line"] == 3), None)
+            if result is not None:
+                answer["quotes"].append({"quote_id": "q8", "entry": views.eid(result), "text": "restoring table 000  ok"})
+                answer["claims"].append({"claim_id": f"c{len(answer['claims']) + 1}", "fact": "SAME: the restore began, table "
+                                         "by table.", "interpretation": "", "uncertainty": "", "evidence_ids": ["q8"],
+                                         "call_id": "<CALL-ID>"})
+                answer["events"].append({"event_id": "v1", "at_record": views.eid(result), "kind": "restore",
+                                         "claim_ids": [answer["claims"][-1]["claim_id"]], "outcome": "pending",
+                                         "description": "SAME: the restore ran, and the end of its log tells how it went."})
+            return plan
+        same_dir, same_sup, _ = fx_reader(root / "same-record", "lsame", fx_same_record_answers,
+                                          resolve=fx_resolving({1: "DECISIVE:", "SAME:": "DECISIVE:"}), expanding=forced_only,
+                                          **fx_live_legs()["dw2"])
+        same_problem = refusal(lambda: run(same_dir, same_sup))
+        same_view = guarded(lambda: fx_main_windows(same_dir)[0], None)
+        same_event = next((e for e in guarded(lambda: current_events(same_dir, same_view), [])
+                           if e["description"].startswith("SAME:")), {})
+        same_cited = {e["evidence_id"]: e for e in stored_evidence_of(same_dir, same_view)} if same_view else {}
+        same_resolution = next((r for r in record_of(same_dir, main_unit).get("stitch", {}).get("resolutions", [])
+                                if r["event_id"] == same_event.get("event_id")), {})
+        control("WP-08c (golden): an event on dw2's clipped result, resting on a quote of the result's head, is joined to "
+                "the expansion's claim on the result's middle - its own record, after its own quote - and resolved",
+                not same_problem and same_event.get("outcome") == "resolved" and same_resolution.get("evidence_ids")
+                and all(same_cited.get(e, {}).get("line") == 3 and same_cited[e]["char_span"][0] >= 1176
+                        for e in same_resolution["evidence_ids"]),
+                f"{same_problem} {same_event.get('outcome')} {same_resolution}")
         # DW5 (WP-08 done-when 5's follow-up half, WP-08b): where its asks, guides and test run land, what its packets show,
         # and what code derives from the readings the fixture intends
         d5 = live["dw5"]
@@ -3020,6 +3084,27 @@ def self_test():
                 "quoting only context; a claim in a member without an instant is left out and counted",
                 found == {"c2": {"after": ["c2@5"], "all": ["c2@3", "c2@5"]}, "c4": {"after": ["c4@6"], "all": ["c4@6"]},
                           "c6": {"after": ["c6@1"], "all": ["c6@1"]}} and unordered == 1, f"{found} {unordered}")
+        # inside the event's own record (WP-08c): its own claim o1 quotes 10-50 and 20-30 of block 0 there
+        p0, p1 = "/message/content/0/content", "/message/content/1/content"
+
+        def fx_s(ident, *quotes):
+            return {"record": {"claim_id": ident}, "file": "f",
+                    "evidence": [{"evidence_id": f"{ident}@{line}:{a}", "line": line, "json_pointer": p, "char_span": [a, b],
+                                  "window_role": role} for line, p, a, b, role in quotes]}
+        same = [fx_s("o1", (2, p0, 10, 50, "in_window"), (2, p0, 20, 30, "in_window"), (4, p0, 0, 5, "in_window")),
+                fx_s("s1", (2, p0, 60, 90, "in_window")), fx_s("s2", (2, p0, 50, 70, "in_window")),
+                fx_s("s3", (2, p0, 40, 80, "in_window")), fx_s("s4", (2, p0, 0, 9, "in_window")),
+                fx_s("s5", (2, p0, 60, 90, "context")), fx_s("s6", (2, p1, 0, 5, "in_window"))]
+        at_f = lambda file, line: ("t", (False, "f"), 0, line)  # noqa: E731
+        anchor = anchor_of("f", 2, {"o1"}, same)
+        within, _ = joinable_claims(at_f("f", 2), {"o1"}, same, at_f, anchor)
+        bare, _ = joinable_claims(at_f("f", 2), {"o1"}, same, at_f, anchor_of("f", 3, {"o1"}, same))
+        control("WP-08c: on the event's own record a processed quote stands after the event when it begins at or after the "
+                "end of the quotes its own claims place there, blocks in order (/10 after /9); one overlapping that end, one "
+                "before it or one in context does not; with no quote of its own claims there, none on that record does",
+                anchor == ("f", 2, (block_order(p0), 50)) and sorted(within) == ["s1", "s2", "s6"] and bare == {}
+                and block_order("/message/content/10/text") > block_order("/message/content/9/text"),
+                f"{anchor} {sorted(within)} {bare}")
         lanes = root / "timeline"
         for rel, rows_of in (("main.jsonl", [(1, None), (2, "2026-10-03T03:00:00+00:00"), (3, "2026-10-03T01:00:00+00:00"),
                                               (4, None), (6, "2026-10-03T04:00:00+00:00")]),
