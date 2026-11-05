@@ -68,7 +68,10 @@ linter's codes), CALIBRATION_PROVISIONAL, CALIBRATION_SERIAL, BUDGET_UNDECLARED,
 DRIVER_PART_LENGTH_CONFLICT, APPENDED_PROMPT_PATH_FORM, APPENDED_PROMPT_UNDELIVERABLE,
 CAP_UNDELIVERABLE, USAGE_INCOMPLETE, CAPACITY_UNDECLARED, CALL_EXISTS,
 USAGE_UNCAPTURED, RECEIPT_MISSING, SEAT_UNPINNED, ALLOWANCE_UNMEASURED, ALLOWANCE_MISMATCH,
-WINDOW_OVER_BOUND, RUNNER_REALIZATION_MISMATCH, USE_REFUSED, CAP_UNDECLARED, RESUME_HOST_UNVERIFIED. CONTRACT names the
+WINDOW_OVER_BOUND, RUNNER_REALIZATION_MISMATCH, USE_REFUSED, CAP_UNDECLARED, RESUME_HOST_UNVERIFIED,
+EPISODE_CAP_ZERO (a per-episode token cap below 1, refused before anything is reserved: of the per-episode caps only
+tokens and compactions reach the host's monitor, compactions 0 is a cap like any other, and max_turns and
+max_budget_usd are read only where the breaker reads a host's stop). CONTRACT names the
 sections; the self-test
 derives this set from the source and holds it, and this list, against its own cited copy. The
 closure check (`closure_violations`) names DISPATCH_OUTSIDE_SUPERVISOR, DISPATCH_UNRESOLVED,
@@ -884,6 +887,14 @@ def reconcile_codex(call_dir, ledger, clock=time.time):
         and not unjoined and not ambiguous and interrupted == 0 and all(t["coverage"] == "complete" for t in attempts.values())
 
 
+def zero_tokens(caps):
+    """Why EPISODE_CAP_ZERO refuses (WP-08c): C1 live1 admitted a call under a declaration whose per-episode caps were
+    all zero, and the supervisor killed the host right after it started, a request possibly already sent."""
+    return (f"the per-episode token cap is {caps['tokens']}, so no call can run under it, and nothing is reserved or "
+            "started; of the per-episode caps only tokens and compactions reach the host's monitor, compactions 0 is a cap "
+            "like any other, and max_turns and max_budget_usd are read only where the breaker reads a host's stop")
+
+
 class Supervisor:
     def __init__(self, run_dir, *, clock=time.time, runner=None, cell_root=None, env=None, realization="live",
                  seats_path=None, monitor=None):
@@ -1258,6 +1269,9 @@ class Supervisor:
             self.release(stage, call_id, "refused")
             raise Refused(f"CAP_MISSING {call_id}: {', '.join(missing)}; no agent-backed dispatch starts without "
                           f"both caps (design §13.2)")
+        if caps["tokens"] < 1:
+            self.release(stage, call_id, "refused")
+            raise Refused(f"EPISODE_CAP_ZERO {call_id}: {zero_tokens(caps)}")
         # ... and a view-window call needs it on ANY host, because check (d) reserves exactly what this call
         # declared for its answer - there is no constant standing in for it (the ruling of 2026-10-22)
         if (max_output_tokens is not None or host == "claude" or view_window) and not (
@@ -1812,6 +1826,9 @@ class Supervisor:
 
         With `resume`, an earlier attempt `reusable` finds answers the item and nothing is dispatched; the outcome names
         it as `reused`, and `not_reused` says why each other attempt was not (WP-08 commit 5a)."""
+        tokens = (caps or {}).get("tokens")
+        if isinstance(tokens, int) and not isinstance(tokens, bool) and tokens < 1:
+            raise Refused(f"EPISODE_CAP_ZERO {stage}:{item}: {zero_tokens(caps)}")
         schema_bytes = packets.schema_bytes(schema) if schema is not None else None
         not_reused = []
         if resume:
@@ -3355,6 +3372,30 @@ def self_test(scratch=None):
     bare = p2.replace(packets.principles_block().encode(), b"")
     control("packet-without-the-principles-refused", "PRINCIPLES_MISSING" in (refusal(
         sup.call, "S6", judge, bare, verdict_schema, reservation=r2, caps=caps, view_window=False) or ""), "dispatched")
+    # EPISODE_CAP_ZERO (WP-08c): a zero token cap is refused by name before anything starts - by the item before it
+    # reserves anything, by the call with its reservation released - and a zero compaction cap is a cap, not refused
+    ledger_zero, calls_zero = json.dumps(sup.ledger(), sort_keys=True), sorted((d / "calls").iterdir())
+    item_zero = refusal(sup.item, "S6", "zero", judge, "x\n", verdict_schema, case_type="judge",
+                        caps={"tokens": 0, "compactions": 2}, view_window=False) or ""
+    ledger_after_item = json.dumps(sup.ledger(), sort_keys=True)
+    r_zero = sup.reserve("S6", "zero-call", judge, "judge")
+    call_zero = refusal(sup.call, "S6", judge, packets.build(r_zero["call_id"], "S6", judge, "x\n",
+                                                                packets.schema_bytes(verdict_schema)),
+                        verdict_schema, reservation=r_zero, caps={"tokens": 0, "compactions": 2}, view_window=False) or ""
+    released_zero = refusal(sup.call, "S6", judge, packets.build(r_zero["call_id"], "S6", judge, "x\n",
+                                                                    packets.schema_bytes(verdict_schema)),
+                            verdict_schema, reservation=r_zero, caps={"tokens": 1000, "compactions": 2}, view_window=False) or ""
+    r_compactions = sup.reserve("S6", "zero-compactions", judge, "judge")
+    compactions_zero = refusal(sup.call, "S6", judge, packets.build(r_compactions["call_id"], "S6", judge, "x\n",
+                                                                       packets.schema_bytes(verdict_schema))
+                               .replace(packets.principles_block().encode(), b""),
+                               verdict_schema, reservation=r_compactions, caps={"tokens": 1000, "compactions": 0},
+                               view_window=False) or ""
+    control("episode-token-cap-zero-refused-before-anything-starts",
+            item_zero.startswith("EPISODE_CAP_ZERO S6:zero: the per-episode token cap is 0") and ledger_after_item == ledger_zero
+            and call_zero.startswith(f"EPISODE_CAP_ZERO {r_zero['call_id']}") and released_zero.startswith("RESERVATION_MISSING")
+            and "PRINCIPLES_MISSING" in compactions_zero and sorted((d / "calls").iterdir()) == calls_zero,
+            f"{item_zero[:80]} | {call_zero[:80]} | {released_zero[:60]} | {compactions_zero[:60]}")
     r4 = sup.reserve("S6", "c4", judge, "judge")
     p4 = packets.build(r4["call_id"], "S6", judge, "x\n", None)
     control("packet-without-the-schema-reference-refused", "SCHEMA_REFERENCE_MISSING" in (refusal(
@@ -6766,7 +6807,9 @@ def self_test(scratch=None):
         # every Claude call carries its stage's output-token cap (lead decision, WP-02 review round 9)
         "USE_REFUSED", "CAP_UNDECLARED",
         # WP-08 commit 5a: a resume never dispatches beside a call a dead run may have left running
-        "RESUME_HOST_UNVERIFIED"}
+        "RESUME_HOST_UNVERIFIED",
+        # WP-08c: a declaration whose per-episode token cap is zero starts a host only to kill it (C1 live1)
+        "EPISODE_CAP_ZERO"}
     # design §3.2 (accepted, failed with every attempt kept) and §13.2 (deferred, not done, budget_stopped)
     outcomes = {"accepted", "failed", "deferred", "not_done", "budget_stopped"}
     source = pathlib.Path(__file__).read_text(encoding="utf-8")

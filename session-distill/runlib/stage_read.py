@@ -1711,14 +1711,14 @@ FX_OUTCOME = "the index rebuild finished: every document is indexed"
 
 
 def fx_apart_records():
-    """A cause and its outcome four windows apart (plan WP-08 done-when 3, design §5.4's fixture): a request, three long
-    turns that S2 cuts across windows 1 to 5, the turn that reports the outcome, which lands in window 5, and one more
-    long turn after it, so the outcome's window is not the view's last.
+    """The shard rule's session (plan amendment row 1): a request, three long turns that S2 cuts across windows 1 to 5,
+    the turn that reports the outcome, which lands in window 5, and one more long turn after it.
 
-    Apart in what the windows own, not in what they show: a long turn's spans are one turn, so the five-turn overlap of
-    every window before the fifth reaches the outcome, and the fifth's reaches the request. A golden reader answers from
-    the owned records alone; a live one reads the overlap too, which is why the live leg has its own session
-    (`fx_apart_live_records`)."""
+    Its cause and outcome are apart in what the windows own, not in what they show: a long turn's spans are one turn,
+    so the five-turn overlap of every window before the fifth reaches the outcome, and the fifth's reaches the request.
+    So it is not done-when 3's fixture. Done-when 3 (design §5.4's fixture) runs on the live apart leg's session
+    (`fx_apart_live_records`), whose windows are apart in what they show too (WP-08c): one session holds that property,
+    and one is re-fitted when a rendering change moves the windows."""
     turn = lambda i: "".join(f"step {i}.{n:03d} of the index rebuild is still running. " for n in range(220))  # noqa: E731
     return ([views.fx_human(views.fx_stamp(3, hour=1), FX_CAUSE)]
             + [views.fx_assistant(views.fx_stamp(3, hour=2 + i), turn(i)) for i in range(3)]
@@ -2379,56 +2379,9 @@ def self_test():
                 not problem and "STAGE_CHECK_FAILED" in json.dumps(summary_e.get("quarantined"))
                 and not any(c["call_id"] == judged_away for c in kept_e), f"{problem} {summary_e.get('quarantined')}")
 
-        # ---- the apart session (done-when 3, golden): a cause in window 1 and its outcome in window 5, with its twin
-        # whose outcome window claims nothing of the outcome
+        # done-when 3 (golden) runs on the live apart leg and its twin below, whose windows are apart in what they show as
+        # well as in what they own (WP-08c); `fx_apart_records` serves the shard rule alone
         joined_by = fx_resolving({"The person asked for the search index": "OUTCOME:", "The agent started": "PROGRESS:"})
-        apart = {}
-        for label, answers in (("apart", fx_apart_answers()), ("twin", fx_apart_answers(withheld=True))):
-            seen = []
-            made_dir, made_sup, _ = fx_reader(root / label, label[:2], answers, resolve=joined_by, seen=seen,
-                                              main_records=fx_apart_records, owned=[[0, 6]])
-            got = {}
-            problem = refusal(lambda: got.update(run(made_dir, made_sup)))
-            view, wins = guarded(lambda: fx_main_windows(made_dir), (None, {}))
-            docs_of = {n: guarded(lambda w=w: json.loads((made_dir / w["path"]).read_text()), {"records": []}) for n, w in wins.items()}
-            at = {key: next((n for n, d in docs_of.items() for r in d["records"] if key in r["text"]), None)
-                  for key in (FX_CAUSE, FX_OUTCOME)}
-            record = record_of(made_dir, main_unit)
-            events = guarded(lambda: current_events(made_dir, view), [])
-            cause = next((e for e in events if e["description"].startswith("The person asked for the search index")), {})
-            apart[label] = {"dir": made_dir, "problem": problem, "summary": got, "view": view, "docs": docs_of, "at": at,
-                            "record": record, "cause": cause, "seen": seen,
-                            "resolution": next((r for r in record.get("stitch", {}).get("resolutions", [])
-                                                if r["event_id"] == cause.get("event_id")), {}),
-                            "result": next((r for r in guarded(lambda: records.read_json(made_dir / "read-results.json")["results"], [])
-                                            if r["transcript"] == main_unit), {})}
-        a = apart["apart"]
-        outcome_claim = next((c for c in guarded(lambda: stored_claims(a["dir"], a["view"]), []) if c["fact"].startswith("OUTCOME:")), {})
-        cited = {e["evidence_id"]: e for e in stored_evidence_of(a["dir"], a["view"])} if a["view"] else {}
-        outcome_lines = {r["line"] for r in a["docs"].get(a["at"][FX_OUTCOME], {"records": []})["records"]
-                         if FX_OUTCOME in r["text"]}
-        control("done-when 3 (golden): a cause in window 1 whose outcome is in window 5 is stitched: the event resolved, "
-                "stitched_from naming the outcome's claim, its evidence on the outcome window's record",
-                not a["problem"] and a["at"][FX_CAUSE] == 1 and a["at"][FX_OUTCOME] == 5
-                and a["cause"].get("outcome") == "resolved" and a["cause"].get("stitched_from") == [outcome_claim.get("claim_id")]
-                and a["resolution"].get("evidence_ids")
-                and all(cited.get(e, {}).get("line") in outcome_lines and cited[e]["window_role"] == "in_window"
-                        for e in a["resolution"]["evidence_ids"]),
-                f"{a['problem']} {a['at']} {a['cause']} {a['resolution']}")
-        t = apart["twin"]
-        control("an event's id is made from its call id, so the same local id in the same window of the same view read by "
-                "two runs is two events", a["cause"].get("event_id") and t["cause"].get("event_id")
-                and a["cause"]["event_id"] != t["cause"]["event_id"] and a["view"] == t["view"]
-                and a["cause"]["at_record"] == t["cause"]["at_record"], f"{a['cause']} {t['cause']}")
-        # a stitch packet names its events by its own labels (WP-08b): an event of the run's reading is found by its description
-        listed_twin = [e.get("description") for _item, events, _claims in t["seen"] for e in events]
-        control("done-when 3 (golden): the twin whose outcome window claims nothing of the outcome is stitched by a call and "
-                "left unresolved, its event handed on as a pending event of the unit's result",
-                not t["problem"] and t["cause"].get("description") in listed_twin and t["cause"].get("outcome") == "unresolved"
-                and t["cause"].get("stitched_from") == [] and not t["resolution"].get("by", "code").startswith("code")
-                and {"id": t["cause"].get("event_id"), "transcript": main_unit, "first_record": 0,
-                     "window": t["summary"].get("window")} in t["result"].get("pending_events", []),
-                f"{t['problem']} {t['cause']} {t['resolution']} {t['result'].get('pending_events')}")
 
         # ---- the live legs' fixtures (WP-08 commit 7): each run golden and held to the windows, the calls and the outcome
         # its live leg is planned and capped by, so a live call is never the first run of a fixture
@@ -2441,8 +2394,9 @@ def self_test():
         live = {}
         for leg, golden in fx_live_legs().items():
             answers, resolve, expanding = leg_answers[leg]
+            seen_leg = []
             made_dir, made_sup, _ = fx_reader(root / f"live-{leg}", f"l{leg}", answers, resolve=resolve,
-                                              expanding=expanding, **golden)
+                                              expanding=expanding, seen=seen_leg, **golden)
             got = {}
             problem = refusal(lambda: got.update(run(made_dir, made_sup)))
             listed = guarded(lambda: records.read_json(made_dir / "views.json")["transcripts"], [])
@@ -2457,6 +2411,7 @@ def self_test():
                         "stitch": [a["call"] for c in stitch_calls for a in c.get("attempts", [])]}
             events = guarded(lambda: current_events(made_dir, view), [])
             live[leg] = {"dir": made_dir, "problem": problem, "summary": got, "listed": listed, "view": view, "docs": docs_of,
+                         "seen": seen_leg,
                          "record": record, "attempts": attempts, "events": events,
                          "calls": {k: len(v) for k, v in attempts.items() if v},
                          "on_disk": len(list((made_dir / "calls").iterdir())) if (made_dir / "calls").is_dir() else 0,
@@ -2639,29 +2594,13 @@ def self_test():
                 f"{len(host_schemas)} {[sorted(h)[:3] for h in host_schemas if '$schema' in h or not h][:3]}")
 
         # Claude Code checks --json-schema with a draft-07 Ajv in strict mode, which refuses a keyword draft 2019-09 or
-        # 2020-12 added as unknown (dependentRequired, dw2-live1's probe); the policy admits one of them, so a schema
-        # handed to a host is walked for all of them, keywords only - a property's name is not a keyword
-        def keywords_of(node):
-            if isinstance(node, list):
-                return [k for item in node for k in keywords_of(item)]
-            if not isinstance(node, dict):
-                return []
-            out = []
-            for key, value in node.items():
-                out.append(key)
-                if key in ("properties", "patternProperties") and isinstance(value, dict):
-                    out += [k for sub in value.values() for k in keywords_of(sub)]
-                elif key not in ("enum", "const", "required"):
-                    out += keywords_of(value)
-            return out
-        post_draft07 = {"$anchor", "$defs", "$dynamicAnchor", "$dynamicRef", "$recursiveAnchor", "$recursiveRef",
-                        "$vocabulary", "contentSchema", "dependentRequired", "dependentSchemas", "maxContains",
-                        "minContains", "prefixItems", "unevaluatedItems", "unevaluatedProperties"}
+        # 2020-12 added as unknown (dependentRequired, dw2-live1's probe). Since WP-08c the product refuses such a schema
+        # where its handed form is made (`packet.host_keywords`); this holds what each call of the legs actually wrote
         handed_forms = host_schemas + [guarded(lambda s=s: json.loads(packet.schema_bytes(s())), {}) for s in (read_schema, stitch_schema)]
-        control("WP-08 commit 7: no schema S3 hands a host carries a keyword draft 2019-09 or 2020-12 added, which the host's "
-                "draft-07 check refuses as unknown",
-                len(handed_forms) > 2 and all(h for h in handed_forms) and not any(post_draft07 & set(keywords_of(h)) for h in handed_forms),
-                f"{len(handed_forms)} {sorted({k for h in handed_forms for k in post_draft07 & set(keywords_of(h))})}")
+        control("WP-08 commit 7: no schema S3 hands a host holds a keyword the host's draft-07 check refuses or reads "
+                "otherwise (packet.HOST_KEYWORDS, WP-08c)",
+                len(handed_forms) > 2 and all(h for h in handed_forms) and not any(packet.host_keywords(h) for h in handed_forms),
+                f"{len(handed_forms)} {[packet.host_keywords(h) for h in handed_forms if packet.host_keywords(h)][:2]}")
         # the handed schema judges as the schema does (WP-08 commit 7): every answer the three legs' golden runs gave, and
         # each one broken in one place - a required key gone, a key added, an id off its pattern, an outcome off its
         # list - is accepted or refused alike by the schema and by the form a host is handed
@@ -2716,6 +2655,32 @@ def self_test():
                 and {"id": cause_lt.get("event_id"), "transcript": main_unit, "first_record": 0,
                      "window": lt["summary"].get("window")} in lt["result"].get("pending_events", []),
                 f"{lt['problem']} {sorted(lt['lines'])} {lt['calls']} {lt['on_disk']} {cause_lt} {lt['result'].get('pending_events')}")
+        # done-when 3 (golden, WP-08c: moved here from a session whose windows were apart only in what they own)
+        resolution_la = next((r for r in la["record"].get("stitch", {}).get("resolutions", [])
+                              if r["event_id"] == cause_la.get("event_id")), {})
+        resolution_lt = next((r for r in lt["record"].get("stitch", {}).get("resolutions", [])
+                              if r["event_id"] == cause_lt.get("event_id")), {})
+        cited_la = {e["evidence_id"]: e for e in stored_evidence_of(la["dir"], la["view"])} if la["view"] else {}
+        outcome_lines_la = {r["line"] for r in la["docs"].get(5, {"records": []})["records"] if FX_OUTCOME in r["text"]}
+        control("done-when 3 (golden): a cause in window 1 whose outcome is in window 5 is stitched: the event resolved, "
+                "stitched_from naming the outcome's claim, its evidence on the outcome window's record",
+                not la["problem"] and at_la == {FX_CAUSE: [1], FX_OUTCOME: [5]} and cause_la.get("outcome") == "resolved"
+                and cause_la.get("stitched_from") == [outcome_la.get("claim_id")] and resolution_la.get("evidence_ids")
+                and all(cited_la.get(e, {}).get("line") in outcome_lines_la and cited_la[e]["window_role"] == "in_window"
+                        for e in resolution_la["evidence_ids"]),
+                f"{la['problem']} {at_la} {cause_la} {resolution_la}")
+        control("an event's id is made from its call id, so the same local id in the same window of the same view read by "
+                "two runs is two events", cause_la.get("event_id") and cause_lt.get("event_id")
+                and cause_la["event_id"] != cause_lt["event_id"] and la["view"] == lt["view"]
+                and cause_la["at_record"] == cause_lt["at_record"], f"{cause_la} {cause_lt}")
+        listed_lt = [e.get("description") for _item, events, _claims in lt["seen"] for e in events]
+        control("done-when 3 (golden): the twin, which holds no outcome, is stitched by a call and left unresolved, its event "
+                "handed on as a pending event of the unit's result",
+                not lt["problem"] and cause_lt.get("description") in listed_lt and cause_lt.get("outcome") == "unresolved"
+                and cause_lt.get("stitched_from") == [] and not resolution_lt.get("by", "code").startswith("code")
+                and {"id": cause_lt.get("event_id"), "transcript": main_unit, "first_record": 0,
+                     "window": lt["summary"].get("window")} in lt["result"].get("pending_events", []),
+                f"{lt['problem']} {cause_lt} {resolution_lt} {lt['result'].get('pending_events')}")
         # what each window SHOWS, not only what it owns: apart-live1's long turns put the outcome in the overlap of every
         # window before its own, so a live reader quoted it from the first window on and the stitch had nothing to join
         def shown_lines(doc):
@@ -3454,6 +3419,26 @@ def self_test():
                 schema_verdicts.get("read", (False,))[0] and schema_verdicts.get("stitch", (False,))[0]
                 and schema_verdicts["read"][1] == [] and schema_verdicts["stitch"][1] == []
                 and schema_verdicts["read"][2] == 5 * 12 and schema_verdicts["stitch"][2] == 3 * 12, f"{schema_verdicts}")
+        # ... and the ids an answer makes up itself end where their string ends too (WP-08c): "q1\n" passed Python's `$`
+        own_at = {"quotes/quote_id": ("q", lambda a, v: a["quotes"][0].update(quote_id=v)),
+                  "claims/claim_id": ("c", lambda a, v: a["claims"][0].update(claim_id=v)),
+                  "events/event_id": ("v", lambda a, v: a["events"][0].update(event_id=v)),
+                  "claims/evidence_ids": ("q", lambda a, v: a["claims"][0].update(evidence_ids=[v])),
+                  "events/claim_ids": ("c", lambda a, v: a["events"][0].update(claim_ids=[v]))}
+        own_forms = [guarded(lambda: validate_s.compile_schema(read_schema()), None),
+                     guarded(lambda: validate_s.compile_schema(json.loads(packet.schema_bytes(read_schema()))), None)]
+        own_bent = []
+        for field, (prefix, edit) in own_at.items():
+            for tail in ("1\n", "12\n", "1\r\n", "01", "1 "):
+                bent = copy.deepcopy(read_one)
+                edit(bent, prefix + tail)
+                own_bent.append((field, prefix + tail, bent))
+        own_passed = (sorted({(field, value) for field, value, bent in own_bent if any(f.is_valid(bent) for f in own_forms)})
+                      if None not in own_forms else "uncompiled")
+        control("WP-08c: the read schema, as written and as a host is handed it, refuses an id the answer makes up itself "
+                "with a trailing line break, a leading zero or padding, at each of its five fields",
+                None not in own_forms and all(f.is_valid(read_one) for f in own_forms) and own_passed == []
+                and len(own_bent) == 5 * 5, f"{own_passed} {len(own_bent)}")
         bounded = next((json.loads((run_dir / w["path"]).read_text()) for _n, w in sorted(windows.items())
                         if json.loads((run_dir / w["path"]).read_text())["overlap"]["prev"]), None)
         if bounded is None:

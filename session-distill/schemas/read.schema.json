@@ -14,12 +14,12 @@
   },
   "$defs": {
     "entry": {"type": "string", "pattern": "^e[1-9][0-9]*(?![\\s\\S])"},
-    "quote_ids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "pattern": "^q[1-9][0-9]*$"}},
+    "quote_ids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "pattern": "^q[1-9][0-9]*(?![\\s\\S])"}},
     "quote": {
       "type": "object", "additionalProperties": false,
       "required": ["quote_id", "entry", "text"],
       "properties": {
-        "quote_id": {"type": "string", "pattern": "^q[1-9][0-9]*$"},
+        "quote_id": {"type": "string", "pattern": "^q[1-9][0-9]*(?![\\s\\S])"},
         "entry": {"$ref": "#/$defs/entry"},
         "text": {"type": "string", "minLength": 1},
         "occurrence": {"type": "integer", "minimum": 0}
@@ -30,7 +30,7 @@
       "type": "object", "additionalProperties": false,
       "required": ["claim_id", "fact", "interpretation", "uncertainty", "evidence_ids", "call_id"],
       "properties": {
-        "claim_id": {"type": "string", "pattern": "^c[1-9][0-9]*$"},
+        "claim_id": {"type": "string", "pattern": "^c[1-9][0-9]*(?![\\s\\S])"},
         "fact": {"type": "string", "minLength": 1},
         "interpretation": {"type": "string"},
         "uncertainty": {"type": "string"},
@@ -43,10 +43,10 @@
       "type": "object", "additionalProperties": false,
       "required": ["event_id", "kind", "at_record", "claim_ids", "outcome", "description"],
       "properties": {
-        "event_id": {"type": "string", "pattern": "^v[1-9][0-9]*$"},
+        "event_id": {"type": "string", "pattern": "^v[1-9][0-9]*(?![\\s\\S])"},
         "kind": {"type": "string", "minLength": 1},
         "at_record": {"$ref": "#/$defs/entry"},
-        "claim_ids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "pattern": "^c[1-9][0-9]*$"}},
+        "claim_ids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "pattern": "^c[1-9][0-9]*(?![\\s\\S])"}},
         "outcome": {"type": "string", "enum": ["resolved", "pending"]},
         "description": {"type": "string", "minLength": 1}
       }

@@ -26,7 +26,8 @@ nothing here restates a guide, and the block's hash says which version a packet 
 
 The schema a call is given is compiled through `validate.compile_schema` (closed objects,
 supported keywords) before it is written, so a packet never references a schema the policy
-refuses.
+refuses. The form a host is handed holds only keywords the host's draft-07 check and the policy's
+2020-12 reading read alike (HOST_KEYWORDS); any other is HOST_SCHEMA_KEYWORD.
 
 A stage's payload is one of the templates under `session-distill/packets/` (`read.md`, `stitch.md`)
 with its `{{field}}` placeholders filled by `render`, once and in one pass: every placeholder takes
@@ -132,6 +133,38 @@ def host_schema(schema):
     return inline({key: value for key, value in schema.items() if key not in ("$schema", "$defs")}, frozenset())
 
 
+# The keywords a schema handed to a host may hold (WP-08c): of those the distill schemas use, the ones Claude Code's
+# `--json-schema` check (Ajv 8's draft-07 class, as Claude Code 2.1.317 configures it) and the policy's draft 2020-12
+# reading read alike. Measured offline with Ajv 8.20.0 (record 2026-11-06T0055--3809707): each of these compiles; a
+# 2019-09 or 2020-12 keyword (dependentRequired, dependentSchemas, prefixItems, unevaluatedProperties) is refused as
+# unknown. `$defs`, `$ref` and `$schema` are not here because the handed form has none (`host_schema`), and `items` is
+# here as one schema only: as a list, draft-07 reads a tuple and 2020-12 refuses the schema.
+HOST_KEYWORDS = frozenset({"$comment", "title", "type", "properties", "patternProperties", "additionalProperties",
+                           "required", "items", "enum", "const", "pattern", "minLength", "minimum", "minItems", "maxItems",
+                           "uniqueItems", "minProperties"})
+# keywords whose value is a map of names to schemas, or one schema; every other keyword's value is data
+SUBSCHEMA_MAPS, SUBSCHEMAS = ("properties", "patternProperties"), ("items", "additionalProperties")
+
+
+def host_keywords(schema, at="#"):
+    """`[(pointer, keyword)]` of what a schema handed to a host must not hold: every keyword outside HOST_KEYWORDS, and
+    `items` as a list. Walked by the schema's structure, so a property named `items` or `required` under `properties` is
+    a name, not a keyword, and an `enum` or `const` value is data."""
+    out = []
+    if not isinstance(schema, dict):
+        return out
+    for key, value in schema.items():
+        if key not in HOST_KEYWORDS or (key == "items" and isinstance(value, list)):
+            out.append((at, key))
+            continue
+        if key in SUBSCHEMA_MAPS and isinstance(value, dict):
+            for name, sub in value.items():
+                out += host_keywords(sub, f"{at}/{key}/{name}")
+        elif key in SUBSCHEMAS:
+            out += host_keywords(value, f"{at}/{key}")
+    return out
+
+
 def schema_bytes(schema):
     """The bytes `schema.json` holds, which are the schema the host is handed (`host_schema`), as canonical JSON. The
     schema and its handed form are both compiled through the policy. The same bytes are what the packet's SCHEMA hash
@@ -139,6 +172,11 @@ def schema_bytes(schema):
     validate.compile_schema(schema)
     sent = host_schema(schema)
     validate.compile_schema(sent)
+    unread = host_keywords(sent)
+    if unread:
+        raise validate.SchemaPolicyError("HOST_SCHEMA_KEYWORD " + "; ".join(f"{key} at {at}" for at, key in unread)
+                                         + ": the host's draft-07 check refuses it, or reads it otherwise than the "
+                                           "policy's 2020-12 reading (HOST_KEYWORDS)")
     return (json.dumps(sent, sort_keys=True, separators=(",", ":"), ensure_ascii=False) + "\n").encode("utf-8")
 
 
@@ -269,6 +307,29 @@ def self_test():
 
     control("schema-builder-refuses-an-open-schema",
             raised(lambda: schema_bytes({"type": "object", "properties": {}}), validate.SchemaPolicyError, "open object"))
+    # WP-08c: the form a host is handed holds only keywords its draft-07 check and the policy's 2020-12 reading read
+    # alike - walked by structure, so a property named like a keyword is a name, and checked on the handed form
+    named_like = {"type": "object", "additionalProperties": False, "required": ["items"],
+                  "properties": {"items": {"type": "string"}, "required": {"type": "string"},
+                                 "dependentRequired": {"type": "string", "enum": ["prefixItems"]}}}
+    def handed_keywords(held):
+        try:
+            return host_keywords(json.loads(schema_bytes(held)))
+        except (validate.SchemaPolicyError, ValueError) as exc:
+            return [("refused", str(exc)[:120])]
+    control("host-schema-takes-properties-named-like-keywords",
+            [f"{handed_keywords(named_like)}"] if handed_keywords(named_like) else [])
+    planted = {"type": "object", "additionalProperties": False, "required": ["a"],
+               "properties": {"a": {"type": "string"}, "b": {"type": "array", "items": {"type": "string"}}},
+               "dependentRequired": {"a": ["b"]}}
+    control("host-schema-refuses-a-2019-keyword-by-name",
+            raised(lambda: schema_bytes(planted), validate.SchemaPolicyError, "HOST_SCHEMA_KEYWORD dependentRequired at #"))
+    deep = {"type": "object", "properties": {"b": {"type": "array", "items": {"type": "object", "unevaluatedProperties": False}}}}
+    control("host-keywords-name-each-unread-keyword-where-it-stands",
+            [] if (host_keywords(deep), host_keywords({"type": "array", "items": [{"type": "string"}]}),
+                   host_keywords({"$schema": "x", "$defs": {"s": {"type": "string"}}, "properties": {"a": {"$ref": "#/$defs/s"}}}))
+            == ([("#/properties/b/items", "unevaluatedProperties")], [("#", "items")],
+                [("#", "$schema"), ("#", "$defs"), ("#/properties/a", "$ref")]) else ["walked otherwise"])
     # the schema a host is handed (WP-08 commit 7, dw2-live1), asked of the schemas S3 hands a host, each of which names
     # the 2020-12 meta-schema and holds references: no meta-schema, no reference and no $defs in the bytes, which the
     # policy still compiles; and the inlined form is derived from the schema itself, so a change to an entry of its
