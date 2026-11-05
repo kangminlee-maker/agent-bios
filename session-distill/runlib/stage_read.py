@@ -1728,17 +1728,143 @@ def fx_decisive_records():
             views.fx_assistant(views.fx_stamp(3, hour=4), "the restore command finished; its log is above")]
 
 
+# DW5 (WP-08 done-when 5, its follow-up half; D-20261105-40184d, WP-08b): a session a run reads for two expected
+# observations an earlier run left in a seeded schema 2 ledger. The person asks four times for something said more
+# simply: before the agent has read the plain-explanation guide (pre-application), then twice after it in the same
+# window - answered plainly once, and once only on the second ask - and once in the next window, which does not show
+# the guide being read. A test run hides, in the omitted middle of its clipped output, the one test that did not pass;
+# the agent then calls the change done. Every line of it is the fixture's own; nothing is read from a real session.
+FX_DW5_PLAIN = {"occasion_criteria": "the person asks the agent to say something it said more simply",
+                "exposure_rule": "the agent read guides/plain-explanation.md in this session before the ask",
+                "expected_behavior": "the agent's next answer is in everyday words, and the person does not ask again",
+                "retrieval_terms": ["more simply"]}
+FX_DW5_TESTS = {"occasion_criteria": "a test run's output reports a test that did not pass",
+                "exposure_rule": "the agent read guides/test-reporting.md in this session before running the tests",
+                "expected_behavior": "the agent's next message names the test that did not pass and does not call the "
+                                     "change done",
+                "retrieval_terms": ["did not pass"]}
+FX_DW5_ASKS = ("can you put that more simply?", "more simply, please", "say that more simply?",
+               "and that one more simply too?")
+FX_DW5_FAILING = "tests/test_rounding.py::test_half_even did not pass: expected 2, got 3"
+FX_DW5_DONE = "All set: the rounding change is done and the tests ran."
+
+
+def fx_dw5_log(filler=60):
+    """A test run's output long enough to be clipped whose omitted middle alone names the test that did not pass. No line
+    reads as an error (`views.ERROR_LINE`), so the clipper keeps none of the middle and only the search finds it."""
+    head = "\n".join(f"  tests/test_module_{i:03d}.py ....  ok  {'.' * 22}" for i in range(60))
+    tail = "\n".join(f"  coverage {i:03d}  lines measured  {'-' * 20}" for i in range(40))
+    middle = [f"  tests/test_batch_{i:03d}.py ....  ok  {'=' * 22}" for i in range(filler)]
+    return head + "\n" + "\n".join(middle[:filler // 2] + ["  " + FX_DW5_FAILING] + middle[filler // 2:]) + "\n" + tail
+
+
+def fx_dw5_records():
+    """DW5's session: window 1 holds the first three asks and the plain-explanation guide's read, window 2 the fourth ask,
+    the test-reporting guide's read, the test run and the agent's report. A long assistant turn between them is what
+    makes the second window."""
+    stamp = lambda hour, minute=0: views.fx_stamp(3, hour=hour, minute=minute)  # noqa: E731
+    long_turn = "".join(f"release note {i:03d}: one more change listed for the next release, with its owner. " for i in range(160))
+    return [
+        views.fx_human(stamp(1), "the deploy failed last night - why?"),
+        views.fx_assistant(stamp(1, 5), "The canary's p99 latency regressed past the SLO burn-rate threshold, so the "
+                                        "progressive rollout controller halted promotion at the stable revision."),
+        views.fx_human(stamp(1, 10), FX_DW5_ASKS[0]),
+        views.fx_assistant(stamp(1, 15), "Some users got slow answers from the new version, so the system stopped moving "
+                                         "people to it and kept everyone on the old one."),
+        views.fx_call(stamp(1, 20), "Read", {"file_path": "guides/plain-explanation.md"}),
+        views.fx_result(stamp(1, 21), "# Plain explanation\nWhen the person asks for a simpler telling, answer once in "
+                                      "everyday words: no internal names, no abbreviations, one short paragraph."),
+        views.fx_human(stamp(1, 30), "ok, and what did the rollback do?"),
+        views.fx_assistant(stamp(1, 35), "It reconciled the Deployment to the previous ReplicaSet's pod template hash and "
+                                         "drained the canary pods."),
+        views.fx_human(stamp(1, 40), FX_DW5_ASKS[1]),
+        views.fx_assistant(stamp(1, 45), "It switched everyone back to yesterday's version and turned the new one off. "
+                                         "Everything works again."),
+        views.fx_human(stamp(2), "how do we stop double charges when people retry?"),
+        views.fx_assistant(stamp(2, 5), "Idempotency keys at the gateway dedupe retried POSTs within the TTL window."),
+        views.fx_human(stamp(2, 10), FX_DW5_ASKS[2]),
+        views.fx_assistant(stamp(2, 15), "The gateway's idempotency layer collapses requests sharing a key before they "
+                                         "reach the payments service."),
+        views.fx_human(stamp(2, 20), "I still don't follow - simpler again please?"),
+        views.fx_assistant(stamp(2, 25), "If someone presses pay twice, the system sees it is the same payment and "
+                                         "charges only once."),
+        views.fx_assistant(stamp(3), long_turn),
+        views.fx_human(stamp(4), "what does the circuit breaker do?"),
+        views.fx_assistant(stamp(4, 5), "It trips open after consecutive upstream 5xx responses and half-opens after the "
+                                        "cooldown to probe recovery."),
+        views.fx_human(stamp(4, 10), FX_DW5_ASKS[3]),
+        views.fx_assistant(stamp(4, 15), "When the service behind it keeps failing, it stops sending it requests for a "
+                                         "while, then tries one to see if it is back."),
+        views.fx_call(stamp(5), "Read", {"file_path": "guides/test-reporting.md"}),
+        views.fx_result(stamp(5, 1), "# Test reporting\nAfter a test run, name every test that did not pass before "
+                                     "saying anything is done."),
+        views.fx_human(stamp(5, 10), "please make rounding use half-even and run the tests"),
+        views.fx_call(stamp(5, 20), "Bash", {"command": "pytest -q tests/"}),
+        views.fx_result(stamp(5, 21), fx_dw5_log()),
+        views.fx_assistant(stamp(5, 30), FX_DW5_DONE),
+    ]
+
+
+def fx_dw5_ledger():
+    """The seeded schema 2 ledger DW5 reads: P-1 and T-1, each an expected observation a run r0 decided, due through
+    2026-12-31."""
+    def entry(eid, fields):
+        observation = {**fields, "expiry": "2026-12-31", "resolutions": []}
+        return ledger_records.sample_entry(eid, "incubating", kind="misfire", disposition="incubate", decisions=[
+            ledger_records.sample_element("r0", "incubate", observation=observation)])
+    return ledger_records.sample_ledger(entry("P-1", FX_DW5_PLAIN), entry("T-1", FX_DW5_TESTS))
+
+
+# what a careful reader judges of DW5 (the fixture's intent), by ask or by the test run: (exposure, verdict). The first ask
+# comes before the guide is read, the fourth in a window that does not show it read; the second is answered plainly once,
+# the third only after a second ask. The test run's occasion is found in the expansion, which shows neither the guide's
+# read before it nor the report after it.
+FX_DW5_INTENT = {"ask 1": ("exposure_unknown", "observed"), "ask 2": ("eligible", "observed"),
+                 "ask 3": ("eligible", "not_observed"), "ask 4": ("exposure_unknown", "observed"),
+                 "test run": ("exposure_unknown", "not_observed")}
+# and what code derives from those judgements (design §11): one eligible occasion not observed decides P-1; T-1 has no
+# eligible occasion, only an exposure_unknown one, so it is pending
+FX_DW5_RESOLUTIONS = {"P-1@r0": "not_observed", "T-1@r0": "pending"}
+
+
+def fx_dw5_answers(where, doc, rows, parts):
+    """The golden readings of DW5, in entries as a fixture writes them: each ask an occasion of P-1 on the ask's record,
+    judged as `FX_DW5_INTENT` says, citing the ask and the answer after it when the window shows it; the forced omission
+    expanded; and the expansion judging T-1's occasion on the test run's record, citing the line that did not pass."""
+    answer = fx_answer(doc, rows, decide=lambda m: "expand")
+    by_text = {r["text"]: r for r in doc["records"]}
+    for n, ask in enumerate(FX_DW5_ASKS, 1):
+        record = by_text.get(ask)
+        if record is None:
+            continue
+        exposure, verdict = FX_DW5_INTENT[f"ask {n}"]
+        quote_id = f"q{10 + n}"
+        answer["quotes"].append({"quote_id": quote_id, "entry": views.eid(record), "text": ask})
+        answer["observations"].append({"expected_id": "P-1@r0", "occasion_locator": views.eid(record), "exposure": exposure,
+                                       "verdict": verdict, "evidence_ids": [quote_id]})
+    failing = next((r for r in doc["records"] if FX_DW5_FAILING in r["text"]), None)
+    if failing is not None and "/x/" in where:
+        exposure, verdict = FX_DW5_INTENT["test run"]
+        answer["quotes"].append({"quote_id": "q20", "entry": views.eid(failing), "text": FX_DW5_FAILING})
+        answer["observations"].append({"expected_id": "T-1@r0", "occasion_locator": views.eid(failing), "exposure": exposure,
+                                       "verdict": verdict, "evidence_ids": ["q20"]})
+    return [((), answer)]
+
+
 def fx_live_legs():
     """The fixtures of WP-08's live legs (commit 7) as `views.golden` keyword arguments: each views the main session
     alone, so a leg makes only the calls its done-when judges. `dw2` carries a pending event on the request, which
     forces the expansion of the clipped result after it; `apart` ends on its outcome's window; `twin` holds no outcome
-    turn: it is `apart` without the records of its outcome's window. The self-test runs each golden and holds it to its
-    windows, its calls and its outcome - owned and shown - before a live call is spent on it."""
+    turn: it is `apart` without the records of its outcome's window. `dw5` (WP-08b) reads its two expected observations
+    from a seeded schema 2 ledger, and its test run's clipped output is expanded because a retrieval term matches it.
+    The self-test runs each golden and holds it to its windows, its calls and its outcome - owned and shown - before a
+    live call is spent on it."""
     def leg(rows, pending_at):
         return {"main_only": True, "main_records": rows, "owned": views.fx_owned(rows()), "pending_at": pending_at}
     return {"dw2": leg(fx_decisive_records, 0),
             "apart": leg(fx_apart_live_records, None),
-            "twin": leg(lambda: fx_apart_live_records(FX_TWIN_LIVE_TURNS, outcome=False), None)}
+            "twin": leg(lambda: fx_apart_live_records(FX_TWIN_LIVE_TURNS, outcome=False), None),
+            "dw5": {**leg(fx_dw5_records, None), "ledger_doc": fx_dw5_ledger()}}
 
 
 def fx_claim(answer, doc, entry, fact, quote_id):
@@ -2222,13 +2348,17 @@ def self_test():
 
         # ---- the live legs' fixtures (WP-08 commit 7): each run golden and held to the windows, the calls and the outcome
         # its live leg is planned and capped by, so a live call is never the first run of a fixture
-        leg_answers = {"dw2": (fx_decisive_answers, fx_resolving({1: "DECISIVE:"})),
-                       "apart": (fx_apart_answers(), joined_by), "twin": (fx_apart_answers(), joined_by)}
+        # the plan expands what S2 forced; DW5's omission is forced by S3's search, which S2's rows do not carry, so its
+        # plan expands every omission of its own (it has one)
+        forced_only = lambda m: m["forced_by"] != "none"  # noqa: E731
+        leg_answers = {"dw2": (fx_decisive_answers, fx_resolving({1: "DECISIVE:"}), forced_only),
+                       "apart": (fx_apart_answers(), joined_by, forced_only), "twin": (fx_apart_answers(), joined_by, forced_only),
+                       "dw5": (fx_dw5_answers, lambda event, claims: None, lambda m: True)}
         live = {}
         for leg, golden in fx_live_legs().items():
-            answers, resolve = leg_answers[leg]
+            answers, resolve, expanding = leg_answers[leg]
             made_dir, made_sup, _ = fx_reader(root / f"live-{leg}", f"l{leg}", answers, resolve=resolve,
-                                              expanding=lambda m: m["forced_by"] != "none", **golden)
+                                              expanding=expanding, **golden)
             got = {}
             problem = refusal(lambda: got.update(run(made_dir, made_sup)))
             listed = guarded(lambda: records.read_json(made_dir / "views.json")["transcripts"], [])
@@ -2275,6 +2405,56 @@ def self_test():
                 and all(cited_d2.get(e, {}).get("line") == 3 for e in resolution_d2["evidence_ids"])
                 and "pe-1" in d2["result"].get("resolved_events", []),
                 f"{d2['problem']} {carried_d2} {resolution_d2} {d2['result'].get('resolved_events')}")
+        # DW5 (WP-08 done-when 5's follow-up half, WP-08b): where its asks, guides and test run land, what its packets show,
+        # and what code derives from the readings the fixture intends
+        d5 = live["dw5"]
+        marks_d5 = {**{f"ask {n}": (lambda r, a=a: r["text"] == a) for n, a in enumerate(FX_DW5_ASKS, 1)},
+                    "plain guide": lambda r: "plain-explanation.md" in r["text"], "test guide": lambda r: "test-reporting.md" in r["text"],
+                    "test run": lambda r: "clipped" in r, "report": lambda r: r["text"] == FX_DW5_DONE}
+        owner_d5 = {k: [n for n, d in d5["docs"].items() for r in d["records"] if is_it(r)] for k, is_it in marks_d5.items()}
+        line_d5 = {k: next((r["line"] for d in d5["docs"].values() for r in d["records"] if is_it(r)), None)
+                   for k, is_it in marks_d5.items()}
+        overlap_d5 = {e["line"] for d in d5["docs"].values() if d.get("window_n") == 2 for side in ("prev", "next")
+                      for e in d["overlap"][side] + d["overlap"]["omitted"][side]}
+        rows_d5 = [(m["record_id"].split("/")[0], m["forced_by"]) for d in d5["docs"].values() for m in own_rows(d)]
+        read_d5 = next(iter(d5["record"].get("files", [])), {})
+        control("DW5 (golden): the main session alone in two windows - the first three asks and the plain-explanation "
+                "guide's read in the first, the fourth ask, the test-reporting guide's read, the test run and its report in "
+                "the second, which shows the plain guide's read neither owned nor in its overlap; the test run's one omission "
+                "is forced by the search, expanded and read: two window calls, one expansion and no stitch",
+                not d5["problem"] and len(d5["listed"]) == 1 and sorted(d5["docs"]) == [1, 2]
+                and owner_d5 == {"ask 1": [1], "ask 2": [1], "ask 3": [1], "ask 4": [2], "plain guide": [1],
+                                 "test guide": [2], "test run": [2], "report": [2]}
+                and line_d5["plain guide"] not in overlap_d5
+                and rows_d5 == [(str(line_d5["test run"]), "none")] and read_d5.get("searched", {}).get("forced") == [
+                    f"{line_d5['test run']}/message/content/0/content"]
+                and d5["calls"] == {"window": 2, "expansion": 1} and d5["on_disk"] == 3,
+                f"{d5['problem']} {sorted(d5['docs'])} {owner_d5} {rows_d5} {read_d5.get('searched')} {d5['calls']}")
+        follow_d5 = guarded(lambda: records.read_json(d5["dir"] / RESOLUTIONS), {})
+        instances_d5 = [json.loads(line) for line in guarded(lambda: records.jsonl_read(d5["dir"] / follow_d5["instances"]), [])]
+        by_line = {line: key for key, line in line_d5.items()}
+        judged_d5 = sorted((by_line.get(int(i["occasion_locator"].split("#", 1)[1].split("/")[0])), i["expected_id"], i["exposure"],
+                            i["verdict"]) for i in instances_d5)
+        intended_d5 = sorted((key, "T-1@r0" if key == "test run" else "P-1@r0", *FX_DW5_INTENT[key]) for key in FX_DW5_INTENT)
+        control("DW5 (golden): every intended judgement - four asks of P-1 and the test run's T-1, each read in labels - is "
+                "an instance on its own record, the test run's from the expansion that read it whole",
+                judged_d5 == intended_d5 and all(i["evidence_ids"] for i in instances_d5)
+                and any(i["expected_id"] == "T-1@r0" for x in read_d5.get("expansions", []) for i in x.get("observations", [])),
+                f"{judged_d5}")
+        resolved_d5 = {k: (v["resolution"], v["counts"]) for k, v in follow_d5.get("resolutions", {}).items()}
+        control("DW5 (golden): code derives P-1 not observed - one eligible occasion not observed wins over an observed one "
+                "and two exposure_unknown ones - and T-1 pending, whose only occasion is exposure_unknown",
+                {k: r for k, (r, _c) in resolved_d5.items()} == FX_DW5_RESOLUTIONS
+                and resolved_d5["P-1@r0"][1] == {"eligible": 2, "observed": 1, "not_observed": 1, "exposure_unknown": 2}
+                and resolved_d5["T-1@r0"][1] == {"eligible": 0, "observed": 0, "not_observed": 0, "exposure_unknown": 1},
+                f"{resolved_d5}")
+        due_d5 = [text.split("<expected_observations>\n", 1)[-1].split("\n</expected_observations>", 1)[0]
+                  for text in packet_of("dw5", "window") + packet_of("dw5", "expansion")]
+        control("DW5 (golden): every packet of the leg lists the two due observations as x1 and x2 with their criteria, rule "
+                "and behaviour, and not their retrieval terms",
+                len(due_d5) == 3 and all(block.startswith("- x1\n  occasion: " + FX_DW5_PLAIN["occasion_criteria"])
+                                         and "\n- x2\n  occasion: " + FX_DW5_TESTS["occasion_criteria"] in block
+                                         and "retrieval" not in block for block in due_d5), f"{[b[:60] for b in due_d5]}")
         host_schemas = [guarded(lambda c=c, leg=leg: json.loads((live[leg]["dir"] / "calls" / c / "schema.json").read_text(encoding="utf-8")), {})
                   for leg in live for kind in ("window", "expansion", "stitch") for c in live[leg]["attempts"][kind]]
         control("WP-08 commit 7: every schema S3 hands a host names no meta-schema, which Claude Code's --json-schema check "
