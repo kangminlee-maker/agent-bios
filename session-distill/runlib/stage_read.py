@@ -1782,13 +1782,15 @@ def fx_apart_answers(withheld=False, progress=False):
 
 def fx_decisive_answers(where, doc, rows, parts):
     """The golden readings of done-when 2's session: each window answers as `fx_answer` does, expanding the forced
-    omission, and the expansion that shows the decisive line claims it on a quote of that line alone."""
+    omission, and the expansion that shows the decisive line claims it on a quote of that line alone - twice, so the
+    stitch packet lists one quote under two claims (WP-08b X r1)."""
     answer = fx_answer(doc, rows)
     for r in doc["records"]:
         if "/x/" in where and FX_DECISIVE in r["text"]:
             answer["quotes"].append({"quote_id": "q9", "entry": views.eid(r), "text": FX_DECISIVE})
-            answer["claims"].append({"claim_id": f"c{len(answer['claims']) + 1}", "fact": "DECISIVE: every row came back.",
-                                     "interpretation": "", "uncertainty": "", "evidence_ids": ["q9"], "call_id": "<CALL-ID>"})
+            for fact in ("DECISIVE: every row came back.", "The restore was checked row by row against the backup."):
+                answer["claims"].append({"claim_id": f"c{len(answer['claims']) + 1}", "fact": fact, "interpretation": "",
+                                         "uncertainty": "", "evidence_ids": ["q9"], "call_id": "<CALL-ID>"})
     return [((), answer)]
 
 
@@ -2526,11 +2528,18 @@ def self_test():
         stored_ids = {r["claim_id"] for leg in live for r in guarded(lambda leg=leg: stored_claims(live[leg]["dir"], live[leg]["view"]), [])} \
             | {r["evidence_id"] for leg in live for r in stored_evidence_of(live[leg]["dir"], live[leg]["view"])} \
             | {e["event_id"] for leg in live for e in live[leg]["events"]}
-        stitched_ok = []
+        stitched_ok, shared_listings = [], []
         for (leg, c), text in stitch_texts.items():
             events_l, claims_l = guarded(lambda text=text: stitch_blocks(text), ([], []))
             quotes_l = list(dict.fromkeys(q["evidence_id"] for cl in claims_l for q in cl["quotes"]))
-            stitched_ok.append(bool(events_l) and [e["event_id"] for e in events_l] == [f"v{k}" for k in range(1, len(events_l) + 1)]
+            # a quote two claims cite is listed under each, under one label: every listing of a label is the same bytes
+            # (the packet writes each with json.dumps, so writing a parsed one again gives its bytes back; WP-08b X r1)
+            listings = collections.defaultdict(list)
+            for cl in claims_l:
+                for q in cl["quotes"]:
+                    listings[q["evidence_id"]].append(json.dumps(q, ensure_ascii=False))
+            shared_listings.extend(texts for texts in listings.values() if len(texts) > 1)
+            stitched_ok.append(all(len(set(texts)) == 1 for texts in listings.values()) and bool(events_l) and [e["event_id"] for e in events_l] == [f"v{k}" for k in range(1, len(events_l) + 1)]
                                and [cl["claim_id"] for cl in claims_l] == [f"c{k}" for k in range(1, len(claims_l) + 1)]
                                and quotes_l == [f"q{k}" for k in range(1, len(quotes_l) + 1)]
                                and all(j["claim_id"] in {cl["claim_id"] for cl in claims_l} and set(j["quotes_after"]) <= set(quotes_l)
@@ -2538,8 +2547,9 @@ def self_test():
                                and all("claims" not in e for e in events_l)
                                and not any(i in text for i in stored_ids))
         control("WP-08b: every stitch packet a live leg sends names its events, claims and quotes by its own labels in order, "
-                "its joins among them, and no stored id stands in it",
-                stitch_texts and all(stitched_ok) and len(stored_ids) > 3, f"{stitched_ok} {len(stored_ids)}")
+                "its joins among them, a quote two claims cite the same bytes under each, and no stored id stands in it",
+                stitch_texts and all(stitched_ok) and len(stored_ids) > 3 and shared_listings,
+                f"{stitched_ok} {len(stored_ids)} {len(shared_listings)}")
 
         # ---- the shard rule (plan amendment row 1): the apart session with a second event, under a bound that leaves
         # 3,000 bytes beside the stitch packet's fixed part - room for both events and not for all of their claims (4,000
@@ -3009,7 +3019,8 @@ def self_test():
                                "outcome": "pending", "description": "x"}]
         read_one["decisions"] = read_one["decisions"] or [{"omission_id": "o1", "decision": "skip", "reason": "x"}]
         stitch_one = joined_l
-        near = ["7/message/content/0", "31221/message/content", "entry: e1", "e01", "E1", "e1 ", "e"]
+        # "e1\n": Python's `$` matches before a final line break, so each pattern ends in an absolute-end assertion (X r1)
+        near = ["7/message/content/0", "31221/message/content", "entry: e1", "e01", "E1", "e1 ", "e", "e1\n"]
         read_at = {"quotes/entry": lambda a, v: a["quotes"][0].update(entry=v),
                    "events/at_record": lambda a, v: a["events"][0].update(at_record=v),
                    "observations/occasion_locator": lambda a, v: a["observations"][0].update(occasion_locator=v),
@@ -3035,10 +3046,11 @@ def self_test():
                                      sorted({(field, value) for field, value, bent in bent_all if any(f.is_valid(bent) for f in forms)}),
                                      len(bent_all))
         control("WP-08b: the read and stitch schemas, as written and as a host is handed them, take the answer in labels and "
-                "refuse an entry, a near copy, a stored id or a padded label at every field that names one",
+                "refuse an entry, a near copy, a stored id, a padded label or one with a trailing line break at every field "
+                "that names one",
                 schema_verdicts.get("read", (False,))[0] and schema_verdicts.get("stitch", (False,))[0]
                 and schema_verdicts["read"][1] == [] and schema_verdicts["stitch"][1] == []
-                and schema_verdicts["read"][2] == 5 * 11 and schema_verdicts["stitch"][2] == 3 * 11, f"{schema_verdicts}")
+                and schema_verdicts["read"][2] == 5 * 12 and schema_verdicts["stitch"][2] == 3 * 12, f"{schema_verdicts}")
         bounded = next((json.loads((run_dir / w["path"]).read_text()) for _n, w in sorted(windows.items())
                         if json.loads((run_dir / w["path"]).read_text())["overlap"]["prev"]), None)
         if bounded is None:

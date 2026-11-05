@@ -9,13 +9,13 @@
     "resolutions": {"type": "array", "items": {"$ref": "#/$defs/resolution"}}
   },
   "$defs": {
-    "claim_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^c[1-9][0-9]*$"}},
-    "quote_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^q[1-9][0-9]*$"}},
+    "claim_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^c[1-9][0-9]*(?![\\s\\S])"}},
+    "quote_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^q[1-9][0-9]*(?![\\s\\S])"}},
     "resolution": {
       "type": "object", "additionalProperties": false,
       "required": ["event_id", "outcome", "claim_ids", "evidence_ids"],
       "properties": {
-        "event_id": {"type": "string", "pattern": "^v[1-9][0-9]*$"},
+        "event_id": {"type": "string", "pattern": "^v[1-9][0-9]*(?![\\s\\S])"},
         "outcome": {"type": "string", "enum": ["resolved", "unresolved"]},
         "claim_ids": {"$ref": "#/$defs/claim_ids"},
         "evidence_ids": {"$ref": "#/$defs/quote_ids"}

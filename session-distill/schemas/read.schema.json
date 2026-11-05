@@ -13,7 +13,7 @@
     "observations": {"type": "array", "items": {"$ref": "#/$defs/observation"}}
   },
   "$defs": {
-    "entry": {"type": "string", "pattern": "^e[1-9][0-9]*$"},
+    "entry": {"type": "string", "pattern": "^e[1-9][0-9]*(?![\\s\\S])"},
     "quote_ids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "pattern": "^q[1-9][0-9]*$"}},
     "quote": {
       "type": "object", "additionalProperties": false,
@@ -55,7 +55,7 @@
       "type": "object", "additionalProperties": false,
       "required": ["omission_id", "decision", "reason"],
       "properties": {
-        "omission_id": {"type": "string", "pattern": "^o[1-9][0-9]*$"},
+        "omission_id": {"type": "string", "pattern": "^o[1-9][0-9]*(?![\\s\\S])"},
         "decision": {"type": "string", "enum": ["expand", "skip"]},
         "reason": {"type": "string", "minLength": 1}
       }
@@ -65,7 +65,7 @@
       "type": "object", "additionalProperties": false,
       "required": ["expected_id", "occasion_locator", "exposure", "verdict", "evidence_ids"],
       "properties": {
-        "expected_id": {"type": "string", "pattern": "^x[1-9][0-9]*$"},
+        "expected_id": {"type": "string", "pattern": "^x[1-9][0-9]*(?![\\s\\S])"},
         "occasion_locator": {"$ref": "#/$defs/entry"},
         "exposure": {"type": "string", "enum": ["eligible", "exposure_unknown"]},
         "verdict": {"type": "string", "enum": ["observed", "not_observed"]},
