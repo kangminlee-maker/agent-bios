@@ -47,16 +47,19 @@ the self-test holds the schema and the code to them.
 import collections
 import copy
 import json
+import os
 import pathlib
 import shutil
+import subprocess
 import sys
 import tempfile
 
 if __package__ in (None, ""):  # run as a script: put session-distill/ on the import path
     sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
-from runlib import evidence, packet, records, validate, views
+from runlib import bound, census, coverage, evidence, gate, lifecycle_intake, packet, records, validate, views
 from runlib.records import Refused
 
+HERE = pathlib.Path(__file__).resolve().parents[1]  # session-distill/: the self-test runs the driver from it
 STAGE = "S4"
 TEMPLATE = "form"
 SCHEMA_PATH = pathlib.Path(__file__).resolve().parents[1] / "schemas" / "form.schema.json"
@@ -420,6 +423,216 @@ def partition_rows(pop):
             rows.append({"event_id": event, "class": "candidate", "candidate_id": member})
     return rows
 
+
+# ---- the stage: its barrier, its bound, its one call and what it leaves (lead decisions D1, D7, D9) ----
+
+CASE = "form"   # the formation call's class (dispatch.class_key)
+ITEM = "form"   # one formation call per run: formation is across sessions and is not sharded (WP-09 stage 0 M9)
+# lead decision D9 (WP-09 stage 0 M9): the output-token cap every formation call declares (CLAUDE_CODE_MAX_OUTPUT_TOKENS,
+# design §3.1), from stage 0's estimate of 10-16k output for 11-36 events. Only S4 reads it, so it is this module's and
+# not the declaration's: `output_caps` holds S3's, which S2 cuts its windows against.
+OUTPUT_CAP = 32_000
+# What S4 reads, each pinned at admission to the record of the stage that produced it (records.run_stage): S3's results,
+# its counts and its follow-up's resolutions, the census the barrier holds the results to, and S2's current library.
+# The event, claim and evidence stores are S3's and are read through S3's own readers, which refuse an edited line.
+INPUTS = ({"artifact": "read-results.json", "producer_stage": "S3"},
+          {"artifact": "read.json", "producer_stage": "S3"},
+          {"artifact": "observations/resolutions.json", "producer_stage": "S3"},
+          {"artifact": "census.json", "producer_stage": "S1"},
+          {"artifact": "inventory/current.json", "producer_stage": "S2"})
+OUTPUTS = ("intake.json", "candidates.json", "partition.jsonl", "population.json", "form.json")
+DRY_PACKET, DRY_RECORD = "form/packet.md", "form/dry.json"
+
+
+def barrier(document, results):
+    """Plan WP-09 done-when 5 as lead decision D1 reads it: S4 runs only over a window S3 accounted for whole. Every
+    unit the census made eligible has one result, and every result is terminal (INPUT_PARTIAL naming the unit); a result
+    for a unit the census did not make eligible, or two for one, is SET_MISMATCH. A terminal result S3 did not process
+    (`read_partial`, `deferred`, `failed`) blocks nothing: it is listed, not formed (`subject`). That S3's record is
+    running, partial or stale is refused where S4 is admitted (records.run_stage: INPUT_PARTIAL, INPUT_STALE)."""
+    eligible = {census.key_of(e) for e in census.rows(document) if e["status"] == "eligible"}
+    got = collections.Counter(r["transcript"] for r in results["results"])
+    errors = []
+    if results.get("window") != document.get("window"):
+        errors.append(f"INPUT_INVALID read-results.json: window {results.get('window')!r}, and the census's is "
+                      f"{document.get('window')!r}")
+    for unit in sorted(eligible - set(got)):
+        errors.append(f"INPUT_PARTIAL S3 {unit}: the census made it eligible and read-results.json holds no result for "
+                      "it; S4 forms only over a window S3 accounted for whole")
+    for r in results["results"]:
+        if r["status"] not in coverage.TERMINAL:
+            errors.append(f"INPUT_PARTIAL S3 {r['transcript']}: its result is {r['status']!r}, not one of the terminal "
+                          f"statuses {list(coverage.TERMINAL)}")
+    extra, twice = sorted(set(got) - eligible), sorted(u for u, n in got.items() if n > 1)
+    if extra or twice:
+        errors.append(f"SET_MISMATCH read-results.json: results for units the census did not make eligible {extra[:5]}, "
+                      f"or more than one for a unit {twice[:5]}")
+    return errors
+
+
+def form_budget(seat, seats=None):
+    """`(driver bytes a formation packet may take, the allowance taken from)`: rule (a) of the window bound
+    (runlib/bound.py) held by the one formation call - its driver bytes and the host's measured builtin context within
+    bound.INPUT_BOUND tokens, each token covering at least one byte - less the room its one retry's correction takes
+    (stage_read.CORRECTION_ROOM). The allowance is the host's, measured per host version and profile in seats.json, so
+    the S4 seat's host is read for it. Check (d), the seat's context capacity, is not made: the S4 seat's is unmeasured,
+    and the first live call records it (lead decision D9)."""
+    from runlib import stage_read
+    held = gate.seats() if seats is None else seats
+    host = seat.partition(":")[0]
+    slot = (((held.get("hosts") or {}).get(host) or {}).get("host_allowance") or {}).get("hermetic") or {}
+    if slot.get("measured") is not True or not isinstance(slot.get("allowance_tokens"), int):
+        raise Refused(f"ALLOWANCE_UNMEASURED S4: seats.json holds no measured hermetic allowance for {host}, so the "
+                      "formation packet has no bound to be held to")
+    return bound.INPUT_BOUND - slot["allowance_tokens"] - stage_read.CORRECTION_ROOM, slot["allowance_tokens"]
+
+
+def packet_bytes(run_id, seat, text, schema_bytes):
+    """The driver bytes of the formation packet, measured as dispatch measures them, under its retry's call id."""
+    call_id = f"{run_id}-{STAGE}-{ITEM}-a2"
+    return bound.driver_bytes(packet.build(call_id, STAGE, seat, text, schema_bytes), schema_bytes)[0]
+
+
+def supervisor(run_dir, cells, plan=None):
+    """The supervisor a formation call goes through, its cells under `cells` (made mode 700). Live, the pinned runner,
+    whose token reaches claude-run only as CLAUDE_RUN_TOKEN_FILE in this process's environment - a path never read
+    here, refused by name before anything is reserved when it is not set (TOKEN_FILE_UNSET). With `plan`, a golden
+    host's plan (`[{match, answer}]`, dispatch.FAKE_HOST's), realization golden: the host answers from the plan and
+    starts no model, and the dispatcher refuses that runner under any other realization."""
+    from runlib import dispatch
+    if plan is None and not os.environ.get("CLAUDE_RUN_TOKEN_FILE"):
+        raise Refused("TOKEN_FILE_UNSET S4: a live formation call's token reaches claude-run only as "
+                      "CLAUDE_RUN_TOKEN_FILE, and this environment does not set it")
+    cells = pathlib.Path(cells)
+    cells.mkdir(mode=0o700, parents=True, exist_ok=True)
+    if plan is None:
+        return dispatch.Supervisor(run_dir, cell_root=cells, realization="live")
+    fake, plan = cells / "fake_host.py", pathlib.Path(plan).resolve()
+    fake.write_text(dispatch.FAKE_HOST, encoding="utf-8")
+    sup = dispatch.Supervisor(run_dir, cell_root=cells, realization="golden")
+    sup.runner = lambda host, spec: [sys.executable, str(fake), host, "clean", json.dumps({**spec, "answers": str(plan)})]
+    return sup
+
+
+def run(run_dir, supervisor=None, *, dry=False, index_rows=None, tranche="calibration", form_bound=None):
+    """S4 over S3's results: the barrier, what it forms from (`subject`), the lifecycle intake code derives
+    (lifecycle_intake.build, from the declaration S4 was admitted against), the formation packet held to its bound
+    (FORM_OVER_BOUND), then the one call through `supervisor`, its answer checked by the stage (`answer_problems`) and
+    read in its labels, and the population (`population`, `population_problems`). Writes `intake.json`,
+    `candidates.json`, `partition.jsonl`, `population.json` and `form.json`; a subject with no event makes no call.
+
+    `dry` stops before the call, with no supervisor: it writes `intake.json` and the packet with its measure
+    (`form/packet.md`, `form/dry.json`), and leaves S4's record `partial`, since nothing was formed. A call that ends
+    other than accepted leaves `form.json` with its outcome and the record `partial`. The call runs in a calibration
+    tranche: it is one call, so its class runs at concurrency one whether or not it was measured before. `form_bound`
+    narrows the packet's bound, never widens it: the self-test's way to make a small packet too large. `index_rows`
+    are the occasion index's rows (WP-21; golden until it lands)."""
+    from runlib import stage_read
+    run_dir = pathlib.Path(run_dir)
+    if not dry and supervisor is None:
+        raise Refused("FORM_UNSUPERVISED S4: a formation call goes through a supervisor; without one, run it dry")
+    run_id = run_dir.resolve().name
+    with records.run_stage(run_dir, STAGE, INPUTS) as stage:
+        declaration = stage.declaration
+        problems = barrier(census.load(run_dir), records.read_json(run_dir / "read-results.json"))
+        if problems:
+            raise Refused("\n".join(problems))
+        subj = subject(run_dir)
+        intake = lifecycle_intake.build(run_dir, declaration, index_rows)
+        records.write_json(run_dir, run_dir / "intake.json", intake)
+        stage.output("intake.json")
+        clusters = [{"id": c["candidate_id"], "lessons": c["lessons"]} for c in intake["candidates"] if c["source"] == "g_cluster"]
+        labels = FormLabels(subj["events"], subj["claims"], clusters)
+        text, schema = payload(labels), form_schema()
+        schema_bytes = packet.schema_bytes(schema)
+        seat = declaration["seats"][STAGE]
+        budget, allowance = form_budget(seat)
+        budget = min(budget, form_bound) if form_bound is not None else budget
+        size = packet_bytes(run_id, seat, text, schema_bytes)
+        summary = {"stage": STAGE, "window": coverage.window_bounds(declaration["window"])[2],
+                   "declaration_seq": declaration["declaration_seq"], "dry": dry,
+                   "packet": {"driver_bytes": size, "bound": budget, "allowance_tokens": allowance,
+                              "input_tokens_at_most": size + allowance, "output_cap": OUTPUT_CAP,
+                              "labels": {"events": len(labels.events), "claims": len(labels.claims), "quotes": len(labels.quotes),
+                                         "sessions": len(labels.sessions), "clusters": len(labels.clusters)}},
+                   "subject": {"events": len(subj["events"]), "claims": len(subj["claims"]),
+                               "carried_forward": len(subj["carried_forward"]), "units": dict(subj["units"]),
+                               "not_formed": len(subj["not_formed"]),
+                               "events_not_formed": sum(u["events"] for u in subj["not_formed"])},
+                   "intake": dict(intake["counts"])}
+        if size > budget:
+            raise Refused(f"FORM_OVER_BOUND S4: the formation packet takes {size} driver bytes ({len(labels.events)} events, "
+                          f"{len(labels.claims)} claims, {len(labels.quotes)} quotes), over the {budget} its bound allows; "
+                          "formation is one call over the window and is not sharded, so a smaller window is read")
+        if dry:
+            records.write_text(run_dir, run_dir / DRY_PACKET, text)
+            records.write_json(run_dir, run_dir / DRY_RECORD, summary)
+            stage.output(DRY_PACKET)
+            stage.output(DRY_RECORD)
+            stage.record["status"] = "partial"
+            return summary
+        if labels.events:
+            episode = declaration["budget"]["per_episode"]
+            out = supervisor.item(STAGE, ITEM, seat, text, schema, case_type=CASE,
+                                  caps={"tokens": episode["tokens"], "compactions": episode["compactions"]},
+                                  view_window=False, tranche=tranche, max_output_tokens=OUTPUT_CAP,
+                                  stage_check=judge(labels), resume=True)
+            call = {"item": ITEM, "outcome": out["outcome"], "codes": out.get("codes", []),
+                    "attempts": stage_read.attempts_of(out), "reused": out.get("reused")}
+            if out["outcome"] != "accepted":
+                summary["call"] = call
+                records.write_json(run_dir, run_dir / "form.json", summary)
+                stage.output("form.json")
+                stage.record["status"] = "partial"
+                return summary
+            call["call_id"] = stage_read.call_id_of(out["accepted"])
+            answer = labels.resolve(gate.accepted(out["accepted"], judged=True))
+        else:
+            call = {"item": ITEM, "outcome": "not_called", "codes": [], "attempts": [], "reused": None,
+                    "why": "the subject holds no event, so nothing is formed and no call is made"}
+            answer = {"candidates": [], "rejected_findings": [], "non_findings": []}
+        pop = population(answer, subj, run_id, intake["candidates"])
+        problems = population_problems(pop, subj, intake["candidates"])
+        if problems:
+            raise Refused("\n".join(problems))
+        session_of = {r["id"]: r["session"] for r in subj["events"]}
+        formed = [{"candidate_id": sid("k", run_id, k["candidate_id"]), "label": k["candidate_id"], "source": "formed",
+                   **{f: k[f] for f in ("lesson", "type", "situation", "action", "exception", "admission", "tension")},
+                   "event_ids": list(k["event_ids"]), "sessions": sorted({session_of[e] for e in k["event_ids"]}),
+                   "lifecycle": None} for k in answer["candidates"]]
+        lifecycle = [{"candidate_id": c["candidate_id"], "source": c["source"], "event_ids": [], "sessions": [],
+                      "lifecycle": c} for c in intake["candidates"]]
+        findings = [{"finding_id": sid("r", run_id, r["finding_id"]), "label": r["finding_id"],
+                     **{f: r[f] for f in ("finding", "event_ids", "failed", "reason")}} for r in answer["rejected_findings"]]
+        records.write_json(run_dir, run_dir / "candidates.json", {"candidates": formed + lifecycle, "rejected_findings": findings})
+        records.write_text(run_dir, run_dir / "partition.jsonl",
+                           "".join(json.dumps(r, sort_keys=True, ensure_ascii=False) + "\n" for r in partition_rows(pop)))
+        records.write_json(run_dir, run_dir / "population.json", pop)
+        summary.update(call=call, population=pop["counts"])
+        records.write_json(run_dir, run_dir / "form.json", summary)
+        for name in OUTPUTS[1:]:
+            stage.output(name)
+    return summary
+
+
+def report_lines(summary):
+    """What the driver prints of a run of S4: counts, bytes and codes, never a claim, a quote or a lesson."""
+    p, s = summary["packet"], summary["subject"]
+    lines = [f"S4 form{' (dry)' if summary['dry'] else ''}: window {summary['window']}, declaration_seq "
+             f"{summary['declaration_seq']}",
+             f"subject: {s['events']} events, {s['claims']} claims, {s['carried_forward']} carried forward; units {s['units']}; "
+             f"not formed: {s['not_formed']} units, {s['events_not_formed']} events",
+             "intake: " + ", ".join(f"{k} {v}" for k, v in summary["intake"].items()),
+             f"packet: {p['driver_bytes']} driver bytes of the {p['bound']} its bound allows, at most "
+             f"{p['input_tokens_at_most']} input tokens; output cap {p['output_cap']}; labels {p['labels']}"]
+    if "call" in summary:
+        c = summary["call"]
+        lines.append(f"call: {c['outcome']}{' ' + ' '.join(c['codes']) if c['codes'] else ''}"
+                     f"{' (reused ' + c['reused'] + ')' if c.get('reused') else ''}")
+    if "population" in summary:
+        lines.append("population: " + json.dumps(summary["population"], sort_keys=True))
+    return lines
+
 # ---- self-test -----------------------------------------------------------------------------------
 
 def fx_rows():
@@ -485,7 +698,8 @@ def fx_s3(root):
     read through S3 itself with its golden host, no model called. The Claude unit is processed: an event its window
     resolves, one the stitch joins to a later claim, one no claim resolves (handed on), the event the previous window
     left pending (`pe-1`), resolved by the stitch, and one in the child. The Codex unit's stitch fails twice, so the
-    unit ends `read_partial` with its one event still pending. Returns `(run_dir, summary)`."""
+    unit ends `read_partial` with its one event still pending. The run's checkout pins `fx_ledger_s4` and S2's inventory
+    part leaves `lifecycle_intake.FX_LIBRARY` (`fx_inventory`), so S4 can run over it. Returns `(run_dir, summary)`."""
     from runlib import stage_read as sr
 
     def later_quote(doc):
@@ -522,8 +736,49 @@ def fx_s3(root):
             return sr.fx_joined(event, claims, "OUTCOME:")
         return None
     run_dir, sup, _made = sr.fx_reader(root / "s3", "s3", answers, expanding=lambda m: m["forced_by"] != "none",
-                                       resolve=resolve, bad=lambda item: "codex" in item)
-    return run_dir, sr.run(run_dir, sup)
+                                       resolve=resolve, bad=lambda item: "codex" in item, ledger_doc=fx_ledger_s4())
+    summary = sr.run(run_dir, sup)
+    fx_inventory(run_dir)
+    return run_dir, summary
+
+
+def fx_ledger_s4():
+    """lifecycle_intake's ledger of every intake case, its due incubates expiring the day before views.FX_WINDOW opens:
+    S3 shows no observation of them (it shows an expiry on or after the window's first day), and S4 takes them as due
+    (an expiry on or before its last)."""
+    return lifecycle_intake.fx_ledger("2026-09-30", due_expiry="2026-09-30")
+
+
+def fx_inventory(run_dir, units=None):
+    """S2's inventory part as a golden run leaves it: `inventory/current.json` holding the library's units
+    (`lifecycle_intake.FX_LIBRARY` by default), recorded as the part's output."""
+    with records.run_stage(run_dir, "S2", [{"artifact": "census.json", "producer_stage": "S1"}], part="inventory") as stage:
+        records.write_json(run_dir, pathlib.Path(run_dir) / "inventory" / "current.json",
+                           {"units": list(lifecycle_intake.FX_LIBRARY if units is None else units)})
+        stage.output("inventory/current.json")
+
+
+def fx_partition(event_labels):
+    """A conforming answer placing each of `event_labels` once: all but the last two one type C candidate, the second to
+    last a rejected finding failing `bounded`, the last a routine non-finding."""
+    req = {"basis": "shown", "claim_ids": [], "evidence_ids": []}
+    empty = {"sides": [], "ordering": "", "forbids": "", "instance_claim_ids": [], "cluster": ""}
+    return {"candidates": [{"candidate_id": "k1", "lesson": "Say when a change landed", "type": "C", "situation": "s",
+                            "action": "a", "exception": "e", "admission": {n: dict(req) for n in ADMISSION},
+                            "event_ids": list(event_labels[:-2]), "tension": dict(empty)}],
+            "rejected_findings": [{"finding_id": "r1", "finding": "f", "event_ids": [event_labels[-2]], "failed": ["bounded"],
+                                   "reason": "specific to the task"}],
+            "non_findings": [{"event_id": event_labels[-1], "reason": "routine_step", "duplicate_of": ""}]}
+
+
+def fx_form_plan(run_dir, path):
+    """The golden host's plan for S4 over a run `fx_s3` made: one row, matched by the packet's events as S4 lists them,
+    answering `fx_partition` in the packet's labels. Read from S3's stores as S4 reads them (`subject`)."""
+    got = subject(run_dir)
+    labels = FormLabels(got["events"], got["claims"])
+    pathlib.Path(path).write_text(json.dumps([{"match": [labels.events_text()], "answer": fx_partition(list(labels.events))}]),
+                                  encoding="utf-8")
+    return path
 
 def self_test():
     failures, ran = [], []
@@ -766,14 +1021,7 @@ def self_test():
 
         # the partition, in the packet's labels, over the golden subject
         flabels = guarded(lambda: FormLabels(rows, got["claims"]), None)
-        req = {"basis": "shown", "claim_ids": [], "evidence_ids": []}
-        empty = {"sides": [], "ordering": "", "forbids": "", "instance_claim_ids": [], "cluster": ""}
-        part = {"candidates": [{"candidate_id": "k1", "lesson": "Say when a change landed", "type": "C", "situation": "s",
-                                "action": "a", "exception": "e", "admission": {n: dict(req) for n in ADMISSION},
-                                "event_ids": ["v1", "v2"], "tension": dict(empty)}],
-                "rejected_findings": [{"finding_id": "r1", "finding": "f", "event_ids": ["v3"], "failed": ["bounded"],
-                                       "reason": "specific to the task"}],
-                "non_findings": [{"event_id": "v4", "reason": "routine_step", "duplicate_of": ""}]}
+        part = fx_partition(["v1", "v2", "v3", "v4"])
         on = lambda answer: guarded(lambda: answer_problems(flabels, answer), lambda exc: [f"RAISED {exc!r}"])  # noqa: E731
         control("done-when 1: an answer placing every listed event exactly once passes",
                 flabels is not None and len(flabels.events) == 4 and schema_of(part) == [] and on(part) == [],
@@ -831,6 +1079,156 @@ def self_test():
                 len(rows_p) == 4 and sorted(collections.Counter(r["class"] for r in rows_p).items())
                 == [("candidate", 2), ("non_finding", 1), ("rejected_finding", 1)]
                 and all(("candidate_id" in r) + ("finding_id" in r) + ("reason" in r) == 1 for r in rows_p), f"{rows_p}")
+
+        # ---- commit 5: the barrier, the bound, the call and what the stage leaves (golden S3 run, golden host) ----
+        def copy_of(label):
+            """A copy of the golden S3 run's tree (the run, its host and its checkout), for a stage run that writes."""
+            where = root / f"c5-{label}"
+            shutil.copytree(run_dir.parent, where, ignore=shutil.ignore_patterns("c5-*", "bent-*"))
+            return where / run_dir.name
+
+        def record_of(where, stage_id=STAGE):
+            return guarded(lambda: records.read_json(records.record_path(where, stage_id)), {})
+
+        document = guarded(lambda: census.load(run_dir), {})
+        results = guarded(lambda: records.read_json(run_dir / "read-results.json"), {"results": []})
+
+        def barred(change):
+            edited = copy.deepcopy(results)
+            change(edited)
+            return guarded(lambda: barrier(document, edited), lambda exc: [f"RAISED {exc!r}"])
+        codex_unit = next((r["transcript"] for r in results["results"] if r["transcript"].startswith("codex:")), "codex:?")
+        control("D1 barrier: the golden window, every eligible unit with one terminal result, passes",
+                barred(lambda r: None) == [], f"{barred(lambda r: None)}")
+        missing = barred(lambda r: r.update(results=[x for x in r["results"] if x["transcript"] != codex_unit]))
+        control("D1 barrier: an eligible unit with no result is INPUT_PARTIAL naming it",
+                any(p.startswith(f"INPUT_PARTIAL S3 {codex_unit}:") for p in missing), f"{missing}")
+        running = barred(lambda r: next(x for x in r["results"] if x["transcript"] == codex_unit).update(status="running"))
+        control("D1 barrier: a result whose status is not terminal is INPUT_PARTIAL naming its unit",
+                any(p.startswith(f"INPUT_PARTIAL S3 {codex_unit}: its result is 'running'") for p in running), f"{running}")
+        extra = barred(lambda r: r["results"].append({**r["results"][0], "transcript": "claude:not-eligible"}))
+        twice = barred(lambda r: r["results"].append(copy.deepcopy(r["results"][0])))
+        control("D1 barrier: a result for a unit the census did not make eligible, or a second one, is SET_MISMATCH",
+                any(p.startswith("SET_MISMATCH read-results.json") and "claude:not-eligible" in p for p in extra)
+                and any(p.startswith("SET_MISMATCH read-results.json") for p in twice), f"{extra} {twice}")
+        partial_s3 = copy_of("s3-partial")
+        held_s3 = record_of(partial_s3, "S3")
+        if held_s3:
+            records.write_json(partial_s3, records.record_path(partial_s3, "S3"), {**held_s3, "status": "partial"})
+        control("D1: an S3 record that is partial stops S4 at admission (INPUT_PARTIAL S3), before any record of S4",
+                refusal(lambda: run(partial_s3, dry=True)).startswith("INPUT_PARTIAL S3") and not record_of(partial_s3),
+                refusal(lambda: run(partial_s3, dry=True)))
+        short = copy_of("short")
+
+        def drop_codex():
+            """S3's results without the Codex unit's, recorded by S3's record as its own output: an S3 that left one."""
+            doc = records.read_json(short / "read-results.json")
+            doc["results"] = [x for x in doc["results"] if x["transcript"] != codex_unit]
+            records.write_json(short, short / "read-results.json", doc)
+            held = records.read_json(records.record_path(short, "S3"))
+            for o in held["outputs"]:
+                if o["artifact"] == "read-results.json":
+                    o["sha256"] = records.sha256_file(short / "read-results.json")
+            records.write_json(short, records.record_path(short, "S3"), held)
+        guarded(drop_codex, None)
+        control("D1: S3 results holding no result for an eligible unit stop S4 by name, before anything is formed",
+                refusal(lambda: run(short, dry=True)).startswith(f"INPUT_PARTIAL S3 {codex_unit}")
+                and not (short / "intake.json").exists(), refusal(lambda: run(short, dry=True)))
+        edited = copy_of("instances")
+
+        def add_instance():
+            """A line added to S3's instances after S3 recorded them."""
+            doc = records.read_json(edited / "observations" / "resolutions.json")
+            with open(edited / doc["instances"], "a", encoding="utf-8") as handle:
+                handle.write(json.dumps({"expected_id": "N-1@r1", "occasion_locator": "x#1", "exposure": "shown",
+                                         "verdict": "met", "basis": "source", "evidence_ids": []}) + "\n")
+        guarded(add_instance, None)
+        control("S4 reads S3's follow-up through S3's own reader: an instance line added after S3 is INSTANCE_IMMUTABLE",
+                refusal(lambda: run(edited, dry=True)).startswith("INSTANCE_IMMUTABLE"), refusal(lambda: run(edited, dry=True)))
+
+        # dry: the barrier, the intake and the packet's measure, no call, and a record that does not let S5 in
+        dry_dir = copy_of("dry")
+        dry = guarded(lambda: run(dry_dir, dry=True), lambda exc: {"problem": repr(exc)})
+        dry_record = record_of(dry_dir)
+        control("dry: S4 stops before its call, leaves its record partial with the intake and the packet's measure, and "
+                "makes no call",
+                dry_record.get("status") == "partial" and sorted(o["artifact"] for o in dry_record.get("outputs", []))
+                == sorted(["intake.json", DRY_PACKET, DRY_RECORD]) and not list((dry_dir / "calls").glob(f"*-{STAGE}-*"))
+                and dry.get("packet", {}).get("driver_bytes", 0) > 0
+                and dry.get("packet", {}).get("input_tokens_at_most") == dry["packet"]["driver_bytes"] + dry["packet"]["allowance_tokens"],
+                f"{dry.get('problem')} {dry_record.get('status')} {dry_record.get('outputs')}")
+        control("dry: a stage reading S4's output refuses its partial record (INPUT_PARTIAL S4)",
+                refusal(lambda: records.run_stage(dry_dir, "S5", [{"artifact": "intake.json", "producer_stage": "S4"}])
+                        .__enter__()).startswith("INPUT_PARTIAL S4"), "admitted")
+        over_dir = copy_of("over")
+        control("FORM_OVER_BOUND: a packet over the bound is refused by name, and S4's record is failed",
+                refusal(lambda: run(over_dir, dry=True, form_bound=1000)).startswith("FORM_OVER_BOUND S4")
+                and record_of(over_dir).get("status") == "failed", refusal(lambda: run(over_dir, dry=True, form_bound=1000)))
+        control("the bound is rule (a) of bound.py less a retry's correction room, over the host's measured allowance",
+                guarded(lambda: form_budget("claude:claude-opus-5-5/high"), (0, 0))[0]
+                == bound.INPUT_BOUND - gate.seats()["hosts"]["claude"]["host_allowance"]["hermetic"]["allowance_tokens"] - 4096
+                and refusal(lambda: form_budget("claude:x", {"hosts": {}})).startswith("ALLOWANCE_UNMEASURED"),
+                f"{guarded(lambda: form_budget('claude:claude-opus-5-5/high'), None)}")
+        control("a formation call is not dispatched without a supervisor (FORM_UNSUPERVISED)",
+                refusal(lambda: run(copy_of("unsupervised"))).startswith("FORM_UNSUPERVISED"), "dispatched")
+
+        # golden: the one call through the golden host, its answer checked and read, and the population written
+        gold_dir = copy_of("gold")
+        plan = guarded(lambda: fx_form_plan(gold_dir, root / "c5-plan.json"), None)
+        made = guarded(lambda: run(gold_dir, supervisor(gold_dir, root / "c5-cells", plan)), lambda exc: {"problem": repr(exc)})
+        pop_doc = guarded(lambda: records.read_json(gold_dir / "population.json"), {})
+        intake_doc = guarded(lambda: records.read_json(gold_dir / "intake.json"), {"candidates": []})
+        control("golden: S4 makes its one call, accepts the answer, and completes with every output it wrote recorded",
+                made.get("call", {}).get("outcome") == "accepted" and record_of(gold_dir).get("status") == "complete"
+                and sorted(o["artifact"] for o in record_of(gold_dir).get("outputs", [])) == sorted(OUTPUTS),
+                f"{made.get('problem') or made.get('call')} {record_of(gold_dir).get('status')}")
+        control("golden: the intake is derived from the pinned ledger and the current library S2 left: two due decisions "
+                "(one a pending intervention on a placed entry), two legacy entries, one redundancy pair, one G cluster",
+                intake_doc.get("counts") == {"due_decision": 2, "legacy": 2, "obsolete_hint": 0, "redundancy_hint": 1,
+                                             "g_cluster": 1}
+                and any(c.get("pending_intervention") for c in intake_doc["candidates"] if c["source"] == "due_decision"),
+                f"{intake_doc.get('counts')}")
+        control("golden: the population lists the formed candidate and every lifecycle candidate of the intake, each once, "
+                "and holds the subject's events exactly",
+                set(c["candidate_id"] for c in intake_doc["candidates"]) <= set(pop_doc.get("candidate_ids", []))
+                and len(pop_doc.get("candidate_ids", [])) == len(intake_doc["candidates"]) + 1
+                and len(pop_doc.get("event_membership", {})) == 4 and pop_doc.get("counts", {}).get("carried_forward") == 1
+                and [u["status"] for u in pop_doc.get("not_formed", [])] == ["read_partial"],
+                f"{pop_doc.get('candidate_ids')} {pop_doc.get('counts')}")
+        lines = guarded(lambda: [json.loads(x) for x in (gold_dir / "partition.jsonl").read_text(encoding="utf-8").splitlines()], [])
+        cands = guarded(lambda: records.read_json(gold_dir / "candidates.json"), {"candidates": [], "rejected_findings": []})
+        formed_rows = [c for c in cands["candidates"] if c["source"] == "formed"]
+        control("golden: partition.jsonl places each event once, and candidates.json keeps the formed candidate with its "
+                "events and sessions beside the lifecycle candidates and the rejected finding",
+                len(lines) == 4 and len({r["event_id"] for r in lines}) == 4 and len(formed_rows) == 1
+                and len(formed_rows[0]["event_ids"]) == 2 and formed_rows[0]["sessions"]
+                and len(cands["candidates"]) == len(pop_doc.get("candidate_ids", [])) and len(cands["rejected_findings"]) == 1,
+                f"{len(lines)} {formed_rows[:1]}")
+        before = guarded(lambda: (gold_dir / "population.json").read_bytes(), b"")
+        again = guarded(lambda: run(gold_dir, supervisor(gold_dir, root / "c5-cells", plan)), lambda exc: {"problem": repr(exc)})
+        control("golden: S4 run again over its run reuses the accepted attempt and leaves the same population bytes",
+                again.get("call", {}).get("reused") and guarded(lambda: (gold_dir / "population.json").read_bytes(), b"") == before
+                and len(list((gold_dir / "calls").glob(f"*-{STAGE}-*"))) == 1,
+                f"{again.get('problem') or again.get('call')}")
+
+        # the driver's own command, as a process runs it: dry, then golden, each over a copy (WP-09 commit 5)
+        def driver(where, *argv):
+            done = subprocess.run([sys.executable, "-I", str(HERE / "distill.py"), "form", "--run-id", where.name,
+                                   "--out", str(where.parent), *argv], capture_output=True, text=True, timeout=600)
+            return done.returncode, done.stdout + done.stderr
+        cli_dry = copy_of("cli-dry")
+        code, said = driver(cli_dry, "--dry")
+        control("the driver's `form --dry` runs S4 up to its call as a process and prints counts",
+                code == 0 and "S4 form (dry)" in said and record_of(cli_dry).get("status") == "partial", f"{code} {said[-600:]}")
+        cli_gold = copy_of("cli-gold")
+        cli_plan = guarded(lambda: fx_form_plan(cli_gold, root / "c5-cli-plan.json"), None)
+        code, said = driver(cli_gold, "--cells", str(root / "c5-cli-cells"), "--golden-plan", str(cli_plan))
+        control("the driver's `form` with a golden plan runs the stage through its call as a process, and the population "
+                "it leaves holds the intake the stage derived from its admitted declaration",
+                code == 0 and "call: accepted" in said and record_of(cli_gold).get("status") == "complete"
+                and len(guarded(lambda: records.read_json(cli_gold / "population.json")["candidate_ids"], []))
+                == len(guarded(lambda: records.read_json(cli_gold / "intake.json")["candidates"], [None] * 99)) + 1,
+                f"{code} {said[-600:]}")
     control("the suite leaves no temporary tree", not root.exists(), str(root))
 
     for failure in failures:

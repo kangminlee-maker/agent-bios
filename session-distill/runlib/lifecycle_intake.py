@@ -40,7 +40,7 @@ import tempfile
 
 if __package__ in (None, ""):  # run as a script: put session-distill/ on the import path
     sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
-from runlib import coverage, ledger as ledger_lib, ledger_migration, records, search, views
+from runlib import coverage, ledger as ledger_lib, ledger_migration, records, search, stagelock
 from runlib.records import Refused
 
 HERE = pathlib.Path(__file__).resolve().parents[1]
@@ -108,19 +108,26 @@ def legacy_incubation(doc):
 
 
 def window_occasions(run_dir, window):
-    """The occasions S3 judged in this window for each due observation, by its id, and the resolution it derived."""
+    """The occasions S3 judged in this window for each due observation, by its id, and the resolution it derived: read
+    through S3's own reader of its follow-up (`stage_read.stored_resolutions`), which believes the instances only when
+    their lines are the ones S3 recorded and each resolution only when they derive it again (INSTANCE_IMMUTABLE,
+    RESOLUTION_DRIFT). A follow-up of another window is refused by name (INPUT_INVALID)."""
+    from runlib import stage_read
     run_dir = pathlib.Path(run_dir)
     _s, _e, window_id = coverage.window_bounds(window)
-    path = run_dir / "observations" / f"{views.safe_name(window_id)}.jsonl"
-    rows = [json.loads(line) for line in records.jsonl_read(path) if line.strip()] if path.is_file() else []
-    resolved_path = run_dir / "observations" / "resolutions.json"
-    resolutions = records.read_json(resolved_path).get("resolutions", {}) if resolved_path.is_file() else {}
+    doc = stage_read.stored_resolutions(run_dir)
+    if doc["window"] != window_id:
+        raise Refused(f"INPUT_INVALID {stage_read.RESOLUTIONS}: S3's follow-up is of {doc['window']!r}, and this run's "
+                      f"window is {window_id!r}")
+    rows = [json.loads(line) for line in records.jsonl_read(stagelock.confine(run_dir, run_dir / doc["instances"]))
+            if line.strip()]
     out = collections.defaultdict(lambda: {"instances": [], "resolution": None})
     for r in rows:
         out[r["expected_id"]]["instances"].append({k: r[k] for k in ("occasion_locator", "exposure", "verdict", "basis")})
-    for ident, r in resolutions.items():
-        out[ident]["resolution"] = r.get("resolution") if isinstance(r, dict) else r
+    for ident, r in doc["resolutions"].items():
+        out[ident]["resolution"] = r["resolution"]
     return dict(out)
+
 
 
 # ---- (c): the occasion index's hints --------------------------------------------------------------
@@ -323,11 +330,12 @@ FX_LIBRARY = [
 ]
 
 
-def fx_ledger(window_last="2026-11-05"):
-    """A schema 2 ledger with every case the intake tells apart: incubates due and not due, one resolved, a pending
-    intervention on a placed entry, legacy entries with and without a run's decision, and placed learnings."""
+def fx_ledger(window_last="2026-11-05", due_expiry="2026-11-04"):
+    """A schema 2 ledger with every case the intake tells apart: incubates due (expiring `due_expiry`) and not due, one
+    resolved, a pending intervention on a placed entry, legacy entries with and without a run's decision, and placed
+    learnings."""
     L = ledger_lib
-    due = L.sample_element("r1", "incubate", observation=L.sample_observation("2026-11-04"))
+    due = L.sample_element("r1", "incubate", observation=L.sample_observation(due_expiry))
     late = L.sample_element("r1", "incubate", observation=L.sample_observation("2026-12-31"))
     settled = L.sample_element("r2", "drop", reason="expired and not seen", resolves="N-3@r1")
     legacy = lambda eid, status: L.sample_entry(eid, status, decisions=[  # noqa: E731

@@ -12,7 +12,12 @@
   distill.py census --run-id ID --reconcile RESULTS.json   S3's results folded back into the statuses and the coverage
   distill.py views --run-id ID                             S2: the immutable copies, the redaction projection, the
                                                            windows, the search index and the evidence store
-  distill.py <stage command> --run-id ID                   S3-S12: named, and refused until implemented
+  distill.py form --run-id ID --dry [--index ROWS.json]    S4 up to its call: the barrier, the lifecycle intake and the
+                                                           formation packet held to its bound; the record stays partial
+  distill.py form --run-id ID --cells DIR [--golden-plan PLAN.json] [--index ROWS.json]
+                                                           S4: the one formation call, live (the token only as
+                                                           CLAUDE_RUN_TOKEN_FILE) or, with a plan, golden
+  distill.py <stage command> --run-id ID                   S3, S5-S12: named, and refused until implemented
 
 A run lives in `session-distill/out/<run-id>/` (`--out` names another root): `run.json`,
 `amendments.jsonl`, `stages/<stage>/record.json`, and per-call directories. The declaration,
@@ -21,8 +26,9 @@ record schemas every stage keeps (claim, evidence, expected observation) are
 `schemas/*.schema.json`, loaded through `runlib/claims.py`; the declaration's own structure is
 `schemas/run.schema.json`. The census (S1) is `runlib/census.py`, over the readers of `runlib/sources.py`,
 `runlib/lineage.py` and the coverage state of `runlib/coverage.py`. The views (S2) are `runlib/views.py`,
-over `runlib/redaction.py`, `runlib/search.py` and the evidence store of `runlib/evidence.py`.
-Design: §3, §4, §4.1, §5.1-§5.5.
+over `runlib/redaction.py`, `runlib/search.py` and the evidence store of `runlib/evidence.py`. Formation (S4) is
+`runlib/stage_form.py`, over the lifecycle intake of `runlib/lifecycle_intake.py`.
+Design: §3, §4, §4.1, §5.1-§5.5, §7.1, §7.4, §9.
 """
 import argparse
 import contextlib
@@ -73,7 +79,7 @@ except BaseException:
 STARTUP_WITHHELD = entry.WITHHELD
 
 try:
-    from runlib import census, coverage, declare, inventory, projection, records, sources, stagelock, views
+    from runlib import census, coverage, declare, inventory, projection, records, sources, stage_form, stagelock, views
     from runlib.records import Refused
 except BaseException as _startup_exc:   # SystemExit included: `validate` exits at import time
     # The imports used to stand OUTSIDE every boundary this command has: `runlib.validate` exits
@@ -296,6 +302,24 @@ def cmd_views(args):
     return 0
 
 
+def cmd_form(args):
+    """S4 (runlib/stage_form.py): dry, up to the call; otherwise its one call through a supervisor made before the stage
+    is entered, so a live run without its token is refused before anything is recorded."""
+    run_dir = run_dir_of(args)
+    index_rows = json.loads(pathlib.Path(args.index).read_text(encoding="utf-8")) if args.index else None
+    if args.dry:
+        if args.cells or args.golden_plan:
+            raise Refused("INPUT_INVALID form --dry: a dry run makes no call, so it takes no --cells or --golden-plan")
+        summary = stage_form.run(run_dir, None, dry=True, index_rows=index_rows)
+    else:
+        if not args.cells:
+            raise Refused("INPUT_INVALID form --cells: the formation call runs in a cell under a cell root; give --cells "
+                          "DIR, or --dry to stop before the call")
+        summary = stage_form.run(run_dir, stage_form.supervisor(run_dir, args.cells, args.golden_plan), index_rows=index_rows)
+    say("\n".join(stage_form.report_lines(summary)))
+    return 0
+
+
 def cmd_stage(args):
     stage = STAGE_COMMANDS[args.command]
     if args.command == "close" and args.recovery:
@@ -325,7 +349,8 @@ def build_parser():
     sub.add_argument("--self-test", action="store_true", help="the declaration's controls")
     sub.set_defaults(handler=cmd_declare)
     for name, stage in STAGE_COMMANDS.items():
-        helps = {"census": f"{stage}: the census", "views": f"{stage}: the reading views, the search index and the evidence store"}
+        helps = {"census": f"{stage}: the census", "views": f"{stage}: the reading views, the search index and the evidence store",
+                 "form": f"{stage}: candidate formation and the lifecycle intake"}
         sub = commands.add_parser(name, help=helps.get(name, f"{stage}: not implemented yet"))
         common(sub)
         if name == "close":
@@ -345,7 +370,13 @@ def build_parser():
             sub.add_argument("--originators", help="the originator table; refused unless it is the one the declaration names (source 'originators')")
             sub.add_argument("--jobs", type=int, default=8, help="parallel transcript reads")
             sub.add_argument("--reconcile", help="S3's results (a JSON list): fold them back instead of counting")
-        sub.set_defaults(handler={"census": cmd_census, "views": cmd_views, "inventory": cmd_inventory}.get(name, cmd_stage))
+        if name == "form":
+            sub.add_argument("--dry", action="store_true", help="stop before the call: the intake and the packet's measure")
+            sub.add_argument("--cells", help="the cell root the formation call runs under (made mode 700)")
+            sub.add_argument("--golden-plan", help="a golden host's plan: realization golden, no model is started")
+            sub.add_argument("--index", help="the occasion index's rows (a JSON list; WP-21, golden until it lands)")
+        sub.set_defaults(handler={"census": cmd_census, "views": cmd_views, "inventory": cmd_inventory,
+                                  "form": cmd_form}.get(name, cmd_stage))
     return parser
 
 
@@ -601,13 +632,30 @@ def self_test():
         finally:
             os.chdir(here)
 
-        implemented = ("census", "views", "inventory")  # each has its own controls below; the rest are named and refused
+        # each implemented command has its own controls (form's run in runlib/stage_form.py's suite, as a process); the
+        # rest are named and refused
+        implemented = ("census", "views", "inventory", "form")
         for command, stage_id in STAGE_COMMANDS.items():
             if command in implemented:
                 continue
             code, err = cli(command, "--run-id", "r1")
             control(f"{command} ({stage_id}) is named and refused",
                     code == 2 and f"STAGE_NOT_IMPLEMENTED {command} ({stage_id})" in err, err)
+        code, err = cli("form", "--run-id", "r-form")
+        control("form (S4) with neither --dry nor --cells is refused by name before anything is recorded",
+                code == 1 and "INPUT_INVALID form --cells" in err and not (out / "r-form").exists(), err)
+        code, err = cli("form", "--run-id", "r-form", "--dry", "--cells", str(out / "form-cells"))
+        control("form --dry with a cell root is refused by name: a dry run makes no call",
+                code == 1 and "INPUT_INVALID form --dry" in err, err)
+        held_token = os.environ.pop("CLAUDE_RUN_TOKEN_FILE", None)
+        try:
+            code, err = cli("form", "--run-id", "r-form", "--cells", str(out / "form-cells"))
+        finally:
+            if held_token is not None:
+                os.environ["CLAUDE_RUN_TOKEN_FILE"] = held_token
+        control("a live form with no CLAUDE_RUN_TOKEN_FILE is refused by name before its cell root or any record is made",
+                code == 1 and "TOKEN_FILE_UNSET S4" in err and not (out / "form-cells").exists()
+                and not (out / "r-form").exists(), err)
         # inventory (S2) reads no stage of this run, so it refuses on what it cannot resolve rather
         # than on a missing input: with neither a run directory nor an output directory it has nowhere
         # to write, and that is the refusal the driver owns
