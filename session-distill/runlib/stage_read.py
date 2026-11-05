@@ -2259,6 +2259,23 @@ def self_test():
                 with_omissions and all(empty_sentences.values()) and not any(allowing.values()) and undecided is not None
                 and any(p.startswith("SET_MISMATCH") for p in guarded(lambda: answer_problems(doc_om, rows_om, undecided, "r-S3-x-a1"), [])),
                 f"{sorted(with_omissions)} {[s[:80] for found in allowing.values() for s in found][:2]} {undecided is not None}")
+        # C1's readers quoted the records that held the owner's instructions and findings and claimed only that they were
+        # given (judged by GPT and Opus, 2026-11-05, D-20261105-385651): the claims bullet of every read packet a live leg
+        # sends asks what such a record asks or decides, under which conditions and steps, and how far it reaches
+        def claims_bullet(text):
+            task = text.split(packet.PAYLOAD_MARKER, 1)[-1].rsplit("\n# Your task\n", 1)[-1]
+            found = re.search(r"^- `claims`:(.*?)^- `events`:", task, re.S | re.M)
+            return " ".join(found.group(1).split()) if found else ""
+        read_packets = {(leg, c): text for leg in live for kind in ("window", "expansion")
+                        for c, text in zip(live[leg]["attempts"][kind], packet_of(leg, kind))}
+        specific = ("instruction, request, finding or decision", "what it asks or decides", "under which conditions and steps",
+                    "how far it reaches", "that it was given is not enough")
+        lacking = sorted(key for key, text in read_packets.items() if not all(p in claims_bullet(text) for p in specific))
+        control("WP-08 C1 recall: every read packet a live leg sends asks, in its claims bullet, that a claim about an "
+                "instruction, request, finding or decision state what it asks or decides, under which conditions and "
+                "steps, and how far it reaches",
+                len(read_packets) == sum(len(live[leg]["attempts"][k]) for leg in live for k in ("window", "expansion")) > 0
+                and not lacking, f"{len(read_packets)} {lacking[:3]}")
 
         # ---- the shard rule (plan amendment row 1): the apart session with a second event, under a bound that leaves
         # 4,000 bytes beside the stitch packet's fixed part - room for both events and not for all of their claims

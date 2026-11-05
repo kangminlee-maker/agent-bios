@@ -34,7 +34,9 @@ Think the problem through before you answer. Then return the JSON your schema as
   the `entry: ` label; `occurrence` (from 0) only when the text occurs twice or more in that entry. Ids q1, q2, ...
 - `claims`: one observation each. `fact`: what happened, plainly. `interpretation`: what it suggests about the work, or
   "". `uncertainty`: what could make it wrong, or "". `evidence_ids`: the quotes it rests on. `call_id`: the rest of
-  this packet's first line, `CALL-ID: <call id>`, without the `CALL-ID: ` label. Ids c1, c2, ...
+  this packet's first line, `CALL-ID: <call id>`, without the `CALL-ID: ` label. A claim about an instruction, request,
+  finding or decision states in `fact` or `interpretation` what it asks or decides, under which conditions and steps,
+  and how far it reaches, as its quotes show; that it was given is not enough. Ids c1, c2, ...
 - `events`: each cause whose outcome matters - a request, decision, error, correction or change of plan - at its first
   owned entry (`at_record`, written as a quote's `entry` is, never a `context` one: that is another window's), with a short noun `kind`, the `claim_ids` describing it, and a one-sentence `description`
   of the cause and the outcome it waits for. `outcome`: `resolved` if this window shows the outcome, `pending` if it
