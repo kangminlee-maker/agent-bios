@@ -1813,7 +1813,7 @@ class Supervisor:
     # --- one item: the gate and the one corrective retry ---------------------------------------
 
     def item(self, stage, item, seat, payload, schema, *, case_type, caps, view_window, tranche="broad", stage_check=None,
-             resume=False, **kwargs):
+             resume=False, packet_check=None, **kwargs):
         """An item's attempts through reservation, dispatch and the gate (design §3.2): a failing
         output is retried once with the validation message; a provider signal or a stop is never
         retried here; every attempt is kept. Outcomes: accepted, failed, not_done, deferred,
@@ -1829,7 +1829,13 @@ class Supervisor:
         as `checked`, one entry per attempt.
 
         With `resume`, an earlier attempt `reusable` finds answers the item and nothing is dispatched; the outcome names
-        it as `reused`, and `not_reused` says why each other attempt was not (WP-08 commit 5a)."""
+        it as `reused`, and `not_reused` says why each other attempt was not (WP-08 commit 5a).
+
+        `packet_check` is the stage's bound on what a call without a view window sends, which this dispatcher does not
+        bound: a function of the text an attempt would send - the payload, and on the retry the payload with its
+        correction, which is unbounded (`gate.correction`) - returning failure lines. It is asked before each attempt is
+        reserved, and lines stop the item by name (Refused) with nothing reserved for that attempt (W review of WP-09
+        r1, F3)."""
         tokens = (caps or {}).get("tokens")
         if isinstance(tokens, int) and not isinstance(tokens, bool) and tokens < 1:
             raise Refused(f"EPISODE_CAP_ZERO {stage}:{item}: {zero_tokens(caps)}")
@@ -1843,6 +1849,9 @@ class Supervisor:
         payload_sha256 = packets.sha256_bytes(payload.encode("utf-8"))
         dirs, text, settled, checked = [], payload, None, []
         for attempt in (1, 2):
+            refused = list(packet_check(text)) if packet_check is not None else []
+            if refused:
+                raise Refused("\n".join(refused))
             try:
                 reservation = self.reserve(stage, item, seat, case_type, tranche=tranche, attempt=attempt)
             except Exhausted as exc:

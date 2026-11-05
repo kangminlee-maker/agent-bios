@@ -56,9 +56,11 @@ above goes in exactly one place:
   when, `forbids` what the preference now rules out, its instances, and `cluster` the label of the placed cluster it
   distills, or "". The instances are `instance_claim_ids`, at least three claims in which the person resolved that
   tension the same way, or - for the principle a placed cluster shares - `instance_entry_ids`, at least three entries
-  of that cluster (u1.1, ...), naming the cluster in `cluster`. Such a candidate may rest on no event of this window:
-  its `event_ids` may then be empty, and only then. For every other type, `sides`, `instance_claim_ids` and
-  `instance_entry_ids` are empty lists and the three texts are "".
+  of that cluster (u1.1, ...), naming the cluster in `cluster`; cite entries only so, three or more, whatever claims
+  you add. Such a candidate may rest on no event of this window: its `event_ids` may then be empty, and only then.
+  Three entries let you propose the principle; they do not show three independent lines of evidence, since entries
+  may come from the same work, so the evidence bar stays held while that is unknown. For every other type, `sides`,
+  `instance_claim_ids` and `instance_entry_ids` are empty lists and the three texts are "".
 - `rejected_findings`: a claim about what to do differently that the events suggest but that fails a requirement now,
   ids r1, r2, ...: `finding`, its `event_ids`, `failed` naming each requirement it fails, and `reason`.
 - `non_findings`: one per remaining event, by its label as `event_id`, with `reason`: `no_consequence` (it made no

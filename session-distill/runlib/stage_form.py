@@ -47,6 +47,7 @@ the self-test holds the schema and the code to them.
 import collections
 import copy
 import json
+import math
 import os
 import pathlib
 import re
@@ -57,7 +58,7 @@ import tempfile
 
 if __package__ in (None, ""):  # run as a script: put session-distill/ on the import path
     sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
-from runlib import bound, census, coverage, evidence, gate, lifecycle_intake, packet, records, validate, views
+from runlib import bound, census, coverage, evidence, gate, lifecycle_intake, packet, projection, records, validate, views
 from runlib.records import Refused
 
 HERE = pathlib.Path(__file__).resolve().parents[1]  # session-distill/: the self-test runs the driver from it
@@ -210,8 +211,8 @@ def payload(labels):
 def g_problems(where, tension, labels):
     """Design §7.4's anti-abstraction guard over one type G candidate's tension, each missing part by name. Its
     instances are at least three distinct claims the packet shows, or - for a principle distilled from a placed cluster
-    (lead decision after X round 1, F2) - at least three entries of the cluster it names; an entry of another cluster
-    is no instance of it."""
+    (lead decision after X round 1, F2) - at least three distinct entries of the cluster it names, whatever claims it
+    cites beside them (X round 2, F1); an entry of another cluster is no instance of it."""
     errors = []
     sides = [s.strip() for s in tension["sides"]]
     if len(sides) != 2 or not all(sides) or sides[0] == sides[1]:
@@ -229,19 +230,29 @@ def g_problems(where, tension, labels):
     if foreign:
         errors.append(f"G_ANTI_ABSTRACTION {where}/tension/instance_entry_ids: {foreign} are not entries of the cluster it "
                       f"names ({tension['cluster'] or 'none'})")
-    own = entries - set(foreign)
-    if len(claims) < G_MIN_INSTANCES and len(own) < G_MIN_INSTANCES:
-        path = "instance_entry_ids" if tension["instance_entry_ids"] else "instance_claim_ids"
-        errors.append(f"G_ANTI_ABSTRACTION {where}/tension/{path}: a type G candidate cites at least {G_MIN_INSTANCES} "
-                      f"distinct claims, or at least {G_MIN_INSTANCES} entries of the placed cluster it names, as instances; "
-                      f"it cites {len(claims)} claims and {len(own)} entries")
+    own = cluster_entries(tension, labels)
+    if tension["instance_entry_ids"]:   # the cluster path: its entries are its instances, whatever claims are beside them
+        if len(own) < G_MIN_INSTANCES:
+            errors.append(f"G_ANTI_ABSTRACTION {where}/tension/instance_entry_ids: a type G candidate citing entries of a "
+                          f"placed cluster cites at least {G_MIN_INSTANCES} distinct entries of the cluster it names, claims "
+                          f"or no claims beside them; it cites {len(own)}")
+    elif len(claims) < G_MIN_INSTANCES:
+        errors.append(f"G_ANTI_ABSTRACTION {where}/tension/instance_claim_ids: a type G candidate cites at least "
+                      f"{G_MIN_INSTANCES} distinct claims, or at least {G_MIN_INSTANCES} entries of the placed cluster it "
+                      f"names, as instances; it cites {len(claims)} claims")
     return errors
 
 
-def from_cluster(candidate):
-    """A type G candidate distilled from a placed cluster: it names the cluster and cites its entries as instances."""
-    t = candidate["tension"]
-    return candidate["type"] == "G" and bool(t["cluster"]) and bool(t["instance_entry_ids"])
+def cluster_entries(tension, labels):
+    """The distinct entries a tension cites that the packet shows under the cluster it names."""
+    return {e for e in tension["instance_entry_ids"]
+            if e in labels.entries and tension["cluster"] and labels.entry_cluster[e] == tension["cluster"]}
+
+
+def from_cluster(candidate, labels):
+    """A type G candidate distilled from a placed cluster: it names the cluster and cites at least three distinct entries
+    of it as instances (X round 2, F1), and only it may rest on no event of the window."""
+    return candidate["type"] == "G" and len(cluster_entries(candidate["tension"], labels)) >= G_MIN_INSTANCES
 
 
 def answer_problems(labels, answer):
@@ -263,7 +274,7 @@ def answer_problems(labels, answer):
             errors.append(f"RECORD_INTEGRITY {kind} ids repeat: {repeated}")
     for k in answer["candidates"]:
         where = f"candidates/{k['candidate_id']}"
-        if not k["event_ids"] and not from_cluster(k):
+        if not k["event_ids"] and not from_cluster(k, labels):
             errors.append(f"CANDIDATE_WITHOUT_EVENTS {where}/event_ids: a candidate rests on the events it names; only a "
                           "type G candidate distilled from a placed cluster, citing that cluster's entries, names none")
         for v in k["event_ids"]:
@@ -344,25 +355,34 @@ def unit_of_file(rows, units):
 
 def origin_of(run_dir, view, event):
     """The first record of a carried event, as this run's copy holds it (lead decision after X round 1, F3): each block
-    of it the stitch showed when it resolved the event (`stage_read.projected_blocks`, cut where the stitch cut it),
-    made an evidence record from the immutable copy (`evidence.make`) and held to the projection's text, so an origin
-    quote is verified as every other quote is. Its stored id is `origin:<view>#<record>`. A block whose text names a
-    secret cannot be stored as a quote (EVIDENCE_QUOTE_SENSITIVE): it is shown and cannot be cited. A first record the
-    projection does not hold, or holds otherwise than the copy, is RECORD_INTEGRITY."""
+    of it the stitch showed when it resolved the event (`stage_read.projected_blocks`, cut where the stitch cut it).
+    Every block is first held to the immutable copy - the copy's hash, then the block's whole projected text against
+    what the copy projects there - whether or not it can be quoted (X round 2, F2); a first record the projection does
+    not hold, or holds otherwise than the copy, is RECORD_INTEGRITY. Only then is a block made an evidence record
+    (`evidence.make`), so an origin quote is verified as every other quote is; its stored id is `origin:<view>#<record>`.
+    A block whose text names a secret cannot be stored as a quote (EVIDENCE_QUOTE_SENSITIVE): having passed the same
+    check, it is shown and cannot be cited."""
     from runlib import stage_read
     line = int(re.match(r"[0-9]+", event["at_record"]).group())
     blocks = stage_read.projected_blocks(run_dir, view, line)
     if not blocks:
         raise Refused(f"RECORD_INTEGRITY {event['event_id']}: its first record, line {line} of {view['name']}, holds no block "
                       "in this run's projection, so where it began cannot be shown")
+    copy_path, problem = evidence.copy_problem(run_dir, view["version_sha"])
+    if problem:
+        raise Refused(f"RECORD_INTEGRITY {event['event_id']}: its origin cannot be held to the immutable copy of "
+                      f"{view['name']} ({problem.split(' ', 1)[0]})")
     rows = []
     for pointer, text in blocks:
-        cut, was_cut = views.cap_text(text, QUOTE_BYTES)
         where = f"{line}{pointer}"
-        row = {"evidence_id": f"origin:{view['name']}#{where}", "record": where, "window_role": "origin", "text": cut,
-               **({"cut": True} if was_cut else {})}
+        if evidence.projection_of(copy_path, line, pointer, projection.CURRENT) != text:
+            raise Refused(f"RECORD_INTEGRITY {event['event_id']}: the projection's text at {where} of {view['name']} is not "
+                          "what the immutable copy projects there, so its origin is not shown")
+        cut, was_cut = views.cap_text(text, QUOTE_BYTES)
         if not cut:
             continue
+        row = {"evidence_id": f"origin:{view['name']}#{where}", "record": where, "window_role": "origin", "text": cut,
+               **({"cut": True} if was_cut else {})}
         try:
             made = evidence.make(run_dir, view["version_sha"], line, pointer, [0, len(cut)], "context")
         except Refused as exc:
@@ -371,11 +391,43 @@ def origin_of(run_dir, view, event):
                 continue
             raise Refused(f"RECORD_INTEGRITY {event['event_id']}: its origin at {where} of {view['name']} does not resolve in "
                           f"the immutable copy ({str(exc).split(' ', 1)[0]})") from exc
-        if made["redacted_text"] != cut:
-            raise Refused(f"RECORD_INTEGRITY {event['event_id']}: the projection's text at {where} of {view['name']} is not "
-                          "what the immutable copy projects there, so its origin is not shown")
         rows.append({**row, "evidence": made})
     return rows
+
+
+def s3_outputs(run_dir):
+    """`{artifact: sha256}` of the outputs S3's record holds, refused by name unless it is the record of the results S4
+    reads (INPUT_INVALID): the read records are held to it (W review of WP-09 r1, F1)."""
+    held = records.stage_records(run_dir).get("S3") or {}
+    outputs = {o["artifact"]: o["sha256"] for o in held.get("outputs") or []}
+    path = pathlib.Path(run_dir) / "read-results.json"
+    if not path.is_file() or outputs.get("read-results.json") != records.sha256_file(path):
+        raise Refused("INPUT_INVALID S3: read-results.json is not the output S3's record holds, so the read records it "
+                      "names cannot be held to that record")
+    return outputs
+
+
+def processed_record(run_dir, result, outputs):
+    """The read record of a unit S3 processed, held to S3's record (W review of WP-09 r1, F1): S3 recorded it as an
+    output, it is that output byte for byte, and it lists exactly the files the unit's result read. A unit whose
+    record is missing, edited or short of a file is refused by its name, never formed from what is left."""
+    from runlib import stage_read
+    unit = result["transcript"]
+    rel = stage_read.read_rel(unit)
+    path = pathlib.Path(run_dir) / rel
+    if rel not in outputs:
+        raise Refused(f"RECORD_INTEGRITY {unit}: S3 processed it and recorded no read record of it, so its events cannot "
+                      "be accounted for")
+    if not path.is_file() or records.sha256_file(path) != outputs.get(rel):
+        raise Refused(f"RECORD_INTEGRITY {unit}: its read record {rel} is "
+                      f"{'missing' if not path.is_file() else 'not the one S3 recorded'}, so its events cannot be "
+                      "accounted for")
+    record = records.read_json(path)
+    read = sorted(r["transcript"] for r in result["readings"])
+    listed = sorted(f["transcript"] for f in record["files"])
+    if listed != read:
+        raise Refused(f"SET_MISMATCH {unit}: its read record lists the files {listed[:5]}, and its result read {read[:5]}")
+    return record
 
 
 def subject(run_dir):
@@ -405,11 +457,15 @@ def subject(run_dir):
     def forward(p, unit, origin, why):
         return {"event_id": p["id"], "unit": unit, "file": p["transcript"], "window": p["window"],
                 "first_record": p["first_record"], "origin": origin, "why": why}
+    outputs = s3_outputs(run_dir)
     for result in sorted(results, key=lambda r: r["transcript"]):
         unit = result["transcript"]
         prior = sorted(prior_of.get(unit, []), key=lambda p: p["id"])
-        path = run_dir / "read" / f"{views.safe_name(unit)}.json"
-        record = records.read_json(path) if path.is_file() else {"files": [], "reasons": ["S3 left no read record of it"]}
+        if result["status"] == PROCESSED:
+            record = processed_record(run_dir, result, outputs)
+        else:
+            path = run_dir / stage_read.read_rel(unit)
+            record = records.read_json(path) if path.is_file() else {"files": [], "reasons": ["S3 left no read record of it"]}
         names = [f["name"] for f in record["files"]]
         events = [(name, e) for name in names for e in stage_read.current_events(run_dir, name)]
         if result["status"] != PROCESSED:
@@ -510,12 +566,23 @@ def population(answer, subject_of, run_id, intake=()):
             "counts": population_counts(candidates, findings, non_findings, subject_of)}
 
 
+# the population's fields, each of the kind `population` writes it
+POPULATION_FIELDS = (("candidates", list), ("candidate_ids", list), ("rejected_findings", list), ("rejected_finding_ids", list),
+                     ("non_findings", list), ("non_finding_ids", list), ("event_membership", dict), ("carried_forward", list),
+                     ("not_formed", list), ("counts", dict))
+
+
 def population_problems(pop, subject_of, intake=()):
     """The population's set accounting (plan WP-09 done-when 1, N#12; X round 1, F4), each break by name (SET_MISMATCH),
     every list held to the rows it lists: the candidate, finding and non-finding ids are exactly their rows' ids; the
     lifecycle rows are exactly the intake's candidates, each with its source and no event; the membership is exactly
     what the rows place; every event of the subject is placed exactly once; the carried-forward events and the units
-    not formed are the subject's; and the counts are the ones the rows and the subject give. Empty when all hold."""
+    not formed are the subject's; and the counts are the ones the rows and the subject give. Empty when all hold. A
+    field that is absent, or not of its kind, is named and nothing else is judged (X round 2, F4)."""
+    absent = [(name, kind) for name, kind in POPULATION_FIELDS if not isinstance(pop.get(name), kind)]
+    if absent:
+        return [f"SET_MISMATCH {name}: absent from the population, or not a {kind.__name__}, so it cannot be held to the "
+                "rows and the subject" for name, kind in absent]
     errors = []
     rows, findings, non_findings = pop["candidates"], pop["rejected_findings"], pop["non_findings"]
     for name, have, want in (("candidate_ids", pop["candidate_ids"], [c["candidate_id"] for c in rows]),
@@ -680,21 +747,59 @@ def barrier(document, results):
     return errors
 
 
-def form_budget(seat, seats=None):
-    """`(driver bytes a formation packet may take, the allowance taken from)`: rule (a) of the window bound
-    (runlib/bound.py) held by the one formation call - its driver bytes and the host's measured builtin context within
-    bound.INPUT_BOUND tokens, each token covering at least one byte - less the room its one retry's correction takes
-    (stage_read.CORRECTION_ROOM). The allowance is the host's, measured per host version and profile in seats.json, so
-    the S4 seat's host is read for it. Check (d), the seat's context capacity, is not made: the S4 seat's is unmeasured,
-    and the first live call records it (lead decision D9)."""
-    from runlib import stage_read
-    held = gate.seats() if seats is None else seats
+# What a formation packet's bytes take as tokens (W review of WP-09 r1, F5; lead decision): the fewest bytes a token was
+# measured to cover, so the count is high, never low. Data with its basis, in tables/form_capacity.json.
+CAPACITY_TABLE = HERE / "tables" / "form_capacity.json"
+
+
+def capacity_table():
+    return json.loads(CAPACITY_TABLE.read_text(encoding="utf-8"))
+
+
+def form_budget(seat, seats_path=None, table=None):
+    """The limits the one formation call keeps (W review of WP-09 r1, F5; lead decision): its packet's driver bytes
+    taken as tokens at the fewest bytes per token measured (`tables/form_capacity.json`), plus the host's measured
+    hermetic allowance, plus the output reservation the call declares (OUTPUT_CAP), within the S4 seat's context
+    capacity as seats.json declares it with its basis (`gate.seat_capacity`), at the host version the dispatcher runs.
+    No measured allowance is ALLOWANCE_UNMEASURED; no declared capacity is FORM_CAPACITY_UNKNOWN. S3's window bound
+    (`bound.INPUT_BOUND`) bounds a view window and is not S4's. Returns `{capacity, capacity_basis, host_version,
+    allowance, output_cap, bytes_per_token}`."""
+    path = gate.SEATS if seats_path is None else pathlib.Path(seats_path)
+    held = gate.seats(path)
     host = seat.partition(":")[0]
-    slot = (((held.get("hosts") or {}).get(host) or {}).get("host_allowance") or {}).get("hermetic") or {}
+    entry = (held.get("hosts") or {}).get(host) or {}
+    slot = ((entry.get("host_allowance") or {}).get("hermetic")) or {}
     if slot.get("measured") is not True or not isinstance(slot.get("allowance_tokens"), int):
         raise Refused(f"ALLOWANCE_UNMEASURED S4: seats.json holds no measured hermetic allowance for {host}, so the "
                       "formation packet has no bound to be held to")
-    return bound.INPUT_BOUND - slot["allowance_tokens"] - stage_read.CORRECTION_ROOM, slot["allowance_tokens"]
+    capacity, basis = gate.seat_capacity(seat, entry.get("version"), path=path)
+    if capacity is None:
+        raise Refused(f"FORM_CAPACITY_UNKNOWN S4: {basis}, so the formation call has no context capacity to be held to")
+    ratio = (capacity_table() if table is None else table)["bytes_per_token"]
+    return {"capacity": capacity, "capacity_basis": basis, "host_version": entry.get("version"),
+            "allowance": slot["allowance_tokens"], "output_cap": OUTPUT_CAP, "bytes_per_token": ratio}
+
+
+def tokens_of(driver_bytes, limits):
+    """At most how many tokens `driver_bytes` take: the bytes over the fewest bytes per token measured, rounded up."""
+    return math.ceil(driver_bytes / limits["bytes_per_token"])
+
+
+def bound_problems(driver_bytes, limits, form_bound=None, what="the formation packet"):
+    """FORM_OVER_BOUND, each by name, when `driver_bytes` as tokens with the host allowance and the output reservation
+    exceed the seat's capacity, or when they exceed the bytes `form_bound` narrows the bound to."""
+    tokens = tokens_of(driver_bytes, limits)
+    need = tokens + limits["allowance"] + limits["output_cap"]
+    out = []
+    if need > limits["capacity"]:
+        out.append(f"FORM_OVER_BOUND S4: {what} takes {driver_bytes} driver bytes, at most {tokens} tokens at "
+                   f"{limits['bytes_per_token']} bytes a token; with the host allowance {limits['allowance']} and the output "
+                   f"reservation {limits['output_cap']} that is {need}, over the S4 seat's context capacity "
+                   f"{limits['capacity']}; formation is one call over the window and is not sharded, so a smaller window is read")
+    if form_bound is not None and driver_bytes > form_bound:
+        out.append(f"FORM_OVER_BOUND S4: {what} takes {driver_bytes} driver bytes, over the {form_bound} the run narrowed "
+                   "its bound to")
+    return out
 
 
 def packet_bytes(run_id, seat, text, schema_bytes):
@@ -744,6 +849,9 @@ def run(run_dir, supervisor=None, *, dry=False, index_rows=None, tranche="calibr
     run_id = run_dir.resolve().name
     with records.run_stage(run_dir, STAGE, INPUTS) as stage:
         declaration = stage.declaration
+        # the stage's lock is held, so a reservation of S4 still open is a dead run's: closed before any reuse or
+        # reservation, its runner stopped when alive and named when it cannot be verified (W review of WP-09 r1, F4)
+        interrupted = [] if supervisor is None else supervisor.interrupted(STAGE)
         problems = barrier(census.load(run_dir), records.read_json(run_dir / "read-results.json"))
         if problems:
             raise Refused("\n".join(problems))
@@ -756,24 +864,28 @@ def run(run_dir, supervisor=None, *, dry=False, index_rows=None, tranche="calibr
         text, schema = payload(labels), form_schema()
         schema_bytes = packet.schema_bytes(schema)
         seat = declaration["seats"][STAGE]
-        budget, allowance = form_budget(seat)
-        budget = min(budget, form_bound) if form_bound is not None else budget
+        limits = form_budget(seat, None if supervisor is None else supervisor.seats_path)
         size = packet_bytes(run_id, seat, text, schema_bytes)
         summary = {"stage": STAGE, "window": coverage.window_bounds(declaration["window"])[2],
                    "declaration_seq": declaration["declaration_seq"], "dry": dry,
-                   "packet": {"driver_bytes": size, "bound": budget, "allowance_tokens": allowance,
-                              "input_tokens_at_most": size + allowance, "output_cap": OUTPUT_CAP,
+                   "packet": {"driver_bytes": size, "bytes_per_token": limits["bytes_per_token"],
+                              "input_tokens_at_most": tokens_of(size, limits) + limits["allowance"],
+                              "allowance_tokens": limits["allowance"], "output_cap": OUTPUT_CAP,
+                              "capacity": limits["capacity"], "correction_room": stage_read.CORRECTION_ROOM,
+                              "narrowed_to": form_bound,
                               "labels": {"events": len(labels.events), "claims": len(labels.claims), "quotes": len(labels.quotes),
                                          "sessions": len(labels.sessions), "clusters": len(labels.clusters)}},
                    "subject": {"events": len(subj["events"]), "claims": len(subj["claims"]),
                                "carried_forward": len(subj["carried_forward"]), "units": dict(subj["units"]),
                                "not_formed": len(subj["not_formed"]),
                                "events_not_formed": sum(u["events"] for u in subj["not_formed"])},
-                   "intake": dict(intake["counts"])}
-        if size > budget:
-            raise Refused(f"FORM_OVER_BOUND S4: the formation packet takes {size} driver bytes ({len(labels.events)} events, "
-                          f"{len(labels.claims)} claims, {len(labels.quotes)} quotes), over the {budget} its bound allows; "
-                          "formation is one call over the window and is not sharded, so a smaller window is read")
+                   "intake": dict(intake["counts"]), "interrupted": interrupted}
+        # admitted with room for its one retry's correction; every attempt is measured again as it is sent (W r1, F3)
+        problems = bound_problems(size + stage_read.CORRECTION_ROOM, limits, form_bound,
+                                  f"the formation packet ({len(labels.events)} events, {len(labels.claims)} claims, "
+                                  f"{len(labels.quotes)} quotes) with its retry's correction room")
+        if problems:
+            raise Refused("\n".join(problems))
         if dry:
             records.write_text(run_dir, run_dir / DRY_PACKET, text)
             records.write_json(run_dir, run_dir / DRY_RECORD, summary)
@@ -786,7 +898,9 @@ def run(run_dir, supervisor=None, *, dry=False, index_rows=None, tranche="calibr
             out = supervisor.item(STAGE, ITEM, seat, text, schema, case_type=CASE,
                                   caps={"tokens": episode["tokens"], "compactions": episode["compactions"]},
                                   view_window=False, tranche=tranche, max_output_tokens=OUTPUT_CAP,
-                                  stage_check=judge(labels), resume=True)
+                                  stage_check=judge(labels), resume=True,
+                                  packet_check=lambda sent: bound_problems(packet_bytes(run_id, seat, sent, schema_bytes),
+                                                                           limits, form_bound, "this attempt's packet"))
             call = {"item": ITEM, "outcome": out["outcome"], "codes": out.get("codes", []),
                     "attempts": stage_read.attempts_of(out), "reused": out.get("reused")}
             if out["outcome"] != "accepted":
@@ -837,8 +951,8 @@ def report_lines(summary):
              f"subject: {s['events']} events, {s['claims']} claims, {s['carried_forward']} carried forward; units {s['units']}; "
              f"not formed: {s['not_formed']} units, {s['events_not_formed']} events",
              "intake: " + ", ".join(f"{k} {v}" for k, v in summary["intake"].items()),
-             f"packet: {p['driver_bytes']} driver bytes of the {p['bound']} its bound allows, at most "
-             f"{p['input_tokens_at_most']} input tokens; output cap {p['output_cap']}; labels {p['labels']}"]
+             f"packet: {p['driver_bytes']} driver bytes, at most {p['input_tokens_at_most']} input tokens with the host "
+             f"allowance; output cap {p['output_cap']}; seat capacity {p['capacity']}; labels {p['labels']}"]
     if "call" in summary:
         c = summary["call"]
         lines.append(f"call: {c['outcome']}{' ' + ' '.join(c['codes']) if c['codes'] else ''}"
@@ -1200,6 +1314,22 @@ def self_test():
     foreign = cluster_g(["u2.1", "u2.2", "u2.3"], cluster="u1")
     control("F2: entries of another cluster are no instances of the one a candidate names (G_ANTI_ABSTRACTION)",
             any("are not entries of the cluster" in p for p in alone_problems(foreign)), f"{alone_problems(foreign)}")
+    def entries_beside_claims(entries):
+        """The fixture's type G candidate, its three claims kept, made a cluster G citing `entries` and resting on no
+        event: its events become non-findings, so the partition holds (X round 2, F1)."""
+        def change(a):
+            k = a["candidates"][0]
+            k["tension"].update(cluster="u1", instance_entry_ids=list(entries))
+            a["non_findings"] += [{"event_id": v, "reason": "routine_step", "duplicate_of": ""} for v in k["event_ids"]]
+            k["event_ids"] = []
+        return mutated(change)
+    for n, entries in ((1, ["u1.1"]), (2, ["u1.1", "u1.2"])):
+        found = problems(entries_beside_claims(entries))
+        control(f"X r2 F1: a cluster G citing {n} of its entries beside three claims is G_ANTI_ABSTRACTION, and resting on "
+                "no event CANDIDATE_WITHOUT_EVENTS: the claims do not stand in for entries",
+                schema_of(entries_beside_claims(entries)) == []
+                and any(p.startswith("G_ANTI_ABSTRACTION candidates/k1/tension/instance_entry_ids") for p in found)
+                and any(p.startswith("CANDIDATE_WITHOUT_EVENTS candidates/k1") for p in found), f"{found}")
     eventless = cluster_g([], kind="C")
     eventless_g = cluster_g([], cluster="")
     control("F2: a candidate that is not a cluster G and names no event is CANDIDATE_WITHOUT_EVENTS",
@@ -1215,6 +1345,13 @@ def self_test():
     entries_on_b = mutated(lambda a: a["candidates"][1]["tension"].update(instance_entry_ids=["u1.1"]))
     control("F2: cluster entries on a candidate of another type are TENSION_OUTSIDE_G",
             any(p.startswith("TENSION_OUTSIDE_G candidates/k2") for p in problems(entries_on_b)), f"{problems(entries_on_b)}")
+    template = guarded(lambda: (HERE / "packets" / f"{TEMPLATE}.md").read_text(encoding="utf-8"), "")
+    tension_note = guarded(lambda: json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))["$defs"]["tension"]["$comment"], "")
+    control("X r2 F3: the packet tells the model that three entries let it propose a principle and do not show three "
+            "independent lines of evidence, the bar held, and the schema says the same",
+            "they do not show three independent lines of evidence" in " ".join(template.split())
+            and "the evidence bar stays held" in " ".join(template.split())
+            and "do not establish three independent lineages" in tension_note, tension_note[-300:])
     shown_clusters = guarded(lambda: alone.clusters_text(), "")
     control("F2: the packet shows each cluster entry by its own label, with its lesson and where its stored evidence is",
             '"entry_id": "u1.1"' in shown_clusters and '"entry_id": "u2.3"' in shown_clusters
@@ -1344,13 +1481,22 @@ def self_test():
                 and all(q["text"] and q["record"] for c in got.get("claims", {}).values() for q in c["quotes"]),
                 f"{sorted(got.get('claims', {}))[:4]}")
 
+        def rerecord(where, artifact):
+            """S3's record made to hold `artifact` as it now is: the bent file is one S3 itself would have written."""
+            held = records.read_json(records.record_path(where, "S3"))
+            for row in held["outputs"]:
+                if row["artifact"] == artifact:
+                    row["sha256"] = records.sha256_file(pathlib.Path(where) / artifact)
+            records.write_json(where, records.record_path(where, "S3"), held)
+
         def bent(change):
-            """subject() over a copy of the run whose read-results `change` edits."""
+            """subject() over a copy of the run whose read-results `change` edits, as S3 would have written them."""
             copy_dir = root / f"bent-{len(list(root.iterdir()))}"
             shutil.copytree(run_dir, copy_dir)
             doc = records.read_json(copy_dir / "read-results.json")
             change(doc)
             (copy_dir / "read-results.json").write_text(json.dumps(doc), encoding="utf-8")
+            rerecord(copy_dir, "read-results.json")
             return refusal(lambda: subject(copy_dir))
 
         def unhand(doc):
@@ -1362,6 +1508,53 @@ def self_test():
             next(r for r in doc["results"] if r["status"] == PROCESSED)["resolved_events"] = []
         control("a processed unit whose resolved carried events are not its result's is SET_MISMATCH",
                 bent(unresolve).startswith("SET_MISMATCH claude:"), bent(unresolve))
+
+        # W r1, F1: a processed unit's read record is held to S3's record of it, and the results that name it are too
+        unbound = root / f"bent-{len(list(root.iterdir()))}"
+        shutil.copytree(run_dir, unbound)
+        guarded(lambda: (unbound / "read-results.json").write_text(
+            json.dumps(records.read_json(unbound / "read-results.json")), encoding="utf-8"), None)
+        control("W r1: results that are not the read-results.json S3's record holds are INPUT_INVALID, so no read record "
+                "is held to a record of other results", refusal(lambda: subject(unbound)).startswith("INPUT_INVALID S3: read-results.json"),
+                refusal(lambda: subject(unbound)))
+        processed_unit = next((r["transcript"] for r in records.read_json(run_dir / "read-results.json")["results"]
+                               if r["status"] == PROCESSED), "claude:?")
+
+        def read_record_bent(change, record_again=False):
+            """subject() over a copy of the run whose processed unit's read record `change` bends (and S3's record holds
+            the bent record when `record_again`)."""
+            copy_dir = root / f"bent-{len(list(root.iterdir()))}"
+            shutil.copytree(run_dir, copy_dir)
+            rel = f"read/{views.safe_name(processed_unit)}.json"
+            change(copy_dir, copy_dir / rel)
+            if record_again:
+                rerecord(copy_dir, rel)
+            return refusal(lambda: subject(copy_dir))
+
+        def write_back(path, doc):
+            path.chmod(0o600)
+            path.write_text(json.dumps(doc), encoding="utf-8")
+        deleted = read_record_bent(lambda where, path: path.unlink())
+        control("W r1: a processed unit whose read record is gone is refused by its name (RECORD_INTEGRITY), never formed "
+                "from nothing", deleted.startswith(f"RECORD_INTEGRITY {processed_unit}: its read record") and "missing" in deleted,
+                deleted)
+        edited = read_record_bent(lambda where, path: write_back(path, {**records.read_json(path), "reasons": ["edited"]}))
+        control("W r1: a processed unit whose read record is not the one S3 recorded is refused by its name",
+                edited.startswith(f"RECORD_INTEGRITY {processed_unit}: its read record") and "not the one S3 recorded" in edited,
+                edited)
+        cut_files = read_record_bent(lambda where, path: write_back(path, {**records.read_json(path), "files": []}), True)
+        control("W r1: a processed unit whose read record lists fewer files than its result read is refused by its name, "
+                "even when S3's record holds that record", cut_files.startswith(f"SET_MISMATCH {processed_unit}: its read record lists"),
+                cut_files)
+
+        def unrecord(where, path):
+            held = records.read_json(records.record_path(where, "S3"))
+            held["outputs"] = [o for o in held["outputs"] if o["artifact"] != str(path.relative_to(where))]
+            records.write_json(where, records.record_path(where, "S3"), held)
+        unrecorded = read_record_bent(unrecord)
+        control("W r1: a processed unit whose read record S3's record does not hold is refused by its name",
+                unrecorded.startswith(f"RECORD_INTEGRITY {processed_unit}: S3 processed it and recorded no read record"),
+                unrecorded)
 
         # the partition, in the packet's labels, over the golden subject
         flabels = guarded(lambda: FormLabels(rows, got["claims"]), None)
@@ -1438,6 +1631,8 @@ def self_test():
                  f"SET_MISMATCH {redirected}: its membership names legacy:S3-03, and the rows place it in {formed_id}"),
                 ("carried_forward emptied", lambda b: b["carried_forward"].clear(), "SET_MISMATCH carried_forward"),
                 ("not_formed emptied", lambda b: b["not_formed"].clear(), "SET_MISMATCH not_formed"),
+                ("carried_forward deleted (X r2, F4)", lambda b: b.pop("carried_forward"), "SET_MISMATCH carried_forward: absent"),
+                ("not_formed deleted (X r2, F4)", lambda b: b.pop("not_formed"), "SET_MISMATCH not_formed: absent"),
                 ("a count edited by one", lambda b: b["counts"].update(events=b["counts"]["events"] + 1),
                  "SET_MISMATCH counts ['events']"),
                 ("a lifecycle row under another source",
@@ -1512,6 +1707,28 @@ def self_test():
                 projection_edited and refusal(lambda: subject(tampered_run)).startswith("RECORD_INTEGRITY pe-1"),
                 f"edited {projection_edited}: {refusal(lambda: subject(tampered_run))}")
 
+        def sensitive(action):
+            """`action` with every quote read as one that names a secret: evidence.make refuses each such quote
+            (EVIDENCE_QUOTE_SENSITIVE), as it refuses a real one, and nothing else changes."""
+            real = projection.evidence_quote_admissible
+            projection.evidence_quote_admissible = lambda text: (False, "planted: read as naming a secret")
+            try:
+                return action()
+            finally:
+                projection.evidence_quote_admissible = real
+        held_sensitive = sensitive(lambda: guarded(lambda: next(r for r in subject(run_dir)["events"] if r["id"] == "pe-1"), {}))
+        shown_sensitive = sensitive(lambda: guarded(lambda: FormLabels([held_sensitive], {c: got["claims"][c] for c in
+                                                                         held_sensitive["claim_ids"] + held_sensitive["outcome_claim_ids"]}).events_text(), ""))
+        control("X r2 F2: an intact origin whose text names a secret is shown, cut as the stitch cut it, and cannot be cited",
+                [o.get("withheld") for o in held_sensitive.get("origin", [])] == ["EVIDENCE_QUOTE_SENSITIVE"]
+                and [o.get("text") for o in held_sensitive.get("origin", [])] == stitched[:1]
+                and not any(o.get("evidence_id") for o in held_sensitive.get("origin", [])) and '"citable": false' in shown_sensitive,
+                f"{[(o.get('withheld'), o.get('evidence_id')) for o in held_sensitive.get('origin', [])]}")
+        altered_sensitive = sensitive(lambda: refusal(lambda: subject(tampered_run)))
+        control("X r2 F2: an origin whose text names a secret and is not what the immutable copy projects is refused "
+                "(RECORD_INTEGRITY), never shown", projection_edited and altered_sensitive.startswith("RECORD_INTEGRITY pe-1"),
+                altered_sensitive)
+
         def tamper_copy():
             """The immutable copy itself edited after S2 made it."""
             source = tampered_run / pe1_origin[0]["evidence"]["source_copy"]
@@ -1520,6 +1737,11 @@ def self_test():
             source.write_bytes(before.replace(b"file 000  ok", b"file 000  not ok"))
             return source.read_bytes() != before
         copy_edited = guarded(tamper_copy, False)
+        copy_changed = refusal(lambda: subject(tampered_run))
+        control("X r2 F2: a carried event whose immutable copy changed is refused before its origin is read: the copy is "
+                "held to the version it names first (RECORD_INTEGRITY, SOURCE_TAMPERED)",
+                copy_edited and copy_changed.startswith("RECORD_INTEGRITY pe-1: its origin cannot be held to the immutable copy")
+                and "SOURCE_TAMPERED" in copy_changed, copy_changed)
         control("F3: a cited origin quote whose copy changed after the subject was read is refused where its evidence is "
                 "verified again (RECORD_INTEGRITY)",
                 copy_edited and refusal(lambda: origin_evidence(tampered_run, resolved_origin, got)).startswith("RECORD_INTEGRITY origin:"),
@@ -1571,6 +1793,7 @@ def self_test():
             record["stitch"]["not_stitched"].append({"event_id": "pe-1", "file": pe1.get("file"), "reason": "planted"})
             path.chmod(0o600)
             path.write_text(json.dumps(record), encoding="utf-8")
+            rerecord(twice / run_dir.name, f"read/{views.safe_name(claude_unit)}.json")
             return True
         planted_twice = guarded(decide_twice, False)
         control("F1: an earlier pending event a processed unit's stitch decided twice (resolved and left unstitched) is "
@@ -1635,6 +1858,24 @@ def self_test():
         control("D1: an S3 record that is partial stops S4 at admission (INPUT_PARTIAL S3), before any record of S4",
                 refusal(lambda: run(partial_s3, dry=True)).startswith("INPUT_PARTIAL S3") and not record_of(partial_s3),
                 refusal(lambda: run(partial_s3, dry=True)))
+        rerun_s1 = copy_of("s1-again")
+
+        def census_again():
+            """S1 run again at the same declaration sequence: its census in other bytes, recorded by S1's record, while
+            S3's record still holds the census S3 read."""
+            path = rerun_s1 / "census.json"
+            path.chmod(0o600)
+            path.write_text(path.read_text(encoding="utf-8") + "\n", encoding="utf-8")
+            held = records.read_json(records.record_path(rerun_s1, "S1"))
+            for row in held["outputs"]:
+                if row["artifact"] == "census.json":
+                    row["sha256"] = records.sha256_file(path)
+            records.write_json(rerun_s1, records.record_path(rerun_s1, "S1"), held)
+            return True
+        stale_census = guarded(census_again, False) and refusal(lambda: run(rerun_s1, dry=True))
+        control("W r1 F2: S1 run again at the same sequence under S3's results stops S4 at admission (INPUT_STALE S3), "
+                "before any record of S4", bool(stale_census) and "INPUT_STALE S3: it read census.json" in stale_census
+                and not record_of(rerun_s1), f"{stale_census}")
         short = copy_of("short")
 
         def drop_codex():
@@ -1672,7 +1913,8 @@ def self_test():
                 dry_record.get("status") == "partial" and sorted(o["artifact"] for o in dry_record.get("outputs", []))
                 == sorted(["intake.json", DRY_PACKET, DRY_RECORD]) and not list((dry_dir / "calls").glob(f"*-{STAGE}-*"))
                 and dry.get("packet", {}).get("driver_bytes", 0) > 0
-                and dry.get("packet", {}).get("input_tokens_at_most") == dry["packet"]["driver_bytes"] + dry["packet"]["allowance_tokens"],
+                and dry.get("packet", {}).get("input_tokens_at_most")
+                == math.ceil(dry["packet"]["driver_bytes"] / dry["packet"]["bytes_per_token"]) + dry["packet"]["allowance_tokens"],
                 f"{dry.get('problem')} {dry_record.get('status')} {dry_record.get('outputs')}")
         control("dry: a stage reading S4's output refuses its partial record (INPUT_PARTIAL S4)",
                 refusal(lambda: records.run_stage(dry_dir, "S5", [{"artifact": "intake.json", "producer_stage": "S4"}])
@@ -1681,11 +1923,37 @@ def self_test():
         control("FORM_OVER_BOUND: a packet over the bound is refused by name, and S4's record is failed",
                 refusal(lambda: run(over_dir, dry=True, form_bound=1000)).startswith("FORM_OVER_BOUND S4")
                 and record_of(over_dir).get("status") == "failed", refusal(lambda: run(over_dir, dry=True, form_bound=1000)))
-        control("the bound is rule (a) of bound.py less a retry's correction room, over the host's measured allowance",
-                guarded(lambda: form_budget("claude:claude-opus-5-5/high"), (0, 0))[0]
-                == bound.INPUT_BOUND - gate.seats()["hosts"]["claude"]["host_allowance"]["hermetic"]["allowance_tokens"] - 4096
-                and refusal(lambda: form_budget("claude:x", {"hosts": {}})).startswith("ALLOWANCE_UNMEASURED"),
-                f"{guarded(lambda: form_budget('claude:claude-opus-5-5/high'), None)}")
+        # W r1, F5 (lead decision): S4's bound is its own seat's context capacity, never S3's window bound
+        opus = "claude:claude-opus-5-5/high"
+        own = guarded(lambda: form_budget(opus), {})
+        held_seats = gate.seats()
+        table_now = guarded(capacity_table, {})
+        control("W r1 F5: S4's limits are its own seat's - the capacity seats.json declares for it with its basis, the "
+                "host's measured allowance, the output cap S4 declares, and the fewest bytes per token measured",
+                own.get("capacity") == held_seats.get("seat_capacity", {}).get(opus, {}).get("context_capacity", "none")
+                and own.get("capacity_basis")
+                and own.get("host_version") == held_seats["hosts"]["claude"]["version"]
+                and own.get("allowance") == held_seats["hosts"]["claude"]["host_allowance"]["hermetic"]["allowance_tokens"]
+                and own.get("output_cap") == OUTPUT_CAP and own.get("bytes_per_token") == min(table_now.get("measured_range", [0]))
+                and "C1" in table_now.get("basis", ""), f"{own} {table_now}")
+        no_opus = root / "seats-no-opus.json"
+        no_opus.write_text(json.dumps({**held_seats, "seat_capacity": {k: v for k, v in held_seats["seat_capacity"].items()
+                                                                       if k != opus}}), encoding="utf-8")
+        no_allowance = root / "seats-no-allowance.json"
+        no_allowance.write_text(json.dumps({**held_seats, "hosts": {}}), encoding="utf-8")
+        control("W r1 F5: a seat with no declared context capacity is FORM_CAPACITY_UNKNOWN, and a host with no measured "
+                "allowance ALLOWANCE_UNMEASURED",
+                refusal(lambda: form_budget(opus, no_opus)).startswith("FORM_CAPACITY_UNKNOWN S4")
+                and refusal(lambda: form_budget(opus, no_allowance)).startswith("ALLOWANCE_UNMEASURED S4"),
+                f"{refusal(lambda: form_budget(opus, no_opus))} {refusal(lambda: form_budget(opus, no_allowance))}")
+        fits = 6_000
+        small = {**own, "capacity": tokens_of(fits, own) + own["allowance"] + OUTPUT_CAP} if own else {}
+        control("W r1 F5: a packet whose tokens, the host allowance and the output reservation exceed the seat's capacity "
+                "is FORM_OVER_BOUND naming the capacity; one that fills it exactly passes, and S3's window bound does not "
+                "apply", bool(own) and any(f"over the S4 seat's context capacity {small['capacity']}" in line
+                                          for line in bound_problems(fits + 100, small))
+                and bound_problems(fits, small) == [] and bound_problems(bound.INPUT_BOUND + 80_000, own) == [],
+                f"{guarded(lambda: bound_problems(fits + 100, small), None)} {guarded(lambda: bound_problems(fits, small), None)}")
         control("a formation call is not dispatched without a supervisor (FORM_UNSUPERVISED)",
                 refusal(lambda: run(copy_of("unsupervised"))).startswith("FORM_UNSUPERVISED"), "dispatched")
 
@@ -1742,6 +2010,69 @@ def self_test():
                 again.get("call", {}).get("reused") and guarded(lambda: (gold_dir / "population.json").read_bytes(), b"") == before
                 and len(list((gold_dir / "calls").glob(f"*-{STAGE}-*"))) == 1,
                 f"{again.get('problem') or again.get('call')}")
+
+        # W r1, F3: every attempt is measured as it is sent, so a retry whose correction outgrows the room it was admitted
+        # with is refused by name before it is reserved
+        from runlib import stage_read as s3_read
+        retry_dir = copy_of("retry-over")
+        retry_plan = root / "c5-plan-retry-over.json"
+
+        def plant_unknown_claims():
+            """The golden answer naming a hundred claim labels the packet does not show: its correction is long."""
+            planned = json.loads(plan.read_text(encoding="utf-8"))
+            planned[0]["answer"]["candidates"][0]["admission"]["consequence"]["claim_ids"] = [f"c{n}" for n in range(100, 200)]
+            retry_plan.write_text(json.dumps(planned), encoding="utf-8")
+        guarded(plant_unknown_claims, None)
+        admitted_at = dry.get("packet", {}).get("driver_bytes", 0) + s3_read.CORRECTION_ROOM
+        over_retry = refusal(lambda: run(retry_dir, supervisor(retry_dir, root / "c5-cells-retry-over", retry_plan),
+                                         form_bound=admitted_at))
+        control("W r1 F3: a packet admitted with its retry's correction room, whose correction outgrows that room, is "
+                "refused by name before the retry is reserved, and S4's record is failed",
+                over_retry.startswith("FORM_OVER_BOUND S4: this attempt's packet takes") and record_of(retry_dir).get("status") == "failed"
+                and len(list((retry_dir / "calls").glob(f"*-{STAGE}-*"))) == 1, over_retry)
+
+        room_short = copy_of("room-short")
+        short_by_one = refusal(lambda: run(room_short, dry=True, form_bound=admitted_at - 1))
+        control("W r1 F3: S4 is admitted only with room for its retry's correction: a bound one byte short of the packet "
+                "and that room is FORM_OVER_BOUND at admission", short_by_one.startswith("FORM_OVER_BOUND S4: the formation packet")
+                and "with its retry's correction room" in short_by_one, short_by_one)
+
+        # W r1, F4: a run that died holding a reservation of S4 is closed, or refused beside, when S4 runs again
+        s4_seat = gate.seats()["stage_seats"][STAGE][0]
+
+        def reserved_copy(label, plant=None):
+            """A copy of the golden run whose S4 reservation a dead run left open, `plant` marking what it got to."""
+            where = copy_of(label)
+            sup = supervisor(where, root / f"c5-cells-{label}", plan)
+            held = sup.reserve(STAGE, ITEM, s4_seat, CASE, tranche="calibration")
+            if plant is not None:
+                with sup._lock():
+                    ledger = sup.ledger()
+                    sup._stage(ledger, STAGE)["reservations"][held["call_id"]].update(plant(sup))
+                    sup._write(ledger)
+            return where, held["call_id"]
+
+        def open_s4(where):
+            sup = supervisor(where, root / "c5-cells-look", plan)
+            return sorted(c for c, r in sup._stage(sup.ledger(), STAGE)["reservations"].items() if r["open"])
+        crashed_dir, crashed_call = guarded(lambda: reserved_copy("reserved"), (None, None))
+        resumed = guarded(lambda: run(crashed_dir, supervisor(crashed_dir, root / "c5-cells-reserved", plan)),
+                          lambda exc: {"problem": repr(exc)})
+        control("W r1 F4: a run that died after reserving its call is closed when S4 runs again - the reservation released "
+                "unspent - and the call is made",
+                crashed_call is not None and resumed.get("call", {}).get("outcome") == "accepted"
+                and [(r.get("call_id"), r.get("charged")) for r in resumed.get("interrupted", [])] == [(crashed_call, "unspent")]
+                and guarded(lambda: open_s4(crashed_dir), ["?"]) == [],
+                f"{resumed.get('problem') or resumed.get('call')} {resumed.get('interrupted')}")
+        unverified_dir, unverified_call = guarded(
+            lambda: reserved_copy("unverified", lambda sup: {"dispatched_at": sup.clock(), "spawning": sup.clock()}), (None, None))
+        refused_unverified = refusal(lambda: run(unverified_dir, supervisor(unverified_dir, root / "c5-cells-unverified", plan)))
+        control("W r1 F4: a run that died after starting a runner it never recorded is refused by name "
+                "(RESUME_HOST_UNVERIFIED) before anything is reserved or sent, its reservation left open",
+                unverified_call is not None and refused_unverified.startswith("RESUME_HOST_UNVERIFIED")
+                and unverified_call in refused_unverified and record_of(unverified_dir).get("status") == "failed"
+                and not list((unverified_dir / "calls").glob(f"*-{STAGE}-*"))
+                and guarded(lambda: open_s4(unverified_dir), []) == [unverified_call], refused_unverified)
 
         # F2 at the stage: a window none of whose units resolved an event still forms from the intake's placed cluster
         quiet = copy_of("no-events")
