@@ -40,7 +40,7 @@ import tempfile
 
 if __package__ in (None, ""):  # run as a script: put session-distill/ on the import path
     sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
-from runlib import coverage, ledger as ledger_lib, ledger_migration, records, search, stagelock
+from runlib import coverage, ledger as ledger_lib, ledger_migration, records, search, stagelock, validate
 from runlib.records import Refused
 
 HERE = pathlib.Path(__file__).resolve().parents[1]
@@ -189,19 +189,44 @@ class Library:
         return out
 
 
+def relative_path(unit):
+    """Where a unit's text sits, relative to the checkout or project that holds it (lead, D5 scope after X round 1). A
+    native unit's path is recorded as `<host>:<type>:<path the host reported>` (inventory.member_carrier) and its
+    provenance names its scope, the session's working directory, masked as the path is; a path under the scope is taken
+    from it, so one file's copies in two checkouts read the same, and any other path is kept whole. Every other layer's
+    path is already the checkout's own (a catalog guide, `<ledger>#<entry>`, an overlay)."""
+    path = unit.get("path") or ""
+    if not unit["layer"].startswith("native_"):
+        return path
+    reported = path.split(":", 2)[2] if path.count(":") >= 2 else path
+    scope = ((unit.get("provenance") or {}).get("scope") or "").rstrip("/")
+    return reported[len(scope) + 1:] if scope and reported.startswith(scope + "/") else reported
+
+
 def eligible_units(units, spec):
     """The current library's units a hint reads, and what was left out, counted: operative units outside the table's
-    excluded layers, one per fragment sha (identical text delivered by several carriers is one instruction), with at
-    least the table's `min_keys` distinct keys."""
+    excluded layers, one per fragment sha, with at least the table's `min_keys` distinct keys. Identical text is read
+    once: where its copies share one layer and one relative path (`relative_path`) they are one file's copies, folded and
+    counted; where they sit in more than one place, the group is returned as well, as identical text the owner can
+    reduce. Returns `(kept, counts, identical groups)`, each group the unit ids of one unit per place, the kept one first."""
     operative = [u for u in units if u["class"] == "operative"]
     left = collections.Counter(u["layer"] for u in operative if u["layer"] in spec["excluded_layers"])
-    distinct = {}
+    groups = collections.defaultdict(list)
     for u in sorted((u for u in operative if u["layer"] not in spec["excluded_layers"]), key=lambda u: u["unit_id"]):
-        distinct.setdefault(u["sha"], u)
-    folded = sum(1 for u in operative if u["layer"] not in spec["excluded_layers"]) - len(distinct)
-    kept = [u for u in distinct.values() if len(keys_tf(u["text"])[0]) >= spec["min_keys"]]
-    return kept, {"excluded_layers": dict(sorted(left.items())), "identical_copies_folded": folded,
-                  "below_min_keys": len(distinct) - len(kept), "eligible": len(kept)}
+        groups[u["sha"]].append(u)
+    distinct, places_of, copies = [], {}, 0
+    for members in groups.values():
+        places = {}
+        for u in members:
+            places.setdefault((u["layer"], relative_path(u)), u)
+        copies += len(members) - len(places)
+        distinct.append(members[0])
+        places_of[members[0]["unit_id"]] = sorted(u["unit_id"] for u in places.values())
+    kept = sorted((u for u in distinct if len(keys_tf(u["text"])[0]) >= spec["min_keys"]), key=lambda u: u["unit_id"])
+    identical = [places_of[u["unit_id"]] for u in kept if len(places_of[u["unit_id"]]) > 1]
+    return kept, {"excluded_layers": dict(sorted(left.items())), "identical_copies_folded": copies,
+                  "identical_groups": len(identical), "below_min_keys": len(distinct) - len(kept),
+                  "eligible": len(kept)}, identical
 
 
 def similarities(units):
@@ -226,17 +251,22 @@ def similarities(units):
 
 
 def redundancy_pairs(units, spec=None):
-    """Design §7.1's redundancy hints over the current library: every pair of eligible units whose similarity reaches
-    the fixed threshold, both operative by construction; more than the ceiling is REDUNDANCY_OVER_CEILING. Returns
-    `(candidates, excluded counts)`."""
+    """Design §7.1's redundancy hints over the current library, both operative by construction: every group of
+    identical text in more than one place (`eligible_units`), one hint per group at similarity 1.0, and every pair of
+    eligible units whose similarity reaches the fixed threshold. More hints than the ceiling is REDUNDANCY_OVER_CEILING.
+    Returns `(candidates, excluded counts)`."""
     spec = table() if spec is None else spec
-    kept, left = eligible_units(units, spec)
+    kept, left, identical = eligible_units(units, spec)
     pairs = sorted((pair, score) for pair, score in similarities(kept).items() if score >= spec["threshold"])
-    if len(pairs) > spec["ceiling"]:
-        raise Refused(f"REDUNDANCY_OVER_CEILING {len(pairs)} pairs reach the threshold {spec['threshold']}, more than the "
-                      f"ceiling {spec['ceiling']} tables/redundancy.json allows; the threshold is re-measured, never the list cut")
-    return [{"candidate_id": f"redundancy_hint:{a}|{b}", "source": "redundancy_hint", "target_units": [a, b],
-             "similarity": round(score, 4)} for (a, b), score in pairs], left
+    if len(pairs) + len(identical) > spec["ceiling"]:
+        raise Refused(f"REDUNDANCY_OVER_CEILING {len(pairs) + len(identical)} redundancy hints ({len(identical)} groups of "
+                      f"identical text, {len(pairs)} pairs at the threshold {spec['threshold']}), more than the ceiling "
+                      f"{spec['ceiling']} tables/redundancy.json allows; the threshold is re-measured, never the list cut")
+    same = [{"candidate_id": "redundancy_hint:" + "|".join(group), "source": "redundancy_hint", "target_units": group,
+             "similarity": 1.0, "match": "identical"} for group in identical]
+    near = [{"candidate_id": f"redundancy_hint:{a}|{b}", "source": "redundancy_hint", "target_units": [a, b],
+             "similarity": round(score, 4), "match": "near"} for (a, b), score in pairs]
+    return sorted(same + near, key=lambda c: c["candidate_id"]), left
 
 
 def upward_clusters(doc, units, spec=None):
@@ -244,7 +274,7 @@ def upward_clusters(doc, units, spec=None):
     units is one unit, at least three of them (lead decision D6 (iii)). A learning whose text matches no unit is in
     no cluster. Returns the candidates, each with the lessons the formation packet shows."""
     spec = table() if spec is None else spec
-    kept, _left = eligible_units(units, spec)
+    kept, _left, _identical = eligible_units(units, spec)
     lib = Library({u["unit_id"]: u["text"] for u in kept})
     groups = collections.defaultdict(list)
     for entry in doc["entries"]:
@@ -261,9 +291,13 @@ def upward_clusters(doc, units, spec=None):
     out = []
     for unit, entries in sorted(groups.items()):
         if len(entries) >= UPWARD_MIN:
+            ordered = sorted(entries, key=lambda e: e["id"])
             out.append({"candidate_id": f"g_cluster:{unit}", "source": "g_cluster", "target_unit": unit,
-                        "entries": sorted(e["id"] for e in entries),
-                        "lessons": [e["lesson"] for e in sorted(entries, key=lambda e: e["id"])]})
+                        "entries": [e["id"] for e in ordered], "lessons": [e["lesson"] for e in ordered],
+                        # what the formation packet shows of each entry, under a label of its own (lead decision after X
+                        # round 1, F2): its lesson, where its stored evidence is, and the lineages its record names
+                        "members": [{"entry": e["id"], "lesson": e["lesson"], "evidence": copy.deepcopy(e.get("evidence") or []),
+                                     "independent_lineages": e.get("independent_lineages")} for e in ordered]})
     return out
 
 
@@ -280,7 +314,7 @@ def derive(doc, window, units, occasions=None, index_rows=None, spec=None):
              "g_cluster_arc": "an arc retrospective needs a declared arc, and the declaration has no field for one",
              "excluded_layers": {layer: {"operative_units": left["excluded_layers"].get(layer, 0), "reason": reason}
                                  for layer, reason in sorted(spec["excluded_layers"].items())},
-             "library_units": {k: left[k] for k in ("eligible", "identical_copies_folded", "below_min_keys")}}
+             "library_units": {k: left[k] for k in ("eligible", "identical_copies_folded", "identical_groups", "below_min_keys")}}
     return sources, notes
 
 
@@ -293,9 +327,17 @@ def build(run_dir, declaration, index_rows=None):
     units = records.read_json(run_dir / "inventory" / "current.json")["units"]
     sources, notes = derive(doc, declaration["window"], units, window_occasions(run_dir, declaration["window"]), index_rows)
     candidates = [c for s in SOURCES for c in sources[s]]
-    return {"window": declaration["window"], "ledger": {"sha256": declaration["starting_hashes"]["ledger"], "read": had},
-            "candidates": candidates, "notes": notes,
-            "counts": {s: len(sources[s]) for s in SOURCES}}
+    doc = {"window": declaration["window"], "ledger": {"sha256": declaration["starting_hashes"]["ledger"], "read": had},
+           "candidates": candidates, "notes": notes, "counts": {s: len(sources[s]) for s in SOURCES}}
+    problems = schema_problems(doc)
+    if problems:
+        raise Refused("INTAKE_INVALID " + "; ".join(problems[:5]))
+    return doc
+
+
+def schema_problems(doc):
+    """`intake.json`'s document against its schema, each violation a line."""
+    return validate.validate_instance(validate.compile_schema(json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))), doc)
 
 
 def intake_problems(intake, sources):
@@ -311,8 +353,13 @@ def intake_problems(intake, sources):
 
 # ---- self-test ---------------------------------------------------------------------------------------
 
-def fx_unit(unit_id, text, layer="catalog", cls="operative"):
-    return {"unit_id": unit_id, "layer": layer, "class": cls, "text": text, "sha": hashlib.sha256(text.encode("utf-8")).hexdigest()}
+def fx_unit(unit_id, text, layer="catalog", cls="operative", path=None, scope=None):
+    """A unit as S2's inventory records one: a native unit's path is `<host>:<type>:<path>`, its scope the session's."""
+    unit = {"unit_id": unit_id, "layer": layer, "class": cls, "text": text, "sha": hashlib.sha256(text.encode("utf-8")).hexdigest(),
+            "path": path if path is not None else f"claude/guides/{unit_id}.md"}
+    if scope is not None:
+        unit["provenance"] = {"scope": scope}
+    return unit
 
 
 FX_LIBRARY = [
@@ -323,7 +370,14 @@ FX_LIBRARY = [
     fx_unit("u-ref", "Ask the person before you push to any shared remote; a push cannot be taken back quietly.", cls="reference"),
     fx_unit("u-codex", "Run the tests that cover a change before calling the change done.", layer="native_undivided"),
     fx_unit("u-codex2", "Run the tests that cover the change before you call the change done.", layer="native_undivided"),
-    fx_unit("u-quote", "Quote a glob in a zsh command line, or the shell expands it before the tool sees it.", layer="native_project"),
+    # u-glob's text again, in a project's AGENTS.md: identical text in two places, which the owner can reduce
+    fx_unit("u-quote", "Quote a glob in a zsh command line, or the shell expands it before the tool sees it.", layer="native_project",
+            path="claude:Project:<HOME>/b/AGENTS.md", scope="<HOME>/b"),
+    # one project file in two checkouts of it: the same relative path, so one file's copies
+    fx_unit("u-wt1", "Write the changelog entry beside the change it describes.", layer="native_project",
+            path="claude:Project:<HOME>/a/CLAUDE.md", scope="<HOME>/a"),
+    fx_unit("u-wt2", "Write the changelog entry beside the change it describes.", layer="native_project",
+            path="claude:Project:<HOME>/a-wt/CLAUDE.md", scope="<HOME>/a-wt"),
     fx_unit("u-short", "Ask the person before you push."),
     fx_unit("u-true", "true"),
     fx_unit("u-true2", "true,"),
@@ -441,18 +495,29 @@ def self_test():
     control("with no occasion index, the intake takes no obsolete hint and says why",
             ids["obsolete_hint"] == [] and "WP-21" in (notes.get("obsolete_hint") or ""), f"{notes.get('obsolete_hint')}")
     # (d) redundancy hints
+    near_hints = [c["candidate_id"] for c in sources.get("redundancy_hint", []) if c.get("match") == "near"]
     control("done-when 3 (d): a near-duplicate pair of operative units reaches the threshold and is a redundancy hint",
-            ids["redundancy_hint"] == ["redundancy_hint:u-push|u-push2"], f"{ids['redundancy_hint']}")
+            near_hints == ["redundancy_hint:u-push|u-push2"], f"{ids['redundancy_hint']}")
     control("D5 scope: a reference unit and the excluded layer's units are no part of a pair, and the units the layer "
             "left out are counted with its reason",
             not any("u-ref" in i or "u-codex" in i for i in ids["redundancy_hint"])
             and notes.get("excluded_layers", {}).get("native_undivided", {}).get("operative_units") == 2,
             f"{notes.get('excluded_layers')}")
-    control("identical text in two carriers is one instruction, folded before pairing and counted; a unit of fewer than "
-            "min_keys keys is left out, counted, and never paired",
-            not any("u-quote" in i or "u-true" in i for i in ids["redundancy_hint"])
-            and notes.get("library_units") == {"eligible": 5, "identical_copies_folded": 1, "below_min_keys": 2},
+    same_hints = [c for c in sources.get("redundancy_hint", []) if c.get("match") == "identical"]
+    control("one file's copies in two checkouts (one layer, one path relative to its scope) are folded and counted, and "
+            "are no hint",
+            not any("u-wt" in i for i in ids["redundancy_hint"]) and notes.get("library_units", {}).get("identical_copies_folded") == 1
+            and guarded(lambda: [relative_path(u) for u in FX_LIBRARY if u["unit_id"].startswith("u-wt")], []) == ["CLAUDE.md"] * 2,
             f"{notes.get('library_units')} {ids['redundancy_hint']}")
+    control("identical text in two places (another layer, or another relative path) is one redundancy hint at similarity "
+            "1.0 naming one unit of each place, and is paired no further",
+            [(c["candidate_id"], c["similarity"], c["target_units"]) for c in same_hints]
+            == [("redundancy_hint:u-glob|u-quote", 1.0, ["u-glob", "u-quote"])]
+            and notes.get("library_units", {}).get("identical_groups") == 1
+            and sum("u-quote" in i for i in ids["redundancy_hint"]) == 1, f"{[c['candidate_id'] for c in same_hints]}")
+    control("a unit of fewer than min_keys keys is left out, counted, and never paired",
+            not any("u-true" in i for i in ids["redundancy_hint"])
+            and notes.get("library_units", {}).get("below_min_keys") == 2, f"{notes.get('library_units')}")
     table_now = guarded(table, {})
     control("the table's threshold, floor and ceiling are numbers with the measurement they rest on, and each excluded "
             "layer carries its reason",
@@ -472,6 +537,10 @@ def self_test():
     control("more pairs than the ceiling are refused by name, never cut",
             refusal(lambda: redundancy_pairs(FX_LIBRARY, {**spec, "threshold": 0.0, "ceiling": 1})).startswith("REDUNDANCY_OVER_CEILING"),
             refusal(lambda: redundancy_pairs(FX_LIBRARY, {**spec, "threshold": 0.0, "ceiling": 1})))
+    control("a group of identical text is a hint the ceiling counts: one near pair and one group over a ceiling of 1 are "
+            "refused by name",
+            refusal(lambda: redundancy_pairs(FX_LIBRARY, {**spec, "ceiling": 1})).startswith("REDUNDANCY_OVER_CEILING 2 redundancy hints (1 groups"),
+            refusal(lambda: redundancy_pairs(FX_LIBRARY, {**spec, "ceiling": 1})))
     # (e) G clusters
     control("done-when 3 (e): three placed learnings whose top hit is one unit are a G cluster with their lessons; two "
             "sharing a unit are not",
@@ -498,7 +567,8 @@ def self_test():
                                                 {"events": [], "carried_forward": [], "not_formed": [], "units": {}}, "r9", two), {})
     control("two lifecycle candidates of one entry are two rows of the population, told apart by id",
             pop.get("candidate_ids") == ["legacy:M-1", "redundancy_hint:L-M-1|u-push"]
-            and guarded(lambda: stage_form.population_problems(pop, {"events": []}, two), ["RAISED"]) == [],
+            and guarded(lambda: stage_form.population_problems(pop, {"events": [], "carried_forward": [], "not_formed": [],
+                                                                     "units": {}}, two), ["RAISED"]) == [],
             f"{pop.get('candidate_ids')}")
     # done-when 7: the sources equal the formation contract's closed list, and the intake schema holds them
     schema = guarded(lambda: json.loads(SCHEMA_PATH.read_text(encoding="utf-8")), {})
@@ -510,6 +580,24 @@ def self_test():
     from runlib import validate
     control("the intake document passes its schema", guarded(lambda: validate.validate_instance(validate.compile_schema(schema), built), ["RAISED"]) == [],
             f"{guarded(lambda: validate.validate_instance(validate.compile_schema(schema), built), ['RAISED'])[:3]}")
+
+    def bent_build():
+        """build over a derivation bent to return a redundancy hint naming one unit, which the intake schema refuses."""
+        bad = {s: [] for s in SOURCES}
+        bad["redundancy_hint"] = [{"candidate_id": "redundancy_hint:u-one", "source": "redundancy_hint", "target_units": ["u-one"],
+                                   "similarity": 1.0, "match": "identical"}]
+        saved = {name: globals()[name] for name in ("ledger_of", "window_occasions", "derive")}
+        globals().update(ledger_of=lambda declaration: (doc, "schema 2"), window_occasions=lambda run_dir, window: {},
+                         derive=lambda *args, **kwargs: (bad, notes))
+        try:
+            with tempfile.TemporaryDirectory(prefix="intake-") as td:
+                (pathlib.Path(td) / "inventory").mkdir()
+                (pathlib.Path(td) / "inventory" / "current.json").write_text('{"units": []}', encoding="utf-8")
+                return build(td, {"window": FX_WINDOW, "starting_hashes": {"ledger": "0" * 64}})
+        finally:
+            globals().update(saved)
+    control("build refuses an intake document its schema refuses (INTAKE_INVALID), before any stage writes it",
+            refusal(bent_build).startswith("INTAKE_INVALID"), refusal(bent_build))
     # D4: a schema 1 pin is migrated in memory by the cutover's function and its file is never written
     with tempfile.TemporaryDirectory(prefix="intake-") as td:
         checkout = pathlib.Path(td)

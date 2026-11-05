@@ -13,6 +13,10 @@
   "$defs": {
     "event": {"type": "string", "pattern": "^v[1-9][0-9]*(?![\\s\\S])"},
     "event_ids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/event"}},
+    "candidate_event_ids": {
+      "$comment": "a candidate's events; code refuses an empty list except on a type G candidate distilled from a placed cluster, which cites that cluster's entries (CANDIDATE_WITHOUT_EVENTS; lead decision after X round 1, F2)",
+      "type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/event"}},
+    "entry_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^u[1-9][0-9]*\\.[1-9][0-9]*(?![\\s\\S])"}},
     "claim_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^c[1-9][0-9]*(?![\\s\\S])"}},
     "quote_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^q[1-9][0-9]*(?![\\s\\S])"}},
     "text": {"type": "string", "minLength": 1},
@@ -43,14 +47,15 @@
       }
     },
     "tension": {
-      "$comment": "design §7.4: a type G candidate carries both sides of the tension, the preference ordering, what it now forbids and at least three claims as instances; code refuses one without them (G_ANTI_ABSTRACTION), and refuses any of them on another type, where every list is empty and every text \"\" (TENSION_OUTSIDE_G). cluster is the label of the ledger cluster a G candidate distills, or \"\".",
+      "$comment": "design §7.4: a type G candidate carries both sides of the tension, the preference ordering, what it now forbids and at least three instances: three claims, or - distilled from a placed cluster - three entries of the cluster it names (lead decision after X round 1, F2); code refuses one without them (G_ANTI_ABSTRACTION), and refuses any of them on another type, where every list is empty and every text \"\" (TENSION_OUTSIDE_G). cluster is the label of the ledger cluster a G candidate distills, or \"\".",
       "type": "object", "additionalProperties": false,
-      "required": ["sides", "ordering", "forbids", "instance_claim_ids", "cluster"],
+      "required": ["sides", "ordering", "forbids", "instance_claim_ids", "instance_entry_ids", "cluster"],
       "properties": {
         "sides": {"type": "array", "items": {"type": "string"}},
         "ordering": {"type": "string"},
         "forbids": {"type": "string"},
         "instance_claim_ids": {"$ref": "#/$defs/claim_ids"},
+        "instance_entry_ids": {"$ref": "#/$defs/entry_ids"},
         "cluster": {"type": "string", "pattern": "^(u[1-9][0-9]*)?(?![\\s\\S])"}
       }
     },
@@ -66,7 +71,7 @@
         "action": {"$ref": "#/$defs/text"},
         "exception": {"$ref": "#/$defs/text"},
         "admission": {"$ref": "#/$defs/admission"},
-        "event_ids": {"$ref": "#/$defs/event_ids"},
+        "event_ids": {"$ref": "#/$defs/candidate_event_ids"},
         "tension": {"$ref": "#/$defs/tension"}
       }
     },

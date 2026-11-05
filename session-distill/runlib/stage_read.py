@@ -1241,6 +1241,16 @@ def unit_status(files, outcomes, stitch=None):
     return ("read_partial", reasons) if reasons else ("read_complete", [])
 
 
+def unit_files(rows, units):
+    """`{unit: the coverage keys of its files}`: the files of its root and of every member the census reads with it
+    (`child_of`), each by its coverage key (`census.segments_of`). One reading of a unit's files, for S3's stitch and for
+    S4's accounting of the events earlier runs left pending on them."""
+    by_key, members = {census.key_of(e): e for e in rows}, census.units(rows)
+    return {unit: {f["key"] for e in [by_key[unit]] + [by_key[m] for m in members.get(unit, [])]
+                   if e is by_key[unit] or e["status"] == "child_of" for f in census.segments_of(e)}
+            for unit in units}
+
+
 def hand_back(rows, viewed, results, done):
     """The results S3 hands back, one per unit. Every session eligible at S1 ends with a terminal status: one whose
     reading was quarantined here, or whose views S2 quarantined, has failed and processed nothing. A unit viewed that
@@ -1288,10 +1298,7 @@ def run(run_dir, supervisor, tranche="broad", stitch_bound=None, jobs=S3_JOBS):
             views_of[t["unit"]].append(t)
         # every file of each unit, viewed or not, as S2 chose them: an event an earlier run left pending on a file this run
         # owes nothing is still the unit's, and S2 viewed that file for it (W r1)
-        by_key, members = {census.key_of(e): e for e in rows}, census.units(rows)
-        files_of = {unit: {f["key"] for e in [by_key[unit]] + [by_key[m] for m in members.get(unit, [])]
-                           if e is by_key[unit] or e["status"] == "child_of" for f in census.segments_of(e)}
-                    for unit in views_of}
+        files_of = unit_files(rows, views_of)
         # a stitch packet is cut by what it measures, under the bound the declaration S3 was admitted against gives a
         # view-window call, less the room its one retry's correction takes; S2's overhead is not a stitch's
         bound_bytes = bound.driver_budget(views.limits_of(reader.declaration)) - CORRECTION_ROOM

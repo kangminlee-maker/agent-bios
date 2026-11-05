@@ -14,9 +14,10 @@
     "notes": {"type": "object", "additionalProperties": false, "required": ["obsolete_hint", "g_cluster_arc", "excluded_layers", "library_units"],
               "properties": {"obsolete_hint": {"type": ["string", "null"]}, "g_cluster_arc": {"type": "string"},
                              "library_units": {"type": "object", "additionalProperties": false,
-                                               "required": ["eligible", "identical_copies_folded", "below_min_keys"],
+                                               "required": ["eligible", "identical_copies_folded", "identical_groups", "below_min_keys"],
                                                "properties": {"eligible": {"type": "integer", "minimum": 0},
                                                               "identical_copies_folded": {"type": "integer", "minimum": 0},
+                                                              "identical_groups": {"type": "integer", "minimum": 0},
                                                               "below_min_keys": {"type": "integer", "minimum": 0}}},
                              "excluded_layers": {"type": "object", "additionalProperties": false,
                                                  "patternProperties": {"^[a-z_]+$": {"type": "object", "additionalProperties": false,
@@ -38,7 +39,8 @@
         "source": {"type": "string", "enum": ["due_decision", "legacy", "obsolete_hint", "redundancy_hint", "g_cluster"]},
         "target_entry": {"type": "string", "minLength": 1},
         "target_unit": {"type": "string", "minLength": 1},
-        "target_units": {"type": "array", "minItems": 2, "maxItems": 2, "items": {"type": "string", "minLength": 1}},
+        "target_units": {"type": "array", "minItems": 2, "items": {"type": "string", "minLength": 1}},
+        "match": {"type": "string", "enum": ["identical", "near"]},
         "resolves": {"type": ["string", "null"]},
         "entry_status": {"type": "string"},
         "expiry": {"type": "string"},
@@ -54,7 +56,15 @@
         "windows_without_match": {"type": "integer", "minimum": 3},
         "similarity": {"type": "number"},
         "entries": {"type": "array", "minItems": 3, "items": {"type": "string"}},
-        "lessons": {"type": "array", "items": {"type": "string"}}
+        "lessons": {"type": "array", "items": {"type": "string"}},
+        "members": {"type": "array", "minItems": 3, "items": {"type": "object", "additionalProperties": false,
+                    "required": ["entry", "lesson", "evidence", "independent_lineages"],
+                    "properties": {"entry": {"type": "string", "minLength": 1}, "lesson": {"type": "string"},
+                                   "evidence": {"$comment": "the entry's evidence[] as the ledger holds it (schema 2's evidence_item)",
+                                                "type": "array", "items": {"type": "object", "additionalProperties": false,
+                                                "properties": {"claim_id": {"type": "string"}, "evidence_id": {"type": "string"},
+                                                               "locator": {"type": "string"}, "session": {"type": "string"}}}},
+                                   "independent_lineages": {"type": ["integer", "string", "null"]}}}}
       }
     }
   }

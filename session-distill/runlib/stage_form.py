@@ -49,6 +49,7 @@ import copy
 import json
 import os
 import pathlib
+import re
 import shutil
 import subprocess
 import sys
@@ -104,13 +105,14 @@ def quote_row(quote):
 class FormLabels:
     """What one formation packet labels: its events v1, v2, ... in the order it lists them, the sessions they come from
     s1, ... in first appearance, the claims c1, ... in the order the events name them (describing claims, then outcome
-    claims), their quotes q1, ... in first appearance, and the placed clusters u1, ... in theirs. The labels follow from
-    what the packet lists, so a retry's packet shows the same ones and nothing stores them.
+    claims), their quotes q1, ... in first appearance and then the quotes of the events' origins, the placed clusters
+    u1, ... in theirs, and each cluster's entries u1.1, u1.2, ... (lead decision after X round 1, F2). The labels follow
+    from what the packet lists, so a retry's packet shows the same ones and nothing stores them.
 
-    `events` are `{id, session, kind, description, claim_ids, outcome_claim_ids}` (stored ids; a carried event resolved in
-    this run describes itself by no claim of this run, and shows its outcome by the stitch's), `claims` map a stored
-    claim id to `{fact, interpretation, uncertainty, quotes: [{evidence_id, record, window_role, text}]}`, and
-    `clusters` are `{id, lessons}`."""
+    `events` are `{id, session, kind, description, claim_ids, outcome_claim_ids, origin?}` (stored ids; a carried event
+    resolved in this run describes itself by no claim of this run, shows where it began by its `origin` quotes and its
+    outcome by the stitch's claims), `claims` map a stored claim id to `{fact, interpretation, uncertainty, quotes:
+    [{evidence_id, record, window_role, text}]}`, and `clusters` are `{id, members: [{entry, lesson, evidence}]}`."""
 
     def __init__(self, events, claims, clusters=()):
         self.rows, self.claim_rows, self.cluster_rows = list(events), claims, list(clusters)
@@ -122,18 +124,32 @@ class FormLabels:
         if missing:
             raise Refused(f"RECORD_INTEGRITY S4 packet: events name claims no row carries: {missing[:5]}")
         self.claims = {f"c{n}": c for n, c in enumerate(named, 1)}
-        quotes = list(dict.fromkeys(q["evidence_id"] for c in named for q in claims[c]["quotes"]))
+        quotes = list(dict.fromkeys([q["evidence_id"] for c in named for q in claims[c]["quotes"]]
+                                    + [o["evidence_id"] for ev in self.rows for o in ev.get("origin", []) if o.get("evidence_id")]))
         self.quotes = {f"q{n}": e for n, e in enumerate(quotes, 1)}
         self.clusters = {f"u{n}": c["id"] for n, c in enumerate(self.cluster_rows, 1)}
+        self.entries, self.entry_cluster = {}, {}
+        for n, c in enumerate(self.cluster_rows, 1):
+            for m, member in enumerate(c["members"], 1):
+                self.entries[f"u{n}.{m}"] = member["entry"]
+                self.entry_cluster[f"u{n}.{m}"] = f"u{n}"
         self.of_event, self.of_session, self.of_claim, self.of_quote, self.of_cluster = (
             {v: k for k, v in table.items()} for table in (self.events, self.sessions, self.claims, self.quotes,
                                                           self.clusters))
+
+    def origin_rows(self, ev):
+        """An event's origin as the packet shows it: a citable block by its quote label, one that cannot be stored as a
+        quote by its text alone."""
+        return [{**({"evidence_id": self.of_quote[o["evidence_id"]]} if o.get("evidence_id") else {"citable": False}),
+                 "record": o["record"], "window_role": "origin", "text": o["text"], **({"cut": True} if o.get("cut") else {})}
+                for o in ev.get("origin", [])]
 
     def events_text(self):
         if not self.rows:
             return "none"
         return "\n".join(json.dumps({"event_id": self.of_event[ev["id"]], "session": self.of_session[ev["session"]],
                                      "kind": ev["kind"], "description": ev["description"],
+                                     **({"origin": self.origin_rows(ev)} if "origin" in ev else {}),
                                      "claims": [self.of_claim[c] for c in ev["claim_ids"]],
                                      "outcome_claims": [self.of_claim[c] for c in ev["outcome_claim_ids"]]},
                                     ensure_ascii=False) for ev in self.rows)
@@ -153,8 +169,9 @@ class FormLabels:
     def clusters_text(self):
         if not self.cluster_rows:
             return "none"
-        return "\n".join(json.dumps({"cluster_id": self.of_cluster[c["id"]], "lessons": list(c["lessons"])},
-                                    ensure_ascii=False) for c in self.cluster_rows)
+        return "\n".join(json.dumps({"cluster_id": self.of_cluster[c["id"]], "entries": [
+            {"entry_id": f"{self.of_cluster[c['id']]}.{m}", "lesson": member["lesson"], "evidence": member.get("evidence") or []}
+            for m, member in enumerate(c["members"], 1)]}, ensure_ascii=False) for c in self.cluster_rows)
 
     def resolve(self, answer):
         """`answer` with every packet label turned into the stored id it labels; one the packet does not show is refused
@@ -173,6 +190,7 @@ class FormLabels:
                 req["evidence_ids"] = [of(self.quotes, q, f"{where}/admission/{name}", "quote") for q in req["evidence_ids"]]
             t = k["tension"]
             t["instance_claim_ids"] = [of(self.claims, c, f"{where}/tension", "claim") for c in t["instance_claim_ids"]]
+            t["instance_entry_ids"] = [of(self.entries, e, f"{where}/tension", "cluster entry") for e in t["instance_entry_ids"]]
             t["cluster"] = of(self.clusters, t["cluster"], f"{where}/tension/cluster", "cluster") if t["cluster"] else ""
         for r in out["rejected_findings"]:
             r["event_ids"] = [of(self.events, v, f"rejected_findings/{r['finding_id']}/event_ids", "event")
@@ -189,8 +207,11 @@ def payload(labels):
                                     "clusters": labels.clusters_text()})
 
 
-def g_problems(where, tension, shown_claims):
-    """Design §7.4's anti-abstraction guard over one type G candidate's tension, each missing part by name."""
+def g_problems(where, tension, labels):
+    """Design §7.4's anti-abstraction guard over one type G candidate's tension, each missing part by name. Its
+    instances are at least three distinct claims the packet shows, or - for a principle distilled from a placed cluster
+    (lead decision after X round 1, F2) - at least three entries of the cluster it names; an entry of another cluster
+    is no instance of it."""
     errors = []
     sides = [s.strip() for s in tension["sides"]]
     if len(sides) != 2 or not all(sides) or sides[0] == sides[1]:
@@ -202,11 +223,25 @@ def g_problems(where, tension, shown_claims):
     if not tension["forbids"].strip():
         errors.append(f"G_ANTI_ABSTRACTION {where}/tension/forbids: a type G candidate states what the preference now "
                       "forbids")
-    instances = {c for c in tension["instance_claim_ids"] if c in shown_claims}
-    if len(instances) < G_MIN_INSTANCES:
-        errors.append(f"G_ANTI_ABSTRACTION {where}/tension/instance_claim_ids: a type G candidate cites at least "
-                      f"{G_MIN_INSTANCES} distinct claims as instances; it cites {len(instances)}")
+    claims = {c for c in tension["instance_claim_ids"] if c in labels.claims}
+    entries = {e for e in tension["instance_entry_ids"] if e in labels.entries}
+    foreign = sorted(e for e in entries if labels.entry_cluster[e] != tension["cluster"])
+    if foreign:
+        errors.append(f"G_ANTI_ABSTRACTION {where}/tension/instance_entry_ids: {foreign} are not entries of the cluster it "
+                      f"names ({tension['cluster'] or 'none'})")
+    own = entries - set(foreign)
+    if len(claims) < G_MIN_INSTANCES and len(own) < G_MIN_INSTANCES:
+        path = "instance_entry_ids" if tension["instance_entry_ids"] else "instance_claim_ids"
+        errors.append(f"G_ANTI_ABSTRACTION {where}/tension/{path}: a type G candidate cites at least {G_MIN_INSTANCES} "
+                      f"distinct claims, or at least {G_MIN_INSTANCES} entries of the placed cluster it names, as instances; "
+                      f"it cites {len(claims)} claims and {len(own)} entries")
     return errors
+
+
+def from_cluster(candidate):
+    """A type G candidate distilled from a placed cluster: it names the cluster and cites its entries as instances."""
+    t = candidate["tension"]
+    return candidate["type"] == "G" and bool(t["cluster"]) and bool(t["instance_entry_ids"])
 
 
 def answer_problems(labels, answer):
@@ -228,6 +263,9 @@ def answer_problems(labels, answer):
             errors.append(f"RECORD_INTEGRITY {kind} ids repeat: {repeated}")
     for k in answer["candidates"]:
         where = f"candidates/{k['candidate_id']}"
+        if not k["event_ids"] and not from_cluster(k):
+            errors.append(f"CANDIDATE_WITHOUT_EVENTS {where}/event_ids: a candidate rests on the events it names; only a "
+                          "type G candidate distilled from a placed cluster, citing that cluster's entries, names none")
         for v in k["event_ids"]:
             known(v, labels.events, f"{where}/event_ids", "event")
         for name in ADMISSION:
@@ -239,11 +277,13 @@ def answer_problems(labels, answer):
         t = k["tension"]
         for c in t["instance_claim_ids"]:
             known(c, labels.claims, f"{where}/tension/instance_claim_ids", "claim")
+        for e in t["instance_entry_ids"]:
+            known(e, labels.entries, f"{where}/tension/instance_entry_ids", "cluster entry")
         if t["cluster"]:
             known(t["cluster"], labels.clusters, f"{where}/tension/cluster", "cluster")
         if k["type"] == "G":
-            errors.extend(g_problems(where, t, labels.claims))
-        elif t["sides"] or t["ordering"] or t["forbids"] or t["instance_claim_ids"] or t["cluster"]:
+            errors.extend(g_problems(where, t, labels))
+        elif t["sides"] or t["ordering"] or t["forbids"] or t["instance_claim_ids"] or t["instance_entry_ids"] or t["cluster"]:
             errors.append(f"TENSION_OUTSIDE_G {where}/tension: a type {k['type']} candidate leaves every list of its "
                           "tension empty and every text \"\"; the tension is type G's")
     for r in answer["rejected_findings"]:
@@ -296,16 +336,78 @@ def sid(prefix, run_id, label):
     return stage_read.sid(prefix, run_id, label)
 
 
+def unit_of_file(rows, units):
+    """`{coverage key of a file: its unit}` for the units S3 answered, as S3 reads each unit's files."""
+    from runlib import stage_read
+    return {key: unit for unit, keys in stage_read.unit_files(rows, units).items() for key in keys}
+
+
+def origin_of(run_dir, view, event):
+    """The first record of a carried event, as this run's copy holds it (lead decision after X round 1, F3): each block
+    of it the stitch showed when it resolved the event (`stage_read.projected_blocks`, cut where the stitch cut it),
+    made an evidence record from the immutable copy (`evidence.make`) and held to the projection's text, so an origin
+    quote is verified as every other quote is. Its stored id is `origin:<view>#<record>`. A block whose text names a
+    secret cannot be stored as a quote (EVIDENCE_QUOTE_SENSITIVE): it is shown and cannot be cited. A first record the
+    projection does not hold, or holds otherwise than the copy, is RECORD_INTEGRITY."""
+    from runlib import stage_read
+    line = int(re.match(r"[0-9]+", event["at_record"]).group())
+    blocks = stage_read.projected_blocks(run_dir, view, line)
+    if not blocks:
+        raise Refused(f"RECORD_INTEGRITY {event['event_id']}: its first record, line {line} of {view['name']}, holds no block "
+                      "in this run's projection, so where it began cannot be shown")
+    rows = []
+    for pointer, text in blocks:
+        cut, was_cut = views.cap_text(text, QUOTE_BYTES)
+        where = f"{line}{pointer}"
+        row = {"evidence_id": f"origin:{view['name']}#{where}", "record": where, "window_role": "origin", "text": cut,
+               **({"cut": True} if was_cut else {})}
+        if not cut:
+            continue
+        try:
+            made = evidence.make(run_dir, view["version_sha"], line, pointer, [0, len(cut)], "context")
+        except Refused as exc:
+            if str(exc).startswith("EVIDENCE_QUOTE_SENSITIVE"):
+                rows.append({**row, "evidence_id": None, "withheld": "EVIDENCE_QUOTE_SENSITIVE"})
+                continue
+            raise Refused(f"RECORD_INTEGRITY {event['event_id']}: its origin at {where} of {view['name']} does not resolve in "
+                          f"the immutable copy ({str(exc).split(' ', 1)[0]})") from exc
+        if made["redacted_text"] != cut:
+            raise Refused(f"RECORD_INTEGRITY {event['event_id']}: the projection's text at {where} of {view['name']} is not "
+                          "what the immutable copy projects there, so its origin is not shown")
+        rows.append({**row, "evidence": made})
+    return rows
+
+
 def subject(run_dir):
     """The events S4 forms from, the claims and quotes they name, and what is listed instead (module docstring):
-    `{events, claims, carried_forward, not_formed, units}`. Read from S3's stores through S3's own readers, which
-    refuse an edited store by name."""
+    `{events, claims, origins, carried_forward, not_formed, units, pending_outside}`. Read from S3's stores through S3's
+    own readers, which refuse an edited store by name, and from the coverage state S1 pinned.
+
+    `carried_forward` is every pending event of the window's units that leaves this run pending (X round 1, F1): the
+    events a processed unit hands on (`this_run`), the pending events earlier runs left on its files that its stitch
+    did not resolve, unresolved or not stitched (`earlier_run`), and the earlier pending events of a unit S3 did not
+    process (`unit_not_formed`). A processed unit whose stitch did not decide exactly the earlier pending events of its
+    files, or not each of them once, is SET_MISMATCH. `pending_outside` counts the pending events on files of no unit of
+    this window."""
     from runlib import stage_read
     run_dir = pathlib.Path(run_dir)
     results = records.read_json(run_dir / "read-results.json")["results"]
-    rows, claims, carried_forward, not_formed, held_by = [], {}, [], [], {}
+    rows_c = census.rows(census.load(run_dir))
+    state = coverage.load(run_dir / "coverage.json")[0]
+    by_name = {t["name"]: t for t in records.read_json(run_dir / "views.json")["transcripts"]}
+    owner = unit_of_file(rows_c, [r["transcript"] for r in results])
+    prior_of = collections.defaultdict(list)
+    for p in state["pending_events"]:
+        if p["transcript"] in owner:
+            prior_of[owner[p["transcript"]]].append(p)
+    rows, claims, origins, carried_forward, not_formed, held_by = [], {}, {}, [], [], {}
+
+    def forward(p, unit, origin, why):
+        return {"event_id": p["id"], "unit": unit, "file": p["transcript"], "window": p["window"],
+                "first_record": p["first_record"], "origin": origin, "why": why}
     for result in sorted(results, key=lambda r: r["transcript"]):
         unit = result["transcript"]
+        prior = sorted(prior_of.get(unit, []), key=lambda p: p["id"])
         path = run_dir / "read" / f"{views.safe_name(unit)}.json"
         record = records.read_json(path) if path.is_file() else {"files": [], "reasons": ["S3 left no read record of it"]}
         names = [f["name"] for f in record["files"]]
@@ -313,6 +415,7 @@ def subject(run_dir):
         if result["status"] != PROCESSED:
             not_formed.append({"unit": unit, "status": result["status"], "reasons": list(record.get("reasons", [])),
                                "events": len(events)})
+            carried_forward += [forward(p, unit, "earlier_run", "unit_not_formed") for p in prior]
             continue
         handed = {p["id"] for p in result["pending_events"]}
         still_open = {e["event_id"] for _n, e in events if e["outcome"] != "resolved"}
@@ -323,6 +426,18 @@ def subject(run_dir):
         if carried != set(result["resolved_events"]):
             raise Refused(f"SET_MISMATCH {unit}: its resolved carried events {sorted(carried)[:5]} are not its result's "
                           f"resolved_events {sorted(result['resolved_events'])[:5]}")
+        stitch = record.get("stitch") or {}
+        decided = collections.Counter(r["event_id"] for r in stitch.get("resolutions", []) if r.get("carried"))
+        decided.update(r["event_id"] for r in stitch.get("not_stitched", []))
+        earlier = {p["id"] for p in prior}
+        if set(decided) != earlier or any(n > 1 for n in decided.values()):
+            raise Refused(f"SET_MISMATCH {unit}: earlier runs left {sorted(earlier)[:5]} pending on its files, and its stitch "
+                          f"decided or left unstitched {sorted(decided)[:5]}; each is decided once")
+        not_stitched = {r["event_id"] for r in stitch.get("not_stitched", [])}
+        carried_forward += [forward(p, unit, "earlier_run", "not_stitched" if p["id"] in not_stitched else "unresolved")
+                            for p in prior if p["id"] not in carried]
+        carried_forward += [forward({"window": None, **p}, unit, "this_run", "unresolved")
+                            for p in sorted(result["pending_events"], key=lambda p: p["id"])]
         quotes = {r["evidence_id"]: r for name in names for r in evidence.load(run_dir, name)}
         for name in names:
             for c in stage_read.stored_claims(run_dir, name):
@@ -330,20 +445,50 @@ def subject(run_dir):
                 if missing:
                     raise Refused(f"RECORD_INTEGRITY {c['claim_id']}: its evidence {missing[:3]} is in no store of unit {unit}")
                 claims[c["claim_id"]] = {"fact": c["fact"], "interpretation": c["interpretation"], "uncertainty": c["uncertainty"],
+                                         "unit": unit,
                                          "quotes": [{"evidence_id": e, "record": f"{quotes[e]['line']}{quotes[e]['json_pointer']}",
                                                      "window_role": quotes[e]["window_role"], "text": quotes[e]["redacted_text"]}
                                                     for e in c["evidence_ids"]]}
-        carried_forward += [{"event_id": ident, "unit": unit} for ident in sorted(handed)]
         for name, e in events:
             if e["outcome"] != "resolved":
                 continue
             if e["event_id"] in held_by:
                 raise Refused(f"SET_MISMATCH {e['event_id']}: held by {held_by[e['event_id']]} and by {unit}")
             held_by[e["event_id"]] = unit
-            rows.append({"id": e["event_id"], "session": unit, "kind": e["kind"], "description": e["description"],
-                         "claim_ids": list(e["claim_ids"]), "outcome_claim_ids": list(e["stitched_from"]), "file": name})
-    return {"events": rows, "claims": claims, "carried_forward": carried_forward, "not_formed": not_formed,
-            "units": dict(sorted(collections.Counter(r["status"] for r in results).items()))}
+            row = {"id": e["event_id"], "session": unit, "kind": e["kind"], "description": e["description"],
+                   "claim_ids": list(e["claim_ids"]), "outcome_claim_ids": list(e["stitched_from"]), "file": name}
+            if "carried_from" in e:
+                row["origin"] = origin_of(run_dir, by_name[name], e)
+                origins.update({o["evidence_id"]: o for o in row["origin"] if o.get("evidence_id")})
+            rows.append(row)
+    return {"events": rows, "claims": claims, "origins": origins, "carried_forward": carried_forward,
+            "not_formed": not_formed, "units": dict(sorted(collections.Counter(r["status"] for r in results).items())),
+            "pending_outside": sum(1 for p in state["pending_events"] if p["transcript"] not in owner)}
+
+
+def membership_of(candidates, findings, non_findings):
+    """`{event: candidate id | class}` as the rows place each event."""
+    membership = {}
+    for c in candidates:
+        membership.update({e: c["candidate_id"] for e in c["event_ids"]})
+    for f in findings:
+        membership.update({e: "rejected_finding" for e in f["event_ids"]})
+    membership.update({n["event_id"]: "non_finding" for n in non_findings})
+    return dict(sorted(membership.items()))
+
+
+def population_counts(candidates, findings, non_findings, subject_of):
+    """The population's counts, from its rows and the subject: the one place they are computed."""
+    formed = [c for c in candidates if c["source"] == "formed"]
+    return {"events": len(subject_of["events"]), "candidate_members": sum(len(c["event_ids"]) for c in formed),
+            "rejected_finding_members": sum(len(f["event_ids"]) for f in findings),
+            "non_findings": dict(sorted(collections.Counter(n["reason"] for n in non_findings).items())),
+            "candidates": {"formed": len(formed), **dict(sorted(collections.Counter(
+                c["source"] for c in candidates if c["source"] != "formed").items()))},
+            "carried_forward": len(subject_of["carried_forward"]),
+            "carried_forward_why": dict(sorted(collections.Counter(r["why"] for r in subject_of["carried_forward"]).items())),
+            "pending_outside": subject_of.get("pending_outside", 0),
+            "units": dict(subject_of["units"]), "events_not_formed": sum(u["events"] for u in subject_of["not_formed"])}
 
 
 def population(answer, subject_of, run_id, intake=()):
@@ -356,54 +501,70 @@ def population(answer, subject_of, run_id, intake=()):
                 for r in answer["rejected_findings"]]
     non_findings = [{"event_id": n["event_id"], "reason": n["reason"], "duplicate_of": n["duplicate_of"]}
                     for n in answer["non_findings"]]
-    membership = {}
-    for c in formed:
-        membership.update({e: c["candidate_id"] for e in c["event_ids"]})
-    for f in findings:
-        membership.update({e: "rejected_finding" for e in f["event_ids"]})
-    membership.update({n["event_id"]: "non_finding" for n in non_findings})
-    return {"candidates": formed + lifecycle, "candidate_ids": [c["candidate_id"] for c in formed + lifecycle],
+    candidates = formed + lifecycle
+    return {"candidates": candidates, "candidate_ids": [c["candidate_id"] for c in candidates],
             "rejected_findings": findings, "rejected_finding_ids": [f["finding_id"] for f in findings],
             "non_findings": non_findings, "non_finding_ids": [n["event_id"] for n in non_findings],
-            "event_membership": dict(sorted(membership.items())),
-            "carried_forward": list(subject_of["carried_forward"]), "not_formed": list(subject_of["not_formed"]),
-            "counts": {"events": len(subject_of["events"]), "candidate_members": sum(len(c["event_ids"]) for c in formed),
-                       "rejected_finding_members": sum(len(f["event_ids"]) for f in findings),
-                       "non_findings": dict(sorted(collections.Counter(n["reason"] for n in non_findings).items())),
-                       "candidates": {"formed": len(formed), **dict(sorted(collections.Counter(i["source"] for i in intake).items()))},
-                       "carried_forward": len(subject_of["carried_forward"]),
-                       "units": dict(subject_of["units"]),
-                       "events_not_formed": sum(u["events"] for u in subject_of["not_formed"])}}
+            "event_membership": membership_of(candidates, findings, non_findings),
+            "carried_forward": copy.deepcopy(subject_of["carried_forward"]), "not_formed": copy.deepcopy(subject_of["not_formed"]),
+            "counts": population_counts(candidates, findings, non_findings, subject_of)}
 
 
 def population_problems(pop, subject_of, intake=()):
-    """The population's set accounting (plan WP-09 done-when 1, N#12), each break by name (SET_MISMATCH); empty when
-    every event of the subject is placed exactly once and every candidate it names is listed."""
-    errors, listed = [], collections.Counter(pop["candidate_ids"])
+    """The population's set accounting (plan WP-09 done-when 1, N#12; X round 1, F4), each break by name (SET_MISMATCH),
+    every list held to the rows it lists: the candidate, finding and non-finding ids are exactly their rows' ids; the
+    lifecycle rows are exactly the intake's candidates, each with its source and no event; the membership is exactly
+    what the rows place; every event of the subject is placed exactly once; the carried-forward events and the units
+    not formed are the subject's; and the counts are the ones the rows and the subject give. Empty when all hold."""
+    errors = []
+    rows, findings, non_findings = pop["candidates"], pop["rejected_findings"], pop["non_findings"]
+    for name, have, want in (("candidate_ids", pop["candidate_ids"], [c["candidate_id"] for c in rows]),
+                             ("rejected_finding_ids", pop["rejected_finding_ids"], [f["finding_id"] for f in findings]),
+                             ("non_finding_ids", pop["non_finding_ids"], [n["event_id"] for n in non_findings])):
+        if have != want:
+            errors.append(f"SET_MISMATCH {name} are not the ids of the rows it lists: ids with no row {sorted(set(have) - set(want))[:5]}, "
+                          f"rows with no id {sorted(set(want) - set(have))[:5]}")
+    listed = collections.Counter(c["candidate_id"] for c in rows)
     repeated = sorted(c for c, n in listed.items() if n > 1)
     if repeated:
         errors.append(f"SET_MISMATCH candidate ids listed more than once: {repeated[:5]}")
-    for i in intake:
-        if i["candidate_id"] not in listed:
-            errors.append(f"SET_MISMATCH {i['candidate_id']}: a lifecycle candidate the intake holds is not in the population")
-    for event, member in pop["event_membership"].items():
-        if member not in PARTITION_CLASSES[1:] and member not in listed:
-            errors.append(f"SET_MISMATCH {event}: its membership names {member}, which the population does not list")
+    lifecycle = {c["candidate_id"]: c for c in rows if c["source"] != "formed"}
+    want = {i["candidate_id"]: i["source"] for i in intake}
+    for ident in sorted(set(want) - set(lifecycle)):
+        errors.append(f"SET_MISMATCH {ident}: a lifecycle candidate the intake holds is not in the population")
+    for ident in sorted(set(lifecycle) - set(want)):
+        errors.append(f"SET_MISMATCH {ident}: a lifecycle row the intake does not hold")
+    for ident in sorted(set(lifecycle) & set(want)):
+        if lifecycle[ident]["source"] != want[ident] or lifecycle[ident]["event_ids"]:
+            errors.append(f"SET_MISMATCH {ident}: its row's source {lifecycle[ident]['source']!r} or events are not the "
+                          f"intake's ({want[ident]!r}, none)")
+    derived = membership_of(rows, findings, non_findings)
+    for event in sorted(set(derived) | set(pop["event_membership"])):
+        named = pop["event_membership"].get(event)
+        if named is not None and named not in PARTITION_CLASSES[1:] and named not in listed:
+            errors.append(f"SET_MISMATCH {event}: its membership names {named}, which the population does not list")
+        elif named != derived.get(event):
+            errors.append(f"SET_MISMATCH {event}: its membership names {named}, and the rows place it in {derived.get(event)}")
     placed = collections.Counter()
-    for c in pop["candidates"]:
+    for c in rows:
         placed.update(c["event_ids"])
-    for f in pop["rejected_findings"]:
+    for f in findings:
         placed.update(f["event_ids"])
-    placed.update(pop["non_finding_ids"])
+    placed.update(n["event_id"] for n in non_findings)
     subjects = {r["id"] for r in subject_of["events"]}
     missing, extra = sorted(subjects - set(placed)), sorted(set(placed) - subjects)
     twice = sorted(e for e, n in placed.items() if n > 1)
     if missing or extra or twice:
         errors.append(f"SET_MISMATCH the population places the subject's events otherwise: missing {missing[:5]}, not the "
                       f"subject's {extra[:5]}, more than once {twice[:5]}")
-    if sorted(pop["event_membership"]) != sorted(subjects) or pop["counts"]["events"] != len(subjects):
-        errors.append(f"SET_MISMATCH the membership holds {len(pop['event_membership'])} events and counts "
-                      f"{pop['counts']['events']}; the subject has {len(subjects)}")
+    for name in ("carried_forward", "not_formed"):
+        if pop[name] != subject_of[name]:
+            errors.append(f"SET_MISMATCH {name}: the population lists {len(pop[name])}, and the subject {len(subject_of[name])}; "
+                          "the lists are the subject's")
+    counted = population_counts(rows, findings, non_findings, subject_of)
+    off = sorted(k for k in set(counted) | set(pop["counts"]) if counted.get(k) != pop["counts"].get(k))
+    if off:
+        errors.append(f"SET_MISMATCH counts {off}: they are not what the rows and the subject give")
     return errors
 
 
@@ -424,6 +585,53 @@ def partition_rows(pop):
     return rows
 
 
+# ---- what an accepted answer's candidates carry beside it ----------------------------------------
+
+def origin_evidence(run_dir, answer, subject_of):
+    """The evidence records of the origin quotes an accepted, resolved answer cites, each verified again against the
+    immutable copy as every stored quote is (`evidence.verify`: the copy's hash, the locator, the projection's span);
+    one that no longer verifies is RECORD_INTEGRITY. Returns `{origin id: evidence record}` for candidates.json, so a
+    later stage verifies the same record (lead decision after X round 1, F3)."""
+    cited = sorted({q for k in answer["candidates"] for name in ADMISSION for q in k["admission"][name]["evidence_ids"]
+                    if q.startswith("origin:")})
+    out = {}
+    for ident in cited:
+        record = subject_of["origins"][ident]["evidence"]
+        problems = evidence.verify(run_dir, record)
+        if problems:
+            raise Refused(f"RECORD_INTEGRITY {ident}: the origin quote a candidate cites no longer verifies: "
+                          + "; ".join(str(p) for p in problems[:3]))
+        out[ident] = record
+    return out
+
+
+# plan WP-09 done-when 4: a type G proposal needs at least three independent lineages resolving its tension the same way
+G_LINEAGES = 3
+
+
+def lineages(candidate, subject_of):
+    """The lineage-count interface (lead decision D6): `(how many independent lineages the instances of a type G
+    candidate come from, or None when that is not known here, the basis)`. S5 counts lineages and runs after S4, so
+    S4's count is a disclosed stand-in: a claim's S3 unit is one lineage component (the census joins a session's
+    members into its unit). The entries of a placed cluster are passed by id (lead decision after X round 1, F2); the
+    ledger records each entry's own lineages and not whether two entries share one, so their count is not known."""
+    t = candidate["tension"]
+    if t["instance_entry_ids"]:
+        return None, (f"placed entries {list(t['instance_entry_ids'])}: the ledger's provenance records each entry's own "
+                      "lineages, not whether two entries share one")
+    units = {subject_of["claims"][c]["unit"] for c in t["instance_claim_ids"] if c in subject_of["claims"]}
+    return len(units), "the S3 units of the instance claims, one lineage component each: a stand-in until S5 counts lineages"
+
+
+def evidence_bar(candidate, subject_of):
+    """Done-when 4's evidence bar for a type G candidate: at the bar with at least G_LINEAGES lineages, held below it
+    otherwise, and held whenever the count is not known (an arc the owner confirmed would also meet it; the
+    declaration names none)."""
+    count, basis = lineages(candidate, subject_of)
+    at_bar = count is not None and count >= G_LINEAGES
+    return {"status": "at_bar" if at_bar else "held", "lineages": count, "needed": G_LINEAGES, "basis": basis}
+
+
 # ---- the stage: its barrier, its bound, its one call and what it leaves (lead decisions D1, D7, D9) ----
 
 CASE = "form"   # the formation call's class (dispatch.class_key)
@@ -439,6 +647,8 @@ INPUTS = ({"artifact": "read-results.json", "producer_stage": "S3"},
           {"artifact": "read.json", "producer_stage": "S3"},
           {"artifact": "observations/resolutions.json", "producer_stage": "S3"},
           {"artifact": "census.json", "producer_stage": "S1"},
+          {"artifact": "coverage.json", "producer_stage": "S1"},
+          {"artifact": "views.json", "producer_stage": "S2"},
           {"artifact": "inventory/current.json", "producer_stage": "S2"})
 OUTPUTS = ("intake.json", "candidates.json", "partition.jsonl", "population.json", "form.json")
 DRY_PACKET, DRY_RECORD = "form/packet.md", "form/dry.json"
@@ -541,7 +751,7 @@ def run(run_dir, supervisor=None, *, dry=False, index_rows=None, tranche="calibr
         intake = lifecycle_intake.build(run_dir, declaration, index_rows)
         records.write_json(run_dir, run_dir / "intake.json", intake)
         stage.output("intake.json")
-        clusters = [{"id": c["candidate_id"], "lessons": c["lessons"]} for c in intake["candidates"] if c["source"] == "g_cluster"]
+        clusters = [{"id": c["candidate_id"], "members": c["members"]} for c in intake["candidates"] if c["source"] == "g_cluster"]
         labels = FormLabels(subj["events"], subj["claims"], clusters)
         text, schema = payload(labels), form_schema()
         schema_bytes = packet.schema_bytes(schema)
@@ -571,7 +781,7 @@ def run(run_dir, supervisor=None, *, dry=False, index_rows=None, tranche="calibr
             stage.output(DRY_RECORD)
             stage.record["status"] = "partial"
             return summary
-        if labels.events:
+        if labels.events or labels.clusters:
             episode = declaration["budget"]["per_episode"]
             out = supervisor.item(STAGE, ITEM, seat, text, schema, case_type=CASE,
                                   caps={"tokens": episode["tokens"], "compactions": episode["compactions"]},
@@ -589,22 +799,26 @@ def run(run_dir, supervisor=None, *, dry=False, index_rows=None, tranche="calibr
             answer = labels.resolve(gate.accepted(out["accepted"], judged=True))
         else:
             call = {"item": ITEM, "outcome": "not_called", "codes": [], "attempts": [], "reused": None,
-                    "why": "the subject holds no event, so nothing is formed and no call is made"}
+                    "why": "the subject holds no event and the intake no placed cluster, so nothing is formed and no call "
+                           "is made"}
             answer = {"candidates": [], "rejected_findings": [], "non_findings": []}
         pop = population(answer, subj, run_id, intake["candidates"])
         problems = population_problems(pop, subj, intake["candidates"])
         if problems:
             raise Refused("\n".join(problems))
+        cited = origin_evidence(run_dir, answer, subj)
         session_of = {r["id"]: r["session"] for r in subj["events"]}
         formed = [{"candidate_id": sid("k", run_id, k["candidate_id"]), "label": k["candidate_id"], "source": "formed",
                    **{f: k[f] for f in ("lesson", "type", "situation", "action", "exception", "admission", "tension")},
                    "event_ids": list(k["event_ids"]), "sessions": sorted({session_of[e] for e in k["event_ids"]}),
+                   "evidence_bar": evidence_bar(k, subj) if k["type"] == "G" else None,
                    "lifecycle": None} for k in answer["candidates"]]
         lifecycle = [{"candidate_id": c["candidate_id"], "source": c["source"], "event_ids": [], "sessions": [],
                       "lifecycle": c} for c in intake["candidates"]]
         findings = [{"finding_id": sid("r", run_id, r["finding_id"]), "label": r["finding_id"],
                      **{f: r[f] for f in ("finding", "event_ids", "failed", "reason")}} for r in answer["rejected_findings"]]
-        records.write_json(run_dir, run_dir / "candidates.json", {"candidates": formed + lifecycle, "rejected_findings": findings})
+        records.write_json(run_dir, run_dir / "candidates.json", {"candidates": formed + lifecycle, "rejected_findings": findings,
+                                                                  "origin_evidence": cited})
         records.write_text(run_dir, run_dir / "partition.jsonl",
                            "".join(json.dumps(r, sort_keys=True, ensure_ascii=False) + "\n" for r in partition_rows(pop)))
         records.write_json(run_dir, run_dir / "population.json", pop)
@@ -674,19 +888,31 @@ def fx_answer():
     v5 a routine non-finding."""
     req = lambda claims=(), quotes=(): {"basis": "shown", "claim_ids": list(claims), "evidence_ids": list(quotes)}
     admission = lambda: {name: req(["c1"], ["q1"]) if name == "observed_event" else req() for name in ADMISSION}
-    empty = {"sides": [], "ordering": "", "forbids": "", "instance_claim_ids": [], "cluster": ""}
+    empty = {"sides": [], "ordering": "", "forbids": "", "instance_claim_ids": [], "instance_entry_ids": [], "cluster": ""}
     return {"candidates": [
         {"candidate_id": "k1", "lesson": "Ask before pushing", "type": "G", "situation": "a change is ready to push",
          "action": "ask the person first", "exception": "the person asked for the push in this turn",
          "admission": admission(), "event_ids": ["v1", "v2", "v3"],
          "tension": {"sides": ["speed of delivery", "the person's control of the remote"],
                      "ordering": "control of the remote over speed", "forbids": "pushing without asking",
-                     "instance_claim_ids": ["c1", "c3", "c4"], "cluster": ""}},
+                     "instance_claim_ids": ["c1", "c3", "c4"], "instance_entry_ids": [], "cluster": ""}},
         {"candidate_id": "k2", "lesson": "Quote globs under zsh", "type": "B", "situation": "a shell argument holds a glob",
          "action": "quote it", "exception": "the glob is meant to expand", "admission": admission(),
          "event_ids": ["v4"], "tension": dict(empty)}],
         "rejected_findings": [],
         "non_findings": [{"event_id": "v5", "reason": "routine_step", "duplicate_of": ""}]}
+
+
+# two placed clusters as the intake hands them on (lifecycle_intake.upward_clusters' members): what u1.1 ... and u2.1 ...
+# label in the packet
+FX_CLUSTERS = [
+    {"id": "cluster-1", "members": [{"entry": f"S-{n}", "lesson": lesson, "evidence": evidence, "independent_lineages": lineages}
+                                    for n, (lesson, evidence, lineages) in enumerate((
+                                        ("Ask before acting on shared state", [{"session": "claude:s-1", "locator": "unavailable"}], "unavailable"),
+                                        ("Ask before deleting a branch", [{"claim_id": "c-x1", "evidence_id": "e-x1"}], 1),
+                                        ("Ask before force-pushing", [], "unavailable")), 1)]},
+    {"id": "cluster-2", "members": [{"entry": f"T-{n}", "lesson": f"Quote the glob, case {n}", "evidence": [],
+                                     "independent_lineages": "unavailable"} for n in (1, 2, 3)]}]
 
 
 FX_MARKERS = {"settled": "Settled in its window.", "joined": "Joined later.", "open": "Left open.",
@@ -742,6 +968,52 @@ def fx_s3(root):
     return run_dir, summary
 
 
+def fx_two_windows(root):
+    """Two scratch runs of S3 over consecutive windows (stage_read's done-when 4 corpus). Run N leaves the last request
+    of its window pending (line 10) and leaves the event views.golden plants (`pe-1`, line 5) pending too; its results
+    are folded into the coverage state run N+1 starts from. Run N+1, over the next window with one record appended,
+    shows both at their first records: it joins the line-10 event to the outcome it reads, and leaves `pe-1`
+    unresolved - an older event revisited and still pending (X round 1, F1). Returns `(run N+1, the ids run N left
+    pending)`."""
+    from runlib import stage_read as sr
+
+    def answers_n(where, doc, rows, parts):
+        answer = sr.fx_answer(doc, rows)
+        last = next((r for r in doc["records"] if r["line"] == 10), None)
+        if last is not None and doc["overlap"]["next"]:
+            after = doc["overlap"]["next"][0]
+            a0, _b0 = after["segments"][0]["view"]
+            answer["events"].append({"event_id": "v1", "kind": "request", "at_record": views.eid(last), "claim_ids": ["c1"],
+                                     "outcome": "pending", "description": "The last request of the window; its answer comes after it."})
+            answer["quotes"].append({"quote_id": "q2", "entry": after["entry"], "text": after["text"][a0:a0 + 24]})
+            answer["claims"].append({"claim_id": "c2", "fact": "OUTCOME: the week after holds the answer.",
+                                     "interpretation": "", "uncertainty": "", "evidence_ids": ["q2"], "call_id": "<CALL-ID>"})
+        return [((), answer)]
+
+    def answers_n1(where, doc, rows, parts):
+        if doc["records"][0]["line"] == 11 and doc["overlap"]["prev"]:
+            answer = sr.fx_answer(doc, rows, fact="OUTCOME: the week after holds the answer.")
+            answer["quotes"].append(sr.fx_overlap_quote(doc))
+            answer["claims"][0]["evidence_ids"].append("q2")
+            return [((), answer)]
+        return [((), sr.fx_answer(doc, rows))]
+    run_n, sup_n, _ = sr.fx_reader(root / "n", "n", answers_n, expanding=lambda m: m["forced_by"] != "none")
+    sr.run(run_n, sup_n)
+    handed = records.read_json(run_n / "read-results.json")
+    state_n = census.reconcile(census.load(run_n), coverage.load(run_n / "coverage.json")[0], handed["results"], "periodic")[1]
+    appended = lambda: views.fx_main_records() + [views.fx_assistant(views.fx_stamp(10, hour=1), "and one more the day after")]  # noqa: E731
+    run_n1, sup_n1, _ = sr.fx_reader(root / "n1", "n1", answers_n1, resolve=sr.fx_resolving({10: "OUTCOME:"}, beside=True),
+                                     window=sr.FX_NEXT_WINDOW, state=state_n, owned=[[10, 13]], main_records=appended,
+                                     prefix_ok=True)
+    sr.run(run_n1, sup_n1)
+    return run_n1, sorted(p["id"] for p in state_n["pending_events"])
+
+
+def codex_unit_of(results):
+    """The Codex unit of the golden window's results."""
+    return next((r["transcript"] for r in results["results"] if r["transcript"].startswith("codex:")), "codex:?")
+
+
 def fx_ledger_s4():
     """lifecycle_intake's ledger of every intake case, its due incubates expiring the day before views.FX_WINDOW opens:
     S3 shows no observation of them (it shows an expiry on or after the window's first day), and S4 takes them as due
@@ -762,7 +1034,7 @@ def fx_partition(event_labels):
     """A conforming answer placing each of `event_labels` once: all but the last two one type C candidate, the second to
     last a rejected finding failing `bounded`, the last a routine non-finding."""
     req = {"basis": "shown", "claim_ids": [], "evidence_ids": []}
-    empty = {"sides": [], "ordering": "", "forbids": "", "instance_claim_ids": [], "cluster": ""}
+    empty = {"sides": [], "ordering": "", "forbids": "", "instance_claim_ids": [], "instance_entry_ids": [], "cluster": ""}
     return {"candidates": [{"candidate_id": "k1", "lesson": "Say when a change landed", "type": "C", "situation": "s",
                             "action": "a", "exception": "e", "admission": {n: dict(req) for n in ADMISSION},
                             "event_ids": list(event_labels[:-2]), "tension": dict(empty)}],
@@ -773,11 +1045,20 @@ def fx_partition(event_labels):
 
 def fx_form_plan(run_dir, path):
     """The golden host's plan for S4 over a run `fx_s3` made: one row, matched by the packet's events as S4 lists them,
-    answering `fx_partition` in the packet's labels. Read from S3's stores as S4 reads them (`subject`)."""
+    answering `fx_partition` in the packet's labels, its type C candidate citing the origin quote of the carried event
+    the stitch resolved, and beside it a type G candidate distilled from the intake's one placed cluster (u1, whose
+    first three entries it cites), with no event. Read from S3's stores as S4 reads them (`subject`)."""
     got = subject(run_dir)
     labels = FormLabels(got["events"], got["claims"])
-    pathlib.Path(path).write_text(json.dumps([{"match": [labels.events_text()], "answer": fx_partition(list(labels.events))}]),
-                                  encoding="utf-8")
+    answer = fx_partition(list(labels.events))
+    answer["candidates"][0]["admission"]["observed_event"]["evidence_ids"] = [
+        next(label for label, ident in labels.quotes.items() if ident.startswith("origin:"))]
+    answer["candidates"].append({**copy.deepcopy(answer["candidates"][0]), "candidate_id": "k2", "type": "G", "event_ids": [],
+                                 "admission": {n: {"basis": "shown", "claim_ids": [], "evidence_ids": []} for n in ADMISSION},
+                                 "tension": {"sides": ["run the suite first", "answer fast"], "ordering": "the suite first",
+                                             "forbids": "answering before the suite ran", "instance_claim_ids": [],
+                                             "instance_entry_ids": ["u1.1", "u1.2", "u1.3"], "cluster": "u1"}})
+    pathlib.Path(path).write_text(json.dumps([{"match": [labels.events_text()], "answer": answer}]), encoding="utf-8")
     return path
 
 def self_test():
@@ -805,7 +1086,7 @@ def self_test():
         return ""
 
     events, claims = fx_rows()
-    labels = guarded(lambda: FormLabels(events, claims, [{"id": "cluster-1", "lessons": ["Ask before acting on shared state"]}]),
+    labels = guarded(lambda: FormLabels(events, claims, FX_CLUSTERS), 
                      None)
     good = fx_answer()
 
@@ -888,6 +1169,69 @@ def self_test():
     control("a type G candidate may name the placed cluster the packet shows",
             problems(clustered) == [] and guarded(lambda: labels.resolve(clustered)["candidates"][0]["tension"]["cluster"],
                                                   None) == "cluster-1", f"{problems(clustered)}")
+
+    # X round 1, F2 (lead decision): a principle distilled from a placed cluster alone cites that cluster's entries
+    alone = guarded(lambda: FormLabels([], {}, FX_CLUSTERS), None)
+    req0 = {"basis": "the placed entries show it", "claim_ids": [], "evidence_ids": []}
+
+    def cluster_g(entries, cluster="u1", kind="G", events=()):
+        tension = ({"sides": ["asking first", "moving fast"], "ordering": "asking first over moving fast",
+                    "forbids": "acting on shared state unasked", "instance_claim_ids": [], "instance_entry_ids": list(entries),
+                    "cluster": cluster} if kind == "G" else
+                   {"sides": [], "ordering": "", "forbids": "", "instance_claim_ids": [], "instance_entry_ids": [], "cluster": ""})
+        return {"candidates": [{"candidate_id": "k1", "lesson": "Ask before acting on shared state", "type": kind,
+                                "situation": "an action changes state others share", "action": "ask first",
+                                "exception": "the person asked for it in this turn", "admission": {n: dict(req0) for n in ADMISSION},
+                                "event_ids": list(events), "tension": tension}],
+                "rejected_findings": [], "non_findings": []}
+
+    def alone_problems(answer):
+        return guarded(lambda: answer_problems(alone, answer), lambda exc: [f"RAISED {exc!r}"])
+    from_three = cluster_g(["u1.1", "u1.2", "u1.3"])
+    control("F2: a type G candidate distilled from a placed cluster, with no event and no claim in the window, citing three "
+            "of its entries, passes the schema and the check, and resolves to the entries' ids",
+            alone is not None and schema_of(from_three) == [] and alone_problems(from_three) == []
+            and guarded(lambda: alone.resolve(from_three)["candidates"][0]["tension"]["instance_entry_ids"], None) == ["S-1", "S-2", "S-3"],
+            f"{schema_of(from_three)} {alone_problems(from_three)}")
+    from_two = cluster_g(["u1.1", "u1.2"])
+    control("F2: a cluster G candidate citing two of its entries is G_ANTI_ABSTRACTION",
+            any(p.startswith("G_ANTI_ABSTRACTION candidates/k1/tension/instance_entry_ids") for p in alone_problems(from_two)),
+            f"{alone_problems(from_two)}")
+    foreign = cluster_g(["u2.1", "u2.2", "u2.3"], cluster="u1")
+    control("F2: entries of another cluster are no instances of the one a candidate names (G_ANTI_ABSTRACTION)",
+            any("are not entries of the cluster" in p for p in alone_problems(foreign)), f"{alone_problems(foreign)}")
+    eventless = cluster_g([], kind="C")
+    eventless_g = cluster_g([], cluster="")
+    control("F2: a candidate that is not a cluster G and names no event is CANDIDATE_WITHOUT_EVENTS",
+            any(p.startswith("CANDIDATE_WITHOUT_EVENTS candidates/k1/event_ids") for p in alone_problems(eventless))
+            and any(p.startswith("CANDIDATE_WITHOUT_EVENTS") for p in alone_problems(eventless_g)),
+            f"{alone_problems(eventless)} {alone_problems(eventless_g)}")
+    unknown_entry = cluster_g(["u1.1", "u1.2", "u1.9"])
+    control("F2: an entry label the packet does not show is UNKNOWN_LABEL in the check and where the answer is read, and "
+            "counts for nothing",
+            any(p.startswith("UNKNOWN_LABEL 'u1.9'") for p in alone_problems(unknown_entry))
+            and any(p.startswith("G_ANTI_ABSTRACTION candidates/k1/tension/instance_entry_ids") for p in alone_problems(unknown_entry))
+            and refusal(lambda: alone.resolve(unknown_entry)).startswith("UNKNOWN_LABEL 'u1.9'"), f"{alone_problems(unknown_entry)}")
+    entries_on_b = mutated(lambda a: a["candidates"][1]["tension"].update(instance_entry_ids=["u1.1"]))
+    control("F2: cluster entries on a candidate of another type are TENSION_OUTSIDE_G",
+            any(p.startswith("TENSION_OUTSIDE_G candidates/k2") for p in problems(entries_on_b)), f"{problems(entries_on_b)}")
+    shown_clusters = guarded(lambda: alone.clusters_text(), "")
+    control("F2: the packet shows each cluster entry by its own label, with its lesson and where its stored evidence is",
+            '"entry_id": "u1.1"' in shown_clusters and '"entry_id": "u2.3"' in shown_clusters
+            and "Ask before deleting a branch" in shown_clusters and '"locator": "unavailable"' in shown_clusters
+            and '"S-1"' not in shown_clusters, shown_clusters[:300])
+    by_units = {"claims": {"c-a1": {"unit": "claude:aaaa"}, "c-b1": {"unit": "claude:bbbb"}, "c-c1": {"unit": "codex:cccc"},
+                           "c-c2": {"unit": "codex:cccc"}}}
+    bar_claims = guarded(lambda: evidence_bar(labels.resolve(good)["candidates"][0], by_units), {})
+    two_units = mutated(lambda a: a["candidates"][0]["tension"].update(instance_claim_ids=["c3", "c4", "c5"]))
+    bar_two = guarded(lambda: evidence_bar(labels.resolve(two_units)["candidates"][0], by_units), {})
+    bar_cluster = guarded(lambda: evidence_bar(alone.resolve(from_three)["candidates"][0], by_units), {})
+    control("done-when 4: the evidence bar counts lineages through its interface: three units' claims are at the bar, two "
+            "are held, and placed entries, whose shared lineages the ledger does not record, are held with that reason",
+            bar_claims.get("status") == "at_bar" and bar_claims.get("lineages") == 3
+            and bar_two.get("status") == "held" and bar_two.get("lineages") == 2
+            and bar_cluster.get("status") == "held" and bar_cluster.get("lineages") is None
+            and "not whether two entries share one" in bar_cluster.get("basis", ""), f"{bar_claims} {bar_two} {bar_cluster}")
 
     # labels: a value the packet does not show is refused in the check and again where an answer is read
     for what, answer, needle in (
@@ -1073,12 +1417,185 @@ def self_test():
         control("done-when 1: a population that loses an event of the subject is SET_MISMATCH",
                 any(p.startswith("SET_MISMATCH the population places") for p in guarded(lambda: population_problems(lost, got, intake), [])),
                 f"{guarded(lambda: population_problems(lost, got, intake), [])}")
+
+        # X round 1, F4: every list is held to the rows it lists, each disagreement on its own
+        def bent_pop(change):
+            bent = copy.deepcopy(pop)
+            guarded(lambda: change(bent), None)
+            return guarded(lambda: population_problems(bent, got, intake), lambda exc: [f"RAISED {exc!r}"])
+        formed_id = next((c["candidate_id"] for c in pop.get("candidates", []) if c["source"] == "formed"), "k-?")
+        redirected = next((e for e, m in pop.get("event_membership", {}).items() if m == formed_id), "v-?")
+        for what, change, needle in (
+                ("a lifecycle row removed while its id is kept",
+                 lambda b: b["candidates"].remove(next(c for c in b["candidates"] if c["candidate_id"] == "legacy:S3-03")),
+                 "SET_MISMATCH candidate_ids are not the ids of the rows it lists"),
+                ("a non-finding row removed while its id is kept", lambda b: b["non_findings"].clear(),
+                 "SET_MISMATCH non_finding_ids are not the ids of the rows it lists"),
+                ("a rejected-finding row removed while its id is kept", lambda b: b["rejected_findings"].clear(),
+                 "SET_MISMATCH rejected_finding_ids are not the ids of the rows it lists"),
+                ("an event's membership redirected to another listed candidate",
+                 lambda b: b["event_membership"].update({redirected: "legacy:S3-03"}),
+                 f"SET_MISMATCH {redirected}: its membership names legacy:S3-03, and the rows place it in {formed_id}"),
+                ("carried_forward emptied", lambda b: b["carried_forward"].clear(), "SET_MISMATCH carried_forward"),
+                ("not_formed emptied", lambda b: b["not_formed"].clear(), "SET_MISMATCH not_formed"),
+                ("a count edited by one", lambda b: b["counts"].update(events=b["counts"]["events"] + 1),
+                 "SET_MISMATCH counts ['events']"),
+                ("a lifecycle row under another source",
+                 lambda b: next(c for c in b["candidates"] if c["candidate_id"] == "legacy:S3-03").update(source="g_cluster"),
+                 "SET_MISMATCH legacy:S3-03: its row's source"),
+                ("a lifecycle row listed twice, its id with it",
+                 lambda b: (b["candidates"].append(dict(next(c for c in b["candidates"] if c["candidate_id"] == "legacy:S3-03"))),
+                            b["candidate_ids"].append("legacy:S3-03")),
+                 "SET_MISMATCH candidate ids listed more than once: ['legacy:S3-03']"),
+                ("a lifecycle row the intake does not hold, its id with it",
+                 lambda b: (b["candidates"].append({"candidate_id": "legacy:X-9", "source": "legacy", "event_ids": []}),
+                            b["candidate_ids"].append("legacy:X-9")),
+                 "SET_MISMATCH legacy:X-9: a lifecycle row the intake does not hold")):
+            found = bent_pop(change)
+            control(f"F4: {what} is SET_MISMATCH by name", any(p.startswith(needle) for p in found), f"{found}")
         rows_p = guarded(lambda: partition_rows(pop), [])
         control("partition.jsonl has one row per event of the subject, each of one class and naming its candidate, finding "
                 "or reason",
                 len(rows_p) == 4 and sorted(collections.Counter(r["class"] for r in rows_p).items())
                 == [("candidate", 2), ("non_finding", 1), ("rejected_finding", 1)]
                 and all(("candidate_id" in r) + ("finding_id" in r) + ("reason" in r) == 1 for r in rows_p), f"{rows_p}")
+
+        # ---- X round 1, F1 and F3: the events earlier runs left pending, and where a resolved carried one began ----
+        s3_results = guarded(lambda: records.read_json(run_dir / "read-results.json"), {"results": []})
+        pe1 = next((r for r in rows if r["id"] == "pe-1"), {})
+        pe1_origin = pe1.get("origin", [])
+        flab = guarded(lambda: FormLabels(rows, got["claims"]), None)
+        shown_pe1 = guarded(lambda: payload(flab), "")
+
+        def stitch_showed():
+            """What S3's stitch packet showed of pe-1 when it resolved it: its first record's blocks, read from the call."""
+            from runlib import stage_read as sr
+            texts = []
+            for call_dir in sorted((run_dir / "calls").glob("*-S3-claude_*-s*-a*")):
+                events_listed, _claims = sr.fx_blocks((call_dir / "packet.md").read_text(encoding="utf-8"))
+                texts += [s["text"] for e in events_listed if "carried_from" in e for s in e["shown"]]
+            return texts
+        stitched = guarded(stitch_showed, [])
+        control("F3: a carried event resolved here shows where it began - its first record as S3's stitch was shown it when "
+                "it resolved the event - in the formation packet, though its description holds none of it",
+                bool(pe1_origin) and all(o.get("evidence_id", "").startswith("origin:") for o in pe1_origin)
+                and bool(stitched) and all(json.dumps(s, ensure_ascii=False)[1:-1] in shown_pe1 for s in stitched)
+                and "file 000  ok" in stitched[0] and "file 000" not in pe1.get("description", "")
+                and [o.get("text") for o in pe1_origin] == stitched[:1] and pe1_origin[0].get("cut") is True
+                and len(pe1_origin[0].get("text", "").encode()) <= QUOTE_BYTES, f"{pe1_origin[:1]} {stitched[:1]}")
+        origin_label = next((lab for lab, ident in (flab.quotes.items() if flab else []) if ident.startswith("origin:")), None)
+        citing = copy.deepcopy(part)
+        if origin_label:
+            citing["candidates"][0]["admission"]["observed_event"]["evidence_ids"] = [origin_label]
+        resolved_origin = guarded(lambda: flab.resolve(citing), None)
+        verified = guarded(lambda: origin_evidence(run_dir, resolved_origin, got), lambda exc: {"problem": str(exc)})
+        control("F3: an origin quote is cited by its label like any quote, read back as origin:<view>#<record>, and verified "
+                "against the immutable copy before candidates.json carries its evidence record",
+                origin_label is not None and on(citing) == []
+                and list(verified) == [o["evidence_id"] for o in pe1_origin[:1]]
+                and all(v.get("char_span") and v.get("redacted_text") for v in verified.values() if isinstance(v, dict)),
+                f"{origin_label} {verified}")
+        tampered = root / "f3-tampered"
+        shutil.copytree(run_dir.parent, tampered, ignore=shutil.ignore_patterns("c5-*", "bent-*", "f3-*"))
+        tampered_run = tampered / run_dir.name
+
+        def tamper_projection():
+            """The projection's text of pe-1's first record edited after S2 wrote it."""
+            view = next(t for t in records.read_json(tampered_run / "views.json")["transcripts"] if t["name"] == pe1.get("file"))
+            path = tampered_run / view["redacted"]
+            lines = path.read_text(encoding="utf-8").splitlines(keepends=True)
+            edited = [line.replace("file 000  ok", "file 000  OK") if line.startswith('{"line":5,') else line for line in lines]
+            path.write_text("".join(edited), encoding="utf-8")
+            return edited != lines
+        projection_edited = guarded(tamper_projection, False)
+        control("F3: an origin whose projected text is not what the immutable copy projects is refused (RECORD_INTEGRITY)",
+                projection_edited and refusal(lambda: subject(tampered_run)).startswith("RECORD_INTEGRITY pe-1"),
+                f"edited {projection_edited}: {refusal(lambda: subject(tampered_run))}")
+
+        def tamper_copy():
+            """The immutable copy itself edited after S2 made it."""
+            source = tampered_run / pe1_origin[0]["evidence"]["source_copy"]
+            before = source.read_bytes()
+            source.chmod(0o600)   # the copy is written read-only; this control is the edit that mode does not stop
+            source.write_bytes(before.replace(b"file 000  ok", b"file 000  not ok"))
+            return source.read_bytes() != before
+        copy_edited = guarded(tamper_copy, False)
+        control("F3: a cited origin quote whose copy changed after the subject was read is refused where its evidence is "
+                "verified again (RECORD_INTEGRITY)",
+                copy_edited and refusal(lambda: origin_evidence(tampered_run, resolved_origin, got)).startswith("RECORD_INTEGRITY origin:"),
+                f"edited {copy_edited}: {refusal(lambda: origin_evidence(tampered_run, resolved_origin, got))}")
+        dropped = root / "f3-dropped"
+        shutil.copytree(run_dir.parent, dropped, ignore=shutil.ignore_patterns("c5-*", "bent-*", "f3-*"))
+
+        def drop_first_record():
+            """pe-1's first record removed from the projection, so the projection holds no block of it."""
+            view = next(t for t in records.read_json(dropped / run_dir.name / "views.json")["transcripts"] if t["name"] == pe1.get("file"))
+            path = dropped / run_dir.name / view["redacted"]
+            lines = path.read_text(encoding="utf-8").splitlines(keepends=True)
+            kept = [line for line in lines if not line.startswith('{"line":5,')]
+            path.write_text("".join(kept), encoding="utf-8")
+            return len(kept) == len(lines) - 1
+        record_dropped = guarded(drop_first_record, False)
+        control("F3: a carried event whose first record the projection does not hold is refused (RECORD_INTEGRITY), never "
+                "shown without where it began",
+                record_dropped and refusal(lambda: subject(dropped / run_dir.name)).startswith("RECORD_INTEGRITY pe-1: its first record"),
+                f"dropped {record_dropped}: {refusal(lambda: subject(dropped / run_dir.name))}")
+        cf = {c["event_id"]: c for c in got.get("carried_forward", [])}
+        control("F1: the golden window's carried_forward holds the event the processed unit hands on (this run's) and not "
+                "pe-1, which its stitch resolved",
+                [c["origin"] for c in cf.values()] == ["this_run"] and "pe-1" not in cf, f"{list(cf.values())}")
+
+        def plant_pending(where, file_of_unit, ident):
+            """A pending event an earlier run left on a file of `file_of_unit`'s unit, planted in a copy's coverage state."""
+            state, sha = coverage.load(where / "coverage.json")
+            key = next(k for k, u in unit_of_file(census.rows(census.load(where)), [r["transcript"] for r in s3_results["results"]]).items()
+                       if u == file_of_unit)
+            state["pending_events"].append({"id": ident, "transcript": key, "version": 0, "window": "2026-09-24T00:00:00/2026-10-01T00:00:00@UTC",
+                                            "first_record": 1})
+            (where / "coverage.json").write_text(json.dumps(state), encoding="utf-8")
+        claude_unit = next((r["transcript"] for r in s3_results["results"] if r["transcript"].startswith("claude:")), "claude:?")
+        undecided = root / "f1-undecided"
+        shutil.copytree(run_dir.parent, undecided, ignore=shutil.ignore_patterns("c5-*", "bent-*", "f3-*", "f1-*"))
+        guarded(lambda: plant_pending(undecided / run_dir.name, claude_unit, "pe-planted"), None)
+        control("F1: an earlier pending event on a processed unit's file that its stitch neither decided nor left unstitched "
+                "is SET_MISMATCH naming the unit",
+                refusal(lambda: subject(undecided / run_dir.name)).startswith(f"SET_MISMATCH {claude_unit}: earlier runs left"),
+                refusal(lambda: subject(undecided / run_dir.name)))
+        twice = root / "f1-twice"
+        shutil.copytree(run_dir.parent, twice, ignore=shutil.ignore_patterns("c5-*", "bent-*", "f3-*", "f1-*"))
+
+        def decide_twice():
+            """pe-1, which the Claude unit's stitch resolved, listed again among the events it left unstitched."""
+            path = twice / run_dir.name / "read" / f"{views.safe_name(claude_unit)}.json"
+            record = records.read_json(path)
+            record["stitch"]["not_stitched"].append({"event_id": "pe-1", "file": pe1.get("file"), "reason": "planted"})
+            path.chmod(0o600)
+            path.write_text(json.dumps(record), encoding="utf-8")
+            return True
+        planted_twice = guarded(decide_twice, False)
+        control("F1: an earlier pending event a processed unit's stitch decided twice (resolved and left unstitched) is "
+                "SET_MISMATCH naming the unit",
+                planted_twice and refusal(lambda: subject(twice / run_dir.name)).startswith(f"SET_MISMATCH {claude_unit}: earlier runs left"),
+                f"planted {planted_twice}: {refusal(lambda: subject(twice / run_dir.name))}")
+        unformed = root / "f1-unformed"
+        shutil.copytree(run_dir.parent, unformed, ignore=shutil.ignore_patterns("c5-*", "bent-*", "f3-*", "f1-*"))
+        guarded(lambda: plant_pending(unformed / run_dir.name, codex_unit_of(s3_results), "pe-codex"), None)
+        unformed_cf = guarded(lambda: {c["event_id"]: c for c in subject(unformed / run_dir.name)["carried_forward"]},
+                              lambda exc: {"problem": str(exc)})
+        control("F1: an earlier pending event on a unit S3 did not process is carried forward, its unit not formed",
+                unformed_cf.get("pe-codex", {}).get("why") == "unit_not_formed"
+                and unformed_cf.get("pe-codex", {}).get("origin") == "earlier_run", f"{unformed_cf}")
+        two = guarded(lambda: fx_two_windows(root / "two"), lambda exc: (None, [repr(exc)]))
+        run_n1, left_by_n = two
+        sub_n1 = guarded(lambda: subject(run_n1), lambda exc: {"problem": str(exc)})
+        cf_n1 = {c["event_id"]: c for c in sub_n1.get("carried_forward", [])}
+        joined_n1 = [r for r in sub_n1.get("events", []) if r.get("origin")]
+        control("F1 (two windows): the event run N left pending that run N+1 revisits and leaves unresolved is carried "
+                "forward from the earlier run, and the one run N+1 joins to its outcome is a subject with its origin",
+                run_n1 is not None and "pe-1" in left_by_n and cf_n1.get("pe-1", {}).get("origin") == "earlier_run"
+                and cf_n1.get("pe-1", {}).get("why") == "unresolved" and len(joined_n1) == 1
+                and joined_n1[0]["id"] in left_by_n and joined_n1[0]["id"] not in cf_n1,
+                f"{sub_n1.get('problem')} {left_by_n} {list(cf_n1.values())} {[r['id'] for r in joined_n1]}")
 
         # ---- commit 5: the barrier, the bound, the call and what the stage leaves (golden S3 run, golden host) ----
         def copy_of(label):
@@ -1183,15 +1700,16 @@ def self_test():
                 and sorted(o["artifact"] for o in record_of(gold_dir).get("outputs", [])) == sorted(OUTPUTS),
                 f"{made.get('problem') or made.get('call')} {record_of(gold_dir).get('status')}")
         control("golden: the intake is derived from the pinned ledger and the current library S2 left: two due decisions "
-                "(one a pending intervention on a placed entry), two legacy entries, one redundancy pair, one G cluster",
-                intake_doc.get("counts") == {"due_decision": 2, "legacy": 2, "obsolete_hint": 0, "redundancy_hint": 1,
+                "(one a pending intervention on a placed entry), two legacy entries, two redundancy hints (a near pair and "
+                "a group of identical text), one G cluster",
+                intake_doc.get("counts") == {"due_decision": 2, "legacy": 2, "obsolete_hint": 0, "redundancy_hint": 2,
                                              "g_cluster": 1}
                 and any(c.get("pending_intervention") for c in intake_doc["candidates"] if c["source"] == "due_decision"),
                 f"{intake_doc.get('counts')}")
-        control("golden: the population lists the formed candidate and every lifecycle candidate of the intake, each once, "
+        control("golden: the population lists the formed candidates and every lifecycle candidate of the intake, each once, "
                 "and holds the subject's events exactly",
                 set(c["candidate_id"] for c in intake_doc["candidates"]) <= set(pop_doc.get("candidate_ids", []))
-                and len(pop_doc.get("candidate_ids", [])) == len(intake_doc["candidates"]) + 1
+                and len(pop_doc.get("candidate_ids", [])) == len(intake_doc["candidates"]) + 2
                 and len(pop_doc.get("event_membership", {})) == 4 and pop_doc.get("counts", {}).get("carried_forward") == 1
                 and [u["status"] for u in pop_doc.get("not_formed", [])] == ["read_partial"],
                 f"{pop_doc.get('candidate_ids')} {pop_doc.get('counts')}")
@@ -1200,16 +1718,55 @@ def self_test():
         formed_rows = [c for c in cands["candidates"] if c["source"] == "formed"]
         control("golden: partition.jsonl places each event once, and candidates.json keeps the formed candidate with its "
                 "events and sessions beside the lifecycle candidates and the rejected finding",
-                len(lines) == 4 and len({r["event_id"] for r in lines}) == 4 and len(formed_rows) == 1
+                len(lines) == 4 and len({r["event_id"] for r in lines}) == 4 and len(formed_rows) == 2
                 and len(formed_rows[0]["event_ids"]) == 2 and formed_rows[0]["sessions"]
                 and len(cands["candidates"]) == len(pop_doc.get("candidate_ids", [])) and len(cands["rejected_findings"]) == 1,
                 f"{len(lines)} {formed_rows[:1]}")
+        cluster_g = next((c for c in formed_rows if c["type"] == "G"), {})
+        placed = next((c for c in intake_doc.get("candidates", []) if c["source"] == "g_cluster"), {})
+        origin_cited = formed_rows[0]["admission"]["observed_event"]["evidence_ids"] if formed_rows else []
+        control("golden (F2, F3): S4 shows the intake's placed cluster, so a type G candidate distilled from it with no event "
+                "is formed with the entries it cites and an evidence bar held for lineages the ledger does not record; the "
+                "origin quote a candidate cites reaches candidates.json as its verified evidence record",
+                cluster_g.get("event_ids") == [] and cluster_g.get("tension", {}).get("cluster") == placed.get("candidate_id")
+                and cluster_g.get("tension", {}).get("instance_entry_ids") == placed.get("entries", [None])[:3]
+                and (cluster_g.get("evidence_bar") or {}).get("status") == "held"
+                and (cluster_g.get("evidence_bar") or {}).get("lineages") is None
+                and len(origin_cited) == 1 and origin_cited[0].startswith("origin:")
+                and list(cands.get("origin_evidence", {})) == origin_cited
+                and cands["origin_evidence"][origin_cited[0]].get("redacted_text"),
+                f"{cluster_g.get('tension')} {cluster_g.get('evidence_bar')} {origin_cited} {list(cands.get('origin_evidence', {}))}")
         before = guarded(lambda: (gold_dir / "population.json").read_bytes(), b"")
         again = guarded(lambda: run(gold_dir, supervisor(gold_dir, root / "c5-cells", plan)), lambda exc: {"problem": repr(exc)})
         control("golden: S4 run again over its run reuses the accepted attempt and leaves the same population bytes",
                 again.get("call", {}).get("reused") and guarded(lambda: (gold_dir / "population.json").read_bytes(), b"") == before
                 and len(list((gold_dir / "calls").glob(f"*-{STAGE}-*"))) == 1,
                 f"{again.get('problem') or again.get('call')}")
+
+        # F2 at the stage: a window none of whose units resolved an event still forms from the intake's placed cluster
+        quiet = copy_of("no-events")
+        quiet_plan = root / "c5-plan-no-events.json"
+        guarded(lambda: quiet_plan.write_text(json.dumps([{"match": ['"cluster_id": "u1"', '"entry_id": "u1.3"'], "answer": {
+            "candidates": [{**json.loads(plan.read_text(encoding="utf-8"))[0]["answer"]["candidates"][1], "candidate_id": "k1"}],
+            "rejected_findings": [], "non_findings": []}}]), encoding="utf-8"), None)
+        real_subject = subject
+
+        def without_events(where):
+            """The subject of a window none of whose processed units resolved an event: the golden one, its events gone."""
+            return {**real_subject(where), "events": [], "claims": {}, "origins": {}}
+        globals()["subject"] = without_events
+        try:
+            quiet_made = guarded(lambda: run(quiet, supervisor(quiet, root / "c5-cells-no-events", quiet_plan)),
+                                 lambda exc: {"problem": repr(exc)})
+        finally:
+            globals()["subject"] = real_subject
+        quiet_formed = [c for c in guarded(lambda: records.read_json(quiet / "candidates.json")["candidates"], []) if c["source"] == "formed"]
+        control("F2: a window whose units resolved no event still makes the formation call when the intake holds a placed "
+                "cluster, and forms the type G candidate distilled from it",
+                quiet_made.get("call", {}).get("outcome") == "accepted" and len(quiet_formed) == 1
+                and quiet_formed[0]["type"] == "G" and quiet_formed[0]["event_ids"] == []
+                and quiet_formed[0]["tension"]["instance_entry_ids"] == placed.get("entries", [None])[:3],
+                f"{quiet_made.get('problem') or quiet_made.get('call')} {quiet_formed[:1]}")
 
         # the driver's own command, as a process runs it: dry, then golden, each over a copy (WP-09 commit 5)
         def driver(where, *argv):
@@ -1227,7 +1784,7 @@ def self_test():
                 "it leaves holds the intake the stage derived from its admitted declaration",
                 code == 0 and "call: accepted" in said and record_of(cli_gold).get("status") == "complete"
                 and len(guarded(lambda: records.read_json(cli_gold / "population.json")["candidate_ids"], []))
-                == len(guarded(lambda: records.read_json(cli_gold / "intake.json")["candidates"], [None] * 99)) + 1,
+                == len(guarded(lambda: records.read_json(cli_gold / "intake.json")["candidates"], [None] * 99)) + 2,
                 f"{code} {said[-600:]}")
     control("the suite leaves no temporary tree", not root.exists(), str(root))
 
