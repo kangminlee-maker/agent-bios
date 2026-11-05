@@ -27,7 +27,10 @@ left pending is viewed with no window (`carried_only`), so the unit's stitch can
 **Windows.** Entries are cut greedily into windows in record order. Every viewed entry is owned by exactly one window;
 an entry too large for a window is split into **spans**, each a slice of the entry's view text with the mapping of
 every shown stretch to the block's characters (`segments`), so the spans' union is the entry. A window never joins
-two viewed runs that have unviewed records between them.
+two viewed runs that have unviewed records between them. A window names each entry it shows by a label of its own, e1,
+e2, ... in the order it renders them (`entry_labels`), never by the entry: a reader writes the label, and S3 turns it
+back into the entry (WP-08b). The labels are not stored; they follow from the window, so the bytes S2 measures are the
+bytes a packet carries.
 
 **The bound** (design §5.4 as amended, view-window calls only). The driver's part of a call - the window as
 `render_window` writes it, plus the packet template, schema and instructions (`overhead`) - is at most
@@ -80,6 +83,7 @@ OVERLAP_SLACK = 260          # header and cut marker of an overlap entry, beyond
 # slice counted in TURNS rather than in entries, and whatever does not fit is accounted rather than dropped.
 OVERLAP_SIDE_BYTES = OVERLAP_TURNS * (OVERLAP_ITEM_BYTES + OVERLAP_SLACK)
 HEADER_SLACK = 700           # the window's own heading lines
+LABEL_BOUND = "e99999"       # wider than any label a window renders: a window of the bound holds far fewer entries
 MIN_ENTRY_BYTES = 2048       # a window that cannot hold an entry this large is unbounded
 CLIP_OVER, HEAD_CHARS, TAIL_CHARS = 4_000, 1_200, 800
 ERROR_LINE = re.compile(r"(?i)\b(error|exception|traceback|fatal|failed|failure|denied|not found|no such file|cannot|"
@@ -421,6 +425,12 @@ def eid(entry):
     return entry["record_id"] + (f"#{span['index']}/{span['of']}" if span else "")
 
 
+def span_of(entry_id):
+    """The span an entry id names (`eid`), or None: an overlap entry carries its id, not its span."""
+    found = re.search(r"#([0-9]+)/([0-9]+)$", entry_id or "")
+    return {"index": int(found.group(1)), "of": int(found.group(2))} if found else None
+
+
 def fit_end(text, start, max_bytes):
     """The largest end such that text[start:end] is at most max_bytes in UTF-8, at least start + 1."""
     end = min(len(text), start + max_bytes)
@@ -452,9 +462,9 @@ def slice_entry(entry, a, b, index, of):
 
 def split_entry(entry, max_bytes):
     """The entry itself when its rendering fits `max_bytes`, else its spans, each of which does."""
-    if len(render_entry(entry).encode("utf-8")) <= max_bytes:
+    if len(render_entry(entry, LABEL_BOUND).encode("utf-8")) <= max_bytes:
         return [entry]
-    limit = max_bytes - len(render_entry({**entry, "text": "", "span": {"index": 9999, "of": 9999}}).encode("utf-8"))
+    limit = max_bytes - len(render_entry({**entry, "text": "", "span": {"index": 9999, "of": 9999}}, LABEL_BOUND).encode("utf-8"))
     cuts, pos, text = [], 0, entry["text"]
     while pos < len(text):
         end = fit_end(text, pos, limit)
@@ -490,20 +500,35 @@ def normal_stamp(value):
     return when.astimezone(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
 
 
-def header_of(entry):
-    """An entry's heading: a line `entry: <entry>` holding nothing but the value a reading writes as its `entry`, then
-    its kind, time and role. The entry once stood in brackets before the rest, and live readers wrote it without its
-    last part (`7/message/content/0` for `7/message/content/0/text`, WP-08 commit 7's apart leg): a line that is the
-    value alone, under the answer field's own name, leaves nothing to trim."""
+def header_of(entry, label):
+    """An entry's heading: a line `entry: <label>` holding nothing but the value a reading writes as its `entry`, then
+    its kind, time and role. The value is the window's own short label of the entry (`entry_labels`), never the entry
+    itself: live readers wrote the entry without its last part (`7/message/content/0` for `7/message/content/0/text`,
+    WP-08 commit 7's apart leg) and, after it stood alone on its line, as a near copy in one window call of ten (C1,
+    2026-11-05), so a reader copies a label of a few characters and code maps it back (WP-08b)."""
     bits = [entry["kind"] + (f":{entry['tool']}" if entry.get("tool") else ""), entry.get("ts") or "-",
             role_label(entry["window_role"])]
     if entry.get("error"):
         bits.append("ERROR")
-    return f"entry: {eid(entry)}\n" + " ".join(bits)
+    # a span says which part of its record it is, as its entry did (`eid`): the label no longer carries it
+    span = entry.get("span") or span_of(entry.get("entry"))
+    if span:
+        bits.append(f"part {span['index']} of {span['of']}")
+    return f"entry: {label}\n" + " ".join(bits)
 
 
-def render_entry(entry):
-    return header_of(entry) + "\n" + entry["text"] + "\n"
+def render_entry(entry, label):
+    return header_of(entry, label) + "\n" + entry["text"] + "\n"
+
+
+def entry_labels(window):
+    """`{entry: label}` of every entry `window` shows, in the order `render_window` renders them - the overlap before,
+    the records it owns, the overlap after - labelled e1, e2, ... A window's labels are its own: every window and every
+    expansion window numbers from e1, and the same record in two windows has a label in each. They follow from the
+    window alone, so a retry and a resumed run show the same ones, and nothing stores them (WP-08b)."""
+    shown = ([e["entry"] for e in window["overlap"]["prev"]] + [eid(r) for r in window["records"]]
+             + [e["entry"] for e in window["overlap"]["next"]])
+    return {entry: f"e{n}" for n, entry in enumerate(shown, 1)}
 
 
 def shown_segments(entry, end):
@@ -562,7 +587,7 @@ def overlap_side(entries, budget=OVERLAP_SIDE_BYTES, from_end=False):
     shown, omitted, spent = [], [], 0
     for entry in ordered:
         rendered = overlap_of(entry)
-        cost = len(render_overlap(rendered).encode("utf-8"))
+        cost = len(render_overlap(rendered, LABEL_BOUND).encode("utf-8"))
         if spent + cost > budget and shown:
             # A turn the budget cannot hold is OMITTED, and an omission with no span and no hash is not an
             # accounting - it names a record and says nothing about what was in it. The whole text goes, so
@@ -585,8 +610,8 @@ def overlap_side(entries, budget=OVERLAP_SIDE_BYTES, from_end=False):
     return shown, omitted
 
 
-def render_overlap(entry):
-    return (header_of({**entry, "record_id": entry["entry"]}) + " (overlap)\n" + entry["text"]
+def render_overlap(entry, label):
+    return (header_of(entry, label) + " (overlap)\n" + entry["text"]
             + ("\n[... cut ...]" if entry["overlap_cut"] else "") + "\n")
 
 
@@ -599,16 +624,17 @@ def render_window(window):
     text a newer masking exists to withhold, and the checked readers above cannot help a caller that did
     not use them."""
     current_version(window, f"window {window.get('window_n')} of {window.get('transcript')}")
+    label = entry_labels(window)
     out = [f"WINDOW {window['window_n']} of {window['transcript']} version {window['version']} "
            f"sha256:{window['version_sha'][:12]} redaction {window['redaction_version']}"]
     if window["overlap"]["prev"]:
         out.append("--- overlap before: context, not owned by this window ---")
-        out.extend(render_overlap(e) for e in window["overlap"]["prev"])
+        out.extend(render_overlap(e, label[e["entry"]]) for e in window["overlap"]["prev"])
     out.append("--- records owned by this window ---")
-    out.extend(render_entry(e) for e in window["records"])
+    out.extend(render_entry(e, label[eid(e)]) for e in window["records"])
     if window["overlap"]["next"]:
         out.append("--- overlap after: context, not owned by this window ---")
-        out.extend(render_overlap(e) for e in window["overlap"]["next"])
+        out.extend(render_overlap(e, label[e["entry"]]) for e in window["overlap"]["next"])
     return "\n".join(out) + "\n"
 
 
@@ -682,8 +708,9 @@ def cut_windows(base, seq, limits, overlap=True):
     cutting = []
     for entry in seq:
         cutting.extend(split_entry(entry, ceiling) if entry["owned"] else [entry])
-    own = [len(render_entry(e).encode("utf-8")) if e["owned"] else 0 for e in cutting]
-    ctx = [len(render_overlap(overlap_of(e)).encode("utf-8")) for e in cutting]
+    # each entry is estimated under the widest label a window renders; the window's own bytes decide (`make_window`)
+    own = [len(render_entry(e, LABEL_BOUND).encode("utf-8")) if e["owned"] else 0 for e in cutting]
+    ctx = [len(render_overlap(overlap_of(e), LABEL_BOUND).encode("utf-8")) for e in cutting]
     windows, i, n = [], 0, len(cutting)
     while i < n:
         if not cutting[i]["owned"]:
@@ -2045,12 +2072,12 @@ def self_test():
         # M#3: the planted shape stands in a tool NAME as well as in a block's text, and the sweep looks for
         # it in both - a name `header_of` renders into the window is as model-visible as the text under it.
         expect("done-when 2: the tool name a window renders is the projection's, not the transcript's",
-               [line for w in windows for r in w["records"] for line in [header_of(r)] if FX_SECRET[:10] in line], [])
+               [line for w in windows for r in w["records"] for line in [header_of(r, "e1")] if FX_SECRET[:10] in line], [])
         # P#2: the timestamp a window renders is a timestamp by construction - parsed and written back in one
         # normal form - so a host string carrying a secret or a path cannot stand in it
         expect("done-when 2: a record whose timestamp carried the planted shape renders no timestamp at all, "
                "and neither the shape nor the path reaches a header",
-               [line for w in windows for r in w["records"] for line in [header_of(r)]
+               [line for w in windows for r in w["records"] for line in [header_of(r, "e1")]
                 if FX_SECRET[:10] in line or FX_HOME in line], [])
         expect("done-when 2: every timestamp a window carries is one `fromisoformat` parses and this code "
                "re-emitted, never the host's own string",
@@ -3419,6 +3446,20 @@ def self_test():
         expect("Z#2: every split entry carries its place in the message - index, count and its own segments",
                [eid(r) for r in split_records
                 if not (r["span"]["index"] >= 1 and r["span"]["of"] > 1 and r["segments"])], [])
+        # WP-08b: a window names an entry by its label, so a span's heading says which part of its record it is, as its
+        # entry did; an overlap entry, which carries its entry and no span, says it the same way
+        headings = {(w["window_n"], eid(r)): next((line for line in render_window(w).split("entry: " + entry_labels(w)[eid(r)] + "\n", 1)[1:2]), "")
+                    .split("\n", 1)[0] for w in windows for r in w["records"] if "span" in r}
+        overlap_spans = [(e["entry"], next((h for h in [render_overlap(e, "e1")]), "")) for w in windows
+                         for side in ("prev", "next") for e in w["overlap"][side] if "#" in e["entry"]]
+        expect("WP-08b: every split entry's heading ends its kind line with its part of the record, `part k of n`, owned or "
+               "in an overlap, and the label line holds the label alone",
+               [key for key, line in headings.items()
+                if not line.endswith(f"part {key[1].rsplit('#', 1)[1].replace('/', ' of ')}")]
+               + [ident for ident, text in overlap_spans
+                  if f"part {ident.rsplit('#', 1)[1].replace('/', ' of ')} (overlap)" not in text.split("\n")[1]],
+               [])
+        expect("WP-08b: ... and the fixture has split entries in an overlap as well as owned", bool(headings) and bool(overlap_spans), True)
         by_split = {rid: [r for r in split_records if r["record_id"] == rid]
                     for rid in {r["record_id"] for r in split_records}}
         expect("Z#2: ... and the spans of one message tile it, so no row derived from one rests on a guess",

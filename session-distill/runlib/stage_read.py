@@ -5,10 +5,14 @@ every window S2 cut is read by one model call, and what a call answers is kept o
 
 A unit is a root with every member (D-20261103-85f3e8), and each file of it has its own view (D-20261103-a7128a). A
 window's call carries `packets/read.md` filled with the window as S2 rendered it, the omissions of the window's own
-records and the expected observations due, and answers in `schemas/read.schema.json`. The gate judges steps 1 to 3;
-`answer_problems` is the stage's part of steps 4 and 5, handed to `Supervisor.item` as its `stage_check`, so an answer
-that fails it is retried once with its lines exactly as one the gate fails:
+records and the expected observations due, and answers in `schemas/read.schema.json`. A packet names what an answer
+names - each entry its window shows, each omission it lists, each expected observation - by a label of its own (e1, o1,
+x1, ...; `Labels`, WP-08b), and the answer writes those labels: they follow from the packet's inputs, so a retry and a
+resumed run show the same ones, and nothing stores them. The gate judges steps 1 to 3; `answer_problems` is the
+stage's part of steps 4 and 5, read in the labels, handed to `Supervisor.item` as its `stage_check`, so an answer that
+fails it is retried once with its lines exactly as one the gate fails:
 
+- every label it writes is one the packet shows (UNKNOWN_LABEL);
 - every quote names an entry this window shows - its own records or the overlap before and after them - every
   claim's and observation's `evidence_ids` name quotes of the same answer, every event's `claim_ids` claims of it,
   every claim echoes this call's id, an event starts and an observation's occasion lies on an owned record, an event
@@ -17,7 +21,9 @@ that fails it is retried once with its lines exactly as one the gate fails:
   SET_MISMATCH, EXPANSION_SKIPPED, EXPANSION_DECISION_INVALID). The overlap rows are the owning window's
   (D-20261103-8bfd69).
 
-Quote fidelity is code's, after the call: every quote becomes an evidence record through `evidence.from_view`, which
+An accepted answer is turned from labels into entries, omission ids and expected ids once, where it is read
+(`Labels.resolve`), and everything after works in those: the stores hold no label. Quote fidelity is code's, after the
+call: every quote becomes an evidence record through `evidence.from_view`, which
 finds the span in what the window showed of that entry, owned or overlap, and reads the text from the projection; the
 record keeps the entry's own role. A quote that does not locate drops
 every claim citing it, and an event left with no claim, and the window's read record lists each drop with its code
@@ -46,7 +52,10 @@ session a record stands by (segment order, line); across the unit's members by i
 and a claim whose order against the event cannot be known, for want of an instant, is left out and counted
 (`Timeline`, `later`, `joinable_claims`). The stitch's answer is checked by `stitch_problems`, its `stage_check`: one
 resolution per listed event, a resolved one naming claims and quotes and an unresolved one neither, every claim one the
-packet lists as joinable and every quote one of the claims it names (SET_MISMATCH, RECORD_INTEGRITY). A carried event is any
+packet lists as joinable and every quote one of the claims it names (SET_MISMATCH, RECORD_INTEGRITY). A stitch packet
+names its events, claims and quotes by labels of its own too (v1, c1, q1, ...; `StitchLabels`), an event's own claims by
+their facts alone, and its accepted answer is turned into stored ids where it is read; a label it does not show is
+UNKNOWN_LABEL. A carried event is any
 file's of the unit, the files this run owes nothing among them, which S2 views for it with no window (`carried_only`). It
 is shown at its first record in this run's projection when its file was only appended to, which keeps its version's
 number (`coverage.observe`), and not shown when the file was rewritten or has no view; then it stays pending, named in
@@ -106,7 +115,7 @@ commit 5b, `run`): a unit writes only its own read record and its views' stores,
 record is folded in unit order, and the decision log they share is written under its lock and left in unit order, so
 the stage's bytes do not depend on how many units were read at once.
 
-Refused by name: OVERLAP_OWNER_MISSING, OVERLAP_INTERVAL_UNSHOWN, WINDOWLESS_VIEW, VIEW_DRIFT, CLAIM_IMMUTABLE,
+Refused by name: UNKNOWN_LABEL, OVERLAP_OWNER_MISSING, OVERLAP_INTERVAL_UNSHOWN, WINDOWLESS_VIEW, VIEW_DRIFT, CLAIM_IMMUTABLE,
 EVENT_IMMUTABLE, WINDOW_CAP_MISMATCH, STITCH_OVER_BOUND, LEDGER_UNREADABLE, LEDGER_BASE_STALE, LEDGER_INVALID,
 EXPECTED_EXPIRY_UNREADABLE, INSTANCE_IMMUTABLE, RESOLUTION_DRIFT, READ_JOBS_EXCEEDED, and CLAIM_INVALID, EVENT_INVALID and
 OBSERVATION_INVALID for a stored record its schema refuses.
@@ -154,12 +163,14 @@ def own_rows(window):
     return [m for m in window["omission_manifest"] if m.get("origin") != "overlap"]
 
 
-def omissions_text(rows):
-    if not rows:
+def omissions_text(labels):
+    """The omissions of the window's own records the packet lists, each by its label and the label of the entry it lies
+    in: only its own, since the overlap's are decided by the window that owns their record (D-20261103-8bfd69)."""
+    if not labels.omissions:
         return "none"
-    return "\n".join(f"- {m['omission_id']}: {m['omitted_span']['end'] - m['omitted_span']['start']} of {m['size']} "
-                     f"characters omitted" + (f", must expand ({m['forced_by']})" if m["forced_by"] != "none" else "")
-                     for m in rows)
+    return "\n".join(f"- {label}: in {labels.entry_of_omission(m)}, {m['omitted_span']['end'] - m['omitted_span']['start']} "
+                     f"of {m['size']} characters omitted" + (f", must expand ({m['forced_by']})" if m["forced_by"] != "none" else "")
+                     for label, m in labels.omissions.items())
 
 
 EXPECTED_FIELDS = ("occasion_criteria", "exposure_rule", "expected_behavior", "retrieval_terms", "expiry")
@@ -210,13 +221,13 @@ def due_observations(doc, run_id, window):
     return sorted(due, key=lambda e: e["expected_id"])
 
 
-def expected_text(expected):
-    """The expected observations due, each with what the reading judges it by. Their retrieval terms are not shown:
-    code searches the full source with them and forces the expansions they match (`searched`)."""
-    if not expected:
+def expected_text(labels):
+    """The expected observations due, each by its label with what the reading judges it by. Their retrieval terms are
+    not shown: code searches the full source with them and forces the expansions they match (`searched`)."""
+    if not labels.expected:
         return "none"
-    return "\n".join(f"- {e['expected_id']}\n  occasion: {e['occasion_criteria']}\n  exposure rule: {e['exposure_rule']}\n"
-                     f"  expected behaviour: {e['expected_behavior']}" for e in expected)
+    return "\n".join(f"- {label}\n  occasion: {e['occasion_criteria']}\n  exposure rule: {e['exposure_rule']}\n"
+                     f"  expected behaviour: {e['expected_behavior']}" for label, e in labels.expected.items())
 
 
 def searched(rows, hits):
@@ -225,9 +236,9 @@ def searched(rows, hits):
     return [{**m, "forced_by": "search_match"} if m["forced_by"] == "none" and m["record_id"] in hits else m for m in rows]
 
 
-def payload(window, rows, expected=()):
-    return packet.render("read", {"window": views.render_window(window), "omissions": omissions_text(rows),
-                                  "expected": expected_text(expected)})
+def payload(labels):
+    return packet.render("read", {"window": views.render_window(labels.window), "omissions": omissions_text(labels),
+                                  "expected": expected_text(labels)})
 
 
 def shown_entries(window):
@@ -244,9 +255,63 @@ def quotable_entries(window):
     return out
 
 
-def answer_problems(window, rows, answer, call_id, expected_ids=()):
-    """The stage's steps 4 and 5 over one answer (module docstring); empty when it holds."""
-    errors, shown, quotable = [], shown_entries(window), quotable_entries(window)
+class Labels:
+    """What a read packet labels (WP-08b): every entry its window shows, e1, e2, ... in the order the window renders them
+    (`views.entry_labels`); the omissions of its own records it lists, o1, o2, ... in their order; the expected
+    observations due, x1, x2, ... in id order. A reader writes these labels and nothing longer. They follow from the
+    packet's own inputs - the window, its rows, the due list - so a retry's packet and a resumed run's show the same ones
+    and nothing stores them: the stage's check reads an answer in them (`answer_problems`), and `resolve`, where an
+    accepted answer is read, turns them into the entries, omission ids and expected ids the stores keep."""
+
+    def __init__(self, window, rows, expected=()):
+        self.window, by_entry = window, views.entry_labels(window)
+        quotable, owned = quotable_entries(window), shown_entries(window)
+        self.entry_ids = {label: entry for entry, label in by_entry.items()}
+        self.entries = {label: quotable[entry] for label, entry in self.entry_ids.items()}
+        self.owned = {label: owned[entry] for label, entry in self.entry_ids.items() if entry in owned}
+        self.omissions = {f"o{n}": m for n, m in enumerate(rows, 1)}
+        self.expected = {f"x{n}": e for n, e in enumerate(expected, 1)}
+        self.of_record = {}
+        for label, entry in self.owned.items():   # an omission of an own record lies in its first entry, its clip's
+            self.of_record.setdefault(entry["record_id"], label)
+
+    def entry_of_omission(self, row):
+        return self.of_record[row["record_id"]]
+
+    def resolve(self, answer):
+        """`answer` with its labels turned into what they label: entries, omission ids, expected ids. Asked only of an
+        answer the stage's check passed, which names no label the packet does not show; one that does is refused by name
+        (UNKNOWN_LABEL), so no label can reach a store."""
+        def of(table, label, path, what):
+            if label not in table:
+                raise Refused(f"UNKNOWN_LABEL {label!r} at {path}: this packet shows no {what} so labelled")
+            return table[label]
+        out = copy.deepcopy(answer)
+        for q in out["quotes"]:
+            q["entry"] = of(self.entry_ids, q["entry"], f"quotes/{q['quote_id']}/entry", "entry")
+        for v in out["events"]:
+            v["at_record"] = of(self.entry_ids, v["at_record"], f"events/{v['event_id']}/at_record", "entry")
+        for o in out["observations"]:
+            where = f"observations/{o['expected_id']}"
+            o["occasion_locator"] = of(self.entry_ids, o["occasion_locator"], f"{where}/occasion_locator", "entry")
+            o["expected_id"] = of(self.expected, o["expected_id"], f"{where}/expected_id", "expected observation")["expected_id"]
+        for d in out["decisions"]:
+            d["omission_id"] = of(self.omissions, d["omission_id"], f"decisions/{d['omission_id']}/omission_id",
+                                  "omission")["omission_id"]
+        return out
+
+
+def answer_problems(labels, answer, call_id):
+    """The stage's steps 4 and 5 over one answer (module docstring), read in the packet's labels (`Labels`): a value no
+    label of the packet names is UNKNOWN_LABEL, and every line names what the reader wrote, so a retry's correction shows
+    it labels, never an entry; empty when it holds."""
+    errors, shown, quotable = [], labels.owned, labels.entries
+
+    def known(label, table, path, what):
+        if label in table:
+            return True
+        errors.append(f"UNKNOWN_LABEL {label!r} at {path}: this packet shows no {what} so labelled")
+        return False
 
     def ids(kind, items, key):
         found = [item[key] for item in items]
@@ -259,9 +324,7 @@ def answer_problems(window, rows, answer, call_id, expected_ids=()):
     claim_ids = ids("claim", answer["claims"], "claim_id")
     ids("event", answer["events"], "event_id")
     for q in answer["quotes"]:
-        if q["entry"] not in quotable:
-            errors.append(f"RECORD_INTEGRITY entry {q['entry']!r} at quotes/{q['quote_id']} is no entry this window "
-                          "shows")
+        known(q["entry"], quotable, f"quotes/{q['quote_id']}/entry", "entry")
     for c in answer["claims"]:
         if c["call_id"] != call_id:
             errors.append(f"RECORD_INTEGRITY call id {c['call_id']!r} at claims/{c['claim_id']} is not this packet's "
@@ -271,6 +334,8 @@ def answer_problems(window, rows, answer, call_id, expected_ids=()):
     for v in answer["events"]:
         for c in sorted(set(v["claim_ids"]) - claim_ids):
             errors.append(f"RECORD_INTEGRITY claim id {c!r} at events/{v['event_id']}/claim_ids resolves to nothing")
+        if not known(v["at_record"], quotable, f"events/{v['event_id']}/at_record", "entry"):
+            continue
         entry = shown.get(v["at_record"])
         if entry is None:
             errors.append(f"RECORD_INTEGRITY entry {v['at_record']!r} at events/{v['event_id']}/at_record is no record "
@@ -283,24 +348,26 @@ def answer_problems(window, rows, answer, call_id, expected_ids=()):
     if repeated:
         errors.append(f"RECORD_INTEGRITY occasions repeat: {repeated}: each occasion of an expected observation is judged once")
     for o in answer["observations"]:
-        if o["expected_id"] not in expected_ids:
-            errors.append(f"RECORD_INTEGRITY expected observation {o['expected_id']!r} is not one due in this window")
-        if o["occasion_locator"] not in shown:
-            errors.append(f"RECORD_INTEGRITY entry {o['occasion_locator']!r} at observations/{o['expected_id']} is no "
-                          "record this window owns")
+        where = f"observations/{o['expected_id']}"
+        known(o["expected_id"], labels.expected, f"{where}/expected_id", "expected observation")
+        if known(o["occasion_locator"], quotable, f"{where}/occasion_locator", "entry") and o["occasion_locator"] not in shown:
+            errors.append(f"RECORD_INTEGRITY entry {o['occasion_locator']!r} at {where} is no record this window owns")
         for e in sorted(set(o["evidence_ids"]) - quote_ids):
-            errors.append(f"RECORD_INTEGRITY quote id {e!r} at observations/{o['expected_id']} resolves to nothing")
-    forced = {m["omission_id"]: m["forced_by"] for m in rows if m["forced_by"] != "none"}
+            errors.append(f"RECORD_INTEGRITY quote id {e!r} at {where} resolves to nothing")
+    for d in answer["decisions"]:
+        known(d["omission_id"], labels.omissions, f"decisions/{d['omission_id']}/omission_id", "omission")
+    rows = [{**m, "omission_id": label} for label, m in labels.omissions.items()]
+    forced = {label: m["forced_by"] for label, m in labels.omissions.items() if m["forced_by"] != "none"}
     errors += views.check_decisions(rows, forced, answer["decisions"])
     return errors
 
 
-def judge(window, rows, expected_ids=()):
+def judge(labels):
     """The stage's check of one window's attempts, as `Supervisor.item(stage_check=)` asks it: pure code over the
     attempt's call directory, which it only reads (its answer and its call id) - no model, no network, no write. The
     supervisor records what it says beside the attempt, and `gate.accepted(judged=True)` is the one read of an answer
     that sees both verdicts."""
-    return lambda call_dir: answer_problems(window, rows, answer_of(call_dir), call_id_of(call_dir), tuple(expected_ids))
+    return lambda call_dir: answer_problems(labels, answer_of(call_dir), call_id_of(call_dir))
 
 
 def answer_of(call_dir):
@@ -668,10 +735,51 @@ def shard_plan(events, claims, size, bound_bytes):
     return plan
 
 
-def stitch_problems(listed, answer):
-    """The stitch's steps 4 and 5 over one answer; empty when it holds. `listed` maps each event the packet lists to
-    `{claim id: {"after": the quotes of it the event's outcome may rest on, "all": every quote of it}}`: a resolution
-    cites at least one quote of an `after`, and may cite a claim's other quotes beside it (an exposure in context)."""
+class StitchLabels:
+    """What one stitch packet labels (WP-08b): its events v1, v2, ... in the order it lists them, its claims c1, c2, ... in
+    theirs, and their quotes q1, q2, ... in the order they first appear, one label for an evidence record however many of
+    the packet's claims cite it. A packet's labels are its own - every shard numbers from 1 - and follow from what it
+    lists, so its retry shows the same ones and nothing stores them. `listed` is `stitch_problems`' map in labels, and
+    `resolve` turns an accepted answer's labels into the stored event, claim and evidence ids, where it is read."""
+
+    def __init__(self, events, claim_ids, rows):
+        self.events = {f"v{n}": ev["id"] for n, ev in enumerate(events, 1)}
+        self.claims = {f"c{n}": c for n, c in enumerate(claim_ids, 1)}
+        quotes = list(dict.fromkeys(q["evidence_id"] for c in claim_ids for q in rows[c]["quotes"]))
+        self.quotes = {f"q{n}": e for n, e in enumerate(quotes, 1)}
+        self.of_event, self.of_claim, self.of_quote = ({v: k for k, v in table.items()}
+                                                       for table in (self.events, self.claims, self.quotes))
+        shard = set(claim_ids)
+        self.listed = {self.of_event[ev["id"]]: {self.of_claim[c]: {"after": {self.of_quote[e] for e in j["after"]},
+                                                                    "all": {self.of_quote[e] for e in j["all"]}}
+                                                 for c, j in ev["joinable"].items() if c in shard}
+                       for ev in events}
+
+    def shown(self):
+        return {"events": set(self.events), "claims": set(self.claims), "quotes": set(self.quotes)}
+
+    def resolve(self, answer):
+        """`answer` with every label turned into the stored id it labels; one the packet does not show is refused by name
+        (UNKNOWN_LABEL), so no label can reach a store."""
+        def of(table, label, path, what):
+            if label not in table:
+                raise Refused(f"UNKNOWN_LABEL {label!r} at {path}: this packet shows no {what} so labelled")
+            return table[label]
+        out = copy.deepcopy(answer)
+        for r in out["resolutions"]:
+            where = f"resolutions/{r['event_id']}"
+            r["event_id"] = of(self.events, r["event_id"], f"{where}/event_id", "event")
+            r["claim_ids"] = [of(self.claims, c, f"{where}/claim_ids", "claim") for c in r["claim_ids"]]
+            r["evidence_ids"] = [of(self.quotes, e, f"{where}/evidence_ids", "quote") for e in r["evidence_ids"]]
+        return out
+
+
+def stitch_problems(listed, answer, shown):
+    """The stitch's steps 4 and 5 over one answer, read in the packet's labels (`StitchLabels`); empty when it holds.
+    `listed` maps each event the packet lists to `{claim: {"after": the quotes of it the event's outcome may rest on,
+    "all": every quote of it}}`: a resolution cites at least one quote of an `after`, and may cite a claim's other quotes
+    beside it (an exposure in context). `shown` holds every label of the packet by kind - `events`, `claims`, `quotes`:
+    a value none of them names is UNKNOWN_LABEL, one the packet shows that the event may not rest on RECORD_INTEGRITY."""
     errors, found = [], [r["event_id"] for r in answer["resolutions"]]
     repeated = sorted({i for i in found if found.count(i) > 1})
     if repeated:
@@ -681,7 +789,7 @@ def stitch_problems(listed, answer):
     for r in answer["resolutions"]:
         where, joinable = f"resolutions/{r['event_id']}", listed.get(r["event_id"])
         if joinable is None:
-            errors.append(f"SET_MISMATCH {where} is no event this packet lists")
+            errors.append(f"UNKNOWN_LABEL {r['event_id']!r} at {where}/event_id: this packet shows no event so labelled")
             continue
         if r["outcome"] == "resolved" and not (r["claim_ids"] and r["evidence_ids"]):
             errors.append(f"RECORD_INTEGRITY {where} is resolved and names no claim or no quote: a resolution names "
@@ -689,11 +797,17 @@ def stitch_problems(listed, answer):
         if r["outcome"] == "unresolved" and (r["claim_ids"] or r["evidence_ids"]):
             errors.append(f"RECORD_INTEGRITY {where} is unresolved and names claims or quotes")
         for c in sorted(set(r["claim_ids"]) - set(joinable)):
+            if c not in shown["claims"]:
+                errors.append(f"UNKNOWN_LABEL {c!r} at {where}/claim_ids: this packet shows no claim so labelled")
+                continue
             errors.append(f"RECORD_INTEGRITY claim id {c!r} at {where}/claim_ids is no claim the packet lists as "
                           "joinable to the event")
         named = [joinable[c] for c in r["claim_ids"] if c in joinable]
         quotes = set().union(*(set(j["all"]) for j in named))
         for e in sorted(set(r["evidence_ids"]) - quotes):
+            if e not in shown["quotes"]:
+                errors.append(f"UNKNOWN_LABEL {e!r} at {where}/evidence_ids: this packet shows no quote so labelled")
+                continue
             errors.append(f"RECORD_INTEGRITY evidence id {e!r} at {where}/evidence_ids is no quote of the claims it names")
         if r["outcome"] == "resolved" and named and not set(r["evidence_ids"]) & set().union(*(set(j["after"]) for j in named)):
             errors.append(f"RECORD_INTEGRITY {where} cites no quote the run processes after the event: an outcome rests "
@@ -701,9 +815,9 @@ def stitch_problems(listed, answer):
     return errors
 
 
-def stitch_judge(listed):
+def stitch_judge(listed, shown):
     """The stitch's check of an attempt, as `Supervisor.item(stage_check=)` asks it: pure code over what it reads."""
-    return lambda call_dir: stitch_problems(listed, answer_of(call_dir))
+    return lambda call_dir: stitch_problems(listed, answer_of(call_dir), shown)
 
 
 def current_events(run_dir, name):
@@ -730,22 +844,22 @@ class Reader:
         self.caps = {"tokens": episode["tokens"], "compactions": episode["compactions"]}
         self.schema, self.stitch_schema = read_schema(), stitch_schema()
 
-    def call(self, item, window, rows, expected=()):
+    def call(self, item, labels):
         """One window's call through the supervisor, its answer checked by the stage (`answer_problems`)."""
         return self.supervisor.item(
-            STAGE, item, self.seat, payload(window, rows, expected), self.schema, case_type=CASE, caps=self.caps,
-            view_window=True, tranche=self.tranche, max_output_tokens=self.cap,
-            stage_check=judge(window, rows, [e["expected_id"] for e in expected]), resume=True)
+            STAGE, item, self.seat, payload(labels), self.schema, case_type=CASE, caps=self.caps,
+            view_window=True, tranche=self.tranche, max_output_tokens=self.cap, stage_check=judge(labels), resume=True)
 
     def window(self, name, where, item, doc, rows):
         """Read one window and keep its answer; returns its read record and, when accepted, `(answer, call id, what the
-        stitch reads of it)`."""
-        out = self.call(item, doc, rows, self.due)
+        stitch reads of it)`. The answer is read in the packet's labels and turned into entries here, once (`Labels`)."""
+        labels = Labels(doc, rows, self.due)
+        out = self.call(item, labels)
         row = {"window": where, "item": item, "outcome": out["outcome"], "codes": out.get("codes", []),
                "attempts": attempts_of(out), "reused": out.get("reused"), "not_reused": out.get("not_reused", [])}
         if out["outcome"] != "accepted":
             return row, None
-        answer = gate.accepted(out["accepted"], judged=True)
+        answer = labels.resolve(gate.accepted(out["accepted"], judged=True))
         call_id = call_id_of(out["accepted"])
         part, held = keep(self.run_dir, name, where, doc, call_id, answer)
         row.update(call_id=call_id, **part)
@@ -852,10 +966,10 @@ class Reader:
         for e in held["events"]:
             r = e["record"]
             if r["outcome"] == "pending":
+                # the event's own claims by their facts: no claim of its own is one it may join, so none carries a label
                 events.append({**e, "id": r["event_id"], "line": line_of(r["at_record"]), "carried": False,
                                "row": {"event_id": r["event_id"], "file": e["file"], "record": r["at_record"], "kind": r["kind"],
-                                       "description": r["description"],
-                                       "claims": [{"claim_id": c, "fact": facts[c]} for c in r["claim_ids"]]}})
+                                       "description": r["description"], "facts": [facts[c] for c in r["claim_ids"]]}})
         for p in carried:
             view, line = by_file.get(p["transcript"]), p["first_record"] + 1
             if view is None:  # S2 views every file of a unit that holds one; a file it could not reach has none (W r1)
@@ -892,12 +1006,16 @@ class Reader:
         run_id = self.run_dir.resolve().name
 
         def text_of(event_ids, claim_ids):
-            shard = set(claim_ids)
+            # every id a resolution names is shown as this packet's label of it (`StitchLabels`), never as stored
+            labels, shard = StitchLabels([by_id[i] for i in event_ids], claim_ids, rows), set(claim_ids)
             return packet.render("stitch", {
-                "events": "\n".join(json.dumps({**by_id[i]["row"], "joinable": [
-                    {"claim_id": c, "quotes_after": j["after"]} for c, j in by_id[i]["joinable"].items() if c in shard]},
+                "events": "\n".join(json.dumps({**by_id[i]["row"], "event_id": labels.of_event[i], "joinable": [
+                    {"claim_id": labels.of_claim[c], "quotes_after": [labels.of_quote[e] for e in j["after"]]}
+                    for c, j in by_id[i]["joinable"].items() if c in shard]},
                     ensure_ascii=False) for i in event_ids),
-                "claims": "\n".join(json.dumps(rows[c], ensure_ascii=False) for c in claim_ids)})
+                "claims": "\n".join(json.dumps({**rows[c], "claim_id": labels.of_claim[c], "quotes": [
+                    {**q, "evidence_id": labels.of_quote[q["evidence_id"]]} for q in rows[c]["quotes"]]},
+                    ensure_ascii=False) for c in claim_ids)})
 
         def size(event_ids, claim_ids):
             # measured as dispatch measures it, under the longest call id a shard's retry can have
@@ -917,12 +1035,11 @@ class Reader:
                 live = [ev for ev in remaining if set(ev["joinable"]) & set(shard)]
                 if not live:
                     continue
-                listed = {ev["id"]: {c: {"after": set(j["after"]), "all": set(j["all"])}
-                                     for c, j in ev["joinable"].items() if c in shard} for ev in live}
+                labels = StitchLabels(live, shard, rows)
                 item = f"{views.safe_name(unit)}-s{g + 1}-{k + 1}"
                 out = self.supervisor.item(STAGE, item, self.seat, text_of([ev["id"] for ev in live], shard), self.stitch_schema,
                                            case_type=STITCH_CASE, caps=self.caps, view_window=True, tranche=self.tranche,
-                                           max_output_tokens=self.cap, stage_check=stitch_judge(listed), resume=True)
+                                           max_output_tokens=self.cap, stage_check=stitch_judge(labels.listed, labels.shown()), resume=True)
                 call = {"shard": [g + 1, k + 1], "item": item, "outcome": out["outcome"], "codes": out.get("codes", []),
                         "events": [ev["id"] for ev in live], "claims": len(shard), "attempts": attempts_of(out)}
                 calls.append(call)
@@ -931,7 +1048,7 @@ class Reader:
                     failed = call
                     break
                 call["call_id"] = call_id_of(out["accepted"])
-                for r in gate.accepted(out["accepted"], judged=True)["resolutions"]:
+                for r in labels.resolve(gate.accepted(out["accepted"], judged=True))["resolutions"]:
                     listed_last[r["event_id"]] = item
                     if r["outcome"] == "resolved":
                         decided[r["event_id"]] = {"outcome": "resolved", "claim_ids": r["claim_ids"],
@@ -1374,11 +1491,33 @@ def fx_answer(doc, rows, decide=lambda m: "expand" if m["forced_by"] != "none" e
     return answer
 
 
-def fx_plan(run_dir, scratch, answers_for, expanding=lambda m: False):
+def fx_labelled(labels, answer):
+    """`answer`, which a fixture writes in entries, omission ids and expected ids, in the labels the packet of `labels`
+    shows instead (`Labels`): what a reader of that packet writes. A value the packet labels nothing as is left as it
+    is, so a fixture's departure stays one."""
+    of_entry = {entry: label for label, entry in labels.entry_ids.items()}
+    of_omission = {m["omission_id"]: label for label, m in labels.omissions.items()}
+    of_expected = {e["expected_id"]: label for label, e in labels.expected.items()}
+    out = copy.deepcopy(answer)
+    for q in out.get("quotes", []):
+        q["entry"] = of_entry.get(q["entry"], q["entry"])
+    for v in out.get("events", []):
+        v["at_record"] = of_entry.get(v["at_record"], v["at_record"])
+    for o in out.get("observations", []):
+        o["occasion_locator"] = of_entry.get(o["occasion_locator"], o["occasion_locator"])
+        o["expected_id"] = of_expected.get(o["expected_id"], o["expected_id"])
+    for d in out.get("decisions", []):
+        d["omission_id"] = of_omission.get(d["omission_id"], d["omission_id"])
+    return out
+
+
+def fx_plan(run_dir, scratch, answers_for, expanding=lambda m: False, due=()):
     """The golden host's plan: rows `{match, answer}`, each matched by the whole text of its window as S2 rendered it -
     a window's text is in its packet verbatim and in no other - and, for a retry, by the correction its packet carries.
     The expansions are made first, on a copy of the run and by the same `views.expand`, so the plan knows their windows
-    before the run makes them; `answers_for(where, doc, rows, parts)` gets them by omission id."""
+    before the run makes them; `answers_for(where, doc, rows, parts)` gets them by omission id, and writes them as a
+    fixture does, in entries: each is answered in the labels its packet shows, over the `due` observations
+    (`fx_labelled`)."""
     run_dir, rows = pathlib.Path(run_dir), []
     manifest = records.read_json(run_dir / "views.json")
     copied = pathlib.Path(tempfile.mkdtemp(prefix="plan-", dir=scratch)) / "run"
@@ -1390,12 +1529,14 @@ def fx_plan(run_dir, scratch, answers_for, expanding=lambda m: False):
     shutil.rmtree(copied.parent)
     for name, doc in docs:
         for extra, answer in answers_for(f"{name}/{doc['window_n']}", doc, own_rows(doc), parts):
-            rows.append({"match": [views.render_window(doc), *extra], "answer": answer})
+            rows.append({"match": [views.render_window(doc), *extra],
+                         "answer": fx_labelled(Labels(doc, own_rows(doc), due), answer)})
         for omission, made in parts.items():
             if any(m["omission_id"] == omission for m in own_rows(doc)):
                 for part in made:
                     for extra, answer in answers_for(f"{name}/x/{omission}/{part['window_n']}", part, own_rows(part), parts):
-                        rows.append({"match": [views.render_window(part), *extra], "answer": answer})
+                        rows.append({"match": [views.render_window(part), *extra],
+                                     "answer": fx_labelled(Labels(part, own_rows(part), due), answer)})
     # the most specific rows first: a retry's row names the correction its packet carries
     return sorted(rows, key=lambda r: -len(r["match"]))
 
@@ -1437,7 +1578,7 @@ def fx_stitcher(sup, plan, resolve, first=None, seen=None, bad=lambda item: Fals
             body = payload.split("<pending_events>", 1)[1].split("# Your task", 1)[0]
             answer = {"resolutions": resolutions}
             if bad(name):
-                answer = {"resolutions": [{**r, "outcome": "resolved", "claim_ids": ["c-none"], "evidence_ids": ["e-none"]}
+                answer = {"resolutions": [{**r, "outcome": "resolved", "claim_ids": ["c99"], "evidence_ids": ["q99"]}
                                           for r in resolutions]}
             # units read side by side plant their rows in one plan, which a host may be reading: one at a time, replaced
             # whole (WP-08 commit 5b)
@@ -1478,8 +1619,11 @@ def fx_reader(root, name, answers_for, expanding=lambda m: False, resolve=lambda
              "host_version": version, "flag_set_sha256": gate.pinned_flags_sha256("claude", version, "hermetic")}
     made = views.golden(root, name, overhead=100_000, allowance_entry=entry, **golden)
     run_dir = pathlib.Path(made["run_dir"])
+    # the observations due are the ones S3 reads from the ledger the run pins, over the run's window
+    due = (due_observations(golden["ledger_doc"], run_dir.resolve().name, golden.get("window") or views.FX_WINDOW)
+           if golden.get("ledger_doc") else [])
     plan = root / f"{name}-plan.json"
-    plan.write_text(json.dumps(fx_plan(run_dir, root, answers_for, expanding)), encoding="utf-8")
+    plan.write_text(json.dumps(fx_plan(run_dir, root, answers_for, expanding, due)), encoding="utf-8")
     (root / "fake_host.py").write_text(dispatch.FAKE_HOST, encoding="utf-8")
     sup = fx_supervisor(run_dir, root, plan, resolve, first, seen, bad)
     seat = records.read_json(records.run_json_path(run_dir))["seats"][STAGE]
@@ -1543,8 +1687,9 @@ def fx_apart_records():
                views.fx_assistant(views.fx_stamp(3, hour=6), turn(9))])
 
 
-# S2 cuts the live apart session's turns into five windows, the fifth from the 450th turn on (`fx_live_legs`)
-FX_APART_LIVE_TURNS, FX_TWIN_LIVE_TURNS = 460, 449
+# S2 cuts the live apart session's turns into five windows, the fifth from the 538th turn on (`fx_live_legs`); windows
+# that name their entries by labels hold more turns than they did by entries (WP-08b), when the fifth began at the 450th
+FX_APART_LIVE_TURNS, FX_TWIN_LIVE_TURNS = 548, 537
 
 
 def fx_apart_live_records(turns=FX_APART_LIVE_TURNS, outcome=True):
@@ -1693,6 +1838,12 @@ def self_test():
     def record_of(directory, unit):
         return guarded(lambda: records.read_json(directory / "read" / f"{views.safe_name(unit)}.json"), {}) if unit else {}
 
+    def problems_in(doc, rows, answer, call_id, due=()):
+        """`answer_problems` over `answer`, which a control writes as a fixture does, in entries, as the reader of the
+        window's packet writes it: in that packet's labels (`fx_labelled`)."""
+        labels = Labels(doc, rows, due)
+        return answer_problems(labels, fx_labelled(labels, answer), call_id)
+
     with tempfile.TemporaryDirectory(prefix="s3-") as td:
         root = pathlib.Path(td)
         forced_of = {}
@@ -1731,7 +1882,7 @@ def self_test():
         forcing = lambda m: m["forced_by"] != "none"  # noqa: E731 - the plan expands the forced omissions
 
         def misjoined(answer, events):  # the stitch's first answer joins its first event to what it may not join
-            answer["resolutions"][0].update(outcome="resolved", claim_ids=["c-none"], evidence_ids=["e-none"])
+            answer["resolutions"][0].update(outcome="resolved", claim_ids=["c99"], evidence_ids=["q99"])
             return answer
         seen_a = []
         run_dir, sup, _golden = fx_reader(root / "a", "a", answers_a, expanding=forcing, first=misjoined, seen=seen_a)
@@ -1752,7 +1903,7 @@ def self_test():
         stitched = main.get("stitch", {})
         calls = stitched.get("calls", [])
         listed = [e for item, events, _claims in seen_a for e in events]
-        carried_row = next((e for e in listed if e["event_id"] == "pe-1"), {})
+        carried_row = next((e for e in listed if "carried_from" in e), {})
         control("done-when 3: a unit whose reading finished is stitched once, over its own pending event and the one an "
                 "earlier run left on its file, in the order of their records, and is read_complete",
                 units.get(main_unit) == "read_complete" and len(calls) == 1 and len(seen_a) == 1
@@ -1763,11 +1914,16 @@ def self_test():
                 stitched.get("bound") == guarded(lambda: bound.driver_budget(views.limits_of(declared_a)), 0) - CORRECTION_ROOM,
                 f"{stitched.get('bound')}")
         first_try = (calls or [{}])[0].get("attempts", [])
-        control("a stitch answer joining an event to what the packet does not list as joinable fails the stitch's check, "
-                "by its lines, and is retried",
-                len(first_try) == 2 and any(l.startswith("RECORD_INTEGRITY claim id 'c-none'") for l in first_try[0]["stage_check"] or [])
-                and any(l.startswith("RECORD_INTEGRITY evidence id 'e-none'") for l in first_try[0]["stage_check"] or [])
+        control("a stitch answer joining an event to a claim and a quote its packet does not show fails the stitch's check, "
+                "by its lines (UNKNOWN_LABEL), and is retried",
+                len(first_try) == 2 and any(l.startswith("UNKNOWN_LABEL 'c99' at resolutions/v1/claim_ids") for l in first_try[0]["stage_check"] or [])
+                and any(l.startswith("UNKNOWN_LABEL 'q99' at resolutions/v1/evidence_ids") for l in first_try[0]["stage_check"] or [])
                 and first_try[1]["stage_check"] == [], f"{first_try}")
+        stitch_tries = [guarded(lambda a=a: fx_blocks((run_dir / "calls" / a["call"] / "packet.md").read_text(encoding="utf-8")), None)
+                        for a in first_try]
+        control("WP-08b: a stitch's retry lists what its first packet listed under the same labels",
+                len(stitch_tries) == 2 and stitch_tries[0] is not None and stitch_tries[0] == stitch_tries[1]
+                and stitch_tries[0][0], f"{len(stitch_tries)}")
         joinable_ids = {j["claim_id"] for e in listed for j in e.get("joinable", [])}
         listed_claims = {c["claim_id"] for _item, _events, claims in seen_a for c in claims}
         after_ids = {q for e in listed for j in e.get("joinable", []) for q in j["quotes_after"]}
@@ -1781,7 +1937,38 @@ def self_test():
                 first.get("outcome") == "accepted" and len(first.get("attempts", [])) == 2
                 and any(line.startswith("EXPANSION_SKIPPED") for line in (first["attempts"][0]["stage_check"] or []))
                 and first["attempts"][1]["stage_check"] == [], f"{first}")
+        # the omissions a read packet lists are its own records' alone, each labelled and naming the label of the owned entry
+        # it lies in; an overlap row has no label, since the window owning its record decides it (lead's note on WP-08b)
+        def omission_lines(text):
+            body = text.split("<omissions>\n", 1)[-1].split("\n</omissions>", 1)[0]
+            return [] if body == "none" else body.splitlines()
+        omitted_in, listed_lines, overlap_rows = [], 0, 0
+        for w in windows_read:
+            doc = guarded(lambda w=w: json.loads((run_dir / windows[int(w["window"].rsplit("/", 1)[1])]["path"]).read_text()), None)
+            text = guarded(lambda w=w: (run_dir / "calls" / w["attempts"][-1]["call"] / "packet.md").read_text(encoding="utf-8"), "")
+            if doc is None or not text:
+                omitted_in.append(False)
+                continue
+            labels, own = Labels(doc, own_rows(doc)), own_rows(doc)
+            overlap_rows += sum(1 for m in doc["omission_manifest"] if m.get("origin") == "overlap")
+            omitted_in.append(len(omission_lines(text)) == len(own))
+            for k, (line, row) in enumerate(zip(omission_lines(text), own), 1):
+                listed_lines += 1
+                found = re.match(r"- (o[1-9][0-9]*): in (e[1-9][0-9]*), ", line)
+                omitted_in.append(bool(found) and found.group(1) == f"o{k}" and found.group(2) in labels.owned
+                                  and labels.owned[found.group(2)]["record_id"] == row["record_id"]
+                                  and "clipped" in labels.owned[found.group(2)])
+        control("WP-08b: a read packet lists its own records' omissions alone, o1, o2, ... in order, each `in` the label of "
+                "the owned, clipped entry it lies in, and none of the overlap's rows",
+                omitted_in and all(omitted_in) and listed_lines > 1 and overlap_rows > 0,
+                f"{omitted_in} {listed_lines} {overlap_rows}")
         first_dirs = [run_dir / "calls" / a["call"] for a in first.get("attempts", [])]
+        # a retry's packet is its first packet and the correction: the same labels, of entries and of omissions
+        retried = [guarded(lambda d=d: (d / "packet.md").read_text(encoding="utf-8"), "") for d in first_dirs]
+        control("WP-08b: a window's retry shows the labels its first packet showed, its entries' and its omissions'",
+                len(retried) == 2 and all(retried) and [l for l in retried[0].splitlines() if l.startswith("entry: ")]
+                == [l for l in retried[1].splitlines() if l.startswith("entry: ")] != []
+                and omission_lines(retried[0]) == omission_lines(retried[1]) != [], f"{len(retried)}")
         control("the judge's failure is named beside the attempt in its call directory, as in the read record",
                 len(first_dirs) == 2 and guarded(lambda: gate.stage_check_of(first_dirs[0]), None)
                 == first["attempts"][0]["stage_check"]
@@ -1799,7 +1986,7 @@ def self_test():
         forced_doc = guarded(lambda: json.loads((run_dir / windows[int(first["window"].rsplit("/", 1)[1])]["path"]).read_text()),
                              None)
         try:
-            verdict = guarded(lambda: judge(forced_doc, own_rows(forced_doc))(pure_copy), None) if locked else None
+            verdict = guarded(lambda: judge(Labels(forced_doc, own_rows(forced_doc)))(pure_copy), None) if locked else None
         finally:
             for path in locked:
                 path.chmod(0o700 if path.is_dir() else 0o600)
@@ -1927,7 +2114,7 @@ def self_test():
 
         # ---- run F: a stitch whose both answers join what the packet does not list fails, and the unit is not processed
         run_f, sup_f, _ = fx_reader(root / "f", "f", answers_a, expanding=forcing,
-                                    resolve=lambda event, claims: (["c-none"], ["e-none"]))
+                                    resolve=lambda event, claims: (["c99"], ["q99"]))
         problem = refusal(lambda: run(run_f, sup_f))
         record_f = record_of(run_f, main_unit)
         result_f = next((r for r in guarded(lambda: records.read_json(run_f / "read-results.json")["results"], [])
@@ -2021,10 +2208,11 @@ def self_test():
                 "two runs is two events", a["cause"].get("event_id") and t["cause"].get("event_id")
                 and a["cause"]["event_id"] != t["cause"]["event_id"] and a["view"] == t["view"]
                 and a["cause"]["at_record"] == t["cause"]["at_record"], f"{a['cause']} {t['cause']}")
-        listed_twin = [e["event_id"] for _item, events, _claims in t["seen"] for e in events]
+        # a stitch packet names its events by its own labels (WP-08b): an event of the run's reading is found by its description
+        listed_twin = [e.get("description") for _item, events, _claims in t["seen"] for e in events]
         control("done-when 3 (golden): the twin whose outcome window claims nothing of the outcome is stitched by a call and "
                 "left unresolved, its event handed on as a pending event of the unit's result",
-                not t["problem"] and t["cause"].get("event_id") in listed_twin and t["cause"].get("outcome") == "unresolved"
+                not t["problem"] and t["cause"].get("description") in listed_twin and t["cause"].get("outcome") == "unresolved"
                 and t["cause"].get("stitched_from") == [] and not t["resolution"].get("by", "code").startswith("code")
                 and {"id": t["cause"].get("event_id"), "transcript": main_unit, "first_record": 0,
                      "window": t["summary"].get("window")} in t["result"].get("pending_events", []),
@@ -2206,18 +2394,50 @@ def self_test():
                 and not any(FX_OUTCOME in text for text in packets_lt.values()),
                 f"{sorted(lt['docs'])} {sorted(packets_lt)}")
 
-        # how a reading writes an entry and a call id (WP-08 commit 7): apart-live1 wrote an overlap entry without its
-        # last part, '7/message/content/0' for '7/message/content/0/text', and dw2-live2's expansion wrote its call id
-        # with the label, 'CALL-ID: <id>'. Each entry a packet shows stands alone on its own `entry: ` line, the value the
-        # stage's check takes; the two shapes the live readers wrote stay refused by name.
-        offered = {(leg, n): sorted(line[len("entry: "):] for line in text.splitlines() if line.startswith("entry: "))
-                   for leg in live for n, text in window_packets(leg).items()}
-        control("WP-08 commit 7: each entry a window's packet shows stands on a line of its own as `entry: <entry>`, and "
-                "those values are the entries the stage's check takes as shown, every one and no other",
+        # how a reading writes an entry and a call id (WP-08 commit 7, WP-08b): apart-live1 wrote an overlap entry without
+        # its last part, '7/message/content/0' for '7/message/content/0/text', C1 near copies of entries standing alone on
+        # their line, and dw2-live2's expansion wrote its call id with the label, 'CALL-ID: <id>'. A packet now shows each
+        # entry by its own label on its `entry: ` line, every one the window shows, in the order it shows them; an entry
+        # written as the entry, a near copy of one and a call id with its label stay refused by name.
+        def entry_lines(text):
+            return [line[len("entry: "):] for line in text.splitlines() if line.startswith("entry: ")]
+        read_texts = {(leg, kind, n): text for leg in live for kind in ("window", "expansion")
+                      for n, text in enumerate(packet_of(leg, kind))}
+        offered = {(leg, n): entry_lines(text) for leg in live for n, text in window_packets(leg).items()}
+        control("WP-08b: each entry a window's packet shows stands on a line of its own as `entry: <label>`, labelled e1, e2, "
+                "... in the order the window shows them, and those labels are the entries the stage's check takes as shown, "
+                "every one and no other",
                 len(offered) == sum(len(live[leg]["docs"]) for leg in live) > 0
-                and all(offered[(leg, n)] == sorted(quotable_entries(live[leg]["docs"][n])) for leg, n in offered),
-                f"{len(offered)} {[(k, len(v)) for k, v in offered.items() if v != sorted(quotable_entries(live[k[0]]['docs'].get(k[1], {'records': []})))][:3]}")
-        doc_w1 = la["docs"].get(1, {"records": [], "omission_manifest": []})
+                and all(offered[(leg, n)] == list(Labels(live[leg]["docs"][n], own_rows(live[leg]["docs"][n])).entries)
+                        == [f"e{k}" for k in range(1, len(quotable_entries(live[leg]["docs"][n])) + 1)] for leg, n in offered),
+                f"{len(offered)} {[(k, len(v)) for k, v in offered.items() if v[:1] != ['e1']][:3]}")
+        raw_shown = sorted({(leg, kind) for (leg, kind, _n), text in read_texts.items() for value in entry_lines(text)
+                            if not re.fullmatch(r"e[1-9][0-9]*", value)})
+        entries_anywhere = sorted({(leg, n) for leg in live for n, doc in live[leg]["docs"].items()
+                                   for line in window_packets(leg).get(n, "").splitlines() for entry in quotable_entries(doc)
+                                   if line.startswith("entry: ") and entry in line})
+        control("WP-08b: no heading of any read packet the live legs send, window or expansion, holds an entry: each holds a "
+                "label alone", read_texts and all(entry_lines(t) for t in read_texts.values()) and not raw_shown
+                and not entries_anywhere, f"{len(read_texts)} {raw_shown[:3]} {entries_anywhere[:3]}")
+        # an apart window shows more than a hundred entries, so its labels run to three digits: the bytes S2 measured for it
+        # are the bytes of its text with those labels, which is what its packet carries (lead's note on WP-08b's design)
+        wide = [(n, doc) for n, doc in la["docs"].items() if len(views.entry_labels(doc)) > 100]
+        overhead_la = guarded(lambda: views.sequence_doc(la["dir"], la["view"])["limits"]["overhead"], None)
+        control("WP-08b: a window of more than a hundred entries is labelled e1 to its last in order, and the driver bytes S2 "
+                "measured for it are its overhead and its text as rendered with those labels",
+                wide and overhead_la is not None
+                and all(entry_lines(views.render_window(doc)) == [f"e{k}" for k in range(1, len(views.entry_labels(doc)) + 1)]
+                        and doc["driver_bytes"] == overhead_la + len(views.render_window(doc).encode("utf-8"))
+                        and entry_lines(window_packets("apart").get(n, "")) == entry_lines(views.render_window(doc))
+                        for n, doc in wide),
+                f"{[(n, len(views.entry_labels(d))) for n, d in wide]} {overhead_la}")
+        expansions_d2 = [json.loads(p.read_text()) for p in sorted((d2["dir"] / "views" / d2["view"]).glob("expansion-*.json"))] \
+            if d2["view"] else []
+        control("WP-08b: an expansion window numbers its own labels from e1, and its packet shows them",
+                expansions_d2 and all(list(views.entry_labels(x).values())[:1] == ["e1"] for x in expansions_d2)
+                and packet_of("dw2", "expansion") and all(entry_lines(t)[:1] == ["e1"] for t in packet_of("dw2", "expansion")),
+                f"{len(expansions_d2)} {[entry_lines(t)[:2] for t in packet_of('dw2', 'expansion')]}")
+        doc_w1 = la["docs"].get(1, {"records": [], "omission_manifest": [], "overlap": {"prev": [], "next": []}})
         rows_w1 = own_rows(doc_w1) if "omission_manifest" in doc_w1 else []
         texted = next((r for r in doc_w1["records"] if views.eid(r).endswith("/text")), None)
         as_offered = {"quotes": [], "claims": [], "events": [], "decisions": [], "observations": []}
@@ -2225,21 +2445,28 @@ def self_test():
             as_offered = fx_answer(doc_w1, rows_w1)
             fx_claim(as_offered, doc_w1, texted, "The agent reported a step of the rebuild.", "q7")
             as_offered = json.loads(json.dumps(as_offered).replace("<CALL-ID>", "r-S3-x-a1"))
-        trimmed, labelled = copy.deepcopy(as_offered), copy.deepcopy(as_offered)
+        labels_w1 = guarded(lambda: Labels(doc_w1, rows_w1), None)
+        as_labelled = fx_labelled(labels_w1, as_offered) if labels_w1 else as_offered
+        as_entry, trimmed, called = copy.deepcopy(as_labelled), copy.deepcopy(as_labelled), copy.deepcopy(as_labelled)
+        for q in as_entry["quotes"]:
+            if q["quote_id"] == "q7":
+                q["entry"] = views.eid(texted)
         for q in trimmed["quotes"]:
             if q["quote_id"] == "q7":
-                q["entry"] = q["entry"][:-len("/text")]
-        for c in labelled["claims"]:
+                q["entry"] = views.eid(texted)[:-len("/text")]
+        for c in called["claims"]:
             c["call_id"] = "CALL-ID: r-S3-x-a1"
-        problems_of = lambda answer: guarded(lambda: answer_problems(doc_w1, rows_w1, answer, "r-S3-x-a1"), ["unjudged"])  # noqa: E731
-        control("WP-08 commit 7 (apart-live1 w1 and w2, dw2-live2 x1): an entry written without its last part and a call id "
-                "written with its CALL-ID label are refused by name, and the answer as the packet offers it is not",
-                texted is not None and problems_of(as_offered) == []
-                and any(p.startswith(f"RECORD_INTEGRITY entry {views.eid(texted)[:-len('/text')]!r} at quotes/q7 ")
+        problems_of = lambda answer: guarded(lambda: answer_problems(labels_w1, answer, "r-S3-x-a1"), ["unjudged"])  # noqa: E731
+        control("WP-08 commit 7, WP-08b (apart-live1 w1 and w2, C1, dw2-live2 x1): an entry written as the entry or without "
+                "its last part and a call id written with its CALL-ID label are refused by name, and the answer in the "
+                "packet's labels is not",
+                texted is not None and labels_w1 is not None and problems_of(as_labelled) == []
+                and any(p.startswith(f"UNKNOWN_LABEL {views.eid(texted)!r} at quotes/q7/entry:") for p in problems_of(as_entry))
+                and any(p.startswith(f"UNKNOWN_LABEL {views.eid(texted)[:-len('/text')]!r} at quotes/q7/entry:")
                         for p in problems_of(trimmed))
-                and len(labelled["claims"]) > 0 and sum("RECORD_INTEGRITY call id 'CALL-ID: r-S3-x-a1'" in p
-                                                        for p in problems_of(labelled)) == len(labelled["claims"]),
-                f"{texted is not None} {problems_of(as_offered)[:2]} {problems_of(trimmed)[:2]} {problems_of(labelled)[:2]}")
+                and len(called["claims"]) > 0 and sum("RECORD_INTEGRITY call id 'CALL-ID: r-S3-x-a1'" in p
+                                                      for p in problems_of(called)) == len(called["claims"]),
+                f"{texted is not None} {problems_of(as_labelled)[:2]} {problems_of(as_entry)[:2]} {problems_of(called)[:2]}")
         # read.md once said an empty list was a valid answer for any of the five lists, while each omission a window
         # lists needs its decision (X review of WP-08 commit 7, r1): a window listing one of its own is refused
         # SET_MISMATCH with no decisions, so no sentence of its packet may allow that - one about empty lists names
@@ -2257,7 +2484,7 @@ def self_test():
         control("WP-08 commit 7 (X r1): a window that lists an omission of its own is refused with no decisions, and no "
                 "sentence of its packet allows an empty `decisions`",
                 with_omissions and all(empty_sentences.values()) and not any(allowing.values()) and undecided is not None
-                and any(p.startswith("SET_MISMATCH") for p in guarded(lambda: answer_problems(doc_om, rows_om, undecided, "r-S3-x-a1"), [])),
+                and any(p.startswith("SET_MISMATCH") for p in guarded(lambda: problems_in(doc_om, rows_om, undecided, "r-S3-x-a1"), [])),
                 f"{sorted(with_omissions)} {[s[:80] for found in allowing.values() for s in found][:2]} {undecided is not None}")
         # C1's readers quoted the records that held the owner's instructions and findings and claimed only that they were
         # given (judged by GPT and Opus, 2026-11-05, D-20261105-385651): the claims bullet of every read packet a live leg
@@ -2276,9 +2503,49 @@ def self_test():
                 "steps, and how far it reaches",
                 len(read_packets) == sum(len(live[leg]["attempts"][k]) for leg in live for k in ("window", "expansion")) > 0
                 and not lacking, f"{len(read_packets)} {lacking[:3]}")
+        # WP-08b: what a packet tells its reader to write is the label the packet shows, in the read packets and the stitch's
+        def task_of(text):
+            return " ".join(text.split(packet.PAYLOAD_MARKER, 1)[-1].rsplit("\n# Your task\n", 1)[-1].split())
+        read_told = ("`entry: <label>`, this packet's own short label of the entry", "`entry` is that entry's label",
+                     "`at_record`, its label", "by its label as `omission_id`", "by its label as `expected_id`",
+                     "`occasion_locator` that entry's label", "write a label exactly as shown")
+        stitch_texts = {(leg, c): text for leg in live for c, text in zip(live[leg]["attempts"]["stitch"], packet_of(leg, "stitch"))}
+        untold = sorted(key for key, text in read_packets.items() if not all(p in task_of(text) for p in read_told)
+                        or "every character of it to the end of the line" in text)
+        stitch_untold = sorted(key for key, text in stitch_texts.items()
+                               if "name them by those labels only, each written exactly as shown" not in task_of(text))
+        control("WP-08b: every read packet a live leg sends tells its reader to name entries, omissions and expected "
+                "observations by the packet's labels, and no longer to copy an entry to the end of its line; every stitch "
+                "packet tells it to name events, claims and quotes by theirs",
+                read_packets and stitch_texts and not untold and not stitch_untold, f"{untold[:3]} {stitch_untold[:3]}")
+
+        # a stitch packet names its events, claims and quotes by labels of its own, v1, c1, q1, ... in its order, and no
+        # stored id stands anywhere in what it lists
+        def stitch_blocks(text):
+            return fx_blocks(text)
+        stored_ids = {r["claim_id"] for leg in live for r in guarded(lambda leg=leg: stored_claims(live[leg]["dir"], live[leg]["view"]), [])} \
+            | {r["evidence_id"] for leg in live for r in stored_evidence_of(live[leg]["dir"], live[leg]["view"])} \
+            | {e["event_id"] for leg in live for e in live[leg]["events"]}
+        stitched_ok = []
+        for (leg, c), text in stitch_texts.items():
+            events_l, claims_l = guarded(lambda text=text: stitch_blocks(text), ([], []))
+            quotes_l = list(dict.fromkeys(q["evidence_id"] for cl in claims_l for q in cl["quotes"]))
+            stitched_ok.append(bool(events_l) and [e["event_id"] for e in events_l] == [f"v{k}" for k in range(1, len(events_l) + 1)]
+                               and [cl["claim_id"] for cl in claims_l] == [f"c{k}" for k in range(1, len(claims_l) + 1)]
+                               and quotes_l == [f"q{k}" for k in range(1, len(quotes_l) + 1)]
+                               and all(j["claim_id"] in {cl["claim_id"] for cl in claims_l} and set(j["quotes_after"]) <= set(quotes_l)
+                                       for e in events_l for j in e.get("joinable", []))
+                               and all("claims" not in e for e in events_l)
+                               and not any(i in text for i in stored_ids))
+        control("WP-08b: every stitch packet a live leg sends names its events, claims and quotes by its own labels in order, "
+                "its joins among them, and no stored id stands in it",
+                stitch_texts and all(stitched_ok) and len(stored_ids) > 3, f"{stitched_ok} {len(stored_ids)}")
 
         # ---- the shard rule (plan amendment row 1): the apart session with a second event, under a bound that leaves
-        # 4,000 bytes beside the stitch packet's fixed part - room for both events and not for all of their claims
+        # 3,000 bytes beside the stitch packet's fixed part - room for both events and not for all of their claims (4,000
+        # until the packet named its rows by labels, WP-08b; 2,600 to 3,500 measured to give these shards)
+        shard_room = 3000
+
         def fixed_bytes(run_dir_of):
             schema_bytes = packet.schema_bytes(stitch_schema())
             call_id = f"{pathlib.Path(run_dir_of).resolve().name}-{STAGE}-{views.safe_name(main_unit)}-s999-999-a2"
@@ -2290,14 +2557,17 @@ def self_test():
             seen_s = []
             run_s, sup_s, _ = fx_reader(root / label, label[:2] + label[-1], fx_apart_answers(progress=True), resolve=joined_by,
                                         seen=seen_s, bad=failing, main_records=fx_apart_records, owned=[[0, 6]])
-            problem = refusal(lambda: run(run_s, sup_s, stitch_bound=fixed_bytes(run_s) + 4000))
+            problem = refusal(lambda: run(run_s, sup_s, stitch_bound=fixed_bytes(run_s) + shard_room))
             view_s = guarded(lambda: fx_main_windows(run_s)[0], None)
             lines_s = [json.loads(line) for line in guarded(lambda: records.jsonl_read(run_s / "events" / f"{view_s}.jsonl"), [])]
             ids = {e["description"][:9]: e["event_id"] for e in lines_s}
             record_s = record_of(run_s, main_unit)
             shard_runs[label] = {"problem": problem, "record": record_s, "lines": lines_s, "ids": ids, "dir": run_s,
                                  "by_event": {r["event_id"]: r for r in record_s.get("stitch", {}).get("resolutions", [])},
-                                 "packets": [(item.rsplit("-", 2)[-2:], [e["event_id"] for e in events]) for item, events, _c in seen_s]}
+                                 # a packet's events by what they are, since it names them by its own labels
+                                 "packets": [(item.rsplit("-", 2)[-2:], [ids.get(e.get("description", "")[:9],
+                                                                                 "pe-1" if "carried_from" in e else None)
+                                                                         for e in events]) for item, events, _c in seen_s]}
         sr = shard_runs["shards"]
         first_id, second_id, by_event, packets = sr["ids"].get("The perso"), sr["ids"].get("The agent"), sr["by_event"], sr["packets"]
         control("the shard rule: three events in one group go through its two shards; the one the first shard resolves is "
@@ -2314,7 +2584,7 @@ def self_test():
                    for c in sr["record"].get("stitch", {}).get("calls", []) for a in c["attempts"]]
         control("a stitch packet is cut by what it measures: every call's driver bytes, as dispatch counted them, are within "
                 "the stitch's bound", drivers and all(isinstance(d, int) and d <= sr["record"]["stitch"]["bound"] for d in drivers)
-                and sr["record"]["stitch"]["bound"] == fixed_bytes(sr["dir"]) + 4000, f"{drivers} {sr['record'].get('stitch', {}).get('bound')}")
+                and sr["record"]["stitch"]["bound"] == fixed_bytes(sr["dir"]) + shard_room, f"{drivers} {sr['record'].get('stitch', {}).get('bound')}")
         sf = shard_runs["shard-fails"]
         undecided = {u["event_id"]: u["reason"] for u in sf["record"].get("stitch", {}).get("undecided", [])}
         control("a shard's call that fails twice decides nothing: the event an earlier shard of it answered unresolved is "
@@ -2372,7 +2642,7 @@ def self_test():
         control("done-when 4, run N: an event whose outcome only the overlap after its window shows has no claim to join, is "
                 "left unresolved by code with no call, and is handed on at its first record",
                 not problem_n and last_event.get("outcome") == "unresolved" and last_event.get("by", "").startswith("code:")
-                and last_event.get("event_id") not in [e["event_id"] for _i, events, _c in seen_n for e in events]
+                and 10 not in [e.get("line") or line_of(e["record"]) for _i, events, _c in seen_n for e in events]
                 and any(p == {"id": last_event.get("event_id"), "transcript": main_unit, "version": 0,
                               "window": handed_n["window"], "first_record": 9} for p in state_n["pending_events"]),
                 f"{problem_n} {last_event} {state_n['pending_events']}")
@@ -2386,7 +2656,8 @@ def self_test():
         handed_n1 = guarded(lambda: records.read_json(run_n1 / "read-results.json"), {"window": None, "results": []})
         state_n1 = guarded(lambda: census.reconcile(census.load(run_n1), coverage.load(run_n1 / "coverage.json")[0],
                                                     handed_n1["results"], "periodic")[1], {"pending_events": [{"id": None}]})
-        shown_n1 = next((e for _i, events, _c in seen_n1 for e in events if e["event_id"] == last_event.get("event_id")), {})
+        # a stitch packet names its events by its own labels (WP-08b): a carried one is found where it stands, line 10
+        shown_n1 = next((e for _i, events, _c in seen_n1 for e in events if "carried_from" in e and e.get("line") == 10), {})
         result_n1 = next((r for r in handed_n1["results"] if r["transcript"] == main_unit), {})
         versions_n = guarded(lambda: coverage.load(run_n / "coverage.json")[0]["transcripts"][main_unit]["versions"], [])
         versions_n1 = guarded(lambda: coverage.load(run_n1 / "coverage.json")[0]["transcripts"][main_unit]["versions"], [])
@@ -2435,14 +2706,14 @@ def self_test():
         joined_x = next((r for r in record_x.get("stitch", {}).get("resolutions", [])
                          if r["event_id"] == last_event.get("event_id")), {})
         parent_x = next((f for f in record_x.get("files", []) if f["transcript"] == main_unit), {})
-        shown_x = next((e for _i, events, _c in seen_x for e in events if e["event_id"] == last_event.get("event_id")), {})
+        shown_x = next((e for _i, events, _c in seen_x for e in events if "carried_from" in e and e.get("line") == 10), {})
         handed_x = guarded(lambda: records.read_json(run_x / "read-results.json"), {"window": None, "results": []})
         result_x = next((r for r in handed_x["results"] if r["transcript"] == main_unit), {})
         state_x = guarded(lambda: census.reconcile(census.load(run_x), coverage.load(run_x / "coverage.json")[0],
                                                    handed_x["results"], "periodic")[1], {"pending_events": [{"id": None}]})
         control("W r1: an event pending on a file the run owes nothing is shown from that file's view, joined to the "
                 "outcome another member holds, resolved, and no longer pending once folded",
-                not problem_x and parent_x.get("windowless", "").startswith("it owes the window nothing")
+                not problem_x and (parent_x.get("windowless") or "").startswith("it owes the window nothing")
                 and shown_x.get("carried_from") == handed_n["window"] and shown_x.get("line") == 10
                 and joined_x.get("carried") is True and joined_x.get("outcome") == "resolved"
                 and result_x.get("resolved_events") == [last_event.get("event_id")]
@@ -2465,31 +2736,41 @@ def self_test():
                 f"{unseen_x}")
 
         # ---- the stitch's own steps 4 and 5, one departure each (no call)
-        listed = {"v1": {"c1": {"after": {"e2"}, "all": {"e1", "e2"}}}, "v2": {"c2": {"after": {"e3"}, "all": {"e3", "e4"}}}}
-        fine = {"resolutions": [{"event_id": "v1", "outcome": "resolved", "claim_ids": ["c1"], "evidence_ids": ["e2"]},
+        # in a packet's labels (WP-08b): c3 is a claim the packet shows that neither event may join, q5 one of its quotes
+        listed = {"v1": {"c1": {"after": {"q2"}, "all": {"q1", "q2"}}}, "v2": {"c2": {"after": {"q3"}, "all": {"q3", "q4"}}}}
+        shown_l = {"events": {"v1", "v2"}, "claims": {"c1", "c2", "c3"}, "quotes": {"q1", "q2", "q3", "q4", "q5"}}
+        fine = {"resolutions": [{"event_id": "v1", "outcome": "resolved", "claim_ids": ["c1"], "evidence_ids": ["q2"]},
                                 {"event_id": "v2", "outcome": "unresolved", "claim_ids": [], "evidence_ids": []}]}
-        control("stitch_problems: a valid answer holds", stitch_problems(listed, fine) == [], f"{stitch_problems(listed, fine)}")
+        control("stitch_problems: a valid answer holds", stitch_problems(listed, fine, shown_l) == [],
+                f"{stitch_problems(listed, fine, shown_l)}")
         beside = copy.deepcopy(fine)
-        beside["resolutions"][0]["evidence_ids"] = ["e1", "e2"]
+        beside["resolutions"][0]["evidence_ids"] = ["q1", "q2"]
         control("stitch_problems: a claim's other quote may be cited beside the quote after the event its outcome rests on",
-                stitch_problems(listed, beside) == [], f"{stitch_problems(listed, beside)}")
+                stitch_problems(listed, beside, shown_l) == [], f"{stitch_problems(listed, beside, shown_l)}")
 
         def stitch_departs(label, edit, code, fragment):
             answer = copy.deepcopy(fine)
             edit(answer["resolutions"])
-            found = stitch_problems(listed, answer)
+            found = stitch_problems(listed, answer, shown_l)
             control(f"stitch_problems: {label}", any(l.startswith(code) and fragment in l for l in found), f"{found}")
         stitch_departs("a listed event with no resolution", lambda r: r.pop(), "SET_MISMATCH", "'v2' has no resolution")
-        stitch_departs("a resolution of an event the packet does not list", lambda r: r.append(
-            {"event_id": "v9", "outcome": "unresolved", "claim_ids": [], "evidence_ids": []}), "SET_MISMATCH", "resolutions/v9")
+        stitch_departs("a resolution of an event the packet does not show", lambda r: r.append(
+            {"event_id": "v9", "outcome": "unresolved", "claim_ids": [], "evidence_ids": []}), "UNKNOWN_LABEL",
+            "'v9' at resolutions/v9/event_id")
         stitch_departs("two resolutions of one event", lambda r: r.append(copy.deepcopy(r[1])), "RECORD_INTEGRITY", "repeat")
         stitch_departs("resolved with no quote", lambda r: r[0].update(evidence_ids=[]), "RECORD_INTEGRITY", "names no claim or no quote")
         stitch_departs("unresolved naming a claim", lambda r: r[1].update(claim_ids=["c2"]), "RECORD_INTEGRITY", "is unresolved and names")
-        stitch_departs("a claim not joinable to its event", lambda r: r[0].update(claim_ids=["c2"], evidence_ids=["e3"]),
+        stitch_departs("a claim not joinable to its event", lambda r: r[0].update(claim_ids=["c2"], evidence_ids=["q3"]),
                        "RECORD_INTEGRITY", "claim id 'c2' at resolutions/v1/claim_ids")
-        stitch_departs("a quote of no claim it names", lambda r: r[0].update(evidence_ids=["e2", "e3"]),
-                       "RECORD_INTEGRITY", "evidence id 'e3' at resolutions/v1/evidence_ids")
-        stitch_departs("a resolution resting on no quote after the event, context or before it", lambda r: r[0].update(evidence_ids=["e1"]),
+        stitch_departs("a claim the packet shows that no event may join", lambda r: r[0].update(claim_ids=["c1", "c3"]),
+                       "RECORD_INTEGRITY", "claim id 'c3' at resolutions/v1/claim_ids")
+        stitch_departs("a claim the packet does not show", lambda r: r[0].update(claim_ids=["c1", "c9"]),
+                       "UNKNOWN_LABEL", "'c9' at resolutions/v1/claim_ids")
+        stitch_departs("a quote of no claim it names", lambda r: r[0].update(evidence_ids=["q2", "q3"]),
+                       "RECORD_INTEGRITY", "evidence id 'q3' at resolutions/v1/evidence_ids")
+        stitch_departs("a quote the packet does not show", lambda r: r[0].update(evidence_ids=["q2", "q9"]),
+                       "UNKNOWN_LABEL", "'q9' at resolutions/v1/evidence_ids")
+        stitch_departs("a resolution resting on no quote after the event, context or before it", lambda r: r[0].update(evidence_ids=["q1"]),
                        "RECORD_INTEGRITY", "resolutions/v1 cites no quote the run processes after the event")
 
         # ---- what an event may join, and where a record stands (no call)
@@ -2556,7 +2837,9 @@ def self_test():
             path.chmod(0o500 if path.is_dir() else 0o400)
         before = tree_digest(run_dir)
         try:
-            verdict = guarded(lambda: stitch_judge(listed_a)(pure_stitch), None) if locked and listed_a else None
+            shown_a = {"events": set(listed_a), "claims": set(packet_claims),
+                       "quotes": {q["evidence_id"] for c in packet_claims.values() for q in c["quotes"]}}
+            verdict = guarded(lambda: stitch_judge(listed_a, shown_a)(pure_stitch), None) if locked and listed_a else None
         finally:
             for path in locked:
                 path.chmod(0o700 if path.is_dir() else 0o600)
@@ -2605,16 +2888,29 @@ def self_test():
         rows = own_rows(doc)
         good = fx_answer(doc, rows)
         good = json.loads(json.dumps(good).replace("<CALL-ID>", "r-S3-x-a1"))
-        control("answer_problems: a valid answer holds", answer_problems(doc, rows, good, "r-S3-x-a1") == [],
-                f"{answer_problems(doc, rows, good, 'r-S3-x-a1')}")
+        control("answer_problems: a valid answer holds", problems_in(doc, rows, good, "r-S3-x-a1") == [],
+                f"{problems_in(doc, rows, good, 'r-S3-x-a1')}")
 
-        def departs(label, edit, code, fragment=""):
+        def departs(label, edit, code, fragment="", due=()):
             answer = copy.deepcopy(good)
             edit(answer)
-            found = answer_problems(doc, rows, answer, "r-S3-x-a1")
+            found = problems_in(doc, rows, answer, "r-S3-x-a1", due)
             control(f"answer_problems: {label}", any(line.startswith(code) and fragment in line for line in found), f"{found}")
-        departs("a quote of an entry the window does not show", lambda a: a["quotes"][0].update(entry="999/message/content"),
-                "RECORD_INTEGRITY", "is no entry this window shows")
+        # a label the packet does not show, at each field that names one (WP-08b)
+        departs("a quote of an entry the packet does not label", lambda a: a["quotes"][0].update(entry="e999"),
+                "UNKNOWN_LABEL", "'e999' at quotes/q1/entry: this packet shows no entry so labelled")
+        departs("an event starting at an entry the packet does not label", lambda a: a["events"].append(
+            {"event_id": "v1", "kind": "request", "at_record": "e999", "claim_ids": ["c1"], "outcome": "pending",
+             "description": "x"}), "UNKNOWN_LABEL", "'e999' at events/v1/at_record")
+        departs("an occasion at an entry the packet does not label", lambda a: a["observations"].append(
+            {"expected_id": "x-1", "occasion_locator": "e999", "exposure": "eligible", "verdict": "observed",
+             "evidence_ids": ["q1"]}), "UNKNOWN_LABEL", "'e999' at observations/x1/occasion_locator", due=[{"expected_id": "x-1"}])
+        departs("an observation of an expected one the packet does not label", lambda a: a["observations"].append(
+            {"expected_id": "x9", "occasion_locator": a["quotes"][0]["entry"], "exposure": "eligible", "verdict": "observed",
+             "evidence_ids": ["q1"]}), "UNKNOWN_LABEL", "'x9' at observations/x9/expected_id: this packet shows no expected "
+            "observation so labelled", due=[{"expected_id": "x-1"}])
+        departs("a decision of an omission the packet does not label", lambda a: a["decisions"].append(
+            {"omission_id": "o99", "decision": "skip", "reason": "x"}), "UNKNOWN_LABEL", "'o99' at decisions/o99/omission_id")
         departs("a claim echoing another call id", lambda a: a["claims"][0].update(call_id="r-S3-x-a2"), "RECORD_INTEGRITY",
                 "is not this packet's CALL-ID")
         departs("a claim citing a quote the answer does not hold", lambda a: a["claims"][0].update(evidence_ids=["q9"]),
@@ -2625,8 +2921,8 @@ def self_test():
             {"event_id": "v1", "kind": "request", "at_record": a["quotes"][0]["entry"], "claim_ids": ["c9"],
              "outcome": "pending", "description": "x"}), "RECORD_INTEGRITY", "claim id 'c9'")
         departs("an observation when none is due", lambda a: a["observations"].append(
-            {"expected_id": "x-1", "occasion_locator": a["quotes"][0]["entry"], "exposure": "eligible", "verdict": "observed",
-             "evidence_ids": ["q1"]}), "RECORD_INTEGRITY", "is not one due")
+            {"expected_id": "x1", "occasion_locator": a["quotes"][0]["entry"], "exposure": "eligible", "verdict": "observed",
+             "evidence_ids": ["q1"]}), "UNKNOWN_LABEL", "'x1' at observations/x1/expected_id")
         if rows:
             departs("an own omission with no decision", lambda a: a["decisions"].pop(), "SET_MISMATCH")
             forced = [m for m in rows if m["forced_by"] != "none"]
@@ -2635,10 +2931,114 @@ def self_test():
                         "EXPANSION_SKIPPED")
         context_doc = copy.deepcopy(doc)
         context_doc["records"][0]["window_role"] = "context"
-        found = answer_problems(context_doc, rows, {**good, "events": [{"event_id": "v1", "kind": "request",
+        found = problems_in(context_doc, rows, {**good, "events": [{"event_id": "v1", "kind": "request",
                                                                         "at_record": good["quotes"][0]["entry"], "claim_ids": ["c1"],
                                                                         "outcome": "pending", "description": "x"}]}, "r-S3-x-a1")
         control("answer_problems: an event starting on a context record is another window's", any("a context record" in l for l in found), f"{found}")
+        # WP-08b: an answer a fixture writes in entries, put in a packet's labels and read back, is that answer exactly - over
+        # every window of the golden view, with an event, an observation and a decision for each omission - so what the
+        # stores keep is what they kept before the labels; a label the packet does not show never reaches them
+        due_rt = [{"expected_id": "N-1@r0"}, {"expected_id": "N-4@r0"}]
+        round_trips = []
+        for _n, w in sorted(windows.items()):
+            doc_rt = guarded(lambda w=w: json.loads((run_dir / w["path"]).read_text()), None)
+            if doc_rt is None:
+                round_trips.append(False)
+                continue
+            rows_rt = own_rows(doc_rt)
+            answer_rt = fx_answer(doc_rt, rows_rt, events=[{"event_id": "v1", "kind": "request",
+                                                             "at_record": views.eid(doc_rt["records"][-1]), "claim_ids": ["c1"],
+                                                             "outcome": "pending", "description": "x"}],
+                                  extra_quotes=[q for q in [fx_overlap_quote(doc_rt)] if q])
+            answer_rt["observations"] = [{"expected_id": "N-4@r0", "occasion_locator": views.eid(doc_rt["records"][0]),
+                                          "exposure": "eligible", "verdict": "observed", "evidence_ids": ["q1"]}]
+            labels_rt = Labels(doc_rt, rows_rt, due_rt)
+            written = fx_labelled(labels_rt, answer_rt)
+            round_trips.append(guarded(lambda: labels_rt.resolve(written), None) == answer_rt and written != answer_rt
+                               and answer_problems(labels_rt, json.loads(json.dumps(written).replace("<CALL-ID>", "r-S3-x-a1")),
+                                                   "r-S3-x-a1") == [])
+        control("WP-08b: every window's answer, in its packet's labels, passes the stage's check and reads back as the answer "
+                "in entries, omission ids and expected ids it was written from", len(round_trips) > 2 and all(round_trips),
+                f"{round_trips}")
+        labels_g = Labels(doc, rows, due_rt)
+        good_l = fx_labelled(labels_g, {**good, "observations": [{"expected_id": "N-1@r0", "occasion_locator": good["quotes"][0]["entry"],
+                                                                 "exposure": "eligible", "verdict": "observed",
+                                                                 "evidence_ids": ["q1"]}]})
+        unknown_at = {"quotes": lambda a: a["quotes"][0].update(entry="e999"),
+                      "events": lambda a: a["events"].append({"event_id": "v1", "kind": "request", "at_record": "e999",
+                                                             "claim_ids": ["c1"], "outcome": "pending", "description": "x"}),
+                      "occasion": lambda a: a["observations"][0].update(occasion_locator="e999"),
+                      "expected": lambda a: a["observations"][0].update(expected_id="x9"),
+                      "decisions": lambda a: a["decisions"].append({"omission_id": "o99", "decision": "skip", "reason": "x"})}
+        refused_at = {}
+        for field, edit in unknown_at.items():
+            bent = copy.deepcopy(good_l)
+            edit(bent)
+            refused_at[field] = refusal(lambda bent=bent: labels_g.resolve(bent)).split(" at ", 1)[0]
+        control("WP-08b: reading back an answer that names a label its packet does not show is refused by name at each field, "
+                "so no label reaches a store", guarded(lambda: labels_g.resolve(good_l), None) is not None
+                and refused_at == {"quotes": "UNKNOWN_LABEL 'e999'", "events": "UNKNOWN_LABEL 'e999'",
+                                   "occasion": "UNKNOWN_LABEL 'e999'", "expected": "UNKNOWN_LABEL 'x9'",
+                                   "decisions": "UNKNOWN_LABEL 'o99'"}, f"{refused_at}")
+        stitch_rows = {"c-a": {"quotes": [{"evidence_id": "e-1"}, {"evidence_id": "e-2"}]}, "c-b": {"quotes": [{"evidence_id": "e-2"}]}}
+        stitch_l = StitchLabels([{"id": "v-x", "joinable": {"c-a": {"after": ["e-2"], "all": ["e-1", "e-2"]}}},
+                                 {"id": "pe-1", "joinable": {"c-b": {"after": ["e-2"], "all": ["e-2"]}}}], ["c-a", "c-b"], stitch_rows)
+        joined_l = {"resolutions": [{"event_id": "v2", "outcome": "resolved", "claim_ids": ["c2"], "evidence_ids": ["q2"]},
+                                    {"event_id": "v1", "outcome": "unresolved", "claim_ids": [], "evidence_ids": []}]}
+        stitch_refused = {}
+        for field, edit in {"event": lambda r: r[0].update(event_id="v9"), "claim": lambda r: r[0].update(claim_ids=["c9"]),
+                            "quote": lambda r: r[0].update(evidence_ids=["q9"])}.items():
+            bent = copy.deepcopy(joined_l)
+            edit(bent["resolutions"])
+            stitch_refused[field] = refusal(lambda bent=bent: stitch_l.resolve(bent)).split(" at ", 1)[0]
+        control("WP-08b: a stitch packet labels its events, claims and quotes in order, one label for a quote two claims cite, "
+                "its joins in them; its answer reads back as stored ids, and a label it does not show is refused by name",
+                (stitch_l.events, stitch_l.claims, stitch_l.quotes) == ({"v1": "v-x", "v2": "pe-1"}, {"c1": "c-a", "c2": "c-b"},
+                                                                        {"q1": "e-1", "q2": "e-2"})
+                and stitch_l.listed == {"v1": {"c1": {"after": {"q2"}, "all": {"q1", "q2"}}}, "v2": {"c2": {"after": {"q2"}, "all": {"q2"}}}}
+                and guarded(lambda: stitch_l.resolve(joined_l), None) == {"resolutions": [
+                    {"event_id": "pe-1", "outcome": "resolved", "claim_ids": ["c-b"], "evidence_ids": ["e-2"]},
+                    {"event_id": "v-x", "outcome": "unresolved", "claim_ids": [], "evidence_ids": []}]}
+                and stitch_refused == {"event": "UNKNOWN_LABEL 'v9'", "claim": "UNKNOWN_LABEL 'c9'", "quote": "UNKNOWN_LABEL 'q9'"},
+                f"{stitch_l.events} {stitch_l.claims} {stitch_l.quotes} {stitch_refused}")
+        # the schemas take a label and nothing else at every field that names one, as written and as a host is handed them:
+        # the entries live readers copied, their near copies, and a label with its field name or padded are all refused
+        from runlib import validate as validate_s
+        read_one = json.loads(json.dumps(good_l).replace("<CALL-ID>", "r-S3-x-a1"))
+        read_one["events"] = [{"event_id": "v1", "kind": "request", "at_record": read_one["quotes"][0]["entry"], "claim_ids": ["c1"],
+                               "outcome": "pending", "description": "x"}]
+        read_one["decisions"] = read_one["decisions"] or [{"omission_id": "o1", "decision": "skip", "reason": "x"}]
+        stitch_one = joined_l
+        near = ["7/message/content/0", "31221/message/content", "entry: e1", "e01", "E1", "e1 ", "e"]
+        read_at = {"quotes/entry": lambda a, v: a["quotes"][0].update(entry=v),
+                   "events/at_record": lambda a, v: a["events"][0].update(at_record=v),
+                   "observations/occasion_locator": lambda a, v: a["observations"][0].update(occasion_locator=v),
+                   "observations/expected_id": lambda a, v: a["observations"][0].update(expected_id=v.replace("e", "x", 1)),
+                   "decisions/omission_id": lambda a, v: a["decisions"][0].update(omission_id=v.replace("e", "o", 1))}
+        stitch_at = {"event_id": lambda a, v: a["resolutions"][0].update(event_id=v.replace("e", "v", 1)),
+                     "claim_ids": lambda a, v: a["resolutions"][0].update(claim_ids=[v.replace("e", "c", 1)]),
+                     "evidence_ids": lambda a, v: a["resolutions"][0].update(evidence_ids=[v.replace("e", "q", 1)])}
+        schema_verdicts = {}
+        for kind, held, one, fields in (("read", read_schema(), read_one, read_at), ("stitch", stitch_schema(), stitch_one, stitch_at)):
+            forms = [guarded(lambda held=held: validate_s.compile_schema(held), None),
+                     guarded(lambda held=held: validate_s.compile_schema(json.loads(packet.schema_bytes(held))), None)]
+            if None in forms:
+                schema_verdicts[kind] = "uncompiled"
+                continue
+            bent_all = []
+            for field, edit in fields.items():
+                for value in near + ["pe-1", "c-0517fc7bfbe3a16c", "e-055471a37539a6fe", "v-14f625097e1c3bc5"]:
+                    bent = copy.deepcopy(one)
+                    edit(bent, value)
+                    bent_all.append((field, value, bent))
+            schema_verdicts[kind] = (all(f.is_valid(one) for f in forms),
+                                     sorted({(field, value) for field, value, bent in bent_all if any(f.is_valid(bent) for f in forms)}),
+                                     len(bent_all))
+        control("WP-08b: the read and stitch schemas, as written and as a host is handed them, take the answer in labels and "
+                "refuse an entry, a near copy, a stored id or a padded label at every field that names one",
+                schema_verdicts.get("read", (False,))[0] and schema_verdicts.get("stitch", (False,))[0]
+                and schema_verdicts["read"][1] == [] and schema_verdicts["stitch"][1] == []
+                and schema_verdicts["read"][2] == 5 * 11 and schema_verdicts["stitch"][2] == 3 * 11, f"{schema_verdicts}")
         bounded = next((json.loads((run_dir / w["path"]).read_text()) for _n, w in sorted(windows.items())
                         if json.loads((run_dir / w["path"]).read_text())["overlap"]["prev"]), None)
         if bounded is None:
@@ -2651,19 +3051,23 @@ def self_test():
             observed = {**seen, "claims": seen["claims"][:1], "observations": [
                 {"expected_id": "x-1", "occasion_locator": owned_at, "exposure": "eligible", "verdict": "observed",
                  "evidence_ids": ["q2", "q1"]}]}
+            due_x = [{"expected_id": "x-1"}]
+            overlap_label = views.entry_labels(bounded).get(overlap_at)
             control("X r1 boundary: an owned action whose exposure the overlap before it shows is answerable, citing both",
-                    answer_problems(bounded, b_rows, observed, "r-S3-x-a1", ("x-1",)) == [],
-                    f"{answer_problems(bounded, b_rows, observed, 'r-S3-x-a1', ('x-1',))}")
+                    problems_in(bounded, b_rows, observed, "r-S3-x-a1", due_x) == [],
+                    f"{problems_in(bounded, b_rows, observed, 'r-S3-x-a1', due_x)}")
             elsewhere = copy.deepcopy(observed)
             elsewhere["observations"][0]["occasion_locator"] = overlap_at
-            found = answer_problems(bounded, b_rows, elsewhere, "r-S3-x-a1", ("x-1",))
-            control("X r1: an occasion in the overlap is another window's", any(f"{overlap_at!r} at observations/x-1 is no "
-                                                                                   "record this window owns" in l for l in found), f"{found}")
+            found = problems_in(bounded, b_rows, elsewhere, "r-S3-x-a1", due_x)
+            control("X r1: an occasion in the overlap is another window's, named by its label",
+                    overlap_label and any(f"{overlap_label!r} at observations/x1 is no record this window owns" in l for l in found),
+                    f"{found}")
             started = {**observed, "observations": [], "events": [{"event_id": "v1", "kind": "request", "at_record": overlap_at,
                                                                  "claim_ids": ["c1"], "outcome": "pending", "description": "x"}]}
-            found = answer_problems(bounded, b_rows, started, "r-S3-x-a1")
-            control("X r1: an event starting in the overlap is another window's",
-                    any(f"{overlap_at!r} at events/v1/at_record is no record this window owns" in l for l in found), f"{found}")
+            found = problems_in(bounded, b_rows, started, "r-S3-x-a1")
+            control("X r1, WP-08b: an event starting in the overlap is another window's, named by its label",
+                    overlap_label and any(f"{overlap_label!r} at events/v1/at_record is no record this window owns" in l
+                                          for l in found), f"{found}")
 
 
         # ---- the overlap accounting's refusals (no call)
@@ -2742,12 +3146,15 @@ def self_test():
         main_o = made_o["main"]["name"] if made_o.get("main") else ""
         term_rid = f"{made_o['lines']['pair_term']}/message/content/0/content"
         plain_rid = f"{made_o['lines']['pair_plain']}/message/content/0/content"
-        shown_due = sorted({m for p in payloads for m in re.findall(r"^- (N-[0-9]@[A-Za-z0-9]+)$", p, re.M)})
+        # each due observation by its label (WP-08b), x1, x2, ... in id order, over the ones the run read as due
+        shown_due = sorted({m for p in payloads for m in re.findall(r"^- (x[1-9][0-9]*)$", p, re.M)})
+        due_o = [e["expected_id"] for e in guarded(lambda: due_observations(fx_ledger("o"), "o", views.FX_WINDOW), [])]
         control("4b Q1: the expected observations due are the pinned ledger's: one due and one due on its expiry's "
-                "day, not the one expired before the window nor this run's own decision",
-                shown_due == ["N-1@r0", "N-4@r0"] and bool(payloads), f"{shown_due}")
+                "day, not the one expired before the window nor this run's own decision; each window's packet labels them",
+                due_o == ["N-1@r0", "N-4@r0"] and shown_due == ["x1", "x2"] and bool(payloads)
+                and summary_o.get("observations", {}).get("due") == 2, f"{due_o} {shown_due} {summary_o.get('observations')}")
         control("4b: the packet shows each due observation's occasion criteria, exposure rule and expected behaviour",
-                any(f"- N-1@r0\n  occasion: {FX_OBSERVED['occasion_criteria']}\n  exposure rule: "
+                any(f"- x1\n  occasion: {FX_OBSERVED['occasion_criteria']}\n  exposure rule: "
                     f"{FX_OBSERVED['exposure_rule']}\n  expected behaviour: {FX_OBSERVED['expected_behavior']}" in p
                     for p in payloads), f"{payloads[:1]}")
         control("4b: a due observation's retrieval term is never shown to the model", not any(
@@ -2845,7 +3252,8 @@ def self_test():
         guarded(lambda: moved_ledger.unlink(), None)
         control("4b Q1: LEDGER_UNREADABLE: a checkout with no ledger is refused",
                 refusal(lambda: pinned_ledger(at_invalid)).startswith("LEDGER_UNREADABLE S3"))
-        control("4b: expected_text says none when nothing is due", expected_text([]) == "none")
+        control("4b: expected_text says none when nothing is due",
+                guarded(lambda: expected_text(Labels({"records": [], "overlap": {"prev": [], "next": []}}, [])), None) == "none")
 
         # the stage's check over a due list and a search-forced omission
         docs_o = [guarded(lambda w=w: views.window_doc(run_o, main_o, run_o / w["path"]), {"records": [], "omission_manifest": []})
@@ -2855,8 +3263,8 @@ def self_test():
             rows_h = searched(own_rows(holding), {term_rid: "search_match"})
             skipping = json.loads(json.dumps(fx_answer(holding, rows_h, decide=lambda m: "skip")).replace("<CALL-ID>", "r-S3-x-a1"))
             control("4b row 10: an answer skipping the omission the search forced fails the stage's check",
-                    any(line.startswith("EXPANSION_SKIPPED") for line in answer_problems(holding, rows_h, skipping, "r-S3-x-a1")),
-                    f"{answer_problems(holding, rows_h, skipping, 'r-S3-x-a1')}")
+                    any(line.startswith("EXPANSION_SKIPPED") for line in problems_in(holding, rows_h, skipping, "r-S3-x-a1")),
+                    f"{problems_in(holding, rows_h, skipping, 'r-S3-x-a1')}")
             control("4b row 10: a pending event's forcing is kept when the search matches the same record",
                     searched([{**own_rows(holding)[0], "forced_by": "pending_event", "record_id": term_rid}],
                              {term_rid: "search_match"})[0]["forced_by"] == "pending_event")
@@ -2865,7 +3273,7 @@ def self_test():
             twice["observations"] = [{"expected_id": "N-1@r0", "occasion_locator": views.eid(entry_h), "exposure": "eligible",
                                       "verdict": "observed", "evidence_ids": ["q1"]}] * 2
             control("4b: one occasion judged twice in an answer fails the stage's check", any(
-                "occasions repeat" in line for line in answer_problems(holding, rows_h, twice, "r-S3-x-a1", ("N-1@r0",))))
+                "occasions repeat" in line for line in problems_in(holding, rows_h, twice, "r-S3-x-a1", [{"expected_id": "N-1@r0"}])))
         else:
             control("4b row 10: a window holds the omission the search forces", False, f"{[own_rows(d) for d in docs_o]}")
 
@@ -3102,7 +3510,10 @@ def self_test():
         taken = guarded(lambda: first_window(twice_dir), None)
         if taken is not None:
             name_t, where_t, doc_t, call_t = taken
-            answer_t = gate.accepted(call_t, judged=True)
+            # read as the reader reads it: in the labels of its window's packet, turned into entries (WP-08b)
+            answer_t = guarded(lambda: Labels(doc_t, own_rows(doc_t), due_observations(fx_ledger("k"), twice_dir.resolve().name,
+                                                                                      views.FX_WINDOW)).resolve(
+                gate.accepted(call_t, judged=True)), None)
             before_t = stores(twice_dir)
             claim_taken = refusal(lambda: keep(twice_dir, name_t, where_t, doc_t, "another-call-a1", answer_t))
             control("5a Q2: a claim kept again under its id with other content - another call's - is refused where it "
