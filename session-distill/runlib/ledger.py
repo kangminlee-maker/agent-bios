@@ -119,6 +119,10 @@ ADDENDUM = "design/session-distill/2026-10-21T0820--9b42df2--plan-addendum-wp13.
 # entry, the run and the operation, and by replaying what each appended revert actually undoes. It
 # also owns where that contract is held: the writer, against the bytes it would replace.
 RECORD = "design/session-distill/2026-10-21T1545--b324de5--writer-holds-the-transaction.md"
+# A property schema 2 gained after ADDENDUM, each contracted by a dated record of its own: a dated record is
+# written once, so a later property is not added to ADDENDUM's text. `field_record_problems` holds each
+# against this module the way `addendum_problems` holds ADDENDUM.
+FIELD_RECORDS = {"resolves": "design/session-distill/2026-11-06T0558--01eaddf--a-decision-names-the-incubate-it-resolves.md"}
 SUPERSEDED = "design/session-distill/2026-10-21T1420--428724d--merge-pair-identity.md"
 
 
@@ -202,6 +206,9 @@ def element_problems(eid, n, element):
         if before_of(element) is not None:
             problems.append(f"LEGACY_BEFORE {tag}: applied.before is what a run's application records about the row it changed; the "
                             f"migration replaced nothing (RECORD)")
+        if "resolves" in element:
+            problems.append(f"RESOLVES_ON_LEGACY {tag}: resolves is what a run's decision names; the migration resolved nothing "
+                            f"(design §7.1, {FIELD_RECORDS['resolves']})")
         return problems
     run, disposition = element["run"], element["disposition"]
     if element["approval_id"] in UNAPPROVED:
@@ -217,6 +224,56 @@ def element_problems(eid, n, element):
         problems.append(f"REVERT_MALFORMED {tag}: a revert is an applied decision with disposition none")
     problems += before_overlap(tag, before_of(element))
     return problems
+
+
+def resolves_problems(entry):
+    """Design §7.1's `resolves` over one entry: a run's decision names an incubate decision an earlier run made on the
+    same entry, as `<entry id>@<run>`, and no incubate is resolved twice. Each break by name."""
+    problems, eid, resolved = [], entry["id"], {}
+    runs = {d["run"]: n for n, d in enumerate(entry["decisions"]) if not is_legacy(d)}
+    for n, element in enumerate(entry["decisions"]):
+        target = element.get("resolves")
+        if target is None or is_legacy(element):
+            continue
+        tag = f"{eid} decisions[{n}]"
+        owner, _, run = target.partition("@")
+        if owner != eid:
+            problems.append(f"RESOLVES_OTHER_ENTRY {tag}: it resolves {target!r}, a decision of another entry; a decision resolves "
+                            "the incubate of its own entry")
+            continue
+        at = runs.get(run)
+        if at is None:
+            problems.append(f"RESOLVES_DANGLING {tag}: no decision of run {run!r} on {eid} is there to resolve")
+            continue
+        if at >= n:
+            problems.append(f"RESOLVES_NOT_EARLIER {tag}: it resolves {target!r} at decisions[{at}], which is not an earlier decision")
+            continue
+        if entry["decisions"][at]["disposition"] != "incubate":
+            problems.append(f"RESOLVES_NOT_INCUBATE {tag}: {target!r} is a {entry['decisions'][at]['disposition']}, and only an "
+                            "incubate is pending")
+            continue
+        if target in resolved:
+            problems.append(f"RESOLVES_TWICE {tag}: {target!r} was resolved at decisions[{resolved[target]}] already")
+            continue
+        resolved[target] = n
+    return problems
+
+
+def unresolved_incubates(ledger):
+    """Design §7.1's pending incubate decisions: every incubate a run decided (an incubating entry, or a pending
+    intervention on a placed one, §12.3) that no later decision of its entry resolves, by id `<entry>@<run>`, with its
+    expiry and its entry's status, in id order. Asked of a ledger `validate_ledger` passed."""
+    out = []
+    for entry in ledger["entries"]:
+        resolved = {d["resolves"] for d in entry["decisions"] if not is_legacy(d) and d.get("resolves")}
+        for element in entry["decisions"]:
+            if is_legacy(element) or element["disposition"] != "incubate":
+                continue
+            ident = f"{entry['id']}@{element['run']}"
+            if ident not in resolved:
+                out.append({"decision_id": ident, "entry": entry["id"], "run": element["run"], "status": entry["status"],
+                            "expiry": element["expected_observation"]["expiry"]})
+    return sorted(out, key=lambda d: d["decision_id"])
 
 
 def semantic_v2(ledger):
@@ -243,6 +300,7 @@ def semantic_v2(ledger):
                 if resolution["run"] != element["run"]:
                     problems.append(f"RESOLUTION_MISPLACED {eid} decisions[{n}]: a resolution of run "
                                     f"{resolution['run']!r} sits under run {element['run']!r}")
+        problems += resolves_problems(entry)
         for field, target in (("absorbed_by", entry.get("absorbed_by")), ("instance_of", entry["relations"].get("instance_of"))):
             if target is not None and target not in ids:
                 problems.append(f"RELATION_DANGLING {eid} {field}: {target!r} is no entry of this ledger")
@@ -1456,7 +1514,8 @@ DESIGN_12_1 = {
                        "recurrence", "absorbed_by", "retired", "retire_reason"},
     "element_required": {"run", "disposition", "approval_id", "adjudication_id", "confirmation", "applied", "tests",
                          "expected_observation"},
-    "element_optional": {"at", "field", "legacy_text", "legacy_placed", "legacy_status", "kind", "status_note", "reason"},
+    "element_optional": {"at", "field", "legacy_text", "legacy_placed", "legacy_status", "kind", "status_note", "reason",
+                         "resolves"},
     "element_legacy_only": set(LEGACY_PROPERTIES),
     "applied": {"commit", "paths", "operations", "delivery"},
     "applied_optional": {"before"},  # the owner's decision of 2026-10-21, contracted in RECORD
@@ -1523,8 +1582,29 @@ def addendum_problems(text=None, rel=ADDENDUM):
         if not path.is_file():
             return [f"ADDENDUM_MISSING {rel}: what schema 2 carries beyond design §12.1 has no contract"]
         text = path.read_text(encoding="utf-8")
-    named = {f"`{p}`" for p in DESIGN_12_1["element_optional"] - {"kind"}} | {f"`kind: {k}`" for k in (*LEGACY_KINDS, "revert")}
+    named = {f"`{p}`" for p in DESIGN_12_1["element_optional"] - {"kind"} - set(FIELD_RECORDS)} | {
+        f"`kind: {k}`" for k in (*LEGACY_KINDS, "revert")}
     return [f"ADDENDUM_SILENT {rel}: it contracts no {token}" for token in sorted(named) if token not in text]
+
+
+def field_record_problems(texts=None, field_records=None):
+    """Each property FIELD_RECORDS names against its record: the property is one schema 2 carries beyond design §12.1,
+    and the record exists and names it. `texts` maps a property to the text to read instead of its file;
+    `field_records` replaces FIELD_RECORDS (the self-test's way to name a record that is not there)."""
+    problems = []
+    for prop, rel in sorted((FIELD_RECORDS if field_records is None else field_records).items()):
+        if prop not in DESIGN_12_1["element_optional"]:
+            problems.append(f"FIELD_RECORD_STALE {rel}: {prop} is no optional property of a decision")
+        if texts is not None and prop in texts:
+            text = texts[prop]
+        elif (REPO / rel).is_file():
+            text = (REPO / rel).read_text(encoding="utf-8")
+        else:
+            problems.append(f"FIELD_RECORD_MISSING {rel}: schema 2's `{prop}` has no contract")
+            continue
+        if f"`{prop}`" not in text:
+            problems.append(f"FIELD_RECORD_SILENT {rel}: it contracts no `{prop}`")
+    return problems
 
 
 def record_problems(text=None, rel=RECORD):
@@ -1672,6 +1752,54 @@ def self_test():
     for token in ("`legacy_placed`", "`kind: legacy_migration`", "`reason`"):
         expect(f"the record silent about {token}", addendum_problems(addendum_text.replace(token, "it")), f"ADDENDUM_SILENT {ADDENDUM}", token)
     expect("no record at all", addendum_problems(rel="design/session-distill/no-such-addendum.md"), "ADDENDUM_MISSING")
+    # a property contracted by a record of its own (WP-09 commit 3): ADDENDUM is not asked for it, its record is
+    clean("each property a record of its own contracts", field_record_problems())
+    expect("the record of resolves silent about it", field_record_problems({"resolves": "a decision names what it settles"}),
+           f"FIELD_RECORD_SILENT {FIELD_RECORDS['resolves']}")
+    expect("no record of resolves at all", field_record_problems(field_records={"resolves": "design/session-distill/no-such-record.md"}),
+           "FIELD_RECORD_MISSING design/session-distill/no-such-record.md")
+    expect("a record contracting a property a decision does not carry", field_record_problems(
+        texts={"surfaced": "`surfaced`"}, field_records={"surfaced": FIELD_RECORDS["resolves"]}), "FIELD_RECORD_STALE")
+    clean("ADDENDUM is not asked for a property a record of its own contracts", addendum_problems(addendum_text.replace("`resolves`", "")))
+    # design §7.1's resolves (WP-09 commit 3): a run's decision names the earlier incubate of its own entry it resolves.
+    # A subject that raises is reported under its control's name, never as a traceback ending the suite.
+    def run_rules(call):
+        try:
+            return call()
+        except Exception as exc:  # noqa: BLE001 - reported by the control that reads it
+            return [f"RAISED {exc!r}"]
+    incubate = sample_element("r1", "incubate", observation=sample_observation("2026-11-30"))
+    later = sample_element("r2", "drop", reason="expired and not seen", resolves="S3-1@r1")
+    clean("a drop resolving the incubate an earlier run made on the entry", run_rules(lambda: validate_ledger(sample_ledger(
+        sample_entry("S3-1", "retired", decisions=[incubate, later])))))
+    intervention = sample_element("r1", "incubate", observation=sample_observation("2026-11-30"))
+    pending_placed = sample_ledger(sample_entry("P-1", "placed", decisions=[sample_element("r0", "place"), intervention]))
+    clean("a pending intervention on a placed entry", validate_ledger(pending_placed))
+    clean("unresolved_incubates lists the pending intervention on a placed entry by <entry>@<run>",
+          [] if [(d["decision_id"], d["status"], d["expiry"]) for d in unresolved_incubates(pending_placed)]
+          == [("P-1@r1", "placed", "2026-11-30")] else [f"listed {unresolved_incubates(pending_placed)}"])
+    resolved_ledger = sample_ledger(sample_entry("S3-1", "retired", decisions=[incubate, later]))
+    clean("unresolved_incubates leaves out an incubate a later decision resolves",
+          [] if unresolved_incubates(resolved_ledger) == [] else [f"listed {unresolved_incubates(resolved_ledger)}"])
+    open_ledger = sample_ledger(sample_entry("S3-1", "incubating", decisions=[incubate]))
+    clean("unresolved_incubates lists an incubate nothing resolves",
+          [] if [d["decision_id"] for d in unresolved_incubates(open_ledger)] == ["S3-1@r1"] else [f"{unresolved_incubates(open_ledger)}"])
+    for label, decisions, needle in (
+            ("a decision resolving another entry's incubate", [incubate, {**later, "resolves": "S3-9@r1"}], "RESOLVES_OTHER_ENTRY S3-1 decisions[1]"),
+            ("a decision resolving a run that decided nothing here", [incubate, {**later, "resolves": "S3-1@r7"}], "RESOLVES_DANGLING S3-1 decisions[1]"),
+            ("a decision resolving itself", [incubate, {**later, "resolves": "S3-1@r2"}], "RESOLVES_NOT_EARLIER S3-1 decisions[1]"),
+            ("a decision resolving one that is not an incubate",
+             [sample_element("r1", "place"), {**later, "resolves": "S3-1@r1"}], "RESOLVES_NOT_INCUBATE S3-1 decisions[1]"),
+            ("two decisions resolving one incubate",
+             [incubate, sample_element("r2", "incubate", observation=sample_observation(), resolves="S3-1@r1"),
+              {**later, "run": "r3", "resolves": "S3-1@r1"}], "RESOLVES_TWICE S3-1 decisions[2]")):
+        expect(label, run_rules(lambda decisions=decisions: resolves_problems(sample_entry("S3-1", "incubating", decisions=decisions))), needle)
+    expect("validate_ledger holds the resolves rules", run_rules(lambda: validate_ledger(sample_ledger(sample_entry("S3-1", "retired", decisions=[
+        incubate, {**later, "resolves": "S3-1@r7"}])))), "RESOLVES_DANGLING S3-1 decisions[1]")
+    expect("a migrated element naming what it resolves", run_rules(lambda: validate_ledger(sample_ledger(sample_entry("M-1", "incubating", decisions=[
+        {**legacy_element(), "resolves": "M-1@r1"}, migration_element("incubating")])))), "RESOLVES_ON_LEGACY M-1 decisions[0]")
+    expect("a resolves that is no <entry>@<run>", run_rules(lambda: validate_ledger(sample_ledger(sample_entry("S3-1", "retired", decisions=[
+        incubate, {**later, "resolves": "r1"}])))), "does not match '^[A-Z]+[0-9]*-[0-9]+@.+$'")
     for label, mutate, needle in (
             ("a field dropped from the entry's required set", lambda d: d["$defs"]["entry"]["required"].remove("keep"), "required lacks ['keep']"),
             ("a ninth key in the element's required set", lambda d: d["$defs"]["decision"]["required"].append("at"), "required adds ['at']"),

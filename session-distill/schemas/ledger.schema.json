@@ -268,7 +268,8 @@
         "legacy_status": {"$comment": "design §12.2, a migrated element only", "enum": ["incubating", "placed", "adopted-no-text", "absorbed", "retired"]},
         "kind": {"$comment": "the three legacy kinds mark a migrated element; revert marks a decision a run made (design §12.3)", "enum": ["legacy_application", "legacy_retirement", "legacy_migration", "revert"]},
         "status_note": {"$comment": "design §12.2, a migrated element only", "type": "string"},
-        "reason": {"$comment": "design §7.3 and §12.3: a keep, a drop and an awaiting-R record carry theirs", "type": "string", "minLength": 1}
+        "reason": {"$comment": "design §7.3 and §12.3: a keep, a drop and an awaiting-R record carry theirs", "type": "string", "minLength": 1},
+        "resolves": {"$comment": "design §7.1: a later decision names the incubate decision of the same entry it resolves, as <entry id>@<run>; contracted by the record FIELD_RECORDS names (WP-09 commit 3)", "type": "string", "pattern": "^[A-Z]+[0-9]*-[0-9]+@.+$"}
       }
     },
     "entry": {
