@@ -26,7 +26,8 @@ nothing here restates a guide, and the block's hash says which version a packet 
 
 The schema a call is given is compiled through `validate.compile_schema` (closed objects,
 supported keywords) before it is written, so a packet never references a schema the policy
-refuses.
+refuses. The form a host is handed holds only keywords the host's draft-07 check and the policy's
+2020-12 reading read alike (HOST_KEYWORDS); any other is HOST_SCHEMA_KEYWORD.
 
 A stage's payload is one of the templates under `session-distill/packets/` (`read.md`, `stitch.md`)
 with its `{{field}}` placeholders filled by `render`, once and in one pass: every placeholder takes
@@ -112,24 +113,77 @@ def host_schema(schema):
     not hold - the 2020-12 one every distill schema names - and exits before any request; and the host hands the schema
     on as a tool's input schema, which then holds no reference to resolve. The policy pins draft 2020-12 in code
     (`validate.compile_schema`) and allows a `$ref` only to an entry of the schema's own `$defs` (`validate.lint`), so
-    neither key decides anything the inlined form does not. A `$ref` beside other keywords, or one that reaches itself,
-    has no inlined form and is refused."""
+    neither key decides anything the inlined form does not. A `$ref` beside other keywords, one that reaches itself, or
+    one naming no entry of `$defs` has no inlined form and is refused. A reference's name is read by
+    `validate.local_ref_name`, as the policy's lint reads it: a name of letters, digits, `_` and `-` only, which a JSON
+    Pointer resolves as written, so nothing is decoded here (WP-08c, W r2).
+
+    The schema is walked by its structure, as `host_keywords` walks it (WP-08c, X and W r1): a reference is a `$ref` at
+    a schema position, and the schemas inside are the values under `properties` and `patternProperties` by name and
+    the schema `items` or `additionalProperties` holds. A property named `$ref` is a name, and an `enum`, `const`,
+    `default` or `examples` value is data, kept as written: a literal `{"$ref": ...}` there is not a reference, and
+    inlining it would hand the host a schema that accepts other answers. Any other keyword's value is kept as written
+    too, and `host_keywords` then refuses the keyword by name."""
     defs = schema.get("$defs") or {}
 
     def inline(node, seen):
-        if isinstance(node, list):
-            return [inline(item, seen) for item in node]
         if not isinstance(node, dict):
-            return node
+            return node  # a boolean schema, or `items` as a list, which `host_keywords` refuses
         if "$ref" in node:
-            ref, name = node["$ref"], str(node["$ref"])[len("#/$defs/"):]
+            ref = node["$ref"]
+            name = validate.local_ref_name(ref)
             if set(node) != {"$ref"}:
                 raise validate.SchemaPolicyError(f"HOST_SCHEMA {ref}: a $ref beside {sorted(set(node) - {'$ref'})} has no inlined form")
+            if name is None:
+                raise validate.SchemaPolicyError(f"HOST_SCHEMA {ref}: a reference is {validate.LOCAL_REF}<name>, its name read "
+                                                 "as written (validate.local_ref_name)")
+            if name not in defs:
+                raise validate.SchemaPolicyError(f"HOST_SCHEMA {ref}: the reference names no entry of $defs")
             if name in seen:
                 raise validate.SchemaPolicyError(f"HOST_SCHEMA {ref}: the reference reaches itself")
             return inline(defs[name], seen | {name})
-        return {key: inline(value, seen) for key, value in node.items()}
+        out = {}
+        for key, value in node.items():
+            if key in SUBSCHEMA_MAPS and isinstance(value, dict):
+                out[key] = {name: inline(sub, seen) for name, sub in value.items()}
+            elif key in SUBSCHEMAS:
+                out[key] = inline(value, seen)
+            else:
+                out[key] = value
+        return out
     return inline({key: value for key, value in schema.items() if key not in ("$schema", "$defs")}, frozenset())
+
+
+# The keywords a schema handed to a host may hold (WP-08c): of those the distill schemas use, the ones Claude Code's
+# `--json-schema` check (Ajv 8's draft-07 class, as Claude Code 2.1.317 configures it) and the policy's draft 2020-12
+# reading read alike. Measured offline with Ajv 8.20.0 (record 2026-11-06T0055--3809707): each of these compiles; a
+# 2019-09 or 2020-12 keyword (dependentRequired, dependentSchemas, prefixItems, unevaluatedProperties) is refused as
+# unknown. `$defs`, `$ref` and `$schema` are not here because the handed form has none (`host_schema`), and `items` is
+# here as one schema only: as a list, draft-07 reads a tuple and 2020-12 refuses the schema.
+HOST_KEYWORDS = frozenset({"$comment", "title", "type", "properties", "patternProperties", "additionalProperties",
+                           "required", "items", "enum", "const", "pattern", "minLength", "minimum", "minItems", "maxItems",
+                           "uniqueItems", "minProperties"})
+# keywords whose value is a map of names to schemas, or one schema; every other keyword's value is data
+SUBSCHEMA_MAPS, SUBSCHEMAS = ("properties", "patternProperties"), ("items", "additionalProperties")
+
+
+def host_keywords(schema, at="#"):
+    """`[(pointer, keyword)]` of what a schema handed to a host must not hold: every keyword outside HOST_KEYWORDS, and
+    `items` as a list. Walked by the schema's structure, so a property named `items` or `required` under `properties` is
+    a name, not a keyword, and an `enum` or `const` value is data."""
+    out = []
+    if not isinstance(schema, dict):
+        return out
+    for key, value in schema.items():
+        if key not in HOST_KEYWORDS or (key == "items" and isinstance(value, list)):
+            out.append((at, key))
+            continue
+        if key in SUBSCHEMA_MAPS and isinstance(value, dict):
+            for name, sub in value.items():
+                out += host_keywords(sub, f"{at}/{key}/{name}")
+        elif key in SUBSCHEMAS:
+            out += host_keywords(value, f"{at}/{key}")
+    return out
 
 
 def schema_bytes(schema):
@@ -139,6 +193,11 @@ def schema_bytes(schema):
     validate.compile_schema(schema)
     sent = host_schema(schema)
     validate.compile_schema(sent)
+    unread = host_keywords(sent)
+    if unread:
+        raise validate.SchemaPolicyError("HOST_SCHEMA_KEYWORD " + "; ".join(f"{key} at {at}" for at, key in unread)
+                                         + ": the host's draft-07 check refuses it, or reads it otherwise than the "
+                                           "policy's 2020-12 reading (HOST_KEYWORDS)")
     return (json.dumps(sent, sort_keys=True, separators=(",", ":"), ensure_ascii=False) + "\n").encode("utf-8")
 
 
@@ -221,8 +280,16 @@ def self_test():
             if not any(needle in line for line in errors):
                 failures.append(f"{name}: expected {needle!r} in {errors}")
 
-    schema = schema_bytes({"type": "object", "additionalProperties": False, "required": ["answer"],
-                           "properties": {"answer": {"type": "string"}}})
+    conforming = {"type": "object", "additionalProperties": False, "required": ["answer"],
+                  "properties": {"answer": {"type": "string"}}}
+    # the product refusing a conforming schema fails this control by its name, never as a traceback that would hide
+    # every control after it (WP-08c); the envelope controls below then run on the schema's bytes as written
+    try:
+        schema, refusal = schema_bytes(conforming), []
+    except validate.SchemaPolicyError as exc:
+        schema = (json.dumps(conforming, sort_keys=True, separators=(",", ":")) + "\n").encode("utf-8")
+        refusal = [f"refused: {str(exc)[:200]}"]
+    control("schema-builder-takes-a-conforming-schema", refusal)
     payload = "Judge the candidate below.\n{\"candidate\": \"c1\"}\n"
     good = build("r1-S6-c1-a1", "S6", "claude:claude-opus-5-5/high", payload, schema)
     control("conforming-packet", check(good, "r1-S6-c1-a1", schema))  # the positive control, first
@@ -269,6 +336,29 @@ def self_test():
 
     control("schema-builder-refuses-an-open-schema",
             raised(lambda: schema_bytes({"type": "object", "properties": {}}), validate.SchemaPolicyError, "open object"))
+    # WP-08c: the form a host is handed holds only keywords its draft-07 check and the policy's 2020-12 reading read
+    # alike - walked by structure, so a property named like a keyword is a name, and checked on the handed form
+    named_like = {"type": "object", "additionalProperties": False, "required": ["items"],
+                  "properties": {"items": {"type": "string"}, "required": {"type": "string"},
+                                 "dependentRequired": {"type": "string", "enum": ["prefixItems"]}}}
+    def handed_keywords(held):
+        try:
+            return host_keywords(json.loads(schema_bytes(held)))
+        except (validate.SchemaPolicyError, ValueError) as exc:
+            return [("refused", str(exc)[:120])]
+    control("host-schema-takes-properties-named-like-keywords",
+            [f"{handed_keywords(named_like)}"] if handed_keywords(named_like) else [])
+    planted = {"type": "object", "additionalProperties": False, "required": ["a"],
+               "properties": {"a": {"type": "string"}, "b": {"type": "array", "items": {"type": "string"}}},
+               "dependentRequired": {"a": ["b"]}}
+    control("host-schema-refuses-a-2019-keyword-by-name",
+            raised(lambda: schema_bytes(planted), validate.SchemaPolicyError, "HOST_SCHEMA_KEYWORD dependentRequired at #"))
+    deep = {"type": "object", "properties": {"b": {"type": "array", "items": {"type": "object", "unevaluatedProperties": False}}}}
+    control("host-keywords-name-each-unread-keyword-where-it-stands",
+            [] if (host_keywords(deep), host_keywords({"type": "array", "items": [{"type": "string"}]}),
+                   host_keywords({"$schema": "x", "$defs": {"s": {"type": "string"}}, "properties": {"a": {"$ref": "#/$defs/s"}}}))
+            == ([("#/properties/b/items", "unevaluatedProperties")], [("#", "items")],
+                [("#", "$schema"), ("#", "$defs"), ("#/properties/a", "$ref")]) else ["walked otherwise"])
     # the schema a host is handed (WP-08 commit 7, dw2-live1), asked of the schemas S3 hands a host, each of which names
     # the 2020-12 meta-schema and holds references: no meta-schema, no reference and no $defs in the bytes, which the
     # policy still compiles; and the inlined form is derived from the schema itself, so a change to an entry of its
@@ -329,6 +419,85 @@ def self_test():
                                                         "properties": {"next": {"$ref": "#/$defs/a"}}}},
                                         "properties": {"x": {"$ref": "#/$defs/a"}}}),
                    validate.SchemaPolicyError, "HOST_SCHEMA #/$defs/a: the reference reaches itself"))
+    control("host-schema-refuses-a-reference-to-no-entry",
+            raised(lambda: host_schema({"type": "object", "additionalProperties": False, "$defs": {"a": {"type": "string"}},
+                                        "properties": {"x": {"$ref": "#/$defs/b"}}}),
+                   validate.SchemaPolicyError, "HOST_SCHEMA #/$defs/b: the reference names no entry of $defs"))
+    # WP-08c (W r2): a reference's name holding a JSON Pointer or URI escape is refused before a host is handed it - by
+    # the policy's lint where schema_bytes compiles it, and by host_schema itself when called alone - so the escaped
+    # name "a~1b" never reaches a host as the literal entry while jsonschema resolves it as "a/b"
+    escaped_names = {"type": "object", "additionalProperties": False, "required": ["x"],
+                     "$defs": {"a/b": {"type": "integer"}, "a~1b": {"type": "string"}},
+                     "properties": {"x": {"$ref": "#/$defs/a~1b"}}}
+    control("schema-builder-refuses-an-escaped-reference-name",
+            raised(lambda: schema_bytes(escaped_names), validate.SchemaPolicyError, "as #/$defs/<name>, the name of letters")
+            + [line for name in ("a~0b", "a%2Fb") for line in raised(
+                lambda name=name: schema_bytes({"type": "object", "additionalProperties": False, "required": ["x"],
+                                                "$defs": {name: {"type": "string"}},
+                                                "properties": {"x": {"$ref": f"#/$defs/{name}"}}}),
+                validate.SchemaPolicyError, "as #/$defs/<name>, the name of letters")])
+    control("host-schema-refuses-an-escaped-reference-name",
+            raised(lambda: host_schema(escaped_names), validate.SchemaPolicyError,
+                   "HOST_SCHEMA #/$defs/a~1b: a reference is #/$defs/<name>"))
+    # WP-08c (X and W r1): the handed form is made by walking the schema's structure, so a literal {"$ref": ...} that an
+    # enum, a const, a default or an example holds is data, and a property named $ref is a name; and the schema as
+    # written and the form a host is handed accept and refuse the same answers, for those and for every schema a host
+    # is handed now (read, stitch, and the judge's verdict as dispatch hands it)
+    kept_as_data = None
+    try:
+        kept_as_data = host_schema({"type": "object", "additionalProperties": False, "$defs": {"s": {"type": "string"}},
+                                    "properties": {"a": {"type": "object", "default": {"$ref": "#/$defs/s"},
+                                                         "examples": [{"$ref": "#/$defs/s"}]},
+                                                   "$ref": {"$ref": "#/$defs/s"}}})
+    except Exception as exc:  # noqa: BLE001 - whatever stops it is reported by the control's name
+        kept_as_data = f"raised {type(exc).__name__}: {exc}"
+    control("host-schema-keeps-data-and-names-as-written",
+            [] if kept_as_data == {"type": "object", "additionalProperties": False,
+                                   "properties": {"a": {"type": "object", "default": {"$ref": "#/$defs/s"},
+                                                        "examples": [{"$ref": "#/$defs/s"}]},
+                                                  "$ref": {"type": "string"}}} else [f"made {kept_as_data}"])
+
+    def judged_alike(held, answers):
+        """`(problem, [(answer, as written, as handed)])`: each answer judged by the schema and by its handed form."""
+        try:
+            written, handed = validate.compile_schema(held), validate.compile_schema(json.loads(schema_bytes(held)))
+        except Exception as exc:  # noqa: BLE001 - a refused or broken schema fails the control by its name
+            return f"refused: {type(exc).__name__}: {str(exc)[:160]}", []
+        return None, [(json.dumps(a, sort_keys=True), written.is_valid(a), handed.is_valid(a)) for a in answers]
+    schemas_dir = pathlib.Path(__file__).resolve().parents[1] / "schemas"
+    def held_schema(name):
+        return json.loads((schemas_dir / f"{name}.schema.json").read_text(encoding="utf-8"))
+    quote = {"quote_id": "q1", "entry": "e1", "text": "x"}
+    empty_read = {"quotes": [], "claims": [], "events": [], "decisions": [], "observations": []}
+    resolved = {"event_id": "v1", "outcome": "resolved", "claim_ids": ["c1"], "evidence_ids": ["q1"]}
+    alike = {
+        "a literal $ref in an enum and a const": (
+            {"type": "object", "additionalProperties": False, "required": ["payload", "word"], "$defs": {"s": {"type": "string"}},
+             "properties": {"payload": {"enum": [{"$ref": "#/$defs/s"}, "plain"]}, "pinned": {"const": {"$ref": "#/$defs/s"}},
+                            "word": {"$ref": "#/$defs/s"}}},
+            [{"payload": {"$ref": "#/$defs/s"}, "word": "w"}, {"payload": {"type": "string"}, "word": "w"},
+             {"payload": "plain", "word": "w", "pinned": {"$ref": "#/$defs/s"}},
+             {"payload": "plain", "word": "w", "pinned": {"type": "string"}}, {"payload": "plain", "word": 3}]),
+        "a property named $ref": (
+            {"type": "object", "additionalProperties": False, "required": ["$ref"], "$defs": {"n": {"type": "integer"}},
+             "properties": {"$ref": {"type": "string"}, "count": {"$ref": "#/$defs/n"}}},
+            [{"$ref": "a"}, {"$ref": "a", "count": 2}, {"$ref": 1}, {"$ref": "a", "count": "2"}, {}]),
+        "read": (held_schema("read"),
+                 [empty_read, {**empty_read, "quotes": [quote]}, {**empty_read, "quotes": [{**quote, "quote_id": "q1\n"}]},
+                  {**empty_read, "quotes": [{**quote, "entry": "3/message/content"}]},
+                  {k: v for k, v in empty_read.items() if k != "observations"}, {**empty_read, "extra": []}]),
+        "stitch": (held_schema("stitch"),
+                   [{"resolutions": []}, {"resolutions": [resolved]}, {"resolutions": [{**resolved, "outcome": "maybe"}]},
+                    {"resolutions": [{**resolved, "claim_ids": ["c1\n"]}]}, {}]),
+        "verdict": ({"type": "object", "additionalProperties": False, "required": ["verdict", "why"],
+                     "properties": {"verdict": {"enum": ["PRESENT", "ABSENT", "UNCLEAR"]}, "why": {"type": "string"}}},
+                    [{"verdict": "ABSENT", "why": "x"}, {"verdict": "NO", "why": "x"}, {"verdict": "ABSENT"}]),
+    }
+    verdicts = {name: judged_alike(held, answers) for name, (held, answers) in alike.items()}
+    control("host-schema-judges-every-answer-as-the-schema-does",
+            [f"{name}: {problem or [r for r in rows if r[1] != r[2]] or 'no answer accepted, or none refused'}"
+             for name, (problem, rows) in verdicts.items()
+             if problem or any(r[1] != r[2] for r in rows) or {r[1] for r in rows} != {True, False}])
     with tempfile.TemporaryDirectory() as td:
         for _title, guide, _part in PRINCIPLE_SOURCES:
             target = pathlib.Path(td) / guide
@@ -362,8 +531,10 @@ def self_test():
         try:
             fields = template_fields(name)
             answer = schema_bytes(json.loads((schemas / f"{name}.schema.json").read_text(encoding="utf-8")))
-        except (TemplateError, OSError, ValueError) as exc:
-            failures.append(f"positive control: the {name} template or schema did not load: {exc}")
+        except (TemplateError, OSError, ValueError, validate.SchemaPolicyError) as exc:
+            failures.extend(f"{name}-{what}: not run (the {name} template or schema did not load: {str(exc)[:160]})"
+                            for what in ("template-takes-the-fields-its-stage-fills", "packet-passes-the-linter",
+                                         "fixed-part-fits-the-overhead"))
             continue
         control(f"{name}-template-takes-the-fields-its-stage-fills",
                 [] if fields == filled_by[name] else [f"placeholders {fields}, filled {filled_by[name]}"])

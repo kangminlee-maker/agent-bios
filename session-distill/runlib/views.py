@@ -238,14 +238,50 @@ def record_items(host, rec, child):
                 yield f"/payload/output/{j}/text", "tool_result", None, False, part["text"]
 
 
+def clip_bounds(text):
+    """`(head end, tail start)` of a clipped block: on line boundaries where its text has them (WP-08c). A line ends
+    where `str.splitlines(keepends=True)` ends it - "\n", "\r", "\r\n" as one end, U+2028, "\x0c" and the others it
+    knows - which is how the clipper and the view check read error lines, so a result whose lines run on carriage returns
+    (a progress bar's output) is cut between lines too. The head ends at the last line boundary at or before
+    HEAD_CHARS, and the tail starts at the first at or after `len - TAIL_CHARS`. The cut is by characters, on
+    HEAD_CHARS or `len - TAIL_CHARS` itself, when the nearest line boundary would keep less than half of HEAD_CHARS or
+    of TAIL_CHARS: in a block that is one long line, and in one whose line around the cut is that long. Either cut keeps
+    a "\r\n" whole (X r2): a head end that would fall between its "\r" and "\n" moves back before the "\r", and a tail
+    start there moves on past the "\n" - which the boundary rule already does at the tail, since the boundary after a
+    "\r\n" keeps more than half of TAIL_CHARS. A cut inside a line split it between a shown side and the omitted middle,
+    so the middle's expansion began or ended mid-line (dw2-live1: it ended at "cleanup 028")."""
+    n = len(text)
+    head, tail = HEAD_CHARS, n - TAIL_CHARS
+    before, after, at = 0, None, 0
+    for line in text.splitlines(keepends=True):
+        at += len(line)
+        if at >= n:
+            break
+        if at <= HEAD_CHARS:
+            before = at
+        if at >= n - TAIL_CHARS:
+            after = at
+            break
+    if before >= HEAD_CHARS // 2:
+        head = before
+    if after is not None and n - after >= TAIL_CHARS // 2:
+        tail = after
+    if text[head - 1:head + 1] == "\r\n":
+        head -= 1
+    if text[tail - 1:tail + 1] == "\r\n":
+        tail += 1
+    return head, tail
+
+
 def clip_parts(text, kind):
     """`([(type, a, b)], meta)`: `text` parts are shown, `gap` parts omitted, together tiling [0, len(text)).
     `meta` is None for a block shown whole; else the head, the tail, the error lines kept whole, the omitted span of
-    the middle with the sha256 of its characters, and the gaps."""
+    the middle with the sha256 of its characters, and the gaps. The head and tail end on line boundaries
+    (`clip_bounds`)."""
     n = len(text)
     if kind != "tool_result" or n <= CLIP_OVER:
         return [("text", 0, n)], None
-    head, tail = HEAD_CHARS, n - TAIL_CHARS
+    head, tail = clip_bounds(text)
     shown, errors, offset = [(0, head), (tail, n)], [], 0
     for line in text.splitlines(keepends=True):
         a, b = offset, offset + len(line)
@@ -738,13 +774,15 @@ def cut_windows(base, seq, limits, overlap=True):
 
 # ---- checks over a cut view -------------------------------------------------------------------
 
-def error_lines_of(text, head=HEAD_CHARS, tail=TAIL_CHARS):
-    """The error lines of a tool result's middle, as the clipper reads them (ranges in the block)."""
-    out, offset, n = [], 0, len(text)
+def error_lines_of(text):
+    """The error lines of a tool result's middle, as the clipper reads them (ranges in the block), between the bounds it
+    cuts at (`clip_bounds`)."""
+    out, offset = [], 0
+    head, tail = clip_bounds(text)
     for line in text.splitlines(keepends=True):
         a, b = offset, offset + len(line)
         offset = b
-        if b > head and a < n - tail and ERROR_LINE.search(line):
+        if b > head and a < tail and ERROR_LINE.search(line):
             out.append([a, b])
     return out
 
@@ -1369,10 +1407,54 @@ def sequence_doc(run_dir, name):
     return current_version(records.read_json(path), f"{name}/sequence.json")
 
 
+class _Unindexed:
+    """`build_sequence` indexes what it reads; an expansion rebuilding the sequence searches nothing."""
+
+    def add(self, *_args):
+        pass
+
+
+def expansion_entries(run_dir, name, doc, record_id, middle):
+    """What an expansion of `record_id` is cut from (WP-08c): `middle` owned, between the record's neighbours as S2's
+    sequence holds them - up to OVERLAP_TURNS turns each side - as context it does not own. The sequence is rebuilt
+    from the projection with the lines and roles the view's windows own, as S2 built it. The record itself is not among
+    them: its head and tail are its window's, and an entry of it beside its own middle would carry the same label key.
+    So an expansion shows what came before and after the record but not the record's own head or tail, and an exposure
+    shown only in that head is not shown to it (`stage_read.settle_occasions` then finds the two readings differ)."""
+    roles = {}
+    for path in sorted((pathlib.Path(run_dir) / "views" / name).glob("[0-9]*.json")):
+        for r in window_doc(run_dir, name, path)["records"]:
+            roles[r["line"] - 1] = r["window_role"]
+    seq = build_sequence(pathlib.Path(run_dir) / doc["redacted"], roles, roles.__getitem__, _Unindexed())[0]
+    at = next(k for k, e in enumerate(seq) if e["record_id"] == record_id)
+    context = lambda part: [{**e, "owned": False} for e in part]  # noqa: E731
+    return (context(seq[before_turns(seq, at, OVERLAP_TURNS):at]) + [middle]
+            + context(seq[at + 1:after_turns(seq, at + 1, OVERLAP_TURNS)]))
+
+
 def expand(run_dir, call_id, name, record_id, reason, forced_by="none", omission=None):
-    """The omitted middle of a clipped record as additional windows under the same bound and span mapping; the
-    decision is logged. Returns the windows (also written beside the view). The omitted characters are re-read from
-    the projection and must hash to the manifest's `omitted_span.sha256`."""
+    """The omitted middle of a clipped record as additional windows (`expansion_windows`), written beside the view; the
+    decision is logged. Returns the windows."""
+    run_dir = pathlib.Path(run_dir)
+    first, windows, _sequence = expansion_windows(run_dir, name, record_id, omission)
+    # The path carries the OMISSION, not only the call. Two records expanded under one call id wrote
+    # `expansion-<call>-1.json` each, and `records.write_text` replaces, so the first expansion's windows were
+    # gone and `expansions.jsonl` still held both decisions - an artifact set that reads as complete and is
+    # not. The omission id's digest is what makes the name safe through the path sanitiser.
+    safe = re.sub(r"[^A-Za-z0-9._-]", "_", call_id)
+    tag = re.sub(r"[^A-Za-z0-9._-]", "_", first["omission_id"])[-24:]
+    for w in windows:
+        records.write_json(run_dir, run_dir / "views" / name / f"expansion-{safe}-{tag}-{w['window_n']}.json", w)
+    record_decision(run_dir, call_id, name, record_id, "expand", reason, forced_by,
+                    omission=first["omission_id"])
+    return windows
+
+
+def expansion_windows(run_dir, name, record_id, omission=None):
+    """`(manifest row, windows, sequence)` of one expansion, made and checked but not written: the omitted middle of a
+    clipped record under the same bound and span mapping as its view, with the record's neighbours as overlap
+    (`expansion_entries`, WP-08c), held to the window invariants as S2's windows are (`check_windows`). The omitted
+    characters are re-read from the projection and must hash to the manifest's `omitted_span.sha256`."""
     run_dir = pathlib.Path(run_dir)
     doc = sequence_doc(run_dir, name)
     first, window = None, None
@@ -1410,21 +1492,15 @@ def expand(run_dir, call_id, name, record_id, reason, forced_by="none", omission
                 first.get("window_role", "context"))
     entry = {"record_id": record_id, "line": line["line"], "json_pointer": block["pointer"], "kind": block["kind"],
              "tool": block.get("tool"), "ts": line.get("ts"), "error": bool(block.get("error")), "window_role": role,
-             "size": len(middle), "text": middle, "segments": [{"view": [0, len(middle)], "block": [span["start"], span["end"]]}], "owned": True}
+             "size": len(middle), "text": middle, "segments": [{"view": [0, len(middle)], "block": [span["start"], span["end"]]}],
+             "owned": True, "offset": first["locator"]["offset"]}
     base = {"transcript": doc["transcript"], "version": doc["version"], "version_sha": doc["version_sha"],
             "redaction_version": doc["redaction_version"], "expansion_of": record_id}
-    windows, _ = cut_windows(base, [entry], doc["limits"], overlap=False)
-    # The path carries the OMISSION, not only the call. Two records expanded under one call id wrote
-    # `expansion-<call>-1.json` each, and `records.write_text` replaces, so the first expansion's windows were
-    # gone and `expansions.jsonl` still held both decisions - an artifact set that reads as complete and is
-    # not. The omission id's digest is what makes the name safe through the path sanitiser.
-    safe = re.sub(r"[^A-Za-z0-9._-]", "_", call_id)
-    tag = re.sub(r"[^A-Za-z0-9._-]", "_", first["omission_id"])[-24:]
-    for w in windows:
-        records.write_json(run_dir, run_dir / "views" / name / f"expansion-{safe}-{tag}-{w['window_n']}.json", w)
-    record_decision(run_dir, call_id, name, record_id, "expand", reason, forced_by,
-                    omission=first["omission_id"])
-    return windows
+    windows, sequence = cut_windows(base, expansion_entries(run_dir, name, doc, record_id, entry), doc["limits"])
+    errors = check_windows(sequence, windows)
+    if errors:
+        raise Refused("\n".join(errors[:5]))
+    return first, windows, sequence
 
 
 def record_decision(run_dir, call_id, name, record_id, decision, reason, forced_by="none", omission=None):
@@ -2845,6 +2921,105 @@ def self_test():
                 r["clipped"]["gaps"] = coverage.normalize(r["clipped"]["gaps"] + [[a, b]])
         named("control, error line: an error line of a clipped result moved into the gap is named",
               check_tiling(hidden_error, texts), "ERROR_LINE_DROPPED")
+        # the clip's bounds (WP-08c): a log of 41-character lines, whose 1,200th and (n-800)th characters fall inside
+        # lines; one long line; a block whose only line end before the head would keep less than half of it; and one
+        # whose only line start after the tail would keep less than half of it
+        lined = "".join(f"line {i:04d} of the build log, still going.\n" for i in range(300))
+        cuts = {}
+        for label, text in (("lined", lined), ("one line", "x" * 10_000), ("sparse head", "a" * 99 + "\n" + "b" * 9_900),
+                            ("sparse tail", "c" * 9_699 + "\n" + "d" * 300)):
+            _parts, meta = clip_parts(text, "tool_result")
+            span = meta["omitted_span"]
+            cuts[label] = (meta["head"][1], meta["tail"][0], span["start"], span["end"])
+        lined_view = compose(lined, clip_parts(lined, "tool_result")[0])[0]
+        expect("WP-08c: a clipped tool result's head ends at a line end and its tail starts at a line start, so its "
+               "omitted middle is whole lines; a block with no line boundary that keeps half of the head or tail is cut "
+               "by characters",
+               (len(lined.splitlines()[0]) + 1, cuts, "[... 10332 chars omitted (1189-11521) ...]" in lined_view,
+                lined[1188], lined[11520]),
+               (41, {"lined": (1189, 11521, 1189, 11521), "one line": (1200, 9200, 1200, 9200),
+                     "sparse head": (1200, 9200, 1200, 9200), "sparse tail": (1200, 9200, 1200, 9200)}, True, "\n", "\n"))
+        # ... and on the other line ends str.splitlines knows, as the clipper and the view check read error lines (WP-08c,
+        # X r1): lines that run on carriage returns (a progress bar's output) or on U+2028 are cut between lines as "\n"
+        # lines are; "\r\n" is one line end, never cut between its "\r" and "\n" - here at the 1,200th character and at
+        # the (n-800)th - and mixed line ends are each a line end
+        line_ends = {}
+        for label, end in (("\\r", "\r"), ("U+2028", "\u2028"), ("\\r\\n", "\r\n")):
+            line_ends[label] = clip_bounds("".join(f"line {i:04d} of the build log, still going.{end}" for i in range(300)))
+        crlf_lines = lambda lo, hi: "".join(f"line {i:04d} of the build log, still going.\r\n" for i in range(lo, hi))  # noqa: E731
+        straddle = crlf_lines(0, 28) + "z" * 23 + "\r\n" + crlf_lines(28, 200) + "w" * 20 + "\r\n" + "u" * 799
+        mixed_ends = ["\n", "\r", "\r\n", "\u2028", "\x0c", "\x85"]
+        mixed = "".join(f"entry {i:04d} of the mixed log.{mixed_ends[i % 6]}" for i in range(400))
+        expect("WP-08c: a clipped tool result's bounds are line boundaries as str.splitlines ends lines - on carriage "
+               "returns, on U+2028, on mixed line ends - and never fall between the \\r and \\n of one line end",
+               (line_ends, clip_bounds(straddle), straddle[1199:1201], straddle[len(straddle) - 801:len(straddle) - 799],
+                clip_bounds(mixed), mixed[1195], mixed[10878]),
+               ({"\\r": (1189, 11521), "U+2028": (1189, 11521), "\\r\\n": (1176, 11802)}, (1176, len(straddle) - 799),
+                "\r\n", "\r\n", (1196, 10879), "\x0c", "\n"))
+        # ... and a cut by characters keeps a "\r\n" whole too (X r2): a head with no line end that keeps half of it,
+        # whose 1,200th character is the "\n" of a "\r\n", ends before the "\r"; at the tail the line boundary after
+        # such a "\r\n" keeps 799 characters, so the tail starts past its "\n" by the boundary rule
+        crlf_head, crlf_tail = "a" * 1199 + "\r\n" + "b" * 5000, "b" * 5000 + "\r\n" + "c" * 799
+        expect("WP-08c: a clipped tool result's cut by characters never falls between the \\r and \\n of one line end - "
+               "the head moves back before the \\r, the tail starts past the \\n",
+               (clip_bounds(crlf_head), crlf_head[1199:1201], clip_bounds(crlf_tail), crlf_tail[5000:5002]),
+               ((1199, 5401), "\r\n", (1200, 5002), "\r\n"))
+        # ... and the view check reads the error lines between the same bounds the clipper cut at, and the manifest names
+        # the same omitted span (WP-08c): a progress bar's output on carriage returns, an error line in its middle
+        stepped = "".join(f"step {i:04d} of the progress bar, still going.\r" for i in range(150)) \
+            + "ERROR: disk full at block 7\r" + "".join(f"step {i:04d} of the progress bar, still going.\r" for i in range(150, 300))
+        stepped_entry = make_entry({"pointer": "/x", "kind": "tool_result", "text": stepped}, 1, "in_window", 0)
+        stepped_rows = manifest_of([stepped_entry])
+        stepped_hidden = copy.deepcopy(stepped_entry)
+        for a, b in stepped_hidden["clipped"]["error_lines"]:
+            stepped_hidden["segments"] = [s for s in stepped_hidden["segments"] if s["block"] != [a, b]]
+            stepped_hidden["clipped"]["gaps"] = coverage.normalize(stepped_hidden["clipped"]["gaps"] + [[a, b]])
+        expect("WP-08c: on a result whose lines end in carriage returns, the clip, the view check's error lines and the "
+               "manifest's row (manifest_of) name the same bounds and the same error line; it is kept, and named "
+               "ERROR_LINE_DROPPED when hidden",
+               ((stepped_entry["clipped"]["head"][1], stepped_entry["clipped"]["tail"][0]),
+                [((r["omitted_span"]["start"], r["omitted_span"]["end"]), r["error_lines"],
+                  r["omission_id"] == omission_id(r["record_id"], 1188, 12436),
+                  r["omitted_span"]["sha256"] == records.sha256_bytes(stepped[1188:12436].encode("utf-8")))
+                 for r in stepped_rows],
+                stepped_entry["clipped"]["error_lines"], error_lines_of(stepped),
+                check_tiling([{"records": [stepped_entry]}], {"1/x": stepped}),
+                any("ERROR_LINE_DROPPED 1/x" in e for e in check_tiling([{"records": [stepped_hidden]}], {"1/x": stepped}))),
+               ((1188, 12436), [((1188, 12436), 1, True, True)], [[6600, 6628]], [[6600, 6628]], [], True))
+
+        # ---- WP-08c: an expansion shows its record's neighbours as overlap, and a middle too long for one window is cut
+        # across several, each owning its spans with the overlap the sequence puts around them
+        def fx_split_records():
+            log = "".join(f"  migrating shard {i:04d}  ok  {'.' * 30}\n" for i in range(1200))
+            return [fx_human(fx_stamp(3, hour=1), "please migrate every shard"),
+                    fx_call(fx_stamp(3, hour=2), "Bash", {"command": "migrate --all"}),
+                    fx_result(fx_stamp(3, hour=3), log),
+                    fx_assistant(fx_stamp(3, hour=4), "the migration finished")]
+        split_run = golden(root, "split", overhead=100_000, main_records=fx_split_records, main_only=True, pending_at=None)
+        split_name, split_dir = split_run["main"]["name"], split_run["run_dir"]
+        split_docs = [window_doc(split_dir, split_name, split_dir / f["path"]) for f in split_run["main"]["windows"]]
+        split_row = next(m for d in split_docs for m in d["omission_manifest"] if m["origin"] == "owned")
+        split_rid, split_span = split_row["record_id"], split_row["omitted_span"]
+        try:
+            split_x = expand(split_dir, "r1/S3/split/1", split_name, split_rid, "the whole migration log",
+                             omission=split_row["omission_id"])
+            _row, again_x, sequence_x = expansion_windows(split_dir, split_name, split_rid, split_row["omission_id"])
+            owned_blocks = [s["block"] for w in split_x for r in w["records"] for s in r["segments"]]
+            shown_own = [s["block"] for w in split_x for side in ("prev", "next") for e in w["overlap"][side]
+                         if e["record_id"] == split_rid for s in e["segments"]]
+            split_facts = (len(split_x) > 1, {r["record_id"] for w in split_x for r in w["records"]},
+                           coverage.normalize(owned_blocks), sum(b - a for a, b in owned_blocks),
+                           [e["line"] for e in split_x[0]["overlap"]["prev"]], [e["line"] for e in split_x[-1]["overlap"]["next"]],
+                           all(split_span["start"] <= a and b <= split_span["end"] for a, b in shown_own),
+                           check_windows(sequence_x, split_x), again_x == split_x)
+        except Refused as exc:  # a broken expansion fails the control by name, not the suite
+            split_facts = ("refused", str(exc)[:300])
+        expect("WP-08c: a middle too long for one window is cut across several expansion windows that own its spans alone, "
+               "tiling it with no gap and no overlap; each window's overlap is the turn slice the sequence puts around it "
+               "(the first's opens on the call, the last's closes on the reply), and no overlap shows the record's own head "
+               "or tail", split_facts,
+               (True, {split_rid}, [[split_span["start"], split_span["end"]]], split_span["end"] - split_span["start"],
+                [1, 2], [4], True, [], True))
 
         # ---- done-when 3: the bound as the owner's amendment of §5.4 states it --------------------
         limits = golden_run["limits"]
@@ -3162,18 +3337,28 @@ def self_test():
         hits = forced_by_search(run_dir, name, [FX_TERM])
         expect("done-when 5, forced: the full-source search forces every clipped record it matches, clipped spans "
                "included", hits, {rid("pair_term"): "search_match"})
-        expansion = expand(run_dir, "r1/S3/t1/2", name, rid("pending_clip"), "the outcome may be in the gap", "pending_event",
-                             omission=owned_omission(rid("pending_clip")))
+
+        def try_expand(call):
+            """`(windows, None)` of an expansion, or `([], "not run (...)")` when the product refuses it: the refusal
+            fails each control that reads the expansion by its name, never as a traceback that would hide every control
+            after it (WP-08c)."""
+            try:
+                return call(), None
+            except Refused as exc:
+                return [], f"not run ({str(exc).splitlines()[0][:160]})"
+        expansion, unexpanded = try_expand(lambda: expand(run_dir, "r1/S3/t1/2", name, rid("pending_clip"),
+                                                        "the outcome may be in the gap", "pending_event",
+                                                        omission=owned_omission(rid("pending_clip"))))
         expect("done-when 5: an expansion is additional windows under the same bound and span mapping, and one larger "
                "than a window is itself split",
-               (len(expansion) > 1, [w["bound_ok"] for w in expansion],
-                coverage.normalize([s["block"] for w in expansion for r in w["records"] for s in r["segments"]])),
+               unexpanded or (len(expansion) > 1, [w["bound_ok"] for w in expansion],
+                              coverage.normalize([s["block"] for w in expansion for r in w["records"] for s in r["segments"]])),
                (True, [True] * len(expansion), [[clip["omitted_span"]["start"], clip["omitted_span"]["end"]]]))
         expect("the expansion's text is the omitted characters, and the decision is logged with its reason",
-               ("".join(r["text"] for w in expansion for r in w["records"])
-                == texts[rid("pending_clip")][clip["omitted_span"]["start"]:clip["omitted_span"]["end"]],
-                [(d["locator"]["record_id"], d["decision"], d["forced_by"]) for d in
-                 (json.loads(l) for l in records.jsonl_read(run_dir / "expansions.jsonl") if l.strip())]),
+               unexpanded or ("".join(r["text"] for w in expansion for r in w["records"])
+                              == texts[rid("pending_clip")][clip["omitted_span"]["start"]:clip["omitted_span"]["end"]],
+                              [(d["locator"]["record_id"], d["decision"], d["forced_by"]) for d in
+                               (json.loads(l) for l in records.jsonl_read(run_dir / "expansions.jsonl") if l.strip())]),
                (True, [(rid("pending_clip"), "expand", "pending_event")]))
         refused("control: an expansion of a record no window lists as clipped is refused",
                 lambda: expand(run_dir, "r1/S3/t1/3", name, "99/message/content", "why not"), "EXPANSION_UNKNOWN")
@@ -3340,13 +3525,14 @@ def self_test():
         expect("R#2: every generated omission row's interval, read against the projected block itself, holds "
                "the characters its hash names", wrong, [])
         for row in long_rows[:3]:
-            back = expand(long_dir, "r1/S3/long/1", long_name, row["record_id"],
-                          "the overlap omitted it and a claim needs it", omission=row["omission_id"])
+            back, unexpanded = try_expand(lambda row=row: expand(long_dir, "r1/S3/long/1", long_name, row["record_id"],
+                                                               "the overlap omitted it and a claim needs it",
+                                                               omission=row["omission_id"]))
             text = "".join(r["text"] for w in back for r in w["records"])
             expect(f"R#1: the omitted interval {row['omitted_span']['start']}-{row['omitted_span']['end']} of "
                    f"{row['record_id']} is expanded from the generated manifest, and its characters hash to "
                    "the interval the manifest named",
-                   records.sha256_bytes(text.encode("utf-8")), row["omitted_span"]["sha256"])
+                   unexpanded or records.sha256_bytes(text.encode("utf-8")), row["omitted_span"]["sha256"])
         # ... a record that lost several intervals may not be expanded without saying which
         multi = sorted({m["record_id"] for m in long_rows
                         if sum(1 for x in long_rows if x["record_id"] == m["record_id"]) > 1})
@@ -3414,10 +3600,11 @@ def self_test():
             shown_row = next(m for m in long_rows
                              if m["omission_id"] in {omission_id(e["record_id"], i["start"], i["end"])
                                                      for _w, e in displayed for i in e["omitted_intervals"]})
-            back = expand(long_dir, "r1/S3/long/displayed", long_name, shown_row["record_id"],
-                          "the overlap showed only the head of it", omission=shown_row["omission_id"])
+            back, unexpanded = try_expand(lambda: expand(long_dir, "r1/S3/long/displayed", long_name, shown_row["record_id"],
+                                                       "the overlap showed only the head of it",
+                                                       omission=shown_row["omission_id"]))
             expect("V#1: ... and a displayed entry's lost tail is expandable, its characters hashing to the row",
-                   records.sha256_bytes("".join(r["text"] for w in back for r in w["records"]).encode("utf-8")),
+                   unexpanded or records.sha256_bytes("".join(r["text"] for w in back for r in w["records"]).encode("utf-8")),
                    shown_row["omitted_span"]["sha256"])
             expect("V#1: ... and completeness requires a decision about it, so a view that ignores it is not "
                    "complete",
@@ -3500,27 +3687,31 @@ def self_test():
                     for i in shown_piece.get("omitted_intervals") or []])
         # R#5: two expansions under ONE call id, both complete and both readable
         pair_rows = [m for m in long_rows if m["record_id"] != long_rows[0]["record_id"]][:1] + long_rows[:1]
-        sets = []
+        sets, unexpanded_pair = [], []
         for row in pair_rows:
-            got = expand(long_dir, "r1/S3/long/same-call", long_name, row["record_id"],
-                         "both under one call", omission=row["omission_id"])
+            got, unexpanded = try_expand(lambda row=row: expand(long_dir, "r1/S3/long/same-call", long_name, row["record_id"],
+                                                              "both under one call", omission=row["omission_id"]))
             sets.append((row, got))
+            unexpanded_pair += [unexpanded] if unexpanded else []
         written = sorted((long_dir / "views" / long_name).glob("expansion-r1_S3_long_same-call-*.json"))
         expect("R#5: two expansions under one call id leave two independent artifact sets, not one overwriting "
-               "the other", len(written), sum(len(got) for _row, got in sets))
+               "the other", unexpanded_pair[0] if unexpanded_pair else len(written), sum(len(got) for _row, got in sets))
         for row, got in sets:
             tag = re.sub(r"[^A-Za-z0-9._-]", "_", row["omission_id"])[-24:]
             mine = sorted((long_dir / "views" / long_name).glob(f"expansion-r1_S3_long_same-call-{tag}-*.json"))
             expect(f"R#5: ... and each set is readable on its own and carries its own record",
-                   ([window_doc(long_dir, long_name, path)["expansion_of"] for path in mine],
-                    len(mine)), ([row["record_id"]] * len(got), len(got)))
-        decided = [json.loads(l) for l in records.jsonl_read(long_dir / "expansions.jsonl") if l.strip()]
+                   unexpanded_pair[0] if unexpanded_pair else
+                   ([window_doc(long_dir, long_name, path)["expansion_of"] for path in mine], len(mine)),
+                   ([row["record_id"]] * len(got), len(got)))
+        decided = [json.loads(l) for l in records.jsonl_read(long_dir / "expansions.jsonl") if l.strip()] \
+            if (long_dir / "expansions.jsonl").is_file() else []
         expect("R#5: ... and each decision names the omission it was about, not only the record",
-               [d for d in decided if not d["locator"].get("omission_id")], [])
-        found = expand(run_dir, "r1/S3/t1/7", name, rid("pair_term"), "the search matched inside the gap", "search_match",
-                       omission=owned_omission(rid("pair_term")))
+               unexpanded_pair[0] if unexpanded_pair else [d for d in decided if not d["locator"].get("omission_id")], [])
+        found, unexpanded = try_expand(lambda: expand(run_dir, "r1/S3/t1/7", name, rid("pair_term"),
+                                                    "the search matched inside the gap", "search_match",
+                                                    omission=owned_omission(rid("pair_term"))))
         expect("done-when 6, control: the same occasion written with a retrieval term is matched, forced, expanded, and "
-               "found", FX_HIDDEN_TERM in "".join(r["text"] for w in found for r in w["records"]), True)
+               "found", unexpanded or FX_HIDDEN_TERM in "".join(r["text"] for w in found for r in w["records"]), True)
 
         # ---- the coverage basis of §5.4, in the order the design checks it ------------------------
         expect("basis: every session source complete is basis source, and absence may rest on it",

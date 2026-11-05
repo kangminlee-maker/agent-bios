@@ -26,7 +26,8 @@ Think the problem through before you answer. Then return the JSON your schema as
   by those labels only, each written exactly as shown.
 
 Each pending event names under `joinable` the claims recorded after it, each with its `quotes_after`: the quotes of
-it that this run reads as its own and that stand after the event. Join an event only to those claims, and cite at
+it that this run reads as its own and that stand after the event, on its own record too when they follow what its
+own claims quote there. Join an event only to those claims, and cite at
 least one of their `quotes_after`; a claim's other quotes may stand beside them. An event's `facts` are what its own claims say of it. An event `carried_from` an earlier run
 shows its first record under `shown`. A quote or record marked `"cut": true` shows only its beginning.
 

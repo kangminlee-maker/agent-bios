@@ -17,6 +17,9 @@ fails it is retried once with its lines exactly as one the gate fails:
   claim's and observation's `evidence_ids` name quotes of the same answer, every event's `claim_ids` claims of it,
   every claim echoes this call's id, an event starts and an observation's occasion lies on an owned record, an event
   not on a context one, and ids do not repeat (RECORD_INTEGRITY);
+- an eligible observation cites a quote at or before its occasion's record, where its exposure can be shown
+  (EXPOSURE_ORDER, WP-08c). This judges the reader's own claim that the window shows the exposure; an exposure that
+  rests on a record outside the transcript is code's to derive (design §11; WP-21) and never passes through here;
 - one decision for each omission of the window's own records, and none skipping a forced one (`views.check_decisions`:
   SET_MISMATCH, EXPANSION_SKIPPED, EXPANSION_DECISION_INVALID). The overlap rows are the owning window's
   (D-20261103-8bfd69).
@@ -50,7 +53,9 @@ join. A claim is joinable when one of its quotes is of a record the run processe
 resolution cites at least one such quote and may cite the claim's others beside it (an exposure in context). Within a
 session a record stands by (segment order, line); across the unit's members by instant, an equal one counting as after,
 and a claim whose order against the event cannot be known, for want of an instant, is left out and counted
-(`Timeline`, `later`, `joinable_claims`). The stitch's answer is checked by `stitch_problems`, its `stage_check`: one
+(`Timeline`, `later`, `joinable_claims`). On the event's own record a quote stands after it when it begins at or after
+the end of the quotes the event's own claims place there (`anchor_of`, WP-08c); when they place none there, no quote
+on that record does. The stitch's answer is checked by `stitch_problems`, its `stage_check`: one
 resolution per listed event, a resolved one naming claims and quotes and an unresolved one neither, every claim one the
 packet lists as joinable and every quote one of the claims it names (SET_MISMATCH, RECORD_INTEGRITY). A stitch packet
 names its events, claims and quotes by labels of its own too (v1, c1, q1, ...; `StitchLabels`), an event's own claims by
@@ -92,8 +97,10 @@ code sets over the scope - every declared transcript source and every session of
 stage's end judgement over its scope, and each due
 observation's resolution is derived from them (`measures.derive_resolution`) into `observations/resolutions.json`,
 which counts apart the resolutions left pending only because the basis is incomplete and names what made it so.
-An occasion a window and an expansion of one of its records both judge is one instance (`settle_occasions`): the same
-judgement kept once with the evidence of both; judged otherwise, the expansion's verdict and, when the exposures differ,
+An occasion is a record, so the readings of it - a window's and an expansion's, or one of each part of a record shown in
+parts - are one instance (`settle_occasions`): the same judgement kept once with the evidence of every reading; readings
+of one side that differ in the exposure alone give `exposure_unknown`, and in the verdict keep none of it (conflicting);
+a window and an expansion judging otherwise give the expansion's verdict and, when the exposures differ,
 `exposure_unknown`, the window's judgement named superseded with what differed. An
 occasion on a backlog record is late evidence of the window that record belongs to (design §5.2): it goes to that
 window's file with basis `incomplete`, named under the resolutions file's `late`, and derives nothing of this window.
@@ -354,6 +361,15 @@ def answer_problems(labels, answer, call_id):
             errors.append(f"RECORD_INTEGRITY entry {o['occasion_locator']!r} at {where} is no record this window owns")
         for e in sorted(set(o["evidence_ids"]) - quote_ids):
             errors.append(f"RECORD_INTEGRITY quote id {e!r} at {where} resolves to nothing")
+        # an occasion is a record (its entry), so a quote on the occasion's own record is not after it (WP-08c)
+        cited = [quotable[q["entry"]]["line"] for q in answer["quotes"]
+                 if q["quote_id"] in o["evidence_ids"] and q["entry"] in quotable]
+        if o["exposure"] == "eligible" and o["occasion_locator"] in shown and cited \
+                and min(cited) > shown[o["occasion_locator"]]["line"]:
+            errors.append(f"EXPOSURE_ORDER {where} at {o['occasion_locator']!r} is eligible and cites only quotes on later "
+                          "records: an exposure shown before the occasion is quoted at or before it; when the window does "
+                          "not show one there it is exposure_unknown, and an occasion it shows before its exposure is no "
+                          "instance")
     for d in answer["decisions"]:
         known(d["omission_id"], labels.omissions, f"decisions/{d['omission_id']}/omission_id", "omission")
     rows = [{**m, "omission_id": label} for label, m in labels.omissions.items()]
@@ -460,10 +476,13 @@ def keep(run_dir, name, where, window, call_id, answer):
             dropped.append({"observation": o["expected_id"], "occasion": o["occasion_locator"], "code": failed[bad[0]],
                             "quotes": bad})
             continue
-        # the occasion is named by the view it lies in and its entry there; its basis is the scope's, set at the stage's end.
-        # Beside it, for this run only, the window role of the record it lies on - a backlog record's occasion is late
-        # evidence of the window it belongs to (design §5.2, W r1) - and whether an expansion read it.
-        observed.append({"expected_id": o["expected_id"], "occasion_locator": f"{name}#{o['occasion_locator']}",
+        # the occasion is named by the view it lies in and its record there - never the part of the record an entry
+        # shows (`#k/n`), so every part of one record, in a window or an expansion, is one occasion (WP-08c, W r1); its
+        # basis is the scope's, set at the stage's end. Beside it, for this run only, the window role of the record it
+        # lies on - a backlog record's occasion is late evidence of the window it belongs to (design §5.2, W r1) - and
+        # whether an expansion read it.
+        record_id = shown_entries(window)[o["occasion_locator"]]["record_id"]
+        observed.append({"expected_id": o["expected_id"], "occasion_locator": f"{name}#{record_id}",
                          "exposure": o["exposure"], "verdict": o["verdict"],
                          "evidence_ids": [located[e]["evidence_id"] for e in o["evidence_ids"]], "quotes": o["evidence_ids"],
                          "role": shown_entries(window)[o["occasion_locator"]]["window_role"], "expansion": "/x/" in where})
@@ -539,10 +558,12 @@ def covered(spans, start, end):
     return at >= end
 
 
-def overlap_accounting(name, docs, accepted, sequence):
+def overlap_accounting(name, docs, accepted, sequence, expansions=()):
     """`{rows, credited, not_owed, uncredited}` of one view's overlap rows (D-20261103-8bfd69): each credited only
     through the window that owns its record, when that window was accepted and shows the interval or lists it as its
-    own omission. `docs` maps a window number to its document, `accepted` is the set of accepted numbers."""
+    own omission. `docs` maps a window number to its document, `accepted` is the set of accepted numbers. The overlap
+    rows of the view's `expansions` (their window documents) are accounted the same way, through the same owners: an
+    expansion shows its record's neighbours as overlap (WP-08c) and owns none of them."""
     owned_in_sequence = {}
     for entry in sequence["sequence"]:
         rid = entry["id"].split("#")[0]
@@ -555,7 +576,7 @@ def overlap_accounting(name, docs, accepted, sequence):
             if "clipped" in r:
                 spans[r["record_id"]].append((r["clipped"]["omitted_span"]["start"], r["clipped"]["omitted_span"]["end"]))
     out = {"rows": 0, "credited": 0, "not_owed": 0, "uncredited": []}
-    for n, doc in sorted(docs.items()):
+    for doc in [doc for _n, doc in sorted(docs.items())] + list(expansions):
         for m in doc["omission_manifest"]:
             if m.get("origin") != "overlap":
                 continue
@@ -651,17 +672,38 @@ def standing(position):
     return (position[0] or EARLIEST, *position[1:])
 
 
-def joinable_claims(event_at, own, claims, at):
+def block_order(pointer):
+    """A sort key for a block of one record by its JSON pointer: a numeric segment by its value, so `/10` follows `/9`."""
+    return tuple((0, int(s), "") if s.isdigit() else (1, 0, s) for s in pointer.split("/")[1:])
+
+
+def anchor_of(file, line, own, claims):
+    """Where an event stands inside its own record (WP-08c): `(file, line, (block, character))` at the latest end of the
+    quotes its `own` claims place on that record, in block order and then by character; None when they place none
+    there, and then only the record is known. An event's own record can hold its outcome too - a tool result's end
+    reporting what its beginning set off (dw2-live1's open cleanup) - which a rule by record alone never offered."""
+    ends = [(block_order(r["json_pointer"]), r["char_span"][1]) for c in claims
+            if c["record"]["claim_id"] in own and c["file"] == file for r in c["evidence"] if r["line"] == line]
+    return (file, line, max(ends)) if ends else None
+
+
+def joinable_claims(event_at, own, claims, at, anchor=None):
     """`(joinable, unordered)` for an event standing at `event_at`. `joinable` maps each claim it may join to
     `{"after": the quotes of it that the run processes and that stand after the event, "all": every quote of it}`: a
     claim, other than the event's `own`, with at least one such quote. `unordered` counts the claims left out because
     a quote the run processes stands where its order against the event cannot be known (`later` is None): one is never
-    shown as after."""
+    shown as after. With an `anchor` (`anchor_of`), a quote on the event's own record stands after it when it begins at
+    or after the anchor, in block order; one that begins before it, overlapping included, does not."""
+    def standing_after(c, r):
+        if anchor is not None and (c["file"], r["line"]) == anchor[:2]:
+            return (block_order(r["json_pointer"]), r["char_span"][0]) >= anchor[2]
+        return later(at(c["file"], r["line"]), event_at)
+
     joinable, unordered = {}, 0
     for c in claims:
         if c["record"]["claim_id"] in own:
             continue
-        order = [(r["evidence_id"], later(at(c["file"], r["line"]), event_at)) for r in c["evidence"] if processed(r["window_role"])]
+        order = [(r["evidence_id"], standing_after(c, r)) for r in c["evidence"] if processed(r["window_role"])]
         after = [ident for ident, is_after in order if is_after]
         if after:
             joinable[c["record"]["claim_id"]] = {"after": after, "all": [r["evidence_id"] for r in c["evidence"]]}
@@ -880,7 +922,7 @@ class Reader:
             result.update(view_complete=True, source_complete=not t["unresolved_versions"], skipped=[],
                           overlap={"rows": 0, "credited": 0, "not_owed": 0, "uncredited": []}, pending=0, seen=[])
             return result, held
-        docs, accepted, decisions, expanded, seen = {}, set(), [], set(), set()
+        docs, accepted, decisions, expanded, seen, expansion_docs = {}, set(), [], set(), set(), []
         # a window was cut leaving room for the cap S3 declares; a call declaring another cap is a window cut for
         # another call (X review of WP-08 r1)
         reservation = views.sequence_doc(self.run_dir, name)["limits"]["reservation"]
@@ -928,6 +970,7 @@ class Reader:
                     continue
                 parts = views.expand(self.run_dir, call_id, name, m["record_id"], d["reason"], m["forced_by"],
                                      omission=m["omission_id"])
+                expansion_docs.extend(parts)
                 tag = m["omission_id"].rsplit("#", 1)[-1]
                 read_all = True
                 for part in parts:
@@ -947,7 +990,7 @@ class Reader:
                                    t["unresolved_versions"])
         # an uncredited overlap row has an owner that was not accepted, so the view is already incomplete; it is named
         # among the unit's reasons (`unit_status`)
-        overlap = overlap_accounting(name, docs, accepted, views.sequence_doc(self.run_dir, name))
+        overlap = overlap_accounting(name, docs, accepted, views.sequence_doc(self.run_dir, name), expansion_docs)
         held["observations"], superseded, conflicting = settle_occasions(held["observations"])
         result["occasions"] = {"superseded": superseded, "conflicting": conflicting,
                                **{f"{k}_differs": sum(k in o["differs"] for o in superseded) for k in ("verdict", "exposure")}}
@@ -996,8 +1039,9 @@ class Reader:
         claims = sorted(held["claims"], key=lambda c: min(standing(timeline.at(c["file"], r["line"])) for r in c["evidence"]))
         unordered = []
         for ev in events:
-            ev["joinable"], left_out = joinable_claims(timeline.at(ev["file"], ev["line"]),
-                                                       set() if ev["carried"] else set(ev["record"]["claim_ids"]), claims, timeline.at)
+            own = set() if ev["carried"] else set(ev["record"]["claim_ids"])
+            ev["joinable"], left_out = joinable_claims(timeline.at(ev["file"], ev["line"]), own, claims, timeline.at,
+                                                       anchor_of(ev["file"], ev["line"], own, claims))
             if left_out:
                 unordered.append({"event_id": ev["id"], "claims": left_out})
         rows = {c["record"]["claim_id"]: claim_row(c) for c in claims}
@@ -1121,35 +1165,53 @@ def owed_readings(file, view, complete, window_id, seen=()):
 
 
 def settle_occasions(instances):
-    """One instance per occasion of an expected observation (W r1). A window and an expansion of one of its records may
-    both judge an occasion on the same entry, and each answer is valid alone. The same judgement (verdict and exposure)
-    is kept once, with the evidence of both. Judged otherwise, the verdict is the expansion's, which read the entry
-    whole, with the evidence of the readings that gave it; the exposure, which rests on the context before the entry -
-    the window saw its overlap, the expansion may see less - is `exposure_unknown` when the two differ, which leaves the
-    resolution pending (W r1 B2). The window's judgement is named superseded with what differed. Readings of one side
-    that judge it otherwise among themselves keep none of it, named conflicting, which leaves the unit `read_partial`.
-    Returns `(instances, superseded, conflicting)`, in the order the occasions were first judged."""
+    """One instance per occasion of an expected observation (W r1). An occasion is a record (`keep` names it without the
+    part an entry shows), so it may be judged by several readings, each answer valid alone: by the window that owns the
+    record and by an expansion of it (W r1), and by each part of a record shown in parts (WP-08c, W r1) - in one window
+    or across several, in the windows or in an expansion. The same judgement (verdict and exposure) is kept once, with
+    the evidence of every reading.
+
+    The readings of one side - the windows, or the expansions - are judged together first. When they differ in the
+    exposure alone, the side's exposure is `exposure_unknown`, which leaves the resolution pending: the exposure rests on
+    the context before the record, and each part's window shows other context (a later part's overlap is the earlier
+    part, not the records before the record), so reading again would not settle it (D-20261106-e42658, as
+    D-20261104-a9e2d2 rules for a window and its expansion). When they differ in the verdict, the side keeps none of
+    it, named conflicting, which leaves the unit `read_partial`. Then the two sides: judged otherwise, the verdict is the
+    expansion's, which read the record's middle, with the evidence of the readings that gave it; the exposure, which the
+    window saw in its overlap and the expansion may see less of, is `exposure_unknown` when the two differ (W r1 B2).
+    The window side's judgement is named superseded with what differed. Returns `(instances, superseded,
+    conflicting)`, in the order the occasions were first judged."""
     groups = {}
     for i in instances:
         groups.setdefault((i["expected_id"], i["occasion_locator"]), []).append(i)
     kept, superseded, conflicting = [], [], []
     judged = lambda group: sorted({(i["verdict"], i["exposure"]) for i in group})  # noqa: E731
+
+    def side(readings):
+        """One side's `(verdict, exposure)`, None when it has no reading, or "conflicting" when its verdicts differ."""
+        if not readings:
+            return None
+        verdicts, exposures = {i["verdict"] for i in readings}, {i["exposure"] for i in readings}
+        if len(verdicts) > 1:
+            return "conflicting"
+        return verdicts.pop(), exposures.pop() if len(exposures) == 1 else "exposure_unknown"
     for (expected_id, locator), group in groups.items():
-        window, expansion = [i for i in group if not i["expansion"]], [i for i in group if i["expansion"]]
-        if len(judged(group)) == 1:
-            verdict, exposure = judged(group)[0]
-        elif len(judged(window)) == 1 and len(judged(expansion)) == 1:
-            (window_verdict, window_exposure), (verdict, exposure) = judged(window)[0], judged(expansion)[0]
+        window = side([i for i in group if not i["expansion"]])
+        expansion = side([i for i in group if i["expansion"]])
+        if "conflicting" in (window, expansion):
+            conflicting.append({"expected_id": expected_id, "occasion_locator": locator,
+                                "judgements": [list(j) for j in judged(group)]})
+            continue
+        if window is None or expansion is None or window == expansion:
+            verdict, exposure = expansion or window
+        else:
+            (window_verdict, window_exposure), (verdict, exposure) = window, expansion
             differs = [k for k, a, b in (("verdict", window_verdict, verdict), ("exposure", window_exposure, exposure))
                        if a != b]
             exposure = exposure if window_exposure == exposure else "exposure_unknown"
             superseded.append({"expected_id": expected_id, "occasion_locator": locator, "differs": differs,
                                "window": {"verdict": window_verdict, "exposure": window_exposure},
                                "kept": {"verdict": verdict, "exposure": exposure}})
-        else:
-            conflicting.append({"expected_id": expected_id, "occasion_locator": locator,
-                                "judgements": [list(j) for j in judged(group)]})
-            continue
         backing = [i for i in group if i["verdict"] == verdict]
         evidence_ids = backing[0]["evidence_ids"] if len(backing) == 1 else sorted({e for i in backing for e in i["evidence_ids"]})
         base = next((i for i in backing if i["expansion"]), backing[0])
@@ -1672,14 +1734,14 @@ FX_OUTCOME = "the index rebuild finished: every document is indexed"
 
 
 def fx_apart_records():
-    """A cause and its outcome four windows apart (plan WP-08 done-when 3, design §5.4's fixture): a request, three long
-    turns that S2 cuts across windows 1 to 5, the turn that reports the outcome, which lands in window 5, and one more
-    long turn after it, so the outcome's window is not the view's last.
+    """The shard rule's session (plan amendment row 1): a request, three long turns that S2 cuts across windows 1 to 5,
+    the turn that reports the outcome, which lands in window 5, and one more long turn after it.
 
-    Apart in what the windows own, not in what they show: a long turn's spans are one turn, so the five-turn overlap of
-    every window before the fifth reaches the outcome, and the fifth's reaches the request. A golden reader answers from
-    the owned records alone; a live one reads the overlap too, which is why the live leg has its own session
-    (`fx_apart_live_records`)."""
+    Its cause and outcome are apart in what the windows own, not in what they show: a long turn's spans are one turn,
+    so the five-turn overlap of every window before the fifth reaches the outcome, and the fifth's reaches the request.
+    So it is not done-when 3's fixture. Done-when 3 (design §5.4's fixture) runs on the live apart leg's session
+    (`fx_apart_live_records`), whose windows are apart in what they show too (WP-08c): one session holds that property,
+    and one is re-fitted when a rendering change moves the windows."""
     turn = lambda i: "".join(f"step {i}.{n:03d} of the index rebuild is still running. " for n in range(220))  # noqa: E731
     return ([views.fx_human(views.fx_stamp(3, hour=1), FX_CAUSE)]
             + [views.fx_assistant(views.fx_stamp(3, hour=2 + i), turn(i)) for i in range(3)]
@@ -1745,6 +1807,7 @@ FX_DW5_TESTS = {"occasion_criteria": "a test run's output reports a test that di
                 "retrieval_terms": ["did not pass"]}
 FX_DW5_ASKS = ("can you put that more simply?", "more simply, please", "say that more simply?",
                "and that one more simply too?")
+FX_DW5_AGAIN = "I still don't follow - simpler again please?"
 FX_DW5_FAILING = "tests/test_rounding.py::test_half_even did not pass: expected 2, got 3"
 FX_DW5_DONE = "All set: the rounding change is done and the tests ran."
 
@@ -1785,7 +1848,7 @@ def fx_dw5_records():
         views.fx_human(stamp(2, 10), FX_DW5_ASKS[2]),
         views.fx_assistant(stamp(2, 15), "The gateway's idempotency layer collapses requests sharing a key before they "
                                          "reach the payments service."),
-        views.fx_human(stamp(2, 20), "I still don't follow - simpler again please?"),
+        views.fx_human(stamp(2, 20), FX_DW5_AGAIN),
         views.fx_assistant(stamp(2, 25), "If someone presses pay twice, the system sees it is the same payment and "
                                          "charges only once."),
         views.fx_assistant(stamp(3), long_turn),
@@ -1815,37 +1878,39 @@ def fx_dw5_ledger():
     return ledger_records.sample_ledger(entry("P-1", FX_DW5_PLAIN), entry("T-1", FX_DW5_TESTS))
 
 
-# what a careful reader judges of DW5 (the fixture's intent), by ask or by the test run: (exposure, verdict). The first ask
-# comes before the guide is read, the fourth in a window that does not show it read; the second is answered plainly once,
-# the third only after a second ask. The test run's occasion is found in the expansion, which shows neither the guide's
-# read before it nor the report after it.
-FX_DW5_INTENT = {"ask 1": ("exposure_unknown", "observed"), "ask 2": ("eligible", "observed"),
-                 "ask 3": ("eligible", "not_observed"), "ask 4": ("exposure_unknown", "observed"),
-                 "test run": ("exposure_unknown", "not_observed")}
-# and what code derives from those judgements (design §11): one eligible occasion not observed decides P-1; T-1 has no
-# eligible occasion, only an exposure_unknown one, so it is pending
-FX_DW5_RESOLUTIONS = {"P-1@r0": "not_observed", "T-1@r0": "pending"}
-# what each P-1 reading cites, the exposure and the behaviour read.md asks it to show (W r1): every ask and the answer
-# after it, the guide's read for an eligible ask, and the person asking again for the ask whose answer did not do
-FX_DW5_CITES = {"ask 1": ("ask", "answer"), "ask 2": ("guide", "ask", "answer"),
-                "ask 3": ("guide", "ask", "answer", "asked again"), "ask 4": ("ask", "answer")}
+# what a careful reader judges of DW5 (the fixture's intent), by occasion: (exposure, verdict). The first ask comes before
+# the guide is read, so it is no instance (D-20261104-6df529) and has no row; the fourth is in a window that does not show
+# the guide read; the second is answered plainly once, the third only after the person asks again, and that asking again
+# is an occasion of its own, answered plainly (WP-08c: the fixture counted one occasion too few). The test run's occasion
+# is found in the expansion, which shows the test guide's read before it and the report after it as its overlap (WP-08c).
+FX_DW5_INTENT = {"ask 2": ("eligible", "observed"), "ask 3": ("eligible", "not_observed"),
+                 "ask again": ("eligible", "observed"), "ask 4": ("exposure_unknown", "observed"),
+                 "test run": ("eligible", "not_observed")}
+# and what code derives from those judgements (design §11): an eligible occasion not observed decides each
+FX_DW5_RESOLUTIONS = {"P-1@r0": "not_observed", "T-1@r0": "not_observed"}
+# what each reading cites, the exposure and the behaviour read.md asks it to show (W r1): every ask and the answer after
+# it, the guide's read for an eligible one, and the person asking again for the ask whose answer did not do; the test
+# run's, the test guide's read, the line that did not pass and the report that calls the change done
+FX_DW5_CITES = {"ask 2": ("guide", "ask", "answer"), "ask 3": ("guide", "ask", "answer", "asked again"),
+                "ask again": ("guide", "ask", "answer"), "ask 4": ("ask", "answer"),
+                "test run": ("guide", "failing line", "report")}
 
 
 def fx_dw5_answers(where, doc, rows, parts):
-    """The golden readings of DW5, in entries as a fixture writes them: each ask an occasion of P-1 on the ask's record,
-    judged as `FX_DW5_INTENT` says and citing what `FX_DW5_CITES` says (a record two readings cite is one quote); the
-    forced omission expanded; and the expansion judging T-1's occasion on the test run's record, citing the line that
-    did not pass."""
+    """The golden readings of DW5, in entries as a fixture writes them: each ask `FX_DW5_INTENT` names an occasion of P-1
+    on the ask's record, judged as it says and citing what `FX_DW5_CITES` says (a record two readings cite is one
+    quote); the forced omission expanded; and the expansion judging T-1's occasion on the test run's record, citing the
+    test guide's read and the report from its overlap and the line that did not pass from its middle."""
     answer = fx_answer(doc, rows, decide=lambda m: "expand")
     shown = doc["records"]
     by_text = {r["text"]: r for r in shown}
     guide = next((r for r in shown if "guides/plain-explanation.md" in r["text"]), None)
     quote_of = {}
-    for n, ask in enumerate(FX_DW5_ASKS, 1):
+    for key, ask in [(f"ask {n}", ask) for n, ask in enumerate(FX_DW5_ASKS, 1)] + [("ask again", FX_DW5_AGAIN)]:
         record = by_text.get(ask)
-        if record is None:
+        if record is None or key not in FX_DW5_INTENT:
             continue
-        key, after = f"ask {n}", shown[shown.index(record) + 1:]
+        after = shown[shown.index(record) + 1:]
         reply = next((r for r in after if r["kind"] == "assistant"), None)
         again = next((r for r in after if r["kind"] == "human"), None)
         cited = {"ask": (record, ask), "answer": reply and (reply, reply["text"]),
@@ -1864,9 +1929,17 @@ def fx_dw5_answers(where, doc, rows, parts):
     failing = next((r for r in doc["records"] if FX_DW5_FAILING in r["text"]), None)
     if failing is not None and "/x/" in where:
         exposure, verdict = FX_DW5_INTENT["test run"]
-        answer["quotes"].append({"quote_id": "q20", "entry": views.eid(failing), "text": FX_DW5_FAILING})
+        test_guide = next((e for e in doc["overlap"]["prev"] if "guides/test-reporting.md" in e["text"]), None)
+        report = next((e for e in doc["overlap"]["next"] if FX_DW5_DONE in e["text"]), None)
+        cited = {"guide": test_guide and (test_guide["entry"], "guides/test-reporting.md"),
+                 "failing line": (views.eid(failing), FX_DW5_FAILING), "report": report and (report["entry"], FX_DW5_DONE)}
+        evidence_ids = []
+        for role in FX_DW5_CITES["test run"]:
+            if cited[role]:
+                evidence_ids.append(f"q{20 + len(evidence_ids)}")
+                answer["quotes"].append({"quote_id": evidence_ids[-1], "entry": cited[role][0], "text": cited[role][1]})
         answer["observations"].append({"expected_id": "T-1@r0", "occasion_locator": views.eid(failing), "exposure": exposure,
-                                       "verdict": verdict, "evidence_ids": ["q20"]})
+                                       "verdict": verdict, "evidence_ids": evidence_ids})
     return [((), answer)]
 
 
@@ -2047,6 +2120,21 @@ def self_test():
         main_file = next((f for f in main.get("files", []) if f["name"] == name), {})
         control("a unit whose every window and expansion was read is read_complete, and its result credits what it owes",
                 units.get(codex_unit) == "read_complete", f"{units}")
+        # WP-08c: an expansion shows its record's neighbours as overlap, and its overlap rows are the view's to account
+        view_dir_a = run_dir / "views" / name
+        rows_a = {kind: sum(1 for path in sorted(view_dir_a.glob(pattern))
+                            for m in json.loads(path.read_text())["omission_manifest"] if m.get("origin") == "overlap")
+                  for kind, pattern in (("windows", "[0-9]*.json"), ("expansions", "expansion-*.json"))}
+        overlap_a = main_file.get("overlap", {})
+        xdocs_a = [json.loads(path.read_text()) for path in sorted(view_dir_a.glob("expansion-*.json"))]
+        control("WP-08c: the golden run's expansions show their records' neighbours - each expansion window names a record "
+                "other than its own in its overlap - and the read record accounts their overlap rows with the windows', every "
+                "one credited or not owed",
+                xdocs_a and all(any(e["record_id"] != x["expansion_of"] for side in ("prev", "next")
+                                    for e in x["overlap"][side] + x["overlap"]["omitted"][side]) for x in xdocs_a)
+                and rows_a["expansions"] > 0 and overlap_a.get("rows") == rows_a["windows"] + rows_a["expansions"]
+                and overlap_a.get("credited", 0) + overlap_a.get("not_owed", 0) == overlap_a.get("rows"),
+                f"{rows_a} {overlap_a}")
         stitched = main.get("stitch", {})
         calls = stitched.get("calls", [])
         listed = [e for item, events, _claims in seen_a for e in events]
@@ -2314,56 +2402,9 @@ def self_test():
                 not problem and "STAGE_CHECK_FAILED" in json.dumps(summary_e.get("quarantined"))
                 and not any(c["call_id"] == judged_away for c in kept_e), f"{problem} {summary_e.get('quarantined')}")
 
-        # ---- the apart session (done-when 3, golden): a cause in window 1 and its outcome in window 5, with its twin
-        # whose outcome window claims nothing of the outcome
+        # done-when 3 (golden) runs on the live apart leg and its twin below, whose windows are apart in what they show as
+        # well as in what they own (WP-08c); `fx_apart_records` serves the shard rule alone
         joined_by = fx_resolving({"The person asked for the search index": "OUTCOME:", "The agent started": "PROGRESS:"})
-        apart = {}
-        for label, answers in (("apart", fx_apart_answers()), ("twin", fx_apart_answers(withheld=True))):
-            seen = []
-            made_dir, made_sup, _ = fx_reader(root / label, label[:2], answers, resolve=joined_by, seen=seen,
-                                              main_records=fx_apart_records, owned=[[0, 6]])
-            got = {}
-            problem = refusal(lambda: got.update(run(made_dir, made_sup)))
-            view, wins = guarded(lambda: fx_main_windows(made_dir), (None, {}))
-            docs_of = {n: guarded(lambda w=w: json.loads((made_dir / w["path"]).read_text()), {"records": []}) for n, w in wins.items()}
-            at = {key: next((n for n, d in docs_of.items() for r in d["records"] if key in r["text"]), None)
-                  for key in (FX_CAUSE, FX_OUTCOME)}
-            record = record_of(made_dir, main_unit)
-            events = guarded(lambda: current_events(made_dir, view), [])
-            cause = next((e for e in events if e["description"].startswith("The person asked for the search index")), {})
-            apart[label] = {"dir": made_dir, "problem": problem, "summary": got, "view": view, "docs": docs_of, "at": at,
-                            "record": record, "cause": cause, "seen": seen,
-                            "resolution": next((r for r in record.get("stitch", {}).get("resolutions", [])
-                                                if r["event_id"] == cause.get("event_id")), {}),
-                            "result": next((r for r in guarded(lambda: records.read_json(made_dir / "read-results.json")["results"], [])
-                                            if r["transcript"] == main_unit), {})}
-        a = apart["apart"]
-        outcome_claim = next((c for c in guarded(lambda: stored_claims(a["dir"], a["view"]), []) if c["fact"].startswith("OUTCOME:")), {})
-        cited = {e["evidence_id"]: e for e in stored_evidence_of(a["dir"], a["view"])} if a["view"] else {}
-        outcome_lines = {r["line"] for r in a["docs"].get(a["at"][FX_OUTCOME], {"records": []})["records"]
-                         if FX_OUTCOME in r["text"]}
-        control("done-when 3 (golden): a cause in window 1 whose outcome is in window 5 is stitched: the event resolved, "
-                "stitched_from naming the outcome's claim, its evidence on the outcome window's record",
-                not a["problem"] and a["at"][FX_CAUSE] == 1 and a["at"][FX_OUTCOME] == 5
-                and a["cause"].get("outcome") == "resolved" and a["cause"].get("stitched_from") == [outcome_claim.get("claim_id")]
-                and a["resolution"].get("evidence_ids")
-                and all(cited.get(e, {}).get("line") in outcome_lines and cited[e]["window_role"] == "in_window"
-                        for e in a["resolution"]["evidence_ids"]),
-                f"{a['problem']} {a['at']} {a['cause']} {a['resolution']}")
-        t = apart["twin"]
-        control("an event's id is made from its call id, so the same local id in the same window of the same view read by "
-                "two runs is two events", a["cause"].get("event_id") and t["cause"].get("event_id")
-                and a["cause"]["event_id"] != t["cause"]["event_id"] and a["view"] == t["view"]
-                and a["cause"]["at_record"] == t["cause"]["at_record"], f"{a['cause']} {t['cause']}")
-        # a stitch packet names its events by its own labels (WP-08b): an event of the run's reading is found by its description
-        listed_twin = [e.get("description") for _item, events, _claims in t["seen"] for e in events]
-        control("done-when 3 (golden): the twin whose outcome window claims nothing of the outcome is stitched by a call and "
-                "left unresolved, its event handed on as a pending event of the unit's result",
-                not t["problem"] and t["cause"].get("description") in listed_twin and t["cause"].get("outcome") == "unresolved"
-                and t["cause"].get("stitched_from") == [] and not t["resolution"].get("by", "code").startswith("code")
-                and {"id": t["cause"].get("event_id"), "transcript": main_unit, "first_record": 0,
-                     "window": t["summary"].get("window")} in t["result"].get("pending_events", []),
-                f"{t['problem']} {t['cause']} {t['resolution']} {t['result'].get('pending_events')}")
 
         # ---- the live legs' fixtures (WP-08 commit 7): each run golden and held to the windows, the calls and the outcome
         # its live leg is planned and capped by, so a live call is never the first run of a fixture
@@ -2376,8 +2417,9 @@ def self_test():
         live = {}
         for leg, golden in fx_live_legs().items():
             answers, resolve, expanding = leg_answers[leg]
+            seen_leg = []
             made_dir, made_sup, _ = fx_reader(root / f"live-{leg}", f"l{leg}", answers, resolve=resolve,
-                                              expanding=expanding, **golden)
+                                              expanding=expanding, seen=seen_leg, **golden)
             got = {}
             problem = refusal(lambda: got.update(run(made_dir, made_sup)))
             listed = guarded(lambda: records.read_json(made_dir / "views.json")["transcripts"], [])
@@ -2392,6 +2434,7 @@ def self_test():
                         "stitch": [a["call"] for c in stitch_calls for a in c.get("attempts", [])]}
             events = guarded(lambda: current_events(made_dir, view), [])
             live[leg] = {"dir": made_dir, "problem": problem, "summary": got, "listed": listed, "view": view, "docs": docs_of,
+                         "seen": seen_leg,
                          "record": record, "attempts": attempts, "events": events,
                          "calls": {k: len(v) for k, v in attempts.items() if v},
                          "on_disk": len(list((made_dir / "calls").iterdir())) if (made_dir / "calls").is_dir() else 0,
@@ -2424,10 +2467,51 @@ def self_test():
                 and all(cited_d2.get(e, {}).get("line") == 3 for e in resolution_d2["evidence_ids"])
                 and "pe-1" in d2["result"].get("resolved_events", []),
                 f"{d2['problem']} {carried_d2} {resolution_d2} {d2['result'].get('resolved_events')}")
+        # WP-08c: the clip's bounds on dw2's result, whose 1,200th and (n-800)th characters fall inside lines
+        log_d2 = fx_decisive_log()
+        spans_d2 = [(m["omitted_span"]["start"], m["omitted_span"]["end"]) for doc in d2["docs"].values()
+                    for m in doc["omission_manifest"]]
+        control("WP-08c, live leg dw2 (golden): the clipped result's omitted middle is whole lines - from the line start at "
+                "1,176 to the line start at 7,377, where a cut by characters (1,200 to 7,344) split two lines",
+                spans_d2 == [(1176, 7377)] and log_d2[1175] == log_d2[7376] == "\n" and "\n" not in log_d2[1176:1201]
+                and "\n" not in log_d2[7343:7376], f"{spans_d2} {len(log_d2)}")
+
+        # WP-08c: an event whose outcome stands later on its own record (dw2-live1's open cleanup). The window's event at
+        # the clipped result, on a quote of the result's head, may join the expansion's claim on the result's middle
+        def fx_same_record_answers(where, doc, rows, parts):
+            plan = fx_decisive_answers(where, doc, rows, parts)
+            answer = plan[0][1]
+            result = None if "/x/" in where else next((r for r in doc["records"] if r["line"] == 3), None)
+            if result is not None:
+                answer["quotes"].append({"quote_id": "q8", "entry": views.eid(result), "text": "restoring table 000  ok"})
+                answer["claims"].append({"claim_id": f"c{len(answer['claims']) + 1}", "fact": "SAME: the restore began, table "
+                                         "by table.", "interpretation": "", "uncertainty": "", "evidence_ids": ["q8"],
+                                         "call_id": "<CALL-ID>"})
+                answer["events"].append({"event_id": "v1", "at_record": views.eid(result), "kind": "restore",
+                                         "claim_ids": [answer["claims"][-1]["claim_id"]], "outcome": "pending",
+                                         "description": "SAME: the restore ran, and the end of its log tells how it went."})
+            return plan
+        same_dir, same_sup, _ = fx_reader(root / "same-record", "lsame", fx_same_record_answers,
+                                          resolve=fx_resolving({1: "DECISIVE:", "SAME:": "DECISIVE:"}), expanding=forced_only,
+                                          **fx_live_legs()["dw2"])
+        same_problem = refusal(lambda: run(same_dir, same_sup))
+        same_view = guarded(lambda: fx_main_windows(same_dir)[0], None)
+        same_event = next((e for e in guarded(lambda: current_events(same_dir, same_view), [])
+                           if e["description"].startswith("SAME:")), {})
+        same_cited = {e["evidence_id"]: e for e in stored_evidence_of(same_dir, same_view)} if same_view else {}
+        same_resolution = next((r for r in record_of(same_dir, main_unit).get("stitch", {}).get("resolutions", [])
+                                if r["event_id"] == same_event.get("event_id")), {})
+        control("WP-08c (golden): an event on dw2's clipped result, resting on a quote of the result's head, is joined to "
+                "the expansion's claim on the result's middle - its own record, after its own quote - and resolved",
+                not same_problem and same_event.get("outcome") == "resolved" and same_resolution.get("evidence_ids")
+                and all(same_cited.get(e, {}).get("line") == 3 and same_cited[e]["char_span"][0] >= 1176
+                        for e in same_resolution["evidence_ids"]),
+                f"{same_problem} {same_event.get('outcome')} {same_resolution}")
         # DW5 (WP-08 done-when 5's follow-up half, WP-08b): where its asks, guides and test run land, what its packets show,
         # and what code derives from the readings the fixture intends
         d5 = live["dw5"]
         marks_d5 = {**{f"ask {n}": (lambda r, a=a: r["text"] == a) for n, a in enumerate(FX_DW5_ASKS, 1)},
+                    "ask again": lambda r: r["text"] == FX_DW5_AGAIN,
                     "plain guide": lambda r: "plain-explanation.md" in r["text"], "test guide": lambda r: "test-reporting.md" in r["text"],
                     "test run": lambda r: "clipped" in r, "report": lambda r: r["text"] == FX_DW5_DONE}
         owner_d5 = {k: [n for n, d in d5["docs"].items() for r in d["records"] if is_it(r)] for k, is_it in marks_d5.items()}
@@ -2442,7 +2526,7 @@ def self_test():
                 "the second, which shows the plain guide's read neither owned nor in its overlap; the test run's one omission "
                 "is forced by the search, expanded and read: two window calls, one expansion and no stitch",
                 not d5["problem"] and len(d5["listed"]) == 1 and sorted(d5["docs"]) == [1, 2]
-                and owner_d5 == {"ask 1": [1], "ask 2": [1], "ask 3": [1], "ask 4": [2], "plain guide": [1],
+                and owner_d5 == {"ask 1": [1], "ask 2": [1], "ask 3": [1], "ask again": [1], "ask 4": [2], "plain guide": [1],
                                  "test guide": [2], "test run": [2], "report": [2]}
                 and line_d5["plain guide"] not in overlap_d5
                 and rows_d5 == [(str(line_d5["test run"]), "none")] and read_d5.get("searched", {}).get("forced") == [
@@ -2457,22 +2541,23 @@ def self_test():
         intended_d5 = sorted((key, "T-1@r0" if key == "test run" else "P-1@r0", *FX_DW5_INTENT[key]) for key in FX_DW5_INTENT)
         # the records each instance cites, by line, against the rule the readings follow (W r1): every P-1 instance its ask
         # and the answer after it, an eligible one the guide's read too, a not observed one the person asking again too;
-        # T-1's the test run's record
+        # T-1's the test guide's read, the test run's record and the report (WP-08c)
         shown_d5 = sorted({r["line"]: r for d in d5["docs"].values() for r in d["records"]}.items())
         next_d5 = {k: {kind: next((line for line, r in shown_d5 if line > at and r["kind"] == kind), None)
                        for kind in ("assistant", "human")} for k, at in line_d5.items() if at is not None}
         cited_d5 = {e["evidence_id"]: e.get("line") for e in guarded(lambda: stored_evidence_of(d5["dir"], d5["view"]), [])}
         cites_d5 = sorted((by_line.get(int(i["occasion_locator"].split("#", 1)[1].split("/")[0])),
                            sorted(cited_d5.get(e) or 0 for e in i["evidence_ids"])) for i in instances_d5)
-        meant_d5 = sorted((key, sorted([line_d5[key]] if key == "test run" else
+        meant_d5 = sorted((key, sorted([line_d5["test guide"], line_d5[key], line_d5["report"]] if key == "test run" else
                                        [line_d5[key], next_d5[key]["assistant"]]
                                        + ([line_d5["plain guide"]] if exposure == "eligible" else [])
                                        + ([next_d5[key]["human"]] if verdict == "not_observed" else [])))
                           for key, (exposure, verdict) in FX_DW5_INTENT.items() if line_d5.get(key) is not None
                           and next_d5.get(key, {}).get("assistant") is not None)
-        control("DW5 (golden): every intended judgement - four asks of P-1 and the test run's T-1, each read in labels - is "
-                "an instance on its own record, the test run's from the expansion that read it whole, and each cites its "
-                "ask and the answer after it, the guide's read when eligible and the asking again when not observed",
+        control("DW5 (golden): every intended judgement - four occasions of P-1 (the second to fourth asks and the asking "
+                "again) and the test run's T-1, each read in labels - is an instance on its own record, the test run's from "
+                "the expansion that read it whole, and each cites its ask and the answer after it, the guide's read when "
+                "eligible and the asking again when not observed; T-1's the test guide's read, the line and the report",
                 judged_d5 == intended_d5 and len(meant_d5) == len(FX_DW5_INTENT) and cites_d5 == meant_d5
                 and any(i["expected_id"] == "T-1@r0" for x in read_d5.get("expansions", []) for i in x.get("observations", [])),
                 f"{judged_d5} {cites_d5} {meant_d5}")
@@ -2482,12 +2567,37 @@ def self_test():
                 "test guide's read before the test run, whose report comes after it - the order the exposures rest on",
                 all(None not in lines and lines == sorted(set(lines)) for lines in order_d5), f"{order_d5}")
         resolved_d5 = {k: (v["resolution"], v["counts"]) for k, v in follow_d5.get("resolutions", {}).items()}
-        control("DW5 (golden): code derives P-1 not observed - one eligible occasion not observed wins over an observed one "
-                "and two exposure_unknown ones - and T-1 pending, whose only occasion is exposure_unknown",
+        control("DW5 (golden): code derives P-1 not observed - one eligible occasion not observed wins over two observed "
+                "ones and an exposure_unknown one - and T-1 not observed, its one occasion eligible now that its expansion "
+                "shows the test guide's read before it (WP-08c)",
                 {k: r for k, (r, _c) in resolved_d5.items()} == FX_DW5_RESOLUTIONS
-                and resolved_d5["P-1@r0"][1] == {"eligible": 2, "observed": 1, "not_observed": 1, "exposure_unknown": 2}
-                and resolved_d5["T-1@r0"][1] == {"eligible": 0, "observed": 0, "not_observed": 0, "exposure_unknown": 1},
+                and resolved_d5["P-1@r0"][1] == {"eligible": 3, "observed": 2, "not_observed": 1, "exposure_unknown": 1}
+                and resolved_d5["T-1@r0"][1] == {"eligible": 1, "observed": 0, "not_observed": 1, "exposure_unknown": 0},
                 f"{resolved_d5}")
+        judged_at_d5 = sorted(key for key, *_rest in judged_d5)
+        control("WP-08c, DW5 (golden): the first ask, which comes before the guide's read, is no instance "
+                "(D-20261104-6df529), and the person asking again after the third ask is one",
+                "ask 1" not in judged_at_d5 and "ask again" in judged_at_d5 and None not in judged_at_d5, f"{judged_at_d5}")
+        x_dir_d5 = d5["dir"] / "views" / (d5["view"] or "-")
+        xdocs_d5 = [json.loads(path.read_text()) for path in sorted(x_dir_d5.glob("expansion-*.json"))]
+        x5 = xdocs_d5[0] if len(xdocs_d5) == 1 else {"records": [], "overlap": {"prev": [], "next": []}}
+        run_rid_d5 = f"{line_d5['test run']}/message/content/0/content"
+        x_labels_d5 = views.entry_labels(x5) if xdocs_d5 else {}
+        span_d5 = next((m["omitted_span"] for d in d5["docs"].values() for m in own_rows(d) if m["record_id"] == run_rid_d5), {})
+        control("WP-08c, DW5 (golden): the test run's expansion owns its omitted middle alone - in parts under the golden "
+                "bound, which tile it - and shows the records around the test run as overlap - the test guide's read before "
+                "it, the report after it - labelled from e1 before the middle, and not the test run's own head or tail",
+                len(xdocs_d5) == 1 and {r["record_id"] for r in x5["records"]} == {run_rid_d5}
+                and coverage.normalize([s["block"] for r in x5["records"] for s in r["segments"]])
+                == [[span_d5.get("start"), span_d5.get("end")]]
+                and sum(b - a for r in x5["records"] for a, b in (s["block"] for s in r["segments"]))
+                == span_d5.get("end", 0) - span_d5.get("start", 0)
+                and line_d5["test guide"] in [e["line"] for e in x5["overlap"]["prev"]]
+                and line_d5["report"] in [e["line"] for e in x5["overlap"]["next"]]
+                and x_labels_d5.get(x5["overlap"]["prev"][0]["entry"] if x5["overlap"]["prev"] else None) == "e1"
+                and all(e["record_id"] != run_rid_d5 for side in ("prev", "next") for e in x5["overlap"][side]),
+                f"{len(xdocs_d5)} {[r['record_id'] for r in x5['records']]} {[e['line'] for e in x5['overlap']['prev']]} "
+                f"{[e['line'] for e in x5['overlap']['next']]}")
         due_d5 = [text.split("<expected_observations>\n", 1)[-1].split("\n</expected_observations>", 1)[0]
                   for text in packet_of("dw5", "window") + packet_of("dw5", "expansion")]
         # all three fields of both observations, line by line (W r1: a control that read the criteria alone passed a packet
@@ -2507,29 +2617,13 @@ def self_test():
                 f"{len(host_schemas)} {[sorted(h)[:3] for h in host_schemas if '$schema' in h or not h][:3]}")
 
         # Claude Code checks --json-schema with a draft-07 Ajv in strict mode, which refuses a keyword draft 2019-09 or
-        # 2020-12 added as unknown (dependentRequired, dw2-live1's probe); the policy admits one of them, so a schema
-        # handed to a host is walked for all of them, keywords only - a property's name is not a keyword
-        def keywords_of(node):
-            if isinstance(node, list):
-                return [k for item in node for k in keywords_of(item)]
-            if not isinstance(node, dict):
-                return []
-            out = []
-            for key, value in node.items():
-                out.append(key)
-                if key in ("properties", "patternProperties") and isinstance(value, dict):
-                    out += [k for sub in value.values() for k in keywords_of(sub)]
-                elif key not in ("enum", "const", "required"):
-                    out += keywords_of(value)
-            return out
-        post_draft07 = {"$anchor", "$defs", "$dynamicAnchor", "$dynamicRef", "$recursiveAnchor", "$recursiveRef",
-                        "$vocabulary", "contentSchema", "dependentRequired", "dependentSchemas", "maxContains",
-                        "minContains", "prefixItems", "unevaluatedItems", "unevaluatedProperties"}
+        # 2020-12 added as unknown (dependentRequired, dw2-live1's probe). Since WP-08c the product refuses such a schema
+        # where its handed form is made (`packet.host_keywords`); this holds what each call of the legs actually wrote
         handed_forms = host_schemas + [guarded(lambda s=s: json.loads(packet.schema_bytes(s())), {}) for s in (read_schema, stitch_schema)]
-        control("WP-08 commit 7: no schema S3 hands a host carries a keyword draft 2019-09 or 2020-12 added, which the host's "
-                "draft-07 check refuses as unknown",
-                len(handed_forms) > 2 and all(h for h in handed_forms) and not any(post_draft07 & set(keywords_of(h)) for h in handed_forms),
-                f"{len(handed_forms)} {sorted({k for h in handed_forms for k in post_draft07 & set(keywords_of(h))})}")
+        control("WP-08 commit 7: no schema S3 hands a host holds a keyword the host's draft-07 check refuses or reads "
+                "otherwise (packet.HOST_KEYWORDS, WP-08c)",
+                len(handed_forms) > 2 and all(h for h in handed_forms) and not any(packet.host_keywords(h) for h in handed_forms),
+                f"{len(handed_forms)} {[packet.host_keywords(h) for h in handed_forms if packet.host_keywords(h)][:2]}")
         # the handed schema judges as the schema does (WP-08 commit 7): every answer the three legs' golden runs gave, and
         # each one broken in one place - a required key gone, a key added, an id off its pattern, an outcome off its
         # list - is accepted or refused alike by the schema and by the form a host is handed
@@ -2584,6 +2678,32 @@ def self_test():
                 and {"id": cause_lt.get("event_id"), "transcript": main_unit, "first_record": 0,
                      "window": lt["summary"].get("window")} in lt["result"].get("pending_events", []),
                 f"{lt['problem']} {sorted(lt['lines'])} {lt['calls']} {lt['on_disk']} {cause_lt} {lt['result'].get('pending_events')}")
+        # done-when 3 (golden, WP-08c: moved here from a session whose windows were apart only in what they own)
+        resolution_la = next((r for r in la["record"].get("stitch", {}).get("resolutions", [])
+                              if r["event_id"] == cause_la.get("event_id")), {})
+        resolution_lt = next((r for r in lt["record"].get("stitch", {}).get("resolutions", [])
+                              if r["event_id"] == cause_lt.get("event_id")), {})
+        cited_la = {e["evidence_id"]: e for e in stored_evidence_of(la["dir"], la["view"])} if la["view"] else {}
+        outcome_lines_la = {r["line"] for r in la["docs"].get(5, {"records": []})["records"] if FX_OUTCOME in r["text"]}
+        control("done-when 3 (golden): a cause in window 1 whose outcome is in window 5 is stitched: the event resolved, "
+                "stitched_from naming the outcome's claim, its evidence on the outcome window's record",
+                not la["problem"] and at_la == {FX_CAUSE: [1], FX_OUTCOME: [5]} and cause_la.get("outcome") == "resolved"
+                and cause_la.get("stitched_from") == [outcome_la.get("claim_id")] and resolution_la.get("evidence_ids")
+                and all(cited_la.get(e, {}).get("line") in outcome_lines_la and cited_la[e]["window_role"] == "in_window"
+                        for e in resolution_la["evidence_ids"]),
+                f"{la['problem']} {at_la} {cause_la} {resolution_la}")
+        control("an event's id is made from its call id, so the same local id in the same window of the same view read by "
+                "two runs is two events", cause_la.get("event_id") and cause_lt.get("event_id")
+                and cause_la["event_id"] != cause_lt["event_id"] and la["view"] == lt["view"]
+                and cause_la["at_record"] == cause_lt["at_record"], f"{cause_la} {cause_lt}")
+        listed_lt = [e.get("description") for _item, events, _claims in lt["seen"] for e in events]
+        control("done-when 3 (golden): the twin, which holds no outcome, is stitched by a call and left unresolved, its event "
+                "handed on as a pending event of the unit's result",
+                not lt["problem"] and cause_lt.get("description") in listed_lt and cause_lt.get("outcome") == "unresolved"
+                and cause_lt.get("stitched_from") == [] and not resolution_lt.get("by", "code").startswith("code")
+                and {"id": cause_lt.get("event_id"), "transcript": main_unit, "first_record": 0,
+                     "window": lt["summary"].get("window")} in lt["result"].get("pending_events", []),
+                f"{lt['problem']} {cause_lt} {resolution_lt} {lt['result'].get('pending_events')}")
         # what each window SHOWS, not only what it owns: apart-live1's long turns put the outcome in the overlap of every
         # window before its own, so a live reader quoted it from the first window on and the stitch had nothing to join
         def shown_lines(doc):
@@ -3020,6 +3140,27 @@ def self_test():
                 "quoting only context; a claim in a member without an instant is left out and counted",
                 found == {"c2": {"after": ["c2@5"], "all": ["c2@3", "c2@5"]}, "c4": {"after": ["c4@6"], "all": ["c4@6"]},
                           "c6": {"after": ["c6@1"], "all": ["c6@1"]}} and unordered == 1, f"{found} {unordered}")
+        # inside the event's own record (WP-08c): its own claim o1 quotes 10-50 and 20-30 of block 0 there
+        p0, p1 = "/message/content/0/content", "/message/content/1/content"
+
+        def fx_s(ident, *quotes):
+            return {"record": {"claim_id": ident}, "file": "f",
+                    "evidence": [{"evidence_id": f"{ident}@{line}:{a}", "line": line, "json_pointer": p, "char_span": [a, b],
+                                  "window_role": role} for line, p, a, b, role in quotes]}
+        same = [fx_s("o1", (2, p0, 10, 50, "in_window"), (2, p0, 20, 30, "in_window"), (4, p0, 0, 5, "in_window")),
+                fx_s("s1", (2, p0, 60, 90, "in_window")), fx_s("s2", (2, p0, 50, 70, "in_window")),
+                fx_s("s3", (2, p0, 40, 80, "in_window")), fx_s("s4", (2, p0, 0, 9, "in_window")),
+                fx_s("s5", (2, p0, 60, 90, "context")), fx_s("s6", (2, p1, 0, 5, "in_window"))]
+        at_f = lambda file, line: ("t", (False, "f"), 0, line)  # noqa: E731
+        anchor = anchor_of("f", 2, {"o1"}, same)
+        within, _ = joinable_claims(at_f("f", 2), {"o1"}, same, at_f, anchor)
+        bare, _ = joinable_claims(at_f("f", 2), {"o1"}, same, at_f, anchor_of("f", 3, {"o1"}, same))
+        control("WP-08c: on the event's own record a processed quote stands after the event when it begins at or after the "
+                "end of the quotes its own claims place there, blocks in order (/10 after /9); one overlapping that end, one "
+                "before it or one in context does not; with no quote of its own claims there, none on that record does",
+                anchor == ("f", 2, (block_order(p0), 50)) and sorted(within) == ["s1", "s2", "s6"] and bare == {}
+                and block_order("/message/content/10/text") > block_order("/message/content/9/text"),
+                f"{anchor} {sorted(within)} {bare}")
         lanes = root / "timeline"
         for rel, rows_of in (("main.jsonl", [(1, None), (2, "2026-10-03T03:00:00+00:00"), (3, "2026-10-03T01:00:00+00:00"),
                                               (4, None), (6, "2026-10-03T04:00:00+00:00")]),
@@ -3156,6 +3297,33 @@ def self_test():
         departs("an observation when none is due", lambda a: a["observations"].append(
             {"expected_id": "x1", "occasion_locator": a["quotes"][0]["entry"], "exposure": "eligible", "verdict": "observed",
              "evidence_ids": ["q1"]}), "UNKNOWN_LABEL", "'x1' at observations/x1/expected_id")
+        # the order an eligible occasion's quotes stand in (WP-08c): one on the first record, the occasion's, and one on a
+        # later record of the window
+        first_x = doc["records"][0]
+        later_x = next((r for r in doc["records"] if r["line"] > first_x["line"]), None)
+        control("answer_problems (WP-08c): the golden window owns records on two lines, so the order controls judge something",
+                later_x is not None, f"{[r['line'] for r in doc['records']]}")
+        if later_x is not None:
+            text_x, occurrence_x = fx_quote(later_x)
+            quote_x = {"quote_id": "q2", "entry": views.eid(later_x), "text": text_x,
+                       **({"occurrence": occurrence_x} if occurrence_x is not None else {})}
+
+            def eligible_x(evidence, exposure="eligible"):
+                def edit(a):
+                    a["quotes"].append(copy.deepcopy(quote_x))
+                    a["observations"].append({"expected_id": "x-1", "occasion_locator": views.eid(first_x),
+                                              "exposure": exposure, "verdict": "observed", "evidence_ids": evidence})
+                return edit
+            departs("an eligible occasion citing only a quote on a later record", eligible_x(["q2"]), "EXPOSURE_ORDER",
+                    "is eligible and cites only quotes on later records", due=[{"expected_id": "x-1"}])
+            holding_x = []
+            for edit in (eligible_x(["q1", "q2"]), eligible_x(["q2"], "exposure_unknown")):
+                answer_x = copy.deepcopy(good)
+                edit(answer_x)
+                holding_x.append(problems_in(doc, rows, answer_x, "r-S3-x-a1", [{"expected_id": "x-1"}]))
+            control("answer_problems (WP-08c): an eligible occasion citing a quote on its own record holds - an occasion is a "
+                    "record, so a quote there is not after it - and an exposure_unknown one citing only later quotes holds",
+                    holding_x == [[], []], f"{holding_x}")
         if rows:
             departs("an own omission with no decision", lambda a: a["decisions"].pop(), "SET_MISMATCH")
             forced = [m for m in rows if m["forced_by"] != "none"]
@@ -3274,6 +3442,26 @@ def self_test():
                 schema_verdicts.get("read", (False,))[0] and schema_verdicts.get("stitch", (False,))[0]
                 and schema_verdicts["read"][1] == [] and schema_verdicts["stitch"][1] == []
                 and schema_verdicts["read"][2] == 5 * 12 and schema_verdicts["stitch"][2] == 3 * 12, f"{schema_verdicts}")
+        # ... and the ids an answer makes up itself end where their string ends too (WP-08c): "q1\n" passed Python's `$`
+        own_at = {"quotes/quote_id": ("q", lambda a, v: a["quotes"][0].update(quote_id=v)),
+                  "claims/claim_id": ("c", lambda a, v: a["claims"][0].update(claim_id=v)),
+                  "events/event_id": ("v", lambda a, v: a["events"][0].update(event_id=v)),
+                  "claims/evidence_ids": ("q", lambda a, v: a["claims"][0].update(evidence_ids=[v])),
+                  "events/claim_ids": ("c", lambda a, v: a["events"][0].update(claim_ids=[v]))}
+        own_forms = [guarded(lambda: validate_s.compile_schema(read_schema()), None),
+                     guarded(lambda: validate_s.compile_schema(json.loads(packet.schema_bytes(read_schema()))), None)]
+        own_bent = []
+        for field, (prefix, edit) in own_at.items():
+            for tail in ("1\n", "12\n", "1\r\n", "01", "1 "):
+                bent = copy.deepcopy(read_one)
+                edit(bent, prefix + tail)
+                own_bent.append((field, prefix + tail, bent))
+        own_passed = (sorted({(field, value) for field, value, bent in own_bent if any(f.is_valid(bent) for f in own_forms)})
+                      if None not in own_forms else "uncompiled")
+        control("WP-08c: the read schema, as written and as a host is handed it, refuses an id the answer makes up itself "
+                "with a trailing line break, a leading zero or padding, at each of its five fields",
+                None not in own_forms and all(f.is_valid(read_one) for f in own_forms) and own_passed == []
+                and len(own_bent) == 5 * 5, f"{own_passed} {len(own_bent)}")
         bounded = next((json.loads((run_dir / w["path"]).read_text()) for _n, w in sorted(windows.items())
                         if json.loads((run_dir / w["path"]).read_text())["overlap"]["prev"]), None)
         if bounded is None:
@@ -3327,6 +3515,24 @@ def self_test():
         owner = next(n for n, d in docs.items() if any(r["record_id"] == target["record_id"] for r in d["records"]))
         partial = guarded(lambda: overlap_accounting(name, docs, everyone - {owner}, sequence), {"uncredited": []})
         control("an overlap row whose owner was not accepted is uncredited", target["omission_id"] in partial["uncredited"], f"{partial}")
+        # WP-08c: an expansion's overlap rows are accounted through the same owners - credited when the owner shows the
+        # interval and was accepted, uncredited when it was not, refused when no owner shows it
+        expansion_like = {"records": [], "omission_manifest": [copy.deepcopy(target)]}
+        beyond_x = {"records": [], "omission_manifest": [{**copy.deepcopy(target), "omission_id": "beyond",
+                                                           "omitted_span": {"start": target["size"], "end": target["size"] + 10}}]}
+        alone = guarded(lambda: overlap_accounting(name, docs, everyone, sequence), {})
+        with_x = guarded(lambda: overlap_accounting(name, docs, everyone, sequence, [expansion_like]), {})
+        without_owner = guarded(lambda: overlap_accounting(name, docs, everyone - {owner}, sequence, [expansion_like]),
+                                {"uncredited": []})
+        control("WP-08c: an expansion's overlap row is accounted through the window owning its record - one more row, "
+                "credited when that window was accepted, uncredited when not, refused by name when it neither shows nor "
+                "lists the interval",
+                bool(alone) and with_x.get("rows") == alone["rows"] + 1 and with_x.get("credited") == alone["credited"] + 1
+                and without_owner["uncredited"].count(target["omission_id"]) == partial["uncredited"].count(target["omission_id"]) + 1
+                and refusal(lambda: overlap_accounting(name, docs, everyone, sequence, [beyond_x]))
+                .startswith("OVERLAP_INTERVAL_UNSHOWN"),
+                f"{alone.get('rows')} {with_x.get('rows')} {alone.get('credited')} {with_x.get('credited')} "
+                f"{without_owner['uncredited'].count(target['omission_id'])}")
 
         # ---- a file S2 cut no window for (plan amendment row 9)
         reader = Reader(run_dir, sup, records.read_json(records.run_json_path(run_dir)))
@@ -3672,6 +3878,109 @@ def self_test():
                 not problem_b2 and [r["expected_id"] for r in rows_b2] == [] and late_rows_b2 is not None
                 and [(r["expected_id"], r["occasion_locator"].split("#", 1)[1], r["basis"]) for r in late_rows_b2]
                 == [("N-1@r0", backlog_entry, "incomplete")], f"{problem_b2} {rows_b2} {late_b2} {late_rows_b2}")
+
+        # WP-08c (W r1): an occasion is a record, so the parts of a clipped record an expansion shows - two in one
+        # expansion window (dw2's result), or across several (a longer log) - are one occasion with the window that
+        # clipped it (D-20261106-e42658). Readings of one side that differ in the exposure alone give exposure_unknown:
+        # the resolution pending, the unit read_complete; in the verdict, conflicting and read_partial. The window side
+        # against the expansion side keeps D-20261104-a9e2d2: the expansion's verdict, and exposure_unknown
+        def fx_long_log_records():
+            log = "".join(f"  migrating shard {i:04d}  ok  {'.' * 30}\n" for i in range(600))
+            return [views.fx_human(views.fx_stamp(3, hour=1), "please migrate every shard"),
+                    views.fx_call(views.fx_stamp(3, hour=2), "Bash", {"command": "migrate --all"}),
+                    views.fx_result(views.fx_stamp(3, hour=3), log),
+                    views.fx_assistant(views.fx_stamp(3, hour=4), "the migration finished")]
+
+        def part_judging(window_judgement, part_judgement):
+            """The clipped record judged an occasion of N-1: by the window that clipped it as `window_judgement` (None:
+            not judged), and in each part an expansion shows as `part_judgement(k)`, k the part's index."""
+            def answers(where, doc, rows, parts):
+                answer = fx_answer(doc, rows, decide=lambda m: "expand")
+                clipped = doc.get("expansion_of") or next((r["record_id"] for r in doc["records"] if "clipped" in r), None)
+                for n, target in enumerate(r for r in doc["records"] if r["record_id"] == clipped):
+                    judgement = (part_judgement((target.get("span") or {"index": 1})["index"]) if "/x/" in where
+                                 else window_judgement)
+                    if judgement is None:
+                        continue
+                    text, occurrence = fx_quote(target)
+                    answer["quotes"].append({"quote_id": f"q{71 + n}", "entry": views.eid(target), "text": text,
+                                             **({"occurrence": occurrence} if occurrence is not None else {})})
+                    answer["observations"].append({"expected_id": "N-1@r0", "occasion_locator": views.eid(target),
+                                                   "exposure": judgement[1], "verdict": judgement[0],
+                                                   "evidence_ids": [f"q{71 + n}"]})
+                return [((), answer)]
+            return answers
+
+        def part_run(label, rows_of, window_judgement, part_judgement):
+            """`(problem, unit statuses, N-1's instances, its resolution, the occasions settled otherwise, how many
+            readings judged the record, in how many expansion windows)` of one run over `rows_of`."""
+            run_p, sup_p, _made = fx_reader(root / label, label, part_judging(window_judgement, part_judgement),
+                                            expanding=lambda m: True, ledger_doc=fx_ledger(label), main_only=True,
+                                            main_records=rows_of, owned=views.fx_owned(rows_of()), pending_at=None)
+            got_p = {}
+            problem_p = refusal(lambda: got_p.update(run(run_p, sup_p)))
+            follow_p = guarded(lambda: stored_resolutions(run_p), {})
+            rows_p = [json.loads(l) for l in guarded(lambda: records.jsonl_read(run_p / follow_p["instances"]), [])]
+            files_p = [f for unit in guarded(lambda: sorted((run_p / "read").glob("*.json")), [])
+                       for f in records.read_json(unit)["files"]]
+            judged_by = [(w in f.get("expansions", []), o) for f in files_p for w in f.get("windows", []) + f.get("expansions", [])
+                         for o in w.get("observations", []) if o["expected_id"] == "N-1@r0"]
+            return (problem_p or None, sorted(set(got_p.get("units", {}).values())),
+                    [(r["verdict"], r["exposure"], r["occasion_locator"].split("#", 1)[1]) for r in rows_p
+                     if r["expected_id"] == "N-1@r0"],
+                    (follow_p.get("resolutions", {}).get("N-1@r0") or {}).get("resolution"),
+                    [{k: [{x: y for x, y in o.items() if x not in ("occasion_locator", "judgements")} for o in v]
+                      for k, v in f["occasions"].items() if isinstance(v, list) and v} for f in files_p
+                     if any(isinstance(v, list) and v for v in (f.get("occasions") or {}).values())],
+                    len(judged_by), sum(1 for f in files_p for x in f.get("expansions", [])
+                                        if any(o["expected_id"] == "N-1@r0" for o in x.get("observations", []))))
+        part_rid, part_observed, part_not = "3/message/content/0/content", ("observed", seen), ("not_observed", seen)
+        part_cases = (
+            ("one window, every reading the same: one instance, not one a reading",
+             "pt-same", fx_decisive_records, part_observed, lambda k: part_observed,
+             (None, ["read_complete"], [("observed", seen, part_rid)], "observed", [], 3, 1)),
+            ("one window, its two parts differing in the exposure alone: exposure_unknown, pending, the unit read whole",
+             "pt-exp1", fx_decisive_records, None, lambda k: part_observed if k == 1 else ("observed", unknown),
+             (None, ["read_complete"], [("observed", unknown, part_rid)], "pending", [], 2, 1)),
+            ("across windows, its parts differing in the exposure alone: exposure_unknown, pending, the unit read whole",
+             "pt-expn", fx_long_log_records, None, lambda k: part_observed if k == 1 else ("observed", unknown),
+             (None, ["read_complete"], [("observed", unknown, part_rid)], "pending", [], "parts", "windows")),
+            ("one window, its two parts differing in the verdict: conflicting, no instance, the unit read_partial",
+             "pt-ver1", fx_decisive_records, None, lambda k: part_observed if k == 1 else part_not,
+             (None, ["read_partial"], [], "pending", [{"conflicting": [{"expected_id": "N-1@r0"}]}], 2, 1)),
+            ("across windows, its parts differing in the verdict: conflicting, no instance, the unit read_partial",
+             "pt-vern", fx_long_log_records, None, lambda k: part_observed if k == 1 else part_not,
+             (None, ["read_partial"], [], "pending", [{"conflicting": [{"expected_id": "N-1@r0"}]}], "parts", "windows")),
+            ("the window against its expansion's parts, another verdict: the expansion's, the window's superseded",
+             "pt-wver", fx_decisive_records, part_observed, lambda k: part_not,
+             (None, ["read_complete"], [("not_observed", seen, part_rid)], "not_observed",
+              [{"superseded": [{"expected_id": "N-1@r0", "differs": ["verdict"], "window": {"verdict": "observed", "exposure": seen},
+                                "kept": {"verdict": "not_observed", "exposure": seen}}]}], 3, 1)),
+            ("the window against its expansion's parts, another exposure: exposure_unknown, the window's superseded",
+             "pt-wexp", fx_decisive_records, ("observed", unknown), lambda k: part_observed,
+             (None, ["read_complete"], [("observed", unknown, part_rid)], "pending",
+              [{"superseded": [{"expected_id": "N-1@r0", "differs": ["exposure"], "window": {"verdict": "observed", "exposure": unknown},
+                                "kept": {"verdict": "observed", "exposure": unknown}}]}], 3, 1)),
+            # ... and the same three across several expansion windows (W r2)
+            ("across windows, the window and every part the same: one instance, not one a reading",
+             "pt-samen", fx_long_log_records, part_observed, lambda k: part_observed,
+             (None, ["read_complete"], [("observed", seen, part_rid)], "observed", [], "parts", "windows")),
+            ("across windows, the window against its expansion's parts, another verdict: the expansion's, the window's "
+             "superseded", "pt-wvern", fx_long_log_records, part_observed, lambda k: part_not,
+             (None, ["read_complete"], [("not_observed", seen, part_rid)], "not_observed",
+              [{"superseded": [{"expected_id": "N-1@r0", "differs": ["verdict"], "window": {"verdict": "observed", "exposure": seen},
+                                "kept": {"verdict": "not_observed", "exposure": seen}}]}], "parts", "windows")),
+            ("across windows, the window against its expansion's parts, another exposure: exposure_unknown, the window's "
+             "superseded", "pt-wexpn", fx_long_log_records, ("observed", unknown), lambda k: part_observed,
+             (None, ["read_complete"], [("observed", unknown, part_rid)], "pending",
+              [{"superseded": [{"expected_id": "N-1@r0", "differs": ["exposure"], "window": {"verdict": "observed", "exposure": unknown},
+                                "kept": {"verdict": "observed", "exposure": unknown}}]}], "parts", "windows")))
+        for named_p, label_p, rows_of, window_judgement, part_judgement, want_p in part_cases:
+            got_p = part_run(label_p, rows_of, window_judgement, part_judgement)
+            # across windows the number of parts is the fixture's own: more than one reading, in more than one window
+            fit_p = tuple(g if w not in ("parts", "windows") else w if g > (2 if w == "parts" else 1) else g
+                          for g, w in zip(got_p, want_p))
+            control(f"WP-08c, an occasion is its record: {named_p}", fit_p == want_p, f"{got_p}")
 
         # ---- commit 5a: a run repeated over its own directory, a store written under a taken id, a run resumed after
         # its driver was killed mid-call. Every process signalled here is one this suite started.

@@ -48,8 +48,10 @@ Think the problem through before you answer. Then return the JSON your schema as
   when it may hold a pending event's outcome, an error's cause, or anything a claim depends on.
 - `observations`: for each expected observation listed, by its label as `expected_id`, every occasion in the owned
   records (where its occasion criteria hold): `occasion_locator` that entry's label; `exposure` `eligible` if the window shows its exposure rule held before
-  the decision or action, else `exposure_unknown`; `verdict` `observed` or `not_observed` against its expected
-  behaviour; `evidence_ids` the quotes showing both.
+  the decision or action - then a quote of that entry or an earlier one shows it - else `exposure_unknown`, when the
+  window does not show the exposure or not which came first; `verdict` `observed` or `not_observed` against its
+  expected behaviour; `evidence_ids` the quotes showing both. Leave out an occasion the window shows coming before its
+  exposure: it is no instance.
 
 An empty list is a valid answer for `quotes`, `claims`, `events` and `observations`. `decisions` is empty only when
 this window lists no omissions of its own (`none` above); otherwise it holds one decision for each.
