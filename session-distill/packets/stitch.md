@@ -21,12 +21,13 @@ Think the problem through before you answer. Then return the JSON your schema as
 
 - `resolutions`: exactly one for each pending event above, by its `event_id`. `outcome` is `resolved` when the later
   claims show what the event led to - then `claim_ids` names those claims and `evidence_ids` the quotes among theirs
-  that show it - and `unresolved` when they do not, with both lists empty. Use only ids listed above, each written as
-  the value of its field there - an `event_id`, a `claim_id`, an `evidence_id` - whole and without its field name.
+  that show it - and `unresolved` when they do not, with both lists empty. Every event, claim and quote above carries
+  this packet's own short label as its `event_id`, `claim_id` or `evidence_id` (v1, ...; c1, ...; q1, ...): name them
+  by those labels only, each written exactly as shown.
 
 Each pending event names under `joinable` the claims recorded after it, each with its `quotes_after`: the quotes of
 it that this run reads as its own and that stand after the event. Join an event only to those claims, and cite at
-least one of their `quotes_after`; a claim's other quotes may stand beside them. An event `carried_from` an earlier run
+least one of their `quotes_after`; a claim's other quotes may stand beside them. An event's `facts` are what its own claims say of it. An event `carried_from` an earlier run
 shows its first record under `shown`. A quote or record marked `"cut": true` shows only its beginning.
 
 Report only what the claims show. An event whose outcome you cannot find in them is `unresolved`, which is a valid
