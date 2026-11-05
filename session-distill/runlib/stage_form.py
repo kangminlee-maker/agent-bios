@@ -20,21 +20,41 @@ The stage's check (`answer_problems`), beside what the schema holds, refuses by 
 - G_ANTI_ABSTRACTION: a type G candidate without two distinct sides, an ordering, what it forbids, or at least three
   distinct claims as instances (design §7.4);
 - TENSION_OUTSIDE_G: a tension field filled on a candidate of another type;
-- NON_FINDING_DUPLICATE: a duplicate that names no other event, or a duplicate named under another reason.
+- NON_FINDING_DUPLICATE: a duplicate that names no other event, or a duplicate named under another reason;
+- SET_MISMATCH: an event the packet lists placed nowhere, or in more than one place (design §9's partition: each event
+  is a candidate's member, a rejected finding's, or a non-finding, exactly once).
+
+What S4 forms from (`subject`, lead decisions D1 and D2 of WP-09 stage 0): the events of the units S3 processed
+(`read_complete`), each by its stored id, whose current outcome is `resolved` - an event a window resolved, one the
+stitch joined to its outcome, and an event an earlier run left pending that this run's stitch resolved, under its earlier
+id. An event a processed unit hands on (`unresolved`, coverage's next pending event) is listed `carried_forward` and is
+formed by the run that resolves it. A unit S3 did not process (`read_partial`, `deferred`, `failed`) is listed with its
+status and reasons and none of its events is formed: S3 credited nothing of it, so the next run reads it again. A
+processed unit whose open events are not the ones its result hands on, or whose resolved carried events are not its
+result's, is refused by name (SET_MISMATCH), as is an event id two units hold.
+
+`population` is design §9's one population as an explicit set (plan WP-09 Artifacts, N#12): every candidate - formed
+and, from commit 4, the lifecycle intake - with its events, every rejected finding and every non-finding, the event
+membership, the carried-forward events and the units not formed; `population_problems` refuses by name (SET_MISMATCH) a
+lifecycle candidate the intake holds and the population does not, a membership naming no listed candidate, and an event
+of the subject missing or placed twice. `partition_rows` are `partition.jsonl`'s rows.
 
 The contract's closed lists (plan WP-09 done-when 7) are copied below from the sections that own them, each cited, and
 the self-test holds the schema and the code to them.
 
   stage_form.py --self-test
 """
+import collections
 import copy
 import json
 import pathlib
+import shutil
 import sys
+import tempfile
 
 if __package__ in (None, ""):  # run as a script: put session-distill/ on the import path
     sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
-from runlib import packet, validate, views
+from runlib import evidence, packet, records, validate, views
 from runlib.records import Refused
 
 STAGE = "S4"
@@ -238,6 +258,19 @@ def answer_problems(labels, answer):
         elif n["duplicate_of"]:
             errors.append(f"NON_FINDING_DUPLICATE {where}/duplicate_of: only a {DUPLICATE} names another event; reason "
                           f"{n['reason']} names {n['duplicate_of']!r}")
+    placed = collections.Counter()
+    for k in answer["candidates"]:
+        placed.update(k["event_ids"])
+    for r in answer["rejected_findings"]:
+        placed.update(r["event_ids"])
+    placed.update(n["event_id"] for n in answer["non_findings"])
+    nowhere = [v for v in labels.events if placed[v] == 0]
+    twice = {v: n for v, n in sorted(placed.items()) if n > 1 and v in labels.events}
+    if nowhere:
+        errors.append(f"SET_MISMATCH events placed nowhere: {nowhere}; every event above goes in exactly one place: a "
+                      "candidate's event_ids, a rejected finding's event_ids, or one non-finding")
+    if twice:
+        errors.append(f"SET_MISMATCH events placed more than once: {twice}; every event above goes in exactly one place")
     return errors
 
 
@@ -247,6 +280,145 @@ def judge(labels):
     from runlib import stage_read
     return lambda call_dir: answer_problems(labels, stage_read.answer_of(call_dir))
 
+
+
+# ---- what S4 forms from, and the population it leaves (lead decisions D1, D2) -----------------------
+
+PROCESSED = "read_complete"
+
+
+def sid(prefix, run_id, label):
+    """A stored id of what the answer named by its own label, in the run that formed it."""
+    from runlib import stage_read
+    return stage_read.sid(prefix, run_id, label)
+
+
+def subject(run_dir):
+    """The events S4 forms from, the claims and quotes they name, and what is listed instead (module docstring):
+    `{events, claims, carried_forward, not_formed, units}`. Read from S3's stores through S3's own readers, which
+    refuse an edited store by name."""
+    from runlib import stage_read
+    run_dir = pathlib.Path(run_dir)
+    results = records.read_json(run_dir / "read-results.json")["results"]
+    rows, claims, carried_forward, not_formed, held_by = [], {}, [], [], {}
+    for result in sorted(results, key=lambda r: r["transcript"]):
+        unit = result["transcript"]
+        path = run_dir / "read" / f"{views.safe_name(unit)}.json"
+        record = records.read_json(path) if path.is_file() else {"files": [], "reasons": ["S3 left no read record of it"]}
+        names = [f["name"] for f in record["files"]]
+        events = [(name, e) for name in names for e in stage_read.current_events(run_dir, name)]
+        if result["status"] != PROCESSED:
+            not_formed.append({"unit": unit, "status": result["status"], "reasons": list(record.get("reasons", [])),
+                               "events": len(events)})
+            continue
+        handed = {p["id"] for p in result["pending_events"]}
+        still_open = {e["event_id"] for _n, e in events if e["outcome"] != "resolved"}
+        if still_open != handed:
+            raise Refused(f"SET_MISMATCH {unit}: it holds open {sorted(still_open - handed)[:5]} that its result does not hand "
+                          f"on, or hands on {sorted(handed - still_open)[:5]} that it does not hold open")
+        carried = {e["event_id"] for _n, e in events if "carried_from" in e and e["outcome"] == "resolved"}
+        if carried != set(result["resolved_events"]):
+            raise Refused(f"SET_MISMATCH {unit}: its resolved carried events {sorted(carried)[:5]} are not its result's "
+                          f"resolved_events {sorted(result['resolved_events'])[:5]}")
+        quotes = {r["evidence_id"]: r for name in names for r in evidence.load(run_dir, name)}
+        for name in names:
+            for c in stage_read.stored_claims(run_dir, name):
+                missing = [e for e in c["evidence_ids"] if e not in quotes]
+                if missing:
+                    raise Refused(f"RECORD_INTEGRITY {c['claim_id']}: its evidence {missing[:3]} is in no store of unit {unit}")
+                claims[c["claim_id"]] = {"fact": c["fact"], "interpretation": c["interpretation"], "uncertainty": c["uncertainty"],
+                                         "quotes": [{"evidence_id": e, "record": f"{quotes[e]['line']}{quotes[e]['json_pointer']}",
+                                                     "window_role": quotes[e]["window_role"], "text": quotes[e]["redacted_text"]}
+                                                    for e in c["evidence_ids"]]}
+        carried_forward += [{"event_id": ident, "unit": unit} for ident in sorted(handed)]
+        for name, e in events:
+            if e["outcome"] != "resolved":
+                continue
+            if e["event_id"] in held_by:
+                raise Refused(f"SET_MISMATCH {e['event_id']}: held by {held_by[e['event_id']]} and by {unit}")
+            held_by[e["event_id"]] = unit
+            rows.append({"id": e["event_id"], "session": unit, "kind": e["kind"], "description": e["description"],
+                         "claim_ids": list(e["claim_ids"]), "outcome_claim_ids": list(e["stitched_from"]), "file": name})
+    return {"events": rows, "claims": claims, "carried_forward": carried_forward, "not_formed": not_formed,
+            "units": dict(sorted(collections.Counter(r["status"] for r in results).items()))}
+
+
+def population(answer, subject_of, run_id, intake=()):
+    """Design §9's one population from a resolved accepted `answer` (stored event ids), the `subject_of` it was formed
+    over, and the lifecycle `intake` (`{candidate_id, source}`), each with no events of the window."""
+    formed = [{"candidate_id": sid("k", run_id, k["candidate_id"]), "source": "formed", "event_ids": list(k["event_ids"])}
+              for k in answer["candidates"]]
+    lifecycle = [{"candidate_id": i["candidate_id"], "source": i["source"], "event_ids": []} for i in intake]
+    findings = [{"finding_id": sid("r", run_id, r["finding_id"]), "event_ids": list(r["event_ids"]), "failed": list(r["failed"])}
+                for r in answer["rejected_findings"]]
+    non_findings = [{"event_id": n["event_id"], "reason": n["reason"], "duplicate_of": n["duplicate_of"]}
+                    for n in answer["non_findings"]]
+    membership = {}
+    for c in formed:
+        membership.update({e: c["candidate_id"] for e in c["event_ids"]})
+    for f in findings:
+        membership.update({e: "rejected_finding" for e in f["event_ids"]})
+    membership.update({n["event_id"]: "non_finding" for n in non_findings})
+    return {"candidates": formed + lifecycle, "candidate_ids": [c["candidate_id"] for c in formed + lifecycle],
+            "rejected_findings": findings, "rejected_finding_ids": [f["finding_id"] for f in findings],
+            "non_findings": non_findings, "non_finding_ids": [n["event_id"] for n in non_findings],
+            "event_membership": dict(sorted(membership.items())),
+            "carried_forward": list(subject_of["carried_forward"]), "not_formed": list(subject_of["not_formed"]),
+            "counts": {"events": len(subject_of["events"]), "candidate_members": sum(len(c["event_ids"]) for c in formed),
+                       "rejected_finding_members": sum(len(f["event_ids"]) for f in findings),
+                       "non_findings": dict(sorted(collections.Counter(n["reason"] for n in non_findings).items())),
+                       "candidates": {"formed": len(formed), **dict(sorted(collections.Counter(i["source"] for i in intake).items()))},
+                       "carried_forward": len(subject_of["carried_forward"]),
+                       "units": dict(subject_of["units"]),
+                       "events_not_formed": sum(u["events"] for u in subject_of["not_formed"])}}
+
+
+def population_problems(pop, subject_of, intake=()):
+    """The population's set accounting (plan WP-09 done-when 1, N#12), each break by name (SET_MISMATCH); empty when
+    every event of the subject is placed exactly once and every candidate it names is listed."""
+    errors, listed = [], collections.Counter(pop["candidate_ids"])
+    repeated = sorted(c for c, n in listed.items() if n > 1)
+    if repeated:
+        errors.append(f"SET_MISMATCH candidate ids listed more than once: {repeated[:5]}")
+    for i in intake:
+        if i["candidate_id"] not in listed:
+            errors.append(f"SET_MISMATCH {i['candidate_id']}: a lifecycle candidate the intake holds is not in the population")
+    for event, member in pop["event_membership"].items():
+        if member not in PARTITION_CLASSES[1:] and member not in listed:
+            errors.append(f"SET_MISMATCH {event}: its membership names {member}, which the population does not list")
+    placed = collections.Counter()
+    for c in pop["candidates"]:
+        placed.update(c["event_ids"])
+    for f in pop["rejected_findings"]:
+        placed.update(f["event_ids"])
+    placed.update(pop["non_finding_ids"])
+    subjects = {r["id"] for r in subject_of["events"]}
+    missing, extra = sorted(subjects - set(placed)), sorted(set(placed) - subjects)
+    twice = sorted(e for e, n in placed.items() if n > 1)
+    if missing or extra or twice:
+        errors.append(f"SET_MISMATCH the population places the subject's events otherwise: missing {missing[:5]}, not the "
+                      f"subject's {extra[:5]}, more than once {twice[:5]}")
+    if sorted(pop["event_membership"]) != sorted(subjects) or pop["counts"]["events"] != len(subjects):
+        errors.append(f"SET_MISMATCH the membership holds {len(pop['event_membership'])} events and counts "
+                      f"{pop['counts']['events']}; the subject has {len(subjects)}")
+    return errors
+
+
+def partition_rows(pop):
+    """`partition.jsonl`'s rows, one per event of the subject, in event id order: `{event_id, class, candidate_id}`,
+    `{event_id, class, finding_id}` or `{event_id, class, reason, duplicate_of}`."""
+    finding_of = {e: f["finding_id"] for f in pop["rejected_findings"] for e in f["event_ids"]}
+    reason_of = {n["event_id"]: n for n in pop["non_findings"]}
+    rows = []
+    for event, member in pop["event_membership"].items():
+        if member == "rejected_finding":
+            rows.append({"event_id": event, "class": "rejected_finding", "finding_id": finding_of[event]})
+        elif member == "non_finding":
+            rows.append({"event_id": event, "class": "non_finding", "reason": reason_of[event]["reason"],
+                         "duplicate_of": reason_of[event]["duplicate_of"]})
+        else:
+            rows.append({"event_id": event, "class": "candidate", "candidate_id": member})
+    return rows
 
 # ---- self-test -----------------------------------------------------------------------------------
 
@@ -303,6 +475,55 @@ def fx_answer():
         "rejected_findings": [],
         "non_findings": [{"event_id": "v5", "reason": "routine_step", "duplicate_of": ""}]}
 
+
+FX_MARKERS = {"settled": "Settled in its window.", "joined": "Joined later.", "open": "Left open.",
+              "child": "Settled in the child.", "codex": "Codex waits."}
+
+
+def fx_s3(root):
+    """A golden S3 run over S2's golden corpus (views.golden: a Claude session with its child, and a Codex session),
+    read through S3 itself with its golden host, no model called. The Claude unit is processed: an event its window
+    resolves, one the stitch joins to a later claim, one no claim resolves (handed on), the event the previous window
+    left pending (`pe-1`), resolved by the stitch, and one in the child. The Codex unit's stitch fails twice, so the
+    unit ends `read_partial` with its one event still pending. Returns `(run_dir, summary)`."""
+    from runlib import stage_read as sr
+
+    def later_quote(doc):
+        rec = doc["records"][-1]
+        text, occurrence = sr.fx_quote(rec)
+        return {"quote_id": "q2", "entry": views.eid(rec), "text": text, **({"occurrence": occurrence} if occurrence is not None else {})}
+
+    def answers(where, doc, rows, parts):
+        first = doc["records"][0]
+        view, n = where.split("/")[0], where.split("/")[-1]
+
+        def ev(outcome, marker):
+            return {"event_id": f"v{len(made) + 1}", "kind": "request", "at_record": views.eid(first), "claim_ids": ["c1"],
+                    "outcome": outcome, "description": FX_MARKERS[marker]}
+        made = []
+        if "/x/" in where:
+            return [((), sr.fx_answer(doc, rows, fact="The omitted middle holds the outcome."))]
+        if view.endswith("0001") and n == "1":
+            made.append(ev("resolved", "settled"))
+            made.append(ev("pending", "joined"))
+        elif view.endswith("0001") and n == "2":
+            made.append(ev("pending", "open"))
+        elif view.endswith("0001") and n == "3":
+            return [((), sr.fx_answer(doc, rows, fact="OUTCOME: the change landed."))]
+        elif view.endswith("0002"):
+            made.append(ev("resolved", "child"))
+        elif view.startswith("codex_"):
+            made.append(ev("pending", "codex"))
+            return [((), sr.fx_answer(doc, rows, events=made, extra_quotes=[later_quote(doc)]))]
+        return [((), sr.fx_answer(doc, rows, events=made))]
+
+    def resolve(event, claims):
+        if event.get("description", "").startswith(FX_MARKERS["joined"]) or "carried_from" in event:
+            return sr.fx_joined(event, claims, "OUTCOME:")
+        return None
+    run_dir, sup, _made = sr.fx_reader(root / "s3", "s3", answers, expanding=lambda m: m["forced_by"] != "none",
+                                       resolve=resolve, bad=lambda item: "codex" in item)
+    return run_dir, sr.run(run_dir, sup)
 
 def self_test():
     failures, ran = [], []
@@ -482,6 +703,135 @@ def self_test():
             guarded(lambda: validate.lint(schema), ["RAISED"]) == [] and bool(schema_bytes)
             and guarded(lambda: packet.host_keywords(json.loads(schema_bytes)), ["RAISED"]) == [],
             f"{guarded(lambda: validate.lint(schema), ['RAISED'])}")
+
+
+    # ---- commit 2: what S4 forms from, the partition, and the population (golden S3 run) ----
+    with tempfile.TemporaryDirectory(prefix="s4-") as td:
+        root = pathlib.Path(td)
+        made = guarded(lambda: fx_s3(root), lambda exc: (None, {"problem": repr(exc)}))
+        run_dir, s3 = made
+        control("positive control: the golden S3 run processes the Claude unit and leaves the Codex unit read_partial",
+                run_dir is not None and sorted(s3.get("units", {}).values()) == ["read_complete", "read_partial"],
+                f"{s3.get('units') or s3}")
+        got = guarded(lambda: subject(run_dir), lambda exc: {"problem": str(exc)})
+        rows = got.get("events", [])
+        by_text = {r["description"]: r for r in rows}
+        control("D2: the subject is the resolved events of the processed unit, each once by its stored id: the one its "
+                "window resolved, the one the stitch joined, the one in the child, and the carried pe-1 under its id",
+                sorted(by_text) == sorted([FX_MARKERS["settled"], FX_MARKERS["joined"], FX_MARKERS["child"]]
+                                          + [r["description"] for r in rows if r["id"] == "pe-1"])
+                and any(r["id"] == "pe-1" for r in rows) and len({r["id"] for r in rows}) == len(rows) == 4,
+                f"{got.get('problem') or [(r['id'][:10], r['description'][:24]) for r in rows]}")
+        control("D2: an event the stitch joined, and the carried one, show their outcome claims apart from their own",
+                by_text.get(FX_MARKERS["joined"], {}).get("outcome_claim_ids")
+                and all(r["outcome_claim_ids"] for r in rows if r["id"] == "pe-1")
+                and by_text.get(FX_MARKERS["settled"], {}).get("outcome_claim_ids") == [],
+                f"{[(r['description'][:16], r['claim_ids'], r['outcome_claim_ids']) for r in rows]}")
+        handed = got.get("carried_forward", [])
+        from runlib import stage_read
+        claude_files = guarded(lambda: [f["name"] for f in records.read_json(next((run_dir / "read").glob("claude_*.json")))["files"]], [])
+        open_ids = [e["event_id"] for name in claude_files for e in guarded(lambda name=name: stage_read.current_events(run_dir, name), [])
+                    if e["description"] == FX_MARKERS["open"]]
+        control("D2: the event the processed unit hands on is carried_forward and is no subject",
+                len(handed) == 1 and [h["event_id"] for h in handed] == open_ids
+                and FX_MARKERS["open"] not in by_text, f"{handed} {open_ids}")
+        nf = got.get("not_formed", [])
+        control("D1: the unit S3 left read_partial is listed with its status, its reasons and its one event, and none of "
+                "its events is a subject",
+                len(nf) == 1 and nf[0]["status"] == "read_partial" and nf[0]["unit"].startswith("codex:")
+                and nf[0]["events"] == 1 and nf[0]["reasons"] and FX_MARKERS["codex"] not in by_text, f"{nf}")
+        control("every claim the subject's events name is carried with its quotes, each where it stands",
+                all(c in got.get("claims", {}) for r in rows for c in r["claim_ids"] + r["outcome_claim_ids"])
+                and all(q["text"] and q["record"] for c in got.get("claims", {}).values() for q in c["quotes"]),
+                f"{sorted(got.get('claims', {}))[:4]}")
+
+        def bent(change):
+            """subject() over a copy of the run whose read-results `change` edits."""
+            copy_dir = root / f"bent-{len(list(root.iterdir()))}"
+            shutil.copytree(run_dir, copy_dir)
+            doc = records.read_json(copy_dir / "read-results.json")
+            change(doc)
+            (copy_dir / "read-results.json").write_text(json.dumps(doc), encoding="utf-8")
+            return refusal(lambda: subject(copy_dir))
+
+        def unhand(doc):
+            next(r for r in doc["results"] if r["status"] == PROCESSED)["pending_events"] = []
+        control("a processed unit holding open an event its result does not hand on is SET_MISMATCH",
+                bent(unhand).startswith("SET_MISMATCH claude:"), bent(unhand))
+
+        def unresolve(doc):
+            next(r for r in doc["results"] if r["status"] == PROCESSED)["resolved_events"] = []
+        control("a processed unit whose resolved carried events are not its result's is SET_MISMATCH",
+                bent(unresolve).startswith("SET_MISMATCH claude:"), bent(unresolve))
+
+        # the partition, in the packet's labels, over the golden subject
+        flabels = guarded(lambda: FormLabels(rows, got["claims"]), None)
+        req = {"basis": "shown", "claim_ids": [], "evidence_ids": []}
+        empty = {"sides": [], "ordering": "", "forbids": "", "instance_claim_ids": [], "cluster": ""}
+        part = {"candidates": [{"candidate_id": "k1", "lesson": "Say when a change landed", "type": "C", "situation": "s",
+                                "action": "a", "exception": "e", "admission": {n: dict(req) for n in ADMISSION},
+                                "event_ids": ["v1", "v2"], "tension": dict(empty)}],
+                "rejected_findings": [{"finding_id": "r1", "finding": "f", "event_ids": ["v3"], "failed": ["bounded"],
+                                       "reason": "specific to the task"}],
+                "non_findings": [{"event_id": "v4", "reason": "routine_step", "duplicate_of": ""}]}
+        on = lambda answer: guarded(lambda: answer_problems(flabels, answer), lambda exc: [f"RAISED {exc!r}"])  # noqa: E731
+        control("done-when 1: an answer placing every listed event exactly once passes",
+                flabels is not None and len(flabels.events) == 4 and schema_of(part) == [] and on(part) == [],
+                f"{schema_of(part)[:2]} {on(part)[:2]}")
+        dropped = copy.deepcopy(part)
+        dropped["non_findings"] = []
+        control("done-when 1: an answer that drops one event is SET_MISMATCH, naming it",
+                any(p.startswith("SET_MISMATCH events placed nowhere: ['v4']") for p in on(dropped)), f"{on(dropped)}")
+        two_candidates = copy.deepcopy(part)
+        two_candidates["candidates"].append({**copy.deepcopy(part["candidates"][0]), "candidate_id": "k2", "event_ids": ["v2"]})
+        control("done-when 1: an event assigned to two candidates is SET_MISMATCH, naming it",
+                any(p.startswith("SET_MISMATCH events placed more than once: {'v2': 2}") for p in on(two_candidates)),
+                f"{on(two_candidates)}")
+        and_non_finding = copy.deepcopy(part)
+        and_non_finding["non_findings"].append({"event_id": "v3", "reason": "no_consequence", "duplicate_of": ""})
+        control("done-when 1: an event both a rejected finding's and a non-finding is SET_MISMATCH",
+                any(p.startswith("SET_MISMATCH events placed more than once: {'v3': 2}") for p in on(and_non_finding)),
+                f"{on(and_non_finding)}")
+
+        # the population: one set, its membership, and the intake it must list
+        resolved_part = guarded(lambda: flabels.resolve(part), None)
+        intake = [{"candidate_id": "legacy:S3-03", "source": "legacy"}, {"candidate_id": "redundancy_hint:u-a|u-b",
+                                                                        "source": "redundancy_hint"}]
+        pop = guarded(lambda: population(resolved_part, got, "r9", intake), {})
+        control("done-when 1 (N#12): the population lists every formed and lifecycle candidate, every rejected finding and "
+                "non-finding, and a membership for every event of the subject; it holds as built",
+                len(pop.get("candidate_ids", [])) == 3 and len(pop.get("rejected_finding_ids", [])) == 1
+                and len(pop.get("non_finding_ids", [])) == 1 and len(pop.get("event_membership", {})) == 4
+                and guarded(lambda: population_problems(pop, got, intake), ["RAISED"]) == []
+                and pop.get("counts", {}).get("carried_forward") == 1 and pop.get("counts", {}).get("events_not_formed") == 1,
+                f"{guarded(lambda: population_problems(pop, got, intake), ['RAISED'])} {pop.get('counts')}")
+        without = copy.deepcopy(pop)
+        without["candidates"] = [c for c in without.get("candidates", []) if c["candidate_id"] != "legacy:S3-03"]
+        without["candidate_ids"] = [c for c in without.get("candidate_ids", []) if c != "legacy:S3-03"]
+        control("done-when 1: a lifecycle candidate present in the intake and absent from the population is SET_MISMATCH "
+                "naming it",
+                any(p.startswith("SET_MISMATCH legacy:S3-03:") for p in guarded(lambda: population_problems(without, got, intake),
+                                                                                  [])), f"{guarded(lambda: population_problems(without, got, intake), [])}")
+        stray = copy.deepcopy(pop)
+        first_event = next(iter(stray.get("event_membership", {"x": None})))
+        stray.setdefault("event_membership", {})[first_event] = "k-unlisted"
+        control("done-when 1: an event whose membership names a candidate not in the list is SET_MISMATCH",
+                any(p.startswith(f"SET_MISMATCH {first_event}: its membership names k-unlisted")
+                    for p in guarded(lambda: population_problems(stray, got, intake), [])),
+                f"{guarded(lambda: population_problems(stray, got, intake), [])}")
+        lost = copy.deepcopy(pop)
+        lost["non_finding_ids"], lost["non_findings"] = [], []
+        lost.get("event_membership", {}).pop(next((e for e, m in lost.get("event_membership", {}).items() if m == "non_finding"), None), None)
+        control("done-when 1: a population that loses an event of the subject is SET_MISMATCH",
+                any(p.startswith("SET_MISMATCH the population places") for p in guarded(lambda: population_problems(lost, got, intake), [])),
+                f"{guarded(lambda: population_problems(lost, got, intake), [])}")
+        rows_p = guarded(lambda: partition_rows(pop), [])
+        control("partition.jsonl has one row per event of the subject, each of one class and naming its candidate, finding "
+                "or reason",
+                len(rows_p) == 4 and sorted(collections.Counter(r["class"] for r in rows_p).items())
+                == [("candidate", 2), ("non_finding", 1), ("rejected_finding", 1)]
+                and all(("candidate_id" in r) + ("finding_id" in r) + ("reason" in r) == 1 for r in rows_p), f"{rows_p}")
+    control("the suite leaves no temporary tree", not root.exists(), str(root))
 
     for failure in failures:
         print(f"stage_form --self-test [FAIL] {failure}")
