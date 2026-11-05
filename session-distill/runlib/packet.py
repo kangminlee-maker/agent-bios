@@ -113,23 +113,39 @@ def host_schema(schema):
     not hold - the 2020-12 one every distill schema names - and exits before any request; and the host hands the schema
     on as a tool's input schema, which then holds no reference to resolve. The policy pins draft 2020-12 in code
     (`validate.compile_schema`) and allows a `$ref` only to an entry of the schema's own `$defs` (`validate.lint`), so
-    neither key decides anything the inlined form does not. A `$ref` beside other keywords, or one that reaches itself,
-    has no inlined form and is refused."""
+    neither key decides anything the inlined form does not. A `$ref` beside other keywords, one that reaches itself, or
+    one naming no entry of `$defs` has no inlined form and is refused.
+
+    The schema is walked by its structure, as `host_keywords` walks it (WP-08c, X and W r1): a reference is a `$ref` at
+    a schema position, and the schemas inside are the values under `properties` and `patternProperties` by name and
+    the schema `items` or `additionalProperties` holds. A property named `$ref` is a name, and an `enum`, `const`,
+    `default` or `examples` value is data, kept as written: a literal `{"$ref": ...}` there is not a reference, and
+    inlining it would hand the host a schema that accepts other answers. Any other keyword's value is kept as written
+    too, and `host_keywords` then refuses the keyword by name."""
     defs = schema.get("$defs") or {}
 
     def inline(node, seen):
-        if isinstance(node, list):
-            return [inline(item, seen) for item in node]
         if not isinstance(node, dict):
-            return node
+            return node  # a boolean schema, or `items` as a list, which `host_keywords` refuses
         if "$ref" in node:
-            ref, name = node["$ref"], str(node["$ref"])[len("#/$defs/"):]
+            ref = node["$ref"]
+            name = ref[len("#/$defs/"):] if isinstance(ref, str) and ref.startswith("#/$defs/") else None
             if set(node) != {"$ref"}:
                 raise validate.SchemaPolicyError(f"HOST_SCHEMA {ref}: a $ref beside {sorted(set(node) - {'$ref'})} has no inlined form")
+            if name not in defs:
+                raise validate.SchemaPolicyError(f"HOST_SCHEMA {ref}: the reference names no entry of $defs")
             if name in seen:
                 raise validate.SchemaPolicyError(f"HOST_SCHEMA {ref}: the reference reaches itself")
             return inline(defs[name], seen | {name})
-        return {key: inline(value, seen) for key, value in node.items()}
+        out = {}
+        for key, value in node.items():
+            if key in SUBSCHEMA_MAPS and isinstance(value, dict):
+                out[key] = {name: inline(sub, seen) for name, sub in value.items()}
+            elif key in SUBSCHEMAS:
+                out[key] = inline(value, seen)
+            else:
+                out[key] = value
+        return out
     return inline({key: value for key, value in schema.items() if key not in ("$schema", "$defs")}, frozenset())
 
 
@@ -259,8 +275,16 @@ def self_test():
             if not any(needle in line for line in errors):
                 failures.append(f"{name}: expected {needle!r} in {errors}")
 
-    schema = schema_bytes({"type": "object", "additionalProperties": False, "required": ["answer"],
-                           "properties": {"answer": {"type": "string"}}})
+    conforming = {"type": "object", "additionalProperties": False, "required": ["answer"],
+                  "properties": {"answer": {"type": "string"}}}
+    # the product refusing a conforming schema fails this control by its name, never as a traceback that would hide
+    # every control after it (WP-08c); the envelope controls below then run on the schema's bytes as written
+    try:
+        schema, refusal = schema_bytes(conforming), []
+    except validate.SchemaPolicyError as exc:
+        schema = (json.dumps(conforming, sort_keys=True, separators=(",", ":")) + "\n").encode("utf-8")
+        refusal = [f"refused: {str(exc)[:200]}"]
+    control("schema-builder-takes-a-conforming-schema", refusal)
     payload = "Judge the candidate below.\n{\"candidate\": \"c1\"}\n"
     good = build("r1-S6-c1-a1", "S6", "claude:claude-opus-5-5/high", payload, schema)
     control("conforming-packet", check(good, "r1-S6-c1-a1", schema))  # the positive control, first
@@ -390,6 +414,69 @@ def self_test():
                                                         "properties": {"next": {"$ref": "#/$defs/a"}}}},
                                         "properties": {"x": {"$ref": "#/$defs/a"}}}),
                    validate.SchemaPolicyError, "HOST_SCHEMA #/$defs/a: the reference reaches itself"))
+    control("host-schema-refuses-a-reference-to-no-entry",
+            raised(lambda: host_schema({"type": "object", "additionalProperties": False, "$defs": {"a": {"type": "string"}},
+                                        "properties": {"x": {"$ref": "#/$defs/b"}}}),
+                   validate.SchemaPolicyError, "HOST_SCHEMA #/$defs/b: the reference names no entry of $defs"))
+    # WP-08c (X and W r1): the handed form is made by walking the schema's structure, so a literal {"$ref": ...} that an
+    # enum, a const, a default or an example holds is data, and a property named $ref is a name; and the schema as
+    # written and the form a host is handed accept and refuse the same answers, for those and for every schema a host
+    # is handed now (read, stitch, and the judge's verdict as dispatch hands it)
+    kept_as_data = None
+    try:
+        kept_as_data = host_schema({"type": "object", "additionalProperties": False, "$defs": {"s": {"type": "string"}},
+                                    "properties": {"a": {"type": "object", "default": {"$ref": "#/$defs/s"},
+                                                         "examples": [{"$ref": "#/$defs/s"}]},
+                                                   "$ref": {"$ref": "#/$defs/s"}}})
+    except Exception as exc:  # noqa: BLE001 - whatever stops it is reported by the control's name
+        kept_as_data = f"raised {type(exc).__name__}: {exc}"
+    control("host-schema-keeps-data-and-names-as-written",
+            [] if kept_as_data == {"type": "object", "additionalProperties": False,
+                                   "properties": {"a": {"type": "object", "default": {"$ref": "#/$defs/s"},
+                                                        "examples": [{"$ref": "#/$defs/s"}]},
+                                                  "$ref": {"type": "string"}}} else [f"made {kept_as_data}"])
+
+    def judged_alike(held, answers):
+        """`(problem, [(answer, as written, as handed)])`: each answer judged by the schema and by its handed form."""
+        try:
+            written, handed = validate.compile_schema(held), validate.compile_schema(json.loads(schema_bytes(held)))
+        except Exception as exc:  # noqa: BLE001 - a refused or broken schema fails the control by its name
+            return f"refused: {type(exc).__name__}: {str(exc)[:160]}", []
+        return None, [(json.dumps(a, sort_keys=True), written.is_valid(a), handed.is_valid(a)) for a in answers]
+    schemas_dir = pathlib.Path(__file__).resolve().parents[1] / "schemas"
+    def held_schema(name):
+        return json.loads((schemas_dir / f"{name}.schema.json").read_text(encoding="utf-8"))
+    quote = {"quote_id": "q1", "entry": "e1", "text": "x"}
+    empty_read = {"quotes": [], "claims": [], "events": [], "decisions": [], "observations": []}
+    resolved = {"event_id": "v1", "outcome": "resolved", "claim_ids": ["c1"], "evidence_ids": ["q1"]}
+    alike = {
+        "a literal $ref in an enum and a const": (
+            {"type": "object", "additionalProperties": False, "required": ["payload", "word"], "$defs": {"s": {"type": "string"}},
+             "properties": {"payload": {"enum": [{"$ref": "#/$defs/s"}, "plain"]}, "pinned": {"const": {"$ref": "#/$defs/s"}},
+                            "word": {"$ref": "#/$defs/s"}}},
+            [{"payload": {"$ref": "#/$defs/s"}, "word": "w"}, {"payload": {"type": "string"}, "word": "w"},
+             {"payload": "plain", "word": "w", "pinned": {"$ref": "#/$defs/s"}},
+             {"payload": "plain", "word": "w", "pinned": {"type": "string"}}, {"payload": "plain", "word": 3}]),
+        "a property named $ref": (
+            {"type": "object", "additionalProperties": False, "required": ["$ref"], "$defs": {"n": {"type": "integer"}},
+             "properties": {"$ref": {"type": "string"}, "count": {"$ref": "#/$defs/n"}}},
+            [{"$ref": "a"}, {"$ref": "a", "count": 2}, {"$ref": 1}, {"$ref": "a", "count": "2"}, {}]),
+        "read": (held_schema("read"),
+                 [empty_read, {**empty_read, "quotes": [quote]}, {**empty_read, "quotes": [{**quote, "quote_id": "q1\n"}]},
+                  {**empty_read, "quotes": [{**quote, "entry": "3/message/content"}]},
+                  {k: v for k, v in empty_read.items() if k != "observations"}, {**empty_read, "extra": []}]),
+        "stitch": (held_schema("stitch"),
+                   [{"resolutions": []}, {"resolutions": [resolved]}, {"resolutions": [{**resolved, "outcome": "maybe"}]},
+                    {"resolutions": [{**resolved, "claim_ids": ["c1\n"]}]}, {}]),
+        "verdict": ({"type": "object", "additionalProperties": False, "required": ["verdict", "why"],
+                     "properties": {"verdict": {"enum": ["PRESENT", "ABSENT", "UNCLEAR"]}, "why": {"type": "string"}}},
+                    [{"verdict": "ABSENT", "why": "x"}, {"verdict": "NO", "why": "x"}, {"verdict": "ABSENT"}]),
+    }
+    verdicts = {name: judged_alike(held, answers) for name, (held, answers) in alike.items()}
+    control("host-schema-judges-every-answer-as-the-schema-does",
+            [f"{name}: {problem or [r for r in rows if r[1] != r[2]] or 'no answer accepted, or none refused'}"
+             for name, (problem, rows) in verdicts.items()
+             if problem or any(r[1] != r[2] for r in rows) or {r[1] for r in rows} != {True, False}])
     with tempfile.TemporaryDirectory() as td:
         for _title, guide, _part in PRINCIPLE_SOURCES:
             target = pathlib.Path(td) / guide
@@ -423,8 +510,10 @@ def self_test():
         try:
             fields = template_fields(name)
             answer = schema_bytes(json.loads((schemas / f"{name}.schema.json").read_text(encoding="utf-8")))
-        except (TemplateError, OSError, ValueError) as exc:
-            failures.append(f"positive control: the {name} template or schema did not load: {exc}")
+        except (TemplateError, OSError, ValueError, validate.SchemaPolicyError) as exc:
+            failures.extend(f"{name}-{what}: not run (the {name} template or schema did not load: {str(exc)[:160]})"
+                            for what in ("template-takes-the-fields-its-stage-fills", "packet-passes-the-linter",
+                                         "fixed-part-fits-the-overhead"))
             continue
         control(f"{name}-template-takes-the-fields-its-stage-fills",
                 [] if fields == filled_by[name] else [f"placeholders {fields}, filled {filled_by[name]}"])

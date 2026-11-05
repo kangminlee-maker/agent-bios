@@ -97,8 +97,10 @@ code sets over the scope - every declared transcript source and every session of
 stage's end judgement over its scope, and each due
 observation's resolution is derived from them (`measures.derive_resolution`) into `observations/resolutions.json`,
 which counts apart the resolutions left pending only because the basis is incomplete and names what made it so.
-An occasion a window and an expansion of one of its records both judge is one instance (`settle_occasions`): the same
-judgement kept once with the evidence of both; judged otherwise, the expansion's verdict and, when the exposures differ,
+An occasion is a record, so the readings of it - a window's and an expansion's, or one of each part of a record shown in
+parts - are one instance (`settle_occasions`): the same judgement kept once with the evidence of every reading; readings
+of one side that differ in the exposure alone give `exposure_unknown`, and in the verdict keep none of it (conflicting);
+a window and an expansion judging otherwise give the expansion's verdict and, when the exposures differ,
 `exposure_unknown`, the window's judgement named superseded with what differed. An
 occasion on a backlog record is late evidence of the window that record belongs to (design §5.2): it goes to that
 window's file with basis `incomplete`, named under the resolutions file's `late`, and derives nothing of this window.
@@ -474,10 +476,13 @@ def keep(run_dir, name, where, window, call_id, answer):
             dropped.append({"observation": o["expected_id"], "occasion": o["occasion_locator"], "code": failed[bad[0]],
                             "quotes": bad})
             continue
-        # the occasion is named by the view it lies in and its entry there; its basis is the scope's, set at the stage's end.
-        # Beside it, for this run only, the window role of the record it lies on - a backlog record's occasion is late
-        # evidence of the window it belongs to (design §5.2, W r1) - and whether an expansion read it.
-        observed.append({"expected_id": o["expected_id"], "occasion_locator": f"{name}#{o['occasion_locator']}",
+        # the occasion is named by the view it lies in and its record there - never the part of the record an entry
+        # shows (`#k/n`), so every part of one record, in a window or an expansion, is one occasion (WP-08c, W r1); its
+        # basis is the scope's, set at the stage's end. Beside it, for this run only, the window role of the record it
+        # lies on - a backlog record's occasion is late evidence of the window it belongs to (design §5.2, W r1) - and
+        # whether an expansion read it.
+        record_id = shown_entries(window)[o["occasion_locator"]]["record_id"]
+        observed.append({"expected_id": o["expected_id"], "occasion_locator": f"{name}#{record_id}",
                          "exposure": o["exposure"], "verdict": o["verdict"],
                          "evidence_ids": [located[e]["evidence_id"] for e in o["evidence_ids"]], "quotes": o["evidence_ids"],
                          "role": shown_entries(window)[o["occasion_locator"]]["window_role"], "expansion": "/x/" in where})
@@ -1160,35 +1165,53 @@ def owed_readings(file, view, complete, window_id, seen=()):
 
 
 def settle_occasions(instances):
-    """One instance per occasion of an expected observation (W r1). A window and an expansion of one of its records may
-    both judge an occasion on the same entry, and each answer is valid alone. The same judgement (verdict and exposure)
-    is kept once, with the evidence of both. Judged otherwise, the verdict is the expansion's, which read the entry
-    whole, with the evidence of the readings that gave it; the exposure, which rests on the context before the entry -
-    the window saw its overlap, the expansion may see less - is `exposure_unknown` when the two differ, which leaves the
-    resolution pending (W r1 B2). The window's judgement is named superseded with what differed. Readings of one side
-    that judge it otherwise among themselves keep none of it, named conflicting, which leaves the unit `read_partial`.
-    Returns `(instances, superseded, conflicting)`, in the order the occasions were first judged."""
+    """One instance per occasion of an expected observation (W r1). An occasion is a record (`keep` names it without the
+    part an entry shows), so it may be judged by several readings, each answer valid alone: by the window that owns the
+    record and by an expansion of it (W r1), and by each part of a record shown in parts (WP-08c, W r1) - in one window
+    or across several, in the windows or in an expansion. The same judgement (verdict and exposure) is kept once, with
+    the evidence of every reading.
+
+    The readings of one side - the windows, or the expansions - are judged together first. When they differ in the
+    exposure alone, the side's exposure is `exposure_unknown`, which leaves the resolution pending: the exposure rests on
+    the context before the record, and each part's window shows other context (a later part's overlap is the earlier
+    part, not the records before the record), so reading again would not settle it (D-20261106-e42658, as
+    D-20261104-a9e2d2 rules for a window and its expansion). When they differ in the verdict, the side keeps none of
+    it, named conflicting, which leaves the unit `read_partial`. Then the two sides: judged otherwise, the verdict is the
+    expansion's, which read the record's middle, with the evidence of the readings that gave it; the exposure, which the
+    window saw in its overlap and the expansion may see less of, is `exposure_unknown` when the two differ (W r1 B2).
+    The window side's judgement is named superseded with what differed. Returns `(instances, superseded,
+    conflicting)`, in the order the occasions were first judged."""
     groups = {}
     for i in instances:
         groups.setdefault((i["expected_id"], i["occasion_locator"]), []).append(i)
     kept, superseded, conflicting = [], [], []
     judged = lambda group: sorted({(i["verdict"], i["exposure"]) for i in group})  # noqa: E731
+
+    def side(readings):
+        """One side's `(verdict, exposure)`, None when it has no reading, or "conflicting" when its verdicts differ."""
+        if not readings:
+            return None
+        verdicts, exposures = {i["verdict"] for i in readings}, {i["exposure"] for i in readings}
+        if len(verdicts) > 1:
+            return "conflicting"
+        return verdicts.pop(), exposures.pop() if len(exposures) == 1 else "exposure_unknown"
     for (expected_id, locator), group in groups.items():
-        window, expansion = [i for i in group if not i["expansion"]], [i for i in group if i["expansion"]]
-        if len(judged(group)) == 1:
-            verdict, exposure = judged(group)[0]
-        elif len(judged(window)) == 1 and len(judged(expansion)) == 1:
-            (window_verdict, window_exposure), (verdict, exposure) = judged(window)[0], judged(expansion)[0]
+        window = side([i for i in group if not i["expansion"]])
+        expansion = side([i for i in group if i["expansion"]])
+        if "conflicting" in (window, expansion):
+            conflicting.append({"expected_id": expected_id, "occasion_locator": locator,
+                                "judgements": [list(j) for j in judged(group)]})
+            continue
+        if window is None or expansion is None or window == expansion:
+            verdict, exposure = expansion or window
+        else:
+            (window_verdict, window_exposure), (verdict, exposure) = window, expansion
             differs = [k for k, a, b in (("verdict", window_verdict, verdict), ("exposure", window_exposure, exposure))
                        if a != b]
             exposure = exposure if window_exposure == exposure else "exposure_unknown"
             superseded.append({"expected_id": expected_id, "occasion_locator": locator, "differs": differs,
                                "window": {"verdict": window_verdict, "exposure": window_exposure},
                                "kept": {"verdict": verdict, "exposure": exposure}})
-        else:
-            conflicting.append({"expected_id": expected_id, "occasion_locator": locator,
-                                "judgements": [list(j) for j in judged(group)]})
-            continue
         backing = [i for i in group if i["verdict"] == verdict]
         evidence_ids = backing[0]["evidence_ids"] if len(backing) == 1 else sorted({e for i in backing for e in i["evidence_ids"]})
         base = next((i for i in backing if i["expansion"]), backing[0])
@@ -3855,6 +3878,95 @@ def self_test():
                 not problem_b2 and [r["expected_id"] for r in rows_b2] == [] and late_rows_b2 is not None
                 and [(r["expected_id"], r["occasion_locator"].split("#", 1)[1], r["basis"]) for r in late_rows_b2]
                 == [("N-1@r0", backlog_entry, "incomplete")], f"{problem_b2} {rows_b2} {late_b2} {late_rows_b2}")
+
+        # WP-08c (W r1): an occasion is a record, so the parts of a clipped record an expansion shows - two in one
+        # expansion window (dw2's result), or across several (a longer log) - are one occasion with the window that
+        # clipped it (D-20261106-e42658). Readings of one side that differ in the exposure alone give exposure_unknown:
+        # the resolution pending, the unit read_complete; in the verdict, conflicting and read_partial. The window side
+        # against the expansion side keeps D-20261104-a9e2d2: the expansion's verdict, and exposure_unknown
+        def fx_long_log_records():
+            log = "".join(f"  migrating shard {i:04d}  ok  {'.' * 30}\n" for i in range(600))
+            return [views.fx_human(views.fx_stamp(3, hour=1), "please migrate every shard"),
+                    views.fx_call(views.fx_stamp(3, hour=2), "Bash", {"command": "migrate --all"}),
+                    views.fx_result(views.fx_stamp(3, hour=3), log),
+                    views.fx_assistant(views.fx_stamp(3, hour=4), "the migration finished")]
+
+        def part_judging(window_judgement, part_judgement):
+            """The clipped record judged an occasion of N-1: by the window that clipped it as `window_judgement` (None:
+            not judged), and in each part an expansion shows as `part_judgement(k)`, k the part's index."""
+            def answers(where, doc, rows, parts):
+                answer = fx_answer(doc, rows, decide=lambda m: "expand")
+                clipped = doc.get("expansion_of") or next((r["record_id"] for r in doc["records"] if "clipped" in r), None)
+                for n, target in enumerate(r for r in doc["records"] if r["record_id"] == clipped):
+                    judgement = (part_judgement((target.get("span") or {"index": 1})["index"]) if "/x/" in where
+                                 else window_judgement)
+                    if judgement is None:
+                        continue
+                    text, occurrence = fx_quote(target)
+                    answer["quotes"].append({"quote_id": f"q{71 + n}", "entry": views.eid(target), "text": text,
+                                             **({"occurrence": occurrence} if occurrence is not None else {})})
+                    answer["observations"].append({"expected_id": "N-1@r0", "occasion_locator": views.eid(target),
+                                                   "exposure": judgement[1], "verdict": judgement[0],
+                                                   "evidence_ids": [f"q{71 + n}"]})
+                return [((), answer)]
+            return answers
+
+        def part_run(label, rows_of, window_judgement, part_judgement):
+            """`(problem, unit statuses, N-1's instances, its resolution, the occasions settled otherwise, how many
+            readings judged the record, in how many expansion windows)` of one run over `rows_of`."""
+            run_p, sup_p, _made = fx_reader(root / label, label, part_judging(window_judgement, part_judgement),
+                                            expanding=lambda m: True, ledger_doc=fx_ledger(label), main_only=True,
+                                            main_records=rows_of, owned=views.fx_owned(rows_of()), pending_at=None)
+            got_p = {}
+            problem_p = refusal(lambda: got_p.update(run(run_p, sup_p)))
+            follow_p = guarded(lambda: stored_resolutions(run_p), {})
+            rows_p = [json.loads(l) for l in guarded(lambda: records.jsonl_read(run_p / follow_p["instances"]), [])]
+            files_p = [f for unit in guarded(lambda: sorted((run_p / "read").glob("*.json")), [])
+                       for f in records.read_json(unit)["files"]]
+            judged_by = [(w in f.get("expansions", []), o) for f in files_p for w in f.get("windows", []) + f.get("expansions", [])
+                         for o in w.get("observations", []) if o["expected_id"] == "N-1@r0"]
+            return (problem_p or None, sorted(set(got_p.get("units", {}).values())),
+                    [(r["verdict"], r["exposure"], r["occasion_locator"].split("#", 1)[1]) for r in rows_p
+                     if r["expected_id"] == "N-1@r0"],
+                    (follow_p.get("resolutions", {}).get("N-1@r0") or {}).get("resolution"),
+                    [{k: [{x: y for x, y in o.items() if x not in ("occasion_locator", "judgements")} for o in v]
+                      for k, v in f["occasions"].items() if isinstance(v, list) and v} for f in files_p
+                     if any(isinstance(v, list) and v for v in (f.get("occasions") or {}).values())],
+                    len(judged_by), sum(1 for f in files_p for x in f.get("expansions", [])
+                                        if any(o["expected_id"] == "N-1@r0" for o in x.get("observations", []))))
+        part_rid, part_observed, part_not = "3/message/content/0/content", ("observed", seen), ("not_observed", seen)
+        part_cases = (
+            ("one window, every reading the same: one instance, not one a reading",
+             "pt-same", fx_decisive_records, part_observed, lambda k: part_observed,
+             (None, ["read_complete"], [("observed", seen, part_rid)], "observed", [], 3, 1)),
+            ("one window, its two parts differing in the exposure alone: exposure_unknown, pending, the unit read whole",
+             "pt-exp1", fx_decisive_records, None, lambda k: part_observed if k == 1 else ("observed", unknown),
+             (None, ["read_complete"], [("observed", unknown, part_rid)], "pending", [], 2, 1)),
+            ("across windows, its parts differing in the exposure alone: exposure_unknown, pending, the unit read whole",
+             "pt-expn", fx_long_log_records, None, lambda k: part_observed if k == 1 else ("observed", unknown),
+             (None, ["read_complete"], [("observed", unknown, part_rid)], "pending", [], "parts", "windows")),
+            ("one window, its two parts differing in the verdict: conflicting, no instance, the unit read_partial",
+             "pt-ver1", fx_decisive_records, None, lambda k: part_observed if k == 1 else part_not,
+             (None, ["read_partial"], [], "pending", [{"conflicting": [{"expected_id": "N-1@r0"}]}], 2, 1)),
+            ("across windows, its parts differing in the verdict: conflicting, no instance, the unit read_partial",
+             "pt-vern", fx_long_log_records, None, lambda k: part_observed if k == 1 else part_not,
+             (None, ["read_partial"], [], "pending", [{"conflicting": [{"expected_id": "N-1@r0"}]}], "parts", "windows")),
+            ("the window against its expansion's parts, another verdict: the expansion's, the window's superseded",
+             "pt-wver", fx_decisive_records, part_observed, lambda k: part_not,
+             (None, ["read_complete"], [("not_observed", seen, part_rid)], "not_observed",
+              [{"superseded": [{"expected_id": "N-1@r0", "differs": ["verdict"], "window": {"verdict": "observed", "exposure": seen},
+                                "kept": {"verdict": "not_observed", "exposure": seen}}]}], 3, 1)),
+            ("the window against its expansion's parts, another exposure: exposure_unknown, the window's superseded",
+             "pt-wexp", fx_decisive_records, ("observed", unknown), lambda k: part_observed,
+             (None, ["read_complete"], [("observed", unknown, part_rid)], "pending",
+              [{"superseded": [{"expected_id": "N-1@r0", "differs": ["exposure"], "window": {"verdict": "observed", "exposure": unknown},
+                                "kept": {"verdict": "observed", "exposure": unknown}}]}], 3, 1)))
+        for named_p, label_p, rows_of, window_judgement, part_judgement, want_p in part_cases:
+            got_p = part_run(label_p, rows_of, window_judgement, part_judgement)
+            # across windows the number of parts is the fixture's own: more than one reading, in more than one window
+            fit_p = tuple(g if w not in ("parts", "windows") else w if g > (2 if w == "parts" else 1) else g
+                          for g, w in zip(got_p, want_p))
+            control(f"WP-08c, an occasion is its record: {named_p}", fit_p == want_p, f"{got_p}")
 
         # ---- commit 5a: a run repeated over its own directory, a store written under a taken id, a run resumed after
         # its driver was killed mid-call. Every process signalled here is one this suite started.
