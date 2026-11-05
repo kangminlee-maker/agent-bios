@@ -114,7 +114,9 @@ def host_schema(schema):
     on as a tool's input schema, which then holds no reference to resolve. The policy pins draft 2020-12 in code
     (`validate.compile_schema`) and allows a `$ref` only to an entry of the schema's own `$defs` (`validate.lint`), so
     neither key decides anything the inlined form does not. A `$ref` beside other keywords, one that reaches itself, or
-    one naming no entry of `$defs` has no inlined form and is refused.
+    one naming no entry of `$defs` has no inlined form and is refused. A reference's name is read by
+    `validate.local_ref_name`, as the policy's lint reads it: a name of letters, digits, `_` and `-` only, which a JSON
+    Pointer resolves as written, so nothing is decoded here (WP-08c, W r2).
 
     The schema is walked by its structure, as `host_keywords` walks it (WP-08c, X and W r1): a reference is a `$ref` at
     a schema position, and the schemas inside are the values under `properties` and `patternProperties` by name and
@@ -129,9 +131,12 @@ def host_schema(schema):
             return node  # a boolean schema, or `items` as a list, which `host_keywords` refuses
         if "$ref" in node:
             ref = node["$ref"]
-            name = ref[len("#/$defs/"):] if isinstance(ref, str) and ref.startswith("#/$defs/") else None
+            name = validate.local_ref_name(ref)
             if set(node) != {"$ref"}:
                 raise validate.SchemaPolicyError(f"HOST_SCHEMA {ref}: a $ref beside {sorted(set(node) - {'$ref'})} has no inlined form")
+            if name is None:
+                raise validate.SchemaPolicyError(f"HOST_SCHEMA {ref}: a reference is {validate.LOCAL_REF}<name>, its name read "
+                                                 "as written (validate.local_ref_name)")
             if name not in defs:
                 raise validate.SchemaPolicyError(f"HOST_SCHEMA {ref}: the reference names no entry of $defs")
             if name in seen:
@@ -418,6 +423,22 @@ def self_test():
             raised(lambda: host_schema({"type": "object", "additionalProperties": False, "$defs": {"a": {"type": "string"}},
                                         "properties": {"x": {"$ref": "#/$defs/b"}}}),
                    validate.SchemaPolicyError, "HOST_SCHEMA #/$defs/b: the reference names no entry of $defs"))
+    # WP-08c (W r2): a reference's name holding a JSON Pointer or URI escape is refused before a host is handed it - by
+    # the policy's lint where schema_bytes compiles it, and by host_schema itself when called alone - so the escaped
+    # name "a~1b" never reaches a host as the literal entry while jsonschema resolves it as "a/b"
+    escaped_names = {"type": "object", "additionalProperties": False, "required": ["x"],
+                     "$defs": {"a/b": {"type": "integer"}, "a~1b": {"type": "string"}},
+                     "properties": {"x": {"$ref": "#/$defs/a~1b"}}}
+    control("schema-builder-refuses-an-escaped-reference-name",
+            raised(lambda: schema_bytes(escaped_names), validate.SchemaPolicyError, "as #/$defs/<name>, the name of letters")
+            + [line for name in ("a~0b", "a%2Fb") for line in raised(
+                lambda name=name: schema_bytes({"type": "object", "additionalProperties": False, "required": ["x"],
+                                                "$defs": {name: {"type": "string"}},
+                                                "properties": {"x": {"$ref": f"#/$defs/{name}"}}}),
+                validate.SchemaPolicyError, "as #/$defs/<name>, the name of letters")])
+    control("host-schema-refuses-an-escaped-reference-name",
+            raised(lambda: host_schema(escaped_names), validate.SchemaPolicyError,
+                   "HOST_SCHEMA #/$defs/a~1b: a reference is #/$defs/<name>"))
     # WP-08c (X and W r1): the handed form is made by walking the schema's structure, so a literal {"$ref": ...} that an
     # enum, a const, a default or an example holds is data, and a property named $ref is a name; and the schema as
     # written and the form a host is handed accept and refuse the same answers, for those and for every schema a host

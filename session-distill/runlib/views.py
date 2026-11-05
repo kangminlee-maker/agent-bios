@@ -242,12 +242,14 @@ def clip_bounds(text):
     """`(head end, tail start)` of a clipped block: on line boundaries where its text has them (WP-08c). A line ends
     where `str.splitlines(keepends=True)` ends it - "\n", "\r", "\r\n" as one end, U+2028, "\x0c" and the others it
     knows - which is how the clipper and the view check read error lines, so a result whose lines run on carriage returns
-    (a progress bar's output) is cut between lines too, never between "\r" and "\n". The head ends at the last line
-    boundary at or before HEAD_CHARS, and the tail starts at the first at or after `len - TAIL_CHARS`. The cut is by
-    characters, on HEAD_CHARS or `len - TAIL_CHARS` itself, when the nearest line boundary would keep less than half of
-    HEAD_CHARS or of TAIL_CHARS: in a block that is one long line, and in one whose line around the cut is that long. A
-    cut inside a line split it between a shown side and the omitted middle, so the middle's expansion began or ended
-    mid-line (dw2-live1: it ended at "cleanup 028")."""
+    (a progress bar's output) is cut between lines too. The head ends at the last line boundary at or before
+    HEAD_CHARS, and the tail starts at the first at or after `len - TAIL_CHARS`. The cut is by characters, on
+    HEAD_CHARS or `len - TAIL_CHARS` itself, when the nearest line boundary would keep less than half of HEAD_CHARS or
+    of TAIL_CHARS: in a block that is one long line, and in one whose line around the cut is that long. Either cut keeps
+    a "\r\n" whole (X r2): a head end that would fall between its "\r" and "\n" moves back before the "\r", and a tail
+    start there moves on past the "\n" - which the boundary rule already does at the tail, since the boundary after a
+    "\r\n" keeps more than half of TAIL_CHARS. A cut inside a line split it between a shown side and the omitted middle,
+    so the middle's expansion began or ended mid-line (dw2-live1: it ended at "cleanup 028")."""
     n = len(text)
     head, tail = HEAD_CHARS, n - TAIL_CHARS
     before, after, at = 0, None, 0
@@ -264,6 +266,10 @@ def clip_bounds(text):
         head = before
     if after is not None and n - after >= TAIL_CHARS // 2:
         tail = after
+    if text[head - 1:head + 1] == "\r\n":
+        head -= 1
+    if text[tail - 1:tail + 1] == "\r\n":
+        tail += 1
     return head, tail
 
 
@@ -2950,25 +2956,36 @@ def self_test():
                 clip_bounds(mixed), mixed[1195], mixed[10878]),
                ({"\\r": (1189, 11521), "U+2028": (1189, 11521), "\\r\\n": (1176, 11802)}, (1176, len(straddle) - 799),
                 "\r\n", "\r\n", (1196, 10879), "\x0c", "\n"))
+        # ... and a cut by characters keeps a "\r\n" whole too (X r2): a head with no line end that keeps half of it,
+        # whose 1,200th character is the "\n" of a "\r\n", ends before the "\r"; at the tail the line boundary after
+        # such a "\r\n" keeps 799 characters, so the tail starts past its "\n" by the boundary rule
+        crlf_head, crlf_tail = "a" * 1199 + "\r\n" + "b" * 5000, "b" * 5000 + "\r\n" + "c" * 799
+        expect("WP-08c: a clipped tool result's cut by characters never falls between the \\r and \\n of one line end - "
+               "the head moves back before the \\r, the tail starts past the \\n",
+               (clip_bounds(crlf_head), crlf_head[1199:1201], clip_bounds(crlf_tail), crlf_tail[5000:5002]),
+               ((1199, 5401), "\r\n", (1200, 5002), "\r\n"))
         # ... and the view check reads the error lines between the same bounds the clipper cut at, and the manifest names
         # the same omitted span (WP-08c): a progress bar's output on carriage returns, an error line in its middle
         stepped = "".join(f"step {i:04d} of the progress bar, still going.\r" for i in range(150)) \
             + "ERROR: disk full at block 7\r" + "".join(f"step {i:04d} of the progress bar, still going.\r" for i in range(150, 300))
         stepped_entry = make_entry({"pointer": "/x", "kind": "tool_result", "text": stepped}, 1, "in_window", 0)
-        stepped_meta = clip_parts(stepped, "tool_result")[1]
+        stepped_rows = manifest_of([stepped_entry])
         stepped_hidden = copy.deepcopy(stepped_entry)
         for a, b in stepped_hidden["clipped"]["error_lines"]:
             stepped_hidden["segments"] = [s for s in stepped_hidden["segments"] if s["block"] != [a, b]]
             stepped_hidden["clipped"]["gaps"] = coverage.normalize(stepped_hidden["clipped"]["gaps"] + [[a, b]])
         expect("WP-08c: on a result whose lines end in carriage returns, the clip, the view check's error lines and the "
-               "manifest's omitted span name the same bounds and the same error line; it is kept, and named "
+               "manifest's row (manifest_of) name the same bounds and the same error line; it is kept, and named "
                "ERROR_LINE_DROPPED when hidden",
                ((stepped_entry["clipped"]["head"][1], stepped_entry["clipped"]["tail"][0]),
-                (stepped_meta["omitted_span"]["start"], stepped_meta["omitted_span"]["end"]),
+                [((r["omitted_span"]["start"], r["omitted_span"]["end"]), r["error_lines"],
+                  r["omission_id"] == omission_id(r["record_id"], 1188, 12436),
+                  r["omitted_span"]["sha256"] == records.sha256_bytes(stepped[1188:12436].encode("utf-8")))
+                 for r in stepped_rows],
                 stepped_entry["clipped"]["error_lines"], error_lines_of(stepped),
                 check_tiling([{"records": [stepped_entry]}], {"1/x": stepped}),
                 any("ERROR_LINE_DROPPED 1/x" in e for e in check_tiling([{"records": [stepped_hidden]}], {"1/x": stepped}))),
-               ((1188, 12436), (1188, 12436), [[6600, 6628]], [[6600, 6628]], [], True))
+               ((1188, 12436), [((1188, 12436), 1, True, True)], [[6600, 6628]], [[6600, 6628]], [], True))
 
         # ---- WP-08c: an expansion shows its record's neighbours as overlap, and a middle too long for one window is cut
         # across several, each owning its spans with the overlap the sequence puts around them

@@ -65,6 +65,21 @@ SUPPORTED_KEYWORDS = frozenset({
     "properties", "patternProperties", "items", "$defs",  # the subschema carriers `lint` descends into
     "$ref",                  # only `#/$defs/<name>` of the same schema
 })
+# A `$defs` name, and so the name a local `$ref` reads (WP-08c, W r2): letters, digits, `_` and `-` only. A JSON Pointer
+# reads `~1` as "/" and `~0` as "~", and a URI fragment reads `%2F` as "/", so a name holding them is resolved by the
+# policy's jsonschema as one entry and read as written by `packet.host_schema` as another. Within these characters a
+# name reads the same in all three, so nothing is decoded anywhere.
+LOCAL_NAME = re.compile(r"[A-Za-z0-9_-]+\Z")
+LOCAL_REF = "#/$defs/"
+
+
+def local_ref_name(ref):
+    """The `$defs` name a local reference names, or None when `ref` is not `#/$defs/<name>` with a name `LOCAL_NAME`
+    allows. `lint` and `packet.host_schema` both read a reference through this, so the two cannot read it apart."""
+    if not isinstance(ref, str) or not ref.startswith(LOCAL_REF):
+        return None
+    name = ref[len(LOCAL_REF):]
+    return name if LOCAL_NAME.match(name) else None
 # Keywords that constrain an object; a subschema carrying any of them is an object schema
 # whether or not it says `type: object`.
 OBJECT_KEYWORDS = frozenset({"properties", "patternProperties", "required", "additionalProperties",
@@ -80,8 +95,11 @@ def lint(schema, path="#", root=None):
               for key in sorted(set(schema) - SUPPORTED_KEYWORDS)]
     if "$ref" in schema:
         ref = schema["$ref"]
-        name = ref[len("#/$defs/"):] if isinstance(ref, str) and ref.startswith("#/$defs/") else None
-        if name not in (root.get("$defs") or {}):
+        name = local_ref_name(ref)
+        if name is None:
+            errors.append(f"SCHEMA_POLICY {path}: $ref must name an entry of this schema's $defs as {LOCAL_REF}<name>, "
+                          f"the name of letters, digits, _ and - only (no JSON Pointer or URI escape), got {ref!r}")
+        elif name not in (root.get("$defs") or {}):
             errors.append(f"SCHEMA_POLICY {path}: $ref must name an entry of this schema's $defs, got {ref!r}")
     if not {"type", "enum", "const", "$ref"} & set(schema):
         errors.append(f"SCHEMA_POLICY untyped subschema at {path}: declare type, enum, const or $ref")
@@ -91,6 +109,9 @@ def lint(schema, path="#", root=None):
         errors.append(f"SCHEMA_POLICY open object at {path}: additionalProperties must be false")
     for keyword in ("properties", "patternProperties", "$defs"):
         for name, sub in (schema.get(keyword) or {}).items():
+            if keyword == "$defs" and not LOCAL_NAME.match(name):
+                errors.append(f"SCHEMA_POLICY {path}/$defs: the name {name!r} is not of letters, digits, _ and - only, "
+                              "so a reference to it could be read as another entry")
             errors.extend(lint(sub, f"{path}/{keyword}/{name}", root))
     if "items" in schema:
         errors.extend(lint(schema["items"], f"{path}/items", root))
@@ -205,6 +226,30 @@ def self_test():
             failures.append(f"$ref {ref!r} was not refused")
     if not refused_with({**good, "properties": {"a": True}}, SchemaPolicyError, "must be an object"):
         failures.append("a boolean subschema was not refused")
+    # WP-08c (W r2): a $defs name and a $ref's name are letters, digits, _ and - only. A JSON Pointer reads "~1" as "/"
+    # and "~0" as "~", a URI fragment "%2F" as "/", so jsonschema resolves such a name as one entry while a reader of
+    # it as written takes another: with both "a/b" and "a~1b" defined, "#/$defs/a~1b" is "a/b" to jsonschema
+    escaped = {"type": "object", "additionalProperties": False, "required": ["x"],
+               "$defs": {"a/b": {"type": "integer"}, "a~1b": {"type": "string"}},
+               "properties": {"x": {"$ref": "#/$defs/a~1b"}}}
+    for label, schema, needle in (
+            ("both spellings defined (the reference)", escaped, "as #/$defs/<name>, the name of letters"),
+            ("both spellings defined (the names)", escaped, "the name 'a/b' is not of letters"),
+            ("~1", {**shared, "$defs": {"a~1b": {"type": "string"}}, "properties": {"k": {"$ref": "#/$defs/a~1b"}},
+                    "patternProperties": {}}, "as #/$defs/<name>, the name of letters"),
+            ("~0", {**shared, "$defs": {"a~0b": {"type": "string"}}, "properties": {"k": {"$ref": "#/$defs/a~0b"}},
+                    "patternProperties": {}}, "as #/$defs/<name>, the name of letters"),
+            ("%2F", {**shared, "$defs": {"a%2Fb": {"type": "string"}}, "properties": {"k": {"$ref": "#/$defs/a%2Fb"}},
+                     "patternProperties": {}}, "as #/$defs/<name>, the name of letters"),
+            ("an escaped reference to a plain name", {**shared, "properties": {"k": {"$ref": "#/$defs/sh%61"}}},
+             "as #/$defs/<name>, the name of letters"),
+            ("a name no reference reads", {**shared, "$defs": {**shared["$defs"], "a.b": {"type": "string"}}},
+             "the name 'a.b' is not of letters")):
+        if not refused_with(schema, SchemaPolicyError, needle):
+            failures.append(f"an escaped $defs or $ref name, {label}, was not refused naming {needle!r}")
+    if [local_ref_name(r) for r in ("#/$defs/sha", "#/$defs/a_b-1", "#/$defs/a~1b", "#/$defs/", "#/$defs/a\n", 3)] \
+            != ["sha", "a_b-1", None, None, None, None]:
+        failures.append("local_ref_name read a name other than letters, digits, _ and -, or refused one of them")
 
     # a missing package and a package of another version are named failures at import, never a silent skip
     source = pathlib.Path(__file__).read_text(encoding="utf-8")

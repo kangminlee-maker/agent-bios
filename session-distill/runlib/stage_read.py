@@ -3960,7 +3960,21 @@ def self_test():
              "pt-wexp", fx_decisive_records, ("observed", unknown), lambda k: part_observed,
              (None, ["read_complete"], [("observed", unknown, part_rid)], "pending",
               [{"superseded": [{"expected_id": "N-1@r0", "differs": ["exposure"], "window": {"verdict": "observed", "exposure": unknown},
-                                "kept": {"verdict": "observed", "exposure": unknown}}]}], 3, 1)))
+                                "kept": {"verdict": "observed", "exposure": unknown}}]}], 3, 1)),
+            # ... and the same three across several expansion windows (W r2)
+            ("across windows, the window and every part the same: one instance, not one a reading",
+             "pt-samen", fx_long_log_records, part_observed, lambda k: part_observed,
+             (None, ["read_complete"], [("observed", seen, part_rid)], "observed", [], "parts", "windows")),
+            ("across windows, the window against its expansion's parts, another verdict: the expansion's, the window's "
+             "superseded", "pt-wvern", fx_long_log_records, part_observed, lambda k: part_not,
+             (None, ["read_complete"], [("not_observed", seen, part_rid)], "not_observed",
+              [{"superseded": [{"expected_id": "N-1@r0", "differs": ["verdict"], "window": {"verdict": "observed", "exposure": seen},
+                                "kept": {"verdict": "not_observed", "exposure": seen}}]}], "parts", "windows")),
+            ("across windows, the window against its expansion's parts, another exposure: exposure_unknown, the window's "
+             "superseded", "pt-wexpn", fx_long_log_records, ("observed", unknown), lambda k: part_observed,
+             (None, ["read_complete"], [("observed", unknown, part_rid)], "pending",
+              [{"superseded": [{"expected_id": "N-1@r0", "differs": ["exposure"], "window": {"verdict": "observed", "exposure": unknown},
+                                "kept": {"verdict": "observed", "exposure": unknown}}]}], "parts", "windows")))
         for named_p, label_p, rows_of, window_judgement, part_judgement, want_p in part_cases:
             got_p = part_run(label_p, rows_of, window_judgement, part_judgement)
             # across windows the number of parts is the fixture's own: more than one reading, in more than one window
