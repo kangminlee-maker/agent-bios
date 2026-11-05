@@ -1825,23 +1825,42 @@ FX_DW5_INTENT = {"ask 1": ("exposure_unknown", "observed"), "ask 2": ("eligible"
 # and what code derives from those judgements (design §11): one eligible occasion not observed decides P-1; T-1 has no
 # eligible occasion, only an exposure_unknown one, so it is pending
 FX_DW5_RESOLUTIONS = {"P-1@r0": "not_observed", "T-1@r0": "pending"}
+# what each P-1 reading cites, the exposure and the behaviour read.md asks it to show (W r1): every ask and the answer
+# after it, the guide's read for an eligible ask, and the person asking again for the ask whose answer did not do
+FX_DW5_CITES = {"ask 1": ("ask", "answer"), "ask 2": ("guide", "ask", "answer"),
+                "ask 3": ("guide", "ask", "answer", "asked again"), "ask 4": ("ask", "answer")}
 
 
 def fx_dw5_answers(where, doc, rows, parts):
     """The golden readings of DW5, in entries as a fixture writes them: each ask an occasion of P-1 on the ask's record,
-    judged as `FX_DW5_INTENT` says, citing the ask and the answer after it when the window shows it; the forced omission
-    expanded; and the expansion judging T-1's occasion on the test run's record, citing the line that did not pass."""
+    judged as `FX_DW5_INTENT` says and citing what `FX_DW5_CITES` says (a record two readings cite is one quote); the
+    forced omission expanded; and the expansion judging T-1's occasion on the test run's record, citing the line that
+    did not pass."""
     answer = fx_answer(doc, rows, decide=lambda m: "expand")
-    by_text = {r["text"]: r for r in doc["records"]}
+    shown = doc["records"]
+    by_text = {r["text"]: r for r in shown}
+    guide = next((r for r in shown if "guides/plain-explanation.md" in r["text"]), None)
+    quote_of = {}
     for n, ask in enumerate(FX_DW5_ASKS, 1):
         record = by_text.get(ask)
         if record is None:
             continue
-        exposure, verdict = FX_DW5_INTENT[f"ask {n}"]
-        quote_id = f"q{10 + n}"
-        answer["quotes"].append({"quote_id": quote_id, "entry": views.eid(record), "text": ask})
+        key, after = f"ask {n}", shown[shown.index(record) + 1:]
+        reply = next((r for r in after if r["kind"] == "assistant"), None)
+        again = next((r for r in after if r["kind"] == "human"), None)
+        cited = {"ask": (record, ask), "answer": reply and (reply, reply["text"]),
+                 "asked again": again and (again, again["text"]),
+                 "guide": guide and (guide, "guides/plain-explanation.md")}
+        evidence_ids = []
+        for role in FX_DW5_CITES[key]:
+            of, text = cited[role]
+            quote_id = quote_of.setdefault((views.eid(of), text), f"q{101 + len(quote_of)}")
+            if quote_id not in {q["quote_id"] for q in answer["quotes"]}:
+                answer["quotes"].append({"quote_id": quote_id, "entry": views.eid(of), "text": text})
+            evidence_ids.append(quote_id)
+        exposure, verdict = FX_DW5_INTENT[key]
         answer["observations"].append({"expected_id": "P-1@r0", "occasion_locator": views.eid(record), "exposure": exposure,
-                                       "verdict": verdict, "evidence_ids": [quote_id]})
+                                       "verdict": verdict, "evidence_ids": evidence_ids})
     failing = next((r for r in doc["records"] if FX_DW5_FAILING in r["text"]), None)
     if failing is not None and "/x/" in where:
         exposure, verdict = FX_DW5_INTENT["test run"]
@@ -2436,11 +2455,32 @@ def self_test():
         judged_d5 = sorted((by_line.get(int(i["occasion_locator"].split("#", 1)[1].split("/")[0])), i["expected_id"], i["exposure"],
                             i["verdict"]) for i in instances_d5)
         intended_d5 = sorted((key, "T-1@r0" if key == "test run" else "P-1@r0", *FX_DW5_INTENT[key]) for key in FX_DW5_INTENT)
+        # the records each instance cites, by line, against the rule the readings follow (W r1): every P-1 instance its ask
+        # and the answer after it, an eligible one the guide's read too, a not observed one the person asking again too;
+        # T-1's the test run's record
+        shown_d5 = sorted({r["line"]: r for d in d5["docs"].values() for r in d["records"]}.items())
+        next_d5 = {k: {kind: next((line for line, r in shown_d5 if line > at and r["kind"] == kind), None)
+                       for kind in ("assistant", "human")} for k, at in line_d5.items() if at is not None}
+        cited_d5 = {e["evidence_id"]: e.get("line") for e in guarded(lambda: stored_evidence_of(d5["dir"], d5["view"]), [])}
+        cites_d5 = sorted((by_line.get(int(i["occasion_locator"].split("#", 1)[1].split("/")[0])),
+                           sorted(cited_d5.get(e) or 0 for e in i["evidence_ids"])) for i in instances_d5)
+        meant_d5 = sorted((key, sorted([line_d5[key]] if key == "test run" else
+                                       [line_d5[key], next_d5[key]["assistant"]]
+                                       + ([line_d5["plain guide"]] if exposure == "eligible" else [])
+                                       + ([next_d5[key]["human"]] if verdict == "not_observed" else [])))
+                          for key, (exposure, verdict) in FX_DW5_INTENT.items() if line_d5.get(key) is not None
+                          and next_d5.get(key, {}).get("assistant") is not None)
         control("DW5 (golden): every intended judgement - four asks of P-1 and the test run's T-1, each read in labels - is "
-                "an instance on its own record, the test run's from the expansion that read it whole",
-                judged_d5 == intended_d5 and all(i["evidence_ids"] for i in instances_d5)
+                "an instance on its own record, the test run's from the expansion that read it whole, and each cites its "
+                "ask and the answer after it, the guide's read when eligible and the asking again when not observed",
+                judged_d5 == intended_d5 and len(meant_d5) == len(FX_DW5_INTENT) and cites_d5 == meant_d5
                 and any(i["expected_id"] == "T-1@r0" for x in read_d5.get("expansions", []) for i in x.get("observations", [])),
-                f"{judged_d5}")
+                f"{judged_d5} {cites_d5} {meant_d5}")
+        order_d5 = [[line_d5.get(k) for k in ("ask 1", "plain guide", "ask 2", "ask 3")],
+                    [line_d5.get(k) for k in ("test guide", "test run", "report")]]
+        control("DW5 (golden): the plain guide's read comes after the first ask and before the second and third, and the "
+                "test guide's read before the test run, whose report comes after it - the order the exposures rest on",
+                all(None not in lines and lines == sorted(set(lines)) for lines in order_d5), f"{order_d5}")
         resolved_d5 = {k: (v["resolution"], v["counts"]) for k, v in follow_d5.get("resolutions", {}).items()}
         control("DW5 (golden): code derives P-1 not observed - one eligible occasion not observed wins over an observed one "
                 "and two exposure_unknown ones - and T-1 pending, whose only occasion is exposure_unknown",
@@ -2450,11 +2490,14 @@ def self_test():
                 f"{resolved_d5}")
         due_d5 = [text.split("<expected_observations>\n", 1)[-1].split("\n</expected_observations>", 1)[0]
                   for text in packet_of("dw5", "window") + packet_of("dw5", "expansion")]
+        # all three fields of both observations, line by line (W r1: a control that read the criteria alone passed a packet
+        # without a rule or a behaviour)
+        want_due = "\n".join(f"- x{n}\n  occasion: {e['occasion_criteria']}\n  exposure rule: {e['exposure_rule']}\n"
+                             f"  expected behaviour: {e['expected_behavior']}" for n, e in ((1, FX_DW5_PLAIN), (2, FX_DW5_TESTS)))
         control("DW5 (golden): every packet of the leg lists the two due observations as x1 and x2 with their criteria, rule "
                 "and behaviour, and not their retrieval terms",
-                len(due_d5) == 3 and all(block.startswith("- x1\n  occasion: " + FX_DW5_PLAIN["occasion_criteria"])
-                                         and "\n- x2\n  occasion: " + FX_DW5_TESTS["occasion_criteria"] in block
-                                         and "retrieval" not in block for block in due_d5), f"{[b[:60] for b in due_d5]}")
+                len(due_d5) == 3 and all(block == want_due and "retrieval" not in block for block in due_d5),
+                f"{[b[:60] for b in due_d5]}")
         host_schemas = [guarded(lambda c=c, leg=leg: json.loads((live[leg]["dir"] / "calls" / c / "schema.json").read_text(encoding="utf-8")), {})
                   for leg in live for kind in ("window", "expansion", "stitch") for c in live[leg]["attempts"][kind]]
         control("WP-08 commit 7: every schema S3 hands a host names no meta-schema, which Claude Code's --json-schema check "
