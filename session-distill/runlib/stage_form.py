@@ -328,11 +328,48 @@ def answer_problems(labels, answer):
     return errors
 
 
-def judge(labels):
+def judge(labels, capacity):
     """The stage's check of the formation's attempts, as `Supervisor.item(stage_check=)` asks it: pure code over the
-    attempt's call directory, which it only reads."""
+    attempt's call directory, which it only reads. An attempt whose record does not carry the capacity S4 was admitted
+    against stops the stage by name (`recorded_capacity`), before any retry or reuse: no answer of it is judged."""
     from runlib import stage_read
-    return lambda call_dir: answer_problems(labels, stage_read.answer_of(call_dir))
+
+    def check(call_dir):
+        recorded_capacity(call_dir, capacity)
+        return answer_problems(labels, stage_read.answer_of(call_dir))
+    return check
+
+
+def recorded_capacity(call_dir, capacity):
+    """`capacity` when an attempt's call record carries it as the capacity it was admitted against, else
+    CAPACITY_UNRECORDED by name (W review of WP-09 r2, F1). The gate compares the context window the host reports
+    with that record (CAPACITY_DRIFT); a record without it is compared with nothing, and is how the catalogue's
+    capacity would go unchecked by the first live call."""
+    held = ((records.read_json(pathlib.Path(call_dir) / "call.json").get("bound")) or {}).get("context_capacity")
+    if held != capacity:
+        raise Refused(f"CAPACITY_UNRECORDED {pathlib.Path(call_dir).name}: its call record carries the capacity {held!r}, "
+                      f"and S4 was admitted against {capacity}; the context window the host reports would be compared "
+                      "with nothing")
+    return capacity
+
+
+def observed(call_dir):
+    """What an accepted formation call measured of S4's two assumptions (W review of WP-09 r2, F1): the context window
+    the host reports per model, beside the capacity the call was admitted against; and the input tokens the host
+    reported for its main request, beside the driver bytes the call sent, with their ratio (the bytes a token covered,
+    the host's own context included, so a low reading)."""
+    call_dir = pathlib.Path(call_dir)
+    held = records.read_json(call_dir / "call.json").get("bound") or {}
+    result = gate.Call(call_dir).result
+    usage = result.get("modelUsage") if isinstance(result, dict) else None
+    windows = {m: u.get("contextWindow") for m, u in sorted((usage or {}).items()) if isinstance(u, dict)}
+    usage_path = call_dir / "usage.json"
+    tokens, missing = (bound.observed_input(records.read_json(usage_path)["requests"]) if usage_path.is_file()
+                       else (None, ["no usage.json"]))
+    return {"admitted_capacity": held.get("context_capacity"), "context_window": windows,
+            "driver_bytes": held.get("driver_bytes"), "input_tokens": tokens or None,
+            "bytes_per_token": round(held["driver_bytes"] / tokens, 3) if tokens and held.get("driver_bytes") else None,
+            "missing": [str(m) for m in missing] if missing else []}
 
 
 
@@ -803,7 +840,9 @@ def bound_problems(driver_bytes, limits, form_bound=None, what="the formation pa
 
 
 def packet_bytes(run_id, seat, text, schema_bytes):
-    """The driver bytes of the formation packet, measured as dispatch measures them, under its retry's call id."""
+    """The driver bytes of the formation packet, measured as dispatch measures them, under its retry's call id: the
+    estimate S4 is admitted on. Each attempt is measured again once reserved, under the id it is given (`run`'s
+    packet_check; W review of WP-09 r2, F2)."""
     call_id = f"{run_id}-{STAGE}-{ITEM}-a2"
     return bound.driver_bytes(packet.build(call_id, STAGE, seat, text, schema_bytes), schema_bytes)[0]
 
@@ -898,9 +937,10 @@ def run(run_dir, supervisor=None, *, dry=False, index_rows=None, tranche="calibr
             out = supervisor.item(STAGE, ITEM, seat, text, schema, case_type=CASE,
                                   caps={"tokens": episode["tokens"], "compactions": episode["compactions"]},
                                   view_window=False, tranche=tranche, max_output_tokens=OUTPUT_CAP,
-                                  stage_check=judge(labels), resume=True,
-                                  packet_check=lambda sent: bound_problems(packet_bytes(run_id, seat, sent, schema_bytes),
-                                                                           limits, form_bound, "this attempt's packet"))
+                                  stage_check=judge(labels, limits["capacity"]), resume=True,
+                                  context_capacity=limits["capacity"],
+                                  packet_check=lambda built: bound_problems(bound.driver_bytes(built, schema_bytes)[0],
+                                                                            limits, form_bound, "this attempt's packet"))
             call = {"item": ITEM, "outcome": out["outcome"], "codes": out.get("codes", []),
                     "attempts": stage_read.attempts_of(out), "reused": out.get("reused")}
             if out["outcome"] != "accepted":
@@ -910,6 +950,7 @@ def run(run_dir, supervisor=None, *, dry=False, index_rows=None, tranche="calibr
                 stage.record["status"] = "partial"
                 return summary
             call["call_id"] = stage_read.call_id_of(out["accepted"])
+            call["observed"] = observed(out["accepted"])
             answer = labels.resolve(gate.accepted(out["accepted"], judged=True))
         else:
             call = {"item": ITEM, "outcome": "not_called", "codes": [], "attempts": [], "reused": None,
@@ -2073,6 +2114,103 @@ def self_test():
                 and unverified_call in refused_unverified and record_of(unverified_dir).get("status") == "failed"
                 and not list((unverified_dir / "calls").glob(f"*-{STAGE}-*"))
                 and guarded(lambda: open_s4(unverified_dir), []) == [unverified_call], refused_unverified)
+
+        # W r2, F1: the capacity S4 was admitted against is in each attempt's record, where the gate holds the host's
+        # reported window to it
+        def reporting(where, label, plan_path, window):
+            """S4's golden supervisor over `where`, its host reporting a context window of `window` in each result."""
+            cells = root / f"c5-cells-{label}"
+            sup = supervisor(where, cells, plan_path)
+            fake, answers = cells / "fake_host.py", str(pathlib.Path(plan_path).resolve())
+            sup.runner = lambda host, spec: [sys.executable, str(fake), host, "clean",
+                                             json.dumps({**spec, "answers": answers, "context_window": window})]
+            return sup
+
+        def s4_calls(where):
+            return sorted((where / "calls").glob(f"*-{STAGE}-*"))
+        same_dir = copy_of("cap-same")
+        same = guarded(lambda: run(same_dir, reporting(same_dir, "cap-same", plan, own.get("capacity"))),
+                       lambda exc: {"problem": repr(exc)})
+        seen = (same.get("call") or {}).get("observed") or {}
+        same_record = guarded(lambda: records.read_json(s4_calls(same_dir)[0] / "call.json")["bound"], {})
+        control("W r2 F1: an attempt's record carries the capacity S4 was admitted against, and a host reporting that "
+                "window is accepted; form.json keeps what the call measured of the capacity and of the bytes a token covers",
+                same.get("call", {}).get("outcome") == "accepted" and same_record.get("context_capacity") == own.get("capacity")
+                and seen.get("admitted_capacity") == own.get("capacity")
+                and list(seen.get("context_window", {}).values()) == [own.get("capacity")]
+                and seen.get("driver_bytes") == same_record.get("driver_bytes") and (seen.get("input_tokens") or 0) > 0
+                and seen.get("bytes_per_token") == round(same_record["driver_bytes"] / seen["input_tokens"], 3),
+                f"{same.get('problem') or same.get('call')} {same_record}")
+        drift_dir = copy_of("cap-drift")
+        drift = guarded(lambda: run(drift_dir, reporting(drift_dir, "cap-drift", plan, 200_000)),
+                        lambda exc: {"problem": repr(exc)})
+        control("W r2 F1: a host reporting another context window than the capacity S4 was admitted against fails the "
+                "gate (CAPACITY_DRIFT), and nothing is formed",
+                drift.get("call", {}).get("outcome") == "failed" and "CAPACITY_DRIFT" in drift.get("call", {}).get("codes", [])
+                and record_of(drift_dir).get("status") == "partial" and not (drift_dir / "population.json").exists(),
+                f"{drift.get('problem') or drift.get('call')}")
+        bare_dir = copy_of("cap-missing")
+
+        def unrecorded():
+            """S4's supervisor, its calls made without the capacity S4 hands them: what a broken wire would leave."""
+            sup = supervisor(bare_dir, root / "c5-cells-cap-missing", plan)
+            real_call = sup.call
+            sup.call = lambda *args, **kwargs: real_call(*args, **{**kwargs, "context_capacity": None})
+            return sup
+        bare = refusal(lambda: run(bare_dir, unrecorded()))
+        control("W r2 F1: an attempt whose record lacks the capacity S4 was admitted against stops S4 by name "
+                "(CAPACITY_UNRECORDED) before its answer is judged or retried",
+                bare.startswith("CAPACITY_UNRECORDED") and len(guarded(lambda: s4_calls(bare_dir), [])) == 1
+                and record_of(bare_dir).get("status") == "failed", bare)
+
+        invalid_dir = copy_of("cap-invalid")
+
+        def invalid_capacity():
+            """One S4 call handed a capacity that is no number."""
+            sup = supervisor(invalid_dir, root / "c5-cells-cap-invalid", plan)
+            held = sup.reserve(STAGE, ITEM, s4_seat, CASE, tranche="calibration")
+            sent_schema = packet.schema_bytes(form_schema())
+            return sup, sup.call(STAGE, s4_seat, packet.build(held["call_id"], STAGE, s4_seat, "x\n", sent_schema), form_schema(),
+                                 reservation=held, caps={"tokens": 1000, "compactions": 2}, view_window=False,
+                                 max_output_tokens=OUTPUT_CAP, context_capacity="big")
+        invalid = refusal(invalid_capacity)
+        control("W r2 F1: a stage's capacity that is not a positive integer is refused by name (CAPACITY_INVALID), its "
+                "reservation released and nothing sent", invalid.startswith("CAPACITY_INVALID")
+                and not guarded(lambda: s4_calls(invalid_dir), ["?"]) and guarded(lambda: open_s4(invalid_dir), ["?"]) == [],
+                invalid)
+
+        # W r2, F2: each attempt is measured under the call id it is given, a resumed run's two-digit ones included
+        def closed_attempts(where, label):
+            """Nine attempts of S4's item reserved and closed, as earlier runs leave them: the next is a10."""
+            sup = supervisor(where, root / f"c5-cells-{label}", plan)
+            for _ in range(9):
+                held = sup.reserve(STAGE, ITEM, s4_seat, CASE, tranche="calibration")
+                sup.release(STAGE, held["call_id"], "refused")
+        events_shown = guarded(lambda: json.loads(plan.read_text(encoding="utf-8"))[0]["match"], [])
+        resumed_plan = root / "c5-plan-two-digit.json"
+        guarded(lambda: resumed_plan.write_text(json.dumps(
+            [{"match": [*events_shown, "rejected by validation"], "answer": json.loads(plan.read_text(encoding="utf-8"))[0]["answer"]},
+             {"match": events_shown, "answer": json.loads(retry_plan.read_text(encoding="utf-8"))[0]["answer"]}]),
+            encoding="utf-8"), None)
+        free_dir = copy_of("two-digit-free")
+        guarded(lambda: closed_attempts(free_dir, "two-digit-free"), None)
+        free = guarded(lambda: run(free_dir, supervisor(free_dir, root / "c5-cells-two-digit-free", resumed_plan)),
+                       lambda exc: {"problem": repr(exc)})
+        free_calls = guarded(lambda: s4_calls(free_dir), [])
+        sent = guarded(lambda: bound.driver_bytes((free_calls[1] / "packet.md").read_text(encoding="utf-8"),
+                                                  (free_calls[1] / "schema.json").read_bytes())[0], 0)
+        tight_dir = copy_of("two-digit-tight")
+        guarded(lambda: closed_attempts(tight_dir, "two-digit-tight"), None)
+        tight = refusal(lambda: run(tight_dir, supervisor(tight_dir, root / "c5-cells-two-digit-tight", resumed_plan),
+                                    form_bound=sent - 1))
+        control("W r2 F2: after nine closed attempts S4's attempts are a10 and a11, and a bound one byte short of the a11 "
+                "packet as sent refuses that retry, measured at exactly its bytes",
+                free.get("call", {}).get("outcome") == "accepted" and [d.name[-4:] for d in free_calls] == ["-a10", "-a11"]
+                and sent > 0 and tight.startswith(f"FORM_OVER_BOUND S4: this attempt's packet takes {sent} driver bytes")
+                and [d.name[-4:] for d in guarded(lambda: s4_calls(tight_dir), [])] == ["-a10"]
+                and guarded(lambda: open_s4(tight_dir), ["?"]) == [],
+                f"{free.get('problem') or free.get('call')} {[d.name for d in free_calls]} sent={sent} {tight} "
+                f"open={guarded(lambda: open_s4(tight_dir), ['?'])}")
 
         # F2 at the stage: a window none of whose units resolved an event still forms from the intake's placed cluster
         quiet = copy_of("no-events")

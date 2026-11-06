@@ -71,7 +71,8 @@ USAGE_UNCAPTURED, RECEIPT_MISSING, SEAT_UNPINNED, ALLOWANCE_UNMEASURED, ALLOWANC
 WINDOW_OVER_BOUND, RUNNER_REALIZATION_MISMATCH, USE_REFUSED, CAP_UNDECLARED, RESUME_HOST_UNVERIFIED,
 EPISODE_CAP_ZERO (a per-episode token cap below 1, refused before anything is reserved: of the per-episode caps only
 tokens and compactions reach the host's monitor, compactions 0 is a cap like any other, and max_turns and
-max_budget_usd are read only where the breaker reads a host's stop). CONTRACT names the
+max_budget_usd are read only where the breaker reads a host's stop), CAPACITY_INVALID (a stage's own admitted
+capacity for a call without a view window that is not a positive integer). CONTRACT names the
 sections; the self-test
 derives this set from the source and holds it, and this list, against its own cited copy. The
 closure check (`closure_violations`) names DISPATCH_OUTSIDE_SUPERVISOR, DISPATCH_UNRESOLVED,
@@ -1253,11 +1254,16 @@ class Supervisor:
 
     def call(self, stage, seat, packet, schema, *, reservation, caps, view_window, host_version=None, manifest=None,
              child_seat=None, profile="hermetic", contract=None, use="judge", read_root=None, max_output_tokens=None,
-             payload_sha256=None):
+             payload_sha256=None, context_capacity=None):
         """Dispatch one model call and return its call directory (calls/<call_id>/). `use` is the
         call's profile of use (USES): a producing call is Claude's, reading only `read_root`, and
         its profile is recorded as `<profile>-producing` (the flag set it runs under, seats.json);
-        `max_output_tokens` is the stage's output-token cap."""
+        `max_output_tokens` is the stage's output-token cap.
+
+        `context_capacity` is the seat capacity a call without a view window was admitted against by its own
+        stage, which this dispatcher does not bound: it is recorded in call.json's bound block as a view-window
+        call's is, so the gate compares it with the context window the host reports (CAPACITY_DRIFT). A view-window
+        call's capacity is the one read here (W review of WP-09 r2, F1)."""
         if not isinstance(reservation, dict) or not reservation.get("call_id"):
             raise Refused(f"RESERVATION_MISSING {stage}: no model call is dispatched without a reservation (design §13.2)")
         call_id, host = reservation["call_id"], seat.partition(":")[0]
@@ -1304,6 +1310,11 @@ class Supervisor:
                 raise Refused(f"PACKET_REFUSED {call_id}: " + "; ".join(problems))
             admitted = self._admit_seat(stage, seat, call_id, host, host_version, profile, view_window, packet,
                                         schema_bytes, manifest, max_output_tokens, runner_profile)
+            if context_capacity is not None and not view_window:
+                if isinstance(context_capacity, bool) or not isinstance(context_capacity, int) or context_capacity < 1:
+                    raise Refused(f"CAPACITY_INVALID {call_id}: the stage's admitted capacity {context_capacity!r} is not "
+                                  "a positive integer, so the host's reported window would be compared with nothing")
+                admitted["context_capacity"] = context_capacity
             self._admit_runner(call_id, host)
         except Refused:
             self.release(stage, call_id, "refused")
@@ -1832,10 +1843,11 @@ class Supervisor:
         it as `reused`, and `not_reused` says why each other attempt was not (WP-08 commit 5a).
 
         `packet_check` is the stage's bound on what a call without a view window sends, which this dispatcher does not
-        bound: a function of the text an attempt would send - the payload, and on the retry the payload with its
-        correction, which is unbounded (`gate.correction`) - returning failure lines. It is asked before each attempt is
-        reserved, and lines stop the item by name (Refused) with nothing reserved for that attempt (W review of WP-09
-        r1, F3)."""
+        bound: a function of the packet an attempt sends - built under the call id its reservation was given, around the
+        payload, and on the retry the payload with its correction, which is unbounded (`gate.correction`) - returning
+        failure lines (W review of WP-09 r1, F3). It is asked once the attempt is reserved, so it measures the packet's
+        bytes under the id the attempt really has, a resumed run's longer ones included (W r2, F2); lines release the
+        reservation unspent and stop the item by name (Refused) before anything is sent."""
         tokens = (caps or {}).get("tokens")
         if isinstance(tokens, int) and not isinstance(tokens, bool) and tokens < 1:
             raise Refused(f"EPISODE_CAP_ZERO {stage}:{item}: {zero_tokens(caps)}")
@@ -1849,14 +1861,15 @@ class Supervisor:
         payload_sha256 = packets.sha256_bytes(payload.encode("utf-8"))
         dirs, text, settled, checked = [], payload, None, []
         for attempt in (1, 2):
-            refused = list(packet_check(text)) if packet_check is not None else []
-            if refused:
-                raise Refused("\n".join(refused))
             try:
                 reservation = self.reserve(stage, item, seat, case_type, tranche=tranche, attempt=attempt)
             except Exhausted as exc:
                 return {"item": item, "outcome": "not_done", "why": str(exc), "attempts": [str(d) for d in dirs]}
             packet = packets.build(reservation["call_id"], stage, seat, text, schema_bytes)
+            refused = list(packet_check(packet)) if packet_check is not None else []
+            if refused:
+                self.release(stage, reservation["call_id"], "refused")
+                raise Refused("\n".join(refused))
             try:
                 call_dir = self.call(stage, seat, packet, schema, reservation=reservation, caps=caps,
                                      view_window=view_window, payload_sha256=payload_sha256, **kwargs)
@@ -3019,6 +3032,8 @@ if host == "claude":
             "modelUsage": {model: {"inputTokens": usage["input_tokens"], "outputTokens": 61,
                                    "cacheReadInputTokens": usage["cache_read_input_tokens"],
                                    "cacheCreationInputTokens": usage["cache_creation_input_tokens"]}}}
+    if spec.get("context_window"):  # a host reports its context window in every result; a golden one when told it
+        base["modelUsage"][model]["contextWindow"] = spec["context_window"]
     if mode == "cap-overrun":  # Claude Code 2.1.304 past --max-output-tokens (WP-03v dw5, cap16)
         cap = spec.get("overrun_at", spec["max_output_tokens"])
         result = {**base, "subtype": "success", "is_error": True, "api_error": "max_output_tokens", "api_error_status": None,
@@ -6822,7 +6837,10 @@ def self_test(scratch=None):
         # WP-08 commit 5a: a resume never dispatches beside a call a dead run may have left running
         "RESUME_HOST_UNVERIFIED",
         # WP-08c: a declaration whose per-episode token cap is zero starts a host only to kill it (C1 live1)
-        "EPISODE_CAP_ZERO"}
+        "EPISODE_CAP_ZERO",
+        # WP-09 (W review r2, F1): a stage's own admitted capacity, recorded for a call without a view window, is a
+        # positive integer, or the host's reported window would be compared with nothing
+        "CAPACITY_INVALID"}
     # design §3.2 (accepted, failed with every attempt kept) and §13.2 (deferred, not done, budget_stopped)
     outcomes = {"accepted", "failed", "deferred", "not_done", "budget_stopped"}
     source = pathlib.Path(__file__).read_text(encoding="utf-8")
