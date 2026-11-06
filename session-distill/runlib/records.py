@@ -507,6 +507,25 @@ def _check_input(run_dir, stage, spec, seq, amendments, records):
             "producer_seq": produced["declaration_seq"]}, errors
 
 
+def provenance_problems(stage, pinned, records):
+    """INPUT_STALE for each producer of an admitted input that read another artifact this stage admits now, in bytes
+    other than those it admits (W review of WP-09 r1, F2; lead decision). An output's own digest says the producer
+    wrote it and nothing has changed it since; it does not say the producer read what is there now. A producer run
+    again at the same declaration sequence leaves its consumers' inputs each valid alone and stale together: S1 run
+    again under S3's results, which S4 would otherwise read beside the new census."""
+    admitted = {entry["artifact"]: entry["sha256"] for entry in pinned}
+    errors = {}
+    for entry in pinned:
+        label, produced = producing_part(records[entry["producer_stage"]], entry["artifact"])
+        producer = entry["producer_stage"] + (f".{label}" if label and label != entry["producer_stage"] else "")
+        for read in (produced or {}).get("inputs") or []:
+            now_at = admitted.get(read["artifact"])
+            if now_at is not None and read["sha256"] != now_at:
+                errors[f"INPUT_STALE {producer}: it read {read['artifact']} at {read['sha256'][:12]}, and {stage} admits "
+                       f"{read['artifact']} at {now_at[:12]}; {producer} is run again over what is there now"] = True
+    return list(errors)
+
+
 @contextlib.contextmanager
 def run_stage(run_dir, stage, inputs=(), part=None):
     """Hold the stage's lock, refuse to start on a stale, partial or invalid input or a
@@ -541,6 +560,7 @@ def run_stage(run_dir, stage, inputs=(), part=None):
                 errors.extend(problems)
                 if entry:
                     pinned.append(entry)
+            errors.extend(provenance_problems(stage, pinned, records))
             if errors:
                 raise Refused("\n".join(errors))
             record = {"stage": stage, "run_json_sha256": digest, "declaration_seq": seq, "started": now(),
@@ -1097,6 +1117,23 @@ def self_test():
             failures.append("a stage that raised was not recorded failed")
         expect("failed input", start("S8", [{"artifact": "S6.out", "producer_stage": "S6"}]), "INPUT_INVALID S6")
         expect("unknown stage", start("S0"), "STAGE_UNKNOWN S0")
+        # W review of WP-09 r1, F2 (lead decision): a producer's own inputs are held to what the consumer admits
+        prov = pathlib.Path(td) / "prov"
+        declare_fixture(prov, base)
+
+        def made(stage, inputs, text):
+            with run_stage(prov, stage, inputs) as st:
+                (prov / f"{stage}.out").write_text(text, encoding="utf-8")
+                st.output(f"{stage}.out")
+        both = [{"artifact": "S3.out", "producer_stage": "S3"}, {"artifact": "S1.out", "producer_stage": "S1"}]
+        made("S1", [], "census as S3 read it\n")
+        made("S3", [{"artifact": "S1.out", "producer_stage": "S1"}], "results over that census\n")
+        expect("a consumer admitting what its producer read is admitted", start_in(prov, "S4", both))
+        made("S1", [], "census made again at the same sequence\n")
+        expect("a producer run again at the same sequence under its consumer's other input is INPUT_STALE",
+               start_in(prov, "S4", both), "INPUT_STALE S3: it read S1.out")
+        expect("an input whose producer read nothing the consumer admits is held to its own record alone",
+               start_in(prov, "S4", [{"artifact": "S3.out", "producer_stage": "S3"}]))
         # a declaration edited outside `declare`: same sequence, different bytes
         by_hand(run_json_path(run_dir), {**base, "question": "edited by hand"})
         expect("run.json edited without an amendment", start("S9"), "DECLARATION_DRIFT S9")

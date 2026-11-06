@@ -552,6 +552,18 @@ if [ -f session-distill/runlib/stage_read.py ]; then
   leg -q "FAIL: session-distill S3 read self-test (session-distill/runlib/stage_read.py)" \
     python3 session-distill/runlib/stage_read.py --self-test
 fi
+# S4 form (plan WP-09): the formation packet, its labels, the stage's check of an answer and the contract's closed
+# lists; no model is called.
+if [ -f session-distill/runlib/stage_form.py ]; then
+  leg -q "FAIL: session-distill S4 form self-test (session-distill/runlib/stage_form.py)" \
+    python3 session-distill/runlib/stage_form.py --self-test
+fi
+# S4's lifecycle intake (plan WP-09 done-when 3): due decisions, legacy incubation, obsolete hints over a golden occasion
+# index, redundancy hints over the current library, and G clusters; no model is called.
+if [ -f session-distill/runlib/lifecycle_intake.py ]; then
+  leg -q "FAIL: session-distill S4 lifecycle intake self-test (session-distill/runlib/lifecycle_intake.py)" \
+    python3 session-distill/runlib/lifecycle_intake.py --self-test
+fi
 # Follow-up resolutions (plan WP-08 done-when 5, design §11): the O9 fixtures through the derivation, each flipped.
 if [ -f session-distill/runlib/measures.py ]; then
   leg -q "FAIL: session-distill follow-up resolution self-test (session-distill/runlib/measures.py)" \

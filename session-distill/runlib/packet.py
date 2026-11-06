@@ -53,7 +53,8 @@ from runlib import validate
 REPO = pathlib.Path(__file__).resolve().parents[2]
 PAYLOAD_MARKER = "=== PAYLOAD ==="
 TEMPLATE_DIR = pathlib.Path(__file__).resolve().parents[1] / "packets"
-TEMPLATES = ("read", "stitch")      # S3's two calls (plan WP-08)
+TEMPLATES = ("read", "stitch", "form")  # S3's two calls (plan WP-08) and S4's one (plan WP-09)
+WINDOW_TEMPLATES = ("read", "stitch")  # the calls whose fixed part the view windows were cut to leave room for
 PLACEHOLDER = re.compile(r"\{\{([a-z_]+)\}\}")
 # (summary title, owning guide, the part of it that is the summary)
 PRINCIPLE_SOURCES = (
@@ -525,7 +526,8 @@ def self_test():
     # is reported, not judged: what one call adds is counted with the call, by the dispatcher's bound check.
     from runlib import bound
     schemas = pathlib.Path(__file__).resolve().parents[1] / "schemas"
-    filled_by = {"read": ["expected", "omissions", "window"], "stitch": ["claims", "events"]}
+    filled_by = {"read": ["expected", "omissions", "window"], "stitch": ["claims", "events"],
+                 "form": ["claims", "clusters", "events"]}
     room = {}
     for name in TEMPLATES:
         try:
@@ -541,6 +543,8 @@ def self_test():
         call = f"r1-S3-{name}-a1"
         made = build(call, "S3", "claude:claude-sonnet-5-5/high", render(name, {f: f"<{f}>" for f in fields}), answer)
         control(f"{name}-packet-passes-the-linter", check(made, call, answer))
+        if name not in WINDOW_TEMPLATES:
+            continue  # S4's packet is bounded by its own stage (plan WP-09), not by the overhead S3's windows were cut with
         fixed = len(build(call, "S3", "claude:claude-sonnet-5-5/high", render(name, {f: "" for f in fields}), answer)) \
             + len(answer)
         room[name] = bound.PACKET_OVERHEAD - fixed

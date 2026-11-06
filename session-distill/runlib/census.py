@@ -208,6 +208,8 @@ READER_EXCEPTIONS = {
     ("runlib/inventory.py", "census_entries"): "maps an absent, unreadable or malformed census to the transcript layers' "
                                                "named unknowns, reading it through load_document and rows",
     ("distill.py", "cmd_inventory"): "declares the census as the inventory part's S1 input artifact",
+    ("runlib/stage_form.py", "<module>"): "INPUTS declares census.json as S4's S1 input artifact; the barrier reads the "
+                                          "census itself through load and rows",
 }
 LOADERS = frozenset(("load", "load_document", "build", "reconcile", "run"))
 TEST_CODE = ("self_test", "fx_", "golden")
