@@ -595,8 +595,14 @@ def build(run, base, table, table_sha, jobs=8, scratch=None):
     files = discover(src, report)
     with concurrent.futures.ThreadPoolExecutor(jobs) as pool:  # before the indexes are loaded: spawning is cheapest from a small heap
         heads = list(pool.map(lambda f: None if f["child_of"] else head_of(f, zstd), files))
-    pins, bad = (sources.read_pins(src["agent_bios_state"]) if report["agent_bios_state"]["state"] == "present" else ({}, 0))
-    report["agent_bios_state"]["detail"] = f"{bad} pin files ignored" if bad else None
+    pins, bad, claimed = (sources.read_pins(src["agent_bios_state"])
+                          if report["agent_bios_state"]["state"] == "present" else ({}, 0, {}))
+    # A rollout two pins claim is keyed to neither (X r1 F5): the census makes no choice by file order,
+    # and the ambiguity is reported here so a reader sees it rather than a missing pin.
+    detail = [f"{bad} pin files ignored"] if bad else []
+    detail += [f"{len(claimed)} rollout(s) claimed by more than one pin: "
+               + "; ".join(f"{rollout}={','.join(ids)}" for rollout, ids in sorted(claimed.items()))] if claimed else []
+    report["agent_bios_state"]["detail"] = "; ".join(detail) or None
     threads = load_index(src, report, "codex_state", functools.partial(sources.read_threads, scratch=scratch))
     history = load_index(src, report, "claude_history", sources.read_history)
     desktop = load_index(src, report, "claude_desktop_index", sources.read_desktop_index)

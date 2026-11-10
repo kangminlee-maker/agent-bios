@@ -286,11 +286,21 @@ def read_desktop_index(root):
 
 
 def read_pins(state_root):
-    """`{(host, session_id): content_ref}` of the activation pins under `state_root`. A pin is
-    read for its `content_ref` only; one that is not a JSON object naming its own host and id is
-    ignored and counted by the caller through the returned bad count."""
-    pins, bad = {}, 0
+    """`({(host, session_id): content_ref}, bad count, {rollout id: [pin ids]})` of the activation pins.
+
+    A pin is read for its `content_ref` only; one that is not a JSON object naming its own host and id
+    is ignored and counted. A Codex pin names the app-server's thread id, which no rollout carries
+    (F-22): when its activation also resolved the rollout the host wrote, the pin is reachable by that
+    id too, because that is the id a transcript carries.
+
+    Two rules keep that alias from deciding anything by file order (X r1 F5). A rollout id claimed by
+    two or more pins is reported in the third value and keyed to NONE of them -- a reader that picked
+    one picked it by file name, and two readers picked differently. An alias equal to some pin's own
+    thread id never replaces that pin's key; the thread-id lookup stands on its own.
+    """
+    pins, bad, claims = {}, 0, {}
     base = pathlib.Path(state_root) / "sessions" / "pins"
+    aliases = {}
     for host in ("codex", "claude"):
         for path in sorted((base / host).glob("*.json")) if (base / host).is_dir() else []:
             try:
@@ -298,18 +308,20 @@ def read_pins(state_root):
                 ok = record["host"] == host and record["session_id"] == path.stem
                 if ok:
                     pins[(host, path.stem)] = record.get("content_ref")
-                    # A Codex pin names the app-server's thread id, which no rollout carries (F-22).
-                    # When the activation also resolved the rollout the host wrote, the pin is keyed by
-                    # that id as well, because that is the id a transcript carries; without it no key of
-                    # this map can ever meet a Codex row.
                     rollout_id = record.get("rollout_id")
                     if host == "codex" and isinstance(rollout_id, str) and rollout_id:
-                        pins[(host, rollout_id)] = record.get("content_ref")
+                        aliases.setdefault(rollout_id, []).append((path.stem, record.get("content_ref")))
                 else:
                     bad += 1
             except (OSError, ValueError, KeyError, TypeError):
                 bad += 1
-    return pins, bad
+    for rollout_id, claimed in sorted(aliases.items()):
+        if len(claimed) > 1:
+            claims[rollout_id] = [stem for stem, _ref in claimed]
+            continue
+        if ("codex", rollout_id) not in pins:
+            pins[("codex", rollout_id)] = claimed[0][1]
+    return pins, bad, claims
 
 
 def self_test():
@@ -562,7 +574,7 @@ def self_test():
         (pins / "codex" / "t1.json").write_text('{"host": "codex", "session_id": "t1", "content_ref": "sha256:ab"}')
         (pins / "codex" / "t2.json").write_text('{"host": "codex", "session_id": "other"}')
         (pins / "codex" / "t3.json").write_text("{")
-        if read_pins(root / "state") != ({("codex", "t1"): "sha256:ab"}, 2):
+        if read_pins(root / "state") != ({("codex", "t1"): "sha256:ab"}, 2, {}):
             failures.append(f"pins read: {read_pins(root / 'state')}")
         # F-22: a Codex pin that names the rollout the host wrote is reachable by that id too, which is
         # the id a transcript carries; one that resolved none, and one written before the binding
@@ -571,11 +583,28 @@ def self_test():
                                                 ' "rollout_id": "r4", "rollout_path": "/s/rollout-r4.jsonl"}')
         (pins / "codex" / "t5.json").write_text('{"host": "codex", "session_id": "t5", "content_ref": "sha256:ef",'
                                                 ' "rollout_id": null, "rollout_path": null}')
-        joined, _bad = read_pins(root / "state")
+        joined, _bad, claimed = read_pins(root / "state")
         if joined.get(("codex", "r4")) != "sha256:cd" or joined.get(("codex", "t4")) != "sha256:cd":
             failures.append(f"a pin naming a rollout is not reachable by both ids: {sorted(joined)}")
         if ("codex", "r5") in joined or joined.get(("codex", "t5")) != "sha256:ef" or ("codex", "r1") in joined:
             failures.append(f"an unresolved or pre-binding pin gained a rollout key: {sorted(joined)}")
+        if claimed:
+            failures.append(f"a rollout claimed once was reported as claimed twice: {claimed}")
+        # Two pins naming one rollout: neither is chosen, and the ambiguity is named with both pin ids.
+        (pins / "codex" / "t6.json").write_text('{"host": "codex", "session_id": "t6", "content_ref": "sha256:66",'
+                                                ' "rollout_id": "r9"}')
+        (pins / "codex" / "t7.json").write_text('{"host": "codex", "session_id": "t7", "content_ref": "sha256:77",'
+                                                ' "rollout_id": "r9"}')
+        # And an alias equal to another pin's own thread id never replaces that pin's key.
+        (pins / "codex" / "t8.json").write_text('{"host": "codex", "session_id": "t8", "content_ref": "sha256:88",'
+                                                ' "rollout_id": "t1"}')
+        twice, _bad, claimed = read_pins(root / "state")
+        if claimed != {"r9": ["t6", "t7"]}:
+            failures.append(f"two pins naming one rollout were not named as an ambiguity: {claimed}")
+        if ("codex", "r9") in twice:
+            failures.append("a rollout two pins claim was keyed to one of them")
+        if twice.get(("codex", "t1")) != "sha256:ab":
+            failures.append(f"an alias replaced another pin's thread key: {twice.get(('codex', 't1'))}")
     for failure in failures:
         print(f"sources --self-test [FAIL] {failure}")
     if failures:
@@ -585,7 +614,7 @@ def self_test():
           "bytes and mtimes, a write during the capture is captured again and one that never settles is named, and the snapshot is "
           "removed (a swapped directory is refused by name and nothing is removed); immutable=1 misses the row and a direct read-only open moves the -shm; missing columns, a non-database, a "
           "torn history line, an unparseable Desktop file and bad pins are handled by name; a pin naming a rollout is keyed by "
-          "that id as well, and one that resolved none is not)")
+          "that id as well, one that resolved none is not, two pins claiming one rollout are named rather than chosen, and an alias never replaces a thread key)")
     return 0
 
 
