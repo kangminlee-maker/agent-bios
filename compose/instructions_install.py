@@ -6,6 +6,62 @@ activation path: installed instructions are stored and verifiable, while a launc
 activation creates the per-session snapshot and pin.
 """
 from __future__ import annotations
+
+import hashlib
+import json
+from pathlib import Path, PurePosixPath
+from typing import Any
+
+# The files this installer executes from its own tree, relative to that tree.  The set is
+# DECLARED rather than discovered because `launch/shell_integration.py` is loaded by path and
+# never enters `sys.modules`, so a `sys.modules` walk would miss code that ran.
+INSTALLER_CODE = ("compose/instructions_install.py", "compose/instructions_transaction.py",
+                  "compose/host_platform.py", "launch/shell_integration.py")
+
+
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as source:
+        for chunk in iter(lambda: source.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _canonical(value: Any) -> bytes:
+    return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+
+
+def _installer_code() -> dict[str, Any]:
+    """Hash, from disk, the files this process runs its installer from (not the package it installs)."""
+    root = Path(__file__).resolve().parent.parent
+    files = []
+    for relative in INSTALLER_CODE:
+        try:
+            files.append({"path": relative, "sha256": _sha256(root / relative)})
+        except OSError:
+            files.append({"path": relative, "sha256": None})  # a layout without the file must not stop the installer
+    return {"root": str(root), "files": files, "digest": hashlib.sha256(_canonical(files)).hexdigest()}
+
+
+def _installer_build() -> str | None:
+    """The version the installer's own tree declares, read at receipt time; None when it declares none.
+
+    The digest identifies the code; this names it the way a person reads a release.  A checkout
+    between releases declares the version it last published, so the digest remains the identity.
+    """
+    try:
+        manifest = json.loads((Path(__file__).resolve().parent.parent / "package.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    version = manifest.get("version") if isinstance(manifest, dict) else None
+    return version if isinstance(version, str) and version else None
+
+
+# Taken at import and deliberately BEFORE the sibling imports below: a declared file replaced
+# after its own import (an npm or git update while a wizard is open) must read as a difference
+# instead of being hashed into the receipt as if the new bytes had run.
+_CODE_AT_START = _installer_code()
+
 try:
     from host_platform import WINDOWS, jsonl_lines_for, runtime_environment
 except ImportError:
@@ -14,12 +70,9 @@ except ImportError:
 import argparse
 import base64
 import contextlib
-import hashlib
 import importlib
 import importlib.util
-import json
 import os
-from pathlib import Path, PurePosixPath
 import re
 import shlex
 import shutil
@@ -28,7 +81,6 @@ import tempfile
 import time
 import tomllib
 import uuid
-from typing import Any
 
 if __name__ == "__main__":
     sys.dont_write_bytecode = True
@@ -48,6 +100,11 @@ from instructions_transaction import (
 
 SCHEMA_VERSION = 1
 PRIVATE_RECORD = "private-install.json"
+RECEIPT_DIR = "receipts"
+RECEIPT_SCHEMA = "InstallationReceipt/v1"
+# A receipt's id is the sha256 of its canonical body and lives OUTSIDE the body — in the file name and
+# in what `installation_binding()` returns — so no field of the body may carry it.
+RECEIPT_RESERVED = ("receipt_id",)
 CENTRAL_START = "<!-- agent-bios:central:start -->"
 CENTRAL_END = "<!-- agent-bios:central:end -->"
 PERSONAL_START = "<!-- agent-bios:personal-learnings:start -->"
@@ -79,18 +136,6 @@ def _serialized(method):
                     raise InstallError("pending migration requires agent-bios migrate --apply --yes before other writes")
             return method(self, *args, **kwargs)
     return wrapped
-
-
-def _sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as source:
-        for chunk in iter(lambda: source.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
-
-
-def _canonical(value: Any) -> bytes:
-    return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
 
 
 def _atomic_bytes(path: Path, data: bytes, mode: int | None = None) -> None:
@@ -817,8 +862,12 @@ class InstructionsInstaller:
         launcher = {"path": str(owned[0][0]), "sha256": hashlib.sha256(owned[0][1]).hexdigest()}
         config = [{"path": str(path), "sha256": hashlib.sha256(content).hexdigest()}
                   for path, content, _mode in owned[1:]]
+        # Derived before the record so the record can carry it: the receipt binds a snapshot to one
+        # transaction, and the store reaches the transaction through the record it installed.
+        transaction_id = str(candidate.get("transaction_id") or uuid.uuid4().hex)
         record = {
-            "schema_version": SCHEMA_VERSION, "package_root": str(release), "release_digest": digest,
+            "schema_version": SCHEMA_VERSION, "transaction_id": transaction_id,
+            "package_root": str(release), "release_digest": digest,
             "installed_files": entries, "selection": requested, "baseline_ref": baseline_ref,
             "launcher": launcher, "config_files": config, "created_at": int(time.time()),
             "mode": "private-session-scoped", "needs_action": [],
@@ -838,7 +887,6 @@ class InstructionsInstaller:
              "before": self._file_version(self.state_root / "corpus-status.json"),
              "after": self._planned_version(self._launcher_status_bytes(release, requested)), "mode": 0o600},
         ])
-        transaction_id = str(candidate.get("transaction_id") or uuid.uuid4().hex)
         journal = self._transaction_path(transaction_id)
         # Source candidates are persisted by InstructionsStore under the transaction
         # id.  Keep only hashes here: personal source text is free-form and
@@ -850,7 +898,7 @@ class InstructionsInstaller:
                        "source_after_sha256": hashlib.sha256(_canonical(candidate.get("after"))).hexdigest()}
         journal_data = {"schema_version": SCHEMA_VERSION, "owner": "installer", "kind": "install", "state": "PREPARED",
                         "phase": "preflight", "candidate": association, "paths": paths,
-                        "created_at": int(time.time())}
+                        "installer_digest": _CODE_AT_START["digest"], "created_at": int(time.time())}
         self._journal_write(journal, journal_data)
         try:
             with operation_scope(self.state_root):
@@ -891,8 +939,78 @@ class InstructionsInstaller:
         # The record/status are included in paths and now exact.  Verify the
         # installed source and every owned projection before success is visible.
         self._verify_transaction_install(data)
+        # The receipt is written after verification and before the COMMITTED marker, so a receipt
+        # can exist without a commit (the install is then recovered) but never the reverse.
+        receipt_id = self._write_receipt(data)
+        if receipt_id:
+            data["receipt_id"] = receipt_id
         data["state"], data["phase"], data["committed_at"] = "COMMITTED", "complete", int(time.time())
         self._journal_write(journal, data)
+
+    def _loaded_package_modules(self, release: Path, hashes: dict[str, str]) -> list[dict[str, str]]:
+        """Package modules that ran inside this installer process (the store, catalog, assembler and so on).
+
+        An old installer runs the NEW package's store and catalog, so exposure to a store or catalog
+        change is read from here (or from the snapshot's digests), never from the installer digest.
+        """
+        found: dict[str, str] = {}
+        for module in list(sys.modules.values()):
+            location = getattr(module, "__file__", None)
+            if not location:
+                continue
+            with contextlib.suppress(ValueError, OSError):
+                relative = Path(location).resolve().relative_to(release.resolve()).as_posix()
+                found[relative] = hashes.get(relative, "<not in release inventory>")
+        return [{"path": path, "sha256": found[path]} for path in sorted(found)]
+
+    def _receipt_body(self, data: dict[str, Any], record: dict[str, Any], now: dict[str, Any]) -> dict[str, Any]:
+        """The canonical receipt body.  Its sha256 is the receipt id, which is why nothing here may carry one."""
+        release = Path(record["package_root"])
+        hashes = {entry["path"]: entry["sha256"] for entry in record["installed_files"]}
+        begun_by = data.get("installer_digest")
+        return {
+            "schema": RECEIPT_SCHEMA, "result": "success",
+            "transaction_id": data["candidate"]["transaction_id"],
+            "installer": {"digest_at_import": _CODE_AT_START["digest"], "digest": now["digest"],
+                          "build": _installer_build(), "root": now["root"], "files": now["files"],
+                          "package_modules_run": self._loaded_package_modules(release, hashes)},
+            # Only when a recovery was finished by a different installer than the one that began it;
+            # §11 judges installer exposure against both digests.
+            "begun_by_installer_digest": begun_by if begun_by != now["digest"] else None,
+            "release_digest": record["release_digest"], "baseline_ref": record["baseline_ref"],
+            "selection": record["selection"],
+            # One flat list, each row naming its role, so a consumer reads the artifacts without knowing
+            # how the install record groups them: `release` rows are the immutable release's files,
+            # `owned` rows the launcher and config files the install wrote into the user's own paths.
+            "artifacts": [{"path": entry["path"], "sha256": entry["sha256"], "role": "release"}
+                          for entry in record["installed_files"]]
+                         + [{"path": entry["path"], "sha256": entry["sha256"], "role": "owned"}
+                            for entry in [record.get("launcher"), *(record.get("config_files") or [])] if entry],
+            "at": int(time.time()),
+        }
+
+    def _write_receipt(self, data: dict[str, Any]) -> str | None:
+        """Called only after the transaction verified; a failed transaction never reaches it."""
+        now = _installer_code()
+        if now != _CODE_AT_START or any(entry["sha256"] is None for entry in now["files"]):
+            # The install itself is sound; only the claim about which code ran is not, so no receipt is
+            # written and the sessions this install serves stay unbound instead of the install failing.
+            print("instructions-install: installer code changed or is unreadable; no installation receipt written",
+                  file=sys.stderr)
+            return None
+        record = _read_json(self.record_path)
+        if record.get("transaction_id") is None:
+            return None  # planned by an installer that wrote no transaction id: it can finish, but cannot be bound
+        if record["transaction_id"] != data["candidate"]["transaction_id"]:
+            raise InstallError("install record does not belong to this transaction")
+        body = self._receipt_body(data, record, now)
+        carried = [key for key in RECEIPT_RESERVED if key in body]
+        if carried:
+            raise InstallError("installation receipt body must not carry its own id: " + ", ".join(carried))
+        raw = _canonical(body)
+        receipt_id = hashlib.sha256(raw).hexdigest()
+        _atomic_bytes(self.runtime / RECEIPT_DIR / f"{receipt_id}.json", raw, 0o600)
+        return receipt_id
 
     def _verify_transaction_install(self, data: dict[str, Any]) -> None:
         for entry in data["paths"]:

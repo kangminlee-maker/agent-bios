@@ -66,9 +66,13 @@ Ordered by when the cost is paid, because that is the axis that decides placemen
 | Incubator ledger | never | nobody | whoever searches it | none until promoted |
 
 The immutable release, baseline tuples, personal source tree, setup clients, Instructions
-Studio, and transaction journals are authorities or clients. Storing or
+Studio, transaction journals, and the installation receipt each successful install writes are
+authorities or clients. Storing or
 rendering an item there does not activate it. Native adapters and the explicit app
-context route supply snapshots and report their distinct delivery evidence.
+context route supply snapshots and report their distinct delivery evidence. The receipt is
+evidence about a delivery that already happened — which installer code executed, in which
+transaction, over which artifacts — so a snapshot naming no receipt reads as unbound, which makes
+installer exposure unknown and never refuses a launch.
 
 `understand!` uses a selected instructions bundle as learning data, not as a new instruction
 or capability surface. `compose/instructions_understand.py` pins the effective source bytes;
@@ -207,6 +211,10 @@ installs global instructions nor enables native instructions hooks or agents.
   and compilation in `compose/instructions_catalog.py`, selection/snapshot ownership in
   `compose/instructions_store.py`, and per-call delivery/pinning in
   `compose/instructions_session.py` as invoked by `launch/agent-launch.py`.
+  Which installation produced the files a snapshot was built from is the installation receipt
+  `compose/instructions_install.py` writes after verification and before its transaction commits;
+  the snapshot records that receipt's id among its inputs before its ContentRef is derived, so
+  activation keeps the binding, and `installation_binding` reports it as a verdict.
 
 ### App discovery metadata
 

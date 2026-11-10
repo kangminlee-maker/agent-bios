@@ -30,6 +30,13 @@ except ImportError:
     from .instructions_transaction import environment_value, transaction_lock, guard_pending, pending_operations, operation_scope_active, reject_symlink_ancestors
 
 SCHEMA_VERSION = 1
+RECEIPT_DIR = "receipts"
+RECEIPT_SCHEMA = "InstallationReceipt/v1"
+# Snapshot input -> the file in the receipt's release artifacts that must carry the same bytes.  The
+# installer digest cannot answer this: an old installer runs the new package's store and catalog.
+RECEIPT_ARTIFACTS = {"compiler_digest": "compose/instructions_catalog.py",
+                     "store_schema_digest": "compose/instructions_store.py",
+                     "bootstrap_digest": "compose/bootstrap/SKILL.md"}
 LOCAL_PACKAGE = "@local/personal"
 SURFACES = {"always", "relevant", "requested", "event", "delegated"}
 KINDS = {"rule", "guide", "skill", "hook", "agent"}
@@ -198,6 +205,54 @@ def _snapshot_assets(value: Any, files: list[str]) -> dict[str, Any]:
         if f"{relative}/.claude-plugin/plugin.json" not in files:
             raise ValidationError("snapshot plugin has no inventoried manifest")
     return _copy_json(value)
+
+
+def read_installation_receipt(state_root: Path, receipt_id: str) -> dict[str, Any]:
+    """A success receipt whose bytes hash to its id; anything else is not evidence.
+
+    The id lives outside the body (the file name), so reading one is also the check that the
+    body was not edited: a re-serialization with reordered keys hashes the same, a changed
+    field does not.
+    """
+    _safe_part(receipt_id, "receipt id")
+    path = Path(state_root) / "runtime" / RECEIPT_DIR / f"{receipt_id}.json"
+    _reject_symlink_path(path)
+    if not path.is_file():
+        raise ValidationError("installation receipt is missing")
+    raw = path.read_bytes()
+    if hashlib.sha256(raw).hexdigest() != receipt_id:
+        raise ValidationError("installation receipt does not hash to its id")
+    receipt = json.loads(raw)
+    if not isinstance(receipt, dict) or receipt.get("schema") != RECEIPT_SCHEMA or receipt.get("result") != "success":
+        raise ValidationError("not a success installation receipt")
+    return receipt
+
+
+def installation_binding(state_root: Path, inputs: dict[str, Any]) -> dict[str, Any]:
+    """Does the receipt a snapshot names cover the artifacts the snapshot recorded?
+
+    A verdict, never a refusal: a development override (`AGENT_BIOS_PACKAGE_ROOT` at an older
+    tree) legitimately produces snapshots no current receipt covers, and `bound: False` is what
+    makes installer exposure unknown downstream rather than stopping a launch.
+    """
+    receipt_id = inputs.get("installation_receipt_id")
+    if not isinstance(receipt_id, str) or not receipt_id:
+        return {"bound": False, "reason": "snapshot records no installation receipt"}
+    try:
+        receipt = read_installation_receipt(state_root, receipt_id)
+    except (InstructionsStoreError, ValueError, OSError) as exc:
+        return {"bound": False, "receipt_id": receipt_id, "reason": str(exc)}
+    hashes = {entry["path"]: entry["sha256"] for entry in receipt["artifacts"]
+              if isinstance(entry, dict) and entry.get("role") == "release"}
+    wrong = [f"{field} != {path}" for field, path in RECEIPT_ARTIFACTS.items()
+             if not inputs.get(field) or hashes.get(path) != inputs[field]]
+    if receipt.get("baseline_ref") != inputs.get("baseline_ref"):
+        wrong.append("baseline_ref")
+    if wrong:
+        return {"bound": False, "receipt_id": receipt_id, "reason": "artifacts differ from the receipt: " + ", ".join(wrong)}
+    return {"bound": True, "receipt_id": receipt_id, "transaction_id": receipt["transaction_id"],
+            "installer_digest": receipt["installer"]["digest"], "release_digest": receipt["release_digest"],
+            "begun_by_installer_digest": receipt.get("begun_by_installer_digest")}
 
 
 def verify_snapshot(path: Path, expected_content_ref: str) -> dict[str, Any]:
@@ -1464,6 +1519,17 @@ class InstructionsStore:
                 selected.append(item)
         return selected
 
+    def _current_installation_receipt_id(self) -> str | None:
+        """The receipt of the install transaction the current install record belongs to, if it committed."""
+        record = _json_read(self.runtime / "private-install.json")
+        transaction_id = record.get("transaction_id") if isinstance(record, dict) else None
+        if not isinstance(transaction_id, str):
+            return None  # installed before receipts existed: the snapshot stays unbound
+        journal = _json_read(self.runtime / "installer-transactions"
+                             / _safe_part(transaction_id, "transaction id") / "journal.json")
+        receipt_id = journal.get("receipt_id") if isinstance(journal, dict) and journal.get("state") == "COMMITTED" else None
+        return receipt_id if isinstance(receipt_id, str) else None
+
     def snapshot(self, host: str, selection: list[str] | None = None, dry_run: bool = False,
                  native: bool = False, *, selection_mode: str | None = None,
                  cwd: str | Path | None = None) -> dict[str, Any]:
@@ -1519,6 +1585,14 @@ class InstructionsStore:
                 "store_schema_digest": _digest(Path(__file__).read_bytes()),
                 "bootstrap_digest": _digest(bootstrap_path.read_bytes()),
             }
+            # Recorded BEFORE content_ref is derived, so activation binds a session to exactly one
+            # installation transaction even when several transactions served the same release — and
+            # only when the receipt covers the files this store just hashed.
+            receipt_id = self._current_installation_receipt_id()
+            inputs["installation_receipt_id"] = (
+                receipt_id if receipt_id and installation_binding(
+                    self.state_root, {**inputs, "installation_receipt_id": receipt_id})["bound"]
+                else None)
             if native:
                 import sys
                 inputs["native"] = True
@@ -1631,6 +1705,7 @@ class InstructionsStore:
             verified = verify_snapshot(root, content_ref)
             output = verified["output"]
             return {"content_ref": content_ref, "path": str(root), "inputs": verified["inputs"],
+                    "installation_binding": installation_binding(self.state_root, verified["inputs"]),
                     "items": verified["items"], "files": output.get("files"),
                     "item_refs": output.get("item_refs"), "instruction_text": output.get("instruction_text"),
                     "unavailable": output.get("unavailable"), "assets": output.get("assets", {})}
