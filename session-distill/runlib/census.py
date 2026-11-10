@@ -19,6 +19,12 @@ writing is not in it, and what the host appends after this read is the next run'
 window, so what it finds appended to a version and stamped inside a window already run - a line that was still being
 written then, or one written late - it holds in the backlog under that window, for itself to read (`carry_appended`).
 
+Every row's `window_overlap` says how it lies against the window: from its record timestamps for a row read in full
+(inside, straddles_start, straddles_end, straddles_both, context_only); for a row left unread - unknown, unreadable, or
+a member of such a root - from the best evidence its files give (`unread_overlap`): `before_window` when each was last
+written before the window starts, its record timestamps otherwise, `undetermined` when neither decides. The observation
+basis counts a row only when its unit may hold a record of the window (D-20261106-208882).
+
 The unit S1 judges and S2 reads is a root with all its descendants at any depth (D-20261103-85f3e8): every
 member of an eligible root is read in full like the root, and the root is `nothing_new` only when neither it
 nor any member owes the window anything. A member whose read fails leaves the unit and its descendants stay in it:
@@ -70,6 +76,11 @@ TABLE_CLASSES = ("codex-cli", "codex-desktop", "excluded", "unknown_provenance")
 DIRECTORIES = ("claude_projects", "codex_sessions", "codex_archived_sessions", "claude_desktop_index", "agent_bios_state")
 HEAD_RECORDS = 256        # records of a head: enough to classify a transcript before it is read in full
 ENTRYPOINT_SCAN = 4096    # how far into a Claude file the first entrypoint is looked for
+# Rows the census leaves unread whose place against the window the observation basis still needs (D-20261106-208882),
+# and the window_overlap values that say a row holds no record of the window: by its record timestamps, or by the
+# file-time bound (`unread_overlap`).
+UNREAD_STATUSES = ("unknown_provenance", "unreadable")
+OUTSIDE = ("context_only", "before_window")
 UUID = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
 _VALIDATOR = []
 
@@ -388,6 +399,47 @@ def overlap_of(got):
             (True, True): "straddles_both"}[(bool(got["before"]), bool(got["after"]))]
 
 
+def unread_overlap(entry, zstd, start, end):
+    """How a row the census does not read in full lies against the window (lead decision D-20261106-208882), from the
+    best evidence each of its files gives. A file last written before the window starts holds none of its records,
+    since a record is written no earlier than its timestamp: the file-time bound, `before_window` when it decides every
+    file. A file it cannot rule out has its record timestamps read to the end, as `read_full` reads them (complete
+    lines only), and lies inside, across or outside the window by them (`overlap_of`). A file named with no path, one
+    that cannot be read and one with no timestamped record leave the row `undetermined`, and so in the basis's scope.
+
+    The bound fails only where a record's timestamp is later than its writing (a skewed clock) or a file's time was set
+    back by hand; both are outside what the census can see, and a file the bound cannot decide is read."""
+    sides, decided_by_time = {"owned": False, "before": False, "after": False}, True
+    for seg in entry["segments"]:
+        path = seg["path"]
+        try:
+            if path is None:
+                return "undetermined"
+            if os.stat(path).st_mtime < start.timestamp():
+                sides["before"] = True  # every record of it lies before the window
+                continue
+            own, count = coverage.Ownership(start, end), 0
+            for raw in sources.read_lines(path, zstd):
+                if not raw.endswith(b"\n"):
+                    break
+                try:
+                    rec = json.loads(raw)
+                except ValueError:
+                    rec = None
+                if isinstance(rec, dict):
+                    own.feed(count, rec.get("timestamp"))
+                count += 1
+        except (OSError, sources.Unreadable):
+            return "undetermined"
+        if not own.stamped:
+            return "undetermined"
+        decided_by_time = False
+        got = own.finish(count)
+        for side in sides:
+            sides[side] = sides[side] or bool(got[side])
+    return "before_window" if decided_by_time else overlap_of(sides)
+
+
 def root_of(by_key, entry):
     """The root `entry`'s chain of parents reaches in `by_key` (`{<host>:<id>: entry}`): the first ancestor that names
     no parent, `entry` itself when it names none, or None when the chain breaks or loops. The chain is the parent links,
@@ -665,6 +717,16 @@ def build(run, base, table, table_sha, jobs=8, scratch=None):
                 entry.update(status="unknown_provenance", reason="no_timestamps")
                 continue
             taken(entry, out)
+
+    # A row left unread - unknown, unreadable, or a member of such a root - still lies somewhere against the window, and
+    # the observation basis counts it only when it may hold a record of it (D-20261106-208882; stage_read.observation_scope).
+    # A member of an excluded root is out of every scope with its root, so it is not looked at.
+    for ident, entry in entries.items():
+        if entry["window_overlap"] is not None:
+            continue
+        root = root_of(entries, entry) if entry["status"] == "child_of" else None
+        if entry["status"] in UNREAD_STATUSES or (root is not None and root["status"] in UNREAD_STATUSES):
+            entry["window_overlap"] = unread_overlap(entry, zstd, start, end)
 
     def owes(entry):
         return any(s["work"]["in_window"] or s["work"]["backlog"] for s in entry["segments"])
@@ -2186,6 +2248,73 @@ def controls(checks):
         digests = json.loads((scratch / "digests.json").read_text()) if (scratch / "digests.json").exists() else []
         expect("census.py --end then digest.py: the documented handoff still runs on the fixture",
                (step1.returncode, step2.returncode, [(d["session_id"], d["goals"]) for d in digests]), (0, 0, [(sid, ["make the weekly summary shorter"])]))
+
+        # D-20261106-208882: a row the census leaves unread lies against the window by the best evidence its files give -
+        # the file-time bound first, its record timestamps where the bound cannot rule it out, undetermined otherwise
+        lay = Home(root / "overlap")
+        U = lambda n: f"c00000{n:02d}-0000-4000-8000-0000000000aa"  # noqa: E731
+        UX = lambda n: f"019e00{n:02d}-0000-7000-8000-0000000000aa"  # noqa: E731
+        sept = [f"2026-09-01T10:0{k}:00.000Z" for k in range(6)]
+        unstamped = [{k: v for k, v in r.items() if k != "timestamp"} for r in fx_claude(U(4), entry=None)]
+        lay.claude(U(1), fx_claude(U(1), entry=None), history=False)  # unknown: records in the window, written in it
+        lay.claude(U(2), fx_claude(U(2), entry=None, stamps=sept), mtime=fx_when(1, 9), history=False)  # last written before it
+        lay.claude(U(3), fx_claude(U(3), entry=None, stamps=sept), history=False)  # records before it, written in it
+        lay.claude(U(4), unstamped, history=False)  # no timestamp at all, written in the window
+        lay.claude(U(6), [{**r, "sessionId": U(6)} for r in unstamped], mtime=fx_when(1, 9), history=False)  # the same, written before it
+        lay.claude(U(5), fx_claude(U(5), entry=None, stamps=sept), mtime=fx_when(1, 9), history=False)  # an unknown root out of the window
+        lay.child(U(5), "agent-in", fx_claude(U(5)))  # ... whose member has records in it
+        lay.claude(U(7), fx_claude(U(7), entry="sdk-cli"), history=False)  # an excluded root
+        lay.child(U(7), "agent-ex", fx_claude(U(7)))  # ... whose member is never looked at
+        lay.claude(U(8), fx_claude(U(8)))  # an eligible session, read in full
+        lay.codex(UX(1), fx_codex(UX(1), "vscode", "NewClient"), indexed=False)  # unknown Codex, in the window
+        lay.codex(UX(2), fx_codex(UX(2), "vscode", "NewClient", month=9, day=1), mtime=fx_when(1, 9), indexed=False)  # out by the bound
+        for n, when in ((3, fx_when(5)), (4, fx_when(1, 9))):  # unreadable rollouts, written in the window and before it
+            bad = lay.codex(UX(n), [], raw=b"not zstd at all", zst=False, indexed=False)
+            bad = bad.rename(bad.with_name(bad.name + ".zst"))
+            os.utime(bad, (when, when))
+        # unknown Codex threads in two files, the window in one of them: every file's evidence decides the row, whichever
+        # comes first (W review of WP-08d r1, F1). UX5's first file was last written before the window and its second
+        # holds records in it; UX6's first holds records in the window and its second only records after it
+        lay.codex(UX(5), fx_codex(UX(5), "vscode", "NewClient", month=9, day=20), mtime=fx_when(20, 9), indexed=False,
+                  name_at="2026-09-20T10-00-00")
+        lay.codex(UX(5), fx_codex(UX(5), "vscode", "NewClient"), indexed=False, name_at="2026-10-03T10-00-00")
+        lay.codex(UX(6), fx_codex(UX(6), "vscode", "NewClient"), indexed=False, name_at="2026-10-03T10-00-00")
+        lay.codex(UX(6), fx_codex(UX(6), "vscode", "NewClient", day=10), mtime=fx_when(10), indexed=False,
+                  name_at="2026-10-10T10-00-00", day=10)
+        lay.finish()
+        laid, _laid_state = build(lay.run(), empty, table, table_sha, jobs=2, scratch=scratch)
+        laid_by = {key_of(e): (e["status"], e["window_overlap"]) for e in laid["transcripts"]}
+        want_laid = {cid(U(1)): ("unknown_provenance", "inside"), cid(U(2)): ("unknown_provenance", "before_window"),
+                     cid(U(3)): ("unknown_provenance", "context_only"), cid(U(4)): ("unknown_provenance", "undetermined"),
+                     cid(U(6)): ("unknown_provenance", "before_window"), cid(U(5)): ("unknown_provenance", "before_window"),
+                     cid(f"{U(5)}/agent-in"): ("child_of", "inside"), cid(U(7)): ("excluded", None),
+                     cid(f"{U(7)}/agent-ex"): ("child_of", None), cid(U(8)): ("eligible", "inside"),
+                     xid(UX(1)): ("unknown_provenance", "inside"), xid(UX(2)): ("unknown_provenance", "before_window"),
+                     xid(UX(3)): ("unreadable", "undetermined"), xid(UX(4)): ("unreadable", "before_window")}
+        expect("D-208882: an unread row lies against the window by its evidence - the file-time bound, its record timestamps "
+               "where the bound cannot decide, undetermined where neither can - and a member of an unknown root is looked at "
+               "while one of an excluded root is not", {k: laid_by.get(k) for k in want_laid}, want_laid)
+        expect("D-208882: the census document with the new window_overlap values meets its schema and its sets add up",
+               (validate.validate_instance(validator(), laid), account(laid)), ([], []))
+        laid_rows = {key_of(e): e for e in laid["transcripts"]}
+        split = {xid(UX(n)): (laid_by.get(xid(UX(n))), len(segments_of(laid_rows[xid(UX(n))])) if xid(UX(n)) in laid_rows else 0)
+                 for n in (5, 6)}
+        expect("D-208882: an unread thread in two files lies by the evidence of both - an old first file and a second in the "
+               "window straddle its start, a first in the window and a second after it straddle its end",
+               split, {xid(UX(5)): (("unknown_provenance", "straddles_start"), 2), xid(UX(6)): (("unknown_provenance", "straddles_end"), 2)})
+        # ... and the observation basis S3 settles over them (stage_read.observation_scope, imported here so that the
+        # census's own evidence is what the scope is judged on): each, beside a unit read whole, keeps it incomplete, named
+        from runlib import stage_read, views
+        alone = []
+        for n in (5, 6):
+            doc = copy.deepcopy(laid)
+            doc["transcripts"] = [e for e in doc["transcripts"] if key_of(e) in (cid(U(8)), xid(UX(n)))]
+            scope, causes = stage_read.observation_scope(doc, [{"transcript": cid(U(8)), "status": "read_complete"}],
+                                                         {cid(U(8)): (True, True)})
+            alone.append((views.coverage_basis(scope), [c["session"] for c in causes["sessions"]], causes["sources"]))
+        expect("D-208882: the observation scope over an unread thread in two files, one of them in the window, is incomplete "
+               "and names it, whichever file comes first", alone,
+               [("incomplete", [xid(UX(5))], []), ("incomplete", [xid(UX(6))], [])])
 
 
 def self_test():
