@@ -17,7 +17,7 @@ measured on the host version the declaration names. Then seat coverage.
 
 Failures are named by their first word: ACCOUNT_UNDECLARED, SEAT_UNCOVERED, AMEND_REQUIRED,
 ALLOWANCE_UNDECLARED, HOST_ALLOWANCE_STALE, RUN_EXISTS, DECLARATION_INVALID,
-SEAT_COVERAGE_UNREADABLE.
+SEAT_COVERAGE_UNREADABLE, DENSITY_UNPROVENANCED.
 
 Every seat of the declaration (stage seats and the four actor strata) must be named in the
 `targets:` of the prompting guide that owns its host. That coverage is read by
@@ -29,7 +29,11 @@ to the declaration by `design/session-distill/2026-10-21T0318--2d4fbd4--plan-add
 it is read by `records.StageRun.run_items`. `host_allowance` is the per-seat allowance of the
 amendment to design §5.4 and `destinations` the root of each class every S11 and S12 writer
 must resolve into. `output_caps` is the output-token cap of S3's calls: S2 cuts every window
-reserving it and S3 declares it on every call, so both read this one number.
+reserving it and S3 declares it on every call, so both read this one number. `density`, the one
+optional field, is an earlier run's measured table of what a token covers per seat and kind
+(WP-08e): each entry names the run, the samples and the time it was measured, and a stage reads
+it only where its own run has measured nothing of that seat and kind (`dispatch.measured_density`).
+Nothing copies it forward; whoever declares the run writes it.
 
   declare.py --self-test
 """
@@ -37,6 +41,7 @@ import ast
 import copy
 import datetime
 import json
+import math
 import pathlib
 import re
 import sys
@@ -148,6 +153,65 @@ def semantic_errors(run):
     if view_seat not in run["host_allowance"]:
         errors.append(f"ALLOWANCE_UNDECLARED seats.{VIEW_WINDOW_STAGE}: {view_seat} reads view windows and "
                       f"has no host_allowance entry")
+    return errors + density_errors(run) + retry_errors(run)
+
+
+def retry_errors(run):
+    """The declared retry's violations (W review of WP-08e r1, F4): a `retry` names its count, its margin or both; an
+    empty one re-declares nothing and so could lift a claim stop by changing nothing."""
+    held = run.get("retry")
+    if held is None:
+        return []
+    if not any(key in held for key in ("count", "margin")):
+        return ["DECLARATION_INVALID retry: a declared retry names its count, its margin or both"]
+    # an integer, not an integral float (W r2, F9): the schema's integer admits 2.0, and the claim's arithmetic then
+    # ranges over it and raises
+    return [f"DECLARATION_INVALID retry.{key}: an integer, not {held[key]!r}" for key in ("count", "margin")
+            if key in held and (isinstance(held[key], bool) or not isinstance(held[key], int))]
+
+
+DENSITY_KIND = re.compile(r"S[0-9]+[a-z]?:[a-z_]+")   # a declared density's kind, matched whole (fullmatch)
+
+
+def density_errors(run):
+    """The declared density table's violations (WP-08e, lead decision): each entry is an earlier run's measured table
+    as that run wrote it, so it carries where it was measured (`measured_in`, a run id), on how many calls (`samples`,
+    at least one) and when (`at`, ISO-8601); an entry without that is DENSITY_UNPROVENANCED, never a number taken on
+    trust. It is keyed as a reservation class is (W review of WP-08e r1, F3): by a seat the declaration names, then by
+    a stage's kind (`<stage>:<case type>`)."""
+    errors = []
+    named = set((run.get("seats") or {}).values()) | {a.get("seat") for a in run.get("actor_seats") or []}
+    for seat, kinds in sorted((run.get("density") or {}).items()):
+        if parse_seat(seat) is None:
+            errors.append(f"DECLARATION_INVALID density.{seat}: not a seat, expected provider:model/effort")
+        elif seat not in named:
+            errors.append(f"DECLARATION_INVALID density.{seat}: not a seat this declaration names")
+        for kind, entry in sorted(kinds.items()):
+            where = f"density.{seat}.{kind!r}" if not DENSITY_KIND.fullmatch(kind) else f"density.{seat}.{kind}"
+            if not DENSITY_KIND.fullmatch(kind):
+                # the whole key, both ends (W r2, F9): the schema's `$` admits a trailing newline, and the reader's
+                # exact key would never match it, so the entry would be read as nothing
+                errors.append(f"DECLARATION_INVALID {where}: not a kind, expected <stage>:<case type> exactly")
+            elif kind.split(":")[0] not in records.STAGES:
+                errors.append(f"DECLARATION_INVALID {where}: {kind.split(':')[0]!r} is not a stage")
+            value = entry["bytes_per_token"]
+            if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+                errors.append(f"DECLARATION_INVALID {where}.bytes_per_token: a finite number, not {value!r}")
+            elif not value > 0:
+                errors.append(f"DECLARATION_INVALID {where}.bytes_per_token: a token covers more than no bytes")
+            missing = [k for k in ("measured_in", "samples", "at") if k not in entry]
+            if not _is_text(entry.get("measured_in", "x")):
+                missing.append("measured_in (a run id)")
+            samples = entry.get("samples", 1)
+            if isinstance(samples, bool) or not isinstance(samples, int) or samples < 1:
+                missing.append("samples (at least one)")
+            try:
+                datetime.datetime.fromisoformat(entry.get("at", "2026-01-01"))
+            except (TypeError, ValueError):
+                missing.append("at (ISO-8601)")
+            if missing:
+                errors.append(f"DENSITY_UNPROVENANCED {where}: a declared density carries the run that measured it, "
+                              f"its samples and when; this one lacks {', '.join(missing)}")
     return errors
 
 
@@ -393,12 +457,42 @@ def self_test():
     # `posture`, whose authority is design/session-distill/2026-10-21T0318--2d4fbd4--plan-addendum-wp01.md,
     # and `output_caps` (WP-08: the cap's declared home, named in the schema's $comment).
     # The schema is the authority for their shape; this pins which fields exist.
+    # `density` and `retry` are the two optional fields (WP-08e: an earlier run's measured table; W r1 F4: the retries a
+    # call's claim holds), each named in the schema's $comment.
     declared = {"question", "kind", "posture", "window", "sources", "checks", "budget", "seats",
                 "actor_seats", "config_manifest_B", "starting_hashes", "account", "hosts",
                 "declaration_seq", "host_allowance", "output_caps", "destinations"}
     control("schema-requires-exactly-the-declared-fields",
-            [] if set(SCHEMA["required"]) == declared == set(SCHEMA["properties"])
+            [] if set(SCHEMA["required"]) == declared and set(SCHEMA["properties"]) == declared | {"density", "retry"}
+            and "density (optional)" in SCHEMA["$comment"] and "retry (optional)" in SCHEMA["$comment"]
             else [f"schema requires {sorted(SCHEMA['required'])}, declares {sorted(SCHEMA['properties'])}"])
+    measured = {"bytes_per_token": 1.852, "measured_in": "c2-20261110", "samples": 8, "at": "2026-11-10T23:22:00+09:00"}
+    s3_seat = fixture()["seats"][VIEW_WINDOW_STAGE]  # a name of its own: `sonnet` is assigned later in this function
+    control("WP-08e: a declared density with the run, the samples and the time that measured it is accepted",
+            mutated(lambda run: run.update(density={s3_seat: {"S3:window": dict(measured)}})))
+    control("WP-08e: a declared density without its provenance is refused at S0 by name (DENSITY_UNPROVENANCED)",
+            mutated(lambda run: run.update(density={s3_seat: {"S3:window": {"bytes_per_token": 1.852}}})),
+            f"DENSITY_UNPROVENANCED density.{s3_seat}.S3:window: a declared density carries the run that measured it")
+    control("WP-08e: a declared density with no samples or an unreadable time is refused at S0 by name",
+            mutated(lambda run: run.update(density={s3_seat: {"S3:window": {**measured, "samples": 0, "at": "yesterday"}}})),
+            f"DENSITY_UNPROVENANCED density.{s3_seat}.S3:window", "samples (at least one), at (ISO-8601)")
+    control("W r1 F4: a declared retry with its count and margin is accepted",
+            mutated(lambda run: run.update(retry={"count": 2, "margin": 4000})))
+    control("W r2 F9: a declared retry count that is an integral float is refused by name, before any arithmetic",
+            mutated(lambda run: run.update(retry={"count": 2.0})), "DECLARATION_INVALID retry.count: an integer, not 2.0")
+    control("W r2 F9: a declared density kind with a trailing newline is refused by name, so it is never read as nothing",
+            mutated(lambda run: run.update(density={s3_seat: {"S3:window\n": dict(measured)}})),
+            f"DECLARATION_INVALID density.{s3_seat}.'S3:window\\n': not a kind")
+    control("W r2 F9: a declared density that is not finite is refused by name",
+            mutated(lambda run: run.update(density={s3_seat: {"S3:window": {**measured, "bytes_per_token": math.inf}}})),
+            f"DECLARATION_INVALID density.{s3_seat}.S3:window.bytes_per_token: a finite number, not inf")
+    control("W r1 F4: a declared retry that names neither its count nor its margin is refused by name",
+            mutated(lambda run: run.update(retry={})), "DECLARATION_INVALID retry: a declared retry names its count")
+    control("WP-08e: a declared density is keyed by a seat the declaration names, as a reservation class is",
+            mutated(lambda run: run.update(density={"claude:claude-fable-5-2/high": {"S3:window": dict(measured)},
+                                                    "claude": {"S3:window": dict(measured)}})),
+            "DECLARATION_INVALID density.claude:claude-fable-5-2/high: not a seat this declaration names",
+            "DECLARATION_INVALID density.claude: not a seat, expected provider:model/effort")
     addendum = "design/session-distill/2026-10-21T0318--2d4fbd4--plan-addendum-wp01.md"
     control("posture-is-authorized-by-a-named-addendum-that-exists",
             [] if addendum in SCHEMA["$comment"] and (REPO / addendum).is_file()

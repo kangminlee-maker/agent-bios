@@ -46,7 +46,9 @@ same span mapping, or skipped with a reason; `forced_records` names the records 
 between a pending event and the next human turn) and `forced_by_search` those a claim's retrieval terms match in
 the full redacted text, clipped spans included. A session is *view complete* when
 every window passed the gate and every clipped record has an executed expansion or a recorded skip, *source
-complete* when no span was skipped (`completeness`); `coverage_basis` is the order of design §5.4's coverage basis.
+complete* when no span was skipped that a gather did not read (`completeness`); `coverage_basis` is the order of
+design §5.4's coverage basis. A **gather** (`gather_windows`, `gather`, WP-08e) is the middles one window's reading
+skipped, re-read as an expansion's middle is (`omitted_middle`) and cut into windows of their own under the same bound.
 
 Failures are named by their first word: ALLOWANCE_UNDECLARED, WINDOW_UNBOUNDED, WINDOW_BOUND_EXCEEDED,
 WINDOW_CAPACITY_EXCEEDED, INPUT_BOUND_EXCEEDED, SOURCE_CHANGED, SOURCE_TAMPERED, SOURCE_UNREADABLE,
@@ -921,18 +923,19 @@ def decision_key(decision):
     return decision.get("omission_id") or decision.get("record_id")
 
 
-def completeness(windows_ok, omission_ids, decisions, expanded_ok, unresolved=()):
+def completeness(windows_ok, omission_ids, decisions, expanded_ok, unresolved=(), gathered=()):
     """`{view_complete, source_complete, skipped, unresolved}` of one session: view complete when every window passed
     the gate and every OMITTED INTERVAL has an executed expansion (`expanded_ok`: the ids whose expansion windows
-    passed) or a recorded skip; source complete when, in addition, nothing was skipped and no other version is
-    unresolved. The skipped omissions are listed, and so are the unresolved versions.
+    passed) or a recorded skip; source complete when, in addition, nothing was skipped that a gather did not read
+    (`gathered`: the skipped ids whose gather windows passed, WP-08e) and no other version is unresolved. The skipped
+    omissions no gather read are listed, and so are the unresolved versions.
 
     The identity is the interval, not the record. Keyed by record, one expansion of a record that had lost
     three intervals discharged all three, and a session with content nobody had looked at reported itself
     source complete - the strongest basis a claim of absence can rest on."""
     chosen = {decision_key(d): d["decision"] for d in decisions}
     clipped_ids = omission_ids
-    skipped = sorted(i for i in clipped_ids if chosen.get(i) == "skip")
+    skipped = sorted(i for i in clipped_ids if chosen.get(i) == "skip" and i not in set(gathered))
     held = [u["version"] for u in unresolved]
     view = bool(windows_ok) and all(windows_ok) and all(
         chosen.get(i) == "skip" or (chosen.get(i) == "expand" and i in expanded_ok) for i in clipped_ids)
@@ -1450,13 +1453,13 @@ def expand(run_dir, call_id, name, record_id, reason, forced_by="none", omission
     return windows
 
 
-def expansion_windows(run_dir, name, record_id, omission=None):
-    """`(manifest row, windows, sequence)` of one expansion, made and checked but not written: the omitted middle of a
-    clipped record under the same bound and span mapping as its view, with the record's neighbours as overlap
-    (`expansion_entries`, WP-08c), held to the window invariants as S2's windows are (`check_windows`). The omitted
-    characters are re-read from the projection and must hash to the manifest's `omitted_span.sha256`."""
+def omitted_middle(run_dir, name, doc, record_id, omission=None):
+    """`(manifest row, its window, entry)` of one omitted interval: the row the record's own window lists it by (an
+    overlap row when no window owns the record), and the omitted characters as an owned entry, re-read from the
+    projection under the same span mapping as its view; they must hash to the manifest's `omitted_span.sha256`
+    (EXPANSION_SOURCE_DRIFT). EXPANSION_UNKNOWN when no window lists it; EXPANSION_AMBIGUOUS when the record lost several
+    intervals and `omission` does not name one."""
     run_dir = pathlib.Path(run_dir)
-    doc = sequence_doc(run_dir, name)
     first, window = None, None
     for path in sorted((run_dir / "views" / name).glob("[0-9]*.json")):
         doc_here = window_doc(run_dir, name, path)
@@ -1494,6 +1497,16 @@ def expansion_windows(run_dir, name, record_id, omission=None):
              "tool": block.get("tool"), "ts": line.get("ts"), "error": bool(block.get("error")), "window_role": role,
              "size": len(middle), "text": middle, "segments": [{"view": [0, len(middle)], "block": [span["start"], span["end"]]}],
              "owned": True, "offset": first["locator"]["offset"]}
+    return first, window, entry
+
+
+def expansion_windows(run_dir, name, record_id, omission=None):
+    """`(manifest row, windows, sequence)` of one expansion, made and checked but not written: the omitted middle of a
+    clipped record (`omitted_middle`) under the same bound and span mapping as its view, with the record's neighbours as
+    overlap (`expansion_entries`, WP-08c), held to the window invariants as S2's windows are (`check_windows`)."""
+    run_dir = pathlib.Path(run_dir)
+    doc = sequence_doc(run_dir, name)
+    first, _window, entry = omitted_middle(run_dir, name, doc, record_id, omission)
     base = {"transcript": doc["transcript"], "version": doc["version"], "version_sha": doc["version_sha"],
             "redaction_version": doc["redaction_version"], "expansion_of": record_id}
     windows, sequence = cut_windows(base, expansion_entries(run_dir, name, doc, record_id, entry), doc["limits"])
@@ -1501,6 +1514,37 @@ def expansion_windows(run_dir, name, record_id, omission=None):
     if errors:
         raise Refused("\n".join(errors[:5]))
     return first, windows, sequence
+
+
+def gather_windows(run_dir, name, rows):
+    """`(windows, sequence)` of one window's gather, made and checked but not written (WP-08e, lead decision
+    D-20261111-360c9b): the omitted middles of `rows` - omissions of the window's own records its reading skipped - in
+    the order the window lists them, each an owned entry re-read from the projection as an expansion's is
+    (`omitted_middle`), with no record's neighbours: the window that skipped them showed their heads, tails and context.
+    Cut under the view's bound and held to the window invariants as S2's windows are; a gather too large for one window
+    is cut into several, each showing its neighbouring middles as overlap."""
+    run_dir = pathlib.Path(run_dir)
+    doc = sequence_doc(run_dir, name)
+    entries = [omitted_middle(run_dir, name, doc, m["record_id"], m["omission_id"])[2] for m in rows]
+    base = {"transcript": doc["transcript"], "version": doc["version"], "version_sha": doc["version_sha"],
+            "redaction_version": doc["redaction_version"], "gather_of": [m["omission_id"] for m in rows]}
+    windows, sequence = cut_windows(base, entries, doc["limits"])
+    errors = check_windows(sequence, windows)
+    if errors:
+        raise Refused("\n".join(errors[:5]))
+    return windows, sequence
+
+
+def gather(run_dir, call_id, name, rows):
+    """The omitted middles a window's reading skipped, as windows of their own (`gather_windows`), written beside the
+    view under the skipping call's id. The skips stay in `expansions.jsonl` as the reading decided them; what the gather
+    read is the read record's. Returns the windows."""
+    run_dir = pathlib.Path(run_dir)
+    windows, _sequence = gather_windows(run_dir, name, rows)
+    safe = re.sub(r"[^A-Za-z0-9._-]", "_", call_id)
+    for w in windows:
+        records.write_json(run_dir, run_dir / "views" / name / f"gather-{safe}-{w['window_n']}.json", w)
+    return windows
 
 
 def record_decision(run_dir, call_id, name, record_id, decision, reason, forced_by="none", omission=None):
@@ -1773,7 +1817,8 @@ def fx_seats(root, capacity, seat=None, host_version=None, name=None):
 
 def golden(root, name="g", overhead=bound.PACKET_OVERHEAD, capacity=None, reservation=32_000,
            allowance=3200, census_sha=None, compressed=False, main_records=None, owned=None, allowance_entry=None,
-           window=None, state=None, prefix_ok=None, ledger_doc=None, child_records=None, main_only=False, pending_at=4):
+           window=None, state=None, prefix_ok=None, ledger_doc=None, child_records=None, main_only=False, pending_at=4,
+           density=None):
     """A run directory S2 can be run over, and the result of running it (realization: golden).
 
     The transcripts are `fx_main_records` (eligible, with a pending event and four clipped tool results), its child,
@@ -1787,7 +1832,8 @@ def golden(root, name="g", overhead=bound.PACKET_OVERHEAD, capacity=None, reserv
     observations due from. `child_records` runs it over another child transcript, as `main_records` does the main one.
     `main_only` leaves the child and the Codex session out of the census, so S2 views the main session alone and a run
     over it makes only the calls that session needs (WP-08 commit 7's live legs). `pending_at` is the first record of the
-    pending event the planted state carries on the main session; None plants none."""
+    pending event the planted state carries on the main session; None plants none. `density` is the declaration's
+    density table (WP-08e), left out when None."""
     root = pathlib.Path(root)
     run_dir, host = root / name, root / f"{name}-host"
     child_rows = child_records() if child_records else fx_child_records()
@@ -1872,6 +1918,8 @@ def golden(root, name="g", overhead=bound.PACKET_OVERHEAD, capacity=None, reserv
     ledger_path.write_text(ledger.render(ledger_doc if ledger_doc is not None else ledger.sample_ledger()), encoding="utf-8")
     declaration["destinations"] = {**declaration["destinations"], "checkout": str(checkout.resolve())}
     declaration["starting_hashes"] = {**declaration["starting_hashes"], "ledger": records.sha256_file(ledger_path)}
+    if density is not None:
+        declaration["density"] = density
     run_dir.mkdir(parents=True, exist_ok=True)
     declare.create(run_dir, declaration)
     with records.run_stage(run_dir, "S1") as stage:

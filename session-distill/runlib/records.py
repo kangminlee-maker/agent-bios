@@ -75,6 +75,13 @@ class Refused(Exception):
     """A driver refusal; the message starts with the named code."""
 
 
+class RunStopped(Refused):
+    """A refusal that stops the run, not an item (W review of WP-08e r2, F2; lead decision): a call that stopped the run
+    (INPUT_BOUND_EXCEEDED, CLAIM_EXCEEDED) or a dispatch refused while a stop stands (RUN_STOPPED). No posture quarantines
+    it: `run_items` raises it as it is, under production too, and lets no item start after it, so the stage ends
+    failed rather than complete with its units quarantined."""
+
+
 def now():
     return datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")
 
@@ -312,7 +319,9 @@ def run_items(posture, items, work, jobs=1, stop=None):
     sequences that share nothing run side by side. Under any posture but production a failure sets `stop` (an event a
     caller may hold) and lets no item start after it; the items already running finish, and the earliest failure in
     `items` order is the one named. `done`
-    and the quarantine are in `items` order. A `jobs` that is not a positive integer is refused (ITEMS_JOBS_INVALID)."""
+    and the quarantine are in `items` order. A `jobs` that is not a positive integer is refused (ITEMS_JOBS_INVALID).
+
+    A `RunStopped` is not an item's failure: under every posture it is raised as it is, and no item starts after it."""
     expect_set(item["id"] for item in items)
     if isinstance(jobs, bool) or not isinstance(jobs, int) or jobs < 1:
         raise Refused(f"ITEMS_JOBS_INVALID {jobs!r}: items run one or more at a time")
@@ -324,6 +333,8 @@ def run_items(posture, items, work, jobs=1, stop=None):
     def sequence(group):
         try:
             return _run_sequence(posture, group, work, stop)
+        except RunStopped:
+            raise                    # it has set `stop`; it passes through by its class, never by its words
         except Refused as exc:
             if not str(exc).startswith("ITEM_FAILED "):
                 raise
@@ -375,6 +386,10 @@ def _run_sequence(posture, items, work, stop=None):
             continue
         try:
             work(item)
+        except RunStopped:
+            if stop is not None:
+                stop.set()
+            raise
         except Exception as exc:
             # The reason is published in the stage record, and an exception's message is a path
             # often enough — an OSError's message IS one. It passes the floor here, where the text
@@ -773,6 +788,52 @@ def observe_set(expected, outcomes):
     return []
 
 
+def broad_handlers(src, module):
+    """Every handler of production code in `src` that a RunStopped can meet - one catching a class of its MRO, or bare -
+    as `(key, reraises)` (the lead's verification of WP-08e commit 4, finding 3). `key` is `module:function:caught#n`,
+    n counting the same catch in the same function, so a line moving never renames a site. `reraises` is structural: a
+    handler of the same `try` before it catches RunStopped and ends in a bare `raise`, or the handler itself always
+    ends in one (its last statement, with no return, break or continue anywhere in it). A `self_test` and what is
+    nested in it is not production code."""
+    import ast
+    catches = {cls.__name__ for cls in RunStopped.__mro__} - {"object"}
+
+    def caught(handler):
+        if handler.type is None:
+            return ["<bare>"]
+        elts = handler.type.elts if isinstance(handler.type, ast.Tuple) else [handler.type]
+        return [ast.unparse(e).split(".")[-1] for e in elts]
+
+    def always_raises(handler):
+        nodes = [n for stmt in handler.body for n in ast.walk(stmt)]
+        return (bool(handler.body) and isinstance(handler.body[-1], ast.Raise) and handler.body[-1].exc is None
+                and not any(isinstance(n, (ast.Return, ast.Break, ast.Continue)) for n in nodes))
+
+    out, seen = [], {}
+
+    def walk(node, path):
+        for child in ast.iter_child_nodes(node):
+            if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                if child.name == "self_test":
+                    continue
+                walk(child, path + [child.name])
+                continue
+            if isinstance(child, ast.Try):
+                passed = False                  # an earlier handler of this try re-raises a RunStopped
+                for handler in child.handlers:
+                    names = caught(handler)
+                    if "RunStopped" in names and always_raises(handler):
+                        passed = True
+                        continue
+                    if any(n in catches or n == "<bare>" for n in names):
+                        where = f"{module}:{'.'.join(path) or '<module>'}:{'|'.join(names)}"
+                        seen[where] = seen.get(where, 0) + 1
+                        out.append((f"{where}#{seen[where]}", passed or always_raises(handler)))
+            walk(child, path)
+    walk(ast.parse(src), [])
+    return out
+
+
 def self_test():
     failures = []
 
@@ -913,6 +974,104 @@ def self_test():
             failures.append(f"{posture}: work continued past the failure: {calls}")
     message, _calls = run_batch("production", [item("A"), item("A")])
     expect("items with a repeated id", [message] if isinstance(message, str) else [f"{message}"], "SET_MISMATCH")
+
+    # W r2, F2: a refusal that stops the run is not an item's failure, under production too
+    stopped_calls = []
+
+    def run_stops(it):
+        stopped_calls.append(it["id"])
+        if it["id"] == "B":
+            raise RunStopped("CLAIM_EXCEEDED r-S3-B-a1: 3 main requests, at most 2")
+    for posture, jobs in (("production", 1), ("production", 4), ("development", 1)):
+        stopped_calls.clear()
+        try:
+            run_items(posture, batch, run_stops, jobs=jobs)
+            raised = None
+        except RunStopped as exc:
+            raised = str(exc)
+        except Exception as exc:  # noqa: BLE001 - a quarantine or another refusal fails the control by name
+            raised = f"{type(exc).__name__}: {exc}"
+        expect(f"W r2 F2: a run stop raised by an item ends run_items as itself under {posture}, {jobs} at a time, "
+               "and quarantines nothing",
+               [] if raised == "CLAIM_EXCEEDED r-S3-B-a1: 3 main requests, at most 2"
+               and (jobs > 1 or stopped_calls == ["A", "B"]) else [f"{raised} calls {stopped_calls}"])
+
+    # the lead's verification of commit 4, finding 3: every handler a RunStopped can meet re-raises it or is named here
+    # with its reason. A module is scanned when its code names RunStopped or a supervisor - the only places one is
+    # raised or passes; census and views run stages through `run_stage` and `run_items` with no supervisor, so none
+    # arises in them. A site re-raising by structure (`broad_handlers`) needs no entry; an unnamed one fails by name.
+    cannot_see = "its try body calls no supervisor, item or stage, so no RunStopped is raised inside it"
+    stop_sites = {
+        "dispatch:Supervisor._stop_run:Exception#1": f"taking the declaration lock; {cannot_see}",
+        "dispatch:Supervisor._stop_run:Exception#2": f"reading the declaration to stamp the stop; {cannot_see}",
+        "dispatch:Supervisor._stop_run:Exception#3": f"stamping the stop, this code's arithmetic; {cannot_see}",
+        "dispatch:Supervisor._now:Exception#1": f"the run's clock; {cannot_see}",
+        "dispatch:Supervisor._now:Exception#2": f"the fallback clock; {cannot_see}",
+        "dispatch:Supervisor._rows_snapshot:Exception#1": f"copying the monitor's rows; {cannot_see}",
+        "dispatch:Supervisor._offer_stop:Exception#1": "deciding and recording one obligation's stop (_bound_entry, "
+                                                       f"_claim_entry, _stop_run), which raise none; {cannot_see}",
+        "dispatch:Supervisor._bound_entry:Exception#1": f"serializing the stop entry; {cannot_see}",
+        "dispatch:Supervisor._record_stop:Exception#1": f"writing the call's own record of its stop; {cannot_see}",
+        "dispatch:Supervisor.call:OSError|Refused#1": f"reading the server policy record; {cannot_see}",
+        "dispatch:Supervisor.call:Exception#1": "offering the stop on the failure path; _offer_stop raises none and the "
+                                                "enclosing handler re-raises the original failure",
+        "dispatch:Supervisor.item:Refused#1": f"building the expected packet to size the reservation; {cannot_see}",
+        "dispatch:Supervisor.reusable:Refused#1": f"the gate's refusal of an earlier attempt; {cannot_see}",
+        "stage_form:origin_of:Refused#1": f"storing an origin block as evidence; {cannot_see}",
+        "stage_read:keep:Refused#1": f"locating one quote in the view; {cannot_see}",
+    }
+    import ast as _ast
+    here = pathlib.Path(__file__).resolve().parent
+
+    def stop_modules(read):
+        """The runlib modules whose code names RunStopped or a supervisor: `{stem: source}`."""
+        out = {}
+        for path in sorted(here.glob("*.py")):
+            src = read(path)
+            tree = _ast.parse(src)
+            ids = ({n.attr for n in _ast.walk(tree) if isinstance(n, _ast.Attribute)}
+                   | {n.id for n in _ast.walk(tree) if isinstance(n, _ast.Name)})
+            if ids & {"RunStopped", "Supervisor", "supervisor"}:
+                out[path.stem] = src
+        return out
+
+    def stop_site_problems(modules, named):
+        found = [site for stem, src in modules.items() for site in broad_handlers(src, stem)]
+        unnamed = [key for key, reraises in found if not reraises and key not in named]
+        stale = sorted(set(named) - {key for key, reraises in found if not reraises})
+        return ([f"STOP_HANDLER_UNNAMED {key}: catches a RunStopped and neither re-raises it nor is named" for key in unnamed]
+                + [f"STOP_HANDLER_STALE {key}: named, and no handler that keeps a RunStopped is there" for key in stale]
+                + ([] if found else ["STOP_HANDLER_NONE: the scan found no handler at all"]))
+    live_modules = stop_modules(lambda path: path.read_text(encoding="utf-8"))
+    expect("lead v4 3: the modules a RunStopped passes through are scanned - dispatch, records, stage_form, stage_read",
+           [] if {"dispatch", "records", "stage_form", "stage_read"} <= set(live_modules) else [sorted(live_modules)])
+    expect("lead v4 3: every handler a RunStopped can meet re-raises it or is named with its reason",
+           stop_site_problems(live_modules, stop_sites))
+    reraising = [key for stem, src in live_modules.items() for key, rr in broad_handlers(src, stem) if rr]
+    expect("lead v4 3: the re-raising sites are found as such - run_items' two sequences, run_stage, the call's own",
+           [] if {"records:_run_sequence:Exception#1", "records:run_items.sequence:Refused#1",
+                  "records:run_stage:BaseException#1", "dispatch:Supervisor.call:BaseException#1"} <= set(reraising)
+           else [sorted(reraising)])
+    planted = dict(live_modules)
+    planted["dispatch"] = planted["dispatch"].replace(
+        "            except breakers.Deferred as exc:\n                return {\"item\": item, \"outcome\": \"deferred\"",
+        "            except Refused:\n                return None\n            except breakers.Deferred as exc:\n"
+        "                return {\"item\": item, \"outcome\": \"deferred\"", 1)
+    expect("control, lead v4 3: a handler planted around the supervisor's call that swallows a refusal fails by name",
+           stop_site_problems(planted, stop_sites) if planted["dispatch"] != live_modules["dispatch"] else ["not planted"],
+           "STOP_HANDLER_UNNAMED dispatch:Supervisor.item:Refused#2")
+    unpassed = dict(live_modules)
+    unpassed["records"] = unpassed["records"].replace(
+        "        except RunStopped:\n            if stop is not None:\n                stop.set()\n            raise\n", "", 1)
+    expect("control, lead v4 3: _run_sequence without its RunStopped pass fails by name - its Exception handler then "
+           "keeps the stop",
+           stop_site_problems(unpassed, stop_sites) if unpassed["records"] != live_modules["records"] else ["not planted"],
+           "STOP_HANDLER_UNNAMED records:_run_sequence:Exception#1")
+    expect("control, lead v4 3: a named site that no longer keeps a RunStopped is stale, by name",
+           stop_site_problems(live_modules, {**stop_sites, "dispatch:Supervisor.gone:Refused#1": "x"}),
+           "STOP_HANDLER_STALE dispatch:Supervisor.gone:Refused#1")
+    expect("control, lead v4 3: a scan over nothing reports nothing found", stop_site_problems({}, {}),
+           "STOP_HANDLER_NONE")
 
     # WP-08 commit 5b: items run `jobs` at a time under the same rules
     one_at_a_time, calls_one = run_batch("production", batch)
