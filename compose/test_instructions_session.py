@@ -75,10 +75,17 @@ class PinTests(unittest.TestCase):
         foreign.write_text('{}\n', encoding='utf-8')
         link = sessions / f'rollout-2026-11-11T02-45-12-{uuid_text}.jsonl'
         link.symlink_to(foreign)
+        # The last candidate is the one every OTHER check accepts -- inside the sessions tree, one link,
+        # a name carrying only this thread's id -- so that the `rollout-` name rule is what decides it.
+        # Without such a file the home and link checks answer first and that rule is never tested.
+        not_named = sessions / f'notes-{uuid_text}.jsonl'
+        not_named.write_text('{}\n', encoding='utf-8')
         for label, candidate, rejection in (
                 ("another thread's rollout", stale, "another thread's id"),
                 ('a fork, whose name carries two ids', fork, 'carries 2 ids'),
-                ('a link out of the configured home', link, 'outside the configured home')):
+                ('a link out of the configured home', link, 'outside the configured home'),
+                ('a file this thread owns that is not named as a rollout', not_named,
+                 'thread.path: no existing rollout file was named')):
             with self.subTest(candidate=label), contextlib.redirect_stderr(io.StringIO()) as said:
                 self.assertIsNone(session.resolve_codex_rollout(
                     self.root, uuid_text, {'path': str(candidate)}, env))
