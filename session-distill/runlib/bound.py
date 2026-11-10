@@ -46,6 +46,14 @@ PACKET_OVERHEAD = 12_288     # bytes of template, schema and instructions a pack
 STOP_CODE = "INPUT_BOUND_EXCEEDED"
 AMENDED_KEY = "host_allowance"   # the only declaration key whose amendment lifts this stop
 
+# The "at most" claim a call is admitted under (W review of WP-08e r1, F4; lead decision): one call's requests, the
+# host's retries of a refused structured output included, number at most the claimed count and each takes at most the
+# claimed input. A request past it is a named stop of the run, recorded and lifted as the bound's excess is - and only
+# by a later amendment of the declaration's `retry` (a re-declared margin or retry count).
+CLAIM_CODE = "CLAIM_EXCEEDED"
+CLAIM_AMENDED_KEY = "retry"
+LIFTED_BY = {STOP_CODE: AMENDED_KEY, CLAIM_CODE: CLAIM_AMENDED_KEY}
+
 
 # ---- the limits one call keeps ---------------------------------------------------------------
 
@@ -390,6 +398,24 @@ def excess(call_id, observed, at):
                       f"the {INPUT_BOUND} bound; the host changed, so the run stops"}
 
 
+def claim_exceeded(requests, largest, claim):
+    """After a call (W r1, F4): whether its `requests` main requests, the largest of them `largest` input tokens, went
+    past the `claim` it was admitted under (`{requests_at_most, input_at_most}`); False without a claim."""
+    if not claim:
+        return False
+    return requests > claim["requests_at_most"] or (largest or 0) > claim["input_at_most"]
+
+
+def claim_excess(call_id, requests, largest, claim, at):
+    """The run's stop entry for a claim excess, before it is committed (`committed`): the request count and the
+    amounts, observed and claimed. The measured values stay in the call's own records; this names them."""
+    return {"code": CLAIM_CODE, "call_id": call_id, "requests": requests, "largest_input": largest,
+            "requests_at_most": claim["requests_at_most"], "input_at_most": claim["input_at_most"], "at": at,
+            "detail": f"{CLAIM_CODE} {call_id}: {requests} main requests, the largest {render_count(largest)} input "
+                      f"tokens, past the claim it was admitted under - at most {claim['requests_at_most']} requests of "
+                      f"at most {claim['input_at_most']}; the host retried more than the claim holds, so the run stops"}
+
+
 def committed(entry, declaration_seq):
     """The excess record as it is COMMITTED, stamped with the sequence recovery is measured from.
 
@@ -403,13 +429,15 @@ def committed(entry, declaration_seq):
 
 
 def lifted(stopped, amendments):
-    """Whether a run stopped by the bound may dispatch again.
+    """Whether a run stopped by the bound, or by a call's claim, may dispatch again.
 
-    True only for a bound stop that a **later** amendment of `host_allowance` follows: the allowance
-    is re-measured and declared through `declare --amend`, at a sequence after the record's. Any
-    other stop code is not this rule's to lift, and neither an unrelated amendment nor one recorded
-    earlier lifts it."""
-    if not stopped or stopped.get("code") != STOP_CODE:
+    True only for a stop of `LIFTED_BY` that a **later** amendment of its own key follows: for a bound
+    stop the allowance re-measured, `host_allowance`; for a claim stop the retry re-declared, `retry`
+    (its margin or its count) - each through `declare --amend`, at a sequence after the record's. Any
+    other stop code is not this rule's to lift, and neither an unrelated amendment, nor the other
+    stop's key, nor one recorded earlier lifts it."""
+    key = LIFTED_BY.get((stopped or {}).get("code"))
+    if key is None:
         return False
     seq = stopped.get("declaration_seq")
     if not isinstance(seq, int):
@@ -417,7 +445,7 @@ def lifted(stopped, amendments):
     for amendment in amendments or []:
         if not isinstance(amendment.get("seq"), int) or amendment["seq"] <= seq:
             continue
-        if any(str(key).split(".")[0] == AMENDED_KEY for key in amendment.get("diff") or {}):
+        if any(str(path).split(".")[0] == key for path in amendment.get("diff") or {}):
             return True
     return False
 
@@ -430,7 +458,7 @@ def terminal(stopped):
     stop of a lock timeout the end of the run."""
     if not stopped:
         return False
-    return stopped.get("code") != STOP_CODE or not isinstance(stopped.get("declaration_seq"), int)
+    return stopped.get("code") not in LIFTED_BY or not isinstance(stopped.get("declaration_seq"), int)
 
 
 def strongest(kept, offered):
@@ -445,7 +473,10 @@ def strongest(kept, offered):
     * nothing kept yet - the offered stop;
     * a terminal stop already kept - that one, unchanged;
     * the offered stop terminal - the offered one;
-    * otherwise both are stamped bound stops, and the higher `declaration_seq` is kept, so recovery must
+    * two stamped stops of DIFFERENT codes (a bound excess and a claim excess) - the kept one unstamped,
+      so terminal, naming the other: each lifts by its own key, and one entry kept for either would let
+      the other's amendment lift a run the first still stops, so recovery is a new run (W r1, F4);
+    * otherwise both are stamped stops of one code, and the higher `declaration_seq` is kept, so recovery must
       pass the LATEST excess rather than an earlier one; an equal sequence keeps what is already recorded.
 
     Each call still reports its own refusal in its own call record; this decides only what the run's one
@@ -456,6 +487,10 @@ def strongest(kept, offered):
         return kept
     if terminal(offered):
         return offered
+    if offered.get("code") != kept.get("code"):
+        # unstamped, so terminal by the rule above: no sequence is left for either key's amendment to pass
+        return {**{k: v for k, v in kept.items() if k != "declaration_seq"},
+                "stamp": f"two-stops: {offered.get('code')} at {offered.get('call_id')} stands beside it"}
     return offered if offered["declaration_seq"] > kept["declaration_seq"] else kept
 
 
@@ -465,12 +500,17 @@ def blocked(stopped, amendments):
         return None
     if lifted(stopped, amendments):
         return None
-    if stopped.get("code") == STOP_CODE:
+    if stopped.get("code") == STOP_CODE and not terminal(stopped):
         # the dispatcher's own contract spells a stop `RUN_STOPPED <code> at <call_id>`; this adds the one
         # thing a bound stop has that the others do not - the way back
         return (f"RUN_STOPPED {STOP_CODE} at {stopped.get('call_id')}: observed {stopped.get('observed')} tokens; "
                 "every dispatch stays refused until host_allowance is re-measured and declared through "
                 "`declare --amend`")
+    if stopped.get("code") == CLAIM_CODE and not terminal(stopped):
+        return (f"RUN_STOPPED {CLAIM_CODE} at {stopped.get('call_id')}: {stopped.get('requests')} main requests, the "
+                f"largest {stopped.get('largest_input')} input tokens, against a claim of at most "
+                f"{stopped.get('requests_at_most')} requests of at most {stopped.get('input_at_most')}; every dispatch stays "
+                f"refused until the retry is re-declared (retry.count or retry.margin) through `declare --amend`")
     return f"RUN_STOPPED {stopped.get('code')} at {stopped.get('call_id')}: nothing more is dispatched in this run"
 
 
@@ -823,6 +863,30 @@ def self_test():
             lifted(committed(excess("x", 1, "now"), 7), [{"seq": 8, "diff": {"host_allowance.a": 1}}])),
            (7, False, True))
 
+    # W r1, F4: a call's claim, its own stop and its own way back
+    claim = {"requests_at_most": 2, "input_at_most": 76_913}
+    expect("F4: two main requests within the claim are not an excess, nor is any call without a claim",
+           (claim_exceeded(2, 76_913, claim), claim_exceeded(9, 10**9, None)), (False, False))
+    expect("control, F4: a third main request, or a request past the claimed input, is an excess",
+           (claim_exceeded(3, 50_000, claim), claim_exceeded(2, 76_914, claim)), (True, True))
+    claim_stop = committed(claim_excess("r1/S4/form/a0", 3, 110_031, claim, "now"), 4)
+    for want in ("3 main requests", f"the largest {render_count(110_031)} input", "at most 2 requests of at most 76913"):
+        named("F4: the claim stop names the request count and the amounts, observed and claimed", [claim_stop["detail"]],
+              want)
+    for want in (f"RUN_STOPPED {CLAIM_CODE} at r1/S4/form/a0", "retry.count or retry.margin"):
+        named("control, F4: a claim excess blocks dispatch by name", [blocked(claim_stop, []) or ""], want)
+    named("control, F4: a host_allowance amendment does not lift a claim stop",
+          [blocked(claim_stop, [{"seq": 5, "diff": {"host_allowance.a": 1}}]) or ""], CLAIM_CODE)
+    named("control, F4: a retry amendment recorded before the stop does not lift it",
+          [blocked(claim_stop, [{"seq": 4, "diff": {"retry.count": 2}}]) or ""], CLAIM_CODE)
+    expect("F4: a later amendment of the retry lifts the claim stop, and not a bound stop",
+           (blocked(claim_stop, [{"seq": 5, "diff": {"retry.count": 2}}]),
+            lifted(committed(excess("x", 1, "now"), 4), [{"seq": 5, "diff": {"retry.margin": 4000}}])), (None, False))
+    both = strongest(committed(excess("x", 1, "now"), 4), claim_stop)
+    expect("control, F4: a bound stop and a claim stop standing together are terminal, so neither key lifts the run",
+           (terminal(both), blocked(both, [{"seq": 6, "diff": {"host_allowance.a": 1, "retry.count": 2}}]) is not None,
+            "two-stops: CLAIM_EXCEEDED" in both.get("stamp", "")), (True, True, True))
+
     # ... and neither invented number may come back
     import inspect
     signature = inspect.signature(limits)
@@ -848,7 +912,7 @@ def self_test():
     print("bound --self-test: OK (the bound's two pre-dispatch checks, the complete driver payload with its "
           "uncountable-part refusals, one read per declared part with its conflicting-length and path-form "
           "refusals, observed-input settlement in both artifact spellings, the single excess record, and the "
-          "recovery rule's five cases)")
+          "recovery rule's five cases, and a call's claim with its own stop and its own way back)")
     return 0
 
 

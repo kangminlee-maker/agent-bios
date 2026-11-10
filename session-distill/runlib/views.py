@@ -1817,7 +1817,8 @@ def fx_seats(root, capacity, seat=None, host_version=None, name=None):
 
 def golden(root, name="g", overhead=bound.PACKET_OVERHEAD, capacity=None, reservation=32_000,
            allowance=3200, census_sha=None, compressed=False, main_records=None, owned=None, allowance_entry=None,
-           window=None, state=None, prefix_ok=None, ledger_doc=None, child_records=None, main_only=False, pending_at=4):
+           window=None, state=None, prefix_ok=None, ledger_doc=None, child_records=None, main_only=False, pending_at=4,
+           density=None):
     """A run directory S2 can be run over, and the result of running it (realization: golden).
 
     The transcripts are `fx_main_records` (eligible, with a pending event and four clipped tool results), its child,
@@ -1831,7 +1832,8 @@ def golden(root, name="g", overhead=bound.PACKET_OVERHEAD, capacity=None, reserv
     observations due from. `child_records` runs it over another child transcript, as `main_records` does the main one.
     `main_only` leaves the child and the Codex session out of the census, so S2 views the main session alone and a run
     over it makes only the calls that session needs (WP-08 commit 7's live legs). `pending_at` is the first record of the
-    pending event the planted state carries on the main session; None plants none."""
+    pending event the planted state carries on the main session; None plants none. `density` is the declaration's
+    density table (WP-08e), left out when None."""
     root = pathlib.Path(root)
     run_dir, host = root / name, root / f"{name}-host"
     child_rows = child_records() if child_records else fx_child_records()
@@ -1916,6 +1918,8 @@ def golden(root, name="g", overhead=bound.PACKET_OVERHEAD, capacity=None, reserv
     ledger_path.write_text(ledger.render(ledger_doc if ledger_doc is not None else ledger.sample_ledger()), encoding="utf-8")
     declaration["destinations"] = {**declaration["destinations"], "checkout": str(checkout.resolve())}
     declaration["starting_hashes"] = {**declaration["starting_hashes"], "ledger": records.sha256_file(ledger_path)}
+    if density is not None:
+        declaration["density"] = density
     run_dir.mkdir(parents=True, exist_ok=True)
     declare.create(run_dir, declaration)
     with records.run_stage(run_dir, "S1") as stage:

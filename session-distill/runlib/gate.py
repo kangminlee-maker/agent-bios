@@ -90,7 +90,11 @@ CALL_SCHEMA = _closed(
     bound=_closed(("limit", "driver_bytes", "stop_standing"), limit=_int,
                   driver_bytes={"type": ["integer", "null"]}, stop_standing={"type": "boolean"},
                   context_capacity={"type": ["integer", "null"]},
-                  output_reservation={"type": ["integer", "null"]}),
+                  output_reservation={"type": ["integer", "null"]},
+                  # what the call claimed at most, on the bytes it sent (dispatch `call_claim`; W review of WP-08e r1,
+                  # F4): optional, null for a call no claim could be computed for and absent from a record written before
+                  claim={**_closed(("requests_at_most", "input_at_most"), requests_at_most=_int, input_at_most=_int,
+                                   first=_int, basis=_text), "type": ["object", "null"]}),
     use={"enum": ["judge", "producing", "authoring"]}, max_output_tokens={"type": ["integer", "null"]},
     runner_refused=_str_or_null,
     # the sha256 of the payload the item was asked with, before any retry's correction: what makes an earlier accepted
@@ -118,8 +122,11 @@ CALL_SCHEMA = _closed(
     # written before this existed carries none (F-20).
     # `clock` appears when the run's own clock could not be read and the timestamp came from a
     # fallback instead (HC#0) - a stop is never blocked by its own timestamp
+    # A claim excess (CLAIM_EXCEEDED, W r1 F4) names the call's main requests and the largest of them beside what it
+    # claimed at most, in place of `observed`
     stop={**_closed(("code", "call_id", "kept"), code=_text, call_id=_text, observed=_int, at=_number_or_null,
-                    detail=_text, declaration_seq=_int, stamp=_text, clock=_text, kept={"type": "boolean"}),
+                    detail=_text, declaration_seq=_int, stamp=_text, clock=_text, kept={"type": "boolean"},
+                    requests=_int, largest_input=_int, requests_at_most=_int, input_at_most=_int),
           "type": ["object", "null"]},
     manifest=_closed(("workdir_path", "workdir_files", "instructions", "appended_prompts", "skills", "agents", "hooks"),
                      workdir_path=_text, skills=_strings, agents=_strings, hooks=_strings, mcp_servers=_strings,

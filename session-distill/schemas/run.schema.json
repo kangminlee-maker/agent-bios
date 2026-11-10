@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$comment": "design §4.1; posture: design/session-distill/2026-10-21T0318--2d4fbd4--plan-addendum-wp01.md; output_caps: design/session-distill/2026-11-03T2155--6779ed7--the-output-cap-is-declared-and-a-reading-cites-its-own-quotes.md",
+  "$comment": "design §4.1; posture: design/session-distill/2026-10-21T0318--2d4fbd4--plan-addendum-wp01.md; output_caps: design/session-distill/2026-11-03T2155--6779ed7--the-output-cap-is-declared-and-a-reading-cites-its-own-quotes.md; density (optional): design/session-distill/2026-11-11T0410--c4a9a24--a-run-may-declare-an-earlier-runs-measured-density-and-an-unmeasured-class-is-reserved-at-its-estimate.md; retry (optional): design/session-distill/2026-11-11T0535--c4a9a24--a-call-past-its-claim-stops-the-run-and-a-density-belongs-to-its-class.md",
   "title": "Run declaration",
   "type": "object",
   "additionalProperties": false,
@@ -89,6 +89,21 @@
     "output_caps": {
       "type": "object", "additionalProperties": false, "required": ["S3"],
       "properties": {"S3": {"type": "integer", "minimum": 1}}
+    },
+    "retry": {
+      "$comment": "W review of WP-08e r1, F4 (lead decision): the host's retries one call's 'at most' claim holds (count, default 1) and the error share each carries (margin, default RETRY_ERROR_TOKENS, raised by a larger measured one). A request past the claim stops the run (CLAIM_EXCEEDED), and only a later amendment of this key lifts it.",
+      "type": "object", "additionalProperties": false,
+      "properties": {"count": {"type": "integer", "minimum": 1}, "margin": {"type": "integer", "minimum": 0}}
+    },
+    "density": {
+      "type": "object", "additionalProperties": false,
+      "patternProperties": {"^.+$": {
+        "type": "object", "additionalProperties": false,
+        "patternProperties": {"^S[0-9]+[a-z]?:[a-z_]+$": {
+          "type": "object", "additionalProperties": false, "required": ["bytes_per_token"],
+          "properties": {"bytes_per_token": {"type": "number", "minimum": 0},
+                         "measured_in": {"type": "string"}, "samples": {"type": "integer"},
+                         "at": {"type": "string"}}}}}}
     },
     "destinations": {
       "type": "object", "additionalProperties": false,

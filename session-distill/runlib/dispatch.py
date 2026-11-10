@@ -7,9 +7,14 @@ Every agent-backed dispatch is an episode (design §13.2). Before it starts, `re
 call's calibrated cost from the stage's remaining budget in one critical section under the
 supervisor's lock, so two requests can never both be admitted against one balance: the 95th
 percentile of the measured cost of its class (stage, seat, case type), or — for a class with
-fewer than CALIBRATION_MIN_SAMPLES measured calls — the nearest probe measurement (SEEDS) times
-usage.SAFETY_FACTOR, marked `calibration: provisional` and admitted only in a calibration
-tranche at concurrency one (S-15). The budget is the one run.json declares now, read through
+fewer than CALIBRATION_MIN_SAMPLES measured calls — a provisional reservation, marked
+`calibration: provisional`. Calibration is a property of the class, not of where in the run the
+call falls (WP-08e, lead decision): a call whose packet and output cap are known is reserved at
+its own estimate (`Supervisor.provisional_amount`: its spend at most at the density the run
+measured, else declared, else the floor, with the host allowance, the cap and the retry's error
+share) in any tranche, as long as the budget left holds it; one with no estimate is reserved at
+the nearest probe measurement (SEEDS) times usage.SAFETY_FACTOR and admitted only in a
+calibration tranche (S-15). A calibration tranche runs a class at concurrency one. The budget is the one run.json declares now, read through
 records.declaration_state, so an amendment is recorded before anything is spent against it and a
 hand edit is refused. A reservation that does not fit records the item `not_done`.
 
@@ -82,6 +87,7 @@ CLOSURE_IMPORTS_OUT_OF_SCOPE, DYNAMIC_LOAD_UNDECLARED and INVENTORY_STALE.
 """
 import ast
 import contextlib
+import datetime
 import hashlib
 import importlib.util
 import inspect
@@ -774,12 +780,17 @@ def p95(samples):
 
 # ---- what a call's bytes take as tokens, read from the run's own calls (WP-08e) -------------------
 
-# Bytes a token covers where a host and kind have no measured call in the run: a token covers at least a byte, which is
-# what the view-window bound (bound.py, (a)) already assumes, so an estimate at the floor is as high as that bound.
+# Bytes a token covers where a class (stage, seat, kind) has no measured call in the run: a token covers at least a
+# byte, which is what the view-window bound (bound.py, (a)) already assumes, so an estimate at the floor is as high as
+# that bound.
 DENSITY_FLOOR = 1.0
 # The error share of a host's own retry of a refused structured output, until a run measures its own: what the second
 # request added beyond the first and its answer in C2's two retried calls (window 8: 1,118; S4: 584), the larger taken.
 RETRY_ERROR_TOKENS = 1_118
+# The host's retries of one call an "at most" claim holds unless the declaration re-declares them (`run.json` `retry`):
+# C2 measured one at most. Nothing caps the host's own retries, so a call past its claim stops the run by name
+# (`bound.CLAIM_CODE`; W review of WP-08e r1, F4).
+RETRIES_CLAIMED = 1
 
 
 def run_ledger_path(run_dir):
@@ -808,30 +819,73 @@ def run_calls(run_dir, host, stage=None, case_type=None):
     return out
 
 
-def measured_density(run_dir, host, stage, case_type):
-    """`{bytes_per_token, basis, samples}` for one host and kind of call (a stage and its case type): the fewest bytes a
-    token covered over the run's own calls of that host and kind, each read as its driver bytes over the input of its
-    FIRST main request (`usage.first_input`), rounded down to a thousandth so the tokens it gives are high, never low;
-    `DENSITY_FLOOR` with basis `floor: 1.0` where no call of that host and kind is measured. A call's later requests are
-    the host's retry and are read by `retry_share`, never here."""
-    samples = []
-    for _r, call_dir in run_calls(run_dir, host, stage, case_type):
-        driver = (records.read_json(call_dir / "call.json").get("bound") or {}).get("driver_bytes")
-        first = usages.first_input(records.read_json(call_dir / "usage.json").get("requests"))
-        if usages.countable(driver) and driver > 0 and first:
-            samples.append(driver / first)
-    if not samples:
-        return {"bytes_per_token": DENSITY_FLOOR, "basis": f"floor: {DENSITY_FLOOR}", "samples": 0}
-    fewest = max(math.floor(min(samples) * 1000) / 1000, 0.001)
-    return {"bytes_per_token": fewest, "basis": f"measured: {host}/{stage}:{case_type}/{len(samples)} samples",
-            "samples": len(samples)}
+def density_samples(run_dir):
+    """`{(seat, "<stage>:<case type>"): [(bytes per token, reserved at)]}` over the run's own measured calls, keyed as the
+    reservation classes are (`class_key`: stage, the complete seat, case type; W review of WP-08e r1, F3), each read as
+    its driver bytes over the input of its FIRST main request (`usage.first_input`)."""
+    held = records.read_json(run_ledger_path(run_dir)) if run_ledger_path(run_dir).is_file() else {}
+    hosts = {str(r.get("seat", "")).partition(":")[0] for entry in (held.get("stages") or {}).values()
+             for r in (entry.get("reservations") or {}).values()}
+    out = {}
+    for host in sorted(h for h in hosts if h):
+        for r, call_dir in run_calls(run_dir, host):
+            stage, seat, case_type = str(r["class"]).split("|")
+            driver = (records.read_json(call_dir / "call.json").get("bound") or {}).get("driver_bytes")
+            first = usages.first_input(records.read_json(call_dir / "usage.json").get("requests"))
+            if usages.countable(driver) and driver > 0 and first:
+                out.setdefault((seat, f"{stage}:{case_type}"), []).append((driver / first, r.get("at")))
+    return out
 
 
-def retry_share(run_dir, host):
-    """`{calls, retried, rate, margin, margin_basis}` of the run's own measured calls of `host`: how many made a second
+def fewest(samples):
+    """The fewest bytes a token covered over `samples`, rounded down to a thousandth so the tokens it gives are high."""
+    return max(math.floor(min(s for s, _at in samples) * 1000) / 1000, 0.001)
+
+
+def measured_table(run_dir):
+    """The run's measured density table, in the shape a later run's declaration takes it (`run.json` `density`; WP-08e,
+    lead decision): `{seat: {"<stage>:<case type>": {bytes_per_token, measured_in, samples, at}}}`, the fewest over the
+    run's own measured calls of each seat and kind, the run's id, their count, and the latest of their reservations.
+    Nothing copies it forward: whoever declares a later run writes it."""
+    run_id = pathlib.Path(run_dir).resolve().name
+    table = {}
+    for (seat, kind), samples in sorted(density_samples(run_dir).items()):
+        stamps = [at for _s, at in samples if isinstance(at, (int, float)) and not isinstance(at, bool)]
+        at = (datetime.datetime.fromtimestamp(max(stamps), tz=datetime.timezone.utc).isoformat(timespec="seconds")
+              if stamps else None)
+        table.setdefault(seat, {})[kind] = {"bytes_per_token": fewest(samples), "measured_in": run_id,
+                                            "samples": len(samples), "at": at}
+    return table
+
+
+def measured_density(run_dir, seat, stage, case_type, declared=None):
+    """`{bytes_per_token, basis, samples}` for one class of call - a stage, the complete seat and a case type, as
+    `class_key` keys a reservation, so a seat change of the same host borrows nothing (W review of WP-08e r1, F3) - in
+    the order the lead decided (WP-08e): the fewest bytes a token covered over the run's own calls of that class
+    (`density_samples`), basis `measured: <seat>/<stage>:<kind>/<n> samples`; else the entry of the declaration's
+    `density` table (`declared`, an earlier run's measured table), basis `declared: <run id>/<n>`; else
+    `DENSITY_FLOOR`, basis `floor: 1.0`. A call's later requests are the host's retry and are read by `retry_share`,
+    which pools a host's calls, never here."""
+    kind = f"{stage}:{case_type}"
+    samples = density_samples(run_dir).get((seat, kind), [])
+    if samples:
+        return {"bytes_per_token": fewest(samples), "basis": f"measured: {seat}/{kind}/{len(samples)} samples",
+                "samples": len(samples)}
+    entry = ((declared or {}).get(seat) or {}).get(kind)
+    if entry:
+        return {"bytes_per_token": entry["bytes_per_token"],
+                "basis": f"declared: {entry['measured_in']}/{entry['samples']}", "samples": 0}
+    return {"bytes_per_token": DENSITY_FLOOR, "basis": f"floor: {DENSITY_FLOOR}", "samples": 0}
+
+
+def retry_share(run_dir, host, declared=None):
+    """`{calls, retried, rate, margin, margin_basis}` of the run's own measured calls of `host`, pooled over the host's
+    seats and kinds (a refusal's error text is the host's, not a seat's; W review of WP-08e r1, F3): how many made a second
     main request (the host's retry of a refused structured output), and the error-share margin a request may carry
     beyond the request before it and that request's answer - the largest the run measured (`usage.retry_shares`), never
-    below RETRY_ERROR_TOKENS. The rate is None where no call of the host is measured."""
+    below the declared `retry.margin` (`declared`, the declaration's `retry`), else RETRY_ERROR_TOKENS; and the retries a
+    call's claim holds, `count`: the declared `retry.count`, else RETRIES_CLAIMED (W r1, F4). The rate is None where no
+    call of the host is measured."""
     calls = retried = 0
     shares = []
     for _r, call_dir in run_calls(run_dir, host):
@@ -842,20 +896,52 @@ def retry_share(run_dir, host):
         if len(usages.main_requests(requests)) > 1:
             retried += 1
             shares += usages.retry_shares(requests)
-    margin = max([RETRY_ERROR_TOKENS, *shares])
-    basis = (f"measured: {host}/{len(shares)} retries, the largest {max(shares)}" if shares and max(shares) > RETRY_ERROR_TOKENS
-             else f"constant: RETRY_ERROR_TOKENS {RETRY_ERROR_TOKENS} (C2's two retries, 1,118 and 584)"
+    declared = declared or {}
+    floor = declared.get("margin", RETRY_ERROR_TOKENS)
+    margin = max([floor, *shares])
+    basis = (f"measured: {host}/{len(shares)} retries, the largest {max(shares)}" if shares and max(shares) > floor
+             else (f"declared: retry.margin {floor}" if "margin" in declared
+                   else f"constant: RETRY_ERROR_TOKENS {RETRY_ERROR_TOKENS} (C2's two retries, 1,118 and 584)")
              + (f"; this run's {len(shares)} retries measured no more" if shares else ""))
+    count = declared.get("count", RETRIES_CLAIMED)
     return {"calls": calls, "retried": retried, "rate": retried / calls if calls else None, "margin": margin,
-            "margin_basis": basis}
+            "margin_basis": basis, "count": count,
+            "count_basis": f"declared: retry.count {count}" if "count" in declared else f"constant: RETRIES_CLAIMED {count}"}
 
 
-def input_at_most(driver_bytes, density, allowance, output_cap, margin):
+def input_at_most(driver_bytes, density, allowance, output_cap, margin, retries=RETRIES_CLAIMED):
     """`(first, at_most)` input tokens of one call that sends `driver_bytes`: its first request, the bytes as tokens at
-    `density` plus the host's allowance; and at most any one request of it, the first plus one answer at the output cap
-    and the error-share margin - what the host's one retry of a refused structured output carries on top, added once."""
+    `density` plus the host's allowance; and at most any one request of it, the first plus, for each of the `retries`
+    the claim holds, one answer at the output cap and the error-share margin - what each retry of a refused structured
+    output carries on top of the request before it."""
     first = math.ceil(driver_bytes / density["bytes_per_token"]) + allowance
-    return first, first + output_cap + margin
+    return first, first + retries * (output_cap + margin)
+
+
+def spend_at_most(first, at_most, output_cap, retries=RETRIES_CLAIMED):
+    """What a call whose first request takes `first` and whose last claimed retry takes `at_most` spends at most: each
+    of its `retries` + 1 requests and its answer at the output cap, each retry a step of (at_most - first) / retries
+    above the request before it. One retry: the first request and its answer, then the retry at most and its answer."""
+    step = (at_most - first) // retries
+    return sum(first + k * step + output_cap for k in range(retries + 1))
+
+
+def claim_of(driver_bytes, terms):
+    """`(first, at_most)` of a call that sends `driver_bytes`, under the claim `terms` it was reserved with
+    (`Supervisor.claim_terms`)."""
+    return input_at_most(driver_bytes, {"bytes_per_token": terms["bytes_per_token"]}, terms["allowance"],
+                         terms["output_cap"], terms["margin"], terms["retries"])
+
+
+def call_claim(driver_bytes, terms):
+    """The claim one call is held to after it settles (W r1, F4): `{requests_at_most, input_at_most, first, basis}` -
+    its first request and at most the claimed retries, none past the claimed input - or None without claim terms."""
+    if not terms or not (usages.countable(driver_bytes) and driver_bytes > 0):
+        return None
+    first, at_most = claim_of(driver_bytes, terms)
+    return {"requests_at_most": 1 + terms["retries"], "input_at_most": at_most, "first": first,
+            "basis": f"density {terms['density_basis']}, allowance {terms['allowance']}, output cap {terms['output_cap']}, "
+                     f"retry margin {terms['margin']}, retries {terms['retries']}"}
 
 
 def plain_tree(root):
@@ -1097,9 +1183,54 @@ class Supervisor:
         held = sum(r["amount"] for r in entry["reservations"].values() if r["open"])
         return held + entry["spent"]["measured"] + entry["spent"]["provisional"]
 
-    def reserve(self, stage, item, seat, case_type, *, tranche="broad", attempt=1, _between=None, _locked=True):
-        """Check and reserve in one critical section. `_between` and `_locked` exist for the
-        self-test's race control only: the unlocked variant is the check-then-reserve race."""
+    def estimable(self, seat, output_cap):
+        """The host's measured hermetic allowance when a call of `seat` declaring `output_cap` can be reserved at its
+        own estimate (`provisional_amount`), else None: the estimate needs both."""
+        if not (usages.countable(output_cap) and output_cap > 0):
+            return None
+        entry = ((gate.seats(self.seats_path).get("hosts") or {}).get(seat.partition(":")[0])) or {}
+        slot = ((entry.get("host_allowance") or {}).get("hermetic")) or {}
+        return slot["allowance_tokens"] if slot.get("measured") is True and usages.countable(slot.get("allowance_tokens")) \
+            else None
+
+    def provisional_amount(self, stage, seat, case_type, sizing, run):
+        """What a call of a class with fewer than CALIBRATION_MIN_SAMPLES measured calls is reserved at, wherever in the
+        run it falls (WP-08e, lead decision): its spend at most (`spend_at_most`), from its packet's driver bytes at the
+        density of its class (`measured_density`: the run's own, else `run`'s declared table, else the floor),
+        the host's measured hermetic allowance, the output cap it declares and the retry's error share (`retry_share`).
+        `{tokens, basis}`, or None when no estimate can be made: `sizing` (`{driver_bytes, output_cap}`) is not given,
+        or the host has no measured hermetic allowance (`estimable`)."""
+        terms = self.claim_terms(stage, seat, case_type, sizing, run)
+        if terms is None:
+            return None
+        driver = sizing["driver_bytes"]
+        first, at_most = claim_of(driver, terms)
+        return {"tokens": spend_at_most(first, at_most, terms["output_cap"], terms["retries"]),
+                "basis": f"{driver} driver bytes, density {terms['density_basis']}, allowance {terms['allowance']}, "
+                         f"output cap {terms['output_cap']}, retry margin {terms['margin']}, retries {terms['retries']}"}
+
+    def claim_terms(self, stage, seat, case_type, sizing, run):
+        """What one call's "at most" claim is computed from (W review of WP-08e r1, F4), or None when no estimate can be
+        made (`estimable`): `{bytes_per_token, density_basis, allowance, output_cap, margin, retries}` - the density of
+        its class, the host's measured hermetic allowance, the output cap the call declares, the retry's error share
+        and the retries the claim holds (`retry_share`, with the declaration's `retry`). Recorded with the reservation
+        and applied to the bytes the call really sends (`claim_of`)."""
+        sizing = sizing or {}
+        driver, cap = sizing.get("driver_bytes"), sizing.get("output_cap")
+        allowance = self.estimable(seat, cap)
+        if allowance is None or not (usages.countable(driver) and driver > 0):
+            return None
+        density = measured_density(self.run_dir, seat, stage, case_type, run.get("density"))
+        retry = retry_share(self.run_dir, seat.partition(":")[0], run.get("retry"))
+        return {"bytes_per_token": density["bytes_per_token"], "density_basis": density["basis"], "allowance": allowance,
+                "output_cap": cap, "margin": retry["margin"], "retries": retry["count"]}
+
+    def reserve(self, stage, item, seat, case_type, *, tranche="broad", attempt=1, sizing=None, _between=None,
+                _locked=True):
+        """Check and reserve in one critical section. A class with fewer than CALIBRATION_MIN_SAMPLES measured calls is
+        reserved at the call's own estimate when `sizing` makes one (`provisional_amount`), in any tranche; without one
+        it is reserved at the seed and only in a calibration tranche (CALIBRATION_PROVISIONAL). `_between` and
+        `_locked` exist for the self-test's race control only: the unlocked variant is the check-then-reserve race."""
         host, klass = seat.partition(":")[0], class_key(stage, seat, case_type)
         with self._lock() if _locked else contextlib.nullcontext():
             ledger = self.ledger()
@@ -1111,9 +1242,13 @@ class Supervisor:
             if budget is None:
                 raise Refused(f"BUDGET_UNDECLARED {stage}: run.json declares no budget for the stage")
             amount, calibration = self.estimate(klass, host)
-            if calibration == "provisional" and tranche != "calibration":
-                raise Refused(f"CALIBRATION_PROVISIONAL {klass}: fewer than {CALIBRATION_MIN_SAMPLES} measured calls; "
-                              f"only a calibration tranche dispatches it (S-15)")
+            terms = self.claim_terms(stage, seat, case_type, sizing, run)
+            estimated = self.provisional_amount(stage, seat, case_type, sizing, run) if calibration == "provisional" else None
+            if estimated is not None:
+                amount = estimated["tokens"]
+            elif calibration == "provisional" and tranche != "calibration":
+                raise Refused(f"CALIBRATION_PROVISIONAL {klass}: fewer than {CALIBRATION_MIN_SAMPLES} measured calls and "
+                              f"no estimate of this call to reserve it at; only a calibration tranche dispatches it (S-15)")
             entry = self._stage(ledger, stage)
             if tranche == "calibration" and any(r["open"] and r["class"] == klass and r["tranche"] == "calibration"
                                                 for r in entry["reservations"].values()):
@@ -1132,7 +1267,9 @@ class Supervisor:
             call_id = f"{self.run_id}-{stage}-{item}-a{attempt}"
             reservation = {"call_id": call_id, "stage": stage, "item": item, "seat": seat, "class": klass,
                            "amount": amount, "calibration": calibration, "tranche": tranche,
-                           "declaration_seq": run["declaration_seq"], "at": self.clock(), "open": True, "outcome": None}
+                           "declaration_seq": run["declaration_seq"], "at": self.clock(), "open": True, "outcome": None,
+                           **({"estimate": estimated["basis"]} if estimated is not None else {}),
+                           **({"claim_terms": terms} if terms is not None else {})}
             entry["reservations"][call_id] = reservation
             self._write(ledger)
         return dict(reservation)
@@ -1201,7 +1338,7 @@ class Supervisor:
         running replace the unstamped stop of a lock timeout, and a `host_allowance` amendment then lifted
         a run that should have ended (BD#0). What this returns is this call's own record of the stop; what
         the ledger keeps is the stronger one."""
-        bound_stop = entry.get("code") == bound.STOP_CODE
+        bound_stop = entry.get("code") in bound.LIFTED_BY   # a bound or a claim excess: stamped, liftable by its key
         with contextlib.ExitStack() as locks:
             unstamped = None
             if bound_stop:
@@ -1325,6 +1462,34 @@ class Supervisor:
         call["stop"] = offered
         self._record_stop(call, call_dir)
         return offered
+
+    def _offer_claim_stop(self, call, call_dir, requests):
+        """A call past the claim it was admitted under stops the run (W review of WP-08e r1, F4; lead decision): more
+        main requests than the claim holds, or one past its input (`bound.claim_exceeded`). The stop is recorded and
+        lifted as a bound excess is (`_stop_run`, `bound.lifted` with `retry`), names the request count and the amounts
+        (`bound.claim_excess`), and the call's answer and usage stay as measured; the call then fails by name, so the
+        stage that made it does not complete. The host's retries are not capped: they are held to the claim."""
+        claim = (call.get("bound") or {}).get("claim")
+        if not claim or call.get("stop"):
+            return None
+        mains = usages.main_requests(requests)
+        largest = bound.observed_input(mains)[0]
+        if not bound.claim_exceeded(len(mains), largest, claim):
+            return None
+        offered = self.stop_on_claim(call["call_id"], len(mains), largest, claim, into=call)
+        call["stop"] = offered
+        self._record_stop(call, call_dir)
+        return offered
+
+    def stop_on_claim(self, call_id, requests, largest, claim, into=None):
+        """Stop the run on a claim excess of `call_id` (`bound.claim_excess`), stamped and liftable as `_stop_run`
+        stamps a bound excess. The dispatcher's own settlement calls it; so does a stage that finds an accepted call past
+        the claim it holds the call to, where the dispatcher recorded none (stage_form, W r1 F4)."""
+        at, note = self._now()
+        entry = bound.claim_excess(call_id, requests, largest, claim, at)
+        if note:
+            entry = {**entry, "clock": note}
+        return self._stop_run(entry, into=into)
 
     def _record_stop(self, call, call_dir):
         """The call's own record of its stop, written wherever that is possible.
@@ -1471,7 +1636,9 @@ class Supervisor:
                         "bound": {"limit": bound.INPUT_BOUND, "driver_bytes": admitted["driver_bytes"],
                                    "context_capacity": admitted.get("context_capacity"),
                                    "output_reservation": max_output_tokens if view_window else None,
-                                   "stop_standing": bool(self._blocked(ledger))},
+                                   "stop_standing": bool(self._blocked(ledger)),
+                                   # what this call claims at most, on the bytes it sends (W r1, F4)
+                                   "claim": call_claim(admitted["driver_bytes"], held.get("claim_terms"))},
                         "wall_ms": None, "stopped": None, "contract": "required" if contract is not None else "none",
                         "provider_signals": [], "caps": caps, "use": use, "max_output_tokens": max_output_tokens,
                         "runner_refused": None, "server_policy": policy_record, "payload_sha256": payload_sha256,
@@ -1544,6 +1711,9 @@ class Supervisor:
             excess = self._offer_stop(call, call_dir, self._rows_snapshot(mon), view_window) or excess
             usage = self._usage(call_dir, call, mon, reconciled, wall_ms)
             records.write_json(self.run_dir, call_dir / "usage.json", usage)
+            # W r1, F4: the usage record holds every main request; one past the call's claim stops the run here, with
+            # the measured values kept, before anything else is dispatched. A call the bound already stopped is that.
+            excess = excess or self._offer_claim_stop(call, call_dir, usage["requests"])
             self._delete_cell(cell, call_dir)  # only now: usage is captured before any temporary home goes (§13.3)
 
             if host == "claude":
@@ -1947,8 +2117,18 @@ class Supervisor:
         payload_sha256 = packets.sha256_bytes(payload.encode("utf-8"))
         dirs, text, settled, checked = [], payload, None, []
         for attempt in (1, 2):
+            # what this attempt's packet takes, for a class not yet measured: the packet built under the id the
+            # reservation will most likely give it (WP-08e)
+            sizing = None
+            if kwargs.get("max_output_tokens") is not None:
+                try:
+                    expected = packets.build(f"{self.run_id}-{stage}-{item}-a{attempt}", stage, seat, text, schema_bytes)
+                    sizing = {"driver_bytes": bound.driver_bytes(expected, schema_bytes)[0],
+                              "output_cap": kwargs["max_output_tokens"]}
+                except Refused:
+                    sizing = None
             try:
-                reservation = self.reserve(stage, item, seat, case_type, tranche=tranche, attempt=attempt)
+                reservation = self.reserve(stage, item, seat, case_type, tranche=tranche, attempt=attempt, sizing=sizing)
             except Exhausted as exc:
                 return {"item": item, "outcome": "not_done", "why": str(exc), "attempts": [str(d) for d in dirs]}
             packet = packets.build(reservation["call_id"], stage, seat, text, schema_bytes)
@@ -3109,13 +3289,23 @@ if host == "claude":
     if mode in ("big-first-request", "capped-escaped-holder"):
         time.sleep(60)
     emit({"type": "stream_event", "event": {"type": "message_delta", "usage": {"output_tokens": 61}}})
+    starts = [usage]
+    for k in range(2, (spec.get("main_requests") or 1) + 1):  # the host's own retries, each on top of the request before
+        later = {**usage, "cache_read_input_tokens": usage["cache_read_input_tokens"] + (k - 1) * spec["request_step"]}
+        emit({"type": "system", "subtype": "status", "status": "requesting"})
+        log.write(json.dumps({"type": "api-request", "timestamp": iso(time.time())}) + "\n")
+        emit({"type": "stream_event", "event": {"type": "message_start", "message": {"id": f"msg_{k}", "model": model,
+                                                                                      "usage": later}}})
+        emit({"type": "stream_event", "event": {"type": "message_delta", "usage": {"output_tokens": 61}}})
+        starts.append(later)
+    usage = {key: sum(s[key] for s in starts) for key in usage}
     if mode == "compactions":
         for _ in range(3):
             emit({"type": "system", "subtype": "compact_boundary", "compact_metadata": {"trigger": "auto"}})
             time.sleep(0.05)
         time.sleep(60)
     base = {"type": "result", "session_id": sid, "safety_stops": 0, "stop_reason": "end_turn", "result": "",
-            "modelUsage": {model: {"inputTokens": usage["input_tokens"], "outputTokens": 61,
+            "modelUsage": {model: {"inputTokens": usage["input_tokens"], "outputTokens": 61 * len(starts),
                                    "cacheReadInputTokens": usage["cache_read_input_tokens"],
                                    "cacheCreationInputTokens": usage["cache_creation_input_tokens"]}}}
     if spec.get("context_window"):  # a host reports its context window in every result; a golden one when told it
@@ -4428,6 +4618,84 @@ def self_test(scratch=None):
     control("undeclared-stage-budget-refused", (refusal(sup3.reserve, "S9", "x", judge, "judge", tranche="calibration") or "")
             .startswith("BUDGET_UNDECLARED S9"), "reserved")
     sup3.release("S6", rc["call_id"], "refused")
+    # WP-08e (lead decision): calibration is the class's - an unmeasured class's call is reserved at its own estimate in
+    # any tranche when its packet and cap are known and the host's allowance is measured
+    allow3 = gate.seats(sup3.seats_path)["hosts"]["claude"]["host_allowance"]["hermetic"]["allowance_tokens"]
+    try:
+        sized = sup3.reserve("S6", "e1", judge, "judge", sizing={"driver_bytes": 10_000, "output_cap": 4096})
+    except Refused as exc:
+        sized = {"problem": str(exc)[:300]}
+    first3 = 10_000 + allow3  # at the floor: the bytes as tokens and the allowance, written out
+    control("WP-08e: an unmeasured class's call with its packet and cap known is reserved broadly at its own estimate, "
+            "its spend at most at the floor, named", sized.get("calibration") == "provisional" and sized.get("tranche") == "broad"
+            and sized.get("amount") == first3 + 4096 + (first3 + 4096 + RETRY_ERROR_TOKENS) + 4096
+            and "density floor: 1.0" in sized.get("estimate", ""),
+            f"{sized}")
+    if sized.get("call_id"):
+        sup3.release("S6", sized["call_id"], "refused")
+    control("WP-08e: an unmeasured class's call no estimate can be made for - no output cap - is still left to a "
+            "calibration tranche (CALIBRATION_PROVISIONAL)",
+            (refusal(sup3.reserve, "S6", "e2", judge, "judge", sizing={"driver_bytes": 10_000, "output_cap": None}) or "")
+            .startswith("CALIBRATION_PROVISIONAL S6|claude:claude-haiku-5-5/low|judge"), "reserved broadly")
+    # W r1, F4 (lead decision): a call is held to the claim it was admitted under - its first request and the retries
+    # the claim holds, none past the claimed input. A call past it stops the run by name, its measured values kept.
+    def claim_run(name, requests, step):
+        """A call of `requests` main requests, each `step` input tokens above the one before. A refusal before the call is
+        returned as its failure with an empty record, so the controls below fail by name rather than end the suite."""
+        directory = run_dir(name, {"S6": 2_000_000})
+        held_s = supervisor(directory, "clean", main_requests=requests, request_step=step)
+        try:
+            held_r = held_s.reserve("S6", "claimed", judge, "judge", sizing={"driver_bytes": 4_000, "output_cap": 4096})
+        except (Refused, breakers.Deferred) as exc:
+            return directory, held_s, {"call_id": "unreserved"}, f"unreserved: {exc}", {}
+        failed_c = refusal(held_s.call, "S6", judge, packets.build(held_r["call_id"], "S6", judge, "x\n", None), None,
+                           reservation=held_r, caps=caps, view_window=False, max_output_tokens=4096)
+        path_c = directory / "calls" / held_r["call_id"] / "call.json"
+        record_c = json.loads(path_c.read_text(encoding="utf-8")) if path_c.is_file() else {}
+        return directory, held_s, held_r, failed_c, record_c
+    dk3, sk3, rk3, failed3, rec3 = claim_run("run-claim-three", 3, 100)
+    claim3 = (rec3.get("bound") or {}).get("claim") or {}
+    stood3 = sk3.ledger().get("stopped") or {}
+    spent3 = (sk3.ledger()["stages"].get("S6", {}).get("reservations", {}).get(rk3["call_id"]) or {}).get("spent") or {}
+    usage_path3 = dk3 / "calls" / rk3["call_id"] / "usage.json"
+    usage3 = json.loads(usage_path3.read_text(encoding="utf-8")) if usage_path3.is_file() else {"requests": []}
+    control("W r1 F4: a call of three main requests, its claim holding one retry, stops the run by name - the request "
+            "count and the amounts, observed and claimed - and its measured spend is kept",
+            claim3.get("requests_at_most") == 2 and claim3.get("input_at_most", 0) > 3_352
+            and (failed3 or "").startswith(f"CLAIM_EXCEEDED {rk3['call_id']}: 3 main requests")
+            and f"at most 2 requests of at most {claim3.get('input_at_most')}" in (failed3 or "")
+            and (rec3.get("stop") or {}).get("code") == bound.CLAIM_CODE and rec3["stop"].get("requests") == 3
+            and rec3["stop"].get("largest_input") == 3_352
+            and stood3.get("code") == bound.CLAIM_CODE and isinstance(stood3.get("declaration_seq"), int)
+            and len(usages.main_requests(usage3["requests"])) == 3
+            and spent3.get("measured") == usages.totals(usage3)["measured"] > 0,
+            f"{failed3} claim={claim3} stop={rec3.get('stop')} spent={spent3}")
+    control("W r1 F4: ... and nothing more is dispatched: the next reservation is refused under the claim stop",
+            (refusal(sk3.reserve, "S6", "after", judge, "judge", sizing={"driver_bytes": 4_000, "output_cap": 4096}) or "")
+            .startswith(f"RUN_STOPPED {bound.CLAIM_CODE} at {rk3['call_id']}"), "reserved after the stop")
+    refusal(declare.amend, dk3, [(f"host_allowance.{vseat}.allowance_tokens", claude_allowance + 1)],
+            "an allowance, not the retry")
+    control("W r1 F4: an amendment of another key does not lift the claim stop",
+            (refusal(sk3.reserve, "S6", "after", judge, "judge") or "").startswith(f"RUN_STOPPED {bound.CLAIM_CODE}"),
+            "lifted by host_allowance")
+    refusal(declare.amend, dk3, [("retry", {"count": 2})], "the host retried twice; the claim now holds two retries")
+    lifted3 = {}
+    try:
+        lifted3 = sk3.reserve("S6", "after", judge, "judge", sizing={"driver_bytes": 4_000, "output_cap": 4096})
+    except (Refused, breakers.Deferred) as exc:
+        lifted3 = {"refused": str(exc)}
+    control("W r1 F4: a later amendment of the retry lifts it, and the next call's claim holds what was re-declared",
+            lifted3.get("claim_terms", {}).get("retries") == 2, f"{lifted3}")
+    if lifted3.get("call_id"):
+        sk3.release("S6", lifted3["call_id"], "refused")
+    dk2, sk2, rk2, failed2, rec2 = claim_run("run-claim-two", 2, 100)
+    control("control, W r1 F4: a call of two main requests within its claim does not stop the run",
+            failed2 is None and not sk2.ledger().get("stopped") and rec2.get("stop") is None
+            and (rec2.get("bound") or {}).get("claim", {}).get("requests_at_most") == 2, f"{failed2} {rec2.get('stop')}")
+    dkw, skw, rkw, failedw, recw = claim_run("run-claim-wide", 2, 400_000)
+    control("W r1 F4: a call of two main requests whose retry takes more input than claimed stops the run by name",
+            (failedw or "").startswith(f"CLAIM_EXCEEDED {rkw['call_id']}: 2 main requests")
+            and (skw.ledger().get("stopped") or {}).get("code") == bound.CLAIM_CODE, f"{failedw}")
     for n in range(CALIBRATION_MIN_SAMPLES):
         rk = sup3.reserve("S6", f"k{n + 10}", judge, "judge", tranche="calibration")
         sup3.charge("S6", rk["call_id"], {"measured": 3000 + n, "provisional": 0, "unresolved": 0, "complete": True}, "completed")
@@ -5901,8 +6169,9 @@ def self_test(scratch=None):
     for label, call_dir, window in (("non-window", pd, False),):
         rec = json.loads((call_dir / "call.json").read_text(encoding="utf-8"))
         control(f"a-new-{label}-call-records-the-complete-bound-block",
-                sorted(rec.get("bound") or {}) == ["context_capacity", "driver_bytes", "limit",
+                sorted(rec.get("bound") or {}) == ["claim", "context_capacity", "driver_bytes", "limit",
                                                    "output_reservation", "stop_standing"]
+                and rec["bound"]["claim"] is None   # reserved with no sizing, so no claim to be held to (W r1, F4)
                 and rec["bound"]["limit"] == bound.INPUT_BOUND
                 and isinstance(rec["bound"]["driver_bytes"], int) and rec["bound"]["driver_bytes"] > 0
                 and rec["bound"]["context_capacity"] is None and rec["bound"]["output_reservation"] is None
@@ -5914,8 +6183,9 @@ def self_test(scratch=None):
                  caps=caps, view_window=True, max_output_tokens=32_000)
     wrec = json.loads((wd / "call.json").read_text(encoding="utf-8"))
     control("a-new-window-call-records-the-complete-bound-block",
-            sorted(wrec.get("bound") or {}) == ["context_capacity", "driver_bytes", "limit",
+            sorted(wrec.get("bound") or {}) == ["claim", "context_capacity", "driver_bytes", "limit",
                                                 "output_reservation", "stop_standing"]
+            and wrec["bound"]["claim"] is None
             and wrec["bound"]["context_capacity"] == gate.seat_capacity(vseat, pinned_claude)[0]
             and wrec["bound"]["output_reservation"] == 32_000
             and wrec["bound"]["driver_bytes"] == len(packets.build(rw["call_id"], vstage, vseat, "x\n", None)),
