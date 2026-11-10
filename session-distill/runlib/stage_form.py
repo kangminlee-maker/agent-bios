@@ -59,7 +59,7 @@ import tempfile
 if __package__ in (None, ""):  # run as a script: put session-distill/ on the import path
     sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 from runlib import bound, census, coverage, evidence, gate, lifecycle_intake, packet, projection, records, usage, validate, views
-from runlib.records import Refused
+from runlib.records import Refused, RunStopped
 
 HERE = pathlib.Path(__file__).resolve().parents[1]  # session-distill/: the self-test runs the driver from it
 STAGE = "S4"
@@ -353,15 +353,24 @@ def recorded_capacity(call_dir, capacity):
     return capacity
 
 
-def within_claim(requests, claim, requests_at_most=None):
-    """Whether a call stayed within its claim (WP-08e; W r1, F4): every request within the input `claim` said one request
-    takes at most - the largest, as the bound reads it (`bound.observed_input`) - and its main requests no more than
-    `requests_at_most` (one and the retries the claim holds; unchecked when None); None without a claim or a measured
-    request."""
+def form_claim(driver_bytes, limits):
+    """The claim S4 holds its formation call of `driver_bytes` to under `limits` (W r1 F4, W r2 F7; lead decisions):
+    `{requests_at_most, first, step, input_at_most}` - at most the first request and the claimed retries, the first
+    within its estimate, the k-th retry within first + k x (cap + margin); None without limits or bytes."""
+    if not limits or not (usage.countable(driver_bytes) and driver_bytes):
+        return None
+    first, at_most = input_at_most(driver_bytes, limits)
+    return {"requests_at_most": 1 + limits.get("retries", 1), "first": first,
+            "step": limits["output_cap"] + limits["retry_margin"], "input_at_most": at_most}
+
+
+def within_claim(requests, claim):
+    """Whether a call stayed within `claim` (`form_claim`; `bound.claim_breaches` decides), or None without a claim or a
+    measured request."""
     largest = bound.observed_input(requests)[0] if requests is not None else 0
     if claim is None or not largest:
         return None
-    return largest <= claim and (requests_at_most is None or len(usage.main_requests(requests)) <= requests_at_most)
+    return not bound.claim_breaches(requests, claim)
 
 
 def observed(call_dir, limits=None):
@@ -372,8 +381,8 @@ def observed(call_dir, limits=None):
     later one is the host's retry of a refused structured output and carries the first answer and the error on top, so
     it is counted apart (WP-08e): the main requests the call made, the largest of them, and, with the `limits` S4 was
     admitted under, the input it claimed at most for one request of this call's driver bytes (`input_at_most`) and
-    whether the call stayed within it (`within_claim`: the largest request, and the main requests no more than the
-    first and its claimed retries, `requests_at_most`; W r1, F4)."""
+    whether the call stayed within it (`within_claim`, `breaches`: the first request within its estimate, each retry
+    within its step, and no more main requests than the first and its claimed retries; W r1 F4, W r2 F7)."""
     call_dir = pathlib.Path(call_dir)
     held = records.read_json(call_dir / "call.json").get("bound") or {}
     result = gate.Call(call_dir).result
@@ -384,14 +393,14 @@ def observed(call_dir, limits=None):
     largest, missing = bound.observed_input(requests) if requests is not None else (None, ["no usage.json"])
     first = usage.first_input(requests) if requests is not None else None
     driver = held.get("driver_bytes")
-    claim = input_at_most(driver, limits)[1] if limits and usage.countable(driver) and driver else None
-    claimed = 1 + limits.get("retries", 1) if claim is not None else None   # the first request and its claimed retries
+    claim = form_claim(driver, limits)
     return {"admitted_capacity": held.get("context_capacity"), "context_window": windows,
             "driver_bytes": held.get("driver_bytes"), "input_tokens": first,
             "bytes_per_token": round(held["driver_bytes"] / first, 3) if first and held.get("driver_bytes") else None,
             "requests": len(usage.main_requests(requests)), "largest_input": largest or None,
-            "input_tokens_at_most": claim, "requests_at_most": claimed,
-            "within_claim": within_claim(requests, claim, claimed),
+            "first_request_at_most": (claim or {}).get("first"), "input_tokens_at_most": (claim or {}).get("input_at_most"),
+            "requests_at_most": (claim or {}).get("requests_at_most"), "within_claim": within_claim(requests, claim),
+            "breaches": bound.claim_breaches(requests, claim) if claim and requests is not None else [],
             "missing": [str(m) for m in missing] if missing else []}
 
 
@@ -1001,15 +1010,14 @@ def run(run_dir, supervisor=None, *, dry=False, index_rows=None, tranche="calibr
                 # W r1, F4: a call past its claim is not a completed stage. The dispatcher stops the run on it
                 # (CLAIM_EXCEEDED) and the call fails before this; what reaches here is an attempt reused under a
                 # declaration whose claim it now exceeds, or a call no claim was recorded for - so S4 stops the run on
-                # it itself, unless a stop already stands. Its measured values stay in its own records.
+                # it itself. The stop is offered whatever the ledger already holds: a record of an earlier stop that an
+                # amendment lifted does not stand, and keeping by standing decides what does (W r2, F5). Its measured
+                # values stay in its own records.
                 o = call["observed"]
-                if not (supervisor.ledger().get("stopped") or {}).get("code"):
-                    supervisor.stop_on_claim(call["call_id"], o["requests"], o["largest_input"],
-                                             {"requests_at_most": o["requests_at_most"],
-                                              "input_at_most": o["input_tokens_at_most"]})
-                raise Refused(f"CLAIM_EXCEEDED {call['call_id']}: {o['requests']} main requests, the largest "
-                              f"{o['largest_input']} input tokens, past the claim of at most {o['requests_at_most']} "
-                              f"requests of at most {o['input_tokens_at_most']}; S4 is not completed on it")
+                supervisor.stop_on_claim(call["call_id"], records.read_json(pathlib.Path(out["accepted"]) / "usage.json")["requests"],
+                                         form_claim(o["driver_bytes"], limits))
+                raise RunStopped(f"CLAIM_EXCEEDED {call['call_id']}: {'; '.join(o['breaches'])} - past the claim it is "
+                                 "held to; S4 is not completed on it")
             answer = labels.resolve(gate.accepted(out["accepted"], judged=True))
         else:
             call = {"item": ITEM, "outcome": "not_called", "codes": [], "attempts": [], "reused": None,
@@ -2130,8 +2138,10 @@ def self_test():
                        "cache_creation": OUTPUT_CAP + own["retry_margin"], "output": 10}]
             control("WP-08e: S4 claims at most the first request plus one answer at the output cap plus the error share, "
                     "the margin added once, and a retry that used all of it stays within the claim",
-                    claim_c == first_c + OUTPUT_CAP + own["retry_margin"] and within_claim(filled, claim_c) is True
-                    and within_claim(filled, claim_c - 1) is False,
+                    claim_c == first_c + OUTPUT_CAP + own["retry_margin"]
+                    and within_claim(filled, form_claim(40_000, own)) is True
+                    and within_claim(filled, {**form_claim(40_000, own), "step": OUTPUT_CAP + own["retry_margin"] - 1})
+                    is False,
                     f"first {first_c} claim {claim_c} largest {bound.observed_input(filled)[0]}")
         else:
             control("WP-08e: S4 claims at most the first request plus one answer at the output cap plus the error share, "
@@ -2229,8 +2239,8 @@ def self_test():
                 "S4 does not complete",
                 stopped_c.startswith(f"CLAIM_EXCEEDED {claim_dir.name}-S4-form-a") and "3 main requests" in stopped_c
                 and record_of(claim_dir).get("status") != "complete"
-                and (records.read_json(dispatch.run_ledger_path(claim_dir)).get("stopped") or {}).get("code")
-                == "CLAIM_EXCEEDED", f"{stopped_c} {record_of(claim_dir).get('status')}")
+                and "CLAIM_EXCEEDED" in (records.read_json(dispatch.run_ledger_path(claim_dir)).get("stops") or {}),
+                f"{stopped_c} {record_of(claim_dir).get('status')}")
         guarded(lambda: declare.amend(claim_dir, [("retry", {"margin": 2_000})], "a wider margin, the count unchanged"),
                 None)
         again_c = refusal(lambda: run(claim_dir, retried(claim_dir, root / "c5-cells-claim", claim_plan, 3)))
@@ -2250,9 +2260,42 @@ def self_test():
                 "was recorded for, past S4's own claim, stops the run by name and S4 does not complete",
                 bare_c.startswith(f"CLAIM_EXCEEDED {bare_dir.name}-S4-form-a") and "S4 is not completed on it" in bare_c
                 and record_of(bare_dir).get("status") != "complete"
-                and (records.read_json(dispatch.run_ledger_path(bare_dir)).get("stopped") or {}).get("code")
-                == "CLAIM_EXCEEDED",
+                and "CLAIM_EXCEEDED" in (records.read_json(dispatch.run_ledger_path(bare_dir)).get("stops") or {}),
                 f"{bare_c} {record_of(bare_dir).get('status')}")
+        # W r2, F5: the fallback stop is offered by standing, not by presence - a margin amendment lifts it, the accepted
+        # attempt is reused and still breaches a claim of one retry, and the run stops again
+        first_b = (records.read_json(dispatch.run_ledger_path(bare_dir)).get("stops") or {}).get("CLAIM_EXCEEDED") or {}
+        guarded(lambda: declare.amend(bare_dir, [("retry", {"margin": 2_000})], "a wider margin, the count unchanged"),
+                None)
+        lifted_b = guarded(lambda: unclaimed(bare_dir, root / "c5-cells-claim-bare", bare_plan, 3)._blocked(), "unread")
+        bare_again = refusal(lambda: run(bare_dir, unclaimed(bare_dir, root / "c5-cells-claim-bare", bare_plan, 3)))
+        stood_b = (records.read_json(dispatch.run_ledger_path(bare_dir)).get("stops") or {}).get("CLAIM_EXCEEDED") or {}
+        blocked_b = guarded(lambda: unclaimed(bare_dir, root / "c5-cells-claim-bare", bare_plan, 3)._blocked(), None)
+        control("W r2 F5: after a margin amendment lifts S4's fallback stop, a reused attempt that still breaches the "
+                "claim stops the run again - the new stop stands, stamped later than the lifted one",
+                lifted_b is None and bare_again.startswith(f"CLAIM_EXCEEDED {bare_dir.name}-S4-form-a")
+                and (blocked_b or "").startswith("RUN_STOPPED CLAIM_EXCEEDED")
+                and isinstance(first_b.get("declaration_seq"), int)
+                and stood_b.get("declaration_seq", 0) > first_b["declaration_seq"],
+                f"lifted={lifted_b} again={bare_again} blocked={blocked_b} "
+                f"seq {first_b.get('declaration_seq')} -> {stood_b.get('declaration_seq')}")
+        # W r2, F7: S4's own claim holds the first request to its estimate too
+        dense_dir = copy_of("claim-dense-first")
+        dense_plan = guarded(lambda: fx_form_plan(dense_dir, root / "c5-plan-claim-dense.json"), None)
+
+        def denser(directory, cells, plan_c):
+            sup_c = unclaimed(directory, cells, plan_c, 1)
+            honest_c = sup_c.runner
+            sup_c.runner = lambda host, spec: [*honest_c(host, spec)[:-1],
+                                               json.dumps({**json.loads(honest_c(host, spec)[-1]),
+                                                           "request_base": first_dp + 1_000})]
+            return sup_c
+        dense_c = refusal(lambda: run(dense_dir, denser(dense_dir, root / "c5-cells-claim-dense", dense_plan)))
+        control("W r2 F7: an accepted formation call no claim was recorded for, its one request denser than S4's estimate "
+                "though within the retry's ceiling, stops the run by name and S4 does not complete",
+                dense_c.startswith(f"CLAIM_EXCEEDED {dense_dir.name}-S4-form-a") and ": request 1 took" in dense_c
+                and record_of(dense_dir).get("status") != "complete",
+                f"{dense_c} {record_of(dense_dir).get('status')}")
         guarded(lambda: declare.amend(claim_dir, [("retry.count", 2)], "the host retried twice; the claim holds two"), None)
         held_c = guarded(lambda: run(claim_dir, retried(claim_dir, root / "c5-cells-claim", claim_plan, 3)),
                          lambda exc: {"problem": repr(exc)})

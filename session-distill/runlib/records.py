@@ -75,6 +75,13 @@ class Refused(Exception):
     """A driver refusal; the message starts with the named code."""
 
 
+class RunStopped(Refused):
+    """A refusal that stops the run, not an item (W review of WP-08e r2, F2; lead decision): a call that stopped the run
+    (INPUT_BOUND_EXCEEDED, CLAIM_EXCEEDED) or a dispatch refused while a stop stands (RUN_STOPPED). No posture quarantines
+    it: `run_items` raises it as it is, under production too, and lets no item start after it, so the stage ends
+    failed rather than complete with its units quarantined."""
+
+
 def now():
     return datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")
 
@@ -312,7 +319,9 @@ def run_items(posture, items, work, jobs=1, stop=None):
     sequences that share nothing run side by side. Under any posture but production a failure sets `stop` (an event a
     caller may hold) and lets no item start after it; the items already running finish, and the earliest failure in
     `items` order is the one named. `done`
-    and the quarantine are in `items` order. A `jobs` that is not a positive integer is refused (ITEMS_JOBS_INVALID)."""
+    and the quarantine are in `items` order. A `jobs` that is not a positive integer is refused (ITEMS_JOBS_INVALID).
+
+    A `RunStopped` is not an item's failure: under every posture it is raised as it is, and no item starts after it."""
     expect_set(item["id"] for item in items)
     if isinstance(jobs, bool) or not isinstance(jobs, int) or jobs < 1:
         raise Refused(f"ITEMS_JOBS_INVALID {jobs!r}: items run one or more at a time")
@@ -323,7 +332,7 @@ def run_items(posture, items, work, jobs=1, stop=None):
 
     def sequence(group):
         try:
-            return _run_sequence(posture, group, work, stop)
+            return _run_sequence(posture, group, work, stop)   # a RunStopped has set `stop` and passes through
         except Refused as exc:
             if not str(exc).startswith("ITEM_FAILED "):
                 raise
@@ -375,6 +384,10 @@ def _run_sequence(posture, items, work, stop=None):
             continue
         try:
             work(item)
+        except RunStopped:
+            if stop is not None:
+                stop.set()
+            raise
         except Exception as exc:
             # The reason is published in the stage record, and an exception's message is a path
             # often enough — an OSError's message IS one. It passes the floor here, where the text
@@ -913,6 +926,27 @@ def self_test():
             failures.append(f"{posture}: work continued past the failure: {calls}")
     message, _calls = run_batch("production", [item("A"), item("A")])
     expect("items with a repeated id", [message] if isinstance(message, str) else [f"{message}"], "SET_MISMATCH")
+
+    # W r2, F2: a refusal that stops the run is not an item's failure, under production too
+    stopped_calls = []
+
+    def run_stops(it):
+        stopped_calls.append(it["id"])
+        if it["id"] == "B":
+            raise RunStopped("CLAIM_EXCEEDED r-S3-B-a1: 3 main requests, at most 2")
+    for posture, jobs in (("production", 1), ("production", 4), ("development", 1)):
+        stopped_calls.clear()
+        try:
+            run_items(posture, batch, run_stops, jobs=jobs)
+            raised = None
+        except RunStopped as exc:
+            raised = str(exc)
+        except Exception as exc:  # noqa: BLE001 - a quarantine or another refusal fails the control by name
+            raised = f"{type(exc).__name__}: {exc}"
+        expect(f"W r2 F2: a run stop raised by an item ends run_items as itself under {posture}, {jobs} at a time, "
+               "and quarantines nothing",
+               [] if raised == "CLAIM_EXCEEDED r-S3-B-a1: 3 main requests, at most 2"
+               and (jobs > 1 or stopped_calls == ["A", "B"]) else [f"{raised} calls {stopped_calls}"])
 
     # WP-08 commit 5b: items run `jobs` at a time under the same rules
     one_at_a_time, calls_one = run_batch("production", batch)

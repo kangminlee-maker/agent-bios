@@ -78,6 +78,11 @@ def _closed(required=(), **properties):
 _text, _int, _str_or_null = {"type": "string"}, {"type": "integer"}, {"type": ["string", "null"]}
 _strings = {"type": "array", "items": {"type": "string"}}
 _number_or_null = {"type": ["number", "null"]}
+STOP_RECORD = _closed(("code", "call_id", "kept"), code=_text, call_id=_text, observed=_int, at=_number_or_null,
+                      detail=_text, declaration_seq=_int, stamp=_text, clock=_text, kept={"type": "boolean"},
+                      requests=_int, largest_input=_int, requests_at_most={"type": ["integer", "null"]},
+                      input_at_most={"type": ["integer", "null"]}, first_at_most={"type": ["integer", "null"]},
+                      breaches=_strings)
 CALL_SCHEMA = _closed(
     ("schema", "call_id", "stage", "item", "attempt", "host", "host_version", "seat", "child_seat", "profile",
      "manifest", "schema_sha256", "view_window", "realization", "exit_status", "wall_ms", "stopped", "contract"),
@@ -94,7 +99,7 @@ CALL_SCHEMA = _closed(
                   # what the call claimed at most, on the bytes it sent (dispatch `call_claim`; W review of WP-08e r1,
                   # F4): optional, null for a call no claim could be computed for and absent from a record written before
                   claim={**_closed(("requests_at_most", "input_at_most"), requests_at_most=_int, input_at_most=_int,
-                                   first=_int, basis=_text), "type": ["object", "null"]}),
+                                   first=_int, step=_int, basis=_text), "type": ["object", "null"]}),
     use={"enum": ["judge", "producing", "authoring"]}, max_output_tokens={"type": ["integer", "null"]},
     runner_refused=_str_or_null,
     # the sha256 of the payload the item was asked with, before any retry's correction: what makes an earlier accepted
@@ -122,12 +127,12 @@ CALL_SCHEMA = _closed(
     # written before this existed carries none (F-20).
     # `clock` appears when the run's own clock could not be read and the timestamp came from a
     # fallback instead (HC#0) - a stop is never blocked by its own timestamp
-    # A claim excess (CLAIM_EXCEEDED, W r1 F4) names the call's main requests and the largest of them beside what it
-    # claimed at most, in place of `observed`
-    stop={**_closed(("code", "call_id", "kept"), code=_text, call_id=_text, observed=_int, at=_number_or_null,
-                    detail=_text, declaration_seq=_int, stamp=_text, clock=_text, kept={"type": "boolean"},
-                    requests=_int, largest_input=_int, requests_at_most=_int, input_at_most=_int),
-          "type": ["object", "null"]},
+    # A record written before one stop per obligation carries one `stop`; `stops` holds each obligation's
+    # (W review of WP-08e r2; lead decision): a claim excess (CLAIM_EXCEEDED) names each breach, the call's main
+    # requests and the largest of them beside what it claimed, in place of `observed`
+    stop={**STOP_RECORD, "type": ["object", "null"]},
+    stops={"type": "object", "additionalProperties": False,
+           "patternProperties": {"^(INPUT_BOUND_EXCEEDED|CLAIM_EXCEEDED)$": STOP_RECORD}},
     manifest=_closed(("workdir_path", "workdir_files", "instructions", "appended_prompts", "skills", "agents", "hooks"),
                      workdir_path=_text, skills=_strings, agents=_strings, hooks=_strings, mcp_servers=_strings,
                      workdir_files={"type": "array", "items": _closed(("path",), path=_text, sha256=_str_or_null)},
@@ -461,6 +466,20 @@ def window_bound(c, errors):
     if declared.get("stop_standing"):
         errors.append(f"DISPATCHED_WHILE_STOPPED {call.get('call_id')}: the run's bound stop stood when this call was "
                       "admitted, and a stopped run dispatches nothing")
+    # W review of WP-08e r2, F1 (lead decision): a call that stopped the run is a failure, whatever its answer - its
+    # measured spend is kept, and its answer is never accepted or reused. Both readings: the stop the call recorded, and
+    # its usage against the claim it was admitted under, so a call whose stop record was lost is refused all the same.
+    offered = [call["stop"]] if isinstance(call.get("stop"), dict) else []
+    offered += [s for s in (call.get("stops") or {}).values() if isinstance(s, dict)] \
+        if isinstance(call.get("stops"), dict) else []
+    for stop in offered:
+        errors.append(f"{stop.get('code')} {call.get('call_id')}: this call stopped the run, so its answer is not "
+                      f"accepted ({stop.get('detail')})")
+    requests = (c.usage or {}).get("requests") if isinstance(c.usage, dict) else None
+    breaches = bounds.claim_breaches(requests, declared.get("claim")) if isinstance(declared.get("claim"), dict) else []
+    if breaches and not any(s.get("code") == bounds.CLAIM_CODE for s in offered):
+        errors.append(f"{bounds.CLAIM_CODE} {call.get('call_id')}: {'; '.join(breaches)} - past the claim it was "
+                      "admitted under, so its answer is not accepted (usage.json against call.json bound.claim)")
     # BA#1: drift, caught per call. The capacity the boundary admitted against is in the record; the host
     # reports its own in every Claude result, and the two must agree or the declaration is stale.
     usage = c.result.get("modelUsage") if isinstance(c.result, dict) else None
@@ -2281,6 +2300,11 @@ def self_test():
             "the window bound",),
         ("window_bound", "CAPACITY_DRIFT {}: the host reports a context window of {} and the call was admitted "
                          "against {}; the declaration is stale"): ("the window bound",),
+        # a call that stopped the run is a failure whatever its answer, read from its stop and from its usage against
+        # its claim (W review of WP-08e r2, F1; lead decision)
+        ("window_bound", "{} {}: this call stopped the run, so its answer is not accepted ({})"): ("the window bound",),
+        ("window_bound", "{} {}: {} - past the claim it was admitted under, so its answer is not accepted (usage.json "
+                         "against call.json bound.claim)"): ("the window bound",),
         ("call_record", "RECORD_INTEGRITY call.json {}"): ("call record",),
         ("call_record", "RECORD_INTEGRITY call.json: absent, unreadable, or without call_id and host"): ("call record",),
         ("call_record", "RECORD_INTEGRITY capture/host.json {}"): ("malformed record is a named verdict",),

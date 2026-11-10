@@ -1004,7 +1004,11 @@ class Reader:
                                     at_most=max(gathered["at_most"], g_at_most), basis=gather_density["basis"])
             windows.append({"item": item, "driver_bytes": size, "omissions": len(rows),
                             "forced": sum(1 for m in rows if m["forced_by"] != "none"),
-                            "input_estimate": {"first_request": first, "at_most": at_most, "basis": density["basis"]},
+                            "input_estimate": {"first_request": first, "at_most": at_most, "basis": density["basis"],
+                                               # every declared retry's request, each a step above the one before
+                                               # (W r2, F8): what the retries add if the window retries them all
+                                               "retries_at_most": sum(first + k * (self.cap + retry["margin"])
+                                                                      for k in range(1, retry["count"] + 1))},
                             "gather_if_skipped": gathered})
         return {"transcript": t["transcript"], "name": name, "windows": windows, "search_matched": len(hits),
                 "windowless": not docs}
@@ -1456,6 +1460,7 @@ def dry_run(stage, reader, run_dir):
     sizes = [w["driver_bytes"] for w in windows]
     firsts = [w["input_estimate"]["first_request"] for w in windows]
     at_mosts = [w["input_estimate"]["at_most"] for w in windows]
+    retried = [w["input_estimate"]["retries_at_most"] for w in windows]
     gathers = [w["gather_if_skipped"] for w in windows if w["gather_if_skipped"]]
     summary = {"stage": STAGE, "dry": True, "window": reader.declaration["window"],
                "declaration_seq": reader.declaration["declaration_seq"], "seat": reader.seat, "output_cap": reader.cap,
@@ -1469,8 +1474,8 @@ def dry_run(stage, reader, run_dir):
                    "retry": {"calls_measured": retry["calls"], "retried": retry["retried"], "rate": retry["rate"],
                              "margin": retry["margin"], "margin_basis": retry["margin_basis"],
                              "retries_claimed": retry["count"], "retries_basis": retry["count_basis"],
-                             "tokens_at_rate": None if retry["rate"] is None else math.ceil(retry["rate"] * sum(at_mosts)),
-                             "tokens_if_every_window_retried": sum(at_mosts)},
+                             "tokens_at_rate": None if retry["rate"] is None else math.ceil(retry["rate"] * sum(retried)),
+                             "tokens_if_every_window_retried": sum(retried)},
                    "gathers": {"windows": len(gathers), "calls": sum(g["calls"] for g in gathers),
                                "omissions": sum(g["omissions"] for g in gathers),
                                "first_requests": sum(g["first_requests"] for g in gathers), "basis": gather_density["basis"],
@@ -2009,7 +2014,7 @@ def fx_planted_call(run_dir, call_id, seat, stage, case_type, driver_bytes, requ
     from runlib import dispatch
     run_dir = pathlib.Path(run_dir)
     path = dispatch.run_ledger_path(run_dir)
-    held = records.read_json(path) if path.is_file() else {"stages": {}, "stopped": None}
+    held = records.read_json(path) if path.is_file() else {"stages": {}, "stops": {}}
     entry = held.setdefault("stages", {}).setdefault(stage, {"reservations": {}, "spent": {"measured": 0, "provisional": 0},
                                                              "not_done": [], "overshoot": []})
     entry["reservations"][call_id] = {"call_id": call_id, "stage": stage, "item": call_id, "seat": seat,
@@ -4478,7 +4483,9 @@ def self_test():
                 bool(measured) and est_d.get("windows", {}).get("basis") == "floor: 1.0" and "not_measured" not in dried
                 and all(w.get("input_estimate") == {"first_request": w["driver_bytes"] + allowance_d,
                                                      "at_most": w["driver_bytes"] + allowance_d + dried["output_cap"] + margin_d,
-                                                     "basis": "floor: 1.0"}
+                                                     "basis": "floor: 1.0",
+                                                     "retries_at_most": w["driver_bytes"] + allowance_d
+                                                     + dried["output_cap"] + margin_d}
                         for w in measured)
                 and est_d.get("windows", {}).get("first_requests") == sum(w["driver_bytes"] + allowance_d for w in measured)
                 and est_d.get("retry", {}).get("rate") is None and est_d.get("retry", {}).get("tokens_at_rate") is None
@@ -4801,6 +4808,53 @@ def self_test():
                 and retry_line.get("retries_claimed") == 2 and retry_line.get("retries_basis") == "declared: retry.count 2"
                 and retry_line.get("margin") == 3_000 and retry_line.get("margin_basis") == "declared: retry.margin 3000",
                 f"{retry_line} {[w.get('input_estimate') for w in retry_w][:2]}")
+        allowance_r = retry_dry.get("bound", {}).get("allowance", 0)
+        summed = sum((w["driver_bytes"] + allowance_r) + k * (retry_dry.get("output_cap", 0) + 3_000)
+                     for w in retry_w for k in (1, 2))
+        control("W r2 F8: with two declared retries the dry's retry total sums both retry requests of every window - "
+                "first + 1 step and first + 2 steps - computed here from the bytes at the floor",
+                bool(retry_w) and retry_line.get("tokens_if_every_window_retried") == summed
+                and retry_line.get("tokens_if_every_window_retried")
+                > sum(w["input_estimate"]["at_most"] for w in retry_w),
+                f"{retry_line.get('tokens_if_every_window_retried')} != {summed}")
+        guarded(lambda: fx_planted_call(retry_dir, f"k-{STAGE}-c2w8-a1", s3_seat, STAGE, CASE, 115_742,
+                                        [(2, 6_366, 3_297, 50_247), (2, 3_613, 53_544, 7_484)]), None)
+        rated = guarded(lambda: run(retry_dir, dry=True), {})
+        rated_w = [w for files in rated.get("units", {}).values() for f in files for w in f["windows"]]
+        rated_line = rated.get("estimate", {}).get("retry", {})
+        step_r = rated.get("output_cap", 0) + rated_line.get("margin", 0)
+        summed_r = sum(w["input_estimate"]["first_request"] + k * step_r for w in rated_w for k in (1, 2))
+        control("W r2 F8: with two declared retries and a measured retry rate, the dry's tokens at that rate are the rate "
+                "times both retry requests of every window",
+                bool(rated_w) and rated_line.get("rate") == 1.0 and rated_line.get("retries_claimed") == 2
+                and rated_line.get("tokens_at_rate") == math.ceil(1.0 * summed_r),
+                f"{rated_line.get('rate')} {rated_line.get('tokens_at_rate')} != {summed_r}")
+        # W r2, F2: a run stop is not a unit failure - production S3 ends by name, its stage failed, nothing quarantined
+        stop_dir, stop_sup, _ = fx_reader(root / "s3-claim-stop", "k", answers_r, ledger_doc=fx_ledger("k"))
+        honest_runner = stop_sup.runner
+        stop_sup.runner = lambda host, spec: [*honest_runner(host, spec)[:-1],
+                                              json.dumps({**json.loads(honest_runner(host, spec)[-1]),
+                                                          "main_requests": 3, "request_step": 100})]
+
+        def s3_record(directory):
+            return guarded(lambda: records.read_json(records.record_path(directory, STAGE)), {})
+        stopped_s3 = refusal(lambda: run(stop_dir, stop_sup))
+        held_s3 = s3_record(stop_dir)
+        control("W r2 F2: production S3 whose window call breaches its claim ends by the call's name, its stage failed, "
+                "no unit quarantined and no hand-back written",
+                stopped_s3.startswith("CLAIM_EXCEEDED ") and held_s3.get("status") == "failed"
+                and not held_s3.get("quarantined") and not (stop_dir / "read-results.json").exists(),
+                f"{stopped_s3[:160]} status={held_s3.get('status')} quarantined={held_s3.get('quarantined')}")
+        from runlib import dispatch as s3_stop_dispatch
+        again_sup = s3_stop_dispatch.Supervisor(stop_dir, cell_root=root / "s3-claim-stop-cells", realization="golden")
+        again_sup.runner = honest_runner
+        stopped_again = refusal(lambda: run(stop_dir, again_sup))
+        held_again = s3_record(stop_dir)
+        control("W r2 F2: production S3 over a run whose stop stands ends at its first reservation (RUN_STOPPED), its "
+                "stage failed, no unit quarantined",
+                stopped_again.startswith("RUN_STOPPED CLAIM_EXCEEDED") and held_again.get("status") == "failed"
+                and not held_again.get("quarantined"),
+                f"{stopped_again[:160]} status={held_again.get('status')} quarantined={held_again.get('quarantined')}")
         guarded(lambda: fx_planted_call(decl_dir, f"k-{STAGE}-c2w8-a1", s3_seat, STAGE, CASE, 115_742,
                                         [(2, 6_366, 3_297, 50_247), (2, 3_613, 53_544, 7_484)]), None)
         own_dry = guarded(lambda: run(decl_dir, dry=True), {})

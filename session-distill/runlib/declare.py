@@ -41,6 +41,7 @@ import ast
 import copy
 import datetime
 import json
+import math
 import pathlib
 import re
 import sys
@@ -163,7 +164,13 @@ def retry_errors(run):
         return []
     if not any(key in held for key in ("count", "margin")):
         return ["DECLARATION_INVALID retry: a declared retry names its count, its margin or both"]
-    return []
+    # an integer, not an integral float (W r2, F9): the schema's integer admits 2.0, and the claim's arithmetic then
+    # ranges over it and raises
+    return [f"DECLARATION_INVALID retry.{key}: an integer, not {held[key]!r}" for key in ("count", "margin")
+            if key in held and (isinstance(held[key], bool) or not isinstance(held[key], int))]
+
+
+DENSITY_KIND = re.compile(r"S[0-9]+[a-z]?:[a-z_]+")   # a declared density's kind, matched whole (fullmatch)
 
 
 def density_errors(run):
@@ -180,10 +187,17 @@ def density_errors(run):
         elif seat not in named:
             errors.append(f"DECLARATION_INVALID density.{seat}: not a seat this declaration names")
         for kind, entry in sorted(kinds.items()):
-            where = f"density.{seat}.{kind}"
-            if kind.split(":")[0] not in records.STAGES:
+            where = f"density.{seat}.{kind!r}" if not DENSITY_KIND.fullmatch(kind) else f"density.{seat}.{kind}"
+            if not DENSITY_KIND.fullmatch(kind):
+                # the whole key, both ends (W r2, F9): the schema's `$` admits a trailing newline, and the reader's
+                # exact key would never match it, so the entry would be read as nothing
+                errors.append(f"DECLARATION_INVALID {where}: not a kind, expected <stage>:<case type> exactly")
+            elif kind.split(":")[0] not in records.STAGES:
                 errors.append(f"DECLARATION_INVALID {where}: {kind.split(':')[0]!r} is not a stage")
-            if not entry["bytes_per_token"] > 0:
+            value = entry["bytes_per_token"]
+            if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+                errors.append(f"DECLARATION_INVALID {where}.bytes_per_token: a finite number, not {value!r}")
+            elif not value > 0:
                 errors.append(f"DECLARATION_INVALID {where}.bytes_per_token: a token covers more than no bytes")
             missing = [k for k in ("measured_in", "samples", "at") if k not in entry]
             if not _is_text(entry.get("measured_in", "x")):
@@ -464,6 +478,14 @@ def self_test():
             f"DENSITY_UNPROVENANCED density.{s3_seat}.S3:window", "samples (at least one), at (ISO-8601)")
     control("W r1 F4: a declared retry with its count and margin is accepted",
             mutated(lambda run: run.update(retry={"count": 2, "margin": 4000})))
+    control("W r2 F9: a declared retry count that is an integral float is refused by name, before any arithmetic",
+            mutated(lambda run: run.update(retry={"count": 2.0})), "DECLARATION_INVALID retry.count: an integer, not 2.0")
+    control("W r2 F9: a declared density kind with a trailing newline is refused by name, so it is never read as nothing",
+            mutated(lambda run: run.update(density={s3_seat: {"S3:window\n": dict(measured)}})),
+            f"DECLARATION_INVALID density.{s3_seat}.'S3:window\\n': not a kind")
+    control("W r2 F9: a declared density that is not finite is refused by name",
+            mutated(lambda run: run.update(density={s3_seat: {"S3:window": {**measured, "bytes_per_token": math.inf}}})),
+            f"DECLARATION_INVALID density.{s3_seat}.S3:window.bytes_per_token: a finite number, not inf")
     control("W r1 F4: a declared retry that names neither its count nor its margin is refused by name",
             mutated(lambda run: run.update(retry={})), "DECLARATION_INVALID retry: a declared retry names its count")
     control("WP-08e: a declared density is keyed by a seat the declaration names, as a reservation class is",

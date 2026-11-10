@@ -24,6 +24,12 @@ The rule, in the amendment's own terms:
 * an excess **stops the run**, recorded once with the declaration it ran under;
 * the stop **lifts only** on a re-measured `host_allowance`, declared later than that record.
 
+A call's **claim** (W review of WP-08e r1 F4, r2; lead decisions) is the second obligation this module
+owns: the call's first request within its reserved estimate, at most the declared retries, each within
+its step (`claim_breaches`). A breach stops the run as `CLAIM_EXCEEDED`, lifted only by a later amendment
+of `retry`. Each obligation's stop is its own record and stands until its own key is amended later than
+it (`kept`, `standing`); the run is open when none stands.
+
 A call that carries no view window is bound by none of this: its own section's contract holds, and
 an R-authoring call is a non-window call by definition (design §8.6).
 """
@@ -398,22 +404,44 @@ def excess(call_id, observed, at):
                       f"the {INPUT_BOUND} bound; the host changed, so the run stops"}
 
 
-def claim_exceeded(requests, largest, claim):
-    """After a call (W r1, F4): whether its `requests` main requests, the largest of them `largest` input tokens, went
-    past the `claim` it was admitted under (`{requests_at_most, input_at_most}`); False without a claim."""
+def claim_breaches(rows, claim):
+    """The ways a call's request `rows` went past the claim it was admitted under, each named, or [] (W review of WP-08e
+    r1 F4, r2 F7; lead decisions). The claim (`{requests_at_most, first, step, input_at_most}`) holds the first request
+    and the claimed retries: at most `requests_at_most` main requests; the first within `first`, its reserved estimate;
+    the k-th retry within `first + k x step`. A claim recorded before `first` and `step` were named holds each request
+    within `input_at_most`. Every main row counts toward the requests; a row's input is read only once it is measured.
+    It decides a stop, so it raises on nothing: a claim it cannot read is named as a breach (fail closed)."""
     if not claim:
-        return False
-    return requests > claim["requests_at_most"] or (largest or 0) > claim["input_at_most"]
+        return []
+    try:
+        mains = [r for r in list(rows or []) if isinstance(r, dict) and r.get("role") == "main"]
+        out = []
+        if len(mains) > claim["requests_at_most"]:
+            out.append(f"{len(mains)} main requests, at most {claim['requests_at_most']}")
+        stepped = isinstance(claim.get("first"), int) and isinstance(claim.get("step"), int)
+        for k, row in enumerate(mains):
+            observed, _missing = row_observation(row)
+            if observed is None:
+                continue
+            ceiling = claim["first"] + k * claim["step"] if stepped else claim["input_at_most"]
+            if observed > ceiling:
+                out.append(f"request {k + 1} took {render_count(observed)} input tokens, at most {render_count(ceiling)}")
+        return out
+    except Exception as exc:                   # noqa: BLE001 - a claim this cannot read stops the run, by name
+        return [f"the claim could not be read: {exc!r}"]
 
 
-def claim_excess(call_id, requests, largest, claim, at):
-    """The run's stop entry for a claim excess, before it is committed (`committed`): the request count and the
-    amounts, observed and claimed. The measured values stay in the call's own records; this names them."""
-    return {"code": CLAIM_CODE, "call_id": call_id, "requests": requests, "largest_input": largest,
-            "requests_at_most": claim["requests_at_most"], "input_at_most": claim["input_at_most"], "at": at,
-            "detail": f"{CLAIM_CODE} {call_id}: {requests} main requests, the largest {render_count(largest)} input "
-                      f"tokens, past the claim it was admitted under - at most {claim['requests_at_most']} requests of "
-                      f"at most {claim['input_at_most']}; the host retried more than the claim holds, so the run stops"}
+def claim_excess(call_id, rows, claim, at):
+    """The run's stop entry for a claim excess, before it is committed (`committed`): each breach by name, the main
+    requests and the largest of them beside what was claimed. The measured values stay in the call's own records."""
+    breaches = claim_breaches(rows, claim)
+    mains = [r for r in list(rows or []) if isinstance(r, dict) and r.get("role") == "main"]
+    largest = observed_rows(mains)[0]
+    return {"code": CLAIM_CODE, "call_id": call_id, "requests": len(mains), "largest_input": largest,
+            "requests_at_most": claim.get("requests_at_most"), "input_at_most": claim.get("input_at_most"),
+            "first_at_most": claim.get("first"), "breaches": breaches, "at": at,
+            "detail": f"{CLAIM_CODE} {call_id}: {'; '.join(breaches)} - past the claim it was admitted under; the run "
+                      "stops"}
 
 
 def committed(entry, declaration_seq):
@@ -429,7 +457,7 @@ def committed(entry, declaration_seq):
 
 
 def lifted(stopped, amendments):
-    """Whether a run stopped by the bound, or by a call's claim, may dispatch again.
+    """Whether one stop no longer stands.
 
     True only for a stop of `LIFTED_BY` that a **later** amendment of its own key follows: for a bound
     stop the allowance re-measured, `host_allowance`; for a claim stop the retry re-declared, `retry`
@@ -453,65 +481,90 @@ def lifted(stopped, amendments):
 def terminal(stopped):
     """Whether a stop can never be lifted: nothing this rule knows will reopen the run.
 
-    Two shapes are terminal. A stop code this rule does not own is not its to lift, and a bound stop with
-    no `declaration_seq` has nothing for an amendment to be later than - which is what makes the unstamped
-    stop of a lock timeout the end of the run."""
+    Two shapes are terminal. A stop code this rule does not own is not its to lift, and a stop of
+    `LIFTED_BY` with no `declaration_seq` has nothing for an amendment to be later than - which is what
+    makes the unstamped stop of a lock timeout the end of the run."""
     if not stopped:
         return False
     return stopped.get("code") not in LIFTED_BY or not isinstance(stopped.get("declaration_seq"), int)
 
 
-def strongest(kept, offered):
-    """Which of two stop records a run keeps: **a stop never weakens** (BD#0).
+def stands(stopped, amendments):
+    """Whether a stop still stands: recorded, and not lifted by a later amendment of its own key."""
+    return bool(stopped) and not lifted(stopped, amendments)
 
-    The ledger holds one `stopped` entry, and more than one call can settle an excess - one timing out on
-    the declaration lock and recording an unstamped stop, another, already running, settling later with a
-    stamped one. Writing the newer entry over the older made the run recoverable by amendment: the stamped
-    sequence gave a later `host_allowance` amendment something to pass, while the reason the first stop was
-    unstamped had not gone away. So the entry kept is the stronger of the two:
+
+def as_stops(held):
+    """The run's stops as `{code: stop}`, one per obligation (W review of WP-08e r2; lead decision): a ledger written
+    before held one `stopped` entry or None, and reads as the mapping of that one."""
+    if not held:
+        return {}
+    if isinstance(held.get("code"), str):
+        return {held["code"]: held}
+    return dict(held)
+
+
+def strongest(kept, offered):
+    """Which of two STANDING stop records of one obligation a run keeps: **a stop never weakens** (BD#0).
+
+    More than one call can settle an excess of one obligation - one timing out on the declaration lock
+    and recording an unstamped stop, another, already running, settling later with a stamped one. Writing
+    the newer entry over the older made the run recoverable by amendment while the reason the first stop
+    was unstamped had not gone away. So the entry kept is the stronger of the two:
 
     * nothing kept yet - the offered stop;
     * a terminal stop already kept - that one, unchanged;
     * the offered stop terminal - the offered one;
-    * two stamped stops of DIFFERENT codes (a bound excess and a claim excess) - the kept one unstamped,
-      so terminal, naming the other: each lifts by its own key, and one entry kept for either would let
-      the other's amendment lift a run the first still stops, so recovery is a new run (W r1, F4);
-    * otherwise both are stamped stops of one code, and the higher `declaration_seq` is kept, so recovery must
-      pass the LATEST excess rather than an earlier one; an equal sequence keeps what is already recorded.
+    * otherwise both are stamped, and the higher `declaration_seq` is kept, so recovery must pass the
+      LATEST excess rather than an earlier one; an equal sequence keeps what is already recorded.
 
-    Each call still reports its own refusal in its own call record; this decides only what the run's one
-    stop entry says."""
+    Stops of different obligations never meet here: each is its own record (`kept`)."""
     if not kept:
         return offered
     if not offered or terminal(kept):
         return kept
     if terminal(offered):
         return offered
-    if offered.get("code") != kept.get("code"):
-        # unstamped, so terminal by the rule above: no sequence is left for either key's amendment to pass
-        return {**{k: v for k, v in kept.items() if k != "declaration_seq"},
-                "stamp": f"two-stops: {offered.get('code')} at {offered.get('call_id')} stands beside it"}
     return offered if offered["declaration_seq"] > kept["declaration_seq"] else kept
 
 
-def blocked(stopped, amendments):
-    """None when dispatch may go on; else the named stop, lifted or not by the rule above."""
-    if not stopped:
-        return None
-    if lifted(stopped, amendments):
-        return None
+def kept(stops, offered):
+    """`(stops, kept)`: the run's stops with `offered` recorded, and the record its obligation now keeps (W review of
+    WP-08e r2, F5 and F6; lead decision). A stop is a record per obligation and stands until its own key is amended
+    later than it; records of other obligations are not touched, so a lifted stop never combines with a later one and
+    each stop lifts by its own amendment, in any order.
+
+    Within one obligation the offered record meets the earlier one in `strongest`, and that is the standing rule too:
+    an earlier stamped record a later amendment lifted is older than any stamped offer - the lifting amendment precedes
+    the offer's stamp - so the new breach is kept and stands; an unstamped offer is terminal and kept either way; an
+    earlier terminal record never lifts, so it still stands and is kept."""
+    stops = as_stops(stops)
+    stops[offered["code"]] = strongest(stops.get(offered["code"]), offered)
+    return stops, stops[offered["code"]]
+
+
+def standing(stops, amendments):
+    """The stops that stand, in the order they were recorded; the run is open iff there is none."""
+    return [s for s in as_stops(stops).values() if stands(s, amendments)]
+
+
+def stop_line(stopped):
+    """One standing stop as the dispatcher's contract spells it, `RUN_STOPPED <code> at <call_id>`, with its way back."""
     if stopped.get("code") == STOP_CODE and not terminal(stopped):
-        # the dispatcher's own contract spells a stop `RUN_STOPPED <code> at <call_id>`; this adds the one
-        # thing a bound stop has that the others do not - the way back
         return (f"RUN_STOPPED {STOP_CODE} at {stopped.get('call_id')}: observed {stopped.get('observed')} tokens; "
                 "every dispatch stays refused until host_allowance is re-measured and declared through "
                 "`declare --amend`")
     if stopped.get("code") == CLAIM_CODE and not terminal(stopped):
-        return (f"RUN_STOPPED {CLAIM_CODE} at {stopped.get('call_id')}: {stopped.get('requests')} main requests, the "
-                f"largest {stopped.get('largest_input')} input tokens, against a claim of at most "
-                f"{stopped.get('requests_at_most')} requests of at most {stopped.get('input_at_most')}; every dispatch stays "
-                f"refused until the retry is re-declared (retry.count or retry.margin) through `declare --amend`")
+        return (f"RUN_STOPPED {CLAIM_CODE} at {stopped.get('call_id')}: {'; '.join(stopped.get('breaches') or [])}; "
+                f"every dispatch stays refused until the retry is re-declared (retry.count or retry.margin) through "
+                f"`declare --amend`")
     return f"RUN_STOPPED {stopped.get('code')} at {stopped.get('call_id')}: nothing more is dispatched in this run"
+
+
+def blocked(stops, amendments):
+    """None when dispatch may go on - no stop stands; else every standing stop, named, in the order recorded."""
+    lines = [stop_line(s) for s in standing(stops, amendments)]
+    return "; ".join(lines) if lines else None
 
 
 # ---- self-test ------------------------------------------------------------------------------
@@ -863,16 +916,30 @@ def self_test():
             lifted(committed(excess("x", 1, "now"), 7), [{"seq": 8, "diff": {"host_allowance.a": 1}}])),
            (7, False, True))
 
-    # W r1, F4: a call's claim, its own stop and its own way back
-    claim = {"requests_at_most": 2, "input_at_most": 76_913}
-    expect("F4: two main requests within the claim are not an excess, nor is any call without a claim",
-           (claim_exceeded(2, 76_913, claim), claim_exceeded(9, 10**9, None)), (False, False))
-    expect("control, F4: a third main request, or a request past the claimed input, is an excess",
-           (claim_exceeded(3, 50_000, claim), claim_exceeded(2, 76_914, claim)), (True, True))
-    claim_stop = committed(claim_excess("r1/S4/form/a0", 3, 110_031, claim, "now"), 4)
-    for want in ("3 main requests", f"the largest {render_count(110_031)} input", "at most 2 requests of at most 76913"):
-        named("F4: the claim stop names the request count and the amounts, observed and claimed", [claim_stop["detail"]],
-              want)
+    # W r1 F4, W r2 F5-F7: a call's claim, its own stop and its own way back
+    def main(observed):
+        return {"role": "main", "state": "measured", "input": observed, "cache_read": 0, "cache_creation": 0}
+    claim = {"requests_at_most": 2, "first": 43_795, "step": 33_118, "input_at_most": 76_913}
+    expect("F4: a first request within its estimate and a retry within its step are no breach, nor is any call "
+           "without a claim", (claim_breaches([main(43_795), main(76_913)], claim), claim_breaches([main(10**9)], None)),
+           ([], []))
+    named("control, F4: a third main request is a breach, named by its count",
+          claim_breaches([main(40_000), main(40_000), main(40_000)], claim), "3 main requests, at most 2")
+    named("control, F4: a retry past its step is a breach, named by its place",
+          claim_breaches([main(40_000), main(76_914)], claim), f"request 2 took {render_count(76_914)} input tokens")
+    named("control, W r2 F7: a first request past its reserved estimate is a breach though it is within the last "
+          "retry's ceiling", claim_breaches([main(95_000), main(95_600)],
+                                            {"requests_at_most": 2, "first": 53_795, "step": 42_000,
+                                             "input_at_most": 95_795}),
+          f"request 1 took {render_count(95_000)} input tokens, at most {render_count(53_795)}")
+    expect("F4: a claim recorded before its first and step were named holds each request within its ceiling",
+           (claim_breaches([main(76_913)], {"requests_at_most": 2, "input_at_most": 76_913}),
+            bool(claim_breaches([main(76_914)], {"requests_at_most": 2, "input_at_most": 76_913}))), ([], True))
+    named("control, F4: a claim that cannot be read is a breach, so the stop fails closed",
+          claim_breaches([main(1)], {"requests_at_most": None}), "the claim could not be read")
+    claim_stop = committed(claim_excess("r1/S4/form/a0", [main(40_000), main(70_000), main(110_032)], claim, "now"), 4)
+    for want in ("3 main requests, at most 2", f"request 3 took {render_count(110_032)} input tokens"):
+        named("F4: the claim stop names each breach", [claim_stop["detail"]], want)
     for want in (f"RUN_STOPPED {CLAIM_CODE} at r1/S4/form/a0", "retry.count or retry.margin"):
         named("control, F4: a claim excess blocks dispatch by name", [blocked(claim_stop, []) or ""], want)
     named("control, F4: a host_allowance amendment does not lift a claim stop",
@@ -882,10 +949,47 @@ def self_test():
     expect("F4: a later amendment of the retry lifts the claim stop, and not a bound stop",
            (blocked(claim_stop, [{"seq": 5, "diff": {"retry.count": 2}}]),
             lifted(committed(excess("x", 1, "now"), 4), [{"seq": 5, "diff": {"retry.margin": 4000}}])), (None, False))
-    both = strongest(committed(excess("x", 1, "now"), 4), claim_stop)
-    expect("control, F4: a bound stop and a claim stop standing together are terminal, so neither key lifts the run",
-           (terminal(both), blocked(both, [{"seq": 6, "diff": {"host_allowance.a": 1, "retry.count": 2}}]) is not None,
-            "two-stops: CLAIM_EXCEEDED" in both.get("stamp", "")), (True, True, True))
+    # one stop per obligation: both stand together, each lifts by its own key in either order (lead decision, W r2)
+    bound_stop = committed(excess("r1/S3/w/a1", 130_000, "now"), 4)
+    both, _kept = kept(kept({}, bound_stop)[0], claim_stop)
+    allowance_5, retry_5 = {"seq": 5, "diff": {"host_allowance.a": 1}}, {"seq": 5, "diff": {"retry.count": 2}}
+    retry_6, allowance_6 = {"seq": 6, "diff": {"retry.count": 2}}, {"seq": 6, "diff": {"host_allowance.a": 1}}
+    expect("W r2: a bound stop and a claim stop of one run are two records, both standing, neither terminal",
+           (sorted(both), [terminal(s) for s in both.values()], len(standing(both, []))),
+           ([CLAIM_CODE, STOP_CODE], [False, False], 2))
+    named("control, W r2 F3: host_allowance alone does not reopen a run a claim stop also stops",
+          [blocked(both, [allowance_5]) or ""], f"RUN_STOPPED {CLAIM_CODE}")
+    named("control, W r2 F3: the retry alone does not reopen a run a bound stop also stops",
+          [blocked(both, [retry_5]) or ""], f"RUN_STOPPED {STOP_CODE}")
+    expect("W r2: each lifts by its own amendment, in either order, and then the run is open",
+           (blocked(both, [allowance_5, retry_6]), blocked(both, [retry_5, allowance_6])), (None, None))
+    # W r2 F6: a lifted stop never combines with a later one of another obligation
+    then_bound, _k = kept(as_stops(claim_stop), committed(excess("r1/S3/w/a2", 130_000, "now"), 5))
+    expect("control, W r2 F6: a claim stop lifted, then a bound stop: the bound stop stands with its own sequence and "
+           "host_allowance alone reopens the run",
+           (then_bound[STOP_CODE].get("declaration_seq"), blocked(then_bound, [retry_5]) is not None,
+            blocked(then_bound, [retry_5, allowance_6])), (5, True, None))
+    then_claim, _k = kept(as_stops(bound_stop), committed(claim_excess("r1/S4/form/a1", [main(1)] * 3, claim, "now"),
+                                                          5))
+    expect("control, W r2 F6: a bound stop lifted, then a claim stop: the claim stop stands with its own sequence and "
+           "the retry alone reopens the run",
+           (then_claim[CLAIM_CODE].get("declaration_seq"), blocked(then_claim, [allowance_5]) is not None,
+            blocked(then_claim, [allowance_5, retry_6])), (5, True, None))
+    # W r2 F5: a new breach of an obligation whose earlier stop was lifted is persisted and stands
+    again, held_again = kept(as_stops(claim_stop), committed(claim_excess("r1/S4/form/a2", [main(1)] * 3, claim, "now"),
+                                                             5))
+    expect("control, W r2 F5: a claim stop lifted by a retry amendment, then another claim breach: the new record is "
+           "kept and stands",
+           (held_again.get("call_id"), held_again.get("declaration_seq"), blocked(again, [retry_5]) is not None),
+           ("r1/S4/form/a2", 5, True))
+    expect("W r2: a standing stop of one obligation meets a new one by the strongest rule: an older or equal sequence "
+           "keeps the standing record, an unstamped offer is kept",
+           (kept(as_stops(claim_stop), committed(claim_excess("x", [main(1)] * 3, claim, "now"), 3))[1]["call_id"],
+            kept(as_stops(claim_stop), {**claim_excess("y", [main(1)] * 3, claim, "now"), "stamp": "lock-timeout"})[1]
+            ["call_id"]), ("r1/S4/form/a0", "y"))
+    expect("W r2: a ledger written with one stopped entry reads as the mapping of that one",
+           (as_stops(None), as_stops(claim_stop), as_stops({CLAIM_CODE: claim_stop})),
+           ({}, {CLAIM_CODE: claim_stop}, {CLAIM_CODE: claim_stop}))
 
     # ... and neither invented number may come back
     import inspect
