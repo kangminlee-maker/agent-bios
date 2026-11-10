@@ -37,7 +37,9 @@ file holds with other content is refused where it would be written (CLAIM_IMMUTA
 line whose digest the read records do not hold (CLAIM_IMMUTABLE).
 
 An `expand` decision is executed by `views.expand`, and the expansion windows are read with the same template; a
-`skip` is logged by `views.record_decision`. An overlap row is credited only through the window of the same view
+`skip` is logged by `views.record_decision`, and the middles a window's reading skipped are read by one gather of that
+window (`views.gather`, class `gather`, WP-08e), or named with the reason it did not read them (`gather_deferred: budget`
+and the like) on the window, the file and the coverage basis. An overlap row is credited only through the window of the same view
 that owns its record, only when that window's result passed, and only when that window shows the interval or lists
 it as its own omission (OVERLAP_INTERVAL_UNSHOWN otherwise); a row on a record the run does not owe is counted, not
 a gap; a row whose owner cannot be found is OVERLAP_OWNER_MISSING. A file S2 cut no window for, because its owed
@@ -165,6 +167,13 @@ from runlib.records import Refused
 
 STAGE = declare.VIEW_WINDOW_STAGE
 CASE = "window"
+# A window's follow-up over the omitted middles its reading skipped (WP-08e, D-20261111-360c9b): a class of its own,
+# because its packet holds middles alone and a sample of it says nothing of a window's
+GATHER_CASE = "gather"
+# what a gather that did not read its middles leaves on the window, the file and the coverage basis, by its outcome
+GATHER_REASONS = {"not_done": "gather_deferred: budget", "budget_stopped": "gather_deferred: budget",
+                  "deferred": "gather_deferred: provider", "failed": "gather_failed"}
+GATHER_PROVISIONAL = "gather_deferred: calibration"
 SCHEMA_PATH = pathlib.Path(__file__).resolve().parents[1] / "schemas" / "read.schema.json"
 
 
@@ -492,12 +501,13 @@ def keep(run_dir, name, where, window, call_id, answer):
         # shows (`#k/n`), so every part of one record, in a window or an expansion, is one occasion (WP-08c, W r1); its
         # basis is the scope's, set at the stage's end. Beside it, for this run only, the window role of the record it
         # lies on - a backlog record's occasion is late evidence of the window it belongs to (design §5.2, W r1) - and
-        # whether an expansion read it.
+        # whether an expansion or a gather read it.
         record_id = shown_entries(window)[o["occasion_locator"]]["record_id"]
         observed.append({"expected_id": o["expected_id"], "occasion_locator": f"{name}#{record_id}",
                          "exposure": o["exposure"], "verdict": o["verdict"],
                          "evidence_ids": [located[e]["evidence_id"] for e in o["evidence_ids"]], "quotes": o["evidence_ids"],
-                         "role": shown_entries(window)[o["occasion_locator"]]["window_role"], "expansion": "/x/" in where})
+                         "role": shown_entries(window)[o["occasion_locator"]]["window_role"],
+                         "expansion": "/x/" in where or "/g/" in where})
     quoted = {e for c in answer["claims"] if c["claim_id"] in kept for e in c["evidence_ids"]}
     for e in sorted(quoted | {q for o in observed for q in o.pop("quotes")}):
         evidence.append(run_dir, name, located[e])
@@ -898,17 +908,18 @@ class Reader:
         self.caps = {"tokens": episode["tokens"], "compactions": episode["compactions"]}
         self.schema, self.stitch_schema = read_schema(), stitch_schema()
 
-    def call(self, item, labels):
+    def call(self, item, labels, case=CASE):
         """One window's call through the supervisor, its answer checked by the stage (`answer_problems`)."""
         return self.supervisor.item(
-            STAGE, item, self.seat, payload(labels), self.schema, case_type=CASE, caps=self.caps,
+            STAGE, item, self.seat, payload(labels), self.schema, case_type=case, caps=self.caps,
             view_window=True, tranche=self.tranche, max_output_tokens=self.cap, stage_check=judge(labels), resume=True)
 
-    def window(self, name, where, item, doc, rows):
+    def window(self, name, where, item, doc, rows, case=CASE):
         """Read one window and keep its answer; returns its read record and, when accepted, `(answer, call id, what the
-        stitch reads of it)`. The answer is read in the packet's labels and turned into entries here, once (`Labels`)."""
+        stitch reads of it)`. The answer is read in the packet's labels and turned into entries here, once (`Labels`).
+        `case` is the call's class: a window and an expansion are `window`, a gather `gather`."""
         labels = Labels(doc, rows, self.due)
-        out = self.call(item, labels)
+        out = self.call(item, labels, case)
         row = {"window": where, "item": item, "outcome": out["outcome"], "codes": out.get("codes", []),
                "attempts": attempts_of(out), "reused": out.get("reused"), "not_reused": out.get("not_reused", [])}
         if out["outcome"] != "accepted":
@@ -942,16 +953,19 @@ class Reader:
             docs[doc["window_n"]] = doc
         return docs
 
-    def dry_file(self, t, run_id, limits, density=None, retry=None):
+    def dry_file(self, t, run_id, limits, density=None, retry=None, gather_density=None):
         """What reading one file's view would send, measured and not sent: each window's packet built under its first
         attempt's call id as the dispatcher builds it, its driver bytes held to `limits`, the bound the window was cut
         against (WINDOW_OVER_BOUND, as the dispatcher refuses it), and its input estimate (WP-08e): the bytes as tokens
         at the `density` the run measured for the host's window calls with the host allowance - the first request - and at
         most one request of it, the first with one answer at the output cap and `retry`'s error share
-        (`dispatch.input_at_most`; the floor and the constant margin when they are not given). An expansion and the
+        (`dispatch.input_at_most`; the floor and the constant margin when they are not given). A window with omissions
+        of its own records that are not forced carries the gather it would make were every one of them skipped (WP-08e):
+        its windows (`views.gather_windows`) measured as the window's are, at `gather_density`. An expansion and the
         stitch follow from answers, so a dry run does not measure them."""
         from runlib import dispatch
-        density = density or {"bytes_per_token": dispatch.DENSITY_FLOOR, "basis": f"floor: {dispatch.DENSITY_FLOOR}"}
+        floor = {"bytes_per_token": dispatch.DENSITY_FLOOR, "basis": f"floor: {dispatch.DENSITY_FLOOR}"}
+        density, gather_density = density or floor, gather_density or floor
         retry = retry or {"margin": dispatch.RETRY_ERROR_TOKENS}
         name, schema_bytes = t["name"], packet.schema_bytes(self.schema)
         docs = self.window_docs(t)
@@ -968,15 +982,50 @@ class Reader:
                 raise Refused(f"WINDOW_OVER_BOUND {run_id}-{STAGE}-{item}: " + "; ".join(problems)
                               + "; the window is split before dispatch")
             first, at_most = dispatch.input_at_most(size, density, limits["allowance"], self.cap, retry["margin"])
+            skippable = [m for m in rows if m["forced_by"] == "none"]
+            gathered = None
+            if skippable:
+                gathered = {"omissions": len(skippable), "calls": 0, "driver_bytes": 0, "first_requests": 0, "at_most": 0}
+                for part in views.gather_windows(self.run_dir, name, skippable)[0]:
+                    g_item = f"{name}-g{n}-{part['window_n']}"
+                    g_built = packet.build(f"{run_id}-{STAGE}-{g_item}-a1", STAGE, self.seat,
+                                           payload(Labels(part, own_rows(part), self.due)), schema_bytes)
+                    g_size, g_problems = bound.driver_bytes(g_built, schema_bytes)
+                    g_problems += bound.check_bound(g_size, limits)
+                    if g_problems:
+                        raise Refused(f"WINDOW_OVER_BOUND {run_id}-{STAGE}-{g_item}: " + "; ".join(g_problems)
+                                      + "; the gather is split before dispatch")
+                    g_first, g_at_most = dispatch.input_at_most(g_size, gather_density, limits["allowance"], self.cap,
+                                                                retry["margin"])
+                    gathered.update(calls=gathered["calls"] + 1, driver_bytes=gathered["driver_bytes"] + g_size,
+                                    first_requests=gathered["first_requests"] + g_first,
+                                    at_most=max(gathered["at_most"], g_at_most))
             windows.append({"item": item, "driver_bytes": size, "omissions": len(rows),
                             "forced": sum(1 for m in rows if m["forced_by"] != "none"),
-                            "input_estimate": {"first_request": first, "at_most": at_most}})
+                            "input_estimate": {"first_request": first, "at_most": at_most}, "gather_if_skipped": gathered})
         return {"transcript": t["transcript"], "name": name, "windows": windows, "search_matched": len(hits),
                 "windowless": not docs}
 
+    def gather_deferred(self):
+        """The reason a gather is not dispatched before any is reserved, or None: its class is provisional until five
+        gathers are measured (`dispatch.Supervisor.estimate`), and a provisional class dispatches only in a calibration
+        tranche (CALIBRATION_PROVISIONAL), so a broad tranche names the gather deferred instead of refusing the unit."""
+        from runlib import dispatch
+        klass = dispatch.class_key(STAGE, self.seat, GATHER_CASE)
+        _amount, calibration = self.supervisor.estimate(klass, self.seat.partition(":")[0])
+        return GATHER_PROVISIONAL if calibration == "provisional" and self.tranche != "calibration" else None
+
     def file(self, t):
-        """One file's view: every window, its decisions executed, its expansions read, its overlap rows accounted.
-        Returns its read record and what the unit's stitch reads of it (`held`)."""
+        """One file's view: every window, its decisions executed, its expansions read, the middles it skipped gathered,
+        its overlap rows accounted. Returns its read record and what the unit's stitch reads of it (`held`).
+
+        A window whose reading skipped omissions of its own records (forced_by none: a forced one cannot be skipped) is
+        followed by one gather (WP-08e, lead decision D-20261111-360c9b): its skipped middles in windows of their own
+        (`views.gather`), read as the window's class `gather` under the view's bound, their claims and events kept and
+        stitched as an expansion's are. An omission a gather read is no longer skipped for the source's completeness; one
+        it did not read keeps its skip and is named with the reason - the gather's outcome (`GATHER_REASONS`), or
+        `gather_deferred: calibration` when the class may not be dispatched in this tranche - on the window (`gather`),
+        on the file (`not_gathered`) and, through the unit, on the coverage basis (`observation_scope`)."""
         name = t["name"]
         result = {"transcript": t["transcript"], "name": name, "windows": [], "expansions": [], "windowless": None}
         held = {"claims": [], "events": [], "observations": []}
@@ -985,8 +1034,9 @@ class Reader:
         if not docs:
             result["windowless"] = ("it owes the window nothing and is viewed for the events earlier runs left pending on it"
                                     if t.get("carried_only") else "the records it owes hold no content block")
-            result.update(view_complete=True, source_complete=not t["unresolved_versions"], skipped=[],
-                          overlap={"rows": 0, "credited": 0, "not_owed": 0, "uncredited": []}, pending=0, seen=[])
+            result.update(view_complete=True, source_complete=not t["unresolved_versions"], skipped=[], gathered=[],
+                          not_gathered=[], overlap={"rows": 0, "credited": 0, "not_owed": 0, "uncredited": []}, pending=0,
+                          seen=[])
             return result, held
         accepted, decisions, expanded, seen, expansion_docs = set(), [], set(), set(), []
         # the full-source search with the due observations' retrieval terms forces what it matches (design §5.4)
@@ -1002,7 +1052,35 @@ class Reader:
             held["observations"] += kept["observations"]
             return sum(1 for e in kept["events"] if e["record"]["outcome"] == "pending")
 
-        pending = 0
+        def gather(n, call_id, skipped):
+            """The gather of window `n`'s skipped middles: its note for the window's row, the ids it read."""
+            nonlocal pending
+            ids = [m["omission_id"] for m in skipped]
+            note = {"omissions": ids, "windows": 0, "gathered": [], "reason": self.gather_deferred()}
+            if note["reason"]:
+                return note
+            parts = views.gather(self.run_dir, call_id, name, skipped)
+            expansion_docs.extend(parts)
+            read_by, outcomes = {}, []
+            for part in parts:
+                where = f"{name}/g/{n}/{part['window_n']}"
+                grow, gkept = self.window(name, where, f"{name}-g{n}-{part['window_n']}", part,
+                                          searched(own_rows(part), hits), case=GATHER_CASE)
+                result["expansions"].append({**grow, "gather_of": ids})
+                note["windows"] += 1
+                outcomes.append(grow["outcome"])
+                for r in part["records"]:
+                    read_by.setdefault(r["record_id"], []).append(gkept is not None)
+                if gkept is not None:
+                    seen.update(r["line"] - 1 for r in part["records"])
+                    pending += hold(gkept[2])
+            note["gathered"] = [m["omission_id"] for m in skipped if read_by.get(m["record_id"]) and all(read_by[m["record_id"]])]
+            if len(note["gathered"]) < len(ids):
+                worst = next((o for o in outcomes if o != "accepted"), "failed")
+                note["reason"] = GATHER_REASONS.get(worst, f"gather_{worst}")
+            return note
+
+        pending, notes = 0, []
         for n, doc in sorted(docs.items()):
             rows = searched(own_rows(doc), hits)
             forced_here.update(m["record_id"] for m in rows if m["forced_by"] == "search_match")
@@ -1015,12 +1093,14 @@ class Reader:
             answer, call_id, part = kept
             pending += hold(part)
             by_id = {m["omission_id"]: m for m in rows}
+            skipped_here = []
             for d in answer["decisions"]:
                 m = by_id[d["omission_id"]]
                 decisions.append(d)
                 if d["decision"] == "skip":
                     views.record_decision(self.run_dir, call_id, name, m["record_id"], "skip", d["reason"], m["forced_by"],
                                           omission=m["omission_id"])
+                    skipped_here.append(m)
                     continue
                 parts = views.expand(self.run_dir, call_id, name, m["record_id"], d["reason"], m["forced_by"],
                                      omission=m["omission_id"])
@@ -1038,10 +1118,17 @@ class Reader:
                         pending += hold(xkept[2])
                 if read_all:
                     expanded.add(m["omission_id"])
+            if skipped_here:
+                row["gather"] = gather(n, call_id, skipped_here)
+                notes.append(row["gather"])
         result["searched"].update(matched=len(hits), forced=sorted(forced_here))
         own_ids = [m["omission_id"] for doc in docs.values() for m in own_rows(doc)]
+        gathered = {i for note in notes for i in note["gathered"]}
         state = views.completeness([n in accepted for n in sorted(docs)], own_ids, decisions, expanded,
-                                   t["unresolved_versions"])
+                                   t["unresolved_versions"], gathered)
+        result["gathered"] = sorted(gathered)
+        result["not_gathered"] = [{"omission_id": i, "reason": note["reason"]} for note in notes for i in note["omissions"]
+                                  if i not in gathered]
         # an uncredited overlap row has an owner that was not accepted, so the view is already incomplete; it is named
         # among the unit's reasons (`unit_status`)
         overlap = overlap_accounting(name, docs, accepted, views.sequence_doc(self.run_dir, name), expansion_docs)
@@ -1337,29 +1424,32 @@ def dry_run(stage, reader, run_dir):
     The estimate (WP-08e) reads what the bytes take as tokens from the run's own window calls of the host
     (`dispatch.measured_density`, its basis named: `measured: <host>/<stage>:<kind>/<n> samples`, or `floor: 1.0` where
     the run has none), and the host's retries of a refused structured output as their own line (`dispatch.retry_share`):
-    the rate the run measured, and what that rate of retried windows adds at most; never folded into the density.
-    Expansions and stitches follow from the answers and are named as not estimated."""
+    the rate the run measured, and what that rate of retried windows adds at most; never folded into the density. The
+    gathers are estimated as if every omission not forced were skipped, at the density of the host's gather calls, the
+    most the windows can ask for. Expansions and stitches follow from the answers and are named as not estimated."""
     from runlib import dispatch
     manifest = records.read_json(run_dir / "views.json")
     run_id, limits = run_dir.resolve().name, views.limits_of(reader.declaration)
     host = reader.seat.partition(":")[0]
     density, retry = dispatch.measured_density(run_dir, host, STAGE, CASE), dispatch.retry_share(run_dir, host)
+    gather_density = dispatch.measured_density(run_dir, host, STAGE, GATHER_CASE)
     units = collections.defaultdict(list)
     for t in manifest["transcripts"]:
         units[t["unit"]].append(t)
-    measured = {unit: [reader.dry_file(t, run_id, limits, density, retry)
+    measured = {unit: [reader.dry_file(t, run_id, limits, density, retry, gather_density)
                        for t in sorted(units[unit], key=lambda t: (t["kind"] != "session", t["name"]))]
                 for unit in sorted(units)}
     windows = [w for files in measured.values() for f in files for w in f["windows"]]
     sizes = [w["driver_bytes"] for w in windows]
     firsts = [w["input_estimate"]["first_request"] for w in windows]
     at_mosts = [w["input_estimate"]["at_most"] for w in windows]
+    gathers = [w["gather_if_skipped"] for w in windows if w["gather_if_skipped"]]
     summary = {"stage": STAGE, "dry": True, "window": reader.declaration["window"],
                "declaration_seq": reader.declaration["declaration_seq"], "seat": reader.seat, "output_cap": reader.cap,
                "due": len(reader.due), "units": measured,
                "bound": {**limits, "driver_budget": bound.driver_budget(limits)},
                "calls": {"windows": len(sizes), "driver_bytes": sum(sizes), "largest": max(sizes, default=0)},
-               "density": {"window": density},
+               "density": {"window": density, "gather": gather_density},
                "estimate": {
                    "windows": {"calls": len(windows), "first_requests": sum(firsts), "basis": density["basis"],
                                "largest_request_at_most": max(at_mosts, default=0)},
@@ -1367,6 +1457,10 @@ def dry_run(stage, reader, run_dir):
                              "margin": retry["margin"], "margin_basis": retry["margin_basis"],
                              "tokens_at_rate": None if retry["rate"] is None else math.ceil(retry["rate"] * sum(at_mosts)),
                              "tokens_if_every_window_retried": sum(at_mosts)},
+                   "gathers": {"windows": len(gathers), "calls": sum(g["calls"] for g in gathers),
+                               "omissions": sum(g["omissions"] for g in gathers),
+                               "first_requests": sum(g["first_requests"] for g in gathers), "basis": gather_density["basis"],
+                               "if": "every omission not forced is skipped: a reading that expands one leaves it out"},
                    "not_estimated": {"expansions": "which omissions a reading expands follows from its answer",
                                      "stitches": "what a stitch lists follows from the claims and events the windows keep"}}}
     records.write_json(run_dir, run_dir / DRY_RECORD, summary)
@@ -1456,7 +1550,8 @@ def run(run_dir, supervisor=None, tranche="broad", stitch_bound=None, jobs=S3_JO
                                {"unit": unit, "status": status, "reasons": reasons, "files": read, "stitch": stitched})
             per_unit[unit] = {"result": result, "read": read, "status": status, "stitched": stitched, "pending": pending,
                               "resolved": resolved, "observed": held["observations"],
-                              "complete": (all(f["view_complete"] for f in read), all(f["source_complete"] for f in read))}
+                              "complete": (all(f["view_complete"] for f in read), all(f["source_complete"] for f in read),
+                                           not_source(read))}
 
         outcome = stage.run_items([{"id": unit, "unit": unit} for unit in sorted(views_of)], work, jobs)
         for unit in sorted(per_unit):  # in unit order, as one at a time would have added them
@@ -1509,6 +1604,14 @@ def run(run_dir, supervisor=None, tranche="broad", stitch_bound=None, jobs=S3_JO
 
 # ---- the follow-up of the expected observations due ----------------------------------------------
 
+def not_source(files):
+    """Why a unit's files are not source complete, by name (WP-08e): each omission a reading skipped that no gather read,
+    with the gather's reason, and each file with other versions unresolved."""
+    return ([{"transcript": f["transcript"], "omission_id": g["omission_id"], "reason": g["reason"]}
+             for f in files for g in f.get("not_gathered", [])]
+            + [{"transcript": f["transcript"], "reason": "unresolved_versions"} for f in files if f.get("unresolved")])
+
+
 def observation_scope(document, done, complete):
     """The scope every observation of the window is judged over (design §5.4, plan amendment row 5, Q2 of WP-08 commit
     4): every declared transcript source, and every session of the window in them, a unit with every member - a member's
@@ -1522,7 +1625,9 @@ def observation_scope(document, done, complete):
     when a member of it is not. An overlap the census could not determine, and one an older census never wrote, keep the
     row in scope. Returns `views.coverage_basis`' scope, what
     makes it incomplete (the sessions and the sources, by name), and under `outside` the rows that would have made it
-    incomplete and are left out as outside the window, counted by status and evidence."""
+    incomplete and are left out as outside the window, counted by status and evidence. Under `not_source` it names each
+    session read view complete and not source complete, with why (`not_source`, from `complete`'s third member when it
+    has one): what holds the basis at `view` rather than `source` (WP-08e)."""
     statuses = {r["transcript"]: r["status"] for r in done}
     declared = [(n, s) for n, s in sorted(document["sources"].items())
                 if n in sources.TRANSCRIPT_SOURCES and s["state"] != "undeclared"]
@@ -1532,16 +1637,19 @@ def observation_scope(document, done, complete):
     rows = census.rows(document)
     overlap = {census.key_of(r): r.get("window_overlap") for r in rows}
     unit_of = census.units(rows)
-    outside = collections.Counter()
+    outside, below_source = collections.Counter(), []
     for row in rows:
         status, key = row["status"], census.key_of(row)
         if status in ("excluded", "child_of") and key not in statuses:
             continue
         if status == "eligible" or key in statuses:
             status = statuses.get(key, "failed")
-            view, source = complete.get(key, (False, False)) if status == "read_complete" else (False, False)
+            held = tuple(complete.get(key, (False, False))) if status == "read_complete" else (False, False)
+            view, source = held[:2]
+            why = list(held[2]) if len(held) > 2 else []
         else:
             view = source = status == "nothing_new"
+            why = []
         blocks = status in views.INCOMPLETE_STATUSES or not view
         stands_for = [key] + unit_of.get(key, [])
         if all(overlap.get(k) in census.OUTSIDE for k in stands_for):
@@ -1551,14 +1659,18 @@ def observation_scope(document, done, complete):
         scope["sessions"].append({"status": status, "view_complete": view, "source_complete": source, "unprocessed": False})
         if blocks:
             causes["sessions"].append({"session": key, "status": status, "view_complete": view})
+        elif not source:
+            below_source.append({"session": key, "reasons": why})
     scope["outside"] = dict(sorted(outside.items()))
+    scope["not_source"] = below_source
     return scope, causes
 
 
 def follow_up(run_dir, window_id, due, instances, scope, causes):
     """The instances of the window with the basis code set over `scope`, in `observations/<window>.jsonl`, and each due
     observation's resolution derived from them (`measures.derive_resolution`) into `observations/resolutions.json`,
-    beside the line digests and what made the basis incomplete. A resolution left pending only because the basis is
+    beside the line digests and what made the basis incomplete, and the sessions that hold it below `source` with why
+    (`not_source`, WP-08e: a skipped middle no gather read is named there). A resolution left pending only because the basis is
     incomplete is counted apart, with the sessions and sources that made it so (Q2 of WP-08 commit 4). Rendering and the
     ledger's close are WP-21's (plan amendment row 6).
 
@@ -1605,6 +1717,7 @@ def follow_up(run_dir, window_id, due, instances, scope, causes):
     doc = {"window": window_id, "basis": basis, "instances": rel, "digests": digest(lines), "resolutions": resolutions,
            "pending_because_incomplete": held_back,
            "incomplete": causes if basis == "incomplete" else {"sessions": [], "sources": []},
+           "not_source": scope.get("not_source", []),
            "late": {w: {"instances": held["instances"], "digests": digest(held["lines"])} for w, held in late.items()}}
     records.write_json(run_dir, pathlib.Path(run_dir) / RESOLUTIONS, doc)
     return doc
@@ -1718,13 +1831,14 @@ def fx_labelled(labels, answer):
     return out
 
 
-def fx_plan(run_dir, scratch, answers_for, expanding=lambda m: False, due=()):
+def fx_plan(run_dir, scratch, answers_for, expanding=lambda m: False, due=(), gathering=False):
     """The golden host's plan: rows `{match, answer}`, each matched by the whole text of its window as S2 rendered it -
     a window's text is in its packet verbatim and in no other - and, for a retry, by the correction its packet carries.
     The expansions are made first, on a copy of the run and by the same `views.expand`, so the plan knows their windows
     before the run makes them; `answers_for(where, doc, rows, parts)` gets them by omission id, and writes them as a
     fixture does, in entries: each is answered in the labels its packet shows, over the `due` observations
-    (`fx_labelled`)."""
+    (`fx_labelled`). With `gathering`, the gather each answer's skips would make is planned too (`views.gather_windows`,
+    WP-08e), its windows answered at `<view>/g/<window>/<n>`."""
     run_dir, rows = pathlib.Path(run_dir), []
     manifest = records.read_json(run_dir / "views.json")
     copied = pathlib.Path(tempfile.mkdtemp(prefix="plan-", dir=scratch)) / "run"
@@ -1738,6 +1852,13 @@ def fx_plan(run_dir, scratch, answers_for, expanding=lambda m: False, due=()):
         for extra, answer in answers_for(f"{name}/{doc['window_n']}", doc, own_rows(doc), parts):
             rows.append({"match": [views.render_window(doc), *extra],
                          "answer": fx_labelled(Labels(doc, own_rows(doc), due), answer)})
+            skips = {d["omission_id"] for d in answer.get("decisions", []) if d.get("decision") == "skip"}
+            skipped = [m for m in own_rows(doc) if m["omission_id"] in skips and m["forced_by"] == "none"]
+            for part in (views.gather_windows(run_dir, name, skipped)[0] if gathering and skipped else []):
+                for g_extra, g_answer in answers_for(f"{name}/g/{doc['window_n']}/{part['window_n']}", part, own_rows(part),
+                                                     parts):
+                    rows.append({"match": [views.render_window(part), *g_extra],
+                                 "answer": fx_labelled(Labels(part, own_rows(part), due), g_answer)})
         for omission, made in parts.items():
             if any(m["omission_id"] == omission for m in own_rows(doc)):
                 for part in made:
@@ -1813,10 +1934,11 @@ def fx_joined(event, claims, fact_starts, beside=False):
 
 
 def fx_reader(root, name, answers_for, expanding=lambda m: False, resolve=lambda event, claims: None, first=None, seen=None,
-              bad=lambda item: False, **golden):
+              bad=lambda item: False, gathering=False, **golden):
     """A run S0 to S2 made by `views.golden` (`golden` passes through to it), declaring the allowance seats.json
     measured, and a golden supervisor whose host answers the windows from the plan and each stitch as `resolve` says
-    (`fx_stitcher`)."""
+    (`fx_stitcher`). With `gathering` the plan answers the gathers too and the gather class is calibrated as the window
+    class is, so a broad tranche dispatches them (WP-08e); without it a gather is deferred by name."""
     from runlib import dispatch
     root = pathlib.Path(root)
     root.mkdir(parents=True, exist_ok=True)
@@ -1830,11 +1952,12 @@ def fx_reader(root, name, answers_for, expanding=lambda m: False, resolve=lambda
     due = (due_observations(golden["ledger_doc"], run_dir.resolve().name, golden.get("window") or views.FX_WINDOW)
            if golden.get("ledger_doc") else [])
     plan = root / f"{name}-plan.json"
-    plan.write_text(json.dumps(fx_plan(run_dir, root, answers_for, expanding, due)), encoding="utf-8")
+    plan.write_text(json.dumps(fx_plan(run_dir, root, answers_for, expanding, due, gathering)), encoding="utf-8")
     (root / "fake_host.py").write_text(dispatch.FAKE_HOST, encoding="utf-8")
     sup = fx_supervisor(run_dir, root, plan, resolve, first, seen, bad)
     seat = records.read_json(records.run_json_path(run_dir))["seats"][STAGE]
-    sup.seed_from({dispatch.class_key(STAGE, seat, CASE): [9000] * 5, dispatch.class_key(STAGE, seat, STITCH_CASE): [9000] * 5})
+    sup.seed_from({dispatch.class_key(STAGE, seat, CASE): [9000] * 5, dispatch.class_key(STAGE, seat, STITCH_CASE): [9000] * 5,
+                   **({dispatch.class_key(STAGE, seat, GATHER_CASE): [9000] * 5} if gathering else {})})
     return run_dir, sup, made
 
 
@@ -4360,6 +4483,92 @@ def self_test():
                 == {"bytes_per_token": 1.0, "basis": "floor: 1.0", "samples": 0}
                 and guarded(lambda: s3_dispatch.measured_density(dense_dir, "claude", STAGE, STITCH_CASE), {}).get("basis")
                 == "floor: 1.0", f"{guarded(lambda: s3_dispatch.measured_density(dense_dir, 'codex', STAGE, CASE), {})}")
+        # WP-08e Q3 (D-20261111-360c9b): the middles a window's reading skipped are gathered, or named when they are not
+        windows_d = [w for files in dried.get("units", {}).values() for f in files for w in f["windows"]]
+        expected_g = [w for w in windows_d if w["omissions"] > w["forced"]]
+        est_g = est_d.get("gathers", {})
+        control("WP-08e: a dry S3 estimates the gather each window with an omission not forced would make, every such "
+                "omission skipped, at the gather class's density, named as its basis",
+                bool(expected_g) and all((w.get("gather_if_skipped") or {}).get("omissions") == w["omissions"] - w["forced"]
+                                         and w["gather_if_skipped"]["calls"] >= 1 for w in expected_g)
+                and all(w.get("gather_if_skipped") is None for w in windows_d if w not in expected_g)
+                and est_g.get("windows") == len(expected_g) and est_g.get("basis") == "floor: 1.0"
+                and est_g.get("calls") == sum(w["gather_if_skipped"]["calls"] for w in expected_g)
+                and est_g.get("first_requests") == sum(w["gather_if_skipped"]["first_requests"] for w in expected_g)
+                and all(w["gather_if_skipped"]["first_requests"]
+                        == w["gather_if_skipped"]["driver_bytes"] + allowance_d * w["gather_if_skipped"]["calls"] for w in expected_g),
+                f"{est_g} {[(w['item'], w['omissions'], w['forced'], w.get('gather_if_skipped')) for w in windows_d][:4]}")
+
+        def answers_g(where, doc, rows, parts):
+            """Each forced omission expanded and every other skipped, as a reader decides by default; a gather's windows
+            answered as a window's are, a claim on their first middle."""
+            return [((), fx_answer(doc, rows, fact="The omitted middle holds the outcome." if "/g/" in where else
+                                   "The person asked for a change and the agent made it."))]
+
+        def gather_view(directory):
+            """`(skipped ids in the decision log, files of the read records)`."""
+            log = directory / "expansions.jsonl"
+            skips = sorted(json.loads(line)["locator"]["omission_id"] for line in records.jsonl_read(log)
+                           if line.strip() and json.loads(line)["decision"] == "skip") if log.is_file() else []
+            return skips, [f for p in sorted((directory / "read").glob("*.json")) for f in records.read_json(p)["files"]]
+
+        forced_only = lambda m: m["forced_by"] != "none"  # noqa: E731
+        # no observation is due, so no search forces an omission and every one not forced by a pending event is skipped
+        g_dir, g_sup, _ = fx_reader(root / "gather", "k", answers_g, expanding=forced_only, gathering=True)
+        guarded(lambda: run(g_dir, g_sup), {})
+        g_skips, g_files = gather_view(g_dir)
+        g_rows = [x for f in g_files for x in f["expansions"] if x.get("gather_of")]
+        g_notes = [w["gather"] for f in g_files for w in f["windows"] if w.get("gather")]
+        g_ledger = guarded(lambda: records.read_json(s3_dispatch.run_ledger_path(g_dir)), {}).get("stages", {}).get(STAGE, {})
+        g_classes = {r["class"] for r in g_ledger.get("reservations", {}).values()
+                     if r["item"] in {x["item"] for x in g_rows}}
+        g_resolved = guarded(lambda: records.read_json(g_dir / RESOLUTIONS), {})
+        control("WP-08e: every middle a window's reading skipped is read by that window's gather - calls of the gather "
+                "class, accepted, their claims kept - and the file is source complete with nothing skipped or named, the "
+                "coverage basis source",
+                bool(g_skips) and sorted(i for f in g_files for i in f.get("gathered", [])) == g_skips
+                and all(f["skipped"] == [] and f.get("not_gathered") == [] and f["source_complete"] for f in g_files
+                        if f.get("gathered"))
+                and bool(g_rows) and all(x["outcome"] == "accepted" and x.get("claims") for x in g_rows)
+                and all(n["reason"] is None and n["gathered"] == n["omissions"] for n in g_notes)
+                and g_classes == {s3_dispatch.class_key(STAGE, s3_seat, GATHER_CASE)}
+                and g_resolved.get("not_source") == [] and g_resolved.get("basis") == "source",
+                f"skips={g_skips} gathered={[f.get('gathered') for f in g_files]} notes={g_notes} classes={g_classes} "
+                f"rows={[(x['item'], x['outcome']) for x in g_rows]} not_source={g_resolved.get('not_source')}")
+        poor_dir, poor_sup, _ = fx_reader(root / "gather-budget", "k", answers_g, expanding=forced_only, gathering=True)
+        # a gather's reservation the stage's budget cannot hold: its class measured far above what is left
+        poor_sup.seed_from({s3_dispatch.class_key(STAGE, s3_seat, GATHER_CASE): [10 ** 9] * 5})
+        guarded(lambda: run(poor_dir, poor_sup), {})
+        p_skips, p_files = gather_view(poor_dir)
+        p_notes = [w["gather"] for f in p_files for w in f["windows"] if w.get("gather")]
+        p_resolved = guarded(lambda: records.read_json(poor_dir / RESOLUTIONS), {})
+        p_named = sorted(r["omission_id"] for s in p_resolved.get("not_source", []) for r in s["reasons"]
+                         if r.get("reason") == "gather_deferred: budget")
+        p_not_done = [d["class"] for d in guarded(lambda: records.read_json(s3_dispatch.run_ledger_path(poor_dir)), {})
+                      .get("stages", {}).get(STAGE, {}).get("not_done", [])]
+        control("WP-08e: a gather the stage's budget cannot hold is recorded not done, and its middles stay skipped with "
+                "the reason gather_deferred: budget on the window, on the file and on the coverage basis, which is view",
+                bool(p_skips) and bool(p_notes) and all(n["reason"] == "gather_deferred: budget" and n["gathered"] == []
+                                                         for n in p_notes)
+                and sorted(i for f in p_files for i in f["skipped"]) == p_skips
+                and sorted(g["omission_id"] for f in p_files for g in f.get("not_gathered", [])
+                           if g["reason"] == "gather_deferred: budget") == p_skips
+                and p_named == p_skips and p_resolved.get("basis") == "view" and bool(p_not_done)
+                and set(p_not_done) == {s3_dispatch.class_key(STAGE, s3_seat, GATHER_CASE)},
+                f"skips={p_skips} notes={p_notes} named={p_named} not_done={p_not_done} "
+                f"not_source={p_resolved.get('not_source')}")
+        cal_dir, cal_sup, _ = fx_reader(root / "gather-provisional", "k", answers_g, expanding=forced_only)
+        guarded(lambda: run(cal_dir, cal_sup), {})
+        c_skips, c_files = gather_view(cal_dir)
+        c_notes = [w["gather"] for f in c_files for w in f["windows"] if w.get("gather")]
+        control("WP-08e: a gather of a class not yet measured is not dispatched in a broad tranche: its middles stay "
+                "skipped, named gather_deferred: calibration, and the unit is read",
+                bool(c_skips) and bool(c_notes) and all(n["reason"] == GATHER_PROVISIONAL and n["windows"] == 0 for n in c_notes)
+                and not [r for r in guarded(lambda: records.read_json(s3_dispatch.run_ledger_path(cal_dir)), {})
+                         .get("stages", {}).get(STAGE, {}).get("reservations", {}).values() if r["class"].endswith("|" + GATHER_CASE)]
+                and sorted(g["omission_id"] for f in c_files for g in f.get("not_gathered", [])) == c_skips
+                and all(f["view_complete"] for f in c_files),
+                f"skips={c_skips} notes={c_notes}")
         over_dir, _sup, _ = fx_reader(root / "dry-over", "k", answers_r, ledger_doc=fx_ledger("k"))
         over_reader = Reader(over_dir, None, records.read_json(records.run_json_path(over_dir)))
         over_view = next(t for t in records.read_json(over_dir / "views.json")["transcripts"] if t["windows"])
