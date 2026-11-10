@@ -90,3 +90,49 @@ Alternatives:
 4. **Expose an explicit cleanup path.** Add a command that lists evidence-less intents and
    forgets a named one. Risk: it resolves nothing on its own — the operator must know the
    command exists and that the warning is actionable.
+
+## F-33 — a forked Codex thread's activation pins no transcript until a fork's naming is measured
+
+A Codex activation resolves the rollout the host wrote in two steps, and since review X round 2
+both steps go through one test (`_rollout_of_thread` in `compose/instructions_session.py`): the
+candidate must lie inside the resolved configured home's sessions tree, have one link, and carry
+exactly one id in its name, that id being this thread's. The host's index row is an association
+by itself, but it carries only a path, so it is held to the same test — and a rollout the host
+names with two ids, which is how a fork is written (`rollout-<when>-<parent>-fork-<child>.jsonl`),
+is refused by the single-id rule.
+
+The effect is a class of sessions, not an edge case: every activation of a thread the host forked
+records `rollout_path: null`, `rollout_id: null`, `rollout_method: "rollout_unresolved"`, with both
+attempts named on stderr. To the inventory that pin reads `rollout_unresolved` on its own
+`--pin` evidence path, and the rollout itself, which no pin then names, reads `unpinned` or
+`rollout_unmatched` depending on the state's other pins. Nothing is wrongly attributed; a forked
+session's selection and delivery are simply unknown.
+
+This follows D-20261111-18c350 deliberately — a path is not an association, and a wrong join
+attributes one session's delivered bytes to another — and the refusal is the safe direction. What
+is not established is the premise the rule rests on for forks: which of a fork name's two ids is
+the thread the row answers for. Evidence (the lead's independent reproduction over
+`062b76d..49477a0`, 2026-11-11): the probe `index_row_fork_named_file` resolves `index` on
+6bdb4db, where the index step took the last id of the name, and resolves nothing on acc301c and
+49477a0. No measurement of a real fork exists; the 2026-11-11 measurement under a temporary
+`CODEX_HOME` covered a new unforked thread only.
+
+Closing it needs that measurement on the installed host: what the host names a fork's rollout,
+whether the file's `session_meta.id` is the fork's own thread id or the parent's, and whether the
+index row for a forked thread points at the fork's file or the parent's. Then one of these:
+
+1. **Admit the fork shape in the index step only.** The row is the association, so take the path
+   it names and read the id from the fork position of the name. Risk: it rests entirely on the
+   naming convention being stable and on the fork position being the thread the row answers for;
+   if either is wrong the join is silent and wrong, which is the failure this rule exists to
+   prevent.
+2. **Admit it in both steps.** A fork-named path from `thread.path` is this thread's by the same
+   reading. Risk: the same, plus `thread.path` carries no association at all, so a stale path to
+   a fork of another thread would be accepted on its name alone.
+3. **Carry the row's claim as a weaker evidence kind.** Resolve the fork's path but record it as
+   its own `rollout_method`, so a reader can tell a name-agreed join from a row-only one. Risk: a
+   new evidence grade that no current reader distinguishes, which reads as a join until every
+   consumer is taught the difference.
+4. **Leave it refused and say so to the user.** Keep the rule and name the fork case in the
+   activation's message, so a forked session's owner knows why its pin records no transcript.
+   Risk: a whole class of sessions stays unknown for as long as nobody measures the naming.
