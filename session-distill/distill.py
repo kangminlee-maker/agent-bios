@@ -89,7 +89,26 @@ except BaseException as _startup_exc:   # SystemExit included: `validate` exits 
     # if the floor itself is what failed, the fixed line stands instead.
     sys.exit(entry.failed(_startup_exc, HOME, label="STARTUP_FAILED", code=2))
 
-OUT = pathlib.Path(__file__).resolve().parent / "out"
+def default_out(environ=None, home=None):
+    """The root of the run directories when the caller names none.
+
+    `${XDG_STATE_HOME:-~/.local/state}/agent-bios/distill/runs`. Three things decide it:
+
+    * it is NOT inside the package. A run writes `run.json`, stage records and per-call directories;
+      writing them next to the code would put a user's work inside a tree the next install replaces.
+    * it is NOT inside the owner's state root either. That root — pins, receipts, the ledger — is one
+      of the roots `inventory.protected_roots` forbids writing into, because a run once wrote four
+      artifacts into it (R1#1), and the answer to this was not to carve an exception out of that
+      sentence.
+    * the XDG STATE directory, not the data directory: a run is regenerable output, while the data
+      directory holds what is the owner's.
+
+    A checkout passes `--out session-distill/out/<...>` explicitly; the runbook does.
+    """
+    environ = os.environ if environ is None else environ
+    home = pathlib.Path(home or environ.get("HOME") or pathlib.Path.home())
+    base = environ.get("XDG_STATE_HOME") or (home / ".local" / "state")
+    return pathlib.Path(base).expanduser() / "agent-bios" / "distill" / "runs"
 
 # The inline programs this file's own suite runs, as module-level constants rather than locals: a
 # `python -c` program is admitted by DECLARATION (`runlib/dispatch.py` `INLINE_PROGRAMS`, which pins
@@ -341,7 +360,9 @@ def build_parser():
 
     def common(sub):
         sub.add_argument("--run-id", help="the run directory name under --out")
-        sub.add_argument("--out", default=str(OUT), help="root of the run directories")
+        sub.add_argument("--out", default=str(default_out()),
+                         help="root of the run directories (default: the XDG state directory's "
+                              "agent-bios/distill/runs, which is inside neither the package nor the state root)")
 
     sub = commands.add_parser("declare", help="S0: the run declaration and its amendments")
     common(sub)
@@ -1091,6 +1112,31 @@ def self_test():
         control("and the authoring root it does not read is protected under the same flag",
                 code == 1 and "PROTECTED_OVERLAP" in err and not (guarded_user / "out").exists(),
                 f"{code} {err}")
+        # The DEFAULT destination has to satisfy that same protection, or the driver would refuse
+        # its own default when a user runs it with no `--out`. The default is not carved out of the
+        # protected set: it is placed outside it. Judged with the CLI's own predicate, under a HOME
+        # no part of this suite writes to, so the answer is about the rule and not about this tree.
+        default_home = scratch / "default-home"
+        (default_home / ".local" / "state").mkdir(parents=True)
+        default_environ = {"HOME": str(default_home), "PATH": os.environ.get("PATH", "")}
+        default_root = default_out(default_environ, home=default_home)
+        default_state, default_user = inventory.configured_roots(environ=default_environ, home=default_home)
+        package_tree = pathlib.Path(__file__).resolve().parents[1]
+        default_native = {"projects": {str(package_tree): package_tree}}
+        default_protected = inventory.protected_roots(default_state, default_user, default_native,
+                                                      checkout=package_tree, environ=default_environ,
+                                                      repo=package_tree)
+        control("the default run root is outside every protected root",
+                not inventory.overlap_problems([default_root], default_protected, home=str(default_home)),
+                f"{default_root} :: {inventory.overlap_problems([default_root], default_protected, home=str(default_home))}")
+        control("and outside the package tree, so an install does not replace a user's runs",
+                package_tree not in default_root.resolve().parents
+                and default_root.resolve() != package_tree,
+                f"{default_root} under {package_tree}")
+        control("and it is the XDG state directory's, not the data directory's",
+                default_root == default_home / ".local" / "state" / "agent-bios" / "distill" / "runs"
+                and str(default_state) not in str(default_root),
+                f"{default_root} / state root {default_state}")
         # The same destination as a RUN: the stage record is the first write, so the refusal has to
         # come before the stage is entered at all.
         # `cli` appends its own --out, so the guarded run lives under it and the state root is that
