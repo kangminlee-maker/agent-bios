@@ -3740,6 +3740,13 @@ METADATA_KINDS = {"claude": frozenset(("ai-title", "atis-latch", "file-history-s
                   "codex": frozenset()}
 
 
+def _metadata(record, host):
+    """Whether a record is of a kind `host` writes as metadata: its `type` a string in `METADATA_KINDS`. A `type` of any
+    other shape (a list, an object) is no kind at all, so the record counts as activity."""
+    kind = record.get("type")
+    return isinstance(kind, str) and kind in METADATA_KINDS.get(host, frozenset())
+
+
 LOCATED_HOW = {"field": "the field is the delivered body",
                "exact": "the delivered body inside the field",
                "normalised": "the delivered body inside the field, line endings normalised",
@@ -4218,7 +4225,7 @@ def span_openings(read, host):
         settled[index] = held
     unplaced = [line for line, _category in read["undecodable"]]
     unplaced += [line for line, record in read["records"] if _instant(_timestamp(record)) is None
-                 and (_time_field(record) or record.get("type") not in METADATA_KINDS.get(host, frozenset()))]
+                 and (_time_field(record) or not _metadata(record, host))]
     below = above = False
     for line in unplaced:
         upper, ok = bracket(line)
@@ -6262,8 +6269,9 @@ def selection_history(journals, current):
     everything from the first one's start to the second one's end (`switch_tie`). A switch whose recorded start is
     after its finish (an installer journal's `created_at` for an install) is placed by neither, since the clock stepped
     back between them: it holds everything from the previous switch to the later of the two as `switch_misdated`, a
-    link that moves nothing and breaks the chain holds its gap up to that instant too, and a
-    switch finishing inside that stretch is inside it, leaving its `after` for what follows. After the last switch its
+    link that moves nothing and breaks the chain holds its gap up to that instant too, and a switch finishing inside
+    that stretch is inside it, leaving its `after` for what follows; one that is misdated too, and moves the pointer or
+    breaks the chain, carries the stretch on to its own start. After the last switch its
     `after` is answered while it is the pointer `current` (the frozen `runtime/state.json`'s: a baseline ref, or None
     when the state is not there), `history_gap` when it is another; any other `current` (`UNREAD_POINTER`: a state that
     could not be read, or names neither) leaves that stretch unknown as `input_failed`, since what the state selects
@@ -6288,6 +6296,10 @@ def selection_history(journals, current):
         misdated = row["start"] is not None and row["start"] > row["end"]
         after_end = math.nextafter(row["start"] if misdated else row["end"], math.inf)
         if row["end"] <= reach:  # it finished inside a misdated switch's stretch, which already holds it
+            if misdated and (row["before"] != row["after"] or row["before"] != held) and after_end > cursor:
+                # and it is misdated itself, moving the pointer or breaking the chain: the stretch reaches its start
+                pieces[-1]["to"] = cursor = after_end
+                reach = row["start"]
             held = row["after"]
             continue
         broken = n > 0 and row["before"] != held
@@ -18098,6 +18110,50 @@ def self_test():
             check("relhist 32: through the production path, an install whose installer journal is dated after the install "
                   "finished leaves a session before it switch_misdated, and one after its later instant answered",
                   rh_got == {"s-ha": [("unknown", ("uncertain: switch_misdated",), "null")], "s-hb": rh_hb}, f"{rh_got}")
+
+            # ---- commit 5 (Codex W r2 on 9164820): a misdated switch finishing inside another's stretch, and a record type
+            # that is no kind. Writer-shaped installs: A selected at 10, then A->B whose installer journal is dated 50
+            # though the install finished at 20, so A->B's stretch reaches 50; the third journal finishes at 30, inside it.
+            def rh_chained(third):
+                store = {"t1": rh_install(None, "ref-a", 10), "t2": rh_install("ref-a", "ref-b", 20)}
+                installers = {"t1": {"state": "COMMITTED", "created_at": 5}, "t2": {"state": "COMMITTED", "created_at": 50}}
+                if third in ("moving", "moving-then"):  # B->C dated 80, finished at 30: misdated too
+                    store["t3"], installers["t3"] = rh_install("ref-b", "ref-c", 30), {"state": "COMMITTED", "created_at": 80}
+                if third == "moving-then":  # and C->D, dated 55 and finished at 60: inside the stretch as carried on
+                    store["t4"], installers["t4"] = rh_install("ref-c", "ref-d", 60), {"state": "COMMITTED", "created_at": 55}
+                elif third == "finish-90":  # the same, finished at 90: after the stretch, so not inside it
+                    store["t3"], installers["t3"] = rh_install("ref-b", "ref-c", 90), {"state": "COMMITTED", "created_at": 80}
+                else:  # a plan moving nothing, C->C created 80 and committed 30: it breaks the chain, misdated
+                    store["t3"] = rh_plan("ref-c", "ref-c", 80, 30)
+                return {"store": store, "installer": installers, "reset": {}, "migration": {}}
+
+            rh_chain_points = [(25, 25), (45, 45), (60, 60), (85, 85)]
+            rh_chain_now = {"moving": "ref-c", "finish-90": "ref-c", "link": "ref-c", "moving-then": "ref-d"}
+            rh_got = {third: rh_answers(rh_chained(third), rh_chain_points, current=now) for third, now in rh_chain_now.items()}
+            rh_lines = [selection_history(rh_chained(third), now) for third, now in rh_chain_now.items()]
+            check("relhist 33: a misdated switch finishing inside another's stretch carries it on to its own start, when it "
+                  "moves the pointer or breaks the chain, and what it leaves is answered after; a switch finishing inside "
+                  "the stretch as carried on is inside it; finishing after the stretch, the baseline between them is "
+                  "answered; the time line stays ordered",
+                  rh_got == {"moving": [(None, "uncertain: switch_misdated")] * 3 + [("ref-c", None)],
+                             "finish-90": [(None, "uncertain: switch_misdated")] * 2
+                             + [("ref-b", None), (None, "uncertain: switch_in_flight")],
+                             "link": [(None, "uncertain: switch_misdated")] * 3 + [("ref-c", None)],
+                             "moving-then": [(None, "uncertain: switch_misdated")] * 3 + [("ref-d", None)]}
+                  and all(earlier["to"] == later["from"] for line in rh_lines for earlier, later in zip(line, line[1:])),
+                  f"{rh_got}")
+
+            rh_shapes = published_shared("relhist-type-shapes", [
+                rh_dating("s-list-type", *rh_day2, {"type": []}),
+                rh_dating("s-object-type", *rh_day2, {"type": {}}),
+                rh_dating("s-dated", *rh_day2)], rh_dating_state)
+            rh_got = {ident: sorted(rh_rows(rh_shapes, ident).get("catalog") or ())
+                      for ident in ("s-list-type", "s-object-type", "s-dated")}
+            check("relhist 34: an undated record whose type is a list or an object is no metadata kind: it opens the span "
+                  "like any activity, and the run goes on to answer every other session",
+                  "refused" not in rh_shapes
+                  and rh_got == {"s-list-type": rh_partly, "s-object-type": rh_partly, "s-dated": rh_ha},
+                  f"{rh_shapes.get('refused')} {rh_shapes.get('message', '')[:200]} {rh_got}")
 
         with section("the general control (lead, after a36c728): no reason in ANY document this suite's runs"):
             # ---- the general control (lead, after a36c728): no reason in ANY document this suite's runs
