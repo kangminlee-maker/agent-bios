@@ -2272,6 +2272,15 @@ def controls(checks):
             bad = lay.codex(UX(n), [], raw=b"not zstd at all", zst=False, indexed=False)
             bad = bad.rename(bad.with_name(bad.name + ".zst"))
             os.utime(bad, (when, when))
+        # unknown Codex threads in two files, the window in one of them: every file's evidence decides the row, whichever
+        # comes first (W review of WP-08d r1, F1). UX5's first file was last written before the window and its second
+        # holds records in it; UX6's first holds records in the window and its second only records after it
+        lay.codex(UX(5), fx_codex(UX(5), "vscode", "NewClient", month=9, day=20), mtime=fx_when(20, 9), indexed=False,
+                  name_at="2026-09-20T10-00-00")
+        lay.codex(UX(5), fx_codex(UX(5), "vscode", "NewClient"), indexed=False, name_at="2026-10-03T10-00-00")
+        lay.codex(UX(6), fx_codex(UX(6), "vscode", "NewClient"), indexed=False, name_at="2026-10-03T10-00-00")
+        lay.codex(UX(6), fx_codex(UX(6), "vscode", "NewClient", day=10), mtime=fx_when(10), indexed=False,
+                  name_at="2026-10-10T10-00-00", day=10)
         lay.finish()
         laid, _laid_state = build(lay.run(), empty, table, table_sha, jobs=2, scratch=scratch)
         laid_by = {key_of(e): (e["status"], e["window_overlap"]) for e in laid["transcripts"]}
@@ -2287,6 +2296,25 @@ def controls(checks):
                "while one of an excluded root is not", {k: laid_by.get(k) for k in want_laid}, want_laid)
         expect("D-208882: the census document with the new window_overlap values meets its schema and its sets add up",
                (validate.validate_instance(validator(), laid), account(laid)), ([], []))
+        laid_rows = {key_of(e): e for e in laid["transcripts"]}
+        split = {xid(UX(n)): (laid_by.get(xid(UX(n))), len(segments_of(laid_rows[xid(UX(n))])) if xid(UX(n)) in laid_rows else 0)
+                 for n in (5, 6)}
+        expect("D-208882: an unread thread in two files lies by the evidence of both - an old first file and a second in the "
+               "window straddle its start, a first in the window and a second after it straddle its end",
+               split, {xid(UX(5)): (("unknown_provenance", "straddles_start"), 2), xid(UX(6)): (("unknown_provenance", "straddles_end"), 2)})
+        # ... and the observation basis S3 settles over them (stage_read.observation_scope, imported here so that the
+        # census's own evidence is what the scope is judged on): each, beside a unit read whole, keeps it incomplete, named
+        from runlib import stage_read, views
+        alone = []
+        for n in (5, 6):
+            doc = copy.deepcopy(laid)
+            doc["transcripts"] = [e for e in doc["transcripts"] if key_of(e) in (cid(U(8)), xid(UX(n)))]
+            scope, causes = stage_read.observation_scope(doc, [{"transcript": cid(U(8)), "status": "read_complete"}],
+                                                         {cid(U(8)): (True, True)})
+            alone.append((views.coverage_basis(scope), [c["session"] for c in causes["sessions"]], causes["sources"]))
+        expect("D-208882: the observation scope over an unread thread in two files, one of them in the window, is incomplete "
+               "and names it, whichever file comes first", alone,
+               [("incomplete", [xid(UX(5))], []), ("incomplete", [xid(UX(6))], [])])
 
 
 def self_test():

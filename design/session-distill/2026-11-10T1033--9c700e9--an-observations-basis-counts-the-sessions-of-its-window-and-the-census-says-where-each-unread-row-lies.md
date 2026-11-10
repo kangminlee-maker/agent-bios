@@ -67,8 +67,11 @@ unit through its root. The row is out of scope only when every one of those file
 `census.OUTSIDE` (`context_only` or `before_window`). So an `unknown_provenance` root last written before the window is
 still in scope when one of its members holds a record of the window.
 
-**What keeps a row in scope.** An `undetermined` overlap, or none at all (a census written before this commit), keeps
-the row in scope. So an older run directory settles as it did before.
+**What keeps a row in scope.** An `undetermined` overlap, or none at all, keeps the row in scope. A census written
+before this commit left every unread row without a value, so those rows still count in an older run directory as they
+did. The evidence an older census already wrote is judged by the new rule: it gave a read unit holding only backlog
+records `context_only`, so such a unit that failed no longer makes the basis `incomplete` when the rest of the scope is
+complete, as the backlog-only control below expects (W review of WP-08d r1, F2).
 
 **What does not change.** A unit S3 read keeps its own status in the scope, so a unit of the window read partly,
 failed or deferred still makes the basis `incomplete`. A unit S3 read that holds no record of the window — its
@@ -97,6 +100,14 @@ census self-test:
   - an eligible row: `inside`;
   - unreadable rollouts written in and before the window: `undetermined` and `before_window`.
 - **"D-208882: the census document with the new window_overlap values meets its schema and its sets add up"**.
+- **"D-208882: an unread thread in two files lies by the evidence of both ..."** (W review r1, F1): an unknown Codex
+  thread whose first file was last written before the window and whose second holds records in it is
+  `straddles_start`; one whose first file holds records in the window and whose second only records after it is
+  `straddles_end`.
+- **"D-208882: the observation scope over an unread thread in two files, one of them in the window, is incomplete and
+  names it, whichever file comes first"**: each of the two, beside a unit read whole, through
+  `stage_read.observation_scope` over the census's own document. Reading only a thread's first file would put the
+  first thread outside the window, and reading only its last file the second.
 
 stage_read self-test (rows written as the census writes them; no owner data is read):
 
@@ -115,7 +126,8 @@ Each control fails by name when its fix alone is reverted. The pretrial (`work/i
 over commit 1's tree) reverts one fix per row:
 
 - **census rows:** the unread rows not looked at; no file-time bound; an unstamped file read as outside; unreadable
-  rows not looked at; members of unknown roots skipped; the schema not extended. The census validates its document
+  rows not looked at; members of unknown roots skipped; only a thread's first file read, and only its last (W review
+  r1, F1); the schema not extended. The census validates its document
   as it builds it, so the last is refused there (CENSUS_INVALID) and fails the schema's existing control by name;
 - **stage_read rows:** every row counted; a row standing alone without its members; members only; `None` counted as
   outside; `undetermined` counted as outside; `read.json` without the count; and a fix that over-reaches, the units S3
