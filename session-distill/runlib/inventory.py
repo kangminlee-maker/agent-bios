@@ -3325,6 +3325,10 @@ UNKNOWN_REASONS = {
                    "close to place it between them"),
     "spans_switch": ("uncertain: the session's first and last instants lie on two sides of a switch of the selected "
                      "baseline"),
+    "session_partly_dated": ("uncertain: a record of the session that has no instant lies outside its dated ones, so the "
+                             "session may reach a switch of the selected baseline its dated records do not"),
+    "switch_misdated": ("uncertain: a switch of the selected baseline near the session's time records a start after its "
+                        "finish, so the clock stepped back and the stretch cannot be placed"),
     "journal_unfinished": ("uncertain: a journal that did not finish, or could not be read, lies at the session's time "
                            "or has no instant to place it at any, so a switch there may be missing"),
     "no_pin_given": ("unknown: no --pin names a session, so no release inventory is the base the renames are taken "
@@ -3717,6 +3721,23 @@ def _timestamp(record):
         if isinstance(value, str) or type(value) in (int, float):
             return value
     return None
+
+
+def _time_field(record):
+    """Whether a record carries a time field at all, whatever its value: a key `_timestamp` reads."""
+    payload = record.get("payload")
+    return any(key in record for key in ("timestamp", "ts", "time")) or (isinstance(payload, dict) and "timestamp" in payload)
+
+
+# The record kinds a host writes as metadata about a session rather than as its activity: one of them with no time
+# field says nothing about when the session ran, so it does not open the session's span in the selection history
+# (D-20261110-4a0d15). Claude's are the head kinds `census.py`'s `fx_claude` models with no time field (`mode`,
+# `permission-mode`, `atis-latch`, `file-history-snapshot`, `ai-title`, `last-prompt`), the last two written only after a
+# turn (`lineage.py` `HEAD_INHERIT`); each is a kind `wrappers/claude_hermetic_evidence.py` measured (`RECORD_KINDS`).
+# Codex writes a time on every record (`fx_codex`), so none of its kinds is here. Any other kind is activity.
+METADATA_KINDS = {"claude": frozenset(("ai-title", "atis-latch", "file-history-snapshot", "last-prompt", "mode",
+                                       "permission-mode")),
+                  "codex": frozenset()}
 
 
 LOCATED_HOW = {"field": "the field is the delivered body",
@@ -4177,6 +4198,34 @@ def brackets(read):
         after = supported[later][1] if later < len(supported) else None
         return after, after is None or rising[later]
     return bracket
+
+
+def span_openings(read, host):
+    """`(below, above)`: whether a record of one read transcript that has no instant opens the session's span below its
+    first dated record or above its last (D-20261110-4a0d15). Such a record is a line that does not decode, a record
+    whose time field is there and is no instant, or a record with no time field of a kind not in `METADATA_KINDS`. It is
+    placed by line order as `brackets` places an undated outcome (S-5, R1 #4): it opens above unless a later dated
+    record bounds it with the instants rising from the first up to that one, and below unless an earlier dated record
+    bounds it with the instants rising from that one to the last (the mirror). So a record between two dated ones of a
+    rising transcript opens nothing, and one where the instants step back between its two bounds opens both sides."""
+    bracket = brackets(read)
+    supported = [(n, at) for n, record in read["records"] for at in [_instant(_timestamp(record))] if at is not None]
+    lines = [n for n, _at in supported]
+    # settled[i]: the supported instants do not step back anywhere from the i-th to the last
+    settled, held = [True] * len(supported), True
+    for index in range(len(supported) - 1, -1, -1):
+        held = held and (index == len(supported) - 1 or supported[index][1] <= supported[index + 1][1])
+        settled[index] = held
+    unplaced = [line for line, _category in read["undecodable"]]
+    unplaced += [line for line, record in read["records"] if _instant(_timestamp(record)) is None
+                 and (_time_field(record) or record.get("type") not in METADATA_KINDS.get(host, frozenset()))]
+    below = above = False
+    for line in unplaced:
+        upper, ok = bracket(line)
+        earlier = bisect.bisect_left(lines, line) - 1
+        above = above or upper is None or not ok
+        below = below or earlier < 0 or not settled[earlier]
+    return below, above
 
 
 def could_follow(other, chosen):
@@ -4956,6 +5005,7 @@ def transcript_events(run_dir, pins=None, zstd=None, entries=None):
         findings["timelines"][session_ref(entry.get("host"), ref_of(entry))] = {
             "host": entry.get("host"), "kind": entry.get("kind"), "last_dated": max(dated) if dated else None,
             "first_at": min(stamps) if stamps else None, "last_at": max(stamps) if stamps else None,
+            "opens": span_openings(read, entry.get("host")),
             "undecodable": [{"line": line, "after_at": after, "ok": ok}
                             for line, _category in read["undecodable"] for after, ok in [bracket(line)]]}
         findings["undecodable"] += [{"session": label, "line": line, "category": category}
@@ -6209,7 +6259,11 @@ def selection_history(journals, current):
     (`switch_recovered` for a plan finished by recovery, whose `end` is the recovery's time); an install with no
     installer journal starts at the previous switch. Between two switches the earlier one's `after` is answered,
     unless the later one's `before` differs (`history_gap`), and two moving switches finishing in one second hold
-    everything from the first one's start to the second one's end (`switch_tie`). After the last switch its
+    everything from the first one's start to the second one's end (`switch_tie`). A switch whose recorded start is
+    after its finish (an installer journal's `created_at` for an install) is placed by neither, since the clock stepped
+    back between them: it holds everything from the previous switch to the later of the two as `switch_misdated`, a
+    link that moves nothing and breaks the chain holds its gap up to that instant too, and a
+    switch finishing inside that stretch is inside it, leaving its `after` for what follows. After the last switch its
     `after` is answered while it is the pointer `current` (the frozen `runtime/state.json`'s: a baseline ref, or None
     when the state is not there), `history_gap` when it is another; any other `current` (`UNREAD_POINTER`: a state that
     could not be read, or names neither) leaves that stretch unknown as `input_failed`, since what the state selects
@@ -6229,25 +6283,33 @@ def selection_history(journals, current):
     first = switches[0]["start"] if switches[0]["start"] is not None else switches[0]["end"]
     piece(None, min(first, switches[0]["end"]), rank=1, key=reason("before_first_switch"))
     cursor, held, moved = min(first, switches[0]["end"]), switches[0]["before"], None
+    reach = -math.inf  # the later instant of the last misdated switch whose stretch is held
     for n, row in enumerate(switches):
-        after_end = math.nextafter(row["end"], math.inf)
+        misdated = row["start"] is not None and row["start"] > row["end"]
+        after_end = math.nextafter(row["start"] if misdated else row["end"], math.inf)
+        if row["end"] <= reach:  # it finished inside a misdated switch's stretch, which already holds it
+            held = row["after"]
+            continue
         broken = n > 0 and row["before"] != held
         if row["before"] == row["after"]:
             if broken:  # a link that moved nothing, after a switch nobody recorded
                 piece(cursor, after_end, rank=1, key=reason("history_gap"))
                 cursor = after_end
+                reach = row["start"] if misdated else reach
             held = row["after"]
             continue
-        start = min(max(row["start"] if row["start"] is not None else cursor, cursor), row["end"])
+        start = cursor if misdated else min(max(row["start"] if row["start"] is not None else cursor, cursor), row["end"])
         piece(cursor, start, *((None, 1, reason("history_gap")) if broken else (held,)))
         if moved is not None and math.floor(moved["end"]) == math.floor(row["end"]):
             del pieces[moved["piece"]:]  # the earlier window, and whatever stood between the two
             start = moved["from"]
             piece(start, after_end, rank=2, key=reason("switch_tie"))
         else:
-            piece(start, after_end, rank=2, key=reason("switch_recovered") if row["recovered"] else reason("switch_in_flight"))
+            piece(start, after_end, rank=2, key=reason("switch_misdated") if misdated
+                  else reason("switch_recovered") if row["recovered"] else reason("switch_in_flight"))
         moved = {"end": row["end"], "piece": len(pieces) - 1, "from": start}
         cursor, held = after_end, row["after"]
+        reach = row["start"] if misdated else reach
     if current is None or (isinstance(current, str) and SAFE_LABEL.match(current)):
         piece(cursor, None, *((held,) if current == held else (None, 1, reason("history_gap"))))
     else:
@@ -6285,7 +6347,11 @@ def history_of(ctx, records):
     file of a Codex thread), from the first instant of any of them to the last. A record with no instant is placed
     nowhere: its read failure when the transcript was not read, `session_undated` otherwise. A history this run did
     not read is unknown by why (`selection_history_reason`). A baseline answered is registered for publication, as a
-    pinned session's own is (`freeze_inputs`)."""
+    pinned session's own is (`freeze_inputs`).
+
+    A record that has no instant and lies beyond the dated ones may reach further than they do (`span_openings`, over
+    every file): the span is opened on that side, to the start or the end of time, and a baseline is answered only when
+    the opened span answers it too, `session_partly_dated` otherwise (D-20261110-4a0d15)."""
     pieces = ctx.get("selection_history")
     if pieces is None:
         return None, ctx.get("selection_history_reason") or reason("input_failed")
@@ -6296,6 +6362,12 @@ def history_of(ctx, records):
         if first is None:
             return None, row["read"] if row["read"] in READ_FAILURES else reason("session_undated")
     ref, why = history_answer(pieces, min(first for first, _last in spans), max(last for _first, last in spans))
+    opened = [(ctx.get("session_opened") or {}).get(row["session_ref"]) or (False, False) for row in records]
+    below, above = any(low for low, _high in opened), any(high for _low, high in opened)
+    if ref is not None and (below or above) and history_answer(
+            pieces, -math.inf if below else min(first for first, _last in spans),
+            math.inf if above else max(last for _first, last in spans)) != (ref, None):
+        return None, f"{RANK_ROWS[2][1]}{reason('session_partly_dated')}"
     if ref is not None:
         ctx.setdefault("session_baselines", {}).setdefault(ref, ctx["history_baselines"][ref])
     return ref, why
@@ -6858,6 +6930,7 @@ def bind_transcripts(ctx, run_dir, zstd=None):
     # answered from the baseline-selection history at its own instants (D-20261110-9c60bc), and the baseline answered
     # is published as a pinned session's is.
     ctx["session_instants"] = {ref: (row.get("first_at"), row.get("last_at")) for ref, row in findings["timelines"].items()}
+    ctx["session_opened"] = {ref: tuple(row.get("opens") or (False, False)) for ref, row in findings["timelines"].items()}
     ctx["history_answers"] = {record["session_ref"]: history_of(ctx, [record]) for record in findings["sessions"]
                               if record["host"] == "codex" or record["selection"]["status"] == "unpinned"}
     # A delivery is confirmed only by a usable RECORDED occurrence the session's main owner holds in its own
@@ -17924,6 +17997,108 @@ def self_test():
                              "file-dir": ([("unknown", ("input_failed",), "null")],
                                           [("runtime/resets", "failed", "unreadable")])}, f"{rh_got}")
 
+            # ---- commit 4 (Codex W r1 on f8ecc36): a record with no instant beyond the dated ones (D-20261110-4a0d15), and
+            # a switch whose recorded start follows its finish. One state, the tail fixture's (two installs, the state
+            # still selecting ref-hb): ref-ha from 10-01 to 10-03 10:00, ref-hb after.
+            rh_turn = {"type": "user", "message": {"role": "user", "content": "a turn"}}
+            rh_broken_line = b'{"type": "user", "message": "a complete line that is not JSON'
+
+            def rh_dating(ident, *rows, host="claude"):
+                """A session of dated injections (a string is its instant), lines given as bytes, and records as given."""
+                return (host, ident, [inj(row, [member("User", "/w/g.md", f"- {ident}\\n")], cwd=p1) if isinstance(row, str)
+                                      else row for row in rows], {})
+
+            rh_dating_state = rh_tail_state("dating", json.dumps({"selected_baseline_ref": "ref-hb"}))
+            rh_day2, rh_day4 = (rh_iso_at(2, "12:00:00"), rh_iso_at(2, "13:00:00")), (rh_iso_at(4, "11:00:00"), rh_iso_at(4, "12:00:00"))
+            rh_dating_sessions = [
+                rh_dating("s-dated", *rh_day2),
+                rh_dating("s-broken-after", *rh_day2, rh_broken_line),
+                rh_dating("s-undated-after", *rh_day2, rh_turn),
+                rh_dating("s-zoneless-after", *rh_day2, {**rh_turn, "timestamp": "2026-10-02T14:00:00"}),
+                rh_dating("s-broken-between", rh_day2[0], rh_broken_line, rh_day2[1]),
+                rh_dating("s-meta-after", *rh_day2, {"type": "ai-title", "aiTitle": "a title"}),
+                rh_dating("s-tail-open", rh_day4[1], rh_turn),
+                rh_dating("s-open-before", rh_turn, rh_day4[1]),
+                rh_dating("s-step-back", rh_day4[1], rh_broken_line, rh_day4[0]),
+                rh_dating("s-step-before", rh_iso_at(2, "12:30:00"), rh_day2[0], rh_broken_line, rh_day2[1]),
+                # a Codex thread in two files: the second's last line does not decode
+                ("codex", "c-split", ([block_meta("c-split", rh_day2[0], "# Block\\n\\n- c-split\\n", p1)],
+                                      [block_meta("c-split", rh_day2[1], "# Block\\n\\n- c-split\\n", p1), rh_broken_line]), {})]
+            rh_dated = published_shared("relhist-dating", rh_dating_sessions, rh_dating_state)
+            rh_partly = [("unknown", ("uncertain: session_partly_dated",), "null")]
+            rh_ha, rh_hb = ([("complete", (), rh_source(ref, "catalog", "selection_history"))] for ref in ("ref-ha", "ref-hb"))
+            rh_dating_expected = {"s-dated": rh_ha, "s-broken-after": rh_partly, "s-undated-after": rh_partly,
+                                  "s-zoneless-after": rh_partly, "s-broken-between": rh_ha, "s-meta-after": rh_ha,
+                                  "s-tail-open": rh_hb, "s-open-before": rh_partly, "s-step-back": rh_partly,
+                                  "s-step-before": rh_partly}
+            rh_got = {ident: sorted(rh_rows(rh_dated, ident).get("catalog") or ()) for ident in rh_dating_expected}
+            check("relhist 29: a record with no instant beyond the dated ones opens the span on its side, and a baseline is "
+                  "answered only when the opened span gives it too: a line that does not decode, an undated turn and a "
+                  "zone-less one after the last dated record, and an undated turn before the first, each across a switch, "
+                  "are session_partly_dated; between two dated records, a metadata record, and an opening that stays in "
+                  "one stretch keep the answer; a step back between its bounds opens both sides, and one before them "
+                  "the side above",
+                  "refused" not in rh_dated and rh_got == rh_dating_expected,
+                  f"{rh_dated.get('refused')} {rh_dated.get('message', '')[:200]} "
+                  f"{ {ident: rows for ident, rows in rh_got.items() if rows != rh_dating_expected[ident]} }")
+
+            def rh_renames_in(state_here, run_name, pin):
+                """`renames_base` over one fixture run's census and a state, as `run` reaches it."""
+                ctx_here = context_of(REPO, None, None, {}, pin, None)
+                ctx_here.update(home=str(fixture_home), commit="fixture")
+                freeze_inputs(scratch / "relhist" / f"frozen-{run_name}-renames", REPO, state_here, None, pin, ctx_here,
+                              census_entries(scratch / "p24b" / f"run-{run_name}"))
+                bind_transcripts(ctx_here, scratch / "p24b" / f"run-{run_name}")
+                return renames_base(ctx_here)
+
+            rh_got = (sorted(rh_file_rows(rh_dated, "codex:c-split")),
+                      _raised(lambda: rh_renames_in(rh_dating_state, "relhist-dating", "codex:c-split"))
+                      or rh_renames_in(rh_dating_state, "relhist-dating", "codex:c-split"))
+            check("relhist 30: a Codex thread opens where any of its files does: its first file alone answers ref-ha, its "
+                  "second file's undecodable last line leaves that file session_partly_dated, and the renames' base over "
+                  "the whole thread too",
+                  rh_got == (sorted([rh_ha, rh_partly]), (None, "uncertain: session_partly_dated", None)), f"{rh_got}")
+
+            rh_misplan = rh_base()
+            rh_misplan["store"]["t4"] = rh_plan("ref-a", "ref-b", 4100, 4000)
+            rh_misinstall = rh_base()
+            rh_misinstall["installer"]["t2"] = {"state": "COMMITTED", "created_at": 2100}
+            rh_overreach = rh_base()
+            rh_overreach["store"]["t3"] = rh_plan("ref-b", "ref-a", 4200, 3000)
+            rh_mislink = rh_base()
+            rh_mislink["store"]["t5"] = rh_plan("ref-c", "ref-c", 4600, 4500)  # moves nothing, after a switch nobody recorded
+            rh_mislink["store"]["t6"] = rh_plan("ref-c", "ref-d", 4510, 4520)
+            rh_got = [rh_answers(rh_misplan, [(3500, 3500), (4050, 4050), (4200, 4200), (2950, 2950)]),
+                      rh_answers(rh_misinstall, [(1500, 1500), (2050, 2050), (2500, 2500)]),
+                      rh_answers(rh_overreach, [(2500, 2500), (3950, 3950), (4100, 4100), (4500, 4500)]),
+                      rh_answers(rh_mislink, [(4200, 4200), (4550, 4550), (4700, 4700)], current="ref-d"),
+                      rh_answers(rh_base(), [(3500, 3500), (4050, 4050), (1500, 1500)])]
+            # and the time line stays one ordered run of stretches, each starting where the one before it ends
+            rh_lines = [selection_history(journals, current) for journals, current in
+                        ((rh_misplan, "ref-b"), (rh_misinstall, "ref-b"), (rh_overreach, "ref-b"), (rh_mislink, "ref-d"))]
+            check("relhist 31: a switch whose recorded start follows its finish - a plan, or an install narrowed by a later "
+                  "installer journal - holds everything from the previous switch to its later instant as switch_misdated, "
+                  "a link that breaks the chain its gap up to that instant, and a switch finishing inside that stretch is "
+                  "inside it, its result answered after; the time line stays ordered",
+                  rh_got == [[(None, "uncertain: switch_misdated")] * 2 + [("ref-b", None), (None, "uncertain: switch_in_flight")],
+                             [(None, "uncertain: switch_misdated")] * 2 + [("ref-b", None)],
+                             [(None, "uncertain: switch_misdated")] * 3 + [("ref-b", None)],
+                             [(None, "history_gap")] * 2 + [("ref-d", None)],
+                             [("ref-a", None), ("ref-b", None), ("ref-a", None)]]
+                  and all(earlier["to"] == later["from"] for line in rh_lines for earlier, later in zip(line, line[1:])),
+                  f"{rh_got} {[[(row['from'], row['to']) for row in line] for line in rh_lines if any(a['to'] != b['from'] for a, b in zip(line, line[1:]))]}")
+
+            rh_misdated_state = scratch / "relhist" / "misdated-state"
+            shutil.copytree(rh_dating_state, rh_misdated_state)
+            rh_put(rh_misdated_state, "runtime/installer-transactions/t2/journal.json",
+                   {"state": "COMMITTED", "created_at": int(rh_at(3, "10:05:00").timestamp())})
+            rh_misdated = published_shared("relhist-misdated", [rh_session("s-ha", rh_day2[0]), rh_session("s-hb", rh_day4[1])],
+                                           rh_misdated_state)
+            rh_got = {ident: sorted(rh_rows(rh_misdated, ident).get("catalog") or ()) for ident in ("s-ha", "s-hb")}
+            check("relhist 32: through the production path, an install whose installer journal is dated after the install "
+                  "finished leaves a session before it switch_misdated, and one after its later instant answered",
+                  rh_got == {"s-ha": [("unknown", ("uncertain: switch_misdated",), "null")], "s-hb": rh_hb}, f"{rh_got}")
+
         with section("the general control (lead, after a36c728): no reason in ANY document this suite's runs"):
             # ---- the general control (lead, after a36c728): no reason in ANY document this suite's runs
             # published names a Python exception type. Asked last, of every file written under an `inventory/`
@@ -17989,6 +18164,7 @@ def self_test():
                 "relhist (D-20261110-9c60bc)": ("history_absent", "before_first_switch", "history_gap",
                                                 "session_undated", "switch_in_flight", "switch_recovered", "switch_tie",
                                                 "spans_switch", "journal_unfinished", "no_pin_given"),
+                "relhist commit 4 (Codex W r1; D-20261110-4a0d15)": ("session_partly_dated", "switch_misdated"),
             }
             vocabulary_by_refusal = {}
             vocabulary_keys = [key for keys in vocabulary_expected.values() for key in keys]
