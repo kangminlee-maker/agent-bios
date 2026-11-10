@@ -83,15 +83,16 @@
       }
     },
     "release_source": {
-      "$comment": "one shared inventory's row of the layer ({inventory_ref, layer}), the in-force event's own members of the layer ({event_ref, members}), that event's occurrences ({event_ref, occurrence_refs}), or null",
+      "$comment": "one shared inventory's row of the layer ({inventory_ref, layer, basis}: the basis is the session's own pin, or the baseline-selection history at the session's time, which is what the owner's library held then and not what the session received, D-20261110-9c60bc), the in-force event's own members of the layer ({event_ref, members}), that event's occurrences ({event_ref, occurrence_refs}), or null",
       "type": ["object", "null"],
       "additionalProperties": false,
       "minProperties": 2,
-      "dependentRequired": {"inventory_ref": ["layer"], "layer": ["inventory_ref"], "members": ["event_ref"],
-                            "occurrence_refs": ["event_ref"]},
+      "dependentRequired": {"inventory_ref": ["layer", "basis"], "layer": ["inventory_ref"], "basis": ["inventory_ref"],
+                            "members": ["event_ref"], "occurrence_refs": ["event_ref"]},
       "properties": {
         "inventory_ref": {"$ref": "#/$defs/inventory_id"},
         "layer": {"type": "string", "enum": ["catalog", "adopted_packages", "overlays"]},
+        "basis": {"type": "string", "enum": ["pin", "selection_history"]},
         "event_ref": {"$ref": "#/$defs/event_id"},
         "members": {"type": "array", "items": {
           "type": "object", "additionalProperties": false, "required": ["carrier_id", "version_sha256"],
@@ -393,7 +394,7 @@
       }
     },
     "context_set": {
-      "$comment": "step 0 S-12: one segment universe's context set, deduplicated by its id. A context set is computed over the KNOWN universe: the carrier versions of the events in force that the segment's index rows name, and the layers of the inventories they point to. An uncertain event, or an unknown inventory (release_history_deferred, an unattributed sidechain), stays said by the segment's in_force and its index rows; the empty context set means an empty known universe, not no context. `edges` are the event units' edges; `override_refs` the override sets it applies; `closure_digest` the sha256 of the canonical closure map of every unit of the universe.",
+      "$comment": "step 0 S-12: one segment universe's context set, deduplicated by its id. A context set is computed over the KNOWN universe: the carrier versions of the events in force that the segment's index rows name, and the layers of the inventories they point to under the basis pin. A release inventory the selection history answers (basis selection_history) is what the owner's library held, not what the session received, and is no part of it until WP-10 rules on delivery evidence (D-20261110-195c15). An uncertain event, or an unknown inventory (a release the selection history does not answer, an unattributed sidechain), stays said by the segment's in_force and its index rows; the empty context set means an empty known universe, not no context. `edges` are the event units' edges; `override_refs` the override sets it applies; `closure_digest` the sha256 of the canonical closure map of every unit of the universe.",
       "type": "object",
       "additionalProperties": false,
       "required": ["context_set_id", "carriers", "inventory_refs", "edges", "override_refs", "closure_digest"],
