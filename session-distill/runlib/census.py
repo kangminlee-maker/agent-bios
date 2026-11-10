@@ -595,8 +595,10 @@ def build(run, base, table, table_sha, jobs=8, scratch=None):
     files = discover(src, report)
     with concurrent.futures.ThreadPoolExecutor(jobs) as pool:  # before the indexes are loaded: spawning is cheapest from a small heap
         heads = list(pool.map(lambda f: None if f["child_of"] else head_of(f, zstd), files))
-    pins, bad, claimed = (sources.read_pins(src["agent_bios_state"])
-                          if report["agent_bios_state"]["state"] == "present" else ({}, 0, {}))
+    # The ROLLOUT lookup, in which a Codex key is a rollout id some pin names and never a thread id, so
+    # a pin cannot answer for a rollout it does not name (X r2 F3).
+    pins, bad, claimed, _threads = (sources.read_pins(src["agent_bios_state"])
+                                    if report["agent_bios_state"]["state"] == "present" else ({}, 0, {}, {}))
     # A rollout two pins claim is keyed to neither (X r1 F5): the census makes no choice by file order,
     # and the ambiguity is reported here so a reader sees it rather than a missing pin.
     detail = [f"{bad} pin files ignored"] if bad else []
@@ -1149,9 +1151,14 @@ class Home:
         return out
 
     def pin(self, tid):
+        """An activation pin as the current activation writes one: named by the app-server's thread id and
+        NAMING the rollout the host wrote, which is the id a census row carries (F-22). Without the rollout
+        fields the pin answers for no transcript, which is what every pin written before the binding is."""
         (self.state / "sessions" / "pins" / "codex").mkdir(parents=True, exist_ok=True)
         (self.state / "sessions" / "pins" / "codex" / f"{tid}.json").write_text(
-            json.dumps({"host": "codex", "session_id": tid, "content_ref": "sha256:fixture"}))
+            json.dumps({"host": "codex", "session_id": tid, "content_ref": "sha256:fixture",
+                        "rollout_id": tid, "rollout_path": str(self.sessions / f"rollout-{tid}.jsonl"),
+                        "rollout_method": "thread.path"}))
 
     def run(self, kind="periodic", window=WINDOW, drop=(), table=None, **paths):
         """A declaration's `kind`, `window` and `sources`; `table` is the `(path, sha256)` of the originator table it binds."""

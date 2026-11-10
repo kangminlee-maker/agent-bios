@@ -5146,26 +5146,35 @@ def codex_pin_for_rollout(state_root, rollout_id):
     (`pin_predates_rollout_binding`, `rollout_unresolved`) belong to a pin that was IDENTIFIED, which
     is the `--pin` evidence path, never to a rollout nothing named."""
     pins = pathlib.Path(state_root).expanduser() / "sessions" / "pins" / "codex"
-    claimed, without = [], 0
+    claimed, without, unreadable, not_pins = [], 0, 0, 0
     for path in sorted(pins.glob("*.json")) if pins.is_dir() else []:
         try:
             record = json.loads(read_source(path, state_root))
         except (Refused, ValueError, OSError):
-            continue              # a pin that does not read is the pin reader's refusal, not this join's
-        if not isinstance(record, dict):
+            # A pin that does not read makes this scan INCOMPLETE, and an incomplete scan cannot say
+            # that nothing was pinned (X r2 F5).
+            unreadable += 1
             continue
-        if "rollout_id" not in record:
+        is_pin, named = sources.pin_identity(record, "codex", path.stem)
+        if not is_pin:
+            # The census ignores these, so counting them as pre-binding pins made the two readers
+            # disagree about one state (X r2 F4); they are their own count.
+            not_pins += 1
+        elif "rollout_id" not in record:
+            # The KEY's absence is the only mark of a pin written before the binding; a key carrying null
+            # is an activation that tried and could not resolve its rollout, a different fact.
             without += 1
-            continue
-        if record["rollout_id"] == rollout_id and isinstance(rollout_id, str):
+        elif named is not None and named == rollout_id and isinstance(rollout_id, str):
             claimed.append(path.stem)
     if len(claimed) == 1:
         return claimed[0], None, None
     if len(claimed) > 1:
         return None, reason("rollout_claimed_twice"), ",".join(sorted(claimed))
+    if unreadable:
+        return None, reason("input_failed"), f"{unreadable} pin file(s) could not be read"
     if without:
         return None, reason("rollout_unmatched"), f"{without} pin(s) without rollout fields"
-    return None, reason("unpinned"), None
+    return None, reason("unpinned"), f"{not_pins} file(s) that are not pins" if not_pins else None
 
 
 def session_pin(state_root, host, session_id, census_ref, evidence=False):
@@ -5176,7 +5185,8 @@ def session_pin(state_root, host, session_id, census_ref, evidence=False):
     looked for by the rollout it NAMES (`codex_pin_for_rollout`): found, the row is read like a Claude
     row under that pin's own id; not found, the row carries the reason that says why — the pins
     is named as an ambiguity when several pins claim it, and otherwise takes an aggregate answer about
-    the state (S-16, F-22, X r1 F6). A Claude row whose census names no pin is
+    the state -- `unpinned` only from a scan that read every pin file (S-16, F-22, X r1 F6, X r2 F5).
+    A Claude row whose census names no pin is
     `unpinned`. Otherwise the pin is read under the session's own host and id, its record must name
     them (M6), and its `content_ref` must be the one the census row names. `evidence` is a `--pin`
     the census names no pin for: evidence about that pin only, with nothing to hold it against.
@@ -5187,10 +5197,11 @@ def session_pin(state_root, host, session_id, census_ref, evidence=False):
     pin_id = session_id
     if host != "claude" and not evidence:
         if state_root is None:
-            # No state to read and no pin named by the census: the same answer a Claude row gets, and the
-            # same one the read path gives a rollout no pin names, so an unread state and a read one do not
-            # disagree about the same session (X r1 F6, D9).
-            return {**entry, "status": "unpinned", "reason": reason("unpinned")}
+            # A state that could not be read says nothing about whether this session was pinned, and
+            # reading it as `unpinned` is the dangerous direction: an activated session would read as
+            # never activated (X r2 F5). The census reference it may hold is not evidence either, since
+            # which pin it came from cannot be checked without the state.
+            return {**entry, "reason": reason("input_unread"), "outcome": "unread", "detail": "no_root"}
         pin_id, why, aggregate = codex_pin_for_rollout(state_root, session_id)
         if pin_id is None:
             return {**entry, "status": "unpinned" if why == "unpinned" else "unknown",
@@ -9913,6 +9924,41 @@ def self_test():
                             rollout_path="/s/rollout-roll-z.jsonl", rollout_method="index")
             plant_codex_pin(claimed_state, "thread-e", claimed_ref, rollout_id="roll-z",
                             rollout_path="/s/rollout-roll-z.jsonl", rollout_method="index")
+
+            # X r2 F4 and F5: what counts as a pin, and what an incomplete scan may conclude. Separate
+            # states, because each adds a file that would change every other answer in its directory.
+            ignored_state = scratch / "p24" / "codex-ignored"
+            ignored_ref = plant_snapshot(ignored_state, "# Session\n\n- one pin and one file that is not one\n")
+            plant_codex_pin(ignored_state, "thread-g", ignored_ref, rollout_id="roll-q",
+                            rollout_path="/s/rollout-roll-q.jsonl", rollout_method="index")
+            (ignored_state / "sessions" / "pins" / "codex" / "thread-h.json").write_text(json.dumps({
+                "schema_version": 1, "content_ref": ignored_ref, "host": "claude", "session_id": "thread-h",
+                "rollout_id": "roll-q"}), encoding="utf-8")        # another host's name: not a Codex pin
+            (ignored_state / "sessions" / "pins" / "codex" / "thread-i.json").write_text(
+                json.dumps({}), encoding="utf-8")                   # names no session: not a pin either
+            ignored_row = session_pin(ignored_state, "codex", "roll-q", ignored_ref)
+            unmatched_here = session_pin(ignored_state, "codex", "roll-r", None)
+            check("both readers ask ONE identity rule before a record counts as a pin, so a file the census "
+                  "ignores is neither a claim on a rollout nor a pin written before the binding (X r2 F4)",
+                  (ignored_row["status"], ignored_row["reason"], ignored_row["pin_id"]) == ("read", None, "thread-g")
+                  and codex_pin_for_rollout(ignored_state, "roll-q") == ("thread-g", None, None)
+                  and (unmatched_here["reason"], unmatched_here["detail"]) == ("unpinned", "2 file(s) that are not pins")
+                  and sources.read_pins(ignored_state)[1] == 2,
+                  f"{[ignored_row.get(key) for key in ('status', 'reason', 'pin_id')]} "
+                  f"{[unmatched_here.get(key) for key in ('reason', 'detail')]} "
+                  f"census_bad={sources.read_pins(ignored_state)[1]}")
+            unreadable_state = scratch / "p24" / "codex-unreadable"
+            unreadable_ref = plant_snapshot(unreadable_state, "# Session\n\n- a pin that does not read\n")
+            plant_codex_pin(unreadable_state, "thread-j", unreadable_ref, rollout_id="roll-s",
+                            rollout_path="/s/rollout-roll-s.jsonl", rollout_method="index")
+            (unreadable_state / "sessions" / "pins" / "codex" / "thread-k.json").write_text(
+                '{"host": "codex", "session_id": "thread-k"', encoding="utf-8")
+            incomplete = session_pin(unreadable_state, "codex", "roll-t", None)
+            check("and a pin file that could not be read leaves the scan INCOMPLETE, which may not conclude that "
+                  "nothing was pinned: an activated session would read as never activated (X r2 F5)",
+                  (incomplete["reason"], incomplete["detail"]) == ("input_failed", "1 pin file(s) could not be read")
+                  and codex_pin_for_rollout(unreadable_state, "roll-s")[0] == "thread-j",
+                  f"{[incomplete.get(key) for key in ('status', 'reason', 'detail')]}")
 
             joined_pin = session_pin(mixed_state, "codex", "roll-a", mixed_ref)
             check("a Codex row whose pin names its rollout is read under that pin's own id, which is the pin "
@@ -15095,7 +15141,7 @@ def self_test():
                   "unpinned, and a Codex rollout's id space",
                   "refused" not in seg_plain and bool(plain_lanes) and bool(codex_lane)
                   and all(row[3] == ("unsought", None, "unpinned", None) for rows in plain_lanes.values() for row in rows)
-                  and all(row[3] == ("unsought", None, "unpinned", None) for row in codex_lane)
+                  and all(row[3] == ("unsought", None, "input_unread", None) for row in codex_lane)
                   and codex_lane[0][:3] == (1, 2, held(1)),
                   f"{plain_lanes} / {codex_lane}")
             seg_empty = published_run("segments-empty", [("claude", "s-seg", seg_records, {})], pin="claude:s-seg",
@@ -15444,14 +15490,17 @@ def self_test():
                 + [index_cells("codex:c-u").get(None) or {}]
             check("X7 and D8: a Codex session's global, project and memory layers are codex_undivided in every segment "
                   "and in an unread one's rows, its catalog and adopted packages history_absent (its state holds no "
-                  "finished journal), its overlays "
-                  "and injection unpinned, and its block answers native_undivided where an event records it",
+                  "finished journal), its overlays unpinned, its injection unpinned where its state was read "
+                  "and input_unread in the unread one's rows, which have no state to read (X r2 F5), and its block "
+                  "answers native_undivided where an event records it",
                   len(codex_blocks) == 2 and all(
                       all(cells.get(layer) == ("unknown", ["codex_undivided"], None) for layer in SPLIT_NATIVE)
                       and all(cells.get(layer) == ("unknown", ["history_absent"], None)
                               for layer in SHARED_RELEASE_LAYERS)
-                      and cells.get("overlays") == cells.get("session_injection") == ("unknown", ["unpinned"], None)
+                      and cells.get("overlays") == ("unknown", ["unpinned"], None)
                       for cells in codex_blocks)
+                  and codex_blocks[0].get("session_injection") == ("unknown", ["unpinned"], None)
+                  and codex_blocks[1].get("session_injection") == ("unknown", ["input_unread"], None)
                   and codex_blocks[0].get("native_undivided") == ("complete", [], "members:1")
                   and codex_blocks[1].get("native_undivided") == ("unknown", ["no_path"], None),
                   f"{codex_blocks}")
@@ -15524,22 +15573,27 @@ def self_test():
             # D9: one owner of the "no body to look for" rule; a read session's segments and an unread twin's index rows
             # give the same reason, for a session of each reason
             agreeing = {}
-            for read_one, unread_one, expected in (("claude:s-free", "claude:s-free-u", "unpinned"),
-                                                   ("codex:c-seg", "codex:c-u", "unpinned"),
-                                                   ("claude:s-gone", "claude:s-gone-u", "pin_absent"),
-                                                   ("claude:s-empty", "claude:s-empty-u", "injection_body_empty")):
+            # The expectation is per SIDE: the two do not always hold the same inputs, since an unread
+            # twin's index row has no state root, and a state that could not be read says input_unread
+            # rather than claiming nothing was pinned (X r2 F5). One function still answers both.
+            for read_one, unread_one, expected, unread_expected in (
+                    ("claude:s-free", "claude:s-free-u", "unpinned", "unpinned"),
+                    ("codex:c-seg", "codex:c-u", "unpinned", "input_unread"),
+                    ("claude:s-gone", "claude:s-gone-u", "pin_absent", "pin_absent"),
+                    ("claude:s-empty", "claude:s-empty-u", "injection_body_empty", "injection_body_empty")):
                 # a Codex file is referred to as `<id>@<stem>` (D-20261103-a7128a), and this fixture's file is named after its session
                 read_host, read_id = read_one.split(":", 1)
                 read_ref = session_ref(read_host, read_id if read_host == "claude" else f"{read_id}@{read_id}")
                 segment_reasons = {row["in_force"]["session_injection"]["reason"] for row in index_sessions.get("segments") or []
                                    if row["session_ref"] == read_ref and row["owner_ref"] == owner_ref(*read_one.split(":", 1))}
                 unread_row = (index_cells(unread_one).get(None) or {}).get("session_injection")
-                agreeing[(read_one, expected)] = (segment_reasons, unread_row)
+                agreeing[(read_one, expected, unread_expected)] = (segment_reasons, unread_row)
             check("D9: the segments and the index ask one function why nobody could look for an injection, and agree on a "
-                  "session of each reason: an unpinned Claude one, a Codex rollout no pin names, a broken pin "
-                  "chain, an empty own body",
-                  all(segments_said == {expected} and unread_row == ("unknown", [expected], None)
-                      for (_session, expected), (segments_said, unread_row) in agreeing.items()) and len(agreeing) == 4,
+                  "session of each reason -- an unpinned Claude one, a Codex rollout no pin names, a broken pin "
+                  "chain, an empty own body -- each side answering from the inputs it holds",
+                  all(segments_said == {expected} and unread_row == ("unknown", [unread_expected], None)
+                      for (_session, expected, unread_expected), (segments_said, unread_row) in agreeing.items())
+                  and len(agreeing) == 4,
                   f"{agreeing}")
             # X9 (§6.1 per segment): settings make no segment complete today, so the positive case is planted
             blocks_here = [block for entry in index_doc.get("sessions") or []

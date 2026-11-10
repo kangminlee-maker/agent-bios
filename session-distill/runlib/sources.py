@@ -285,43 +285,56 @@ def read_desktop_index(root):
     return found
 
 
+def pin_identity(record, host, stem):
+    """Is this record a pin OF `host`/`stem`? The one identity rule, so two readers of one state cannot
+    disagree about which files are pins (X r2 F4). `(True, rollout id or None)` for a pin whose
+    activation resolved a rollout, `(True, None)` for one that did not or predates the binding."""
+    if not isinstance(record, dict) or record.get("host") != host or record.get("session_id") != stem:
+        return False, None
+    rollout_id = record.get("rollout_id")
+    return True, rollout_id if isinstance(rollout_id, str) and rollout_id else None
+
+
 def read_pins(state_root):
-    """`({(host, session_id): content_ref}, bad count, {rollout id: [pin ids]})` of the activation pins.
+    """`(lookup, bad count, {rollout id: [pin ids]}, {(host, pin id): content_ref})` of the activation pins.
 
     A pin is read for its `content_ref` only; one that is not a JSON object naming its own host and id
     is ignored and counted. A Codex pin names the app-server's thread id, which no rollout carries
     (F-22): when its activation also resolved the rollout the host wrote, the pin is reachable by that
     id too, because that is the id a transcript carries.
 
-    Two rules keep that alias from deciding anything by file order (X r1 F5). A rollout id claimed by
-    two or more pins is reported in the third value and keyed to NONE of them -- a reader that picked
-    one picked it by file name, and two readers picked differently. An alias equal to some pin's own
-    thread id never replaces that pin's key; the thread-id lookup stands on its own.
+    The two lookups are SEPARATE maps (X r2 F3). `lookup` is what a census row is answered from: a
+    Claude key is the session's own id, and a Codex key is a rollout id some pin NAMES -- never a thread
+    id, because a Codex transcript is named by its rollout and a pin whose own id happens to equal
+    another thread's rollout was attributing its snapshot to that rollout. `threads` keys every pin by
+    its own id for a reader that has one, and no alias ever writes into it.
+
+    A rollout id claimed by two or more pins is reported in `claims` and keyed in NEITHER map: a reader
+    that picked one picked it by file name, and two readers picked differently (X r1 F5).
     """
-    pins, bad, claims = {}, 0, {}
+    threads, bad, claims, aliases = {}, 0, {}, {}
     base = pathlib.Path(state_root) / "sessions" / "pins"
-    aliases = {}
     for host in ("codex", "claude"):
         for path in sorted((base / host).glob("*.json")) if (base / host).is_dir() else []:
             try:
                 record = json.loads(path.read_text(encoding="utf-8"))
-                ok = record["host"] == host and record["session_id"] == path.stem
-                if ok:
-                    pins[(host, path.stem)] = record.get("content_ref")
-                    rollout_id = record.get("rollout_id")
-                    if host == "codex" and isinstance(rollout_id, str) and rollout_id:
-                        aliases.setdefault(rollout_id, []).append((path.stem, record.get("content_ref")))
-                else:
-                    bad += 1
-            except (OSError, ValueError, KeyError, TypeError):
+            except (OSError, ValueError):
                 bad += 1
+                continue
+            ok, rollout_id = pin_identity(record, host, path.stem)
+            if not ok:
+                bad += 1
+                continue
+            threads[(host, path.stem)] = record.get("content_ref")
+            if host == "codex" and rollout_id:
+                aliases.setdefault(rollout_id, []).append((path.stem, record.get("content_ref")))
+    lookup = {key: value for key, value in threads.items() if key[0] == "claude"}
     for rollout_id, claimed in sorted(aliases.items()):
         if len(claimed) > 1:
             claims[rollout_id] = [stem for stem, _ref in claimed]
             continue
-        if ("codex", rollout_id) not in pins:
-            pins[("codex", rollout_id)] = claimed[0][1]
-    return pins, bad, claims
+        lookup[("codex", rollout_id)] = claimed[0][1]
+    return lookup, bad, claims, threads
 
 
 def self_test():
@@ -574,7 +587,7 @@ def self_test():
         (pins / "codex" / "t1.json").write_text('{"host": "codex", "session_id": "t1", "content_ref": "sha256:ab"}')
         (pins / "codex" / "t2.json").write_text('{"host": "codex", "session_id": "other"}')
         (pins / "codex" / "t3.json").write_text("{")
-        if read_pins(root / "state") != ({("codex", "t1"): "sha256:ab"}, 2, {}):
+        if read_pins(root / "state") != ({}, 2, {}, {("codex", "t1"): "sha256:ab"}):
             failures.append(f"pins read: {read_pins(root / 'state')}")
         # F-22: a Codex pin that names the rollout the host wrote is reachable by that id too, which is
         # the id a transcript carries; one that resolved none, and one written before the binding
@@ -583,10 +596,12 @@ def self_test():
                                                 ' "rollout_id": "r4", "rollout_path": "/s/rollout-r4.jsonl"}')
         (pins / "codex" / "t5.json").write_text('{"host": "codex", "session_id": "t5", "content_ref": "sha256:ef",'
                                                 ' "rollout_id": null, "rollout_path": null}')
-        joined, _bad, claimed = read_pins(root / "state")
-        if joined.get(("codex", "r4")) != "sha256:cd" or joined.get(("codex", "t4")) != "sha256:cd":
-            failures.append(f"a pin naming a rollout is not reachable by both ids: {sorted(joined)}")
-        if ("codex", "r5") in joined or joined.get(("codex", "t5")) != "sha256:ef" or ("codex", "r1") in joined:
+        joined, _bad, claimed, threads = read_pins(root / "state")
+        if joined.get(("codex", "r4")) != "sha256:cd" or threads.get(("codex", "t4")) != "sha256:cd":
+            failures.append(f"a pin naming a rollout answers its rollout lookup and its own: {sorted(joined)} {sorted(threads)}")
+        if ("codex", "t4") in joined or ("codex", "t1") in joined:
+            failures.append(f"a thread id is a key of the census lookup, where only rollout ids belong: {sorted(joined)}")
+        if ("codex", "r5") in joined or threads.get(("codex", "t5")) != "sha256:ef" or ("codex", "r1") in joined:
             failures.append(f"an unresolved or pre-binding pin gained a rollout key: {sorted(joined)}")
         if claimed:
             failures.append(f"a rollout claimed once was reported as claimed twice: {claimed}")
@@ -595,16 +610,18 @@ def self_test():
                                                 ' "rollout_id": "r9"}')
         (pins / "codex" / "t7.json").write_text('{"host": "codex", "session_id": "t7", "content_ref": "sha256:77",'
                                                 ' "rollout_id": "r9"}')
-        # And an alias equal to another pin's own thread id never replaces that pin's key.
+        # And a pin whose own id equals another pin's rollout id answers neither for the other: the
+        # census asks the rollout lookup, where t1 is not a key, and t1 keeps its own (X r2 F3).
         (pins / "codex" / "t8.json").write_text('{"host": "codex", "session_id": "t8", "content_ref": "sha256:88",'
                                                 ' "rollout_id": "t1"}')
-        twice, _bad, claimed = read_pins(root / "state")
+        twice, _bad, claimed, threads = read_pins(root / "state")
         if claimed != {"r9": ["t6", "t7"]}:
             failures.append(f"two pins naming one rollout were not named as an ambiguity: {claimed}")
-        if ("codex", "r9") in twice:
+        if ("codex", "r9") in twice or ("codex", "r9") in threads:
             failures.append("a rollout two pins claim was keyed to one of them")
-        if twice.get(("codex", "t1")) != "sha256:ab":
-            failures.append(f"an alias replaced another pin's thread key: {twice.get(('codex', 't1'))}")
+        if twice.get(("codex", "t1")) != "sha256:88" or threads.get(("codex", "t1")) != "sha256:ab":
+            failures.append(f"a rollout lookup and a thread lookup were answered from one map: "
+                            f"{twice.get(('codex', 't1'))} {threads.get(('codex', 't1'))}")
     for failure in failures:
         print(f"sources --self-test [FAIL] {failure}")
     if failures:
@@ -614,7 +631,7 @@ def self_test():
           "bytes and mtimes, a write during the capture is captured again and one that never settles is named, and the snapshot is "
           "removed (a swapped directory is refused by name and nothing is removed); immutable=1 misses the row and a direct read-only open moves the -shm; missing columns, a non-database, a "
           "torn history line, an unparseable Desktop file and bad pins are handled by name; a pin naming a rollout is keyed by "
-          "that id as well, one that resolved none is not, two pins claiming one rollout are named rather than chosen, and an alias never replaces a thread key)")
+          "that id in the census lookup, one that resolved none is not, two pins claiming one rollout are named rather than chosen in either map, and a thread lookup is a map of its own)")
     return 0
 
 
