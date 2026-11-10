@@ -6055,6 +6055,190 @@ def segment_row(layer, state, events, occurrences, versions):
     return ranked_row(layer, conditions, source)
 
 
+# ---- the baseline-selection history (D-20261102-ff52a2, D-20261110-9c60bc; S-24 option 2)
+# Which baseline the owner's library had selected at an instant, from the journals written when the selected baseline
+# moves (`compose/instructions_store.py`: `runtime/state.json`'s `selected_baseline_ref` is written by the store's
+# recovery and by `apply` only, each under a journal). An unpinned session and every Codex session have no pin of their
+# own to say which release they ran under; this answers what the library held at their time, under a basis of its
+# own, and never what the session received: a session that was not activated received no catalog, and whether such a
+# row counts as delivery evidence is WP-10's to decide (§6.3).
+HISTORY_DIRS = (("store", "runtime/transactions"), ("installer", "runtime/installer-transactions"),
+                ("reset", "runtime/resets"), ("migration", "runtime/migrations"))
+FINISHED = ("COMMITTED", "RECOVERED_COMMITTED")
+# The history's own answers that place no baseline, by rank (1 unknown, 2 uncertain, as `RANK_ROWS`).
+HISTORY_UNKNOWN = ("history_absent", "before_first_switch", "history_gap", "session_undated")
+HISTORY_UNCERTAIN = ("switch_in_flight", "switch_recovered", "switch_tie", "spans_switch", "journal_unfinished")
+# A hand-written state a journal may name: no pointer before the first install, or a baseline ref.
+NO_POINTER = object()
+
+
+def history_journals(state):
+    """`{source: {journal id: document or None}}` for the four journal directories under the frozen state `state`
+    (`HISTORY_DIRS`): each `<id>/journal.json`, None when it is not a JSON object. Read from the frozen copy only,
+    through the one source selection (done-when 5, GC#7); a directory that is not there is an empty source."""
+    found = {}
+    for source, relative in HISTORY_DIRS:
+        rows = found[source] = {}
+        root = pathlib.Path(state) / relative
+        if not root.is_dir():
+            continue
+        for path in sorted(root.glob("*/journal.json")):
+            try:
+                loaded = json.loads(read_source(path, state))
+            except (Refused, ValueError, OSError):
+                loaded = None
+            rows[path.parent.name] = loaded if isinstance(loaded, dict) else None
+    return found
+
+
+def _seconds(value):
+    """An instant as seconds since the epoch, or None: a store journal writes ISO strings in UTC, an installer,
+    reset or migration journal whole seconds (`_instant` reads both, and nothing without a zone)."""
+    when = _instant(value)
+    return None if when is None else (when - EPOCH).total_seconds()
+
+
+def _pointer(runtime):
+    """The `selected_baseline_ref` a journal's runtime state names: None, a baseline ref, or `NO_POINTER` when the
+    state is not an object or the value is neither."""
+    if not isinstance(runtime, dict):
+        return NO_POINTER
+    value = runtime.get("selected_baseline_ref")
+    if value is None or (isinstance(value, str) and SAFE_LABEL.match(value)):
+        return value
+    return NO_POINTER
+
+
+def history_switches(journals):
+    """`(switches, unfinished)` from `history_journals`' answer.
+
+    A switch is a FINISHED store journal (COMMITTED, or RECOVERED_COMMITTED by the store's recovery) that names its
+    prior and its next pointer, each `{id, before, after, start, end, recovered}` with `end` the instant it finished
+    (`committed_at`, `recovered_at`) and `start` the earliest it can have begun: a plan's `created_at`; for an install
+    (the store's own install journal has no instant before its recovery) the installer journal of the same id's
+    `created_at`, or None when there is none, which `selection_history` reads as the previous switch. A journal that
+    moves nothing is a switch too, with `before == after`: it is a link of the chain and opens no window. PLANNED moves
+    nothing and is not read. Everything else that may hide a switch is `unfinished`, each the instant it can be placed
+    at or None: a store journal that is not finished or not readable, an installer, reset or migration journal that did
+    not finish, and a finished reset whose own store journal is not a finished switch."""
+    store, installer = journals.get("store") or {}, journals.get("installer") or {}
+    switches, unfinished = [], []
+    for ident, journal in sorted(store.items()):
+        if journal is None:
+            unfinished.append(None)
+            continue
+        plan = journal.get("plan") if isinstance(journal.get("plan"), dict) else {}
+        placed = next((at for at in (_seconds(plan.get("created_at")), _seconds(journal.get("prepared_at")))
+                       if at is not None), None)
+        if journal.get("state") == "PLANNED":
+            continue
+        install = journal.get("kind") == "install"
+        before = _pointer((plan.get("before") or {}).get("runtime") if isinstance(plan.get("before"), dict) else None)
+        after = _pointer((plan.get("after") or {}).get("runtime") if isinstance(plan.get("after"), dict) else None)
+        end = _seconds(journal.get("committed_at") if journal.get("state") == "COMMITTED" else journal.get("recovered_at"))
+        if journal.get("state") not in FINISHED or end is None or before is NO_POINTER or after in (NO_POINTER, None):
+            unfinished.append(placed)
+            continue
+        if install:
+            narrowing = installer.get(ident)
+            start = _seconds((narrowing or {}).get("created_at")) if isinstance(narrowing, dict) else None
+        else:
+            start = _seconds(plan.get("created_at"))
+            if start is None:
+                unfinished.append(None)
+                continue
+        switches.append({"id": ident, "before": before, "after": after, "start": start, "end": end,
+                         "recovered": journal.get("state") == "RECOVERED_COMMITTED" and not install})
+    finished = {row["id"] for row in switches}
+    for source in ("installer", "reset", "migration"):
+        for _ident, journal in sorted((journals.get(source) or {}).items()):
+            if journal is None:
+                unfinished.append(None)
+            elif journal.get("state") not in ("COMMITTED", "SUPERSEDED"):
+                unfinished.append(_seconds(journal.get("created_at")))
+            elif source == "reset" and journal.get("state") == "COMMITTED" \
+                    and (journal.get("intent") or {}).get("plan_id") not in finished:
+                unfinished.append(_seconds(journal.get("created_at")))
+    return switches, unfinished
+
+
+def selection_history(journals, current=NO_POINTER):
+    """The time line the selected baseline is answered on: `[{"from", "to", "ref", "rank", "key"}]` in order, each
+    piece `[from, to)` in seconds (None open), answering `ref` when `rank` is None and naming why not otherwise.
+
+    The switches are ordered by the instant they finished. Before the first is `before_first_switch`: nothing says
+    what was selected then, a null prior pointer included, since a state directory removed and installed again also
+    starts from none. A switch that moves the pointer holds `[start, end]` as `switch_in_flight`
+    (`switch_recovered` for a plan finished by recovery, whose `end` is the recovery's time); an install with no
+    installer journal starts at the previous switch. Between two switches the earlier one's `after` is answered,
+    unless the later one's `before` differs (`history_gap`), and two moving switches finishing in one second hold
+    everything from the first one's start to the second one's end (`switch_tie`). After the last switch its
+    `after` is answered while it is the pointer `current` (the frozen `runtime/state.json`'s, when it was read),
+    `history_gap` otherwise. A journal that may hide a switch makes the answered piece it falls in uncertain
+    (`journal_unfinished`), and every answered piece when it cannot be placed. No finished switch at all is
+    `history_absent`."""
+    switches, unfinished = history_switches(journals)
+    switches.sort(key=lambda row: (row["end"], row["id"]))
+    if not switches:
+        return [{"from": None, "to": None, "ref": None, "rank": 1, "key": "history_absent"}]
+    pieces = []
+
+    def piece(start, stop, ref=None, rank=None, key=None):
+        if start is None or stop is None or start < stop:
+            pieces.append({"from": start, "to": stop, "ref": ref, "rank": rank, "key": key})
+
+    first = switches[0]["start"] if switches[0]["start"] is not None else switches[0]["end"]
+    piece(None, min(first, switches[0]["end"]), rank=1, key="before_first_switch")
+    cursor, held, moved = min(first, switches[0]["end"]), switches[0]["before"], None
+    for n, row in enumerate(switches):
+        after_end = math.nextafter(row["end"], math.inf)
+        broken = n > 0 and row["before"] != held
+        if row["before"] == row["after"]:
+            if broken:  # a link that moved nothing, after a switch nobody recorded
+                piece(cursor, after_end, rank=1, key="history_gap")
+                cursor = after_end
+            held = row["after"]
+            continue
+        start = min(max(row["start"] if row["start"] is not None else cursor, cursor), row["end"])
+        piece(cursor, start, *((None, 1, "history_gap") if broken else (held,)))
+        if moved is not None and math.floor(moved["end"]) == math.floor(row["end"]):
+            del pieces[moved["piece"]:]  # the earlier window, and whatever stood between the two
+            start = moved["from"]
+            piece(start, after_end, rank=2, key="switch_tie")
+        else:
+            piece(start, after_end, rank=2, key="switch_recovered" if row["recovered"] else "switch_in_flight")
+        moved = {"end": row["end"], "piece": len(pieces) - 1, "from": start}
+        cursor, held = after_end, row["after"]
+    tail_gap = current is not NO_POINTER and current != held
+    piece(cursor, None, *((None, 1, "history_gap") if tail_gap else (held,)))
+    for at in unfinished:
+        for row in pieces:
+            if row["rank"] is None and (at is None or ((row["from"] is None or row["from"] <= at)
+                                                       and (row["to"] is None or at < row["to"]))):
+                row.update(ref=None, rank=2, key="journal_unfinished")
+    return pieces
+
+
+def history_answer(pieces, first, last):
+    """`(ref, None)`, or `(None, reason)` with an uncertain reason prefixed as a row carries it (S-21): the piece of
+    `selection_history` holding both the session's first and last instants (seconds). A session with no instant is
+    `session_undated`; one whose two instants lie in two pieces is the first unknown piece's reason among the pieces it
+    touches, or `spans_switch` when none of them is unknown."""
+    if first is None or last is None:
+        return None, "session_undated"
+
+    def at(when):
+        return next(n for n, row in enumerate(pieces) if (row["from"] is None or row["from"] <= when)
+                    and (row["to"] is None or when < row["to"]))
+
+    touched = pieces[at(first):at(last) + 1]
+    if len(touched) == 1:
+        row = touched[0]
+        return (row["ref"], None) if row["rank"] is None else (None, f"{RANK_ROWS[row['rank']][1]}{row['key']}")
+    unknown = next((row for row in touched if row["rank"] == 1), None)
+    return (None, unknown["key"]) if unknown is not None else (None, f"{RANK_ROWS[2][1]}spans_switch")
+
+
 def static_rows(record, published):
     """A main owner's pin-derived rows (step 0 S-17, S-24, S-16, S-25): catalog and adopted packages from the
     release inventory of the baseline its own snapshot names, overlays from its own selection inventory, each
@@ -17069,6 +17253,173 @@ def self_test():
                   "refused" not in same_out and len(same_ids) == len(set(same_ids)) == 3 and same_listed == [1, 1, 1],
                   f"{same_out.get('refused')} {same_out.get('problems')} ids={len(set(same_ids))}/{len(same_ids)} "
                   f"listed={same_listed}"[:400])
+
+        with section("relhist: the baseline-selection history, from the journals alone (D-20261110-9c60bc)"):
+            # ---- relhist (D-20261102-ff52a2, D-20261110-9c60bc; S-24 option 2): which baseline the owner's library had
+            # selected at an instant, from the journals the store and the installer write. One fixture, a history of four
+            # switches (two installs, a rollback, a reset), and each control below changes one condition of it.
+            def rh_iso(seconds):
+                return datetime.datetime.fromtimestamp(seconds, tz=datetime.timezone.utc).isoformat(timespec="microseconds")
+
+            def rh_runtime(ref):
+                return {"runtime": {"selected_baseline_ref": ref}}
+
+            def rh_install(before, after, at):
+                """The store's own install journal as its recovery leaves it: no instant before `recovered_at`."""
+                return {"state": "RECOVERED_COMMITTED", "kind": "install", "recovered_at": rh_iso(at),
+                        "plan": {"transaction_id": "fixture", "before": rh_runtime(before), "after": rh_runtime(after)}}
+
+            def rh_plan(before, after, created, done, state="COMMITTED"):
+                """A plan journal as `apply` (COMMITTED) or the store's recovery (RECOVERED_COMMITTED) leaves it."""
+                return {"state": state, ("committed_at" if state == "COMMITTED" else "recovered_at"): rh_iso(done),
+                        "plan": {"plan_id": "fixture", "created_at": rh_iso(created), "before": rh_runtime(before),
+                                 "after": rh_runtime(after)}}
+
+            def rh_base():
+                return {"store": {"t1": rh_install(None, "ref-a", 1000), "t2": rh_install("ref-a", "ref-b", 2000),
+                                  "t3": rh_plan("ref-b", "ref-a", 2900, 3000), "t4": rh_plan("ref-a", "ref-b", 3900, 4000)},
+                        "installer": {"t1": {"state": "COMMITTED", "created_at": 990},
+                                      "t2": {"state": "COMMITTED", "created_at": 1990}},
+                        "reset": {"r4": {"state": "COMMITTED", "created_at": 3890, "intent": {"plan_id": "t4"}}},
+                        "migration": {}}
+
+            def rh_answers(journals, instants, current="ref-b"):
+                """Each `(first, last)`'s answer, or the one exception that ended the computation."""
+                found = []
+                raised = _raised(lambda: found.extend(history_answer(selection_history(journals, current), *pair)
+                                                      for pair in instants))
+                return found if raised is None else found + [f"raised {type(raised).__name__}"]
+
+            rh_points = [(500, 500), (1500, 1500), (1995, 1995), (2500, 2500), (3500, 3500), (4500, 4500)]
+            rh_expected = [(None, "before_first_switch"), ("ref-a", None), (None, "uncertain: switch_in_flight"),
+                           ("ref-b", None), ("ref-a", None), ("ref-b", None)]
+            rh_got = rh_answers(rh_base(), rh_points)
+            check("relhist 1: rollback then reset, each stretch answers the baseline selected in it, and an instant inside "
+                  "a switch's own window none", rh_got == rh_expected, f"{rh_got}")
+
+            rh_null = rh_base()
+            rh_got = rh_answers(rh_null, [(500, 500), (989, 989)])
+            check("relhist 2: before the first journal nothing is answered, its null prior pointer included",
+                  rh_got == [(None, "before_first_switch"), (None, "before_first_switch")]
+                  and rh_null["store"]["t1"]["plan"]["before"]["runtime"]["selected_baseline_ref"] is None, f"{rh_got}")
+
+            rh_got = rh_answers(rh_base(), [(1989, 1989), (1990, 1990), (2000, 2000), (2000.001, 2000.001)])
+            check("relhist 3: the switch boundary - the instant before an install's window is the old baseline, its start "
+                  "and its end are in flight, the instant after is the new one",
+                  rh_got == [("ref-a", None), (None, "uncertain: switch_in_flight"), (None, "uncertain: switch_in_flight"),
+                             ("ref-b", None)], f"{rh_got}")
+
+            rh_unnarrowed = rh_base()
+            del rh_unnarrowed["installer"]["t2"]
+            rh_got = [rh_answers(rh_base(), [(1500, 1500)]), rh_answers(rh_unnarrowed, [(1500, 1500), (1000.5, 1000.5)])]
+            check("relhist 4: an install's window starts at its installer journal's created_at, and with none at the "
+                  "previous switch, since the store's install journal has no instant before its recovery",
+                  rh_got == [[("ref-a", None)], [(None, "uncertain: switch_in_flight")] * 2], f"{rh_got}")
+
+            rh_recovered = rh_base()
+            rh_recovered["store"]["t3"] = rh_plan("ref-b", "ref-a", 2900, 3000, state="RECOVERED_COMMITTED")
+            rh_got = [rh_answers(rh_base(), [(2950, 2950), (3500, 3500)]),
+                      rh_answers(rh_recovered, [(2950, 2950), (3500, 3500), (2500, 2500)])]
+            check("relhist 5: a recovered install is a switch at its recovery, and a plan finished by the store's recovery "
+                  "holds its window as switch_recovered, its time being the recovery's",
+                  rh_got == [[(None, "uncertain: switch_in_flight"), ("ref-a", None)],
+                             [(None, "uncertain: switch_recovered"), ("ref-a", None), ("ref-b", None)]]
+                  and rh_answers(rh_base(), [(1500, 1500)]) == [("ref-a", None)], f"{rh_got}")
+
+            rh_planned = rh_base()
+            rh_planned["store"]["t5"] = {"state": "PLANNED", "plan": {"plan_id": "fixture", "created_at": rh_iso(4500),
+                                                                       "before": rh_runtime("ref-b"),
+                                                                       "after": rh_runtime("ref-c")}}
+            rh_got = rh_answers(rh_planned, rh_points)
+            check("relhist 6: a PLANNED journal moves nothing, and every answer stays as without it",
+                  rh_got == rh_expected, f"{rh_got}")
+
+            rh_hidden = rh_base()
+            rh_hidden["store"]["t5"] = None
+            rh_got = rh_answers(rh_hidden, rh_points)
+            check("relhist 7: a journal that cannot be read may hide a switch anywhere, so every answered stretch is uncertain",
+                  rh_got == [(None, "before_first_switch"), (None, "uncertain: journal_unfinished"),
+                             (None, "uncertain: switch_in_flight")] + [(None, "uncertain: journal_unfinished")] * 3,
+                  f"{rh_got}")
+
+            rh_prepared = rh_base()
+            rh_prepared["store"]["t5"] = {**rh_plan("ref-a", "ref-c", 3500, 3600), "state": "PREPARED"}
+            rh_orphan_reset = rh_base()
+            rh_orphan_reset["reset"]["r5"] = {"state": "COMMITTED", "created_at": 3500, "intent": {"plan_id": "t9"}}
+            rh_stalled = rh_base()
+            rh_stalled["installer"]["t6"] = {"state": "NEEDS_RECOVERY", "created_at": 3500}
+            rh_got = [rh_answers(journals, [(2500, 2500), (3500, 3500)])
+                      for journals in (rh_prepared, rh_orphan_reset, rh_stalled)]
+            check("relhist 8: a journal that did not finish is placed at its own instant and makes only that stretch "
+                  "uncertain: a PREPARED plan, a finished reset whose store journal is not on record, an installer "
+                  "journal left NEEDS_RECOVERY",
+                  rh_got == [[("ref-b", None), (None, "uncertain: journal_unfinished")]] * 3
+                  and rh_answers(rh_base(), [(3500, 3500)]) == [("ref-a", None)], f"{rh_got}")
+
+            rh_broken = rh_base()
+            rh_broken["store"]["t4"] = rh_plan("ref-c", "ref-b", 3900, 4000)
+            rh_got = rh_answers(rh_broken, [(2500, 2500), (3500, 3500), (4500, 4500)])
+            check("relhist 9: a journal whose prior selection is not the previous one's result breaks the chain, and the "
+                  "stretch before it is history_gap",
+                  rh_got == [("ref-b", None), (None, "history_gap"), ("ref-b", None)], f"{rh_got}")
+
+            rh_got = [rh_answers(rh_base(), [(4500, 4500)], current=held)
+                      for held in ("ref-b", "ref-c", None, NO_POINTER)]
+            check("relhist 10: after the last switch its result is answered while the state still selects it, history_gap "
+                  "when the state selects another or none, and answered when the state was not read",
+                  rh_got == [[("ref-b", None)], [(None, "history_gap")], [(None, "history_gap")], [("ref-b", None)]],
+                  f"{rh_got}")
+
+            rh_apart, rh_tied = rh_base(), rh_base()
+            rh_apart["store"]["t3"] = rh_plan("ref-b", "ref-a", 2900, 3000.2)
+            rh_apart["store"]["t4"] = rh_plan("ref-a", "ref-b", 3000.3, 3001.7)
+            rh_tied["store"]["t3"] = rh_plan("ref-b", "ref-a", 2900, 3000.2)
+            rh_tied["store"]["t4"] = rh_plan("ref-a", "ref-b", 3000.3, 3000.7)
+            rh_got = [rh_answers(journals, [(3000.25, 3000.25), (2500, 2500), (4500, 4500)]) for journals in (rh_apart, rh_tied)]
+            check("relhist 11: two switches finishing in one second hold everything from the first one's start to the "
+                  "second one's end as switch_tie",
+                  rh_got == [[("ref-a", None), ("ref-b", None), ("ref-b", None)],
+                             [(None, "uncertain: switch_tie"), ("ref-b", None), ("ref-b", None)]], f"{rh_got}")
+
+            rh_got = rh_answers(rh_base(), [(1500, 2500), (500, 1500), (2500, 2600), (1500, 1995)])
+            check("relhist 12: a session whose first and last instants lie on two sides of a switch is spans_switch, one "
+                  "touching an unknown stretch is that stretch's reason, and one inside a stretch is its baseline",
+                  rh_got == [(None, "uncertain: spans_switch"), (None, "before_first_switch"), ("ref-b", None),
+                             (None, "uncertain: spans_switch")], f"{rh_got}")
+
+            rh_got = rh_answers(rh_base(), [(None, None), (None, 1500)])
+            check("relhist 13: a session with no instant is placed nowhere: session_undated",
+                  rh_got == [(None, "session_undated")] * 2, f"{rh_got}")
+
+            rh_kept = rh_base()
+            rh_kept["store"]["t5"] = rh_install("ref-a", "ref-a", 3500)
+            rh_got = [rh_answers(rh_kept, [(3200, 3800), (3500, 3500)]), rh_answers(rh_base(), [(3200, 3800)])]
+            check("relhist 14: an install after a rollback leaves the pointer where the rollback put it, opens no window, "
+                  "and a session across it keeps the rolled-back baseline",
+                  rh_got == [[("ref-a", None), ("ref-a", None)], [("ref-a", None)]], f"{rh_got}")
+
+            rh_only_planned = {"store": {"t5": rh_planned["store"]["t5"]}}
+            rh_got = [rh_answers({}, [(1500, 1500)]), rh_answers(rh_only_planned, [(1500, 1500)])]
+            check("relhist 15: no finished store journal is history_absent, never an answer",
+                  rh_got == [[(None, "history_absent")]] * 2, f"{rh_got}")
+
+            rh_state = scratch / "relhist-state"
+            for rh_rel, rh_text in (("runtime/transactions/t1/journal.json", json.dumps(rh_install(None, "ref-a", 1000))),
+                                    ("runtime/transactions/t2/journal.json", "not a json document"),
+                                    ("runtime/transactions/t3/journal.json", "[1, 2]"),
+                                    ("runtime/installer-transactions/t1/journal.json", json.dumps({"state": "COMMITTED",
+                                                                                                  "created_at": 990}))):
+                (rh_state / rh_rel).parent.mkdir(parents=True, exist_ok=True)
+                (rh_state / rh_rel).write_text(rh_text, encoding="utf-8")
+            rh_read = history_journals(rh_state)
+            check("relhist 16: the journals are read from the state given, every one by its directory's name, and one that "
+                  "is not a JSON object is None rather than left out",
+                  sorted(rh_read) == ["installer", "migration", "reset", "store"]
+                  and sorted(rh_read["store"]) == ["t1", "t2", "t3"] and rh_read["store"]["t2"] is None
+                  and rh_read["store"]["t3"] is None and rh_read["store"]["t1"]["kind"] == "install"
+                  and rh_read["installer"] == {"t1": {"state": "COMMITTED", "created_at": 990}}
+                  and rh_read["reset"] == {} == rh_read["migration"],
+                  f"{sorted((source, sorted(rows)) for source, rows in rh_read.items())}")
 
         with section("the general control (lead, after a36c728): no reason in ANY document this suite's runs"):
             # ---- the general control (lead, after a36c728): no reason in ANY document this suite's runs
