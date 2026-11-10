@@ -3291,8 +3291,6 @@ UNKNOWN_REASONS = {
     # a selection's native layers, an unpinned release, and a baseline a release names (S-15, S-24, S-25)
     "per_event": ("unknown: a native layer is what each event recorded, so a selection does not hold one; the "
                   "session's events in sessions.json do"),
-    "release_history_deferred": ("unknown: which baseline an unpinned session ran under needs the baseline-selection "
-                                 "history, which a follow-up package builds; the installed-now inventory is not it"),
     "baseline_absent": "unknown: the release names a baseline the owner's state does not hold",
     # a segment before an owner's first event of a kind (S-17), and an injection nobody can look for
     # because the body that finds it is empty (R15's `unsought`)
@@ -3306,6 +3304,29 @@ UNKNOWN_REASONS = {
                                "and release session injection are not attributable, and never its parent's"),
     "baseline_unnamed": ("unknown: the session's own snapshot names no usable baseline, so no release inventory "
                          "is its"),
+    # the baseline-selection history (D-20261110-9c60bc): an unpinned or Codex session's release, answered with the
+    # baseline the owner's library selected at the session's time, or named why not; and the renames of a run with no
+    # `--pin`, which have no session to take a release from
+    "history_absent": ("unknown: the owner's state holds no finished store journal, so no switch of the selected "
+                       "baseline is on record"),
+    "before_first_switch": ("unknown: the session's time lies before the first store journal, and what the library "
+                            "selected before it is not recorded"),
+    "history_gap": ("unknown: a switch of the selected baseline at the session's time is missing from the journals: one "
+                    "journal's prior pointer is not the previous one's next, or the state no longer selects the last"),
+    "session_undated": ("unknown: the session's transcript carries no instant this inventory reads, so nothing places it "
+                        "in the selection history"),
+    "switch_in_flight": ("uncertain: the session's time lies between a switch's start and its finish, so the selected "
+                         "baseline is the one before it or the one after"),
+    "switch_recovered": ("uncertain: the session's time lies inside a switch the store's recovery finished, whose "
+                         "recorded time is the recovery's"),
+    "switch_tie": ("uncertain: two switches of the selected baseline finish in one second around the session's time, too "
+                   "close to place it between them"),
+    "spans_switch": ("uncertain: the session's first and last instants lie on two sides of a switch of the selected "
+                     "baseline"),
+    "journal_unfinished": ("uncertain: a journal that did not finish, or could not be read, lies at the session's time, "
+                           "so a switch there may be missing"),
+    "no_pin_given": ("unknown: no --pin names a session, so no release inventory is the base the renames are taken "
+                     "against"),
 }
 
 
@@ -3353,6 +3374,7 @@ INPUT_CLASSES = {
     "snapshot": "required",
     "installed_baseline": "required",
     "release_baseline": "required",
+    "selection_history": "optional",
 }
 
 
@@ -4926,8 +4948,12 @@ def transcript_events(run_dir, pins=None, zstd=None, entries=None):
                              session_ref(entry.get("host"), ref_of(entry)))
         findings["segments"] += segmented
         dated = [event["n"] for event in found if _instant(event.get("at")) is not None]
+        # the first and last instant the transcript records, which place the session in the selection history
+        stamps = [at for _line, record in read["records"] if isinstance(record, dict)
+                  for at in [_seconds(_timestamp(record))] if at is not None]
         findings["timelines"][session_ref(entry.get("host"), ref_of(entry))] = {
             "host": entry.get("host"), "kind": entry.get("kind"), "last_dated": max(dated) if dated else None,
+            "first_at": min(stamps) if stamps else None, "last_at": max(stamps) if stamps else None,
             "undecodable": [{"line": line, "after_at": after, "ok": ok}
                             for line, _category in read["undecodable"] for after, ok in [bracket(line)]]}
         findings["undecodable"] += [{"session": label, "line": line, "category": category}
@@ -5947,8 +5973,15 @@ def index_reasons():
 # One index row: a layer, its status and reasons, and where it comes from — one shared inventory's row of
 # that layer, the in-force event's own members of the layer, or that event's occurrences — or nothing. No
 # unit is copied: each resolves through the inventory or the store (R5).
+# Where a release row's inventory comes from (D-20261110-9c60bc): the session's own pin, through its snapshot, or the
+# baseline-selection history at the session's time. The second is what the owner's library held then, not what the
+# session received; WP-10 decides whether it counts as delivery evidence (§6.3).
+RELEASE_BASES = ("pin", "selection_history")
+
+
 RELEASE_SOURCE_TABLE = {**one_of(
-    table_of({"inventory_ref": as_opaque("inventory_id"), "layer": as_enum(SHARED_RELEASE_LAYERS + ("overlays",))}),
+    table_of({"inventory_ref": as_opaque("inventory_id"), "layer": as_enum(SHARED_RELEASE_LAYERS + ("overlays",)),
+              "basis": as_enum(RELEASE_BASES)}),
     table_of({"event_ref": as_opaque("event_id"), "members": list_of(table_of({
         "carrier_id": as_opaque("carrier_id"), "version_sha256": as_opaque("sha256")}))}),
     table_of({"event_ref": as_opaque("event_id"), "occurrence_refs": list_of(as_opaque("occurrence_id"))})),
@@ -6065,9 +6098,6 @@ def segment_row(layer, state, events, occurrences, versions):
 HISTORY_DIRS = (("store", "runtime/transactions"), ("installer", "runtime/installer-transactions"),
                 ("reset", "runtime/resets"), ("migration", "runtime/migrations"))
 FINISHED = ("COMMITTED", "RECOVERED_COMMITTED")
-# The history's own answers that place no baseline, by rank (1 unknown, 2 uncertain, as `RANK_ROWS`).
-HISTORY_UNKNOWN = ("history_absent", "before_first_switch", "history_gap", "session_undated")
-HISTORY_UNCERTAIN = ("switch_in_flight", "switch_recovered", "switch_tie", "spans_switch", "journal_unfinished")
 # A hand-written state a journal may name: no pointer before the first install, or a baseline ref.
 NO_POINTER = object()
 
@@ -6180,7 +6210,7 @@ def selection_history(journals, current=NO_POINTER):
     switches, unfinished = history_switches(journals)
     switches.sort(key=lambda row: (row["end"], row["id"]))
     if not switches:
-        return [{"from": None, "to": None, "ref": None, "rank": 1, "key": "history_absent"}]
+        return [{"from": None, "to": None, "ref": None, "rank": 1, "key": reason("history_absent")}]
     pieces = []
 
     def piece(start, stop, ref=None, rank=None, key=None):
@@ -6188,34 +6218,34 @@ def selection_history(journals, current=NO_POINTER):
             pieces.append({"from": start, "to": stop, "ref": ref, "rank": rank, "key": key})
 
     first = switches[0]["start"] if switches[0]["start"] is not None else switches[0]["end"]
-    piece(None, min(first, switches[0]["end"]), rank=1, key="before_first_switch")
+    piece(None, min(first, switches[0]["end"]), rank=1, key=reason("before_first_switch"))
     cursor, held, moved = min(first, switches[0]["end"]), switches[0]["before"], None
     for n, row in enumerate(switches):
         after_end = math.nextafter(row["end"], math.inf)
         broken = n > 0 and row["before"] != held
         if row["before"] == row["after"]:
             if broken:  # a link that moved nothing, after a switch nobody recorded
-                piece(cursor, after_end, rank=1, key="history_gap")
+                piece(cursor, after_end, rank=1, key=reason("history_gap"))
                 cursor = after_end
             held = row["after"]
             continue
         start = min(max(row["start"] if row["start"] is not None else cursor, cursor), row["end"])
-        piece(cursor, start, *((None, 1, "history_gap") if broken else (held,)))
+        piece(cursor, start, *((None, 1, reason("history_gap")) if broken else (held,)))
         if moved is not None and math.floor(moved["end"]) == math.floor(row["end"]):
             del pieces[moved["piece"]:]  # the earlier window, and whatever stood between the two
             start = moved["from"]
-            piece(start, after_end, rank=2, key="switch_tie")
+            piece(start, after_end, rank=2, key=reason("switch_tie"))
         else:
-            piece(start, after_end, rank=2, key="switch_recovered" if row["recovered"] else "switch_in_flight")
+            piece(start, after_end, rank=2, key=reason("switch_recovered") if row["recovered"] else reason("switch_in_flight"))
         moved = {"end": row["end"], "piece": len(pieces) - 1, "from": start}
         cursor, held = after_end, row["after"]
     tail_gap = current is not NO_POINTER and current != held
-    piece(cursor, None, *((None, 1, "history_gap") if tail_gap else (held,)))
+    piece(cursor, None, *((None, 1, reason("history_gap")) if tail_gap else (held,)))
     for at in unfinished:
         for row in pieces:
             if row["rank"] is None and (at is None or ((row["from"] is None or row["from"] <= at)
                                                        and (row["to"] is None or at < row["to"]))):
-                row.update(ref=None, rank=2, key="journal_unfinished")
+                row.update(ref=None, rank=2, key=reason("journal_unfinished"))
     return pieces
 
 
@@ -6225,7 +6255,7 @@ def history_answer(pieces, first, last):
     `session_undated`; one whose two instants lie in two pieces is the first unknown piece's reason among the pieces it
     touches, or `spans_switch` when none of them is unknown."""
     if first is None or last is None:
-        return None, "session_undated"
+        return None, reason("session_undated")
 
     def at(when):
         return next(n for n, row in enumerate(pieces) if (row["from"] is None or row["from"] <= when)
@@ -6236,24 +6266,48 @@ def history_answer(pieces, first, last):
         row = touched[0]
         return (row["ref"], None) if row["rank"] is None else (None, f"{RANK_ROWS[row['rank']][1]}{row['key']}")
     unknown = next((row for row in touched if row["rank"] == 1), None)
-    return (None, unknown["key"]) if unknown is not None else (None, f"{RANK_ROWS[2][1]}spans_switch")
+    return (None, unknown["key"]) if unknown is not None else (None, f"{RANK_ROWS[2][1]}{reason('spans_switch')}")
 
 
-def static_rows(record, published):
+def history_of(ctx, records):
+    """`(ref, None)` or `(None, reason)`: the baseline the selection history answers for one session's records (every
+    file of a Codex thread), from the first instant of any of them to the last. A record with no instant is placed
+    nowhere: its read failure when the transcript was not read, `session_undated` otherwise. A history this run did
+    not read is unknown by why (`selection_history_reason`). A baseline answered is registered for publication, as a
+    pinned session's own is (`freeze_inputs`)."""
+    pieces = ctx.get("selection_history")
+    if pieces is None:
+        return None, ctx.get("selection_history_reason") or reason("input_failed")
+    if len(pieces) == 1:  # one answer for all time (`history_absent`), whatever the session's instants
+        return history_answer(pieces, 0, 0)
+    spans = [(ctx.get("session_instants") or {}).get(row["session_ref"]) or (None, None) for row in records]
+    for row, (first, _last) in zip(records, spans):
+        if first is None:
+            return None, row["read"] if row["read"] in READ_FAILURES else reason("session_undated")
+    ref, why = history_answer(pieces, min(first for first, _last in spans), max(last for _first, last in spans))
+    if ref is not None:
+        ctx.setdefault("session_baselines", {}).setdefault(ref, ctx["history_baselines"][ref])
+    return ref, why
+
+
+def static_rows(record, published, answer=None):
     """A main owner's pin-derived rows (step 0 S-17, S-24, S-16, S-25): catalog and adopted packages from the
     release inventory of the baseline its own snapshot names, overlays from its own selection inventory, each
-    with that inventory row's status and its reasons left in the inventory (lead, D2). A Codex rollout or an
-    unpinned session: `release_history_deferred`, and its selection's reason for overlays. A broken pin chain:
-    its one reason for all three."""
+    with that inventory row's status and its reasons left in the inventory (lead, D2), under the basis `pin`. A
+    Codex rollout or an unpinned session: catalog and adopted packages from the release inventory of the baseline
+    `answer` (`history_of`) names, under the basis `selection_history`, or unknown by its reason, and its
+    selection's reason for overlays. A broken pin chain: its one reason for all three."""
     selection, baseline = record["selection"], record["pin"]["baseline_ref"]
 
-    def pointed(layer, identity):
+    def pointed(layer, identity, basis="pin"):
         held = [row["status"] for row in (published.get(identity) or {}).get("layers") or [] if row["layer"] == layer]
         return {"layer": layer, "status": held[0] if len(held) == 1 else "unknown", "reasons": [],
-                "source": {"inventory_ref": identity, "layer": layer}}
+                "source": {"inventory_ref": identity, "layer": layer, "basis": basis}}
 
     if record["host"] == "codex" or selection["status"] == "unpinned":
-        return {**{layer: unknown_row(layer, reason("release_history_deferred")) for layer in SHARED_RELEASE_LAYERS},
+        ref, why = answer or (None, reason("input_failed"))
+        return {**{layer: pointed(layer, inventory_id("release", ref), "selection_history") if ref
+                   else unknown_row(layer, why) for layer in SHARED_RELEASE_LAYERS},
                 "overlays": unknown_row("overlays", selection["reason"])}
     if selection["status"] != "read":
         return {layer: unknown_row(layer, selection["reason"]) for layer in SHARED_RELEASE_LAYERS + ("overlays",)}
@@ -6297,7 +6351,8 @@ def release_index(ctx, shared, store):
     sessions = []
     for record in ctx.get("sessions") or []:
         host, ident = record["host"], record["transcript"]["id"]
-        mains = static_rows(record, published)
+        answer = (ctx.get("history_answers") or {}).get(record["session_ref"])
+        mains = static_rows(record, published, answer)
         entry = {"session_ref": record["session_ref"], "segments": [], "unsegmented": None}
         for segment in (row for row in ctx.get("segments") or [] if row["session_ref"] == record["session_ref"]):
             main = segment["owner_ref"] == owner_ref(host, ident)
@@ -6328,14 +6383,19 @@ def release_index(ctx, shared, store):
 def renames_base(ctx):
     """`(inventory_ref, reason)`: the release inventory the `--pin` session's own snapshot names, which the
     renames of `current` and `selection` are taken against (R7), or the declared key there is none by (D6 b):
-    no `--pin` or a Codex one (`release_history_deferred`), a `--pin` the census has no session for
-    (`no_census_session`: evidence about its pin only), the reason of its selection, or `baseline_unnamed`."""
-    host = str(ctx.get("pin") or "").partition(":")[0]
-    if not ctx.get("pin") or host != "claude":
-        return None, reason("release_history_deferred")
-    record = next((row for row in ctx.get("sessions") or [] if row["session"] == ctx["pin"]), None)
-    if record is None:
+    no `--pin` (`no_pin_given`), a `--pin` the census has no session for (`no_census_session`: evidence about its
+    pin only), the reason of its selection, or `baseline_unnamed`. A Codex `--pin`, and a Claude one whose session
+    is unpinned, take the release inventory the selection history answers over every file of that session
+    (`history_of`), or its reason (D-20261110-9c60bc)."""
+    if not ctx.get("pin"):
+        return None, reason("no_pin_given")
+    records = [row for row in ctx.get("sessions") or [] if row["session"] == ctx["pin"]]
+    if not records:
         return None, reason("no_census_session")
+    record = records[0]
+    if record["host"] == "codex" or record["selection"]["status"] == "unpinned":
+        ref, why = history_of(ctx, records)
+        return (inventory_id("release", ref), None) if ref else (None, why)
     if record["selection"]["status"] != "read":
         return None, record["selection"]["reason"]
     if not record["pin"]["baseline_ref"]:
@@ -6767,6 +6827,12 @@ def bind_transcripts(ctx, run_dir, zstd=None):
         # the `--pin` session's selection is evidence about its pin only: no transcript of it is read (S-15)
         notes["pin_delivery"] = reason("no_census_session")
     ctx["current_scopes"] = current_scopes(events, findings["timelines"], pins, findings["sessions"])
+    # An unpinned Claude session and every Codex session have no pin of their own to name their release: each is
+    # answered from the baseline-selection history at its own instants (D-20261110-9c60bc), and the baseline answered
+    # is published as a pinned session's is.
+    ctx["session_instants"] = {ref: (row.get("first_at"), row.get("last_at")) for ref, row in findings["timelines"].items()}
+    ctx["history_answers"] = {record["session_ref"]: history_of(ctx, [record]) for record in findings["sessions"]
+                              if record["host"] == "codex" or record["selection"]["status"] == "unpinned"}
     # A delivery is confirmed only by a usable RECORDED occurrence the session's main owner holds in its own
     # transcript (step 0 S-13): a sidechain's copy, and a match whose bytes could not be recovered, are not.
     delivery = [event for event in events if event["kind"] == "session_injection" and not event.get("damaged")
@@ -6820,6 +6886,10 @@ def freeze_inputs(frozen, repo, state_root, user_root, pin, ctx, entries=()):
     # the baseline each session's own snapshot names, below, and no journal is read for one (S-24, S-16).
     ctx["installed_ref"] = None
     ctx["session_baselines"] = {}
+    # The baseline-selection history, set below once its journals and every baseline it answers are frozen; until
+    # then a session it would answer is unknown by why it is not there (D-20261110-9c60bc).
+    ctx["selection_history"], ctx["history_baselines"] = None, {}
+    ctx["selection_history_reason"] = reason("input_unread") if state_root is None else reason("input_failed")
 
     def omitted(kind, ref, path, outcome, reason, code=None):
         row = {"input": kind, "ref": ref, "path": path, "outcome": outcome, "reason": reason, "code": code}
@@ -6977,6 +7047,19 @@ def freeze_inputs(frozen, repo, state_root, user_root, pin, ctx, entries=()):
         ref = pinned.get("baseline_ref") if pinned["status"] == "read" and pinned.get("snapshot") else None
         if ref and ref not in ctx["session_baselines"]:
             ctx["session_baselines"][ref] = baseline_once(ref)
+    # The baseline-selection history (D-20261110-9c60bc): the switch journals frozen like every other input and read
+    # from the copy, and every baseline the history answers frozen once under its own key, so the one an unpinned or
+    # Codex session is answered with is published as a pinned session's is. A journal that could not be copied
+    # leaves the history unread: a missing journal may hide a switch.
+    journal_rows = freeze([(state_root / relative, relative) for _source, relative in HISTORY_DIRS
+                           if (state_root / relative).exists() or (state_root / relative).is_symlink()], state, state_root)
+    for row in journal_rows:
+        omitted("selection_history", None, row["path"], row["outcome"], row["reason"], row["code"])
+    if not journal_rows:
+        runtime_read = not any(row["input"] == "runtime_state" for row in omissions)
+        pieces = selection_history(history_journals(state), _pointer(runtime) if runtime_read else NO_POINTER)
+        ctx["history_baselines"] = {ref: baseline_once(ref) for ref in sorted({row["ref"] for row in pieces if row["ref"]})}
+        ctx["selection_history"] = pieces
     ctx["notes"]["frozen_missing"] = [{**row, "class": INPUT_CLASSES[row["input"]]} for row in omissions]
 
 
@@ -11125,8 +11208,9 @@ def self_test():
             check("the inventory wrote a file per reference point",
                   all((scratch / "out" / "inventory" / f"{reference}.json").is_file() for reference in REFERENCES),
                   "a reference point has no artifact")
-            # S-24 option 1: with no pin, no session names a baseline, so the release index's catalog and adopted
-            # packages are `release_history_deferred` for every session; the installed baseline (ref1 here) is never
+            # S-24, D-20261110-9c60bc: with no pin, no session names a baseline of its own, and the fixture's state
+            # holds no finished store journal, so the selection history answers none: the release index's catalog
+            # and adopted packages are `history_absent` for every session; the installed baseline (ref1 here) is never
             # taken for it. Done-when 1's mapping is judged per shared release inventory, on the planted run below,
             # whose session is pinned. P2.5, R9: retargeted from release.json's layer rows and units, which it no
             # longer has, to the index's rows of every session and the shared release inventories published.
@@ -11135,24 +11219,25 @@ def self_test():
             deferred_shared = sorted(path.name for path in (scratch / "out" / "inventory" / "shared").glob("release-*.json"))
             deferred_base = (((written_json(scratch / "out" / "inventory" / "current.json").get("produced_by") or {})
                               .get("notes") or {}).get("renames_base"))
-            check("an unpinned run names no baseline: every session's catalog and adopted packages in the release index "
-                  "are release_history_deferred, no release inventory is published, and the installed baseline is not "
-                  "taken for it",
-                  # a sidechain's are its own unknown (R6), and every session's main owner names the deferral
-                  len({ref for ref, _segment, row in deferred_rows if row["reasons"] == ["release_history_deferred"]})
+            check("an unpinned run over a state with no finished journal names no baseline: every session's catalog and "
+                  "adopted packages in the release index are history_absent, no release inventory is published, the "
+                  "installed baseline is not taken for it, and the renames have no base, no --pin naming a session",
+                  # a sidechain's are its own unknown (R6), and every session's main owner names the history's answer
+                  len({ref for ref, _segment, row in deferred_rows if row["reasons"] == ["history_absent"]})
                   == len(deferred_doc.get("sessions") or []) >= 3 and all(
                       (row["status"], row["source"]) == ("unknown", None)
-                      and row["reasons"] in (["release_history_deferred"], ["sidechain_unattributed"])
+                      and row["reasons"] in (["history_absent"], ["sidechain_unattributed"])
                       for _ref, _segment, row in deferred_rows)
                   and not deferred_shared and "baseline_unmapped" not in manifest
-                  and deferred_base == {"inventory_ref": None, "reason": "release_history_deferred"},
+                  and deferred_base == {"inventory_ref": None, "reason": "no_pin_given"},
                   f"{[(row['status'], row['reasons']) for _ref, _segment, row in deferred_rows][:6]} {deferred_shared} "
                   f"{deferred_base}")
-            # M4 (S-24 option 1, S-16) through a recording seam over `freeze`, the one route by which this module
-            # reads the owner's state (done-when 5): an unpinned run, a Codex --pin run and an unpinned run whose
-            # runtime state is absent read no transaction or installer journal, and their release rows are
-            # deferred, never the installed baseline and never a runtime-state reason. The fixture holds a
-            # transaction (tx-1), so the absence is about a path that is there.
+            # M4 (S-16; retargeted by D-20261110-9c60bc, which reads the journals S-24 option 1 left unread) through a
+            # recording seam over `freeze`, the one route by which this module reads the owner's state (done-when 5): an
+            # unpinned run, a Codex --pin run and an unpinned run whose runtime state is absent take the switch
+            # journals through that route, into the frozen copy, and their release rows are the history's answer,
+            # never the installed baseline and never a runtime-state reason. The fixture's transaction (tx-1) holds
+            # no store journal, so the history the copy holds answers `history_absent`.
             kept_freeze, frozen_sources, seam_runs = globals()["freeze"], [], {}
 
             def recording_freeze(sources, *args, **kwargs):
@@ -11177,21 +11262,23 @@ def self_test():
             finally:
                 globals()["freeze"] = kept_freeze
             journal_reads = [source for source in frozen_sources if "transactions" in source or "journal" in source.lower()]
-            check("M4: an unpinned run, a Codex --pin run and an unpinned run with no runtime state read no transaction "
-                  "or installer journal",
-                  not journal_reads and any(source.endswith("runtime/state.json") for source in frozen_sources)
+            check("M4: an unpinned run, a Codex --pin run and an unpinned run with no runtime state take the switch "
+                  "journals through the frozen copy, each run once, and the runtime state beside them",
+                  sorted(journal_reads) == sorted([str(state / "runtime" / "transactions")] * 2
+                                                  + [str(stateless / "runtime" / "transactions")])
+                  and any(source.endswith("runtime/state.json") for source in frozen_sources)
                   and (state / "runtime" / "transactions" / "tx-1" / "transaction.json").is_file(),
-                  f"journal_reads={journal_reads} sources={len(frozen_sources)}")
+                  f"journal_reads={len(journal_reads)} sources={len(frozen_sources)}")
             # P2.5, R9: retargeted from release.json's two layer rows to the index's rows of every session, and to the
             # release inventories each run publishes, which are none: no session of these runs is pinned.
-            check("and in each one's release index every session's catalog and adopted packages are "
-                  "release_history_deferred and no release inventory is published, the Codex --pin's run included and "
-                  "the absent runtime state's reason nowhere among them",
+            check("and in each one's release index every session's catalog and adopted packages are history_absent "
+                  "and no release inventory is published, the Codex --pin's run included and the absent runtime "
+                  "state's reason nowhere among them",
                   len(seam_runs) == 3 and all(
                       raised is None and not shared_here and len(doc.get("sessions") or []) >= 3
                       and {ref for ref, _segment, row in index_rows(doc, SHARED_RELEASE_LAYERS)
-                           if row["reasons"] == ["release_history_deferred"]} == {entry["session_ref"] for entry in doc["sessions"]}
-                      and all(row["reasons"] in (["release_history_deferred"], ["sidechain_unattributed"])
+                           if row["reasons"] == ["history_absent"]} == {entry["session_ref"] for entry in doc["sessions"]}
+                      and all(row["reasons"] in (["history_absent"], ["sidechain_unattributed"])
                               for _ref, _segment, row in index_rows(doc, SHARED_RELEASE_LAYERS))
                       for raised, doc, shared_here in seam_runs.values()),
                   f"{[(label, type(raised).__name__ if raised else None, shared_here, sorted({str(row['reasons']) for _ref, _segment, row in index_rows(doc, SHARED_RELEASE_LAYERS)})) for label, (raised, doc, shared_here) in seam_runs.items()]}")
@@ -14934,16 +15021,16 @@ def self_test():
                       "session_injection": ("complete", [], "occurrences:1"),
                       "ledger_incubating": ledger_cell, "ledger_keep": ledger_cell}
                   and cell_at("claude:s-free", "claude:s-free", 2) == {
-                      "catalog": ("unknown", ["release_history_deferred"], None),
-                      "adopted_packages": ("unknown", ["release_history_deferred"], None),
+                      "catalog": ("unknown", ["history_absent"], None),
+                      "adopted_packages": ("unknown", ["history_absent"], None),
                       "overlays": ("unknown", ["unpinned"], None), "native_global": ("complete", [], "members:1"),
                       "native_project": ("complete", [], "members:0"), "native_settings": settings_cell,
                       "native_memory": ("complete", [], "members:0"), "native_undivided": ("complete", [], None),
                       "session_injection": ("unknown", ["unpinned"], None),
                       "ledger_incubating": ledger_cell, "ledger_keep": ledger_cell}
                   and cell_at("codex:c-seg", "codex:c-seg", 1) == {
-                      "catalog": ("unknown", ["release_history_deferred"], None),
-                      "adopted_packages": ("unknown", ["release_history_deferred"], None),
+                      "catalog": ("unknown", ["history_absent"], None),
+                      "adopted_packages": ("unknown", ["history_absent"], None),
                       "overlays": ("unknown", ["id_space"], None), "native_global": ("unknown", ["codex_undivided"], None),
                       "native_project": ("unknown", ["codex_undivided"], None), "native_settings": settings_cell,
                       "native_memory": ("unknown", ["codex_undivided"], None),
@@ -15029,11 +15116,12 @@ def self_test():
             codex_blocks = [cells for _from, _to, cells in index_cells("codex:c-seg").get("codex:c-seg") or []] \
                 + [index_cells("codex:c-u").get(None) or {}]
             check("X7 and D8: a Codex session's global, project and memory layers are codex_undivided in every segment "
-                  "and in an unread one's rows, its catalog and adopted packages release_history_deferred, its overlays "
+                  "and in an unread one's rows, its catalog and adopted packages history_absent (its state holds no "
+                  "finished journal), its overlays "
                   "and injection id_space, and its block answers native_undivided where an event records it",
                   len(codex_blocks) == 2 and all(
                       all(cells.get(layer) == ("unknown", ["codex_undivided"], None) for layer in SPLIT_NATIVE)
-                      and all(cells.get(layer) == ("unknown", ["release_history_deferred"], None)
+                      and all(cells.get(layer) == ("unknown", ["history_absent"], None)
                               for layer in SHARED_RELEASE_LAYERS)
                       and cells.get("overlays") == cells.get("session_injection") == ("unknown", ["id_space"], None)
                       for cells in codex_blocks)
@@ -15248,15 +15336,22 @@ def self_test():
             unplanted = "; ".join((["no event-sourced row to take an event_ref from"] if block_event is None else [])
                                   + ([] if isinstance(catalog_source, dict) else ["no catalog row source to plant into"]))
             dependents = ((schema_here.get("$defs") or {}).get("release_source") or {}).get("dependentRequired") or {}
-            dependent_cases = (("inventory_ref", "layer", {}, "a row source naming an inventory and no layer"),
-                               ("layer", "inventory_ref", {}, "a row source naming a layer and no inventory"),
-                               ("members", "event_ref", {"members": []}, "a row source naming members and no event"),
+            # Each case is `(trigger, dependent, extra members, what, other triggers taken off the planted source)`: a
+            # source missing its inventory also drops the other member that requires one (`layer`, `basis`), so each
+            # refusal is that one trigger's (D-20261110-9c60bc).
+            dependent_cases = (("inventory_ref", "layer", {}, "a row source naming an inventory and no layer", ()),
+                               ("inventory_ref", "basis", {}, "a row source naming an inventory and no basis", ()),
+                               ("layer", "inventory_ref", {}, "a row source naming a layer and no inventory", ("basis",)),
+                               ("basis", "inventory_ref", {}, "a row source naming a basis and no inventory", ("layer",)),
+                               ("members", "event_ref", {"members": []}, "a row source naming members and no event", ()),
                                ("occurrence_refs", "event_ref", {"occurrence_refs": []},
-                                "a row source naming occurrences and no event"))
-            check("X12: every dependentRequired entry of a row source has its case",
-                  {trigger: [dependent] for trigger, dependent, _extra, _what in dependent_cases} == dependents,
+                                "a row source naming occurrences and no event", ()))
+            dependent_map = {}
+            for trigger, dependent, _extra, _what, _dropped in dependent_cases:
+                dependent_map.setdefault(trigger, []).append(dependent)
+            check("X12: every dependentRequired entry of a row source has its case", dependent_map == dependents,
                   f"{dependents}")
-            for trigger, dependent, extra, what in dependent_cases:
+            for trigger, dependent, extra, what, dropped in dependent_cases:
                 bare_source, twin_source = json.loads(json.dumps(index_doc)), json.loads(json.dumps(index_doc))
                 # nothing to plant (a refused run's index has no block to take an event_ref from; a published one can
                 # hold a catalog row with no source): nothing is planted, and both controls below fail by name on what
@@ -15265,7 +15360,8 @@ def self_test():
                     planted_source = layer_of(seg_block(planted_doc), "catalog")["source"]
                     planted_source.update({"event_ref": block_event, **extra})
                     if not keeps_dependent:
-                        planted_source.pop(dependent)
+                        for gone in (dependent, *dropped):
+                            planted_source.pop(gone, None)
                 check(f"X12: {what} is refused by the schema",
                       plantable
                       and any(problem.startswith("DOCUMENT_INVALID") for problem in document_contract_problems(bare_source, schema_here)),
@@ -17421,6 +17517,177 @@ def self_test():
                   and rh_read["reset"] == {} == rh_read["migration"],
                   f"{sorted((source, sorted(rows)) for source, rows in rh_read.items())}")
 
+            # ---- the history in the release rows (commit 2): one fixture state whose journals give every answer,
+            # through the production path (`published_shared`: freeze_inputs, bind_transcripts, the shared inventories
+            # and the release index, crossed and written as `run` does). A session's time is its transcript's.
+            def rh_at(day, hms, micro=0):
+                hour, minute, second = (int(part) for part in hms.split(":"))
+                return datetime.datetime(2026, 10, day, hour, minute, second, micro, tzinfo=datetime.timezone.utc)
+
+            def rh_put(state_dir, relative, document):
+                (state_dir / relative).parent.mkdir(parents=True, exist_ok=True)
+                (state_dir / relative).write_text(json.dumps(document), encoding="utf-8")
+
+            def rh_plan_at(before, after, created, done, state="COMMITTED"):
+                return rh_plan(before, after, created.timestamp(), done.timestamp(), state)
+
+            rh_full = scratch / "relhist" / "state"
+            for rh_ref in ("ref-ha", "ref-hb"):
+                plant_baseline(rh_full, rh_ref, [catalog_item(f"rule-{rh_ref}", "rule", f"- rule {rh_ref}")])
+            rh_snapshot = plant_snapshot(rh_full, "# Session\n\n- hp\n", baseline_ref="ref-ha",
+                                         items=[catalog_item("rule-ref-ha", "rule", "- rule ref-ha")])
+            plant_pin(rh_full, "s-hp", rh_snapshot)
+            rh_put(rh_full, "runtime/state.json", {"selected_baseline_ref": "ref-hb"})
+            for rh_id, rh_doc in (
+                    ("t1", rh_install(None, "ref-ha", rh_at(1, "10:00:00").timestamp())),
+                    ("t2", rh_install("ref-ha", "ref-hb", rh_at(3, "10:00:00").timestamp())),
+                    ("t3", rh_plan_at("ref-hb", "ref-ha", rh_at(5, "10:00:00"), rh_at(5, "11:00:00"),
+                                      state="RECOVERED_COMMITTED")),
+                    ("t4", rh_plan_at("ref-ha", "ref-hb", rh_at(7, "10:00:00", 200000), rh_at(7, "10:00:00", 400000))),
+                    ("t5", rh_plan_at("ref-hb", "ref-ha", rh_at(7, "10:00:00", 500000), rh_at(7, "10:00:00", 800000))),
+                    ("t6", rh_plan_at("ref-hc", "ref-hb", rh_at(9, "10:00:00"), rh_at(9, "10:00:01"))),
+                    ("t7", {**rh_plan_at("ref-hb", "ref-ha", rh_at(11, "10:00:00"), rh_at(11, "10:00:01")),
+                            "state": "PREPARED"})):
+                rh_put(rh_full, f"runtime/transactions/{rh_id}/journal.json", rh_doc)
+            for rh_id, rh_day in (("t1", 1), ("t2", 3)):
+                rh_put(rh_full, f"runtime/installer-transactions/{rh_id}/journal.json",
+                       {"state": "COMMITTED", "created_at": int(rh_at(rh_day, "09:59:50").timestamp())})
+
+            def rh_session(ident, *instants, host="claude", fields=None):
+                text = f"- {ident}\n"
+                records = [block_meta(ident, at, f"# Block\n\n{text}", p1) if host == "codex"
+                           else inj(at, [member("User", "/w/g.md", text)], cwd=p1) for at in instants]
+                return (host, ident, records, fields or {})
+
+            rh_iso_at = lambda *args: rh_at(*args).isoformat()  # noqa: E731
+            rh_sessions = [
+                rh_session("s-ha", rh_iso_at(2, "12:00:00")),
+                rh_session("c-hb", rh_iso_at(4, "12:00:00"), host="codex"),
+                pinned_row("s-hp", [inj(rh_iso_at(4, "12:00:00"), [member("User", "/w/g.md", "- s-hp\n")], cwd=p1)],
+                           rh_snapshot),
+                rh_session("s-before", "2026-09-30T12:00:00+00:00"),
+                rh_session("s-flight", rh_iso_at(3, "09:59:55")),
+                rh_session("s-recovered", rh_iso_at(5, "10:30:00")),
+                rh_session("s-tie", rh_at(7, "10:00:00", 300000).isoformat()),
+                rh_session("s-gap", rh_iso_at(8, "12:00:00")),
+                rh_session("s-spans", rh_iso_at(2, "12:00:00"), rh_iso_at(4, "12:00:00")),
+                rh_session("s-late", rh_iso_at(12, "12:00:00")),
+                rh_session("s-undated", None),
+                rh_session("s-nopath", rh_iso_at(2, "12:00:00"), fields={"path": None})]
+            rh_published = published_shared("relhist", rh_sessions, rh_full)
+
+            def rh_rows(published_here, ident, host="claude"):
+                """`{layer: {(status, reasons, source)}}` over every main-owner row block of one session, the
+                catalog, adopted packages and overlays; a set holding one answer when every block agrees."""
+                record = next((row for row in (published_here.get("sessions") or {}).get("sessions") or []
+                               if row["session"] == f"{host}:{ident}"), {})
+                entry = next((row for row in (published_here.get("release") or {}).get("sessions") or []
+                              if row["session_ref"] == record.get("session_ref")), {})
+                main = owner_ref(host, (record.get("transcript") or {}).get("id"))
+                blocks = [block for block in entry.get("segments") or []
+                          if any(segment["segment_id"] == block["segment_ref"] and segment["owner_ref"] == main
+                                 for segment in (published_here.get("sessions") or {}).get("segments") or [])]
+                blocks += [entry["unsegmented"]] if entry.get("unsegmented") else []
+                found = {}
+                for block in blocks:
+                    for row in block["layers"]:
+                        if row["layer"] in SHARED_RELEASE_LAYERS + ("overlays",):
+                            found.setdefault(row["layer"], set()).add(
+                                (row["status"], tuple(row["reasons"]), json.dumps(row["source"], sort_keys=True)))
+                return found
+
+            def rh_source(ref, layer, basis):
+                return json.dumps({"inventory_ref": inventory_id("release", ref), "layer": layer, "basis": basis},
+                                  sort_keys=True)
+
+            rh_shared = sorted(document["ref"] for document in (rh_published.get("shared") or {}).values()
+                               if document.get("kind") == "release")
+            rh_got = {ident: rh_rows(rh_published, ident, host) for ident, host in
+                      (("s-ha", "claude"), ("c-hb", "codex"), ("s-hp", "claude"))}
+            check("relhist 17: the basis mark - an unpinned Claude session's and a Codex session's catalog and adopted "
+                  "packages name the release inventory of the baseline the history answers at their time, basis "
+                  "selection_history, a pinned one's its own snapshot's, basis pin, and each such inventory is published",
+                  "refused" not in rh_published and rh_shared == ["ref-ha", "ref-hb"]
+                  and all(rh_got["s-ha"].get(layer) == {("complete", (), rh_source("ref-ha", layer, "selection_history"))}
+                          and rh_got["c-hb"].get(layer) == {("complete", (), rh_source("ref-hb", layer, "selection_history"))}
+                          and rh_got["s-hp"].get(layer) == {("complete", (), rh_source("ref-ha", layer, "pin"))}
+                          for layer in SHARED_RELEASE_LAYERS)
+                  and rh_got["s-ha"].get("overlays") == {("unknown", ("unpinned",), "null")}
+                  and rh_got["c-hb"].get("overlays") == {("unknown", ("id_space",), "null")},
+                  f"{rh_published.get('refused')} {rh_published.get('message', '')[:200]} {rh_shared} "
+                  f"{ {ident: {layer: sorted(rows) for layer, rows in found.items()} for ident, found in rh_got.items()} }")
+
+            rh_reasons = {"s-before": "before_first_switch", "s-flight": "uncertain: switch_in_flight",
+                          "s-recovered": "uncertain: switch_recovered", "s-tie": "uncertain: switch_tie",
+                          "s-gap": "history_gap", "s-spans": "uncertain: spans_switch",
+                          "s-late": "uncertain: journal_unfinished", "s-undated": "session_undated", "s-nopath": "no_path"}
+            rh_got = {ident: {layer: sorted(rows) for layer, rows in rh_rows(rh_published, ident).items()
+                              if layer in SHARED_RELEASE_LAYERS} for ident in rh_reasons}
+            check("relhist 18: each answer the history cannot give is the session's own named reason in its catalog and "
+                  "adopted packages, with no source: before the first journal, in flight, recovered, a tie, a gap, across a "
+                  "switch, at an unfinished journal, with no instant, and a transcript that was not read",
+                  "refused" not in rh_published and all(
+                      rh_got[ident] == {layer: [("unknown", (why,), "null")] for layer in SHARED_RELEASE_LAYERS}
+                      for ident, why in rh_reasons.items()),
+                  f"{ {ident: rows for ident, rows in rh_got.items() if rows != {layer: [('unknown', (rh_reasons[ident],), 'null')] for layer in SHARED_RELEASE_LAYERS}} }")
+
+            rh_bare = scratch / "relhist" / "bare-state"
+            plant_baseline(rh_bare, "ref-ha", [catalog_item("rule-ref-ha", "rule", "- rule ref-ha")])
+            rh_linked = scratch / "relhist" / "linked-state"
+            shutil.copytree(rh_full, rh_linked)
+            shutil.rmtree(rh_linked / "runtime" / "transactions")
+            (rh_linked / "runtime" / "transactions").symlink_to(rh_full / "runtime" / "transactions")
+            rh_runs = {name: published_shared(f"relhist-{name}", [rh_session("s-ha", rh_iso_at(2, "12:00:00"))], state_here)
+                       for name, state_here in (("bare", rh_bare), ("stateless", None), ("linked", rh_linked))}
+            rh_got = {name: sorted(rh_rows(published_here, "s-ha").get("catalog") or ()) for name, published_here in rh_runs.items()}
+            check("relhist 19: a state with no finished journal answers history_absent, a run given no state input_unread, "
+                  "and a journal directory that could not be copied input_failed, never an answer",
+                  rh_got == {"bare": [("unknown", ("history_absent",), "null")],
+                             "stateless": [("unknown", ("input_unread",), "null")],
+                             "linked": [("unknown", ("input_failed",), "null")]}
+                  and any(row["input"] == "selection_history" and row["outcome"] == "failed"
+                          for row in rh_runs["linked"].get("omissions") or []), f"{rh_got}")
+
+            def rh_renames(pin):
+                """`renames_base` over the fixture's census and state, as `run` reaches it."""
+                ctx_here = context_of(REPO, None, None, {}, pin, None)
+                ctx_here.update(home=str(fixture_home), commit="fixture")
+                frozen_here = scratch / "relhist" / f"frozen-renames-{len(list((scratch / 'relhist').glob('frozen-renames-*')))}"
+                freeze_inputs(frozen_here, REPO, rh_full, None, pin, ctx_here, census_entries(scratch / "p24b" / "run-relhist"))
+                bind_transcripts(ctx_here, scratch / "p24b" / "run-relhist")
+                return renames_base(ctx_here)
+
+            rh_got = {pin: _raised(lambda pin=pin: rh_renames(pin)) or rh_renames(pin)
+                      for pin in (None, "codex:c-hb", "claude:s-ha", "claude:s-hp", "claude:s-spans")}
+            check("relhist 20: the renames' base - a Codex --pin and an unpinned Claude one take the release the history "
+                  "answers for that session, a pinned one its own snapshot's, one across a switch its reason, and a run "
+                  "with no --pin no_pin_given",
+                  rh_got == {None: (None, "no_pin_given"), "codex:c-hb": (inventory_id("release", "ref-hb"), None),
+                             "claude:s-ha": (inventory_id("release", "ref-ha"), None),
+                             "claude:s-hp": (inventory_id("release", "ref-ha"), None),
+                             "claude:s-spans": (None, "uncertain: spans_switch")}, f"{rh_got}")
+
+            # The journals are read from the copy `freeze` made, never where the owner's state holds them (done-when 5):
+            # a recording seam over `read_source`, the one way a file of the owner's state is read, over one run.
+            kept_read_source, rh_reads = globals()["read_source"], []
+
+            def rh_recording(path, *args, **kwargs):
+                rh_reads.append(str(path))
+                return kept_read_source(path, *args, **kwargs)
+
+            try:
+                globals()["read_source"] = rh_recording
+                rh_seam = _raised(lambda: rh_renames(None))
+            finally:
+                globals()["read_source"] = kept_read_source
+            rh_journal_reads = [path for path in rh_reads if path.endswith("journal.json")]
+            rh_frozen_root = str(scratch / "relhist")
+            check("relhist 21: every journal the history reads is a copy in the run's frozen directory, none the owner's",
+                  rh_seam is None and len(rh_journal_reads) == 9
+                  and all(path.startswith(rh_frozen_root + "/frozen-renames-") for path in rh_journal_reads),
+                  f"raised={rh_seam!r} reads={len(rh_journal_reads)} "
+                  f"outside={[path[len(str(scratch)):] for path in rh_journal_reads if not path.startswith(rh_frozen_root + '/frozen-renames-')][:3]}")
+
         with section("the general control (lead, after a36c728): no reason in ANY document this suite's runs"):
             # ---- the general control (lead, after a36c728): no reason in ANY document this suite's runs
             # published names a Python exception type. Asked last, of every file written under an `inventory/`
@@ -17477,12 +17744,15 @@ def self_test():
                               "locator_element_rejected", "undecodable_after", "tie", "memory_unconfirmed",
                               "codex_undivided", "no_event_yet", "recorded_unmapped", "unpinned",
                               "global_excluded_by_launch", "exclusion_unobservable", "own_meta_unidentified",
-                              "release_history_deferred", "baseline_absent", "snapshot_absent",
+                              "baseline_absent", "snapshot_absent",
                               "exclusion_unreadable", "undecodable_elsewhere"),
                 "phase 2": ("baseline_unnamed", "injection_body_empty"),
                 "review round 1": ("memory_path_unusable", "transcript_unread", "carrier_malformed",
                                    "carrier_unsupported", "census_malformed"),
                 "review round 2": ("memory_membership_unknown", "census_unreadable"),
+                "relhist (D-20261110-9c60bc)": ("history_absent", "before_first_switch", "history_gap",
+                                                "session_undated", "switch_in_flight", "switch_recovered", "switch_tie",
+                                                "spans_switch", "journal_unfinished", "no_pin_given"),
             }
             vocabulary_by_refusal = {}
             vocabulary_keys = [key for keys in vocabulary_expected.values() for key in keys]
@@ -17518,6 +17788,9 @@ def self_test():
                     vocabulary_read[0] += 1
                     if value in UNKNOWN_REASONS:
                         vocabulary_driven[value].add(kind)
+                    # a release row's reason of the uncertain rank carries its key behind the rank's prefix (S-21)
+                    if value.startswith(RANK_ROWS[2][1]) and value[len(RANK_ROWS[2][1]):] in UNKNOWN_REASONS:
+                        vocabulary_driven[value[len(RANK_ROWS[2][1]):]].add(kind)
                     for key, text in UNKNOWN_REASONS.items():
                         if text in value:
                             vocabulary_driven[key].add(kind)
