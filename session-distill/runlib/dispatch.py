@@ -772,6 +772,92 @@ def p95(samples):
     return ordered[math.ceil(0.95 * len(ordered)) - 1]
 
 
+# ---- what a call's bytes take as tokens, read from the run's own calls (WP-08e) -------------------
+
+# Bytes a token covers where a host and kind have no measured call in the run: a token covers at least a byte, which is
+# what the view-window bound (bound.py, (a)) already assumes, so an estimate at the floor is as high as that bound.
+DENSITY_FLOOR = 1.0
+# The error share of a host's own retry of a refused structured output, until a run measures its own: what the second
+# request added beyond the first and its answer in C2's two retried calls (window 8: 1,118; S4: 584), the larger taken.
+RETRY_ERROR_TOKENS = 1_118
+
+
+def run_ledger_path(run_dir):
+    """The run's supervisor ledger, the file `Supervisor.ledger` reads."""
+    return pathlib.Path(run_dir) / "supervisor" / "ledger.json"
+
+
+def run_calls(run_dir, host, stage=None, case_type=None):
+    """`[(reservation, call directory)]` of the run's own calls of `host`, read from its ledger: each reservation of
+    `stage` (every stage when None) and of `case_type` whose call left a directory, in call id order."""
+    path = run_ledger_path(run_dir)
+    held = records.read_json(path) if path.is_file() else {}
+    out = []
+    for name, entry in sorted((held.get("stages") or {}).items()):
+        if stage is not None and name != stage:
+            continue
+        for call_id, r in sorted((entry.get("reservations") or {}).items()):
+            klass = str(r.get("class", "")).split("|")
+            if len(klass) != 3 or str(r.get("seat", "")).partition(":")[0] != host:
+                continue
+            if case_type is not None and klass[2] != case_type:
+                continue
+            call_dir = pathlib.Path(run_dir) / "calls" / call_id
+            if (call_dir / "call.json").is_file() and (call_dir / "usage.json").is_file():
+                out.append((r, call_dir))
+    return out
+
+
+def measured_density(run_dir, host, stage, case_type):
+    """`{bytes_per_token, basis, samples}` for one host and kind of call (a stage and its case type): the fewest bytes a
+    token covered over the run's own calls of that host and kind, each read as its driver bytes over the input of its
+    FIRST main request (`usage.first_input`), rounded down to a thousandth so the tokens it gives are high, never low;
+    `DENSITY_FLOOR` with basis `floor: 1.0` where no call of that host and kind is measured. A call's later requests are
+    the host's retry and are read by `retry_share`, never here."""
+    samples = []
+    for _r, call_dir in run_calls(run_dir, host, stage, case_type):
+        driver = (records.read_json(call_dir / "call.json").get("bound") or {}).get("driver_bytes")
+        first = usages.first_input(records.read_json(call_dir / "usage.json").get("requests"))
+        if usages.countable(driver) and driver > 0 and first:
+            samples.append(driver / first)
+    if not samples:
+        return {"bytes_per_token": DENSITY_FLOOR, "basis": f"floor: {DENSITY_FLOOR}", "samples": 0}
+    fewest = max(math.floor(min(samples) * 1000) / 1000, 0.001)
+    return {"bytes_per_token": fewest, "basis": f"measured: {host}/{stage}:{case_type}/{len(samples)} samples",
+            "samples": len(samples)}
+
+
+def retry_share(run_dir, host):
+    """`{calls, retried, rate, margin, margin_basis}` of the run's own measured calls of `host`: how many made a second
+    main request (the host's retry of a refused structured output), and the error-share margin a request may carry
+    beyond the request before it and that request's answer - the largest the run measured (`usage.retry_shares`), never
+    below RETRY_ERROR_TOKENS. The rate is None where no call of the host is measured."""
+    calls = retried = 0
+    shares = []
+    for _r, call_dir in run_calls(run_dir, host):
+        requests = records.read_json(call_dir / "usage.json").get("requests")
+        if usages.first_input(requests) is None:
+            continue
+        calls += 1
+        if len(usages.main_requests(requests)) > 1:
+            retried += 1
+            shares += usages.retry_shares(requests)
+    margin = max([RETRY_ERROR_TOKENS, *shares])
+    basis = (f"measured: {host}/{len(shares)} retries, the largest {max(shares)}" if shares and max(shares) > RETRY_ERROR_TOKENS
+             else f"constant: RETRY_ERROR_TOKENS {RETRY_ERROR_TOKENS} (C2's two retries, 1,118 and 584)"
+             + (f"; this run's {len(shares)} retries measured no more" if shares else ""))
+    return {"calls": calls, "retried": retried, "rate": retried / calls if calls else None, "margin": margin,
+            "margin_basis": basis}
+
+
+def input_at_most(driver_bytes, density, allowance, output_cap, margin):
+    """`(first, at_most)` input tokens of one call that sends `driver_bytes`: its first request, the bytes as tokens at
+    `density` plus the host's allowance; and at most any one request of it, the first plus one answer at the output cap
+    and the error-share margin - what the host's one retry of a refused structured output carries on top, added once."""
+    first = math.ceil(driver_bytes / density["bytes_per_token"]) + allowance
+    return first, first + output_cap + margin
+
+
 def plain_tree(root):
     """True when `root` is a directory of regular files and directories only: what a producing call
     reads is copied into its cell, and a symlink could carry the read outside it."""

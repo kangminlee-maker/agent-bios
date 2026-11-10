@@ -133,3 +133,27 @@ Alternatives:
 Not in scope here: a time-window or `cwd` match. A wrong join attributes one session's delivered
 bytes to another, which is worse than `unknown`, and nothing in the data tells a right guess from a
 wrong one.
+
+---
+
+## F-32 — two of C2's thirteen calls had their structured output refused inside the host
+
+Found by WP-08e's reading of C2 (2026-11-10, the run's usage and call records, counts only). S3's window 8 of the
+Codex child and S4's formation call each made two main requests in one call: the host refused the first structured
+output and asked again, so the second request carried the first answer and the refusal on top of the packet. The
+two second requests added 1,118 and 584 tokens beyond the first request and its answer, and read 61,030 and 26,794
+input tokens. Neither call failed: the stage accepted each second answer.
+
+WP-08e budgets the retry (`dispatch.RETRY_ERROR_TOKENS`, the retry line of S3's estimate, S4's claim) and does not
+reduce it. At C2's rate a retry is about one call in seven, and each one costs a second request of the whole packet
+and a first answer.
+
+Alternatives:
+
+1. **Name the constraint the refused answers broke, and state it in the packet.** The refusal is in each call's
+   capture; reading it is reading the run's text, which WP-08e did not. Risk: a rule written for one refusal adds
+   packet bytes to every call and may not be the next refusal's.
+2. **Hand the constraint to the stage's own check.** Where the stage re-checks what the schema states, the schema
+   could state less, so the host refuses less and the stage's one corrective retry carries the message. Risk: the
+   dispatcher's retry is a new call with the whole packet, dearer than the host's in-call retry.
+3. **Accept the rate and keep budgeting it.** Risk: the retry stays about one call in seven and each costs a packet.

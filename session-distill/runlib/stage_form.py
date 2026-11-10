@@ -58,7 +58,7 @@ import tempfile
 
 if __package__ in (None, ""):  # run as a script: put session-distill/ on the import path
     sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
-from runlib import bound, census, coverage, evidence, gate, lifecycle_intake, packet, projection, records, validate, views
+from runlib import bound, census, coverage, evidence, gate, lifecycle_intake, packet, projection, records, usage, validate, views
 from runlib.records import Refused
 
 HERE = pathlib.Path(__file__).resolve().parents[1]  # session-distill/: the self-test runs the driver from it
@@ -353,22 +353,39 @@ def recorded_capacity(call_dir, capacity):
     return capacity
 
 
-def observed(call_dir):
+def within_claim(requests, claim):
+    """Whether every request of a call stayed within the input `claim` said one request takes at most (WP-08e): the
+    largest request, as the bound reads it (`bound.observed_input`), against the claim; None without a claim or a
+    measured request."""
+    largest = bound.observed_input(requests)[0] if requests is not None else 0
+    return None if claim is None or not largest else largest <= claim
+
+
+def observed(call_dir, limits=None):
     """What an accepted formation call measured of S4's two assumptions (W review of WP-09 r2, F1): the context window
     the host reports per model, beside the capacity the call was admitted against; and the input tokens the host
-    reported for its main request, beside the driver bytes the call sent, with their ratio (the bytes a token covered,
-    the host's own context included, so a low reading)."""
+    reported for the call's FIRST main request, beside the driver bytes the call sent, with their ratio (the bytes a
+    token covered, the host's own context included, so a low reading). The first request carries the packet alone; a
+    later one is the host's retry of a refused structured output and carries the first answer and the error on top, so
+    it is counted apart (WP-08e): the main requests the call made, the largest of them, and, with the `limits` S4 was
+    admitted under, the input it claimed at most for one request of this call's driver bytes (`input_at_most`) and
+    whether the largest stayed within it (`within_claim`)."""
     call_dir = pathlib.Path(call_dir)
     held = records.read_json(call_dir / "call.json").get("bound") or {}
     result = gate.Call(call_dir).result
-    usage = result.get("modelUsage") if isinstance(result, dict) else None
-    windows = {m: u.get("contextWindow") for m, u in sorted((usage or {}).items()) if isinstance(u, dict)}
+    model_usage = result.get("modelUsage") if isinstance(result, dict) else None
+    windows = {m: u.get("contextWindow") for m, u in sorted((model_usage or {}).items()) if isinstance(u, dict)}
     usage_path = call_dir / "usage.json"
-    tokens, missing = (bound.observed_input(records.read_json(usage_path)["requests"]) if usage_path.is_file()
-                       else (None, ["no usage.json"]))
+    requests = records.read_json(usage_path)["requests"] if usage_path.is_file() else None
+    largest, missing = bound.observed_input(requests) if requests is not None else (None, ["no usage.json"])
+    first = usage.first_input(requests) if requests is not None else None
+    driver = held.get("driver_bytes")
+    claim = input_at_most(driver, limits)[1] if limits and usage.countable(driver) and driver else None
     return {"admitted_capacity": held.get("context_capacity"), "context_window": windows,
-            "driver_bytes": held.get("driver_bytes"), "input_tokens": tokens or None,
-            "bytes_per_token": round(held["driver_bytes"] / tokens, 3) if tokens and held.get("driver_bytes") else None,
+            "driver_bytes": held.get("driver_bytes"), "input_tokens": first,
+            "bytes_per_token": round(held["driver_bytes"] / first, 3) if first and held.get("driver_bytes") else None,
+            "requests": len(usage.main_requests(requests)), "largest_input": largest or None,
+            "input_tokens_at_most": claim, "within_claim": within_claim(requests, claim),
             "missing": [str(m) for m in missing] if missing else []}
 
 
@@ -784,23 +801,19 @@ def barrier(document, results):
     return errors
 
 
-# What a formation packet's bytes take as tokens (W review of WP-09 r1, F5; lead decision): the fewest bytes a token was
-# measured to cover, so the count is high, never low. Data with its basis, in tables/form_capacity.json.
-CAPACITY_TABLE = HERE / "tables" / "form_capacity.json"
-
-
-def capacity_table():
-    return json.loads(CAPACITY_TABLE.read_text(encoding="utf-8"))
-
-
-def form_budget(seat, seats_path=None, table=None):
-    """The limits the one formation call keeps (W review of WP-09 r1, F5; lead decision): its packet's driver bytes
-    taken as tokens at the fewest bytes per token measured (`tables/form_capacity.json`), plus the host's measured
-    hermetic allowance, plus the output reservation the call declares (OUTPUT_CAP), within the S4 seat's context
-    capacity as seats.json declares it with its basis (`gate.seat_capacity`), at the host version the dispatcher runs.
-    No measured allowance is ALLOWANCE_UNMEASURED; no declared capacity is FORM_CAPACITY_UNKNOWN. S3's window bound
-    (`bound.INPUT_BOUND`) bounds a view window and is not S4's. Returns `{capacity, capacity_basis, host_version,
-    allowance, output_cap, bytes_per_token}`."""
+def form_budget(seat, seats_path=None, density=None, retry=None):
+    """The limits the one formation call keeps (W review of WP-09 r1, F5; lead decision; WP-08e): its packet's driver
+    bytes taken as tokens at `density`, the fewest bytes a token covered over the run's own formation calls of the host
+    (`dispatch.measured_density`; the floor of a byte a token when none is measured, or when `density` is None), plus
+    the host's measured hermetic allowance - the first request - and on top of it one answer at the output cap S4
+    declares (OUTPUT_CAP) and the error share of the host's one retry of a refused structured output (`retry`, from
+    `dispatch.retry_share`; RETRY_ERROR_TOKENS when None), which is at most what one request of the call takes; then the
+    output reservation of that request, within the S4 seat's context capacity as seats.json declares it with its basis
+    (`gate.seat_capacity`), at the host version the dispatcher runs. No measured allowance is ALLOWANCE_UNMEASURED; no
+    declared capacity is FORM_CAPACITY_UNKNOWN. S3's window bound (`bound.INPUT_BOUND`) bounds a view window and is not
+    S4's. Returns `{capacity, capacity_basis, host_version, allowance, output_cap, bytes_per_token, density_basis,
+    retry_margin, margin_basis}`."""
+    from runlib import dispatch
     path = gate.SEATS if seats_path is None else pathlib.Path(seats_path)
     held = gate.seats(path)
     host = seat.partition(":")[0]
@@ -812,9 +825,11 @@ def form_budget(seat, seats_path=None, table=None):
     capacity, basis = gate.seat_capacity(seat, entry.get("version"), path=path)
     if capacity is None:
         raise Refused(f"FORM_CAPACITY_UNKNOWN S4: {basis}, so the formation call has no context capacity to be held to")
-    ratio = (capacity_table() if table is None else table)["bytes_per_token"]
+    density = density or {"bytes_per_token": dispatch.DENSITY_FLOOR, "basis": f"floor: {dispatch.DENSITY_FLOOR}"}
+    retry = retry or {"margin": dispatch.RETRY_ERROR_TOKENS, "margin_basis": "constant: RETRY_ERROR_TOKENS"}
     return {"capacity": capacity, "capacity_basis": basis, "host_version": entry.get("version"),
-            "allowance": slot["allowance_tokens"], "output_cap": OUTPUT_CAP, "bytes_per_token": ratio}
+            "allowance": slot["allowance_tokens"], "output_cap": OUTPUT_CAP, "bytes_per_token": density["bytes_per_token"],
+            "density_basis": density["basis"], "retry_margin": retry["margin"], "margin_basis": retry["margin_basis"]}
 
 
 def tokens_of(driver_bytes, limits):
@@ -822,16 +837,25 @@ def tokens_of(driver_bytes, limits):
     return math.ceil(driver_bytes / limits["bytes_per_token"])
 
 
+def input_at_most(driver_bytes, limits):
+    """`(first, at_most)` input tokens of the formation call that sends `driver_bytes` (`dispatch.input_at_most`)."""
+    from runlib import dispatch
+    return dispatch.input_at_most(driver_bytes, limits, limits["allowance"], limits["output_cap"], limits["retry_margin"])
+
+
 def bound_problems(driver_bytes, limits, form_bound=None, what="the formation packet"):
-    """FORM_OVER_BOUND, each by name, when `driver_bytes` as tokens with the host allowance and the output reservation
-    exceed the seat's capacity, or when they exceed the bytes `form_bound` narrows the bound to."""
+    """FORM_OVER_BOUND, each by name, when what one request of the call takes at most (`input_at_most`: the bytes as
+    tokens, the host allowance, one answer at the output cap and the retry's error share) with the output reservation of
+    that request exceeds the seat's capacity, or when the bytes exceed what `form_bound` narrows the bound to."""
     tokens = tokens_of(driver_bytes, limits)
-    need = tokens + limits["allowance"] + limits["output_cap"]
+    _first, at_most = input_at_most(driver_bytes, limits)
+    need = at_most + limits["output_cap"]
     out = []
     if need > limits["capacity"]:
         out.append(f"FORM_OVER_BOUND S4: {what} takes {driver_bytes} driver bytes, at most {tokens} tokens at "
-                   f"{limits['bytes_per_token']} bytes a token; with the host allowance {limits['allowance']} and the output "
-                   f"reservation {limits['output_cap']} that is {need}, over the S4 seat's context capacity "
+                   f"{limits['bytes_per_token']} bytes each by the density {limits['density_basis']}; with the host allowance "
+                   f"{limits['allowance']}, one retry's answer at the output cap and its error share {limits['retry_margin']}, "
+                   f"and the output reservation {limits['output_cap']} that is {need}, over the S4 seat's context capacity "
                    f"{limits['capacity']}; formation is one call over the window and is not sharded, so a smaller window is read")
     if form_bound is not None and driver_bytes > form_bound:
         out.append(f"FORM_OVER_BOUND S4: {what} takes {driver_bytes} driver bytes, over the {form_bound} the run narrowed "
@@ -881,7 +905,7 @@ def run(run_dir, supervisor=None, *, dry=False, index_rows=None, tranche="calibr
     tranche: it is one call, so its class runs at concurrency one whether or not it was measured before. `form_bound`
     narrows the packet's bound, never widens it: the self-test's way to make a small packet too large. `index_rows`
     are the occasion index's rows (WP-21; golden until it lands)."""
-    from runlib import stage_read
+    from runlib import dispatch, stage_read
     run_dir = pathlib.Path(run_dir)
     if not dry and supervisor is None:
         raise Refused("FORM_UNSUPERVISED S4: a formation call goes through a supervisor; without one, run it dry")
@@ -903,12 +927,18 @@ def run(run_dir, supervisor=None, *, dry=False, index_rows=None, tranche="calibr
         text, schema = payload(labels), form_schema()
         schema_bytes = packet.schema_bytes(schema)
         seat = declaration["seats"][STAGE]
-        limits = form_budget(seat, None if supervisor is None else supervisor.seats_path)
+        host = seat.partition(":")[0]
+        # what the bytes take as tokens and what a retry adds, from the run's own calls of the host (WP-08e)
+        limits = form_budget(seat, None if supervisor is None else supervisor.seats_path,
+                             dispatch.measured_density(run_dir, host, STAGE, CASE), dispatch.retry_share(run_dir, host))
         size = packet_bytes(run_id, seat, text, schema_bytes)
+        first, at_most = input_at_most(size, limits)
         summary = {"stage": STAGE, "window": coverage.window_bounds(declaration["window"])[2],
                    "declaration_seq": declaration["declaration_seq"], "dry": dry,
                    "packet": {"driver_bytes": size, "bytes_per_token": limits["bytes_per_token"],
-                              "input_tokens_at_most": tokens_of(size, limits) + limits["allowance"],
+                              "density_basis": limits["density_basis"], "first_request_tokens": first,
+                              "input_tokens_at_most": at_most, "retry_margin": limits["retry_margin"],
+                              "margin_basis": limits["margin_basis"],
                               "allowance_tokens": limits["allowance"], "output_cap": OUTPUT_CAP,
                               "capacity": limits["capacity"], "correction_room": stage_read.CORRECTION_ROOM,
                               "narrowed_to": form_bound,
@@ -950,7 +980,7 @@ def run(run_dir, supervisor=None, *, dry=False, index_rows=None, tranche="calibr
                 stage.record["status"] = "partial"
                 return summary
             call["call_id"] = stage_read.call_id_of(out["accepted"])
-            call["observed"] = observed(out["accepted"])
+            call["observed"] = observed(out["accepted"], limits)
             answer = labels.resolve(gate.accepted(out["accepted"], judged=True))
         else:
             call = {"item": ITEM, "outcome": "not_called", "codes": [], "attempts": [], "reused": None,
@@ -992,12 +1022,19 @@ def report_lines(summary):
              f"subject: {s['events']} events, {s['claims']} claims, {s['carried_forward']} carried forward; units {s['units']}; "
              f"not formed: {s['not_formed']} units, {s['events_not_formed']} events",
              "intake: " + ", ".join(f"{k} {v}" for k, v in summary["intake"].items()),
-             f"packet: {p['driver_bytes']} driver bytes, at most {p['input_tokens_at_most']} input tokens with the host "
-             f"allowance; output cap {p['output_cap']}; seat capacity {p['capacity']}; labels {p['labels']}"]
+             f"packet: {p['driver_bytes']} driver bytes, density {p['density_basis']} at {p['bytes_per_token']} bytes each; "
+             f"first request {p['first_request_tokens']} input tokens with the host allowance, at most {p['input_tokens_at_most']} "
+             f"in one request with a retry's answer and error share {p['retry_margin']}; output cap {p['output_cap']}; seat "
+             f"capacity {p['capacity']}; labels {p['labels']}"]
     if "call" in summary:
         c = summary["call"]
         lines.append(f"call: {c['outcome']}{' ' + ' '.join(c['codes']) if c['codes'] else ''}"
                      f"{' (reused ' + c['reused'] + ')' if c.get('reused') else ''}")
+        o = c.get("observed")
+        if o:
+            lines.append(f"observed: first request {o.get('input_tokens')} input tokens ({o.get('bytes_per_token')} bytes "
+                         f"each); {o.get('requests')} main requests, the largest {o.get('largest_input')}, within the claim "
+                         f"{o.get('within_claim')}")
     if "population" in summary:
         lines.append("population: " + json.dumps(summary["population"], sort_keys=True))
     return lines
@@ -1953,10 +1990,19 @@ def self_test():
                 "makes no call",
                 dry_record.get("status") == "partial" and sorted(o["artifact"] for o in dry_record.get("outputs", []))
                 == sorted(["intake.json", DRY_PACKET, DRY_RECORD]) and not list((dry_dir / "calls").glob(f"*-{STAGE}-*"))
-                and dry.get("packet", {}).get("driver_bytes", 0) > 0
-                and dry.get("packet", {}).get("input_tokens_at_most")
-                == math.ceil(dry["packet"]["driver_bytes"] / dry["packet"]["bytes_per_token"]) + dry["packet"]["allowance_tokens"],
+                and dry.get("packet", {}).get("driver_bytes", 0) > 0,
                 f"{dry.get('problem')} {dry_record.get('status')} {dry_record.get('outputs')}")
+        from runlib import dispatch
+        dp = dry.get("packet", {})
+        first_dp = math.ceil(dp.get("driver_bytes", 0) / dispatch.DENSITY_FLOOR) + dp.get("allowance_tokens", 0)
+        control("WP-08e: a run with no formation call of the host reads S4's packet at the floor of a byte a token, named "
+                "as its basis, and claims at most the first request with one retry's answer at the output cap and the "
+                "error share added once",
+                dp.get("bytes_per_token") == dispatch.DENSITY_FLOOR and dp.get("density_basis") == "floor: 1.0"
+                and dp.get("first_request_tokens") == first_dp
+                and dp.get("retry_margin") == dispatch.RETRY_ERROR_TOKENS
+                and dp.get("input_tokens_at_most") == first_dp + OUTPUT_CAP + dispatch.RETRY_ERROR_TOKENS,
+                f"{ {k: dp.get(k) for k in ('bytes_per_token', 'density_basis', 'first_request_tokens', 'input_tokens_at_most', 'retry_margin')} }")
         control("dry: a stage reading S4's output refuses its partial record (INPUT_PARTIAL S4)",
                 refusal(lambda: records.run_stage(dry_dir, "S5", [{"artifact": "intake.json", "producer_stage": "S4"}])
                         .__enter__()).startswith("INPUT_PARTIAL S4"), "admitted")
@@ -1968,15 +2014,15 @@ def self_test():
         opus = "claude:claude-opus-5-5/high"
         own = guarded(lambda: form_budget(opus), {})
         held_seats = gate.seats()
-        table_now = guarded(capacity_table, {})
         control("W r1 F5: S4's limits are its own seat's - the capacity seats.json declares for it with its basis, the "
-                "host's measured allowance, the output cap S4 declares, and the fewest bytes per token measured",
+                "host's measured allowance, the output cap S4 declares, and, with no density given, the floor (WP-08e)",
                 own.get("capacity") == held_seats.get("seat_capacity", {}).get(opus, {}).get("context_capacity", "none")
                 and own.get("capacity_basis")
                 and own.get("host_version") == held_seats["hosts"]["claude"]["version"]
                 and own.get("allowance") == held_seats["hosts"]["claude"]["host_allowance"]["hermetic"]["allowance_tokens"]
-                and own.get("output_cap") == OUTPUT_CAP and own.get("bytes_per_token") == min(table_now.get("measured_range", [0]))
-                and "C1" in table_now.get("basis", ""), f"{own} {table_now}")
+                and own.get("output_cap") == OUTPUT_CAP and own.get("bytes_per_token") == dispatch.DENSITY_FLOOR
+                and own.get("density_basis") == "floor: 1.0" and own.get("retry_margin") == dispatch.RETRY_ERROR_TOKENS,
+                f"{own}")
         no_opus = root / "seats-no-opus.json"
         no_opus.write_text(json.dumps({**held_seats, "seat_capacity": {k: v for k, v in held_seats["seat_capacity"].items()
                                                                        if k != opus}}), encoding="utf-8")
@@ -1988,13 +2034,72 @@ def self_test():
                 and refusal(lambda: form_budget(opus, no_allowance)).startswith("ALLOWANCE_UNMEASURED S4"),
                 f"{refusal(lambda: form_budget(opus, no_opus))} {refusal(lambda: form_budget(opus, no_allowance))}")
         fits = 6_000
-        small = {**own, "capacity": tokens_of(fits, own) + own["allowance"] + OUTPUT_CAP} if own else {}
-        control("W r1 F5: a packet whose tokens, the host allowance and the output reservation exceed the seat's capacity "
-                "is FORM_OVER_BOUND naming the capacity; one that fills it exactly passes, and S3's window bound does not "
-                "apply", bool(own) and any(f"over the S4 seat's context capacity {small['capacity']}" in line
+        small = {**own, "capacity": input_at_most(fits, own)[1] + OUTPUT_CAP} if own else {}
+        control("W r1 F5: a packet whose tokens, the host allowance, a retry's answer and error share and the output "
+                "reservation exceed the seat's capacity is FORM_OVER_BOUND naming the capacity; one that fills it exactly "
+                "passes, and S3's window bound does not apply", bool(own) and any(f"over the S4 seat's context capacity {small['capacity']}" in line
                                           for line in bound_problems(fits + 100, small))
                 and bound_problems(fits, small) == [] and bound_problems(bound.INPUT_BOUND + 80_000, own) == [],
                 f"{guarded(lambda: bound_problems(fits + 100, small), None)} {guarded(lambda: bound_problems(fits, small), None)}")
+        # WP-08e: what the bytes take as tokens is read from the run's own calls of the host and kind, each by its first
+        # request; a retry is its own margin. Earlier formation attempts are planted in the run, counts only.
+        from runlib import stage_read as s3_fx
+        s4_seat = opus  # the density is read per host and kind, so a planted call of the host's seat is one of them
+        dense_dir = copy_of("dense")
+        guarded(lambda: s3_fx.fx_planted_call(dense_dir, f"{dense_dir.name}-S4-form-a0", s4_seat, STAGE, CASE, 30_000,
+                                              [(2, 500, 0, 19_998)]), None)
+        guarded(lambda: s3_fx.fx_planted_call(dense_dir, f"{dense_dir.name}-S4-form-b0", s4_seat, STAGE, CASE, 40_000,
+                                              [(2, 500, 0, 19_998)]), None)
+        dense = guarded(lambda: run(dense_dir, dry=True), lambda exc: {"problem": repr(exc)}).get("packet", {})
+        at_old = math.ceil(dense.get("driver_bytes", 0) / 1.94) + dense.get("allowance_tokens", 0) + OUTPUT_CAP \
+            + dispatch.RETRY_ERROR_TOKENS
+        control("WP-08e: of two formation calls the run measured at 1.5 and 2.0 bytes a token, the fewest - below the 1.94 "
+                "S4 assumed - makes S4's claim the bytes at 1.5, named as measured, and higher than at 1.94",
+                dense.get("bytes_per_token") == 1.5 and dense.get("density_basis") == "measured: claude/S4:form/2 samples"
+                and dense.get("first_request_tokens") == math.ceil(dense.get("driver_bytes", 0) / 1.5) + dense.get("allowance_tokens", 0)
+                and dense.get("input_tokens_at_most", 0) > at_old,
+                f"{ {k: dense.get(k) for k in ('problem', 'bytes_per_token', 'density_basis', 'first_request_tokens', 'input_tokens_at_most')} } at 1.94: {at_old}")
+        # C2's formation call, counts only: two main requests, the second the host's retry of a refused structured output
+        c2_dir = copy_of("c2-shape")
+        guarded(lambda: s3_fx.fx_planted_call(c2_dir, f"{c2_dir.name}-S4-form-a0", s4_seat, STAGE, CASE, 46_530,
+                                              [(2, 5_719, 6_007, 14_482), (2, 4_435, 20_489, 6_303)]), None)
+        c2_density = guarded(lambda: dispatch.measured_density(c2_dir, "claude", STAGE, CASE), {})
+        c2_retry = guarded(lambda: dispatch.retry_share(c2_dir, "claude"), {})
+        c2_seen = guarded(lambda: observed(c2_dir / "calls" / f"{c2_dir.name}-S4-form-a0", own), {})
+        control("WP-08e: C2's two-request formation call reads 2.270 bytes a token by its first request - never 0.984 by "
+                "the sum of its requests or 1.736 by the largest - and its retry is counted apart, its error share of 584 "
+                "below the constant margin; S4's observation of the call keeps its first request and its largest apart",
+                c2_density.get("bytes_per_token") == 2.27 and c2_retry.get("retried") == 1
+                and c2_retry.get("margin") == dispatch.RETRY_ERROR_TOKENS and "constant" in c2_retry.get("margin_basis", "")
+                and c2_seen.get("input_tokens") == 20_491 and c2_seen.get("bytes_per_token") == 2.271
+                and c2_seen.get("requests") == 2 and c2_seen.get("largest_input") == 26_794
+                and c2_seen.get("within_claim") is True,
+                f"{c2_density} {c2_retry} {c2_seen}")
+        wide_dir = copy_of("wide-retry")
+        guarded(lambda: s3_fx.fx_planted_call(wide_dir, f"{wide_dir.name}-S4-form-a0", s4_seat, STAGE, CASE, 46_530,
+                                              [(2, 5_719, 6_007, 14_482), (2, 4_435, 20_489, 6_303 + 2_416)]), None)
+        wide = guarded(lambda: run(wide_dir, dry=True), lambda exc: {"problem": repr(exc)}).get("packet", {})
+        control("WP-08e: a retry the run measured with a larger error share than the constant raises the margin S4 claims, "
+                "named as measured",
+                wide.get("retry_margin") == 3_000 and wide.get("margin_basis", "").startswith("measured: claude/1 retries")
+                and wide.get("input_tokens_at_most") == wide.get("first_request_tokens", 0) + OUTPUT_CAP + 3_000,
+                f"{ {k: wide.get(k) for k in ('problem', 'retry_margin', 'margin_basis', 'first_request_tokens', 'input_tokens_at_most')} }")
+        # the margin once: a retry whose first answer filled the output cap and whose error took the whole margin stays
+        # within the claim; a claim without the margin would not hold it, and one with it twice is not the claim
+        if own:
+            first_c, claim_c = input_at_most(40_000, own)
+            filled = [{"role": "main", "state": "measured", "input": 2, "cache_read": 0, "cache_creation": first_c - 2,
+                       "output": OUTPUT_CAP},
+                      {"role": "main", "state": "measured", "input": 2, "cache_read": first_c - 2,
+                       "cache_creation": OUTPUT_CAP + own["retry_margin"], "output": 10}]
+            control("WP-08e: S4 claims at most the first request plus one answer at the output cap plus the error share, "
+                    "the margin added once, and a retry that used all of it stays within the claim",
+                    claim_c == first_c + OUTPUT_CAP + own["retry_margin"] and within_claim(filled, claim_c) is True
+                    and within_claim(filled, claim_c - 1) is False,
+                    f"first {first_c} claim {claim_c} largest {bound.observed_input(filled)[0]}")
+        else:
+            control("WP-08e: S4 claims at most the first request plus one answer at the output cap plus the error share, "
+                    "the margin added once, and a retry that used all of it stays within the claim", False, "no limits")
         control("a formation call is not dispatched without a supervisor (FORM_UNSUPERVISED)",
                 refusal(lambda: run(copy_of("unsupervised"))).startswith("FORM_UNSUPERVISED"), "dispatched")
 
@@ -2139,7 +2244,9 @@ def self_test():
                 and seen.get("admitted_capacity") == own.get("capacity")
                 and list(seen.get("context_window", {}).values()) == [own.get("capacity")]
                 and seen.get("driver_bytes") == same_record.get("driver_bytes") and (seen.get("input_tokens") or 0) > 0
-                and seen.get("bytes_per_token") == round(same_record["driver_bytes"] / seen["input_tokens"], 3),
+                and seen.get("bytes_per_token") == round(same_record["driver_bytes"] / seen["input_tokens"], 3)
+                and seen.get("requests") == 1 and seen.get("largest_input") == seen.get("input_tokens")
+                and seen.get("within_claim") is True and isinstance(seen.get("input_tokens_at_most"), int),
                 f"{same.get('problem') or same.get('call')} {same_record}")
         drift_dir = copy_of("cap-drift")
         drift = guarded(lambda: run(drift_dir, reporting(drift_dir, "cap-drift", plan, 200_000)),

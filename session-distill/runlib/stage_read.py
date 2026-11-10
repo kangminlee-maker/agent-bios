@@ -128,8 +128,10 @@ A dry S3 (`run(dry=True)`, WP-08d) is admitted as the stage is and stops before 
 view is checked as the reading checks it (WINDOWLESS_VIEW, WINDOW_CAP_MISMATCH, VIEW_DRIFT), and every window's packet
 is built as the dispatcher builds it, measured and held to the bound the window was cut against (WINDOW_OVER_BOUND, as
 the dispatcher refuses it). It writes only `read-dry.json`, the measure, and leaves S3's record `partial`, so the run
-holds no result a later stage could read and the live S3 runs over it unchanged. Expansions and stitches follow from
-answers and are not measured.
+holds no result a later stage could read and the live S3 runs over it unchanged. Each window's input is estimated from
+what the run's own window calls of the host measured a token to cover, by their first requests (the floor of a byte a
+token where the run has none), its basis named, and the host's retries of a refused structured output are a line of
+their own, never folded into the density (WP-08e). Expansions and stitches follow from answers and are not estimated.
 
 Refused by name: UNKNOWN_LABEL, OVERLAP_OWNER_MISSING, OVERLAP_INTERVAL_UNSHOWN, WINDOWLESS_VIEW, VIEW_DRIFT, CLAIM_IMMUTABLE,
 EVENT_IMMUTABLE, WINDOW_CAP_MISMATCH, STITCH_OVER_BOUND, LEDGER_UNREADABLE, LEDGER_BASE_STALE, LEDGER_INVALID,
@@ -144,6 +146,7 @@ import copy
 import datetime
 import hashlib
 import json
+import math
 import pathlib
 import re
 import shutil
@@ -939,11 +942,17 @@ class Reader:
             docs[doc["window_n"]] = doc
         return docs
 
-    def dry_file(self, t, run_id, limits):
+    def dry_file(self, t, run_id, limits, density=None, retry=None):
         """What reading one file's view would send, measured and not sent: each window's packet built under its first
         attempt's call id as the dispatcher builds it, its driver bytes held to `limits`, the bound the window was cut
-        against (WINDOW_OVER_BOUND, as the dispatcher refuses it). An expansion and the stitch follow from answers, so a
-        dry run does not measure them."""
+        against (WINDOW_OVER_BOUND, as the dispatcher refuses it), and its input estimate (WP-08e): the bytes as tokens
+        at the `density` the run measured for the host's window calls with the host allowance - the first request - and at
+        most one request of it, the first with one answer at the output cap and `retry`'s error share
+        (`dispatch.input_at_most`; the floor and the constant margin when they are not given). An expansion and the
+        stitch follow from answers, so a dry run does not measure them."""
+        from runlib import dispatch
+        density = density or {"bytes_per_token": dispatch.DENSITY_FLOOR, "basis": f"floor: {dispatch.DENSITY_FLOOR}"}
+        retry = retry or {"margin": dispatch.RETRY_ERROR_TOKENS}
         name, schema_bytes = t["name"], packet.schema_bytes(self.schema)
         docs = self.window_docs(t)
         hits = views.forced_by_search(self.run_dir, name, self.terms) if docs and self.terms else {}
@@ -958,8 +967,10 @@ class Reader:
             if problems:
                 raise Refused(f"WINDOW_OVER_BOUND {run_id}-{STAGE}-{item}: " + "; ".join(problems)
                               + "; the window is split before dispatch")
+            first, at_most = dispatch.input_at_most(size, density, limits["allowance"], self.cap, retry["margin"])
             windows.append({"item": item, "driver_bytes": size, "omissions": len(rows),
-                            "forced": sum(1 for m in rows if m["forced_by"] != "none")})
+                            "forced": sum(1 for m in rows if m["forced_by"] != "none"),
+                            "input_estimate": {"first_request": first, "at_most": at_most}})
         return {"transcript": t["transcript"], "name": name, "windows": windows, "search_matched": len(hits),
                 "windowless": not docs}
 
@@ -1321,22 +1332,43 @@ def dry_run(stage, reader, run_dir):
     """The dry S3 inside the admitted stage: every unit's views checked and their windows' packets measured
     (`Reader.dry_file`), written to `read-dry.json`, S3's record left `partial`. Nothing else is written: no read record,
     no store, no `read-results.json`, so a later stage refuses the run (INPUT_PARTIAL S3) and the live S3 reads it as if
-    the dry had not run."""
+    the dry had not run.
+
+    The estimate (WP-08e) reads what the bytes take as tokens from the run's own window calls of the host
+    (`dispatch.measured_density`, its basis named: `measured: <host>/<stage>:<kind>/<n> samples`, or `floor: 1.0` where
+    the run has none), and the host's retries of a refused structured output as their own line (`dispatch.retry_share`):
+    the rate the run measured, and what that rate of retried windows adds at most; never folded into the density.
+    Expansions and stitches follow from the answers and are named as not estimated."""
+    from runlib import dispatch
     manifest = records.read_json(run_dir / "views.json")
     run_id, limits = run_dir.resolve().name, views.limits_of(reader.declaration)
+    host = reader.seat.partition(":")[0]
+    density, retry = dispatch.measured_density(run_dir, host, STAGE, CASE), dispatch.retry_share(run_dir, host)
     units = collections.defaultdict(list)
     for t in manifest["transcripts"]:
         units[t["unit"]].append(t)
-    measured = {unit: [reader.dry_file(t, run_id, limits)
+    measured = {unit: [reader.dry_file(t, run_id, limits, density, retry)
                        for t in sorted(units[unit], key=lambda t: (t["kind"] != "session", t["name"]))]
                 for unit in sorted(units)}
-    sizes = [w["driver_bytes"] for files in measured.values() for f in files for w in f["windows"]]
+    windows = [w for files in measured.values() for f in files for w in f["windows"]]
+    sizes = [w["driver_bytes"] for w in windows]
+    firsts = [w["input_estimate"]["first_request"] for w in windows]
+    at_mosts = [w["input_estimate"]["at_most"] for w in windows]
     summary = {"stage": STAGE, "dry": True, "window": reader.declaration["window"],
                "declaration_seq": reader.declaration["declaration_seq"], "seat": reader.seat, "output_cap": reader.cap,
                "due": len(reader.due), "units": measured,
                "bound": {**limits, "driver_budget": bound.driver_budget(limits)},
                "calls": {"windows": len(sizes), "driver_bytes": sum(sizes), "largest": max(sizes, default=0)},
-               "not_measured": "expansions and stitches: what they send follows from the answers"}
+               "density": {"window": density},
+               "estimate": {
+                   "windows": {"calls": len(windows), "first_requests": sum(firsts), "basis": density["basis"],
+                               "largest_request_at_most": max(at_mosts, default=0)},
+                   "retry": {"calls_measured": retry["calls"], "retried": retry["retried"], "rate": retry["rate"],
+                             "margin": retry["margin"], "margin_basis": retry["margin_basis"],
+                             "tokens_at_rate": None if retry["rate"] is None else math.ceil(retry["rate"] * sum(at_mosts)),
+                             "tokens_if_every_window_retried": sum(at_mosts)},
+                   "not_estimated": {"expansions": "which omissions a reading expands follows from its answer",
+                                     "stitches": "what a stitch lists follows from the claims and events the windows keep"}}}
     records.write_json(run_dir, run_dir / DRY_RECORD, summary)
     stage.output(DRY_RECORD)
     stage.record["status"] = "partial"
@@ -1822,6 +1854,29 @@ FX_OBSERVED = {"occasion_criteria": "the person asks for a simpler telling of so
                "exposure_rule": "the plain-explanation guide reached the session before the ask",
                "expected_behavior": "the agent answers in plain words without being asked twice",
                "retrieval_terms": [views.FX_TERM]}
+
+
+def fx_planted_call(run_dir, call_id, seat, stage, case_type, driver_bytes, requests):
+    """An earlier call of the run, counts only, as its ledger and its call directory hold it (WP-08e): a closed
+    reservation of `stage` and `case_type` for `seat`, the call record's driver bytes, and its usage record's main
+    requests, each `(input, output, cache_read, cache_creation)`."""
+    from runlib import dispatch
+    run_dir = pathlib.Path(run_dir)
+    path = dispatch.run_ledger_path(run_dir)
+    held = records.read_json(path) if path.is_file() else {"stages": {}, "stopped": None}
+    entry = held.setdefault("stages", {}).setdefault(stage, {"reservations": {}, "spent": {"measured": 0, "provisional": 0},
+                                                             "not_done": [], "overshoot": []})
+    entry["reservations"][call_id] = {"call_id": call_id, "stage": stage, "item": call_id, "seat": seat,
+                                      "class": f"{stage}|{seat}|{case_type}", "amount": 1, "calibration": "provisional",
+                                      "tranche": "calibration", "declaration_seq": 1, "at": 0, "open": False,
+                                      "outcome": "completed"}
+    records.write_json(run_dir, path, held)
+    rows = [{"id": f"main#{n}", "role": "main", "state": "measured", "estimate": None,
+             **dict(zip(("input", "output", "cache_read", "cache_creation"), r))} for n, r in enumerate(requests, 1)]
+    records.write_json(run_dir, run_dir / "calls" / call_id / "call.json", {"call_id": call_id, "stage": stage,
+                                                                           "bound": {"driver_bytes": driver_bytes}})
+    records.write_json(run_dir, run_dir / "calls" / call_id / "usage.json", {"call_id": call_id, "requests": rows,
+                                                                            "attempts": len(rows)})
 
 
 def fx_ledger(run_name):
@@ -4263,6 +4318,48 @@ def self_test():
         control("WP-08d: the dry S3 measured each window's packet as the dispatcher measured its first attempt",
                 bool(measured) and all(sent.get(f"k-{STAGE}-{w['item']}-a1") == w["driver_bytes"] for w in measured),
                 f"{[(w['item'], w['driver_bytes'], sent.get(f'k-{STAGE}-' + w['item'] + '-a1')) for w in measured][:4]}")
+        # WP-08e: the dry's estimate reads what a token covers from the run's own window calls, by their first requests
+        from runlib import dispatch as s3_dispatch
+        allowance_d = dried.get("bound", {}).get("allowance", 0)
+        margin_d = s3_dispatch.RETRY_ERROR_TOKENS
+        est_d = dried.get("estimate", {})
+        control("WP-08e: a dry S3 in a run with no window call estimates each window at the floor of a byte a token, "
+                "named as its basis: the first request the bytes and the allowance, at most that with one answer at the "
+                "output cap and the error share; no retry rate is claimed, and what follows from answers is named",
+                bool(measured) and est_d.get("windows", {}).get("basis") == "floor: 1.0" and "not_measured" not in dried
+                and all(w.get("input_estimate") == {"first_request": w["driver_bytes"] + allowance_d,
+                                                     "at_most": w["driver_bytes"] + allowance_d + dried["output_cap"] + margin_d}
+                        for w in measured)
+                and est_d.get("windows", {}).get("first_requests") == sum(w["driver_bytes"] + allowance_d for w in measured)
+                and est_d.get("retry", {}).get("rate") is None and est_d.get("retry", {}).get("tokens_at_rate") is None
+                and sorted(est_d.get("not_estimated", {})) == ["expansions", "stitches"],
+                f"{est_d} {[w.get('input_estimate') for w in measured][:2]}")
+        dense_dir, _dense_sup, _ = fx_reader(root / "dry-dense", "k", answers_r, ledger_doc=fx_ledger("k"))
+        s3_seat = records.read_json(records.run_json_path(dense_dir))["seats"][STAGE]
+        # C2's window 8, counts only: 115,742 driver bytes, two main requests, the second the host's retry
+        guarded(lambda: fx_planted_call(dense_dir, f"k-{STAGE}-c2w8-a1", s3_seat, STAGE, CASE, 115_742,
+                                        [(2, 6_366, 3_297, 50_247), (2, 3_613, 53_544, 7_484)]), None)
+        dense_dry = guarded(lambda: run(dense_dir, dry=True), {})
+        dense_w = [w for files in dense_dry.get("units", {}).values() for f in files for w in f["windows"]]
+        est_x = dense_dry.get("estimate", {})
+        retry_x = est_x.get("retry", {})
+        at_x = [math.ceil(w["driver_bytes"] / 2.161) + allowance_d + dense_dry.get("output_cap", 0) + margin_d for w in dense_w]
+        control("WP-08e: C2's window-8 shape - two requests, the second a retry - is read by its first request at 2.161 "
+                "bytes a token, never 1.010 by the sum or 1.896 by the largest: the dry estimates each window at it, named "
+                "as measured, and carries the retry as its own line, its rate and what it adds",
+                bool(dense_w) and dense_dry.get("density", {}).get("window", {}).get("bytes_per_token") == 2.161
+                and est_x.get("windows", {}).get("basis") == f"measured: claude/{STAGE}:{CASE}/1 samples"
+                and [w["input_estimate"]["at_most"] for w in dense_w] == at_x
+                and [w["input_estimate"]["first_request"] for w in dense_w]
+                == [math.ceil(w["driver_bytes"] / 2.161) + allowance_d for w in dense_w]
+                and retry_x.get("calls_measured") == 1 and retry_x.get("retried") == 1 and retry_x.get("rate") == 1.0
+                and retry_x.get("margin") == margin_d and retry_x.get("tokens_at_rate") == sum(at_x),
+                f"{dense_dry.get('density')} {est_x}")
+        control("WP-08e: a host with no measured call of the kind reads at the floor, named, whatever another host measured",
+                guarded(lambda: s3_dispatch.measured_density(dense_dir, "codex", STAGE, CASE), {})
+                == {"bytes_per_token": 1.0, "basis": "floor: 1.0", "samples": 0}
+                and guarded(lambda: s3_dispatch.measured_density(dense_dir, "claude", STAGE, STITCH_CASE), {}).get("basis")
+                == "floor: 1.0", f"{guarded(lambda: s3_dispatch.measured_density(dense_dir, 'codex', STAGE, CASE), {})}")
         over_dir, _sup, _ = fx_reader(root / "dry-over", "k", answers_r, ledger_doc=fx_ledger("k"))
         over_reader = Reader(over_dir, None, records.read_json(records.run_json_path(over_dir)))
         over_view = next(t for t in records.read_json(over_dir / "views.json")["transcripts"] if t["windows"])
