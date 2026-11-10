@@ -1774,8 +1774,8 @@ INHERITED_CATEGORIES = ("another_session_id", "no_session_id")
 # session's own owner, a recorded occurrence whose offsets could not be recovered — and only when none
 # is broken, `no_record`: no recorded occurrence never reads as "not delivered".
 PIN_STATUSES = ("read", "unpinned", "unknown")
-PIN_REASONS = ("unpinned", "id_space", "pin_absent", "pin_mismatch", "pin_content_ref_mismatch", "input_failed",
-               "input_unread")
+PIN_REASONS = ("unpinned", "id_space", "pin_predates_rollout_binding", "rollout_unresolved", "pin_absent",
+               "pin_mismatch", "pin_content_ref_mismatch", "input_failed", "input_unread")
 SNAPSHOT_REASONS = ("snapshot_absent", "input_failed")
 # a transcript that was not read: `changed` among them, since bytes that no longer match the census are
 # never opened (`transcript_records`)
@@ -3283,6 +3283,13 @@ UNKNOWN_REASONS = {
     # a session's own pin chain (step 0 S-15, S-16, S-25), and its delivery when no link of it is broken
     "id_space": ("unknown: Codex session ids and pins are different id spaces, so no pin is associated with "
                  "a rollout, an equal id included"),
+    # F-22's two unjoinable pins, which never share one name (lead, 2026-11-11): a pin written before an
+    # activation recorded the rollout at all, and one whose activation tried and could not resolve it
+    "pin_predates_rollout_binding": ("unknown: the Codex pins this state holds were written before an "
+                                     "activation recorded the rollout the host writes, so none of them can "
+                                     "be associated with a transcript"),
+    "rollout_unresolved": ("unknown: a Codex activation recorded that it could not resolve the rollout the "
+                           "host writes for its thread, so its pin names no transcript"),
     "pin_absent": "unknown: the census names a pin for this session that the owner's state does not hold",
     "pin_mismatch": "unknown: the pin at this session's path names another host or session",
     "pin_content_ref_mismatch": "unknown: the session's pin names another snapshot than its census row",
@@ -5118,12 +5125,45 @@ def read_pin(state_root, host, session_id):
     return pin
 
 
+def codex_pin_for_rollout(state_root, rollout_id):
+    """`(pin id, None)` for the Codex pin that names this rollout, else `(None, reason key)`.
+
+    A Codex pin is named by the app-server's thread id and a Codex census row by the rollout's own id,
+    so the pin this row needs is the one whose record NAMES this rollout (F-22). The refusals are
+    told apart rather than merged: a pin carrying no rollout keys was written before this binding
+    existed, one carrying them as null tried and could not resolve the rollout, and a state whose
+    pins name other rollouts leaves this row where it was, in the two id spaces of `id_space`."""
+    pins = pathlib.Path(state_root).expanduser() / "sessions" / "pins" / "codex"
+    tried, predates = False, False
+    for path in sorted(pins.glob("*.json")) if pins.is_dir() else []:
+        try:
+            record = json.loads(read_source(path, state_root))
+        except (Refused, ValueError, OSError):
+            continue              # a pin that does not read is the pin reader's refusal, not this join's
+        if not isinstance(record, dict):
+            continue
+        if "rollout_id" not in record:
+            predates = True
+            continue
+        if record["rollout_id"] == rollout_id and isinstance(rollout_id, str):
+            return path.stem, None
+        tried = tried or record["rollout_id"] is None
+    if tried:
+        return None, reason("rollout_unresolved")
+    if predates:
+        return None, reason("pin_predates_rollout_binding")
+    return None, reason("id_space")
+
+
 def session_pin(state_root, host, session_id, census_ref, evidence=False):
     """One session's own pin, the first links of its chain (step 0 S-15, S-16, M6; lead rulings on the
     P2.4 plan): `{status, reason, content_ref, record, include, outcome, detail, code}`.
 
-    A Codex row is `id_space` before anything is read, its census `content_ref` included: no pin is
-    associated with a rollout by any means (S-16). A Claude row whose census names no pin is
+    A Codex row is named by its rollout's id and its pin by the app-server's thread id, so the pin is
+    looked for by the rollout it NAMES (`codex_pin_for_rollout`): found, the row is read like a Claude
+    row under that pin's own id; not found, the row carries the reason that says why — the pins
+    predate the binding, an activation could not resolve its rollout, or the two id spaces of
+    `id_space` (S-16, F-22). A Claude row whose census names no pin is
     `unpinned`. Otherwise the pin is read under the session's own host and id, its record must name
     them (M6), and its `content_ref` must be the one the census row names. `evidence` is a `--pin`
     the census names no pin for: evidence about that pin only, with nothing to hold it against.
@@ -5131,8 +5171,15 @@ def session_pin(state_root, host, session_id, census_ref, evidence=False):
     that is not a boolean leaves the pin read and its exclusion unknown (`include` None)."""
     entry = {"status": "unknown", "reason": None, "content_ref": None, "record": None, "include": None,
              "outcome": None, "detail": None, "code": None}
+    pin_id = session_id
     if host != "claude" and not evidence:
-        return {**entry, "reason": reason("id_space")}
+        if state_root is None:
+            # Nothing can be read, so nothing distinguishes the unjoinable pins: the row stays where
+            # it was before the rollout binding existed.
+            return {**entry, "reason": reason("id_space")}
+        pin_id, why = codex_pin_for_rollout(state_root, session_id)
+        if pin_id is None:
+            return {**entry, "reason": why}
     if census_ref is None and not evidence:
         return {**entry, "status": "unpinned", "reason": reason("unpinned")}
     if state_root is None:
@@ -5140,7 +5187,7 @@ def session_pin(state_root, host, session_id, census_ref, evidence=False):
     try:
         if census_ref is not None and not (isinstance(census_ref, str) and SHA256_HEX.match(census_ref)):
             raise Refused("INPUT_INVALID census content_ref: not a snapshot digest")
-        record = read_pin(state_root, safe_label("pin host", host), safe_label("pin session id", session_id))
+        record = read_pin(state_root, safe_label("pin host", host), safe_label("pin session id", pin_id))
         content_ref = safe_label("snapshot content_ref", record["content_ref"])
     except (Refused, ValueError, OSError) as exc:
         code = refusal_code(exc)
@@ -5502,11 +5549,18 @@ def _selection_injection(ctx):
     text = snapshot["output"].get("instruction_text") or ""
     # the host the snapshot was compiled for: the `--pin`'s, or a shared selection inventory's
     host = ctx.get("selection_host") or str(ctx.get("pin") or "").partition(":")[0] or None
-    # `current`'s injection is the one the session being diagnosed received. A Codex `--pin`'s snapshot
-    # is evidence about that pin only: no pin is associated with a rollout, an equal id included (§3.3),
-    # so no Codex session is known to have received it. The selection reference point keeps it.
+    # `current`'s injection is the one the session being diagnosed received. A Codex pin that NAMES the
+    # rollout the host wrote carries its snapshot here exactly as a Claude pin does (lead, 2026-11-11):
+    # the carrier's standing is "sent to this thread", the same standing a Claude pin's has, and whether
+    # the injected item was still in context when the session worked is the delivery-evidence question
+    # of §6.3, not this one. A pin that names none is the F-22 fact, by the name that says which:
+    # its activation tried and could not resolve the rollout, or it was written before the binding.
     if ctx.get("reference") == "current" and host == "codex":
-        raise Unacquired(UNKNOWN_REASONS["id_space"])
+        pin_record = ctx.get("pin_record") or {}
+        rollout_id = pin_record.get("rollout_id")
+        if not isinstance(rollout_id, str) or not rollout_id:
+            raise Unacquired(UNKNOWN_REASONS[reason("rollout_unresolved") if "rollout_id" in pin_record
+                                             else reason("pin_predates_rollout_binding")])
     return [carrier("session_injection", f"snapshot:{snapshot['content_ref']}/output.json#instruction_text",
                     text, form="markdown",
                     carrier_id=injection_carrier_id(host, snapshot["content_ref"]))] if text else []
@@ -9807,11 +9861,70 @@ def self_test():
             plant_pin(pins_state, "s-pin", excluded_ref, include=False)
             plant_pin(pins_state, "s-inc", included_ref)
             plant_pin(pins_state, "s-mis", excluded_ref)
+
+            # F-22: a Codex row is named by its rollout's id and its pin by the app-server's thread id.
+            # The pin is found by the rollout it NAMES, and the pins that cannot be joined are told
+            # apart by name: one written before the binding existed, and one whose activation tried.
+            def plant_codex_pin(state_dir, thread_id, content_ref, **rollout):
+                pins_dir = state_dir / "sessions" / "pins" / "codex"
+                pins_dir.mkdir(parents=True, exist_ok=True)
+                (pins_dir / f"{thread_id}.json").write_text(json.dumps({
+                    "schema_version": 1, "content_ref": content_ref, "host": "codex", "session_id": thread_id,
+                    "created": "2026-11-11T00:00:00+00:00", **rollout}), encoding="utf-8")
+
+            joined_state = scratch / "p24" / "codex-joined"
+            joined_ref = plant_snapshot(joined_state, "# Session\n\n- a Codex activation\n")
+            plant_codex_pin(joined_state, "thread-a", joined_ref, rollout_id="roll-a",
+                            rollout_path="/s/rollout-roll-a.jsonl", rollout_method="index")
+            joined_pin = session_pin(joined_state, "codex", "roll-a", joined_ref)
+            check("a Codex row whose pin names its rollout is read under that pin's own id",
+                  (joined_pin["status"], joined_pin["reason"], joined_pin["content_ref"]) == ("read", None, joined_ref)
+                  and codex_pin_for_rollout(joined_state, "roll-a") == ("thread-a", None),
+                  f"{(joined_pin['status'], joined_pin['reason'])}")
+            check("a Codex row no pin names keeps the F-22 reason, with a pin that DID resolve a rollout beside it",
+                  session_pin(joined_state, "codex", "roll-b", None)["reason"] == "id_space",
+                  f"{session_pin(joined_state, 'codex', 'roll-b', None)['reason']}")
+
+            tried_state = scratch / "p24" / "codex-unresolved"
+            tried_ref = plant_snapshot(tried_state, "# Session\n\n- an activation that resolved no rollout\n")
+            plant_codex_pin(tried_state, "thread-b", tried_ref, rollout_id=None, rollout_path=None,
+                            rollout_method="rollout_unresolved")
+            check("a pin whose activation could not resolve its rollout reads as rollout_unresolved",
+                  session_pin(tried_state, "codex", "roll-c", None)["reason"] == "rollout_unresolved"
+                  and codex_pin_for_rollout(tried_state, "roll-c") == (None, "rollout_unresolved"),
+                  f"{session_pin(tried_state, 'codex', 'roll-c', None)['reason']}")
+
+            older_state = scratch / "p24" / "codex-predates"
+            older_ref = plant_snapshot(older_state, "# Session\n\n- a pin written before the binding\n")
+            plant_codex_pin(older_state, "thread-c", older_ref)
+            check("a pin written before the rollout binding existed reads as pin_predates_rollout_binding, "
+                  "never as the activation having tried",
+                  session_pin(older_state, "codex", "roll-d", None)["reason"] == "pin_predates_rollout_binding"
+                  and codex_pin_for_rollout(older_state, "roll-d") == (None, "pin_predates_rollout_binding"),
+                  f"{session_pin(older_state, 'codex', 'roll-d', None)['reason']}")
             old_row = ("claude", "s-old", [inj("2026-10-20T09:00:00+00:00", [member("User", "/w/g.md", "- old\n")], cwd=p1)], {})
 
             def newer(ident, census_ref, files=()):
                 return ("claude", ident, [inj("2026-10-20T10:00:00+00:00", list(files), cwd=p1)],
                         {"pin": {"content_ref": census_ref}})
+
+            # F-22: a published run whose Codex pins all predate the rollout binding, so that reason is
+            # carried by a written document rather than by this suite's memory of a direct call.
+            predates_doc = published_run("codex-predates", [("codex", "c-pre", [block_meta(
+                "c-pre", "2026-10-24T09:00:00+00:00", "# Block\n\n- a block\n", p1)], {})], state=older_state)
+            tried_doc = published_run("codex-unresolved", [("codex", "c-try", [block_meta(
+                "c-try", "2026-10-24T09:00:00+00:00", "# Block\n\n- a block\n", p1)], {})], state=tried_state)
+            # The reason reaches a reader through each session's own pin chain, which `sessions.json`
+            # publishes by KEY; `current`'s injection needs a `--pin`, and these runs give none.
+            def published_pin_reasons(run_here):
+                return sorted({(row.get("pin") or {}).get("reason")
+                               for row in (run_here.get("sessions") or {}).get("sessions") or []})
+            check("two published Codex rows name their own unjoinable pin and never each other's: one written before "
+                  "the rollout binding, one whose activation tried and could not resolve it (F-22)",
+                  "refused" not in predates_doc and "refused" not in tried_doc
+                  and published_pin_reasons(predates_doc) == ["pin_predates_rollout_binding"]
+                  and published_pin_reasons(tried_doc) == ["rollout_unresolved"],
+                  f"predates={published_pin_reasons(predates_doc)} tried={published_pin_reasons(tried_doc)}")
 
             excluded_doc = published_current("excluded", [old_row, newer("s-pin", excluded_ref)], state=pins_state)
             excluded = one_scope(excluded_doc, "native_global", "claude")
@@ -15776,14 +15889,24 @@ def self_test():
                                      items=[catalog_item("rule-r11", "rule", "- rule r11")])
             r11_codex_pins = r11_state / "sessions" / "pins" / "codex"
             r11_codex_pins.mkdir(parents=True, exist_ok=True)
+            # Its activation recorded that it could not resolve the rollout the host writes (F-22), which is
+            # why this row is unknown; a pin carrying no rollout keys at all is the other fixture below.
             (r11_codex_pins / "c-r11.json").write_text(json.dumps({
                 "schema_version": 1, "content_ref": r11_ref, "host": "codex", "session_id": "c-r11",
+                "created": "2026-10-20T00:00:00+00:00", "rollout_path": None, "rollout_id": None,
+                "rollout_method": "rollout_unresolved"}), encoding="utf-8")
+            r11_old_state = scratch / "r1-1" / "state-predates"
+            r11_old_ref = plant_snapshot(r11_old_state, r11_body, baseline_ref="ref-r11",
+                                         items=[catalog_item("rule-r11", "rule", "- rule r11")])
+            (r11_old_state / "sessions" / "pins" / "codex").mkdir(parents=True, exist_ok=True)
+            (r11_old_state / "sessions" / "pins" / "codex" / "c-old.json").write_text(json.dumps({
+                "schema_version": 1, "content_ref": r11_old_ref, "host": "codex", "session_id": "c-old",
                 "created": "2026-10-20T00:00:00+00:00"}), encoding="utf-8")
             plant_pin(r11_state, "s-r11", r11_ref)
             r11_at = "2026-10-24T09:00:00+00:00"
             r11_layers = tuple((layer, producers) for layer, producers in LAYERS if layer == "session_injection")
 
-            def r11_case(label, pin_here, host, ident, records_in, fields):
+            def r11_case(label, pin_here, host, ident, records_in, fields, state_here=None):
                 """`(current row, current's injection unit texts, selection row, the census session's own pin
                 chain)` for a `--pin pin_here` run whose census holds `ident`'s transcript alone, its row carrying
                 `fields`; or a refusal summary in the first place, which every check below reads as a failure."""
@@ -15796,8 +15919,8 @@ def self_test():
                 ctx_here.update(home=str(fixture_home), commit="fixture")
                 kept_layers = globals()["LAYERS"]
                 try:
-                    freeze_inputs(scratch / "r1-1" / f"frozen-{label}", REPO, r11_state, None, pin_here, ctx_here,
-                                  census_entries(run_at))
+                    freeze_inputs(scratch / "r1-1" / f"frozen-{label}", REPO, state_here or r11_state, None, pin_here,
+                                  ctx_here, census_entries(run_at))
                     bind_transcripts(ctx_here, run_at)
                     globals()["LAYERS"] = r11_layers
                     current_here, _units = emitted_document("current", layer_rows("current", ctx_here), ctx_here)
@@ -15814,12 +15937,23 @@ def self_test():
 
             r11_codex, r11_codex_texts, r11_codex_selection, r11_codex_own = r11_case(
                 "codex", "codex:c-r11", "codex", "c-r11", [block_meta("c-r11", r11_at, "# Block\n\n- a block\n", "/w/r11")], {})
-            check("R1#1: a Codex --pin's current session_injection is unknown id_space, and its pin evidence is kept",
+            r11_old, _r11_old_texts, _r11_old_selection, r11_old_own = r11_case(
+                "codex-predates", "codex:c-old", "codex", "c-old",
+                [block_meta("c-old", r11_at, "# Block\n\n- a block\n", "/w/r11")], {}, state_here=r11_old_state)
+            check("R1#1: a Codex row whose pins were written before the rollout binding existed says so, and never "
+                  "shares the name of one whose activation tried (F-22)",
+                  r11_old.get("status") == "unknown"
+                  and r11_old.get("reasons") == [f"session_injection: {UNKNOWN_REASONS['pin_predates_rollout_binding']}"]
+                  and (r11_old_own.get("status"), r11_old_own.get("reason")) == ("unknown", "pin_predates_rollout_binding"),
+                  f"current={[r11_old.get(key) for key in ('refused', 'status', 'reasons')]} "
+                  f"own_pin={[r11_old_own.get(key) for key in ('status', 'reason')]}")
+            check("R1#1: a Codex --pin's current session_injection is unknown because its activation resolved no "
+                  "rollout, and its pin evidence is kept",
                   r11_codex.get("status") == "unknown"
-                  and r11_codex.get("reasons") == [f"session_injection: {UNKNOWN_REASONS['id_space']}"]
+                  and r11_codex.get("reasons") == [f"session_injection: {UNKNOWN_REASONS['rollout_unresolved']}"]
                   and r11_codex_texts == []
                   and r11_codex_selection.get("status") == "complete" and r11_codex_selection.get("reasons") == []
-                  and (r11_codex_own.get("status"), r11_codex_own.get("reason")) == ("unknown", "id_space"),
+                  and (r11_codex_own.get("status"), r11_codex_own.get("reason")) == ("unknown", "rollout_unresolved"),
                   f"current={[r11_codex.get(key) for key in ('refused', 'status', 'reasons')]} units={r11_codex_texts} "
                   f"selection={[r11_codex_selection.get(key) for key in ('status', 'reasons')]} "
                   f"own_pin={[r11_codex_own.get(key) for key in ('status', 'reason')]}")
@@ -18221,6 +18355,7 @@ def self_test():
                                                 "session_undated", "switch_in_flight", "switch_recovered", "switch_tie",
                                                 "spans_switch", "journal_unfinished", "no_pin_given"),
                 "relhist commit 4 (Codex W r1; D-20261110-4a0d15)": ("session_partly_dated", "switch_misdated"),
+                "the rollout binding (F-22)": ("pin_predates_rollout_binding", "rollout_unresolved"),
             }
             vocabulary_by_refusal = {}
             vocabulary_keys = [key for keys in vocabulary_expected.values() for key in keys]

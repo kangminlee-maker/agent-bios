@@ -20,6 +20,11 @@ import time
 import uuid
 import unicodedata
 
+# What a Codex activation's `rollout_method` says when it tried to resolve the rollout the host
+# writes and could not. A pin that carries no rollout keys at all was written before this binding
+# existed, which is a different fact and must never share this name.
+ROLLOUT_UNRESOLVED = 'rollout_unresolved'
+
 
 class SessionError(RuntimeError):
     pass
@@ -617,6 +622,44 @@ def recorded_cwd(record):
     return value
 
 
+def resolve_codex_rollout(state_root, host_id, thread, env):
+    """The rollout file the Codex CLI writes for this thread: `{'path', 'id', 'how'}`, or None.
+
+    **A seam, deliberately unrealized (F-22).** A Codex activation pins the app-server's thread id,
+    and no rollout on disk carries it — measured 2026-10-23 over 15 pins and 2,631 rollouts, 0 joins
+    — so a reader can associate no transcript with the pin, and Codex selection and delivery can
+    only be reported unknown. The candidates, in the order they are to be tried:
+
+    1. the host's own thread index, whose `threads` table maps `id` to `rollout_path` and which
+       session distill already reads as its `codex_state` source — the only candidate that also
+       joins the pins already written, and the only one that depends on no app-server field;
+    2. the `path` the thread itself returns, recorded beside this as `thread_path` and measured as
+       naming no rollout that still exists;
+    3. a later app-server field naming the rollout, which `wrappers/codex_protocol.py` would have to
+       declare and would then refuse by name and version on a host that does not carry it.
+
+    Which one is realized waits on one count over the owner's index. Until then this returns None,
+    every pin this version writes records both keys as null, and the method names
+    `rollout_unresolved`: a pin that TRIED and could not resolve one is not a pin written before
+    these fields existed, and the reader must not give the two one name. A time-window or cwd match
+    is ruled out: a wrong join attributes one session's delivered bytes to another, which is worse
+    than unknown, and nothing in the data tells a right guess from a wrong one.
+    """
+    return None
+
+
+def pin_codex_rollout(record, rollout):
+    """Record on the activation what rollout it resolved, and how — null fields when it resolved none.
+
+    The keys are always written for a Codex activation, because their ABSENCE is what tells a reader
+    that a pin predates this binding, and their presence with null values that the activation tried.
+    """
+    record['rollout_path'] = (rollout or {}).get('path')
+    record['rollout_id'] = (rollout or {}).get('id')
+    record['rollout_method'] = (rollout or {}).get('how') or ROLLOUT_UNRESOLVED
+    return record
+
+
 def observe_and_pin(state_root, record, host_id, evidence):
     if not isinstance(record.get('intent_id'), str) or not re.fullmatch('[0-9a-f]{32}', record['intent_id']):
         raise SessionError('invalid activation journal identity')
@@ -725,7 +768,11 @@ def recover_activations(state_root, command=None, host=None, env=None):
                     with CodexServer(command, config_flags(record['argv']), record['cwd'], native_env, state_root) as server:
                         observed = server.call('thread/read', {'threadId': requested, 'includeTurns': False})
                     if observed.get('thread', {}).get('id') == requested:
-                        evidence = {'method': 'recovered-thread/read'}
+                        # A recovered activation resolves the rollout too, or its pin would carry no
+                        # rollout keys and read as one written before this binding existed.
+                        pin_codex_rollout(record, resolve_codex_rollout(
+                            state_root, requested, observed.get('thread', {}), native_env))
+                        evidence = {'method': 'recovered-thread/read+' + record['rollout_method']}
                 except SessionError as exc:
                     print(f"agent-bios: activation {record['intent_id']} remains pending: {exc}", file=sys.stderr)
             if evidence:
@@ -760,8 +807,10 @@ def create_codex_session(command, argv, state_root, record, cwd, env):
         persisted = server.call('thread/read', {'threadId': host_id, 'includeTurns': False})
         if persisted.get('thread', {}).get('id') != host_id:
             raise SessionError('host did not persist the requested instructions session')
+    pin_codex_rollout(record, resolve_codex_rollout(state_root, host_id, thread, env))
     observe_and_pin(state_root, record, host_id,
-                    {'method': 'thread/start+inject_items+read', 'thread_path': thread.get('path')})
+                    {'method': 'thread/start+inject_items+read+' + record['rollout_method'],
+                     'thread_path': thread.get('path')})
     return host_id
 
 

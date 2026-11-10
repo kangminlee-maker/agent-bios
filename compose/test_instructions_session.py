@@ -5,6 +5,8 @@ import io
 import os
 from pathlib import Path
 import shutil
+import sqlite3
+from contextlib import closing
 import subprocess
 import sys
 import tempfile
@@ -44,6 +46,23 @@ class PinTests(unittest.TestCase):
         pin = session.read_pin(self.root, 'codex', 'observed-session')
         self.assertEqual(pin['content_ref'], self.snapshot['content_ref'])
         self.assertEqual(json.loads(path.read_text())['state'], 'PINNED')
+
+    def test_a_codex_pin_says_whether_it_resolved_a_rollout_without_needing_a_host(self):
+        # The keys are written whatever the seam returns, because their ABSENCE is what tells a reader
+        # that a pin predates this binding (F-22). Checked here too, since the real-host case above is
+        # skipped on a machine without the Codex CLI.
+        record = session.prepare(self.root, 'codex', self.snapshot, ['--model', 'test'])
+        self.assertIsNone(session.resolve_codex_rollout(self.root, 'thread-x', {}, {}))
+        session.pin_codex_rollout(record, None)
+        self.assertEqual((None, None, session.ROLLOUT_UNRESOLVED),
+                         (record['rollout_path'], record['rollout_id'], record['rollout_method']))
+        session.observe_and_pin(self.root, record, 'thread-x', {'method': 'test-control+' + record['rollout_method']})
+        pinned = session.read_pin(self.root, 'codex', 'thread-x')
+        self.assertEqual((None, None), (pinned['rollout_path'], pinned['rollout_id']))
+        self.assertTrue(pinned['evidence']['method'].endswith('+rollout_unresolved'))
+        resolved = session.pin_codex_rollout(dict(record), {'path': '/s/rollout-r1.jsonl', 'id': 'r1', 'how': 'index'})
+        self.assertEqual(('/s/rollout-r1.jsonl', 'r1', 'index'),
+                         (resolved['rollout_path'], resolved['rollout_id'], resolved['rollout_method']))
 
     def test_pin_cannot_reference_foreign_or_missing_snapshot(self):
         record = session.prepare(self.root, 'claude', self.snapshot, [])
@@ -531,7 +550,49 @@ class RealCodexTests(unittest.TestCase):
             record = session.prepare(state, 'codex', snapshot,
                                      ['-c','developer_instructions="PIN_CANARY"'], tmp, env)
             host_id = session.create_codex_session(command, record['argv'], state, record, tmp, env)
-            self.assertEqual(session.read_pin(state, 'codex', host_id)['content_ref'], snapshot['content_ref'])
+            pin = session.read_pin(state, 'codex', host_id)
+            self.assertEqual(pin['content_ref'], snapshot['content_ref'])
+            # F-22: a Codex activation always records what rollout it resolved and how, so a reader can
+            # tell a pin that tried and could not from one written before this binding existed.
+            self.assertEqual({'rollout_path', 'rollout_id', 'rollout_method'} & set(pin),
+                             {'rollout_path', 'rollout_id', 'rollout_method'})
+            self.assertTrue(pin['evidence']['method'].endswith('+' + pin['rollout_method']))
+            self.assertEqual(pin['rollout_id'] is None, pin['rollout_method'] == session.ROLLOUT_UNRESOLVED)
+            # What the installed host offers a rollout join, measured under THIS temporary CODEX_HOME and
+            # nowhere else (F-22, candidates 1 and 2). Names, counts and booleans; printed so an umbrella
+            # run records them, and asserted only where the pin already claims it.
+            host_home = Path(env['CODEX_HOME'])
+            thread_path = pin['evidence'].get('thread_path')
+            rollouts = [p for p in host_home.rglob('rollout-*.jsonl*') if p.is_file()]
+            by_name = [p.name for p in rollouts if host_id in p.name]
+            indexed = []
+            for db in host_home.rglob('*.sqlite*'):
+                try:
+                    with closing(sqlite3.connect(f'file:{db}?mode=ro', uri=True)) as conn:
+                        if conn.execute("select name from sqlite_master where type='table' and name='threads'").fetchone():
+                            indexed += [row[0] for row in conn.execute(
+                                'select rollout_path from threads where id = ?', (host_id,)) if row[0]]
+                except sqlite3.Error:
+                    continue
+            meta_ids = []
+            for rollout in rollouts:
+                try:
+                    first = json.loads(rollout.read_text(encoding='utf-8').splitlines()[0])
+                except (OSError, ValueError, IndexError):
+                    continue
+                payload = first.get('payload') if isinstance(first.get('payload'), dict) else first
+                meta_ids.append(payload.get('id'))
+            real = {str(Path(p).resolve()) for p in rollouts}
+            print(f"F22-PROBE thread_path_is_a_rollout="
+                  f"{bool(thread_path) and str(Path(thread_path).resolve()) in real} "
+                  f"thread_path_name={Path(thread_path).name if thread_path else None} "
+                  f"rollout_meta_id_is_thread_id={meta_ids.count(host_id)}/{len(meta_ids)} "
+                  f"index_rollout_is_the_rollout={sum(1 for row in indexed if str(Path(row).resolve()) in real)}")
+            print(f"F22-PROBE thread_path_set={thread_path is not None} "
+                  f"thread_path_exists={bool(thread_path) and Path(thread_path).exists()} "
+                  f"rollouts_under_home={len(rollouts)} rollout_named_by_thread_id={len(by_name)} "
+                  f"index_rows_for_thread={len(indexed)} "
+                  f"index_rollout_exists={sum(1 for row in indexed if Path(row).exists())}")
             with session.CodexServer(command, cwd=tmp, env=env) as server:
                 read = server.call('thread/read', {'threadId': host_id, 'includeTurns': False})
                 self.assertEqual(read['thread']['id'], host_id)
@@ -541,7 +602,12 @@ class RealCodexTests(unittest.TestCase):
             session.atomic_json(state / 'runtime/activations' / record['intent_id'] / 'journal.json', record)
             recovered = session.recover_activations(state, command, 'codex', env)
             self.assertEqual(recovered['pinned'], [host_id])
-            self.assertEqual(session.read_pin(state, 'codex', host_id)['content_ref'], snapshot['content_ref'])
+            replaced = session.read_pin(state, 'codex', host_id)
+            self.assertEqual(replaced['content_ref'], snapshot['content_ref'])
+            # A recovered activation records the rollout too; a pin it wrote without these keys would
+            # read as one written before the binding existed.
+            self.assertIn('rollout_id', replaced)
+            self.assertTrue(replaced['evidence']['method'].endswith('+' + replaced['rollout_method']))
 
 
 if __name__ == '__main__':

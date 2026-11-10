@@ -298,6 +298,13 @@ def read_pins(state_root):
                 ok = record["host"] == host and record["session_id"] == path.stem
                 if ok:
                     pins[(host, path.stem)] = record.get("content_ref")
+                    # A Codex pin names the app-server's thread id, which no rollout carries (F-22).
+                    # When the activation also resolved the rollout the host wrote, the pin is keyed by
+                    # that id as well, because that is the id a transcript carries; without it no key of
+                    # this map can ever meet a Codex row.
+                    rollout_id = record.get("rollout_id")
+                    if host == "codex" and isinstance(rollout_id, str) and rollout_id:
+                        pins[(host, rollout_id)] = record.get("content_ref")
                 else:
                     bad += 1
             except (OSError, ValueError, KeyError, TypeError):
@@ -557,6 +564,18 @@ def self_test():
         (pins / "codex" / "t3.json").write_text("{")
         if read_pins(root / "state") != ({("codex", "t1"): "sha256:ab"}, 2):
             failures.append(f"pins read: {read_pins(root / 'state')}")
+        # F-22: a Codex pin that names the rollout the host wrote is reachable by that id too, which is
+        # the id a transcript carries; one that resolved none, and one written before the binding
+        # existed, stay reachable by their thread id alone.
+        (pins / "codex" / "t4.json").write_text('{"host": "codex", "session_id": "t4", "content_ref": "sha256:cd",'
+                                                ' "rollout_id": "r4", "rollout_path": "/s/rollout-r4.jsonl"}')
+        (pins / "codex" / "t5.json").write_text('{"host": "codex", "session_id": "t5", "content_ref": "sha256:ef",'
+                                                ' "rollout_id": null, "rollout_path": null}')
+        joined, _bad = read_pins(root / "state")
+        if joined.get(("codex", "r4")) != "sha256:cd" or joined.get(("codex", "t4")) != "sha256:cd":
+            failures.append(f"a pin naming a rollout is not reachable by both ids: {sorted(joined)}")
+        if ("codex", "r5") in joined or joined.get(("codex", "t5")) != "sha256:ef" or ("codex", "r1") in joined:
+            failures.append(f"an unresolved or pre-binding pin gained a rollout key: {sorted(joined)}")
     for failure in failures:
         print(f"sources --self-test [FAIL] {failure}")
     if failures:
@@ -565,7 +584,8 @@ def self_test():
           "named with the file; a WAL-only thread is found from a private snapshot while the host's db, -wal and -shm keep their "
           "bytes and mtimes, a write during the capture is captured again and one that never settles is named, and the snapshot is "
           "removed (a swapped directory is refused by name and nothing is removed); immutable=1 misses the row and a direct read-only open moves the -shm; missing columns, a non-database, a "
-          "torn history line, an unparseable Desktop file and bad pins are handled by name)")
+          "torn history line, an unparseable Desktop file and bad pins are handled by name; a pin naming a rollout is keyed by "
+          "that id as well, and one that resolved none is not)")
     return 0
 
 
