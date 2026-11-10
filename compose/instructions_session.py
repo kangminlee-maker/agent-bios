@@ -14,8 +14,11 @@ import json
 import os
 import pathlib
 import re
+import shutil
+import sqlite3
 import subprocess
 import sys
+import tempfile
 import time
 import uuid
 import unicodedata
@@ -625,26 +628,92 @@ def recorded_cwd(record):
 def resolve_codex_rollout(state_root, host_id, thread, env):
     """The rollout file the Codex CLI writes for this thread: `{'path', 'id', 'how'}`, or None.
 
-    **A seam, deliberately unrealized (F-22).** A Codex activation pins the app-server's thread id,
-    and no rollout on disk carries it — measured 2026-10-23 over 15 pins and 2,631 rollouts, 0 joins
-    — so a reader can associate no transcript with the pin, and Codex selection and delivery can
-    only be reported unknown. The candidates, in the order they are to be tried:
+    Without this, a pin named only by the app-server's thread id names no transcript a reader can find,
+    and a session's selection and delivery can only ever be reported unknown — measured over the
+    owner's state on 2026-10-23: 15 pins, 2,631 rollouts, 0 joins.
 
-    1. the host's own thread index, whose `threads` table maps `id` to `rollout_path` and which
-       session distill already reads as its `codex_state` source — the only candidate that also
-       joins the pins already written, and the only one that depends on no app-server field;
-    2. the `path` the thread itself returns, recorded beside this as `thread_path` and measured as
-       naming no rollout that still exists;
-    3. a later app-server field naming the rollout, which `wrappers/codex_protocol.py` would have to
-       declare and would then refuse by name and version on a host that does not carry it.
+    Order (lead, 2026-11-11, from the measurement under a temporary CODEX_HOME): `thread.path` first,
+    because with the installed host it IS the rollout and no file has to be read to say so; the host's
+    thread index second, for a host that gives no usable path; `rollout_unresolved` last, naming both
+    attempts. A time-window or cwd match is ruled out at every step: a wrong join attributes one
+    session's delivered bytes to another, which is worse than unknown, and nothing in the data tells a
+    right guess from a wrong one.
 
-    Which one is realized waits on one count over the owner's index. Until then this returns None,
-    every pin this version writes records both keys as null, and the method names
-    `rollout_unresolved`: a pin that TRIED and could not resolve one is not a pin written before
-    these fields existed, and the reader must not give the two one name. A time-window or cwd match
-    is ruled out: a wrong join attributes one session's delivered bytes to another, which is worse
-    than unknown, and nothing in the data tells a right guess from a wrong one.
+    `rollout_id` is taken from the file NAME, never by reading the rollout: an activation that read the
+    file would be reading the host's transcript to write its own pin. The census keeps its own rule
+    (the first record's `session_meta.id`, else the name), so a census id that differs from the pinned
+    one — a fork, a rename — is a named reason there rather than a silent miss here.
     """
+    tried = []
+    path = (thread or {}).get('path')
+    tried.append('thread.path')
+    resolved = rollout_identity(path)
+    if resolved:
+        return {'path': resolved[0], 'id': resolved[1], 'how': 'thread.path'}
+    tried.append('index')
+    resolved = rollout_identity(codex_index_rollout(env, host_id))
+    if resolved:
+        return {'path': resolved[0], 'id': resolved[1], 'how': 'index'}
+    print(f"agent-bios: no rollout resolved for this Codex thread ({', '.join(tried)}); "
+          f"its pin records no transcript.", file=sys.stderr)
+    return None
+
+
+# A rollout as the host names it on disk.  Declared here and not imported: the reader that owns this
+# shape (session distill's `runlib/sources.py`) is author-side and the payload may not depend on it.
+ROLLOUT_NAME = re.compile(r'^rollout-.*\.jsonl(\.zst)?$')
+ROLLOUT_UUID = re.compile(r'[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}')
+
+
+def rollout_identity(path):
+    """`(resolved path, id)` when `path` names a rollout file that exists, else None.
+
+    The comparison is by resolved path because a temporary or linked home answers through a symlink
+    (macOS `/var` is one), and an unresolved string compares unequal to the same file.
+    """
+    if not isinstance(path, str) or not path:
+        return None
+    try:
+        here = pathlib.Path(path).resolve()
+    except OSError:
+        return None
+    if not ROLLOUT_NAME.match(here.name) or not here.is_file():
+        return None
+    found = ROLLOUT_UUID.findall(here.name)
+    return (str(here), found[-1]) if found else None
+
+
+def codex_index_rollout(env, host_id):
+    """The `rollout_path` the host's own thread index holds for this thread id, or None.
+
+    The index is read from a COPY. A read-only sqlite open of a live WAL database still moves the
+    host's `-shm` file, and this module writes nothing outside its own activation records and pins, so
+    the database and its sidecars are copied into a temporary directory and the copy is opened. A copy
+    taken while the host writes can be a moment old; that costs this resolution a miss, never a wrong
+    join, and the miss is reported as `rollout_unresolved`.
+    """
+    home = native_home('codex', env or {})
+    for database in sorted(home.glob('state_*.sqlite'), reverse=True):
+        with tempfile.TemporaryDirectory(prefix='agent-bios-threads-') as scratch:
+            copy = pathlib.Path(scratch) / database.name
+            try:
+                for part in (database, *(database.with_name(database.name + suffix) for suffix in ('-wal', '-shm'))):
+                    if part.is_file() and not part.is_symlink():
+                        shutil.copy2(part, pathlib.Path(scratch) / part.name)
+                connection = sqlite3.connect(f'file:{copy}?mode=ro', uri=True, timeout=5)
+            except (OSError, sqlite3.Error):
+                continue
+            try:
+                if not connection.execute("select name from sqlite_master where type='table' "
+                                          "and name='threads'").fetchone():
+                    continue
+                row = connection.execute('select rollout_path from threads where id = ?', (host_id,)).fetchone()
+            except sqlite3.Error:
+                continue
+            finally:
+                connection.close()
+            if row and isinstance(row[0], str):
+                return row[0]
     return None
 
 

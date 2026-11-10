@@ -47,6 +47,49 @@ class PinTests(unittest.TestCase):
         self.assertEqual(pin['content_ref'], self.snapshot['content_ref'])
         self.assertEqual(json.loads(path.read_text())['state'], 'PINNED')
 
+    def test_the_rollout_is_resolved_from_the_thread_path_then_the_index_then_not_at_all(self):
+        # The three steps of the realization, each over a planted host home: F-22's resolution must
+        # never rest on a time window or a cwd, so each step either names a file the host itself named
+        # or hands over to the next.
+        home = self.root / 'codex-home'
+        sessions = home / 'sessions' / '2026' / '11' / '11'
+        sessions.mkdir(parents=True)
+        uuid_text = '01a1c690-591a-7eb3-a544-3fc15320efff'
+        rollout = sessions / f'rollout-2026-11-11T02-45-11-{uuid_text}.jsonl'
+        rollout.write_text(json.dumps({'type': 'session_meta', 'payload': {'id': 'thread-1'}}) + '\n',
+                           encoding='utf-8')
+        env = {'CODEX_HOME': str(home)}
+        found = session.resolve_codex_rollout(self.root, 'thread-1', {'path': str(rollout)}, env)
+        self.assertEqual(('thread.path', uuid_text), (found['how'], found['id']))
+        self.assertEqual(str(rollout.resolve()), found['path'])
+        # A path the host gives that is not a rollout hands over to the index, which names the rollout.
+        # Its name carries a uuid and is not a rollout: the shape decides, not the presence of an id.
+        not_a_rollout = home / 'threads' / f'thread-{uuid_text}.json'
+        not_a_rollout.parent.mkdir(parents=True)
+        not_a_rollout.write_text('{}', encoding='utf-8')
+        with closing(sqlite3.connect(home / 'state_5.sqlite')) as index:
+            index.execute('pragma journal_mode=wal')   # as the host keeps it: a direct read moves -shm
+            index.execute('create table threads(id text, rollout_path text)')
+            index.execute('insert into threads values (?, ?)', ('thread-1', str(rollout)))
+            index.commit()
+        by_index = session.resolve_codex_rollout(self.root, 'thread-1', {'path': str(not_a_rollout)}, env)
+        self.assertEqual(('index', uuid_text, str(rollout.resolve())),
+                         (by_index['how'], by_index['id'], by_index['path']))
+        # The index is read from a COPY, and the proof is that it still reads when the host's own
+        # directory is not writable: a direct read-only open of a WAL database has to create `-shm`
+        # and `-wal` beside it, which is both a write into a native home and a thing a read-only
+        # directory refuses.
+        home.chmod(0o500)
+        self.addCleanup(lambda: home.exists() and home.chmod(0o700))
+        unwritable = session.resolve_codex_rollout(self.root, 'thread-1', {'path': str(not_a_rollout)}, env)
+        self.assertEqual(('index', uuid_text), (unwritable['how'], unwritable['id']))
+        self.assertEqual(['state_5.sqlite'], [path.name for path in sorted(home.glob('state_5.sqlite*'))])
+        home.chmod(0o700)
+        # Neither step resolves an unknown thread, and the activation says which it tried.
+        with contextlib.redirect_stderr(io.StringIO()) as said:
+            self.assertIsNone(session.resolve_codex_rollout(self.root, 'thread-2', {'path': None}, env))
+        self.assertIn('thread.path, index', said.getvalue())
+
     def test_a_codex_pin_says_whether_it_resolved_a_rollout_without_needing_a_host(self):
         # The keys are written whatever the seam returns, because their ABSENCE is what tells a reader
         # that a pin predates this binding (F-22). Checked here too, since the real-host case above is
@@ -588,6 +631,15 @@ class RealCodexTests(unittest.TestCase):
                   f"thread_path_name={Path(thread_path).name if thread_path else None} "
                   f"rollout_meta_id_is_thread_id={meta_ids.count(host_id)}/{len(meta_ids)} "
                   f"index_rollout_is_the_rollout={sum(1 for row in indexed if str(Path(row).resolve()) in real)}")
+            # With the installed host the rollout IS resolved, and by its name alone: the pin's id is the
+            # uuid in the rollout's file name, and that is the id the rollout's own first record carries,
+            # which is what a reader joins on. A host that stopped giving a usable path would fall to the
+            # index and still resolve; one that gave neither would fail here, which is the point.
+            self.assertIn(pin['rollout_method'], ('thread.path', 'index'))
+            self.assertIsNotNone(pin['rollout_id'], pin['evidence'])
+            self.assertEqual([str(Path(pin['rollout_path']).resolve())], [str(p.resolve()) for p in rollouts])
+            self.assertIn(pin['rollout_id'], Path(pin['rollout_path']).name)
+            self.assertEqual([pin['rollout_id']], [i for i in meta_ids if i == pin['rollout_id']])
             print(f"F22-PROBE thread_path_set={thread_path is not None} "
                   f"thread_path_exists={bool(thread_path) and Path(thread_path).exists()} "
                   f"rollouts_under_home={len(rollouts)} rollout_named_by_thread_id={len(by_name)} "
