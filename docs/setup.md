@@ -11,9 +11,9 @@ Commands below use the installed `agent-bios` CLI. From a source checkout, run
 
 | Route | Requirements | Interface |
 | --- | --- | --- |
-| Codex app | A local task with command/file access on the intended machine, Bash, Python 3.11+ | Questions and effect review in the conversation; no extra Codex CLI or model login |
-| Terminal | macOS or Linux, Bash, Python 3.11+, an input/output terminal; Node.js 18+/npm for package installation | Included Textual wizard |
-| Automation | Bash, Python 3.11+, explicit machine commands | JSON inspection, review and results |
+| Codex app | A local task with command/file access on the intended machine, Bash, Python 3.12+ | Questions and effect review in the conversation; no extra Codex CLI or model login |
+| Terminal | macOS or Linux, Bash, Python 3.12+, an input/output terminal; Node.js 18+/npm for package installation | Included Textual wizard |
+| Automation | Bash, Python 3.12+, explicit machine commands | JSON inspection, review and results |
 
 Host CLIs and their authentication are needed when you choose to launch them.
 Node/npm are needed to obtain the npm package and for any selected capability that
@@ -153,7 +153,7 @@ agent-bios app desktop
 The command writes `agent-bios.mcpb` under the private state root and prints its path.
 Open that file with Claude Desktop and confirm the installation dialog; agent-bios never
 writes into Desktop's own folders or configuration. The extension runs Python at the
-absolute path the file names — the interpreter that ran the command, which must be 3.11
+absolute path the file names — the interpreter that ran the command, which must be 3.12
 or newer. Run the command again after changing that Python; an agent-bios update alone
 needs no new file, because the extension finds the current installation on every call.
 

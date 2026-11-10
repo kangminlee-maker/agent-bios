@@ -3,7 +3,7 @@
 This guide uses the same installation controller as the terminal wizard. The
 conversation collects choices and presents effects; `setup` validates and executes
 them. It needs local command and file access on the intended machine, Bash, and
-Python 3.11 or newer. Codex CLI, an additional model login, and Textual are not
+Python 3.12 or newer. Codex CLI, an additional model login, and Textual are not
 requirements for this route.
 
 ## Start without an installed skill

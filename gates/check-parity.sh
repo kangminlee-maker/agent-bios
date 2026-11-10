@@ -681,6 +681,21 @@ if [ -f gates/check-model-currency.py ]; then
     python3 gates/check-model-currency.py --self-test
 fi
 
+# The declared Python floor, judged by a real interpreter of that floor. Shipped
+# launch/agent-launch.py has needed 3.12 since 47ec804 while every document said 3.11+,
+# and ast.parse(feature_version=(3, 11)) accepts the PEP 701 f-strings that made the
+# difference, so no static analysis run from here would have caught it. BOTH halves
+# block: a declaration disagreeing with DEPENDENCIES.md is decidable text, and a missing
+# floor interpreter means the parse half judged nothing, which must not report clean.
+# Its stdout is deliberately kept — the per-set counts are how you see the leg had
+# subjects at all.
+if [ -f gates/check-python-floor.py ]; then
+  leg "FAIL: declared Python floor (run gates/check-python-floor.py)" \
+    python3 gates/check-python-floor.py
+  leg -q "FAIL: python-floor self-test (gates/check-python-floor.py --self-test)" \
+    python3 gates/check-python-floor.py --self-test
+fi
+
 # The cost meter users run as `agent-bios cost`. Its self-test plants transcripts of both hosts,
 # a renamed usage key among them, and had no leg: its controls ran only when someone ran them.
 leg -q "FAIL: session cost self-test (run python3 session-cost.py --self-test)" \
