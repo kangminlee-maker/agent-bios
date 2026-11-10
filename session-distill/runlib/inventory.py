@@ -7738,6 +7738,44 @@ def self_test():
           sink_during is capture and sink_of_section() is held_check and check is held_check,
           f"during={sink_during!r} after={sink_of_section()!r}")
 
+    def judged(name, call, shape=None, record=None):
+        """A production call whose refusal must not cut the block it stands in (D-20261102-f5cf48): it is one
+        check, "<name> completes", failed by name with the exception's type and first 300 characters when
+        `call` raises, and what the call would have returned reads as `Absent` — a tuple of `shape` of them
+        for a call whose answer is unpacked — so the controls after it still run and fail by name. It catches
+        Exception only, as `section` does; `judged_run` is this over a full `run`."""
+        returned = []
+        raised = _raised(lambda: returned.append(call()))
+        (record or check)(f"{name} completes", raised is None,
+                          f"{type(raised).__name__}: {str(raised)[:300]}" if raised else "")
+        if returned:
+            return returned[0]
+        return Absent() if shape is None else tuple(Absent() for _ in range(shape))
+
+    def refusing():
+        raise ValueError("planted refusal")
+
+    judged_records, judged_let_out = [], None
+    judged_sink = lambda name, ok, detail="": judged_records.append((name, ok, detail))  # noqa: E731
+    refused_one = refused_pair = answered = None
+    try:
+        refused_one = judged("a planted call", refusing, record=judged_sink)
+        refused_pair = judged("a planted pair", refusing, 2, record=judged_sink)
+        answered = judged("a planted answer", lambda: ("a", "b"), 2, record=judged_sink)
+    except Exception as exc:  # let out by `judged`: said by the controls below
+        judged_let_out = exc
+    check("a refused call is one failed check named by its call, with the exception's type and message, and "
+          "reads as Absent, or as that many Absents when its answer is unpacked",
+          judged_let_out is None
+          and judged_records[:2] == [("a planted call completes", False, "ValueError: planted refusal"),
+                                     ("a planted pair completes", False, "ValueError: planted refusal")]
+          and type(refused_one) is Absent and isinstance(refused_pair, tuple) and len(refused_pair) == 2
+          and all(type(one) is Absent for one in refused_pair),
+          f"{judged_records[:2]} / {refused_one!r} / {refused_pair!r} / {judged_let_out!r}")
+    check("a call that answers is one passing check and its own answer",
+          judged_let_out is None and judged_records[2:] == [("a planted answer completes", True, "")]
+          and answered == ("a", "b"), f"{judged_records[2:]} / {answered!r} / {judged_let_out!r}")
+
     # The scratch parent is CHOSEN AND JUDGED, not probed: this suite writes fixture state roots, a
     # copy of the checkout and run directories, and `tempfile`'s own resolution of `TMPDIR` would put
     # all of it inside a protected root when that is where `TMPDIR` points (R1#5).
@@ -8145,6 +8183,27 @@ def self_test():
             check("85f3e8: a member two levels under an eligible root arrives bound from the census and is read",
                   unit_rows[unit_deep]["status"] == "child_of" and isinstance(deep_read, dict) and deep_read["read"] == "bound",
                   f"{unit_rows[unit_deep]['status']} {deep_read!r}"[:200])
+            # D-20261110-7f976d (D-20261102-29cc92): S1 decides nothing_new only after reading every member of a root still
+            # eligible, so a member of a unit with nothing new in the window arrives bound as well: a Codex root and its child,
+            # every record of both before the window
+            quiet_home = census_module.Home(scratch / "quiet-home")
+            quiet_root, quiet_child = (f"019e00{n}-0000-7000-8000-000000000000" for n in (93, 94))
+            for quiet_id, quiet_meta in ((quiet_root, ("vscode", "Codex Desktop")), (quiet_child, (unit_spawn(quiet_root),))):
+                quiet_home.codex(quiet_id, census_module.fx_codex(quiet_id, *quiet_meta, month=9, day=20),
+                                 indexed=quiet_id == quiet_root, name_at="2026-09-20T10-00-00",
+                                 mtime=census_module.fx_when(20, 9))
+            quiet_home.finish()
+            quiet_census, _quiet_state = census_module.build(quiet_home.run(), coverage_module.new_state(), *unit_table, jobs=1)
+            quiet_run = scratch / "quiet-run"
+            quiet_run.mkdir()
+            (quiet_run / CENSUS).write_text(census_module.dump(quiet_census), encoding="utf-8")
+            quiet_rows = {row["id"]: row for row in census_entries(quiet_run)}
+            quiet_read = (_raised(lambda: transcript_records(quiet_rows[quiet_child]))
+                          or transcript_records(quiet_rows[quiet_child]))
+            check("29cc92: a member of a nothing_new unit arrives bound from the census and is read",
+                  quiet_rows[quiet_root]["status"] == "nothing_new" and quiet_rows[quiet_child]["status"] == "child_of"
+                  and isinstance(quiet_read, dict) and quiet_read["read"] == "bound",
+                  f"{quiet_rows[quiet_root]['status']} {quiet_rows[quiet_child]['status']} {quiet_read!r}"[:200])
             # D-20261103-a7128a: a thread in two files is two rows, each bound to its own file and read as its own transcript,
             # with its own reference and timeline; the first file is read though only it lies in the window
             split_home = census_module.Home(scratch / "split-home")
@@ -8791,9 +8850,10 @@ def self_test():
             # segments' context sets computed from the index and the store as `run` computes them (P2.6)
             ctx_rec = {"home": None, "commit": "fixture", "sessions": findings_rec["sessions"], "events": _events_rec,
                        "segments": findings_rec.get("segments") or []}
-            store_rec = store_document(ctx_rec)
-            index_rec = release_index(ctx_rec, [], store_rec)
-            sessions_doc = sessions_with_contexts(ctx_rec, [], index_rec, store_rec)
+            store_rec = judged("P2.1: the records run's store document", lambda: store_document(ctx_rec))
+            index_rec = judged("P2.1: the records run's release index", lambda: release_index(ctx_rec, [], store_rec))
+            sessions_doc = judged("P2.1: the records run's sessions document",
+                                  lambda: sessions_with_contexts(ctx_rec, [], index_rec, store_rec))
             clean("sessions.json validates against its own root in the schema", document_contract_problems(sessions_doc))
             clean("and its records agree with one another", sessions_cross_problems(sessions_doc))
             clean("and its context sets agree with its index and its store",
@@ -10831,13 +10891,9 @@ def self_test():
                         "run_dir": run_fixture, "home": fixture_home, **extra}
 
             def judged_run(name, *args, **kwargs):
-                """A full `run` judged where it is called: a refusal is a failure by name, and what the run would
-                have returned reads as `Absent`, so the controls after it fail by name too."""
-                returned = []
-                raised = _raised(lambda: returned.append(run(*args, **kwargs)))
-                check(f"{name} run completes", raised is None,
-                      f"{type(raised).__name__}: {str(raised)[:300]}" if raised else "")
-                return returned[0] if returned else Absent()
+                """A full `run` judged where it is called (`judged`): a refusal is a failure by name, and what the
+                run would have returned reads as `Absent`, so the controls after it fail by name too."""
+                return judged(f"{name} run", lambda: run(*args, **kwargs))
 
             def written_json(path):
                 """A document a run wrote, or `Absent` when that run wrote none."""
@@ -11457,9 +11513,10 @@ def self_test():
             # ---- GA#0 (security review): the fields beside `text`, and the boundary that does not
             # depend on remembering them
             heading_secret = f"## A heading naming apiKeyHelper {secret} and {private}\n"
-            headed = shed(units_of([guide("headed.md", heading_secret + "\n- a rule under it\n")]), home=str(fixture_home))
+            headed = judged("GA#0: the headed guide's shed", lambda: shed(
+                units_of([guide("headed.md", heading_secret + "\n- a rule under it\n")]), home=str(fixture_home)))
             check("a secret in a heading line is masked in every unit that carries the heading",
-                  all(secret not in unit["heading"] and private not in unit["heading"] for unit in headed)
+                  bool(headed) and all(secret not in unit["heading"] and private not in unit["heading"] for unit in headed)
                   and all(secret not in unit["text"] for unit in headed),
                   "a heading carried the planted credential into the artifact")
             absolute = {"ref": "@vendor/pkg:abs", "item_id": "abs", "kind": "guide", "package_id": "@vendor/pkg",
@@ -11467,7 +11524,8 @@ def self_test():
                         "primary_member": "guides/abs.md", "members": {},
                         "origin": {"source_path": f"{pathlib.Path.home()}/Documents/private-checkout/guides/abs.md"},
                         "body": "- a rule from a path on the owner's disk\n"}
-            absolute_units = shed(units_of(item_carriers(absolute, "adopted_packages")), home=str(pathlib.Path.home()))
+            absolute_units = judged("GA#0: the absolute-path package's shed", lambda: shed(
+                units_of(item_carriers(absolute, "adopted_packages")), home=str(pathlib.Path.home())))
             check("an absolute source path is masked in the unit's own path field",
                   all(str(pathlib.Path.home()) not in unit["path"] for unit in absolute_units)
                   and any("<HOME>" in unit["path"] for unit in absolute_units),
@@ -11737,10 +11795,11 @@ def self_test():
             # its release inventory. This run's `--pin` has no census session (D6 b), so a census session pinned to
             # the same snapshot is acquired through `freeze_inputs` and `shared_inventories`, as `run` does.
             pinned_release_ctx = context_of(REPO, state, user, {}, "claude:session-1", ledger)
-            freeze_inputs(scratch / "adopted-release-frozen", REPO, state, user, "claude:session-1", pinned_release_ctx,
-                          census_entries(run_planted))
-            pinned_releases = [document for _path, document in shared_inventories(pinned_release_ctx)
-                               if document["kind"] == "release"]
+            judged("GA#6-8: the pinned session's frozen inputs", lambda: freeze_inputs(
+                scratch / "adopted-release-frozen", REPO, state, user, "claude:session-1", pinned_release_ctx,
+                census_entries(run_planted)))
+            pinned_releases = judged("GA#6-8: the pinned session's release inventories", lambda: [
+                document for _path, document in shared_inventories(pinned_release_ctx) if document["kind"] == "release"])
             pinned_own = (pinned_release_ctx.get("session_pins") or {}).get(session_ref("claude", "session-1")) or {}
             control("a pinned session names an older baseline than the installed one, and its release inventory is the "
                     "one it names",
@@ -12057,7 +12116,7 @@ def self_test():
 
             matrix_pin = json.loads((state / "sessions" / "pins" / "claude" / "session-1.json").read_text(encoding="utf-8"))
             matrix_installed = json.loads((state / "runtime" / "state.json").read_text(encoding="utf-8"))["selected_baseline_ref"]
-            clean_statuses, _clean_record = statuses_over(state, user)
+            clean_statuses, _clean_record = judged("#16: the clean copy's statuses", lambda: statuses_over(state, user), 2)
             reads_state_now = {"current/adopted_packages", "current/overlays"}
             # A selection's native rows read no pin any more: they are `per_event` (lead ruling 5 on the P2.4 plan).
             reads_the_pin = {"release/catalog", "release/adopted_packages", "selection/catalog",
@@ -12353,9 +12412,10 @@ def self_test():
                            '## Keys\n\n- the helper reads api_key:\n\n  "Ab3Ab3Ab3Ab3Ab3Ab3"\n')
             pair_units = units_of([pair])
             value_unit = next(unit for unit in pair_units if "Ab3Ab3" in unit["text"])
-            emitted_pair = shed([value_unit], str(pathlib.Path.home()))[0]
+            emitted_pair = judged("GC#4: the value's shed with its key in the block before it",
+                                  lambda: shed([value_unit], str(pathlib.Path.home()))[0])
             control("a credential value emitted with its key in the block before it",
-                    [f"emitted={emitted_pair['text'].strip()}"], "REDACTED")
+                    [f"emitted={str(emitted_pair['text']).strip()}"], "REDACTED")
             check("the span projected without its carrier context is what kept the value",
                   "Ab3Ab3" in projected(value_unit["text"], str(pathlib.Path.home())),
                   "the floor masks the value on its own, so this control judges nothing")
@@ -12368,25 +12428,25 @@ def self_test():
                           '## Keys\n\napi_key: [\n  "alpha",\n\n  "bravo",\n\n  "shortpass"\n]\n')
             far_units = units_of([far])
             far_value = next(unit for unit in far_units if "shortpass" in unit["text"])
-            far_emitted = shed(far_units, str(pathlib.Path.home()))
+            far_emitted = judged("GC#4: the far key's shed", lambda: shed(far_units, str(pathlib.Path.home())))
             control("a credential whose key sits more than two nonblank lines above the value",
-                    [f"emitted={next(row['text'] for row in far_emitted if row['unit_id'] == far_value['unit_id']).strip()}"],
+                    [f"emitted={next((row['text'] for row in far_emitted if row['unit_id'] == far_value['unit_id']), '').strip()}"],
                     "REDACTED")
             check("that value really does survive the floor on its own, so the control judges something",
                   "shortpass" in projected(far_value["text"], str(pathlib.Path.home())),
                   "the floor masks the block on its own")
             check("and nothing the carrier holds reaches any emitted span",
-                  not any("shortpass" in row["text"] or "alpha" in row["text"] for row in far_emitted),
+                  bool(far_emitted) and not any("shortpass" in row["text"] or "alpha" in row["text"] for row in far_emitted),
                   f"{[row['text'] for row in far_emitted]}")
             # A credential whose VALUE spans lines, cut by the splitter in the middle of itself: the
             # fragment is part of one value, and a fragment of a credential is a credential.
             multi = carrier("catalog", "claude/guides/multi.md",
                             '## Keys\n\napi_key: "alpha\nbravo\n\nshortpass"\n')
-            multi_emitted = shed(units_of([multi]), str(pathlib.Path.home()))
+            multi_emitted = judged("GC#4: the multi-line value's shed", lambda: shed(units_of([multi]), str(pathlib.Path.home())))
             control("a multi-line credential fragment the splitter cut in two",
                     [f"emitted={[row['text'] for row in multi_emitted]}"], "REDACTED")
             check("no line of the multi-line value reaches an emitted span",
-                  not any("shortpass" in row["text"] or "bravo" in row["text"] for row in multi_emitted),
+                  bool(multi_emitted) and not any("shortpass" in row["text"] or "bravo" in row["text"] for row in multi_emitted),
                   f"{[row['text'] for row in multi_emitted]}")
             # The whole way out, for the fixture that reached publication: split, shed, and the REAL
             # writer, to a file this control then reads back. The floor WITHHOLDS this carrier — the
@@ -12399,7 +12459,7 @@ def self_test():
             # the mask for the carrier while a later block of it was published with `shortpass` in it.
             escaped = carrier("catalog", "claude/guides/escaped.md",
                               '## Keys\n\napi\\_key: "alpha\nbravo\n\nshortpass"\n')
-            escaped_emitted = shed(units_of([escaped]), str(pathlib.Path.home()))
+            escaped_emitted = judged("GC#4: the escaped key's shed", lambda: shed(units_of([escaped]), str(pathlib.Path.home())))
             check("the floor withholds this carrier whole, which is the decision extents cannot carry",
                   projection.carrier_decision(escaped["text"], str(pathlib.Path.home()))[1],
                   "the floor returns this carrier, so the fixture is not the escaped one")
@@ -12410,7 +12470,7 @@ def self_test():
             control("the escaped-key carrier through splitting, shedding and the real writer",
                     [f"published={escaped_text}"], projection.blank_for(escaped["text"]))
             check("and the published file carries no byte of a carrier the floor withheld",
-                  all(part not in escaped_text for part in ("shortpass", "bravo", "alpha", "api")),
+                  bool(escaped_emitted) and all(part not in escaped_text for part in ("shortpass", "bravo", "alpha", "api")),
                   f"{escaped_text}")
             check("every span of a withheld carrier is blanked, not only the one that cannot decode",
                   {row["text"] for row in escaped_emitted} == {projection.blank_for(escaped["text"])},
@@ -12421,7 +12481,8 @@ def self_test():
             # went through knew neither the withholding nor the key three lines above (R2#0).
             heading_value = carrier("catalog", "claude/guides/heading-value.md",
                                     'api\\_key: "alpha\n\n## shortpass\n"\n')
-            heading_emitted = shed(units_of([heading_value]), str(pathlib.Path.home()))
+            heading_emitted = judged("GC#4: the heading value's shed",
+                                     lambda: shed(units_of([heading_value]), str(pathlib.Path.home())))
             heading_out = scratch / "heading-value-out"
             write_document(heading_out, heading_out / "inventory" / "current.json",
                            {"units": heading_emitted}, str(pathlib.Path.home()))
@@ -12432,7 +12493,7 @@ def self_test():
                   projection.carrier_decision(heading_value["text"], str(pathlib.Path.home()))[1],
                   "the floor returns this carrier, so the fixture is not the reviewer's")
             check("and no field of any row — heading included — carries a byte of it",
-                  "shortpass" not in heading_published and "alpha" not in heading_published
+                  bool(heading_emitted) and "shortpass" not in heading_published and "alpha" not in heading_published
                   and all(row["heading"] in ("", projection.blank_for(heading_value["text"]))
                           for row in heading_emitted),
                   f"{[(row['text'], row['heading']) for row in heading_emitted]}")
@@ -12813,6 +12874,84 @@ def self_test():
             # judging a shape the inventory never emits — and it does not read a list of fields. It walks
             # every string in the row and holds that walk against the STRING FIELDS THE SCHEMA DECLARES,
             # so a field added later is covered by this control on the day it is added.
+            # The helpers first, so a later block that reads them (r5 F0, r4 R0, r3 S1) finds them bound even when
+            # this block ends early (D-20261102-f5cf48).
+            def strings_in(value, at="$"):
+                """Every string the emitted row carries, with where it sits. Not a list of fields: a
+                field added to a unit record is in this walk the moment it exists."""
+                if isinstance(value, str):
+                    return [(at, value)]
+                if isinstance(value, dict):
+                    return [row for key, item in value.items() for row in strings_in(item, f"{at}.{key}")]
+                if isinstance(value, (list, tuple)):
+                    return [row for n, item in enumerate(value) for row in strings_in(item, f"{at}[{n}]")]
+                return []
+
+            def emitted_strings(item):
+                rows = judged(f"the differential's shed of a {item['layer']} fixture",
+                              lambda: shed(units_of([item]), str(pathlib.Path.home())))
+                return [(f"{item['layer']}[{n}]{where}", text)
+                        for n, row in enumerate(rows) for where, text in strings_in(row)]
+
+            document_count = [0]
+
+            def document_strings(items, reference="current"):
+                """Every string in the document THE PRODUCTION PATH publishes for these carriers.
+
+                `emitted_document` is what `reference_of` publishes, and its docstring claimed the
+                differential drove it while nothing but `reference_of` did (r4 R4): a control that
+                reaches `units_of` + `shed` itself skips `operative_context`, the reference, layer and
+                produced-by rows, and the disclosure judgement `write_document` makes before an artifact
+                exists. This drives all of it, and then WRITES the document into this suite's scratch
+                the way `write_document` would publish it, so the strings judged are the published ones.
+
+                A refusal from `write_document` is returned as a string rather than raised: its message
+                is itself a published string, and a differential must be able to see a line that reached
+                an artifact's refusal as well as one that reached the artifact."""
+                layers, rows = dict.fromkeys(item["layer"] for item in items), []
+                for layer in layers:
+                    rows.append({"layer": layer, "producer": "this suite's fixture producer",
+                                 "status": "complete", "reasons": [],
+                                 "carriers": [item for item in items if item["layer"] == layer]})
+                ctx = {"home": str(pathlib.Path.home()), "state_root": None, "notes": {},
+                       "commit": None, "release_ref": None, "snapshot": {}}
+                document, _units = judged(f"the differential's {reference} document over {len(items)} fixtures",
+                                          lambda: emitted_document(reference, rows, ctx), 2)
+                out = scratch / "r4-published-documents"
+                out.mkdir(exist_ok=True)
+                document_count[0] += 1
+                name = out / "inventory" / f"document-{document_count[0]}.json"
+                try:
+                    write_document(out, name, document, ctx["home"])
+                    published = json.loads(name.read_text(encoding="utf-8"))
+                except Refused as exc:
+                    published = {"write_document_refused": str(exc)}
+                return ([(f"document{where}", text) for where, text in strings_in(document)]
+                        + [(f"published{where}", text) for where, text in strings_in(published)])
+
+            def withheld_lines(item, emit=None):
+                """`(lines the intact carrier does not keep, where any of them reached the row anyway)`.
+
+                The comparison is per nonblank line: the floor's answer for the WHOLE carrier is the
+                reference, and any line of the raw text it does not return is a line no string of that
+                carrier's rows may carry. A withheld carrier keeps nothing, so every line of it is in the
+                first list — which is the case the span path, and then the heading path, got wrong."""
+                intact = projection.project(item["text"], projection.CURRENT, str(pathlib.Path.home()))
+                removed = []
+                for line in item["text"].splitlines():
+                    bare = line.strip()
+                    if len(bare) >= 6 and bare not in intact:
+                        # The line, AND the line with its heading marks taken off, because that strip is
+                        # the one transformation the emission path applies to a span: `## shortpass`
+                        # leaves the carrier as the heading `shortpass`, and a whole-line comparison
+                        # looked straight past it.
+                        removed.append(bare)
+                        stripped = bare.lstrip("#").strip()
+                        if stripped != bare and len(stripped) >= 6:
+                            removed.append(stripped)
+                carried = (emit or emitted_strings)(item)
+                return removed, sorted({where for line in removed for where, text in carried if line in text})
+
             session_text = (snapshot_dir / "output.json").read_text(encoding="utf-8")
             fixtures = {"key in the previous block": pair, "key four lines above": far,
                         "multi-line value": multi, "escaped key, withheld whole": escaped,
@@ -12863,80 +13002,6 @@ def self_test():
                             planted_in["native_memory"]),
                         "the session's compiled text": carrier(
                             "session_injection", str(snapshot_dir / "output.json"), injected, form="markdown")}
-
-            def strings_in(value, at="$"):
-                """Every string the emitted row carries, with where it sits. Not a list of fields: a
-                field added to a unit record is in this walk the moment it exists."""
-                if isinstance(value, str):
-                    return [(at, value)]
-                if isinstance(value, dict):
-                    return [row for key, item in value.items() for row in strings_in(item, f"{at}.{key}")]
-                if isinstance(value, (list, tuple)):
-                    return [row for n, item in enumerate(value) for row in strings_in(item, f"{at}[{n}]")]
-                return []
-
-            def emitted_strings(item):
-                rows = shed(units_of([item]), str(pathlib.Path.home()))
-                return [(f"{item['layer']}[{n}]{where}", text)
-                        for n, row in enumerate(rows) for where, text in strings_in(row)]
-
-            document_count = [0]
-
-            def document_strings(items, reference="current"):
-                """Every string in the document THE PRODUCTION PATH publishes for these carriers.
-
-                `emitted_document` is what `reference_of` publishes, and its docstring claimed the
-                differential drove it while nothing but `reference_of` did (r4 R4): a control that
-                reaches `units_of` + `shed` itself skips `operative_context`, the reference, layer and
-                produced-by rows, and the disclosure judgement `write_document` makes before an artifact
-                exists. This drives all of it, and then WRITES the document into this suite's scratch
-                the way `write_document` would publish it, so the strings judged are the published ones.
-
-                A refusal from `write_document` is returned as a string rather than raised: its message
-                is itself a published string, and a differential must be able to see a line that reached
-                an artifact's refusal as well as one that reached the artifact."""
-                layers, rows = dict.fromkeys(item["layer"] for item in items), []
-                for layer in layers:
-                    rows.append({"layer": layer, "producer": "this suite's fixture producer",
-                                 "status": "complete", "reasons": [],
-                                 "carriers": [item for item in items if item["layer"] == layer]})
-                ctx = {"home": str(pathlib.Path.home()), "state_root": None, "notes": {},
-                       "commit": None, "release_ref": None, "snapshot": {}}
-                document, _units = emitted_document(reference, rows, ctx)
-                out = scratch / "r4-published-documents"
-                out.mkdir(exist_ok=True)
-                document_count[0] += 1
-                name = out / "inventory" / f"document-{document_count[0]}.json"
-                try:
-                    write_document(out, name, document, ctx["home"])
-                    published = json.loads(name.read_text(encoding="utf-8"))
-                except Refused as exc:
-                    published = {"write_document_refused": str(exc)}
-                return ([(f"document{where}", text) for where, text in strings_in(document)]
-                        + [(f"published{where}", text) for where, text in strings_in(published)])
-
-            def withheld_lines(item, emit=None):
-                """`(lines the intact carrier does not keep, where any of them reached the row anyway)`.
-
-                The comparison is per nonblank line: the floor's answer for the WHOLE carrier is the
-                reference, and any line of the raw text it does not return is a line no string of that
-                carrier's rows may carry. A withheld carrier keeps nothing, so every line of it is in the
-                first list — which is the case the span path, and then the heading path, got wrong."""
-                intact = projection.project(item["text"], projection.CURRENT, str(pathlib.Path.home()))
-                removed = []
-                for line in item["text"].splitlines():
-                    bare = line.strip()
-                    if len(bare) >= 6 and bare not in intact:
-                        # The line, AND the line with its heading marks taken off, because that strip is
-                        # the one transformation the emission path applies to a span: `## shortpass`
-                        # leaves the carrier as the heading `shortpass`, and a whole-line comparison
-                        # looked straight past it.
-                        removed.append(bare)
-                        stripped = bare.lstrip("#").strip()
-                        if stripped != bare and len(stripped) >= 6:
-                            removed.append(stripped)
-                carried = (emit or emitted_strings)(item)
-                return removed, sorted({where for line in removed for where, text in carried if line in text})
 
             differential = {name: withheld_lines(item) for name, item in fixtures.items()}
             # r4 R4(a): the same property over the PUBLISHED document, one fixture at a time and then
@@ -13312,7 +13377,8 @@ def self_test():
                 units = operative_context(produce([{"layer": item["layer"], "producer": "a fixture producer",
                                                     "status": "complete", "carriers": [item],
                                                     "reasons": []}]))
-                rows = shed(units, str(pathlib.Path.home()))
+                rows = judged(f"r3 S1: the context path's shed of a {item['layer']} fixture",
+                              lambda: shed(units, str(pathlib.Path.home())))
                 return [(f"{item['layer']}[{n}]{where}", text)
                         for n, row in enumerate(rows) for where, text in strings_in(row)] \
                     + [(f"{item['layer']}.unknown_entries[{n}]{where}", text)
@@ -13388,15 +13454,16 @@ def self_test():
                                                              "status": "complete", "carriers": [item],
                                                              "reasons": []}]))
                 json_out = scratch / "mention-shaped-out"
+                produced_emitted = judged(f"r3 S1: {name}'s shed", lambda: shed(produced_units, str(pathlib.Path.home())))
                 write_document(json_out, json_out / "inventory" / "current.json",
-                               {"units": shed(produced_units, str(pathlib.Path.home())),
-                                "unknown_entries": entries_of(produced_units)},
+                               {"units": produced_emitted, "unknown_entries": entries_of(produced_units)},
                                str(pathlib.Path.home()))
                 published = (json_out / "inventory" / "current.json").read_text(encoding="utf-8")
                 control(f"{name} through splitting, the context rule, shedding and the real writer",
                         [f"published={published}"], "REDACTED")
                 check("and no string of that published document carries the credential",
-                      "shortpass" not in published, "the published document carries the credential")
+                      bool(produced_emitted) and "shortpass" not in published,
+                      "the published document carries the credential")
             for name, item in mention_fixtures.items():
                 check(f"the floor withholds {name} whole, so every line of it is a withheld line",
                       projection.carrier_decision(item["text"], str(pathlib.Path.home()))[1],
@@ -15661,6 +15728,14 @@ def self_test():
             # ---- P2.6 (step 0 S-12, S-26; lead rulings on the P2.6 plan): one closure loop, typed `k-`
             # entries, the canonical order, a shared inventory's edges and the function that closes over them
             p26_home, p26_count = str(fixture_home), [0]
+            # Bound first, so the context-set block's A3 below, which patches and restores with them, finds them even
+            # when this block ends early (D-20261102-f5cf48): a restore that cannot name the originals leaves every
+            # way of reading a file raising for the rest of the suite.
+            p26_a3_kept = (builtins.open, io.open, os.open, pathlib.Path.read_text, pathlib.Path.read_bytes,
+                           pathlib.Path.open, os.listdir, os.scandir)
+
+            def p26_no_read(*_args, **_kwargs):
+                raise PermissionError("A3: a file read during published_closures")
 
             def p26_rows(items):
                 """One complete layer row per layer, in first-seen order, holding these carriers."""
@@ -15681,14 +15756,20 @@ def self_test():
                 publishes for these carriers."""
                 ctx_k = {"home": p26_home, "state_root": None, "notes": {}, "commit": None, "release_ref": None,
                          "snapshot": {}}
-                document, units = emitted_document(reference, p26_rows(items), ctx_k)
-                return (*p26_written(document), units)
+
+                def published():
+                    document, units = emitted_document(reference, p26_rows(items), ctx_k)
+                    return (*p26_written(document), units)
+                return judged(f"P2.6: the {reference} document over {len(items)} fixtures", published, 3)
 
             def p26_shared(items, kind="selection", ref="p26-fixture"):
                 """`(bytes, written document, runtime units)` of one shared inventory of these carriers."""
                 ctx_k = {"home": p26_home, "commit": None}
-                _path, document = shared_document(kind, ref, p26_rows(items), ctx_k)
-                return (*p26_written(document), ctx_k["shared_units"][inventory_id(kind, ref)])
+
+                def published():
+                    _path, document = shared_document(kind, ref, p26_rows(items), ctx_k)
+                    return (*p26_written(document), ctx_k["shared_units"][inventory_id(kind, ref)])
+                return judged(f"P2.6: the {kind} inventory {ref} over {len(items)} fixtures", published, 3)
 
             def p26_names(units):
                 """A readable name per unit id and per `r-` reference: `<basename>[@package]:<n>`."""
@@ -16011,12 +16092,6 @@ def self_test():
             # lead A3: `published_closures` reads no file ([F:305]). The documents are loaded first; every way of
             # reading a file is then made to raise for the duration of the call, and the call still answers the same.
             p26_a3_expected = published_closures(p26_k8)
-            p26_a3_kept = (builtins.open, io.open, os.open, pathlib.Path.read_text, pathlib.Path.read_bytes,
-                           pathlib.Path.open, os.listdir, os.scandir)
-
-            def p26_no_read(*_args, **_kwargs):
-                raise PermissionError("A3: a file read during published_closures")
-
             p26_a3_bites = None
             try:
                 builtins.open = io.open = os.open = os.listdir = os.scandir = p26_no_read
@@ -16369,7 +16444,8 @@ def self_test():
             # making every universe answer one id; two universes with different contents then meet under it.
             p26b_a1_blocks = [("g-" + "1" * 24, [p26b_v1], [(p26b_k10_inventory[0]["inventory_id"], "catalog")]),
                               ("g-" + "2" * 24, [p26b_v2], [(p26b_k10_inventory[0]["inventory_id"], "catalog")])]
-            p26b_a1_clean = p26b_sets(p26b_a1_blocks, [p26b_k10_inventory], [p26b_v1, p26b_v2])[0]
+            p26b_a1_clean = judged("P2.6: A1's clean context sets",
+                                   lambda: p26b_sets(p26b_a1_blocks, [p26b_k10_inventory], [p26b_v1, p26b_v2])[0])
             check("A1: the unplanted universes give two context sets and two override sets",
                   (len(p26b_a1_clean["context_sets"]), len(p26b_a1_clean["override_sets"])) == (2, 2),
                   f"{len(p26b_a1_clean['context_sets'])} {len(p26b_a1_clean['override_sets'])}")
