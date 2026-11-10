@@ -124,10 +124,17 @@ commit 5b, `run`): a unit writes only its own read record and its views' stores,
 record is folded in unit order, and the decision log they share is written under its lock and left in unit order, so
 the stage's bytes do not depend on how many units were read at once.
 
+A dry S3 (`run(dry=True)`, WP-08d) is admitted as the stage is and stops before any call, with no supervisor: every
+view is checked as the reading checks it (WINDOWLESS_VIEW, WINDOW_CAP_MISMATCH, VIEW_DRIFT), and every window's packet
+is built as the dispatcher builds it, measured and held to the bound the window was cut against (WINDOW_OVER_BOUND, as
+the dispatcher refuses it). It writes only `read-dry.json`, the measure, and leaves S3's record `partial`, so the run
+holds no result a later stage could read and the live S3 runs over it unchanged. Expansions and stitches follow from
+answers and are not measured.
+
 Refused by name: UNKNOWN_LABEL, OVERLAP_OWNER_MISSING, OVERLAP_INTERVAL_UNSHOWN, WINDOWLESS_VIEW, VIEW_DRIFT, CLAIM_IMMUTABLE,
 EVENT_IMMUTABLE, WINDOW_CAP_MISMATCH, STITCH_OVER_BOUND, LEDGER_UNREADABLE, LEDGER_BASE_STALE, LEDGER_INVALID,
-EXPECTED_EXPIRY_UNREADABLE, INSTANCE_IMMUTABLE, RESOLUTION_DRIFT, READ_JOBS_EXCEEDED, and CLAIM_INVALID, EVENT_INVALID and
-OBSERVATION_INVALID for a stored record its schema refuses.
+EXPECTED_EXPIRY_UNREADABLE, INSTANCE_IMMUTABLE, RESOLUTION_DRIFT, READ_JOBS_EXCEEDED, READ_UNSUPERVISED, WINDOW_OVER_BOUND
+(dry), and CLAIM_INVALID, EVENT_INVALID and OBSERVATION_INVALID for a stored record its schema refuses.
 
   stage_read.py --self-test
 """
@@ -909,6 +916,53 @@ class Reader:
         row.update(call_id=call_id, **part)
         return row, (answer, call_id, held)
 
+    def window_docs(self, t):
+        """`{window_n: window document}` of one file's view, each window the one views.json recorded (VIEW_DRIFT) and
+        cut for the output cap this run's S3 calls declare (WINDOW_CAP_MISMATCH); empty for a view with no window, which
+        holds no viewed block (WINDOWLESS_VIEW otherwise). The reading and the dry run check a view by this one reading."""
+        if not t["windows"]:
+            if t["viewed_items"]:
+                raise Refused(f"WINDOWLESS_VIEW {t['transcript']}: {t['viewed_items']} viewed blocks and no window")
+            return {}
+        # a window was cut leaving room for the cap S3 declares; a call declaring another cap is a window cut for
+        # another call (X review of WP-08 r1)
+        reservation = views.sequence_doc(self.run_dir, t["name"])["limits"]["reservation"]
+        if reservation != self.cap:
+            raise Refused(f"WINDOW_CAP_MISMATCH {t['transcript']}: its windows were cut for an output cap of "
+                          f"{reservation} and this run's S3 calls declare {self.cap}")
+        docs = {}
+        for listed in t["windows"]:
+            path = self.run_dir / listed["path"]
+            if records.sha256_file(path) != listed["sha256"]:
+                raise Refused(f"VIEW_DRIFT {listed['path']}: the window is not the one views.json recorded")
+            doc = views.window_doc(self.run_dir, t["name"], path)
+            docs[doc["window_n"]] = doc
+        return docs
+
+    def dry_file(self, t, run_id, limits):
+        """What reading one file's view would send, measured and not sent: each window's packet built under its first
+        attempt's call id as the dispatcher builds it, its driver bytes held to `limits`, the bound the window was cut
+        against (WINDOW_OVER_BOUND, as the dispatcher refuses it). An expansion and the stitch follow from answers, so a
+        dry run does not measure them."""
+        name, schema_bytes = t["name"], packet.schema_bytes(self.schema)
+        docs = self.window_docs(t)
+        hits = views.forced_by_search(self.run_dir, name, self.terms) if docs and self.terms else {}
+        windows = []
+        for n, doc in sorted(docs.items()):
+            rows = searched(own_rows(doc), hits)
+            item = f"{name}-w{n}"
+            built = packet.build(f"{run_id}-{STAGE}-{item}-a1", STAGE, self.seat, payload(Labels(doc, rows, self.due)),
+                                 schema_bytes)
+            size, problems = bound.driver_bytes(built, schema_bytes)
+            problems += bound.check_bound(size, limits)
+            if problems:
+                raise Refused(f"WINDOW_OVER_BOUND {run_id}-{STAGE}-{item}: " + "; ".join(problems)
+                              + "; the window is split before dispatch")
+            windows.append({"item": item, "driver_bytes": size, "omissions": len(rows),
+                            "forced": sum(1 for m in rows if m["forced_by"] != "none")})
+        return {"transcript": t["transcript"], "name": name, "windows": windows, "search_matched": len(hits),
+                "windowless": not docs}
+
     def file(self, t):
         """One file's view: every window, its decisions executed, its expansions read, its overlap rows accounted.
         Returns its read record and what the unit's stitch reads of it (`held`)."""
@@ -916,27 +970,14 @@ class Reader:
         result = {"transcript": t["transcript"], "name": name, "windows": [], "expansions": [], "windowless": None}
         held = {"claims": [], "events": [], "observations": []}
         result["searched"] = {"terms": len(self.terms), "matched": 0, "forced": []}
-        if not t["windows"]:
-            if t["viewed_items"]:
-                raise Refused(f"WINDOWLESS_VIEW {t['transcript']}: {t['viewed_items']} viewed blocks and no window")
+        docs = self.window_docs(t)
+        if not docs:
             result["windowless"] = ("it owes the window nothing and is viewed for the events earlier runs left pending on it"
                                     if t.get("carried_only") else "the records it owes hold no content block")
             result.update(view_complete=True, source_complete=not t["unresolved_versions"], skipped=[],
                           overlap={"rows": 0, "credited": 0, "not_owed": 0, "uncredited": []}, pending=0, seen=[])
             return result, held
-        docs, accepted, decisions, expanded, seen, expansion_docs = {}, set(), [], set(), set(), []
-        # a window was cut leaving room for the cap S3 declares; a call declaring another cap is a window cut for
-        # another call (X review of WP-08 r1)
-        reservation = views.sequence_doc(self.run_dir, name)["limits"]["reservation"]
-        if reservation != self.cap:
-            raise Refused(f"WINDOW_CAP_MISMATCH {t['transcript']}: its windows were cut for an output cap of "
-                          f"{reservation} and this run's S3 calls declare {self.cap}")
-        for listed in t["windows"]:
-            path = self.run_dir / listed["path"]
-            if records.sha256_file(path) != listed["sha256"]:
-                raise Refused(f"VIEW_DRIFT {listed['path']}: the window is not the one views.json recorded")
-            doc = views.window_doc(self.run_dir, name, path)
-            docs[doc["window_n"]] = doc
+        accepted, decisions, expanded, seen, expansion_docs = set(), [], set(), set(), []
         # the full-source search with the due observations' retrieval terms forces what it matches (design §5.4)
         # (a match clipped only in another window's overlap forces nothing: that record's own window decides it)
         hits = views.forced_by_search(self.run_dir, name, self.terms) if self.terms else {}
@@ -1273,7 +1314,36 @@ def hand_back(rows, viewed, results, done):
 S3_JOBS = 12  # the units S3 reads at once in a broad tranche (plan WP-08 Q6); a calibration tranche reads one at a time
 
 
-def run(run_dir, supervisor, tranche="broad", stitch_bound=None, jobs=S3_JOBS):
+DRY_RECORD = "read-dry.json"
+
+
+def dry_run(stage, reader, run_dir):
+    """The dry S3 inside the admitted stage: every unit's views checked and their windows' packets measured
+    (`Reader.dry_file`), written to `read-dry.json`, S3's record left `partial`. Nothing else is written: no read record,
+    no store, no `read-results.json`, so a later stage refuses the run (INPUT_PARTIAL S3) and the live S3 reads it as if
+    the dry had not run."""
+    manifest = records.read_json(run_dir / "views.json")
+    run_id, limits = run_dir.resolve().name, views.limits_of(reader.declaration)
+    units = collections.defaultdict(list)
+    for t in manifest["transcripts"]:
+        units[t["unit"]].append(t)
+    measured = {unit: [reader.dry_file(t, run_id, limits)
+                       for t in sorted(units[unit], key=lambda t: (t["kind"] != "session", t["name"]))]
+                for unit in sorted(units)}
+    sizes = [w["driver_bytes"] for files in measured.values() for f in files for w in f["windows"]]
+    summary = {"stage": STAGE, "dry": True, "window": reader.declaration["window"],
+               "declaration_seq": reader.declaration["declaration_seq"], "seat": reader.seat, "output_cap": reader.cap,
+               "due": len(reader.due), "units": measured,
+               "bound": {**limits, "driver_budget": bound.driver_budget(limits)},
+               "calls": {"windows": len(sizes), "driver_bytes": sum(sizes), "largest": max(sizes, default=0)},
+               "not_measured": "expansions and stitches: what they send follows from the answers"}
+    records.write_json(run_dir, run_dir / DRY_RECORD, summary)
+    stage.output(DRY_RECORD)
+    stage.record["status"] = "partial"
+    return summary
+
+
+def run(run_dir, supervisor=None, tranche="broad", stitch_bound=None, jobs=S3_JOBS, *, dry=False):
     """S3 over the views S2 left: one read record per unit, `read-results.json`, `read.json`. `stitch_bound` narrows the
     driver bytes a stitch packet may take, never widens them: the self-test's way to make a small unit need shards.
 
@@ -1281,8 +1351,13 @@ def run(run_dir, supervisor, tranche="broad", stitch_bound=None, jobs=S3_JOBS):
     tranche, whose calls the dispatcher admits only at concurrency one (CALIBRATION_SERIAL). A unit writes only files
     of its own; what the units add to one record is gathered per unit and folded in unit order, and the decision log
     they all append to is written under its lock and put in unit order at the end, so the stage leaves the same bytes
-    however many units were read at once (WP-08 commit 5b)."""
+    however many units were read at once (WP-08 commit 5b).
+
+    `dry` stops before any call, with no supervisor (`dry_run`): `read-dry.json` and a `partial` record. A reading
+    without a supervisor is READ_UNSUPERVISED."""
     run_dir = pathlib.Path(run_dir)
+    if not dry and supervisor is None:
+        raise Refused("READ_UNSUPERVISED S3: a reading call goes through a supervisor; without one, run it dry")
     if isinstance(jobs, bool) or not isinstance(jobs, int) or not 1 <= jobs <= S3_JOBS:
         raise Refused(f"READ_JOBS_EXCEEDED {jobs!r}: S3 reads one to {S3_JOBS} units at a time")
     # a calibration tranche runs at concurrency one (S-15, dispatch CALIBRATION_SERIAL), so its units go one at a time
@@ -1292,6 +1367,8 @@ def run(run_dir, supervisor, tranche="broad", stitch_bound=None, jobs=S3_JOBS):
                                             {"artifact": "coverage.json", "producer_stage": "S1"}]) as stage:
         due = due_observations(pinned_ledger(stage.declaration), run_dir.resolve().name, stage.declaration["window"])
         reader = Reader(run_dir, supervisor, stage.declaration, tranche, due)
+        if dry:
+            return dry_run(stage, reader, run_dir)
         # S3's lock is held, so a reservation of S3 still open is a dead run's: closed, its runner stopped if alive
         interrupted = supervisor.interrupted(STAGE)
         manifest = records.read_json(run_dir / "views.json")
@@ -4144,6 +4221,62 @@ def self_test():
                 and second_twice.get("interrupted") == [],
                 f"kinds={sorted(kinds)} differ={differing(stores(twice_dir), first_stores)} calls={len(first_calls)}->"
                 f"{len(calls_of(twice_dir))} reused={first_twice.get('reused')}/{second_twice.get('reused')}")
+
+        # ---- WP-08d: a dry S3 measures what the reading would send and leaves the run for the live S3, on one golden run
+        def s3_record(directory):
+            return guarded(lambda: records.read_json(records.record_path(directory, STAGE)), {})
+
+        dry_dir, dry_sup, _ = fx_reader(root / "dry-then-live", "k", answers_r, expanding=lambda m: True,
+                                        ledger_doc=fx_ledger("k"))
+        unsupervised = refusal(lambda: run(dry_dir, None))
+        control("WP-08d: S3 without a supervisor is refused before the stage is admitted (READ_UNSUPERVISED)",
+                unsupervised.startswith("READ_UNSUPERVISED S3") and not s3_record(dry_dir), unsupervised[:300])
+        dried = guarded(lambda: run(dry_dir, dry=True), {})
+        dry_record = s3_record(dry_dir)
+        listed = [w for t in records.read_json(dry_dir / "views.json")["transcripts"] for w in t["windows"]]
+        measured = [w for files in dried.get("units", {}).values() for f in files for w in f["windows"]]
+        control("WP-08d: a dry S3 makes no call and leaves S3's record partial with only read-dry.json: no read record, "
+                "store, read-results.json or read.json",
+                dry_record.get("status") == "partial"
+                and [o["artifact"] for o in dry_record.get("outputs", [])] == [DRY_RECORD]
+                and not calls_of(dry_dir) and not (dry_dir / "read-results.json").exists()
+                and not (dry_dir / "read.json").exists() and not list(dry_dir.glob("read/*.json"))
+                and not stores(dry_dir),
+                f"status={dry_record.get('status')} outputs={dry_record.get('outputs')} calls={len(calls_of(dry_dir))} "
+                f"stores={sorted(stores(dry_dir))[:4]} problem={dried.get('problem')}")
+        control("WP-08d: a dry S3 measures every window views.json lists, each within the bound it was cut against",
+                len(listed) > 0 and len(measured) == len(listed) == dried.get("calls", {}).get("windows")
+                and all(0 < w["driver_bytes"] <= dried["bound"]["driver_budget"] for w in measured),
+                f"listed={len(listed)} measured={len(measured)} calls={dried.get('calls')}")
+        control("WP-08d: a stage reading S3's output refuses the dry run's partial record (INPUT_PARTIAL S3)",
+                refusal(lambda: records.run_stage(dry_dir, "S4", [{"artifact": "read-results.json", "producer_stage": "S3"}])
+                        .__enter__()).startswith("INPUT_PARTIAL S3"), "admitted")
+        lived = guarded(lambda: run(dry_dir, dry_sup), {})
+        sent = {d.name: guarded(lambda: records.read_json(d / "call.json")["bound"]["driver_bytes"], None)
+                for d in (dry_dir / "calls").iterdir()} if (dry_dir / "calls").is_dir() else {}
+        control("WP-08d: the live S3 after a dry one runs and leaves every store byte for byte as a run with no dry "
+                "before it, reusing nothing",
+                s3_record(dry_dir).get("status") == "complete" and stores(dry_dir) == first_stores
+                and lived.get("reused") == 0 and bool(lived.get("statuses", {}).get("read_complete")),
+                f"status={s3_record(dry_dir).get('status')} differ={differing(stores(dry_dir), first_stores)[:6]} "
+                f"reused={lived.get('reused')} statuses={lived.get('statuses')}")
+        control("WP-08d: the dry S3 measured each window's packet as the dispatcher measured its first attempt",
+                bool(measured) and all(sent.get(f"k-{STAGE}-{w['item']}-a1") == w["driver_bytes"] for w in measured),
+                f"{[(w['item'], w['driver_bytes'], sent.get(f'k-{STAGE}-' + w['item'] + '-a1')) for w in measured][:4]}")
+        over_dir, _sup, _ = fx_reader(root / "dry-over", "k", answers_r, ledger_doc=fx_ledger("k"))
+        over_reader = Reader(over_dir, None, records.read_json(records.run_json_path(over_dir)))
+        over_view = next(t for t in records.read_json(over_dir / "views.json")["transcripts"] if t["windows"])
+        narrow = {**views.limits_of(over_reader.declaration), "capacity": 1000, "reservation": 1, "allowance": 1}
+        over = refusal(lambda: over_reader.dry_file(over_view, "k", narrow))
+        control("WP-08d: a dry S3 holds each window's packet to its bound and refuses one over it (WINDOW_OVER_BOUND)",
+                over.startswith(f"WINDOW_OVER_BOUND k-{STAGE}-{over_view['name']}-w") and "(d)" in over, over[:300])
+        listed_o = over_view["windows"][0]
+        drifted = over_dir / listed_o["path"]
+        drifted.write_bytes(drifted.read_bytes() + b"\n")
+        drift = refusal(lambda: run(over_dir, dry=True))
+        control("WP-08d: a dry S3 checks the views as the reading does: a window views.json did not record is VIEW_DRIFT",
+                drift.startswith(f"VIEW_DRIFT {listed_o['path']}") and s3_record(over_dir).get("status") == "failed",
+                drift[:300])
 
         def first_window(directory):
             """`(name, where, window document, accepted call directory)` of the first accepted window S3 kept."""
