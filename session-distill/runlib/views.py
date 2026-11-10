@@ -1867,7 +1867,7 @@ def golden(root, name="g", overhead=bound.PACKET_OVERHEAD, capacity=None, reserv
         # dispatcher admits a view-window call against; S2's own controls keep the small one that bites
         declaration["host_allowance"] = {seat: allowance_entry}
     checkout = root / f"{name}-checkout"
-    ledger_path = checkout / ledger.LEDGER_REL
+    ledger_path = checkout / ledger.STATE_LEDGER_REL
     ledger_path.parent.mkdir(parents=True, exist_ok=True)
     ledger_path.write_text(ledger.render(ledger_doc if ledger_doc is not None else ledger.sample_ledger()), encoding="utf-8")
     declaration["destinations"] = {**declaration["destinations"], "checkout": str(checkout.resolve())}

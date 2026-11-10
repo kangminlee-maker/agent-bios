@@ -28,6 +28,14 @@
    "path_built": "literal"
   },
   {
+   "path": "gates/check-ledger.py",
+   "reads": [
+    "the whole ledger"
+   ],
+   "via": "direct, through runlib/ledger.py's check_command; it is where the checkout's path lives",
+   "path_built": "literal"
+  },
+  {
    "path": "learn/build-promotions.py",
    "reads": [
     "status",
@@ -57,6 +65,14 @@
    "witness": "\\bargs\\.ledger\\b"
   },
   {
+   "path": "session-distill/distill.py",
+   "reads": [
+    "the whole ledger"
+   ],
+   "via": "direct, through runlib/ledger.py's ledger_path: `--ledger` when given, else the state root's own",
+   "path_built": "literal"
+  },
+  {
    "path": "session-distill/merge-ledger.py",
    "reads": [
     "id",
@@ -81,8 +97,8 @@
    "reads": [
     "the whole ledger"
    ],
-   "via": "direct",
-   "path_built": "imported"
+   "via": "direct; author-side, and it names the checkout's ledger itself since shipped code may not",
+   "path_built": "literal"
   },
   {
    "path": "session-distill/runlib/inventory.py",
@@ -102,8 +118,9 @@
    "reads": [
     "the whole ledger"
    ],
-   "via": "direct",
-   "path_built": "literal"
+   "via": "direct, over the path its caller names (`ledger_path`/`--ledger`); the module itself builds none",
+   "path_built": "argument",
+   "witness": "ledger_path|STATE_LEDGER_REL"
   },
   {
    "path": "session-distill/runlib/ledger_compat.py",
@@ -121,6 +138,10 @@
   }
  ],
  "mentions_only": [
+  {
+   "path": "gates/check-parity.sh",
+   "reason": "the umbrella passes the checkout's ledger to the two suites that need it (`gates/check-ledger.py`, `lifecycle_intake.py --checkout-ledger`); it reads no field of the ledger itself, and the path lives here because shipped code may not name it (WP-24)"
+  },
   {
    "path": "launch/agent-launch.toml",
    "reason": "the Session distill preset's mission names the file in prose; no code of the launcher reads it"

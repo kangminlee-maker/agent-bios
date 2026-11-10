@@ -80,6 +80,7 @@ STARTUP_WITHHELD = entry.WITHHELD
 
 try:
     from runlib import census, coverage, declare, inventory, projection, records, sources, stage_form, stagelock, views
+    from runlib import ledger as ledger_lib
     from runlib.records import Refused
 except BaseException as _startup_exc:   # SystemExit included: `validate` exits at import time
     # The imports used to stand OUTSIDE every boundary this command has: `runlib.validate` exits
@@ -261,8 +262,11 @@ def cmd_inventory(args):
         standalone = inventory.standalone_problems(out_dir, HOME)
         if standalone:
             raise Refused("; ".join(standalone))
-    ledger_path = pathlib.Path(args.ledger or (repo / inventory.LEDGER_REL))
-    ledger = records.read_json(ledger_path) if ledger_path.is_file() else None
+    # The ledger: what `--ledger` names, else the state root's own (`<state>/distill/ledger.json`).
+    # The checkout's ledger under `design/` is not a default any more — a packaged user has no such
+    # directory, and the runbook passes the path when a run is meant to read the owner's (WP-24).
+    ledger_path = ledger_lib.ledger_path(state_root, args.ledger)
+    ledger = records.read_json(ledger_path) if ledger_path and ledger_path.is_file() else None
     head = subprocess.run(["git", "-C", str(repo), "rev-parse", "--short", "HEAD"],
                           capture_output=True, text=True)
     # The transcripts come from the run's own census (S1), through its readers and bound to its
@@ -272,7 +276,8 @@ def cmd_inventory(args):
     def produce(zstd=None):
         return inventory.run(repo, state_root, user_root, out_dir, pin=args.pin, native_roots=native,
                              ledger=ledger, commit=(head.stdout.strip() or None), run_dir=run_dir,
-                             zstd=zstd, declared_state=str(declared_state), declared_user=str(declared_user))
+                             zstd=zstd, declared_state=str(declared_state), declared_user=str(declared_user),
+                             ledger_ref=(str(args.ledger) if args.ledger else None))
 
     if args.run_id:
         # S2 holds two producers; this is the inventory part, and views owns the other

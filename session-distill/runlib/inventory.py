@@ -119,7 +119,10 @@ REPO = HERE.parent
 # from. Nothing executable reads it — the contract lives in `SCHEMA_REL`, which is a file the code
 # owns and does not expire (the 1548 amendment §10).
 DESIGN = "design/session-distill/2026-10-20T1942--9684f05--mechanism-design.md"
-LEDGER_REL = "design/session-distill/ledger.json"
+# The label a ledger carrier wears, which is WHERE the ledger was read from. The default is the
+# installed location under the state root; a checkout run passes its own through `ledger_ref`, so the
+# owner's documents keep naming the file they were actually read from (WP-24).
+STATE_LEDGER_REL = "distill/ledger.json"
 REFERENCES = ("current", "release", "selection")
 # The reference points that publish units. `release.json` is the segment index (step 0 S-17), whose rows
 # point into the shared inventories and the store and copy no unit.
@@ -5047,7 +5050,7 @@ def transcript_events(run_dir, pins=None, zstd=None, entries=None):
 KEEP_ACTIVE = ("placed",)  # the ledger's own lifecycle states in which a keep record still stands
 
 
-def ledger_carriers(ledger, layer, notes=None):
+def ledger_carriers(ledger, layer, notes=None, ledger_ref=None):
     """The ledger layer (§6.1): the incubating principles, and the `keep` records still standing.
     Schema 1 and schema 2 both carry a status and the text; a schema this does not read is the
     layer's own `incomplete` reason, never a silent empty.
@@ -5066,7 +5069,7 @@ def ledger_carriers(ledger, layer, notes=None):
         text = entry.get("principle") or entry.get("lesson") or ""
         status = str(entry.get("status", ""))
         if layer == "ledger_incubating" and status.startswith("incubating") and text:
-            rows.append(carrier(layer, f"{LEDGER_REL}#{entry['id']}", text, entry["id"],
+            rows.append(carrier(layer, f"{ledger_ref or STATE_LEDGER_REL}#{entry['id']}", text, entry["id"],
                                 provenance={"status": status}))
         if layer == "ledger_keep" and entry.get("keep"):
             keep = entry["keep"] if isinstance(entry["keep"], dict) else {}
@@ -5081,7 +5084,7 @@ def ledger_carriers(ledger, layer, notes=None):
                 held_back.append({"id": entry.get("id"), "status": status, "reason": reason,
                                   "keep_units": keep.get("units", [])})
                 continue
-            rows.append(carrier(layer, f"{LEDGER_REL}#{entry['id']}", text, entry["id"],
+            rows.append(carrier(layer, f"{ledger_ref or STATE_LEDGER_REL}#{entry['id']}", text, entry["id"],
                                 provenance={"status": status, "keep_units": list(keep.get("units", [])),
                                             "keep_reason": entry.get("reason")}))
     if notes is not None and layer == "ledger_keep":
@@ -5393,9 +5396,12 @@ def produce(rows):
 
 # ---------------------------------------------------------------- the reference points
 
-def context_of(repo, state_root, user_root, native_roots, pin, ledger):
+def context_of(repo, state_root, user_root, native_roots, pin, ledger, ledger_ref=None):
     return {"repo": repo, "state_root": state_root, "user_root": user_root, "native_roots": native_roots,
             "frozen_native": {}, "pin": pin, "ledger": ledger, "notes": {},
+            # Where the ledger was READ from, which is the label its carriers wear. None leaves the
+            # installed default; a checkout run passes the path it opened (WP-24).
+            "ledger_ref": ledger_ref,
             # The home every artifact is masked against, declared once rather than per call site.
             "home": str(pathlib.Path.home())}
 
@@ -5548,7 +5554,7 @@ def _ledger(layer):
     def produce_ledger(ctx):
         if ctx["ledger"] is None:
             return None  # no ledger was handed in: this layer has no record here
-        return ledger_carriers(ctx["ledger"], layer, ctx["notes"])
+        return ledger_carriers(ctx["ledger"], layer, ctx["notes"], ctx.get("ledger_ref"))
     return produce_ledger
 
 
@@ -6817,7 +6823,8 @@ SHARED_INVENTORY_TABLE = table_of({
 
 
 def run(repo, state_root, user_root, out_dir, pin=None, native_roots=None, ledger=None, commit=None,
-        run_dir=None, zstd=None, declared_state=None, declared_user=None, environ=None, home=None):
+        run_dir=None, zstd=None, declared_state=None, declared_user=None, environ=None, home=None,
+        ledger_ref=None):
     """Write `inventory/<reference>.json` for every reference point, and return the manifest.
 
     The owner's state is hashed before and after, and the two hashes are compared here rather than
@@ -6867,7 +6874,7 @@ def run(repo, state_root, user_root, out_dir, pin=None, native_roots=None, ledge
                               "out_dir": str(out_dir), "inputs": inputs}
     try:
         with no_bytecode(), tempfile.TemporaryDirectory(prefix="distill-inventory-", dir=str(temp_root)) as frozen_dir:
-            ctx = context_of(repo, state_root, user_root, dict(native_roots or {}), pin, ledger)
+            ctx = context_of(repo, state_root, user_root, dict(native_roots or {}), pin, ledger, ledger_ref)
             ctx["commit"] = commit
             # One home, the one every artifact below is judged against by `write_document`: emitted against
             # another (the process's), a leaf under the caller's home was not spelled `<HOME>` and the write
@@ -13631,7 +13638,7 @@ def self_test():
                         # filled by some fixture, because the walk is judged LEAF BY LEAF and a
                         # sub-field no fixture carries would pass it unseen (r4 R4 addendum).
                         "a ledger carrier with its own provenance": carrier(
-                            "ledger_incubating", f"{LEDGER_REL}#planted-entry",
+                            "ledger_incubating", f"{STATE_LEDGER_REL}#planted-entry",
                             f"## Keys\n\n- the entry reads apiKeyHelper: {secret}\n",
                             item_ref="planted-entry",
                             provenance={"status": "incubating", "keep_units": ["u-0000000000000000"],

@@ -485,11 +485,14 @@ fi
 # expected records and holds the reader inventory against a text, AST and argument discovery. The nudge writer's
 # self-test runs the launcher's reader against the state it writes. The committed ledger is data and
 # moves only at the cutover; these legs read it and never change it.
-if [ -f session-distill/runlib/ledger.py ]; then
-  leg -q "FAIL: session-distill ledger self-test (session-distill/runlib/ledger.py)" \
-    python3 session-distill/runlib/ledger.py --self-test
-  leg -q "FAIL: the ledger lost an id, allocated a wrong one, or changed a row with no decision (session-distill/runlib/ledger.py --check)" \
-    python3 session-distill/runlib/ledger.py --check
+# Through `gates/check-ledger.py`, which supplies the two things only a checkout has: the committed
+# ledger's path and the author-side migrator. The shipped module no longer names either (WP-24), and
+# run bare it reports those legs as skipped by name.
+if [ -f gates/check-ledger.py ]; then
+  leg -q "FAIL: session-distill ledger self-test (gates/check-ledger.py --self-test)" \
+    python3 gates/check-ledger.py --self-test
+  leg -q "FAIL: the ledger lost an id, allocated a wrong one, or changed a row with no decision (gates/check-ledger.py --check)" \
+    python3 gates/check-ledger.py --check
 fi
 if [ -f session-distill/migrate-ledger.py ]; then
   leg -q "FAIL: session-distill ledger migration self-test (session-distill/migrate-ledger.py)" \
@@ -562,7 +565,8 @@ fi
 # index, redundancy hints over the current library, and G clusters; no model is called.
 if [ -f session-distill/runlib/lifecycle_intake.py ]; then
   leg -q "FAIL: session-distill S4 lifecycle intake self-test (session-distill/runlib/lifecycle_intake.py)" \
-    python3 session-distill/runlib/lifecycle_intake.py --self-test
+    python3 session-distill/runlib/lifecycle_intake.py --self-test \
+      --checkout-ledger design/session-distill/ledger.json
 fi
 # Follow-up resolutions (plan WP-08 done-when 5, design §11): the O9 fixtures through the derivation, each flipped.
 if [ -f session-distill/runlib/measures.py ]; then

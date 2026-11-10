@@ -229,15 +229,6 @@ DYNAMIC_LOADS = (
     {"site": "session-distill/runlib/projection.py", "path": "learn/redact.py", "trace": True,
      "reason": "the secret floor's owner, loaded by its literal repo path (_load_floor) so its patterns are imported, "
                "never copied; it imports re and sys only and runs nothing"},
-    {"site": "session-distill/runlib/ledger.py", "path": "session-distill/migrate-ledger.py", "trace": True,
-     "reason": "the schema-1 migrator, loaded by its literal path beside the module (MIGRATOR) to compare a schema-1 "
-               "base with a schema-2 head; its one executor is git ls-files"},
-    {"site": "session-distill/migrate-ledger.py", "path": "learn/build-promotions.py", "trace": True,
-     "reason": "loaded by the migrator's self-test (build_promotions) by its literal repo path; it runs nothing"},
-    {"site": "session-distill/migrate-ledger.py", "path": "compose/instructions-state.py", "trace": False,
-     "reason": "loaded by the migrator's self-test (instructions_state) by its literal repo path for ledger_summary; "
-               "read, not traced: its executors are git, compose/assemble.py (the installer's assembler) and itself "
-               "(:81-:959), none of them a host"},
 )
 # Python scripts a closure site runs, each with its reason; a declared script joins the closure,
 # so its own sites are judged like any module's.
@@ -247,8 +238,6 @@ SCRIPT_RUNS = (
                "retired at the WP-22 cutover); it reads history and transcript files"},
     {"site": "session-distill/runlib/census.py", "path": "session-distill/digest.py",
      "reason": "the same handoff's second step, run by the same self-test: it digests the census's sessions"},
-    {"site": "session-distill/migrate-ledger.py", "path": "session-distill/merge-ledger.py",
-     "reason": "the migrator's self-test runs the documented merge-ledger.py --window-end invocation on a fixture ledger"},
     {"site": "session-distill/runlib/stage_read.py", "path": "session-distill/runlib/stage_read.py",
      "reason": "S3's self-test runs its own `--fixture-driver` as a child it kills while the golden host holds a window, "
                "then resumes the run in-process (WP-08 commit 5a); the child's host is the golden one, it starts no model"},

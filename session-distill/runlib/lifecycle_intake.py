@@ -52,6 +52,10 @@ OBSOLETE_RUN = 3        # design §7.1: "no match in three consecutive windows o
 UPWARD_MIN = 3          # design §7.4: "clusters of at least three placed learnings"
 
 
+# The checkout ledger this module's D4 leg copies, set by an author-side caller
+# (`gates/check-ledger.py`); None in an installed tree, where the leg copies nothing.
+CHECKOUT_LEDGER = None
+
 def table():
     return json.loads(TABLE_PATH.read_text(encoding="utf-8"))
 
@@ -601,10 +605,12 @@ def self_test():
     # D4: a schema 1 pin is migrated in memory by the cutover's function and its file is never written
     with tempfile.TemporaryDirectory(prefix="intake-") as td:
         checkout = pathlib.Path(td)
-        rel = checkout / ledger_lib.LEDGER_REL
+        rel = checkout / ledger_lib.STATE_LEDGER_REL
         rel.parent.mkdir(parents=True)
-        real = HERE.parent / ledger_lib.LEDGER_REL
-        raw = real.read_bytes() if real.is_file() else b""
+        # The owner's own ledger when this runs from a checkout, and nothing when it does not: the
+        # path of a checkout's ledger is not a thing shipped code may name (WP-24).
+        real = pathlib.Path(CHECKOUT_LEDGER) if CHECKOUT_LEDGER else None
+        raw = real.read_bytes() if real is not None and real.is_file() else b""
         rel.write_bytes(raw)
         declaration = {"destinations": {"checkout": str(checkout)},
                        "starting_hashes": {"ledger": hashlib.sha256(raw).hexdigest()}}
@@ -613,11 +619,18 @@ def self_test():
         schema1 = json.loads(raw) if raw else {}
         incubating = sum(1 for e in schema1.get("entries", []) if e.get("status") in ("incubating", "incubating-G"))
         legacy_ids = [c["candidate_id"] for c in guarded(lambda: legacy_incubation(migrated), [])] if migrated else []
-        control("D4: the repository's schema 1 ledger is migrated in memory by the cutover's function, and its every "
-                "incubating entry is a legacy candidate, its file unchanged",
-                schema1.get("schema") == 1 and how == "schema 1, migrated in memory" and incubating > 0
-                and len(legacy_ids) == incubating and hashlib.sha256(rel.read_bytes()).hexdigest() == hashlib.sha256(raw).hexdigest(),
-                f"{how} incubating={incubating} legacy={len(legacy_ids)}")
+        if not raw:
+            # The owner's schema 1 ledger lives in a checkout, which shipped code may not name
+            # (WP-24): the author-side caller sets CHECKOUT_LEDGER, and without it this leg is
+            # reported as skipped by name rather than passing over an empty file.
+            print("lifecycle_intake --self-test SKIPPED: D4, the migration of the repository's schema 1 "
+                  "ledger (set CHECKOUT_LEDGER, as gates/check-ledger.py does)")
+        else:
+            control("D4: the repository's schema 1 ledger is migrated in memory by the cutover's function, and its every "
+                    "incubating entry is a legacy candidate, its file unchanged",
+                    schema1.get("schema") == 1 and how == "schema 1, migrated in memory" and incubating > 0
+                    and len(legacy_ids) == incubating and hashlib.sha256(rel.read_bytes()).hexdigest() == hashlib.sha256(raw).hexdigest(),
+                    f"{how} incubating={incubating} legacy={len(legacy_ids)}")
     control("the suite leaves no temporary tree", not checkout.exists(), str(checkout))
 
     for failure in failures:
@@ -629,6 +642,15 @@ def self_test():
 
 
 if __name__ == "__main__":
+    # `--checkout-ledger` is how an author-side caller hands this suite the owner's schema 1 ledger;
+    # shipped code names no path under `design/` (WP-24), and without the flag the D4 leg is skipped
+    # by name — which is also what an installed tree gets.
     if "--self-test" not in sys.argv[1:]:
-        sys.exit("usage: lifecycle_intake.py --self-test")
+        sys.exit("usage: lifecycle_intake.py --self-test [--checkout-ledger PATH]")
+    given = sys.argv[1:]
+    if "--checkout-ledger" in given:
+        at = given.index("--checkout-ledger")
+        if at + 1 >= len(given):
+            sys.exit("usage: --checkout-ledger takes a path")
+        CHECKOUT_LEDGER = given[at + 1]
     sys.exit(self_test())

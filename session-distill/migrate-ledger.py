@@ -45,7 +45,10 @@ REPO = HERE.parent
 sys.path.insert(0, str(HERE))
 from runlib import ledger as ledger_lib  # noqa: E402
 
-LEDGER = REPO / ledger_lib.LEDGER_REL
+# The owner's ledger, in this checkout. Named here rather than in `runlib/ledger.py`: this script is
+# author-side (the payload excludes it), and shipped code may not name a path under `design/` (WP-24).
+LEDGER_REL = "design/session-distill/ledger.json"
+LEDGER = REPO / LEDGER_REL
 READERS = HERE / "tables" / "ledger_readers.json"
 
 # The mapping itself (design §12.2's prefix table, the field table, `migrate_entry`, `migrate`) lives in
@@ -537,11 +540,14 @@ def self_test():
             row["status"] = "placed" if rid == "S2-19" else row["status"]
             if not any(p.startswith(f"EXPECTED_RECORD_MISMATCH {rid}") for p in row_problems(broken, real_at)):
                 failures.append(f"a mishandled {rid} was not named by row id")
-        if ledger_lib.check_pair(legacy, real):
-            failures.append(f"the schema 1 ledger and its migration are not accepted by the id-set check: {ledger_lib.check_pair(legacy, real)[:3]}")
+        # This script IS the migration the comparison needs, and shipped code no longer loads it, so
+        # it passes itself (WP-24).
+        if ledger_lib.check_pair(legacy, real, migrate=migrate):
+            failures.append("the schema 1 ledger and its migration are not accepted by the id-set check: "
+                            f"{ledger_lib.check_pair(legacy, real, migrate=migrate)[:3]}")
         tampered = copy.deepcopy(real)
         tampered["entries"][0]["lesson"] = "tampered"
-        if not any("MIGRATION_MISMATCH" in p for p in ledger_lib.check_pair(legacy, tampered)):
+        if not any("MIGRATION_MISMATCH" in p for p in ledger_lib.check_pair(legacy, tampered, migrate=migrate)):
             failures.append("a schema 2 head that is not the migration of its schema 1 base was accepted")
         # a revert of the first run decision on a migrated entry restores the schema 1 status, and says it cannot without the element
         # (a decision that leaves the status as it was pins the earlier status by itself, so only the status-changing ones depend on the element)
@@ -603,7 +609,7 @@ def self_test():
         status_vocabulary = set(ledger_lib.schema()["$defs"]["entry"]["properties"]["status"]["enum"])
         with tempfile.TemporaryDirectory() as td:
             (pathlib.Path(td) / "design" / "session-distill").mkdir(parents=True)
-            (pathlib.Path(td) / ledger_lib.LEDGER_REL).write_text(ledger_lib.render(real), encoding="utf-8")
+            (pathlib.Path(td) / LEDGER_REL).write_text(ledger_lib.render(real), encoding="utf-8")
             summary = instructions_state().ledger_summary(pathlib.Path(td))
             if summary["entries"] != len(real["entries"]) or sum(summary["by_status"].values()) != len(real["entries"]) \
                     or not set(summary["by_status"]) <= status_vocabulary or sum(summary["placed_by_layer"].values()) != summary["by_status"].get("placed"):
@@ -630,8 +636,9 @@ def self_test():
             again = subprocess.run(command, capture_output=True, text=True)
             if again.returncode != 2 or "already merged" not in again.stderr:
                 failures.append(f"the documented invocation did not refuse a second apply for one window (exit {again.returncode})")
-            if ledger_lib.check_pair(legacy, merged):
-                failures.append(f"the schema 1 ledger after a legacy merge fails the id-set check: {ledger_lib.check_pair(legacy, merged)[:3]}")
+            if ledger_lib.check_pair(legacy, merged, migrate=migrate):
+                failures.append("the schema 1 ledger after a legacy merge fails the id-set check: "
+                                f"{ledger_lib.check_pair(legacy, merged, migrate=migrate)[:3]}")
 
     # the reader inventory: what the three layers find against what the inventory lists
     inventory = json.loads(READERS.read_text(encoding="utf-8"))
