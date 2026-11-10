@@ -821,7 +821,6 @@ PORTED_SCENARIOS: dict[str, tuple[str, ...]] = {
         "test_instructions_install.py:InstallationReceiptTests.test_a_transaction_begun_before_receipts_existed_finishes_unbound",
         "test_instructions_store.py:InstallationBindingTest.test_an_installation_without_a_receipt_leaves_the_snapshot_unbound",
     ),
-    # Pretrial: write the receipt before `_verify_transaction_install` and this case must fail by name.
     "sc_c3m_mutation": (
         "test_instructions_install.py:InstallationReceiptTests.test_a_verify_failure_after_publication_leaves_no_receipt",
     ),
@@ -831,19 +830,28 @@ PORTED_SCENARIOS: dict[str, tuple[str, ...]] = {
         "test_instructions_store.py:InstallationBindingTest.test_a_tampered_or_missing_receipt_is_unbound_with_its_reason",
         "test_instructions_store.py:InstallationBindingTest.test_a_receipt_the_store_cannot_verify_leaves_the_snapshot_unbound",
     ),
-    # Pretrial: drop the artifact comparison from `installation_binding` and this case must fail by name.
     "sc_c4m_mutation": (
         "test_instructions_store.py:InstallationBindingTest.test_a_snapshot_whose_artifacts_differ_from_the_receipt_is_unbound_by_field",
     ),
-    # Partial: the property the probe's `install.sh update` showed — the digest follows the tree that
-    # EXECUTES, not the script that started the update — is held by running the installer from a copied
-    # tree. A real `git pull` route is not exercised here; it needs a git remote fixture.
     "sc_c6_git_update": (
         "test_instructions_install.py:InstallationReceiptTests.test_one_changed_line_in_a_declared_file_moves_the_digest",
     ),
     "sc_c7_cli_snapshot": (
         "test_instructions_install.py:InstallationReceiptTests.test_the_cli_snapshot_surface_returns_the_installation_binding",
     ),
+}
+
+# A scenario whose port substitutes something for what the probe did says so here, and the coverage
+# case prints it beside the scenario: a reader of the count must see what was NOT ported rather than
+# read 11 as 11 identical ports.
+PORT_NOTES: dict[str, str] = {
+    "sc_c6_git_update": ("git remote fixture replaced by a copied tree run as a subprocess; the property held is "
+                         "that the digest follows the tree that EXECUTES, not the script that started the update. "
+                         "The `install.sh update` pull path itself is not exercised"),
+    "sc_c3m_mutation": ("not a test but a pretrial: the receipt write is moved before "
+                        "`_verify_transaction_install` and the named case must fail by name"),
+    "sc_c4m_mutation": ("not a test but a pretrial: the artifact comparison is dropped from "
+                        "`installation_binding` and the named case must fail by name"),
 }
 
 
@@ -880,8 +888,11 @@ class ProbeScenarioCoverageTest(unittest.TestCase):
         self.assertTrue(counts)
         empty = sorted(entry for entry, count in counts.items() if count == 0)
         self.assertEqual([], empty, f"ported cases with no assertion: {empty}")
+        self.assertEqual([], sorted(set(PORT_NOTES) - set(PORTED_SCENARIOS)), "a note names no ported scenario")
         for scenario, entries in sorted(PORTED_SCENARIOS.items()):
-            print(f"  {scenario}: {sum(counts[entry] for entry in entries)} assertions in {len(entries)} case(s)")
+            note = PORT_NOTES.get(scenario)
+            print(f"  {scenario}: {sum(counts[entry] for entry in entries)} assertions in {len(entries)} case(s)"
+                  + (f"\n      ported with a substitution: {note}" if note else ""))
         print(f"  ported total: {sum(counts.values())} assertions in {len(counts)} distinct cases")
 
 
