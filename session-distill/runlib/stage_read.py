@@ -93,7 +93,9 @@ their retrieval terms are not shown, and the full-source search with them forces
 a clipped record they match (`searched`, plan amendment row 10), so an answer skipping one fails the stage's check. An
 observation is kept when its quotes locate, named by its view and entry; when every unit is read, each gets the basis
 code sets over the scope - every declared transcript source and every session of the window, a unit with every member
-(`observation_scope`, plan amendment row 5) - and is written to `observations/<window>.jsonl`, replaced whole as the
+(`observation_scope`, plan amendment row 5); a session is of the window when one of its unit's files may hold a record
+in it, by the census's `window_overlap`, an overlap it could not determine counting as in (D-20261106-208882) - and is
+written to `observations/<window>.jsonl`, replaced whole as the
 stage's end judgement over its scope, and each due
 observation's resolution is derived from them (`measures.derive_resolution`) into `observations/resolutions.json`,
 which counts apart the resolutions left pending only because the basis is incomplete and names what made it so.
@@ -1386,6 +1388,7 @@ def run(run_dir, supervisor, tranche="broad", stitch_bound=None, jobs=S3_JOBS):
             "pending_because_incomplete": len(follow["pending_because_incomplete"]),
             "incomplete_sessions": len(follow["incomplete"]["sessions"]),
             "incomplete_sources": len(follow["incomplete"]["sources"]),
+            "outside_window": scope["outside"],
             "search_forced": sum(forced_by_search.values())}
         summary.update(jobs=jobs, interrupted=interrupted, reused=sum(1 for f in reads for w in f["windows"] + f["expansions"] if w.get("reused")),
                        window=window_id, declaration_seq=reader.declaration["declaration_seq"], quarantined=outcome["quarantined"], accounted=flags["accounted"], fully_read=flags["fully_read"],
@@ -1401,15 +1404,27 @@ def observation_scope(document, done, complete):
     """The scope every observation of the window is judged over (design §5.4, plan amendment row 5, Q2 of WP-08 commit
     4): every declared transcript source, and every session of the window in them, a unit with every member - a member's
     row is its unit's, and an excluded row is out of scope. A unit S3 read ends with its own status, view complete and
-    source complete when every file of it is; a session owing nothing is complete. Returns `views.coverage_basis`'
-    scope, and what makes it incomplete: the sessions and the sources, by name."""
+    source complete when every file of it is; a session owing nothing is complete.
+
+    "Of the window" is the census's evidence (lead decision D-20261106-208882): a row whose files hold no record of the
+    window - by their record timestamps or by the file-time bound, `window_overlap` in census.OUTSIDE - is out of scope.
+    A row stands for its unit, the root and every `child_of` member (S3 answers a unit through its root), so a unit is
+    out only when none of its files may hold a record of the window: an unknown root out of the window is still in scope
+    when a member of it is not. An overlap the census could not determine, and one an older census never wrote, keep the
+    row in scope. Returns `views.coverage_basis`' scope, what
+    makes it incomplete (the sessions and the sources, by name), and under `outside` the rows that would have made it
+    incomplete and are left out as outside the window, counted by status and evidence."""
     statuses = {r["transcript"]: r["status"] for r in done}
     declared = [(n, s) for n, s in sorted(document["sources"].items())
                 if n in sources.TRANSCRIPT_SOURCES and s["state"] != "undeclared"]
     scope = {"sources": [{"accounted": s["state"] != "unreadable", "directory_present": s["state"] != "missing"}
-                         for _n, s in declared], "sessions": []}
+                         for _n, s in declared], "sessions": [], "outside": {}}
     causes = {"sessions": [], "sources": [n for n, s in declared if s["state"] in ("unreadable", "missing")]}
-    for row in census.rows(document):
+    rows = census.rows(document)
+    overlap = {census.key_of(r): r.get("window_overlap") for r in rows}
+    unit_of = census.units(rows)
+    outside = collections.Counter()
+    for row in rows:
         status, key = row["status"], census.key_of(row)
         if status in ("excluded", "child_of") and key not in statuses:
             continue
@@ -1418,9 +1433,16 @@ def observation_scope(document, done, complete):
             view, source = complete.get(key, (False, False)) if status == "read_complete" else (False, False)
         else:
             view = source = status == "nothing_new"
+        blocks = status in views.INCOMPLETE_STATUSES or not view
+        stands_for = [key] + unit_of.get(key, [])
+        if all(overlap.get(k) in census.OUTSIDE for k in stands_for):
+            if blocks:
+                outside[f"{status}/{overlap[key]}"] += 1
+            continue
         scope["sessions"].append({"status": status, "view_complete": view, "source_complete": source, "unprocessed": False})
-        if status in views.INCOMPLETE_STATUSES or not view:
+        if blocks:
             causes["sessions"].append({"session": key, "status": status, "view_complete": view})
+    scope["outside"] = dict(sorted(outside.items()))
     return scope, causes
 
 
@@ -3649,7 +3671,8 @@ def self_test():
         control("4b: read.json counts the follow-up",
                 summary_o.get("observations") == {"due": 2, "instances": 1, "basis": "source", "late_instances": 0,
                                                   "resolutions": {"observed": 1, "no_occasion": 1}, "pending_because_incomplete": 0,
-                                                  "incomplete_sessions": 0, "incomplete_sources": 0, "search_forced": 1},
+                                                  "incomplete_sessions": 0, "incomplete_sources": 0, "outside_window": {},
+                                                  "search_forced": 1},
                 f"{summary_o.get('observations')}")
         outputs_o = [o["artifact"] for o in guarded(lambda: records.read_json(run_o / "stages" / "S3" / "record.json"), {}).get("outputs", [])]
         control("4b: the instances and the resolutions are the stage's recorded outputs",
@@ -3752,6 +3775,75 @@ def self_test():
         control("4b Q2: one unit that failed makes the scope incomplete, and is named",
                 views.coverage_basis(scope_fail) == "incomplete"
                 and [c["session"] for c in causes_fail["sessions"]] == [unit_o], f"{causes_fail}")
+        # D-20261106-208882: the scope is the sessions of the window. A unit none of whose files may hold a record of it -
+        # by the census's evidence, `window_overlap` - is out; an undetermined overlap, or none (an older census), keeps
+        # it in. The rows below are written as the census writes them; no owner data is read.
+        def fx_row(host, ident, overlap, status="unknown_provenance", reason="no_entrypoint", parent=None):
+            path = f"/fx/{ident.replace('/', '-')}.jsonl" if host == "claude" else f"/fx/rollout-2026-10-03T10-00-00-{ident}.jsonl"
+            return census.finish(census.blank(host, ident, "claude_projects" if host == "claude" else "codex_sessions", path,
+                                              status=status, reason=reason, parent=parent, window_overlap=overlap))
+
+        def scoped(extra=(), done=None, edit=None):
+            """(basis, the sessions that make it incomplete, what was left out as outside) of census_o with `extra` rows."""
+            doc = copy.deepcopy(census_o)
+            doc["transcripts"] = doc["transcripts"] + list(extra)
+            if edit:
+                edit(doc)
+            got = guarded(lambda: observation_scope(doc, done_o if done is None else done, complete_o), None)
+            if got is None:
+                return ("raised", [], None)
+            return views.coverage_basis(got[0]), sorted(c["session"] for c in got[1]["sessions"]), got[0].get("outside")
+
+        UN = lambda n: f"c0000{n:03d}-0000-4000-8000-0000000000bb"  # noqa: E731
+        UX = lambda n: f"019e0{n:03d}-0000-7000-8000-0000000000bb"  # noqa: E731
+        key = census.key_of
+        outside_two = [fx_row("claude", UN(1), "before_window"), fx_row("codex", UX(2), "context_only", reason="agent-bios:unpinned")]
+        control("D-208882: unknown rows outside the window, by the file-time bound or by their record timestamps, leave a "
+                "complete scope source, and are counted as left out",
+                scoped(outside_two) == ("source", [], {"unknown_provenance/before_window": 1, "unknown_provenance/context_only": 1}),
+                f"{scoped(outside_two)}")
+        inside = fx_row("claude", UN(3), "inside")
+        control("D-208882: an unknown row with a record in the window makes the scope incomplete, and is named",
+                scoped([inside]) == ("incomplete", [key(inside)], {}), f"{scoped([inside])}")
+        unsure, unwritten = fx_row("codex", UX(4), "undetermined", reason="no_session_meta"), fx_row("claude", UN(4), None)
+        control("D-208882: an unknown row whose overlap the census could not determine, and one an older census left "
+                "without any, keep the scope incomplete, each named",
+                (scoped([unsure]), scoped([unwritten])) == (("incomplete", [key(unsure)], {}), ("incomplete", [key(unwritten)], {})),
+                f"{scoped([unsure])} {scoped([unwritten])}")
+        root_out = fx_row("claude", UN(5), "before_window")
+        member_in = fx_row("claude", f"{UN(5)}/agent-x", "inside", status="child_of", reason=None, parent=UN(5))
+        control("D-208882: an unknown root out of the window whose member has a record in it keeps the scope incomplete, "
+                "named by the root that stands for its unit",
+                scoped([root_out, member_in]) == ("incomplete", [key(root_out)], {}), f"{scoped([root_out, member_in])}")
+        partial_one = [{**d, "status": "read_partial"} if d["transcript"] == unit_o else d for d in done_o]
+        control("D-208882: a unit of the window read partially still makes the scope incomplete beside unknown rows outside it",
+                scoped(outside_two, partial_one) == ("incomplete", [unit_o], {"unknown_provenance/before_window": 1,
+                                                                              "unknown_provenance/context_only": 1}),
+                f"{scoped(outside_two, partial_one)}")
+
+        def backlog_only(doc):
+            for row in census.rows(doc):
+                if key(row) == unit_o or key(row) in census.units(census.rows(doc)).get(unit_o, []):
+                    row["window_overlap"] = "context_only"
+        control("D-208882: a unit S3 read that holds no record of the window - its backlog only - does not block it when it "
+                "failed: its readings are late evidence of their own windows",
+                scoped((), failed_one, backlog_only) == ("source", [], {"failed/context_only": 1}),
+                f"{scoped((), failed_one, backlog_only)}")
+        # C1 0708c's shape - both units read whole, its 35 unknown rows last written before the window - and the replay the
+        # pre-production analysis ran over C2-pre's censuses, its 36 rows with the owner's reason mix, as fixtures
+        mix = ([("codex", "agent-bios:unpinned")] * 23 + [("codex", "orphan_child")] * 5 + [("codex", "no_session_meta")] * 2
+               + [("claude", "no_entrypoint")] * 2 + [("codex", "child_without_parent"), ("codex", "originator:codex_vscode"),
+                                                      ("codex", "originator:codex-chrome-extension-sidepanel")])
+        c1_rows = [fx_row(h, (UN if h == "claude" else UX)(100 + n), "before_window", reason=r) for n, (h, r) in enumerate(mix)]
+        replay = c1_rows + [fx_row("codex", UX(200), "context_only", reason="originator:codex-tui")]
+        as_built = [{**r, "window_overlap": None} for r in replay]
+        control("D-208882: C1 0708c's shape - both units read whole, 35 unknown rows out of the window - settles source",
+                scoped(c1_rows) == ("source", [], {"unknown_provenance/before_window": 35}), f"{scoped(c1_rows)}")
+        control("D-208882: the analysis's replay - every eligible unit read whole, 36 unknown rows out of the window by their "
+                "evidence - settles source, and the same rows with no evidence (as built) leave it incomplete, all 36 named",
+                (scoped(replay)[:2], scoped(as_built)[0], len(scoped(as_built)[1])) == (("source", []), "incomplete", 36),
+                f"{scoped(replay)} {scoped(as_built)[:1]} {len(scoped(as_built)[1])}")
+
         due_one = [{"expected_id": "N-1@r0", **FX_OBSERVED, "expiry": "2026-12-31"}]
         seen_i = {"expected_id": "N-1@r0", "occasion_locator": "v#1/message/content", "exposure": "eligible",
                   "verdict": "observed", "evidence_ids": ["ev-1"], "role": "in_window", "expansion": False}
