@@ -292,6 +292,39 @@ PY
   case_is "the exemption comes from the assembler's reader, not a second copy" \
           "session-distill-workflow.md ->"
 
+  # Fourth direction, both halves: product code and a self_test body. The second is what
+  # proves the scan's scope — a scan that skipped self-tests would exempt a whole class of
+  # sites without naming one of them.
+  fresh; printf '\nPLANTED_AUTHOR_MODULE = "gates/check-lexicon.py"\n' >> "$W/compose/pkgid.py"
+  case_is "shipped code naming an author-side module" \
+          "names the author-side module gates/check-lexicon.py"
+
+  fresh; printf '\n\ndef self_test():\n    planted = "gates/check-lexicon.py"\n    return planted\n' \
+      >> "$W/compose/pkgid.py"
+  case_is "a self_test body is in the scan's scope, not outside it" \
+          "names the author-side module gates/check-lexicon.py"
+
+  # An exemption is only safe while it names a real site: a stale one exempts by a path
+  # nobody has, which is the shape this repo keeps finding (a declared author-side file
+  # that moved, a concept home matching nothing).
+  # Mutated through python rather than `sub`: any literal handed to `sub` also appears in
+  # the line that hands it over, and `sub` replaces the first occurrence — it would have
+  # mutated the mutation. This one is anchored to the exemption table itself.
+  fresh
+  python3 - "$W" <<'PY'
+import pathlib, sys
+p = pathlib.Path(sys.argv[1]) / "gates" / "check-package.sh"
+t = p.read_text(encoding="utf-8")
+# The LAST occurrence, and it must lie inside the table: a forward search anchored on the
+# table's name finds this very line first, and the mutation rewrote itself.
+at, table = t.rfind("benchmarks" + "/absence.py"), t.rfind("AUTHOR_IMPORT" + "_EXEMPT = {")
+if at < 0 or at < table:
+    sys.exit("self-test mutation is stale: the gate.py exemption is not in the table")
+p.write_text(t[:at] + "benchmarks/NO-SUCH.py" + t[at + len("benchmarks/absence.py"):], encoding="utf-8")
+PY
+  case_is "an author-side import exemption naming a file nobody has" \
+          "exemption(s) naming a file that does not exist"
+
   fresh; printf '\n[presets.selftest-probe]\nlabel = "probe"\nmission = "first read gates/check-lexicon.py"\n' \
       >> "$W/launch/agent-launch.toml"
   case_is "shipped config prose naming an unshipped repo path" "gates/check-lexicon.py"
@@ -829,6 +862,56 @@ gates = [n for names in author_files.values() for n in names]
 leg("author-side files", gates)
 leg("shipped instructions docs", instructions_prose)
 
+# Fourth direction: SHIPPED CODE may not reach for an author-side module. The third
+# direction asks this of prose, which covers a guide telling a reader to open a path
+# they will not have; it does not cover code, and code is where it is fatal rather
+# than confusing — a shipped module that loads `gates/x.py` works in every clone and
+# raises on the first packaged user, exactly the failure the first direction exists
+# to prevent. The driver reached for `gates/check-global-file.py` this way.
+#
+# Asked of string CONSTANTS, parsed, so a comment naming a gate is not a violation
+# while a path assembled for a loader is. Asked of every shipped `.py`, self-test
+# bodies included: a scan that skipped them would exempt a whole class of sites
+# without naming one, and this repo's rule is that an exemption names its site and
+# carries its reason. The two references that are self-test-only are named below.
+AUTHOR_IMPORT_EXEMPT = {
+    ("session-distill/runlib/dispatch.py", "benchmarks/tier/live.py"):
+        "named in OUT_OF_SCOPE as a path the driver's closure may NOT import, and in a self_test "
+        "assertion about that rule; the tier experiments are not loaded, they are forbidden",
+    ("session-distill/runlib/gate.py", "benchmarks/absence.py"):
+        "read as SOURCE in its self-test (ast, one function lifted out) rather than imported, "
+        "because importing it would pull in a host dispatcher; the installed self-test skips that "
+        "leg by name with the fixtures it also lacks",
+}
+shipped_python = sorted(
+    rel for rel in (str(p.relative_to(REPO)) for p in REPO.rglob("*.py"))
+    if shipped(rel) and not author_side(rel) and (REPO / rel).is_file())
+if not shipped_python:
+    sys.exit("check-package: FAILED — no shipped .py files found, so the author-side import scan "
+             "would pass over nothing")
+author_imports = []
+for rel in leg("shipped python author-side loads", shipped_python):
+    try:
+        parsed = ast.parse((REPO / rel).read_text(encoding="utf-8"))
+    except (OSError, SyntaxError) as problem:
+        author_imports.append(f"{rel}: could not be parsed ({type(problem).__name__}), so the scan cannot judge it")
+        continue
+    for node in ast.walk(parsed):
+        if not (isinstance(node, ast.Constant) and isinstance(node.value, str)):
+            continue
+        named = rel_key(node.value)
+        if not named.endswith(".py") or not author_side(named):
+            continue
+        if (rel, named) in AUTHOR_IMPORT_EXEMPT:
+            continue
+        author_imports.append(f"{rel}:{node.lineno}: names the author-side module {named}, which a "
+                              f"packaged user does not have")
+stale_exempt = [f"{rel} -> {named}" for rel, named in AUTHOR_IMPORT_EXEMPT
+                if not (REPO / rel).is_file() or not (REPO / named).is_file()]
+if stale_exempt:
+    sys.exit("check-package: FAILED — author-side import exemption(s) naming a file that does not "
+             f"exist: {', '.join(stale_exempt)}; a stale exemption exempts nothing by name")
+
 # provenance.json is EXEMPT above because a clone legitimately lacks a
 # pack-generated file — but the exemption also skips shipped(), and an unshipped
 # provenance regresses to the unbound-tarball shape silently, behind install.sh's
@@ -1000,7 +1083,8 @@ for p in tracked_files():
 leg("python lock writers without an unbounded wait", lock_writers)
 
 checked = sum(1 for r in found if r not in EXEMPT and not author_side(r) and (REPO / r).exists())
-if missing or leaked or prose_bad or unguarded or prov_bad or piped_grep or mktemp_t or unbounded:
+if missing or leaked or prose_bad or unguarded or prov_bad or piped_grep or mktemp_t or unbounded \
+        or author_imports:
     if missing:
         print(f"check-package: FAILED — {len(missing)} runtime path(s) not in package.json files[]:")
         for rel, srcs in missing:
@@ -1031,6 +1115,15 @@ if missing or leaked or prose_bad or unguarded or prov_bad or piped_grep or mkte
               f"bound; take the lock through host_platform.lock_within (D-20261102-49b466):")
         for rel, n in unbounded:
             print(f"  {rel}:{n}")
+    if author_imports:
+        print(f"check-package: FAILED — {len(author_imports)} shipped python reference(s) to an "
+              f"author-side module; the code works in every clone and raises on the first packaged "
+              f"user:")
+        for msg in author_imports:
+            print(f"  {msg}")
+        print("  fix: move the code into a shipped module and import it from both sides "
+              "(author-side imports shipped, never the reverse), or name the site and its "
+              "reason in AUTHOR_IMPORT_EXEMPT")
     if prose_bad:
         print(f"check-package: FAILED — {len(prose_bad)} shipped-prose reference(s) "
               f"to a path the user will not have:")

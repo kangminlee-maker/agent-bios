@@ -54,7 +54,7 @@ import tempfile
 
 if __package__ in (None, ""):  # run as a script: put session-distill/ on the import path
     sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
-from runlib import stagelock, validate
+from runlib import gitread, stagelock, validate
 
 HERE = pathlib.Path(__file__).resolve().parents[1]  # session-distill/
 REPO = HERE.parent
@@ -65,7 +65,6 @@ TRANSITIONS_PATH = HERE / "tables" / "transitions.json"
 FIXTURES_PATH = HERE / "tables" / "transition_fixtures.json"
 LOCK_ROOT = HERE / "out" / "ledger-lock"  # untracked: `session-distill/out/*/` is ignored
 MIGRATOR = HERE / "migrate-ledger.py"
-GATE_READERS = REPO / "gates" / "check-global-file.py"  # the git readers of design §13.1's gate, reused
 
 SUPPORTED = (1, 2)
 ID_SERIES = re.compile(r"^([A-Z]+[0-9]*)-([0-9]+)$")
@@ -1295,17 +1294,6 @@ def write_atomic(path, ledger, base_sha, lock_root=LOCK_ROOT, before_rename=None
 
 # ---------------------------------------------------------------- the check command
 
-def _gate():
-    """gates/check-global-file.py's git readers: an absent path measures as empty, an unreadable
-    side as None. One implementation of "read a side of a commit", not two. It is this checkout's
-    helper, found beside this module, never a file of the repository being judged."""
-    spec = importlib.util.spec_from_file_location("check_global_file", GATE_READERS)
-    module = importlib.util.module_from_spec(spec)
-    sys.modules["check_global_file"] = module
-    spec.loader.exec_module(module)
-    return module
-
-
 def allocation(argument):
     """`--allocated` as an allocation: an omitted flag is no allocation at all (`None`), and the flag
     passed empty is the allocation of a run that froze no new id (`[]`) — a correction or a resolution
@@ -1315,9 +1303,8 @@ def allocation(argument):
 
 def check_command(repo, rel, base, worktree, allocated):
     """(exit code, lines). 0 holds, 1 a violation, 2 a side that could not be read."""
-    git = _gate()
-    old, old_absent = git.base_blob(repo, base, rel)
-    new, new_absent = git.current_blob(repo, rel, worktree)
+    old, old_absent = gitread.base_blob(repo, base, rel)
+    new, new_absent = gitread.current_blob(repo, rel, worktree)
     where = "worktree" if worktree else "index"
     if old is None:
         return 2, [f"CANNOT JUDGE LEDGER_BASE_UNREADABLE {base}:{rel}"]
