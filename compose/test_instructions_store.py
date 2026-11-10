@@ -660,9 +660,10 @@ class InstallationBindingTest(_StoreFixture):
                 "compose/bootstrap/SKILL.md": (self.repo / "compose" / "bootstrap" / "SKILL.md").read_bytes()}
 
     def receipt_body(self, transaction_id: str, baseline_ref: str, **overrides) -> dict:
+        """The body the installer would write for this store, with any field replaced for a control."""
         body = {
             "schema": "InstallationReceipt/v1", "result": "success", "transaction_id": transaction_id,
-            "installer": {"digest_at_import": "i" * 64, "digest": "i" * 64, "build": "0.0.0-fixture",
+            "installer": {"digest_at_import": "1a" * 32, "digest": "1a" * 32, "build": "0.0.0-fixture",
                           "root": "/fixture", "files": [], "package_modules_run": []},
             "begun_by_installer_digest": None, "release_digest": "release-" + transaction_id,
             "baseline_ref": baseline_ref, "selection": [],
@@ -849,6 +850,41 @@ class InstallationBindingTest(_StoreFixture):
             receipt_id = self.write_receipt(self.receipt_body("tx-a", baseline_ref, **overrides))
             with self.assertRaises(ValidationError):
                 instructions_store.read_installation_receipt(self.store.state_root, receipt_id)
+
+    def test_a_receipt_that_hashes_to_its_name_and_breaks_its_contract_is_unbound_by_reason(self) -> None:
+        # Each of these recomputes its own file name, so the hash check passes: what is tested is the
+        # contract, which was accepted as bound or raised where a verdict was promised (X r1 F4).
+        self.store.install()
+        baseline_ref = self.store.status()["selected_baseline_ref"]
+        inputs = self.inputs()
+        cases = {
+            "carries its own id": {"receipt_id": "0" * 64},
+            "two different installer digests": {"installer": {"digest_at_import": "a" * 64, "digest": "b" * 64,
+                                                              "build": None, "package_modules_run": []}},
+            "installer digests are not digests": {"installer": {"digest_at_import": "nope", "digest": "nope",
+                                                                "build": None, "package_modules_run": []}},
+            "names no installer": {"installer": None},
+            "lists no package modules": {"installer": {"digest_at_import": "1a" * 32, "digest": "1a" * 32,
+                                                       "build": None, "package_modules_run": None}},
+            "transaction_id is not a str": {"transaction_id": None},   # overrides the body's own value
+            "at is not a int": {"at": "2026-11-11"},
+            "beginning installer digest is not a digest": {"begun_by_installer_digest": "earlier"},
+            "lists no artifacts": {"artifacts": None},
+            "artifact row of another shape": {"artifacts": [{"path": "compose/instructions_store.py",
+                                                             "sha256": "0" * 64}]},
+        }
+        for expected, overrides in cases.items():
+            with self.subTest(case=expected):
+                body = self.receipt_body("tx-a", baseline_ref)
+                body.update(overrides)
+                receipt_id = self.write_receipt(body)
+                with self.assertRaises(ValidationError) as caught:
+                    instructions_store.read_installation_receipt(self.store.state_root, receipt_id)
+                self.assertIn(expected, str(caught.exception))
+                verdict = instructions_store.installation_binding(
+                    self.store.state_root, {**inputs, "installation_receipt_id": receipt_id})
+                self.assertFalse(verdict["bound"])
+                self.assertIn(expected, verdict["reason"])
 
     def test_a_receipt_id_may_not_leave_the_receipt_directory(self) -> None:
         self.store.install()

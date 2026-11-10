@@ -7,6 +7,7 @@ import contextlib
 import hashlib
 import json
 import instructions_install
+import instructions_session
 import os
 import shutil
 import subprocess
@@ -635,6 +636,29 @@ class InstallationReceiptTests(_InstallerFixture):
         release = {row["path"] for row in receipt["artifacts"] if row["role"] == "release"}
         self.assertIn("compose/instructions_install.py", release)
 
+    def test_a_pin_taken_before_a_second_install_still_verifies_and_keeps_its_own_receipt(self) -> None:
+        # The probe's c2 C case, restored (X r1 F8): a session pinned under the first installation must
+        # keep its pin BYTES and still read through the real `read_pin` after a second install, and its
+        # snapshot must still bind to the receipt it was built from, not to the newer one.
+        first = self.installer().install("builder-base")
+        release = first["record"]["package_root"]
+        before_receipt, before_path = self.receipt()
+        snapshot = self.cli(release, "snapshot", "--host", "codex", "--cwd", str(self.home))
+        record = instructions_session.prepare(self.state, "codex", snapshot, [], self.home, self.env)
+        instructions_session.observe_and_pin(self.state, record, "pinned-before", {"method": "test-control"})
+        pin_path = self.state / "sessions" / "pins" / "codex" / "pinned-before.json"
+        pin_bytes = pin_path.read_bytes()
+        self.installer().install("builder-base")
+        later = {path.stem for path in self.receipts()} - {before_path.stem}
+        self.assertEqual(1, len(later), f"the second install wrote no receipt of its own: {self.receipts()}")
+        self.assertEqual(pin_bytes, pin_path.read_bytes())
+        read = instructions_session.read_pin(self.state, "codex", "pinned-before")
+        self.assertEqual(snapshot["content_ref"], read["content_ref"])
+        binding = self.cli(release, "snapshot", "--content-ref", read["content_ref"])["installation_binding"]
+        self.assertTrue(binding["bound"], binding)
+        self.assertEqual(before_path.stem, binding["receipt_id"])
+        self.assertEqual(before_receipt["transaction_id"], binding["transaction_id"])
+
     # ---- F18 ordering and recovery identity (done-when 2) --------------------------------------
 
     def test_the_receipt_exists_before_the_journal_reaches_committed(self) -> None:
@@ -730,6 +754,32 @@ class InstallationReceiptTests(_InstallerFixture):
             self.installer().install("builder-base")
         self.assertEqual([], self.receipts())
 
+    def test_a_recovery_whose_receipt_is_refused_commits_unbound(self) -> None:
+        # The journal of a transaction interrupted AFTER its receipt was written carries that receipt
+        # id. If the installer that recovers it refuses to write a receipt of its own, the commit must
+        # carry none: the earlier id is a claim by the installer that failed (X r1 F1).
+        installer = self.installer()
+        original = installer._journal_write
+
+        def fail_at_commit(journal, value):
+            if value.get("state") == "COMMITTED":
+                raise OSError("injected fault between the receipt and the commit marker")
+            return original(journal, value)
+
+        installer._journal_write = fail_at_commit  # type: ignore[method-assign]
+        with self.assertRaises(OSError):
+            installer.install("builder-base")
+        first, _path = self.receipt()
+        pending = self.pending_transaction_id()
+        self.assertEqual([first["transaction_id"]], [pending])
+        moved = {**instructions_install._installer_code(), "digest": "0" * 64}
+        with unittest.mock.patch.object(instructions_install, "_installer_code", lambda: moved):
+            self.assertTrue(self.installer().install("builder-base")["stored"])
+        recovered = next(item for item in self.journals() if item["candidate"]["transaction_id"] == pending)
+        self.assertEqual("COMMITTED", recovered["state"])
+        self.assertNotIn("receipt_id", recovered)
+        self.assertEqual([], [item for item in self.journals() if item.get("receipt_id")])
+
     # ---- c3b: a transaction begun before receipts existed (done-when 3) ------------------------
 
     def test_a_transaction_begun_before_receipts_existed_finishes_unbound(self) -> None:
@@ -806,6 +856,7 @@ PORTED_SCENARIOS: dict[str, tuple[str, ...]] = {
     ),
     "sc_c2_binding": (
         "test_instructions_install.py:InstallationReceiptTests.test_an_old_installer_installing_a_newer_installer_names_its_own_digest",
+        "test_instructions_install.py:InstallationReceiptTests.test_a_pin_taken_before_a_second_install_still_verifies_and_keeps_its_own_receipt",
         "test_instructions_store.py:InstallationBindingTest.test_two_installs_of_one_release_bind_their_sessions_to_their_own_receipts",
         "test_instructions_store.py:InstallationBindingTest.test_an_earlier_snapshot_keeps_binding_to_the_receipt_it_was_built_from",
     ),
@@ -845,6 +896,11 @@ PORTED_SCENARIOS: dict[str, tuple[str, ...]] = {
 # case prints it beside the scenario: a reader of the count must see what was NOT ported rather than
 # read 11 as 11 identical ports.
 PORT_NOTES: dict[str, str] = {
+    "sc_c1_routes": ("the probe installed through the real install.sh checkout and an npm `.bin/agent-bios` "
+                     "symlink; here the symlink route imports the installer through a directory symlink and "
+                     "reads the digest it took at import, and the install.sh route is covered by done-when 5's "
+                     "scratch-home install/verify round trip outside this suite. The npm entrypoint itself is "
+                     "not exercised by a test"),
     "sc_c6_git_update": ("git remote fixture replaced by a copied tree run as a subprocess; the property held is "
                          "that the digest follows the tree that EXECUTES, not the script that started the update. "
                          "The `install.sh update` pull path itself is not exercised"),

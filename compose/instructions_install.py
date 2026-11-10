@@ -941,6 +941,9 @@ class InstructionsInstaller:
         self._verify_transaction_install(data)
         # The receipt is written after verification and before the COMMITTED marker, so a receipt
         # can exist without a commit (the install is then recovered) but never the reverse.
+        # An earlier attempt's receipt id is dropped FIRST: a recovery whose own receipt is refused
+        # must commit unbound, not carry forward a claim made by the installer that failed.
+        data.pop("receipt_id", None)
         receipt_id = self._write_receipt(data)
         if receipt_id:
             data["receipt_id"] = receipt_id

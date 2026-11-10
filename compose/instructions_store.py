@@ -32,6 +32,8 @@ except ImportError:
 SCHEMA_VERSION = 1
 RECEIPT_DIR = "receipts"
 RECEIPT_SCHEMA = "InstallationReceipt/v1"
+RECEIPT_ROLES = {"release", "owned"}
+_SHA256 = re.compile(r"[0-9a-f]{64}")
 # Snapshot input -> the file in the receipt's release artifacts that must carry the same bytes.  The
 # installer digest cannot answer this: an old installer runs the new package's store and catalog.
 RECEIPT_ARTIFACTS = {"compiler_digest": "compose/instructions_catalog.py",
@@ -225,7 +227,50 @@ def read_installation_receipt(state_root: Path, receipt_id: str) -> dict[str, An
     receipt = json.loads(raw)
     if not isinstance(receipt, dict) or receipt.get("schema") != RECEIPT_SCHEMA or receipt.get("result") != "success":
         raise ValidationError("not a success installation receipt")
+    _receipt_contract(receipt)
     return receipt
+
+
+def _receipt_contract(receipt: dict[str, Any]) -> None:
+    """Hold a receipt to the contract the installer writes, not only to its own hash.
+
+    A body can hash to its file name and still be no evidence: it can carry the id that must live
+    outside it, claim two different installer digests where a difference refuses the receipt, lack
+    the fields a verdict reads, or hold artifact rows of another shape. Each of those was accepted
+    as bound, or raised where a verdict was promised (X r1 F4), so each is a named refusal here and
+    `installation_binding` turns it into `unbound` with its reason.
+    """
+    carried = [key for key in ("receipt_id",) if key in receipt]
+    if carried:
+        raise ValidationError("installation receipt carries its own id: " + ", ".join(carried))
+    installer = receipt.get("installer")
+    if not isinstance(installer, dict):
+        raise ValidationError("installation receipt names no installer")
+    digests = [installer.get("digest_at_import"), installer.get("digest")]
+    if not all(isinstance(value, str) and _SHA256.fullmatch(value) for value in digests):
+        raise ValidationError("installation receipt's installer digests are not digests")
+    if digests[0] != digests[1]:
+        # The installer refuses the receipt on a difference, so a receipt holding one was not written
+        # by that installer: the claim about which code ran is unusable either way.
+        raise ValidationError("installation receipt claims two different installer digests")
+    if not isinstance(installer.get("package_modules_run"), list):
+        raise ValidationError("installation receipt lists no package modules")
+    for field, kind in (("transaction_id", str), ("release_digest", str), ("baseline_ref", str),
+                        ("selection", list), ("at", int)):
+        if not isinstance(receipt.get(field), kind) or (kind is str and not receipt[field]):
+            raise ValidationError(f"installation receipt's {field} is not a {kind.__name__}")
+    begun_by = receipt.get("begun_by_installer_digest")
+    if begun_by is not None and not (isinstance(begun_by, str) and _SHA256.fullmatch(begun_by)):
+        raise ValidationError("installation receipt's beginning installer digest is not a digest")
+    artifacts = receipt.get("artifacts")
+    if not isinstance(artifacts, list) or not artifacts:
+        raise ValidationError("installation receipt lists no artifacts")
+    for row in artifacts:
+        if not isinstance(row, dict) or set(row) != {"path", "sha256", "role"} \
+                or not isinstance(row["path"], str) or not row["path"] \
+                or not (isinstance(row["sha256"], str) and _SHA256.fullmatch(row["sha256"])) \
+                or row["role"] not in RECEIPT_ROLES:
+            raise ValidationError("installation receipt holds an artifact row of another shape")
 
 
 def installation_binding(state_root: Path, inputs: dict[str, Any]) -> dict[str, Any]:

@@ -644,18 +644,33 @@ def resolve_codex_rollout(state_root, host_id, thread, env):
     (the first record's `session_meta.id`, else the name), so a census id that differs from the pinned
     one — a fork, a rename — is a named reason there rather than a silent miss here.
     """
-    tried = []
-    path = (thread or {}).get('path')
-    tried.append('thread.path')
-    resolved = rollout_identity(path)
-    if resolved:
-        return {'path': resolved[0], 'id': resolved[1], 'how': 'thread.path'}
-    tried.append('index')
-    resolved = rollout_identity(codex_index_rollout(env, host_id))
-    if resolved:
-        return {'path': resolved[0], 'id': resolved[1], 'how': 'index'}
-    print(f"agent-bios: no rollout resolved for this Codex thread ({', '.join(tried)}); "
-          f"its pin records no transcript.", file=sys.stderr)
+    sessions = native_home('codex', env or {}) / 'sessions'
+    rejected = []
+    # (1) The path the thread itself returned, accepted only when it is PROVABLY this thread's rollout
+    # inside the configured home: a path alone is not an association (X r1 F2).
+    found = rollout_identity((thread or {}).get('path'))
+    if found is None:
+        rejected.append('thread.path: the host named no existing rollout file')
+    else:
+        resolved, ids = found
+        if not _under(resolved, sessions):
+            rejected.append('thread.path: it resolves outside the configured home')
+        elif len(ids) != 1:
+            rejected.append(f'thread.path: its name carries {len(ids)} ids, so which thread it belongs to is not decided')
+        elif ids[0] != host_id:
+            rejected.append("thread.path: its name is another thread's id")
+        else:
+            return {'path': resolved, 'id': ids[0], 'how': 'thread.path'}
+    # (2) The host's index, whose row IS the association: the id it answers for is the one asked.
+    found = rollout_identity(codex_index_rollout(env, host_id))
+    if found is None:
+        rejected.append('index: no row for this thread names an existing rollout file')
+    elif not _under(found[0], sessions):
+        rejected.append('index: its row resolves outside the configured home')
+    else:
+        return {'path': found[0], 'id': found[1][-1], 'how': 'index'}
+    print('agent-bios: no rollout resolved for this Codex thread; its pin records no transcript. '
+          + '; '.join(rejected), file=sys.stderr)
     return None
 
 
@@ -666,8 +681,10 @@ ROLLOUT_UUID = re.compile(r'[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-f
 
 
 def rollout_identity(path):
-    """`(resolved path, id)` when `path` names a rollout file that exists, else None.
+    """`(resolved path, [ids its name carries])` when `path` names an existing rollout file, else None.
 
+    Every id in the name is returned, not just one: a fork is written as two ids in one name, and
+    which thread such a file belongs to is for the caller to decide rather than for this to guess.
     The comparison is by resolved path because a temporary or linked home answers through a symlink
     (macOS `/var` is one), and an unresolved string compares unequal to the same file.
     """
@@ -680,7 +697,32 @@ def rollout_identity(path):
     if not ROLLOUT_NAME.match(here.name) or not here.is_file():
         return None
     found = ROLLOUT_UUID.findall(here.name)
-    return (str(here), found[-1]) if found else None
+    return (str(here), found) if found else None
+
+
+def _under(path, directory):
+    """Is `path` (already resolved) inside `directory`, comparing both as the filesystem resolves them?"""
+    try:
+        return pathlib.Path(path).resolve().is_relative_to(pathlib.Path(directory).resolve())
+    except OSError:
+        return False
+
+
+STATE_DATABASE = re.compile(r'^state_(\d+)\.sqlite$')
+
+
+def codex_state_databases(home):
+    """The host's thread databases, the highest version first.
+
+    The version is PARSED, not sorted as text: `state_9.sqlite` sorts after `state_10.sqlite`
+    lexically, which would have read provenance out of an older store (X r1 F7).
+    """
+    found = []
+    for path in home.glob('state_*.sqlite') if home.is_dir() else []:
+        match = STATE_DATABASE.match(path.name)
+        if match and path.is_file() and not path.is_symlink():
+            found.append((int(match.group(1)), path))
+    return [path for _version, path in sorted(found, key=lambda row: row[0], reverse=True)]
 
 
 def codex_index_rollout(env, host_id):
@@ -693,7 +735,7 @@ def codex_index_rollout(env, host_id):
     join, and the miss is reported as `rollout_unresolved`.
     """
     home = native_home('codex', env or {})
-    for database in sorted(home.glob('state_*.sqlite'), reverse=True):
+    for database in codex_state_databases(home):
         with tempfile.TemporaryDirectory(prefix='agent-bios-threads-') as scratch:
             copy = pathlib.Path(scratch) / database.name
             try:
