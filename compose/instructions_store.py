@@ -33,6 +33,7 @@ SCHEMA_VERSION = 1
 RECEIPT_DIR = "receipts"
 RECEIPT_SCHEMA = "InstallationReceipt/v1"
 RECEIPT_ROLES = {"release", "owned"}
+RECEIPT_INSTALLER = {"digest_at_import", "digest", "build", "root", "files", "package_modules_run"}
 _SHA256 = re.compile(r"[0-9a-f]{64}")
 # Snapshot input -> the file in the receipt's release artifacts that must carry the same bytes.  The
 # installer digest cannot answer this: an old installer runs the new package's store and catalog.
@@ -246,30 +247,66 @@ def _receipt_contract(receipt: dict[str, Any]) -> None:
     installer = receipt.get("installer")
     if not isinstance(installer, dict):
         raise ValidationError("installation receipt names no installer")
-    digests = [installer.get("digest_at_import"), installer.get("digest")]
+    if set(installer) != RECEIPT_INSTALLER:
+        # Every field here is one the writer ALWAYS writes, so a receipt missing one, or carrying a field
+        # the writer never writes, was not written by that installer (X r2 F2).
+        raise ValidationError("installation receipt's installer is not the shape the installer writes: "
+                              + ", ".join(sorted(RECEIPT_INSTALLER.symmetric_difference(installer))))
+    digests = [installer["digest_at_import"], installer["digest"]]
     if not all(isinstance(value, str) and _SHA256.fullmatch(value) for value in digests):
         raise ValidationError("installation receipt's installer digests are not digests")
     if digests[0] != digests[1]:
         # The installer refuses the receipt on a difference, so a receipt holding one was not written
         # by that installer: the claim about which code ran is unusable either way.
         raise ValidationError("installation receipt claims two different installer digests")
-    if not isinstance(installer.get("package_modules_run"), list):
+    if not isinstance(installer["root"], str) or not installer["root"]:
+        raise ValidationError("installation receipt's installer names no root")
+    if not (installer["build"] is None or (isinstance(installer["build"], str) and installer["build"])):
+        raise ValidationError("installation receipt's installer build is neither a version nor absent")
+    files = installer["files"]
+    if not isinstance(files, list) or not files:
+        raise ValidationError("installation receipt lists no installer files")
+    for row in files:
+        if not isinstance(row, dict) or set(row) != {"path", "sha256"} \
+                or not isinstance(row["path"], str) or not row["path"] \
+                or not (isinstance(row["sha256"], str) and _SHA256.fullmatch(row["sha256"])):
+            # A null sha256 is an unreadable installer file, on which the writer refuses the receipt.
+            raise ValidationError("installation receipt holds an installer file row of another shape")
+    if _digest(files) != installer["digest"]:
+        # The digest IS the hash of these rows, canonically, so the two can be held against each other
+        # rather than taken on the receipt's word.
+        raise ValidationError("installation receipt's installer digest is not the hash of its own file list")
+    modules = installer["package_modules_run"]
+    if not isinstance(modules, list):
         raise ValidationError("installation receipt lists no package modules")
+    for row in modules:
+        if not isinstance(row, dict) or set(row) != {"path", "sha256"} or not isinstance(row["path"], str) \
+                or not isinstance(row["sha256"], str) or not row["sha256"]:
+            raise ValidationError("installation receipt holds a package module row of another shape")
     for field, kind in (("transaction_id", str), ("release_digest", str), ("baseline_ref", str),
                         ("selection", list), ("at", int)):
-        if not isinstance(receipt.get(field), kind) or (kind is str and not receipt[field]):
+        if not isinstance(receipt.get(field), kind) or (kind is str and not receipt[field]) \
+                or (kind is int and isinstance(receipt[field], bool)):
             raise ValidationError(f"installation receipt's {field} is not a {kind.__name__}")
     begun_by = receipt.get("begun_by_installer_digest")
+    if "begun_by_installer_digest" not in receipt:
+        raise ValidationError("installation receipt names no beginning installer digest, not even as absent")
     if begun_by is not None and not (isinstance(begun_by, str) and _SHA256.fullmatch(begun_by)):
         raise ValidationError("installation receipt's beginning installer digest is not a digest")
+    if begun_by == installer["digest"]:
+        # The writer normalises "begun by the installer that finished it" to null, so an equal pair is a
+        # claim no installer makes, and reading it as "a different installer began this" would be false.
+        raise ValidationError("installation receipt's beginning installer digest equals the finishing one")
     artifacts = receipt.get("artifacts")
     if not isinstance(artifacts, list) or not artifacts:
         raise ValidationError("installation receipt lists no artifacts")
     for row in artifacts:
+        # `role` is checked for being a string BEFORE set membership: an unhashable role raised a
+        # TypeError where a verdict was promised (X r2 F1).
         if not isinstance(row, dict) or set(row) != {"path", "sha256", "role"} \
                 or not isinstance(row["path"], str) or not row["path"] \
                 or not (isinstance(row["sha256"], str) and _SHA256.fullmatch(row["sha256"])) \
-                or row["role"] not in RECEIPT_ROLES:
+                or not isinstance(row["role"], str) or row["role"] not in RECEIPT_ROLES:
             raise ValidationError("installation receipt holds an artifact row of another shape")
 
 

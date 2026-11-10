@@ -644,34 +644,59 @@ def resolve_codex_rollout(state_root, host_id, thread, env):
     (the first record's `session_meta.id`, else the name), so a census id that differs from the pinned
     one — a fork, a rename — is a named reason there rather than a silent miss here.
     """
-    sessions = native_home('codex', env or {}) / 'sessions'
     rejected = []
-    # (1) The path the thread itself returned, accepted only when it is PROVABLY this thread's rollout
-    # inside the configured home: a path alone is not an association (X r1 F2).
-    found = rollout_identity((thread or {}).get('path'))
-    if found is None:
-        rejected.append('thread.path: the host named no existing rollout file')
-    else:
-        resolved, ids = found
-        if not _under(resolved, sessions):
-            rejected.append('thread.path: it resolves outside the configured home')
-        elif len(ids) != 1:
-            rejected.append(f'thread.path: its name carries {len(ids)} ids, so which thread it belongs to is not decided')
-        elif ids[0] != host_id:
-            rejected.append("thread.path: its name is another thread's id")
-        else:
-            return {'path': resolved, 'id': ids[0], 'how': 'thread.path'}
-    # (2) The host's index, whose row IS the association: the id it answers for is the one asked.
-    found = rollout_identity(codex_index_rollout(env, host_id))
-    if found is None:
-        rejected.append('index: no row for this thread names an existing rollout file')
-    elif not _under(found[0], sessions):
-        rejected.append('index: its row resolves outside the configured home')
-    else:
-        return {'path': found[0], 'id': found[1][-1], 'how': 'index'}
+    # (1) The path the thread itself returned, and (2) the host's index row for exactly this thread id.
+    # BOTH go through the same test, because the index gives a path and nothing more: a path alone is not
+    # an association (X r1 F2), and neither is a name inside a directory that only looks like the
+    # configured home (X r2 F6).
+    for step, candidate in (('thread.path', (thread or {}).get('path')),
+                            ('index', codex_index_rollout(env, host_id))):
+        accepted, why = _rollout_of_thread(candidate, host_id, env)
+        if accepted:
+            return {**accepted, 'how': step}
+        rejected.append(f'{step}: {why}')
     print('agent-bios: no rollout resolved for this Codex thread; its pin records no transcript. '
           + '; '.join(rejected), file=sys.stderr)
     return None
+
+
+def _rollout_of_thread(path, host_id, env):
+    """`({'path', 'id'}, None)` when `path` is PROVABLY this thread's rollout inside the configured
+    home, else `(None, why not)`.
+
+    Four things are asked, and each was a way in that the first realization left open:
+    the file exists and is named as a rollout; it lies inside the *resolved* configured home's sessions
+    tree, reached through a sessions root that resolves to that home's own (a `sessions` symlink
+    otherwise makes any foreign tree the boundary); it has exactly one link, since a hard link makes one
+    file two threads' with nothing on disk to tell them apart; and its name carries exactly one id,
+    which is this thread's, compared without case because a uuid is the same id in either case.
+
+    The last check is applied to the index row too. The row IS an association, but it carries only a
+    path, so a row naming a fork-shaped file costs this resolution a miss — the safe direction, since a
+    wrong join attributes one session's delivered bytes to another.
+    """
+    found = rollout_identity(path)
+    if found is None:
+        return None, 'no existing rollout file was named'
+    resolved, ids = found
+    home = native_home('codex', env or {})
+    try:
+        sessions = (home / 'sessions')
+        anchored = sessions.resolve() == (home.resolve() / 'sessions')
+        links = pathlib.Path(resolved).stat().st_nlink
+    except OSError as problem:
+        return None, f'its home or the file could not be read ({type(problem).__name__})'
+    if not anchored:
+        return None, "the configured home's sessions root resolves elsewhere, so it bounds nothing"
+    if not _under(resolved, sessions):
+        return None, 'it resolves outside the configured home'
+    if links > 1:
+        return None, f'it has {links} links, so which thread it belongs to is not decided'
+    if len(ids) != 1:
+        return None, f'its name carries {len(ids)} ids, so which thread it belongs to is not decided'
+    if ids[0].lower() != str(host_id).lower():
+        return None, "its name is another thread's id"
+    return {'path': resolved, 'id': ids[0]}, None
 
 
 # A rollout as the host names it on disk.  Declared here and not imported: the reader that owns this
@@ -744,7 +769,7 @@ def codex_index_rollout(env, host_id):
                         shutil.copy2(part, pathlib.Path(scratch) / part.name)
                 connection = sqlite3.connect(f'file:{copy}?mode=ro', uri=True, timeout=5)
             except (OSError, sqlite3.Error):
-                continue
+                continue              # a database this process cannot read says nothing, so the next is asked
             try:
                 if not connection.execute("select name from sqlite_master where type='table' "
                                           "and name='threads'").fetchone():
@@ -754,8 +779,10 @@ def codex_index_rollout(env, host_id):
                 continue
             finally:
                 connection.close()
-            if row and isinstance(row[0], str):
-                return row[0]
+            # The highest version this process could READ is the authority, whether or not it holds the
+            # thread: an older store's row for a thread the current one does not list is a stale
+            # association, and reading it resurrected one (X r2 F7).
+            return row[0] if row and isinstance(row[0], str) else None
     return None
 
 

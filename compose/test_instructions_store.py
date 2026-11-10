@@ -659,12 +659,22 @@ class InstallationBindingTest(_StoreFixture):
                 "compose/instructions_store.py": Path(instructions_store.__file__).read_bytes(),
                 "compose/bootstrap/SKILL.md": (self.repo / "compose" / "bootstrap" / "SKILL.md").read_bytes()}
 
+    def installer_fields(self, **overrides) -> dict:
+        """The installer block as the writer writes it: every field present, and `digest` the canonical
+        hash of `files`, which is what `_installer_code` derives it from and the reader re-derives."""
+        files = [{"path": "compose/instructions_install.py", "sha256": "2b" * 32},
+                 {"path": "compose/instructions_transaction.py", "sha256": "3c" * 32}]
+        digest = hashlib.sha256(json.dumps(files, ensure_ascii=False, sort_keys=True,
+                                           separators=(",", ":")).encode("utf-8")).hexdigest()
+        return {"digest_at_import": digest, "digest": digest, "build": "0.0.0-fixture", "root": "/fixture",
+                "files": files, "package_modules_run": [{"path": "compose/instructions_store.py",
+                                                         "sha256": "4d" * 32}], **overrides}
+
     def receipt_body(self, transaction_id: str, baseline_ref: str, **overrides) -> dict:
         """The body the installer would write for this store, with any field replaced for a control."""
         body = {
             "schema": "InstallationReceipt/v1", "result": "success", "transaction_id": transaction_id,
-            "installer": {"digest_at_import": "1a" * 32, "digest": "1a" * 32, "build": "0.0.0-fixture",
-                          "root": "/fixture", "files": [], "package_modules_run": []},
+            "installer": self.installer_fields(),
             "begun_by_installer_digest": None, "release_digest": "release-" + transaction_id,
             "baseline_ref": baseline_ref, "selection": [],
             "artifacts": [{"path": path, "sha256": hashlib.sha256(content).hexdigest(), "role": "release"}
@@ -857,34 +867,54 @@ class InstallationBindingTest(_StoreFixture):
         self.store.install()
         baseline_ref = self.store.status()["selected_baseline_ref"]
         inputs = self.inputs()
+        written = self.installer_fields()
         cases = {
             "carries its own id": {"receipt_id": "0" * 64},
-            "two different installer digests": {"installer": {"digest_at_import": "a" * 64, "digest": "b" * 64,
-                                                              "build": None, "package_modules_run": []}},
-            "installer digests are not digests": {"installer": {"digest_at_import": "nope", "digest": "nope",
-                                                                "build": None, "package_modules_run": []}},
             "names no installer": {"installer": None},
-            "lists no package modules": {"installer": {"digest_at_import": "1a" * 32, "digest": "1a" * 32,
-                                                       "build": None, "package_modules_run": None}},
+            # every field below is one the writer always writes, so its absence is not a receipt (X r2 F2)
+            "is not the shape the installer writes: root": {"installer": {
+                key: value for key, value in written.items() if key != "root"}},
+            "is not the shape the installer writes: ran_at": {"installer": {**written, "ran_at": 1}},
+            "two different installer digests": {"installer": self.installer_fields(digest_at_import="a" * 64)},
+            "installer digests are not digests": {"installer": self.installer_fields(
+                digest_at_import="nope", digest="nope")},
+            "installer names no root": {"installer": self.installer_fields(root="")},
+            "build is neither a version nor absent": {"installer": self.installer_fields(build=5)},
+            "lists no installer files": {"installer": self.installer_fields(files=[])},
+            "installer file row of another shape": {"installer": self.installer_fields(
+                files=[{"path": "compose/instructions_install.py", "sha256": None}])},
+            "is not the hash of its own file list": {"installer": self.installer_fields(
+                digest_at_import="b" * 64, digest="b" * 64)},
+            "lists no package modules": {"installer": self.installer_fields(package_modules_run=None)},
+            "package module row of another shape": {"installer": self.installer_fields(
+                package_modules_run=[{"path": "compose/instructions_store.py"}])},
             "transaction_id is not a str": {"transaction_id": None},   # overrides the body's own value
             "at is not a int": {"at": "2026-11-11"},
             "beginning installer digest is not a digest": {"begun_by_installer_digest": "earlier"},
+            "equals the finishing one": {"begun_by_installer_digest": written["digest"]},
             "lists no artifacts": {"artifacts": None},
             "artifact row of another shape": {"artifacts": [{"path": "compose/instructions_store.py",
                                                              "sha256": "0" * 64}]},
+            # an unhashable role reached set membership and raised where a verdict was promised (X r2 F1)
+            "artifact row of another shape (role is a list)": {"artifacts": [
+                {"path": "compose/instructions_store.py", "sha256": "0" * 64, "role": []}]},
+            "artifact row of another shape (role is an object)": {"artifacts": [
+                {"path": "compose/instructions_store.py", "sha256": "0" * 64, "role": {"release": True}}]},
         }
-        for expected, overrides in cases.items():
+        missing = {"names no beginning installer digest, not even as absent": "begun_by_installer_digest"}
+        for expected, overrides in {**cases, **{key: {} for key in missing}}.items():
             with self.subTest(case=expected):
                 body = self.receipt_body("tx-a", baseline_ref)
                 body.update(overrides)
+                body.pop(missing.get(expected, ""), None)
                 receipt_id = self.write_receipt(body)
                 with self.assertRaises(ValidationError) as caught:
                     instructions_store.read_installation_receipt(self.store.state_root, receipt_id)
-                self.assertIn(expected, str(caught.exception))
+                self.assertIn(expected.split(" (")[0], str(caught.exception))
                 verdict = instructions_store.installation_binding(
                     self.store.state_root, {**inputs, "installation_receipt_id": receipt_id})
                 self.assertFalse(verdict["bound"])
-                self.assertIn(expected, verdict["reason"])
+                self.assertIn(expected.split(" (")[0], verdict["reason"])
 
     def test_a_receipt_id_may_not_leave_the_receipt_directory(self) -> None:
         self.store.install()

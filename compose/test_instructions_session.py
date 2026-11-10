@@ -83,7 +83,7 @@ class PinTests(unittest.TestCase):
                 self.assertIsNone(session.resolve_codex_rollout(
                     self.root, uuid_text, {'path': str(candidate)}, env))
             self.assertIn(rejection, said.getvalue())
-            self.assertIn('index: no row for this thread', said.getvalue())
+            self.assertIn('index: no existing rollout file was named', said.getvalue())
         # A path the host gives that is not a rollout hands over to the index, which names the rollout.
         # Its name carries a uuid and is not a rollout: the shape decides, not the presence of an id.
         not_a_rollout = home / 'threads' / f'thread-{uuid_text}.json'
@@ -107,6 +107,25 @@ class PinTests(unittest.TestCase):
         self.assertEqual(('index', uuid_text), (unwritable['how'], unwritable['id']))
         self.assertEqual(['state_5.sqlite'], [path.name for path in sorted(home.glob('state_5.sqlite*'))])
         home.chmod(0o700)
+        # Neither a hard link nor a sessions root pointing elsewhere makes a file this thread's, and the
+        # name alone cannot say otherwise (X r2 F6).
+        linked = sessions / f'rollout-2026-11-11T02-45-13-{uuid_text}.jsonl'
+        os.link(rollout, linked)
+        with contextlib.redirect_stderr(io.StringIO()) as said:
+            self.assertIsNone(session.resolve_codex_rollout(self.root, uuid_text, {'path': str(linked)}, env))
+        self.assertIn('it has 2 links', said.getvalue())
+        linked.unlink()
+        elsewhere = self.root / 'elsewhere' / 'sessions'
+        elsewhere.mkdir(parents=True)
+        planted = elsewhere / f'rollout-2026-11-11T02-45-14-{uuid_text}.jsonl'
+        planted.write_text('{}\n', encoding='utf-8')
+        pointing = self.root / 'pointing-home'
+        pointing.mkdir()
+        (pointing / 'sessions').symlink_to(elsewhere)
+        with contextlib.redirect_stderr(io.StringIO()) as said:
+            self.assertIsNone(session.resolve_codex_rollout(
+                self.root, uuid_text, {'path': str(planted)}, {'CODEX_HOME': str(pointing)}))
+        self.assertIn('resolves elsewhere', said.getvalue())
         # The authoritative database is the highest VERSION, not the last name in sort order: a
         # ten-numbered store sorts before a nine-numbered one as text (X r1 F7).
         newer = sessions / f'rollout-2026-11-12T09-00-00-{uuid_text}.jsonl'
@@ -121,14 +140,25 @@ class PinTests(unittest.TestCase):
                          session.codex_state_databases(home))
         authoritative = session.resolve_codex_rollout(self.root, uuid_text, {'path': str(not_a_rollout)}, env)
         self.assertEqual((str(newer.resolve()), 'index'), (authoritative['path'], authoritative['how']))
+        # And the highest database that could be read is the authority whether or not it holds the thread:
+        # an older store's row for a thread the current one does not list is stale (X r2 F7).
+        (home / 'state_10.sqlite').unlink()
+        with closing(sqlite3.connect(home / 'state_10.sqlite')) as index:
+            index.execute('create table threads(id text, rollout_path text)')
+            index.execute('insert into threads values (?, ?)', (other_text, str(newer)))
+            index.commit()
+        with contextlib.redirect_stderr(io.StringIO()) as said:
+            self.assertIsNone(session.resolve_codex_rollout(
+                self.root, uuid_text, {'path': str(not_a_rollout)}, env))
+        self.assertIn('index: no existing rollout file was named', said.getvalue())
         for name in ('state_9.sqlite', 'state_10.sqlite'):
             (home / name).unlink()
         # Neither step resolves an unknown thread, and the activation says which it tried.
         with contextlib.redirect_stderr(io.StringIO()) as said:
             self.assertIsNone(session.resolve_codex_rollout(self.root, other_text, {'path': None}, env))
         said_text = said.getvalue()
-        self.assertIn('thread.path: the host named no existing rollout file', said_text)
-        self.assertIn('index: no row for this thread', said_text)
+        self.assertIn('thread.path: no existing rollout file was named', said_text)
+        self.assertIn('index: no existing rollout file was named', said_text)
 
     def test_a_codex_pin_says_whether_it_resolved_a_rollout_without_needing_a_host(self):
         # The keys are written whatever the seam returns, because their ABSENCE is what tells a reader
