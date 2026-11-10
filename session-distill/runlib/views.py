@@ -3162,7 +3162,7 @@ def self_test():
                [path.name for path in sorted(pathlib.Path(CAPTURES).glob("*.json")) + [CAPTURES.parent / "captures.json"]
                 for text in [path.read_text(encoding="utf-8")]
                 if "sk-ant-" + "oat" in text or FX_HOME in text
-                or any(owner in text for owner in ("/Users/kangmin", "/home/", "/Users/Shared"))], [])
+                or any(owner in text for owner in (str(pathlib.Path.home()), "/home/", "/Users/Shared"))], [])
         named("control, done-when 3(c): a view-window capture above 120k is INPUT_BOUND_EXCEEDED (this one is "
               "the synthetic fixture: no retained capture of that case exists)",
               bound.check_observed(observed_input_of(overrun), True), "INPUT_BOUND_EXCEEDED")

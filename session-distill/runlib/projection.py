@@ -2225,6 +2225,12 @@ def report_sweep(run_dir):
     return 1 if residual or bad_index else 0
 
 
+# The fixture owner of this suite. A real owner's home must not be written into a shipped file: the
+# masking rule is shape-based, so a fixture home exercises it exactly as the author's own would, and
+# the content-hygiene gate reads what ships rather than who wrote it.
+FX_OWNER_HOME = "/Users/fixture-owner"
+
+
 def self_test():
     # This suite prints its own report outside the shared boundary, so in stop-at-first-failure mode
     # its list prints the failure itself, in the report's own form, before the suite leaves.
@@ -3129,7 +3135,7 @@ def self_test():
     # The closure makes every composition reachable, and this control asserts the closure IS closed.
     closure_subjects = [
         '{"note":"plain"} caf' + chr(0xE9),
-        "/Us" + chr(0x200B) + "ers/kangmin/notes.md",
+        "/Us" + chr(0x200B) + "ers/fixture-owner/notes.md",
         "a " + chr(0xFF3C) + "u0070assword field",
         chr(0xC554) + chr(0xD638) + " " + chr(0xD544) + chr(0xB4DC),
     ]
@@ -3153,14 +3159,14 @@ def self_test():
     # refusal, which is what the boundary owes.
     orders = [
         ("an invisible character inside a case-sensitive owner path",
-         "/Us" + chr(0x200B) + "ers/kangmin/notes.md", "the owner's home path"),
+         "/Us" + chr(0x200B) + "ers/fixture-owner/notes.md", "the owner's home path"),
         ("an invisible character inside a case-sensitive credential",
          "sk-abcdefghij" + chr(0x200B) + "klmnopqrst", "the floor claims"),
         ("an escape revealed by NFKC", "a " + chr(0xFF3C) + "u0070assword field", "password"),
         ("an escape revealed by casefolding", "A " + chr(92) + "U0070ASSWORD FIELD", "undecodable"),
     ]
     for label, text, expected in orders:
-        allowed, why = evidence_quote_admissible(text, "/Users/kangmin")
+        allowed, why = evidence_quote_admissible(text, FX_OWNER_HOME)
         if allowed:
             failures.append(f"the strict rule admits {label}")
         elif expected not in (why or ""):
@@ -3171,7 +3177,7 @@ def self_test():
                         ("an emoji with a ZWJ sequence",
                          "a family " + chr(0x1F468) + chr(0x200D) + chr(0x1F469) + chr(0x200D)
                          + chr(0x1F467) + " here")):
-        allowed, why = evidence_quote_admissible(text, "/Users/kangmin")
+        allowed, why = evidence_quote_admissible(text, FX_OWNER_HOME)
         if not allowed:
             failures.append(f"the strict rule refuses {label}, which names nothing: {why!r}")
     # ... and the bound itself REFUSES by name rather than truncating. Asserted by lowering the bound
@@ -3180,12 +3186,12 @@ def self_test():
     held_limit, held_rounds = VF_CLOSURE_LIMIT, VF_CLOSURE_ROUNDS
     try:
         globals()["VF_CLOSURE_LIMIT"] = 2
-        allowed, why = evidence_quote_admissible('{"note":"plain"} caf' + chr(0xE9), "/Users/kangmin")
+        allowed, why = evidence_quote_admissible('{"note":"plain"} caf' + chr(0xE9), FX_OWNER_HOME)
         if allowed or "spells more than 2 strings" not in (why or ""):
             failures.append(f"the closure's size bound does not refuse by name: {why!r}")
         globals()["VF_CLOSURE_LIMIT"] = held_limit
         globals()["VF_CLOSURE_ROUNDS"] = 1
-        allowed, why = evidence_quote_admissible('{"note":"plain"} caf' + chr(0xE9), "/Users/kangmin")
+        allowed, why = evidence_quote_admissible('{"note":"plain"} caf' + chr(0xE9), FX_OWNER_HOME)
         if allowed or "still growing after 1 round" not in (why or ""):
             failures.append(f"the closure's round bound does not refuse by name: {why!r}")
     finally:
@@ -3204,7 +3210,7 @@ def self_test():
         return "".join(fullwidth.get(character, character) for character in text)
     zwsp, acute = chr(0x200B), chr(0x0301)
     variants = [
-        ("an owner path with a fullwidth letter", "/U" + wide("sers") + "/kangmin/notes.md",
+        ("an owner path with a fullwidth letter", "/U" + wide("sers") + "/fixture-owner/notes.md",
          "the owner's home path"),
         ("an owner path with a zero-width space", "/Users/kang" + zwsp + "min/notes.md",
          "the owner's home path"),
@@ -3214,7 +3220,7 @@ def self_test():
         ("a floor value with a zero-width space", "sk-abcdefghij" + zwsp + "klmnopqrst", "the floor claims"),
     ]
     for label, text, expected in variants:
-        allowed, why = evidence_quote_admissible(text, "/Users/kangmin")
+        allowed, why = evidence_quote_admissible(text, FX_OWNER_HOME)
         if allowed:
             failures.append(f"the strict rule admits {label}")
         elif expected not in (why or ""):
@@ -3223,7 +3229,7 @@ def self_test():
     for label, text in (("an ordinary non-owner path with Unicode letters", "/opt/caf" + chr(0xE9) + "/bin/tool"),
                         ("ordinary Korean text", chr(0xC554) + chr(0xD638) + " " + chr(0xD544) + chr(0xB4DC)),
                         ("a plain sentence", "three files changed")):
-        allowed, why = evidence_quote_admissible(text, "/Users/kangmin")
+        allowed, why = evidence_quote_admissible(text, FX_OWNER_HOME)
         if not allowed:
             failures.append(f"the strict rule refuses {label}: {why!r}")
     # ... and the structural claim itself: each detector was asked about the SAME strings. Asked of an
@@ -3234,7 +3240,7 @@ def self_test():
     try:
         # an admitted quote with a structure to decode, and NO backslash: a `\\u0070` body would be
         # refused as undecodable before the loop runs, and the probe would record nothing
-        evidence_quote_admissible('{"note":"plain","n":2} caf' + chr(0xE9), "/Users/kangmin")
+        evidence_quote_admissible('{"note":"plain","n":2} caf' + chr(0xE9), FX_OWNER_HOME)
         seen = {detector: tuple(items) for detector, items in SPELLING_PROBE.items()}
     finally:
         SPELLING_PROBE = None

@@ -309,10 +309,20 @@ class InstructionsInstaller:
         if not isinstance(listed, list) or not listed:
             raise InstallError("package.json files must declare the private runtime payload")
         paths: set[str] = {"package.json"}  # npm includes this manifest even when files[] omits it.
-        prohibited = ("gates/", "design/", "benchmarks/", "research/", "packages/", "session-distill/")
+        # The driver (`session-distill/`) is runtime payload since WP-24: a private install stores it
+        # like `wrappers/` or `session-cost.py`, because a user who cannot run it cannot distill
+        # their own sessions. The author-side trees stay refused by name — a release carrying
+        # `gates/` would ship this repo's own judgement machinery to every adopter.
+        #
+        # Compared on the FIRST SEGMENT of the normalised path, not as a prefix with a slash.
+        # `_relative` strips the trailing slash, so `"gates/"` arrived here as `"gates"` and
+        # `startswith("gates/")` was false: the check fired only for an entry naming a file inside
+        # one of these trees, and never for the directory entry that packs the whole tree — the one
+        # shape npm actually uses. The refusal existed and could not fire where it mattered.
+        prohibited = ("gates", "design", "benchmarks", "research", "packages")
         for raw in listed:
             relative = _relative(raw, "package files entry")
-            if relative.startswith(prohibited):
+            if relative.split("/", 1)[0] in prohibited:
                 raise InstallError(f"author-only path is not a private runtime payload: {relative}")
             source = self.repo / relative
             # npm's prepack stamps this author-side provenance receipt.  A
@@ -334,6 +344,15 @@ class InstructionsInstaller:
                     child_relative = child.relative_to(self.repo).as_posix()
                     if "/test_" in child_relative or child_relative.startswith("tests/"):
                         raise InstallError(f"test file is not a runtime payload: {child_relative}")
+                    # Compiled bytecode is the author's, not the package's. A directory entry
+                    # expands to every FILE under it, and `.pyc` files are files: the driver's
+                    # `runlib/` is run from the checkout constantly, so whatever `__pycache__` the
+                    # author happened to hold was packed into the release — and a stale `.pyc` that
+                    # shadows the source it no longer matches is the worst shape to hand a user.
+                    # Skipped rather than refused: the author cannot be asked to clean a cache
+                    # before every install, and the source beside it is the payload.
+                    if child.suffix == ".pyc" or "__pycache__" in child.parts:
+                        continue
                     paths.add(child_relative)
         return sorted(paths)
 

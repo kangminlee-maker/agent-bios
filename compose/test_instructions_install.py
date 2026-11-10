@@ -67,6 +67,43 @@ class _InstallerFixture(unittest.TestCase):
 
 
 class InstructionsInstallTests(_InstallerFixture):
+    def test_the_driver_is_runtime_payload_while_the_author_side_trees_stay_refused(self) -> None:
+        """WP-24: a user who cannot run the driver cannot distill their own sessions, so
+        `session-distill/` is payload. The author-side trees are refused by name, which is what
+        keeps the boundary a rule rather than a habit: a release carrying `gates/` would ship this
+        repo's own judgement machinery to every adopter."""
+        driver = self.repo / "session-distill" / "runlib"
+        driver.mkdir(parents=True)
+        (driver.parent / "distill.py").write_text("print('driver')\n", encoding="utf-8")
+        (driver / "records.py").write_text("VALUE = 1\n", encoding="utf-8")
+        manifest = json.loads((self.repo / "package.json").read_text(encoding="utf-8"))
+        manifest["files"].append("session-distill/")
+        (self.repo / "package.json").write_text(json.dumps(manifest), encoding="utf-8")
+        # The author's compiled bytecode is not payload. A directory entry expands to every file
+        # under it, `.pyc` is a file, and `runlib/` is run from the checkout constantly, so a
+        # release used to carry whichever caches the author happened to hold.
+        cache = driver / "__pycache__"
+        cache.mkdir()
+        (cache / "records.cpython-312.pyc").write_bytes(b"\x00stale")
+        packed = self.installer()._package_files()
+        self.assertIn("session-distill/distill.py", packed)
+        self.assertIn("session-distill/runlib/records.py", packed)
+        self.assertEqual([], [rel for rel in packed if "__pycache__" in rel or rel.endswith(".pyc")])
+        base = json.loads((self.repo / "package.json").read_text(encoding="utf-8"))["files"]
+        # Both spellings per tree: the DIRECTORY entry is the one npm uses and the one the rule
+        # could not see, and a file inside it is the spelling that always refused.
+        for tree in ("gates", "design", "benchmarks", "research", "packages"):
+            (self.repo / tree).mkdir(parents=True, exist_ok=True)
+            (self.repo / tree / "check.py").write_text("VALUE = 2\n", encoding="utf-8")
+            for entry in (f"{tree}/", f"{tree}/check.py", tree):
+                with self.subTest(entry=entry):
+                    (self.repo / "package.json").write_text(
+                        json.dumps({"files": [*base, entry]}), encoding="utf-8")
+                    with self.assertRaises(InstallError) as raised:
+                        self.installer()._package_files()
+                    self.assertIn("author-only path is not a private runtime payload: "
+                                  + entry.rstrip("/"), str(raised.exception))
+
     def test_launcher_reachability_answers_whether_the_deployed_launcher_can_be_typed(self) -> None:
         # install() writes the launcher into a directory the caller's PATH may not
         # carry. Nothing in the installed tree records that, so the completion

@@ -396,8 +396,9 @@ AUTHOR_SIDE_DIRS = {
                   "not something its users install",
     "design/": "dated design records and per-initiative SSOTs; history, not runtime",
     "benchmarks/": "the instruction-behavior benchmark; run from a checkout only",
-    "session-distill/": "the curator pipeline that authors instructions content. Users get the "
-                        "workflow guide, not the authoring machinery",
+    "session-distill/fixtures/": "retained capture and replay fixtures of the driver's own suites; "
+                                "their PROVENANCE files carry the author's probe paths",
+    "session-distill/out/": "regenerable pipeline snapshots of the v1 curator windows",
     ".githooks/": "the pre-commit gate; enabled per clone with core.hooksPath",
 }
 
@@ -423,6 +424,48 @@ AUTHOR_SIDE_FILES = {
     "learn/ingest-learnings-export.py":
         "curator intake of a dashboard export; the user side of the loop is "
         "collect-learning.py, which does ship",
+    "session-distill/batch.py":
+        "v1 curator window stage; it mines this repo's own sessions to author instructions "
+        "content and reads the ledger under design/",
+    "session-distill/bundle.py":
+        "v1 curator window stage; it mines this repo's own sessions to author instructions "
+        "content and reads the ledger under design/",
+    "session-distill/bundle_final.py":
+        "v1 curator window stage; it mines this repo's own sessions to author instructions "
+        "content and reads the ledger under design/",
+    "session-distill/census.py":
+        "v1 curator window stage; it mines this repo's own sessions to author instructions "
+        "content and reads the ledger under design/",
+    "session-distill/collect.py":
+        "v1 curator window stage; it mines this repo's own sessions to author instructions "
+        "content and reads the ledger under design/",
+    "session-distill/consolidate.js":
+        "v1 curator window stage; it mines this repo's own sessions to author instructions "
+        "content and reads the ledger under design/",
+    "session-distill/digest.py":
+        "v1 curator window stage; it mines this repo's own sessions to author instructions "
+        "content and reads the ledger under design/",
+    "session-distill/merge-ledger.py":
+        "v1 curator window stage; it mines this repo's own sessions to author instructions "
+        "content and reads the ledger under design/",
+    "session-distill/plain-asks.py":
+        "v1 curator window stage; it mines this repo's own sessions to author instructions "
+        "content and reads the ledger under design/",
+    "session-distill/screen-claude.js":
+        "v1 curator window stage; it mines this repo's own sessions to author instructions "
+        "content and reads the ledger under design/",
+    "session-distill/screen-codex.py":
+        "v1 curator window stage; it mines this repo's own sessions to author instructions "
+        "content and reads the ledger under design/",
+    "session-distill/update-state.py":
+        "v1 curator window stage; it mines this repo's own sessions to author instructions "
+        "content and reads the ledger under design/",
+    "session-distill/migrate-ledger.py":
+        "the author-side ledger migration and its reader inventory; the checkout's ledger lives "
+        "under design/, which never ships",
+    "session-distill/REPIN.md":
+        "how to re-pin the driver's fixtures, which only a checkout has",
+
 }
 
 # Individual paths deliberately NOT shipped. Each needs a reason, and each must be
@@ -880,8 +923,20 @@ AUTHOR_IMPORT_EXEMPT = {
         "assertion about that rule; the tier experiments are not loaded, they are forbidden",
     ("session-distill/runlib/gate.py", "benchmarks/absence.py"):
         "read as SOURCE in its self-test (ast, one function lifted out) rather than imported, "
-        "because importing it would pull in a host dispatcher; the installed self-test skips that "
-        "leg by name with the fixtures it also lacks",
+        "because importing it would pull in a host dispatcher; that leg is one of the module "
+        "suites a packaged user cannot run, and the driver's own `--self-test` does not run it",
+    ("session-distill/runlib/dispatch.py", "session-distill/screen-codex.py"):
+        "a v1 curator stage, declared in OUT_OF_SCOPE as a path the driver's closure may NOT load "
+        "and planted as that rule's subject in self_test; naming it is how the rule is stated",
+    ("session-distill/runlib/dispatch.py", "session-distill/census.py"):
+        "a SCRIPT_RUNS declaration row: `runlib/census.py`'s own self-test runs the v1 "
+        "census-to-digest handoff on a fixture HOME. Nothing at runtime runs it, and the leg is one "
+        "a packaged user cannot run",
+    ("session-distill/runlib/dispatch.py", "session-distill/digest.py"):
+        "the second step of that same declared handoff, with the same scope",
+    ("session-distill/runlib/dispatch.py", "session-distill/migrate-ledger.py"):
+        "a PROGRAMS declaration row: the author-side migrator runs git. It is declared because the "
+        "closure inventory judges declared scripts, not because shipped code loads it",
 }
 shipped_python = sorted(
     rel for rel in (str(p.relative_to(REPO)) for p in REPO.rglob("*.py"))

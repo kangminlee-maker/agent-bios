@@ -10604,17 +10604,20 @@ def self_test():
                   f"refused={recorded_run.get('refused')} methods={[row['method'] for row in recorded_rows]} "
                   f"versions={len(recorded_versions)} raw={[name for name, text in recorded_bytes.items() if recorded_secret in text or recorded_home in text]}")
             # S-19: a Codex block's git, the commit hash kept and every userinfo removed, a credential-shaped one included.
+            # A `.test` fixture host (RFC 6761), because this file ships and the endpoint gate
+            # reads that reserved label as a fixture: the unit is the redaction of userinfo from a
+            # remote URL, which the host name does not bear on.
             github_token = "ghp_" + "A1b2" * 9
             git_run = published_run("git", [
                 ("codex", "c-g1", [{"type": "session_meta", "timestamp": "2026-10-20T09:00:00+00:00",
                                     "payload": {"id": "c-g1", "cwd": "/w/g1", "base_instructions": {"text": "# B\n\n- one\n"},
                                                 "git": {"commit_hash": "abc1234def", "branch": "feature/x",
-                                                        "repository_url": "https://user:shortpass@example.com/org/repo.git"}}}], {}),
+                                                        "repository_url": "https://user:shortpass@fixture.test/org/repo.git"}}}], {}),
                 ("codex", "c-g2", [{"type": "session_meta", "timestamp": "2026-10-20T09:00:00+00:00",
                                     "payload": {"id": "c-g2", "cwd": "/w/g2", "base_instructions": {"text": "# B\n\n- two\n"},
                                                 "git": {"commit_hash": "0123456789abcdef0123456789abcdef01234567",
                                                         "branch": "main",
-                                                        "repository_url": f"https://x-access-token:{github_token}@github.com/org/repo.git"}}}],
+                                                        "repository_url": f"https://x-access-token:{github_token}@forge.test/org/repo.git"}}}],
                  {})])
             git_units = sorted({((unit["provenance"].get("git") or {}).get("repository_url"),
                                  (unit["provenance"].get("git") or {}).get("commit_hash"),
@@ -10628,10 +10631,10 @@ def self_test():
             check("S-19: a Codex block's git is published — the commit hash kept, the branch, and the repository URL "
                   "without its userinfo, a token-shaped one included — on its units and its occurrences",
                   "refused" not in git_run and bool(git_bytes)
-                  and git_units == [("https://example.com/org/repo.git", "abc1234def", "feature/x"),
-                                    ("https://github.com/org/repo.git", "0123456789abcdef0123456789abcdef01234567", "main")]
-                  and git_rows == [("https://example.com/org/repo.git", "abc1234def"),
-                                   ("https://github.com/org/repo.git", "0123456789abcdef0123456789abcdef01234567")]
+                  and git_units == [("https://fixture.test/org/repo.git", "abc1234def", "feature/x"),
+                                    ("https://forge.test/org/repo.git", "0123456789abcdef0123456789abcdef01234567", "main")]
+                  and git_rows == [("https://fixture.test/org/repo.git", "abc1234def"),
+                                   ("https://forge.test/org/repo.git", "0123456789abcdef0123456789abcdef01234567")]
                   and not any(text in git_bytes for text in ("shortpass", github_token, "x-access-token", "user:")),
                   f"refused={git_run.get('refused')} units={len(git_units)} rows={len(git_rows)}")
             check("a scp-like repository address loses its user too, and a commit hash that is not one is null",
@@ -13632,7 +13635,7 @@ def self_test():
                                         "event_id": opaque_id("e", "event", "native", "claude", "s-a", None, 7),
                                         # a Codex block's git (S-19): every leaf the schema declares is filled
                                         "git": {"commit_hash": "abc1234", "branch": "a-planted-branch",
-                                                "repository_url": "https://example.invalid/org/planted.git"}}),
+                                                "repository_url": "https://planted.test/org/planted.git"}}),
                         # The ledger's own provenance shape (`_ledger`), and the `hosts` list the
                         # deduplication appends: every leaf the schema declares under `provenance` is
                         # filled by some fixture, because the walk is judged LEAF BY LEAF and a
