@@ -476,10 +476,17 @@ def window_bound(c, errors):
         errors.append(f"{stop.get('code')} {call.get('call_id')}: this call stopped the run, so its answer is not "
                       f"accepted ({stop.get('detail')})")
     requests = (c.usage or {}).get("requests") if isinstance(c.usage, dict) else None
-    breaches = bounds.claim_breaches(requests, declared.get("claim")) if isinstance(declared.get("claim"), dict) else []
+    claim = declared.get("claim") if isinstance(declared.get("claim"), dict) else None
+    breaches = bounds.claim_breaches(requests, claim) if claim else []
     if breaches and not any(s.get("code") == bounds.CLAIM_CODE for s in offered):
         errors.append(f"{bounds.CLAIM_CODE} {call.get('call_id')}: {'; '.join(breaches)} - past the claim it was "
                       "admitted under, so its answer is not accepted (usage.json against call.json bound.claim)")
+    # each rule judges only with the fields it needs, and a claim lacking one for rows that exist - a record written
+    # before `step` was named, with a retry row - is refused rather than judged by a weaker rule (the lead's
+    # verification of WP-08e commit 4, finding 1)
+    for line in bounds.claim_shape(requests, claim) if claim else []:
+        errors.append(f"{bounds.CLAIM_SHAPE} {call.get('call_id')}: {line}; a claim is never judged by a weaker rule "
+                      "(usage.json against call.json bound.claim)")
     # BA#1: drift, caught per call. The capacity the boundary admitted against is in the record; the host
     # reports its own in every Claude result, and the two must agree or the declaration is stale.
     usage = c.result.get("modelUsage") if isinstance(c.result, dict) else None
@@ -2305,6 +2312,8 @@ def self_test():
         ("window_bound", "{} {}: this call stopped the run, so its answer is not accepted ({})"): ("the window bound",),
         ("window_bound", "{} {}: {} - past the claim it was admitted under, so its answer is not accepted (usage.json "
                          "against call.json bound.claim)"): ("the window bound",),
+        ("window_bound", "{} {}: {}; a claim is never judged by a weaker rule (usage.json against call.json "
+                         "bound.claim)"): ("the window bound",),
         ("call_record", "RECORD_INTEGRITY call.json {}"): ("call record",),
         ("call_record", "RECORD_INTEGRITY call.json: absent, unreadable, or without call_id and host"): ("call record",),
         ("call_record", "RECORD_INTEGRITY capture/host.json {}"): ("malformed record is a named verdict",),

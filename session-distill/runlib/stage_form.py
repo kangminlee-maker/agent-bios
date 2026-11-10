@@ -365,15 +365,28 @@ def form_claim(driver_bytes, limits):
 
 
 def within_claim(requests, claim):
-    """Whether a call stayed within `claim` (`form_claim`; `bound.claim_breaches` decides), or None without a claim or a
-    measured request."""
+    """Whether a call stayed within `claim` (`form_claim`; `bound.claim_problems` decides: a breach, or a field a rule
+    needs that the claim lacks), or None without a claim or a measured request."""
     largest = bound.observed_input(requests)[0] if requests is not None else 0
     if claim is None or not largest:
         return None
-    return not bound.claim_breaches(requests, claim)
+    return not bound.claim_problems(requests, claim)
 
 
-def observed(call_dir, limits=None):
+def usage_rows(call_dir):
+    """A call's usage request rows, None when it has no usage record, refused by name when the record holds none it can
+    read (`RECORD_UNREADABLE`; the lead's verification of WP-08e commit 4, finding 4) - never a KeyError."""
+    path = pathlib.Path(call_dir) / "usage.json"
+    if not path.is_file():
+        return None
+    held = records.read_json(path)
+    rows = held.get("requests") if isinstance(held, dict) else None
+    if not isinstance(rows, list):
+        raise Refused(f"RECORD_UNREADABLE {path}: no request rows (requests: {type(rows).__name__})")
+    return rows
+
+
+def observed(call_dir, limits=None, rows=None):
     """What an accepted formation call measured of S4's two assumptions (W review of WP-09 r2, F1): the context window
     the host reports per model, beside the capacity the call was admitted against; and the input tokens the host
     reported for the call's FIRST main request, beside the driver bytes the call sent, with their ratio (the bytes a
@@ -388,8 +401,7 @@ def observed(call_dir, limits=None):
     result = gate.Call(call_dir).result
     model_usage = result.get("modelUsage") if isinstance(result, dict) else None
     windows = {m: u.get("contextWindow") for m, u in sorted((model_usage or {}).items()) if isinstance(u, dict)}
-    usage_path = call_dir / "usage.json"
-    requests = records.read_json(usage_path)["requests"] if usage_path.is_file() else None
+    requests = rows if rows is not None else usage_rows(call_dir)   # the rows in hand, or read by name
     largest, missing = bound.observed_input(requests) if requests is not None else (None, ["no usage.json"])
     first = usage.first_input(requests) if requests is not None else None
     driver = held.get("driver_bytes")
@@ -400,7 +412,7 @@ def observed(call_dir, limits=None):
             "requests": len(usage.main_requests(requests)), "largest_input": largest or None,
             "first_request_at_most": (claim or {}).get("first"), "input_tokens_at_most": (claim or {}).get("input_at_most"),
             "requests_at_most": (claim or {}).get("requests_at_most"), "within_claim": within_claim(requests, claim),
-            "breaches": bound.claim_breaches(requests, claim) if claim and requests is not None else [],
+            "breaches": bound.claim_problems(requests, claim) if claim and requests is not None else [],
             "missing": [str(m) for m in missing] if missing else []}
 
 
@@ -1005,7 +1017,8 @@ def run(run_dir, supervisor=None, *, dry=False, index_rows=None, tranche="calibr
                 stage.record["status"] = "partial"
                 return summary
             call["call_id"] = stage_read.call_id_of(out["accepted"])
-            call["observed"] = observed(out["accepted"], limits)
+            rows = usage_rows(out["accepted"])            # read once, by name; the guard below judges these rows
+            call["observed"] = observed(out["accepted"], limits, rows)
             if call["observed"]["within_claim"] is False:
                 # W r1, F4: a call past its claim is not a completed stage. The dispatcher stops the run on it
                 # (CLAIM_EXCEEDED) and the call fails before this; what reaches here is an attempt reused under a
@@ -1014,8 +1027,7 @@ def run(run_dir, supervisor=None, *, dry=False, index_rows=None, tranche="calibr
                 # amendment lifted does not stand, and keeping by standing decides what does (W r2, F5). Its measured
                 # values stay in its own records.
                 o = call["observed"]
-                supervisor.stop_on_claim(call["call_id"], records.read_json(pathlib.Path(out["accepted"]) / "usage.json")["requests"],
-                                         form_claim(o["driver_bytes"], limits))
+                supervisor.stop_on_claim(call["call_id"], rows, form_claim(o["driver_bytes"], limits))
                 raise RunStopped(f"CLAIM_EXCEEDED {call['call_id']}: {'; '.join(o['breaches'])} - past the claim it is "
                                  "held to; S4 is not completed on it")
             answer = labels.resolve(gate.accepted(out["accepted"], judged=True))
@@ -2279,6 +2291,30 @@ def self_test():
                 and stood_b.get("declaration_seq", 0) > first_b["declaration_seq"],
                 f"lifted={lifted_b} again={bare_again} blocked={blocked_b} "
                 f"seq {first_b.get('declaration_seq')} -> {stood_b.get('declaration_seq')}")
+        # the lead's verification of commit 4, finding 4: S4's fallback persists its stop from the rows it judged, so a
+        # usage record unreadable by then cannot take the stop down with it
+        unread_dir = copy_of("claim-usage-unreadable")
+        unread_plan = guarded(lambda: fx_form_plan(unread_dir, root / "c5-plan-claim-unread.json"), None)
+        honest_observed = globals()["observed"]
+
+        def observed_then_lost(call_dir, limits=None, rows=None):
+            seen = honest_observed(call_dir, limits, rows)
+            (pathlib.Path(call_dir) / "usage.json").write_text(json.dumps({"call_id": "lost"}), encoding="utf-8")
+            return seen
+        globals()["observed"] = observed_then_lost
+        try:
+            unread_c = refusal(lambda: run(unread_dir, unclaimed(unread_dir, root / "c5-cells-claim-unread", unread_plan, 3)))
+        finally:
+            globals()["observed"] = honest_observed
+        control("lead v4 4: S4's fallback stops the run from the rows it judged though the usage record is unreadable by "
+                "then - the named stop, never a KeyError",
+                unread_c.startswith(f"CLAIM_EXCEEDED {unread_dir.name}-S4-form-a") and "3 main requests, at most 2" in unread_c
+                and "CLAIM_EXCEEDED" in (records.read_json(dispatch.run_ledger_path(unread_dir)).get("stops") or {}),
+                f"{unread_c} {sorted((records.read_json(dispatch.run_ledger_path(unread_dir)).get('stops') or {}))}")
+        control("lead v4 4: a usage record without request rows is refused by name (RECORD_UNREADABLE), not a KeyError",
+                refusal(lambda: usage_rows(next(iter((unread_dir / "calls").glob(f"*-{STAGE}-*")), unread_dir)))
+                .startswith("RECORD_UNREADABLE"), "read as rows")
+
         # W r2, F7: S4's own claim holds the first request to its estimate too
         dense_dir = copy_of("claim-dense-first")
         dense_plan = guarded(lambda: fx_form_plan(dense_dir, root / "c5-plan-claim-dense.json"), None)

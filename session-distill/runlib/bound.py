@@ -404,26 +404,59 @@ def excess(call_id, observed, at):
                       f"the {INPUT_BOUND} bound; the host changed, so the run stops"}
 
 
+CLAIM_SHAPE = "CLAIM_SHAPE"
+
+
+def _mains(rows):
+    return [r for r in list(rows or []) if isinstance(r, dict) and r.get("role") == "main"]
+
+
+def claim_shape(rows, claim):
+    """The fields a rule needs for the rows that exist and the claim does not name, each named, or [] (lead's
+    verification of WP-08e commit 4, finding 1; lead decision). The request count is judged by `requests_at_most`, the
+    first request by `first`, a retry by `first` and `step`. A claim recorded before `step` was named holds a one-request
+    call; one with a retry row is not judged by a weaker rule but refused (`CLAIM_SHAPE`). Raises on nothing."""
+    if not claim:
+        return []
+    try:
+        mains, out = _mains(rows), []
+        if mains and not isinstance(claim.get("requests_at_most"), int):
+            out.append("the claim names no requests_at_most, which the request count is judged by")
+        if mains and not isinstance(claim.get("first"), int):
+            out.append("the claim names no first, which request 1 is judged by")
+        if len(mains) > 1 and not isinstance(claim.get("step"), int):
+            out.append(f"the claim names no step, which request 2 (a retry) is judged by, and the call made {len(mains)}")
+        return out
+    except Exception as exc:                   # noqa: BLE001 - a claim this cannot read is refused, by name
+        return [f"the claim could not be read: {exc!r}"]
+
+
 def claim_breaches(rows, claim):
     """The ways a call's request `rows` went past the claim it was admitted under, each named, or [] (W review of WP-08e
     r1 F4, r2 F7; lead decisions). The claim (`{requests_at_most, first, step, input_at_most}`) holds the first request
     and the claimed retries: at most `requests_at_most` main requests; the first within `first`, its reserved estimate;
-    the k-th retry within `first + k x step`. A claim recorded before `first` and `step` were named holds each request
-    within `input_at_most`. Every main row counts toward the requests; a row's input is read only once it is measured.
-    It decides a stop, so it raises on nothing: a claim it cannot read is named as a breach (fail closed)."""
+    the k-th retry within `first + k x step`. Each rule applies whenever the fields IT needs are present - the
+    first-request rule needs only `first` (lead decision, verification of commit 4); a rule whose field is absent judges
+    nothing here and `claim_shape` names the field, so no row is judged by a weaker rule. Every main row counts toward
+    the requests; a row's input is read only once it is measured. It decides a stop, so it raises on nothing: a claim
+    it cannot read is named as a breach (fail closed)."""
     if not claim:
         return []
     try:
-        mains = [r for r in list(rows or []) if isinstance(r, dict) and r.get("role") == "main"]
-        out = []
-        if len(mains) > claim["requests_at_most"]:
+        mains, out = _mains(rows), []
+        if isinstance(claim.get("requests_at_most"), int) and len(mains) > claim["requests_at_most"]:
             out.append(f"{len(mains)} main requests, at most {claim['requests_at_most']}")
-        stepped = isinstance(claim.get("first"), int) and isinstance(claim.get("step"), int)
+        first, step = claim.get("first"), claim.get("step")
         for k, row in enumerate(mains):
             observed, _missing = row_observation(row)
             if observed is None:
                 continue
-            ceiling = claim["first"] + k * claim["step"] if stepped else claim["input_at_most"]
+            if k == 0 and isinstance(first, int):
+                ceiling = first
+            elif k > 0 and isinstance(first, int) and isinstance(step, int):
+                ceiling = first + k * step
+            else:
+                continue                       # the rule's field is absent: `claim_shape` names it
             if observed > ceiling:
                 out.append(f"request {k + 1} took {render_count(observed)} input tokens, at most {render_count(ceiling)}")
         return out
@@ -431,11 +464,18 @@ def claim_breaches(rows, claim):
         return [f"the claim could not be read: {exc!r}"]
 
 
+def claim_problems(rows, claim):
+    """Every reason the rows are not within the claim: its breaches, then each field it lacks (`CLAIM_SHAPE: ...`). A
+    reader that decides a stop or a completion fails closed on either."""
+    return claim_breaches(rows, claim) + [f"{CLAIM_SHAPE}: {line}" for line in claim_shape(rows, claim)]
+
+
 def claim_excess(call_id, rows, claim, at):
-    """The run's stop entry for a claim excess, before it is committed (`committed`): each breach by name, the main
-    requests and the largest of them beside what was claimed. The measured values stay in the call's own records."""
-    breaches = claim_breaches(rows, claim)
-    mains = [r for r in list(rows or []) if isinstance(r, dict) and r.get("role") == "main"]
+    """The run's stop entry for a claim excess, before it is committed (`committed`): each breach and each missing field
+    by name (`claim_problems`), the main requests and the largest of them beside what was claimed. The measured values
+    stay in the call's own records."""
+    breaches = claim_problems(rows, claim)
+    mains = _mains(rows)
     largest = observed_rows(mains)[0]
     return {"code": CLAIM_CODE, "call_id": call_id, "requests": len(mains), "largest_input": largest,
             "requests_at_most": claim.get("requests_at_most"), "input_at_most": claim.get("input_at_most"),
@@ -546,6 +586,21 @@ def kept(stops, offered):
 def standing(stops, amendments):
     """The stops that stand, in the order they were recorded; the run is open iff there is none."""
     return [s for s in as_stops(stops).values() if stands(s, amendments)]
+
+
+def projection(stops, amendments):
+    """The one `stopped` entry a reader of the earlier ledger shape reads (lead's verification of WP-08e commit 4,
+    finding 2): None when no stop stands; the one standing stop itself; several standing - one unstamped record naming
+    them all, which that reader holds terminal, since it cannot know that each lifts by its own key. So a reader of the
+    earlier shape never reads open a run this one reads stopped; it can read stopped one this reads open, after both
+    keys are amended. `amendments` None - unread - holds every record standing."""
+    held = [s for s in as_stops(stops).values() if amendments is None or stands(s, amendments)]
+    if not held:
+        return None
+    if len(held) == 1:
+        return held[0]
+    return {**{k: v for k, v in held[0].items() if k != "declaration_seq"},
+            "stamp": "several-stops: " + ", ".join(f"{s.get('code')} at {s.get('call_id')}" for s in held)}
 
 
 def stop_line(stopped):
@@ -932,11 +987,24 @@ def self_test():
                                             {"requests_at_most": 2, "first": 53_795, "step": 42_000,
                                              "input_at_most": 95_795}),
           f"request 1 took {render_count(95_000)} input tokens, at most {render_count(53_795)}")
-    expect("F4: a claim recorded before its first and step were named holds each request within its ceiling",
-           (claim_breaches([main(76_913)], {"requests_at_most": 2, "input_at_most": 76_913}),
-            bool(claim_breaches([main(76_914)], {"requests_at_most": 2, "input_at_most": 76_913}))), ([], True))
+    # the lead's verification of commit 4, finding 1: each rule applies when the fields IT needs are present
+    old_shape = {"requests_at_most": 2, "first": 88_352, "input_at_most": 93_566}   # recorded before `step` existed
+    named("control, lead v4 1: an old-shape claim (no step), its one request above first, is a breach by name - the "
+          "first-request rule needs only first", claim_breaches([main(90_352)], old_shape),
+          f"request 1 took {render_count(90_352)} input tokens, at most {render_count(88_352)}")
+    named("control, lead v4 1: an old-shape claim with two main requests names the step its retry rule needs "
+          "(CLAIM_SHAPE), and is never judged by the per-request ceiling",
+          claim_shape([main(80_000), main(81_000)], old_shape), "the claim names no step")
+    expect("lead v4 1: an old-shape claim within first, one request: no breach, no shape problem",
+           (claim_breaches([main(88_352)], old_shape), claim_shape([main(88_352)], old_shape)), ([], []))
+    expect("lead v4 1: a claim judges no request by input_at_most alone, and names the first it lacks",
+           (claim_breaches([main(76_914)], {"requests_at_most": 2, "input_at_most": 76_913}),
+            claim_problems([main(76_914)], {"requests_at_most": 2, "input_at_most": 76_913})),
+           ([], ["CLAIM_SHAPE: the claim names no first, which request 1 is judged by"]))
     named("control, F4: a claim that cannot be read is a breach, so the stop fails closed",
-          claim_breaches([main(1)], {"requests_at_most": None}), "the claim could not be read")
+          claim_breaches([main(1)], ["not", "a", "claim"]), "the claim could not be read")
+    named("control, F4: ... and a shape that cannot be read is refused too",
+          claim_shape([main(1)], ["not", "a", "claim"]), "the claim could not be read")
     claim_stop = committed(claim_excess("r1/S4/form/a0", [main(40_000), main(70_000), main(110_032)], claim, "now"), 4)
     for want in ("3 main requests, at most 2", f"request 3 took {render_count(110_032)} input tokens"):
         named("F4: the claim stop names each breach", [claim_stop["detail"]], want)
@@ -987,6 +1055,14 @@ def self_test():
            (kept(as_stops(claim_stop), committed(claim_excess("x", [main(1)] * 3, claim, "now"), 3))[1]["call_id"],
             kept(as_stops(claim_stop), {**claim_excess("y", [main(1)] * 3, claim, "now"), "stamp": "lock-timeout"})[1]
             ["call_id"]), ("r1/S4/form/a0", "y"))
+    # the lead's verification of commit 4, finding 2: what a reader of the one-entry ledger shape reads
+    expect("lead v4 2: the one-entry projection of the stops is None, the one standing stop, or one unstamped record "
+           "naming every standing stop",
+           (projection({}, []), projection(as_stops(claim_stop), []) is claim_stop,
+            projection(as_stops(claim_stop), [retry_5]),
+            terminal(projection(both, [])), "several-stops: " in (projection(both, []) or {}).get("stamp", ""),
+            projection(both, [allowance_5]) is both[CLAIM_CODE]),
+           (None, True, None, True, True, True))
     expect("W r2: a ledger written with one stopped entry reads as the mapping of that one",
            (as_stops(None), as_stops(claim_stop), as_stops({CLAIM_CODE: claim_stop})),
            ({}, {CLAIM_CODE: claim_stop}, {CLAIM_CODE: claim_stop}))
