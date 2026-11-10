@@ -1,12 +1,21 @@
 """Real temp-home checks for private installation and legacy migration."""
 from __future__ import annotations
 
+import ast
+import base64
+import contextlib
+import hashlib
 import json
 import instructions_install
+import instructions_session
+import os
 import shutil
+import subprocess
+import sys
 from pathlib import Path
 import tempfile
 import unittest
+import unittest.mock
 
 from instructions_install import InstructionsInstaller, InstallError
 from instructions_transaction import TransactionPendingError, confirmed_release, guard_pending
@@ -15,7 +24,13 @@ from instructions_transaction import TransactionPendingError, confirmed_release,
 SOURCE = Path(__file__).resolve().parent.parent
 
 
-class InstructionsInstallTests(unittest.TestCase):
+class _InstallerFixture(unittest.TestCase):
+    """A real temp home with a synthetic package tree.
+
+    The installer that runs is this checkout's; the package it installs is `self.repo`. That is the
+    `--repo` route, where the installer code and the installed package are deliberately not one tree.
+    """
+
     def setUp(self) -> None:
         self.tmp = tempfile.TemporaryDirectory()
         root = Path(self.tmp.name)
@@ -50,6 +65,8 @@ class InstructionsInstallTests(unittest.TestCase):
     def installer(self) -> InstructionsInstaller:
         return InstructionsInstaller(self.repo, self.env)
 
+
+class InstructionsInstallTests(_InstallerFixture):
     def test_launcher_reachability_answers_whether_the_deployed_launcher_can_be_typed(self) -> None:
         # install() writes the launcher into a directory the caller's PATH may not
         # carry. Nothing in the installed tree records that, so the completion
@@ -397,6 +414,542 @@ class InstructionsInstallTests(unittest.TestCase):
                             for item in preview["needs_action"]))
         with self.assertRaises(InstallError):
             self.installer().migrate(apply=True, yes=True)
+
+
+# The installer side of probe 10 (`distill-probes-20261020/installer`, 11 scenarios run by its
+# `run_all.sh`).  The probe varied the installer by building four whole trees and installing through
+# subprocesses; here a second installer version is a fixture that moves BOTH hashes at once, because
+# moving one alone is a different scenario — the refused claim.
+#
+# This file list is typed independently of `instructions_install.INSTALLER_CODE` on purpose: a digest
+# the installer agrees with itself about is not evidence.  If the two declarations ever diverge, the
+# recomputed digest differs and the route cases below fail.
+INDEPENDENT_INSTALLER_FILES = ("compose/instructions_install.py", "compose/instructions_transaction.py",
+                               "compose/host_platform.py", "launch/shell_integration.py")
+
+
+def independent_installer_digest(root: Path) -> str:
+    files = [{"path": relative, "sha256": hashlib.sha256((Path(root) / relative).read_bytes()).hexdigest()}
+             for relative in INDEPENDENT_INSTALLER_FILES]
+    canonical = json.dumps(files, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(canonical).hexdigest()
+
+
+class InstallationReceiptTests(_InstallerFixture):
+    """Probe scenarios c1 routes, c1b controls, c2 binding A, c3 failure, pristine recovery,
+    c3b upgrade-pending, and receipt identity."""
+
+    def receipts(self) -> list[Path]:
+        directory = self.state / "runtime" / "receipts"
+        return sorted(directory.glob("*.json")) if directory.is_dir() else []
+
+    def receipt(self, transaction_id: str | None = None) -> tuple[dict, Path]:
+        """One receipt, read the way a consumer must: the file name is the hash of the bytes.
+
+        A recovery leaves two transactions — the recovered one and the install that followed it — so a
+        case about recovery names the transaction it means instead of assuming a single receipt.
+        """
+        paths = self.receipts()
+        if transaction_id is not None:
+            paths = [path for path in paths
+                     if json.loads(path.read_text(encoding="utf-8"))["transaction_id"] == transaction_id]
+        self.assertEqual(1, len(paths), f"expected exactly one receipt, found {[p.name for p in paths]}")
+        raw = paths[0].read_bytes()
+        self.assertEqual(paths[0].stem, hashlib.sha256(raw).hexdigest())
+        return json.loads(raw), paths[0]
+
+    def pending_transaction_id(self) -> str:
+        """The id of the one interrupted transaction, read from its journal directory."""
+        journals = sorted((self.state / "runtime" / "installer-transactions").glob("*/journal.json"))
+        self.assertEqual(1, len(journals))
+        return journals[0].parent.name
+
+    def journals(self) -> list[dict]:
+        root = self.state / "runtime" / "installer-transactions"
+        return [json.loads(path.read_text(encoding="utf-8")) for path in sorted(root.glob("*/journal.json"))]
+
+    @contextlib.contextmanager
+    def other_installer(self, mark: str = "other"):
+        """A second installer VERSION: the at-import hash and the at-receipt hash move together.
+
+        That is what a different installer tree looks like from inside the process. Moving only one of
+        the two is the mid-run replacement, which must refuse the receipt and is tested separately.
+        """
+        real = instructions_install._installer_code()
+        files = [{"path": entry["path"], "sha256": hashlib.sha256((entry["sha256"] + mark).encode()).hexdigest()}
+                 for entry in real["files"]]
+        other = {"root": real["root"], "files": files,
+                 "digest": hashlib.sha256(instructions_install._canonical(files)).hexdigest()}
+        self.assertNotEqual(real["digest"], other["digest"])
+        with unittest.mock.patch.object(instructions_install, "_CODE_AT_START", other), \
+                unittest.mock.patch.object(instructions_install, "_installer_code", lambda: other):
+            yield other
+
+    def interrupt_first_projection(self, installer: InstructionsInstaller) -> None:
+        original = installer._write_planned
+        calls = 0
+
+        def fail_once(path, version, mode):
+            nonlocal calls
+            calls += 1
+            if calls == 1:
+                raise OSError("injected projection interruption")
+            return original(path, version, mode)
+
+        installer._write_planned = fail_once  # type: ignore[method-assign]
+
+    # ---- c1: the receipt names the installer code that executed -------------------------------
+
+    def test_receipt_names_the_executing_installer_not_the_installed_package(self) -> None:
+        self.installer().install("builder-base")
+        receipt, path = self.receipt()
+        self.assertEqual("InstallationReceipt/v1", receipt["schema"])
+        self.assertEqual("success", receipt["result"])
+        self.assertEqual(independent_installer_digest(SOURCE), receipt["installer"]["digest"])
+        self.assertEqual(receipt["installer"]["digest"], receipt["installer"]["digest_at_import"])
+        self.assertEqual(str(SOURCE), receipt["installer"]["root"])
+        self.assertNotEqual(str(self.repo), receipt["installer"]["root"])
+        record = json.loads((self.state / "runtime" / "private-install.json").read_text(encoding="utf-8"))
+        self.assertEqual(record["transaction_id"], receipt["transaction_id"])
+        self.assertEqual(record["release_digest"], receipt["release_digest"])
+        self.assertEqual(record["baseline_ref"], receipt["baseline_ref"])
+        self.assertEqual(record["selection"], receipt["selection"])
+        self.assertIsNone(receipt["begun_by_installer_digest"])
+        # The journal is the pointer from the transaction to the receipt.
+        committed = [data for data in self.journals() if data["state"] == "COMMITTED"]
+        self.assertEqual([path.stem], [data["receipt_id"] for data in committed])
+
+    def test_receipt_artifacts_are_one_flat_list_whose_rows_carry_their_role(self) -> None:
+        self.installer().install("builder-base")
+        receipt, _ = self.receipt()
+        record = json.loads((self.state / "runtime" / "private-install.json").read_text(encoding="utf-8"))
+        self.assertEqual({"release", "owned"}, {row["role"] for row in receipt["artifacts"]})
+        self.assertEqual({"path", "sha256", "role"}, {key for row in receipt["artifacts"] for key in row})
+        release = {row["path"]: row["sha256"] for row in receipt["artifacts"] if row["role"] == "release"}
+        self.assertEqual({entry["path"]: entry["sha256"] for entry in record["installed_files"]}, release)
+        owned = {row["path"] for row in receipt["artifacts"] if row["role"] == "owned"}
+        self.assertIn(record["launcher"]["path"], owned)
+        self.assertLessEqual({entry["path"] for entry in record["config_files"]}, owned)
+        # The package's own store and catalog ran inside this installer process, so they are named here
+        # rather than inferred from the installer digest.
+        modules = {entry["path"] for entry in receipt["installer"]["package_modules_run"]}
+        self.assertIn("compose/instructions_store.py", modules)
+
+    def test_an_installer_reached_through_a_symlink_hashes_the_tree_the_link_resolves_to(self) -> None:
+        # The npm route is a `.bin/agent-bios` symlink; `_installer_code` resolves `__file__` before
+        # hashing, so the digest must be the real tree's and never the link's directory.
+        link = Path(self.tmp.name) / "linked-checkout"
+        link.symlink_to(SOURCE)
+        probe = ("import json, sys; sys.path.insert(0, %r); import instructions_install as m; "
+                 "print(json.dumps(m._CODE_AT_START))" % str(link / "compose"))
+        proc = subprocess.run([sys.executable, "-c", probe], capture_output=True, text=True,
+                              env={**os.environ, "HOME": str(self.home), "PYTHONDONTWRITEBYTECODE": "1"},
+                              cwd=str(self.tmp.name), stdin=subprocess.DEVNULL, timeout=120)
+        self.assertEqual(0, proc.returncode, proc.stderr)
+        code = json.loads(proc.stdout)
+        self.assertEqual(str(SOURCE), code["root"])
+        self.assertEqual(independent_installer_digest(SOURCE), code["digest"])
+
+    def cli(self, release: str, *args: str) -> dict:
+        """The consumer surface a reader actually has: `instructions snapshot`, as the CLI runs it."""
+        clean = {key: value for key, value in os.environ.items()
+                 if not key.startswith("AGENT_BIOS_") and key not in ("CLAUDE_CONFIG_DIR", "CODEX_HOME", "ZDOTDIR")}
+        proc = subprocess.run([sys.executable, str(SOURCE / "compose" / "instructions.py"), "--repo", release,
+                               "--json", *args], capture_output=True, text=True, timeout=300,
+                              env={**clean, **self.env, "PYTHONDONTWRITEBYTECODE": "1"},
+                              cwd=str(self.home), stdin=subprocess.DEVNULL)
+        self.assertEqual(0, proc.returncode, proc.stderr)
+        return json.loads(proc.stdout)
+
+    def test_the_cli_snapshot_surface_returns_the_installation_binding(self) -> None:
+        result = self.installer().install("builder-base")
+        receipt, path = self.receipt()
+        release = result["record"]["package_root"]
+        created = self.cli(release, "snapshot", "--host", "codex", "--cwd", str(self.home))
+        binding = self.cli(release, "snapshot", "--content-ref", created["content_ref"])["installation_binding"]
+        self.assertTrue(binding["bound"], binding)
+        self.assertEqual(path.stem, binding["receipt_id"])
+        self.assertEqual(receipt["installer"]["digest"], binding["installer_digest"])
+        self.assertEqual(receipt["transaction_id"], binding["transaction_id"])
+
+    # ---- c1b: the controls on that claim -------------------------------------------------------
+
+    def test_one_changed_line_in_a_declared_file_moves_the_digest(self) -> None:
+        # `launch/shell_integration.py` executes but never enters `sys.modules`, so a discovered file
+        # set would miss it. Changing it must move the digest, or the declaration buys nothing.
+        tree = Path(self.tmp.name) / "installer-copy"
+        for relative in INDEPENDENT_INSTALLER_FILES:
+            target = tree / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(SOURCE / relative, target)
+        before = independent_installer_digest(tree)
+        self.assertEqual(independent_installer_digest(SOURCE), before)
+        integration = tree / "launch" / "shell_integration.py"
+        integration.write_bytes(integration.read_bytes() + b"# one added line\n")
+        self.assertNotEqual(before, independent_installer_digest(tree))
+        # And the installer itself, run from that copy, reports the moved digest.
+        probe = ("import sys; sys.path.insert(0, %r); import instructions_install as m; "
+                 "print(m._CODE_AT_START['digest'])" % str(tree / "compose"))
+        proc = subprocess.run([sys.executable, "-c", probe], capture_output=True, text=True,
+                              env={**os.environ, "HOME": str(self.home), "PYTHONDONTWRITEBYTECODE": "1"},
+                              cwd=str(self.tmp.name), stdin=subprocess.DEVNULL, timeout=120)
+        self.assertEqual(0, proc.returncode, proc.stderr)
+        self.assertEqual(independent_installer_digest(tree), proc.stdout.strip())
+
+    def test_installer_code_replaced_mid_run_refuses_the_receipt_and_not_the_install(self) -> None:
+        real = instructions_install._installer_code()
+        moved = {**real, "digest": "0" * 64}
+        with unittest.mock.patch.object(instructions_install, "_installer_code", lambda: moved):
+            result = self.installer().install("builder-base")
+        self.assertTrue(result["stored"])
+        self.assertEqual([], self.receipts())
+        committed = [data for data in self.journals() if data["state"] == "COMMITTED"]
+        self.assertEqual(1, len(committed))
+        self.assertNotIn("receipt_id", committed[0])
+        self.assertTrue(self.installer().verify()["stored"])
+
+    def test_a_declared_file_missing_from_the_layout_refuses_the_receipt(self) -> None:
+        real = instructions_install._installer_code()
+        unreadable = {**real, "files": [{**real["files"][0], "sha256": None}, *real["files"][1:]]}
+        with unittest.mock.patch.object(instructions_install, "_CODE_AT_START", unreadable), \
+                unittest.mock.patch.object(instructions_install, "_installer_code", lambda: unreadable):
+            result = self.installer().install("builder-base")
+        self.assertTrue(result["stored"])
+        self.assertEqual([], self.receipts())
+
+    # ---- c2 A: an old installer installing a package that carries a new installer ---------------
+
+    def test_an_old_installer_installing_a_newer_installer_names_its_own_digest(self) -> None:
+        for relative in INDEPENDENT_INSTALLER_FILES:
+            target = self.repo / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(SOURCE / relative, target)
+            target.write_bytes(target.read_bytes() + b"# the package's newer installer\n")
+        manifest = json.loads((self.repo / "package.json").read_text(encoding="utf-8"))
+        manifest["files"] = sorted({*manifest["files"], *INDEPENDENT_INSTALLER_FILES})
+        (self.repo / "package.json").write_text(json.dumps(manifest), encoding="utf-8")
+        self.installer().install("builder-base")
+        receipt, _ = self.receipt()
+        self.assertEqual(independent_installer_digest(SOURCE), receipt["installer"]["digest"])
+        self.assertNotEqual(independent_installer_digest(self.repo), receipt["installer"]["digest"])
+        # The installed release really does carry the newer installer; only the claim is the old one's.
+        release = {row["path"] for row in receipt["artifacts"] if row["role"] == "release"}
+        self.assertIn("compose/instructions_install.py", release)
+
+    def test_a_pin_taken_before_a_second_install_still_verifies_and_keeps_its_own_receipt(self) -> None:
+        # The probe's c2 C case, restored (X r1 F8): a session pinned under the first installation must
+        # keep its pin BYTES and still read through the real `read_pin` after a second install, and its
+        # snapshot must still bind to the receipt it was built from, not to the newer one.
+        first = self.installer().install("builder-base")
+        release = first["record"]["package_root"]
+        before_receipt, before_path = self.receipt()
+        snapshot = self.cli(release, "snapshot", "--host", "codex", "--cwd", str(self.home))
+        record = instructions_session.prepare(self.state, "codex", snapshot, [], self.home, self.env)
+        instructions_session.observe_and_pin(self.state, record, "pinned-before", {"method": "test-control"})
+        pin_path = self.state / "sessions" / "pins" / "codex" / "pinned-before.json"
+        pin_bytes = pin_path.read_bytes()
+        self.installer().install("builder-base")
+        later = {path.stem for path in self.receipts()} - {before_path.stem}
+        self.assertEqual(1, len(later), f"the second install wrote no receipt of its own: {self.receipts()}")
+        self.assertEqual(pin_bytes, pin_path.read_bytes())
+        read = instructions_session.read_pin(self.state, "codex", "pinned-before")
+        self.assertEqual(snapshot["content_ref"], read["content_ref"])
+        binding = self.cli(release, "snapshot", "--content-ref", read["content_ref"])["installation_binding"]
+        self.assertTrue(binding["bound"], binding)
+        self.assertEqual(before_path.stem, binding["receipt_id"])
+        self.assertEqual(before_receipt["transaction_id"], binding["transaction_id"])
+
+    # ---- F18 ordering and recovery identity (done-when 2) --------------------------------------
+
+    def test_the_receipt_exists_before_the_journal_reaches_committed(self) -> None:
+        installer = self.installer()
+        original = installer._journal_write
+
+        def fail_at_commit(journal, value):
+            if value.get("state") == "COMMITTED":
+                raise OSError("injected fault between the receipt and the commit marker")
+            return original(journal, value)
+
+        installer._journal_write = fail_at_commit  # type: ignore[method-assign]
+        with self.assertRaises(OSError):
+            installer.install("builder-base")
+        receipt, _ = self.receipt()               # the receipt is already on disk
+        self.assertEqual("success", receipt["result"])
+        self.assertEqual(["NEEDS_RECOVERY"], [data["state"] for data in self.journals()])
+
+    def test_a_recovery_by_another_installer_names_both_digests(self) -> None:
+        with self.other_installer("begun-by-x") as begun:
+            installer = self.installer()
+            self.interrupt_first_projection(installer)
+            with self.assertRaises(OSError):
+                installer.install("builder-base")
+        self.assertEqual([], self.receipts())
+        self.assertEqual([begun["digest"]], [data["installer_digest"] for data in self.journals()])
+        recovered = self.pending_transaction_id()
+        finished = self.installer().install("builder-base")       # recovered by this checkout
+        self.assertTrue(finished["stored"])
+        receipt, _ = self.receipt(recovered)
+        self.assertEqual(independent_installer_digest(SOURCE), receipt["installer"]["digest"])
+        self.assertEqual(begun["digest"], receipt["begun_by_installer_digest"])
+        self.assertNotEqual(receipt["installer"]["digest"], receipt["begun_by_installer_digest"])
+        # The install that followed the recovery was begun and finished by one installer.
+        following, _ = self.receipt(finished["record"]["transaction_id"])
+        self.assertIsNone(following["begun_by_installer_digest"])
+
+    def test_a_transaction_begun_and_finished_by_one_installer_carries_no_second_digest(self) -> None:
+        installer = self.installer()
+        self.interrupt_first_projection(installer)
+        with self.assertRaises(OSError):
+            installer.install("builder-base")
+        recovered = self.pending_transaction_id()
+        self.installer().install("builder-base")
+        receipt, _ = self.receipt(recovered)
+        self.assertEqual(independent_installer_digest(SOURCE), receipt["installer"]["digest"])
+        self.assertIsNone(receipt["begun_by_installer_digest"])
+
+    # ---- c3: a failed transaction writes no success receipt -------------------------------------
+
+    def test_a_real_permission_failure_leaves_no_receipt_and_no_record(self) -> None:
+        bin_root = self.home / ".local" / "bin"
+        bin_root.mkdir(parents=True)
+        bin_root.chmod(0o500)
+        self.addCleanup(lambda: bin_root.exists() and bin_root.chmod(0o700))
+        with self.assertRaises((OSError, InstallError)):
+            self.installer().install("builder-base")
+        self.assertEqual([], self.receipts())
+        self.assertFalse((self.state / "runtime" / "private-install.json").exists())
+        self.assertEqual(["NEEDS_RECOVERY"], [data["state"] for data in self.journals()])
+
+    def test_a_verify_failure_after_publication_leaves_no_receipt(self) -> None:
+        installer = self.installer()
+        installer._verify_transaction_install = lambda data: (_ for _ in ()).throw(  # type: ignore[method-assign]
+            InstallError("injected post-publication verification failure"))
+        with self.assertRaises(InstallError):
+            installer.install("builder-base")
+        self.assertEqual([], self.receipts())
+        self.assertEqual(["NEEDS_RECOVERY"], [data["state"] for data in self.journals()])
+
+    def test_a_transient_failure_recovers_into_a_receipt(self) -> None:
+        installer = self.installer()
+        self.interrupt_first_projection(installer)
+        with self.assertRaises(OSError):
+            installer.install("builder-base")
+        self.assertEqual([], self.receipts())
+        recovered = self.pending_transaction_id()
+        self.installer().install("builder-base")
+        receipt, path = self.receipt(recovered)
+        self.assertEqual("success", receipt["result"])
+        committed = [data for data in self.journals() if data["state"] == "COMMITTED"]
+        self.assertIn(path.stem, [data["receipt_id"] for data in committed])
+
+    def test_a_user_edit_of_an_owned_projection_refuses_the_retry_and_writes_no_receipt(self) -> None:
+        installer = self.installer()
+        self.interrupt_first_projection(installer)
+        with self.assertRaises(OSError):
+            installer.install("builder-base")
+        launcher = self.home / ".local" / "bin" / "agent-launch"
+        launcher.parent.mkdir(parents=True, exist_ok=True)
+        launcher.write_text("# edited by the user between the attempts\n", encoding="utf-8")
+        with self.assertRaises(InstallError):
+            self.installer().install("builder-base")
+        self.assertEqual([], self.receipts())
+
+    def test_a_recovery_whose_receipt_is_refused_commits_unbound(self) -> None:
+        # The journal of a transaction interrupted AFTER its receipt was written carries that receipt
+        # id. If the installer that recovers it refuses to write a receipt of its own, the commit must
+        # carry none: the earlier id is a claim by the installer that failed (X r1 F1).
+        installer = self.installer()
+        original = installer._journal_write
+
+        def fail_at_commit(journal, value):
+            if value.get("state") == "COMMITTED":
+                raise OSError("injected fault between the receipt and the commit marker")
+            return original(journal, value)
+
+        installer._journal_write = fail_at_commit  # type: ignore[method-assign]
+        with self.assertRaises(OSError):
+            installer.install("builder-base")
+        first, _path = self.receipt()
+        pending = self.pending_transaction_id()
+        self.assertEqual([first["transaction_id"]], [pending])
+        moved = {**instructions_install._installer_code(), "digest": "0" * 64}
+        with unittest.mock.patch.object(instructions_install, "_installer_code", lambda: moved):
+            self.assertTrue(self.installer().install("builder-base")["stored"])
+        recovered = next(item for item in self.journals() if item["candidate"]["transaction_id"] == pending)
+        self.assertEqual("COMMITTED", recovered["state"])
+        self.assertNotIn("receipt_id", recovered)
+        self.assertEqual([], [item for item in self.journals() if item.get("receipt_id")])
+
+    # ---- c3b: a transaction begun before receipts existed (done-when 3) ------------------------
+
+    def test_a_transaction_begun_before_receipts_existed_finishes_unbound(self) -> None:
+        installer = self.installer()
+        self.interrupt_first_projection(installer)
+        with self.assertRaises(OSError):
+            installer.install("builder-base")
+        journal = next((self.state / "runtime" / "installer-transactions").glob("*/journal.json"))
+        data = json.loads(journal.read_text(encoding="utf-8"))
+        record_path = str(self.state / "runtime" / "private-install.json")
+        entry = next(item for item in data["paths"] if item["path"] == record_path)
+        record = json.loads(base64.b64decode(entry["after"]["bytes_b64"].encode("ascii"), validate=True))
+        del record["transaction_id"]              # as a pre-receipt installer planned it
+        entry["after"] = InstructionsInstaller._planned_version(
+            instructions_install._canonical(record) + b"\n")
+        del data["installer_digest"]
+        journal.write_text(json.dumps(data), encoding="utf-8")
+        recovered = journal.parent.name
+        self.assertTrue(self.installer().install("builder-base")["stored"])
+        # It can finish; it cannot be bound. Only the install that followed it has a receipt.
+        bound = {json.loads(path.read_text(encoding="utf-8"))["transaction_id"] for path in self.receipts()}
+        self.assertNotIn(recovered, bound)
+        finished = next(item for item in self.journals()
+                        if item["candidate"]["transaction_id"] == recovered)
+        self.assertEqual("COMMITTED", finished["state"])
+        self.assertNotIn("receipt_id", finished)
+
+    # ---- receipt identity (done-when 6) --------------------------------------------------------
+
+    def test_the_receipt_id_is_the_hash_of_the_body_and_lives_outside_it(self) -> None:
+        self.installer().install("builder-base")
+        receipt, path = self.receipt()
+        self.assertNotIn("receipt_id", receipt)
+        self.assertNotIn("receipt_id", receipt["installer"])
+        canonical = instructions_install._canonical(receipt)
+        self.assertEqual(canonical, path.read_bytes())
+        self.assertEqual(hashlib.sha256(canonical).hexdigest(), path.stem)
+        # Re-serialized from a reordered mapping, the canonical form hashes the same.
+        reordered = dict(reversed(list(receipt.items())))
+        self.assertNotEqual(list(reordered), list(receipt))
+        self.assertEqual(path.stem, hashlib.sha256(instructions_install._canonical(reordered)).hexdigest())
+        self.assertEqual(0o600, path.stat().st_mode & 0o777)
+
+    def test_a_body_carrying_its_own_id_is_refused_at_write(self) -> None:
+        installer = self.installer()
+        original = installer._receipt_body
+
+        def with_its_own_id(data, record, now):
+            body = original(data, record, now)
+            body["receipt_id"] = "0" * 64
+            return body
+
+        installer._receipt_body = with_its_own_id  # type: ignore[method-assign]
+        with self.assertRaises(InstallError) as caught:
+            installer.install("builder-base")
+        self.assertIn("must not carry its own id", str(caught.exception))
+        self.assertEqual([], self.receipts())
+
+
+# Every scenario of the probe's `run_all.sh`, and where it landed here.  A scenario whose port is
+# partial says so in its own comment; the two `sc_*_mutation` scenarios are not tests at all but
+# pretrials — the probe planted the defect in the code and required the named case to fail, which is
+# this repo's rule for a new control and is run before the commit, not by the suite.
+PORTED_SCENARIOS: dict[str, tuple[str, ...]] = {
+    "sc_c1_routes": (
+        "test_instructions_install.py:InstallationReceiptTests.test_receipt_names_the_executing_installer_not_the_installed_package",
+        "test_instructions_install.py:InstallationReceiptTests.test_receipt_artifacts_are_one_flat_list_whose_rows_carry_their_role",
+        "test_instructions_install.py:InstallationReceiptTests.test_an_installer_reached_through_a_symlink_hashes_the_tree_the_link_resolves_to",
+    ),
+    "sc_c1b_controls": (
+        "test_instructions_install.py:InstallationReceiptTests.test_one_changed_line_in_a_declared_file_moves_the_digest",
+        "test_instructions_install.py:InstallationReceiptTests.test_installer_code_replaced_mid_run_refuses_the_receipt_and_not_the_install",
+        "test_instructions_install.py:InstallationReceiptTests.test_a_declared_file_missing_from_the_layout_refuses_the_receipt",
+    ),
+    "sc_c2_binding": (
+        "test_instructions_install.py:InstallationReceiptTests.test_an_old_installer_installing_a_newer_installer_names_its_own_digest",
+        "test_instructions_install.py:InstallationReceiptTests.test_a_pin_taken_before_a_second_install_still_verifies_and_keeps_its_own_receipt",
+        "test_instructions_store.py:InstallationBindingTest.test_two_installs_of_one_release_bind_their_sessions_to_their_own_receipts",
+        "test_instructions_store.py:InstallationBindingTest.test_an_earlier_snapshot_keeps_binding_to_the_receipt_it_was_built_from",
+    ),
+    "sc_c3_failure": (
+        "test_instructions_install.py:InstallationReceiptTests.test_a_real_permission_failure_leaves_no_receipt_and_no_record",
+        "test_instructions_install.py:InstallationReceiptTests.test_a_verify_failure_after_publication_leaves_no_receipt",
+        "test_instructions_install.py:InstallationReceiptTests.test_a_transient_failure_recovers_into_a_receipt",
+    ),
+    "probe_pristine_recovery": (
+        "test_instructions_install.py:InstallationReceiptTests.test_a_user_edit_of_an_owned_projection_refuses_the_retry_and_writes_no_receipt",
+    ),
+    "sc_c3b_upgrade_pending": (
+        "test_instructions_install.py:InstallationReceiptTests.test_a_transaction_begun_before_receipts_existed_finishes_unbound",
+        "test_instructions_store.py:InstallationBindingTest.test_an_installation_without_a_receipt_leaves_the_snapshot_unbound",
+    ),
+    "sc_c3m_mutation": (
+        "test_instructions_install.py:InstallationReceiptTests.test_a_verify_failure_after_publication_leaves_no_receipt",
+    ),
+    "sc_c4_unbound": (
+        "test_instructions_store.py:InstallationBindingTest.test_a_snapshot_whose_artifacts_differ_from_the_receipt_is_unbound_by_field",
+        "test_instructions_store.py:InstallationBindingTest.test_a_snapshot_from_another_baseline_is_unbound_by_name",
+        "test_instructions_store.py:InstallationBindingTest.test_a_tampered_or_missing_receipt_is_unbound_with_its_reason",
+        "test_instructions_store.py:InstallationBindingTest.test_a_receipt_the_store_cannot_verify_leaves_the_snapshot_unbound",
+    ),
+    "sc_c4m_mutation": (
+        "test_instructions_store.py:InstallationBindingTest.test_a_snapshot_whose_artifacts_differ_from_the_receipt_is_unbound_by_field",
+    ),
+    "sc_c6_git_update": (
+        "test_instructions_install.py:InstallationReceiptTests.test_one_changed_line_in_a_declared_file_moves_the_digest",
+    ),
+    "sc_c7_cli_snapshot": (
+        "test_instructions_install.py:InstallationReceiptTests.test_the_cli_snapshot_surface_returns_the_installation_binding",
+    ),
+}
+
+# A scenario whose port substitutes something for what the probe did says so here, and the coverage
+# case prints it beside the scenario: a reader of the count must see what was NOT ported rather than
+# read 11 as 11 identical ports.
+PORT_NOTES: dict[str, str] = {
+    "sc_c1_routes": ("the probe installed through the real install.sh checkout and an npm `.bin/agent-bios` "
+                     "symlink; here the symlink route imports the installer through a directory symlink and "
+                     "reads the digest it took at import, and the install.sh route is covered by done-when 5's "
+                     "scratch-home install/verify round trip outside this suite. The npm entrypoint itself is "
+                     "not exercised by a test"),
+    "sc_c6_git_update": ("git remote fixture replaced by a copied tree run as a subprocess; the property held is "
+                         "that the digest follows the tree that EXECUTES, not the script that started the update. "
+                         "The `install.sh update` pull path itself is not exercised"),
+    "sc_c3m_mutation": ("not a test but a pretrial: the receipt write is moved before "
+                        "`_verify_transaction_install` and the named case must fail by name"),
+    "sc_c4m_mutation": ("not a test but a pretrial: the artifact comparison is dropped from "
+                        "`installation_binding` and the named case must fail by name"),
+}
+
+
+class ProbeScenarioCoverageTest(unittest.TestCase):
+    """The ported suite must keep naming every probe scenario, and no named case may go assertion-free.
+
+    A case that loses its assertions still passes, and a map pointing at a renamed method is a claim
+    about coverage that nothing holds. Both are decidable from the test sources, so both are checked
+    here instead of being remembered.
+    """
+
+    def assertion_counts(self) -> dict[str, int]:
+        counts: dict[str, int] = {}
+        trees = {name: ast.parse((SOURCE / "compose" / name).read_text(encoding="utf-8"))
+                 for name in {entry.split(":")[0] for entries in PORTED_SCENARIOS.values() for entry in entries}}
+        for entries in PORTED_SCENARIOS.values():
+            for entry in entries:
+                file_name, qualified = entry.split(":")
+                class_name, method_name = qualified.split(".")
+                classes = [node for node in trees[file_name].body
+                           if isinstance(node, ast.ClassDef) and node.name == class_name]
+                self.assertEqual(1, len(classes), f"{entry}: no such test class")
+                methods = [node for node in classes[0].body
+                           if isinstance(node, ast.FunctionDef) and node.name == method_name]
+                self.assertEqual(1, len(methods), f"{entry}: no such test method")
+                counts[entry] = sum(1 for node in ast.walk(methods[0])
+                                    if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+                                    and node.func.attr.startswith("assert"))
+        return counts
+
+    def test_every_probe_scenario_is_ported_and_carries_assertions(self) -> None:
+        self.assertEqual(11, len(PORTED_SCENARIOS))      # the eleven scenarios of the probe's run_all.sh
+        counts = self.assertion_counts()
+        self.assertTrue(counts)
+        empty = sorted(entry for entry, count in counts.items() if count == 0)
+        self.assertEqual([], empty, f"ported cases with no assertion: {empty}")
+        self.assertEqual([], sorted(set(PORT_NOTES) - set(PORTED_SCENARIOS)), "a note names no ported scenario")
+        for scenario, entries in sorted(PORTED_SCENARIOS.items()):
+            note = PORT_NOTES.get(scenario)
+            print(f"  {scenario}: {sum(counts[entry] for entry in entries)} assertions in {len(entries)} case(s)"
+                  + (f"\n      ported with a substitution: {note}" if note else ""))
+        print(f"  ported total: {sum(counts.values())} assertions in {len(counts)} distinct cases")
 
 
 if __name__ == "__main__":

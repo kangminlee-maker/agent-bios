@@ -5,6 +5,8 @@ import io
 import os
 from pathlib import Path
 import shutil
+import sqlite3
+from contextlib import closing
 import subprocess
 import sys
 import tempfile
@@ -44,6 +46,143 @@ class PinTests(unittest.TestCase):
         pin = session.read_pin(self.root, 'codex', 'observed-session')
         self.assertEqual(pin['content_ref'], self.snapshot['content_ref'])
         self.assertEqual(json.loads(path.read_text())['state'], 'PINNED')
+
+    def test_the_rollout_is_resolved_from_the_thread_path_then_the_index_then_not_at_all(self):
+        # The three steps of the realization, each over a planted host home: F-22's resolution must
+        # never rest on a time window or a cwd, so each step either names a file the host itself named
+        # or hands over to the next.
+        home = self.root / 'codex-home'
+        sessions = home / 'sessions' / '2026' / '11' / '11'
+        sessions.mkdir(parents=True)
+        uuid_text = '01a1c690-591a-7eb3-a544-3fc15320efff'
+        other_text = '01a1c6bb-f3d7-7a42-864d-d0a0e998792a'
+        rollout = sessions / f'rollout-2026-11-11T02-45-11-{uuid_text}.jsonl'
+        rollout.write_text(json.dumps({'type': 'session_meta', 'payload': {'id': 'thread-1'}}) + '\n',
+                           encoding='utf-8')
+        env = {'CODEX_HOME': str(home)}
+        found = session.resolve_codex_rollout(self.root, uuid_text, {'path': str(rollout)}, env)
+        self.assertEqual(('thread.path', uuid_text), (found['how'], found['id']))
+        self.assertEqual(str(rollout.resolve()), found['path'])
+        # A path alone is not an association (X r1 F2). Each of these is a rollout file that exists,
+        # and none of them is PROVABLY this thread's, so each falls through to the index.
+        stale = sessions / f'rollout-2026-11-10T09-00-00-{other_text}.jsonl'
+        stale.write_text('{}\n', encoding='utf-8')
+        fork = sessions / f'rollout-2026-11-11T02-45-11-{uuid_text}-{other_text}.jsonl'
+        fork.write_text('{}\n', encoding='utf-8')
+        foreign_home = self.root / 'another-home' / 'sessions'
+        foreign_home.mkdir(parents=True)
+        foreign = foreign_home / f'rollout-2026-11-11T02-45-11-{uuid_text}.jsonl'
+        foreign.write_text('{}\n', encoding='utf-8')
+        link = sessions / f'rollout-2026-11-11T02-45-12-{uuid_text}.jsonl'
+        link.symlink_to(foreign)
+        # The last candidate is the one every OTHER check accepts -- inside the sessions tree, one link,
+        # a name carrying only this thread's id -- so that the `rollout-` name rule is what decides it.
+        # Without such a file the home and link checks answer first and that rule is never tested.
+        not_named = sessions / f'notes-{uuid_text}.jsonl'
+        not_named.write_text('{}\n', encoding='utf-8')
+        for label, candidate, rejection in (
+                ("another thread's rollout", stale, "another thread's id"),
+                ('a fork, whose name carries two ids', fork, 'carries 2 ids'),
+                ('a link out of the configured home', link, 'outside the configured home'),
+                ('a file this thread owns that is not named as a rollout', not_named,
+                 'thread.path: no existing rollout file was named')):
+            with self.subTest(candidate=label), contextlib.redirect_stderr(io.StringIO()) as said:
+                self.assertIsNone(session.resolve_codex_rollout(
+                    self.root, uuid_text, {'path': str(candidate)}, env))
+            self.assertIn(rejection, said.getvalue())
+            self.assertIn('index: no existing rollout file was named', said.getvalue())
+        # A path the host gives that is not a rollout hands over to the index, which names the rollout.
+        # Its name carries a uuid and is not a rollout: the shape decides, not the presence of an id.
+        not_a_rollout = home / 'threads' / f'thread-{uuid_text}.json'
+        not_a_rollout.parent.mkdir(parents=True)
+        not_a_rollout.write_text('{}', encoding='utf-8')
+        with closing(sqlite3.connect(home / 'state_5.sqlite')) as index:
+            index.execute('pragma journal_mode=wal')   # as the host keeps it: a direct read moves -shm
+            index.execute('create table threads(id text, rollout_path text)')
+            index.execute('insert into threads values (?, ?)', (uuid_text, str(rollout)))
+            index.commit()
+        by_index = session.resolve_codex_rollout(self.root, uuid_text, {'path': str(not_a_rollout)}, env)
+        self.assertEqual(('index', uuid_text, str(rollout.resolve())),
+                         (by_index['how'], by_index['id'], by_index['path']))
+        # The index is read from a COPY, and the proof is that it still reads when the host's own
+        # directory is not writable: a direct read-only open of a WAL database has to create `-shm`
+        # and `-wal` beside it, which is both a write into a native home and a thing a read-only
+        # directory refuses.
+        home.chmod(0o500)
+        self.addCleanup(lambda: home.exists() and home.chmod(0o700))
+        unwritable = session.resolve_codex_rollout(self.root, uuid_text, {'path': str(not_a_rollout)}, env)
+        self.assertEqual(('index', uuid_text), (unwritable['how'], unwritable['id']))
+        self.assertEqual(['state_5.sqlite'], [path.name for path in sorted(home.glob('state_5.sqlite*'))])
+        home.chmod(0o700)
+        # Neither a hard link nor a sessions root pointing elsewhere makes a file this thread's, and the
+        # name alone cannot say otherwise (X r2 F6).
+        linked = sessions / f'rollout-2026-11-11T02-45-13-{uuid_text}.jsonl'
+        os.link(rollout, linked)
+        with contextlib.redirect_stderr(io.StringIO()) as said:
+            self.assertIsNone(session.resolve_codex_rollout(self.root, uuid_text, {'path': str(linked)}, env))
+        self.assertIn('it has 2 links', said.getvalue())
+        linked.unlink()
+        elsewhere = self.root / 'elsewhere' / 'sessions'
+        elsewhere.mkdir(parents=True)
+        planted = elsewhere / f'rollout-2026-11-11T02-45-14-{uuid_text}.jsonl'
+        planted.write_text('{}\n', encoding='utf-8')
+        pointing = self.root / 'pointing-home'
+        pointing.mkdir()
+        (pointing / 'sessions').symlink_to(elsewhere)
+        with contextlib.redirect_stderr(io.StringIO()) as said:
+            self.assertIsNone(session.resolve_codex_rollout(
+                self.root, uuid_text, {'path': str(planted)}, {'CODEX_HOME': str(pointing)}))
+        self.assertIn('resolves elsewhere', said.getvalue())
+        # The authoritative database is the highest VERSION, not the last name in sort order: a
+        # ten-numbered store sorts before a nine-numbered one as text (X r1 F7).
+        newer = sessions / f'rollout-2026-11-12T09-00-00-{uuid_text}.jsonl'
+        newer.write_text('{}\n', encoding='utf-8')
+        home.chmod(0o700)
+        for name, named in (('state_9.sqlite', rollout), ('state_10.sqlite', newer)):
+            with closing(sqlite3.connect(home / name)) as index:
+                index.execute('create table threads(id text, rollout_path text)')
+                index.execute('insert into threads values (?, ?)', (uuid_text, str(named)))
+                index.commit()
+        self.assertEqual([home / 'state_10.sqlite', home / 'state_9.sqlite', home / 'state_5.sqlite'],
+                         session.codex_state_databases(home))
+        authoritative = session.resolve_codex_rollout(self.root, uuid_text, {'path': str(not_a_rollout)}, env)
+        self.assertEqual((str(newer.resolve()), 'index'), (authoritative['path'], authoritative['how']))
+        # And the highest database that could be read is the authority whether or not it holds the thread:
+        # an older store's row for a thread the current one does not list is stale (X r2 F7).
+        (home / 'state_10.sqlite').unlink()
+        with closing(sqlite3.connect(home / 'state_10.sqlite')) as index:
+            index.execute('create table threads(id text, rollout_path text)')
+            index.execute('insert into threads values (?, ?)', (other_text, str(newer)))
+            index.commit()
+        with contextlib.redirect_stderr(io.StringIO()) as said:
+            self.assertIsNone(session.resolve_codex_rollout(
+                self.root, uuid_text, {'path': str(not_a_rollout)}, env))
+        self.assertIn('index: no existing rollout file was named', said.getvalue())
+        for name in ('state_9.sqlite', 'state_10.sqlite'):
+            (home / name).unlink()
+        # Neither step resolves an unknown thread, and the activation says which it tried.
+        with contextlib.redirect_stderr(io.StringIO()) as said:
+            self.assertIsNone(session.resolve_codex_rollout(self.root, other_text, {'path': None}, env))
+        said_text = said.getvalue()
+        self.assertIn('thread.path: no existing rollout file was named', said_text)
+        self.assertIn('index: no existing rollout file was named', said_text)
+
+    def test_a_codex_pin_says_whether_it_resolved_a_rollout_without_needing_a_host(self):
+        # The keys are written whatever the seam returns, because their ABSENCE is what tells a reader
+        # that a pin predates this binding (F-22). Checked here too, since the real-host case above is
+        # skipped on a machine without the Codex CLI.
+        record = session.prepare(self.root, 'codex', self.snapshot, ['--model', 'test'])
+        self.assertIsNone(session.resolve_codex_rollout(self.root, 'thread-x', {}, {}))
+        session.pin_codex_rollout(record, None)
+        self.assertEqual((None, None, session.ROLLOUT_UNRESOLVED),
+                         (record['rollout_path'], record['rollout_id'], record['rollout_method']))
+        session.observe_and_pin(self.root, record, 'thread-x', {'method': 'test-control+' + record['rollout_method']})
+        pinned = session.read_pin(self.root, 'codex', 'thread-x')
+        self.assertEqual((None, None), (pinned['rollout_path'], pinned['rollout_id']))
+        self.assertTrue(pinned['evidence']['method'].endswith('+rollout_unresolved'))
+        resolved = session.pin_codex_rollout(dict(record), {'path': '/s/rollout-r1.jsonl', 'id': 'r1', 'how': 'index'})
+        self.assertEqual(('/s/rollout-r1.jsonl', 'r1', 'index'),
+                         (resolved['rollout_path'], resolved['rollout_id'], resolved['rollout_method']))
 
     def test_pin_cannot_reference_foreign_or_missing_snapshot(self):
         record = session.prepare(self.root, 'claude', self.snapshot, [])
@@ -531,7 +670,58 @@ class RealCodexTests(unittest.TestCase):
             record = session.prepare(state, 'codex', snapshot,
                                      ['-c','developer_instructions="PIN_CANARY"'], tmp, env)
             host_id = session.create_codex_session(command, record['argv'], state, record, tmp, env)
-            self.assertEqual(session.read_pin(state, 'codex', host_id)['content_ref'], snapshot['content_ref'])
+            pin = session.read_pin(state, 'codex', host_id)
+            self.assertEqual(pin['content_ref'], snapshot['content_ref'])
+            # F-22: a Codex activation always records what rollout it resolved and how, so a reader can
+            # tell a pin that tried and could not from one written before this binding existed.
+            self.assertEqual({'rollout_path', 'rollout_id', 'rollout_method'} & set(pin),
+                             {'rollout_path', 'rollout_id', 'rollout_method'})
+            self.assertTrue(pin['evidence']['method'].endswith('+' + pin['rollout_method']))
+            self.assertEqual(pin['rollout_id'] is None, pin['rollout_method'] == session.ROLLOUT_UNRESOLVED)
+            # What the installed host offers a rollout join, measured under THIS temporary CODEX_HOME and
+            # nowhere else (F-22, candidates 1 and 2). Names, counts and booleans; printed so an umbrella
+            # run records them, and asserted only where the pin already claims it.
+            host_home = Path(env['CODEX_HOME'])
+            thread_path = pin['evidence'].get('thread_path')
+            rollouts = [p for p in host_home.rglob('rollout-*.jsonl*') if p.is_file()]
+            by_name = [p.name for p in rollouts if host_id in p.name]
+            indexed = []
+            for db in host_home.rglob('*.sqlite*'):
+                try:
+                    with closing(sqlite3.connect(f'file:{db}?mode=ro', uri=True)) as conn:
+                        if conn.execute("select name from sqlite_master where type='table' and name='threads'").fetchone():
+                            indexed += [row[0] for row in conn.execute(
+                                'select rollout_path from threads where id = ?', (host_id,)) if row[0]]
+                except sqlite3.Error:
+                    continue
+            meta_ids = []
+            for rollout in rollouts:
+                try:
+                    first = json.loads(rollout.read_text(encoding='utf-8').splitlines()[0])
+                except (OSError, ValueError, IndexError):
+                    continue
+                payload = first.get('payload') if isinstance(first.get('payload'), dict) else first
+                meta_ids.append(payload.get('id'))
+            real = {str(Path(p).resolve()) for p in rollouts}
+            print(f"F22-PROBE thread_path_is_a_rollout="
+                  f"{bool(thread_path) and str(Path(thread_path).resolve()) in real} "
+                  f"thread_path_name={Path(thread_path).name if thread_path else None} "
+                  f"rollout_meta_id_is_thread_id={meta_ids.count(host_id)}/{len(meta_ids)} "
+                  f"index_rollout_is_the_rollout={sum(1 for row in indexed if str(Path(row).resolve()) in real)}")
+            # With the installed host the rollout IS resolved, and by its name alone: the pin's id is the
+            # uuid in the rollout's file name, and that is the id the rollout's own first record carries,
+            # which is what a reader joins on. A host that stopped giving a usable path would fall to the
+            # index and still resolve; one that gave neither would fail here, which is the point.
+            self.assertIn(pin['rollout_method'], ('thread.path', 'index'))
+            self.assertIsNotNone(pin['rollout_id'], pin['evidence'])
+            self.assertEqual([str(Path(pin['rollout_path']).resolve())], [str(p.resolve()) for p in rollouts])
+            self.assertIn(pin['rollout_id'], Path(pin['rollout_path']).name)
+            self.assertEqual([pin['rollout_id']], [i for i in meta_ids if i == pin['rollout_id']])
+            print(f"F22-PROBE thread_path_set={thread_path is not None} "
+                  f"thread_path_exists={bool(thread_path) and Path(thread_path).exists()} "
+                  f"rollouts_under_home={len(rollouts)} rollout_named_by_thread_id={len(by_name)} "
+                  f"index_rows_for_thread={len(indexed)} "
+                  f"index_rollout_exists={sum(1 for row in indexed if Path(row).exists())}")
             with session.CodexServer(command, cwd=tmp, env=env) as server:
                 read = server.call('thread/read', {'threadId': host_id, 'includeTurns': False})
                 self.assertEqual(read['thread']['id'], host_id)
@@ -541,7 +731,12 @@ class RealCodexTests(unittest.TestCase):
             session.atomic_json(state / 'runtime/activations' / record['intent_id'] / 'journal.json', record)
             recovered = session.recover_activations(state, command, 'codex', env)
             self.assertEqual(recovered['pinned'], [host_id])
-            self.assertEqual(session.read_pin(state, 'codex', host_id)['content_ref'], snapshot['content_ref'])
+            replaced = session.read_pin(state, 'codex', host_id)
+            self.assertEqual(replaced['content_ref'], snapshot['content_ref'])
+            # A recovered activation records the rollout too; a pin it wrote without these keys would
+            # read as one written before the binding existed.
+            self.assertIn('rollout_id', replaced)
+            self.assertTrue(replaced['evidence']['method'].endswith('+' + replaced['rollout_method']))
 
 
 if __name__ == '__main__':

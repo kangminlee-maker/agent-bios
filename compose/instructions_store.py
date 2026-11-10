@@ -30,6 +30,16 @@ except ImportError:
     from .instructions_transaction import environment_value, transaction_lock, guard_pending, pending_operations, operation_scope_active, reject_symlink_ancestors
 
 SCHEMA_VERSION = 1
+RECEIPT_DIR = "receipts"
+RECEIPT_SCHEMA = "InstallationReceipt/v1"
+RECEIPT_ROLES = {"release", "owned"}
+RECEIPT_INSTALLER = {"digest_at_import", "digest", "build", "root", "files", "package_modules_run"}
+_SHA256 = re.compile(r"[0-9a-f]{64}")
+# Snapshot input -> the file in the receipt's release artifacts that must carry the same bytes.  The
+# installer digest cannot answer this: an old installer runs the new package's store and catalog.
+RECEIPT_ARTIFACTS = {"compiler_digest": "compose/instructions_catalog.py",
+                     "store_schema_digest": "compose/instructions_store.py",
+                     "bootstrap_digest": "compose/bootstrap/SKILL.md"}
 LOCAL_PACKAGE = "@local/personal"
 SURFACES = {"always", "relevant", "requested", "event", "delegated"}
 KINDS = {"rule", "guide", "skill", "hook", "agent"}
@@ -198,6 +208,133 @@ def _snapshot_assets(value: Any, files: list[str]) -> dict[str, Any]:
         if f"{relative}/.claude-plugin/plugin.json" not in files:
             raise ValidationError("snapshot plugin has no inventoried manifest")
     return _copy_json(value)
+
+
+def read_installation_receipt(state_root: Path, receipt_id: str) -> dict[str, Any]:
+    """A success receipt whose bytes hash to its id; anything else is not evidence.
+
+    The id lives outside the body (the file name), so reading one is also the check that the
+    body was not edited: a re-serialization with reordered keys hashes the same, a changed
+    field does not.
+    """
+    _safe_part(receipt_id, "receipt id")
+    path = Path(state_root) / "runtime" / RECEIPT_DIR / f"{receipt_id}.json"
+    _reject_symlink_path(path)
+    if not path.is_file():
+        raise ValidationError("installation receipt is missing")
+    raw = path.read_bytes()
+    if hashlib.sha256(raw).hexdigest() != receipt_id:
+        raise ValidationError("installation receipt does not hash to its id")
+    receipt = json.loads(raw)
+    if not isinstance(receipt, dict) or receipt.get("schema") != RECEIPT_SCHEMA or receipt.get("result") != "success":
+        raise ValidationError("not a success installation receipt")
+    _receipt_contract(receipt)
+    return receipt
+
+
+def _receipt_contract(receipt: dict[str, Any]) -> None:
+    """Hold a receipt to the contract the installer writes, not only to its own hash.
+
+    A body can hash to its file name and still be no evidence: it can carry the id that must live
+    outside it, claim two different installer digests where a difference refuses the receipt, lack
+    the fields a verdict reads, or hold artifact rows of another shape. Each of those was accepted
+    as bound, or raised where a verdict was promised (X r1 F4), so each is a named refusal here and
+    `installation_binding` turns it into `unbound` with its reason.
+    """
+    carried = [key for key in ("receipt_id",) if key in receipt]
+    if carried:
+        raise ValidationError("installation receipt carries its own id: " + ", ".join(carried))
+    installer = receipt.get("installer")
+    if not isinstance(installer, dict):
+        raise ValidationError("installation receipt names no installer")
+    if set(installer) != RECEIPT_INSTALLER:
+        # Every field here is one the writer ALWAYS writes, so a receipt missing one, or carrying a field
+        # the writer never writes, was not written by that installer (X r2 F2).
+        raise ValidationError("installation receipt's installer is not the shape the installer writes: "
+                              + ", ".join(sorted(RECEIPT_INSTALLER.symmetric_difference(installer))))
+    digests = [installer["digest_at_import"], installer["digest"]]
+    if not all(isinstance(value, str) and _SHA256.fullmatch(value) for value in digests):
+        raise ValidationError("installation receipt's installer digests are not digests")
+    if digests[0] != digests[1]:
+        # The installer refuses the receipt on a difference, so a receipt holding one was not written
+        # by that installer: the claim about which code ran is unusable either way.
+        raise ValidationError("installation receipt claims two different installer digests")
+    if not isinstance(installer["root"], str) or not installer["root"]:
+        raise ValidationError("installation receipt's installer names no root")
+    if not (installer["build"] is None or (isinstance(installer["build"], str) and installer["build"])):
+        raise ValidationError("installation receipt's installer build is neither a version nor absent")
+    files = installer["files"]
+    if not isinstance(files, list) or not files:
+        raise ValidationError("installation receipt lists no installer files")
+    for row in files:
+        if not isinstance(row, dict) or set(row) != {"path", "sha256"} \
+                or not isinstance(row["path"], str) or not row["path"] \
+                or not (isinstance(row["sha256"], str) and _SHA256.fullmatch(row["sha256"])):
+            # A null sha256 is an unreadable installer file, on which the writer refuses the receipt.
+            raise ValidationError("installation receipt holds an installer file row of another shape")
+    if _digest(files) != installer["digest"]:
+        # The digest IS the hash of these rows, canonically, so the two can be held against each other
+        # rather than taken on the receipt's word.
+        raise ValidationError("installation receipt's installer digest is not the hash of its own file list")
+    modules = installer["package_modules_run"]
+    if not isinstance(modules, list):
+        raise ValidationError("installation receipt lists no package modules")
+    for row in modules:
+        if not isinstance(row, dict) or set(row) != {"path", "sha256"} or not isinstance(row["path"], str) \
+                or not isinstance(row["sha256"], str) or not row["sha256"]:
+            raise ValidationError("installation receipt holds a package module row of another shape")
+    for field, kind in (("transaction_id", str), ("release_digest", str), ("baseline_ref", str),
+                        ("selection", list), ("at", int)):
+        if not isinstance(receipt.get(field), kind) or (kind is str and not receipt[field]) \
+                or (kind is int and isinstance(receipt[field], bool)):
+            raise ValidationError(f"installation receipt's {field} is not a {kind.__name__}")
+    begun_by = receipt.get("begun_by_installer_digest")
+    if "begun_by_installer_digest" not in receipt:
+        raise ValidationError("installation receipt names no beginning installer digest, not even as absent")
+    if begun_by is not None and not (isinstance(begun_by, str) and _SHA256.fullmatch(begun_by)):
+        raise ValidationError("installation receipt's beginning installer digest is not a digest")
+    if begun_by == installer["digest"]:
+        # The writer normalises "begun by the installer that finished it" to null, so an equal pair is a
+        # claim no installer makes, and reading it as "a different installer began this" would be false.
+        raise ValidationError("installation receipt's beginning installer digest equals the finishing one")
+    artifacts = receipt.get("artifacts")
+    if not isinstance(artifacts, list) or not artifacts:
+        raise ValidationError("installation receipt lists no artifacts")
+    for row in artifacts:
+        # `role` is checked for being a string BEFORE set membership: an unhashable role raised a
+        # TypeError where a verdict was promised (X r2 F1).
+        if not isinstance(row, dict) or set(row) != {"path", "sha256", "role"} \
+                or not isinstance(row["path"], str) or not row["path"] \
+                or not (isinstance(row["sha256"], str) and _SHA256.fullmatch(row["sha256"])) \
+                or not isinstance(row["role"], str) or row["role"] not in RECEIPT_ROLES:
+            raise ValidationError("installation receipt holds an artifact row of another shape")
+
+
+def installation_binding(state_root: Path, inputs: dict[str, Any]) -> dict[str, Any]:
+    """Does the receipt a snapshot names cover the artifacts the snapshot recorded?
+
+    A verdict, never a refusal: a development override (`AGENT_BIOS_PACKAGE_ROOT` at an older
+    tree) legitimately produces snapshots no current receipt covers, and `bound: False` is what
+    makes installer exposure unknown downstream rather than stopping a launch.
+    """
+    receipt_id = inputs.get("installation_receipt_id")
+    if not isinstance(receipt_id, str) or not receipt_id:
+        return {"bound": False, "reason": "snapshot records no installation receipt"}
+    try:
+        receipt = read_installation_receipt(state_root, receipt_id)
+    except (InstructionsStoreError, ValueError, OSError) as exc:
+        return {"bound": False, "receipt_id": receipt_id, "reason": str(exc)}
+    hashes = {entry["path"]: entry["sha256"] for entry in receipt["artifacts"]
+              if isinstance(entry, dict) and entry.get("role") == "release"}
+    wrong = [f"{field} != {path}" for field, path in RECEIPT_ARTIFACTS.items()
+             if not inputs.get(field) or hashes.get(path) != inputs[field]]
+    if receipt.get("baseline_ref") != inputs.get("baseline_ref"):
+        wrong.append("baseline_ref")
+    if wrong:
+        return {"bound": False, "receipt_id": receipt_id, "reason": "artifacts differ from the receipt: " + ", ".join(wrong)}
+    return {"bound": True, "receipt_id": receipt_id, "transaction_id": receipt["transaction_id"],
+            "installer_digest": receipt["installer"]["digest"], "release_digest": receipt["release_digest"],
+            "begun_by_installer_digest": receipt.get("begun_by_installer_digest")}
 
 
 def verify_snapshot(path: Path, expected_content_ref: str) -> dict[str, Any]:
@@ -1464,6 +1601,17 @@ class InstructionsStore:
                 selected.append(item)
         return selected
 
+    def _current_installation_receipt_id(self) -> str | None:
+        """The receipt of the install transaction the current install record belongs to, if it committed."""
+        record = _json_read(self.runtime / "private-install.json")
+        transaction_id = record.get("transaction_id") if isinstance(record, dict) else None
+        if not isinstance(transaction_id, str):
+            return None  # installed before receipts existed: the snapshot stays unbound
+        journal = _json_read(self.runtime / "installer-transactions"
+                             / _safe_part(transaction_id, "transaction id") / "journal.json")
+        receipt_id = journal.get("receipt_id") if isinstance(journal, dict) and journal.get("state") == "COMMITTED" else None
+        return receipt_id if isinstance(receipt_id, str) else None
+
     def snapshot(self, host: str, selection: list[str] | None = None, dry_run: bool = False,
                  native: bool = False, *, selection_mode: str | None = None,
                  cwd: str | Path | None = None) -> dict[str, Any]:
@@ -1519,6 +1667,14 @@ class InstructionsStore:
                 "store_schema_digest": _digest(Path(__file__).read_bytes()),
                 "bootstrap_digest": _digest(bootstrap_path.read_bytes()),
             }
+            # Recorded BEFORE content_ref is derived, so activation binds a session to exactly one
+            # installation transaction even when several transactions served the same release — and
+            # only when the receipt covers the files this store just hashed.
+            receipt_id = self._current_installation_receipt_id()
+            inputs["installation_receipt_id"] = (
+                receipt_id if receipt_id and installation_binding(
+                    self.state_root, {**inputs, "installation_receipt_id": receipt_id})["bound"]
+                else None)
             if native:
                 import sys
                 inputs["native"] = True
@@ -1631,6 +1787,7 @@ class InstructionsStore:
             verified = verify_snapshot(root, content_ref)
             output = verified["output"]
             return {"content_ref": content_ref, "path": str(root), "inputs": verified["inputs"],
+                    "installation_binding": installation_binding(self.state_root, verified["inputs"]),
                     "items": verified["items"], "files": output.get("files"),
                     "item_refs": output.get("item_refs"), "instruction_text": output.get("instruction_text"),
                     "unavailable": output.get("unavailable"), "assets": output.get("assets", {})}

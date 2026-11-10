@@ -637,7 +637,8 @@
       "required": ["status", "reason", "inventory_ref"],
       "properties": {
         "status": {"type": "string", "enum": ["read", "unpinned", "unknown"]},
-        "reason": {"enum": ["unpinned", "id_space", "pin_absent", "pin_mismatch", "pin_content_ref_mismatch",
+        "reason": {"enum": ["unpinned", "rollout_claimed_twice", "rollout_unmatched", "pin_predates_rollout_binding",
+                            "rollout_unresolved", "pin_absent", "pin_mismatch", "pin_content_ref_mismatch",
                             "input_failed", "input_unread", "snapshot_absent", null]},
         "inventory_ref": {"type": ["string", "null"], "pattern": "^i-[0-9a-f]{24}$"}
       }
@@ -649,7 +650,8 @@
       "required": ["status", "reason", "content_ref", "baseline_ref", "include_global_instructions"],
       "properties": {
         "status": {"type": "string", "enum": ["read", "unpinned", "unknown"]},
-        "reason": {"enum": ["unpinned", "id_space", "pin_absent", "pin_mismatch", "pin_content_ref_mismatch",
+        "reason": {"enum": ["unpinned", "rollout_claimed_twice", "rollout_unmatched", "pin_predates_rollout_binding",
+                            "rollout_unresolved", "pin_absent", "pin_mismatch", "pin_content_ref_mismatch",
                             "input_failed", "input_unread", null]},
         "content_ref": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
         "baseline_ref": {"type": ["string", "null"]},
@@ -663,7 +665,8 @@
       "required": ["status", "reason", "event_refs"],
       "properties": {
         "status": {"type": "string", "enum": ["confirmed", "unknown"]},
-        "reason": {"enum": ["unpinned", "id_space", "pin_absent", "pin_mismatch", "pin_content_ref_mismatch",
+        "reason": {"enum": ["unpinned", "rollout_claimed_twice", "rollout_unmatched", "pin_predates_rollout_binding",
+                            "rollout_unresolved", "pin_absent", "pin_mismatch", "pin_content_ref_mismatch",
                             "input_failed", "input_unread", "snapshot_absent", "unbound", "binding_invalid",
                             "no_path", "changed", "unreadable", "container_unusable", "locator_element_rejected",
                             "recorded_unmapped", "no_record", null]},
