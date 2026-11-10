@@ -104,7 +104,7 @@ def build(config: dict, repository: str, site_url: str, bootstrap: bytes, output
 <p>{notice} It relaxes the execution policy for that one process and leaves the machine's policy unchanged.</p>
 <p>Current release: <a href="{html.escape(release_url)}">{html.escape(config['tag'])}</a>.</p>
 <h2>macOS and Linux</h2>
-<p>Run this one line. It installs the published package, which needs Node.js 18+ and python3 3.11+ already present; it then tells you the command that deploys your work environment.</p>
+<p>Run this one line. It installs the published package, which needs Node.js 18+ and python3 3.12+ already present; it then tells you the command that deploys your work environment.</p>
 <pre><code>{html.escape(posix_command)}</code></pre>
 <p>Installs the current published release and prints the version it installed. It changes no shell profile and installs no package manager.</p>
 <h2>What these commands trust</h2>

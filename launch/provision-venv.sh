@@ -19,7 +19,7 @@ case "${1:-}" in
 esac
 
 runtime_python_ready() {
-  "$1" -c 'import sys; sys.exit("agent-bios requires Python 3.11+; select it with AGENT_LAUNCH_PYTHON and use a new AGENT_LAUNCH_VENV path for an incompatible existing environment" if sys.version_info < (3, 11) else 0)'
+  "$1" -c 'import sys; sys.exit("agent-bios requires Python 3.12+; select it with AGENT_LAUNCH_PYTHON and use a new AGENT_LAUNCH_VENV path for an incompatible existing environment" if sys.version_info < (3, 12) else 0)'
 }
 
 pinned_ready() {
