@@ -42,6 +42,11 @@ ones retrieved for it - cut into shards, several candidates to a group (`shard_p
 and each answer held to exactly the pairs its packet lists (`sweep_problems`). `--dry` reports the sweep's upper bound:
 every judged candidate as a gap over the catalog layer (`upper_bound`).
 
+Judge B then reviews every absence claim the sweeps judged whole (plan WP-11 J3b, done-when 3, F10): its packet
+carries every unit either sweep flagged and fifty units both found unrelated, drawn from the run id, each with both
+sweeps' marks and reasons (`cross_stage`); the kept review is held to what the sweep results build
+(`cross_review_problems`: CROSS_REVIEW_INCOMPLETE, CROSS_REVIEW_STALE).
+
   stage_judge.py --self-test
 """
 import collections
@@ -1034,6 +1039,184 @@ def sweep_stage(run_dir, stage, supervisor, declaration, judged, judgments, sour
     return section, receipts
 
 
+# ---- Judge B's cross-review of an absence claim (plan WP-11 J3b, done-when 3, F10) --------------------------------
+
+CROSS_TEMPLATE = "cross_review"
+CROSS_SCHEMA_PATH = HERE / "schemas" / "cross_review.schema.json"
+CROSS_CASE = "cross_review"   # a cross-review call's class (dispatch.class_key)
+NEGATIVES = 50   # design §6.2: fifty negatives, drawn by code from the run id
+
+
+def cross_schema():
+    return json.loads(CROSS_SCHEMA_PATH.read_text(encoding="utf-8"))
+
+
+def sweep_marks(results):
+    """`{candidate id: {unit id: {side: {situation, action, reason}}}}` over kept sweep results (`kept_sweep`)."""
+    marks = {}
+    for held in results:
+        for pair in held["pairs"]:
+            marks.setdefault(pair["candidate_id"], {}).setdefault(pair["unit_id"], {})[held["side"]] = {
+                k: pair[k] for k in ("situation", "action", "reason")}
+    return marks
+
+
+def flags_of(marks):
+    """The units either sweep marked as a partial match - a situation or an action yes - in unit id order."""
+    return sorted(u for u, sides in marks.items() if any("yes" in (m["situation"], m["action"]) for m in sides.values()))
+
+
+def negatives_of(marks, seed, cid, n=NEGATIVES):
+    """`n` of the units both sweeps marked as no match, drawn by code: the first by sha256 of the seed (the run id),
+    the candidate and the unit. Fewer when fewer are there."""
+    both_no = [u for u, sides in marks.items() if len(sides) == len(SWEEP_SEAT_KEYS)
+               and all(m["situation"] == m["action"] == "no" for m in sides.values())]
+    return sorted(both_no, key=lambda u: hashlib.sha256(f"{seed}\x00{cid}\x00{u}".encode("utf-8")).hexdigest())[:n]
+
+
+class CrossLabels:
+    """One cross-review packet's labels: the candidate k1, and its flagged and sampled units n1, ... in unit id order,
+    each with both sweeps' marks."""
+
+    def __init__(self, candidate, marks, flags, negatives, units, entries):
+        self.candidate, self.marks, self.unit_store = candidate, marks, units
+        self.flags, self.negatives = list(flags), list(negatives)
+        self.units = {f"n{n}": u for n, u in enumerate(sorted(set(flags) | set(negatives)), 1)}
+        self.view = sweep_view(candidate, entries, units)
+
+    def candidate_text(self):
+        return json.dumps({"candidate": "k1", **self.view}, ensure_ascii=False)
+
+    def units_text(self):
+        return "\n".join(json.dumps({"unit": label, "layer": self.unit_store[uid]["layer"],
+                                     "path": self.unit_store[uid].get("path"),
+                                     "heading": self.unit_store[uid].get("heading") or "",
+                                     "text": self.unit_store[uid]["text"],
+                                     "sweeps": {side: self.marks[uid][side] for side in sorted(self.marks[uid])}},
+                                    ensure_ascii=False) for label, uid in self.units.items())
+
+    def resolve(self, answer):
+        return [{"unit_id": self.units[r["unit"]], **{k: r[k] for k in ("situation", "action", "reason")}}
+                for r in answer["verdicts"]]
+
+
+def cross_payload(labels):
+    """One absence claim's cross-review payload (`packets/cross_review.md`)."""
+    return packet.render(CROSS_TEMPLATE, {"candidate": labels.candidate_text(), "units": labels.units_text()})
+
+
+def cross_problems(labels, answer):
+    """What a schema-valid cross-review gets wrong against its packet: every unit shown judged exactly once
+    (CROSS_UNIT_MISSING, CROSS_UNIT_TWICE), by a label the packet shows (UNKNOWN_LABEL)."""
+    out, seen = [], {}
+    for n, row in enumerate(answer.get("verdicts") or []):
+        where = f"verdicts[{n}] {row['unit']}"
+        if row["unit"] not in labels.units:
+            out.append(f"UNKNOWN_LABEL {where}: this packet shows no unit so labelled")
+        elif row["unit"] in seen:
+            out.append(f"CROSS_UNIT_TWICE {where}: judged at verdicts[{seen[row['unit']]}] already")
+        else:
+            seen[row["unit"]] = n
+    out += [f"CROSS_UNIT_MISSING {label}: the packet shows it and the review does not judge it"
+            for label in labels.units if label not in seen]
+    return out
+
+
+def cross_check(labels):
+    """The stage's check of a cross-review attempt, as `Supervisor.item(stage_check=)` asks it."""
+    from runlib import stage_read
+
+    def judged(call_dir):
+        return cross_problems(labels, stage_read.answer_of(call_dir))
+    return judged
+
+
+def cross_rel(item):
+    return f"cross_review/{item}.json"
+
+
+def cross_review_problems(record, flags, negatives, payload_sha256):
+    """Done-when 3 over a kept cross-review against what the sweep results give now: every partial flag either sweep
+    raised and the drawn negatives in it (CROSS_REVIEW_INCOMPLETE), and its payload the one those results build
+    (CROSS_REVIEW_STALE: a sweep's mark or reason changed after the review was sent)."""
+    cid = record.get("candidate_id")
+    out = []
+    missing = sorted(set(flags) - set(record.get("partial_flags") or []))
+    if missing:
+        out.append(f"CROSS_REVIEW_INCOMPLETE {cid}: partial flags no review carries {missing[:5]}")
+    if list(record.get("seeded_negatives") or []) != list(negatives):
+        out.append(f"CROSS_REVIEW_INCOMPLETE {cid}: its {len(record.get('seeded_negatives') or [])} negatives are not the "
+                   f"{len(negatives)} drawn from the run id")
+    if record.get("payload_sha256") != payload_sha256:
+        out.append(f"CROSS_REVIEW_STALE {cid}: its payload {str(record.get('payload_sha256'))[:12]} is not the one the "
+                   f"sweep results build now ({payload_sha256[:12]})")
+    return out
+
+
+def cross_stage(run_dir, stage, supervisor, declaration, swept, item_of_cid, caps, tranche):
+    """Judge B's cross-review of every absence claim the sweeps judged whole (plan WP-11 J3b, done-when 3): its packet
+    carries every unit either sweep flagged and NEGATIVES units both marked as none, drawn from the run id, each with both
+    sweeps' marks and reasons; the review judges each unit once (`cross_problems`) and is kept under
+    cross_review/<item>.json, held to what the sweep results give (`cross_review_problems`). A claim whose sweeps did not
+    all finish is not reviewed, and is named. Returns the summary's `cross_review` section and the calls' receipts."""
+    section = {"seat": None, "reviewed": [], "not_reviewed": [], "calls": [], "negatives": NEGATIVES}
+    if not swept.get("complete") or not swept.get("absent"):
+        section["why"] = "no absence claim was swept" if swept.get("complete") else swept.get("why")
+        return section, []
+    seat = seats_of(declaration)["B"]
+    section["seat"] = seat
+    context = sweep_context(run_dir, declaration)
+    inventory = swept["inventory_sha256"]
+    results, finished = [], {}
+    for row in swept["calls"]:
+        for side, held in row["seats"].items():
+            if held["outcome"] == "accepted":
+                results.append(kept_sweep(run_dir, held["result"], inventory))
+    marks = sweep_marks(results)
+    run_id = run_dir.resolve().name
+    held_schema = cross_schema()
+    receipts = []
+    for g in swept["groups"]:
+        for cid in g["candidates"]:
+            mine = marks.get(cid) or {}
+            whole = [u for u, sides in mine.items() if len(sides) == len(SWEEP_SEAT_KEYS)]
+            shards = [r for r in swept["calls"] if r["group"] == g["group"]]
+            if any(h["outcome"] != "accepted" for r in shards for h in r["seats"].values()) or len(whole) != len(mine):
+                section["not_reviewed"].append({"candidate_id": cid, "why": "a sweep of its group did not finish"})
+                continue
+            flags, negatives = flags_of(mine), negatives_of(mine, run_id, cid)
+            if not flags and not negatives:
+                section["not_reviewed"].append({"candidate_id": cid, "why": "no remaining unit to review"})
+                continue
+            labels = CrossLabels(context["by_id"][cid], mine, flags, negatives, context["units"], context["entries"])
+            text = cross_payload(labels)
+            payload_sha256 = packet.sha256_bytes(text.encode("utf-8"))
+            item = f"{item_of_cid(cid)}-X"
+            out = supervisor.item(STAGE, item, seat, text, held_schema, case_type=CROSS_CASE, caps=caps,
+                                  view_window=False, tranche=tranche, max_output_tokens=OUTPUT_CAP,
+                                  stage_check=cross_check(labels), resume=True)
+            held = call_row(out)
+            if out["outcome"] == "accepted":
+                call_dir = pathlib.Path(out["accepted"])
+                call_id = records.read_json(call_dir / "call.json")["call_id"]
+                receipt = records.read_json(call_dir / "receipt.json")
+                rel = cross_rel(item_of_cid(cid))
+                record = {"candidate_id": cid, "seat": seat, "call_id": call_id, "inventory_sha256": inventory,
+                          "seed": run_id, "payload_sha256": payload_sha256, "packet_sha256": receipt.get("packet_sha256"),
+                          "partial_flags": flags, "seeded_negatives": negatives,
+                          "verdicts": labels.resolve(gate.accepted(call_dir, judged=True))}
+                problems = cross_review_problems(record, flags, negatives, payload_sha256)
+                if problems:
+                    raise Refused("\n".join(problems))
+                records.write_json(run_dir, run_dir / rel, record)
+                stage.output(rel)
+                receipts.append((f"cross/{cid}", seat, call_id, receipt, payload_sha256))
+                held.update(call_id=call_id, result=rel)
+                section["reviewed"].append(cid)
+            section["calls"].append({"candidate_id": cid, "flags": len(flags), "negatives": len(negatives), **held})
+    return section, receipts
+
+
 # ---- the calls ------------------------------------------------------------------------------------------------
 
 SUMMARY = "judgments/judge.json"
@@ -1096,7 +1279,8 @@ JUDGE_HOST = r'''
 plan, as FAKE_HOST's Claude branch answers one; and a plan row's `context` names a replayed capture (WP-03's planted
 working directories) whose effective context replaces the one the host reports. A row `auto: sweep` answers a sweep
 packet from the packet itself: every pair it lists, a partial match (situation yes) where the unit's text holds the
-row's `partial_where`, its first pair left out with `drop_first`. argv: fake-host host mode spec-json."""
+row's `partial_where`, its first pair left out with `drop_first`; `auto: cross` answers a cross-review the same way,
+every unit it shows. argv: fake-host host mode spec-json."""
 import json, os, pathlib, subprocess, sys
 fake, host, mode, spec = sys.argv[1], sys.argv[2], sys.argv[3], json.loads(sys.argv[4])
 packet = sys.stdin.buffer.read()
@@ -1113,6 +1297,12 @@ if row is not None and row.get("auto") == "sweep":  # every pair the packet list
     pairs = [{"candidate": c["candidate"], "unit": u, "situation": "yes" if flagged(u) else "no", "action": "no",
               "reason": "a partial match" if flagged(u) else "unrelated"} for c in block("candidates") for u in c["units"]]
     row = {**row, "answer": {"pairs": pairs[1:] if row.get("drop_first") else pairs}}
+if row is not None and row.get("auto") == "cross":  # every unit shown, a match where the text says
+    flagged = lambda text: bool(row.get("partial_where")) and row["partial_where"] in text
+    row = {**row, "answer": {"verdicts": [{"unit": u["unit"], "situation": "yes" if flagged(u["text"]) else "no",
+                                           "action": "no", "reason": "a match" if flagged(u["text"]) else "unrelated"}
+                                          for u in block("units")][(1 if row.get("drop_first") else 0):]}}
+if row is not None and row.get("auto") in ("sweep", "cross"):
     held = pathlib.Path(os.environ["DISTILL_CELL"]) / "judge-host-plan.json"
     held.write_text(json.dumps([{"match": row["match"], "answer": row["answer"]}]))
     spec = {**spec, "answers": str(held)}
@@ -1229,14 +1419,18 @@ def run(run_dir, supervisor=None, *, dry=False, seats_path=None, tranche="calibr
         sources = {r["candidate_id"]: r["source"] for r in summary["packets"]}
         swept, sweep_receipts = sweep_stage(run_dir, stage, supervisor, declaration, sorted(packets), judgments, sources,
                                             caps, tranche)
-        problems = stage_receipts(receipts + sweep_receipts)
+        crossed, cross_receipts = cross_stage(run_dir, stage, supervisor, declaration, swept, item_of, caps, tranche)
+        problems = stage_receipts(receipts + sweep_receipts + cross_receipts)
         if problems:
             raise Refused("\n".join(problems))
         outcomes = [held["outcome"] for row in calls for held in row["seats"].values()]
         swept_outcomes = [held["outcome"] for row in swept["calls"] for held in row["seats"].values()]
         swept["counts"] = {**{o: swept_outcomes.count(o) for o in OUTCOMES},
                            "reused": sum(1 for row in swept["calls"] for held in row["seats"].values() if held["reused"])}
-        summary.update(dry=False, calls=calls, sweeps=swept, interrupted=interrupted, tranche=tranche,
+        crossed_outcomes = [row["outcome"] for row in crossed["calls"]]
+        crossed["counts"] = {**{o: crossed_outcomes.count(o) for o in OUTCOMES},
+                             "reused": sum(1 for row in crossed["calls"] if row["reused"])}
+        summary.update(dry=False, calls=calls, sweeps=swept, cross_review=crossed, interrupted=interrupted, tranche=tranche,
                        counts={**{o: outcomes.count(o) for o in OUTCOMES},
                                "reused": sum(1 for row in calls for held in row["seats"].values() if held["reused"]),
                                "judged_by_both": sum(1 for row in calls
@@ -1244,7 +1438,7 @@ def run(run_dir, supervisor=None, *, dry=False, seats_path=None, tranche="calibr
                        density_table=dispatch.measured_table(run_dir))
         records.write_json(run_dir, run_dir / SUMMARY, summary)
         stage.output(SUMMARY)
-        if any(o != "accepted" for o in outcomes + swept_outcomes):
+        if any(o != "accepted" for o in outcomes + swept_outcomes + crossed_outcomes) or crossed["not_reviewed"]:
             stage.record["status"] = "partial"
     return summary
 
@@ -1284,6 +1478,9 @@ def report_lines(summary):
                          f"{sum(len(g['shards']) for g in sw['groups'])} shards; calls " + ", ".join(f"{o} {c[o]}" for o in OUTCOMES)
                          + f"; {c['reused']} answered by an earlier accepted attempt; {len(sw['not_judged_by_both'])} "
                            "candidates not swept because a judge did not judge them")
+            cr = summary["cross_review"]
+            lines.append(f"cross-review by Judge B: {len(cr['reviewed'])} absence claims reviewed, {len(cr['not_reviewed'])} "
+                         f"not; calls " + ", ".join(f"{o} {cr['counts'][o]}" for o in OUTCOMES))
     else:
         b = summary["sweep_upper_bound"]
         lines.append(f"sweep upper bound ({b['basis']}): {b['groups']} groups, {b['shards']} shards, {b['packets']} calls, "
@@ -1306,13 +1503,19 @@ def fx_answer(units=("n1", "n2"), yes=("n1",), entries=("e1",)):
             "ledger_relations": [{"entry": e, "relation": "none", "reason": "unrelated"} for e in entries]}
 
 
-def fx_library():
+WIDE_TOPICS = ("release", "budget", "review", "schema", "ledger", "window")
+
+
+def fx_library(wide=0):
     """S5's fixture library with what S2's inventory now publishes of each unit (D-20261111-92d81a): its heading, its
     block and its edges. One unit is enclosed by a frontmatter line of its file (a reference unit S5 does not index), and
-    reaches a unit of another file and an unresolved mention."""
+    reaches a unit of another file and an unresolved mention. `wide` adds that many catalog units, each its own text, so
+    an absence claim has more than NEGATIVES units both sweeps find unrelated (J3b)."""
     front = lifecycle_intake.fx_unit("u-front", "description: when a push reaches a shared remote", cls="reference",
                                      path="claude/guides/u-push.md")
-    units = [dict(u) for u in lifecycle_intake.FX_LIBRARY] + [front]
+    extra = [lifecycle_intake.fx_unit(f"u-wide-{n:03d}", f"Note step {n} of the {WIDE_TOPICS[n % len(WIDE_TOPICS)]} "
+                                                         "routine in its dated log.") for n in range(1, wide + 1)]
+    units = [dict(u) for u in lifecycle_intake.FX_LIBRARY] + [front] + extra
     for n, unit in enumerate(units, 1):  # a path of its own, so a unit's id is never a spelling of its path
         if unit["path"] == f"claude/guides/{unit['unit_id']}.md":
             unit["path"] = f"claude/guides/guide-{n}.md"
@@ -1549,6 +1752,9 @@ def self_test():
     control("the sweep template is one packet.TEMPLATES lists, and its placeholders are the candidates, the inventory and "
             "the units", SWEEP_TEMPLATE in packet.TEMPLATES
             and guarded(lambda: packet.template_fields(SWEEP_TEMPLATE), []) == ["candidates", "inventory", "units"],
+            f"{packet.TEMPLATES}")
+    control("the cross-review template is one packet.TEMPLATES lists, and its placeholders are the candidate and the units",
+            CROSS_TEMPLATE in packet.TEMPLATES and guarded(lambda: packet.template_fields(CROSS_TEMPLATE), []) == ["candidate", "units"],
             f"{packet.TEMPLATES}")
     form_text, judge_text = (guarded(lambda name=n: packet.template_text(name), "") for n in ("form", TEMPLATE))
     definitions = [line for line in form_text.splitlines() if re.match(r"^(\d\. `|   \S)", line)]
@@ -1910,13 +2116,14 @@ def self_test():
                     f"{ub}")
             # a golden run whose current reference point is complete, three formed candidates judged with no unit that
             # matches, so they and the candidates S5 retrieved nothing for are absence claims
-            whole = guarded(lambda: stage_retrieve.fx_gold(root / "whole", stage_retrieve.fx_current(fx_library(), complete=True)),
+            whole = guarded(lambda: stage_retrieve.fx_gold(root / "whole",
+                                                           stage_retrieve.fx_current(fx_library(wide=70), complete=True)),
                             lambda e: e)
             if isinstance(whole, Exception):
                 failures.append(f"the complete golden run could not be made: {whole!r}")
             else:
                 declare.amend(whole, [("budget.per_stage.S6", 20_000_000),
-                                      ("sweeps", {"shard_units": 2, "candidates_per_shard": 2})],
+                                      ("sweeps", {"shard_units": 40, "candidates_per_shard": 3})],
                               "S6's golden budget and small shards (WP-11 J3a)", scope=["S5", "S6"])
                 stage_retrieve.run(whole, "aa" * 8)
                 whole_plan_root = root / "whole-planner"
@@ -1931,8 +2138,13 @@ def self_test():
                             u.update(situation="no", action="no", quote="")
                         row["answer"]["matching_units"] = []
                 whole_plan, whole_packets = fx_judge_plan(whole_plan_root / whole.name, root / "plan-whole.json", no_match)
-                sweep_rows = [{"match": [f"SEAT: {seat}"], "auto": "sweep", "partial_where": "glob"}
-                              for seat in ("claude:claude-sonnet-5-5/medium", "codex:gpt-6-luna/medium")]
+                # each sweep flags its own unit, so a flag is what either raised, not both (J3b)
+                sweep_rows = [{"match": [f"SEAT: {seat}"], "auto": "sweep", "partial_where": where}
+                              for seat, where in (("claude:claude-sonnet-5-5/medium", "glob"),
+                                                  ("codex:gpt-6-luna/medium", "Note step 3 of"))]
+                # Judge B's cross-review: every unit judged, a match where neither sweep saw one (J3b, J3c)
+                sweep_rows.append({"match": ["SEAT: codex:gpt-6-astra/xhigh", "Two checkers then"], "auto": "cross",
+                                   "partial_where": "Note step 7 of"})
                 judge_rows = json.loads(pathlib.Path(whole_plan).read_text(encoding="utf-8"))
                 pathlib.Path(whole_plan).write_text(json.dumps(judge_rows + sweep_rows), encoding="utf-8")
                 defect_sweep_plan = root / "plan-whole-defect.json"
@@ -1950,8 +2162,29 @@ def self_test():
                         and all(any(line.startswith("SWEEP_PAIR_MISSING") for line in a["stage_check"] or [])
                                 for a in dropped.get("attempts", [])) and first_record.get("status") == "partial",
                         f"{dropped} {first_record.get('status')}")
-                swept_run = guarded(lambda: run(whole, supervisor(whole, root / "cells-8b", whole_plan)),
+                first_cross = swept_run.get("cross_review") or {}
+                g001 = next((g["candidates"] for g in sw.get("groups", []) if g["group"] == "g001"), [])
+                control("J3b: an absence claim whose group's sweeps did not all finish is not cross-reviewed, and is named",
+                        g001 and sorted(r["candidate_id"] for r in first_cross.get("not_reviewed", [])
+                                        if r["why"] == "a sweep of its group did not finish") == sorted(g001)
+                        and not set(g001) & set(first_cross.get("reviewed", [])), f"{first_cross.get('not_reviewed')} {g001}")
+                # the second run: the sweeps whole, and one absence claim's cross-review leaving a unit out
+                claims_known = sorted(c for c, (labels, _t) in whole_packets.items() if c in made_gaps or not labels.units)
+                cross_defect = root / "plan-whole-cross-defect.json"
+                cross_defect.write_text(json.dumps(judge_rows + [
+                    {"match": [f"-{STAGE}-{item_of(claims_known[0])}-X-a"], "auto": "cross", "drop_first": True}] + sweep_rows),
+                    encoding="utf-8")
+                swept_run = guarded(lambda: run(whole, supervisor(whole, root / "cells-8b", cross_defect)),
                                     lambda e: {"problem": repr(e)})
+                second_record = guarded(lambda: records.read_json(records.record_path(whole, STAGE)), {})
+                short_cross = next((r for r in (swept_run.get("cross_review") or {}).get("calls", [])
+                                    if r["candidate_id"] == claims_known[0]), {})
+                control("J3b: a cross-review that leaves a unit it was shown unjudged fails the stage's check on both attempts, "
+                        "by name, and leaves the record partial", short_cross.get("outcome") == "failed"
+                        and len(short_cross.get("attempts", [])) == 2
+                        and all(any(line.startswith("CROSS_UNIT_MISSING") for line in a["stage_check"] or [])
+                                for a in short_cross.get("attempts", [])) and second_record.get("status") == "partial",
+                        f"{short_cross} {second_record.get('status')}")
                 sw = swept_run.get("sweeps") or {}
                 whole_rows = {r["candidate_id"]: r for r in records.read_json(whole / "checks.json")["candidates"]}
                 expected = sorted(c for c, (labels, _t) in whole_packets.items() if c in made_gaps or not labels.units)
@@ -1984,13 +2217,103 @@ def self_test():
                             and kept_sw[(g, sh, "a")].get("inventory_sha256") == inventory_hash for g, sh in shards_made)
                         and len({k.get("packet_sha256") for k in kept_sw.values()}) == len(kept_sw)
                         and sw.get("counts", {}).get("accepted") == 2 * len(shards_made), f"{sw.get('counts')}")
-                record = guarded(lambda: records.read_json(records.record_path(whole, STAGE)), {})
                 again_sw = guarded(lambda: run(whole, supervisor(whole, root / "cells-9", whole_plan)), lambda e: {"problem": repr(e)})
-                control("J3a: run again after the defect, only the failed sweep is called anew and the record is complete; "
-                        "run once more, every sweep is answered by its accepted attempt",
+                record = guarded(lambda: records.read_json(records.record_path(whole, STAGE)), {})
+                control("J3a: run again after the defect, only the failed sweep is called anew; run once more, every sweep is "
+                        "answered by its accepted attempt and the record is complete",
                         record.get("status") == "complete" and sw.get("counts", {}).get("reused") == 2 * len(shards_made) - 1
                         and (again_sw.get("sweeps") or {}).get("counts", {}).get("reused") == 2 * len(shards_made),
-                        f"{sw.get('counts')} {(again_sw.get('sweeps') or {}).get('counts', again_sw)}")
+                        f"{sw.get('counts')} {(again_sw.get('sweeps') or {}).get('counts', again_sw)} {record.get('status')}")
+                again_cross = {r["candidate_id"]: r for r in (again_sw.get("cross_review") or {}).get("calls", [])}
+                control("J3b: run once more, only the failed cross-review is called anew and accepted; every other is answered "
+                        "by its accepted attempt", again_cross.get(claims_known[0], {}).get("outcome") == "accepted"
+                        and not again_cross.get(claims_known[0], {}).get("reused")
+                        and all(r.get("reused") for c, r in again_cross.items() if c != claims_known[0]) and len(again_cross) > 1,
+                        f"{[(c[:12], r.get('outcome'), r.get('reused')) for c, r in again_cross.items()]}")
+                # ---- Judge B's cross-review (J3b, done-when 3) --------------------------------------------------------
+                cr = again_sw.get("cross_review") or {}
+                pop_b = {k["candidate_id"]: k for k in records.read_json(whole / "checked-candidates.json")["candidates"]}
+                units_b = {u["unit_id"]: u for u in records.read_json(whole / "inventory" / "current.json")["units"]}
+                entries_b = whole_packets[next(iter(whole_packets))][0].entry_store
+                marks_w = {}
+                for (g, sh, side), k in kept_sw.items():   # from the kept sweep files, not through sweep_marks
+                    for pr in k.get("pairs", []):
+                        marks_w.setdefault(pr["candidate_id"], {}).setdefault(pr["unit_id"], {})[side] = pr
+                want_flags = {c: sorted(u for u, sides in m.items() if any("yes" in (x["situation"], x["action"])
+                                                                            for x in sides.values())) for c, m in marks_w.items()}
+                both_no = {c: [u for u, sides in m.items() if len(sides) == 2
+                               and all(x["situation"] == x["action"] == "no" for x in sides.values())] for c, m in marks_w.items()}
+                want_neg = {c: sorted(us, key=lambda u, c=c: hashlib.sha256(f"{whole.name}\x00{c}\x00{u}".encode("utf-8"))
+                                      .hexdigest())[:50] for c, us in both_no.items()}
+                crossed_kept = {c: guarded(lambda c=c: records.read_json(whole / cross_rel(item_of(c))), {}) for c in expected}
+                control("J3b (done-when 3): every absence claim is reviewed by Judge B, its packet carrying every unit either "
+                        "sweep flagged and the fifty units both found unrelated that the run id draws, with both sweeps' reasons",
+                        sorted(cr.get("reviewed", [])) == expected and all(
+                            crossed_kept[c].get("partial_flags") == want_flags.get(c, [])
+                            and crossed_kept[c].get("seeded_negatives") == want_neg.get(c, [])
+                            and crossed_kept[c].get("seat") == "codex:gpt-6-astra/xhigh"
+                            and len(crossed_kept[c].get("verdicts", [])) == len(set(want_flags.get(c, [])) | set(want_neg.get(c, [])))
+                            for c in expected), f"{cr.get('reviewed')} {expected}")
+                full = [c for c in expected if len(both_no.get(c, [])) > 50]
+                flagged_claims = [c for c in expected if want_flags.get(c)]
+                one_side = [c for c in flagged_claims if any(len({s for s, x in marks_w[c][u].items()
+                                                                     if "yes" in (x["situation"], x["action"])}) == 1
+                                                              for u in want_flags[c])]
+                control("J3b: a claim with more than fifty units both sweeps found unrelated is shown exactly fifty; the "
+                        "fixture holds such a claim, and a claim with a unit only one sweep flagged",
+                        full and all(len(crossed_kept[c].get("seeded_negatives", [])) == 50 for c in full) and one_side,
+                        f"{[len(both_no.get(c, [])) for c in expected]} {len(flagged_claims)}")
+                few = {f"u{n}": {side: {"situation": "no", "action": "no", "reason": "r"} for side in ("a", "b")} for n in range(7)}
+                few["u-flag"] = {"a": {"situation": "yes", "action": "no", "reason": "r"},
+                                 "b": {"situation": "no", "action": "no", "reason": "r"}}
+                control("J3b: a claim with fewer than fifty units both sweeps found unrelated is shown every one of them, and "
+                        "a unit one sweep flagged is a flag, not a negative",
+                        sorted(negatives_of(few, "r1", "k-a")) == sorted(f"u{n}" for n in range(7)) and flags_of(few) == ["u-flag"])
+                if full:
+                    c = full[0]
+                    marks_c = {u: {side: {k: x[k] for k in ("situation", "action", "reason")} for side, x in sides.items()}
+                               for u, sides in marks_w[c].items()}
+                    control("J3b (done-when 3): another seed draws another sample",
+                            negatives_of(marks_c, "another-run", c) != negatives_of(marks_c, whole.name, c)
+                            and negatives_of(marks_c, whole.name, c) == want_neg[c])
+                if flagged_claims:
+                    c = flagged_claims[0]
+                    rec = {"partial_flags": [], "seeded_negatives": [], **crossed_kept[c]}
+                    marks_c = {u: {side: {k: x[k] for k in ("situation", "action", "reason")} for side, x in sides.items()}
+                               for u, sides in marks_w[c].items()}
+                    flags_c, neg_c = flags_of(marks_c), negatives_of(marks_c, whole.name, c)
+                    labels_c = CrossLabels(pop_b[c], marks_c, flags_c, neg_c, units_b, entries_b)
+                    built_sha = packet.sha256_bytes(cross_payload(labels_c).encode("utf-8"))
+                    control("J3b: a kept cross-review is the one the kept sweep results build", not cross_review_problems(
+                        rec, flags_c, neg_c, built_sha), f"{cross_review_problems(rec, flags_c, neg_c, built_sha)}")
+                    named("control (done-when 3): a cross-review missing one partial flag is CROSS_REVIEW_INCOMPLETE",
+                          cross_review_problems({**rec, "partial_flags": rec["partial_flags"][1:]}, flags_c, neg_c, built_sha),
+                          "CROSS_REVIEW_INCOMPLETE")
+                    named("control: a cross-review whose negatives are another sample is CROSS_REVIEW_INCOMPLETE",
+                          cross_review_problems({**rec, "seeded_negatives": rec["seeded_negatives"][::-1]}, flags_c, neg_c,
+                                                built_sha) if len(neg_c) > 1 else ["CROSS_REVIEW_INCOMPLETE vacuous"],
+                          "CROSS_REVIEW_INCOMPLETE")
+                    corrupted = json.loads(json.dumps(marks_c))
+                    some_neg = (neg_c or flags_c)[0]
+                    corrupted[some_neg]["a"]["reason"] = "a reason changed after the review"
+                    stale_sha = packet.sha256_bytes(cross_payload(CrossLabels(
+                        pop_b[c], corrupted, flags_c, neg_c, units_b, entries_b)).encode("utf-8"))
+                    named("control (done-when 3): one sampled reason changed in the sweep results is CROSS_REVIEW_STALE by "
+                          "the payload hash", cross_review_problems(rec, flags_c, neg_c, stale_sha), "CROSS_REVIEW_STALE")
+                    good = {"verdicts": [{"unit": u, "situation": "no", "action": "no", "reason": "unrelated"}
+                                         for u in labels_c.units]}
+                    control("J3b: a cross-review judging every unit shown once passes", not cross_problems(labels_c, good))
+                    for name, answer, code in (
+                            ("a unit shown and not judged", {"verdicts": good["verdicts"][1:]}, "CROSS_UNIT_MISSING"),
+                            ("a unit judged twice", {"verdicts": good["verdicts"] + good["verdicts"][:1]}, "CROSS_UNIT_TWICE"),
+                            ("a unit the packet does not show", {"verdicts": good["verdicts"] + [{**good["verdicts"][0], "unit": "n999"}]},
+                             "UNKNOWN_LABEL")):
+                        named(f"control: in a cross-review, {name} is refused by name", cross_problems(labels_c, answer), code)
+                    text_c = cross_payload(labels_c)
+                    control("J3b: the cross-review packet shows each unit with both sweeps' marks and reasons, and no stored id",
+                            all(f'"sweeps": {{"a": ' in line and '"b": ' in line for line in text_c.split("<units>\n", 1)[1]
+                                .split("\n</units>", 1)[0].splitlines()) and c not in text_c
+                            and not any(u in text_c for u in labels_c.units.values()), "")
                 some = next(iter(sorted(kept_sw)), None)
                 if some is not None:
                     said = refusal(lambda: kept_sweep(whole, sweep_rel(*some), "0" * 64))
@@ -2095,7 +2418,9 @@ def self_test():
           "incomplete reference point, the dry upper bound, the absence claims, every remaining unit judged once by each "
           "sweep, one payload bound to the inventory, the re-run reused, SWEEP_INVENTORY_MOVED, the pair and set "
           "accounting refusals planted, a sweep answer missing a pair failed by name, SEAT_UNDECLARED, a lifecycle "
-          "candidate's named texts with the names not held counted)")
+          "candidate's named texts with the names not held counted; Judge B's cross-review (J3b) - every flag and the "
+          "drawn fifty, another seed another sample, CROSS_REVIEW_INCOMPLETE and CROSS_REVIEW_STALE planted, a review "
+          "missing a unit failed by name, the re-run reusing the rest)")
     return 0
 
 
