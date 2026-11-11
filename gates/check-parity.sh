@@ -540,6 +540,12 @@ fi
 # The commit-sequencing check (S-14). The suite runs its DETERMINISTIC stand-in only: the real hook
 # belongs to `sequencing.py --real-hook-check`, which is not a leg because this umbrella is itself run
 # by the pre-commit hook and a leg that ran the hook would recurse.
+# WP-21's write-ahead journal: §10.5's record, its framing, and the order no effect may precede.
+if [ -f session-distill/runlib/journal.py ]; then
+  leg -q "FAIL: session-distill side-effect journal self-test (session-distill/runlib/journal.py)" \
+    python3 session-distill/runlib/journal.py --self-test
+fi
+
 # WP-21's destination manifest: where S11 and S12 may write, held against the writers' own sources.
 if [ -f session-distill/runlib/destinations.py ]; then
   leg -q "FAIL: session-distill destination manifest self-test (session-distill/runlib/destinations.py)" \
