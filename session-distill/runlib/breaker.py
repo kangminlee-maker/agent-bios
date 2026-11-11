@@ -274,7 +274,11 @@ def self_test():
     import json
     import tempfile
     failures, ran = [], []
-    replay = pathlib.Path(__file__).resolve().parents[1] / "fixtures" / "replay"
+    try:
+        replay = records.fixture_root("replay")
+    except records.Refused as exc:    # a tree without fixtures/ ends the suite by name, never by a traceback
+        print(f"breaker --self-test: {exc}")
+        return 1
 
     def control(name, got, want):
         ran.append(name)

@@ -185,6 +185,21 @@ def read_json(path):
         raise Refused(f"RECORD_UNREADABLE {path}: {exc}") from exc
 
 
+# The one place the fixture tree is located. A suite asks `fixture_root`, never recomputes the path, so a tree
+# without the fixtures - a copy of the shipped files - ends every suite that needs them by name.
+FIXTURE_ROOT = pathlib.Path(__file__).resolve().parents[1] / "fixtures"
+
+
+def fixture_root(*parts):
+    """`session-distill/fixtures/`, or the directory `parts` names inside it, for a self-test - refused by name
+    (`FIXTURES_ABSENT <path>`) when that directory is not there, rather than read until a file open fails."""
+    path = FIXTURE_ROOT.joinpath(*parts)
+    if not path.is_dir():
+        raise Refused(f"FIXTURES_ABSENT {path}: this tree carries no {'/'.join(('fixtures',) + parts)} directory, which "
+                      "this self-test's fixtures are read from")
+    return path
+
+
 def run_json_path(run_dir):
     return pathlib.Path(run_dir) / "run.json"
 
@@ -1770,6 +1785,80 @@ def self_test():
         expect("a scan that found no module is not clean", declaration_reads(moved, {})[0], "DECLARATION_READ_UNSCANNED: 0 modules")
     expect("a scan that found no site is not clean", declaration_reads({"runlib/views.py": "def run():\n    pass\n"}, {})[0],
            "DECLARATION_READ_UNSCANNED: 1 modules scanned and 0 sites")
+
+    # the fixture tree has one locator (lead, after lane L's measurement of the shipped tree): every suite that reads
+    # fixtures asks `fixture_root`, and a tree without fixtures/ ends each of them by name
+    # over a fixture tree of its own, so this suite needs none of the checkout's fixtures
+    expect("the locator is this checkout's fixtures/", [] if FIXTURE_ROOT == pathlib.Path(__file__).resolve().parents[1]
+           / "fixtures" else [str(FIXTURE_ROOT)])
+    held_locator = FIXTURE_ROOT
+    with tempfile.TemporaryDirectory(prefix="records-fixtures-") as own:
+        globals()["FIXTURE_ROOT"] = pathlib.Path(own) / "fixtures"
+        try:
+            (pathlib.Path(own) / "fixtures" / "replay").mkdir(parents=True)
+            expect("the fixture root, and a directory inside it named by its parts",
+                   [] if (fixture_root(), fixture_root("replay")) == (pathlib.Path(own) / "fixtures",
+                                                                     pathlib.Path(own) / "fixtures" / "replay")
+                   else ["moved"])
+            try:
+                absent = fixture_root("absent")
+            except Refused as exc:
+                absent = str(exc)
+            expect("control: a fixture directory that is not there is refused by name", [str(absent)],
+                   f"FIXTURES_ABSENT {pathlib.Path(own) / 'fixtures' / 'absent'}: this tree carries no fixtures/absent "
+                   "directory")
+        finally:
+            globals()["FIXTURE_ROOT"] = held_locator
+    import ast as _fx_ast
+
+    def fixture_spellings(texts):
+        """`FIXTURE_PATH_RECOMPUTED <file>:<line>` for every path built from a `"fixtures"` literal outside this
+        module: the literal as an operand of `/`, or as an argument of `joinpath`."""
+        out = []
+        for rel, src in sorted(texts.items()):
+            for node in _fx_ast.walk(_fx_ast.parse(src)):
+                operands = ([node.left, node.right] if isinstance(node, _fx_ast.BinOp) and isinstance(node.op, _fx_ast.Div)
+                            else list(node.args) if isinstance(node, _fx_ast.Call) and isinstance(node.func, _fx_ast.Attribute)
+                            and node.func.attr == "joinpath" else [])
+                if any(isinstance(o, _fx_ast.Constant) and o.value == "fixtures" for o in operands):
+                    out.append(f"FIXTURE_PATH_RECOMPUTED {rel}:{node.lineno}: the fixture tree is located by records.fixture_root")
+        return out
+    runlib_texts = {f"runlib/{path.name}": path.read_text(encoding="utf-8")
+                    for path in sorted(pathlib.Path(__file__).resolve().parent.glob("*.py")) if path.name != "records.py"}
+    expect("no runlib module but this one builds the fixture tree's path", fixture_spellings(runlib_texts))
+    expect("control: a module that recomputes it is named",
+           fixture_spellings({**runlib_texts, "runlib/breaker.py": runlib_texts["runlib/breaker.py"]
+                              + "\nREPLAY = pathlib.Path(__file__).resolve().parents[1] / \"fixtures\" / \"replay\"\n"}),
+           "FIXTURE_PATH_RECOMPUTED runlib/breaker.py:")
+    expect("the spelling scan read the modules it judges", [] if len(runlib_texts) > 5 else [sorted(runlib_texts)])
+    # each suite entered in THIS process (a suite is never handed to a child: dispatch's DISPATCH_SELF_TEST_ARGV)
+    # with the locator pointed at a directory that holds no fixtures/: it returns 1 and says FIXTURES_ABSENT by name,
+    # and raises nothing - which is what its `__main__` turns into an exit without a traceback
+    import io
+    from runlib import breaker as _fx_breaker, dispatch as _fx_dispatch, gate as _fx_gate
+    from runlib import monitor as _fx_monitor, views as _fx_views
+    # the suites read the locator of the module they import, `runlib.records` - which is not this one when this file
+    # runs as `__main__` - so that module's root is the one pointed away
+    from runlib import records as _fx_records
+    held_root = _fx_records.FIXTURE_ROOT
+    with tempfile.TemporaryDirectory(prefix="records-nofix-") as nofix:
+        _fx_records.FIXTURE_ROOT = pathlib.Path(nofix) / "fixtures"
+        try:
+            for name, suite in (("gate", _fx_gate.self_test), ("dispatch", _fx_dispatch.self_test),
+                                ("views", _fx_views.self_test), ("breaker", _fx_breaker.self_test),
+                                ("monitor", _fx_monitor.self_test)):
+                said = io.StringIO()
+                try:
+                    with contextlib.redirect_stdout(said):
+                        code = suite()
+                except BaseException as exc:  # noqa: BLE001 - a suite that raises fails this control by name
+                    code = f"raised {type(exc).__name__}: {str(exc)[:200]}"
+                expect(f"control: {name}'s suite over a tree without fixtures/ ends with FIXTURES_ABSENT by name and "
+                       "raises nothing", [] if code == 1 and said.getvalue().startswith(
+                           f"{name} --self-test: FIXTURES_ABSENT {pathlib.Path(nofix) / 'fixtures'}") else
+                       [f"{code!r} {said.getvalue()[-300:]!r}"])
+        finally:
+            _fx_records.FIXTURE_ROOT = held_root
 
     for failure in failures:
         print(f"records --self-test [FAIL] {failure}")

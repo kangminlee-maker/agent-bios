@@ -146,9 +146,6 @@ def observed_input_of(capture):
     return observed
 
 
-CAPTURES = pathlib.Path(__file__).resolve().parent.parent / "fixtures" / "captures"
-
-
 def retained_capture(name, root=None):
     """One retained capture, read from `session-distill/fixtures/captures/` and refused by name when its bytes
     moved from the sha256 pinned in `captures.json`.
@@ -168,7 +165,7 @@ def retained_capture(name, root=None):
     # plant a mismatch in a COPY: the mismatch control used to write altered bytes into the tracked fixture
     # in the checkout and restore them in `finally`, which needs write access to the checkout and shows
     # other readers - a parallel self-test, an interrupted run - a fixture that is not the fixture.
-    root = pathlib.Path(root) if root is not None else CAPTURES.parent
+    root = pathlib.Path(root) if root is not None else records.fixture_root()
     pins = json.loads((root / "captures.json").read_text(encoding="utf-8"))["captures"]
     path, name = root / "captures" / f"{name}.json", f"{name}.json"
     if name not in pins or not path.is_file():
@@ -2114,6 +2111,11 @@ def fx_entries(windows):
 
 
 def self_test():
+    try:
+        records.fixture_root("captures")
+    except Refused as exc:            # a tree without fixtures/ ends the suite by name, never by a traceback
+        print(f"views --self-test: {exc}")
+        return 1
     fx_instrument()
     checks = Checks()
     expect, named, refused = checks.expect, checks.named, checks.refused
@@ -3179,7 +3181,7 @@ def self_test():
         # R#6: the mismatch is planted in a COPY of the fixture tree, under this run's own directory, so the
         # control never writes to the checkout
         copied = run_dir / "captures-copy"
-        shutil.copytree(CAPTURES.parent, copied, dirs_exist_ok=True)
+        shutil.copytree(records.fixture_root(), copied, dirs_exist_ok=True)
         expect("control, R#6: the copied fixture tree is the same fixture - it reads clean before the plant",
                retained_capture("within-bound", root=copied)["call_id"], within["call_id"])
         moved = copied / "captures" / "within-bound.json"
@@ -3207,7 +3209,7 @@ def self_test():
                        if key not in ("call_id", "view_window", "origin", "note", "usage")}), [])
         expect("control, P#4: ... and the fixture bytes themselves are swept for the shape and for an owner "
                "path, the pins with them",
-               [path.name for path in sorted(pathlib.Path(CAPTURES).glob("*.json")) + [CAPTURES.parent / "captures.json"]
+               [path.name for path in sorted(records.fixture_root("captures").glob("*.json")) + [records.fixture_root() / "captures.json"]
                 for text in [path.read_text(encoding="utf-8")]
                 if "sk-ant-" + "oat" in text or FX_HOME in text
                 or any(owner in text for owner in ("/Users/kangmin", "/home/", "/Users/Shared"))], [])

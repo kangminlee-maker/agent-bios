@@ -674,6 +674,12 @@ def boundary(ledger, freeze_at, kill_at):
 
 
 def self_test():
+    from runlib import records
+    try:
+        replay_root = records.fixture_root("replay")
+    except records.Refused as exc:    # a tree without fixtures/ ends the suite by name, never by a traceback
+        print(f"monitor --self-test: {exc}")
+        return 1
     import ast
     import tempfile
     failures, ran = [], []
@@ -884,7 +890,7 @@ def self_test():
 
     # otel usage enters the live ledger (design §13.3): a fallback capture's otel-only completion
     # (replay, its trace lines rebuilt from the retained rows) is measured and counts toward the cap
-    replay = pathlib.Path(__file__).resolve().parents[1] / "fixtures" / "replay" / "codex-accounting"
+    replay = replay_root / "codex-accounting"
 
     def otel_lines(case):
         rows = [json.loads(x) for x in (replay / case / "frames.jsonl").read_text(encoding="utf-8").splitlines() if x.strip()]
@@ -1108,7 +1114,7 @@ def self_test():
     control("claude-limit-signalled-as-read", [[s["source"] for s in batch] for batch in seen] == [["rate_limit_event"]], f"{seen}")
     # the host's cap overrun read in flight (WP-03v dw5, the recorded cap16 result): no signal at the
     # call's own declared cap; without its api_error_status field, or with no cap passed, a provider stop
-    overrun = json.loads((pathlib.Path(__file__).resolve().parents[1] / "fixtures" / "replay" / "claude-runner"
+    overrun = json.loads((replay_root / "claude-runner"
                           / "cap16-overrun" / "result.json").read_text(encoding="utf-8"))
     for name, result, cap, want in (("cap-overrun-at-the-declared-cap-signals-nothing-in-flight", overrun, 16, []),
                                     ("cap-overrun-without-its-status-field-signals-in-flight",

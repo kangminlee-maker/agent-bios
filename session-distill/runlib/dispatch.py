@@ -3503,6 +3503,11 @@ else:
 def self_test(scratch=None):
     """Registers its failure list with `boundary.SELF_TEST_COLLECTED` so an abort publishes what it
     had already collected; the report below removes it."""
+    try:
+        replay_root = records.fixture_root("replay")
+    except Refused as exc:            # a tree without fixtures/ ends the suite by name, never by a traceback
+        print(f"dispatch --self-test: {exc}")
+        return 1
     if scratch is None:
         scratch = pathlib.Path(tempfile.mkdtemp(prefix="dispatch-self-test-"))
         try:
@@ -4936,13 +4941,13 @@ def self_test(scratch=None):
         rk = sup3.reserve("S6", f"k{n + 10}", judge, "judge", tranche="calibration")
         sup3.charge("S6", rk["call_id"], {"measured": 3000 + n, "provisional": 0, "unresolved": 0, "complete": True}, "completed")
     control("measured-class-admitted-broadly", sup3.reserve("S6", "b1", judge, "judge")["calibration"] == "measured", "still provisional")
-    seed = usages.totals(json.loads((gate.FIXTURES / "claude-runner" / "acc-clean-001" / "usage.json").read_text()))["measured"]
+    seed = usages.totals(json.loads((replay_root / "claude-runner" / "acc-clean-001" / "usage.json").read_text()))["measured"]
     control("claude-seed-is-the-replayed-probe-call", seed == SEEDS["claude"]["tokens"], f"{seed}")
 
     # window scope: probe 7's R-authoring call (about 136k input) replayed through the dispatcher. The
     # non-window half stays on the Codex seat it was captured from; the window half runs on the Claude seat,
     # the only kind a view-window call is admitted on, with the same retained observation replayed.
-    replay = str(gate.FIXTURES / "reconstruction" / "author-full-astra" / "requests.json")
+    replay = str(replay_root / "reconstruction" / "author-full-astra" / "requests.json")
     authoring = {class_key("S7b", astra, "authoring"): [170_000, 175_000, 178_134, 180_000, 182_000],
                  class_key(vstage, vseat, "authoring"): [170_000, 175_000, 178_134, 180_000, 182_000]}
     for view, name in ((False, "run-r"), (True, "run-s3")):

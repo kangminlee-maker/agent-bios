@@ -1028,10 +1028,12 @@ def predicate_branches(source):
 
 # --- self-test -------------------------------------------------------------------------------
 
-FIXTURES = pathlib.Path(__file__).resolve().parents[1] / "fixtures" / "replay"
-
-
 def self_test():
+    try:
+        replay_root = records.fixture_root("replay")
+    except Refused as exc:            # a tree without fixtures/ ends the suite by name, never by a traceback
+        print(f"gate --self-test: {exc}")
+        return 1
     import copy
     import tempfile
     failures, ran, outcomes = [], [], []
@@ -1042,7 +1044,7 @@ def self_test():
     atexit.register(shutil.rmtree, scratch, True)
 
     def fixture(probe, case, name):
-        return (FIXTURES / probe / case / name).read_bytes()
+        return (replay_root / probe / case / name).read_bytes()
 
     def jload(files, name):
         return json.loads(files[name])
@@ -1084,7 +1086,7 @@ def self_test():
 
     def claude_case(case):
         """A replayed claude-runner capture in a golden envelope (call.json, receipt)."""
-        d = FIXTURES / "claude-runner" / case
+        d = replay_root / "claude-runner" / case
         facts = json.loads((d / "facts.json").read_bytes())
         files = {"packet.md": fixture("claude-runner", case, "packet.md"),
                  "result.json": fixture("claude-runner", case, "result.json"),
@@ -1106,7 +1108,7 @@ def self_test():
     def codex_case(probe, case, seat=None):
         """A replayed Codex capture: codex-accounting frames inside a golden envelope, or a
         codex-runner capture with its own packet, result, schema and context."""
-        d = FIXTURES / probe / case
+        d = replay_root / probe / case
         facts = json.loads((d / "facts.json").read_bytes())
         frames = (d / "frames.jsonl").read_bytes()
         root = json.loads(frames.splitlines()[0])["thread"]
