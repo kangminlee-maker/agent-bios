@@ -428,9 +428,10 @@ def self_test():
 
     # ---- rows S9b did not judge, and answers it was not asked for ------------------------------------------------
     partial, _r, problems = doc({"k-a": verdict()})
+    # in the review's rank order: k-g, which S7b left to the owner, ranks ahead of due_decision (5851e09's S7b key)
     equal("a row S9b returned no review for is listed unreviewed, never withheld",
           ([u["item_id"] for u in partial["unreviewed"]], [r["item_id"] for r in partial["rows"]]),
-          (["due_decision:P-1@r1", "k-g"], ["k-a"]))
+          (["k-g", "due_decision:P-1@r1"], ["k-a"]))
     inconsistent, _r, _p = doc({**{i: verdict() for i in ids}, "k-a": verdict(verdict="fail")})
     equal("a verdict that disagrees with its fields is returned with its code",
           inconsistent["returned"], [{"item_id": "k-a", "pass": "first", "codes": ["S9B_VERDICT_INCONSISTENT"]}])

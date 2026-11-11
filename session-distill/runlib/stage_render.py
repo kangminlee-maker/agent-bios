@@ -599,7 +599,7 @@ def document(docs):
     problems += counts_problems(counts, docs) + left_out_problems(rows, docs) + row_problems(rows)
     if problems:
         return {"rows": [], "appendix": appendix, "counts": counts, "problems": problems}
-    keyed_rows = [keyed(r) for r in rows]
+    keyed_rows = [ordering_view(keyed(r)) for r in rows]
     # ranking's own problems first, as a list: a row it cannot place is reported by its code, and `ranked` is called
     # only over rows it can place, so no refusal of it is caught here
     unplaced = ranking.value_problems(keyed_rows)
@@ -608,8 +608,23 @@ def document(docs):
     # the items S9b's own review marked, read from its document rather than the rows, so render_text can hold the
     # rendered headings to S9b and not to a state rows_of may have worked out wrong (MARK_MISSING)
     marked = sorted(r["item_id"] for r in (docs.get("s9b_review") or {}).get("rows") or [] if r.get("mark"))
-    return {"rows": ranking.ranked(keyed_rows), "appendix": appendix, "counts": counts, "problems": [],
-            "marked": marked}
+    return {"rows": [{k: v for k, v in r.items() if k != ORDER_ONLY} for r in ranking.ranked(keyed_rows)],
+            "appendix": appendix, "counts": counts, "problems": [], "marked": marked}
+
+
+# S7b's part of the order: ranking reads `owner_resolves` off the row it orders (lane L's 5851e09), so S9 hands it
+# the S7b record's own value for the ordering and takes it off again. It is no field of the row: the row already
+# carries S7b's record, and item_sha leaves rank out, so a reorder alone changes no item's sha.
+ORDER_ONLY = "owner_resolves"
+
+
+def ordering_view(row):
+    """The row as ranking orders it: with S7b's `owner_resolves` when S7b reviewed the row, without it (ranking's
+    neutral position) when S7b returned it, did not review it, or has no record of it."""
+    s7b = row.get("s7b") or {}
+    if s7b.get("state") == "reviewed" and isinstance(s7b.get("owner_resolves"), bool):
+        return {**row, ORDER_ONLY: s7b["owner_resolves"]}
+    return row
 
 
 # ---- the Markdown (K2b) -------------------------------------------------------------------------------------------
@@ -621,8 +636,16 @@ GROUP_TITLES = {"proposed_and_tested": "제안 (release 1: 시험 전)", "disput
 STATUS_LABELS = {"proposed": "제안됨 (시험 전)", "tested": "시험됨", "disputed": "판정 필요", "rejected": "거부됨",
                  "returned": "S7이 돌려보냄", "failed": "실패", "quarantined": "격리됨",
                  None: "판정하지 않음 (기본 처분 none)"}
-FALLBACK = ("순서는 §7.5를 따릅니다. 이번 release에는 시험 결과가 없으므로(S8은 release 2), 시험 결과 없이 정할 수 "
-            "있는 키로만 정렬합니다: 상태 그룹, 결과 등급, 독립 계보 수, 종류, 진단, 변경 여부, 항목 id.")
+# Each of ranking.py's keys in the owner's words, in the table's order and held to it by the self-test, so the header
+# names the order the rows are in. `lineages` is the judges' part of the fallback and `owner_resolves` S7b's (the
+# release-1 amendment's WP-20 row: "the §7.5 order falls back to the judges and S7b, and the header names the
+# fallback"; ranking key from lane L's 5851e09).
+KEY_TITLES = {"status_group": "상태 그룹", "consequence": "결과 등급", "lineages": "판정자들이 인정한 독립 계보 수",
+              "owner_resolves": "S7b가 이견을 내고 소유자에게 맡긴 항목 먼저", "kind": "종류", "diagnosis": "진단",
+              "change": "변경 여부", "candidate_id": "항목 id"}
+FALLBACK = ("순서는 §7.5를 따릅니다. 이번 release에는 시험 결과가 없으므로(S8은 release 2), 시험 결과 대신 판정자와 "
+            "S7b에 기댑니다. 판정자 쪽은 두 판정자가 인정한 독립 계보 수이고, S7b 쪽은 S7b가 이견을 내고 소유자에게 "
+            "맡긴 항목을 먼저 두는 것입니다. 키 순서: " + ", ".join(KEY_TITLES.values()) + ".")
 AWAITING_R = "R 대기: 판정으로 들어온 core 항목이라 이번 실행의 F에 들지 않고, 적용 대상이 아닙니다 (S8은 release 2)."
 
 
@@ -1405,6 +1428,32 @@ def self_test():
     equal("every §9 group in ranking's table has a title here", sorted(GROUP_TITLES),
           sorted(g["id"] for g in ranking.table()["groups"]))
     control("the header names the §7.5 fallback", text, FALLBACK)
+    equal("the header names ranking's keys in the table's order, the judges' and S7b's parts among them",
+          list(KEY_TITLES), [k["id"] for k in ranking.table()["keys"]])
+
+    # S7b's key (lane L's 5851e09): k-g, which S7b disagreed with and left to the owner, moves ahead of
+    # due_decision:P-1@r1, which ties it on group, consequence and lineages and has no S7b review; neither order is the
+    # id order (due_decision < k-a < k-g)
+    def proposed_order(page):
+        return [line.split("`")[1] for line in page.split("\n")
+                if line.startswith("### ") and "`" in line and line.split("`")[1] in ("k-a", "k-g", "due_decision:P-1@r1")]
+    agreed = doc_of(lambda d: next(r for r in d["s7b"]["reviews"] if r["item_id"] == "k-g").update(
+        owner_resolves=False))
+    equal("a row S7b leaves to the owner is rendered ahead of a tie with no S7b review; without that the old order",
+          (proposed_order(text), proposed_order(rendered(agreed))),
+          (["k-a", "k-g", "due_decision:P-1@r1"], ["k-a", "due_decision:P-1@r1", "k-g"]))
+    held_keys = ranking.table()["keys"]
+    kept_keys = list(held_keys)
+    held_keys[:] = [k for k in held_keys if k["id"] != "owner_resolves"]
+    try:
+        unkeyed = doc_of()
+    finally:
+        held_keys[:] = kept_keys
+    equal("a reorder alone changes no item's sha: the same rows ranked without S7b's key differ only in rank",
+          ([r["item_id"] for r in unkeyed["rows"]] != [r["item_id"] for r in good["rows"]],
+           {r["item_id"]: (r["item_sha"], r["payload_sha256"]) for r in unkeyed["rows"]}
+           == {r["item_id"]: (r["item_sha"], r["payload_sha256"]) for r in good["rows"]},
+           any(ORDER_ONLY in r for r in good["rows"])), (True, True, False))
     control("§13's measures are named as not yet produced", text, "§13 측정: 아직 없음")
     equal("every row shows the test state", text.count("- 시험: untested: s8_deferred"), len(good["rows"]) or -1)
     equal("every row shows S7b's state", sum(1 for line in text.split("\n") if line.startswith("- S7b: ")),
@@ -1673,7 +1722,7 @@ def self_test():
             "\n".join(overlaid(lambda d: d["s9b_review"]["unreviewed"].append({"item_id": "k-zz", "why": "x"}))
                       ["problems"]), "OVERLAY_UNACCOUNTED k-zz")
     control("an overlay that moves a non-Korean field is refused through S7's own regenerated_problems",
-            "\n".join(overlaid(lambda d: d["s9b_regenerated"]["proposals"]["k-g"].update(disposition="drop"))
+            "\n".join(overlaid(lambda d: (d["s9b_regenerated"]["proposals"].get("k-g") or {}).update(disposition="drop"))
                       ["problems"]), "OVERLAY_INVALID k-g: REGENERATION_CHANGED disposition")
     first_frozen = frozen_after(None, unlaid["rows"], 1, "t1")
     equal("the frozen first proposal is unaffected by an overlay",

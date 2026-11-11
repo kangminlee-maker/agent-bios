@@ -39,6 +39,14 @@ DESIGN_9_GROUPS = (
     "failed.")
 
 
+# The amendment's sentence for the S7b key, held the same way: this one is NOT §7.5's, and saying so
+# in code is the point - a reader who finds eight keys where the design names seven must be able to
+# see which one rests on what.
+DESIGN_AMENDMENT_S7B = (
+    "plan amendment 2026-11-11T0040 (release 1 ships distill without S8), the WP-20 row: \"the §7.5 "
+    "order falls back to the judges and S7b, and the header names the fallback\".")
+
+
 def table():
     """The ranking table, read once."""
     if not _TABLE:
@@ -149,11 +157,42 @@ def rank_key(row):
                       f"vocabulary") from exc
 
 
+# What a row with no S7b answer takes: the same position as a reviewed row needing no owner, so the
+# key cannot reorder a run that has no reviews.
+NEUTRAL_POSITION = 1
+
+
+def owner_resolves_position(row):
+    """The S7b key's position: a row the review leaves to the owner first, a row with no review neutral.
+
+    The amendment, not §7.5 — with S8 deferred the order falls back to the judges and S7b, and this
+    is S7b's part. A row carrying NO S7b record is neutral rather than last, so adding the key cannot
+    reorder a run that has no reviews: it takes the same position as a reviewed row that needs no
+    owner. The table holds the three positions (`keys[owner_resolves].values`) rather than this
+    function, so the direction is the table's statement and not a literal here.
+    """
+    key = next((key for key in table()["keys"] if key["id"] == "owner_resolves"), None)
+    if key is None or not key.get("values"):
+        # A key missing from the table is a TABLE defect, named by `fidelity_problems`, not a reason
+        # to make every report unorderable: the order degrades to §7.5's own keys, which is what it
+        # was before the amendment. Refusing here instead killed the whole suite at its first
+        # control, so the defect had no negative control at all.
+        return NEUTRAL_POSITION
+    values = key["values"]
+    held = row.get("owner_resolves")
+    if held is None:
+        return values["absent"]
+    if held:
+        return values["true"]
+    return values["false"]
+
+
 def _position(held, row, group):
     """The tuple itself, with every lookup in one place so a failed one cannot escape as a ValueError."""
     return (group,
             held["consequence_classes"].index(row["consequence"]),
             -row["lineages"],  # descending, the one key that is
+            owner_resolves_position(row),
             held["kind_order"].index(row["kind"]),
             held["diagnosis_order"].index(row["diagnosis"]),
             held["change_order"].index("change" if changes_library(row) else "no-change"),
@@ -170,8 +209,14 @@ def ranked(rows):
 def fidelity_problems():
     """The table's sentences against the two copied here: neither can be edited alone."""
     held, problems = table(), []
+    s7b_key = next((key for key in held.get("keys") or [] if key.get("id") == "owner_resolves"), {})
+    if not s7b_key.get("values"):
+        problems.append("RANK_KEY_ABSENT owner_resolves: the table carries no such key, so the order "
+                        "has no position for the S7b fallback the amendment names and every row "
+                        "takes the neutral one")
     for name, mine, theirs in (("§7.5", DESIGN_7_5, held.get("design")),
-                               ("§9", DESIGN_9_GROUPS, held.get("groups_design"))):
+                               ("§9", DESIGN_9_GROUPS, held.get("groups_design")),
+                               ("the amendment", DESIGN_AMENDMENT_S7B, s7b_key.get("design"))):
         if " ".join((theirs or "").split()) != " ".join(mine.split()):
             problems.append(f"DESIGN_SENTENCE_DIVERGED {name}: the table's sentence is not the one this "
                             f"module holds")
@@ -229,7 +274,11 @@ def self_test():
 
     clean("the table carries the design's own sentences, and its vocabularies are those sentences' "
           "lists in their order", fidelity_problems())
-    control("the table holds §7.5's seven keys", str(len(table()["keys"])), "7")
+    # Seven from §7.5 and one from the amendment: the count is stated as that sum, so a key added
+    # without a sentence to rest on fails here rather than quietly making the list longer.
+    control("the table holds §7.5's seven keys and the amendment's one",
+            f'{len([k for k in table()["keys"] if k["id"] != "owner_resolves"])}+'
+            f'{len([k for k in table()["keys"] if k["id"] == "owner_resolves"])}', "7+1")
     control("and the last of them is the candidate id, which is what makes the order total",
             table()["keys"][-1]["id"], "candidate_id")
     clean("an ordinary row has every value a key needs", value_problems([row()]))
@@ -416,13 +465,116 @@ def self_test():
     clean("and the real table is back after both plants, so the controls below judge it and not a "
           "leftover", fidelity_problems())
 
+    # The S7b key the amendment adds. Its rows are built here, and every id is deliberately ordered
+    # AGAINST the answer: a key control whose expected order coincides with the id order passes under
+    # revert, which this branch has already paid for once.
+    control("a row the S7b review leaves to the owner sorts first, ahead of one with no review and "
+            "one that needs no owner",
+            ",".join(r["candidate_id"] for r in ranked(
+                [row(candidate_id="a-no-review"),
+                 row(candidate_id="z-owner", owner_resolves=True),
+                 row(candidate_id="m-agreed", owner_resolves=False)])),
+            "z-owner,a-no-review,m-agreed")
+    control("a row with no S7b record is NEUTRAL: it ranks where S7's own keys put it, so the key "
+            "cannot reorder a run that has no reviews",
+            ",".join(r["candidate_id"] for r in ranked(
+                [row(candidate_id="z-none"), row(candidate_id="a-agreed", owner_resolves=False)])),
+            "a-agreed,z-none")
+    def with_key_removed(call):
+        """Run `call` with the S7b key gone from the table, restoring it however the call ends."""
+        held = table()
+        kept = [key for key in held["keys"] if key["id"] == "owner_resolves"]
+        held["keys"] = [key for key in held["keys"] if key["id"] != "owner_resolves"]
+        try:
+            return call()
+        finally:
+            at = [i for i, key in enumerate(held["keys"]) if key["id"] == "lineages"][0] + 1
+            held["keys"][at:at] = kept
+
+    def with_key_design(sentence, call):
+        """Run `call` with the key's design sentence replaced; a renamed key leaves it alone."""
+        key = next((key for key in table()["keys"] if key["id"] == "owner_resolves"), None)
+        if key is None:
+            return call()
+        kept = key["design"]
+        key["design"] = sentence
+        try:
+            return call()
+        finally:
+            key["design"] = kept
+
+    # The FUNCTION's own source, not the file's: a scan of the whole file is satisfied by the
+    # control text below it, which is how a planted mutation passed here once already.
+    import inspect
+    key_src = inspect.getsource(owner_resolves_position)
+
+    def src_line(fragment, text=None):
+        """The one line carrying `fragment`, or a placeholder naming its absence.
+
+        A `next()` over the lines raises StopIteration when the line is gone, which killed the suite
+        instead of failing the control it belongs to.
+        """
+        for line in (text if text is not None else key_src).splitlines():
+            if fragment in line:
+                return line.strip()
+        return f"<no line carrying {fragment!r}>"
+
+    control("the positions are read from the table rather than written here",
+            src_line("key = next("), 'table()["keys"]')
+    clean("and each of the three is looked up by its own name, so an absent record cannot be read "
+          "as a false one while they happen to share a position",
+          [name for name in ("absent", "true", "false") if f'values["{name}"]' not in key_src])
+    control("an absent record takes the table's `absent` position by that name",
+            src_line('values["absent"]'), 'return values["absent"]')
+    control("a table with no such key is a named TABLE defect, not a report nobody can order",
+            "; ".join(with_key_removed(fidelity_problems)), "RANK_KEY_ABSENT owner_resolves")
+    clean("and with the key gone the order degrades to §7.5's own keys rather than refusing",
+          with_key_removed(lambda: [] if [r["candidate_id"] for r in ranked(
+              [row(candidate_id="z-owner", owner_resolves=True), row(candidate_id="a-none")])]
+              == ["a-none", "z-owner"] else ["the order was not §7.5's own"]))
+    control("and the three positions come from the table, not from this module",
+            f'{owner_resolves_position(row())},'
+            f'{owner_resolves_position(row(owner_resolves=True))},'
+            f'{owner_resolves_position(row(owner_resolves=False))}',
+            "1,0,1")
+    control("the key sits after the judges' and before the structural ones, which is where the "
+            "amendment's fallback puts it",
+            ",".join(key["id"] for key in table()["keys"]),
+            "lineages,owner_resolves,kind")
+    control("a higher-ranking key still decides over it: more affirmed lineages comes first even "
+            "when the other row is the owner's to resolve",
+            ",".join(r["candidate_id"] for r in ranked(
+                [row(candidate_id="a-owner", lineages=1, owner_resolves=True),
+                 row(candidate_id="z-many", lineages=4)])),
+            "z-many,a-owner")
+    control("and a lower-ranking one does not: the owner's row comes first whatever its kind",
+            ",".join(r["candidate_id"] for r in ranked(
+                [row(candidate_id="a-gap", kind="gap", diagnosis="gap"),
+                 row(candidate_id="z-owner", kind="unclassified", diagnosis="unknown",
+                     owner_resolves=True)])),
+            "z-owner,a-gap")
+    def s7b_key_field(name):
+        key = next((key for key in table()["keys"] if key["id"] == "owner_resolves"), None)
+        return f"<no owner_resolves key>" if key is None else str(key.get(name))
+
+    control("the table's own sentence for this key names the amendment rather than §7.5, so a "
+            "reader finding eight keys where the design names seven can see which is which",
+            s7b_key_field("design"), "plan amendment 2026-11-11T0040")
+    clean("and that sentence is held against the one this module carries, like the other two",
+          [p for p in fidelity_problems() if "the amendment" in p])
+    control("a hand edit of the key's sentence is named as a divergence, so the comparison is real "
+            "and not merely present",
+            "; ".join(with_key_design("§7.5, the eighth key.", fidelity_problems)),
+            "DESIGN_SENTENCE_DIVERGED the amendment")
+
     reporting.append(True)
     if failures:
         for name, detail in failures:
             print(f"ranking --self-test [FAIL] {name}: {detail}", file=sys.stderr)
         print(f"ranking --self-test: FAILED ({len(failures)} of {len(ran)} controls)", file=sys.stderr)
         return 1
-    print(f"ranking --self-test: OK ({len(ran)} controls: §7.5's seven keys each ordering one field "
+    print(f"ranking --self-test: OK ({len(ran)} controls: §7.5's seven keys and the amendment's "
+          f"S7b key each ordering one field "
           f"against the table, lineages descending, change before no-change, determinism and "
           f"totality over forty rows, §9's two groups that are not named by a status, and the six "
           f"statuses no group places refused by name)")
