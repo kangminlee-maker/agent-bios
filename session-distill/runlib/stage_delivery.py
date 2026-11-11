@@ -224,25 +224,38 @@ def selected_items(shared, store):
     return held
 
 
+# A published coverage row whose `r-` reference names no unit of this run. It is NOT a dropped row:
+# a drop is a resolution failure, and a block that lost every row to one would read like a block that
+# was never published — which is a different answer about the same session.
+UNRESOLVED = "coverage_ref_unresolved"
+
+
 def coverage_facts(shared, units):
-    """`{unit_id: {covered, total}}` from the selection inventory's published counts.
+    """`({unit_id: {covered, total}}, [reference nothing here resolves])` from the published counts.
 
     The counts S2 publishes are keyed by the inventory's `r-` reference, and the judge asks about a
-    `unit_id`, so this translates between them over the units of the run. A reference the current
-    units do not carry is dropped rather than guessed: a fact that cannot be attached to a unit the
-    judge will ask about is no fact about that unit.
+    `unit_id`, so this translates between them over the units of the run. A reference that resolves
+    to no unit is RETURNED rather than dropped, because the two outcomes are not the same claim: a
+    fact that could not be attached is a resolution failure this run should say out loud, while
+    silence would make a block whose every row failed indistinguishable from a session whose
+    inventory published no block at all.
 
     The compiled instruction text itself is never in the run (lead decision, WP-11b), so these
     counts are the only way `delivery_evidence.in_compiled_text` can answer at all. A session whose
-    inventory publishes none reads unknown by `compiled_text_unavailable`, never `not_delivered`."""
+    inventory publishes none reads unknown by `compiled_text_unavailable`; one whose rows did not
+    resolve reads unknown by `coverage_ref_unresolved`; neither is ever `not_delivered`."""
     ids = {}
     for unit in units:
         ids.setdefault(unit.get("unit_ref"), []).append(unit.get("unit_id"))
-    facts = {}
+    facts, unresolved = {}, []
     for row in shared.get("instruction_coverage") or []:
-        for unit_id in ids.get(row.get("unit_ref")) or []:
+        held = ids.get(row.get("unit_ref")) or []
+        if not held:
+            unresolved.append(row.get("unit_ref"))
+            continue
+        for unit_id in held:
             facts[unit_id] = {"covered": row.get("covered"), "total": row.get("total")}
-    return facts
+    return facts, sorted(ref for ref in unresolved if isinstance(ref, str))
 
 
 # The tools whose input NAMES the file it returned. A reader of this kind is unambiguous: the path is
@@ -526,7 +539,7 @@ def session_evidence(session_row, events_by_ref, by_version, release_doc, shared
     selection_ref = (session_row.get("selection") or {}).get("inventory_ref")
     shared = shared_of(selection_ref) if selection_ref else None
     if shared is not None:
-        facts = coverage_facts(shared, unit_records)
+        facts, unresolved_refs = coverage_facts(shared, unit_records)
         unavailable = [row for row in shared.get("unavailable") or [] if isinstance(row, dict)]
         # Absent rather than empty, by the same rule as `reads`: an empty block is "the text covered
         # nothing", which is a claim, and a missing one is "this run cannot say", which is the truth.
@@ -535,6 +548,7 @@ def session_evidence(session_row, events_by_ref, by_version, release_doc, shared
         if unavailable:
             evidence["unavailable"] = unavailable
         counts.update({"coverage_facts": len(facts), "unavailable_rows": len(unavailable),
+                       "coverage_refs_unresolved": unresolved_refs,
                        "compiled_text_digest": "present" if shared.get("instruction_text_sha256") else "absent"})
     # The session's own records, from the run's immutable copy. Absent rather than empty when the run
     # holds no copy for this session: an empty `reads` is "it read nothing", which is a claim, and a
@@ -605,14 +619,14 @@ def document(run_dir, checks, candidates, current, sessions, release_doc, store,
     for pair in pairs_of(checks, candidates, decisions, by_name, by_transcript):
         unit = units.get(pair["unit_id"]) if pair["unit_id"] else None
         session_row = rows_by_ref.get(pair["session_ref"])
-        evidence = None
+        evidence, session_counts = None, {}
         if session_row is not None:
             if pair["session_ref"] not in counts_by_ref:
                 built, counts = session_evidence(session_row, events_by_ref, by_version, release_doc,
                                                  shared_of, store, run_dir,
                                                  copies_of(views or {}), current.get("units") or ())
                 counts_by_ref[pair["session_ref"]] = (built, counts)
-            evidence = counts_by_ref[pair["session_ref"]][0]
+            evidence, session_counts = counts_by_ref[pair["session_ref"]]
         # Every reason that holds, in the order a reader would ask them, and never one in place of
         # another: a pair can lack a decision AND name a unit the inventory does not carry, and a
         # row that reported only the last of those would send someone to the wrong artifact.
@@ -631,6 +645,14 @@ def document(run_dir, checks, candidates, current, sessions, release_doc, store,
             reasons.append("session_absent_from_inventory")
         elif evidence.get("basis") is None:
             reasons.append(evidence.get("pin_reason") or "unpinned")
+        # A coverage row S2 published that resolved to no unit of this run. Named on every pair of
+        # that session whose unit the block could not answer for, so a block that lost its rows is
+        # visible as a resolution failure rather than as a session nobody published facts for. It
+        # never changes the state away from unknown: a fact that failed to resolve is not evidence
+        # that the text lacked the unit's lines.
+        if (session_counts.get("coverage_refs_unresolved")
+                and (evidence or {}).get("instruction_coverage", {}).get(pair["unit_id"]) is None):
+            reasons.append(UNRESOLVED)
         reasons.append(PENDING)
         rows.append({**{k: v for k, v in pair.items() if k != "reason"},
                      "state": "unknown", "level": None, "reasons": reasons,
@@ -640,10 +662,16 @@ def document(run_dir, checks, candidates, current, sessions, release_doc, store,
                      "reads": None if evidence is None or "reads" not in evidence
                               else len(evidence["reads"]),
                      "release_complete": ((evidence or {}).get("release") or {}).get("complete"),
-                     "coverage": None})
+                     "coverage": None,
+                     "coverage_refs_unresolved": len(session_counts.get("coverage_refs_unresolved") or ())})
     states = {}
     for row in rows:
         states[row["state"]] = states.get(row["state"], 0) + 1
+    # The resolution failures, per session and in total: a count a reader can see, and the refs
+    # themselves, which are inventory ids rather than anything a session wrote.
+    unresolved_by_session = {ref: counts.get("coverage_refs_unresolved") or []
+                             for ref, (_built, counts) in counts_by_ref.items()
+                             if counts.get("coverage_refs_unresolved")}
     return {"stage": STAGE, "complete": False,
             "pending_reason": "the session evidence readers land in the commit after this one; every pair is "
                               "answered `unknown` with its reason rather than left out, so a reader can tell a "
@@ -660,7 +688,11 @@ def document(run_dir, checks, candidates, current, sessions, release_doc, store,
                         "sessions": len({row["session_ref"] for row in rows if row["session_ref"]}),
                         "units": len({row["unit_id"] for row in rows if row["unit_id"]}),
                         "decisions": len({row["decision_at"] for row in rows if row["decision_at"] is not None}),
-                        "pairs_without_a_decision": sum(1 for row in rows if row["decision_at"] is None)}}
+                        "pairs_without_a_decision": sum(1 for row in rows if row["decision_at"] is None),
+                        "coverage_refs_unresolved": sum(len(refs) for refs in unresolved_by_session.values()),
+                        "sessions_with_an_unresolved_coverage_ref": len(unresolved_by_session),
+                        "pairs_named_" + UNRESOLVED: sum(1 for row in rows if UNRESOLVED in row["reasons"])},
+            "coverage_refs_unresolved": {ref: refs for ref, refs in sorted(unresolved_by_session.items())}}
 
 
 def run(run_dir):
@@ -864,8 +896,77 @@ def self_test():
             lambda ref: facts_shared, facts_store, None, None, facts_units)
         control("the per-unit coverage counts reach the judge under the unit ids it asks about",
                 json.dumps(facts_evidence.get("instruction_coverage")), '"u-1": {"covered": 1, "total": 2}')
-        clean("and a coverage row naming a unit this run does not carry is dropped, never guessed",
+        # A published row whose reference resolves to no unit here: named and counted, never dropped.
+        # The lead's correction (2026-11-11): a drop is a resolution failure, and a block that lost
+        # every row to one would read like a session nobody published facts for.
+        control("a coverage row naming a unit this run does not carry is named, not dropped",
+                json.dumps(facts_counts.get("coverage_refs_unresolved")), "r-" + "9" * 24)
+        clean("and no unit id is invented for it",
               [ref for ref in facts_evidence.get("instruction_coverage") or () if ref not in ("u-1", "u-2")])
+        facts_sessions = {"sessions": [{**facts_row}]}
+        facts_current = {"units": [{**row, "unit_ref": ref} for row, ref in
+                                   zip(current["units"], ("r-" + "1" * 24, "r-" + "2" * 24))]}
+
+        def facts_document(shared):
+            """The rows and summary this stage writes when the session's inventory publishes `shared`."""
+            doc_f = document(fixture, checks, candidates, facts_current, facts_sessions, release_doc,
+                             facts_store, lambda ref: shared, ["aa.jsonl"])
+            return {row["unit_id"]: row for row in doc_f["rows"]}, doc_f
+
+        # The pair this fixture owes is u-1's, so the block that cannot answer for it is the one
+        # naming another unit's reference.
+        missed = {**facts_shared, "instruction_coverage": [{"unit_ref": "r-" + "9" * 24, "covered": 1, "total": 1}]}
+        missed_rows, missed_doc = facts_document(missed)
+        control("the pair whose coverage the block could not answer for names the failure",
+                json.dumps(missed_rows.get("u-1") or {}), UNRESOLVED)
+        # Both kinds of row at once, which is what makes the next assertion about the PAIR rather
+        # than about the session: the block answers for u-1 and also carries a reference nothing here
+        # resolves, so only the per-pair clause can keep the failure off u-1's row.
+        answered = {**facts_shared,
+                    "instruction_coverage": [{"unit_ref": "r-" + "1" * 24, "covered": 1, "total": 2},
+                                             {"unit_ref": "r-" + "9" * 24, "covered": 1, "total": 1}]}
+        answered_rows, answered_doc = facts_document(answered)
+        clean("and the pair the block did answer for does not, though its session has an unresolved one",
+              ([UNRESOLVED] if UNRESOLVED in ((answered_rows.get("u-1") or {}).get("reasons") or []) else [])
+              + ([] if answered_doc["summary"]["coverage_refs_unresolved"] == 1
+                 else ["the fixture's session has no unresolved reference, so the clause is untested"]))
+
+        control("the document counts the unresolved references for a reader to see",
+                json.dumps(missed_doc["summary"]), '"coverage_refs_unresolved": 1')
+        control("and says which session they belong to", json.dumps(missed_doc["coverage_refs_unresolved"]),
+                facts_row["session_ref"])
+        # All of them unresolved: every unit of that session is unknown by name, and NOT ONE is
+        # not_delivered — the state a block read as empty would have produced for all of them.
+        gone_shared = {**facts_shared, "unavailable": [],
+                       "instruction_coverage": [{"unit_ref": "r-" + "8" * 24, "covered": 1, "total": 1},
+                                                {"unit_ref": "r-" + "9" * 24, "covered": 1, "total": 1}]}
+        gone_evidence, gone_counts = session_evidence(
+            facts_row, events_by_ref, units_by_version(unit_index(current)), release_doc,
+            lambda ref: gone_shared, facts_store, None, None, facts_units)
+        # The always surface, whose top level is the compiled text holding the unit's lines: the one
+        # the coverage facts answer. Defined here because this block runs before the §6.3 pair below.
+        gone_unit = {"unit_id": "u-1", "path": "claude/guides/g.md", "text": "- x", "surface": "always",
+                     "version_sha256": "a" * 64, "layer": "catalog", "item_ref": "claude:guides/g",
+                     "carrier_id": "c-" + "0" * 24, "n": 1, "start": 1, "operative_context": ["u-1"]}
+        gone_session = {**gone_evidence, "basis": "pin", "selected": {"claude:guides/g": "always"},
+                        "injection_at": 1, "release": {"complete": True, "layers": {}, "items": []}}
+        gone_states = [delivery_evidence.delivery(
+            {**gone_unit, "unit_id": unit_id}, {unit_id: {**gone_unit, "unit_id": unit_id}},
+            gone_session, 10) for unit_id in ("u-1", "u-2")]
+        control("a block whose every row failed to resolve is counted in full",
+                str(len(gone_counts.get("coverage_refs_unresolved") or ())), "2")
+        clean("and not one unit of that session reads not_delivered because of it",
+              [answer for answer in gone_states if answer["state"] == "not_delivered"])
+        clean("while every one of them is unknown with a reason",
+              [answer for answer in gone_states if answer["state"] != "unknown" or not answer["reasons"]])
+        # The one case that IS not_delivered, so the row above is not simply the absence of that
+        # state: a readable snapshot that selected the item's carrier for nothing.
+        empty_answer = delivery_evidence.delivery(
+            gone_unit, {"u-1": gone_unit},
+            {**gone_session, "selected": {}, "instruction_coverage": {},
+             "release": {"complete": True, "layers": {}, "items": ["claude:guides/g"]}}, 10)
+        control("a readable snapshot that selected no unit is not_delivered, not unknown",
+                json.dumps(empty_answer), '"state": "not_delivered"')
         control("the surface the snapshot selected an item at is published, so the judge need not guess one",
                 json.dumps(facts_evidence.get("selected")), '"claude:guides/g": "always"')
         control("the rows the selection could not route are carried as the judge reads them",
