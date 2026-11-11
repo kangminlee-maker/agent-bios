@@ -1456,6 +1456,45 @@ def derivation_input(candidate, source, row, first, again, point):
             "arc_confirmed": False}   # undetermined, not false: ARC_UNDETERMINED
 
 
+def derivation_given(run_dir, candidate, source, check_row, first, point):
+    """`derive.unit_outcome`'s input for one candidate both judges judged: `derivation_input` over their first
+    judgments and, when both judges' reconsiderations are on disk, those too. The one place it is assembled: S6's
+    `derive_stage` and S10's adjudication (`given_from_run`, plan WP-20 K5) both call it, so a recomputation with the
+    owner's values reads exactly what S6 read."""
+    held = {}
+    for who in SEAT_KEYS:
+        path = pathlib.Path(run_dir) / reconsideration_rel(item_of(candidate["candidate_id"]), who)
+        if path.is_file():
+            held[who] = records.read_json(path)["judgment"]
+    return derivation_input(candidate, source, check_row, first, held if set(held) == set(SEAT_KEYS) else {}, point)
+
+
+def given_artifacts(run_dir, candidate_id):
+    """The per-candidate S6 outputs `given_from_run` reads: both judges' judgments, and their reconsiderations when
+    S6 wrote them. A caller declares them as inputs so the shared record checks hold them to S6's record."""
+    item = item_of(candidate_id)
+    return ([judgment_rel(item, who) for who in SEAT_KEYS]
+            + [reconsideration_rel(item, who) for who in SEAT_KEYS
+               if (pathlib.Path(run_dir) / reconsideration_rel(item, who)).is_file()])
+
+
+GIVEN_INPUTS = ("checked-candidates.json", "checks.json", "inventory/current.json")   # with SUMMARY and DERIVATIONS
+
+
+def given_from_run(run_dir, candidate_id):
+    """`derivation_given` for one candidate from what S6 left on disk: the candidate (S5's checked-candidates.json),
+    its S5 row (checks.json), its source (S6's judgments/judge.json), the current point (S2's inventory/current.json)
+    and both judges' first judgments (`judgment_rel`); the reconsiderations `derivation_given` reads itself."""
+    run_dir = pathlib.Path(run_dir)
+    population = {k["candidate_id"]: k for k in records.read_json(run_dir / "checked-candidates.json")["candidates"]}
+    rows = {r["candidate_id"]: r for r in records.read_json(run_dir / "checks.json")["candidates"]}
+    sources = {r["candidate_id"]: r["source"] for r in records.read_json(run_dir / SUMMARY)["packets"]}
+    point = current_point(records.read_json(run_dir / "inventory" / "current.json"))
+    first = {who: records.read_json(run_dir / judgment_rel(item_of(candidate_id), who))["judgment"]
+             for who in SEAT_KEYS}
+    return derivation_given(run_dir, population[candidate_id], sources[candidate_id], rows[candidate_id], first, point)
+
+
 def derive_stage(run_dir, summary, judgments, swept, again):
     """The derivations of every candidate both judges judged (design §4's S6 row: code derives diagnosis, delivery
     state, kind, admission and promotion eligibility; §6.4 through `derive.unit_outcome`). An absence claim whose sweeps,
@@ -1478,13 +1517,7 @@ def derive_stage(run_dir, summary, judgments, swept, again):
             not_derived.append({"candidate_id": cid, "why": "its absence claim's sweeps, cross-review and "
                                                            "reconsiderations did not all finish"})
             continue
-        held = {}
-        for who in SEAT_KEYS:
-            path = run_dir / reconsideration_rel(item_of(cid), who)
-            if path.is_file():
-                held[who] = records.read_json(path)["judgment"]
-        given = derivation_input(population[cid], sources[cid], rows[cid], first,
-                                 held if set(held) == set(SEAT_KEYS) else {}, point)
+        given = derivation_given(run_dir, population[cid], sources[cid], rows[cid], first, point)
         outcome = derive.unit_outcome(given, {}, TEST_STATE)
         matched = [u for u, d in (outcome["unit_diagnosis"].get("current") or {}).items() if d != "no match"]
         waiting += len(population[cid].get("sessions") or []) * len(matched)
@@ -2490,7 +2523,52 @@ def self_test():
                     and not {tainted, unjudged} & set(dv_first.get("verdicts", {}))
                     and len(dv_first.get("verdicts", {})) == len(judged_ids) - 2, f"{dv_first.get('not_derived')}")
             made = {d.name for d in (called / "calls").iterdir()} if (called / "calls").is_dir() else set()
-            second = guarded(lambda: run(called, supervisor(called, root / "cells-2", clean_plan)), lambda e: {"problem": repr(e)})
+            given_seen, kept_given = {}, globals()["derivation_given"]
+
+            def recording(run_dir, candidate, *rest):
+                held = kept_given(run_dir, candidate, *rest)
+                given_seen[candidate["candidate_id"]] = json.loads(json.dumps(held))
+                return held
+            globals()["derivation_given"] = recording   # S6's own derivation, its inputs kept as it made them
+            try:
+                second = guarded(lambda: run(called, supervisor(called, root / "cells-2", clean_plan)),
+                                 lambda e: {"problem": repr(e)})
+            finally:
+                globals()["derivation_given"] = kept_given
+            dv_second = guarded(lambda: records.read_json(called / DERIVATIONS), {})
+            from_disk = {cid: guarded(lambda cid=cid: given_from_run(called, cid), lambda e: {"problem": repr(e)})
+                         for cid in given_seen}
+            differs = sorted(cid for cid in given_seen if from_disk[cid] != given_seen[cid])
+            control("K5: S6's derivation and a recomputation from S6's own files on disk get identical inputs for "
+                    "every candidate S6 derived", bool(given_seen) and set(given_seen) == set(dv_second.get("verdicts", {}))
+                    and not differs, f"{len(given_seen)} derived, differing {differs[:3]}")
+            replayed = sorted(cid for cid in given_seen if guarded(lambda cid=cid: derive.unit_outcome(
+                from_disk[cid], {}, TEST_STATE), {}) != dv_second.get("verdicts", {}).get(cid, {}).get("outcome"))
+            control("K5: and derive.unit_outcome over the input from disk reproduces each stored outcome",
+                    bool(given_seen) and not replayed, f"not reproduced {replayed[:3]}")
+            # the golden's two judges answer alike, so a seat read in place of the other would pass the comparison
+            # above: B's file is changed in a copy and must reach B's side of the input, and only B's
+            seat_root = root / "k5-seats"
+            some_cid = sorted(given_seen)[0] if given_seen else None
+            seat_marks = {}
+            if some_cid is not None:
+                for rel in GIVEN_INPUTS + (SUMMARY,) + tuple(given_artifacts(called, some_cid)):
+                    (seat_root / rel).parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copyfile(called / rel, seat_root / rel)
+                b_rel = judgment_rel(item_of(some_cid), "B")
+                b_held = records.read_json(seat_root / b_rel)
+                name = sorted(b_held["judgment"]["requirements"])[0]
+                b_held["judgment"]["requirements"][name]["mark"] = "uncertain"
+                (seat_root / b_rel).write_text(json.dumps(b_held), encoding="utf-8")
+                seated = guarded(lambda: given_from_run(seat_root, some_cid), {})
+                seat_marks = {who: ((seated.get("judges") or {}).get(who) or {}).get("requirements", {}).get(name)
+                              for who in SEAT_KEYS}
+            control("K5: each judge's side of the input is read from that judge's own file",
+                    seat_marks.get("B") == "uncertain" and seat_marks.get("A") not in (None, "uncertain"), f"{seat_marks}")
+            control("K5: given_artifacts names both judges' judgment files, each an output S6's record holds",
+                    bool(given_seen) and all(set(given_artifacts(called, cid)) <= {o["artifact"] for o in guarded(
+                        lambda: records.read_json(records.record_path(called, STAGE)), {}).get("outputs", [])}
+                        and len(given_artifacts(called, cid)) >= 2 for cid in given_seen), "")
             record = guarded(lambda: records.read_json(records.record_path(called, STAGE)), {})
             remade = {d.name for d in (called / "calls").iterdir()} - made if (called / "calls").is_dir() else set()
             control("golden (J2): run again, S6 reuses every accepted attempt and calls only the two items that were not "
