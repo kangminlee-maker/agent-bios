@@ -18,33 +18,38 @@ core_rules:
   - compare inherited process scaffolding on the target model before keeping or removing it
   - name the boundary explicitly — what to do without asking, and what to stop and ask about
   - keep the conversation history append-only, and never ask for the reasoning written out in the response
-derived_at: 2026-10-21
+  - an absolute rule and an approval rule are applied as written, so name the exact actions each covers and name the steps that need no approval; a separate permission elsewhere does not cancel either, and cautions that have accumulated in memory, notes, and agent files are pruned rather than overridden
+derived_at: 2026-11-11
 source_pins:
   - doc: claude-prompting-best-practices
-    sha256: e9bd30b6abd49cc42549387cfa7a4cd9946d79d0eb7ed2a1c12f4cf431ee04f4
-    pinned_at: 2026-10-21
+    sha256: 77e8b8b73a2588d09a118d4cef92cd3b4e82c400ceca042d41af75865351c96d
+    pinned_at: 2026-11-11
+  - doc: prompting-claude-fable-5-2
+    sha256: 6e2ad08df7e9468048a4a57b63a6c154fe9f82d46e292aec944cefbfa3b22a84
+    pinned_at: 2026-11-11
   - doc: prompting-claude-fable-5-1
-    sha256: b921ea4d827411b3f4401fd5c92021eb7166c6c5642688321a3780297d8b5497
-    pinned_at: 2026-10-21
+    sha256: d4102222092bacb1310faf97fa5a27c5ceac1de4b4474666c557aeff75e8f5bc
+    pinned_at: 2026-11-11
   - doc: prompting-claude-opus-5-5
-    sha256: 3432e66ac97f77b45e1ecba014c9d6d0001be7ab47b55ebe8c70f5aa55883a14
-    pinned_at: 2026-10-21
+    sha256: 0203e04ee828c0ad41c99a814aeaf45f2e2e76ffec7a88da7b724a86ba01d9ea
+    pinned_at: 2026-11-11
   - doc: prompting-claude-sonnet-5-5
-    sha256: 6886cdd2625b73be5bd74420e31c3a050c1c52b8073b9bebe15f4dcf33e44f91
-    pinned_at: 2026-10-21
+    sha256: 0826ae2afb34141ee8abda47c9044ec7ecd5f5c6511c1d2516066b20eb6b8d18
+    pinned_at: 2026-11-11
   - doc: prompting-claude-haiku-5-5
-    sha256: e871a37701e88998c5bed2e15c586048c86d3d8ab5c333a67c60ad717e0131fd
-    pinned_at: 2026-10-21
+    sha256: 69d8bf18169f27ac8f14fb7f805495a03e4cd7800de5dcfc527982a9fde9a1bf
+    pinned_at: 2026-11-11
   - doc: prompting-claude-opus-5
-    sha256: e73cd26863642596486a43f90ff9c04d13f8e4b6cd00ae83546d4d3cd93c5143
-    pinned_at: 2026-10-21
+    sha256: b34cb10619cc7b2ba2b6a195210673055c6fb84e1c5d1141ffd26a863f6514a0
+    pinned_at: 2026-11-11
   - doc: thinking
-    sha256: 8bbc8ed20cffa039e5c2c371c64610c7e4019d2dabf1a01392a87dc0018d9375
-    pinned_at: 2026-10-21
+    sha256: 072f1b039bbea4b923c9da9a53f672f66b04c7b04edc4ccb6f67bba27db33129
+    pinned_at: 2026-11-11
   - doc: effort
-    sha256: 38cf202f17d28efe5a42f1df1de7f7af5924f76ce05abb7b5989db919ae892e5
-    pinned_at: 2026-10-21
+    sha256: 87c3900847cb21bd1b44f466831fd97a9d19f689e65400da4157b6302a4ee55f
+    pinned_at: 2026-11-11
 targets:
+  - claude-fable-5-2
   - claude-fable-5-1
   - claude-opus-5-5
   - claude-sonnet-5-5
@@ -74,6 +79,7 @@ permission boundaries and required verification.
 
 | Target | Apply |
 | --- | --- |
+| `claude-fable-5-2` | Shared recipe and Claude Fable 5.2 |
 | `claude-fable-5-1` | Shared recipe and Claude Fable 5.1 |
 | `claude-opus-5-5` | Shared recipe and Claude Opus 5.5 |
 | `claude-sonnet-5-5` | Shared recipe and Claude Sonnet 5.5 |
@@ -108,6 +114,7 @@ Confirm a constraint against the live surface before a dispatch relies on it.
 
 | Model | Default effort | Thinking off | `tool_choice` `any` / `tool` |
 | --- | --- | --- | --- |
+| Fable 5.2 | `high` | rejected — always on | rejected |
 | Fable 5.1 | `high` | rejected — always on | rejected |
 | Opus 5.5 | `medium` | rejected — always on | rejected |
 | Sonnet 5.5 | `high` | rejected; `between_tools` turns off up-front thinking at `high` or below | rejected |
@@ -118,29 +125,139 @@ Confirm a constraint against the live surface before a dispatch relies on it.
   when the tool applies, and get schema-valid JSON from strict tool use or structured
   outputs where available (not on every platform; otherwise ask for the format in the
   prompt). Where accepted, a forced call skips thinking; prefer `auto` plus an instruction.
-- Manual thinking (`enabled` with `budget_tokens`) returns a 400 on all five, and a
+- Manual thinking (`enabled` with `budget_tokens`) returns a 400 on all six, and a
   prefilled final assistant turn on every target but Haiku 4.5; effort, instructions, and
   structured outputs replace them.
-- Omit `temperature`, `top_p`, and `top_k` on all five and on Fable 5 and Sonnet 5:
-  non-default values return a 400, as does `temperature` with `top_p` even at defaults.
-- Thinking counts toward `max_tokens`; leave room, and stream above 21,333 (SDK rule).
+- Omit `temperature`, `top_p`, and `top_k` on all six and on Fable 5 and Sonnet 5:
+  non-default values return a 400, the `top_p` default is `0.99` so `top_p: 1` is one, and
+  `temperature` with `top_p` returns one even at defaults. From API version `2026-10-21`,
+  sending any of the three at any value returns a 400 on every model, so omit them
+  outright rather than tracking which model still tolerates a default.
+- Thinking counts toward `max_tokens`, a hard limit on thinking plus reply text, and the
+  ceiling is 128K on every target in the table; leave room, and stream above 21,333 (SDK
+  rule).
 - Keep the history append-only: pass each assistant turn back exactly as returned,
-  thinking blocks included. On Fable 5.1 and the 5.5 models, editing earlier messages,
-  rebuilding `system` or `tools`, or summarizing older turns in place invalidates every
-  later thinking block; send per-turn reminders as turn-scoped system messages and let
-  server-side compaction trim. A model switch can drop earlier reasoning, since a thinking
-  block is readable only by the model that produced it and certain others.
+  thinking blocks included. On Fable 5.2, Fable 5.1, and the 5.5 models, editing earlier
+  messages, rebuilding `system` or `tools`, or summarizing older turns in place invalidates
+  every later thinking block; send per-turn reminders as turn-scoped system messages and
+  let server-side compaction trim. A model switch can drop earlier reasoning, since a
+  thinking block is readable only by the model that produced it and certain others —
+  on the Claude API Fable 5.2 reads the other targets' blocks and no other model reads its
+  own, so a switch up to it keeps the conversation's reasoning and a switch away drops it. Fable 5.2, Sonnet 5.5, and Haiku 5.5
+  blocks are also bound to the account that produced them, so a session cannot be replayed
+  from another account's credentials.
 - Do not ask for the reasoning written out in the response, verbatim or in a fixed format:
-  on Fable 5.1, Opus 5.5, Sonnet 5.5, and Opus 5 such a prompt, skill, or tool description
-  may be declined with `reasoning_extraction`. Ask for a short explanation or a summary of
-  the actions taken, or read `display: "summarized"` thinking blocks.
+  on Fable 5.2, Fable 5.1, Opus 5.5, Sonnet 5.5, and Opus 5 such a prompt, skill, or tool
+  description may be declined with `reasoning_extraction`. Ask for a short explanation or a
+  summary of the actions taken, or read `display: "summarized"` thinking blocks.
 - A decline returns `stop_reason: "refusal"` with the category in `stop_details` and is
-  not an answer; each model's document says what a server-side fallback retries, and
+  not an answer; the categories are `cyber`, `bio`, `frontier_llm`, `reasoning_extraction`,
+  and `general_harms`. Each model's document says what a server-side fallback retries, and
   Haiku 5.5 has no fallback and usually refuses again on retry.
-- A top-level `effort` change between requests restarts the prompt cache; on Fable 5.1,
-  Opus 5.5, Opus 5, Sonnet 5.5, and Haiku 5.5, change effort mid-conversation with the
-  per-message form (beta), which takes effect from the next user turn with new input. It
-  needs adaptive thinking: thinking off on Haiku 5.5 or `between_tools` on Sonnet 5.5 → 400.
+- A top-level `effort` change between requests restarts the prompt cache; on Fable 5.2,
+  Fable 5.1, Opus 5.5, Opus 5, Sonnet 5.5, and Haiku 5.5, change effort mid-conversation
+  with the per-message form (beta), which takes effect from the next user turn with new
+  input and holds until another change replaces it. It needs adaptive thinking: thinking
+  off on Haiku 5.5 or `between_tools` on Sonnet 5.5 → 400. Platform coverage differs per
+  model; confirm it for the target before a dispatch relies on it.
+
+## Claude Fable 5.2
+
+The document also covers Claude Mythos 5.2, which offers the same capabilities only to
+organizations verified through the vendor's cyber and life-sciences programs. Fable 5.1
+prompts do not carry over unexamined: the document's own migration order is to set effort
+explicitly, then read every system prompt, skill, agent file, memory file, note, and
+harness string for instructions written for an earlier model, then run the longest agentic
+tasks and apply one fix at a time. Add system-prompt text in new conversations only — the
+prefix check is enforced for every account here, so a stored conversation resumed with
+changed `system`, `tools`, or earlier messages can return a 400.
+
+- Effort: start at the default `high` and sweep on your own evals rather than carrying a
+  Fable 5.1 or Opus 5.5 setting over. `low` suits quick exchanges, well-specified tasks,
+  and high-volume subagents; `medium` interactive coding, chat, and everyday knowledge
+  work; `high` hard coding, research, agentic work, and long unattended runs; `xhigh` the
+  hardest long-running work where a gain is measured; `max` only to measure the ceiling or
+  for open-ended problems where time and tokens do not matter. Most of the capability is
+  already present at `high` and gains above it are uneven, so step down to `medium`
+  wherever quality holds. Three behaviors to expect: early stopping is likelier at the
+  lower levels, at `high` and above it thinks before almost every reply including a
+  greeting, and effort barely changes reply length — use the prompt for that. Mixing levels
+  in one workflow is supported; plan at `medium` and raise effort for the unattended part.
+- Finishing: it may end a turn with a list of what remains, an offer to continue, or a stop
+  at an ordinary obstacle such as a timeout, more often at `low` and `medium`. A finishing
+  block that separates the two kinds of obstacle carries the effect — diagnose and work
+  through ordinary ones (errors, timeouts, locked files, empty results, failing tools) with
+  the access at hand, and leave a deliberate blocker alone, say plainly what was found, and
+  look for another safe route. Replayed agentic coding sessions at `medium` ended with
+  doable work left about half as often, and output tokens rose about 30%. It removed most
+  endings that ask permission or offer to continue, but not endings that list what remains.
+  Because it then asks less often, keep your own confirmation step for risky actions.
+- Approvals: ask for the action, not for assent — "Yes, run the migration on the staging
+  database" rather than "go". An approval rule is applied exactly as written: one listing
+  "sending messages to people outside this conversation" among the steps needing approval
+  held back roughly half of the model's routine requests to colleagues. Write the exception
+  into the rule itself; a separate line saying an approved step has its go-ahead moved an
+  absolute rule's compliance barely at all, while a rule that itself said to get a
+  go-ahead first was followed in about nine tries in ten.
+- Code ownership: it reads the prompt closely on who owns the code. Say nothing, or present
+  the repository as someone else's, and it adds to the existing structure even where that
+  repeats code, and reports nearby problems instead of fixing them. One sentence saying the
+  code base is its own raised merging of repeated code from under a tenth of tries to about
+  half, and held inside a long system prompt — at about 1.5 times the output tokens, with
+  unrequested changes (often tests and documentation), a behavior change to an existing
+  feature in one try in six to ten, and a closing summary that names the large changes and
+  omits small ones, so review the diff rather than the summary. Leave the sentence out
+  where the user owns the code; a scope limit elsewhere does not cancel it — with "No
+  drive-by refactors, renames or cleanups" earlier in the same prompt it still merged
+  repeated code in about a third of tries.
+- Progress text: it writes little user-facing text during long tool runs and may make its
+  first call without saying what it is about to do. Updates arrive as progress-update
+  `thinking` blocks, empty at the default `display` of `"omitted"` — set `display:
+  "updates"` (beta) or `"summarized"` and render the non-empty blocks between tool calls.
+  Then ask in the system prompt for an opening line, brief updates, and a standalone recap
+  (it spoke before its first tool call every time, at roughly 20% more output tokens). With
+  a harness that can count consecutive steps giving the user nothing to read, append a
+  one-line reminder after the latest tool results as a turn-scoped system message, which
+  roughly halved the longest silent stretch at no noticeable cost; leave each reminder in
+  place, since rewording one edits an earlier turn. Without that harness, one sentence
+  asking for a one-line update every few tool calls cut most long silences. Expect runs of
+  several calls between updates even so.
+- Subagents: how much it delegates follows the harness. With a minimal start-subagent tool
+  it rarely delegates; in a product whose prompts invite delegation it delegates readily.
+  Review the standing delegate-this instructions in system prompts, skills, and agent files
+  before rewriting the tool description. A description that puts what a subagent costs
+  first, says when delegation is and is not worth it, and says how to brief one cut
+  delegation by about a third at equal task success. At `xhigh` and `max` it also starts
+  subagents to review its own work, which Fable 5.1 did not; check which model the harness
+  runs subagents on, because they can dominate what a session costs.
+- Caution that piles up: cautious instructions accumulate wherever context carries over —
+  memory, notes, instruction files, messages between agents — and it follows them closely
+  enough to withhold routine work. Remove notes whose reason no longer holds (one "never
+  retry" note among a dozen cut retries from nearly all tries to about four in ten), name
+  the steps that need no approval for calls that are safe to repeat (which raised retries
+  from almost none to about half, where a general instruction to act more freely changed
+  nothing), and check what reviewer agents attach, since a reviewer's "stop at the first
+  error" in context stopped it where Fable 5.1 and Opus 5.5 went on.
+- Inherited instructions that now cost: a harness-written token budget in the prompt
+  changes how much it spends — removing a large one lowered cost at equivalent performance
+  at `high` and `xhigh`. The Opus 5.5 "treat that answer as done" chat lines cut its
+  thinking on follow-ups but made it far less likely to flag mistakes in its own earlier
+  answers. An instruction to answer directly without deliberating does not stop it from
+  thinking at `medium` and above; lower the effort instead. A hard style limit such as one
+  instruction per sentence in twenty words makes its prose choppy. Harness code that edits
+  earlier turns invalidates the thinking after the edit point: shorten history with context
+  editing or with compaction that keeps no earlier turns, and measure output tokens before
+  relying on `prefix_mismatch_behavior: "drop_block"`, which made it think again.
+- Final reports: readers of a long run's report have not seen the tool calls or files. Ask
+  for a self-contained message written for an intelligent low-context reader, key points
+  first, in plain words with no term invented during the work, mostly short active
+  sentences using one word per thing, prose where ideas connect and bullets for separate
+  items. That text made reports less dense with fewer semicolons, and shorter sentences on
+  workflow automation tasks.
+- Refusals: safety classifiers decline with `stop_reason: "refusal"` in the five categories
+  listed above, and benign cybersecurity and life-sciences work can trigger `cyber` and
+  `bio`. Remove instructions asking it to write its reasoning in the response and read
+  `display: "summarized"` thinking blocks instead.
 
 ## Claude Fable 5.1
 
@@ -238,12 +355,6 @@ Opus 5 prompts carry over, and the Opus 5 section remains a reasonable starting 
   resolution and crop/measure tools still help (more at higher effort), while effort alone
   helps technical drawings, not charts. Frontend: "avoid a generic look" only swaps one
   default for another — name the patterns to avoid, inspect, and extend the list.
-
-> **Carried from the 2026-10-21 model-currency derivation (3e62fbd); the currently pinned
-> `prompting-claude-opus-5-5` does not state this. Re-derive or remove at the next
-> re-derivation.**
->
-> - Carrying an Opus 5 effort level forward buys longer turns rather than more depth.
 
 ## Claude Sonnet 5.5
 
@@ -424,11 +535,13 @@ to it.
 
 The shared recipe and the append-only and reasoning rules come from
 `claude-prompting-best-practices`; the constraints from `thinking`, `effort`, and the
-model documents; each model section from its own document (`prompting-claude-fable-5-1`,
-`prompting-claude-opus-5-5`, `prompting-claude-sonnet-5-5`, `prompting-claude-haiku-5-5`,
-`prompting-claude-opus-5`). The core rules on a first-turn specification and on checked
-claims generalize what the Opus 5, Opus 5.5, Sonnet 5.5, and Haiku 5.5 documents each say
-for their model. `source_pins` records the exact bytes used, and a model name in
+model documents; each model section from its own document (`prompting-claude-fable-5-2`,
+`prompting-claude-fable-5-1`, `prompting-claude-opus-5-5`, `prompting-claude-sonnet-5-5`,
+`prompting-claude-haiku-5-5`, `prompting-claude-opus-5`). The core rules on a first-turn
+specification and on checked claims generalize what the Opus 5, Opus 5.5, Sonnet 5.5, and
+Haiku 5.5 documents each say for their model; the core rule on absolute and approval rules
+generalizes the Fable 5.2 document, which states that earlier models follow such
+instructions too. `source_pins` records the exact bytes used, and a model name in
 `targets` does not extend another model's claims to it: the vendor's pages disagree on
 effort defaults and on how much initiative to expect.
 
