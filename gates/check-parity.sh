@@ -595,7 +595,7 @@ if [ -f compose/instructions-state.py ]; then
 fi
 
 # Secret-redaction floor (learn/redact.py) — single-sourced by the heavy
-# (digest.py) and light (collect-learning.py) flows; --self-test proves each
+# (runlib/projection.py) and light (collect-learning.py) flows; --self-test proves each
 # pattern fires and that lessons ABOUT secrets are not over-redacted.
 if [ -f learn/redact.py ]; then
   leg -q "FAIL: secret-redaction floor self-test (learn/redact.py)" \

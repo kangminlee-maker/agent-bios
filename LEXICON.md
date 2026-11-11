@@ -103,7 +103,6 @@ written at the time. The gate ignores deprecated tokens under these paths:
 
 - `design/session-distill/REVIEW-*.md`, `design/session-distill/DESIGN-v13-exploration-record.md`, `design/session-distill/BUNDLE-ko-review.md` — dated design-review ledgers and a superseded revision, written against the pipeline before it was renamed
 - `design/collection-loop/DISCUSSION-*.md` — a discussion record, closed and dated on the day it finished
-- `session-distill/out/` (regenerable pipeline snapshots; headings regenerate current from `bundle*.py`)
 - `design/archive/` — dated records, never revised after the day they describe. Historical prose keeps the terms it was written with, so recording a rename must not turn the gate red; separately, no runtime file may name a record inside it, which `archive_referenced_by_runtime` enforces
 - `LEXICON.md`, `gates/check-lexicon.py`, and `ontology/instances/graph.json` themselves (they hold the deprecated tokens to project / enforce / author them)
 

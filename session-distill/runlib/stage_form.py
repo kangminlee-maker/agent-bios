@@ -5,7 +5,7 @@ answer.
 One formation call receives the window's events - each with the claims that describe it, the claims that show its
 outcome, and their quotes - and the clusters of placed learnings that share a principle (design §7.4's upward
 distillation; built by the lifecycle intake). It answers candidates (situation / action / exception, the eight admission
-fields, type A-G, consolidate.js's one-line `lesson`), rejected findings (each naming the requirements it fails), and
+fields, type A-G, a one-line `lesson` naming the cluster, as the v1 consolidator wrote), rejected findings (each naming the requirements it fails), and
 non-findings (each with one reason from design §9's fixed list). Lifecycle candidates are formed by code and never sent
 (lead decision D7, WP-09 stage 0 M8).
 

@@ -131,10 +131,12 @@
       "properties": {"basis": {"enum": ["source", "view", "unavailable"]}}
     },
     "keep_record": {
+      "$comment": "A standing keep: the units it protects and, optionally, why. The rationale lives HERE rather than on the entry (F-34, D-20261111): an entry forbids additional properties, schema 1 carried the rationale as an entry-level `reason`, and a reader that kept reading the entry read a field schema 2 cannot hold.",
       "type": ["object", "null"],
       "additionalProperties": false,
       "required": ["units"],
-      "properties": {"units": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}}}
+      "properties": {"units": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+                     "reason": {"type": ["string", "null"]}}
     },
     "relations": {
       "type": "object",

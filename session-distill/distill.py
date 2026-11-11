@@ -19,9 +19,11 @@
                                                            CLAUDE_RUN_TOKEN_FILE) or, with a plan, golden
   distill.py <stage command> --run-id ID                   S3, S5-S12: named, and refused until implemented
 
-A run lives in `session-distill/out/<run-id>/` (`--out` names another root): `run.json`,
-`amendments.jsonl`, `stages/<stage>/record.json`, and per-call directories. The declaration,
-its amendments and the stage records are `runlib/declare.py` and `runlib/records.py`; the
+A run lives in `<run root>/<run-id>/`: `run.json`, `amendments.jsonl`,
+`stages/<stage>/record.json`, and per-call directories. The run root is `--out`, or, unset, the
+XDG state directory `default_out()` resolves; a checkout passes `session-distill/out/<...>`
+explicitly, as the runbook does. The declaration, its amendments and the stage records are
+`runlib/declare.py` and `runlib/records.py`; the
 record schemas every stage keeps (claim, evidence, expected observation) are
 `schemas/*.schema.json`, loaded through `runlib/claims.py`; the declaration's own structure is
 `schemas/run.schema.json`. The census (S1) is `runlib/census.py`, over the readers of `runlib/sources.py`,

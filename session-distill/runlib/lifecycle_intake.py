@@ -607,7 +607,11 @@ def self_test():
             globals().update(saved)
     control("build refuses an intake document its schema refuses (INTAKE_INVALID), before any stage writes it",
             refusal(bent_build).startswith("INTAKE_INVALID"), refusal(bent_build))
-    # D4: a schema 1 pin is migrated in memory by the cutover's function and its file is never written
+    # D4: the pinned ledger is had as it is when it is schema 2 and migrated in memory when it is
+    # schema 1, and its file is never written. The repository's own file was schema 1 until the
+    # WP-22 cutover moved it, so this leg judges the file by the schema it actually carries and
+    # keeps a schema 1 FIXTURE beside it: a control that only knew the migration path stopped
+    # testing the migration the moment the real file stopped being schema 1.
     with tempfile.TemporaryDirectory(prefix="intake-") as td:
         checkout = pathlib.Path(td)
         # The fixture writes the ledger where the READ will look for it: the reference the
@@ -623,9 +627,10 @@ def self_test():
                        "starting_hashes": {"ledger": hashlib.sha256(raw).hexdigest()}}
         had = guarded(lambda: ledger_of(declaration), lambda exc: (None, repr(exc)))
         migrated, how = had
-        schema1 = json.loads(raw) if raw else {}
-        incubating = sum(1 for e in schema1.get("entries", []) if e.get("status") in ("incubating", "incubating-G"))
+        pinned = json.loads(raw) if raw else {}
+        incubating = sum(1 for e in pinned.get("entries", []) if str(e.get("status", "")).startswith("incubating"))
         legacy_ids = [c["candidate_id"] for c in guarded(lambda: legacy_incubation(migrated), [])] if migrated else []
+        expected_how = {1: "schema 1, migrated in memory", 2: "schema 2"}.get(pinned.get("schema"))
         if not raw:
             # The owner's schema 1 ledger lives in a checkout, which shipped code may not name
             # (WP-24): the author-side caller sets CHECKOUT_LEDGER, and without it this leg is
@@ -633,11 +638,31 @@ def self_test():
             print("lifecycle_intake --self-test SKIPPED: D4, the migration of the repository's schema 1 "
                   "ledger (set CHECKOUT_LEDGER, as gates/check-ledger.py does)")
         else:
-            control("D4: the repository's schema 1 ledger is migrated in memory by the cutover's function, and its every "
-                    "incubating entry is a legacy candidate, its file unchanged",
-                    schema1.get("schema") == 1 and how == "schema 1, migrated in memory" and incubating > 0
+            control("D4: the repository's ledger is had by the schema it carries, and its every incubating entry is a "
+                    "legacy candidate, its file unchanged",
+                    expected_how is not None and how == expected_how and incubating > 0
                     and len(legacy_ids) == incubating and hashlib.sha256(rel.read_bytes()).hexdigest() == hashlib.sha256(raw).hexdigest(),
-                    f"{how} incubating={incubating} legacy={len(legacy_ids)}")
+                    f"schema={pinned.get('schema')} {how} incubating={incubating} legacy={len(legacy_ids)}")
+        # The migration path, on a subject this suite owns: whatever schema the repository's file
+        # carries today, a schema 1 pin is still migrated in memory and its entries still arrive.
+        fixture = checkout / "fx-schema1-pin.json"
+        fx_raw = json.dumps({"schema": 1, "framework": "f",
+                             "window": "census ending 2026-08-25 (previous: census 21d ending 2026-07-18)",
+                             "entries": [{"id": "FX-1", "lesson": "a legacy candidate\n", "status": "incubating",
+                                          "window": "2026-08-25", "surfaced": "2026-08-25", "classification": None},
+                                         {"id": "FX-2", "lesson": "a placed one\n", "status": "placed",
+                                          "window": "2026-08-25", "surfaced": "2026-08-25", "classification": None}]},
+                            ensure_ascii=False).encode()
+        fixture.write_bytes(fx_raw)
+        fx_declaration = {"destinations": {"checkout": str(checkout)},
+                          "starting_hashes": {"ledger": hashlib.sha256(fx_raw).hexdigest()}}
+        fx_doc, fx_how = guarded(lambda: ledger_of(fx_declaration, "fx-schema1-pin.json"), lambda exc: (None, repr(exc)))
+        fx_ids = [c["candidate_id"] for c in guarded(lambda: legacy_incubation(fx_doc), [])] if fx_doc else []
+        control("D4: a schema 1 pin is migrated in memory by the cutover's function, its one incubating entry becomes "
+                "a legacy candidate, and its file is not written",
+                fx_how == "schema 1, migrated in memory" and len(fx_ids) == 1
+                and (fx_doc or {}).get("schema") == 2 and fixture.read_bytes() == fx_raw,
+                f"{fx_how} candidates={fx_ids}")
     control("the suite leaves no temporary tree", not checkout.exists(), str(checkout))
 
     for failure in failures:

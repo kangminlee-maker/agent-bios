@@ -5086,7 +5086,11 @@ def ledger_carriers(ledger, layer, notes=None, ledger_ref=None):
                 continue
             rows.append(carrier(layer, f"{ledger_ref or STATE_LEDGER_REL}#{entry['id']}", text, entry["id"],
                                 provenance={"status": status, "keep_units": list(keep.get("units", [])),
-                                            "keep_reason": entry.get("reason")}))
+                                            # The rationale is the KEEP RECORD's, never the entry's:
+                                            # schema 2 forbids an entry-level `reason`, so reading
+                                            # it there answered null for every schema 2 ledger
+                                            # (F-34). Schema 1's entry field migrates into the keep.
+                                            "keep_reason": keep.get("reason")}))
     if notes is not None and layer == "ledger_keep":
         notes["ledger_keep_held_back"] = held_back
     return rows
@@ -11424,8 +11428,8 @@ def self_test():
         with section("GA#9: a keep record stands only while the entry's lifecycle says it does"):
             # ---- GA#9: a keep record stands only while the entry's lifecycle says it does
             lifecycles = {"schema": 2, "entries": [
-                {"id": "K-placed", "status": "placed", "lesson": "- a placed keep\n", "keep": {"units": ["unit-1"]},
-                 "reason": "it is still delivered"},
+                {"id": "K-placed", "status": "placed", "lesson": "- a placed keep\n",
+                 "keep": {"units": ["unit-1"], "reason": "it is still delivered"}},
                 {"id": "K-retired", "status": "retired", "lesson": "- a retired keep\n", "keep": {"units": ["unit-2"]}},
                 {"id": "K-absorbed", "status": "placed", "lesson": "- an absorbed keep\n", "keep": {"units": ["unit-3"]},
                  "absorbed_by": "K-placed"},
@@ -11442,6 +11446,19 @@ def self_test():
             check("only the entries the ledger still places are the keep layer",
                   {row["item_ref"] for row in keeps} == {"K-placed", "K-revived"},
                   f"{sorted(row['item_ref'] for row in keeps)}")
+            # F-34: the rationale is the keep record's. It was read off the ENTRY, where schema 2
+            # forbids it, so every schema 2 ledger answered null for a field the record does hold.
+            check("and so does the keep record's own rationale",
+                  [row["provenance"].get("keep_reason") for row in keeps if row["item_ref"] == "K-placed"]
+                  == ["it is still delivered"],
+                  f"{[row['provenance'].get('keep_reason') for row in keeps]}")
+            entry_level = {"schema": 2, "entries": [
+                {"id": "K-entry-reason", "status": "placed", "lesson": "- a keep\n",
+                 "keep": {"units": ["unit-9"]}, "reason": "a rationale schema 2 does not allow here"}]}
+            check("a rationale on the entry is not read as the keep's",
+                  [row["provenance"].get("keep_reason")
+                   for row in ledger_carriers(entry_level, "ledger_keep", {})] == [None],
+                  "an entry-level reason was read as the keep record's rationale")
             check("the units a keep record protects travel with its carrier",
                   [row["provenance"].get("keep_units") for row in keeps if row["item_ref"] == "K-placed"] == [["unit-1"]],
                   "the keep's protected units were dropped")

@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """Merge a window's verified survivors into design/session-distill/ledger.json.
 
-consolidate.js decides which survivor is a recurrence of which ledger entry
-(its Match phase); this script applies that decision deterministically:
+The consolidation step decides which survivor is a recurrence of which ledger
+entry (its Match phase; the v1 script that ran it was deleted at the WP-22
+cutover, and this file reads the decision rather than making it); this script
+applies that decision deterministically:
 
   recurrence  -> the entry gains the window's supporting sessions, keeps the
                  higher strength, and records the recurrence under `recurrence`
