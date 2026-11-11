@@ -669,12 +669,16 @@ def inline(text):
     return visible(one)
 
 
-# The categories whose characters change what is seen without being seen (lead decision, 2026-11-12): Cf, the format
-# characters (bidirectional controls, zero-width characters, the byte-order mark, the soft hyphen, ...), Cc, the
-# controls, and Cs, a lone surrogate, which UTF-8 cannot write at all. Read from the Unicode database rather than
-# listed by hand; no Hangul character is in them, and Korean prose needs none of them (ZWJ and ZWNJ are not used in
-# Hangul). Whitespace among the controls is folded by `inline` and split into lines by `fenced` before this runs.
-INVISIBLE = ("Cf", "Cc", "Cs")
+# Which characters are written as themselves: an allowlist (lead decisions, 2026-11-12). A letter, number,
+# punctuation mark or symbol (categories L*, N*, P*, S*), the plain space, and a combining mark (Mn, Mc) that follows a
+# character written as itself. Everything else is written in visible notation: format characters and controls (Cf,
+# Cc), a lone surrogate (Cs, which UTF-8 cannot write), unassigned and private-use code points (Cn, Co), every other
+# space (Zs but U+0020, Zl, Zp), an enclosing mark (Me), and a mark with no base. BLANK_LOOKALIKES are characters of an
+# allowed category that show nothing, or a blank: the Hangul fillers (U+115F, U+1160, U+3164, U+FFA0; ordinary Korean
+# prose is written in precomposed syllables and never holds one, which is why one is used to fake a blank name), the
+# braille blank, the combining grapheme joiner, the two invisible Khmer inherent vowels and every variation selector.
+BLANK_LOOKALIKES = frozenset({0x115F, 0x1160, 0x3164, 0xFFA0, 0x2800, 0x034F, 0x17B4, 0x17B5,
+                              0x180B, 0x180C, 0x180D, 0x180F, *range(0xFE00, 0xFE10), *range(0xE0100, 0xE01F0)})
 
 
 def notation(ch):
@@ -682,14 +686,60 @@ def notation(ch):
     return f"\\u{ord(ch):04X}" if ord(ch) <= 0xFFFF else f"\\U{ord(ch):08X}"
 
 
+def unshown(text, keep=""):
+    """For each character of `text`, whether it is written in notation rather than as itself (the allowlist above;
+    a character in `keep` is written as itself and is no base for a mark)."""
+    flags, based = [], False
+    for ch in text:
+        category = unicodedata.category(ch)
+        if ch in keep or ch == " ":
+            flags.append(False)
+            based = False
+        elif ord(ch) not in BLANK_LOOKALIKES and (category[0] in "LNPS" or (category in ("Mn", "Mc") and based)):
+            flags.append(False)
+            based = True
+        else:
+            flags.append(True)
+            based = False
+    return flags
+
+
 def visible(text, keep=""):
-    """`text` with every INVISIBLE character, other than those in `keep`, in its visible notation."""
-    return "".join(ch if ch in keep or unicodedata.category(ch) not in INVISIBLE else notation(ch) for ch in text)
+    """`text` with every character the allowlist does not write as itself in its visible notation."""
+    return "".join(notation(ch) if hide else ch for ch, hide in zip(text, unshown(text, keep)))
 
 
 def invisible_in(text, keep=""):
-    """The INVISIBLE characters of `text` other than those in `keep`, in order."""
-    return [ch for ch in text if ch not in keep and unicodedata.category(ch) in INVISIBLE]
+    """The characters of `text` the allowlist does not write as themselves, in order."""
+    return [ch for ch, hide in zip(text, unshown(text, keep)) if hide]
+
+
+NOTATION_SHAPE = {"u": re.compile(r"[0-9A-Fa-f]{4}"), "U": re.compile(r"[0-9A-Fa-f]{8}")}
+
+
+def fence_line(line):
+    """`(shown, replaced, doubled)` for one line inside a fence. A fence doubles no backslash in general, since the
+    owner reads a file's content there as written; but before a replaced character, and before text a line holds in
+    the notation's own shape (`\\uXXXX`, `\\UXXXXXXXX`), its backslash run is doubled. So a notation is always the
+    last of an odd run of backslashes and the content's own `\\u....` the end of an even one: the two never look alike
+    (option (a), lead decision 2026-11-12)."""
+    hide = unshown(line, keep="\t")
+    out, run, replaced, doubled = [], 0, [], 0
+    for i, ch in enumerate(line):
+        if ch == "\\":
+            run += 1
+            continue
+        imitation = ch in NOTATION_SHAPE and run > 0 and NOTATION_SHAPE[ch].match(line, i + 1) is not None
+        out.append("\\" * (2 * run if hide[i] or imitation else run))
+        doubled += 1 if imitation else 0
+        run = 0
+        if hide[i]:
+            replaced.append(f"U+{ord(ch):04X}")
+            out.append(notation(ch))
+        else:
+            out.append(ch)
+    out.append("\\" * run)
+    return "".join(out), replaced, doubled
 
 
 def live_markup(line):
@@ -711,27 +761,24 @@ LINE_SEPARATORS = ("\r", "\v", "\f", "\x1c", "\x1d", "\x1e", "\x85", "\u2028", "
 
 def fenced(text):
     """Multi-line text inside a code fence longer than any backtick run it holds, its carriage returns and other line
-    separators normalized, every invisible character but a tab in visible notation (named on a line after the
-    fence), and every line shaped like an owner line or an owner-block marker (`owner_lines.owner_shaped`) escaped
-    with a leading backslash."""
+    separators normalized, every character the allowlist does not write as itself but a tab in visible notation
+    (`fence_line`; each named on a line after the fence), and every line shaped like an owner line or an owner-block
+    marker (`owner_lines.owner_shaped`) escaped with a leading backslash."""
     body = str(text).replace("\r\n", "\n")
     for separator in LINE_SEPARATORS:   # each a line break to some editor: a real line, so it is escaped as one
         body = body.replace(separator, "\n")
-    body = body.split("\n")
-    # a tab is a file's own character and stays; every other invisible character shows as its notation, which a
-    # backslash the content itself holds could imitate inside a fence, so the line after the fence names each one
-    shown = [(n, sorted({f"U+{ord(ch):04X}" for ch in invisible_in(line, keep="\t")})) for n, line in enumerate(body, 1)]
-    shown = [(n, points) for n, points in shown if points]
-    body = [visible(line, keep="\t") for line in body]
-    body = ["\\" + line if owner_lines.owner_shaped(line) else line for line in body]
+    lines = [fence_line(line) for line in body.split("\n")]
+    body = ["\\" + shown if owner_lines.owner_shaped(shown) else shown for shown, _r, _d in lines]
     longest = max((len(run) for line in body for run in re.findall(r"`+", line)), default=0)
     fence = "`" * max(3, longest + 1)
+    replaced = [(n, ", ".join(sorted(set(points)))) for n, (_s, points, _d) in enumerate(lines, 1) if points]
+    doubled = sum(d for _s, _r, d in lines)
     note = []
-    if shown:
-        listed = "; ".join(f"{n}번째 줄 {', '.join(points)}" for n, points in shown[:20])
-        more = f" 외 {len(shown) - 20}줄" if len(shown) > 20 else ""
-        note = [f"- 위 펜스 안의 보이지 않는 문자를 \\uXXXX 표기로 바꿨습니다: {listed}{more}. 여기 적히지 않은 같은 모양의 "
-                "글자는 원문에 그대로 있던 글자입니다."]
+    if replaced or doubled:   # every line named, never cut short: the note is the owner's list of what was changed
+        listed = "; ".join(f"{n}번째 줄 {points}" for n, points in replaced) or "없음"
+        note = [f"- 위 펜스 안에서 보이지 않거나 빈칸처럼 보이는 문자를 \\uXXXX 표기로 바꿨습니다: {listed}. 원문에 같은 "
+                f"모양으로 적혀 있던 곳 {doubled}군데는 그 앞의 백슬래시를 두 배로 보였습니다. 그래서 홀수 개의 백슬래시 "
+                "뒤에 오는 표기는 바꾼 문자이고, 짝수 개 뒤에 오는 것은 원문의 글자입니다."]
     return [fence, *body, fence, *note]
 
 
@@ -943,8 +990,8 @@ def render_text(doc, meta, locators):
 def page_problems(doc, text):
     """What makes `text` a page whose owner lines are not all the renderer's: a line outside every owner block shaped
     like an owner line or a marker (OWNER_LINE_OUTSIDE_BLOCK; the parser would not read it, but the owner would), a
-    MARKUP character a preview would read, on a line outside every fence and marker (MARKUP_LIVE), an INVISIBLE
-    character anywhere but a tab inside a fence (INVISIBLE_CHARACTER), and blocks other than one per row in the rows'
+    MARKUP character a preview would read, on a line outside every fence and marker (MARKUP_LIVE), a character the
+    allowlist does not write as itself anywhere but a tab inside a fence (INVISIBLE_CHARACTER), and blocks other than one per row in the rows'
     order (OWNER_BLOCK_FORGED). Every model-made value is written through
     `inline` or `fenced`, so neither can happen from a row's text; this refuses the page if a field ever is not."""
     fixed, blocks, problems = owner_lines.segments(text.split("\n"))
@@ -1759,9 +1806,19 @@ def self_test():
             if page.startswith("REFUSED") or previewed_markup(page):
                 live.append(value if not page.startswith("REFUSED") else f"{value}: {page[:160]}")
         equal(f"markup planted in {label} is shown as typed", live, [])
+    # blank-looking characters of an allowed category, named rather than listed: no code point is copied from
+    # BLANK_LOOKALIKES, so the explicit set is held to the database's own names
+    def looks_blank(c):
+        name = unicodedata.name(c, "")
+        return (("HANGUL" in name and "FILLER" in name) or "VARIATION SELECTOR" in name
+                or name in ("BRAILLE PATTERN BLANK", "COMBINING GRAPHEME JOINER", "KHMER VOWEL INHERENT AQ",
+                            "KHMER VOWEL INHERENT AA"))
+
     def unseen(page, tabs_in_fences=False):
-        """Every character of category Cf, Cc or Cs in `page` but its line breaks (and, when asked, a tab on a line
-        inside a fence), found without INVISIBLE, visible or invisible_in."""
+        """Every character of `page` a reader would not see as itself, found without unshown, visible or
+        invisible_in: anything but a letter, number, punctuation mark, symbol or plain space, a mark with no seen
+        base, and a blank-looking character; a line break is the page's own, and so (when asked) is a tab on a line
+        inside a fence."""
         found, fence = [], None
         for line in page.split("\n"):
             inside = fence is not None and line != fence
@@ -1769,26 +1826,51 @@ def self_test():
                 fence = line
             elif fence is not None and line == fence:
                 fence = None
-            found += [f"U+{ord(c):04X}" for c in line if unicodedata.category(c)[0] == "C"
-                      and unicodedata.category(c) in ("Cf", "Cc", "Cs") and not (c == "\t" and tabs_in_fences and inside)]
+            seen_base = False
+            for c in line:
+                kind = unicodedata.category(c)
+                ok = c == " " or (c == "\t" and tabs_in_fences and inside) or (not looks_blank(c) and (
+                    kind[0] in ("L", "N", "P", "S") or (kind in ("Mn", "Mc") and seen_base)))
+                seen_base = ok and c not in " \t"
+                if not ok:
+                    found.append(f"U+{ord(c):04X}")
         return found
-    unseen_plant = ("x\u202Ey\u202a\u2066\u2069\u200b\u200c\u200d\u2060\ufeff\u061c\u200e\u200f\x00\x07\x1b\x7f\x9b"
-                    "\u00ad\U000e0001\ud800 \\u202E z")
-    clean("the rendered page holds no invisible character but its line breaks", unseen(text) if good["rows"] else ["NO_ROWS"])
+    equal("the explicit blank-lookalike set is every character the database names a Hangul filler, a variation "
+          "selector, the braille blank, the grapheme joiner or an invisible Khmer inherent vowel",
+          sorted(BLANK_LOOKALIKES), [c for c in range(0x110000) if looks_blank(chr(c))])
+    unseen_plant = ("x\u202ey\u202a\u2066\u2069\u200b\u200c\u200d\u2060\ufeff\u061c\u200e\u200f\x00\x07\x1b\x7f\x9b"
+                    "\u00ad\U000e0001\ud800\u115f\u1160\u3164\uffa0\u2800\u034f\ufe0f\U000e0100\u180b\u17b4"
+                    "\u0378\ue000\U000f0000\u00a0\u3000\u2028\u0301\u20dd \\u202E z")
+    clean("the rendered page holds no character a reader would not see as itself", unseen(text) if good["rows"]
+          else ["NO_ROWS"])
     for label, plant in inline_plants:
         _held, page = planted(plant, unseen_plant)
         equal(f"an invisible character planted in {label} is shown in visible notation",
               (page.startswith("REFUSED") and page[:160], unseen(page), "\\u202E" in page), (False, [], True))
-    _held, page = planted(at("s7b", "alternative", "destination", "carrier"), "x\u202Ey \\u202E z")
-    control("a backslash and u a model wrote shows doubled, so it cannot pass for the notation", page,
-            "x\\u202Ey \\\\u202E z")
+    _held, page = planted(at("s7b", "alternative", "destination", "carrier"), "x\u202ey \\u202E z \u3164 e\u0301")
+    control("a backslash and u a model wrote shows doubled, so it cannot pass for the notation; a filler is shown, "
+            "a mark on its letter kept", page, "x\\u202Ey \\\\u202E z \\u3164 e\u0301")
     for label, plant in fenced_plants:
         held, page = planted(plant, "a\tb\n" + unseen_plant)
         lines_ = page.split("\n")
         equal(f"an invisible character planted in {label} is shown in visible notation, a tab kept, each one named",
               (unseen(page, tabs_in_fences=True), "a\tb" in lines_,
-               any(line.startswith("- 위 펜스 안의 보이지 않는 문자") and "2번째 줄" in line and "U+202E" in line
+               any(line.startswith("- 위 펜스 안에서 보이지 않거나") and "2번째 줄" in line and "U+202E" in line
                    for line in lines_), *decided_in(held, page)), ([], True, True, [], []))
+    # more than twenty lines, each with a real replaced character, and the notation imitated on line 23: the page
+    # tells them apart by the backslash run before each, and its note names every line
+    long_content = "\n".join(f"line {n} \u202e" + (" \\u202E" if n == 23 else " \\\u202e" if n == 24 else "")
+                             for n in range(1, 26))
+    held, page = planted(at("proposal", "operations", 0, "content"), long_content)
+    lines_ = page.split("\n")
+    runs = [[len(m.group(1)) % 2 for m in re.finditer(r"(\\+)u202E", line)] for line in lines_
+            if re.match(r"line \d+ \\", line)]
+    note = next((line for line in lines_ if line.startswith("- 위 펜스 안에서 보이지 않거나")), "")
+    equal("past line twenty a replaced character and an imitation of its notation still look different, and the note "
+          "names every line",
+          (len(runs), runs[22:24], all(r == [1] for i, r in enumerate(runs) if i not in (22, 23)),
+           all(f"{n}번째 줄 U+202E" in note for n in range(1, 26)), "1군데" in note),
+          (25, [[1, 0], [1, 1]], True, True, True))
     tricky = 'a\n``````\n~~~~~~~\n<div style="display:none">\n&lt;x&gt; [l](u "t")'
     for label, plant in fenced_plants:
         held, page = planted(plant, tricky)
