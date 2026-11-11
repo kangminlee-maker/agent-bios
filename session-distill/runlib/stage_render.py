@@ -37,7 +37,7 @@ import sys
 if __package__ in (None, ""):  # run as a script: put session-distill/ on the import path
     sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 from grammar import owner_lines  # noqa: E402
-from runlib import derive, ranking, records  # noqa: E402
+from runlib import derive, ranking, records, stage_propose  # noqa: E402
 from runlib.records import Refused  # noqa: E402
 
 HERE = pathlib.Path(__file__).resolve().parents[1]
@@ -157,14 +157,6 @@ def units_of(check_row, delivery):
     state = (delivery or {}).get("state") or "absent"
     return [{"unit_id": u.get("unit_id") if isinstance(u, dict) else u, "delivery": state}
             for u in (check_row or {}).get("retrieved_units") or []]
-
-
-def legacy_word(entry):
-    """The first word of a legacy entry's `decision1` text, or `(none)`."""
-    for d in (entry or {}).get("decisions") or []:
-        if d.get("field") == "decision1" and isinstance(d.get("legacy_text"), str) and d["legacy_text"].split():
-            return d["legacy_text"].split()[0]
-    return "(none)"
 
 
 # ---- the Korean O6 text of rows no proposal speaks for --------------------------------------------------------------
@@ -293,7 +285,8 @@ def rows_of(docs):
                     problems.append(f"RENDER_INCOMPLETE {cid}: a legacy candidate whose entry the pinned ledger does "
                                     "not hold, so it cannot be grouped")
                     continue
-                held = {"source": source, "events": events, "legacy_word": legacy_word(entry)}
+                # the grouping key is WP-12's, which S7's legacy split groups by: one owner for the owner's rule
+                held = {"source": source, "events": events, "legacy_word": stage_propose.decision1_kind(entry)}
                 if cid in returned:
                     rows.append(returned_row(cid, returned[cid], test_state, held, "legacy"))
                     continue
@@ -305,7 +298,7 @@ def rows_of(docs):
                     rows.append(proposal_row(cid, p, test_state, held, "legacy") if p else
                                 _row(cid, "legacy", None, test_state, o6_legacy(1, None), **held))
                     continue
-                groups.setdefault(("legacy", legacy_word(entry)), []).append(cid)
+                groups.setdefault(("legacy", stage_propose.decision1_kind(entry)), []).append(cid)
             else:
                 groups.setdefault(("left_out", source), []).append(cid)
             continue
@@ -840,7 +833,6 @@ def run(run_dir, ledger=None):
 
 def fixture_docs():
     """A run's documents, real-shaped: the S7 document is the real `stage_propose.document` over these derivations."""
-    from runlib import stage_propose
     req = derive.table()["requirements"]
     met = {n: "met" for n in req}
 
@@ -1046,6 +1038,13 @@ def self_test():
         legacy_docs["proposals"]["proposals"].append(dict(copy.deepcopy(base_p), candidate_id=cid,
                                                           disposition=disposition))
     legacy_docs["proposals"]["returned"].append({"candidate_id": "legacy:L-4", "problems": ["ANSWER_INVALID x"]})
+    unworded = copy.deepcopy(fixture_docs())
+    for entry in unworded["ledger"]["entries"]:
+        if entry["id"] == "L-3":
+            entry["decisions"] = []
+    equal("a legacy entry with no decision1 is grouped under S7's own key for it",
+          {r["item_id"]: r["members"] for r in rows_of(unworded)[0] if r["row_kind"] == "legacy_group"}
+          .get("group:legacy:none"), ["legacy:L-3"])
     legacy_doc = document(legacy_docs)
     legacy_rows, legacy_problems = legacy_doc["rows"], legacy_doc["problems"]
     clean("legacy entries S7 answered make rows with nothing refused", legacy_problems)
