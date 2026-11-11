@@ -51,7 +51,7 @@ import tempfile
 
 if __package__ in (None, ""):  # run as a script: put session-distill/ on the import path
     sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
-from runlib import bound, dispatch, records  # noqa: E402
+from runlib import bound, derive, dispatch, projection, records  # noqa: E402
 from runlib.records import Refused  # noqa: E402
 
 HERE = pathlib.Path(__file__).resolve().parents[1]
@@ -196,6 +196,125 @@ def pairs_of(checks, candidates, decisions, by_name, by_transcript):
     return owed
 
 
+def selected_items(shared, store):
+    """`{item_ref: surface}` of a shared selection inventory, as far as the INVENTORY states it.
+
+    The items a session received, and the surface each was selected at, are the SNAPSHOT's
+    (`inventory.snapshot_shape`: `items`, `output.unavailable`, `output.instruction_text`), and a
+    snapshot lives in the owner's state root — not in this run. S2 is what reads it; S5b reads what
+    S2 published, because moving that acquisition here would make the stage read the owner's state
+    directly and would make S2's recorded failure unverifiable.
+
+    What the shared document does publish is the carrier versions and unit refs the selection held,
+    so membership is derivable and the SURFACE is not. The surface is returned None, and the judge
+    then answers the levels that need it as unknown rather than guessing one."""
+    held = {}
+    for carrier in shared.get("carriers") or []:
+        version = ((store.get("versions") or {}).get(carrier.get("carrier_id")) or {}).get(
+            carrier.get("version_sha256")) or {}
+        if version.get("item_ref"):
+            held[version["item_ref"]] = None
+    return held
+
+
+def basis_of(session_row, shared_of, store):
+    """`(basis, pin_reason, selected, history_selected)` for one session, from the inventory's row.
+
+    `basis` is what the judge's `_selection` reads: `pin` when the pin was read and a selection
+    inventory answers for it, `selection_history` when the owner's library history is what answers,
+    and None otherwise — with the reason the inventory recorded, carried through as `pin_reason` so
+    the judge's unknown names it rather than reading "unpinned" over an input failure.
+
+    A pin whose selection inventory is missing is NOT a pin basis. The items a session received are
+    the selection's to say, and reading a pin alone as "selected nothing" would turn an input
+    failure into an absence — the difference between `unknown` and `not_delivered` for every unit of
+    that session. Measured on the lead's C2 run: 39 sessions with a read pin, none with a selection
+    inventory, every one `input_failed`."""
+    pin = session_row.get("pin") or {}
+    selection = session_row.get("selection") or {}
+    shared = shared_of(selection.get("inventory_ref")) if selection.get("inventory_ref") else None
+    selected = selected_items(shared, store) if shared else {}
+    if pin.get("status") == "read" and selection.get("status") == "read" and selected:
+        return "pin", None, selected, {}
+    reason = selection.get("reason") or pin.get("reason") or "unpinned"
+    if selection.get("inventory_ref") and not selected:
+        reason = "selection_inventory_names_no_item"
+    elif selection.get("status") == "read" and not selection.get("inventory_ref"):
+        reason = "selection_read_without_an_inventory"
+    elif selection.get("reason"):
+        reason = f"selection_{selection['reason']}"
+    return None, reason, selected, {}
+
+
+def units_by_version(units):
+    """`{(carrier_id, version_sha256): [unit_id]}` — what an event's member names, as unit ids.
+
+    A native or injection event records the carrier versions it loaded (`members`), not units; the
+    judge asks whether the unit was among them, so the mapping is made here from the inventory's own
+    unit records."""
+    out = {}
+    for unit in units.values():
+        key = (unit.get("carrier_id"), unit.get("version_sha256"))
+        out.setdefault(key, []).append(unit["unit_id"])
+    return out
+
+
+def native_events_of(session_row, events_by_ref, by_version):
+    """The session's native and injection events as the judge takes them: `[{at, unit_ids, kind}]`.
+
+    `at` is the event's RECORD ORDINAL — the inventory's `line` — because that is the scale
+    `decision_at` is on; the event's own `at` is an ISO instant and is not comparable with it. An
+    event whose line is unknown is dropped from the comparable set and counted, never placed at an
+    ordinal nobody recorded."""
+    rows, undated = [], 0
+    for event in events_by_ref.get(session_row.get("session_ref")) or []:
+        line = event.get("line")
+        if not isinstance(line, int):
+            undated += 1
+            continue
+        unit_ids = []
+        for member in event.get("members") or []:
+            unit_ids += by_version.get((member.get("carrier_id"), member.get("version_sha256"))) or []
+        rows.append({"at": line, "kind": event.get("kind"), "unit_ids": sorted(set(unit_ids))})
+    return sorted(rows, key=lambda row: row["at"]), undated
+
+
+def release_of(release_doc, session_ref):
+    """The reference point `derive.absence` reads for this session: `{complete, layers, items}`.
+
+    The release document states a session's completeness per layer through the reasons it could not
+    resolve; a layer it does not name is complete. `items` is what the release holds, and an empty
+    one is why `_absence` answers `unknown` rather than `not_delivered` — an absence is only read
+    where the release is known to hold the item."""
+    for row in release_doc.get("sessions") or []:
+        if row.get("session_ref") != session_ref:
+            continue
+        point = row.get("unsegmented") or {}
+        layers = {entry.get("layer"): entry.get("status")
+                  for entry in point.get("incomplete_reasons") or []}
+        return {"complete": point.get("complete") is True, "layers": layers,
+                "items": sorted(point.get("items") or [])}
+    return {"complete": False, "layers": {}, "items": [], "absent_from_release_document": True}
+
+
+def session_evidence(session_row, events_by_ref, by_version, release_doc, shared_of, store):
+    """The inventory's half of the judge's `session` input: selection, events and the release.
+
+    The session's own records — the compiled instruction text it was activated with, the paths it
+    was given, and the bytes it read back — are the other half, and they come from the run's
+    immutable copy in the commit after this one. Until then the keys they fill are absent rather
+    than empty, so no reader can mistake "not assembled" for "nothing there"."""
+    basis, pin_reason, selected, history = basis_of(session_row, shared_of, store)
+    native, undated = native_events_of(session_row, events_by_ref, by_version)
+    evidence = {"session_ref": session_row.get("session_ref"), "basis": basis,
+                "selected": selected, "history_selected": history,
+                "native_events": native,
+                "release": release_of(release_doc, session_row.get("session_ref"))}
+    if pin_reason:
+        evidence["pin_reason"] = pin_reason
+    return evidence, {"native_events": len(native), "events_without_a_line": undated}
+
+
 def unit_index(current):
     """`{unit_id: the unit in the judge's input shape}`, built from the inventory's own records.
 
@@ -226,22 +345,58 @@ def unit_index(current):
     return units
 
 
-def document(run_dir, checks, candidates, current, sessions, sources):
+REDACTED = projection.FLOOR.PLACEHOLDER
+
+
+def document(run_dir, checks, candidates, current, sessions, release_doc, store, shared_of, sources):
     """The stage's document: one row per owed pair, and the summary a reader counts from."""
     units = unit_index(current)
     by_name, by_transcript = sessions_index(sessions)
     decisions = decisions_of(run_dir)
+    by_version = units_by_version(units)
+    events_by_ref = {}
+    for event in sessions.get("events") or []:
+        events_by_ref.setdefault(event.get("session_ref"), []).append(event)
+    rows_by_ref, counts_by_ref = {}, {}
+    for row in sessions.get("sessions") or []:
+        ref = row.get("session_ref")
+        rows_by_ref[ref] = row
     rows = []
     for pair in pairs_of(checks, candidates, decisions, by_name, by_transcript):
         unit = units.get(pair["unit_id"]) if pair["unit_id"] else None
-        reasons = [PENDING]
+        session_row = rows_by_ref.get(pair["session_ref"])
+        evidence = None
+        if session_row is not None:
+            if pair["session_ref"] not in counts_by_ref:
+                built, counts = session_evidence(session_row, events_by_ref, by_version, release_doc,
+                                                 shared_of, store)
+                counts_by_ref[pair["session_ref"]] = (built, counts)
+            evidence = counts_by_ref[pair["session_ref"]][0]
+        # Every reason that holds, in the order a reader would ask them, and never one in place of
+        # another: a pair can lack a decision AND name a unit the inventory does not carry, and a
+        # row that reported only the last of those would send someone to the wrong artifact.
+        reasons = []
         if pair.get("reason"):
-            reasons = [pair["reason"], PENDING]
+            reasons.append(pair["reason"])
         if pair["unit_id"] and unit is None:
-            reasons = ["unit_absent_from_inventory", PENDING]
+            reasons.append("unit_absent_from_inventory")
+        elif unit is not None and (unit.get("text") == REDACTED or not unit.get("text")):
+            # A unit whose own text this run cannot see cannot be judged on its lines, and handing the
+            # judge the redaction placeholder would make every comparison fail — a MISS claimed from
+            # evidence nobody read, which is the one thing §6.3 forbids. The pair is answered unknown
+            # by name instead. 14,116 of 26,855 current units are redacted on the lead's C2 run.
+            reasons.append("unit_text_redacted")
+        if evidence is None:
+            reasons.append("session_absent_from_inventory")
+        elif evidence.get("basis") is None:
+            reasons.append(evidence.get("pin_reason") or "unpinned")
+        reasons.append(PENDING)
         rows.append({**{k: v for k, v in pair.items() if k != "reason"},
                      "state": "unknown", "level": None, "reasons": reasons,
+                     "decision_ordinal": "event.at_record" if pair.get("decision_at") is not None else None,
                      "requirements": len(unit["operative_context"]) if unit else None,
+                     "native_events": len((evidence or {}).get("native_events") or []),
+                     "release_complete": ((evidence or {}).get("release") or {}).get("complete"),
                      "coverage": None})
     states = {}
     for row in rows:
@@ -254,6 +409,9 @@ def document(run_dir, checks, candidates, current, sessions, sources):
                               "state when no such file exists at all",
             "sources": {"count": len(sources), "dir": SOURCES_DIR},
             "context_source": "inventory.edges",
+            "ordinal_source": {"decision": "the first component of an event record's at_record",
+                               "events": "the inventory event's line; its `at` is an ISO instant and "
+                                         "is not on this scale"},
             "rows": rows,
             "summary": {"pairs": len(rows), "states": states,
                         "sessions": len({row["session_ref"] for row in rows if row["session_ref"]}),
@@ -278,7 +436,16 @@ def run(run_dir):
         candidates = records.read_json(run_dir / "candidates.json")
         current = records.read_json(run_dir / "inventory" / "current.json")
         sessions = records.read_json(run_dir / "inventory" / "sessions.json")
-        doc = document(run_dir, checks, candidates, current, sessions, sources)
+        release_doc = records.read_json(run_dir / "inventory" / "release.json")
+        store_path = run_dir / "inventory" / "shared" / "store.json"
+        store = records.read_json(store_path) if store_path.is_file() else {}
+
+        def shared_of(inventory_ref):
+            """The shared selection inventory a session names, or None when the run does not hold it."""
+            path = run_dir / "inventory" / "shared" / f"selection-{inventory_ref}.json"
+            return records.read_json(path) if path.is_file() else None
+
+        doc = document(run_dir, checks, candidates, current, sessions, release_doc, store, shared_of, sources)
         records.write_json(run_dir, run_dir / OUTPUT, doc)
         stage.output(OUTPUT)
         declaration_seq = stage.record["declaration_seq"]
@@ -364,7 +531,15 @@ def self_test():
                                   "selection": {"status": "unknown", "reason": "input_failed",
                                                 "inventory_ref": None},
                                   "delivery": {"status": "unknown", "reason": "input_failed", "event_refs": []}}]}
-        doc = document(fixture, checks, candidates, current, sessions, ["aa.jsonl"])
+        release_doc = {"sessions": [{"session_ref": "p-" + "1" * 24, "segments": [],
+                                     "unsegmented": {"complete": False, "items": [],
+                                                     "incomplete_reasons": [
+                                                         {"layer": "catalog", "status": "unknown",
+                                                          "reasons": ["release_history_deferred"],
+                                                          "inventory_ref": None}]}}]}
+        store = {"versions": {}, "units": {}}
+        doc = document(fixture, checks, candidates, current, sessions, release_doc, store,
+                       lambda ref: None, ["aa.jsonl"])
         # k-1: two events x two units (one retrieved, one named-absent) = 4; k-2: one session, no event, no unit = 1.
         control("a pair is owed per decision event and unit", str(doc["summary"]["pairs"]), "5")
         control("an event's ordinal is read from its at_record", json.dumps(doc["rows"][0]), '"decision_at": 76837')
@@ -392,6 +567,54 @@ def self_test():
         no_edges = {"units": [{**current["units"][0], "edges": None}]}
         control("an inventory that publishes no edges is refused by name",
                 refusal(lambda: unit_index(no_edges)), "DELIVERY_EDGES_ABSENT")
+
+        # ---- the inventory's half of the session evidence (commit 3) ----
+        session_row = sessions["sessions"][0]
+        events_by_ref = {"p-" + "1" * 24: [
+            {"event_id": "e-1", "kind": "native", "session_ref": "p-" + "1" * 24, "line": 12,
+             "at": "2026-09-16T07:44:40.323000+00:00",
+             "members": [{"carrier_id": "c-" + "0" * 24, "version_sha256": "a" * 64, "ordinal": 0}]},
+            {"event_id": "e-2", "kind": "native", "session_ref": "p-" + "1" * 24, "line": None,
+             "at": "2026-09-16T07:45:00.000000+00:00", "members": []}]}
+        evidence, counts = session_evidence(session_row, events_by_ref,
+                                            units_by_version(unit_index(current)), release_doc,
+                                            lambda ref: None, store)
+        control("a native event is placed at its record line, not its instant",
+                json.dumps(evidence["native_events"][0]), '"at": 12')
+        control("and its carrier version is resolved to the units it loaded",
+                json.dumps(evidence["native_events"][0]["unit_ids"]), '["u-1", "u-2"]')
+        control("an event with no line is counted, not placed at an ordinal nobody recorded",
+                str(counts["events_without_a_line"]), "1")
+        clean("and it is not in the comparable set",
+              [row for row in evidence["native_events"] if row["at"] is None])
+        control("a read pin with no selection inventory is not a pin basis",
+                json.dumps({"basis": evidence["basis"]}), '"basis": null')
+        # `.get` with an absence VALUE, not `[...]`: a revert that makes this a pin basis removes the
+        # key, and indexing it ended the run with a KeyError before either control could speak —
+        # the same shape as the unguarded `[0]` this repo fixed in the ledger migrator's suite.
+        control("and the reason the inventory recorded is what the unknown will name",
+                evidence.get("pin_reason") or "no pin_reason was recorded", "selection_input_failed")
+        control("the release is read as the point derive.absence judges",
+                json.dumps(evidence["release"]), '"complete": false')
+        control("a layer the release leaves unresolved is carried with its status",
+                json.dumps(evidence["release"]["layers"]), '"catalog": "unknown"')
+        incomplete = derive.absence(evidence["release"])
+        clean("and the absence policy reads it as incomplete", [] if not incomplete[0] else ["complete"])
+        absent = release_of({"sessions": []}, "p-nobody")
+        control("a session the release document does not carry is named, not read as complete",
+                json.dumps(absent), "absent_from_release_document")
+
+        # A unit whose text this run cannot see is answered unknown by name rather than judged on a
+        # placeholder: the comparison would fail for every line and claim a miss from nothing read.
+        redacted = {"units": [{**current["units"][0], "text": REDACTED},
+                              current["units"][1]]}
+        doc_red = document(fixture, checks, candidates, redacted, sessions, release_doc, store,
+                           lambda ref: None, ["aa.jsonl"])
+        control("a redacted unit is not judged on its placeholder",
+                json.dumps([r["reasons"] for r in doc_red["rows"] if r["unit_id"] == "u-1"][0]),
+                "unit_text_redacted")
+        control("each row names the ordinal it used", json.dumps(doc["rows"][0]),
+                '"decision_ordinal": "event.at_record"')
 
         # The two refusals, each before any write.
         empty = root / "r-empty"
@@ -436,7 +659,10 @@ def self_test():
         return 1
     print(f"stage_delivery --self-test: OK ({len(ran)} controls: the stage's place in STAGES, the pairs owed over "
           f"the artifacts' own shapes with every pending one answered by name, the judge's one-step context set "
-          f"and the refusal when the inventory publishes none, and the two run refusals with nothing written)")
+          f"and the refusal when the inventory publishes none, the inventory's half of the session "
+          f"evidence — native events at their record line, the release as the absence policy reads it, a read "
+          f"pin with no selection inventory kept out of the pin basis, and a redacted unit not judged on its "
+          f"placeholder — and the two run refusals with nothing written)")
     return 0
 
 
