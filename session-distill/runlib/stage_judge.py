@@ -1049,19 +1049,29 @@ def sweep_stage(run_dir, stage, supervisor, declaration, judged, judgments, sour
         raise Refused("\n".join(problems))
     inventory = packet.sha256_bytes((run_dir / "inventory" / "current.json").read_bytes())
     held_schema = sweep_schema()
+    schema_bytes = packet.schema_bytes(held_schema)
     receipts = []
     section.update(absent=absent, not_judged_by_both=not_both, layers=layers, inventory_sha256=inventory,
                    groups=[{"group": g["group"], "candidates": g["candidates"],
                             "shards": [{"shard": sh["shard"], "units": len(sh["units"]),
                                         "pairs": sum(len(us) for us in sh["pairs"].values())} for sh in g["shards"]]}
                            for g in groups])
-    for group, shard, labels, text in sweep_packets(context, groups, inventory):
+    limits = {side: limits_of(seat, run_dir, declaration, supervisor.seats_path, case=SWEEP_CASE,
+                              output_cap=sizes["output_cap"]) for side, seat in seats.items()}
+    built = sweep_packets(context, groups, inventory)
+    over_capacity(run_dir.resolve().name, [(f"sweep-{group}-{shard}-{side}", side, seat, text)
+                                           for group, shard, _labels, text in built for side, seat in seats.items()],
+                  limits, schema_bytes, "SWEEP_OVER_CAPACITY", "the run declares a smaller sweeps.shard_units")
+    for group, shard, labels, text in built:
         payload_sha256 = packet.sha256_bytes(text.encode("utf-8"))
         row = {"group": group, "shard": shard, "seats": {}}
         for side, seat in seats.items():
             out = supervisor.item(STAGE, f"sweep-{group}-{shard}-{side}", seat, text, held_schema, case_type=SWEEP_CASE,
                                   caps=caps, view_window=False, tranche=tranche, max_output_tokens=sizes["output_cap"],
-                                  stage_check=sweep_check(labels), resume=True)
+                                  stage_check=sweep_check(labels), resume=True,
+                                  context_capacity=limits[side]["capacity"],
+                                  packet_check=lambda made, bounds=limits[side], side=side: attempt_problems(
+                                      made, bounds, schema_bytes, f"sweep {side}", "SWEEP_OVER_CAPACITY"))
             held = call_row(out)
             if out["outcome"] == "accepted":
                 call_dir = pathlib.Path(out["accepted"])
@@ -1219,6 +1229,7 @@ def cross_stage(run_dir, stage, supervisor, declaration, swept, item_of_cid, cap
     run_id = run_dir.resolve().name
     held_schema = cross_schema()
     receipts = []
+    todo = []
     for g in swept["groups"]:
         for cid in g["candidates"]:
             mine = marks.get(cid) or {}
@@ -1232,31 +1243,40 @@ def cross_stage(run_dir, stage, supervisor, declaration, swept, item_of_cid, cap
                 section["not_reviewed"].append({"candidate_id": cid, "why": "no remaining unit to review"})
                 continue
             labels = CrossLabels(context["by_id"][cid], mine, flags, negatives, context["units"], context["entries"])
-            text = cross_payload(labels)
-            payload_sha256 = packet.sha256_bytes(text.encode("utf-8"))
-            item = f"{item_of_cid(cid)}-X"
-            out = supervisor.item(STAGE, item, seat, text, held_schema, case_type=CROSS_CASE, caps=caps,
-                                  view_window=False, tranche=tranche, max_output_tokens=OUTPUT_CAP,
-                                  stage_check=cross_check(labels), resume=True)
-            held = call_row(out)
-            if out["outcome"] == "accepted":
-                call_dir = pathlib.Path(out["accepted"])
-                call_id = records.read_json(call_dir / "call.json")["call_id"]
-                receipt = records.read_json(call_dir / "receipt.json")
-                rel = cross_rel(item_of_cid(cid))
-                record = {"candidate_id": cid, "seat": seat, "call_id": call_id, "inventory_sha256": inventory,
-                          "seed": run_id, "payload_sha256": payload_sha256, "packet_sha256": receipt.get("packet_sha256"),
-                          "partial_flags": flags, "seeded_negatives": negatives,
-                          "verdicts": labels.resolve(gate.accepted(call_dir, judged=True))}
-                problems = cross_review_problems(record, flags, negatives, payload_sha256)
-                if problems:
-                    raise Refused("\n".join(problems))
-                records.write_json(run_dir, run_dir / rel, record)
-                stage.output(rel)
-                receipts.append((f"cross/{cid}", seat, call_id, receipt, payload_sha256, corrected_sha256(call_dir, text)))
-                held.update(call_id=call_id, result=rel)
-                section["reviewed"].append(cid)
-            section["calls"].append({"candidate_id": cid, "flags": len(flags), "negatives": len(negatives), **held})
+            todo.append((cid, flags, negatives, labels, cross_payload(labels)))
+    # every cross-review packet is held to Judge B's capacity before the first is sent (Codex WP-11 r1 #3)
+    schema_bytes = packet.schema_bytes(held_schema)
+    limits = limits_of(seat, run_dir, declaration, supervisor.seats_path, case=CROSS_CASE)
+    over_capacity(run_id, [(f"{item_of_cid(cid)}-X", "B", seat, text) for cid, _f, _n, _l, text in todo], {"B": limits},
+                  schema_bytes, "CROSS_OVER_CAPACITY", "a claim with this many flagged units is reviewed by a seat with "
+                                                      "more context")
+    for cid, flags, negatives, labels, text in todo:
+        payload_sha256 = packet.sha256_bytes(text.encode("utf-8"))
+        item = f"{item_of_cid(cid)}-X"
+        out = supervisor.item(STAGE, item, seat, text, held_schema, case_type=CROSS_CASE, caps=caps,
+                              view_window=False, tranche=tranche, max_output_tokens=OUTPUT_CAP,
+                              stage_check=cross_check(labels), resume=True, context_capacity=limits["capacity"],
+                              packet_check=lambda made: attempt_problems(made, limits, schema_bytes, "B",
+                                                                         "CROSS_OVER_CAPACITY"))
+        held = call_row(out)
+        if out["outcome"] == "accepted":
+            call_dir = pathlib.Path(out["accepted"])
+            call_id = records.read_json(call_dir / "call.json")["call_id"]
+            receipt = records.read_json(call_dir / "receipt.json")
+            rel = cross_rel(item_of_cid(cid))
+            record = {"candidate_id": cid, "seat": seat, "call_id": call_id, "inventory_sha256": inventory,
+                      "seed": run_id, "payload_sha256": payload_sha256, "packet_sha256": receipt.get("packet_sha256"),
+                      "partial_flags": flags, "seeded_negatives": negatives,
+                      "verdicts": labels.resolve(gate.accepted(call_dir, judged=True))}
+            problems = cross_review_problems(record, flags, negatives, payload_sha256)
+            if problems:
+                raise Refused("\n".join(problems))
+            records.write_json(run_dir, run_dir / rel, record)
+            stage.output(rel)
+            receipts.append((f"cross/{cid}", seat, call_id, receipt, payload_sha256, corrected_sha256(call_dir, text)))
+            held.update(call_id=call_id, result=rel)
+            section["reviewed"].append(cid)
+        section["calls"].append({"candidate_id": cid, "flags": len(flags), "negatives": len(negatives), **held})
     return section, receipts
 
 
@@ -1746,15 +1766,32 @@ def check(labels, capacity, reconsider=False):
     return judged
 
 
-def attempt_problems(built, limits, schema_bytes, who):
-    """The bound on one judgment attempt's packet as `Supervisor.item(packet_check=)` asks it, built under the call id
-    its reservation gave it and, on a retry, carrying its correction: JUDGE_OVER_CAPACITY when it and the output cap
-    exceed the seat's capacity. A seat whose capacity is not measured is not bounded here (D13)."""
+def attempt_problems(built, limits, schema_bytes, who, code="JUDGE_OVER_CAPACITY"):
+    """The bound on one attempt's packet as `Supervisor.item(packet_check=)` asks it, built under the call id its
+    reservation gave it and, on a retry, carrying its correction: `code` (JUDGE_OVER_CAPACITY for a judgment, and the
+    sweep's and the cross-review's own) when it and the output cap exceed the seat's capacity. A seat whose capacity is
+    not measured is not bounded here (D13)."""
     from runlib import stage_read
     size = bound.driver_bytes(built, schema_bytes)[0]
     beyond = beyond_capacity(max(size - stage_read.CORRECTION_ROOM, 0), limits)
-    return [f"JUDGE_OVER_CAPACITY {who}: this attempt's packet of {size} driver bytes with the output cap exceeds the "
+    return [f"{code} {who}: this attempt's packet of {size} driver bytes with the output cap exceeds the "
             f"seat's capacity {limits['capacity']}"] if beyond else []
+
+
+def over_capacity(run_id, built, limits, schema_bytes, code, advice):
+    """Before any call of a kind is made: every packet of `built` (`[(item, side, seat, text)]`) whose first attempt,
+    with room for its retry's correction and the output cap, exceeds its seat's capacity (`limits[side]`), refused by
+    `code` naming them and what the run can change. Codex WP-11 r1 #3: the sweeps and the cross-review were sent with
+    no capacity bound at all, and a shard's unit count does not bound its bytes."""
+    over = []
+    for item, side, seat, text in built:
+        made = packet.build(f"{run_id}-{STAGE}-{item}-a1", STAGE, seat, text, schema_bytes)
+        size = bound.driver_bytes(made, schema_bytes)[0]
+        if beyond_capacity(size, limits[side]):
+            over.append(f"{item} ({size} driver bytes, {seat} capacity {limits[side]['capacity']})")
+    if over:
+        raise Refused(f"{code} S6: {len(over)} packets exceed their seat's capacity with the output cap and a retry's "
+                      f"correction ({'; '.join(over[:3])}); {advice}")
 
 
 # the frame gate.correction puts around the failure lines of the one corrective retry, read from the gate itself
@@ -2137,16 +2174,23 @@ def fx_library(wide=0):
     return units
 
 
-def fx_seats(root, capacity_a=None, name="seats.json"):
+def fx_seats(root, capacity_a=None, name="seats.json", capacities=None, codex_allowance=None):
     """A seats file as D13 leaves the judges' seats until their first live calls: seats.json's own, with Judge A's
     capacity and Claude's allowance measured and Judge B's host allowance and seat capacity not; `capacity_a` replaces
-    Judge A's capacity."""
+    Judge A's capacity. `capacities` (`{seat: tokens}`) declares a capacity for other seats at their host's version, and
+    `codex_allowance` measures the Codex host's, so a sweep's or a cross-review's seat can be bounded in a control."""
     held = json.loads(gate.SEATS.read_text(encoding="utf-8"))
     if capacity_a is not None:
         held["seat_capacity"]["claude:claude-opus-5-5/high"]["context_capacity"] = capacity_a
     held["hosts"]["codex"]["host_allowance"] = {"hermetic": {"allowance_tokens": None, "measured": False,
                                                              "basis": "unmeasured: D13"}}
     held["seat_capacity"].pop("codex:gpt-6-astra/xhigh", None)
+    for seat, tokens in (capacities or {}).items():
+        held["seat_capacity"][seat] = {"context_capacity": tokens, "basis": "planted by a control",
+                                       "host_version": held["hosts"][seat.partition(":")[0]]["version"]}
+    if codex_allowance is not None:
+        held["hosts"]["codex"]["host_allowance"] = {"hermetic": {"allowance_tokens": codex_allowance, "measured": True,
+                                                                 "basis": "planted by a control"}}
     path = pathlib.Path(root) / name
     path.write_text(json.dumps(held), encoding="utf-8")
     return path
@@ -3159,6 +3203,71 @@ def self_test():
                 said = refusal(lambda: given_from_run(stale, other))
                 control("Codex WP-11 r1 #2: a first judgment file naming another call than the summary's is JUDGMENT_STALE "
                         "to S10's reader", said.startswith(f"JUDGMENT_STALE {other} A"), said[:200])
+                # Codex WP-11 r1 #3: the sweeps and Judge B's cross-review are held to their seats' capacity, every packet
+                # before the first call of its kind and each attempt as it is sent; a seat nobody measured is not bounded
+                # (D13). Driven with a supervisor that records what it is asked, over a copy of the swept run.
+                cap_root = root / "cap-copy"
+                shutil.copytree(whole.parent, cap_root)
+                capped = cap_root / whole.name
+                judged_w = sorted(whole_packets)
+                judgments_w = {c: {w: guarded(lambda c=c, w=w: records.read_json(capped / judgment_rel(item_of(c), w))
+                                              ["judgment"], {}) for w in SEAT_KEYS} for c in judged_w}
+                sources_w = {r["candidate_id"]: r["source"]
+                             for r in guarded(lambda: records.read_json(capped / SUMMARY), {}).get("packets", [])}
+                swept_w = guarded(lambda: records.read_json(capped / SUMMARY), {}).get("sweeps") or {}
+
+                class Asked:
+                    def __init__(self, seats_path):
+                        self.seats_path, self.items = seats_path, []
+
+                    def item(self, stage_, item, seat, text, schema_, **kw):
+                        self.items.append((item, seat, kw))
+                        return {"item": item, "outcome": "failed", "codes": ["NOT_SENT"], "attempts": []}
+
+                def asked(kind, seats_file):
+                    sup = Asked(seats_file)
+                    said = ""
+                    with records.run_stage(capped, STAGE, INPUTS) as stg:
+                        try:
+                            if kind == "sweep":
+                                sweep_stage(capped, stg, sup, stg.declaration, judged_w, judgments_w, sources_w, {},
+                                            "calibration")
+                            else:
+                                cross_stage(capped, stg, sup, stg.declaration, swept_w, item_of, {}, "calibration")
+                        except Refused as exc:
+                            said = str(exc)
+                        stg.record["status"] = "partial"
+                    return said, sup.items
+                sweep_seat, cross_seat = "claude:claude-sonnet-5-5/medium", "codex:gpt-6-astra/xhigh"
+                huge = packet.build("c-a2", STAGE, "s", "x" * 8_000_000)
+                said_s, asked_s = asked("sweep", fx_seats(root, name="sweep-tight.json", capacities={sweep_seat: 3000}))
+                control("Codex WP-11 r1 #3: a sweep shard over its seat's capacity is SWEEP_OVER_CAPACITY before any sweep "
+                        "is sent", said_s.startswith("SWEEP_OVER_CAPACITY S6") and asked_s == [], f"{said_s[:200]} {len(asked_s)}")
+                said_s, asked_s = asked("sweep", fx_seats(root, name="sweep-room.json", capacities={sweep_seat: 150_000}))
+                side_a = [kw for item, seat, kw in asked_s if seat == sweep_seat]
+                side_b = [kw for item, seat, kw in asked_s if seat != sweep_seat]
+                control("Codex WP-11 r1 #3: within capacity every sweep is sent with its seat's capacity and an attempt bound "
+                        "that refuses an oversized attempt, and the unmeasured Codex sweep seat is not bounded (D13)",
+                        not said_s and side_a and side_b and all(kw.get("context_capacity") == 150_000 for kw in side_a)
+                        and all(any(x.startswith("SWEEP_OVER_CAPACITY sweep a") for x in kw.get("packet_check", lambda m: [])(huge))
+                                for kw in side_a)
+                        and all(kw.get("context_capacity") is None and kw.get("packet_check", lambda m: [])(huge) == [] for kw in side_b),
+                        f"{said_s[:200]} {[kw.get('context_capacity') for kw in side_a]} "
+                        f"{[guarded(lambda kw=kw: kw.get('packet_check', lambda m: [])(huge), ['RAISED'])[:1] for kw in side_a]} "
+                        f"{[kw.get('context_capacity') for kw in side_b]} "
+                        f"{[guarded(lambda kw=kw: kw.get('packet_check', lambda m: [])(huge), ['RAISED'])[:1] for kw in side_b]}")
+                said_c, asked_c = asked("cross", fx_seats(root, name="cross-tight.json", capacities={cross_seat: 3000},
+                                                         codex_allowance=5000))
+                control("Codex WP-11 r1 #3: a cross-review packet over Judge B's capacity is CROSS_OVER_CAPACITY before any "
+                        "cross-review is sent", said_c.startswith("CROSS_OVER_CAPACITY S6") and asked_c == [],
+                        f"{said_c[:200]} {len(asked_c)}")
+                said_c, asked_c = asked("cross", fx_seats(root, name="cross-room.json", capacities={cross_seat: 150_000},
+                                                         codex_allowance=5000))
+                control("Codex WP-11 r1 #3: within capacity every cross-review is sent with Judge B's capacity and an attempt "
+                        "bound that refuses an oversized attempt", not said_c and asked_c
+                        and all(kw.get("context_capacity") == 150_000
+                                and any(x.startswith("CROSS_OVER_CAPACITY B") for x in kw.get("packet_check", lambda m: [])(huge))
+                                for _i, _s, kw in asked_c), f"{said_c[:200]} {len(asked_c)}")
                 sixth = guarded(lambda: run(retried, supervisor(retried, root / "cells-12", whole_plan)),
                                 lambda e: {"problem": repr(e)})
                 sixth_reused = [h.get("reused") for row in sixth.get("calls", []) for h in row["seats"].values()] + [
