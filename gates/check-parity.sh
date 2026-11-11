@@ -413,6 +413,12 @@ if [ -f session-distill/distill.py ]; then
   leg -q "FAIL: session-distill run declaration self-test (session-distill/distill.py declare)" \
     python3 session-distill/distill.py declare --self-test
 fi
+# The declaration's own entry point: the suite the driver's `declare --self-test` runs, reached the way the module offers
+# it, so every file that offers --self-test has its leg (gates/check-self-test-legs.py).
+if [ -f session-distill/runlib/declare.py ]; then
+  leg -q "FAIL: session-distill declaration module self-test (session-distill/runlib/declare.py)" \
+    python3 session-distill/runlib/declare.py --self-test
+fi
 if [ -f session-distill/runlib/inventory.py ]; then
   leg -q -e "FAIL: session-distill inventory self-test (session-distill/runlib/inventory.py)" \
     python3 session-distill/runlib/inventory.py --self-test
@@ -501,6 +507,11 @@ if [ -f session-distill/runlib/ledger_compat.py ]; then
   leg -q "FAIL: session-distill ledger projection self-test (session-distill/runlib/ledger_compat.py)" \
     python3 session-distill/runlib/ledger_compat.py --self-test
 fi
+# The plain-asks counter (in-window user asks, with sidechain, injected, pre-window and pasted turns excluded).
+if [ -f session-distill/plain-asks.py ]; then
+  leg -q "FAIL: session-distill plain-asks self-test (session-distill/plain-asks.py)" \
+    python3 session-distill/plain-asks.py --self-test
+fi
 if [ -f session-distill/update-state.py ]; then
   leg -q "FAIL: session-distill nudge state self-test (session-distill/update-state.py)" \
     python3 session-distill/update-state.py --self-test
@@ -577,9 +588,9 @@ if [ -f session-distill/runlib/derive.py ]; then
 fi
 # The §6.3 delivery evidence (plan WP-10 done-whens 2 and 5): tables/delivery_evidence.json read as data, the O3
 # delivery verdicts each flipped, its frozen fixtures and the table against design §6.3's levels; no model is called.
-if [ -f session-distill/runlib/delivery.py ]; then
-  leg -q "FAIL: session-distill §6.3 delivery evidence self-test (session-distill/runlib/delivery.py)" \
-    python3 session-distill/runlib/delivery.py --self-test
+if [ -f session-distill/runlib/delivery_evidence.py ]; then
+  leg -q "FAIL: session-distill §6.3 delivery evidence self-test (session-distill/runlib/delivery_evidence.py)" \
+    python3 session-distill/runlib/delivery_evidence.py --self-test
 fi
 # S5 retrieve (plan WP-10 done-when 3): retrieval over a library of its own, recurrence over lineage-linked census rows,
 # and the stage over a golden run through S4, its quotes verified again and the driver run as a process; no model is called.
@@ -683,6 +694,14 @@ fi
 # reaches the network fails in a tunnel. What runs is the structural half — that every pin
 # names a mapped document and every mapped document is pinned — which is what makes the
 # online comparison able to run at all.
+# Every session-distill file that offers --self-test has a leg here (a suite the umbrella does not run is green about
+# nothing at commit time); the gate and its planted controls.
+if [ -f gates/check-self-test-legs.py ]; then
+  leg -q "FAIL: a session-distill self-test has no umbrella leg (run gates/check-self-test-legs.py)" \
+    python3 gates/check-self-test-legs.py
+  leg -q "FAIL: self-test leg coverage gate self-test (gates/check-self-test-legs.py --self-test)" \
+    python3 gates/check-self-test-legs.py --self-test
+fi
 if [ -f gates/check-prompting-sources.py ]; then
   leg -q "FAIL: prompting source pins (run gates/check-prompting-sources.py)" \
     python3 gates/check-prompting-sources.py

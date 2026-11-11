@@ -60,6 +60,8 @@ SUBJECTS = [
     # subject here; its one floor-interpreter subprocess per file set is what keeps the
     # self-test off the 134s cliff that kept check-endpoints.py out for so long.
     "gates/check-python-floor.py",
+    # every session-distill file offering --self-test has an umbrella leg; a planted-tree self-test, about a second
+    "gates/check-self-test-legs.py",
     # Shipped beside wrappers/claude-run.sh: the hermetic profile's evidence renderer.
     "wrappers/claude_hermetic_evidence.py",
     # The session-distill driver. The audit's automatic inventory recognises only checker-named
@@ -93,7 +95,7 @@ SUBJECTS = [
     "session-distill/runlib/views.py",
     "session-distill/runlib/evidence.py",
     "session-distill/runlib/derive.py",
-    "session-distill/runlib/delivery.py",
+    "session-distill/runlib/delivery_evidence.py",
     "session-distill/runlib/stage_retrieve.py",
     "session-distill/runlib/controls.py",
 ]

@@ -32,8 +32,8 @@ whose evidence no producer reads yet (`producer: absent`) answers `unknown` nami
 produces consumed artifacts - the installer - is read from its installation binding (`installer_exposure`), golden
 until WP-15's receipt is installed and read live.
 
-  delivery.py --self-test
-  delivery.py --generate-fixtures [PATH]
+  delivery_evidence.py --self-test
+  delivery_evidence.py --generate-fixtures [PATH]
 """
 import copy
 import json
@@ -472,7 +472,7 @@ def generate_fixtures(path=FIXTURES_PATH):
     fixtures = [{"id": f"{section}/{row['id']}", "cases": _cases(section, row, held)}
                 for section in SECTIONS for row in held[section]]
     doc = {"$comment": "design §6.3: one frozen fixture per row of tables/delivery_evidence.json, written once by "
-                       "`runlib/delivery.py --generate-fixtures`; the self-test never regenerates them.",
+                       "`runlib/delivery_evidence.py --generate-fixtures`; the self-test never regenerates them.",
            "fixtures": fixtures}
     path.write_text(json.dumps(doc, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
     return len(fixtures)
@@ -777,10 +777,10 @@ def self_test():
             "DELIVERY_INPUT_INVALID")
 
     for failure in failures:
-        print(f"delivery --self-test [FAIL] {failure}")
+        print(f"delivery_evidence --self-test [FAIL] {failure}")
     if failures:
         return 1
-    print(f"delivery --self-test: OK ({len(ran)} controls, {len(fixtures)} frozen fixtures over the table's {len(row_ids())} "
+    print(f"delivery_evidence --self-test: OK ({len(ran)} controls, {len(fixtures)} frozen fixtures over the table's {len(row_ids())} "
           "rows: §6.3's surfaces and states as the design states them, every implemented surface handled and every absent "
           "one named, the unit read over returned bytes with prefixes removed and versions bound by pin or release, the O3 "
           "delivery verdicts each with its flipped control and five through the derivation, the selection history, Codex "
@@ -794,5 +794,5 @@ if __name__ == "__main__":
         print(f"wrote {generate_fixtures(target)} fixtures to {target}")
         sys.exit(0)
     if "--self-test" not in sys.argv[1:]:
-        sys.exit("usage: delivery.py --self-test | --generate-fixtures [PATH]")
+        sys.exit("usage: delivery_evidence.py --self-test | --generate-fixtures [PATH]")
     sys.exit(self_test())
