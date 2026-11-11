@@ -30,6 +30,7 @@ GIT_DIR / GIT_INDEX_FILE point at the hook's snapshot, which is what git reads h
 """
 import argparse
 import ast
+import importlib.util
 import os
 import pathlib
 import re
@@ -39,64 +40,20 @@ import tempfile
 from unittest import mock
 
 REPO = pathlib.Path(__file__).resolve().parent.parent
+# The git readers live in the driver (`session-distill/runlib/gitread.py`), which ships, and this
+# author-side gate imports them from there. The direction is AGENTS.md's: author-side imports
+# shipped, never the reverse. Loaded by path because `session-distill` is not an importable package
+# name, and this gate runs only from a checkout, where the file is present.
+GITREAD_REL = "session-distill/runlib/gitread.py"
+_gitread = importlib.util.spec_from_file_location("runlib_gitread", REPO / GITREAD_REL)
+gitread = importlib.util.module_from_spec(_gitread)
+_gitread.loader.exec_module(gitread)
+git_blob, base_blob, current_blob, lines_of = (
+    gitread.git_blob, gitread.base_blob, gitread.current_blob, gitread.lines_of)
 # The ceiling (20 KiB) of design/session-distill/2026-10-21T0634--9b42df2--global-file-ceiling.md.
 CEILING_BYTES = 20480
 GLOBAL = "claude/CLAUDE.md"
 KO = "ko/claude/CLAUDE.md"
-
-
-def git_blob(repo, spec):
-    """The bytes of `REV:path` (or `:path`, the index), or None when git cannot read it."""
-    done = subprocess.run(["git", "-C", str(repo), "cat-file", "blob", spec],
-                          capture_output=True)
-    return done.stdout if done.returncode == 0 else None
-
-
-def base_blob(repo, base, rel):
-    """(bytes, absent) for `rel` at `base`. A revision that lacks the path is absent and
-    measures as empty. Bytes are None only when git cannot resolve the revision or read the
-    tree, which is no measurement at all."""
-    resolved = subprocess.run(["git", "-C", str(repo), "rev-parse", "--verify", "--quiet",
-                               f"{base}^{{commit}}"], capture_output=True)
-    if resolved.returncode != 0:
-        return None, False
-    listing = subprocess.run(["git", "-C", str(repo), "ls-tree", "--full-tree", "-z",
-                              resolved.stdout.strip().decode(), "--", rel], capture_output=True)
-    if listing.returncode != 0:
-        return None, False
-    entries = [e for e in listing.stdout.split(b"\0") if e]
-    if not entries:
-        return b"", True
-    mode, kind, oid = entries[0].split(b"\t", 1)[0].split(b" ")
-    return (git_blob(repo, oid.decode()) if kind == b"blob" else None), False
-
-
-def current_blob(repo, rel, worktree):
-    """(bytes, absent). A path the index (or disk) lacks is absent and measures as empty — a
-    deletion is a reduction. Bytes are None only when git or the disk cannot answer, which
-    is no measurement at all."""
-    if worktree:
-        try:
-            return (pathlib.Path(repo) / rel).read_bytes(), False
-        except FileNotFoundError:
-            return b"", True
-        except OSError:
-            return None, False
-    listing = subprocess.run(["git", "-C", str(repo), "ls-files", "--stage", "-z", "--", rel],
-                             capture_output=True)
-    if listing.returncode != 0:
-        return None, False
-    entries = [e for e in listing.stdout.split(b"\0") if e]
-    if not entries:
-        return b"", True
-    if any(e.split(b"\t", 1)[0].split(b" ")[2] != b"0" for e in entries):
-        return None, False  # unmerged: the index holds no single version to measure
-    return git_blob(repo, f":{rel}"), False
-
-
-def lines_of(raw):
-    text = raw.decode("utf-8", "replace").split("\n")
-    return text[:-1] if text[-1] == "" else text
 
 
 def new_lines(base, current):
@@ -351,6 +308,8 @@ def self_test():
         files = {GLOBAL: (BASE, 0o644), KO: (KO_BASE, 0o644),
                  ".githooks/pre-commit": (real.read_text(encoding="utf-8"), 0o755),
                  "gates/check-global-file.py": (pathlib.Path(__file__).read_text(encoding="utf-8"), 0o755),
+                 # the git readers this gate imports from the driver, which is where they ship
+                 GITREAD_REL: ((REPO / GITREAD_REL).read_text(encoding="utf-8"), 0o644),
                  "gates/check-parity.sh": (stub, 0o755), "gates/check-package.sh": (stub, 0o755)}
         for rel, (text, mode) in files.items():
             (repo / rel).parent.mkdir(parents=True, exist_ok=True)

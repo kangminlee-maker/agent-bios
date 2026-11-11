@@ -798,8 +798,13 @@ def self_test():
                     refusal(lambda: run(stale)))
             # the driver, as a process
             cli = copy_of("cli")
+            # The fixture's ledger reference, named for the subprocess: the in-process calls above read
+            # it from the module-level value `fx_reader` set, which a child process does not inherit.
+            from runlib import stage_read
             done = subprocess.run([sys.executable, "-I", str(HERE / "distill.py"), "retrieve", "--run-id", cli.name,
-                                   "--out", str(cli.parent)], capture_output=True, text=True, timeout=600)
+                                   "--out", str(cli.parent),
+                                   "--checkout-ledger", stage_read.CHECKOUT_LEDGER],
+                                  capture_output=True, text=True, timeout=600)
             said_cli = done.stdout + done.stderr
             control("the driver's `retrieve` runs S5 as a process, completes, and prints counts with the withheld line",
                     done.returncode == 0 and "S5 retrieve: declaration_seq" in said_cli

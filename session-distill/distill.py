@@ -25,9 +25,11 @@
                                                            S6: each judged candidate to Judge A and Judge B
   distill.py <stage command> --run-id ID                   S3, S6-S12: named, and refused until implemented
 
-A run lives in `session-distill/out/<run-id>/` (`--out` names another root): `run.json`,
-`amendments.jsonl`, `stages/<stage>/record.json`, and per-call directories. The declaration,
-its amendments and the stage records are `runlib/declare.py` and `runlib/records.py`; the
+A run lives in `<run root>/<run-id>/`: `run.json`, `amendments.jsonl`,
+`stages/<stage>/record.json`, and per-call directories. The run root is `--out`, or, unset, the
+XDG state directory `default_out()` resolves; a checkout passes `session-distill/out/<...>`
+explicitly, as the runbook does. The declaration, its amendments and the stage records are
+`runlib/declare.py` and `runlib/records.py`; the
 record schemas every stage keeps (claim, evidence, expected observation) are
 `schemas/*.schema.json`, loaded through `runlib/claims.py`; the declaration's own structure is
 `schemas/run.schema.json`. The census (S1) is `runlib/census.py`, over the readers of `runlib/sources.py`,
@@ -38,8 +40,9 @@ over `runlib/redaction.py`, `runlib/search.py` and the evidence store of `runlib
 Design: §3, §4, §4.1, §5.1-§5.5, §6.2, §7.1, §7.4, §9.
 """
 import argparse
-import contextlib
 import ast
+import contextlib
+import inspect
 import io
 import json
 import os
@@ -50,6 +53,7 @@ import signal
 import subprocess
 import sys
 import tempfile
+import types
 
 # Before the command's module graph is imported, not inside the functions that load modules by
 # path: `runlib.projection` loads `learn/redact.py` at import, and a cache write lands beside the
@@ -57,7 +61,22 @@ import tempfile
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 
-HOME = str(pathlib.Path.home())
+def _diagnostic_home():
+    """The owner home a diagnostic masks, resolved without ever failing.
+
+    This runs at import, before either startup boundary, and `pathlib.Path.home()` RAISES
+    `RuntimeError` when `$HOME` is unset and the account has no password-database entry — so a
+    machine in that state could not run `--out DIR`, or `--help`, or anything at all (review Y r2
+    #3). `None` is what every consumer of this value already takes as its default (`entry.say`,
+    `entry.failed`, `inventory.overlap_problems`, `projection.project`, which expands `~` itself),
+    so an unresolvable home masks exactly what the floor's own default masks and costs no startup."""
+    try:
+        return str(pathlib.Path.home())
+    except (RuntimeError, OSError, KeyError):
+        return None
+
+
+HOME = _diagnostic_home()
 # The bootstrap, and the only thing in this file that runs before the boundary exists. It is
 # stdlib only and its line carries NO path, because what failed is the very code that would have
 # projected one: `from runlib import entry` stood outside every boundary this command has, so an
@@ -88,6 +107,7 @@ STARTUP_WITHHELD = entry.WITHHELD
 try:
     from runlib import census, coverage, declare, inventory, projection, records, sources, stage_form, stage_judge, \
         stage_retrieve, stagelock, views
+    from runlib import ledger as ledger_lib
     from runlib.records import Refused
 except BaseException as _startup_exc:   # SystemExit included: `validate` exits at import time
     # The imports used to stand OUTSIDE every boundary this command has: `runlib.validate` exits
@@ -96,7 +116,82 @@ except BaseException as _startup_exc:   # SystemExit included: `validate` exits 
     # if the floor itself is what failed, the fixed line stands instead.
     sys.exit(entry.failed(_startup_exc, HOME, label="STARTUP_FAILED", code=2))
 
-OUT = pathlib.Path(__file__).resolve().parent / "out"
+def _password_home():
+    """This process's own home directory, as the password database states it.
+
+    A named seam rather than an inline lookup, deliberately: it is the one home a control cannot
+    override, so the relative-HOME control below reached the REAL account home and created a run
+    under `~/.local/state/agent-bios/distill/runs/` while a commit hook was running (review Y r2
+    #1). A control states the account home it means by replacing this function; production never
+    does, and the resolver it feeds is exercised against the real database by a control of its own."""
+    import pwd
+    return pwd.getpwuid(os.getuid()).pw_dir
+
+
+def _account_home():
+    """The account's own home directory, which does not come from the environment.
+
+    `pathlib.Path.home()` reads `$HOME`, so it answered `relative-home` for a relative `$HOME` and
+    the "ignored" value came straight back as the base — the default then resolved against the
+    working directory and a control of mine wrote a run into this checkout. The password database
+    is the authority that cannot be relative. If it cannot be read, no default is better than one
+    resolved against whatever directory the caller happens to stand in."""
+    try:
+        home = _password_home()
+    except Exception:                      # no pwd (Windows), or no entry for this uid
+        home = None
+    if home and pathlib.PurePath(home).is_absolute():
+        return pathlib.Path(home)
+    raise Refused("DEFAULT_OUT_UNRESOLVED: this account has no absolute home directory, so the "
+                  "default run root cannot be resolved; pass --out DIR")
+
+
+def default_out(environ=None, home=None):
+    """The root of the run directories when the caller names none.
+
+    `${XDG_STATE_HOME:-~/.local/state}/agent-bios/distill/runs`. Three things decide it:
+
+    * it is NOT inside the package. A run writes `run.json`, stage records and per-call directories;
+      writing them next to the code would put a user's work inside a tree the next install replaces.
+    * it is NOT inside the owner's state root either. That root — pins, receipts, the ledger — is one
+      of the roots `inventory.protected_roots` forbids writing into, because a run once wrote four
+      artifacts into it (R1#1), and the answer to this was not to carve an exception out of that
+      sentence.
+    * the XDG STATE directory, not the data directory: a run is regenerable output, while the data
+      directory holds what is the owner's.
+
+    A checkout passes `--out session-distill/out/<...>` explicitly; the runbook does.
+
+    Both inputs are taken only when they are ABSOLUTE. A relative `XDG_STATE_HOME` — `.` is the
+    one a shell hands over by accident — resolved against the working directory, which during
+    development is this checkout, so the default landed inside the package it must stay out of.
+    A relative value is therefore ignored, loudly, rather than honoured or refused: the caller gets
+    the documented default and a line saying why. The same rule for `HOME`, whose relative value
+    `pathlib.Path.home()` would not have produced either.
+
+    Where the resolved default lands is a second question, and it is not this function's: nothing
+    here can know the owner's roots. `destination_of` judges it before any lock or write.
+    """
+    environ = os.environ if environ is None else environ
+    notes = []
+    # XDG FIRST, and the home only when XDG gives no absolute base. An absolute `XDG_STATE_HOME`
+    # determines the whole answer, so resolving a home it does not need let an unreadable account
+    # entry refuse a destination that was already decided (review Y r2 #4).
+    raw_base = environ.get("XDG_STATE_HOME")
+    if raw_base is not None and raw_base != "" and not pathlib.PurePath(raw_base).is_absolute():
+        notes.append(f"XDG_STATE_HOME={raw_base!r} is relative and is ignored for the default run "
+                     f"root; the XDG base-directory contract names absolute paths only")
+        raw_base = None
+    base = pathlib.Path(raw_base) if raw_base else None
+    if base is None:
+        raw_home = home if home is not None else environ.get("HOME")
+        if raw_home is not None and not pathlib.PurePath(str(raw_home)).is_absolute():
+            notes.append(f"HOME={str(raw_home)!r} is relative and is ignored for the default run root")
+            raw_home = None
+        base = (pathlib.Path(raw_home) if raw_home else _account_home()) / ".local" / "state"
+    for note in notes:
+        say(f"DEFAULT_OUT_INPUT_IGNORED {note}", sys.stderr)
+    return pathlib.Path(base).expanduser() / "agent-bios" / "distill" / "runs"
 
 # The inline programs this file's own suite runs, as module-level constants rather than locals: a
 # `python -c` program is admitted by DECLARATION (`runlib/dispatch.py` `INLINE_PROGRAMS`, which pins
@@ -158,14 +253,53 @@ STAGE_COMMANDS = {
 }
 
 
+def protection_for(args, repo):
+    """Every root this invocation must not write into, assembled as S2 assembles it.
+
+    `configured_roots` resolves the owner's roots whether or not this run reads them, and the
+    checkout is always one of the protected projects — that is `inventory`'s rule and this reuses
+    it rather than keeping a second copy."""
+    declared_state, declared_user = inventory.configured_roots(
+        getattr(args, "state_root", None), getattr(args, "user_root", None))
+    projects = inventory.project_identities([str(repo), *(getattr(args, "project", None) or [])])
+    native = {"projects": {identity["path"]: pathlib.Path(identity["path"])
+                           for identity in projects.values()}}
+    return inventory.protected_roots(declared_state, declared_user, native, checkout=repo, repo=repo)
+
+
+def destination_of(args):
+    """`--out` when the caller named one, else the default — and whether it was the default.
+
+    A DEFAULT destination is judged here, before a run id is checked and long before a lock or a
+    directory: `default_out` cannot know the owner's roots, and an environment can put the XDG
+    state directory anywhere, including inside the package or inside the data root that holds the
+    pins and the receipts. `declare` had no protection of its own — only `inventory` checked — so
+    `XDG_STATE_HOME=$HOME/.local/share` was enough to write a run into the owner's state (review Y
+    #2). An explicit `--out` keeps its own per-command verdict (`PROTECTED_OVERLAP`); this one is
+    about the path the driver chooses for the caller."""
+    if getattr(args, "out", None):
+        return str(args.out), False
+    repo = pathlib.Path(__file__).resolve().parents[1]
+    chosen = default_out()
+    problems = inventory.overlap_problems([chosen], protection_for(args, repo), home=HOME)
+    if problems:
+        raise Refused(
+            f"DEFAULT_OUT_PROTECTED {chosen}: the default run root resolves inside a root this "
+            f"driver must not write into ({'; '.join(problems)}). Nothing was written. Pass "
+            f"--out DIR to name a destination outside the owner's roots and outside the package.")
+    return str(chosen), True
+
+
 def run_dir_of(args):
     """`--out`/`<run-id>`: the run id is one path component, and the directory it names resolves
     to a place beneath `--out`. Nothing — no lock, no directory — is created before this holds."""
+    out, _from_default = destination_of(args)
+    args.out = out
     if not RUN_ID.fullmatch(args.run_id):
         raise Refused(f"RUN_ID_INVALID {args.run_id!r}: a run id is one path component of letters, digits, '.', '_' and '-'")
-    run_dir = records.contained(args.out, args.run_id)
+    run_dir = records.contained(out, args.run_id)
     if run_dir is None:
-        raise Refused(f"RUN_DIR_ESCAPE {args.run_id!r}: {pathlib.Path(args.out) / args.run_id} resolves outside {args.out}")
+        raise Refused(f"RUN_DIR_ESCAPE {args.run_id!r}: {pathlib.Path(out) / args.run_id} resolves outside {out}")
     return run_dir
 
 
@@ -269,8 +403,11 @@ def cmd_inventory(args):
         standalone = inventory.standalone_problems(out_dir, HOME)
         if standalone:
             raise Refused("; ".join(standalone))
-    ledger_path = pathlib.Path(args.ledger or (repo / inventory.LEDGER_REL))
-    ledger = records.read_json(ledger_path) if ledger_path.is_file() else None
+    # The ledger: what `--ledger` names, else the state root's own (`<state>/distill/ledger.json`).
+    # The checkout's ledger under `design/` is not a default any more — a packaged user has no such
+    # directory, and the runbook passes the path when a run is meant to read the owner's (WP-24).
+    ledger_path = ledger_lib.ledger_path(state_root, args.ledger)
+    ledger = records.read_json(ledger_path) if ledger_path and ledger_path.is_file() else None
     head = subprocess.run(["git", "-C", str(repo), "rev-parse", "--short", "HEAD"],
                           capture_output=True, text=True)
     # The transcripts come from the run's own census (S1), through its readers and bound to its
@@ -280,7 +417,8 @@ def cmd_inventory(args):
     def produce(zstd=None):
         return inventory.run(repo, state_root, user_root, out_dir, pin=args.pin, native_roots=native,
                              ledger=ledger, commit=(head.stdout.strip() or None), run_dir=run_dir,
-                             zstd=zstd, declared_state=str(declared_state), declared_user=str(declared_user))
+                             zstd=zstd, declared_state=str(declared_state), declared_user=str(declared_user),
+                             ledger_ref=(str(args.ledger) if args.ledger else None))
 
     if args.run_id:
         # S2 holds two producers; this is the inventory part, and views owns the other
@@ -318,18 +456,32 @@ def cmd_form(args):
     if args.dry:
         if args.cells or args.golden_plan:
             raise Refused("INPUT_INVALID form --dry: a dry run makes no call, so it takes no --cells or --golden-plan")
-        summary = stage_form.run(run_dir, None, dry=True, index_rows=index_rows)
+        summary = stage_form.run(run_dir, None, dry=True, index_rows=index_rows,
+                                 ledger_ref=args.checkout_ledger)
     else:
         if not args.cells:
             raise Refused("INPUT_INVALID form --cells: the formation call runs in a cell under a cell root; give --cells "
                           "DIR, or --dry to stop before the call")
-        summary = stage_form.run(run_dir, stage_form.supervisor(run_dir, args.cells, args.golden_plan), index_rows=index_rows)
+        summary = stage_form.run(run_dir, stage_form.supervisor(run_dir, args.cells, args.golden_plan),
+                                 index_rows=index_rows, ledger_ref=args.checkout_ledger)
     say("\n".join(stage_form.report_lines(summary)))
     return 0
 
 
+def name_checkout_ledger(args):
+    """Set the module-level reference `lifecycle_intake.ledger_of` reads, from this caller's flag.
+
+    The hook the intake documents for an author-side caller: the stages that read the pinned ledger
+    take no parameter for it, and a driver that guessed the path would be reading whatever file the
+    guess lands on. Unset without the flag, so the stage is refused by name."""
+    if getattr(args, "checkout_ledger", None):
+        from runlib import lifecycle_intake
+        lifecycle_intake.CHECKOUT_LEDGER = args.checkout_ledger
+
+
 def cmd_retrieve(args):
     """S5 (runlib/stage_retrieve.py): code only, over S4's population."""
+    name_checkout_ledger(args)
     say("\n".join(stage_retrieve.report_lines(stage_retrieve.run(run_dir_of(args)))))
     return 0
 
@@ -337,6 +489,7 @@ def cmd_retrieve(args):
 def cmd_judge(args):
     """S6 (runlib/stage_judge.py): dry, up to the calls; otherwise both judges' calls through a supervisor made before
     the stage is entered, so a live run without its token is refused before anything is recorded."""
+    name_checkout_ledger(args)
     run_dir = run_dir_of(args)
     if args.dry:
         if args.cells or args.golden_plan:
@@ -367,7 +520,9 @@ def build_parser():
 
     def common(sub):
         sub.add_argument("--run-id", help="the run directory name under --out")
-        sub.add_argument("--out", default=str(OUT), help="root of the run directories")
+        sub.add_argument("--out", default=None,
+                         help="root of the run directories (default: the XDG state directory's "
+                              "agent-bios/distill/runs, which is inside neither the package nor the state root)")
 
     sub = commands.add_parser("declare", help="S0: the run declaration and its amendments")
     common(sub)
@@ -407,11 +562,25 @@ def build_parser():
             sub.add_argument("--dry", action="store_true", help="stop before the calls: every judgment packet's measure")
             sub.add_argument("--cells", help="the cell root the judgment calls run under (made mode 700)")
             sub.add_argument("--golden-plan", help="a golden hosts' plan: the calls are answered from it and start no model")
+        if name in ("retrieve", "judge"):
+            # S5 and S6 read the pinned ledger through `lifecycle_intake.ledger_of`, which refuses
+            # LEDGER_UNNAMED rather than guessing a checkout's layout. Without this flag neither
+            # command could run from a checkout at all — the refusal came from the merge of the
+            # ship-driver history, where the installed ledger became a parameter, with the two
+            # stages that read it on the other side.
+            sub.add_argument("--checkout-ledger", help="the ledger's path INSIDE the declaration's checkout "
+                                                       "destination, which the caller names because the layout of a "
+                                                       "checkout is not this driver's to assume; without it the "
+                                                       "stage is refused LEDGER_UNNAMED rather than reading a guess")
         if name == "form":
             sub.add_argument("--dry", action="store_true", help="stop before the call: the intake and the packet's measure")
             sub.add_argument("--cells", help="the cell root the formation call runs under (made mode 700)")
             sub.add_argument("--golden-plan", help="a golden host's plan: realization golden, no model is started")
             sub.add_argument("--index", help="the occasion index's rows (a JSON list; WP-21, golden until it lands)")
+            sub.add_argument("--checkout-ledger", help="the ledger's path INSIDE the declaration's checkout "
+                                                       "destination, which the caller names because the layout of a "
+                                                       "checkout is not this driver's to assume; without it the "
+                                                       "stage is refused LEDGER_UNNAMED rather than reading a guess")
         sub.set_defaults(handler={"census": cmd_census, "views": cmd_views, "inventory": cmd_inventory,
                                   "form": cmd_form, "retrieve": cmd_retrieve, "judge": cmd_judge}.get(name, cmd_stage))
     return parser
@@ -1148,6 +1317,236 @@ def self_test():
         control("and the authoring root it does not read is protected under the same flag",
                 code == 1 and "PROTECTED_OVERLAP" in err and not (guarded_user / "out").exists(),
                 f"{code} {err}")
+        # The DEFAULT destination has to satisfy that same protection, or the driver would refuse
+        # its own default when a user runs it with no `--out`. The default is not carved out of the
+        # protected set: it is placed outside it. Judged with the CLI's own predicate, under a HOME
+        # no part of this suite writes to, so the answer is about the rule and not about this tree.
+        default_home = scratch / "default-home"
+        (default_home / ".local" / "state").mkdir(parents=True)
+        default_environ = {"HOME": str(default_home), "PATH": os.environ.get("PATH", "")}
+        default_root = default_out(default_environ, home=default_home)
+        default_state, default_user = inventory.configured_roots(environ=default_environ, home=default_home)
+        package_tree = pathlib.Path(__file__).resolve().parents[1]
+        default_native = {"projects": {str(package_tree): package_tree}}
+        default_protected = inventory.protected_roots(default_state, default_user, default_native,
+                                                      checkout=package_tree, environ=default_environ,
+                                                      repo=package_tree)
+        control("the default run root is outside every protected root",
+                not inventory.overlap_problems([default_root], default_protected, home=str(default_home)),
+                f"{default_root} :: {inventory.overlap_problems([default_root], default_protected, home=str(default_home))}")
+        control("and outside the package tree, so an install does not replace a user's runs",
+                package_tree not in default_root.resolve().parents
+                and default_root.resolve() != package_tree,
+                f"{default_root} under {package_tree}")
+        # review Y #2: where the DEFAULT lands is decided by the environment, and the environment
+        # can put it inside the package or inside the owner's data root. `declare` had no
+        # protection of its own, so the only thing standing between those values and a write was
+        # that nobody had tried them. Each case runs the real CLI with no `--out` at all.
+        def no_out(*argv, **overrides):
+            kept = {name: os.environ.get(name) for name in ("HOME", "XDG_STATE_HOME")}
+            err = io.StringIO()
+            try:
+                for name, value in overrides.items():
+                    if value is None:
+                        os.environ.pop(name, None)
+                    else:
+                        os.environ[name] = value
+                with contextlib.redirect_stderr(err), contextlib.redirect_stdout(io.StringIO()):
+                    try:
+                        code = main(list(argv))
+                    except SystemExit as exc:
+                        code, _ = (exc.code if isinstance(exc.code, int) else 2), err.write(f"EXITED {exc.code!r}")
+                    except Exception as exc:
+                        code, _ = 99, err.write(f"RAISED {exc!r}")
+            finally:
+                for name, value in kept.items():
+                    if value is None:
+                        os.environ.pop(name, None)
+                    else:
+                        os.environ[name] = value
+            return code, err.getvalue()
+
+        fake_home = scratch / "y2-home"
+        (fake_home / ".local" / "share" / "agent-bios").mkdir(parents=True)
+        (fake_home / ".local" / "state").mkdir(parents=True)
+        declaration = scratch / "y2-declaration.json"
+        declaration.write_text(json.dumps(declare.fixture()), encoding="utf-8")
+        state_root_xdg = str(fake_home / ".local" / "share")
+        code, err = no_out("declare", "--run-id", "y2-data-root", "--from", str(declaration),
+                           HOME=str(fake_home), XDG_STATE_HOME=state_root_xdg)
+        control("review Y #2: a default run root inside the owner's DATA root is refused, by name",
+                code == 1 and "DEFAULT_OUT_PROTECTED" in err, f"{code} {err[:300]}")
+        control("and nothing is written under it",
+                not (fake_home / ".local" / "share" / "agent-bios" / "distill").exists(),
+                f"{sorted(q.name for q in (fake_home / '.local' / 'share' / 'agent-bios').rglob('*'))}")
+        linked = scratch / "y2-link"
+        linked.symlink_to(fake_home / ".local" / "share")
+        code, err = no_out("declare", "--run-id", "y2-link", "--from", str(declaration),
+                           HOME=str(fake_home), XDG_STATE_HOME=str(linked))
+        control("review Y #2: a SYMLINKED base that lands in the same root is refused too",
+                code == 1 and "DEFAULT_OUT_PROTECTED" in err, f"{code} {err[:300]}")
+        code, err = no_out("declare", "--run-id", "y2-relative-xdg", "--from", str(declaration),
+                           HOME=str(fake_home), XDG_STATE_HOME=".")
+        control("review Y #2: a RELATIVE XDG_STATE_HOME is ignored and said so, not resolved "
+                "against the working directory",
+                code == 0 and "DEFAULT_OUT_INPUT_IGNORED" in err and "is relative" in err,
+                f"{code} {err[:300]}")
+        control("and the run landed under the documented default instead",
+                (fake_home / ".local" / "state" / "agent-bios" / "distill" / "runs"
+                 / "y2-relative-xdg").is_dir(),
+                f"{sorted(q.name for q in (fake_home / '.local' / 'state').rglob('*'))[:6]}")
+        here = pathlib.Path.cwd()
+        # review Y r2 #1: with a relative $HOME and no XDG, the destination comes from the password
+        # database — the one home this suite could not state, so the run landed in the REAL account
+        # home and a commit hook created `~/.local/state/agent-bios/distill/runs/y2-relative-home/`
+        # there. The control now states the account home it means through the production seam, and a
+        # CANARY reads the real one (names only, never contents) to prove nothing arrived in it.
+        real_account = pathlib.Path(_password_home())
+        canary_root = real_account / ".local" / "state" / "agent-bios"
+        canary_before = (sorted(str(q.relative_to(canary_root)) for q in canary_root.rglob("*"))
+                         if canary_root.is_dir() else None)
+        account = scratch / "account-home"
+        account.mkdir()
+        kept_seam = globals()["_password_home"]
+        try:
+            globals()["_password_home"] = lambda: str(account)
+            code, err = no_out("declare", "--run-id", "y2-relative-home", "--from", str(declaration),
+                               HOME="relative-home", XDG_STATE_HOME=None)
+        finally:
+            globals()["_password_home"] = kept_seam
+        landed = account / ".local" / "state" / "agent-bios" / "distill" / "runs" / "y2-relative-home"
+        control("review Y #2: a RELATIVE HOME is ignored for the default run root as well",
+                "DEFAULT_OUT_INPUT_IGNORED" in err and "HOME=" in err, f"{code} {err[:300]}")
+        control("review Y r2 #1: and the run lands in the account home the password database states, "
+                "which this control states for itself",
+                code == 0 and (landed / "run.json").is_file(), f"{code} {landed} {err[:200]}")
+        canary_after = (sorted(str(q.relative_to(canary_root)) for q in canary_root.rglob("*"))
+                        if canary_root.is_dir() else None)
+        control("review Y r2 #1: and the REAL account home is untouched by this suite",
+                canary_after == canary_before,
+                f"{canary_root}: before {None if canary_before is None else len(canary_before)} "
+                f"after {None if canary_after is None else len(canary_after)}; "
+                f"new {sorted(set(canary_after or []) - set(canary_before or []))[:5]}")
+        # review Y r2 #4: an absolute XDG base determines the whole answer, so a home it does not
+        # need must not be able to refuse it. The home resolution ran FIRST, and an account whose
+        # database home is unreadable then raised DEFAULT_OUT_UNRESOLVED over a destination that was
+        # already fully decided.
+        kept_seam = globals()["_password_home"]
+        try:
+            globals()["_password_home"] = lambda: "not-absolute"
+            try:
+                with contextlib.redirect_stderr(io.StringIO()):
+                    xdg_only = default_out({"HOME": "relative-home", "XDG_STATE_HOME": str(scratch / "xdg")})
+            except Refused as exc:
+                # The pre-fix order raises here, and a raised refusal must read as THIS control's
+                # failure rather than ending the suite: a control whose text never prints is a
+                # control a reader cannot act on.
+                xdg_only = f"REFUSED {exc}"
+            try:
+                with contextlib.redirect_stderr(io.StringIO()):
+                    refused = f"RETURNED {default_out({'HOME': 'relative-home'})}"
+            except Refused as exc:
+                refused = str(exc)
+        finally:
+            globals()["_password_home"] = kept_seam
+        control("review Y r2 #4: an absolute XDG_STATE_HOME is the base even when no home resolves",
+                isinstance(xdg_only, pathlib.Path)
+                and xdg_only == scratch / "xdg" / "agent-bios" / "distill" / "runs", str(xdg_only))
+        control("review Y r2 #4: and with no XDG base, an unresolvable home is still refused by name",
+                refused.startswith("DEFAULT_OUT_UNRESOLVED"), refused)
+        # review Y r2 #3: an account with no password-database entry and no $HOME. `HOME =
+        # str(pathlib.Path.home())` ran at IMPORT, before either startup boundary, and `Path.home()`
+        # raises in that state — so the machine could not run the command at all, with `--out` or
+        # without, and no boundary could describe why.
+        #
+        # Two decidable controls rather than a re-execution of the module body. Running this file
+        # again as `__main__` (through a child or through `runpy`) is the shape the closure inventory
+        # refuses: a child needs a program a declaration can name, and `runpy.run_path` of a runtime
+        # path is a load the trace cannot resolve. Both refusals are right — this suite has no
+        # business starting the driver again — so the import-time property is asserted where it
+        # lives: in the function that answers, and in the module's own top level.
+        stub = types.ModuleType("pwd")
+        stub.getpwuid = stub.getpwnam = lambda *_a, **_k: (_ for _ in ()).throw(KeyError("no entry"))
+        stub.error = KeyError
+        kept = {"pwd": sys.modules.get("pwd"), "home": os.environ.get("HOME")}
+        try:
+            sys.modules["pwd"] = stub
+            os.environ.pop("HOME", None)
+            answered = _diagnostic_home()
+            raised = None
+        except BaseException as exc:                      # the defect, reported rather than fatal
+            answered, raised = "RAISED", f"{type(exc).__name__}: {exc}"
+        finally:
+            if kept["pwd"] is None:
+                sys.modules.pop("pwd", None)
+            else:
+                sys.modules["pwd"] = kept["pwd"]
+            if kept["home"] is not None:
+                os.environ["HOME"] = kept["home"]
+        control("review Y r2 #3: with no $HOME and no account entry, the home a diagnostic masks is "
+                "None rather than an exception",
+                answered is None, f"{answered!r} {raised}")
+        # And nothing at the module's TOP LEVEL may ask for a home, which is what made the failure
+        # unreachable by any boundary. Asked of the module's own source, so the next edit that puts
+        # such a call back fails here.
+        def asks_for_a_home(node):
+            return any(isinstance(inner, ast.Attribute) and inner.attr in ("home", "expanduser")
+                       for inner in ast.walk(node))
+
+        module = ast.parse(pathlib.Path(__file__).read_text(encoding="utf-8"))
+        top = [node for node in module.body
+               if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
+               and asks_for_a_home(node)]
+        control("review Y r2 #3: and no statement of this module's top level asks for a home at all",
+                not top, [f"line {node.lineno}" for node in top])
+        # That the PRODUCTION path goes through the seam is asserted on the source, not by reverting
+        # it: reverting an inline lookup back into `_account_home` has exactly one observable, a run
+        # written into the owner's real home, which is the damage the fix exists to prevent. A text
+        # assertion is decidable and costs nothing, so an edit that inlines the lookup again fails
+        # here instead of in someone's home directory.
+        resolver = inspect.getsource(_account_home)
+        control("review Y r2 #1: the production resolver reaches the account home only through the "
+                "seam a control can state",
+                "_password_home()" in resolver and "getpwuid" not in resolver,
+                resolver.splitlines()[-6:])
+        # The production resolver itself, against the real database, reading and writing nothing:
+        # the seam above is a control's instrument, and a seam nothing exercises for real is a
+        # second implementation.
+        control("review Y r2 #1: and the production resolver reads an absolute home from the account "
+                "database itself",
+                _account_home().is_absolute(), str(_account_home()))
+        # And the fallback is the ACCOUNT's home, not `Path.home()`, which reads the same relative
+        # $HOME back: this control wrote `relative-home/.local/state/...` into the checkout the
+        # first time it ran, which is the defect it now holds shut.
+        control("and nothing is written relative to the working directory",
+                not (here / "relative-home").exists(),
+                f"{sorted(q.name for q in (here / 'relative-home').rglob('*'))[:5]}"
+                if (here / "relative-home").exists() else "")
+        # The function's own answer, not the write's: a relative $HOME used to come straight back
+        # through `pathlib.Path.home()`, and the only thing that then stopped the write was the
+        # checkout being a protected root — which a packaged install does not have. So the default
+        # is required to be ABSOLUTE at the source, from the account's own home.
+        kept_home = os.environ.get("HOME")
+        try:
+            os.environ["HOME"] = "relative-home"      # the ambient value too, or the fallback hides
+            with contextlib.redirect_stderr(io.StringIO()):
+                resolved = default_out({"HOME": "relative-home"})
+        finally:
+            if kept_home is None:
+                os.environ.pop("HOME", None)
+            else:
+                os.environ["HOME"] = kept_home
+        control("review Y #2: the default run root is absolute even when $HOME is not",
+                resolved.is_absolute() and "relative-home" not in resolved.parts, str(resolved))
+        code, err = no_out("declare", "--run-id", "y2-ordinary", "--from", str(declaration),
+                           HOME=str(fake_home), XDG_STATE_HOME=None)
+        control("and an ordinary environment still declares a run without being told a destination",
+                code == 0 and (fake_home / ".local" / "state" / "agent-bios" / "distill" / "runs"
+                               / "y2-ordinary").is_dir(), f"{code} {err[:300]}")
+        control("and it is the XDG state directory's, not the data directory's",
+                default_root == default_home / ".local" / "state" / "agent-bios" / "distill" / "runs"
+                and str(default_state) not in str(default_root),
+                f"{default_root} / state root {default_state}")
         # The same destination as a RUN: the stage record is the first write, so the refusal has to
         # come before the stage is entered at all.
         # `cli` appends its own --out, so the guarded run lives under it and the state root is that

@@ -183,8 +183,6 @@ SEEDS = {
 }
 # Executors outside the redesign: the closure may import none of them (plan WP-02 done-when 6).
 OUT_OF_SCOPE = (
-    {"path": "session-distill/screen-codex.py", "reason": "the legacy screening pass, which starts codex-run itself",
-     "retires": "deleted at the WP-22 cutover"},
     {"path": "benchmarks/tier/live.py", "reason": "tier experiments, outside the redesign",
      "retires": "when tier experiments move under this supervisor or are deleted"},
 )
@@ -235,30 +233,10 @@ DYNAMIC_LOADS = (
     {"site": "session-distill/runlib/projection.py", "path": "learn/redact.py", "trace": True,
      "reason": "the secret floor's owner, loaded by its literal repo path (_load_floor) so its patterns are imported, "
                "never copied; it imports re and sys only and runs nothing"},
-    {"site": "session-distill/runlib/ledger.py", "path": "session-distill/migrate-ledger.py", "trace": True,
-     "reason": "the schema-1 migrator, loaded by its literal path beside the module (MIGRATOR) to compare a schema-1 "
-               "base with a schema-2 head; its one executor is git ls-files"},
-    {"site": "session-distill/runlib/ledger.py", "path": "gates/check-global-file.py", "trace": False,
-     "reason": "design §13.1's author-side gate, loaded by its literal repo path (GATE_READERS) for its git readers, "
-               "one implementation of reading a commit side; read, not traced: its executors are git (:50-:159, :396) "
-               "and, in its own self-test, itself (:411), which the trace cannot name by __file__"},
-    {"site": "session-distill/migrate-ledger.py", "path": "learn/build-promotions.py", "trace": True,
-     "reason": "loaded by the migrator's self-test (build_promotions) by its literal repo path; it runs nothing"},
-    {"site": "session-distill/migrate-ledger.py", "path": "compose/instructions-state.py", "trace": False,
-     "reason": "loaded by the migrator's self-test (instructions_state) by its literal repo path for ledger_summary; "
-               "read, not traced: its executors are git, compose/assemble.py (the installer's assembler) and itself "
-               "(:81-:959), none of them a host"},
 )
 # Python scripts a closure site runs, each with its reason; a declared script joins the closure,
 # so its own sites are judged like any module's.
 SCRIPT_RUNS = (
-    {"site": "session-distill/runlib/census.py", "path": "session-distill/census.py",
-     "reason": "the self-test runs the legacy census on a fixture HOME (the runbook's census-to-digest handoff, "
-               "retired at the WP-22 cutover); it reads history and transcript files"},
-    {"site": "session-distill/runlib/census.py", "path": "session-distill/digest.py",
-     "reason": "the same handoff's second step, run by the same self-test: it digests the census's sessions"},
-    {"site": "session-distill/migrate-ledger.py", "path": "session-distill/merge-ledger.py",
-     "reason": "the migrator's self-test runs the documented merge-ledger.py --window-end invocation on a fixture ledger"},
     {"site": "session-distill/runlib/stage_read.py", "path": "session-distill/runlib/stage_read.py",
      "reason": "S3's self-test runs its own `--fixture-driver` as a child it kills while the golden host holds a window, "
                "then resumes the run in-process (WP-08 commit 5a); the child's host is the golden one, it starts no model"},
@@ -421,6 +399,9 @@ LITERAL_PROGRAMS_DECLARED = (
      "reason": "`tracked_paths` lists a source tree through git when the tree has a .git of its own"},
     {"site": "session-distill/runlib/ledger.py", "program": "git",
      "reason": "a ledger entry carries the commit it was recorded at"},
+    {"site": "session-distill/runlib/gitread.py", "program": "git",
+     "reason": "reading one side of a commit is this module's whole subject: the blob, the revision and the "
+               "index or working tree, for the ledger check and for the author-side global-file gate alike"},
     {"site": "session-distill/runlib/census.py", "program": "zstd",
      "reason": "a compressed transcript is read through the zstd the run declares; `checked_zstd` "
                "refuses a declared path whose resolved file is not named zstd"},
@@ -5083,7 +5064,7 @@ def self_test(scratch=None):
             any(row.startswith("PARSE_CACHE_DIVERGES closure") and "planted-stale-parse" in row for row in stale),
             f"{stale}")
     tree = scratch / "tree"
-    for rel in ["session-distill/distill.py", "session-distill/seats.json", "session-distill/screen-codex.py", "launch/agent-launch.py"] \
+    for rel in ["session-distill/distill.py", "session-distill/seats.json", "launch/agent-launch.py"] \
             + [str(p.relative_to(REPO)) for p in (REPO / "session-distill" / "runlib").glob("*.py")] \
             + [str(p.relative_to(REPO)) for p in (REPO / "benchmarks").rglob("*.py")] \
             + sorted({e[k] for e in DYNAMIC_LOADS + SCRIPT_RUNS for k in ("site", "path")}):
@@ -5252,9 +5233,9 @@ def self_test(scratch=None):
                 for row in stale), f"{stale}")
     planted("direct-dispatch-in-a-closure-module", "session-distill/runlib/records.py",
             "import subprocess\ndef _planted():\n    subprocess.run(['codex', 'exec', '-'])", "DISPATCH_OUTSIDE_SUPERVISOR {at}:", 2)
-    planted("screen-codex-loaded-by-the-driver", "session-distill/distill.py",
-            "import importlib.util\nSC = importlib.util.spec_from_file_location('sc', REPO / 'session-distill' / 'screen-codex.py')",
-            "CLOSURE_IMPORTS_OUT_OF_SCOPE {at}: loads session-distill/screen-codex.py", 1)
+    planted("an-out-of-scope-executor-loaded-by-the-driver", "session-distill/distill.py",
+            "import importlib.util\nSC = importlib.util.spec_from_file_location('sc', REPO / 'benchmarks' / 'tier' / 'live.py')",
+            "CLOSURE_IMPORTS_OUT_OF_SCOPE {at}: loads benchmarks/tier/live.py", 1)
     planted("shell-command-line", "session-distill/runlib/claims.py", "import os\nos.system('claude -p hello')",
             "DISPATCH_OUTSIDE_SUPERVISOR {at}: a command line starts 'claude'", 1)
     # ---- r4 R5: the tail of the program judge is DEFAULT DENY, and every command of a shell line is
@@ -5422,8 +5403,8 @@ def self_test(scratch=None):
     planted("unresolved-python-c", "session-distill/runlib/claims.py", "import subprocess\nsubprocess.run([sys.executable, '-c', CODE])",
             UNDECLARED_INLINE, 1)
     planted("python-runs-an-out-of-scope-executor", "session-distill/runlib/claims.py",
-            "import subprocess\nsubprocess.run([sys.executable, 'session-distill/screen-codex.py'])",
-            "CLOSURE_IMPORTS_OUT_OF_SCOPE {at}: runs 'session-distill/screen-codex.py'", 1)
+            "import subprocess\nsubprocess.run([sys.executable, 'benchmarks/tier/live.py'])",
+            "CLOSURE_IMPORTS_OUT_OF_SCOPE {at}: runs 'benchmarks/tier/live.py'", 1)
     planted("python-runs-a-script-not-followed", "session-distill/runlib/claims.py",
             "import subprocess\nsubprocess.run([sys.executable, 'tool.py'])", "DISPATCH_UNRESOLVED {at}: python runs ['tool.py']", 1)
     planted("shell-starts-a-host", "session-distill/runlib/claims.py", "import subprocess\nsubprocess.run(['bash', '-c', 'codex exec -'])",
@@ -5465,10 +5446,15 @@ def self_test(scratch=None):
     planted("python-flags-then-an-undeclared-script", "session-distill/runlib/census.py",
             "import subprocess\nsubprocess.run([sys.executable, '-I', str(HERE / 'other.py')])",
             "DISPATCH_UNRESOLVED {at}: python runs ['<?>/other.py']", 1)
+    # Retargeted at the WP-22 cutover: this row named `census.py`, declared by the v1
+    # census-to-digest handoff, and the cutover retired that declaration — leaving a row whose name
+    # says "a DECLARED script" over a script nothing declared any more. It passed either way, which
+    # is how a control goes quiet without saying so. `distill.py` is declared by `stage_form.py`'s
+    # SCRIPT_RUNS row, which the cutover does not touch.
     planted("a-declared-script-run-from-another-site", "session-distill/runlib/claims.py",
-            "import subprocess\nsubprocess.run([sys.executable, '-I', str(HERE / 'census.py')])",
-            "DISPATCH_UNRESOLVED {at}: python runs ['<?>/census.py']", 1)
-    planted("a-declared-script-is-traced", "session-distill/digest.py",
+            "import subprocess\nsubprocess.run([sys.executable, '-I', str(HERE / 'distill.py')])",
+            "DISPATCH_UNRESOLVED {at}: python runs ['<?>/distill.py']", 1)
+    planted("a-declared-script-is-traced", "session-distill/distill.py",
             "import subprocess\nsubprocess.run(['claude', '-p'])", "DISPATCH_OUTSIDE_SUPERVISOR {at}: starts 'claude'", 1)
     # A copy-run is admitted by THE CALL: the program expression has to be a call of the entry's
     # owner, which is a function that refuses every root this process did not copy and every member
@@ -5477,8 +5463,8 @@ def self_test(scratch=None):
     # (R2#5 — every one of these was admitted while the rule was about guard text in the file).
     for name, code, needle in (
             ("a-copy-run-of-a-script-that-is-not-the-driver",
-             "subprocess.run([sys.executable, str(COPY / 'session-distill' / 'digest.py')])",
-             "python runs ['<?>/session-distill/digest.py']"),
+             "subprocess.run([sys.executable, str(COPY / 'session-distill' / 'census.py')])",
+             "python runs ['<?>/session-distill/census.py']"),
             ("a-program-the-environment-selects",
              "subprocess.run([sys.executable, os.environ['OTHER_SCRIPT']])",
              "python runs ['<?>']"),
@@ -5844,7 +5830,7 @@ def self_test(scratch=None):
 
     found, _at = plant("session-distill/runlib/dispatch.py", "import subprocess\nsubprocess.run(['claude', '-p'])")
     control("supervisor-own-sites-are-not-failures", not found, f"{found}")
-    found, _at = plant("session-distill/screen-codex.py", "import subprocess\nsubprocess.run(['codex', 'exec'])")
+    found, _at = plant("benchmarks/tier/live.py", "import subprocess\nsubprocess.run(['codex', 'exec'])")
     control("a-mention-outside-the-closure-is-not-a-failure", not found, f"{found}")
 
     # the adapters' own sources, as they ship (the tree's file, and only once it states the final

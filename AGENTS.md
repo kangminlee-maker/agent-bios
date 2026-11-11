@@ -62,8 +62,8 @@ treating it as authority.
 | Work in flight — a design that must stay current until it lands | **`design/<initiative>/`** (isolated) |
 | Regenerable pipeline snapshots | **`session-distill/out/`** |
 | Deployed instruction text | **`claude/`**, **`codex/`**, **`ko/`** — payload, not docs; `claude/skills/` is one tree for both hosts, not mirrored |
-| Shipped machinery outside the instructions | **`learn/`**, **`wrappers/`**, **`compose/`**, **`launch/`**, `session-cost.py` — exact members in `package.json` `files[]` |
-| Author-side only, never shipped | **`gates/`**, **`ontology/`**, **`decisions/`**, **`design/`**, **`research/`**, **`benchmarks/`**, **`packages/`**, **`session-distill/`** — `gates/check-package.sh` holds the boundary |
+| Shipped machinery outside the instructions | **`learn/`**, **`wrappers/`**, **`compose/`**, **`launch/`**, `session-cost.py`, and the session-distill driver (`session-distill/distill.py`, `runlib/`, `schemas/`, `tables/`, `packets/` and its three json tables) — exact members in `package.json` `files[]` |
+| Author-side only, never shipped | **`gates/`**, **`ontology/`**, **`decisions/`**, **`design/`**, **`research/`**, **`benchmarks/`**, **`packages/`**, and within `session-distill/` the fixtures, the v1 curator stages and the ledger migrator — `gates/check-package.sh` holds the boundary, file by file where a directory rule cannot |
 
 ## 1. Active files describe the present — CONVENTION, partly enforced
 

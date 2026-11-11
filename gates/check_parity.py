@@ -755,6 +755,8 @@ def purpose_obligations():
     # English, but nothing forbade the Korean tree from entering the published payload: the
     # package gate exempts `ko` by NAME, which permits its absence rather than its presence.
     for pattern in pkg.get("files", []):
+        if pattern.startswith("!"):   # an npm exclusion, not a shipped path (review Y #1)
+            continue
         if pattern.strip("/").split("/")[0] == "ko":
             mark_fail(f"package.json files[] ships {pattern!r} — the Korean tree is reference "
                       f"only and must never enter the payload")
@@ -3662,6 +3664,49 @@ def claude_run_hermetic(run):
                 mark_fail(f"claude-run through the gate, {label}: ok={v['ok']} codes={v['codes']} "
                           f"(expected ok={want_ok}, codes ⊇ {list(want_codes)}, none of {list(refuse_codes)}): "
                           f"{v['failures'][:3]}")
+
+
+@check
+def author_only_preset_is_withheld_without_a_checkout():
+    """The distill preset declares `audience = "author"`; a packaged install must not offer it.
+
+    The declaration had ONE reader (the payload gate's prose scan) and changed nothing a user saw:
+    the preset was still on the root menu of a packaged install, and its mission's first instruction
+    names repo paths that install does not carry. These controls hold the three routes to it —
+    the menu, the mode branch and `build_plan` — against two trees that differ only by `gates/`."""
+    module = import_launcher()
+    if module is None:
+        return
+    profile = tomllib.loads(launch_profile_path.read_text(encoding="utf-8"))
+    preset = profile.get("presets", {}).get(module.DISTILL_PRESET)
+    if not isinstance(preset, dict):
+        mark_fail(f"the profile has no [presets.{module.DISTILL_PRESET}] to judge")
+        return
+    if preset.get("audience") != "author":
+        mark_fail(f"presets.{module.DISTILL_PRESET} no longer declares audience = \"author\"; "
+                  f"these controls would then pass over nothing")
+        return
+    with tempfile.TemporaryDirectory() as raw:
+        tmp = pathlib.Path(raw)
+        packaged, checkout = tmp / "packaged", tmp / "checkout"
+        (packaged / "launch").mkdir(parents=True)
+        (checkout / "launch").mkdir(parents=True)
+        (checkout / module.AUTHOR_TREE_MARKER).mkdir()
+        if not module.preset_withheld(preset, packaged):
+            mark_fail("the author-only preset is NOT withheld in a tree without gates/ — a packaged "
+                      "install would offer a route whose first instruction names a path it lacks")
+        if module.preset_withheld(preset, checkout):
+            mark_fail("the author-only preset is withheld in a checkout, where it is the one tree "
+                      "that can run it")
+        ordinary = {"label": "x", "mode": "builder"}
+        if module.preset_withheld(ordinary, packaged):
+            mark_fail("a preset with no audience declaration was withheld; only an author-only "
+                      "preset is")
+    # The marker itself: a path the payload may never carry, so its presence means "checkout".
+    files = json.loads(pathlib.Path("package.json").read_text(encoding="utf-8")).get("files", [])
+    if any(entry.rstrip("/").split("/")[0] == module.AUTHOR_TREE_MARKER for entry in files):
+        mark_fail(f"{module.AUTHOR_TREE_MARKER}/ is in package.json files[], so its presence no "
+                  f"longer distinguishes a checkout from an install")
 
 
 def import_launcher():

@@ -67,6 +67,81 @@ class _InstallerFixture(unittest.TestCase):
 
 
 class InstructionsInstallTests(_InstallerFixture):
+    def test_the_driver_is_runtime_payload_while_the_author_side_trees_stay_refused(self) -> None:
+        """WP-24: a user who cannot run the driver cannot distill their own sessions, so
+        `session-distill/` is payload. The author-side trees are refused by name, which is what
+        keeps the boundary a rule rather than a habit: a release carrying `gates/` would ship this
+        repo's own judgement machinery to every adopter."""
+        driver = self.repo / "session-distill" / "runlib"
+        driver.mkdir(parents=True)
+        (driver.parent / "distill.py").write_text("print('driver')\n", encoding="utf-8")
+        (driver / "records.py").write_text("VALUE = 1\n", encoding="utf-8")
+        manifest = json.loads((self.repo / "package.json").read_text(encoding="utf-8"))
+        manifest["files"].append("session-distill/")
+        (self.repo / "package.json").write_text(json.dumps(manifest), encoding="utf-8")
+        # The author's compiled bytecode is not payload. A directory entry expands to every file
+        # under it, `.pyc` is a file, and `runlib/` is run from the checkout constantly, so a
+        # release used to carry whichever caches the author happened to hold.
+        cache = driver / "__pycache__"
+        cache.mkdir()
+        (cache / "records.cpython-312.pyc").write_bytes(b"\x00stale")
+        (driver / "legacy.pyc").write_bytes(b"\x00stale")
+        # Both suffixes the negation allowlist admits. `.pyo` was in SUPPORTED_NEGATIONS while the
+        # predicate knew only `.pyc`, so the allowlist accepted a spelling nothing implemented.
+        (driver / "legacy.pyo").write_bytes(b"\x00stale")
+        manifest["files"] += ["session-distill/runlib/legacy.pyc",
+                              "session-distill/runlib/legacy.pyo",
+                              "session-distill/runlib/__pycache__/records.cpython-312.pyc",
+                              "!**/__pycache__", "!**/*.pyc", "!**/*.pyo"]
+        (self.repo / "package.json").write_text(json.dumps(manifest), encoding="utf-8")
+        packed = self.installer()._package_files()
+        self.assertIn("session-distill/distill.py", packed)
+        self.assertIn("session-distill/runlib/records.py", packed)
+        # Both ways in: expanded from a directory entry, and named outright. The explicit spelling
+        # bypassed the filter, so a `.pyc` reached the release inventory and the release digest.
+        self.assertEqual([], [rel for rel in packed
+                              if "__pycache__" in rel or rel.endswith((".pyc", ".pyo"))],
+                         "compiled Python is payload: the author's bytecode entered the package "
+                         "under one of the two suffixes files[] negates")
+        # The case this pair deliberately does NOT cover, asserted on the predicate itself: npm
+        # matches a files[] pattern case-sensitively, so `!**/*.pyc` would not exclude an uppercase
+        # name and neither does the predicate — both sides answer the same, which is what the npm
+        # leg holds them to, and nothing in this toolchain writes such a file. It is asserted here
+        # rather than through a release copy because this test's filesystem folds case, so
+        # `LEGACY.PYC` and `legacy.pyc` would be one file and the fixture could prove neither.
+        self.assertFalse(instructions_install._is_bytecode("session-distill/runlib/LEGACY.PYC"),
+                         "an uppercase .PYC is excluded by the predicate while npm, which matches "
+                         "case-sensitively, would pack it: the two sides must answer alike")
+        self.assertTrue(instructions_install._is_bytecode("session-distill/runlib/legacy.pyo"),
+                        "the predicate does not recognise .pyo, which SUPPORTED_NEGATIONS admits: "
+                        "the allowlist accepts a spelling nothing implements")
+        # And the negated entries npm needs are not read as payload paths of their own.
+        self.assertEqual([], [rel for rel in packed if rel.startswith("!")])
+        release, entries, digest = self.installer()._copy_release(packed, dry_run=False)
+        rows = [row["path"] for row in entries]
+        self.assertEqual([], [rel for rel in rows
+                              if "__pycache__" in rel or rel.endswith((".pyc", ".pyo"))],
+                         "compiled Python reached the release inventory under one of the two "
+                         "suffixes files[] negates")
+        self.assertFalse((release / "session-distill" / "runlib" / "legacy.pyc").exists())
+        self.assertFalse((release / "session-distill" / "runlib" / "legacy.pyo").exists(),
+                         "a .pyo reached the release tree: the author's compiled bytecode is not "
+                         "payload under either suffix")
+        base = json.loads((self.repo / "package.json").read_text(encoding="utf-8"))["files"]
+        # Both spellings per tree: the DIRECTORY entry is the one npm uses and the one the rule
+        # could not see, and a file inside it is the spelling that always refused.
+        for tree in ("gates", "design", "benchmarks", "research", "packages"):
+            (self.repo / tree).mkdir(parents=True, exist_ok=True)
+            (self.repo / tree / "check.py").write_text("VALUE = 2\n", encoding="utf-8")
+            for entry in (f"{tree}/", f"{tree}/check.py", tree):
+                with self.subTest(entry=entry):
+                    (self.repo / "package.json").write_text(
+                        json.dumps({"files": [*base, entry]}), encoding="utf-8")
+                    with self.assertRaises(InstallError) as raised:
+                        self.installer()._package_files()
+                    self.assertIn("author-only path is not a private runtime payload: "
+                                  + entry.rstrip("/"), str(raised.exception))
+
     def test_launcher_reachability_answers_whether_the_deployed_launcher_can_be_typed(self) -> None:
         # install() writes the launcher into a directory the caller's PATH may not
         # carry. Nothing in the installed tree records that, so the completion

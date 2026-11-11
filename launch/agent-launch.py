@@ -5760,6 +5760,12 @@ def build_plan(config: dict[str, Any], host: str, preset_name: str) -> dict[str,
         raise LaunchError(f"invalid preset or host binding: {host}/{preset_name}") from exc
     if not isinstance(preset, dict) or not isinstance(tiers, dict):
         raise LaunchError(f"invalid preset or host binding: {host}/{preset_name}")
+    # The same verdict wherever a preset is named — a flag, a saved mode, a resume. The menu
+    # withholds it; this is what makes the withholding a rule rather than a screen.
+    if preset_withheld(preset):
+        raise LaunchError(
+            f"PRESET_AUTHOR_ONLY {preset_name}: the preset edits the agent-bios instructions "
+            f"themselves and names paths only a checkout has; this tree is a packaged install")
     validate_host_tiers(host, tiers)
     all_overrides = preset.get("tier_overrides", {})
     if not isinstance(all_overrides, dict):
@@ -8282,6 +8288,29 @@ def customize(
 
 
 DISTILL_PRESET = "session-distill"
+# An author-only preset instructs its agent to edit THIS repository's instructions, so its mission
+# names paths that exist only in a checkout. Offering it on a packaged install offers a route whose
+# first step fails, which is why `compose/assemble.py` already withholds an author-only GUIDE from a
+# packaged user; until now the preset's own `audience = "author"` was read by the payload gate and
+# by nothing else, so the route stayed open.
+#
+# The marker is `gates/`, which `gates/check-package.sh` forbids the payload from carrying in both
+# directions. Its presence therefore IS "this tree is a checkout", and no second declaration exists
+# to drift from it.
+AUTHOR_TREE_MARKER = "gates"
+
+
+def author_tree(root: Any = None) -> bool:
+    """Whether the tree this launcher runs from is an agent-bios checkout."""
+    base = pathlib.Path(root) if root is not None else pathlib.Path(__file__).resolve().parent.parent
+    return (base / AUTHOR_TREE_MARKER).is_dir()
+
+
+def preset_withheld(preset: dict[str, Any], root: Any = None) -> bool:
+    """Whether this preset must not be offered or launched from the tree we run in."""
+    return isinstance(preset, dict) and preset.get("audience") == "author" and not author_tree(root)
+
+
 INSTRUCTIONS_STATUS_PATH = pathlib.Path(
     _instructions_environment(
         "AGENT_BIOS_INSTRUCTIONS_STATUS", "AGENT_BIOS_CORPUS_STATUS",
@@ -9407,6 +9436,10 @@ def pick_mode_and_preset(
                     t("instructions.private.description") if private_instructions_enabled() else t("instructions.description"),
                 )
             )
+            if preset_withheld(presets.get(DISTILL_PRESET, {})):
+                # Withheld, not greyed out: a route whose first instruction names a path the
+                # reader does not have is worse than an absent route (WP-22a).
+                mode_options = [o for o in mode_options if o.value != DISTILL_MODE]
             if private_instructions_enabled():
                 mode_options.append(MenuOption(UNDERSTAND_OPTION, t("understand.title"), t("understand.description")))
                 mode_options.append(MenuOption(SHELL_CONNECTION_OPTION, t("shell.title"), t("shell.description")))
@@ -9484,6 +9517,13 @@ def pick_mode_and_preset(
             mode = None
             continue
         if mode == DISTILL_MODE:
+            # Reached by a resume, a flag or a stale saved mode rather than the menu: the same
+            # verdict, by name, instead of a hub whose first instruction cannot be followed.
+            if preset_withheld(presets.get(DISTILL_PRESET, {})):
+                raise LaunchError(
+                    f"PRESET_AUTHOR_ONLY {DISTILL_PRESET}: this preset edits the agent-bios "
+                    f"instructions themselves and needs a checkout; a packaged install has none, "
+                    f"so it is not offered here")
             if distill_hub(config, ui) != "start":
                 mode = None
                 continue

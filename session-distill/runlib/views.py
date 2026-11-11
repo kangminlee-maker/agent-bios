@@ -9,7 +9,8 @@ For every eligible transcript, and the child transcripts linked to it, `run` lea
   (`projection.project`); the only text a window, a search hit or a quote is built from.
 * `views/<transcript>/<n>.json` - the windows, `views/<transcript>/sequence.json` - the order they were cut from,
   `index/bm25/<transcript>.json` - the full-source search index, and `views.json` - the manifest of all of it.
-  The manifest also carries, per transcript, the shape counts `digest.py` kept (`hints_of`): they rank what to
+  The manifest also carries, per transcript, the shape counts this module keeps (`hints_of`, the v1 digest's
+  own six signals): they rank what to
   read, and no claim rests on one, because evidence is a locator into a copy (design §5.5), never a count.
 
 **What is viewed.** The content blocks of a record are the human, assistant and delegated text, the tool calls with
@@ -1089,7 +1090,7 @@ def build_sequence(proj_path, viewed, role_of, index):
     """The sequence of one version: `(entries, human_lines, counts, tools, texts)`. The entries are the viewed blocks
     (owned), each with its view form, and up to OVERLAP_TURNS blocks of context each side of every run of them. `index`
     takes the full projected text of each viewed block, and `texts` keeps it for the checks that need the block and not
-    the view. `counts` and `tools` are the shape counts `digest.py` kept, over every block of the version rather than
+    the view. `counts` and `tools` are the kept shape counts, over every block of the version rather than
     the viewed ones: they are hints for ranking what to read, never evidence (design §5.5: evidence is a locator)."""
     # Context is retained by TURNS, not by blocks. A deque of five BLOCKS was five of whatever came last, so
     # six tool results standing between the window and the previous human turn pushed every turn out of it and
@@ -1142,7 +1143,8 @@ def build_sequence(proj_path, viewed, role_of, index):
 
 
 def hints_of(counts, tools):
-    """The shape of a transcript, as `digest.py` counted it: what to read first, never what was said. A hint is not
+    """The shape of a transcript, counted as the v1 digest counted it: what to read first, never what was said. A
+    hint is not
     evidence and no claim rests on one."""
     return {"human_turns": counts["human"], "assistant_turns": counts["assistant"], "delegated_turns": counts["delegated"],
             "tool_calls": counts["tool_call"], "tool_results": counts["tool_result"],
@@ -1910,7 +1912,7 @@ def golden(root, name="g", overhead=bound.PACKET_OVERHEAD, capacity=None, reserv
         # dispatcher admits a view-window call against; S2's own controls keep the small one that bites
         declaration["host_allowance"] = {seat: allowance_entry}
     checkout = root / f"{name}-checkout"
-    ledger_path = checkout / ledger.LEDGER_REL
+    ledger_path = checkout / ledger.STATE_LEDGER_REL
     ledger_path.parent.mkdir(parents=True, exist_ok=True)
     ledger_path.write_text(ledger.render(ledger_doc if ledger_doc is not None else ledger.sample_ledger()), encoding="utf-8")
     declaration["destinations"] = {**declaration["destinations"], "checkout": str(checkout.resolve())}
@@ -2184,7 +2186,7 @@ def self_test():
         expect("the totals of views.json add up over the transcripts it lists",
                (manifest["totals"]["windows"], manifest["totals"]["clipped"]),
                (sum(len(t["windows"]) for t in manifest["transcripts"]), sum(t["clipped"] for t in manifest["transcripts"])))
-        expect("the shape counts digest.py kept are carried as hints over every block of the version, viewed or not, "
+        expect("the kept shape counts are carried as hints over every block of the version, viewed or not, "
                "and no claim rests on one",
                (main["hints"]["human_turns"], main["hints"]["assistant_turns"], main["hints"]["tool_calls"],
                 main["hints"]["error_results"], main["hints"]["tools"]),
@@ -3212,7 +3214,7 @@ def self_test():
                [path.name for path in sorted(records.fixture_root("captures").glob("*.json")) + [records.fixture_root() / "captures.json"]
                 for text in [path.read_text(encoding="utf-8")]
                 if "sk-ant-" + "oat" in text or FX_HOME in text
-                or any(owner in text for owner in ("/Users/kangmin", "/home/", "/Users/Shared"))], [])
+                or any(owner in text for owner in (str(pathlib.Path.home()), "/home/", "/Users/Shared"))], [])
         named("control, done-when 3(c): a view-window capture above 120k is INPUT_BOUND_EXCEEDED (this one is "
               "the synthetic fixture: no retained capture of that case exists)",
               bound.check_observed(observed_input_of(overrun), True), "INPUT_BOUND_EXCEEDED")

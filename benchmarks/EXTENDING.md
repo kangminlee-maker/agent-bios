@@ -93,10 +93,16 @@ Expand into these as models change:
 
 Once a gap is confirmed (class-level, N ≥ 2):
 
-- **Model-agnostic behavioral gap** → extend or add a global rule. Enumerate the
-  category so the model does not have to infer that the situation applies, and
-  place it where it fires without recognition (admission rule). Verify against a
-  candidate `CODEX_HOME` / `--append-system-prompt` **before** deploying (see
+- **Model-agnostic behavioral gap** → a guide trigger, a skill, a hook, or
+  session-level injection. **Not a new rule on the canonical always surface**: that
+  surface is frozen to reductions (`AGENTS.md` §8 — deletions, merges and moves out
+  are open, additions are not), so "extend or add a global rule" is no longer a route
+  a finding may take, and a finding that seems to need one is the case to bring rather
+  than a bullet to write. Enumerate the category so the model does not have to infer
+  that the situation applies, and place it where it fires before recognition: a
+  recognition trigger belongs on the selected always surface, the procedure behind a
+  guide pointer (`SURFACES.md` owns the admission bar of each surface). Verify against
+  a candidate `CODEX_HOME` / `--append-system-prompt` **before** deploying (see
   README), with the over-trigger control in the same run.
 - **Model-specific quirk a rule can't close** → record it in the baseline table
   and the tier's `Environment Binding` notes; it may gate adopting that model
