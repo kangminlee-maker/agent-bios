@@ -313,15 +313,27 @@ HERE = pathlib.Path(__file__).resolve().parents[1]
 
 
 def fx_given(cid, b_marks=None, lineages=3):
-    """A synthetic S6 input for one candidate: both points complete with no matching unit (a gap, kind `gap`), every
-    requirement met by A, and by B but for `b_marks`; enough lineages to be eligible."""
+    """A synthetic S6 input for one candidate in the shape a release-1 run hands derive (`stage_judge.derivation_input`):
+    the current point only, incomplete as the literal policy reads every real one, with two units both judges find
+    covering - a redundancy candidate, so its diagnosis is `redundant` and its kind `unclassified`, and `reduce` by a
+    merge is the library-changing disposition release 1 can reach (above the bar); every requirement met by A, and by
+    B but for `b_marks`; enough lineages to be eligible. No release point: S6 judges none (D-20261111-c4fa71)."""
     names = derive.table()["requirements"]
-    point = {"complete": True, "layers": {}, "units": {}}
-    return {"candidate": {"candidate_id": cid, "type": "D", "lifecycle": None},
+    covers = {"situation": "yes", "action": "yes", "following": None, "contribution": None}
+    point = {"complete": False, "layers": {"catalog": "complete", "native_settings": "unknown"},
+             "units": {unit: {"A": dict(covers), "B": dict(covers)} for unit in ("u1", "u2")}}
+    return {"candidate": {"candidate_id": cid, "type": "D", "lifecycle": "redundancy_hint"},
             "judges": {who: {"requirements": {n: ((b_marks or {}).get(n, "met") if who == "B" else "met") for n in names},
                              "consequence_class": "quality", "no_longer_arises": False} for who in ("A", "B")},
-            "points": {"release": dict(point), "current": dict(point)}, "checks_pass": True, "lineages": lineages,
-            "arc_confirmed": False}
+            "points": {"current": point}, "checks_pass": True, "lineages": lineages, "arc_confirmed": False}
+
+
+def fx_merge(layer="guides", carrier="claude/guides/g.md", **over):
+    """An S7 answer reducing fx_given's redundant pair by a merge, carrying release 1's named states."""
+    return stage_propose._answered(disposition="reduce", destination={"layer": layer, "carrier": carrier},
+                                   operations=[{"type": "merge", "target": f"{carrier}#one", "units": ["u1", "u2"],
+                                                "before_state_sha256": "c" * 64, "content": "one bullet for both"}],
+                                   unknowns=stage_propose._carry(stage_propose.RELEASE_1), **over)
 
 
 def fx_verdict(given):
@@ -368,13 +380,47 @@ def self_test():
         except Refused as exc:
             return str(exc)
 
+    def finish():
+        if failures:
+            for label, detail in failures:
+                print(f"stage_adjudicate --self-test [FAIL] {label}: {detail}", file=sys.stderr)
+            print(f"stage_adjudicate --self-test: FAILED ({len(failures)} of {len(ran)} controls)", file=sys.stderr)
+            return 1
+        print(f"stage_adjudicate --self-test: OK ({len(ran)} controls: the owner's values recompute S6's own input and "
+              "nothing else, over a fixture in the shape S6 hands derive; a candidate admitted this way is awaiting_R "
+              "when core and proceeds when personal; the second pass through S7's and S7b's document, never their run; "
+              "S9 and S9b lay it over S6 and S7 in version order)")
+        return 0
+
     # ---- the document, over synthetic disputed candidates --------------------------------------------------------
+    # the fixture is held to what S6 really builds: derivation_input over two judges' judgments, compared by shape
+    first = {who: {"requirements": {n: {"mark": "met"} for n in derive.table()["requirements"]},
+                   "consequence_class": "quality", "no_longer_arises": {"value": False},
+                   "units": [{"unit_id": u, "situation": "yes", "action": "yes"} for u in ("u1", "u2")]}
+             for who in ("A", "B")}
+    real = stage_judge.derivation_input({"candidate_id": "k-shape", "type": "D"}, "redundancy_hint", {}, first, {},
+                                        {"complete": False, "layers": {}})
+    fixture = fx_given("k-shape")
+    equal("the fixture is the shape S6 hands derive: the current point only, its units and lifecycle as S6 builds them",
+          (sorted(fixture["points"]), sorted(fixture), fixture["candidate"]["lifecycle"],
+           fixture["points"]["current"]["units"]),
+          (sorted(real["points"]), sorted(real), real["candidate"]["lifecycle"], real["points"]["current"]["units"]))
+    try:
+        read_as = (lambda o: (o["unit_outcomes"], o["candidate_diagnosis"]["release"]["row"], o["kind"]["kind"],
+                              o["candidate_diagnosis"]["current"]["diagnosis"]))(fx_verdict(fixture)["outcome"])
+    except Refused as exc:
+        read_as = str(exc)
+    equal("and derive reads it as release 1 reads every candidate: no unit outcome, the release point absent, kind "
+          "unclassified, the redundant pair's diagnosis",
+          read_as, ([], "absent", "unclassified", "redundant"))
+    if failures:   # every control below is built on this fixture, so one not in S6's shape stops the suite here
+        return finish()
     givens = {"k-core": fx_given("k-core", {"bounded": "uncertain"}),
               "k-personal": fx_given("k-personal", {"bounded": "uncertain"}),
               "k-reject": fx_given("k-reject", {"bounded": "uncertain"}),
               "k-two": fx_given("k-two", {"bounded": "uncertain", "positioned": "uncertain"}),
               "k-agreed": fx_given("k-agreed")}
-    derivations = {**copy.deepcopy(stage_propose.ANSWERED), "verdicts": {c: fx_verdict(g) for c, g in givens.items()},
+    derivations = {**copy.deepcopy(stage_propose.RELEASE_1), "verdicts": {c: fx_verdict(g) for c, g in givens.items()},
                    "not_derived": []}
     candidates = {"candidates": [{"candidate_id": c, "type": "D"} for c in givens]}
     parse = {"version": 1, "parse_seq": 1, "adjudications": [
@@ -382,8 +428,7 @@ def self_test():
         fx_adjudication("k-personal", [("bounded", "own", "met")]),
         fx_adjudication("k-reject", [("bounded", "own", "unmet")]),
         fx_adjudication("k-two", [("bounded", "A", "met")])]}
-    answers = {"k-core": stage_propose._answered(requires_R=True),
-               "k-personal": stage_propose._answered(destination={"layer": "personal", "carrier": "~/notes/own.md"})}
+    answers = {"k-core": fx_merge(requires_R=True), "k-personal": fx_merge("personal", "notes/own.md")}
 
     def doc(parse_=None, derivations_=None, answers_=answers, reviews=None, given_of=None, earlier=()):
         return document(1, parse_ or parse, derivations_ or derivations, candidates,
@@ -410,7 +455,7 @@ def self_test():
     equal("S7b's second pass covers exactly what S7 proposed in it, each named unreviewed without a review",
           ((review or {}).get("subset"), sorted(r["item_id"] for r in (review or {}).get("unreviewed") or [])),
           (["k-core", "k-personal"], ["k-core", "k-personal"]))
-    no_r = {**answers, "k-core": stage_propose._answered()}
+    no_r = {**answers, "k-core": fx_merge()}
     _d, props_no_r, _r, _p = doc(answers_=no_r)
     control("a core item admitted by adjudication whose answer does not say requires_R is returned by S7's own rule",
             json.dumps((props_no_r or {}).get("returned") or []), "REQUIRES_R_ABSENT k-core")
@@ -445,7 +490,7 @@ def self_test():
     later_parse = {"version": 2, "parse_seq": 2, "adjudications": [fx_adjudication("k-two", [("positioned", "A", "met")])]}
     later, _lp, _lr, later_problems = document(2, later_parse, derivations, candidates,
                                                lambda cid: copy.deepcopy(givens[cid]),
-                                               {"k-two": stage_propose._answered(requires_R=True)}, None,
+                                               {"k-two": fx_merge(requires_R=True)}, None,
                                                [{"version": 1, "derivations": dv}])
     equal("a later parse recomputes over an earlier version's values: the second of two disputes settled, it is "
           "admitted, both values held",
@@ -616,15 +661,7 @@ def self_test():
     finally:
         shutil.rmtree(root, ignore_errors=True)
 
-    if failures:
-        for label, detail in failures:
-            print(f"stage_adjudicate --self-test [FAIL] {label}: {detail}", file=sys.stderr)
-        print(f"stage_adjudicate --self-test: FAILED ({len(failures)} of {len(ran)} controls)", file=sys.stderr)
-        return 1
-    print(f"stage_adjudicate --self-test: OK ({len(ran)} controls: the owner's values recompute S6's own input and "
-          "nothing else; a candidate admitted this way is awaiting_R when core and proceeds when personal; the second "
-          "pass through S7's and S7b's document, never their run; S9 and S9b lay it over S6 and S7 in version order)")
-    return 0
+    return finish()
 
 
 if __name__ == "__main__":
