@@ -692,6 +692,12 @@ DECLARATION_READERS = {
                                                 "mid-amendment is refused by name (DECLARATION_DRIFT) rather than believed",
     ("runlib/records.py", "run_stage"): "admits a stage: what it reads under the lock is the StageRun.declaration the stage "
                                         "builds from",
+    ("runlib/destinations.py", "self_test"): "reads back the run.json its own fixture just wrote, to judge the "
+                                             "manifest against the roots a real declaration carries rather than a "
+                                             "shape invented in the suite. The module itself never reads the "
+                                             "declaration from disk: `document` and `write` are handed it by their "
+                                             "caller, which is what lets apply resolve destinations before it opens "
+                                             "any stage record",
     ("runlib/declare.py", "create"): "the declaration's writer (S0): writes run.json under the declaration lock",
     ("runlib/declare.py", "set_fields"): "the declaration's writer: an amendment's fields, read and written under the lock",
     ("runlib/declare.py", "amend"): "the declaration's writer: an amendment, read and written under the lock",
