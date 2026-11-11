@@ -516,6 +516,12 @@ if [ -f session-distill/migrate-ledger.py ]; then
   leg -q "FAIL: the ledger does not migrate to design 12.2's expected records, or the reader inventory is stale (session-distill/migrate-ledger.py --check)" \
     python3 session-distill/migrate-ledger.py --check
 fi
+# The proposal contract's tables as code (WP-12): §7.2's pairs and §7.3's structural rules, each held
+# against the design's own rows by the module's own suite.
+if [ -f session-distill/runlib/placement.py ]; then
+  leg -q "FAIL: session-distill proposal contract self-test (session-distill/runlib/placement.py)" \
+    python3 session-distill/runlib/placement.py --self-test
+fi
 # The schema-2 ledger library itself. Its `--self-test` came from the ship-driver history and the gate
 # that notices an unlegged self-test from the other, so the pair first meets here.
 if [ -f session-distill/runlib/ledger.py ]; then
