@@ -295,6 +295,11 @@ def table_problems(held=None):
     read = {o for row in held["kind"] for o in row.get("if_any_outcome", [])}
     problems += [f"TABLE_INVALID kind: outcome {o!r} reaches no kind row"
                  for o in sorted({row["outcome"] for row in held["unit_outcome"]} - read)]
+    # a class no judge can return would make its row unreachable without a word (D-20261111-f3d39c)
+    declared = consequence_classes()
+    problems += [f"CLASS_UNDECLARED promotion/{row['id']}: {c!r} is not a consequence class the judgment schema "
+                 f"declares ({list(declared)})"
+                 for row in held["promotion"] for c in row.get("both_judges_class_one_of") or [] if c not in declared]
     return problems
 
 
@@ -454,6 +459,16 @@ DESIGN_6_4_ABSENT = ((("gap", "gap"), "gap"), (("gap", "covered"), "already reso
 # confirms"; "Below the bar, the allowed dispositions are incubate, keep, and drop."
 DESIGN_6_4_PROMOTION = (2, ("irreversible", "security-relevant", "verification-corrupting"), 3,
                         ("incubate", "keep", "drop"))
+# D-20261111-f3d39c (WP-11 D11): §6.4 says "security-relevant" and §7.5 "security" for one class. The judgment
+# schema's enum is the classes' one owner and spells them as §7.5 does; the copy above keeps §6.4's word, and the
+# fidelity check reads it through this rename, so the difference is declared here rather than written over.
+DESIGN_CLASS_RENAMES = {"security-relevant": "security"}
+CLASSES_SCHEMA = HERE / "schemas" / "judge.schema.json"
+
+
+def consequence_classes(path=CLASSES_SCHEMA):
+    """The consequence classes a judge can return: the judgment schema's enum, their one owner (D-20261111-f3d39c)."""
+    return tuple(json.loads(pathlib.Path(path).read_text(encoding="utf-8"))["$defs"]["consequence_class"]["enum"])
 
 
 def render_outcome(row):
@@ -487,7 +502,9 @@ def fidelity_problems(held=None):
     rows = {r["id"]: r for r in held["promotion"]}
     promotion = (rows["lineages"]["independent_lineages_at_least"], tuple(rows["consequence"]["both_judges_class_one_of"]),
                  rows["type_g"]["independent_lineages_at_least"], tuple(rows["below_bar"]["allowed_dispositions"]))
-    if promotion != DESIGN_6_4_PROMOTION:
+    design = (DESIGN_6_4_PROMOTION[0], tuple(DESIGN_CLASS_RENAMES.get(c, c) for c in DESIGN_6_4_PROMOTION[1]),
+              *DESIGN_6_4_PROMOTION[2:])
+    if promotion != design:
         problems.append(f"CONTRACT_DRIFT promotion: {promotion}")
     if len(held["requirements"]) != 8:
         problems.append(f"CONTRACT_DRIFT admission: {len(held['requirements'])} requirements, §6.4 names eight")
@@ -542,6 +559,10 @@ def self_test():
     blank = copy.deepcopy(held)
     blank["unit_outcome"][0]["test"] = ""
     named("control: a test column that names nothing", table_problems(blank), "names no test state")
+    respelled = copy.deepcopy(held)
+    next(r for r in respelled["promotion"] if r["id"] == "consequence")["both_judges_class_one_of"][1] = "security-relevant"
+    named("control: a promotion row naming a class outside the judgment schema's enum (D-20261111-f3d39c)",
+          table_problems(respelled), "CLASS_UNDECLARED promotion/consequence")
 
     # done-when 1: the frozen fixtures, the table's rows, and the cases this run executed
     fixtures = json.loads(FIXTURES_PATH.read_text(encoding="utf-8"))["fixtures"]

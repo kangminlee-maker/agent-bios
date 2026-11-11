@@ -604,6 +604,12 @@ if [ -f session-distill/runlib/controls.py ]; then
   leg -q "FAIL: session-distill planted controls self-test (session-distill/runlib/controls.py)" \
     python3 session-distill/runlib/controls.py --self-test
 fi
+# S6 judge (plan WP-11): the judgment schema and the reuse key against design §6.2 (done-when 8), one payload and one
+# receipt per call (done-when 1's PACKET_DIVERGENCE and RECEIPT_STALE), an answer checked against its packet; no model is called.
+if [ -f session-distill/runlib/stage_judge.py ]; then
+  leg -q "FAIL: session-distill S6 judge self-test (session-distill/runlib/stage_judge.py)" \
+    python3 session-distill/runlib/stage_judge.py --self-test
+fi
 
 # Instructions rollback (compose/instructions-state.py) — a destructive path with no other
 # coverage: every version registered today is UNAVAILABLE (it predates the assembled
