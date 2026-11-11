@@ -838,8 +838,20 @@ def self_test():
     # null for every schema 2 ledger.
     rationed = tiny(status="placed", keep={"units": ["u"]}, reason="still delivered")
     migrated_rationed, _ = migrate(rationed)
-    seen = [inventory_lib.ledger_carriers(doc, "ledger_keep", {})[0]["provenance"].get("keep_reason")
-            for doc in (rationed, migrated_rationed)]
+
+    def first_keep_reason(doc):
+        """The one keep carrier's rationale, or why there is none to read.
+
+        Indexed blindly, this control crashed instead of reporting: a revert that drops the keep
+        record leaves the layer with no carrier at all, and `[0]` then ended the run with an
+        IndexError before any failure was printed (WP-22a's revert trial). A control a reader
+        cannot act on is not a control, so the absence is a value this assertion compares."""
+        rows = inventory_lib.ledger_carriers(doc, "ledger_keep", {})
+        if not rows:
+            return "no keep carrier in the layer"
+        return rows[0]["provenance"].get("keep_reason")
+
+    seen = [first_keep_reason(doc) for doc in (rationed, migrated_rationed)]
     if seen != [None, "still delivered"]:
         failures.append(f"the keep rationale's visibility did not move with the field: {seen}")
     migrated_pair, _ = migrate(tiny(status="placed", keep={"units": ["u"]}, reason="still delivered"))
