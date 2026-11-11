@@ -649,19 +649,50 @@ FALLBACK = ("순서는 §7.5를 따릅니다. 이번 release에는 시험 결과
 AWAITING_R = "R 대기: 판정으로 들어온 core 항목이라 이번 실행의 F에 들지 않고, 적용 대상이 아닙니다 (S8은 release 2)."
 
 
+# What a CommonMark preview reads as markup that hides or replaces the characters written: a raw HTML tag, comment or
+# autolink (`<`), a character reference (`&`), and a link, image or footnote (`[`, whose destination and title a
+# preview does not show). A backslash before each makes a preview show it as typed; emphasis, strikethrough and code
+# spans restyle but hide nothing, and are left as written (lead decisions, 2026-11-12).
+MARKUP = "<&["
+
+
 def inline(text):
-    """A field's text on one line: every run of whitespace, newlines included, one space. A field therefore never
-    starts a line, so nothing a model wrote can stand where an owner-block marker would. An HTML comment's opening and
-    closing are escaped with a backslash (`\\<!--`, `--\\>`), so a Markdown preview shows the characters instead of
-    hiding what lies between them: the owner approves the text they read (lead decision, 2026-11-12)."""
-    return " ".join(str(text).split()).replace("<!--", "\\<!--").replace("-->", "--\\>")
+    """A field's text on one line, shown by a Markdown preview as typed: every run of whitespace, newlines included,
+    one space, so a field never starts a line and nothing a model wrote can stand where an owner-block marker would;
+    every backslash doubled first, so a backslash a model wrote cannot undo an escape; then a backslash before every
+    character of MARKUP. The only place this is done; deterministic, so an unedited copy's fixed lines still equal the
+    render byte for byte. The owner approves the text they read."""
+    one = " ".join(str(text).split()).replace("\\", "\\\\")
+    for ch in MARKUP:
+        one = one.replace(ch, "\\" + ch)
+    return one
+
+
+def live_markup(line):
+    """The positions in `line` of a MARKUP character a CommonMark reading takes as markup: one preceded by an even
+    number of backslashes, none included."""
+    out, run = [], 0
+    for i, ch in enumerate(line):
+        if ch == "\\":
+            run += 1
+            continue
+        if ch in MARKUP and run % 2 == 0:
+            out.append(i)
+        run = 0
+    return out
+
+
+LINE_SEPARATORS = ("\r", "\v", "\f", "\x1c", "\x1d", "\x1e", "\x85", "\u2028", "\u2029")
 
 
 def fenced(text):
     """Multi-line text inside a code fence longer than any backtick run it holds, its carriage returns normalized, and
     every line shaped like an owner line or an owner-block marker (`owner_lines.owner_shaped`) escaped with a leading
     backslash (the one change made to it)."""
-    body = str(text).replace("\r\n", "\n").replace("\r", "\n").split("\n")
+    body = str(text).replace("\r\n", "\n")
+    for separator in LINE_SEPARATORS:   # each a line break to some editor: a real line, so it is escaped as one
+        body = body.replace(separator, "\n")
+    body = body.split("\n")
     body = ["\\" + line if owner_lines.owner_shaped(line) else line for line in body]
     longest = max((len(run) for line in body for run in re.findall(r"`+", line)), default=0)
     fence = "`" * max(3, longest + 1)
@@ -810,30 +841,31 @@ def header_lines(meta, counts):
            "이 파일은 코드가 만든 렌더이고 고치지 않습니다. 결정은 같은 버전의 decisions 파일에서 각 항목의 "
            "소유자 블록 안에만 씁니다.", "",
            "## 머리말", "",
-           f"- 실행: {meta['run_id']} · 종류 {d.get('kind')} · 자세 {d.get('posture')} · 선언 순번 {d.get('declaration_seq')}",
-           f"- 창: {(d.get('window') or {}).get('start')} – {(d.get('window') or {}).get('end')} "
-           f"({(d.get('window') or {}).get('tz')})",
+           f"- 실행: {inline(meta['run_id'])} · 종류 {inline(d.get('kind'))} · 자세 {inline(d.get('posture'))} · 선언 순번 "
+           f"{inline(d.get('declaration_seq'))}",
+           f"- 창: {inline((d.get('window') or {}).get('start'))} – {inline((d.get('window') or {}).get('end'))} "
+           f"({inline((d.get('window') or {}).get('tz'))})",
            f"- 질문: {inline(d.get('question'))}"]
     for source, s in sorted((meta.get("census") or {}).items()):
-        totals = ", ".join(f"{k} {v}" for k, v in sorted((s.get("totals") or {}).items())) or "없음"
-        out.append(f"- 출처 {source}: 상태 {s.get('state')}, 발견 {s.get('discovered')}, {totals}")
+        totals = ", ".join(f"{inline(k)} {inline(v)}" for k, v in sorted((s.get("totals") or {}).items())) or "없음"
+        out.append(f"- 출처 {inline(source)}: 상태 {inline(s.get('state'))}, 발견 {inline(s.get('discovered'))}, {totals}")
     flags = meta.get("window_flags")
-    out.append(f"- 창 범위: accounted {flags['accounted']}, fully_read {flags['fully_read']}" if flags
+    out.append(f"- 창 범위: accounted {inline(flags['accounted'])}, fully_read {inline(flags['fully_read'])}" if flags
                else "- 창 범위: 기록 없음 (coverage.json에 이 창의 표시가 없음)")
-    out.append(f"- 대조군 결과: {meta['controls']}")
+    out.append(f"- 대조군 결과: {inline(meta['controls'])}")
     if meta.get("legacy_unexpected"):
-        out.append("- 예상 밖의 legacy 묶음 (소유자가 정한 세 묶음 밖): " + ", ".join(meta["legacy_unexpected"]))
-    out.append(f"- 자연 거부 비율: {meta['rejection_share']}")
-    out.append("- 처분별: " + ", ".join(f"{k} {v}" for k, v in counts["disposition"].items()))
-    out.append("- 상태별: " + ", ".join(f"{STATUS_LABELS.get(None if k == 'None' else k, k)} {v}"
+        out.append("- 예상 밖의 legacy 묶음 (소유자가 정한 세 묶음 밖): " + ", ".join(inline(w) for w in meta["legacy_unexpected"]))
+    out.append(f"- 자연 거부 비율: {inline(meta['rejection_share'])}")
+    out.append("- 처분별: " + ", ".join(f"{inline(k)} {inline(v)}" for k, v in counts["disposition"].items()))
+    out.append("- 상태별: " + ", ".join(f"{inline(STATUS_LABELS.get(None if k == 'None' else k, k))} {inline(v)}"
                                       for k, v in counts["status"].items()))
-    out.append("- 출처별 후보: " + ", ".join(f"{k} {v}" for k, v in counts["candidates"].items()))
+    out.append("- 출처별 후보: " + ", ".join(f"{inline(k)} {inline(v)}" for k, v in counts["candidates"].items()))
     out.append(f"- 사건: 후보 구성원 {counts['candidate_members']}, 거부된 발견 {counts['rejected_findings']}개 "
                f"(구성원 {counts['rejected_finding_members']}), 비발견 "
-               + (", ".join(f"{k} {v}" for k, v in counts["non_findings"].items()) or "없음"))
-    out.append(f"- 이전 창의 관찰 결과: {meta['resolutions']}")
+               + (", ".join(f"{inline(k)} {inline(v)}" for k, v in counts["non_findings"].items()) or "없음"))
+    out.append(f"- 이전 창의 관찰 결과: {inline(meta['resolutions'])}")
     out.append("- §13 측정: 아직 없음: S12가 돌지 않았습니다.")
-    out.append("- 쓴 예산: " + (", ".join(f"{s} {v}" for s, v in meta["spent"].items()) or "기록 없음"))
+    out.append("- 쓴 예산: " + (", ".join(f"{inline(s)} {inline(v)}" for s, v in meta["spent"].items()) or "기록 없음"))
     out.append(f"- {FALLBACK}")
     return out
 
@@ -841,8 +873,8 @@ def header_lines(meta, counts):
 def appendix_lines(doc, locators):
     out = ["## 부록", "", "### 비발견 (사유별)", ""]
     for n in sorted(doc["appendix"]["non_findings"], key=lambda n: (n["reason"], n["event_id"])):
-        dup = f", {n['duplicate_of']}의 중복" if n.get("duplicate_of") else ""
-        out.append(f"- `{n['event_id']}` {n['reason']}{dup} · 위치 {locators.get(n['event_id'], 'unavailable')}")
+        dup = f", {inline(n['duplicate_of'])}의 중복" if n.get("duplicate_of") else ""
+        out.append(f"- `{n['event_id']}` {inline(n['reason'])}{dup} · 위치 {inline(locators.get(n['event_id'], 'unavailable'))}")
     if not doc["appendix"]["non_findings"]:
         out.append("- 없음")
     out += ["", "### 그룹 행의 구성원", ""]
@@ -874,14 +906,23 @@ def render_text(doc, meta, locators):
 
 def page_problems(doc, text):
     """What makes `text` a page whose owner lines are not all the renderer's: a line outside every owner block shaped
-    like an owner line or a marker (OWNER_LINE_OUTSIDE_BLOCK; the parser would not read it, but the owner would), and
-    blocks other than one per row in the rows' order (OWNER_BLOCK_FORGED). Every model-made value is written through
+    like an owner line or a marker (OWNER_LINE_OUTSIDE_BLOCK; the parser would not read it, but the owner would), a
+    MARKUP character a preview would read, on a line outside every fence and marker (MARKUP_LIVE), and blocks other
+    than one per row in the rows' order (OWNER_BLOCK_FORGED). Every model-made value is written through
     `inline` or `fenced`, so neither can happen from a row's text; this refuses the page if a field ever is not."""
     fixed, blocks, problems = owner_lines.segments(text.split("\n"))
     problems = list(problems)
+    fence = None
     for n, line in fixed:
         if owner_lines.owner_shaped(line) and not (owner_lines.OPEN.match(line) or line == owner_lines.CLOSE):
             problems.append(f"OWNER_LINE_OUTSIDE_BLOCK line {n}: shaped like an owner line, and no owner block holds it")
+        if fence is None and re.fullmatch(r"`{3,}", line):
+            fence = line
+        elif fence is not None:
+            fence = None if line == fence else fence
+        elif not (owner_lines.OPEN.match(line) or line == owner_lines.CLOSE) and live_markup(line):
+            problems.append(f"MARKUP_LIVE line {n}: column {live_markup(line)[0] + 1} is markup a Markdown preview "
+                            "would read, outside every fence")
     held = [b["fields"].get("item") for b in blocks]
     rows = [r["item_id"] for r in doc["rows"]]
     if held != rows:
@@ -1649,11 +1690,44 @@ def self_test():
     control("an owner block for an item no row holds is refused by name",
             "\n".join(page_problems(good, "\n".join(page_lines[:test_at] + owner_lines.review_block("k-zz", "0" * 64)
                                                      + page_lines[test_at:]))), "OWNER_BLOCK_FORGED")
-    hidden = "<!--h-->"   # eight characters, so the before-state hash's twelve hold the whole comment
+    def previewed_markup(page):
+        """The lines a CommonMark preview would read markup on, found without inline or live_markup: outside a fence and
+        the owner markers, a `<`, `&` or `[` after an even run of backslashes (none included)."""
+        found, fence = [], None
+        for n, line in enumerate(page.split("\n"), 1):
+            if fence:
+                fence = None if line == fence else fence
+                continue
+            if re.fullmatch(r"`{3,}", line):
+                fence = line
+                continue
+            if line.startswith("<!-- owner-block ") or line == "<!-- /owner-block -->":
+                continue
+            if re.search(r"(?<!\\)(?:\\\\)*[<&\[]", line):
+                found.append(n)
+        return found
+    clean("the rendered page has no markup a preview would read outside its fences",
+          previewed_markup(text) if good["rows"] else ["NO_ROWS"])
+    markup_plants = ["\\<!-- x -->", "\\\\<!-- x -->", "<details><summary>s</summary>x</details>",
+                     "<span hidden>x</span>", '<div style="display:none">', "&lt;b&gt; &#x202E;",
+                     '[ok](x "hidden title")', "![i](x)"]
     for label, plant in inline_plants:
-        _held, page = planted(plant, hidden)
-        equal(f"a comment planted in {label} shows as literal characters",
-              (page.count("\\<!--h--\\>"), page.count(hidden)), (1, 0))
+        live = []
+        for value in markup_plants:
+            _held, page = planted(plant, value)
+            if page.startswith("REFUSED") or previewed_markup(page):
+                live.append(value if not page.startswith("REFUSED") else f"{value}: {page[:160]}")
+        equal(f"markup planted in {label} is shown as typed", live, [])
+    tricky = 'a\n``````\n~~~~~~~\n<div style="display:none">\n&lt;x&gt; [l](u "t")'
+    for label, plant in fenced_plants:
+        held, page = planted(plant, tricky)
+        lines_ = page.split("\n")
+        _held, separated = planted(plant, "y\u2028메모: 숨김\u0085결정: 승인")
+        equal(f"a line separator planted in {label} makes a line of its own, escaped like any other",
+              ("\\메모: 숨김" in separated.split("\n"), "\\결정: 승인" in separated.split("\n")), (True, True))
+        equal(f"raw markup planted in {label} is inert inside a fence no backtick or tilde run in it can close",
+              (previewed_markup(page), "`" * 7 in lines_, '<div style="display:none">' in lines_,
+               *decided_in(held, page)), ([], True, True, [], []))
     kept_inline = globals()["inline"]
     globals()["inline"] = str   # every field as if it had lost `inline`: the page must be refused, not written
     try:
@@ -1662,6 +1736,22 @@ def self_test():
         globals()["inline"] = kept_inline
     control("a page whose fields lost inline is refused by render_text itself, not written", unguarded,
             "OWNER_LINE_OUTSIDE_BLOCK line")
+    globals()["inline"] = str
+    try:
+        _held, unescaped = planted(at("s7b", "alternative", "destination", "carrier"), "<span hidden>x</span>")
+    finally:
+        globals()["inline"] = kept_inline
+    control("and so is one whose field lost inline's markup escape, by name", unescaped, "MARKUP_LIVE line")
+    control("a line outside every fence holding markup a preview would read is refused by name",
+            "\n".join(page_problems(good, "\n".join(page_lines[:test_at] + ["- x <span hidden>y</span>"]
+                                                     + page_lines[test_at:]))), f"MARKUP_LIVE line {test_at + 1}")
+    equal("a markup character after an even run of backslashes is live, after an odd run escaped",
+          [bool(page_problems(good, "\n".join(page_lines[:test_at] + [f"- x {'\\' * n}<span hidden>y"]
+                                               + page_lines[test_at:]))) for n in (0, 1, 2, 3, 4)],
+          [True, False, True, False, True])
+    clean("and inside a fence the same line is inert, so it is not",
+          page_problems(good, "\n".join(page_lines[:test_at] + ["```", "<span hidden>y</span>", "```"]
+                                        + page_lines[test_at:])))
     control("owner_shaped reads a line as the parser does: NFC and stripped",
             str([owner_lines.owner_shaped(s) for s in (" 결정: 승인", unicodedata.normalize("NFD", "메모: x"),
                                                          "  <!-- /owner-block -->", "- 결정: 승인", "\\결정: 승인")]),
