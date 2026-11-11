@@ -1074,7 +1074,8 @@ def sweep_stage(run_dir, stage, supervisor, declaration, judged, judgments, sour
                     "packet_sha256": receipt.get("packet_sha256"),
                     "pairs": labels.resolve(gate.accepted(call_dir, judged=True))})
                 stage.output(rel)
-                receipts.append((f"sweep/{group}/{shard}", seat, call_id, receipt, payload_sha256))
+                receipts.append((f"sweep/{group}/{shard}", seat, call_id, receipt, payload_sha256,
+                                 corrected_sha256(call_dir, text)))
                 held.update(call_id=call_id, result=rel)
             row["seats"][side] = held
         section["calls"].append(row)
@@ -1252,7 +1253,7 @@ def cross_stage(run_dir, stage, supervisor, declaration, swept, item_of_cid, cap
                     raise Refused("\n".join(problems))
                 records.write_json(run_dir, run_dir / rel, record)
                 stage.output(rel)
-                receipts.append((f"cross/{cid}", seat, call_id, receipt, payload_sha256))
+                receipts.append((f"cross/{cid}", seat, call_id, receipt, payload_sha256, corrected_sha256(call_dir, text)))
                 held.update(call_id=call_id, result=rel)
                 section["reviewed"].append(cid)
             section["calls"].append({"candidate_id": cid, "flags": len(flags), "negatives": len(negatives), **held})
@@ -1403,7 +1404,8 @@ def reconsider_stage(run_dir, stage, supervisor, declaration, summary, packets, 
                     "payload_sha256": payload_sha256, "packet_sha256": receipt.get("packet_sha256"),
                     "returned": returned, "judgment": held[who]})
                 stage.output(rel)
-                receipts.append((f"reconsider/{cid}", seat, call_id, receipt, payload_sha256))
+                receipts.append((f"reconsider/{cid}", seat, call_id, receipt, payload_sha256,
+                                 corrected_sha256(call_dir, text)))
                 call.update(call_id=call_id, reconsideration=rel)
             row["seats"][who] = call
         section["calls"].append(row)
@@ -1716,20 +1718,49 @@ def attempt_problems(built, limits, schema_bytes, who):
             f"seat's capacity {limits['capacity']}"] if beyond else []
 
 
+# the frame gate.correction puts around the failure lines of the one corrective retry, read from the gate itself
+CORRECTION_HEAD, CORRECTION_TAIL = (lambda t: (t[:t.index("- X\n")], t[t.index("- X\n") + 3:]))(
+    gate.correction({"failures": ["X"]}))
+
+
+def corrected_sha256(call_dir, text):
+    """The payload hash the receipt of the attempt in `call_dir` is due to carry when that attempt was the one corrective
+    retry of `text`: dispatch sends the payload, a newline and `gate.correction` (Supervisor.item), and records the
+    payload's own hash as the call's (`call.json` `payload_sha256`). The sent payload's hash when it is exactly that and
+    the call says it was made for `text`; None otherwise, so a receipt is then held to the payload S6 built and nothing
+    else. Codex WP-11 r1 #1: a successful retry carried its correction's hash and was refused PACKET_DIVERGENCE."""
+    held = gate.Call(call_dir)
+    sent = packet.split(held.packet)[1]
+    base = text.encode("utf-8")
+    if sent is None or held.call.get("payload_sha256") != packet.sha256_bytes(base) \
+            or not sent.startswith(base + b"\n"):
+        return None
+    rest = sent[len(base) + 1:].decode("utf-8", "replace")
+    framed = rest.startswith(CORRECTION_HEAD) and rest.endswith(CORRECTION_TAIL) \
+        and len(rest) > len(CORRECTION_HEAD) + len(CORRECTION_TAIL)
+    return packet.sha256_bytes(sent) if framed else None
+
+
 def stage_receipts(calls):
     """N#1 over the accepted calls: each candidate's two receipts carry the payload S6 built for it and one payload hash
     between them (PACKET_DIVERGENCE), and no two receipts of the stage one packet hash (RECEIPT_STALE). `calls` are
-    `(candidate id, seat, call id, receipt, payload sha256)`."""
+    `(candidate id, seat, call id, receipt, payload sha256[, corrected sha256])`: an attempt that was the corrective
+    retry of that payload (`corrected_sha256`) carries its correction's hash, and is held to that one and read as the
+    payload S6 built when the seats are compared, because the correction is the gate's answer to that seat's own
+    attempt and not a second judgment payload."""
     out, by_candidate = [], {}
-    for cid, seat, call_id, receipt, built in calls:
-        by_candidate.setdefault(cid, {})[call_id] = (seat, receipt)
+    for cid, seat, call_id, receipt, built, *rest in calls:
+        corrected = rest[0] if rest else None
         got = (receipt.get("evidence") or {}).get("payload_sha256")
-        if got != built:
+        if corrected is not None and got == corrected:
+            receipt = {**receipt, "evidence": {**(receipt.get("evidence") or {}), "payload_sha256": built}}
+        elif got != built:
             out.append(f"PACKET_DIVERGENCE {call_id}: its receipt carries the payload hash {str(got)[:12]}, and S6 built "
                        f"{str(built)[:12]} for {cid}")
+        by_candidate.setdefault(cid, {})[call_id] = (seat, receipt)
     for held in by_candidate.values():
         out += [p for p in receipt_problems(held) if not p.startswith("RECEIPT_STALE")]
-    out += [p for p in receipt_problems({c: (s, r) for _cid, s, c, r, _b in calls}) if p.startswith("RECEIPT_STALE")]
+    out += [p for p in receipt_problems({c: (s, r) for _cid, s, c, r, _b, *_rest in calls}) if p.startswith("RECEIPT_STALE")]
     return out
 
 
@@ -1902,7 +1933,8 @@ def run(run_dir, supervisor=None, *, dry=False, seats_path=None, tranche="calibr
                         "payload_sha256": measured["payload_sha256"], "packet_sha256": receipt.get("packet_sha256"),
                         "judgment": judgment})
                     stage.output(rel)
-                    receipts.append((cid, seat, call_id, receipt, measured["payload_sha256"]))
+                    receipts.append((cid, seat, call_id, receipt, measured["payload_sha256"],
+                                     corrected_sha256(call_dir, text)))
                     held.update(call_id=call_id, judgment=rel)
                 row["seats"][who] = held
             calls.append(row)
@@ -2650,6 +2682,23 @@ def self_test():
                                  held[3][4])]
             control("control: a receipt whose payload hash is not the payload S6 built is PACKET_DIVERGENCE",
                     sum(p.startswith("PACKET_DIVERGENCE") for p in stage_receipts(moved)) == 2, f"{stage_receipts(moved)}")
+            # a retry's due hash, over call directories made here: only the payload S6 built, a newline and the gate's own
+            # correction frame give one (Codex WP-11 r1 #1)
+            def sent_as(name, body, made_for="base payload"):
+                d = root / "sent" / name
+                d.mkdir(parents=True, exist_ok=True)
+                (d / "packet.md").write_bytes(packet.build("c-a2", STAGE, "s", body))
+                (d / "call.json").write_text(json.dumps({"payload_sha256": packet.sha256_bytes(made_for.encode("utf-8"))}),
+                                             encoding="utf-8")
+                return guarded(lambda: corrected_sha256(d, "base payload"), "RAISED")
+            fixed = "base payload\n" + gate.correction({"failures": ["UNIT_UNJUDGED u1"]})
+            control("Codex WP-11 r1 #1: a retry's due hash is given for the payload and the gate's correction, and not for "
+                    "the payload with anything else after it, nor for a call made for another payload",
+                    sent_as("framed", fixed) == packet.sha256_bytes(fixed.encode("utf-8"))
+                    and sent_as("other-tail", "base payload\nsomething else entirely\n") is None
+                    and sent_as("head-only", "base payload\n" + CORRECTION_HEAD) is None
+                    and sent_as("other-base", fixed, made_for="another payload") is None
+                    and sent_as("first", "base payload") is None)
             # ---- design §3.2's gate controls (J4b, D5) ---------------------------------------------------------------
             gated = guarded(lambda: records.read_json(called / GATE_VERDICTS), {})
             gv = gated.get("gate_verdicts", {})
@@ -2864,6 +2913,9 @@ def self_test():
                 sweep_rows += [{"match": [f"-{RECONSIDER}{who}-a"], "auto": "reconsider"} for who in ("A", "B")]
                 judge_rows = json.loads(pathlib.Path(whole_plan).read_text(encoding="utf-8"))
                 pathlib.Path(whole_plan).write_text(json.dumps(judge_rows + sweep_rows), encoding="utf-8")
+                # the same run before any S6 call, for the corrective-retry runs below (Codex WP-11 r1 #1)
+                retry_base = root / "retry-base"
+                shutil.copytree(whole.parent, retry_base)
                 defect_sweep_plan = root / "plan-whole-defect.json"
                 defect_sweep_plan.write_text(json.dumps(
                     judge_rows + [{"match": [f"-{STAGE}-sweep-g001-s001-b-a"], "auto": "sweep", "drop_first": True}] + sweep_rows),
@@ -2983,6 +3035,59 @@ def self_test():
                         and not again_cross.get(claims_known[0], {}).get("reused")
                         and all(r.get("reused") for c, r in again_cross.items() if c != claims_known[0]) and len(again_cross) > 1,
                         f"{[(c[:12], r.get('outcome'), r.get('reused')) for c, r in again_cross.items()]}")
+                # Codex WP-11 r1 #1: in each of the four call kinds one attempt fails its check and its one corrective retry,
+                # sent with the gate's correction, is accepted; the run completes, and a run after it answers every call
+                # from those attempts. The first attempts are planted by call id, so the retries meet the ordinary rows.
+                retried = retry_base / whole.name
+                judged_one = next((c for c in sorted(whole_packets) if c not in made_gaps and whole_packets[c][0].units), None)
+                seat_a = f"SEAT: {fresh.get('seats', {}).get('A')}"
+                normal = next((r for r in judge_rows if judged_one and r["match"] == [seat_a, whole_packets[judged_one][1]]), None)
+                planted_first = {
+                    "judge": f"-{STAGE}-{item_of(judged_one or '')}-A-a1",
+                    "sweep": f"-{STAGE}-sweep-g001-s001-b-a1",
+                    "cross": f"-{STAGE}-{item_of(claims_known[1] if len(claims_known) > 1 else '')}-X-a1",
+                    "reconsider": f"-{STAGE}-{item_of(recon_of.get(0, ''))}-{RECONSIDER}A-a1"}
+                retry_rows = ([{"match": [planted_first["judge"]], "answer": {**normal["answer"],
+                                                                             "units": normal["answer"]["units"][1:]}}]
+                              if normal else []) + [
+                    {"match": [planted_first["sweep"]], "auto": "sweep", "drop_first": True},
+                    {"match": [planted_first["cross"]], "auto": "cross", "drop_first": True},
+                    {"match": [planted_first["reconsider"]], "auto": "reconsider", "yes_first": True,
+                     "extra": {"requirements": fx_answer()["requirements"]}}]
+                retry_plan = root / "plan-whole-retry.json"
+                retry_plan.write_text(json.dumps(retry_rows + judge_rows + sweep_rows), encoding="utf-8")
+                fifth = guarded(lambda: run(retried, supervisor(retried, root / "cells-11", retry_plan)),
+                                lambda e: {"problem": repr(e)})
+                fifth_record = guarded(lambda: records.read_json(records.record_path(retried, STAGE)), {})
+                attempts_of = {kind: sorted(d.name for d in (retried / "calls").iterdir()
+                                            if (retried / "calls").is_dir() and d.name.endswith(frag[:-1] + "2")
+                                            and (retried / "calls" / d.name / "receipt.json").is_file())
+                               for kind, frag in planted_first.items()}
+                control("Codex WP-11 r1 #1: an attempt that fails its check in each of the four call kinds is retried once "
+                        "with the gate's correction, the retry is accepted and its receipt passes N#1, and the run completes",
+                        normal is not None and len(recon_of) == 3 and "problem" not in fifth
+                        and fifth_record.get("status") == "complete" and all(len(v) == 1 for v in attempts_of.values()),
+                        f"{str(fifth.get('problem'))[:300]} {fifth_record.get('status')} {attempts_of}")
+                retry_dir = retried / "calls" / attempts_of["judge"][0] if attempts_of.get("judge") else None
+                text_one = whole_packets[judged_one][1] if judged_one else ""
+                due = guarded(lambda: corrected_sha256(retry_dir, text_one), "RAISED") if retry_dir else None
+                receipt_one = guarded(lambda: records.read_json(retry_dir / "receipt.json"), {}) if retry_dir else {}
+                control("Codex WP-11 r1 #1: a retry's due hash is its receipt's only when what was sent is the payload S6 "
+                        "built and the gate's correction; another payload, or the first attempt, is held to S6's own hash",
+                        due is not None and due == (receipt_one.get("evidence") or {}).get("payload_sha256")
+                        and guarded(lambda: corrected_sha256(retry_dir, text_one.replace("\n", " \n", 1)), "RAISED") is None
+                        and guarded(lambda: corrected_sha256(pathlib.Path(str(retry_dir)[:-1] + "1"), text_one), "RAISED")
+                        is None, f"{due} {(receipt_one.get('evidence') or {}).get('payload_sha256')}")
+                sixth = guarded(lambda: run(retried, supervisor(retried, root / "cells-12", whole_plan)),
+                                lambda e: {"problem": repr(e)})
+                sixth_reused = [h.get("reused") for row in sixth.get("calls", []) for h in row["seats"].values()] + [
+                    h.get("reused") for row in (sixth.get("sweeps") or {}).get("calls", []) for h in row["seats"].values()] + [
+                    row.get("reused") for row in (sixth.get("cross_review") or {}).get("calls", [])] + [
+                    h.get("reused") for row in (sixth.get("reconsiderations") or {}).get("calls", [])
+                    for h in row["seats"].values()]
+                control("Codex WP-11 r1 #1: run again, every call is answered by its accepted attempt, the retried ones "
+                        "included, and the receipts still pass", "problem" not in sixth and sixth_reused
+                        and all(sixth_reused), f"{str(sixth.get('problem'))[:300]} {sixth_reused.count(None)}")
                 # ---- Judge B's cross-review (J3b, done-when 3) --------------------------------------------------------
                 cr = again_sw.get("cross_review") or {}
                 pop_b = {k["candidate_id"]: k for k in records.read_json(whole / "checked-candidates.json")["candidates"]}
