@@ -665,7 +665,31 @@ def inline(text):
     one = " ".join(str(text).split()).replace("\\", "\\\\")
     for ch in MARKUP:
         one = one.replace(ch, "\\" + ch)
-    return one
+    # last, so a notation's one backslash is never doubled: a backslash and a `u` a model wrote shows as `\\u`
+    return visible(one)
+
+
+# The categories whose characters change what is seen without being seen (lead decision, 2026-11-12): Cf, the format
+# characters (bidirectional controls, zero-width characters, the byte-order mark, the soft hyphen, ...), Cc, the
+# controls, and Cs, a lone surrogate, which UTF-8 cannot write at all. Read from the Unicode database rather than
+# listed by hand; no Hangul character is in them, and Korean prose needs none of them (ZWJ and ZWNJ are not used in
+# Hangul). Whitespace among the controls is folded by `inline` and split into lines by `fenced` before this runs.
+INVISIBLE = ("Cf", "Cc", "Cs")
+
+
+def notation(ch):
+    """A character's code point in visible notation: `\\uXXXX`, or `\\UXXXXXXXX` beyond the first plane."""
+    return f"\\u{ord(ch):04X}" if ord(ch) <= 0xFFFF else f"\\U{ord(ch):08X}"
+
+
+def visible(text, keep=""):
+    """`text` with every INVISIBLE character, other than those in `keep`, in its visible notation."""
+    return "".join(ch if ch in keep or unicodedata.category(ch) not in INVISIBLE else notation(ch) for ch in text)
+
+
+def invisible_in(text, keep=""):
+    """The INVISIBLE characters of `text` other than those in `keep`, in order."""
+    return [ch for ch in text if ch not in keep and unicodedata.category(ch) in INVISIBLE]
 
 
 def live_markup(line):
@@ -686,17 +710,29 @@ LINE_SEPARATORS = ("\r", "\v", "\f", "\x1c", "\x1d", "\x1e", "\x85", "\u2028", "
 
 
 def fenced(text):
-    """Multi-line text inside a code fence longer than any backtick run it holds, its carriage returns normalized, and
-    every line shaped like an owner line or an owner-block marker (`owner_lines.owner_shaped`) escaped with a leading
-    backslash (the one change made to it)."""
+    """Multi-line text inside a code fence longer than any backtick run it holds, its carriage returns and other line
+    separators normalized, every invisible character but a tab in visible notation (named on a line after the
+    fence), and every line shaped like an owner line or an owner-block marker (`owner_lines.owner_shaped`) escaped
+    with a leading backslash."""
     body = str(text).replace("\r\n", "\n")
     for separator in LINE_SEPARATORS:   # each a line break to some editor: a real line, so it is escaped as one
         body = body.replace(separator, "\n")
     body = body.split("\n")
+    # a tab is a file's own character and stays; every other invisible character shows as its notation, which a
+    # backslash the content itself holds could imitate inside a fence, so the line after the fence names each one
+    shown = [(n, sorted({f"U+{ord(ch):04X}" for ch in invisible_in(line, keep="\t")})) for n, line in enumerate(body, 1)]
+    shown = [(n, points) for n, points in shown if points]
+    body = [visible(line, keep="\t") for line in body]
     body = ["\\" + line if owner_lines.owner_shaped(line) else line for line in body]
     longest = max((len(run) for line in body for run in re.findall(r"`+", line)), default=0)
     fence = "`" * max(3, longest + 1)
-    return [fence, *body, fence]
+    note = []
+    if shown:
+        listed = "; ".join(f"{n}번째 줄 {', '.join(points)}" for n, points in shown[:20])
+        more = f" 외 {len(shown) - 20}줄" if len(shown) > 20 else ""
+        note = [f"- 위 펜스 안의 보이지 않는 문자를 \\uXXXX 표기로 바꿨습니다: {listed}{more}. 여기 적히지 않은 같은 모양의 "
+                "글자는 원문에 그대로 있던 글자입니다."]
+    return [fence, *body, fence, *note]
 
 
 def judge_line(who, judge):
@@ -907,8 +943,9 @@ def render_text(doc, meta, locators):
 def page_problems(doc, text):
     """What makes `text` a page whose owner lines are not all the renderer's: a line outside every owner block shaped
     like an owner line or a marker (OWNER_LINE_OUTSIDE_BLOCK; the parser would not read it, but the owner would), a
-    MARKUP character a preview would read, on a line outside every fence and marker (MARKUP_LIVE), and blocks other
-    than one per row in the rows' order (OWNER_BLOCK_FORGED). Every model-made value is written through
+    MARKUP character a preview would read, on a line outside every fence and marker (MARKUP_LIVE), an INVISIBLE
+    character anywhere but a tab inside a fence (INVISIBLE_CHARACTER), and blocks other than one per row in the rows'
+    order (OWNER_BLOCK_FORGED). Every model-made value is written through
     `inline` or `fenced`, so neither can happen from a row's text; this refuses the page if a field ever is not."""
     fixed, blocks, problems = owner_lines.segments(text.split("\n"))
     problems = list(problems)
@@ -916,6 +953,10 @@ def page_problems(doc, text):
     for n, line in fixed:
         if owner_lines.owner_shaped(line) and not (owner_lines.OPEN.match(line) or line == owner_lines.CLOSE):
             problems.append(f"OWNER_LINE_OUTSIDE_BLOCK line {n}: shaped like an owner line, and no owner block holds it")
+        hidden = invisible_in(line, keep="\t" if fence is not None and line != fence else "")
+        if hidden:
+            problems.append(f"INVISIBLE_CHARACTER line {n}: U+{ord(hidden[0]):04X} changes what is seen without being "
+                            "seen")
         if fence is None and re.fullmatch(r"`{3,}", line):
             fence = line
         elif fence is not None:
@@ -1662,8 +1703,8 @@ def self_test():
         try:
             got, probs = owner_lines.parse(page, owner_lines.copy_of(page, "review.ko.v1.md"), spec=spec_of(held),
                                            render_name="review.ko.v1.md")
-        except Refused as exc:
-            return [f"COPY_REFUSED {exc}"[:240]], None
+        except (Refused, UnicodeError) as exc:   # a lone surrogate cannot be hashed as UTF-8: named, not fatal
+            return [f"COPY_REFUSED {type(exc).__name__} {exc}"[:240]], None
         return probs, [i["item_id"] for i in (got or {}).get("items") or [] if i.get("verb")]
 
     def shaped(page):
@@ -1718,6 +1759,36 @@ def self_test():
             if page.startswith("REFUSED") or previewed_markup(page):
                 live.append(value if not page.startswith("REFUSED") else f"{value}: {page[:160]}")
         equal(f"markup planted in {label} is shown as typed", live, [])
+    def unseen(page, tabs_in_fences=False):
+        """Every character of category Cf, Cc or Cs in `page` but its line breaks (and, when asked, a tab on a line
+        inside a fence), found without INVISIBLE, visible or invisible_in."""
+        found, fence = [], None
+        for line in page.split("\n"):
+            inside = fence is not None and line != fence
+            if fence is None and re.fullmatch(r"`{3,}", line):
+                fence = line
+            elif fence is not None and line == fence:
+                fence = None
+            found += [f"U+{ord(c):04X}" for c in line if unicodedata.category(c)[0] == "C"
+                      and unicodedata.category(c) in ("Cf", "Cc", "Cs") and not (c == "\t" and tabs_in_fences and inside)]
+        return found
+    unseen_plant = ("x\u202Ey\u202a\u2066\u2069\u200b\u200c\u200d\u2060\ufeff\u061c\u200e\u200f\x00\x07\x1b\x7f\x9b"
+                    "\u00ad\U000e0001\ud800 \\u202E z")
+    clean("the rendered page holds no invisible character but its line breaks", unseen(text) if good["rows"] else ["NO_ROWS"])
+    for label, plant in inline_plants:
+        _held, page = planted(plant, unseen_plant)
+        equal(f"an invisible character planted in {label} is shown in visible notation",
+              (page.startswith("REFUSED") and page[:160], unseen(page), "\\u202E" in page), (False, [], True))
+    _held, page = planted(at("s7b", "alternative", "destination", "carrier"), "x\u202Ey \\u202E z")
+    control("a backslash and u a model wrote shows doubled, so it cannot pass for the notation", page,
+            "x\\u202Ey \\\\u202E z")
+    for label, plant in fenced_plants:
+        held, page = planted(plant, "a\tb\n" + unseen_plant)
+        lines_ = page.split("\n")
+        equal(f"an invisible character planted in {label} is shown in visible notation, a tab kept, each one named",
+              (unseen(page, tabs_in_fences=True), "a\tb" in lines_,
+               any(line.startswith("- 위 펜스 안의 보이지 않는 문자") and "2번째 줄" in line and "U+202E" in line
+                   for line in lines_), *decided_in(held, page)), ([], True, True, [], []))
     tricky = 'a\n``````\n~~~~~~~\n<div style="display:none">\n&lt;x&gt; [l](u "t")'
     for label, plant in fenced_plants:
         held, page = planted(plant, tricky)
@@ -1742,6 +1813,18 @@ def self_test():
     finally:
         globals()["inline"] = kept_inline
     control("and so is one whose field lost inline's markup escape, by name", unescaped, "MARKUP_LIVE line")
+    globals()["inline"] = str
+    try:
+        _held, unshown = planted(at("s7b", "alternative", "destination", "carrier"), "x\u202Ey")
+    finally:
+        globals()["inline"] = kept_inline
+    control("and so is one whose field lost inline's visible notation, by name", unshown, "INVISIBLE_CHARACTER line")
+    control("an invisible character on a line of the page is refused by name",
+            "\n".join(page_problems(good, "\n".join(page_lines[:test_at] + ["- x \u202ey"] + page_lines[test_at:]))),
+            f"INVISIBLE_CHARACTER line {test_at + 1}: U+202E")
+    equal("a tab is a file's own character inside a fence, and refused outside one",
+          (page_problems(good, "\n".join(page_lines[:test_at] + ["```", "\tx", "```"] + page_lines[test_at:])),
+           bool(page_problems(good, "\n".join(page_lines[:test_at] + ["- \tx"] + page_lines[test_at:])))), ([], True))
     control("a line outside every fence holding markup a preview would read is refused by name",
             "\n".join(page_problems(good, "\n".join(page_lines[:test_at] + ["- x <span hidden>y</span>"]
                                                      + page_lines[test_at:]))), f"MARKUP_LIVE line {test_at + 1}")
