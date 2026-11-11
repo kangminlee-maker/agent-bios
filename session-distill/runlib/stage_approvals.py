@@ -348,8 +348,11 @@ def fixture():
              "destination": {"layer": "guides", "carrier": "claude/guides/g.md"}, "reasons": dict(o6), "unknowns": []}
     reduce = {**place, "disposition": "reduce", "keep_record_named": "R-1",
               "operations": [{"type": "delete", "target": "claude/guides/k.md", "before_state_sha256": "b" * 64}]}
+    reviewed = {"state": "reviewed", "verdict": "disagree", "disposition_holds": True, "destination_holds": False,
+                "bars_failing": [], "faithful_merge": "n/a", "disagreement": True, "owner_resolves": True,
+                "notes": "다른 자리가 싸다", "alternative": {"disposition": "incubate", "reason": "관찰을 더 모은다"}}
     rows = [sr._row("k-place", "candidate", "proposed", t, dict(o6), disposition="place", changes_library=True,
-                    proposal=place, kind="gap", diagnosis="gap", source="formed"),
+                    proposal=place, kind="gap", diagnosis="gap", source="formed", s7b=reviewed),
             sr._row("k-keep", "candidate", "proposed", t, dict(o6), disposition="keep", proposal={**place,
                     "disposition": "keep", "operations": []}, kind="confirmed", diagnosis="covered", source="formed"),
             sr._row("k-reduce", "candidate", "proposed", t, dict(o6), disposition="reduce", changes_library=True,
@@ -376,7 +379,6 @@ def fixture():
             "resolutions": "없음", "rejection_share": "없음", "controls": "없음", "legacy_unexpected": []}
     text = sr.render_text(doc, meta, {})
     spec = sr.spec_of(doc)
-    spec["k-place"]["alternatives"] = ["alt-1"]
     rows_doc = {"stage": "S9", "version": 1, "render": "review.ko.v1.md", "render_sha256": owner_lines.sha256_text(text),
                 "copy": "decisions.ko.v1.md", "rendered_at": "2026-11-12T00:00:00+00:00", "rows": keyed,
                 "appendix": doc["appendix"], "counts": doc["counts"], "spec": spec}
@@ -457,8 +459,8 @@ def self_test():
     equal("the approval id is code-generated and stable for the same decision", approval(copy_place, "k-place")
           .get("approval_id"), a.get("approval_id"))
     control("and has its shape", str(a.get("approval_id")), "A-")
-    equal("수정 대안 <id> adopts S7b's alternative", approval(fill("k-place", "결정: 수정 대안 alt-1"), "k-place")
-          .get("alternative"), "alt-1")
+    equal("수정 대안 <id> adopts S7b's alternative", approval(fill("k-place", "결정: 수정 대안 s7b"), "k-place")
+          .get("alternative"), "s7b")
     equal("수정 with a note returns it to S7 with the note",
           (approval(fill("k-place", "결정: 수정", "메모: 대상을 좁힌다"), "k-place").get("decision"),
            approval(fill("k-place", "결정: 수정", "메모: 대상을 좁힌다"), "k-place").get("note")),

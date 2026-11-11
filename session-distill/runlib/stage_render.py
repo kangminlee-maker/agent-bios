@@ -37,7 +37,7 @@ import sys
 if __package__ in (None, ""):  # run as a script: put session-distill/ on the import path
     sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 from grammar import owner_lines  # noqa: E402
-from runlib import derive, ranking, records, stage_propose  # noqa: E402
+from runlib import derive, ranking, records, stage_propose, stage_review_proposals  # noqa: E402
 from runlib.records import Refused  # noqa: E402
 
 HERE = pathlib.Path(__file__).resolve().parents[1]
@@ -51,7 +51,8 @@ INPUTS = ({"artifact": "census.json", "producer_stage": "S1"},
           {"artifact": "checks.json", "producer_stage": "S5"},
           {"artifact": "judgments/judge.json", "producer_stage": "S6"},
           {"artifact": "judgments/derivations.json", "producer_stage": "S6"},
-          {"artifact": "proposals.json", "producer_stage": "S7"})
+          {"artifact": "proposals.json", "producer_stage": "S7"},
+          {"artifact": stage_review_proposals.OUTPUT, "producer_stage": "S7b"})
 # The ranking keys of a row nothing judged: values inside ranking.py's vocabularies that say "not determined", so a
 # rejected finding, a failed item or a group row orders without a key invented for it (lead Q4 default).
 UNDETERMINED = {"kind": "unclassified", "diagnosis": "unknown", "consequence": "none", "lineages": 0}
@@ -61,7 +62,13 @@ FAILED, RETURNED, QUARANTINED = "failed", "returned", "quarantined"
 # The owner's three legacy groups. A first word outside them is still its own group (every entry accounted), and the
 # header names it, since the owner decided for these three.
 LEGACY_GROUPS = ("below-bar-default", "user-approved-default", "incubating")
-S7B_ABSENT = {"state": "absent", "why": "S7b has not run on this tree (WP-12 commit 5 brings it)"}
+# A row with no proposal has nothing for S7b to review; a proposal's row carries what S7b recorded for it.
+S7B_NONE = {"state": "none", "why": "S7b reviews proposals, and this row carries none"}
+# S7b offers at most one alternative per proposal and gives it no id, so the review shows it under this one; the
+# owner takes it with `결정: 수정 대안 s7b`, and S10b resolves it from review-s7b.json (lead decision, K2c).
+ALTERNATIVE_ID = "s7b"
+S7B_ROW_FIELDS = ("verdict", "disposition_holds", "destination_holds", "bars_failing", "faithful_merge",
+                  "alternative", "disagreement", "owner_resolves", "notes")
 CLASS_ORDER = ("irreversible", "security", "verification-corrupting", "cost", "quality", "none")
 JUDGES = ("A", "B")
 ROW_KINDS = ("candidate", "legacy", "legacy_group", "left_out_group", "rejected_finding", "stage_item")
@@ -97,7 +104,7 @@ def load(run_dir, ledger=None):
     docs = {"population": read("population.json"), "intake": read("intake.json"), "census": read("census.json"),
             "controls": read("controls.json"), "checks": read("checks.json"), "judge": read("judgments/judge.json"),
             "derivations": read("judgments/derivations.json"), "proposals": read("proposals.json"),
-            "ledger": ledger, "judgments": {}, "quarantined": {}}
+            "s7b": read(stage_review_proposals.OUTPUT), "ledger": ledger, "judgments": {}, "quarantined": {}}
     for row in docs["judge"].get("calls") or []:
         held = {}
         for who in JUDGES:
@@ -221,19 +228,38 @@ def o6_left_out(members, source, why):
 def _row(item_id, row_kind, status, test_state, o6, **fields):
     held = {"item_id": item_id, "candidate_id": item_id, "row_kind": row_kind, "status": status, **UNDETERMINED,
             "disposition": "none", "changes_library": False, "events": [], "members": [], "test": test_state,
-            "s7b": S7B_ABSENT, "failure": None, "awaiting_R": False, "awaiting_R_reason": None, "proposal": None,
+            "s7b": S7B_NONE, "failure": None, "awaiting_R": False, "awaiting_R_reason": None, "proposal": None,
             "guarded_keeps": [], "disputed": [], "judges": None, "units": [], "o6": o6}
     held.update(fields)
     return held
 
 
-def proposal_row(cid, p, test_state, base, row_kind="candidate"):
-    """A row S7 proposed for: its status, its proposal and S7's Korean reasons as the row's O6. A legacy entry keeps its
-    row kind, since S6 did not judge it and the left-out count holds it as unjudged."""
+def s7b_states(doc):
+    """`({item_id: state}, problems)` from review-s7b.json: reviewed (S7b's row fields), returned (its codes) or
+    unreviewed (S7b's reason). An id S7b lists twice is named (S7B_DUPLICATED)."""
+    states, problems = {}, []
+    entries = ([(r["item_id"], {"state": "reviewed", **{k: r.get(k) for k in S7B_ROW_FIELDS}})
+                for r in (doc or {}).get("reviews") or []]
+               + [(r["item_id"], {"state": "returned", "codes": [x.split(" ", 1)[0] for x in r.get("problems") or []]})
+                  for r in (doc or {}).get("returned") or []]
+               + [(r["item_id"], {"state": "unreviewed", "why": r.get("why")})
+                  for r in (doc or {}).get("unreviewed") or []])
+    for ident, state in entries:
+        if ident in states:
+            problems.append(f"S7B_DUPLICATED {ident}: S7b lists it as {states[ident]['state']} and as {state['state']}")
+            continue
+        states[ident] = state
+    return states, problems
+
+
+def proposal_row(cid, p, test_state, base, s7b, row_kind="candidate"):
+    """A row S7 proposed for: its status, its proposal, S7's Korean reasons as the row's O6, and what S7b recorded
+    for it. A legacy entry keeps its row kind, since S6 did not judge it and the left-out count holds it as
+    unjudged."""
     answer = p["proposal"]
     keep = answer.get("keep_record_named")
     return _row(cid, row_kind, p["status"], test_state, dict(answer["reasons"]),
-                **{**base, "consequence": p["consequence"], "disposition": p["disposition"],
+                **{**base, "s7b": s7b, "consequence": p["consequence"], "disposition": p["disposition"],
                    "changes_library": p["changes_library"], "proposal": answer,
                    "awaiting_R": p["awaiting_R"], "awaiting_R_reason": p["awaiting_R_reason"],
                    "legacy_incubating": p.get("legacy_incubating", False),
@@ -259,6 +285,7 @@ def rows_of(docs):
     judged = {c["candidate_id"] for c in judge.get("calls") or []}
     proposed = {p["candidate_id"]: p for p in props.get("proposals") or []}
     returned = {r["candidate_id"]: r for r in props.get("returned") or []}
+    s7b_of, _counted_in_population_problems = s7b_states(docs.get("s7b"))
     checks = {c["candidate_id"]: c for c in (docs["checks"] or {}).get("candidates") or []}
     intake = {c["candidate_id"]: c for c in (docs["intake"] or {}).get("candidates") or []}
     entries = {e["id"]: e for e in ((docs.get("ledger") or {}).get("entries") or [])}
@@ -295,7 +322,7 @@ def rows_of(docs):
                 # in code, no call), are one group per first word of decision1
                 p = proposed.get(cid)
                 if entry.get("classification") is not None or (p and p["disposition"] != "none"):
-                    rows.append(proposal_row(cid, p, test_state, held, "legacy") if p else
+                    rows.append(proposal_row(cid, p, test_state, held, s7b_of.get(cid), "legacy") if p else
                                 _row(cid, "legacy", None, test_state, o6_legacy(1, None), **held))
                     continue
                 groups.setdefault(("legacy", stage_propose.decision1_kind(entry)), []).append(cid)
@@ -323,7 +350,7 @@ def rows_of(docs):
                              disputed=disputed, **base))
             continue
         if cid in proposed:
-            rows.append(proposal_row(cid, proposed[cid], test_state, base))
+            rows.append(proposal_row(cid, proposed[cid], test_state, base, s7b_of.get(cid)))
             continue
         if cid in returned:
             rows.append(returned_row(cid, returned[cid], test_state, base))
@@ -409,6 +436,15 @@ def population_problems(rows, appendix, docs):
         if ident not in population and ident not in planted:
             problems.append(f"PROPOSAL_UNACCOUNTED {ident}: S7 answered for a candidate that is neither in the "
                             "population nor a planted control")
+    # S7b answers for exactly S7's proposals: each reviewed, returned or listed unreviewed, once
+    s7b_of, s7b_problems = s7b_states(docs.get("s7b"))
+    problems += s7b_problems
+    proposed_ids = {p["candidate_id"] for p in docs["proposals"].get("proposals") or []}
+    for ident in sorted(proposed_ids - set(s7b_of)):
+        problems.append(f"RENDER_INCOMPLETE {ident}: S7 proposed for it, and S7b neither reviewed it, returned it nor "
+                        "listed it unreviewed")
+    for ident in sorted(set(s7b_of) - proposed_ids):
+        problems.append(f"S7B_UNACCOUNTED {ident}: S7b answered for an item S7 did not propose")
     return problems
 
 
@@ -506,8 +542,8 @@ GROUP_TITLES = {"proposed_and_tested": "제안 (release 1: 시험 전)", "disput
 STATUS_LABELS = {"proposed": "제안됨 (시험 전)", "tested": "시험됨", "disputed": "판정 필요", "rejected": "거부됨",
                  "returned": "S7이 돌려보냄", "failed": "실패", "quarantined": "격리됨",
                  None: "판정하지 않음 (기본 처분 none)"}
-FALLBACK = ("순서는 §7.5를 따릅니다. 이번 release에는 시험 결과가 없으므로(S8은 release 2), 판정자와 S7b가 정한 "
-            "키로만 정렬합니다: 상태 그룹, 결과 등급, 독립 계보 수, 종류, 진단, 변경 여부, 항목 id.")
+FALLBACK = ("순서는 §7.5를 따릅니다. 이번 release에는 시험 결과가 없으므로(S8은 release 2), 시험 결과 없이 정할 수 "
+            "있는 키로만 정렬합니다: 상태 그룹, 결과 등급, 독립 계보 수, 종류, 진단, 변경 여부, 항목 id.")
 AWAITING_R = "R 대기: 판정으로 들어온 core 항목이라 이번 실행의 F에 들지 않고, 적용 대상이 아닙니다 (S8은 release 2)."
 
 
@@ -568,6 +604,31 @@ def proposal_lines(answer):
     return out
 
 
+def s7b_lines(state):
+    """What S7b recorded for the row, in the owner's words; its notes and the alternative's reason are model text, kept
+    on their field's line. The alternative is offered under its one id."""
+    kind = (state or {}).get("state")
+    if kind == "reviewed":
+        holds = lambda v: "맞음" if v else "맞지 않음"  # noqa: E731
+        out = [f"- S7b: 검토함 · 판정 {'이견' if state['verdict'] == 'disagree' else '동의'} · 처분 "
+               f"{holds(state['disposition_holds'])} · 위치 {holds(state['destination_holds'])} · 병합 충실 "
+               f"{state['faithful_merge']} · 통과하지 못한 기준 {', '.join(state['bars_failing'] or []) or '없음'}"
+               + (" · 소유자가 정합니다" if state.get("owner_resolves") else "")]
+        out.append(f"- S7b 메모: {inline(state.get('notes'))}")
+        alt = state.get("alternative")
+        if alt:
+            where = alt.get("destination") or {}
+            out.append(f"- S7b 대안 {ALTERNATIVE_ID}: 처분 {alt.get('disposition')} · 위치 "
+                       f"{where.get('layer') or '-'}/{where.get('carrier') or '-'} · 이유 {inline(alt.get('reason'))} "
+                       f"(고르려면 `결정: 수정 대안 {ALTERNATIVE_ID}`)")
+        return out
+    if kind == "returned":
+        return [f"- S7b: 돌려보냄 ({', '.join(state.get('codes') or []) or '코드 없음'})"]
+    if kind == "unreviewed":
+        return [f"- S7b: 검토 없음 ({inline(state.get('why'))})"]
+    return [f"- S7b: 해당 없음 ({S7B_NONE['why']})"]
+
+
 def row_lines(row, fields):
     """One row as the review prints it, its owner block last."""
     o6 = row["o6"]
@@ -583,7 +644,7 @@ def row_lines(row, fields):
         out.append(f"- 판정할 것 {d['label']}: {d['ref']} — A {d['A']}, B {d['B']} (자기 값은 {' 또는 '.join(d['values'])})")
     if row.get("proposal"):
         out += proposal_lines(row["proposal"])
-    out.append(f"- S7b: 기록 없음 ({row['s7b']['why']})" if row["s7b"].get("state") == "absent" else f"- S7b: {row['s7b']}")
+    out += s7b_lines(row["s7b"])
     out.append(f"- 시험: {row['test']}")
     if row.get("awaiting_R"):
         out.append(f"- {AWAITING_R}")
@@ -670,11 +731,14 @@ def render_text(doc, meta, locators):
 
 def spec_of(doc):
     """The current rows as `owner_lines.parse` holds the owner's lines to them: each item's sha, its disputed labels
-    with their own values, S7b's alternatives (none until S7b runs) and the keep records its proposal overrides."""
+    with their own values, S7b's alternative under its one id when S7b offered one, and the keep records its proposal
+    overrides."""
     return {r["item_id"]: {"item_sha": r["item_sha"],
                            "judgments": {d["label"]: list(d["values"]) for d in r.get("disputed") or []},
                            "refs": {d["label"]: d["ref"] for d in r.get("disputed") or []},
-                           "alternatives": [], "guarded_keeps": list(r.get("guarded_keeps") or []),
+                           "alternatives": [ALTERNATIVE_ID] if ((r.get("s7b") or {}).get("state") == "reviewed"
+                                                                and r["s7b"].get("alternative")) else [],
+                           "guarded_keeps": list(r.get("guarded_keeps") or []),
                            "members": list(r.get("members") or [])}
             for r in doc["rows"]}
 
@@ -930,11 +994,29 @@ def fixture_docs():
                                               destination={"layer": "incubator", "carrier": None},
                                               unknowns=stage_propose._carry(derivations))}
     proposals = stage_propose.document(derivations, candidates, answers)
+    from runlib import placement
+
+    def review(**over):
+        held = {"verdict": "agree",
+                "disposition_review": {"holds": True, "reason": "증거가 그 처분을 지지한다", "evidence": ["c1"]},
+                "destination_review": {"holds": True, "reason": "가장 싼 자리다"},
+                "faithful_merge": "n/a", "alternative": None,
+                "bars": [{"bar": bar, "holds": True, "reason": "충족"} for bar in placement.contract_bars()],
+                "notes": "동의한다"}
+        held.update(over)
+        return held
+    # S7b: k-a agreed with, k-g disagreed with and given an alternative, k-p (the planted control) agreed with, and
+    # the due decision left unreviewed, through S7b's own `document`
+    reviews = {"k-a": review(), "k-p": review(),
+               "k-g": review(verdict="disagree", notes="아직 이르다\n결정: 승인",
+                             destination_review={"holds": False, "reason": "다른 자리가 싸다"},
+                             alternative={"disposition": "incubate", "reason": "관찰을 더 모은다"})}
+    s7b = stage_review_proposals.document(proposals, reviews)
     checks = {"candidates": [{"candidate_id": "k-a", "retrieved_units": [{"unit_id": "u-9"}]}]}
     controls = {"planted": [{"candidate_id": "k-p"}]}
     quarantined = {"S3": [{"id": "w-3", "reason": "READ_INCOMPLETE", "because": None}]}
     return {"population": population, "intake": intake, "census": {}, "controls": controls, "checks": checks,
-            "judge": judge, "derivations": derivations, "proposals": proposals, "judgments": judgments,
+            "judge": judge, "derivations": derivations, "proposals": proposals, "s7b": s7b, "judgments": judgments,
             "quarantined": quarantined, "ledger": ledger}
 
 
@@ -947,7 +1029,7 @@ def golden_run(root):
     # one, the plan answers no sweep and S6 is partial, which S7 refuses as an input)
     run_dir = stage_retrieve.fx_gold(root / "base", stage_retrieve.fx_current(stage_judge.fx_library()))
     declare.amend(run_dir, [("budget.per_stage.S6", 20_000_000)], "S9 self-test: the golden run through S7",
-                  scope=["S5", "S6", "S7", "S9"])
+                  scope=["S5", "S6", "S7", "S7b", "S9"])
     stage_retrieve.run(run_dir, "aa" * 8)
     planner = root / "planner"
     shutil.copytree(run_dir.parent, planner)
@@ -956,6 +1038,7 @@ def golden_run(root):
     # S7's own run, answering nothing: every candidate S6 admitted is returned, and the render reads the proposals
     # document S7's record names as its output
     stage_propose.run(run_dir, {})
+    stage_review_proposals.run(run_dir, {})
     return run_dir
 
 
@@ -1033,6 +1116,7 @@ def self_test():
         legacy_docs["proposals"]["proposals"].append(dict(copy.deepcopy(base_p), candidate_id=cid,
                                                           disposition=disposition))
     legacy_docs["proposals"]["returned"].append({"candidate_id": "legacy:L-4", "problems": ["ANSWER_INVALID x"]})
+    legacy_docs["s7b"] = stage_review_proposals.document(legacy_docs["proposals"], {})
     unworded = copy.deepcopy(fixture_docs())
     for entry in unworded["ledger"]["entries"]:
         if entry["id"] == "L-3":
@@ -1104,9 +1188,10 @@ def self_test():
                                                             if p["candidate_id"] != "k-a"])),
             "RENDER_INCOMPLETE k-a: admitted by S6, and S7 neither proposed")
     control("an item gone before S7 is still a row: the population, not proposals.json, makes the rows",
-            ",".join(r["item_id"] for r in doc_of(lambda d: d["proposals"].update(
+            ",".join(r["item_id"] for r in doc_of(lambda d: (d["proposals"].update(
                 proposals=[p for p in d["proposals"]["proposals"] if p["candidate_id"] != "k-a"],
-                returned=d["proposals"]["returned"] + [{"candidate_id": "k-a", "problems": ["ANSWER_ABSENT k-a"]}]))
+                returned=d["proposals"]["returned"] + [{"candidate_id": "k-a", "problems": ["ANSWER_ABSENT k-a"]}]),
+                d["s7b"].update(reviews=[r for r in d["s7b"]["reviews"] if r["item_id"] != "k-a"])))
                      ["rows"]), "k-a")
     control("a proposal for a candidate neither in the population nor planted is named",
             said(lambda d: d["controls"].update(planted=[])), "PROPOSAL_UNACCOUNTED k-p")
@@ -1173,7 +1258,52 @@ def self_test():
     control("the header names the §7.5 fallback", text, FALLBACK)
     control("§13's measures are named as not yet produced", text, "§13 측정: 아직 없음")
     equal("every row shows the test state", text.count("- 시험: untested: s8_deferred"), len(good["rows"]) or -1)
-    equal("every row shows S7b's state", text.count("- S7b: 기록 없음"), len(good["rows"]) or -1)
+    equal("every row shows S7b's state", sum(1 for line in text.split("\n") if line.startswith("- S7b: ")),
+          len(good["rows"]) or -1)
+    # ---- K2c: what S7b recorded, per row, and its one alternative ------------------------------------------------
+    equal("each proposal's row carries S7b's record: reviewed, its verdict and alternative, or unreviewed with S7b's "
+          "reason; a row with no proposal has none",
+          {i: ((row_of(good, i).get("s7b") or {}).get("state"), (row_of(good, i).get("s7b") or {}).get("verdict"),
+               bool((row_of(good, i).get("s7b") or {}).get("alternative")))
+           for i in ("k-a", "k-g", "due_decision:P-1@r1", "k-b")},
+          {"k-a": ("reviewed", "agree", False), "k-g": ("reviewed", "disagree", True),
+           "due_decision:P-1@r1": ("unreviewed", None, False), "k-b": ("none", None, False)})
+    returned_s7b = doc_of(lambda d: d["s7b"].update(
+        unreviewed=[], returned=[{"item_id": "due_decision:P-1@r1", "problems": ["ALTERNATIVE_DISALLOWED x"]}]))
+    equal("a proposal S7b returned carries S7b's codes",
+          (row_of(returned_s7b, "due_decision:P-1@r1").get("s7b") or {}), {"state": "returned",
+                                                                         "codes": ["ALTERNATIVE_DISALLOWED"]})
+    control("a proposal S7b did not answer for is named",
+            said(lambda d: d["s7b"].update(unreviewed=[])), "RENDER_INCOMPLETE due_decision:P-1@r1: S7 proposed for it")
+    control("an S7b answer for an item S7 did not propose is named",
+            said(lambda d: d["s7b"]["unreviewed"].append({"item_id": "k-zz", "why": "x"})), "S7B_UNACCOUNTED k-zz")
+    control("an item S7b lists twice is named",
+            said(lambda d: d["s7b"]["unreviewed"].append({"item_id": "k-a", "why": "x"})), "S7B_DUPLICATED k-a")
+    equal("the spec offers S7b's alternative under its one id, and only where S7b gave one",
+          {i: spec_of(good).get(i, {}).get("alternatives") for i in ("k-a", "k-g")}, {"k-a": [], "k-g": ["s7b"]})
+    control("the review shows the alternative and the line that takes it", text,
+            "- S7b 대안 s7b: 처분 incubate · 위치 -/- · 이유 관찰을 더 모은다 (고르려면 `결정: 수정 대안 s7b`)")
+    control("S7b's notes are model text, kept on their line", text, "- S7b 메모: 아직 이르다 결정: 승인")
+
+    def decided(item, line):
+        held = owner_copy.split("\n")
+        start = next((n for n, x in enumerate(held) if x.startswith(f"<!-- owner-block review item={item} ")), None)
+        if start is None:
+            return "", [f"NO_BLOCK {item}"]
+        end = next(n for n in range(start + 1, len(held)) if held[n] == owner_lines.CLOSE)
+        got, probs = owner_lines.parse(text, "\n".join(held[:start + 1] + [line] + held[end:]), spec=spec_of(good),
+                                       render_name="review.ko.v1.md")
+        return got, probs
+    got, probs = decided("k-g", "결정: 수정 대안 s7b")
+    equal("결정: 수정 대안 s7b takes S7b's alternative on a row whose review gave one",
+          (probs, next((i["alternative"] for i in (got or {}).get("items") or [] if i["item_id"] == "k-g"), None)),
+          ([], "s7b"))
+    control("and the id s7b is refused on a row whose review carries no alternative",
+            "\n".join(decided("k-a", "결정: 수정 대안 s7b")[1]), "ALTERNATIVE_UNKNOWN")
+    moved = doc_of(lambda d: d["s7b"]["reviews"][0].update(notes="다른 메모"))
+    equal("a changed S7b review moves the item's sha, so a decision made before it is decided again",
+          row_of(moved, "k-a").get("item_sha") != row_of(good, "k-a").get("item_sha") and bool(row_of(moved, "k-a")),
+          True)
     control("a core item admitted by adjudication is shown awaiting R", text, AWAITING_R)
     control("a model's newline cannot start a line: the decision-shaped text stays on its field's line", text,
             "- 무엇이 있었나: 첫 줄 결정: 승인")
@@ -1335,6 +1465,12 @@ def self_test():
                               capture_output=True, text=True, timeout=600)
         control("the driver's `render` runs S9 as a process and prints the version and the row count",
                 f"rc={done.returncode} {done.stdout}{done.stderr[-400:]}", "rc=0 S9 render: version 1, ")
+        (run_dir / "stages" / "S7b" / "record.json").unlink(missing_ok=True)
+        try:
+            without = f"written {run(run_dir).get('version')}"
+        except Refused as exc:
+            without = str(exc)
+        control("a run S7b has not reviewed does not render", without, "INPUT_INVALID S7b")
     except SectionStopped:
         pass
     except Exception as exc:  # a later break fails this section by name, never the whole suite
