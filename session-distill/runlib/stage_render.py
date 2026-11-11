@@ -941,7 +941,7 @@ def fixture_docs():
 def golden_run(root):
     """The golden fixture library through S7 (every candidate S6 admitted returned by an S7 that answered nothing),
     in-process, so the fixture's ledger reference holds."""
-    from runlib import declare, stage_judge, stage_propose, stage_retrieve
+    from runlib import declare, stage_judge, stage_retrieve
     import shutil
     # an incomplete reference point: no sweep is admissible, so S6's golden plan completes the stage (with a complete
     # one, the plan answers no sweep and S6 is partial, which S7 refuses as an input)
@@ -953,14 +953,9 @@ def golden_run(root):
     shutil.copytree(run_dir.parent, planner)
     plan, _p = stage_judge.fx_judge_plan(planner / run_dir.name, root / "plan.json")
     stage_judge.run(run_dir, stage_judge.supervisor(run_dir, root / "cells", plan))
-    # S7 through its own INPUTS and `document`, as `stage_propose.run` means to: that function, at 49fce8c, writes
-    # `proposals.json` relative to the working directory (RUN_PATH_ESCAPE) and registers no output, reported to the
-    # lead; this stand-in goes when lane L's fix lands
-    with records.run_stage(run_dir, stage_propose.STAGE, stage_propose.INPUTS) as stage:
-        doc = stage_propose.document(records.read_json(run_dir / "judgments" / "derivations.json"),
-                                     records.read_json(run_dir / "checked-candidates.json"), {})
-        records.write_json(run_dir, run_dir / "proposals.json", doc)
-        stage.output("proposals.json")
+    # S7's own run, answering nothing: every candidate S6 admitted is returned, and the render reads the proposals
+    # document S7's record names as its output
+    stage_propose.run(run_dir, {})
     return run_dir
 
 
@@ -1255,8 +1250,15 @@ def self_test():
     import shutil
     import tempfile
     root = pathlib.Path(tempfile.mkdtemp(prefix="s9-"))
+    class SectionStopped(Exception):
+        pass
     try:
-        run_dir, said_run = golden_run(root), None
+        try:
+            run_dir, said_run = golden_run(root), None
+        except Exception as exc:  # an upstream stage that breaks fails this section's first control by name
+            equal("S9 renders the golden run (S1 to S7) as version 1",
+                  (None, f"GOLDEN_RUN_FAILED {type(exc).__name__}: {exc}"[:300]), (1, None))
+            raise SectionStopped from exc
         cli_out = root / "cli"
         shutil.copytree(run_dir.parent, cli_out)
         try:
@@ -1333,6 +1335,10 @@ def self_test():
                               capture_output=True, text=True, timeout=600)
         control("the driver's `render` runs S9 as a process and prints the version and the row count",
                 f"rc={done.returncode} {done.stdout}{done.stderr[-400:]}", "rc=0 S9 render: version 1, ")
+    except SectionStopped:
+        pass
+    except Exception as exc:  # a later break fails this section by name, never the whole suite
+        failures.append(("the golden run's section ran to its end", f"{type(exc).__name__}: {exc}"[:600]))
     finally:
         shutil.rmtree(root, ignore_errors=True)
 

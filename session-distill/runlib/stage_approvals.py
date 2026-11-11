@@ -592,8 +592,14 @@ def self_test():
             return fn(*args, **kwargs)
         except (Refused, OSError, KeyError, StopIteration) as exc:  # a reverted check fails its control by name
             return f"{type(exc).__name__}: {exc}"
+    class SectionStopped(Exception):
+        pass
     try:
-        run_dir = stage_render.golden_run(root)
+        try:
+            run_dir = stage_render.golden_run(root)
+        except Exception as exc:  # an upstream stage that breaks fails this section's first control by name
+            equal("the golden run renders twice", f"GOLDEN_RUN_FAILED {type(exc).__name__}: {exc}"[:300], (1, 2))
+            raise SectionStopped from exc
         v1 = attempt(stage_render.run, run_dir)
         v2 = attempt(stage_render.run, run_dir)
         equal("the golden run renders twice", (getattr(v1, "get", lambda k: v1)("version"),
@@ -672,6 +678,10 @@ def self_test():
             said_cli = "no run to copy"
         control("the driver's `parse-decisions` runs S10's parse as a process and prints what it recorded", said_cli,
                 "rc=0 S10 parse-decisions: version 1 (current 2): 2 decided")
+    except SectionStopped:
+        pass
+    except Exception as exc:  # a later break fails this section by name, never the whole suite
+        failures.append(("the end-to-end section ran to its end", f"{type(exc).__name__}: {exc}"[:600]))
     finally:
         shutil.rmtree(root, ignore_errors=True)
 
