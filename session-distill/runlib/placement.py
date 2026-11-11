@@ -38,7 +38,7 @@ LEDGER_ONLY = ("keep", "incubate", "drop")
 # What a candidate below the promotion bar may still be proposed as (the §6.4 table's `below_bar`
 # row, whose `allowed_dispositions` this list must equal — asserted in the suite rather than copied
 # by hand).
-BELOW_BAR = ("incubate", "keep", "drop")
+BELOW_BAR = ("incubate", "keep", "drop", "none")
 
 
 def table(which):
