@@ -45,7 +45,10 @@ every judged candidate as a gap over the catalog layer (`upper_bound`).
 Judge B then reviews every absence claim the sweeps judged whole (plan WP-11 J3b, done-when 3, F10): its packet
 carries every unit either sweep flagged and fifty units both found unrelated, drawn from the run id, each with both
 sweeps' marks and reasons (`cross_stage`); the kept review is held to what the sweep results build
-(`cross_review_problems`: CROSS_REVIEW_INCOMPLETE, CROSS_REVIEW_STALE).
+(`cross_review_problems`: CROSS_REVIEW_INCOMPLETE, CROSS_REVIEW_STALE). Every unit either sweep flagged or Judge B
+marked a match returns to both judges in one judgment packet (plan WP-11 J3c, `reconsider_stage`); the claim is then
+diagnosed again by derive, a disagreement making it disputed, and a judge's missing reconsideration is
+RECONSIDERATION_MISSING.
 
   stage_judge.py --self-test
 """
@@ -299,11 +302,12 @@ def receipt_problems(receipts):
 
 # ---- the answer against its packet ----------------------------------------------------------------------------
 
-def answer_problems(shown, answer, first=True):
+def answer_problems(shown, answer, first=True, reconsider=False):
     """What a schema-valid answer gets wrong against the packet it answered, each by name. `shown` is
     `{units: {label: text}, quotes: [labels], entries: [labels]}`; `first` is the candidate's first call, which also
     judges its requirements, class, matching units and ledger relations (D12), while a later reference point's call
-    judges its units only."""
+    judges its units only. `reconsider` is a reconsideration (J3c), which judges its returned units and their matching
+    units and no candidate-level field (FIELD_UNEXPECTED)."""
     out = []
     units = shown["units"]
     seen = {}
@@ -331,6 +335,9 @@ def answer_problems(shown, answer, first=True):
             if answer.get(field):
                 out.append(f"FIELD_UNEXPECTED {field}: a later reference point's call judges its units only (D12)")
         return out
+    if reconsider:
+        out += [f"FIELD_UNEXPECTED {field}: a reconsideration judges its returned units only (design §6.2)"
+                for field in RECONSIDER_REFUSED if field in answer]
     matching = {label for label, n in seen.items()
                 if "yes" in (answer["units"][n]["situation"], answer["units"][n]["action"])}
     given = {}
@@ -408,6 +415,7 @@ class JudgeLabels:
     def __init__(self, candidate, row, units, entries, subject_of, evidence):
         cid = candidate["candidate_id"]
         self.candidate, self.unit_store, self.entry_store = candidate, units, entries
+        self.subject_of, self.evidence_store = subject_of, evidence   # what `returned_labels` builds from
         events = {e["id"]: e for e in subject_of["events"]}
         missing = [e for e in candidate.get("event_ids") or [] if e not in events]
         if missing:
@@ -560,8 +568,10 @@ class JudgeLabels:
         def quoted(ids):
             return [self.quotes[q] for q in ids]
         later = answer.get("no_longer_arises") or {}
-        return {"requirements": answer["requirements"], "consequence_class": answer["consequence_class"],
-                "no_longer_arises": {**later, "evidence_ids": quoted(later.get("evidence_ids") or [])},
+        held = {} if "requirements" not in answer else {   # a reconsideration carries its units only (J3c)
+            "requirements": answer["requirements"], "consequence_class": answer["consequence_class"],
+            "no_longer_arises": {**later, "evidence_ids": quoted(later.get("evidence_ids") or [])}}
+        return {**held,
                 "units": [{"unit_id": self.units[r["unit"]], **{k: r[k] for k in ("situation", "action", "reason", "quote")}}
                           for r in answer["units"]],
                 "matching_units": [{"unit_id": self.units[r["unit"]], "following": r["following"],
@@ -569,8 +579,9 @@ class JudgeLabels:
                                     "contribution": r["contribution"],
                                     "contribution_evidence_ids": quoted(r["contribution_evidence_ids"])}
                                    for r in answer["matching_units"]],
-                "ledger_relations": [{"entry_id": self.entries[r["entry"]], "relation": r["relation"], "reason": r["reason"]}
-                                     for r in answer["ledger_relations"]]}
+                **({} if "ledger_relations" not in answer else {"ledger_relations": [
+                    {"entry_id": self.entries[r["entry"]], "relation": r["relation"], "reason": r["reason"]}
+                    for r in answer["ledger_relations"]]})}
 
 
 def payload(labels):
@@ -771,18 +782,29 @@ def absent_candidates(judged, judgments, sources):
         if set(held) != set(SEAT_KEYS):
             not_both.append(cid)
             continue
-        a, b = ({u["unit_id"]: u for u in held[who]["units"]} for who in ("A", "B"))
-        units = {}
-        for uid in a:
-            pair = (a[uid], b.get(uid) or {})
-            values = [derive.agreed(pair[0].get(f), pair[1].get(f)) for f in ("situation", "action")]
-            diagnosis = derive.unit_diagnosis(*values)
-            units[uid] = (diagnosis, [derive.unit_diagnosis(x["situation"], x["action"]) for x in pair]) \
-                if diagnosis == derive.DISPUTED else diagnosis
-        diagnosis, _row = derive.candidate_diagnosis(units, True, None if sources[cid] == "formed" else sources[cid])
+        diagnosis, _row = derive.candidate_diagnosis(unit_diagnoses(held), True, lifecycle_of(sources[cid]))
         if diagnosis == "gap":
             absent.append(cid)
     return absent, not_both
+
+
+def lifecycle_of(source):
+    """The lifecycle `derive.candidate_diagnosis` reads a candidate under: none for a formed one, its source otherwise."""
+    return None if source == "formed" else source
+
+
+def unit_diagnoses(held):
+    """`{unit id: diagnosis, or (disputed, [A's, B's])}` over both judges' judgments `{A: ..., B: ...}` of one packet,
+    as derive reads them (`agreed`, `unit_diagnosis`)."""
+    a, b = ({u["unit_id"]: u for u in held[who]["units"]} for who in ("A", "B"))
+    units = {}
+    for uid in a:
+        pair = (a[uid], b.get(uid) or {})
+        values = [derive.agreed(pair[0].get(f), pair[1].get(f)) for f in ("situation", "action")]
+        diagnosis = derive.unit_diagnosis(*values)
+        units[uid] = (diagnosis, [derive.unit_diagnosis(x["situation"], x["action"]) for x in pair]) \
+            if diagnosis == derive.DISPUTED else diagnosis
+    return units
 
 
 def remaining_of(index, retrieved, layers):
@@ -1217,6 +1239,165 @@ def cross_stage(run_dir, stage, supervisor, declaration, swept, item_of_cid, cap
     return section, receipts
 
 
+# ---- the reconsiderations (plan WP-11 J3c, done-when 3, design §6.2) ----------------------------------------------
+
+RECONSIDER = "R"   # a reconsideration's item is `<item>-R<judge>`
+RECONSIDER_TEMPLATE = "reconsider"
+RECONSIDER_SCHEMA_PATH = HERE / "schemas" / "reconsider.schema.json"
+RECONSIDER_CASE = "reconsider"   # a reconsideration call's class (dispatch.class_key)
+RECONSIDER_FIELDS = ("units", "matching_units")
+# what a reconsideration does not answer: the candidate was judged by its first call, and admission reads that one
+RECONSIDER_REFUSED = ("requirements", "consequence_class", "no_longer_arises", "ledger_relations")
+RECONSIDER_COMMENT = ("design §6.2: a unit either sweep or Judge B flagged returns to both judges; plan WP-11 J3c. The "
+                      "judge schema's `units` and `matching_units` and the definitions they reach, nothing else: the "
+                      "candidate is not judged again. Projected from judge.schema.json (stage_judge.reconsider_projection), "
+                      "and held equal to it by stage_judge's self-test.")
+
+
+def reconsider_schema():
+    return json.loads(RECONSIDER_SCHEMA_PATH.read_text(encoding="utf-8"))
+
+
+def reconsider_projection(held=None):
+    """What `schemas/reconsider.schema.json` must be: the judge schema's `units` and `matching_units` with the
+    definitions they reach, closed, and no candidate-level field."""
+    judge = held if held is not None else schema()
+    defs = judge.get("$defs") or {}
+    keep, todo = set(), [judge["properties"][f] for f in RECONSIDER_FIELDS]
+    while todo:
+        node = todo.pop()
+        if isinstance(node, dict):
+            ref = node.get("$ref")
+            if isinstance(ref, str) and ref.startswith("#/$defs/") and ref.split("/")[-1] not in keep:
+                keep.add(ref.split("/")[-1])
+                todo.append(defs[ref.split("/")[-1]])
+            todo += list(node.values())
+        elif isinstance(node, list):
+            todo += node
+    return {"$schema": judge.get("$schema"), "$comment": RECONSIDER_COMMENT, "title": "S6 reconsideration",
+            "type": "object", "additionalProperties": False, "required": list(RECONSIDER_FIELDS),
+            "properties": {f: judge["properties"][f] for f in RECONSIDER_FIELDS},
+            "$defs": {k: defs[k] for k in sorted(keep)}}
+
+
+def reconsider_payload(labels):
+    """A reconsideration's payload both judges are sent (N#1): `packets/reconsider.md` with the candidate, its claims,
+    the returned units and their context."""
+    return packet.render(RECONSIDER_TEMPLATE, {"candidate": labels.candidate_text(), "claims": labels.claims_text(),
+                                               "units": labels.units_text(), "context": labels.context_text()})
+
+
+def reconsideration_rel(item, who):
+    """Where one judge's reconsideration of a candidate is kept (plan WP-11: `reconsiderations/<candidate>/{A,B}.json`)."""
+    return f"reconsiderations/{item}/{who}.json"
+
+
+def returned_of(record):
+    """The units a kept cross-review returns to both judges (design §6.2): every flag either sweep raised and every
+    unit Judge B marked a match, in unit id order."""
+    return sorted(set(record.get("partial_flags") or [])
+                  | {v["unit_id"] for v in record.get("verdicts") or [] if "yes" in (v["situation"], v["action"])})
+
+
+def returned_labels(labels, unit_ids):
+    """The judgment packet's labels for a reconsideration: the same candidate, claims and quotes, the returned units in
+    place of the retrieved ones, and no ledger entry, since the candidate's first judgment related every one S5
+    retrieved."""
+    return JudgeLabels(labels.candidate, {"retrieved_units": [{"unit_id": u} for u in unit_ids], "ledger_entries": []},
+                       labels.unit_store, labels.entry_store, labels.subject_of, labels.evidence_store)
+
+
+def reconsideration_problems(cid, returned, held):
+    """Done-when 3: every returned unit reconsidered by both judges. RECONSIDERATION_MISSING for a judge with no
+    accepted reconsideration, or one that judges other units than the cross-review returned."""
+    out = []
+    for who in SEAT_KEYS:
+        judgment = held.get(who)
+        if judgment is None:
+            out.append(f"RECONSIDERATION_MISSING {cid} {who}: the {len(returned)} units its cross-review returned have no "
+                       f"accepted reconsideration by Judge {who}")
+            continue
+        judged = sorted(u["unit_id"] for u in judgment.get("units") or [])
+        if judged != sorted(returned):
+            out.append(f"RECONSIDERATION_MISSING {cid} {who}: Judge {who}'s reconsideration judges {len(judged)} units "
+                       f"and its cross-review returned {len(returned)}; not judged {sorted(set(returned) - set(judged))[:5]}")
+    return out
+
+
+def reconsidered_diagnosis(original, held, lifecycle):
+    """`(diagnosis, row id)` of an absence claim once both judges reconsidered the returned units: derive's candidate
+    diagnosis at a complete reference point over the units of its first judgments and the reconsidered ones. A unit
+    both now find matching contradicts the claim; one they disagree on that could reach a row before the gap makes it
+    `unknown` by `disputed` (O4)."""
+    units = unit_diagnoses(original)
+    if held:
+        units.update(unit_diagnoses(held))
+    return derive.candidate_diagnosis(units, True, lifecycle)
+
+
+def reconsider_stage(run_dir, stage, supervisor, declaration, summary, packets, judgments, crossed, caps, tranche):
+    """Both judges' reconsideration of every absence claim Judge B reviewed (plan WP-11 J3c, done-when 3): the returned
+    units (`returned_of`) go to Judge A and Judge B in one packet (`reconsider_payload`, N#1) asking for those units and
+    their matching units only (`reconsider_schema`; `check` refuses a candidate-level field by FIELD_UNEXPECTED), kept
+    under reconsiderations/<item>/<A|B>.json, and the claim is diagnosed again
+    (`reconsidered_diagnosis`). A claim nothing returned keeps its gap without a call; one missing a judge's
+    reconsideration is named (`reconsideration_problems`) and not diagnosed. Returns the summary's `reconsiderations`
+    section and the calls' receipts."""
+    section = {"reconsidered": [], "not_reconsidered": [], "missing": [], "calls": []}
+    held_schema = reconsider_schema()
+    schema_bytes = packet.schema_bytes(held_schema)
+    limits = {}
+    sources = {r["candidate_id"]: r["source"] for r in summary["packets"]}
+    receipts = []
+    for cid in crossed.get("reviewed") or []:
+        item = item_of(cid)
+        returned = returned_of(records.read_json(run_dir / cross_rel(item)))
+        lifecycle = lifecycle_of(sources[cid])
+        if not returned:
+            diagnosis, row_id = reconsidered_diagnosis(judgments[cid], {}, lifecycle)
+            section["reconsidered"].append({"candidate_id": cid, "returned": 0, "diagnosis": diagnosis, "row": row_id})
+            continue
+        labels = returned_labels(packets[cid][0], returned)
+        text = reconsider_payload(labels)
+        payload_sha256 = packet.sha256_bytes(text.encode("utf-8"))
+        row, held = {"candidate_id": cid, "item": item, "returned": len(returned), "seats": {}}, {}
+        for who, seat in summary["seats"].items():
+            if who not in limits:
+                limits[who] = limits_of(seat, run_dir, declaration, supervisor.seats_path, case=RECONSIDER_CASE)
+            bounds = limits[who]
+            out = supervisor.item(STAGE, f"{item}-{RECONSIDER}{who}", seat, text, held_schema, case_type=RECONSIDER_CASE,
+                                  caps=caps, view_window=False, tranche=tranche, max_output_tokens=OUTPUT_CAP,
+                                  stage_check=check(labels, bounds["capacity"], reconsider=True), resume=True,
+                                  context_capacity=bounds["capacity"],
+                                  packet_check=lambda built, bounds=bounds, who=who: attempt_problems(
+                                      built, bounds, schema_bytes, who))
+            call = call_row(out)
+            if out["outcome"] == "accepted":
+                call_dir = pathlib.Path(out["accepted"])
+                call_id = records.read_json(call_dir / "call.json")["call_id"]
+                receipt = records.read_json(call_dir / "receipt.json")
+                rel = reconsideration_rel(item, who)
+                held[who] = labels.resolve(gate.accepted(call_dir, judged=True))
+                records.write_json(run_dir, run_dir / rel, {
+                    "candidate_id": cid, "item": item, "judge": who, "seat": seat, "call_id": call_id,
+                    "payload_sha256": payload_sha256, "packet_sha256": receipt.get("packet_sha256"),
+                    "returned": returned, "judgment": held[who]})
+                stage.output(rel)
+                receipts.append((f"reconsider/{cid}", seat, call_id, receipt, payload_sha256))
+                call.update(call_id=call_id, reconsideration=rel)
+            row["seats"][who] = call
+        section["calls"].append(row)
+        problems = reconsideration_problems(cid, returned, held)
+        if problems:
+            section["missing"] += problems
+            section["not_reconsidered"].append({"candidate_id": cid, "why": "RECONSIDERATION_MISSING"})
+            continue
+        diagnosis, row_id = reconsidered_diagnosis(judgments[cid], held, lifecycle)
+        section["reconsidered"].append({"candidate_id": cid, "returned": len(returned), "diagnosis": diagnosis,
+                                        "row": row_id})
+    return section, receipts
+
+
 # ---- the calls ------------------------------------------------------------------------------------------------
 
 SUMMARY = "judgments/judge.json"
@@ -1229,7 +1410,7 @@ def judgment_rel(item, who):
     return f"judgments/{item}/{who}.json"
 
 
-def check(labels, capacity):
+def check(labels, capacity, reconsider=False):
     """The stage's check of a judgment call's attempts, as `Supervisor.item(stage_check=)` asks it: the capacity the
     call was admitted against is the one its record carries (CAPACITY_UNRECORDED, S4's rule), and the answer judges the
     packet it was sent (`answer_problems`, a candidate's first call)."""
@@ -1241,7 +1422,7 @@ def check(labels, capacity):
         if held != capacity:
             raise Refused(f"CAPACITY_UNRECORDED {pathlib.Path(call_dir).name}: its call record carries the capacity "
                           f"{held!r}, and S6 was admitted against {capacity!r}")
-        return answer_problems(shown, stage_read.answer_of(call_dir), first=True)
+        return answer_problems(shown, stage_read.answer_of(call_dir), first=True, reconsider=reconsider)
     return judged
 
 
@@ -1280,7 +1461,9 @@ plan, as FAKE_HOST's Claude branch answers one; and a plan row's `context` names
 working directories) whose effective context replaces the one the host reports. A row `auto: sweep` answers a sweep
 packet from the packet itself: every pair it lists, a partial match (situation yes) where the unit's text holds the
 row's `partial_where`, its first pair left out with `drop_first`; `auto: cross` answers a cross-review the same way,
-every unit it shows. argv: fake-host host mode spec-json."""
+every unit it shows, and with `flag_first_negative` marks the first unit both sweeps found unrelated a match; `auto:
+reconsider` answers a reconsideration from itself: every unit it returns, the first a match with `yes_first`, and the
+row's `extra` fields added. argv: fake-host host mode spec-json."""
 import json, os, pathlib, subprocess, sys
 fake, host, mode, spec = sys.argv[1], sys.argv[2], sys.argv[3], json.loads(sys.argv[4])
 packet = sys.stdin.buffer.read()
@@ -1297,12 +1480,28 @@ if row is not None and row.get("auto") == "sweep":  # every pair the packet list
     pairs = [{"candidate": c["candidate"], "unit": u, "situation": "yes" if flagged(u) else "no", "action": "no",
               "reason": "a partial match" if flagged(u) else "unrelated"} for c in block("candidates") for u in c["units"]]
     row = {**row, "answer": {"pairs": pairs[1:] if row.get("drop_first") else pairs}}
-if row is not None and row.get("auto") == "cross":  # every unit shown, a match where the text says
-    flagged = lambda text: bool(row.get("partial_where")) and row["partial_where"] in text
-    row = {**row, "answer": {"verdicts": [{"unit": u["unit"], "situation": "yes" if flagged(u["text"]) else "no",
-                                           "action": "no", "reason": "a match" if flagged(u["text"]) else "unrelated"}
-                                          for u in block("units")][(1 if row.get("drop_first") else 0):]}}
-if row is not None and row.get("auto") in ("sweep", "cross"):
+if row is not None and row.get("auto") == "cross":  # every unit shown, a match where the text says or on the first negative
+    shown = block("units")
+    first_negative = next((u["unit"] for u in shown if all(m["situation"] == m["action"] == "no"
+                                                            for m in u["sweeps"].values())), None) \
+        if row.get("flag_first_negative") else None
+    flagged = lambda u: (bool(row.get("partial_where")) and row["partial_where"] in u["text"]) or u["unit"] == first_negative
+    row = {**row, "answer": {"verdicts": [{"unit": u["unit"], "situation": "yes" if flagged(u) else "no",
+                                           "action": "no", "reason": "a match" if flagged(u) else "unrelated"}
+                                          for u in shown][(1 if row.get("drop_first") else 0):]}}
+def rows_of(tag):
+    body = text.split("<" + tag + ">\n", 1)[1].split("\n</" + tag + ">", 1)[0]
+    return [] if body.strip() == "none" else [json.loads(line) for line in body.splitlines()]
+if row is not None and row.get("auto") == "reconsider":  # every returned unit, the first a match with yes_first
+    units, quotes = rows_of("units"), [q["evidence_id"] for c in rows_of("claims") for q in c.get("quotes", [])][:1]
+    yes = [u["unit_id"] for u in units][:1] if row.get("yes_first") else []
+    row = {**row, "answer": {"units": [
+        {"unit": u["unit_id"], "situation": "yes" if u["unit_id"] in yes else "no",
+         "action": "yes" if u["unit_id"] in yes else "no", "reason": "one line",
+         "quote": u["text"][:12] if u["unit_id"] in yes else ""} for u in units],
+        "matching_units": [{"unit": u, "following": "followed", "following_evidence_ids": quotes, "contribution": "helped",
+                            "contribution_evidence_ids": quotes} for u in yes], **(row.get("extra") or {})}}
+if row is not None and row.get("auto") in ("sweep", "cross", "reconsider"):
     held = pathlib.Path(os.environ["DISTILL_CELL"]) / "judge-host-plan.json"
     held.write_text(json.dumps([{"match": row["match"], "answer": row["answer"]}]))
     spec = {**spec, "answers": str(held)}
@@ -1420,7 +1619,9 @@ def run(run_dir, supervisor=None, *, dry=False, seats_path=None, tranche="calibr
         swept, sweep_receipts = sweep_stage(run_dir, stage, supervisor, declaration, sorted(packets), judgments, sources,
                                             caps, tranche)
         crossed, cross_receipts = cross_stage(run_dir, stage, supervisor, declaration, swept, item_of, caps, tranche)
-        problems = stage_receipts(receipts + sweep_receipts + cross_receipts)
+        again, again_receipts = reconsider_stage(run_dir, stage, supervisor, declaration, summary, packets, judgments,
+                                                 crossed, caps, tranche)
+        problems = stage_receipts(receipts + sweep_receipts + cross_receipts + again_receipts)
         if problems:
             raise Refused("\n".join(problems))
         outcomes = [held["outcome"] for row in calls for held in row["seats"].values()]
@@ -1430,7 +1631,11 @@ def run(run_dir, supervisor=None, *, dry=False, seats_path=None, tranche="calibr
         crossed_outcomes = [row["outcome"] for row in crossed["calls"]]
         crossed["counts"] = {**{o: crossed_outcomes.count(o) for o in OUTCOMES},
                              "reused": sum(1 for row in crossed["calls"] if row["reused"])}
-        summary.update(dry=False, calls=calls, sweeps=swept, cross_review=crossed, interrupted=interrupted, tranche=tranche,
+        again_outcomes = [held["outcome"] for row in again["calls"] for held in row["seats"].values()]
+        again["counts"] = {**{o: again_outcomes.count(o) for o in OUTCOMES},
+                           "reused": sum(1 for row in again["calls"] for held in row["seats"].values() if held["reused"])}
+        summary.update(dry=False, calls=calls, sweeps=swept, cross_review=crossed, reconsiderations=again,
+                       interrupted=interrupted, tranche=tranche,
                        counts={**{o: outcomes.count(o) for o in OUTCOMES},
                                "reused": sum(1 for row in calls for held in row["seats"].values() if held["reused"]),
                                "judged_by_both": sum(1 for row in calls
@@ -1438,7 +1643,8 @@ def run(run_dir, supervisor=None, *, dry=False, seats_path=None, tranche="calibr
                        density_table=dispatch.measured_table(run_dir))
         records.write_json(run_dir, run_dir / SUMMARY, summary)
         stage.output(SUMMARY)
-        if any(o != "accepted" for o in outcomes + swept_outcomes + crossed_outcomes) or crossed["not_reviewed"]:
+        if any(o != "accepted" for o in outcomes + swept_outcomes + crossed_outcomes + again_outcomes) \
+                or crossed["not_reviewed"] or again["missing"]:
             stage.record["status"] = "partial"
     return summary
 
@@ -1481,6 +1687,11 @@ def report_lines(summary):
             cr = summary["cross_review"]
             lines.append(f"cross-review by Judge B: {len(cr['reviewed'])} absence claims reviewed, {len(cr['not_reviewed'])} "
                          f"not; calls " + ", ".join(f"{o} {cr['counts'][o]}" for o in OUTCOMES))
+            rc = summary["reconsiderations"]
+            after = collections.Counter(r["diagnosis"] for r in rc["reconsidered"])
+            lines.append(f"reconsidered by both judges: {len(rc['reconsidered'])} absence claims (" + ", ".join(
+                f"{d} {n}" for d, n in sorted(after.items())) + f"), {len(rc['not_reconsidered'])} missing a "
+                "reconsideration; calls " + ", ".join(f"{o} {rc['counts'][o]}" for o in OUTCOMES))
     else:
         b = summary["sweep_upper_bound"]
         lines.append(f"sweep upper bound ({b['basis']}): {b['groups']} groups, {b['shards']} shards, {b['packets']} calls, "
@@ -1756,6 +1967,40 @@ def self_test():
     control("the cross-review template is one packet.TEMPLATES lists, and its placeholders are the candidate and the units",
             CROSS_TEMPLATE in packet.TEMPLATES and guarded(lambda: packet.template_fields(CROSS_TEMPLATE), []) == ["candidate", "units"],
             f"{packet.TEMPLATES}")
+    control("the reconsideration template is one packet.TEMPLATES lists, and its placeholders are the candidate, its "
+            "claims, the context and the units", RECONSIDER_TEMPLATE in packet.TEMPLATES
+            and guarded(lambda: packet.template_fields(RECONSIDER_TEMPLATE), []) == ["candidate", "claims", "context", "units"],
+            f"{packet.TEMPLATES}")
+    # ---- the reconsideration's shape (J3c): units and matching units only ------------------------------------------
+    held_rs, projected = guarded(reconsider_schema, {}), guarded(reconsider_projection, None)
+    control("J3c: reconsider.schema.json is the judge schema's units and matching units with the definitions they reach, "
+            "closed, and nothing else", held_rs == projected and projected is not None
+            and sorted(held_rs.get("properties", {})) == sorted(RECONSIDER_FIELDS)
+            and held_rs.get("additionalProperties") is False and held_rs.get("required") == list(RECONSIDER_FIELDS))
+    drifted = json.loads(json.dumps(schema()))
+    drifted["$defs"]["unit_judgment"].setdefault("properties", {})["confidence"] = {"type": "string"}
+    control("control: a field added to the judge schema's unit judgment makes the reconsideration schema stale",
+            guarded(lambda: reconsider_projection(drifted), None) != held_rs)
+    control("control: a candidate-level field added to reconsider.schema.json is not its projection",
+            {**held_rs, "properties": {**held_rs.get("properties", {}), "requirements": schema()["properties"]["requirements"]}}
+            != projected)
+    sample_r = {"units": [{"unit": "n1", "situation": "no", "action": "no", "reason": "one line", "quote": ""}],
+                "matching_units": []}
+    rs_validator = guarded(lambda: validate.compile_schema(held_rs), None)
+    control("J3c: the reconsideration schema takes a units-only answer and refuses one carrying a candidate-level field",
+            rs_validator is not None and not validate.violations(rs_validator, sample_r)
+            and all(validate.violations(rs_validator, {**sample_r, f: fx_answer()[f]}) for f in RECONSIDER_REFUSED))
+    shown_r = {"units": {"n1": "Feed the zebra at noon."}, "quotes": ["q1"], "entries": []}
+    control("J3c: a units-only reconsideration answer is no problem", not answer_problems(shown_r, sample_r, reconsider=True))
+    for field in RECONSIDER_REFUSED:
+        named(f"control: a reconsideration answering `{field}` is FIELD_UNEXPECTED",
+              answer_problems(shown_r, {**sample_r, field: fx_answer()[field]}, reconsider=True), "FIELD_UNEXPECTED")
+    judge_md, recon_md = (guarded(lambda n=n: packet.template_text(n), "") for n in (TEMPLATE, RECONSIDER_TEMPLATE))
+    unit_rules = [t[t.find("For every unit in <units>, exactly once"):t.find("`text`; otherwise the empty string.")]
+                  for t in (judge_md, recon_md)]
+    control("J3c: the reconsideration asks for each unit's judgment in the judgment packet's own words",
+            unit_rules[0] and unit_rules[0] == unit_rules[1] and "For the candidate" not in recon_md
+            and "<ledger_entries>" not in recon_md)
     form_text, judge_text = (guarded(lambda name=n: packet.template_text(name), "") for n in ("form", TEMPLATE))
     definitions = [line for line in form_text.splitlines() if re.match(r"^(\d\. `|   \S)", line)]
     control("the eight requirements are defined in the judge template exactly as the formation template defines them",
@@ -2041,10 +2286,10 @@ def self_test():
             sent = guarded(lambda: (called / "calls" / some_call / "packet.md").read_bytes(), b"")
             held_schema_bytes = packet.schema_bytes(schema())
             control("an accepted attempt's own packet is within Judge A's capacity",
-                    bool(sent) and not attempt_problems(sent, limits_a, held_schema_bytes, "A"), "")
+                    bool(sent) and not guarded(lambda: attempt_problems(sent, limits_a, held_schema_bytes, "A"), ["RAISED"]), "")
             control("control: an attempt's packet past the seat's capacity is JUDGE_OVER_CAPACITY by the attempt's bound",
-                    any(p.startswith("JUDGE_OVER_CAPACITY A") for p in attempt_problems(
-                        sent, {**limits_a, "capacity": 1000}, held_schema_bytes, "A")), "")
+                    any(p.startswith("JUDGE_OVER_CAPACITY A") for p in guarded(lambda: attempt_problems(
+                        sent, {**limits_a, "capacity": 1000}, held_schema_bytes, "A"), [])), "")
             moved_dir = root / "capacity-moved"
             shutil.copytree(called / "calls" / some_call, moved_dir)
             call_record = records.read_json(moved_dir / "call.json")
@@ -2142,9 +2387,19 @@ def self_test():
                 sweep_rows = [{"match": [f"SEAT: {seat}"], "auto": "sweep", "partial_where": where}
                               for seat, where in (("claude:claude-sonnet-5-5/medium", "glob"),
                                                   ("codex:gpt-6-luna/medium", "Note step 3 of"))]
-                # Judge B's cross-review: every unit judged, a match where neither sweep saw one (J3b, J3c)
+                # Judge B's cross-review: every unit judged, a match on the first unit neither sweep flagged (J3b, J3c)
                 sweep_rows.append({"match": ["SEAT: codex:gpt-6-astra/xhigh", "Two checkers then"], "auto": "cross",
-                                   "partial_where": "Note step 7 of"})
+                                   "flag_first_negative": True})
+                # the reconsiderations (J3c): the first claim's first returned unit both judges now find matching, the
+                # second's only Judge A, every other's none
+                claims_known = sorted(c for c, (labels, _t) in whole_packets.items() if c in made_gaps or not labels.units)
+                recon_of = {n: c for n, c in enumerate(claims_known[:3])}
+                if len(recon_of) == 3:
+                    sweep_rows += [{"match": [f"-{STAGE}-{item_of(recon_of[0])}-{RECONSIDER}{who}-a"], "auto": "reconsider",
+                                    "yes_first": True} for who in ("A", "B")]
+                    sweep_rows.append({"match": [f"-{STAGE}-{item_of(recon_of[1])}-{RECONSIDER}A-a"], "auto": "reconsider",
+                                       "yes_first": True})
+                sweep_rows += [{"match": [f"-{RECONSIDER}{who}-a"], "auto": "reconsider"} for who in ("A", "B")]
                 judge_rows = json.loads(pathlib.Path(whole_plan).read_text(encoding="utf-8"))
                 pathlib.Path(whole_plan).write_text(json.dumps(judge_rows + sweep_rows), encoding="utf-8")
                 defect_sweep_plan = root / "plan-whole-defect.json"
@@ -2169,7 +2424,6 @@ def self_test():
                                         if r["why"] == "a sweep of its group did not finish") == sorted(g001)
                         and not set(g001) & set(first_cross.get("reviewed", [])), f"{first_cross.get('not_reviewed')} {g001}")
                 # the second run: the sweeps whole, and one absence claim's cross-review leaving a unit out
-                claims_known = sorted(c for c, (labels, _t) in whole_packets.items() if c in made_gaps or not labels.units)
                 cross_defect = root / "plan-whole-cross-defect.json"
                 cross_defect.write_text(json.dumps(judge_rows + [
                     {"match": [f"-{STAGE}-{item_of(claims_known[0])}-X-a"], "auto": "cross", "drop_first": True}] + sweep_rows),
@@ -2217,13 +2471,45 @@ def self_test():
                             and kept_sw[(g, sh, "a")].get("inventory_sha256") == inventory_hash for g, sh in shards_made)
                         and len({k.get("packet_sha256") for k in kept_sw.values()}) == len(kept_sw)
                         and sw.get("counts", {}).get("accepted") == 2 * len(shards_made), f"{sw.get('counts')}")
-                again_sw = guarded(lambda: run(whole, supervisor(whole, root / "cells-9", whole_plan)), lambda e: {"problem": repr(e)})
+                # the third run: Judge B's reconsideration of the first claim answers the candidate's requirements too
+                recon_defect = root / "plan-whole-recon-defect.json"
+                recon_defect.write_text(json.dumps(judge_rows + [
+                    {"match": [f"-{STAGE}-{item_of(claims_known[0])}-{RECONSIDER}B-a"], "auto": "reconsider",
+                     "yes_first": True, "extra": {"requirements": fx_answer()["requirements"]}}] + sweep_rows), encoding="utf-8")
+                again_sw = guarded(lambda: run(whole, supervisor(whole, root / "cells-9", recon_defect)),
+                                   lambda e: {"problem": repr(e)})
+                third_record = guarded(lambda: records.read_json(records.record_path(whole, STAGE)), {})
+                third_again = again_sw.get("reconsiderations") or {}
+                third_calls = {r["candidate_id"]: r for r in third_again.get("calls", [])}
+                c0_b = third_calls.get(claims_known[0], {}).get("seats", {}).get("B", {})
+                control("J3c: a reconsideration Judge B answers with the candidate's requirements is refused by the schema on "
+                        "both attempts, the claim is named RECONSIDERATION_MISSING and not diagnosed, and the record is "
+                        "partial while every other call is accepted",
+                        c0_b.get("outcome") == "failed" and len(c0_b.get("attempts", [])) == 2
+                        and "SCHEMA_INVALID" in " ".join(map(str, c0_b.get("codes", [])))
+                        and any(m.startswith(f"RECONSIDERATION_MISSING {claims_known[0]} B") for m in third_again.get("missing", []))
+                        and [r["candidate_id"] for r in third_again.get("not_reconsidered", [])] == [claims_known[0]]
+                        and claims_known[0] not in [r["candidate_id"] for r in third_again.get("reconsidered", [])]
+                        and third_record.get("status") == "partial"
+                        and not (again_sw.get("cross_review") or {}).get("not_reviewed")
+                        and all(h["outcome"] == "accepted" for c, r in third_calls.items() for w, h in r["seats"].items()
+                                if (c, w) != (claims_known[0], "B")),
+                        f"{c0_b.get('outcome')} {third_again.get('missing')} {third_record.get('status')}")
+                fourth = guarded(lambda: run(whole, supervisor(whole, root / "cells-10", whole_plan)), lambda e: {"problem": repr(e)})
                 record = guarded(lambda: records.read_json(records.record_path(whole, STAGE)), {})
                 control("J3a: run again after the defect, only the failed sweep is called anew; run once more, every sweep is "
                         "answered by its accepted attempt and the record is complete",
                         record.get("status") == "complete" and sw.get("counts", {}).get("reused") == 2 * len(shards_made) - 1
                         and (again_sw.get("sweeps") or {}).get("counts", {}).get("reused") == 2 * len(shards_made),
                         f"{sw.get('counts')} {(again_sw.get('sweeps') or {}).get('counts', again_sw)} {record.get('status')}")
+                fourth_calls = {r["candidate_id"]: r for r in (fourth.get("reconsiderations") or {}).get("calls", [])}
+                control("J3c: run once more, only the unanswered reconsideration is called anew and accepted; every other is "
+                        "answered by its accepted attempt",
+                        fourth_calls.get(claims_known[0], {}).get("seats", {}).get("B", {}).get("outcome") == "accepted"
+                        and not fourth_calls.get(claims_known[0], {}).get("seats", {}).get("B", {}).get("reused")
+                        and all(h.get("reused") for c, r in fourth_calls.items() for w, h in r["seats"].items()
+                                if (c, w) != (claims_known[0], "B")) and len(fourth_calls) >= 3,
+                        f"{[(c[:12], {w: (h.get('outcome'), h.get('reused')) for w, h in r['seats'].items()}) for c, r in fourth_calls.items()]}")
                 again_cross = {r["candidate_id"]: r for r in (again_sw.get("cross_review") or {}).get("calls", [])}
                 control("J3b: run once more, only the failed cross-review is called anew and accepted; every other is answered "
                         "by its accepted attempt", again_cross.get(claims_known[0], {}).get("outcome") == "accepted"
@@ -2314,6 +2600,80 @@ def self_test():
                             all(f'"sweeps": {{"a": ' in line and '"b": ' in line for line in text_c.split("<units>\n", 1)[1]
                                 .split("\n</units>", 1)[0].splitlines()) and c not in text_c
                             and not any(u in text_c for u in labels_c.units.values()), "")
+                # ---- the reconsiderations (J3c, done-when 3) ----------------------------------------------------------
+                rc = fourth.get("reconsiderations") or {}
+                kept_rc = {(c, who): guarded(lambda c=c, who=who: records.read_json(
+                    whole / reconsideration_rel(item_of(c), who)), {}) for c in expected for who in ("A", "B")}
+                b_matched = {c: sorted(v["unit_id"] for v in crossed_kept[c].get("verdicts", [])
+                                       if "yes" in (v["situation"], v["action"])) for c in expected}
+                want_returned = {c: sorted(set(want_flags.get(c, [])) | set(b_matched[c])) for c in expected}
+                control("J3c (done-when 3): every unit either sweep flagged or Judge B marked a match returns to both judges, "
+                        "each reconsideration judging exactly those units",
+                        all(kept_rc[(c, who)].get("returned") == want_returned[c] and want_returned[c]
+                            and sorted(u["unit_id"] for u in kept_rc[(c, who)].get("judgment", {}).get("units", []))
+                            == want_returned[c] for c in expected for who in ("A", "B")),
+                        f"{[(c[:12], len(want_returned[c]), len(kept_rc[(c, 'A')].get('returned') or [])) for c in expected]}")
+                control("J3c: the fixture returns a unit only Judge B marked, and the first claim's first returned unit is one "
+                        "only one sweep flagged",
+                        any(set(b_matched[c]) - set(want_flags.get(c, [])) for c in expected)
+                        and want_returned[claims_known[0]][:1]
+                        and len({side for side, x in marks_w.get(claims_known[0], {}).get(want_returned[claims_known[0]][0], {}).items()
+                                 if "yes" in (x["situation"], x["action"])}) == 1,
+                        f"{b_matched} {want_flags}")
+                control("J3c (N#1): both judges' reconsiderations of a claim carry one payload and two packets",
+                        all(kept_rc[(c, "A")].get("payload_sha256") and kept_rc[(c, "A")].get("payload_sha256")
+                            == kept_rc[(c, "B")].get("payload_sha256")
+                            and kept_rc[(c, "A")].get("packet_sha256") != kept_rc[(c, "B")].get("packet_sha256") for c in expected))
+                c0_labels = guarded(lambda: returned_labels(whole_packets[claims_known[0]][0], want_returned[claims_known[0]]), None)
+                c0_text = guarded(lambda: reconsider_payload(c0_labels), "") if c0_labels is not None else ""
+                control("J3c: a reconsideration shows the candidate, its claims and the returned units with their context, no "
+                        "ledger entry and no candidate-level question, and its payload is the one kept",
+                        c0_labels is not None and list(c0_labels.units.values()) == want_returned[claims_known[0]]
+                        and not c0_labels.entries and "<ledger_entries>" not in c0_text and "<units>" in c0_text
+                        and not any(f"`{f}`" in c0_text for f in RECONSIDER_REFUSED)
+                        and packet.sha256_bytes(c0_text.encode("utf-8")) == kept_rc[(claims_known[0], "A")].get("payload_sha256")
+                        and claims_known[0] not in c0_text, "")
+                c0_kept = [kept_rc[(claims_known[0], who)].get("judgment") or {} for who in ("A", "B")]
+                control("J3c: a kept reconsideration holds the returned units and their matching units only, and a unit both "
+                        "judges now find matching carries its following and contribution",
+                        all(sorted(k) == sorted(RECONSIDER_FIELDS) for k in c0_kept)
+                        and all(k["matching_units"] and k["matching_units"][0].get("following") == "followed"
+                                and k["matching_units"][0]["unit_id"] == want_returned[claims_known[0]][0] for k in c0_kept),
+                        f"{[sorted(k) for k in c0_kept]}")
+                after = {r["candidate_id"]: (r["diagnosis"], r["row"]) for r in rc.get("reconsidered", [])}
+                control("J3c (O4): a gap claim contradicted by a unit only one sweep flagged is reconsidered by both judges - "
+                        "both now matching, it is no gap; one only, it is disputed; neither, the gap stands",
+                        after.get(claims_known[0], ("gap",))[0] not in ("gap", "unknown")
+                        and after.get(claims_known[1]) == ("unknown", derive.DISPUTED)
+                        and after.get(claims_known[2], ("",))[0] == "gap" and not rc.get("missing"), f"{after}")
+                held_a = kept_rc[(claims_known[1], "A")].get("judgment")
+                held_b = kept_rc[(claims_known[1], "B")].get("judgment")
+                if held_a and held_b:
+                    returned_1 = want_returned[claims_known[1]]
+                    named("control (done-when 3): a claim missing Judge B's reconsideration is RECONSIDERATION_MISSING",
+                          reconsideration_problems(claims_known[1], returned_1, {"A": held_a}), "RECONSIDERATION_MISSING")
+                    named("control: a reconsideration judging fewer units than were returned is RECONSIDERATION_MISSING",
+                          reconsideration_problems(claims_known[1], returned_1,
+                                                   {"A": held_a, "B": {**held_b, "units": held_b["units"][1:]}}),
+                          "RECONSIDERATION_MISSING")
+                    control("J3c: both judges reconsidering every returned unit is no problem",
+                            not reconsideration_problems(claims_known[1], returned_1, {"A": held_a, "B": held_b}))
+                # a claim whose cross-review returns nothing keeps its gap without a call
+                c2 = claims_known[2]
+                quiet = root / "nothing-returned"
+                (quiet / "cross_review").mkdir(parents=True, exist_ok=True)
+                (quiet / cross_rel(item_of(c2))).write_text(json.dumps({**crossed_kept[c2], "partial_flags": [], "verdicts": [
+                    {**v, "situation": "no", "action": "no"} for v in crossed_kept[c2].get("verdicts", [])]}), encoding="utf-8")
+                firsts = {who: guarded(lambda who=who: records.read_json(whole / judgment_rel(item_of(c2), who))["judgment"], {})
+                          for who in ("A", "B")}
+                quiet_section = guarded(lambda: reconsider_stage(
+                    quiet, None, None, None, {"packets": [{"candidate_id": c2, "source": pop_b[c2]["source"]}], "seats": {}, "limits": {}},
+                    {c2: whole_packets[c2]}, {c2: firsts}, {"reviewed": [c2]}, {}, "calibration"), lambda e: ({"problem": repr(e)}, []))
+                control("J3c: a claim its cross-review returns nothing for keeps its gap, with no reconsideration call",
+                        quiet_section[0].get("reconsidered") == [{"candidate_id": c2, "returned": 0, "diagnosis": "gap",
+                                                                  "row": quiet_section[0]["reconsidered"][0]["row"]}]
+                        and not quiet_section[0].get("calls") and not quiet_section[1] if quiet_section[0].get("reconsidered")
+                        else False, f"{quiet_section[0]}")
                 some = next(iter(sorted(kept_sw)), None)
                 if some is not None:
                     said = refusal(lambda: kept_sweep(whole, sweep_rel(*some), "0" * 64))
@@ -2420,7 +2780,11 @@ def self_test():
           "accounting refusals planted, a sweep answer missing a pair failed by name, SEAT_UNDECLARED, a lifecycle "
           "candidate's named texts with the names not held counted; Judge B's cross-review (J3b) - every flag and the "
           "drawn fifty, another seed another sample, CROSS_REVIEW_INCOMPLETE and CROSS_REVIEW_STALE planted, a review "
-          "missing a unit failed by name, the re-run reusing the rest)")
+          "missing a unit failed by name, the re-run reusing the rest; the reconsiderations (J3c) - the returned set "
+          "both ways, one payload for both judges, contradicted, disputed and standing claims, RECONSIDERATION_MISSING "
+          "planted and run, a claim with nothing returned; the reconsideration's units-only shape - its schema the judge "
+          "schema's projection with drift planted both ways, candidate-level fields refused by the schema in a run and "
+          "by FIELD_UNEXPECTED, the unit rules in the judgment packet's own words)")
     return 0
 
 
