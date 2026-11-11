@@ -628,8 +628,10 @@ AWAITING_R = "R 대기: 판정으로 들어온 core 항목이라 이번 실행�
 
 def inline(text):
     """A field's text on one line: every run of whitespace, newlines included, one space. A field therefore never
-    starts a line, so nothing a model wrote can stand where an owner-block marker would."""
-    return " ".join(str(text).split())
+    starts a line, so nothing a model wrote can stand where an owner-block marker would. An HTML comment's opening and
+    closing are escaped with a backslash (`\\<!--`, `--\\>`), so a Markdown preview shows the characters instead of
+    hiding what lies between them: the owner approves the text they read (lead decision, 2026-11-12)."""
+    return " ".join(str(text).split()).replace("<!--", "\\<!--").replace("-->", "--\\>")
 
 
 def fenced(text):
@@ -1598,6 +1600,11 @@ def self_test():
     control("an owner block for an item no row holds is refused by name",
             "\n".join(page_problems(good, "\n".join(page_lines[:test_at] + owner_lines.review_block("k-zz", "0" * 64)
                                                      + page_lines[test_at:]))), "OWNER_BLOCK_FORGED")
+    hidden = "<!--h-->"   # eight characters, so the before-state hash's twelve hold the whole comment
+    for label, plant in inline_plants:
+        _held, page = planted(plant, hidden)
+        equal(f"a comment planted in {label} shows as literal characters",
+              (page.count("\\<!--h--\\>"), page.count(hidden)), (1, 0))
     kept_inline = globals()["inline"]
     globals()["inline"] = str   # every field as if it had lost `inline`: the page must be refused, not written
     try:
