@@ -21,6 +21,8 @@
                                                            the recurrence, into checks.json; no model is called
   distill.py judge --run-id ID --dry                       S6 up to its calls: the judged population, every judgment
                                                            packet built and measured per judge; the record stays partial
+  distill.py judge --run-id ID --cells DIR [--golden-plan PLAN.json]
+                                                           S6: each judged candidate to Judge A and Judge B
   distill.py <stage command> --run-id ID                   S3, S6-S12: named, and refused until implemented
 
 A run lives in `session-distill/out/<run-id>/` (`--out` names another root): `run.json`,
@@ -333,8 +335,19 @@ def cmd_retrieve(args):
 
 
 def cmd_judge(args):
-    """S6 (runlib/stage_judge.py): dry until WP-11 J2 lands the judges' calls."""
-    say("\n".join(stage_judge.report_lines(stage_judge.run(run_dir_of(args), dry=args.dry))))
+    """S6 (runlib/stage_judge.py): dry, up to the calls; otherwise both judges' calls through a supervisor made before
+    the stage is entered, so a live run without its token is refused before anything is recorded."""
+    run_dir = run_dir_of(args)
+    if args.dry:
+        if args.cells or args.golden_plan:
+            raise Refused("INPUT_INVALID judge --dry: a dry run makes no call, so it takes no --cells or --golden-plan")
+        summary = stage_judge.run(run_dir, dry=True)
+    else:
+        if not args.cells:
+            raise Refused("INPUT_INVALID judge --cells: the judgment calls run in cells under a cell root; give --cells "
+                          "DIR, or --dry to stop before the calls")
+        summary = stage_judge.run(run_dir, stage_judge.supervisor(run_dir, args.cells, args.golden_plan))
+    say("\n".join(stage_judge.report_lines(summary)))
     return 0
 
 
@@ -370,7 +383,7 @@ def build_parser():
         helps = {"census": f"{stage}: the census", "views": f"{stage}: the reading views, the search index and the evidence store",
                  "form": f"{stage}: candidate formation and the lifecycle intake",
                  "retrieve": f"{stage}: retrieval, quote and session checks, and recurrence",
-                 "judge": f"{stage}: the judges A and B (dry until their calls land)"}
+                 "judge": f"{stage}: the judges A and B"}
         sub = commands.add_parser(name, help=helps.get(name, f"{stage}: not implemented yet"))
         common(sub)
         if name == "close":
@@ -392,6 +405,8 @@ def build_parser():
             sub.add_argument("--reconcile", help="S3's results (a JSON list): fold them back instead of counting")
         if name == "judge":
             sub.add_argument("--dry", action="store_true", help="stop before the calls: every judgment packet's measure")
+            sub.add_argument("--cells", help="the cell root the judgment calls run under (made mode 700)")
+            sub.add_argument("--golden-plan", help="a golden hosts' plan: the calls are answered from it and start no model")
         if name == "form":
             sub.add_argument("--dry", action="store_true", help="stop before the call: the intake and the packet's measure")
             sub.add_argument("--cells", help="the cell root the formation call runs under (made mode 700)")
@@ -671,8 +686,20 @@ def self_test():
                 code == 1 and "INPUT_INVALID S4" in err and stage_files() == before, f"{code} {err}")
         before = stage_files()
         code, err = cli("judge", "--run-id", "r1")
-        control("judge (S6) not dry is refused by name until its calls land, and no stage record is written or changed",
-                code == 1 and "JUDGE_DRY_ONLY S6" in err and stage_files() == before, f"{code} {err}")
+        control("judge (S6) with neither --dry nor --cells is refused by name before anything is recorded",
+                code == 1 and "INPUT_INVALID judge --cells" in err and stage_files() == before, f"{code} {err}")
+        code, err = cli("judge", "--run-id", "r1", "--dry", "--cells", str(out / "judge-cells"))
+        control("judge --dry (S6) with --cells is refused by name: a dry run makes no call",
+                code == 1 and "INPUT_INVALID judge --dry" in err and stage_files() == before, f"{code} {err}")
+        held_token = os.environ.pop("CLAUDE_RUN_TOKEN_FILE", None)
+        try:
+            code, err = cli("judge", "--run-id", "r1", "--cells", str(out / "judge-cells"))
+        finally:
+            if held_token is not None:
+                os.environ["CLAUDE_RUN_TOKEN_FILE"] = held_token
+        control("a live judge (S6) with no CLAUDE_RUN_TOKEN_FILE is refused by name before its cell root or any stage "
+                "record is made", code == 1 and "TOKEN_FILE_UNSET S6" in err and not (out / "judge-cells").exists()
+                and stage_files() == before, f"{code} {err}")
         code, err = cli("judge", "--run-id", "r1", "--dry")
         control("judge --dry (S6) over a run S5 has not run is refused by name, and no stage record is written or changed",
                 code == 1 and "INPUT_INVALID S5" in err and stage_files() == before, f"{code} {err}")

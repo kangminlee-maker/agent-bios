@@ -24,12 +24,19 @@ heading, the lines that enclose it (inventory `edges.direct`, in full) and the f
 their headings and counts); the ledger entries S5 retrieved. Every stored id is turned into a label of the packet's
 own, so no store's naming reaches a judge. A planted control's packet has a natural one's blocks, rows and fields
 (`packet_markers`, F27). `distill.py judge --dry` builds every packet of the judged population and measures it per
-seat (`run`); the calls land with J2.
+seat (`run`).
+
+The calls (plan WP-11 J2): `distill.py judge --cells DIR` sends every judged candidate to Judge A and Judge B through
+the dispatcher, each judge an item of its own with the candidate's one payload (N#1). Each answer is held to its packet
+by the stage (`check`) and kept in the stores' ids (`judgments/<item>/<A|B>.json`); the receipts carry the payload S6
+built and one packet each (`stage_receipts`); a call whose capture shows an undeclared instruction is failed by the
+gate whatever it answered (done-when 5). A re-run reuses every accepted attempt and calls only the rest.
 
   stage_judge.py --self-test
 """
 import hashlib
 import json
+import os
 import pathlib
 import re
 import shutil
@@ -529,6 +536,25 @@ class JudgeLabels:
         return {"units": {label: self.unit_store[i]["text"] for label, i in self.units.items()},
                 "quotes": list(self.quotes), "entries": list(self.entries)}
 
+    def resolve(self, answer):
+        """An accepted answer read back in the stores' ids: units and matching units by unit id, quotes by evidence id,
+        ledger relations by entry id. Only an answer `answer_problems` passed reaches here, so every label is one this
+        packet shows."""
+        def quoted(ids):
+            return [self.quotes[q] for q in ids]
+        later = answer.get("no_longer_arises") or {}
+        return {"requirements": answer["requirements"], "consequence_class": answer["consequence_class"],
+                "no_longer_arises": {**later, "evidence_ids": quoted(later.get("evidence_ids") or [])},
+                "units": [{"unit_id": self.units[r["unit"]], **{k: r[k] for k in ("situation", "action", "reason", "quote")}}
+                          for r in answer["units"]],
+                "matching_units": [{"unit_id": self.units[r["unit"]], "following": r["following"],
+                                    "following_evidence_ids": quoted(r["following_evidence_ids"]),
+                                    "contribution": r["contribution"],
+                                    "contribution_evidence_ids": quoted(r["contribution_evidence_ids"])}
+                                   for r in answer["matching_units"]],
+                "ledger_relations": [{"entry_id": self.entries[r["entry"]], "relation": r["relation"], "reason": r["reason"]}
+                                     for r in answer["ledger_relations"]]}
+
 
 def payload(labels):
     """The judgment payload both judges are sent (N#1): `packets/judge.md` with its five blocks filled."""
@@ -591,16 +617,29 @@ def limits_of(seat, run_dir, declaration, seats_path=None):
             "retry_margin": retry["margin"], "retries": retry["count"], "output_cap": OUTPUT_CAP, "unmeasured": unmeasured}
 
 
+def at_most_of(size, limits):
+    """Input tokens at most of a judgment call of `size` driver bytes under `limits` (`dispatch.input_at_most`), or None
+    for a seat whose allowance or capacity is not measured."""
+    from runlib import dispatch
+    if limits["unmeasured"]:
+        return None
+    return dispatch.input_at_most(size, {"bytes_per_token": limits["bytes_per_token"]}, limits["allowance"], OUTPUT_CAP,
+                                  limits["retry_margin"], limits["retries"])[1]
+
+
+def beyond_capacity(size, limits):
+    """Whether a call of `size` driver bytes, with room for its one retry's correction (S4's rule, stage_read's
+    CORRECTION_ROOM) and the output cap, exceeds the seat's capacity; None when it cannot be told."""
+    from runlib import stage_read
+    at_most = at_most_of(size + stage_read.CORRECTION_ROOM, limits)
+    return None if at_most is None else at_most + OUTPUT_CAP > limits["capacity"]
+
+
 def measure(run_id, who, limits, text, schema_bytes, item):
     """`(driver bytes, input tokens at most or None, over the seat's capacity)` of one judge's packet."""
-    from runlib import dispatch
     built = packet.build(f"{run_id}-{STAGE}-{item}-{who}-a1", STAGE, limits["seat"], text, schema_bytes)
     size = bound.driver_bytes(built, schema_bytes)[0]
-    if limits["unmeasured"]:
-        return size, None, None
-    _first, at_most = dispatch.input_at_most(size, {"bytes_per_token": limits["bytes_per_token"]}, limits["allowance"],
-                                             OUTPUT_CAP, limits["retry_margin"], limits["retries"])
-    return size, at_most, at_most + OUTPUT_CAP > limits["capacity"]
+    return size, at_most_of(size, limits), beyond_capacity(size, limits)
 
 
 def build(run_dir, declaration, seats_path=None):
@@ -658,26 +697,203 @@ def build(run_dir, declaration, seats_path=None):
     return summary, packets
 
 
-def run(run_dir, *, dry=False, seats_path=None):
-    """S6 over S5's population, dry (plan WP-11 J1b2): admitted against its inputs, it builds and measures every
-    judgment packet (`build`) and writes `judgments/dry.json`; the record stays `partial`, since nothing was judged. Not
-    dry is JUDGE_DRY_ONLY until J2 lands the calls."""
-    if not dry:
-        raise Refused("JUDGE_DRY_ONLY S6: the judges' calls land with WP-11 J2; until then S6 runs dry (--dry)")
+# ---- the calls ------------------------------------------------------------------------------------------------
+
+SUMMARY = "judgments/judge.json"
+OUTCOMES = ("accepted", "failed", "not_done", "deferred", "budget_stopped")
+
+
+def judgment_rel(item, who):
+    """Where one judge's judgment of a candidate is kept: under the candidate's item name, since a candidate id may hold
+    any character (`item_of`)."""
+    return f"judgments/{item}/{who}.json"
+
+
+def check(labels, capacity):
+    """The stage's check of a judgment call's attempts, as `Supervisor.item(stage_check=)` asks it: the capacity the
+    call was admitted against is the one its record carries (CAPACITY_UNRECORDED, S4's rule), and the answer judges the
+    packet it was sent (`answer_problems`, a candidate's first call)."""
+    from runlib import stage_read
+    shown = labels.shown()
+
+    def judged(call_dir):
+        held = ((records.read_json(pathlib.Path(call_dir) / "call.json").get("bound")) or {}).get("context_capacity")
+        if held != capacity:
+            raise Refused(f"CAPACITY_UNRECORDED {pathlib.Path(call_dir).name}: its call record carries the capacity "
+                          f"{held!r}, and S6 was admitted against {capacity!r}")
+        return answer_problems(shown, stage_read.answer_of(call_dir), first=True)
+    return judged
+
+
+def attempt_problems(built, limits, schema_bytes, who):
+    """The bound on one judgment attempt's packet as `Supervisor.item(packet_check=)` asks it, built under the call id
+    its reservation gave it and, on a retry, carrying its correction: JUDGE_OVER_CAPACITY when it and the output cap
+    exceed the seat's capacity. A seat whose capacity is not measured is not bounded here (D13)."""
+    from runlib import stage_read
+    size = bound.driver_bytes(built, schema_bytes)[0]
+    beyond = beyond_capacity(max(size - stage_read.CORRECTION_ROOM, 0), limits)
+    return [f"JUDGE_OVER_CAPACITY {who}: this attempt's packet of {size} driver bytes with the output cap exceeds the "
+            f"seat's capacity {limits['capacity']}"] if beyond else []
+
+
+def stage_receipts(calls):
+    """N#1 over the accepted calls: each candidate's two receipts carry the payload S6 built for it and one payload hash
+    between them (PACKET_DIVERGENCE), and no two receipts of the stage one packet hash (RECEIPT_STALE). `calls` are
+    `(candidate id, seat, call id, receipt, payload sha256)`."""
+    out, by_candidate = [], {}
+    for cid, seat, call_id, receipt, built in calls:
+        by_candidate.setdefault(cid, {})[call_id] = (seat, receipt)
+        got = (receipt.get("evidence") or {}).get("payload_sha256")
+        if got != built:
+            out.append(f"PACKET_DIVERGENCE {call_id}: its receipt carries the payload hash {str(got)[:12]}, and S6 built "
+                       f"{str(built)[:12]} for {cid}")
+    for held in by_candidate.values():
+        out += [p for p in receipt_problems(held) if not p.startswith("RECEIPT_STALE")]
+    out += [p for p in receipt_problems({c: (s, r) for _cid, s, c, r, _b in calls}) if p.startswith("RECEIPT_STALE")]
+    return out
+
+
+# S6's golden host: dispatch's (FAKE_HOST) for both hosts, with what its Codex branch does not do
+JUDGE_HOST = r'''
+"""S6's golden host. It runs dispatch's golden host (FAKE_HOST) and adds two things: a Codex call is answered from the
+plan, as FAKE_HOST's Claude branch answers one; and a plan row's `context` names a replayed capture (WP-03's planted
+working directories) whose effective context replaces the one the host reports. argv: fake-host host mode spec-json."""
+import json, os, pathlib, subprocess, sys
+fake, host, mode, spec = sys.argv[1], sys.argv[2], sys.argv[3], json.loads(sys.argv[4])
+packet = sys.stdin.buffer.read()
+done = subprocess.run([sys.executable, fake, host, mode, json.dumps(spec)], input=packet, stdout=subprocess.PIPE)
+text = packet.decode("utf-8")
+call_id = text.splitlines()[0].split(": ", 1)[1]
+plan = json.loads(pathlib.Path(spec["answers"]).read_text())
+row = next((r for r in plan if all(t in text for t in r["match"])), None)
+if row is not None and row.get("context") and done.returncode == 0:
+    capture = pathlib.Path(os.environ["REVIEW_CAPTURE_DIR"]) / "host.json"
+    held = json.loads(capture.read_text())
+    held["context"] = json.loads(pathlib.Path(row["context"]).read_text())["context"]
+    capture.write_text(json.dumps(held))
+out = done.stdout
+if host == "codex" and done.returncode == 0:
+    out = json.dumps(row["answer"] if row is not None else {"unplanned": True}).replace("<CALL-ID>", call_id).encode()
+sys.stdout.buffer.write(out)
+sys.exit(done.returncode)
+'''
+
+
+def supervisor(run_dir, cells, plan=None, seats_path=None):
+    """The supervisor S6's calls go through, their cells under `cells` (made mode 700). Live, the pinned runners: Judge
+    A's token reaches claude-run only as CLAUDE_RUN_TOKEN_FILE in this process's environment - a path never read here,
+    refused by name before anything is reserved when it is not set (TOKEN_FILE_UNSET). With `plan`, a golden host's plan
+    (`[{match, answer, context?}]`, `JUDGE_HOST`), realization golden: the host answers from the plan and starts no model,
+    and the dispatcher refuses that runner under any other realization."""
+    from runlib import dispatch
+    if plan is None and not os.environ.get("CLAUDE_RUN_TOKEN_FILE"):
+        raise Refused("TOKEN_FILE_UNSET S6: a live judgment call's token reaches claude-run only as "
+                      "CLAUDE_RUN_TOKEN_FILE, and this environment does not set it")
+    cells = pathlib.Path(cells)
+    cells.mkdir(mode=0o700, parents=True, exist_ok=True)
+    if plan is None:
+        return dispatch.Supervisor(run_dir, cell_root=cells, realization="live", seats_path=seats_path)
+    fake, host, plan = cells / "fake_host.py", cells / "judge_host.py", pathlib.Path(plan).resolve()
+    fake.write_text(dispatch.FAKE_HOST, encoding="utf-8")
+    host.write_text(JUDGE_HOST, encoding="utf-8")
+    sup = dispatch.Supervisor(run_dir, cell_root=cells, realization="golden", seats_path=seats_path)
+    sup.runner = lambda h, spec: [sys.executable, str(host), str(fake), h, "clean", json.dumps({**spec, "answers": str(plan)})]
+    return sup
+
+
+def call_row(out):
+    """What S6 records of one judge's item: its outcome and codes, its attempts with what the stage's check said of
+    each, whether an earlier accepted attempt answered it (`reused`), and why when it was not done."""
+    from runlib import stage_read
+    return {"outcome": out["outcome"], "codes": out.get("codes", []), "attempts": stage_read.attempts_of(out),
+            "reused": out.get("reused"), "not_reused": out.get("not_reused", []),
+            **({"why": out["why"]} if out.get("why") else {})}
+
+
+def run(run_dir, supervisor=None, *, dry=False, seats_path=None, tranche="calibration"):
+    """S6 over S5's population (plan WP-11): admitted against its inputs, it builds and measures every judgment packet
+    (`build`); dry, it writes `judgments/dry.json` and leaves the record `partial`. Otherwise every judged candidate is
+    sent to Judge A and Judge B through `supervisor`, each an item of its own, with the same payload; each answer is
+    checked by the stage (`check`) and kept in the stores' ids (`judgments/<item>/<A|B>.json`), the receipts are held to
+    one payload per candidate and one packet per receipt (`stage_receipts`), and `judgments/judge.json` says what each
+    call did. A call that ends other than accepted leaves the record `partial`; a re-run reuses each accepted attempt
+    (dispatch's resume) and calls only the rest. The calls run in a calibration tranche by default: a seat whose host
+    allowance is not measured (D13: Judge B's) is dispatched only in one. `seats_path` is the dry measure's seats file;
+    a run with calls reads its supervisor's. Without a supervisor and not dry, JUDGE_UNSUPERVISED."""
+    from runlib import dispatch
+    if not dry and supervisor is None:
+        raise Refused("JUDGE_UNSUPERVISED S6: a judgment call goes through a supervisor; without one, run it dry (--dry)")
     run_dir = pathlib.Path(run_dir)
     with records.run_stage(run_dir, STAGE, INPUTS) as stage:
-        summary, _packets = build(run_dir, stage.declaration, seats_path)
-        records.write_json(run_dir, run_dir / DRY_RECORD, summary)
-        stage.output(DRY_RECORD)
-        stage.record["status"] = "partial"
+        declaration = stage.declaration
+        # the stage's lock is held, so a reservation of S6 still open is a dead run's: closed before any reuse
+        interrupted = [] if dry else supervisor.interrupted(STAGE)
+        summary, packets = build(run_dir, declaration, seats_path if dry else supervisor.seats_path)
+        if dry:
+            records.write_json(run_dir, run_dir / DRY_RECORD, summary)
+            stage.output(DRY_RECORD)
+            stage.record["status"] = "partial"
+            return summary
+        over = {who: ids for who, ids in summary["over_capacity"].items() if ids}
+        if over:
+            raise Refused("JUDGE_OVER_CAPACITY S6: " + "; ".join(
+                f"{len(ids)} packets exceed Judge {who}'s capacity {summary['limits'][who]['capacity']} with the output "
+                f"cap and a retry's correction ({ids[:3]})" for who, ids in sorted(over.items()))
+                + "; the run narrows retrieval.per_layer or seats a judge with more context")
+        episode = declaration["budget"]["per_episode"]
+        caps = {"tokens": episode["tokens"], "compactions": episode["compactions"]}
+        held_schema = schema()
+        schema_bytes = packet.schema_bytes(held_schema)
+        calls, receipts = [], []
+        for measured in summary["packets"]:
+            cid, item = measured["candidate_id"], measured["item"]
+            labels, text = packets[cid]
+            row = {"candidate_id": cid, "item": item, "source": measured["source"], "seats": {}}
+            for who, seat in summary["seats"].items():
+                limits = summary["limits"][who]
+                out = supervisor.item(STAGE, f"{item}-{who}", seat, text, held_schema, case_type=CASE, caps=caps,
+                                      view_window=False, tranche=tranche, max_output_tokens=OUTPUT_CAP,
+                                      stage_check=check(labels, limits["capacity"]), resume=True,
+                                      context_capacity=limits["capacity"],
+                                      packet_check=lambda built, limits=limits, who=who: attempt_problems(
+                                          built, limits, schema_bytes, who))
+                held = call_row(out)
+                if out["outcome"] == "accepted":
+                    call_dir = pathlib.Path(out["accepted"])
+                    call_id = records.read_json(call_dir / "call.json")["call_id"]
+                    receipt = records.read_json(call_dir / "receipt.json")
+                    rel = judgment_rel(item, who)
+                    records.write_json(run_dir, run_dir / rel, {
+                        "candidate_id": cid, "item": item, "judge": who, "seat": seat, "call_id": call_id,
+                        "payload_sha256": measured["payload_sha256"], "packet_sha256": receipt.get("packet_sha256"),
+                        "judgment": labels.resolve(gate.accepted(call_dir, judged=True))})
+                    stage.output(rel)
+                    receipts.append((cid, seat, call_id, receipt, measured["payload_sha256"]))
+                    held.update(call_id=call_id, judgment=rel)
+                row["seats"][who] = held
+            calls.append(row)
+        problems = stage_receipts(receipts)
+        if problems:
+            raise Refused("\n".join(problems))
+        outcomes = [held["outcome"] for row in calls for held in row["seats"].values()]
+        summary.update(dry=False, calls=calls, interrupted=interrupted, tranche=tranche,
+                       counts={**{o: outcomes.count(o) for o in OUTCOMES},
+                               "reused": sum(1 for row in calls for held in row["seats"].values() if held["reused"]),
+                               "judged_by_both": sum(1 for row in calls
+                                                     if all(h["outcome"] == "accepted" for h in row["seats"].values()))},
+                       density_table=dispatch.measured_table(run_dir))
+        records.write_json(run_dir, run_dir / SUMMARY, summary)
+        stage.output(SUMMARY)
+        if any(o != "accepted" for o in outcomes):
+            stage.record["status"] = "partial"
     return summary
 
 
 def report_lines(summary):
-    """What the driver prints of a dry S6: counts, sizes and codes, never a candidate's, a unit's or a quote's text."""
+    """What the driver prints of S6: counts, sizes and codes, never a candidate's, a unit's or a quote's text."""
     pop, tot = summary["population"], summary["totals"]
     left = "; ".join(f"{s} {v['count']} of {v['of']} ({v['why']})" for s, v in pop["left_out"].items()) or "none"
-    lines = [f"S6 judge (dry): declaration_seq {summary['declaration_seq']}; {pop['judged']} of {pop['candidates']} "
+    lines = [f"S6 judge{' (dry)' if summary['dry'] else ''}: declaration_seq {summary['declaration_seq']}; {pop['judged']} of {pop['candidates']} "
              f"candidates judged; {len(pop['check_failed'])} rejected by S5's checks; left out: {left}",
              f"packets: {tot['payload_bytes']} payload bytes over {len(summary['packets'])} candidates, "
              f"{tot['calls']} calls; output at most {tot['output_at_most']} tokens at the cap {summary['output_cap']}"]
@@ -688,6 +904,17 @@ def report_lines(summary):
                         f"{len(summary['over_capacity'][who])} packets over its capacity {lim['capacity']}"
                         if at_most is not None else "not computed: " + "; ".join(c.split(":")[0] for c in lim["unmeasured"])))
     lines.append(f"budget: per_stage S6 {summary['budget']['per_stage']}")
+    if not summary["dry"]:
+        counts = summary["counts"]
+        lines.append(f"calls ({summary['tranche']} tranche): " + ", ".join(f"{o} {counts[o]}" for o in OUTCOMES)
+                     + f"; {counts['reused']} answered by an earlier accepted attempt; {counts['judged_by_both']} of "
+                       f"{len(summary['calls'])} candidates judged by both")
+        failed = sorted({c for row in summary["calls"] for held in row["seats"].values() if held["outcome"] != "accepted"
+                         for c in held["codes"]})
+        if failed:
+            lines.append(f"codes of the calls not accepted: {', '.join(failed)}")
+        if summary["interrupted"]:
+            lines.append(f"interrupted reservations closed: {len(summary['interrupted'])}")
     return lines
 
 
@@ -737,6 +964,39 @@ def fx_seats(root, capacity_a=None, name="seats.json"):
     path = pathlib.Path(root) / name
     path.write_text(json.dumps(held), encoding="utf-8")
     return path
+
+
+def fx_judge_answer(labels):
+    """A schema-valid first-call answer to one packet, in its labels: every unit judged, the first one matching with a
+    span of its text, its following and contribution shown by the packet's first quote, every ledger entry related."""
+    units = list(labels.units)
+    answer = fx_answer(units=tuple(units), yes=tuple(units[:1]), entries=tuple(labels.entries))
+    quote = list(labels.quotes)[:1]
+    for row in answer["units"]:
+        if row["quote"]:
+            row["quote"] = labels.unit_store[labels.units[row["unit"]]]["text"][:12]
+    for row in answer["matching_units"]:
+        row["following_evidence_ids"], row["contribution_evidence_ids"] = list(quote), list(quote)
+    return answer
+
+
+def fx_judge_plan(run_dir, path, edit=None):
+    """The golden hosts' plan for S6 over a run S5 completed: one row per (candidate, judge), matched by the judge's seat
+    and the candidate's whole payload, answering it (`fx_judge_answer`); `edit(candidate id, judge, row)` plants a
+    defect in a row. The packets are built under an S6 admission of `run_dir`, so the plan is made on a copy of the run
+    it answers. `(path, {candidate id: (labels, payload)})`."""
+    with records.run_stage(run_dir, STAGE, INPUTS) as stage:
+        summary, packets = build(run_dir, stage.declaration)
+        stage.record["status"] = "partial"
+    rows = []
+    for cid, (labels, text) in sorted(packets.items()):
+        for who, seat in summary["seats"].items():
+            row = {"match": [f"SEAT: {seat}", text], "answer": fx_judge_answer(labels)}
+            if edit is not None:
+                edit(cid, who, row)
+            rows.append(row)
+    pathlib.Path(path).write_text(json.dumps(rows), encoding="utf-8")
+    return path, packets
 
 
 def self_test():
@@ -1087,8 +1347,136 @@ def self_test():
             said = refusal(lambda: run(unrun, dry=True, seats_path=seats_file))
             control("control: S6 over a run S5 has not run is refused by name (INPUT_INVALID S5)", "INPUT_INVALID S5" in said, said[:200])
             said = refusal(lambda: run(unrun))
-            control("control: S6 not dry is JUDGE_DRY_ONLY until J2, before anything is recorded",
-                    said.startswith("JUDGE_DRY_ONLY") and not records.record_path(unrun, STAGE).exists(), said)
+            control("control: S6 with neither --dry nor a supervisor is JUDGE_UNSUPERVISED, before anything is recorded",
+                    said.startswith("JUDGE_UNSUPERVISED") and not records.record_path(unrun, STAGE).exists(), said)
+
+            # ---- the calls (J2a): a golden run of both judges through the golden hosts --------------------------------
+            from runlib import declare
+            called = copy_of("called", through_s5=False)
+            declare.amend(called, [("budget.per_stage.S6", 20_000_000)], "S6's golden budget (WP-11 J2)", scope=["S5", "S6"])
+            stage_retrieve.run(called, "aa" * 8)
+            planner = root / "planner"
+            shutil.copytree(called.parent, planner)
+            replayed = records.fixture_root("replay") / "claude-runner" / "ctl-cfg-claude-md-001" / "host.json"
+            clean_plan, packets = fx_judge_plan(planner / called.name, root / "plan-clean.json")
+            judged_ids = sorted(packets)
+            tainted, unjudged = judged_ids[0], judged_ids[-1]
+
+            def defects(cid, who, row):
+                if cid == tainted and who == "A":   # WP-03's planted user CLAUDE.md, loaded beside a schema-valid answer
+                    row["context"] = str(replayed)
+                if cid == unjudged and who == "B":  # an answer that leaves one unit unjudged, on both attempts
+                    row["answer"]["units"] = row["answer"]["units"][1:]
+            defect_plan, _p = fx_judge_plan(planner / called.name, root / "plan-defects.json", defects)
+            first = guarded(lambda: run(called, supervisor(called, root / "cells-1", defect_plan)), lambda e: {"problem": repr(e)})
+            record = guarded(lambda: records.read_json(records.record_path(called, STAGE)), {})
+            rows = {r["candidate_id"]: r for r in first.get("calls", [])}
+            seated = lambda cid, who: (rows.get(cid) or {}).get("seats", {}).get(who, {})
+            control("golden (J2): every judged candidate goes to both judges, each an item of its own, and the calls that "
+                    "end other than accepted leave the record partial", set(rows) == set(judged_ids) and len(judged_ids) >= 6
+                    and first.get("counts", {}).get("accepted") == 2 * len(judged_ids) - 2 and record.get("status") == "partial",
+                    f"{first.get('counts', first)}")
+            taint = seated(tainted, "A")
+            control("golden (J2, done-when 5): a judgment call whose capture shows an undeclared instruction loaded is "
+                    "failed, though its answer is schema-valid and the stage's check was never asked",
+                    taint.get("outcome") == "failed" and "CONTEXT_UNDECLARED" in taint.get("codes", [])
+                    and all(a["stage_check"] is None for a in taint.get("attempts", [])) and taint.get("attempts")
+                    and not (called / judgment_rel(item_of(tainted), "A")).exists(), f"{taint}")
+            short = seated(unjudged, "B")
+            control("golden (J2): an answer that leaves a unit unjudged fails the stage's check on both attempts, by name",
+                    short.get("outcome") == "failed" and len(short.get("attempts", [])) == 2
+                    and all(any(line.startswith("UNIT_UNJUDGED") for line in a["stage_check"] or [])
+                            for a in short.get("attempts", [])), f"{short}")
+            made = {d.name for d in (called / "calls").iterdir()} if (called / "calls").is_dir() else set()
+            second = guarded(lambda: run(called, supervisor(called, root / "cells-2", clean_plan)), lambda e: {"problem": repr(e)})
+            record = guarded(lambda: records.read_json(records.record_path(called, STAGE)), {})
+            remade = {d.name for d in (called / "calls").iterdir()} - made if (called / "calls").is_dir() else set()
+            control("golden (J2): run again, S6 reuses every accepted attempt and calls only the two items that were not "
+                    "accepted; the record is complete", record.get("status") == "complete"
+                    and second.get("counts", {}).get("reused") == 2 * len(judged_ids) - 2
+                    and second.get("counts", {}).get("judged_by_both") == len(judged_ids)
+                    and sorted(n.rsplit("-a", 1)[0].split(f"-{STAGE}-", 1)[1] for n in remade)
+                    == sorted([item_of(tainted) + "-A", item_of(unjudged) + "-B"]), f"{second.get('counts', second)} {sorted(remade)}")
+            kept = {(cid, who): guarded(lambda c=cid, w=who: records.read_json(called / judgment_rel(item_of(c), w)), {})
+                    for cid in judged_ids for who in ("A", "B")}
+            control("golden (J2, N#1): both judges of a candidate were sent its one payload - the payload hash S6 built, "
+                    "equal in both judgments - and every call's packet hash is its own",
+                    all(kept[(c, "A")].get("payload_sha256") == kept[(c, "B")].get("payload_sha256")
+                        == packet.sha256_bytes(packets[c][1].encode("utf-8")) for c in judged_ids)
+                    and len({k.get("packet_sha256") for k in kept.values()}) == len(kept), "")
+            shown_cid = next((c for c in judged_ids if packets[c][0].units and packets[c][0].quotes and packets[c][0].entries),
+                             judged_ids[1])
+            labels0 = packets[shown_cid][0]
+            judgment = kept[(shown_cid, "A")].get("judgment", {})
+            control("golden (J2): a judgment is kept in the stores' ids - its units in S5's order by unit id, its quotes "
+                    "by evidence id, its ledger relations by entry id",
+                    [u["unit_id"] for u in judgment.get("units", [])] == [r["unit_id"] for r in labels0.unit_rows]
+                    and [r["entry_id"] for r in judgment.get("ledger_relations", [])] == [r["entry_id"] for r in labels0.entry_rows]
+                    and all(q in labels0.quotes.values() for m in judgment.get("matching_units", [])
+                            for q in m["following_evidence_ids"]) and judgment.get("matching_units"),
+                    f"{[u['unit_id'] for u in judgment.get('units', [])]} {[r['unit_id'] for r in labels0.unit_rows]} "
+                    f"{[r['entry_id'] for r in judgment.get('ledger_relations', [])]} {[r['entry_id'] for r in labels0.entry_rows]} "
+                    f"{judgment.get('matching_units')} {list(labels0.quotes.values())[:3]}")
+            lines = guarded(lambda: report_lines(second), [])
+            control("golden (J2): the report says what the calls did, in counts and codes",
+                    any(l.startswith("calls (calibration tranche): accepted") for l in lines), f"{lines}")
+            # the receipts, planted on copies of the accepted calls' own
+            held = []
+            for cid in judged_ids[:2]:
+                for who in ("A", "B"):
+                    k = kept[(cid, who)]
+                    held.append((cid, k.get("seat"), k.get("call_id"),
+                                 guarded(lambda c=k.get("call_id"): records.read_json(called / "calls" / c / "receipt.json"), {}),
+                                 packet.sha256_bytes(packets[cid][1].encode("utf-8"))))
+            held = [h for h in held if h[2]]
+            if len(held) < 4:  # the calls these controls copy were not all accepted: named, and the copies not made
+                failures.append(f"golden (J2): the receipt controls need four accepted calls, and {len(held)} were")
+                held = [("k", "s", f"c{n}", {}, "") for n in range(4)]
+            control("the accepted calls' receipts pass", not guarded(lambda: stage_receipts(held), ["RAISED"]),
+                    f"{guarded(lambda: stage_receipts(held), ['RAISED'])}")
+            stale = [*held[:3], (held[3][0], held[3][1], held[3][2], {**held[3][3], "packet_sha256": held[2][3].get("packet_sha256")},
+                                 held[3][4])]
+            control("control: two receipts carrying one packet hash is RECEIPT_STALE",
+                    any(p.startswith("RECEIPT_STALE") for p in stage_receipts(stale)), f"{stage_receipts(stale)}")
+            moved = [*held[:3], (held[3][0], held[3][1], held[3][2],
+                                 {**held[3][3], "evidence": {**(held[3][3].get("evidence") or {}), "payload_sha256": "f" * 64}},
+                                 held[3][4])]
+            control("control: a receipt whose payload hash is not the payload S6 built is PACKET_DIVERGENCE",
+                    sum(p.startswith("PACKET_DIVERGENCE") for p in stage_receipts(moved)) == 2, f"{stage_receipts(moved)}")
+            # refused before anything is sent
+            tight = copy_of("tight-called", through_s5=False)
+            declare.amend(tight, [("budget.per_stage.S6", 20_000_000)], "S6's golden budget (WP-11 J2)", scope=["S5", "S6"])
+            stage_retrieve.run(tight, "aa" * 8)
+            said = refusal(lambda: run(tight, supervisor(tight, root / "cells-3", clean_plan, seats_path=narrow_seats)))
+            control("control: a packet over a judge's capacity is JUDGE_OVER_CAPACITY S6 before any call is reserved",
+                    said.startswith("JUDGE_OVER_CAPACITY S6")
+                    and not any(f"-{STAGE}-" in d.name for d in (tight / "calls").iterdir()), said[:200])
+            limits_a = second.get("limits", {}).get("A", {})
+            some_call = kept[(judged_ids[0], "A")].get("call_id", "")
+            sent = guarded(lambda: (called / "calls" / some_call / "packet.md").read_bytes(), b"")
+            held_schema_bytes = packet.schema_bytes(schema())
+            control("an accepted attempt's own packet is within Judge A's capacity",
+                    bool(sent) and not attempt_problems(sent, limits_a, held_schema_bytes, "A"), "")
+            control("control: an attempt's packet past the seat's capacity is JUDGE_OVER_CAPACITY by the attempt's bound",
+                    any(p.startswith("JUDGE_OVER_CAPACITY A") for p in attempt_problems(
+                        sent, {**limits_a, "capacity": 1000}, held_schema_bytes, "A")), "")
+            moved_dir = root / "capacity-moved"
+            shutil.copytree(called / "calls" / some_call, moved_dir)
+            call_record = records.read_json(moved_dir / "call.json")
+            call_record["bound"]["context_capacity"] = 999
+            (moved_dir / "call.json").chmod(0o600)
+            (moved_dir / "call.json").write_text(json.dumps(call_record), encoding="utf-8")
+            said = refusal(lambda: check(packets[judged_ids[0]][0], limits_a.get("capacity"))(moved_dir))
+            control("control: an attempt whose call record carries another capacity than S6 was admitted against is "
+                    "CAPACITY_UNRECORDED", said.startswith("CAPACITY_UNRECORDED"), said[:200])
+            token = os.environ.pop("CLAUDE_RUN_TOKEN_FILE", None)
+            try:
+                said = refusal(lambda: supervisor(tight, root / "cells-4"))
+            finally:
+                if token is not None:
+                    os.environ["CLAUDE_RUN_TOKEN_FILE"] = token
+            control("control: a live supervisor without CLAUDE_RUN_TOKEN_FILE is TOKEN_FILE_UNSET", said.startswith(
+                "TOKEN_FILE_UNSET S6"), said)
     finally:
         shutil.rmtree(root, ignore_errors=True)
 
@@ -1103,7 +1491,10 @@ def self_test():
           "judged once, each refusal planted; D11's classes from the schema's enum; the judged scope and S5's check "
           "failures; the packet (a1_min) and the dry stage over a golden run through S5 - labels only, the enclosing line "
           "whole and the mentioned file by heading and count, F27's packet check with its planted field and frame, "
-          "EDGES_ABSENT, JUDGE_DRY_ONLY and INPUT_INVALID S5)")
+          "EDGES_ABSENT, JUDGE_UNSUPERVISED and INPUT_INVALID S5; the calls (J2) through the golden hosts - both judges per "
+          "candidate, done-when 5's replayed undeclared instruction failed, a unit left unjudged failed by name, the "
+          "re-run reusing every accepted attempt, one payload and one packet per receipt with RECEIPT_STALE and "
+          "PACKET_DIVERGENCE planted, JUDGE_OVER_CAPACITY and TOKEN_FILE_UNSET)")
     return 0
 
 
