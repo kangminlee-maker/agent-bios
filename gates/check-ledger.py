@@ -87,7 +87,14 @@ def retired_constant_problems(paths=None):
             problems.append(f"{path}: cannot be parsed, so it cannot be judged: {exc}")
             continue
         for node in ast.walk(tree):
-            named = (isinstance(node, ast.Attribute) and node.attr == RETIRED_CONSTANT) or (
+            # An IMPORT names it too, and `as` then hides it from every later reference:
+            # `from runlib.ledger import LEDGER_REL as old` left this leg with nothing to see,
+            # because an imported name is an `ast.alias` and not a `Name` or an `Attribute`
+            # (review Y #7).
+            imported = isinstance(node, ast.ImportFrom) and any(
+                alias.name == RETIRED_CONSTANT for alias in node.names)
+            named = imported or (
+                isinstance(node, ast.Attribute) and node.attr == RETIRED_CONSTANT) or (
                 isinstance(node, ast.Name) and node.id == RETIRED_CONSTANT)
             if named:
                 rel = path.relative_to(REPO) if path.is_relative_to(REPO) else path.name
@@ -113,6 +120,17 @@ def self_test_retired_constant():
         bare.write_text("LEDGER_REL = 'x'\nZ = LEDGER_REL\n", encoding="utf-8")
         if not retired_constant_problems([bare]):
             return ["a bare use of the retired name was not reported"]
+        aliased = pathlib.Path(tmp) / "aliased.py"
+        aliased.write_text("from runlib.ledger import LEDGER_REL as old\nvalue = old\n",
+                           encoding="utf-8")
+        got = retired_constant_problems([aliased])
+        if not any("aliased.py:1 names LEDGER_REL" in line for line in got):
+            return [f"an aliased from-import of {RETIRED_CONSTANT} was not reported: {got}"]
+        plain_import = pathlib.Path(tmp) / "plain_import.py"
+        plain_import.write_text("from runlib.ledger import STATE_LEDGER_REL as keep\nv = keep\n",
+                                encoding="utf-8")
+        if retired_constant_problems([plain_import]):
+            return ["an import of the CURRENT constant was reported as the retired one"]
         mention = pathlib.Path(tmp) / "mention.py"
         mention.write_text('SOURCE = "LEDGER_REL = design/x"\n', encoding="utf-8")
         if retired_constant_problems([mention]):
@@ -141,7 +159,8 @@ def main(argv=None):
                 print(f"check-ledger --self-test: FAIL: {line}", file=sys.stderr)
             return 1
         print("check-ledger --self-test: the retired-constant leg caught its planted reference, a "
-              "bare use, and left a string mention and a clean file alone")
+              "bare use and an aliased from-import, and left a string mention, an import of the "
+              "current constant and a clean file alone")
         return ledger_lib.self_test(migrate=module.migrate, checkout_ledger=REPO / args.ledger,
                                     tiny=module.tiny)
     if args.check:

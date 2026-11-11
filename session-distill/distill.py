@@ -104,10 +104,32 @@ def default_out(environ=None, home=None):
       directory holds what is the owner's.
 
     A checkout passes `--out session-distill/out/<...>` explicitly; the runbook does.
+
+    Both inputs are taken only when they are ABSOLUTE. A relative `XDG_STATE_HOME` — `.` is the
+    one a shell hands over by accident — resolved against the working directory, which during
+    development is this checkout, so the default landed inside the package it must stay out of.
+    A relative value is therefore ignored, loudly, rather than honoured or refused: the caller gets
+    the documented default and a line saying why. The same rule for `HOME`, whose relative value
+    `pathlib.Path.home()` would not have produced either.
+
+    Where the resolved default lands is a second question, and it is not this function's: nothing
+    here can know the owner's roots. `destination_of` judges it before any lock or write.
     """
     environ = os.environ if environ is None else environ
-    home = pathlib.Path(home or environ.get("HOME") or pathlib.Path.home())
-    base = environ.get("XDG_STATE_HOME") or (home / ".local" / "state")
+    notes = []
+    raw_home = home if home is not None else environ.get("HOME")
+    if raw_home is not None and not pathlib.PurePath(str(raw_home)).is_absolute():
+        notes.append(f"HOME={str(raw_home)!r} is relative and is ignored for the default run root")
+        raw_home = None
+    base_home = pathlib.Path(raw_home) if raw_home else pathlib.Path.home()
+    raw_base = environ.get("XDG_STATE_HOME")
+    if raw_base is not None and raw_base != "" and not pathlib.PurePath(raw_base).is_absolute():
+        notes.append(f"XDG_STATE_HOME={raw_base!r} is relative and is ignored for the default run "
+                     f"root; the XDG base-directory contract names absolute paths only")
+        raw_base = None
+    base = raw_base or (base_home / ".local" / "state")
+    for note in notes:
+        say(f"DEFAULT_OUT_INPUT_IGNORED {note}", sys.stderr)
     return pathlib.Path(base).expanduser() / "agent-bios" / "distill" / "runs"
 
 # The inline programs this file's own suite runs, as module-level constants rather than locals: a
@@ -170,14 +192,53 @@ STAGE_COMMANDS = {
 }
 
 
+def protection_for(args, repo):
+    """Every root this invocation must not write into, assembled as S2 assembles it.
+
+    `configured_roots` resolves the owner's roots whether or not this run reads them, and the
+    checkout is always one of the protected projects — that is `inventory`'s rule and this reuses
+    it rather than keeping a second copy."""
+    declared_state, declared_user = inventory.configured_roots(
+        getattr(args, "state_root", None), getattr(args, "user_root", None))
+    projects = inventory.project_identities([str(repo), *(getattr(args, "project", None) or [])])
+    native = {"projects": {identity["path"]: pathlib.Path(identity["path"])
+                           for identity in projects.values()}}
+    return inventory.protected_roots(declared_state, declared_user, native, checkout=repo, repo=repo)
+
+
+def destination_of(args):
+    """`--out` when the caller named one, else the default — and whether it was the default.
+
+    A DEFAULT destination is judged here, before a run id is checked and long before a lock or a
+    directory: `default_out` cannot know the owner's roots, and an environment can put the XDG
+    state directory anywhere, including inside the package or inside the data root that holds the
+    pins and the receipts. `declare` had no protection of its own — only `inventory` checked — so
+    `XDG_STATE_HOME=$HOME/.local/share` was enough to write a run into the owner's state (review Y
+    #2). An explicit `--out` keeps its own per-command verdict (`PROTECTED_OVERLAP`); this one is
+    about the path the driver chooses for the caller."""
+    if getattr(args, "out", None):
+        return str(args.out), False
+    repo = pathlib.Path(__file__).resolve().parents[1]
+    chosen = default_out()
+    problems = inventory.overlap_problems([chosen], protection_for(args, repo), home=HOME)
+    if problems:
+        raise Refused(
+            f"DEFAULT_OUT_PROTECTED {chosen}: the default run root resolves inside a root this "
+            f"driver must not write into ({'; '.join(problems)}). Nothing was written. Pass "
+            f"--out DIR to name a destination outside the owner's roots and outside the package.")
+    return str(chosen), True
+
+
 def run_dir_of(args):
     """`--out`/`<run-id>`: the run id is one path component, and the directory it names resolves
     to a place beneath `--out`. Nothing — no lock, no directory — is created before this holds."""
+    out, _from_default = destination_of(args)
+    args.out = out
     if not RUN_ID.fullmatch(args.run_id):
         raise Refused(f"RUN_ID_INVALID {args.run_id!r}: a run id is one path component of letters, digits, '.', '_' and '-'")
-    run_dir = records.contained(args.out, args.run_id)
+    run_dir = records.contained(out, args.run_id)
     if run_dir is None:
-        raise Refused(f"RUN_DIR_ESCAPE {args.run_id!r}: {pathlib.Path(args.out) / args.run_id} resolves outside {args.out}")
+        raise Refused(f"RUN_DIR_ESCAPE {args.run_id!r}: {pathlib.Path(out) / args.run_id} resolves outside {out}")
     return run_dir
 
 
@@ -362,7 +423,7 @@ def build_parser():
 
     def common(sub):
         sub.add_argument("--run-id", help="the run directory name under --out")
-        sub.add_argument("--out", default=str(default_out()),
+        sub.add_argument("--out", default=None,
                          help="root of the run directories (default: the XDG state directory's "
                               "agent-bios/distill/runs, which is inside neither the package nor the state root)")
 
@@ -1139,6 +1200,72 @@ def self_test():
                 package_tree not in default_root.resolve().parents
                 and default_root.resolve() != package_tree,
                 f"{default_root} under {package_tree}")
+        # review Y #2: where the DEFAULT lands is decided by the environment, and the environment
+        # can put it inside the package or inside the owner's data root. `declare` had no
+        # protection of its own, so the only thing standing between those values and a write was
+        # that nobody had tried them. Each case runs the real CLI with no `--out` at all.
+        def no_out(*argv, **overrides):
+            kept = {name: os.environ.get(name) for name in ("HOME", "XDG_STATE_HOME")}
+            err = io.StringIO()
+            try:
+                for name, value in overrides.items():
+                    if value is None:
+                        os.environ.pop(name, None)
+                    else:
+                        os.environ[name] = value
+                with contextlib.redirect_stderr(err), contextlib.redirect_stdout(io.StringIO()):
+                    try:
+                        code = main(list(argv))
+                    except SystemExit as exc:
+                        code, _ = (exc.code if isinstance(exc.code, int) else 2), err.write(f"EXITED {exc.code!r}")
+                    except Exception as exc:
+                        code, _ = 99, err.write(f"RAISED {exc!r}")
+            finally:
+                for name, value in kept.items():
+                    if value is None:
+                        os.environ.pop(name, None)
+                    else:
+                        os.environ[name] = value
+            return code, err.getvalue()
+
+        fake_home = scratch / "y2-home"
+        (fake_home / ".local" / "share" / "agent-bios").mkdir(parents=True)
+        (fake_home / ".local" / "state").mkdir(parents=True)
+        declaration = scratch / "y2-declaration.json"
+        declaration.write_text(json.dumps(declare.fixture()), encoding="utf-8")
+        state_root_xdg = str(fake_home / ".local" / "share")
+        code, err = no_out("declare", "--run-id", "y2-data-root", "--from", str(declaration),
+                           HOME=str(fake_home), XDG_STATE_HOME=state_root_xdg)
+        control("review Y #2: a default run root inside the owner's DATA root is refused, by name",
+                code == 1 and "DEFAULT_OUT_PROTECTED" in err, f"{code} {err[:300]}")
+        control("and nothing is written under it",
+                not (fake_home / ".local" / "share" / "agent-bios" / "distill").exists(),
+                f"{sorted(q.name for q in (fake_home / '.local' / 'share' / 'agent-bios').rglob('*'))}")
+        linked = scratch / "y2-link"
+        linked.symlink_to(fake_home / ".local" / "share")
+        code, err = no_out("declare", "--run-id", "y2-link", "--from", str(declaration),
+                           HOME=str(fake_home), XDG_STATE_HOME=str(linked))
+        control("review Y #2: a SYMLINKED base that lands in the same root is refused too",
+                code == 1 and "DEFAULT_OUT_PROTECTED" in err, f"{code} {err[:300]}")
+        code, err = no_out("declare", "--run-id", "y2-relative-xdg", "--from", str(declaration),
+                           HOME=str(fake_home), XDG_STATE_HOME=".")
+        control("review Y #2: a RELATIVE XDG_STATE_HOME is ignored and said so, not resolved "
+                "against the working directory",
+                code == 0 and "DEFAULT_OUT_INPUT_IGNORED" in err and "is relative" in err,
+                f"{code} {err[:300]}")
+        control("and the run landed under the documented default instead",
+                (fake_home / ".local" / "state" / "agent-bios" / "distill" / "runs"
+                 / "y2-relative-xdg").is_dir(),
+                f"{sorted(q.name for q in (fake_home / '.local' / 'state').rglob('*'))[:6]}")
+        code, err = no_out("declare", "--run-id", "y2-relative-home", "--from", str(declaration),
+                           HOME="relative-home", XDG_STATE_HOME=None)
+        control("review Y #2: a RELATIVE HOME is ignored for the default run root as well",
+                "DEFAULT_OUT_INPUT_IGNORED" in err and "HOME=" in err, f"{code} {err[:300]}")
+        code, err = no_out("declare", "--run-id", "y2-ordinary", "--from", str(declaration),
+                           HOME=str(fake_home), XDG_STATE_HOME=None)
+        control("and an ordinary environment still declares a run without being told a destination",
+                code == 0 and (fake_home / ".local" / "state" / "agent-bios" / "distill" / "runs"
+                               / "y2-ordinary").is_dir(), f"{code} {err[:300]}")
         control("and it is the XDG state directory's, not the data directory's",
                 default_root == default_home / ".local" / "state" / "agent-bios" / "distill" / "runs"
                 and str(default_state) not in str(default_root),
