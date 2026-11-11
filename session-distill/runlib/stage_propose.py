@@ -20,6 +20,7 @@ module that read it as "no unit is affected" would propose changes on evidence n
 """
 import collections
 import json
+import os
 import pathlib
 import sys
 
@@ -430,14 +431,24 @@ def document(derivations, candidates, answers, active_keep=None, legacy=()):
                        "status_group": dict(tally(p["status_group"] for p in ranking.ranked(proposals)))}}
 
 
+OUTPUT = "proposals.json"
+
+
 def run(run_dir, answers, active_keep=None, legacy=()):
-    """The stage, through the shared mechanism: nothing is written on refusal."""
+    """The stage, through the shared mechanism: nothing is written on refusal.
+
+    Two things this got wrong until lane E ran it: `records.write_json` confines its path beneath the
+    run, so a bare name is RUN_PATH_ESCAPE and the write never happened; and the file has to be
+    REGISTERED with `stage.output`, or the stage record claims no output and the next stage's
+    staleness check has nothing to compare. Both are now exercised end to end in the suite, because
+    every control over this function was calling `document` instead."""
     run_dir = pathlib.Path(run_dir)
     with records.run_stage(run_dir, STAGE, INPUTS) as stage:
         derivations = records.read_json(run_dir / "judgments" / "derivations.json")
         candidates = records.read_json(run_dir / "checked-candidates.json")
         doc = document(derivations, candidates, answers, active_keep, legacy)
-        records.write_json(run_dir, "proposals.json", doc)
+        records.write_json(run_dir, run_dir / OUTPUT, doc)
+        stage.output(OUTPUT)
         return stage, doc
 
 
@@ -691,6 +702,29 @@ def fixture_problems():
             problems.append(f"FIXTURE_CHANGED {cid}: the answer is no longer the frozen one "
                             f"({frozen[cid].get('problems')} -> {live[cid].get('problems')})")
     return problems
+
+
+def fx_through_s6(root):
+    """A golden run carried to S6's outputs, for the end-to-end controls. Returns the run directory.
+
+    S5's own fixture (`stage_retrieve.fx_gold`) builds the run through S4; S5 then runs for real. S6's
+    two documents are WRITTEN here under their own stage record rather than produced by a judge call,
+    because these controls are about S7's run and a model call is not made in a suite. The shape is
+    the one `stage_judge.derivations` writes, built by `derived_row` through the real derivation."""
+    from runlib import stage_retrieve  # local: the fixture path only, not S7's own dependency
+    run_dir = stage_retrieve.fx_gold(root / "base")
+    stage_retrieve.run(run_dir)
+    candidates = records.read_json(run_dir / "checked-candidates.json")["candidates"]
+    verdicts = {row["candidate_id"]: derived_row(row["candidate_id"]) for row in candidates}
+    with records.run_stage(run_dir, "S6",
+                           [{"artifact": "checks.json", "producer_stage": "S5"}]) as stage:
+        records.write_json(run_dir, run_dir / "judgments" / "derivations.json",
+                           {"stage": "S6", "verdicts": verdicts, "not_derived": [], **ANSWERED})
+        stage.output("judgments/derivations.json")
+        records.write_json(run_dir, run_dir / "judgments" / "gate-verdicts.json",
+                           {"stage": "S6", "gate_verdicts": {}})
+        stage.output("judgments/gate-verdicts.json")
+    return run_dir
 
 
 # ---- self-test -----------------------------------------------------------------------------------
@@ -1110,6 +1144,122 @@ def self_test():
             doc["contract"]["placement_contract_sha256"], placement.contract_digest())
     clean("and carries no instruction text of the person's own: the answers' own fields only",
           [k for k in doc if k in ("instruction_text", "compiled_text", "units_text")])
+
+    # ---- the stage END TO END, through `run`. Every control above calls `document`, which is how
+    # two defects survived: `records.write_json` confines its path beneath the run, so the bare name
+    # this function passed was RUN_PATH_ESCAPE and nothing was written; and the file was never
+    # registered with `stage.output`. Lane E found both by running it on the golden run.
+    import shutil
+    import subprocess
+    import tempfile
+    from runlib import stagelock
+    # A write that leaves the run raises `stagelock.Escaped`, not `Refused` - which is why the first
+    # form of these guards still died: the suite caught the wrong family and the trial read a
+    # traceback instead of a named failure.
+    STAGE_REFUSALS = (Refused, stagelock.Escaped)
+    root = pathlib.Path(tempfile.mkdtemp(prefix="s7-e2e-", dir="/tmp"))
+    try:
+        made = None
+        try:
+            made = fx_through_s6(root)
+        except Exception as exc:  # the fixture's own failure is reported, never swallowed
+            failures.append(("the golden run through S6 could not be made", repr(exc)))
+            ran.append("the golden run through S6 could not be made")
+        if made is not None:
+            cands = records.read_json(made / "checked-candidates.json")["candidates"]
+            answers = {row["candidate_id"]: _answered(
+                disposition="none", operations=[],
+                destination={"layer": "incubator", "carrier": None}) for row in cands}
+            # The CLI's copy is taken BEFORE the direct run. Taken after, it would already hold both
+            # documents, and the control that checks the command's own files passed while the command
+            # was stubbed out of the suite.
+            cli_root = root / "cli"
+            cli_root.mkdir()
+            cli_run = shutil.copytree(made, cli_root / made.name)
+            e2e = "S7 runs end to end on a golden run and writes its document inside the run"
+            try:
+                _stage, doc = run(made, answers)
+            except STAGE_REFUSALS as exc:
+                ran.append(e2e)
+                failures.append((e2e, f"the stage refused: {exc}"))
+                doc = {"counts": {"candidates": 0, "proposed": 0, "returned": 0}, "proposals": []}
+            control(e2e, str((made / OUTPUT).is_file()), "True")
+            clean("the run produced at least one proposal, so the controls here judge a document "
+                  "rather than an empty one",
+                  [] if doc["counts"]["proposed"] > 0 else [f"{doc['counts']}"])
+            def record_of(stage_id):
+                try:
+                    return records.read_json(records.record_path(made, stage_id))
+                except STAGE_REFUSALS + (OSError, ValueError):
+                    return {}
+
+            record = record_of(STAGE)
+            control("and REGISTERS it with the stage, so the next stage's staleness check has "
+                    "something to read",
+                    json.dumps([o.get("artifact") for o in record.get("outputs") or []]), OUTPUT)
+            control("the record says the stage completed", str(record.get("status")), "complete")
+            written = records.read_json(made / OUTPUT) if (made / OUTPUT).is_file() else {}
+            control("and the written document is the one the stage returned",
+                    str(written.get("counts") == doc["counts"]), "True")
+            clean("every proposal and every returned row is accounted for against the candidates",
+                  [] if doc["counts"]["candidates"] == doc["counts"]["proposed"] + doc["counts"]["returned"]
+                  else [f"{doc['counts']}"])
+            # S7b on the document S7 just wrote, which is the interface between them.
+            held = {row["candidate_id"]: {
+                "verdict": "agree",
+                "disposition_review": {"holds": True, "reason": "증거가 그 처분을 지지한다"},
+                "destination_review": {"holds": True, "reason": "가장 싼 자리다"},
+                "faithful_merge": "n/a", "alternative": None,
+                "bars": [{"bar": bar, "holds": True, "reason": "충족"}
+                         for bar in placement.contract_bars()],
+                "notes": "동의한다"} for row in doc["proposals"]}
+            from runlib import stage_review_proposals
+            e2e_b = "S7b then runs end to end on that same run and writes its own document inside it"
+            try:
+                _s7b_stage, s7b_doc = stage_review_proposals.run(made, held)
+            except STAGE_REFUSALS as exc:
+                ran.append(e2e_b)
+                failures.append((e2e_b, f"the stage refused: {exc}"))
+                s7b_doc = {"counts": {"proposals": 0, "reviewed": 0}}
+            control(e2e_b, str((made / stage_review_proposals.OUTPUT).is_file()), "True")
+            s7b_record = record_of("S7b")
+            control("and registers it too",
+                    json.dumps([o.get("artifact") for o in s7b_record.get("outputs") or []]),
+                    stage_review_proposals.OUTPUT)
+            control("every proposal S7 wrote is reviewed, so the two stages' populations agree",
+                    f'{s7b_doc["counts"]["proposals"]}={s7b_doc["counts"]["reviewed"]}',
+                    f'{len(doc["proposals"])}={len(doc["proposals"])}')
+            # And the CLI, as a subprocess: 25 direct-call controls once passed while the command
+            # itself crashed, so the command is exercised over files the way a caller runs it. Its
+            # copy of the run was taken above, before either stage wrote anything into it.
+            answers_path = root / "answers.json"
+            answers_path.write_text(json.dumps(answers, ensure_ascii=False), encoding="utf-8")
+            reviews_path = root / "reviews.json"
+            reviews_path.write_text(json.dumps(held, ensure_ascii=False), encoding="utf-8")
+            env = {**os.environ, "HOME": str(root / "home")}
+            (root / "home").mkdir(exist_ok=True)
+            def cli(*args):
+                done = subprocess.run([sys.executable, "-I", str(HERE / "distill.py"), *args],
+                                      capture_output=True, text=True, timeout=600, env=env,
+                                      cwd=str(HERE.parent))
+                return done.returncode, done.stdout + done.stderr
+            code, said_dry = cli("propose", "--run-id", cli_run.name, "--out", str(cli_root), "--dry")
+            control("`distill.py propose --dry` reports the packets it would send, as a subprocess",
+                    f"{code}:{said_dry[:0]}{'packet' if 'packet' in said_dry else said_dry[-120:]}",
+                    "0:packet")
+            code, said = cli("propose", "--run-id", cli_run.name, "--out", str(cli_root),
+                             "--answers", str(answers_path))
+            control("`distill.py propose --answers` runs the stage from the command line",
+                    f"{code}:{'proposed' if 'proposed' in said else said[-160:]}", "0:proposed")
+            code, said_r = cli("review-proposals", "--run-id", cli_run.name, "--out", str(cli_root),
+                               "--reviews", str(reviews_path))
+            control("`distill.py review-proposals --reviews` does too",
+                    f"{code}:{'reviewed' if 'reviewed' in said_r else said_r[-160:]}", "0:reviewed")
+            clean("and both commands left their documents inside the run they were given",
+                  [name for name in (OUTPUT, stage_review_proposals.OUTPUT)
+                   if not (cli_run / name).is_file()])
+    finally:
+        shutil.rmtree(root, ignore_errors=True)
 
     reporting.append(True)
     if failures:

@@ -20,14 +20,14 @@ import sys
 
 if __package__ in (None, ""):  # run as a script: put session-distill/ on the import path
     sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
-from runlib import packet, placement, records, validate  # noqa: E402
+from runlib import packet, placement, records, stage_propose, validate  # noqa: E402
 from runlib.records import Refused  # noqa: E402
 
 HERE = pathlib.Path(__file__).resolve().parents[1]
 STAGE = "S7b"
 SCHEMA_PATH = HERE / "schemas" / "s7b.schema.json"
 TEMPLATE = "s7b"
-INPUTS = ({"artifact": "proposals.json", "producer_stage": "S7"},
+INPUTS = ({"artifact": stage_propose.OUTPUT, "producer_stage": "S7"},
           {"artifact": "checked-candidates.json", "producer_stage": "S5"})
 MERGE_TYPES = ("merge",)
 
@@ -186,13 +186,21 @@ def document(proposals, reviews, candidates=None):
                        "faithful_merge": dict(tally(r["faithful_merge"] for r in rows))}}
 
 
+OUTPUT = "review-s7b.json"
+
+
 def run(run_dir, reviews):
-    """The stage, through the shared mechanism: nothing is written on refusal."""
+    """The stage, through the shared mechanism: nothing is written on refusal.
+
+    The path is absolute beneath the run and the file is registered with `stage.output`, for the
+    reason `stage_propose.run` states: a bare name is refused by the confinement, and an
+    unregistered output leaves the next stage's staleness check nothing to read."""
     run_dir = pathlib.Path(run_dir)
     with records.run_stage(run_dir, STAGE, INPUTS) as stage:
-        proposals = records.read_json(run_dir / "proposals.json")
+        proposals = records.read_json(run_dir / stage_propose.OUTPUT)
         doc = document(proposals, reviews)
-        records.write_json(run_dir, "review-s7b.json", doc)
+        records.write_json(run_dir, run_dir / OUTPUT, doc)
+        stage.output(OUTPUT)
         return stage, doc
 
 
@@ -401,6 +409,32 @@ def self_test():
                 ["counts"]["disagreements"]), "1")
     clean("and no row carries a decision of the owner's", 
           [k for r in doc["reviews"] for k in r if k in ("approved", "decision", "applied")])
+
+    # `run` writes inside the run and registers the file. The end-to-end control lives in
+    # stage_propose's suite, where the golden run through S6 is built; these two assert the same
+    # properties on THIS file's source, so a regression here fails in the file that caused it.
+    import ast
+    own = ast.parse(pathlib.Path(__file__).read_text(encoding="utf-8"))
+    run_fn = next(node for node in own.body if isinstance(node, ast.FunctionDef) and node.name == "run")
+    writes = [ast.unparse(node) for node in ast.walk(run_fn) if isinstance(node, ast.Call)
+              and ast.unparse(node.func) == "records.write_json"]
+    control("every write of this stage passes a path beneath the run, never a bare name: a bare name "
+            "is confined and refused as RUN_PATH_ESCAPE",
+            "; ".join(writes), "run_dir / OUTPUT")
+    registers = [ast.unparse(node) for node in ast.walk(run_fn) if isinstance(node, ast.Call)
+                 and ast.unparse(node.func) == "stage.output"]
+    control("and the file is registered with the stage, or its staleness is unreadable by the next "
+            "stage", "; ".join(registers) or "<nothing registered>", "stage.output(OUTPUT)")
+    clean("one write and one registration, so neither can be left behind by the other",
+          [] if len(writes) == len(registers) == 1 else [f"{len(writes)} writes, {len(registers)} registrations"])
+    control("and S7b's input is S7's output under the name S7 owns, not a second spelling",
+            # The SOURCE line, not the value: a literal that happens to equal S7's output today
+            # satisfies a value check and drifts the day S7 renames its file.
+            next(line for line in pathlib.Path(__file__).read_text(encoding="utf-8").splitlines()
+                 if line.startswith("INPUTS = ")), "stage_propose.OUTPUT")
+    clean("and that name resolves to the file S7 really writes",
+          [] if INPUTS[0]["artifact"] == stage_propose.OUTPUT else
+          [f'{INPUTS[0]["artifact"]!r} is not {stage_propose.OUTPUT!r}'])
 
     reporting.append(True)
     if failures:
