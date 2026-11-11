@@ -102,10 +102,10 @@ CHECKER_NAME = re.compile(r"(?:^|/)(?:check[-_.]|test-)[^/]*\.(?:py|sh)$")
 # it. `gates/check_parity.py` passes "--self-test" to other scripts and declares none of its
 # own; a substring test calls that a self-test and the disclosure below then reports the
 # opposite of the truth. Only the three shapes that make the flag reachable count: argparse
-# registration, a membership test against argv, and an exact-argv comparison.
+# registration, a membership test against argv (`in` or `not in`), and an exact-argv comparison.
 SELF_TEST_DECL = re.compile(
     r"""add_argument\(\s*["']--self-test["']"""
-    r"""|["']--self-test["']\s+in\s+(?:sys\.)?argv"""
+    r"""|["']--self-test["']\s+(?:not\s+)?in\s+(?:sys\.)?argv"""
     r"""|(?:sys\.)?argv\[1:\]\s*==\s*\[\s*["']--self-test["']"""
 )
 
