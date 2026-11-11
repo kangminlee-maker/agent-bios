@@ -46,6 +46,7 @@ nothing".
 """
 import json
 import pathlib
+import re
 import sys
 import tempfile
 
@@ -57,15 +58,17 @@ from runlib.records import Refused  # noqa: E402
 HERE = pathlib.Path(__file__).resolve().parents[1]
 STAGE = "S5b"
 OUTPUT = "delivery-evidence.json"
-# Admitted against the two producers whose records this stage reads, so the shared staleness judgement applies: a
+SOURCES_DIR = "sources"
+EVENTS_DIR = "events"
+VIEWS_FILE = "views.json"
+# Admitted against every producer whose records this stage reads, so the shared staleness judgement applies: a
 # `checks.json` or an inventory written again after this stage ran makes the next reader refuse rather than trust it.
 INPUTS = ({"artifact": "checks.json", "producer_stage": "S5"},
+          {"artifact": VIEWS_FILE, "producer_stage": "S2"},
           {"artifact": "candidates.json", "producer_stage": "S4"},
           {"artifact": "inventory/current.json", "producer_stage": "S2"},
           {"artifact": "inventory/sessions.json", "producer_stage": "S2"},
           {"artifact": "inventory/release.json", "producer_stage": "S2"})
-SOURCES_DIR = "sources"
-EVENTS_DIR = "events"
 # This stage's own per-pair state inside a file that EXISTS, and not to be read as lane E's
 # `delivery_assembly_waiting`, which is S6's state when no such file exists at all. One says "the
 # evidence readers have not answered this pair yet", the other says "there is nothing to read".
@@ -217,6 +220,181 @@ def selected_items(shared, store):
     return held
 
 
+# The tools whose input NAMES the file it returned. A reader of this kind is unambiguous: the path is
+# the call's own argument, not a guess about a command line.
+NAMED_READERS = {"Read", "NotebookRead", "view", "read_file"}
+# The tools that run a command, where the path has to be read out of the command text.
+SHELL_READERS = {"Bash", "shell", "local_shell", "container.exec"}
+# A command that returns a file's bytes. `grep` is one: it returns the lines it matched, which can
+# cover a requirement.
+READING_VERBS = ("cat", "sed", "head", "tail", "less", "more", "bat", "grep", "rg", "awk")
+PATH_TOKEN = re.compile(r"[\w./@~+-]*\.(?:md|markdown|json|toml|txt|ya?ml)")
+
+
+def _text_of(content):
+    """A tool result's returned text, or None when this run cannot read it back as text.
+
+    None is `read_unparsed` material: a result the host elided, a structured payload, an image. A
+    miss is never claimed from a call whose bytes were not read, so the difference between "no text
+    here" and "text that did not cover the requirement" is kept."""
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts = [block.get("text") for block in content
+                 if isinstance(block, dict) and block.get("type") == "text" and isinstance(block.get("text"), str)]
+        return "\n".join(parts) if parts else None
+    return None
+
+
+def _paths_in(command):
+    """The file paths a shell command names, in order, as far as a conservative reading goes."""
+    return [match.group(0) for match in PATH_TOKEN.finditer(command or "")
+            if "/" in match.group(0) or match.group(0).startswith(".")]
+
+
+def _claude_reads(lines):
+    """(reads, unparsed, counts) over a Claude transcript version's records.
+
+    A read is attributed to the line of its RESULT, because that is when the bytes reached the
+    session: the call records the intent, the result records what came back, and the judge asks what
+    the session had read BEFORE the decision."""
+    calls, reads, unparsed = {}, [], []
+    counts = {"results": 0, "errors": 0, "no_text": 0, "unnamed_command": 0}
+    for at, line in enumerate(lines, 1):
+        if not line.strip():
+            continue
+        try:
+            row = json.loads(line)
+        except ValueError:
+            continue
+        content = ((row.get("message") or {}).get("content"))
+        if not isinstance(content, list):
+            continue
+        for block in content:
+            if not isinstance(block, dict):
+                continue
+            if block.get("type") == "tool_use":
+                calls[block.get("id")] = (block.get("name"), block.get("input") or {})
+                continue
+            if block.get("type") != "tool_result":
+                continue
+            counts["results"] += 1
+            name, arguments = calls.get(block.get("tool_use_id"), (None, {}))
+            if name is None:
+                continue
+            if block.get("is_error"):
+                counts["errors"] += 1
+                continue
+            returned = _text_of(block.get("content"))
+            if name in NAMED_READERS:
+                path = arguments.get("file_path") or arguments.get("path") or arguments.get("notebook_path")
+                if not path:
+                    continue
+                if returned is None:
+                    counts["no_text"] += 1
+                    unparsed.append({"at": at, "path": path, "reason": "result_not_text"})
+                else:
+                    reads.append({"at": at, "path": path, "returned": returned})
+            elif name in SHELL_READERS:
+                command = arguments.get("command") or arguments.get("script") or ""
+                if not any(verb in command for verb in READING_VERBS):
+                    continue
+                named = _paths_in(command)
+                if not named:
+                    counts["unnamed_command"] += 1
+                    unparsed.append({"at": at, "path": None, "reason": "command_names_no_path"})
+                elif returned is None:
+                    counts["no_text"] += 1
+                    unparsed += [{"at": at, "path": path, "reason": "result_not_text"} for path in named]
+                else:
+                    reads += [{"at": at, "path": path, "returned": returned} for path in named]
+    return reads, unparsed, counts
+
+
+def _codex_reads(lines):
+    """The same over a Codex rollout: `function_call` / `custom_tool_call` and their outputs."""
+    calls, reads, unparsed = {}, [], []
+    counts = {"results": 0, "errors": 0, "no_text": 0, "unnamed_command": 0}
+    for at, line in enumerate(lines, 1):
+        if not line.strip():
+            continue
+        try:
+            row = json.loads(line)
+        except ValueError:
+            continue
+        payload = row.get("payload") or {}
+        kind = payload.get("type")
+        if kind in ("function_call", "custom_tool_call"):
+            arguments = payload.get("arguments") or payload.get("input") or ""
+            if isinstance(arguments, str):
+                try:
+                    arguments = json.loads(arguments)
+                except ValueError:
+                    arguments = {"command": arguments}
+            calls[payload.get("call_id")] = (payload.get("name"), arguments if isinstance(arguments, dict) else {})
+            continue
+        if kind not in ("function_call_output", "custom_tool_call_output"):
+            continue
+        counts["results"] += 1
+        name, arguments = calls.get(payload.get("call_id"), (None, {}))
+        if name is None:
+            continue
+        output = payload.get("output")
+        returned = output if isinstance(output, str) else _text_of(output)
+        command = arguments.get("command")
+        if isinstance(command, list):
+            command = " ".join(str(part) for part in command)
+        if name in NAMED_READERS:
+            path = arguments.get("path") or arguments.get("file_path")
+            if not path:
+                continue
+            if returned is None:
+                counts["no_text"] += 1
+                unparsed.append({"at": at, "path": path, "reason": "result_not_text"})
+            else:
+                reads.append({"at": at, "path": path, "returned": returned})
+        elif name in SHELL_READERS or command:
+            if not any(verb in (command or "") for verb in READING_VERBS):
+                continue
+            named = _paths_in(command)
+            if not named:
+                counts["unnamed_command"] += 1
+                unparsed.append({"at": at, "path": None, "reason": "command_names_no_path"})
+            elif returned is None:
+                counts["no_text"] += 1
+                unparsed += [{"at": at, "path": path, "reason": "result_not_text"} for path in named]
+            else:
+                reads += [{"at": at, "path": path, "returned": returned} for path in named]
+    return reads, unparsed, counts
+
+
+def reads_of(copy_path, host):
+    """(reads, unparsed, counts) read from ONE immutable copy of a transcript version.
+
+    The copy S2 wrote is the only place these bytes are read from: the views are clipped, so they
+    cannot carry what a result returned, and the owner's own files are not this stage's to open. The
+    bytes stay in this process — the document carries counts, paths and states, never text."""
+    path = pathlib.Path(copy_path)
+    if not path.is_file():
+        return [], [], {"copy_missing": True}
+    lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+    reads, unparsed, counts = (_codex_reads(lines) if host == "codex" else _claude_reads(lines))
+    return reads, unparsed, {**counts, "records": len(lines)}
+
+
+def copies_of(views):
+    """`{session or transcript ref: (the copy's path under the run, host)}` from S2's manifest."""
+    found = {}
+    for row in views.get("transcripts") or []:
+        copy = row.get("source_copy")
+        if not copy:
+            continue
+        for key in (row.get("session"), row.get("transcript"), row.get("name")):
+            if key:
+                found[key] = (copy, row.get("host"))
+    return found
+
+
 def basis_of(session_row, shared_of, store):
     """`(basis, pin_reason, selected, history_selected)` for one session, from the inventory's row.
 
@@ -297,7 +475,8 @@ def release_of(release_doc, session_ref):
     return {"complete": False, "layers": {}, "items": [], "absent_from_release_document": True}
 
 
-def session_evidence(session_row, events_by_ref, by_version, release_doc, shared_of, store):
+def session_evidence(session_row, events_by_ref, by_version, release_doc, shared_of, store,
+                     run_dir=None, copies=None):
     """The inventory's half of the judge's `session` input: selection, events and the release.
 
     The session's own records — the compiled instruction text it was activated with, the paths it
@@ -312,7 +491,23 @@ def session_evidence(session_row, events_by_ref, by_version, release_doc, shared
                 "release": release_of(release_doc, session_row.get("session_ref"))}
     if pin_reason:
         evidence["pin_reason"] = pin_reason
-    return evidence, {"native_events": len(native), "events_without_a_line": undated}
+    counts = {"native_events": len(native), "events_without_a_line": undated}
+    # The session's own records, from the run's immutable copy. Absent rather than empty when the run
+    # holds no copy for this session: an empty `reads` is "it read nothing", which is a claim, and a
+    # missing key is "this run cannot say", which is the truth.
+    key = session_row.get("session") or session_row.get("session_ref")
+    found = (copies or {}).get(key) or (copies or {}).get((session_row.get("transcript") or {}).get("id"))
+    if found and run_dir is not None:
+        copy, host = found
+        reads, unparsed, read_counts = reads_of(pathlib.Path(run_dir) / copy, host)
+        evidence["reads"] = reads
+        evidence["unparsed"] = [row for row in unparsed if row.get("path")]
+        counts.update({"reads": len(reads), "unparsed": len(unparsed),
+                       "unparsed_without_a_path": sum(1 for row in unparsed if not row.get("path")),
+                       **{f"records_{k}": v for k, v in read_counts.items()}})
+    else:
+        counts["copy"] = "absent"
+    return evidence, counts
 
 
 def unit_index(current):
@@ -348,7 +543,8 @@ def unit_index(current):
 REDACTED = projection.FLOOR.PLACEHOLDER
 
 
-def document(run_dir, checks, candidates, current, sessions, release_doc, store, shared_of, sources):
+def document(run_dir, checks, candidates, current, sessions, release_doc, store, shared_of, sources,
+             views=None):
     """The stage's document: one row per owed pair, and the summary a reader counts from."""
     units = unit_index(current)
     by_name, by_transcript = sessions_index(sessions)
@@ -369,7 +565,8 @@ def document(run_dir, checks, candidates, current, sessions, release_doc, store,
         if session_row is not None:
             if pair["session_ref"] not in counts_by_ref:
                 built, counts = session_evidence(session_row, events_by_ref, by_version, release_doc,
-                                                 shared_of, store)
+                                                 shared_of, store, run_dir,
+                                                 copies_of(views or {}))
                 counts_by_ref[pair["session_ref"]] = (built, counts)
             evidence = counts_by_ref[pair["session_ref"]][0]
         # Every reason that holds, in the order a reader would ask them, and never one in place of
@@ -396,6 +593,8 @@ def document(run_dir, checks, candidates, current, sessions, release_doc, store,
                      "decision_ordinal": "event.at_record" if pair.get("decision_at") is not None else None,
                      "requirements": len(unit["operative_context"]) if unit else None,
                      "native_events": len((evidence or {}).get("native_events") or []),
+                     "reads": None if evidence is None or "reads" not in evidence
+                              else len(evidence["reads"]),
                      "release_complete": ((evidence or {}).get("release") or {}).get("complete"),
                      "coverage": None})
     states = {}
@@ -445,7 +644,9 @@ def run(run_dir):
             path = run_dir / "inventory" / "shared" / f"selection-{inventory_ref}.json"
             return records.read_json(path) if path.is_file() else None
 
-        doc = document(run_dir, checks, candidates, current, sessions, release_doc, store, shared_of, sources)
+        views = records.read_json(run_dir / VIEWS_FILE)
+        doc = document(run_dir, checks, candidates, current, sessions, release_doc, store, shared_of,
+                       sources, views)
         records.write_json(run_dir, run_dir / OUTPUT, doc)
         stage.output(OUTPUT)
         declaration_seq = stage.record["declaration_seq"]
@@ -542,15 +743,18 @@ def self_test():
                        lambda ref: None, ["aa.jsonl"])
         # k-1: two events x two units (one retrieved, one named-absent) = 4; k-2: one session, no event, no unit = 1.
         control("a pair is owed per decision event and unit", str(doc["summary"]["pairs"]), "5")
-        control("an event's ordinal is read from its at_record", json.dumps(doc["rows"][0]), '"decision_at": 76837')
+        control("an event's ordinal is read from its at_record", json.dumps((doc.get("rows") or [{}])[0]),
+                '"decision_at": 76837')
         control("and the session comes from the transcript the event record belongs to",
-                json.dumps(doc["rows"][0]), '"session_ref": "p-111111111111111111111111"')
+                json.dumps((doc.get("rows") or [{}])[0]), '"session_ref": "p-111111111111111111111111"')
         control("a candidate with no decision event keeps its pair and says why",
-                json.dumps(doc["rows"][-1]), "no_decision_event")
-        control("and a candidate naming no unit keeps it too", json.dumps(doc["rows"][-1]), '"unit_id": null')
+                json.dumps((doc.get("rows") or [{}])[-1]), "no_decision_event")
+        control("and a candidate naming no unit keeps it too", json.dumps((doc.get("rows") or [{}])[-1]),
+                '"unit_id": null')
         control("a unit the inventory does not carry is named, not dropped",
                 json.dumps([r for r in doc["rows"] if r["unit_id"] == "u-gone"]), "unit_absent_from_inventory")
-        control("a pending answer is written as an unknown with its reason", json.dumps(doc["rows"][0]), PENDING)
+        control("a pending answer is written as an unknown with its reason",
+                json.dumps((doc.get("rows") or [{}])[0]), PENDING)
         control("and the document says so of itself", json.dumps({"complete": doc["complete"]}), '"complete": false')
         control("the pending state is not S6's waiting state", doc["pending_reason"],
                 "not S6's `delivery_assembly_waiting`")
@@ -580,25 +784,25 @@ def self_test():
                                             units_by_version(unit_index(current)), release_doc,
                                             lambda ref: None, store)
         control("a native event is placed at its record line, not its instant",
-                json.dumps(evidence["native_events"][0]), '"at": 12')
+                json.dumps((evidence.get("native_events") or [{}])[0]), '"at": 12')
         control("and its carrier version is resolved to the units it loaded",
-                json.dumps(evidence["native_events"][0]["unit_ids"]), '["u-1", "u-2"]')
+                json.dumps((evidence.get("native_events") or [{}])[0]), '"unit_ids": ["u-1", "u-2"]')
         control("an event with no line is counted, not placed at an ordinal nobody recorded",
-                str(counts["events_without_a_line"]), "1")
+                str(counts.get("events_without_a_line", "no such count")), "1")
         clean("and it is not in the comparable set",
-              [row for row in evidence["native_events"] if row["at"] is None])
+              [row for row in evidence.get("native_events") or [] if row.get("at") is None])
         control("a read pin with no selection inventory is not a pin basis",
-                json.dumps({"basis": evidence["basis"]}), '"basis": null')
+                json.dumps({"basis": evidence.get("basis")}), '"basis": null')
         # `.get` with an absence VALUE, not `[...]`: a revert that makes this a pin basis removes the
         # key, and indexing it ended the run with a KeyError before either control could speak —
         # the same shape as the unguarded `[0]` this repo fixed in the ledger migrator's suite.
         control("and the reason the inventory recorded is what the unknown will name",
                 evidence.get("pin_reason") or "no pin_reason was recorded", "selection_input_failed")
         control("the release is read as the point derive.absence judges",
-                json.dumps(evidence["release"]), '"complete": false')
+                json.dumps(evidence.get("release") or {}), '"complete": false')
         control("a layer the release leaves unresolved is carried with its status",
-                json.dumps(evidence["release"]["layers"]), '"catalog": "unknown"')
-        incomplete = derive.absence(evidence["release"])
+                json.dumps((evidence.get("release") or {}).get("layers")), '"catalog": "unknown"')
+        incomplete = derive.absence(evidence.get("release") or {})
         clean("and the absence policy reads it as incomplete", [] if not incomplete[0] else ["complete"])
         absent = release_of({"sessions": []}, "p-nobody")
         control("a session the release document does not carry is named, not read as complete",
@@ -613,8 +817,99 @@ def self_test():
         control("a redacted unit is not judged on its placeholder",
                 json.dumps([r["reasons"] for r in doc_red["rows"] if r["unit_id"] == "u-1"][0]),
                 "unit_text_redacted")
-        control("each row names the ordinal it used", json.dumps(doc["rows"][0]),
+        control("each row names the ordinal it used", json.dumps((doc.get("rows") or [{}])[0]),
                 '"decision_ordinal": "event.at_record"')
+
+        # ---- the bytes a session read back, from the run's immutable copy (commit 4) ----
+        # Records in both hosts' own shapes. The returned text of a read is what covers a
+        # requirement, so a result that cannot be read back as text is `unparsed`, never a miss.
+        claude_copy = fixture / SOURCES_DIR / "cc.jsonl"
+        claude_copy.parent.mkdir(parents=True, exist_ok=True)
+        claude_copy.write_text("\n".join(json.dumps(row) for row in [
+            {"type": "assistant", "message": {"content": [
+                {"type": "tool_use", "id": "t1", "name": "Read",
+                 "input": {"file_path": "/x/guides/g.md"}}]}},
+            {"type": "user", "message": {"content": [
+                {"type": "tool_result", "tool_use_id": "t1",
+                 "content": [{"type": "text", "text": "     1\t- Read the log before you retry."}]}]}},
+            {"type": "assistant", "message": {"content": [
+                {"type": "tool_use", "id": "t2", "name": "Bash",
+                 "input": {"command": "sed -n '1,40p' /x/guides/h.md"}}]}},
+            {"type": "user", "message": {"content": [
+                {"type": "tool_result", "tool_use_id": "t2", "content": "- h"}]}},
+            {"type": "assistant", "message": {"content": [
+                {"type": "tool_use", "id": "t3", "name": "Read", "input": {"file_path": "/x/guides/i.md"}}]}},
+            {"type": "user", "message": {"content": [
+                {"type": "tool_result", "tool_use_id": "t3", "is_error": True, "content": "No such file"}]}},
+            {"type": "assistant", "message": {"content": [
+                {"type": "tool_use", "id": "t4", "name": "Read", "input": {"file_path": "/x/guides/j.md"}}]}},
+            {"type": "user", "message": {"content": [
+                {"type": "tool_result", "tool_use_id": "t4",
+                 "content": [{"type": "image", "source": {}}]}]}},
+            {"type": "assistant", "message": {"content": [
+                {"type": "tool_use", "id": "t5", "name": "Bash", "input": {"command": "cat $KNOWN_FILE"}}]}},
+            {"type": "user", "message": {"content": [
+                {"type": "tool_result", "tool_use_id": "t5", "content": "- opaque"}]}},
+        ]) + "\n", encoding="utf-8")
+        reads, unparsed, counts = reads_of(claude_copy, "claude")
+        control("a named reader's path is its own argument", json.dumps((reads or [{}])[0]),
+                '"path": "/x/guides/g.md"')
+        control("and the read is attributed to the line its RESULT arrived on",
+                json.dumps((reads or [{}])[0]), '"at": 2')
+        control("the returned text is kept as returned, prefixes and all",
+                json.dumps((reads or [{}])[0].get("returned")), "1\\t- Read the log")
+        control("a reading command's path is read out of the command",
+                json.dumps(reads[1:2]), '"path": "/x/guides/h.md"')
+        clean("a failed call is not a read",
+              [r for r in reads if (r.get("path") or "").endswith("i.md")])
+        control("a result that is not text is unparsed, not a miss",
+                json.dumps([r for r in unparsed if r["path"] and r["path"].endswith("j.md")]),
+                "result_not_text")
+        control("and a reading command naming no path is unparsed too",
+                json.dumps(unparsed), "command_names_no_path")
+        control("the counts say how many results were seen",
+                str((counts or {}).get("results", "no such count")), "5")
+
+        codex_copy = fixture / SOURCES_DIR / "cx.jsonl"
+        codex_copy.write_text("\n".join(json.dumps(row) for row in [
+            {"type": "response_item", "payload": {"type": "function_call", "call_id": "c1", "name": "shell",
+                                                  "arguments": json.dumps({"command": ["cat", "/x/guides/g.md"]})}},
+            {"type": "response_item", "payload": {"type": "function_call_output", "call_id": "c1",
+                                                  "output": "- Read the log before you retry."}},
+        ]) + "\n", encoding="utf-8")
+        codex_reads, _codex_unparsed, _codex_counts = reads_of(codex_copy, "codex")
+        # Dumped whole rather than indexed: a revert that returns no read would end the suite with an
+        # IndexError here and print nothing, which is the control-that-cannot-speak shape this branch
+        # has now paid for twice (the ledger migrator's `[0]`, and `evidence["pin_reason"]`).
+        control("a Codex shell call is read the same way", json.dumps(codex_reads),
+                '"path": "/x/guides/g.md"')
+        control("and at the line of its output", json.dumps((codex_reads or [{}])[0]), '"at": 2')
+
+        missing = reads_of(fixture / SOURCES_DIR / "nope.jsonl", "claude")
+        control("a copy the run does not hold is named, not read as an empty session",
+                json.dumps(missing[2]), "copy_missing")
+
+        # The manifest is what says which copy belongs to which session.
+        # The manifest row's SESSION is what the session row names; its transcript string is deliberately
+        # a different value here, so a lookup that only ever reads the transcript key fails this control
+        # instead of passing on a fixture where the two happen to be equal.
+        views = {"transcripts": [{"session": "claude:t-1", "transcript": "claude:other-1",
+                                 "name": "claude_other-1", "host": "claude",
+                                 "source_copy": f"{SOURCES_DIR}/cc.jsonl", "version_sha": "c" * 64}]}
+        with_reads, read_counts = session_evidence(session_row, events_by_ref,
+                                                   units_by_version(unit_index(current)), release_doc,
+                                                   lambda ref: None, store, fixture, copies_of(views))
+        control("the session's reads come from the copy its manifest row names",
+                str(len(with_reads.get("reads") or [])), "2")
+        control("and an unparsed call with no path is counted rather than dropped",
+                str(read_counts.get("unparsed_without_a_path", "no such count")), "1")
+        clean("no unparsed row without a path reaches the judge",
+              [row for row in with_reads.get("unparsed") or [] if not row.get("path")])
+        without, no_copy = session_evidence(session_row, events_by_ref,
+                                            units_by_version(unit_index(current)), release_doc,
+                                            lambda ref: None, store, fixture, {})
+        clean("a session with no copy carries no `reads` key at all", [k for k in without if k == "reads"])
+        control("and the counts say the copy is absent", json.dumps(no_copy), '"copy": "absent"')
 
         # The two refusals, each before any write.
         empty = root / "r-empty"
@@ -662,7 +957,9 @@ def self_test():
           f"and the refusal when the inventory publishes none, the inventory's half of the session "
           f"evidence — native events at their record line, the release as the absence policy reads it, a read "
           f"pin with no selection inventory kept out of the pin basis, and a redacted unit not judged on its "
-          f"placeholder — and the two run refusals with nothing written)")
+          f"placeholder, the bytes a session read back from the run's immutable copy on both hosts "
+          f"with a failed call no read, a non-text result unparsed and a missing copy named, and the two run "
+          f"refusals with nothing written)")
     return 0
 
 
