@@ -251,6 +251,82 @@ DERIVED_INTO_PROPOSAL = ("item_id", "candidate_id", "kind", "diagnosis", "typolo
                          "promotion_eligible", "reason", "keep_records_named")
 
 
+# The Korean fields S9b may have regenerated once, and nothing else: a regeneration that could
+# change a disposition would be a second proposal wearing a retry's clothes.
+REASON_FIELDS = ("what_happened", "proposal", "reason", "cost", "serves", "falsifier")
+
+
+def regeneration_packet(answer, candidate, derivation, derivation_row, failing, units=(),
+                        call_id="c1"):
+    """The packet S9b's single retry sends: this proposal, and the Korean fields to write again.
+
+    S9b judges each row's Korean against its English payload; a failing row is regenerated ONCE by
+    S7's seat (design §9). So the call is S7's, with S7's own template and schema, plus the review's
+    complaint - and the answer that comes back is held to `regenerated_problems`, which lets nothing
+    but those six fields move."""
+    said = ", ".join(sorted(failing)) or "every Korean field"
+    payload_note = (f"\n\nThis proposal's Korean review fields failed S9b's faithfulness check "
+                    f"({said}). Write those fields again in Korean, faithful to the English payload "
+                    f"above and in plain words. Change NOTHING else: the disposition, the "
+                    f"operations, the destination and the claims stay exactly as they are, and code "
+                    f"refuses an answer in which anything else moved.")
+    built = packet_for(candidate, derivation, derivation_row, units=units, call_id=call_id,
+                       seat="regenerate")
+    return built + payload_note.encode("utf-8")
+
+
+def regenerated_problems(before, after):
+    """What moved between a proposal and its regeneration, by name. Empty when only Korean moved.
+
+    The whole guard of S9b's retry: the fields it may rewrite are the six reason fields, and every
+    other field - and the set of fields itself - must be identical. A retry that changed a
+    disposition would be a new proposal with an old proposal's provenance."""
+    problems = []
+    if set(before) != set(after):
+        problems.append(f"REGENERATION_FIELDS_MOVED added={sorted(set(after) - set(before))} "
+                        f"removed={sorted(set(before) - set(after))}: a retry rewrites the Korean "
+                        f"fields and adds or drops nothing")
+        return problems
+    for name in sorted(before):
+        if name == "reasons":
+            continue
+        if before.get(name) != after.get(name):
+            problems.append(f"REGENERATION_CHANGED {name}: S9b's retry may rewrite the Korean reason "
+                            f"fields and nothing else")
+    old_reasons, new_reasons = before.get("reasons") or {}, after.get("reasons") or {}
+    if set(old_reasons) != set(new_reasons):
+        problems.append(f"REGENERATION_REASON_FIELDS_MOVED added={sorted(set(new_reasons) - set(old_reasons))} "
+                        f"removed={sorted(set(old_reasons) - set(new_reasons))}: the six reason fields "
+                        f"are the ones §7.3 names")
+    for name in sorted(set(new_reasons) & set(old_reasons)):
+        if name not in REASON_FIELDS:
+            problems.append(f"REGENERATION_FIELD_UNDECLARED {name}: not one of "
+                            f"{', '.join(REASON_FIELDS)}")
+    if not any(old_reasons.get(name) != new_reasons.get(name) for name in REASON_FIELDS):
+        problems.append("REGENERATION_UNCHANGED: the retry returned the same Korean it was asked to "
+                        "write again, so nothing was regenerated")
+    return problems
+
+
+def regenerate_reasons(answer, regenerated, candidate, derivation, derivation_row,
+                       active_keep=None, legacy_incubating=False):
+    """The proposal with its Korean fields replaced, or Refused naming what else moved.
+
+    Exported for WP-20: S9b's single retry hands back one answer, and this is the only way it enters
+    a proposal. The result is validated like any answer, so a regeneration cannot smuggle a shape the
+    schema refuses either."""
+    problems = regenerated_problems(answer, regenerated)
+    if problems:
+        raise Refused("; ".join(problems))
+    held = {**answer, "reasons": {**(answer.get("reasons") or {}),
+                                  **(regenerated.get("reasons") or {})}}
+    shape = answer_problems(held, candidate, derivation, derivation_row, active_keep,
+                            legacy_incubating)
+    if shape:
+        raise Refused(f"REGENERATION_INVALID {'; '.join(shape)}")
+    return held
+
+
 def proposal_of(answer, candidate, derivation_row, legacy_incubating=False):
     """The flat proposal `placement.py` and `ranking.py` read, assembled from the answer and S6.
 
@@ -390,13 +466,34 @@ def review_row(answer, candidate, derivation_row, status="proposed"):
             "changes_library": answer["disposition"] not in placement.LEDGER_ONLY + ("none",)}
 
 
-def document(derivations, candidates, answers, active_keep=None, legacy=()):
+def subset_problems(only, population):
+    """Ids asked for that the run does not hold, by name. An empty subset is refused.
+
+    WP-20's adjudication second pass asks S7 for a few candidates again. A subset silently narrowed
+    to the ids that happen to exist would report "every candidate answered" over a smaller
+    population than the caller believes in."""
+    if only is None:
+        return []
+    wanted = list(only)
+    if not wanted:
+        return ["SUBSET_EMPTY: a subset of no candidate answers nothing; pass None for all of them"]
+    missing = sorted(set(wanted) - set(population))
+    return ([f"SUBSET_UNKNOWN {', '.join(missing)}: this run holds no such candidate"]
+            if missing else [])
+
+
+def document(derivations, candidates, answers, active_keep=None, legacy=(), only=None):
     """`proposals.json`: every candidate answered, ranked, with each refusal named and counted.
 
     A candidate whose answer does not hold is NOT dropped and not silently re-asked: its row carries
     `status: returned` with the problems, because a proposal missing from the document is a candidate
     nobody decided."""
     rows = {r["candidate_id"]: r for r in (candidates or {}).get("candidates") or []}
+    problems = subset_problems(only, rows)
+    if problems:
+        raise Refused("; ".join(problems))
+    if only is not None:
+        rows = {cid: row for cid, row in rows.items() if cid in set(only)}
     verdicts = (derivations or {}).get("verdicts") or {}
     legacy_ids = set(legacy or ())
     proposals, returned = [], []
@@ -424,6 +521,9 @@ def document(derivations, candidates, answers, active_keep=None, legacy=()):
             "not_derived": sorted(not_derived),
             "contract": {"placement_contract_sha256": placement.contract_digest(),
                          "schema_sha256": packet.sha256_bytes(schema_bytes())},
+            # `subset` says what population this document is about, so a reader cannot mistake a
+            # second pass over three candidates for a run over all of them.
+            "subset": sorted(only) if only is not None else None,
             "counts": {"candidates": len(rows), "proposed": len(proposals), "returned": len(returned),
                        "not_derived": len(not_derived),
                        "awaiting_R": sum(1 for p in proposals if p["awaiting_R"]),
@@ -434,7 +534,7 @@ def document(derivations, candidates, answers, active_keep=None, legacy=()):
 OUTPUT = "proposals.json"
 
 
-def run(run_dir, answers, active_keep=None, legacy=()):
+def run(run_dir, answers, active_keep=None, legacy=(), only=None):
     """The stage, through the shared mechanism: nothing is written on refusal.
 
     Two things this got wrong until lane E ran it: `records.write_json` confines its path beneath the
@@ -446,7 +546,7 @@ def run(run_dir, answers, active_keep=None, legacy=()):
     with records.run_stage(run_dir, STAGE, INPUTS) as stage:
         derivations = records.read_json(run_dir / "judgments" / "derivations.json")
         candidates = records.read_json(run_dir / "checked-candidates.json")
-        doc = document(derivations, candidates, answers, active_keep, legacy)
+        doc = document(derivations, candidates, answers, active_keep, legacy, only)
         records.write_json(run_dir, run_dir / OUTPUT, doc)
         stage.output(OUTPUT)
         return stage, doc
@@ -788,6 +888,14 @@ def self_test():
         finally:
             row["owner_default"] = kept
 
+    def refusal(call):
+        """The refusal a call raises, as text, or empty when it raises none."""
+        try:
+            call()
+        except Refused as exc:
+            return str(exc)
+        return ""
+
     def said(answer, candidate=None, derivation=None, row=None, keep=None, legacy=False):
         cand, drow = _candidate()
         try:
@@ -1063,6 +1171,65 @@ def self_test():
             json.dumps(proposal_of({**_answered(), "keep_record_named": "KEEP-7"},
                                    *_candidate())["keep_records_named"]), '"KEEP-7"')
 
+    # WP-20's three interface pieces: the Korean regeneration, the subset, and (in the end-to-end
+    # block below) both on the golden host.
+    before = _answered()
+    after = {**before, "reasons": {**before["reasons"], "reason": "다시 쓴 이유", "cost": "없음"}}
+    clean("a regeneration that moved only the Korean reason fields is accepted",
+          regenerated_problems(before, after))
+    control("one that moved a disposition is refused by name",
+            "; ".join(regenerated_problems(before, {**after, "disposition": "keep"})),
+            "REGENERATION_CHANGED disposition")
+    control("one that moved the destination too",
+            "; ".join(regenerated_problems(before, {**after,
+                                                    "destination": {"layer": "incubator",
+                                                                    "carrier": None}})),
+            "REGENERATION_CHANGED destination")
+    control("one that added or dropped a field is refused before anything is compared",
+            "; ".join(regenerated_problems(before, {k: v for k, v in after.items()
+                                                    if k != "expected_observation"})),
+            "REGENERATION_FIELDS_MOVED")
+    control("one that changed nothing is refused: a retry that returns the same Korean regenerated "
+            "nothing", "; ".join(regenerated_problems(before, before)), "REGENERATION_UNCHANGED")
+    control("a reason field §7.3 does not name is refused",
+            "; ".join(regenerated_problems(before, {**after,
+                                                    "reasons": {**after["reasons"], "mood": "좋음"}})),
+            "REGENERATION_REASON_FIELDS_MOVED")
+    try:
+        held_regen = regenerate_reasons(before, after, *_candidate()[:1], ANSWERED, _candidate()[1])
+    except Refused as exc:
+        held_regen = {"reasons": {"reason": f"REFUSED {exc}"}, "disposition": f"REFUSED {exc}"}
+    control("the regenerated proposal carries the new Korean",
+            str(held_regen["reasons"]["reason"]), "다시 쓴 이유")
+    control("and everything else exactly as it was", str(held_regen["disposition"]), "place")
+    control("a regeneration whose answer no longer passes the contract is refused as invalid rather "
+            "than written",
+            refusal(lambda: regenerate_reasons(
+                before, {**after, "reasons": {**after["reasons"], "reason": ""}}, *_candidate()[:1],
+                ANSWERED, _candidate()[1])),
+            "REGENERATION")
+    said_packet = regeneration_packet(before, *_candidate()[:1], ANSWERED, _candidate()[1],
+                                      failing=["reason", "cost"]).decode("utf-8")
+    control("S9b's retry packet is S7's own, with the fields that failed named", said_packet,
+            "cost, reason")
+    control("and it says plainly that nothing else may move", said_packet,
+            "Change NOTHING else")
+
+    # The subset WP-20's adjudication second pass asks for.
+    many = {"candidates": [_candidate("k1")[0], _candidate("k2")[0], _candidate("k3")[0]]}
+    derivs = {"verdicts": {cid: _candidate(cid)[1] for cid in ("k1", "k2", "k3")},
+              "not_derived": [], **ANSWERED}
+    three = {cid: _answered() for cid in ("k1", "k2", "k3")}
+    one = document(derivs, many, three, only=["k2"])
+    control("a subset document answers that subset and says which",
+            f'{one["counts"]["candidates"]}:{json.dumps(one["subset"])}', '1:["k2"]')
+    control("and a full document says it is not a subset",
+            json.dumps(document(derivs, many, three)["subset"]), "null")
+    control("an id the run does not hold is refused rather than quietly dropped",
+            refusal(lambda: document(derivs, many, three, only=["k9"])), "SUBSET_UNKNOWN k9")
+    control("and an empty subset is refused, because it would report every candidate answered over "
+            "no candidate", refusal(lambda: document(derivs, many, three, only=[])), "SUBSET_EMPTY")
+
     # The two sources rule, §10.4, and the shape.
     control("an answer that carries its own kind is refused: S6 derived it",
             said({**_answered(), "kind": "gap"}), "ANSWER_REDERIVES_DERIVED")
@@ -1229,6 +1396,34 @@ def self_test():
             control("every proposal S7 wrote is reviewed, so the two stages' populations agree",
                     f'{s7b_doc["counts"]["proposals"]}={s7b_doc["counts"]["reviewed"]}',
                     f'{len(doc["proposals"])}={len(doc["proposals"])}')
+            # WP-20's second pass, on the golden host: S7 and S7b over a subset of the run's own
+            # candidates, written into a copy so the full run's documents are left as they are.
+            if doc["proposals"]:
+                picked = [doc["proposals"][0]["candidate_id"]]
+                sub_root = root / "subset"
+                sub_root.mkdir()
+                sub_run = shutil.copytree(made, sub_root / made.name)
+                subset_name = ("S7 runs on a subset of the run's candidates and says which subset "
+                               "the document is about")
+                try:
+                    _s, sub_doc = run(sub_run, {cid: answers[cid] for cid in picked}, only=picked)
+                except STAGE_REFUSALS as exc:
+                    ran.append(subset_name)
+                    failures.append((subset_name, f"the stage refused: {exc}"))
+                    sub_doc = {"counts": {"candidates": 0}, "subset": None, "proposals": []}
+                control(subset_name,
+                        f'{sub_doc["counts"]["candidates"]}:{json.dumps(sub_doc["subset"])}',
+                        f'1:{json.dumps(picked)}')
+                control("and S7b reviews that same subset",
+                        json.dumps(stage_review_proposals.document(
+                            sub_doc, {cid: held[cid] for cid in picked}, only=picked)["subset"]),
+                        json.dumps(picked))
+                clean("the subset run wrote its own document inside its own run",
+                      [] if (sub_run / OUTPUT).is_file() else [f"no {OUTPUT} in {sub_run}"])
+                clean("and the full run's document is untouched by it",
+                      [] if records.read_json(made / OUTPUT)["counts"] == doc["counts"]
+                      else ["the full document moved"])
+
             # And the CLI, as a subprocess: 25 direct-call controls once passed while the command
             # itself crashed, so the command is exercised over files the way a caller runs it. Its
             # copy of the run was taken above, before either stage wrote anything into it.

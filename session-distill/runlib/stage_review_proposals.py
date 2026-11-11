@@ -155,13 +155,18 @@ def row_of(review, proposal_row):
             "owner_resolves": review["verdict"] == "disagree"}
 
 
-def document(proposals, reviews, candidates=None):
+def document(proposals, reviews, candidates=None, only=None):
     """`review-s7b.json`: one row per proposal, with every unreviewed and returned case named.
 
     A proposal with no review is NOT carried as agreed. Silence is not a second reader, and a stage
     that filled it in would make the whole call decorative."""
     rows, returned, unreviewed = [], [], []
     by_id = {p["candidate_id"]: p for p in (proposals or {}).get("proposals") or []}
+    problems = stage_propose.subset_problems(only, by_id)
+    if problems:
+        raise Refused("; ".join(problems))
+    if only is not None:
+        by_id = {cid: row for cid, row in by_id.items() if cid in set(only)}
     for cid in sorted(by_id):
         review = (reviews or {}).get(cid)
         if review is None:
@@ -174,6 +179,7 @@ def document(proposals, reviews, candidates=None):
         rows.append(row_of(review, by_id[cid]))
     tally = collections.Counter
     return {"stage": STAGE, "reviews": rows,
+            "subset": sorted(only) if only is not None else None,
             "returned": sorted(returned, key=lambda r: r["item_id"]),
             "unreviewed": sorted(unreviewed, key=lambda r: r["item_id"]),
             "contract": {"placement_contract_sha256": placement.contract_digest(),
@@ -189,7 +195,7 @@ def document(proposals, reviews, candidates=None):
 OUTPUT = "review-s7b.json"
 
 
-def run(run_dir, reviews):
+def run(run_dir, reviews, only=None):
     """The stage, through the shared mechanism: nothing is written on refusal.
 
     The path is absolute beneath the run and the file is registered with `stage.output`, for the
@@ -198,7 +204,7 @@ def run(run_dir, reviews):
     run_dir = pathlib.Path(run_dir)
     with records.run_stage(run_dir, STAGE, INPUTS) as stage:
         proposals = records.read_json(run_dir / stage_propose.OUTPUT)
-        doc = document(proposals, reviews)
+        doc = document(proposals, reviews, only=only)
         records.write_json(run_dir, run_dir / OUTPUT, doc)
         stage.output(OUTPUT)
         return stage, doc
@@ -427,6 +433,30 @@ def self_test():
             "stage", "; ".join(registers) or "<nothing registered>", "stage.output(OUTPUT)")
     clean("one write and one registration, so neither can be left behind by the other",
           [] if len(writes) == len(registers) == 1 else [f"{len(writes)} writes, {len(registers)} registrations"])
+    # S7b takes the same subset S7 does, and asks S7's question about it rather than its own.
+    two = {"proposals": [row(candidate_id="k1"), row(candidate_id="k2")]}
+    reviews_two = {cid: review() for cid in ("k1", "k2")}
+    one = document(two, reviews_two, only=["k2"])
+    control("a subset review answers that subset and says which",
+            f'{one["counts"]["proposals"]}:{json.dumps(one["subset"])}', '1:["k2"]')
+    control("and a full review says it is not a subset",
+            json.dumps(document(two, reviews_two)["subset"]), "null")
+    def refused(call):
+        try:
+            call()
+        except Refused as exc:
+            return str(exc)
+        return ""
+
+    control("a proposal this run does not hold is refused by name rather than dropped",
+            refused(lambda: document(two, reviews_two, only=["k9"])), "SUBSET_UNKNOWN k9")
+    control("and an empty subset is refused", refused(lambda: document(two, reviews_two, only=[])),
+            "SUBSET_EMPTY")
+    control("the question is S7's, asked once: this file calls S7's own check",
+            next(line.strip() for line in pathlib.Path(__file__).read_text(encoding="utf-8").splitlines()
+                 if "subset_problems" in line and "problems = " in line),
+            "problems = stage_propose.subset_problems(only, by_id)")
+
     control("and S7b's input is S7's output under the name S7 owns, not a second spelling",
             # The SOURCE line, not the value: a literal that happens to equal S7's output today
             # satisfies a value check and drifts the day S7 renames its file.
