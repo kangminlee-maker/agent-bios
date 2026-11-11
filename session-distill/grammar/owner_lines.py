@@ -75,6 +75,15 @@ CONFIRM_LINE = re.compile(rf"^확인\s*{_COLON}(.*)$")
 GROUNDS_LEAD = "—–-:： "   # a dash or colon the owner may put between a record id and its grounds
 
 
+def owner_shaped(line):
+    """Whether `line` reads, as the parser reads an editable line (NFC, stripped), as an owner line or a block marker.
+    The parser reads by position, so such a line outside a block decides nothing; a renderer uses this to keep text it
+    did not write from standing where the owner would read a decision (`stage_render.page_problems`)."""
+    text = unicodedata.normalize("NFC", str(line)).strip()
+    return bool(LOOKS_LIKE_MARKER.match(text) or any(p.match(text) for p in (DECISION_LINE, NOTE_LINE, JUDGMENT_LINE,
+                                                                             KEEP_LINE, CONFIRM_LINE)))
+
+
 def sha256_text(text):
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 

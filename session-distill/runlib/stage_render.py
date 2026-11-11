@@ -32,6 +32,7 @@ import hashlib
 import json
 import pathlib
 import re
+import unicodedata
 import sys
 
 if __package__ in (None, ""):  # run as a script: put session-distill/ on the import path
@@ -633,9 +634,10 @@ def inline(text):
 
 def fenced(text):
     """Multi-line text inside a code fence longer than any backtick run it holds, its carriage returns normalized, and
-    every line shaped like an owner-block marker escaped with a leading backslash (the one change made to it)."""
+    every line shaped like an owner line or an owner-block marker (`owner_lines.owner_shaped`) escaped with a leading
+    backslash (the one change made to it)."""
     body = str(text).replace("\r\n", "\n").replace("\r", "\n").split("\n")
-    body = ["\\" + line if owner_lines.LOOKS_LIKE_MARKER.match(line) else line for line in body]
+    body = ["\\" + line if owner_lines.owner_shaped(line) else line for line in body]
     longest = max((len(run) for line in body for run in re.findall(r"`+", line)), default=0)
     fence = "`" * max(3, longest + 1)
     return [fence, *body, fence]
@@ -644,10 +646,10 @@ def fenced(text):
 def judge_line(who, judge):
     if judge is None:
         return f"- 판정자 {who}: 수락된 판정 없음"
-    marks = ", ".join(f"{k}={v}" for k, v in judge["requirements"].items())
-    units = "; ".join(f"{u['unit']} 상황 {u['situation']} 행동 {u['action']}: {inline(u['reason'])}"
-                      for u in judge["units"]) or "단위 판정 없음"
-    return (f"- 판정자 {who} ({judge['seat']}): 요구 사항 {marks}; 결과 등급 {judge['consequence_class']}; "
+    marks = ", ".join(f"{inline(k)}={inline(v)}" for k, v in judge["requirements"].items())
+    units = "; ".join(f"{inline(u['unit'])} 상황 {inline(u['situation'])} 행동 {inline(u['action'])}: "
+                      f"{inline(u['reason'])}" for u in judge["units"]) or "단위 판정 없음"
+    return (f"- 판정자 {who} ({inline(judge['seat'])}): 요구 사항 {marks}; 결과 등급 {inline(judge['consequence_class'])}; "
             f"단위 {units}")
 
 
@@ -656,19 +658,20 @@ def proposal_lines(answer):
     the unknowns it carries."""
     out = []
     dest = answer.get("destination") or {}
-    out.append(f"- 대상: layer {dest.get('layer')}, carrier {dest.get('carrier')}")
+    out.append(f"- 대상: layer {inline(dest.get('layer'))}, carrier {inline(dest.get('carrier'))}")
     for n, op in enumerate(answer.get("operations") or [], 1):
-        out.append(f"- 연산 {n}: {op['type']} {inline(op['target'])} (before {op['before_state_sha256'][:12]})")
+        out.append(f"- 연산 {n}: {inline(op['type'])} {inline(op['target'])} "
+                   f"(before {inline(str(op['before_state_sha256'])[:12])})")
         for field in ("content", "diff"):
             if op.get(field):
                 out += fenced(op[field])
     contract = answer.get("behavior_contract")
     if contract:
         out.append("- 행동 계약: " + "; ".join(
-            f"{k} {inline(v if isinstance(v, str) else ' / '.join(v))}" for k, v in contract.items()))
+            f"{inline(k)} {inline(v if isinstance(v, str) else ' / '.join(v))}" for k, v in contract.items()))
     observation = answer.get("expected_observation")
     if observation:
-        out.append("- 기대 관찰: " + "; ".join(f"{k} {inline(v if isinstance(v, str) else v)}"
+        out.append("- 기대 관찰: " + "; ".join(f"{inline(k)} {inline(v)}"
                                          for k, v in observation.items() if v is not None))
     artifacts = answer.get("artifact_set")
     if artifacts:
@@ -678,7 +681,7 @@ def proposal_lines(answer):
                 out.append(f"- 산출물 ({field}):")
                 out += fenced(artifacts[field])
     for u in answer.get("unknowns") or []:
-        out.append(f"- 알 수 없음: {u['field']}={u['state']} — {inline(u['effect'])}")
+        out.append(f"- 알 수 없음: {inline(u['field'])}={inline(u['state'])} — {inline(u['effect'])}")
     return out
 
 
@@ -690,18 +693,20 @@ def s7b_lines(state):
         holds = lambda v: "맞음" if v else "맞지 않음"  # noqa: E731
         out = [f"- S7b: 검토함 · 판정 {'이견' if state['verdict'] == 'disagree' else '동의'} · 처분 "
                f"{holds(state['disposition_holds'])} · 위치 {holds(state['destination_holds'])} · 병합 충실 "
-               f"{state['faithful_merge']} · 통과하지 못한 기준 {', '.join(state['bars_failing'] or []) or '없음'}"
+               f"{inline(state['faithful_merge'])} · 통과하지 못한 기준 "
+               f"{', '.join(inline(b) for b in state['bars_failing'] or []) or '없음'}"
                + (" · 소유자가 정합니다" if state.get("owner_resolves") else "")]
         out.append(f"- S7b 메모: {inline(state.get('notes'))}")
         alt = state.get("alternative")
         if alt:
             where = alt.get("destination") or {}
-            out.append(f"- S7b 대안 {ALTERNATIVE_ID}: 처분 {alt.get('disposition')} · 위치 "
-                       f"{where.get('layer') or '-'}/{where.get('carrier') or '-'} · 이유 {inline(alt.get('reason'))} "
+            out.append(f"- S7b 대안 {ALTERNATIVE_ID}: 처분 {inline(alt.get('disposition'))} · 위치 "
+                       f"{inline(where.get('layer') or '-')}/{inline(where.get('carrier') or '-')} · 이유 "
+                       f"{inline(alt.get('reason'))} "
                        f"(고르려면 `결정: 수정 대안 {ALTERNATIVE_ID}`)")
         return out
     if kind == "returned":
-        return [f"- S7b: 돌려보냄 ({', '.join(state.get('codes') or []) or '코드 없음'})"]
+        return [f"- S7b: 돌려보냄 ({', '.join(inline(c) for c in state.get('codes') or []) or '코드 없음'})"]
     if kind == "unreviewed":
         return [f"- S7b: 검토 없음 ({inline(state.get('why'))})"]
     return [f"- S7b: 해당 없음 ({S7B_NONE['why']})"]
@@ -718,7 +723,7 @@ def s9b_lines(state):
     if kind == "passed":
         return ["- S9b: 통과"]
     if kind == "returned":
-        return [f"- S9b: 돌려보냄 ({', '.join(state.get('codes') or []) or '코드 없음'})"]
+        return [f"- S9b: 돌려보냄 ({', '.join(inline(c) for c in state.get('codes') or []) or '코드 없음'})"]
     return [f"- S9b: 검토 없음 ({inline(state.get('why'))})"]
 
 
@@ -737,15 +742,17 @@ def row_lines(row, fields):
     o6 = row["o6"]
     marked = (row.get("s9b") or {}).get("mark")
     out = [f"### {row['rank']}. `{row['item_id']}`" + (f" · {MARK}" if marked else ""),
-           f"- 상태: {STATUS_LABELS.get(row['status'], row['status'])} · 종류 {row['kind']} · 진단 {row['diagnosis']} · "
-           f"처분 {row['disposition']} · 결과 등급 {row['consequence']} · 독립 계보 {row['lineages']}"]
+           f"- 상태: {inline(STATUS_LABELS.get(row['status'], row['status']))} · 종류 {inline(row['kind'])} · 진단 "
+           f"{inline(row['diagnosis'])} · 처분 {inline(row['disposition'])} · 결과 등급 {inline(row['consequence'])} · "
+           f"독립 계보 {inline(row['lineages'])}"]
     labels = {"what_happened": "무엇이 있었나", "proposal": "제안", "reason": "이유", "cost": "비용",
               "serves": "누구에게", "falsifier": "반증"}
     out += [f"- {labels.get(name, name)}: {inline(o6[name])}" for name in fields]
     if row.get("judges"):
         out += [judge_line(who, row["judges"].get(who)) for who in JUDGES]
     for d in row.get("disputed") or []:
-        out.append(f"- 판정할 것 {d['label']}: {d['ref']} — A {d['A']}, B {d['B']} (자기 값은 {' 또는 '.join(d['values'])})")
+        out.append(f"- 판정할 것 {d['label']}: {inline(d['ref'])} — A {inline(d['A'])}, B {inline(d['B'])} (자기 값은 "
+                   f"{' 또는 '.join(inline(v) for v in d['values'])})")
     if row.get("proposal"):
         out += proposal_lines(row["proposal"])
     out += s7b_lines(row["s7b"])
@@ -755,11 +762,12 @@ def row_lines(row, fields):
     if row.get("awaiting_R"):
         out.append(f"- {AWAITING_R}")
     if row.get("failure"):
-        out.append(f"- 실패: {row['failure']['stage']} {', '.join(row['failure']['codes'])}")
+        out.append(f"- 실패: {inline(row['failure']['stage'])} {', '.join(inline(c) for c in row['failure']['codes'])}")
     if row.get("units"):
-        out.append("- 관련 단위: " + ", ".join(f"{u['unit_id']} (전달 증거: {u['delivery']})" for u in row["units"]))
+        out.append("- 관련 단위: " + ", ".join(f"{inline(u['unit_id'])} (전달 증거: {inline(u['delivery'])})"
+                                            for u in row["units"]))
     if row.get("events"):
-        out.append(f"- 사건: {', '.join(row['events'])}")
+        out.append(f"- 사건: {', '.join(inline(e) for e in row['events'])}")
     if row.get("members"):
         out.append(f"- 구성원: {len(row['members'])}개 (부록의 `{row['item_id']}`). 이 행의 결정 한 줄은 구성원 모두에 "
                    "적용됩니다.")
@@ -833,10 +841,30 @@ def render_text(doc, meta, locators):
             out.append("- 없음")
     out += [""] + appendix_lines(doc, locators)
     text = "\n".join(out) + "\n"
-    missing = mark_problems(doc, text)
+    missing = page_problems(doc, text) + mark_problems(doc, text)
     if missing:
         raise Refused("RENDER_REFUSED " + "\n".join(missing))
     return text
+
+
+def page_problems(doc, text):
+    """What makes `text` a page whose owner lines are not all the renderer's: a line outside every owner block shaped
+    like an owner line or a marker (OWNER_LINE_OUTSIDE_BLOCK; the parser would not read it, but the owner would), and
+    blocks other than one per row in the rows' order (OWNER_BLOCK_FORGED). Every model-made value is written through
+    `inline` or `fenced`, so neither can happen from a row's text; this refuses the page if a field ever is not."""
+    fixed, blocks, problems = owner_lines.segments(text.split("\n"))
+    problems = list(problems)
+    for n, line in fixed:
+        if owner_lines.owner_shaped(line) and not (owner_lines.OPEN.match(line) or line == owner_lines.CLOSE):
+            problems.append(f"OWNER_LINE_OUTSIDE_BLOCK line {n}: shaped like an owner line, and no owner block holds it")
+    held = [b["fields"].get("item") for b in blocks]
+    rows = [r["item_id"] for r in doc["rows"]]
+    if held != rows:
+        at = next((i for i, (h, r) in enumerate(zip(held, rows)) if h != r), min(len(held), len(rows)))
+        problems.append(f"OWNER_BLOCK_FORGED: the page holds {len(held)} owner blocks for {len(rows)} rows; block "
+                        f"{at + 1} is {held[at] if at < len(held) else 'missing'}, row {at + 1} is "
+                        f"{rows[at] if at < len(rows) else 'none'}")
+    return problems
 
 
 def spec_of(doc):
@@ -1350,7 +1378,14 @@ def self_test():
             "declaration_seq": 2, "window": {"start": "2026-10-01", "end": "2026-10-08", "tz": "UTC"},
             "question": "Which patterns?"}, "census": {}, "window_flags": None, "spent": {"S6": 1000},
             "resolutions": "없음", "rejection_share": "1 / 5", "controls": "기록 없음", "legacy_unexpected": []}
-    text = render_text(good, meta, {"e9": "s1#3"}) if good["rows"] else ""
+    def rendered(held, held_meta=None, locators=None):
+        """render_text's page, or its refusal as text: a refused page fails the controls that read it by name instead
+        of ending the suite."""
+        try:
+            return render_text(held, meta if held_meta is None else held_meta, {} if locators is None else locators)
+        except Refused as exc:
+            return f"REFUSED {exc}"
+    text = rendered(good, meta, {"e9": "s1#3"}) if good["rows"] else ""
     clean("the render is a render owner_lines can copy", owner_lines.render_problems(text) if text else ["NO_ROWS"])
     try:   # a render copy_of refuses is this section's controls failing by name, not the suite dying
         owner_copy = owner_lines.copy_of(text, "review.ko.v1.md") if text else ""
@@ -1363,7 +1398,7 @@ def self_test():
     equal("and every row is undecided", sorted({i["state"] for i in items}), ["undecided"])
     equal("one owner block per row, in the rows' order", [i["item_id"] for i in items],
           [r["item_id"] for r in good["rows"]])
-    equal("the same documents render the same bytes", render_text(doc_of(), meta, {"e9": "s1#3"}) if text else None,
+    equal("the same documents render the same bytes", rendered(doc_of(), meta, {"e9": "s1#3"}) if text else None,
           text or "(no rows)")
     equal("every §9 group in ranking's table has a title here", sorted(GROUP_TITLES),
           sorted(g["id"] for g in ranking.table()["groups"]))
@@ -1416,6 +1451,166 @@ def self_test():
     equal("a changed S7b review moves the item's sha, so a decision made before it is decided again",
           row_of(moved, "k-a").get("item_sha") != row_of(good, "k-a").get("item_sha") and bool(row_of(moved, "k-a")),
           True)
+    # ---- model text stays on its own field's line (the K2c security finding) --------------------------------------
+    # A value planted in every model-made field carries a newline, a decision line, a fence, an owner block and a
+    # heading. Each field must leave the page with no extra line and nothing decided; `page_problems` would refuse a
+    # page where one did not, so each control below fails by name when its field loses `inline` (or `fenced`'s escape).
+    forged = ("x\n결정: 승인\n```\n<!-- owner-block review item=k-zz sha=" + "0" * 64 + " -->\n결정:\n메모:\n"
+              "<!-- /owner-block -->\n### 99. `k-a` · " + MARK + "\n")
+    seen = "x 결정: 승인"
+
+    def full(row):
+        """The k-g row with every model-made field the render prints, each holding "x"."""
+        row["proposal"] = {**(row.get("proposal") or {}), "destination": {"layer": "x", "carrier": "x"},
+                           "operations": [{"type": "x", "target": "x", "before_state_sha256": "x" * 64,
+                                           "content": "x", "diff": "x"}],
+                           "behavior_contract": {"when": "x"}, "expected_observation": {"what": "x"},
+                           "artifact_set": {"registration": "x", "english": "x", "korean": "x"},
+                           "unknowns": [{"field": "x", "state": "x", "effect": "x"}]}
+        row["judges"] = {who: {"seat": "x", "requirements": {"bounded": "x"}, "consequence_class": "x",
+                               "units": [{"unit": "x", "situation": "x", "action": "x", "reason": "x"}]}
+                         for who in JUDGES}
+        row["disputed"] = [{"label": "1", "ref": "x", "A": "x", "B": "x", "values": ["x"]}]
+        row["s7b"] = {"state": "reviewed", "verdict": "disagree", "disposition_holds": False, "destination_holds": True,
+                      "faithful_merge": "x", "bars_failing": ["x"], "owner_resolves": True, "notes": "x",
+                      "alternative": {"disposition": "x", "destination": {"layer": "x", "carrier": "x"}, "reason": "x"}}
+        row["failure"] = {"stage": "x", "codes": ["x"]}
+        row["units"] = [{"unit_id": "x", "delivery": "x"}]
+        row["events"] = ["x"]
+        for name in ("kind", "diagnosis", "disposition", "consequence", "lineages"):
+            row[name] = "x"
+
+    def at(*path):
+        def plant(row, value):
+            held = row
+            for key in path[:-1]:
+                held = held[key]
+            held[path[-1]] = value
+        return plant
+
+    def key_of(*path):
+        def plant(row, value):
+            held = row
+            for key in path:
+                held = held[key]
+            held[value] = held.pop(next(iter(held)))
+        return plant
+
+    def state(name, **fields):
+        def plant(row, value):
+            row[name] = {k: (value if v is None else [value] if v == [None] else v) for k, v in fields.items()}
+        return plant
+    inline_plants = [("the status line's kind", at("kind")), ("the status line's diagnosis", at("diagnosis")),
+                     ("the status line's disposition", at("disposition")),
+                     ("the status line's consequence", at("consequence")),
+                     ("the status line's lineages", at("lineages")),
+                     *[(f"O6 field {name}", at("o6", name)) for name in o6_fields()],
+                     ("a judge's seat", at("judges", "A", "seat")),
+                     ("a judge's requirement name", key_of("judges", "A", "requirements")),
+                     ("a judge's requirement mark", at("judges", "A", "requirements", "bounded")),
+                     ("a judge's consequence class", at("judges", "A", "consequence_class")),
+                     ("a judged unit's id", at("judges", "A", "units", 0, "unit")),
+                     ("a judged unit's situation", at("judges", "A", "units", 0, "situation")),
+                     ("a judged unit's action", at("judges", "A", "units", 0, "action")),
+                     ("a judged unit's reason", at("judges", "A", "units", 0, "reason")),
+                     ("a disputed judgment's reference", at("disputed", 0, "ref")),
+                     ("a disputed judgment's side A", at("disputed", 0, "A")),
+                     ("a disputed judgment's side B", at("disputed", 0, "B")),
+                     ("a disputed judgment's own value", at("disputed", 0, "values", 0)),
+                     ("the proposal's destination layer", at("proposal", "destination", "layer")),
+                     ("the proposal's destination carrier", at("proposal", "destination", "carrier")),
+                     ("an operation's type", at("proposal", "operations", 0, "type")),
+                     ("an operation's target", at("proposal", "operations", 0, "target")),
+                     ("an operation's before-state hash", at("proposal", "operations", 0, "before_state_sha256")),
+                     ("a behavior contract's key", key_of("proposal", "behavior_contract")),
+                     ("a behavior contract's value", at("proposal", "behavior_contract", "when")),
+                     ("an expected observation's key", key_of("proposal", "expected_observation")),
+                     ("an expected observation's value", at("proposal", "expected_observation", "what")),
+                     ("the artifact registration", at("proposal", "artifact_set", "registration")),
+                     ("an unknown's field", at("proposal", "unknowns", 0, "field")),
+                     ("an unknown's state", at("proposal", "unknowns", 0, "state")),
+                     ("an unknown's effect", at("proposal", "unknowns", 0, "effect")),
+                     ("S7b's merge answer", at("s7b", "faithful_merge")),
+                     ("S7b's failing bar", at("s7b", "bars_failing", 0)),
+                     ("S7b's notes", at("s7b", "notes")),
+                     ("S7b's alternative disposition", at("s7b", "alternative", "disposition")),
+                     ("S7b's alternative layer", at("s7b", "alternative", "destination", "layer")),
+                     ("S7b's alternative carrier", at("s7b", "alternative", "destination", "carrier")),
+                     ("S7b's alternative reason", at("s7b", "alternative", "reason")),
+                     ("S7b's returned code", state("s7b", state="returned", codes=[None])),
+                     ("S7b's unreviewed reason", state("s7b", state="unreviewed", why=None)),
+                     ("S9b's notes on a marked row", state("s9b", state="marked", mark=True, notes=None)),
+                     ("S9b's returned code", state("s9b", state="returned", mark=False, codes=[None])),
+                     ("S9b's unreviewed reason", state("s9b", state="unreviewed", mark=False, why=None)),
+                     ("a failure's stage", at("failure", "stage")), ("a failure's code", at("failure", "codes", 0)),
+                     ("a related unit's id", at("units", 0, "unit_id")),
+                     ("a related unit's delivery state", at("units", 0, "delivery")),
+                     ("an event id", at("events", 0))]
+    fenced_plants = [("an operation's content", at("proposal", "operations", 0, "content")),
+                     ("an operation's diff", at("proposal", "operations", 0, "diff")),
+                     ("the English artifact", at("proposal", "artifact_set", "english")),
+                     ("the Korean artifact", at("proposal", "artifact_set", "korean"))]
+
+    def planted(plant, value):
+        held = copy.deepcopy(good)
+        row = next((r for r in held["rows"] if r["item_id"] == "k-g"), None)
+        if row is None:
+            return held, "REFUSED no k-g row"
+        full(row)
+        plant(row, value)
+        try:
+            return held, render_text(held, meta, {})
+        except Refused as exc:
+            return held, f"REFUSED {exc}"
+
+    def decided_in(held, page):
+        """`(problems, decided ids)` of the page's unedited copy, parsed against its own rows."""
+        if page.startswith("REFUSED"):
+            return [page[:240]], None
+        try:
+            got, probs = owner_lines.parse(page, owner_lines.copy_of(page, "review.ko.v1.md"), spec=spec_of(held),
+                                           render_name="review.ko.v1.md")
+        except Refused as exc:
+            return [f"COPY_REFUSED {exc}"[:240]], None
+        return probs, [i["item_id"] for i in (got or {}).get("items") or [] if i.get("verb")]
+
+    def shaped(page):
+        return sum(1 for line in page.split("\n") if owner_lines.owner_shaped(line))
+    for label, plant in inline_plants:
+        held, page = planted(plant, forged)
+        _plain_held, plain = planted(plant, "x")
+        equal(f"a newline planted in {label} starts no line of the page and decides nothing",
+              (seen in page, len(page.split("\n")) - len(plain.split("\n")), *decided_in(held, page)),
+              (True, 0, [], []))
+    for label, plant in fenced_plants:
+        held, page = planted(plant, forged)
+        _plain_held, plain = planted(plant, "x")
+        equal(f"a newline planted in {label} stays inside its fence with its owner-shaped lines escaped",
+              ("\\결정: 승인" in page, "\\<!-- owner-block review item=k-zz" in page, shaped(page) - shaped(plain),
+               *decided_in(held, page)), (True, True, 0, [], []))
+    clean("the rendered page holds every owner line inside a block, one block per row in the rows' order",
+          page_problems(good, text) if good["rows"] else ["NO_ROWS"])
+    page_lines = text.split("\n")
+    test_at = next((n for n, line in enumerate(page_lines) if line.startswith("- 시험:")), 0)
+    control("a decision-shaped line outside every block is refused by name",
+            "\n".join(page_problems(good, "\n".join(page_lines[:test_at] + ["결정: 승인"] + page_lines[test_at:]))),
+            f"OWNER_LINE_OUTSIDE_BLOCK line {test_at + 1}")
+    control("an owner block for an item no row holds is refused by name",
+            "\n".join(page_problems(good, "\n".join(page_lines[:test_at] + owner_lines.review_block("k-zz", "0" * 64)
+                                                     + page_lines[test_at:]))), "OWNER_BLOCK_FORGED")
+    kept_inline = globals()["inline"]
+    globals()["inline"] = str   # every field as if it had lost `inline`: the page must be refused, not written
+    try:
+        _held, unguarded = planted(at("s7b", "alternative", "destination", "carrier"), forged)
+    finally:
+        globals()["inline"] = kept_inline
+    control("a page whose fields lost inline is refused by render_text itself, not written", unguarded,
+            "OWNER_LINE_OUTSIDE_BLOCK line")
+    control("owner_shaped reads a line as the parser does: NFC and stripped",
+            str([owner_lines.owner_shaped(s) for s in (" 결정: 승인", unicodedata.normalize("NFD", "메모: x"),
+                                                         "  <!-- /owner-block -->", "- 결정: 승인", "\\결정: 승인")]),
+            "[True, True, True, False, False]")
+
     # ---- K4b: S9b's regenerated Korean and its marks, overlaid in stage order (decision (a)) ---------------------
     from runlib import stage_review_korean as s9b_stage
 
@@ -1479,7 +1674,7 @@ def self_test():
     plain = document({**copy.deepcopy(base_docs), "s9b_review": None, "s9b_regenerated": None})
     equal("a run S9b never reviewed renders exactly as before: the same rows, and no S9b line",
           (plain["rows"] == unlaid["rows"], any("s9b" in r for r in unlaid["rows"]),
-           any(line.startswith("- S9b") for line in render_text(unlaid, meta, {}).split("\n"))), (True, False, False))
+           any(line.startswith("- S9b") for line in rendered(unlaid).split("\n"))), (True, False, False))
     equal("a proposal S9b's version did not hold yet is named as not yet reviewed",
           (row_of(overlaid(lambda d: d["s9b_review"].update(
               rows=[r for r in d["s9b_review"]["rows"] if r["item_id"] != "k-a"])), "k-a").get("s9b") or {}).get("state"),
@@ -1510,7 +1705,7 @@ def self_test():
     control("each row prints its item_sha and its payload_sha256", text,
             f"item_sha {a.get('item_sha')} · payload_sha256 {a.get('payload_sha256')}")
     control("a legacy first word outside the owner's three is named in the header",
-            render_text(good, {**meta, "legacy_unexpected": ["odd"]}, {}) if text else "", "예상 밖의 legacy 묶음")
+            rendered(good, {**meta, "legacy_unexpected": ["odd"]}) if text else "", "예상 밖의 legacy 묶음")
 
     # ---- §13.4's frozen proposals (lead decision E7: frozen at the first render as proposed) ---------------------
     first = frozen_after(None, good["rows"], 1, "t1")
