@@ -1001,18 +1001,39 @@ def upper_bound(run_dir, declaration, judged, seats_path=None):
             "density": J0_DENSITY, "density_basis": J0_DENSITY_BASIS, "output_tokens_at_most": calls * sizes["output_cap"]}
 
 
+def absence_claims(judged, absent, not_both, sources, absence, layers):
+    """The judges' absence claims, counted whether or not they are swept: the candidates both judges judged whose agreed
+    unit diagnoses touch no covering row (`absent_candidates`), by name and per candidate kind beside the number of that
+    kind judged by both, with the reference point's state and every layer's status. Under the literal policy no
+    reference point is complete while a layer has no producer, so nothing is swept, and this count is the measured share
+    the lead's D-20261111-eaa2a8 names as the condition for reopening the scoped policy; it costs no call."""
+    both = [cid for cid in judged if cid not in set(not_both)]
+    kinds = sorted({sources[cid] for cid in judged})
+    return {"count": len(absent), "candidates": sorted(absent), "judged_by_both": len(both),
+            "by_kind": {kind: {"claims": sum(1 for cid in absent if sources[cid] == kind),
+                               "judged_by_both": sum(1 for cid in both if sources[cid] == kind)} for kind in kinds},
+            "not_judged_by_both": sorted(not_both), "swept": absence.get("complete") is True,
+            "reference": {"point": "current", "policy": absence.get("policy"),
+                          "complete": absence.get("complete") is True, "layers": dict(sorted(layers.items()))}}
+
+
 def sweep_stage(run_dir, stage, supervisor, declaration, judged, judgments, sources, caps, tranche):
-    """The absence sweeps over S6's judgments (plan WP-11 J3a, done-when 6): at a reference point the absence policy
-    reads as incomplete, every absence is `unknown` and nothing is swept; otherwise each absence claim's remaining units
-    are cut into shards (`shard_plan`, held to `shard_problems`), and each shard is sent to both sweeps with one payload
-    bound to the inventory hash, each answer checked (`sweep_problems`) and kept under sweeps/<group>/<shard>/<a|b>.json.
-    Returns the summary's `sweeps` section and the sweeps' receipts."""
+    """The absence sweeps over S6's judgments (plan WP-11 J3a, done-when 6): the judges' absence claims are counted
+    first (`absence_claims`), at every reference point; at one the absence policy reads as incomplete, every absence is
+    `unknown` and nothing is swept; otherwise each absence claim's remaining units are cut into shards (`shard_plan`,
+    held to `shard_problems`), and each shard is sent to both sweeps with one payload bound to the inventory hash, each
+    answer checked (`sweep_problems`) and kept under sweeps/<group>/<shard>/<a|b>.json. Returns the summary's `sweeps`
+    section and the sweeps' receipts. `absent` names the claims a sweep stands behind, so it stays empty where none
+    runs: a derivation waits for the sweeps of every candidate it lists."""
     checks = records.read_json(run_dir / "checks.json")
     absence = checks.get("absence") or {}
     sizes, basis = sweeps_of(declaration)
     section = {"reference": "current", "policy": absence.get("policy"), "complete": absence.get("complete") is True,
                "unknown_layers": absence.get("unknown_layers") or [], "sizes": sizes, "sizes_basis": basis,
                "absent": [], "not_judged_by_both": [], "groups": [], "calls": []}
+    absent, not_both = absent_candidates(judged, judgments, sources)
+    statuses = current_point(records.read_json(run_dir / "inventory" / "current.json"))["layers"]
+    section["claims"] = absence_claims(judged, absent, not_both, sources, absence, statuses)
     if not section["complete"]:
         section["why"] = ("absence unknown: the reference point is incomplete under the " + str(absence.get("policy"))
                           + " policy, so no absence claim stands and nothing is swept")
@@ -1020,7 +1041,6 @@ def sweep_stage(run_dir, stage, supervisor, declaration, judged, judgments, sour
     seats = sweep_seats(declaration)
     context = sweep_context(run_dir, declaration)
     layers = sweep_layers(absence)
-    absent, not_both = absent_candidates(judged, judgments, sources)
     remaining = {cid: remaining_of(context["index"], [r["unit_id"] for r in context["rows"][cid]["retrieved_units"]],
                                    layers) for cid in absent}
     groups = shard_plan(remaining, sizes["candidates_per_shard"], sizes["shard_units"])
@@ -1964,6 +1984,13 @@ def report_lines(summary):
         if summary["interrupted"]:
             lines.append(f"interrupted reservations closed: {len(summary['interrupted'])}")
         sw = summary["sweeps"]
+        cl = sw.get("claims") or {}
+        lines.append(f"absence claims ({'swept' if cl.get('swept') else 'not swept'}): {cl.get('count')} of "
+                     f"{cl.get('judged_by_both')} candidates judged by both - "
+                     + ", ".join(f"{k} {v['claims']} of {v['judged_by_both']}" for k, v in (cl.get("by_kind") or {}).items())
+                     + "; current point " + ("complete" if (cl.get("reference") or {}).get("complete") else "incomplete")
+                     + f" under the {(cl.get('reference') or {}).get('policy')} policy, layers "
+                     + ", ".join(f"{k}={v}" for k, v in ((cl.get("reference") or {}).get("layers") or {}).items()))
         if not sw["complete"]:
             lines.append(f"sweeps: none - {sw['why']}")
         else:
@@ -2747,6 +2774,26 @@ def self_test():
             control("done-when 6: at a reference point the absence policy reads as incomplete, no absence claim stands and "
                     "nothing is swept", sw_second.get("complete") is False and sw_second.get("calls") == []
                     and sw_second.get("absent") == [] and "absence unknown" in sw_second.get("why", ""), f"{sw_second}")
+            # the expectation is read from the judgments on disk, not through absent_candidates: a candidate whose every
+            # unit both judges marked situation no and action no is an absence claim whatever the policy
+            claims = sw_second.get("claims") or {}
+
+            def marked_none(cid):
+                held = [guarded(lambda w=w: records.read_json(called / judgment_rel(item_of(cid), w))["judgment"], None)
+                        for w in SEAT_KEYS]
+                return all(held) and all(u.get("situation") == "no" and u.get("action") == "no"
+                                         for h in held for u in h["units"])
+            planted_claims = sorted(c for c in judged_ids if marked_none(c))
+            inventory_layers = {row["layer"]: row["status"] for row in
+                                guarded(lambda: records.read_json(called / "inventory" / "current.json"), {}).get("layers") or []}
+            control("J3a (D-20261111-eaa2a8): at an incomplete point the judges' absence claims are still named and "
+                    "counted per candidate kind beside the number judged, with the point's state and every layer's "
+                    "status, and no sweep is called", bool(planted_claims)
+                    and claims.get("candidates") == planted_claims and claims.get("count") == len(planted_claims)
+                    and sum(v.get("claims", 0) for v in (claims.get("by_kind") or {}).values()) == len(planted_claims)
+                    and claims.get("swept") is False and (claims.get("reference") or {}).get("complete") is False
+                    and (claims.get("reference") or {}).get("layers") == inventory_layers and bool(inventory_layers)
+                    and sw_second.get("calls") == [] and sw_second.get("absent") == [], f"{claims} {planted_claims}")
             ub = dry.get("sweep_upper_bound") or {}
             index = stage_retrieve.UnitIndex(records.read_json(gold / "inventory" / "current.json")["units"])
             dry_judged = [r["candidate_id"] for r in dry.get("packets", [])]
