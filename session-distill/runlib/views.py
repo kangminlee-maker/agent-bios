@@ -1913,7 +1913,7 @@ def golden(root, name="g", overhead=bound.PACKET_OVERHEAD, capacity=None, reserv
         # dispatcher admits a view-window call against; S2's own controls keep the small one that bites
         declaration["host_allowance"] = {seat: allowance_entry}
     checkout = root / f"{name}-checkout"
-    ledger_path = checkout / ledger.LEDGER_REL
+    ledger_path = checkout / ledger.STATE_LEDGER_REL
     ledger_path.parent.mkdir(parents=True, exist_ok=True)
     ledger_path.write_text(ledger.render(ledger_doc if ledger_doc is not None else ledger.sample_ledger()), encoding="utf-8")
     declaration["destinations"] = {**declaration["destinations"], "checkout": str(checkout.resolve())}
@@ -3210,7 +3210,7 @@ def self_test():
                [path.name for path in sorted(pathlib.Path(CAPTURES).glob("*.json")) + [CAPTURES.parent / "captures.json"]
                 for text in [path.read_text(encoding="utf-8")]
                 if "sk-ant-" + "oat" in text or FX_HOME in text
-                or any(owner in text for owner in ("/Users/kangmin", "/home/", "/Users/Shared"))], [])
+                or any(owner in text for owner in (str(pathlib.Path.home()), "/home/", "/Users/Shared"))], [])
         named("control, done-when 3(c): a view-window capture above 120k is INPUT_BOUND_EXCEEDED (this one is "
               "the synthetic fixture: no retained capture of that case exists)",
               bound.check_observed(observed_input_of(overrun), True), "INPUT_BOUND_EXCEEDED")

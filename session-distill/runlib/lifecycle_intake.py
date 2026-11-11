@@ -52,17 +52,25 @@ OBSOLETE_RUN = 3        # design §7.1: "no match in three consecutive windows o
 UPWARD_MIN = 3          # design §7.4: "clusters of at least three placed learnings"
 
 
+# The checkout ledger this module's D4 leg copies, set by an author-side caller
+# (`gates/check-ledger.py`); None in an installed tree, where the leg copies nothing.
+CHECKOUT_LEDGER = None
+
 def table():
     return json.loads(TABLE_PATH.read_text(encoding="utf-8"))
 
 
 # ---- the pinned ledger -----------------------------------------------------------------------------
 
-def ledger_of(declaration):
+def ledger_of(declaration, ledger_ref=None):
     """`(schema 2 document, how it was had)` of the ledger the declaration pins: a schema 2 ledger as it is, a schema 1
-    ledger migrated in memory by the cutover's function. Nothing is written."""
+    ledger migrated in memory by the cutover's function. Nothing is written.
+
+    `ledger_ref` names the ledger inside the declaration's checkout; without one, the module-level `CHECKOUT_LEDGER`
+    the author-side caller sets. A packaged run has neither, and is then refused by name (LEDGER_UNNAMED S3) rather
+    than reading whatever file a guessed path lands on."""
     from runlib import stage_read
-    doc = stage_read.pinned_ledger(declaration)
+    doc = stage_read.pinned_ledger(declaration, ledger_ref or CHECKOUT_LEDGER)
     if doc.get("schema") == 2:
         return doc, "schema 2"
     try:
@@ -318,12 +326,12 @@ def derive(doc, window, units, occasions=None, index_rows=None, spec=None):
     return sources, notes
 
 
-def build(run_dir, declaration, index_rows=None):
+def build(run_dir, declaration, index_rows=None, ledger_ref=None):
     """`intake.json`'s document for a run: the pinned ledger (as `ledger_of` has it), the window's occasions S3 judged,
     the current library S2 left, and the golden occasion index rows when given. `declaration` is the one S4 was
     admitted against (`records.StageRun.declaration`), never a read of run.json (records.DECLARATION_READERS)."""
     run_dir = pathlib.Path(run_dir)
-    doc, had = ledger_of(declaration)
+    doc, had = ledger_of(declaration, ledger_ref)
     units = records.read_json(run_dir / "inventory" / "current.json")["units"]
     sources, notes = derive(doc, declaration["window"], units, window_occasions(run_dir, declaration["window"]), index_rows)
     candidates = [c for s in SOURCES for c in sources[s]]
@@ -587,7 +595,8 @@ def self_test():
         bad["redundancy_hint"] = [{"candidate_id": "redundancy_hint:u-one", "source": "redundancy_hint", "target_units": ["u-one"],
                                    "similarity": 1.0, "match": "identical"}]
         saved = {name: globals()[name] for name in ("ledger_of", "window_occasions", "derive")}
-        globals().update(ledger_of=lambda declaration: (doc, "schema 2"), window_occasions=lambda run_dir, window: {},
+        globals().update(ledger_of=lambda declaration, ledger_ref=None: (doc, "schema 2"),
+                         window_occasions=lambda run_dir, window: {},
                          derive=lambda *args, **kwargs: (bad, notes))
         try:
             with tempfile.TemporaryDirectory(prefix="intake-") as td:
@@ -601,10 +610,14 @@ def self_test():
     # D4: a schema 1 pin is migrated in memory by the cutover's function and its file is never written
     with tempfile.TemporaryDirectory(prefix="intake-") as td:
         checkout = pathlib.Path(td)
-        rel = checkout / ledger_lib.LEDGER_REL
-        rel.parent.mkdir(parents=True)
-        real = HERE.parent / ledger_lib.LEDGER_REL
-        raw = real.read_bytes() if real.is_file() else b""
+        # The fixture writes the ledger where the READ will look for it: the reference the
+        # author-side caller injected, so the path is named once and in one place.
+        rel = checkout / (CHECKOUT_LEDGER or ledger_lib.STATE_LEDGER_REL)
+        rel.parent.mkdir(parents=True, exist_ok=True)
+        # The owner's own ledger when this runs from a checkout, and nothing when it does not: the
+        # path of a checkout's ledger is not a thing shipped code may name (WP-24).
+        real = pathlib.Path(CHECKOUT_LEDGER) if CHECKOUT_LEDGER else None
+        raw = real.read_bytes() if real is not None and real.is_file() else b""
         rel.write_bytes(raw)
         declaration = {"destinations": {"checkout": str(checkout)},
                        "starting_hashes": {"ledger": hashlib.sha256(raw).hexdigest()}}
@@ -613,11 +626,18 @@ def self_test():
         schema1 = json.loads(raw) if raw else {}
         incubating = sum(1 for e in schema1.get("entries", []) if e.get("status") in ("incubating", "incubating-G"))
         legacy_ids = [c["candidate_id"] for c in guarded(lambda: legacy_incubation(migrated), [])] if migrated else []
-        control("D4: the repository's schema 1 ledger is migrated in memory by the cutover's function, and its every "
-                "incubating entry is a legacy candidate, its file unchanged",
-                schema1.get("schema") == 1 and how == "schema 1, migrated in memory" and incubating > 0
-                and len(legacy_ids) == incubating and hashlib.sha256(rel.read_bytes()).hexdigest() == hashlib.sha256(raw).hexdigest(),
-                f"{how} incubating={incubating} legacy={len(legacy_ids)}")
+        if not raw:
+            # The owner's schema 1 ledger lives in a checkout, which shipped code may not name
+            # (WP-24): the author-side caller sets CHECKOUT_LEDGER, and without it this leg is
+            # reported as skipped by name rather than passing over an empty file.
+            print("lifecycle_intake --self-test SKIPPED: D4, the migration of the repository's schema 1 "
+                  "ledger (set CHECKOUT_LEDGER, as gates/check-ledger.py does)")
+        else:
+            control("D4: the repository's schema 1 ledger is migrated in memory by the cutover's function, and its every "
+                    "incubating entry is a legacy candidate, its file unchanged",
+                    schema1.get("schema") == 1 and how == "schema 1, migrated in memory" and incubating > 0
+                    and len(legacy_ids) == incubating and hashlib.sha256(rel.read_bytes()).hexdigest() == hashlib.sha256(raw).hexdigest(),
+                    f"{how} incubating={incubating} legacy={len(legacy_ids)}")
     control("the suite leaves no temporary tree", not checkout.exists(), str(checkout))
 
     for failure in failures:
@@ -629,6 +649,15 @@ def self_test():
 
 
 if __name__ == "__main__":
+    # `--checkout-ledger` is how an author-side caller hands this suite the owner's schema 1 ledger;
+    # shipped code names no path under `design/` (WP-24), and without the flag the D4 leg is skipped
+    # by name — which is also what an installed tree gets.
     if "--self-test" not in sys.argv[1:]:
-        sys.exit("usage: lifecycle_intake.py --self-test")
+        sys.exit("usage: lifecycle_intake.py --self-test [--checkout-ledger PATH]")
+    given = sys.argv[1:]
+    if "--checkout-ledger" in given:
+        at = given.index("--checkout-ledger")
+        if at + 1 >= len(given):
+            sys.exit("usage: --checkout-ledger takes a path")
+        CHECKOUT_LEDGER = given[at + 1]
     sys.exit(self_test())
