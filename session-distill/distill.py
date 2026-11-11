@@ -106,7 +106,7 @@ STARTUP_WITHHELD = entry.WITHHELD
 
 try:
     from runlib import census, coverage, declare, inventory, projection, records, sources, stage_form, stage_judge, \
-        stage_render, stage_retrieve, stagelock, views
+        stage_approvals, stage_render, stage_retrieve, stagelock, views
     from runlib import ledger as ledger_lib
     from runlib.records import Refused
 except BaseException as _startup_exc:   # SystemExit included: `validate` exits at import time
@@ -486,6 +486,15 @@ def cmd_retrieve(args):
     return 0
 
 
+def cmd_parse_decisions(args):
+    """S10's parse (runlib/stage_approvals.py): the owner's copy of a review version, held to the current rows, into
+    approvals.jsonl and adjudications.jsonl; a version is parsed once."""
+    out = stage_approvals.run(run_dir_of(args), args.version, args.copy)
+    say(f"S10 parse-decisions: version {out['version']} (current {out['current_version']}): {out['decided']} decided, "
+        f"{out['undecided']} undecided, {out['stale']} stale; {out['approval_rows']} approval rows, "
+        f"{out['adjudications']} adjudications" + ("; resumed a parse cut short" if out["resumed"] else ""))
+
+
 def cmd_render(args):
     """S9 (runlib/stage_render.py): the review of S4's population through S7, its owner copy and its rows, written once
     as the next version. It reads the pinned ledger S4 read, for the legacy groups."""
@@ -547,7 +556,8 @@ def build_parser():
                  "form": f"{stage}: candidate formation and the lifecycle intake",
                  "retrieve": f"{stage}: retrieval, quote and session checks, and recurrence",
                  "judge": f"{stage}: the judges A and B",
-                 "render": f"{stage}: the review, the owner's decision copy and the rows"}
+                 "render": f"{stage}: the review, the owner's decision copy and the rows",
+                 "parse-decisions": f"{stage}: the owner's decision copy into approvals and adjudications"}
         sub = commands.add_parser(name, help=helps.get(name, f"{stage}: not implemented yet"))
         common(sub)
         if name == "close":
@@ -581,6 +591,9 @@ def build_parser():
                                                        "destination, which the caller names because the layout of a "
                                                        "checkout is not this driver's to assume; without it the "
                                                        "stage is refused LEDGER_UNNAMED rather than reading a guess")
+        if name == "parse-decisions":
+            sub.add_argument("--version", type=int, help="the review version whose copy to parse (default: the current one)")
+            sub.add_argument("--copy", help="the owner's edited copy (default: decisions.ko.v<n>.md in the run)")
         if name == "form":
             sub.add_argument("--dry", action="store_true", help="stop before the call: the intake and the packet's measure")
             sub.add_argument("--cells", help="the cell root the formation call runs under (made mode 700)")
@@ -592,7 +605,7 @@ def build_parser():
                                                        "stage is refused LEDGER_UNNAMED rather than reading a guess")
         sub.set_defaults(handler={"census": cmd_census, "views": cmd_views, "inventory": cmd_inventory,
                                   "form": cmd_form, "retrieve": cmd_retrieve, "judge": cmd_judge,
-                                  "render": cmd_render}.get(name, cmd_stage))
+                                  "render": cmd_render, "parse-decisions": cmd_parse_decisions}.get(name, cmd_stage))
     return parser
 
 
@@ -695,7 +708,7 @@ def self_test():
             A stage with parts (`records.STAGE_PARTS`) is written as one of them: these controls are
             about declarations and inputs, and a part-less write there is refused by name."""
             where = at or run_dir
-            part = "views" if name in records.STAGE_PARTS else None
+            part = records.STAGE_PARTS[name][0] if name in records.STAGE_PARTS else None
             with records.run_stage(where, name, inputs, part=part) as run:
                 (pathlib.Path(where) / f"{name}.out").write_text(f"{name}\n", encoding="utf-8")
                 run.output(f"{name}.out")
@@ -850,7 +863,7 @@ def self_test():
 
         # each implemented command has its own controls (form's and retrieve's runs in runlib/stage_form.py's and
         # runlib/stage_retrieve.py's suites, as a process); the rest are named and refused
-        implemented = ("census", "views", "inventory", "form", "retrieve", "judge", "render")
+        implemented = ("census", "views", "inventory", "form", "retrieve", "judge", "render", "parse-decisions")
         for command, stage_id in STAGE_COMMANDS.items():
             if command in implemented:
                 continue

@@ -542,6 +542,11 @@ if [ -f session-distill/runlib/stage_render.py ]; then
   leg -q "FAIL: session-distill S9 render self-test (session-distill/runlib/stage_render.py)" \
     python3 session-distill/runlib/stage_render.py --self-test
 fi
+# S10 parse: the owner's decision copy, held to the current rows, into approvals and adjudications (WP-20 K3).
+if [ -f session-distill/runlib/stage_approvals.py ]; then
+  leg -q "FAIL: session-distill S10 parse self-test (session-distill/runlib/stage_approvals.py)" \
+    python3 session-distill/runlib/stage_approvals.py --self-test
+fi
 # The commit-sequencing check (S-14). The suite runs its DETERMINISTIC stand-in only: the real hook
 # belongs to `sequencing.py --real-hook-check`, which is not a leg because this umbrella is itself run
 # by the pre-commit hook and a leg that ran the hook would recurse.

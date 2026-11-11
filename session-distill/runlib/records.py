@@ -65,8 +65,9 @@ STAGES = ("S1", "S2", "S3", "S4", "S5", "S6", "S7", "S7b", "S8", "S9", "S9b", "S
 # The stages whose one record holds more than one producer, and the parts each has. A stage absent
 # here keeps the single-producer record shape exactly as it was, and its readers do not change: S2
 # produces the reading views and the inventory of the library, which neither calls the other nor
-# may overwrite the other's record (design §6.1, §6.3).
-STAGE_PARTS = {"S2": ("views", "inventory")}
+# may overwrite the other's record (design §6.1, §6.3). S10 parses the owner's decisions and, for a 판정, adjudicates
+# them (design §10.1, §10.2; plan WP-20): two producers whose outputs neither may replace.
+STAGE_PARTS = {"S2": ("views", "inventory"), "S10": ("parse", "adjudicate")}
 STATUSES = ("running", "complete", "partial", "failed")
 OUTCOMES = ("retained", "merged", "rejected", "quarantined")  # design §3.2 item 5
 
@@ -1222,9 +1223,9 @@ def self_test():
         base = {"declaration_seq": 0, "question": "fixture", "posture": "production"}
         declare_fixture(run_dir, base)
 
-        def start(stage, inputs=()):
+        def start(stage, inputs=(), part=None):
             try:
-                with run_stage(run_dir, stage, inputs) as st:
+                with run_stage(run_dir, stage, inputs, part=part) as st:
                     (run_dir / f"{stage}.out").write_text(f"{stage} output\n", encoding="utf-8")
                     st.output(f"{stage}.out")
                 return []
@@ -1319,9 +1320,10 @@ def self_test():
                "but the declaration log ends at 0")
         amend_fixture(run_dir, {**base, "declaration_seq": 1}, amend(1, scope=("S10",)))
         expect("amendment licenses S10, producer S1 not invalidated",
-               start("S10", [{"artifact": "S1.out", "producer_stage": "S1"}]))
-        pinned_s10 = (read_json(record_path(run_dir, "S10")).get("inputs")
-                      if record_path(run_dir, "S10").is_file() else [])
+               start("S10", [{"artifact": "S1.out", "producer_stage": "S1"}], part="parse"))
+        # S10 has parts (STAGE_PARTS), so its pinned inputs are its part's
+        held_s10 = read_json(record_path(run_dir, "S10")) if record_path(run_dir, "S10").is_file() else {}
+        pinned_s10 = ((held_s10.get("parts") or {}).get("parse") or held_s10).get("inputs") or []
         if [row.get("producer_seq") for row in pinned_s10] != [0]:
             failures.append(f"S10 pinned its producer's sequence as its own: {pinned_s10}")
         expect("amendment does not list S10b",
