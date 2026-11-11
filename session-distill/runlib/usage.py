@@ -17,6 +17,10 @@ provisional tokens, the count of unresolved requests) and `complete` stays false
 request is measured and the closing aggregate has reconciled (`reconciled`). A call's state,
 as its receipt carries it, is `measured` only when complete.
 
+What a call's driver bytes took as tokens is read from its first main request (`first_input`), and
+what the host's own retry of a refused structured output added from each later one (`retry_shares`);
+the two are kept apart, so a retry is never read as density (WP-08e).
+
 Failures are named USAGE_INVALID.
 
   usage.py --self-test
@@ -82,6 +86,49 @@ def same_usage(comp, usage):
 
 def request_total(request):
     return sum(request.get(key) or 0 for key in TOKEN_KEYS)
+
+
+INPUT_KEYS = ("input", "cache_read", "cache_creation")  # what one request put in front of the model
+
+
+def countable(value):
+    return isinstance(value, int) and not isinstance(value, bool) and value >= 0
+
+
+def request_input(request):
+    """The input one measured request put in front of the model (input, cache read and cache creation), or None when
+    the request is not measured or a count is not a count."""
+    if not isinstance(request, dict) or request.get("state") != "measured":
+        return None
+    counts = [request.get(key) for key in INPUT_KEYS]
+    return sum(counts) if all(countable(c) for c in counts) else None
+
+
+def main_requests(requests):
+    """A call's main-agent requests, in the order the host made them."""
+    return [r for r in (requests or []) if isinstance(r, dict) and r.get("role") == "main"]
+
+
+def first_input(requests):
+    """The input of a call's FIRST main request, or None when it is not measured (WP-08e). The first request carries the
+    packet alone, so the driver bytes over it are what the text takes as tokens. A later main request of the same call
+    is the host's own retry of a refused structured output: it carries the first answer and the refusal on top, which is
+    a retry's margin (`retry_shares`), never density. Summing a call's requests read C2's window 8 at 1.01 bytes a token
+    and its largest request at 1.90, where its first request read 2.16."""
+    mains = main_requests(requests)
+    return request_input(mains[0]) if mains else None
+
+
+def retry_shares(requests):
+    """What each later main request of a call put in front of the model beyond the request before it and that
+    request's answer: the error text of a refused structured output, with whatever the host adds around it (WP-08e).
+    Empty for a call of one request; a pair with a count missing is left out."""
+    mains, shares = main_requests(requests), []
+    for before, after in zip(mains, mains[1:]):
+        a, b = request_input(before), request_input(after)
+        if a is not None and b is not None and countable(before.get("output")):
+            shares.append(b - a - before["output"])
+    return shares
 
 
 def estimate(previous_total, new_content_chars=0, tool_result=False):
@@ -190,6 +237,16 @@ def self_test():
             else [f"{estimate(1000, 300, tool_result=True)}"])
     control("estimate-rounds-up", [] if estimate(0, 1) == 1 else [f"{estimate(0, 1)}"])
     control("no-previous-request-is-unresolved", [] if estimate(None, 5000) is None else ["estimated from nothing"])
+
+    # WP-08e: C2's window 8 as its usage record held it (counts only): two main requests, the second the host's retry
+    c2_w8 = [req("main#1", "measured", (2, 6366, 3297, 50247)), req("main#2", "measured", (2, 3613, 53544, 7484))]
+    control("WP-08e: a call's density reads its first main request, never the sum of its requests or the largest",
+            [] if first_input(c2_w8) == 53546 else [f"first_input {first_input(c2_w8)}"])
+    control("WP-08e: a retry's share is what its request added beyond the request before it and that request's answer",
+            [] if retry_shares(c2_w8) == [1118] and retry_shares(c2_w8[:1]) == [] else [f"shares {retry_shares(c2_w8)}"])
+    control("WP-08e: a first request not measured gives no density",
+            [] if first_input([req("main#1", "provisional", est=5000), *c2_w8[1:]]) is None
+            and first_input([req("s#1", "measured", (1, 1, 1, 1), role="subagent")]) is None else ["read a density"])
 
     # the state rules a schema cannot state
     control("measured-without-counts", check(record(req("q1", "measured", (1, None, 1, 1)))),

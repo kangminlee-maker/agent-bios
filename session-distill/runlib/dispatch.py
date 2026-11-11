@@ -7,9 +7,14 @@ Every agent-backed dispatch is an episode (design §13.2). Before it starts, `re
 call's calibrated cost from the stage's remaining budget in one critical section under the
 supervisor's lock, so two requests can never both be admitted against one balance: the 95th
 percentile of the measured cost of its class (stage, seat, case type), or — for a class with
-fewer than CALIBRATION_MIN_SAMPLES measured calls — the nearest probe measurement (SEEDS) times
-usage.SAFETY_FACTOR, marked `calibration: provisional` and admitted only in a calibration
-tranche at concurrency one (S-15). The budget is the one run.json declares now, read through
+fewer than CALIBRATION_MIN_SAMPLES measured calls — a provisional reservation, marked
+`calibration: provisional`. Calibration is a property of the class, not of where in the run the
+call falls (WP-08e, lead decision): a call whose packet and output cap are known is reserved at
+its own estimate (`Supervisor.provisional_amount`: its spend at most at the density the run
+measured, else declared, else the floor, with the host allowance, the cap and the retry's error
+share) in any tranche, as long as the budget left holds it; one with no estimate is reserved at
+the nearest probe measurement (SEEDS) times usage.SAFETY_FACTOR and admitted only in a
+calibration tranche (S-15). A calibration tranche runs a class at concurrency one. The budget is the one run.json declares now, read through
 records.declaration_state, so an amendment is recorded before anything is spent against it and a
 hand edit is refused. A reservation that does not fit records the item `not_done`.
 
@@ -64,7 +69,7 @@ never the call's receipt (plan addendum 2026-10-21T0630--0e0d27e--plan-addendum-
 
 Refused by name: RESERVATION_MISSING, CAP_MISSING, PROVIDER_DEFERRED, PACKET_REFUSED (with the
 linter's codes), CALIBRATION_PROVISIONAL, CALIBRATION_SERIAL, BUDGET_UNDECLARED, BUDGET_EXHAUSTED
-(the item recorded not_done), INPUT_BOUND_EXCEEDED and RUN_STOPPED, DRIVER_PART_UNCOUNTED,
+(the item recorded not_done), INPUT_BOUND_EXCEEDED, CLAIM_EXCEEDED and RUN_STOPPED, DRIVER_PART_UNCOUNTED,
 DRIVER_PART_LENGTH_CONFLICT, APPENDED_PROMPT_PATH_FORM, APPENDED_PROMPT_UNDELIVERABLE,
 CAP_UNDELIVERABLE, USAGE_INCOMPLETE, CAPACITY_UNDECLARED, CALL_EXISTS,
 USAGE_UNCAPTURED, RECEIPT_MISSING, SEAT_UNPINNED, ALLOWANCE_UNMEASURED, ALLOWANCE_MISMATCH,
@@ -82,6 +87,7 @@ CLOSURE_IMPORTS_OUT_OF_SCOPE, DYNAMIC_LOAD_UNDECLARED and INVENTORY_STALE.
 """
 import ast
 import contextlib
+import datetime
 import hashlib
 import importlib.util
 import inspect
@@ -107,7 +113,7 @@ from runlib import bound, gate, packet as packets, receipts, records, stagelock,
 from runlib import entry as boundary
 from runlib import monitor as monitors
 from runlib import usage as usages
-from runlib.records import Refused
+from runlib.records import Refused, RunStopped
 
 REPO = pathlib.Path(__file__).resolve().parents[2]
 # wrappers/codex_protocol.py owns a child's lifecycle in a process group of its own (Owned), loaded by
@@ -760,6 +766,176 @@ def p95(samples):
     return ordered[math.ceil(0.95 * len(ordered)) - 1]
 
 
+# ---- what a call's bytes take as tokens, read from the run's own calls (WP-08e) -------------------
+
+# Bytes a token covers where a class (stage, seat, kind) has no measured call in the run: a token covers at least a
+# byte, which is what the view-window bound (bound.py, (a)) already assumes, so an estimate at the floor is as high as
+# that bound.
+DENSITY_FLOOR = 1.0
+# The error share of a host's own retry of a refused structured output, until a run measures its own: what the second
+# request added beyond the first and its answer in C2's two retried calls (window 8: 1,118; S4: 584), the larger taken.
+RETRY_ERROR_TOKENS = 1_118
+# The host's retries of one call an "at most" claim holds unless the declaration re-declares them (`run.json` `retry`):
+# C2 measured one at most. Nothing caps the host's own retries, so a call past its claim stops the run by name
+# (`bound.CLAIM_CODE`; W review of WP-08e r1, F4).
+RETRIES_CLAIMED = 1
+
+
+def run_ledger_path(run_dir):
+    """The run's supervisor ledger, the file `Supervisor.ledger` reads."""
+    return pathlib.Path(run_dir) / "supervisor" / "ledger.json"
+
+
+def run_calls(run_dir, host, stage=None, case_type=None):
+    """`[(reservation, call directory)]` of the run's own calls of `host`, read from its ledger: each reservation of
+    `stage` (every stage when None) and of `case_type` whose call left a directory, in call id order."""
+    path = run_ledger_path(run_dir)
+    held = records.read_json(path) if path.is_file() else {}
+    out = []
+    for name, entry in sorted((held.get("stages") or {}).items()):
+        if stage is not None and name != stage:
+            continue
+        for call_id, r in sorted((entry.get("reservations") or {}).items()):
+            klass = str(r.get("class", "")).split("|")
+            if len(klass) != 3 or str(r.get("seat", "")).partition(":")[0] != host:
+                continue
+            if case_type is not None and klass[2] != case_type:
+                continue
+            call_dir = pathlib.Path(run_dir) / "calls" / call_id
+            if (call_dir / "call.json").is_file() and (call_dir / "usage.json").is_file():
+                out.append((r, call_dir))
+    return out
+
+
+def density_samples(run_dir):
+    """`{(seat, "<stage>:<case type>"): [(bytes per token, reserved at)]}` over the run's own measured calls, keyed as the
+    reservation classes are (`class_key`: stage, the complete seat, case type; W review of WP-08e r1, F3), each read as
+    its driver bytes over the input of its FIRST main request (`usage.first_input`)."""
+    held = records.read_json(run_ledger_path(run_dir)) if run_ledger_path(run_dir).is_file() else {}
+    hosts = {str(r.get("seat", "")).partition(":")[0] for entry in (held.get("stages") or {}).values()
+             for r in (entry.get("reservations") or {}).values()}
+    out = {}
+    for host in sorted(h for h in hosts if h):
+        for r, call_dir in run_calls(run_dir, host):
+            stage, seat, case_type = str(r["class"]).split("|")
+            driver = (records.read_json(call_dir / "call.json").get("bound") or {}).get("driver_bytes")
+            first = usages.first_input(records.read_json(call_dir / "usage.json").get("requests"))
+            if usages.countable(driver) and driver > 0 and first:
+                out.setdefault((seat, f"{stage}:{case_type}"), []).append((driver / first, r.get("at")))
+    return out
+
+
+def fewest(samples):
+    """The fewest bytes a token covered over `samples`, rounded down to a thousandth so the tokens it gives are high."""
+    return max(math.floor(min(s for s, _at in samples) * 1000) / 1000, 0.001)
+
+
+def measured_table(run_dir):
+    """The run's measured density table, in the shape a later run's declaration takes it (`run.json` `density`; WP-08e,
+    lead decision): `{seat: {"<stage>:<case type>": {bytes_per_token, measured_in, samples, at}}}`, the fewest over the
+    run's own measured calls of each seat and kind, the run's id, their count, and the latest of their reservations.
+    Nothing copies it forward: whoever declares a later run writes it."""
+    run_id = pathlib.Path(run_dir).resolve().name
+    table = {}
+    for (seat, kind), samples in sorted(density_samples(run_dir).items()):
+        stamps = [at for _s, at in samples if isinstance(at, (int, float)) and not isinstance(at, bool)]
+        at = (datetime.datetime.fromtimestamp(max(stamps), tz=datetime.timezone.utc).isoformat(timespec="seconds")
+              if stamps else None)
+        table.setdefault(seat, {})[kind] = {"bytes_per_token": fewest(samples), "measured_in": run_id,
+                                            "samples": len(samples), "at": at}
+    return table
+
+
+def measured_density(run_dir, seat, stage, case_type, declared=None):
+    """`{bytes_per_token, basis, samples}` for one class of call - a stage, the complete seat and a case type, as
+    `class_key` keys a reservation, so a seat change of the same host borrows nothing (W review of WP-08e r1, F3) - in
+    the order the lead decided (WP-08e): the fewest bytes a token covered over the run's own calls of that class
+    (`density_samples`), basis `measured: <seat>/<stage>:<kind>/<n> samples`; else the entry of the declaration's
+    `density` table (`declared`, an earlier run's measured table), basis `declared: <run id>/<n>`; else
+    `DENSITY_FLOOR`, basis `floor: 1.0`. A call's later requests are the host's retry and are read by `retry_share`,
+    which pools a host's calls, never here."""
+    kind = f"{stage}:{case_type}"
+    samples = density_samples(run_dir).get((seat, kind), [])
+    if samples:
+        return {"bytes_per_token": fewest(samples), "basis": f"measured: {seat}/{kind}/{len(samples)} samples",
+                "samples": len(samples)}
+    entry = ((declared or {}).get(seat) or {}).get(kind)
+    if entry:
+        return {"bytes_per_token": entry["bytes_per_token"],
+                "basis": f"declared: {entry['measured_in']}/{entry['samples']}", "samples": 0}
+    return {"bytes_per_token": DENSITY_FLOOR, "basis": f"floor: {DENSITY_FLOOR}", "samples": 0}
+
+
+def retry_share(run_dir, host, declared=None):
+    """`{calls, retried, rate, margin, margin_basis}` of the run's own measured calls of `host`, pooled over the host's
+    seats and kinds (a refusal's error text is the host's, not a seat's; W review of WP-08e r1, F3): how many made a second
+    main request (the host's retry of a refused structured output), and the error-share margin a request may carry
+    beyond the request before it and that request's answer - the largest the run measured (`usage.retry_shares`), never
+    below the declared `retry.margin` (`declared`, the declaration's `retry`), else RETRY_ERROR_TOKENS; and the retries a
+    call's claim holds, `count`: the declared `retry.count`, else RETRIES_CLAIMED (W r1, F4). The rate is None where no
+    call of the host is measured."""
+    calls = retried = 0
+    shares = []
+    for _r, call_dir in run_calls(run_dir, host):
+        requests = records.read_json(call_dir / "usage.json").get("requests")
+        if usages.first_input(requests) is None:
+            continue
+        calls += 1
+        if len(usages.main_requests(requests)) > 1:
+            retried += 1
+            shares += usages.retry_shares(requests)
+    declared = declared or {}
+    floor = declared.get("margin", RETRY_ERROR_TOKENS)
+    margin = max([floor, *shares])
+    basis = (f"measured: {host}/{len(shares)} retries, the largest {max(shares)}" if shares and max(shares) > floor
+             else (f"declared: retry.margin {floor}" if "margin" in declared
+                   else f"constant: RETRY_ERROR_TOKENS {RETRY_ERROR_TOKENS} (C2's two retries, 1,118 and 584)")
+             + (f"; this run's {len(shares)} retries measured no more" if shares else ""))
+    count = declared.get("count", RETRIES_CLAIMED)
+    return {"calls": calls, "retried": retried, "rate": retried / calls if calls else None, "margin": margin,
+            "margin_basis": basis, "count": count,
+            "count_basis": f"declared: retry.count {count}" if "count" in declared else f"constant: RETRIES_CLAIMED {count}"}
+
+
+def input_at_most(driver_bytes, density, allowance, output_cap, margin, retries=RETRIES_CLAIMED):
+    """`(first, at_most)` input tokens of one call that sends `driver_bytes`: its first request, the bytes as tokens at
+    `density` plus the host's allowance; and at most any one request of it, the first plus, for each of the `retries`
+    the claim holds, one answer at the output cap and the error-share margin - what each retry of a refused structured
+    output carries on top of the request before it."""
+    first = math.ceil(driver_bytes / density["bytes_per_token"]) + allowance
+    return first, first + retries * (output_cap + margin)
+
+
+def spend_at_most(first, at_most, output_cap, retries=RETRIES_CLAIMED):
+    """What a call whose first request takes `first` and whose last claimed retry takes `at_most` spends at most: each
+    of its `retries` + 1 requests and its answer at the output cap, each retry a step of (at_most - first) / retries
+    above the request before it. One retry: the first request and its answer, then the retry at most and its answer."""
+    step = (at_most - first) // retries
+    return sum(first + k * step + output_cap for k in range(retries + 1))
+
+
+def claim_of(driver_bytes, terms):
+    """`(first, at_most)` of a call that sends `driver_bytes`, under the claim `terms` it was reserved with
+    (`Supervisor.claim_terms`)."""
+    return input_at_most(driver_bytes, {"bytes_per_token": terms["bytes_per_token"]}, terms["allowance"],
+                         terms["output_cap"], terms["margin"], terms["retries"])
+
+
+def call_claim(driver_bytes, terms):
+    """The claim one call is held to after it settles (W r1 F4, W r2 F7; lead decisions): `{requests_at_most, first,
+    step, input_at_most, basis}` - at most its first request and the claimed retries; the first within `first`, its
+    reserved estimate (the bytes it sent at its class's density, with the allowance); the k-th retry within `first + k
+    x step`, `step` one answer at the cap and the error share; so the reservation (`spend_at_most`) bounds every request
+    sequence the claim admits. None without claim terms."""
+    if not terms or not (usages.countable(driver_bytes) and driver_bytes > 0):
+        return None
+    first, at_most = claim_of(driver_bytes, terms)
+    return {"requests_at_most": 1 + terms["retries"], "input_at_most": at_most, "first": first,
+            "step": terms["output_cap"] + terms["margin"],
+            "basis": f"density {terms['density_basis']}, allowance {terms['allowance']}, output cap {terms['output_cap']}, "
+                     f"retry margin {terms['margin']}, retries {terms['retries']}"}
+
+
 def plain_tree(root):
     """True when `root` is a directory of regular files and directories only: what a producing call
     reads is copied into its cell, and a symlink could carry the read outside it."""
@@ -915,7 +1091,10 @@ class Supervisor:
     def ledger(self):
         path = self._path("ledger.json")
         held = records.read_json(path) if path.is_file() else {}
-        return {"stages": held.get("stages", {}), "stopped": held.get("stopped")}
+        # one record per obligation (`bound.as_stops`); a ledger written before held one `stopped` entry
+        # and beside them `stopped`, their one-entry projection (`bound.projection`) that a reader of that shape reads
+        return {"stages": held.get("stages", {}), "stops": bound.as_stops(held.get("stops", held.get("stopped"))),
+                "stopped": held.get("stopped")}
 
     @staticmethod
     def _stage(ledger, stage):
@@ -999,23 +1178,72 @@ class Supervisor:
         held = sum(r["amount"] for r in entry["reservations"].values() if r["open"])
         return held + entry["spent"]["measured"] + entry["spent"]["provisional"]
 
-    def reserve(self, stage, item, seat, case_type, *, tranche="broad", attempt=1, _between=None, _locked=True):
-        """Check and reserve in one critical section. `_between` and `_locked` exist for the
-        self-test's race control only: the unlocked variant is the check-then-reserve race."""
+    def estimable(self, seat, output_cap):
+        """The host's measured hermetic allowance when a call of `seat` declaring `output_cap` can be reserved at its
+        own estimate (`provisional_amount`), else None: the estimate needs both."""
+        if not (usages.countable(output_cap) and output_cap > 0):
+            return None
+        entry = ((gate.seats(self.seats_path).get("hosts") or {}).get(seat.partition(":")[0])) or {}
+        slot = ((entry.get("host_allowance") or {}).get("hermetic")) or {}
+        return slot["allowance_tokens"] if slot.get("measured") is True and usages.countable(slot.get("allowance_tokens")) \
+            else None
+
+    def provisional_amount(self, stage, seat, case_type, sizing, run):
+        """What a call of a class with fewer than CALIBRATION_MIN_SAMPLES measured calls is reserved at, wherever in the
+        run it falls (WP-08e, lead decision): its spend at most (`spend_at_most`), from its packet's driver bytes at the
+        density of its class (`measured_density`: the run's own, else `run`'s declared table, else the floor),
+        the host's measured hermetic allowance, the output cap it declares and the retry's error share (`retry_share`).
+        `{tokens, basis}`, or None when no estimate can be made: `sizing` (`{driver_bytes, output_cap}`) is not given,
+        or the host has no measured hermetic allowance (`estimable`)."""
+        terms = self.claim_terms(stage, seat, case_type, sizing, run)
+        if terms is None:
+            return None
+        driver = sizing["driver_bytes"]
+        first, at_most = claim_of(driver, terms)
+        return {"tokens": spend_at_most(first, at_most, terms["output_cap"], terms["retries"]),
+                "basis": f"{driver} driver bytes, density {terms['density_basis']}, allowance {terms['allowance']}, "
+                         f"output cap {terms['output_cap']}, retry margin {terms['margin']}, retries {terms['retries']}"}
+
+    def claim_terms(self, stage, seat, case_type, sizing, run):
+        """What one call's "at most" claim is computed from (W review of WP-08e r1, F4), or None when no estimate can be
+        made (`estimable`): `{bytes_per_token, density_basis, allowance, output_cap, margin, retries}` - the density of
+        its class, the host's measured hermetic allowance, the output cap the call declares, the retry's error share
+        and the retries the claim holds (`retry_share`, with the declaration's `retry`). Recorded with the reservation
+        and applied to the bytes the call really sends (`claim_of`)."""
+        sizing = sizing or {}
+        driver, cap = sizing.get("driver_bytes"), sizing.get("output_cap")
+        allowance = self.estimable(seat, cap)
+        if allowance is None or not (usages.countable(driver) and driver > 0):
+            return None
+        density = measured_density(self.run_dir, seat, stage, case_type, run.get("density"))
+        retry = retry_share(self.run_dir, seat.partition(":")[0], run.get("retry"))
+        return {"bytes_per_token": density["bytes_per_token"], "density_basis": density["basis"], "allowance": allowance,
+                "output_cap": cap, "margin": retry["margin"], "retries": retry["count"]}
+
+    def reserve(self, stage, item, seat, case_type, *, tranche="broad", attempt=1, sizing=None, _between=None,
+                _locked=True):
+        """Check and reserve in one critical section. A class with fewer than CALIBRATION_MIN_SAMPLES measured calls is
+        reserved at the call's own estimate when `sizing` makes one (`provisional_amount`), in any tranche; without one
+        it is reserved at the seed and only in a calibration tranche (CALIBRATION_PROVISIONAL). `_between` and
+        `_locked` exist for the self-test's race control only: the unlocked variant is the check-then-reserve race."""
         host, klass = seat.partition(":")[0], class_key(stage, seat, case_type)
         with self._lock() if _locked else contextlib.nullcontext():
             ledger = self.ledger()
-            if self._blocked(ledger):
-                raise Refused(f"RUN_STOPPED {ledger['stopped']['code']} at {ledger['stopped']['call_id']}: "
-                              f"nothing more is dispatched in this run")
+            blocked = self._blocked(ledger)
+            if blocked:
+                raise RunStopped(blocked)
             run, _digest, _amendments = records.declaration_state(self.run_dir, who="dispatch")
             budget = run["budget"]["per_stage"].get(stage)
             if budget is None:
                 raise Refused(f"BUDGET_UNDECLARED {stage}: run.json declares no budget for the stage")
             amount, calibration = self.estimate(klass, host)
-            if calibration == "provisional" and tranche != "calibration":
-                raise Refused(f"CALIBRATION_PROVISIONAL {klass}: fewer than {CALIBRATION_MIN_SAMPLES} measured calls; "
-                              f"only a calibration tranche dispatches it (S-15)")
+            terms = self.claim_terms(stage, seat, case_type, sizing, run)
+            estimated = self.provisional_amount(stage, seat, case_type, sizing, run) if calibration == "provisional" else None
+            if estimated is not None:
+                amount = estimated["tokens"]
+            elif calibration == "provisional" and tranche != "calibration":
+                raise Refused(f"CALIBRATION_PROVISIONAL {klass}: fewer than {CALIBRATION_MIN_SAMPLES} measured calls and "
+                              f"no estimate of this call to reserve it at; only a calibration tranche dispatches it (S-15)")
             entry = self._stage(ledger, stage)
             if tranche == "calibration" and any(r["open"] and r["class"] == klass and r["tranche"] == "calibration"
                                                 for r in entry["reservations"].values()):
@@ -1034,7 +1262,9 @@ class Supervisor:
             call_id = f"{self.run_id}-{stage}-{item}-a{attempt}"
             reservation = {"call_id": call_id, "stage": stage, "item": item, "seat": seat, "class": klass,
                            "amount": amount, "calibration": calibration, "tranche": tranche,
-                           "declaration_seq": run["declaration_seq"], "at": self.clock(), "open": True, "outcome": None}
+                           "declaration_seq": run["declaration_seq"], "at": self.clock(), "open": True, "outcome": None,
+                           **({"estimate": estimated["basis"]} if estimated is not None else {}),
+                           **({"claim_terms": terms} if terms is not None else {})}
             entry["reservations"][call_id] = reservation
             self._write(ledger)
         return dict(reservation)
@@ -1096,14 +1326,20 @@ class Supervisor:
         nothing (`bound.lifted` requires an integer sequence), so every later dispatch stays refused and
         recovery is a new run, not an amendment. The call itself fails by name either way (BC#0).
 
-        **A stop never weakens.** The ledger holds one `stopped` entry and more than one call can settle an
-        excess, so the entry kept is the stronger of the kept and the offered one (`bound.strongest`): an
-        unstamped stop is terminal and nothing replaces it, and between stamped stops the higher sequence
-        stays. Writing the newer entry over the older let a stamped stop from a call that was already
-        running replace the unstamped stop of a lock timeout, and a `host_allowance` amendment then lifted
-        a run that should have ended (BD#0). What this returns is this call's own record of the stop; what
-        the ledger keeps is the stronger one."""
-        bound_stop = entry.get("code") == bound.STOP_CODE
+        **One record per obligation, kept by standing** (W review of WP-08e r2; lead decision). The ledger's
+        `stops` holds one record per obligation - the bound's, the claim's - each lifted only by a later
+        amendment of its own key, so they stand and lift independently (`bound.kept`). An earlier record of the
+        offered stop's obligation that no longer stands gives way to it: a new breach after an amendment stands.
+        **A stop never weakens** while it stands: more than one call can settle an excess of one obligation, so
+        the record kept is the stronger of the standing and the offered one (`bound.strongest`): an unstamped
+        stop is terminal and nothing replaces it, and between stamped stops the higher sequence stays. Writing
+        the newer entry over the older let a stamped stop from a call that was already running replace the
+        unstamped stop of a lock timeout, and a `host_allowance` amendment then lifted a run that should have
+        ended (BD#0). A lifted record gives way without reading the amendments again: the amendment that lifted
+        it precedes the offered stop's stamp, so the offered record is the later one. What this returns is this
+        call's own record of the stop; what the ledger keeps is its obligation's kept record."""
+        bound_stop = entry.get("code") in bound.LIFTED_BY   # a bound or a claim excess: stamped, liftable by its key
+        amendments = None                                    # read with the stamp; unread, every record stands
         with contextlib.ExitStack() as locks:
             unstamped = None
             if bound_stop:
@@ -1142,8 +1378,13 @@ class Supervisor:
                 if unstamped is not None:
                     entry = {**entry, "stamp": unstamped}
                 offered = dict(entry)             # the entry already carries its own `at` (HC#0)
-                kept = bound.strongest(ledger.get("stopped"), offered)
-                ledger["stopped"] = kept
+                # one record per obligation (W r2 F5, F6): this obligation's earlier record meets the offered one in
+                # `bound.strongest` - a lifted one is older than any stamped offer, so the new breach stands - and
+                # other obligations' records are untouched
+                ledger["stops"], kept = bound.kept(ledger["stops"], offered)
+                # the one-entry projection, for a reader of the ledger shape before one record per obligation (the
+                # lead's verification of commit 4, finding 2): it reads a run stopped whenever this one does
+                ledger["stopped"] = bound.projection(ledger["stops"], amendments if unstamped is None else None)
                 self._write(ledger)
                 # what this returns is THIS call's own stop, whether or not the run kept it: the call
                 # records it and names it in its refusal, so a stop that lost to an earlier terminal one
@@ -1153,7 +1394,7 @@ class Supervisor:
                     # HD#0: retained HERE, with the ledger written and the locks not yet released -
                     # releasing them can fail, and a failure after the write used to leave the caller
                     # without its own stop, so the failure path offered the same stop a second time
-                    into["stop"] = result
+                    into.setdefault("stops", {})[offered["code"]] = result
                 return result
 
     def _now(self):
@@ -1190,43 +1431,81 @@ class Supervisor:
         """THE stop decision, wherever settlement reaches it, and the only place it is made (HC#2).
 
         Three call sites: the moment `_follow` returns, the moment reconciliation has measured rows
-        that were pending, and the way out of a failure. The first offer wins - the call's own record
-        of it is the guard - so the later sites add nothing when the first already stopped the run.
+        that were pending, and the way out of a failure, each over the monitor rows in hand. Two
+        obligations are decided here, **each independently of the other** (W review of WP-08e r2, F3
+        and F4; lead decision): the bound, on a view-window call (`bound.check_observed`), and the claim
+        the call was admitted under, on a call that carries one (`bound.claim_problems`). Each
+        obligation's stop is offered once per call - the call's own record of it is the guard - so a
+        later site adds only what the rows then show; a bound stop never hides a claim breach. Returns
+        `{code: offered stop}`, every stop this call has offered, empty when none.
 
-        **Nothing here raises before the stop is persisted.** The reading, the rule's check, the entry
+        **Nothing here raises before a stop is persisted.** The reading, the rule's check, the entry
         and its timestamp are all total: a failure preparing any of them would be a failure with the
         excess already observed, which is the whole class this closes (HC#0). The call record is
         written with the offered stop where that is possible, and a record that cannot be written
         does not take the stop down with it - the ledger already has it."""
-        if not view_window:
-            return None
-        if call.get("stop"):
-            # already offered, possibly by a site that could not finish writing the record (HD#0):
-            # complete the diagnostic, and never offer the same call's stop twice
-            self._record_stop(call, call_dir)
-            return call["stop"]
-        try:
-            observed, _unreadable = bound.observed_rows(rows)
-            if not bound.check_observed(observed, view_window):
-                return None
-            at, note = self._now()
-            entry = bound.excess(call["call_id"], observed, at)
-            if note:
-                entry = {**entry, "clock": note}
+        offered = {}
+        claim = (call.get("bound") or {}).get("claim") if isinstance(call.get("bound"), dict) else None
+        for code, applies in ((bound.STOP_CODE, bool(view_window)), (bound.CLAIM_CODE, bool(claim))):
+            if not applies:
+                continue
+            done = (call.get("stops") or {}).get(code)
+            if done:
+                # already offered, possibly by a site that could not finish writing the record (HD#0):
+                # complete the diagnostic, and never offer the same obligation's stop twice
+                self._record_stop(call, call_dir)
+                offered[code] = done
+                continue
             try:
-                json.dumps(entry)                 # a count past the interpreter's digit limit (HC#0) is
-            except Exception as exc:              # still a count: the stop is written without it, saying so
-                entry = {**{k: v for k, v in entry.items() if k != "observed"},
-                         "stamp": f"observed-unrenderable: {exc!r}"}
-        except Exception as exc:                  # noqa: BLE001 - a defect in the preparation stops the
-            # run as a failed lock does (BE#0): fail closed, and say which half of this code failed
-            entry = {"code": bound.STOP_CODE, "call_id": call.get("call_id"), "observed": 0, "at": None,
-                     "detail": f"{bound.STOP_CODE} {call.get('call_id')}: the stop decision failed in this code",
-                     "stamp": f"offer-internal-error: {exc!r}"}
-        offered = self._stop_run(entry, into=call)
-        call["stop"] = offered
-        self._record_stop(call, call_dir)
+                entry = self._bound_entry(call, rows) if code == bound.STOP_CODE else self._claim_entry(call, rows, claim)
+                if entry is None:
+                    continue
+            except Exception as exc:              # noqa: BLE001 - a defect in the preparation stops the
+                # run as a failed lock does (BE#0): fail closed, and say which obligation's code failed
+                entry = {"code": code, "call_id": call.get("call_id"), "observed": 0, "at": None,
+                         "detail": f"{code} {call.get('call_id')}: the stop decision failed in this code",
+                         "stamp": f"offer-internal-error: {exc!r}"}
+            offered[code] = self._stop_run(entry, into=call)
+            self._record_stop(call, call_dir)
         return offered
+
+    def _bound_entry(self, call, rows):
+        """The bound's stop entry for a view-window call whose rows show an observed input above the bound, or None."""
+        observed, _unreadable = bound.observed_rows(rows)
+        if not bound.check_observed(observed, True):
+            return None
+        at, note = self._now()
+        entry = bound.excess(call["call_id"], observed, at)
+        if note:
+            entry = {**entry, "clock": note}
+        try:
+            json.dumps(entry)                     # a count past the interpreter's digit limit (HC#0) is
+        except Exception as exc:                  # still a count: the stop is written without it, saying so
+            entry = {**{k: v for k, v in entry.items() if k != "observed"},
+                     "stamp": f"observed-unrenderable: {exc!r}"}
+        return entry
+
+    def _claim_entry(self, call, rows, claim):
+        """The claim's stop entry for a call whose rows went past the claim it was admitted under, or None (W review of
+        WP-08e r1 F4, r2 F7; lead decisions): more main requests than it holds, a first request past its reserved
+        estimate, a retry past its step, or a field a rule needs that the claim lacks (`bound.claim_problems`). It is
+        recorded and lifted as a bound excess is (`_stop_run`, `bound.lifted` with `retry`). The host's retries are not
+        capped: they are held to the claim."""
+        if not bound.claim_problems(rows, claim):
+            return None
+        at, note = self._now()
+        entry = bound.claim_excess(call["call_id"], rows, claim, at)
+        return {**entry, "clock": note} if note else entry
+
+    def stop_on_claim(self, call_id, rows, claim, into=None):
+        """Stop the run on a claim excess of `call_id` over its request `rows` (`bound.claim_excess`), stamped and kept
+        as `_stop_run` keeps every stop: by standing, so a new breach after an amendment stands. A stage calls it that
+        finds an accepted call past the claim it holds the call to, where the dispatcher recorded none (stage_form)."""
+        at, note = self._now()
+        entry = bound.claim_excess(call_id, rows, claim, at)
+        if note:
+            entry = {**entry, "clock": note}
+        return self._stop_run(entry, into=into)
 
     def _record_stop(self, call, call_dir):
         """The call's own record of its stop, written wherever that is possible.
@@ -1373,7 +1652,9 @@ class Supervisor:
                         "bound": {"limit": bound.INPUT_BOUND, "driver_bytes": admitted["driver_bytes"],
                                    "context_capacity": admitted.get("context_capacity"),
                                    "output_reservation": max_output_tokens if view_window else None,
-                                   "stop_standing": bool(self._blocked(ledger))},
+                                   "stop_standing": bool(self._blocked(ledger)),
+                                   # what this call claims at most, on the bytes it sends (W r1, F4)
+                                   "claim": call_claim(admitted["driver_bytes"], held.get("claim_terms"))},
                         "wall_ms": None, "stopped": None, "contract": "required" if contract is not None else "none",
                         "provider_signals": [], "caps": caps, "use": use, "max_output_tokens": max_output_tokens,
                         "runner_refused": None, "server_policy": policy_record, "payload_sha256": payload_sha256,
@@ -1479,9 +1760,13 @@ class Supervisor:
             if exit_status is not None:  # a runner that never exited has no receipt (the gate refuses the call for it)
                 self._receipt(call_dir, stage, call_id, seat, exit_status)
             outcome = "deferred" if stopping else stopped["outcome"] if stopped else "completed" if exit_status == 0 else "failed"
+            if excess:
+                # W r2 F1: a call that stopped the run is a failure - its measured spend kept, never a calibration
+                # sample, never reused (the gate refuses it) - and it fails by name so its stage does not complete
+                outcome = "failed"
             self.charge(stage, call_id, usages.totals(usage), outcome, caps)
             if excess:
-                raise Refused(stop_detail(excess))
+                raise RunStopped("; ".join(stop_detail(entry) for entry in excess.values()))
             return call_dir
         except BaseException:
             # HC#3: an exception anywhere above, including out of `_follow` itself, leaves the monitor's
@@ -1503,15 +1788,15 @@ class Supervisor:
         (`bound.lifted`). Every other stop code stays as it was."""
         blocked = self._blocked(ledger)
         if blocked:
-            raise Refused(f"{blocked}, {call_id} included")
+            raise RunStopped(f"{blocked}, {call_id} included")
 
     def _blocked(self, ledger=None):
         """The run's standing stop as the rule reads it, or None when dispatch may go on."""
-        stopped = (ledger or self.ledger())["stopped"]
-        if not stopped:
+        stops = (ledger or self.ledger())["stops"]
+        if not stops:
             return None
         _run, _digest, amendments = records.declaration_state(self.run_dir, who="dispatch")
-        return bound.blocked(stopped, amendments)
+        return bound.blocked(stops, amendments)
 
     def _defer(self, stage, call_id, item, host):
         """A call refused at an open breaker: its reservation closes unspent, its item waits."""
@@ -1849,8 +2134,18 @@ class Supervisor:
         payload_sha256 = packets.sha256_bytes(payload.encode("utf-8"))
         dirs, text, settled, checked = [], payload, None, []
         for attempt in (1, 2):
+            # what this attempt's packet takes, for a class not yet measured: the packet built under the id the
+            # reservation will most likely give it (WP-08e)
+            sizing = None
+            if kwargs.get("max_output_tokens") is not None:
+                try:
+                    expected = packets.build(f"{self.run_id}-{stage}-{item}-a{attempt}", stage, seat, text, schema_bytes)
+                    sizing = {"driver_bytes": bound.driver_bytes(expected, schema_bytes)[0],
+                              "output_cap": kwargs["max_output_tokens"]}
+                except Refused:
+                    sizing = None
             try:
-                reservation = self.reserve(stage, item, seat, case_type, tranche=tranche, attempt=attempt)
+                reservation = self.reserve(stage, item, seat, case_type, tranche=tranche, attempt=attempt, sizing=sizing)
             except Exhausted as exc:
                 return {"item": item, "outcome": "not_done", "why": str(exc), "attempts": [str(d) for d in dirs]}
             packet = packets.build(reservation["call_id"], stage, seat, text, schema_bytes)
@@ -2865,7 +3160,8 @@ def contract_branches(source):
     codes, outcomes = set(), set()
     for node in ast.walk(cls):
         if isinstance(node, ast.Raise) and isinstance(node.exc, ast.Call) and node.exc.args and \
-                ast.unparse(node.exc.func) in ("Refused", "Exhausted", "breakers.Deferred") and head(node.exc.args[0]):
+                ast.unparse(node.exc.func) in ("Refused", "RunStopped", "Exhausted", "breakers.Deferred") \
+                and head(node.exc.args[0]):
             codes.add(head(node.exc.args[0]))
         if isinstance(node, ast.FunctionDef) and node.name == "item":
             for d in ast.walk(node):
@@ -2988,6 +3284,8 @@ if host == "claude":
     emit = lambda obj: stream.write(json.dumps(obj) + "\n")
     usage = {"input_tokens": 2, "cache_read_input_tokens": 90000 if mode in ("big-first-request", "capped-escaped-holder") else 2800,
              "cache_creation_input_tokens": 350}
+    if spec.get("request_base"):  # a first request of this much cached input: a denser packet than its estimate
+        usage["cache_read_input_tokens"] = spec["request_base"]
     if spec.get("replay"):  # a retained call's observed input, replayed: the number is evidence, not a choice
         row = json.loads(pathlib.Path(spec["replay"]).read_text())["requests"][-1]
         usage = {"input_tokens": row["input_tokens"] - row["cached_tokens"],
@@ -3011,13 +3309,23 @@ if host == "claude":
     if mode in ("big-first-request", "capped-escaped-holder"):
         time.sleep(60)
     emit({"type": "stream_event", "event": {"type": "message_delta", "usage": {"output_tokens": 61}}})
+    starts = [usage]
+    for k in range(2, (spec.get("main_requests") or 1) + 1):  # the host's own retries, each on top of the request before
+        later = {**usage, "cache_read_input_tokens": usage["cache_read_input_tokens"] + (k - 1) * spec["request_step"]}
+        emit({"type": "system", "subtype": "status", "status": "requesting"})
+        log.write(json.dumps({"type": "api-request", "timestamp": iso(time.time())}) + "\n")
+        emit({"type": "stream_event", "event": {"type": "message_start", "message": {"id": f"msg_{k}", "model": model,
+                                                                                      "usage": later}}})
+        emit({"type": "stream_event", "event": {"type": "message_delta", "usage": {"output_tokens": 61}}})
+        starts.append(later)
+    usage = {key: sum(s[key] for s in starts) for key in usage}
     if mode == "compactions":
         for _ in range(3):
             emit({"type": "system", "subtype": "compact_boundary", "compact_metadata": {"trigger": "auto"}})
             time.sleep(0.05)
         time.sleep(60)
     base = {"type": "result", "session_id": sid, "safety_stops": 0, "stop_reason": "end_turn", "result": "",
-            "modelUsage": {model: {"inputTokens": usage["input_tokens"], "outputTokens": 61,
+            "modelUsage": {model: {"inputTokens": usage["input_tokens"], "outputTokens": 61 * len(starts),
                                    "cacheReadInputTokens": usage["cache_read_input_tokens"],
                                    "cacheCreationInputTokens": usage["cache_creation_input_tokens"]}}}
     if spec.get("context_window"):  # a host reports its context window in every result; a golden one when told it
@@ -3245,6 +3553,33 @@ def self_test(scratch=None):
 
         def __repr__(self):
             return f"{str.__repr__(self)} ({self.message!r})"
+
+    def guarded(fn, default):
+        """`fn()`, or `default` when it raises: a control reads the default and fails by its own name."""
+        try:
+            return fn()
+        except Exception:                         # noqa: BLE001 - reported by the control that reads the default
+            return default
+
+    def old_blocked(directory):
+        """78e1e92's `Supervisor._blocked` with its `bound.blocked`/`bound.lifted`, ported: a reader of the one-entry
+        ledger (`stopped`) and of the recovery rule over that one entry (the lead's verification of commit 4,
+        finding 2). None when that reader would dispatch; else the code it would refuse under."""
+        path = pathlib.Path(directory) / "supervisor" / "ledger.json"
+        stopped = (json.loads(path.read_text(encoding="utf-8")) if path.is_file() else {}).get("stopped")
+        if not stopped:
+            return None
+        _run, _digest, amendments = records.declaration_state(directory, who="dispatch")
+        key = {"INPUT_BOUND_EXCEEDED": "host_allowance", "CLAIM_EXCEEDED": "retry"}.get(stopped.get("code"))
+        seq = stopped.get("declaration_seq")
+        lifted_old = key is not None and isinstance(seq, int) and any(
+            isinstance(a.get("seq"), int) and a["seq"] > seq and any(str(k).split(".")[0] == key for k in a.get("diff") or {})
+            for a in amendments or [])
+        return None if lifted_old else f"RUN_STOPPED {stopped.get('code')}"
+
+    def call_stop(record, code=bound.STOP_CODE):
+        """The stop a call record says it offered for one obligation (`stops`, W r2), or `{}`."""
+        return ((record or {}).get("stops") or {}).get(code) or {}
 
     def refusal(fn, *args, **kwargs):
         """The refusal `fn` raised, as its text, or None when it ran through. Any other exception comes back
@@ -4330,6 +4665,261 @@ def self_test(scratch=None):
     control("undeclared-stage-budget-refused", (refusal(sup3.reserve, "S9", "x", judge, "judge", tranche="calibration") or "")
             .startswith("BUDGET_UNDECLARED S9"), "reserved")
     sup3.release("S6", rc["call_id"], "refused")
+    # WP-08e (lead decision): calibration is the class's - an unmeasured class's call is reserved at its own estimate in
+    # any tranche when its packet and cap are known and the host's allowance is measured
+    allow3 = gate.seats(sup3.seats_path)["hosts"]["claude"]["host_allowance"]["hermetic"]["allowance_tokens"]
+    try:
+        sized = sup3.reserve("S6", "e1", judge, "judge", sizing={"driver_bytes": 10_000, "output_cap": 4096})
+    except Refused as exc:
+        sized = {"problem": str(exc)[:300]}
+    first3 = 10_000 + allow3  # at the floor: the bytes as tokens and the allowance, written out
+    control("WP-08e: an unmeasured class's call with its packet and cap known is reserved broadly at its own estimate, "
+            "its spend at most at the floor, named", sized.get("calibration") == "provisional" and sized.get("tranche") == "broad"
+            and sized.get("amount") == first3 + 4096 + (first3 + 4096 + RETRY_ERROR_TOKENS) + 4096
+            and "density floor: 1.0" in sized.get("estimate", ""),
+            f"{sized}")
+    if sized.get("call_id"):
+        sup3.release("S6", sized["call_id"], "refused")
+    control("WP-08e: an unmeasured class's call no estimate can be made for - no output cap - is still left to a "
+            "calibration tranche (CALIBRATION_PROVISIONAL)",
+            (refusal(sup3.reserve, "S6", "e2", judge, "judge", sizing={"driver_bytes": 10_000, "output_cap": None}) or "")
+            .startswith("CALIBRATION_PROVISIONAL S6|claude:claude-haiku-5-5/low|judge"), "reserved broadly")
+    # W r1 F4, W r2 (lead decisions): a call is held to the claim it was admitted under - its first request within its
+    # estimate and the retries the claim holds, each within its step. A call past it stops the run by name, a failure
+    # with its measured spend kept; each obligation's stop stands until its own key is amended later than it.
+    def claim_run(name, requests, step, base=None, budget=2_000_000, view=False, broken_usage=False, directory=None):
+        """A call of `requests` main requests, each `step` input tokens above the one before, the first `base` cached
+        tokens when given; on the view-window seat when `view`; with the usage projection raising when `broken_usage`.
+        Returns (directory, supervisor, reservation, its refusal or exception text, call record); a refusal before the
+        call is its failure with an empty record, so the controls below fail by name rather than end the suite."""
+        directory = directory or run_dir(name, {vstage if view else "S6": budget})
+        held_s = supervisor(directory, "clean", main_requests=requests, request_step=step,
+                            **({"request_base": base} if base else {}))
+        if broken_usage:
+            def broken(*_args, **_kwargs):
+                raise RuntimeError("usage projection failed")
+            held_s._usage = broken
+        stage_c, seat_c, cap_c = (vstage, vseat, 32_000) if view else ("S6", judge, 4096)
+        try:
+            held_r = held_s.reserve(stage_c, "claimed", seat_c, "judge", sizing={"driver_bytes": 4_000, "output_cap": cap_c})
+        except (Refused, breakers.Deferred) as exc:
+            return directory, held_s, {"call_id": "unreserved"}, f"unreserved: {exc}", {}
+        try:
+            held_s.call(stage_c, seat_c, packets.build(held_r["call_id"], stage_c, seat_c, "x\n", None), None,
+                        reservation=held_r, caps=caps, view_window=view, max_output_tokens=cap_c)
+            failed_c = None
+        except (Refused, breakers.Deferred) as exc:
+            failed_c = str(exc)
+        except Exception as exc:                  # noqa: BLE001 - the original failure, returned to its control
+            failed_c = f"{type(exc).__name__}: {exc}"
+        path_c = directory / "calls" / held_r["call_id"] / "call.json"
+        record_c = json.loads(path_c.read_text(encoding="utf-8")) if path_c.is_file() else {}
+        return directory, held_s, held_r, failed_c, record_c
+    dk3, sk3, rk3, failed3, rec3 = claim_run("run-claim-three", 3, 100)
+    claim3 = (rec3.get("bound") or {}).get("claim") or {}
+    stood3 = sk3.ledger()["stops"].get(bound.CLAIM_CODE) or {}
+    held3 = sk3.ledger()["stages"].get("S6", {}).get("reservations", {}).get(rk3["call_id"]) or {}
+    spent3 = held3.get("spent") or {}
+    usage_path3 = dk3 / "calls" / rk3["call_id"] / "usage.json"
+    usage3 = json.loads(usage_path3.read_text(encoding="utf-8")) if usage_path3.is_file() else {"requests": []}
+    control("W r1 F4: a call of three main requests, its claim holding one retry, stops the run by name - each breach "
+            "named - and its measured spend is kept",
+            claim3.get("requests_at_most") == 2 and claim3.get("first", 0) > 3_352 and claim3.get("step") == 4096 + 1_118
+            and (failed3 or "").startswith(f"CLAIM_EXCEEDED {rk3['call_id']}: 3 main requests, at most 2")
+            and call_stop(rec3, bound.CLAIM_CODE).get("requests") == 3
+            and call_stop(rec3, bound.CLAIM_CODE).get("largest_input") == 3_352
+            and stood3.get("code") == bound.CLAIM_CODE and isinstance(stood3.get("declaration_seq"), int)
+            and len(usages.main_requests(usage3["requests"])) == 3
+            and spent3.get("measured") == usages.totals(usage3)["measured"] > 0,
+            f"{failed3} claim={claim3} stop={rec3.get('stops')} spent={spent3}")
+    verdict3 = gate.accept(dk3 / "calls" / rk3["call_id"]) if (dk3 / "calls" / rk3["call_id"]).is_dir() else {}
+    control("W r2 F1: the gate refuses a call that stopped the run - its answer is never accepted - and the call is "
+            "a failure, its spend no calibration sample",
+            verdict3.get("ok") is False
+            and any(f.startswith(f"{bound.CLAIM_CODE} {rk3['call_id']}: this call stopped the run")
+                    for f in verdict3.get("failures", []))
+            and (refusal(gate.accepted, dk3 / "calls" / rk3["call_id"]) or "").startswith(bound.CLAIM_CODE)
+            and held3.get("outcome") == "failed"
+            and not sk3.calibration().get(class_key("S6", judge, "judge"), {}).get("samples"),
+            f"{verdict3.get('failures')} outcome={held3.get('outcome')} {sk3.calibration()}")
+    reuse3 = guarded(lambda: sk3.reusable("S6", "claimed", judge, "x\n", None, 4096)[1], [])
+    control("W r2 F1: ... and it is not reused: the attempt is not accepted",
+            any(r.startswith(f"REUSE_NOT_ACCEPTED {rk3['call_id']}") for r in reuse3), f"{reuse3}")
+    control("lead v4 2: a ledger this code wrote with a claim stop reads stopped to the one-entry reader as well",
+            guarded(lambda: old_blocked(dk3), "unread") == f"RUN_STOPPED {bound.CLAIM_CODE}", f"{guarded(lambda: old_blocked(dk3), 'unread')}")
+    control("W r1 F4: ... and nothing more is dispatched: the next reservation is refused under the claim stop",
+            (refusal(sk3.reserve, "S6", "after", judge, "judge", sizing={"driver_bytes": 4_000, "output_cap": 4096}) or "")
+            .startswith(f"RUN_STOPPED {bound.CLAIM_CODE} at {rk3['call_id']}"), "reserved after the stop")
+    refusal(declare.amend, dk3, [(f"host_allowance.{vseat}.allowance_tokens", claude_allowance + 1)],
+            "an allowance, not the retry")
+    control("W r1 F4: an amendment of another key does not lift the claim stop",
+            (refusal(sk3.reserve, "S6", "after", judge, "judge") or "").startswith(f"RUN_STOPPED {bound.CLAIM_CODE}"),
+            "lifted by host_allowance")
+    old_after_allowance3 = guarded(lambda: old_blocked(dk3), "unread")
+    refusal(declare.amend, dk3, [("retry", {"count": 2})], "the host retried twice; the claim now holds two retries")
+    control("lead v4 2: ... the one-entry reader is not reopened by host_allowance, and is by the retry, as this code is",
+            old_after_allowance3 == f"RUN_STOPPED {bound.CLAIM_CODE}" and guarded(lambda: old_blocked(dk3), "unread") is None,
+            f"{old_after_allowance3} {guarded(lambda: old_blocked(dk3), 'unread')}")
+    lifted3 = {}
+    try:
+        lifted3 = sk3.reserve("S6", "after", judge, "judge", sizing={"driver_bytes": 4_000, "output_cap": 4096})
+    except (Refused, breakers.Deferred) as exc:
+        lifted3 = {"refused": str(exc)}
+    control("W r1 F4: a later amendment of the retry lifts it, and the next call's claim holds what was re-declared",
+            lifted3.get("claim_terms", {}).get("retries") == 2, f"{lifted3}")
+    if lifted3.get("call_id"):
+        sk3.release("S6", lifted3["call_id"], "refused")
+    # W r2 F9: what S0 refuses never reaches a consumer - through the amendment that lifts a claim stop, too
+    entry9 = {"bytes_per_token": 2.0, "measured_in": "c2-20261110", "samples": 1, "at": "2026-11-10T23:22:00+09:00"}
+    for label, assignment, refused_as in (
+            ("an integral float retry count", ("retry.count", 2.0), "DECLARATION_INVALID retry.count: an integer"),
+            ("a density kind with a trailing newline", ("density", {judge: {"S6:judge\n": entry9}}),
+             f"DECLARATION_INVALID density.{judge}.'S6:judge\\n': not a kind"),
+            ("a density that is not finite", ("density", {judge: {"S6:judge": {**entry9, "bytes_per_token": math.inf}}}),
+             f"DECLARATION_INVALID density.{judge}.S6:judge.bytes_per_token: a finite number")):
+        refused9 = refusal(declare.amend, dk3, [assignment], f"W r2 F9: {label}") or ""
+        held9 = guarded(lambda: records.declaration_state(dk3)[0], {})
+        terms9 = guarded(lambda: sk3.claim_terms("S6", judge, "judge", {"driver_bytes": 4_000, "output_cap": 4096}, held9),
+                         {})
+        control(f"W r2 F9: {label} is refused at the amendment by name, and the claim its consumer computes is the "
+                "declaration's as it stood",
+                refused9.startswith(refused_as) and held9.get("retry") == {"count": 2}
+                and "density" not in held9 and terms9.get("retries") == 2
+                and not terms9.get("density_basis", "declared").startswith("declared"),
+                f"{refused9[:160]} retry={held9.get('retry')} terms={terms9}")
+    # the gate's second reading: a call whose stop record was lost is refused by its usage against its claim
+    lost3 = {k: v for k, v in rec3.items() if k != "stops"}
+    if rec3:
+        records.write_json(dk3, dk3 / "calls" / rk3["call_id"] / "call.json", lost3)
+    lost_verdict = gate.accept(dk3 / "calls" / rk3["call_id"]) if rec3 else {}
+    control("W r2 F1: a call past its claim whose stop record was lost is refused by the gate from its usage",
+            any(f.startswith(f"{bound.CLAIM_CODE} {rk3['call_id']}: 3 main requests, at most 2")
+                and "usage.json against call.json bound.claim" in f for f in lost_verdict.get("failures", [])),
+            f"{lost_verdict.get('failures')}")
+    dk2, sk2, rk2, failed2, rec2 = claim_run("run-claim-two", 2, 100)
+    control("control, W r1 F4: a call of two main requests within its claim does not stop the run",
+            failed2 is None and not sk2.ledger()["stops"] and not rec2.get("stops")
+            and (rec2.get("bound") or {}).get("claim", {}).get("requests_at_most") == 2, f"{failed2} {rec2.get('stops')}")
+    verdict2 = gate.accept(dk2 / "calls" / rk2["call_id"]) if (dk2 / "calls" / rk2["call_id"]).is_dir() else {}
+    control("control, W r2 F1: the gate accepts a call within its claim (the baseline of the refusal above)",
+            verdict2.get("ok") is True and refusal(gate.accepted, dk2 / "calls" / rk2["call_id"]) is None,
+            f"{verdict2.get('failures')}")
+    dkw, skw, rkw, failedw, recw = claim_run("run-claim-wide", 2, 400_000)
+    control("W r1 F4: a call of two main requests whose retry takes more input than claimed stops the run by name",
+            (failedw or "").startswith(f"CLAIM_EXCEEDED {rkw['call_id']}: request 2 took")
+            and bound.CLAIM_CODE in skw.ledger()["stops"], f"{failedw}")
+    # W r2 F7: the first request is held to its reserved estimate, so the reservation bounds every admitted sequence
+    dkd = run_dir("run-claim-dense", {"S6": 2_000_000})
+    probe_d = supervisor(dkd)
+    sized_d = guarded(lambda: probe_d.reserve("S6", "claimed", judge, "judge",
+                                              sizing={"driver_bytes": 4_000, "output_cap": 4096}), {})
+    if sized_d.get("call_id"):
+        probe_d.release("S6", sized_d["call_id"], "refused")
+        refusal(declare.amend, dkd, [("budget.per_stage.S6", sized_d["amount"])], "the budget is the reservation")
+    # the first request 1,000 tokens above its estimate and below the retry's ceiling: only the first-request rule sees it
+    terms_d = sized_d.get("claim_terms") or {}
+    driver_d = guarded(lambda: bound.driver_bytes(packets.build(f"{dkd.name}-S6-claimed-a2", "S6", judge, "x\n", None),
+                                                  None)[0], 0)
+    first_d = math.ceil(driver_d / terms_d["bytes_per_token"]) + terms_d["allowance"] if terms_d else 0
+    dkd, skd, rkd, failedd, recd = claim_run("run-claim-dense", 1, 0, base=max(first_d + 1_000 - 352, 1), directory=dkd)
+    claim_d = (recd.get("bound") or {}).get("claim") or {}
+    left_d = guarded(lambda: skd.remaining("S6"), None)
+    control("W r2 F7: a call whose first request is denser than its estimate stops the run by name, though that request "
+            "is within the last retry's ceiling, with the stage budget equal to its reservation",
+            rkd.get("amount") == sized_d.get("amount") and claim_d.get("first") == first_d
+            and first_d + 1_000 <= claim_d.get("input_at_most", 0)
+            and (failedd or "").startswith(f"CLAIM_EXCEEDED {rkd['call_id']}: request 1 took")
+            and bound.CLAIM_CODE in skd.ledger()["stops"] and isinstance(left_d, int),
+            f"{failedd} amount={rkd.get('amount')}/{sized_d.get('amount')} first={first_d} claim={claim_d} left={left_d}")
+    # the lead's verification of commit 4, finding 1 (its A1/A1b probe): a call record whose claim predates `step` is
+    # judged by each rule whose field it names, and refused for the field a retry row needs - never by a weaker rule
+    def old_shape(directory, reservation, record):
+        """The call's record rewritten as the code before `step` wrote it: its claim without `step`, no stop record."""
+        held_c = (record.get("bound") or {}).get("claim") or {}
+        rewritten = {**record, "bound": {**record.get("bound", {}), "claim": {k: v for k, v in held_c.items() if k != "step"}}}
+        rewritten = {k: v for k, v in rewritten.items() if k not in ("stop", "stops")}
+        cdir = directory / "calls" / reservation["call_id"]
+        if record:
+            records.write_json(directory, cdir / "call.json", rewritten)
+        return {f.split()[0] for f in (gate.accept(cdir) if cdir.is_dir() else {}).get("failures", [])}, cdir
+    codes_dense, dense_cdir = old_shape(dkd, rkd, recd)
+    control("lead v4 1: a pre-step call record whose one request is above its first is refused CLAIM_EXCEEDED by the "
+            "gate - the first-request rule needs only first",
+            bound.CLAIM_CODE in codes_dense and bound.CLAIM_SHAPE not in codes_dense
+            and any(f.startswith(f"{bound.CLAIM_CODE} {rkd['call_id']}: request 1 took")
+                    for f in gate.accept(dense_cdir).get("failures", [])), f"{sorted(codes_dense)}")
+    codes_two, _cdir_two = old_shape(dk2, rk2, rec2)
+    control("lead v4 1: a pre-step call record with two main requests is refused CLAIM_SHAPE, naming the step",
+            codes_two == {bound.CLAIM_SHAPE} and any("the claim names no step" in f for f in
+                                                     gate.accept(_cdir_two).get("failures", [])), f"{sorted(codes_two)}")
+    dk1, sk1, rk1, failed1, rec1 = claim_run("run-claim-one", 1, 0)
+    codes_one, _cdir_one = old_shape(dk1, rk1, rec1)
+    control("control, lead v4 1: a pre-step call record of one request within its first is accepted",
+            failed1 is None and bool(rec1) and codes_one == set(), f"{failed1} {sorted(codes_one)}")
+    # W r2 F3: both obligations are decided independently, so a bound breach does not hide a claim breach
+    dkb, skb, rkb, failedb, recb = claim_run("run-claim-both", 3, 100, base=125_000, view=True)
+    control("W r2 F3: a view-window call past both the bound and its claim stops the run on both, each named",
+            sorted(skb.ledger()["stops"]) == [bound.CLAIM_CODE, bound.STOP_CODE]
+            and sorted(recb.get("stops") or {}) == [bound.CLAIM_CODE, bound.STOP_CODE]
+            and (failedb or "").startswith(f"{bound.STOP_CODE} {rkb['call_id']}")
+            and f"; {bound.CLAIM_CODE} {rkb['call_id']}" in (failedb or ""),
+            f"{failedb} {sorted(skb.ledger()['stops'])}")
+    refusal(declare.amend, dkb, [(f"host_allowance.{vseat}.allowance_tokens", claude_allowance)],
+            "the allowance re-measured, the retry not")
+    control("control, W r2 F3: host_allowance alone does not reopen a run its claim stop also stops",
+            (skb._blocked() or "").startswith(f"RUN_STOPPED {bound.CLAIM_CODE} at {rkb['call_id']}"), f"{skb._blocked()}")
+    control("lead v4 2: two standing stops read stopped to the one-entry reader after host_allowance alone - their "
+            "projection is one unstamped record",
+            (guarded(lambda: old_blocked(dkb), "") or "").startswith("RUN_STOPPED")
+            and "several-stops: " in ((skb.ledger().get("stopped") or {}).get("stamp") or ""),
+            f"{guarded(lambda: old_blocked(dkb), '')} {skb.ledger().get('stopped')}")
+    refusal(declare.amend, dkb, [("retry", {"count": 2})], "the retry re-declared")
+    control("W r2 F3: ... and the retry amendment, its own key, reopens it", skb._blocked() is None, f"{skb._blocked()}")
+    # W r2 F4: the claim is decided from the monitor rows in hand, before the usage record, so a settlement that fails
+    # after the call still leaves its stop - and the original failure is what the caller gets
+    dku, sku, rku, failedu, recu = claim_run("run-claim-unsettled", 3, 100, broken_usage=True)
+    control("W r2 F4: a call past its claim whose usage projection fails stops the run all the same, and the caller gets "
+            "the original failure",
+            (failedu or "") == "RuntimeError: usage projection failed" and bound.CLAIM_CODE in sku.ledger()["stops"]
+            and (sku._blocked() or "").startswith(f"RUN_STOPPED {bound.CLAIM_CODE} at {rku['call_id']}"),
+            f"{failedu} {sorted(sku.ledger()['stops'])}")
+    # W r2 F2: a call reserved before the run stopped is refused as a run stop, which no posture quarantines
+    dpre = run_dir("run-claim-reserved-before", {"S6": 2_000_000})
+    spre = supervisor(dpre)
+    rpre = guarded(lambda: spre.reserve("S6", "before", judge, "judge", sizing={"driver_bytes": 4_000, "output_cap": 4096}),
+                   {"call_id": "unreserved", "amount": 0})
+    guarded(lambda: spre._stop_run(bound.claim_excess("run-claim-reserved-before-S6-other-a1", [{"role": "main"}] * 3,
+                                                      {"requests_at_most": 2, "input_at_most": 1}, clock[0])), None)
+    try:
+        spre.call("S6", judge, packets.build(rpre["call_id"], "S6", judge, "x\n", None), None, reservation=rpre,
+                  caps=caps, view_window=False, max_output_tokens=4096)
+        kind_pre = ("ran", "")
+    except RunStopped as exc:
+        kind_pre = ("RunStopped", str(exc))
+    except Exception as exc:                      # noqa: BLE001 - another refusal fails the control by name
+        kind_pre = (type(exc).__name__, str(exc))
+    control("W r2 F2: a call reserved before the run stopped is refused as a run stop, not an item's failure",
+            kind_pre[0] == "RunStopped" and kind_pre[1].startswith(f"RUN_STOPPED {bound.CLAIM_CODE}"), f"{kind_pre}")
+    # W r2 F6: a lifted stop never combines with a later one of the other obligation, in either order
+    for first_code, then_code in ((bound.CLAIM_CODE, bound.STOP_CODE), (bound.STOP_CODE, bound.CLAIM_CODE)):
+        ds = run_dir(f"run-f6-{first_code.lower()}", {vstage: 2_000_000})
+        ss = supervisor(ds)
+        made = {bound.STOP_CODE: lambda n: bound.excess(f"run-f6-S3-{n}-a1", 130_000, clock[0]),
+                bound.CLAIM_CODE: lambda n: bound.claim_excess(f"run-f6-S3-{n}-a1", [{"role": "main"}] * 3,
+                                                               {"requests_at_most": 2, "input_at_most": 1}, clock[0])}
+        keys = {bound.STOP_CODE: [(f"host_allowance.{vseat}.allowance_tokens", claude_allowance + 7)],
+                bound.CLAIM_CODE: [("retry", {"count": 3})]}
+        guarded(lambda: ss._stop_run(made[first_code]("first")), None)
+        refusal(declare.amend, ds, keys[first_code], "the first stop's own key")
+        open_between = guarded(lambda: ss._blocked(), "unread")
+        then = guarded(lambda: ss._stop_run(made[then_code]("then")), {})
+        blocked_then = guarded(lambda: ss._blocked(), None)
+        refusal(declare.amend, ds, keys[then_code], "the later stop's own key")
+        control(f"control, W r2 F6: {first_code} lifted, then {then_code}: the later stop stands with its own sequence "
+                "and its own key alone reopens the run",
+                open_between is None and isinstance(then.get("declaration_seq"), int) and "stamp" not in then
+                and (blocked_then or "").startswith(f"RUN_STOPPED {then_code}") and guarded(lambda: ss._blocked(), "x") is None,
+                f"between={open_between} then={then} blocked={blocked_then} after={guarded(lambda: ss._blocked(), 'x')}")
     for n in range(CALIBRATION_MIN_SAMPLES):
         rk = sup3.reserve("S6", f"k{n + 10}", judge, "judge", tranche="calibration")
         sup3.charge("S6", rk["call_id"], {"measured": 3000 + n, "provisional": 0, "unresolved": 0, "complete": True}, "completed")
@@ -5803,8 +6393,9 @@ def self_test(scratch=None):
     for label, call_dir, window in (("non-window", pd, False),):
         rec = json.loads((call_dir / "call.json").read_text(encoding="utf-8"))
         control(f"a-new-{label}-call-records-the-complete-bound-block",
-                sorted(rec.get("bound") or {}) == ["context_capacity", "driver_bytes", "limit",
+                sorted(rec.get("bound") or {}) == ["claim", "context_capacity", "driver_bytes", "limit",
                                                    "output_reservation", "stop_standing"]
+                and rec["bound"]["claim"] is None   # reserved with no sizing, so no claim to be held to (W r1, F4)
                 and rec["bound"]["limit"] == bound.INPUT_BOUND
                 and isinstance(rec["bound"]["driver_bytes"], int) and rec["bound"]["driver_bytes"] > 0
                 and rec["bound"]["context_capacity"] is None and rec["bound"]["output_reservation"] is None
@@ -5816,8 +6407,9 @@ def self_test(scratch=None):
                  caps=caps, view_window=True, max_output_tokens=32_000)
     wrec = json.loads((wd / "call.json").read_text(encoding="utf-8"))
     control("a-new-window-call-records-the-complete-bound-block",
-            sorted(wrec.get("bound") or {}) == ["context_capacity", "driver_bytes", "limit",
+            sorted(wrec.get("bound") or {}) == ["claim", "context_capacity", "driver_bytes", "limit",
                                                 "output_reservation", "stop_standing"]
+            and wrec["bound"]["claim"] is None
             and wrec["bound"]["context_capacity"] == gate.seat_capacity(vseat, pinned_claude)[0]
             and wrec["bound"]["output_reservation"] == 32_000
             and wrec["bound"]["driver_bytes"] == len(packets.build(rw["call_id"], vstage, vseat, "x\n", None)),
@@ -5865,7 +6457,7 @@ def self_test(scratch=None):
                    max_output_tokens=32_000)
     control("the-replayed-overrun-stops-the-run-at-the-real-boundary",
             (over or "").startswith(f"INPUT_BOUND_EXCEEDED {rr['call_id']}"), f"{over}")
-    stopped = json.loads((rec / "supervisor" / "ledger.json").read_text(encoding="utf-8"))["stopped"]
+    stopped = json.loads((rec / "supervisor" / "ledger.json").read_text(encoding="utf-8"))["stops"].get(bound.STOP_CODE)
     control("the-excess-record-is-the-run-s-stop-entry",
             (stopped or {}).get("code") == bound.STOP_CODE and stopped.get("call_id") == rr["call_id"],
             f"{stopped}")
@@ -5935,7 +6527,7 @@ def self_test(scratch=None):
             json.loads((recovered / "call.json").read_text(encoding="utf-8"))["bound"]["stop_standing"] is False,
             "the recovered call records a standing stop")
     control("M4-recovery-does-not-forget-the-excess",
-            json.loads((rec / "supervisor" / "ledger.json").read_text(encoding="utf-8"))["stopped"] == stopped,
+            json.loads((rec / "supervisor" / "ledger.json").read_text(encoding="utf-8"))["stops"].get(bound.STOP_CODE) == stopped,
             "the excess record was cleared instead of being left where it happened")
 
     # ---- BB#0 and BC#0: the stop and the amendments are serialized by one lock, in one order ------
@@ -5946,10 +6538,11 @@ def self_test(scratch=None):
     # line and its run.json. Nothing here sleeps for a window - the amendment and the stop hand each other
     # the turn through events, so the control does not depend on how the machine schedules them.
     def ledger_stop(directory):
-        """The run's one `stopped` entry, or `{}`: read as a file, because a reverted stop writes none and
+        """The run's bound stop record, or `{}`: read as a file, because a reverted stop writes none and
         a control must then report its own name rather than die on a missing ledger."""
         path = pathlib.Path(directory) / "supervisor" / "ledger.json"
-        return (json.loads(path.read_text(encoding="utf-8")).get("stopped") or {}) if path.is_file() else {}
+        return ((json.loads(path.read_text(encoding="utf-8")).get("stops") or {}).get(bound.STOP_CODE) or {}) \
+            if path.is_file() else {}
 
     bb0 = run_dir("run-bb0-lock-order", {vstage: 2_000_000})
     sb = supervisor(bb0)
@@ -6022,7 +6615,7 @@ def self_test(scratch=None):
     control("BB#0-the-stop-takes-the-declaration-lock-first-and-the-supervisor-s-inside-it",
             '"declaration"' in stop_source
             and stop_source.index('"declaration"') < stop_source.index("with self._lock():")
-            and stop_source.index("with self._lock():") < stop_source.index('ledger["stopped"]'),
+            and stop_source.index("with self._lock():") < stop_source.index('ledger["stops"]'),
             "the stop does not hold the declaration lock around the supervisor's")
 
     # BC#0: ... and when that lock cannot be taken at all, the excess is still recorded. The wait is
@@ -6239,9 +6832,11 @@ def self_test(scratch=None):
             ("lock-linked-out", break_lock_link, mend_lock, "INPUT_BOUND_EXCEEDED", "lock-unavailable"),
             ("receipt-missing", break_launcher, lambda _d: setattr(receipts, "LAUNCHER", pinned_launcher),
              "RECEIPT_MISSING", None),
-            ("calibration-unreadable", break_calibration, mend_calibration, "RECORD_UNREADABLE", None),
+            # a call that stopped the run is a failure and no calibration sample (W r2, F1), so its settlement no
+            # longer reads the broken calibration: the call reports its stop, and the stop is in the ledger as before
+            ("calibration-unreadable", break_calibration, mend_calibration, "INPUT_BOUND_EXCEEDED", None),
             ("calibration-malformed", lambda d: break_calibration(d, "not json at all"), mend_calibration,
-             "RECORD_UNREADABLE", None)):
+             "INPUT_BOUND_EXCEEDED", None)):
         f19, sup_f, rf, reported = overrun_under(label, arrange, restore)
         kept_f19 = ledger_stop(f19)
         control(f"F-19-{label}-the-observed-excess-is-in-the-ledger",
@@ -6294,8 +6889,8 @@ def self_test(scratch=None):
     control("HA#0-the-call-still-fails-with-the-incomplete-usage-refusal",
             "USAGE_INCOMPLETE" in (reported_u or "") and "input_tokens" in (reported_u or ""), f"{reported_u}")
     control("HA#0-and-that-call-s-record-carries-the-stop-it-offered",
-            (recorded_u.get("stop") or {}).get("call_id") == ru["call_id"]
-            and (recorded_u.get("stop") or {}).get("observed") == 135_796, f"{recorded_u.get('stop')}")
+            call_stop(recorded_u).get("call_id") == ru["call_id"]
+            and call_stop(recorded_u).get("observed") == 135_796, f"{call_stop(recorded_u)}")
 
     # F-20: and each call records its own stop, whether or not the run kept it. A stamping defect - this
     # code's own arithmetic, not the filesystem's - says so under its own reason, and says it even when an
@@ -6303,9 +6898,9 @@ def self_test(scratch=None):
     f20, sup_20, r20, reported_20 = overrun_under("records-its-own-stop")
     recorded_20 = json.loads((f20 / "calls" / r20["call_id"] / "call.json").read_text(encoding="utf-8"))
     control("F-20-the-call-record-carries-this-call-s-own-stop",
-            (recorded_20.get("stop") or {}).get("call_id") == r20["call_id"]
-            and (recorded_20["stop"]).get("observed") == 135_796 and recorded_20["stop"].get("kept") is True
-            and isinstance(recorded_20["stop"].get("declaration_seq"), int), f"{recorded_20.get('stop')}")
+            call_stop(recorded_20).get("call_id") == r20["call_id"]
+            and call_stop(recorded_20).get("observed") == 135_796 and call_stop(recorded_20).get("kept") is True
+            and isinstance(call_stop(recorded_20).get("declaration_seq"), int), f"{call_stop(recorded_20)}")
     control("F-20-the-call-record-with-a-stop-is-still-schema-valid",
             not gate.validate.validate_instance(gate.CALL_VALIDATOR, recorded_20),
             f"{gate.validate.validate_instance(gate.CALL_VALIDATOR, recorded_20)[:1]}")
@@ -6373,8 +6968,8 @@ def self_test(scratch=None):
     recorded_d = json.loads((f19d / "calls" / rd["call_id"] / "call.json").read_text(encoding="utf-8"))
     earlier_id = (planted_earlier[0] if planted_earlier else {}).get("call_id")
     control("HA#1-the-losing-call-s-record-carries-its-own-stamping-defect",
-            "stop-internal-error" in ((recorded_d.get("stop") or {}).get("stamp") or "")
-            and (recorded_d.get("stop") or {}).get("kept") is False, f"{recorded_d.get('stop')}")
+            "stop-internal-error" in (call_stop(recorded_d).get("stamp") or "")
+            and call_stop(recorded_d).get("kept") is False, f"{call_stop(recorded_d)}")
     control("HA#1-the-earlier-terminal-stop-is-still-the-one-the-ledger-keeps",
             earlier_id is not None and ledger_stop(f19d).get("call_id") == earlier_id
             and earlier_id != rd["call_id"], f"{ledger_stop(f19d)} {earlier_id}")
@@ -6475,8 +7070,8 @@ def self_test(scratch=None):
         if recorded:                                  # the call directory is still writable in this case
             saved = json.loads((hb / "calls" / rhb["call_id"] / "call.json").read_text(encoding="utf-8"))
             control(f"HB#0-{label}-and-the-call-record-carries-the-stop-it-offered",
-                    (saved.get("stop") or {}).get("call_id") == rhb["call_id"]
-                    and (saved.get("stop") or {}).get("observed") == 135_796, f"{saved.get('stop')}")
+                    call_stop(saved).get("call_id") == rhb["call_id"]
+                    and call_stop(saved).get("observed") == 135_796, f"{call_stop(saved)}")
 
     # HC#0: nothing in the preparation can fail with an excess already observed - not the container the
     # rows arrive in, not a count too large for the interpreter to render, not the clock.
@@ -6594,8 +7189,8 @@ def self_test(scratch=None):
                     f"{bound.STOP_CODE} {rr['call_id']}" in (reported_r or ""), f"{reported_r}")
             saved_r = json.loads((fr / "calls" / rr["call_id"] / "call.json").read_text(encoding="utf-8"))
             control("HC#2-and-that-call-s-record-carries-the-stop-it-offered",
-                    (saved_r.get("stop") or {}).get("observed") == 135_796
-                    and (saved_r.get("stop") or {}).get("kept") is True, f"{saved_r.get('stop')}")
+                    call_stop(saved_r).get("observed") == 135_796
+                    and call_stop(saved_r).get("kept") is True, f"{call_stop(saved_r)}")
 
     # HC#3: and an exception out of `_follow` itself, with the rows already in the monitor, stops the
     # run on the way out - and the caller still gets the original failure.
@@ -6654,9 +7249,9 @@ def self_test(scratch=None):
     control("HD#0-and-the-stop-is-offered-once-not-once-per-failure",
             offers == [r_cln["call_id"]], f"{offers}")
     control("HD#0-and-the-call-record-still-carries-the-diagnostic",
-            (json.loads((f_cln / "calls" / r_cln["call_id"] / "call.json").read_text(encoding="utf-8"))
-             .get("stop") or {}).get("observed") == 135_796,
-            f"{json.loads((f_cln / 'calls' / r_cln['call_id'] / 'call.json').read_text(encoding='utf-8')).get('stop')}")
+            call_stop(json.loads((f_cln / "calls" / r_cln["call_id"] / "call.json").read_text(encoding="utf-8")))
+            .get("observed") == 135_796,
+            f"{json.loads((f_cln / 'calls' / r_cln['call_id'] / 'call.json').read_text(encoding='utf-8')).get('stops')}")
 
     # HD#1: and the snapshot the decision reads from is judged directly, not through a case whose
     # failure another guard would also explain
@@ -6719,7 +7314,7 @@ def self_test(scratch=None):
                 and isinstance(node.func.value, ast.Name) and node.func.value.id == "bound"}
 
     owed = {"check_bound", "admitted_parts", "check_observed", "excess", "committed", "blocked", "limits",
-            "strongest"}
+            "kept", "claim_problems", "claim_excess", "projection"}
     control("the-bound-helpers-have-a-caller-in-the-supervisor", delegated(seam_source) >= owed,
             f"the Supervisor delegates none of {sorted(owed - delegated(seam_source))} to the rule's owner")
     for gone in sorted(owed):
@@ -6813,6 +7408,8 @@ def self_test(scratch=None):
         "BUDGET_EXHAUSTED", "CALIBRATION_PROVISIONAL",
         # the amendment record 2026-10-21T0026--cc0498f--input-bound-amendment.md: the window bound, the run stop
         "INPUT_BOUND_EXCEEDED", "RUN_STOPPED", "ALLOWANCE_UNMEASURED", "ALLOWANCE_MISMATCH", "WINDOW_OVER_BOUND",
+        # W review of WP-08e r1 F4, r2 (lead decisions): a call past the claim it was admitted under stops the run
+        "CLAIM_EXCEEDED",
         "DRIVER_PART_UNCOUNTED", "USAGE_INCOMPLETE", "CAPACITY_UNDECLARED",
         # the implementation's own, each closing a gap the contract leaves open: S-15's concurrency one, a stage
         # with no declared budget, a call directory never overwritten, usage before the cell goes (§13.3), the
@@ -6839,18 +7436,22 @@ def self_test(scratch=None):
     # scan is told where the code comes from, and told to lose it the moment that raise goes.
     # the token is assembled rather than written, so this control's own source does not contain the thing it
     # looks for - a scan that matches itself can never go quiet
-    raise_site = "Refused(stop_detail" + "(excess))"
+    raise_site = 'RunStopped("; ".join(stop_detail' + '(entry) for entry in excess.values()))'
+    # the run's standing stops, refused at every reservation by the rule's own text (`bound.blocked`, RUN_STOPPED)
+    stop_site = "RunStopped(" + "blocked)"
     # the same for a declared part's refusal: the dispatcher computes the code from the problem the rule
     # reports, so the inventory reads the rule's own PART_CODES and loses them when that raise goes
     parts_site = 'Refused(f"{problems[0].' + 'split()[0]} {call_id}: "'
 
     def raised_codes(src):
-        return (contract_branches(src)[0] | ({bound.STOP_CODE} if raise_site in src else set())
+        return (contract_branches(src)[0] | ({bound.STOP_CODE, bound.CLAIM_CODE} if raise_site in src else set())
+                | ({"RUN_STOPPED"} if stop_site in src else set())
                 | (set(bound.PART_CODES) if parts_site in src else set()))
 
     control("supervisor-refusals-are-the-cited-set", raised_codes(source) == design, f"{raised_codes(source) ^ design}")
     control("the-bound-stop-is-raised-where-the-rule-says-it-is",
-            "self._stop_run(bound.excess(" in source and raise_site in source,
+            "entry = bound.excess(call[" in source and "offered[code] = self._stop_run(entry, into=call)" in source
+            and raise_site in source,
             "the dispatcher does not stop the run on the rule's own excess record")
     # the call record is written twice - once inside the launch, once in settlement - so this reads the
     # settlement tail alone, from where the excess is established to the end of `call`
@@ -6909,7 +7510,8 @@ def self_test(scratch=None):
     control("an-added-refusal-is-detected", added != source and raised_codes(added) - design == {"PLANTED_REFUSAL"},
             f"{contract_branches(added)[0] - design}")
     dropped = source.replace("raise " + raise_site, "pass", 1)
-    control("a-removed-bound-stop-is-detected", dropped != source and bound.STOP_CODE not in raised_codes(dropped),
+    control("a-removed-bound-stop-is-detected", dropped != source and bound.STOP_CODE not in raised_codes(dropped)
+            and bound.CLAIM_CODE not in raised_codes(dropped),
             "the scan still reports the bound stop after its raise is gone")
     control("a-removed-refusal-is-detected", removed != source and design - raised_codes(removed) == {"CAP_MISSING"},
             f"{design - raised_codes(removed)}")

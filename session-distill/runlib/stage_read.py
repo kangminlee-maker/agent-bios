@@ -37,7 +37,9 @@ file holds with other content is refused where it would be written (CLAIM_IMMUTA
 line whose digest the read records do not hold (CLAIM_IMMUTABLE).
 
 An `expand` decision is executed by `views.expand`, and the expansion windows are read with the same template; a
-`skip` is logged by `views.record_decision`. An overlap row is credited only through the window of the same view
+`skip` is logged by `views.record_decision`, and the middles a window's reading skipped are read by one gather of that
+window (`views.gather`, class `gather`, WP-08e), or named with the reason it did not read them (`gather_deferred: budget`
+and the like) on the window, the file and the coverage basis. An overlap row is credited only through the window of the same view
 that owns its record, only when that window's result passed, and only when that window shows the interval or lists
 it as its own omission (OVERLAP_INTERVAL_UNSHOWN otherwise); a row on a record the run does not owe is counted, not
 a gap; a row whose owner cannot be found is OVERLAP_OWNER_MISSING. A file S2 cut no window for, because its owed
@@ -128,8 +130,10 @@ A dry S3 (`run(dry=True)`, WP-08d) is admitted as the stage is and stops before 
 view is checked as the reading checks it (WINDOWLESS_VIEW, WINDOW_CAP_MISMATCH, VIEW_DRIFT), and every window's packet
 is built as the dispatcher builds it, measured and held to the bound the window was cut against (WINDOW_OVER_BOUND, as
 the dispatcher refuses it). It writes only `read-dry.json`, the measure, and leaves S3's record `partial`, so the run
-holds no result a later stage could read and the live S3 runs over it unchanged. Expansions and stitches follow from
-answers and are not measured.
+holds no result a later stage could read and the live S3 runs over it unchanged. Each window's input is estimated from
+what the run's own window calls of the host measured a token to cover, by their first requests (the floor of a byte a
+token where the run has none), its basis named, and the host's retries of a refused structured output are a line of
+their own, never folded into the density (WP-08e). Expansions and stitches follow from answers and are not estimated.
 
 Refused by name: UNKNOWN_LABEL, OVERLAP_OWNER_MISSING, OVERLAP_INTERVAL_UNSHOWN, WINDOWLESS_VIEW, VIEW_DRIFT, CLAIM_IMMUTABLE,
 EVENT_IMMUTABLE, WINDOW_CAP_MISMATCH, STITCH_OVER_BOUND, LEDGER_UNREADABLE, LEDGER_BASE_STALE, LEDGER_INVALID,
@@ -144,6 +148,7 @@ import copy
 import datetime
 import hashlib
 import json
+import math
 import pathlib
 import re
 import shutil
@@ -162,6 +167,13 @@ from runlib.records import Refused
 
 STAGE = declare.VIEW_WINDOW_STAGE
 CASE = "window"
+# A window's follow-up over the omitted middles its reading skipped (WP-08e, D-20261111-360c9b): a class of its own,
+# because its packet holds middles alone and a sample of it says nothing of a window's
+GATHER_CASE = "gather"
+# what a gather that did not read its middles leaves on the window, the file and the coverage basis, by its outcome
+GATHER_REASONS = {"not_done": "gather_deferred: budget", "budget_stopped": "gather_deferred: budget",
+                  "deferred": "gather_deferred: provider", "failed": "gather_failed"}
+GATHER_PROVISIONAL = "gather_deferred: calibration"
 SCHEMA_PATH = pathlib.Path(__file__).resolve().parents[1] / "schemas" / "read.schema.json"
 
 
@@ -489,12 +501,13 @@ def keep(run_dir, name, where, window, call_id, answer):
         # shows (`#k/n`), so every part of one record, in a window or an expansion, is one occasion (WP-08c, W r1); its
         # basis is the scope's, set at the stage's end. Beside it, for this run only, the window role of the record it
         # lies on - a backlog record's occasion is late evidence of the window it belongs to (design §5.2, W r1) - and
-        # whether an expansion read it.
+        # whether an expansion or a gather read it.
         record_id = shown_entries(window)[o["occasion_locator"]]["record_id"]
         observed.append({"expected_id": o["expected_id"], "occasion_locator": f"{name}#{record_id}",
                          "exposure": o["exposure"], "verdict": o["verdict"],
                          "evidence_ids": [located[e]["evidence_id"] for e in o["evidence_ids"]], "quotes": o["evidence_ids"],
-                         "role": shown_entries(window)[o["occasion_locator"]]["window_role"], "expansion": "/x/" in where})
+                         "role": shown_entries(window)[o["occasion_locator"]]["window_role"],
+                         "expansion": "/x/" in where or "/g/" in where})
     quoted = {e for c in answer["claims"] if c["claim_id"] in kept for e in c["evidence_ids"]}
     for e in sorted(quoted | {q for o in observed for q in o.pop("quotes")}):
         evidence.append(run_dir, name, located[e])
@@ -895,17 +908,18 @@ class Reader:
         self.caps = {"tokens": episode["tokens"], "compactions": episode["compactions"]}
         self.schema, self.stitch_schema = read_schema(), stitch_schema()
 
-    def call(self, item, labels):
+    def call(self, item, labels, case=CASE):
         """One window's call through the supervisor, its answer checked by the stage (`answer_problems`)."""
         return self.supervisor.item(
-            STAGE, item, self.seat, payload(labels), self.schema, case_type=CASE, caps=self.caps,
+            STAGE, item, self.seat, payload(labels), self.schema, case_type=case, caps=self.caps,
             view_window=True, tranche=self.tranche, max_output_tokens=self.cap, stage_check=judge(labels), resume=True)
 
-    def window(self, name, where, item, doc, rows):
+    def window(self, name, where, item, doc, rows, case=CASE):
         """Read one window and keep its answer; returns its read record and, when accepted, `(answer, call id, what the
-        stitch reads of it)`. The answer is read in the packet's labels and turned into entries here, once (`Labels`)."""
+        stitch reads of it)`. The answer is read in the packet's labels and turned into entries here, once (`Labels`).
+        `case` is the call's class: a window and an expansion are `window`, a gather `gather`."""
         labels = Labels(doc, rows, self.due)
-        out = self.call(item, labels)
+        out = self.call(item, labels, case)
         row = {"window": where, "item": item, "outcome": out["outcome"], "codes": out.get("codes", []),
                "attempts": attempts_of(out), "reused": out.get("reused"), "not_reused": out.get("not_reused", [])}
         if out["outcome"] != "accepted":
@@ -939,11 +953,21 @@ class Reader:
             docs[doc["window_n"]] = doc
         return docs
 
-    def dry_file(self, t, run_id, limits):
+    def dry_file(self, t, run_id, limits, density=None, retry=None, gather_density=None):
         """What reading one file's view would send, measured and not sent: each window's packet built under its first
         attempt's call id as the dispatcher builds it, its driver bytes held to `limits`, the bound the window was cut
-        against (WINDOW_OVER_BOUND, as the dispatcher refuses it). An expansion and the stitch follow from answers, so a
-        dry run does not measure them."""
+        against (WINDOW_OVER_BOUND, as the dispatcher refuses it), and its input estimate (WP-08e): the bytes as tokens
+        at the `density` the run measured for the host's window calls with the host allowance - the first request - and at
+        most one request of it, the first with, for each retry the claim holds, one answer at the output cap and
+        `retry`'s error share (`dispatch.input_at_most`; the floor, the constant margin and one retry when they are not
+        given). A window with omissions
+        of its own records that are not forced carries the gather it would make were every one of them skipped (WP-08e):
+        its windows (`views.gather_windows`) measured as the window's are, at `gather_density`. An expansion and the
+        stitch follow from answers, so a dry run does not measure them."""
+        from runlib import dispatch
+        floor = {"bytes_per_token": dispatch.DENSITY_FLOOR, "basis": f"floor: {dispatch.DENSITY_FLOOR}"}
+        density, gather_density = density or floor, gather_density or floor
+        retry = retry or {"margin": dispatch.RETRY_ERROR_TOKENS, "count": dispatch.RETRIES_CLAIMED}
         name, schema_bytes = t["name"], packet.schema_bytes(self.schema)
         docs = self.window_docs(t)
         hits = views.forced_by_search(self.run_dir, name, self.terms) if docs and self.terms else {}
@@ -958,14 +982,61 @@ class Reader:
             if problems:
                 raise Refused(f"WINDOW_OVER_BOUND {run_id}-{STAGE}-{item}: " + "; ".join(problems)
                               + "; the window is split before dispatch")
+            first, at_most = dispatch.input_at_most(size, density, limits["allowance"], self.cap, retry["margin"],
+                                                    retry["count"])
+            skippable = [m for m in rows if m["forced_by"] == "none"]
+            gathered = None
+            if skippable:
+                gathered = {"omissions": len(skippable), "calls": 0, "driver_bytes": 0, "first_requests": 0, "at_most": 0}
+                for part in views.gather_windows(self.run_dir, name, skippable)[0]:
+                    g_item = f"{name}-g{n}-{part['window_n']}"
+                    g_built = packet.build(f"{run_id}-{STAGE}-{g_item}-a1", STAGE, self.seat,
+                                           payload(Labels(part, own_rows(part), self.due)), schema_bytes)
+                    g_size, g_problems = bound.driver_bytes(g_built, schema_bytes)
+                    g_problems += bound.check_bound(g_size, limits)
+                    if g_problems:
+                        raise Refused(f"WINDOW_OVER_BOUND {run_id}-{STAGE}-{g_item}: " + "; ".join(g_problems)
+                                      + "; the gather is split before dispatch")
+                    g_first, g_at_most = dispatch.input_at_most(g_size, gather_density, limits["allowance"], self.cap,
+                                                                retry["margin"], retry["count"])
+                    gathered.update(calls=gathered["calls"] + 1, driver_bytes=gathered["driver_bytes"] + g_size,
+                                    first_requests=gathered["first_requests"] + g_first,
+                                    at_most=max(gathered["at_most"], g_at_most), basis=gather_density["basis"])
             windows.append({"item": item, "driver_bytes": size, "omissions": len(rows),
-                            "forced": sum(1 for m in rows if m["forced_by"] != "none")})
+                            "forced": sum(1 for m in rows if m["forced_by"] != "none"),
+                            "input_estimate": {"first_request": first, "at_most": at_most, "basis": density["basis"],
+                                               # every declared retry's request, each a step above the one before
+                                               # (W r2, F8): what the retries add if the window retries them all
+                                               "retries_at_most": sum(first + k * (self.cap + retry["margin"])
+                                                                      for k in range(1, retry["count"] + 1))},
+                            "gather_if_skipped": gathered})
         return {"transcript": t["transcript"], "name": name, "windows": windows, "search_matched": len(hits),
                 "windowless": not docs}
 
+    def gather_deferred(self):
+        """The reason a gather is not dispatched before any is reserved, or None. Its class is provisional until five
+        gathers are measured (`dispatch.Supervisor.estimate`), and a provisional call is reserved at its own estimate in
+        any tranche (lead decision, WP-08e); only a call with no estimate - no output cap, or no measured allowance of
+        the host (`Supervisor.estimable`) - is left to a calibration tranche (CALIBRATION_PROVISIONAL), and a broad
+        tranche names that gather deferred instead of refusing the unit. S3 declares its output cap and a view-window
+        seat has its allowance measured, so the case does not arise in a run that reads at all."""
+        from runlib import dispatch
+        klass = dispatch.class_key(STAGE, self.seat, GATHER_CASE)
+        _amount, calibration = self.supervisor.estimate(klass, self.seat.partition(":")[0])
+        return (GATHER_PROVISIONAL if calibration == "provisional" and self.tranche != "calibration"
+                and self.supervisor.estimable(self.seat, self.cap) is None else None)
+
     def file(self, t):
-        """One file's view: every window, its decisions executed, its expansions read, its overlap rows accounted.
-        Returns its read record and what the unit's stitch reads of it (`held`)."""
+        """One file's view: every window, its decisions executed, its expansions read, the middles it skipped gathered,
+        its overlap rows accounted. Returns its read record and what the unit's stitch reads of it (`held`).
+
+        A window whose reading skipped omissions of its own records (forced_by none: a forced one cannot be skipped) is
+        followed by one gather (WP-08e, lead decision D-20261111-360c9b): its skipped middles in windows of their own
+        (`views.gather`), read as the window's class `gather` under the view's bound, their claims and events kept and
+        stitched as an expansion's are. An omission a gather read is no longer skipped for the source's completeness; one
+        it did not read keeps its skip and is named with the reason - the gather's outcome (`GATHER_REASONS`), or
+        `gather_deferred: calibration` when the class may not be dispatched in this tranche - on the window (`gather`),
+        on the file (`not_gathered`) and, through the unit, on the coverage basis (`observation_scope`)."""
         name = t["name"]
         result = {"transcript": t["transcript"], "name": name, "windows": [], "expansions": [], "windowless": None}
         held = {"claims": [], "events": [], "observations": []}
@@ -974,8 +1045,9 @@ class Reader:
         if not docs:
             result["windowless"] = ("it owes the window nothing and is viewed for the events earlier runs left pending on it"
                                     if t.get("carried_only") else "the records it owes hold no content block")
-            result.update(view_complete=True, source_complete=not t["unresolved_versions"], skipped=[],
-                          overlap={"rows": 0, "credited": 0, "not_owed": 0, "uncredited": []}, pending=0, seen=[])
+            result.update(view_complete=True, source_complete=not t["unresolved_versions"], skipped=[], gathered=[],
+                          not_gathered=[], overlap={"rows": 0, "credited": 0, "not_owed": 0, "uncredited": []}, pending=0,
+                          seen=[])
             return result, held
         accepted, decisions, expanded, seen, expansion_docs = set(), [], set(), set(), []
         # the full-source search with the due observations' retrieval terms forces what it matches (design §5.4)
@@ -991,7 +1063,35 @@ class Reader:
             held["observations"] += kept["observations"]
             return sum(1 for e in kept["events"] if e["record"]["outcome"] == "pending")
 
-        pending = 0
+        def gather(n, call_id, skipped):
+            """The gather of window `n`'s skipped middles: its note for the window's row, the ids it read."""
+            nonlocal pending
+            ids = [m["omission_id"] for m in skipped]
+            note = {"omissions": ids, "windows": 0, "gathered": [], "reason": self.gather_deferred()}
+            if note["reason"]:
+                return note
+            parts = views.gather(self.run_dir, call_id, name, skipped)
+            expansion_docs.extend(parts)
+            read_by, outcomes = {}, []
+            for part in parts:
+                where = f"{name}/g/{n}/{part['window_n']}"
+                grow, gkept = self.window(name, where, f"{name}-g{n}-{part['window_n']}", part,
+                                          searched(own_rows(part), hits), case=GATHER_CASE)
+                result["expansions"].append({**grow, "gather_of": ids})
+                note["windows"] += 1
+                outcomes.append(grow["outcome"])
+                for r in part["records"]:
+                    read_by.setdefault(r["record_id"], []).append(gkept is not None)
+                if gkept is not None:
+                    seen.update(r["line"] - 1 for r in part["records"])
+                    pending += hold(gkept[2])
+            note["gathered"] = [m["omission_id"] for m in skipped if read_by.get(m["record_id"]) and all(read_by[m["record_id"]])]
+            if len(note["gathered"]) < len(ids):
+                worst = next((o for o in outcomes if o != "accepted"), "failed")
+                note["reason"] = GATHER_REASONS.get(worst, f"gather_{worst}")
+            return note
+
+        pending, notes = 0, []
         for n, doc in sorted(docs.items()):
             rows = searched(own_rows(doc), hits)
             forced_here.update(m["record_id"] for m in rows if m["forced_by"] == "search_match")
@@ -1004,12 +1104,14 @@ class Reader:
             answer, call_id, part = kept
             pending += hold(part)
             by_id = {m["omission_id"]: m for m in rows}
+            skipped_here = []
             for d in answer["decisions"]:
                 m = by_id[d["omission_id"]]
                 decisions.append(d)
                 if d["decision"] == "skip":
                     views.record_decision(self.run_dir, call_id, name, m["record_id"], "skip", d["reason"], m["forced_by"],
                                           omission=m["omission_id"])
+                    skipped_here.append(m)
                     continue
                 parts = views.expand(self.run_dir, call_id, name, m["record_id"], d["reason"], m["forced_by"],
                                      omission=m["omission_id"])
@@ -1027,10 +1129,21 @@ class Reader:
                         pending += hold(xkept[2])
                 if read_all:
                     expanded.add(m["omission_id"])
+            if skipped_here:
+                # in the order the window lists them, as the dry measures them: an answer may decide in any order, and
+                # a gather packed in the answer's order is cut into other windows than the dry claimed (W r1, F1)
+                rank = {m["omission_id"]: k for k, m in enumerate(rows)}
+                skipped_here.sort(key=lambda m: rank[m["omission_id"]])
+                row["gather"] = gather(n, call_id, skipped_here)
+                notes.append(row["gather"])
         result["searched"].update(matched=len(hits), forced=sorted(forced_here))
         own_ids = [m["omission_id"] for doc in docs.values() for m in own_rows(doc)]
+        gathered = {i for note in notes for i in note["gathered"]}
         state = views.completeness([n in accepted for n in sorted(docs)], own_ids, decisions, expanded,
-                                   t["unresolved_versions"])
+                                   t["unresolved_versions"], gathered)
+        result["gathered"] = sorted(gathered)
+        result["not_gathered"] = [{"omission_id": i, "reason": note["reason"]} for note in notes for i in note["omissions"]
+                                  if i not in gathered]
         # an uncredited overlap row has an owner that was not accepted, so the view is already incomplete; it is named
         # among the unit's reasons (`unit_status`)
         overlap = overlap_accounting(name, docs, accepted, views.sequence_doc(self.run_dir, name), expansion_docs)
@@ -1321,22 +1434,55 @@ def dry_run(stage, reader, run_dir):
     """The dry S3 inside the admitted stage: every unit's views checked and their windows' packets measured
     (`Reader.dry_file`), written to `read-dry.json`, S3's record left `partial`. Nothing else is written: no read record,
     no store, no `read-results.json`, so a later stage refuses the run (INPUT_PARTIAL S3) and the live S3 reads it as if
-    the dry had not run."""
+    the dry had not run.
+
+    The estimate (WP-08e) reads what the bytes take as tokens from the run's own window calls of the seat
+    (`dispatch.measured_density`, its basis named: `measured: <seat>/<stage>:<kind>/<n> samples`, else the declared
+    table's `declared: <run>/<n>`, else `floor: 1.0`), and the host's retries of a refused structured output as their own line (`dispatch.retry_share`):
+    the rate the run measured, and what that rate of retried windows adds at most; never folded into the density. The
+    gathers are estimated as if every omission not forced were skipped, at the density of the host's gather calls, the
+    most the windows can ask for. Expansions and stitches follow from the answers and are named as not estimated."""
+    from runlib import dispatch
     manifest = records.read_json(run_dir / "views.json")
     run_id, limits = run_dir.resolve().name, views.limits_of(reader.declaration)
+    host = reader.seat.partition(":")[0]
+    declared = reader.declaration.get("density")
+    density = dispatch.measured_density(run_dir, reader.seat, STAGE, CASE, declared)
+    retry = dispatch.retry_share(run_dir, host, reader.declaration.get("retry"))
+    gather_density = dispatch.measured_density(run_dir, reader.seat, STAGE, GATHER_CASE, declared)
     units = collections.defaultdict(list)
     for t in manifest["transcripts"]:
         units[t["unit"]].append(t)
-    measured = {unit: [reader.dry_file(t, run_id, limits)
+    measured = {unit: [reader.dry_file(t, run_id, limits, density, retry, gather_density)
                        for t in sorted(units[unit], key=lambda t: (t["kind"] != "session", t["name"]))]
                 for unit in sorted(units)}
-    sizes = [w["driver_bytes"] for files in measured.values() for f in files for w in f["windows"]]
+    windows = [w for files in measured.values() for f in files for w in f["windows"]]
+    sizes = [w["driver_bytes"] for w in windows]
+    firsts = [w["input_estimate"]["first_request"] for w in windows]
+    at_mosts = [w["input_estimate"]["at_most"] for w in windows]
+    retried = [w["input_estimate"]["retries_at_most"] for w in windows]
+    gathers = [w["gather_if_skipped"] for w in windows if w["gather_if_skipped"]]
     summary = {"stage": STAGE, "dry": True, "window": reader.declaration["window"],
                "declaration_seq": reader.declaration["declaration_seq"], "seat": reader.seat, "output_cap": reader.cap,
                "due": len(reader.due), "units": measured,
                "bound": {**limits, "driver_budget": bound.driver_budget(limits)},
                "calls": {"windows": len(sizes), "driver_bytes": sum(sizes), "largest": max(sizes, default=0)},
-               "not_measured": "expansions and stitches: what they send follows from the answers"}
+               "density": {"window": density, "gather": gather_density},
+               "estimate": {
+                   "windows": {"calls": len(windows), "first_requests": sum(firsts), "basis": density["basis"],
+                               "largest_request_at_most": max(at_mosts, default=0)},
+                   "retry": {"calls_measured": retry["calls"], "retried": retry["retried"], "rate": retry["rate"],
+                             "margin": retry["margin"], "margin_basis": retry["margin_basis"],
+                             "retries_claimed": retry["count"], "retries_basis": retry["count_basis"],
+                             "tokens_at_rate": None if retry["rate"] is None else math.ceil(retry["rate"] * sum(retried)),
+                             "tokens_if_every_window_retried": sum(retried)},
+                   "gathers": {"windows": len(gathers), "calls": sum(g["calls"] for g in gathers),
+                               "omissions": sum(g["omissions"] for g in gathers),
+                               "first_requests": sum(g["first_requests"] for g in gathers), "basis": gather_density["basis"],
+                               "if": "every omission not forced is skipped: a reading that expands one leaves it out"},
+                   "not_estimated": {"expansions": "which omissions a reading expands follows from its answer",
+                                     "stitches": "what a stitch lists follows from the claims and events the windows keep"}},
+               "density_table": dispatch.measured_table(run_dir)}
     records.write_json(run_dir, run_dir / DRY_RECORD, summary)
     stage.output(DRY_RECORD)
     stage.record["status"] = "partial"
@@ -1424,7 +1570,8 @@ def run(run_dir, supervisor=None, tranche="broad", stitch_bound=None, jobs=S3_JO
                                {"unit": unit, "status": status, "reasons": reasons, "files": read, "stitch": stitched})
             per_unit[unit] = {"result": result, "read": read, "status": status, "stitched": stitched, "pending": pending,
                               "resolved": resolved, "observed": held["observations"],
-                              "complete": (all(f["view_complete"] for f in read), all(f["source_complete"] for f in read))}
+                              "complete": (all(f["view_complete"] for f in read), all(f["source_complete"] for f in read),
+                                           not_source(read))}
 
         outcome = stage.run_items([{"id": unit, "unit": unit} for unit in sorted(views_of)], work, jobs)
         for unit in sorted(per_unit):  # in unit order, as one at a time would have added them
@@ -1467,15 +1614,26 @@ def run(run_dir, supervisor=None, tranche="broad", stitch_bound=None, jobs=S3_JO
             "incomplete_sources": len(follow["incomplete"]["sources"]),
             "outside_window": scope["outside"],
             "search_forced": sum(forced_by_search.values())}
+        from runlib import dispatch
         summary.update(jobs=jobs, interrupted=interrupted, reused=sum(1 for f in reads for w in f["windows"] + f["expansions"] if w.get("reused")),
                        window=window_id, declaration_seq=reader.declaration["declaration_seq"], quarantined=outcome["quarantined"], accounted=flags["accounted"], fully_read=flags["fully_read"],
                        statuses=dict(collections.Counter(summary["units"].values())), stitch=dict(summary["stitch"]))
+        # what the run measured a token to cover, per seat and kind, in the shape a later declaration takes (WP-08e)
+        summary["density_table"] = dispatch.measured_table(run_dir)
         records.write_json(run_dir, run_dir / "read.json", summary)
         stage.output("read.json")
     return summary
 
 
 # ---- the follow-up of the expected observations due ----------------------------------------------
+
+def not_source(files):
+    """Why a unit's files are not source complete, by name (WP-08e): each omission a reading skipped that no gather read,
+    with the gather's reason, and each file with other versions unresolved."""
+    return ([{"transcript": f["transcript"], "omission_id": g["omission_id"], "reason": g["reason"]}
+             for f in files for g in f.get("not_gathered", [])]
+            + [{"transcript": f["transcript"], "reason": "unresolved_versions"} for f in files if f.get("unresolved")])
+
 
 def observation_scope(document, done, complete):
     """The scope every observation of the window is judged over (design §5.4, plan amendment row 5, Q2 of WP-08 commit
@@ -1490,7 +1648,11 @@ def observation_scope(document, done, complete):
     when a member of it is not. An overlap the census could not determine, and one an older census never wrote, keep the
     row in scope. Returns `views.coverage_basis`' scope, what
     makes it incomplete (the sessions and the sources, by name), and under `outside` the rows that would have made it
-    incomplete and are left out as outside the window, counted by status and evidence."""
+    incomplete and are left out as outside the window, counted by status and evidence. Under `not_source` it names each
+    session read view complete and not source complete, with why (`not_source`, from `complete`'s third member when it
+    has one): what holds the basis at `view` rather than `source` (WP-08e). A session whose files name reasons is named
+    with them whatever its status, so a unit a deferred or failed gather left incomplete keeps the gather's reason
+    beside the incomplete basis (W r1, F2)."""
     statuses = {r["transcript"]: r["status"] for r in done}
     declared = [(n, s) for n, s in sorted(document["sources"].items())
                 if n in sources.TRANSCRIPT_SOURCES and s["state"] != "undeclared"]
@@ -1500,16 +1662,21 @@ def observation_scope(document, done, complete):
     rows = census.rows(document)
     overlap = {census.key_of(r): r.get("window_overlap") for r in rows}
     unit_of = census.units(rows)
-    outside = collections.Counter()
+    outside, below_source = collections.Counter(), []
     for row in rows:
         status, key = row["status"], census.key_of(row)
         if status in ("excluded", "child_of") and key not in statuses:
             continue
         if status == "eligible" or key in statuses:
             status = statuses.get(key, "failed")
-            view, source = complete.get(key, (False, False)) if status == "read_complete" else (False, False)
+            held = tuple(complete.get(key, (False, False)))
+            view, source = held[:2] if status == "read_complete" else (False, False)
+            # why its files are not source complete is the files', whatever the unit's status (W r1, F2): a gather the
+            # provider deferred defers the unit, and its reason still stands
+            why = list(held[2]) if len(held) > 2 else []
         else:
             view = source = status == "nothing_new"
+            why = []
         blocks = status in views.INCOMPLETE_STATUSES or not view
         stands_for = [key] + unit_of.get(key, [])
         if all(overlap.get(k) in census.OUTSIDE for k in stands_for):
@@ -1519,14 +1686,18 @@ def observation_scope(document, done, complete):
         scope["sessions"].append({"status": status, "view_complete": view, "source_complete": source, "unprocessed": False})
         if blocks:
             causes["sessions"].append({"session": key, "status": status, "view_complete": view})
+        if why or (not blocks and not source):
+            below_source.append({"session": key, "status": status, "reasons": why})
     scope["outside"] = dict(sorted(outside.items()))
+    scope["not_source"] = below_source
     return scope, causes
 
 
 def follow_up(run_dir, window_id, due, instances, scope, causes):
     """The instances of the window with the basis code set over `scope`, in `observations/<window>.jsonl`, and each due
     observation's resolution derived from them (`measures.derive_resolution`) into `observations/resolutions.json`,
-    beside the line digests and what made the basis incomplete. A resolution left pending only because the basis is
+    beside the line digests and what made the basis incomplete, and the sessions that hold it below `source` with why
+    (`not_source`, WP-08e: a skipped middle no gather read is named there). A resolution left pending only because the basis is
     incomplete is counted apart, with the sessions and sources that made it so (Q2 of WP-08 commit 4). Rendering and the
     ledger's close are WP-21's (plan amendment row 6).
 
@@ -1573,6 +1744,7 @@ def follow_up(run_dir, window_id, due, instances, scope, causes):
     doc = {"window": window_id, "basis": basis, "instances": rel, "digests": digest(lines), "resolutions": resolutions,
            "pending_because_incomplete": held_back,
            "incomplete": causes if basis == "incomplete" else {"sessions": [], "sources": []},
+           "not_source": scope.get("not_source", []),
            "late": {w: {"instances": held["instances"], "digests": digest(held["lines"])} for w, held in late.items()}}
     records.write_json(run_dir, pathlib.Path(run_dir) / RESOLUTIONS, doc)
     return doc
@@ -1686,13 +1858,14 @@ def fx_labelled(labels, answer):
     return out
 
 
-def fx_plan(run_dir, scratch, answers_for, expanding=lambda m: False, due=()):
+def fx_plan(run_dir, scratch, answers_for, expanding=lambda m: False, due=(), gathering=False):
     """The golden host's plan: rows `{match, answer}`, each matched by the whole text of its window as S2 rendered it -
     a window's text is in its packet verbatim and in no other - and, for a retry, by the correction its packet carries.
     The expansions are made first, on a copy of the run and by the same `views.expand`, so the plan knows their windows
     before the run makes them; `answers_for(where, doc, rows, parts)` gets them by omission id, and writes them as a
     fixture does, in entries: each is answered in the labels its packet shows, over the `due` observations
-    (`fx_labelled`)."""
+    (`fx_labelled`). With `gathering`, the gather each answer's skips would make is planned too (`views.gather_windows`,
+    WP-08e), its windows answered at `<view>/g/<window>/<n>`."""
     run_dir, rows = pathlib.Path(run_dir), []
     manifest = records.read_json(run_dir / "views.json")
     copied = pathlib.Path(tempfile.mkdtemp(prefix="plan-", dir=scratch)) / "run"
@@ -1706,6 +1879,13 @@ def fx_plan(run_dir, scratch, answers_for, expanding=lambda m: False, due=()):
         for extra, answer in answers_for(f"{name}/{doc['window_n']}", doc, own_rows(doc), parts):
             rows.append({"match": [views.render_window(doc), *extra],
                          "answer": fx_labelled(Labels(doc, own_rows(doc), due), answer)})
+            skips = {d["omission_id"] for d in answer.get("decisions", []) if d.get("decision") == "skip"}
+            skipped = [m for m in own_rows(doc) if m["omission_id"] in skips and m["forced_by"] == "none"]
+            for part in (views.gather_windows(run_dir, name, skipped)[0] if gathering and skipped else []):
+                for g_extra, g_answer in answers_for(f"{name}/g/{doc['window_n']}/{part['window_n']}", part, own_rows(part),
+                                                     parts):
+                    rows.append({"match": [views.render_window(part), *g_extra],
+                                 "answer": fx_labelled(Labels(part, own_rows(part), due), g_answer)})
         for omission, made in parts.items():
             if any(m["omission_id"] == omission for m in own_rows(doc)):
                 for part in made:
@@ -1781,10 +1961,11 @@ def fx_joined(event, claims, fact_starts, beside=False):
 
 
 def fx_reader(root, name, answers_for, expanding=lambda m: False, resolve=lambda event, claims: None, first=None, seen=None,
-              bad=lambda item: False, **golden):
+              bad=lambda item: False, gathering=False, gather_seed=None, **golden):
     """A run S0 to S2 made by `views.golden` (`golden` passes through to it), declaring the allowance seats.json
     measured, and a golden supervisor whose host answers the windows from the plan and each stitch as `resolve` says
-    (`fx_stitcher`)."""
+    (`fx_stitcher`). With `gathering` the plan answers the gathers too (WP-08e), and the gather class is seeded with
+    `gather_seed`'s samples - five of the window class's by default, so it is measured; `()` leaves it unmeasured."""
     from runlib import dispatch
     root = pathlib.Path(root)
     root.mkdir(parents=True, exist_ok=True)
@@ -1798,11 +1979,13 @@ def fx_reader(root, name, answers_for, expanding=lambda m: False, resolve=lambda
     due = (due_observations(golden["ledger_doc"], run_dir.resolve().name, golden.get("window") or views.FX_WINDOW)
            if golden.get("ledger_doc") else [])
     plan = root / f"{name}-plan.json"
-    plan.write_text(json.dumps(fx_plan(run_dir, root, answers_for, expanding, due)), encoding="utf-8")
+    plan.write_text(json.dumps(fx_plan(run_dir, root, answers_for, expanding, due, gathering)), encoding="utf-8")
     (root / "fake_host.py").write_text(dispatch.FAKE_HOST, encoding="utf-8")
     sup = fx_supervisor(run_dir, root, plan, resolve, first, seen, bad)
     seat = records.read_json(records.run_json_path(run_dir))["seats"][STAGE]
-    sup.seed_from({dispatch.class_key(STAGE, seat, CASE): [9000] * 5, dispatch.class_key(STAGE, seat, STITCH_CASE): [9000] * 5})
+    sup.seed_from({dispatch.class_key(STAGE, seat, CASE): [9000] * 5, dispatch.class_key(STAGE, seat, STITCH_CASE): [9000] * 5,
+                   **({dispatch.class_key(STAGE, seat, GATHER_CASE): list([9000] * 5 if gather_seed is None else gather_seed)}
+                      if gathering and (gather_seed is None or gather_seed) else {})})
     return run_dir, sup, made
 
 
@@ -1822,6 +2005,29 @@ FX_OBSERVED = {"occasion_criteria": "the person asks for a simpler telling of so
                "exposure_rule": "the plain-explanation guide reached the session before the ask",
                "expected_behavior": "the agent answers in plain words without being asked twice",
                "retrieval_terms": [views.FX_TERM]}
+
+
+def fx_planted_call(run_dir, call_id, seat, stage, case_type, driver_bytes, requests):
+    """An earlier call of the run, counts only, as its ledger and its call directory hold it (WP-08e): a closed
+    reservation of `stage` and `case_type` for `seat`, the call record's driver bytes, and its usage record's main
+    requests, each `(input, output, cache_read, cache_creation)`."""
+    from runlib import dispatch
+    run_dir = pathlib.Path(run_dir)
+    path = dispatch.run_ledger_path(run_dir)
+    held = records.read_json(path) if path.is_file() else {"stages": {}, "stops": {}}
+    entry = held.setdefault("stages", {}).setdefault(stage, {"reservations": {}, "spent": {"measured": 0, "provisional": 0},
+                                                             "not_done": [], "overshoot": []})
+    entry["reservations"][call_id] = {"call_id": call_id, "stage": stage, "item": call_id, "seat": seat,
+                                      "class": f"{stage}|{seat}|{case_type}", "amount": 1, "calibration": "provisional",
+                                      "tranche": "calibration", "declaration_seq": 1, "at": 0, "open": False,
+                                      "outcome": "completed"}
+    records.write_json(run_dir, path, held)
+    rows = [{"id": f"main#{n}", "role": "main", "state": "measured", "estimate": None,
+             **dict(zip(("input", "output", "cache_read", "cache_creation"), r))} for n, r in enumerate(requests, 1)]
+    records.write_json(run_dir, run_dir / "calls" / call_id / "call.json", {"call_id": call_id, "stage": stage,
+                                                                           "bound": {"driver_bytes": driver_bytes}})
+    records.write_json(run_dir, run_dir / "calls" / call_id / "usage.json", {"call_id": call_id, "requests": rows,
+                                                                            "attempts": len(rows)})
 
 
 def fx_ledger(run_name):
@@ -2340,7 +2546,8 @@ def self_test():
                 path.chmod(0o700 if path.is_dir() else 0o600)
         control("the judge is pure: asked of a read-only copy of an accepted attempt it answers the same, and nothing in the "
                 "run changes", verdict == [] and tree_digest(run_dir) == before, f"{verdict}")
-        expansions = main_file.get("expansions", [])
+        # the read record lists a window's gather beside its expansions (`gather_of`); this fixture plans no gather
+        expansions = [x for x in main_file.get("expansions", []) if not x.get("gather_of")]
         control("the forced omission is expanded, and its expansion windows read under the same template",
                 bool(expansions) and all(x["outcome"] == "accepted" for x in expansions), f"{expansions}")
         unshown = [d for d in first.get("dropped", []) if d["claim"] == "c2"]
@@ -4178,7 +4385,9 @@ def self_test():
             return [((), answer)]
 
         # what a run that reused or closed calls records of that, and nothing else, which the comparisons leave out
-        RUN_METADATA = ("reused", "not_reused", "interrupted")
+        # and the run's measured density table (WP-08e), whose times are its calls' and whose counts a resumed run's
+        # extra attempt changes: a measure of how the run was read, not of what it read
+        RUN_METADATA = ("reused", "not_reused", "interrupted", "density_table")
 
         def steady(doc):
             if isinstance(doc, dict):
@@ -4263,6 +4472,404 @@ def self_test():
         control("WP-08d: the dry S3 measured each window's packet as the dispatcher measured its first attempt",
                 bool(measured) and all(sent.get(f"k-{STAGE}-{w['item']}-a1") == w["driver_bytes"] for w in measured),
                 f"{[(w['item'], w['driver_bytes'], sent.get(f'k-{STAGE}-' + w['item'] + '-a1')) for w in measured][:4]}")
+        # WP-08e: the dry's estimate reads what a token covers from the run's own window calls, by their first requests
+        from runlib import dispatch as s3_dispatch
+        allowance_d = dried.get("bound", {}).get("allowance", 0)
+        margin_d = s3_dispatch.RETRY_ERROR_TOKENS
+        est_d = dried.get("estimate", {})
+        control("WP-08e: a dry S3 in a run with no window call estimates each window at the floor of a byte a token, "
+                "named as its basis: the first request the bytes and the allowance, at most that with one answer at the "
+                "output cap and the error share; no retry rate is claimed, and what follows from answers is named",
+                bool(measured) and est_d.get("windows", {}).get("basis") == "floor: 1.0" and "not_measured" not in dried
+                and all(w.get("input_estimate") == {"first_request": w["driver_bytes"] + allowance_d,
+                                                     "at_most": w["driver_bytes"] + allowance_d + dried["output_cap"] + margin_d,
+                                                     "basis": "floor: 1.0",
+                                                     "retries_at_most": w["driver_bytes"] + allowance_d
+                                                     + dried["output_cap"] + margin_d}
+                        for w in measured)
+                and est_d.get("windows", {}).get("first_requests") == sum(w["driver_bytes"] + allowance_d for w in measured)
+                and est_d.get("retry", {}).get("rate") is None and est_d.get("retry", {}).get("tokens_at_rate") is None
+                and sorted(est_d.get("not_estimated", {})) == ["expansions", "stitches"],
+                f"{est_d} {[w.get('input_estimate') for w in measured][:2]}")
+        dense_dir, _dense_sup, _ = fx_reader(root / "dry-dense", "k", answers_r, ledger_doc=fx_ledger("k"))
+        s3_seat = records.read_json(records.run_json_path(dense_dir))["seats"][STAGE]
+        # C2's window 8, counts only: 115,742 driver bytes, two main requests, the second the host's retry
+        guarded(lambda: fx_planted_call(dense_dir, f"k-{STAGE}-c2w8-a1", s3_seat, STAGE, CASE, 115_742,
+                                        [(2, 6_366, 3_297, 50_247), (2, 3_613, 53_544, 7_484)]), None)
+        dense_dry = guarded(lambda: run(dense_dir, dry=True), {})
+        dense_w = [w for files in dense_dry.get("units", {}).values() for f in files for w in f["windows"]]
+        est_x = dense_dry.get("estimate", {})
+        retry_x = est_x.get("retry", {})
+        at_x = [math.ceil(w["driver_bytes"] / 2.161) + allowance_d + dense_dry.get("output_cap", 0) + margin_d for w in dense_w]
+        control("WP-08e: C2's window-8 shape - two requests, the second a retry - is read by its first request at 2.161 "
+                "bytes a token, never 1.010 by the sum or 1.896 by the largest: the dry estimates each window at it, named "
+                "as measured, and carries the retry as its own line, its rate and what it adds",
+                bool(dense_w) and dense_dry.get("density", {}).get("window", {}).get("bytes_per_token") == 2.161
+                and est_x.get("windows", {}).get("basis") == f"measured: {s3_seat}/{STAGE}:{CASE}/1 samples"
+                and [w["input_estimate"]["at_most"] for w in dense_w] == at_x
+                and [w["input_estimate"]["first_request"] for w in dense_w]
+                == [math.ceil(w["driver_bytes"] / 2.161) + allowance_d for w in dense_w]
+                and retry_x.get("calls_measured") == 1 and retry_x.get("retried") == 1 and retry_x.get("rate") == 1.0
+                and retry_x.get("margin") == margin_d and retry_x.get("tokens_at_rate") == sum(at_x),
+                f"{dense_dry.get('density')} {est_x}")
+        control("WP-08e: a host with no measured call of the kind reads at the floor, named, whatever another host measured",
+                guarded(lambda: s3_dispatch.measured_density(dense_dir, "codex:gpt-6-astra/xhigh", STAGE, CASE), {})
+                == {"bytes_per_token": 1.0, "basis": "floor: 1.0", "samples": 0}
+                and guarded(lambda: s3_dispatch.measured_density(dense_dir, s3_seat, STAGE, STITCH_CASE), {}).get("basis")
+                == "floor: 1.0",
+                f"{guarded(lambda: s3_dispatch.measured_density(dense_dir, 'codex:gpt-6-astra/xhigh', STAGE, CASE), {})}")
+        other_seat = "claude:claude-opus-5-5/high"
+        control("WP-08e: a density is keyed as a reservation class is: another seat of the same host borrows nothing of the "
+                "seat a call measured, and reads at the floor (W r1, F3)",
+                other_seat != s3_seat
+                and guarded(lambda: s3_dispatch.measured_density(dense_dir, other_seat, STAGE, CASE), {}).get("basis") == "floor: 1.0"
+                and guarded(lambda: s3_dispatch.measured_density(dense_dir, s3_seat, STAGE, CASE), {}).get("bytes_per_token") == 2.161,
+                f"{guarded(lambda: s3_dispatch.measured_density(dense_dir, other_seat, STAGE, CASE), {})}")
+        # WP-08e Q3 (D-20261111-360c9b): the middles a window's reading skipped are gathered, or named when they are not
+        windows_d = [w for files in dried.get("units", {}).values() for f in files for w in f["windows"]]
+        expected_g = [w for w in windows_d if w["omissions"] > w["forced"]]
+        est_g = est_d.get("gathers", {})
+        control("WP-08e: a dry S3 estimates the gather each window with an omission not forced would make, every such "
+                "omission skipped, at the gather class's density, named as its basis",
+                bool(expected_g) and all((w.get("gather_if_skipped") or {}).get("omissions") == w["omissions"] - w["forced"]
+                                         and w["gather_if_skipped"]["calls"] >= 1 for w in expected_g)
+                and all(w.get("gather_if_skipped") is None for w in windows_d if w not in expected_g)
+                and est_g.get("windows") == len(expected_g) and est_g.get("basis") == "floor: 1.0"
+                and est_g.get("calls") == sum(w["gather_if_skipped"]["calls"] for w in expected_g)
+                and est_g.get("first_requests") == sum(w["gather_if_skipped"]["first_requests"] for w in expected_g)
+                and all(w["gather_if_skipped"]["first_requests"]
+                        == w["gather_if_skipped"]["driver_bytes"] + allowance_d * w["gather_if_skipped"]["calls"] for w in expected_g),
+                f"{est_g} {[(w['item'], w['omissions'], w['forced'], w.get('gather_if_skipped')) for w in windows_d][:4]}")
+
+        def answers_g(where, doc, rows, parts):
+            """Each forced omission expanded and every other skipped, as a reader decides by default; a gather's windows
+            answered as a window's are, a claim on their first middle."""
+            return [((), fx_answer(doc, rows, fact="The omitted middle holds the outcome." if "/g/" in where else
+                                   "The person asked for a change and the agent made it."))]
+
+        def gather_view(directory):
+            """`(skipped ids in the decision log, files of the read records)`."""
+            log = directory / "expansions.jsonl"
+            skips = sorted(json.loads(line)["locator"]["omission_id"] for line in records.jsonl_read(log)
+                           if line.strip() and json.loads(line)["decision"] == "skip") if log.is_file() else []
+            return skips, [f for p in sorted((directory / "read").glob("*.json")) for f in records.read_json(p)["files"]]
+
+        forced_only = lambda m: m["forced_by"] != "none"  # noqa: E731
+        # no observation is due, so no search forces an omission and every one not forced by a pending event is skipped
+        g_dir, g_sup, _ = fx_reader(root / "gather", "k", answers_g, expanding=forced_only, gathering=True)
+        guarded(lambda: run(g_dir, g_sup), {})
+        g_skips, g_files = gather_view(g_dir)
+        g_rows = [x for f in g_files for x in f["expansions"] if x.get("gather_of")]
+        g_notes = [w["gather"] for f in g_files for w in f["windows"] if w.get("gather")]
+        g_ledger = guarded(lambda: records.read_json(s3_dispatch.run_ledger_path(g_dir)), {}).get("stages", {}).get(STAGE, {})
+        g_classes = {r["class"] for r in g_ledger.get("reservations", {}).values()
+                     if r["item"] in {x["item"] for x in g_rows}}
+        g_resolved = guarded(lambda: records.read_json(g_dir / RESOLUTIONS), {})
+        control("WP-08e: every middle a window's reading skipped is read by that window's gather - calls of the gather "
+                "class, accepted, their claims kept - and the file is source complete with nothing skipped or named, the "
+                "coverage basis source",
+                bool(g_skips) and sorted(i for f in g_files for i in f.get("gathered", [])) == g_skips
+                and all(f["skipped"] == [] and f.get("not_gathered") == [] and f["source_complete"] for f in g_files
+                        if f.get("gathered"))
+                and bool(g_rows) and all(x["outcome"] == "accepted" and x.get("claims") for x in g_rows)
+                and all(n["reason"] is None and n["gathered"] == n["omissions"] for n in g_notes)
+                and g_classes == {s3_dispatch.class_key(STAGE, s3_seat, GATHER_CASE)}
+                and g_resolved.get("not_source") == [] and g_resolved.get("basis") == "source",
+                f"skips={g_skips} gathered={[f.get('gathered') for f in g_files]} notes={g_notes} classes={g_classes} "
+                f"rows={[(x['item'], x['outcome']) for x in g_rows]} not_source={g_resolved.get('not_source')}")
+        poor_dir, poor_sup, _ = fx_reader(root / "gather-budget", "k", answers_g, expanding=forced_only, gathering=True)
+        # a gather's reservation the stage's budget cannot hold: its class measured far above what is left
+        poor_sup.seed_from({s3_dispatch.class_key(STAGE, s3_seat, GATHER_CASE): [10 ** 9] * 5})
+        guarded(lambda: run(poor_dir, poor_sup), {})
+        p_skips, p_files = gather_view(poor_dir)
+        p_notes = [w["gather"] for f in p_files for w in f["windows"] if w.get("gather")]
+        p_resolved = guarded(lambda: records.read_json(poor_dir / RESOLUTIONS), {})
+        p_named = sorted(r["omission_id"] for s in p_resolved.get("not_source", []) for r in s["reasons"]
+                         if r.get("reason") == "gather_deferred: budget")
+        p_not_done = [d["class"] for d in guarded(lambda: records.read_json(s3_dispatch.run_ledger_path(poor_dir)), {})
+                      .get("stages", {}).get(STAGE, {}).get("not_done", [])]
+        control("WP-08e: a gather the stage's budget cannot hold is recorded not done, and its middles stay skipped with "
+                "the reason gather_deferred: budget on the window, on the file and on the coverage basis, which is view",
+                bool(p_skips) and bool(p_notes) and all(n["reason"] == "gather_deferred: budget" and n["gathered"] == []
+                                                         for n in p_notes)
+                and sorted(i for f in p_files for i in f["skipped"]) == p_skips
+                and sorted(g["omission_id"] for f in p_files for g in f.get("not_gathered", [])
+                           if g["reason"] == "gather_deferred: budget") == p_skips
+                and p_named == p_skips and p_resolved.get("basis") == "view" and bool(p_not_done)
+                and set(p_not_done) == {s3_dispatch.class_key(STAGE, s3_seat, GATHER_CASE)},
+                f"skips={p_skips} notes={p_notes} named={p_named} not_done={p_not_done} "
+                f"not_source={p_resolved.get('not_source')}")
+        # lead decision (WP-08e commit 3): calibration is the class's, not the tranche's - an unmeasured class's call is
+        # reserved at its own estimate wherever it falls, and the sixth on from the measured p95
+        cap_g = guarded(lambda: records.read_json(records.run_json_path(g_dir))["output_caps"][STAGE], 0)
+        allowance_g = gate.seats()["hosts"]["claude"]["host_allowance"]["hermetic"]["allowance_tokens"]
+
+        def gather_reservations(directory):
+            """The gather class's reservations of a run, in the order they were made."""
+            held_g = guarded(lambda: records.read_json(s3_dispatch.run_ledger_path(directory)), {})
+            return sorted((r for r in held_g.get("stages", {}).get(STAGE, {}).get("reservations", {}).values()
+                           if r["class"].endswith("|" + GATHER_CASE)), key=lambda r: (r["at"], r["call_id"]))
+
+        def at_floor(call_id, directory):
+            """What a call's reservation is at the floor, from the driver bytes its call record holds."""
+            driver = guarded(lambda: records.read_json(directory / "calls" / call_id / "call.json")["bound"]["driver_bytes"], 0)
+            # the first request and its answer, then the retry's request (the first, an answer and the margin) and its
+            # answer, written out rather than read from the function under test
+            first = driver + allowance_g
+            return first + cap_g + (first + cap_g + s3_dispatch.RETRY_ERROR_TOKENS) + cap_g
+
+        prov_dir, prov_sup, _ = fx_reader(root / "gather-provisional", "k", answers_g, expanding=forced_only, gathering=True,
+                                          gather_seed=())
+        guarded(lambda: run(prov_dir, prov_sup), {})
+        v_skips, v_files = gather_view(prov_dir)
+        v_res = gather_reservations(prov_dir)
+        control("WP-08e: a gather of a class not yet measured is admitted in a broad tranche, reserved provisionally at its "
+                "own estimate - its spend at most from its packet at the floor, the allowance, the cap and the margin - and "
+                "reads its middles",
+                bool(v_skips) and sorted(i for f in v_files for i in f.get("gathered", [])) == v_skips
+                and bool(v_res) and all(r["calibration"] == "provisional" and r["tranche"] == "broad" and r.get("estimate")
+                                        for r in v_res)
+                and v_res[0]["amount"] == at_floor(v_res[0]["call_id"], prov_dir)
+                and "density floor: 1.0" in v_res[0]["estimate"],
+                f"skips={v_skips} reservations={[(r['call_id'][-12:], r['calibration'], r['amount'], r.get('estimate')) for r in v_res]} "
+                f"at floor {at_floor(v_res[0]['call_id'], prov_dir) if v_res else None}")
+        sixth_dir, sixth_sup, _ = fx_reader(root / "gather-sixth", "k", answers_g, expanding=forced_only, gathering=True,
+                                            gather_seed=[9000] * 3)
+        guarded(lambda: run(sixth_dir, sixth_sup), {})
+        x_res = gather_reservations(sixth_dir)
+
+        def spent(call_id):
+            return guarded(lambda: usage_mod.totals(records.read_json(sixth_dir / "calls" / call_id / "usage.json"))["measured"], -1)
+        from runlib import usage as usage_mod
+        control("WP-08e: with three gathers seeded, the run's first two gathers are reserved provisionally and the third - "
+                "the class's sixth call - from the p95 of the five measured",
+                [r["calibration"] for r in x_res] == ["provisional", "provisional", "measured"]
+                and x_res[2]["amount"] == s3_dispatch.p95([9000] * 3 + [spent(r["call_id"]) for r in x_res[:2]])
+                and "estimate" not in x_res[2],
+                f"{[(r['call_id'][-12:], r['calibration'], r['amount']) for r in x_res]}")
+        tiny = {s3_seat: {f"{STAGE}:{GATHER_CASE}": {"bytes_per_token": 0.001, "measured_in": "fx-dense", "samples": 1,
+                                                       "at": "2026-11-10T00:00:00+00:00"}}}
+        tight_dir, tight_sup, _ = fx_reader(root / "gather-tight", "k", answers_g, expanding=forced_only, gathering=True,
+                                            gather_seed=(), density=tiny)
+        guarded(lambda: run(tight_dir, tight_sup), {})
+        t_skips, t_files = gather_view(tight_dir)
+        t_notes = [w["gather"] for f in t_files for w in f["windows"] if w.get("gather")]
+        t_not_done = guarded(lambda: records.read_json(s3_dispatch.run_ledger_path(tight_dir)), {}).get("stages", {}) \
+            .get(STAGE, {}).get("not_done", [])
+        control("WP-08e: a provisional gather whose estimate the budget left cannot hold - a declared density of a "
+                "thousandth of a byte a token - is recorded not done and named gather_deferred: budget",
+                bool(t_skips) and bool(t_notes) and all(n["reason"] == "gather_deferred: budget" for n in t_notes)
+                and not gather_reservations(tight_dir) and bool(t_not_done)
+                and all(d["class"].endswith("|" + GATHER_CASE) and d["reservation"] > d["remaining"] for d in t_not_done),
+                f"skips={t_skips} notes={t_notes} not_done={t_not_done}")
+        cal_dir, cal_sup, _ = fx_reader(root / "gather-unestimable", "k", answers_g, expanding=forced_only)
+        cal_sup.estimable = lambda seat, output_cap: None  # a call no estimate can be made for: no cap, no allowance
+        guarded(lambda: run(cal_dir, cal_sup), {})
+        c_skips, c_files = gather_view(cal_dir)
+        c_notes = [w["gather"] for f in c_files for w in f["windows"] if w.get("gather")]
+        control("WP-08e: a gather of a class not yet measured that no estimate can be made for is not dispatched in a broad "
+                "tranche: its middles stay skipped, named gather_deferred: calibration, and the unit is read",
+                bool(c_skips) and bool(c_notes) and all(n["reason"] == GATHER_PROVISIONAL and n["windows"] == 0 for n in c_notes)
+                and not gather_reservations(cal_dir)
+                and sorted(g["omission_id"] for f in c_files for g in f.get("not_gathered", [])) == c_skips
+                and all(f["view_complete"] for f in c_files),
+                f"skips={c_skips} notes={c_notes}")
+        # the /g/ marking: a gather's reading of an occasion is the expansion side's, so where a window and the gather of
+        # one of its records judge it otherwise, the gather's verdict is kept and the window's is superseded
+        mark_dir = root / "gather-mark" / g_dir.name
+        shutil.copytree(g_dir.parent, mark_dir.parent, ignore=shutil.ignore_patterns("*.sock"))
+        g_paths = sorted(mark_dir.glob("views/*/gather-*.json"))
+        marked = None
+        if g_paths:
+            mark_name = g_paths[0].parent.name
+            g_doc = views.window_doc(mark_dir, mark_name, g_paths[0])
+            g_rec = g_doc["records"][0]
+            listed_m = next(t for t in records.read_json(mark_dir / "views.json")["transcripts"] if t["name"] == mark_name)
+            w_doc = next(d for d in (views.window_doc(mark_dir, mark_name, mark_dir / w["path"]) for w in listed_m["windows"])
+                         if any(r["record_id"] == g_rec["record_id"] for r in d["records"]))
+            w_entry = next(r for r in w_doc["records"] if r["record_id"] == g_rec["record_id"])
+
+            def reading(doc, entry, where, verdict):
+                text, occurrence = fx_quote(entry)
+                answer = {"quotes": [{"quote_id": "q1", "entry": views.eid(entry), "text": text,
+                                      **({"occurrence": occurrence} if occurrence is not None else {})}],
+                          "claims": [], "events": [], "decisions": [],
+                          "observations": [{"expected_id": "N-1@r0", "occasion_locator": views.eid(entry),
+                                            "exposure": "eligible", "verdict": verdict, "evidence_ids": ["q1"]}]}
+                return keep(mark_dir, mark_name, where, doc, f"k-{STAGE}-mark-a1", answer)[1]["observations"]
+            seen_w = guarded(lambda: reading(w_doc, w_entry, f"{mark_name}/{w_doc['window_n']}", "observed"), [])
+            seen_g = guarded(lambda: reading(g_doc, g_rec, f"{mark_name}/g/{w_doc['window_n']}/1", "not_observed"), [])
+            marked = guarded(lambda: settle_occasions(seen_w + seen_g), None)
+        control("WP-08e: a gather's reading of an occasion is the expansion side's: judged otherwise than by the window, "
+                "the gather's verdict is kept and the window's superseded, never both left conflicting",
+                marked is not None and [i["expansion"] for i in seen_w + seen_g] == [False, True]
+                and [i["verdict"] for i in marked[0]] == ["not_observed"] and len(marked[1]) == 1 and marked[2] == [],
+                f"{marked}")
+        # W r1, F1: a gather is packed in the order the window lists its omissions, whatever order the answer decides
+        # them in, so the live gather is the dry's. Three long results in one window, each middle cut into parts.
+        def split_records():
+            rows_s = [views.fx_human(views.fx_stamp(3, hour=1), "read the three logs and tell me what failed")]
+            for k, filler in enumerate((150, 150, 60)):
+                rows_s.append(views.fx_result(views.fx_stamp(3, hour=2 + k),
+                                              views.fx_clipped(f"log {k} hides its cause here", filler=filler)))
+            return rows_s + [views.fx_assistant(views.fx_stamp(3, hour=9), "the second log holds the cause")]
+
+        def ordered_answers(order):
+            def answers_s(where, doc, rows, parts):
+                answer = fx_answer(doc, rows, fact="The omitted middle holds the outcome." if "/g/" in where
+                                   else "The person asked for a change and the agent made it.")
+                answer["decisions"] = order(answer["decisions"])
+                return [((), answer)]
+            return answers_s
+
+        def packed(directory):
+            """`[(records of each gather window)]` and the gather calls' driver bytes, as the run left them."""
+            windows_p = [[views.eid(r) for r in json.loads(path.read_text())["records"]]
+                         for path in sorted(directory.glob("views/*/gather-*.json"))]
+            sent_p = [guarded(lambda: records.read_json(directory / "calls" / r["call_id"] / "call.json")["bound"]["driver_bytes"], 0)
+                      for r in gather_reservations(directory)]
+            return windows_p, sent_p
+        split_kw = dict(expanding=forced_only, gathering=True, main_records=split_records, owned=[[0, 5]], pending_at=None,
+                        main_only=True)
+        in_order_dir, in_order_sup, _ = fx_reader(root / "gather-order", "k", ordered_answers(lambda ds: ds), **split_kw)
+        guarded(lambda: run(in_order_dir, in_order_sup), {})
+        rev_dir, rev_sup, _ = fx_reader(root / "gather-reversed", "k", ordered_answers(lambda ds: list(reversed(ds))), **split_kw)
+        rev_dry = guarded(lambda: run(rev_dir, dry=True), {})
+        guarded(lambda: run(rev_dir, rev_sup), {})
+        claimed = [w["gather_if_skipped"] for files in rev_dry.get("units", {}).values() for f in files for w in f["windows"]
+                   if w.get("gather_if_skipped")]
+        (in_windows, _in_sent), (rev_windows, rev_sent) = packed(in_order_dir), packed(rev_dir)
+        control("WP-08e W r1 F1: a window's gather, its omissions decided in reverse order, is packed as the window lists "
+                "them - the windows of a gather decided in order - and sends what the dry claimed",
+                len(in_windows) > 1 and any(len(w) > 1 for w in in_windows) and rev_windows == in_windows
+                and len(claimed) == 1 and claimed[0]["calls"] == len(rev_sent) and claimed[0]["driver_bytes"] == sum(rev_sent),
+                f"in order {in_windows} reversed {rev_windows} claimed {claimed} sent {rev_sent}")
+
+        # W r1, F2: a gather's reason stays on the coverage record whatever the unit's status becomes
+        def planting(sup_p, outcome_of):
+            honest_p = sup_p.item
+
+            def item_p(stage, name, seat, payload, schema, **kwargs):
+                planted = outcome_of(name, kwargs.get("case_type"))
+                if planted:
+                    return {"item": name, "outcome": planted, "codes": ["PLANTED"], "why": "planted", "attempts": []}
+                return honest_p(stage, name, seat, payload, schema, **kwargs)
+            sup_p.item = item_p
+
+        def coverage_of(directory):
+            held_c = guarded(lambda: records.read_json(directory / RESOLUTIONS), {})
+            return (held_c.get("basis"), [s["session"] for s in (held_c.get("incomplete") or {}).get("sessions", [])],
+                    {s["session"]: (s["status"], sorted({r["reason"] for r in s["reasons"]})) for s in held_c.get("not_source", [])})
+        prov_d_dir, prov_d_sup, _ = fx_reader(root / "gather-provider", "k", answers_g, expanding=forced_only, gathering=True)
+        planting(prov_d_sup, lambda name, case: "deferred" if case == GATHER_CASE else None)
+        guarded(lambda: run(prov_d_dir, prov_d_sup), {})
+        basis_d, blocked_d, named_d = coverage_of(prov_d_dir)
+        control("WP-08e W r1 F2: a gather the provider deferred defers its unit, and the coverage record keeps its reason "
+                "gather_deferred: provider beside the incomplete basis",
+                basis_d == "incomplete" and len(blocked_d) == 1
+                and named_d.get(blocked_d[0]) == ("deferred", ["gather_deferred: provider"]),
+                f"basis={basis_d} blocked={blocked_d} named={named_d}")
+        fail_dir, fail_sup, _ = fx_reader(root / "gather-failed", "k", answers_g, expanding=forced_only, gathering=True)
+        planting(fail_sup, lambda name, case: "failed" if case == GATHER_CASE or name.endswith("-w2") else None)
+        guarded(lambda: run(fail_dir, fail_sup), {})
+        basis_f, blocked_f, named_f = coverage_of(fail_dir)
+        control("WP-08e W r1 F2: gathers that failed beside a window that failed leave the unit read partial, and the "
+                "coverage record keeps their reason gather_failed beside the incomplete basis",
+                basis_f == "incomplete" and len(blocked_f) == 1
+                and named_f.get(blocked_f[0]) == ("read_partial", ["gather_failed"]),
+                f"basis={basis_f} blocked={blocked_f} named={named_f}")
+
+        # a declared density (an earlier run's measured table) is read where the run has measured nothing, and the run's
+        # own sample is preferred over it
+        declared_t = {s3_seat: {f"{STAGE}:{CASE}": {"bytes_per_token": 1.5, "measured_in": "c2-20261110", "samples": 8,
+                                                     "at": "2026-11-10T23:22:00+09:00"}}}
+        decl_dir, _decl_sup, _ = fx_reader(root / "dry-declared", "k", answers_r, ledger_doc=fx_ledger("k"), density=declared_t)
+        decl_dry = guarded(lambda: run(decl_dir, dry=True), {})
+        decl_w = [w for files in decl_dry.get("units", {}).values() for f in files for w in f["windows"]]
+        control("WP-08e: with no window call of its own, the dry reads the declared density - basis declared: <run>/<n> on "
+                "each window - and the run's measured table is empty",
+                bool(decl_w) and decl_dry.get("density", {}).get("window", {}).get("basis") == "declared: c2-20261110/8"
+                and all(w["input_estimate"].get("basis") == "declared: c2-20261110/8"
+                        and w["input_estimate"]["first_request"] == math.ceil(w["driver_bytes"] / 1.5) + allowance_d
+                        for w in decl_w)
+                and decl_dry.get("density_table") == {},
+                f"{decl_dry.get('density')} {[w.get('input_estimate') for w in decl_w][:2]} {decl_dry.get('density_table')}")
+        # W r1, F4: the declaration's `retry` is what the claim holds - its count and its margin - and the dry says so
+        retry_dir, _retry_sup, _ = fx_reader(root / "dry-retry", "k", answers_r, ledger_doc=fx_ledger("k"))
+        guarded(lambda: declare.amend(retry_dir, [("retry", {"count": 2, "margin": 3_000})], "two retries, a wider share"),
+                None)
+        retry_dry = guarded(lambda: run(retry_dir, dry=True), {})
+        retry_w = [w for files in retry_dry.get("units", {}).values() for f in files for w in f["windows"]]
+        retry_line = retry_dry.get("estimate", {}).get("retry", {})
+        control("W r1 F4: a declared retry is what each window's claim holds - at most the first request and two answers "
+                "at the cap with their declared share - and the dry's retry line names both as declared",
+                bool(retry_w) and all(w["input_estimate"]["at_most"] == w["input_estimate"]["first_request"]
+                                      + 2 * (retry_dry["output_cap"] + 3_000) for w in retry_w)
+                and retry_line.get("retries_claimed") == 2 and retry_line.get("retries_basis") == "declared: retry.count 2"
+                and retry_line.get("margin") == 3_000 and retry_line.get("margin_basis") == "declared: retry.margin 3000",
+                f"{retry_line} {[w.get('input_estimate') for w in retry_w][:2]}")
+        allowance_r = retry_dry.get("bound", {}).get("allowance", 0)
+        summed = sum((w["driver_bytes"] + allowance_r) + k * (retry_dry.get("output_cap", 0) + 3_000)
+                     for w in retry_w for k in (1, 2))
+        control("W r2 F8: with two declared retries the dry's retry total sums both retry requests of every window - "
+                "first + 1 step and first + 2 steps - computed here from the bytes at the floor",
+                bool(retry_w) and retry_line.get("tokens_if_every_window_retried") == summed
+                and retry_line.get("tokens_if_every_window_retried")
+                > sum(w["input_estimate"]["at_most"] for w in retry_w),
+                f"{retry_line.get('tokens_if_every_window_retried')} != {summed}")
+        guarded(lambda: fx_planted_call(retry_dir, f"k-{STAGE}-c2w8-a1", s3_seat, STAGE, CASE, 115_742,
+                                        [(2, 6_366, 3_297, 50_247), (2, 3_613, 53_544, 7_484)]), None)
+        rated = guarded(lambda: run(retry_dir, dry=True), {})
+        rated_w = [w for files in rated.get("units", {}).values() for f in files for w in f["windows"]]
+        rated_line = rated.get("estimate", {}).get("retry", {})
+        step_r = rated.get("output_cap", 0) + rated_line.get("margin", 0)
+        summed_r = sum(w["input_estimate"]["first_request"] + k * step_r for w in rated_w for k in (1, 2))
+        control("W r2 F8: with two declared retries and a measured retry rate, the dry's tokens at that rate are the rate "
+                "times both retry requests of every window",
+                bool(rated_w) and rated_line.get("rate") == 1.0 and rated_line.get("retries_claimed") == 2
+                and rated_line.get("tokens_at_rate") == math.ceil(1.0 * summed_r),
+                f"{rated_line.get('rate')} {rated_line.get('tokens_at_rate')} != {summed_r}")
+        # W r2, F2: a run stop is not a unit failure - production S3 ends by name, its stage failed, nothing quarantined
+        stop_dir, stop_sup, _ = fx_reader(root / "s3-claim-stop", "k", answers_r, ledger_doc=fx_ledger("k"))
+        honest_runner = stop_sup.runner
+        stop_sup.runner = lambda host, spec: [*honest_runner(host, spec)[:-1],
+                                              json.dumps({**json.loads(honest_runner(host, spec)[-1]),
+                                                          "main_requests": 3, "request_step": 100})]
+
+        def s3_record(directory):
+            return guarded(lambda: records.read_json(records.record_path(directory, STAGE)), {})
+        stopped_s3 = refusal(lambda: run(stop_dir, stop_sup))
+        held_s3 = s3_record(stop_dir)
+        control("W r2 F2: production S3 whose window call breaches its claim ends by the call's name, its stage failed, "
+                "no unit quarantined and no hand-back written",
+                stopped_s3.startswith("CLAIM_EXCEEDED ") and held_s3.get("status") == "failed"
+                and not held_s3.get("quarantined") and not (stop_dir / "read-results.json").exists(),
+                f"{stopped_s3[:160]} status={held_s3.get('status')} quarantined={held_s3.get('quarantined')}")
+        from runlib import dispatch as s3_stop_dispatch
+        again_sup = s3_stop_dispatch.Supervisor(stop_dir, cell_root=root / "s3-claim-stop-cells", realization="golden")
+        again_sup.runner = honest_runner
+        stopped_again = refusal(lambda: run(stop_dir, again_sup))
+        held_again = s3_record(stop_dir)
+        control("W r2 F2: production S3 over a run whose stop stands ends at its first reservation (RUN_STOPPED), its "
+                "stage failed, no unit quarantined",
+                stopped_again.startswith("RUN_STOPPED CLAIM_EXCEEDED") and held_again.get("status") == "failed"
+                and not held_again.get("quarantined"),
+                f"{stopped_again[:160]} status={held_again.get('status')} quarantined={held_again.get('quarantined')}")
+        guarded(lambda: fx_planted_call(decl_dir, f"k-{STAGE}-c2w8-a1", s3_seat, STAGE, CASE, 115_742,
+                                        [(2, 6_366, 3_297, 50_247), (2, 3_613, 53_544, 7_484)]), None)
+        own_dry = guarded(lambda: run(decl_dir, dry=True), {})
+        own_w = [w for files in own_dry.get("units", {}).values() for f in files for w in f["windows"]]
+        control("WP-08e: a window call of the run's own is preferred over the declared density, and the run's measured "
+                "table holds it in the shape a later declaration takes",
+                bool(own_w) and all(w["input_estimate"].get("basis") == f"measured: {s3_seat}/{STAGE}:{CASE}/1 samples"
+                                    for w in own_w)
+                and own_dry.get("density_table", {}).get(s3_seat, {}).get(f"{STAGE}:{CASE}", {}).get("bytes_per_token") == 2.161
+                and own_dry["density_table"][s3_seat][f"{STAGE}:{CASE}"].get("samples") == 1
+                and own_dry["density_table"][s3_seat][f"{STAGE}:{CASE}"].get("measured_in") == decl_dir.resolve().name
+                and not declare.density_errors({"seats": {STAGE: s3_seat}, "density": {
+                    s3_seat: {k: {**v, "at": v["at"] or "2026-11-10T00:00:00+00:00"}
+                              for k, v in own_dry["density_table"][s3_seat].items()}}}),
+                f"{[w.get('input_estimate') for w in own_w][:2]} {own_dry.get('density_table')}")
         over_dir, _sup, _ = fx_reader(root / "dry-over", "k", answers_r, ledger_doc=fx_ledger("k"))
         over_reader = Reader(over_dir, None, records.read_json(records.run_json_path(over_dir)))
         over_view = next(t for t in records.read_json(over_dir / "views.json")["transcripts"] if t["windows"])
@@ -4401,14 +5008,15 @@ def self_test():
 
         # ---- commit 5b: units read side by side leave the bytes units read one at a time leave
         def recorded(directory):
-            """The stores, every read record, the results and the stage summary, with `jobs` - which says how the run
-            was read - taken out of the summary."""
+            """The stores, every read record, the results and the stage summary, with `jobs` and the measured density
+            table - which say how the run was read, the table by its calls' times (WP-08e) - taken out of the summary."""
             held_recorded = stores(directory)
             for found in sorted((directory / "read").glob("*.json")) + [directory / "read-results.json"]:
                 held_recorded[str(found.relative_to(directory))] = found.read_bytes().replace(
                     str(directory.resolve().parent).encode("utf-8"), b"<RUN>")
             summary_r = guarded(lambda: records.read_json(directory / "read.json"), {})
             summary_r.pop("jobs", None)
+            summary_r.pop("density_table", None)
             held_recorded["read.json"] = records.json_text(summary_r).encode("utf-8")
             return held_recorded
 
