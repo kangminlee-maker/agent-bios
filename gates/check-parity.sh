@@ -598,6 +598,13 @@ if [ -f session-distill/runlib/stage_retrieve.py ]; then
   leg -q "FAIL: session-distill S5 retrieve self-test (session-distill/runlib/stage_retrieve.py)" \
     python3 session-distill/runlib/stage_retrieve.py --self-test
 fi
+# S5b delivery evidence (plan WP-11b): the stage's place between S5 and S6 in records.STAGES, the document's shape over
+# S5's rows with every pending pair answered by name, and the two refusals — a standing stop and a missing immutable
+# copy — each with nothing written; no model is called.
+if [ -f session-distill/runlib/stage_delivery.py ]; then
+  leg -q "FAIL: session-distill S5b delivery evidence self-test (session-distill/runlib/stage_delivery.py)" \
+    python3 session-distill/runlib/stage_delivery.py --self-test
+fi
 # Design §6.5's planted controls (plan WP-10 done-when 4): the population planted from a golden run under ordinary ids,
 # F27's marker check, CONTROLS_INCOMPLETE, CONTROL_FAILED and REJECTION_SHARE_ZERO; no model is called.
 if [ -f session-distill/runlib/controls.py ]; then

@@ -82,7 +82,8 @@ except BaseException:
 STARTUP_WITHHELD = entry.WITHHELD
 
 try:
-    from runlib import census, coverage, declare, inventory, projection, records, sources, stage_form, stage_retrieve, stagelock, views
+    from runlib import (census, coverage, declare, inventory, projection, records, sources, stage_delivery,
+                        stage_form, stage_retrieve, stagelock, views)
     from runlib.records import Refused
 except BaseException as _startup_exc:   # SystemExit included: `validate` exits at import time
     # The imports used to stand OUTSIDE every boundary this command has: `runlib.validate` exits
@@ -147,7 +148,7 @@ class Parser(argparse.ArgumentParser):
 # Subcommand -> the stage it runs (design §4). `declare` is S0 and has no stage record.
 STAGE_COMMANDS = {
     "census": "S1", "views": "S2", "inventory": "S2", "read": "S3", "form": "S4", "retrieve": "S5",
-    "judge": "S6", "propose": "S7", "review-proposals": "S7b", "test": "S8", "render": "S9",
+    "deliver": "S5b", "judge": "S6", "propose": "S7", "review-proposals": "S7b", "test": "S8", "render": "S9",
     "review-korean": "S9b", "parse-decisions": "S10", "adjudicate": "S10", "confirm": "S10b",
     "apply": "S11", "close": "S12",
 }
@@ -329,6 +330,12 @@ def cmd_retrieve(args):
     return 0
 
 
+def cmd_deliver(args):
+    """S5b (runlib/stage_delivery.py): code only, over S5's checks and S2's inventory."""
+    say("\n".join(stage_delivery.report_lines(stage_delivery.run(run_dir_of(args)))))
+    return 0
+
+
 def cmd_stage(args):
     stage = STAGE_COMMANDS[args.command]
     if args.command == "close" and args.recovery:
@@ -360,7 +367,8 @@ def build_parser():
     for name, stage in STAGE_COMMANDS.items():
         helps = {"census": f"{stage}: the census", "views": f"{stage}: the reading views, the search index and the evidence store",
                  "form": f"{stage}: candidate formation and the lifecycle intake",
-                 "retrieve": f"{stage}: retrieval, quote and session checks, and recurrence"}
+                 "retrieve": f"{stage}: retrieval, quote and session checks, and recurrence",
+                 "deliver": f"{stage}: the delivery evidence of each candidate's units, from the run's own records"}
         sub = commands.add_parser(name, help=helps.get(name, f"{stage}: not implemented yet"))
         common(sub)
         if name == "close":

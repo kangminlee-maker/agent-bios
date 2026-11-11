@@ -97,6 +97,7 @@ SUBJECTS = [
     "session-distill/runlib/derive.py",
     "session-distill/runlib/delivery_evidence.py",
     "session-distill/runlib/stage_retrieve.py",
+    "session-distill/runlib/stage_delivery.py",
     "session-distill/runlib/controls.py",
 ]
 # The not-audited disclosure is DERIVED, not typed. The first version typed two shell

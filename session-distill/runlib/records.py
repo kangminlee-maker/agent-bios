@@ -61,7 +61,11 @@ _jsonl = _load_jsonl_lines()
 jsonl_lines, jsonl_read = _jsonl.split, _jsonl.read
 
 # S0 is the declaration itself (run.json); these are the stages that read it and leave a record.
-STAGES = ("S1", "S2", "S3", "S4", "S5", "S6", "S7", "S7b", "S8", "S9", "S9b", "S10", "S10b", "S11", "S12")
+STAGES = ("S1", "S2", "S3", "S4", "S5", "S5b", "S6", "S7", "S7b", "S8", "S9", "S9b", "S10", "S10b", "S11",
+          "S12")
+# S5b (WP-11b) sits between S5 and S6 rather than at the end: `declare.py` derives an amendment's
+# invalidation range from `STAGES.index` and sorts by it, so a stage appended after S12 would be
+# invalidated last and ordered last whatever it actually runs before.
 # The stages whose one record holds more than one producer, and the parts each has. A stage absent
 # here keeps the single-producer record shape exactly as it was, and its readers do not change: S2
 # produces the reading views and the inventory of the library, which neither calls the other nor
@@ -721,6 +725,11 @@ DECLARATION_READERS = {
                                            "before S3 runs",
     ("runlib/stage_read.py", "self_test"): "the S3 self-test reads its scratch runs' declarations, to check what S3 "
                                            "recorded against them",
+    ("runlib/stage_delivery.py", "standing_stop"): "S5b asks whether a stop still stands before it writes an evidence "
+                                                   "document that would be read as whole, and only a later amendment of "
+                                                   "a stop's own key lifts one: the read is of the log alone, outside "
+                                                   "the stage's admission, and a declaration it cannot read holds every "
+                                                   "recorded stop standing rather than reading the run open",
 }
 
 
