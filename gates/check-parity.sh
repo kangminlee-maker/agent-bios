@@ -527,6 +527,11 @@ if [ -f session-distill/runlib/ranking.py ]; then
   leg -q "FAIL: session-distill ranking self-test (session-distill/runlib/ranking.py)" \
     python3 session-distill/runlib/ranking.py --self-test
 fi
+# The grammar of the lines the owner writes into a review's decision copy and a confirmation file (WP-20 K1).
+if [ -f session-distill/grammar/owner_lines.py ]; then
+  leg -q "FAIL: session-distill owner-line grammar self-test (session-distill/grammar/owner_lines.py)" \
+    python3 session-distill/grammar/owner_lines.py --self-test
+fi
 # The commit-sequencing check (S-14). The suite runs its DETERMINISTIC stand-in only: the real hook
 # belongs to `sequencing.py --real-hook-check`, which is not a leg because this umbrella is itself run
 # by the pre-commit hook and a leg that ran the hook would recurse.
