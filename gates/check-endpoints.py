@@ -106,6 +106,8 @@ URL_EXEMPT_STATIC = (
      "the JSON-Schema dialect pointer is a namespace, not an endpoint"),
     ("session-distill/schemas/propose.schema.json", '"$schema"', frozenset({"json-schema.org"}), 1,
      "the JSON-Schema dialect pointer is a namespace, not an endpoint"),
+    ("session-distill/schemas/s7b.schema.json", '"$schema"', frozenset({"json-schema.org"}), 1,
+     "the JSON-Schema dialect pointer is a namespace, not an endpoint"),
     ("session-distill/schemas/census.schema.json", '"$schema"', frozenset({"json-schema.org"}), 1,
      "the JSON-Schema dialect pointer is a namespace, not an endpoint"),
     ("session-distill/schemas/claim.schema.json", '"$schema"', frozenset({"json-schema.org"}), 1,

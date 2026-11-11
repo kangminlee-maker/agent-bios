@@ -106,7 +106,7 @@ STARTUP_WITHHELD = entry.WITHHELD
 
 try:
     from runlib import census, coverage, declare, inventory, projection, records, sources, stage_form, stage_judge, \
-        stage_retrieve, stagelock, views
+        stage_propose, stage_retrieve, stage_review_proposals, stagelock, views
     from runlib import ledger as ledger_lib
     from runlib.records import Refused
 except BaseException as _startup_exc:   # SystemExit included: `validate` exits at import time
@@ -504,6 +504,50 @@ def cmd_judge(args):
     return 0
 
 
+def cmd_propose(args):
+    """S7 (runlib/stage_propose.py): the packets, or a golden run over answers the caller supplies.
+
+    The live call is NOT wired here. The stage and its contract are complete and judged on golden
+    answers; what is missing is the supervised call, and a driver that pretended otherwise would
+    start a model from a command whose refusal path nobody has exercised."""
+    run_dir = run_dir_of(args)
+    if args.dry:
+        derivations = records.read_json(run_dir / "judgments" / "derivations.json")
+        candidates = records.read_json(run_dir / "checked-candidates.json")
+        measures = []
+        for row in candidates.get("candidates") or []:
+            built = stage_propose.packet_for(row, derivations,
+                                             (derivations.get("verdicts") or {}).get(row["candidate_id"]))
+            measures.append(f"{row['candidate_id']}: packet {len(built)} bytes")
+        say("\n".join(["S7 dry: the packets this run would send",
+                        *measures,
+                        f"unknowns in force: {len(stage_propose.named_states(derivations))}"]))
+        return 0
+    if not args.answers:
+        say("CALL_NOT_WIRED propose: the supervised call has not landed; give --answers PATH to run "
+            "the stage over answers already in hand, or --dry for the packets", sys.stderr)
+        return 2
+    answers = records.read_json(pathlib.Path(args.answers))
+    stage, doc = stage_propose.run(run_dir, answers)
+    say(f"S7: {doc['counts']['proposed']} proposed, {doc['counts']['returned']} returned, "
+        f"{doc['counts']['awaiting_R']} awaiting R")
+    return 0
+
+
+def cmd_review_proposals(args):
+    """S7b (runlib/stage_review_proposals.py): golden over reviews the caller supplies; see cmd_propose."""
+    run_dir = run_dir_of(args)
+    if not args.reviews:
+        say("CALL_NOT_WIRED review-proposals: the supervised call has not landed; give --reviews PATH "
+            "to run the stage over reviews already in hand", sys.stderr)
+        return 2
+    reviews = records.read_json(pathlib.Path(args.reviews))
+    stage, doc = stage_review_proposals.run(run_dir, reviews)
+    say(f"S7b: {doc['counts']['reviewed']} reviewed, {doc['counts']['disagreements']} disagreements, "
+        f"{doc['counts']['returned']} returned, {doc['counts']['unreviewed']} unreviewed")
+    return 0
+
+
 def cmd_stage(args):
     stage = STAGE_COMMANDS[args.command]
     if args.command == "close" and args.recovery:
@@ -581,8 +625,15 @@ def build_parser():
                                                        "destination, which the caller names because the layout of a "
                                                        "checkout is not this driver's to assume; without it the "
                                                        "stage is refused LEDGER_UNNAMED rather than reading a guess")
+        if name == "propose":
+            sub.add_argument("--dry", action="store_true", help="stop before any call: the packets this run would send")
+            sub.add_argument("--answers", help="a JSON object of answers by candidate id, for a golden run")
+        if name == "review-proposals":
+            sub.add_argument("--reviews", help="a JSON object of reviews by item id, for a golden run")
         sub.set_defaults(handler={"census": cmd_census, "views": cmd_views, "inventory": cmd_inventory,
-                                  "form": cmd_form, "retrieve": cmd_retrieve, "judge": cmd_judge}.get(name, cmd_stage))
+                                  "form": cmd_form, "retrieve": cmd_retrieve, "judge": cmd_judge,
+                                  "propose": cmd_propose,
+                                  "review-proposals": cmd_review_proposals}.get(name, cmd_stage))
     return parser
 
 
@@ -840,13 +891,30 @@ def self_test():
 
         # each implemented command has its own controls (form's and retrieve's runs in runlib/stage_form.py's and
         # runlib/stage_retrieve.py's suites, as a process); the rest are named and refused
-        implemented = ("census", "views", "inventory", "form", "retrieve", "judge")
+        implemented = ("census", "views", "inventory", "form", "retrieve", "judge", "propose",
+                       "review-proposals")
         for command, stage_id in STAGE_COMMANDS.items():
             if command in implemented:
                 continue
             code, err = cli(command, "--run-id", "r1")
             control(f"{command} ({stage_id}) is named and refused",
                     code == 2 and f"STAGE_NOT_IMPLEMENTED {command} ({stage_id})" in err, err)
+        # `propose` and `review-proposals` left the loop above when they gained handlers, so their own
+        # refusal paths are controlled here instead: moving a command out of "named and refused"
+        # without controlling what it now does would be two controls removed and none added.
+        def no_stage_record():
+            return not (out / "r1" / "stages" / "S7.json").exists() \
+                   and not (out / "r1" / "stages" / "S7b.json").exists()
+        code, err = cli("propose", "--run-id", "r1")
+        control("propose (S7) without --answers says the supervised call is not wired, and records no "
+                "stage", code == 2 and "CALL_NOT_WIRED propose" in err and no_stage_record(), f"{code} {err}")
+        code, err = cli("review-proposals", "--run-id", "r1")
+        control("review-proposals (S7b) without --reviews says the same, by its own name",
+                code == 2 and "CALL_NOT_WIRED review-proposals" in err and no_stage_record(),
+                f"{code} {err}")
+        code, err = cli("propose", "--run-id", "r1", "--dry")
+        control("propose --dry over a run S6 has not written is refused by name, and still records no "
+                "stage", code != 0 and "derivations.json" in err and no_stage_record(), f"{code} {err}")
         def stage_files():
             return {str(p): p.read_bytes() for p in sorted((out / "r1" / "stages").rglob("*")) if p.is_file()}
         before = stage_files()

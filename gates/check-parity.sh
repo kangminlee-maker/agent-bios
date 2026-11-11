@@ -527,6 +527,11 @@ if [ -f session-distill/runlib/stage_propose.py ]; then
   leg -q "FAIL: session-distill S7 propose self-test (session-distill/runlib/stage_propose.py)" \
     python3 session-distill/runlib/stage_propose.py --self-test
 fi
+# S7b review of proposals: the merge question, the bars and the alternative.
+if [ -f session-distill/runlib/stage_review_proposals.py ]; then
+  leg -q "FAIL: session-distill S7b review self-test (session-distill/runlib/stage_review_proposals.py)" \
+    python3 session-distill/runlib/stage_review_proposals.py --self-test
+fi
 # The §7.5 total order over review rows.
 if [ -f session-distill/runlib/ranking.py ]; then
   leg -q "FAIL: session-distill ranking self-test (session-distill/runlib/ranking.py)" \
