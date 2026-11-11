@@ -26,7 +26,7 @@ import sys
 
 if __package__ in (None, ""):  # run as a script: put session-distill/ on the import path
     sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
-from runlib import packet, records, stage_propose, stage_render, validate  # noqa: E402
+from runlib import packet, records, stage_adjudicate, stage_propose, stage_render, validate  # noqa: E402
 from runlib.records import Refused  # noqa: E402
 
 HERE = pathlib.Path(__file__).resolve().parents[1]
@@ -239,14 +239,22 @@ def run(run_dir, reviews, regenerations=None, second=None):
     run_dir = pathlib.Path(run_dir)
     version = latest_version(run_dir)
     review_rel, regen_rel = outputs_of(version)
-    with records.run_stage(run_dir, STAGE, inputs_of(version)) as stage:
+    adjudicated_specs = stage_adjudicate.adjudicated_inputs(run_dir)
+    with records.run_stage(run_dir, STAGE, inputs_of(version) + adjudicated_specs) as stage:
         for rel in (review_rel, regen_rel):
             if (run_dir / rel).exists():
                 raise Refused(f"S9B_VERSION_REVIEWED {rel}: a version's Korean is reviewed once")
         read = lambda rel: records.read_json(run_dir / rel)  # noqa: E731
         previous, previous_regenerated = previous_of(run_dir, version)
-        review_doc, regen_doc, problems = document(read(f"review.v{version}.json"), read(stage_propose.OUTPUT),
-                                                   read("checked-candidates.json"), read("judgments/derivations.json"),
+        # S10's adjudication laid over S6's derivations and S7's proposals (K5), so a row admitted by adjudication
+        # is regenerated against its recomputed derivation and its second-pass proposal
+        derivations, proposals, _s7b, laid = stage_adjudicate.overlay(
+            read("judgments/derivations.json"), read(stage_propose.OUTPUT), {},
+            stage_adjudicate.read_inputs(run_dir, adjudicated_specs))
+        if laid:
+            raise Refused("\n".join(laid))
+        review_doc, regen_doc, problems = document(read(f"review.v{version}.json"), proposals,
+                                                   read("checked-candidates.json"), derivations,
                                                    reviews, regenerations, second, previous, previous_regenerated)
         if problems:
             raise Refused("\n".join(problems))

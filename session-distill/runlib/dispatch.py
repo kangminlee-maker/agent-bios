@@ -255,6 +255,11 @@ SCRIPT_RUNS = (
      "reason": "S10's self-test runs the driver's `parse-decisions` command as a child over a copy of a golden run it "
                "rendered and the owner's copy it decided, so the command a person runs is held as a process runs it "
                "(WP-20 K3); S10 makes no call and starts no model"},
+    {"site": "session-distill/runlib/stage_adjudicate.py", "path": "session-distill/distill.py",
+     "reason": "S10 adjudicate's self-test runs the driver's `adjudicate` command as a child over a copy of a golden "
+               "run whose owner's copy it parsed, with the answers it supplies and without, so the command a person "
+               "runs is held as a process runs it (WP-20 K5); the second pass's calls are not wired and the command "
+               "starts no model"},
     {"site": "session-distill/runlib/stage_review_korean.py", "path": "session-distill/distill.py",
      "reason": "S9b's self-test runs the driver's `review-korean` command as a child over a copy of a golden run it "
                "rendered, with the reviews it supplies and without, so the command a person runs is held as a "

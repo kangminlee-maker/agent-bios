@@ -38,7 +38,7 @@ import sys
 if __package__ in (None, ""):  # run as a script: put session-distill/ on the import path
     sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 from grammar import owner_lines  # noqa: E402
-from runlib import derive, ranking, records, stage_propose, stage_review_proposals  # noqa: E402
+from runlib import derive, ranking, records, stage_adjudicate, stage_propose, stage_review_proposals  # noqa: E402
 from runlib.records import Refused  # noqa: E402
 
 HERE = pathlib.Path(__file__).resolve().parents[1]
@@ -127,8 +127,15 @@ def load(run_dir, ledger=None, overlays=()):
             "derivations": read("judgments/derivations.json"), "proposals": read("proposals.json"),
             "s7b": read(stage_review_proposals.OUTPUT), "ledger": ledger, "judgments": {}, "quarantined": {}}
     for spec in overlays:
-        key = "s9b_review" if spec["artifact"].startswith("review-s9b.") else "s9b_regenerated"
-        docs[key] = read(spec["artifact"])
+        if spec["producer_stage"] == "S9b":
+            key = "s9b_review" if spec["artifact"].startswith("review-s9b.") else "s9b_regenerated"
+            docs[key] = read(spec["artifact"])
+    # S10's adjudication (K5), laid over S6's derivations, S7's proposals and S7b's review in version order, before
+    # anything reads them: every reader below sees one population, recomputed where the owner adjudicated
+    adjudicated = stage_adjudicate.read_inputs(run_dir, [s for s in overlays if s["producer_stage"] == "S10"])
+    if adjudicated:
+        docs["derivations"], docs["proposals"], docs["s7b"], docs["overlay_problems"] = stage_adjudicate.overlay(
+            docs["derivations"], docs["proposals"], docs["s7b"], adjudicated)
     for row in docs["judge"].get("calls") or []:
         held = {}
         for who in JUDGES:
@@ -340,7 +347,7 @@ def rows_of(docs):
     checks = {c["candidate_id"]: c for c in (docs["checks"] or {}).get("candidates") or []}
     intake = {c["candidate_id"]: c for c in (docs["intake"] or {}).get("candidates") or []}
     entries = {e["id"]: e for e in ((docs.get("ledger") or {}).get("entries") or [])}
-    rows, problems, groups = [], [], collections.OrderedDict()
+    rows, problems, groups = [], list(docs.get("overlay_problems") or []), collections.OrderedDict()
     # the overlays, in stage order (decision (a)): S9b's regenerated proposals over S7's, each held to S7's own rule
     for ident, answer in sorted(((docs.get("s9b_regenerated") or {}).get("proposals") or {}).items()):
         if ident not in proposed:
@@ -406,7 +413,8 @@ def rows_of(docs):
                 "lineages": verdict.get("lineages") if isinstance(verdict.get("lineages"), int) else 0,
                 "eligible": (outcome.get("eligible") or {}).get("eligible"),
                 "units": units_of(checks.get(cid), deriv.get("delivery")),
-                "consequence": consequence_of(judges)}
+                "consequence": consequence_of(judges),
+                **({"adjudication": verdict["adjudication"]} if verdict.get("adjudication") else {})}
         if admission in ("disputed", "rejected"):
             disputed = disputed_of(verdict) if admission == "disputed" else []
             rows.append(_row(cid, "candidate", admission, test_state, o6_admission(admission, disputed, verdict),
@@ -876,6 +884,9 @@ def mark_problems(doc, text):
             for ident in doc.get("marked") or [] if MARK not in headings.get(ident, "")]
 
 
+SIDES = {"A": "판정자 A 쪽", "B": "판정자 B 쪽", "own": "소유자 값"}
+
+
 def row_lines(row, fields):
     """One row as the review prints it, its owner block last."""
     o6 = row["o6"]
@@ -889,6 +900,13 @@ def row_lines(row, fields):
     out += [f"- {labels.get(name, name)}: {inline(o6[name])}" for name in fields]
     if row.get("judges"):
         out += [judge_line(who, row["judges"].get(who)) for who in JUDGES]
+    adjudication = row.get("adjudication")
+    if adjudication:
+        said = "; ".join(f"{inline(r.get('judgment_ref'))} {inline(r.get('value'))} "
+                         f"({SIDES.get(r.get('side'), inline(r.get('side')))})" for r in adjudication.get("resolved") or [])
+        out.append(f"- 소유자 판정: v{inline(adjudication.get('version'))}의 결정 {inline(adjudication.get('adjudication_id'))}"
+                   f"에서 {said} · 판정 전 {inline(adjudication.get('before'))}, 다시 계산한 결과 "
+                   f"{inline(adjudication.get('derived'))}")
     for d in row.get("disputed") or []:
         out.append(f"- 판정할 것 {d['label']}: {inline(d['ref'])} — A {inline(d['A'])}, B {inline(d['B'])} (자기 값은 "
                    f"{' 또는 '.join(inline(v) for v in d['values'])})")
@@ -1151,7 +1169,7 @@ def run(run_dir, ledger=None):
     """S9 through the shared mechanism: the review, its owner copy and its rows, as version n+1. Nothing is written on
     refusal, and an existing version is never written again."""
     run_dir = pathlib.Path(run_dir)
-    overlays = s9b_inputs(run_dir)
+    overlays = s9b_inputs(run_dir) + stage_adjudicate.adjudicated_inputs(run_dir)
     with records.run_stage(run_dir, STAGE, INPUTS + overlays) as stage:
         if ledger is None:
             from runlib import lifecycle_intake

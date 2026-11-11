@@ -552,6 +552,11 @@ if [ -f session-distill/runlib/stage_review_korean.py ]; then
   leg -q "FAIL: session-distill S9b review-korean self-test (session-distill/runlib/stage_review_korean.py)" \
     python3 session-distill/runlib/stage_review_korean.py --self-test
 fi
+# S10 adjudicate: the owner's adjudications recomputed, the newly admitted through S7 and S7b again (WP-20 K5).
+if [ -f session-distill/runlib/stage_adjudicate.py ]; then
+  leg -q "FAIL: session-distill S10 adjudicate self-test (session-distill/runlib/stage_adjudicate.py)" \
+    python3 session-distill/runlib/stage_adjudicate.py --self-test
+fi
 # S10 parse: the owner's decision copy, held to the current rows, into approvals and adjudications (WP-20 K3).
 if [ -f session-distill/runlib/stage_approvals.py ]; then
   leg -q "FAIL: session-distill S10 parse self-test (session-distill/runlib/stage_approvals.py)" \
