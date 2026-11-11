@@ -316,7 +316,15 @@ def _guide(unit, units, session, decision_at, versions, row):
 
 def _pointer(unit, session, surface):
     """The guide's pointer in the compiled text: the router path for a relevant item, its own emitted path for a
-    requested one."""
+    requested one.
+
+    Answered from the FACT when the session carries one (`item_pointer_in_compiled_text`, published by S2 where
+    the snapshot is readable), because the compiled text is the owner's and does not enter a run; the text path
+    below stays for the frozen fixtures and for a caller that holds the text. A fact of None is "this surface has
+    no pointer to find", which is not the same as a pointer that is missing, so it is returned as given."""
+    stated = session.get("item_pointer_in_compiled_text") or {}
+    if unit.get("item_ref") in stated:
+        return stated[unit["item_ref"]]
     text = session.get("instruction_text") or ""
     if surface == "relevant":
         return bool(session.get("router_path")) and f"Relevant procedures: {session['router_path']}" in text

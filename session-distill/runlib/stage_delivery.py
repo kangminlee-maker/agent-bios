@@ -233,6 +233,26 @@ UNRESOLVED = "coverage_ref_unresolved"
 UNJUDGED = "delivery_unjudged"
 
 
+def pointer_facts(shared):
+    """`{item_ref: pointer}` from the selection inventory's published predicate over the compiled text.
+
+    A row whose `pointer` is None says the surface has no pointer to find at all; it is carried as
+    None rather than dropped, because the judge's reader distinguishes "nothing to find" from "not
+    found" and a dropped row would send it back to a text this run does not hold."""
+    return {row["ref"]: row.get("pointer") for row in shared.get("item_pointer_in_compiled_text") or []
+            if isinstance(row, dict) and isinstance(row.get("ref"), str)}
+
+
+def surface_facts(shared):
+    """`{unit_ref: surface}` of every unit this selection holds, as S2 published it.
+
+    Keyed by the inventory's reference, like the coverage counts, and translated per pair. A unit
+    with a null surface is held as None: the judge then answers `surface_unclassified`, which is the
+    honest answer for a unit whose item neither the snapshot nor the baseline named."""
+    return {row["unit_ref"]: row.get("surface") for row in shared.get("unit_surfaces") or []
+            if isinstance(row, dict) and isinstance(row.get("unit_ref"), str)}
+
+
 def coverage_facts(shared, units):
     """`({unit_id: {covered, total}}, [reference nothing here resolves])` from the published counts.
 
@@ -560,8 +580,18 @@ def session_evidence(session_row, events_by_ref, by_version, release_doc, shared
             evidence["instruction_coverage"] = facts
         if unavailable:
             evidence["unavailable"] = unavailable
+        # The pointer predicate and the per-unit catalogue surface, both facts S2 publishes because
+        # both are read off the compiled text or the owner's baseline. The pointer map goes to the
+        # judge as it is; the surfaces are translated per pair, where the unit id is known.
+        pointers = pointer_facts(shared)
+        if pointers:
+            evidence["item_pointer_in_compiled_text"] = pointers
+        if shared.get("router_path") is not None:
+            evidence["router_path"] = shared["router_path"]
+        surfaces = surface_facts(shared)
         counts.update({"coverage_facts": len(facts), "unavailable_rows": len(unavailable),
                        "coverage_refs_unresolved": unresolved_refs,
+                       "pointer_facts": len(pointers), "unit_surfaces": len(surfaces),
                        "compiled_text_digest": "present" if shared.get("instruction_text_sha256") else "absent"})
     # The session's own records, from the run's immutable copy. Absent rather than empty when the run
     # holds no copy for this session: an empty `reads` is "it read nothing", which is a claim, and a
@@ -618,6 +648,9 @@ def document(run_dir, checks, candidates, current, sessions, release_doc, store,
              views=None):
     """The stage's document: one row per owed pair, and the summary a reader counts from."""
     units = unit_index(current)
+    # The inventory's own `r-` reference per unit id: S2 keys its per-unit facts by it, and the judge
+    # asks by unit id.
+    refs_by_unit = {row.get("unit_id"): row.get("unit_ref") for row in current.get("units") or []}
     by_name, by_transcript = sessions_index(sessions)
     decisions = decisions_of(run_dir)
     by_version = units_by_version(units)
@@ -632,14 +665,20 @@ def document(run_dir, checks, candidates, current, sessions, release_doc, store,
     for pair in pairs_of(checks, candidates, decisions, by_name, by_transcript):
         unit = units.get(pair["unit_id"]) if pair["unit_id"] else None
         session_row = rows_by_ref.get(pair["session_ref"])
-        evidence, session_counts = None, {}
+        evidence, session_counts, session_surfaces = None, {}, {}
         if session_row is not None:
             if pair["session_ref"] not in counts_by_ref:
                 built, counts = session_evidence(session_row, events_by_ref, by_version, release_doc,
                                                  shared_of, store, run_dir,
                                                  copies_of(views or {}), current.get("units") or ())
-                counts_by_ref[pair["session_ref"]] = (built, counts)
-            evidence, session_counts = counts_by_ref[pair["session_ref"]]
+                # The per-unit catalogue surfaces are kept beside the evidence rather than inside it:
+                # they are keyed by the inventory's `r-` reference and belong to the pair, where the
+                # unit id is known, and the judge's input shape is not widened to carry them.
+                selection_ref = (session_row.get("selection") or {}).get("inventory_ref")
+                shared = shared_of(selection_ref) if selection_ref else None
+                counts_by_ref[pair["session_ref"]] = (built, counts,
+                                                      surface_facts(shared) if shared else {})
+            evidence, session_counts, session_surfaces = counts_by_ref[pair["session_ref"]]
         # Every reason that holds, in the order a reader would ask them, and never one in place of
         # another: a pair can lack a decision AND name a unit the inventory does not carry, and a
         # row that reported only the last of those would send someone to the wrong artifact.
@@ -679,9 +718,19 @@ def document(run_dir, checks, candidates, current, sessions, release_doc, store,
             # with no surface at all. So the surface is attached per pair, from the session's own
             # selection, and a session that states none leaves the judge to answer
             # `surface_unclassified` rather than be handed a guess.
+            # The surface the session was given the item at, else the item's CATALOGUE surface as S2
+            # published it. The second is what classifies the ladder of a unit the session was not
+            # given, which is where §6.3's absence lives: without it the judge answered
+            # `surface_unclassified` for every such unit and no absence could ever be found.
             surface = ((evidence.get("selected") or {}).get(unit.get("item_ref"))
-                       or (evidence.get("history_selected") or {}).get(unit.get("item_ref")))
-            subject = {**unit, "surface": surface} if surface else unit
+                       or (evidence.get("history_selected") or {}).get(unit.get("item_ref"))
+                       or session_surfaces.get(refs_by_unit.get(unit["unit_id"])))
+            # Only where the judge's own classifier cannot place the unit already: the native layers
+            # are matched BY LAYER, and attaching a surface to one of them moved it onto the
+            # always-rule ladder, where its recorded-injection absence read as `not_in_release`
+            # instead of `not_in_recorded_injection` (found by the frozen native fixture).
+            classified = delivery_evidence.surface_row(unit) is not None
+            subject = unit if classified or not surface else {**unit, "surface": surface}
             answer = delivery_evidence.delivery(subject, units, evidence, pair["decision_at"])
         else:
             reasons.append(UNJUDGED)
@@ -713,7 +762,7 @@ def document(run_dir, checks, candidates, current, sessions, release_doc, store,
     # The resolution failures, per session and in total: a count a reader can see, and the refs
     # themselves, which are inventory ids rather than anything a session wrote.
     unresolved_by_session = {ref: counts.get("coverage_refs_unresolved") or []
-                             for ref, (_built, counts) in counts_by_ref.items()
+                             for ref, (_built, counts, _surfaces) in counts_by_ref.items()
                              if counts.get("coverage_refs_unresolved")}
     unjudged = sum(1 for row in rows if UNJUDGED in row["reasons"])
     # The installer surface is not a unit's: §6.3 answers it from the installation binding and its
@@ -807,7 +856,8 @@ FIXTURES_PATH = HERE / "tables" / "stage_delivery_fixtures.json"
 # run-shaped artifacts through `document`, which is the only way to tell a judge that answers from a
 # producer that assembles the right evidence. The two stage-level paths are this stage's own states,
 # not §6.3's, and are named as such.
-STATE_PATHS = ("delivered", "exposed_not_read", "not_delivered", "selected_unavailable",
+STATE_PATHS = ("delivered", "exposed_not_read", "not_delivered",
+               "not_delivered/selection_lacks_item", "selected_unavailable",
                "unknown/absent_from_compiled_text", f"unknown/{UNRESOLVED}", f"unknown/{UNJUDGED}")
 
 
@@ -849,6 +899,11 @@ def _records_fixture(path_id):
                    "items": [{"ref": "claude:guides/g", "surface": "always"}],
                    "instruction_text_sha256": "d" * 64,
                    "instruction_coverage": [{"unit_ref": "r-" + "1" * 24, "covered": 1, "total": 1}],
+                   "item_pointer_in_compiled_text": [{"ref": "claude:guides/g", "pointer": None,
+                                                      "basis": "surface_has_no_pointer"}],
+                   "router_path": None,
+                   "unit_surfaces": [{"unit_ref": "r-" + "1" * 24, "surface": "always",
+                                      "source": "snapshot"}],
                    "unavailable": []},
         "copy": [],
     }
@@ -866,6 +921,23 @@ def _records_fixture(path_id):
                                     "unavailable": [{"ref": "claude:guides/g", "surface": "always",
                                                      "reason": "route_absent"}]}},
                 {"state": "selected_unavailable", "level": "selected"})
+    if path_id == "not_delivered/selection_lacks_item":
+        # The catalogue route, reachable since S2 publishes the catalogue surface of a unit whose
+        # item the session was NOT given: the selection was read and holds another item, the release
+        # holds this one at a complete reference point, and the ladder is classified from the
+        # baseline. Before those facts the judge answered `surface_unclassified` and §6.3's absence
+        # could not be found at all.
+        return ({**base,
+                 "store": {"versions": {"c-" + "0" * 24: {"a" * 64: {"item_ref": "claude:other"}}},
+                           "units": {}},
+                 "shared": {**base["shared"],
+                            "items": [{"ref": "claude:other", "surface": "always"}],
+                            "instruction_coverage": [],
+                            "item_pointer_in_compiled_text": [{"ref": "claude:other", "pointer": None,
+                                                               "basis": "surface_has_no_pointer"}],
+                            "unit_surfaces": [{"unit_ref": "r-" + "1" * 24, "surface": "always",
+                                               "source": "baseline"}]}},
+                {"state": "not_delivered", "reason": "selection_lacks_item"})
     if path_id == "not_delivered":
         # Reached through the NATIVE layer, which is the only place an absence is a finding from what
         # a run holds: a native unit's ladder is classified by its layer and needs no surface, and a
@@ -886,7 +958,12 @@ def _records_fixture(path_id):
                               "events": [{"event_id": "e-1", "kind": "native", "session_ref": session_ref,
                                           "line": 10, "at": "2026-09-16T07:44:40+00:00",
                                           "members": [{"carrier_id": "c-" + "9" * 24,
-                                                       "version_sha256": "f" * 64, "ordinal": 0}]}]}},
+                                                       "version_sha256": "f" * 64, "ordinal": 0}]}]},
+                 # A native unit's item is not a catalogue item, so no surface is published for it;
+                 # the ladder comes from its layer, which is the point of this fixture.
+                 "shared": {**base["shared"],
+                            "unit_surfaces": [{"unit_ref": "r-" + "1" * 24, "surface": None,
+                                               "source": "unpublished"}]}},
                 {"state": "not_delivered", "reason": "not_in_recorded_injection"})
     if path_id == f"unknown/{UNRESOLVED}":
         return ({**base, "shared": {**base["shared"],
@@ -900,16 +977,18 @@ def _records_fixture(path_id):
                                                         "event_ids": []}]}},
                 {"state": "unknown", "reason": UNJUDGED})
     if path_id == "exposed_not_read":
-        # NOT REACHABLE from records under the fact-only boundary, and declared so rather than faked.
-        # `exposed_not_read` needs a level between selection and a read of the unit's own bytes, and
-        # the only such level belongs to the guide surfaces, whose `pointer exposed` asks whether the
-        # compiled text holds the item's emitted path (`delivery_evidence._pointer`). That is a
-        # predicate OVER THE TEXT, and S2 publishes line counts rather than the text, so no set of
-        # run artifacts can answer it today. The always surface cannot stand in: its ladder delivers
-        # at `exposed`, so the state does not exist there. Raised with the lead as the same boundary
-        # question the coverage counts were — S2 publishing, per item, whether the text holds its
-        # pointer, and the router path, would make this fixture writable.
-        return None, {"unreachable": "pointer_exposure_is_a_text_predicate_s2_does_not_publish"}
+        # A requested guide: its ladder delivers only at a read of the unit's own bytes, and S2's
+        # pointer fact says the compiled text held its emitted path. Nothing read the file, so the
+        # unit is exposed and not delivered. Reachable since S2 publishes the pointer predicate;
+        # before that the state could not be produced from records at all, and the fixture said so.
+        return ({**base,
+                 "shared": {**base["shared"],
+                            "items": [{"ref": "claude:guides/g", "surface": "requested"}],
+                            "item_pointer_in_compiled_text": [{"ref": "claude:guides/g", "pointer": True,
+                                                               "basis": "emitted_path"}],
+                            "unit_surfaces": [{"unit_ref": "r-" + "1" * 24, "surface": "requested",
+                                               "source": "snapshot"}]}},
+                {"state": "exposed_not_read", "level": "pointer exposed"})
     raise Refused(f"FIXTURE_UNKNOWN {path_id}: no records fixture is written for this state path")
 
 
@@ -1143,10 +1222,10 @@ def self_test():
         facts_current = {"units": [{**row, "unit_ref": ref} for row, ref in
                                    zip(current["units"], ("r-" + "1" * 24, "r-" + "2" * 24))]}
 
-        def facts_document(shared):
+        def facts_document(shared, current=None):
             """The rows and summary this stage writes when the session's inventory publishes `shared`."""
-            doc_f = document(fixture, checks, candidates, facts_current, facts_sessions, release_doc,
-                             facts_store, lambda ref: shared, ["aa.jsonl"])
+            doc_f = document(fixture, checks, candidates, current or facts_current, facts_sessions,
+                             release_doc, facts_store, lambda ref: shared, ["aa.jsonl"])
             return {row["unit_id"]: row for row in doc_f["rows"]}, doc_f
 
         # The pair this fixture owes is u-1's, so the block that cannot answer for it is the one
@@ -1272,6 +1351,38 @@ def self_test():
         control("the rows the selection could not route are carried as the judge reads them",
                 json.dumps(facts_evidence.get("unavailable")), "route_absent")
         control("and the counts say the digest was published", json.dumps(facts_counts), '"compiled_text_digest": "present"')
+        # The two facts the ladders needed, carried to the judge as facts rather than as text.
+        pointer_shared = {**facts_shared, "unavailable": [],
+                          "items": [{"ref": "claude:guides/g", "surface": "requested"}],
+                          "item_pointer_in_compiled_text": [{"ref": "claude:guides/g", "pointer": True,
+                                                             "basis": "emitted_path"}],
+                          "router_path": "/x/router/relevant.md",
+                          "unit_surfaces": [{"unit_ref": "r-" + "1" * 24, "surface": "requested",
+                                             "source": "snapshot"}]}
+        pointer_evidence, pointer_counts = session_evidence(
+            facts_row, events_by_ref, units_by_version(unit_index(current)), release_doc,
+            lambda ref: pointer_shared, facts_store, None, None, facts_units)
+        control("the pointer predicate reaches the judge as a fact about the item",
+                json.dumps(pointer_evidence.get("item_pointer_in_compiled_text")), '"claude:guides/g": true')
+        control("and the router the compiled text named comes with it",
+                json.dumps(pointer_evidence.get("router_path")), "router/relevant.md")
+        clean("no part of the compiled text reaches the judge with them",
+              [key for key in pointer_evidence if key == "instruction_text"])
+        control("the counts say how many pointer facts and unit surfaces were published",
+                json.dumps(pointer_counts), '"pointer_facts": 1')
+        control("and how many surfaces", json.dumps(pointer_counts), '"unit_surfaces": 1')
+        surface_rows, _surface_doc = facts_document(pointer_shared)
+        control("a unit the session was not given is judged on the catalogue surface S2 published",
+                json.dumps((surface_rows.get("u-1") or {}).get("surface")), "guide")
+        # A native unit is matched by its LAYER, and attaching a published surface to one moved it
+        # onto another ladder entirely; the classifier is asked first, and this row is why.
+        native_rows, _native_doc = facts_document(
+            {**pointer_shared,
+             "unit_surfaces": [{"unit_ref": "r-" + "1" * 24, "surface": "requested", "source": "snapshot"}]},
+            current={"units": [{**current["units"][0], "unit_ref": "r-" + "1" * 24,
+                                "layer": "native_global", "item_ref": "native:global"}]})
+        control("a native unit keeps its layer's ladder, whatever surface is published for it",
+                json.dumps((native_rows.get("u-1") or {}).get("surface")), "native_layer")
         # Absence rather than emptiness: a session whose inventory publishes no facts carries NO
         # coverage key, and `delivery_evidence` then answers unknown by name. An empty block would be
         # the claim that the text covered nothing, which is `not_delivered` for every unit of it.

@@ -253,6 +253,17 @@
           "properties": {"unit_ref": {"type": "string", "pattern": "^r-[0-9a-f]{24}$"},
                          "covered": {"type": "integer", "minimum": 0},
                          "total": {"type": "integer", "minimum": 0}}}},
+        "item_pointer_in_compiled_text": {"$comment": "per selected item, whether the compiled instruction text held ITS pointer — the router line for a relevant item, the primary member's emitted path for a requested one — as a fact, because the text never enters a run (WP-11b)", "type": "array", "items": {
+          "type": "object", "additionalProperties": false, "required": ["ref", "pointer", "basis"],
+          "properties": {"ref": {"type": "string"},
+                         "pointer": {"type": ["boolean", "null"]},
+                         "basis": {"enum": ["router_line", "emitted_path", "surface_has_no_pointer", "item_names_no_member"]}}}},
+        "router_path": {"$comment": "the path the compiled text names as its router, read out of that text", "type": ["string", "null"]},
+        "unit_surfaces": {"$comment": "the catalogue surface of every unit this selection holds, with where it was read: the snapshot answers for the items the session was given, the installed baseline for the rest (WP-11b)", "type": "array", "items": {
+          "type": "object", "additionalProperties": false, "required": ["unit_ref", "surface", "source"],
+          "properties": {"unit_ref": {"type": "string", "pattern": "^r-[0-9a-f]{24}$"},
+                         "surface": {"type": ["string", "null"]},
+                         "source": {"enum": ["snapshot", "baseline", "unpublished"]}}}},
         "baseline_unmapped": {"type": "array", "items": {"type": "string"}},
         "baseline_items_expected": {"type": ["integer", "null"], "minimum": 0}
       }

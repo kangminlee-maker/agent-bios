@@ -5835,8 +5835,14 @@ def shared_inventories(ctx):
     for content_ref, snapshot in sorted(snapshots.items()):
         sub = {**ctx, "notes": {}, "omissions": list(unkeyed), "pin": None, "pin_record": {"content_ref": content_ref},
                "snapshot": snapshot, "selection_host": "claude"}
+        # The baseline this snapshot names, when the run read it: `session_baselines` holds
+        # `(items, failures)` per baseline ref, and the items carry each item's catalogue surface.
+        named = ((snapshot.get("inputs") or {}).get("baseline_ref")
+                 if isinstance(snapshot.get("inputs"), dict) else None)
+        held = (ctx.get("session_baselines") or {}).get(named)
         out.append(shared_document("selection", content_ref, layer_rows("selection", sub), ctx,
-                                   unavailable=unavailable_rows(ctx, snapshot), snapshot=snapshot))
+                                   unavailable=unavailable_rows(ctx, snapshot), snapshot=snapshot,
+                                   baseline_held=(held or (None, None))[0]))
     for ref, (items, failures) in sorted((ctx.get("session_baselines") or {}).items()):
         omissions = list(unkeyed) + [{"input": "release_baseline", "ref": ref, **row} for row in failures]
         sub = {**ctx, "notes": {}, "omissions": omissions, "pin": None, "pin_record": None, "release_ref": ref,
@@ -5922,7 +5928,96 @@ def instruction_coverage(units, text):
     return out
 
 
-def shared_document(kind, ref, rows, ctx, unavailable=None, expected=None, snapshot=None):
+# The one line the compiler writes for the router, and the directory every item's members are
+# emitted under. Both come from `compose/instructions_catalog.py`, which is this repo's own shipped
+# producer, so the item path is spelled by ITS function rather than by a copy of its rule here.
+ROUTER_PREFIX = "Relevant procedures: "
+ROUTER_MEMBER = "router/relevant.md"
+# Which surfaces have a pointer in the compiled text at all, and what the pointer is. `always` items
+# are the text; `event`, `delegated` and `executable` are not routed through it.
+POINTER_BASES = {"relevant": "router_line", "requested": "emitted_path"}
+
+
+def router_path_of(text):
+    """The path the compiled text names as its router, or None.
+
+    Read out of the text rather than assembled from a root, because what the judge asks is whether
+    the text names it (`delivery_evidence._pointer`), and the text is the only place that answer
+    lives. The run keeps the path, which is a location under the owner's state, and not the line."""
+    for line in (text or "").splitlines():
+        if line.startswith(ROUTER_PREFIX):
+            named = line[len(ROUTER_PREFIX):].strip()
+            if named.endswith(ROUTER_MEMBER):
+                return named
+    return None
+
+
+def item_pointers(items, text, repo):
+    """Per selected item, whether the compiled text holds ITS pointer, as a fact and not as text.
+
+    §6.3's guide ladder has a level between "selected" and "the unit's own bytes were read": the
+    item's pointer being in the compiled text. That is a predicate OVER the text, so it is answered
+    here, where the snapshot is readable, and published as a boolean — the text itself never enters
+    a run (lead decision, WP-11b).
+
+    A `relevant` item's pointer is the router line; a `requested` item's is its primary member's
+    emitted path, whose spelling comes from the catalog's own `_safe_ref_path` rather than from a
+    copy of that rule. The emitted path in the text is absolute under the reference root and the
+    snapshot records the relative one, so the test is on the relative path, which the absolute one
+    ends with. A surface with no pointer in the text is published as such, not as False: "there is
+    no pointer to find" and "the pointer is missing" are different answers."""
+    if text is None:
+        return []
+    catalog = catalog_module(repo)
+    router = router_path_of(text)
+    rows = []
+    for item in sorted(items, key=lambda item: item["ref"]):
+        basis = POINTER_BASES.get(item.get("surface"))
+        if basis is None:
+            rows.append({"ref": item["ref"], "pointer": None, "basis": "surface_has_no_pointer"})
+            continue
+        if basis == "router_line":
+            rows.append({"ref": item["ref"], "pointer": bool(router), "basis": basis})
+            continue
+        member = item.get("primary_member")
+        members = item.get("members") or {}
+        name = member if isinstance(member, str) and member in members else next(iter(sorted(members)), None)
+        if name is None:
+            rows.append({"ref": item["ref"], "pointer": None, "basis": "item_names_no_member"})
+            continue
+        relative = f"items/{catalog._safe_ref_path(item['ref'])}/{name}"
+        rows.append({"ref": item["ref"], "pointer": relative in text, "basis": basis})
+    return rows
+
+
+def unit_surfaces(units, snapshot_items, baseline_items_held):
+    """Per unit of this selection, the CATALOGUE surface of its item, with where it was read.
+
+    The surface is what classifies a unit's §6.3 ladder, and it was published only for the items a
+    session was given — so a unit of an item the session did NOT receive had no classified ladder
+    and the judge answered `surface_unclassified` where the design has an absence to find. The
+    snapshot answers for the items it selected; the installed baseline answers for the rest; a unit
+    neither answers for is published with a null surface, never a guessed one."""
+    stated = {}
+    for item in baseline_items_held or ():
+        if isinstance(item, dict) and isinstance(item.get("ref"), str):
+            stated[item["ref"]] = ("baseline", item.get("surface"))
+    for item in snapshot_items or ():
+        if isinstance(item, dict) and isinstance(item.get("ref"), str):
+            stated[item["ref"]] = ("snapshot", item.get("surface"))
+    rows, seen = [], set()
+    for unit in units:
+        if unit["unit_ref"] in seen:
+            continue
+        seen.add(unit["unit_ref"])
+        source, surface = stated.get(unit.get("item_ref"), (None, None))
+        rows.append({"unit_ref": unit["unit_ref"], "surface": surface,
+                     "source": source or "unpublished"})
+    return sorted(rows, key=lambda row: row["unit_ref"])
+
+
+def shared_document(kind, ref, rows, ctx, unavailable=None, expected=None, snapshot=None,
+                    baseline_held=None):
     """One shared inventory as `shared/<kind>-<i>.json` publishes it: its layer rows, the carrier
     versions it holds and its units, by reference into the store, its edges (`edges_of`: every unit's
     `direct` and `reached`, mentions resolved in this inventory's own universe, step 0 S-12) with the
@@ -5966,6 +6061,17 @@ def shared_document(kind, ref, rows, ctx, unavailable=None, expected=None, snaps
         document["instruction_coverage"] = [
             {"unit_ref": unit_ref, **counts}
             for unit_ref, counts in sorted(instruction_coverage(units, text).items())]
+        # The two facts the §6.3 ladders needed and no producer published: the pointer predicate over
+        # the compiled text, and the catalogue surface of every unit this selection holds — including
+        # the units of items the session was NOT given, which is where `_absence` lives.
+        # Absent rather than empty when this run cannot compute them: the pointer predicate needs
+        # the compiled text AND the catalog's own path rule (the shipped loader), and an empty list
+        # beside a selection that holds items would read as "no item has a pointer anywhere".
+        if text is not None and ctx.get("repo"):
+            document["item_pointer_in_compiled_text"] = item_pointers(items, text, ctx["repo"])
+        if text is not None:
+            document["router_path"] = router_path_of(text)
+        document["unit_surfaces"] = unit_surfaces(units, items, baseline_held)
         if vocabulary:
             table = table_of({**SHARED_INVENTORY_TABLE["fields"], "unavailable": list_of(table_of({
                 "ref": as_enum(vocabulary[0]), "surface": as_enum(vocabulary[1]), "reason": as_metadata()}))},
@@ -6932,9 +7038,18 @@ SHARED_INVENTORY_TABLE = table_of({
     "instruction_text_sha256": as_opaque("sha256", nullable=True),
     "instruction_coverage": list_of(table_of({"unit_ref": as_opaque("unit_ref"), "covered": as_scalar(),
                                               "total": as_scalar()})),
+    # the pointer predicate over the compiled text, per selected item, and the router the text names
+    "item_pointer_in_compiled_text": list_of(table_of({
+        "ref": as_metadata(), "pointer": as_scalar(nullable=True),
+        "basis": as_enum(("router_line", "emitted_path", "surface_has_no_pointer", "item_names_no_member"))})),
+    "router_path": as_metadata(nullable=True),
+    # the catalogue surface of every unit this selection holds, and where it was read
+    "unit_surfaces": list_of(table_of({"unit_ref": as_opaque("unit_ref"), "surface": as_metadata(nullable=True),
+                                       "source": as_enum(("snapshot", "baseline", "unpublished"))})),
     "baseline_unmapped": list_of(as_metadata()),
     "baseline_items_expected": as_scalar(nullable=True),
 }, optional=("unavailable", "items", "instruction_text_sha256", "instruction_coverage",
+             "item_pointer_in_compiled_text", "router_path", "unit_surfaces",
              "baseline_unmapped", "baseline_items_expected"), schema="shared_inventory_document")
 
 
@@ -17069,7 +17184,7 @@ def self_test():
 
             def w11b_published(text, items=({"ref": "a-ref", "surface": "always"},)):
                 """The written selection inventory for one planted snapshot: `(bytes, document)`."""
-                ctx_w = {"home": p26_home, "commit": None}
+                ctx_w = {"home": p26_home, "commit": None, "repo": REPO}
                 _path, document = shared_document("selection", f"w11b-{abs(hash(text)) % 10 ** 8}",
                                                   p26_rows(w11b_items), ctx_w,
                                                   snapshot={"items": list(items),
@@ -17151,6 +17266,68 @@ def self_test():
             check("W11b: an unresolved requirement counts in the total and never in the covered, so the unit "
                   "cannot read as fully covered",
                   w11b_unresolved.get("r-1") == {"covered": 1, "total": 2}, f"{w11b_unresolved}")
+            # ---- the two facts the §6.3 ladders needed and nothing published (the lead's second
+            # boundary decision, same fact-only shape). The pointer predicate is over the compiled
+            # text; the catalogue surface answers for a unit of an item the session was NOT given,
+            # which is where §6.3's absence lives.
+            w11b_text = ("# Activated private instructions\n\n## Always in this environment\n\n- a rule\n\n"
+                         "Relevant procedures: /ref/router/relevant.md\nRequested procedures:\n"
+                         "- T \u2014 d: /ref/items/item-claude_guides_g/g.md (claude:guides/g)\n")
+            w11b_catalog_items = [
+                {"kind": "guide", "ref": "claude:guides/g", "surface": "requested",
+                 "members": {"g.md": "- x"}, "primary_member": "g.md"},
+                {"kind": "guide", "ref": "claude:rel", "surface": "relevant",
+                 "members": {"r.md": "- y"}, "primary_member": "r.md"},
+                {"kind": "rule", "ref": "claude:core", "surface": "always", "members": {}},
+                {"kind": "guide", "ref": "claude:gone", "surface": "requested", "members": {}}]
+            w11b_pointers = {row["ref"]: (row["pointer"], row["basis"])
+                             for row in item_pointers(w11b_catalog_items, w11b_text, REPO)}
+            check("W11b: a requested item's pointer is its own emitted path in the compiled text, spelled "
+                  "by the catalog's own rule",
+                  w11b_pointers.get("claude:guides/g") == (True, "emitted_path"), f"{w11b_pointers}")
+            check("W11b: a relevant item's pointer is the router line the text names",
+                  w11b_pointers.get("claude:rel") == (True, "router_line")
+                  and router_path_of(w11b_text) == "/ref/router/relevant.md",
+                  f"{w11b_pointers} router={router_path_of(w11b_text)}")
+            check("W11b: a surface with no pointer in the text is published as having none, not as a "
+                  "pointer that is missing, and an item naming no member says that instead",
+                  w11b_pointers.get("claude:core") == (None, "surface_has_no_pointer")
+                  and w11b_pointers.get("claude:gone") == (None, "item_names_no_member"),
+                  f"{w11b_pointers}")
+            w11b_missing = {row["ref"]: row["pointer"] for row in item_pointers(
+                w11b_catalog_items, "# Activated private instructions\n\n- a rule\n", REPO)}
+            check("W11b: a text that names neither the router nor the item's path answers False for both, "
+                  "which is a pointer that is missing",
+                  w11b_missing.get("claude:guides/g") is False and w11b_missing.get("claude:rel") is False
+                  and router_path_of("- a rule\n") is None, f"{w11b_missing}")
+            w11b_units = [{"unit_id": "u-1", "unit_ref": "r-1", "item_ref": "claude:core"},
+                          {"unit_id": "u-2", "unit_ref": "r-2", "item_ref": "claude:unselected"},
+                          {"unit_id": "u-3", "unit_ref": "r-3", "item_ref": "claude:nowhere"}]
+            w11b_surfaces = {row["unit_ref"]: (row["surface"], row["source"]) for row in unit_surfaces(
+                w11b_units, [{"ref": "claude:core", "surface": "always"}],
+                [{"ref": "claude:unselected", "surface": "relevant"},
+                 {"ref": "claude:core", "surface": "requested"}])}
+            check("W11b: a unit of an item the session was NOT given carries the baseline's surface, a unit "
+                  "of a selected item carries the snapshot's, and a unit neither names carries none",
+                  w11b_surfaces == {"r-1": ("always", "snapshot"), "r-2": ("relevant", "baseline"),
+                                    "r-3": (None, "unpublished")}, f"{w11b_surfaces}")
+            w11b_facts_doc = w11b_published(w11b_text)[1]
+            clean("W11b: the published facts carry no line of the compiled text",
+                  [line for line in _lines_of(w11b_text)
+                   if line in json.dumps(w11b_facts_doc, ensure_ascii=False)])
+            # Non-empty and one row per unit: a list that happens to be empty is still a list, and
+            # the first form of this check passed over a reverted producer for that reason.
+            w11b_doc_surfaces = w11b_facts_doc.get("unit_surfaces")
+            check("W11b: and the pointer facts and the router reach the document, with one surface row "
+                  "per unit of the selection",
+                  isinstance(w11b_facts_doc.get("item_pointer_in_compiled_text"), list)
+                  and w11b_facts_doc.get("router_path") == "/ref/router/relevant.md"
+                  and isinstance(w11b_doc_surfaces, list)
+                  and len(w11b_doc_surfaces) == len({row["unit_ref"] for row in w11b_facts_doc["edges"]})
+                  and all(row["source"] in ("snapshot", "baseline", "unpublished")
+                          for row in w11b_doc_surfaces),
+                  f"router={w11b_facts_doc.get('router_path')} surfaces={len(w11b_doc_surfaces or ())} "
+                  f"units={len({row['unit_ref'] for row in w11b_facts_doc['edges']})}")
             check("W11b: a selection inventory publishes the items the snapshot holds with their surfaces, and a "
                   "release inventory publishes no coverage block at all",
                   w11b_whole["items"] == [{"ref": "a-ref", "surface": "always"}]
