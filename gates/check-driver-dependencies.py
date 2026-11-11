@@ -62,14 +62,54 @@ def subjects(root: pathlib.Path) -> list[pathlib.Path]:
     return [path for path in found if path.is_file()]
 
 
-def _name_of(call: ast.Call) -> str:
-    """`subprocess.run` -> "run" when qualified by a module this gate watches, else ""."""
+def _runner_bindings(tree):
+    """(names bound to a watched module, names bound to a runner function) in this file.
+
+    Spelled out because ordinary Python hides a program three ways and the scan saw none of them
+    (review Y #3): `import subprocess as sp` binds the module under another name, `from subprocess
+    import run` binds the function with no qualifier at all, and either can be renamed with `as`.
+    A scan matching only the literal text `subprocess.run` reports a clean tree while the driver
+    runs whatever it likes."""
+    modules, functions = set(), set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                if alias.name.split(".")[0] in RUNNER_QUALIFIERS:
+                    modules.add(alias.asname or alias.name.split(".")[0])
+        elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
+            if node.module.split(".")[0] not in RUNNER_QUALIFIERS:
+                continue
+            for alias in node.names:
+                if alias.name in RUNNERS:
+                    functions.add(alias.asname or alias.name)
+                else:
+                    modules.add(alias.asname or alias.name)
+    return modules, functions
+
+
+def _argv_of(call):
+    """The command vector a runner call was given, positionally or as `args=`.
+
+    `subprocess.run(args=[...])` is the documented spelling of the same call, and reading only
+    `call.args` let it through."""
+    if call.args:
+        return call.args[0]
+    for keyword in call.keywords:
+        if keyword.arg in ("args", "cmd"):
+            return keyword.value
+    return None
+
+
+def _is_runner(call, modules, functions):
+    """Whether this call starts a program, under any spelling this file's imports allow."""
     func = call.func
-    if not isinstance(func, ast.Attribute) or func.attr not in RUNNERS:
-        return ""
-    base = func.value
-    qualifier = base.id if isinstance(base, ast.Name) else getattr(base, "attr", "")
-    return func.attr if qualifier in RUNNER_QUALIFIERS else ""
+    if isinstance(func, ast.Attribute) and func.attr in RUNNERS:
+        base = func.value
+        qualifier = base.id if isinstance(base, ast.Name) else getattr(base, "attr", "")
+        return qualifier in modules
+    if isinstance(func, ast.Name):
+        return func.id in functions
+    return False
 
 
 def derive(paths: list[pathlib.Path], root: pathlib.Path) -> tuple[dict, dict]:
@@ -80,6 +120,7 @@ def derive(paths: list[pathlib.Path], root: pathlib.Path) -> tuple[dict, dict]:
     for path in paths:
         rel = str(path.relative_to(root))
         tree = ast.parse(path.read_text(encoding="utf-8"))
+        modules, functions = _runner_bindings(tree)
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):
                 names = [alias.name.split(".")[0] for alias in node.names]
@@ -90,8 +131,8 @@ def derive(paths: list[pathlib.Path], root: pathlib.Path) -> tuple[dict, dict]:
             for name in names:
                 if name not in standard and name not in LOCAL:
                     imports.setdefault(name, set()).add(rel)
-            if isinstance(node, ast.Call) and _name_of(node) and node.args:
-                first = node.args[0]
+            if isinstance(node, ast.Call) and _is_runner(node, modules, functions):
+                first = _argv_of(node)
                 if isinstance(first, (ast.List, ast.Tuple)) and first.elts:
                     first = first.elts[0]
                 if isinstance(first, ast.Constant) and isinstance(first.value, str):
@@ -138,7 +179,10 @@ def self_test() -> int:
     """Positive control first, then one planted violation per rule, each failing BY NAME."""
     failures = []
 
+    ran = []
+
     def control(label, got, want):
+        ran.append(label)
         if want not in got:
             failures.append(f"{label}: expected {want!r} in {got!r}")
         print(f"  control {label}", flush=True)
@@ -167,11 +211,18 @@ def self_test() -> int:
         control("an undeclared program fails by name", " ".join(check(root)),
                 "the driver runs 'nosuchtool'")
 
+        def clean(label, got):
+            """A control for the ABSENCE of problems. `control(..., want="")` could not fail: the
+            empty string is in every string, so both positive controls passed whatever `check`
+            returned (review Y #6)."""
+            ran.append(label)
+            if got:
+                failures.append(f"{label}: expected no problem, got {got}")
+            print(f"  control {label}", flush=True)
+
         planted.write_text("import subprocess\nsubprocess.run(['/opt/homebrew/bin/git', 'show'])\n",
                            encoding="utf-8")
-        got = check(root)
-        control("a declared program under an absolute path is recognised by its basename",
-                "" if not got else " ".join(got), "")
+        clean("a declared program under an absolute path is recognised by its basename", check(root))
 
         # The alias half: the row names the product, the code names the binary.
         planted.write_text("import subprocess\nsubprocess.run(['claude', '--version'])\n",
@@ -180,9 +231,49 @@ def self_test() -> int:
                 " ".join(check(root)), "the driver runs 'claude'")
         (root / INVENTORY).write_text(
             "| CLI | Required by |\n| --- | --- |\n| Claude Code | the driver |\n", encoding="utf-8")
-        got = check(root)
-        control("and passes once the row declares it under that name",
-                "" if not got else " ".join(got), "")
+        clean("and passes once the row declares it under that name", check(root))
+
+        # review Y #3: the three spellings that hid a program from the scan entirely.
+        planted.write_text("import subprocess as sp\nsp.run(['nosuchtool', '-x'])\n", encoding="utf-8")
+        control("an aliased module import does not hide the program it runs",
+                " ".join(check(root)), "the driver runs 'nosuchtool'")
+        planted.write_text("from subprocess import run\nrun(['nosuchtool', '-x'])\n", encoding="utf-8")
+        control("an imported runner function does not hide it either",
+                " ".join(check(root)), "the driver runs 'nosuchtool'")
+        planted.write_text("from subprocess import run as go\ngo(['nosuchtool'])\n", encoding="utf-8")
+        control("nor an imported runner renamed again", " ".join(check(root)),
+                "the driver runs 'nosuchtool'")
+        planted.write_text("import subprocess\nsubprocess.run(args=['nosuchtool', '-x'])\n",
+                           encoding="utf-8")
+        control("the command vector is read from `args=` as well as from the first positional",
+                " ".join(check(root)), "the driver runs 'nosuchtool'")
+        planted.write_text("import shutil\nshutil.which('nosuchtool')\n", encoding="utf-8")
+        control("and a `which` probe counts as reaching for a program",
+                " ".join(check(root)), "the driver runs 'nosuchtool'")
+        # ... and the two proofs that the clean controls above can fail: break the recognition each
+        # one rests on, and watch it report a problem.
+        planted.write_text("import subprocess\nsubprocess.run(['/opt/homebrew/bin/git', 'show'])\n",
+                           encoding="utf-8")
+        kept_basename = globals()["derive"]
+        try:
+            def whole_path(paths, where):
+                imports, programs = kept_basename(paths, where)
+                return imports, {f"/opt/homebrew/bin/{name}" if name == "git" else name: sites
+                                 for name, sites in programs.items()}
+            globals()["derive"] = whole_path
+            control("the basename control is real: without basename recognition the same tree fails",
+                    " ".join(check(root)), "/opt/homebrew/bin/git")
+        finally:
+            globals()["derive"] = kept_basename
+        planted.write_text("import subprocess\nsubprocess.run(['claude', '--version'])\n",
+                           encoding="utf-8")
+        kept_aliases = dict(ALIASES)
+        try:
+            ALIASES.clear()
+            control("the alias control is real: without the product alias the same row fails",
+                    " ".join(check(root)), "the driver runs 'claude'")
+        finally:
+            ALIASES.update(kept_aliases)
 
         # An empty subject set must fail rather than report clean.
         empty = pathlib.Path(tmp) / "empty"
@@ -202,8 +293,9 @@ def self_test() -> int:
         for line in failures:
             print(f"check-driver-dependencies --self-test: FAIL: {line}", file=sys.stderr)
         return 1
-    print("check-driver-dependencies --self-test: OK (positive control + 7 controls, each planted "
-          "violation failing by name)")
+    print(f"check-driver-dependencies --self-test: OK (positive control + {len(ran)} controls: "
+          f"every planted violation failing by name, every absence asserted as an empty problem "
+          f"list, and the two absence controls each shown to fail when their recognition is broken)")
     return 0
 
 

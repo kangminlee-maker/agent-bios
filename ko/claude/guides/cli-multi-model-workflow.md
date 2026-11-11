@@ -217,7 +217,7 @@ Binding (2026-10-21):
 
 | Slot | Binding | Notes |
 |---|---|---|
-| FRONTIER | Claude Fable 5.1 · GPT-6 Astra (read-only; max default, task-fit effort including Ultra) | bounded hardest decision/verdict |
+| FRONTIER | Claude Fable 5.2 · GPT-6 Astra (read-only; max default, task-fit effort including Ultra) | bounded hardest decision/verdict |
 | HELM | Claude Opus 5.5 (high) · GPT-6.1 Sol (xhigh) — main Ultra는 명시 선택 필요; bounded FRONTIER Ultra allowed | standing main; Codex 기본 bypass, explicit sandbox로 축소 |
 | WORKHORSE | Claude Sonnet 5.5 (high) · GPT-6.1 Sol (high) | implementation/per-item judgment; Codex seat은 HELM과 같은 model이므로 effort만으로 구분되고 cross-model perspective를 사지 않는다 |
 | SWEEP | Claude Haiku 5.5 (medium) · GPT-6 Luna (max) | 읽기 전용; 항목마다 명시적 규칙 하나 적용; 리바인드 후보 아님 |

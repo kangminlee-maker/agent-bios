@@ -170,7 +170,7 @@ expected_launch_tiers = {
     "sweep": ("gpt-6-luna", "max"),
 }
 expected_claude_tiers = {
-    "frontier": ("claude-fable-5-1", "max"),
+    "frontier": ("claude-fable-5-2", "max"),
     "helm": ("claude-opus-5-5", "high"),
     "workhorse": ("claude-sonnet-5-5", "high"),
     "sweep": ("claude-haiku-5-5", "medium"),
@@ -755,6 +755,8 @@ def purpose_obligations():
     # English, but nothing forbade the Korean tree from entering the published payload: the
     # package gate exempts `ko` by NAME, which permits its absence rather than its presence.
     for pattern in pkg.get("files", []):
+        if pattern.startswith("!"):   # an npm exclusion, not a shipped path (review Y #1)
+            continue
         if pattern.strip("/").split("/")[0] == "ko":
             mark_fail(f"package.json files[] ships {pattern!r} — the Korean tree is reference "
                       f"only and must never enter the payload")
@@ -14560,7 +14562,7 @@ def profile_errors(fx):
                     "agent-launch frontier control: an override-only FRONTIER effort was "
                     f"refused: {run.stderr.strip()[:160]}"
                 )
-            elif "main=frontier (claude-fable-5-1/high)" not in run.stdout:
+            elif "main=frontier (claude-fable-5-2/high)" not in run.stdout:
                 mark_fail(
                     "agent-launch frontier control: the override-only effort did not reach "
                     f"the contract as the one FRONTIER value: {run.stdout[-300:]!r}"
@@ -15402,7 +15404,7 @@ def cross_family(fx):
             "run EVERY review route on Anthropic/Claude",
             "-p --model <review tier>",
             "--permission-mode plan",
-            "frontier=claude-fable-5-1/max",
+            "frontier=claude-fable-5-2/max",
         ),
     )
     claude_deep = invoke([

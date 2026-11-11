@@ -25,8 +25,17 @@ from datetime import datetime, timezone
 # Whole table re-read against the vendor pricing page on 2026-10-21. That pass added the
 # 5.5 generation and corrected `claude-sonnet-5`, which carried Sonnet 4.6's rates — it
 # had been overcharging every Sonnet 5 session by half since it was written.
+# `claude-fable-5-2` added 2026-11-11 from the same page — the vendor's platform docs at
+# `about-claude/pricing`, named without its URL because `gates/check-endpoints.py` forbids a
+# shipped file from carrying one. Its "Model pricing" table
+# reads base input / 5m cache writes / 1h cache writes / cache hits / output — NOT this
+# tuple's order, so the row is reordered rather than copied across. The generation's cache
+# hit is 0.025x base input, which is why it reads cheaper per cached token than Opus 5.5 on
+# a dearer model. The page prices Mythos 5.2 identically; no Mythos row past `claude-mythos-5`
+# is carried here, so a Mythos session reports unpriced rather than at a guessed rate.
 PRICES = {
     "claude-fable-5":  (10.0, 50.0, 1.00, 12.50, 20.0),
+    "claude-fable-5-2": (8.0, 40.0, 0.20, 10.0, 16.0),
     "claude-fable-5-1": (10.0, 50.0, 0.25, 12.50, 20.0),
     "claude-mythos-5": (10.0, 50.0, 1.00, 12.50, 20.0),
     "claude-opus-5-5": (4.0, 20.0, 0.20, 5.0, 8.0),
@@ -484,7 +493,8 @@ def _self_test():
     with tempfile.TemporaryDirectory() as td:
         # A version-specific cache rate must reach the public report without
         # changing the older model's rate. Run the real CLI/scan/cost path.
-        for model, expected in (("claude-fable-5-1", "$0.25"),
+        for model, expected in (("claude-fable-5-2", "$0.20"),
+                                ("claude-fable-5-1", "$0.25"),
                                 ("claude-fable-5", "$1.00")):
             transcript = write(td, model + ".jsonl", [
                 {"type": "assistant", "message": {

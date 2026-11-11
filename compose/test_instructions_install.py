@@ -85,10 +85,23 @@ class InstructionsInstallTests(_InstallerFixture):
         cache = driver / "__pycache__"
         cache.mkdir()
         (cache / "records.cpython-312.pyc").write_bytes(b"\x00stale")
+        (driver / "legacy.pyc").write_bytes(b"\x00stale")
+        manifest["files"] += ["session-distill/runlib/legacy.pyc",
+                              "session-distill/runlib/__pycache__/records.cpython-312.pyc",
+                              "!**/__pycache__", "!**/*.pyc"]
+        (self.repo / "package.json").write_text(json.dumps(manifest), encoding="utf-8")
         packed = self.installer()._package_files()
         self.assertIn("session-distill/distill.py", packed)
         self.assertIn("session-distill/runlib/records.py", packed)
+        # Both ways in: expanded from a directory entry, and named outright. The explicit spelling
+        # bypassed the filter, so a `.pyc` reached the release inventory and the release digest.
         self.assertEqual([], [rel for rel in packed if "__pycache__" in rel or rel.endswith(".pyc")])
+        # And the negated entries npm needs are not read as payload paths of their own.
+        self.assertEqual([], [rel for rel in packed if rel.startswith("!")])
+        release, entries, digest = self.installer()._copy_release(packed, dry_run=False)
+        rows = [row["path"] for row in entries]
+        self.assertEqual([], [rel for rel in rows if "__pycache__" in rel or rel.endswith(".pyc")])
+        self.assertFalse((release / "session-distill" / "runlib" / "legacy.pyc").exists())
         base = json.loads((self.repo / "package.json").read_text(encoding="utf-8"))["files"]
         # Both spellings per tree: the DIRECTORY entry is the one npm uses and the one the rule
         # could not see, and a file inside it is the spelling that always refused.
