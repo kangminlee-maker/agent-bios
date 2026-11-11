@@ -223,6 +223,8 @@ READER_EXCEPTIONS = {
                                           "census itself through load and rows",
     ("runlib/stage_retrieve.py", "<module>"): "INPUTS declares census.json as S5's S1 input artifact; the recurrence reads "
                                               "the census itself through load and rows",
+    ("runlib/stage_judge.py", "<module>"): "INPUTS declares census.json as S6's S1 input artifact, so a census taken again "
+                                           "makes S6 stale; S6 reads no census row",
 }
 LOADERS = frozenset(("load", "load_document", "build", "reconcile", "run"))
 TEST_CODE = ("self_test", "fx_", "golden")

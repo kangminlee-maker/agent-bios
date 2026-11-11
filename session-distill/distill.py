@@ -19,6 +19,8 @@
                                                            CLAUDE_RUN_TOKEN_FILE) or, with a plan, golden
   distill.py retrieve --run-id ID                          S5: the retrieval, the quotes verified again, the sessions and
                                                            the recurrence, into checks.json; no model is called
+  distill.py judge --run-id ID --dry                       S6 up to its calls: the judged population, every judgment
+                                                           packet built and measured per judge; the record stays partial
   distill.py <stage command> --run-id ID                   S3, S6-S12: named, and refused until implemented
 
 A run lives in `session-distill/out/<run-id>/` (`--out` names another root): `run.json`,
@@ -82,7 +84,8 @@ except BaseException:
 STARTUP_WITHHELD = entry.WITHHELD
 
 try:
-    from runlib import census, coverage, declare, inventory, projection, records, sources, stage_form, stage_retrieve, stagelock, views
+    from runlib import census, coverage, declare, inventory, projection, records, sources, stage_form, stage_judge, \
+        stage_retrieve, stagelock, views
     from runlib.records import Refused
 except BaseException as _startup_exc:   # SystemExit included: `validate` exits at import time
     # The imports used to stand OUTSIDE every boundary this command has: `runlib.validate` exits
@@ -329,6 +332,12 @@ def cmd_retrieve(args):
     return 0
 
 
+def cmd_judge(args):
+    """S6 (runlib/stage_judge.py): dry until WP-11 J2 lands the judges' calls."""
+    say("\n".join(stage_judge.report_lines(stage_judge.run(run_dir_of(args), dry=args.dry))))
+    return 0
+
+
 def cmd_stage(args):
     stage = STAGE_COMMANDS[args.command]
     if args.command == "close" and args.recovery:
@@ -360,7 +369,8 @@ def build_parser():
     for name, stage in STAGE_COMMANDS.items():
         helps = {"census": f"{stage}: the census", "views": f"{stage}: the reading views, the search index and the evidence store",
                  "form": f"{stage}: candidate formation and the lifecycle intake",
-                 "retrieve": f"{stage}: retrieval, quote and session checks, and recurrence"}
+                 "retrieve": f"{stage}: retrieval, quote and session checks, and recurrence",
+                 "judge": f"{stage}: the judges A and B (dry until their calls land)"}
         sub = commands.add_parser(name, help=helps.get(name, f"{stage}: not implemented yet"))
         common(sub)
         if name == "close":
@@ -380,13 +390,15 @@ def build_parser():
             sub.add_argument("--originators", help="the originator table; refused unless it is the one the declaration names (source 'originators')")
             sub.add_argument("--jobs", type=int, default=8, help="parallel transcript reads")
             sub.add_argument("--reconcile", help="S3's results (a JSON list): fold them back instead of counting")
+        if name == "judge":
+            sub.add_argument("--dry", action="store_true", help="stop before the calls: every judgment packet's measure")
         if name == "form":
             sub.add_argument("--dry", action="store_true", help="stop before the call: the intake and the packet's measure")
             sub.add_argument("--cells", help="the cell root the formation call runs under (made mode 700)")
             sub.add_argument("--golden-plan", help="a golden host's plan: realization golden, no model is started")
             sub.add_argument("--index", help="the occasion index's rows (a JSON list; WP-21, golden until it lands)")
         sub.set_defaults(handler={"census": cmd_census, "views": cmd_views, "inventory": cmd_inventory,
-                                  "form": cmd_form, "retrieve": cmd_retrieve}.get(name, cmd_stage))
+                                  "form": cmd_form, "retrieve": cmd_retrieve, "judge": cmd_judge}.get(name, cmd_stage))
     return parser
 
 
@@ -644,7 +656,7 @@ def self_test():
 
         # each implemented command has its own controls (form's and retrieve's runs in runlib/stage_form.py's and
         # runlib/stage_retrieve.py's suites, as a process); the rest are named and refused
-        implemented = ("census", "views", "inventory", "form", "retrieve")
+        implemented = ("census", "views", "inventory", "form", "retrieve", "judge")
         for command, stage_id in STAGE_COMMANDS.items():
             if command in implemented:
                 continue
@@ -657,6 +669,13 @@ def self_test():
         code, err = cli("retrieve", "--run-id", "r1")
         control("retrieve (S5) over a run S4 has not run is refused by name, and no stage record is written or changed",
                 code == 1 and "INPUT_INVALID S4" in err and stage_files() == before, f"{code} {err}")
+        before = stage_files()
+        code, err = cli("judge", "--run-id", "r1")
+        control("judge (S6) not dry is refused by name until its calls land, and no stage record is written or changed",
+                code == 1 and "JUDGE_DRY_ONLY S6" in err and stage_files() == before, f"{code} {err}")
+        code, err = cli("judge", "--run-id", "r1", "--dry")
+        control("judge --dry (S6) over a run S5 has not run is refused by name, and no stage record is written or changed",
+                code == 1 and "INPUT_INVALID S5" in err and stage_files() == before, f"{code} {err}")
         code, err = cli("form", "--run-id", "r-form")
         control("form (S4) with neither --dry nor --cells is refused by name before anything is recorded",
                 code == 1 and "INPUT_INVALID form --cells" in err and not (out / "r-form").exists(), err)

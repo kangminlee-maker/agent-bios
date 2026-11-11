@@ -104,8 +104,9 @@
       "type": "object", "additionalProperties": false,
       "properties": {"candidate_kinds": {
         "type": "object", "additionalProperties": false, "minProperties": 1,
-        "properties": {"formed": {"$ref": "#/$defs/judged_scope"}, "legacy": {"$ref": "#/$defs/judged_scope"},
-                       "g_cluster": {"$ref": "#/$defs/judged_scope"}, "redundancy_hint": {"$ref": "#/$defs/judged_scope"}}}}
+        "properties": {"formed": {"$ref": "#/$defs/judged_scope"}, "due_decision": {"$ref": "#/$defs/judged_scope"},
+                       "legacy": {"$ref": "#/$defs/judged_scope"}, "obsolete_hint": {"$ref": "#/$defs/judged_scope"},
+                       "redundancy_hint": {"$ref": "#/$defs/judged_scope"}, "g_cluster": {"$ref": "#/$defs/judged_scope"}}}}
     },
     "retry": {
       "$comment": "W review of WP-08e r1, F4 (lead decision): the host's retries one call's 'at most' claim holds (count, default 1) and the error share each carries (margin, default RETRY_ERROR_TOKENS, raised by a larger measured one). A request past the claim stops the run (CLAIM_EXCEEDED), and only a later amendment of this key lifts it.",
