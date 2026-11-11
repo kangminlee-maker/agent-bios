@@ -372,12 +372,69 @@ def placement_problems(proposal):
     return problems
 
 
+# A destination is model output that reaches the owner's review page, so it is held to the layer
+# vocabulary and to path rules at the SOURCE as well as escaped on render. A carrier carrying a
+# newline followed by a decision-shaped line could otherwise forge an owner's line in the rendered
+# review; a `..` segment or an absolute path names a file outside anything the run declared.
+#
+# One function for both callers: S7's own destination and S7b's alternative destination. The
+# alternative IS a proposal - it is what the owner may take instead - so it is held to the same rules,
+# and a second copy of them would be a second authority.
+CARRIER_RULES = (
+    ("DESTINATION_CARRIER_CONTROL", "a control character (a newline, tab or other C0/C1 code), which "
+                                    "could forge a line in the rendered review"),
+    ("DESTINATION_CARRIER_TRAVERSAL", "a `..` segment, which names a path outside the tree it starts in"),
+    ("DESTINATION_CARRIER_ABSOLUTE", "an absolute path, which names a file outside anything the run declared"),
+)
+
+
+def _carrier_problem(carrier):
+    """Which carrier rule a carrier breaks, by code, or None."""
+    if any(ord(ch) < 0x20 or 0x7F <= ord(ch) <= 0x9F for ch in carrier):
+        return CARRIER_RULES[0]
+    if ".." in pathlib.PurePosixPath(carrier).parts:
+        return CARRIER_RULES[1]
+    if carrier.startswith("/") or carrier.startswith("~"):
+        return CARRIER_RULES[2]
+    return None
+
+
+def destination_problems(destination, where="destination", item=""):
+    """A destination's problems, by name: its layer against §7.4's order, its carrier against the rules.
+
+    `where` names the field so one message serves both the proposal's destination and the
+    alternative's, and the reader can tell which one it was.
+    """
+    problems = []
+    if destination is None:
+        return problems
+    if not isinstance(destination, dict):
+        return [f"DESTINATION_SHAPE {where}: not an object"]
+    held = table("placement")["destinations"]
+    layers = tuple(held["order"])
+    layer = destination.get("layer")
+    if layer not in layers:
+        problems.append(f"LAYER_UNKNOWN {item}{where}.layer={layer!r}: §7.4's destinations are "
+                        f"{', '.join(layers)}")
+    carrier = destination.get("carrier")
+    if isinstance(carrier, str):
+        broken = _carrier_problem(carrier)
+        if broken:
+            code, why = broken
+            problems.append(f"{code} {item}{where}.carrier={carrier!r}: {why}")
+    elif carrier is not None:
+        problems.append(f"DESTINATION_CARRIER_SHAPE {item}{where}.carrier: not a string or null")
+    return problems
+
+
 def problems(proposal, active_keep=None):
     """Every problem of one proposal: §7.2's, §7.3's and §7.4's decidable rules, in the tables' order.
 
     The inputs §7.4's rules need come first: a rule that cannot see its own field has not judged, and
     reporting the rules' silence as agreement is what this ordering refuses."""
     return (pair_problems(proposal) + structural_problems(proposal, active_keep)
+            + destination_problems(proposal.get("destination"),
+                                   item=f"{proposal.get('item_id') or proposal.get('candidate_id')}: ")
             + input_problems(proposal) + placement_problems(proposal))
 
 
@@ -825,6 +882,78 @@ def self_test():
     finally:
         _TABLES["pairs"], _TABLES["rules"] = held_pairs, held_rules
     clean("and the tables are back as they are on disk", fidelity_problems())
+
+    # A destination is model output that reaches the owner's review page. The layer vocabulary and
+    # the carrier rules were unchecked here until now: §7.4's rules read the layer, but no rule asked
+    # whether it was a layer at all, so `nowhere` passed and a carrier carrying a newline and a
+    # decision-shaped line could forge an owner's line in the rendered review.
+    def dest_problems(destination, **over):
+        """`destination_problems` with any exception returned as text.
+
+        A revert that removed the shape guard made `destination.get` raise on a string and killed the
+        suite where it needed a named failure: a control that dies is not a control.
+        """
+        try:
+            return destination_problems(destination, **over)
+        except Exception as exc:  # noqa: BLE001 - the exception IS the answer here
+            return [f"RAISED {type(exc).__name__}: {exc}"]
+
+    def dest_src_line(fragment):
+        """The line carrying `fragment`, or a placeholder naming its absence (never StopIteration)."""
+        for line in pathlib.Path(__file__).read_text(encoding="utf-8").splitlines():
+            if fragment in line:
+                return line.strip()
+        return f"<no line carrying {fragment!r}>"
+
+    def dest(**over):
+        held = {"layer": "guides", "carrier": "claude/guides/g.md"}
+        held.update(over)
+        return held
+
+    clean("a destination naming a §7.4 layer and a relative carrier is clean",
+          destination_problems(dest()))
+    clean("and so is every layer in §7.4's order, so the check cannot be passing by accident",
+          [layer for layer in table("placement")["destinations"]["order"]
+           if destination_problems(dest(layer=layer))])
+    control("a layer outside §7.4's order is refused by name, with the order",
+            "; ".join(destination_problems(dest(layer="nowhere"))), "LAYER_UNKNOWN")
+    control("and the refusal lists the layers rather than saying only that it is wrong",
+            "; ".join(destination_problems(dest(layer="nowhere"))), "enforcement, gates, hooks")
+    control("a carrier carrying a newline is refused: a decision-shaped line after it could forge "
+            "an owner's line in the rendered review",
+            "; ".join(destination_problems(dest(carrier="g.md\nowner approved: yes"))),
+            "DESTINATION_CARRIER_CONTROL")
+    clean("and so is every other control character, not only the newline",
+          [hex(code) for code in list(range(0x00, 0x20)) + list(range(0x7F, 0xA0))
+           if not destination_problems(dest(carrier=f"g{chr(code)}md"))])
+    control("a carrier with a `..` segment is refused", 
+            "; ".join(destination_problems(dest(carrier="../../etc/x"))),
+            "DESTINATION_CARRIER_TRAVERSAL")
+    clean("a carrier whose NAME merely contains two dots is not a traversal, since the rule is about "
+          "a path segment", destination_problems(dest(carrier="claude/guides/a..b.md")))
+    control("an absolute carrier is refused", "; ".join(destination_problems(dest(carrier="/etc/passwd"))),
+            "DESTINATION_CARRIER_ABSOLUTE")
+    control("and so is one starting at a home directory",
+            "; ".join(destination_problems(dest(carrier="~/.claude/CLAUDE.md"))),
+            "DESTINATION_CARRIER_ABSOLUTE")
+    clean("a null carrier is clean: a ledger-only disposition carries none",
+          destination_problems(dest(carrier=None)))
+    control("a carrier that is not a string or null is refused by shape",
+            "; ".join(destination_problems(dest(carrier=["g.md"]))), "DESTINATION_CARRIER_SHAPE")
+    control("a destination that is not an object is refused by shape, rather than raising",
+            "; ".join(dest_problems("guides")), "DESTINATION_SHAPE")
+    clean("an absent destination is not a destination problem: whether one is required is §7.3's "
+          "question, answered by its own rule", destination_problems(None))
+    control("the refusal names the item and the field, so a reader can tell the proposal's "
+            "destination from an alternative's",
+            "; ".join(destination_problems(dest(layer="nowhere"), where="alternative.destination",
+                                           item="k1: ")),
+            "LAYER_UNKNOWN k1: alternative.destination.layer")
+    control("and a proposal's own destination is held by `problems`, not only by this function",
+            "; ".join(problems({**place, "destination": dest(layer="nowhere")})), "LAYER_UNKNOWN")
+    control("the layers come from the table, so this module holds no second list",
+            dest_src_line('held = table("placement")["destinations"]'),
+            'table("placement")["destinations"]')
 
     reporting.append(True)
     if failures:

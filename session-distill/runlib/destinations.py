@@ -153,6 +153,15 @@ def fidelity_problems():
     return problems
 
 
+def inside(path, root):
+    """Public name for the containment question, so one module answers it.
+
+    `journal.py` asks it of its own file: the journal is `runtime_state`, and a journal written
+    outside its declared root is the hole this module exists to close.
+    """
+    return _inside(path, root)
+
+
 def _inside(path, root):
     """Whether `path` is the root itself or beneath it, decided on normalized absolute paths.
 

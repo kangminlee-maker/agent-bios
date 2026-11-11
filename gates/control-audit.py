@@ -79,6 +79,8 @@ SUBJECTS = [
     "session-distill/runlib/census.py",
     "session-distill/runlib/placement.py",
     "session-distill/runlib/destinations.py",
+    "session-distill/runlib/drift.py",
+    "session-distill/runlib/journal.py",
     "session-distill/runlib/sequencing.py",
     "session-distill/runlib/ranking.py",
     "session-distill/runlib/stage_propose.py",
