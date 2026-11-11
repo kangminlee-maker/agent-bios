@@ -225,6 +225,10 @@ READER_EXCEPTIONS = {
                                               "the census itself through load and rows",
     ("runlib/stage_judge.py", "<module>"): "INPUTS declares census.json as S6's S1 input artifact, so a census taken again "
                                            "makes S6 stale; S6 reads no census row",
+    ("runlib/stage_render.py", "<module>"): "INPUTS declares census.json as S9's S1 input artifact, so a census taken again "
+                                            "makes the review stale",
+    ("runlib/stage_render.py", "load"): "reads the admitted census once for the review header's per-source state, "
+                                        "discovered count and totals (`sources`); S9 reads no census row",
 }
 LOADERS = frozenset(("load", "load_document", "build", "reconcile", "run"))
 TEST_CODE = ("self_test", "fx_", "golden")

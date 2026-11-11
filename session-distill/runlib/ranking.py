@@ -113,6 +113,18 @@ def value_problems(rows):
     return problems
 
 
+def row_label(row):
+    """What the report prints for this row's status: `proposed (untested: s8_deferred)`, or the status.
+
+    A label, not a placement. Release 1 defers S8, so no row is `tested`; the test state is a field of
+    the derivation, and the group a row lands in is decided by its status alone."""
+    held = table().get("test_state_label") or {}
+    status, state = row.get("status"), row.get("test_state")
+    if state and status in (held.get("applies_to_status") or ()):
+        return held.get("format", "{status} ({test_state})").format(status=status, test_state=state)
+    return str(status)
+
+
 def rank_key(row):
     """The row's position as a tuple, in the table's key order. Refuses a row with a bad value.
 
@@ -151,7 +163,7 @@ def _position(held, row, group):
 def ranked(rows):
     """The rows in the §7.5 order, each carrying its `rank` (1-based) and its §9 group."""
     ordered = sorted(rows, key=rank_key)
-    return [{**row, "rank": n, "status_group": group_of(row)[0]}
+    return [{**row, "rank": n, "status_group": group_of(row)[0], "status_label": row_label(row)}
             for n, row in enumerate(ordered, start=1)]
 
 
@@ -299,8 +311,51 @@ def self_test():
     control("or by its keep disposition, which is how an approved keep reaches that group at all",
             str(group_of(row(status="applied", kind="gap", disposition="keep"))[0]), "confirmed_and_keep")
     control("an unclassified KIND goes to the group §9 names by kind alone",
-            str(group_of(row(status="untested", kind="unclassified", diagnosis="unknown"))[0]),
+            # `approved` on purpose: a status no group holds, so the kind pass is what answers. Was
+            # `untested`, which release 1 placed in the first group - the control then measured the
+            # status pass twice and said nothing about the kind pass.
+            str(group_of(row(status="approved", kind="unclassified", diagnosis="unknown"))[0]),
             "already_resolved_and_unclassified")
+    # WP-20's rows, each built here rather than borrowed. Lane E found two of them in the wrong
+    # place: a returned proposal fell into the resolved/unclassified group by its KIND, and a
+    # returned row whose kind is gap was refused outright, so K2 and K3 could not be committed.
+    control("a returned proposal is in the quarantined-or-failed group, not in the group its kind "
+            "would have chosen", str(group_of(row(status="returned"))[0]), "quarantined_or_failed")
+    clean("and that holds for every kind, including the gap row that was refused outright",
+          [k for k in table()["kind_order"]
+           if group_of(row(status="returned", kind=k,
+                           diagnosis="unknown"))[0] != "quarantined_or_failed"])
+    clean("a returned row of each kind can be ranked at all, which the refusal prevented",
+          [k for k in table()["kind_order"]
+           if value_problems([row(status="returned", kind=k, diagnosis="unknown")])])
+    control("a failed item is in the same group, because §9's population sentence says \"quarantined "
+            "or failed\"", str(group_of(row(status="failed"))[0]), "quarantined_or_failed")
+    clean("and a failed row of every kind ranks and groups the same way",
+          [k for k in table()["kind_order"]
+           if group_of(row(status="failed", kind=k, diagnosis="unknown"))[0] != "quarantined_or_failed"
+           or value_problems([row(status="failed", kind=k, diagnosis="unknown")])])
+    clean("neither status is counted as one §9 places nowhere any more",
+          [s for s in table()["unplaced_statuses"] if s in ("returned", "failed")])
+    control("an untested row is in the first group, as release 1's deferral of S8 puts it there",
+            str(group_of(row(status="untested"))[0]), "proposed_and_tested")
+    control("and the report prints it with its test state",
+            row_label(row(status="untested", test_state="untested: s8_deferred")),
+            "untested (untested: s8_deferred)")
+    control("a proposed row carries the same label, which is what a release-1 report shows",
+            row_label(row(test_state="untested: s8_deferred")), "proposed (untested: s8_deferred)")
+    labelled = ranked([row(test_state="untested: s8_deferred")])[0]
+    clean("the ranked row's own status is unchanged by its label, so nothing is ranked by it",
+          [] if labelled["status"] == "proposed" else [f'status is {labelled["status"]!r}'])
+    control("while its label carries the state", str(labelled.get("status_label")),
+            "proposed (untested: s8_deferred)")
+    clean("and every ranked row carries a label",
+          [r["candidate_id"] for r in ranked([row(), row(candidate_id="C-2")])
+           if not r.get("status_label")])
+    held_label = row_label(row(status="rejected", test_state="untested: s8_deferred"))
+    clean("a test state on a status the label does not apply to is the status itself, not the status "
+          "with the state appended",
+          [] if held_label == "rejected" else [f"the label is {held_label!r}"])
+
     control("a row no group names by status, kind or disposition is refused by name",
             "; ".join(value_problems([row(status="approved", kind="gap", disposition="place")])),
             "ROW_GROUP_UNDECLARED")
@@ -308,9 +363,9 @@ def self_test():
             "reader to infer it",
             "; ".join(value_problems([row(status="approved", kind="gap", disposition="place")])),
             "that status is one §9 places in no group")
-    control("the unplaced list is exactly §7.2's statuses that no group sentence holds",
+    control("the unplaced list is exactly §7.2's statuses no group holds",
             ", ".join(sorted(table()["unplaced_statuses"])),
-            "admitted, applied, approved, delivery_verified, returned, untested")
+            "admitted, applied, approved, delivery_verified")
 
     # Values with no position, and rows that cannot be ranked at all.
     control("a consequence outside the vocabulary is named rather than sorted to the end",

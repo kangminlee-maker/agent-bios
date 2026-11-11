@@ -106,7 +106,7 @@ STARTUP_WITHHELD = entry.WITHHELD
 
 try:
     from runlib import census, coverage, declare, inventory, projection, records, sources, stage_form, stage_judge, \
-        stage_retrieve, stagelock, views
+        stage_render, stage_retrieve, stagelock, views
     from runlib import ledger as ledger_lib
     from runlib.records import Refused
 except BaseException as _startup_exc:   # SystemExit included: `validate` exits at import time
@@ -486,6 +486,14 @@ def cmd_retrieve(args):
     return 0
 
 
+def cmd_render(args):
+    """S9 (runlib/stage_render.py): the review of S4's population through S7, its owner copy and its rows, written once
+    as the next version. It reads the pinned ledger S4 read, for the legacy groups."""
+    name_checkout_ledger(args)
+    out = stage_render.run(run_dir_of(args))
+    say(f"S9 render: version {out['version']}, {out['rows']} rows; {out['render']}, the owner's copy {out['copy']}")
+
+
 def cmd_judge(args):
     """S6 (runlib/stage_judge.py): dry, up to the calls; otherwise both judges' calls through a supervisor made before
     the stage is entered, so a live run without its token is refused before anything is recorded."""
@@ -538,7 +546,8 @@ def build_parser():
         helps = {"census": f"{stage}: the census", "views": f"{stage}: the reading views, the search index and the evidence store",
                  "form": f"{stage}: candidate formation and the lifecycle intake",
                  "retrieve": f"{stage}: retrieval, quote and session checks, and recurrence",
-                 "judge": f"{stage}: the judges A and B"}
+                 "judge": f"{stage}: the judges A and B",
+                 "render": f"{stage}: the review, the owner's decision copy and the rows"}
         sub = commands.add_parser(name, help=helps.get(name, f"{stage}: not implemented yet"))
         common(sub)
         if name == "close":
@@ -562,7 +571,7 @@ def build_parser():
             sub.add_argument("--dry", action="store_true", help="stop before the calls: every judgment packet's measure")
             sub.add_argument("--cells", help="the cell root the judgment calls run under (made mode 700)")
             sub.add_argument("--golden-plan", help="a golden hosts' plan: the calls are answered from it and start no model")
-        if name in ("retrieve", "judge"):
+        if name in ("retrieve", "judge", "render"):
             # S5 and S6 read the pinned ledger through `lifecycle_intake.ledger_of`, which refuses
             # LEDGER_UNNAMED rather than guessing a checkout's layout. Without this flag neither
             # command could run from a checkout at all — the refusal came from the merge of the
@@ -582,7 +591,8 @@ def build_parser():
                                                        "checkout is not this driver's to assume; without it the "
                                                        "stage is refused LEDGER_UNNAMED rather than reading a guess")
         sub.set_defaults(handler={"census": cmd_census, "views": cmd_views, "inventory": cmd_inventory,
-                                  "form": cmd_form, "retrieve": cmd_retrieve, "judge": cmd_judge}.get(name, cmd_stage))
+                                  "form": cmd_form, "retrieve": cmd_retrieve, "judge": cmd_judge,
+                                  "render": cmd_render}.get(name, cmd_stage))
     return parser
 
 
@@ -840,7 +850,7 @@ def self_test():
 
         # each implemented command has its own controls (form's and retrieve's runs in runlib/stage_form.py's and
         # runlib/stage_retrieve.py's suites, as a process); the rest are named and refused
-        implemented = ("census", "views", "inventory", "form", "retrieve", "judge")
+        implemented = ("census", "views", "inventory", "form", "retrieve", "judge", "render")
         for command, stage_id in STAGE_COMMANDS.items():
             if command in implemented:
                 continue

@@ -322,6 +322,10 @@ def marker_problems(control, natural, path=""):
 READERS = {
     ("runlib/stage_retrieve.py", "<module>"): "OUTPUTS declares controls.json as one of S5's outputs",
     ("runlib/stage_retrieve.py", "run"): "S5 writes the expected verdicts it planted, outside every packet",
+    ("runlib/stage_render.py", "<module>"): "INPUTS declares controls.json as one of S9's S5 input artifacts",
+    ("runlib/stage_render.py", "load"): "S9 reads which candidates S5 planted, so a proposal for one is accounted as a "
+                                        "control and never rendered as a review row; S9 runs after S6 and S7, and the "
+                                        "review is the owner's, read by no judge",
 }
 TEST_CODE = ("self_test", "fx_")
 

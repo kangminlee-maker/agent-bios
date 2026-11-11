@@ -36,11 +36,13 @@ import tempfile
 REPO = pathlib.Path(__file__).resolve().parent.parent
 DRIVER = "session-distill/distill.py"
 RUNLIB = "session-distill/runlib"
+GRAMMAR = "session-distill/grammar"
 INVENTORY = "DEPENDENCIES.md"
 
 # Local to the driver: imported by module name because the driver puts its own directory on the
-# path. Neither is a dependency anyone installs.
-LOCAL = {"runlib", "distill"}
+# path. None is a dependency anyone installs. `grammar` holds the owner-line grammar the stages
+# import (WP-20), so its modules are subjects too: a local package nobody scans is a hole.
+LOCAL = {"runlib", "distill", "grammar"}
 
 # The runner calls whose first literal argument is a command name, as (module, names) PAIRS rather
 # than two independent sets. Qualified on purpose: a bare `run("S6", ...)` of some object's own
@@ -71,7 +73,7 @@ NOT_A_DEPENDENCY = {"sys.executable", "python3", ""}
 
 def subjects(root: pathlib.Path) -> list[pathlib.Path]:
     """The shipped driver files, sorted. Empty is a failure, never a clean run."""
-    found = [root / DRIVER, *sorted((root / RUNLIB).glob("*.py"))]
+    found = [root / DRIVER, *sorted((root / RUNLIB).glob("*.py")), *sorted((root / GRAMMAR).glob("*.py"))]
     return [path for path in found if path.is_file()]
 
 
@@ -257,6 +259,16 @@ def self_test() -> int:
         planted.write_text("import json\nimport nowhere_declared\n", encoding="utf-8")
         control("an undeclared third-party import fails by name",
                 " ".join(check(root)), "nowhere_declared is imported by")
+
+        planted.write_text("import json\nfrom grammar import owner_lines\n", encoding="utf-8")
+        (root / GRAMMAR).mkdir(parents=True)
+        (root / GRAMMAR / "rules.py").write_text("import json\nimport nowhere_in_grammar\n", encoding="utf-8")
+        control("the local grammar package is no dependency, and an undeclared import inside it fails by name",
+                " ".join(check(root)), "nowhere_in_grammar is imported by session-distill/grammar/rules.py")
+        found = " ".join(check(root))
+        control("and the grammar import itself is not reported",
+                found if re.search(r"(?<![\w])grammar is imported by", found) else "absent", "absent")
+        (root / GRAMMAR / "rules.py").unlink()
 
         planted.write_text("import subprocess\nsubprocess.run(['nosuchtool', '-x'])\n",
                            encoding="utf-8")
