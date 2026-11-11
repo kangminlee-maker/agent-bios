@@ -763,7 +763,18 @@
           "type": "string",
           "pattern": "^c-[0-9a-f]{24}$"
         },
-        "provenance": {"$ref": "#/$defs/provenance"}
+        "provenance": {"$ref": "#/$defs/provenance"},
+        "edges": {"$ref": "#/$defs/unit_edges"}
+      }
+    },
+    "unit_edges": {
+      "$comment": "plan WP-11, lead decision D1 (a1): one unit's edges in current.json, the shared inventories' edges shape by the document's own ids. `direct` holds the unit itself, its frontmatter, enclosing headings and condition spans; `reached` what its mentions resolved to one step out, an unresolved one as its k- entry. Both sorted; the closure over every unit's edges is its operative_context. Optional on a unit, and then carried by every unit of the document or by none.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["direct", "reached"],
+      "properties": {
+        "direct": {"type": "array", "items": {"type": "string", "pattern": "^u-[0-9a-f]{16}(-[0-9]+)?$"}},
+        "reached": {"type": "array", "items": {"type": "string", "pattern": "^(u-[0-9a-f]{16}(-[0-9]+)?|k-[0-9a-f]{24})$"}}
       }
     },
     "provenance": {

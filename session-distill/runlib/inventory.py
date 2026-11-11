@@ -1362,6 +1362,17 @@ PROVENANCE_TABLE = table_of({
 }, optional=("as_of", "session", "transcript", "where", "scope", "reference", "record", "identity",
              "status", "keep_units", "keep_reason", "hosts", "scope_id", "event_id", "git"), schema="provenance")
 
+# One unit's edges as `current.json` carries them (plan WP-11, lead decision D1 (a1)): the two lists
+# `operative_context` is closed over, in the shared inventories' `edges` shape and by the document's own
+# ids. `direct` holds the unit itself, its frontmatter, enclosing headings and condition spans; `reached`
+# what its mentions resolved to one step out, an unresolved mention as its `k-` entry; both sorted. The
+# judgment packet of design §6.2 and the delivery evidence of §6.3 read these, so the inventory stays the
+# one owner of mention resolution. Optional: a document produced before them still validates.
+UNIT_EDGES_TABLE = table_of({
+    "direct": list_of(as_opaque("unit_id")),
+    "reached": list_of(one_of(as_opaque("unit_id"), as_opaque("unknown_id"))),
+}, schema="unit_edges")
+
 # §6.1's unit record as the artifact carries it. `operative_context` is ONE sorted list of opaque
 # ids: a resolved entry is a unit id, and an unresolved one a `k-` id whose row in the document's
 # `unknown_entries` carries a display built from the carrier offsets of the mention it came from —
@@ -1385,7 +1396,8 @@ UNIT_TABLE = table_of({
     "package_id": as_metadata(nullable=True),
     "carrier_id": as_opaque("carrier_id"),
     "provenance": PROVENANCE_TABLE,
-}, schema="unit")
+    "edges": UNIT_EDGES_TABLE,
+}, optional=("edges",), schema="unit")
 
 # One unresolved requirement as a document lists it (step 0 S-12): its id, what it failed on, the
 # carrier version and the offsets it was read at, and its display, projected ONCE here under that
@@ -5723,6 +5735,13 @@ DOCUMENT_KEYS = frozenset(DOCUMENT_MEMBERS + UNIT_FIELDS + PLAN_FIELDS + EMISSIO
                           + tuple(REFERENCES) + tuple(STATUSES))
 
 
+def unit_edges(unit):
+    """`{direct, reached}` of one unit record, each sorted, as `UNIT_EDGES_TABLE` emits them: the maps
+    `operative_context` closed over, so `closure_of` over every unit's edges gives its closure again
+    (`closure_cross_problems`, UNIT_EDGES_CLOSURE_MISMATCH)."""
+    return {"direct": sorted(set(unit["context_direct"])), "reached": sorted(set(unit["context_reached"]))}
+
+
 def emitted_document(reference, rows, ctx):
     """The document one reference point that publishes units (`UNIT_REFERENCES`) publishes, from its
     layer rows.
@@ -5762,7 +5781,8 @@ def emitted_document(reference, rows, ctx):
                             {key: row[key] for key in ("layer", "producer", "status", "units",
                                                        "empty", "reasons")}, place)
                    for row in rows],
-        "units": shed(listed, ctx.get("home")),
+        "units": shed([{**unit, "edges": unit_edges(unit)} for unit in listed] if reference == "current" else listed,
+                      ctx.get("home")),
         "unknown_entries": [emit_row(f"unknown_entries[{row['unknown_id']}]", UNKNOWN_REQUIREMENT_TABLE, row, place)
                             for row in unknown_sources(units, referenced, place)],
         "renames": [],
@@ -5942,12 +5962,31 @@ def closure_cross_problems(documents, shared, sessions=None):
                for unit in document.get("units") or [] for row in unit.get("operative_context") or []):
             problems.append(f"CLOSURE_UNIT_UNRESOLVED {reference}: a closure names a unit its document does not "
                             f"hold exactly once")
+        # a reference document's per-unit edges (plan WP-11, D1 (a1)): carried by every unit or by none, every
+        # unit id they name one unit of the document, and the closure over them each unit's operative_context
+        carried = [unit for unit in document.get("units") or [] if "edges" in unit]
+        if carried and len(carried) != len(document.get("units") or []):
+            problems.append(f"UNIT_EDGES_PARTIAL {reference}: {len(carried)} of {len(document.get('units') or [])} "
+                            f"units carry their edges; a document carries them on every unit or on none")
+        if carried:
+            if any(str(row).startswith("u-") and units[row] != 1 for unit in carried
+                   for row in (unit["edges"].get("direct") or []) + (unit["edges"].get("reached") or [])):
+                problems.append(f"UNIT_EDGES_UNRESOLVED {reference}: an edge names a unit its document does not hold "
+                                f"exactly once")
+            closures = closure_of({unit["unit_id"]: unit["edges"].get("direct") or [] for unit in carried},
+                                  {unit["unit_id"]: unit["edges"].get("reached") or [] for unit in carried})
+            wrong = sum(1 for unit in carried
+                        if closures.get(unit["unit_id"]) != sorted(set(unit.get("operative_context") or [])))
+            if wrong:
+                problems.append(f"UNIT_EDGES_CLOSURE_MISMATCH {reference}: for {wrong} unit(s) the closure over the "
+                                f"published edges is not the published operative_context")
     subjects = [(reference, document) for reference, document in documents.items()] \
         + [(document.get("inventory_id"), document) for _path, document in shared] \
         + ([("sessions", sessions)] if sessions is not None else [])
     for name, document in subjects:
         rows = collections.Counter(row.get("unknown_id") for row in document.get("unknown_entries") or [])
         named = [row for unit in document.get("units") or [] for row in unit.get("operative_context") or []] \
+            + [row for unit in document.get("units") or [] for row in (unit.get("edges") or {}).get("reached") or []] \
             + [row for edge in document.get("edges") or [] for row in edge.get("reached") or []] \
             + [row for context in document.get("context_sets") or [] for edge in context.get("edges") or []
                for row in edge.get("reached") or []] \
@@ -13876,6 +13915,13 @@ def self_test():
                 for where, _text in document_strings([item]):
                     if ".units[" in where:
                         walked.add(leaf_of(where))
+            # a unit's `edges.reached` names another unit only when a mention resolves to a second carrier, which
+            # no single fixture above does (plan WP-11, D1 (a1)): two carriers, one naming the other
+            for where, _text in document_strings([
+                    carrier("catalog", "claude/guides/reaching.md", "## Rule\n\n- see claude/guides/reached.md\n"),
+                    carrier("catalog", "claude/guides/reached.md", "## Reached\n\n- the reached rule\n")]):
+                if ".units[" in where:
+                    walked.add(leaf_of(where))
             control("a string field the schema declares that the differential never looks at",
                     [f"declared={declared_strings} walked={sorted(walked)} "
                      f"unwalked={[name for name in declared_strings if name not in walked]}"],
@@ -16717,6 +16763,49 @@ def self_test():
                 control(f"K4: {p26_name} is refused across records", p26_crossed, p26_code)
             check("and the shared inventory K4 plants into has an edge reaching a k- entry",
                   p26_k4_reaching is not None, "no edge reaches an unresolved requirement")
+
+            # K4b (plan WP-11, lead decision D1 (a1)): current.json carries each unit's edges, the closure over them
+            # is the published operative_context, and a document produced before them still validates.
+            check("K4b: every unit of the current document carries its edges, and some unit reaches another one",
+                  all("edges" in unit for unit in p26_k4_current["units"])
+                  and any(row.startswith("u-") for unit in p26_k4_current["units"] for row in unit["edges"]["reached"]),
+                  f"edges on {sum('edges' in unit for unit in p26_k4_current['units'])} of "
+                  f"{len(p26_k4_current['units'])} units")
+            # the check above fails by name when no unit carries edges; the plants below need one that reaches
+            p26_k4b_reaching = next((unit for unit in p26_k4_current["units"]
+                                     if any(row.startswith("u-") for row in (unit.get("edges") or {}).get("reached") or [])),
+                                    None)
+
+            def p26_k4b(change):
+                """A copy of the current document whose reaching unit's edges `change` rewrote."""
+                return {**p26_k4_current, "units": [
+                    {**unit, "edges": change(json.loads(json.dumps(unit["edges"])))} if unit is p26_k4b_reaching else unit
+                    for unit in p26_k4_current["units"]]}
+
+            p26_k4b_older = {**p26_k4_current, "units": [{key: value for key, value in unit.items() if key != "edges"}
+                                                         for unit in p26_k4_current["units"]]}
+            clean("K4b: a current document produced before the edges were published, against the schema and across "
+                  "records", document_contract_problems(p26_k4b_older)
+                  + closure_cross_problems({"current": p26_k4b_older}, [("shared", p26_k4_shared)]))
+            for p26_name, p26_planted, p26_code in () if p26_k4b_reaching is None else (
+                    ("a unit's reached edges emptied, so the closure over the edges is not its operative_context",
+                     p26_k4b(lambda edges: {**edges, "reached": []}), "UNIT_EDGES_CLOSURE_MISMATCH"),
+                    ("one unit's edges dropped while the others carry theirs",
+                     {**p26_k4_current, "units": [{key: value for key, value in unit.items() if key != "edges"}
+                                                  if unit is p26_k4b_reaching else unit
+                                                  for unit in p26_k4_current["units"]]}, "UNIT_EDGES_PARTIAL"),
+                    ("a direct edge naming a unit its document does not hold",
+                     p26_k4b(lambda edges: {**edges, "direct": sorted(edges["direct"] + ["u-" + "e" * 16])}),
+                     "UNIT_EDGES_UNRESOLVED"),
+                    ("a reached edge naming a k- its document does not list",
+                     p26_k4b(lambda edges: {**edges, "reached": sorted(edges["reached"] + ["k-" + "e" * 24])}),
+                     "CLOSURE_UNKNOWN_UNRESOLVED")):
+                control(f"K4b: {p26_name} is refused across records",
+                        closure_cross_problems({"current": p26_planted}, [("shared", p26_k4_shared)]), p26_code)
+            if p26_k4b_reaching is not None:
+                control("K4b: an edge naming a unit reference is refused by the schema",
+                        document_contract_problems(p26_k4b(lambda edges: {**edges, "direct": edges["direct"] + [p26_k4_ref]})),
+                        "DOCUMENT_INVALID")
 
             # K5 (step 0 S-12 [F:333-334]): for every unit of every shared inventory — these fixtures', and a fixture
             # run's, through the production acquisition — the closure computed from the WRITTEN edges is the runtime
