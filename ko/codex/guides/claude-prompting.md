@@ -18,33 +18,38 @@ core_rules:
   - 물려받은 process scaffolding은 유지하거나 제거하기 전에 대상 model에서 비교한다
   - 경계를 명시한다 — 묻지 않고 할 일과 멈춰서 물어야 할 일
   - 대화 history는 append-only로 유지하고, 추론을 응답에 써 내라고 요구하지 않는다
-derived_at: 2026-10-21
+  - 절대 규칙과 approval 규칙은 쓰인 그대로 적용되므로 각 규칙이 덮는 행동을 정확히 이름 대고, approval이 필요 없는 단계도 이름 댄다. 다른 곳의 별도 허용은 둘 중 어느 것도 취소하지 못하며, memory·메모·agent 파일에 쌓인 주의는 덮어쓰지 말고 걷어낸다
+derived_at: 2026-11-11
 source_pins:
   - doc: claude-prompting-best-practices
-    sha256: e9bd30b6abd49cc42549387cfa7a4cd9946d79d0eb7ed2a1c12f4cf431ee04f4
-    pinned_at: 2026-10-21
+    sha256: 77e8b8b73a2588d09a118d4cef92cd3b4e82c400ceca042d41af75865351c96d
+    pinned_at: 2026-11-11
+  - doc: prompting-claude-fable-5-2
+    sha256: 6e2ad08df7e9468048a4a57b63a6c154fe9f82d46e292aec944cefbfa3b22a84
+    pinned_at: 2026-11-11
   - doc: prompting-claude-fable-5-1
-    sha256: b921ea4d827411b3f4401fd5c92021eb7166c6c5642688321a3780297d8b5497
-    pinned_at: 2026-10-21
+    sha256: d4102222092bacb1310faf97fa5a27c5ceac1de4b4474666c557aeff75e8f5bc
+    pinned_at: 2026-11-11
   - doc: prompting-claude-opus-5-5
-    sha256: 3432e66ac97f77b45e1ecba014c9d6d0001be7ab47b55ebe8c70f5aa55883a14
-    pinned_at: 2026-10-21
+    sha256: 0203e04ee828c0ad41c99a814aeaf45f2e2e76ffec7a88da7b724a86ba01d9ea
+    pinned_at: 2026-11-11
   - doc: prompting-claude-sonnet-5-5
-    sha256: 6886cdd2625b73be5bd74420e31c3a050c1c52b8073b9bebe15f4dcf33e44f91
-    pinned_at: 2026-10-21
+    sha256: 0826ae2afb34141ee8abda47c9044ec7ecd5f5c6511c1d2516066b20eb6b8d18
+    pinned_at: 2026-11-11
   - doc: prompting-claude-haiku-5-5
-    sha256: e871a37701e88998c5bed2e15c586048c86d3d8ab5c333a67c60ad717e0131fd
-    pinned_at: 2026-10-21
+    sha256: 69d8bf18169f27ac8f14fb7f805495a03e4cd7800de5dcfc527982a9fde9a1bf
+    pinned_at: 2026-11-11
   - doc: prompting-claude-opus-5
-    sha256: e73cd26863642596486a43f90ff9c04d13f8e4b6cd00ae83546d4d3cd93c5143
-    pinned_at: 2026-10-21
+    sha256: b34cb10619cc7b2ba2b6a195210673055c6fb84e1c5d1141ffd26a863f6514a0
+    pinned_at: 2026-11-11
   - doc: thinking
-    sha256: 8bbc8ed20cffa039e5c2c371c64610c7e4019d2dabf1a01392a87dc0018d9375
-    pinned_at: 2026-10-21
+    sha256: 072f1b039bbea4b923c9da9a53f672f66b04c7b04edc4ccb6f67bba27db33129
+    pinned_at: 2026-11-11
   - doc: effort
-    sha256: 38cf202f17d28efe5a42f1df1de7f7af5924f76ce05abb7b5989db919ae892e5
-    pinned_at: 2026-10-21
+    sha256: 87c3900847cb21bd1b44f466831fd97a9d19f689e65400da4157b6302a4ee55f
+    pinned_at: 2026-11-11
 targets:
+  - claude-fable-5-2
   - claude-fable-5-1
   - claude-opus-5-5
   - claude-sonnet-5-5
@@ -73,6 +78,7 @@ model별 조정은 instructions의 permission 경계와 필수 verification을 �
 
 | Target | Apply |
 | --- | --- |
+| `claude-fable-5-2` | 공유 recipe와 Claude Fable 5.2 |
 | `claude-fable-5-1` | 공유 recipe와 Claude Fable 5.1 |
 | `claude-opus-5-5` | 공유 recipe와 Claude Opus 5.5 |
 | `claude-sonnet-5-5` | 공유 recipe와 Claude Sonnet 5.5 |
@@ -107,6 +113,7 @@ dispatch가 제약에 의존하기 전에 live surface에서 그 제약을 확�
 
 | Model | 기본 effort | Thinking 끄기 | `tool_choice` `any` / `tool` |
 | --- | --- | --- | --- |
+| Fable 5.2 | `high` | 거부 — 항상 켜짐 | 거부 |
 | Fable 5.1 | `high` | 거부 — 항상 켜짐 | 거부 |
 | Opus 5.5 | `medium` | 거부 — 항상 켜짐 | 거부 |
 | Sonnet 5.5 | `high` | 거부. `between_tools`가 `high` 이하에서 선행 thinking을 끈다 | 거부 |
@@ -117,29 +124,124 @@ dispatch가 제약에 의존하기 전에 live surface에서 그 제약을 확�
   prompt에 밝히며, schema에 맞는 JSON은 strict tool use나 structured outputs가 제공되는
   곳에서 얻는다(모든 platform에서 제공되지는 않으며, 없으면 prompt로 형식을 요청한다).
   허용되는 model에서는 강제 호출이 thinking을 건너뛰므로 `auto`와 지시를 우선한다.
-- 수동 thinking(`enabled`와 `budget_tokens`)은 다섯 model 모두에서, 마지막 assistant turn의
+- 수동 thinking(`enabled`와 `budget_tokens`)은 여섯 model 모두에서, 마지막 assistant turn의
   prefill은 Haiku 4.5를 뺀 모든 target에서 400을 반환한다. effort, 지시, structured outputs가
   그 자리를 대신한다.
-- 다섯 model과 Fable 5, Sonnet 5에서 `temperature`, `top_p`, `top_k`를 생략한다. 기본값이
-  아닌 값은 400을 반환하고, `temperature`와 `top_p`를 함께 보내면 기본값이어도 그렇다.
-- thinking은 `max_tokens`에 포함되므로 여유를 두고, 21,333을 넘으면 stream한다(SDK 규칙).
+- 여섯 model과 Fable 5, Sonnet 5에서 `temperature`, `top_p`, `top_k`를 생략한다. 기본값이
+  아닌 값은 400을 반환하고, `top_p` 기본값이 `0.99`이므로 `top_p: 1`도 400이며,
+  `temperature`와 `top_p`를 함께 보내면 기본값이어도 그렇다. API version `2026-10-21`부터는
+  세 값 중 무엇이든 어떤 값으로든 보내면 모든 model에서 400이므로, 어느 model이 기본값을
+  아직 받아들이는지 따라가지 말고 아예 생략한다.
+- thinking은 `max_tokens`에 포함된다. 이 값은 thinking과 답변 text를 합한 하드 한도이고
+  표의 모든 target에서 상한은 128K이다. 여유를 두고, 21,333을 넘으면 stream한다(SDK 규칙).
 - history는 append-only로 유지한다. 각 assistant turn을 thinking block까지 반환된 그대로
-  되돌려 보낸다. Fable 5.1과 5.5 계열에서는 이전 message 편집, `system`이나 `tools` 재구성,
-  이전 turn의 제자리 요약이 그 뒤의 모든 thinking block을 무효화한다. turn마다의 reminder는
-  turn-scoped system message로 보내고, 정리는 server-side compaction에 맡긴다. thinking
-  block은 그것을 만든 model과 일부 다른 model만 읽을 수 있으므로, model을 바꾸면 이전 추론이
-  버려질 수 있다.
-- 추론을 응답에 그대로 또는 정해진 형식으로 써 내라고 요구하지 않는다. Fable 5.1, Opus 5.5,
-  Sonnet 5.5, Opus 5에서는 그런 prompt, skill, tool 설명이 `reasoning_extraction`으로 거절될
-  수 있다. 짧은 설명이나 수행한 행동의 요약을 요청하거나, `display: "summarized"` thinking
-  block을 읽는다.
-- 거절은 `stop_reason: "refusal"`과 `stop_details`의 category로 돌아오며 답이 아니다. 어떤
-  category를 server-side fallback이 재시도하는지는 각 model의 문서가 말하고, Haiku 5.5는
+  되돌려 보낸다. Fable 5.2, Fable 5.1, 5.5 계열에서는 이전 message 편집, `system`이나 `tools`
+  재구성, 이전 turn의 제자리 요약이 그 뒤의 모든 thinking block을 무효화한다. turn마다의
+  reminder는 turn-scoped system message로 보내고, 정리는 server-side compaction에 맡긴다.
+  thinking block은 그것을 만든 model과 일부 다른 model만 읽을 수 있으므로 model을 바꾸면
+  이전 추론이 버려질 수 있다 — Claude API에서 Fable 5.2는 표의 다른 target의 block을 읽고
+  Fable 5.2의 block은 어떤 model도 읽지 못하므로, Fable 5.2로 올리면 대화의 추론이 유지되고
+  Fable 5.2에서 다른 model로 옮기면 버려진다. Fable 5.2, Sonnet 5.5, Haiku 5.5의 block은
+  그것을 만든 account에 묶이므로 다른 account의 credential로는 session을 되돌려 보낼 수 없다.
+- 추론을 응답에 그대로 또는 정해진 형식으로 써 내라고 요구하지 않는다. Fable 5.2, Fable 5.1,
+  Opus 5.5, Sonnet 5.5, Opus 5에서는 그런 prompt, skill, tool 설명이 `reasoning_extraction`으로
+  거절될 수 있다. 짧은 설명이나 수행한 행동의 요약을 요청하거나, `display: "summarized"`
+  thinking block을 읽는다.
+- 거절은 `stop_reason: "refusal"`과 `stop_details`의 category로 돌아오며 답이 아니다.
+  category는 `cyber`, `bio`, `frontier_llm`, `reasoning_extraction`, `general_harms`이다.
+  어떤 category를 server-side fallback이 재시도하는지는 각 model의 문서가 말하고, Haiku 5.5는
   fallback이 없으며 다시 보내도 대개 다시 거절한다.
-- 요청 사이에 최상위 `effort`를 바꾸면 prompt cache가 처음부터 다시 시작된다. Fable 5.1,
-  Opus 5.5, Opus 5, Sonnet 5.5, Haiku 5.5에서는 대화 중 effort 변경을 message 단위 형식(beta)으로
-  하며, 새 입력이 있는 다음 user turn부터 적용된다. 이 형식은 adaptive thinking이 필요하다.
-  Haiku 5.5에서 thinking을 끄거나 Sonnet 5.5에서 `between_tools`를 쓰면 400이다.
+- 요청 사이에 최상위 `effort`를 바꾸면 prompt cache가 처음부터 다시 시작된다. Fable 5.2,
+  Fable 5.1, Opus 5.5, Opus 5, Sonnet 5.5, Haiku 5.5에서는 대화 중 effort 변경을 message 단위
+  형식(beta)으로 하며, 새 입력이 있는 다음 user turn부터 적용되고 다른 변경이 덮을 때까지
+  유지된다. 이 형식은 adaptive thinking이 필요하다. Haiku 5.5에서 thinking을 끄거나
+  Sonnet 5.5에서 `between_tools`를 쓰면 400이다. 지원 platform은 model마다 다르므로
+  dispatch가 이에 의존하기 전에 대상 model에서 확인한다.
+
+## Claude Fable 5.2
+
+이 문서는 Claude Mythos 5.2도 다룬다. Mythos 5.2는 같은 능력을 vendor의 cyber·생명과학
+검증 program을 통과한 조직에만 제공한다. Fable 5.1 prompt는 살펴보지 않고 그대로 쓸 수
+없다. 문서가 제시하는 이행 순서는 effort를 명시적으로 설정하고, 넘겨받은 모든 system
+prompt·skill·agent 파일·memory 파일·메모·harness text에서 이전 model용으로 쓴 지시를
+읽어 내고, 가장 긴 agentic 과제를 돌려 본 뒤 한 번에 하나씩 고치는 것이다. system prompt
+text 추가는 새 대화에서만 한다 — 여기서는 prefix check가 모든 account에 적용되므로,
+`system`·`tools`·이전 message가 바뀐 채 이어 붙인 대화는 400을 반환할 수 있다.
+
+- Effort: 기본값 `high`에서 시작하고, Fable 5.1이나 Opus 5.5의 설정을 가져오지 말고 자체
+  eval에서 훑는다. `low`는 짧은 주고받기, 명세가 분명한 과제, 대량 subagent용. `medium`은
+  대화형 coding, chat, 일상 knowledge work용. `high`는 어려운 coding, research, agentic
+  작업, 긴 무인 실행용. `xhigh`는 향상을 측정한 가장 어려운 장기 작업용. `max`는 model의
+  한계를 재거나 시간과 token이 문제되지 않는 열린 문제에만. 능력의 대부분은 이미 `high`에서
+  나오고 그 위의 향상은 고르지 않으므로, 품질이 유지되는 곳은 `medium`으로 내린다. 예상할
+  동작 셋: 낮은 수준에서 조기 중단이 더 잦고, `high` 이상에서는 인사에도 거의 매번 생각하며,
+  effort는 답 길이를 거의 바꾸지 않으므로 길이는 prompt로 조정한다. 한 workflow에서 수준을
+  섞을 수 있다 — `medium`으로 계획하고 무인 구간에서 effort를 올린다.
+- 마무리: 남은 일의 목록, 계속할지 묻는 제안, timeout 같은 평범한 장애물에서의 중단으로
+  turn을 끝낼 수 있고 `low`·`medium`에서 더 잦다. 두 종류의 장애물을 나누는 마무리 block이
+  효과를 낸다 — 평범한 것(오류, timeout, 잠긴 파일, 빈 결과, 실패한 tool)은 가진 접근 권한
+  안에서 진단하고 뚫고 나가며, 의도적으로 막힌 것은 건드리지 말고 발견한 바를 분명히 말한
+  뒤 다른 안전한 경로를 찾는다. `medium`에서 agentic coding session을 재생했을 때 할 수 있는
+  일이 남은 채 끝난 비율이 약 절반으로 줄고 출력 token은 약 30% 늘었다. 허가를 구하거나
+  계속할지 묻는 끝맺음은 대부분 없어졌지만, 남은 일을 나열하고 멈추는 끝맺음은 남았다.
+  이 text로 덜 묻게 되므로 위험한 행동에는 자체 확인 단계를 유지한다.
+- Approval: 동의가 아니라 행동을 요청한다 — "go"가 아니라 "Yes, run the migration on the
+  staging database". approval 규칙은 쓰인 그대로 적용된다. "이 대화 밖의 사람에게 message
+  보내기"를 approval 필요 단계로 적은 규칙 하나에, 동료와 다른 팀에 보내는 평범한 요청의
+  약 절반을 보류했다. 예외는 규칙 자체에 쓴다. 승인된 단계는 허락을 받은 것으로 본다는
+  별도의 줄은 절대 규칙의 준수율을 거의 바꾸지 못했고, 먼저 허락을 받으라고 규칙 자체가
+  말한 경우에는 열 번 중 아홉 번쯤 그 단계를 수행했다.
+- Code의 소유: code를 누가 소유하는지에 대한 prompt의 말을 가깝게 따른다. 아무 말이 없거나
+  저장소를 남의 것으로 제시하면, code가 중복되더라도 기존 구조에 덧붙이고 주변 문제는
+  고치지 않고 보고한다. code base가 자기 것이라는 한 문장은 중복 code를 합친 비율을 10분의 1
+  미만에서 약 절반으로 올렸고 긴 system prompt 안에서도 유지됐다 — 다만 출력 token이 약
+  1.5배가 되고, 요청하지 않은 변경(대개 test와 문서)이 생기며, 기존 기능의 동작이 6~10번 중
+  한 번 바뀌고, 마무리 요약이 큰 변경은 이름 대도 작은 변경은 빠뜨리므로 요약이 아니라 diff를
+  본다. 사용자가 code를 소유한 곳에서는 이 문장을 뺀다. 다른 곳의 범위 제한은 이 문장을
+  취소하지 못한다 — 같은 prompt 앞쪽에 "No drive-by refactors, renames or cleanups"가 있어도
+  3분의 1쯤에서 여전히 중복 code를 합쳤다.
+- 진행 text: 긴 tool 실행 중 사용자에게 보이는 text를 적게 쓰고, 첫 호출을 무엇을 할지 말하지
+  않고 낼 수 있다. 업데이트는 progress-update `thinking` block으로 오며 기본 `display`인
+  `"omitted"`에서는 비어 있다 — `display: "updates"`(beta)나 `"summarized"`를 설정하고 tool
+  호출 사이의 비어 있지 않은 block을 표시한다. 그다음 system prompt로 시작 한 줄, 짧은
+  업데이트, 홀로 읽히는 마무리 요약을 요청한다(이 text로 첫 tool 호출 전에 매번 말했고 출력
+  token은 약 20% 늘었다). 사용자가 읽을 것이 없는 tool 단계를 harness가 셀 수 있으면, 마지막
+  tool 결과 뒤에 한 줄 reminder를 turn-scoped system message로 덧붙인다. 가장 긴 침묵이 비용·
+  시간의 눈에 띄는 증가 없이 대략 절반으로 줄었다. reminder는 그대로 남겨 둔다. 표현을 바꾸면
+  이전 turn을 편집하는 것이 된다. 그런 harness가 없으면 tool 호출 몇 번마다 한 줄 업데이트를
+  달라는 한 문장이 긴 침묵의 대부분을 없앴다. 그래도 업데이트 사이에 호출이 여러 번 이어지는
+  구간은 예상한다.
+- Subagent: 얼마나 위임하는지는 harness를 따른다. subagent 시작 tool이 최소한으로만 설명된
+  곳에서는 거의 위임하지 않고, 위임을 권하는 prompt를 쓰는 제품에서는 쉽게 위임한다. tool
+  설명을 다시 쓰기 전에 system prompt·skill·agent 파일에 있는 "위임하라"는 상시 지시를 먼저
+  살핀다. subagent의 비용을 먼저 말하고, 위임이 값어치가 있는 때와 없는 때를 말하며, 어떻게
+  brief할지 말하는 설명은 과제 성공률을 유지하면서 위임을 약 3분의 1 줄였다. `xhigh`·`max`에서
+  자기 작업을 review하는 subagent도 시작하는데 Fable 5.1은 같은 과제에서 그러지 않았다.
+  subagent가 session 비용의 큰 몫을 차지할 수 있으므로 harness가 subagent를 어떤 model로
+  돌리는지 확인한다.
+- 쌓이는 주의: 조심하라는 지시는 context가 이어지는 곳마다 쌓인다 — memory, 메모, 지시 파일,
+  agent 사이의 message. 이 model은 그것을 가깝게 따라 평범한 작업까지 보류할 수 있다. 이유가
+  더는 성립하지 않는 메모를 지우고(열두 개 중 "재시도 금지" 메모 하나가 재시도를 거의 전부에서
+  10번 중 4번쯤으로 떨어뜨렸다), 반복해도 안전한 호출에 대해 approval이 필요 없는 단계를 이름
+  대고(재시도가 거의 없던 상태에서 절반쯤으로 올랐고, 더 자유롭게 행동하라는 일반 지시는 아무
+  것도 바꾸지 않았다), reviewer agent가 무엇을 붙이는지 확인한다. reviewer의 "첫 오류에서 멈춰라"가
+  context에 있을 때 이 model은 멈췄고 Fable 5.1과 Opus 5.5는 계속했다.
+- 비용이 되는 물려받은 지시: harness가 prompt에 써 넣는 token 예산은 지출을 바꾼다 — `high`와
+  `xhigh`에서 큰 예산을 지우자 성능은 같고 비용이 낮아졌다. Opus 5.5의 "그 답은 확정된 것으로
+  다루라"는 chat용 줄은 후속 질문의 thinking을 줄였지만, 자기 이전 답의 잘못을 지적할 가능성도
+  크게 낮췄다. 바로 답하고 숙고하지 말라는 지시는 `medium` 이상에서 thinking을 멈추지 못하므로
+  effort를 낮춘다. "한 문장에 하나, 20단어 이내" 같은 단단한 문체 한도는 문장을 뚝뚝 끊어 놓는다.
+  이전 turn을 편집하는 harness code는 편집 지점 뒤의 thinking을 무효화한다. history는 context
+  editing이나 요약 뒤에 이전 turn을 남기지 않는 compaction으로 줄이고, 다시 생각하게 만드는
+  `prefix_mismatch_behavior: "drop_block"`에 의존하기 전에 출력 token을 측정한다.
+- 마무리 보고: 긴 실행의 보고를 읽는 사람은 tool 호출도 파일도 보지 못했다. 자기완결적인
+  message를 요청한다 — 맥락이 적은 똑똑한 독자를 위해, 핵심을 앞에 두고, 작업 중에 만든 용어
+  없이 평이한 말로, 같은 것은 같은 단어로 쓰는 짧은 능동형 문장 위주로, 생각이 이어지는 곳은
+  산문으로 쓰고 bullet은 따로 떨어진 항목에만 쓴다. 이 text로 보고가 덜 빽빽해지고 세미콜론이
+  줄었으며, workflow 자동화 과제에서는 문장도 짧아졌다.
+- 거절: 안전 classifier가 위에 적은 다섯 category로 `stop_reason: "refusal"`을 돌려주며,
+  양성적인 보안·생명과학 작업도 `cyber`와 `bio`를 건드릴 수 있다. 추론을 응답에 쓰라는 지시는
+  지우고 `display: "summarized"` thinking block을 읽는다.
 
 ## Claude Fable 5.1
 
@@ -232,11 +334,6 @@ Opus 5 prompt는 그대로 쓸 수 있고, Opus 5 section은 여전히 합리적
   도움이 되며(effort가 높을수록 더), effort만 올리면 기술 도면에는 도움이 되지만 chart에는
   아니다. Frontend: "generic한 느낌을 피하라"는 기본값 하나를 다른 기본값으로 바꿀 뿐이다
   — 피할 pattern을 이름 대고, 결과를 살핀 뒤 목록을 늘린다.
-
-> **2026-10-21 model-currency 도출(3e62fbd)에서 이어 온 내용이다. 현재 pin한
-> `prompting-claude-opus-5-5`는 이를 말하지 않는다. 다음 재도출 때 다시 도출하거나 지운다.**
->
-> - Opus 5의 effort 수준을 그대로 가져가면 더 깊어지는 것이 아니라 turn만 길어진다.
 
 ## Claude Sonnet 5.5
 
@@ -407,11 +504,12 @@ thinking budget을 대체한다. system prompt text 추가는 새 대화에서�
 ## Sources
 
 공유 recipe와 append-only·추론 규칙은 `claude-prompting-best-practices`에서, 제약은
-`thinking`, `effort`, model 문서에서, 각 model section은 자체 문서(`prompting-claude-fable-5-1`,
-`prompting-claude-opus-5-5`, `prompting-claude-sonnet-5-5`, `prompting-claude-haiku-5-5`,
-`prompting-claude-opus-5`)에서 파생했다. 첫 turn 명세와 확인된 주장에 관한 핵심 규칙은
-Opus 5, Opus 5.5, Sonnet 5.5, Haiku 5.5 문서가 각자 자기 model에 대해 하는 말을 일반화한
-것이다. `source_pins`는 이 도출에 쓴 정확한 byte를 기록하며, `targets`의 model 이름이 다른
+`thinking`, `effort`, model 문서에서, 각 model section은 자체 문서(`prompting-claude-fable-5-2`,
+`prompting-claude-fable-5-1`, `prompting-claude-opus-5-5`, `prompting-claude-sonnet-5-5`,
+`prompting-claude-haiku-5-5`, `prompting-claude-opus-5`)에서 파생했다. 첫 turn 명세와 확인된
+주장에 관한 핵심 규칙은 Opus 5, Opus 5.5, Sonnet 5.5, Haiku 5.5 문서가 각자 자기 model에
+대해 하는 말을 일반화한 것이고, 절대 규칙과 approval 규칙에 관한 핵심 규칙은 이전 model도
+그런 지시를 따른다고 말하는 Fable 5.2 문서를 일반화한 것이다. `source_pins`는 이 도출에 쓴 정확한 byte를 기록하며, `targets`의 model 이름이 다른
 model의 주장을 그 model로 확장하지는 않는다. vendor의 문서들이 effort 기본값과 기대할
 주도성의 정도에서 서로 다르기 때문이다.
 

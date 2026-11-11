@@ -239,7 +239,7 @@ Binding (2026-10-21):
 
 | Slot | Binding | Notes |
 |---|---|---|
-| FRONTIER | Claude Fable 5.1 · GPT-6 Astra (read-only; max default; launcher may explicitly select Ultra) | bounded hardest decisions and verdicts |
+| FRONTIER | Claude Fable 5.2 · GPT-6 Astra (read-only; max default; launcher may explicitly select Ultra) | bounded hardest decisions and verdicts |
 | HELM | Claude Opus 5.5 (high) · GPT-6.1 Sol (xhigh) — main Ultra requires explicit selection; bounded FRONTIER Ultra allowed | standing main; Codex defaults bypass, explicit sandbox narrows |
 | WORKHORSE | Claude Sonnet 5.5 (high) · GPT-6.1 Sol (high) | implementation and per-item judgment; the Codex seat shares HELM's model, so it differs by effort alone and buys no cross-model perspective |
 | SWEEP | Claude Haiku 5.5 (medium) · GPT-6 Luna (max) | read-only; one explicit rule per item; not a rebind candidate |
