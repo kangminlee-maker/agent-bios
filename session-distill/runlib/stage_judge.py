@@ -1478,26 +1478,51 @@ def derivation_input(candidate, source, row, first, again, point):
             "arc_confirmed": False}   # undetermined, not false: ARC_UNDETERMINED
 
 
-def derivation_given(run_dir, candidate, source, check_row, first, point):
-    """`derive.unit_outcome`'s input for one candidate both judges judged: `derivation_input` over their first
-    judgments and, when both judges' reconsiderations are on disk, those too. The one place it is assembled: S6's
-    `derive_stage` and S10's adjudication (`given_from_run`, plan WP-20 K5) both call it, so a recomputation with the
-    owner's values reads exactly what S6 read."""
-    held = {}
+def reconsiderations_of(run_dir, candidate_id, again):
+    """Both judges' reconsiderations of `candidate_id` that the S6 invocation whose `reconsiderations` section is `again`
+    accepted, `{A: judgment, B: judgment}`; {} when it reconsidered nothing of that candidate. A file is read only when
+    the section lists the candidate reconsidered with returned units, and it must name the call the section accepted
+    for its judge: RECONSIDERATION_STALE otherwise. Codex WP-11 r1 #2: the files were read because they existed, so a
+    claim whose cross-review later returned nothing, or a file another invocation left, was derived from them."""
+    done = next((r for r in (again or {}).get("reconsidered") or [] if r["candidate_id"] == candidate_id), None)
+    if done is None or not done.get("returned"):
+        return {}
+    row = next((r for r in (again or {}).get("calls") or [] if r["candidate_id"] == candidate_id), {})
+    held, problems = {}, []
     for who in SEAT_KEYS:
-        path = pathlib.Path(run_dir) / reconsideration_rel(item_of(candidate["candidate_id"]), who)
-        if path.is_file():
-            held[who] = records.read_json(path)["judgment"]
-    return derivation_input(candidate, source, check_row, first, held if set(held) == set(SEAT_KEYS) else {}, point)
+        rel = reconsideration_rel(item_of(candidate_id), who)
+        accepted = ((row.get("seats") or {}).get(who) or {}).get("call_id")
+        path = pathlib.Path(run_dir) / rel
+        record = records.read_json(path) if path.is_file() else {}
+        if accepted is None or record.get("call_id") != accepted:
+            problems.append(f"RECONSIDERATION_STALE {candidate_id} {who}: {rel} names the call "
+                            f"{record.get('call_id')}, and the invocation that reconsidered it accepted {accepted}")
+        else:
+            held[who] = record["judgment"]
+    if problems:
+        raise Refused("\n".join(problems))
+    return held
+
+
+def derivation_given(run_dir, candidate, source, check_row, first, point, again):
+    """`derive.unit_outcome`'s input for one candidate both judges judged: `derivation_input` over their first
+    judgments and the reconsiderations the invocation whose `reconsiderations` section is `again` accepted for it
+    (`reconsiderations_of`). The one place it is assembled: S6's `derive_stage` and S10's adjudication
+    (`given_from_run`, plan WP-20 K5) both call it, so a recomputation with the owner's values reads exactly what S6
+    read."""
+    return derivation_input(candidate, source, check_row, first,
+                            reconsiderations_of(run_dir, candidate["candidate_id"], again), point)
 
 
 def given_artifacts(run_dir, candidate_id):
     """The per-candidate S6 outputs `given_from_run` reads: both judges' judgments, and their reconsiderations when
-    S6 wrote them. A caller declares them as inputs so the shared record checks hold them to S6's record."""
+    S6's summary says it reconsidered the candidate with returned units. A caller declares them as inputs so the shared
+    record checks hold them to S6's record."""
     item = item_of(candidate_id)
-    return ([judgment_rel(item, who) for who in SEAT_KEYS]
-            + [reconsideration_rel(item, who) for who in SEAT_KEYS
-               if (pathlib.Path(run_dir) / reconsideration_rel(item, who)).is_file()])
+    again = (records.read_json(pathlib.Path(run_dir) / SUMMARY).get("reconsiderations") or {})
+    done = any(r["candidate_id"] == candidate_id and r.get("returned") for r in again.get("reconsidered") or [])
+    return [judgment_rel(item, who) for who in SEAT_KEYS] + ([reconsideration_rel(item, who) for who in SEAT_KEYS]
+                                                             if done else [])
 
 
 GIVEN_INPUTS = ("checked-candidates.json", "checks.json", "inventory/current.json")   # with SUMMARY and DERIVATIONS
@@ -1510,11 +1535,25 @@ def given_from_run(run_dir, candidate_id):
     run_dir = pathlib.Path(run_dir)
     population = {k["candidate_id"]: k for k in records.read_json(run_dir / "checked-candidates.json")["candidates"]}
     rows = {r["candidate_id"]: r for r in records.read_json(run_dir / "checks.json")["candidates"]}
-    sources = {r["candidate_id"]: r["source"] for r in records.read_json(run_dir / SUMMARY)["packets"]}
+    summary = records.read_json(run_dir / SUMMARY)
+    sources = {r["candidate_id"]: r["source"] for r in summary["packets"]}
     point = current_point(records.read_json(run_dir / "inventory" / "current.json"))
-    first = {who: records.read_json(run_dir / judgment_rel(item_of(candidate_id), who))["judgment"]
-             for who in SEAT_KEYS}
-    return derivation_given(run_dir, population[candidate_id], sources[candidate_id], rows[candidate_id], first, point)
+    # each first judgment must be the one the summary's call accepted, as each reconsideration must be (Codex WP-11 r1
+    # #2, the same hole in this reader): a file an earlier invocation left is not what S6 derived from
+    calls = next((r for r in summary.get("calls") or [] if r["candidate_id"] == candidate_id), {})
+    first, stale = {}, []
+    for who in SEAT_KEYS:
+        rel = judgment_rel(item_of(candidate_id), who)
+        record = records.read_json(run_dir / rel)
+        accepted = ((calls.get("seats") or {}).get(who) or {}).get("call_id")
+        if accepted is None or record.get("call_id") != accepted:
+            stale.append(f"JUDGMENT_STALE {candidate_id} {who}: {rel} names the call {record.get('call_id')}, and S6's "
+                         f"summary accepted {accepted}")
+        first[who] = record["judgment"]
+    if stale:
+        raise Refused("\n".join(stale))
+    return derivation_given(run_dir, population[candidate_id], sources[candidate_id], rows[candidate_id], first, point,
+                            summary.get("reconsiderations") or {})
 
 
 def derive_stage(run_dir, summary, judgments, swept, again):
@@ -1539,7 +1578,7 @@ def derive_stage(run_dir, summary, judgments, swept, again):
             not_derived.append({"candidate_id": cid, "why": "its absence claim's sweeps, cross-review and "
                                                            "reconsiderations did not all finish"})
             continue
-        given = derivation_given(run_dir, population[cid], sources[cid], rows[cid], first, point)
+        given = derivation_given(run_dir, population[cid], sources[cid], rows[cid], first, point, again)
         outcome = derive.unit_outcome(given, {}, TEST_STATE)
         matched = [u for u, d in (outcome["unit_diagnosis"].get("current") or {}).items() if d != "no match"]
         waiting += len(population[cid].get("sessions") or []) * len(matched)
@@ -3078,6 +3117,48 @@ def self_test():
                         and guarded(lambda: corrected_sha256(retry_dir, text_one.replace("\n", " \n", 1)), "RAISED") is None
                         and guarded(lambda: corrected_sha256(pathlib.Path(str(retry_dir)[:-1] + "1"), text_one), "RAISED")
                         is None, f"{due} {(receipt_one.get('evidence') or {}).get('payload_sha256')}")
+                # Codex WP-11 r1 #2: what derive reads of S6's files is what the summary says this invocation accepted, on
+                # a copy of the run whose files are then made stale
+                stale_root = root / "stale-copy"
+                shutil.copytree(whole.parent, stale_root)
+                stale = stale_root / whole.name
+                c0 = claims_known[0] if claims_known else ""
+                kept_summary = guarded(lambda: records.read_json(stale / SUMMARY), {})
+
+                def current_of(given):
+                    return guarded(lambda: derive.unit_outcome(given, {}, TEST_STATE)["candidate_diagnosis"]["current"]
+                                   ["diagnosis"], "RAISED")
+                as_reconsidered = current_of(guarded(lambda: given_from_run(stale, c0), {}))
+                shrunk = json.loads(json.dumps(kept_summary))
+                for r in (shrunk.get("reconsiderations") or {}).get("reconsidered") or []:
+                    if r["candidate_id"] == c0:
+                        r["returned"] = 0
+                (stale / SUMMARY).chmod(0o600)
+                (stale / SUMMARY).write_text(json.dumps(shrunk), encoding="utf-8")
+                as_returned_none = current_of(guarded(lambda: given_from_run(stale, c0), {}))
+                control("Codex WP-11 r1 #2: a claim this invocation reconsidered with nothing returned is derived from its "
+                        "first judgments alone, though an earlier invocation's reconsiderations of it are still on disk",
+                        as_reconsidered == "covered" and as_returned_none == "gap"
+                        and all((stale / reconsideration_rel(item_of(c0), w)).is_file() for w in SEAT_KEYS),
+                        f"{as_reconsidered} {as_returned_none}")
+                (stale / SUMMARY).write_text(json.dumps(kept_summary), encoding="utf-8")
+                foreign = stale / reconsideration_rel(item_of(c0), "B")
+                held_b = guarded(lambda: records.read_json(foreign), {})
+                foreign.chmod(0o600)
+                foreign.write_text(json.dumps({**held_b, "call_id": "another-run-S6-x-a1"}), encoding="utf-8")
+                said = refusal(lambda: given_from_run(stale, c0))
+                control("Codex WP-11 r1 #2: a reconsideration file naming another call than the one the invocation accepted "
+                        "is RECONSIDERATION_STALE, never derived from", said.startswith(f"RECONSIDERATION_STALE {c0} B"),
+                        said[:200])
+                foreign.write_text(json.dumps(held_b), encoding="utf-8")
+                other = next((c for c in sorted(whole_packets) if c not in claims_known), "")
+                first_a = stale / judgment_rel(item_of(other), "A")
+                held_a = guarded(lambda: records.read_json(first_a), {})
+                first_a.chmod(0o600)
+                first_a.write_text(json.dumps({**held_a, "call_id": "another-run-S6-y-a1"}), encoding="utf-8")
+                said = refusal(lambda: given_from_run(stale, other))
+                control("Codex WP-11 r1 #2: a first judgment file naming another call than the summary's is JUDGMENT_STALE "
+                        "to S10's reader", said.startswith(f"JUDGMENT_STALE {other} A"), said[:200])
                 sixth = guarded(lambda: run(retried, supervisor(retried, root / "cells-12", whole_plan)),
                                 lambda e: {"problem": repr(e)})
                 sixth_reused = [h.get("reused") for row in sixth.get("calls", []) for h in row["seats"].values()] + [
