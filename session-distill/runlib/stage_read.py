@@ -205,15 +205,32 @@ EXPECTED_FIELDS = ("occasion_criteria", "exposure_rule", "expected_behavior", "r
 ISO_DAY = re.compile(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}$")
 
 
-def pinned_ledger(declaration):
+# The ledger's reference INSIDE the declaration's checkout, named by whoever knows the checkout's
+# layout. A shipped module cannot: the checkout keeps its ledger under `design/session-distill/`,
+# which exists in no install, and `runlib/ledger.py` stopped carrying that path in WP-24 ②. The
+# author-side caller injects it (`gates/check-ledger.py`, `lifecycle_intake.py --checkout-ledger`),
+# and a run that names none is refused by name rather than guessed at.
+CHECKOUT_LEDGER = None
+
+
+def pinned_ledger(declaration, ledger_ref=None):
     """The ledger of the declaration's checkout (`destinations.checkout`), when it is the one the declaration pinned
     (`starting_hashes.ledger`): the one owner of the expected observations S3 judges (Q1 of WP-08 commit 4). Refused as
-    LEDGER_UNREADABLE, LEDGER_BASE_STALE (another file than the pinned one) or LEDGER_INVALID."""
-    path = pathlib.Path(declaration["destinations"]["checkout"]) / ledger_records.LEDGER_REL
+    LEDGER_UNNAMED (no reference), LEDGER_UNREADABLE, LEDGER_BASE_STALE (another file than the pinned one) or
+    LEDGER_INVALID.
+
+    `ledger_ref` is relative to that checkout. It is the caller's to name, because the reference differs by where the
+    run lives, and a module that guessed it read the wrong file in silence."""
+    rel = ledger_ref or CHECKOUT_LEDGER
+    if not rel:
+        raise Refused("LEDGER_UNNAMED S3: no ledger reference was named for the declaration's checkout; the caller "
+                      "names it (CHECKOUT_LEDGER, or --checkout-ledger), because no path inside a checkout is this "
+                      "module's to assume")
+    path = pathlib.Path(declaration["destinations"]["checkout"]) / rel
     try:
         raw = path.read_bytes()
     except OSError as exc:
-        raise Refused(f"LEDGER_UNREADABLE S3: the checkout's {ledger_records.LEDGER_REL}: {exc.strerror}") from exc
+        raise Refused(f"LEDGER_UNREADABLE S3: the checkout's {rel}: {exc.strerror}") from exc
     pinned, found = declaration["starting_hashes"]["ledger"], records.sha256_bytes(raw)
     if found != pinned:
         raise Refused(f"LEDGER_BASE_STALE S3: the declaration pinned ledger {pinned[:12]}, the checkout's file hashes "
@@ -1489,7 +1506,8 @@ def dry_run(stage, reader, run_dir):
     return summary
 
 
-def run(run_dir, supervisor=None, tranche="broad", stitch_bound=None, jobs=S3_JOBS, *, dry=False):
+def run(run_dir, supervisor=None, tranche="broad", stitch_bound=None, jobs=S3_JOBS, *, dry=False,
+        ledger_ref=None):
     """S3 over the views S2 left: one read record per unit, `read-results.json`, `read.json`. `stitch_bound` narrows the
     driver bytes a stitch packet may take, never widens them: the self-test's way to make a small unit need shards.
 
@@ -1511,7 +1529,8 @@ def run(run_dir, supervisor=None, tranche="broad", stitch_bound=None, jobs=S3_JO
     with records.run_stage(run_dir, STAGE, [{"artifact": "views.json", "producer_stage": "S2"},
                                             {"artifact": "census.json", "producer_stage": "S1"},
                                             {"artifact": "coverage.json", "producer_stage": "S1"}]) as stage:
-        due = due_observations(pinned_ledger(stage.declaration), run_dir.resolve().name, stage.declaration["window"])
+        due = due_observations(pinned_ledger(stage.declaration, ledger_ref), run_dir.resolve().name,
+                               stage.declaration["window"])
         reader = Reader(run_dir, supervisor, stage.declaration, tranche, due)
         if dry:
             return dry_run(stage, reader, run_dir)
@@ -1986,6 +2005,11 @@ def fx_reader(root, name, answers_for, expanding=lambda m: False, resolve=lambda
     sup.seed_from({dispatch.class_key(STAGE, seat, CASE): [9000] * 5, dispatch.class_key(STAGE, seat, STITCH_CASE): [9000] * 5,
                    **({dispatch.class_key(STAGE, seat, GATHER_CASE): list([9000] * 5 if gather_seed is None else gather_seed)}
                       if gathering and (gather_seed is None or gather_seed) else {})})
+    # The fixture builder names the fixture's own ledger reference, for whatever runs over it —
+    # this suite, stage_form's, any other. A caller that had to remember it would be a caller that
+    # forgets, and the production path takes the reference as an argument either way.
+    global CHECKOUT_LEDGER
+    CHECKOUT_LEDGER = ledger_records.STATE_LEDGER_REL
     return run_dir, sup, made
 
 
@@ -2351,6 +2375,11 @@ def fx_main_windows(run_dir):
 
 def self_test():
     failures, ran = [], []
+    # The fixture checkout keeps its ledger where `views.golden` writes it, so the suite injects
+    # that reference the way the author-side caller injects the real one. Without it every leg that
+    # enters S3's reading is refused LEDGER_UNNAMED, which is the correct refusal and not a test.
+    global CHECKOUT_LEDGER
+    CHECKOUT_LEDGER = ledger_records.STATE_LEDGER_REL
 
     def control(name, condition, detail=""):
         ran.append(name)
@@ -4000,20 +4029,27 @@ def self_test():
         moved = root / "o-checkout-moved"
         guarded(lambda: shutil.copytree(declared_o["destinations"]["checkout"], moved), None)
         at_moved = {**declared_o, "destinations": {**declared_o.get("destinations", {}), "checkout": str(moved)}}
+        held_ref, CHECKOUT_LEDGER = CHECKOUT_LEDGER, None
+        try:
+            control("WP-24: a run that names no ledger reference is refused by name, never guessed at",
+                    refusal(lambda: pinned_ledger(at_moved)).startswith("LEDGER_UNNAMED S3"),
+                    refusal(lambda: pinned_ledger(at_moved)))
+        finally:
+            CHECKOUT_LEDGER = held_ref
         control("4b Q1: the pinned ledger is read from the declaration's checkout",
-                refusal(lambda: pinned_ledger(at_moved)) == "", refusal(lambda: pinned_ledger(at_moved)))
-        moved_ledger = moved / ledger_records.LEDGER_REL
+                refusal(lambda: pinned_ledger(at_moved, ledger_records.STATE_LEDGER_REL)) == "", refusal(lambda: pinned_ledger(at_moved, ledger_records.STATE_LEDGER_REL)))
+        moved_ledger = moved / ledger_records.STATE_LEDGER_REL
         guarded(lambda: moved_ledger.write_text(moved_ledger.read_text() + " ", encoding="utf-8"), None)
         control("4b Q1: LEDGER_BASE_STALE: a ledger other than the one the declaration pinned is never read",
-                refusal(lambda: pinned_ledger(at_moved)).startswith("LEDGER_BASE_STALE S3"), refusal(lambda: pinned_ledger(at_moved)))
+                refusal(lambda: pinned_ledger(at_moved, ledger_records.STATE_LEDGER_REL)).startswith("LEDGER_BASE_STALE S3"), refusal(lambda: pinned_ledger(at_moved, ledger_records.STATE_LEDGER_REL)))
         guarded(lambda: moved_ledger.write_text('{"schema": 2}', encoding="utf-8"), None)
         at_invalid = {**at_moved, "starting_hashes": {**at_moved.get("starting_hashes", {}),
                                                       "ledger": records.sha256_bytes(b'{"schema": 2}')}}
         control("4b Q1: LEDGER_INVALID: a pinned ledger that does not hold is refused",
-                refusal(lambda: pinned_ledger(at_invalid)).startswith("LEDGER_INVALID S3"), refusal(lambda: pinned_ledger(at_invalid)))
+                refusal(lambda: pinned_ledger(at_invalid, ledger_records.STATE_LEDGER_REL)).startswith("LEDGER_INVALID S3"), refusal(lambda: pinned_ledger(at_invalid, ledger_records.STATE_LEDGER_REL)))
         guarded(lambda: moved_ledger.unlink(), None)
         control("4b Q1: LEDGER_UNREADABLE: a checkout with no ledger is refused",
-                refusal(lambda: pinned_ledger(at_invalid)).startswith("LEDGER_UNREADABLE S3"))
+                refusal(lambda: pinned_ledger(at_invalid, ledger_records.STATE_LEDGER_REL)).startswith("LEDGER_UNREADABLE S3"))
         control("4b: expected_text says none when nothing is due",
                 guarded(lambda: expected_text(Labels({"records": [], "overlap": {"prev": [], "next": []}}, [])), None) == "none")
 
@@ -5120,7 +5156,10 @@ def fixture_driver(argv):
     a separate process so the self-test can kill its driver mid-call and resume the run (WP-08 commit 5a). It reads one
     unit at a time, so the kill leaves exactly the held call open. It starts no model; its host is the run's golden one."""
     run_dir, root, plan = (pathlib.Path(a) for a in argv)
-    run(run_dir, fx_supervisor(run_dir, root, plan), jobs=1)
+    # The child is its own process, so the reference the parent suite injected does not reach it:
+    # it names the fixture checkout's own layout, as the parent does.
+    run(run_dir, fx_supervisor(run_dir, root, plan), jobs=1,
+        ledger_ref=ledger_records.STATE_LEDGER_REL)
     return 0
 
 

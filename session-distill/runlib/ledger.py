@@ -64,11 +64,6 @@ REPO = HERE.parent
 # (`gates/check-ledger.py`, the runbook, the preset). A packaged user has no `design/`, so a default
 # pointing there was a path that could not exist on the machine the code ran on.
 STATE_LEDGER_REL = "distill/ledger.json"
-# The old name of that constant, kept while `runlib/stage_read.py` still reads it (three sites: the
-# ledger inside a run's declared checkout destination). It is the STATE-ROOT path now, not the
-# `design/` one, so the value a reader gets is the new one and nothing points outside the payload;
-# the name goes when that reader is edited, which is lane E's file this week (WP-24).
-LEDGER_REL = STATE_LEDGER_REL
 SCHEMA_PATH = HERE / "schemas" / "ledger.schema.json"
 EO_SCHEMA_PATH = HERE / "schemas" / "expected_observation.schema.json"
 TRANSITIONS_PATH = HERE / "tables" / "transitions.json"

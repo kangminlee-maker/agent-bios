@@ -334,12 +334,14 @@ def cmd_form(args):
     if args.dry:
         if args.cells or args.golden_plan:
             raise Refused("INPUT_INVALID form --dry: a dry run makes no call, so it takes no --cells or --golden-plan")
-        summary = stage_form.run(run_dir, None, dry=True, index_rows=index_rows)
+        summary = stage_form.run(run_dir, None, dry=True, index_rows=index_rows,
+                                 ledger_ref=args.checkout_ledger)
     else:
         if not args.cells:
             raise Refused("INPUT_INVALID form --cells: the formation call runs in a cell under a cell root; give --cells "
                           "DIR, or --dry to stop before the call")
-        summary = stage_form.run(run_dir, stage_form.supervisor(run_dir, args.cells, args.golden_plan), index_rows=index_rows)
+        summary = stage_form.run(run_dir, stage_form.supervisor(run_dir, args.cells, args.golden_plan),
+                                 index_rows=index_rows, ledger_ref=args.checkout_ledger)
     say("\n".join(stage_form.report_lines(summary)))
     return 0
 
@@ -401,6 +403,10 @@ def build_parser():
             sub.add_argument("--cells", help="the cell root the formation call runs under (made mode 700)")
             sub.add_argument("--golden-plan", help="a golden host's plan: realization golden, no model is started")
             sub.add_argument("--index", help="the occasion index's rows (a JSON list; WP-21, golden until it lands)")
+            sub.add_argument("--checkout-ledger", help="the ledger's path INSIDE the declaration's checkout "
+                                                       "destination, which the caller names because the layout of a "
+                                                       "checkout is not this driver's to assume; without it the "
+                                                       "stage is refused LEDGER_UNNAMED rather than reading a guess")
         sub.set_defaults(handler={"census": cmd_census, "views": cmd_views, "inventory": cmd_inventory,
                                   "form": cmd_form}.get(name, cmd_stage))
     return parser

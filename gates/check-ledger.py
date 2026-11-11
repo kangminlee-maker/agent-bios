@@ -17,9 +17,12 @@ suite with the migrator and the committed ledger supplied, which turns its two S
 Run from a checkout. `gates/check-parity.sh` calls both; nothing here is installed.
 """
 import argparse
+import ast
 import importlib.util
+import json
 import pathlib
 import sys
+import tempfile
 
 REPO = pathlib.Path(__file__).resolve().parent.parent
 LEDGER_REL = "design/session-distill/ledger.json"       # the owner's ledger, in this checkout
@@ -45,6 +48,80 @@ def migrator():
     return module
 
 
+# The constant the shipped module used to carry, and the only name whose RETURN would be a
+# regression: while it existed as an alias, `runlib/stage_read.py` read `design/session-distill/…`
+# under a name that had quietly become the state-root path, so a real checkout's pinned ledger was
+# looked for in a directory no checkout has. The alias is gone; this keeps it gone.
+RETIRED_CONSTANT = "LEDGER_REL"
+
+
+def shipped_driver_files():
+    """The driver files a user receives, from `files[]` rather than from a habit here."""
+    manifest = json.loads((REPO / "package.json").read_text(encoding="utf-8"))
+    entries = [e for e in manifest.get("files", []) if e.startswith("session-distill/")]
+    found = []
+    for entry in entries:
+        path = REPO / entry.rstrip("/")
+        if path.is_file() and path.suffix == ".py":
+            found.append(path)
+        elif path.is_dir():
+            found.extend(sorted(q for q in path.rglob("*.py") if "__pycache__" not in q.parts))
+    return found
+
+
+def retired_constant_problems(paths=None):
+    """Every shipped driver file that names the retired constant AS CODE.
+
+    By AST, not by grep: the name appears inside a planted fixture STRING in `runlib/inventory.py`'s
+    own suite, which is a mention of someone else's source text and not a reference. A grep would
+    have to exempt it, and an exemption is how the next real reference gets excused."""
+    problems = []
+    subjects = shipped_driver_files() if paths is None else list(paths)
+    if not subjects:
+        return [f"check-ledger: no shipped driver .py found, so '{RETIRED_CONSTANT} is gone' would "
+                f"be a claim over nothing"]
+    for path in subjects:
+        try:
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+        except SyntaxError as exc:
+            problems.append(f"{path}: cannot be parsed, so it cannot be judged: {exc}")
+            continue
+        for node in ast.walk(tree):
+            named = (isinstance(node, ast.Attribute) and node.attr == RETIRED_CONSTANT) or (
+                isinstance(node, ast.Name) and node.id == RETIRED_CONSTANT)
+            if named:
+                rel = path.relative_to(REPO) if path.is_relative_to(REPO) else path.name
+                problems.append(f"{rel}:{node.lineno} names {RETIRED_CONSTANT}, retired in WP-24: a "
+                                f"shipped module may not name a path inside the author's checkout, "
+                                f"and the caller passes the reference in")
+    return problems
+
+
+def self_test_retired_constant():
+    """The negative control: a file that names the constant fails, by its path and line."""
+    with tempfile.TemporaryDirectory() as tmp:
+        clean = pathlib.Path(tmp) / "clean.py"
+        clean.write_text("from runlib import ledger\nX = ledger.STATE_LEDGER_REL\n", encoding="utf-8")
+        if retired_constant_problems([clean]):
+            return ["the retired-constant leg fails a file that does not name it"]
+        planted = pathlib.Path(tmp) / "planted.py"
+        planted.write_text("from runlib import ledger\nY = ledger.LEDGER_REL\n", encoding="utf-8")
+        got = retired_constant_problems([planted])
+        if not any("planted.py:2 names LEDGER_REL" in line for line in got):
+            return [f"a planted reference to {RETIRED_CONSTANT} was not reported by name: {got}"]
+        bare = pathlib.Path(tmp) / "bare.py"
+        bare.write_text("LEDGER_REL = 'x'\nZ = LEDGER_REL\n", encoding="utf-8")
+        if not retired_constant_problems([bare]):
+            return ["a bare use of the retired name was not reported"]
+        mention = pathlib.Path(tmp) / "mention.py"
+        mention.write_text('SOURCE = "LEDGER_REL = design/x"\n', encoding="utf-8")
+        if retired_constant_problems([mention]):
+            return ["the name inside a string was read as a reference"]
+        if not retired_constant_problems([]):
+            return ["an empty subject set was reported as clean"]
+    return []
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--check", action="store_true", help="the committed ledger against a base revision")
@@ -58,9 +135,21 @@ def main(argv=None):
     args = parser.parse_args(argv)
     if args.self_test:
         module = migrator()
+        control = self_test_retired_constant()
+        if control:
+            for line in control:
+                print(f"check-ledger --self-test: FAIL: {line}", file=sys.stderr)
+            return 1
+        print("check-ledger --self-test: the retired-constant leg caught its planted reference, a "
+              "bare use, and left a string mention and a clean file alone")
         return ledger_lib.self_test(migrate=module.migrate, checkout_ledger=REPO / args.ledger,
                                     tiny=module.tiny)
     if args.check:
+        retired = retired_constant_problems()
+        if retired:
+            for line in retired:
+                print(f"check-ledger: FAIL: {line}", file=sys.stderr)
+            return 1
         code, lines = ledger_lib.check_command(REPO, args.ledger, args.base, args.worktree,
                                                ledger_lib.allocation(args.allocated),
                                                migrate=migrator().migrate)
