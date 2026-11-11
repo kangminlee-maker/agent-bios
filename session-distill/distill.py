@@ -106,7 +106,8 @@ STARTUP_WITHHELD = entry.WITHHELD
 
 try:
     from runlib import census, coverage, declare, inventory, projection, records, sources, stage_form, stage_judge, \
-        stage_approvals, stage_propose, stage_render, stage_retrieve, stage_review_proposals, stagelock, views
+        stage_approvals, stage_propose, stage_render, stage_retrieve, stage_review_korean, stage_review_proposals, \
+        stagelock, views
     from runlib import ledger as ledger_lib
     from runlib.records import Refused
 except BaseException as _startup_exc:   # SystemExit included: `validate` exits at import time
@@ -486,6 +487,22 @@ def cmd_retrieve(args):
     return 0
 
 
+def cmd_review_korean(args):
+    """S9b (runlib/stage_review_korean.py): the current review version's Korean, over the reviews, regenerations and
+    second reviews the caller supplies; the supervised call has not landed, as S7's and S7b's have not."""
+    run_dir = run_dir_of(args)
+    if not args.reviews:
+        say("CALL_NOT_WIRED review-korean: the supervised call has not landed; give --reviews PATH (and "
+            "--regenerations, --second for the rows that failed) to run the stage over answers already in hand",
+            sys.stderr)
+        return 2
+    load = lambda path: records.read_json(pathlib.Path(path)) if path else None  # noqa: E731
+    out = stage_review_korean.run(run_dir, load(args.reviews), load(args.regenerations), load(args.second))
+    say(f"S9b review-korean: version {out['version']}: {out['reviewed']} reviewed, {out['regenerated']} regenerated, "
+        f"{out['marked']} marked, {out['unreviewed']} unreviewed, {out['returned']} returned")
+    return 0
+
+
 def cmd_parse_decisions(args):
     """S10's parse (runlib/stage_approvals.py): the owner's copy of a review version, held to the current rows, into
     approvals.jsonl and adjudications.jsonl; a version is parsed once."""
@@ -601,7 +618,8 @@ def build_parser():
                  "retrieve": f"{stage}: retrieval, quote and session checks, and recurrence",
                  "judge": f"{stage}: the judges A and B",
                  "render": f"{stage}: the review, the owner's decision copy and the rows",
-                 "parse-decisions": f"{stage}: the owner's decision copy into approvals and adjudications"}
+                 "parse-decisions": f"{stage}: the owner's decision copy into approvals and adjudications",
+                 "review-korean": f"{stage}: the review's Korean against its English payload, one regeneration"}
         sub = commands.add_parser(name, help=helps.get(name, f"{stage}: not implemented yet"))
         common(sub)
         if name == "close":
@@ -652,11 +670,16 @@ def build_parser():
             sub.add_argument("--answers", help="a JSON object of answers by candidate id, for a golden run")
         if name == "review-proposals":
             sub.add_argument("--reviews", help="a JSON object of reviews by item id, for a golden run")
+        if name == "review-korean":
+            sub.add_argument("--reviews", help="a JSON object of S9b reviews by item id, the first pass")
+            sub.add_argument("--regenerations", help="a JSON object of S7's regenerated answers by item id")
+            sub.add_argument("--second", help="a JSON object of S9b's second reviews by item id")
         sub.set_defaults(handler={"census": cmd_census, "views": cmd_views, "inventory": cmd_inventory,
                                   "form": cmd_form, "retrieve": cmd_retrieve, "judge": cmd_judge,
                                   "render": cmd_render, "parse-decisions": cmd_parse_decisions,
                                   "propose": cmd_propose,
-                                  "review-proposals": cmd_review_proposals}.get(name, cmd_stage))
+                                  "review-proposals": cmd_review_proposals,
+                                  "review-korean": cmd_review_korean}.get(name, cmd_stage))
     return parser
 
 
@@ -915,7 +938,7 @@ def self_test():
         # each implemented command has its own controls (form's and retrieve's runs in runlib/stage_form.py's and
         # runlib/stage_retrieve.py's suites, as a process); the rest are named and refused
         implemented = ("census", "views", "inventory", "form", "retrieve", "judge", "propose",
-                       "review-proposals", "render", "parse-decisions")
+                       "review-proposals", "render", "parse-decisions", "review-korean")
         for command, stage_id in STAGE_COMMANDS.items():
             if command in implemented:
                 continue

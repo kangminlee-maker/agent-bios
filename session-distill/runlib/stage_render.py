@@ -377,15 +377,26 @@ def rows_of(docs):
     return rows, appendix, problems
 
 
+# What ranking.py adds to a row (its place, its group, the group's display label): no hash covers them, since other
+# rows move them, and a rendered row's hashes are reproduced from the row without them (`keyed`).
+RANK_FIELDS = ("rank", "status_group", "status_label")
+
+
 def english_of(row):
-    """The row's English source: the row without its Korean, which is the O6 text and, inside S7's answer, its
-    `reasons` (the person reads them, so they are Korean: `schemas/propose.schema.json`) and `artifact_set.korean`."""
-    held = {k: v for k, v in row.items() if k not in ("o6", "rank", "status_group", "item_sha", "payload_sha256")}
+    """The row's English source: the row without its Korean, which is the O6 text; inside S7's answer, its `reasons`
+    (the person reads them, so they are Korean: `schemas/propose.schema.json`) and `artifact_set.korean`; and S7b's
+    `notes` and its alternative's `reason`, which S7b writes in Korean for the owner (`packets/s7b.md`)."""
+    held = {k: v for k, v in row.items() if k not in ("o6", "item_sha", "payload_sha256") + RANK_FIELDS}
     if isinstance(held.get("proposal"), dict):
         answer = {k: v for k, v in held["proposal"].items() if k != "reasons"}
         if isinstance(answer.get("artifact_set"), dict):
             answer["artifact_set"] = {k: v for k, v in answer["artifact_set"].items() if k != "korean"}
         held["proposal"] = answer
+    if isinstance(held.get("s7b"), dict):
+        s7b = {k: v for k, v in held["s7b"].items() if k != "notes"}
+        if isinstance(s7b.get("alternative"), dict):
+            s7b["alternative"] = {k: v for k, v in s7b["alternative"].items() if k != "reason"}
+        held["s7b"] = s7b
     return held
 
 
@@ -393,7 +404,7 @@ def keyed(row):
     """`(row with its hashes)`: `payload_sha256` over its English source (`english_of`), `item_sha` over all of it, the
     Korean included. Neither covers the rank, which other rows move."""
     english = english_of(row)
-    whole = {k: v for k, v in row.items() if k not in ("rank", "status_group", "item_sha", "payload_sha256")}
+    whole = {k: v for k, v in row.items() if k not in ("item_sha", "payload_sha256") + RANK_FIELDS}
     return {**row, "payload_sha256": sha256_of(english), "item_sha": sha256_of(whole)}
 
 
@@ -1017,6 +1028,7 @@ def fixture_docs():
     quarantined = {"S3": [{"id": "w-3", "reason": "READ_INCOMPLETE", "because": None}]}
     return {"population": population, "intake": intake, "census": {}, "controls": controls, "checks": checks,
             "judge": judge, "derivations": derivations, "proposals": proposals, "s7b": s7b, "judgments": judgments,
+            "candidates": candidates,
             "quarantined": quarantined, "ledger": ledger}
 
 
@@ -1304,6 +1316,14 @@ def self_test():
     equal("a changed S7b review moves the item's sha, so a decision made before it is decided again",
           row_of(moved, "k-a").get("item_sha") != row_of(good, "k-a").get("item_sha") and bool(row_of(moved, "k-a")),
           True)
+    reworded = doc_of(lambda d: next(r for r in d["s7b"]["reviews"] if r["item_id"] == "k-g")["alternative"].update(
+        reason="다른 이유"))
+    equal("a rendered row's two hashes are reproduced from the row itself, whatever ranking added",
+          sorted({(keyed(r)["item_sha"] == r["item_sha"], keyed(r)["payload_sha256"] == r["payload_sha256"])
+                  for r in good["rows"]}), [(True, True)])
+    equal("S7b's Korean (its notes, its alternative's reason) is no part of the English payload",
+          [row_of(x, i).get("payload_sha256") for x, i in ((moved, "k-a"), (reworded, "k-g"))],
+          [row_of(good, "k-a").get("payload_sha256"), row_of(good, "k-g").get("payload_sha256")])
     control("a core item admitted by adjudication is shown awaiting R", text, AWAITING_R)
     control("a model's newline cannot start a line: the decision-shaped text stays on its field's line", text,
             "- 무엇이 있었나: 첫 줄 결정: 승인")

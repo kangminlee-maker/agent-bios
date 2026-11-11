@@ -547,6 +547,11 @@ if [ -f session-distill/runlib/stage_render.py ]; then
   leg -q "FAIL: session-distill S9 render self-test (session-distill/runlib/stage_render.py)" \
     python3 session-distill/runlib/stage_render.py --self-test
 fi
+# S9b: a review version's Korean against its English payload, one regeneration, the mark (WP-20 K4).
+if [ -f session-distill/runlib/stage_review_korean.py ]; then
+  leg -q "FAIL: session-distill S9b review-korean self-test (session-distill/runlib/stage_review_korean.py)" \
+    python3 session-distill/runlib/stage_review_korean.py --self-test
+fi
 # S10 parse: the owner's decision copy, held to the current rows, into approvals and adjudications (WP-20 K3).
 if [ -f session-distill/runlib/stage_approvals.py ]; then
   leg -q "FAIL: session-distill S10 parse self-test (session-distill/runlib/stage_approvals.py)" \
