@@ -1511,6 +1511,119 @@ def derive_stage(run_dir, summary, judgments, swept, again):
                        "eligible": sum(1 for v in verdicts.values() if v["outcome"]["eligible"]["eligible"])}}
 
 
+# ---- design §3.2's gate controls (plan WP-11 J4b, lead decision D5) -----------------------------------------------
+
+GATE_VERDICTS = "judgments/gate-verdicts.json"
+GATE_PLANTS = "judgments/gate-controls"
+# the judge whose accepted call each control is planted on: the host whose failure it is (tables/controls.json `design`)
+GATE_HOSTS = {"truncated_output": "A", "aborted_stream": "B", "incomplete_frame": "B", "refusal": "A",
+              "nonzero_exit": "A", "stale_receipt": "A", "mismatched_result_hash": "A", "inherited_profile": "B",
+              "contaminated_working_directory": "A", "unattested_model": "A"}
+GATE_UNSEALED = ("stale_receipt", "mismatched_result_hash")   # the receipt is the defect, so it is not sealed again
+PLANTED_TEXT = "Planted by S6's gate control: an instruction no manifest declares.\n"
+
+
+def edit_json(path, edit):
+    held = json.loads(path.read_text(encoding="utf-8"))
+    edit(held)
+    path.write_text(json.dumps(held, ensure_ascii=False), encoding="utf-8")
+
+
+def edit_frames(path, edit):
+    recs = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+    path.write_text("".join(json.dumps(r) + "\n" for r in edit(recs)), encoding="utf-8")
+
+
+def contaminated_context(host):
+    """The effective context a contaminated working directory leaves (design §3.2): an instruction file in the working
+    directory, one in its parent and one in the configuration home, a memory file and a skill, none declared."""
+    cwd = pathlib.PurePosixPath(host.get("cwd") or "/cell/work")
+    digest = hashlib.sha256(PLANTED_TEXT.encode("utf-8")).hexdigest()
+    rows = [("Project", cwd / "CLAUDE.md"), ("Project", cwd.parent / "CLAUDE.md"),
+            ("User", cwd.parent / "config" / "CLAUDE.md"), ("AutoMem", cwd.parent / "memory" / "MEMORY.md")]
+    held = dict(host.get("context") or {})
+    return {**held, "instructions": list(held.get("instructions") or []) + [
+        {"kind": kind, "path": str(path), "sha256": digest} for kind, path in rows],
+        "skills": sorted(set(held.get("skills") or []) | {"planted-gate-skill"})}
+
+
+def plant(kind, call_dir, other):
+    """Plant one §3.2 gate control into a copy of an accepted call (`call_dir`); `other` is the other judge's accepted
+    call, whose receipt a stale receipt is."""
+    host, result, frames = call_dir / "capture" / "host.json", call_dir / "result.json", call_dir / "capture" / "frames.jsonl"
+    if kind == "truncated_output":
+        edit_json(host, lambda h: h["assistant"][-1].update(stop_reason="max_tokens"))
+    elif kind == "refusal":
+        edit_json(host, lambda h: h["assistant"][-1].update(stop_reason="refusal"))
+        edit_json(result, lambda r: r.update(stop_reason="refusal"))
+    elif kind == "aborted_stream":
+        edit_frames(frames, lambda recs: [r for r in recs if r.get("type") != "response.completed"])
+    elif kind == "incomplete_frame":
+        last = lambda recs: [r for r in recs if r.get("type") == "response.completed"][-1]
+        edit_frames(frames, lambda recs: [dict(r, type="response.incomplete", response=dict(
+            r.get("response") or {}, incomplete_details={"reason": "max_output_tokens"})) if r is last(recs) else r
+            for r in recs])
+    elif kind == "nonzero_exit":
+        edit_json(call_dir / "call.json", lambda c: c.update(exit_status=1))
+    elif kind == "stale_receipt":
+        shutil.copyfile(other / "receipt.json", call_dir / "receipt.json")
+    elif kind == "mismatched_result_hash":
+        result.write_bytes(result.read_bytes() + b"\n")
+    elif kind == "inherited_profile":
+        edit_json(host, lambda h: h.update(profile="inherited"))
+    elif kind == "contaminated_working_directory":
+        edit_json(host, lambda h: h.update(context=contaminated_context(h)))
+    elif kind == "unattested_model":
+        edit_json(host, lambda h: h["assistant"][-1].update(model="claude-haiku-5-5"))
+    else:
+        raise Refused(f"GATE_CONTROL_UNKNOWN {kind}: S6 plants {sorted(GATE_HOSTS)}")
+    if kind not in GATE_UNSEALED:
+        seal(call_dir)
+
+
+def seal(call_dir):
+    """The planted call's receipt made again from the directory, as the dispatcher's is (`gate.receipt_evidence` and
+    the hashes the gate recomputes), so the planted defect is the only one the gate finds."""
+    c = gate.Call(call_dir)
+    edit_json(call_dir / "receipt.json", lambda r: r.update(
+        packet_sha256=hashlib.sha256(c.packet).hexdigest(), result_sha256=hashlib.sha256(c.result_bytes).hexdigest(),
+        exit_status=c.call.get("exit_status"),
+        evidence={k: "" if v is None else v for k, v in gate.receipt_evidence(call_dir).items()}))
+
+
+def verdict_of(call_dir):
+    held = gate.accept(call_dir)
+    return {"ok": held["ok"], "codes": held["codes"], "failures": held["failures"], "call_id": held["call_id"]}
+
+
+def gate_stage(run_dir, calls):
+    """Design §3.2's ten gate controls (D5): one accepted Judge A call and one accepted Judge B call - the first
+    candidate both judges' calls were accepted for - are copied under judgments/gate-controls/<kind>/, each control
+    planted on its own host's copy, and the gate judges every copy; the originals are the clean counterparts. Returns
+    the document `judgments/gate-verdicts.json` holds: `gate_verdicts` in the shape `controls.evaluate` reads."""
+    rows = [r for r in calls if all(h["outcome"] == "accepted" for h in r["seats"].values())]
+    out = {"stage": STAGE, "source": None, "gate_verdicts": {}}
+    planted_root = run_dir / GATE_PLANTS
+    if planted_root.is_dir():
+        shutil.rmtree(planted_root)
+    if not rows:
+        out["why"] = "no candidate has both judges' calls accepted, so no call is copied"
+        return out
+    source = {who: run_dir / "calls" / rows[0]["seats"][who]["call_id"] for who in SEAT_KEYS}
+    out["source"] = {who: d.name for who, d in source.items()}
+    clean = {who: verdict_of(d) for who, d in source.items()}
+    for kind in [row["kind"] for row in controls.table()["gate"]]:
+        who = GATE_HOSTS.get(kind)
+        if who is None:
+            raise Refused(f"GATE_CONTROL_UNKNOWN {kind}: tables/controls.json names a gate control S6 has no host for")
+        copy = planted_root / kind / source[who].name
+        shutil.copytree(source[who], copy)
+        plant(kind, copy, source["B" if who == "A" else "A"])
+        out["gate_verdicts"][kind] = {"host": who, "planted": {**verdict_of(copy), "at": str(copy.relative_to(run_dir))},
+                                      "clean": clean[who]}
+    return out
+
+
 # ---- the calls ------------------------------------------------------------------------------------------------
 
 SUMMARY = "judgments/judge.json"
@@ -1753,6 +1866,9 @@ def run(run_dir, supervisor=None, *, dry=False, seats_path=None, tranche="calibr
         derived = derive_stage(run_dir, summary, judgments, swept, again)
         records.write_json(run_dir, run_dir / DERIVATIONS, derived)
         stage.output(DERIVATIONS)
+        gated = gate_stage(run_dir, calls)
+        records.write_json(run_dir, run_dir / GATE_VERDICTS, gated)
+        stage.output(GATE_VERDICTS)
         outcomes = [held["outcome"] for row in calls for held in row["seats"].values()]
         swept_outcomes = [held["outcome"] for row in swept["calls"] for held in row["seats"].values()]
         swept["counts"] = {**{o: swept_outcomes.count(o) for o in OUTCOMES},
@@ -1765,6 +1881,12 @@ def run(run_dir, supervisor=None, *, dry=False, seats_path=None, tranche="calibr
                            "reused": sum(1 for row in again["calls"] for held in row["seats"].values() if held["reused"])}
         summary.update(dry=False, calls=calls, sweeps=swept, cross_review=crossed, reconsiderations=again,
                        receipts_checked=receipt_counts(held_receipts),
+                       gate_controls={"file": GATE_VERDICTS, "source": gated["source"],
+                                      "planted": len(gated["gate_verdicts"]),
+                                      "planted_rejected": sorted(k for k, v in gated["gate_verdicts"].items()
+                                                                 if v["planted"]["ok"] is False),
+                                      "clean_accepted": all(v["clean"]["ok"] for v in gated["gate_verdicts"].values()),
+                                      **({"why": gated["why"]} if "why" in gated else {})},
                        derivations={"file": DERIVATIONS, "counts": derived["counts"], "delivery": derived["delivery"],
                                     "unit_outcomes": derived["unit_outcomes"],
                                     "arc_confirmation": derived["arc_confirmation"]},
@@ -1828,6 +1950,9 @@ def report_lines(summary):
                          f"outcome for {summary['derivations']['unit_outcomes']['candidates']} candidates (release not "
                          f"judged); arc confirmation undetermined for {summary['derivations']['arc_confirmation']['g_candidates']} "
                          "type G candidates")
+            gc = summary["gate_controls"]
+            lines.append(f"gate controls: {gc['planted']} planted on copies of accepted calls, {len(gc['planted_rejected'])} "
+                         f"rejected by the gate; clean counterparts accepted: {gc['clean_accepted']}")
             rc = summary["reconsiderations"]
             after = collections.Counter(r["diagnosis"] for r in rc["reconsidered"])
             lines.append(f"reconsidered by both judges: {len(rc['reconsidered'])} absence claims (" + ", ".join(
@@ -2420,6 +2545,48 @@ def self_test():
                                  held[3][4])]
             control("control: a receipt whose payload hash is not the payload S6 built is PACKET_DIVERGENCE",
                     sum(p.startswith("PACKET_DIVERGENCE") for p in stage_receipts(moved)) == 2, f"{stage_receipts(moved)}")
+            # ---- design §3.2's gate controls (J4b, D5) ---------------------------------------------------------------
+            gated = guarded(lambda: records.read_json(called / GATE_VERDICTS), {})
+            gv = gated.get("gate_verdicts", {})
+            table_gate = {row["kind"]: row["code"] for row in controls.table()["gate"]}
+            control("J4b: every gate control the table declares has a host S6 plants it on, and S6 plants no other",
+                    set(GATE_HOSTS) == set(table_gate) and len(table_gate) == 10, f"{sorted(set(GATE_HOSTS) ^ set(table_gate))}")
+            source_g = gated.get("source") or {}
+            control("J4b (D5): the ten gate controls are planted on copies of one accepted Judge A call and one accepted "
+                    "Judge B call, each on its own host's copy under judgments/gate-controls/<kind>/",
+                    sorted(gv) == sorted(table_gate) and all(
+                        v["host"] == GATE_HOSTS[k] and v["planted"]["call_id"] == source_g.get(v["host"])
+                        and v["planted"]["at"] == f"{GATE_PLANTS}/{k}/{source_g.get(v['host'])}"
+                        and (called / v["planted"]["at"]).is_dir() for k, v in gv.items())
+                    and f"-{STAGE}-" in source_g.get("A", "") and "-A-a" in source_g.get("A", "")
+                    and "-B-a" in source_g.get("B", ""), f"{source_g}")
+            control("J4b (§3.2): the gate rejects every planted copy by the code the table gives it, and accepts both "
+                    "originals as the clean counterparts", gv and all(
+                        v["planted"]["ok"] is False and table_gate[k] in v["planted"]["codes"] and v["clean"]["ok"] is True
+                        for k, v in gv.items()), f"{[(k, v['planted']['codes']) for k, v in gv.items()]}")
+            control("J4b: a planted call whose receipt is not itself the defect is sealed again, so the gate finds no "
+                    "receipt disagreement in it", gv and all(
+                        not any(line.startswith("RECORD_INTEGRITY receipt") for line in v["planted"]["failures"])
+                        for k, v in gv.items() if k not in GATE_UNSEALED), "")
+            originals_ok = all(guarded(lambda who=who: gate.accept(called / "calls" / source_g[who])["ok"], False)
+                               for who in ("A", "B")) if source_g else False
+            control("J4b: planting leaves the original calls as they were", originals_ok)
+            evaluated = guarded(lambda: controls.evaluate({"incomplete": [], "planted": [], "gate": [
+                {"kind": k, "code": c} for k, c in table_gate.items()]}, {}, gv, [], {}), {"problems": ["RAISED"]})
+            control("J4b (D4): controls.evaluate reads S6's gate verdicts and finds every gate control given its verdict",
+                    not evaluated["problems"] and len(evaluated.get("gate", [])) == 10
+                    and all(g["ok"] for g in evaluated["gate"]), f"{evaluated.get('problems')}")
+            no_pair = root / "no-pair"
+            no_pair.mkdir()
+            alone = guarded(lambda: gate_stage(no_pair, [{"seats": {"A": {"outcome": "accepted"}, "B": {"outcome": "failed"}}}]),
+                            {})
+            control("J4b: with no candidate both judges' calls were accepted for, nothing is planted and the verdicts say why",
+                    alone.get("gate_verdicts") == {} and alone.get("source") is None and "no candidate" in alone.get("why", ""),
+                    f"{alone}")
+            control("J4b: the run summary counts the planted controls the gate rejected",
+                    second.get("gate_controls", {}).get("planted") == 10
+                    and second.get("gate_controls", {}).get("planted_rejected") == sorted(table_gate)
+                    and second.get("gate_controls", {}).get("clean_accepted") is True, f"{second.get('gate_controls')}")
             unbudgeted = copy_of("unbudgeted")
             said = refusal(lambda: run(unbudgeted, supervisor(unbudgeted, root / "cells-ub", clean_plan)))
             control("control: a run that declares no budget.per_stage.S6 is refused BUDGET_UNDECLARED S6 at the first "
@@ -3054,7 +3221,9 @@ def self_test():
           "disputed, rejected and admitted, every judged candidate derived, the marks and lineages read, the reconsidered "
           "diagnosis carried, no release point, the delivery pairs counted as waiting, an unfinished claim named, no unit "
           "outcome said by name, the type G arc confirmation undetermined and counted, the reconsiderations' receipts held "
-          "to N#1 and counted, a run with no S6 budget refused before any call)")
+          "to N#1 and counted, a run with no S6 budget refused before any call; design §3.2's ten gate controls (J4b) - "
+          "planted on copies of an accepted A and B call by host, each rejected by its code, sealed again, the originals "
+          "accepted, read by controls.evaluate)")
     return 0
 
 
