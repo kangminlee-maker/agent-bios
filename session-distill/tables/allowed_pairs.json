@@ -1,57 +1,257 @@
 {
- "$comment": "design §7.2: the four closed vocabularies, and the dispositions allowed for each (kind, diagnosis) pair. Data, not code: `runlib/placement.py` reads it and `PAIR_DISALLOWED` names any other pair. The rows are the design's table in its order; `placement.fidelity_problems` holds them against the copied and cited list in that module's suite, so an edit here that the design does not carry fails by name.",
- "vocabularies": {
-  "kind": ["misfire", "gap", "not delivered", "confirmed", "obsolete", "already resolved", "unclassified"],
-  "diagnosis": ["covered", "wrong or insufficient", "trigger problem", "gap", "redundant", "unknown"],
-  "disposition": ["place", "correct", "re-deliver", "keep", "reduce", "incubate", "drop", "none"],
-  "status": ["rejected", "disputed", "admitted", "quarantined", "proposed", "tested", "untested",
-             "approved", "confirmed", "applied", "delivery_verified", "delivery_failed", "returned"]
- },
- "conditions": {
-  "$comment": "the parenthetical requirements of §7.2's rows, named once here and carried by the rows that use them. Each is checked by `runlib/placement.py` against the proposal, never by the reader of this file.",
-  "drop_reason_acceptable_miss": "the drop carries a reason naming why the miss is acceptable",
-  "reduce_when_harmful": "the reduce is proposed only where the judges found the unit harmful",
-  "reduce_by_merge": "the reduce is a merge of the redundant units",
-  "keep_with_reason": "the keep carries its reason",
-  "incubate_owner_approved": "the incubate carries a prospective observation and expiry, owner-approved",
-  "drop_retire_with_reason": "the drop retires the entry and carries its reason",
-  "none_stays_in_intake": "the entry stays in the legacy intake",
-  "place_admitted_and_eligible": "the entry is admitted and promotion eligible on its own evidence, like any candidate"
- },
- "rows": [
-  {"id": "gap", "kind": "gap", "diagnosis": "any",
-   "allowed": [{"disposition": "place"}, {"disposition": "incubate"}, {"disposition": "drop"}]},
-  {"id": "misfire_trigger", "kind": "misfire", "diagnosis": "trigger problem",
-   "allowed": [{"disposition": "re-deliver"}, {"disposition": "correct"}, {"disposition": "incubate"},
-               {"disposition": "drop", "requires": "drop_reason_acceptable_miss"}]},
-  {"id": "misfire_wrong", "kind": "misfire", "diagnosis": "wrong or insufficient",
-   "allowed": [{"disposition": "correct"}, {"disposition": "incubate"},
-               {"disposition": "drop", "requires": "drop_reason_acceptable_miss"}]},
-  {"id": "misfire_covered", "kind": "misfire", "diagnosis": "covered",
-   "$comment": "§7.2 names this row 'covered (not followed or harmed)': the diagnosis is covered, and which of the two it was decides whether reduce is open",
-   "allowed": [{"disposition": "correct"}, {"disposition": "re-deliver"},
-               {"disposition": "reduce", "requires": "reduce_when_harmful"},
-               {"disposition": "incubate"},
-               {"disposition": "drop", "requires": "drop_reason_acceptable_miss"}]},
-  {"id": "not_delivered", "kind": "not delivered", "diagnosis": "any",
-   "allowed": [{"disposition": "re-deliver"}, {"disposition": "incubate"}, {"disposition": "drop"}]},
-  {"id": "confirmed", "kind": "confirmed", "diagnosis": "any",
-   "allowed": [{"disposition": "keep"}, {"disposition": "none"}]},
-  {"id": "redundant", "kind": "any", "diagnosis": "redundant",
-   "allowed": [{"disposition": "reduce", "requires": "reduce_by_merge"},
-               {"disposition": "keep", "requires": "keep_with_reason"}, {"disposition": "none"}]},
-  {"id": "obsolete", "kind": "obsolete", "diagnosis": "any",
-   "allowed": [{"disposition": "reduce"}, {"disposition": "keep", "requires": "keep_with_reason"},
-               {"disposition": "none"}]},
-  {"id": "legacy_maintenance", "kind": "any", "diagnosis": "any", "legacy_incubating": true,
-   "$comment": "design §7.2's legacy row, over §7.1's lifecycle inputs: it holds for a legacy incubating entry of ANY kind, unclassified included, and is the only row under which such an entry is proposed. Its wording is the owner's (the plan's review gate O), and `packets/propose.md` carries that text.",
-   "allowed": [{"disposition": "incubate", "requires": "incubate_owner_approved"},
-               {"disposition": "drop", "requires": "drop_retire_with_reason"},
-               {"disposition": "none", "requires": "none_stays_in_intake"},
-               {"disposition": "place", "requires": "place_admitted_and_eligible"}]},
-  {"id": "already_resolved", "kind": "already resolved", "diagnosis": "any",
-   "allowed": [{"disposition": "none"}]},
-  {"id": "unclassified", "kind": "unclassified", "diagnosis": "any",
-   "allowed": [{"disposition": "none"}]}
- ]
+  "$comment": "design §7.2: the four closed vocabularies, and the dispositions allowed for each (kind, diagnosis) pair. Data, not code: `runlib/placement.py` reads it and `PAIR_DISALLOWED` names any other pair. The rows are the design's table in its order; `placement.fidelity_problems` holds them against the copied and cited list in that module's suite, so an edit here that the design does not carry fails by name.",
+  "vocabularies": {
+    "kind": [
+      "misfire",
+      "gap",
+      "not delivered",
+      "confirmed",
+      "obsolete",
+      "already resolved",
+      "unclassified"
+    ],
+    "diagnosis": [
+      "covered",
+      "wrong or insufficient",
+      "trigger problem",
+      "gap",
+      "redundant",
+      "unknown"
+    ],
+    "disposition": [
+      "place",
+      "correct",
+      "re-deliver",
+      "keep",
+      "reduce",
+      "incubate",
+      "drop",
+      "none"
+    ],
+    "status": [
+      "rejected",
+      "disputed",
+      "admitted",
+      "quarantined",
+      "proposed",
+      "tested",
+      "untested",
+      "approved",
+      "confirmed",
+      "applied",
+      "delivery_verified",
+      "delivery_failed",
+      "returned"
+    ]
+  },
+  "conditions": {
+    "$comment": "the parenthetical requirements of §7.2's rows, named once here and carried by the rows that use them. Each is checked by `runlib/placement.py` against the proposal, never by the reader of this file.",
+    "drop_reason_acceptable_miss": "the drop carries a reason naming why the miss is acceptable",
+    "reduce_when_harmful": "the reduce is proposed only where the judges found the unit harmful",
+    "reduce_by_merge": "the reduce is a merge of the redundant units",
+    "keep_with_reason": "the keep carries its reason",
+    "incubate_owner_approved": "the incubate carries a prospective observation and expiry, owner-approved",
+    "drop_retire_with_reason": "the drop retires the entry and carries its reason",
+    "none_stays_in_intake": "the entry stays in the legacy intake",
+    "place_admitted_and_eligible": "the entry is admitted and promotion eligible on its own evidence, like any candidate"
+  },
+  "rows": [
+    {
+      "id": "gap",
+      "kind": "gap",
+      "diagnosis": "any",
+      "allowed": [
+        {
+          "disposition": "place"
+        },
+        {
+          "disposition": "incubate"
+        },
+        {
+          "disposition": "drop"
+        }
+      ]
+    },
+    {
+      "id": "misfire_trigger",
+      "kind": "misfire",
+      "diagnosis": "trigger problem",
+      "allowed": [
+        {
+          "disposition": "re-deliver"
+        },
+        {
+          "disposition": "correct"
+        },
+        {
+          "disposition": "incubate"
+        },
+        {
+          "disposition": "drop",
+          "requires": "drop_reason_acceptable_miss"
+        }
+      ]
+    },
+    {
+      "id": "misfire_wrong",
+      "kind": "misfire",
+      "diagnosis": "wrong or insufficient",
+      "allowed": [
+        {
+          "disposition": "correct"
+        },
+        {
+          "disposition": "incubate"
+        },
+        {
+          "disposition": "drop",
+          "requires": "drop_reason_acceptable_miss"
+        }
+      ]
+    },
+    {
+      "id": "misfire_covered",
+      "kind": "misfire",
+      "diagnosis": "covered",
+      "$comment": "§7.2 names this row 'covered (not followed or harmed)': the diagnosis is covered, and which of the two it was decides whether reduce is open",
+      "allowed": [
+        {
+          "disposition": "correct"
+        },
+        {
+          "disposition": "re-deliver"
+        },
+        {
+          "disposition": "reduce",
+          "requires": "reduce_when_harmful"
+        },
+        {
+          "disposition": "incubate"
+        },
+        {
+          "disposition": "drop",
+          "requires": "drop_reason_acceptable_miss"
+        }
+      ]
+    },
+    {
+      "id": "not_delivered",
+      "kind": "not delivered",
+      "diagnosis": "any",
+      "allowed": [
+        {
+          "disposition": "re-deliver"
+        },
+        {
+          "disposition": "incubate"
+        },
+        {
+          "disposition": "drop"
+        }
+      ]
+    },
+    {
+      "id": "confirmed",
+      "kind": "confirmed",
+      "diagnosis": "any",
+      "allowed": [
+        {
+          "disposition": "keep"
+        },
+        {
+          "disposition": "none"
+        }
+      ]
+    },
+    {
+      "id": "redundant",
+      "kind": "any",
+      "diagnosis": "redundant",
+      "allowed": [
+        {
+          "disposition": "reduce",
+          "requires": "reduce_by_merge"
+        },
+        {
+          "disposition": "keep",
+          "requires": "keep_with_reason"
+        },
+        {
+          "disposition": "none"
+        }
+      ]
+    },
+    {
+      "id": "obsolete",
+      "kind": "obsolete",
+      "diagnosis": "any",
+      "allowed": [
+        {
+          "disposition": "reduce"
+        },
+        {
+          "disposition": "keep",
+          "requires": "keep_with_reason"
+        },
+        {
+          "disposition": "none"
+        }
+      ]
+    },
+    {
+      "id": "legacy_maintenance",
+      "kind": "any",
+      "diagnosis": "any",
+      "legacy_incubating": true,
+      "$comment": "design §7.2's legacy row, over §7.1's lifecycle inputs: it holds for a legacy incubating entry of ANY kind, unclassified included, and is the only row under which such an entry is proposed. Its wording is the owner's (the plan's review gate O, decided 2026-11-11, D-20261111-e53a01), and `packets/propose.md` carries that text.",
+      "allowed": [
+        {
+          "disposition": "incubate",
+          "requires": "incubate_owner_approved"
+        },
+        {
+          "disposition": "drop",
+          "requires": "drop_retire_with_reason"
+        },
+        {
+          "disposition": "none",
+          "requires": "none_stays_in_intake"
+        },
+        {
+          "disposition": "place",
+          "requires": "place_admitted_and_eligible"
+        }
+      ],
+      "owner_default": {
+        "disposition": "none",
+        "decided": "2026-11-11",
+        "decision": "D-20261111-e53a01",
+        "text": "A legacy incubating entry stays in the intake unless it earns something on its own evidence. The default is `none`: not a judgment that the entry is worthless, but the absence of a new one. An entry that later reaches admission and promotion eligibility on this window's evidence is proposed as `place` like any other candidate, and one the owner retires is `drop` with its reason. `incubate` remains open and remains owner-approved, and it carries a prospective observation and an expiry, because an incubation nobody will check is a default wearing a decision's clothes.",
+        "call_spent": "classified_only",
+        "call_spent_text": "A call is spent on an entry that carries a classification block, because that block names the layer someone meant to write it into and is worth reading one at a time. An entry without one differs from its neighbours only in the single line of its legacy decision, so its proposal is the default `none` produced by code, with its group named, and no model call. This is the plan's done-when 5 - items at `none` stay in the intake - read as what it costs.",
+        "groups_by": "decision1_kind",
+        "$comment": "The owner's answer, as data rather than as prose a reader has to interpret: `placement.py` reads nothing of this block, and `stage_propose.py` reads `disposition`, `call_spent` and `groups_by` to decide which entries reach a packet. A default that lived only in a comment would be a default nobody applies."
+      }
+    },
+    {
+      "id": "already_resolved",
+      "kind": "already resolved",
+      "diagnosis": "any",
+      "allowed": [
+        {
+          "disposition": "none"
+        }
+      ]
+    },
+    {
+      "id": "unclassified",
+      "kind": "unclassified",
+      "diagnosis": "any",
+      "allowed": [
+        {
+          "disposition": "none"
+        }
+      ]
+    }
+  ]
 }

@@ -53,6 +53,118 @@ UNKNOWN_SOURCES = (
 DERIVED_FIELDS = ("kind", "diagnosis")
 
 
+# ---- the legacy intake, under the row the owner decided -------------------------------------------
+# The owner's answer lives in `tables/allowed_pairs.json`'s legacy row as DATA (`owner_default`), and
+# this module reads it. A default that lived only in a comment would be a default nobody applies.
+
+def legacy_default():
+    """The owner's decided default for a legacy incubating entry, from the table."""
+    rows = [row for row in placement.table("pairs")["rows"] if row.get("legacy_incubating")]
+    if len(rows) != 1:
+        raise Refused(f"LEGACY_ROW_NOT_ONE {len(rows)}: §7.2 has exactly one legacy row, and the "
+                      f"default is read from it")
+    held = rows[0].get("owner_default")
+    if not held or not held.get("disposition") or not held.get("call_spent"):
+        raise Refused("LEGACY_DEFAULT_UNDECLARED: the legacy row carries no owner_default with a "
+                      "disposition and a call_spent, so which entries reach a call is undecided")
+    return held
+
+
+def decision1_kind(entry):
+    """The kind of a legacy entry's `decision1`, by its first word, or `none` when it has none.
+
+    The owner's grouping key: the 118 entries without a classification block differ from one another
+    only in this one line, so its first word is what the report groups them by."""
+    for row in entry.get("decisions") or []:
+        if isinstance(row, dict) and row.get("field") == "decision1":
+            return (str(row.get("legacy_text") or "").split(" ") or ["none"])[0] or "none"
+    return "none"
+
+
+def call_spent_on(entry):
+    """Whether this legacy entry reaches an S7 packet, by the owner's `call_spent` rule.
+
+    `classified_only`: an entry carrying a classification block names the layer someone meant to
+    write it into and is read one at a time; one without differs from its neighbours only in its
+    legacy line, so code proposes the default and no call is made. The plan's done-when 5 - items at
+    `none` stay in the intake - read as what it costs."""
+    rule = legacy_default()["call_spent"]
+    if rule == "classified_only":
+        return bool(entry.get("classification"))
+    if rule == "all":
+        return True
+    raise Refused(f"LEGACY_CALL_RULE_UNKNOWN {rule!r}: the legacy row declares classified_only or all")
+
+
+def mapped_incubate(entry):
+    """A schema-2 incubate decision this legacy entry already carries, or None.
+
+    An entry migrated WITH a decision is not an entry awaiting a default: it enters the intake with
+    what it has (the plan's F-O5-10). A legacy_migration row is not such a decision - it records the
+    migration of the status, not a judgment - so it is excluded by its own kind."""
+    for row in entry.get("decisions") or []:
+        if not isinstance(row, dict) or row.get("kind") == "legacy_migration":
+            continue
+        if row.get("disposition") == "incubate":
+            return row
+    return None
+
+
+def legacy_answer(entry):
+    """The default proposal code makes for a legacy entry no call is spent on.
+
+    It carries no operations and no observation, because the default is the ABSENCE of a new
+    judgment: §7.2's `none_stays_in_intake` asks exactly that, and the reason says which group the
+    entry was counted in rather than pretending to a reading nobody did."""
+    held = legacy_default()
+    group = decision1_kind(entry)
+    mapped = mapped_incubate(entry)
+    if mapped is not None:
+        # It enters with the decision it has. The observation and the expiry come from that decision,
+        # not from this code: a default that wrote an observation for an entry would be inventing the
+        # thing §7.3 asks for.
+        return {"disposition": "incubate", "consequence": "none", "operations": [],
+                "destination": {"layer": "incubator", "carrier": None},
+                "expected_observation": mapped.get("expected_observation"),
+                "unknowns": [],
+                "reasons": {"what_happened": f"레거시 항목 {entry.get('id')}은 이미 incubate 결정을 들고 있다",
+                            "proposal": "그 결정 그대로 흡입에 들어온다",
+                            "reason": f"스키마 2로 맵핑된 결정이 있어 기본값이 적용되지 않는다. 묶음 {group}.",
+                            "cost": "없음",
+                            "serves": "그 결정을 내린 사람과 그것을 확인할 다음 창",
+                            "falsifier": "저장된 관측이 만료에 이르러 확인되지 않으면 그 결정이 틀렸다"},
+                "legacy_group": group, "entered_with_decision": True}
+    return {"disposition": held["disposition"], "consequence": "none", "operations": [],
+            "destination": {"layer": "incubator", "carrier": None},
+            "expected_observation": None, "unknowns": [],
+            "reasons": {"what_happened": f"대장의 레거시 항목 {entry.get('id')}이 흡입에 남아 있다",
+                        "proposal": "제안 없음: 소유자가 정한 기본값대로 흡입에 남긴다",
+                        "reason": (f"이 항목에는 분류 블록이 없어 이번 창의 증거가 더 말해 주는 것이 없다. "
+                                   f"묶음 {group}."),
+                        "cost": "없음: 대장도 라이브러리도 바뀌지 않는다",
+                        "serves": "이 항목을 다시 읽을 다음 창의 작업자",
+                        "falsifier": "이 상황이 다시 일어나 새 증거가 생기면 보통 후보로 올라온다"},
+            "legacy_group": group, "entered_with_decision": False}
+
+
+def legacy_split(entries):
+    """`{calls, defaults, groups}`: which legacy entries reach a packet and which code answers.
+
+    The groups are counted over the entries this run holds, never over a remembered figure: the
+    owner's 24-and-118 was a measurement of one day's ledger, and a module that hard-coded it would
+    be wrong the first time an entry moved."""
+    calls, defaults = [], []
+    for entry in entries:
+        (calls if call_spent_on(entry) else defaults).append(entry)
+    groups = collections.Counter(decision1_kind(entry) for entry in defaults)
+    return {"calls": [e.get("id") for e in calls],
+            "defaults": [{"id": e.get("id"), "group": decision1_kind(e), "answer": legacy_answer(e)}
+                         for e in defaults],
+            "groups": dict(groups),
+            "counts": {"entries": len(entries), "calls": len(calls), "defaults": len(defaults),
+                       "groups": len(groups)}}
+
+
 def schema_bytes():
     if not SCHEMA_PATH.is_file():
         raise Refused(f"PROPOSE_SCHEMA_ABSENT {SCHEMA_PATH}: an answer would be judged by nothing")
@@ -328,6 +440,32 @@ def _carry(derivation):
             for r in named_states(derivation)]
 
 
+# The real S3-03 as the author-side ledger holds it (design/session-distill/ledger.json, read
+# 2026-11-11): status incubating, no classification block, two legacy decision lines and the
+# migration row, and NO mapped schema-2 decision. Carried as a constant rather than read from
+# `design/`, because this module ships and that file does not.
+S3_03 = {"id": "S3-03", "status": "incubating", "kind": "unclassified", "diagnosis": "unknown",
+         "disposition": "none",
+         "decisions": [{"run": "legacy-unknown", "disposition": "unknown", "approval_id": "legacy",
+                        "at": "2026-07-19", "field": "decision1",
+                        "legacy_text": "user-approved-default 2026-07-19"},
+                       {"run": "legacy-unknown", "disposition": "unknown", "approval_id": "legacy",
+                        "at": "2026-07-19", "field": "decision2",
+                        "legacy_text": "recommendation-confirmed 2026-07-19"},
+                       {"run": "legacy-unknown", "kind": "legacy_migration", "disposition": "unknown",
+                        "field": "status", "legacy_text": "incubating"}]}
+# Its counterpart: the same shape WITH a mapped schema-2 incubate decision (the plan's F-O5-10).
+S3_03_MAPPED = {**S3_03, "id": "S2-99",
+                "decisions": [*S3_03["decisions"],
+                              {"run": "r-2026-11", "kind": "judgment", "disposition": "incubate",
+                               "approval_id": "a1",
+                               "expected_observation": {"occasion": "같은 상황이 다시 온다",
+                                                        "exposure_rule": "선택되고 읽힌다",
+                                                        "expected_behavior": "에이전트가 그대로 한다",
+                                                        "retrieval_terms": ["그 말"],
+                                                        "expiry": "2027-02-01", "counter": None}}]}
+
+
 def fixture_cases():
     """The O5 plants this stage owns, each with the real inputs it runs on."""
     keep_cand, keep_row = _candidate("k-keep", "confirmed", "covered")
@@ -388,6 +526,40 @@ def fixture_cases():
     )
 
 
+def legacy_fixture_cases():
+    """The legacy plants (F-O5-09, -10, -13), answered by code under the owner's decided row."""
+    classified = {**S3_03, "id": "S2-07",
+                  "classification": {"type": "F", "layer": "guide", "meets_promotion_bar": False}}
+    return (
+        {"id": "F-O5-09", "plant": "legacy S3-03: no mapped decision, no classification block",
+         "entry": S3_03},
+        {"id": "F-O5-10", "plant": "a legacy entry with a mapped incubate decision",
+         "entry": S3_03_MAPPED},
+        # -13 is a different entry from -09 on purpose: its legacy line is a `below-bar-default`, the
+        # largest of the owner's three groups, so the fixture shows the group naming and not only the
+        # default. Under the owner's decision its disposition is the same as -09's, which is what
+        # "stays in the intake" means here.
+        {"id": "F-O5-13", "plant": "one left at none stays in the legacy intake, in another group",
+         "entry": {**S3_03, "id": "S2-11",
+                   "decisions": [{"field": "decision1", "legacy_text": "below-bar-default 2026-07-18",
+                                  "disposition": "unknown", "approval_id": "legacy"},
+                                 {"field": "status", "kind": "legacy_migration",
+                                  "legacy_text": "incubating", "disposition": "unknown"}]}},
+        {"id": "F-O5-09b", "plant": "the same entry with a classification block reaches a call",
+         "entry": classified},
+    )
+
+
+def run_legacy_fixture(case):
+    """What code answers for one legacy entry: whether a call is spent, and the default it makes."""
+    entry = case["entry"]
+    answer = legacy_answer(entry)
+    return {"call_spent": call_spent_on(entry), "disposition": answer["disposition"],
+            "entered_with_decision": answer["entered_with_decision"],
+            "group": answer["legacy_group"], "entry_id": entry.get("id"),
+            "observation": bool(answer.get("expected_observation"))}
+
+
 def run_fixture(case):
     """The real answer for one case: its problems, and what the row says about it."""
     problems = answer_problems(case["answer"], case["candidate"], case["derivation"], case["row"])
@@ -400,15 +572,19 @@ def generate_fixtures():
     return {"$comment": "Frozen answers of the O5 plants S7 owns (WP-12). Regenerate deliberately: a "
                         "changed answer here is a changed contract, and the suite names the case.",
             "cases": [{"id": case["id"], "plant": case["plant"], **run_fixture(case)}
-                      for case in fixture_cases()]}
+                      for case in fixture_cases()],
+            "legacy_cases": [{"id": case["id"], "plant": case["plant"], **run_legacy_fixture(case)}
+                             for case in legacy_fixture_cases()]}
 
 
 def fixture_problems():
     """The frozen table against the real answers, both ways."""
     if not FIXTURES_PATH.is_file():
         return [f"FIXTURES_ABSENT {FIXTURES_PATH}: every §7.2 state path would be judged by nothing"]
-    frozen = {row["id"]: row for row in json.loads(FIXTURES_PATH.read_text(encoding="utf-8"))["cases"]}
-    live = {row["id"]: row for row in generate_fixtures()["cases"]}
+    held = json.loads(FIXTURES_PATH.read_text(encoding="utf-8"))
+    frozen = {row["id"]: row for row in held["cases"] + held.get("legacy_cases", [])}
+    made = generate_fixtures()
+    live = {row["id"]: row for row in made["cases"] + made["legacy_cases"]}
     problems = [f"ROW_UNFIXTURED {cid}: this plant has no frozen answer" for cid in sorted(set(live) - set(frozen))]
     problems += [f"FIXTURE_ORPHAN {cid}: a frozen answer no plant produces" for cid in sorted(set(frozen) - set(live))]
     for cid in sorted(set(live) & set(frozen)):
@@ -444,6 +620,23 @@ def self_test():
         ran.append(name)
         if problems:
             failures.append((name, f"expected nothing, got {problems}"))
+
+    def _said_without_default():
+        """The loader's refusal with its case PLANTED: a legacy row stripped of its owner_default.
+
+        The table is restored on the way out, and the control after this one judges the real one, so
+        a plant that leaked would be visible rather than silent."""
+        held = placement.table("pairs")
+        row = [r for r in held["rows"] if r.get("legacy_incubating")][0]
+        kept = row.pop("owner_default")
+        try:
+            try:
+                legacy_default()
+            except Refused as exc:
+                return str(exc)
+            return ""
+        finally:
+            row["owner_default"] = kept
 
     def said(answer, candidate=None, derivation=None, row=None, keep=None, legacy=False):
         cand, drow = _candidate()
@@ -533,6 +726,74 @@ def self_test():
     control("and an unknown this module does not declare is refused rather than accepted as extra",
             said(_answered(unknowns=[{"field": "mood", "state": "none", "effect": "none"}])),
             "UNKNOWN_FIELD_UNDECLARED")
+
+    # The legacy intake, under the row the owner decided on 2026-11-11 (D-20261111-e53a01). The
+    # default and the call rule are READ from the table, so this suite judges the decision as data
+    # and not a copy of it.
+    legacy = {case["id"]: case for case in legacy_fixture_cases()}
+    clean("every legacy plant answers what its frozen fixture says",
+          [p for p in fixture_problems() if "F-O5-09" in p or "F-O5-10" in p or "F-O5-13" in p])
+    control("the owner's default is read from the legacy row, not held here",
+            legacy_default()["disposition"], "none")
+    control("and so is the rule for which entries reach a call",
+            legacy_default()["call_spent"], "classified_only")
+    control("F-O5-09: S3-03 carries no classification block, so no call is spent on it",
+            str(run_legacy_fixture(legacy["F-O5-09"])["call_spent"]), "False")
+    control("and its proposal is the owner's default",
+            run_legacy_fixture(legacy["F-O5-09"])["disposition"], "none")
+    control("F-O5-09b: the same entry WITH a classification block reaches a call, so the rule is the "
+            "block and not the id", str(run_legacy_fixture(legacy["F-O5-09b"])["call_spent"]), "True")
+    control("F-O5-10: an entry with a mapped incubate decision enters with it rather than with the "
+            "default", run_legacy_fixture(legacy["F-O5-10"])["disposition"], "incubate")
+    control("and its observation comes from that decision, not from this code",
+            str(run_legacy_fixture(legacy["F-O5-10"])["observation"]), "True")
+    control("and it says it entered with a decision, so the two cases are told apart by a field "
+            "rather than by the absence of one",
+            str(run_legacy_fixture(legacy["F-O5-10"])["entered_with_decision"]), "True")
+    control("F-O5-13: an entry of the largest group stays in the intake, and its group is named",
+            run_legacy_fixture(legacy["F-O5-13"])["group"], "below-bar-default")
+    # The swapped control the plan asks for: each answer must name its own entry, and swapping the
+    # two entries must change both answers. An answer that did not depend on its entry would pass
+    # the first half and fail this one.
+    nine, ten = legacy["F-O5-09"]["entry"], legacy["F-O5-10"]["entry"]
+    control("the S3-03 answer names S3-03", run_legacy_fixture(legacy["F-O5-09"])["entry_id"], "S3-03")
+    control("and the mapped entry's answer names the mapped entry",
+            run_legacy_fixture(legacy["F-O5-10"])["entry_id"], "S2-99")
+    control("swapped, the two fixtures fail by entry id: the id of each answer follows its entry",
+            f'{run_legacy_fixture({"entry": ten})["entry_id"]}/'
+            f'{run_legacy_fixture({"entry": nine})["entry_id"]}', "S2-99/S3-03")
+    control("and swapping changes the disposition too, so neither answer is entry-independent",
+            f'{run_legacy_fixture({"entry": ten})["disposition"]}/'
+            f'{run_legacy_fixture({"entry": nine})["disposition"]}', "incubate/none")
+    migrated_as_incubate = {**S3_03, "id": "S2-77",
+                            "decisions": [{"field": "status", "kind": "legacy_migration",
+                                           "disposition": "incubate",
+                                           "legacy_text": "incubating"}]}
+    control("a legacy_migration row that carries the word incubate is still not a mapped decision: it "
+            "records the migration of a status, not a judgment",
+            str(legacy_answer(migrated_as_incubate)["entered_with_decision"]), "False")
+    control("so such an entry takes the owner's default",
+            legacy_answer(migrated_as_incubate)["disposition"], "none")
+    clean("a legacy default carries no library operation, which is what none_stays_in_intake asks",
+          [case["id"] for case in legacy_fixture_cases()
+           if legacy_answer(case["entry"])["operations"]])
+    # The split, counted over the entries the run holds rather than remembered.
+    split = legacy_split([case["entry"] for case in legacy_fixture_cases()])
+    control("the split counts the calls and the defaults of THIS run",
+            f"{split['counts']['entries']}={split['counts']['calls']}+{split['counts']['defaults']}",
+            "4=1+3")
+    control("and names the groups it found, rather than the owner's figure of the day",
+            json.dumps(sorted(split["groups"])), "below-bar-default")
+    control("a legacy row with no owner_default is refused, so an undecided default cannot be applied "
+            "silently", _said_without_default(), "LEGACY_DEFAULT_UNDECLARED")
+    # The owner's sentence reaches the model, not only the table: the packet is where a proposal is
+    # actually shaped, and a decision that lived only in a table would be a decision the caller
+    # never reads.
+    packet_text = (HERE / "packets" / TEMPLATE).with_suffix(".md").read_text(encoding="utf-8")
+    control("the packet carries the owner's decided sentence for a legacy entry", packet_text,
+            str(legacy_default().get("text") or "<the legacy row states no sentence>").split(".")[0])
+    control("and tells the reader that the entry's own history is not this window's evidence",
+            packet_text, "it is the record of an earlier default")
 
     # The two sources rule, §10.4, and the shape.
     control("an answer that carries its own kind is refused: S6 derived it",
